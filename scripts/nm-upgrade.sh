@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# make sure current version is 0.17.1 before continuing
+# check_version - make sure current version is 0.17.1 before continuing
 check_version() {
   IMG_TAG=$(yq -r '.services.netmaker.image' docker-compose.yml)
 
@@ -13,7 +13,7 @@ check_version() {
   fi
 }
 
-# wait a number of seconds, print a log
+# wait_seconds - wait a number of seconds, print a log
 wait_seconds() {
   for ((a=1; a <= $1; a++))
   do
@@ -22,7 +22,7 @@ wait_seconds() {
   done
 }
 
-# confirm a choice, or exit script
+# confirm - confirm a choice, or exit script
 confirm() {
   while true; do
       read -p 'Does everything look right? [y/n]: ' yn
@@ -34,7 +34,7 @@ confirm() {
   done
 }
 
-# install system dependencies necessary for script to run
+# install_dependencies - install system dependencies necessary for script to run
 install_dependencies() {
   OS=$(uname)
   is_ubuntu=$(sudo cat /etc/lsb-release | grep "Ubuntu")
@@ -103,7 +103,7 @@ install_dependencies() {
   echo "-----------------------------------------------------"
 }
 
-# retrieve server settings from existing compose file
+# collect_server_settings - retrieve server settings from existing compose file
 collect_server_settings() {
   MASTER_KEY=$(yq -r .services.netmaker.environment.MASTER_KEY docker-compose.yml)
   echo "-----------------------------------------------------"
@@ -194,7 +194,7 @@ collect_server_settings() {
   confirm
 }
 
-# get existing server node configuration
+# collect_node_settings - get existing server node configuration
 collect_node_settings() {
   curl -s -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://$SERVER_HTTP_HOST/api/nodes | jq -c '[ .[] | select(.isserver=="yes") ]' > nodejson.tmp
   NODE_LEN=$(jq length nodejson.tmp)
@@ -238,7 +238,7 @@ collect_node_settings() {
   fi
 }
 
-# set compose file with proper values
+# set_compose - set compose file with proper values
 set_compose() {
 
   # DEV_TEMP - Temporary instructions for testing
@@ -252,11 +252,12 @@ set_compose() {
   yq ".services.netmaker.environment += {\"STUN_PORT\": \"3478\"}" -i /root/docker-compose.yml  
 }
 
+# start_containers - run docker-compose up -d
 start_containers() {
   docker-compose -f /root/docker-compose.yml up -d
 }
 
-# make sure caddy is working
+# test_caddy - make sure caddy is working
 test_caddy() {
   echo "Testing Caddy setup (please be patient, this may take 1-2 minutes)"
   for i in 1 2 3 4 5 6 7 8
@@ -281,6 +282,7 @@ test_caddy() {
   done
 }
 
+# setup_netclient - installs netclient locally
 setup_netclient() {
 
 # DEV_TEMP - Temporary instructions for testing
@@ -325,6 +327,7 @@ chmod +x netclient
 # fi
 }
 
+# setup_nmctl - pulls nmctl and makes it executable
 setup_nmctl() {
 
   # DEV_TEMP - Temporary instructions for testing
@@ -344,6 +347,7 @@ setup_nmctl() {
     fi
 }
 
+# join_networks - joins netclient into the networks using old settings
 join_networks() {
   NODE_LEN=$(jq length nodejson.tmp)
   HAS_INGRESS="no"
