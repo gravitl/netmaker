@@ -37,21 +37,25 @@ confirm() {
 # install system dependencies necessary for script to run
 install_dependencies() {
   OS=$(uname)
-
-  if [ -f /etc/debian_version ]; then
-    dependencies="yq jq"
+  is_ubuntu=$(sudo cat /etc/lsb-release | grep "Ubuntu")
+  if [ "${is_ubuntu}" != "" ]; then
+    dependencies="yq jq wireguard jq docker.io docker-compose"
     update_cmd='apt update'
-    install_cmd='apt-get install -y'
+    install_cmd='snap install'
+  elif [ -f /etc/debian_version ]; then
+    dependencies="yq jq wireguard jq docker.io docker-compose"
+    update_cmd='apt update'
+    install_cmd='apt install -y'
   elif [ -f /etc/centos-release ]; then
-    dependencies="wireguard jq docker.io docker-compose netclient"
+    dependencies="wireguard jq docker.io docker-compose"
     update_cmd='yum update'
     install_cmd='yum install -y'
   elif [ -f /etc/fedora-release ]; then
-    dependencies="wireguard jq docker.io docker-compose netclient"
+    dependencies="wireguard jq docker.io docker-compose"
     update_cmd='dnf update'
     install_cmd='dnf install -y'
   elif [ -f /etc/redhat-release ]; then
-    dependencies="wireguard jq docker.io docker-compose netclient"
+    dependencies="wireguard jq docker.io docker-compose"
     update_cmd='yum update'
     install_cmd='yum install -y'
   elif [ -f /etc/arch-release ]; then
@@ -67,6 +71,33 @@ install_dependencies() {
 
   ${update_cmd}
 
+  set +e
+  while [ -n "$1" ]; do
+      is_installed=$(dpkg-query -W --showformat='${Status}\n' $1 | grep "install ok installed")
+      if [ "${is_installed}" != "" ]; then
+          echo "    " $1 is installed
+      else
+          echo "    " $1 is not installed. Attempting install.
+          ${install_cmd} $1
+          sleep 5
+          if [ "${OS}" = "OpenWRT" ] || [ "${OS}" = "TurrisOS" ]; then
+              is_installed=$(opkg list-installed $1 | grep $1)
+          else
+              is_installed=$(dpkg-query -W --showformat='${Status}\n' $1 | grep "install ok installed")
+          fi
+          if [ "${is_installed}" != "" ]; then
+              echo "    " $1 is installed
+          elif [ -x "$(command -v $1)" ]; then
+              echo "  " $1 is installed
+          else
+              echo "  " FAILED TO INSTALL $1
+              echo "  " This may break functionality.
+          fi
+      fi
+    shift
+  done
+  set -e
+  
   echo "-----------------------------------------------------"
   echo "dependency install complete"
   echo "-----------------------------------------------------"
@@ -158,7 +189,7 @@ collect_server_settings() {
   echo "-----------------------------------------------------"
   echo "Netmaker v0.18.0 requires a new DNS entry for $STUN_NAME."
   echo "Please confirm this is added to your DNS provider before continuing"
-  echo "(note: this is not required if using an nip.io address"
+  echo "(note: this is not required if using an nip.io address)"
   echo "-----------------------------------------------------"
   confirm
 }
@@ -186,6 +217,10 @@ collect_node_settings() {
               HAS_INGRESS="yes"
           fi
           echo "      is relay: $(jq -r ".[$NUM].isrelay" ./nodejson.tmp)"
+          if [[ $(jq -r ".[$NUM].isrelay" ./nodejson.tmp) == "yes" ]]; then
+              HAS_RELAY="yes"
+              echo "          relay addrs: $(jq -r ".[$NUM].relayaddrs" ./nodejson.tmp | tr -d '[]\n"[:space:]')"
+          fi
           echo "      is failover: $(jq -r ".[$NUM].failover" ./nodejson.tmp)"
           echo "  ------------"
       done
@@ -331,7 +366,14 @@ join_networks() {
               HAS_INGRESS="yes"
           fi
           echo "        is relay: $(jq -r ".[$NUM].isrelay" ./nodejson.tmp)"
+          if [[ $(jq -r ".[$NUM].isrelay" ./nodejson.tmp) == "yes" ]]; then
+              HAS_RELAY="yes"
+              RELAY_ADDRS=$(jq -r ".[$NUM].relayaddrs" ./nodejson.tmp | tr -d '[]\n"[:space:]')
+          fi
           echo "     is failover: $(jq -r ".[$NUM].failover" ./nodejson.tmp)"
+          if [[ $(jq -r ".[$NUM].failover" ./nodejson.tmp) == "yes" ]]; then
+              HAS_FAILOVER="yes"
+          fi
           echo "  ------------"
 
           confirm
@@ -364,7 +406,7 @@ join_networks() {
             echo "Host ID: $HOST_ID"
             # set as a default host
             # TODO - this command is not working
-            # ./nmctl host update $HOST_ID --default
+            ./nmctl host update $HOST_ID --default
           fi
 
           # create an egress if necessary
@@ -375,21 +417,20 @@ join_networks() {
           echo "HAS INGRESS: $HAS_INGRESS"
           # create an ingress if necessary
           if [[ $HAS_INGRESS == "yes" ]]; then
-            echo "creating ingress..."
-            ./nmctl node create_ingress $NETWORK $NODE_ID 
+            if [[ $HAS_FAILOVER == "yes" ]]; then
+              echo "creating ingress and failover..."
+              ./nmctl node create_ingress $NETWORK $NODE_ID --failover
+            else
+              echo "creating ingress..."
+              ./nmctl node create_ingress $NETWORK $NODE_ID
+            fi
           fi
 
           # relay
           if [[ $HAS_RELAY == "yes" ]]; then
-            echo "TODO"
-            # TODO
+            echo "creating relay..."
+            ./nmctl node create_relay $NETWORK $NODE_ID $RELAY_ADDRS
           fi
-          # failover
-          if [[ $HAS_FAILOVER == "yes" ]]; then
-            echo "TODO"
-            # TODO
-          fi
-
 
       done
       echo "=================="
@@ -415,33 +456,33 @@ if [ $(id -u) -ne 0 ]; then
 fi
 
 echo "...installing dependencies for script"
-# install_dependencies
+install_dependencies
 
 echo "...confirming version is correct"
-# check_version
+check_version
 
 echo "...collecting necessary server settings"
 collect_server_settings
 
 echo "...setup nmctl"
-# setup_nmctl
+setup_nmctl
 
 echo "...retrieving current server node settings"
-# collect_node_settings
+collect_node_settings
 
 echo "...backing up docker compose to docker-compose.yml.backup"
-# cp /root/docker-compose.yml /root/docker-compose.yml.backup
+cp /root/docker-compose.yml /root/docker-compose.yml.backup
 
 echo "...setting docker-compose values"
-# set_compose
+set_compose
 
 echo "...starting containers"
-# start_containers
+start_containers
 
 wait_seconds 3
 
 echo "..testing Caddy proxy"
-# test_caddy
+test_caddy
 
 echo "..testing Netmaker health"
 # TODO, implement health check
@@ -449,8 +490,8 @@ echo "..testing Netmaker health"
 # wait_seconds 2
 
 echo "...setting up netclient (this may take a minute, be patient)"
-# setup_netclient
-# wait_seconds 2
+setup_netclient
+wait_seconds 2
 
 echo "...join networks"
 join_networks
