@@ -55,7 +55,7 @@ var (
 			},
 			{
 				Rolename: genericRole,
-				Acls:     fetchGenericAcls(), //TODO fetch generic acls
+				Acls:     fetchGenericAcls(),
 			},
 		},
 		DefaultAcl: defaultAccessAcl{
