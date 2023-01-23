@@ -1,4 +1,4 @@
-//TODO:  Either add a returnNetwork and returnKey, or delete this
+// TODO:  Either add a returnNetwork and returnKey, or delete this
 package models
 
 // DNSEntry - a DNS entry represented as struct
