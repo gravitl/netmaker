@@ -26,7 +26,6 @@ services:
       MQ_HOST: "mq"
       MQ_PORT: "443"
       MQ_SERVER_PORT: "1883"
-      HOST_NETWORK: "off"
       VERBOSITY: "1"
       MANAGE_IPTABLES: "on"
       PORT_FORWARD_SERVICES: "dns"
