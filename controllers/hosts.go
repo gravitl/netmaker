@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type hostNetworksUpdatePayload struct {
@@ -26,6 +27,7 @@ func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", logic.SecurityCheck(true, http.HandlerFunc(deleteHostFromNetwork))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/hosts/{hostid}/relay", logic.SecurityCheck(false, http.HandlerFunc(createHostRelay))).Methods(http.MethodPost)
 	r.HandleFunc("/api/hosts/{hostid}/relay", logic.SecurityCheck(false, http.HandlerFunc(deleteHostRelay))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/hosts/adm/{network}/authenticate", authenticateHost).Methods(http.MethodPost)
 }
 
 // swagger:route GET /api/hosts hosts getHosts
@@ -278,4 +280,97 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	}()
 	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("removed host %s from network %s", currHost.Name, network))
 	w.WriteHeader(http.StatusOK)
+}
+
+// swagger:route POST /api/hosts/adm/{network}/authenticate hosts authenticateHost
+//
+// Authenticate to make further API calls related to a network.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: successResponse
+func authenticateHost(response http.ResponseWriter, request *http.Request) {
+	var authRequest models.AuthParams
+	var errorResponse = models.ErrorResponse{
+		Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
+	}
+
+	decoder := json.NewDecoder(request.Body)
+	decoderErr := decoder.Decode(&authRequest)
+	defer request.Body.Close()
+
+	if decoderErr != nil {
+		errorResponse.Code = http.StatusBadRequest
+		errorResponse.Message = decoderErr.Error()
+		logger.Log(0, request.Header.Get("user"), "error decoding request body: ",
+			decoderErr.Error())
+		logic.ReturnErrorResponse(response, request, errorResponse)
+		return
+	}
+	errorResponse.Code = http.StatusBadRequest
+	if authRequest.ID == "" {
+		errorResponse.Message = "W1R3: ID can't be empty"
+		logger.Log(0, request.Header.Get("user"), errorResponse.Message)
+		logic.ReturnErrorResponse(response, request, errorResponse)
+		return
+	} else if authRequest.Password == "" {
+		errorResponse.Message = "W1R3: Password can't be empty"
+		logger.Log(0, request.Header.Get("user"), errorResponse.Message)
+		logic.ReturnErrorResponse(response, request, errorResponse)
+		return
+	}
+	host, err := logic.GetHost(authRequest.ID)
+	if err != nil {
+		errorResponse.Code = http.StatusBadRequest
+		errorResponse.Message = err.Error()
+		logger.Log(0, request.Header.Get("user"),
+			"error retrieving host: ", err.Error())
+		logic.ReturnErrorResponse(response, request, errorResponse)
+		return
+	}
+	err = bcrypt.CompareHashAndPassword([]byte(host.HostPass), []byte(authRequest.Password))
+	if err != nil {
+		errorResponse.Code = http.StatusBadRequest
+		errorResponse.Message = err.Error()
+		logger.Log(0, request.Header.Get("user"),
+			"error validating user password: ", err.Error())
+		logic.ReturnErrorResponse(response, request, errorResponse)
+		return
+	}
+
+	tokenString, err := logic.CreateJWT(authRequest.ID, authRequest.MacAddress, mux.Vars(request)["network"])
+	if tokenString == "" {
+		errorResponse.Code = http.StatusBadRequest
+		errorResponse.Message = "Could not create Token"
+		logger.Log(0, request.Header.Get("user"),
+			fmt.Sprintf("%s: %v", errorResponse.Message, err))
+		logic.ReturnErrorResponse(response, request, errorResponse)
+		return
+	}
+
+	var successResponse = models.SuccessResponse{
+		Code:    http.StatusOK,
+		Message: "W1R3: Host " + authRequest.ID + " Authorized",
+		Response: models.SuccessfulLoginResponse{
+			AuthToken: tokenString,
+			ID:        authRequest.ID,
+		},
+	}
+	successJSONResponse, jsonError := json.Marshal(successResponse)
+
+	if jsonError != nil {
+		errorResponse.Code = http.StatusBadRequest
+		errorResponse.Message = err.Error()
+		logger.Log(0, request.Header.Get("user"),
+			"error marshalling resp: ", err.Error())
+		logic.ReturnErrorResponse(response, request, errorResponse)
+		return
+	}
+	response.WriteHeader(http.StatusOK)
+	response.Header().Set("Content-Type", "application/json")
+	response.Write(successJSONResponse)
 }

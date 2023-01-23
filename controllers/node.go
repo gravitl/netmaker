@@ -53,6 +53,7 @@ func nodeHandlers(r *mux.Router) {
 func authenticate(response http.ResponseWriter, request *http.Request) {
 
 	var authRequest models.AuthParams
+	var result models.Node
 	var errorResponse = models.ErrorResponse{
 		Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
 	}
@@ -81,7 +82,20 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
-	host, err := logic.GetHost(authRequest.ID)
+	var err error
+	result, err = logic.GetNodeByID(authRequest.ID)
+	if err != nil {
+		result, err = logic.GetDeletedNodeByID(authRequest.ID)
+		if err != nil {
+			errorResponse.Code = http.StatusBadRequest
+			errorResponse.Message = err.Error()
+			logger.Log(0, request.Header.Get("user"),
+				fmt.Sprintf("failed to get node info [%s]: %v", authRequest.ID, err))
+			logic.ReturnErrorResponse(response, request, errorResponse)
+			return
+		}
+	}
+	host, err := logic.GetHost(result.HostID.String())
 	if err != nil {
 		errorResponse.Code = http.StatusBadRequest
 		errorResponse.Message = err.Error()
@@ -100,7 +114,7 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	tokenString, err := logic.CreateJWT(authRequest.ID, authRequest.MacAddress, mux.Vars(request)["network"])
+	tokenString, err := logic.CreateJWT(authRequest.ID, authRequest.MacAddress, result.Network)
 	if tokenString == "" {
 		errorResponse.Code = http.StatusBadRequest
 		errorResponse.Message = "Could not create Token"
