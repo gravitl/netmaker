@@ -522,17 +522,6 @@ func GetSQLConn() string {
 	return sqlconn
 }
 
-// IsHostNetwork - checks if running on host network
-func IsHostNetwork() bool {
-	ishost := false
-	if os.Getenv("HOST_NETWORK") == "on" {
-		ishost = true
-	} else if config.Config.Server.HostNetwork == "on" {
-		ishost = true
-	}
-	return ishost
-}
-
 // GetNodeID - gets the node id
 func GetNodeID() string {
 	var id string

@@ -94,19 +94,6 @@ func GetInterfaceListenAddr(port int) (*net.UDPAddr, error) {
 	if err != nil {
 		return udpAddr, err
 	}
-	if !common.IsHostNetwork {
-		addrs, err := getBoardCastAddress()
-		if err != nil {
-			return udpAddr, err
-		}
-		for _, addr := range addrs {
-			if liAddr := addr.(*net.IPNet).IP; liAddr != nil {
-				udpAddr.IP = liAddr
-				break
-			}
-		}
-	}
-
 	return udpAddr, nil
 }
 

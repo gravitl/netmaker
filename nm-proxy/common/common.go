@@ -8,7 +8,6 @@ import (
 	"github.com/gravitl/netmaker/nm-proxy/models"
 )
 
-var IsHostNetwork bool
 var IsRelay bool
 var IsIngressGateway bool
 var IsRelayed bool
