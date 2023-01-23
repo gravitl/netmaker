@@ -334,8 +334,8 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 	}
 	err = bcrypt.CompareHashAndPassword([]byte(host.HostPass), []byte(authRequest.Password))
 	if err != nil {
-		errorResponse.Code = http.StatusBadRequest
-		errorResponse.Message = err.Error()
+		errorResponse.Code = http.StatusUnauthorized
+		errorResponse.Message = "unauthorized"
 		logger.Log(0, request.Header.Get("user"),
 			"error validating user password: ", err.Error())
 		logic.ReturnErrorResponse(response, request, errorResponse)
@@ -344,8 +344,8 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 
 	tokenString, err := logic.CreateJWT(authRequest.ID, authRequest.MacAddress, mux.Vars(request)["network"])
 	if tokenString == "" {
-		errorResponse.Code = http.StatusBadRequest
-		errorResponse.Message = "Could not create Token"
+		errorResponse.Code = http.StatusUnauthorized
+		errorResponse.Message = "unauthorized"
 		logger.Log(0, request.Header.Get("user"),
 			fmt.Sprintf("%s: %v", errorResponse.Message, err))
 		logic.ReturnErrorResponse(response, request, errorResponse)
