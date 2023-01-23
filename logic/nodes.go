@@ -256,6 +256,7 @@ func SetNodeDefaults(node *models.Node) {
 		postdown := parentNetwork.DefaultPostDown
 		node.PostDown = postdown
 	}
+	node.Connected = true
 	// == Parent Network settings ==
 
 	// == node defaults if not set by parent ==
