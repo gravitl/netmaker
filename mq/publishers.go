@@ -11,7 +11,6 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
-	"github.com/gravitl/netmaker/serverctl"
 )
 
 // PublishPeerUpdate --- determines and publishes a peer update to all the hosts
@@ -123,13 +122,7 @@ func sendPeers() {
 	var force bool
 	peer_force_send++
 	if peer_force_send == 5 {
-
-		// run iptables update to ensure gateways work correctly and mq is forwarded if containerized
-		if servercfg.ManageIPTables() != "off" {
-			serverctl.InitIPTables(false)
-		}
 		servercfg.SetHost()
-
 		force = true
 		peer_force_send = 0
 		err := logic.TimerCheckpoint() // run telemetry & log dumps if 24 hours has passed..

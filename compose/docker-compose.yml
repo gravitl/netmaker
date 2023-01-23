@@ -4,15 +4,6 @@ services:
   netmaker:
     container_name: netmaker
     image: gravitl/netmaker:v0.17.1
-    cap_add: 
-      - NET_ADMIN
-      - NET_RAW
-      - SYS_MODULE
-    sysctls:
-      - net.ipv4.ip_forward=1
-      - net.ipv4.conf.all.src_valid_mark=1
-      - net.ipv6.conf.all.disable_ipv6=0
-      - net.ipv6.conf.all.forwarding=1
     restart: always
     volumes:
       - dnsconfig:/root/config/dnsconfig
@@ -28,7 +19,6 @@ services:
       DNS_MODE: "on"
       SERVER_HTTP_HOST: "api.NETMAKER_BASE_DOMAIN"
       API_PORT: "8081"
-      CLIENT_MODE: "on"
       MASTER_KEY: "REPLACE_MASTER_KEY"
       CORS_ALLOWED_ORIGIN: "*"
       DISPLAY_KEYS: "on"
@@ -37,10 +27,7 @@ services:
       MQ_HOST: "mq"
       MQ_PORT: "443"
       MQ_SERVER_PORT: "1883"
-      HOST_NETWORK: "off"
       VERBOSITY: "1"
-      MANAGE_IPTABLES: "on"
-      PORT_FORWARD_SERVICES: "dns"
       MQ_ADMIN_PASSWORD: "REPLACE_MQ_ADMIN_PASSWORD"
       STUN_PORT: "3478"
       PROXY: "on"
