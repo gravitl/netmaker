@@ -354,6 +354,8 @@ func CheckHostPorts(h *models.Host) {
 	for i := 0; portsInUse[h.ListenPort] && i < maxPort-minPort+1; i++ {
 		updatePort(&h.ListenPort)
 	}
+	// allocate h.ListenPort so it is unavailable to h.ProxyListenPort
+	portsInUse[h.ListenPort] = true
 	for i := 0; portsInUse[h.ProxyListenPort] && i < maxPort-minPort+1; i++ {
 		updatePort(&h.ProxyListenPort)
 	}
