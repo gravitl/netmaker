@@ -110,12 +110,6 @@ func initialize() { // Client Mode Prereq Check
 			logger.FatalLog("To run in client mode requires root privileges. Either disable client mode or run with sudo.")
 		}
 	}
-	// initialize iptables to ensure gateways work correctly and mq is forwarded if containerized
-	if servercfg.ManageIPTables() != "off" {
-		if err = serverctl.InitIPTables(true); err != nil {
-			logger.FatalLog("Unable to initialize iptables on host:", err.Error())
-		}
-	}
 
 	if servercfg.IsDNSMode() {
 		err := functions.SetDNSDir()

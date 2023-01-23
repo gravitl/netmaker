@@ -63,8 +63,6 @@ type ServerConfig struct {
 	AzureTenant           string `yaml:"azuretenant"`
 	RCE                   string `yaml:"rce"`
 	Telemetry             string `yaml:"telemetry"`
-	ManageIPTables        string `yaml:"manageiptables"`
-	PortForwardServices   string `yaml:"portforwardservices"`
 	HostNetwork           string `yaml:"hostnetwork"`
 	MQPort                string `yaml:"mqport"`
 	MQServerPort          string `yaml:"mqserverport"`

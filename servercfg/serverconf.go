@@ -82,9 +82,6 @@ func GetServerConfig() config.ServerConfig {
 		cfg.RCE = "off"
 	}
 	cfg.Telemetry = Telemetry()
-	cfg.ManageIPTables = ManageIPTables()
-	services := strings.Join(GetPortForwardServiceList(), ",")
-	cfg.PortForwardServices = services
 	cfg.Server = GetServer()
 	cfg.Verbosity = GetVerbosity()
 	cfg.IsEE = "no"
@@ -377,18 +374,6 @@ func Telemetry() string {
 	return telemetry
 }
 
-// ManageIPTables - checks if iptables should be manipulated on host
-func ManageIPTables() string {
-	manage := "on"
-	if os.Getenv("MANAGE_IPTABLES") == "off" {
-		manage = "off"
-	}
-	if config.Config.Server.ManageIPTables == "off" {
-		manage = "off"
-	}
-	return manage
-}
-
 // GetServer - gets the server name
 func GetServer() string {
 	server := ""
@@ -524,19 +509,6 @@ func GetPlatform() string {
 		platform = config.Config.Server.SQLConn
 	}
 	return platform
-}
-
-// GetIPForwardServiceList - get the list of services that the server should be forwarding
-func GetPortForwardServiceList() []string {
-	//services := "mq,dns,ssh"
-	services := ""
-	if os.Getenv("PORT_FORWARD_SERVICES") != "" {
-		services = os.Getenv("PORT_FORWARD_SERVICES")
-	} else if config.Config.Server.PortForwardServices != "" {
-		services = config.Config.Server.PortForwardServices
-	}
-	serviceSlice := strings.Split(services, ",")
-	return serviceSlice
 }
 
 // GetSQLConn - get the sql connection string

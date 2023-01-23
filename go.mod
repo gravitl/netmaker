@@ -37,7 +37,6 @@ require (
 	github.com/coreos/go-oidc/v3 v3.5.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/pkg/errors v0.9.1
-	github.com/sirupsen/logrus v1.9.0
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
 	gortc.io/stun v1.23.0
 )
