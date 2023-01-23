@@ -40,10 +40,6 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 			return models.AccessKey{}, errors.New("duplicate AccessKey Name")
 		}
 	}
-	privAddr := ""
-	if network.IsLocal != "" {
-		privAddr = network.LocalRange
-	}
 
 	netID := network.NetID
 
@@ -52,7 +48,6 @@ func CreateAccessKey(accesskey models.AccessKey, network models.Network) (models
 	accessToken.APIConnString = servercfg.GetAPIConnString()
 	accessToken.ClientConfig.Network = netID
 	accessToken.ClientConfig.Key = accesskey.Value
-	accessToken.ClientConfig.LocalRange = privAddr
 
 	tokenjson, err := json.Marshal(accessToken)
 	if err != nil {

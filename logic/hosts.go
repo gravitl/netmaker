@@ -20,6 +20,11 @@ var (
 	ErrInvalidHostID error = errors.New("invalid host id")
 )
 
+const (
+	maxPort = 1<<16 - 1
+	minPort = 1025
+)
+
 // GetAllHosts - returns all hosts in flat list or error
 func GetAllHosts() ([]models.Host, error) {
 	currHostMap, err := GetHostsMap()
@@ -115,10 +120,6 @@ func UpdateHost(newHost, currentHost *models.Host) {
 
 	if len(newHost.Name) == 0 {
 		newHost.Name = currentHost.Name
-	}
-
-	if newHost.LocalRange.String() != currentHost.LocalRange.String() {
-		newHost.LocalRange = currentHost.LocalRange
 	}
 
 	if newHost.MTU == 0 {
@@ -327,4 +328,46 @@ func GetRelatedHosts(hostID string) []models.Host {
 		}
 	}
 	return relatedHosts
+}
+
+// CheckHostPort checks host endpoints to ensures that hosts on the same server
+// with the same endpoint have different listen ports
+// in the case of 64535 hosts or more with same endpoint, ports will not be changed
+func CheckHostPorts(h *models.Host) {
+	portsInUse := make(map[int]bool)
+	hosts, err := GetAllHosts()
+	if err != nil {
+		return
+	}
+	for _, host := range hosts {
+		if host.ID == h.ID {
+			//skip self
+			continue
+		}
+		if !host.EndpointIP.Equal(h.EndpointIP) {
+			continue
+		}
+		portsInUse[host.ListenPort] = true
+		portsInUse[host.ProxyListenPort] = true
+	}
+	// iterate until port is not found or max iteration is reached
+	for i := 0; portsInUse[h.ListenPort] && i < maxPort-minPort+1; i++ {
+		updatePort(&h.ListenPort)
+	}
+	for i := 0; portsInUse[h.ProxyListenPort] && i < maxPort-minPort+1; i++ {
+		updatePort(&h.ProxyListenPort)
+	}
+}
+
+// HostExists - checks if given host already exists
+func HostExists(h *models.Host) bool {
+	_, err := GetHost(h.ID.String())
+	return (err != nil && !database.IsEmptyRecord(err)) || (err == nil)
+}
+
+func updatePort(p *int) {
+	*p++
+	if *p > maxPort {
+		*p = minPort
+	}
 }

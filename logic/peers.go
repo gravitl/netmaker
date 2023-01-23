@@ -252,7 +252,6 @@ func GetProxyUpdateForHost(host *models.Host) (proxy_models.ProxyManagerPayload,
 			if err != nil {
 				continue
 			}
-
 			var currPeerConf proxy_models.PeerConf
 			var found bool
 			if currPeerConf, found = peerConfMap[peerHost.PublicKey.String()]; !found {

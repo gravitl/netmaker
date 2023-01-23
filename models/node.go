@@ -150,7 +150,6 @@ type LegacyNode struct {
 	IsServer        string      `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
 	Action          string      `json:"action" bson:"action" yaml:"action"`
 	IsLocal         string      `json:"islocal" bson:"islocal" yaml:"islocal" validate:"checkyesorno"`
-	LocalRange      string      `json:"localrange" bson:"localrange" yaml:"localrange"`
 	IPForwarding    string      `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
 	OS              string      `json:"os" bson:"os" yaml:"os"`
 	MTU             int32       `json:"mtu" bson:"mtu" yaml:"mtu"`
@@ -495,13 +494,6 @@ func (ln *LegacyNode) ConvertToNewNode() (*Host, *Node) {
 		host.HostPass = ln.Password
 		host.Name = ln.Name
 		host.ListenPort = int(ln.ListenPort)
-		if _, cidr, err := net.ParseCIDR(ln.LocalAddress); err == nil {
-			host.LocalRange = *cidr
-		} else {
-			if _, cidr, err := net.ParseCIDR(ln.LocalRange); err == nil {
-				host.LocalRange = *cidr
-			}
-		}
 		host.ProxyListenPort = int(ln.ProxyListenPort)
 		host.MTU = int(ln.MTU)
 		host.PublicKey, _ = wgtypes.ParseKey(ln.PublicKey)
@@ -594,7 +586,6 @@ func (n *Node) Legacy(h *Host, s *ServerConfig, net *Network) *LegacyNode {
 	l.DNSOn = formatBool(n.DNSOn)
 	l.Action = n.Action
 	l.IsLocal = formatBool(n.IsLocal)
-	l.LocalRange = h.LocalRange.String()
 	l.IPForwarding = formatBool(h.IPForwarding)
 	l.OS = h.OS
 	l.MTU = int32(h.MTU)

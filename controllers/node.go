@@ -581,6 +581,9 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	// consume password before hashing for mq client creation
 	hostPassword := data.Host.HostPass
 	data.Node.Server = servercfg.GetServer()
+	if !logic.HostExists(&data.Host) {
+		logic.CheckHostPorts(&data.Host)
+	}
 	if err := logic.CreateHost(&data.Host); err != nil {
 		if errors.Is(err, logic.ErrHostExists) {
 			logger.Log(3, "host exists .. no need to create")

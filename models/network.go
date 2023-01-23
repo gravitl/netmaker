@@ -7,7 +7,7 @@ import (
 )
 
 // Network Struct - contains info for a given unique network
-//At  some point, need to replace all instances of Name with something else like  Identifier
+// At  some point, need to replace all instances of Name with something else like  Identifier
 type Network struct {
 	AddressRange        string                `json:"addressrange" bson:"addressrange" validate:"omitempty,cidrv4"`
 	AddressRange6       string                `json:"addressrange6" bson:"addressrange6" validate:"omitempty,cidrv6"`
@@ -26,7 +26,6 @@ type Network struct {
 	IsIPv4              string                `json:"isipv4" bson:"isipv4" validate:"checkyesorno"`
 	IsIPv6              string                `json:"isipv6" bson:"isipv6" validate:"checkyesorno"`
 	IsPointToSite       string                `json:"ispointtosite" bson:"ispointtosite" validate:"checkyesorno"`
-	LocalRange          string                `json:"localrange" bson:"localrange" validate:"omitempty,cidr"`
 	DefaultUDPHolePunch string                `json:"defaultudpholepunch" bson:"defaultudpholepunch" validate:"checkyesorno"`
 	DefaultExtClientDNS string                `json:"defaultextclientdns" bson:"defaultextclientdns"`
 	DefaultMTU          int32                 `json:"defaultmtu" bson:"defaultmtu"`
