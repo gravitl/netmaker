@@ -140,7 +140,33 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-
+	if currHost.IsRelay {
+		if _, _, err := logic.DeleteHostRelay(hostid); err != nil {
+			logger.Log(0, r.Header.Get("user"), "failed to dissociate host from relays:", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+	}
+	if currHost.IsRelayed {
+		relayHost, err := logic.GetHost(currHost.RelayedBy)
+		if err != nil {
+			logger.Log(0, r.Header.Get("user"), "failed to fetch relay host:", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+		newRelayedHosts := make([]string, 0)
+		for _, relayedHostID := range relayHost.RelayedHosts {
+			if relayedHostID != hostid {
+				newRelayedHosts = append(newRelayedHosts, relayedHostID)
+			}
+		}
+		relayHost.RelayedHosts = newRelayedHosts
+		if err := logic.UpsertHost(relayHost); err != nil {
+			logger.Log(0, r.Header.Get("user"), "failed to update host relays:", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+	}
 	if err = logic.RemoveHost(currHost); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to delete a host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
