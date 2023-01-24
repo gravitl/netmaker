@@ -592,8 +592,15 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 				return
 			}
-			logic.UpdateHost(&data.Host, host) // update the in memory struct values
-
+			logic.UpdateHostFromClient(&data.Host, host) // update the in memory struct values
+			logger.Log(0, fmt.Sprintf("HOST ----------> %+v\n", data.Host))
+			err = logic.UpsertHost(host)
+			if err != nil {
+				logger.Log(0, r.Header.Get("user"),
+					fmt.Sprintf("failed to update host [ %s ]: %v", host.ID.String(), err))
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				return
+			}
 		} else {
 			logger.Log(0, "error creating host", err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
