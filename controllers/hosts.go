@@ -282,9 +282,9 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// swagger:route POST /api/hosts/adm/{network}/authenticate hosts authenticateHost
+// swagger:route POST /api/hosts/adm/authenticate hosts authenticateHost
 //
-// Authenticate to make further API calls related to a network.
+// Host based authentication for making further API calls.
 //
 //			Schemes: https
 //
