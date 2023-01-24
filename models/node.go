@@ -196,13 +196,8 @@ func (node *Node) PrimaryAddress() string {
 }
 
 // Node.SetDefaultConnected
-func (node *LegacyNode) SetDefaultConnected() {
-	if node.Connected == "" {
-		node.Connected = "yes"
-	}
-	if node.IsServer == "yes" {
-		node.Connected = "yes"
-	}
+func (node *Node) SetDefaultConnected() {
+	node.Connected = true
 }
 
 // Node.SetDefaultACL

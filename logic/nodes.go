@@ -256,41 +256,11 @@ func SetNodeDefaults(node *models.Node) {
 		postdown := parentNetwork.DefaultPostDown
 		node.PostDown = postdown
 	}
-	// == Parent Network settings ==
+	node.SetLastModified()
+	node.SetLastCheckIn()
+	node.SetDefaultConnected()
+	node.SetExpirationDateTime()
 
-	// == node defaults if not set by parent ==
-	///TODO ___ REVISIT ------
-	///TODO ___ REVISIT ------
-	///TODO ___ REVISIT ------
-	///TODO ___ REVISIT ------
-	///TODO ___ REVISIT ------
-	//node.SetIPForwardingDefault()
-	//node.SetDNSOnDefault()
-	//node.SetIsLocalDefault()
-	//node.SetLastModified()
-	//node.SetDefaultName()
-	//node.SetLastCheckIn()
-	//node.SetLastPeerUpdate()
-	//node.SetDefaultAction()
-	//node.SetIsServerDefault()
-	//node.SetIsStaticDefault()
-	//node.SetDefaultEgressGateway()
-	//node.SetDefaultIngressGateway()
-	//node.SetDefaulIsPending()
-	//node.SetDefaultMTU()
-	//node.SetDefaultNFTablesPresent()
-	//node.SetDefaultIsRelayed()
-	//node.SetDefaultIsRelay()
-	//node.SetDefaultIsDocker()
-	//node.SetDefaultIsK8S()
-	//node.SetDefaultIsHub()
-	//node.SetDefaultConnected()
-	//node.SetDefaultACL()
-	//node.SetDefaultFailover()
-	///TODO ___ REVISIT ------
-	///TODO ___ REVISIT ------
-	///TODO ___ REVISIT ------
-	///TODO ___ REVISIT ------
 }
 
 // GetRecordKey - get record key
