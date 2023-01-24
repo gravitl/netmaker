@@ -376,7 +376,7 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 	for _, node := range nodes {
 		if !newMetrics.Connectivity[node.ID.String()].Connected &&
 			len(newMetrics.Connectivity[node.ID.String()].NodeName) > 0 &&
-			node.Connected == true &&
+			node.Connected &&
 			len(node.FailoverNode) > 0 &&
 			!node.Failover {
 			newMetrics.FailoverPeers[node.ID.String()] = node.FailoverNode.String()

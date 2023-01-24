@@ -15,8 +15,6 @@ import (
 
 	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
 // IsBase64 - checks if a string is in base64 format
@@ -113,26 +111,6 @@ func RandomString(length int) string {
 	return string(b)
 }
 
-// == Private Methods ==
-
-func setIPForwardingLinux() error {
-	out, err := ncutils.RunCmd("sysctl net.ipv4.ip_forward", true)
-	if err != nil {
-		logger.Log(0, "WARNING: Error encountered setting ip forwarding. This can break functionality.")
-		return err
-	} else {
-		s := strings.Fields(string(out))
-		if s[2] != "1" {
-			_, err = ncutils.RunCmd("sysctl -w net.ipv4.ip_forward=1", true)
-			if err != nil {
-				logger.Log(0, "WARNING: Error encountered setting ip forwarding. You may want to investigate this.")
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 // StringSliceContains - sees if a string slice contains a string element
 func StringSliceContains(slice []string, item string) bool {
 	for _, s := range slice {
@@ -142,8 +120,6 @@ func StringSliceContains(slice []string, item string) bool {
 	}
 	return false
 }
-
-// == private ==
 
 // NormalCIDR - returns the first address of CIDR
 func NormalizeCIDR(address string) (string, error) {
@@ -159,23 +135,6 @@ func NormalizeCIDR(address string) (string, error) {
 		IPNet.IP = net4.NetworkAddress()
 	}
 	return IPNet.String(), nil
-}
-
-func getNetworkProtocols(cidrs []string) (bool, bool) {
-	ipv4 := false
-	ipv6 := false
-	for _, cidr := range cidrs {
-		ip, _, err := net.ParseCIDR(cidr)
-		if err != nil {
-			continue
-		}
-		if ip.To4() == nil {
-			ipv6 = true
-		} else {
-			ipv4 = true
-		}
-	}
-	return ipv4, ipv6
 }
 
 // StringDifference - returns the elements in `a` that aren't in `b`.
@@ -205,4 +164,23 @@ func CheckIfFileExists(filePath string) bool {
 // from a given string slice
 func RemoveStringSlice(slice []string, i int) []string {
 	return append(slice[:i], slice[i+1:]...)
+}
+
+// == private ==
+
+func getNetworkProtocols(cidrs []string) (bool, bool) {
+	ipv4 := false
+	ipv6 := false
+	for _, cidr := range cidrs {
+		ip, _, err := net.ParseCIDR(cidr)
+		if err != nil {
+			continue
+		}
+		if ip.To4() == nil {
+			ipv6 = true
+		} else {
+			ipv4 = true
+		}
+	}
+	return ipv4, ipv6
 }

@@ -19,9 +19,6 @@ var (
 	Free_Tier = false
 )
 
-// constant for database key for storing server ids
-const server_id_key = "nm-server-id"
-
 type serverData struct {
 	PrivateKey string `json:"privatekey,omitempty" bson:"privatekey,omitempty"`
 }

@@ -25,7 +25,6 @@ TODO:-
 			-> start remote conn after endpoint is updated
 		-->
 */
-var sent bool
 
 type ProxyAction string
 

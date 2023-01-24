@@ -1,8 +1,6 @@
 package logic
 
 import (
-	"strings"
-
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/models"
 )
@@ -32,10 +30,4 @@ func EnterpriseCheck() {
 	for _, check := range EnterpriseCheckFuncs {
 		check()
 	}
-}
-
-// == Private ==
-
-func isDeleteError(err error) bool {
-	return err != nil && strings.Contains(err.Error(), models.NODE_DELETE)
 }

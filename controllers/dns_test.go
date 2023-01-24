@@ -117,6 +117,7 @@ func TestGetCustomDNS(t *testing.T) {
 	t.Run("EntryExist", func(t *testing.T) {
 		entry := models.DNSEntry{"10.0.0.3", "", "custom1", "skynet"}
 		_, err := logic.CreateDNS(entry)
+		assert.Nil(t, err)
 		dns, err := logic.GetCustomDNS("skynet")
 		assert.Nil(t, err)
 		assert.Equal(t, 1, len(dns))
