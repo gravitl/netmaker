@@ -153,6 +153,7 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 	if currHost.IsRelay {
 		if _, _, err := logic.DeleteHostRelay(hostid); err != nil {
 			logger.Log(0, r.Header.Get("user"), "failed to dissociate host from relays:", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
 	}
@@ -160,6 +161,7 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		relayHost, err := logic.GetHost(currHost.RelayedBy)
 		if err != nil {
 			logger.Log(0, r.Header.Get("user"), "failed to fetch relay host:", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
 		newRelayedHosts := make([]string, 0)
@@ -171,6 +173,7 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		relayHost.RelayedHosts = newRelayedHosts
 		if err := logic.UpsertHost(relayHost); err != nil {
 			logger.Log(0, r.Header.Get("user"), "failed to update host relays:", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
 	}
