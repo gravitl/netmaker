@@ -529,21 +529,21 @@ func GetPeerUpdate(node *models.Node, host *models.Host) (models.PeerUpdate, err
 	return peerUpdate, nil
 }
 
-func getRelayAllowedIPs(node, peer *models.Node) []net.IPNet {
-	var allowedips []net.IPNet
-	var allowedip net.IPNet
-	for _, addr := range peer.RelayAddrs {
-		if node.Address.IP.String() == addr {
-			continue
-		}
-		if node.Address6.IP.String() == addr {
-			continue
-		}
-		allowedip.IP = net.ParseIP(addr)
-		allowedips = append(allowedips, allowedip)
-	}
-	return allowedips
-}
+// func getRelayAllowedIPs(node, peer *models.Node) []net.IPNet {
+// 	var allowedips []net.IPNet
+// 	var allowedip net.IPNet
+// 	for _, addr := range peer.RelayAddrs {
+// 		if node.Address.IP.String() == addr {
+// 			continue
+// 		}
+// 		if node.Address6.IP.String() == addr {
+// 			continue
+// 		}
+// 		allowedip.IP = net.ParseIP(addr)
+// 		allowedips = append(allowedips, allowedip)
+// 	}
+// 	return allowedips
+// }
 
 // GetPeerUpdateLegacy - gets a wireguard peer config for each peer of a node
 func GetPeerUpdateLegacy(node *models.Node) (models.PeerUpdate, error) {

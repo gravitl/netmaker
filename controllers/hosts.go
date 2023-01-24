@@ -15,10 +15,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type hostNetworksUpdatePayload struct {
-	Networks []string `json:"networks"`
-}
-
 func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/hosts", logic.SecurityCheck(true, http.HandlerFunc(getHosts))).Methods(http.MethodGet)
 	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(updateHost))).Methods(http.MethodPut)
