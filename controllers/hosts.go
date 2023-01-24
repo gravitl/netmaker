@@ -27,7 +27,7 @@ func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", logic.SecurityCheck(true, http.HandlerFunc(deleteHostFromNetwork))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/hosts/{hostid}/relay", logic.SecurityCheck(false, http.HandlerFunc(createHostRelay))).Methods(http.MethodPost)
 	r.HandleFunc("/api/hosts/{hostid}/relay", logic.SecurityCheck(false, http.HandlerFunc(deleteHostRelay))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/hosts/adm/{network}/authenticate", authenticateHost).Methods(http.MethodPost)
+	r.HandleFunc("/api/hosts/adm/authenticate", authenticateHost).Methods(http.MethodPost)
 }
 
 // swagger:route GET /api/hosts hosts getHosts
@@ -342,7 +342,7 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	tokenString, err := logic.CreateJWT(authRequest.ID, authRequest.MacAddress, mux.Vars(request)["network"])
+	tokenString, err := logic.CreateJWT(authRequest.ID, authRequest.MacAddress, "")
 	if tokenString == "" {
 		errorResponse.Code = http.StatusUnauthorized
 		errorResponse.Message = "unauthorized"
