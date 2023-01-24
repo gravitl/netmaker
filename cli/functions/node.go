@@ -31,20 +31,6 @@ func DeleteNode(networkName, nodeID string) *models.SuccessResponse {
 	return request[models.SuccessResponse](http.MethodDelete, fmt.Sprintf("/api/nodes/%s/%s", networkName, nodeID), nil)
 }
 
-// CreateRelay - turn a node into a relay
-func CreateRelay(networkName, nodeID string, relayAddresses []string) *models.ApiNode {
-	return request[models.ApiNode](http.MethodPost, fmt.Sprintf("/api/nodes/%s/%s/createrelay", networkName, nodeID), &models.RelayRequest{
-		NetID:      networkName,
-		NodeID:     nodeID,
-		RelayAddrs: relayAddresses,
-	})
-}
-
-// DeleteRelay - remove relay role from a node
-func DeleteRelay(networkName, nodeID string) *models.ApiNode {
-	return request[models.ApiNode](http.MethodDelete, fmt.Sprintf("/api/nodes/%s/%s/deleterelay", networkName, nodeID), nil)
-}
-
 // CreateEgress - turn a node into an egress
 func CreateEgress(networkName, nodeID string, payload *models.EgressGatewayRequest) *models.ApiNode {
 	return request[models.ApiNode](http.MethodPost, fmt.Sprintf("/api/nodes/%s/%s/creategateway", networkName, nodeID), payload)

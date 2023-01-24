@@ -1,6 +1,7 @@
 package functions
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gravitl/netmaker/models"
@@ -30,4 +31,17 @@ func UpdateHostNetworks(hostID string, networks []string) *hostNetworksUpdatePay
 	return request[hostNetworksUpdatePayload](http.MethodPut, "/api/hosts/"+hostID+"/networks", &hostNetworksUpdatePayload{
 		Networks: networks,
 	})
+}
+
+// CreateRelay - turn a host into a relay
+func CreateRelay(hostID string, relayedHosts []string) *models.ApiHost {
+	return request[models.ApiHost](http.MethodPost, fmt.Sprintf("/api/hosts/%s/relay", hostID), &models.HostRelayRequest{
+		HostID:       hostID,
+		RelayedHosts: relayedHosts,
+	})
+}
+
+// DeleteRelay - remove relay role from a host
+func DeleteRelay(hostID string) *models.ApiHost {
+	return request[models.ApiHost](http.MethodDelete, fmt.Sprintf("/api/hosts/%s/relay", hostID), nil)
 }
