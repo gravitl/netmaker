@@ -593,7 +593,6 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			logic.UpdateHostFromClient(&data.Host, host) // update the in memory struct values
-			logger.Log(0, fmt.Sprintf("HOST ----------> %+v\n", data.Host))
 			err = logic.UpsertHost(host)
 			if err != nil {
 				logger.Log(0, r.Header.Get("user"),
