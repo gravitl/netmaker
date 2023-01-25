@@ -67,23 +67,17 @@ type ManagerAction struct {
 }
 
 func StartProxyManager(manageChan chan *ManagerAction) {
-	for {
-
-		select {
-		case mI := <-manageChan:
-			log.Printf("-------> PROXY-MANAGER: %+v\n", mI)
-			switch mI.Action {
-			case AddInterface:
-
-				mI.SetIngressGateway()
-				err := mI.AddInterfaceToProxy()
-				if err != nil {
-					log.Printf("failed to add interface: [%s] to proxy: %v\n  ", mI.Payload.InterfaceName, err)
-				}
-			case DeleteInterface:
-				mI.DeleteInterface()
+	for mI := range manageChan {
+		log.Printf("-------> PROXY-MANAGER: %+v\n", mI)
+		switch mI.Action {
+		case AddInterface:
+			mI.SetIngressGateway()
+			err := mI.AddInterfaceToProxy()
+			if err != nil {
+				log.Printf("failed to add interface: [%s] to proxy: %v\n  ", mI.Payload.InterfaceName, err)
 			}
-
+		case DeleteInterface:
+			mI.DeleteInterface()
 		}
 	}
 }

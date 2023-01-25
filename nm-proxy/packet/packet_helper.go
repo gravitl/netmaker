@@ -3,10 +3,11 @@ package packet
 import (
 	"golang.org/x/crypto/blake2s"
 	"golang.org/x/crypto/chacha20poly1305"
-	"golang.org/x/crypto/poly1305"
 	"golang.zx2c4.com/wireguard/tai64n"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
+
+const poly1305TagSize = 16
 
 var (
 	InitialChainKey [blake2s.Size]byte
@@ -23,8 +24,8 @@ type MessageInitiation struct {
 	Type      MessageType
 	Sender    uint32
 	Ephemeral NoisePublicKey
-	Static    [NoisePublicKeySize + poly1305.TagSize]byte
-	Timestamp [tai64n.TimestampSize + poly1305.TagSize]byte
+	Static    [NoisePublicKeySize + poly1305TagSize]byte
+	Timestamp [tai64n.TimestampSize + poly1305TagSize]byte
 	MAC1      [blake2s.Size128]byte
 	MAC2      [blake2s.Size128]byte
 }
