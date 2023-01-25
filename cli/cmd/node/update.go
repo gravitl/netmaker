@@ -50,6 +50,7 @@ var nodeUpdateCmd = &cobra.Command{
 			node.DNSOn = dnsOn
 			node.Connected = !disconnect
 		}
+		node.HostID = functions.GetNodeByID(networkName, nodeID).Host.ID.String()
 		functions.PrettyPrint(functions.UpdateNode(networkName, nodeID, node))
 	},
 }
