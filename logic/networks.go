@@ -237,12 +237,12 @@ func IsIPUnique(network string, ip string, tableName string, isIpv6 bool) bool {
 				continue
 			}
 			if isIpv6 {
-				if (extClient.Address6 == ip || extClient.InternalIPAddr6 == ip) && extClient.Network == network {
+				if (extClient.Address6 == ip) && extClient.Network == network {
 					return false
 				}
 
 			} else {
-				if (extClient.Address == ip || extClient.InternalIPAddr == ip) && extClient.Network == network {
+				if (extClient.Address == ip) && extClient.Network == network {
 					return false
 				}
 			}
