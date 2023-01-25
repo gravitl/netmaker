@@ -5,7 +5,6 @@ import (
 	crand "crypto/rand"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"math/rand"
 	"net"
@@ -40,26 +39,12 @@ func FileExists(f string) bool {
 }
 
 // IsAddressInCIDR - util to see if an address is in a cidr or not
-func IsAddressInCIDR(address, cidr string) bool {
+func IsAddressInCIDR(address net.IP, cidr string) bool {
 	var _, currentCIDR, cidrErr = net.ParseCIDR(cidr)
 	if cidrErr != nil {
 		return false
 	}
-	var addrParts = strings.Split(address, ".")
-	var addrPartLength = len(addrParts)
-	if addrPartLength != 4 {
-		return false
-	} else {
-		if addrParts[addrPartLength-1] == "0" ||
-			addrParts[addrPartLength-1] == "255" {
-			return false
-		}
-	}
-	ip, _, err := net.ParseCIDR(fmt.Sprintf("%s/32", address))
-	if err != nil {
-		return false
-	}
-	return currentCIDR.Contains(ip)
+	return currentCIDR.Contains(address)
 }
 
 // SetNetworkNodesLastModified - sets the network nodes last modified
