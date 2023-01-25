@@ -72,6 +72,7 @@ func GetPeersForProxy(node *models.Node, onlyPeers bool) (proxy_models.ProxyMana
 			} else {
 				relayPeersMap := make(map[string]proxy_models.RelayedConf)
 				for _, relayedNode := range relayedNodes {
+					relayedNode := relayedNode
 					payload, err := GetPeersForProxy(&relayedNode, true)
 					if err == nil {
 						relayedHost, err := GetHost(relayedNode.HostID.String())
@@ -215,6 +216,7 @@ func GetProxyUpdateForHost(host *models.Host) (proxy_models.ProxyManagerPayload,
 		relayedHosts := GetRelayedHosts(host)
 		relayPeersMap := make(map[string]proxy_models.RelayedConf)
 		for _, relayedHost := range relayedHosts {
+			relayedHost := relayedHost
 			payload, err := GetPeerUpdateForHost(&relayedHost)
 			if err == nil {
 				relayedEndpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayedHost.EndpointIP, getPeerListenPort(&relayedHost)))

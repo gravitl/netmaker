@@ -25,6 +25,7 @@ func PublishPeerUpdate() error {
 		return err
 	}
 	for _, host := range hosts {
+		host := host
 		err = PublishSingleHostUpdate(&host)
 		if err != nil {
 			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
@@ -135,6 +136,7 @@ func sendPeers() {
 
 	for _, host := range hosts {
 		if force {
+			host := host
 			logger.Log(2, "sending scheduled peer update (5 min)")
 			err = PublishSingleHostUpdate(&host)
 			if err != nil {

@@ -23,6 +23,7 @@ func ResetFailover(network string) error {
 		return err
 	}
 	for _, node := range nodes {
+		node := node
 		err = SetFailover(&node)
 		if err != nil {
 			logger.Log(2, "error setting failover for node", node.ID.String(), ":", err.Error())
