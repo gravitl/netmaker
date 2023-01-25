@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -95,27 +94,6 @@ func GetInterfaceListenAddr(port int) (*net.UDPAddr, error) {
 		return udpAddr, err
 	}
 	return udpAddr, nil
-}
-
-func getBoardCastAddress() ([]net.Addr, error) {
-	localnets, err := net.Interfaces()
-	if err != nil {
-		return nil, err
-	}
-	var (
-		ief   net.Interface
-		addrs []net.Addr
-	)
-	for _, ief = range localnets {
-		if ief.Flags&net.FlagBroadcast != 0 && ief.Flags&net.FlagUp != 0 {
-			addrs, err = ief.Addrs()
-			if err == nil {
-				return addrs, nil
-			}
-
-		}
-	}
-	return nil, errors.New("couldn't obtain the broadcast addr")
 }
 
 // func StartSniffer(ctx context.Context, ifaceName, ingGwAddr, extClientAddr string, port int) {

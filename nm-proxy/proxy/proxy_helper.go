@@ -174,12 +174,6 @@ func (p *Proxy) ProxyPeer() {
 	wg.Wait()
 
 }
-func test(n int, buffer []byte) {
-	data := buffer[:n]
-	srcKeyHash := data[n-32 : n-16]
-	dstKeyHash := data[n-16:]
-	log.Printf("--------> TEST PACKET [ SRCKEYHASH: %x ], [ DSTKEYHASH: %x ] \n", srcKeyHash, dstKeyHash)
-}
 
 func (p *Proxy) updateEndpoint() error {
 	udpAddr, err := net.ResolveUDPAddr("udp", p.LocalConn.LocalAddr().String())
