@@ -407,7 +407,7 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 
 		}
 		if node.IsIngressGateway {
-			extPeers, extPeerIDAndAddrs, err := getExtPeers(&node, true)
+			extPeers, extPeerIDAndAddrs, err := getExtPeers(&node)
 			if err == nil {
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, extPeers...)
 				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
@@ -698,7 +698,7 @@ func GetPeerUpdateLegacy(node *models.Node) (models.PeerUpdate, error) {
 
 	}
 	if node.IsIngressGateway {
-		extPeers, idsAndAddr, err := getExtPeers(node, true)
+		extPeers, idsAndAddr, err := getExtPeers(node)
 		if err == nil {
 			peers = append(peers, extPeers...)
 			for i := range idsAndAddr {
@@ -721,7 +721,7 @@ func GetPeerUpdateLegacy(node *models.Node) (models.PeerUpdate, error) {
 	return peerUpdate, nil
 }
 
-func getExtPeers(node *models.Node, forIngressNode bool) ([]wgtypes.PeerConfig, []models.IDandAddr, error) {
+func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, error) {
 	var peers []wgtypes.PeerConfig
 	var idsAndAddr []models.IDandAddr
 	extPeers, err := GetNetworkExtClients(node.Network)
@@ -745,7 +745,7 @@ func getExtPeers(node *models.Node, forIngressNode bool) ([]wgtypes.PeerConfig, 
 
 		var allowedips []net.IPNet
 		var peer wgtypes.PeerConfig
-		if forIngressNode && extPeer.Address != "" {
+		if extPeer.Address != "" {
 			var peeraddr = net.IPNet{
 				IP:   net.ParseIP(extPeer.Address),
 				Mask: net.CIDRMask(32, 32),
@@ -755,33 +755,13 @@ func getExtPeers(node *models.Node, forIngressNode bool) ([]wgtypes.PeerConfig, 
 			}
 		}
 
-		if forIngressNode && extPeer.Address6 != "" {
+		if extPeer.Address6 != "" {
 			var addr6 = net.IPNet{
 				IP:   net.ParseIP(extPeer.Address6),
 				Mask: net.CIDRMask(128, 128),
 			}
 			if addr6.IP != nil && addr6.Mask != nil {
 				allowedips = append(allowedips, addr6)
-			}
-		}
-		if !forIngressNode {
-			if extPeer.InternalIPAddr != "" {
-				peerInternalAddr := net.IPNet{
-					IP:   net.ParseIP(extPeer.InternalIPAddr),
-					Mask: net.CIDRMask(32, 32),
-				}
-				if peerInternalAddr.IP != nil && peerInternalAddr.Mask != nil {
-					allowedips = append(allowedips, peerInternalAddr)
-				}
-			}
-			if extPeer.InternalIPAddr6 != "" {
-				peerInternalAddr6 := net.IPNet{
-					IP:   net.ParseIP(extPeer.InternalIPAddr6),
-					Mask: net.CIDRMask(32, 32),
-				}
-				if peerInternalAddr6.IP != nil && peerInternalAddr6.Mask != nil {
-					allowedips = append(allowedips, peerInternalAddr6)
-				}
 			}
 		}
 
@@ -854,14 +834,9 @@ func getExtPeersForProxy(node *models.Node, proxyPeerConf map[string]proxy_model
 			ReplaceAllowedIPs: true,
 			AllowedIPs:        allowedips,
 		}
-		extInternalPrimaryAddr := extPeer.InternalIPAddr
-		if extInternalPrimaryAddr == "" {
-			extInternalPrimaryAddr = extPeer.InternalIPAddr6
-		}
 		extConf := proxy_models.PeerConf{
-			IsExtClient:   true,
-			Address:       net.ParseIP(extPeer.Address),
-			ExtInternalIp: net.ParseIP(extInternalPrimaryAddr),
+			IsExtClient: true,
+			Address:     net.ParseIP(extPeer.Address),
 		}
 		proxyPeerConf[peer.PublicKey.String()] = extConf
 
@@ -878,7 +853,7 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 
 	// handle ingress gateway peers
 	if peer.IsIngressGateway {
-		extPeers, _, err := getExtPeers(peer, false)
+		extPeers, _, err := getExtPeers(peer)
 		if err != nil {
 			logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 		}
@@ -1056,7 +1031,7 @@ func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) 
 	peers = append(peers, peerData)
 	//if ingress add extclients
 	if node.IsIngressGateway {
-		extPeers, _, err := getExtPeers(node, true)
+		extPeers, _, err := getExtPeers(node)
 		if err == nil {
 			peers = append(peers, extPeers...)
 		} else {
