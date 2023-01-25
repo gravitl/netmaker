@@ -38,6 +38,7 @@ var hostUpdateCmd = &cobra.Command{
 				log.Fatal(err)
 			}
 		} else {
+			apiHost.ID = args[0]
 			apiHost.EndpointIP = endpoint
 			apiHost.Name = name
 			apiHost.ListenPort = listenPort
