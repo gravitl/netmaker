@@ -133,9 +133,8 @@ func UpdateHost(newHost, currentHost *models.Host) {
 	if newHost.ProxyListenPort == 0 {
 		newHost.ProxyListenPort = currentHost.ProxyListenPort
 	}
-	if newHost.PublicListenPort == 0 {
-		newHost.PublicListenPort = currentHost.PublicListenPort
-	}
+	newHost.PublicListenPort = currentHost.PublicListenPort
+
 }
 
 // UpdateHostFromClient - used for updating host on server with update recieved from client

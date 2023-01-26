@@ -15,6 +15,7 @@ type ApiHost struct {
 	ListenPort       int      `json:"listenport"`
 	LocalListenPort  int      `json:"locallistenport"`
 	ProxyListenPort  int      `json:"proxy_listen_port"`
+	PublicListenPort int      `json:"public_listen_port" yaml:"public_listen_port"`
 	MTU              int      `json:"mtu" yaml:"mtu"`
 	Interfaces       []Iface  `json:"interfaces" yaml:"interfaces"`
 	DefaultInterface string   `json:"defaultinterface" yaml:"defautlinterface"`
@@ -55,6 +56,7 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 	a.OS = h.OS
 	a.Nodes = h.Nodes
 	a.ProxyEnabled = h.ProxyEnabled
+	a.PublicListenPort = h.PublicListenPort
 	a.ProxyListenPort = h.ProxyListenPort
 	a.PublicKey = h.PublicKey.String()
 	a.Verbosity = h.Verbosity
