@@ -133,6 +133,7 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.LastModified = nm.LastModified.Unix()
 	apiNode.LastCheckIn = nm.LastCheckIn.Unix()
 	apiNode.LastPeerUpdate = nm.LastPeerUpdate.Unix()
+	apiNode.ExpirationDateTime = nm.ExpirationDateTime.Unix()
 	apiNode.Network = nm.Network
 	apiNode.NetworkRange = nm.NetworkRange.String()
 	if isEmptyAddr(apiNode.NetworkRange) {
