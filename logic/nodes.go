@@ -50,7 +50,7 @@ func GetNetworkNodes(network string) ([]models.Node, error) {
 func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	if newNode.Address.IP.String() != currentNode.Address.IP.String() {
 		if network, err := GetParentNetwork(newNode.Network); err == nil {
-			if !IsAddressInCIDR(newNode.Address.IP.String(), network.AddressRange) {
+			if !IsAddressInCIDR(newNode.Address.IP, network.AddressRange) {
 				return fmt.Errorf("invalid address provided; out of network range for node %s", newNode.ID)
 			}
 		}
