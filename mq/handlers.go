@@ -29,14 +29,14 @@ func Ping(client mqtt.Client, msg mqtt.Message) {
 		}
 		node, err := logic.GetNodeByID(id)
 		if err != nil {
-			logger.Log(0, "mq-ping error getting node: ", err.Error())
+			logger.Log(3, "mq-ping error getting node: ", err.Error())
 			record, err := database.FetchRecord(database.NODES_TABLE_NAME, id)
 			if err != nil {
-				logger.Log(0, "error reading database ", err.Error())
+				logger.Log(3, "error reading database ", err.Error())
 				return
 			}
-			logger.Log(0, "record from database")
-			logger.Log(0, record)
+			logger.Log(3, "record from database")
+			logger.Log(3, record)
 			return
 		}
 		decrypted, decryptErr := decryptMsg(&node, msg.Payload())

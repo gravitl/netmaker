@@ -203,7 +203,7 @@ func GetAllNodes() ([]models.Node, error) {
 		var node models.Node
 		// ignore legacy nodes in database
 		if err := json.Unmarshal([]byte(value), &node); err != nil {
-			logger.Log(1, "legacy node detected: ", err.Error())
+			logger.Log(3, "legacy node detected: ", err.Error())
 			continue
 		}
 		// add node to our array
