@@ -196,7 +196,7 @@ func runMessageQueue(wg *sync.WaitGroup) {
 		go logic.ManageZombies(ctx, peerUpdate)
 		for nodeUpdate := range peerUpdate {
 			if err := mq.NodeUpdate(nodeUpdate); err != nil {
-				logger.Log(0, "failed to send peer update for deleted node: ", nodeUpdate.ID.String())
+				logger.Log(0, "failed to send peer update for deleted node: ", nodeUpdate.ID.String(), err.Error())
 			}
 		}
 	}()
