@@ -305,7 +305,7 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 		ServerVersion: servercfg.GetVersion(),
 		ServerAddrs:   []models.ServerAddr{},
 	}
-	log.Println("peer update for host ", host.ID.String())
+	logger.Log(1, "peer update for host ", host.ID.String())
 	peerIndexMap := make(map[string]int)
 	for _, nodeID := range host.Nodes {
 		node, err := GetNodeByID(nodeID)
@@ -325,7 +325,7 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 		}
 		for _, peer := range currentPeers {
 			if peer.ID == node.ID {
-				log.Println("peer update, skipping self")
+				logger.Log(2, "peer update, skipping self")
 				//skip yourself
 
 				continue
@@ -333,12 +333,12 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 			var peerConfig wgtypes.PeerConfig
 			peerHost, err := GetHost(peer.HostID.String())
 			if err != nil {
-				log.Println("no peer host", err)
+				logger.Log(1, "no peer host", peer.HostID.String(), err.Error())
 				return models.HostPeerUpdate{}, err
 			}
 
-			if !peer.Connected {
-				log.Println("peer update, skipping unconnected node")
+			if !peer.Connected || peer.Action == models.NODE_DELETE || peer.PendingDelete {
+				logger.Log(2, "peer update, skipping unconnected node", peer.ID.String())
 				//skip unconnected nodes
 				continue
 			}
@@ -741,7 +741,8 @@ func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, e
 			continue
 		}
 
-		if host.PublicKey.String() == extPeer.PublicKey {
+		if host.PublicKey.String() == extPeer.PublicKey ||
+			extPeer.IngressGatewayID != node.ID.String() {
 			continue
 		}
 
@@ -805,7 +806,8 @@ func getExtPeersForProxy(node *models.Node, proxyPeerConf map[string]proxy_model
 			continue
 		}
 
-		if host.PublicKey.String() == extPeer.PublicKey {
+		if host.PublicKey.String() == extPeer.PublicKey ||
+			extPeer.IngressGatewayID != node.ID.String() {
 			continue
 		}
 
