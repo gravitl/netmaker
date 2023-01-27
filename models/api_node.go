@@ -99,8 +99,8 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	}
 	ip6, addr6, err := net.ParseCIDR(a.Address6)
 	if err == nil {
-		convertedNode.Address = *addr6
-		convertedNode.Address.IP = ip6
+		convertedNode.Address6 = *addr6
+		convertedNode.Address6.IP = ip6
 	}
 	convertedNode.FailoverNode, _ = uuid.Parse(a.FailoverNode)
 	convertedNode.LastModified = time.Unix(a.LastModified, 0)
