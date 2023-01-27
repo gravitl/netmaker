@@ -160,6 +160,9 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 		currHost.EndpointIP = newHost.EndpointIP
 		sendPeerUpdate = true
 	}
+	if newHostPass, err := bcrypt.GenerateFromPassword([]byte(newHost.HostPass), 5); err == nil && string(newHostPass) != currHost.HostPass {
+		currHost.HostPass = string(newHostPass)
+	}
 	currHost.DaemonInstalled = newHost.DaemonInstalled
 	currHost.Debug = newHost.Debug
 	currHost.Verbosity = newHost.Verbosity
