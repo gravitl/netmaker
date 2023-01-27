@@ -25,6 +25,7 @@ var (
 
 // CheckZombies - checks if new node has same macaddress as existing node
 // if so, existing node is added to zombie node quarantine list
+// also cleans up nodes past their expiration date
 func CheckZombies(newnode *models.Node, mac net.HardwareAddr) {
 	nodes, err := GetNetworkNodes(newnode.Network)
 	if err != nil {
@@ -37,7 +38,7 @@ func CheckZombies(newnode *models.Node, mac net.HardwareAddr) {
 			// should we delete the node if host not found ??
 			continue
 		}
-		if host.MacAddress.String() == mac.String() {
+		if host.MacAddress.String() == mac.String() || time.Now().After(node.ExpirationDateTime) {
 			logger.Log(0, "adding ", node.ID.String(), " to zombie list")
 			newZombie <- node.ID
 		}
