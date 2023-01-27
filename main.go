@@ -191,7 +191,15 @@ func runMessageQueue(wg *sync.WaitGroup) {
 	mq.SetupMQTT()
 	ctx, cancel := context.WithCancel(context.Background())
 	go mq.Keepalive(ctx)
-	go logic.ManageZombies(ctx)
+	go func() {
+		peerUpdate := make(chan *models.Node)
+		go logic.ManageZombies(ctx, peerUpdate)
+		for nodeUpdate := range peerUpdate {
+			if err := mq.NodeUpdate(nodeUpdate); err != nil {
+				logger.Log(0, "failed to send peer update for deleted node: ", nodeUpdate.ID.String())
+			}
+		}
+	}()
 	go logic.PurgePendingNodes(ctx)
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
