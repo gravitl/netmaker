@@ -8,7 +8,6 @@ var (
 	udpHolePunch              bool
 	localNetwork              bool
 	defaultACL                bool
-	pointToSite               bool
 	defaultInterface          string
 	defaultListenPort         int
 	nodeLimit                 int
