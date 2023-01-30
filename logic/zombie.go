@@ -25,6 +25,7 @@ var (
 
 // CheckZombies - checks if new node has same macaddress as existing node
 // if so, existing node is added to zombie node quarantine list
+// also cleans up nodes past their expiration date
 func CheckZombies(newnode *models.Node, mac net.HardwareAddr) {
 	nodes, err := GetNetworkNodes(newnode.Network)
 	if err != nil {
@@ -37,7 +38,7 @@ func CheckZombies(newnode *models.Node, mac net.HardwareAddr) {
 			// should we delete the node if host not found ??
 			continue
 		}
-		if host.MacAddress.String() == mac.String() {
+		if host.MacAddress.String() == mac.String() || time.Now().After(node.ExpirationDateTime) {
 			logger.Log(0, "adding ", node.ID.String(), " to zombie list")
 			newZombie <- node.ID
 		}
@@ -45,7 +46,7 @@ func CheckZombies(newnode *models.Node, mac net.HardwareAddr) {
 }
 
 // ManageZombies - goroutine which adds/removes/deletes nodes from the zombie node quarantine list
-func ManageZombies(ctx context.Context) {
+func ManageZombies(ctx context.Context, peerUpdate chan *models.Node) {
 	logger.Log(2, "Zombie management started")
 	InitializeZombies()
 	for {
@@ -80,11 +81,13 @@ func ManageZombies(ctx context.Context) {
 						zombies = append(zombies[:i], zombies[i+1:]...)
 						continue
 					}
-					if time.Since(node.LastCheckIn) > time.Minute*ZOMBIE_DELETE_TIME {
+					if time.Since(node.LastCheckIn) > time.Minute*ZOMBIE_DELETE_TIME || time.Now().After(node.ExpirationDateTime) {
 						if err := DeleteNode(&node, true); err != nil {
 							logger.Log(1, "error deleting zombie node", zombies[i].String(), err.Error())
 							continue
 						}
+						node.Action = models.NODE_DELETE
+						peerUpdate <- &node
 						logger.Log(1, "deleting zombie node", node.ID.String())
 						zombies = append(zombies[:i], zombies[i+1:]...)
 					}
