@@ -306,8 +306,7 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 		ServerAddrs:   []models.ServerAddr{},
 		IngressInfo: models.IngressInfo{
 			IngressGwAddr: make(map[string]net.IPNet),
-			ExtPeers:      make(map[string]wgtypes.PeerConfig),
-			Peers:         make(map[string][]wgtypes.PeerConfig),
+			ExtPeers:      make(map[string]models.ExtClientInfo),
 		},
 	}
 	logger.Log(1, "peer update for host ", host.ID.String())
@@ -329,7 +328,10 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 			log.Println("no network nodes")
 			return models.HostPeerUpdate{}, err
 		}
-
+		var extClientPeerMap map[string]models.PeerExtInfo
+		if node.IsIngressGateway {
+			extClientPeerMap = make(map[string]models.PeerExtInfo)
+		}
 		for _, peer := range currentPeers {
 			if peer.ID == node.ID {
 				logger.Log(2, "peer update, skipping self")
@@ -391,13 +393,9 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 				allowedips = append(allowedips, getEgressIPs(&node, &peer)...)
 			}
 			peerConfig.AllowedIPs = allowedips
-			if node.IsIngressGateway {
-				if peers, ok := hostPeerUpdate.IngressInfo.Peers[peerHost.PublicKey.String()]; ok {
-					peers = append(peers, peerConfig)
-					hostPeerUpdate.IngressInfo.Peers[peerHost.PublicKey.String()] = peers
-				} else {
-					hostPeerUpdate.IngressInfo.Peers[peerHost.PublicKey.String()] = []wgtypes.PeerConfig{peerConfig}
-				}
+			extClientPeerMap[peerHost.PublicKey.String()] = models.PeerExtInfo{
+				PeerConfig: peerConfig,
+				Allow:      true,
 			}
 			if _, ok := hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()]; !ok {
 				hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()] = make(map[string]models.IDandAddr)
@@ -426,12 +424,11 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 			extPeers, extPeerIDAndAddrs, err := getExtPeers(&node)
 			if err == nil {
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, extPeers...)
-				hostPeerUpdate.IngressInfo.IngressGwAddr[node.Network] = net.IPNet{
-					IP:   net.ParseIP(node.PrimaryAddress()),
-					Mask: net.CIDRMask(32, 32),
-				}
 				for _, extPeer := range extPeers {
-					hostPeerUpdate.IngressInfo.ExtPeers[extPeer.PublicKey.String()] = extPeer
+					hostPeerUpdate.IngressInfo.ExtPeers[extPeer.PublicKey.String()] = models.ExtClientInfo{
+						ExtPeer: extPeer,
+						Peers:   extClientPeerMap,
+					}
 				}
 				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
 					hostPeerUpdate.PeerIDs[extPeerIdAndAddr.ID] = make(map[string]models.IDandAddr)

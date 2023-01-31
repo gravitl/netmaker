@@ -1,8 +1,6 @@
 package models
 
 import (
-	"net"
-
 	proxy_models "github.com/gravitl/netclient/nmproxy/models"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -31,9 +29,17 @@ type HostPeerUpdate struct {
 }
 
 type IngressInfo struct {
-	IngressGwAddr map[string]net.IPNet
-	ExtPeers      map[string]wgtypes.PeerConfig
-	Peers         map[string][]wgtypes.PeerConfig
+	ExtPeers map[string]ExtClientInfo
+}
+
+type PeerExtInfo struct {
+	PeerConfig wgtypes.PeerConfig
+	Allow      bool
+}
+
+type ExtClientInfo struct {
+	ExtPeer wgtypes.PeerConfig
+	Peers   map[string]PeerExtInfo
 }
 
 // NetworkInfo - struct for network info
