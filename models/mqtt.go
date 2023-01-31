@@ -25,6 +25,7 @@ type HostPeerUpdate struct {
 	Peers         []wgtypes.PeerConfig             `json:"peers" bson:"peers" yaml:"peers"`
 	PeerIDs       HostPeerMap                      `json:"peerids" bson:"peerids" yaml:"peerids"`
 	ProxyUpdate   proxy_models.ProxyManagerPayload `json:"proxy_update" bson:"proxy_update" yaml:"proxy_update"`
+	ExtPeers      []wgtypes.PeerConfig             `json:"ext_peers" bson:"ext_peers" yaml:"ext_peers"`
 }
 
 // NetworkInfo - struct for network info
