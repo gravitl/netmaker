@@ -315,6 +315,7 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 		if !node.Connected || node.Action == models.NODE_DELETE || node.PendingDelete {
 			continue
 		}
+
 		hostPeerUpdate.Network[node.Network] = models.NetworkInfo{
 			DNS: getPeerDNS(node.Network),
 		}
@@ -322,6 +323,18 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 		if err != nil {
 			log.Println("no network nodes")
 			return models.HostPeerUpdate{}, err
+		}
+		var ingressInfo models.IngressInfo
+		if node.IsIngressGateway {
+			ingressInfo = models.IngressInfo{
+				Network: node.Network,
+				IngressGwAddr: net.IPNet{
+					IP:   net.ParseIP(node.PrimaryAddress()),
+					Mask: net.CIDRMask(32, 32),
+				},
+				ExtPeers: make(map[string]wgtypes.PeerConfig),
+				Peers:    make(map[string]wgtypes.PeerConfig),
+			}
 		}
 		for _, peer := range currentPeers {
 			if peer.ID == node.ID {
@@ -384,7 +397,9 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 				allowedips = append(allowedips, getEgressIPs(&node, &peer)...)
 			}
 			peerConfig.AllowedIPs = allowedips
-
+			if node.IsIngressGateway {
+				ingressInfo.Peers[peerConfig.PublicKey.String()] = peerConfig
+			}
 			if _, ok := hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()]; !ok {
 				hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()] = make(map[string]models.IDandAddr)
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
@@ -412,7 +427,10 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 			extPeers, extPeerIDAndAddrs, err := getExtPeers(&node)
 			if err == nil {
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, extPeers...)
-				hostPeerUpdate.ExtPeers = extPeers
+				for _, extPeer := range extPeers {
+					ingressInfo.ExtPeers[extPeer.PublicKey.String()] = extPeer
+				}
+				hostPeerUpdate.IngressInfo = append(hostPeerUpdate.IngressInfo, ingressInfo)
 				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
 					hostPeerUpdate.PeerIDs[extPeerIdAndAddr.ID] = make(map[string]models.IDandAddr)
 					hostPeerUpdate.PeerIDs[extPeerIdAndAddr.ID][extPeerIdAndAddr.ID] = models.IDandAddr{
