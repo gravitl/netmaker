@@ -26,18 +26,6 @@ const (
 	NoProxy ProxyAction = "NO_PROXY"
 )
 
-// Proxy - struct for proxy config
-type Proxy struct {
-	PeerPublicKey  wgtypes.Key
-	IsExtClient    bool
-	PeerConf       wgtypes.PeerConfig
-	PeerEndpoint   *net.UDPAddr
-	RemoteConnAddr *net.UDPAddr
-	LocalConnAddr  *net.UDPAddr
-	ListenPort     int
-	ProxyStatus    bool
-}
-
 // RelayedConf - struct relayed peers config
 type RelayedConf struct {
 	RelayedPeerEndpoint *net.UDPAddr         `json:"relayed_peer_endpoint"`
