@@ -82,6 +82,7 @@ func ResetMetricForNode(server, peerKey, peerID string) {
 	UpdateMetric(server, peerKey, &metric)
 }
 
+// MetricCollectionInterval - collection interval for metrics
 const MetricCollectionInterval = time.Second * 25
 
 // PeerConnectionStatus - get peer connection status by pinging
