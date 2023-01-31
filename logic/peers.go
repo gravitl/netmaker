@@ -300,13 +300,13 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 	}
 	hostPeerUpdate := models.HostPeerUpdate{
 		Host:          *host,
+		Server:        servercfg.GetServer(),
 		Network:       make(map[string]models.NetworkInfo),
 		PeerIDs:       make(models.HostPeerMap),
 		ServerVersion: servercfg.GetVersion(),
 		ServerAddrs:   []models.ServerAddr{},
 		IngressInfo: models.IngressInfo{
-			IngressGwAddr: make(map[string]net.IPNet),
-			ExtPeers:      make(map[string]models.ExtClientInfo),
+			ExtPeers: make(map[string]models.ExtClientInfo),
 		},
 	}
 	logger.Log(1, "peer update for host ", host.ID.String())
