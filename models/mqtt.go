@@ -27,14 +27,13 @@ type HostPeerUpdate struct {
 	Peers         []wgtypes.PeerConfig             `json:"peers" bson:"peers" yaml:"peers"`
 	PeerIDs       HostPeerMap                      `json:"peerids" bson:"peerids" yaml:"peerids"`
 	ProxyUpdate   proxy_models.ProxyManagerPayload `json:"proxy_update" bson:"proxy_update" yaml:"proxy_update"`
-	IngressInfo   []IngressInfo                    `json:"ingress_info" bson:"ext_peers" yaml:"ext_peers"`
+	IngressInfo   IngressInfo                      `json:"ingress_info" bson:"ext_peers" yaml:"ext_peers"`
 }
 
 type IngressInfo struct {
-	Network       string
-	IngressGwAddr net.IPNet
+	IngressGwAddr map[string]net.IPNet
 	ExtPeers      map[string]wgtypes.PeerConfig
-	Peers         map[string]wgtypes.PeerConfig
+	Peers         map[string][]wgtypes.PeerConfig
 }
 
 // NetworkInfo - struct for network info
