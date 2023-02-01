@@ -239,7 +239,6 @@ func SetNodeDefaults(node *models.Node) {
 	if err == nil {
 		node.NetworkRange6 = *cidr
 	}
-	node.ExpirationDateTime = time.Now().Add(models.TEN_YEARS_IN_SECONDS)
 
 	if node.DefaultACL == "" {
 		node.DefaultACL = parentNetwork.DefaultACL
@@ -260,7 +259,6 @@ func SetNodeDefaults(node *models.Node) {
 	node.SetLastCheckIn()
 	node.SetDefaultConnected()
 	node.SetExpirationDateTime()
-
 }
 
 // GetRecordKey - get record key
@@ -270,30 +268,6 @@ func GetRecordKey(id string, network string) (string, error) {
 		return "", errors.New("unable to get record key")
 	}
 	return id + "###" + network, nil
-}
-
-// GetNodeByMacAddress - gets a node by mac address
-func GetNodeByMacAddress(network string, macaddress string) (models.Node, error) {
-
-	var node models.Node
-
-	key, err := GetRecordKey(macaddress, network)
-	if err != nil {
-		return node, err
-	}
-
-	record, err := database.FetchRecord(database.NODES_TABLE_NAME, key)
-	if err != nil {
-		return models.Node{}, err
-	}
-
-	if err = json.Unmarshal([]byte(record), &node); err != nil {
-		return models.Node{}, err
-	}
-
-	SetNodeDefaults(&node)
-
-	return node, nil
 }
 
 // GetNodesByAddress - gets a node by mac address
