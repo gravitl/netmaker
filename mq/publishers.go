@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	proxy_models "github.com/gravitl/netclient/nmproxy/models"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -46,7 +45,7 @@ func PublishSingleHostUpdate(host *models.Host) error {
 		if err != nil {
 			return err
 		}
-		proxyUpdate.Action = proxy_models.ProxyUpdate
+		proxyUpdate.Action = models.ProxyUpdate
 		peerUpdate.ProxyUpdate = proxyUpdate
 	}
 
