@@ -44,9 +44,6 @@ var networkUpdateCmd = &cobra.Command{
 			if defaultACL {
 				network.DefaultACL = "yes"
 			}
-			if pointToSite {
-				network.IsPointToSite = "yes"
-			}
 			network.DefaultInterface = defaultInterface
 			network.DefaultListenPort = int32(defaultListenPort)
 			network.NodeLimit = int32(nodeLimit)
@@ -70,7 +67,6 @@ func init() {
 	networkUpdateCmd.Flags().BoolVar(&udpHolePunch, "udp_hole_punch", false, "Enable UDP Hole Punching ?")
 	networkUpdateCmd.Flags().BoolVar(&localNetwork, "local", false, "Is the network local (LAN) ?")
 	networkUpdateCmd.Flags().BoolVar(&defaultACL, "default_acl", false, "Enable default Access Control List ?")
-	networkUpdateCmd.Flags().BoolVar(&pointToSite, "point_to_site", false, "Enforce all clients to have only 1 central peer ?")
 	networkUpdateCmd.Flags().StringVar(&defaultInterface, "interface", "", "Name of the network interface")
 	networkUpdateCmd.Flags().StringVar(&defaultPostUp, "post_up", "", "Commands to run after server is up `;` separated")
 	networkUpdateCmd.Flags().StringVar(&defaultPostDown, "post_down", "", "Commands to run after server is down `;` separated")

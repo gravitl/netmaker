@@ -25,7 +25,6 @@ type Network struct {
 	IsLocal             string                `json:"islocal" bson:"islocal" validate:"checkyesorno"`
 	IsIPv4              string                `json:"isipv4" bson:"isipv4" validate:"checkyesorno"`
 	IsIPv6              string                `json:"isipv6" bson:"isipv6" validate:"checkyesorno"`
-	IsPointToSite       string                `json:"ispointtosite" bson:"ispointtosite" validate:"checkyesorno"`
 	DefaultUDPHolePunch string                `json:"defaultudpholepunch" bson:"defaultudpholepunch" validate:"checkyesorno"`
 	DefaultExtClientDNS string                `json:"defaultextclientdns" bson:"defaultextclientdns"`
 	DefaultMTU          int32                 `json:"defaultmtu" bson:"defaultmtu"`
@@ -55,9 +54,6 @@ func (network *Network) SetDefaults() {
 	}
 	if network.IsLocal == "" {
 		network.IsLocal = "no"
-	}
-	if network.IsPointToSite == "" {
-		network.IsPointToSite = "no"
 	}
 	if network.DefaultInterface == "" {
 		if len(network.NetID) < 13 {
