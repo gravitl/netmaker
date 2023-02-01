@@ -36,15 +36,15 @@ type IngressInfo struct {
 }
 
 type PeerExtInfo struct {
-	PeerAddr net.IPNet   `json:"peer_addr" yaml:"peer_addr"`
-	PeerKey  wgtypes.Key `json:"peer_key" yaml:"peer_key"`
-	Allow    bool        `json:"allow" yaml:"allow"`
+	PeerAddr net.IPNet `json:"peer_addr" yaml:"peer_addr"`
+	PeerKey  string    `json:"peer_key" yaml:"peer_key"`
+	Allow    bool      `json:"allow" yaml:"allow"`
 }
 
 type ExtClientInfo struct {
 	Masquerade  bool                   `json:"masquerade" yaml:"masquerade"`
 	ExtPeerAddr net.IPNet              `json:"ext_peer_addr" yaml:"ext_peer_addr"`
-	ExtPeerKey  wgtypes.Key            `json:"ext_peer_key" yaml:"ext_peer_key"`
+	ExtPeerKey  string                 `json:"ext_peer_key" yaml:"ext_peer_key"`
 	Peers       map[string]PeerExtInfo `json:"peers" yaml:"peers"`
 }
 
