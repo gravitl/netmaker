@@ -441,6 +441,10 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 					}
 					hostPeerUpdate.IngressInfo.ExtPeers[extPeerIdAndAddr.ID] = models.ExtClientInfo{
 						Masquerade: true,
+						IngGwAddr: net.IPNet{
+							IP:   net.ParseIP(node.PrimaryAddress()),
+							Mask: net.CIDRMask(32, 32),
+						},
 						ExtPeerAddr: net.IPNet{
 							IP:   net.ParseIP(extPeerIdAndAddr.Address),
 							Mask: net.CIDRMask(32, 32),

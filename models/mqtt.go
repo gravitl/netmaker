@@ -42,6 +42,7 @@ type PeerExtInfo struct {
 }
 
 type ExtClientInfo struct {
+	IngGwAddr   net.IPNet              `json:"ingress_gw_addr" yaml:"ingress_gw_addr"`
 	Masquerade  bool                   `json:"masquerade" yaml:"masquerade"`
 	ExtPeerAddr net.IPNet              `json:"ext_peer_addr" yaml:"ext_peer_addr"`
 	ExtPeerKey  string                 `json:"ext_peer_key" yaml:"ext_peer_key"`
