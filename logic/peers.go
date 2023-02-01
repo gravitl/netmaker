@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
@@ -394,10 +395,11 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 			}
 			peerConfig.AllowedIPs = allowedips
 			if node.IsIngressGateway {
+
 				extClientPeerMap[peerHost.PublicKey.String()] = models.PeerExtInfo{
 					PeerAddr: net.IPNet{
 						IP:   net.ParseIP(peer.PrimaryAddress()),
-						Mask: net.CIDRMask(32, 32),
+						Mask: getCIDRMaskFromAddr(peer.PrimaryAddress()),
 					},
 					PeerKey: peerHost.PublicKey.String(),
 					Allow:   true,
@@ -443,11 +445,11 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 						Masquerade: true,
 						IngGwAddr: net.IPNet{
 							IP:   net.ParseIP(node.PrimaryAddress()),
-							Mask: net.CIDRMask(32, 32),
+							Mask: getCIDRMaskFromAddr(node.PrimaryAddress()),
 						},
 						ExtPeerAddr: net.IPNet{
 							IP:   net.ParseIP(extPeerIdAndAddr.Address),
-							Mask: net.CIDRMask(32, 32),
+							Mask: getCIDRMaskFromAddr(extPeerIdAndAddr.Address),
 						},
 						ExtPeerKey: extPeerIdAndAddr.ID,
 						Peers:      extClientPeerMap,
@@ -1149,4 +1151,16 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 		allowedips = append(allowedips, egressIPs...)
 	}
 	return allowedips
+}
+
+func getCIDRMaskFromAddr(addr string) net.IPMask {
+	cidr := net.CIDRMask(32, 32)
+	ipAddr, err := netip.ParseAddr(addr)
+	if err != nil {
+		return cidr
+	}
+	if ipAddr.Is6() {
+		cidr = net.CIDRMask(128, 128)
+	}
+	return cidr
 }
