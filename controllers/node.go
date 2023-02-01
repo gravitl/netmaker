@@ -653,6 +653,8 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	data.Host.HostPass = "" // client should not change password after join
+	// concealing hash
 	response := models.NodeJoinResponse{
 		Node:         data.Node,
 		ServerConfig: server,
