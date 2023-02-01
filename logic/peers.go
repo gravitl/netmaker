@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
@@ -299,10 +300,14 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 	}
 	hostPeerUpdate := models.HostPeerUpdate{
 		Host:          *host,
+		Server:        servercfg.GetServer(),
 		Network:       make(map[string]models.NetworkInfo),
 		PeerIDs:       make(models.HostPeerMap),
 		ServerVersion: servercfg.GetVersion(),
 		ServerAddrs:   []models.ServerAddr{},
+		IngressInfo: models.IngressInfo{
+			ExtPeers: make(map[string]models.ExtClientInfo),
+		},
 	}
 	logger.Log(1, "peer update for host ", host.ID.String())
 	peerIndexMap := make(map[string]int)
@@ -314,6 +319,7 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 		if !node.Connected || node.Action == models.NODE_DELETE || node.PendingDelete {
 			continue
 		}
+
 		hostPeerUpdate.Network[node.Network] = models.NetworkInfo{
 			DNS: getPeerDNS(node.Network),
 		}
@@ -321,6 +327,10 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 		if err != nil {
 			log.Println("no network nodes")
 			return models.HostPeerUpdate{}, err
+		}
+		var extClientPeerMap map[string]models.PeerExtInfo
+		if node.IsIngressGateway {
+			extClientPeerMap = make(map[string]models.PeerExtInfo)
 		}
 		for _, peer := range currentPeers {
 			if peer.ID == node.ID {
@@ -383,6 +393,17 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 				allowedips = append(allowedips, getEgressIPs(&node, &peer)...)
 			}
 			peerConfig.AllowedIPs = allowedips
+			if node.IsIngressGateway {
+
+				extClientPeerMap[peerHost.PublicKey.String()] = models.PeerExtInfo{
+					PeerAddr: net.IPNet{
+						IP:   net.ParseIP(peer.PrimaryAddress()),
+						Mask: getCIDRMaskFromAddr(peer.PrimaryAddress()),
+					},
+					PeerKey: peerHost.PublicKey.String(),
+					Allow:   true,
+				}
+			}
 
 			if _, ok := hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()]; !ok {
 				hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()] = make(map[string]models.IDandAddr)
@@ -418,6 +439,19 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 						Address: extPeerIdAndAddr.Address,
 						Name:    extPeerIdAndAddr.Name,
 						Network: node.Network,
+					}
+					hostPeerUpdate.IngressInfo.ExtPeers[extPeerIdAndAddr.ID] = models.ExtClientInfo{
+						Masquerade: true,
+						IngGwAddr: net.IPNet{
+							IP:   net.ParseIP(node.PrimaryAddress()),
+							Mask: getCIDRMaskFromAddr(node.PrimaryAddress()),
+						},
+						ExtPeerAddr: net.IPNet{
+							IP:   net.ParseIP(extPeerIdAndAddr.Address),
+							Mask: getCIDRMaskFromAddr(extPeerIdAndAddr.Address),
+						},
+						ExtPeerKey: extPeerIdAndAddr.ID,
+						Peers:      extClientPeerMap,
 					}
 				}
 
@@ -1116,4 +1150,16 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 		allowedips = append(allowedips, egressIPs...)
 	}
 	return allowedips
+}
+
+func getCIDRMaskFromAddr(addr string) net.IPMask {
+	cidr := net.CIDRMask(32, 32)
+	ipAddr, err := netip.ParseAddr(addr)
+	if err != nil {
+		return cidr
+	}
+	if ipAddr.Is6() {
+		cidr = net.CIDRMask(128, 128)
+	}
+	return cidr
 }
