@@ -31,16 +31,19 @@ type HostPeerUpdate struct {
 	IngressInfo   IngressInfo                      `json:"ingress_info" bson:"ext_peers" yaml:"ext_peers"`
 }
 
+// IngressInfo - struct for ingress info
 type IngressInfo struct {
 	ExtPeers map[string]ExtClientInfo `json:"ext_peers" yaml:"ext_peers"`
 }
 
+// PeerExtInfo - struct for peer info for an ext. client
 type PeerExtInfo struct {
 	PeerAddr net.IPNet `json:"peer_addr" yaml:"peer_addr"`
 	PeerKey  string    `json:"peer_key" yaml:"peer_key"`
 	Allow    bool      `json:"allow" yaml:"allow"`
 }
 
+// ExtClientInfo - struct for ext. client and it's peers
 type ExtClientInfo struct {
 	IngGwAddr   net.IPNet              `json:"ingress_gw_addr" yaml:"ingress_gw_addr"`
 	Masquerade  bool                   `json:"masquerade" yaml:"masquerade"`
