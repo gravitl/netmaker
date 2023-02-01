@@ -976,7 +976,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if err := logic.DeleteNode(&node, fromNode); err != nil {
+	if err := logic.DeleteNode(&node, true); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
 		return
 	}
