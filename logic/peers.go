@@ -741,7 +741,7 @@ func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, e
 		}
 
 		if host.PublicKey.String() == extPeer.PublicKey ||
-			extPeer.IngressGatewayID != node.ID.String() {
+			extPeer.IngressGatewayID != node.ID.String() || !extPeer.Enabled {
 			continue
 		}
 
@@ -806,7 +806,7 @@ func getExtPeersForProxy(node *models.Node, proxyPeerConf map[string]models.Peer
 		}
 
 		if host.PublicKey.String() == extPeer.PublicKey ||
-			extPeer.IngressGatewayID != node.ID.String() {
+			extPeer.IngressGatewayID != node.ID.String() || !extPeer.Enabled {
 			continue
 		}
 
