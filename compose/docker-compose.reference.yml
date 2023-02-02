@@ -20,7 +20,6 @@ services:
       REST_BACKEND: "on" # Enables the REST backend (API running on API_PORT at SERVER_HTTP_HOST). Change to "off" to turn off.
       DISABLE_REMOTE_IP_CHECK: "off" # If turned "on", Server will not set Host based on remote IP check. This is already overridden if SERVER_HOST is set. Turned "off" by default.
       TELEMETRY: "on" # Whether or not to send telemetry data to help improve Netmaker. Switch to "off" to opt out of sending telemetry.
-      RCE: "off" # Enables setting PostUp and PostDown (arbitrary commands) on nodes from the server. Off by default.
       MASTER_KEY: "REPLACE_MASTER_KEY" # The admin master key for accessing the API. Change this in any production installation.
       CORS_ALLOWED_ORIGIN: "*" # The "allowed origin" for API requests. Change to restrict where API requests can come from with comma-separated URLs. ex:- https://dashboard.netmaker.domain1.com,https://dashboard.netmaker.domain2.com
       DISPLAY_KEYS: "on" # Show keys permanently in UI (until deleted) as opposed to 1-time display.

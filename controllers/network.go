@@ -185,12 +185,6 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
-	if !servercfg.GetRce() {
-		newNetwork.DefaultPostDown = network.DefaultPostDown
-		newNetwork.DefaultPostUp = network.DefaultPostUp
-	}
-
 	rangeupdate4, rangeupdate6, holepunchupdate, groupsDelta, userDelta, err := logic.UpdateNetwork(&network, &newNetwork)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update network: ",

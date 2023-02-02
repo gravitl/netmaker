@@ -32,7 +32,6 @@ server:
   frontendurl: ""
   displaykeys: ""
   azuretenant: ""
-  rce: "off"
   telemetry: ""
   manageiptables: "off"
   portforwardservices: ""

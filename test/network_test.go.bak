@@ -467,17 +467,14 @@ func TestUpdateNetwork(t *testing.T) {
 	})
 	t.Run("UpdatePostUP", func(t *testing.T) {
 		type Network struct {
-			DefaultPostUp string
 		}
 		var network Network
-		network.DefaultPostUp = "sudo wg add-conf wc-netmaker /etc/wireguard/peers/conf"
 		response, err := api(t, network, http.MethodPut, baseURL+"/api/networks/skynet", "secretkey")
 		assert.Nil(t, err, err)
 		assert.Equal(t, http.StatusOK, response.StatusCode)
 		defer response.Body.Close()
 		err = json.NewDecoder(response.Body).Decode(&returnedNetwork)
 		assert.Nil(t, err, err)
-		assert.Equal(t, network.DefaultPostUp, returnedNetwork.DefaultPostUp)
 	})
 	t.Run("UpdatePostDown", func(t *testing.T) {
 		type Network struct {
