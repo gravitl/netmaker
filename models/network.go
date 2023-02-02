@@ -17,7 +17,6 @@ type Network struct {
 	DefaultInterface    string                `json:"defaultinterface" bson:"defaultinterface" validate:"min=1,max=15"`
 	DefaultListenPort   int32                 `json:"defaultlistenport,omitempty" bson:"defaultlistenport,omitempty" validate:"omitempty,min=1024,max=65535"`
 	NodeLimit           int32                 `json:"nodelimit" bson:"nodelimit"`
-	DefaultPostUp       string                `json:"defaultpostup" bson:"defaultpostup"`
 	DefaultPostDown     string                `json:"defaultpostdown" bson:"defaultpostdown"`
 	DefaultKeepalive    int32                 `json:"defaultkeepalive" bson:"defaultkeepalive" validate:"omitempty,max=1000"`
 	AccessKeys          []AccessKey           `json:"accesskeys" bson:"accesskeys"`

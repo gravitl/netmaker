@@ -76,11 +76,6 @@ func GetServerConfig() config.ServerConfig {
 	cfg.ClientID = authInfo[1]
 	cfg.ClientSecret = authInfo[2]
 	cfg.FrontendURL = GetFrontendURL()
-	if GetRce() {
-		cfg.RCE = "on"
-	} else {
-		cfg.RCE = "off"
-	}
 	cfg.Telemetry = Telemetry()
 	cfg.Server = GetServer()
 	cfg.Verbosity = GetVerbosity()
@@ -597,11 +592,6 @@ func GetAzureTenant() string {
 		azureTenant = config.Config.Server.AzureTenant
 	}
 	return azureTenant
-}
-
-// GetRce - sees if Rce is enabled, off by default
-func GetRce() bool {
-	return os.Getenv("RCE") == "on" || config.Config.Server.RCE == "on"
 }
 
 // GetMQServerPort - get mq port for server

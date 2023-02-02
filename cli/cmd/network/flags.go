@@ -11,8 +11,6 @@ var (
 	defaultInterface          string
 	defaultListenPort         int
 	nodeLimit                 int
-	defaultPostUp             string
-	defaultPostDown           string
 	defaultKeepalive          int
 	allowManualSignUp         bool
 	defaultExtClientDNS       string

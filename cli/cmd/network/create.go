@@ -44,8 +44,6 @@ var networkCreateCmd = &cobra.Command{
 			network.DefaultInterface = defaultInterface
 			network.DefaultListenPort = int32(defaultListenPort)
 			network.NodeLimit = int32(nodeLimit)
-			network.DefaultPostUp = defaultPostUp
-			network.DefaultPostDown = defaultPostDown
 			network.DefaultKeepalive = int32(defaultKeepalive)
 			if allowManualSignUp {
 				network.AllowManualSignUp = "yes"
@@ -67,8 +65,6 @@ func init() {
 	networkCreateCmd.Flags().BoolVar(&localNetwork, "local", false, "Is the network local (LAN) ?")
 	networkCreateCmd.Flags().BoolVar(&defaultACL, "default_acl", false, "Enable default Access Control List ?")
 	networkCreateCmd.Flags().StringVar(&defaultInterface, "interface", "", "Name of the network interface")
-	networkCreateCmd.Flags().StringVar(&defaultPostUp, "post_up", "", "Commands to run after server is up `;` separated")
-	networkCreateCmd.Flags().StringVar(&defaultPostDown, "post_down", "", "Commands to run after server is down `;` separated")
 	networkCreateCmd.Flags().StringVar(&defaultExtClientDNS, "ext_client_dns", "", "IPv4 address of DNS server to be used by external clients")
 	networkCreateCmd.Flags().IntVar(&defaultListenPort, "listen_port", 51821, "Default wireguard port each node will attempt to use")
 	networkCreateCmd.Flags().IntVar(&nodeLimit, "node_limit", 999999999, "Maximum number of nodes that can be associated with this network")
