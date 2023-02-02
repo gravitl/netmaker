@@ -462,6 +462,7 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 		}
 		if node.IsEgressGateway {
 			hostPeerUpdate.EgressInfo[node.ID.String()] = models.EgressInfo{
+				EgressID:    node.ID.String(),
 				GwPeers:     nodePeerMap,
 				EgressGWCfg: node.EgressGatewayRequest,
 			}

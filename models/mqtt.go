@@ -37,8 +37,9 @@ type IngressInfo struct {
 }
 
 type EgressInfo struct {
-	GwPeers     map[string]PeerRouteInfo
-	EgressGWCfg EgressGatewayRequest
+	EgressID    string                   `json:"egress_id" yaml:"egress_id"`
+	GwPeers     map[string]PeerRouteInfo `json:"gateway_peers" yaml:"gateway_peers"`
+	EgressGWCfg EgressGatewayRequest     `json:"egress_gateway_cfg" yaml:"egress_gateway_cfg"`
 }
 
 // PeerRouteInfo - struct for peer info for an ext. client
