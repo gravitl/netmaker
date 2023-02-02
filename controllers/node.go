@@ -687,33 +687,32 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //				200: nodeResponse
 func createEgressGateway(w http.ResponseWriter, r *http.Request) {
-	logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("currently unimplemented"), "internal"))
-	// var gateway models.EgressGatewayRequest
-	// var params = mux.Vars(r)
-	// w.Header().Set("Content-Type", "application/json")
-	// err := json.NewDecoder(r.Body).Decode(&gateway)
-	//	if err != nil {
-	//		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
-	//		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-	//		return
-	//	}
-	// gateway.NetID = params["network"]
-	// gateway.NodeID = params["nodeid"]
-	// node, err := logic.CreateEgressGateway(gateway)
-	//	if err != nil {
-	//		logger.Log(0, r.Header.Get("user"),
-	//			fmt.Sprintf("failed to create egress gateway on node [%s] on network [%s]: %v",
-	//				gateway.NodeID, gateway.NetID, err))
-	//		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-	//		return
-	//	}
-	//
-	// apiNode := node.ConvertToAPINode()
-	// logger.Log(1, r.Header.Get("user"), "created egress gateway on node", gateway.NodeID, "on network", gateway.NetID)
-	// w.WriteHeader(http.StatusOK)
-	// json.NewEncoder(w).Encode(apiNode)
-	//
-	// runUpdates(&node, true)
+	var gateway models.EgressGatewayRequest
+	var params = mux.Vars(r)
+	w.Header().Set("Content-Type", "application/json")
+	err := json.NewDecoder(r.Body).Decode(&gateway)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	gateway.NetID = params["network"]
+	gateway.NodeID = params["nodeid"]
+	node, err := logic.CreateEgressGateway(gateway)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to create egress gateway on node [%s] on network [%s]: %v",
+				gateway.NodeID, gateway.NetID, err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	apiNode := node.ConvertToAPINode()
+	logger.Log(1, r.Header.Get("user"), "created egress gateway on node", gateway.NodeID, "on network", gateway.NetID)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(apiNode)
+
+	runUpdates(&node, true)
 }
 
 // swagger:route DELETE /api/nodes/{network}/{nodeid}/deletegateway nodes deleteEgressGateway
