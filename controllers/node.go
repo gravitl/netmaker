@@ -727,26 +727,26 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //				200: nodeResponse
 func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
-	logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("currently unimplemented"), "internal"))
-	//w.Header().Set("Content-Type", "application/json")
-	// var params = mux.Vars(r)
-	// nodeid := params["nodeid"]
-	// netid := params["network"]
-	// node, err := logic.DeleteEgressGateway(netid, nodeid)
-	//	if err != nil {
-	//		logger.Log(0, r.Header.Get("user"),
-	//			fmt.Sprintf("failed to delete egress gateway on node [%s] on network [%s]: %v",
-	//				nodeid, netid, err))
-	//		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-	//		return
-	//	}
-	//
-	// apiNode := node.ConvertToAPINode()
-	// logger.Log(1, r.Header.Get("user"), "deleted egress gateway on node", nodeid, "on network", netid)
-	// w.WriteHeader(http.StatusOK)
-	// json.NewEncoder(w).Encode(apiNode)
-	//
-	// runUpdates(&node, true)
+
+	w.Header().Set("Content-Type", "application/json")
+	var params = mux.Vars(r)
+	nodeid := params["nodeid"]
+	netid := params["network"]
+	node, err := logic.DeleteEgressGateway(netid, nodeid)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to delete egress gateway on node [%s] on network [%s]: %v",
+				nodeid, netid, err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	apiNode := node.ConvertToAPINode()
+	logger.Log(1, r.Header.Get("user"), "deleted egress gateway on node", nodeid, "on network", netid)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(apiNode)
+
+	runUpdates(&node, true)
 }
 
 // == INGRESS ==
