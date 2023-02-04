@@ -123,10 +123,6 @@ func ValidateEgressGateway(gateway models.EgressGatewayRequest) error {
 	if empty {
 		err = errors.New("IP Ranges Cannot Be Empty")
 	}
-	empty = gateway.Interface == ""
-	if empty {
-		err = errors.New("interface cannot be empty")
-	}
 	return err
 }
 

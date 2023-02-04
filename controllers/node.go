@@ -711,7 +711,9 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "created egress gateway on node", gateway.NodeID, "on network", gateway.NetID)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-
+	go func() {
+		mq.PublishPeerUpdate()
+	}()
 	runUpdates(&node, true)
 }
 
@@ -745,7 +747,9 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "deleted egress gateway on node", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-
+	go func() {
+		mq.PublishPeerUpdate()
+	}()
 	runUpdates(&node, true)
 }
 

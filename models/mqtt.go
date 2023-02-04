@@ -38,6 +38,7 @@ type IngressInfo struct {
 
 type EgressInfo struct {
 	EgressID     string                   `json:"egress_id" yaml:"egress_id"`
+	Network      string                   `json:"network" yaml:"network"`
 	EgressGwAddr net.IPNet                `json:"egress_gw_addr" yaml:"egress_gw_addr"`
 	GwPeers      map[string]PeerRouteInfo `json:"gateway_peers" yaml:"gateway_peers"`
 	EgressGWCfg  EgressGatewayRequest     `json:"egress_gateway_cfg" yaml:"egress_gateway_cfg"`

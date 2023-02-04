@@ -478,6 +478,7 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 			}
 			hostPeerUpdate.EgressInfo[node.ID.String()] = models.EgressInfo{
 				EgressID: node.ID.String(),
+				Network:  node.Network,
 				EgressGwAddr: net.IPNet{
 					IP:   net.ParseIP(node.PrimaryAddress()),
 					Mask: getCIDRMaskFromAddr(node.PrimaryAddress()),
