@@ -449,6 +449,7 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 							IP:   net.ParseIP(node.PrimaryAddress()),
 							Mask: getCIDRMaskFromAddr(node.PrimaryAddress()),
 						},
+						Network: node.PrimaryNetworkRange(),
 						ExtPeerAddr: net.IPNet{
 							IP:   net.ParseIP(extPeerIdAndAddr.Address),
 							Mask: getCIDRMaskFromAddr(extPeerIdAndAddr.Address),
