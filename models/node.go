@@ -72,6 +72,7 @@ type CommonNode struct {
 	LocalAddress        net.IPNet     `json:"localaddress" yaml:"localaddress"`
 	IsLocal             bool          `json:"islocal" yaml:"islocal"`
 	IsEgressGateway     bool          `json:"isegressgateway" yaml:"isegressgateway"`
+	EgressGatewayRanges []string      `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
 	IsIngressGateway    bool          `json:"isingressgateway" yaml:"isingressgateway"`
 	DNSOn               bool          `json:"dnson" yaml:"dnson"`
 	PersistentKeepalive time.Duration `json:"persistentkeepalive" yaml:"persistentkeepalive"`
@@ -85,7 +86,6 @@ type Node struct {
 	LastCheckIn             time.Time            `json:"lastcheckin" bson:"lastcheckin" yaml:"lastcheckin"`
 	LastPeerUpdate          time.Time            `json:"lastpeerupdate" bson:"lastpeerupdate" yaml:"lastpeerupdate"`
 	ExpirationDateTime      time.Time            `json:"expdatetime" bson:"expdatetime" yaml:"expdatetime"`
-	EgressGatewayRanges     []string             `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
 	EgressGatewayNatEnabled bool                 `json:"egressgatewaynatenabled" bson:"egressgatewaynatenabled" yaml:"egressgatewaynatenabled"`
 	EgressGatewayRequest    EgressGatewayRequest `json:"egressgatewayrequest" bson:"egressgatewayrequest" yaml:"egressgatewayrequest"`
 	IngressGatewayRange     string               `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
