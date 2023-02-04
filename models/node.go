@@ -195,6 +195,13 @@ func (node *Node) PrimaryAddress() string {
 	return node.Address6.IP.String()
 }
 
+func (node *Node) PrimaryNetworkRange() net.IPNet {
+	if node.NetworkRange.IP != nil {
+		return node.NetworkRange
+	}
+	return node.NetworkRange6
+}
+
 // Node.SetDefaultConnected
 func (node *Node) SetDefaultConnected() {
 	node.Connected = true
