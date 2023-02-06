@@ -53,8 +53,6 @@ spec:
           value: wireguard-go
         - name: DNS_MODE
           value: "off"
-        - name: CLIENT_MODE
-          value: "on"
         - name: DISPLAY_KEYS
           value: "on"
         - name: DATABASE

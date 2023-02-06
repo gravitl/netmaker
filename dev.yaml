@@ -15,7 +15,6 @@ server:
   restbackend: "on"
   agentbackend: "on"
   messagequeuebackend: "on"
-  clientmode: "on"
   dnsmode: "on"
   disableremoteipcheck: ""
   grpcssl: "on"

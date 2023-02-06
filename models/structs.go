@@ -227,7 +227,6 @@ type ServerConfig struct {
 	CoreDNSAddr string `yaml:"corednsaddr"`
 	API         string `yaml:"api"`
 	APIPort     string `yaml:"apiport"`
-	ClientMode  string `yaml:"clientmode"`
 	DNSMode     string `yaml:"dnsmode"`
 	Version     string `yaml:"version"`
 	MQPort      string `yaml:"mqport"`
