@@ -388,13 +388,15 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 	logger.Log(0, r.Header.Get("user"), "created new ext client on network", networkName)
 	w.WriteHeader(http.StatusOK)
-	err = mq.PublishExtPeerUpdate(&node)
-	if err != nil {
-		logger.Log(1, "error setting ext peers on "+nodeid+": "+err.Error())
-	}
-	if err := mq.PublishExtCLientDNS(&extclient); err != nil {
-		logger.Log(1, "error publishing extclient dns", err.Error())
-	}
+	go func() {
+		err = mq.PublishExtPeerUpdate(&node)
+		if err != nil {
+			logger.Log(1, "error setting ext peers on "+nodeid+": "+err.Error())
+		}
+		if err := mq.PublishExtCLientDNS(&extclient); err != nil {
+			logger.Log(1, "error publishing extclient dns", err.Error())
+		}
+	}()
 }
 
 // swagger:route PUT /api/extclients/{network}/{clientid} ext_client updateExtClient
