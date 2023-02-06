@@ -326,6 +326,7 @@ func PublishCustomDNS(entry *models.DNSEntry) error {
 	if err := PublishDNSUpdate(entry.Network, dns); err != nil {
 		return err
 	}
+	return nil
 }
 
 // function to collect and store metrics for server nodes
