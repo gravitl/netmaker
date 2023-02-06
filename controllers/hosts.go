@@ -279,6 +279,9 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		if err := mq.PublishPeerUpdate(); err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
 		}
+		if err := mq.PublishDNSDelete(node, currHost); err != nil {
+			logger.Log(1, "error publishing dns update", err.Error())
+		}
 	}()
 	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("removed host %s from network %s", currHost.Name, network))
 	w.WriteHeader(http.StatusOK)
