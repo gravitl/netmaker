@@ -191,6 +191,7 @@ func (node *Node) PrimaryAddress() string {
 	return node.Address6.IP.String()
 }
 
+// Node.PrimaryNetworkRange - returns node's parent network, returns ipv4 address if present, else return ipv6
 func (node *Node) PrimaryNetworkRange() net.IPNet {
 	if node.NetworkRange.IP != nil {
 		return node.NetworkRange

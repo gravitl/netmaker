@@ -36,6 +36,7 @@ type IngressInfo struct {
 	ExtPeers map[string]ExtClientInfo `json:"ext_peers" yaml:"ext_peers"`
 }
 
+// EgressInfo - struct for egress info
 type EgressInfo struct {
 	EgressID     string                   `json:"egress_id" yaml:"egress_id"`
 	Network      net.IPNet                `json:"network" yaml:"network"`
