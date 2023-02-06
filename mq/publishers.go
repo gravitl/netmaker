@@ -240,7 +240,7 @@ func PublishAllDNS(newnode *models.Node) error {
 
 func PublishDNSDelete(node *models.Node, host *models.Host) error {
 	dns := models.DNSUpdate{
-		Action: models.DNSDelete,
+		Action: models.DNSDeleteByIP,
 		Name:   host.Name + "." + node.Network,
 	}
 	if node.Address.IP != nil {
@@ -260,7 +260,7 @@ func PublishDNSDelete(node *models.Node, host *models.Host) error {
 
 func PublishReplaceDNS(oldNode, newNode *models.Node, host *models.Host) error {
 	dns := models.DNSUpdate{
-		Action: models.DNSReplace,
+		Action: models.DNSReplaceByIP,
 		Name:   host.Name + "." + oldNode.Network,
 	}
 	if !oldNode.Address.IP.Equal(newNode.Address.IP) {
@@ -325,6 +325,31 @@ func PublishCustomDNS(entry *models.DNSEntry) error {
 	}
 	if err := PublishDNSUpdate(entry.Network, dns); err != nil {
 		return err
+	}
+	return nil
+}
+
+type DNSError struct {
+	ErrorStrings []string
+}
+
+func (e DNSError) Error() string {
+	return "error publishing dns update"
+}
+func PublishHostDNSUpdate(old, new *models.Host, networks []string) error {
+	errors := DNSError{}
+	for _, network := range networks {
+		dns := models.DNSUpdate{
+			Action:  models.DNSReplaceName,
+			Name:    old.Name + "." + network,
+			NewName: new.Name + "." + network,
+		}
+		if err := PublishDNSUpdate(network, dns); err != nil {
+			errors.ErrorStrings = append(errors.ErrorStrings, err.Error())
+		}
+	}
+	if len(errors.ErrorStrings) > 0 {
+		return errors
 	}
 	return nil
 }

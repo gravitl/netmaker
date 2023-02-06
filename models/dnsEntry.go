@@ -4,15 +4,17 @@ package models
 type DNSUpdateAction int
 
 const (
-	DNSDelete = iota
+	DNSDeleteByIP = iota
 	DNSDeleteByName
+	DNSReplaceName
+	DNSReplaceByIP
 	DNSInsert
-	DNSReplace
 )
 
 type DNSUpdate struct {
 	Action  DNSUpdateAction
 	Name    string
+	NewName string
 	Address string
 }
 
