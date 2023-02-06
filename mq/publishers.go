@@ -278,6 +278,44 @@ func PublishReplaceDNS(oldNode, newNode *models.Node, host *models.Host) error {
 	return nil
 }
 
+func PublishExtCLientDNS(client *models.ExtClient) error {
+	var err4, err6 error
+	dns := models.DNSUpdate{
+		Action:  models.DNSInsert,
+		Name:    client.ClientID + "." + client.Network,
+		Address: client.Address,
+	}
+	if client.Address != "" {
+		dns.Address = client.Address
+		err4 = PublishDNSUpdate(client.Network, dns)
+	}
+	if client.Address6 != "" {
+		dns.Address = client.Address6
+		err6 = PublishDNSUpdate(client.Network, dns)
+	}
+	if err4 != nil && err6 != nil {
+		return fmt.Errorf("error publishing extclient dns update %w %w", err4, err6)
+	}
+	if err4 != nil {
+		return fmt.Errorf("error publishing extclient dns update %w", err4)
+	}
+	if err6 != nil {
+		return fmt.Errorf("error publishing extclient dns update %w", err6)
+	}
+	return nil
+}
+
+func PublishDeleteExtClientDNS(client *models.ExtClient) error {
+	dns := models.DNSUpdate{
+		Action: models.DNSDeleteByName,
+		Name:   client.ClientID,
+	}
+	if err := PublishDNSUpdate(client.Network, dns); err != nil {
+		return err
+	}
+	return nil
+}
+
 // function to collect and store metrics for server nodes
 //func collectServerMetrics(networks []models.Network) {
 //	if !servercfg.Is_EE {
