@@ -496,12 +496,14 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newclient)
 	if changedID {
-		if err := mq.PublishDeleteExtClientDNS(&oldExtClient); err != nil {
-			logger.Log(1, "error pubishing dns update for extcient update", err.Error())
-		}
-		if err := mq.PublishExtCLientDNS(&newExtClient); err != nil {
-			logger.Log(1, "error pubishing dns update for extcient update", err.Error())
-		}
+		go func() {
+			if err := mq.PublishDeleteExtClientDNS(&oldExtClient); err != nil {
+				logger.Log(1, "error pubishing dns update for extcient update", err.Error())
+			}
+			if err := mq.PublishExtCLientDNS(&newExtClient); err != nil {
+				logger.Log(1, "error pubishing dns update for extcient update", err.Error())
+			}
+		}()
 	}
 }
 
@@ -567,13 +569,15 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = mq.PublishExtPeerUpdate(&ingressnode)
-	if err != nil {
-		logger.Log(1, "error setting ext peers on "+ingressnode.ID.String()+": "+err.Error())
-	}
-	if err := mq.PublishDeleteExtClientDNS(&extclient); err != nil {
-		logger.Log(1, "error publishing dns update for extclient deletion", err.Error())
-	}
+	go func() {
+		err = mq.PublishExtPeerUpdate(&ingressnode)
+		if err != nil {
+			logger.Log(1, "error setting ext peers on "+ingressnode.ID.String()+": "+err.Error())
+		}
+		if err := mq.PublishDeleteExtClientDNS(&extclient); err != nil {
+			logger.Log(1, "error publishing dns update for extclient deletion", err.Error())
+		}
+	}()
 
 	logger.Log(0, r.Header.Get("user"),
 		"Deleted extclient client", params["clientid"], "from network", params["network"])

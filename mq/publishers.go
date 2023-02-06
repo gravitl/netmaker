@@ -160,6 +160,7 @@ func ServerStartNotify() error {
 	return nil
 }
 
+// PublishDNSUpdate publishes a dns update to all nodes on a network
 func PublishDNSUpdate(network string, dns models.DNSUpdate) error {
 	nodes, err := logic.GetNetworkNodes(network)
 	if err != nil {
@@ -184,6 +185,7 @@ func PublishDNSUpdate(network string, dns models.DNSUpdate) error {
 	return nil
 }
 
+// PublishAllDNS publishes an array of dns updates (ip / host.network) for each peer to a node joining a network
 func PublishAllDNS(newnode *models.Node) error {
 	alldns := []models.DNSUpdate{}
 	dns := models.DNSUpdate{}
@@ -238,6 +240,7 @@ func PublishAllDNS(newnode *models.Node) error {
 	return nil
 }
 
+// PublishDNSDelete publish a dns update deleting a node to all hosts on a network
 func PublishDNSDelete(node *models.Node, host *models.Host) error {
 	dns := models.DNSUpdate{
 		Action: models.DNSDeleteByIP,
@@ -258,9 +261,10 @@ func PublishDNSDelete(node *models.Node, host *models.Host) error {
 	return nil
 }
 
+// PublishReplaceNDS publish a dns update to replace a dns entry on all hosts in network
 func PublishReplaceDNS(oldNode, newNode *models.Node, host *models.Host) error {
 	dns := models.DNSUpdate{
-		Action: models.DNSReplaceByIP,
+		Action: models.DNSReplaceIP,
 		Name:   host.Name + "." + oldNode.Network,
 	}
 	if !oldNode.Address.IP.Equal(newNode.Address.IP) {
@@ -278,6 +282,7 @@ func PublishReplaceDNS(oldNode, newNode *models.Node, host *models.Host) error {
 	return nil
 }
 
+// PublishExtClientDNS publish dns update for new extclient
 func PublishExtCLientDNS(client *models.ExtClient) error {
 	var err4, err6 error
 	dns := models.DNSUpdate{
@@ -305,6 +310,7 @@ func PublishExtCLientDNS(client *models.ExtClient) error {
 	return nil
 }
 
+// PublishDeleteExtClient publish dns update to delete extclient entry
 func PublishDeleteExtClientDNS(client *models.ExtClient) error {
 	dns := models.DNSUpdate{
 		Action: models.DNSDeleteByName,
@@ -316,6 +322,7 @@ func PublishDeleteExtClientDNS(client *models.ExtClient) error {
 	return nil
 }
 
+// PublishCustomDNS publish dns update for new custom dns entry
 func PublishCustomDNS(entry *models.DNSEntry) error {
 	dns := models.DNSUpdate{
 		Action: models.DNSInsert,
@@ -329,13 +336,17 @@ func PublishCustomDNS(entry *models.DNSEntry) error {
 	return nil
 }
 
+// DNSError error struct capable of holding multiple error messages
 type DNSError struct {
 	ErrorStrings []string
 }
 
+// DNSError.Error implementation of error interface
 func (e DNSError) Error() string {
 	return "error publishing dns update"
 }
+
+// PublishHostDNSUpdate publishes dns update on host name change
 func PublishHostDNSUpdate(old, new *models.Host, networks []string) error {
 	errors := DNSError{}
 	for _, network := range networks {
