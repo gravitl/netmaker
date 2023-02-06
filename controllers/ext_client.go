@@ -493,6 +493,14 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newclient)
+	if changedID {
+		if err := mq.PublishDeleteExtClientDNS(&oldExtClient); err != nil {
+			logger.Log(1, "error pubishing dns update for extcient update", err.Error())
+		}
+		if err := mq.PublishExtCLientDNS(&newExtClient); err != nil {
+			logger.Log(1, "error pubishing dns update for extcient update", err.Error())
+		}
+	}
 }
 
 // swagger:route DELETE /api/extclients/{network}/{clientid} ext_client deleteExtClient
