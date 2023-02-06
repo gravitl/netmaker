@@ -964,6 +964,9 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(apiNode)
 
 	runUpdates(newNode, ifaceDelta)
+	if err := mq.PublishReplaceDNS(&currentNode, newNode, host); err != nil {
+		logger.Log(1, "failed to publish dns update", err.Error())
+	}
 }
 
 // swagger:route DELETE /api/nodes/{network}/{nodeid} nodes deleteNode

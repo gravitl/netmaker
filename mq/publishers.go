@@ -258,6 +258,26 @@ func PublishDNSDelete(node *models.Node, host *models.Host) error {
 	return nil
 }
 
+func PublishReplaceDNS(oldNode, newNode *models.Node, host *models.Host) error {
+	dns := models.DNSUpdate{
+		Action: models.DNSReplace,
+		Name:   host.Name + "." + oldNode.Network,
+	}
+	if !oldNode.Address.IP.Equal(newNode.Address.IP) {
+		dns.Address = newNode.Address.IP.String()
+		if err := PublishDNSUpdate(oldNode.Network, dns); err != nil {
+			return err
+		}
+	}
+	if !oldNode.Address6.IP.Equal(newNode.Address6.IP) {
+		dns.Address = newNode.Address6.IP.String()
+		if err := PublishDNSUpdate(oldNode.Network, dns); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // function to collect and store metrics for server nodes
 //func collectServerMetrics(networks []models.Network) {
 //	if !servercfg.Is_EE {
