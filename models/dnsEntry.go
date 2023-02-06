@@ -5,6 +5,7 @@ type DNSUpdateAction int
 
 const (
 	DNSDelete = iota
+	DNSDeleteByName
 	DNSInsert
 	DNSReplace
 )

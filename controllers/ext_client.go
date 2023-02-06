@@ -392,6 +392,9 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(1, "error setting ext peers on "+nodeid+": "+err.Error())
 	}
+	if err := mq.PublishExtCLientDNS(&extclient); err != nil {
+		logger.Log(1, "error publishing extclient dns", err.Error())
+	}
 }
 
 // swagger:route PUT /api/extclients/{network}/{clientid} ext_client updateExtClient
@@ -557,6 +560,9 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	err = mq.PublishExtPeerUpdate(&ingressnode)
 	if err != nil {
 		logger.Log(1, "error setting ext peers on "+ingressnode.ID.String()+": "+err.Error())
+	}
+	if err := mq.PublishDeleteExtClientDNS(&extclient); err != nil {
+		logger.Log(1, "error publishing dns update for extclient deletion", err.Error())
 	}
 
 	logger.Log(0, r.Header.Get("user"),
