@@ -1,6 +1,20 @@
 // TODO:  Either add a returnNetwork and returnKey, or delete this
 package models
 
+type DNSUpdateAction int
+
+const (
+	DNSDelete = iota
+	DNSInsert
+	DNSReplace
+)
+
+type DNSUpdate struct {
+	Action  DNSUpdateAction
+	Name    string
+	Address string
+}
+
 // DNSEntry - a DNS entry represented as struct
 type DNSEntry struct {
 	Address  string `json:"address" bson:"address" validate:"ip"`
