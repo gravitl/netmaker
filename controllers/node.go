@@ -671,15 +671,24 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	//runForceServerUpdate(&data.Node, true)
-	dns := models.DNSUpdate{
-		Action:  models.DNSInsert,
-		Address: data.Node.Address.IP.String(),
-		Name:    data.Host.Name + data.Node.Network,
-	}
 	go func() {
-		//publish new node dns entry to all nodes on network
-		if err := mq.PublishDNSUpdate(data.Node.Network, dns); err != nil {
-			logger.Log(1, "failed to publish dns update on node creation", err.Error())
+		dns := models.DNSUpdate{
+			Action: models.DNSInsert,
+			Name:   data.Host.Name + data.Node.Network,
+		}
+		if data.Node.Address.IP != nil {
+			dns.Address = data.Node.Address.IP.String()
+			//publish new node dns entry to all nodes on network
+			if err := mq.PublishDNSUpdate(data.Node.Network, dns); err != nil {
+				logger.Log(1, "failed to publish dns update on node creation", err.Error())
+			}
+		}
+		if data.Node.Address6.IP != nil {
+			dns.Address = data.Node.Address6.IP.String()
+			//publish new node dns entry to all nodes on network
+			if err := mq.PublishDNSUpdate(data.Node.Network, dns); err != nil {
+				logger.Log(1, "failed to publish dns update on node creation", err.Error())
+			}
 		}
 		//publish add dns records for network to new node
 		if err := mq.PublishAllDNS(&data.Node); err != nil {
