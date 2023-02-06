@@ -80,6 +80,8 @@ const (
 	FETCH_ALL = "fetchall"
 	// CLOSE_DB - graceful close of db const
 	CLOSE_DB = "closedb"
+	// isconnected
+	isConnected = "isconnected"
 )
 
 func getCurrentDB() map[string]interface{} {
@@ -240,4 +242,9 @@ func initializeUUID() error {
 // CloseDB - closes a database gracefully
 func CloseDB() {
 	getCurrentDB()[CLOSE_DB].(func())()
+}
+
+// IsConnected - tell if the database is connected or not
+func IsConnected() bool {
+	return getCurrentDB()[isConnected].(func() bool)()
 }

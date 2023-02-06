@@ -20,6 +20,7 @@ var RQLITE_FUNCTIONS = map[string]interface{}{
 	DELETE_ALL:   rqliteDeleteAllRecords,
 	FETCH_ALL:    rqliteFetchRecords,
 	CLOSE_DB:     rqliteCloseDB,
+	isConnected:  rqliteConnected,
 }
 
 func initRqliteDatabase() error {
@@ -103,4 +104,9 @@ func rqliteFetchRecords(tableName string) (map[string]string, error) {
 
 func rqliteCloseDB() {
 	RQliteDatabase.Close()
+}
+
+func rqliteConnected() bool {
+	leader, err := RQliteDatabase.Leader()
+	return err == nil && len(leader) > 0
 }
