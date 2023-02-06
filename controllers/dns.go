@@ -224,6 +224,14 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	json.NewEncoder(w).Encode(entrytext + " deleted.")
+	dns := models.DNSUpdate{
+		Action: models.DNSDeleteByName,
+		Name:   entrytext,
+	}
+	if err := mq.PublishDNSUpdate(params["network"], dns); err != nil {
+		logger.Log(0, "failed to publish dns update", err.Error())
+	}
+
 }
 
 // GetDNSEntry - gets a DNS entry
