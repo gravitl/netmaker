@@ -160,12 +160,6 @@ type EgressGatewayRequest struct {
 	NetID      string   `json:"netid" bson:"netid"`
 	NatEnabled string   `json:"natenabled" bson:"natenabled"`
 	Ranges     []string `json:"ranges" bson:"ranges"`
-<<<<<<< Updated upstream
-	Interface  string   `json:"interface" bson:"interface"`
-=======
-	PostUp     string   `json:"postup" bson:"postup"`
-	PostDown   string   `json:"postdown" bson:"postdown"`
->>>>>>> Stashed changes
 }
 
 // RelayRequest - relay request struct
