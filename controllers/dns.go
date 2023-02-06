@@ -176,12 +176,14 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(1, "new DNS record added:", entry.Name)
 	if servercfg.IsMessageQueueBackend() {
-		if err = mq.PublishPeerUpdate(); err != nil {
-			logger.Log(0, "failed to publish peer update after ACL update on", entry.Network)
-		}
-		if err := mq.PublishCustomDNS(&entry); err != nil {
-			logger.Log(0, "error publishing custom dns", err.Error())
-		}
+		go func() {
+			if err = mq.PublishPeerUpdate(); err != nil {
+				logger.Log(0, "failed to publish peer update after ACL update on", entry.Network)
+			}
+			if err := mq.PublishCustomDNS(&entry); err != nil {
+				logger.Log(0, "error publishing custom dns", err.Error())
+			}
+		}()
 	}
 	logger.Log(2, r.Header.Get("user"),
 		fmt.Sprintf("DNS entry is set: %+v", entry))
@@ -224,13 +226,15 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	json.NewEncoder(w).Encode(entrytext + " deleted.")
-	dns := models.DNSUpdate{
-		Action: models.DNSDeleteByName,
-		Name:   entrytext,
-	}
-	if err := mq.PublishDNSUpdate(params["network"], dns); err != nil {
-		logger.Log(0, "failed to publish dns update", err.Error())
-	}
+	go func() {
+		dns := models.DNSUpdate{
+			Action: models.DNSDeleteByName,
+			Name:   entrytext,
+		}
+		if err := mq.PublishDNSUpdate(params["network"], dns); err != nil {
+			logger.Log(0, "failed to publish dns update", err.Error())
+		}
+	}()
 
 }
 
