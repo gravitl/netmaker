@@ -1,16 +1,23 @@
 // TODO:  Either add a returnNetwork and returnKey, or delete this
 package models
 
+// DNSUpdateAction identifies the action to be performed with the dns update data
 type DNSUpdateAction int
 
 const (
+	// DNSDeleteByIP delete the dns entry
 	DNSDeleteByIP = iota
+	// DNSDeleteByName delete the dns entry
 	DNSDeleteByName
+	// DNSReplaceName replace the dns entry
 	DNSReplaceName
-	DNSReplaceByIP
+	// DNSReplaceIP resplace the dns entry
+	DNSReplaceIP
+	// DNSInsert insert a new dns entry
 	DNSInsert
 )
 
+// DNSUpdate data for updating entries in /etc/hosts
 type DNSUpdate struct {
 	Action  DNSUpdateAction
 	Name    string
