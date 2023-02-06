@@ -674,7 +674,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		dns := models.DNSUpdate{
 			Action: models.DNSInsert,
-			Name:   data.Host.Name + data.Node.Network,
+			Name:   data.Host.Name + "." + data.Node.Network,
 		}
 		if data.Node.Address.IP != nil {
 			dns.Address = data.Node.Address.IP.String()
@@ -1013,6 +1013,13 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	go func() { // notify of peer change
 		if err := mq.PublishPeerUpdate(); err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
+		}
+		host, err := logic.GetHost(node.HostID.String())
+		if err != nil {
+			logger.Log(1, "failed to retrieve host for node", node.ID.String(), err.Error())
+		}
+		if err := mq.PublishDNSDelete(&node, host); err != nil {
+			logger.Log(1, "error publishing dns update", err.Error())
 		}
 	}()
 }

@@ -238,6 +238,26 @@ func PublishAllDNS(newnode *models.Node) error {
 	return nil
 }
 
+func PublishDNSDelete(node *models.Node, host *models.Host) error {
+	dns := models.DNSUpdate{
+		Action: models.DNSDelete,
+		Name:   host.Name + "." + node.Network,
+	}
+	if node.Address.IP != nil {
+		dns.Address = node.Address.IP.String()
+		if err := PublishDNSUpdate(node.Network, dns); err != nil {
+			return fmt.Errorf("dns update node deletion %w", err)
+		}
+	}
+	if node.Address6.IP != nil {
+		dns.Address = node.Address6.IP.String()
+		if err := PublishDNSUpdate(node.Network, dns); err != nil {
+			return fmt.Errorf("dns update node deletion %w", err)
+		}
+	}
+	return nil
+}
+
 // function to collect and store metrics for server nodes
 //func collectServerMetrics(networks []models.Network) {
 //	if !servercfg.Is_EE {
