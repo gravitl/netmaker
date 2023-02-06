@@ -316,6 +316,18 @@ func PublishDeleteExtClientDNS(client *models.ExtClient) error {
 	return nil
 }
 
+func PublishCustomDNS(entry *models.DNSEntry) error {
+	dns := models.DNSUpdate{
+		Action: models.DNSInsert,
+		Name:   entry.Name,
+		//entry.Address6 is never used
+		Address: entry.Address,
+	}
+	if err := PublishDNSUpdate(entry.Network, dns); err != nil {
+		return err
+	}
+}
+
 // function to collect and store metrics for server nodes
 //func collectServerMetrics(networks []models.Network) {
 //	if !servercfg.Is_EE {
