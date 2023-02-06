@@ -109,6 +109,19 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 		if err := mq.PublishPeerUpdate(); err != nil {
 			logger.Log(0, "fail to publish peer update: ", err.Error())
 		}
+		if newHost.Name != currHost.Name {
+			networks := logic.GetHostNetworks(currHost.ID.String())
+			if err := mq.PublishHostDNSUpdate(currHost, newHost, networks); err != nil {
+				var dnsError *mq.DNSError
+				if errors.Is(err, dnsError) {
+					for _, message := range err.(mq.DNSError).ErrorStrings {
+						logger.Log(0, message)
+					}
+				} else {
+					logger.Log(0, err.Error())
+				}
+			}
+		}
 	}()
 
 	apiHostData := newHost.ConvertNMHostToAPI()
