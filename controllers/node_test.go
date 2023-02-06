@@ -49,11 +49,7 @@ func TestCreateEgressGateway(t *testing.T) {
 
 		node, err := logic.CreateEgressGateway(gateway)
 		t.Log(node.EgressGatewayNatEnabled)
-		t.Log(node.PostUp)
-		t.Log(node.PostDown)
 		assert.Nil(t, err)
-		assert.Contains(t, node.PostUp, "-j MASQUERADE")
-		assert.Contains(t, node.PostDown, "-j MASQUERADE")
 	})
 	t.Run("Success-Nat-Disabled", func(t *testing.T) {
 		deleteAllNodes()
@@ -63,11 +59,7 @@ func TestCreateEgressGateway(t *testing.T) {
 
 		node, err := logic.CreateEgressGateway(gateway)
 		t.Log(node.EgressGatewayNatEnabled)
-		t.Log(node.PostUp)
-		t.Log(node.PostDown)
 		assert.Nil(t, err)
-		assert.NotContains(t, node.PostUp, "-j MASUERADE")
-		assert.NotContains(t, node.PostDown, "-j MASUERADE")
 	})
 	t.Run("Success", func(t *testing.T) {
 		var gateway models.EgressGatewayRequest
@@ -81,8 +73,6 @@ func TestCreateEgressGateway(t *testing.T) {
 		node, err := logic.CreateEgressGateway(gateway)
 		t.Log(node)
 		assert.Nil(t, err)
-		assert.Contains(t, node.PostUp, "-j MASQUERADE")
-		assert.Contains(t, node.PostDown, "-j MASQUERADE")
 		assert.Equal(t, true, node.IsEgressGateway)
 		assert.Equal(t, gateway.Ranges, node.EgressGatewayRanges)
 	})
@@ -107,16 +97,12 @@ func TestDeleteEgressGateway(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, false, node.IsEgressGateway)
 		assert.Equal(t, []string([]string{}), node.EgressGatewayRanges)
-		assert.Equal(t, "", node.PostUp)
-		assert.Equal(t, "", node.PostDown)
 	})
 	t.Run("NotGateway", func(t *testing.T) {
 		node, err := logic.DeleteEgressGateway(gateway.NetID, gateway.NodeID)
 		assert.Nil(t, err)
 		assert.Equal(t, false, node.IsEgressGateway)
 		assert.Equal(t, []string([]string{}), node.EgressGatewayRanges)
-		assert.Equal(t, "", node.PostUp)
-		assert.Equal(t, "", node.PostDown)
 	})
 	t.Run("BadNode", func(t *testing.T) {
 		node, err := logic.DeleteEgressGateway(gateway.NetID, "01:02:03")

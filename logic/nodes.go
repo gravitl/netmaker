@@ -247,14 +247,6 @@ func SetNodeDefaults(node *models.Node) {
 	if node.PersistentKeepalive == 0 {
 		node.PersistentKeepalive = time.Second * time.Duration(parentNetwork.DefaultKeepalive)
 	}
-	if node.PostUp == "" {
-		postup := parentNetwork.DefaultPostUp
-		node.PostUp = postup
-	}
-	if node.PostDown == "" {
-		postdown := parentNetwork.DefaultPostDown
-		node.PostDown = postdown
-	}
 	node.SetLastModified()
 	node.SetLastCheckIn()
 	node.SetDefaultConnected()

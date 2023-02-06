@@ -907,11 +907,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	if currentNode.IsRelayed && (currentNode.Address.String() != newNode.Address.String() || currentNode.Address6.String() != newNode.Address6.String()) {
 		relayedUpdate = true
 	}
-
-	if !servercfg.GetRce() {
-		newNode.PostDown = currentNode.PostDown
-		newNode.PostUp = currentNode.PostUp
-	}
 	ifaceDelta := logic.IfaceDelta(&currentNode, newNode)
 
 	if ifaceDelta && servercfg.Is_EE {
