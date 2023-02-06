@@ -160,6 +160,84 @@ func ServerStartNotify() error {
 	return nil
 }
 
+func PublishDNSUpdate(network string, dns models.DNSUpdate) error {
+	nodes, err := logic.GetNetworkNodes(network)
+	if err != nil {
+		return err
+	}
+	for _, node := range nodes {
+		host, err := logic.GetHost(node.HostID.String())
+		if err != nil {
+			logger.Log(0, "error retrieving host for dns update", host.ID.String(), err.Error())
+			continue
+		}
+		data, err := json.Marshal(dns)
+		if err != nil {
+			logger.Log(0, "failed to encode dns data for node", node.ID.String(), err.Error())
+		}
+		if err := publish(host, "network/"+host.ID.String()+"/dns", data); err != nil {
+			logger.Log(0, "error publishing dns update to host", host.ID.String(), err.Error())
+			continue
+		}
+		logger.Log(3, "published dns update to host", host.ID.String())
+	}
+	return nil
+}
+
+func PublishAllDNS(newnode *models.Node) error {
+	alldns := []models.DNSUpdate{}
+	dns := models.DNSUpdate{}
+	newnodeHost, err := logic.GetHost(newnode.HostID.String())
+	if err != nil {
+		return fmt.Errorf("error retrieving host for dns update %w", err)
+	}
+	nodes, err := logic.GetNetworkNodes(newnode.Network)
+	if err != nil {
+		return err
+	}
+	for _, node := range nodes {
+		if node.ID == newnode.ID {
+			//skip self
+			continue
+		}
+		host, err := logic.GetHost(node.HostID.String())
+		if err != nil {
+			logger.Log(0, "error retrieving host for dns update", host.ID.String(), err.Error())
+			continue
+		}
+		if node.Address.IP != nil {
+			dns.Action = models.DNSInsert
+			dns.Name = host.Name + "." + node.Network
+			dns.Address = node.Address.IP.String()
+			alldns = append(alldns, dns)
+		}
+		if node.Address6.IP != nil {
+			dns.Action = models.DNSInsert
+			dns.Name = host.Name + "." + node.Network
+			dns.Address = node.Address6.IP.String()
+			alldns = append(alldns, dns)
+		}
+	}
+	entries, err := logic.GetCustomDNS(newnode.Network)
+	if err != nil {
+		logger.Log(0, "error retrieving custom dns entries", err.Error())
+	}
+	for _, entry := range entries {
+		dns.Action = models.DNSInsert
+		dns.Address = entry.Address
+		dns.Name = entry.Name
+		alldns = append(alldns, dns)
+	}
+	data, err := json.Marshal(alldns)
+	if err != nil {
+		return fmt.Errorf("error encoding dnd data %w", err)
+	}
+	if err := publish(newnodeHost, "network/"+newnodeHost.ID.String()+"/fulldns", data); err != nil {
+		return fmt.Errorf("error publish full dns update to %s, %w", newnodeHost.ID.String(), err)
+	}
+	return nil
+}
+
 // function to collect and store metrics for server nodes
 //func collectServerMetrics(networks []models.Network) {
 //	if !servercfg.Is_EE {
