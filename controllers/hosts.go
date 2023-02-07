@@ -97,10 +97,6 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 	if updateRelay {
 		logic.UpdateHostRelay(currHost.ID.String(), currHost.RelayedHosts, newHost.RelayedHosts)
 	}
-<<<<<<< HEAD
-=======
-
->>>>>>> f4851937c1746475fdac99e9c562623128ba16b1
 	// publish host update through MQ
 	if err := mq.HostUpdate(&models.HostUpdate{
 		Action: models.UpdateHost,
