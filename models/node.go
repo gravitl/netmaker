@@ -15,7 +15,7 @@ const (
 	// NODE_SERVER_NAME - the default server name
 	NODE_SERVER_NAME = "netmaker"
 	// TEN_YEARS_IN_SECONDS - ten years in seconds
-	TEN_YEARS_IN_SECONDS = 300000000
+	TEN_YEARS_IN_SECONDS = 315670000000000000
 	// MAX_NAME_LENGTH - max name length of node
 	MAX_NAME_LENGTH = 62
 	// == ACTIONS == (can only be set by server)
@@ -66,8 +66,6 @@ type CommonNode struct {
 	Connected           bool          `json:"connected" yaml:"connected"`
 	Address             net.IPNet     `json:"address" yaml:"address"`
 	Address6            net.IPNet     `json:"address6" yaml:"address6"`
-	PostUp              string        `json:"postup" yaml:"postup"`
-	PostDown            string        `json:"postdown" yaml:"postdown"`
 	Action              string        `json:"action" yaml:"action"`
 	LocalAddress        net.IPNet     `json:"localaddress" yaml:"localaddress"`
 	IsLocal             bool          `json:"islocal" yaml:"islocal"`
@@ -115,8 +113,6 @@ type LegacyNode struct {
 	ProxyListenPort         int32                `json:"proxy_listen_port" bson:"proxy_listen_port" yaml:"proxy_listen_port" validate:"numeric,min=0,max=65535"`
 	PublicKey               string               `json:"publickey" bson:"publickey" yaml:"publickey" validate:"required,base64"`
 	Endpoint                string               `json:"endpoint" bson:"endpoint" yaml:"endpoint" validate:"required,ip"`
-	PostUp                  string               `json:"postup" bson:"postup" yaml:"postup"`
-	PostDown                string               `json:"postdown" bson:"postdown" yaml:"postdown"`
 	AllowedIPs              []string             `json:"allowedips" bson:"allowedips" yaml:"allowedips"`
 	PersistentKeepalive     int32                `json:"persistentkeepalive" bson:"persistentkeepalive" yaml:"persistentkeepalive" validate:"omitempty,numeric,max=1000"`
 	IsHub                   string               `json:"ishub" bson:"ishub" yaml:"ishub" validate:"checkyesorno"`
@@ -150,7 +146,6 @@ type LegacyNode struct {
 	IsServer        string      `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
 	Action          string      `json:"action" bson:"action" yaml:"action"`
 	IsLocal         string      `json:"islocal" bson:"islocal" yaml:"islocal" validate:"checkyesorno"`
-	LocalRange      string      `json:"localrange" bson:"localrange" yaml:"localrange"`
 	IPForwarding    string      `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
 	OS              string      `json:"os" bson:"os" yaml:"os"`
 	MTU             int32       `json:"mtu" bson:"mtu" yaml:"mtu"`
@@ -197,13 +192,8 @@ func (node *Node) PrimaryAddress() string {
 }
 
 // Node.SetDefaultConnected
-func (node *LegacyNode) SetDefaultConnected() {
-	if node.Connected == "" {
-		node.Connected = "yes"
-	}
-	if node.IsServer == "yes" {
-		node.Connected = "yes"
-	}
+func (node *Node) SetDefaultConnected() {
+	node.Connected = true
 }
 
 // Node.SetDefaultACL
@@ -374,12 +364,6 @@ func (newNode *Node) Fill(currentNode *Node) { // TODO add new field for nftable
 	if newNode.Address6.String() == "" {
 		newNode.Address6 = currentNode.Address6
 	}
-	if newNode.PostUp == "" {
-		newNode.PostUp = currentNode.PostUp
-	}
-	if newNode.PostDown == "" {
-		newNode.PostDown = currentNode.PostDown
-	}
 	if newNode.PersistentKeepalive < 0 {
 		newNode.PersistentKeepalive = currentNode.PersistentKeepalive
 	}
@@ -495,13 +479,6 @@ func (ln *LegacyNode) ConvertToNewNode() (*Host, *Node) {
 		host.HostPass = ln.Password
 		host.Name = ln.Name
 		host.ListenPort = int(ln.ListenPort)
-		if _, cidr, err := net.ParseCIDR(ln.LocalAddress); err == nil {
-			host.LocalRange = *cidr
-		} else {
-			if _, cidr, err := net.ParseCIDR(ln.LocalRange); err == nil {
-				host.LocalRange = *cidr
-			}
-		}
 		host.ProxyListenPort = int(ln.ProxyListenPort)
 		host.MTU = int(ln.MTU)
 		host.PublicKey, _ = wgtypes.ParseKey(ln.PublicKey)
@@ -540,8 +517,6 @@ func (ln *LegacyNode) ConvertToNewNode() (*Host, *Node) {
 			Mask: net.CIDRMask(128, 128),
 		}
 	}
-	node.PostUp = ln.PostUp
-	node.PostDown = ln.PostDown
 	node.Action = ln.Action
 	node.IsLocal = parseBool(ln.IsLocal)
 	node.IsEgressGateway = parseBool(ln.IsEgressGateway)
@@ -565,8 +540,6 @@ func (n *Node) Legacy(h *Host, s *ServerConfig, net *Network) *LegacyNode {
 	l.ProxyListenPort = int32(h.ProxyListenPort)
 	l.PublicKey = h.PublicKey.String()
 	l.Endpoint = h.EndpointIP.String()
-	l.PostUp = n.PostUp
-	l.PostDown = n.PostDown
 	//l.AllowedIPs =
 	l.AccessKey = ""
 	l.Interface = WIREGUARD_INTERFACE
@@ -594,7 +567,6 @@ func (n *Node) Legacy(h *Host, s *ServerConfig, net *Network) *LegacyNode {
 	l.DNSOn = formatBool(n.DNSOn)
 	l.Action = n.Action
 	l.IsLocal = formatBool(n.IsLocal)
-	l.LocalRange = h.LocalRange.String()
 	l.IPForwarding = formatBool(h.IPForwarding)
 	l.OS = h.OS
 	l.MTU = int32(h.MTU)

@@ -76,15 +76,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.ClientID = authInfo[1]
 	cfg.ClientSecret = authInfo[2]
 	cfg.FrontendURL = GetFrontendURL()
-	if GetRce() {
-		cfg.RCE = "on"
-	} else {
-		cfg.RCE = "off"
-	}
 	cfg.Telemetry = Telemetry()
-	cfg.ManageIPTables = ManageIPTables()
-	services := strings.Join(GetPortForwardServiceList(), ",")
-	cfg.PortForwardServices = services
 	cfg.Server = GetServer()
 	cfg.Verbosity = GetVerbosity()
 	cfg.IsEE = "no"
@@ -379,18 +371,6 @@ func Telemetry() string {
 	return telemetry
 }
 
-// ManageIPTables - checks if iptables should be manipulated on host
-func ManageIPTables() string {
-	manage := "on"
-	if os.Getenv("MANAGE_IPTABLES") == "off" {
-		manage = "off"
-	}
-	if config.Config.Server.ManageIPTables == "off" {
-		manage = "off"
-	}
-	return manage
-}
-
 // GetServer - gets the server name
 func GetServer() string {
 	server := ""
@@ -528,19 +508,6 @@ func GetPlatform() string {
 	return platform
 }
 
-// GetIPForwardServiceList - get the list of services that the server should be forwarding
-func GetPortForwardServiceList() []string {
-	//services := "mq,dns,ssh"
-	services := ""
-	if os.Getenv("PORT_FORWARD_SERVICES") != "" {
-		services = os.Getenv("PORT_FORWARD_SERVICES")
-	} else if config.Config.Server.PortForwardServices != "" {
-		services = config.Config.Server.PortForwardServices
-	}
-	serviceSlice := strings.Split(services, ",")
-	return serviceSlice
-}
-
 // GetSQLConn - get the sql connection string
 func GetSQLConn() string {
 	sqlconn := "http://"
@@ -550,17 +517,6 @@ func GetSQLConn() string {
 		sqlconn = config.Config.Server.SQLConn
 	}
 	return sqlconn
-}
-
-// IsHostNetwork - checks if running on host network
-func IsHostNetwork() bool {
-	ishost := false
-	if os.Getenv("HOST_NETWORK") == "on" {
-		ishost = true
-	} else if config.Config.Server.HostNetwork == "on" {
-		ishost = true
-	}
-	return ishost
 }
 
 // GetNodeID - gets the node id
@@ -638,11 +594,6 @@ func GetAzureTenant() string {
 		azureTenant = config.Config.Server.AzureTenant
 	}
 	return azureTenant
-}
-
-// GetRce - sees if Rce is enabled, off by default
-func GetRce() bool {
-	return os.Getenv("RCE") == "on" || config.Config.Server.RCE == "on"
 }
 
 // GetMQServerPort - get mq port for server

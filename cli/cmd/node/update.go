@@ -34,8 +34,6 @@ var nodeUpdateCmd = &cobra.Command{
 			node.Address = address
 			node.Address6 = address6
 			node.LocalAddress = localAddress
-			node.PostUp = postUp
-			node.PostDown = postDown
 			node.PersistentKeepalive = int32(keepAlive)
 			if relayAddrs != "" {
 				node.RelayAddrs = strings.Split(relayAddrs, ",")
@@ -50,6 +48,7 @@ var nodeUpdateCmd = &cobra.Command{
 			node.DNSOn = dnsOn
 			node.Connected = !disconnect
 		}
+		node.HostID = functions.GetNodeByID(networkName, nodeID).Host.ID.String()
 		functions.PrettyPrint(functions.UpdateNode(networkName, nodeID, node))
 	},
 }

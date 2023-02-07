@@ -74,14 +74,27 @@ func GetNodeDNS(network string) ([]models.DNSEntry, error) {
 	}
 
 	for _, value := range collection {
-		var entry models.DNSEntry
 		var node models.Node
 		if err = json.Unmarshal([]byte(value), &node); err != nil {
 			continue
 		}
-		if err = json.Unmarshal([]byte(value), &entry); node.Network == network && err == nil {
-			dns = append(dns, entry)
+		if node.Network != network {
+			continue
 		}
+		host, err := GetHost(node.HostID.String())
+		if err != nil {
+			continue
+		}
+		var entry = models.DNSEntry{}
+		entry.Name = host.Name
+		entry.Network = network
+		if node.Address.IP != nil {
+			entry.Address = node.Address.IP.String()
+		}
+		if node.Address6.IP != nil {
+			entry.Address6 = node.Address6.IP.String()
+		}
+		dns = append(dns, entry)
 	}
 
 	return dns, nil
@@ -220,9 +233,6 @@ func ValidateDNSUpdate(change models.DNSEntry, entry models.DNSEntry) error {
 	})
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
 		_, err := GetParentNetwork(change.Network)
-		if err != nil {
-			logger.Log(0, err.Error())
-		}
 		return err == nil
 	})
 
@@ -244,4 +254,21 @@ func DeleteDNS(domain string, network string) error {
 	}
 	err = database.DeleteRecord(database.DNS_TABLE_NAME, key)
 	return err
+}
+
+// CreateDNS - creates a DNS entry
+func CreateDNS(entry models.DNSEntry) (models.DNSEntry, error) {
+
+	k, err := GetRecordKey(entry.Name, entry.Network)
+	if err != nil {
+		return models.DNSEntry{}, err
+	}
+
+	data, err := json.Marshal(&entry)
+	if err != nil {
+		return models.DNSEntry{}, err
+	}
+
+	err = database.Insert(k, string(data), database.DNS_TABLE_NAME)
+	return entry, err
 }

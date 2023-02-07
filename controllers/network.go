@@ -185,13 +185,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
-	if !servercfg.GetRce() {
-		newNetwork.DefaultPostDown = network.DefaultPostDown
-		newNetwork.DefaultPostUp = network.DefaultPostUp
-	}
-
-	rangeupdate4, rangeupdate6, localrangeupdate, holepunchupdate, groupsDelta, userDelta, err := logic.UpdateNetwork(&network, &newNetwork)
+	rangeupdate4, rangeupdate6, holepunchupdate, groupsDelta, userDelta, err := logic.UpdateNetwork(&network, &newNetwork)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update network: ",
 			err.Error())
@@ -237,17 +231,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if localrangeupdate {
-		err = logic.UpdateNetworkLocalAddresses(network.NetID)
-		if err != nil {
-			logger.Log(0, r.Header.Get("user"),
-				fmt.Sprintf("failed to update network [%s] local addresses: %v",
-					network.NetID, err.Error()))
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-	}
-	if rangeupdate4 || rangeupdate6 || localrangeupdate || holepunchupdate {
+	if rangeupdate4 || rangeupdate6 || holepunchupdate {
 		nodes, err := logic.GetNetworkNodes(network.NetID)
 		if err != nil {
 			logger.Log(0, r.Header.Get("user"),

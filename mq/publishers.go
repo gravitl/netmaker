@@ -6,12 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	proxy_models "github.com/gravitl/netclient/nmproxy/models"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
-	"github.com/gravitl/netmaker/serverctl"
 )
 
 // PublishPeerUpdate --- determines and publishes a peer update to all the hosts
@@ -26,6 +24,7 @@ func PublishPeerUpdate() error {
 		return err
 	}
 	for _, host := range hosts {
+		host := host
 		err = PublishSingleHostUpdate(&host)
 		if err != nil {
 			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
@@ -46,7 +45,7 @@ func PublishSingleHostUpdate(host *models.Host) error {
 		if err != nil {
 			return err
 		}
-		proxyUpdate.Action = proxy_models.ProxyUpdate
+		proxyUpdate.Action = models.ProxyUpdate
 		peerUpdate.ProxyUpdate = proxyUpdate
 	}
 
@@ -123,13 +122,7 @@ func sendPeers() {
 	var force bool
 	peer_force_send++
 	if peer_force_send == 5 {
-
-		// run iptables update to ensure gateways work correctly and mq is forwarded if containerized
-		if servercfg.ManageIPTables() != "off" {
-			serverctl.InitIPTables(false)
-		}
 		servercfg.SetHost()
-
 		force = true
 		peer_force_send = 0
 		err := logic.TimerCheckpoint() // run telemetry & log dumps if 24 hours has passed..
@@ -142,6 +135,7 @@ func sendPeers() {
 
 	for _, host := range hosts {
 		if force {
+			host := host
 			logger.Log(2, "sending scheduled peer update (5 min)")
 			err = PublishSingleHostUpdate(&host)
 			if err != nil {

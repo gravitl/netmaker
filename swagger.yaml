@@ -105,12 +105,6 @@ definitions:
             nodeid:
                 type: string
                 x-go-name: NodeID
-            postdown:
-                type: string
-                x-go-name: PostDown
-            postup:
-                type: string
-                x-go-name: PostUp
             ranges:
                 items:
                     type: string
@@ -270,12 +264,6 @@ definitions:
                 format: int32
                 type: integer
                 x-go-name: DefaultMTU
-            defaultpostdown:
-                type: string
-                x-go-name: DefaultPostDown
-            defaultpostup:
-                type: string
-                x-go-name: DefaultPostUp
             defaultudpholepunch:
                 type: string
                 x-go-name: DefaultUDPHolePunch
@@ -291,9 +279,6 @@ definitions:
             ispointtosite:
                 type: string
                 x-go-name: IsPointToSite
-            localrange:
-                type: string
-                x-go-name: LocalRange
             netid:
                 type: string
                 x-go-name: NetID
@@ -432,9 +417,6 @@ definitions:
                 format: int32
                 type: integer
                 x-go-name: LocalListenPort
-            localrange:
-                type: string
-                x-go-name: LocalRange
             macaddress:
                 type: string
                 x-go-name: MacAddress
@@ -460,12 +442,6 @@ definitions:
                 format: int32
                 type: integer
                 x-go-name: PersistentKeepalive
-            postdown:
-                type: string
-                x-go-name: PostDown
-            postup:
-                type: string
-                x-go-name: PostUp
             publickey:
                 type: string
                 x-go-name: PublicKey
@@ -643,8 +619,6 @@ definitions:
             PortForwardServices:
                 type: string
             PublicIPService:
-                type: string
-            RCE:
                 type: string
             RestBackend:
                 type: string

@@ -237,12 +237,12 @@ func IsIPUnique(network string, ip string, tableName string, isIpv6 bool) bool {
 				continue
 			}
 			if isIpv6 {
-				if (extClient.Address6 == ip || extClient.InternalIPAddr6 == ip) && extClient.Network == network {
+				if (extClient.Address6 == ip) && extClient.Network == network {
 					return false
 				}
 
 			} else {
-				if (extClient.Address == ip || extClient.InternalIPAddr == ip) && extClient.Network == network {
+				if (extClient.Address == ip) && extClient.Network == network {
 					return false
 				}
 			}
@@ -296,60 +296,6 @@ func UniqueAddress6(networkName string, reverse bool) (net.IP, error) {
 	}
 
 	return add, errors.New("ERROR: No unique IPv6 addresses available. Check network subnet")
-}
-
-// GetLocalIP - gets the local ip
-func GetLocalIP(node models.Node) string {
-	var local string
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		return local
-	}
-	host, err := GetHost(node.HostID.String())
-	if err != nil {
-		return local
-	}
-	localrange := host.LocalRange
-	found := false
-	for _, i := range ifaces {
-		if i.Flags&net.FlagUp == 0 {
-			continue // interface down
-		}
-		if i.Flags&net.FlagLoopback != 0 {
-			continue // loopback interface
-		}
-		addrs, err := i.Addrs()
-		if err != nil {
-			return local
-		}
-		for _, addr := range addrs {
-			var ip net.IP
-			switch v := addr.(type) {
-			case *net.IPNet:
-				if !found {
-					ip = v.IP
-					local = ip.String()
-					if node.IsLocal {
-						found = localrange.Contains(ip)
-					} else {
-						found = true
-					}
-				}
-			case *net.IPAddr:
-				if !found {
-					ip = v.IP
-					local = ip.String()
-					if node.IsLocal {
-						found = localrange.Contains(ip)
-
-					} else {
-						found = true
-					}
-				}
-			}
-		}
-	}
-	return local
 }
 
 // UpdateNetworkLocalAddresses - updates network localaddresses
@@ -517,14 +463,13 @@ func IsNetworkNameUnique(network *models.Network) (bool, error) {
 }
 
 // UpdateNetwork - updates a network with another network's fields
-func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (bool, bool, bool, bool, []string, []string, error) {
+func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (bool, bool, bool, []string, []string, error) {
 	if err := ValidateNetwork(newNetwork, true); err != nil {
-		return false, false, false, false, nil, nil, err
+		return false, false, false, nil, nil, err
 	}
 	if newNetwork.NetID == currentNetwork.NetID {
 		hasrangeupdate4 := newNetwork.AddressRange != currentNetwork.AddressRange
 		hasrangeupdate6 := newNetwork.AddressRange6 != currentNetwork.AddressRange6
-		localrangeupdate := newNetwork.LocalRange != currentNetwork.LocalRange
 		hasholepunchupdate := newNetwork.DefaultUDPHolePunch != currentNetwork.DefaultUDPHolePunch
 		groupDelta := append(StringDifference(newNetwork.ProSettings.AllowedGroups, currentNetwork.ProSettings.AllowedGroups),
 			StringDifference(currentNetwork.ProSettings.AllowedGroups, newNetwork.ProSettings.AllowedGroups)...)
@@ -532,14 +477,14 @@ func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (
 			StringDifference(currentNetwork.ProSettings.AllowedUsers, newNetwork.ProSettings.AllowedUsers)...)
 		data, err := json.Marshal(newNetwork)
 		if err != nil {
-			return false, false, false, false, nil, nil, err
+			return false, false, false, nil, nil, err
 		}
 		newNetwork.SetNetworkLastModified()
 		err = database.Insert(newNetwork.NetID, string(data), database.NETWORKS_TABLE_NAME)
-		return hasrangeupdate4, hasrangeupdate6, localrangeupdate, hasholepunchupdate, groupDelta, userDelta, err
+		return hasrangeupdate4, hasrangeupdate6, hasholepunchupdate, groupDelta, userDelta, err
 	}
 	// copy values
-	return false, false, false, false, nil, nil, errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
+	return false, false, false, nil, nil, errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
 }
 
 // GetNetwork - gets a network from database

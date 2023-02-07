@@ -3,9 +3,9 @@ package metrics
 import (
 	"time"
 
-	proxy_metrics "github.com/gravitl/netclient/nmproxy/metrics"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	proxy_metrics "github.com/gravitl/netmaker/metrics"
 	"github.com/gravitl/netmaker/models"
 	"golang.zx2c4.com/wireguard/wgctrl"
 )

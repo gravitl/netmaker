@@ -4,15 +4,6 @@ services:
   netmaker: # The Primary Server for running Netmaker
     container_name: netmaker
     image: gravitl/netmaker:v0.17.1
-    cap_add: 
-      - NET_ADMIN
-      - NET_RAW
-      - SYS_MODULE
-    sysctls:
-      - net.ipv4.ip_forward=1
-      - net.ipv4.conf.all.src_valid_mark=1
-      - net.ipv6.conf.all.disable_ipv6=0
-      - net.ipv6.conf.all.forwarding=1
     restart: always
     volumes: # Volume mounts necessary for sql, coredns, and mqtt
       - dnsconfig:/root/config/dnsconfig
@@ -26,11 +17,9 @@ services:
       COREDNS_ADDR: "SERVER_PUBLIC_IP" # Address of the CoreDNS server. Defaults to SERVER_HOST
       DNS_MODE: "on" # Enables DNS Mode, meaning all nodes will set hosts file for private dns settings.
       API_PORT: "8081" # The HTTP API port for Netmaker. Used for API calls / communication from front end. If changed, need to change port of BACKEND_URL for netmaker-ui.
-      CLIENT_MODE: "on" # Depricated. CLIENT_MODE should always be ON
       REST_BACKEND: "on" # Enables the REST backend (API running on API_PORT at SERVER_HTTP_HOST). Change to "off" to turn off.
       DISABLE_REMOTE_IP_CHECK: "off" # If turned "on", Server will not set Host based on remote IP check. This is already overridden if SERVER_HOST is set. Turned "off" by default.
       TELEMETRY: "on" # Whether or not to send telemetry data to help improve Netmaker. Switch to "off" to opt out of sending telemetry.
-      RCE: "off" # Enables setting PostUp and PostDown (arbitrary commands) on nodes from the server. Off by default.
       MASTER_KEY: "REPLACE_MASTER_KEY" # The admin master key for accessing the API. Change this in any production installation.
       CORS_ALLOWED_ORIGIN: "*" # The "allowed origin" for API requests. Change to restrict where API requests can come from with comma-separated URLs. ex:- https://dashboard.netmaker.domain1.com,https://dashboard.netmaker.domain2.com
       DISPLAY_KEYS: "on" # Show keys permanently in UI (until deleted) as opposed to 1-time display.
@@ -39,10 +28,7 @@ services:
       MQ_HOST: "mq"  # the address of the mq server. If running from docker compose it will be "mq". Otherwise, need to input address. If using "host networking", it will find and detect the IP of the mq container.
       MQ_SERVER_PORT: "1883" # the reachable port of MQ by the server - change if internal MQ port changes (or use external port if MQ is not on the same machine)
       MQ_PORT: "443" # the reachable port of MQ - change if external MQ port changes (port on proxy, not necessarily the one exposed in docker-compose)
-      HOST_NETWORK: "off" # whether or not host networking is turned on. Only turn on if configured for host networking (see docker-compose.hostnetwork.yml). Will set host-level settings like iptables.
       VERBOSITY: "1" # logging verbosity level - 1, 2, or 3
-      MANAGE_IPTABLES: "on" # deprecated
-      PORT_FORWARD_SERVICES: "dns" # decide which services to port forward ("dns","ssh", or "mq")
       # this section is for OAuth
       AUTH_PROVIDER: "" # "<azure-ad|github|google|oidc>"
       CLIENT_ID: "" # "<client id of your oauth provider>"

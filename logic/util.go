@@ -5,7 +5,6 @@ import (
 	crand "crypto/rand"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"math/rand"
 	"net"
@@ -15,8 +14,6 @@ import (
 
 	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
 // IsBase64 - checks if a string is in base64 format
@@ -42,26 +39,12 @@ func FileExists(f string) bool {
 }
 
 // IsAddressInCIDR - util to see if an address is in a cidr or not
-func IsAddressInCIDR(address, cidr string) bool {
+func IsAddressInCIDR(address net.IP, cidr string) bool {
 	var _, currentCIDR, cidrErr = net.ParseCIDR(cidr)
 	if cidrErr != nil {
 		return false
 	}
-	var addrParts = strings.Split(address, ".")
-	var addrPartLength = len(addrParts)
-	if addrPartLength != 4 {
-		return false
-	} else {
-		if addrParts[addrPartLength-1] == "0" ||
-			addrParts[addrPartLength-1] == "255" {
-			return false
-		}
-	}
-	ip, _, err := net.ParseCIDR(fmt.Sprintf("%s/32", address))
-	if err != nil {
-		return false
-	}
-	return currentCIDR.Contains(ip)
+	return currentCIDR.Contains(address)
 }
 
 // SetNetworkNodesLastModified - sets the network nodes last modified
@@ -113,26 +96,6 @@ func RandomString(length int) string {
 	return string(b)
 }
 
-// == Private Methods ==
-
-func setIPForwardingLinux() error {
-	out, err := ncutils.RunCmd("sysctl net.ipv4.ip_forward", true)
-	if err != nil {
-		logger.Log(0, "WARNING: Error encountered setting ip forwarding. This can break functionality.")
-		return err
-	} else {
-		s := strings.Fields(string(out))
-		if s[2] != "1" {
-			_, err = ncutils.RunCmd("sysctl -w net.ipv4.ip_forward=1", true)
-			if err != nil {
-				logger.Log(0, "WARNING: Error encountered setting ip forwarding. You may want to investigate this.")
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 // StringSliceContains - sees if a string slice contains a string element
 func StringSliceContains(slice []string, item string) bool {
 	for _, s := range slice {
@@ -142,8 +105,6 @@ func StringSliceContains(slice []string, item string) bool {
 	}
 	return false
 }
-
-// == private ==
 
 // NormalCIDR - returns the first address of CIDR
 func NormalizeCIDR(address string) (string, error) {
@@ -159,23 +120,6 @@ func NormalizeCIDR(address string) (string, error) {
 		IPNet.IP = net4.NetworkAddress()
 	}
 	return IPNet.String(), nil
-}
-
-func getNetworkProtocols(cidrs []string) (bool, bool) {
-	ipv4 := false
-	ipv6 := false
-	for _, cidr := range cidrs {
-		ip, _, err := net.ParseCIDR(cidr)
-		if err != nil {
-			continue
-		}
-		if ip.To4() == nil {
-			ipv6 = true
-		} else {
-			ipv4 = true
-		}
-	}
-	return ipv4, ipv6
 }
 
 // StringDifference - returns the elements in `a` that aren't in `b`.
@@ -206,3 +150,5 @@ func CheckIfFileExists(filePath string) bool {
 func RemoveStringSlice(slice []string, i int) []string {
 	return append(slice[:i], slice[i+1:]...)
 }
+
+// == private ==

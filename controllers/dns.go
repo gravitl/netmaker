@@ -160,7 +160,7 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entry, err = CreateDNS(entry)
+	entry, err = logic.CreateDNS(entry)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("Failed to create DNS entry %+v: %v", entry, err))
@@ -221,22 +221,6 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	json.NewEncoder(w).Encode(entrytext + " deleted.")
-}
-
-// CreateDNS - creates a DNS entry
-func CreateDNS(entry models.DNSEntry) (models.DNSEntry, error) {
-
-	data, err := json.Marshal(&entry)
-	if err != nil {
-		return models.DNSEntry{}, err
-	}
-	key, err := logic.GetRecordKey(entry.Name, entry.Network)
-	if err != nil {
-		return models.DNSEntry{}, err
-	}
-	err = database.Insert(key, string(data), database.DNS_TABLE_NAME)
-
-	return entry, err
 }
 
 // GetDNSEntry - gets a DNS entry

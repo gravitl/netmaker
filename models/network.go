@@ -7,7 +7,7 @@ import (
 )
 
 // Network Struct - contains info for a given unique network
-//At  some point, need to replace all instances of Name with something else like  Identifier
+// At  some point, need to replace all instances of Name with something else like  Identifier
 type Network struct {
 	AddressRange        string                `json:"addressrange" bson:"addressrange" validate:"omitempty,cidrv4"`
 	AddressRange6       string                `json:"addressrange6" bson:"addressrange6" validate:"omitempty,cidrv6"`
@@ -17,7 +17,6 @@ type Network struct {
 	DefaultInterface    string                `json:"defaultinterface" bson:"defaultinterface" validate:"min=1,max=15"`
 	DefaultListenPort   int32                 `json:"defaultlistenport,omitempty" bson:"defaultlistenport,omitempty" validate:"omitempty,min=1024,max=65535"`
 	NodeLimit           int32                 `json:"nodelimit" bson:"nodelimit"`
-	DefaultPostUp       string                `json:"defaultpostup" bson:"defaultpostup"`
 	DefaultPostDown     string                `json:"defaultpostdown" bson:"defaultpostdown"`
 	DefaultKeepalive    int32                 `json:"defaultkeepalive" bson:"defaultkeepalive" validate:"omitempty,max=1000"`
 	AccessKeys          []AccessKey           `json:"accesskeys" bson:"accesskeys"`
@@ -25,8 +24,6 @@ type Network struct {
 	IsLocal             string                `json:"islocal" bson:"islocal" validate:"checkyesorno"`
 	IsIPv4              string                `json:"isipv4" bson:"isipv4" validate:"checkyesorno"`
 	IsIPv6              string                `json:"isipv6" bson:"isipv6" validate:"checkyesorno"`
-	IsPointToSite       string                `json:"ispointtosite" bson:"ispointtosite" validate:"checkyesorno"`
-	LocalRange          string                `json:"localrange" bson:"localrange" validate:"omitempty,cidr"`
 	DefaultUDPHolePunch string                `json:"defaultudpholepunch" bson:"defaultudpholepunch" validate:"checkyesorno"`
 	DefaultExtClientDNS string                `json:"defaultextclientdns" bson:"defaultextclientdns"`
 	DefaultMTU          int32                 `json:"defaultmtu" bson:"defaultmtu"`
@@ -56,9 +53,6 @@ func (network *Network) SetDefaults() {
 	}
 	if network.IsLocal == "" {
 		network.IsLocal = "no"
-	}
-	if network.IsPointToSite == "" {
-		network.IsPointToSite = "no"
 	}
 	if network.DefaultInterface == "" {
 		if len(network.NetID) < 13 {

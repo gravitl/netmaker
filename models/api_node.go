@@ -14,8 +14,6 @@ type ApiNode struct {
 	Address                 string   `json:"address" validate:"omitempty,ipv4"`
 	Address6                string   `json:"address6" validate:"omitempty,ipv6"`
 	LocalAddress            string   `json:"localaddress" validate:"omitempty,ipv4"`
-	PostUp                  string   `json:"postup"`
-	PostDown                string   `json:"postdown"`
 	AllowedIPs              []string `json:"allowedips"`
 	PersistentKeepalive     int32    `json:"persistentkeepalive"`
 	LastModified            int64    `json:"lastmodified"`
@@ -53,8 +51,6 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.Connected = a.Connected
 	convertedNode.ID, _ = uuid.Parse(a.ID)
 	convertedNode.HostID, _ = uuid.Parse(a.HostID)
-	convertedNode.PostUp = a.PostUp
-	convertedNode.PostDown = a.PostDown
 	convertedNode.IsLocal = a.IsLocal
 	convertedNode.IsRelay = a.IsRelay
 	convertedNode.IsRelayed = a.IsRelayed
@@ -99,8 +95,8 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	}
 	ip6, addr6, err := net.ParseCIDR(a.Address6)
 	if err == nil {
-		convertedNode.Address = *addr6
-		convertedNode.Address.IP = ip6
+		convertedNode.Address6 = *addr6
+		convertedNode.Address6.IP = ip6
 	}
 	convertedNode.FailoverNode, _ = uuid.Parse(a.FailoverNode)
 	convertedNode.LastModified = time.Unix(a.LastModified, 0)
@@ -127,12 +123,11 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	if isEmptyAddr(apiNode.LocalAddress) {
 		apiNode.LocalAddress = ""
 	}
-	apiNode.PostDown = nm.PostDown
-	apiNode.PostUp = nm.PostUp
 	apiNode.PersistentKeepalive = int32(nm.PersistentKeepalive.Seconds())
 	apiNode.LastModified = nm.LastModified.Unix()
 	apiNode.LastCheckIn = nm.LastCheckIn.Unix()
 	apiNode.LastPeerUpdate = nm.LastPeerUpdate.Unix()
+	apiNode.ExpirationDateTime = nm.ExpirationDateTime.Unix()
 	apiNode.Network = nm.Network
 	apiNode.NetworkRange = nm.NetworkRange.String()
 	if isEmptyAddr(apiNode.NetworkRange) {

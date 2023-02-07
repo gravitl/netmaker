@@ -50,7 +50,7 @@ func GetNetworkNodes(network string) ([]models.Node, error) {
 func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	if newNode.Address.IP.String() != currentNode.Address.IP.String() {
 		if network, err := GetParentNetwork(newNode.Network); err == nil {
-			if !IsAddressInCIDR(newNode.Address.IP.String(), network.AddressRange) {
+			if !IsAddressInCIDR(newNode.Address.IP, network.AddressRange) {
 				return fmt.Errorf("invalid address provided; out of network range for node %s", newNode.ID)
 			}
 		}
@@ -203,7 +203,7 @@ func GetAllNodes() ([]models.Node, error) {
 		var node models.Node
 		// ignore legacy nodes in database
 		if err := json.Unmarshal([]byte(value), &node); err != nil {
-			logger.Log(1, "legacy node detected: ", err.Error())
+			logger.Log(3, "legacy node detected: ", err.Error())
 			continue
 		}
 		// add node to our array
@@ -239,7 +239,6 @@ func SetNodeDefaults(node *models.Node) {
 	if err == nil {
 		node.NetworkRange6 = *cidr
 	}
-	node.ExpirationDateTime = time.Now().Add(models.TEN_YEARS_IN_SECONDS)
 
 	if node.DefaultACL == "" {
 		node.DefaultACL = parentNetwork.DefaultACL
@@ -248,49 +247,10 @@ func SetNodeDefaults(node *models.Node) {
 	if node.PersistentKeepalive == 0 {
 		node.PersistentKeepalive = time.Second * time.Duration(parentNetwork.DefaultKeepalive)
 	}
-	if node.PostUp == "" {
-		postup := parentNetwork.DefaultPostUp
-		node.PostUp = postup
-	}
-	if node.PostDown == "" {
-		postdown := parentNetwork.DefaultPostDown
-		node.PostDown = postdown
-	}
-	// == Parent Network settings ==
-
-	// == node defaults if not set by parent ==
-	///TODO ___ REVISIT ------
-	///TODO ___ REVISIT ------
-	///TODO ___ REVISIT ------
-	///TODO ___ REVISIT ------
-	///TODO ___ REVISIT ------
-	//node.SetIPForwardingDefault()
-	//node.SetDNSOnDefault()
-	//node.SetIsLocalDefault()
-	//node.SetLastModified()
-	//node.SetDefaultName()
-	//node.SetLastCheckIn()
-	//node.SetLastPeerUpdate()
-	//node.SetDefaultAction()
-	//node.SetIsServerDefault()
-	//node.SetIsStaticDefault()
-	//node.SetDefaultEgressGateway()
-	//node.SetDefaultIngressGateway()
-	//node.SetDefaulIsPending()
-	//node.SetDefaultMTU()
-	//node.SetDefaultNFTablesPresent()
-	//node.SetDefaultIsRelayed()
-	//node.SetDefaultIsRelay()
-	//node.SetDefaultIsDocker()
-	//node.SetDefaultIsK8S()
-	//node.SetDefaultIsHub()
-	//node.SetDefaultConnected()
-	//node.SetDefaultACL()
-	//node.SetDefaultFailover()
-	///TODO ___ REVISIT ------
-	///TODO ___ REVISIT ------
-	///TODO ___ REVISIT ------
-	///TODO ___ REVISIT ------
+	node.SetLastModified()
+	node.SetLastCheckIn()
+	node.SetDefaultConnected()
+	node.SetExpirationDateTime()
 }
 
 // GetRecordKey - get record key
@@ -300,30 +260,6 @@ func GetRecordKey(id string, network string) (string, error) {
 		return "", errors.New("unable to get record key")
 	}
 	return id + "###" + network, nil
-}
-
-// GetNodeByMacAddress - gets a node by mac address
-func GetNodeByMacAddress(network string, macaddress string) (models.Node, error) {
-
-	var node models.Node
-
-	key, err := GetRecordKey(macaddress, network)
-	if err != nil {
-		return node, err
-	}
-
-	record, err := database.FetchRecord(database.NODES_TABLE_NAME, key)
-	if err != nil {
-		return models.Node{}, err
-	}
-
-	if err = json.Unmarshal([]byte(record), &node); err != nil {
-		return models.Node{}, err
-	}
-
-	SetNodeDefaults(&node)
-
-	return node, nil
 }
 
 // GetNodesByAddress - gets a node by mac address

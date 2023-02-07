@@ -20,7 +20,7 @@ require (
 	golang.org/x/oauth2 v0.3.0
 	golang.org/x/sys v0.3.0 // indirect
 	golang.org/x/text v0.5.0 // indirect
-	golang.zx2c4.com/wireguard v0.0.0-20220920152132-bb719d3a6e2c
+	golang.zx2c4.com/wireguard v0.0.0-20220920152132-bb719d3a6e2c // indirect
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220324164955-056925b7df31
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1
@@ -29,7 +29,7 @@ require (
 require (
 	filippo.io/edwards25519 v1.0.0
 	github.com/c-robinson/iplib v1.0.6
-	github.com/go-ping/ping v1.1.0 // indirect
+	github.com/go-ping/ping v1.1.0
 	github.com/posthog/posthog-go v0.0.0-20211028072449-93c17c49e2b0
 )
 
@@ -37,13 +37,11 @@ require (
 	github.com/coreos/go-oidc/v3 v3.5.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/pkg/errors v0.9.1
-	github.com/sirupsen/logrus v1.9.0
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
 	gortc.io/stun v1.23.0
 )
 
 require (
-	github.com/gravitl/netclient v0.0.0-20230114051017-65ecaeffca09
 	github.com/guumaster/tablewriter v0.0.10
 	github.com/matryer/is v1.4.0
 	github.com/olekukonko/tablewriter v0.0.5

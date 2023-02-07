@@ -3,6 +3,7 @@ package pro
 import (
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/models/promodels"
@@ -18,8 +19,13 @@ func TestNetworkUserLogic(t *testing.T) {
 		NetID:        "skynet",
 		AddressRange: "192.168.0.0/24",
 	}
-	nodes := []models.LegacyNode{
-		models.LegacyNode{ID: "coolnode"},
+	tmpCNode := models.CommonNode{
+		ID: uuid.New(),
+	}
+	tempNode := models.Node{}
+	tempNode.CommonNode = tmpCNode
+	nodes := []models.Node{
+		tempNode,
 	}
 
 	clients := []models.ExtClient{
@@ -63,10 +69,10 @@ func TestNetworkUserLogic(t *testing.T) {
 	})
 
 	t.Run("Successful net user node isallowed", func(t *testing.T) {
-		networkUser.Nodes = append(networkUser.Nodes, "coolnode")
+		networkUser.Nodes = append(networkUser.Nodes, nodes[0].ID.String())
 		err := UpdateNetworkUser(network.NetID, &networkUser)
 		assert.Nil(t, err)
-		isUserNodeAllowed := IsUserNodeAllowed(nodes[:], network.NetID, string(networkUser.ID), "coolnode")
+		isUserNodeAllowed := IsUserNodeAllowed(nodes[:], network.NetID, string(networkUser.ID), nodes[0].ID.String())
 		assert.True(t, isUserNodeAllowed)
 	})
 

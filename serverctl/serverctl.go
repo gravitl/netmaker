@@ -85,7 +85,7 @@ func setNetworkDefaults() error {
 			}
 		} else {
 			network.SetDefaults()
-			_, _, _, _, _, _, err = logic.UpdateNetwork(&network, &network)
+			_, _, _, _, _, err = logic.UpdateNetwork(&network, &network)
 			if err != nil {
 				logger.Log(0, "could not set defaults on network", network.NetID)
 			}

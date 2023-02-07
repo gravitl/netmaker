@@ -110,12 +110,6 @@ func initialize() { // Client Mode Prereq Check
 			logger.FatalLog("To run in client mode requires root privileges. Either disable client mode or run with sudo.")
 		}
 	}
-	// initialize iptables to ensure gateways work correctly and mq is forwarded if containerized
-	if servercfg.ManageIPTables() != "off" {
-		if err = serverctl.InitIPTables(true); err != nil {
-			logger.FatalLog("Unable to initialize iptables on host:", err.Error())
-		}
-	}
 
 	if servercfg.IsDNSMode() {
 		err := functions.SetDNSDir()
@@ -191,7 +185,15 @@ func runMessageQueue(wg *sync.WaitGroup) {
 	mq.SetupMQTT()
 	ctx, cancel := context.WithCancel(context.Background())
 	go mq.Keepalive(ctx)
-	go logic.ManageZombies(ctx)
+	go func() {
+		peerUpdate := make(chan *models.Node)
+		go logic.ManageZombies(ctx, peerUpdate)
+		for nodeUpdate := range peerUpdate {
+			if err := mq.NodeUpdate(nodeUpdate); err != nil {
+				logger.Log(0, "failed to send peer update for deleted node: ", nodeUpdate.ID.String(), err.Error())
+			}
+		}
+	}()
 	go logic.PurgePendingNodes(ctx)
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGTERM, os.Interrupt)

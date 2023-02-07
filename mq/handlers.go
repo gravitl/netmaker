@@ -29,14 +29,14 @@ func Ping(client mqtt.Client, msg mqtt.Message) {
 		}
 		node, err := logic.GetNodeByID(id)
 		if err != nil {
-			logger.Log(0, "mq-ping error getting node: ", err.Error())
+			logger.Log(3, "mq-ping error getting node: ", err.Error())
 			record, err := database.FetchRecord(database.NODES_TABLE_NAME, id)
 			if err != nil {
-				logger.Log(0, "error reading database ", err.Error())
+				logger.Log(3, "error reading database ", err.Error())
 				return
 			}
-			logger.Log(0, "record from database")
-			logger.Log(0, record)
+			logger.Log(3, "record from database")
+			logger.Log(3, record)
 			return
 		}
 		decrypted, decryptErr := decryptMsg(&node, msg.Payload())
@@ -141,11 +141,11 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(1, "error unmarshaling payload ", err.Error())
 			return
 		}
-		logger.Log(0, "recieved host update for host: ", id)
+		logger.Log(3, fmt.Sprintf("recieved host update: %s\n", hostUpdate.Host.ID.String()))
 		var sendPeerUpdate bool
 		switch hostUpdate.Action {
 		case models.UpdateHost:
-			sendPeerUpdate = updateHostFromClient(&hostUpdate.Host, currentHost)
+			sendPeerUpdate = logic.UpdateHostFromClient(&hostUpdate.Host, currentHost)
 			err := logic.UpsertHost(currentHost)
 			if err != nil {
 				logger.Log(0, "failed to update host: ", currentHost.ID.String(), err.Error())
@@ -168,6 +168,12 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 				logger.Log(0, "failed to pulish peer update: ", err.Error())
 			}
 		}
+		if sendPeerUpdate {
+			err := PublishPeerUpdate()
+			if err != nil {
+				logger.Log(0, "failed to pulish peer update: ", err.Error())
+			}
+		}
 		// if servercfg.Is_EE && ifaceDelta {
 		// 	if err = logic.EnterpriseResetAllPeersFailovers(currentHost.ID.String(), currentHost.Network); err != nil {
 		// 		logger.Log(1, "failed to reset failover list during node update", currentHost.ID.String(), currentHost.Network)
@@ -175,37 +181,6 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 		// }
 
 	}(msg)
-}
-
-// used for updating host on server with update recieved from client
-func updateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) {
-
-	if newHost.ListenPort != 0 && currHost.ListenPort != newHost.ListenPort {
-		currHost.ListenPort = newHost.ListenPort
-		sendPeerUpdate = true
-	}
-	if newHost.ProxyListenPort != 0 && currHost.ProxyListenPort != newHost.ProxyListenPort {
-		currHost.ProxyListenPort = newHost.ProxyListenPort
-		sendPeerUpdate = true
-	}
-	if newHost.PublicListenPort != 0 && currHost.PublicListenPort != newHost.PublicListenPort {
-		currHost.PublicListenPort = newHost.PublicListenPort
-		sendPeerUpdate = true
-	}
-	if currHost.ProxyEnabled != newHost.ProxyEnabled {
-		currHost.ProxyEnabled = newHost.ProxyEnabled
-		sendPeerUpdate = true
-	}
-	if currHost.EndpointIP.String() != newHost.EndpointIP.String() {
-		currHost.EndpointIP = newHost.EndpointIP
-		sendPeerUpdate = true
-	}
-	currHost.DaemonInstalled = newHost.DaemonInstalled
-	currHost.Debug = newHost.Debug
-	currHost.Verbosity = newHost.Verbosity
-	currHost.Version = newHost.Version
-	currHost.Name = newHost.Name
-	return
 }
 
 // UpdateMetrics  message Handler -- handles updates from client nodes for metrics
@@ -370,7 +345,7 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 	for _, node := range nodes {
 		if !newMetrics.Connectivity[node.ID.String()].Connected &&
 			len(newMetrics.Connectivity[node.ID.String()].NodeName) > 0 &&
-			node.Connected == true &&
+			node.Connected &&
 			len(node.FailoverNode) > 0 &&
 			!node.Failover {
 			newMetrics.FailoverPeers[node.ID.String()] = node.FailoverNode.String()

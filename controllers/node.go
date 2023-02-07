@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
@@ -26,7 +25,7 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}", authorize(false, true, "network", http.HandlerFunc(getNetworkNodes))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, true, "node", http.HandlerFunc(getNode))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(false, true, "node", http.HandlerFunc(updateNode))).Methods(http.MethodPut)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/migrate", authorize(true, true, "node", http.HandlerFunc(migrate))).Methods(http.MethodPut)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/migrate", migrate).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, true, "node", http.HandlerFunc(deleteNode))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createrelay", authorize(false, true, "user", http.HandlerFunc(createRelay))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleterelay", authorize(false, true, "user", http.HandlerFunc(deleteRelay))).Methods(http.MethodDelete)
@@ -188,6 +187,7 @@ func nodeauth(next http.Handler) http.HandlerFunc {
 			logic.ReturnErrorResponse(w, r, errorResponse)
 			return
 		}
+
 		next.ServeHTTP(w, r)
 	}
 }
@@ -524,7 +524,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !logic.IsVersionComptatible(data.Host.Version) {
-		err := errors.New("incomatible netclient version")
+		err := errors.New("incompatible netclient version")
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -550,6 +550,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, errorResponse)
 		return
 	}
+	logic.DecrimentKey(networkName, data.Key)
 	user, err := pro.GetNetworkUser(networkName, promodels.NetworkUserID(keyName))
 	if err == nil {
 		if user.ID != "" {
@@ -577,6 +578,9 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	server := servercfg.GetServerInfo()
 	server.TrafficKey = key
 	data.Node.Server = servercfg.GetServer()
+	if !logic.HostExists(&data.Host) {
+		logic.CheckHostPorts(&data.Host)
+	}
 	if err := logic.CreateHost(&data.Host); err != nil {
 		if errors.Is(err, logic.ErrHostExists) {
 			logger.Log(3, "host exists .. no need to create")
@@ -586,8 +590,15 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 				return
 			}
-			logic.UpdateHost(&data.Host, host) // update the in memory struct values
-
+			logic.UpdateHostFromClient(&data.Host, host) // update the in memory struct values
+			err = logic.UpsertHost(host)
+			if err != nil {
+				logger.Log(0, r.Header.Get("user"),
+					fmt.Sprintf("failed to update host [ %s ]: %v", host.ID.String(), err))
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				return
+			}
+			data.Host = *host
 		} else {
 			logger.Log(0, "error creating host", err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -628,6 +639,8 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	data.Host.HostPass = "" // client should not change password after join
+	// concealing hash
 	response := models.NodeJoinResponse{
 		Node:         data.Node,
 		ServerConfig: server,
@@ -660,32 +673,33 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //				200: nodeResponse
 func createEgressGateway(w http.ResponseWriter, r *http.Request) {
-	var gateway models.EgressGatewayRequest
-	var params = mux.Vars(r)
-	w.Header().Set("Content-Type", "application/json")
-	err := json.NewDecoder(r.Body).Decode(&gateway)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	gateway.NetID = params["network"]
-	gateway.NodeID = params["nodeid"]
-	node, err := logic.CreateEgressGateway(gateway)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("failed to create egress gateway on node [%s] on network [%s]: %v",
-				gateway.NodeID, gateway.NetID, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-
-	apiNode := node.ConvertToAPINode()
-	logger.Log(1, r.Header.Get("user"), "created egress gateway on node", gateway.NodeID, "on network", gateway.NetID)
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(apiNode)
-
-	runUpdates(&node, true)
+	logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("currently unimplemented"), "internal"))
+	// var gateway models.EgressGatewayRequest
+	// var params = mux.Vars(r)
+	// w.Header().Set("Content-Type", "application/json")
+	// err := json.NewDecoder(r.Body).Decode(&gateway)
+	//	if err != nil {
+	//		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
+	//		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+	//		return
+	//	}
+	// gateway.NetID = params["network"]
+	// gateway.NodeID = params["nodeid"]
+	// node, err := logic.CreateEgressGateway(gateway)
+	//	if err != nil {
+	//		logger.Log(0, r.Header.Get("user"),
+	//			fmt.Sprintf("failed to create egress gateway on node [%s] on network [%s]: %v",
+	//				gateway.NodeID, gateway.NetID, err))
+	//		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+	//		return
+	//	}
+	//
+	// apiNode := node.ConvertToAPINode()
+	// logger.Log(1, r.Header.Get("user"), "created egress gateway on node", gateway.NodeID, "on network", gateway.NetID)
+	// w.WriteHeader(http.StatusOK)
+	// json.NewEncoder(w).Encode(apiNode)
+	//
+	// runUpdates(&node, true)
 }
 
 // swagger:route DELETE /api/nodes/{network}/{nodeid}/deletegateway nodes deleteEgressGateway
@@ -700,25 +714,26 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //				200: nodeResponse
 func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	var params = mux.Vars(r)
-	nodeid := params["nodeid"]
-	netid := params["network"]
-	node, err := logic.DeleteEgressGateway(netid, nodeid)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("failed to delete egress gateway on node [%s] on network [%s]: %v",
-				nodeid, netid, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-
-	apiNode := node.ConvertToAPINode()
-	logger.Log(1, r.Header.Get("user"), "deleted egress gateway on node", nodeid, "on network", netid)
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(apiNode)
-
-	runUpdates(&node, true)
+	logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("currently unimplemented"), "internal"))
+	//w.Header().Set("Content-Type", "application/json")
+	// var params = mux.Vars(r)
+	// nodeid := params["nodeid"]
+	// netid := params["network"]
+	// node, err := logic.DeleteEgressGateway(netid, nodeid)
+	//	if err != nil {
+	//		logger.Log(0, r.Header.Get("user"),
+	//			fmt.Sprintf("failed to delete egress gateway on node [%s] on network [%s]: %v",
+	//				nodeid, netid, err))
+	//		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+	//		return
+	//	}
+	//
+	// apiNode := node.ConvertToAPINode()
+	// logger.Log(1, r.Header.Get("user"), "deleted egress gateway on node", nodeid, "on network", netid)
+	// w.WriteHeader(http.StatusOK)
+	// json.NewEncoder(w).Encode(apiNode)
+	//
+	// runUpdates(&node, true)
 }
 
 // == INGRESS ==
@@ -807,51 +822,6 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	runUpdates(&node, true)
 }
 
-// swagger:route PUT /api/nodes/{network}/{nodeid}/migrate nodes migrateNode
-//
-// Used to migrate a legacy node.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: nodeJoinResponse
-func migrate(w http.ResponseWriter, r *http.Request) {
-	// we decode our body request params
-	data := models.JoinData{}
-	err := json.NewDecoder(r.Body).Decode(&data)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	params := mux.Vars(r)
-	network, err := logic.GetNetwork(params["network"])
-	if err != nil {
-		logger.Log(0, "error retrieving network:  ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	key, err := logic.CreateAccessKey(models.AccessKey{}, network)
-	if err != nil {
-		logger.Log(0, "error creating key:  ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	data.Key = key.Value
-	payload, err := json.Marshal(data)
-	if err != nil {
-		logger.Log(0, "error encoding data:  ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	r.Body = io.NopCloser(strings.NewReader(string(payload)))
-	r.ContentLength = int64(len(string(payload)))
-	createNode(w, r)
-}
-
 // swagger:route PUT /api/nodes/{network}/{nodeid} nodes updateNode
 //
 // Update an individual node.
@@ -920,11 +890,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	if currentNode.IsRelayed && (currentNode.Address.String() != newNode.Address.String() || currentNode.Address6.String() != newNode.Address6.String()) {
 		relayedUpdate = true
 	}
-
-	if !servercfg.GetRce() {
-		newNode.PostDown = currentNode.PostDown
-		newNode.PostUp = currentNode.PostUp
-	}
 	ifaceDelta := logic.IfaceDelta(&currentNode, newNode)
 
 	if ifaceDelta && servercfg.Is_EE {
@@ -988,7 +953,6 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
 	if r.Header.Get("ismaster") != "yes" {
 		username := r.Header.Get("user")
 		if username != "" && !doesUserOwnNode(username, params["network"], nodeid) {
@@ -1002,9 +966,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	}
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
-
-	if !fromNode {
-		// notify node change
+	if !fromNode { // notify node change
 		runUpdates(&node, false)
 	}
 	go func() { // notify of peer change
