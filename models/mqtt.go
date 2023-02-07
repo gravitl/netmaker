@@ -27,6 +27,7 @@ type HostPeerUpdate struct {
 	Peers         []wgtypes.PeerConfig   `json:"peers" bson:"peers" yaml:"peers"`
 	PeerIDs       HostPeerMap            `json:"peerids" bson:"peerids" yaml:"peerids"`
 	ProxyUpdate   ProxyManagerPayload    `json:"proxy_update" bson:"proxy_update" yaml:"proxy_update"`
+	EgressInfo    map[string]EgressInfo  `json:"egress_info" bson:"egress_info" yaml:"egress_info"` // map key is node ID
 	IngressInfo   IngressInfo            `json:"ingress_info" bson:"ext_peers" yaml:"ext_peers"`
 }
 
@@ -35,8 +36,17 @@ type IngressInfo struct {
 	ExtPeers map[string]ExtClientInfo `json:"ext_peers" yaml:"ext_peers"`
 }
 
-// PeerExtInfo - struct for peer info for an ext. client
-type PeerExtInfo struct {
+// EgressInfo - struct for egress info
+type EgressInfo struct {
+	EgressID     string                   `json:"egress_id" yaml:"egress_id"`
+	Network      net.IPNet                `json:"network" yaml:"network"`
+	EgressGwAddr net.IPNet                `json:"egress_gw_addr" yaml:"egress_gw_addr"`
+	GwPeers      map[string]PeerRouteInfo `json:"gateway_peers" yaml:"gateway_peers"`
+	EgressGWCfg  EgressGatewayRequest     `json:"egress_gateway_cfg" yaml:"egress_gateway_cfg"`
+}
+
+// PeerRouteInfo - struct for peer info for an ext. client
+type PeerRouteInfo struct {
 	PeerAddr net.IPNet `json:"peer_addr" yaml:"peer_addr"`
 	PeerKey  string    `json:"peer_key" yaml:"peer_key"`
 	Allow    bool      `json:"allow" yaml:"allow"`
@@ -44,11 +54,12 @@ type PeerExtInfo struct {
 
 // ExtClientInfo - struct for ext. client and it's peers
 type ExtClientInfo struct {
-	IngGwAddr   net.IPNet              `json:"ingress_gw_addr" yaml:"ingress_gw_addr"`
-	Masquerade  bool                   `json:"masquerade" yaml:"masquerade"`
-	ExtPeerAddr net.IPNet              `json:"ext_peer_addr" yaml:"ext_peer_addr"`
-	ExtPeerKey  string                 `json:"ext_peer_key" yaml:"ext_peer_key"`
-	Peers       map[string]PeerExtInfo `json:"peers" yaml:"peers"`
+	IngGwAddr   net.IPNet                `json:"ingress_gw_addr" yaml:"ingress_gw_addr"`
+	Network     net.IPNet                `json:"network" yaml:"network"`
+	Masquerade  bool                     `json:"masquerade" yaml:"masquerade"`
+	ExtPeerAddr net.IPNet                `json:"ext_peer_addr" yaml:"ext_peer_addr"`
+	ExtPeerKey  string                   `json:"ext_peer_key" yaml:"ext_peer_key"`
+	Peers       map[string]PeerRouteInfo `json:"peers" yaml:"peers"`
 }
 
 // NetworkInfo - struct for network info

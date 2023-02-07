@@ -15,10 +15,9 @@ var nodeCreateEgressCmd = &cobra.Command{
 	Long:  `Turn a Node into a Egress`,
 	Run: func(cmd *cobra.Command, args []string) {
 		egress := &models.EgressGatewayRequest{
-			NetID:     args[0],
-			NodeID:    args[1],
-			Interface: networkInterface,
-			Ranges:    strings.Split(args[2], ","),
+			NetID:  args[0],
+			NodeID: args[1],
+			Ranges: strings.Split(args[2], ","),
 		}
 		if natEnabled {
 			egress.NatEnabled = "yes"
@@ -28,7 +27,6 @@ var nodeCreateEgressCmd = &cobra.Command{
 }
 
 func init() {
-	nodeCreateEgressCmd.Flags().StringVar(&networkInterface, "interface", "", "Network interface name (ex:- eth0)")
 	nodeCreateEgressCmd.Flags().BoolVar(&natEnabled, "nat", false, "Enable NAT for Egress Traffic ?")
 	rootCmd.AddCommand(nodeCreateEgressCmd)
 }

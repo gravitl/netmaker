@@ -22,19 +22,21 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	if err != nil {
 		return models.Node{}, err
 	}
-	for i, cidr := range gateway.Ranges {
-		normalized, err := NormalizeCIDR(cidr)
+	if host.OS != "linux" { // support for other OS to be added
+		return models.Node{}, errors.New(host.OS + " is unsupported for egress gateways")
+	}
+	for i := len(gateway.Ranges) - 1; i >= 0; i-- {
+		if gateway.Ranges[i] == "0.0.0.0/0" || gateway.Ranges[i] == "::/0" {
+			logger.Log(0, "currently internet gateways are not supported", gateway.Ranges[i])
+			gateway.Ranges = append(gateway.Ranges[:i], gateway.Ranges[i+1:]...)
+			continue
+		}
+		normalized, err := NormalizeCIDR(gateway.Ranges[i])
 		if err != nil {
 			return models.Node{}, err
 		}
 		gateway.Ranges[i] = normalized
 
-	}
-	if host.OS != "linux" && host.OS != "freebsd" { // add in darwin later
-		return models.Node{}, errors.New(host.OS + " is unsupported for egress gateways")
-	}
-	if host.OS == "linux" && host.FirewallInUse == models.FIREWALL_NONE {
-		return models.Node{}, errors.New("firewall is not supported for egress gateways")
 	}
 	if gateway.NatEnabled == "" {
 		gateway.NatEnabled = "yes"
@@ -65,10 +67,6 @@ func ValidateEgressGateway(gateway models.EgressGatewayRequest) error {
 	empty := len(gateway.Ranges) == 0
 	if empty {
 		err = errors.New("IP Ranges Cannot Be Empty")
-	}
-	empty = gateway.Interface == ""
-	if empty {
-		err = errors.New("interface cannot be empty")
 	}
 	return err
 }

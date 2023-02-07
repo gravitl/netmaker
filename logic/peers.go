@@ -308,6 +308,7 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 		IngressInfo: models.IngressInfo{
 			ExtPeers: make(map[string]models.ExtClientInfo),
 		},
+		EgressInfo: make(map[string]models.EgressInfo),
 	}
 	logger.Log(1, "peer update for host ", host.ID.String())
 	peerIndexMap := make(map[string]int)
@@ -328,9 +329,9 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 			log.Println("no network nodes")
 			return models.HostPeerUpdate{}, err
 		}
-		var extClientPeerMap map[string]models.PeerExtInfo
-		if node.IsIngressGateway {
-			extClientPeerMap = make(map[string]models.PeerExtInfo)
+		var nodePeerMap map[string]models.PeerRouteInfo
+		if node.IsIngressGateway || node.IsEgressGateway {
+			nodePeerMap = make(map[string]models.PeerRouteInfo)
 		}
 		for _, peer := range currentPeers {
 			if peer.ID == node.ID {
@@ -393,9 +394,9 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 				allowedips = append(allowedips, getEgressIPs(&node, &peer)...)
 			}
 			peerConfig.AllowedIPs = allowedips
-			if node.IsIngressGateway {
+			if node.IsIngressGateway || node.IsEgressGateway {
 
-				extClientPeerMap[peerHost.PublicKey.String()] = models.PeerExtInfo{
+				nodePeerMap[peerHost.PublicKey.String()] = models.PeerRouteInfo{
 					PeerAddr: net.IPNet{
 						IP:   net.ParseIP(peer.PrimaryAddress()),
 						Mask: getCIDRMaskFromAddr(peer.PrimaryAddress()),
@@ -428,8 +429,10 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 			}
 
 		}
+		var extPeers []wgtypes.PeerConfig
+		var extPeerIDAndAddrs []models.IDandAddr
 		if node.IsIngressGateway {
-			extPeers, extPeerIDAndAddrs, err := getExtPeers(&node)
+			extPeers, extPeerIDAndAddrs, err = getExtPeers(&node)
 			if err == nil {
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, extPeers...)
 				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
@@ -446,17 +449,43 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 							IP:   net.ParseIP(node.PrimaryAddress()),
 							Mask: getCIDRMaskFromAddr(node.PrimaryAddress()),
 						},
+						Network: node.PrimaryNetworkRange(),
 						ExtPeerAddr: net.IPNet{
 							IP:   net.ParseIP(extPeerIdAndAddr.Address),
 							Mask: getCIDRMaskFromAddr(extPeerIdAndAddr.Address),
 						},
 						ExtPeerKey: extPeerIdAndAddr.ID,
-						Peers:      extClientPeerMap,
+						Peers:      nodePeerMap,
 					}
 				}
 
 			} else if !database.IsEmptyRecord(err) {
 				logger.Log(1, "error retrieving external clients:", err.Error())
+			}
+		}
+		if node.IsEgressGateway {
+			if node.IsIngressGateway {
+				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
+					nodePeerMap[extPeerIdAndAddr.ID] = models.PeerRouteInfo{
+						PeerAddr: net.IPNet{
+							IP:   net.ParseIP(extPeerIdAndAddr.Address),
+							Mask: getCIDRMaskFromAddr(extPeerIdAndAddr.Address),
+						},
+						PeerKey: extPeerIdAndAddr.ID,
+						Allow:   true,
+					}
+				}
+
+			}
+			hostPeerUpdate.EgressInfo[node.ID.String()] = models.EgressInfo{
+				EgressID: node.ID.String(),
+				Network:  node.PrimaryNetworkRange(),
+				EgressGwAddr: net.IPNet{
+					IP:   net.ParseIP(node.PrimaryAddress()),
+					Mask: getCIDRMaskFromAddr(node.PrimaryAddress()),
+				},
+				GwPeers:     nodePeerMap,
+				EgressGWCfg: node.EgressGatewayRequest,
 			}
 		}
 	}
@@ -1108,13 +1137,13 @@ func getEgressIPs(node, peer *models.Node) []net.IPNet {
 			logger.Log(1, "could not parse gateway IP range. Not adding ", iprange)
 			continue // if can't parse CIDR
 		}
-		nodeEndpointArr := strings.Split(peerHost.EndpointIP.String(), ":")      // getting the public ip of node
-		if ipnet.Contains(net.ParseIP(nodeEndpointArr[0])) && !internetGateway { // ensuring egress gateway range does not contain endpoint of node
+		// getting the public ip of node
+		if ipnet.Contains(peerHost.EndpointIP) && !internetGateway { // ensuring egress gateway range does not contain endpoint of node
 			logger.Log(2, "egress IP range of ", iprange, " overlaps with ", host.EndpointIP.String(), ", omitting")
 			continue // skip adding egress range if overlaps with node's ip
 		}
 		// TODO: Could put in a lot of great logic to avoid conflicts / bad routes
-		if ipnet.Contains(net.ParseIP(node.LocalAddress.String())) && !internetGateway { // ensuring egress gateway range does not contain public ip of node
+		if ipnet.Contains(node.LocalAddress.IP) && !internetGateway { // ensuring egress gateway range does not contain public ip of node
 			logger.Log(2, "egress IP range of ", iprange, " overlaps with ", node.LocalAddress.String(), ", omitting")
 			continue // skip adding egress range if overlaps with node's local ip
 		}

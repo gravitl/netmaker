@@ -160,7 +160,6 @@ type EgressGatewayRequest struct {
 	NetID      string   `json:"netid" bson:"netid"`
 	NatEnabled string   `json:"natenabled" bson:"natenabled"`
 	Ranges     []string `json:"ranges" bson:"ranges"`
-	Interface  string   `json:"interface" bson:"interface"`
 }
 
 // RelayRequest - relay request struct
