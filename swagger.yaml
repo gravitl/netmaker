@@ -575,8 +575,6 @@ definitions:
                 type: string
             ClientID:
                 type: string
-            ClientMode:
-                type: string
             ClientSecret:
                 type: string
             CoreDNSAddr:

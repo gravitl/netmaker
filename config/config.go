@@ -44,7 +44,6 @@ type ServerConfig struct {
 	RestBackend           string `yaml:"restbackend"`
 	AgentBackend          string `yaml:"agentbackend"`
 	MessageQueueBackend   string `yaml:"messagequeuebackend"`
-	ClientMode            string `yaml:"clientmode"`
 	DNSMode               string `yaml:"dnsmode"`
 	DisableRemoteIPCheck  string `yaml:"disableremoteipcheck"`
 	Version               string `yaml:"version"`
