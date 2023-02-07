@@ -61,13 +61,6 @@ const DEFAULT_GC_PERCENT = 10
 // KEY_SIZE = ideal length for keys
 const KEY_SIZE = 2048
 
-// constants for random strings
-const (
-	letterIdxBits = 6                    // 6 bits to represent a letter index
-	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
-	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
-)
-
 // SetVersion -- set netclient version for use by other packages
 func SetVersion(ver string) {
 	Version = ver
