@@ -269,7 +269,8 @@ wait_seconds 1
 
 unset GET_MQ_USERNAME
 unset GET_MQ_PASSWORD
-echo "\nEnter Credentials For MQ"
+unset CONFIRM_MQ_PASSWORD
+echo "Enter Credentials For MQ..."
 read -p "MQ Username (click 'enter' to use 'netmaker'): " GET_MQ_USERNAME
 if [ -z "$GET_MQ_USERNAME" ]; then
   echo "using default username for mq"
@@ -277,13 +278,33 @@ if [ -z "$GET_MQ_USERNAME" ]; then
 else
   MQ_USERNAME="$GET_MQ_USERNAME"
 fi
-read -p "MQ Password (click 'enter' to use random password): " GET_MQ_PASSWORD
-if [ -z "$GET_MQ_PASSWORD" ]; then
-  echo "generating random password for mq"
-  MQ_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
-else
-  MQ_PASSWORD="$GET_MQ_PASSWORD"
-fi
+
+select domain_option in "Auto Generated Password" "Input Your Own Password"; do
+	case $REPLY in
+	1)
+	echo "generating random password for mq"
+	MQ_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
+	break
+	;;      
+    2)
+	while true
+    do
+        echo "Enter your Password For MQ: " 
+        read -s GET_MQ_PASSWORD
+        echo "Enter your password again to confirm: "
+        read -s CONFIRM_MQ_PASSWORD
+        if [ ${GET_MQ_PASSWORD} != ${CONFIRM_MQ_PASSWORD} ]; then
+            echo "wrong password entered, try again..."
+            continue
+        fi
+        echo "MQ Password Saved Successfully!!"
+        break
+    done
+      break
+      ;;
+    *) echo "invalid option $REPLY";;
+  esac
+done
 
 
 wait_seconds 2
