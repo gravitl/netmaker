@@ -19,10 +19,11 @@ const (
 
 // DNSUpdate data for updating entries in /etc/hosts
 type DNSUpdate struct {
-	Action  DNSUpdateAction
-	Name    string
-	NewName string
-	Address string
+	Action     DNSUpdateAction
+	Name       string
+	NewName    string
+	Address    string
+	NewAddress string
 }
 
 // DNSEntry - a DNS entry represented as struct
