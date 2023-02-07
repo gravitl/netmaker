@@ -79,6 +79,7 @@ func GetServerConfig() config.ServerConfig {
 	if Is_EE {
 		cfg.IsEE = "yes"
 	}
+	cfg.QueueSize = 0
 
 	return cfg
 }
@@ -650,4 +651,18 @@ func IsProxyEnabled() bool {
 		enabled = config.Config.Server.Proxy == "on"
 	}
 	return enabled
+}
+
+// GetQueueSize - retrieves the queue size if specified or 0
+func GetQueueSize() int {
+	size := 0
+	if os.Getenv("QUEUE_SIZE") != "" {
+		s, err := strconv.Atoi(os.Getenv("QUEUE_SIZE"))
+		if err == nil {
+			size = s
+		}
+	} else if config.Config.Server.QueueSize > 0 {
+		size = config.Config.Server.QueueSize
+	}
+	return size
 }

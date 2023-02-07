@@ -7,6 +7,7 @@ import (
 	"github.com/enriquebris/goconcurrentqueue"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 // EventQueue - responsible for queueing and handling events sent to the server
@@ -14,8 +15,8 @@ var EventQueue goconcurrentqueue.Queue
 
 // StartQueue - starts the queue and listens for messages
 func StartQueue(ctx context.Context) {
+	initQueue()
 
-	EventQueue = goconcurrentqueue.NewFIFO()
 	go func(ctx context.Context) {
 		logger.Log(2, "initialized queue service!")
 		for {
@@ -35,4 +36,14 @@ func StartQueue(ctx context.Context) {
 			logger.Log(0, fmt.Sprintf("queue stats: queued elements %d, openCapacity: %d \n", EventQueue.GetLen(), EventQueue.GetCap()))
 		}
 	}(ctx)
+}
+
+// == private ==
+func initQueue() {
+	size := servercfg.GetQueueSize()
+	if size > 0 {
+		EventQueue = goconcurrentqueue.NewFixedFIFO(size)
+	} else {
+		EventQueue = goconcurrentqueue.NewFIFO()
+	}
 }

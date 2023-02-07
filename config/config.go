@@ -76,6 +76,7 @@ type ServerConfig struct {
 	StunPort              int    `yaml:"stun_port"`
 	StunHost              string `yaml:"stun_host"`
 	Proxy                 string `yaml:"proxy"`
+	QueueSize             int    `yaml:"queue_size"`
 }
 
 // SQLConfig - Generic SQL Config
