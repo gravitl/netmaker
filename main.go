@@ -22,6 +22,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/queue"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
 	stunserver "github.com/gravitl/netmaker/stun-server"
@@ -135,11 +136,9 @@ func startControllers() {
 		waitnetwork.Add(1)
 		go controller.HandleRESTRequests(&waitnetwork)
 	}
-	//Run MessageQueue
-	if servercfg.IsMessageQueueBackend() {
-		waitnetwork.Add(1)
-		go runMessageQueue(&waitnetwork)
-	}
+	// Run External or Internal MessageQueue
+	waitnetwork.Add(1)
+	go runMessageQueue(&waitnetwork)
 
 	if !servercfg.IsAgentBackend() && !servercfg.IsRestBackend() && !servercfg.IsMessageQueueBackend() {
 		logger.Log(0, "No Server Mode selected, so nothing is being served! Set Agent mode (AGENT_BACKEND) or Rest mode (REST_BACKEND) or MessageQueue (MESSAGEQUEUE_BACKEND) to 'true'.")
@@ -170,12 +169,17 @@ func startControllers() {
 // Should we be using a context vice a waitgroup????????????
 func runMessageQueue(wg *sync.WaitGroup) {
 	defer wg.Done()
-	brokerHost, secure := servercfg.GetMessageQueueEndpoint()
-	logger.Log(0, "connecting to mq broker at", brokerHost, "with TLS?", fmt.Sprintf("%v", secure))
-	mq.SetUpAdminClient()
-	mq.SetupMQTT()
 	ctx, cancel := context.WithCancel(context.Background())
-	go mq.Keepalive(ctx)
+
+	if servercfg.IsMessageQueueBackend() { // connect to external broker
+		brokerHost, secure := servercfg.GetMessageQueueEndpoint()
+		logger.Log(0, "connecting to mq broker at", brokerHost, "with TLS?", fmt.Sprintf("%v", secure))
+		mq.SetUpAdminClient()
+		mq.SetupMQTT()
+		go mq.Keepalive(ctx)
+	} else { // use internal queue system
+		queue.StartQueue(ctx)
+	}
 	go func() {
 		peerUpdate := make(chan *models.Node)
 		go logic.ManageZombies(ctx, peerUpdate)

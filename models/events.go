@@ -18,3 +18,9 @@ type Event struct {
 type Test struct {
 	Data string `json:"data"`
 }
+
+// == TOPICS ==
+const (
+	// Event_TestTopic - the topic for a test event
+	Event_TestTopic = "test"
+)
