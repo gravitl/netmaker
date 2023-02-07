@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/enriquebris/goconcurrentqueue"
-	"github.com/gorilla/websocket"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
@@ -31,13 +30,9 @@ func StartQueue(ctx context.Context) {
 				continue
 			}
 			event := msg.(models.Event)
-			switch event.Topic {
-			case models.EventTopics.Test:
-				conn, ok := ConnMap.Load(event.ID)
-				if ok {
-					conn.(*websocket.Conn).WriteMessage(websocket.TextMessage, []byte("success"))
-				}
-			default:
+			if _, ok := handlerFuncs[event.Topic]; ok {
+				handlerFuncs[event.Topic](&event)
+			} else {
 				logger.Log(0, fmt.Sprintf("received an unknown topic %d \n", event.Topic))
 			}
 			logger.Log(3, fmt.Sprintf("queue stats: queued elements %d, openCapacity: %d \n", EventQueue.GetLen(), EventQueue.GetCap()))
@@ -55,4 +50,5 @@ func initQueue() {
 		logger.Log(0, "started queue with dynamic allocation")
 		EventQueue = goconcurrentqueue.NewFIFO()
 	}
+	initializeHandlers()
 }
