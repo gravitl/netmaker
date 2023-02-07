@@ -17,6 +17,10 @@ const (
 	DNSInsert
 )
 
+func (action DNSUpdateAction) String() string {
+	return [...]string{"DNSDeleteByIP", "DNSDeletByName", "DNSReplaceName", "DNSReplaceIP", "DNSInsert"}[action]
+}
+
 // DNSUpdate data for updating entries in /etc/hosts
 type DNSUpdate struct {
 	Action     DNSUpdateAction
