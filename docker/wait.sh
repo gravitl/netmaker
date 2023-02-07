@@ -1,8 +1,8 @@
 #!/bin/ash
 
 encrypt_password() {
-  echo "${MQ_USERNAME}:${MQ_PASSWORD}" > /mosquitto/passwords.txt
-  mosquitto_passwd -U /mosquitto/passwords.txt
+  echo "${MQ_USERNAME}:${MQ_PASSWORD}" > /mosquitto/password.txt
+  mosquitto_passwd -U /mosquitto/password.txt
 }
 
 main(){

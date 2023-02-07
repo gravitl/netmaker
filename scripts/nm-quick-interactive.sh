@@ -297,6 +297,7 @@ select domain_option in "Auto Generated Password" "Input Your Own Password"; do
             echo "wrong password entered, try again..."
             continue
         fi
+		MQ_PASSWORD="$GET_MQ_PASSWORD"
         echo "MQ Password Saved Successfully!!"
         break
     done
