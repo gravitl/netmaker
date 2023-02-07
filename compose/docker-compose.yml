@@ -70,11 +70,13 @@ services:
     depends_on:
       - netmaker
     restart: unless-stopped
+    command: ["/mosquitto/config/wait.sh"]
     environment:
-      NETMAKER_SERVER_HOST: "https://api.NETMAKER_BASE_DOMAIN"
+      MQ_PASSWORD: "REPLACE_MQ_PASSWORD"
+      MQ_USERNAME: "REPLACE_MQ_USERNAME"
     volumes:
       - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
-      - /root/password.txt:/mosquitto/password.txt
+      - /root/wait.sh:/mosquitto/config/wait.sh
       - mosquitto_logs:/mosquitto/log
 volumes:
   caddy_data: {}

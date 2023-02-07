@@ -191,8 +191,6 @@ MASTER_KEY=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
 MQ_USERNAME="netmaker"
 MQ_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
 DOMAIN_TYPE=""
-echo "${MQ_USERNAME}:${MQ_PASSWORD}" > /root/password.txt
-mosquitto_passwd -U /root/password.txt
 echo "-----------------------------------------------------"
 echo "Would you like to use your own domain for netmaker, or an auto-generated domain?"
 echo "To use your own domain, add a Wildcard DNS record (e.x: *.netmaker.example.com) pointing to $SERVER_PUBLIC_IP"
@@ -304,7 +302,8 @@ if [ "$INSTALL_TYPE" = "ee" ]; then
 fi
 
 wget -O /root/docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf && wget -O /root/Caddyfile $CADDY_URL
-
+wget -q -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/master/docker/wait.sh
+chmod +x /root/wait.sh
 mkdir -p /etc/netmaker
 
 echo "Setting docker-compose and Caddyfile..."
