@@ -176,7 +176,7 @@ func PublishDNSUpdate(network string, dns models.DNSUpdate) error {
 		if err != nil {
 			logger.Log(0, "failed to encode dns data for node", node.ID.String(), err.Error())
 		}
-		if err := publish(host, "network/"+host.ID.String()+"/dns", data); err != nil {
+		if err := publish(host, "dns/"+host.ID.String()+"/"+servercfg.GetServer(), data); err != nil {
 			logger.Log(0, "error publishing dns update to host", host.ID.String(), err.Error())
 			continue
 		}
@@ -234,7 +234,7 @@ func PublishAllDNS(newnode *models.Node) error {
 	if err != nil {
 		return fmt.Errorf("error encoding dnd data %w", err)
 	}
-	if err := publish(newnodeHost, "network/"+newnodeHost.ID.String()+"/fulldns", data); err != nil {
+	if err := publish(newnodeHost, "alldns/"+newnodeHost.ID.String()+"/"+servercfg.GetServer(), data); err != nil {
 		return fmt.Errorf("error publish full dns update to %s, %w", newnodeHost.ID.String(), err)
 	}
 	return nil
