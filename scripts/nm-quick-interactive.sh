@@ -188,8 +188,6 @@ NETMAKER_BASE_DOMAIN=nm.$(curl -s ifconfig.me | tr . -).nip.io
 COREDNS_IP=$(ip route get 1 | sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
 SERVER_PUBLIC_IP=$(curl -s ifconfig.me)
 MASTER_KEY=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
-MQ_USERNAME="netmaker"
-MQ_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
 DOMAIN_TYPE=""
 echo "-----------------------------------------------------"
 echo "Would you like to use your own domain for netmaker, or an auto-generated domain?"
@@ -266,6 +264,27 @@ if [ -z "$GET_EMAIL" ]; then
 else
   EMAIL="$GET_EMAIL"
 fi
+
+wait_seconds 1
+
+unset GET_MQ_USERNAME
+unset GET_MQ_PASSWORD
+echo "\nEnter Credentials For MQ"
+read -p "MQ Username (click 'enter' to use 'netmaker'): " GET_MQ_USERNAME
+if [ -z "$GET_MQ_USERNAME" ]; then
+  echo "using default username for mq"
+  MQ_USERNAME="netmaker"
+else
+  MQ_USERNAME="$GET_MQ_USERNAME"
+fi
+read -p "MQ Password (click 'enter' to use random password): " GET_MQ_PASSWORD
+if [ -z "$GET_MQ_PASSWORD" ]; then
+  echo "generating random password for mq"
+  MQ_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
+else
+  MQ_PASSWORD="$GET_MQ_PASSWORD"
+fi
+
 
 wait_seconds 2
 
