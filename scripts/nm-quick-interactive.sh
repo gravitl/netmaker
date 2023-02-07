@@ -77,40 +77,40 @@ echo "checking dependencies..."
 OS=$(uname)
 
 if [ -f /etc/debian_version ]; then
-	dependencies="wireguard wireguard-tools jq docker.io docker-compose mosquitto"
+	dependencies="wireguard wireguard-tools jq docker.io docker-compose"
 	update_cmd='apt update'
 	install_cmd='apt-get install -y'
 elif [ -f /etc/alpine-release ]; then
-	dependencies="wireguard jq docker.io docker-compose mosquitto"
+	dependencies="wireguard jq docker.io docker-compose"
 	update_cmd='apk update'
 	install_cmd='apk --update add'
 elif [ -f /etc/centos-release ]; then
-	dependencies="wireguard jq docker.io docker-compose mosquitto"
+	dependencies="wireguard jq docker.io docker-compose"
 	update_cmd='yum update'
 	install_cmd='yum install -y'
 elif [ -f /etc/fedora-release ]; then
-	dependencies="wireguard jq docker.io docker-compose mosquitto"
+	dependencies="wireguard jq docker.io docker-compose"
 	update_cmd='dnf update'
 	install_cmd='dnf install -y'
 elif [ -f /etc/redhat-release ]; then
-	dependencies="wireguard jq docker.io docker-compose mosquitto"
+	dependencies="wireguard jq docker.io docker-compose"
 	update_cmd='yum update'
 	install_cmd='yum install -y'
 elif [ -f /etc/arch-release ]; then
-    	dependecies="wireguard-tools jq docker.io docker-compose mosquitto"
+    	dependecies="wireguard-tools jq docker.io docker-compose"
 	update_cmd='pacman -Sy'
 	install_cmd='pacman -S --noconfirm'
 elif [ "${OS}" = "FreeBSD" ]; then
-	dependencies="wireguard wget jq docker.io docker-compose mosquitto"
+	dependencies="wireguard wget jq docker.io docker-compose"
 	update_cmd='pkg update'
 	install_cmd='pkg install -y'
 elif [ -f /etc/turris-version ]; then
-	dependencies="wireguard-tools bash jq docker.io docker-compose mosquitto"
+	dependencies="wireguard-tools bash jq docker.io docker-compose"
 	OS="TurrisOS"
 	update_cmd='opkg update'	
 	install_cmd='opkg install'
 elif [ -f /etc/openwrt_release ]; then
-	dependencies="wireguard-tools bash jq docker.io docker-compose mosquitto"
+	dependencies="wireguard-tools bash jq docker.io docker-compose"
 	OS="OpenWRT"
 	update_cmd='opkg update'	
 	install_cmd='opkg install'
@@ -302,7 +302,7 @@ if [ "$INSTALL_TYPE" = "ee" ]; then
 fi
 
 wget -O /root/docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf && wget -O /root/Caddyfile $CADDY_URL
-wget -q -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/master/docker/wait.sh
+wget -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/master/docker/wait.sh
 chmod +x /root/wait.sh
 mkdir -p /etc/netmaker
 
