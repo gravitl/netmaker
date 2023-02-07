@@ -19,6 +19,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+var hostID = "host-id"
+
 func nodeHandlers(r *mux.Router) {
 
 	r.HandleFunc("/api/nodes", authorize(false, false, "user", http.HandlerFunc(getAllNodes))).Methods(http.MethodGet)
@@ -234,8 +236,8 @@ func authorize(nodesAllowed, networkCheck bool, authNetwork string, next http.Ha
 			//check if node instead of user
 			if nodesAllowed {
 				// TODO --- should ensure that node is only operating on itself
-				if _, _, _, err := logic.VerifyToken(authToken); err == nil {
-
+				if id, _, _, err := logic.VerifyToken(authToken); err == nil {
+					r.Header.Add(hostID, id)
 					// this indicates request is from a node
 					// used for failover - if a getNode comes from node, this will trigger a metrics wipe
 					next.ServeHTTP(w, r)

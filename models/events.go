@@ -1,17 +1,14 @@
 package models
 
-import "github.com/gorilla/websocket"
-
 // Event - holds info about messages to be used by different handlers
 type Event struct {
 	ID      string `json:"id"`
-	Topic   string `json:"topic"`
+	Topic   int    `json:"topic"`
 	Payload struct {
 		*Host `json:"host,omitempty"`
 		*Node `json:"odd,omitempty"`
 		*Test `json:"test,omitempty"`
 	} `json:"payload"`
-	Conn *websocket.Conn `json:"conn"`
 }
 
 // Test - used for testing the handlers
@@ -20,7 +17,16 @@ type Test struct {
 }
 
 // == TOPICS ==
-const (
-	// Event_TestTopic - the topic for a test event
-	Event_TestTopic = "test"
-)
+
+// EventTopics - hold topic IDs for each type of possible event
+var EventTopics = struct {
+	Test       int
+	NodeUpdate int
+	HostUpdate int
+	PeerUpdate int
+}{
+	Test:       0,
+	NodeUpdate: 1,
+	HostUpdate: 2,
+	PeerUpdate: 3,
+}

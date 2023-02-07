@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/enriquebris/goconcurrentqueue"
+	"github.com/gorilla/websocket"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
@@ -19,7 +20,6 @@ func StartQueue(ctx context.Context) {
 	initQueue()
 
 	go func(ctx context.Context) {
-		logger.Log(2, "initialized queue service!")
 		for {
 			msg, err := EventQueue.DequeueOrWaitForNextElementContext(ctx)
 			if err != nil { // handle dequeue error
@@ -32,12 +32,15 @@ func StartQueue(ctx context.Context) {
 			}
 			event := msg.(models.Event)
 			switch event.Topic {
-			case "test":
-				fmt.Printf("received test topic event %+v \n", event)
+			case models.EventTopics.Test:
+				conn, ok := ConnMap.Load(event.ID)
+				if ok {
+					conn.(*websocket.Conn).WriteMessage(websocket.TextMessage, []byte("success"))
+				}
 			default:
-				fmt.Printf("topic unknown\n")
+				logger.Log(0, fmt.Sprintf("received an unknown topic %d \n", event.Topic))
 			}
-			logger.Log(0, fmt.Sprintf("queue stats: queued elements %d, openCapacity: %d \n", EventQueue.GetLen(), EventQueue.GetCap()))
+			logger.Log(3, fmt.Sprintf("queue stats: queued elements %d, openCapacity: %d \n", EventQueue.GetLen(), EventQueue.GetCap()))
 		}
 	}(ctx)
 }
