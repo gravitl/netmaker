@@ -17,7 +17,6 @@ services:
       DNS_MODE: "on"
       SERVER_HTTP_HOST: "api.NETMAKER_BASE_DOMAIN"
       API_PORT: "8081"
-      CLIENT_MODE: "on"
       MASTER_KEY: "REPLACE_MASTER_KEY"
       CORS_ALLOWED_ORIGIN: "*"
       DISPLAY_KEYS: "on"

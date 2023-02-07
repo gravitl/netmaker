@@ -19,7 +19,6 @@ var linuxHost models.Host
 
 func TestCreateEgressGateway(t *testing.T) {
 	var gateway models.EgressGatewayRequest
-	gateway.Interface = "eth0"
 	gateway.Ranges = []string{"10.100.100.0/24"}
 	gateway.NetID = "skynet"
 	database.InitializeDatabase()
@@ -63,7 +62,6 @@ func TestCreateEgressGateway(t *testing.T) {
 	})
 	t.Run("Success", func(t *testing.T) {
 		var gateway models.EgressGatewayRequest
-		gateway.Interface = "eth0"
 		gateway.Ranges = []string{"10.100.100.0/24"}
 		gateway.NetID = "skynet"
 		deleteAllNodes()
@@ -84,7 +82,6 @@ func TestDeleteEgressGateway(t *testing.T) {
 	deleteAllNetworks()
 	createNet()
 	testnode := createTestNode()
-	gateway.Interface = "eth0"
 	gateway.Ranges = []string{"10.100.100.0/24"}
 	gateway.NetID = "skynet"
 	gateway.NodeID = testnode.ID.String()
@@ -138,19 +135,11 @@ func TestGetNetworkNodes(t *testing.T) {
 func TestValidateEgressGateway(t *testing.T) {
 	var gateway models.EgressGatewayRequest
 	t.Run("EmptyRange", func(t *testing.T) {
-		gateway.Interface = "eth0"
 		gateway.Ranges = []string{}
 		err := logic.ValidateEgressGateway(gateway)
 		assert.EqualError(t, err, "IP Ranges Cannot Be Empty")
 	})
-	t.Run("EmptyInterface", func(t *testing.T) {
-		gateway.Interface = ""
-		err := logic.ValidateEgressGateway(gateway)
-		assert.NotNil(t, err)
-		assert.Equal(t, "interface cannot be empty", err.Error())
-	})
 	t.Run("Success", func(t *testing.T) {
-		gateway.Interface = "eth0"
 		gateway.Ranges = []string{"10.100.100.0/24"}
 		err := logic.ValidateEgressGateway(gateway)
 		assert.Nil(t, err)

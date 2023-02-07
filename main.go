@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"runtime/debug"
-	"strconv"
 	"sync"
 	"syscall"
 
@@ -95,20 +94,6 @@ func initialize() { // Client Mode Prereq Check
 	err = serverctl.SetDefaults()
 	if err != nil {
 		logger.FatalLog("error setting defaults: ", err.Error())
-	}
-
-	if servercfg.IsClientMode() != "off" {
-		output, err := ncutils.RunCmd("id -u", true)
-		if err != nil {
-			logger.FatalLog("Error running 'id -u' for prereq check. Please investigate or disable client mode.", output, err.Error())
-		}
-		uid, err := strconv.Atoi(string(output[:len(output)-1]))
-		if err != nil {
-			logger.FatalLog("Error retrieving uid from 'id -u' for prereq check. Please investigate or disable client mode.", err.Error())
-		}
-		if uid != 0 {
-			logger.FatalLog("To run in client mode requires root privileges. Either disable client mode or run with sudo.")
-		}
 	}
 
 	if servercfg.IsDNSMode() {

@@ -160,7 +160,6 @@ type EgressGatewayRequest struct {
 	NetID      string   `json:"netid" bson:"netid"`
 	NatEnabled string   `json:"natenabled" bson:"natenabled"`
 	Ranges     []string `json:"ranges" bson:"ranges"`
-	Interface  string   `json:"interface" bson:"interface"`
 }
 
 // RelayRequest - relay request struct
@@ -227,7 +226,6 @@ type ServerConfig struct {
 	CoreDNSAddr string `yaml:"corednsaddr"`
 	API         string `yaml:"api"`
 	APIPort     string `yaml:"apiport"`
-	ClientMode  string `yaml:"clientmode"`
 	DNSMode     string `yaml:"dnsmode"`
 	Version     string `yaml:"version"`
 	MQPort      string `yaml:"mqport"`
