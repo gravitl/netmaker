@@ -580,8 +580,6 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	}
 	server := servercfg.GetServerInfo()
 	server.TrafficKey = key
-	// consume password before hashing for mq client creation
-	hostPassword := data.Host.HostPass
 	data.Node.Server = servercfg.GetServer()
 	if !logic.HostExists(&data.Host) {
 		logic.CheckHostPorts(&data.Host)
@@ -607,18 +605,6 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		} else {
 			logger.Log(0, "error creating host", err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-			return
-		}
-	} else {
-		// Create client for this host in Mq
-		if err := mq.CreateMqClient(&mq.MqClient{
-			ID:       data.Host.ID.String(),
-			Text:     data.Host.Name,
-			Password: hostPassword,
-			Networks: []string{networkName},
-		}); err != nil {
-			logger.Log(0, fmt.Sprintf("failed to create DynSec client: %v", err.Error()))
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
 	}

@@ -195,10 +195,6 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err = mq.DeleteMqClient(currHost.ID.String()); err != nil {
-		logger.Log(0, "error removing DynSec credentials for host:", currHost.Name, err.Error())
-	}
-
 	apiHostData := currHost.ConvertNMHostToAPI()
 	logger.Log(2, r.Header.Get("user"), "removed host", currHost.Name)
 	w.WriteHeader(http.StatusOK)

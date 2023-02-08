@@ -188,9 +188,7 @@ NETMAKER_BASE_DOMAIN=nm.$(curl -s ifconfig.me | tr . -).nip.io
 COREDNS_IP=$(ip route get 1 | sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
 SERVER_PUBLIC_IP=$(curl -s ifconfig.me)
 MASTER_KEY=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
-MQ_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
 DOMAIN_TYPE=""
-
 echo "-----------------------------------------------------"
 echo "Would you like to use your own domain for netmaker, or an auto-generated domain?"
 echo "To use your own domain, add a Wildcard DNS record (e.x: *.netmaker.example.com) pointing to $SERVER_PUBLIC_IP"
@@ -267,6 +265,49 @@ else
   EMAIL="$GET_EMAIL"
 fi
 
+wait_seconds 1
+
+unset GET_MQ_USERNAME
+unset GET_MQ_PASSWORD
+unset CONFIRM_MQ_PASSWORD
+echo "Enter Credentials For MQ..."
+read -p "MQ Username (click 'enter' to use 'netmaker'): " GET_MQ_USERNAME
+if [ -z "$GET_MQ_USERNAME" ]; then
+  echo "using default username for mq"
+  MQ_USERNAME="netmaker"
+else
+  MQ_USERNAME="$GET_MQ_USERNAME"
+fi
+
+select domain_option in "Auto Generated Password" "Input Your Own Password"; do
+	case $REPLY in
+	1)
+	echo "generating random password for mq"
+	MQ_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
+	break
+	;;      
+    2)
+	while true
+    do
+        echo "Enter your Password For MQ: " 
+        read -s GET_MQ_PASSWORD
+        echo "Enter your password again to confirm: "
+        read -s CONFIRM_MQ_PASSWORD
+        if [ ${GET_MQ_PASSWORD} != ${CONFIRM_MQ_PASSWORD} ]; then
+            echo "wrong password entered, try again..."
+            continue
+        fi
+		MQ_PASSWORD="$GET_MQ_PASSWORD"
+        echo "MQ Password Saved Successfully!!"
+        break
+    done
+      break
+      ;;
+    *) echo "invalid option $REPLY";;
+  esac
+done
+
+
 wait_seconds 2
 
 echo "-----------------------------------------------------------------"
@@ -301,8 +342,9 @@ if [ "$INSTALL_TYPE" = "ee" ]; then
 	CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/master/docker/Caddyfile-EE"
 fi
 
-wget -O /root/docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf && wget -O /root/Caddyfile $CADDY_URL && wget -q -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/master/docker/wait.sh && chmod +x /root/wait.sh
-
+wget -O /root/docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf && wget -O /root/Caddyfile $CADDY_URL
+wget -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/master/docker/wait.sh
+chmod +x /root/wait.sh
 mkdir -p /etc/netmaker
 
 echo "Setting docker-compose and Caddyfile..."
@@ -312,7 +354,8 @@ sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/Caddyfile
 sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/docker-compose.yml
 sed -i "s/REPLACE_MASTER_KEY/$MASTER_KEY/g" /root/docker-compose.yml
 sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/Caddyfile
-sed -i "s/REPLACE_MQ_ADMIN_PASSWORD/$MQ_PASSWORD/g" /root/docker-compose.yml 
+sed -i "s/REPLACE_MQ_PASSWORD/$MQ_PASSWORD/g" /root/docker-compose.yml
+sed -i "s/REPLACE_MQ_USERNAME/$MQ_USERNAME/g" /root/docker-compose.yml 
 if [ "$INSTALL_TYPE" = "ee" ]; then
 	sed -i "s~YOUR_LICENSE_KEY~$LICENSE_KEY~g" /root/docker-compose.yml
 	sed -i "s/YOUR_ACCOUNT_ID/$ACCOUNT_ID/g" /root/docker-compose.yml

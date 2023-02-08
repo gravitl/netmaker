@@ -89,6 +89,8 @@ func GetServerInfo() models.ServerConfig {
 	var cfg models.ServerConfig
 	cfg.Server = GetServer()
 	cfg.Broker = GetBroker()
+	cfg.MQUserName = GetMqUserName()
+	cfg.MQPassword = GetMqPassword()
 	cfg.API = GetAPIConnString()
 	cfg.CoreDNSAddr = GetCoreDNSAddr()
 	cfg.APIPort = GetAPIPort()
@@ -590,13 +592,24 @@ func GetMQServerPort() string {
 	return port
 }
 
-// GetMqAdminPassword - fetches the MQ Admin password
-func GetMqAdminPassword() string {
+// GetMqPassword - fetches the MQ password
+func GetMqPassword() string {
 	password := ""
-	if os.Getenv("MQ_ADMIN_PASSWORD") != "" {
-		password = os.Getenv("MQ_ADMIN_PASSWORD")
-	} else if config.Config.Server.MQAdminPassword != "" {
-		password = config.Config.Server.MQAdminPassword
+	if os.Getenv("MQ_PASSWORD") != "" {
+		password = os.Getenv("MQ_PASSWORD")
+	} else if config.Config.Server.MQPassword != "" {
+		password = config.Config.Server.MQPassword
+	}
+	return password
+}
+
+// GetMqUserName - fetches the MQ username
+func GetMqUserName() string {
+	password := ""
+	if os.Getenv("MQ_USERNAME") != "" {
+		password = os.Getenv("MQ_USERNAME")
+	} else if config.Config.Server.MQUserName != "" {
+		password = config.Config.Server.MQUserName
 	}
 	return password
 }

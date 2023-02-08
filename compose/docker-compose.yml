@@ -3,12 +3,11 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.17.1
+    image: gravitl/netmaker:v0.18.0
     restart: always
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
-      - mosquitto_data:/etc/netmaker
     environment:
       BROKER_NAME: "broker.NETMAKER_BASE_DOMAIN"
       SERVER_NAME: "NETMAKER_BASE_DOMAIN"
@@ -28,7 +27,8 @@ services:
       MQ_PORT: "443"
       MQ_SERVER_PORT: "1883"
       VERBOSITY: "1"
-      MQ_ADMIN_PASSWORD: "REPLACE_MQ_ADMIN_PASSWORD"
+      MQ_PASSWORD: "REPLACE_MQ_PASSWORD"
+      MQ_USERNAME: "REPLACE_MQ_USERNAME"
       STUN_PORT: "3478"
       PROXY: "on"
     ports:
@@ -36,7 +36,7 @@ services:
       - "3478:3478/udp"
   netmaker-ui:
     container_name: netmaker-ui
-    image: gravitl/netmaker-ui:v0.17.1
+    image: gravitl/netmaker-ui:v0.18.0
     depends_on:
       - netmaker
     links:
@@ -72,16 +72,15 @@ services:
     restart: unless-stopped
     command: ["/mosquitto/config/wait.sh"]
     environment:
-      NETMAKER_SERVER_HOST: "https://api.NETMAKER_BASE_DOMAIN"
+      MQ_PASSWORD: "REPLACE_MQ_PASSWORD"
+      MQ_USERNAME: "REPLACE_MQ_USERNAME"
     volumes:
       - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
       - /root/wait.sh:/mosquitto/config/wait.sh
-      - mosquitto_data:/mosquitto/data
       - mosquitto_logs:/mosquitto/log
 volumes:
   caddy_data: {}
   caddy_conf: {}
   sqldata: {}
   dnsconfig: {}
-  mosquitto_data: {}
   mosquitto_logs: {}
