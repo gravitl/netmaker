@@ -19,12 +19,13 @@ var handlerFuncs map[int]func(*models.Event)
 // initializes the map of functions
 func initializeHandlers() {
 	handlerFuncs = make(map[int]func(*models.Event))
-	handlerFuncs[models.EventTopics.NodeUpdate] = nodeUpdate
 	handlerFuncs[models.EventTopics.Test] = test
+	handlerFuncs[models.EventTopics.NodeUpdate] = nodeUpdate
 	handlerFuncs[models.EventTopics.HostUpdate] = hostUpdate
 	handlerFuncs[models.EventTopics.Ping] = ping
 	handlerFuncs[models.EventTopics.Metrics] = updateMetrics
 	handlerFuncs[models.EventTopics.ClientUpdate] = clientPeerUpdate
+	handlerFuncs[models.EventTopics.SendAllHostPeerUpdate] = publishPeerUpdates
 }
 
 func test(e *models.Event) {
@@ -99,10 +100,7 @@ func nodeUpdate(e *models.Event) {
 		return
 	}
 	if ifaceDelta { // reduce number of unneeded updates, by only sending on iface changes
-		// TODO handle publishing udpates
-		// if err = PublishPeerUpdate(); err != nil {
-		// 	logger.Log(0, "error updating peers when node", currentNode.ID.String(), "informed the server of an interface change", err.Error())
-		// }
+		PublishAllPeerUpdate()
 	}
 
 	logger.Log(1, "updated node", newNode.ID.String())
@@ -141,12 +139,8 @@ func hostUpdate(e *models.Event) {
 		}
 		sendPeerUpdate = true
 	}
-	// TODO handle publishing a peer update
 	if sendPeerUpdate {
-		// 	err := PublishPeerUpdate()
-		// 	if err != nil {
-		// 		logger.Log(0, "failed to pulish peer update: ", err.Error())
-		// 	}
+		PublishAllPeerUpdate()
 	}
 }
 
@@ -187,13 +181,12 @@ func updateMetrics(e *models.Event) {
 
 		if shouldUpdate {
 			logger.Log(2, "updating peers after node", currentNode.ID.String(), currentNode.Network, "detected connectivity issues")
-			// host, err := logic.GetHost(currentNode.HostID.String())
-			// if err == nil {
-			// 	if err = PublishSingleHostUpdate(host); err != nil {
-			// 		logger.Log(0, "failed to publish update after failover peer change for node", currentNode.ID.String(), currentNode.Network)
-			// 	}
-			// }
-			// TODO publish a single host update
+			host, err := logic.GetHost(currentNode.HostID.String())
+			if err == nil {
+				if err = publishHostPeerUpdate(host); err != nil {
+					logger.Log(0, "failed to publish update after failover peer change for node", currentNode.ID.String(), currentNode.Network)
+				}
+			}
 		}
 
 		logger.Log(1, "updated node metrics", id)
@@ -202,9 +195,14 @@ func updateMetrics(e *models.Event) {
 
 func clientPeerUpdate(e *models.Event) {
 	id := e.ID
-	_, err := logic.GetNodeByID(id)
+	node, err := logic.GetNodeByID(id)
 	if err != nil {
-		logger.Log(1, "error getting node ", id, err.Error())
+		logger.Log(1, "error getting node", id, err.Error())
+		return
+	}
+	host, err := logic.GetHost(node.HostID.String())
+	if err != nil {
+		logger.Log(1, "error getting node's host for peer update", id, err.Error())
 		return
 	}
 	action := e.Payload.Action
@@ -212,7 +210,7 @@ func clientPeerUpdate(e *models.Event) {
 	case ncutils.ACK:
 		//do we still need this
 	case ncutils.DONE:
-		// TODO publish a peer update to the calling node
+		publishHostPeerUpdate(host)
 	}
 
 	logger.Log(1, "sent peer updates after signal received from", id)
