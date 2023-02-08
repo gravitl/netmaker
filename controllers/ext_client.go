@@ -464,7 +464,6 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-
 	if changedID && oldExtClient.OwnerID != "" {
 		if err := pro.DissociateNetworkUserClient(oldExtClient.OwnerID, networkName, oldExtClient.ClientID); err != nil {
 			logger.Log(0, "failed to dissociate client", oldExtClient.ClientID, "from user", oldExtClient.OwnerID)
@@ -476,7 +475,8 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	// == END PRO ==
 
 	var changedEnabled = newExtClient.Enabled != oldExtClient.Enabled // indicates there was a change in enablement
-
+	// extra var need as logic.Update changes oldExtClient
+	currentClient := oldExtClient
 	newclient, err := logic.UpdateExtClient(newExtClient.ClientID, params["network"], newExtClient.Enabled, &oldExtClient)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
@@ -497,7 +497,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(newclient)
 	if changedID {
 		go func() {
-			if err := mq.PublishExtClientDNSUpdate(oldExtClient, newExtClient, networkName); err != nil {
+			if err := mq.PublishExtClientDNSUpdate(currentClient, newExtClient, networkName); err != nil {
 				logger.Log(1, "error pubishing dns update for extcient update", err.Error())
 			}
 		}()
