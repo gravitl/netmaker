@@ -22,6 +22,7 @@ var PG_FUNCTIONS = map[string]interface{}{
 	DELETE_ALL:   pgDeleteAllRecords,
 	FETCH_ALL:    pgFetchRecords,
 	CLOSE_DB:     pgCloseDB,
+	isConnected:  pgIsConnected,
 }
 
 func getPGConnString() string {
@@ -134,4 +135,9 @@ func pgFetchRecords(tableName string) (map[string]string, error) {
 
 func pgCloseDB() {
 	PGDB.Close()
+}
+
+func pgIsConnected() bool {
+	stats := PGDB.Stats()
+	return stats.OpenConnections > 0
 }
