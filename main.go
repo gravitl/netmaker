@@ -172,7 +172,6 @@ func runMessageQueue(wg *sync.WaitGroup) {
 	if servercfg.IsMessageQueueBackend() { // connect to external broker
 		brokerHost, secure := servercfg.GetMessageQueueEndpoint()
 		logger.Log(0, "connecting to mq broker at", brokerHost, "with TLS?", fmt.Sprintf("%v", secure))
-		mq.SetUpAdminClient()
 		mq.SetupMQTT()
 		go mq.Keepalive(ctx)
 	} else { // use internal queue system

@@ -332,14 +332,14 @@ func IsAgentBackend() bool {
 // IsMessageQueueBackend - checks if message queue is on or off
 func IsMessageQueueBackend() bool {
 	ismessagequeue := true
-	if os.Getenv("MESSAGEQUEUE_BACKEND") != "" {
-		if os.Getenv("MESSAGEQUEUE_BACKEND") == "off" {
-			ismessagequeue = false
-		}
-	} else if config.Config.Server.MessageQueueBackend != "" {
-		if config.Config.Server.MessageQueueBackend == "off" {
-			ismessagequeue = false
-		}
+	if len(os.Getenv("MESSAGEQUEUE_BACKEND")) == 0 ||
+		os.Getenv("MESSAGEQUEUE_BACKEND") == "off" ||
+		os.Getenv("MESSAGEQUEUE_BACKEND") == "internal" {
+		ismessagequeue = false
+	} else if len(config.Config.Server.MessageQueueBackend) == 0 ||
+		config.Config.Server.MessageQueueBackend == "off" ||
+		os.Getenv("MESSAGEQUEUE_BACKEND") == "internal" {
+		ismessagequeue = false
 	}
 	return ismessagequeue
 }

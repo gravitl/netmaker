@@ -141,10 +141,13 @@ func createHostRelay(w http.ResponseWriter, r *http.Request) {
 			relatedHost.ProxyEnabled = true
 			logic.UpsertHost(&relatedHost)
 		}
-		if err := mq.PublishPeerUpdate(); err != nil {
-			logger.Log(0, "fail to publish peer update: ", err.Error())
+		if servercfg.IsMessageQueueBackend() {
+			if err := mq.PublishPeerUpdate(); err != nil {
+				logger.Log(0, "fail to publish peer update: ", err.Error())
+			}
+		} else {
+			queue.PublishAllPeerUpdate()
 		}
-
 	}(relay.HostID)
 
 	apiHostData := relayHost.ConvertNMHostToAPI()
@@ -174,11 +177,16 @@ func deleteHostRelay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(1, r.Header.Get("user"), "deleted relay host", hostid)
-	go func() {
-		if err := mq.PublishPeerUpdate(); err != nil {
-			logger.Log(0, "fail to publish peer update: ", err.Error())
-		}
-	}()
+	if servercfg.IsMessageQueueBackend() {
+		go func() {
+			if err := mq.PublishPeerUpdate(); err != nil {
+				logger.Log(0, "fail to publish peer update: ", err.Error())
+			}
+		}()
+	} else {
+		queue.PublishAllPeerUpdate()
+	}
+
 	apiHostData := relayHost.ConvertNMHostToAPI()
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiHostData)

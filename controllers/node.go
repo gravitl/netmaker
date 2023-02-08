@@ -654,11 +654,16 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 
-	go func() {
-		if err := mq.PublishPeerUpdate(); err != nil {
-			logger.Log(1, "failed a peer update after creation of node", data.Host.Name)
-		}
-	}()
+	if servercfg.IsMessageQueueBackend() {
+		go func() {
+			if err := mq.PublishPeerUpdate(); err != nil {
+				logger.Log(1, "failed a peer update after creation of node", data.Host.Name)
+			}
+		}()
+	} else {
+		queue.PublishAllPeerUpdate()
+	}
+
 	//runForceServerUpdate(&data.Node, true)
 }
 
@@ -700,9 +705,14 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "created egress gateway on node", gateway.NodeID, "on network", gateway.NetID)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-	go func() {
-		mq.PublishPeerUpdate()
-	}()
+	if servercfg.IsMessageQueueBackend() {
+		go func() {
+			mq.PublishPeerUpdate()
+		}()
+	} else {
+		queue.PublishAllPeerUpdate()
+	}
+
 	runUpdates(&node, true)
 }
 
@@ -736,9 +746,14 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "deleted egress gateway on node", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-	go func() {
-		mq.PublishPeerUpdate()
-	}()
+	if servercfg.IsMessageQueueBackend() {
+		go func() {
+			mq.PublishPeerUpdate()
+		}()
+	} else {
+		queue.PublishAllPeerUpdate()
+	}
+
 	runUpdates(&node, true)
 }
 
@@ -975,11 +990,15 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	if !fromNode { // notify node change
 		runUpdates(&node, false)
 	}
-	go func() { // notify of peer change
-		if err := mq.PublishPeerUpdate(); err != nil {
-			logger.Log(1, "error publishing peer update ", err.Error())
-		}
-	}()
+	if servercfg.IsMessageQueueBackend() {
+		go func() { // notify of peer change
+			if err := mq.PublishPeerUpdate(); err != nil {
+				logger.Log(1, "error publishing peer update ", err.Error())
+			}
+		}()
+	} else {
+		queue.PublishAllPeerUpdate()
+	}
 }
 
 func runUpdates(node *models.Node, ifaceDelta bool) {
