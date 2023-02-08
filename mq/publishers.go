@@ -268,13 +268,15 @@ func PublishReplaceDNS(oldNode, newNode *models.Node, host *models.Host) error {
 		Name:   host.Name + "." + oldNode.Network,
 	}
 	if !oldNode.Address.IP.Equal(newNode.Address.IP) {
-		dns.Address = newNode.Address.IP.String()
+		dns.Address = oldNode.Address.IP.String()
+		dns.NewAddress = newNode.Address.IP.String()
 		if err := PublishDNSUpdate(oldNode.Network, dns); err != nil {
 			return err
 		}
 	}
 	if !oldNode.Address6.IP.Equal(newNode.Address6.IP) {
-		dns.Address = newNode.Address6.IP.String()
+		dns.Address = oldNode.Address6.IP.String()
+		dns.NewAddress = newNode.Address6.IP.String()
 		if err := PublishDNSUpdate(oldNode.Network, dns); err != nil {
 			return err
 		}
