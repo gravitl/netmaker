@@ -3,7 +3,7 @@ version: "3.4"
 services:
   netmaker: # The Primary Server for running Netmaker
     container_name: netmaker
-    image: gravitl/netmaker:v0.17.1
+    image: gravitl/netmaker:v0.18.0
     restart: always
     volumes: # Volume mounts necessary for sql, coredns, and mqtt
       - dnsconfig:/root/config/dnsconfig
