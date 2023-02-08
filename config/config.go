@@ -67,7 +67,8 @@ type ServerConfig struct {
 	Server                string `yaml:"server"`
 	Broker                string `yam:"broker"`
 	PublicIPService       string `yaml:"publicipservice"`
-	MQAdminPassword       string `yaml:"mqadminpassword"`
+	MQPassword            string `yaml:"mqpassword"`
+	MQUserName            string `yaml:"mqusername"`
 	MetricsExporter       string `yaml:"metrics_exporter"`
 	BasicAuth             string `yaml:"basic_auth"`
 	LicenseValue          string `yaml:"license_value"`

@@ -97,7 +97,6 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 	if updateRelay {
 		logic.UpdateHostRelay(currHost.ID.String(), currHost.RelayedHosts, newHost.RelayedHosts)
 	}
-
 	// publish host update through MQ
 	if err := mq.HostUpdate(&models.HostUpdate{
 		Action: models.UpdateHost,
@@ -175,10 +174,6 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		Host:   *currHost,
 	}); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to send delete host update: ", currHost.ID.String(), err.Error())
-	}
-
-	if err = mq.DeleteMqClient(currHost.ID.String()); err != nil {
-		logger.Log(0, "error removing DynSec credentials for host:", currHost.Name, err.Error())
 	}
 
 	apiHostData := currHost.ConvertNMHostToAPI()

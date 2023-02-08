@@ -229,6 +229,8 @@ type ServerConfig struct {
 	DNSMode     string `yaml:"dnsmode"`
 	Version     string `yaml:"version"`
 	MQPort      string `yaml:"mqport"`
+	MQUserName  string `yaml:"mq_username"`
+	MQPassword  string `yaml:"mq_password"`
 	Server      string `yaml:"server"`
 	Broker      string `yaml:"broker"`
 	Is_EE       bool   `yaml:"isee"`
