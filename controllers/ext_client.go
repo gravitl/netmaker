@@ -497,10 +497,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(newclient)
 	if changedID {
 		go func() {
-			if err := mq.PublishDeleteExtClientDNS(&oldExtClient); err != nil {
-				logger.Log(1, "error pubishing dns update for extcient update", err.Error())
-			}
-			if err := mq.PublishExtCLientDNS(&newExtClient); err != nil {
+			if err := mq.PublishExtClientDNSUpdate(oldExtClient, newExtClient, networkName); err != nil {
 				logger.Log(1, "error pubishing dns update for extcient update", err.Error())
 			}
 		}()
