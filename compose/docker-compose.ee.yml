@@ -8,9 +8,9 @@ services:
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
-      - mosquitto_data:/etc/netmaker
     environment:
       SERVER_NAME: "broker.NETMAKER_BASE_DOMAIN"
+      STUN_DOMAIN: "stun.NETMAKER_BASE_DOMAIN"
       SERVER_HOST: "SERVER_PUBLIC_IP"
       SERVER_API_CONN_STRING: "api.NETMAKER_BASE_DOMAIN:443"
       COREDNS_ADDR: "SERVER_PUBLIC_IP"
@@ -24,14 +24,17 @@ services:
       NODE_ID: "netmaker-server-1"
       MQ_HOST: "mq"
       MQ_PORT: "443"
+      STUN_PORT: "3478"
       MQ_SERVER_PORT: "1883"
       VERBOSITY: "1"
       METRICS_EXPORTER: "on"
       LICENSE_KEY: "YOUR_LICENSE_KEY"
       NETMAKER_ACCOUNT_ID: "YOUR_ACCOUNT_ID"
-      MQ_ADMIN_PASSWORD: "REPLACE_MQ_ADMIN_PASSWORD"
+      MQ_PASSWORD: "REPLACE_MQ_PASSWORD"
+      MQ_USERNAME: "REPLACE_MQ_USERNAME"
     ports:
       - "51821-51830:51821-51830/udp"
+      - "3478:3478/udp"
   netmaker-ui:
     container_name: netmaker-ui
     image: gravitl/netmaker-ui:v0.17.1
@@ -70,11 +73,11 @@ services:
     restart: unless-stopped
     command: ["/mosquitto/config/wait.sh"]
     environment:
-      NETMAKER_SERVER_HOST: "https://api.NETMAKER_BASE_DOMAIN"
+      MQ_PASSWORD: "REPLACE_MQ_PASSWORD"
+      MQ_USERNAME: "REPLACE_MQ_USERNAME"
     volumes:
       - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
       - /root/wait.sh:/mosquitto/config/wait.sh
-      - mosquitto_data:/mosquitto/data
       - mosquitto_logs:/mosquitto/log
     ports:
       - "1883:1883"
@@ -125,7 +128,6 @@ volumes:
   caddy_conf: {}
   sqldata: {}
   dnsconfig: {}
-  mosquitto_data: {}
   mosquitto_logs: {}
   prometheus_data: {}
   grafana_data: {}
