@@ -26,6 +26,8 @@ func initializeHandlers() {
 	handlerFuncs[models.EventTopics.Metrics] = updateMetrics
 	handlerFuncs[models.EventTopics.ClientUpdate] = clientPeerUpdate
 	handlerFuncs[models.EventTopics.SendAllHostPeerUpdate] = publishPeerUpdates
+	handlerFuncs[models.EventTopics.SendHostUpdate] = sendHostUpdate
+	handlerFuncs[models.EventTopics.SendNodeUpdate] = sendNodeUpdate
 }
 
 func test(e *models.Event) {

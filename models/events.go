@@ -24,14 +24,18 @@ type Test struct {
 
 // EventTopics - hold topic IDs for each type of possible event
 var EventTopics = struct {
-	Test                  int
-	NodeUpdate            int
-	HostUpdate            int
-	Ping                  int
-	Metrics               int
-	ClientUpdate          int
+	// == to server topics ==
+	Test         int
+	NodeUpdate   int
+	HostUpdate   int
+	Ping         int
+	Metrics      int
+	ClientUpdate int
+	// == to client topics ==
 	SendAllHostPeerUpdate int
 	SendHostPeerUpdate    int
+	SendHostUpdate        int
+	SendNodeUpdate        int
 }{
 	Test:                  0,
 	NodeUpdate:            1,
@@ -41,4 +45,6 @@ var EventTopics = struct {
 	ClientUpdate:          5,
 	SendAllHostPeerUpdate: 6,
 	SendHostPeerUpdate:    7,
+	SendHostUpdate:        8,
+	SendNodeUpdate:        9,
 }

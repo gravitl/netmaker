@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/gorilla/websocket"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 )
@@ -18,6 +19,53 @@ func PublishAllPeerUpdate() {
 		Topic: models.EventTopics.SendAllHostPeerUpdate,
 	}
 	EventQueue.Enqueue(event)
+}
+
+// NodeUpdate -- publishes a node update
+func NodeUpdate(node *models.Node) error {
+	host, err := logic.GetHost(node.HostID.String())
+	if err != nil {
+		return nil
+	}
+	event := models.Event{
+		ID:    host.ID.String(),
+		Topic: models.EventTopics.SendNodeUpdate,
+	}
+	event.Payload.Node = node
+	logger.Log(1, "publishing node update to", host.Name, node.ID.String())
+	return EventQueue.Enqueue(event)
+}
+
+// HostUpdate -- publishes a host update to clients
+func HostUpdate(hostUpdate *models.HostUpdate) error {
+	event := models.Event{
+		ID:    hostUpdate.Host.ID.String(),
+		Topic: models.EventTopics.SendHostUpdate,
+	}
+	event.Payload.HostUpdate = hostUpdate
+	return EventQueue.Enqueue(event)
+}
+
+func sendNodeUpdate(e *models.Event) {
+	data, err := json.Marshal(e)
+	if err != nil {
+		logger.Log(0, "failed to encode node update", err.Error())
+	}
+	if err = publish(data, e.ID); err != nil {
+		logger.Log(0, "failed to send node update", err.Error())
+	}
+}
+
+func sendHostUpdate(e *models.Event) {
+	logger.Log(1, "publishing host update to "+e.ID)
+	data, err := json.Marshal(e)
+	if err != nil {
+		logger.Log(0, "failed to encode host update", err.Error())
+		return
+	}
+	if err = publish(data, e.ID); err != nil {
+		logger.Log(0, "failed to send host update", err.Error())
+	}
 }
 
 func publishPeerUpdates(e *models.Event) {
