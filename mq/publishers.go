@@ -316,8 +316,8 @@ func PublishExtCLientDNS(client *models.ExtClient) error {
 func PublishExtClientDNSUpdate(old, new models.ExtClient, network string) error {
 	dns := models.DNSUpdate{
 		Action:  models.DNSReplaceName,
-		Name:    old.ClientID + "." + old.Network,
-		NewName: new.ClientID + "." + new.Network,
+		Name:    old.ClientID + "." + network,
+		NewName: new.ClientID + "." + network,
 	}
 	if err := PublishDNSUpdate(network, dns); err != nil {
 		return err
@@ -329,7 +329,7 @@ func PublishExtClientDNSUpdate(old, new models.ExtClient, network string) error 
 func PublishDeleteExtClientDNS(client *models.ExtClient) error {
 	dns := models.DNSUpdate{
 		Action: models.DNSDeleteByName,
-		Name:   client.ClientID,
+		Name:   client.ClientID + "." + client.Network,
 	}
 	if err := PublishDNSUpdate(client.Network, dns); err != nil {
 		return err
