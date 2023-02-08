@@ -17,6 +17,7 @@ import (
 var handlerFuncs map[int]func(*models.Event)
 
 // initializes the map of functions
+// "Send" functions are sent to clients, others affect server
 func initializeHandlers() {
 	handlerFuncs = make(map[int]func(*models.Event))
 	handlerFuncs[models.EventTopics.Test] = test
@@ -29,6 +30,8 @@ func initializeHandlers() {
 	handlerFuncs[models.EventTopics.SendHostUpdate] = sendHostUpdate
 	handlerFuncs[models.EventTopics.SendNodeUpdate] = sendNodeUpdate
 }
+
+// == handler funcs ==
 
 func test(e *models.Event) {
 	val, ok := ConnMap.Load(e.ID)

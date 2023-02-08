@@ -10,6 +10,8 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/queue"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 // swagger:route POST /api/nodes/{network}/{nodeid}/createrelay nodes createRelay
@@ -45,10 +47,14 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 
 	logger.Log(1, r.Header.Get("user"), "created relay on node", relay.NodeID, "on network", relay.NetID)
 	for _, relayedNode := range updatenodes {
-
-		err = mq.NodeUpdate(&relayedNode)
-		if err != nil {
-			logger.Log(1, "error sending update to relayed node ", relayedNode.ID.String(), "on network", relay.NetID, ": ", err.Error())
+		if servercfg.IsMessageQueueBackend() {
+			if err = mq.NodeUpdate(&relayedNode); err != nil {
+				logger.Log(1, "error sending update to relayed node ", relayedNode.ID.String(), "on network", relay.NetID, ": ", err.Error())
+			}
+		} else {
+			if err = queue.NodeUpdate(&relayedNode); err != nil {
+				logger.Log(1, "error sending update to relayed node ", relayedNode.ID.String(), "on network", relay.NetID, ": ", err.Error())
+			}
 		}
 	}
 
@@ -82,9 +88,14 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(1, r.Header.Get("user"), "deleted relay server", nodeid, "on network", netid)
 	for _, relayedNode := range updatenodes {
-		err = mq.NodeUpdate(&relayedNode)
-		if err != nil {
-			logger.Log(1, "error sending update to relayed node ", relayedNode.ID.String(), "on network", netid, ": ", err.Error())
+		if servercfg.IsMessageQueueBackend() {
+			if err = mq.NodeUpdate(&relayedNode); err != nil {
+				logger.Log(1, "error sending update to relayed node ", relayedNode.ID.String(), "on network", netid, ": ", err.Error())
+			}
+		} else {
+			if err = queue.NodeUpdate(&relayedNode); err != nil {
+				logger.Log(1, "error sending update to relayed node ", relayedNode.ID.String(), "on network", netid, ": ", err.Error())
+			}
 		}
 	}
 	apiNode := node.ConvertToAPINode()

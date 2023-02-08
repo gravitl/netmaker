@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/queue"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -147,8 +148,14 @@ func keyUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, node := range nodes {
 		logger.Log(2, "updating node ", node.ID.String(), " for a key update")
-		if err = mq.NodeUpdate(&node); err != nil {
-			logger.Log(1, "failed to send update to node during a network wide key update", node.ID.String(), err.Error())
+		if servercfg.IsMessageQueueBackend() {
+			if err = mq.NodeUpdate(&node); err != nil {
+				logger.Log(1, "failed to send update to node during a network wide key update", node.ID.String(), err.Error())
+			}
+		} else {
+			if err = queue.NodeUpdate(&node); err != nil {
+				logger.Log(1, "failed to send update to node during a network wide key update", node.ID.String(), err.Error())
+			}
 		}
 	}
 }

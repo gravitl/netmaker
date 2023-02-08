@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/models/promodels"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/queue"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -997,9 +998,14 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 
 func runUpdates(node *models.Node, ifaceDelta bool) {
 	go func() { // don't block http response
-		// publish node update if not server
-		if err := mq.NodeUpdate(node); err != nil {
-			logger.Log(1, "error publishing node update to node", node.ID.String(), err.Error())
+		if servercfg.IsMessageQueueBackend() {
+			if err := mq.NodeUpdate(node); err != nil {
+				logger.Log(1, "error publishing node update to node", node.ID.String(), err.Error())
+			}
+		} else {
+			if err := queue.NodeUpdate(node); err != nil {
+				logger.Log(1, "error publishing node update to node", node.ID.String(), err.Error())
+			}
 		}
 	}()
 }

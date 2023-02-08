@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/queue"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -179,6 +180,8 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 		if err = mq.PublishPeerUpdate(); err != nil {
 			logger.Log(0, "failed to publish peer update after ACL update on", entry.Network)
 		}
+	} else {
+		queue.PublishAllPeerUpdate()
 	}
 	logger.Log(2, r.Header.Get("user"),
 		fmt.Sprintf("DNS entry is set: %+v", entry))

@@ -12,6 +12,8 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/queue"
+	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -98,18 +100,27 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 		logic.UpdateHostRelay(currHost.ID.String(), currHost.RelayedHosts, newHost.RelayedHosts)
 	}
 
-	// publish host update through MQ
-	if err := mq.HostUpdate(&models.HostUpdate{
+	hostUpdate := &models.HostUpdate{
 		Action: models.UpdateHost,
 		Host:   *newHost,
-	}); err != nil {
+	}
+	// publish host update through MQ
+	if servercfg.IsMessageQueueBackend() {
+		err = mq.HostUpdate(hostUpdate)
+		go func() {
+			if err := mq.PublishPeerUpdate(); err != nil {
+				logger.Log(0, "fail to publish peer update: ", err.Error())
+			}
+		}()
+	} else {
+		if err = queue.HostUpdate(hostUpdate); err != nil {
+			logger.Log(0, "failed to host update:", err.Error())
+		}
+		queue.PublishAllPeerUpdate()
+	}
+	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to send host update: ", currHost.ID.String(), err.Error())
 	}
-	go func() {
-		if err := mq.PublishPeerUpdate(); err != nil {
-			logger.Log(0, "fail to publish peer update: ", err.Error())
-		}
-	}()
 
 	apiHostData := newHost.ConvertNMHostToAPI()
 	logger.Log(2, r.Header.Get("user"), "updated host", newHost.ID.String())
@@ -170,11 +181,18 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if err = mq.HostUpdate(&models.HostUpdate{
+	hostUpdate := &models.HostUpdate{
 		Action: models.DeleteHost,
 		Host:   *currHost,
-	}); err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to send delete host update: ", currHost.ID.String(), err.Error())
+	}
+	if servercfg.IsMessageQueueBackend() {
+		if err = mq.HostUpdate(hostUpdate); err != nil {
+			logger.Log(0, r.Header.Get("user"), "failed to send delete host update: ", currHost.ID.String(), err.Error())
+		}
+	} else {
+		if err = queue.HostUpdate(hostUpdate); err != nil {
+			logger.Log(0, r.Header.Get("user"), "failed to send delete host update: ", currHost.ID.String(), err.Error())
+		}
 	}
 
 	if err = mq.DeleteMqClient(currHost.ID.String()); err != nil {
@@ -221,13 +239,21 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logger.Log(1, "added new node", newNode.ID.String(), "to host", currHost.Name)
-	if err = mq.HostUpdate(&models.HostUpdate{
+
+	hostUpdate := &models.HostUpdate{
 		Action: models.JoinHostToNetwork,
 		Host:   *currHost,
 		Node:   *newNode,
-	}); err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to update host to join network:", hostid, network, err.Error())
+	}
+	logger.Log(1, "added new node", newNode.ID.String(), "to host", currHost.Name)
+	if servercfg.IsMessageQueueBackend() {
+		if err = mq.HostUpdate(hostUpdate); err != nil {
+			logger.Log(0, r.Header.Get("user"), "failed to update host to join network:", hostid, network, err.Error())
+		}
+	} else {
+		if err = queue.HostUpdate(hostUpdate); err != nil {
+			logger.Log(0, r.Header.Get("user"), "failed to update host to join network:", hostid, network, err.Error())
+		}
 	}
 
 	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("added host %s to network %s", currHost.Name, network))

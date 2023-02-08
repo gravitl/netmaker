@@ -16,6 +16,8 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/models/promodels"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/queue"
+	"github.com/gravitl/netmaker/servercfg"
 	"github.com/skip2/go-qrcode"
 )
 
@@ -388,9 +390,13 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 	logger.Log(0, r.Header.Get("user"), "created new ext client on network", networkName)
 	w.WriteHeader(http.StatusOK)
-	err = mq.PublishPeerUpdate()
-	if err != nil {
-		logger.Log(1, "error setting ext peers on "+nodeid+": "+err.Error())
+	if servercfg.IsMessageQueueBackend() {
+		err = mq.PublishPeerUpdate()
+		if err != nil {
+			logger.Log(1, "error setting ext peers on "+nodeid+": "+err.Error())
+		}
+	} else {
+		queue.PublishAllPeerUpdate()
 	}
 }
 
@@ -483,8 +489,12 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	logger.Log(0, r.Header.Get("user"), "updated ext client", newExtClient.ClientID)
 	if changedEnabled { // need to send a peer update to the ingress node as enablement of one of it's clients has changed
 		if ingressNode, err := logic.GetNodeByID(newclient.IngressGatewayID); err == nil {
-			if err = mq.PublishPeerUpdate(); err != nil {
-				logger.Log(1, "error setting ext peers on", ingressNode.ID.String(), ":", err.Error())
+			if servercfg.IsMessageQueueBackend() {
+				if err = mq.PublishPeerUpdate(); err != nil {
+					logger.Log(1, "error setting ext peers on", ingressNode.ID.String(), ":", err.Error())
+				}
+			} else {
+				queue.PublishAllPeerUpdate()
 			}
 		}
 	}
@@ -554,9 +564,12 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = mq.PublishPeerUpdate()
-	if err != nil {
-		logger.Log(1, "error setting ext peers on "+ingressnode.ID.String()+": "+err.Error())
+	if servercfg.IsMessageQueueBackend() {
+		if err = mq.PublishPeerUpdate(); err != nil {
+			logger.Log(1, "error setting ext peers on "+ingressnode.ID.String()+": "+err.Error())
+		}
+	} else {
+		queue.PublishAllPeerUpdate()
 	}
 
 	logger.Log(0, r.Header.Get("user"),

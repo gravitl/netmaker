@@ -25,7 +25,7 @@ func PublishAllPeerUpdate() {
 func NodeUpdate(node *models.Node) error {
 	host, err := logic.GetHost(node.HostID.String())
 	if err != nil {
-		return nil
+		return err
 	}
 	event := models.Event{
 		ID:    host.ID.String(),
