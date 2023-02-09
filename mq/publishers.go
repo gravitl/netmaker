@@ -203,15 +203,13 @@ func PublishAllDNS(newnode *models.Node) error {
 			logger.Log(0, "error retrieving host for dns update", host.ID.String(), err.Error())
 			continue
 		}
+		dns.Action = models.DNSInsert
+		dns.Name = host.Name + "." + node.Network
 		if node.Address.IP != nil {
-			dns.Action = models.DNSInsert
-			dns.Name = host.Name + "." + node.Network
 			dns.Address = node.Address.IP.String()
 			alldns = append(alldns, dns)
 		}
 		if node.Address6.IP != nil {
-			dns.Action = models.DNSInsert
-			dns.Name = host.Name + "." + node.Network
 			dns.Address = node.Address6.IP.String()
 			alldns = append(alldns, dns)
 		}
@@ -223,17 +221,23 @@ func PublishAllDNS(newnode *models.Node) error {
 	for _, client := range clients {
 		dns.Action = models.DNSInsert
 		dns.Name = client.ClientID + "." + client.Network
-		dns.Address = client.Address
-		alldns = append(alldns, dns)
+		if client.Address != "" {
+			dns.Address = client.Address
+			alldns = append(alldns, dns)
+		}
+		if client.Address6 != "" {
+			dns.Address = client.Address
+			alldns = append(alldns, dns)
+		}
 	}
-	entries, err := logic.GetCustomDNS(newnode.Network)
+	customdns, err := logic.GetCustomDNS(newnode.Network)
 	if err != nil {
 		logger.Log(0, "error retrieving custom dns entries", err.Error())
 	}
-	for _, entry := range entries {
+	for _, custom := range customdns {
 		dns.Action = models.DNSInsert
-		dns.Address = entry.Address
-		dns.Name = entry.Name + "." + entry.Network
+		dns.Address = custom.Address
+		dns.Name = custom.Name + "." + custom.Network
 		alldns = append(alldns, dns)
 	}
 	data, err := json.Marshal(alldns)
