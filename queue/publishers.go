@@ -8,14 +8,14 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 // PublishAllPeerUpdate - publishes a peer update to
 // all hosts with current connections
 func PublishAllPeerUpdate() {
-	const publishAllID = "pub-all"
 	event := models.Event{
-		ID:    publishAllID,
+		ID:    servercfg.GetServer(),
 		Topic: models.EventTopics.SendAllHostPeerUpdate,
 	}
 	EventQueue.Enqueue(event)
@@ -47,23 +47,28 @@ func HostUpdate(hostUpdate *models.HostUpdate) error {
 }
 
 func sendNodeUpdate(e *models.Event) {
+	hostID := e.ID
+	e.ID = servercfg.GetServer()
 	data, err := json.Marshal(e)
 	if err != nil {
 		logger.Log(0, "failed to encode node update", err.Error())
 	}
-	if err = publish(data, e.ID); err != nil {
+	if err = publish(data, hostID); err != nil {
 		logger.Log(0, "failed to send node update", err.Error())
 	}
 }
 
 func sendHostUpdate(e *models.Event) {
 	logger.Log(1, "publishing host update to "+e.ID)
+	hostID := e.ID
+	e.ID = servercfg.GetServer()
 	data, err := json.Marshal(e)
 	if err != nil {
 		logger.Log(0, "failed to encode host update", err.Error())
 		return
 	}
-	if err = publish(data, e.ID); err != nil {
+
+	if err = publish(data, hostID); err != nil {
 		logger.Log(0, "failed to send host update", err.Error())
 	}
 }
@@ -103,11 +108,10 @@ func publishHostPeerUpdate(host *models.Host) error {
 	}
 
 	event := models.Event{
-		ID:    host.ID.String(),
+		ID:    servercfg.GetServer(),
 		Topic: models.EventTopics.SendHostPeerUpdate,
 	}
 	event.Payload.HostPeerUpdate = &peerUpdate
-
 	data, err := json.Marshal(&event)
 	if err != nil {
 		return err
