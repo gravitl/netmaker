@@ -198,10 +198,6 @@ func PublishAllDNS(newnode *models.Node) error {
 		return err
 	}
 	for _, node := range nodes {
-		if node.ID == newnode.ID {
-			//skip self
-			continue
-		}
 		host, err := logic.GetHost(node.HostID.String())
 		if err != nil {
 			logger.Log(0, "error retrieving host for dns update", host.ID.String(), err.Error())
@@ -220,6 +216,16 @@ func PublishAllDNS(newnode *models.Node) error {
 			alldns = append(alldns, dns)
 		}
 	}
+	clients, err := logic.GetNetworkExtClients(newnode.Network)
+	if err != nil {
+		logger.Log(0, "error retrieving extclients", err.Error())
+	}
+	for _, client := range clients {
+		dns.Action = models.DNSInsert
+		dns.Name = client.ClientID + "." + client.Network
+		dns.Address = client.Address
+		alldns = append(alldns, dns)
+	}
 	entries, err := logic.GetCustomDNS(newnode.Network)
 	if err != nil {
 		logger.Log(0, "error retrieving custom dns entries", err.Error())
@@ -227,7 +233,7 @@ func PublishAllDNS(newnode *models.Node) error {
 	for _, entry := range entries {
 		dns.Action = models.DNSInsert
 		dns.Address = entry.Address
-		dns.Name = entry.Name
+		dns.Name = entry.Name + "." + entry.Network
 		alldns = append(alldns, dns)
 	}
 	data, err := json.Marshal(alldns)
@@ -235,7 +241,7 @@ func PublishAllDNS(newnode *models.Node) error {
 		return fmt.Errorf("error encoding dnd data %w", err)
 	}
 	if err := publish(newnodeHost, "dns/all/"+newnodeHost.ID.String()+"/"+servercfg.GetServer(), data); err != nil {
-		return fmt.Errorf("error publish full dns update to %s, %w", newnodeHost.ID.String(), err)
+		return fmt.Errorf("error publishing full dns update to %s, %w", newnodeHost.ID.String(), err)
 	}
 	return nil
 }
