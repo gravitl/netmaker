@@ -338,7 +338,7 @@ func IsMessageQueueBackend() bool {
 		ismessagequeue = false
 	} else if len(config.Config.Server.MessageQueueBackend) == 0 ||
 		config.Config.Server.MessageQueueBackend == "off" ||
-		os.Getenv("MESSAGEQUEUE_BACKEND") == "internal" {
+		config.Config.Server.MessageQueueBackend == "internal" {
 		ismessagequeue = false
 	}
 	return ismessagequeue
