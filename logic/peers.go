@@ -266,7 +266,7 @@ func GetProxyUpdateForHost(host *models.Host) (models.ProxyManagerPayload, error
 			if peerHost.IsRelayed && peerHost.RelayedBy != host.ID.String() {
 				relayHost, err := GetHost(peerHost.RelayedBy)
 				if err == nil {
-					relayTo, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, getPeerListenPort(peerHost)))
+					relayTo, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, getPeerListenPort(relayHost)))
 					if err == nil {
 						currPeerConf.IsRelayed = true
 						currPeerConf.RelayedTo = relayTo
