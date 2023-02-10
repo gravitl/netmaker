@@ -21,6 +21,16 @@ func (action DNSUpdateAction) String() string {
 	return [...]string{"DNSDeleteByIP", "DNSDeletByName", "DNSReplaceName", "DNSReplaceIP", "DNSInsert"}[action]
 }
 
+// DNSError.Error implementation of error interface
+func (e DNSError) Error() string {
+	return "error publishing dns update"
+}
+
+// DNSError error struct capable of holding multiple error messages
+type DNSError struct {
+	ErrorStrings []string
+}
+
 // DNSUpdate data for updating entries in /etc/hosts
 type DNSUpdate struct {
 	Action     DNSUpdateAction

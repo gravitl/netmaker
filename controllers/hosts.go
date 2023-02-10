@@ -112,9 +112,9 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 		if newHost.Name != currHost.Name {
 			networks := logic.GetHostNetworks(currHost.ID.String())
 			if err := mq.PublishHostDNSUpdate(currHost, newHost, networks); err != nil {
-				var dnsError *mq.DNSError
+				var dnsError *models.DNSError
 				if errors.Is(err, dnsError) {
-					for _, message := range err.(mq.DNSError).ErrorStrings {
+					for _, message := range err.(models.DNSError).ErrorStrings {
 						logger.Log(0, message)
 					}
 				} else {

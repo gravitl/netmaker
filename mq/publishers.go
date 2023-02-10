@@ -296,7 +296,7 @@ func PublishReplaceDNS(oldNode, newNode *models.Node, host *models.Host) error {
 
 // PublishExtClientDNS publish dns update for new extclient
 func PublishExtCLientDNS(client *models.ExtClient) error {
-	var err4, err6 error
+	errMsgs := models.DNSError{}
 	dns := models.DNSUpdate{
 		Action:  models.DNSInsert,
 		Name:    client.ClientID + "." + client.Network,
@@ -304,20 +304,19 @@ func PublishExtCLientDNS(client *models.ExtClient) error {
 	}
 	if client.Address != "" {
 		dns.Address = client.Address
-		err4 = PublishDNSUpdate(client.Network, dns)
+		if err := PublishDNSUpdate(client.Network, dns); err != nil {
+			errMsgs.ErrorStrings = append(errMsgs.ErrorStrings, err.Error())
+		}
+
 	}
 	if client.Address6 != "" {
 		dns.Address = client.Address6
-		err6 = PublishDNSUpdate(client.Network, dns)
+		if err := PublishDNSUpdate(client.Network, dns); err != nil {
+			errMsgs.ErrorStrings = append(errMsgs.ErrorStrings, err.Error())
+		}
 	}
-	if err4 != nil && err6 != nil {
-		return fmt.Errorf("error publishing extclient dns update %w %w", err4, err6)
-	}
-	if err4 != nil {
-		return fmt.Errorf("error publishing extclient dns update %w", err4)
-	}
-	if err6 != nil {
-		return fmt.Errorf("error publishing extclient dns update %w", err6)
+	if len(errMsgs.ErrorStrings) > 0 {
+		return errMsgs
 	}
 	return nil
 }
@@ -361,19 +360,9 @@ func PublishCustomDNS(entry *models.DNSEntry) error {
 	return nil
 }
 
-// DNSError error struct capable of holding multiple error messages
-type DNSError struct {
-	ErrorStrings []string
-}
-
-// DNSError.Error implementation of error interface
-func (e DNSError) Error() string {
-	return "error publishing dns update"
-}
-
 // PublishHostDNSUpdate publishes dns update on host name change
 func PublishHostDNSUpdate(old, new *models.Host, networks []string) error {
-	errors := DNSError{}
+	errMsgs := models.DNSError{}
 	for _, network := range networks {
 		dns := models.DNSUpdate{
 			Action:  models.DNSReplaceName,
@@ -381,11 +370,11 @@ func PublishHostDNSUpdate(old, new *models.Host, networks []string) error {
 			NewName: new.Name + "." + network,
 		}
 		if err := PublishDNSUpdate(network, dns); err != nil {
-			errors.ErrorStrings = append(errors.ErrorStrings, err.Error())
+			errMsgs.ErrorStrings = append(errMsgs.ErrorStrings, err.Error())
 		}
 	}
-	if len(errors.ErrorStrings) > 0 {
-		return errors
+	if len(errMsgs.ErrorStrings) > 0 {
+		return errMsgs
 	}
 	return nil
 }
