@@ -247,6 +247,7 @@ func PublishAllDNS(newnode *models.Node) error {
 	if err := publish(newnodeHost, "dns/all/"+newnodeHost.ID.String()+"/"+servercfg.GetServer(), data); err != nil {
 		return fmt.Errorf("error publishing full dns update to %s, %w", newnodeHost.ID.String(), err)
 	}
+	logger.Log(3, "published full dns update to %s", newnodeHost.ID.String())
 	return nil
 }
 
