@@ -1,6 +1,9 @@
 package models
 
-import "net"
+import (
+	"net"
+	"strings"
+)
 
 // ApiHost - the host struct for API usage
 type ApiHost struct {
@@ -76,7 +79,11 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.ID = currentHost.ID
 	h.HostPass = currentHost.HostPass
 	h.DaemonInstalled = currentHost.DaemonInstalled
-	h.EndpointIP = net.ParseIP(a.EndpointIP)
+	if len(a.EndpointIP) == 0 || strings.Contains(a.EndpointIP, "nil") {
+		h.EndpointIP = currentHost.EndpointIP
+	} else {
+		h.EndpointIP = net.ParseIP(a.EndpointIP)
+	}
 	h.Debug = a.Debug
 	h.FirewallInUse = a.FirewallInUse
 	h.IPForwarding = currentHost.IPForwarding
