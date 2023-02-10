@@ -251,6 +251,11 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 			logger.Log(0, r.Header.Get("user"), "failed to update host to join network:", hostid, network, err.Error())
 		}
 	}
+	go func() { // notify of peer change
+		if err := mq.PublishPeerUpdate(); err != nil {
+			logger.Log(1, "error publishing peer update ", err.Error())
+		}
+	}()
 
 	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("added host %s to network %s", currHost.Name, network))
 	w.WriteHeader(http.StatusOK)

@@ -266,7 +266,7 @@ func GetProxyUpdateForHost(host *models.Host) (models.ProxyManagerPayload, error
 			if peerHost.IsRelayed && peerHost.RelayedBy != host.ID.String() {
 				relayHost, err := GetHost(peerHost.RelayedBy)
 				if err == nil {
-					relayTo, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, getPeerListenPort(peerHost)))
+					relayTo, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, getPeerListenPort(relayHost)))
 					if err == nil {
 						currPeerConf.IsRelayed = true
 						currPeerConf.RelayedTo = relayTo
@@ -434,6 +434,16 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 		if node.IsIngressGateway {
 			extPeers, extPeerIDAndAddrs, err = getExtPeers(&node)
 			if err == nil {
+				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
+					nodePeerMap[extPeerIdAndAddr.ID] = models.PeerRouteInfo{
+						PeerAddr: net.IPNet{
+							IP:   net.ParseIP(extPeerIdAndAddr.Address),
+							Mask: getCIDRMaskFromAddr(extPeerIdAndAddr.Address),
+						},
+						PeerKey: extPeerIdAndAddr.ID,
+						Allow:   true,
+					}
+				}
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, extPeers...)
 				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
 					hostPeerUpdate.PeerIDs[extPeerIdAndAddr.ID] = make(map[string]models.IDandAddr)
@@ -464,19 +474,6 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 			}
 		}
 		if node.IsEgressGateway {
-			if node.IsIngressGateway {
-				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
-					nodePeerMap[extPeerIdAndAddr.ID] = models.PeerRouteInfo{
-						PeerAddr: net.IPNet{
-							IP:   net.ParseIP(extPeerIdAndAddr.Address),
-							Mask: getCIDRMaskFromAddr(extPeerIdAndAddr.Address),
-						},
-						PeerKey: extPeerIdAndAddr.ID,
-						Allow:   true,
-					}
-				}
-
-			}
 			hostPeerUpdate.EgressInfo[node.ID.String()] = models.EgressInfo{
 				EgressID: node.ID.String(),
 				Network:  node.PrimaryNetworkRange(),

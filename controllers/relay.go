@@ -134,12 +134,24 @@ func createHostRelay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := mq.HostUpdate(&models.HostUpdate{
+		Action: models.UpdateHost,
+		Host:   *relayHost,
+	}); err != nil {
+		logger.Log(0, "failed to send host update: ", relayHost.ID.String(), err.Error())
+	}
 	logger.Log(1, r.Header.Get("user"), "created relay on host", relay.HostID)
 	go func(relayHostID string) {
 		relatedhosts := logic.GetRelatedHosts(relayHostID)
 		for _, relatedHost := range relatedhosts {
 			relatedHost.ProxyEnabled = true
 			logic.UpsertHost(&relatedHost)
+			if err := mq.HostUpdate(&models.HostUpdate{
+				Action: models.UpdateHost,
+				Host:   relatedHost,
+			}); err != nil {
+				logger.Log(0, "failed to send host update: ", relatedHost.ID.String(), err.Error())
+			}
 		}
 		if servercfg.IsMessageQueueBackend() {
 			if err := mq.PublishPeerUpdate(); err != nil {
