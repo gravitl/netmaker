@@ -185,9 +185,9 @@ collect_server_settings() {
     esac
   done
 
-  STUN_NAME="stun.$SERVER_NAME"
+  STUN_DOMAIN="stun.$SERVER_NAME"
   echo "-----------------------------------------------------"
-  echo "Netmaker v0.18.0 requires a new DNS entry for $STUN_NAME."
+  echo "Netmaker v0.18.0 requires a new DNS entry for $STUN_DOMAIN."
   echo "Please confirm this is added to your DNS provider before continuing"
   echo "(note: this is not required if using an nip.io address)"
   echo "-----------------------------------------------------"
@@ -241,16 +241,52 @@ collect_node_settings() {
 # set_compose - set compose file with proper values
 set_compose() {
 
-  # DEV_TEMP - Temporary instructions for testing
-  sed -i "s/v0.17.1/testing/g" /root/docker-compose.yml
+	echo "generating random password for mq"
+	MQ_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
+	
+  echo "generating random uname for mq"
+	MQ_USERNAME=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 10 ; echo '')
 
+  echo "retrieving updated wait script and mosquitto conf"  
+  rm /root/wait.sh
+  rm /root/mosquitto.conf
+
+  # DEV_TEMP
+  wget -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/develop/docker/wait.sh
+ 
   # RELEASE_REPLACE - Use this once release is ready
-  #sed -i "s/v0.17.1/v0.18.0/g" /root/docker-compose.yml
+  # wget -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/master/docker/wait.sh
+  chmod +x /root/wait.sh
+
+  # DEV_TEMP
+  wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/develop/docker/mosquitto.conf
+ 
+  # RELEASE_REPLACE - Use this once release is ready
+  # wget -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/master/docker/wait.sh
+  chmod +x /root/mosquitto.conf
+
+
+  sed -i "s/v0.17.1/v0.18.0/g" /root/docker-compose.yml
   yq ".services.netmaker.environment.SERVER_NAME = \"$SERVER_NAME\"" -i /root/docker-compose.yml
   yq ".services.netmaker.environment += {\"BROKER_NAME\": \"$BROKER_NAME\"}" -i /root/docker-compose.yml  
-  yq ".services.netmaker.environment += {\"STUN_NAME\": \"$STUN_NAME\"}" -i /root/docker-compose.yml  
+  yq ".services.netmaker.environment += {\"STUN_DOMAIN\": \"$STUN_DOMAIN\"}" -i /root/docker-compose.yml  
+  yq ".services.netmaker.environment += {\"MQ_PASSWORD\": \"$MQ_PASSWORD\"}" -i /root/docker-compose.yml  
+  yq ".services.netmaker.environment += {\"MQ_USERNAME\": \"$MQ_USERNAME\"}" -i /root/docker-compose.yml  
   yq ".services.netmaker.environment += {\"STUN_PORT\": \"3478\"}" -i /root/docker-compose.yml  
   yq ".services.netmaker.ports += \"3478:3478/udp\"" -i /root/docker-compose.yml
+
+  yq ".services.mq.environment += {\"MQ_PASSWORD\": \"$MQ_PASSWORD\"}" -i /root/docker-compose.yml  
+  yq ".services.mq.environment += {\"MQ_USERNAME\": \"$MQ_USERNAME\"}" -i /root/docker-compose.yml  
+
+  # delete unnecessary compose sections
+  yq eval 'del(.services.netmaker.cap_add)' -i /root/docker-compose.yml
+  yq eval 'del(.services.netmaker.sysctls)' -i /root/docker-compose.yml
+  yq eval 'del(.services.netmaker.environment.MQ_ADMIN_PASSWORD)' -i /root/docker-compose.yml
+  yq eval 'del(.services.mq.environment.NETMAKER_SERVER_HOST)' -i /root/docker-compose.yml
+  yq eval 'del( .services.mq.volumes[] | select(. == "mosquitto_data*") )' -i /root/docker-compose.yml
+  yq eval 'del( .services.mq.volumes[] | select(. == "mosquitto_data*") )' -i /root/docker-compose.yml
+  yq eval 'del( .volumes[] | select(. == "mosquitto_data*") )' -i /root/docker-compose.yml
+
 }
 
 # start_containers - run docker-compose up -d
@@ -394,8 +430,7 @@ join_networks() {
  
 
           if [[ ! -z "$ADDRESS6" ]]; then
-            echo "joining with command: netclient join -t $KEY --name=$NAME --address=$ADDRESS --address6=$ADDRESS6
-"
+            echo "joining with command: netclient join -t $KEY --name=$NAME --address=$ADDRESS --address6=$ADDRESS6"
             confirm
             netclient join -t $KEY --name=$NAME --address=$ADDRESS --address6=$ADDRESS6
           else
