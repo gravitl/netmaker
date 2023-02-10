@@ -58,7 +58,8 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.Failover = a.Failover
 	convertedNode.IsEgressGateway = a.IsEgressGateway
 	convertedNode.IsIngressGateway = a.IsIngressGateway
-	convertedNode.EgressGatewayRanges = a.EgressGatewayRanges
+	// prevents user from changing ranges, must delete and recreate
+	convertedNode.EgressGatewayRanges = currentNode.EgressGatewayRanges
 	convertedNode.IngressGatewayRange = currentNode.IngressGatewayRange
 	convertedNode.IngressGatewayRange6 = currentNode.IngressGatewayRange6
 	convertedNode.DNSOn = a.DNSOn
