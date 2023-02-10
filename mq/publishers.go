@@ -242,7 +242,7 @@ func PublishAllDNS(newnode *models.Node) error {
 	}
 	data, err := json.Marshal(alldns)
 	if err != nil {
-		return fmt.Errorf("error encoding dnd data %w", err)
+		return fmt.Errorf("error encoding dns data %w", err)
 	}
 	if err := publish(newnodeHost, "dns/all/"+newnodeHost.ID.String()+"/"+servercfg.GetServer(), data); err != nil {
 		return fmt.Errorf("error publishing full dns update to %s, %w", newnodeHost.ID.String(), err)
