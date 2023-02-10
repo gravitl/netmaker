@@ -416,6 +416,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 
 	defaultHosts := logic.GetDefaultHosts()
+	var shouldUpdatePeers bool
 	for i := range defaultHosts {
 		currHost := &defaultHosts[i]
 		newNode, err := logic.UpdateHostNetwork(currHost, network.NetID, true)
@@ -425,12 +426,33 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		logger.Log(1, "added new node", newNode.ID.String(), "to host", currHost.Name)
-		if err = mq.HostUpdate(&models.HostUpdate{
+		hostUpdate := &models.HostUpdate{
 			Action: models.JoinHostToNetwork,
 			Host:   *currHost,
 			Node:   *newNode,
-		}); err != nil {
-			logger.Log(0, r.Header.Get("user"), "failed to add host to network:", currHost.ID.String(), network.NetID, err.Error())
+		}
+		if servercfg.IsMessageQueueBackend() {
+			if err = mq.HostUpdate(hostUpdate); err != nil {
+				logger.Log(0, r.Header.Get("user"), "failed to add host to network:", currHost.ID.String(), network.NetID, err.Error())
+			}
+		} else {
+			if err = queue.HostUpdate(hostUpdate); err != nil {
+				logger.Log(0, "failed to host update:", err.Error())
+			}
+		}
+		if i == 1 {
+			shouldUpdatePeers = true
+		}
+	}
+	if shouldUpdatePeers { // if more than 1 host was added to created network, we'll need a peer update
+		if servercfg.IsMessageQueueBackend() {
+			go func() {
+				if err := mq.PublishPeerUpdate(); err != nil {
+					logger.Log(0, "fail to publish peer update: ", err.Error())
+				}
+			}()
+		} else {
+			queue.PublishAllPeerUpdate()
 		}
 	}
 
