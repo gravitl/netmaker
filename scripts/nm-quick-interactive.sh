@@ -184,9 +184,9 @@ wait_seconds 3
 
 set -e
 
-NETMAKER_BASE_DOMAIN=nm.$(curl -s ifconfig.me | tr . -).nip.io
+NETMAKER_BASE_DOMAIN=nm.$(dig myip.opendns.com @resolver1.opendns.com +short | tr . -).nip.io
 COREDNS_IP=$(ip route get 1 | sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
-SERVER_PUBLIC_IP=$(curl -s ifconfig.me)
+SERVER_PUBLIC_IP=$(dig myip.opendns.com @resolver1.opendns.com +short)
 MASTER_KEY=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
 MQ_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
 DOMAIN_TYPE=""
