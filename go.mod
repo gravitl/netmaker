@@ -16,10 +16,10 @@ require (
 	github.com/stretchr/testify v1.8.1
 	github.com/txn2/txeh v1.3.0
 	golang.org/x/crypto v0.3.0
-	golang.org/x/net v0.4.0 // indirect
-	golang.org/x/oauth2 v0.3.0
-	golang.org/x/sys v0.3.0 // indirect
-	golang.org/x/text v0.5.0 // indirect
+	golang.org/x/net v0.5.0 // indirect
+	golang.org/x/oauth2 v0.4.0
+	golang.org/x/sys v0.4.0 // indirect
+	golang.org/x/text v0.6.0 // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20220920152132-bb719d3a6e2c // indirect
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220324164955-056925b7df31
 	google.golang.org/protobuf v1.28.1 // indirect
