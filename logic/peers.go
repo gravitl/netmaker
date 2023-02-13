@@ -201,7 +201,7 @@ func GetProxyUpdateForHost(host *models.Host) (models.ProxyManagerPayload, error
 	if host.IsRelayed {
 		relayHost, err := GetHost(host.RelayedBy)
 		if err == nil {
-			relayEndpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, getPeerListenPort(relayHost)))
+			relayEndpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, GetPeerListenPort(relayHost)))
 			if err != nil {
 				logger.Log(1, "failed to resolve relay node endpoint: ", err.Error())
 			}
@@ -219,7 +219,7 @@ func GetProxyUpdateForHost(host *models.Host) (models.ProxyManagerPayload, error
 			relayedHost := relayedHost
 			payload, err := GetPeerUpdateForHost(&relayedHost)
 			if err == nil {
-				relayedEndpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayedHost.EndpointIP, getPeerListenPort(&relayedHost)))
+				relayedEndpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayedHost.EndpointIP, GetPeerListenPort(&relayedHost)))
 				if udpErr == nil {
 					relayPeersMap[relayedHost.PublicKey.String()] = models.RelayedConf{
 						RelayedPeerEndpoint: relayedEndpoint,
@@ -259,14 +259,14 @@ func GetProxyUpdateForHost(host *models.Host) (models.ProxyManagerPayload, error
 			if currPeerConf, found = peerConfMap[peerHost.PublicKey.String()]; !found {
 				currPeerConf = models.PeerConf{
 					Proxy:            peerHost.ProxyEnabled,
-					PublicListenPort: int32(getPeerListenPort(peerHost)),
+					PublicListenPort: int32(GetPeerListenPort(peerHost)),
 				}
 			}
 
 			if peerHost.IsRelayed && peerHost.RelayedBy != host.ID.String() {
 				relayHost, err := GetHost(peerHost.RelayedBy)
 				if err == nil {
-					relayTo, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, getPeerListenPort(relayHost)))
+					relayTo, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, GetPeerListenPort(relayHost)))
 					if err == nil {
 						currPeerConf.IsRelayed = true
 						currPeerConf.RelayedTo = relayTo
@@ -375,7 +375,7 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 			}
 			peerConfig.Endpoint = &net.UDPAddr{
 				IP:   peerHost.EndpointIP,
-				Port: getPeerListenPort(peerHost),
+				Port: GetPeerListenPort(peerHost),
 			}
 
 			if uselocal {
@@ -409,6 +409,10 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 							}
 						}
 					}
+				}
+				if node.IsIngressGateway && peer.IsEgressGateway {
+					hostPeerUpdate.IngressInfo.EgressRanges = append(hostPeerUpdate.IngressInfo.EgressRanges,
+						peer.EgressGatewayRanges...)
 				}
 				nodePeerMap[peerHost.PublicKey.String()] = models.PeerRouteInfo{
 					PeerAddr: net.IPNet{
@@ -504,7 +508,7 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 	return hostPeerUpdate, nil
 }
 
-func getPeerListenPort(host *models.Host) int {
+func GetPeerListenPort(host *models.Host) int {
 	peerPort := host.ListenPort
 	if host.ProxyEnabled {
 		if host.PublicListenPort != 0 {
@@ -574,7 +578,7 @@ func GetPeerUpdate(node *models.Node, host *models.Host) (models.PeerUpdate, err
 			Port: peerHost.ListenPort,
 		}
 		if peerHost.ProxyEnabled {
-			peerConfig.Endpoint.Port = getPeerListenPort(peerHost)
+			peerConfig.Endpoint.Port = GetPeerListenPort(peerHost)
 		}
 		if uselocal {
 			peerConfig.Endpoint.IP = peer.LocalAddress.IP
@@ -707,7 +711,7 @@ func GetPeerUpdateLegacy(node *models.Node) (models.PeerUpdate, error) {
 			if node.LocalAddress.String() != peer.LocalAddress.String() && peer.LocalAddress.IP != nil {
 				peerHost.EndpointIP = peer.LocalAddress.IP
 				if peerHost.ListenPort != 0 {
-					peerHost.ListenPort = getPeerListenPort(peerHost)
+					peerHost.ListenPort = GetPeerListenPort(peerHost)
 				}
 			} else {
 				continue
@@ -740,7 +744,7 @@ func GetPeerUpdateLegacy(node *models.Node) (models.PeerUpdate, error) {
 			// or, if port is for some reason zero use the LocalListenPort
 			// but only do this if LocalListenPort is not zero
 			if ((!setUDPPort) || peerHost.ListenPort == 0) && peerHost.ListenPort != 0 {
-				peerHost.ListenPort = getPeerListenPort(peerHost)
+				peerHost.ListenPort = GetPeerListenPort(peerHost)
 			}
 
 			endpoint := peerHost.EndpointIP.String() + ":" + strconv.FormatInt(int64(peerHost.ListenPort), 10)

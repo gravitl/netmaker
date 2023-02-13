@@ -33,7 +33,8 @@ type HostPeerUpdate struct {
 
 // IngressInfo - struct for ingress info
 type IngressInfo struct {
-	ExtPeers map[string]ExtClientInfo `json:"ext_peers" yaml:"ext_peers"`
+	ExtPeers     map[string]ExtClientInfo `json:"ext_peers" yaml:"ext_peers"`
+	EgressRanges []string                 `json:"egress_ranges" yaml:"egress_ranges"`
 }
 
 // EgressInfo - struct for egress info
