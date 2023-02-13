@@ -403,11 +403,6 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = logic.AddDefaultHostsToNetwork(network.NetID, servercfg.GetServer()); err != nil {
-		logger.Log(0, fmt.Sprintf("failed to add default hosts to network [%v]: %v",
-			network.NetID, err.Error()))
-	}
-
 	defaultHosts := logic.GetDefaultHosts()
 	for i := range defaultHosts {
 		currHost := &defaultHosts[i]
