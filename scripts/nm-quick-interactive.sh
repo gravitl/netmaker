@@ -2,40 +2,47 @@
 
 # setup_netclient - installs netclient locally
 setup_netclient() {
-	if [ -f /etc/debian_version ]; then
-	    curl -sL 'https://apt.netmaker.org/gpg.key' | sudo tee /etc/apt/trusted.gpg.d/netclient.asc
-	    curl -sL 'https://apt.netmaker.org/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/netclient.list
-	    sudo apt update
-	    sudo apt install netclient
-	elif [ -f /etc/centos-release ]; then
-	    curl -sL 'https://rpm.netmaker.org/gpg.key' | sudo tee /tmp/gpg.key
-	    curl -sL 'https://rpm.netmaker.org/netclient-repo' | sudo tee /etc/yum.repos.d/netclient.repo
-	    sudo rpm --import /tmp/gpg.key
-	    sudo dnf check-update
-	    sudo dnf install netclient
-	elif [ -f /etc/fedora-release ]; then
-	    curl -sL 'https://rpm.netmaker.org/gpg.key' | sudo tee /tmp/gpg.key
-	    curl -sL 'https://rpm.netmaker.org/netclient-repo' | sudo tee /etc/yum.repos.d/netclient.repo
-	    sudo rpm --import /tmp/gpg.key
-	    sudo dnf check-update
-	    sudo dnf install netclient
-	elif [ -f /etc/redhat-release ]; then
-	    curl -sL 'https://rpm.netmaker.org/gpg.key' | sudo tee /tmp/gpg.key
-	    curl -sL 'https://rpm.netmaker.org/netclient-repo' | sudo tee /etc/yum.repos.d/netclient.repo
-	    sudo rpm --import /tmp/gpg.key
-	    sudo dnf check-update(
-	    sudo dnf install netclient
-	elif [ -f /etc/arch-release ]; then
-	    yay -S netclient
-	else
-		echo "OS not supported for automatic install"
-	    exit 1
-	fi
 
-	if [ -z "${install_cmd}" ]; then
-	        echo "OS unsupported for automatic dependency install"
-		exit 1
-	fi
+	# DEV_TEMP - Temporary instructions for testing
+	# wget https://fileserver.netmaker.org/testing/netclient
+	# chmod +x netclient
+	# ./netclient install
+
+	# RELEASE_REPLACE - Use this once release is ready
+	# if [ -f /etc/debian_version ]; then
+	#     curl -sL 'https://apt.netmaker.org/gpg.key' | sudo tee /etc/apt/trusted.gpg.d/netclient.asc
+	#     curl -sL 'https://apt.netmaker.org/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/netclient.list
+	#     sudo apt update
+	#     sudo apt install netclient
+	# elif [ -f /etc/centos-release ]; then
+	#     curl -sL 'https://rpm.netmaker.org/gpg.key' | sudo tee /tmp/gpg.key
+	#     curl -sL 'https://rpm.netmaker.org/netclient-repo' | sudo tee /etc/yum.repos.d/netclient.repo
+	#     sudo rpm --import /tmp/gpg.key
+	#     sudo dnf check-update
+	#     sudo dnf install netclient
+	# elif [ -f /etc/fedora-release ]; then
+	#     curl -sL 'https://rpm.netmaker.org/gpg.key' | sudo tee /tmp/gpg.key
+	#     curl -sL 'https://rpm.netmaker.org/netclient-repo' | sudo tee /etc/yum.repos.d/netclient.repo
+	#     sudo rpm --import /tmp/gpg.key
+	#     sudo dnf check-update
+	#     sudo dnf install netclient
+	# elif [ -f /etc/redhat-release ]; then
+	#     curl -sL 'https://rpm.netmaker.org/gpg.key' | sudo tee /tmp/gpg.key
+	#     curl -sL 'https://rpm.netmaker.org/netclient-repo' | sudo tee /etc/yum.repos.d/netclient.repo
+	#     sudo rpm --import /tmp/gpg.key
+	#     sudo dnf check-update(
+	#     sudo dnf install netclient
+	# elif [ -f /etc/arch-release ]; then
+	#     yay -S netclient
+	# else
+	# 	echo "OS not supported for automatic install"
+	#     exit 1
+	# fi
+
+	# if [ -z "${install_cmd}" ]; then
+	#         echo "OS unsupported for automatic dependency install"
+	# 	exit 1
+	# fi
 }
 
 
@@ -448,24 +455,27 @@ ACCESS_TOKEN=$(jq -r '.accessstring' <<< ${curlresponse})
 
 wait_seconds 3
 
-echo "Installing Netclient"
-setup_netclient
+# echo "Installing Netclient"
+# setup_netclient
 
-echo "Adding Netclient to Network"
-netclient join -t $ACCESS_TOKEN
+# echo "Adding Netclient to Network"
+# netclient join -t $ACCESS_TOKEN
 
-# TODO - Get Host ID
+# # TODO - Get Host ID
 
-echo "Setting Netclient as Default Host"
-HOST_ID=$(grep 'id:' /etc/netclient/netclient.yml | awk '{print $2}')
-echo $HOST_ID
-# TODO - API call to make host default
 
-echo "Setting Netclient as Ingress Gateway"
-if [[ ! -z "$SERVER_ID"  ]]; then
-	curl -o /dev/null -s -X POST -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/netmaker/$HOST_ID/createingress
-fi 
+# echo "Setting Netclient as Default Host"
+# HOST_ID=$(grep 'id:' /etc/netclient/netclient.yml | awk '{print $2}')
+# echo $HOST_ID
+# # TODO - API call to make host default
+
+# echo "Setting Netclient as Ingress Gateway"
+# if [[ ! -z "$SERVER_ID"  ]]; then
+# 	curl -o /dev/null -s -X POST -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/netmaker/$HOST_ID/createingress
+# fi 
 )}
+
+
 
 set +e
 test_connection
