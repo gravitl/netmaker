@@ -91,7 +91,7 @@ func DeleteNode(node *models.Node, purge bool) error {
 		if err := UpdateNode(node, &newnode); err != nil {
 			return err
 		}
-		newZombie <- node.ID
+		zombies = append(zombies, node.ID)
 		return nil
 	}
 	host, err := GetHost(node.HostID.String())
@@ -534,7 +534,7 @@ func createNode(node *models.Node) error {
 	if err != nil {
 		return err
 	}
-	CheckZombies(node, host.MacAddress)
+	CheckZombies(node)
 
 	nodebytes, err := json.Marshal(&node)
 	if err != nil {

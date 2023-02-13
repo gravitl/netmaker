@@ -2,7 +2,6 @@ package logic
 
 import (
 	"context"
-	"net"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,15 +17,14 @@ const (
 )
 
 var (
-	zombies      []uuid.UUID
-	removeZombie chan uuid.UUID = make(chan (uuid.UUID), 10)
-	newZombie    chan uuid.UUID = make(chan (uuid.UUID), 10)
+	zombies     []uuid.UUID
+	hostZombies []uuid.UUID
 )
 
-// CheckZombies - checks if new node has same macaddress as existing node
+// CheckZombies - checks if new node has same hostid as existing node
 // if so, existing node is added to zombie node quarantine list
 // also cleans up nodes past their expiration date
-func CheckZombies(newnode *models.Node, mac net.HardwareAddr) {
+func CheckZombies(newnode *models.Node) {
 	nodes, err := GetNetworkNodes(newnode.Network)
 	if err != nil {
 		logger.Log(1, "Failed to retrieve network nodes", newnode.Network, err.Error())
@@ -39,7 +37,36 @@ func CheckZombies(newnode *models.Node, mac net.HardwareAddr) {
 		}
 		if node.HostID == newnode.HostID || time.Now().After(node.ExpirationDateTime) {
 			logger.Log(0, "adding ", node.ID.String(), " to zombie list")
-			newZombie <- node.ID
+			zombies = append(zombies, node.ID)
+		}
+	}
+}
+
+// checkForZombieHosts - checks if new host has the same macAddress as an existing host
+// if true, existing host is added to host zombie collection
+func checkForZombieHosts(h *models.Host) {
+	hosts, err := GetAllHosts()
+	if err != nil {
+		logger.Log(3, "errror retrieving all hosts", err.Error())
+	}
+	for _, existing := range hosts {
+		if existing.ID == h.ID {
+			//probably an unnecessary check as new host should not be in database yet, but just in case
+			//skip self
+			continue
+		}
+		if existing.MacAddress.String() == h.MacAddress.String() {
+			//add to hostZombies
+			hostZombies = append(hostZombies, existing.ID)
+			//add all nodes belonging to host to zombile list
+			for _, node := range existing.Nodes {
+				id, err := uuid.Parse(node)
+				if err != nil {
+					logger.Log(3, "error parsing uuid from host.Nodes", err.Error())
+					continue
+				}
+				zombies = append(zombies, id)
+			}
 		}
 	}
 }
@@ -52,23 +79,6 @@ func ManageZombies(ctx context.Context, peerUpdate chan *models.Node) {
 		select {
 		case <-ctx.Done():
 			return
-		case id := <-newZombie:
-			logger.Log(1, "adding", id.String(), "to zombie quaratine list")
-			zombies = append(zombies, id)
-		case id := <-removeZombie:
-			found := false
-			if len(zombies) > 0 {
-				for i := len(zombies) - 1; i >= 0; i-- {
-					if zombies[i] == id {
-						logger.Log(1, "removing zombie from quaratine list", zombies[i].String())
-						zombies = append(zombies[:i], zombies[i+1:]...)
-						found = true
-					}
-				}
-			}
-			if !found {
-				logger.Log(3, "no zombies found")
-			}
 		case <-time.After(time.Second * ZOMBIE_TIMEOUT):
 			logger.Log(3, "checking for zombie nodes")
 			if len(zombies) > 0 {
@@ -89,6 +99,23 @@ func ManageZombies(ctx context.Context, peerUpdate chan *models.Node) {
 						peerUpdate <- &node
 						logger.Log(1, "deleting zombie node", node.ID.String())
 						zombies = append(zombies[:i], zombies[i+1:]...)
+					}
+				}
+			}
+			if len(hostZombies) > 0 {
+				logger.Log(3, "checking host zombies")
+				for i := len(hostZombies) - 1; i >= 0; i-- {
+					host, err := GetHost(hostZombies[i].String())
+					if err != nil {
+						logger.Log(1, "error retrieving zombie host", err.Error())
+						logger.Log(1, "deleting ", host.ID.String(), " from zombie list")
+						zombies = append(zombies[:i], zombies[i+1:]...)
+						continue
+					}
+					if len(host.Nodes) == 0 {
+						if err := RemoveHost(host); err != nil {
+							logger.Log(0, "error deleting zombie host", host.ID.String(), err.Error())
+						}
 					}
 				}
 			}
