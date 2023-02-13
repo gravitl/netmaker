@@ -24,15 +24,13 @@ services:
       DATABASE: "sqlite"
       NODE_ID: "netmaker-server-1"
       MQ_HOST: "mq"
-      MQ_PORT: "443"
+      MQ_PORT: "443"      
       MQ_SERVER_PORT: "1883"
+      STUN_PORT: "3478"      
       VERBOSITY: "1"
       MQ_PASSWORD: "REPLACE_MQ_PASSWORD"
       MQ_USERNAME: "REPLACE_MQ_USERNAME"
-      STUN_PORT: "3478"
-      PROXY: "on"
     ports:
-      - "51821-51830:51821-51830/udp"
       - "3478:3478/udp"
   netmaker-ui:
     container_name: netmaker-ui
