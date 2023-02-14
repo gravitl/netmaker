@@ -26,11 +26,14 @@ func UpdateHost(hostID string, body *models.ApiHost) *models.ApiHost {
 	return request[models.ApiHost](http.MethodPut, "/api/hosts/"+hostID, body)
 }
 
-// UpdateHostNetworks - update a host's networks
-func UpdateHostNetworks(hostID string, networks []string) *hostNetworksUpdatePayload {
-	return request[hostNetworksUpdatePayload](http.MethodPut, "/api/hosts/"+hostID+"/networks", &hostNetworksUpdatePayload{
-		Networks: networks,
-	})
+// AddHostToNetwork - add a network to host
+func AddHostToNetwork(hostID, network string) *hostNetworksUpdatePayload {
+	return request[hostNetworksUpdatePayload](http.MethodPost, "/api/hosts/"+hostID+"/networks/"+network, nil)
+}
+
+// DeleteHostFromNetwork - deletes a network from host
+func DeleteHostFromNetwork(hostID, network string) *hostNetworksUpdatePayload {
+	return request[hostNetworksUpdatePayload](http.MethodDelete, "/api/hosts/"+hostID+"/networks/"+network, nil)
 }
 
 // CreateRelay - turn a host into a relay
