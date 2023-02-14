@@ -72,6 +72,31 @@ confirm() {(
   done
 )}
 
+if [[ ! -z "$2" ]]; then
+	INSTALL_BRANCH=$2
+else
+	INSTALL_BRANCH="master"
+fi
+echo "-----------------------------------------------------"
+echo "Install Branch: $INSTALL_BRANCH"
+echo "-----------------------------------------------------"
+confirm
+
+branch_install_setup() {(
+	rm -rf netmaker-tmp
+	mkdir netmaker-tmp
+	cd netmaker-tmp
+	git clone https://www.github.com/gravitl/netmaker
+	cd netmaker
+	git checkout $INSTALL_BRANCH
+	git pull origin $INSTALL_BRANCH
+	docker build --no-cache --build-arg version=$INSTALL_BRANCH -t gravitl/netmaker:$INSTALL_BRANCH .
+	cd ../../
+	rm -rf netmaker-tmp
+)}
+
+branch_install_setup
+
 echo "checking dependencies..."
 
 OS=$(uname)
@@ -335,15 +360,15 @@ wait_seconds 3
 
 echo "Pulling config files..."
 
-COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.yml" 
-CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/master/docker/Caddyfile"
+COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$INSTALL_BRANCH/compose/docker-compose.yml" 
+CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/$INSTALL_BRANCH/docker/Caddyfile"
 if [ "$INSTALL_TYPE" = "ee" ]; then
-	COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.ee.yml" 
-	CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/master/docker/Caddyfile-EE"
+	COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$INSTALL_BRANCH/compose/docker-compose.ee.yml" 
+	CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/$INSTALL_BRANCH/docker/Caddyfile-EE"
 fi
 
-wget -O /root/docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf && wget -O /root/Caddyfile $CADDY_URL
-wget -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/master/docker/wait.sh
+wget -O /root/docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/$INSTALL_BRANCH/docker/mosquitto.conf && wget -O /root/Caddyfile $CADDY_URL
+wget -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/$INSTALL_BRANCH/docker/wait.sh
 chmod +x /root/wait.sh
 mkdir -p /etc/netmaker
 
