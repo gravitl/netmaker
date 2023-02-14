@@ -395,7 +395,21 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 			}
 			peerConfig.AllowedIPs = allowedips
 			if node.IsIngressGateway || node.IsEgressGateway {
-
+				if peer.IsIngressGateway {
+					_, extPeerIDAndAddrs, err := getExtPeers(&peer)
+					if err == nil {
+						for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
+							nodePeerMap[extPeerIdAndAddr.ID] = models.PeerRouteInfo{
+								PeerAddr: net.IPNet{
+									IP:   net.ParseIP(extPeerIdAndAddr.Address),
+									Mask: getCIDRMaskFromAddr(extPeerIdAndAddr.Address),
+								},
+								PeerKey: extPeerIdAndAddr.ID,
+								Allow:   true,
+							}
+						}
+					}
+				}
 				nodePeerMap[peerHost.PublicKey.String()] = models.PeerRouteInfo{
 					PeerAddr: net.IPNet{
 						IP:   net.ParseIP(peer.PrimaryAddress()),
