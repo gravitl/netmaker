@@ -2,7 +2,7 @@ package models
 
 // moved from controllers need work
 //func TestUpdateNetwork(t *testing.T) {
-//	database.InitializeDatabase()
+//	initialize()
 //	createNet()
 //	network := getNet()
 //	t.Run("NetID", func(t *testing.T) {
