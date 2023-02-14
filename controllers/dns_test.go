@@ -15,7 +15,6 @@ import (
 var dnsHost models.Host
 
 func TestGetAllDNS(t *testing.T) {
-	initialize()
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	createNet()
@@ -46,7 +45,6 @@ func TestGetAllDNS(t *testing.T) {
 }
 
 func TestGetNodeDNS(t *testing.T) {
-	initialize()
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	createNet()
@@ -93,7 +91,6 @@ func TestGetNodeDNS(t *testing.T) {
 	})
 }
 func TestGetCustomDNS(t *testing.T) {
-	initialize()
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	t.Run("NoNetworks", func(t *testing.T) {
@@ -132,7 +129,6 @@ func TestGetCustomDNS(t *testing.T) {
 }
 
 func TestGetDNSEntryNum(t *testing.T) {
-	initialize()
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	createNet()
@@ -151,7 +147,6 @@ func TestGetDNSEntryNum(t *testing.T) {
 	})
 }
 func TestGetDNS(t *testing.T) {
-	initialize()
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	createNet()
@@ -195,7 +190,6 @@ func TestGetDNS(t *testing.T) {
 }
 
 func TestCreateDNS(t *testing.T) {
-	initialize()
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	createNet()
@@ -206,7 +200,6 @@ func TestCreateDNS(t *testing.T) {
 }
 
 func TestSetDNS(t *testing.T) {
-	initialize()
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	t.Run("NoNetworks", func(t *testing.T) {
@@ -254,7 +247,6 @@ func TestSetDNS(t *testing.T) {
 }
 
 func TestGetDNSEntry(t *testing.T) {
-	initialize()
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	createNet()
@@ -284,7 +276,6 @@ func TestGetDNSEntry(t *testing.T) {
 }
 
 func TestDeleteDNS(t *testing.T) {
-	initialize()
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	createNet()
@@ -306,7 +297,6 @@ func TestDeleteDNS(t *testing.T) {
 }
 
 func TestValidateDNSUpdate(t *testing.T) {
-	initialize()
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	createNet()
@@ -368,7 +358,6 @@ func TestValidateDNSUpdate(t *testing.T) {
 
 }
 func TestValidateDNSCreate(t *testing.T) {
-	initialize()
 	_ = logic.DeleteDNS("mynode", "skynet")
 	t.Run("NoNetwork", func(t *testing.T) {
 		entry := models.DNSEntry{"10.0.0.2", "", "myhost", "badnet"}

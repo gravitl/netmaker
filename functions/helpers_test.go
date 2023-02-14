@@ -1,10 +1,12 @@
 package functions
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 )
@@ -19,11 +21,27 @@ var (
 	}
 )
 
+func TestMain(m *testing.M) {
+	database.InitializeDatabase()
+	defer database.CloseDB()
+	logic.CreateAdmin(&models.User{
+		UserName: "admin",
+		Password: "password",
+		IsAdmin:  true,
+		Networks: []string{},
+		Groups:   []string{},
+	})
+	peerUpdate := make(chan *models.Node)
+	go logic.ManageZombies(context.Background(), peerUpdate)
+	go func() {
+		for update := range peerUpdate {
+			//do nothing
+			logger.Log(3, "received node update", update.Action)
+		}
+	}()
+}
+
 func TestNetworkExists(t *testing.T) {
-	err := initialize()
-	if err != nil {
-		t.Fatalf("error initilizing database: %s", err)
-	}
 	database.DeleteRecord(database.NETWORKS_TABLE_NAME, testNetwork.NetID)
 	defer database.CloseDB()
 	exists, err := logic.NetworkExists(testNetwork.NetID)
@@ -53,10 +71,6 @@ func TestNetworkExists(t *testing.T) {
 }
 
 func TestGetAllExtClients(t *testing.T) {
-	err := initialize()
-	if err != nil {
-		t.Fatalf("error initilizing database: %s", err)
-	}
 	defer database.CloseDB()
 	database.DeleteRecord(database.EXT_CLIENT_TABLE_NAME, testExternalClient.ClientID)
 

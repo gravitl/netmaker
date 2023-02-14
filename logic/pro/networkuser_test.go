@@ -4,13 +4,18 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/models/promodels"
 	"github.com/stretchr/testify/assert"
 )
 
+func TestMain(m *testing.M) {
+	database.InitializeDatabase()
+	defer database.CloseDB()
+}
+
 func TestNetworkUserLogic(t *testing.T) {
-	initialize()
 	networkUser := promodels.NetworkUser{
 		ID: "helloworld",
 	}

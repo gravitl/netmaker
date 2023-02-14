@@ -8,7 +8,6 @@ import (
 )
 
 func TestUserGroupLogic(t *testing.T) {
-	initialize()
 
 	t.Run("User Groups initialized successfully", func(t *testing.T) {
 		err := InitializeGroups()

@@ -80,6 +80,7 @@ func ManageZombies(ctx context.Context, peerUpdate chan *models.Node) {
 	for {
 		select {
 		case <-ctx.Done():
+			close(peerUpdate)
 			return
 		case id := <-newZombie:
 			zombies = append(zombies, id)

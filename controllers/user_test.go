@@ -17,7 +17,6 @@ func deleteAllUsers() {
 
 func TestHasAdmin(t *testing.T) {
 	//delete all current users
-	initialize()
 	users, _ := logic.GetUsers()
 	for _, user := range users {
 		success, err := logic.DeleteUser(user.UserName)
@@ -56,7 +55,6 @@ func TestHasAdmin(t *testing.T) {
 }
 
 func TestCreateUser(t *testing.T) {
-	initialize()
 	deleteAllUsers()
 	user := models.User{"admin", "password", nil, true, nil}
 	t.Run("NoUser", func(t *testing.T) {
@@ -71,7 +69,6 @@ func TestCreateUser(t *testing.T) {
 }
 
 func TestCreateAdmin(t *testing.T) {
-	initialize()
 	deleteAllUsers()
 	var user models.User
 	t.Run("NoAdmin", func(t *testing.T) {
@@ -89,7 +86,6 @@ func TestCreateAdmin(t *testing.T) {
 }
 
 func TestDeleteUser(t *testing.T) {
-	initialize()
 	deleteAllUsers()
 	t.Run("NonExistent User", func(t *testing.T) {
 		deleted, err := logic.DeleteUser("admin")
@@ -106,7 +102,6 @@ func TestDeleteUser(t *testing.T) {
 }
 
 func TestValidateUser(t *testing.T) {
-	initialize()
 	var user models.User
 	t.Run("Valid Create", func(t *testing.T) {
 		user.UserName = "admin"
@@ -154,7 +149,6 @@ func TestValidateUser(t *testing.T) {
 }
 
 func TestGetUser(t *testing.T) {
-	initialize()
 	deleteAllUsers()
 	t.Run("NonExistantUser", func(t *testing.T) {
 		admin, err := logic.GetUser("admin")
@@ -171,7 +165,6 @@ func TestGetUser(t *testing.T) {
 }
 
 func TestGetUsers(t *testing.T) {
-	initialize()
 	deleteAllUsers()
 	t.Run("NonExistantUser", func(t *testing.T) {
 		admin, err := logic.GetUsers()
@@ -202,7 +195,6 @@ func TestGetUsers(t *testing.T) {
 }
 
 func TestUpdateUser(t *testing.T) {
-	initialize()
 	deleteAllUsers()
 	user := models.User{"admin", "password", nil, true, nil}
 	newuser := models.User{"hello", "world", []string{"wirecat, netmaker"}, true, []string{}}
@@ -245,7 +237,6 @@ func TestUpdateUser(t *testing.T) {
 // }
 
 func TestVerifyAuthRequest(t *testing.T) {
-	initialize()
 	deleteAllUsers()
 	var authRequest models.UserAuthParams
 	t.Run("EmptyUserName", func(t *testing.T) {
