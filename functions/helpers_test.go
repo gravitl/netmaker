@@ -20,7 +20,7 @@ var (
 )
 
 func TestNetworkExists(t *testing.T) {
-	err := database.InitializeDatabase()
+	err := initialize()
 	if err != nil {
 		t.Fatalf("error initilizing database: %s", err)
 	}
@@ -53,7 +53,7 @@ func TestNetworkExists(t *testing.T) {
 }
 
 func TestGetAllExtClients(t *testing.T) {
-	err := database.InitializeDatabase()
+	err := initialize()
 	if err != nil {
 		t.Fatalf("error initilizing database: %s", err)
 	}

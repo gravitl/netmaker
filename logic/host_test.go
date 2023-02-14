@@ -5,13 +5,12 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
 	"github.com/matryer/is"
 )
 
 func TestCheckPorts(t *testing.T) {
-	database.InitializeDatabase()
+	initialize()
 	h := models.Host{
 		ID:              uuid.New(),
 		EndpointIP:      net.ParseIP("192.168.1.1"),

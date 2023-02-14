@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/stretchr/testify/assert"
@@ -16,7 +15,7 @@ import (
 var dnsHost models.Host
 
 func TestGetAllDNS(t *testing.T) {
-	database.InitializeDatabase()
+	initialize()
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	createNet()
@@ -47,7 +46,7 @@ func TestGetAllDNS(t *testing.T) {
 }
 
 func TestGetNodeDNS(t *testing.T) {
-	database.InitializeDatabase()
+	initialize()
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	createNet()
@@ -94,7 +93,7 @@ func TestGetNodeDNS(t *testing.T) {
 	})
 }
 func TestGetCustomDNS(t *testing.T) {
-	database.InitializeDatabase()
+	initialize()
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	t.Run("NoNetworks", func(t *testing.T) {
@@ -133,7 +132,7 @@ func TestGetCustomDNS(t *testing.T) {
 }
 
 func TestGetDNSEntryNum(t *testing.T) {
-	database.InitializeDatabase()
+	initialize()
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	createNet()
@@ -152,7 +151,7 @@ func TestGetDNSEntryNum(t *testing.T) {
 	})
 }
 func TestGetDNS(t *testing.T) {
-	database.InitializeDatabase()
+	initialize()
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	createNet()
@@ -196,7 +195,7 @@ func TestGetDNS(t *testing.T) {
 }
 
 func TestCreateDNS(t *testing.T) {
-	database.InitializeDatabase()
+	initialize()
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	createNet()
@@ -207,7 +206,7 @@ func TestCreateDNS(t *testing.T) {
 }
 
 func TestSetDNS(t *testing.T) {
-	database.InitializeDatabase()
+	initialize()
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	t.Run("NoNetworks", func(t *testing.T) {
@@ -255,7 +254,7 @@ func TestSetDNS(t *testing.T) {
 }
 
 func TestGetDNSEntry(t *testing.T) {
-	database.InitializeDatabase()
+	initialize()
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	createNet()
@@ -285,7 +284,7 @@ func TestGetDNSEntry(t *testing.T) {
 }
 
 func TestDeleteDNS(t *testing.T) {
-	database.InitializeDatabase()
+	initialize()
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	createNet()
@@ -307,7 +306,7 @@ func TestDeleteDNS(t *testing.T) {
 }
 
 func TestValidateDNSUpdate(t *testing.T) {
-	database.InitializeDatabase()
+	initialize()
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	createNet()
@@ -369,7 +368,7 @@ func TestValidateDNSUpdate(t *testing.T) {
 
 }
 func TestValidateDNSCreate(t *testing.T) {
-	database.InitializeDatabase()
+	initialize()
 	_ = logic.DeleteDNS("mynode", "skynet")
 	t.Run("NoNetwork", func(t *testing.T) {
 		entry := models.DNSEntry{"10.0.0.2", "", "myhost", "badnet"}

@@ -17,8 +17,10 @@ const (
 )
 
 var (
-	zombies     []uuid.UUID
-	hostZombies []uuid.UUID
+	zombies       []uuid.UUID
+	hostZombies   []uuid.UUID
+	newZombie     chan uuid.UUID = make(chan (uuid.UUID), 10)
+	newHostZombie chan uuid.UUID = make(chan (uuid.UUID), 10)
 )
 
 // CheckZombies - checks if new node has same hostid as existing node
@@ -37,7 +39,7 @@ func CheckZombies(newnode *models.Node) {
 		}
 		if node.HostID == newnode.HostID || time.Now().After(node.ExpirationDateTime) {
 			logger.Log(0, "adding ", node.ID.String(), " to zombie list")
-			zombies = append(zombies, node.ID)
+			newZombie <- node.ID
 		}
 	}
 }
@@ -57,7 +59,7 @@ func checkForZombieHosts(h *models.Host) {
 		}
 		if existing.MacAddress.String() == h.MacAddress.String() {
 			//add to hostZombies
-			hostZombies = append(hostZombies, existing.ID)
+			newHostZombie <- existing.ID
 			//add all nodes belonging to host to zombile list
 			for _, node := range existing.Nodes {
 				id, err := uuid.Parse(node)
@@ -65,7 +67,7 @@ func checkForZombieHosts(h *models.Host) {
 					logger.Log(3, "error parsing uuid from host.Nodes", err.Error())
 					continue
 				}
-				zombies = append(zombies, id)
+				newHostZombie <- id
 			}
 		}
 	}
@@ -79,6 +81,10 @@ func ManageZombies(ctx context.Context, peerUpdate chan *models.Node) {
 		select {
 		case <-ctx.Done():
 			return
+		case id := <-newZombie:
+			zombies = append(zombies, id)
+		case id := <-newHostZombie:
+			hostZombies = append(hostZombies, id)
 		case <-time.After(time.Second * ZOMBIE_TIMEOUT):
 			logger.Log(3, "checking for zombie nodes")
 			if len(zombies) > 0 {
@@ -142,10 +148,10 @@ func InitializeZombies() {
 			}
 			if node.HostID == othernode.HostID {
 				if node.LastCheckIn.After(othernode.LastCheckIn) {
-					zombies = append(zombies, othernode.ID)
+					newZombie <- othernode.ID
 					logger.Log(1, "adding", othernode.ID.String(), "to zombie list")
 				} else {
-					zombies = append(zombies, node.ID)
+					newZombie <- node.ID
 					logger.Log(1, "adding", node.ID.String(), "to zombie list")
 				}
 			}

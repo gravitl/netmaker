@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -321,6 +322,7 @@ func deleteAllNetworks() {
 func initialize() {
 	database.InitializeDatabase()
 	createAdminUser()
+	go logic.ManageZombies(context.Background())
 }
 
 func createAdminUser() {

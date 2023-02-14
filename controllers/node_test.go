@@ -21,7 +21,7 @@ func TestCreateEgressGateway(t *testing.T) {
 	var gateway models.EgressGatewayRequest
 	gateway.Ranges = []string{"10.100.100.0/24"}
 	gateway.NetID = "skynet"
-	database.InitializeDatabase()
+	initialize()
 	deleteAllNetworks()
 	createNet()
 	t.Run("NoNodes", func(t *testing.T) {
@@ -78,7 +78,7 @@ func TestCreateEgressGateway(t *testing.T) {
 }
 func TestDeleteEgressGateway(t *testing.T) {
 	var gateway models.EgressGatewayRequest
-	database.InitializeDatabase()
+	initialize()
 	deleteAllNetworks()
 	createNet()
 	testnode := createTestNode()
@@ -110,7 +110,7 @@ func TestDeleteEgressGateway(t *testing.T) {
 }
 
 func TestGetNetworkNodes(t *testing.T) {
-	database.InitializeDatabase()
+	initialize()
 	deleteAllNetworks()
 	createNet()
 	t.Run("BadNet", func(t *testing.T) {
