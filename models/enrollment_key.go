@@ -4,6 +4,13 @@ import (
 	"time"
 )
 
+// EnrollmentToken - the tokenized version of an enrollmentkey;
+// to be used for host registration
+type EnrollmentToken struct {
+	Server string `json:"value"`
+	Value  string `json:"value"`
+}
+
 // EnrollmentKeyLength - the length of an enrollment key
 const EnrollmentKeyLength = 32
 
@@ -15,6 +22,7 @@ type EnrollmentKey struct {
 	Networks      []string  `json:"networks"`
 	Unlimited     bool      `json:"unlimited"`
 	Tags          []string  `json:"tags"`
+	Token         string    `json:"token,omitempty"` // B64 value of EnrollmentToken
 }
 
 // EnrollmentKey.IsValid - checks if the key is still valid to use

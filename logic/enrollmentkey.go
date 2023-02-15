@@ -1,6 +1,7 @@
 package logic
 
 import (
+	b64 "encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,15 +14,19 @@ import (
 
 // EnrollmentKeyErrors - struct for holding EnrollmentKey error messages
 var EnrollmentKeyErrors = struct {
-	InvalidCreate   error
-	NoKeyFound      error
-	InvalidKey      error
-	NoUsesRemaining error
+	InvalidCreate      error
+	NoKeyFound         error
+	InvalidKey         error
+	NoUsesRemaining    error
+	FailedToTokenize   error
+	FailedToDeTokenize error
 }{
-	InvalidCreate:   fmt.Errorf("invalid enrollment key created"),
-	NoKeyFound:      fmt.Errorf("no enrollmentkey found"),
-	InvalidKey:      fmt.Errorf("invalid key provided"),
-	NoUsesRemaining: fmt.Errorf("no uses remaining"),
+	InvalidCreate:      fmt.Errorf("invalid enrollment key created"),
+	NoKeyFound:         fmt.Errorf("no enrollmentkey found"),
+	InvalidKey:         fmt.Errorf("invalid key provided"),
+	NoUsesRemaining:    fmt.Errorf("no uses remaining"),
+	FailedToTokenize:   fmt.Errorf("failed to tokenize"),
+	FailedToDeTokenize: fmt.Errorf("failed to detokenize"),
 }
 
 // CreateEnrollmentKey - creates a new enrollment key in db
@@ -107,6 +112,47 @@ func TryToUseEnrollmentKey(k *models.EnrollmentKey) bool {
 		return true
 	}
 	return false
+}
+
+// Tokenize - tokenizes an enrollment key to be used via registration
+// and attaches it to the Token field on the struct
+func Tokenize(k *models.EnrollmentKey, serverAddr string) error {
+	if len(serverAddr) == 0 {
+		return EnrollmentKeyErrors.FailedToTokenize
+	}
+	newToken := models.EnrollmentToken{
+		Server: serverAddr,
+		Value:  k.Value,
+	}
+	data, err := json.Marshal(&newToken)
+	if err != nil {
+		return err
+	}
+	k.Token = b64.StdEncoding.EncodeToString([]byte(data))
+	return nil
+}
+
+// DeTokenize - detokenizes a base64 encoded string
+// and finds the associated enrollment key
+func DeTokenize(b64Token string) (*models.EnrollmentKey, error) {
+	if len(b64Token) == 0 {
+		return nil, EnrollmentKeyErrors.FailedToDeTokenize
+	}
+	tokenData, err := b64.StdEncoding.DecodeString(b64Token)
+	if err != nil {
+		return nil, err
+	}
+
+	var newToken models.EnrollmentToken
+	err = json.Unmarshal(tokenData, &newToken)
+	if err != nil {
+		return nil, err
+	}
+	k, err := GetEnrollmentKey(newToken.Value)
+	if err != nil {
+		return nil, err
+	}
+	return k, nil
 }
 
 // == private ==
