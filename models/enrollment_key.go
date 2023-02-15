@@ -1,6 +1,8 @@
 package models
 
-import "time"
+import (
+	"time"
+)
 
 // EnrollmentKeyLength - the length of an enrollment key
 const EnrollmentKeyLength = 32
@@ -23,7 +25,7 @@ func (k *EnrollmentKey) IsValid() bool {
 	if k.UsesRemaining > 0 {
 		return true
 	}
-	if !k.Expiration.IsZero() && time.Now().After(k.Expiration) {
+	if !k.Expiration.IsZero() && time.Now().Before(k.Expiration) {
 		return true
 	}
 

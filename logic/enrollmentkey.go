@@ -12,13 +12,15 @@ import (
 
 // EnrollmentKeyErrors - struct for holding EnrollmentKey error messages
 var EnrollmentKeyErrors = struct {
-	InvalidCreate string
-	NoKeyFound    string
-	InvalidKey    string
+	InvalidCreate   string
+	NoKeyFound      string
+	InvalidKey      string
+	NoUsesRemaining string
 }{
-	InvalidCreate: "invalid enrollment key created",
-	NoKeyFound:    "no enrollmentkey found",
-	InvalidKey:    "invalid key provided",
+	InvalidCreate:   "invalid enrollment key created",
+	NoKeyFound:      "no enrollmentkey found",
+	InvalidKey:      "invalid key provided",
+	NoUsesRemaining: "no uses remaining",
 }
 
 // CreateEnrollmentKey - creates a new enrollment key in db
@@ -84,7 +86,28 @@ func GetEnrollmentKey(value string) (*models.EnrollmentKey, error) {
 
 // DeleteEnrollmentKey - delete's a given enrollment key by value
 func DeleteEnrollmentKey(value string) error {
+	_, err := GetEnrollmentKey(value)
+	if err != nil {
+		return err
+	}
 	return database.DeleteRecord(database.ENROLLMENT_KEYS_TABLE_NAME, value)
+}
+
+// DecrementEnrollmentKey - decrements the uses on a key if above 0 remaining
+func DecrementEnrollmentKey(value string) (*models.EnrollmentKey, error) {
+	k, err := GetEnrollmentKey(value)
+	if err != nil {
+		return nil, err
+	}
+	if k.UsesRemaining == 0 {
+		return nil, fmt.Errorf(EnrollmentKeyErrors.NoUsesRemaining)
+	}
+	k.UsesRemaining = k.UsesRemaining - 1
+	if err = upsertEnrollmentKey(k); err != nil {
+		return nil, err
+	}
+
+	return k, nil
 }
 
 // == private ==
@@ -106,7 +129,7 @@ func getUniqueEnrollmentID() (string, error) {
 		return "", err
 	}
 	newID := ncutils.MakeRandomString(32)
-	for _, ok := currentKeys[newID]; !ok; {
+	for _, ok := currentKeys[newID]; ok; {
 		newID = ncutils.MakeRandomString(32)
 	}
 	return newID, nil
@@ -118,6 +141,9 @@ func getEnrollmentKeysMap() (map[string]*models.EnrollmentKey, error) {
 		if !database.IsEmptyRecord(err) {
 			return nil, err
 		}
+	}
+	if records == nil {
+		records = make(map[string]string)
 	}
 	currentKeys := make(map[string]*models.EnrollmentKey)
 	if len(records) > 0 {

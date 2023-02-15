@@ -1,38 +1,19 @@
 package logic
 
 import (
-	"context"
 	"net"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/matryer/is"
 )
 
-func TestMain(m *testing.M) {
+func TestCheckPorts(t *testing.T) {
 	database.InitializeDatabase()
 	defer database.CloseDB()
-	CreateAdmin(&models.User{
-		UserName: "admin",
-		Password: "password",
-		IsAdmin:  true,
-		Networks: []string{},
-		Groups:   []string{},
-	})
-	peerUpdate := make(chan *models.Node)
-	go ManageZombies(context.Background(), peerUpdate)
-	go func() {
-		for update := range peerUpdate {
-			//do nothing
-			logger.Log(3, "received node update", update.Action)
-		}
-	}()
-}
 
-func TestCheckPorts(t *testing.T) {
 	h := models.Host{
 		ID:              uuid.New(),
 		EndpointIP:      net.ParseIP("192.168.1.1"),
