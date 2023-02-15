@@ -25,6 +25,7 @@ var SQLITE_FUNCTIONS = map[string]interface{}{
 	DELETE_ALL:   sqliteDeleteAllRecords,
 	FETCH_ALL:    sqliteFetchRecords,
 	CLOSE_DB:     sqliteCloseDB,
+	isConnected:  sqliteConnected,
 }
 
 func initSqliteDB() error {
@@ -134,4 +135,9 @@ func sqliteFetchRecords(tableName string) (map[string]string, error) {
 
 func sqliteCloseDB() {
 	SqliteDB.Close()
+}
+
+func sqliteConnected() bool {
+	stats := SqliteDB.Stats()
+	return stats.OpenConnections > 0
 }

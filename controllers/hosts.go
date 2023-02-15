@@ -97,7 +97,6 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 	if updateRelay {
 		logic.UpdateHostRelay(currHost.ID.String(), currHost.RelayedHosts, newHost.RelayedHosts)
 	}
-
 	// publish host update through MQ
 	if err := mq.HostUpdate(&models.HostUpdate{
 		Action: models.UpdateHost,
@@ -190,10 +189,6 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, r.Header.Get("user"), "failed to send delete host update: ", currHost.ID.String(), err.Error())
 	}
 
-	if err = mq.DeleteMqClient(currHost.ID.String()); err != nil {
-		logger.Log(0, "error removing DynSec credentials for host:", currHost.Name, err.Error())
-	}
-
 	apiHostData := currHost.ConvertNMHostToAPI()
 	logger.Log(2, r.Header.Get("user"), "removed host", currHost.Name)
 	w.WriteHeader(http.StatusOK)
@@ -242,6 +237,11 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 	}); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update host to join network:", hostid, network, err.Error())
 	}
+	go func() { // notify of peer change
+		if err := mq.PublishPeerUpdate(); err != nil {
+			logger.Log(1, "error publishing peer update ", err.Error())
+		}
+	}()
 
 	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("added host %s to network %s", currHost.Name, network))
 	w.WriteHeader(http.StatusOK)

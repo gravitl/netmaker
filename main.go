@@ -118,11 +118,6 @@ func startControllers() {
 			logger.Log(0, "error occurred initializing DNS: ", err.Error())
 		}
 	}
-	if servercfg.IsMessageQueueBackend() {
-		if err := mq.Configure(); err != nil {
-			logger.FatalLog("failed to configure MQ: ", err.Error())
-		}
-	}
 
 	//Run Rest Server
 	if servercfg.IsRestBackend() {
@@ -172,7 +167,6 @@ func runMessageQueue(wg *sync.WaitGroup) {
 	defer wg.Done()
 	brokerHost, secure := servercfg.GetMessageQueueEndpoint()
 	logger.Log(0, "connecting to mq broker at", brokerHost, "with TLS?", fmt.Sprintf("%v", secure))
-	mq.SetUpAdminClient()
 	mq.SetupMQTT()
 	ctx, cancel := context.WithCancel(context.Background())
 	go mq.Keepalive(ctx)

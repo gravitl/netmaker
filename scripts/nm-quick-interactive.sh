@@ -1,5 +1,51 @@
 #!/bin/bash
 
+# setup_netclient - installs netclient locally
+setup_netclient() {
+
+	# DEV_TEMP - Temporary instructions for testing
+	# wget https://fileserver.netmaker.org/testing/netclient
+	# chmod +x netclient
+	# ./netclient install
+
+	# RELEASE_REPLACE - Use this once release is ready
+	# if [ -f /etc/debian_version ]; then
+	#     curl -sL 'https://apt.netmaker.org/gpg.key' | sudo tee /etc/apt/trusted.gpg.d/netclient.asc
+	#     curl -sL 'https://apt.netmaker.org/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/netclient.list
+	#     sudo apt update
+	#     sudo apt install netclient
+	# elif [ -f /etc/centos-release ]; then
+	#     curl -sL 'https://rpm.netmaker.org/gpg.key' | sudo tee /tmp/gpg.key
+	#     curl -sL 'https://rpm.netmaker.org/netclient-repo' | sudo tee /etc/yum.repos.d/netclient.repo
+	#     sudo rpm --import /tmp/gpg.key
+	#     sudo dnf check-update
+	#     sudo dnf install netclient
+	# elif [ -f /etc/fedora-release ]; then
+	#     curl -sL 'https://rpm.netmaker.org/gpg.key' | sudo tee /tmp/gpg.key
+	#     curl -sL 'https://rpm.netmaker.org/netclient-repo' | sudo tee /etc/yum.repos.d/netclient.repo
+	#     sudo rpm --import /tmp/gpg.key
+	#     sudo dnf check-update
+	#     sudo dnf install netclient
+	# elif [ -f /etc/redhat-release ]; then
+	#     curl -sL 'https://rpm.netmaker.org/gpg.key' | sudo tee /tmp/gpg.key
+	#     curl -sL 'https://rpm.netmaker.org/netclient-repo' | sudo tee /etc/yum.repos.d/netclient.repo
+	#     sudo rpm --import /tmp/gpg.key
+	#     sudo dnf check-update(
+	#     sudo dnf install netclient
+	# elif [ -f /etc/arch-release ]; then
+	#     yay -S netclient
+	# else
+	# 	echo "OS not supported for automatic install"
+	#     exit 1
+	# fi
+
+	# if [ -z "${install_cmd}" ]; then
+	#         echo "OS unsupported for automatic dependency install"
+	# 	exit 1
+	# fi
+}
+
+
 cat << "EOF"
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -184,13 +230,11 @@ wait_seconds 3
 
 set -e
 
-NETMAKER_BASE_DOMAIN=nm.$(curl -s ifconfig.me | tr . -).nip.io
+NETMAKER_BASE_DOMAIN=nm.$(dig myip.opendns.com @resolver1.opendns.com +short | tr . -).nip.io
 COREDNS_IP=$(ip route get 1 | sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
-SERVER_PUBLIC_IP=$(curl -s ifconfig.me)
+SERVER_PUBLIC_IP=$(dig myip.opendns.com @resolver1.opendns.com +short)
 MASTER_KEY=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
-MQ_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
 DOMAIN_TYPE=""
-
 echo "-----------------------------------------------------"
 echo "Would you like to use your own domain for netmaker, or an auto-generated domain?"
 echo "To use your own domain, add a Wildcard DNS record (e.x: *.netmaker.example.com) pointing to $SERVER_PUBLIC_IP"
@@ -267,6 +311,49 @@ else
   EMAIL="$GET_EMAIL"
 fi
 
+wait_seconds 1
+
+unset GET_MQ_USERNAME
+unset GET_MQ_PASSWORD
+unset CONFIRM_MQ_PASSWORD
+echo "Enter Credentials For MQ..."
+read -p "MQ Username (click 'enter' to use 'netmaker'): " GET_MQ_USERNAME
+if [ -z "$GET_MQ_USERNAME" ]; then
+  echo "using default username for mq"
+  MQ_USERNAME="netmaker"
+else
+  MQ_USERNAME="$GET_MQ_USERNAME"
+fi
+
+select domain_option in "Auto Generated Password" "Input Your Own Password"; do
+	case $REPLY in
+	1)
+	echo "generating random password for mq"
+	MQ_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
+	break
+	;;      
+    2)
+	while true
+    do
+        echo "Enter your Password For MQ: " 
+        read -s GET_MQ_PASSWORD
+        echo "Enter your password again to confirm: "
+        read -s CONFIRM_MQ_PASSWORD
+        if [ ${GET_MQ_PASSWORD} != ${CONFIRM_MQ_PASSWORD} ]; then
+            echo "wrong password entered, try again..."
+            continue
+        fi
+		MQ_PASSWORD="$GET_MQ_PASSWORD"
+        echo "MQ Password Saved Successfully!!"
+        break
+    done
+      break
+      ;;
+    *) echo "invalid option $REPLY";;
+  esac
+done
+
+
 wait_seconds 2
 
 echo "-----------------------------------------------------------------"
@@ -301,8 +388,9 @@ if [ "$INSTALL_TYPE" = "ee" ]; then
 	CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/master/docker/Caddyfile-EE"
 fi
 
-wget -O /root/docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf && wget -O /root/Caddyfile $CADDY_URL && wget -q -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/master/docker/wait.sh && chmod +x /root/wait.sh
-
+wget -O /root/docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf && wget -O /root/Caddyfile $CADDY_URL
+wget -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/master/docker/wait.sh
+chmod +x /root/wait.sh
 mkdir -p /etc/netmaker
 
 echo "Setting docker-compose and Caddyfile..."
@@ -312,7 +400,8 @@ sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/Caddyfile
 sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/docker-compose.yml
 sed -i "s/REPLACE_MASTER_KEY/$MASTER_KEY/g" /root/docker-compose.yml
 sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/Caddyfile
-sed -i "s/REPLACE_MQ_ADMIN_PASSWORD/$MQ_PASSWORD/g" /root/docker-compose.yml 
+sed -i "s/REPLACE_MQ_PASSWORD/$MQ_PASSWORD/g" /root/docker-compose.yml
+sed -i "s/REPLACE_MQ_USERNAME/$MQ_USERNAME/g" /root/docker-compose.yml 
 if [ "$INSTALL_TYPE" = "ee" ]; then
 	sed -i "s~YOUR_LICENSE_KEY~$LICENSE_KEY~g" /root/docker-compose.yml
 	sed -i "s/YOUR_ACCOUNT_ID/$ACCOUNT_ID/g" /root/docker-compose.yml
@@ -366,35 +455,27 @@ ACCESS_TOKEN=$(jq -r '.accessstring' <<< ${curlresponse})
 
 wait_seconds 3
 
-echo "Configuring netmaker server as ingress gateway"
+# echo "Installing Netclient"
+# setup_netclient
 
-for i in 1 2 3 4 5 6
-do
-	echo "    waiting for server node to become available"
-	wait_seconds 10
-	curlresponse=$(curl -s -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/netmaker)
-	SERVER_ID=$(jq -r '.[0].id' <<< ${curlresponse})
-	echo "    Server ID: $SERVER_ID"
-	if [ $SERVER_ID == "null" ]; then
-		SERVER_ID=""
-	fi
-	if [[ "$i" -ge "6" && -z "$SERVER_ID" ]]; then
-		echo "    Netmaker is having issues configuring itself, please investigate (docker logs netmaker)"
-		echo "    Exiting..."
-		exit 1
-	elif [ -z "$SERVER_ID" ]; then
-		echo "    server node not yet configured, retrying..."
-	elif [[ ! -z "$SERVER_ID" ]]; then
-		echo "    server node is now availble, continuing"
-		break
-	fi
-done
+# echo "Adding Netclient to Network"
+# netclient join -t $ACCESS_TOKEN
+
+# # TODO - Get Host ID
 
 
-if [[ ! -z "$SERVER_ID"  ]]; then
-	curl -o /dev/null -s -X POST -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/netmaker/$SERVER_ID/createingress
-fi 
+# echo "Setting Netclient as Default Host"
+# HOST_ID=$(grep 'id:' /etc/netclient/netclient.yml | awk '{print $2}')
+# echo $HOST_ID
+# # TODO - API call to make host default
+
+# echo "Setting Netclient as Ingress Gateway"
+# if [[ ! -z "$SERVER_ID"  ]]; then
+# 	curl -o /dev/null -s -X POST -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/netmaker/$HOST_ID/createingress
+# fi 
 )}
+
+
 
 set +e
 test_connection

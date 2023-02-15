@@ -2,7 +2,6 @@ package mq
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -23,39 +22,6 @@ var peer_force_send = 0
 
 var mqclient mqtt.Client
 
-// SetUpAdminClient - sets up admin client for the MQ
-func SetUpAdminClient() {
-	opts := mqtt.NewClientOptions()
-	setMqOptions(mqAdminUserName, servercfg.GetMqAdminPassword(), opts)
-	mqAdminClient = mqtt.NewClient(opts)
-	opts.SetOnConnectHandler(func(client mqtt.Client) {
-		if token := client.Subscribe(dynamicSecSubTopic, 2, mqtt.MessageHandler(watchDynSecTopic)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
-			client.Disconnect(240)
-			logger.Log(0, fmt.Sprintf("Dynamic security client subscription failed: %v ", token.Error()))
-		}
-
-		opts.SetOrderMatters(true)
-		opts.SetResumeSubs(true)
-	})
-	tperiod := time.Now().Add(10 * time.Second)
-	for {
-		if token := mqAdminClient.Connect(); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
-			logger.Log(2, "Admin: unable to connect to broker, retrying ...")
-			if time.Now().After(tperiod) {
-				if token.Error() == nil {
-					logger.FatalLog("Admin: could not connect to broker, token timeout, exiting ...")
-				} else {
-					logger.FatalLog("Admin: could not connect to broker, exiting ...", token.Error().Error())
-				}
-			}
-		} else {
-			break
-		}
-		time.Sleep(2 * time.Second)
-	}
-
-}
-
 func setMqOptions(user, password string, opts *mqtt.ClientOptions) {
 	broker, _ := servercfg.GetMessageQueueEndpoint()
 	opts.AddBroker(broker)
@@ -73,7 +39,7 @@ func setMqOptions(user, password string, opts *mqtt.ClientOptions) {
 // SetupMQTT creates a connection to broker and return client
 func SetupMQTT() {
 	opts := mqtt.NewClientOptions()
-	setMqOptions(mqNetmakerServerUserName, servercfg.GetMqAdminPassword(), opts)
+	setMqOptions(servercfg.GetMqUserName(), servercfg.GetMqPassword(), opts)
 	opts.SetOnConnectHandler(func(client mqtt.Client) {
 		if token := client.Subscribe("ping/#", 2, mqtt.MessageHandler(Ping)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
 			client.Disconnect(240)
@@ -128,4 +94,9 @@ func Keepalive(ctx context.Context) {
 			sendPeers()
 		}
 	}
+}
+
+// IsConnected - function for determining if the mqclient is connected or not
+func IsConnected() bool {
+	return mqclient != nil && mqclient.IsConnected()
 }

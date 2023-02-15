@@ -168,12 +168,6 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 				logger.Log(0, "failed to pulish peer update: ", err.Error())
 			}
 		}
-		if sendPeerUpdate {
-			err := PublishPeerUpdate()
-			if err != nil {
-				logger.Log(0, "failed to pulish peer update: ", err.Error())
-			}
-		}
 		// if servercfg.Is_EE && ifaceDelta {
 		// 	if err = logic.EnterpriseResetAllPeersFailovers(currentHost.ID.String(), currentHost.Network); err != nil {
 		// 		logger.Log(1, "failed to reset failover list during node update", currentHost.ID.String(), currentHost.Network)

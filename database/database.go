@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -80,7 +81,11 @@ const (
 	FETCH_ALL = "fetchall"
 	// CLOSE_DB - graceful close of db const
 	CLOSE_DB = "closedb"
+	// isconnected
+	isConnected = "isconnected"
 )
+
+var dbMutex sync.RWMutex
 
 func getCurrentDB() map[string]interface{} {
 	switch servercfg.GetDB() {
@@ -148,6 +153,8 @@ func IsJSONString(value string) bool {
 
 // Insert - inserts object into db
 func Insert(key string, value string, tableName string) error {
+	dbMutex.Lock()
+	defer dbMutex.Unlock()
 	if key != "" && value != "" && IsJSONString(value) {
 		return getCurrentDB()[INSERT].(func(string, string, string) error)(key, value, tableName)
 	} else {
@@ -157,6 +164,8 @@ func Insert(key string, value string, tableName string) error {
 
 // InsertPeer - inserts peer into db
 func InsertPeer(key string, value string) error {
+	dbMutex.Lock()
+	defer dbMutex.Unlock()
 	if key != "" && value != "" && IsJSONString(value) {
 		return getCurrentDB()[INSERT_PEER].(func(string, string) error)(key, value)
 	} else {
@@ -166,11 +175,15 @@ func InsertPeer(key string, value string) error {
 
 // DeleteRecord - deletes a record from db
 func DeleteRecord(tableName string, key string) error {
+	dbMutex.Lock()
+	defer dbMutex.Unlock()
 	return getCurrentDB()[DELETE].(func(string, string) error)(tableName, key)
 }
 
 // DeleteAllRecords - removes a table and remakes
 func DeleteAllRecords(tableName string) error {
+	dbMutex.Lock()
+	defer dbMutex.Unlock()
 	err := getCurrentDB()[DELETE_ALL].(func(string) error)(tableName)
 	if err != nil {
 		return err
@@ -196,6 +209,8 @@ func FetchRecord(tableName string, key string) (string, error) {
 
 // FetchRecords - fetches all records in given table
 func FetchRecords(tableName string) (map[string]string, error) {
+	dbMutex.RLock()
+	defer dbMutex.RUnlock()
 	return getCurrentDB()[FETCH_ALL].(func(string) (map[string]string, error))(tableName)
 }
 
@@ -240,4 +255,9 @@ func initializeUUID() error {
 // CloseDB - closes a database gracefully
 func CloseDB() {
 	getCurrentDB()[CLOSE_DB].(func())()
+}
+
+// IsConnected - tell if the database is connected or not
+func IsConnected() bool {
+	return getCurrentDB()[isConnected].(func() bool)()
 }
