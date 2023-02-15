@@ -48,7 +48,6 @@ jobs:
           push: true
           tags: ${{ github.repository }}:${{ env.TAG }}, ${{ github.repository }}:latest
           build-args: | 
-            version=${{ env.TAG }}
             tags=ce
 
   docker-ee:
@@ -89,5 +88,4 @@ jobs:
           push: true
           tags: ${{ github.repository }}:${{ env.TAG }}-ee
           build-args: |
-            version=${{ env.TAG }}
             tags=ee

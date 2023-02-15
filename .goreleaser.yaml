@@ -1,0 +1,35 @@
+before:
+  hooks:
+    # You may remove this if you don't use go modules.
+    - go mod tidy
+builds:
+  - main: ./
+    id: netmaker
+    env:
+      - CGO_ENABLED=1
+    ldflags:
+      - -s -w
+    targets:
+      - linux_amd64
+    no_unique_dist_dir: true
+    binary: '{{ .id }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ with .Mips }}_{{ . }}{{ end }}'
+  - main: ./cli  
+    id: nmctl
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+    targets:
+      - linux_amd64
+      - linux_arm64
+      - darwin_amd64
+      - darwin_arm64
+      - freebsd_amd64
+      - windows_amd64
+    no_unique_dist_dir: true
+    binary: '{{ .id }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ with .Mips }}_{{ . }}{{ end }}'
+archives:
+  - format: binary
+    name_template: '{{ .id}}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ with .Mips }}_{{ . }}{{ end }}'
+changelog:
+  skip: true
