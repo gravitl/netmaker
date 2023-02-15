@@ -2,6 +2,7 @@ package logic
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -12,15 +13,15 @@ import (
 
 // EnrollmentKeyErrors - struct for holding EnrollmentKey error messages
 var EnrollmentKeyErrors = struct {
-	InvalidCreate   string
-	NoKeyFound      string
-	InvalidKey      string
-	NoUsesRemaining string
+	InvalidCreate   error
+	NoKeyFound      error
+	InvalidKey      error
+	NoUsesRemaining error
 }{
-	InvalidCreate:   "invalid enrollment key created",
-	NoKeyFound:      "no enrollmentkey found",
-	InvalidKey:      "invalid key provided",
-	NoUsesRemaining: "no uses remaining",
+	InvalidCreate:   fmt.Errorf("invalid enrollment key created"),
+	NoKeyFound:      fmt.Errorf("no enrollmentkey found"),
+	InvalidKey:      fmt.Errorf("invalid key provided"),
+	NoUsesRemaining: fmt.Errorf("no uses remaining"),
 }
 
 // CreateEnrollmentKey - creates a new enrollment key in db
@@ -50,7 +51,7 @@ func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string
 		k.Tags = tags
 	}
 	if ok := k.Validate(); !ok {
-		return nil, fmt.Errorf(EnrollmentKeyErrors.InvalidCreate)
+		return nil, EnrollmentKeyErrors.InvalidCreate
 	}
 	if err = upsertEnrollmentKey(k); err != nil {
 		return nil, err
@@ -81,7 +82,7 @@ func GetEnrollmentKey(value string) (*models.EnrollmentKey, error) {
 	if key, ok := currentKeys[value]; ok {
 		return key, nil
 	}
-	return nil, fmt.Errorf(EnrollmentKeyErrors.NoKeyFound)
+	return nil, EnrollmentKeyErrors.NoKeyFound
 }
 
 // DeleteEnrollmentKey - delete's a given enrollment key by value
@@ -93,14 +94,31 @@ func DeleteEnrollmentKey(value string) error {
 	return database.DeleteRecord(database.ENROLLMENT_KEYS_TABLE_NAME, value)
 }
 
-// DecrementEnrollmentKey - decrements the uses on a key if above 0 remaining
-func DecrementEnrollmentKey(value string) (*models.EnrollmentKey, error) {
+// TryToUseEnrollmentKey - checks first if key can be decremented
+// returns true if it is decremented or isvalid
+func TryToUseEnrollmentKey(k *models.EnrollmentKey) bool {
+	key, err := decrementEnrollmentKey(k.Value)
+	if err != nil {
+		if errors.Is(err, EnrollmentKeyErrors.NoUsesRemaining) {
+			return k.IsValid()
+		}
+	} else {
+		k.UsesRemaining = key.UsesRemaining
+		return true
+	}
+	return false
+}
+
+// == private ==
+
+// decrementEnrollmentKey - decrements the uses on a key if above 0 remaining
+func decrementEnrollmentKey(value string) (*models.EnrollmentKey, error) {
 	k, err := GetEnrollmentKey(value)
 	if err != nil {
 		return nil, err
 	}
 	if k.UsesRemaining == 0 {
-		return nil, fmt.Errorf(EnrollmentKeyErrors.NoUsesRemaining)
+		return nil, EnrollmentKeyErrors.NoUsesRemaining
 	}
 	k.UsesRemaining = k.UsesRemaining - 1
 	if err = upsertEnrollmentKey(k); err != nil {
@@ -110,11 +128,9 @@ func DecrementEnrollmentKey(value string) (*models.EnrollmentKey, error) {
 	return k, nil
 }
 
-// == private ==
-
 func upsertEnrollmentKey(k *models.EnrollmentKey) error {
 	if k == nil {
-		return fmt.Errorf(EnrollmentKeyErrors.InvalidKey)
+		return EnrollmentKeyErrors.InvalidKey
 	}
 	data, err := json.Marshal(k)
 	if err != nil {

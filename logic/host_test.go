@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"context"
 	"net"
 	"testing"
 
@@ -13,6 +14,13 @@ import (
 func TestCheckPorts(t *testing.T) {
 	database.InitializeDatabase()
 	defer database.CloseDB()
+	peerUpdate := make(chan *models.Node)
+	go ManageZombies(context.Background(), peerUpdate)
+	go func() {
+		for _ = range peerUpdate {
+			//do nothing
+		}
+	}()
 
 	h := models.Host{
 		ID:              uuid.New(),
