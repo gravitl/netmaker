@@ -108,6 +108,19 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 		if err := mq.PublishPeerUpdate(); err != nil {
 			logger.Log(0, "fail to publish peer update: ", err.Error())
 		}
+		if newHost.Name != currHost.Name {
+			networks := logic.GetHostNetworks(currHost.ID.String())
+			if err := mq.PublishHostDNSUpdate(currHost, newHost, networks); err != nil {
+				var dnsError *models.DNSError
+				if errors.Is(err, dnsError) {
+					for _, message := range err.(models.DNSError).ErrorStrings {
+						logger.Log(0, message)
+					}
+				} else {
+					logger.Log(0, err.Error())
+				}
+			}
+		}
 	}()
 
 	apiHostData := newHost.ConvertNMHostToAPI()
@@ -281,6 +294,9 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	go func() { // notify of peer change
 		if err := mq.PublishPeerUpdate(); err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
+		}
+		if err := mq.PublishDNSDelete(node, currHost); err != nil {
+			logger.Log(1, "error publishing dns update", err.Error())
 		}
 	}()
 	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("removed host %s from network %s", currHost.Name, network))
