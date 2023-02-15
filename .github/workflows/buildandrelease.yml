@@ -13,7 +13,7 @@ jobs:
   version:
     runs-on: ubuntu-latest
     outputs:
-      tag: ${{ steps.version.outputs.tag }}
+      tag: ${{ steps.version.outputs.package_version }}
       version: ${{ steps.version.outputs.version }}
     steps:
       - name: Get Version Number
@@ -24,7 +24,7 @@ jobs:
           else
             NETMAKER_VERSION=$(curl -fsSL https://api.github.com/repos/gravitl/netmaker/tags | grep 'name' | head -1 | cut -d'"' -f4)
           fi
-          echo "NETMAKER_VERSION=${NETMAKER_VERSION}" >> $GITHUB_OUTPUT
+          echo "VERSION=${NETMAKER_VERSION}" >> $GITHUB_OUTPUT
           # remove everything but digits and . for package (deb, rpm, etc) versions
           PACKAGE_VERSION=$(echo ${NETMAKER_VERSION} | tr -cd '[:digit:].')
           echo "PACKAGE_VERSION=${PACKAGE_VERSION}" >> $GITHUB_OUTPUT
@@ -34,11 +34,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          ref: release_${{ needs.version.outputs.version }}
+          fetch-depth: 0
+      - run: git fetch --force --tags
       - name: Setup go
         uses: actions/setup-go@v3
         with:
           go-version: 1.19
       - name: GoReleaser
-        uses: actions/goreleaser-action@v4
+        uses: goreleaser/goreleaser-action@v4
         with:
           args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
