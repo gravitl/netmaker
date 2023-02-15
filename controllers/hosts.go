@@ -268,12 +268,15 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	node.Action = models.NODE_DELETE
+	node.PendingDelete = true
 	logger.Log(1, "deleting  node", node.ID.String(), "from host", currHost.Name)
 	if err := logic.DeleteNode(node, false); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
 		return
 	}
 	// notify node change
+
 	runUpdates(node, false)
 	go func() { // notify of peer change
 		if err := mq.PublishPeerUpdate(); err != nil {

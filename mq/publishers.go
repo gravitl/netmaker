@@ -83,7 +83,7 @@ func NodeUpdate(node *models.Node) error {
 		logger.Log(2, "error marshalling node update ", err.Error())
 		return err
 	}
-	if err = publish(host, fmt.Sprintf("update/%s/%s", node.Network, node.ID), data); err != nil {
+	if err = publish(host, fmt.Sprintf("node/update/%s/%s", node.Network, node.ID), data); err != nil {
 		logger.Log(2, "error publishing node update to peer ", node.ID.String(), err.Error())
 		return err
 	}

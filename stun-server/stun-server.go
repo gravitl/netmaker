@@ -3,7 +3,6 @@ package stunserver
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -71,7 +70,6 @@ func (s *Server) serveConn(c net.PacketConn, res, req *stun.Message) error {
 		logger.Log(1, "ReadFrom: %v", err.Error())
 		return nil
 	}
-	log.Printf("read %d bytes from %s\n", n, addr)
 	if _, err = req.Write(buf[:n]); err != nil {
 		logger.Log(1, "Write: %v", err.Error())
 		return err

@@ -3,7 +3,6 @@ package controller
 import (
 	"testing"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/stretchr/testify/assert"
@@ -18,7 +17,6 @@ func deleteAllUsers() {
 
 func TestHasAdmin(t *testing.T) {
 	//delete all current users
-	database.InitializeDatabase()
 	users, _ := logic.GetUsers()
 	for _, user := range users {
 		success, err := logic.DeleteUser(user.UserName)
@@ -48,7 +46,7 @@ func TestHasAdmin(t *testing.T) {
 	})
 	t.Run("multiple admins", func(t *testing.T) {
 		var user = models.User{"admin1", "password", nil, true, nil}
-		 err := logic.CreateUser(&user)
+		err := logic.CreateUser(&user)
 		assert.Nil(t, err)
 		found, err := logic.HasAdmin()
 		assert.Nil(t, err)
@@ -57,7 +55,6 @@ func TestHasAdmin(t *testing.T) {
 }
 
 func TestCreateUser(t *testing.T) {
-	database.InitializeDatabase()
 	deleteAllUsers()
 	user := models.User{"admin", "password", nil, true, nil}
 	t.Run("NoUser", func(t *testing.T) {
@@ -72,7 +69,6 @@ func TestCreateUser(t *testing.T) {
 }
 
 func TestCreateAdmin(t *testing.T) {
-	database.InitializeDatabase()
 	deleteAllUsers()
 	var user models.User
 	t.Run("NoAdmin", func(t *testing.T) {
@@ -90,7 +86,6 @@ func TestCreateAdmin(t *testing.T) {
 }
 
 func TestDeleteUser(t *testing.T) {
-	database.InitializeDatabase()
 	deleteAllUsers()
 	t.Run("NonExistent User", func(t *testing.T) {
 		deleted, err := logic.DeleteUser("admin")
@@ -107,7 +102,6 @@ func TestDeleteUser(t *testing.T) {
 }
 
 func TestValidateUser(t *testing.T) {
-	database.InitializeDatabase()
 	var user models.User
 	t.Run("Valid Create", func(t *testing.T) {
 		user.UserName = "admin"
@@ -155,7 +149,6 @@ func TestValidateUser(t *testing.T) {
 }
 
 func TestGetUser(t *testing.T) {
-	database.InitializeDatabase()
 	deleteAllUsers()
 	t.Run("NonExistantUser", func(t *testing.T) {
 		admin, err := logic.GetUser("admin")
@@ -172,7 +165,6 @@ func TestGetUser(t *testing.T) {
 }
 
 func TestGetUsers(t *testing.T) {
-	database.InitializeDatabase()
 	deleteAllUsers()
 	t.Run("NonExistantUser", func(t *testing.T) {
 		admin, err := logic.GetUsers()
@@ -203,7 +195,6 @@ func TestGetUsers(t *testing.T) {
 }
 
 func TestUpdateUser(t *testing.T) {
-	database.InitializeDatabase()
 	deleteAllUsers()
 	user := models.User{"admin", "password", nil, true, nil}
 	newuser := models.User{"hello", "world", []string{"wirecat, netmaker"}, true, []string{}}
@@ -246,7 +237,6 @@ func TestUpdateUser(t *testing.T) {
 // }
 
 func TestVerifyAuthRequest(t *testing.T) {
-	database.InitializeDatabase()
 	deleteAllUsers()
 	var authRequest models.UserAuthParams
 	t.Run("EmptyUserName", func(t *testing.T) {
