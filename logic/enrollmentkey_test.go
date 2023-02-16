@@ -16,7 +16,7 @@ func TestCreateEnrollmentKey(t *testing.T) {
 		newKey, err := CreateEnrollmentKey(0, time.Time{}, nil, nil, false)
 		assert.Nil(t, newKey)
 		assert.NotNil(t, err)
-		assert.Equal(t, err, EnrollmentKeyErrors.InvalidCreate)
+		assert.Equal(t, err, EnrollmentErrors.InvalidCreate)
 	})
 	t.Run("Can_Create_Key_Uses", func(t *testing.T) {
 		newKey, err := CreateEnrollmentKey(1, time.Time{}, nil, nil, false)
@@ -69,12 +69,12 @@ func TestDelete_EnrollmentKey(t *testing.T) {
 		oldKey, err := GetEnrollmentKey(newKey.Value)
 		assert.Nil(t, oldKey)
 		assert.NotNil(t, err)
-		assert.Equal(t, err, EnrollmentKeyErrors.NoKeyFound)
+		assert.Equal(t, err, EnrollmentErrors.NoKeyFound)
 	})
 	t.Run("Can_Not_Delete_Invalid_Key", func(t *testing.T) {
 		err := DeleteEnrollmentKey("notakey")
 		assert.NotNil(t, err)
-		assert.Equal(t, err, EnrollmentKeyErrors.NoKeyFound)
+		assert.Equal(t, err, EnrollmentErrors.NoKeyFound)
 	})
 	removeAllEnrollments()
 }
@@ -97,7 +97,7 @@ func TestDecrement_EnrollmentKey(t *testing.T) {
 		assert.Equal(t, newKey.UsesRemaining, 0)
 		_, err := decrementEnrollmentKey(newKey.Value)
 		assert.NotNil(t, err)
-		assert.Equal(t, err, EnrollmentKeyErrors.NoUsesRemaining)
+		assert.Equal(t, err, EnrollmentErrors.NoUsesRemaining)
 	})
 
 	removeAllEnrollments()
@@ -151,12 +151,12 @@ func TestTokenize_EnrollmentKeys(t *testing.T) {
 	t.Run("Can_Not_Tokenize_Nil_Key", func(t *testing.T) {
 		err := Tokenize(nil, "ServerAddress")
 		assert.NotNil(t, err)
-		assert.Equal(t, err, EnrollmentKeyErrors.FailedToTokenize)
+		assert.Equal(t, err, EnrollmentErrors.FailedToTokenize)
 	})
 	t.Run("Can_Not_Tokenize_Empty_Server_Address", func(t *testing.T) {
 		err := Tokenize(newKey, "")
 		assert.NotNil(t, err)
-		assert.Equal(t, err, EnrollmentKeyErrors.FailedToTokenize)
+		assert.Equal(t, err, EnrollmentErrors.FailedToTokenize)
 	})
 
 	t.Run("Can_Tokenize", func(t *testing.T) {
@@ -185,13 +185,13 @@ func TestDeTokenize_EnrollmentKeys(t *testing.T) {
 		value, err := DeTokenize("")
 		assert.Nil(t, value)
 		assert.NotNil(t, err)
-		assert.Equal(t, err, EnrollmentKeyErrors.FailedToDeTokenize)
+		assert.Equal(t, err, EnrollmentErrors.FailedToDeTokenize)
 	})
 	t.Run("Can_Not_Find_Key", func(t *testing.T) {
 		value, err := DeTokenize(b64Value)
 		assert.Nil(t, value)
 		assert.NotNil(t, err)
-		assert.Equal(t, err, EnrollmentKeyErrors.NoKeyFound)
+		assert.Equal(t, err, EnrollmentErrors.NoKeyFound)
 	})
 	t.Run("Can_DeTokenize", func(t *testing.T) {
 		err := Tokenize(newKey, serverAddr)

@@ -12,8 +12,8 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
-// EnrollmentKeyErrors - struct for holding EnrollmentKey error messages
-var EnrollmentKeyErrors = struct {
+// EnrollmentErrors - struct for holding EnrollmentKey error messages
+var EnrollmentErrors = struct {
 	InvalidCreate      error
 	NoKeyFound         error
 	InvalidKey         error
@@ -56,7 +56,7 @@ func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string
 		k.Tags = tags
 	}
 	if ok := k.Validate(); !ok {
-		return nil, EnrollmentKeyErrors.InvalidCreate
+		return nil, EnrollmentErrors.InvalidCreate
 	}
 	if err = upsertEnrollmentKey(k); err != nil {
 		return nil, err
@@ -87,7 +87,7 @@ func GetEnrollmentKey(value string) (*models.EnrollmentKey, error) {
 	if key, ok := currentKeys[value]; ok {
 		return key, nil
 	}
-	return nil, EnrollmentKeyErrors.NoKeyFound
+	return nil, EnrollmentErrors.NoKeyFound
 }
 
 // DeleteEnrollmentKey - delete's a given enrollment key by value
@@ -104,7 +104,7 @@ func DeleteEnrollmentKey(value string) error {
 func TryToUseEnrollmentKey(k *models.EnrollmentKey) bool {
 	key, err := decrementEnrollmentKey(k.Value)
 	if err != nil {
-		if errors.Is(err, EnrollmentKeyErrors.NoUsesRemaining) {
+		if errors.Is(err, EnrollmentErrors.NoUsesRemaining) {
 			return k.IsValid()
 		}
 	} else {
@@ -118,7 +118,7 @@ func TryToUseEnrollmentKey(k *models.EnrollmentKey) bool {
 // and attaches it to the Token field on the struct
 func Tokenize(k *models.EnrollmentKey, serverAddr string) error {
 	if len(serverAddr) == 0 || k == nil {
-		return EnrollmentKeyErrors.FailedToTokenize
+		return EnrollmentErrors.FailedToTokenize
 	}
 	newToken := models.EnrollmentToken{
 		Server: serverAddr,
@@ -136,7 +136,7 @@ func Tokenize(k *models.EnrollmentKey, serverAddr string) error {
 // and finds the associated enrollment key
 func DeTokenize(b64Token string) (*models.EnrollmentKey, error) {
 	if len(b64Token) == 0 {
-		return nil, EnrollmentKeyErrors.FailedToDeTokenize
+		return nil, EnrollmentErrors.FailedToDeTokenize
 	}
 	tokenData, err := b64.StdEncoding.DecodeString(b64Token)
 	if err != nil {
@@ -164,7 +164,7 @@ func decrementEnrollmentKey(value string) (*models.EnrollmentKey, error) {
 		return nil, err
 	}
 	if k.UsesRemaining == 0 {
-		return nil, EnrollmentKeyErrors.NoUsesRemaining
+		return nil, EnrollmentErrors.NoUsesRemaining
 	}
 	k.UsesRemaining = k.UsesRemaining - 1
 	if err = upsertEnrollmentKey(k); err != nil {
@@ -176,7 +176,7 @@ func decrementEnrollmentKey(value string) (*models.EnrollmentKey, error) {
 
 func upsertEnrollmentKey(k *models.EnrollmentKey) error {
 	if k == nil {
-		return EnrollmentKeyErrors.InvalidKey
+		return EnrollmentErrors.InvalidKey
 	}
 	data, err := json.Marshal(k)
 	if err != nil {
