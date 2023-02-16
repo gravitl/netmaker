@@ -75,4 +75,7 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 	r.Body = io.NopCloser(strings.NewReader(string(payload)))
 	r.ContentLength = int64(len(string(payload)))
 	createNode(w, r)
+	if err := database.DeleteRecord(database.NODES_TABLE_NAME, data.LegacyNodeID); err != nil {
+		logger.Log(0, "error deleting legacy node", legacyNode.Name, err.Error())
+	}
 }
