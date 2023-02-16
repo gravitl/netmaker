@@ -29,6 +29,13 @@ spec:
                 - "true"
       containers:
       - image: eclipse-mosquitto:2.0.11-openssl
+        command: ["/bin/sh", "-c"]
+        args: ["chmod +x /mosquitto/config/wait.sh && /mosquitto/config/wait.sh"]
+        env:
+        - name: MQ_USERNAME
+          value: "REPLACE_MQ_USERNAME"
+        - name: MQ_PASSWORD
+          value: "REPLACE_MQ_PASSWORD"        
         imagePullPolicy: IfNotPresent
         livenessProbe:
           failureThreshold: 3
@@ -66,8 +73,10 @@ spec:
         - mountPath: /mosquitto/config/mosquitto.conf
           name: mosquitto-config
           subPath: mosquitto.conf
-        - mountPath: /mosquitto/certs
-          name: shared-certs
+        volumeMounts:
+        - mountPath: /mosquitto/config/wait.sh
+          name: wait-script
+          subPath: wait.sh          
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
@@ -75,9 +84,9 @@ spec:
       - configMap:
           name: mosquitto-config
         name: mosquitto-config
-      - name: shared-certs
-        persistentVolumeClaim:
-          claimName: shared-certs-pvc
+      - configMap:
+          name: wait-script
+        name: wait-script
 ---
 apiVersion: v1
 kind: Service
@@ -106,17 +115,47 @@ data:
     listener 8883
     protocol websockets
     allow_anonymous false
+
     listener 1883
     protocol websockets
     allow_anonymous false
-    plugin /usr/lib/mosquitto_dynamic_security.so
-    plugin_opt_config_file /mosquitto/data/dynamic-security.json
+
+    password_file /mosquitto/password.txt
 kind: ConfigMap
 metadata:
   labels:
     app.kubernetes.io/instance: mosquitto
     app.kubernetes.io/name: mosquitto
   name: mosquitto-config
+  namespace: netmaker
+---
+apiVersion: v1
+data:
+  wait.sh: |
+    #!/bin/ash
+
+    encrypt_password() {
+      echo "${MQ_USERNAME}:${MQ_PASSWORD}" > /mosquitto/password.txt
+      mosquitto_passwd -U /mosquitto/password.txt
+    }
+
+    main(){
+
+    encrypt_password
+    echo "Starting MQ..."
+    # Run the main container command.
+    /docker-entrypoint.sh
+    /usr/sbin/mosquitto -c /mosquitto/config/mosquitto.conf
+
+    }
+
+    main "${@}"
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: mosquitto
+    app.kubernetes.io/name: mosquitto
+  name: wait-script
   namespace: netmaker
 ---
 kind: PersistentVolumeClaim
