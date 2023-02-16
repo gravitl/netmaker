@@ -49,6 +49,7 @@ jobs:
           go-version: 1.19
       - name: run tests
         run: |
+          go vet ./...
           go test -p 1 ./... -v
         env:
           DATABASE: sqlite
