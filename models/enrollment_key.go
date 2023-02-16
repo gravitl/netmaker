@@ -11,10 +11,10 @@ type EnrollmentToken struct {
 	Value  string `json:"value"`
 }
 
-// EnrollmentKeyLength - the length of an enrollment key
+// EnrollmentKeyLength - the length of an enrollment key - 62^16 unique possibilities
 const EnrollmentKeyLength = 32
 
-// EnrollmentKey - the
+// EnrollmentKey - the key used to register hosts and join them to specific networks
 type EnrollmentKey struct {
 	Expiration    time.Time `json:"expiration"`
 	UsesRemaining int       `json:"uses_remaining"`
@@ -23,6 +23,15 @@ type EnrollmentKey struct {
 	Unlimited     bool      `json:"unlimited"`
 	Tags          []string  `json:"tags"`
 	Token         string    `json:"token,omitempty"` // B64 value of EnrollmentToken
+}
+
+// APIEnrollmentKey - used to create enrollment keys via API
+type APIEnrollmentKey struct {
+	Expiration    int64    `json:"expiration"`
+	UsesRemaining int      `json:"uses_remaining"`
+	Networks      []string `json:"networks"`
+	Unlimited     bool     `json:"unlimited"`
+	Tags          []string `json:"tags"`
 }
 
 // EnrollmentKey.IsValid - checks if the key is still valid to use

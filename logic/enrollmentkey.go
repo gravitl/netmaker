@@ -191,9 +191,9 @@ func getUniqueEnrollmentID() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	newID := ncutils.MakeRandomString(32)
+	newID := ncutils.MakeRandomString(models.EnrollmentKeyLength)
 	for _, ok := currentKeys[newID]; ok; {
-		newID = ncutils.MakeRandomString(32)
+		newID = ncutils.MakeRandomString(models.EnrollmentKeyLength)
 	}
 	return newID, nil
 }

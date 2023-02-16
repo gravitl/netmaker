@@ -135,8 +135,8 @@ func TestTokenize_EnrollmentKeys(t *testing.T) {
 	database.InitializeDatabase()
 	defer database.CloseDB()
 	newKey, _ := CreateEnrollmentKey(0, time.Time{}, []string{"mynet", "skynet"}, nil, true)
-	const defaultValue = "MwEtpqTSrGd4HTO3ahYDTExKAehh6udJ"
-	const b64value = "eyJzZXJ2ZXIiOiJhcGkubXlzZXJ2ZXIuY29tIiwidmFsdWUiOiJNd0V0cHFUU3JHZDRIVE8zYWhZRFRFeEtBZWhoNnVkSiJ9"
+	const defaultValue = "MwE5MwE5MwE5MwE5MwE5MwE5MwE5MwE5"
+	const b64value = "eyJzZXJ2ZXIiOiJhcGkubXlzZXJ2ZXIuY29tIiwidmFsdWUiOiJNd0U1TXdFNU13RTVNd0U1TXdFNU13RTVNd0U1TXdFNSJ9"
 	const serverAddr = "api.myserver.com"
 	t.Run("Can_Not_Tokenize_Nil_Key", func(t *testing.T) {
 		err := Tokenize(nil, "ServerAddress")
@@ -168,8 +168,7 @@ func TestDeTokenize_EnrollmentKeys(t *testing.T) {
 	database.InitializeDatabase()
 	defer database.CloseDB()
 	newKey, _ := CreateEnrollmentKey(0, time.Time{}, []string{"mynet", "skynet"}, nil, true)
-	//const defaultValue = "MwEtpqTSrGd4HTO3ahYDTExKAehh6udJ"
-	const b64Value = "eyJzZXJ2ZXIiOiJhcGkubXlzZXJ2ZXIuY29tIiwidmFsdWUiOiJNd0V0cHFUU3JHZDRIVE8zYWhZRFRFeEtBZWhoNnVkSiJ9"
+	const b64Value = "eyJzZXJ2ZXIiOiJhcGkubXlzZXJ2ZXIuY29tIiwidmFsdWUiOiJNd0U1TXdFNU13RTVNd0U1TXdFNU13RTVNd0U1TXdFNSJ9"
 	const serverAddr = "api.myserver.com"
 
 	t.Run("Can_Not_DeTokenize", func(t *testing.T) {
