@@ -127,3 +127,71 @@ func TestUsability_EnrollmentKey(t *testing.T) {
 func removeAllEnrollments() {
 	database.DeleteAllRecords(database.ENROLLMENT_KEYS_TABLE_NAME)
 }
+
+//Test that cheks if it can tokenize
+//Test that cheks if it can't tokenize
+
+func TestTokenize_EnrollmentKeys(t *testing.T) {
+	database.InitializeDatabase()
+	defer database.CloseDB()
+	newKey, _ := CreateEnrollmentKey(0, time.Time{}, []string{"mynet", "skynet"}, nil, true)
+	const defaultValue = "MwEtpqTSrGd4HTO3ahYDTExKAehh6udJ"
+	const b64value = "eyJzZXJ2ZXIiOiJhcGkubXlzZXJ2ZXIuY29tIiwidmFsdWUiOiJNd0V0cHFUU3JHZDRIVE8zYWhZRFRFeEtBZWhoNnVkSiJ9"
+	const serverAddr = "api.myserver.com"
+	t.Run("Can_Not_Tokenize_Nil_Key", func(t *testing.T) {
+		err := Tokenize(nil, "ServerAddress")
+		assert.NotNil(t, err)
+		assert.Equal(t, err, EnrollmentKeyErrors.FailedToTokenize)
+	})
+	t.Run("Can_Not_Tokenize_Empty_Server_Address", func(t *testing.T) {
+		err := Tokenize(newKey, "")
+		assert.NotNil(t, err)
+		assert.Equal(t, err, EnrollmentKeyErrors.FailedToTokenize)
+	})
+
+	t.Run("Can_Tokenize", func(t *testing.T) {
+		err := Tokenize(newKey, serverAddr)
+		assert.Nil(t, err)
+		assert.True(t, len(newKey.Token) > 0)
+	})
+
+	t.Run("Is_Correct_B64_Token", func(t *testing.T) {
+		newKey.Value = defaultValue
+		err := Tokenize(newKey, serverAddr)
+		assert.Nil(t, err)
+		assert.Equal(t, newKey.Token, b64value)
+	})
+	removeAllEnrollments()
+}
+
+func TestDeTokenize_EnrollmentKeys(t *testing.T) {
+	database.InitializeDatabase()
+	defer database.CloseDB()
+	newKey, _ := CreateEnrollmentKey(0, time.Time{}, []string{"mynet", "skynet"}, nil, true)
+	//const defaultValue = "MwEtpqTSrGd4HTO3ahYDTExKAehh6udJ"
+	const b64Value = "eyJzZXJ2ZXIiOiJhcGkubXlzZXJ2ZXIuY29tIiwidmFsdWUiOiJNd0V0cHFUU3JHZDRIVE8zYWhZRFRFeEtBZWhoNnVkSiJ9"
+	const serverAddr = "api.myserver.com"
+
+	t.Run("Can_Not_DeTokenize", func(t *testing.T) {
+		value, err := DeTokenize("")
+		assert.Nil(t, value)
+		assert.NotNil(t, err)
+		assert.Equal(t, err, EnrollmentKeyErrors.FailedToDeTokenize)
+	})
+	t.Run("Can_Not_Find_Key", func(t *testing.T) {
+		value, err := DeTokenize(b64Value)
+		assert.Nil(t, value)
+		assert.NotNil(t, err)
+		assert.Equal(t, err, EnrollmentKeyErrors.NoKeyFound)
+	})
+	t.Run("Can_DeTokenize", func(t *testing.T) {
+		err := Tokenize(newKey, serverAddr)
+		assert.Nil(t, err)
+		output, err := DeTokenize(newKey.Token)
+		assert.Nil(t, err)
+		assert.NotNil(t, output)
+		assert.Equal(t, newKey.Value, output.Value)
+	})
+
+	removeAllEnrollments()
+}

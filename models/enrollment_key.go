@@ -7,7 +7,7 @@ import (
 // EnrollmentToken - the tokenized version of an enrollmentkey;
 // to be used for host registration
 type EnrollmentToken struct {
-	Server string `json:"value"`
+	Server string `json:"server"`
 	Value  string `json:"value"`
 }
 

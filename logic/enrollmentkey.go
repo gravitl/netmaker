@@ -117,7 +117,7 @@ func TryToUseEnrollmentKey(k *models.EnrollmentKey) bool {
 // Tokenize - tokenizes an enrollment key to be used via registration
 // and attaches it to the Token field on the struct
 func Tokenize(k *models.EnrollmentKey, serverAddr string) error {
-	if len(serverAddr) == 0 {
+	if len(serverAddr) == 0 || k == nil {
 		return EnrollmentKeyErrors.FailedToTokenize
 	}
 	newToken := models.EnrollmentToken{
@@ -128,8 +128,9 @@ func Tokenize(k *models.EnrollmentKey, serverAddr string) error {
 	if err != nil {
 		return err
 	}
-	k.Token = b64.StdEncoding.EncodeToString([]byte(data))
+	k.Token = b64.StdEncoding.EncodeToString(data)
 	return nil
+
 }
 
 // DeTokenize - detokenizes a base64 encoded string
