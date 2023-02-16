@@ -18,7 +18,7 @@ func enrollmentKeyHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/enrollment-keys", logic.SecurityCheck(true, http.HandlerFunc(createEnrollmentKey))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/enrollment-keys", logic.SecurityCheck(true, http.HandlerFunc(getEnrollmentKeys))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/enrollment-keys/{keyID}", logic.SecurityCheck(true, http.HandlerFunc(deleteEnrollmentKey))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/host/register/{token}", logic.SecurityCheck(true, http.HandlerFunc(handleHostRegister))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/host/register/{token}", http.HandlerFunc(handleHostRegister)).Methods(http.MethodPost)
 }
 
 // swagger:route GET /api/v1/enrollment-keys enrollmentKeys getEnrollmentKeys
