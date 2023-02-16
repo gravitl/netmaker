@@ -1,0 +1,133 @@
+version: "3.4"
+
+services:
+  netmaker:
+    container_name: netmaker
+    image: gravitl/netmaker:v0.18.0-ee
+    restart: always
+    volumes:
+      - dnsconfig:/root/config/dnsconfig
+      - sqldata:/root/data
+    environment:
+      BROKER_NAME: "broker.NETMAKER_BASE_DOMAIN"
+      SERVER_NAME: "NETMAKER_BASE_DOMAIN"
+      STUN_DOMAIN: "stun.NETMAKER_BASE_DOMAIN"
+      SERVER_HOST: "SERVER_PUBLIC_IP"
+      SERVER_API_CONN_STRING: "api.NETMAKER_BASE_DOMAIN:443"
+      COREDNS_ADDR: "SERVER_PUBLIC_IP"
+      DNS_MODE: "on"
+      SERVER_HTTP_HOST: "api.NETMAKER_BASE_DOMAIN"
+      API_PORT: "8081"
+      MASTER_KEY: "REPLACE_MASTER_KEY"
+      CORS_ALLOWED_ORIGIN: "*"
+      DISPLAY_KEYS: "on"
+      DATABASE: "sqlite"
+      NODE_ID: "netmaker-server-1"
+      MQ_HOST: "mq"
+      MQ_PORT: "443"
+      MQ_SERVER_PORT: "1883"
+      MQ_USERNAME: "REPLACE_MQ_USERNAME"
+      MQ_PASSWORD: "REPLACE_MQ_PASSWORD"
+      STUN_PORT: "3478"
+      VERBOSITY: "1"
+      METRICS_EXPORTER: "on"
+      LICENSE_KEY: "YOUR_LICENSE_KEY"
+      NETMAKER_ACCOUNT_ID: "YOUR_ACCOUNT_ID"
+    ports:
+      - "3478:3478/udp"
+  netmaker-ui:
+    container_name: netmaker-ui
+    image: gravitl/netmaker-ui:v0.18.0
+    depends_on:
+      - netmaker
+    links:
+      - "netmaker:api"
+    restart: always
+    environment:
+      BACKEND_URL: "https://api.NETMAKER_BASE_DOMAIN"
+  caddy:
+    image: caddy:2.6.2
+    container_name: caddy
+    restart: unless-stopped
+    volumes:
+      - /root/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_conf:/config
+    ports:
+      - "80:80"
+      - "443:443"
+  coredns:
+    container_name: coredns
+    image: coredns/coredns
+    command: -conf /root/dnsconfig/Corefile
+    depends_on:
+      - netmaker
+    restart: always
+    volumes:
+      - dnsconfig:/root/dnsconfig
+  mq:
+    container_name: mq
+    image: eclipse-mosquitto:2.0.15-openssl
+    depends_on:
+      - netmaker
+    restart: unless-stopped
+    command: ["/mosquitto/config/wait.sh"]
+    environment:
+      MQ_PASSWORD: "REPLACE_MQ_PASSWORD"
+      MQ_USERNAME: "REPLACE_MQ_USERNAME"
+    volumes:
+      - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - /root/wait.sh:/mosquitto/config/wait.sh
+      - mosquitto_logs:/mosquitto/log
+    ports:
+      - "1883:1883"
+      - "8883:8883"
+  prometheus:
+    container_name: prometheus
+    image: gravitl/netmaker-prometheus:latest
+    environment:
+      NETMAKER_METRICS_TARGET: "netmaker-exporter.NETMAKER_BASE_DOMAIN"
+      LICENSE_KEY: "YOUR_LICENSE_KEY"
+    restart: always
+    volumes:
+      - prometheus_data:/prometheus
+    depends_on:
+      - netmaker
+  grafana:
+    container_name: grafana
+    image: gravitl/netmaker-grafana:latest
+    environment:
+      PROMETHEUS_HOST: "prometheus.NETMAKER_BASE_DOMAIN"
+      NETMAKER_METRICS_TARGET: "netmaker-exporter.NETMAKER_BASE_DOMAIN"
+      LICENSE_KEY: "YOUR_LICENSE_KEY"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    restart: always
+    links:
+      - prometheus
+    depends_on:
+      - prometheus
+      - netmaker
+  netmaker-exporter:
+    container_name: netmaker-exporter
+    image: gravitl/netmaker-exporter:latest
+    restart: always
+    depends_on:
+      - netmaker
+    environment:
+      MQ_HOST: "mq"
+      MQ_PORT: "443"
+      MQ_SERVER_PORT: "1883"
+      PROMETHEUS: "on"
+      VERBOSITY: "1"
+      API_PORT: "8085"
+      LICENSE_KEY: "YOUR_LICENSE_KEY"
+      PROMETHEUS_HOST: https://prometheus.NETMAKER_BASE_DOMAIN
+volumes:
+  caddy_data: {}
+  caddy_conf: {}
+  sqldata: {}
+  dnsconfig: {}
+  mosquitto_logs: {}
+  prometheus_data: {}
+  grafana_data: {}

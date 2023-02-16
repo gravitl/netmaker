@@ -1,5 +1,8 @@
 #!/bin/bash
 
+LATEST="v0.18.0"
+
+print_logo() {(
 cat << "EOF"
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -16,13 +19,78 @@ cat << "EOF"
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 EOF
+)}
 
 if [ $(id -u) -ne 0 ]; then
    echo "This script must be run as root"
    exit 1
 fi
 
-if [ -z "$1" ]; then
+unset INSTALL_TYPE
+unset BUILD_TYPE
+unset BUILD_TAG
+
+usage () {(
+    echo "usage: ./nm-quick.sh [-e] [-b buildtype] [-t tag]"
+    echo "  -e      if specified, will install netmaker EE"
+    echo "  -b      type of build; options:"
+	echo "          \"version\" - will install a specific version of Netmaker using remote git and dockerhub"
+	echo "          \"local\": - will install by cloning repo and and building images from git"
+	echo "          \"branch\": - will install a specific branch using remote git and dockerhub "
+    echo "  -t      tag of build; if buildtype=version, tag=version. If builtype=branch or builtype=local, tag=branch"
+    echo "examples:"
+	echo "          nm-quick.sh -e -b version -t v0.18.0"
+	echo "          nm-quick.sh -e -b local -t feature_v0.17.2_newfeature"	
+	echo "          nm-quick.sh -e -b branch -t develop"
+    exit 1
+)}
+
+while getopts evb:t: flag
+do
+    case "${flag}" in
+        e) 
+			INSTALL_TYPE="ee"
+			;;
+		v) 
+			usage
+			exit 0
+			;;
+        b) 
+			BUILD_TYPE=${OPTARG}
+			if [[ ! "$BUILD_TYPE" =~ ^(version|local|branch)$ ]]; then
+    			echo "error: $BUILD_TYPE is invalid"
+				echo "valid options: version, local, branch"
+				usage
+				exit 1
+			fi
+			;;
+        t) 
+			BUILD_TAG=${OPTARG}
+			;;
+    esac
+done
+
+if [ -z "$BUILD_TYPE" ]; then
+	BUILD_TYPE="version"
+fi
+
+if [ -z "$BUILD_TAG" ] && [ "$BUILD_TYPE" = "version" ]; then
+	BUILD_TAG=$LATEST
+fi
+
+if [ -z "$BUILD_TAG" ] && [ ! -z "$BUILD_TYPE" ]; then
+	echo "error: must specify build tag when build type \"$BUILD_TYPE\" is specified"
+	usage		
+	exit 1
+fi
+
+if [ "$1" = "ce" ]; then
+	INSTALL_TYPE="ce"
+elif [ "$1" = "ee" ]; then
+	INSTALL_TYPE="ee"
+fi
+
+if [ -z "$INSTALL_TYPE" ]; then
 	echo "-----------------------------------------------------"
 	echo "Would you like to install Netmaker Community Edition (CE), or Netmaker Enterprise Edition (EE)?"
 	echo "EE will require you to create an account at https://dashboard.license.netmaker.io"
@@ -42,16 +110,13 @@ if [ -z "$1" ]; then
 		*) echo "invalid option $REPLY";;
 	esac
 	done
-elif [ "$1" = "ce" ]; then
-	echo "installing Netmaker CE"
-	INSTALL_TYPE="ce"
-elif [ "$1" = "ee" ]; then
-	echo "installing Netmaker EE"
-	INSTALL_TYPE="ee"
-else
-	echo "install type invalid (options: 'ce, ee')"
-	exit 1
 fi
+
+echo "    EE or CE: $INSTALL_TYPE";
+echo "  Build Type: $BUILD_TYPE";
+echo "   Build Tag: $BUILD_TAG";
+
+print_logo
 
 wait_seconds() {(
   for ((a=1; a <= $1; a++))
@@ -72,30 +137,27 @@ confirm() {(
   done
 )}
 
-if [[ ! -z "$2" ]]; then
-	INSTALL_BRANCH=$2
-else
-	INSTALL_BRANCH="master"
-fi
-echo "-----------------------------------------------------"
-echo "Install Branch: $INSTALL_BRANCH"
-echo "-----------------------------------------------------"
-confirm
-
-branch_install_setup() {(
+local_install_setup() {(
 	rm -rf netmaker-tmp
 	mkdir netmaker-tmp
 	cd netmaker-tmp
 	git clone https://www.github.com/gravitl/netmaker
 	cd netmaker
-	git checkout $INSTALL_BRANCH
-	git pull origin $INSTALL_BRANCH
-	docker build --no-cache --build-arg version=$INSTALL_BRANCH -t gravitl/netmaker:$INSTALL_BRANCH .
+	git checkout $BUILD_TAG
+	git pull origin $BUILD_TAG
+	docker build --no-cache --build-arg version=$BUILD_TAG -t gravitl/netmaker:$BUILD_TAG .
+	if [ "$INSTALL_TYPE" = "ee" ]; then
+		cp compose/docker-compose.ee.yml /root/docker-compose.yml 
+		cp docker/Caddyfile-EE /root/Caddyfile
+	else
+		cp compose/docker-compose.yml /root/docker-compose.yml 
+		cp docker/Caddyfile /root/Caddyfile
+	fi
+	cp docker/mosquitto.conf /root/mosquitto.conf
+	cp docker/wait.sh /root/wait.sh
 	cd ../../
 	rm -rf netmaker-tmp
 )}
-
-branch_install_setup
 
 echo "checking dependencies..."
 
@@ -206,6 +268,11 @@ echo "dependency check complete"
 echo "-----------------------------------------------------"
 
 wait_seconds 3
+
+
+if [ "$BUILD_TYPE" = "local" ]; then
+	local_install_setup
+fi
 
 set -e
 
@@ -360,15 +427,18 @@ wait_seconds 3
 
 echo "Pulling config files..."
 
-COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$INSTALL_BRANCH/compose/docker-compose.yml" 
-CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/$INSTALL_BRANCH/docker/Caddyfile"
+
+COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/compose/docker-compose.yml" 
+CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/Caddyfile"
 if [ "$INSTALL_TYPE" = "ee" ]; then
-	COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$INSTALL_BRANCH/compose/docker-compose.ee.yml" 
-	CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/$INSTALL_BRANCH/docker/Caddyfile-EE"
+	COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/compose/docker-compose.ee.yml" 
+	CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/Caddyfile-EE"
+fi
+if [ ! "$BUILD_TYPE" = "local" ]; then
+	wget -O /root/docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/mosquitto.conf && wget -O /root/Caddyfile $CADDY_URL
+	wget -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/wait.sh
 fi
 
-wget -O /root/docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/$INSTALL_BRANCH/docker/mosquitto.conf && wget -O /root/Caddyfile $CADDY_URL
-wget -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/$INSTALL_BRANCH/docker/wait.sh
 chmod +x /root/wait.sh
 mkdir -p /etc/netmaker
 
