@@ -405,6 +405,10 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 						}
 					}
 				}
+				if node.IsIngressGateway && peer.IsEgressGateway {
+					hostPeerUpdate.IngressInfo.EgressRanges = append(hostPeerUpdate.IngressInfo.EgressRanges,
+						peer.EgressGatewayRanges...)
+				}
 				nodePeerMap[peerHost.PublicKey.String()] = models.PeerRouteInfo{
 					PeerAddr: net.IPNet{
 						IP:   net.ParseIP(peer.PrimaryAddress()),
