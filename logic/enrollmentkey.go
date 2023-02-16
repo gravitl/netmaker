@@ -65,14 +65,14 @@ func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string
 }
 
 // GetAllEnrollmentKeys - fetches all enrollment keys from DB
-func GetAllEnrollmentKeys() ([]*models.EnrollmentKey, error) {
+func GetAllEnrollmentKeys() ([]models.EnrollmentKey, error) {
 	currentKeys, err := getEnrollmentKeysMap()
 	if err != nil {
 		return nil, err
 	}
-	var currentKeysList = make([]*models.EnrollmentKey, len(currentKeys))
+	var currentKeysList = make([]models.EnrollmentKey, 0)
 	for k := range currentKeys {
-		currentKeysList = append(currentKeysList, currentKeys[k])
+		currentKeysList = append(currentKeysList, *currentKeys[k])
 	}
 	return currentKeysList, nil
 }
@@ -208,7 +208,7 @@ func getEnrollmentKeysMap() (map[string]*models.EnrollmentKey, error) {
 	if records == nil {
 		records = make(map[string]string)
 	}
-	currentKeys := make(map[string]*models.EnrollmentKey)
+	currentKeys := make(map[string]*models.EnrollmentKey, 0)
 	if len(records) > 0 {
 		for k := range records {
 			var currentKey models.EnrollmentKey

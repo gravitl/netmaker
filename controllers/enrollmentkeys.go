@@ -40,7 +40,7 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for i := range currentKeys {
-		if err = logic.Tokenize(currentKeys[i], servercfg.GetServer()); err != nil {
+		if err = logic.Tokenize(&currentKeys[i], servercfg.GetServer()); err != nil {
 			logger.Log(0, r.Header.Get("user"), "failed to get token values for keys:", err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
@@ -105,6 +105,12 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 
 	newEnrollmentKey, err := logic.CreateEnrollmentKey(enrollmentKeyBody.UsesRemaining, newTime, enrollmentKeyBody.Networks, enrollmentKeyBody.Tags, enrollmentKeyBody.Unlimited)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to create enrollment key:", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	if err = logic.Tokenize(newEnrollmentKey, servercfg.GetServer()); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to create enrollment key:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return

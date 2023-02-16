@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/models"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -44,6 +45,15 @@ func TestCreateEnrollmentKey(t *testing.T) {
 		assert.Nil(t, err)
 		assert.True(t, newKey.IsValid())
 		assert.True(t, len(newKey.Tags) == 2)
+	})
+
+	t.Run("Can_Get_List_of_Keys", func(t *testing.T) {
+		keys, err := GetAllEnrollmentKeys()
+		assert.Nil(t, err)
+		assert.True(t, len(keys) > 0)
+		for i := range keys {
+			assert.Equal(t, len(keys[i].Value), models.EnrollmentKeyLength)
+		}
 	})
 	removeAllEnrollments()
 }
