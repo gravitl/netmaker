@@ -301,7 +301,6 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 	hostPeerUpdate := models.HostPeerUpdate{
 		Host:          *host,
 		Server:        servercfg.GetServer(),
-		Network:       make(map[string]models.NetworkInfo),
 		PeerIDs:       make(models.HostPeerMap),
 		ServerVersion: servercfg.GetVersion(),
 		ServerAddrs:   []models.ServerAddr{},
@@ -319,10 +318,6 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 		}
 		if !node.Connected || node.Action == models.NODE_DELETE || node.PendingDelete {
 			continue
-		}
-
-		hostPeerUpdate.Network[node.Network] = models.NetworkInfo{
-			DNS: getPeerDNS(node.Network),
 		}
 		currentPeers, err := GetNetworkNodes(node.Network)
 		if err != nil {
@@ -522,7 +517,6 @@ func GetPeerUpdate(node *models.Node, host *models.Host) (models.PeerUpdate, err
 	peerUpdate := models.PeerUpdate{
 		Network:       node.Network,
 		ServerVersion: ncutils.Version,
-		DNS:           getPeerDNS(node.Network),
 		PeerIDs:       make(models.PeerMap),
 	}
 	currentPeers, err := GetNetworkNodes(node.Network)
@@ -791,7 +785,6 @@ func GetPeerUpdateLegacy(node *models.Node) (models.PeerUpdate, error) {
 	})
 	peerUpdate.Peers = peers
 	peerUpdate.ServerAddrs = serverNodeAddresses
-	peerUpdate.DNS = getPeerDNS(node.Network)
 	peerUpdate.PeerIDs = peerMap
 	return peerUpdate, nil
 }
@@ -962,28 +955,6 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 	return allowedips
 }
 
-func getPeerDNS(network string) string {
-	var dns string
-	if nodes, err := GetNetworkNodes(network); err == nil {
-		for i, node := range nodes {
-			host, err := GetHost(node.HostID.String())
-			if err != nil {
-				logger.Log(0, "error retrieving host for node", node.ID.String(), err.Error())
-				continue
-			}
-			dns = dns + fmt.Sprintf("%s %s.%s\n", nodes[i].Address, host.Name, nodes[i].Network)
-		}
-	}
-
-	if customDNSEntries, err := GetCustomDNS(network); err == nil {
-		for _, entry := range customDNSEntries {
-			// TODO - filter entries based on ACLs / given peers vs nodes in network
-			dns = dns + fmt.Sprintf("%s %s.%s\n", entry.Address, entry.Name, entry.Network)
-		}
-	}
-	return dns
-}
-
 // GetPeerUpdateForRelayedNode - calculates peer update for a relayed node by getting the relay
 // copying the relay node's allowed ips and making appropriate substitutions
 func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) (models.PeerUpdate, error) {
@@ -1122,7 +1093,6 @@ func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) 
 	})
 	peerUpdate.Peers = peers
 	peerUpdate.ServerAddrs = serverNodeAddresses
-	peerUpdate.DNS = getPeerDNS(node.Network)
 	return peerUpdate, nil
 }
 
