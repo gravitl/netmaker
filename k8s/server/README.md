@@ -7,12 +7,11 @@ You may want a more simple Kubernetes setup. We recommend [this community projec
 ### 0. Prerequisites
 
 Your cluster must meet a few conditions to host a netmaker server. Primarily:  
-a) **Nodes:** You must have at least 3 worker nodes available for Netmaker to deploy. Netmaker nodes have anti-affinity and will not deploy on the same kubernetes node.  
-b) **Storage:** RWX and RWO storage classes must be available  
-c) **Ingress:** Ingress must be configured with certs. Nginx + LetsEncrypt configs are provided by default. Netmaker uses MQTT with Secure Websockets (WSS), and Nginx Ingress supports Websockets. If your ingress controller does not support websockets, you **must** configure your cluster to get traffic to MQ correctly (see below).  
-d) **DNS:** You must have a wildcard DNS entry for use with Ingress/Netmaker  
-e) **Helm:** For our Postgresql installation we rely on a helm chart, so you must have helm installed and configured.  
-f) **MQ Broker Considerations:** If your Ingress Controller does not support Websockets, we provide an alternative method for MQ using a NodePort. This can be used either with or without an external load balancer configured. If deploying without a load balancer, you must specify a node to host MQ, and this will not be HA. If using a load balancer, be aware that LB configuration could lead MQ connections to be lost. If this happens, on the client you will see a log like "unable to connect to broker, retrying ..." In either case DNS must be configured to point broker.domain either to the LB or directly to the hosting node. Finally, you can use a special TCPIngressRoute if Traefik is your Ingress provider ([see this repo](https://github.com/geragcp/netmaker-k3s) for an example). This is ideal, but is not a standard k8s object, so we avoid it to make installations possible across an array of k8s configurations.  
+a) **Storage:** a RWO storage class must be available  
+b) **Ingress:** Ingress must be configured with certs. Nginx + LetsEncrypt configs are provided by default. Netmaker uses MQTT with Secure Websockets (WSS), and Nginx Ingress supports Websockets. If your ingress controller does not support websockets, you **must** configure your cluster to get traffic to MQ correctly (see below).  
+c) **DNS:** You must have a wildcard DNS entry for use with Ingress/Netmaker  
+d) **Helm:** For our Postgresql installation we rely on a helm chart, so you must have helm installed and configured.  
+e) **MQ Broker Considerations:** If your Ingress Controller does not support Websockets, we provide an alternative method for MQ using a NodePort. This can be used either with or without an external load balancer configured. If deploying without a load balancer, you must specify a node to host MQ, and this will not be HA. If using a load balancer, be aware that LB configuration could lead MQ connections to be lost. If this happens, on the client you will see a log like "unable to connect to broker, retrying ..." In either case DNS must be configured to point broker.domain either to the LB or directly to the hosting node. Finally, you can use a special TCPIngressRoute if Traefik is your Ingress provider ([see this repo](https://github.com/geragcp/netmaker-k3s) for an example). This is ideal, but is not a standard k8s object, so we avoid it to make installations possible across an array of k8s configurations.  
 
 Assuming you are prepared for the above, we can begin to deploy Netmaker.  
 
@@ -53,9 +52,11 @@ Next, deploy MQ using the provided template (mosquitto.yaml). Modify the templat
         sed -i 's/NETMAKER_SUBDOMAIN/<your subdomain>/g' mosquitto.yaml
     b or c) **Ex. LB or Traefik:** Remove the pod affinity section
 
-Then, substitute in your RWX storage class:
+Then, set an MQ Username and Password:
 
-`sed -i 's/RWX_STORAGE_CLASS/<your storage class name>/g' mosquitto.yaml`
+`sed -i 's/REPLACE_MQ_USERNAME/<your mq username>/g' mosquitto.yaml`
+`sed -i 's/REPLACE_MQ_PASSWORDS/<your mq password>/g' mosquitto.yaml`
+
 
 Now, apply the file:
 
@@ -76,6 +77,12 @@ Next, enter your postgres info, including the name of your postgres deployment a
 `sed -i 's/DB_NAME/<postgres helm name>/g' netmaker-server.yaml`  
   
 `sed -i 's/DB_PASS/<postgres helm password>/g' netmaker-server.yaml`  
+
+Next, enter the MQ user and password once more:
+
+`sed -i 's/REPLACE_MQ_USERNAME/<your mq username>/g' mosquitto.yaml`  
+  
+`sed -i 's/REPLACE_MQ_PASSWORDS/<your mq password>/g' mosquitto.yaml`  
 
 Next, choose a secret password for your Netmaker API:
 

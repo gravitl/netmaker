@@ -15,16 +15,6 @@ spec:
       labels:
         app: netmaker
     spec:
-      affinity:
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchExpressions:
-              - key: app
-                operator: In
-                values:
-                - netmaker
-            topologyKey: "kubernetes.io/hostname"
       containers:
       - env:
         - name: NODE_ID
@@ -37,7 +27,7 @@ spec:
         - name: BROKER_NAME
           value: broker.NETMAKER_SUBDOMAIN
         - name: STUN_DOMAIN
-          value: st.NETMAKER_SUBDOMAIN
+          value: stun.NETMAKER_SUBDOMAIN
         - name: SERVER_API_CONN_STRING
           value: api.NETMAKER_SUBDOMAIN:443
         - name: SERVER_HTTP_HOST
@@ -73,7 +63,7 @@ spec:
         - name: MQ_SERVER_PORT
           value: "1883"
         - name: STUN_PORT
-          value: "33478"          
+          value: "31478"          
         - name: PLATFORM
           value: "Kubernetes"
         - name: VERBOSITY
@@ -95,16 +85,15 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  labels:
     name: 'netmaker-stun'
 spec:
   externalTrafficPolicy: Local
   type: NodePort
   ports:
-  - port: 33478
-    nodePort: 33478
+  - port: 31478
+    nodePort: 31478
     protocol: UDP
-    targetPort: 33478
+    targetPort: 31478
     name: stun-port
   selector:
     app: 'netmaker'
