@@ -65,14 +65,14 @@ func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string
 }
 
 // GetAllEnrollmentKeys - fetches all enrollment keys from DB
-func GetAllEnrollmentKeys() ([]models.EnrollmentKey, error) {
+func GetAllEnrollmentKeys() ([]*models.EnrollmentKey, error) {
 	currentKeys, err := getEnrollmentKeysMap()
 	if err != nil {
 		return nil, err
 	}
-	var currentKeysList = make([]models.EnrollmentKey, 0)
+	var currentKeysList = []*models.EnrollmentKey{}
 	for k := range currentKeys {
-		currentKeysList = append(currentKeysList, *currentKeys[k])
+		currentKeysList = append(currentKeysList, currentKeys[k])
 	}
 	return currentKeysList, nil
 }
@@ -130,7 +130,6 @@ func Tokenize(k *models.EnrollmentKey, serverAddr string) error {
 	}
 	k.Token = b64.StdEncoding.EncodeToString(data)
 	return nil
-
 }
 
 // DeTokenize - detokenizes a base64 encoded string

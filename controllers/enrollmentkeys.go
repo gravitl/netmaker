@@ -40,13 +40,14 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for i := range currentKeys {
-		if err = logic.Tokenize(&currentKeys[i], servercfg.GetServer()); err != nil {
+		currentKey := currentKeys[i]
+		if err = logic.Tokenize(currentKey, servercfg.GetServer()); err != nil {
 			logger.Log(0, r.Header.Get("user"), "failed to get token values for keys:", err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
 	}
-	// return JSON/API formatted hosts
+	// return JSON/API formatted keys
 	logger.Log(2, r.Header.Get("user"), "fetched enrollment keys")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(currentKeys)
