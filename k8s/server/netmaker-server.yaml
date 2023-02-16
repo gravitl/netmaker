@@ -15,15 +15,6 @@ spec:
       labels:
         app: netmaker
     spec:
-      initContainers:
-      - name: init-sysctl
-        image: busybox
-        imagePullPolicy: IfNotPresent
-        command: ["/bin/sh", "-c"]
-        args: ["sysctl -w net.ipv4.ip_forward=1 && sysctl -w net.ipv4.conf.all.src_valid_mark=1 && sysctl -w net.ipv6.conf.all.disable_ipv6=0 && sysctl -w net.ipv6.conf.all.forwarding=1"]
-        securityContext:
-          privileged: true
-      dnsPolicy: ClusterFirstWithHostNet
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -42,7 +33,11 @@ spec:
               apiVersion: v1
               fieldPath: metadata.name
         - name: SERVER_NAME
+          value: NETMAKER_SUBDOMAIN
+        - name: BROKER_NAME
           value: broker.NETMAKER_SUBDOMAIN
+        - name: STUN_DOMAIN
+          value: st.NETMAKER_SUBDOMAIN
         - name: SERVER_API_CONN_STRING
           value: api.NETMAKER_SUBDOMAIN:443
         - name: SERVER_HTTP_HOST
@@ -77,110 +72,40 @@ spec:
           value: "443"
         - name: MQ_SERVER_PORT
           value: "1883"
+        - name: STUN_PORT
+          value: "33478"          
         - name: PLATFORM
           value: "Kubernetes"
         - name: VERBOSITY
           value: "3"
+        - name: MQ_USERNAME
+          value: "REPLACE_MQ_USERNAME"
+        - name: MQ_PASSWORD
+          value: "REPLACE_MQ_PASSWORD"
         image: gravitl/netmaker:v0.18.0
         imagePullPolicy: Always
         name: netmaker
         ports:
         - containerPort: 8081
           protocol: TCP
-        - containerPort: 31821
-          protocol: UDP
-        - containerPort: 31822
-          protocol: UDP
-        - containerPort: 31823
-          protocol: UDP
-        - containerPort: 31824
-          protocol: UDP
-        - containerPort: 31825
-          protocol: UDP
-        - containerPort: 31826
-          protocol: UDP
-        - containerPort: 31827
-          protocol: UDP
-        - containerPort: 31828
-          protocol: UDP
-        - containerPort: 31829
-          protocol: UDP
-        - containerPort: 31830
+        - containerPort: 3478
           protocol: UDP
         resources: {}
-        securityContext:
-          capabilities:
-            add:
-            - NET_ADMIN
-            - NET_RAW
-            - SYS_MODULE
-        volumeMounts:
-        - mountPath: /etc/netmaker/
-          name: shared-certs
-      volumes:
-      - name: shared-certs
-        persistentVolumeClaim:
-          claimName: shared-certs-pvc
 ---
 apiVersion: v1
 kind: Service
 metadata:
   labels:
-    name: 'netmaker-wireguard'
+    name: 'netmaker-stun'
 spec:
   externalTrafficPolicy: Local
   type: NodePort
   ports:
-  - port: 31821
-    nodePort: 31821
+  - port: 33478
+    nodePort: 33478
     protocol: UDP
-    targetPort: 31821
-    name: wg-iface-31821
-  - port: 31822
-    nodePort: 31822
-    protocol: UDP
-    targetPort: 31822
-    name: wg-iface-31822
-  - port: 31823
-    nodePort: 31823
-    protocol: UDP
-    targetPort: 31823
-    name: wg-iface-31823
-  - port: 31824
-    nodePort: 31824
-    protocol: UDP
-    targetPort: 31824
-    name: wg-iface-31824
-  - port: 31825
-    nodePort: 31825
-    protocol: UDP
-    targetPort: 31825
-    name: wg-iface-31825
-  - port: 31826
-    nodePort: 31826
-    protocol: UDP
-    targetPort: 31826
-    name: wg-iface-31826
-  - port: 31827
-    nodePort: 31827
-    protocol: UDP
-    targetPort: 31827
-    name: wg-iface-31827
-  - port: 31828
-    nodePort: 31828
-    protocol: UDP
-    targetPort: 31828
-    name: wg-iface-31828
-  - port: 31829
-    nodePort: 31829
-    protocol: UDP
-    targetPort: 31829
-    name: wg-iface-31829
-  - port: 31830
-    nodePort: 31830
-    protocol: UDP
-    targetPort: 31830
-    name: wg-iface-31830
+    targetPort: 33478
+    name: stun-port
   selector:
     app: 'netmaker'
 ---
