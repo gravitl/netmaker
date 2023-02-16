@@ -166,13 +166,16 @@ func GetPublicIP(api string) (string, error) {
 		if err != nil {
 			continue
 		}
-		defer resp.Body.Close()
 		if resp.StatusCode == http.StatusOK {
 			var bodyBytes []byte
 			bodyBytes, err = io.ReadAll(resp.Body)
 			if err != nil {
+				if resp.Body != nil {
+					_ = resp.Body.Close()
+				}
 				continue
 			}
+			_ = resp.Body.Close()
 			endpoint = string(bodyBytes)
 			break
 		}
