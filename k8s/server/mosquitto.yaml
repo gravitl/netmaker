@@ -154,6 +154,6 @@ spec:
 #         pathType: Prefix
 #         backend:
 #           service:
-#             name: netmaker-mqtt
+#             name: mq
 #             port:
 #               number: 8883
