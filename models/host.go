@@ -76,6 +76,8 @@ const (
 	JoinHostToNetwork = "JOIN_HOST_TO_NETWORK"
 	// Acknowledgement - ACK response for hosts
 	Acknowledgement = "ACK"
+	// RequestAck - request an ACK
+	RequestAck = "REQ_ACK"
 )
 
 // HostUpdate - struct for host update

@@ -147,11 +147,13 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 		switch hostUpdate.Action {
 		case models.Acknowledgement:
 			hu := hostactions.GetAction(currentHost.ID.String())
-			if err = HostUpdate(hu); err != nil {
-				logger.Log(0, "failed to send new node to host", hostUpdate.Host.Name, currentHost.ID.String(), err.Error())
-				return
+			if hu != nil {
+				if err = HostUpdate(hu); err != nil {
+					logger.Log(0, "failed to send new node to host", hostUpdate.Host.Name, currentHost.ID.String(), err.Error())
+					return
+				}
+				sendPeerUpdate = true
 			}
-			sendPeerUpdate = true
 		case models.UpdateHost:
 			sendPeerUpdate = logic.UpdateHostFromClient(&hostUpdate.Host, currentHost)
 			err := logic.UpsertHost(currentHost)
@@ -170,6 +172,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 			}
 			sendPeerUpdate = true
 		}
+
 		if sendPeerUpdate {
 			err := PublishPeerUpdate()
 			if err != nil {

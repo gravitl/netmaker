@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/logic/hostactions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -236,6 +237,12 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		Host:   *currHost,
 		Node:   *newNode,
 	})
+	if servercfg.IsMessageQueueBackend() {
+		mq.HostUpdate(&models.HostUpdate{
+			Action: models.RequestAck,
+			Host:   *currHost,
+		})
+	}
 
 	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("added host %s to network %s", currHost.Name, network))
 	w.WriteHeader(http.StatusOK)
