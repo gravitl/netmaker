@@ -18,19 +18,10 @@ spec:
         app.kubernetes.io/instance: mosquitto
         app.kubernetes.io/name: mosquitto
     spec:
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: mqhost
-                operator: In
-                values:
-                - "true"
       containers:
       - image: eclipse-mosquitto:2.0.11-openssl
-        command: ["/bin/sh", "-c"]
-        args: ["chmod +x /mosquitto/config/wait.sh && /mosquitto/config/wait.sh"]
+        command: ["/bin/ash", "-c"]
+        args: ["echo \"admin:password\" > /mosquitto/password.txt && mosquitto_passwd -U /mosquitto/password.txt && /docker-entrypoint.sh && /usr/sbin/mosquitto -c /mosquitto/config/mosquitto.conf"]
         env:
         - name: MQ_USERNAME
           value: "REPLACE_MQ_USERNAME"
@@ -73,20 +64,14 @@ spec:
         - mountPath: /mosquitto/config/mosquitto.conf
           name: mosquitto-config
           subPath: mosquitto.conf
-        volumeMounts:
-        - mountPath: /mosquitto/config/wait.sh
-          name: wait-script
-          subPath: wait.sh          
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
       volumes:
       - configMap:
           name: mosquitto-config
+          defaultMode: 0777
         name: mosquitto-config
-      - configMap:
-          name: wait-script
-        name: wait-script
 ---
 apiVersion: v1
 kind: Service
@@ -128,47 +113,6 @@ metadata:
     app.kubernetes.io/name: mosquitto
   name: mosquitto-config
   namespace: netmaker
----
-apiVersion: v1
-data:
-  wait.sh: |
-    #!/bin/ash
-
-    encrypt_password() {
-      echo "${MQ_USERNAME}:${MQ_PASSWORD}" > /mosquitto/password.txt
-      mosquitto_passwd -U /mosquitto/password.txt
-    }
-
-    main(){
-
-    encrypt_password
-    echo "Starting MQ..."
-    # Run the main container command.
-    /docker-entrypoint.sh
-    /usr/sbin/mosquitto -c /mosquitto/config/mosquitto.conf
-
-    }
-
-    main "${@}"
-kind: ConfigMap
-metadata:
-  labels:
-    app.kubernetes.io/instance: mosquitto
-    app.kubernetes.io/name: mosquitto
-  name: wait-script
-  namespace: netmaker
----
-kind: PersistentVolumeClaim
-apiVersion: v1
-metadata:
-  name: shared-certs-pvc
-spec:
-  storageClassName: RWX_STORAGE_CLASS
-  accessModes:
-    - ReadWriteMany
-  resources:
-    requests:
-      storage: 100Mi
 ---
 apiVersion: v1
 kind: Service
