@@ -41,7 +41,7 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 	}
 	for i := range currentKeys {
 		currentKey := currentKeys[i]
-		if err = logic.Tokenize(currentKey, servercfg.GetServer()); err != nil {
+		if err = logic.Tokenize(currentKey, servercfg.GetAPIHost()); err != nil {
 			logger.Log(0, r.Header.Get("user"), "failed to get token values for keys:", err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
@@ -111,7 +111,7 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = logic.Tokenize(newEnrollmentKey, servercfg.GetServer()); err != nil {
+	if err = logic.Tokenize(newEnrollmentKey, servercfg.GetAPIHost()); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to create enrollment key:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -135,6 +135,7 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	token := params["token"]
+	logger.Log(0, "received registration attempt with token", token)
 	// check if token exists
 	enrollmentKey, err := logic.DeTokenize(token)
 	if err != nil {
@@ -185,7 +186,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	// ready the response
 	server := servercfg.GetServerInfo()
 	server.TrafficKey = key
-	logger.Log(2, r.Header.Get("user"), "deleted enrollment key", token)
+	logger.Log(0, newHost.Name, newHost.ID.String(), "registered with Netmaker")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&server)
 	// notify host of changes, peer and node updates
