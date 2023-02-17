@@ -40,6 +40,9 @@ func PublishSingleHostUpdate(host *models.Host) error {
 	if err != nil {
 		return err
 	}
+	if len(peerUpdate.Peers) == 0 { // no peers to send
+		return nil
+	}
 	if host.ProxyEnabled {
 		proxyUpdate, err := logic.GetProxyUpdateForHost(host)
 		if err != nil {

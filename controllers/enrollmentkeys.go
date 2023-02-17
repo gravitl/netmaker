@@ -9,8 +9,8 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/logic/hostactions"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -182,7 +182,6 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-
 	// ready the response
 	server := servercfg.GetServerInfo()
 	server.TrafficKey = key
@@ -196,15 +195,6 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 // run through networks and send a host update
 func checkNetRegAndHostUpdate(networks []string, h *models.Host) {
 	// publish host update through MQ
-	if servercfg.IsMessageQueueBackend() {
-		if err := mq.HostUpdate(&models.HostUpdate{
-			Action: models.UpdateHost,
-			Host:   *h,
-		}); err != nil {
-			logger.Log(0, "failed to send host update after registration:", h.ID.String(), err.Error())
-		}
-	}
-
 	for i := range networks {
 		if ok, _ := logic.NetworkExists(networks[i]); ok {
 			newNode, err := logic.UpdateHostNetwork(h, networks[i], true)
@@ -213,21 +203,11 @@ func checkNetRegAndHostUpdate(networks []string, h *models.Host) {
 				continue
 			}
 			logger.Log(1, "added new node", newNode.ID.String(), "to host", h.Name)
-			if servercfg.IsMessageQueueBackend() {
-				if err = mq.HostUpdate(&models.HostUpdate{
-					Action: models.JoinHostToNetwork,
-					Host:   *h,
-					Node:   *newNode,
-				}); err != nil {
-					logger.Log(0, "failed to send host update to", h.ID.String(), networks[i], err.Error())
-				}
-			}
-		}
-	}
-
-	if servercfg.IsMessageQueueBackend() {
-		if err := mq.PublishPeerUpdate(); err != nil {
-			logger.Log(0, "failed to publish peer update after host registration -", err.Error())
+			hostactions.AddAction(models.HostUpdate{
+				Action: models.JoinHostToNetwork,
+				Host:   *h,
+				Node:   *newNode,
+			})
 		}
 	}
 }

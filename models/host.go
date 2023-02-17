@@ -74,6 +74,8 @@ const (
 	DeleteHost = "DELETE_HOST"
 	// JoinHostToNetwork - constant for host network join action
 	JoinHostToNetwork = "JOIN_HOST_TO_NETWORK"
+	// Acknowledgement - ACK response for hosts
+	Acknowledgement = "ACK"
 )
 
 // HostUpdate - struct for host update
