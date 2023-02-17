@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"testing"
 
@@ -17,7 +18,8 @@ func TestCheckPorts(t *testing.T) {
 	peerUpdate := make(chan *models.Node)
 	go ManageZombies(context.Background(), peerUpdate)
 	go func() {
-		for _ = range peerUpdate {
+		for y := range peerUpdate {
+			fmt.Printf("Pointless %v\n", y)
 			//do nothing
 		}
 	}()
