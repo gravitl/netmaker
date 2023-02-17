@@ -150,7 +150,7 @@ local_install_setup() {(
 	cd netmaker
 	git checkout $BUILD_TAG
 	git pull origin $BUILD_TAG
-	docker build --no-cache --build-arg version=$BUILD_TAG -t gravitl/netmaker:$BUILD_TAG .
+	docker build --no-cache --build-arg version=$IMAGE_TAG -t gravitl/netmaker:$IMAGE_TAG .
 	if [ "$INSTALL_TYPE" = "ee" ]; then
 		cp compose/docker-compose.ee.yml /root/docker-compose.yml 
 		cp docker/Caddyfile-EE /root/Caddyfile
