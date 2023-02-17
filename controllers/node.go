@@ -657,6 +657,30 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	//runForceServerUpdate(&data.Node, true)
+	go func() {
+		dns := models.DNSUpdate{
+			Action: models.DNSInsert,
+			Name:   data.Host.Name + "." + data.Node.Network,
+		}
+		if data.Node.Address.IP != nil {
+			dns.Address = data.Node.Address.IP.String()
+			//publish new node dns entry to all nodes on network
+			if err := mq.PublishDNSUpdate(data.Node.Network, dns); err != nil {
+				logger.Log(1, "failed to publish dns update on node creation", err.Error())
+			}
+		}
+		if data.Node.Address6.IP != nil {
+			dns.Address = data.Node.Address6.IP.String()
+			//publish new node dns entry to all nodes on network
+			if err := mq.PublishDNSUpdate(data.Node.Network, dns); err != nil {
+				logger.Log(1, "failed to publish dns update on node creation", err.Error())
+			}
+		}
+		//publish add dns records for network to new node
+		if err := mq.PublishAllDNS(&data.Node); err != nil {
+			logger.Log(1, "failed to publish dns update on node creation", err.Error())
+		}
+	}()
 }
 
 // == EGRESS ==
@@ -929,6 +953,11 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(apiNode)
 
 	runUpdates(newNode, ifaceDelta)
+	go func() {
+		if err := mq.PublishReplaceDNS(&currentNode, newNode, host); err != nil {
+			logger.Log(1, "failed to publish dns update", err.Error())
+		}
+	}()
 }
 
 // swagger:route DELETE /api/nodes/{network}/{nodeid} nodes deleteNode
@@ -975,6 +1004,13 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	go func() { // notify of peer change
 		if err := mq.PublishPeerUpdate(); err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
+		}
+		host, err := logic.GetHost(node.HostID.String())
+		if err != nil {
+			logger.Log(1, "failed to retrieve host for node", node.ID.String(), err.Error())
+		}
+		if err := mq.PublishDNSDelete(&node, host); err != nil {
+			logger.Log(1, "error publishing dns update", err.Error())
 		}
 	}()
 }

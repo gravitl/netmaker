@@ -3,13 +3,11 @@ package pro
 import (
 	"testing"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models/promodels"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestUserGroupLogic(t *testing.T) {
-	database.InitializeDatabase()
 
 	t.Run("User Groups initialized successfully", func(t *testing.T) {
 		err := InitializeGroups()

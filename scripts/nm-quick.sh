@@ -29,6 +29,7 @@ fi
 unset INSTALL_TYPE
 unset BUILD_TYPE
 unset BUILD_TAG
+unset IMAGE_TAG
 
 usage () {(
     echo "usage: ./nm-quick.sh [-e] [-b buildtype] [-t tag]"

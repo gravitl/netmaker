@@ -96,6 +96,7 @@ func CreateHost(h *models.Host) error {
 		return err
 	}
 	h.HostPass = string(hash)
+	checkForZombieHosts(h)
 	return UpsertHost(h)
 }
 
