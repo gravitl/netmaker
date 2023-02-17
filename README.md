@@ -57,7 +57,7 @@
 3. (optional) Prepare DNS - Set a wildcard subdomain in your DNS for Netmaker, e.g. *.netmaker.example.com
 4. Run the script: 
 
-`sudo wget -qO /root/nm-quick-interactive.sh https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick-interactive.sh && sudo chmod +x /root/nm-quick-interactive.sh && sudo /root/nm-quick-interactive.sh`  
+`sudo wget -qO /root/nm-quick.sh https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh && sudo chmod +x /root/nm-quick.sh && sudo /root/nm-quick.sh`  
 
 This script gives you the option to deploy the Community or Enterprise version of Netmaker. If deploying Enterprise, you get a free account with a 50 node limit by default. It also gives you the option to use your own domain (recommended) or an auto-generated domain. 
 

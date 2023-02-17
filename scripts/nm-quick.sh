@@ -72,6 +72,7 @@ done
 
 if [ -z "$BUILD_TYPE" ]; then
 	BUILD_TYPE="version"
+	BUILD_TAG=$LATEST
 fi
 
 if [ -z "$BUILD_TAG" ] && [ "$BUILD_TYPE" = "version" ]; then
@@ -83,6 +84,8 @@ if [ -z "$BUILD_TAG" ] && [ ! -z "$BUILD_TYPE" ]; then
 	usage		
 	exit 1
 fi
+
+IMAGE_TAG=$(sed 's/\//-/g' <<< "$BUILD_TAG")
 
 if [ "$1" = "ce" ]; then
 	INSTALL_TYPE="ce"
@@ -111,10 +114,12 @@ if [ -z "$INSTALL_TYPE" ]; then
 	esac
 	done
 fi
-
+echo "-----------Build Options-----------------------------"
 echo "    EE or CE: $INSTALL_TYPE";
 echo "  Build Type: $BUILD_TYPE";
 echo "   Build Tag: $BUILD_TAG";
+echo "   Image Tag: $IMAGE_TAG";
+echo "-----------------------------------------------------"
 
 print_logo
 
@@ -164,40 +169,40 @@ echo "checking dependencies..."
 OS=$(uname)
 
 if [ -f /etc/debian_version ]; then
-	dependencies="wireguard wireguard-tools jq docker.io docker-compose"
+	dependencies="git wireguard wireguard-tools jq docker.io docker-compose"
 	update_cmd='apt update'
 	install_cmd='apt-get install -y'
 elif [ -f /etc/alpine-release ]; then
-	dependencies="wireguard jq docker.io docker-compose"
+	dependencies="git wireguard jq docker.io docker-compose"
 	update_cmd='apk update'
 	install_cmd='apk --update add'
 elif [ -f /etc/centos-release ]; then
-	dependencies="wireguard jq docker.io docker-compose"
+	dependencies="git wireguard jq docker.io docker-compose"
 	update_cmd='yum update'
 	install_cmd='yum install -y'
 elif [ -f /etc/fedora-release ]; then
-	dependencies="wireguard jq docker.io docker-compose"
+	dependencies="git wireguard jq docker.io docker-compose"
 	update_cmd='dnf update'
 	install_cmd='dnf install -y'
 elif [ -f /etc/redhat-release ]; then
-	dependencies="wireguard jq docker.io docker-compose"
+	dependencies="git wireguard jq docker.io docker-compose"
 	update_cmd='yum update'
 	install_cmd='yum install -y'
 elif [ -f /etc/arch-release ]; then
-    	dependecies="wireguard-tools jq docker.io docker-compose"
+    	dependecies="git wireguard-tools jq docker.io docker-compose"
 	update_cmd='pacman -Sy'
 	install_cmd='pacman -S --noconfirm'
 elif [ "${OS}" = "FreeBSD" ]; then
-	dependencies="wireguard wget jq docker.io docker-compose"
+	dependencies="git wireguard wget jq docker.io docker-compose"
 	update_cmd='pkg update'
 	install_cmd='pkg install -y'
 elif [ -f /etc/turris-version ]; then
-	dependencies="wireguard-tools bash jq docker.io docker-compose"
+	dependencies="git wireguard-tools bash jq docker.io docker-compose"
 	OS="TurrisOS"
 	update_cmd='opkg update'	
 	install_cmd='opkg install'
 elif [ -f /etc/openwrt_release ]; then
-	dependencies="wireguard-tools bash jq docker.io docker-compose"
+	dependencies="git wireguard-tools bash jq docker.io docker-compose"
 	OS="OpenWRT"
 	update_cmd='opkg update'	
 	install_cmd='opkg install'
@@ -455,6 +460,19 @@ if [ "$INSTALL_TYPE" = "ee" ]; then
 	sed -i "s~YOUR_LICENSE_KEY~$LICENSE_KEY~g" /root/docker-compose.yml
 	sed -i "s/YOUR_ACCOUNT_ID/$ACCOUNT_ID/g" /root/docker-compose.yml
 fi
+
+if [ "$BUILD_TYPE" = "version" ] && [ "$INSTALL_TYPE" = "ee" ]; then
+	sed -i "s/REPLACE_SERVER_IMAGE_TAG/$IMAGE_TAG-ee/g" /root/docker-compose.yml
+else
+	sed -i "s/REPLACE_SERVER_IMAGE_TAG/$IMAGE_TAG/g" /root/docker-compose.yml
+fi
+
+if [ "$BUILD_TYPE" = "local" ]; then
+	sed -i "s/REPLACE_UI_IMAGE_TAG/$LATEST/g" /root/docker-compose.yml
+else
+	sed -i "s/REPLACE_UI_IMAGE_TAG/$IMAGE_TAG/g" /root/docker-compose.yml
+fi
+
 echo "Starting containers..."
 
 docker-compose -f /root/docker-compose.yml up -d
@@ -504,34 +522,6 @@ ACCESS_TOKEN=$(jq -r '.accessstring' <<< ${curlresponse})
 
 wait_seconds 3
 
-echo "Configuring netmaker server as ingress gateway"
-
-for i in 1 2 3 4 5 6
-do
-	echo "    waiting for server node to become available"
-	wait_seconds 10
-	curlresponse=$(curl -s -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/netmaker)
-	SERVER_ID=$(jq -r '.[0].id' <<< ${curlresponse})
-	echo "    Server ID: $SERVER_ID"
-	if [ $SERVER_ID == "null" ]; then
-		SERVER_ID=""
-	fi
-	if [[ "$i" -ge "6" && -z "$SERVER_ID" ]]; then
-		echo "    Netmaker is having issues configuring itself, please investigate (docker logs netmaker)"
-		echo "    Exiting..."
-		exit 1
-	elif [ -z "$SERVER_ID" ]; then
-		echo "    server node not yet configured, retrying..."
-	elif [[ ! -z "$SERVER_ID" ]]; then
-		echo "    server node is now availble, continuing"
-		break
-	fi
-done
-
-
-if [[ ! -z "$SERVER_ID"  ]]; then
-	curl -o /dev/null -s -X POST -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/netmaker/$SERVER_ID/createingress
-fi 
 )}
 
 set +e
