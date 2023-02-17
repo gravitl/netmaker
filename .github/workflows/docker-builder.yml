@@ -2,8 +2,9 @@ name: Build go-builder images
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '00 21 * * SUN'
+  push:
+    branches:
+      - 'develop'
 
 jobs:
   go-builder:
