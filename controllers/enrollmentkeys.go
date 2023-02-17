@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/hostactions"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -209,5 +210,11 @@ func checkNetRegAndHostUpdate(networks []string, h *models.Host) {
 				Node:   *newNode,
 			})
 		}
+	}
+	if servercfg.IsMessageQueueBackend() {
+		mq.HostUpdate(&models.HostUpdate{
+			Action: models.RequestAck,
+			Host:   *h,
+		})
 	}
 }
