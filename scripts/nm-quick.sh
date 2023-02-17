@@ -282,9 +282,14 @@ fi
 
 set -e
 
-NETMAKER_BASE_DOMAIN=nm.$(dig myip.opendns.com @resolver1.opendns.com +short | tr . -).nip.io
+IP_ADDR=$(dig -4 myip.opendns.com @resolver1.opendns.com +short)
+if [ "$IP_ADDR" = "" ]; then
+	IP_ADDR=$(curl -s ifconfig.me)
+fi
+
+NETMAKER_BASE_DOMAIN=nm.$(echo $IP_ADDR | tr . -).nip.io
 COREDNS_IP=$(ip route get 1 | sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
-SERVER_PUBLIC_IP=$(dig myip.opendns.com @resolver1.opendns.com +short)
+SERVER_PUBLIC_IP=$IP_ADDR
 MASTER_KEY=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
 DOMAIN_TYPE=""
 echo "-----------------------------------------------------"
