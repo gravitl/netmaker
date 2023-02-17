@@ -24,7 +24,7 @@ func enrollmentKeyHandlers(r *mux.Router) {
 
 // swagger:route GET /api/v1/enrollment-keys enrollmentKeys getEnrollmentKeys
 //
-// Lists all hosts.
+// Lists all EnrollmentKeys for admins.
 //
 //			Schemes: https
 //
@@ -56,7 +56,7 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 
 // swagger:route DELETE /api/v1/enrollment-keys/{keyID} enrollmentKeys deleteEnrollmentKey
 //
-// Deletes a Netclient host from Netmaker server.
+// Deletes an EnrollmentKey from Netmaker server.
 //
 //			Schemes: https
 //
@@ -122,9 +122,9 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(newEnrollmentKey)
 }
 
-// swagger:route POST /api/v1/enrollment-keys/{token} enrollmentKeys deleteEnrollmentKey
+// swagger:route POST /api/v1/enrollment-keys/{token} enrollmentKeys handleHostRegister
 //
-// Deletes a Netclient host from Netmaker server.
+// Handles a Netclient registration with server and add nodes accordingly.
 //
 //			Schemes: https
 //
@@ -132,7 +132,7 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 //	  		oauth
 //
 //			Responses:
-//				200: hostRegisterResponse
+//				200: handleHostRegisterResponse
 func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	token := params["token"]
