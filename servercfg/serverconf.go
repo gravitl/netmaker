@@ -494,7 +494,7 @@ func GetPlatform() string {
 	if os.Getenv("PLATFORM") != "" {
 		platform = os.Getenv("PLATFORM")
 	} else if config.Config.Server.Platform != "" {
-		platform = config.Config.Server.SQLConn
+		platform = config.Config.Server.Platform
 	}
 	return platform
 }
