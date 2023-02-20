@@ -1,0 +1,53 @@
+name: PreRelease
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "new version number"
+        required: true
+
+jobs:
+  release-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout develop
+        uses: actions/checkout@v3
+        with:
+          ref: develop
+      - name: setup go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.19
+      - name: setup git
+        run: |
+          git config user.name "Github Actions"
+          git config user.emaail "info@netmaker.io"
+      - name: create release Branch
+        run: |
+          git switch -c release_${{ github.event.inputs.version }}
+          git tag -f ${{ github.event.inputs.version }}
+          git push origin --tags release_${{ github.event.inputs.version }}
+
+  create-prelease:
+    runs-on: ubuntu-latest
+    needs: release-branch
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: release_${{ github.event.inputs.version}}
+          fetch-depth: 0
+      - name: Get Tags
+        run: |
+          git fetch --force --tags
+      - name: Setup go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.19
+      - name: GoReleaser
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          args: release --clean --release-notes release.md -f .goreleaser.prerelease.yaml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
