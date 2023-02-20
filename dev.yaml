@@ -23,7 +23,6 @@ server:
   database: "sqlite"
   defaultnodelimit: ""
   verbosity: 3
-  servercheckininterval: ""
   authprovider: ""
   clientid: ""
   clientsecret: ""
