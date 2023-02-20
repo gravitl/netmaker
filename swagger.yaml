@@ -583,9 +583,6 @@ definitions:
                 type: string
             Database:
                 type: string
-            DefaultNodeLimit:
-                format: int32
-                type: integer
             DisableRemoteIPCheck:
                 type: string
             DisplayKeys:
