@@ -49,7 +49,6 @@ type ServerConfig struct {
 	SQLConn               string `yaml:"sqlconn"`
 	Platform              string `yaml:"platform"`
 	Database              string `yaml:"database"`
-	DefaultNodeLimit      int32  `yaml:"defaultnodelimit"`
 	Verbosity             int32  `yaml:"verbosity"`
 	AuthProvider          string `yaml:"authprovider"`
 	OIDCIssuer            string `yaml:"oidcissuer"`
