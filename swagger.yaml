@@ -622,9 +622,6 @@ definitions:
                 type: string
             Server:
                 type: string
-            ServerCheckinInterval:
-                format: int64
-                type: integer
             Telemetry:
                 type: string
             Verbosity:
