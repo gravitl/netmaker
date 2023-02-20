@@ -39,6 +39,7 @@ services:
     image: gravitl/netmaker-ui:REPLACE_UI_IMAGE_TAG
     depends_on:
       - netmaker
+      - mq
     links:
       - "netmaker:api"
     restart: always
@@ -81,8 +82,6 @@ services:
   mq:
     container_name: mq
     image: emqx/emqx:5.0.17
-    depends_on:
-      - netmaker
     restart: unless-stopped
     environment:
       EMQX_NAME: "emqx"
