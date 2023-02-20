@@ -4,7 +4,6 @@ server:
   masterkey: "secretkey"
   allowedorigin: "*"
   restbackend: true            
-  agentbackend: true
 mongoconn:
   user: "mongoadmin"
   pass: "mongopass"
