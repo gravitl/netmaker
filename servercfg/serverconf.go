@@ -662,7 +662,7 @@ func GetLicenseKey() string {
 func GetNetmakerAccountID() string {
 	netmakerAccountID := os.Getenv("NETMAKER_ACCOUNT_ID")
 	if netmakerAccountID == "" {
-		netmakerAccountID = config.Config.Server.LicenseValue
+		netmakerAccountID = config.Config.Server.NetmakerAccountID
 	}
 	return netmakerAccountID
 }
