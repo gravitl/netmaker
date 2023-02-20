@@ -21,7 +21,6 @@ server:
   sqlconn: ""
   platform: ""
   database: "sqlite"
-  defaultnodelimit: ""
   verbosity: 3
   authprovider: ""
   clientid: ""
