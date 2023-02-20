@@ -13,7 +13,6 @@ server:
   allowedorigin: "*"
   nodeid: "netmaker"
   restbackend: "on"
-  agentbackend: "on"
   messagequeuebackend: "on"
   dnsmode: "on"
   disableremoteipcheck: ""
