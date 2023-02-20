@@ -497,18 +497,6 @@ func SetNodeID(id string) {
 	config.Config.Server.NodeID = id
 }
 
-// GetServerCheckinInterval - gets the server check-in time
-func GetServerCheckinInterval() int64 {
-	var t = int64(5)
-	var envt, _ = strconv.Atoi(os.Getenv("SERVER_CHECKIN_INTERVAL"))
-	if envt > 0 {
-		t = int64(envt)
-	} else if config.Config.Server.ServerCheckinInterval > 0 {
-		t = config.Config.Server.ServerCheckinInterval
-	}
-	return t
-}
-
 // GetAuthProviderInfo = gets the oauth provider info
 func GetAuthProviderInfo() (pi []string) {
 	var authProvider = ""
