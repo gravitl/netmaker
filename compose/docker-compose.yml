@@ -27,7 +27,7 @@ services:
       NODE_ID: "netmaker-server-1"
       MQ_HOST: "mq"
       MQ_PORT: "443"      
-      MQ_SERVER_PORT: "1883"
+      MQ_SERVER_PORT: "8083"
       STUN_PORT: "3478"      
       VERBOSITY: "1"
       MQ_PASSWORD: "REPLACE_MQ_PASSWORD"
@@ -88,9 +88,10 @@ services:
       EMQX_DASHBOARD__DEFAULT_PASSWORD: "REPLACE_MQ_PASSWORD"
       EMQX_DASHBOARD__DEFAULT_USERNAME: "REPLACE_MQ_USERNAME"
     ports:
-      - "1883:1883"
-      - "8883:8883"
-      - "18083:18083"
+      - "1883:1883" # MQTT
+      - "8883:8883" # SSL MQTT
+      - "8083:8083" # Websockets
+      - "18083:18083" # Dashboard/REST_API
 volumes:
   caddy_data: {}
   caddy_conf: {}
