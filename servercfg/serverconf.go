@@ -46,10 +46,6 @@ func GetServerConfig() config.ServerConfig {
 	if IsRestBackend() {
 		cfg.RestBackend = "on"
 	}
-	cfg.AgentBackend = "off"
-	if IsAgentBackend() {
-		cfg.AgentBackend = "on"
-	}
 	cfg.DNSMode = "off"
 	if IsDNSMode() {
 		cfg.DNSMode = "on"
@@ -302,21 +298,6 @@ func IsMetricsExporter() bool {
 		}
 	}
 	return export
-}
-
-// IsAgentBackend - checks if agent backed is on or off
-func IsAgentBackend() bool {
-	isagent := true
-	if os.Getenv("AGENT_BACKEND") != "" {
-		if os.Getenv("AGENT_BACKEND") == "off" {
-			isagent = false
-		}
-	} else if config.Config.Server.AgentBackend != "" {
-		if config.Config.Server.AgentBackend == "off" {
-			isagent = false
-		}
-	}
-	return isagent
 }
 
 // IsMessageQueueBackend - checks if message queue is on or off
