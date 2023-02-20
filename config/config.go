@@ -51,7 +51,6 @@ type ServerConfig struct {
 	Database              string `yaml:"database"`
 	DefaultNodeLimit      int32  `yaml:"defaultnodelimit"`
 	Verbosity             int32  `yaml:"verbosity"`
-	ServerCheckinInterval int64  `yaml:"servercheckininterval"`
 	AuthProvider          string `yaml:"authprovider"`
 	OIDCIssuer            string `yaml:"oidcissuer"`
 	ClientID              string `yaml:"clientid"`
