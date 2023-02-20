@@ -1,0 +1,35 @@
+# creates new branch (release_{{ version }} with tag {{ version }} from develop 
+# will fail if branch or tag already exists on github
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      version:
+        descripton: "netmaker version"
+        required: true
+
+  release-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout develop
+        uses: actions/checkout@v3
+        with:
+          ref: develop
+      - name: setup go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.19
+      - name: setup git
+        run: |
+          git config user.name "Github Actions"
+          git config user.emaail "info@netmaker.io"
+      - name: create release Branch
+        run: |
+          git switch -c release_${{ github.event.inputs.version }}
+          git tag -f ${{ github.event.inputs.version }}
+          git push origin --tags release_${{ github.event.inputs.version }}
+  

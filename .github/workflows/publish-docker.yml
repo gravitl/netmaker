@@ -6,8 +6,6 @@ on:
       tag:
         description: 'docker tag'
         required: true
-  release:
-    types: [published]
 
 jobs:
   docker:
