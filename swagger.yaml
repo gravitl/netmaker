@@ -565,8 +565,6 @@ definitions:
                 type: string
             APIPort:
                 type: string
-            AgentBackend:
-                type: string
             AllowedOrigin:
                 type: string
             AuthProvider:
