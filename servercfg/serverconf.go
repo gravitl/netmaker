@@ -167,15 +167,6 @@ func GetAPIHost() string {
 	return serverhost
 }
 
-// GetPodIP - get the pod's ip
-func GetPodIP() string {
-	podip := "127.0.0.1"
-	if os.Getenv("POD_IP") != "" {
-		podip = os.Getenv("POD_IP")
-	}
-	return podip
-}
-
 // GetAPIPort - gets the api port
 func GetAPIPort() string {
 	apiport := "8081"
