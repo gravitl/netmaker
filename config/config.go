@@ -37,6 +37,8 @@ type ServerConfig struct {
 	APIHost               string `yaml:"apihost"`
 	APIPort               string `yaml:"apiport"`
 	MQHOST                string `yaml:"mqhost"`
+	BrokerType            string `yaml:"brokertype`
+	EmqxRestEndpoint      string `yaml:"emqxrestendpoint"`
 	MasterKey             string `yaml:"masterkey"`
 	DNSKey                string `yaml:"dnskey"`
 	AllowedOrigin         string `yaml:"allowedorigin"`

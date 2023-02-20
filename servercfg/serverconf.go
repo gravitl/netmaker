@@ -43,6 +43,8 @@ func GetServerConfig() config.ServerConfig {
 	cfg.NodeID = GetNodeID()
 	cfg.StunHost = GetStunAddr()
 	cfg.StunPort = GetStunPort()
+	cfg.BrokerType = GetBrokerType()
+	cfg.EmqxRestEndpoint = GetEmqxRestEndpoint()
 	if IsRestBackend() {
 		cfg.RestBackend = "on"
 	}
@@ -248,6 +250,15 @@ func GetMessageQueueEndpoint() (string, bool) {
 		host = "ws://" + host
 	}
 	return host + ":" + GetMQServerPort(), secure
+}
+
+// GetBrokerType - returns the type of MQ broker
+func GetBrokerType() string {
+	if os.Getenv("BROKER_TYPE") != "" {
+		return os.Getenv("BROKER_TYPE")
+	} else {
+		return "mosquitto"
+	}
 }
 
 // GetMasterKey - gets the configured master key of server
@@ -611,6 +622,11 @@ func GetMqUserName() string {
 		password = config.Config.Server.MQUserName
 	}
 	return password
+}
+
+// GetEmqxRestEndpoint - returns the REST API Endpoint of EMQX
+func GetEmqxRestEndpoint() string {
+	return os.Getenv("EMQX_REST_ENDPOINT")
 }
 
 // IsBasicAuthEnabled - checks if basic auth has been configured to be turned off

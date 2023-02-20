@@ -2,6 +2,7 @@ package mq
 
 import (
 	"context"
+	"log"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -38,6 +39,15 @@ func setMqOptions(user, password string, opts *mqtt.ClientOptions) {
 
 // SetupMQTT creates a connection to broker and return client
 func SetupMQTT() {
+	if servercfg.GetBrokerType() == emqxBrokerType {
+		// setup authenticator and create admin user
+		if err := CreateEmqxDefaultAuthenticator(); err != nil {
+			logger.Log(0, err.Error())
+		}
+		if err := CreateEmqxUser(servercfg.GetMqUserName(), servercfg.GetMqPassword(), true); err != nil {
+			log.Fatal(err)
+		}
+	}
 	opts := mqtt.NewClientOptions()
 	setMqOptions(servercfg.GetMqUserName(), servercfg.GetMqPassword(), opts)
 	opts.SetOnConnectHandler(func(client mqtt.Client) {

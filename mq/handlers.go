@@ -145,6 +145,15 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 		var sendPeerUpdate bool
 		switch hostUpdate.Action {
 		case models.UpdateHost:
+			if servercfg.GetBrokerType() == emqxBrokerType {
+				// create EMQX credentials for host if it doesn't exists
+				if _, err := logic.GetHost(currentHost.ID.String()); err != nil {
+					if err := CreateEmqxUser(currentHost.ID.String(), currentHost.HostPass, false); err != nil {
+						logger.Log(0, "failed to add host credentials to EMQX: ", currentHost.ID.String(), err.Error())
+						return
+					}
+				}
+			}
 			sendPeerUpdate = logic.UpdateHostFromClient(&hostUpdate.Host, currentHost)
 			err := logic.UpsertHost(currentHost)
 			if err != nil {
@@ -152,6 +161,13 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 				return
 			}
 		case models.DeleteHost:
+			if servercfg.GetBrokerType() == emqxBrokerType {
+				// delete EMQX credentials for host
+				if err := DeleteEmqxUser(currentHost.ID.String()); err != nil {
+					logger.Log(0, "failed to remove host credentials from EMQX: ", currentHost.ID.String(), err.Error())
+					return
+				}
+			}
 			if err := logic.DisassociateAllNodesFromHost(currentHost.ID.String()); err != nil {
 				logger.Log(0, "failed to delete all nodes of host: ", currentHost.ID.String(), err.Error())
 				return
