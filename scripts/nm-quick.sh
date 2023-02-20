@@ -1,51 +1,8 @@
 #!/bin/bash
 
-# setup_netclient - installs netclient locally
-setup_netclient() {
+LATEST="v0.18.0"
 
-	# DEV_TEMP - Temporary instructions for testing
-	# wget https://fileserver.netmaker.org/testing/netclient
-	# chmod +x netclient
-	# ./netclient install
-
-	# RELEASE_REPLACE - Use this once release is ready
-	# if [ -f /etc/debian_version ]; then
-	#     curl -sL 'https://apt.netmaker.org/gpg.key' | sudo tee /etc/apt/trusted.gpg.d/netclient.asc
-	#     curl -sL 'https://apt.netmaker.org/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/netclient.list
-	#     sudo apt update
-	#     sudo apt install netclient
-	# elif [ -f /etc/centos-release ]; then
-	#     curl -sL 'https://rpm.netmaker.org/gpg.key' | sudo tee /tmp/gpg.key
-	#     curl -sL 'https://rpm.netmaker.org/netclient-repo' | sudo tee /etc/yum.repos.d/netclient.repo
-	#     sudo rpm --import /tmp/gpg.key
-	#     sudo dnf check-update
-	#     sudo dnf install netclient
-	# elif [ -f /etc/fedora-release ]; then
-	#     curl -sL 'https://rpm.netmaker.org/gpg.key' | sudo tee /tmp/gpg.key
-	#     curl -sL 'https://rpm.netmaker.org/netclient-repo' | sudo tee /etc/yum.repos.d/netclient.repo
-	#     sudo rpm --import /tmp/gpg.key
-	#     sudo dnf check-update
-	#     sudo dnf install netclient
-	# elif [ -f /etc/redhat-release ]; then
-	#     curl -sL 'https://rpm.netmaker.org/gpg.key' | sudo tee /tmp/gpg.key
-	#     curl -sL 'https://rpm.netmaker.org/netclient-repo' | sudo tee /etc/yum.repos.d/netclient.repo
-	#     sudo rpm --import /tmp/gpg.key
-	#     sudo dnf check-update(
-	#     sudo dnf install netclient
-	# elif [ -f /etc/arch-release ]; then
-	#     yay -S netclient
-	# else
-	# 	echo "OS not supported for automatic install"
-	#     exit 1
-	# fi
-
-	# if [ -z "${install_cmd}" ]; then
-	#         echo "OS unsupported for automatic dependency install"
-	# 	exit 1
-	# fi
-}
-
-
+print_logo() {(
 cat << "EOF"
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -62,13 +19,82 @@ cat << "EOF"
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 EOF
+)}
 
 if [ $(id -u) -ne 0 ]; then
    echo "This script must be run as root"
    exit 1
 fi
 
-if [ -z "$1" ]; then
+unset INSTALL_TYPE
+unset BUILD_TYPE
+unset BUILD_TAG
+unset IMAGE_TAG
+
+usage () {(
+    echo "usage: ./nm-quick.sh [-e] [-b buildtype] [-t tag]"
+    echo "  -e      if specified, will install netmaker EE"
+    echo "  -b      type of build; options:"
+	echo "          \"version\" - will install a specific version of Netmaker using remote git and dockerhub"
+	echo "          \"local\": - will install by cloning repo and and building images from git"
+	echo "          \"branch\": - will install a specific branch using remote git and dockerhub "
+    echo "  -t      tag of build; if buildtype=version, tag=version. If builtype=branch or builtype=local, tag=branch"
+    echo "examples:"
+	echo "          nm-quick.sh -e -b version -t v0.18.0"
+	echo "          nm-quick.sh -e -b local -t feature_v0.17.2_newfeature"	
+	echo "          nm-quick.sh -e -b branch -t develop"
+    exit 1
+)}
+
+while getopts evb:t: flag
+do
+    case "${flag}" in
+        e) 
+			INSTALL_TYPE="ee"
+			;;
+		v) 
+			usage
+			exit 0
+			;;
+        b) 
+			BUILD_TYPE=${OPTARG}
+			if [[ ! "$BUILD_TYPE" =~ ^(version|local|branch)$ ]]; then
+    			echo "error: $BUILD_TYPE is invalid"
+				echo "valid options: version, local, branch"
+				usage
+				exit 1
+			fi
+			;;
+        t) 
+			BUILD_TAG=${OPTARG}
+			;;
+    esac
+done
+
+if [ -z "$BUILD_TYPE" ]; then
+	BUILD_TYPE="version"
+	BUILD_TAG=$LATEST
+fi
+
+if [ -z "$BUILD_TAG" ] && [ "$BUILD_TYPE" = "version" ]; then
+	BUILD_TAG=$LATEST
+fi
+
+if [ -z "$BUILD_TAG" ] && [ ! -z "$BUILD_TYPE" ]; then
+	echo "error: must specify build tag when build type \"$BUILD_TYPE\" is specified"
+	usage		
+	exit 1
+fi
+
+IMAGE_TAG=$(sed 's/\//-/g' <<< "$BUILD_TAG")
+
+if [ "$1" = "ce" ]; then
+	INSTALL_TYPE="ce"
+elif [ "$1" = "ee" ]; then
+	INSTALL_TYPE="ee"
+fi
+
+if [ -z "$INSTALL_TYPE" ]; then
 	echo "-----------------------------------------------------"
 	echo "Would you like to install Netmaker Community Edition (CE), or Netmaker Enterprise Edition (EE)?"
 	echo "EE will require you to create an account at https://dashboard.license.netmaker.io"
@@ -88,16 +114,15 @@ if [ -z "$1" ]; then
 		*) echo "invalid option $REPLY";;
 	esac
 	done
-elif [ "$1" = "ce" ]; then
-	echo "installing Netmaker CE"
-	INSTALL_TYPE="ce"
-elif [ "$1" = "ee" ]; then
-	echo "installing Netmaker EE"
-	INSTALL_TYPE="ee"
-else
-	echo "install type invalid (options: 'ce, ee')"
-	exit 1
 fi
+echo "-----------Build Options-----------------------------"
+echo "    EE or CE: $INSTALL_TYPE";
+echo "  Build Type: $BUILD_TYPE";
+echo "   Build Tag: $BUILD_TAG";
+echo "   Image Tag: $IMAGE_TAG";
+echo "-----------------------------------------------------"
+
+print_logo
 
 wait_seconds() {(
   for ((a=1; a <= $1; a++))
@@ -118,45 +143,67 @@ confirm() {(
   done
 )}
 
+local_install_setup() {(
+	rm -rf netmaker-tmp
+	mkdir netmaker-tmp
+	cd netmaker-tmp
+	git clone https://www.github.com/gravitl/netmaker
+	cd netmaker
+	git checkout $BUILD_TAG
+	git pull origin $BUILD_TAG
+	docker build --no-cache --build-arg version=$IMAGE_TAG -t gravitl/netmaker:$IMAGE_TAG .
+	if [ "$INSTALL_TYPE" = "ee" ]; then
+		cp compose/docker-compose.ee.yml /root/docker-compose.yml 
+		cp docker/Caddyfile-EE /root/Caddyfile
+	else
+		cp compose/docker-compose.yml /root/docker-compose.yml 
+		cp docker/Caddyfile /root/Caddyfile
+	fi
+	cp docker/mosquitto.conf /root/mosquitto.conf
+	cp docker/wait.sh /root/wait.sh
+	cd ../../
+	rm -rf netmaker-tmp
+)}
+
 echo "checking dependencies..."
 
 OS=$(uname)
 
 if [ -f /etc/debian_version ]; then
-	dependencies="wireguard wireguard-tools jq docker.io docker-compose"
+	dependencies="git wireguard wireguard-tools jq docker.io docker-compose"
 	update_cmd='apt update'
 	install_cmd='apt-get install -y'
 elif [ -f /etc/alpine-release ]; then
-	dependencies="wireguard jq docker.io docker-compose"
+	dependencies="git wireguard jq docker.io docker-compose"
 	update_cmd='apk update'
 	install_cmd='apk --update add'
 elif [ -f /etc/centos-release ]; then
-	dependencies="wireguard jq docker.io docker-compose"
+	dependencies="git wireguard jq docker.io docker-compose"
 	update_cmd='yum update'
 	install_cmd='yum install -y'
 elif [ -f /etc/fedora-release ]; then
-	dependencies="wireguard jq docker.io docker-compose"
+	dependencies="git wireguard jq docker.io docker-compose"
 	update_cmd='dnf update'
 	install_cmd='dnf install -y'
 elif [ -f /etc/redhat-release ]; then
-	dependencies="wireguard jq docker.io docker-compose"
+	dependencies="git wireguard jq docker.io docker-compose"
 	update_cmd='yum update'
 	install_cmd='yum install -y'
 elif [ -f /etc/arch-release ]; then
-    	dependecies="wireguard-tools jq docker.io docker-compose"
+    	dependecies="git wireguard-tools jq docker.io docker-compose"
 	update_cmd='pacman -Sy'
 	install_cmd='pacman -S --noconfirm'
 elif [ "${OS}" = "FreeBSD" ]; then
-	dependencies="wireguard wget jq docker.io docker-compose"
+	dependencies="git wireguard wget jq docker.io docker-compose"
 	update_cmd='pkg update'
 	install_cmd='pkg install -y'
 elif [ -f /etc/turris-version ]; then
-	dependencies="wireguard-tools bash jq docker.io docker-compose"
+	dependencies="git wireguard-tools bash jq docker.io docker-compose"
 	OS="TurrisOS"
 	update_cmd='opkg update'	
 	install_cmd='opkg install'
 elif [ -f /etc/openwrt_release ]; then
-	dependencies="wireguard-tools bash jq docker.io docker-compose"
+	dependencies="git wireguard-tools bash jq docker.io docker-compose"
 	OS="OpenWRT"
 	update_cmd='opkg update'	
 	install_cmd='opkg install'
@@ -228,11 +275,21 @@ echo "-----------------------------------------------------"
 
 wait_seconds 3
 
+
+if [ "$BUILD_TYPE" = "local" ]; then
+	local_install_setup
+fi
+
 set -e
 
-NETMAKER_BASE_DOMAIN=nm.$(dig myip.opendns.com @resolver1.opendns.com +short | tr . -).nip.io
+IP_ADDR=$(dig -4 myip.opendns.com @resolver1.opendns.com +short)
+if [ "$IP_ADDR" = "" ]; then
+	IP_ADDR=$(curl -s ifconfig.me)
+fi
+
+NETMAKER_BASE_DOMAIN=nm.$(echo $IP_ADDR | tr . -).nip.io
 COREDNS_IP=$(ip route get 1 | sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
-SERVER_PUBLIC_IP=$(dig myip.opendns.com @resolver1.opendns.com +short)
+SERVER_PUBLIC_IP=$IP_ADDR
 MASTER_KEY=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
 DOMAIN_TYPE=""
 echo "-----------------------------------------------------"
@@ -381,15 +438,18 @@ wait_seconds 3
 
 echo "Pulling config files..."
 
-COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.yml" 
-CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/master/docker/Caddyfile"
+
+COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/compose/docker-compose.yml" 
+CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/Caddyfile"
 if [ "$INSTALL_TYPE" = "ee" ]; then
-	COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/master/compose/docker-compose.ee.yml" 
-	CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/master/docker/Caddyfile-EE"
+	COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/compose/docker-compose.ee.yml" 
+	CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/Caddyfile-EE"
+fi
+if [ ! "$BUILD_TYPE" = "local" ]; then
+	wget -O /root/docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/mosquitto.conf && wget -O /root/Caddyfile $CADDY_URL
+	wget -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/wait.sh
 fi
 
-wget -O /root/docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf && wget -O /root/Caddyfile $CADDY_URL
-wget -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/master/docker/wait.sh
 chmod +x /root/wait.sh
 mkdir -p /etc/netmaker
 
@@ -406,6 +466,19 @@ if [ "$INSTALL_TYPE" = "ee" ]; then
 	sed -i "s~YOUR_LICENSE_KEY~$LICENSE_KEY~g" /root/docker-compose.yml
 	sed -i "s/YOUR_ACCOUNT_ID/$ACCOUNT_ID/g" /root/docker-compose.yml
 fi
+
+if [ "$BUILD_TYPE" = "version" ] && [ "$INSTALL_TYPE" = "ee" ]; then
+	sed -i "s/REPLACE_SERVER_IMAGE_TAG/$IMAGE_TAG-ee/g" /root/docker-compose.yml
+else
+	sed -i "s/REPLACE_SERVER_IMAGE_TAG/$IMAGE_TAG/g" /root/docker-compose.yml
+fi
+
+if [ "$BUILD_TYPE" = "local" ]; then
+	sed -i "s/REPLACE_UI_IMAGE_TAG/$LATEST/g" /root/docker-compose.yml
+else
+	sed -i "s/REPLACE_UI_IMAGE_TAG/$IMAGE_TAG/g" /root/docker-compose.yml
+fi
+
 echo "Starting containers..."
 
 docker-compose -f /root/docker-compose.yml up -d
@@ -455,27 +528,7 @@ ACCESS_TOKEN=$(jq -r '.accessstring' <<< ${curlresponse})
 
 wait_seconds 3
 
-# echo "Installing Netclient"
-# setup_netclient
-
-# echo "Adding Netclient to Network"
-# netclient join -t $ACCESS_TOKEN
-
-# # TODO - Get Host ID
-
-
-# echo "Setting Netclient as Default Host"
-# HOST_ID=$(grep 'id:' /etc/netclient/netclient.yml | awk '{print $2}')
-# echo $HOST_ID
-# # TODO - API call to make host default
-
-# echo "Setting Netclient as Ingress Gateway"
-# if [[ ! -z "$SERVER_ID"  ]]; then
-# 	curl -o /dev/null -s -X POST -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/netmaker/$HOST_ID/createingress
-# fi 
 )}
-
-
 
 set +e
 test_connection
