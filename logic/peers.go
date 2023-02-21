@@ -213,7 +213,7 @@ func GetProxyUpdateForHost(host *models.Host) (models.ProxyManagerPayload, error
 		relayPeersMap := make(map[string]models.RelayedConf)
 		for _, relayedHost := range relayedHosts {
 			relayedHost := relayedHost
-			payload, err := GetPeerUpdateForHost(&relayedHost)
+			payload, err := GetPeerUpdateForHost("", &relayedHost)
 			if err == nil {
 				relayedEndpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayedHost.EndpointIP, GetPeerListenPort(&relayedHost)))
 				if udpErr == nil {
@@ -290,7 +290,7 @@ func GetProxyUpdateForHost(host *models.Host) (models.ProxyManagerPayload, error
 }
 
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
-func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
+func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpdate, error) {
 	if host == nil {
 		return models.HostPeerUpdate{}, errors.New("host is nil")
 	}
@@ -438,6 +438,14 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 				}
 			}
 
+			if node.Network == network { // add to peers map for metrics
+				hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()] = models.IDandAddr{
+					ID:      peer.ID.String(),
+					Address: peer.PrimaryAddress(),
+					Name:    peerHost.Name,
+					Network: peer.Network,
+				}
+			}
 		}
 		var extPeers []wgtypes.PeerConfig
 		var extPeerIDAndAddrs []models.IDandAddr
@@ -477,8 +485,10 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 						ExtPeerKey: extPeerIdAndAddr.ID,
 						Peers:      nodePeerMap,
 					}
+					if node.Network == network {
+						hostPeerUpdate.PeerIDs[extPeerIdAndAddr.ID] = extPeerIdAndAddr
+					}
 				}
-
 			} else if !database.IsEmptyRecord(err) {
 				logger.Log(1, "error retrieving external clients:", err.Error())
 			}

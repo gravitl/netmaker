@@ -415,7 +415,6 @@ func getUsersNodes(user models.User) ([]models.Node, error) {
 func getNode(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
-
 	nodeRequest := r.Header.Get("requestfrom") == "node"
 
 	var params = mux.Vars(r)
@@ -434,7 +433,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	hostPeerUpdate, err := logic.GetPeerUpdateForHost(host)
+	hostPeerUpdate, err := logic.GetPeerUpdateForHost(node.Network, host)
 	if err != nil && !database.IsEmptyRecord(err) {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("error fetching wg peers config for host [ %s ]: %v", host.ID.String(), err))
@@ -616,7 +615,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	hostPeerUpdate, err := logic.GetPeerUpdateForHost(&data.Host)
+	hostPeerUpdate, err := logic.GetPeerUpdateForHost(networkName, &data.Host)
 	if err != nil && !database.IsEmptyRecord(err) {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("error fetching wg peers config for host [ %s ]: %v", data.Host.ID.String(), err))
