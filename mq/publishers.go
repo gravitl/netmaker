@@ -36,7 +36,7 @@ func PublishPeerUpdate() error {
 // PublishSingleHostUpdate --- determines and publishes a peer update to one host
 func PublishSingleHostUpdate(host *models.Host) error {
 
-	peerUpdate, err := logic.GetPeerUpdateForHost(host)
+	peerUpdate, err := logic.GetPeerUpdateForHost("", host)
 	if err != nil {
 		return err
 	}
