@@ -13,6 +13,9 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
+// EmqxBrokerType denotes the broker type for EMQX MQTT
+const EmqxBrokerType = "emqx"
+
 var (
 	Version = "dev"
 	Is_EE   = false
@@ -249,7 +252,12 @@ func GetMessageQueueEndpoint() (string, bool) {
 	} else {
 		host = "ws://" + host
 	}
-	return host + ":" + GetMQServerPort(), secure
+	host += ":" + GetMQServerPort()
+	// websocket listen endpoint for EMQX broker is ws://host:port/mqtt
+	if GetBrokerType() == EmqxBrokerType {
+		host += "/mqtt"
+	}
+	return host, secure
 }
 
 // GetBrokerType - returns the type of MQ broker

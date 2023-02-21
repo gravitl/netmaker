@@ -10,8 +10,6 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-const emqxBrokerType = "emqx"
-
 type (
 	emqxUser struct {
 		UserID   string `json:"user_id"`

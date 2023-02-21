@@ -39,7 +39,7 @@ func setMqOptions(user, password string, opts *mqtt.ClientOptions) {
 
 // SetupMQTT creates a connection to broker and return client
 func SetupMQTT() {
-	if servercfg.GetBrokerType() == emqxBrokerType {
+	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 		time.Sleep(10 * time.Second) // wait for the REST endpoint to be ready
 		// setup authenticator and create admin user
 		if err := CreateEmqxDefaultAuthenticator(); err != nil {
