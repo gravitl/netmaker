@@ -382,22 +382,6 @@ func FindRelay(node *models.Node) *models.Node {
 	return nil
 }
 
-func findNode(ip string) (*models.Node, error) {
-	nodes, err := GetAllNodes()
-	if err != nil {
-		return nil, err
-	}
-	for _, node := range nodes {
-		if node.Address.IP.String() == ip {
-			return &node, nil
-		}
-		if node.Address6.IP.String() == ip {
-			return &node, nil
-		}
-	}
-	return nil, errors.New("node not found")
-}
-
 // GetNetworkIngresses - gets the gateways of a network
 func GetNetworkIngresses(network string) ([]models.Node, error) {
 	var ingresses []models.Node

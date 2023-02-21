@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic"
 	proxy_metrics "github.com/gravitl/netmaker/metrics"
 	"github.com/gravitl/netmaker/models"
 	"golang.zx2c4.com/wireguard/wgctrl"
@@ -69,42 +68,6 @@ func Collect(iface, server, network string, peerMap models.PeerMap) (*models.Met
 
 	fillUnconnectedData(&metrics, peerMap)
 	return &metrics, nil
-}
-
-// GetExchangedBytesForNode - get exchanged bytes for current node peers
-func GetExchangedBytesForNode(node *models.Node, metrics *models.Metrics) error {
-	host, err := logic.GetHost(node.HostID.String())
-	if err != nil {
-		return err
-	}
-	peers, err := logic.GetPeerUpdate(node, host)
-	if err != nil {
-		logger.Log(0, "Failed to get peers: ", err.Error())
-		return err
-	}
-	wgclient, err := wgctrl.New()
-	if err != nil {
-		return err
-	}
-	defer wgclient.Close()
-	device, err := wgclient.Device(models.WIREGUARD_INTERFACE)
-	if err != nil {
-		return err
-	}
-	for _, currPeer := range device.Peers {
-		id := peers.PeerIDs[currPeer.PublicKey.String()].ID
-		address := peers.PeerIDs[currPeer.PublicKey.String()].Address
-		if id == "" || address == "" {
-			logger.Log(0, "attempted to parse metrics for invalid peer from server", id, address)
-			continue
-		}
-		logger.Log(2, "collecting exchanged bytes info for peer: ", address)
-		peerMetric := metrics.Connectivity[id]
-		peerMetric.TotalReceived = currPeer.ReceiveBytes
-		peerMetric.TotalSent = currPeer.TransmitBytes
-		metrics.Connectivity[id] = peerMetric
-	}
-	return nil
 }
 
 // == used to fill zero value data for non connected peers ==
