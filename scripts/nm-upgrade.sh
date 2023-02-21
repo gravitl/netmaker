@@ -103,6 +103,7 @@ install_dependencies() {
   echo "-----------------------------------------------------"
 }
 
+# get_email- gets upgrader's email address 
 get_email() {
 
   unset GET_EMAIL
@@ -259,6 +260,7 @@ collect_node_settings() {
 
 }
 
+# setup_caddy - updates Caddy with new info
 setup_caddy() {
 
   echo "backing up Caddyfile to /root/Caddyfile.backup"
@@ -281,6 +283,7 @@ EOT
 
 }
 
+# set_mq_credentials - sets mq credentials
 set_mq_credentials() {
 
   unset GET_MQ_USERNAME
