@@ -220,7 +220,7 @@ func GetProxyUpdateForHost(host *models.Host) (models.ProxyManagerPayload, error
 					relayPeersMap[relayedHost.PublicKey.String()] = models.RelayedConf{
 						RelayedPeerEndpoint: relayedEndpoint,
 						RelayedPeerPubKey:   relayedHost.PublicKey.String(),
-						Peers:               payload.Peers,
+						Peers:               payload.NodePeers,
 					}
 				}
 
@@ -305,6 +305,8 @@ func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpd
 		},
 		EgressInfo: make(map[string]models.EgressInfo),
 		PeerIDs:    make(models.PeerMap, 0),
+		Peers:      []wgtypes.PeerConfig{},
+		NodePeers:  []wgtypes.PeerConfig{},
 	}
 	logger.Log(1, "peer update for host ", host.ID.String())
 	peerIndexMap := make(map[string]int)
@@ -416,6 +418,7 @@ func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpd
 				}
 			}
 
+			var nodePeer wgtypes.PeerConfig
 			if _, ok := hostPeerUpdate.HostPeerIDs[peerHost.PublicKey.String()]; !ok {
 				hostPeerUpdate.HostPeerIDs[peerHost.PublicKey.String()] = make(map[string]models.IDandAddr)
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
@@ -426,6 +429,7 @@ func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpd
 					Name:    peerHost.Name,
 					Network: peer.Network,
 				}
+				nodePeer = peerConfig
 			} else {
 				peerAllowedIPs := hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].AllowedIPs
 				peerAllowedIPs = append(peerAllowedIPs, allowedips...)
@@ -436,6 +440,7 @@ func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpd
 					Name:    peerHost.Name,
 					Network: peer.Network,
 				}
+				nodePeer = hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]]
 			}
 
 			if node.Network == network { // add to peers map for metrics
@@ -445,6 +450,7 @@ func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpd
 					Name:    peerHost.Name,
 					Network: peer.Network,
 				}
+				hostPeerUpdate.NodePeers = append(hostPeerUpdate.NodePeers, nodePeer)
 			}
 		}
 		var extPeers []wgtypes.PeerConfig
@@ -487,6 +493,7 @@ func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpd
 					}
 					if node.Network == network {
 						hostPeerUpdate.PeerIDs[extPeerIdAndAddr.ID] = extPeerIdAndAddr
+						hostPeerUpdate.NodePeers = append(hostPeerUpdate.NodePeers, extPeers...)
 					}
 				}
 			} else if !database.IsEmptyRecord(err) {

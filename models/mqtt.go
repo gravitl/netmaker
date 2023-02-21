@@ -8,11 +8,12 @@ import (
 
 // HostPeerUpdate - struct for host peer updates
 type HostPeerUpdate struct {
-	Host          Host                  `json:"host" bson:"host" yaml:"host"`
-	Server        string                `json:"server" bson:"server" yaml:"server"`
-	ServerVersion string                `json:"serverversion" bson:"serverversion" yaml:"serverversion"`
-	ServerAddrs   []ServerAddr          `json:"serveraddrs" bson:"serveraddrs" yaml:"serveraddrs"`
-	Peers         []wgtypes.PeerConfig  `json:"peers" bson:"peers" yaml:"peers"`
+	Host          Host                 `json:"host" bson:"host" yaml:"host"`
+	Server        string               `json:"server" bson:"server" yaml:"server"`
+	ServerVersion string               `json:"serverversion" bson:"serverversion" yaml:"serverversion"`
+	ServerAddrs   []ServerAddr         `json:"serveraddrs" bson:"serveraddrs" yaml:"serveraddrs"`
+	NodePeers     []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
+	Peers         []wgtypes.PeerConfig
 	HostPeerIDs   HostPeerMap           `json:"hostpeerids" bson:"hostpeerids" yaml:"hostpeerids"`
 	ProxyUpdate   ProxyManagerPayload   `json:"proxy_update" bson:"proxy_update" yaml:"proxy_update"`
 	EgressInfo    map[string]EgressInfo `json:"egress_info" bson:"egress_info" yaml:"egress_info"` // map key is node ID

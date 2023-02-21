@@ -445,6 +445,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		Node:         node,
 		Host:         *host,
 		HostPeers:    hostPeerUpdate.Peers,
+		Peers:        hostPeerUpdate.NodePeers,
 		ServerConfig: server,
 		PeerIDs:      hostPeerUpdate.PeerIDs,
 	}
@@ -628,7 +629,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		Node:         data.Node,
 		ServerConfig: server,
 		Host:         data.Host,
-		Peers:        hostPeerUpdate.Peers,
+		Peers:        hostPeerUpdate.NodePeers,
 	}
 	logger.Log(1, r.Header.Get("user"), "created new node", data.Host.Name, "on network", networkName)
 	w.WriteHeader(http.StatusOK)
