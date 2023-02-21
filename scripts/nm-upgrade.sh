@@ -103,6 +103,21 @@ install_dependencies() {
   echo "-----------------------------------------------------"
 }
 
+get_email() {
+
+  unset GET_EMAIL
+  unset RAND_EMAIL
+  RAND_EMAIL="$(echo $RANDOM | md5sum  | head -c 16)@email.com"
+  read -p "Email Address for Domain Registration (click 'enter' to use $RAND_EMAIL): " GET_EMAIL
+  if [ -z "$GET_EMAIL" ]; then
+    echo "using rand email"
+    EMAIL="$RAND_EMAIL"
+  else
+    EMAIL="$GET_EMAIL"
+  fi
+
+}
+
 # collect_server_settings - retrieve server settings from existing compose file
 collect_server_settings() {
   MASTER_KEY=$(yq -r .services.netmaker.environment.MASTER_KEY docker-compose.yml)
@@ -199,6 +214,7 @@ collect_node_settings() {
   curl -s -H "Authorization: Bearer $MASTER_KEY" -H 'Content-Type: application/json' https://$SERVER_HTTP_HOST/api/nodes | jq -c '[ .[] | select(.isserver=="yes") ]' > nodejson.tmp
   NODE_LEN=$(jq length nodejson.tmp)
   HAS_INGRESS="no"
+  HAS_RELAY="no"
   if [ "$NODE_LEN" -gt 0 ]; then
       echo "===SERVER NODES==="
       for i in $(seq 1 $NODE_LEN); do
@@ -236,37 +252,107 @@ collect_node_settings() {
       echo "WARNING: Your server contains an Ingress Gateway. After upgrading, existing Ext Clients will be lost and must be recreated. Please confirm that you would like to continue."
       confirm
   fi
+  if [[ $HAS_RELAY == "yes" ]]; then
+      echo "WARNING: Your server contains a Relay. After upgrading, relay will be unset. Relay functionality has been moved to the 'host' level, and must be reconfigured once all machines are upgraded."
+      confirm
+  fi
+
+}
+
+setup_caddy() {
+
+  echo "backing up Caddyfile to /root/Caddyfile.backup"
+  cp /root/Caddyfile /root/Caddyfile.backup
+
+  if grep -wq "acme.zerossl.com/v2/DV90" Caddyfile; then 
+      echo "zerossl already set, continuing" 
+  else 
+    echo "editing Caddyfile"
+    sed -i '0,/email/{s~email~acme_ca https://acme.zerossl.com/v2/DV90\n\t&~}' /root/Caddyfile
+  fi
+
+cat <<EOT >> /root/Caddyfile
+
+# STUN
+https://$STUN_DOMAIN {
+  reverse_proxy netmaker:3478
+}
+EOT
+
+}
+
+set_mq_credentials() {
+
+  unset GET_MQ_USERNAME
+  unset GET_MQ_PASSWORD
+  unset CONFIRM_MQ_PASSWORD
+  echo "Enter Credentials For MQ..."
+  read -p "MQ Username (click 'enter' to use 'netmaker'): " GET_MQ_USERNAME
+  if [ -z "$GET_MQ_USERNAME" ]; then
+    echo "using default username for mq"
+    MQ_USERNAME="netmaker"
+  else
+    MQ_USERNAME="$GET_MQ_USERNAME"
+  fi
+
+  select domain_option in "Auto Generated Password" "Input Your Own Password"; do
+    case $REPLY in
+    1)
+    echo "generating random password for mq"
+    MQ_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
+    break
+    ;;      
+      2)
+    while true
+      do
+          echo "Enter your Password For MQ: " 
+          read -s GET_MQ_PASSWORD
+          echo "Enter your password again to confirm: "
+          read -s CONFIRM_MQ_PASSWORD
+          if [ ${GET_MQ_PASSWORD} != ${CONFIRM_MQ_PASSWORD} ]; then
+              echo "wrong password entered, try again..."
+              continue
+          fi
+      MQ_PASSWORD="$GET_MQ_PASSWORD"
+          echo "MQ Password Saved Successfully!!"
+          break
+      done
+        break
+        ;;
+      *) echo "invalid option $REPLY";;
+    esac
+  done
 }
 
 # set_compose - set compose file with proper values
 set_compose() {
 
-	echo "generating random password for mq"
-	MQ_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
-	
-  echo "generating random uname for mq"
-	MQ_USERNAME=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 10 ; echo '')
+  set_mq_credentials
 
   echo "retrieving updated wait script and mosquitto conf"  
   rm /root/wait.sh
   rm /root/mosquitto.conf
 
   # DEV_TEMP
-  wget -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/develop/docker/wait.sh
- 
+  wget -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/develop/docker/wait.sh 
   # RELEASE_REPLACE - Use this once release is ready
   # wget -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/master/docker/wait.sh
+
   chmod +x /root/wait.sh
 
   # DEV_TEMP
   wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/develop/docker/mosquitto.conf
- 
   # RELEASE_REPLACE - Use this once release is ready
   # wget -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/master/docker/wait.sh
+
   chmod +x /root/mosquitto.conf
 
+  # DEV_TEMP
+  sed -i "s/v0.17.1/testing/g" /root/docker-compose.yml
 
-  sed -i "s/v0.17.1/v0.18.0/g" /root/docker-compose.yml
+  # RELEASE_REPLACE - Use this once release is ready
+  # sed -i "s/v0.17.1/v0.18.0/g" /root/docker-compose.yml
+
   yq ".services.netmaker.environment.SERVER_NAME = \"$SERVER_NAME\"" -i /root/docker-compose.yml
   yq ".services.netmaker.environment += {\"BROKER_NAME\": \"$BROKER_NAME\"}" -i /root/docker-compose.yml  
   yq ".services.netmaker.environment += {\"STUN_DOMAIN\": \"$STUN_DOMAIN\"}" -i /root/docker-compose.yml  
@@ -278,14 +364,23 @@ set_compose() {
   yq ".services.mq.environment += {\"MQ_PASSWORD\": \"$MQ_PASSWORD\"}" -i /root/docker-compose.yml  
   yq ".services.mq.environment += {\"MQ_USERNAME\": \"$MQ_USERNAME\"}" -i /root/docker-compose.yml  
 
+  #remove unnecessary ports
+  yq eval 'del( .services.netmaker.ports[] | select(. == "51821*") )' -i /root/docker-compose.yml
+  yq eval 'del( .services.mq.ports[] | select(. == "8883*") )' -i /root/docker-compose.yml
+  yq eval 'del( .services.mq.ports[] | select(. == "1883*") )' -i /root/docker-compose.yml
+  yq eval 'del( .services.mq.expose[] | select(. == "8883*") )' -i /root/docker-compose.yml
+  yq eval 'del( .services.mq.expose[] | select(. == "1883*") )' -i /root/docker-compose.yml
+
   # delete unnecessary compose sections
   yq eval 'del(.services.netmaker.cap_add)' -i /root/docker-compose.yml
   yq eval 'del(.services.netmaker.sysctls)' -i /root/docker-compose.yml
   yq eval 'del(.services.netmaker.environment.MQ_ADMIN_PASSWORD)' -i /root/docker-compose.yml
+  yq eval 'del(.services.netmaker.environment.CLIENT_MODE)' -i /root/docker-compose.yml
+  yq eval 'del(.services.netmaker.environment.HOST_NETWORK)' -i /root/docker-compose.yml
   yq eval 'del(.services.mq.environment.NETMAKER_SERVER_HOST)' -i /root/docker-compose.yml
+  yq eval 'del( .services.netmaker.volumes[] | select(. == "mosquitto_data*") )' -i /root/docker-compose.yml
   yq eval 'del( .services.mq.volumes[] | select(. == "mosquitto_data*") )' -i /root/docker-compose.yml
-  yq eval 'del( .services.mq.volumes[] | select(. == "mosquitto_data*") )' -i /root/docker-compose.yml
-  yq eval 'del( .volumes[] | select(. == "mosquitto_data*") )' -i /root/docker-compose.yml
+  yq eval 'del( .volumes.mosquitto_data )' -i /root/docker-compose.yml
 
 }
 
@@ -319,49 +414,23 @@ test_caddy() {
   done
 }
 
-# setup_netclient - installs netclient locally
+# setup_netclient - adds netclient to docker-compose
 setup_netclient() {
 
-# DEV_TEMP - Temporary instructions for testing
-wget https://fileserver.netmaker.org/testing/netclient
-chmod +x netclient
-./netclient install
+  yq ".services.netclient += {\"container_name\": \"netclient\"}" -i /root/docker-compose.yml
+  yq ".services.netclient += {\"image\": \"gravitl/netclient:testing\"}" -i /root/docker-compose.yml
+  yq ".services.netclient += {\"hostname\": \"netmaker-1\"}" -i /root/docker-compose.yml
+  yq ".services.netclient += {\"network_mode\": \"host\"}" -i /root/docker-compose.yml
+  yq ".services.netclient.depends_on += [\"netmaker\"]" -i /root/docker-compose.yml
+  yq ".services.netclient += {\"restart\": \"always\"}" -i /root/docker-compose.yml
+  yq ".services.netclient.environment += {\"TOKEN\": \"$KEY\"}" -i /root/docker-compose.yml
+  yq ".services.netclient.volumes += [\"/etc/netclient:/etc/netclient\"]" -i /root/docker-compose.yml
+  yq ".services.netclient.cap_add += [\"NET_ADMIN\"]" -i /root/docker-compose.yml
+  yq ".services.netclient.cap_add += [\"NET_RAW\"]" -i /root/docker-compose.yml
+  yq ".services.netclient.cap_add += [\"SYS_MODULE\"]" -i /root/docker-compose.yml
 
-# RELEASE_REPLACE - Use this once release is ready
-# if [ -f /etc/debian_version ]; then
-#     curl -sL 'https://apt.netmaker.org/gpg.key' | sudo tee /etc/apt/trusted.gpg.d/netclient.asc
-#     curl -sL 'https://apt.netmaker.org/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/netclient.list
-#     sudo apt update
-#     sudo apt install netclient
-# elif [ -f /etc/centos-release ]; then
-#     curl -sL 'https://rpm.netmaker.org/gpg.key' | sudo tee /tmp/gpg.key
-#     curl -sL 'https://rpm.netmaker.org/netclient-repo' | sudo tee /etc/yum.repos.d/netclient.repo
-#     sudo rpm --import /tmp/gpg.key
-#     sudo dnf check-update
-#     sudo dnf install netclient
-# elif [ -f /etc/fedora-release ]; then
-#     curl -sL 'https://rpm.netmaker.org/gpg.key' | sudo tee /tmp/gpg.key
-#     curl -sL 'https://rpm.netmaker.org/netclient-repo' | sudo tee /etc/yum.repos.d/netclient.repo
-#     sudo rpm --import /tmp/gpg.key
-#     sudo dnf check-update
-#     sudo dnf install netclient
-# elif [ -f /etc/redhat-release ]; then
-#     curl -sL 'https://rpm.netmaker.org/gpg.key' | sudo tee /tmp/gpg.key
-#     curl -sL 'https://rpm.netmaker.org/netclient-repo' | sudo tee /etc/yum.repos.d/netclient.repo
-#     sudo rpm --import /tmp/gpg.key
-#     sudo dnf check-update(
-#     sudo dnf install netclient
-# elif [ -f /etc/arch-release ]; then
-#     yay -S netclient
-# else
-# 	echo "OS not supported for automatic install"
-#     exit 1
-# fi
+  docker-compose up -d
 
-# if [ -z "${install_cmd}" ]; then
-#         echo "OS unsupported for automatic dependency install"
-# 	exit 1
-# fi
 }
 
 # setup_nmctl - pulls nmctl and makes it executable
@@ -386,10 +455,16 @@ setup_nmctl() {
 
 # join_networks - joins netclient into the networks using old settings
 join_networks() {
-  NODE_LEN=$(jq length nodejson.tmp)
-  HAS_INGRESS="no"
+  NODE_LEN=$(jq length nodejson.tmp)  
   if [ "$NODE_LEN" -gt 0 ]; then
       for i in $(seq 1 $NODE_LEN); do
+          HAS_INGRESS="no"
+          HAS_EGRESS="no"
+          EGRESS_RANGES=""
+          HAS_RELAY="no"
+          RELAY_ADDRS=""
+          HAS_FAILOVER="no"
+
           NUM=$(($i-1))
           NETWORK=$(jq -r ".[$NUM].network" ./nodejson.tmp)
           echo "  joining network $NETWORK with following settings. Please confirm:"
@@ -400,7 +475,9 @@ join_networks() {
           echo "       is egress: $(jq -r ".[$NUM].isegressgateway" ./nodejson.tmp)"
           if [[ $(jq -r ".[$NUM].isegressgateway" ./nodejson.tmp) == "yes" ]]; then
               HAS_EGRESS="yes"
-              echo "          egress range: $(jq -r ".[$NUM].egressgatewayranges" ./nodejson.tmp)"
+              echo "          egress ranges: $(jq -r ".[$NUM].egressgatewayranges" ./nodejson.tmp | tr -d '[]\n"[:space:]')"
+              EGRESS_RANGES=$(jq -r ".[$NUM].egressgatewayranges" ./nodejson.tmp | tr -d '[]\n"[:space:]')
+
           fi
           echo "      is ingress: $(jq -r ".[$NUM].isingressgateway" ./nodejson.tmp)"
           if [[ $(jq -r ".[$NUM].isingressgateway" ./nodejson.tmp) == "yes" ]]; then
@@ -418,26 +495,26 @@ join_networks() {
           echo "  ------------"
 
           confirm
-          echo "running command: ./nmctl keys create $NETWORK 1"
-          KEY_JSON=$(./nmctl keys create $NETWORK 1)          
-          KEY=$(echo $KEY_JSON | jq -r .accessstring)
 
-          echo "join key created: $KEY"
+          if [[ $NUM -eq 0 ]]; then 
+            echo "running command: ./nmctl keys create $NETWORK 1"
+            KEY_JSON=$(./nmctl keys create $NETWORK 1)          
+            KEY=$(echo $KEY_JSON | jq -r .accessstring)
 
+            echo "join key created: $KEY"
+
+            setup_netclient
+          else
+            HOST_ID=$(sudo cat /etc/netclient/netclient.yml | yq -r .host.id)
+            ./nmctl host add_network $HOST_ID $NETWORK
+          fi
           NAME=$(jq -r ".[$NUM].name" ./nodejson.tmp)
           ADDRESS=$(jq -r ".[$NUM].address" ./nodejson.tmp)
           ADDRESS6=$(jq -r ".[$NUM].address6" ./nodejson.tmp)
- 
 
-          if [[ ! -z "$ADDRESS6" ]]; then
-            echo "joining with command: netclient join -t $KEY --name=$NAME --address=$ADDRESS --address6=$ADDRESS6"
-            confirm
-            netclient join -t $KEY --name=$NAME --address=$ADDRESS --address6=$ADDRESS6
-          else
-            echo "joining with command: netclient join -t $KEY --name=$NAME --address=$ADDRESS"          
-            confirm
-            netclient join -t $KEY --name=$NAME --address=$ADDRESS
-          fi
+          echo "wait 10 seconds for netclient to be ready"
+          sleep 10
+
           NODE_ID=$(sudo cat /etc/netclient/nodes.yml | yq -r .$NETWORK.commonnode.id)
           echo "join complete. New node ID: $NODE_ID"
           if [[ $NUM -eq 0 ]]; then
@@ -445,13 +522,15 @@ join_networks() {
             echo "For first join, making host a default"
             echo "Host ID: $HOST_ID"
             # set as a default host
-            # TODO - this command is not working
             ./nmctl host update $HOST_ID --default
+            sleep 2
           fi
 
           # create an egress if necessary
           if [[ $HAS_EGRESS == "yes" ]]; then
-            echo "Egress is currently unimplemented. Wait for 0.18.1"
+            echo "creating egress"            
+            ./nmctl node create_egress $NETWORK $NODE_ID $EGRESS_RANGES
+            sleep 2
           fi
 
           echo "HAS INGRESS: $HAS_INGRESS"
@@ -460,16 +539,19 @@ join_networks() {
             if [[ $HAS_FAILOVER == "yes" ]]; then
               echo "creating ingress and failover..."
               ./nmctl node create_ingress $NETWORK $NODE_ID --failover
+              sleep 2
             else
               echo "creating ingress..."
               ./nmctl node create_ingress $NETWORK $NODE_ID
+              sleep 2
             fi
           fi
 
           # relay
           if [[ $HAS_RELAY == "yes" ]]; then
-            echo "creating relay..."
-            ./nmctl node create_relay $NETWORK $NODE_ID $RELAY_ADDRS
+            echo "cannot recreate relay; relay functionality moved to host"
+            # ./nmctl node create_relay $NETWORK $NODE_ID $RELAY_ADDRS
+            # sleep 2
           fi
 
       done
@@ -513,11 +595,18 @@ collect_node_settings
 echo "...backing up docker compose to docker-compose.yml.backup"
 cp /root/docker-compose.yml /root/docker-compose.yml.backup
 
+echo "...setting Caddyfile values"
+setup_caddy
+
 echo "...setting docker-compose values"
 set_compose
 
 echo "...starting containers"
 start_containers
+
+echo "...remove old mosquitto data"
+# TODO - yq is not removing volume from docker compose
+# docker volume rm root_mosquitto_data
 
 wait_seconds 3
 
@@ -529,11 +618,9 @@ echo "..testing Netmaker health"
 # netmaker_health_check
 # wait_seconds 2
 
-echo "...setting up netclient (this may take a minute, be patient)"
-setup_netclient
 wait_seconds 2
 
-echo "...join networks"
+echo "...setup netclient"
 join_networks
 
 echo "-----------------------------------------------------------------"
