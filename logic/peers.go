@@ -220,7 +220,7 @@ func GetProxyUpdateForHost(host *models.Host) (models.ProxyManagerPayload, error
 					relayPeersMap[relayedHost.PublicKey.String()] = models.RelayedConf{
 						RelayedPeerEndpoint: relayedEndpoint,
 						RelayedPeerPubKey:   relayedHost.PublicKey.String(),
-						Peers:               payload.NodePeers,
+						Peers:               payload.Peers,
 					}
 				}
 
