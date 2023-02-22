@@ -487,7 +487,7 @@ func GetPlatform() string {
 	if os.Getenv("PLATFORM") != "" {
 		platform = os.Getenv("PLATFORM")
 	} else if config.Config.Server.Platform != "" {
-		platform = config.Config.Server.SQLConn
+		platform = config.Config.Server.Platform
 	}
 	return platform
 }
@@ -637,7 +637,7 @@ func GetLicenseKey() string {
 func GetNetmakerAccountID() string {
 	netmakerAccountID := os.Getenv("NETMAKER_ACCOUNT_ID")
 	if netmakerAccountID == "" {
-		netmakerAccountID = config.Config.Server.LicenseValue
+		netmakerAccountID = config.Config.Server.NetmakerAccountID
 	}
 	return netmakerAccountID
 }
