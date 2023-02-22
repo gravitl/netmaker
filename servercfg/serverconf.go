@@ -241,8 +241,8 @@ func GetMQPort() string {
 // GetMessageQueueEndpoint - gets the message queue endpoint
 func GetMessageQueueEndpoint() (string, bool) {
 	host, _ := GetPublicIP()
-	if os.Getenv("MQ_HOST") != "" {
-		host = os.Getenv("MQ_HOST")
+	if os.Getenv("BROKER_ENDPOINT") != "" {
+		host = os.Getenv("BROKER_ENDPOINT")
 	} else if config.Config.Server.MQHOST != "" {
 		host = config.Config.Server.MQHOST
 	} else {

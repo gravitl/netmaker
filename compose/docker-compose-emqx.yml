@@ -25,7 +25,7 @@ services:
       DISPLAY_KEYS: "on"
       DATABASE: "sqlite"
       NODE_ID: "netmaker-server-1"
-      MQ_HOST: "ws://mq:8083/mqtt"
+      BROKER_ENDPOINT: "ws://mq:8083/mqtt"
       MQ_PORT: "443"      
       STUN_PORT: "3478"      
       VERBOSITY: "1"
