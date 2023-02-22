@@ -245,19 +245,10 @@ func GetMessageQueueEndpoint() (string, bool) {
 		host = os.Getenv("MQ_HOST")
 	} else if config.Config.Server.MQHOST != "" {
 		host = config.Config.Server.MQHOST
-	}
-	secure := strings.Contains(host, "wss") || strings.Contains(host, "ssl")
-	if secure {
-		host = "wss://" + host
 	} else {
-		host = "ws://" + host
+		host += ":1883" // default
 	}
-	host += ":" + GetMQServerPort()
-	// websocket listen endpoint for EMQX broker is ws://host:port/mqtt
-	if GetBrokerType() == EmqxBrokerType {
-		host += "/mqtt"
-	}
-	return host, secure
+	return host, strings.Contains(host, "wss") || strings.Contains(host, "ssl")
 }
 
 // GetBrokerType - returns the type of MQ broker
@@ -597,17 +588,6 @@ func GetAzureTenant() string {
 		azureTenant = config.Config.Server.AzureTenant
 	}
 	return azureTenant
-}
-
-// GetMQServerPort - get mq port for server
-func GetMQServerPort() string {
-	port := "1883" //default
-	if os.Getenv("MQ_SERVER_PORT") != "" {
-		port = os.Getenv("MQ_SERVER_PORT")
-	} else if config.Config.Server.MQServerPort != "" {
-		port = config.Config.Server.MQServerPort
-	}
-	return port
 }
 
 // GetMqPassword - fetches the MQ password
