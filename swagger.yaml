@@ -565,8 +565,6 @@ definitions:
                 type: string
             APIPort:
                 type: string
-            AgentBackend:
-                type: string
             AllowedOrigin:
                 type: string
             AuthProvider:
@@ -585,9 +583,6 @@ definitions:
                 type: string
             Database:
                 type: string
-            DefaultNodeLimit:
-                format: int32
-                type: integer
             DisableRemoteIPCheck:
                 type: string
             DisplayKeys:
@@ -624,9 +619,6 @@ definitions:
                 type: string
             Server:
                 type: string
-            ServerCheckinInterval:
-                format: int64
-                type: integer
             Telemetry:
                 type: string
             Verbosity:

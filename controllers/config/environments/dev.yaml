@@ -4,7 +4,6 @@ server:
   masterkey: ""
   allowedorigin: "*"
   restbackend: true            
-  agentbackend: true
   defaultnetname: "default"
   defaultnetrange: "10.10.10.0/24"
   createdefault: true

@@ -46,10 +46,6 @@ func GetServerConfig() config.ServerConfig {
 	if IsRestBackend() {
 		cfg.RestBackend = "on"
 	}
-	cfg.AgentBackend = "off"
-	if IsAgentBackend() {
-		cfg.AgentBackend = "on"
-	}
 	cfg.DNSMode = "off"
 	if IsDNSMode() {
 		cfg.DNSMode = "on"
@@ -167,15 +163,6 @@ func GetAPIHost() string {
 	return serverhost
 }
 
-// GetPodIP - get the pod's ip
-func GetPodIP() string {
-	podip := "127.0.0.1"
-	if os.Getenv("POD_IP") != "" {
-		podip = os.Getenv("POD_IP")
-	}
-	return podip
-}
-
 // GetAPIPort - gets the api port
 func GetAPIPort() string {
 	apiport := "8081"
@@ -196,19 +183,6 @@ func GetStunAddr() string {
 		stunAddr = config.Config.Server.StunHost
 	}
 	return stunAddr
-}
-
-// GetDefaultNodeLimit - get node limit if one is set
-func GetDefaultNodeLimit() int32 {
-	var limit int32
-	limit = 999999999
-	envlimit, err := strconv.Atoi(os.Getenv("DEFAULT_NODE_LIMIT"))
-	if err == nil && envlimit != 0 {
-		limit = int32(envlimit)
-	} else if config.Config.Server.DefaultNodeLimit != 0 {
-		limit = config.Config.Server.DefaultNodeLimit
-	}
-	return limit
 }
 
 // GetCoreDNSAddr - gets the core dns address
@@ -311,21 +285,6 @@ func IsMetricsExporter() bool {
 		}
 	}
 	return export
-}
-
-// IsAgentBackend - checks if agent backed is on or off
-func IsAgentBackend() bool {
-	isagent := true
-	if os.Getenv("AGENT_BACKEND") != "" {
-		if os.Getenv("AGENT_BACKEND") == "off" {
-			isagent = false
-		}
-	} else if config.Config.Server.AgentBackend != "" {
-		if config.Config.Server.AgentBackend == "off" {
-			isagent = false
-		}
-	}
-	return isagent
 }
 
 // IsMessageQueueBackend - checks if message queue is on or off
@@ -523,18 +482,6 @@ func GetNodeID() string {
 
 func SetNodeID(id string) {
 	config.Config.Server.NodeID = id
-}
-
-// GetServerCheckinInterval - gets the server check-in time
-func GetServerCheckinInterval() int64 {
-	var t = int64(5)
-	var envt, _ = strconv.Atoi(os.Getenv("SERVER_CHECKIN_INTERVAL"))
-	if envt > 0 {
-		t = int64(envt)
-	} else if config.Config.Server.ServerCheckinInterval > 0 {
-		t = config.Config.Server.ServerCheckinInterval
-	}
-	return t
 }
 
 // GetAuthProviderInfo = gets the oauth provider info
