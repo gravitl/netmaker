@@ -328,6 +328,7 @@ func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpd
 			nodePeerMap = make(map[string]models.PeerRouteInfo)
 		}
 		for _, peer := range currentPeers {
+			peer := peer
 			if peer.ID == node.ID {
 				logger.Log(2, "peer update, skipping self")
 				//skip yourself
@@ -470,6 +471,7 @@ func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpd
 				}
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, extPeers...)
 				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
+					extPeerIdAndAddr := extPeerIdAndAddr
 					hostPeerUpdate.HostPeerIDs[extPeerIdAndAddr.ID] = make(map[string]models.IDandAddr)
 					hostPeerUpdate.HostPeerIDs[extPeerIdAndAddr.ID][extPeerIdAndAddr.ID] = models.IDandAddr{
 						ID:      extPeerIdAndAddr.ID,
