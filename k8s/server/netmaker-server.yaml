@@ -71,12 +71,8 @@ spec:
           value: REPLACE_MASTER_KEY
         - name: CORS_ALLOWED_ORIGIN
           value: '*'
-        - name: MQ_HOST
-          value: "mq"
-        - name: MQ_PORT
-          value: "443"
-        - name: MQ_SERVER_PORT
-          value: "1883"
+        - name: SERVER_BROKER_ENDPOINT
+          value: "ws://mq:1883"
         - name: PLATFORM
           value: "Kubernetes"
         - name: VERBOSITY

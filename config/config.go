@@ -36,7 +36,8 @@ type ServerConfig struct {
 	APIConnString         string `yaml:"apiconn"`
 	APIHost               string `yaml:"apihost"`
 	APIPort               string `yaml:"apiport"`
-	MQHOST                string `yaml:"mqhost"`
+	BrokerEndpoint        string `yaml:"brokerendpoint"`
+	ServerBrokerEndpoint  string `yaml:"serverbrokerendpoint"`
 	BrokerType            string `yaml:"brokertype"`
 	EmqxRestEndpoint      string `yaml:"emqxrestendpoint"`
 	MasterKey             string `yaml:"masterkey"`
@@ -64,8 +65,6 @@ type ServerConfig struct {
 	AzureTenant           string `yaml:"azuretenant"`
 	Telemetry             string `yaml:"telemetry"`
 	HostNetwork           string `yaml:"hostnetwork"`
-	MQPort                string `yaml:"mqport"`
-	MQServerPort          string `yaml:"mqserverport"`
 	Server                string `yaml:"server"`
 	Broker                string `yam:"broker"`
 	PublicIPService       string `yaml:"publicipservice"`

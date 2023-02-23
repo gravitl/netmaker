@@ -9,7 +9,7 @@ services:
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
     environment:
-      BROKER_NAME: "broker.NETMAKER_BASE_DOMAIN"
+      BROKER_ENDPOINT: "wss://broker.NETMAKER_BASE_DOMAIN"
       SERVER_NAME: "NETMAKER_BASE_DOMAIN"
       STUN_DOMAIN: "stun.NETMAKER_BASE_DOMAIN"
       SERVER_HOST: "SERVER_PUBLIC_IP"
@@ -23,8 +23,7 @@ services:
       DISPLAY_KEYS: "on"
       DATABASE: "sqlite"
       NODE_ID: "netmaker-server-1"
-      BROKER_ENDPOINT: "ws://mq:1883"
-      MQ_PORT: "443"      
+      SERVER_BROKER_ENDPOINT: "ws://mq:1883"
       STUN_PORT: "3478"      
       VERBOSITY: "1"
       MQ_PASSWORD: "REPLACE_MQ_PASSWORD"

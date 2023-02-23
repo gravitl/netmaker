@@ -9,7 +9,7 @@ services:
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
     environment:
-      BROKER_NAME: "broker.NETMAKER_BASE_DOMAIN"
+      BROKER_ENDPOINT: "wss://broker.NETMAKER_BASE_DOMAIN/mqtt"
       BROKER_TYPE: "emqx"
       EMQX_REST_ENDPOINT: "http://mq:18083"
       SERVER_NAME: "NETMAKER_BASE_DOMAIN"
@@ -25,8 +25,7 @@ services:
       DISPLAY_KEYS: "on"
       DATABASE: "sqlite"
       NODE_ID: "netmaker-server-1"
-      BROKER_ENDPOINT: "ws://mq:8083/mqtt"
-      MQ_PORT: "443"      
+      SERVER_BROKER_ENDPOINT: "ws://mq:8083/mqtt"
       STUN_PORT: "3478"      
       VERBOSITY: "1"
       MQ_PASSWORD: "REPLACE_MQ_PASSWORD"

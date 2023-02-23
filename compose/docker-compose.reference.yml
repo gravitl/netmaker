@@ -10,7 +10,7 @@ services:
       - sqldata:/root/data
       - shared_certs:/etc/netmaker
     environment: # Necessary capabilities to set iptables when running in container
-      BROKER_NAME: "broker.NETMAKER_BASE_DOMAIN" # The domain/host IP indicating the mq broker address
+      BROKER_ENDPOINT: "wss://broker.NETMAKER_BASE_DOMAIN" # The domain/host IP indicating the mq broker address
       SERVER_NAME: "NETMAKER_BASE_DOMAIN" # The base domain of netmaker
       SERVER_HOST: "SERVER_PUBLIC_IP" # Set to public IP of machine.
       SERVER_HTTP_HOST: "api.NETMAKER_BASE_DOMAIN" # Overrides SERVER_HOST if set. Useful for making HTTP available via different interfaces/networks.
@@ -26,8 +26,7 @@ services:
       DISPLAY_KEYS: "on" # Show keys permanently in UI (until deleted) as opposed to 1-time display.
       DATABASE: "sqlite" # Database to use - sqlite, postgres, or rqlite
       NODE_ID: "netmaker-server-1" # used for HA - identifies this server vs other servers
-      BROKER_ENDPOINT: ""ws://mq:1883""  # the address of the mq server. If running from docker compose it will be "mq". Otherwise, need to input address. If using "host networking", it will find and detect the IP of the mq container.
-      MQ_PORT: "443" # the reachable port of MQ - change if external MQ port changes (port on proxy, not necessarily the one exposed in docker-compose)
+      SERVER_BROKER_ENDPOINT: ""ws://mq:1883""  # the address of the mq server. If running from docker compose it will be "mq". Otherwise, need to input address. If using "host networking", it will find and detect the IP of the mq container.
       MQ_USERNAME: "REPLACE_MQ_USERNAME" # the username to set for MQ access
       MQ_PASSWORD: "REPLACE_MQ_PASSWORD" # the password to set for MQ access
       STUN_PORT: "3478" # the reachable port of STUN on the server

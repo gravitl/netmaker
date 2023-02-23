@@ -38,7 +38,6 @@ func GetServerConfig() config.ServerConfig {
 	cfg.CoreDNSAddr = GetCoreDNSAddr()
 	cfg.APIHost = GetAPIHost()
 	cfg.APIPort = GetAPIPort()
-	cfg.MQPort = GetMQPort()
 	cfg.MasterKey = "(hidden)"
 	cfg.DNSKey = "(hidden)"
 	cfg.AllowedOrigin = GetAllowedOrigin()
@@ -92,13 +91,11 @@ func GetServerConfig() config.ServerConfig {
 func GetServerInfo() models.ServerConfig {
 	var cfg models.ServerConfig
 	cfg.Server = GetServer()
-	cfg.Broker = GetBroker()
 	cfg.MQUserName = GetMqUserName()
 	cfg.MQPassword = GetMqPassword()
 	cfg.API = GetAPIConnString()
 	cfg.CoreDNSAddr = GetCoreDNSAddr()
 	cfg.APIPort = GetAPIPort()
-	cfg.MQPort = GetMQPort()
 	cfg.DNSMode = "off"
 	if IsDNSMode() {
 		cfg.DNSMode = "on"
@@ -227,24 +224,17 @@ func GetCoreDNSAddr() string {
 	return addr
 }
 
-// GetMQPort - gets the mq port
-func GetMQPort() string {
-	port := "8883" //default
-	if os.Getenv("MQ_PORT") != "" {
-		port = os.Getenv("MQ_PORT")
-	} else if config.Config.Server.MQPort != "" {
-		port = config.Config.Server.MQPort
-	}
-	return port
-}
-
 // GetMessageQueueEndpoint - gets the message queue endpoint
 func GetMessageQueueEndpoint() (string, bool) {
 	host, _ := GetPublicIP()
-	if os.Getenv("BROKER_ENDPOINT") != "" {
+	if os.Getenv("SERVER_BROKER_ENDPOINT") != "" {
+		host = os.Getenv("SERVER_BROKER_ENDPOINT")
+	} else if config.Config.Server.ServerBrokerEndpoint != "" {
+		host = config.Config.Server.ServerBrokerEndpoint
+	} else if os.Getenv("BROKER_ENDPOINT") != "" {
 		host = os.Getenv("BROKER_ENDPOINT")
-	} else if config.Config.Server.MQHOST != "" {
-		host = config.Config.Server.MQHOST
+	} else if config.Config.Server.BrokerEndpoint != "" {
+		host = config.Config.Server.BrokerEndpoint
 	} else {
 		host += ":1883" // default
 	}
@@ -372,17 +362,6 @@ func GetServer() string {
 		server = os.Getenv("SERVER_NAME")
 	} else if config.Config.Server.Server != "" {
 		server = config.Config.Server.Server
-	}
-	return server
-}
-
-// GetBroker - gets the broker name
-func GetBroker() string {
-	server := ""
-	if os.Getenv("BROKER_NAME") != "" {
-		server = os.Getenv("BROKER_NAME")
-	} else if config.Config.Server.Broker != "" {
-		server = config.Config.Server.Broker
 	}
 	return server
 }
