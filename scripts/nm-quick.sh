@@ -5,7 +5,7 @@ if [ $(id -u) -ne 0 ]; then
    exit 1
 fi
 
-LATEST="v0.18.0"
+LATEST="v0.18.1"
 
 unset INSTALL_TYPE
 unset BUILD_TYPE
@@ -13,60 +13,52 @@ unset BUILD_TAG
 unset IMAGE_TAG
 unset AUTO_BUILD
 
-# setup_netclient - adds netclient to docker-compose
-setup_netclient() {
-
-  yq ".services.netclient += {\"container_name\": \"netclient\"}" -i /root/docker-compose.yml
-  yq ".services.netclient += {\"image\": \"gravitl/netclient:$IMAGE_TAG\"}" -i /root/docker-compose.yml
-  yq ".services.netclient += {\"hostname\": \"netmaker-1\"}" -i /root/docker-compose.yml
-  yq ".services.netclient += {\"network_mode\": \"host\"}" -i /root/docker-compose.yml
-  yq ".services.netclient.depends_on += [\"netmaker\"]" -i /root/docker-compose.yml
-  yq ".services.netclient += {\"restart\": \"always\"}" -i /root/docker-compose.yml
-  yq ".services.netclient.environment += {\"TOKEN\": \"$TOKEN\"}" -i /root/docker-compose.yml
-  yq ".services.netclient.volumes += [\"/etc/netclient:/etc/netclient\"]" -i /root/docker-compose.yml
-  yq ".services.netclient.cap_add += [\"NET_ADMIN\"]" -i /root/docker-compose.yml
-  yq ".services.netclient.cap_add += [\"NET_RAW\"]" -i /root/docker-compose.yml
-  yq ".services.netclient.cap_add += [\"SYS_MODULE\"]" -i /root/docker-compose.yml
-
-  docker-compose up -d
-
-  echo "waiting for client to become available"
-  wait_seconds 10 
+# usage - displays usage instructions
+usage () {
+    echo "usage: ./nm-quick.sh [-e] [-b buildtype] [-t tag] [-a auto]"
+    echo "  -e      if specified, will install netmaker EE"
+    echo "  -b      type of build; options:"
+	echo "          \"version\" - will install a specific version of Netmaker using remote git and dockerhub"
+	echo "          \"local\": - will install by cloning repo and and building images from git"
+	echo "          \"branch\": - will install a specific branch using remote git and dockerhub"
+    echo "  -t      tag of build; if buildtype=version, tag=version. If builtype=branch or builtype=local, tag=branch"
+    echo "  -a      auto-build; skip prompts and use defaults, if none provided"
+    echo "examples:"
+	echo "          nm-quick.sh -e -b version -t v0.18.0"
+	echo "          nm-quick.sh -e -b local -t feature_v0.17.2_newfeature"	
+	echo "          nm-quick.sh -e -b branch -t develop"
+    exit 1
 }
 
-configure_netclient() {
+while getopts evab:t: flag
+do
+	case "${flag}" in
+		e) 
+			INSTALL_TYPE="ee"
+			;;
+		v) 
+			usage
+			exit 0
+			;;
+		a) 
+			AUTO_BUILD="on"
+			;;			
+		b) 
+			BUILD_TYPE=${OPTARG}
+			if [[ ! "$BUILD_TYPE" =~ ^(version|local|branch)$ ]]; then
+				echo "error: $BUILD_TYPE is invalid"
+				echo "valid options: version, local, branch"
+				usage
+				exit 1
+			fi
+			;;
+		t) 
+			BUILD_TAG=${OPTARG}
+			;;
+	esac
+done
 
-	NODE_ID=$(sudo cat /etc/netclient/nodes.yml | yq -r .netmaker.commonnode.id)
-	echo "join complete. New node ID: $NODE_ID"
-	HOST_ID=$(sudo cat /etc/netclient/netclient.yml | yq -r .host.id)
-	echo "For first join, making host a default"
-	echo "Host ID: $HOST_ID"
-	# set as a default host
-	./nmctl host update $HOST_ID --default
-	sleep 5
-	./nmctl node create_ingress netmaker $NODE_ID
-}
-
-# setup_nmctl - pulls nmctl and makes it executable
-setup_nmctl() {
-
-  # DEV_TEMP - Temporary instructions for testing
-  wget https://fileserver.netmaker.org/testing/nmctl
- 
-  # RELEASE_REPLACE - Use this once release is ready
-  # wget https://github.com/gravitl/netmaker/releases/download/v0.17.1/nmctl
-    chmod +x nmctl
-    echo "using server api.$NETMAKER_BASE_DOMAIN"
-    echo "using master key $MASTER_KEY"
-    ./nmctl context set default --endpoint="https://api.$NETMAKER_BASE_DOMAIN" --master_key="$MASTER_KEY"
-    ./nmctl context use default
-    RESP=$(./nmctl network list)
-    if [[ $RESP == *"unauthorized"* ]]; then
-        echo "Unable to properly configure NMCTL, exiting..."
-        exit 1
-    fi
-}
-
+# print_logo - prints the netmaker logo
 print_logo() {
 cat << "EOF"
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -86,52 +78,7 @@ cat << "EOF"
 EOF
 }
 
-usage () {
-    echo "usage: ./nm-quick.sh [-e] [-b buildtype] [-t tag] [-a auto]"
-    echo "  -e      if specified, will install netmaker EE"
-    echo "  -b      type of build; options:"
-	echo "          \"version\" - will install a specific version of Netmaker using remote git and dockerhub"
-	echo "          \"local\": - will install by cloning repo and and building images from git"
-	echo "          \"branch\": - will install a specific branch using remote git and dockerhub"
-    echo "  -t      tag of build; if buildtype=version, tag=version. If builtype=branch or builtype=local, tag=branch"
-    echo "  -a      auto-build; skip prompts and use defaults, if none provided"
-    echo "examples:"
-	echo "          nm-quick.sh -e -b version -t v0.18.0"
-	echo "          nm-quick.sh -e -b local -t feature_v0.17.2_newfeature"	
-	echo "          nm-quick.sh -e -b branch -t develop"
-    exit 1
-}
-
-get_flags() {
-	while getopts evab:t: flag
-	do
-		case "${flag}" in
-			e) 
-				INSTALL_TYPE="ee"
-				;;
-			v) 
-				usage
-				exit 0
-				;;
-			a) 
-				AUTO_BUILD="on"
-				;;			
-			b) 
-				BUILD_TYPE=${OPTARG}
-				if [[ ! "$BUILD_TYPE" =~ ^(version|local|branch)$ ]]; then
-					echo "error: $BUILD_TYPE is invalid"
-					echo "valid options: version, local, branch"
-					usage
-					exit 1
-				fi
-				;;
-			t) 
-				BUILD_TAG=${OPTARG}
-				;;
-		esac
-	done
-}
-
+# set_buildinfo - sets the information based on script input for how the installation should be run
 set_buildinfo() {
 
 	if [ -z "$BUILD_TYPE" ]; then
@@ -189,6 +136,86 @@ set_buildinfo() {
 
 }
 
+# install_yq - install yq if not present
+install_yq() {
+	if ! command -v yq &> /dev/null; then
+		wget -O /usr/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_$(dpkg --print-architecture)
+		chmod +x /usr/bin/yq
+	fi
+	set +e
+	if ! command -v yq &> /dev/null; then
+		set -e
+		wget -O /usr/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_amd64
+		chmod +x /usr/bin/yq
+	fi
+	set -e
+	if ! command -v yq &> /dev/null; then
+		echo "failed to install yq. Please install yq and try again."
+		echo "https://github.com/mikefarah/yq/#install"
+		exit 1
+	fi	
+}
+
+# setup_netclient - adds netclient to docker-compose
+setup_netclient() {
+
+	yq ".services.netclient += {\"container_name\": \"netclient\"}" -i /root/docker-compose.yml
+	yq ".services.netclient += {\"image\": \"gravitl/netclient:$IMAGE_TAG\"}" -i /root/docker-compose.yml
+	yq ".services.netclient += {\"hostname\": \"netmaker-1\"}" -i /root/docker-compose.yml
+	yq ".services.netclient += {\"network_mode\": \"host\"}" -i /root/docker-compose.yml
+	yq ".services.netclient.depends_on += [\"netmaker\"]" -i /root/docker-compose.yml
+	yq ".services.netclient += {\"restart\": \"always\"}" -i /root/docker-compose.yml
+	yq ".services.netclient.environment += {\"TOKEN\": \"$TOKEN\"}" -i /root/docker-compose.yml
+	yq ".services.netclient.volumes += [\"/etc/netclient:/etc/netclient\"]" -i /root/docker-compose.yml
+	yq ".services.netclient.cap_add += [\"NET_ADMIN\"]" -i /root/docker-compose.yml
+	yq ".services.netclient.cap_add += [\"NET_RAW\"]" -i /root/docker-compose.yml
+	yq ".services.netclient.cap_add += [\"SYS_MODULE\"]" -i /root/docker-compose.yml
+
+	docker-compose up -d
+
+	echo "waiting for client to become available"
+	wait_seconds 10 
+}
+
+# configure_netclient - configures server's netclient as a default host and an ingress gateway
+configure_netclient() {
+
+	NODE_ID=$(sudo cat /etc/netclient/nodes.yml | yq -r .netmaker.commonnode.id)
+	echo "join complete. New node ID: $NODE_ID"
+	HOST_ID=$(sudo cat /etc/netclient/netclient.yml | yq -r .host.id)
+	echo "For first join, making host a default"
+	echo "Host ID: $HOST_ID"
+	# set as a default host
+	set +e
+	nmctl host update $HOST_ID --default
+	sleep 5
+	nmctl node create_ingress netmaker $NODE_ID
+	set -e
+	sleep 5
+	docker restart netclient
+}
+
+# setup_nmctl - pulls nmctl and makes it executable
+setup_nmctl() {
+
+	# DEV_TEMP - Temporary instructions for testing
+	wget -O /usr/bin/nmctl https://fileserver.netmaker.org/testing/nmctl
+
+	# RELEASE_REPLACE - Use this once release is ready
+	# wget https://github.com/gravitl/netmaker/releases/download/v0.17.1/nmctl
+    chmod +x /usr/bin/nmctl
+    echo "using server api.$NETMAKER_BASE_DOMAIN"
+    echo "using master key $MASTER_KEY"
+    nmctl context set default --endpoint="https://api.$NETMAKER_BASE_DOMAIN" --master_key="$MASTER_KEY"
+    nmctl context use default
+    RESP=$(nmctl network list)
+    if [[ $RESP == *"unauthorized"* ]]; then
+        echo "Unable to properly configure NMCTL, exiting..."
+        exit 1
+    fi
+}
+
+# wait_seconds - wait for the specified period of time
 wait_seconds() {(
   for ((a=1; a <= $1; a++))
   do
@@ -197,6 +224,7 @@ wait_seconds() {(
   done
 )}
 
+# confirm - get user input to confirm that they want to perform the next step
 confirm() {(
   if [ "$AUTO_BUILD" = "on" ]; then
 	return 0
@@ -211,6 +239,7 @@ confirm() {(
   done
 )}
 
+# local_install_setup - builds artifacts based on specified branch locally to use in install
 local_install_setup() {(
 	rm -rf netmaker-tmp
 	mkdir netmaker-tmp
@@ -233,12 +262,11 @@ local_install_setup() {(
 	rm -rf netmaker-tmp
 )}
 
-
+# install_dependencies - install necessary packages to run netmaker 
 install_dependencies() {
 	echo "checking dependencies..."
 
 	OS=$(uname)
-
 	if [ -f /etc/debian_version ]; then
 		dependencies="git wireguard wireguard-tools jq docker.io docker-compose"
 		update_cmd='apt update'
@@ -345,6 +373,7 @@ install_dependencies() {
 } 
 set -e
 
+# set_install_vars - sets the variables that will be used throughout installation
 set_install_vars() {
 
 	IP_ADDR=$(dig -4 myip.opendns.com @resolver1.opendns.com +short)
@@ -506,6 +535,7 @@ set_install_vars() {
 
 }
 
+# install_netmaker - sets the config files and starts docker-compose
 install_netmaker() {
 
 	echo "-----------------------------------------------------------------"
@@ -565,6 +595,7 @@ install_netmaker() {
 
 }
 
+# test_connection - tests to make sure Caddy has proper SSL certs
 test_connection() {
 
 	echo "Testing Caddy setup (please be patient, this may take 1-2 minutes)"
@@ -591,26 +622,28 @@ test_connection() {
 
 }
 
+# setup_mesh - sets up a default mesh network on the server
 setup_mesh() {
 
 	wait_seconds 5
 
 	echo "Creating netmaker network (10.101.0.0/16)"
 
-	./nmctl network create --name netmaker --ipv4_addr 10.101.0.0/16
+	nmctl network create --name netmaker --ipv4_addr 10.101.0.0/16
 
 	wait_seconds 5
 
 	echo "Creating netmaker access key"
 
-	./nmctl keys create test1 99999 --name netmaker-key
-	tokenJson=$(./nmctl keys create netmaker 2)
+	nmctl keys create test1 99999 --name netmaker-key
+	tokenJson=$(nmctl keys create netmaker 2)
 	TOKEN=$(jq -r '.accessstring' <<< ${tokenJson})
 
 	wait_seconds 3
 
 }
 
+# print_success - prints a success message upon completion
 print_success() {
 	echo "-----------------------------------------------------------------"
 	echo "-----------------------------------------------------------------"
@@ -620,36 +653,53 @@ print_success() {
 	echo "-----------------------------------------------------------------"
 }
 
-get_flags
-
-set_buildinfo
-
+# 1. print netmaker logo
 print_logo
 
+# 2. setup the build instructions
+set_buildinfo
+
+set +e
+
+# 3. install necessary packages
 install_dependencies
 
+# 4. install yq if necessary
+install_yq
+
+# 5. if running a local build, clone git and build artifacts
 if [ "$BUILD_TYPE" = "local" ]; then
 	local_install_setup
 fi
 
 set -e
 
+# 6. get user input for variables
 set_install_vars
 
+# 7. get and set config files, startup docker-compose
 install_netmaker
 
 set +e
+
+# 8. make sure Caddy certs are working
 test_connection
 
+# 9. install the netmaker CLI
 setup_nmctl
 
+# 10. create a default mesh network for netmaker
 setup_mesh
 
+set -e
+
+# 11. add netclient to docker-compose and start it up
 setup_netclient
 
+# 12. make the netclient a default host and ingress gw
 configure_netclient
 
+# 13. print success message
 print_success
-
 
 # cp -f /etc/skel/.bashrc /root/.bashrc

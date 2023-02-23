@@ -1,0 +1,19 @@
+version: "3.4"
+
+services:
+  netclient:
+    container_name: netclient
+    image: 'gravitl/netclient:v0.18.1'
+    hostname: netmaker-1
+    network_mode: host
+    depends_on:
+      - netmaker
+    restart: always
+    environment:
+      TOKEN: "TOKEN_VALUE"
+    volumes:
+      - /etc/netclient:/etc/netclient
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_MODULE

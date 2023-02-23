@@ -37,13 +37,8 @@ confirm() {
 # install_dependencies - install system dependencies necessary for script to run
 install_dependencies() {
   OS=$(uname)
-  is_ubuntu=$(sudo cat /etc/lsb-release | grep "Ubuntu")
-  if [ "${is_ubuntu}" != "" ]; then
-    dependencies="yq jq wireguard jq docker.io docker-compose"
-    update_cmd='apt update'
-    install_cmd='snap install'
-  elif [ -f /etc/debian_version ]; then
-    dependencies="yq jq wireguard jq docker.io docker-compose"
+  if [ -f /etc/debian_version ]; then
+    dependencies="jq wireguard jq docker.io docker-compose"
     update_cmd='apt update'
     install_cmd='apt install -y'
   elif [ -f /etc/centos-release ]; then
@@ -101,6 +96,26 @@ install_dependencies() {
   echo "-----------------------------------------------------"
   echo "dependency install complete"
   echo "-----------------------------------------------------"
+}
+
+# install_yq - install yq if not present
+install_yq() {
+	if ! command -v yq &> /dev/null; then
+		wget -O /usr/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_$(dpkg --print-architecture)
+		chmod +x /usr/bin/yq
+	fi
+	set +e
+	if ! command -v yq &> /dev/null; then
+		set -e
+		wget -O /usr/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_amd64
+		chmod +x /usr/bin/yq
+	fi
+	set -e
+	if ! command -v yq &> /dev/null; then
+		echo "failed to install yq. Please install yq and try again."
+		echo "https://github.com/mikefarah/yq/#install"
+		exit 1
+	fi	
 }
 
 # collect_server_settings - retrieve server settings from existing compose file
@@ -459,8 +474,15 @@ if [ $(id -u) -ne 0 ]; then
    exit 1
 fi
 
+set +e
+
 echo "...installing dependencies for script"
 install_dependencies
+
+echo "...installing yq if necessary"
+install_yq
+
+set -e
 
 echo "...confirming version is correct"
 check_version
