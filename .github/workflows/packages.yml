@@ -43,4 +43,4 @@ jobs:
             echo ${VERSION}
       - name: apt/rpm
         run: |
-          ssh fileserver.clustercat.com "cd packages/nmcli"; export VERSION=${{ ENV.version }}; export REVISION=0; ./buildall.sh "
+          ssh fileserver.clustercat.com "cd packages/nmcli; export VERSION=${{ ENV.version }}; export REVISION=0; ./buildall.sh "

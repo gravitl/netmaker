@@ -1,4 +1,5 @@
 # generates release assets and uploads to release 
+name: Upload Release Assets
 on:
   workflow_call:
     inputs:
@@ -44,6 +45,6 @@ jobs:
         if: ${{ github.event.inputs.prerelease == 'false'}}
         uses: goreleaser/goreleaser-action@v4
         with:
-          args: release --clean --release-notes release.md f .goreleaser.prerelease.yaml
+          args: release --clean --release-notes release.md -f .goreleaser.prerelease.yaml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

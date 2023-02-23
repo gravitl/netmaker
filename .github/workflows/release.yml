@@ -26,23 +26,23 @@ jobs:
     uses: ./.github/workflows/release-assets.yml
     with:
       version: ${{ github.event.inputs.version }}
-      prerelease: ${{ github.event.inputs.prerelease }}
+      prerelease: ${{ github.event.inputs.prerelease == 'true' }}
 
   docker:
     needs: release-branch
     uses: ./.github/workflows/publish-docker.yml
     with:
-      version: ${{ github.event.inputs.version }}
+      tag: ${{ github.event.inputs.version }}
 
   packages:
-    if: {{ github.event.inputs.prerelease == 'false' }}
+    if: ${{ github.event.inputs.prerelease == 'false' }}
     needs: release-branch
     uses: ./.github/workflows/packages.yml
     with:
       version: ${{ github.event.inputs.version }}
 
   pull-request:
-    if: {{ github.event.inputs.prerelease == 'false' }}
+    if: ${{ github.event.inputs.prerelease == 'false' }}
     needs: release-branch
     uses: ./.github/workflows/pull-request.yml
     with:
