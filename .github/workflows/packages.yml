@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        descripton: "netmaker version"
+        description: "netmaker version"
         required: true
   release:
     types: [released]
@@ -18,7 +18,7 @@ jobs:
   packages:
     runs-on: ubuntu-latest
     steps:
-      -name: setup ssh
+      - name: setup ssh
         run: |
           mkdir -p ~/.ssh/
           echo "$SSH_KEY" > ~/.ssh/id_devops
@@ -32,14 +32,15 @@ jobs:
         env:
           SSH_KEY: ${{ secrets.TESTING_SSH_KEY }}
       - name: set version
-        if [[ -n "${{ github.event.inputs.version }}" ]]; then
-          # remove everything but digits and . for package (deb, rpm, etc) versions
-          VERSION=$(echo ${{ github.event.inputs.version }} | tr -cd '[:digit:].')
-        else
-          VERSION=$(echo ${{ github.ref.name }} | tr -cd '[:digit:].')
-        fi
-          echo "VERSION=${VERSION}" >> $GITHUB_ENV
-          echo ${VERSION}
+        run: |
+          if [[ -n "${{ github.event.inputs.version }}" ]]; then
+            # remove everything but digits and . for package (deb, rpm, etc) versions
+            VERSION=$(echo ${{ github.event.inputs.version }} | tr -cd '[:digit:].')
+          else
+            VERSION=$(echo ${{ github.ref.name }} | tr -cd '[:digit:].')
+          fi
+            echo "VERSION=${VERSION}" >> $GITHUB_ENV
+            echo ${VERSION}
       - name: apt/rpm
         run: |
           ssh fileserver.clustercat.com "cd packages/nmcli"; export VERSION=${{ ENV.version }}; export REVISION=0; ./buildall.sh "
