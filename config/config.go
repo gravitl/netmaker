@@ -42,7 +42,6 @@ type ServerConfig struct {
 	AllowedOrigin         string `yaml:"allowedorigin"`
 	NodeID                string `yaml:"nodeid"`
 	RestBackend           string `yaml:"restbackend"`
-	AgentBackend          string `yaml:"agentbackend"`
 	MessageQueueBackend   string `yaml:"messagequeuebackend"`
 	DNSMode               string `yaml:"dnsmode"`
 	DisableRemoteIPCheck  string `yaml:"disableremoteipcheck"`
@@ -50,9 +49,7 @@ type ServerConfig struct {
 	SQLConn               string `yaml:"sqlconn"`
 	Platform              string `yaml:"platform"`
 	Database              string `yaml:"database"`
-	DefaultNodeLimit      int32  `yaml:"defaultnodelimit"`
 	Verbosity             int32  `yaml:"verbosity"`
-	ServerCheckinInterval int64  `yaml:"servercheckininterval"`
 	AuthProvider          string `yaml:"authprovider"`
 	OIDCIssuer            string `yaml:"oidcissuer"`
 	ClientID              string `yaml:"clientid"`
