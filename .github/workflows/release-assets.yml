@@ -11,13 +11,13 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        descripton: "netmaker version"
+        description: "netmaker version"
         required: true
       prerelease:
         required: true
         type: boolean
         description: "prerelease"
-
+jobs:
   release-assets:
     runs-on: ubuntu-latest
     steps:
