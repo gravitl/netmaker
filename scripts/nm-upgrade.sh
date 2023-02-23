@@ -187,7 +187,7 @@ collect_server_settings() {
 
   STUN_NAME="stun.$SERVER_NAME"
   echo "-----------------------------------------------------"
-  echo "Netmaker v0.18.1 requires a new DNS entry for $STUN_NAME."
+  echo "Netmaker v0.18.2 requires a new DNS entry for $STUN_NAME."
   echo "Please confirm this is added to your DNS provider before continuing"
   echo "(note: this is not required if using an nip.io address)"
   echo "-----------------------------------------------------"
@@ -245,7 +245,7 @@ set_compose() {
   sed -i "s/v0.17.1/testing/g" /root/docker-compose.yml
 
   # RELEASE_REPLACE - Use this once release is ready
-  #sed -i "s/v0.17.1/v0.18.1/g" /root/docker-compose.yml
+  #sed -i "s/v0.17.1/v0.18.2/g" /root/docker-compose.yml
   yq ".services.netmaker.environment.SERVER_NAME = \"$SERVER_NAME\"" -i /root/docker-compose.yml
   yq ".services.netmaker.environment += {\"BROKER_NAME\": \"$BROKER_NAME\"}" -i /root/docker-compose.yml  
   yq ".services.netmaker.environment += {\"STUN_NAME\": \"$STUN_NAME\"}" -i /root/docker-compose.yml  
@@ -416,7 +416,7 @@ join_networks() {
 
           # create an egress if necessary
           if [[ $HAS_EGRESS == "yes" ]]; then
-            echo "Egress is currently unimplemented. Wait for 0.18.1"
+            echo "Egress is currently unimplemented. Wait for 0.18.2"
           fi
 
           echo "HAS INGRESS: $HAS_INGRESS"
@@ -447,7 +447,7 @@ join_networks() {
 cat << "EOF"
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-The Netmaker Upgrade Script: Upgrading to v0.18.1 so you don't have to!
+The Netmaker Upgrade Script: Upgrading to v0.18.2 so you don't have to!
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 EOF
