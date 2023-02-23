@@ -73,6 +73,8 @@ spec:
           value: '*'
         - name: SERVER_BROKER_ENDPOINT
           value: "ws://mq:1883"
+        - name: BROKER_ENDPOINT
+          value: "wss://broker.NETMAKER_BASE_DOMAIN"
         - name: PLATFORM
           value: "Kubernetes"
         - name: VERBOSITY
