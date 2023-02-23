@@ -25,7 +25,7 @@ func PublishPeerUpdate() error {
 	}
 	for _, host := range hosts {
 		host := host
-		err = PublishSingleHostUpdate(&host)
+		err = PublishSingleHostPeerUpdate(&host)
 		if err != nil {
 			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 		}
@@ -33,8 +33,8 @@ func PublishPeerUpdate() error {
 	return err
 }
 
-// PublishSingleHostUpdate --- determines and publishes a peer update to one host
-func PublishSingleHostUpdate(host *models.Host) error {
+// PublishSingleHostPeerUpdate --- determines and publishes a peer update to one host
+func PublishSingleHostPeerUpdate(host *models.Host) error {
 
 	peerUpdate, err := logic.GetPeerUpdateForHost("", host)
 	if err != nil {
@@ -54,13 +54,6 @@ func PublishSingleHostUpdate(host *models.Host) error {
 		return err
 	}
 	return publish(host, fmt.Sprintf("peers/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
-}
-
-// PublishExtPeerUpdate --- publishes a peer update to all the peers of a node
-func PublishExtPeerUpdate(node *models.Node) error {
-
-	go PublishPeerUpdate()
-	return nil
 }
 
 // NodeUpdate -- publishes a node update
@@ -410,7 +403,7 @@ func sendPeers() {
 		if force {
 			host := host
 			logger.Log(2, "sending scheduled peer update (5 min)")
-			err = PublishSingleHostUpdate(&host)
+			err = PublishSingleHostPeerUpdate(&host)
 			if err != nil {
 				logger.Log(1, "error publishing peer updates for host: ", host.ID.String(), " Err: ", err.Error())
 			}

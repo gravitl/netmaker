@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	// ZOMBIE_TIMEOUT - timeout in seconds for checking zombie status
-	ZOMBIE_TIMEOUT = 60
+	// ZOMBIE_TIMEOUT - timeout in hours for checking zombie status
+	ZOMBIE_TIMEOUT = 6
 	// ZOMBIE_DELETE_TIME - timeout in minutes for zombie node deletion
 	ZOMBIE_DELETE_TIME = 10
 )
@@ -86,7 +86,7 @@ func ManageZombies(ctx context.Context, peerUpdate chan *models.Node) {
 			zombies = append(zombies, id)
 		case id := <-newHostZombie:
 			hostZombies = append(hostZombies, id)
-		case <-time.After(time.Second * ZOMBIE_TIMEOUT):
+		case <-time.After(time.Hour * ZOMBIE_TIMEOUT): // run this check 4 times a day
 			logger.Log(3, "checking for zombie nodes")
 			if len(zombies) > 0 {
 				for i := len(zombies) - 1; i >= 0; i-- {
