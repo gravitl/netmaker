@@ -122,6 +122,8 @@ func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpd
 	if host == nil {
 		return models.HostPeerUpdate{}, errors.New("host is nil")
 	}
+	// track which nodes are deleted
+	// after peer calculation, if peer not in list, add delete config of peer
 	hostPeerUpdate := models.HostPeerUpdate{
 		Host:          *host,
 		Server:        servercfg.GetServer(),
@@ -136,6 +138,7 @@ func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpd
 		Peers:      []wgtypes.PeerConfig{},
 		NodePeers:  []wgtypes.PeerConfig{},
 	}
+	var deletedNodes = []models.Node{} // used to track deleted nodes
 	logger.Log(1, "peer update for host ", host.ID.String())
 	peerIndexMap := make(map[string]int)
 	for _, nodeID := range host.Nodes {
@@ -143,7 +146,7 @@ func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpd
 		if err != nil {
 			continue
 		}
-		if !node.Connected || node.Action == models.NODE_DELETE || node.PendingDelete {
+		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE {
 			continue
 		}
 		currentPeers, err := GetNetworkNodes(node.Network)
@@ -160,6 +163,10 @@ func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpd
 			if peer.ID == node.ID {
 				logger.Log(2, "peer update, skipping self")
 				//skip yourself
+				continue
+			}
+			if peer.Action == models.NODE_DELETE || peer.PendingDelete {
+				deletedNodes = append(deletedNodes, peer) // track deleted node for peer update
 				continue
 			}
 			var peerConfig wgtypes.PeerConfig
@@ -221,6 +228,7 @@ func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpd
 					_, extPeerIDAndAddrs, err := getExtPeers(&peer)
 					if err == nil {
 						for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
+							extPeerIdAndAddr := extPeerIdAndAddr
 							nodePeerMap[extPeerIdAndAddr.ID] = models.PeerRouteInfo{
 								PeerAddr: net.IPNet{
 									IP:   net.ParseIP(extPeerIdAndAddr.Address),
@@ -249,9 +257,6 @@ func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpd
 			var nodePeer wgtypes.PeerConfig
 			if _, ok := hostPeerUpdate.HostPeerIDs[peerHost.PublicKey.String()]; !ok {
 				hostPeerUpdate.HostPeerIDs[peerHost.PublicKey.String()] = make(map[string]models.IDandAddr)
-				if peer.Action == models.NODE_DELETE || peer.PendingDelete {
-					peerConfig.Remove = true
-				}
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
 				peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
 				hostPeerUpdate.HostPeerIDs[peerHost.PublicKey.String()][peer.ID.String()] = models.IDandAddr{
@@ -343,6 +348,28 @@ func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpd
 				},
 				GwPeers:     nodePeerMap,
 				EgressGWCfg: node.EgressGatewayRequest,
+			}
+		}
+	}
+
+	// run through delete nodes
+	if len(deletedNodes) > 0 {
+		for i := range deletedNodes {
+			delNode := deletedNodes[i]
+			delHost, err := GetHost(delNode.HostID.String())
+			if err != nil {
+				continue
+			}
+			if _, ok := hostPeerUpdate.HostPeerIDs[delHost.PublicKey.String()]; !ok {
+				var peerConfig = wgtypes.PeerConfig{}
+				peerConfig.PublicKey = delHost.PublicKey
+				peerConfig.Endpoint = &net.UDPAddr{
+					IP:   delHost.EndpointIP,
+					Port: GetPeerListenPort(delHost),
+				}
+				peerConfig.Remove = true
+				peerConfig.AllowedIPs = []net.IPNet{delNode.Address, delNode.Address6}
+				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
 			}
 		}
 	}
