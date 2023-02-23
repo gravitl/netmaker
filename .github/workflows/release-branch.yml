@@ -9,9 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        descripton: "netmaker version"
+        description: "netmaker version"
         required: true
-
+jobs:
   release-branch:
     runs-on: ubuntu-latest
     steps:
