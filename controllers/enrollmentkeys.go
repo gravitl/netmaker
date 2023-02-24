@@ -152,9 +152,10 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	hostExists := false
 	// check if host already exists
-	if ok := logic.HostExists(&newHost); ok {
-		logger.Log(0, "host", newHost.ID.String(), newHost.Name, "attempted to re-register")
+	if hostExists = logic.HostExists(&newHost); hostExists && len(enrollmentKey.Networks) == 0 {
+		logger.Log(0, "host", newHost.ID.String(), newHost.Name, "attempted to re-register with no networks")
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("host already exists"), "badrequest"))
 		return
 	}
@@ -176,13 +177,27 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid enrollment key"), "badrequest"))
 		return
 	}
-	// register host
-	logic.CheckHostPorts(&newHost)
-	if err = logic.CreateHost(&newHost); err != nil {
-		logger.Log(0, "host", newHost.ID.String(), newHost.Name, "failed registration -", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
+	if !hostExists {
+		// register host
+		logic.CheckHostPorts(&newHost)
+		if err = logic.CreateHost(&newHost); err != nil {
+			logger.Log(0, "host", newHost.ID.String(), newHost.Name, "failed registration -", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+	} else {
+		// need to revise the list of networks from key
+		// based on the ones host currently has
+		var networksToAdd = []string{}
+		currentNets := logic.GetHostNetworks(newHost.ID.String())
+		for _, newNet := range enrollmentKey.Networks {
+			if !logic.StringSliceContains(currentNets, newNet) {
+				networksToAdd = append(networksToAdd, newNet)
+			}
+		}
+		enrollmentKey.Networks = networksToAdd
 	}
+
 	// ready the response
 	server := servercfg.GetServerInfo()
 	server.TrafficKey = key

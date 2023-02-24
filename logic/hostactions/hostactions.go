@@ -22,6 +22,7 @@ func AddAction(hu models.HostUpdate) {
 }
 
 // GetAction - gets an action if exists
+// TODO: may need to move to DB rather than sync map for HA
 func GetAction(id string) *models.HostUpdate {
 	currentRecords, ok := nodeActionHandler.Load(id)
 	if !ok {
@@ -35,9 +36,3 @@ func GetAction(id string) *models.HostUpdate {
 	}
 	return nil
 }
-
-// [hostID][NodeAction1, NodeAction2]
-// host receives nodeaction1
-// host responds with ACK or something
-// mq then sends next action in list, NodeAction2
-// host responds, list is empty, finished
