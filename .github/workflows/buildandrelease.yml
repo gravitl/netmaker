@@ -13,61 +13,38 @@ jobs:
   version:
     runs-on: ubuntu-latest
     outputs:
-      tag: ${{ steps.echo.outputs.tag }}
-      version: ${{ steps.echo.outputs.version }}
+      tag: ${{ steps.version.outputs.package_version }}
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Get Version Number
+        id: version
         run: |
           if [[ -n "${{ github.event.inputs.version }}" ]]; then
             NETMAKER_VERSION=${{ github.event.inputs.version }}
           else
             NETMAKER_VERSION=$(curl -fsSL https://api.github.com/repos/gravitl/netmaker/tags | grep 'name' | head -1 | cut -d'"' -f4)
           fi
-          echo "NETMAKER_VERSION=${NETMAKER_VERSION}" >> $GITHUB_ENV
+          echo "VERSION=${NETMAKER_VERSION}" >> $GITHUB_OUTPUT
           # remove everything but digits and . for package (deb, rpm, etc) versions
           PACKAGE_VERSION=$(echo ${NETMAKER_VERSION} | tr -cd '[:digit:].')
-          echo "PACKAGE_VERSION=${PACKAGE_VERSION}" >> $GITHUB_ENV
-      - name: Echo
-        id: echo
-        run: |
-          echo ${{ env.NETMAKER_VERSION }}
-          echo ${{ env.PACKAGE_VERSION }}
-          if [[ -z ${{ env.NETMAKER_VERSION }} || -z ${{ env.PACKAGE_VERSION }} ]]
-          then
-            exit 1
-          fi
-          echo "::set-output name=tag::${{ env.NETMAKER_VERSION }}"
-          echo "::set-output name=version::${{ env.PACKAGE_VERSION }}"
-  netmaker:
+          echo "PACKAGE_VERSION=${PACKAGE_VERSION}" >> $GITHUB_OUTPUT
+  netmaker-nmctl:
     runs-on: ubuntu-latest
     needs: version
     steps:
-      - name: set variables
-        run: |
-          echo ${{ needs.version.outputs.tag }} ${{ needs.version.outputs.version }}
-          TAG=${{needs.version.outputs.tag}}
-          VERSION=${{needs.version.outputs.version}}
-          if [[ -z ${VERSION} || -z ${TAG} ]]; then
-            exit 1
-          fi
-          echo "NETMAKER_VERSION=${TAG}"  >> $GITHUB_ENV
-          echo "PACKAGE_VERSION=${VERSION}" >> $GITHUB_ENV
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          ref: release_${{ needs.version.outputs.version }}
+          fetch-depth: 0
+      - run: git fetch --force --tags
       - name: Setup go
         uses: actions/setup-go@v3
         with:
           go-version: 1.19
-      - name: Build
-        run: |
-          env CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -ldflags="-X 'main.version=${NETMAKER_VERSION}'" -o build/netmaker main.go
-      - name: Upload netmaker x86 to Release
-        uses: svenstaro/upload-release-action@v2
+      - name: GoReleaser
+        uses: goreleaser/goreleaser-action@v4
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: build/netmaker
-          tag: ${{ env.NETMAKER_VERSION }}
-          overwrite: true
-          prerelease: true
-          asset_name: netmaker
-
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

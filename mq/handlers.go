@@ -238,11 +238,10 @@ func UpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 				logger.Log(2, "updating peers after node", currentNode.ID.String(), currentNode.Network, "detected connectivity issues")
 				host, err := logic.GetHost(currentNode.HostID.String())
 				if err == nil {
-					if err = PublishSingleHostUpdate(host); err != nil {
+					if err = PublishSingleHostPeerUpdate(host, nil); err != nil {
 						logger.Log(0, "failed to publish update after failover peer change for node", currentNode.ID.String(), currentNode.Network)
 					}
 				}
-
 			}
 
 			logger.Log(1, "updated node metrics", id)

@@ -205,7 +205,7 @@ type TrafficKeys struct {
 
 // NodeGet - struct for a single node get response
 type NodeGet struct {
-	Node         LegacyNode           `json:"node" bson:"node" yaml:"node"`
+	Node         Node                 `json:"node" bson:"node" yaml:"node"`
 	Host         Host                 `json:"host" yaml:"host"`
 	Peers        []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
 	HostPeers    []wgtypes.PeerConfig `json:"host_peers" bson:"host_peers" yaml:"host_peers"`

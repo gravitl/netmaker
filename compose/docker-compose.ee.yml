@@ -3,7 +3,7 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.18.0-ee
+    image: gravitl/netmaker:REPLACE_SERVER_IMAGE_TAG
     restart: always
     volumes:
       - dnsconfig:/root/config/dnsconfig
@@ -26,8 +26,8 @@ services:
       MQ_HOST: "mq"
       MQ_PORT: "443"
       MQ_SERVER_PORT: "1883"
-      MQ_PASSWORD: "REPLACE_MQ_PASSWORD"
       MQ_USERNAME: "REPLACE_MQ_USERNAME"
+      MQ_PASSWORD: "REPLACE_MQ_PASSWORD"
       STUN_PORT: "3478"
       VERBOSITY: "1"
       METRICS_EXPORTER: "on"
@@ -37,7 +37,7 @@ services:
       - "3478:3478/udp"
   netmaker-ui:
     container_name: netmaker-ui
-    image: gravitl/netmaker-ui:v0.18.0
+    image: gravitl/netmaker-ui:REPLACE_UI_IMAGE_TAG
     depends_on:
       - netmaker
     links:
