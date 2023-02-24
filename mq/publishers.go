@@ -25,7 +25,7 @@ func PublishPeerUpdate() error {
 	}
 	for _, host := range hosts {
 		host := host
-		err = PublishSingleHostPeerUpdate(&host)
+		err = PublishSingleHostPeerUpdate(&host, nil)
 		if err != nil {
 			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 		}
@@ -33,10 +33,31 @@ func PublishPeerUpdate() error {
 	return err
 }
 
-// PublishSingleHostPeerUpdate --- determines and publishes a peer update to one host
-func PublishSingleHostPeerUpdate(host *models.Host) error {
+// PublishDeletedNodePeerUpdate --- determines and publishes a peer update
+// to all the hosts with a deleted node to account for
+func PublishDeletedNodePeerUpdate(delNode *models.Node) error {
+	if !servercfg.IsMessageQueueBackend() {
+		return nil
+	}
 
-	peerUpdate, err := logic.GetPeerUpdateForHost("", host)
+	hosts, err := logic.GetAllHosts()
+	if err != nil {
+		logger.Log(1, "err getting all hosts", err.Error())
+		return err
+	}
+	for _, host := range hosts {
+		host := host
+		if err = PublishSingleHostPeerUpdate(&host, delNode); err != nil {
+			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+		}
+	}
+	return err
+}
+
+// PublishSingleHostPeerUpdate --- determines and publishes a peer update to one host
+func PublishSingleHostPeerUpdate(host *models.Host, deletedNode *models.Node) error {
+
+	peerUpdate, err := logic.GetPeerUpdateForHost("", host, deletedNode)
 	if err != nil {
 		return err
 	}
@@ -403,7 +424,7 @@ func sendPeers() {
 		if force {
 			host := host
 			logger.Log(2, "sending scheduled peer update (5 min)")
-			err = PublishSingleHostPeerUpdate(&host)
+			err = PublishSingleHostPeerUpdate(&host, nil)
 			if err != nil {
 				logger.Log(1, "error publishing peer updates for host: ", host.ID.String(), " Err: ", err.Error())
 			}

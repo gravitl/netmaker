@@ -41,7 +41,7 @@ func GetProxyUpdateForHost(host *models.Host) (models.ProxyManagerPayload, error
 		relayPeersMap := make(map[string]models.RelayedConf)
 		for _, relayedHost := range relayedHosts {
 			relayedHost := relayedHost
-			payload, err := GetPeerUpdateForHost("", &relayedHost)
+			payload, err := GetPeerUpdateForHost("", &relayedHost, nil)
 			if err == nil {
 				relayedEndpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayedHost.EndpointIP, GetPeerListenPort(&relayedHost)))
 				if udpErr == nil {
@@ -118,7 +118,7 @@ func GetProxyUpdateForHost(host *models.Host) (models.ProxyManagerPayload, error
 }
 
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
-func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpdate, error) {
+func GetPeerUpdateForHost(network string, host *models.Host, deletedNode *models.Node) (models.HostPeerUpdate, error) {
 	if host == nil {
 		return models.HostPeerUpdate{}, errors.New("host is nil")
 	}
@@ -139,6 +139,9 @@ func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpd
 		NodePeers:  []wgtypes.PeerConfig{},
 	}
 	var deletedNodes = []models.Node{} // used to track deleted nodes
+	if deletedNode != nil {
+		deletedNodes = append(deletedNodes, *deletedNode)
+	}
 	logger.Log(1, "peer update for host ", host.ID.String())
 	peerIndexMap := make(map[string]int)
 	for _, nodeID := range host.Nodes {
