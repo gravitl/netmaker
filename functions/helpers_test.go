@@ -3,6 +3,7 @@ package functions
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"testing"
 
 	"github.com/gravitl/netmaker/database"
@@ -39,6 +40,8 @@ func TestMain(m *testing.M) {
 			logger.Log(3, "received node update", update.Action)
 		}
 	}()
+	os.Exit(m.Run())
+
 }
 
 func TestNetworkExists(t *testing.T) {

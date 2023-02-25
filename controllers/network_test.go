@@ -40,6 +40,8 @@ func TestMain(m *testing.M) {
 			logger.Log(3, "received node update", update.Action)
 		}
 	}()
+	os.Exit(m.Run())
+
 }
 
 func TestCreateNetwork(t *testing.T) {

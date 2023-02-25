@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"net"
+	"os"
 	"testing"
 
 	"github.com/google/uuid"
@@ -30,6 +31,7 @@ func TestMain(m *testing.M) {
 			logger.Log(3, "received node update", update.Action)
 		}
 	}()
+	os.Exit(m.Run())
 }
 
 func TestCheckPorts(t *testing.T) {
