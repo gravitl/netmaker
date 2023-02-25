@@ -4,4 +4,4 @@
 
 ## whats fixed
 
-## know issues
+## known issues
