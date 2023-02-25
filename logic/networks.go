@@ -603,6 +603,10 @@ func networkNodesUpdateAction(networkName string, action string) error {
 		var node models.Node
 		err := json.Unmarshal([]byte(value), &node)
 		if err != nil {
+			if strings.Contains(err.Error(), "parsing time") {
+				// ignore legacy nodes
+				continue
+			}
 			fmt.Println("error in node address assignment!")
 			return err
 		}
