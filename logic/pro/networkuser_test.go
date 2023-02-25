@@ -35,7 +35,7 @@ func TestNetworkUserLogic(t *testing.T) {
 	}
 
 	clients := []models.ExtClient{
-		models.ExtClient{
+		{
 			ClientID: "coolclient",
 		},
 	}
