@@ -151,8 +151,12 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 				if err = HostUpdate(hu); err != nil {
 					logger.Log(0, "failed to send new node to host", hostUpdate.Host.Name, currentHost.ID.String(), err.Error())
 					return
+				} else {
+					if err = PublishSingleHostPeerUpdate(currentHost, nil); err != nil {
+						logger.Log(0, "failed peers publish after join acknowledged", hostUpdate.Host.Name, currentHost.ID.String(), err.Error())
+						return
+					}
 				}
-				sendPeerUpdate = true
 			}
 		case models.UpdateHost:
 			sendPeerUpdate = logic.UpdateHostFromClient(&hostUpdate.Host, currentHost)

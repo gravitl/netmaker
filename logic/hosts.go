@@ -237,6 +237,11 @@ func AssociateNodeToHost(n *models.Node, h *models.Host) error {
 		return err
 	}
 	h.Nodes = append(h.Nodes, n.ID.String())
+	currentHost, err := GetHost(h.ID.String())
+	if err != nil {
+		return err
+	}
+	h.HostPass = currentHost.HostPass
 	return UpsertHost(h)
 }
 
