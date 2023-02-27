@@ -100,8 +100,3 @@ func Keepalive(ctx context.Context) {
 func IsConnected() bool {
 	return mqclient != nil && mqclient.IsConnected()
 }
-
-// CloseClient - function to close the mq connection from server
-func CloseClient() {
-	mqclient.Disconnect(250)
-}

@@ -36,16 +36,12 @@ func main() {
 	setupConfig(*absoluteConfigPath)
 	servercfg.SetVersion(version)
 	fmt.Println(models.RetrieveLogo()) // print the logo
-	initialize()                       // initial db and acls
+	// fmt.Println(models.ProLogo())
+	initialize() // initial db and acls; gen cert if required
 	setGarbageCollection()
 	setVerbosity()
 	defer database.CloseDB()
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
-	defer stop()
-	var waitGroup sync.WaitGroup
-	startControllers(&waitGroup, ctx) // start the api endpoint and mq and stun
-	<-ctx.Done()
-	waitGroup.Wait()
+	startControllers() // start the api endpoint and mq
 }
 
 func setupConfig(absoluteConfigPath string) {
@@ -114,7 +110,8 @@ func initialize() { // Client Mode Prereq Check
 	}
 }
 
-func startControllers(wg *sync.WaitGroup, ctx context.Context) {
+func startControllers() {
+	var waitnetwork sync.WaitGroup
 	if servercfg.IsDNSMode() {
 		err := logic.SetDNS()
 		if err != nil {
@@ -130,13 +127,13 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 				logger.FatalLog("Unable to Set host. Exiting...", err.Error())
 			}
 		}
-		wg.Add(1)
-		go controller.HandleRESTRequests(wg, ctx)
+		waitnetwork.Add(1)
+		go controller.HandleRESTRequests(&waitnetwork)
 	}
 	//Run MessageQueue
 	if servercfg.IsMessageQueueBackend() {
-		wg.Add(1)
-		go runMessageQueue(wg, ctx)
+		waitnetwork.Add(1)
+		go runMessageQueue(&waitnetwork)
 	}
 
 	if !servercfg.IsRestBackend() && !servercfg.IsMessageQueueBackend() {
@@ -144,17 +141,34 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 	}
 
 	// starts the stun server
-	wg.Add(1)
-	go stunserver.Start(wg, ctx)
+	waitnetwork.Add(1)
+	go stunserver.Start(&waitnetwork)
+	if servercfg.IsProxyEnabled() {
+
+		waitnetwork.Add(1)
+		go func() {
+			defer waitnetwork.Done()
+			_, cancel := context.WithCancel(context.Background())
+			waitnetwork.Add(1)
+
+			//go nmproxy.Start(ctx, logic.ProxyMgmChan, servercfg.GetAPIHost())
+			quit := make(chan os.Signal, 1)
+			signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
+			<-quit
+			cancel()
+		}()
+	}
+
+	waitnetwork.Wait()
 }
 
 // Should we be using a context vice a waitgroup????????????
-func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
+func runMessageQueue(wg *sync.WaitGroup) {
 	defer wg.Done()
 	brokerHost, secure := servercfg.GetMessageQueueEndpoint()
 	logger.Log(0, "connecting to mq broker at", brokerHost, "with TLS?", fmt.Sprintf("%v", secure))
 	mq.SetupMQTT()
-	defer mq.CloseClient()
+	ctx, cancel := context.WithCancel(context.Background())
 	go mq.Keepalive(ctx)
 	go func() {
 		peerUpdate := make(chan *models.Node)
@@ -165,7 +179,11 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 			}
 		}
 	}()
-	<-ctx.Done()
+	go logic.PurgePendingNodes(ctx)
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
+	<-quit
+	cancel()
 	logger.Log(0, "Message Queue shutting down")
 }
 

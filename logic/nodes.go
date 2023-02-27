@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -418,6 +419,35 @@ func updateProNodeACLS(node *models.Node) error {
 		return err
 	}
 	return nil
+}
+
+func PurgePendingNodes(ctx context.Context) {
+	ticker := time.NewTicker(NodePurgeCheckTime)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			nodes, err := GetAllNodes()
+			if err != nil {
+				logger.Log(0, "PurgePendingNodes failed to retrieve nodes", err.Error())
+				continue
+			}
+			for _, node := range nodes {
+				if node.PendingDelete {
+					modified := node.LastModified
+					if time.Since(modified) > NodePurgeTime {
+						if err := DeleteNode(&node, true); err != nil {
+							logger.Log(0, "failed to purge node", node.ID.String(), err.Error())
+						} else {
+							logger.Log(0, "purged node ", node.ID.String())
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 // createNode - creates a node in database
