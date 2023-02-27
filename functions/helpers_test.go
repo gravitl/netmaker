@@ -55,7 +55,7 @@ func TestNetworkExists(t *testing.T) {
 	assert.Nil(t, err)
 	exists, err = logic.NetworkExists(testNetwork.NetID)
 	assert.Nil(t, err)
-	assert.NotNil(t, exists)
+	assert.True(t, exists)
 
 	err = database.DeleteRecord(database.NETWORKS_TABLE_NAME, testNetwork.NetID)
 	assert.Nil(t, err)
