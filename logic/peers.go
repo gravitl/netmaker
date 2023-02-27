@@ -168,10 +168,14 @@ func GetPeerUpdateForHost(network string, host *models.Host, deletedNode *models
 				//skip yourself
 				continue
 			}
-			if peer.Action == models.NODE_DELETE || peer.PendingDelete {
+			if peer.Action == models.NODE_DELETE ||
+				peer.PendingDelete ||
+				!peer.Connected ||
+				!nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) {
 				deletedNodes = append(deletedNodes, peer) // track deleted node for peer update
 				continue
 			}
+
 			var peerConfig wgtypes.PeerConfig
 			peerHost, err := GetHost(peer.HostID.String())
 			if err != nil {
@@ -179,16 +183,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, deletedNode *models
 				return models.HostPeerUpdate{}, err
 			}
 
-			if !peer.Connected {
-				logger.Log(2, "peer update, skipping unconnected node", peer.ID.String())
-				//skip unconnected nodes
-				continue
-			}
-			if !nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) {
-				log.Println("peer update, skipping node for acl")
-				//skip if not permitted by acl
-				continue
-			}
 			peerConfig.PublicKey = peerHost.PublicKey
 			peerConfig.PersistentKeepaliveInterval = &peer.PersistentKeepalive
 			peerConfig.ReplaceAllowedIPs = true
