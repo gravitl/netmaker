@@ -230,7 +230,7 @@ func GetPublicBrokerEndpoint() string {
 	if os.Getenv("BROKER_ENDPOINT") != "" {
 		return os.Getenv("BROKER_ENDPOINT")
 	} else {
-		return config.Config.Server.BrokerEndpoint
+		return config.Config.Server.Broker
 	}
 }
 
@@ -243,8 +243,8 @@ func GetMessageQueueEndpoint() (string, bool) {
 		host = config.Config.Server.ServerBrokerEndpoint
 	} else if os.Getenv("BROKER_ENDPOINT") != "" {
 		host = os.Getenv("BROKER_ENDPOINT")
-	} else if config.Config.Server.BrokerEndpoint != "" {
-		host = config.Config.Server.BrokerEndpoint
+	} else if config.Config.Server.Broker != "" {
+		host = config.Config.Server.Broker
 	} else {
 		host += ":1883" // default
 	}

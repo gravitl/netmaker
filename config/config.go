@@ -36,7 +36,7 @@ type ServerConfig struct {
 	APIConnString         string `yaml:"apiconn"`
 	APIHost               string `yaml:"apihost"`
 	APIPort               string `yaml:"apiport"`
-	BrokerEndpoint        string `yaml:"brokerendpoint"`
+	Broker                string `yam:"broker"`
 	ServerBrokerEndpoint  string `yaml:"serverbrokerendpoint"`
 	BrokerType            string `yaml:"brokertype"`
 	EmqxRestEndpoint      string `yaml:"emqxrestendpoint"`
@@ -66,7 +66,6 @@ type ServerConfig struct {
 	Telemetry             string `yaml:"telemetry"`
 	HostNetwork           string `yaml:"hostnetwork"`
 	Server                string `yaml:"server"`
-	Broker                string `yam:"broker"`
 	PublicIPService       string `yaml:"publicipservice"`
 	MQPassword            string `yaml:"mqpassword"`
 	MQUserName            string `yaml:"mqusername"`
