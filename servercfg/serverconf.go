@@ -97,6 +97,7 @@ func GetServerInfo() models.ServerConfig {
 	cfg.CoreDNSAddr = GetCoreDNSAddr()
 	cfg.APIPort = GetAPIPort()
 	cfg.DNSMode = "off"
+	cfg.Broker = GetPublicBrokerEndpoint()
 	if IsDNSMode() {
 		cfg.DNSMode = "on"
 	}
@@ -222,6 +223,15 @@ func GetCoreDNSAddr() string {
 		addr = config.Config.Server.CoreDNSAddr
 	}
 	return addr
+}
+
+// GetPublicBrokerEndpoint - returns the public broker endpoint which shall be used by netclient
+func GetPublicBrokerEndpoint() string {
+	if os.Getenv("BROKER_ENDPOINT") != "" {
+		return os.Getenv("BROKER_ENDPOINT")
+	} else {
+		return config.Config.Server.BrokerEndpoint
+	}
 }
 
 // GetMessageQueueEndpoint - gets the message queue endpoint
