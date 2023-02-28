@@ -30,5 +30,5 @@ archives:
   - format: binary
     name_template: '{{ .Binary }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ with .Mips }}_{{ . }}{{ end }}'
 release:
-  prerelease: false
+  prerelease: true
     
