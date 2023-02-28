@@ -152,6 +152,13 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 				return
 			}
 		case models.DeleteHost:
+			if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
+				// delete EMQX credentials for host
+				if err := DeleteEmqxUser(currentHost.ID.String()); err != nil {
+					logger.Log(0, "failed to remove host credentials from EMQX: ", currentHost.ID.String(), err.Error())
+					return
+				}
+			}
 			if err := logic.DisassociateAllNodesFromHost(currentHost.ID.String()); err != nil {
 				logger.Log(0, "failed to delete all nodes of host: ", currentHost.ID.String(), err.Error())
 				return
