@@ -248,7 +248,7 @@ func GetMessageQueueEndpoint() (string, bool) {
 	} else {
 		host += ":1883" // default
 	}
-	return host, strings.Contains(host, "wss") || strings.Contains(host, "ssl")
+	return host, strings.Contains(host, "wss") || strings.Contains(host, "ssl") || strings.Contains(host, "mqtts")
 }
 
 // GetBrokerType - returns the type of MQ broker
