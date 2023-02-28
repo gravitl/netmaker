@@ -164,31 +164,31 @@ type EgressGatewayRequest struct {
 
 // RelayRequest - relay request struct
 type RelayRequest struct {
-	NodeID     string   `json:"nodeid" bson:"nodeid"`
-	NetID      string   `json:"netid" bson:"netid"`
-	RelayAddrs []string `json:"relayaddrs" bson:"relayaddrs"`
+	NodeID     string   `json:"nodeid" bson:"nodeid" yaml:"nodeid"`
+	NetID      string   `json:"netid" bson:"netid" yaml:"netid"`
+	RelayAddrs []string `json:"relayaddrs" bson:"relayaddrs" yaml:"relayaddrs"`
 }
 
 // HostRelayRequest - struct for host relay creation
 type HostRelayRequest struct {
-	HostID       string   `json:"host_id"`
-	RelayedHosts []string `json:"relayed_hosts"`
+	HostID       string   `json:"host_id" yaml:"host_id"`
+	RelayedHosts []string `json:"relayed_hosts" yaml:"relayed_hosts"`
 }
 
 // ServerUpdateData - contains data to configure server
 // and if it should set peers
 type ServerUpdateData struct {
-	UpdatePeers bool       `json:"updatepeers" bson:"updatepeers"`
-	Node        LegacyNode `json:"servernode" bson:"servernode"`
+	UpdatePeers bool       `json:"updatepeers" bson:"updatepeers" yaml:"updatepeers"`
+	Node        LegacyNode `json:"servernode" bson:"servernode" yaml:"servernode"`
 }
 
 // Telemetry - contains UUID of the server and timestamp of last send to posthog
 // also contains assymetrical encryption pub/priv keys for any server traffic
 type Telemetry struct {
-	UUID           string `json:"uuid" bson:"uuid"`
-	LastSend       int64  `json:"lastsend" bson:"lastsend"`
-	TrafficKeyPriv []byte `json:"traffickeypriv" bson:"traffickeypriv"`
-	TrafficKeyPub  []byte `json:"traffickeypub" bson:"traffickeypub"`
+	UUID           string `json:"uuid" bson:"uuid" yaml:"uuid"`
+	LastSend       int64  `json:"lastsend" bson:"lastsend" yaml:"uuid"`
+	TrafficKeyPriv []byte `json:"traffickeypriv" bson:"traffickeypriv" yaml:"uuid"`
+	TrafficKeyPub  []byte `json:"traffickeypub" bson:"traffickeypub" yaml:"uuid"`
 }
 
 // ServerAddr - to pass to clients to tell server addresses and if it's the leader or not
@@ -206,7 +206,7 @@ type TrafficKeys struct {
 // NodeGet - struct for a single node get response
 type NodeGet struct {
 	Node         Node                 `json:"node" bson:"node" yaml:"node"`
-	Host         Host                 `json:"host" yaml:"host"`
+	Host         Host                 `json:"host" bson:"host" yaml:"host"`
 	Peers        []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
 	HostPeers    []wgtypes.PeerConfig `json:"host_peers" bson:"host_peers" yaml:"host_peers"`
 	ServerConfig ServerConfig         `json:"serverconfig" bson:"serverconfig" yaml:"serverconfig"`
@@ -216,27 +216,27 @@ type NodeGet struct {
 // NodeJoinResponse data returned to node in response to join
 type NodeJoinResponse struct {
 	Node         Node                 `json:"node" bson:"node" yaml:"node"`
-	Host         Host                 `json:"host" yaml:"host"`
+	Host         Host                 `json:"host" bson:"host" yaml:"host"`
 	ServerConfig ServerConfig         `json:"serverconfig" bson:"serverconfig" yaml:"serverconfig"`
 	Peers        []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
 }
 
 // ServerConfig - struct for dealing with the server information for a netclient
 type ServerConfig struct {
-	CoreDNSAddr string `yaml:"corednsaddr"`
-	API         string `yaml:"api"`
-	APIPort     string `yaml:"apiport"`
-	DNSMode     string `yaml:"dnsmode"`
-	Version     string `yaml:"version"`
-	MQPort      string `yaml:"mqport"`
-	MQUserName  string `yaml:"mq_username"`
-	MQPassword  string `yaml:"mq_password"`
-	Server      string `yaml:"server"`
-	Broker      string `yaml:"broker"`
-	Is_EE       bool   `yaml:"isee"`
-	StunPort    int    `yaml:"stun_port"`
-	StunHost    string `yaml:"stun_host"`
-	TrafficKey  []byte `yaml:"traffickey"`
+	CoreDNSAddr string `json:"corednsaddr" bson:"corednsaddr" yaml:"corednsaddr"`
+	API         string `json:"api" bson:"api" yaml:"api"`
+	APIPort     string `json:"apiport" bson:"apiport" yaml:"apiport"`
+	DNSMode     string `json:"dnsmode" bson:"dnsmode" yaml:"dnsmode"`
+	Version     string `json:"version" bson:"version" yaml:"version"`
+	MQPort      string `json:"mqport" bson:"mqport" yaml:"mqport"`
+	MQUserName  string `json:"mq_username" bson:"mq_username" yaml:"mq_username"`
+	MQPassword  string `json:"mq_password" bson:"mq_password" yaml:"mq_password"`
+	Server      string `json:"server" bson:"server" yaml:"server"`
+	Broker      string `json:"broker" bson:"broker" yaml:"broker"`
+	Is_EE       bool   `json:"isee" bson:"isee" yaml:"isee"`
+	StunPort    int    `json:"stun_port" bson:"stun_port" yaml:"stun_port"`
+	StunHost    string `json:"stun_host" bson:"stun_host" yaml:"stun_host"`
+	TrafficKey  []byte `json:"traffickey" bson:"traffickey" yaml:"traffickey"`
 }
 
 // User.NameInCharset - returns if name is in charset below or not
@@ -257,7 +257,7 @@ type ServerIDs struct {
 
 // JoinData - struct to hold data required for node to join a network on server
 type JoinData struct {
-	Host Host   `json:"host" yaml:"host"`
-	Node Node   `json:"node" yaml:"node"`
-	Key  string `json:"key" yaml:"key"`
+	Host Host   `json:"host" bson:"host" yaml:"host"`
+	Node Node   `json:"node" bson:"node" yaml:"node"`
+	Key  string `json:"key" bson:"key" yaml:"key"`
 }
