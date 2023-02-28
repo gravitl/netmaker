@@ -1,0 +1,49 @@
+# creates a release from develop
+# creates release branch, generates release assets, publishes docker image and copies release.md to release
+# if formal release, linux packages are generated and a PR from release branch to master is created 
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "new version number"
+        required: true
+      prerelease:
+        required: true
+        type: boolean
+        description: Is this a pre-release
+
+jobs:
+
+  release-branch:
+    uses: ./.github/workflows/release-branch.yml
+    with:
+      version: ${{ github.event.inputs.version }}
+  
+  release-assets:
+    needs: release-branch
+    uses: ./.github/workflows/release-assets.yml
+    with:
+      version: ${{ github.event.inputs.version }}
+      prerelease: ${{ github.event.inputs.prerelease == 'true' }}
+
+  docker:
+    needs: release-branch
+    uses: ./.github/workflows/publish-docker.yml
+    with:
+      tag: ${{ github.event.inputs.version }}
+
+  packages:
+    if: ${{ github.event.inputs.prerelease == 'false' }}
+    needs: release-branch
+    uses: ./.github/workflows/packages.yml
+    with:
+      version: ${{ github.event.inputs.version }}
+
+  pull-request:
+    if: ${{ github.event.inputs.prerelease == 'false' }}
+    needs: release-branch
+    uses: ./.github/workflows/pull-request.yml
+    with:
+      version: ${{ github.event.inputs.version }}

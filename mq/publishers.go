@@ -25,7 +25,7 @@ func PublishPeerUpdate() error {
 	}
 	for _, host := range hosts {
 		host := host
-		err = PublishSingleHostUpdate(&host)
+		err = PublishSingleHostPeerUpdate(&host, nil)
 		if err != nil {
 			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 		}
@@ -33,12 +33,36 @@ func PublishPeerUpdate() error {
 	return err
 }
 
-// PublishSingleHostUpdate --- determines and publishes a peer update to one host
-func PublishSingleHostUpdate(host *models.Host) error {
+// PublishDeletedNodePeerUpdate --- determines and publishes a peer update
+// to all the hosts with a deleted node to account for
+func PublishDeletedNodePeerUpdate(delNode *models.Node) error {
+	if !servercfg.IsMessageQueueBackend() {
+		return nil
+	}
 
-	peerUpdate, err := logic.GetPeerUpdateForHost("", host)
+	hosts, err := logic.GetAllHosts()
+	if err != nil {
+		logger.Log(1, "err getting all hosts", err.Error())
+		return err
+	}
+	for _, host := range hosts {
+		host := host
+		if err = PublishSingleHostPeerUpdate(&host, delNode); err != nil {
+			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+		}
+	}
+	return err
+}
+
+// PublishSingleHostPeerUpdate --- determines and publishes a peer update to one host
+func PublishSingleHostPeerUpdate(host *models.Host, deletedNode *models.Node) error {
+
+	peerUpdate, err := logic.GetPeerUpdateForHost("", host, deletedNode)
 	if err != nil {
 		return err
+	}
+	if len(peerUpdate.Peers) == 0 { // no peers to send
+		return nil
 	}
 	if host.ProxyEnabled {
 		proxyUpdate, err := logic.GetProxyUpdateForHost(host)
@@ -54,13 +78,6 @@ func PublishSingleHostUpdate(host *models.Host) error {
 		return err
 	}
 	return publish(host, fmt.Sprintf("peers/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
-}
-
-// PublishExtPeerUpdate --- publishes a peer update to all the peers of a node
-func PublishExtPeerUpdate(node *models.Node) error {
-
-	go PublishPeerUpdate()
-	return nil
 }
 
 // NodeUpdate -- publishes a node update
@@ -388,7 +405,7 @@ func getCustomDNS(network string) []models.DNSUpdate {
 func sendPeers() {
 
 	hosts, err := logic.GetAllHosts()
-	if err != nil {
+	if err != nil && len(hosts) > 0 {
 		logger.Log(1, "error retrieving networks for keepalive", err.Error())
 	}
 
@@ -410,7 +427,7 @@ func sendPeers() {
 		if force {
 			host := host
 			logger.Log(2, "sending scheduled peer update (5 min)")
-			err = PublishSingleHostUpdate(&host)
+			err = PublishSingleHostPeerUpdate(&host, nil)
 			if err != nil {
 				logger.Log(1, "error publishing peer updates for host: ", host.ID.String(), " Err: ", err.Error())
 			}

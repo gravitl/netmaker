@@ -2,6 +2,7 @@ package mq
 
 import (
 	"context"
+	"log"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -38,6 +39,17 @@ func setMqOptions(user, password string, opts *mqtt.ClientOptions) {
 
 // SetupMQTT creates a connection to broker and return client
 func SetupMQTT() {
+	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
+		time.Sleep(10 * time.Second) // wait for the REST endpoint to be ready
+		// setup authenticator and create admin user
+		if err := CreateEmqxDefaultAuthenticator(); err != nil {
+			logger.Log(0, err.Error())
+		}
+		DeleteEmqxUser(servercfg.GetMqUserName())
+		if err := CreateEmqxUser(servercfg.GetMqUserName(), servercfg.GetMqPassword(), true); err != nil {
+			log.Fatal(err)
+		}
+	}
 	opts := mqtt.NewClientOptions()
 	setMqOptions(servercfg.GetMqUserName(), servercfg.GetMqPassword(), opts)
 	opts.SetOnConnectHandler(func(client mqtt.Client) {
@@ -99,4 +111,9 @@ func Keepalive(ctx context.Context) {
 // IsConnected - function for determining if the mqclient is connected or not
 func IsConnected() bool {
 	return mqclient != nil && mqclient.IsConnected()
+}
+
+// CloseClient - function to close the mq connection from server
+func CloseClient() {
+	mqclient.Disconnect(250)
 }

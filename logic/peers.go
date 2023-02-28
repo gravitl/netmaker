@@ -6,7 +6,6 @@ import (
 	"log"
 	"net"
 	"net/netip"
-	"time"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -16,177 +15,6 @@ import (
 	"golang.org/x/exp/slices"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
-
-// GetPeersforProxy calculates the peers for a proxy
-// TODO ==========================
-// TODO ==========================
-// TODO ==========================
-// TODO ==========================
-// TODO ==========================
-// revisit this logic with new host/node models.
-func GetPeersForProxy(node *models.Node, onlyPeers bool) (models.ProxyManagerPayload, error) {
-	proxyPayload := models.ProxyManagerPayload{}
-	var peers []wgtypes.PeerConfig
-	peerConfMap := make(map[string]models.PeerConf)
-	var err error
-	currentPeers, err := GetNetworkNodes(node.Network)
-	if err != nil {
-		return proxyPayload, err
-	}
-	if !onlyPeers {
-		if node.IsRelayed {
-			relayNode := FindRelay(node)
-			relayHost, err := GetHost(relayNode.HostID.String())
-			if err != nil {
-				return proxyPayload, err
-			}
-			if relayNode != nil {
-				host, err := GetHost(relayNode.HostID.String())
-				if err != nil {
-					logger.Log(0, "error retrieving host for relay node", relayNode.HostID.String(), err.Error())
-				}
-				relayEndpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, host.ListenPort))
-				if err != nil {
-					logger.Log(1, "failed to resolve relay node endpoint: ", err.Error())
-				}
-				proxyPayload.IsRelayed = true
-				proxyPayload.RelayedTo = relayEndpoint
-			} else {
-				logger.Log(0, "couldn't find relay node for:  ", node.ID.String())
-			}
-
-		}
-		if node.IsRelay {
-			host, err := GetHost(node.HostID.String())
-			if err != nil {
-				logger.Log(0, "error retrieving host for relay node", node.ID.String(), err.Error())
-			}
-			relayedNodes, err := GetRelayedNodes(node)
-			if err != nil {
-				logger.Log(1, "failed to relayed nodes: ", node.ID.String(), err.Error())
-				proxyPayload.IsRelay = false
-			} else {
-				relayPeersMap := make(map[string]models.RelayedConf)
-				for _, relayedNode := range relayedNodes {
-					relayedNode := relayedNode
-					payload, err := GetPeersForProxy(&relayedNode, true)
-					if err == nil {
-						relayedHost, err := GetHost(relayedNode.HostID.String())
-						if err != nil {
-							logger.Log(0, "error retrieving host for relayNode", relayedNode.ID.String(), err.Error())
-						}
-						relayedEndpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayedHost.EndpointIP, host.ListenPort))
-						if udpErr == nil {
-							relayPeersMap[host.PublicKey.String()] = models.RelayedConf{
-								RelayedPeerEndpoint: relayedEndpoint,
-								RelayedPeerPubKey:   relayedHost.PublicKey.String(),
-								Peers:               payload.Peers,
-							}
-						}
-
-					}
-				}
-				proxyPayload.IsRelay = true
-				proxyPayload.RelayedPeerConf = relayPeersMap
-			}
-		}
-
-	}
-
-	for _, peer := range currentPeers {
-		if peer.ID == node.ID {
-			//skip yourself
-			continue
-		}
-		host, err := GetHost(peer.HostID.String())
-		if err != nil {
-			continue
-		}
-		proxyStatus := host.ProxyEnabled
-		listenPort := host.ListenPort
-		if proxyStatus {
-			listenPort = host.ProxyListenPort
-			if listenPort == 0 {
-				listenPort = models.NmProxyPort
-			}
-		} else if listenPort == 0 {
-			listenPort = host.ListenPort
-
-		}
-
-		endpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", host.EndpointIP, listenPort))
-		if err != nil {
-			logger.Log(1, "failed to resolve udp addr for node: ", peer.ID.String(), host.EndpointIP.String(), err.Error())
-			continue
-		}
-		allowedips := GetAllowedIPs(node, &peer, nil)
-		var keepalive time.Duration
-		if node.PersistentKeepalive != 0 {
-			// set_keepalive
-			keepalive = node.PersistentKeepalive
-		}
-		peers = append(peers, wgtypes.PeerConfig{
-			PublicKey:                   host.PublicKey,
-			Endpoint:                    endpoint,
-			AllowedIPs:                  allowedips,
-			PersistentKeepaliveInterval: &keepalive,
-			ReplaceAllowedIPs:           true,
-		})
-		peerConfMap[host.PublicKey.String()] = models.PeerConf{
-			Address:          net.ParseIP(peer.PrimaryAddress()),
-			Proxy:            proxyStatus,
-			PublicListenPort: int32(listenPort),
-		}
-
-		if !onlyPeers && peer.IsRelayed {
-			relayNode := FindRelay(&peer)
-			if relayNode != nil {
-				relayHost, err := GetHost(relayNode.HostID.String())
-				if err != nil {
-					logger.Log(0, "error retrieving host for relayNode", relayNode.ID.String(), err.Error())
-					continue
-				}
-				relayTo, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, relayHost.ListenPort))
-				if err == nil {
-					peerConfMap[host.PublicKey.String()] = models.PeerConf{
-
-						IsRelayed:        true,
-						RelayedTo:        relayTo,
-						Address:          net.ParseIP(peer.PrimaryAddress()),
-						Proxy:            proxyStatus,
-						PublicListenPort: int32(listenPort),
-					}
-				}
-
-			}
-
-		}
-	}
-	if node.IsIngressGateway {
-		var extPeers []wgtypes.PeerConfig
-		extPeers, peerConfMap, err = getExtPeersForProxy(node, peerConfMap)
-		if err == nil {
-			peers = append(peers, extPeers...)
-
-		} else if !database.IsEmptyRecord(err) {
-			logger.Log(1, "error retrieving external clients:", err.Error())
-		}
-	}
-
-	proxyPayload.IsIngress = node.IsIngressGateway
-	addr := node.Address
-	if addr.String() == "" {
-		addr = node.Address6
-	}
-	proxyPayload.Peers = peers
-	proxyPayload.PeerMap = peerConfMap
-	//proxyPayload.Network = node.Network
-	//proxyPayload.InterfaceName = node.Interface
-	//hardcode or read from host ??
-	proxyPayload.InterfaceName = models.WIREGUARD_INTERFACE
-
-	return proxyPayload, nil
-}
 
 // GetProxyUpdateForHost - gets the proxy update for host
 func GetProxyUpdateForHost(host *models.Host) (models.ProxyManagerPayload, error) {
@@ -206,14 +34,13 @@ func GetProxyUpdateForHost(host *models.Host) (models.ProxyManagerPayload, error
 		} else {
 			logger.Log(0, "couldn't find relay host for:  ", host.ID.String())
 		}
-
 	}
 	if host.IsRelay {
 		relayedHosts := GetRelayedHosts(host)
 		relayPeersMap := make(map[string]models.RelayedConf)
 		for _, relayedHost := range relayedHosts {
 			relayedHost := relayedHost
-			payload, err := GetPeerUpdateForHost("", &relayedHost)
+			payload, err := GetPeerUpdateForHost("", &relayedHost, nil)
 			if err == nil {
 				relayedEndpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayedHost.EndpointIP, GetPeerListenPort(&relayedHost)))
 				if udpErr == nil {
@@ -290,10 +117,12 @@ func GetProxyUpdateForHost(host *models.Host) (models.ProxyManagerPayload, error
 }
 
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
-func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpdate, error) {
+func GetPeerUpdateForHost(network string, host *models.Host, deletedNode *models.Node) (models.HostPeerUpdate, error) {
 	if host == nil {
 		return models.HostPeerUpdate{}, errors.New("host is nil")
 	}
+	// track which nodes are deleted
+	// after peer calculation, if peer not in list, add delete config of peer
 	hostPeerUpdate := models.HostPeerUpdate{
 		Host:          *host,
 		Server:        servercfg.GetServer(),
@@ -308,14 +137,19 @@ func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpd
 		Peers:      []wgtypes.PeerConfig{},
 		NodePeers:  []wgtypes.PeerConfig{},
 	}
-	logger.Log(1, "peer update for host ", host.ID.String())
+	var deletedNodes = []models.Node{} // used to track deleted nodes
+	if deletedNode != nil {
+		deletedNodes = append(deletedNodes, *deletedNode)
+	}
+	logger.Log(1, "peer update for host", host.ID.String())
 	peerIndexMap := make(map[string]int)
 	for _, nodeID := range host.Nodes {
+		nodeID := nodeID
 		node, err := GetNodeByID(nodeID)
 		if err != nil {
 			continue
 		}
-		if !node.Connected || node.Action == models.NODE_DELETE || node.PendingDelete {
+		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE {
 			continue
 		}
 		currentPeers, err := GetNetworkNodes(node.Network)
@@ -328,10 +162,14 @@ func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpd
 			nodePeerMap = make(map[string]models.PeerRouteInfo)
 		}
 		for _, peer := range currentPeers {
-			if peer.ID == node.ID {
+			peer := peer
+			if peer.ID.String() == node.ID.String() {
 				logger.Log(2, "peer update, skipping self")
 				//skip yourself
-
+				continue
+			}
+			if peer.Action == models.NODE_DELETE || peer.PendingDelete {
+				deletedNodes = append(deletedNodes, peer) // track deleted node for peer update
 				continue
 			}
 			var peerConfig wgtypes.PeerConfig
@@ -341,13 +179,13 @@ func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpd
 				return models.HostPeerUpdate{}, err
 			}
 
-			if !peer.Connected || peer.Action == models.NODE_DELETE || peer.PendingDelete {
+			if !peer.Connected {
 				logger.Log(2, "peer update, skipping unconnected node", peer.ID.String())
 				//skip unconnected nodes
 				continue
 			}
 			if !nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) {
-				log.Println("peer update, skipping node for acl")
+				logger.Log(2, "peer update, skipping node for acl")
 				//skip if not permitted by acl
 				continue
 			}
@@ -393,6 +231,7 @@ func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpd
 					_, extPeerIDAndAddrs, err := getExtPeers(&peer)
 					if err == nil {
 						for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
+							extPeerIdAndAddr := extPeerIdAndAddr
 							nodePeerMap[extPeerIdAndAddr.ID] = models.PeerRouteInfo{
 								PeerAddr: net.IPNet{
 									IP:   net.ParseIP(extPeerIdAndAddr.Address),
@@ -459,6 +298,7 @@ func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpd
 			extPeers, extPeerIDAndAddrs, err = getExtPeers(&node)
 			if err == nil {
 				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
+					extPeerIdAndAddr := extPeerIdAndAddr
 					nodePeerMap[extPeerIdAndAddr.ID] = models.PeerRouteInfo{
 						PeerAddr: net.IPNet{
 							IP:   net.ParseIP(extPeerIdAndAddr.Address),
@@ -470,6 +310,7 @@ func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpd
 				}
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, extPeers...)
 				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
+					extPeerIdAndAddr := extPeerIdAndAddr
 					hostPeerUpdate.HostPeerIDs[extPeerIdAndAddr.ID] = make(map[string]models.IDandAddr)
 					hostPeerUpdate.HostPeerIDs[extPeerIdAndAddr.ID][extPeerIdAndAddr.ID] = models.IDandAddr{
 						ID:      extPeerIdAndAddr.ID,
@@ -514,9 +355,32 @@ func GetPeerUpdateForHost(network string, host *models.Host) (models.HostPeerUpd
 		}
 	}
 
+	// run through delete nodes
+	if len(deletedNodes) > 0 {
+		for i := range deletedNodes {
+			delNode := deletedNodes[i]
+			delHost, err := GetHost(delNode.HostID.String())
+			if err != nil {
+				continue
+			}
+			if _, ok := hostPeerUpdate.HostPeerIDs[delHost.PublicKey.String()]; !ok {
+				var peerConfig = wgtypes.PeerConfig{}
+				peerConfig.PublicKey = delHost.PublicKey
+				peerConfig.Endpoint = &net.UDPAddr{
+					IP:   delHost.EndpointIP,
+					Port: GetPeerListenPort(delHost),
+				}
+				peerConfig.Remove = true
+				peerConfig.AllowedIPs = []net.IPNet{delNode.Address, delNode.Address6}
+				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
+			}
+		}
+	}
+
 	return hostPeerUpdate, nil
 }
 
+// GetPeerListenPort - given a host, retrieve it's appropriate listening port
 func GetPeerListenPort(host *models.Host) int {
 	peerPort := host.ListenPort
 	if host.ProxyEnabled {

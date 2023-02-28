@@ -90,7 +90,7 @@ func CreateHost(h *models.Host) error {
 	if (err != nil && !database.IsEmptyRecord(err)) || (err == nil) {
 		return ErrHostExists
 	}
-	//encrypt that password so we never see it
+	// encrypt that password so we never see it
 	hash, err := bcrypt.GenerateFromPassword([]byte(h.HostPass), 5)
 	if err != nil {
 		return err
@@ -236,7 +236,12 @@ func AssociateNodeToHost(n *models.Node, h *models.Host) error {
 	if err != nil {
 		return err
 	}
-	h.Nodes = append(h.Nodes, n.ID.String())
+	currentHost, err := GetHost(h.ID.String())
+	if err != nil {
+		return err
+	}
+	h.HostPass = currentHost.HostPass
+	h.Nodes = append(currentHost.Nodes, n.ID.String())
 	return UpsertHost(h)
 }
 

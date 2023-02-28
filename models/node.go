@@ -68,7 +68,6 @@ type CommonNode struct {
 	Address6            net.IPNet     `json:"address6" yaml:"address6"`
 	Action              string        `json:"action" yaml:"action"`
 	LocalAddress        net.IPNet     `json:"localaddress" yaml:"localaddress"`
-	IsLocal             bool          `json:"islocal" yaml:"islocal"`
 	IsEgressGateway     bool          `json:"isegressgateway" yaml:"isegressgateway"`
 	EgressGatewayRanges []string      `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
 	IsIngressGateway    bool          `json:"isingressgateway" yaml:"isingressgateway"`
@@ -145,7 +144,6 @@ type LegacyNode struct {
 	DNSOn           string      `json:"dnson" bson:"dnson" yaml:"dnson" validate:"checkyesorno"`
 	IsServer        string      `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
 	Action          string      `json:"action" bson:"action" yaml:"action"`
-	IsLocal         string      `json:"islocal" bson:"islocal" yaml:"islocal" validate:"checkyesorno"`
 	IPForwarding    string      `json:"ipforwarding" bson:"ipforwarding" yaml:"ipforwarding" validate:"checkyesorno"`
 	OS              string      `json:"os" bson:"os" yaml:"os"`
 	MTU             int32       `json:"mtu" bson:"mtu" yaml:"mtu"`
@@ -295,13 +293,6 @@ func (node *LegacyNode) SetIPForwardingDefault() {
 	}
 }
 
-// Node.SetIsLocalDefault - set is local default
-func (node *LegacyNode) SetIsLocalDefault() {
-	if node.IsLocal == "" {
-		node.IsLocal = "no"
-	}
-}
-
 // Node.SetDNSOnDefault - sets dns on default
 func (node *LegacyNode) SetDNSOnDefault() {
 	if node.DNSOn == "" {
@@ -407,9 +398,6 @@ func (newNode *Node) Fill(currentNode *Node) { // TODO add new field for nftable
 	}
 	if newNode.DNSOn != currentNode.DNSOn {
 		newNode.DNSOn = currentNode.DNSOn
-	}
-	if newNode.IsLocal != currentNode.IsLocal {
-		newNode.IsLocal = currentNode.IsLocal
 	}
 	if newNode.Action == "" {
 		newNode.Action = currentNode.Action
@@ -526,7 +514,6 @@ func (ln *LegacyNode) ConvertToNewNode() (*Host, *Node) {
 		}
 	}
 	node.Action = ln.Action
-	node.IsLocal = parseBool(ln.IsLocal)
 	node.IsEgressGateway = parseBool(ln.IsEgressGateway)
 	node.IsIngressGateway = parseBool(ln.IsIngressGateway)
 	node.DNSOn = parseBool(ln.DNSOn)
@@ -574,7 +561,6 @@ func (n *Node) Legacy(h *Host, s *ServerConfig, net *Network) *LegacyNode {
 	l.UDPHolePunch = formatBool(true)
 	l.DNSOn = formatBool(n.DNSOn)
 	l.Action = n.Action
-	l.IsLocal = formatBool(n.IsLocal)
 	l.IPForwarding = formatBool(h.IPForwarding)
 	l.OS = h.OS
 	l.MTU = int32(h.MTU)
