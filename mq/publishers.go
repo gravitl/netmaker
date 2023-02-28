@@ -61,6 +61,9 @@ func PublishSingleHostPeerUpdate(host *models.Host, deletedNode *models.Node) er
 	if err != nil {
 		return err
 	}
+	if len(peerUpdate.Peers) == 0 { // no peers to send
+		return nil
+	}
 	if host.ProxyEnabled {
 		proxyUpdate, err := logic.GetProxyUpdateForHost(host)
 		if err != nil {
@@ -402,7 +405,7 @@ func getCustomDNS(network string) []models.DNSUpdate {
 func sendPeers() {
 
 	hosts, err := logic.GetAllHosts()
-	if err != nil {
+	if err != nil && len(hosts) > 0 {
 		logger.Log(1, "error retrieving networks for keepalive", err.Error())
 	}
 

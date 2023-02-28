@@ -564,6 +564,13 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	data.Node.Server = servercfg.GetServer()
 	if !logic.HostExists(&data.Host) {
 		logic.CheckHostPorts(&data.Host)
+		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
+			// create EMQX credentials for host if it doesn't exists
+			if err := mq.CreateEmqxUser(data.Host.ID.String(), data.Host.HostPass, false); err != nil {
+				logger.Log(0, "failed to add host credentials to EMQX: ", data.Host.ID.String(), err.Error())
+				return
+			}
+		}
 	}
 	if err := logic.CreateHost(&data.Host); err != nil {
 		if errors.Is(err, logic.ErrHostExists) {
@@ -589,7 +596,6 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-
 	err = logic.AssociateNodeToHost(&data.Node, &data.Host)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),

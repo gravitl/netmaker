@@ -21,7 +21,6 @@ type Network struct {
 	DefaultKeepalive    int32                 `json:"defaultkeepalive" bson:"defaultkeepalive" validate:"omitempty,max=1000"`
 	AccessKeys          []AccessKey           `json:"accesskeys" bson:"accesskeys"`
 	AllowManualSignUp   string                `json:"allowmanualsignup" bson:"allowmanualsignup" validate:"checkyesorno"`
-	IsLocal             string                `json:"islocal" bson:"islocal" validate:"checkyesorno"`
 	IsIPv4              string                `json:"isipv4" bson:"isipv4" validate:"checkyesorno"`
 	IsIPv6              string                `json:"isipv6" bson:"isipv6" validate:"checkyesorno"`
 	DefaultUDPHolePunch string                `json:"defaultudpholepunch" bson:"defaultudpholepunch" validate:"checkyesorno"`
@@ -50,9 +49,6 @@ func (network *Network) SetNetworkLastModified() {
 func (network *Network) SetDefaults() {
 	if network.DefaultUDPHolePunch == "" {
 		network.DefaultUDPHolePunch = "no"
-	}
-	if network.IsLocal == "" {
-		network.IsLocal = "no"
 	}
 	if network.DefaultInterface == "" {
 		if len(network.NetID) < 13 {
