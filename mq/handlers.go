@@ -9,6 +9,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/logic/hostactions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
@@ -144,6 +145,19 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 		logger.Log(3, fmt.Sprintf("recieved host update: %s\n", hostUpdate.Host.ID.String()))
 		var sendPeerUpdate bool
 		switch hostUpdate.Action {
+		case models.Acknowledgement:
+			hu := hostactions.GetAction(currentHost.ID.String())
+			if hu != nil {
+				if err = HostUpdate(hu); err != nil {
+					logger.Log(0, "failed to send new node to host", hostUpdate.Host.Name, currentHost.ID.String(), err.Error())
+					return
+				} else {
+					if err = PublishSingleHostPeerUpdate(currentHost, nil); err != nil {
+						logger.Log(0, "failed peers publish after join acknowledged", hostUpdate.Host.Name, currentHost.ID.String(), err.Error())
+						return
+					}
+				}
+			}
 		case models.UpdateHost:
 			sendPeerUpdate = logic.UpdateHostFromClient(&hostUpdate.Host, currentHost)
 			err := logic.UpsertHost(currentHost)
@@ -169,6 +183,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 			}
 			sendPeerUpdate = true
 		}
+
 		if sendPeerUpdate {
 			err := PublishPeerUpdate()
 			if err != nil {
