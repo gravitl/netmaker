@@ -57,6 +57,8 @@ const (
 	CACHE_TABLE_NAME = "cache"
 	// HOSTS_TABLE_NAME - the table name for hosts
 	HOSTS_TABLE_NAME = "hosts"
+	// ENROLLMENT_KEYS_TABLE_NAME - table name for enrollmentkeys
+	ENROLLMENT_KEYS_TABLE_NAME = "enrollmentkeys"
 
 	// == ERROR CONSTS ==
 	// NO_RECORD - no singular result found
@@ -138,6 +140,7 @@ func createTables() {
 	createTable(USER_GROUPS_TABLE_NAME)
 	createTable(CACHE_TABLE_NAME)
 	createTable(HOSTS_TABLE_NAME)
+	createTable(ENROLLMENT_KEYS_TABLE_NAME)
 }
 
 func createTable(tableName string) error {

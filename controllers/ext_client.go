@@ -214,7 +214,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	if network.DefaultKeepalive != 0 {
 		keepalive = "PersistentKeepalive = " + strconv.Itoa(int(network.DefaultKeepalive))
 	}
-	gwendpoint := host.EndpointIP.String() + ":" + strconv.Itoa(host.ListenPort)
+	gwendpoint := host.EndpointIP.String() + ":" + strconv.Itoa(logic.GetPeerListenPort(host))
 	newAllowedIPs := network.AddressRange
 	if newAllowedIPs != "" && network.AddressRange6 != "" {
 		newAllowedIPs += ","
@@ -388,10 +388,15 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 	logger.Log(0, r.Header.Get("user"), "created new ext client on network", networkName)
 	w.WriteHeader(http.StatusOK)
-	err = mq.PublishExtPeerUpdate(&node)
-	if err != nil {
-		logger.Log(1, "error setting ext peers on "+nodeid+": "+err.Error())
-	}
+	go func() {
+		err = mq.PublishPeerUpdate()
+		if err != nil {
+			logger.Log(1, "error setting ext peers on "+nodeid+": "+err.Error())
+		}
+		if err := mq.PublishExtCLientDNS(&extclient); err != nil {
+			logger.Log(1, "error publishing extclient dns", err.Error())
+		}
+	}()
 }
 
 // swagger:route PUT /api/extclients/{network}/{clientid} ext_client updateExtClient
@@ -459,7 +464,6 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-
 	if changedID && oldExtClient.OwnerID != "" {
 		if err := pro.DissociateNetworkUserClient(oldExtClient.OwnerID, networkName, oldExtClient.ClientID); err != nil {
 			logger.Log(0, "failed to dissociate client", oldExtClient.ClientID, "from user", oldExtClient.OwnerID)
@@ -471,7 +475,8 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	// == END PRO ==
 
 	var changedEnabled = newExtClient.Enabled != oldExtClient.Enabled // indicates there was a change in enablement
-
+	// extra var need as logic.Update changes oldExtClient
+	currentClient := oldExtClient
 	newclient, err := logic.UpdateExtClient(newExtClient.ClientID, params["network"], newExtClient.Enabled, &oldExtClient)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
@@ -483,13 +488,20 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	logger.Log(0, r.Header.Get("user"), "updated ext client", newExtClient.ClientID)
 	if changedEnabled { // need to send a peer update to the ingress node as enablement of one of it's clients has changed
 		if ingressNode, err := logic.GetNodeByID(newclient.IngressGatewayID); err == nil {
-			if err = mq.PublishExtPeerUpdate(&ingressNode); err != nil {
+			if err = mq.PublishPeerUpdate(); err != nil {
 				logger.Log(1, "error setting ext peers on", ingressNode.ID.String(), ":", err.Error())
 			}
 		}
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newclient)
+	if changedID {
+		go func() {
+			if err := mq.PublishExtClientDNSUpdate(currentClient, newExtClient, networkName); err != nil {
+				logger.Log(1, "error pubishing dns update for extcient update", err.Error())
+			}
+		}()
+	}
 }
 
 // swagger:route DELETE /api/extclients/{network}/{clientid} ext_client deleteExtClient
@@ -554,10 +566,14 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = mq.PublishExtPeerUpdate(&ingressnode)
-	if err != nil {
-		logger.Log(1, "error setting ext peers on "+ingressnode.ID.String()+": "+err.Error())
-	}
+	go func() {
+		if err := mq.PublishPeerUpdate(); err != nil {
+			logger.Log(1, "error setting ext peers on "+ingressnode.ID.String()+": "+err.Error())
+		}
+		if err = mq.PublishDeleteExtClientDNS(&extclient); err != nil {
+			logger.Log(1, "error publishing dns update for extclient deletion", err.Error())
+		}
+	}()
 
 	logger.Log(0, r.Header.Get("user"),
 		"Deleted extclient client", params["clientid"], "from network", params["network"])

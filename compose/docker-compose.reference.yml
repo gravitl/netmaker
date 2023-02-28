@@ -3,14 +3,15 @@ version: "3.4"
 services:
   netmaker: # The Primary Server for running Netmaker
     container_name: netmaker
-    image: gravitl/netmaker:v0.18.0
+    image: gravitl/netmaker:REPLACE_SERVER_IMAGE_TAG
     restart: always
     volumes: # Volume mounts necessary for sql, coredns, and mqtt
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
       - shared_certs:/etc/netmaker
     environment: # Necessary capabilities to set iptables when running in container
-      SERVER_NAME: "broker.NETMAKER_BASE_DOMAIN" # The domain/host IP indicating the mq broker address
+      BROKER_ENDPOINT: "wss://broker.NETMAKER_BASE_DOMAIN" # The domain/host IP indicating the mq broker address
+      SERVER_NAME: "NETMAKER_BASE_DOMAIN" # The base domain of netmaker
       SERVER_HOST: "SERVER_PUBLIC_IP" # Set to public IP of machine.
       SERVER_HTTP_HOST: "api.NETMAKER_BASE_DOMAIN" # Overrides SERVER_HOST if set. Useful for making HTTP available via different interfaces/networks.
       SERVER_API_CONN_STRING: "api.NETMAKER_BASE_DOMAIN:443"
@@ -25,9 +26,10 @@ services:
       DISPLAY_KEYS: "on" # Show keys permanently in UI (until deleted) as opposed to 1-time display.
       DATABASE: "sqlite" # Database to use - sqlite, postgres, or rqlite
       NODE_ID: "netmaker-server-1" # used for HA - identifies this server vs other servers
-      MQ_HOST: "mq"  # the address of the mq server. If running from docker compose it will be "mq". Otherwise, need to input address. If using "host networking", it will find and detect the IP of the mq container.
-      MQ_SERVER_PORT: "1883" # the reachable port of MQ by the server - change if internal MQ port changes (or use external port if MQ is not on the same machine)
-      MQ_PORT: "443" # the reachable port of MQ - change if external MQ port changes (port on proxy, not necessarily the one exposed in docker-compose)
+      SERVER_BROKER_ENDPOINT: ""ws://mq:1883""  # the address of the mq server. If running from docker compose it will be "mq". Otherwise, need to input address. If using "host networking", it will find and detect the IP of the mq container.
+      MQ_USERNAME: "REPLACE_MQ_USERNAME" # the username to set for MQ access
+      MQ_PASSWORD: "REPLACE_MQ_PASSWORD" # the password to set for MQ access
+      STUN_PORT: "3478" # the reachable port of STUN on the server
       VERBOSITY: "1" # logging verbosity level - 1, 2, or 3
       # this section is for OAuth
       AUTH_PROVIDER: "" # "<azure-ad|github|google|oidc>"
@@ -37,10 +39,10 @@ services:
       AZURE_TENANT: "" # "<only for azure, you may optionally specify the tenant for the OAuth>"
       OIDC_ISSUER: "" # https://oidc.yourprovider.com - URL of oidc provider
     ports:
-      - "51821-51830:51821-51830/udp" # wireguard ports
+      - "3478:3478/udp" # the stun port
   netmaker-ui:  # The Netmaker UI Component
     container_name: netmaker-ui
-    image: gravitl/netmaker-ui:v0.18.0
+    image: gravitl/netmaker-ui:REPLACE_UI_IMAGE_TAG
     depends_on:
       - netmaker
     links:
@@ -68,17 +70,20 @@ services:
     restart: always
     volumes:
       - dnsconfig:/root/dnsconfig
-  mq: # the MQTT broker for netmaker
+  mq: # the mqtt broker for netmaker
     container_name: mq
     image: eclipse-mosquitto:2.0.15-openssl
     depends_on:
       - netmaker
     restart: unless-stopped
+    command: ["/mosquitto/config/wait.sh"]
+    environment:
+      MQ_PASSWORD: "REPLACE_MQ_PASSWORD" # must be same value as in netmaker env 
+      MQ_USERNAME: "REPLACE_MQ_USERNAME" # must be same value as in netmaker env
     volumes:
-      - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf # need to pull conf file from github before running (under docker/mosquitto.conf)
-      - mosquitto_data:/mosquitto/data
+      - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - /root/wait.sh:/mosquitto/config/wait.sh
       - mosquitto_logs:/mosquitto/log
-      - shared_certs:/mosquitto/certs
     ports:
       - "1883:1883"
       - "8883:8883"
@@ -88,5 +93,4 @@ volumes:
   shared_certs: {} # netmaker certs generated for MQ comms - used by nodes/servers
   sqldata: {} # storage for embedded sqlite
   dnsconfig: {} # storage for coredns
-  mosquitto_data: {} # storage for mqtt data
   mosquitto_logs: {} # storage for mqtt logs

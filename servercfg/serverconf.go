@@ -13,6 +13,9 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
+// EmqxBrokerType denotes the broker type for EMQX MQTT
+const EmqxBrokerType = "emqx"
+
 var (
 	Version = "dev"
 	Is_EE   = false
@@ -35,7 +38,6 @@ func GetServerConfig() config.ServerConfig {
 	cfg.CoreDNSAddr = GetCoreDNSAddr()
 	cfg.APIHost = GetAPIHost()
 	cfg.APIPort = GetAPIPort()
-	cfg.MQPort = GetMQPort()
 	cfg.MasterKey = "(hidden)"
 	cfg.DNSKey = "(hidden)"
 	cfg.AllowedOrigin = GetAllowedOrigin()
@@ -43,12 +45,10 @@ func GetServerConfig() config.ServerConfig {
 	cfg.NodeID = GetNodeID()
 	cfg.StunHost = GetStunAddr()
 	cfg.StunPort = GetStunPort()
+	cfg.BrokerType = GetBrokerType()
+	cfg.EmqxRestEndpoint = GetEmqxRestEndpoint()
 	if IsRestBackend() {
 		cfg.RestBackend = "on"
-	}
-	cfg.AgentBackend = "off"
-	if IsAgentBackend() {
-		cfg.AgentBackend = "on"
 	}
 	cfg.DNSMode = "off"
 	if IsDNSMode() {
@@ -87,14 +87,13 @@ func GetServerConfig() config.ServerConfig {
 func GetServerInfo() models.ServerConfig {
 	var cfg models.ServerConfig
 	cfg.Server = GetServer()
-	cfg.Broker = GetBroker()
 	cfg.MQUserName = GetMqUserName()
 	cfg.MQPassword = GetMqPassword()
 	cfg.API = GetAPIConnString()
 	cfg.CoreDNSAddr = GetCoreDNSAddr()
 	cfg.APIPort = GetAPIPort()
-	cfg.MQPort = GetMQPort()
 	cfg.DNSMode = "off"
+	cfg.Broker = GetPublicBrokerEndpoint()
 	if IsDNSMode() {
 		cfg.DNSMode = "on"
 	}
@@ -167,15 +166,6 @@ func GetAPIHost() string {
 	return serverhost
 }
 
-// GetPodIP - get the pod's ip
-func GetPodIP() string {
-	podip := "127.0.0.1"
-	if os.Getenv("POD_IP") != "" {
-		podip = os.Getenv("POD_IP")
-	}
-	return podip
-}
-
 // GetAPIPort - gets the api port
 func GetAPIPort() string {
 	apiport := "8081"
@@ -198,19 +188,6 @@ func GetStunAddr() string {
 	return stunAddr
 }
 
-// GetDefaultNodeLimit - get node limit if one is set
-func GetDefaultNodeLimit() int32 {
-	var limit int32
-	limit = 999999999
-	envlimit, err := strconv.Atoi(os.Getenv("DEFAULT_NODE_LIMIT"))
-	if err == nil && envlimit != 0 {
-		limit = int32(envlimit)
-	} else if config.Config.Server.DefaultNodeLimit != 0 {
-		limit = config.Config.Server.DefaultNodeLimit
-	}
-	return limit
-}
-
 // GetCoreDNSAddr - gets the core dns address
 func GetCoreDNSAddr() string {
 	addr, _ := GetPublicIP()
@@ -222,32 +199,39 @@ func GetCoreDNSAddr() string {
 	return addr
 }
 
-// GetMQPort - gets the mq port
-func GetMQPort() string {
-	port := "8883" //default
-	if os.Getenv("MQ_PORT") != "" {
-		port = os.Getenv("MQ_PORT")
-	} else if config.Config.Server.MQPort != "" {
-		port = config.Config.Server.MQPort
+// GetPublicBrokerEndpoint - returns the public broker endpoint which shall be used by netclient
+func GetPublicBrokerEndpoint() string {
+	if os.Getenv("BROKER_ENDPOINT") != "" {
+		return os.Getenv("BROKER_ENDPOINT")
+	} else {
+		return config.Config.Server.Broker
 	}
-	return port
 }
 
 // GetMessageQueueEndpoint - gets the message queue endpoint
 func GetMessageQueueEndpoint() (string, bool) {
 	host, _ := GetPublicIP()
-	if os.Getenv("MQ_HOST") != "" {
-		host = os.Getenv("MQ_HOST")
-	} else if config.Config.Server.MQHOST != "" {
-		host = config.Config.Server.MQHOST
-	}
-	secure := strings.Contains(host, "wss") || strings.Contains(host, "ssl")
-	if secure {
-		host = "wss://" + host
+	if os.Getenv("SERVER_BROKER_ENDPOINT") != "" {
+		host = os.Getenv("SERVER_BROKER_ENDPOINT")
+	} else if config.Config.Server.ServerBrokerEndpoint != "" {
+		host = config.Config.Server.ServerBrokerEndpoint
+	} else if os.Getenv("BROKER_ENDPOINT") != "" {
+		host = os.Getenv("BROKER_ENDPOINT")
+	} else if config.Config.Server.Broker != "" {
+		host = config.Config.Server.Broker
 	} else {
-		host = "ws://" + host
+		host += ":1883" // default
 	}
-	return host + ":" + GetMQServerPort(), secure
+	return host, strings.Contains(host, "wss") || strings.Contains(host, "ssl") || strings.Contains(host, "mqtts")
+}
+
+// GetBrokerType - returns the type of MQ broker
+func GetBrokerType() string {
+	if os.Getenv("BROKER_TYPE") != "" {
+		return os.Getenv("BROKER_TYPE")
+	} else {
+		return "mosquitto"
+	}
 }
 
 // GetMasterKey - gets the configured master key of server
@@ -313,21 +297,6 @@ func IsMetricsExporter() bool {
 	return export
 }
 
-// IsAgentBackend - checks if agent backed is on or off
-func IsAgentBackend() bool {
-	isagent := true
-	if os.Getenv("AGENT_BACKEND") != "" {
-		if os.Getenv("AGENT_BACKEND") == "off" {
-			isagent = false
-		}
-	} else if config.Config.Server.AgentBackend != "" {
-		if config.Config.Server.AgentBackend == "off" {
-			isagent = false
-		}
-	}
-	return isagent
-}
-
 // IsMessageQueueBackend - checks if message queue is on or off
 func IsMessageQueueBackend() bool {
 	ismessagequeue := true
@@ -362,17 +331,6 @@ func GetServer() string {
 		server = os.Getenv("SERVER_NAME")
 	} else if config.Config.Server.Server != "" {
 		server = config.Config.Server.Server
-	}
-	return server
-}
-
-// GetBroker - gets the broker name
-func GetBroker() string {
-	server := ""
-	if os.Getenv("BROKER_NAME") != "" {
-		server = os.Getenv("BROKER_NAME")
-	} else if config.Config.Server.Broker != "" {
-		server = config.Config.Server.Broker
 	}
 	return server
 }
@@ -487,7 +445,7 @@ func GetPlatform() string {
 	if os.Getenv("PLATFORM") != "" {
 		platform = os.Getenv("PLATFORM")
 	} else if config.Config.Server.Platform != "" {
-		platform = config.Config.Server.SQLConn
+		platform = config.Config.Server.Platform
 	}
 	return platform
 }
@@ -523,18 +481,6 @@ func GetNodeID() string {
 
 func SetNodeID(id string) {
 	config.Config.Server.NodeID = id
-}
-
-// GetServerCheckinInterval - gets the server check-in time
-func GetServerCheckinInterval() int64 {
-	var t = int64(5)
-	var envt, _ = strconv.Atoi(os.Getenv("SERVER_CHECKIN_INTERVAL"))
-	if envt > 0 {
-		t = int64(envt)
-	} else if config.Config.Server.ServerCheckinInterval > 0 {
-		t = config.Config.Server.ServerCheckinInterval
-	}
-	return t
 }
 
 // GetAuthProviderInfo = gets the oauth provider info
@@ -580,17 +526,6 @@ func GetAzureTenant() string {
 	return azureTenant
 }
 
-// GetMQServerPort - get mq port for server
-func GetMQServerPort() string {
-	port := "1883" //default
-	if os.Getenv("MQ_SERVER_PORT") != "" {
-		port = os.Getenv("MQ_SERVER_PORT")
-	} else if config.Config.Server.MQServerPort != "" {
-		port = config.Config.Server.MQServerPort
-	}
-	return port
-}
-
 // GetMqPassword - fetches the MQ password
 func GetMqPassword() string {
 	password := ""
@@ -611,6 +546,11 @@ func GetMqUserName() string {
 		password = config.Config.Server.MQUserName
 	}
 	return password
+}
+
+// GetEmqxRestEndpoint - returns the REST API Endpoint of EMQX
+func GetEmqxRestEndpoint() string {
+	return os.Getenv("EMQX_REST_ENDPOINT")
 }
 
 // IsBasicAuthEnabled - checks if basic auth has been configured to be turned off
@@ -637,7 +577,7 @@ func GetLicenseKey() string {
 func GetNetmakerAccountID() string {
 	netmakerAccountID := os.Getenv("NETMAKER_ACCOUNT_ID")
 	if netmakerAccountID == "" {
-		netmakerAccountID = config.Config.Server.LicenseValue
+		netmakerAccountID = config.Config.Server.NetmakerAccountID
 	}
 	return netmakerAccountID
 }

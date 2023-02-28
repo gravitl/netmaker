@@ -10,8 +10,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNetworkUserLogic(t *testing.T) {
+func TestMain(m *testing.M) {
 	database.InitializeDatabase()
+	defer database.CloseDB()
+}
+
+func TestNetworkUserLogic(t *testing.T) {
 	networkUser := promodels.NetworkUser{
 		ID: "helloworld",
 	}
