@@ -273,9 +273,6 @@ definitions:
             isipv6:
                 type: string
                 x-go-name: IsIPv6
-            islocal:
-                type: string
-                x-go-name: IsLocal
             ispointtosite:
                 type: string
                 x-go-name: IsPointToSite
@@ -375,9 +372,6 @@ definitions:
             isk8s:
                 type: string
                 x-go-name: IsK8S
-            islocal:
-                type: string
-                x-go-name: IsLocal
             ispending:
                 type: string
                 x-go-name: IsPending

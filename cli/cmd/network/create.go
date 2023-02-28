@@ -35,9 +35,6 @@ var networkCreateCmd = &cobra.Command{
 			if udpHolePunch {
 				network.DefaultUDPHolePunch = "yes"
 			}
-			if localNetwork {
-				network.IsLocal = "yes"
-			}
 			if defaultACL {
 				network.DefaultACL = "yes"
 			}
@@ -62,7 +59,6 @@ func init() {
 	networkCreateCmd.Flags().StringVar(&address, "ipv4_addr", "", "IPv4 address of the network")
 	networkCreateCmd.Flags().StringVar(&address6, "ipv6_addr", "", "IPv6 address of the network")
 	networkCreateCmd.Flags().BoolVar(&udpHolePunch, "udp_hole_punch", false, "Enable UDP Hole Punching ?")
-	networkCreateCmd.Flags().BoolVar(&localNetwork, "local", false, "Is the network local (LAN) ?")
 	networkCreateCmd.Flags().BoolVar(&defaultACL, "default_acl", false, "Enable default Access Control List ?")
 	networkCreateCmd.Flags().StringVar(&defaultInterface, "interface", "", "Name of the network interface")
 	networkCreateCmd.Flags().StringVar(&defaultExtClientDNS, "ext_client_dns", "", "IPv4 address of DNS server to be used by external clients")
