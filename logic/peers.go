@@ -34,7 +34,6 @@ func GetProxyUpdateForHost(host *models.Host) (models.ProxyManagerPayload, error
 		} else {
 			logger.Log(0, "couldn't find relay host for:  ", host.ID.String())
 		}
-
 	}
 	if host.IsRelay {
 		relayedHosts := GetRelayedHosts(host)
@@ -142,9 +141,10 @@ func GetPeerUpdateForHost(network string, host *models.Host, deletedNode *models
 	if deletedNode != nil {
 		deletedNodes = append(deletedNodes, *deletedNode)
 	}
-	logger.Log(1, "peer update for host ", host.ID.String())
+	logger.Log(1, "peer update for host", host.ID.String())
 	peerIndexMap := make(map[string]int)
 	for _, nodeID := range host.Nodes {
+		nodeID := nodeID
 		node, err := GetNodeByID(nodeID)
 		if err != nil {
 			continue
@@ -163,7 +163,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, deletedNode *models
 		}
 		for _, peer := range currentPeers {
 			peer := peer
-			if peer.ID == node.ID {
+			if peer.ID.String() == node.ID.String() {
 				logger.Log(2, "peer update, skipping self")
 				//skip yourself
 				continue
@@ -185,7 +185,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, deletedNode *models
 				continue
 			}
 			if !nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) {
-				log.Println("peer update, skipping node for acl")
+				logger.Log(2, "peer update, skipping node for acl")
 				//skip if not permitted by acl
 				continue
 			}

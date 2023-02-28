@@ -197,7 +197,6 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		}
 		enrollmentKey.Networks = networksToAdd
 	}
-
 	// ready the response
 	server := servercfg.GetServerInfo()
 	server.TrafficKey = key
@@ -212,10 +211,11 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 func checkNetRegAndHostUpdate(networks []string, h *models.Host) {
 	// publish host update through MQ
 	for i := range networks {
-		if ok, _ := logic.NetworkExists(networks[i]); ok {
-			newNode, err := logic.UpdateHostNetwork(h, networks[i], true)
+		network := networks[i]
+		if ok, _ := logic.NetworkExists(network); ok {
+			newNode, err := logic.UpdateHostNetwork(h, network, true)
 			if err != nil {
-				logger.Log(0, "failed to add host to network:", h.ID.String(), h.Name, networks[i], err.Error())
+				logger.Log(0, "failed to add host to network:", h.ID.String(), h.Name, network, err.Error())
 				continue
 			}
 			logger.Log(1, "added new node", newNode.ID.String(), "to host", h.Name)
