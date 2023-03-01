@@ -356,8 +356,7 @@ set_compose() {
   sed -i "s/v0.17.1/$LATEST/g" /root/docker-compose.yml
 
   # RELEASE_REPLACE - Use this once release is ready
-  # sed -i "s/v0.17.1/v0.18.0/g" /root/docker-compose.yml
-
+  # sed -i "s/v0.17.1/v0.18.1/g" /root/docker-compose.yml
   yq ".services.netmaker.environment.SERVER_NAME = \"$SERVER_NAME\"" -i /root/docker-compose.yml
   yq ".services.netmaker.environment += {\"BROKER_NAME\": \"$BROKER_NAME\"}" -i /root/docker-compose.yml  
   yq ".services.netmaker.environment += {\"STUN_DOMAIN\": \"$STUN_DOMAIN\"}" -i /root/docker-compose.yml  
@@ -577,7 +576,6 @@ join_networks() {
       echo "no networks to join"
   fi
 }
-
 
 cat << "EOF"
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 

@@ -1,0 +1,50 @@
+# generates release assets and uploads to release 
+name: Upload Release Assets
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      prerelease:
+        required: true
+        type: boolean
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "netmaker version"
+        required: true
+      prerelease:
+        required: true
+        type: boolean
+        description: "prerelease"
+jobs:
+  release-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: release_${{ github.event.inputs.version}}
+          fetch-depth: 0
+      - name: Get Tags
+        run: |
+          git fetch --force --tags
+      - name: Setup go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.19
+      - name: GoReleaser (full release)
+        if: ${{ github.event.inputs.prerelease == 'false'}}
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          args: release --clean --release-notes release.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: GoReleaser (prerelease)
+        if: ${{ github.event.inputs.prerelease == 'false'}}
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          args: release --clean --release-notes release.md -f .goreleaser.prerelease.yaml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

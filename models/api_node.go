@@ -32,7 +32,6 @@ type ApiNode struct {
 	RelayAddrs              []string `json:"relayaddrs"`
 	FailoverNode            string   `json:"failovernode"`
 	DNSOn                   bool     `json:"dnson"`
-	IsLocal                 bool     `json:"islocal"`
 	Server                  string   `json:"server"`
 	InternetGateway         string   `json:"internetgateway"`
 	Connected               bool     `json:"connected"`
@@ -51,7 +50,6 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.Connected = a.Connected
 	convertedNode.ID, _ = uuid.Parse(a.ID)
 	convertedNode.HostID, _ = uuid.Parse(a.HostID)
-	convertedNode.IsLocal = a.IsLocal
 	convertedNode.IsRelay = a.IsRelay
 	convertedNode.IsRelayed = a.IsRelayed
 	convertedNode.PendingDelete = a.PendingDelete
@@ -150,7 +148,6 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 		apiNode.FailoverNode = ""
 	}
 	apiNode.DNSOn = nm.DNSOn
-	apiNode.IsLocal = nm.IsLocal
 	apiNode.Server = nm.Server
 	apiNode.InternetGateway = nm.InternetGateway.String()
 	if isEmptyAddr(apiNode.InternetGateway) {

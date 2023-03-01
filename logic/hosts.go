@@ -90,12 +90,13 @@ func CreateHost(h *models.Host) error {
 	if (err != nil && !database.IsEmptyRecord(err)) || (err == nil) {
 		return ErrHostExists
 	}
-	//encrypt that password so we never see it
+	// encrypt that password so we never see it
 	hash, err := bcrypt.GenerateFromPassword([]byte(h.HostPass), 5)
 	if err != nil {
 		return err
 	}
 	h.HostPass = string(hash)
+	checkForZombieHosts(h)
 	return UpsertHost(h)
 }
 
@@ -216,6 +217,7 @@ func UpdateHostNetwork(h *models.Host, network string, add bool) (*models.Node, 
 		newNode := models.Node{}
 		newNode.Server = servercfg.GetServer()
 		newNode.Network = network
+		newNode.HostID = h.ID
 		if err := AssociateNodeToHost(&newNode, h); err != nil {
 			return nil, err
 		}
@@ -234,7 +236,12 @@ func AssociateNodeToHost(n *models.Node, h *models.Host) error {
 	if err != nil {
 		return err
 	}
-	h.Nodes = append(h.Nodes, n.ID.String())
+	currentHost, err := GetHost(h.ID.String())
+	if err != nil {
+		return err
+	}
+	h.HostPass = currentHost.HostPass
+	h.Nodes = append(currentHost.Nodes, n.ID.String())
 	return UpsertHost(h)
 }
 
@@ -306,21 +313,6 @@ func GetDefaultHosts() []models.Host {
 		}
 	}
 	return defaultHostList[:]
-}
-
-// AddDefaultHostsToNetwork - adds a node to network for every default host on Netmaker server
-func AddDefaultHostsToNetwork(network, server string) error {
-	// add default hosts to network
-	defaultHosts := GetDefaultHosts()
-	for i := range defaultHosts {
-		newNode := models.Node{}
-		newNode.Network = network
-		newNode.Server = server
-		if err := AssociateNodeToHost(&newNode, &defaultHosts[i]); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // GetHostNetworks - fetches all the networks

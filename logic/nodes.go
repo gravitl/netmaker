@@ -1,7 +1,6 @@
 package logic
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -382,22 +381,6 @@ func FindRelay(node *models.Node) *models.Node {
 	return nil
 }
 
-func findNode(ip string) (*models.Node, error) {
-	nodes, err := GetAllNodes()
-	if err != nil {
-		return nil, err
-	}
-	for _, node := range nodes {
-		if node.Address.IP.String() == ip {
-			return &node, nil
-		}
-		if node.Address6.IP.String() == ip {
-			return &node, nil
-		}
-	}
-	return nil, errors.New("node not found")
-}
-
 // GetNetworkIngresses - gets the gateways of a network
 func GetNetworkIngresses(network string) ([]models.Node, error) {
 	var ingresses []models.Node
@@ -435,35 +418,6 @@ func updateProNodeACLS(node *models.Node) error {
 		return err
 	}
 	return nil
-}
-
-func PurgePendingNodes(ctx context.Context) {
-	ticker := time.NewTicker(NodePurgeCheckTime)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			nodes, err := GetAllNodes()
-			if err != nil {
-				logger.Log(0, "PurgePendingNodes failed to retrieve nodes", err.Error())
-				continue
-			}
-			for _, node := range nodes {
-				if node.PendingDelete {
-					modified := node.LastModified
-					if time.Since(modified) > NodePurgeTime {
-						if err := DeleteNode(&node, true); err != nil {
-							logger.Log(0, "failed to purge node", node.ID.String(), err.Error())
-						} else {
-							logger.Log(0, "purged node ", node.ID.String())
-						}
-					}
-				}
-			}
-		}
-	}
 }
 
 // createNode - creates a node in database
@@ -534,7 +488,7 @@ func createNode(node *models.Node) error {
 	if err != nil {
 		return err
 	}
-	CheckZombies(node, host.MacAddress)
+	CheckZombies(node)
 
 	nodebytes, err := json.Marshal(&node)
 	if err != nil {

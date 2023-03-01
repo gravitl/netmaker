@@ -1,11 +1,13 @@
 package controller
 
 import (
+	"context"
 	"os"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/stretchr/testify/assert"
@@ -20,8 +22,27 @@ type NetworkValidationTestCase struct {
 
 var netHost models.Host
 
+func TestMain(m *testing.M) {
+	database.InitializeDatabase()
+	defer database.CloseDB()
+	logic.CreateAdmin(&models.User{
+		UserName: "admin",
+		Password: "password",
+		IsAdmin:  true,
+		Networks: []string{},
+		Groups:   []string{},
+	})
+	peerUpdate := make(chan *models.Node)
+	go logic.ManageZombies(context.Background(), peerUpdate)
+	go func() {
+		for update := range peerUpdate {
+			//do nothing
+			logger.Log(3, "received node update", update.Action)
+		}
+	}()
+}
+
 func TestCreateNetwork(t *testing.T) {
-	initialize()
 	deleteAllNetworks()
 
 	var network models.Network
@@ -34,7 +55,6 @@ func TestCreateNetwork(t *testing.T) {
 	assert.Nil(t, err)
 }
 func TestGetNetwork(t *testing.T) {
-	initialize()
 	createNet()
 
 	t.Run("GetExistingNetwork", func(t *testing.T) {
@@ -50,7 +70,6 @@ func TestGetNetwork(t *testing.T) {
 }
 
 func TestDeleteNetwork(t *testing.T) {
-	initialize()
 	createNet()
 	//create nodes
 	t.Run("NetworkwithNodes", func(t *testing.T) {
@@ -66,7 +85,6 @@ func TestDeleteNetwork(t *testing.T) {
 }
 
 func TestCreateKey(t *testing.T) {
-	initialize()
 	createNet()
 	keys, _ := logic.GetKeys("skynet")
 	for _, key := range keys {
@@ -138,7 +156,6 @@ func TestCreateKey(t *testing.T) {
 }
 
 func TestGetKeys(t *testing.T) {
-	initialize()
 	deleteAllNetworks()
 	createNet()
 	network, err := logic.GetNetwork("skynet")
@@ -161,7 +178,6 @@ func TestGetKeys(t *testing.T) {
 	})
 }
 func TestDeleteKey(t *testing.T) {
-	initialize()
 	createNet()
 	network, err := logic.GetNetwork("skynet")
 	assert.Nil(t, err)
@@ -183,7 +199,6 @@ func TestDeleteKey(t *testing.T) {
 func TestSecurityCheck(t *testing.T) {
 	//these seem to work but not sure it the tests are really testing the functionality
 
-	initialize()
 	os.Setenv("MASTER_KEY", "secretkey")
 	t.Run("NoNetwork", func(t *testing.T) {
 		networks, username, err := logic.UserPermissions(false, "", "Bearer secretkey")
@@ -214,7 +229,6 @@ func TestValidateNetwork(t *testing.T) {
 	//t.Skip()
 	//This functions is not called by anyone
 	//it panics as validation function 'display_name_valid' is not defined
-	initialize()
 	//yes := true
 	//no := false
 	//deleteNet(t)
@@ -291,7 +305,6 @@ func TestValidateNetwork(t *testing.T) {
 func TestIpv6Network(t *testing.T) {
 	//these seem to work but not sure it the tests are really testing the functionality
 
-	initialize()
 	os.Setenv("MASTER_KEY", "secretkey")
 	deleteAllNetworks()
 	createNet()
@@ -316,21 +329,6 @@ func deleteAllNetworks() {
 	for _, net := range nets {
 		logic.DeleteNetwork(net.NetID)
 	}
-}
-
-func initialize() {
-	database.InitializeDatabase()
-	createAdminUser()
-}
-
-func createAdminUser() {
-	logic.CreateAdmin(&models.User{
-		UserName: "admin",
-		Password: "password",
-		IsAdmin:  true,
-		Networks: []string{},
-		Groups:   []string{},
-	})
 }
 
 func createNet() {

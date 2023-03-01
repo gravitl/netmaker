@@ -6,191 +6,15 @@ import (
 	"log"
 	"net"
 	"net/netip"
-	"sort"
-	"strconv"
-	"strings"
-	"time"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slices"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
-
-// GetPeersforProxy calculates the peers for a proxy
-// TODO ==========================
-// TODO ==========================
-// TODO ==========================
-// TODO ==========================
-// TODO ==========================
-// revisit this logic with new host/node models.
-func GetPeersForProxy(node *models.Node, onlyPeers bool) (models.ProxyManagerPayload, error) {
-	proxyPayload := models.ProxyManagerPayload{}
-	var peers []wgtypes.PeerConfig
-	peerConfMap := make(map[string]models.PeerConf)
-	var err error
-	currentPeers, err := GetNetworkNodes(node.Network)
-	if err != nil {
-		return proxyPayload, err
-	}
-	if !onlyPeers {
-		if node.IsRelayed {
-			relayNode := FindRelay(node)
-			relayHost, err := GetHost(relayNode.HostID.String())
-			if err != nil {
-				return proxyPayload, err
-			}
-			if relayNode != nil {
-				host, err := GetHost(relayNode.HostID.String())
-				if err != nil {
-					logger.Log(0, "error retrieving host for relay node", relayNode.HostID.String(), err.Error())
-				}
-				relayEndpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, host.ListenPort))
-				if err != nil {
-					logger.Log(1, "failed to resolve relay node endpoint: ", err.Error())
-				}
-				proxyPayload.IsRelayed = true
-				proxyPayload.RelayedTo = relayEndpoint
-			} else {
-				logger.Log(0, "couldn't find relay node for:  ", node.ID.String())
-			}
-
-		}
-		if node.IsRelay {
-			host, err := GetHost(node.HostID.String())
-			if err != nil {
-				logger.Log(0, "error retrieving host for relay node", node.ID.String(), err.Error())
-			}
-			relayedNodes, err := GetRelayedNodes(node)
-			if err != nil {
-				logger.Log(1, "failed to relayed nodes: ", node.ID.String(), err.Error())
-				proxyPayload.IsRelay = false
-			} else {
-				relayPeersMap := make(map[string]models.RelayedConf)
-				for _, relayedNode := range relayedNodes {
-					relayedNode := relayedNode
-					payload, err := GetPeersForProxy(&relayedNode, true)
-					if err == nil {
-						relayedHost, err := GetHost(relayedNode.HostID.String())
-						if err != nil {
-							logger.Log(0, "error retrieving host for relayNode", relayedNode.ID.String(), err.Error())
-						}
-						relayedEndpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayedHost.EndpointIP, host.ListenPort))
-						if udpErr == nil {
-							relayPeersMap[host.PublicKey.String()] = models.RelayedConf{
-								RelayedPeerEndpoint: relayedEndpoint,
-								RelayedPeerPubKey:   relayedHost.PublicKey.String(),
-								Peers:               payload.Peers,
-							}
-						}
-
-					}
-				}
-				proxyPayload.IsRelay = true
-				proxyPayload.RelayedPeerConf = relayPeersMap
-			}
-		}
-
-	}
-
-	for _, peer := range currentPeers {
-		if peer.ID == node.ID {
-			//skip yourself
-			continue
-		}
-		host, err := GetHost(peer.HostID.String())
-		if err != nil {
-			continue
-		}
-		proxyStatus := host.ProxyEnabled
-		listenPort := host.ListenPort
-		if proxyStatus {
-			listenPort = host.ProxyListenPort
-			if listenPort == 0 {
-				listenPort = models.NmProxyPort
-			}
-		} else if listenPort == 0 {
-			listenPort = host.ListenPort
-
-		}
-
-		endpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", host.EndpointIP, listenPort))
-		if err != nil {
-			logger.Log(1, "failed to resolve udp addr for node: ", peer.ID.String(), host.EndpointIP.String(), err.Error())
-			continue
-		}
-		allowedips := GetAllowedIPs(node, &peer, nil)
-		var keepalive time.Duration
-		if node.PersistentKeepalive != 0 {
-			// set_keepalive
-			keepalive = node.PersistentKeepalive
-		}
-		peers = append(peers, wgtypes.PeerConfig{
-			PublicKey:                   host.PublicKey,
-			Endpoint:                    endpoint,
-			AllowedIPs:                  allowedips,
-			PersistentKeepaliveInterval: &keepalive,
-			ReplaceAllowedIPs:           true,
-		})
-		peerConfMap[host.PublicKey.String()] = models.PeerConf{
-			Address:          net.ParseIP(peer.PrimaryAddress()),
-			Proxy:            proxyStatus,
-			PublicListenPort: int32(listenPort),
-		}
-
-		if !onlyPeers && peer.IsRelayed {
-			relayNode := FindRelay(&peer)
-			if relayNode != nil {
-				relayHost, err := GetHost(relayNode.HostID.String())
-				if err != nil {
-					logger.Log(0, "error retrieving host for relayNode", relayNode.ID.String(), err.Error())
-					continue
-				}
-				relayTo, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, relayHost.ListenPort))
-				if err == nil {
-					peerConfMap[host.PublicKey.String()] = models.PeerConf{
-
-						IsRelayed:        true,
-						RelayedTo:        relayTo,
-						Address:          net.ParseIP(peer.PrimaryAddress()),
-						Proxy:            proxyStatus,
-						PublicListenPort: int32(listenPort),
-					}
-				}
-
-			}
-
-		}
-	}
-	if node.IsIngressGateway {
-		var extPeers []wgtypes.PeerConfig
-		extPeers, peerConfMap, err = getExtPeersForProxy(node, peerConfMap)
-		if err == nil {
-			peers = append(peers, extPeers...)
-
-		} else if !database.IsEmptyRecord(err) {
-			logger.Log(1, "error retrieving external clients:", err.Error())
-		}
-	}
-
-	proxyPayload.IsIngress = node.IsIngressGateway
-	addr := node.Address
-	if addr.String() == "" {
-		addr = node.Address6
-	}
-	proxyPayload.Peers = peers
-	proxyPayload.PeerMap = peerConfMap
-	//proxyPayload.Network = node.Network
-	//proxyPayload.InterfaceName = node.Interface
-	//hardcode or read from host ??
-	proxyPayload.InterfaceName = models.WIREGUARD_INTERFACE
-
-	return proxyPayload, nil
-}
 
 // GetProxyUpdateForHost - gets the proxy update for host
 func GetProxyUpdateForHost(host *models.Host) (models.ProxyManagerPayload, error) {
@@ -201,7 +25,7 @@ func GetProxyUpdateForHost(host *models.Host) (models.ProxyManagerPayload, error
 	if host.IsRelayed {
 		relayHost, err := GetHost(host.RelayedBy)
 		if err == nil {
-			relayEndpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, getPeerListenPort(relayHost)))
+			relayEndpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, GetPeerListenPort(relayHost)))
 			if err != nil {
 				logger.Log(1, "failed to resolve relay node endpoint: ", err.Error())
 			}
@@ -210,16 +34,15 @@ func GetProxyUpdateForHost(host *models.Host) (models.ProxyManagerPayload, error
 		} else {
 			logger.Log(0, "couldn't find relay host for:  ", host.ID.String())
 		}
-
 	}
 	if host.IsRelay {
 		relayedHosts := GetRelayedHosts(host)
 		relayPeersMap := make(map[string]models.RelayedConf)
 		for _, relayedHost := range relayedHosts {
 			relayedHost := relayedHost
-			payload, err := GetPeerUpdateForHost(&relayedHost)
+			payload, err := GetPeerUpdateForHost("", &relayedHost, nil)
 			if err == nil {
-				relayedEndpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayedHost.EndpointIP, getPeerListenPort(&relayedHost)))
+				relayedEndpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayedHost.EndpointIP, GetPeerListenPort(&relayedHost)))
 				if udpErr == nil {
 					relayPeersMap[relayedHost.PublicKey.String()] = models.RelayedConf{
 						RelayedPeerEndpoint: relayedEndpoint,
@@ -259,14 +82,14 @@ func GetProxyUpdateForHost(host *models.Host) (models.ProxyManagerPayload, error
 			if currPeerConf, found = peerConfMap[peerHost.PublicKey.String()]; !found {
 				currPeerConf = models.PeerConf{
 					Proxy:            peerHost.ProxyEnabled,
-					PublicListenPort: int32(getPeerListenPort(peerHost)),
+					PublicListenPort: int32(GetPeerListenPort(peerHost)),
 				}
 			}
 
 			if peerHost.IsRelayed && peerHost.RelayedBy != host.ID.String() {
 				relayHost, err := GetHost(peerHost.RelayedBy)
 				if err == nil {
-					relayTo, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, getPeerListenPort(relayHost)))
+					relayTo, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, GetPeerListenPort(relayHost)))
 					if err == nil {
 						currPeerConf.IsRelayed = true
 						currPeerConf.RelayedTo = relayTo
@@ -294,35 +117,40 @@ func GetProxyUpdateForHost(host *models.Host) (models.ProxyManagerPayload, error
 }
 
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
-func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
+func GetPeerUpdateForHost(network string, host *models.Host, deletedNode *models.Node) (models.HostPeerUpdate, error) {
 	if host == nil {
 		return models.HostPeerUpdate{}, errors.New("host is nil")
 	}
+	// track which nodes are deleted
+	// after peer calculation, if peer not in list, add delete config of peer
 	hostPeerUpdate := models.HostPeerUpdate{
 		Host:          *host,
 		Server:        servercfg.GetServer(),
-		Network:       make(map[string]models.NetworkInfo),
-		PeerIDs:       make(models.HostPeerMap),
+		HostPeerIDs:   make(models.HostPeerMap, 0),
 		ServerVersion: servercfg.GetVersion(),
 		ServerAddrs:   []models.ServerAddr{},
 		IngressInfo: models.IngressInfo{
 			ExtPeers: make(map[string]models.ExtClientInfo),
 		},
 		EgressInfo: make(map[string]models.EgressInfo),
+		PeerIDs:    make(models.PeerMap, 0),
+		Peers:      []wgtypes.PeerConfig{},
+		NodePeers:  []wgtypes.PeerConfig{},
 	}
-	logger.Log(1, "peer update for host ", host.ID.String())
+	var deletedNodes = []models.Node{} // used to track deleted nodes
+	if deletedNode != nil {
+		deletedNodes = append(deletedNodes, *deletedNode)
+	}
+	logger.Log(1, "peer update for host", host.ID.String())
 	peerIndexMap := make(map[string]int)
 	for _, nodeID := range host.Nodes {
+		nodeID := nodeID
 		node, err := GetNodeByID(nodeID)
 		if err != nil {
 			continue
 		}
-		if !node.Connected || node.Action == models.NODE_DELETE || node.PendingDelete {
+		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE {
 			continue
-		}
-
-		hostPeerUpdate.Network[node.Network] = models.NetworkInfo{
-			DNS: getPeerDNS(node.Network),
 		}
 		currentPeers, err := GetNetworkNodes(node.Network)
 		if err != nil {
@@ -334,10 +162,14 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 			nodePeerMap = make(map[string]models.PeerRouteInfo)
 		}
 		for _, peer := range currentPeers {
-			if peer.ID == node.ID {
+			peer := peer
+			if peer.ID.String() == node.ID.String() {
 				logger.Log(2, "peer update, skipping self")
 				//skip yourself
-
+				continue
+			}
+			if peer.Action == models.NODE_DELETE || peer.PendingDelete {
+				deletedNodes = append(deletedNodes, peer) // track deleted node for peer update
 				continue
 			}
 			var peerConfig wgtypes.PeerConfig
@@ -347,13 +179,13 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 				return models.HostPeerUpdate{}, err
 			}
 
-			if !peer.Connected || peer.Action == models.NODE_DELETE || peer.PendingDelete {
+			if !peer.Connected {
 				logger.Log(2, "peer update, skipping unconnected node", peer.ID.String())
 				//skip unconnected nodes
 				continue
 			}
 			if !nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) {
-				log.Println("peer update, skipping node for acl")
+				logger.Log(2, "peer update, skipping node for acl")
 				//skip if not permitted by acl
 				continue
 			}
@@ -375,7 +207,7 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 			}
 			peerConfig.Endpoint = &net.UDPAddr{
 				IP:   peerHost.EndpointIP,
-				Port: getPeerListenPort(peerHost),
+				Port: GetPeerListenPort(peerHost),
 			}
 
 			if uselocal {
@@ -395,7 +227,26 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 			}
 			peerConfig.AllowedIPs = allowedips
 			if node.IsIngressGateway || node.IsEgressGateway {
-
+				if peer.IsIngressGateway {
+					_, extPeerIDAndAddrs, err := getExtPeers(&peer)
+					if err == nil {
+						for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
+							extPeerIdAndAddr := extPeerIdAndAddr
+							nodePeerMap[extPeerIdAndAddr.ID] = models.PeerRouteInfo{
+								PeerAddr: net.IPNet{
+									IP:   net.ParseIP(extPeerIdAndAddr.Address),
+									Mask: getCIDRMaskFromAddr(extPeerIdAndAddr.Address),
+								},
+								PeerKey: extPeerIdAndAddr.ID,
+								Allow:   true,
+							}
+						}
+					}
+				}
+				if node.IsIngressGateway && peer.IsEgressGateway {
+					hostPeerUpdate.IngressInfo.EgressRanges = append(hostPeerUpdate.IngressInfo.EgressRanges,
+						peer.EgressGatewayRanges...)
+				}
 				nodePeerMap[peerHost.PublicKey.String()] = models.PeerRouteInfo{
 					PeerAddr: net.IPNet{
 						IP:   net.ParseIP(peer.PrimaryAddress()),
@@ -406,28 +257,40 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 				}
 			}
 
-			if _, ok := hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()]; !ok {
-				hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()] = make(map[string]models.IDandAddr)
+			var nodePeer wgtypes.PeerConfig
+			if _, ok := hostPeerUpdate.HostPeerIDs[peerHost.PublicKey.String()]; !ok {
+				hostPeerUpdate.HostPeerIDs[peerHost.PublicKey.String()] = make(map[string]models.IDandAddr)
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
 				peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
-				hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()][peer.ID.String()] = models.IDandAddr{
+				hostPeerUpdate.HostPeerIDs[peerHost.PublicKey.String()][peer.ID.String()] = models.IDandAddr{
 					ID:      peer.ID.String(),
 					Address: peer.PrimaryAddress(),
 					Name:    peerHost.Name,
 					Network: peer.Network,
 				}
+				nodePeer = peerConfig
 			} else {
 				peerAllowedIPs := hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].AllowedIPs
 				peerAllowedIPs = append(peerAllowedIPs, allowedips...)
 				hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].AllowedIPs = peerAllowedIPs
-				hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()][peer.ID.String()] = models.IDandAddr{
+				hostPeerUpdate.HostPeerIDs[peerHost.PublicKey.String()][peer.ID.String()] = models.IDandAddr{
 					ID:      peer.ID.String(),
 					Address: peer.PrimaryAddress(),
 					Name:    peerHost.Name,
 					Network: peer.Network,
 				}
+				nodePeer = hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]]
 			}
 
+			if node.Network == network { // add to peers map for metrics
+				hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()] = models.IDandAddr{
+					ID:      peer.ID.String(),
+					Address: peer.PrimaryAddress(),
+					Name:    peerHost.Name,
+					Network: peer.Network,
+				}
+				hostPeerUpdate.NodePeers = append(hostPeerUpdate.NodePeers, nodePeer)
+			}
 		}
 		var extPeers []wgtypes.PeerConfig
 		var extPeerIDAndAddrs []models.IDandAddr
@@ -435,6 +298,7 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 			extPeers, extPeerIDAndAddrs, err = getExtPeers(&node)
 			if err == nil {
 				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
+					extPeerIdAndAddr := extPeerIdAndAddr
 					nodePeerMap[extPeerIdAndAddr.ID] = models.PeerRouteInfo{
 						PeerAddr: net.IPNet{
 							IP:   net.ParseIP(extPeerIdAndAddr.Address),
@@ -446,8 +310,9 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 				}
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, extPeers...)
 				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
-					hostPeerUpdate.PeerIDs[extPeerIdAndAddr.ID] = make(map[string]models.IDandAddr)
-					hostPeerUpdate.PeerIDs[extPeerIdAndAddr.ID][extPeerIdAndAddr.ID] = models.IDandAddr{
+					extPeerIdAndAddr := extPeerIdAndAddr
+					hostPeerUpdate.HostPeerIDs[extPeerIdAndAddr.ID] = make(map[string]models.IDandAddr)
+					hostPeerUpdate.HostPeerIDs[extPeerIdAndAddr.ID][extPeerIdAndAddr.ID] = models.IDandAddr{
 						ID:      extPeerIdAndAddr.ID,
 						Address: extPeerIdAndAddr.Address,
 						Name:    extPeerIdAndAddr.Name,
@@ -467,8 +332,11 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 						ExtPeerKey: extPeerIdAndAddr.ID,
 						Peers:      nodePeerMap,
 					}
+					if node.Network == network {
+						hostPeerUpdate.PeerIDs[extPeerIdAndAddr.ID] = extPeerIdAndAddr
+						hostPeerUpdate.NodePeers = append(hostPeerUpdate.NodePeers, extPeers...)
+					}
 				}
-
 			} else if !database.IsEmptyRecord(err) {
 				logger.Log(1, "error retrieving external clients:", err.Error())
 			}
@@ -487,10 +355,33 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 		}
 	}
 
+	// run through delete nodes
+	if len(deletedNodes) > 0 {
+		for i := range deletedNodes {
+			delNode := deletedNodes[i]
+			delHost, err := GetHost(delNode.HostID.String())
+			if err != nil {
+				continue
+			}
+			if _, ok := hostPeerUpdate.HostPeerIDs[delHost.PublicKey.String()]; !ok {
+				var peerConfig = wgtypes.PeerConfig{}
+				peerConfig.PublicKey = delHost.PublicKey
+				peerConfig.Endpoint = &net.UDPAddr{
+					IP:   delHost.EndpointIP,
+					Port: GetPeerListenPort(delHost),
+				}
+				peerConfig.Remove = true
+				peerConfig.AllowedIPs = []net.IPNet{delNode.Address, delNode.Address6}
+				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
+			}
+		}
+	}
+
 	return hostPeerUpdate, nil
 }
 
-func getPeerListenPort(host *models.Host) int {
+// GetPeerListenPort - given a host, retrieve it's appropriate listening port
+func GetPeerListenPort(host *models.Host) int {
 	peerPort := host.ListenPort
 	if host.ProxyEnabled {
 		if host.PublicListenPort != 0 {
@@ -500,286 +391,6 @@ func getPeerListenPort(host *models.Host) int {
 		}
 	}
 	return peerPort
-}
-
-// GetPeerUpdate - gets a wireguard peer config for each peer of a node
-func GetPeerUpdate(node *models.Node, host *models.Host) (models.PeerUpdate, error) {
-	log.Println("peer update for node ", node.ID)
-	peerUpdate := models.PeerUpdate{
-		Network:       node.Network,
-		ServerVersion: ncutils.Version,
-		DNS:           getPeerDNS(node.Network),
-		PeerIDs:       make(models.PeerMap),
-	}
-	currentPeers, err := GetNetworkNodes(node.Network)
-	if err != nil {
-		log.Println("no network nodes")
-		return models.PeerUpdate{}, err
-	}
-	for _, peer := range currentPeers {
-		var peerConfig wgtypes.PeerConfig
-		peerHost, err := GetHost(peer.HostID.String())
-		if err != nil {
-			log.Println("no peer host", err)
-			return models.PeerUpdate{}, err
-		}
-		if peer.ID == node.ID {
-			log.Println("peer update, skipping self")
-			//skip yourself
-
-			continue
-		}
-		if !peer.Connected {
-			log.Println("peer update, skipping unconnected node")
-			//skip unconnected nodes
-			continue
-		}
-		if !nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) {
-			log.Println("peer update, skipping node for acl")
-			//skip if not permitted by acl
-			continue
-		}
-		peerConfig.PublicKey = peerHost.PublicKey
-		peerConfig.PersistentKeepaliveInterval = &peer.PersistentKeepalive
-		peerConfig.ReplaceAllowedIPs = true
-		uselocal := false
-		if host.EndpointIP.String() == peerHost.EndpointIP.String() {
-			//peer is on same network
-			// set to localaddress
-			uselocal = true
-			if node.LocalAddress.IP == nil {
-				// use public endpint
-				uselocal = false
-			}
-			if node.LocalAddress.String() == peer.LocalAddress.String() {
-				uselocal = false
-			}
-		}
-		peerConfig.Endpoint = &net.UDPAddr{
-			IP:   peerHost.EndpointIP,
-			Port: peerHost.ListenPort,
-		}
-		if peerHost.ProxyEnabled {
-			peerConfig.Endpoint.Port = getPeerListenPort(peerHost)
-		}
-		if uselocal {
-			peerConfig.Endpoint.IP = peer.LocalAddress.IP
-		}
-		allowedips := getNodeAllowedIPs(&peer, node)
-		if peer.IsIngressGateway {
-			for _, entry := range peer.IngressGatewayRange {
-				_, cidr, err := net.ParseCIDR(string(entry))
-				if err == nil {
-					allowedips = append(allowedips, *cidr)
-				}
-			}
-		}
-		if peer.IsEgressGateway {
-			allowedips = append(allowedips, getEgressIPs(node, &peer)...)
-		}
-
-		peerUpdate.PeerIDs[peerHost.PublicKey.String()] = models.IDandAddr{
-			ID:      peer.ID.String(),
-			Address: peer.PrimaryAddress(),
-			Name:    peerHost.Name,
-			Network: peer.Network,
-		}
-		peerConfig.AllowedIPs = allowedips
-		peerUpdate.Peers = append(peerUpdate.Peers, peerConfig)
-	}
-	return peerUpdate, nil
-}
-
-// func getRelayAllowedIPs(node, peer *models.Node) []net.IPNet {
-// 	var allowedips []net.IPNet
-// 	var allowedip net.IPNet
-// 	for _, addr := range peer.RelayAddrs {
-// 		if node.Address.IP.String() == addr {
-// 			continue
-// 		}
-// 		if node.Address6.IP.String() == addr {
-// 			continue
-// 		}
-// 		allowedip.IP = net.ParseIP(addr)
-// 		allowedips = append(allowedips, allowedip)
-// 	}
-// 	return allowedips
-// }
-
-// GetPeerUpdateLegacy - gets a wireguard peer config for each peer of a node
-func GetPeerUpdateLegacy(node *models.Node) (models.PeerUpdate, error) {
-	var peerUpdate models.PeerUpdate
-	var peers []wgtypes.PeerConfig
-	var serverNodeAddresses = []models.ServerAddr{}
-	var peerMap = make(models.PeerMap)
-	var metrics *models.Metrics
-	if servercfg.Is_EE {
-		metrics, _ = GetMetrics(node.ID.String())
-	}
-	if metrics == nil {
-		metrics = &models.Metrics{}
-	}
-	if metrics.FailoverPeers == nil {
-		metrics.FailoverPeers = make(map[string]string)
-	}
-	// udppeers = the peers parsed from the local interface
-	// gives us correct port to reach
-	udppeers, errN := database.GetPeers(node.Network)
-	if errN != nil {
-		logger.Log(2, errN.Error())
-	}
-
-	currentPeers, err := GetNetworkNodes(node.Network)
-	if err != nil {
-		return models.PeerUpdate{}, err
-	}
-	host, err := GetHost(node.HostID.String())
-	if err != nil {
-		return peerUpdate, err
-	}
-	if node.IsRelayed && !host.ProxyEnabled {
-		return GetPeerUpdateForRelayedNode(node, udppeers)
-	}
-
-	// #1 Set Keepalive values: set_keepalive
-	// #2 Set local address: set_local - could be a LOT BETTER and fix some bugs with additional logic
-	// #3 Set allowedips: set_allowedips
-	for _, peer := range currentPeers {
-		peerHost, err := GetHost(peer.HostID.String())
-		if err != nil {
-			logger.Log(0, "error retrieving host for peer", node.ID.String(), err.Error())
-			return models.PeerUpdate{}, err
-		}
-		if peer.ID == node.ID {
-			//skip yourself
-			continue
-		}
-		if node.Connected {
-			//skip unconnected nodes
-			continue
-		}
-
-		// if the node is not a server, set the endpoint
-		var setEndpoint = true
-
-		if peer.IsRelayed {
-			if !peerHost.ProxyEnabled && !(node.IsRelay && ncutils.StringSliceContains(node.RelayAddrs, peer.PrimaryAddress())) {
-				//skip -- will be added to relay
-				continue
-			} else if node.IsRelay && ncutils.StringSliceContains(node.RelayAddrs, peer.PrimaryAddress()) {
-				// dont set peer endpoint if it's relayed by node
-				setEndpoint = false
-			}
-		}
-		if !nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) {
-			//skip if not permitted by acl
-			continue
-		}
-		if len(metrics.FailoverPeers[peer.ID.String()]) > 0 && IsFailoverPresent(node.Network) {
-			logger.Log(2, "peer", peer.ID.String(), peer.PrimaryAddress(), "was found to be in failover peers list for node", node.ID.String(), node.PrimaryAddress())
-			continue
-		}
-		if err != nil {
-			return models.PeerUpdate{}, err
-		}
-		host, err := GetHost(node.HostID.String())
-		if err != nil {
-			logger.Log(0, "error retrieving host for node", node.ID.String(), err.Error())
-			return models.PeerUpdate{}, err
-		}
-		if host.EndpointIP.String() == peerHost.EndpointIP.String() {
-			//peer is on same network
-			// set_local
-			if node.LocalAddress.String() != peer.LocalAddress.String() && peer.LocalAddress.IP != nil {
-				peerHost.EndpointIP = peer.LocalAddress.IP
-				if peerHost.ListenPort != 0 {
-					peerHost.ListenPort = getPeerListenPort(peerHost)
-				}
-			} else {
-				continue
-			}
-		}
-
-		// set address if setEndpoint is true
-		// otherwise, will get inserted as empty value
-		var address *net.UDPAddr
-
-		// Sets ListenPort to UDP Hole Punching Port assuming:
-		// - UDP Hole Punching is enabled
-		// - udppeers retrieval did not return an error
-		// - the endpoint is valid
-		if setEndpoint {
-
-			var setUDPPort = false
-			if CheckEndpoint(udppeers[peerHost.PublicKey.String()]) {
-				endpointstring := udppeers[peerHost.PublicKey.String()]
-				endpointarr := strings.Split(endpointstring, ":")
-				if len(endpointarr) == 2 {
-					port, err := strconv.Atoi(endpointarr[1])
-					if err == nil {
-						setUDPPort = true
-						peerHost.ListenPort = port
-					}
-				}
-			}
-			// if udp hole punching is on, but udp hole punching did not set it, use the LocalListenPort instead
-			// or, if port is for some reason zero use the LocalListenPort
-			// but only do this if LocalListenPort is not zero
-			if ((!setUDPPort) || peerHost.ListenPort == 0) && peerHost.ListenPort != 0 {
-				peerHost.ListenPort = getPeerListenPort(peerHost)
-			}
-
-			endpoint := peerHost.EndpointIP.String() + ":" + strconv.FormatInt(int64(peerHost.ListenPort), 10)
-			address, err = net.ResolveUDPAddr("udp", endpoint)
-			if err != nil {
-				return models.PeerUpdate{}, err
-			}
-		}
-		allowedips := GetAllowedIPs(node, &peer, metrics)
-		var keepalive time.Duration
-		if node.PersistentKeepalive != 0 {
-			// set_keepalive
-			keepalive = node.PersistentKeepalive
-		}
-		var peerData = wgtypes.PeerConfig{
-			PublicKey:                   peerHost.PublicKey,
-			Endpoint:                    address,
-			ReplaceAllowedIPs:           true,
-			AllowedIPs:                  allowedips,
-			PersistentKeepaliveInterval: &keepalive,
-		}
-
-		peers = append(peers, peerData)
-		peerMap[peerHost.PublicKey.String()] = models.IDandAddr{
-			Name:     peerHost.Name,
-			ID:       peer.ID.String(),
-			Address:  peer.PrimaryAddress(),
-			IsServer: "no",
-		}
-
-	}
-	if node.IsIngressGateway {
-		extPeers, idsAndAddr, err := getExtPeers(node)
-		if err == nil {
-			peers = append(peers, extPeers...)
-			for i := range idsAndAddr {
-				peerMap[idsAndAddr[i].ID] = idsAndAddr[i]
-			}
-		} else if !database.IsEmptyRecord(err) {
-			logger.Log(1, "error retrieving external clients:", err.Error())
-		}
-	}
-
-	peerUpdate.Network = node.Network
-	peerUpdate.ServerVersion = servercfg.Version
-	sort.SliceStable(peers[:], func(i, j int) bool {
-		return peers[i].PublicKey.String() < peers[j].PublicKey.String()
-	})
-	peerUpdate.Peers = peers
-	peerUpdate.ServerAddrs = serverNodeAddresses
-	peerUpdate.DNS = getPeerDNS(node.Network)
-	peerUpdate.PeerIDs = peerMap
-	return peerUpdate, nil
 }
 
 func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, error) {
@@ -946,170 +557,6 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 		}
 	}
 	return allowedips
-}
-
-func getPeerDNS(network string) string {
-	var dns string
-	if nodes, err := GetNetworkNodes(network); err == nil {
-		for i, node := range nodes {
-			host, err := GetHost(node.HostID.String())
-			if err != nil {
-				logger.Log(0, "error retrieving host for node", node.ID.String(), err.Error())
-				continue
-			}
-			dns = dns + fmt.Sprintf("%s %s.%s\n", nodes[i].Address, host.Name, nodes[i].Network)
-		}
-	}
-
-	if customDNSEntries, err := GetCustomDNS(network); err == nil {
-		for _, entry := range customDNSEntries {
-			// TODO - filter entries based on ACLs / given peers vs nodes in network
-			dns = dns + fmt.Sprintf("%s %s.%s\n", entry.Address, entry.Name, entry.Network)
-		}
-	}
-	return dns
-}
-
-// GetPeerUpdateForRelayedNode - calculates peer update for a relayed node by getting the relay
-// copying the relay node's allowed ips and making appropriate substitutions
-func GetPeerUpdateForRelayedNode(node *models.Node, udppeers map[string]string) (models.PeerUpdate, error) {
-	var peerUpdate models.PeerUpdate
-	var peers []wgtypes.PeerConfig
-	var serverNodeAddresses = []models.ServerAddr{}
-	var allowedips []net.IPNet
-	//find node that is relaying us
-	relay := FindRelay(node)
-	if relay == nil {
-		return models.PeerUpdate{}, errors.New("not found")
-	}
-
-	//add relay to lists of allowed ip
-	if relay.Address.IP != nil {
-		relayIP := relay.Address
-		allowedips = append(allowedips, relayIP)
-	}
-	if relay.Address6.IP != nil {
-		relayIP6 := relay.Address6
-		allowedips = append(allowedips, relayIP6)
-	}
-	//get PeerUpdate for relayed node
-	relayHost, err := GetHost(relay.HostID.String())
-	if err != nil {
-		return models.PeerUpdate{}, err
-	}
-	relayPeerUpdate, err := GetPeerUpdate(relay, relayHost)
-	if err != nil {
-		return models.PeerUpdate{}, err
-	}
-	//add the relays allowed ips from all of the relay's peers
-	for _, peer := range relayPeerUpdate.Peers {
-		allowedips = append(allowedips, peer.AllowedIPs...)
-	}
-	//delete any ips not permitted by acl
-	for i := len(allowedips) - 1; i >= 0; i-- {
-		target, err := findNode(allowedips[i].IP.String())
-		if err != nil {
-			logger.Log(0, "failed to find node for ip", allowedips[i].IP.String(), err.Error())
-			continue
-		}
-		if target == nil {
-			logger.Log(0, "failed to find node for ip", allowedips[i].IP.String())
-			continue
-		}
-		if !nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(target.ID.String())) {
-			logger.Log(0, "deleting node from relayednode per acl", node.ID.String(), target.ID.String())
-			allowedips = append(allowedips[:i], allowedips[i+1:]...)
-		}
-	}
-	//delete self from allowed ips
-	for i := len(allowedips) - 1; i >= 0; i-- {
-		if allowedips[i].IP.String() == node.Address.IP.String() || allowedips[i].IP.String() == node.Address6.IP.String() {
-			allowedips = append(allowedips[:i], allowedips[i+1:]...)
-		}
-	}
-	//delete egressrange from allowedip if we are egress gateway
-	if node.IsEgressGateway {
-		for i := len(allowedips) - 1; i >= 0; i-- {
-			if StringSliceContains(node.EgressGatewayRanges, allowedips[i].String()) {
-				allowedips = append(allowedips[:i], allowedips[i+1:]...)
-			}
-		}
-	}
-	//delete extclients from allowedip if we are ingress gateway
-	if node.IsIngressGateway {
-		for i := len(allowedips) - 1; i >= 0; i-- {
-			if strings.Contains(node.IngressGatewayRange, allowedips[i].IP.String()) {
-				allowedips = append(allowedips[:i], allowedips[i+1:]...)
-			}
-		}
-	}
-	//add egress range if relay is egress
-	if relay.IsEgressGateway {
-		var ip *net.IPNet
-		for _, cidr := range relay.EgressGatewayRanges {
-			_, ip, err = net.ParseCIDR(cidr)
-			if err != nil {
-				continue
-			}
-		}
-		allowedips = append(allowedips, *ip)
-	}
-	var setUDPPort = false
-	var listenPort int
-	if CheckEndpoint(udppeers[relayHost.PublicKey.String()]) {
-		endpointstring := udppeers[relayHost.PublicKey.String()]
-		endpointarr := strings.Split(endpointstring, ":")
-		if len(endpointarr) == 2 {
-			port, err := strconv.Atoi(endpointarr[1])
-			if err == nil {
-				setUDPPort = true
-				listenPort = port
-			}
-		}
-	}
-	// if udp hole punching is on, but udp hole punching did not set it, use the LocalListenPort instead
-	// or, if port is for some reason zero use the LocalListenPort
-	// but only do this if LocalListenPort is not zero
-	if ((!setUDPPort) || relayHost.ListenPort == 0) && relayHost.ListenPort != 0 {
-		listenPort = relayHost.ListenPort
-	}
-
-	endpoint := relayHost.EndpointIP.String() + ":" + strconv.FormatInt(int64(listenPort), 10)
-	address, err := net.ResolveUDPAddr("udp", endpoint)
-	if err != nil {
-		return models.PeerUpdate{}, err
-	}
-	var keepalive time.Duration
-	if node.PersistentKeepalive != 0 {
-		// set_keepalive
-		keepalive = node.PersistentKeepalive
-	}
-	var peerData = wgtypes.PeerConfig{
-		PublicKey:                   relayHost.PublicKey,
-		Endpoint:                    address,
-		ReplaceAllowedIPs:           true,
-		AllowedIPs:                  allowedips,
-		PersistentKeepaliveInterval: &keepalive,
-	}
-	peers = append(peers, peerData)
-	//if ingress add extclients
-	if node.IsIngressGateway {
-		extPeers, _, err := getExtPeers(node)
-		if err == nil {
-			peers = append(peers, extPeers...)
-		} else {
-			logger.Log(2, "could not retrieve ext peers for ", node.ID.String(), err.Error())
-		}
-	}
-	peerUpdate.Network = node.Network
-	peerUpdate.ServerVersion = servercfg.Version
-	sort.SliceStable(peers[:], func(i, j int) bool {
-		return peers[i].PublicKey.String() < peers[j].PublicKey.String()
-	})
-	peerUpdate.Peers = peers
-	peerUpdate.ServerAddrs = serverNodeAddresses
-	peerUpdate.DNS = getPeerDNS(node.Network)
-	return peerUpdate, nil
 }
 
 func getEgressIPs(node, peer *models.Node) []net.IPNet {

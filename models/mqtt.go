@@ -6,34 +6,25 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-// PeerUpdate - struct
-type PeerUpdate struct {
-	Network       string               `json:"network" bson:"network" yaml:"network"`
-	ServerVersion string               `json:"serverversion" bson:"serverversion" yaml:"serverversion"`
-	ServerAddrs   []ServerAddr         `json:"serveraddrs" bson:"serveraddrs" yaml:"serveraddrs"`
-	Peers         []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
-	DNS           string               `json:"dns" bson:"dns" yaml:"dns"`
-	PeerIDs       PeerMap              `json:"peerids" bson:"peerids" yaml:"peerids"`
-	ProxyUpdate   ProxyManagerPayload  `json:"proxy_update" bson:"proxy_update" yaml:"proxy_update"`
-}
-
 // HostPeerUpdate - struct for host peer updates
 type HostPeerUpdate struct {
-	Host          Host                   `json:"host" bson:"host" yaml:"host"`
-	Server        string                 `json:"server" bson:"server" yaml:"server"`
-	ServerVersion string                 `json:"serverversion" bson:"serverversion" yaml:"serverversion"`
-	ServerAddrs   []ServerAddr           `json:"serveraddrs" bson:"serveraddrs" yaml:"serveraddrs"`
-	Network       map[string]NetworkInfo `json:"network" bson:"network" yaml:"network"`
-	Peers         []wgtypes.PeerConfig   `json:"peers" bson:"peers" yaml:"peers"`
-	PeerIDs       HostPeerMap            `json:"peerids" bson:"peerids" yaml:"peerids"`
-	ProxyUpdate   ProxyManagerPayload    `json:"proxy_update" bson:"proxy_update" yaml:"proxy_update"`
-	EgressInfo    map[string]EgressInfo  `json:"egress_info" bson:"egress_info" yaml:"egress_info"` // map key is node ID
-	IngressInfo   IngressInfo            `json:"ingress_info" bson:"ext_peers" yaml:"ext_peers"`
+	Host          Host                 `json:"host" bson:"host" yaml:"host"`
+	Server        string               `json:"server" bson:"server" yaml:"server"`
+	ServerVersion string               `json:"serverversion" bson:"serverversion" yaml:"serverversion"`
+	ServerAddrs   []ServerAddr         `json:"serveraddrs" bson:"serveraddrs" yaml:"serveraddrs"`
+	NodePeers     []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
+	Peers         []wgtypes.PeerConfig
+	HostPeerIDs   HostPeerMap           `json:"hostpeerids" bson:"hostpeerids" yaml:"hostpeerids"`
+	ProxyUpdate   ProxyManagerPayload   `json:"proxy_update" bson:"proxy_update" yaml:"proxy_update"`
+	EgressInfo    map[string]EgressInfo `json:"egress_info" bson:"egress_info" yaml:"egress_info"` // map key is node ID
+	IngressInfo   IngressInfo           `json:"ingress_info" bson:"ext_peers" yaml:"ext_peers"`
+	PeerIDs       PeerMap               `json:"peerids" bson:"peerids" yaml:"peerids"`
 }
 
 // IngressInfo - struct for ingress info
 type IngressInfo struct {
-	ExtPeers map[string]ExtClientInfo `json:"ext_peers" yaml:"ext_peers"`
+	ExtPeers     map[string]ExtClientInfo `json:"ext_peers" yaml:"ext_peers"`
+	EgressRanges []string                 `json:"egress_ranges" yaml:"egress_ranges"`
 }
 
 // EgressInfo - struct for egress info
@@ -60,11 +51,6 @@ type ExtClientInfo struct {
 	ExtPeerAddr net.IPNet                `json:"ext_peer_addr" yaml:"ext_peer_addr"`
 	ExtPeerKey  string                   `json:"ext_peer_key" yaml:"ext_peer_key"`
 	Peers       map[string]PeerRouteInfo `json:"peers" yaml:"peers"`
-}
-
-// NetworkInfo - struct for network info
-type NetworkInfo struct {
-	DNS string `json:"dns" bson:"dns" yaml:"dns"`
 }
 
 // KeyUpdate - key update struct

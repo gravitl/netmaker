@@ -415,7 +415,6 @@ func getUsersNodes(user models.User) ([]models.Node, error) {
 func getNode(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
-
 	nodeRequest := r.Header.Get("requestfrom") == "node"
 
 	var params = mux.Vars(r)
@@ -434,14 +433,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	peerUpdate, err := logic.GetPeerUpdate(&node, host)
-	if err != nil && !database.IsEmptyRecord(err) {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("error fetching wg peers config for node [ %s ]: %v", nodeid, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	hostPeerUpdate, err := logic.GetPeerUpdateForHost(host)
+	hostPeerUpdate, err := logic.GetPeerUpdateForHost(node.Network, host, nil)
 	if err != nil && !database.IsEmptyRecord(err) {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("error fetching wg peers config for host [ %s ]: %v", host.ID.String(), err))
@@ -449,21 +441,13 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	server := servercfg.GetServerInfo()
-	network, err := logic.GetNetwork(node.Network)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("error fetching network for node [ %s ] info: %v", nodeid, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	legacy := node.Legacy(host, &server, &network)
 	response := models.NodeGet{
-		Node:         *legacy,
+		Node:         node,
 		Host:         *host,
-		Peers:        peerUpdate.Peers,
 		HostPeers:    hostPeerUpdate.Peers,
+		Peers:        hostPeerUpdate.NodePeers,
 		ServerConfig: server,
-		PeerIDs:      peerUpdate.PeerIDs,
+		PeerIDs:      hostPeerUpdate.PeerIDs,
 	}
 
 	if servercfg.Is_EE && nodeRequest {
@@ -580,6 +564,13 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	data.Node.Server = servercfg.GetServer()
 	if !logic.HostExists(&data.Host) {
 		logic.CheckHostPorts(&data.Host)
+		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
+			// create EMQX credentials for host if it doesn't exists
+			if err := mq.CreateEmqxUser(data.Host.ID.String(), data.Host.HostPass, false); err != nil {
+				logger.Log(0, "failed to add host credentials to EMQX: ", data.Host.ID.String(), err.Error())
+				return
+			}
+		}
 	}
 	if err := logic.CreateHost(&data.Host); err != nil {
 		if errors.Is(err, logic.ErrHostExists) {
@@ -605,7 +596,6 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-
 	err = logic.AssociateNodeToHost(&data.Node, &data.Host)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
@@ -632,7 +622,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	hostPeerUpdate, err := logic.GetPeerUpdateForHost(&data.Host)
+	hostPeerUpdate, err := logic.GetPeerUpdateForHost(networkName, &data.Host, nil)
 	if err != nil && !database.IsEmptyRecord(err) {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("error fetching wg peers config for host [ %s ]: %v", data.Host.ID.String(), err))
@@ -657,6 +647,30 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	//runForceServerUpdate(&data.Node, true)
+	go func() {
+		dns := models.DNSUpdate{
+			Action: models.DNSInsert,
+			Name:   data.Host.Name + "." + data.Node.Network,
+		}
+		if data.Node.Address.IP != nil {
+			dns.Address = data.Node.Address.IP.String()
+			//publish new node dns entry to all nodes on network
+			if err := mq.PublishDNSUpdate(data.Node.Network, dns); err != nil {
+				logger.Log(1, "failed to publish dns update on node creation", err.Error())
+			}
+		}
+		if data.Node.Address6.IP != nil {
+			dns.Address = data.Node.Address6.IP.String()
+			//publish new node dns entry to all nodes on network
+			if err := mq.PublishDNSUpdate(data.Node.Network, dns); err != nil {
+				logger.Log(1, "failed to publish dns update on node creation", err.Error())
+			}
+		}
+		//publish add dns records for network to new node
+		if err := mq.PublishAllDNS(&data.Node); err != nil {
+			logger.Log(1, "failed to publish dns update on node creation", err.Error())
+		}
+	}()
 }
 
 // == EGRESS ==
@@ -929,6 +943,11 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(apiNode)
 
 	runUpdates(newNode, ifaceDelta)
+	go func() {
+		if err := mq.PublishReplaceDNS(&currentNode, newNode, host); err != nil {
+			logger.Log(1, "failed to publish dns update", err.Error())
+		}
+	}()
 }
 
 // swagger:route DELETE /api/nodes/{network}/{nodeid} nodes deleteNode
@@ -972,11 +991,25 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	if !fromNode { // notify node change
 		runUpdates(&node, false)
 	}
-	go func() { // notify of peer change
-		if err := mq.PublishPeerUpdate(); err != nil {
+	go func(deletedNode *models.Node, fromNode bool) { // notify of peer change
+		var err error
+		if fromNode {
+			err = mq.PublishDeletedNodePeerUpdate(deletedNode)
+		} else {
+			err = mq.PublishPeerUpdate()
+		}
+		if err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
 		}
-	}()
+
+		host, err := logic.GetHost(node.HostID.String())
+		if err != nil {
+			logger.Log(1, "failed to retrieve host for node", node.ID.String(), err.Error())
+		}
+		if err := mq.PublishDNSDelete(&node, host); err != nil {
+			logger.Log(1, "error publishing dns update", err.Error())
+		}
+	}(&node, fromNode)
 }
 
 func runUpdates(node *models.Node, ifaceDelta bool) {

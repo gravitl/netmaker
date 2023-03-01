@@ -36,13 +36,15 @@ type ServerConfig struct {
 	APIConnString         string `yaml:"apiconn"`
 	APIHost               string `yaml:"apihost"`
 	APIPort               string `yaml:"apiport"`
-	MQHOST                string `yaml:"mqhost"`
+	Broker                string `yam:"broker"`
+	ServerBrokerEndpoint  string `yaml:"serverbrokerendpoint"`
+	BrokerType            string `yaml:"brokertype"`
+	EmqxRestEndpoint      string `yaml:"emqxrestendpoint"`
 	MasterKey             string `yaml:"masterkey"`
 	DNSKey                string `yaml:"dnskey"`
 	AllowedOrigin         string `yaml:"allowedorigin"`
 	NodeID                string `yaml:"nodeid"`
 	RestBackend           string `yaml:"restbackend"`
-	AgentBackend          string `yaml:"agentbackend"`
 	MessageQueueBackend   string `yaml:"messagequeuebackend"`
 	DNSMode               string `yaml:"dnsmode"`
 	DisableRemoteIPCheck  string `yaml:"disableremoteipcheck"`
@@ -50,9 +52,7 @@ type ServerConfig struct {
 	SQLConn               string `yaml:"sqlconn"`
 	Platform              string `yaml:"platform"`
 	Database              string `yaml:"database"`
-	DefaultNodeLimit      int32  `yaml:"defaultnodelimit"`
 	Verbosity             int32  `yaml:"verbosity"`
-	ServerCheckinInterval int64  `yaml:"servercheckininterval"`
 	AuthProvider          string `yaml:"authprovider"`
 	OIDCIssuer            string `yaml:"oidcissuer"`
 	ClientID              string `yaml:"clientid"`
@@ -62,10 +62,7 @@ type ServerConfig struct {
 	AzureTenant           string `yaml:"azuretenant"`
 	Telemetry             string `yaml:"telemetry"`
 	HostNetwork           string `yaml:"hostnetwork"`
-	MQPort                string `yaml:"mqport"`
-	MQServerPort          string `yaml:"mqserverport"`
 	Server                string `yaml:"server"`
-	Broker                string `yam:"broker"`
 	PublicIPService       string `yaml:"publicipservice"`
 	MQPassword            string `yaml:"mqpassword"`
 	MQUserName            string `yaml:"mqusername"`

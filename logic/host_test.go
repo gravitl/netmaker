@@ -1,6 +1,8 @@
 package logic
 
 import (
+	"context"
+	"fmt"
 	"net"
 	"testing"
 
@@ -12,6 +14,16 @@ import (
 
 func TestCheckPorts(t *testing.T) {
 	database.InitializeDatabase()
+	defer database.CloseDB()
+	peerUpdate := make(chan *models.Node)
+	go ManageZombies(context.Background(), peerUpdate)
+	go func() {
+		for y := range peerUpdate {
+			fmt.Printf("Pointless %v\n", y)
+			//do nothing
+		}
+	}()
+
 	h := models.Host{
 		ID:              uuid.New(),
 		EndpointIP:      net.ParseIP("192.168.1.1"),
