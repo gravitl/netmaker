@@ -22,7 +22,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	if err != nil {
 		return models.Node{}, err
 	}
-	if host.OS != "linux" { // support for other OS to be added
+	if host.OS != "linux" && host.OS != "freebsd" { // support for other OS to be added
 		return models.Node{}, errors.New(host.OS + " is unsupported for egress gateways")
 	}
 	for i := len(gateway.Ranges) - 1; i >= 0; i-- {
