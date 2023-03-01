@@ -4,10 +4,11 @@ ARG tags
 WORKDIR /app
 COPY . .
 
-RUN GOOS=linux CGO_ENABLED=1 go build -ldflags="-s -w" -tags ${tags} .
+RUN GOOS=linux CGO_ENABLED=1 go build -ldflags="-s -w " -tags ${tags} .
 # RUN go build -tags=ee . -o netmaker main.go
 FROM alpine:3.16.2
 
+# add a c lib
 # set the working directory
 WORKDIR /root/
 RUN mkdir -p /etc/netclient/config

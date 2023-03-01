@@ -637,7 +637,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		Host:         data.Host,
 		Peers:        hostPeerUpdate.Peers,
 	}
-	logger.Log(1, r.Header.Get("user"), "created new node", data.Host.Name, "on network", networkName)
+	logger.Log(1, r.Header.Get("user"), "created new node", data.Host.Name, data.Node.ID.String(), "on network", networkName)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 

@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/kr/pretty"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -74,11 +75,14 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 	}
 	r.Body = io.NopCloser(strings.NewReader(string(payload)))
 	r.ContentLength = int64(len(string(payload)))
+	pretty.Println(data.JoinData)
+	logger.Log(3, "deleteing legacy node", data.LegacyNodeID, legacyNode.ID, legacyNode.Name)
 	if err := database.DeleteRecord(database.NODES_TABLE_NAME, data.LegacyNodeID); err != nil {
 		logger.Log(0, "error deleting legacy node", legacyNode.Name, err.Error())
 	}
 	createNode(w, r)
 	//newly created node has same node id as legacy node allowing using legacyNode.ID in gateway creation
+	logger.Log(3, "re-creating legacy gateways")
 	if legacyNode.IsIngressGateway == "yes" {
 		if _, err := logic.CreateIngressGateway(legacyNode.Network, legacyNode.ID, false); err != nil {
 			logger.Log(0, "error creating ingress gateway during migration", err.Error())
