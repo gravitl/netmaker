@@ -1,5 +1,7 @@
 #!/bin/bash
 
+$LATEST="v0.18.1"
+
 # check_version - make sure current version is 0.17.1 before continuing
 check_version() {
   IMG_TAG=$(yq -r '.services.netmaker.image' docker-compose.yml)
@@ -203,7 +205,7 @@ collect_server_settings() {
 
   STUN_DOMAIN="stun.$SERVER_NAME"
   echo "-----------------------------------------------------"
-  echo "Netmaker v0.18.0 requires a new DNS entry for $STUN_DOMAIN."
+  echo "Netmaker v0.18 requires a new DNS entry for $STUN_DOMAIN."
   echo "Please confirm this is added to your DNS provider before continuing"
   echo "(note: this is not required if using an nip.io address)"
   echo "-----------------------------------------------------"
@@ -351,7 +353,7 @@ set_compose() {
   chmod +x /root/mosquitto.conf
 
   # DEV_TEMP
-  sed -i "s/v0.17.1/testing/g" /root/docker-compose.yml
+  sed -i "s/v0.17.1/$LATEST/g" /root/docker-compose.yml
 
   # RELEASE_REPLACE - Use this once release is ready
   # sed -i "s/v0.17.1/v0.18.0/g" /root/docker-compose.yml
@@ -420,19 +422,31 @@ test_caddy() {
 # setup_netclient - adds netclient to docker-compose
 setup_netclient() {
 
-  yq ".services.netclient += {\"container_name\": \"netclient\"}" -i /root/docker-compose.yml
-  yq ".services.netclient += {\"image\": \"gravitl/netclient:testing\"}" -i /root/docker-compose.yml
-  yq ".services.netclient += {\"hostname\": \"netmaker-1\"}" -i /root/docker-compose.yml
-  yq ".services.netclient += {\"network_mode\": \"host\"}" -i /root/docker-compose.yml
-  yq ".services.netclient.depends_on += [\"netmaker\"]" -i /root/docker-compose.yml
-  yq ".services.netclient += {\"restart\": \"always\"}" -i /root/docker-compose.yml
-  yq ".services.netclient.environment += {\"TOKEN\": \"$KEY\"}" -i /root/docker-compose.yml
-  yq ".services.netclient.volumes += [\"/etc/netclient:/etc/netclient\"]" -i /root/docker-compose.yml
-  yq ".services.netclient.cap_add += [\"NET_ADMIN\"]" -i /root/docker-compose.yml
-  yq ".services.netclient.cap_add += [\"NET_RAW\"]" -i /root/docker-compose.yml
-  yq ".services.netclient.cap_add += [\"SYS_MODULE\"]" -i /root/docker-compose.yml
+  # yq ".services.netclient += {\"container_name\": \"netclient\"}" -i /root/docker-compose.yml
+  # yq ".services.netclient += {\"image\": \"gravitl/netclient:testing\"}" -i /root/docker-compose.yml
+  # yq ".services.netclient += {\"hostname\": \"netmaker-1\"}" -i /root/docker-compose.yml
+  # yq ".services.netclient += {\"network_mode\": \"host\"}" -i /root/docker-compose.yml
+  # yq ".services.netclient.depends_on += [\"netmaker\"]" -i /root/docker-compose.yml
+  # yq ".services.netclient += {\"restart\": \"always\"}" -i /root/docker-compose.yml
+  # yq ".services.netclient.environment += {\"TOKEN\": \"$KEY\"}" -i /root/docker-compose.yml
+  # yq ".services.netclient.volumes += [\"/etc/netclient:/etc/netclient\"]" -i /root/docker-compose.yml
+  # yq ".services.netclient.cap_add += [\"NET_ADMIN\"]" -i /root/docker-compose.yml
+  # yq ".services.netclient.cap_add += [\"NET_RAW\"]" -i /root/docker-compose.yml
+  # yq ".services.netclient.cap_add += [\"SYS_MODULE\"]" -i /root/docker-compose.yml
 
-  docker-compose up -d
+  # docker-compose up -d
+
+	set +e
+	netclient uninstall
+	set -e
+
+	wget -O netclient https://github.com/gravitl/netclient/releases/download/$LATEST/netclient_linux_amd64
+	chmod +x netclient
+	./netclient install
+	netclient join -t $TOKEN
+
+	echo "waiting for client to become available"
+	wait_seconds 10 
 
 }
 
@@ -568,7 +582,7 @@ join_networks() {
 cat << "EOF"
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-The Netmaker Upgrade Script: Upgrading to v0.18.0 so you don't have to!
+The Netmaker Upgrade Script: Upgrading to v0.18 so you don't have to!
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 EOF
