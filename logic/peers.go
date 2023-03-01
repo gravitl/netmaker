@@ -363,7 +363,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, deletedNode *models
 			if err != nil {
 				continue
 			}
-			if _, ok := hostPeerUpdate.HostPeerIDs[delHost.PublicKey.String()]; !ok {
+			if _, ok := peerIndexMap[delHost.PublicKey.String()]; !ok {
 				var peerConfig = wgtypes.PeerConfig{}
 				peerConfig.PublicKey = delHost.PublicKey
 				peerConfig.Endpoint = &net.UDPAddr{
