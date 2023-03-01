@@ -43,8 +43,8 @@ func GetServerConfig() config.ServerConfig {
 	cfg.AllowedOrigin = GetAllowedOrigin()
 	cfg.RestBackend = "off"
 	cfg.NodeID = GetNodeID()
-	cfg.StunHost = GetStunAddr()
 	cfg.StunPort = GetStunPort()
+	cfg.StunList = GetStunList()
 	cfg.BrokerType = GetBrokerType()
 	cfg.EmqxRestEndpoint = GetEmqxRestEndpoint()
 	if IsRestBackend() {
@@ -99,8 +99,8 @@ func GetServerInfo() models.ServerConfig {
 	}
 	cfg.Version = GetVersion()
 	cfg.Is_EE = Is_EE
-	cfg.StunHost = GetStunAddr()
 	cfg.StunPort = GetStunPort()
+	cfg.StunList = GetStunList()
 
 	return cfg
 }
@@ -178,14 +178,14 @@ func GetAPIPort() string {
 }
 
 // GetStunAddr - gets the stun host address
-func GetStunAddr() string {
-	stunAddr := ""
-	if os.Getenv("STUN_DOMAIN") != "" {
-		stunAddr = os.Getenv("STUN_DOMAIN")
-	} else if config.Config.Server.StunHost != "" {
-		stunAddr = config.Config.Server.StunHost
+func GetStunList() string {
+	stunList := "stun1.netmaker.io:3478,stun2.netmaker.io:3478"
+	if os.Getenv("STUN_LIST") != "" {
+		stunList = os.Getenv("STUN_LIST")
+	} else if config.Config.Server.StunList != "" {
+		stunList = config.Config.Server.StunList
 	}
-	return stunAddr
+	return stunList
 }
 
 // GetCoreDNSAddr - gets the core dns address

@@ -235,7 +235,7 @@ type ServerConfig struct {
 	Broker      string `yaml:"broker"`
 	Is_EE       bool   `yaml:"isee"`
 	StunPort    int    `yaml:"stun_port"`
-	StunHost    string `yaml:"stun_host"`
+	StunList    string `yaml:"stun_list"`
 	TrafficKey  []byte `yaml:"traffickey"`
 }
 
