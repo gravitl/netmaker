@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LATEST="v0.18.2"
+LATEST="v0.18.1"
 
 if [ $(id -u) -ne 0 ]; then
    echo "This script must be run as root"
@@ -159,19 +159,29 @@ install_yq() {
 # setup_netclient - adds netclient to docker-compose
 setup_netclient() {
 
-	yq ".services.netclient += {\"container_name\": \"netclient\"}" -i /root/docker-compose.yml
-	yq ".services.netclient += {\"image\": \"gravitl/netclient:$IMAGE_TAG\"}" -i /root/docker-compose.yml
-	yq ".services.netclient += {\"hostname\": \"netmaker-1\"}" -i /root/docker-compose.yml
-	yq ".services.netclient += {\"network_mode\": \"host\"}" -i /root/docker-compose.yml
-	yq ".services.netclient.depends_on += [\"netmaker\"]" -i /root/docker-compose.yml
-	yq ".services.netclient += {\"restart\": \"always\"}" -i /root/docker-compose.yml
-	yq ".services.netclient.environment += {\"TOKEN\": \"$TOKEN\"}" -i /root/docker-compose.yml
-	yq ".services.netclient.volumes += [\"/etc/netclient:/etc/netclient\"]" -i /root/docker-compose.yml
-	yq ".services.netclient.cap_add += [\"NET_ADMIN\"]" -i /root/docker-compose.yml
-	yq ".services.netclient.cap_add += [\"NET_RAW\"]" -i /root/docker-compose.yml
-	yq ".services.netclient.cap_add += [\"SYS_MODULE\"]" -i /root/docker-compose.yml
 
-	docker-compose up -d
+	# yq ".services.netclient += {\"container_name\": \"netclient\"}" -i /root/docker-compose.yml
+	# yq ".services.netclient += {\"image\": \"gravitl/netclient:$IMAGE_TAG\"}" -i /root/docker-compose.yml
+	# yq ".services.netclient += {\"hostname\": \"netmaker-1\"}" -i /root/docker-compose.yml
+	# yq ".services.netclient += {\"network_mode\": \"host\"}" -i /root/docker-compose.yml
+	# yq ".services.netclient.depends_on += [\"netmaker\"]" -i /root/docker-compose.yml
+	# yq ".services.netclient += {\"restart\": \"always\"}" -i /root/docker-compose.yml
+	# yq ".services.netclient.environment += {\"TOKEN\": \"$TOKEN\"}" -i /root/docker-compose.yml
+	# yq ".services.netclient.volumes += [\"/etc/netclient:/etc/netclient\"]" -i /root/docker-compose.yml
+	# yq ".services.netclient.cap_add += [\"NET_ADMIN\"]" -i /root/docker-compose.yml
+	# yq ".services.netclient.cap_add += [\"NET_RAW\"]" -i /root/docker-compose.yml
+	# yq ".services.netclient.cap_add += [\"SYS_MODULE\"]" -i /root/docker-compose.yml
+
+	# docker-compose up -d
+
+	set +e
+	netclient uninstall
+	set -e
+
+	wget -O netclient https://github.com/gravitl/netclient/releases/download/$LATEST/netclient_linux_amd64
+	chmod +x netclient
+	./netclient install
+	netclient join -t $TOKEN
 
 	echo "waiting for client to become available"
 	wait_seconds 10 
@@ -191,8 +201,6 @@ configure_netclient() {
 	sleep 5
 	nmctl node create_ingress netmaker $NODE_ID
 	set -e
-	sleep 5
-	docker restart netclient
 }
 
 # setup_nmctl - pulls nmctl and makes it executable
