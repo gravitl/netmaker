@@ -908,7 +908,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		relayedUpdate = true
 	}
 	ifaceDelta := logic.IfaceDelta(&currentNode, newNode)
-
+	aclUpdate := currentNode.DefaultACL != newNode.DefaultACL
 	if ifaceDelta && servercfg.Is_EE {
 		if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID, currentNode.Network); err != nil {
 			logger.Log(0, "failed to reset failover lists during node update for node", currentNode.ID.String(), currentNode.Network)
@@ -941,13 +941,17 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "updated node", currentNode.ID.String(), "on network", currentNode.Network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-
 	runUpdates(newNode, ifaceDelta)
-	go func() {
+	go func(aclUpdate bool, newNode *models.Node) {
+		if aclUpdate {
+			if err := mq.PublishPeerUpdate(); err != nil {
+				logger.Log(0, "error during node ACL update for node", newNode.ID.String())
+			}
+		}
 		if err := mq.PublishReplaceDNS(&currentNode, newNode, host); err != nil {
 			logger.Log(1, "failed to publish dns update", err.Error())
 		}
-	}()
+	}(aclUpdate, newNode)
 }
 
 // swagger:route DELETE /api/nodes/{network}/{nodeid} nodes deleteNode
