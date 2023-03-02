@@ -17,7 +17,7 @@ var (
 )
 
 var enrollmentKeyCreateCmd = &cobra.Command{
-	Use:   "create [--args]",
+	Use:   "create",
 	Args:  cobra.NoArgs,
 	Short: "Create an enrollment key",
 	Long:  `Create an enrollment key`,
