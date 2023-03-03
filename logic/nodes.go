@@ -83,8 +83,9 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 
 // DeleteNode - marks node for deletion (and adds to zombie list) if called by UI or deletes node if called by node
 func DeleteNode(node *models.Node, purge bool) error {
+	alreadyDeleted := node.PendingDelete || node.Action == models.NODE_DELETE
 	node.Action = models.NODE_DELETE
-	if !purge {
+	if !purge && !alreadyDeleted {
 		newnode := *node
 		newnode.PendingDelete = true
 		if err := UpdateNode(node, &newnode); err != nil {
@@ -93,8 +94,15 @@ func DeleteNode(node *models.Node, purge bool) error {
 		newZombie <- node.ID
 		return nil
 	}
+	if alreadyDeleted {
+		logger.Log(1, "forcibly deleting node", node.ID.String())
+	}
 	host, err := GetHost(node.HostID.String())
 	if err != nil {
+		logger.Log(1, "no host found for node", node.ID.String(), "deleting..")
+		if delErr := deleteNodeByID(node); delErr != nil {
+			logger.Log(0, "failed to delete node", node.ID.String(), delErr.Error())
+		}
 		return err
 	}
 	if err := DissasociateNodeFromHost(node, host); err != nil {
