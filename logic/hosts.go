@@ -395,6 +395,21 @@ func HostExists(h *models.Host) bool {
 	return (err != nil && !database.IsEmptyRecord(err)) || (err == nil)
 }
 
+// GetHostByNodeID - returns a host if found to have a node's ID, else nil
+func GetHostByNodeID(id string) *models.Host {
+	hosts, err := GetAllHosts()
+	if err != nil {
+		return nil
+	}
+	for i := range hosts {
+		h := hosts[i]
+		if StringSliceContains(h.Nodes, id) {
+			return &h
+		}
+	}
+	return nil
+}
+
 func updatePort(p *int) {
 	*p++
 	if *p > maxPort {

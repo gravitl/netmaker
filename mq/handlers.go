@@ -6,6 +6,7 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -31,13 +32,19 @@ func Ping(client mqtt.Client, msg mqtt.Message) {
 		node, err := logic.GetNodeByID(id)
 		if err != nil {
 			logger.Log(3, "mq-ping error getting node: ", err.Error())
-			record, err := database.FetchRecord(database.NODES_TABLE_NAME, id)
-			if err != nil {
-				logger.Log(3, "error reading database ", err.Error())
-				return
+			if database.IsEmptyRecord(err) {
+				h := logic.GetHostByNodeID(id) // check if a host is still associated
+				if h != nil {                  // inform host that node should be removed
+					fakeNode := models.Node{}
+					fakeNode.ID, _ = uuid.Parse(id)
+					fakeNode.Action = models.NODE_DELETE
+					fakeNode.PendingDelete = true
+					if err := NodeUpdate(&fakeNode); err != nil {
+						logger.Log(0, "failed to inform host", h.Name, h.ID.String(), "to remove node", id, err.Error())
+					}
+				}
 			}
-			logger.Log(3, "record from database")
-			logger.Log(3, record)
+
 			return
 		}
 		decrypted, decryptErr := decryptMsg(&node, msg.Payload())
