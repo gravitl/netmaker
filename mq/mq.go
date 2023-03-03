@@ -50,6 +50,14 @@ func SetupMQTT() {
 		if err := CreateEmqxUser(servercfg.GetMqUserName(), servercfg.GetMqPassword(), true); err != nil {
 			log.Fatal(err)
 		}
+		// create an ACL authorization source for the built in EMQX MNESIA database
+		if err := CreateEmqxDefaultAuthorizer(); err != nil {
+			logger.Log(0, err.Error())
+		}
+		// create a default deny ACL to all topics for all users
+		if err := CreateDefaultDenyRule(); err != nil {
+			log.Fatal(err)
+		}
 	}
 	opts := mqtt.NewClientOptions()
 	setMqOptions(servercfg.GetMqUserName(), servercfg.GetMqPassword(), opts)
