@@ -44,7 +44,6 @@ func GetServerConfig() config.ServerConfig {
 	cfg.RestBackend = "off"
 	cfg.NodeID = GetNodeID()
 	cfg.StunPort = GetStunPort()
-	cfg.StunList = GetStunList()
 	cfg.BrokerType = GetBrokerType()
 	cfg.EmqxRestEndpoint = GetEmqxRestEndpoint()
 	if IsRestBackend() {
@@ -178,12 +177,22 @@ func GetAPIPort() string {
 }
 
 // GetStunAddr - gets the stun host address
-func GetStunList() string {
-	stunList := "stun1.netmaker.io:3478,stun2.netmaker.io:3478"
+func GetStunList() []models.StunServer {
+	stunList := []models.StunServer{
+		models.StunServer{
+			Domain: "stun1.netmaker.io",
+			Port:   3478,
+		},
+		models.StunServer{
+			Domain: "stun2.netmaker.io",
+			Port:   3478,
+		},
+	}
 	if os.Getenv("STUN_LIST") != "" {
-		stunList = os.Getenv("STUN_LIST")
-	} else if config.Config.Server.StunList != "" {
-		stunList = config.Config.Server.StunList
+		stuns, err := parseStunList(os.Getenv("STUN_LIST"))
+		if err == nil {
+			stunList = stuns
+		}
 	}
 	return stunList
 }
@@ -603,4 +612,32 @@ func IsProxyEnabled() bool {
 		enabled = config.Config.Server.Proxy == "on"
 	}
 	return enabled
+}
+
+func parseStunList(stunString string) ([]models.StunServer, error) {
+	var err error
+	stunServers := []models.StunServer{}
+	stuns := strings.Split(stunString, ",")
+	if len(stuns) == 0 {
+		return stunServers, errors.New("no stun servers provided")
+	}
+	for _, stun := range stuns {
+		stunInfo := strings.Split(stun, ":")
+		if len(stunInfo) != 2 {
+			continue
+		}
+		port, err := strconv.Atoi(stunInfo[1])
+		if err != nil || port == 0 {
+			continue
+		}
+		stunServers = append(stunServers, models.StunServer{
+			Domain: stunInfo[0],
+			Port:   port,
+		})
+
+	}
+	if len(stunServers) == 0 {
+		err = errors.New("no stun entries parsable")
+	}
+	return stunServers, err
 }
