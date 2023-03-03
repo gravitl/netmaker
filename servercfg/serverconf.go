@@ -645,6 +645,7 @@ func parseStunList(stunString string) ([]models.StunServer, error) {
 		return stunServers, errors.New("no stun servers provided")
 	}
 	for _, stun := range stuns {
+		stun = strings.Trim(stun, " ")
 		stunInfo := strings.Split(stun, ":")
 		if len(stunInfo) != 2 {
 			continue

@@ -262,6 +262,7 @@ type JoinData struct {
 	Key  string `json:"key" yaml:"key"`
 }
 
+// StunServer - struct to hold data required for using stun server
 type StunServer struct {
 	Domain string `json:"domain" yaml:"domain"`
 	Port   int    `json:"port" yaml:"port"`
