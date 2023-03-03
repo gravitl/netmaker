@@ -73,6 +73,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.FrontendURL = GetFrontendURL()
 	cfg.Telemetry = Telemetry()
 	cfg.Server = GetServer()
+	cfg.StunList = GetStunListString()
 	cfg.Verbosity = GetVerbosity()
 	cfg.IsEE = "no"
 	if Is_EE {
@@ -188,11 +189,29 @@ func GetStunList() []models.StunServer {
 			Port:   3478,
 		},
 	}
+	parsed := false
 	if os.Getenv("STUN_LIST") != "" {
 		stuns, err := parseStunList(os.Getenv("STUN_LIST"))
 		if err == nil {
+			parsed = true
 			stunList = stuns
 		}
+	}
+	if !parsed && config.Config.Server.StunList != "" {
+		stuns, err := parseStunList(config.Config.Server.StunList)
+		if err == nil {
+			stunList = stuns
+		}
+	}
+	return stunList
+}
+
+func GetStunListString() string {
+	stunList := "stun1.netmaker.io:3478,stun2.netmaker.io:3478"
+	if os.Getenv("STUN_LIST") != "" {
+		stunList = os.Getenv("STUN_LIST")
+	} else if config.Config.Server.StunList != "" {
+		stunList = config.Config.Server.StunList
 	}
 	return stunList
 }

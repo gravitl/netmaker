@@ -72,6 +72,7 @@ type ServerConfig struct {
 	NetmakerAccountID    string `yaml:"netmaker_account_id"`
 	IsEE                 string `yaml:"is_ee"`
 	StunPort             int    `yaml:"stun_port"`
+	StunList             string `yaml:"stun_list"`
 	Proxy                string `yaml:"proxy"`
 }
 
