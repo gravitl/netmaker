@@ -177,7 +177,7 @@ func GetAPIPort() string {
 	return apiport
 }
 
-// GetStunAddr - gets the stun host address
+// GetStunList - gets the stun servers
 func GetStunList() []models.StunServer {
 	stunList := []models.StunServer{
 		models.StunServer{
@@ -206,6 +206,7 @@ func GetStunList() []models.StunServer {
 	return stunList
 }
 
+// GetStunList - gets the stun servers w/o parsing to struct
 func GetStunListString() string {
 	stunList := "stun1.netmaker.io:3478,stun2.netmaker.io:3478"
 	if os.Getenv("STUN_LIST") != "" {
@@ -610,6 +611,7 @@ func GetNetmakerAccountID() string {
 	return netmakerAccountID
 }
 
+// GetStunPort - Get the port to run the stun server on
 func GetStunPort() int {
 	port := 3478 //default
 	if os.Getenv("STUN_PORT") != "" {
@@ -623,6 +625,7 @@ func GetStunPort() int {
 	return port
 }
 
+// IsProxyEnabled - is proxy on or off
 func IsProxyEnabled() bool {
 	var enabled = false //default
 	if os.Getenv("PROXY") != "" {
@@ -633,6 +636,7 @@ func IsProxyEnabled() bool {
 	return enabled
 }
 
+// parseStunList - turn string into slice of StunServers
 func parseStunList(stunString string) ([]models.StunServer, error) {
 	var err error
 	stunServers := []models.StunServer{}
