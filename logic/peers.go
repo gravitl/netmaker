@@ -3,7 +3,6 @@ package logic
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/netip"
 
@@ -137,10 +136,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, deletedNode *models
 		Peers:      []wgtypes.PeerConfig{},
 		NodePeers:  []wgtypes.PeerConfig{},
 	}
-	var deletedNodes = []models.Node{} // used to track deleted nodes
-	if deletedNode != nil {
-		deletedNodes = append(deletedNodes, *deletedNode)
-	}
+
 	logger.Log(1, "peer update for host", host.ID.String())
 	peerIndexMap := make(map[string]int)
 	for _, nodeID := range host.Nodes {
@@ -154,7 +150,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, deletedNode *models
 		}
 		currentPeers, err := GetNetworkNodes(node.Network)
 		if err != nil {
-			log.Println("no network nodes")
 			return models.HostPeerUpdate{}, err
 		}
 		var nodePeerMap map[string]models.PeerRouteInfo
@@ -168,10 +163,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, deletedNode *models
 				//skip yourself
 				continue
 			}
-			if peer.Action == models.NODE_DELETE || peer.PendingDelete {
-				deletedNodes = append(deletedNodes, peer) // track deleted node for peer update
-				continue
-			}
 			var peerConfig wgtypes.PeerConfig
 			peerHost, err := GetHost(peer.HostID.String())
 			if err != nil {
@@ -179,16 +170,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, deletedNode *models
 				return models.HostPeerUpdate{}, err
 			}
 
-			if !peer.Connected {
-				logger.Log(2, "peer update, skipping unconnected node", peer.ID.String())
-				//skip unconnected nodes
-				continue
-			}
-			if !nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) {
-				logger.Log(2, "peer update, skipping node for acl")
-				//skip if not permitted by acl
-				continue
-			}
 			peerConfig.PublicKey = peerHost.PublicKey
 			peerConfig.PersistentKeepaliveInterval = &peer.PersistentKeepalive
 			peerConfig.ReplaceAllowedIPs = true
@@ -225,7 +206,14 @@ func GetPeerUpdateForHost(network string, host *models.Host, deletedNode *models
 			if peer.IsEgressGateway {
 				allowedips = append(allowedips, getEgressIPs(&node, &peer)...)
 			}
-			peerConfig.AllowedIPs = allowedips
+			if peer.Action != models.NODE_DELETE &&
+				!peer.PendingDelete &&
+				peer.Connected &&
+				nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) &&
+				(deletedNode == nil || (deletedNode != nil && peer.ID.String() != deletedNode.ID.String())) {
+				peerConfig.AllowedIPs = allowedips // only append allowed IPs if valid connection
+			}
+
 			if node.IsIngressGateway || node.IsEgressGateway {
 				if peer.IsIngressGateway {
 					_, extPeerIDAndAddrs, err := getExtPeers(&peer)
@@ -354,27 +342,22 @@ func GetPeerUpdateForHost(network string, host *models.Host, deletedNode *models
 			}
 		}
 	}
-
-	// run through delete nodes
-	if len(deletedNodes) > 0 {
-		for i := range deletedNodes {
-			delNode := deletedNodes[i]
-			delHost, err := GetHost(delNode.HostID.String())
-			if err != nil {
-				continue
-			}
-			if _, ok := peerIndexMap[delHost.PublicKey.String()]; !ok {
-				var peerConfig = wgtypes.PeerConfig{}
-				peerConfig.PublicKey = delHost.PublicKey
-				peerConfig.Endpoint = &net.UDPAddr{
-					IP:   delHost.EndpointIP,
-					Port: GetPeerListenPort(delHost),
-				}
-				peerConfig.Remove = true
-				peerConfig.AllowedIPs = []net.IPNet{delNode.Address, delNode.Address6}
-				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
-			}
+	// == post peer calculations ==
+	// indicate removal if no allowed IPs were calculated
+	for i := range hostPeerUpdate.Peers {
+		peer := hostPeerUpdate.Peers[i]
+		if len(peer.AllowedIPs) == 0 {
+			peer.Remove = true
 		}
+		hostPeerUpdate.Peers[i] = peer
+	}
+
+	for i := range hostPeerUpdate.NodePeers {
+		peer := hostPeerUpdate.NodePeers[i]
+		if len(peer.AllowedIPs) == 0 {
+			peer.Remove = true
+		}
+		hostPeerUpdate.NodePeers[i] = peer
 	}
 
 	return hostPeerUpdate, nil
