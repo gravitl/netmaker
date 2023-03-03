@@ -13,7 +13,6 @@ services:
       BROKER_TYPE: "emqx"
       EMQX_REST_ENDPOINT: "http://mq:18083"
       SERVER_NAME: "NETMAKER_BASE_DOMAIN"
-      STUN_DOMAIN: "stun.NETMAKER_BASE_DOMAIN"
       STUN_LIST: "stun.NETMAKER_BASE_DOMAIN:3478,stun1.netmaker.io:3478,stun2.netmaker.io:3478,stun1.l.google.com:19302,stun2.l.google.com:19302"
       SERVER_HOST: "SERVER_PUBLIC_IP"
       SERVER_API_CONN_STRING: "api.NETMAKER_BASE_DOMAIN:443"
