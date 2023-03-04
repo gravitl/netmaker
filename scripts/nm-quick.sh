@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LATEST="v0.18.2"
+LATEST="v0.18.3"
 
 print_logo() {(
 cat << "EOF"
@@ -40,7 +40,7 @@ usage () {(
 	echo "          \"branch\": - will install a specific branch using remote git and dockerhub "
     echo "  -t      tag of build; if buildtype=version, tag=version. If builtype=branch or builtype=local, tag=branch"
     echo "examples:"
-	echo "          nm-quick.sh -e -b version -t v0.18.2"
+	echo "          nm-quick.sh -e -b version -t v0.18.3"
 	echo "          nm-quick.sh -e -b local -t feature_v0.17.2_newfeature"	
 	echo "          nm-quick.sh -e -b branch -t develop"
     exit 1
