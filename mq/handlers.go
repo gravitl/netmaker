@@ -6,6 +6,7 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -30,9 +31,47 @@ func Ping(client mqtt.Client, msg mqtt.Message) {
 	node, err := logic.GetNodeByID(id)
 	if err != nil {
 		logger.Log(3, "mq-ping error getting node: ", err.Error())
-		_, err := database.FetchRecord(database.NODES_TABLE_NAME, id)
+		node, err := logic.GetNodeByID(id)
 		if err != nil {
-			logger.Log(3, "error reading database", err.Error())
+			logger.Log(3, "mq-ping error getting node: ", err.Error())
+			if database.IsEmptyRecord(err) {
+				h := logic.GetHostByNodeID(id) // check if a host is still associated
+				if h != nil {                  // inform host that node should be removed
+					fakeNode := models.Node{}
+					fakeNode.ID, _ = uuid.Parse(id)
+					fakeNode.Action = models.NODE_DELETE
+					fakeNode.PendingDelete = true
+					if err := NodeUpdate(&fakeNode); err != nil {
+						logger.Log(0, "failed to inform host", h.Name, h.ID.String(), "to remove node", id, err.Error())
+					}
+				}
+			}
+			return
+		}
+		decrypted, decryptErr := decryptMsg(&node, msg.Payload())
+		if decryptErr != nil {
+			logger.Log(0, "error decrypting when updating node ", node.ID.String(), decryptErr.Error())
+			return
+		}
+		var checkin models.NodeCheckin
+		if err := json.Unmarshal(decrypted, &checkin); err != nil {
+			logger.Log(1, "error unmarshaling payload ", err.Error())
+			return
+		}
+		host, err := logic.GetHost(node.HostID.String())
+		if err != nil {
+			logger.Log(0, "error retrieving host for node ", node.ID.String(), err.Error())
+			return
+		}
+		node.SetLastCheckIn()
+		host.Version = checkin.Version
+		node.Connected = checkin.Connected
+		host.Interfaces = checkin.Ifaces
+		for i := range host.Interfaces {
+			host.Interfaces[i].AddressString = host.Interfaces[i].Address.String()
+		}
+		if err := logic.UpdateNode(&node, &node); err != nil {
+			logger.Log(0, "error updating node", node.ID.String(), " on checkin", err.Error())
 			return
 		}
 
