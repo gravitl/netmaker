@@ -8,12 +8,17 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-const PLACEHOLDER_KEY_TEXT = "ACCESS_KEY"
-const PLACEHOLDER_TOKEN_TEXT = "ACCESS_TOKEN"
+const (
+	// PLACEHOLDER_KEY_TEXT - access key placeholder text if option turned off
+	PLACEHOLDER_KEY_TEXT = "ACCESS_KEY"
+	// PLACEHOLDER_TOKEN_TEXT - access key token placeholder text if option turned off
+	PLACEHOLDER_TOKEN_TEXT = "ACCESS_TOKEN"
+)
 
 // CustomExtClient - struct for CustomExtClient params
 type CustomExtClient struct {
-	ClientID string `json:"clientid"`
+	ClientID  string `json:"clientid"`
+	PublicKey string `json:"publickey,omitempty"`
 }
 
 // AuthParams - struct for auth params
