@@ -16,6 +16,7 @@ import (
 // InitEE - Initialize EE Logic
 func InitEE() {
 	setIsEnterprise()
+	servercfg.Is_EE = true
 	models.SetLogo(retrieveEELogo())
 	controller.HttpHandlers = append(
 		controller.HttpHandlers,
@@ -26,13 +27,8 @@ func InitEE() {
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
 		// == License Handling ==
 		ValidateLicense()
-		if Limits.FreeTier {
-			logger.Log(0, "proceeding with Free Tier license")
-			logic.SetFreeTierForTelemetry(true)
-		} else {
-			logger.Log(0, "proceeding with Paid Tier license")
-			logic.SetFreeTierForTelemetry(false)
-		}
+		logger.Log(0, "proceeding with Paid Tier license")
+		logic.SetFreeTierForTelemetry(false)
 		// == End License Handling ==
 		AddLicenseHooks()
 		resetFailover()
@@ -40,17 +36,6 @@ func InitEE() {
 	logic.EnterpriseFailoverFunc = eelogic.SetFailover
 	logic.EnterpriseResetFailoverFunc = eelogic.ResetFailover
 	logic.EnterpriseResetAllPeersFailovers = eelogic.WipeAffectedFailoversOnly
-}
-
-func setControllerLimits() {
-	logic.Node_Limit = Limits.Nodes
-	logic.Users_Limit = Limits.Users
-	logic.Clients_Limit = Limits.Clients
-	logic.Free_Tier = Limits.FreeTier
-	servercfg.Is_EE = true
-	if logic.Free_Tier {
-		logic.Networks_Limit = 3
-	}
 }
 
 func resetFailover() {

@@ -93,14 +93,10 @@ func ValidateLicense() error {
 	}
 
 	Limits.Networks = math.MaxInt
-	Limits.FreeTier = license.FreeTier == "yes"
 	Limits.Clients = license.LimitClients
 	Limits.Nodes = license.LimitNodes
 	Limits.Servers = license.LimitServers
 	Limits.Users = license.LimitUsers
-	if Limits.FreeTier {
-		Limits.Networks = 3
-	}
 	setControllerLimits()
 
 	logger.Log(0, "License validation succeeded!")

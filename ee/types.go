@@ -18,7 +18,6 @@ var Limits = GlobalLimits{
 	Nodes:    0,
 	Clients:  0,
 	Networks: 0,
-	FreeTier: false,
 }
 
 // GlobalLimits - struct for holding global limits on this netmaker server in memory
@@ -27,22 +26,19 @@ type GlobalLimits struct {
 	Users    int
 	Nodes    int
 	Clients  int
-	FreeTier bool
 	Networks int
 }
 
 // LicenseKey - the license key struct representation with associated data
 type LicenseKey struct {
-	LicenseValue   string `json:"license_value"` // actual (public) key and the unique value for the key
-	Expiration     int64  `json:"expiration"`
-	LimitServers   int    `json:"limit_servers"`
-	LimitUsers     int    `json:"limit_users"`
-	LimitNodes     int    `json:"limit_nodes"`
-	LimitClients   int    `json:"limit_clients"`
-	Metadata       string `json:"metadata"`
-	SubscriptionID string `json:"subscription_id"` // for a paid subscription (non-free-tier license)
-	FreeTier       string `json:"free_tier"`       // yes if free tier
-	IsActive       string `json:"is_active"`       // yes if active
+	LicenseValue string `json:"license_value"` // actual (public) key and the unique value for the key
+	Expiration   int64  `json:"expiration"`
+	LimitServers int    `json:"limit_servers"`
+	LimitUsers   int    `json:"limit_users"`
+	LimitNodes   int    `json:"limit_nodes"`
+	LimitClients int    `json:"limit_clients"`
+	Metadata     string `json:"metadata"`
+	IsActive     string `json:"is_active"` // yes if active
 }
 
 // ValidatedLicense - the validated license struct

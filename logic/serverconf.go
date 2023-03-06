@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 var (
@@ -84,4 +85,11 @@ func StoreJWTSecret(privateKey string) error {
 		return err
 	}
 	return database.Insert("nm-jwt-secret", string(data), database.SERVERCONF_TABLE_NAME)
+}
+
+func SetFreeTierLimits() {
+	Node_Limit = servercfg.GetNodeLimit()
+	Users_Limit = servercfg.GetUserLimit()
+	Clients_Limit = servercfg.GetClientLimit()
+	Networks_Limit = servercfg.GetNetworkLimit()
 }

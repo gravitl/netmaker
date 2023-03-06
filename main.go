@@ -39,6 +39,9 @@ func main() {
 	initialize()                       // initial db and acls
 	setGarbageCollection()
 	setVerbosity()
+	if servercfg.DeployedByOperator() {
+		logic.SetFreeTierLimits()
+	}
 	defer database.CloseDB()
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
 	defer stop()

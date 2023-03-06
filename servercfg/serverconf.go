@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/config"
+
 	"github.com/gravitl/netmaker/models"
 )
 
@@ -603,4 +604,51 @@ func IsProxyEnabled() bool {
 		enabled = config.Config.Server.Proxy == "on"
 	}
 	return enabled
+}
+
+func GetNodeLimit() int {
+	var nodelimit int
+	if os.Getenv("NODE_LIMIT") != "" {
+		nodelimit, _ = strconv.Atoi(os.Getenv("Node_LIMIT"))
+	} else {
+		nodelimit = config.Config.Server.NodeLimit
+	}
+	return nodelimit
+}
+
+func GetUserLimit() int {
+	var userlimit int
+	if os.Getenv("USER_LIMIT") != "" {
+		userlimit, _ = strconv.Atoi(os.Getenv("USER_LIMIT"))
+	} else {
+		userlimit = config.Config.Server.UserLimit
+	}
+	return userlimit
+}
+
+func GetNetworkLimit() int {
+	var networklimit int
+	if os.Getenv("NETWORK_LIMIT") != "" {
+		networklimit, _ = strconv.Atoi(os.Getenv("NETWORK_LIMIT"))
+	} else {
+		networklimit = config.Config.Server.NetworkLimit
+	}
+	return networklimit
+}
+
+func GetClientLimit() int {
+	var clientLimit int
+	if os.Getenv("CLIENT_LIMIT") != "" {
+		clientLimit, _ = strconv.Atoi(os.Getenv("CLIENT_LIMIT"))
+	} else {
+		clientLimit = config.Config.Server.ClientLimit
+	}
+	return clientLimit
+}
+
+func DeployedByOperator() bool {
+	if os.Getenv("DEPLOYED_BY_OPERATOR") != "" {
+		return os.Getenv("DEPLOYED_BY_OPERATOR") == "true"
+	}
+	return config.Config.Server.DeployedByOperator
 }
