@@ -13,7 +13,7 @@ import (
 	"github.com/matryer/is"
 )
 
-func TestCheckPorts(t *testing.T) {
+func TestMain(m *testing.M) {
 	database.InitializeDatabase()
 	defer database.CloseDB()
 	peerUpdate := make(chan *models.Node)
@@ -28,6 +28,7 @@ func TestCheckPorts(t *testing.T) {
 	os.Exit(m.Run())
 }
 
+func TestCheckPorts(t *testing.T) {
 	h := models.Host{
 		ID:              uuid.New(),
 		EndpointIP:      net.ParseIP("192.168.1.1"),
@@ -44,6 +45,8 @@ func TestCheckPorts(t *testing.T) {
 	t.Run("no change", func(t *testing.T) {
 		is := is.New(t)
 		CheckHostPorts(&testHost)
+		t.Log(testHost.ListenPort, testHost.ProxyListenPort)
+		t.Log(h.ListenPort, h.ProxyListenPort)
 		is.Equal(testHost.ListenPort, 51830)
 		is.Equal(testHost.ProxyListenPort, 51730)
 	})
@@ -51,6 +54,8 @@ func TestCheckPorts(t *testing.T) {
 		is := is.New(t)
 		testHost.ListenPort = 51821
 		CheckHostPorts(&testHost)
+		t.Log(testHost.ListenPort, testHost.ProxyListenPort)
+		t.Log(h.ListenPort, h.ProxyListenPort)
 		is.Equal(testHost.ListenPort, 51822)
 		is.Equal(testHost.ProxyListenPort, 51730)
 	})
@@ -58,6 +63,8 @@ func TestCheckPorts(t *testing.T) {
 		is := is.New(t)
 		testHost.ProxyListenPort = 65535
 		CheckHostPorts(&testHost)
+		t.Log(testHost.ListenPort, testHost.ProxyListenPort)
+		t.Log(h.ListenPort, h.ProxyListenPort)
 		is.Equal(testHost.ListenPort, 51822)
 		is.Equal(testHost.ProxyListenPort, minPort)
 	})
@@ -65,6 +72,8 @@ func TestCheckPorts(t *testing.T) {
 		is := is.New(t)
 		testHost.ListenPort = maxPort
 		CheckHostPorts(&testHost)
+		t.Log(testHost.ListenPort, testHost.ProxyListenPort)
+		t.Log(h.ListenPort, h.ProxyListenPort)
 		is.Equal(testHost.ListenPort, minPort)
 		is.Equal(testHost.ProxyListenPort, minPort+1)
 	})
@@ -72,6 +81,8 @@ func TestCheckPorts(t *testing.T) {
 		is := is.New(t)
 		testHost.ProxyListenPort = 51821
 		CheckHostPorts(&testHost)
+		t.Log(testHost.ListenPort, testHost.ProxyListenPort)
+		t.Log(h.ListenPort, h.ProxyListenPort)
 		is.Equal(testHost.ListenPort, minPort)
 		is.Equal(testHost.ProxyListenPort, 51822)
 	})
