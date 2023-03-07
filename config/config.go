@@ -72,13 +72,12 @@ type ServerConfig struct {
 	NetmakerAccountID    string `yaml:"netmaker_account_id"`
 	IsEE                 string `yaml:"is_ee"`
 	StunPort             int    `yaml:"stun_port"`
-	StunHost             string `yaml:"stun_host"`
-	Proxy                string `yaml:"proxy"`
 	NodeLimit            int    `yaml:"node_limit"`
 	UserLimit            int    `yaml:"user_limit"`
 	ClientLimit          int    `yaml:"client_limit"`
 	NetworkLimit         int    `yaml:"network_limit"`
 	DeployedByOperator   bool   `yaml:"deployed_by_operator"`
+	StunList             string `yaml:"stun_list"`
 }
 
 // SQLConfig - Generic SQL Config
