@@ -1,4 +1,4 @@
-# Netmaker v0.18.2
+# Netmaker v0.18.3
 
 ## **Do not attempt upgrade from 0.17.x quite yet**
 
