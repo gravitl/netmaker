@@ -1,6 +1,25 @@
 #!/bin/bash
 
-LATEST="v0.18.1"
+LATEST="v0.18.3"
+
+print_logo() {(
+cat << "EOF"
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+                                                                                         
+ __   __     ______     ______   __    __     ______     __  __     ______     ______    
+/\ "-.\ \   /\  ___\   /\__  _\ /\ "-./  \   /\  __ \   /\ \/ /    /\  ___\   /\  == \   
+\ \ \-.  \  \ \  __\   \/_/\ \/ \ \ \-./\ \  \ \  __ \  \ \  _"-.  \ \  __\   \ \  __<   
+ \ \_\\"\_\  \ \_____\    \ \_\  \ \_\ \ \_\  \ \_\ \_\  \ \_\ \_\  \ \_____\  \ \_\ \_\ 
+  \/_/ \/_/   \/_____/     \/_/   \/_/  \/_/   \/_/\/_/   \/_/\/_/   \/_____/   \/_/ /_/ 
+                                                                                                                                                                                                 
+
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+EOF
+)}
 
 if [ $(id -u) -ne 0 ]; then
    echo "This script must be run as root"
@@ -24,7 +43,7 @@ usage () {
     echo "  -t      tag of build; if buildtype=version, tag=version. If builtype=branch or builtype=local, tag=branch"
     echo "  -a      auto-build; skip prompts and use defaults, if none provided"
     echo "examples:"
-	echo "          nm-quick.sh -e -b version -t v0.18.2"
+	echo "          nm-quick.sh -e -b version -t v0.18.3"
 	echo "          nm-quick.sh -e -b local -t feature_v0.17.2_newfeature"	
 	echo "          nm-quick.sh -e -b branch -t develop"
     exit 1
