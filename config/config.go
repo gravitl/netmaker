@@ -76,6 +76,7 @@ type ServerConfig struct {
 	UserLimit            int    `yaml:"user_limit"`
 	ClientLimit          int    `yaml:"client_limit"`
 	NetworkLimit         int    `yaml:"network_limit"`
+	HostLimit            int    `yaml:"host_limit"`
 	DeployedByOperator   bool   `yaml:"deployed_by_operator"`
 	StunList             string `yaml:"stun_list"`
 }

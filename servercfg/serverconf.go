@@ -666,6 +666,16 @@ func GetClientLimit() int {
 	return clientLimit
 }
 
+func GetHostLimit() int {
+	var hostLimit int
+	if os.Getenv("HOST_LIMIT") != "" {
+		hostLimit, _ = strconv.Atoi(os.Getenv("HOST_LIMIT"))
+	} else {
+		hostLimit = config.Config.Server.HostLimit
+	}
+	return hostLimit
+}
+
 func DeployedByOperator() bool {
 	if os.Getenv("DEPLOYED_BY_OPERATOR") != "" {
 		return os.Getenv("DEPLOYED_BY_OPERATOR") == "true"

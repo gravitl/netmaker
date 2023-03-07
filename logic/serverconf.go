@@ -16,6 +16,8 @@ var (
 	Users_Limit = 1000000000
 	// Clients_Limit - dummy var for community
 	Clients_Limit = 1000000000
+	// Hosts_Limit - dummy var for community
+	Hosts_Limit = 1000000000
 	// Free_Tier - specifies if free tier
 	Free_Tier = false
 )
@@ -92,4 +94,5 @@ func SetFreeTierLimits() {
 	Users_Limit = servercfg.GetUserLimit()
 	Clients_Limit = servercfg.GetClientLimit()
 	Networks_Limit = servercfg.GetNetworkLimit()
+	Hosts_Limit = servercfg.GetHostLimit()
 }
