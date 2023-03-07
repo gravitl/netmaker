@@ -27,7 +27,7 @@ func PublishPeerUpdate() error {
 	logic.ResetPeerUpdateContext()
 	for _, host := range hosts {
 		host := host
-		if err = PublishSingleHostPeerUpdate(&host, nil, logic.PeerUpdateCtx); err != nil {
+		if err = PublishSingleHostPeerUpdate(logic.PeerUpdateCtx, &host, nil); err != nil {
 			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 		}
 	}
@@ -49,7 +49,7 @@ func PublishDeletedNodePeerUpdate(delNode *models.Node) error {
 	logic.ResetPeerUpdateContext()
 	for _, host := range hosts {
 		host := host
-		if err = PublishSingleHostPeerUpdate(&host, delNode, logic.PeerUpdateCtx); err != nil {
+		if err = PublishSingleHostPeerUpdate(logic.PeerUpdateCtx, &host, delNode); err != nil {
 			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 		}
 	}
@@ -57,9 +57,9 @@ func PublishDeletedNodePeerUpdate(delNode *models.Node) error {
 }
 
 // PublishSingleHostPeerUpdate --- determines and publishes a peer update to one host
-func PublishSingleHostPeerUpdate(host *models.Host, deletedNode *models.Node, ctx context.Context) error {
+func PublishSingleHostPeerUpdate(ctx context.Context, host *models.Host, deletedNode *models.Node) error {
 
-	peerUpdate, err := logic.GetPeerUpdateForHost("", host, deletedNode, ctx)
+	peerUpdate, err := logic.GetPeerUpdateForHost(ctx, "", host, deletedNode)
 	if err != nil {
 		return err
 	}
@@ -67,7 +67,7 @@ func PublishSingleHostPeerUpdate(host *models.Host, deletedNode *models.Node, ct
 		return nil
 	}
 	if host.ProxyEnabled {
-		proxyUpdate, err := logic.GetProxyUpdateForHost(host, ctx)
+		proxyUpdate, err := logic.GetProxyUpdateForHost(ctx, host)
 		if err != nil {
 			return err
 		}
@@ -429,7 +429,7 @@ func sendPeers() {
 		for _, host := range hosts {
 			host := host
 			logger.Log(2, "sending scheduled peer update (5 min)")
-			if err = PublishSingleHostPeerUpdate(&host, nil, logic.PeerUpdateCtx); err != nil {
+			if err = PublishSingleHostPeerUpdate(logic.PeerUpdateCtx, &host, nil); err != nil {
 				logger.Log(1, "error publishing peer updates for host: ", host.ID.String(), " Err: ", err.Error())
 			}
 		}

@@ -24,7 +24,7 @@ var (
 )
 
 // GetProxyUpdateForHost - gets the proxy update for host
-func GetProxyUpdateForHost(host *models.Host, ctx context.Context) (models.ProxyManagerPayload, error) {
+func GetProxyUpdateForHost(ctx context.Context, host *models.Host) (models.ProxyManagerPayload, error) {
 	proxyPayload := models.ProxyManagerPayload{
 		Action: models.ProxyUpdate,
 	}
@@ -47,7 +47,7 @@ func GetProxyUpdateForHost(host *models.Host, ctx context.Context) (models.Proxy
 		relayPeersMap := make(map[string]models.RelayedConf)
 		for _, relayedHost := range relayedHosts {
 			relayedHost := relayedHost
-			payload, err := GetPeerUpdateForHost("", &relayedHost, nil, ctx)
+			payload, err := GetPeerUpdateForHost(ctx, "", &relayedHost, nil)
 			if err == nil {
 				relayedEndpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayedHost.EndpointIP, GetPeerListenPort(&relayedHost)))
 				if udpErr == nil {
@@ -133,7 +133,7 @@ func ResetPeerUpdateContext() {
 }
 
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
-func GetPeerUpdateForHost(network string, host *models.Host, deletedNode *models.Node, ctx context.Context) (models.HostPeerUpdate, error) {
+func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host, deletedNode *models.Node) (models.HostPeerUpdate, error) {
 	if host == nil {
 		return models.HostPeerUpdate{}, errors.New("host is nil")
 	}

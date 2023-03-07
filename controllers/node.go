@@ -434,7 +434,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	hostPeerUpdate, err := logic.GetPeerUpdateForHost(node.Network, host, nil, context.Background())
+	hostPeerUpdate, err := logic.GetPeerUpdateForHost(context.Background(), node.Network, host, nil)
 	if err != nil && !database.IsEmptyRecord(err) {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("error fetching wg peers config for host [ %s ]: %v", host.ID.String(), err))
@@ -623,7 +623,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	hostPeerUpdate, err := logic.GetPeerUpdateForHost(networkName, &data.Host, nil, context.Background())
+	hostPeerUpdate, err := logic.GetPeerUpdateForHost(context.Background(), networkName, &data.Host, nil)
 	if err != nil && !database.IsEmptyRecord(err) {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("error fetching wg peers config for host [ %s ]: %v", data.Host.ID.String(), err))
