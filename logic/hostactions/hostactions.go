@@ -1,37 +1,55 @@
 package hostactions
 
 import (
-	"sync"
+	"encoding/json"
 
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
 )
 
-// nodeActionHandler - handles the storage of host action updates
-var nodeActionHandler sync.Map
-
 // AddAction - adds a host action to a host's list to be retrieved from broker update
 func AddAction(hu models.HostUpdate) {
-	currentRecords, ok := nodeActionHandler.Load(hu.Host.ID.String())
-	if !ok { // no list exists yet
-		nodeActionHandler.Store(hu.Host.ID.String(), []models.HostUpdate{hu})
-	} else { // list exists, append to it
-		currentList := currentRecords.([]models.HostUpdate)
-		currentList = append(currentList, hu)
-		nodeActionHandler.Store(hu.Host.ID.String(), currentList)
+	hostID := hu.Host.ID.String()
+	currentRecords, err := database.FetchRecord(database.HOST_ACTIONS_TABLE_NAME, hostID)
+	if err != nil {
+		if database.IsEmptyRecord(err) { // no list exists yet
+			newEntry, err := json.Marshal([]models.HostUpdate{hu})
+			if err != nil {
+				return
+			}
+			_ = database.Insert(hostID, string(newEntry), database.HOST_ACTIONS_TABLE_NAME)
+		}
+		return
 	}
+	var currentList []models.HostUpdate
+	if err := json.Unmarshal([]byte(currentRecords), &currentList); err != nil {
+		return
+	}
+	currentList = append(currentList, hu)
+	newData, err := json.Marshal(currentList)
+	if err != nil {
+		return
+	}
+	_ = database.Insert(hostID, string(newData), database.HOST_ACTIONS_TABLE_NAME)
 }
 
 // GetAction - gets an action if exists
-// TODO: may need to move to DB rather than sync map for HA
 func GetAction(id string) *models.HostUpdate {
-	currentRecords, ok := nodeActionHandler.Load(id)
-	if !ok {
+	currentRecords, err := database.FetchRecord(database.HOST_ACTIONS_TABLE_NAME, id)
+	if err != nil {
 		return nil
 	}
-	currentList := currentRecords.([]models.HostUpdate)
+	var currentList []models.HostUpdate
+	if err = json.Unmarshal([]byte(currentRecords), &currentList); err != nil {
+		return nil
+	}
 	if len(currentList) > 0 {
 		hu := currentList[0]
-		nodeActionHandler.Store(hu.Host.ID.String(), currentList[1:])
+		newData, err := json.Marshal(currentList[1:])
+		if err != nil {
+			newData, _ = json.Marshal([]models.HostUpdate{})
+		}
+		_ = database.Insert(id, string(newData), database.HOST_ACTIONS_TABLE_NAME)
 		return &hu
 	}
 	return nil

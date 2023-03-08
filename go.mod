@@ -13,7 +13,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.16
 	github.com/rqlite/gorqlite v0.0.0-20210514125552-08ff1e76b22f
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.8.2
 	github.com/txn2/txeh v1.3.0
 	golang.org/x/crypto v0.6.0
 	golang.org/x/net v0.6.0 // indirect
@@ -42,8 +42,7 @@ require (
 
 require (
 	github.com/guumaster/tablewriter v0.0.10
-	github.com/kr/pretty v0.3.0
-	github.com/matryer/is v1.4.0
+	github.com/matryer/is v1.4.1
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/spf13/cobra v1.6.1
 )

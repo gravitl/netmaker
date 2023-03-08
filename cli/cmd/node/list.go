@@ -4,6 +4,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/gravitl/netmaker/cli/cmd/commons"
 	"github.com/gravitl/netmaker/cli/functions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/guumaster/tablewriter"
@@ -23,23 +24,28 @@ var nodeListCmd = &cobra.Command{
 		} else {
 			data = *functions.GetNodes()
 		}
-		table := tablewriter.NewWriter(os.Stdout)
-		table.SetHeader([]string{"ID", "Addresses", "Network", "Egress", "Ingress", "Relay"})
-		for _, d := range data {
-			addresses := ""
-			if d.Address != "" {
-				addresses += d.Address
-			}
-			if d.Address6 != "" {
+		switch commons.OutputFormat {
+		case commons.JsonOutput:
+			functions.PrettyPrint(data)
+		default:
+			table := tablewriter.NewWriter(os.Stdout)
+			table.SetHeader([]string{"ID", "Addresses", "Network", "Egress", "Ingress", "Relay"})
+			for _, d := range data {
+				addresses := ""
 				if d.Address != "" {
-					addresses += ", "
+					addresses += d.Address
 				}
-				addresses += d.Address6
+				if d.Address6 != "" {
+					if d.Address != "" {
+						addresses += ", "
+					}
+					addresses += d.Address6
+				}
+				table.Append([]string{d.ID, addresses, d.Network,
+					strconv.FormatBool(d.IsEgressGateway), strconv.FormatBool(d.IsIngressGateway), strconv.FormatBool(d.IsRelay)})
 			}
-			table.Append([]string{d.ID, addresses, d.Network,
-				strconv.FormatBool(d.IsEgressGateway), strconv.FormatBool(d.IsIngressGateway), strconv.FormatBool(d.IsRelay)})
+			table.Render()
 		}
-		table.Render()
 	},
 }
 

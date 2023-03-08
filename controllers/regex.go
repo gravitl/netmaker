@@ -5,7 +5,10 @@ import (
 	"regexp"
 )
 
-var errInvalidExtClientID = errors.New("ext client ID must be alphanumderic and/or dashes")
+var (
+	errInvalidExtClientPubKey = errors.New("incorrect ext client public key")
+	errInvalidExtClientID     = errors.New("ext client ID must be alphanumderic and/or dashes")
+)
 
 // allow only dashes and alphaneumeric for ext client and node names
 func validName(name string) bool {

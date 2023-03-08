@@ -117,14 +117,15 @@ func GetExtClient(clientid string, network string) (models.ExtClient, error) {
 // CreateExtClient - creates an extclient
 func CreateExtClient(extclient *models.ExtClient) error {
 
-	if extclient.PrivateKey == "" {
+	if len(extclient.PublicKey) == 0 {
 		privateKey, err := wgtypes.GeneratePrivateKey()
 		if err != nil {
 			return err
 		}
-
 		extclient.PrivateKey = privateKey.String()
 		extclient.PublicKey = privateKey.PublicKey().String()
+	} else {
+		extclient.PrivateKey = "[ENTER PRIVATE KEY]"
 	}
 
 	parentNetwork, err := GetNetwork(extclient.Network)
@@ -156,7 +157,6 @@ func CreateExtClient(extclient *models.ExtClient) error {
 	}
 
 	extclient.LastModified = time.Now().Unix()
-
 	key, err := GetRecordKey(extclient.ClientID, extclient.Network)
 	if err != nil {
 		return err

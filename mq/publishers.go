@@ -1,6 +1,7 @@
 package mq
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,10 +24,10 @@ func PublishPeerUpdate() error {
 		logger.Log(1, "err getting all hosts", err.Error())
 		return err
 	}
+	logic.ResetPeerUpdateContext()
 	for _, host := range hosts {
 		host := host
-		err = PublishSingleHostPeerUpdate(&host, nil)
-		if err != nil {
+		if err = PublishSingleHostPeerUpdate(logic.PeerUpdateCtx, &host, nil); err != nil {
 			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 		}
 	}
@@ -45,9 +46,10 @@ func PublishDeletedNodePeerUpdate(delNode *models.Node) error {
 		logger.Log(1, "err getting all hosts", err.Error())
 		return err
 	}
+	logic.ResetPeerUpdateContext()
 	for _, host := range hosts {
 		host := host
-		if err = PublishSingleHostPeerUpdate(&host, delNode); err != nil {
+		if err = PublishSingleHostPeerUpdate(logic.PeerUpdateCtx, &host, delNode); err != nil {
 			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 		}
 	}
@@ -55,9 +57,9 @@ func PublishDeletedNodePeerUpdate(delNode *models.Node) error {
 }
 
 // PublishSingleHostPeerUpdate --- determines and publishes a peer update to one host
-func PublishSingleHostPeerUpdate(host *models.Host, deletedNode *models.Node) error {
+func PublishSingleHostPeerUpdate(ctx context.Context, host *models.Host, deletedNode *models.Node) error {
 
-	peerUpdate, err := logic.GetPeerUpdateForHost("", host, deletedNode)
+	peerUpdate, err := logic.GetPeerUpdateForHost(ctx, "", host, deletedNode)
 	if err != nil {
 		return err
 	}
@@ -65,7 +67,7 @@ func PublishSingleHostPeerUpdate(host *models.Host, deletedNode *models.Node) er
 		return nil
 	}
 	if host.ProxyEnabled {
-		proxyUpdate, err := logic.GetProxyUpdateForHost(host)
+		proxyUpdate, err := logic.GetProxyUpdateForHost(ctx, host)
 		if err != nil {
 			return err
 		}
@@ -422,13 +424,12 @@ func sendPeers() {
 
 		//collectServerMetrics(networks[:])
 	}
-
-	for _, host := range hosts {
-		if force {
+	if force {
+		logic.ResetPeerUpdateContext()
+		for _, host := range hosts {
 			host := host
 			logger.Log(2, "sending scheduled peer update (5 min)")
-			err = PublishSingleHostPeerUpdate(&host, nil)
-			if err != nil {
+			if err = PublishSingleHostPeerUpdate(logic.PeerUpdateCtx, &host, nil); err != nil {
 				logger.Log(1, "error publishing peer updates for host: ", host.ID.String(), " Err: ", err.Error())
 			}
 		}
