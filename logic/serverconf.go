@@ -8,8 +8,6 @@ import (
 )
 
 var (
-	// Node_Limit - dummy var for community
-	Node_Limit = 1000000000
 	// Networks_Limit - dummy var for community
 	Networks_Limit = 1000000000
 	// Users_Limit - dummy var for community
@@ -90,7 +88,7 @@ func StoreJWTSecret(privateKey string) error {
 }
 
 func SetFreeTierLimits() {
-	Node_Limit = servercfg.GetNodeLimit()
+	Free_Tier = true
 	Users_Limit = servercfg.GetUserLimit()
 	Clients_Limit = servercfg.GetClientLimit()
 	Networks_Limit = servercfg.GetNetworkLimit()

@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
 
 	"github.com/gravitl/netmaker/database"
@@ -58,8 +57,8 @@ func ValidateLicense() error {
 	}
 
 	licenseSecret := LicenseSecret{
-		UserID: netmakerAccountID,
-		Limits: getCurrentServerLimit(),
+		AssociatedID: netmakerAccountID,
+		Limits:       getCurrentServerLimit(),
 	}
 
 	secretData, err := json.Marshal(&licenseSecret)
@@ -92,9 +91,9 @@ func ValidateLicense() error {
 		logger.FatalLog(errValidation.Error())
 	}
 
-	Limits.Networks = math.MaxInt
+	Limits.Networks = license.LimitNetworks
 	Limits.Clients = license.LimitClients
-	Limits.Nodes = license.LimitNodes
+	Limits.Hosts = license.LimitHosts
 	Limits.Servers = license.LimitServers
 	Limits.Users = license.LimitUsers
 	setControllerLimits()

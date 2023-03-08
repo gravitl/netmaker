@@ -33,9 +33,9 @@ func base64decode(input string) []byte {
 
 func getCurrentServerLimit() (limits LicenseLimits) {
 	limits.SetDefaults()
-	nodes, err := logic.GetAllNodes()
+	hosts, err := logic.GetAllHosts()
 	if err == nil {
-		limits.Nodes = len(nodes)
+		limits.Hosts = len(hosts)
 	}
 	clients, err := logic.GetAllExtClients()
 	if err == nil {

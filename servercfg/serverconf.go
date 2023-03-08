@@ -626,54 +626,44 @@ func GetStunPort() int {
 	return port
 }
 
-func GetNodeLimit() int {
-	var nodelimit int
-	if os.Getenv("NODE_LIMIT") != "" {
-		nodelimit, _ = strconv.Atoi(os.Getenv("Node_LIMIT"))
-	} else {
-		nodelimit = config.Config.Server.NodeLimit
-	}
-	return nodelimit
-}
-
 func GetUserLimit() int {
-	var userlimit int
-	if os.Getenv("USER_LIMIT") != "" {
-		userlimit, _ = strconv.Atoi(os.Getenv("USER_LIMIT"))
+	var userslimit int
+	if os.Getenv("USERS_LIMIT") != "" {
+		userslimit, _ = strconv.Atoi(os.Getenv("USER_LIMIT"))
 	} else {
-		userlimit = config.Config.Server.UserLimit
+		userslimit = config.Config.Server.UsersLimit
 	}
-	return userlimit
+	return userslimit
 }
 
 func GetNetworkLimit() int {
-	var networklimit int
-	if os.Getenv("NETWORK_LIMIT") != "" {
-		networklimit, _ = strconv.Atoi(os.Getenv("NETWORK_LIMIT"))
+	var networkslimit int
+	if os.Getenv("NETWORKS_LIMIT") != "" {
+		networkslimit, _ = strconv.Atoi(os.Getenv("NETWORKS_LIMIT"))
 	} else {
-		networklimit = config.Config.Server.NetworkLimit
+		networkslimit = config.Config.Server.NetworksLimit
 	}
-	return networklimit
+	return networkslimit
 }
 
 func GetClientLimit() int {
-	var clientLimit int
-	if os.Getenv("CLIENT_LIMIT") != "" {
-		clientLimit, _ = strconv.Atoi(os.Getenv("CLIENT_LIMIT"))
+	var clientsLimit int
+	if os.Getenv("CLIENTS_LIMIT") != "" {
+		clientsLimit, _ = strconv.Atoi(os.Getenv("CLIENTS_LIMIT"))
 	} else {
-		clientLimit = config.Config.Server.ClientLimit
+		clientsLimit = config.Config.Server.ClientsLimit
 	}
-	return clientLimit
+	return clientsLimit
 }
 
 func GetHostLimit() int {
-	var hostLimit int
-	if os.Getenv("HOST_LIMIT") != "" {
-		hostLimit, _ = strconv.Atoi(os.Getenv("HOST_LIMIT"))
+	var hostsLimit int
+	if os.Getenv("HOSTS_LIMIT") != "" {
+		hostsLimit, _ = strconv.Atoi(os.Getenv("HOSTS_LIMIT"))
 	} else {
-		hostLimit = config.Config.Server.HostLimit
+		hostsLimit = config.Config.Server.HostsLimit
 	}
-	return hostLimit
+	return hostsLimit
 }
 
 func DeployedByOperator() bool {

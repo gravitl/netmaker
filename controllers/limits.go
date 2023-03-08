@@ -6,7 +6,6 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/servercfg"
 )
 
 // limit consts
@@ -23,17 +22,10 @@ func checkFreeTierLimits(limit_choice int, next http.Handler) http.HandlerFunc {
 			Code: http.StatusUnauthorized, Message: "free tier limits exceeded on networks",
 		}
 
-		if logic.Free_Tier && servercfg.Is_EE { // check that free tier limits not exceeded
+		if logic.Free_Tier { // check that free tier limits not exceeded
 			if limit_choice == networks_l {
 				currentNetworks, err := logic.GetNetworks()
 				if (err != nil && !database.IsEmptyRecord(err)) || len(currentNetworks) >= logic.Networks_Limit {
-					logic.ReturnErrorResponse(w, r, errorResponse)
-					return
-				}
-			} else if limit_choice == node_l {
-				nodes, err := logic.GetAllNodes()
-				if (err != nil && !database.IsEmptyRecord(err)) || len(nodes) >= logic.Node_Limit {
-					errorResponse.Message = "free tier limits exceeded on nodes"
 					logic.ReturnErrorResponse(w, r, errorResponse)
 					return
 				}
