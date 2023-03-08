@@ -41,6 +41,10 @@ func TestCheckPorts(t *testing.T) {
 		ListenPort:      51830,
 		ProxyListenPort: 51730,
 	}
+	//not sure why this initialization is required but without it
+	// RemoveHost returns database is closed
+	database.InitializeDatabase()
+	RemoveHost(&h)
 	CreateHost(&h)
 	t.Run("no change", func(t *testing.T) {
 		is := is.New(t)
