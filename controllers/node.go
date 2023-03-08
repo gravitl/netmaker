@@ -976,8 +976,13 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	fromNode := r.Header.Get("requestfrom") == "node"
 	node, err := logic.GetNodeByID(nodeid)
 	if err != nil {
-		logger.Log(0, "error retrieving node to delete", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		if logic.CheckAndRemoveLegacyNode(nodeid) {
+			logger.Log(0, "removed legacy node", nodeid)
+			logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
+		} else {
+			logger.Log(0, "error retrieving node to delete", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		}
 		return
 	}
 	if r.Header.Get("ismaster") != "yes" {
