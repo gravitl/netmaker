@@ -28,12 +28,11 @@ type Metric struct {
 
 // IDandAddr - struct to hold ID and primary Address
 type IDandAddr struct {
-	ID           string `json:"id" bson:"id" yaml:"id"`
-	Address      string `json:"address" bson:"address" yaml:"address"`
-	LocalAddress string `json:"localaddress" bson:"localaddress" yaml:"localaddress"`
-	Name         string `json:"name" bson:"name" yaml:"name"`
-	IsServer     string `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
-	Network      string `json:"network" bson:"network" yaml:"network" validate:"network"`
+	ID       string `json:"id" bson:"id" yaml:"id"`
+	Address  string `json:"address" bson:"address" yaml:"address"`
+	Name     string `json:"name" bson:"name" yaml:"name"`
+	IsServer string `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
+	Network  string `json:"network" bson:"network" yaml:"network" validate:"network"`
 }
 
 // PeerMap - peer map for ids and addresses in metrics

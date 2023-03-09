@@ -19,6 +19,7 @@ type HostPeerUpdate struct {
 	EgressInfo    map[string]EgressInfo `json:"egress_info" bson:"egress_info" yaml:"egress_info"` // map key is node ID
 	IngressInfo   IngressInfo           `json:"ingress_info" bson:"ext_peers" yaml:"ext_peers"`
 	PeerIDs       PeerMap               `json:"peerids" bson:"peerids" yaml:"peerids"`
+	Interfaces    []Iface               `json:"interfaces" yaml:"interfaces"`
 }
 
 // IngressInfo - struct for ingress info
