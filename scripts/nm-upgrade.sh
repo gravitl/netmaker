@@ -361,7 +361,7 @@ set_compose() {
   #sed -i "s/v0.17.1/v0.18.3/g" /root/docker-compose.yml
   yq ".services.netmaker.environment.SERVER_NAME = \"$SERVER_NAME\"" -i /root/docker-compose.yml
   yq ".services.netmaker.environment += {\"BROKER_ENDPOINT\": \"wss://$BROKER_NAME\"}" -i /root/docker-compose.yml  
-  yq ".services.netmaker.environment += {\"SERVER_BROKER_ENDPOINT\": \"wss://mq:1883\"}" -i /root/docker-compose.yml  
+  yq ".services.netmaker.environment += {\"SERVER_BROKER_ENDPOINT\": \"ws://mq:1883\"}" -i /root/docker-compose.yml  
   yq ".services.netmaker.environment += {\"STUN_LIST\": \"$STUN_DOMAIN:$STUN_PORT,stun1.netmaker.io:3478,stun2.netmaker.io:3478,stun1.l.google.com:19302,stun2.l.google.com:19302\"}" -i /root/docker-compose.yml  
   yq ".services.netmaker.environment += {\"MQ_PASSWORD\": \"$MQ_PASSWORD\"}" -i /root/docker-compose.yml  
   yq ".services.netmaker.environment += {\"MQ_USERNAME\": \"$MQ_USERNAME\"}" -i /root/docker-compose.yml  
