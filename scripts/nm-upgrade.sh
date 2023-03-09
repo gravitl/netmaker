@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LATEST="v0.18.1"
+LATEST="testing"
 
 # check_version - make sure current version is 0.17.1 before continuing
 check_version() {
@@ -355,14 +355,17 @@ set_compose() {
   # DEV_TEMP
   sed -i "s/v0.17.1/$LATEST/g" /root/docker-compose.yml
 
+  STUN_PORT=3478
+
   # RELEASE_REPLACE - Use this once release is ready
   #sed -i "s/v0.17.1/v0.18.3/g" /root/docker-compose.yml
   yq ".services.netmaker.environment.SERVER_NAME = \"$SERVER_NAME\"" -i /root/docker-compose.yml
-  yq ".services.netmaker.environment += {\"BROKER_NAME\": \"$BROKER_NAME\"}" -i /root/docker-compose.yml  
-  yq ".services.netmaker.environment += {\"STUN_DOMAIN\": \"$STUN_DOMAIN\"}" -i /root/docker-compose.yml  
+  yq ".services.netmaker.environment += {\"BROKER_ENDPOINT\": \"wss://$BROKER_NAME\"}" -i /root/docker-compose.yml  
+  yq ".services.netmaker.environment += {\"SERVER_BROKER_ENDPOINT\": \"wss://mq:1883\"}" -i /root/docker-compose.yml  
+  yq ".services.netmaker.environment += {\"STUN_LIST\": \"$STUN_DOMAIN:$STUN_PORT,stun1.netmaker.io:3478,stun2.netmaker.io:3478,stun1.l.google.com:19302,stun2.l.google.com:19302\"}" -i /root/docker-compose.yml  
   yq ".services.netmaker.environment += {\"MQ_PASSWORD\": \"$MQ_PASSWORD\"}" -i /root/docker-compose.yml  
   yq ".services.netmaker.environment += {\"MQ_USERNAME\": \"$MQ_USERNAME\"}" -i /root/docker-compose.yml  
-  yq ".services.netmaker.environment += {\"STUN_PORT\": \"3478\"}" -i /root/docker-compose.yml  
+  yq ".services.netmaker.environment += {\"STUN_PORT\": \"$STUN_PORT\"}" -i /root/docker-compose.yml  
   yq ".services.netmaker.ports += \"3478:3478/udp\"" -i /root/docker-compose.yml
 
   yq ".services.mq.environment += {\"MQ_PASSWORD\": \"$MQ_PASSWORD\"}" -i /root/docker-compose.yml  
@@ -379,6 +382,10 @@ set_compose() {
   yq eval 'del(.services.netmaker.cap_add)' -i /root/docker-compose.yml
   yq eval 'del(.services.netmaker.sysctls)' -i /root/docker-compose.yml
   yq eval 'del(.services.netmaker.environment.MQ_ADMIN_PASSWORD)' -i /root/docker-compose.yml
+  yq eval 'del(.services.netmaker.environment.MQ_HOST)' -i /root/docker-compose.yml
+  yq eval 'del(.services.netmaker.environment.MQ_PORT)' -i /root/docker-compose.yml
+  yq eval 'del(.services.netmaker.environment.MQ_SERVER_PORT)' -i /root/docker-compose.yml
+  yq eval 'del(.services.netmaker.environment.PORT_FORWARD_SERVICES)' -i /root/docker-compose.yml
   yq eval 'del(.services.netmaker.environment.CLIENT_MODE)' -i /root/docker-compose.yml
   yq eval 'del(.services.netmaker.environment.HOST_NETWORK)' -i /root/docker-compose.yml
   yq eval 'del(.services.mq.environment.NETMAKER_SERVER_HOST)' -i /root/docker-compose.yml
@@ -439,10 +446,11 @@ setup_netclient() {
 	netclient uninstall
 	set -e
 
-	wget -O netclient https://github.com/gravitl/netclient/releases/download/$LATEST/netclient_linux_amd64
-	chmod +x netclient
-	./netclient install
-	netclient join -t $TOKEN
+  wget -O /tmp/netclient https://fileserver.netmaker.org/$LATEST/netclient 
+
+	chmod +x /tmp/netclient
+	/tmp/netclient install
+	netclient join -t $KEY
 
 	echo "waiting for client to become available"
 	wait_seconds 10 
@@ -538,8 +546,10 @@ join_networks() {
             echo "For first join, making host a default"
             echo "Host ID: $HOST_ID"
             # set as a default host
+            set +e
             ./nmctl host update $HOST_ID --default
             sleep 2
+            set -e            
           fi
 
           # create an egress if necessary
