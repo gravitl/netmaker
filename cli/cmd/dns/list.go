@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/gravitl/netmaker/cli/cmd/commons"
 	"github.com/gravitl/netmaker/cli/functions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/guumaster/tablewriter"
@@ -31,12 +32,17 @@ var dnsListCmd = &cobra.Command{
 		} else {
 			data = *functions.GetDNS()
 		}
-		table := tablewriter.NewWriter(os.Stdout)
-		table.SetHeader([]string{"Name", "Network", "IPv4 Address", "IPv6 Address"})
-		for _, d := range data {
-			table.Append([]string{d.Name, d.Network, d.Address, d.Address6})
+		switch commons.OutputFormat {
+		case commons.JsonOutput:
+			functions.PrettyPrint(data)
+		default:
+			table := tablewriter.NewWriter(os.Stdout)
+			table.SetHeader([]string{"Name", "Network", "IPv4 Address", "IPv6 Address"})
+			for _, d := range data {
+				table.Append([]string{d.Name, d.Network, d.Address, d.Address6})
+			}
+			table.Render()
 		}
-		table.Render()
 	},
 }
 

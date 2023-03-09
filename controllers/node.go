@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -433,7 +434,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	hostPeerUpdate, err := logic.GetPeerUpdateForHost(node.Network, host, nil)
+	hostPeerUpdate, err := logic.GetPeerUpdateForHost(context.Background(), node.Network, host, nil)
 	if err != nil && !database.IsEmptyRecord(err) {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("error fetching wg peers config for host [ %s ]: %v", host.ID.String(), err))
@@ -622,7 +623,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	hostPeerUpdate, err := logic.GetPeerUpdateForHost(networkName, &data.Host, nil)
+	hostPeerUpdate, err := logic.GetPeerUpdateForHost(context.Background(), networkName, &data.Host, nil)
 	if err != nil && !database.IsEmptyRecord(err) {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("error fetching wg peers config for host [ %s ]: %v", data.Host.ID.String(), err))
@@ -637,7 +638,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		Host:         data.Host,
 		Peers:        hostPeerUpdate.Peers,
 	}
-	logger.Log(1, r.Header.Get("user"), "created new node", data.Host.Name, "on network", networkName)
+	logger.Log(1, r.Header.Get("user"), "created new node", data.Host.Name, data.Node.ID.String(), "on network", networkName)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 
@@ -908,7 +909,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		relayedUpdate = true
 	}
 	ifaceDelta := logic.IfaceDelta(&currentNode, newNode)
-
+	aclUpdate := currentNode.DefaultACL != newNode.DefaultACL
 	if ifaceDelta && servercfg.Is_EE {
 		if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID, currentNode.Network); err != nil {
 			logger.Log(0, "failed to reset failover lists during node update for node", currentNode.ID.String(), currentNode.Network)
@@ -941,13 +942,17 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "updated node", currentNode.ID.String(), "on network", currentNode.Network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-
 	runUpdates(newNode, ifaceDelta)
-	go func() {
+	go func(aclUpdate bool, newNode *models.Node) {
+		if aclUpdate {
+			if err := mq.PublishPeerUpdate(); err != nil {
+				logger.Log(0, "error during node ACL update for node", newNode.ID.String())
+			}
+		}
 		if err := mq.PublishReplaceDNS(&currentNode, newNode, host); err != nil {
 			logger.Log(1, "failed to publish dns update", err.Error())
 		}
-	}()
+	}(aclUpdate, newNode)
 }
 
 // swagger:route DELETE /api/nodes/{network}/{nodeid} nodes deleteNode
@@ -971,8 +976,13 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	fromNode := r.Header.Get("requestfrom") == "node"
 	node, err := logic.GetNodeByID(nodeid)
 	if err != nil {
-		logger.Log(0, "error retrieving node to delete", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		if logic.CheckAndRemoveLegacyNode(nodeid) {
+			logger.Log(0, "removed legacy node", nodeid)
+			logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
+		} else {
+			logger.Log(0, "error retrieving node to delete", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		}
 		return
 	}
 	if r.Header.Get("ismaster") != "yes" {
