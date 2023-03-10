@@ -156,7 +156,6 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 		PeerIDs:    make(models.PeerMap, 0),
 		Peers:      []wgtypes.PeerConfig{},
 		NodePeers:  []wgtypes.PeerConfig{},
-		Interfaces: host.Interfaces,
 	}
 
 	logger.Log(1, "peer update for host", host.ID.String())
