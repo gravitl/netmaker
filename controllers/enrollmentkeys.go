@@ -200,9 +200,13 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	// ready the response
 	server := servercfg.GetServerInfo()
 	server.TrafficKey = key
+	response := models.RegisterResponse{
+		ServerConf:    server,
+		RequestedHost: newHost,
+	}
 	logger.Log(0, newHost.Name, newHost.ID.String(), "registered with Netmaker")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(&server)
+	json.NewEncoder(w).Encode(&response)
 	// notify host of changes, peer and node updates
 	go checkNetRegAndHostUpdate(enrollmentKey.Networks, &newHost)
 }

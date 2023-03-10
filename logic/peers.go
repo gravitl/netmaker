@@ -198,7 +198,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 				peerConfig.ReplaceAllowedIPs = true
 				uselocal := false
 				if host.EndpointIP.String() == peerHost.EndpointIP.String() {
-					//peer is on same network
+					// peer is on same network
 					// set to localaddress
 					uselocal = true
 					if node.LocalAddress.IP == nil {
