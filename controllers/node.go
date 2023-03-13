@@ -26,7 +26,6 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}", authorize(false, true, "network", http.HandlerFunc(getNetworkNodes))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, true, "node", http.HandlerFunc(getNode))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(false, true, "node", http.HandlerFunc(updateNode))).Methods(http.MethodPut)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/migrate", migrate).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, true, "node", http.HandlerFunc(deleteNode))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createrelay", authorize(false, true, "user", http.HandlerFunc(createRelay))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleterelay", authorize(false, true, "user", http.HandlerFunc(deleteRelay))).Methods(http.MethodDelete)
@@ -37,6 +36,7 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, true, "node", http.HandlerFunc(updateNode))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}", nodeauth(checkFreeTierLimits(node_l, http.HandlerFunc(createNode)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/nodes/migrate", migrate).Methods(http.MethodPost)
 }
 
 // swagger:route POST /api/nodes/adm/{network}/authenticate nodes authenticate
