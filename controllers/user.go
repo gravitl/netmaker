@@ -467,5 +467,5 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Start handling the session
-	go auth.SessionHandler(conn)
+	// go auth.SessionHandler(conn)
 }

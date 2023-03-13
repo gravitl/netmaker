@@ -203,27 +203,6 @@ type networkBodyResponse struct {
 	Network models.Network `json:"network"`
 }
 
-// swagger:parameters createAccessKey
-type accessKeyBodyParam struct {
-	// Access Key
-	// in: body
-	AccessKey models.AccessKey `json:"access_key"`
-}
-
-// swagger:response accessKeyBodyResponse
-type accessKeyBodyResponse struct {
-	// Access Key
-	// in: body
-	AccessKey models.AccessKey `json:"access_key"`
-}
-
-// swagger:response accessKeySliceBodyResponse
-type accessKeySliceBodyResponse struct {
-	// Access Keys
-	// in: body
-	AccessKey []models.AccessKey `json:"access_key"`
-}
-
 // swagger:parameters updateNetworkACL getNetworkACL
 type aclContainerBodyParam struct {
 	// ACL Container
@@ -373,9 +352,6 @@ func useUnused() bool {
 	_ = networkPathParam{}
 	_ = networkAccessKeyNamePathParam{}
 	_ = networkBodyResponse{}
-	_ = accessKeyBodyParam{}
-	_ = accessKeyBodyResponse{}
-	_ = accessKeySliceBodyResponse{}
 	_ = aclContainerBodyParam{}
 	_ = aclContainerResponse{}
 	_ = nodeSliceResponse{}
