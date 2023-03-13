@@ -189,6 +189,10 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 					logger.Log(0, "failed peers publish after join acknowledged", hostUpdate.Host.Name, currentHost.ID.String(), err.Error())
 					return
 				}
+				if err = handleNewNodeDNS(&hu.Host, &hu.Node); err != nil {
+					logger.Log(0, "failed to send dns update after node,", hu.Node.ID.String(), ", added to host", hu.Host.Name, err.Error())
+					return
+				}
 			}
 		}
 	case models.UpdateHost:
@@ -404,4 +408,26 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 		delete(newMetrics.Connectivity, k)
 	}
 	return shouldUpdate
+}
+
+func handleNewNodeDNS(host *models.Host, node *models.Node) error {
+	dns := models.DNSUpdate{
+		Action: models.DNSInsert,
+		Name:   host.Name + "." + node.Network,
+	}
+	if node.Address.IP != nil {
+		dns.Address = node.Address.IP.String()
+		if err := PublishDNSUpdate(node.Network, dns); err != nil {
+			return err
+		}
+	} else if node.Address6.IP != nil {
+		dns.Address = node.Address6.IP.String()
+		if err := PublishDNSUpdate(node.Network, dns); err != nil {
+			return err
+		}
+	}
+	if err := PublishAllDNS(node); err != nil {
+		return err
+	}
+	return nil
 }
