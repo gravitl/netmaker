@@ -41,6 +41,7 @@ type PeerRouteInfo struct {
 	PeerAddr net.IPNet `json:"peer_addr" yaml:"peer_addr"`
 	PeerKey  string    `json:"peer_key" yaml:"peer_key"`
 	Allow    bool      `json:"allow" yaml:"allow"`
+	ID       string    `json:"id,omitempty" yaml:"id,omitempty"`
 }
 
 // ExtClientInfo - struct for ext. client and it's peers

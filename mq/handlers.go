@@ -185,7 +185,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 				logger.Log(0, "failed to send new node to host", hostUpdate.Host.Name, currentHost.ID.String(), err.Error())
 				return
 			} else {
-				if err = PublishSingleHostPeerUpdate(context.Background(), currentHost, nil); err != nil {
+				if err = PublishSingleHostPeerUpdate(context.Background(), currentHost, nil, nil); err != nil {
 					logger.Log(0, "failed peers publish after join acknowledged", hostUpdate.Host.Name, currentHost.ID.String(), err.Error())
 					return
 				}
@@ -279,7 +279,7 @@ func UpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(2, "updating peers after node", currentNode.ID.String(), currentNode.Network, "detected connectivity issues")
 			host, err := logic.GetHost(currentNode.HostID.String())
 			if err == nil {
-				if err = PublishSingleHostPeerUpdate(context.Background(), host, nil); err != nil {
+				if err = PublishSingleHostPeerUpdate(context.Background(), host, nil, nil); err != nil {
 					logger.Log(0, "failed to publish update after failover peer change for node", currentNode.ID.String(), currentNode.Network)
 				}
 			}

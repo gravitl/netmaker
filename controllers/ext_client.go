@@ -363,6 +363,13 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		extclient.Enabled = parentNetwork.DefaultACL == "yes"
 	}
 
+	if err := logic.SetClientDefaultACLs(&extclient); err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to assign ACLs to new ext client on network [%s]: %v", networkName, err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
 	if err = logic.CreateExtClient(&extclient); err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to create new ext client on network [%s]: %v", networkName, err))
@@ -384,7 +391,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 				logger.Log(0, "failed to associate client", extclient.ClientID, "to user", userID)
 			}
 			extclient.OwnerID = userID
-			if _, err := logic.UpdateExtClient(extclient.ClientID, extclient.Network, extclient.Enabled, &extclient); err != nil {
+			if _, err := logic.UpdateExtClient(extclient.ClientID, extclient.Network, extclient.Enabled, &extclient, extclient.ACLs); err != nil {
 				logger.Log(0, "failed to add owner id", userID, "to client", extclient.ClientID)
 			}
 		}
@@ -477,10 +484,11 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 	// == END PRO ==
 
-	var changedEnabled = newExtClient.Enabled != oldExtClient.Enabled // indicates there was a change in enablement
+	var changedEnabled = (newExtClient.Enabled != oldExtClient.Enabled) || // indicates there was a change in enablement
+		len(newExtClient.ACLs) != len(oldExtClient.ACLs)
 	// extra var need as logic.Update changes oldExtClient
 	currentClient := oldExtClient
-	newclient, err := logic.UpdateExtClient(newExtClient.ClientID, params["network"], newExtClient.Enabled, &oldExtClient)
+	newclient, err := logic.UpdateExtClient(newExtClient.ClientID, params["network"], newExtClient.Enabled, &oldExtClient, newExtClient.ACLs)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to update ext client [%s], network [%s]: %v",
@@ -570,7 +578,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go func() {
-		if err := mq.PublishPeerUpdate(); err != nil {
+		if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
 			logger.Log(1, "error setting ext peers on "+ingressnode.ID.String()+": "+err.Error())
 		}
 		if err = mq.PublishDeleteExtClientDNS(&extclient); err != nil {
