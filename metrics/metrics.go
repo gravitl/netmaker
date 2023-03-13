@@ -1,11 +1,17 @@
 package metrics
 
 import (
+	"encoding/json"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/gravitl/netmaker/models"
 )
+
+func Init() {
+	go dumpMetrics()
+}
 
 // lock for metrics map
 var metricsMapLock = &sync.RWMutex{}
@@ -81,3 +87,11 @@ func ResetMetricForNode(server, peerKey, peerID string) {
 
 // MetricCollectionInterval - collection interval for metrics
 const MetricCollectionInterval = time.Second * 25
+
+func dumpMetrics() {
+	for {
+		time.Sleep(time.Second * 35)
+		d, _ := json.MarshalIndent(metricsPeerMap, "", " ")
+		os.WriteFile("/tmp/metrics.json", d, 0755)
+	}
+}
