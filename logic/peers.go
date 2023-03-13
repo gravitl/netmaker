@@ -90,7 +90,7 @@ func GetProxyUpdateForHost(ctx context.Context, host *models.Host) (models.Proxy
 				currPeerConf = models.PeerConf{
 					Proxy:            peerHost.ProxyEnabled,
 					PublicListenPort: int32(GetPeerListenPort(peerHost)),
-					ProxyListenPort:  int32(GetProxyListenPort(peerHost)),
+					ProxyListenPort:  GetProxyListenPort(peerHost),
 				}
 			}
 
