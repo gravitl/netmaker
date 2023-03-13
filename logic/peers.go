@@ -90,6 +90,7 @@ func GetProxyUpdateForHost(ctx context.Context, host *models.Host) (models.Proxy
 				currPeerConf = models.PeerConf{
 					Proxy:            peerHost.ProxyEnabled,
 					PublicListenPort: int32(GetPeerListenPort(peerHost)),
+					ProxyListenPort:  int32(GetProxyListenPort(peerHost)),
 				}
 			}
 
@@ -400,6 +401,15 @@ func GetPeerListenPort(host *models.Host) int {
 		}
 	}
 	return peerPort
+}
+
+// GetProxyListenPort - fetches the proxy listen port
+func GetProxyListenPort(host *models.Host) int {
+	proxyPort := host.ProxyListenPort
+	if host.PublicListenPort != 0 {
+		proxyPort = host.PublicListenPort
+	}
+	return proxyPort
 }
 
 func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, error) {
