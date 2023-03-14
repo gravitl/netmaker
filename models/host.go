@@ -7,6 +7,21 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+// OS_Types - list of OS types Netmaker cares about
+var OS_Types = struct {
+	Linux   string
+	Windows string
+	Mac     string
+	FreeBSD string
+	IoT     string
+}{
+	Linux:   "linux",
+	Windows: "windows",
+	Mac:     "darwin",
+	FreeBSD: "freebsd",
+	IoT:     "iot",
+}
+
 // WIREGUARD_INTERFACE name of wireguard interface
 const WIREGUARD_INTERFACE = "netmaker"
 
@@ -74,6 +89,10 @@ const (
 	DeleteHost = "DELETE_HOST"
 	// JoinHostToNetwork - constant for host network join action
 	JoinHostToNetwork = "JOIN_HOST_TO_NETWORK"
+	// Acknowledgement - ACK response for hosts
+	Acknowledgement = "ACK"
+	// RequestAck - request an ACK
+	RequestAck = "REQ_ACK"
 )
 
 // HostUpdate - struct for host update

@@ -1,7 +1,6 @@
 package logic
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -33,17 +32,24 @@ const (
 
 // GetNetworkNodes - gets the nodes of a network
 func GetNetworkNodes(network string) ([]models.Node, error) {
-	var nodes []models.Node
 	allnodes, err := GetAllNodes()
 	if err != nil {
 		return []models.Node{}, err
 	}
-	for _, node := range allnodes {
+
+	return GetNetworkNodesMemory(allnodes, network), nil
+}
+
+// GetNetworkNodesMemory - gets all nodes belonging to a network from list in memory
+func GetNetworkNodesMemory(allNodes []models.Node, network string) []models.Node {
+	var nodes = []models.Node{}
+	for i := range allNodes {
+		node := allNodes[i]
 		if node.Network == network {
 			nodes = append(nodes, node)
 		}
 	}
-	return nodes, nil
+	return nodes
 }
 
 // UpdateNode - takes a node and updates another node with it's values
@@ -84,8 +90,9 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 
 // DeleteNode - marks node for deletion (and adds to zombie list) if called by UI or deletes node if called by node
 func DeleteNode(node *models.Node, purge bool) error {
+	alreadyDeleted := node.PendingDelete || node.Action == models.NODE_DELETE
 	node.Action = models.NODE_DELETE
-	if !purge {
+	if !purge && !alreadyDeleted {
 		newnode := *node
 		newnode.PendingDelete = true
 		if err := UpdateNode(node, &newnode); err != nil {
@@ -94,8 +101,15 @@ func DeleteNode(node *models.Node, purge bool) error {
 		newZombie <- node.ID
 		return nil
 	}
+	if alreadyDeleted {
+		logger.Log(1, "forcibly deleting node", node.ID.String())
+	}
 	host, err := GetHost(node.HostID.String())
 	if err != nil {
+		logger.Log(1, "no host found for node", node.ID.String(), "deleting..")
+		if delErr := deleteNodeByID(node); delErr != nil {
+			logger.Log(0, "failed to delete node", node.ID.String(), delErr.Error())
+		}
 		return err
 	}
 	if err := DissasociateNodeFromHost(node, host); err != nil {
@@ -382,22 +396,6 @@ func FindRelay(node *models.Node) *models.Node {
 	return nil
 }
 
-func findNode(ip string) (*models.Node, error) {
-	nodes, err := GetAllNodes()
-	if err != nil {
-		return nil, err
-	}
-	for _, node := range nodes {
-		if node.Address.IP.String() == ip {
-			return &node, nil
-		}
-		if node.Address6.IP.String() == ip {
-			return &node, nil
-		}
-	}
-	return nil, errors.New("node not found")
-}
-
 // GetNetworkIngresses - gets the gateways of a network
 func GetNetworkIngresses(network string) ([]models.Node, error) {
 	var ingresses []models.Node
@@ -435,35 +433,6 @@ func updateProNodeACLS(node *models.Node) error {
 		return err
 	}
 	return nil
-}
-
-func PurgePendingNodes(ctx context.Context) {
-	ticker := time.NewTicker(NodePurgeCheckTime)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			nodes, err := GetAllNodes()
-			if err != nil {
-				logger.Log(0, "PurgePendingNodes failed to retrieve nodes", err.Error())
-				continue
-			}
-			for _, node := range nodes {
-				if node.PendingDelete {
-					modified := node.LastModified
-					if time.Since(modified) > NodePurgeTime {
-						if err := DeleteNode(&node, true); err != nil {
-							logger.Log(0, "failed to purge node", node.ID.String(), err.Error())
-						} else {
-							logger.Log(0, "purged node ", node.ID.String())
-						}
-					}
-				}
-			}
-		}
-	}
 }
 
 // createNode - creates a node in database

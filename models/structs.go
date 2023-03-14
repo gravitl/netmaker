@@ -8,12 +8,17 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-const PLACEHOLDER_KEY_TEXT = "ACCESS_KEY"
-const PLACEHOLDER_TOKEN_TEXT = "ACCESS_TOKEN"
+const (
+	// PLACEHOLDER_KEY_TEXT - access key placeholder text if option turned off
+	PLACEHOLDER_KEY_TEXT = "ACCESS_KEY"
+	// PLACEHOLDER_TOKEN_TEXT - access key token placeholder text if option turned off
+	PLACEHOLDER_TOKEN_TEXT = "ACCESS_TOKEN"
+)
 
 // CustomExtClient - struct for CustomExtClient params
 type CustomExtClient struct {
-	ClientID string `json:"clientid"`
+	ClientID  string `json:"clientid"`
+	PublicKey string `json:"publickey,omitempty"`
 }
 
 // AuthParams - struct for auth params
@@ -205,7 +210,7 @@ type TrafficKeys struct {
 
 // NodeGet - struct for a single node get response
 type NodeGet struct {
-	Node         LegacyNode           `json:"node" bson:"node" yaml:"node"`
+	Node         Node                 `json:"node" bson:"node" yaml:"node"`
 	Host         Host                 `json:"host" yaml:"host"`
 	Peers        []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
 	HostPeers    []wgtypes.PeerConfig `json:"host_peers" bson:"host_peers" yaml:"host_peers"`
@@ -223,20 +228,20 @@ type NodeJoinResponse struct {
 
 // ServerConfig - struct for dealing with the server information for a netclient
 type ServerConfig struct {
-	CoreDNSAddr string `yaml:"corednsaddr"`
-	API         string `yaml:"api"`
-	APIPort     string `yaml:"apiport"`
-	DNSMode     string `yaml:"dnsmode"`
-	Version     string `yaml:"version"`
-	MQPort      string `yaml:"mqport"`
-	MQUserName  string `yaml:"mq_username"`
-	MQPassword  string `yaml:"mq_password"`
-	Server      string `yaml:"server"`
-	Broker      string `yaml:"broker"`
-	Is_EE       bool   `yaml:"isee"`
-	StunPort    int    `yaml:"stun_port"`
-	StunHost    string `yaml:"stun_host"`
-	TrafficKey  []byte `yaml:"traffickey"`
+	CoreDNSAddr string       `yaml:"corednsaddr"`
+	API         string       `yaml:"api"`
+	APIPort     string       `yaml:"apiport"`
+	DNSMode     string       `yaml:"dnsmode"`
+	Version     string       `yaml:"version"`
+	MQPort      string       `yaml:"mqport"`
+	MQUserName  string       `yaml:"mq_username"`
+	MQPassword  string       `yaml:"mq_password"`
+	Server      string       `yaml:"server"`
+	Broker      string       `yaml:"broker"`
+	Is_EE       bool         `yaml:"isee"`
+	StunPort    int          `yaml:"stun_port"`
+	StunList    []StunServer `yaml:"stun_list"`
+	TrafficKey  []byte       `yaml:"traffickey"`
 }
 
 // User.NameInCharset - returns if name is in charset below or not
@@ -260,4 +265,10 @@ type JoinData struct {
 	Host Host   `json:"host" yaml:"host"`
 	Node Node   `json:"node" yaml:"node"`
 	Key  string `json:"key" yaml:"key"`
+}
+
+// StunServer - struct to hold data required for using stun server
+type StunServer struct {
+	Domain string `json:"domain" yaml:"domain"`
+	Port   int    `json:"port" yaml:"port"`
 }

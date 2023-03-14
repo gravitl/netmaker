@@ -64,6 +64,10 @@ spec:
           value: "1883"
         - name: STUN_PORT
           value: "31478"          
+        - name: SERVER_BROKER_ENDPOINT
+          value: "ws://mq:1883"
+        - name: BROKER_ENDPOINT
+          value: "wss://broker.NETMAKER_BASE_DOMAIN"
         - name: PLATFORM
           value: "Kubernetes"
         - name: VERBOSITY
@@ -72,7 +76,7 @@ spec:
           value: "REPLACE_MQ_USERNAME"
         - name: MQ_PASSWORD
           value: "REPLACE_MQ_PASSWORD"
-        image: gravitl/netmaker:v0.18.0
+        image: gravitl/netmaker:v0.18.3
         imagePullPolicy: Always
         name: netmaker
         ports:

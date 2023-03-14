@@ -17,6 +17,7 @@ import (
 	"github.com/gravitl/netmaker/models/promodels"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/skip2/go-qrcode"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 func extClientHandlers(r *mux.Router) {
@@ -317,16 +318,22 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var extclient models.ExtClient
-	var CustomExtClient models.CustomExtClient
+	var customExtClient models.CustomExtClient
 
-	err := json.NewDecoder(r.Body).Decode(&CustomExtClient)
-
+	err := json.NewDecoder(r.Body).Decode(&customExtClient)
 	if err == nil {
-		if CustomExtClient.ClientID != "" && !validName(CustomExtClient.ClientID) {
+		if customExtClient.ClientID != "" && !validName(customExtClient.ClientID) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errInvalidExtClientID, "badrequest"))
 			return
 		}
-		extclient.ClientID = CustomExtClient.ClientID
+		extclient.ClientID = customExtClient.ClientID
+		if len(customExtClient.PublicKey) > 0 {
+			if _, err := wgtypes.ParseKey(customExtClient.PublicKey); err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errInvalidExtClientPubKey, "badrequest"))
+				return
+			}
+			extclient.PublicKey = customExtClient.PublicKey
+		}
 	}
 
 	extclient.Network = networkName
@@ -350,16 +357,13 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		listenPort = host.ProxyListenPort
 	}
 	extclient.IngressGatewayEndpoint = host.EndpointIP.String() + ":" + strconv.FormatInt(int64(listenPort), 10)
-
 	extclient.Enabled = true
 	parentNetwork, err := logic.GetNetwork(networkName)
 	if err == nil { // check if parent network default ACL is enabled (yes) or not (no)
 		extclient.Enabled = parentNetwork.DefaultACL == "yes"
 	}
-	// check pro settings
 
-	err = logic.CreateExtClient(&extclient)
-	if err != nil {
+	if err = logic.CreateExtClient(&extclient); err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to create new ext client on network [%s]: %v", networkName, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -389,8 +393,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	logger.Log(0, r.Header.Get("user"), "created new ext client on network", networkName)
 	w.WriteHeader(http.StatusOK)
 	go func() {
-		err = mq.PublishExtPeerUpdate(&node)
-		if err != nil {
+		if err := mq.PublishPeerUpdate(); err != nil {
 			logger.Log(1, "error setting ext peers on "+nodeid+": "+err.Error())
 		}
 		if err := mq.PublishExtCLientDNS(&extclient); err != nil {
@@ -488,7 +491,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	logger.Log(0, r.Header.Get("user"), "updated ext client", newExtClient.ClientID)
 	if changedEnabled { // need to send a peer update to the ingress node as enablement of one of it's clients has changed
 		if ingressNode, err := logic.GetNodeByID(newclient.IngressGatewayID); err == nil {
-			if err = mq.PublishExtPeerUpdate(&ingressNode); err != nil {
+			if err = mq.PublishPeerUpdate(); err != nil {
 				logger.Log(1, "error setting ext peers on", ingressNode.ID.String(), ":", err.Error())
 			}
 		}
@@ -567,11 +570,10 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go func() {
-		err = mq.PublishExtPeerUpdate(&ingressnode)
-		if err != nil {
+		if err := mq.PublishPeerUpdate(); err != nil {
 			logger.Log(1, "error setting ext peers on "+ingressnode.ID.String()+": "+err.Error())
 		}
-		if err := mq.PublishDeleteExtClientDNS(&extclient); err != nil {
+		if err = mq.PublishDeleteExtClientDNS(&extclient); err != nil {
 			logger.Log(1, "error publishing dns update for extclient deletion", err.Error())
 		}
 	}()

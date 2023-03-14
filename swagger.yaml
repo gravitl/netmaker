@@ -273,9 +273,6 @@ definitions:
             isipv6:
                 type: string
                 x-go-name: IsIPv6
-            islocal:
-                type: string
-                x-go-name: IsLocal
             ispointtosite:
                 type: string
                 x-go-name: IsPointToSite
@@ -375,9 +372,6 @@ definitions:
             isk8s:
                 type: string
                 x-go-name: IsK8S
-            islocal:
-                type: string
-                x-go-name: IsLocal
             ispending:
                 type: string
                 x-go-name: IsPending
@@ -565,8 +559,6 @@ definitions:
                 type: string
             APIPort:
                 type: string
-            AgentBackend:
-                type: string
             AllowedOrigin:
                 type: string
             AuthProvider:
@@ -585,9 +577,6 @@ definitions:
                 type: string
             Database:
                 type: string
-            DefaultNodeLimit:
-                format: int32
-                type: integer
             DisableRemoteIPCheck:
                 type: string
             DisplayKeys:
@@ -624,9 +613,6 @@ definitions:
                 type: string
             Server:
                 type: string
-            ServerCheckinInterval:
-                format: int64
-                type: integer
             Telemetry:
                 type: string
             Verbosity:
@@ -718,7 +704,7 @@ info:
 
         API calls must be authenticated via a header of the format -H “Authorization: Bearer <YOUR_SECRET_KEY>” There are two methods to obtain YOUR_SECRET_KEY: 1. Using the masterkey. By default, this value is “secret key,” but you should change this on your instance and keep it secure. This value can be set via env var at startup or in a config file (config/environments/< env >.yaml). See the [Netmaker](https://docs.netmaker.org/index.html) documentation for more details. 2. Using a JWT received for a node. This can be retrieved by calling the /api/nodes/<network>/authenticate endpoint, as documented below.
     title: Netmaker
-    version: 0.18.0
+    version: 0.18.3
 paths:
     /api/dns:
         get:

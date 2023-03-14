@@ -3,15 +3,15 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.18.0
+    image: gravitl/netmaker:REPLACE_SERVER_IMAGE_TAG
     restart: always
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
     environment:
-      BROKER_NAME: "broker.NETMAKER_BASE_DOMAIN"
+      BROKER_ENDPOINT: "wss://broker.NETMAKER_BASE_DOMAIN"
       SERVER_NAME: "NETMAKER_BASE_DOMAIN"
-      STUN_DOMAIN: "stun.NETMAKER_BASE_DOMAIN"
+      STUN_LIST: "stun.NETMAKER_BASE_DOMAIN:3478,stun1.netmaker.io:3478,stun2.netmaker.io:3478,stun1.l.google.com:19302,stun2.l.google.com:19302"
       SERVER_HOST: "SERVER_PUBLIC_IP"
       SERVER_API_CONN_STRING: "api.NETMAKER_BASE_DOMAIN:443"
       COREDNS_ADDR: "SERVER_PUBLIC_IP"
@@ -23,18 +23,16 @@ services:
       DISPLAY_KEYS: "on"
       DATABASE: "sqlite"
       NODE_ID: "netmaker-server-1"
-      MQ_HOST: "mq"
-      MQ_PORT: "443"      
-      MQ_SERVER_PORT: "1883"
-      STUN_PORT: "3478"      
+      SERVER_BROKER_ENDPOINT: "ws://mq:1883"
       VERBOSITY: "1"
       MQ_PASSWORD: "REPLACE_MQ_PASSWORD"
       MQ_USERNAME: "REPLACE_MQ_USERNAME"
+      STUN_PORT: "3478"
     ports:
       - "3478:3478/udp"
   netmaker-ui:
     container_name: netmaker-ui
-    image: gravitl/netmaker-ui:v0.18.0
+    image: gravitl/netmaker-ui:REPLACE_UI_IMAGE_TAG
     depends_on:
       - netmaker
     links:

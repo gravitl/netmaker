@@ -27,7 +27,7 @@ import (
 	stunserver "github.com/gravitl/netmaker/stun-server"
 )
 
-var version = "v0.18.0"
+var version = "v0.18.3"
 
 // Start DB Connection and start API Request Handler
 func main() {
@@ -36,12 +36,16 @@ func main() {
 	setupConfig(*absoluteConfigPath)
 	servercfg.SetVersion(version)
 	fmt.Println(models.RetrieveLogo()) // print the logo
-	// fmt.Println(models.ProLogo())
-	initialize() // initial db and acls; gen cert if required
+	initialize()                       // initial db and acls
 	setGarbageCollection()
 	setVerbosity()
 	defer database.CloseDB()
-	startControllers() // start the api endpoint and mq
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
+	defer stop()
+	var waitGroup sync.WaitGroup
+	startControllers(&waitGroup, ctx) // start the api endpoint and mq and stun
+	<-ctx.Done()
+	waitGroup.Wait()
 }
 
 func setupConfig(absoluteConfigPath string) {
@@ -110,8 +114,7 @@ func initialize() { // Client Mode Prereq Check
 	}
 }
 
-func startControllers() {
-	var waitnetwork sync.WaitGroup
+func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 	if servercfg.IsDNSMode() {
 		err := logic.SetDNS()
 		if err != nil {
@@ -127,48 +130,36 @@ func startControllers() {
 				logger.FatalLog("Unable to Set host. Exiting...", err.Error())
 			}
 		}
-		waitnetwork.Add(1)
-		go controller.HandleRESTRequests(&waitnetwork)
+		wg.Add(1)
+		go controller.HandleRESTRequests(wg, ctx)
 	}
 	//Run MessageQueue
 	if servercfg.IsMessageQueueBackend() {
-		waitnetwork.Add(1)
-		go runMessageQueue(&waitnetwork)
+		wg.Add(1)
+		go runMessageQueue(wg, ctx)
 	}
 
-	if !servercfg.IsAgentBackend() && !servercfg.IsRestBackend() && !servercfg.IsMessageQueueBackend() {
-		logger.Log(0, "No Server Mode selected, so nothing is being served! Set Agent mode (AGENT_BACKEND) or Rest mode (REST_BACKEND) or MessageQueue (MESSAGEQUEUE_BACKEND) to 'true'.")
+	if !servercfg.IsRestBackend() && !servercfg.IsMessageQueueBackend() {
+		logger.Log(0, "No Server Mode selected, so nothing is being served! Set Rest mode (REST_BACKEND) or MessageQueue (MESSAGEQUEUE_BACKEND) to 'true'.")
 	}
 
 	// starts the stun server
-	waitnetwork.Add(1)
-	go stunserver.Start(&waitnetwork)
-	if servercfg.IsProxyEnabled() {
-
-		waitnetwork.Add(1)
-		go func() {
-			defer waitnetwork.Done()
-			_, cancel := context.WithCancel(context.Background())
-			waitnetwork.Add(1)
-
-			//go nmproxy.Start(ctx, logic.ProxyMgmChan, servercfg.GetAPIHost())
-			quit := make(chan os.Signal, 1)
-			signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
-			<-quit
-			cancel()
-		}()
-	}
-
-	waitnetwork.Wait()
+	wg.Add(1)
+	go stunserver.Start(wg, ctx)
 }
 
 // Should we be using a context vice a waitgroup????????????
-func runMessageQueue(wg *sync.WaitGroup) {
+func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 	defer wg.Done()
-	brokerHost, secure := servercfg.GetMessageQueueEndpoint()
-	logger.Log(0, "connecting to mq broker at", brokerHost, "with TLS?", fmt.Sprintf("%v", secure))
+	brokerHost, _ := servercfg.GetMessageQueueEndpoint()
+	logger.Log(0, "connecting to mq broker at", brokerHost)
 	mq.SetupMQTT()
-	ctx, cancel := context.WithCancel(context.Background())
+	if mq.IsConnected() {
+		logger.Log(0, "connected to MQ Broker")
+	} else {
+		logger.FatalLog("error connecting to MQ Broker")
+	}
+	defer mq.CloseClient()
 	go mq.Keepalive(ctx)
 	go func() {
 		peerUpdate := make(chan *models.Node)
@@ -179,11 +170,7 @@ func runMessageQueue(wg *sync.WaitGroup) {
 			}
 		}
 	}()
-	go logic.PurgePendingNodes(ctx)
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
-	<-quit
-	cancel()
+	<-ctx.Done()
 	logger.Log(0, "Message Queue shutting down")
 }
 
