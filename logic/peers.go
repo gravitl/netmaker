@@ -198,7 +198,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 				peerConfig.ReplaceAllowedIPs = true
 				uselocal := false
 				if host.EndpointIP.String() == peerHost.EndpointIP.String() {
-					//peer is on same network
+					// peer is on same network
 					// set to localaddress
 					uselocal = true
 					if node.LocalAddress.IP == nil {
@@ -295,10 +295,12 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 
 				if node.Network == network { // add to peers map for metrics
 					hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()] = models.IDandAddr{
-						ID:      peer.ID.String(),
-						Address: peer.PrimaryAddress(),
-						Name:    peerHost.Name,
-						Network: peer.Network,
+						ID:              peer.ID.String(),
+						Address:         peer.PrimaryAddress(),
+						Name:            peerHost.Name,
+						Network:         peer.Network,
+						Interfaces:      peerHost.Interfaces,
+						ProxyListenPort: peerHost.ProxyListenPort,
 					}
 					hostPeerUpdate.NodePeers = append(hostPeerUpdate.NodePeers, nodePeer)
 				}

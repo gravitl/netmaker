@@ -638,7 +638,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 		Host:         data.Host,
 		Peers:        hostPeerUpdate.Peers,
 	}
-	logger.Log(1, r.Header.Get("user"), "created new node", data.Host.Name, "on network", networkName)
+	logger.Log(1, r.Header.Get("user"), "created new node", data.Host.Name, data.Node.ID.String(), "on network", networkName)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 
@@ -976,8 +976,13 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	fromNode := r.Header.Get("requestfrom") == "node"
 	node, err := logic.GetNodeByID(nodeid)
 	if err != nil {
-		logger.Log(0, "error retrieving node to delete", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		if logic.CheckAndRemoveLegacyNode(nodeid) {
+			logger.Log(0, "removed legacy node", nodeid)
+			logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
+		} else {
+			logger.Log(0, "error retrieving node to delete", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		}
 		return
 	}
 	if r.Header.Get("ismaster") != "yes" {

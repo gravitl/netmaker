@@ -27,6 +27,7 @@ var HttpHandlers = []interface{}{
 	loggerHandlers,
 	hostHandlers,
 	enrollmentKeyHandlers,
+	legacyHandlers,
 }
 
 // HandleRESTRequests - handles the rest requests

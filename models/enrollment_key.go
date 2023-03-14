@@ -34,6 +34,12 @@ type APIEnrollmentKey struct {
 	Tags          []string `json:"tags"`
 }
 
+// RegisterResponse - the response to a successful enrollment register
+type RegisterResponse struct {
+	ServerConf    ServerConfig `json:"server_config"`
+	RequestedHost Host         `json:"requested_host"`
+}
+
 // EnrollmentKey.IsValid - checks if the key is still valid to use
 func (k *EnrollmentKey) IsValid() bool {
 	if k == nil {
