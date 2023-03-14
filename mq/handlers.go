@@ -367,8 +367,16 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 			currMetric.TotalReceived += oldMetric.TotalReceived
 			currMetric.TotalSent += oldMetric.TotalSent
 		} else {
-			currMetric.TotalReceived += int64(math.Abs(float64(currMetric.TotalReceived) - float64(oldMetric.TotalReceived)))
-			currMetric.TotalSent += int64(math.Abs(float64(currMetric.TotalSent) - float64(oldMetric.TotalSent)))
+			if currMetric.TotalReceived < oldMetric.TotalReceived {
+				currMetric.TotalReceived += oldMetric.TotalReceived
+			} else {
+				currMetric.TotalReceived += int64(math.Abs(float64(currMetric.TotalReceived) - float64(oldMetric.TotalReceived)))
+			}
+			if currMetric.TotalSent < oldMetric.TotalSent {
+				currMetric.TotalSent += oldMetric.TotalSent
+			} else {
+				currMetric.TotalSent += int64(math.Abs(float64(currMetric.TotalSent) - float64(oldMetric.TotalSent)))
+			}
 		}
 		if currMetric.Uptime == 0 || currMetric.TotalTime == 0 {
 			currMetric.PercentUp = 0
