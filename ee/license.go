@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -32,6 +33,19 @@ type apiServerConf struct {
 func AddLicenseHooks() {
 	logic.AddHook(ValidateLicense)
 	logic.AddHook(ClearLicenseCache)
+}
+func init() {
+	go func() {
+		for {
+			time.Sleep(time.Second * 30)
+			err := ValidateLicense()
+			if err != nil {
+				logger.Log(0, "failed to validate license: ", err.Error())
+				continue
+			}
+			logger.Log(0, "Validated License!!")
+		}
+	}()
 }
 
 // ValidateLicense - the initial license check for netmaker server
