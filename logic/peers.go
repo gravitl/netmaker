@@ -71,6 +71,9 @@ func GetProxyUpdateForHost(ctx context.Context, host *models.Host) (models.Proxy
 		if err != nil {
 			continue
 		}
+		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE {
+			continue
+		}
 		currentPeers, err := GetNetworkNodes(node.Network)
 		if err != nil {
 			continue
@@ -78,6 +81,9 @@ func GetProxyUpdateForHost(ctx context.Context, host *models.Host) (models.Proxy
 		for _, peer := range currentPeers {
 			if peer.ID == node.ID {
 				//skip yourself
+				continue
+			}
+			if !peer.Connected || peer.PendingDelete || peer.Action == models.NODE_DELETE {
 				continue
 			}
 			peerHost, err := GetHost(peer.HostID.String())
