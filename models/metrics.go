@@ -15,15 +15,16 @@ type Metrics struct {
 
 // Metric - holds a metric for data between nodes
 type Metric struct {
-	NodeName      string        `json:"node_name" bson:"node_name" yaml:"node_name"`
-	Uptime        int64         `json:"uptime" bson:"uptime" yaml:"uptime"`
-	TotalTime     int64         `json:"totaltime" bson:"totaltime" yaml:"totaltime"`
-	Latency       int64         `json:"latency" bson:"latency" yaml:"latency"`
-	TotalReceived int64         `json:"totalreceived" bson:"totalreceived" yaml:"totalreceived"`
-	TotalSent     int64         `json:"totalsent" bson:"totalsent" yaml:"totalsent"`
-	ActualUptime  time.Duration `json:"actualuptime" bson:"actualuptime" yaml:"actualuptime"`
-	PercentUp     float64       `json:"percentup" bson:"percentup" yaml:"percentup"`
-	Connected     bool          `json:"connected" bson:"connected" yaml:"connected"`
+	NodeName         string        `json:"node_name" bson:"node_name" yaml:"node_name"`
+	Uptime           int64         `json:"uptime" bson:"uptime" yaml:"uptime"`
+	TotalTime        int64         `json:"totaltime" bson:"totaltime" yaml:"totaltime"`
+	Latency          int64         `json:"latency" bson:"latency" yaml:"latency"`
+	TotalReceived    int64         `json:"totalreceived" bson:"totalreceived" yaml:"totalreceived"`
+	TotalSent        int64         `json:"totalsent" bson:"totalsent" yaml:"totalsent"`
+	ActualUptime     time.Duration `json:"actualuptime" bson:"actualuptime" yaml:"actualuptime"`
+	PercentUp        float64       `json:"percentup" bson:"percentup" yaml:"percentup"`
+	Connected        bool          `json:"connected" bson:"connected" yaml:"connected"`
+	CollectedByProxy bool          `json:"collected_by_proxy" bson:"collected_by_proxy" yaml:"collected_by_proxy"`
 }
 
 // IDandAddr - struct to hold ID and primary Address

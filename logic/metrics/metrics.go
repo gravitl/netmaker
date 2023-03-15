@@ -10,7 +10,7 @@ import (
 )
 
 // Collect - collects metrics
-func Collect(iface, server, network string, peerMap models.PeerMap) (*models.Metrics, error) {
+func Collect(iface, server, network string, peerMap models.PeerMap, proxy bool) (*models.Metrics, error) {
 	var metrics models.Metrics
 	metrics.Connectivity = make(map[string]models.Metric)
 	var wgclient, err = wgctrl.New()
@@ -45,6 +45,7 @@ func Collect(iface, server, network string, peerMap models.PeerMap) (*models.Met
 		newMetric.TotalSent = int64(proxyMetrics.TrafficSent)
 		newMetric.Latency = int64(proxyMetrics.LastRecordedLatency)
 		newMetric.Connected = proxyMetrics.NodeConnectionStatus[id]
+		newMetric.CollectedByProxy = proxy
 		if newMetric.Connected {
 			newMetric.Uptime = 1
 		}
