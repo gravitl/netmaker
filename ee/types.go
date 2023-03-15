@@ -11,24 +11,6 @@ const (
 
 var errValidation = fmt.Errorf(license_validation_err_msg)
 
-// Limits - limits to be referenced throughout server
-var Limits = GlobalLimits{
-	Servers:  0,
-	Users:    0,
-	Hosts:    0,
-	Clients:  0,
-	Networks: 0,
-}
-
-// GlobalLimits - struct for holding global limits on this netmaker server in memory
-type GlobalLimits struct {
-	Servers  int
-	Users    int
-	Hosts    int
-	Clients  int
-	Networks int
-}
-
 // LicenseKey - the license key struct representation with associated data
 type LicenseKey struct {
 	LicenseValue  string `json:"license_value"` // actual (public) key and the unique value for the key
@@ -56,10 +38,11 @@ type LicenseSecret struct {
 
 // LicenseLimits - struct license limits
 type LicenseLimits struct {
-	Servers int `json:"servers" binding:"required"`
-	Users   int `json:"users" binding:"required"`
-	Hosts   int `json:"hosts" binding:"required"`
-	Clients int `json:"clients" binding:"required"`
+	Servers  int `json:"servers"`
+	Users    int `json:"users"`
+	Hosts    int `json:"hosts"`
+	Clients  int `json:"clients"`
+	Networks int `json:"networks"`
 }
 
 // LicenseLimits.SetDefaults - sets the default values for limits
@@ -68,6 +51,7 @@ func (l *LicenseLimits) SetDefaults() {
 	l.Servers = 1
 	l.Hosts = 0
 	l.Users = 1
+	l.Networks = 0
 }
 
 // ValidateLicenseRequest - used for request to validate license endpoint

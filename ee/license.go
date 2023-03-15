@@ -37,7 +37,7 @@ func AddLicenseHooks() {
 func init() {
 	go func() {
 		for {
-			time.Sleep(time.Second * 30)
+			time.Sleep(time.Hour)
 			err := ValidateLicense()
 			if err != nil {
 				logger.Log(0, "failed to validate license: ", err.Error())
@@ -104,13 +104,6 @@ func ValidateLicense() error {
 	if err = json.Unmarshal(respData, &license); err != nil {
 		logger.FatalLog(errValidation.Error())
 	}
-
-	Limits.Networks = license.LimitNetworks
-	Limits.Clients = license.LimitClients
-	Limits.Hosts = license.LimitHosts
-	Limits.Servers = license.LimitServers
-	Limits.Users = license.LimitUsers
-	setControllerLimits()
 
 	logger.Log(0, "License validation succeeded!")
 	return nil

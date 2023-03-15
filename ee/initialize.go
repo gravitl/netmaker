@@ -16,6 +16,7 @@ import (
 // InitEE - Initialize EE Logic
 func InitEE() {
 	setIsEnterprise()
+	servercfg.Is_EE = true
 	models.SetLogo(retrieveEELogo())
 	controller.HttpHandlers = append(
 		controller.HttpHandlers,
@@ -35,14 +36,6 @@ func InitEE() {
 	logic.EnterpriseFailoverFunc = eelogic.SetFailover
 	logic.EnterpriseResetFailoverFunc = eelogic.ResetFailover
 	logic.EnterpriseResetAllPeersFailovers = eelogic.WipeAffectedFailoversOnly
-}
-
-func setControllerLimits() {
-	logic.Hosts_Limit = Limits.Hosts
-	logic.Users_Limit = Limits.Users
-	logic.Clients_Limit = Limits.Clients
-	logic.Networks_Limit = Limits.Networks
-	servercfg.Is_EE = true
 }
 
 func resetFailover() {
