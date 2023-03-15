@@ -80,6 +80,9 @@ func GetProxyUpdateForHost(ctx context.Context, host *models.Host) (models.Proxy
 				//skip yourself
 				continue
 			}
+			if !peer.Connected || peer.PendingDelete || peer.Action == models.NODE_DELETE {
+				continue
+			}
 			peerHost, err := GetHost(peer.HostID.String())
 			if err != nil {
 				continue
