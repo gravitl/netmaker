@@ -40,6 +40,9 @@ func InitEE() {
 	logic.EnterpriseFailoverFunc = eelogic.SetFailover
 	logic.EnterpriseResetFailoverFunc = eelogic.ResetFailover
 	logic.EnterpriseResetAllPeersFailovers = eelogic.WipeAffectedFailoversOnly
+	logic.DenyClientNodeAccess = eelogic.DenyClientNode
+	logic.IsClientNodeAllowed = eelogic.IsClientNodeAllowed
+	logic.AllowClientNodeAccess = eelogic.RemoveDeniedNodeFromClient
 }
 
 func setControllerLimits() {
