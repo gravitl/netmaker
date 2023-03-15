@@ -2,6 +2,7 @@ package logic
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
@@ -114,6 +115,22 @@ func GetExtClient(clientid string, network string) (models.ExtClient, error) {
 	return extclient, err
 }
 
+// GetExtClient - gets a single ext client on a network
+func GetExtClientByPubKey(publicKey string, network string) (*models.ExtClient, error) {
+	netClients, err := GetNetworkExtClients(network)
+	if err != nil {
+		return nil, err
+	}
+	for i := range netClients {
+		ec := netClients[i]
+		if ec.PublicKey == publicKey {
+			return &ec, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no client found")
+}
+
 // CreateExtClient - creates an extclient
 func CreateExtClient(extclient *models.ExtClient) error {
 
@@ -172,15 +189,17 @@ func CreateExtClient(extclient *models.ExtClient) error {
 }
 
 // UpdateExtClient - only supports name changes right now
-func UpdateExtClient(newclientid string, network string, enabled bool, client *models.ExtClient) (*models.ExtClient, error) {
-
+func UpdateExtClient(newclientid string, network string, enabled bool, client *models.ExtClient, newACLs map[string]struct{}) (*models.ExtClient, error) {
 	err := DeleteExtClient(network, client.ClientID)
 	if err != nil {
 		return client, err
 	}
 	client.ClientID = newclientid
 	client.Enabled = enabled
-	CreateExtClient(client)
+	SetClientACLs(client, newACLs)
+	if err = CreateExtClient(client); err != nil {
+		return client, err
+	}
 	return client, err
 }
 

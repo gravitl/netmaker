@@ -47,7 +47,7 @@ func GetProxyUpdateForHost(ctx context.Context, host *models.Host) (models.Proxy
 		relayPeersMap := make(map[string]models.RelayedConf)
 		for _, relayedHost := range relayedHosts {
 			relayedHost := relayedHost
-			payload, err := GetPeerUpdateForHost(ctx, "", &relayedHost, nil)
+			payload, err := GetPeerUpdateForHost(ctx, "", &relayedHost, nil, nil)
 			if err == nil {
 				relayedEndpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayedHost.EndpointIP, GetPeerListenPort(&relayedHost)))
 				if udpErr == nil {
@@ -90,6 +90,7 @@ func GetProxyUpdateForHost(ctx context.Context, host *models.Host) (models.Proxy
 				currPeerConf = models.PeerConf{
 					Proxy:            peerHost.ProxyEnabled,
 					PublicListenPort: int32(GetPeerListenPort(peerHost)),
+					ProxyListenPort:  GetProxyListenPort(peerHost),
 				}
 			}
 
@@ -133,7 +134,7 @@ func ResetPeerUpdateContext() {
 }
 
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
-func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host, deletedNode *models.Node) (models.HostPeerUpdate, error) {
+func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host, deletedNode *models.Node, deletedClient *models.ExtClient) (models.HostPeerUpdate, error) {
 	if host == nil {
 		return models.HostPeerUpdate{}, errors.New("host is nil")
 	}
@@ -250,6 +251,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 									},
 									PeerKey: extPeerIdAndAddr.ID,
 									Allow:   true,
+									ID:      extPeerIdAndAddr.ID,
 								}
 							}
 						}
@@ -265,6 +267,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 						},
 						PeerKey: peerHost.PublicKey.String(),
 						Allow:   true,
+						ID:      peer.ID.String(),
 					}
 				}
 
@@ -274,10 +277,11 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 					hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
 					peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
 					hostPeerUpdate.HostPeerIDs[peerHost.PublicKey.String()][peer.ID.String()] = models.IDandAddr{
-						ID:      peer.ID.String(),
-						Address: peer.PrimaryAddress(),
-						Name:    peerHost.Name,
-						Network: peer.Network,
+						ID:              peer.ID.String(),
+						Address:         peer.PrimaryAddress(),
+						Name:            peerHost.Name,
+						Network:         peer.Network,
+						ProxyListenPort: GetProxyListenPort(peerHost),
 					}
 					nodePeer = peerConfig
 				} else {
@@ -285,10 +289,11 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 					peerAllowedIPs = append(peerAllowedIPs, allowedips...)
 					hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].AllowedIPs = peerAllowedIPs
 					hostPeerUpdate.HostPeerIDs[peerHost.PublicKey.String()][peer.ID.String()] = models.IDandAddr{
-						ID:      peer.ID.String(),
-						Address: peer.PrimaryAddress(),
-						Name:    peerHost.Name,
-						Network: peer.Network,
+						ID:              peer.ID.String(),
+						Address:         peer.PrimaryAddress(),
+						Name:            peerHost.Name,
+						Network:         peer.Network,
+						ProxyListenPort: GetProxyListenPort(peerHost),
 					}
 					nodePeer = hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]]
 				}
@@ -319,6 +324,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 							},
 							PeerKey: extPeerIdAndAddr.ID,
 							Allow:   true,
+							ID:      extPeerIdAndAddr.ID,
 						}
 					}
 					hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, extPeers...)
@@ -331,6 +337,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 							Name:    extPeerIdAndAddr.Name,
 							Network: node.Network,
 						}
+
 						hostPeerUpdate.IngressInfo.ExtPeers[extPeerIdAndAddr.ID] = models.ExtClientInfo{
 							Masquerade: true,
 							IngGwAddr: net.IPNet{
@@ -343,7 +350,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 								Mask: getCIDRMaskFromAddr(extPeerIdAndAddr.Address),
 							},
 							ExtPeerKey: extPeerIdAndAddr.ID,
-							Peers:      nodePeerMap,
+							Peers:      filterNodeMapForClientACLs(extPeerIdAndAddr.ID, node.Network, nodePeerMap),
 						}
 						if node.Network == network {
 							hostPeerUpdate.PeerIDs[extPeerIdAndAddr.ID] = extPeerIdAndAddr
@@ -386,6 +393,16 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 		hostPeerUpdate.NodePeers[i] = peer
 	}
 
+	if deletedClient != nil {
+		key, err := wgtypes.ParseKey(deletedClient.PublicKey)
+		if err == nil {
+			hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, wgtypes.PeerConfig{
+				PublicKey: key,
+				Remove:    true,
+			})
+		}
+	}
+
 	return hostPeerUpdate, nil
 }
 
@@ -402,6 +419,15 @@ func GetPeerListenPort(host *models.Host) int {
 	return peerPort
 }
 
+// GetProxyListenPort - fetches the proxy listen port
+func GetProxyListenPort(host *models.Host) int {
+	proxyPort := host.ProxyListenPort
+	if host.PublicListenPort != 0 {
+		proxyPort = host.PublicListenPort
+	}
+	return proxyPort
+}
+
 func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, error) {
 	var peers []wgtypes.PeerConfig
 	var idsAndAddr []models.IDandAddr
@@ -414,6 +440,7 @@ func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, e
 		return peers, idsAndAddr, err
 	}
 	for _, extPeer := range extPeers {
+		extPeer := extPeer
 		pubkey, err := wgtypes.ParseKey(extPeer.PublicKey)
 		if err != nil {
 			logger.Log(1, "error parsing ext pub key:", err.Error())
@@ -644,4 +671,30 @@ func getCIDRMaskFromAddr(addr string) net.IPMask {
 		cidr = net.CIDRMask(128, 128)
 	}
 	return cidr
+}
+
+// accounts for ext client ACLs
+func filterNodeMapForClientACLs(publicKey, network string, nodePeerMap map[string]models.PeerRouteInfo) map[string]models.PeerRouteInfo {
+	if !isEE {
+		return nodePeerMap
+	}
+	if nodePeerMap == nil {
+		return map[string]models.PeerRouteInfo{}
+	}
+
+	if len(publicKey) == 0 || len(network) == 0 {
+		return nodePeerMap
+	}
+
+	client, err := GetExtClientByPubKey(publicKey, network)
+	if err != nil {
+		return nodePeerMap
+	}
+	for k := range nodePeerMap {
+		currNodePeer := nodePeerMap[k]
+		if _, ok := client.ACLs[currNodePeer.ID]; ok {
+			delete(nodePeerMap, k)
+		}
+	}
+	return nodePeerMap
 }

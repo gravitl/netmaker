@@ -3,12 +3,14 @@ package functions
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"testing"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -39,40 +41,29 @@ func TestMain(m *testing.M) {
 			logger.Log(3, "received node update", update.Action)
 		}
 	}()
+	os.Exit(m.Run())
+
 }
 
 func TestNetworkExists(t *testing.T) {
 	database.DeleteRecord(database.NETWORKS_TABLE_NAME, testNetwork.NetID)
-	defer database.CloseDB()
 	exists, err := logic.NetworkExists(testNetwork.NetID)
-	if err == nil {
-		t.Fatalf("expected error, received nil")
-	}
-	if exists {
-		t.Fatalf("expected false")
-	}
+	assert.NotNil(t, err)
+	assert.False(t, exists)
 
 	err = logic.SaveNetwork(testNetwork)
-	if err != nil {
-		t.Fatalf("failed to save test network in databse: %s", err)
-	}
+	assert.Nil(t, err)
 	exists, err = logic.NetworkExists(testNetwork.NetID)
-	if err != nil {
-		t.Fatalf("expected nil, received err: %s", err)
-	}
-	if !exists {
-		t.Fatalf("expected network to exist in database")
-	}
+	assert.Nil(t, err)
+	assert.True(t, exists)
 
 	err = database.DeleteRecord(database.NETWORKS_TABLE_NAME, testNetwork.NetID)
-	if err != nil {
-		t.Fatalf("expected nil, failed to delete test network: %s", err)
-	}
+	assert.Nil(t, err)
 }
 
 func TestGetAllExtClients(t *testing.T) {
-	defer database.CloseDB()
-	database.DeleteRecord(database.EXT_CLIENT_TABLE_NAME, testExternalClient.ClientID)
+	err := database.DeleteRecord(database.EXT_CLIENT_TABLE_NAME, testExternalClient.ClientID)
+	assert.Nil(t, err)
 
 	extClients, err := GetAllExtClients()
 	if err == nil {
