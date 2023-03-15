@@ -55,6 +55,7 @@ type Host struct {
 	DefaultInterface string           `json:"defaultinterface" yaml:"defautlinterface"`
 	EndpointIP       net.IP           `json:"endpointip" yaml:"endpointip"`
 	ProxyEnabled     bool             `json:"proxy_enabled" yaml:"proxy_enabled"`
+	ProxyEnabledSet  bool             `json:"proxy_enabled_updated" yaml:"proxy_enabled_updated"`
 	IsDocker         bool             `json:"isdocker" yaml:"isdocker"`
 	IsK8S            bool             `json:"isk8s" yaml:"isk8s"`
 	IsStatic         bool             `json:"isstatic" yaml:"isstatic"`

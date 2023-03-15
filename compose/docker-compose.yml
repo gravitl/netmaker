@@ -28,6 +28,7 @@ services:
       MQ_PASSWORD: "REPLACE_MQ_PASSWORD"
       MQ_USERNAME: "REPLACE_MQ_USERNAME"
       STUN_PORT: "3478"
+      DEFAULT_PROXY_MODE: "auto"
     ports:
       - "3478:3478/udp"
   netmaker-ui:
