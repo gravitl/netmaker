@@ -291,6 +291,11 @@ func CreateHostACL(hostID, serverName string) error {
 				Permission: "allow",
 				Action:     "all",
 			},
+			{
+				Topic:      fmt.Sprintf("host/serverupdate/%s", hostID),
+				Permission: "allow",
+				Action:     "all",
+			},
 		},
 	})
 	if err != nil {
@@ -333,11 +338,33 @@ func AppendNodeUpdateACL(hostID, nodeNetwork, nodeID string) error {
 	if err != nil {
 		return err
 	}
-	aclObject.Rules = append(aclObject.Rules, aclRule{
-		Topic:      fmt.Sprintf("node/update/%s/%s", nodeNetwork, nodeID),
-		Permission: "allow",
-		Action:     "subscribe",
-	})
+	aclObject.Rules = append(aclObject.Rules, []aclRule{
+		{
+			Topic:      fmt.Sprintf("node/update/%s/%s", nodeNetwork, nodeID),
+			Permission: "allow",
+			Action:     "subscribe",
+		},
+		{
+			Topic:      fmt.Sprintf("ping/%s", nodeID),
+			Permission: "allow",
+			Action:     "all",
+		},
+		{
+			Topic:      fmt.Sprintf("update/%s", nodeID),
+			Permission: "allow",
+			Action:     "all",
+		},
+		{
+			Topic:      fmt.Sprintf("signal/%s", nodeID),
+			Permission: "allow",
+			Action:     "all",
+		},
+		{
+			Topic:      fmt.Sprintf("metrics/%s", nodeID),
+			Permission: "allow",
+			Action:     "all",
+		},
+	}...)
 	payload, err := json.Marshal(aclObject)
 	if err != nil {
 		return err
