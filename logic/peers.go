@@ -159,10 +159,11 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 		IngressInfo: models.IngressInfo{
 			ExtPeers: make(map[string]models.ExtClientInfo),
 		},
-		EgressInfo: make(map[string]models.EgressInfo),
-		PeerIDs:    make(models.PeerMap, 0),
-		Peers:      []wgtypes.PeerConfig{},
-		NodePeers:  []wgtypes.PeerConfig{},
+		EgressInfo:      make(map[string]models.EgressInfo),
+		PeerIDs:         make(models.PeerMap, 0),
+		Peers:           []wgtypes.PeerConfig{},
+		NodePeers:       []wgtypes.PeerConfig{},
+		HostNetworkInfo: models.HostInfoMap{},
 	}
 
 	logger.Log(1, "peer update for host", host.ID.String())
@@ -277,6 +278,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 					}
 				}
 
+				peerProxyPort := GetProxyListenPort(peerHost)
 				var nodePeer wgtypes.PeerConfig
 				if _, ok := hostPeerUpdate.HostPeerIDs[peerHost.PublicKey.String()]; !ok {
 					hostPeerUpdate.HostPeerIDs[peerHost.PublicKey.String()] = make(map[string]models.IDandAddr)
@@ -287,7 +289,11 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 						Address:         peer.PrimaryAddress(),
 						Name:            peerHost.Name,
 						Network:         peer.Network,
-						ProxyListenPort: GetProxyListenPort(peerHost),
+						ProxyListenPort: peerProxyPort,
+					}
+					hostPeerUpdate.HostNetworkInfo[peerHost.PublicKey.String()] = models.HostNetworkInfo{
+						Interfaces:      peerHost.Interfaces,
+						ProxyListenPort: peerProxyPort,
 					}
 					nodePeer = peerConfig
 				} else {
@@ -301,6 +307,10 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 						Network:         peer.Network,
 						ProxyListenPort: GetProxyListenPort(peerHost),
 					}
+					hostPeerUpdate.HostNetworkInfo[peerHost.PublicKey.String()] = models.HostNetworkInfo{
+						Interfaces:      peerHost.Interfaces,
+						ProxyListenPort: peerProxyPort,
+					}
 					nodePeer = hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]]
 				}
 
@@ -310,7 +320,6 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 						Address:         peer.PrimaryAddress(),
 						Name:            peerHost.Name,
 						Network:         peer.Network,
-						Interfaces:      peerHost.Interfaces,
 						ProxyListenPort: peerHost.ProxyListenPort,
 					}
 					hostPeerUpdate.NodePeers = append(hostPeerUpdate.NodePeers, nodePeer)
