@@ -39,13 +39,8 @@ confirm() {
 # install_dependencies - install system dependencies necessary for script to run
 install_dependencies() {
   OS=$(uname)
-  is_ubuntu=$(sudo cat /etc/lsb-release | grep "Ubuntu")
-  if [ "${is_ubuntu}" != "" ]; then
-    dependencies="yq jq wireguard jq docker.io docker-compose"
-    update_cmd='apt update'
-    install_cmd='snap install'
-  elif [ -f /etc/debian_version ]; then
-    dependencies="yq jq wireguard jq docker.io docker-compose"
+  if [ -f /etc/debian_version ]; then
+    dependencies="jq wireguard jq docker.io docker-compose"
     update_cmd='apt update'
     install_cmd='apt install -y'
   elif [ -f /etc/centos-release ]; then
@@ -105,20 +100,24 @@ install_dependencies() {
   echo "-----------------------------------------------------"
 }
 
-# get_email- gets upgrader's email address 
-get_email() {
-
-  unset GET_EMAIL
-  unset RAND_EMAIL
-  RAND_EMAIL="$(echo $RANDOM | md5sum  | head -c 16)@email.com"
-  read -p "Email Address for Domain Registration (click 'enter' to use $RAND_EMAIL): " GET_EMAIL
-  if [ -z "$GET_EMAIL" ]; then
-    echo "using rand email"
-    EMAIL="$RAND_EMAIL"
-  else
-    EMAIL="$GET_EMAIL"
-  fi
-
+# install_yq - install yq if not present
+install_yq() {
+	if ! command -v yq &> /dev/null; then
+		wget -O /usr/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_$(dpkg --print-architecture)
+		chmod +x /usr/bin/yq
+	fi
+	set +e
+	if ! command -v yq &> /dev/null; then
+		set -e
+		wget -O /usr/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_amd64
+		chmod +x /usr/bin/yq
+	fi
+	set -e
+	if ! command -v yq &> /dev/null; then
+		echo "failed to install yq. Please install yq and try again."
+		echo "https://github.com/mikefarah/yq/#install"
+		exit 1
+	fi	
 }
 
 # collect_server_settings - retrieve server settings from existing compose file
@@ -358,7 +357,7 @@ set_compose() {
   STUN_PORT=3478
 
   # RELEASE_REPLACE - Use this once release is ready
-  #sed -i "s/v0.17.1/v0.18.3/g" /root/docker-compose.yml
+  #sed -i "s/v0.17.1/v0.18.4/g" /root/docker-compose.yml
   yq ".services.netmaker.environment.SERVER_NAME = \"$SERVER_NAME\"" -i /root/docker-compose.yml
   yq ".services.netmaker.environment += {\"BROKER_ENDPOINT\": \"wss://$BROKER_NAME\"}" -i /root/docker-compose.yml  
   yq ".services.netmaker.environment += {\"SERVER_BROKER_ENDPOINT\": \"ws://mq:1883\"}" -i /root/docker-compose.yml  
@@ -602,8 +601,15 @@ if [ $(id -u) -ne 0 ]; then
    exit 1
 fi
 
+set +e
+
 echo "...installing dependencies for script"
 install_dependencies
+
+echo "...installing yq if necessary"
+install_yq
+
+set -e
 
 echo "...confirming version is correct"
 check_version
