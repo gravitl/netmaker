@@ -1,0 +1,48 @@
+name: Test Workflow
+
+on:
+  workflow_dispatch:
+  pull_request:
+      types: [opened, synchronize, reopened]
+      branch: develop
+
+jobs:
+  getbranch:
+    runs-on: ubuntu-latest
+    outputs:
+      netclientbranch: ${{ steps.checkbranch.outputs.netclientbranch }}
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+        with:
+          repository: gravitl/netclient
+          ref: develop
+      - name: check if branch exists
+        id: checkbranch
+        run: |
+          if git show-ref ${{ github.ref_name}}; then
+            echo branch exists
+            echo "netclientbranch=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            echo branch does not exist
+            echo "netclientbranch=develop" >> $GITHUB_OUTPUT
+          fi
+  
+  terraform:
+    needs: getbranch
+    uses: gravitl/devops/.github/workflows/terraform.yml
+    with:
+      netmakerbranch: ${{ github.ref_name }}
+      netclientbranch: ${{ needs.getbranch.outputs.netclientbranch }}
+    secrets: inherit
+
+
+  testbranch:
+    #needs: [getbranch, terraform]
+    needs: [getbranch]
+    uses: gravitl/devops/.github/workflows/branchtest.yml
+    with:
+      tag: ${{ github.ref_name }}
+      network: ${{ github.ref_name }}
+    secrets: inherit
+    
