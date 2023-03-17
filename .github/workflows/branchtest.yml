@@ -38,8 +38,7 @@ jobs:
 
 
   testbranch:
-    #needs: [getbranch, terraform]
-    needs: [getbranch]
+    needs: [getbranch, terraform]
     uses: gravitl/devops/.github/workflows/branchtest.yml@master
     with:
       tag: ${{ github.ref_name }}
