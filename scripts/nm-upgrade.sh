@@ -357,7 +357,7 @@ set_compose() {
   STUN_PORT=3478
 
   # RELEASE_REPLACE - Use this once release is ready
-  #sed -i "s/v0.17.1/v0.18.3/g" /root/docker-compose.yml
+  #sed -i "s/v0.17.1/v0.18.4/g" /root/docker-compose.yml
   yq ".services.netmaker.environment.SERVER_NAME = \"$SERVER_NAME\"" -i /root/docker-compose.yml
   yq ".services.netmaker.environment += {\"BROKER_ENDPOINT\": \"wss://$BROKER_NAME\"}" -i /root/docker-compose.yml  
   yq ".services.netmaker.environment += {\"SERVER_BROKER_ENDPOINT\": \"ws://mq:1883\"}" -i /root/docker-compose.yml  

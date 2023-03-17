@@ -1,4 +1,4 @@
-# Netmaker v0.18.3
+# Netmaker v0.18.4
 
 ## **Wait till out of pre-release to fully upgrade**
 

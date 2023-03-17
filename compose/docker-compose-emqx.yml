@@ -3,7 +3,7 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.18.2
+    image: gravitl/netmaker:v0.18.4
     restart: always
     volumes:
       - dnsconfig:/root/config/dnsconfig
@@ -35,7 +35,7 @@ services:
       - "3478:3478/udp"
   netmaker-ui:
     container_name: netmaker-ui
-    image: gravitl/netmaker-ui:v0.18.2
+    image: gravitl/netmaker-ui:v0.18.4
     depends_on:
       - netmaker
     links:
