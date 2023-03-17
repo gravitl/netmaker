@@ -509,7 +509,7 @@ func createNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !logic.IsVersionComptatible(data.Host.Version) {
-		err := errors.New("incompatible netclient version")
+		err := errors.New("bad netclient version on node create: " + data.Host.Version)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}

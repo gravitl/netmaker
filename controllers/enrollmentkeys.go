@@ -160,8 +160,13 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// version check
-	if !logic.IsVersionComptatible(newHost.Version) || newHost.TrafficKeyPublic == nil {
-		err := fmt.Errorf("incompatible netclient")
+	if !logic.IsVersionComptatible(newHost.Version) {
+		err := fmt.Errorf("bad client version on register: %s", newHost.Version)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if newHost.TrafficKeyPublic == nil && newHost.OS != models.OS_Types.IoT {
+		err := fmt.Errorf("missing traffic key")
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
