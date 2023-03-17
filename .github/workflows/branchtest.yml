@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   pull_request:
       types: [opened, synchronize, reopened]
-      branch: develop
+      branches: develop
 
 jobs:
   getbranch:
@@ -30,7 +30,7 @@ jobs:
   
   terraform:
     needs: getbranch
-    uses: gravitl/devops/.github/workflows/terraform.yml
+    uses: gravitl/devops/.github/workflows/terraform.yml@master
     with:
       netmakerbranch: ${{ github.ref_name }}
       netclientbranch: ${{ needs.getbranch.outputs.netclientbranch }}
@@ -40,7 +40,7 @@ jobs:
   testbranch:
     #needs: [getbranch, terraform]
     needs: [getbranch]
-    uses: gravitl/devops/.github/workflows/branchtest.yml
+    uses: gravitl/devops/.github/workflows/branchtest.yml@master
     with:
       tag: ${{ github.ref_name }}
       network: ${{ github.ref_name }}
