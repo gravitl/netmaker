@@ -30,7 +30,7 @@ services:
       VERBOSITY: "1"
       MQ_PASSWORD: "REPLACE_MQ_PASSWORD"
       MQ_USERNAME: "REPLACE_MQ_USERNAME"
-      DEFAULT_PROXY_MODE: "auto"
+      DEFAULT_PROXY_MODE: "off"
     ports:
       - "3478:3478/udp"
   netmaker-ui:
