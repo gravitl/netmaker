@@ -240,7 +240,7 @@ func checkNetRegAndHostUpdate(networks []string, h *models.Host) {
 			Action: models.RequestAck,
 			Host:   *h,
 		})
-		if err := mq.PublishPeerUpdate(); err != nil {
+		if err := mq.PublishPeerUpdateForHost("", h, nil, nil); err != nil {
 			logger.Log(0, "failed to publish peer update during registration -", err.Error())
 		}
 	}

@@ -230,7 +230,8 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, node := range nodes {
-			runUpdates(&node, true)
+			node := node
+			runUpdates(&node, false, false)
 		}
 	}
 
@@ -278,10 +279,12 @@ func updateNetworkACL(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(1, r.Header.Get("user"), "updated ACLs for network", netname)
 
-	// send peer updates
 	if servercfg.IsMessageQueueBackend() {
-		if err = mq.PublishPeerUpdate(); err != nil {
-			logger.Log(0, "failed to publish peer update after ACL update on", netname)
+		netNodes, err := logic.GetNetworkNodes(netname)
+		if err == nil && len(netNodes) > 0 {
+			if err = mq.PublishPeerUpdateForNode("", &netNodes[0], false); err != nil { // send peer updates
+				logger.Log(0, "failed to publish peer update after ACL update on", netname)
+			}
 		}
 	}
 	w.WriteHeader(http.StatusOK)

@@ -45,7 +45,6 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 
 	logger.Log(1, r.Header.Get("user"), "created relay on node", relay.NodeID, "on network", relay.NetID)
 	for _, relayedNode := range updatenodes {
-
 		err = mq.NodeUpdate(&relayedNode)
 		if err != nil {
 			logger.Log(1, "error sending update to relayed node ", relayedNode.ID.String(), "on network", relay.NetID, ": ", err.Error())
@@ -55,7 +54,7 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 	apiNode := node.ConvertToAPINode()
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-	runUpdates(&node, true)
+	runUpdates(&node, true, false)
 }
 
 // swagger:route DELETE /api/nodes/{network}/{nodeid}/deleterelay nodes deleteRelay
@@ -90,7 +89,7 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	apiNode := node.ConvertToAPINode()
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-	runUpdates(&node, true)
+	runUpdates(&node, true, false)
 }
 
 // swagger:route POST /api/hosts/{hostid}/relay hosts createHostRelay
@@ -130,9 +129,10 @@ func createHostRelay(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, "failed to send host update: ", relayHost.ID.String(), err.Error())
 	}
 	logger.Log(1, r.Header.Get("user"), "created relay on host", relay.HostID)
-	go func(relayHostID string) {
-		relatedhosts := logic.GetRelatedHosts(relayHostID)
+	go func(relayHost *models.Host) {
+		relatedhosts := logic.GetRelatedHosts(relayHost.ID.String())
 		for _, relatedHost := range relatedhosts {
+			relatedHost := relatedHost
 			relatedHost.ProxyEnabled = true
 			logic.UpsertHost(&relatedHost)
 			if err := mq.HostUpdate(&models.HostUpdate{
@@ -142,11 +142,10 @@ func createHostRelay(w http.ResponseWriter, r *http.Request) {
 				logger.Log(0, "failed to send host update: ", relatedHost.ID.String(), err.Error())
 			}
 		}
-		if err := mq.PublishPeerUpdate(); err != nil {
+		if err := mq.PublishPeerUpdateForHost("", relayHost, nil, nil); err != nil {
 			logger.Log(0, "fail to publish peer update: ", err.Error())
 		}
-
-	}(relay.HostID)
+	}(relayHost)
 
 	apiHostData := relayHost.ConvertNMHostToAPI()
 	w.WriteHeader(http.StatusOK)
@@ -176,8 +175,8 @@ func deleteHostRelay(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(1, r.Header.Get("user"), "deleted relay host", hostid)
 	go func() {
-		if err := mq.PublishPeerUpdate(); err != nil {
-			logger.Log(0, "fail to publish peer update: ", err.Error())
+		if err := mq.PublishPeerUpdateForHost("", relayHost, nil, nil); err != nil {
+			logger.Log(0, "failed to update peers after relay delete:", err.Error())
 		}
 	}()
 	apiHostData := relayHost.ConvertNMHostToAPI()

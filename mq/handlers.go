@@ -1,7 +1,6 @@
 package mq
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -146,7 +145,7 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 	if ifaceDelta { // reduce number of unneeded updates, by only sending on iface changes
-		if err = PublishPeerUpdate(); err != nil {
+		if err = PublishPeerUpdateForNode("", &newNode, false); err != nil {
 			logger.Log(0, "error updating peers when node", currentNode.ID.String(), "informed the server of an interface change", err.Error())
 		}
 	}
@@ -186,7 +185,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 				logger.Log(0, "failed to send new node to host", hostUpdate.Host.Name, currentHost.ID.String(), err.Error())
 				return
 			} else {
-				if err = PublishSingleHostPeerUpdate(context.Background(), currentHost, nil, nil); err != nil {
+				if err = PublishPeerUpdateForHost("", currentHost, nil, nil); err != nil {
 					logger.Log(0, "failed peers publish after join acknowledged", hostUpdate.Host.Name, currentHost.ID.String(), err.Error())
 					return
 				}
@@ -223,7 +222,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	}
 
 	if sendPeerUpdate {
-		err := PublishPeerUpdate()
+		err := PublishPeerUpdateForHost("", &hostUpdate.Host, nil, nil)
 		if err != nil {
 			logger.Log(0, "failed to pulish peer update: ", err.Error())
 		}
@@ -282,11 +281,8 @@ func UpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 
 		if shouldUpdate {
 			logger.Log(2, "updating peers after node", currentNode.ID.String(), currentNode.Network, "detected connectivity issues")
-			host, err := logic.GetHost(currentNode.HostID.String())
-			if err == nil {
-				if err = PublishSingleHostPeerUpdate(context.Background(), host, nil, nil); err != nil {
-					logger.Log(0, "failed to publish update after failover peer change for node", currentNode.ID.String(), currentNode.Network)
-				}
+			if err = PublishPeerUpdateForNode("", &currentNode, false); err != nil {
+				logger.Log(0, "failed to publish update after failover peer change for node", currentNode.ID.String(), currentNode.Network)
 			}
 		}
 
@@ -315,7 +311,7 @@ func ClientPeerUpdate(client mqtt.Client, msg mqtt.Message) {
 	case ncutils.ACK:
 		// do we still need this
 	case ncutils.DONE:
-		if err = PublishPeerUpdate(); err != nil {
+		if err = PublishPeerUpdateForNode("", &currentNode, false); err != nil {
 			logger.Log(1, "error publishing peer update for node", currentNode.ID.String(), err.Error())
 			return
 		}

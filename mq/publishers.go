@@ -1,7 +1,6 @@
 package mq
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,74 +11,6 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 )
-
-// PublishPeerUpdate --- determines and publishes a peer update to all the hosts
-func PublishPeerUpdate() error {
-	if !servercfg.IsMessageQueueBackend() {
-		return nil
-	}
-
-	hosts, err := logic.GetAllHosts()
-	if err != nil {
-		logger.Log(1, "err getting all hosts", err.Error())
-		return err
-	}
-	// Get nodes of host that was updated
-	// Go through all affected hosts
-	// publish peer update with single peer
-	logic.ResetPeerUpdateContext()
-	for _, host := range hosts {
-		host := host
-		if err = PublishSingleHostPeerUpdate(logic.PeerUpdateCtx, &host, nil, nil); err != nil {
-			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
-		}
-	}
-	return err
-}
-
-// PublishDeletedNodePeerUpdate --- determines and publishes a peer update
-// to all the hosts with a deleted node to account for
-func PublishDeletedNodePeerUpdate(delNode *models.Node) error {
-	if !servercfg.IsMessageQueueBackend() {
-		return nil
-	}
-
-	hosts, err := logic.GetAllHosts()
-	if err != nil {
-		logger.Log(1, "err getting all hosts", err.Error())
-		return err
-	}
-	logic.ResetPeerUpdateContext()
-	for _, host := range hosts {
-		host := host
-		if err = PublishSingleHostPeerUpdate(logic.PeerUpdateCtx, &host, delNode, nil); err != nil {
-			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
-		}
-	}
-	return err
-}
-
-// PublishDeletedClientPeerUpdate --- determines and publishes a peer update
-// to all the hosts with a deleted ext client to account for
-func PublishDeletedClientPeerUpdate(delClient *models.ExtClient) error {
-	if !servercfg.IsMessageQueueBackend() {
-		return nil
-	}
-
-	hosts, err := logic.GetAllHosts()
-	if err != nil {
-		logger.Log(1, "err getting all hosts", err.Error())
-		return err
-	}
-	logic.ResetPeerUpdateContext()
-	for _, host := range hosts {
-		host := host
-		if err = PublishSingleHostPeerUpdate(logic.PeerUpdateCtx, &host, nil, delClient); err != nil {
-			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
-		}
-	}
-	return err
-}
 
 // PublishPeerUpdateForClient - publishes a peer update to affected host on behalf of a client's Host
 func PublishPeerUpdateForClient(network string, c *models.ExtClient, deleted bool) error {
@@ -152,31 +83,31 @@ func PublishPeerUpdateForHost(network string, updatedHost *models.Host, deletedN
 	return nil
 }
 
-// PublishSingleHostPeerUpdate --- determines and publishes a peer update to one host
-func PublishSingleHostPeerUpdate(ctx context.Context, host *models.Host, deletedNode *models.Node, deletedClient *models.ExtClient) error {
+// // PublishSingleHostPeerUpdate --- determines and publishes a peer update to one host
+// func PublishSingleHostPeerUpdate(ctx context.Context, host *models.Host, deletedNode *models.Node, deletedClient *models.ExtClient) error {
 
-	peerUpdate, err := logic.GetPeerUpdateForHost(ctx, "", host, deletedNode, deletedClient)
-	if err != nil {
-		return err
-	}
-	if len(peerUpdate.Peers) == 0 { // no peers to send
-		return nil
-	}
-	if host.ProxyEnabled {
-		proxyUpdate, err := logic.GetProxyUpdateForHost(ctx, host)
-		if err != nil {
-			return err
-		}
-		proxyUpdate.Action = models.ProxyUpdate
-		peerUpdate.ProxyUpdate = proxyUpdate
-	}
+// 	peerUpdate, err := logic.GetPeerUpdateForHost(ctx, "", host, deletedNode, deletedClient)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	if len(peerUpdate.Peers) == 0 { // no peers to send
+// 		return nil
+// 	}
+// 	if host.ProxyEnabled {
+// 		proxyUpdate, err := logic.GetProxyUpdateForHost(ctx, host)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		proxyUpdate.Action = models.ProxyUpdate
+// 		peerUpdate.ProxyUpdate = proxyUpdate
+// 	}
 
-	data, err := json.Marshal(&peerUpdate)
-	if err != nil {
-		return err
-	}
-	return publish(host, fmt.Sprintf("peers/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
-}
+// 	data, err := json.Marshal(&peerUpdate)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	return publish(host, fmt.Sprintf("peers/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
+// }
 
 // NodeUpdate -- publishes a node update
 func NodeUpdate(node *models.Node) error {
@@ -525,7 +456,7 @@ func sendPeers() {
 		for _, host := range hosts {
 			host := host
 			logger.Log(2, "sending scheduled peer update (5 min)")
-			if err = PublishSingleHostPeerUpdate(logic.PeerUpdateCtx, &host, nil, nil); err != nil {
+			if err = PublishPeerUpdateForHost("", &host, nil, nil); err != nil {
 				logger.Log(1, "error publishing peer updates for host: ", host.ID.String(), " Err: ", err.Error())
 			}
 		}
