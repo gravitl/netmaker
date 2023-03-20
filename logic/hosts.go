@@ -345,18 +345,20 @@ func GetHostNetworks(hostID string) []string {
 func GetRelatedHosts(hostID string) []models.Host {
 	relatedHosts := []models.Host{}
 	networks := GetHostNetworks(hostID)
-	networkMap := make(map[string]struct{})
+	networkMap := make(map[string]struct{}, len(networks))
 	for _, network := range networks {
 		networkMap[network] = struct{}{}
 	}
 	hosts, err := GetAllHosts()
 	if err == nil {
-		for _, host := range hosts {
+		for i := range hosts {
+			host := hosts[i]
 			if host.ID.String() == hostID {
 				continue
 			}
 			networks := GetHostNetworks(host.ID.String())
-			for _, network := range networks {
+			for j := range networks {
+				network := networks[j]
 				if _, ok := networkMap[network]; ok {
 					relatedHosts = append(relatedHosts, host)
 					break

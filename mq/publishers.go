@@ -24,6 +24,9 @@ func PublishPeerUpdate() error {
 		logger.Log(1, "err getting all hosts", err.Error())
 		return err
 	}
+	// Get nodes of host that was updated
+	// Go through all affected hosts
+	// publish peer update with single peer
 	logic.ResetPeerUpdateContext()
 	for _, host := range hosts {
 		host := host
@@ -76,6 +79,77 @@ func PublishDeletedClientPeerUpdate(delClient *models.ExtClient) error {
 		}
 	}
 	return err
+}
+
+// PublishPeerUpdateForClient - publishes a peer update to affected host on behalf of a client's Host
+func PublishPeerUpdateForClient(network string, c *models.ExtClient, deleted bool) error {
+	h := logic.GetHostByNodeID(c.IngressGatewayID)
+	if h == nil {
+		return fmt.Errorf("could not find host for client %s", c.ClientID)
+	}
+	var deletedClient *models.ExtClient
+	if deleted {
+		deletedClient = c
+	}
+	return PublishPeerUpdateForHost(
+		network,
+		h,
+		nil,
+		deletedClient,
+	)
+}
+
+// PublishPeerUpdateForNode - publishes a peer update to affected host on behalf of a node's Host
+func PublishPeerUpdateForNode(network string, n *models.Node, deleted bool) error {
+	h, err := logic.GetHost(n.HostID.String())
+	if err != nil {
+		return err
+	}
+	var deletedNode *models.Node
+	if deleted {
+		deletedNode = n
+	}
+	return PublishPeerUpdateForHost(
+		network,
+		h,
+		deletedNode,
+		nil,
+	)
+}
+
+// PublishPeerUpdateForHost - publishes a peer update to affected hosts on behalf of an updated host
+func PublishPeerUpdateForHost(network string, updatedHost *models.Host, deletedNode *models.Node, deletedClient *models.ExtClient) error {
+
+	hostsToSend := logic.GetRelatedHosts(updatedHost.ID.String())
+	currentHostNodes := logic.GetNodesByHost(updatedHost)
+	serverConf := servercfg.GetServerConfig()
+	for i := range hostsToSend {
+		hostToSend := hostsToSend[i]
+		peerUpdate, err := logic.GetPeerUpdateForSingleHost(
+			network,
+			&hostToSend,
+			updatedHost,
+			currentHostNodes,
+			deletedNode,
+			deletedClient,
+		)
+		if err != nil {
+			logger.Log(0, "failed to send peer update to host", hostToSend.Name, hostToSend.ID.String(), err.Error())
+		}
+		data, err := json.Marshal(&peerUpdate)
+		if err != nil {
+			logger.Log(0, "failed to send peer update to host", hostToSend.Name, hostToSend.ID.String(), err.Error())
+			continue
+		}
+		if err = publish(&hostToSend,
+			fmt.Sprintf("peers/host/%s/%s", hostToSend.ID.String(), serverConf.Server),
+			data,
+		); err != nil {
+			logger.Log(0, "failed to send peer update to host", hostToSend.Name, hostToSend.ID.String(), err.Error())
+		}
+	}
+
+	return nil
 }
 
 // PublishSingleHostPeerUpdate --- determines and publishes a peer update to one host

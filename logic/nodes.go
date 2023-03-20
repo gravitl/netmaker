@@ -30,6 +30,20 @@ const (
 	NodePurgeCheckTime = time.Second * 30
 )
 
+// GetNodesByHost - retrieves associated nodes of a host
+func GetNodesByHost(h *models.Host) []models.Node {
+	var hostNodes = []models.Node{}
+	for i := range h.Nodes {
+		nodeID := h.Nodes[i]
+		hostNode, err := GetNodeByID(nodeID)
+		if err != nil {
+			continue
+		}
+		hostNodes = append(hostNodes, hostNode)
+	}
+	return hostNodes
+}
+
 // GetNetworkNodes - gets the nodes of a network
 func GetNetworkNodes(network string) ([]models.Node, error) {
 	allnodes, err := GetAllNodes()
