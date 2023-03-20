@@ -1,6 +1,7 @@
 package mq
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,10 +24,10 @@ func PublishPeerUpdate() error {
 		logger.Log(1, "err getting all hosts", err.Error())
 		return err
 	}
+	logic.ResetPeerUpdateContext()
 	for _, host := range hosts {
 		host := host
-		err = PublishSingleHostPeerUpdate(&host, nil)
-		if err != nil {
+		if err = PublishSingleHostPeerUpdate(logic.PeerUpdateCtx, &host, nil, nil); err != nil {
 			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 		}
 	}
@@ -45,9 +46,32 @@ func PublishDeletedNodePeerUpdate(delNode *models.Node) error {
 		logger.Log(1, "err getting all hosts", err.Error())
 		return err
 	}
+	logic.ResetPeerUpdateContext()
 	for _, host := range hosts {
 		host := host
-		if err = PublishSingleHostPeerUpdate(&host, delNode); err != nil {
+		if err = PublishSingleHostPeerUpdate(logic.PeerUpdateCtx, &host, delNode, nil); err != nil {
+			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+		}
+	}
+	return err
+}
+
+// PublishDeletedClientPeerUpdate --- determines and publishes a peer update
+// to all the hosts with a deleted ext client to account for
+func PublishDeletedClientPeerUpdate(delClient *models.ExtClient) error {
+	if !servercfg.IsMessageQueueBackend() {
+		return nil
+	}
+
+	hosts, err := logic.GetAllHosts()
+	if err != nil {
+		logger.Log(1, "err getting all hosts", err.Error())
+		return err
+	}
+	logic.ResetPeerUpdateContext()
+	for _, host := range hosts {
+		host := host
+		if err = PublishSingleHostPeerUpdate(logic.PeerUpdateCtx, &host, nil, delClient); err != nil {
 			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 		}
 	}
@@ -55,14 +79,17 @@ func PublishDeletedNodePeerUpdate(delNode *models.Node) error {
 }
 
 // PublishSingleHostPeerUpdate --- determines and publishes a peer update to one host
-func PublishSingleHostPeerUpdate(host *models.Host, deletedNode *models.Node) error {
+func PublishSingleHostPeerUpdate(ctx context.Context, host *models.Host, deletedNode *models.Node, deletedClient *models.ExtClient) error {
 
-	peerUpdate, err := logic.GetPeerUpdateForHost("", host, deletedNode)
+	peerUpdate, err := logic.GetPeerUpdateForHost(ctx, "", host, deletedNode, deletedClient)
 	if err != nil {
 		return err
 	}
+	if len(peerUpdate.Peers) == 0 { // no peers to send
+		return nil
+	}
 	if host.ProxyEnabled {
-		proxyUpdate, err := logic.GetProxyUpdateForHost(host)
+		proxyUpdate, err := logic.GetProxyUpdateForHost(ctx, host)
 		if err != nil {
 			return err
 		}
@@ -402,7 +429,7 @@ func getCustomDNS(network string) []models.DNSUpdate {
 func sendPeers() {
 
 	hosts, err := logic.GetAllHosts()
-	if err != nil {
+	if err != nil && len(hosts) > 0 {
 		logger.Log(1, "error retrieving networks for keepalive", err.Error())
 	}
 
@@ -419,13 +446,12 @@ func sendPeers() {
 
 		//collectServerMetrics(networks[:])
 	}
-
-	for _, host := range hosts {
-		if force {
+	if force {
+		logic.ResetPeerUpdateContext()
+		for _, host := range hosts {
 			host := host
 			logger.Log(2, "sending scheduled peer update (5 min)")
-			err = PublishSingleHostPeerUpdate(&host, nil)
-			if err != nil {
+			if err = PublishSingleHostPeerUpdate(logic.PeerUpdateCtx, &host, nil, nil); err != nil {
 				logger.Log(1, "error publishing peer updates for host: ", host.ID.String(), " Err: ", err.Error())
 			}
 		}

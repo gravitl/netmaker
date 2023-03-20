@@ -40,6 +40,8 @@ func TestMain(m *testing.M) {
 			logger.Log(3, "received node update", update.Action)
 		}
 	}()
+	os.Exit(m.Run())
+
 }
 
 func TestCreateNetwork(t *testing.T) {
@@ -325,10 +327,7 @@ func TestIpv6Network(t *testing.T) {
 
 func deleteAllNetworks() {
 	deleteAllNodes()
-	nets, _ := logic.GetNetworks()
-	for _, net := range nets {
-		logic.DeleteNetwork(net.NetID)
-	}
+	database.DeleteAllRecords(database.NETWORKS_TABLE_NAME)
 }
 
 func createNet() {

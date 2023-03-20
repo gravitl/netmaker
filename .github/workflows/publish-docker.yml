@@ -6,8 +6,11 @@ on:
       tag:
         description: 'docker tag'
         required: true
-  release:
-    types: [published]
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
 
 jobs:
   docker:

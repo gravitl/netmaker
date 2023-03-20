@@ -13,6 +13,9 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
+// EmqxBrokerType denotes the broker type for EMQX MQTT
+const EmqxBrokerType = "emqx"
+
 var (
 	Version = "dev"
 	Is_EE   = false
@@ -35,14 +38,14 @@ func GetServerConfig() config.ServerConfig {
 	cfg.CoreDNSAddr = GetCoreDNSAddr()
 	cfg.APIHost = GetAPIHost()
 	cfg.APIPort = GetAPIPort()
-	cfg.MQPort = GetMQPort()
 	cfg.MasterKey = "(hidden)"
 	cfg.DNSKey = "(hidden)"
 	cfg.AllowedOrigin = GetAllowedOrigin()
 	cfg.RestBackend = "off"
 	cfg.NodeID = GetNodeID()
-	cfg.StunHost = GetStunAddr()
 	cfg.StunPort = GetStunPort()
+	cfg.BrokerType = GetBrokerType()
+	cfg.EmqxRestEndpoint = GetEmqxRestEndpoint()
 	if IsRestBackend() {
 		cfg.RestBackend = "on"
 	}
@@ -70,11 +73,13 @@ func GetServerConfig() config.ServerConfig {
 	cfg.FrontendURL = GetFrontendURL()
 	cfg.Telemetry = Telemetry()
 	cfg.Server = GetServer()
+	cfg.StunList = GetStunListString()
 	cfg.Verbosity = GetVerbosity()
 	cfg.IsEE = "no"
 	if Is_EE {
 		cfg.IsEE = "yes"
 	}
+	cfg.DefaultProxyMode = GetDefaultProxyMode()
 
 	return cfg
 }
@@ -83,21 +88,20 @@ func GetServerConfig() config.ServerConfig {
 func GetServerInfo() models.ServerConfig {
 	var cfg models.ServerConfig
 	cfg.Server = GetServer()
-	cfg.Broker = GetBroker()
 	cfg.MQUserName = GetMqUserName()
 	cfg.MQPassword = GetMqPassword()
 	cfg.API = GetAPIConnString()
 	cfg.CoreDNSAddr = GetCoreDNSAddr()
 	cfg.APIPort = GetAPIPort()
-	cfg.MQPort = GetMQPort()
 	cfg.DNSMode = "off"
+	cfg.Broker = GetPublicBrokerEndpoint()
 	if IsDNSMode() {
 		cfg.DNSMode = "on"
 	}
 	cfg.Version = GetVersion()
 	cfg.Is_EE = Is_EE
-	cfg.StunHost = GetStunAddr()
 	cfg.StunPort = GetStunPort()
+	cfg.StunList = GetStunList()
 
 	return cfg
 }
@@ -174,15 +178,44 @@ func GetAPIPort() string {
 	return apiport
 }
 
-// GetStunAddr - gets the stun host address
-func GetStunAddr() string {
-	stunAddr := ""
-	if os.Getenv("STUN_DOMAIN") != "" {
-		stunAddr = os.Getenv("STUN_DOMAIN")
-	} else if config.Config.Server.StunHost != "" {
-		stunAddr = config.Config.Server.StunHost
+// GetStunList - gets the stun servers
+func GetStunList() []models.StunServer {
+	stunList := []models.StunServer{
+		models.StunServer{
+			Domain: "stun1.netmaker.io",
+			Port:   3478,
+		},
+		models.StunServer{
+			Domain: "stun2.netmaker.io",
+			Port:   3478,
+		},
 	}
-	return stunAddr
+	parsed := false
+	if os.Getenv("STUN_LIST") != "" {
+		stuns, err := parseStunList(os.Getenv("STUN_LIST"))
+		if err == nil {
+			parsed = true
+			stunList = stuns
+		}
+	}
+	if !parsed && config.Config.Server.StunList != "" {
+		stuns, err := parseStunList(config.Config.Server.StunList)
+		if err == nil {
+			stunList = stuns
+		}
+	}
+	return stunList
+}
+
+// GetStunList - gets the stun servers w/o parsing to struct
+func GetStunListString() string {
+	stunList := "stun1.netmaker.io:3478,stun2.netmaker.io:3478"
+	if os.Getenv("STUN_LIST") != "" {
+		stunList = os.Getenv("STUN_LIST")
+	} else if config.Config.Server.StunList != "" {
+		stunList = config.Config.Server.StunList
+	}
+	return stunList
 }
 
 // GetCoreDNSAddr - gets the core dns address
@@ -196,32 +229,39 @@ func GetCoreDNSAddr() string {
 	return addr
 }
 
-// GetMQPort - gets the mq port
-func GetMQPort() string {
-	port := "8883" //default
-	if os.Getenv("MQ_PORT") != "" {
-		port = os.Getenv("MQ_PORT")
-	} else if config.Config.Server.MQPort != "" {
-		port = config.Config.Server.MQPort
+// GetPublicBrokerEndpoint - returns the public broker endpoint which shall be used by netclient
+func GetPublicBrokerEndpoint() string {
+	if os.Getenv("BROKER_ENDPOINT") != "" {
+		return os.Getenv("BROKER_ENDPOINT")
+	} else {
+		return config.Config.Server.Broker
 	}
-	return port
 }
 
 // GetMessageQueueEndpoint - gets the message queue endpoint
 func GetMessageQueueEndpoint() (string, bool) {
 	host, _ := GetPublicIP()
-	if os.Getenv("MQ_HOST") != "" {
-		host = os.Getenv("MQ_HOST")
-	} else if config.Config.Server.MQHOST != "" {
-		host = config.Config.Server.MQHOST
-	}
-	secure := strings.Contains(host, "wss") || strings.Contains(host, "ssl")
-	if secure {
-		host = "wss://" + host
+	if os.Getenv("SERVER_BROKER_ENDPOINT") != "" {
+		host = os.Getenv("SERVER_BROKER_ENDPOINT")
+	} else if config.Config.Server.ServerBrokerEndpoint != "" {
+		host = config.Config.Server.ServerBrokerEndpoint
+	} else if os.Getenv("BROKER_ENDPOINT") != "" {
+		host = os.Getenv("BROKER_ENDPOINT")
+	} else if config.Config.Server.Broker != "" {
+		host = config.Config.Server.Broker
 	} else {
-		host = "ws://" + host
+		host += ":1883" // default
 	}
-	return host + ":" + GetMQServerPort(), secure
+	return host, strings.Contains(host, "wss") || strings.Contains(host, "ssl") || strings.Contains(host, "mqtts")
+}
+
+// GetBrokerType - returns the type of MQ broker
+func GetBrokerType() string {
+	if os.Getenv("BROKER_TYPE") != "" {
+		return os.Getenv("BROKER_TYPE")
+	} else {
+		return "mosquitto"
+	}
 }
 
 // GetMasterKey - gets the configured master key of server
@@ -321,17 +361,6 @@ func GetServer() string {
 		server = os.Getenv("SERVER_NAME")
 	} else if config.Config.Server.Server != "" {
 		server = config.Config.Server.Server
-	}
-	return server
-}
-
-// GetBroker - gets the broker name
-func GetBroker() string {
-	server := ""
-	if os.Getenv("BROKER_NAME") != "" {
-		server = os.Getenv("BROKER_NAME")
-	} else if config.Config.Server.Broker != "" {
-		server = config.Config.Server.Broker
 	}
 	return server
 }
@@ -527,17 +556,6 @@ func GetAzureTenant() string {
 	return azureTenant
 }
 
-// GetMQServerPort - get mq port for server
-func GetMQServerPort() string {
-	port := "1883" //default
-	if os.Getenv("MQ_SERVER_PORT") != "" {
-		port = os.Getenv("MQ_SERVER_PORT")
-	} else if config.Config.Server.MQServerPort != "" {
-		port = config.Config.Server.MQServerPort
-	}
-	return port
-}
-
 // GetMqPassword - fetches the MQ password
 func GetMqPassword() string {
 	password := ""
@@ -558,6 +576,11 @@ func GetMqUserName() string {
 		password = config.Config.Server.MQUserName
 	}
 	return password
+}
+
+// GetEmqxRestEndpoint - returns the REST API Endpoint of EMQX
+func GetEmqxRestEndpoint() string {
+	return os.Getenv("EMQX_REST_ENDPOINT")
 }
 
 // IsBasicAuthEnabled - checks if basic auth has been configured to be turned off
@@ -589,6 +612,7 @@ func GetNetmakerAccountID() string {
 	return netmakerAccountID
 }
 
+// GetStunPort - Get the port to run the stun server on
 func GetStunPort() int {
 	port := 3478 //default
 	if os.Getenv("STUN_PORT") != "" {
@@ -602,6 +626,7 @@ func GetStunPort() int {
 	return port
 }
 
+// IsProxyEnabled - is proxy on or off
 func IsProxyEnabled() bool {
 	var enabled = false //default
 	if os.Getenv("PROXY") != "" {
@@ -610,4 +635,60 @@ func IsProxyEnabled() bool {
 		enabled = config.Config.Server.Proxy == "on"
 	}
 	return enabled
+}
+
+// GetDefaultProxyMode - default proxy mode for a server
+func GetDefaultProxyMode() config.ProxyMode {
+	var (
+		mode config.ProxyMode
+		def  string
+	)
+	if os.Getenv("DEFAULT_PROXY_MODE") != "" {
+		def = os.Getenv("DEFAULT_PROXY_MODE")
+	} else if config.Config.Server.DefaultProxyMode.Set {
+		return config.Config.Server.DefaultProxyMode
+	}
+	switch strings.ToUpper(def) {
+	case "ON":
+		mode.Set = true
+		mode.Value = true
+	case "OFF":
+		mode.Set = true
+		mode.Value = false
+	// AUTO or any other value
+	default:
+		mode.Set = false
+	}
+	return mode
+
+}
+
+// parseStunList - turn string into slice of StunServers
+func parseStunList(stunString string) ([]models.StunServer, error) {
+	var err error
+	stunServers := []models.StunServer{}
+	stuns := strings.Split(stunString, ",")
+	if len(stuns) == 0 {
+		return stunServers, errors.New("no stun servers provided")
+	}
+	for _, stun := range stuns {
+		stun = strings.Trim(stun, " ")
+		stunInfo := strings.Split(stun, ":")
+		if len(stunInfo) != 2 {
+			continue
+		}
+		port, err := strconv.Atoi(stunInfo[1])
+		if err != nil || port == 0 {
+			continue
+		}
+		stunServers = append(stunServers, models.StunServer{
+			Domain: stunInfo[0],
+			Port:   port,
+		})
+
+	}
+	if len(stunServers) == 0 {
+		err = errors.New("no stun entries parsable")
+	}
+	return stunServers, err
 }

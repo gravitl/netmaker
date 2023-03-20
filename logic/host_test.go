@@ -2,12 +2,13 @@ package logic
 
 import (
 	"context"
+	"fmt"
 	"net"
+	"os"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/matryer/is"
 )
@@ -15,21 +16,16 @@ import (
 func TestMain(m *testing.M) {
 	database.InitializeDatabase()
 	defer database.CloseDB()
-	CreateAdmin(&models.User{
-		UserName: "admin",
-		Password: "password",
-		IsAdmin:  true,
-		Networks: []string{},
-		Groups:   []string{},
-	})
 	peerUpdate := make(chan *models.Node)
 	go ManageZombies(context.Background(), peerUpdate)
 	go func() {
-		for update := range peerUpdate {
+		for y := range peerUpdate {
+			fmt.Printf("Pointless %v\n", y)
 			//do nothing
-			logger.Log(3, "received node update", update.Action)
 		}
 	}()
+
+	os.Exit(m.Run())
 }
 
 func TestCheckPorts(t *testing.T) {
@@ -45,10 +41,16 @@ func TestCheckPorts(t *testing.T) {
 		ListenPort:      51830,
 		ProxyListenPort: 51730,
 	}
+	//not sure why this initialization is required but without it
+	// RemoveHost returns database is closed
+	database.InitializeDatabase()
+	RemoveHost(&h)
 	CreateHost(&h)
 	t.Run("no change", func(t *testing.T) {
 		is := is.New(t)
 		CheckHostPorts(&testHost)
+		t.Log(testHost.ListenPort, testHost.ProxyListenPort)
+		t.Log(h.ListenPort, h.ProxyListenPort)
 		is.Equal(testHost.ListenPort, 51830)
 		is.Equal(testHost.ProxyListenPort, 51730)
 	})
@@ -56,6 +58,8 @@ func TestCheckPorts(t *testing.T) {
 		is := is.New(t)
 		testHost.ListenPort = 51821
 		CheckHostPorts(&testHost)
+		t.Log(testHost.ListenPort, testHost.ProxyListenPort)
+		t.Log(h.ListenPort, h.ProxyListenPort)
 		is.Equal(testHost.ListenPort, 51822)
 		is.Equal(testHost.ProxyListenPort, 51730)
 	})
@@ -63,6 +67,8 @@ func TestCheckPorts(t *testing.T) {
 		is := is.New(t)
 		testHost.ProxyListenPort = 65535
 		CheckHostPorts(&testHost)
+		t.Log(testHost.ListenPort, testHost.ProxyListenPort)
+		t.Log(h.ListenPort, h.ProxyListenPort)
 		is.Equal(testHost.ListenPort, 51822)
 		is.Equal(testHost.ProxyListenPort, minPort)
 	})
@@ -70,6 +76,8 @@ func TestCheckPorts(t *testing.T) {
 		is := is.New(t)
 		testHost.ListenPort = maxPort
 		CheckHostPorts(&testHost)
+		t.Log(testHost.ListenPort, testHost.ProxyListenPort)
+		t.Log(h.ListenPort, h.ProxyListenPort)
 		is.Equal(testHost.ListenPort, minPort)
 		is.Equal(testHost.ProxyListenPort, minPort+1)
 	})
@@ -77,6 +85,8 @@ func TestCheckPorts(t *testing.T) {
 		is := is.New(t)
 		testHost.ProxyListenPort = 51821
 		CheckHostPorts(&testHost)
+		t.Log(testHost.ListenPort, testHost.ProxyListenPort)
+		t.Log(h.ListenPort, h.ProxyListenPort)
 		is.Equal(testHost.ListenPort, minPort)
 		is.Equal(testHost.ProxyListenPort, 51822)
 	})

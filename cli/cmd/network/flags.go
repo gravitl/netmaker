@@ -6,7 +6,6 @@ var (
 	address                   string
 	address6                  string
 	udpHolePunch              bool
-	localNetwork              bool
 	defaultACL                bool
 	defaultInterface          string
 	defaultListenPort         int

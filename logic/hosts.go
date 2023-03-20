@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
@@ -90,12 +91,21 @@ func CreateHost(h *models.Host) error {
 	if (err != nil && !database.IsEmptyRecord(err)) || (err == nil) {
 		return ErrHostExists
 	}
-	//encrypt that password so we never see it
+	// encrypt that password so we never see it
 	hash, err := bcrypt.GenerateFromPassword([]byte(h.HostPass), 5)
 	if err != nil {
 		return err
 	}
 	h.HostPass = string(hash)
+	// if another server has already updated proxyenabled, leave it alone
+	if !h.ProxyEnabledSet {
+		log.Println("checking default proxy", servercfg.GetServerConfig().DefaultProxyMode)
+		if servercfg.GetServerConfig().DefaultProxyMode.Set {
+			h.ProxyEnabledSet = true
+			h.ProxyEnabled = servercfg.GetServerConfig().DefaultProxyMode.Value
+			log.Println("set proxy enabled to ", h.ProxyEnabled)
+		}
+	}
 	checkForZombieHosts(h)
 	return UpsertHost(h)
 }
@@ -208,7 +218,6 @@ func UpdateHostNetwork(h *models.Host, network string, add bool) (*models.Node, 
 			} else {
 				return nil, errors.New("host already part of network " + network)
 			}
-
 		}
 	}
 	if !add {
@@ -236,7 +245,12 @@ func AssociateNodeToHost(n *models.Node, h *models.Host) error {
 	if err != nil {
 		return err
 	}
-	h.Nodes = append(h.Nodes, n.ID.String())
+	currentHost, err := GetHost(h.ID.String())
+	if err != nil {
+		return err
+	}
+	h.HostPass = currentHost.HostPass
+	h.Nodes = append(currentHost.Nodes, n.ID.String())
 	return UpsertHost(h)
 }
 
@@ -357,13 +371,13 @@ func GetRelatedHosts(hostID string) []models.Host {
 // with the same endpoint have different listen ports
 // in the case of 64535 hosts or more with same endpoint, ports will not be changed
 func CheckHostPorts(h *models.Host) {
-	portsInUse := make(map[int]bool)
+	portsInUse := make(map[int]bool, 0)
 	hosts, err := GetAllHosts()
 	if err != nil {
 		return
 	}
 	for _, host := range hosts {
-		if host.ID == h.ID {
+		if host.ID.String() == h.ID.String() {
 			//skip self
 			continue
 		}
@@ -375,12 +389,18 @@ func CheckHostPorts(h *models.Host) {
 	}
 	// iterate until port is not found or max iteration is reached
 	for i := 0; portsInUse[h.ListenPort] && i < maxPort-minPort+1; i++ {
-		updatePort(&h.ListenPort)
+		h.ListenPort++
+		if h.ListenPort > maxPort {
+			h.ListenPort = minPort
+		}
 	}
 	// allocate h.ListenPort so it is unavailable to h.ProxyListenPort
 	portsInUse[h.ListenPort] = true
 	for i := 0; portsInUse[h.ProxyListenPort] && i < maxPort-minPort+1; i++ {
-		updatePort(&h.ProxyListenPort)
+		h.ProxyListenPort++
+		if h.ProxyListenPort > maxPort {
+			h.ProxyListenPort = minPort
+		}
 	}
 }
 
@@ -390,9 +410,17 @@ func HostExists(h *models.Host) bool {
 	return (err != nil && !database.IsEmptyRecord(err)) || (err == nil)
 }
 
-func updatePort(p *int) {
-	*p++
-	if *p > maxPort {
-		*p = minPort
+// GetHostByNodeID - returns a host if found to have a node's ID, else nil
+func GetHostByNodeID(id string) *models.Host {
+	hosts, err := GetAllHosts()
+	if err != nil {
+		return nil
 	}
+	for i := range hosts {
+		h := hosts[i]
+		if StringSliceContains(h.Nodes, id) {
+			return &h
+		}
+	}
+	return nil
 }
