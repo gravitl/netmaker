@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LATEST="v0.18.4"
+LATEST="v0.18.5"
 
 print_logo() {(
 cat << "EOF"
@@ -43,7 +43,7 @@ usage () {
     echo "  -t      tag of build; if buildtype=version, tag=version. If builtype=branch or builtype=local, tag=branch"
     echo "  -a      auto-build; skip prompts and use defaults, if none provided"
     echo "examples:"
-	echo "          nm-quick.sh -e -b version -t v0.18.4"
+	echo "          nm-quick.sh -e -b version -t v0.18.5"
 	echo "          nm-quick.sh -e -b local -t feature_v0.17.2_newfeature"	
 	echo "          nm-quick.sh -e -b branch -t develop"
     exit 1
