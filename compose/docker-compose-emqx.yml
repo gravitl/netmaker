@@ -19,6 +19,7 @@ services:
       COREDNS_ADDR: "SERVER_PUBLIC_IP"
       DNS_MODE: "on"
       SERVER_HTTP_HOST: "api.NETMAKER_BASE_DOMAIN"
+      AUTO_UPDATE: "enabled"
       API_PORT: "8081"
       MASTER_KEY: "REPLACE_MASTER_KEY"
       CORS_ALLOWED_ORIGIN: "*"
