@@ -38,7 +38,7 @@ services:
       FRONTEND_URL: "" # "https://dashboard.<netmaker base domain>"
       AZURE_TENANT: "" # "<only for azure, you may optionally specify the tenant for the OAuth>"
       OIDC_ISSUER: "" # https://oidc.yourprovider.com - URL of oidc provider
-      DEFAULT_PROXY_MODE: "auto" # if ON, all new clients will enable proxy by default if OFF, all new clients will disable proxy by default, if AUTO, stick with the existing logic for NAT detection
+      DEFAULT_PROXY_MODE: "off" # if ON, all new clients will enable proxy by default if OFF, all new clients will disable proxy by default, if AUTO, stick with the existing logic for NAT detection
     ports:
       - "3478:3478/udp" # the stun port
   netmaker-ui:  # The Netmaker UI Component
