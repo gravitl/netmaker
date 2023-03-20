@@ -38,7 +38,7 @@ Once completed, retrieve the password to access postgres:
 
 Based on the prerequisites, you will have one of the following scenarios. Configure accordingly:
 
-    a) **Nginx:** Uncomment the Ingress section from mosquitto.yaml and replace NETMAKER_SUBDOMAIN with your domain.
+    a) **Nginx:** Uncomment the Ingress section from mosquitto.yaml. Replace NETMAKER_SUBDOMAIN with your domain, and YOUR_CLUSTER_ISSUER with the cluster issuer configured for your certificates.
 
     b) **External LB:** Configure an LB to load balance TLS traffic to the MQ service on port 8883. If using a port other than 443, change the value of MQ_PORT in netmaker-server.yaml. The LB must support Secure Websockets (WSS), which requires a valid TLS certificate.
 

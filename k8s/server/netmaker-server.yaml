@@ -26,8 +26,8 @@ spec:
           value: NETMAKER_SUBDOMAIN
         - name: BROKER_NAME
           value: broker.NETMAKER_SUBDOMAIN
-        - name: STUN_DOMAIN
-          value: stun.NETMAKER_SUBDOMAIN
+        - name: STUN_LIST
+          value: stun1.netmaker.io:3478,stun2.netmaker.io:3478,stun1.l.google.com:19302,stun2.l.google.com:19302
         - name: SERVER_API_CONN_STRING
           value: api.NETMAKER_SUBDOMAIN:443
         - name: SERVER_HTTP_HOST
@@ -61,9 +61,7 @@ spec:
         - name: MQ_PORT
           value: "443"
         - name: MQ_SERVER_PORT
-          value: "1883"
-        - name: STUN_PORT
-          value: "31478"          
+          value: "1883"         
         - name: SERVER_BROKER_ENDPOINT
           value: "ws://mq:1883"
         - name: BROKER_ENDPOINT
@@ -82,25 +80,7 @@ spec:
         ports:
         - containerPort: 8081
           protocol: TCP
-        - containerPort: 3478
-          protocol: UDP
         resources: {}
----
-apiVersion: v1
-kind: Service
-metadata:
-    name: 'netmaker-stun'
-spec:
-  externalTrafficPolicy: Local
-  type: NodePort
-  ports:
-  - port: 31478
-    nodePort: 31478
-    protocol: UDP
-    targetPort: 31478
-    name: stun-port
-  selector:
-    app: 'netmaker'
 ---
 apiVersion: v1
 kind: Service
@@ -123,7 +103,7 @@ spec:
 #   name: nm-api-ingress-nginx
 #   annotations:
 #     nginx.ingress.kubernetes.io/rewrite-target: /
-#     cert-manager.io/cluster-issuer: "letsencrypt-nginx"
+#     cert-manager.io/cluster-issuer: "YOUR_CLUSTER_ISSUER"
 #     nginx.ingress.kubernetes.io/ssl-redirect: 'true'
 # spec:
 #   ingressClassName: nginx

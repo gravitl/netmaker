@@ -21,7 +21,7 @@ spec:
       containers:
       - image: eclipse-mosquitto:2.0.11-openssl
         command: ["/bin/ash", "-c"]
-        args: ["echo \"admin:password\" > /mosquitto/password.txt && mosquitto_passwd -U /mosquitto/password.txt && /docker-entrypoint.sh && /usr/sbin/mosquitto -c /mosquitto/config/mosquitto.conf"]
+        args: ["echo \"REPLACE_MQ_USERNAME:REPLACE_MQ_PASSWORD\" > /mosquitto/password.txt && mosquitto_passwd -U /mosquitto/password.txt && /docker-entrypoint.sh && /usr/sbin/mosquitto -c /mosquitto/config/mosquitto.conf"]
         env:
         - name: MQ_USERNAME
           value: "REPLACE_MQ_USERNAME"
@@ -138,7 +138,7 @@ spec:
 #   name: nm-mqtt-ingress-nginx
 #   annotations:
 #     nginx.ingress.kubernetes.io/rewrite-target: /
-#     cert-manager.io/cluster-issuer: "letsencrypt-nginx"
+#     cert-manager.io/cluster-issuer: "YOUR_CLUSTER_ISSUER"
 #     nginx.ingress.kubernetes.io/ssl-redirect: 'true'
 # spec:
 #   ingressClassName: nginx

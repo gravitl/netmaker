@@ -43,7 +43,7 @@ spec:
 #   name: nm-ui-ingress-nginx
 #   annotations:
 #     nginx.ingress.kubernetes.io/rewrite-target: /
-#     cert-manager.io/cluster-issuer: "letsencrypt-nginx"
+#     cert-manager.io/cluster-issuer: "YOUR_CLUSTER_ISSUER"
 #     nginx.ingress.kubernetes.io/ssl-redirect: 'true'
 # spec:
 #   ingressClassName: nginx
