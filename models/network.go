@@ -19,7 +19,6 @@ type Network struct {
 	NodeLimit           int32                 `json:"nodelimit" bson:"nodelimit"`
 	DefaultPostDown     string                `json:"defaultpostdown" bson:"defaultpostdown"`
 	DefaultKeepalive    int32                 `json:"defaultkeepalive" bson:"defaultkeepalive" validate:"omitempty,max=1000"`
-	AccessKeys          []AccessKey           `json:"accesskeys" bson:"accesskeys"`
 	AllowManualSignUp   string                `json:"allowmanualsignup" bson:"allowmanualsignup" validate:"checkyesorno"`
 	IsIPv4              string                `json:"isipv4" bson:"isipv4" validate:"checkyesorno"`
 	IsIPv6              string                `json:"isipv6" bson:"isipv6" validate:"checkyesorno"`
