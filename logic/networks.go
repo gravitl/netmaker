@@ -599,12 +599,11 @@ func networkNodesUpdateAction(networkName string, action string) error {
 		return err
 	}
 
-	for _, value := range collections {
+	for k, value := range collections {
 		var node models.Node
 		err := json.Unmarshal([]byte(value), &node)
 		if err != nil {
-			if strings.Contains(err.Error(), "parsing time") {
-				// ignore legacy nodes
+			if IsLegacyNode(k) { // ignore legacy nodes
 				continue
 			}
 			fmt.Println("error in node address assignment!")
