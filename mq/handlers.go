@@ -185,7 +185,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 				logger.Log(0, "failed to send new node to host", hostUpdate.Host.Name, currentHost.ID.String(), err.Error())
 				return
 			} else {
-				if err = PublishPeerUpdateForHost("", currentHost, nil, nil); err != nil {
+				if err = PublishPeerUpdateForHost("", currentHost, nil, nil, false); err != nil {
 					logger.Log(0, "failed peers publish after join acknowledged", hostUpdate.Host.Name, currentHost.ID.String(), err.Error())
 					return
 				}
@@ -210,6 +210,9 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 				return
 			}
 		}
+		if err := PublishPeerUpdateForHost("", currentHost, nil, nil, true); err != nil {
+			logger.Log(0, "failed to publish peer update: ", err.Error())
+		}
 		if err := logic.DisassociateAllNodesFromHost(currentHost.ID.String()); err != nil {
 			logger.Log(0, "failed to delete all nodes of host: ", currentHost.ID.String(), err.Error())
 			return
@@ -218,13 +221,12 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(0, "failed to delete host: ", currentHost.ID.String(), err.Error())
 			return
 		}
-		sendPeerUpdate = true
 	}
 
 	if sendPeerUpdate {
-		err := PublishPeerUpdateForHost("", &hostUpdate.Host, nil, nil)
+		err := PublishPeerUpdateForHost("", &hostUpdate.Host, nil, nil, false)
 		if err != nil {
-			logger.Log(0, "failed to pulish peer update: ", err.Error())
+			logger.Log(0, "failed to publish peer update: ", err.Error())
 		}
 	}
 	// if servercfg.Is_EE && ifaceDelta {

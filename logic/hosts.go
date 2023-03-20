@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
@@ -99,11 +98,9 @@ func CreateHost(h *models.Host) error {
 	h.HostPass = string(hash)
 	// if another server has already updated proxyenabled, leave it alone
 	if !h.ProxyEnabledSet {
-		log.Println("checking default proxy", servercfg.GetServerConfig().DefaultProxyMode)
 		if servercfg.GetServerConfig().DefaultProxyMode.Set {
 			h.ProxyEnabledSet = true
 			h.ProxyEnabled = servercfg.GetServerConfig().DefaultProxyMode.Value
-			log.Println("set proxy enabled to ", h.ProxyEnabled)
 		}
 	}
 	checkForZombieHosts(h)
