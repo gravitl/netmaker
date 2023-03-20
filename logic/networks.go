@@ -159,7 +159,6 @@ func GetNetworkSettings(networkname string) (models.Network, error) {
 	if err = json.Unmarshal([]byte(networkData), &network); err != nil {
 		return models.Network{}, err
 	}
-	network.AccessKeys = []models.AccessKey{}
 	return network, nil
 }
 

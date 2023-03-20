@@ -2,7 +2,6 @@ package models
 
 import (
 	"strings"
-	"time"
 
 	jwt "github.com/golang-jwt/jwt/v4"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -100,15 +99,6 @@ type SuccessResponse struct {
 	Code     int
 	Message  string
 	Response interface{}
-}
-
-// AccessKey - access key struct
-type AccessKey struct {
-	Name         string     `json:"name" bson:"name" validate:"omitempty,max=345"`
-	Value        string     `json:"value" bson:"value" validate:"omitempty,alphanum,max=16"`
-	AccessString string     `json:"accessstring" bson:"accessstring"`
-	Uses         int        `json:"uses" bson:"uses" validate:"numeric,min=0"`
-	Expiration   *time.Time `json:"expiration" bson:"expiration"`
 }
 
 // DisplayKey - what is displayed for key

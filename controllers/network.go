@@ -25,9 +25,6 @@ func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(false, http.HandlerFunc(updateNetwork))).Methods(http.MethodPut)
 	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(true, http.HandlerFunc(deleteNetwork))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/networks/{networkname}/keyupdate", logic.SecurityCheck(true, http.HandlerFunc(keyUpdate))).Methods(http.MethodPost)
-	r.HandleFunc("/api/networks/{networkname}/keys", logic.SecurityCheck(false, http.HandlerFunc(createAccessKey))).Methods(http.MethodPost)
-	r.HandleFunc("/api/networks/{networkname}/keys", logic.SecurityCheck(false, http.HandlerFunc(getAccessKeys))).Methods(http.MethodGet)
-	r.HandleFunc("/api/networks/{networkname}/keys/{name}", logic.SecurityCheck(false, http.HandlerFunc(deleteAccessKey))).Methods(http.MethodDelete)
 	// ACLs
 	r.HandleFunc("/api/networks/{networkname}/acls", logic.SecurityCheck(true, http.HandlerFunc(updateNetworkACL))).Methods(http.MethodPut)
 	r.HandleFunc("/api/networks/{networkname}/acls", logic.SecurityCheck(true, http.HandlerFunc(getNetworkACL))).Methods(http.MethodGet)
@@ -72,12 +69,6 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	if !servercfg.IsDisplayKeys() {
-		for i, net := range allnetworks {
-			net.AccessKeys = logic.RemoveKeySensitiveInfo(net.AccessKeys)
-			allnetworks[i] = net
-		}
-	}
 
 	logger.Log(2, r.Header.Get("user"), "fetched networks.")
 	w.WriteHeader(http.StatusOK)
@@ -107,9 +98,7 @@ func getNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if !servercfg.IsDisplayKeys() {
-		network.AccessKeys = logic.RemoveKeySensitiveInfo(network.AccessKeys)
-	}
+
 	logger.Log(2, r.Header.Get("user"), "fetched network", netname)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(network)
@@ -425,118 +414,4 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "created network", network.NetID)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(network)
-}
-
-// swagger:route POST /api/networks/{networkname}/keys networks createAccessKey
-//
-// Create a network access key.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: accessKeyBodyResponse
-//
-// BEGIN KEY MANAGEMENT SECTION
-func createAccessKey(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	var params = mux.Vars(r)
-	var accesskey models.AccessKey
-	// start here
-	netname := params["networkname"]
-	network, err := logic.GetParentNetwork(netname)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to get network info: ",
-			err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	err = json.NewDecoder(r.Body).Decode(&accesskey)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "error decoding request body: ",
-			err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	key, err := logic.CreateAccessKey(accesskey, network)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to create access key: ",
-			err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-
-	// do not allow access key creations view API with user names
-	if _, err = logic.GetUser(key.Name); err == nil {
-		logger.Log(0, "access key creation with invalid name attempted by", r.Header.Get("user"))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("cannot create access key with user name"), "badrequest"))
-		logic.DeleteKey(key.Name, network.NetID)
-		return
-	}
-
-	logger.Log(1, r.Header.Get("user"), "created access key", accesskey.Name, "on", netname)
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(key)
-}
-
-// swagger:route GET /api/networks/{networkname}/keys networks getAccessKeys
-//
-// Get network access keys for a network.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: accessKeySliceBodyResponse
-func getAccessKeys(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	var params = mux.Vars(r)
-	network := params["networkname"]
-	keys, err := logic.GetKeys(network)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), fmt.Sprintf("failed to get keys for network [%s]: %v",
-			network, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	if !servercfg.IsDisplayKeys() {
-		keys = logic.RemoveKeySensitiveInfo(keys)
-	}
-	logger.Log(2, r.Header.Get("user"), "fetched access keys on network", network)
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(keys)
-}
-
-// swagger:route DELETE /api/networks/{networkname}/keys/{name} networks deleteAccessKey
-//
-// Delete a network access key.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200:
-//				*: stringJSONResponse
-//
-// delete key. Has to do a little funky logic since it's not a collection item
-func deleteAccessKey(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	var params = mux.Vars(r)
-	keyname := params["name"]
-	netname := params["networkname"]
-	err := logic.DeleteKey(keyname, netname)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), fmt.Sprintf("failed to delete key [%s] for network [%s]: %v",
-			keyname, netname, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	logger.Log(1, r.Header.Get("user"), "deleted access key", keyname, "on network,", netname)
-	w.WriteHeader(http.StatusOK)
 }
