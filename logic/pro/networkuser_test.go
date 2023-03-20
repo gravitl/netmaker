@@ -1,6 +1,7 @@
 package pro
 
 import (
+	"os"
 	"testing"
 
 	"github.com/google/uuid"
@@ -13,6 +14,7 @@ import (
 func TestMain(m *testing.M) {
 	database.InitializeDatabase()
 	defer database.CloseDB()
+	os.Exit(m.Run())
 }
 
 func TestNetworkUserLogic(t *testing.T) {
@@ -33,7 +35,7 @@ func TestNetworkUserLogic(t *testing.T) {
 	}
 
 	clients := []models.ExtClient{
-		models.ExtClient{
+		{
 			ClientID: "coolclient",
 		},
 	}

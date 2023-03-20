@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -185,8 +186,12 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 				logger.Log(0, "failed to send new node to host", hostUpdate.Host.Name, currentHost.ID.String(), err.Error())
 				return
 			} else {
-				if err = PublishSingleHostPeerUpdate(context.Background(), currentHost, nil); err != nil {
+				if err = PublishSingleHostPeerUpdate(context.Background(), currentHost, nil, nil); err != nil {
 					logger.Log(0, "failed peers publish after join acknowledged", hostUpdate.Host.Name, currentHost.ID.String(), err.Error())
+					return
+				}
+				if err = handleNewNodeDNS(&hu.Host, &hu.Node); err != nil {
+					logger.Log(0, "failed to send dns update after node,", hu.Node.ID.String(), ", added to host", hu.Host.Name, err.Error())
 					return
 				}
 			}
@@ -279,7 +284,7 @@ func UpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(2, "updating peers after node", currentNode.ID.String(), currentNode.Network, "detected connectivity issues")
 			host, err := logic.GetHost(currentNode.HostID.String())
 			if err == nil {
-				if err = PublishSingleHostPeerUpdate(context.Background(), host, nil); err != nil {
+				if err = PublishSingleHostPeerUpdate(context.Background(), host, nil, nil); err != nil {
 					logger.Log(0, "failed to publish update after failover peer change for node", currentNode.ID.String(), currentNode.Network)
 				}
 			}
@@ -362,6 +367,21 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 		oldMetric := oldMetrics.Connectivity[k]
 		currMetric.TotalTime += oldMetric.TotalTime
 		currMetric.Uptime += oldMetric.Uptime // get the total uptime for this connection
+		if currMetric.CollectedByProxy {
+			currMetric.TotalReceived += oldMetric.TotalReceived
+			currMetric.TotalSent += oldMetric.TotalSent
+		} else {
+			if currMetric.TotalReceived < oldMetric.TotalReceived {
+				currMetric.TotalReceived += oldMetric.TotalReceived
+			} else {
+				currMetric.TotalReceived += int64(math.Abs(float64(currMetric.TotalReceived) - float64(oldMetric.TotalReceived)))
+			}
+			if currMetric.TotalSent < oldMetric.TotalSent {
+				currMetric.TotalSent += oldMetric.TotalSent
+			} else {
+				currMetric.TotalSent += int64(math.Abs(float64(currMetric.TotalSent) - float64(oldMetric.TotalSent)))
+			}
+		}
 		if currMetric.Uptime == 0 || currMetric.TotalTime == 0 {
 			currMetric.PercentUp = 0
 		} else {
@@ -404,4 +424,26 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 		delete(newMetrics.Connectivity, k)
 	}
 	return shouldUpdate
+}
+
+func handleNewNodeDNS(host *models.Host, node *models.Node) error {
+	dns := models.DNSUpdate{
+		Action: models.DNSInsert,
+		Name:   host.Name + "." + node.Network,
+	}
+	if node.Address.IP != nil {
+		dns.Address = node.Address.IP.String()
+		if err := PublishDNSUpdate(node.Network, dns); err != nil {
+			return err
+		}
+	} else if node.Address6.IP != nil {
+		dns.Address = node.Address6.IP.String()
+		if err := PublishDNSUpdate(node.Network, dns); err != nil {
+			return err
+		}
+	}
+	if err := PublishAllDNS(node); err != nil {
+		return err
+	}
+	return nil
 }

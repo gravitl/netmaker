@@ -44,7 +44,7 @@ type Host struct {
 	MTU              int              `json:"mtu" yaml:"mtu"`
 	PublicKey        wgtypes.Key      `json:"publickey" yaml:"publickey"`
 	MacAddress       net.HardwareAddr `json:"macaddress" yaml:"macaddress"`
-	TrafficKeyPublic []byte           `json:"traffickeypublic" yaml:"trafficekeypublic"`
+	TrafficKeyPublic []byte           `json:"traffickeypublic" yaml:"traffickeypublic"`
 	InternetGateway  net.UDPAddr      `json:"internetgateway" yaml:"internetgateway"`
 	Nodes            []string         `json:"nodes" yaml:"nodes"`
 	IsRelayed        bool             `json:"isrelayed" yaml:"isrelayed"`
@@ -52,9 +52,10 @@ type Host struct {
 	IsRelay          bool             `json:"isrelay" yaml:"isrelay"`
 	RelayedHosts     []string         `json:"relay_hosts" yaml:"relay_hosts"`
 	Interfaces       []Iface          `json:"interfaces" yaml:"interfaces"`
-	DefaultInterface string           `json:"defaultinterface" yaml:"defautlinterface"`
+	DefaultInterface string           `json:"defaultinterface" yaml:"defaultinterface"`
 	EndpointIP       net.IP           `json:"endpointip" yaml:"endpointip"`
 	ProxyEnabled     bool             `json:"proxy_enabled" yaml:"proxy_enabled"`
+	ProxyEnabledSet  bool             `json:"proxy_enabled_updated" yaml:"proxy_enabled_updated"`
 	IsDocker         bool             `json:"isdocker" yaml:"isdocker"`
 	IsK8S            bool             `json:"isk8s" yaml:"isk8s"`
 	IsStatic         bool             `json:"isstatic" yaml:"isstatic"`

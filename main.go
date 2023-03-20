@@ -27,7 +27,7 @@ import (
 	stunserver "github.com/gravitl/netmaker/stun-server"
 )
 
-var version = "v0.18.3"
+var version = "v0.18.4"
 
 // Start DB Connection and start API Request Handler
 func main() {

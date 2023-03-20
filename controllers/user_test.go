@@ -186,6 +186,7 @@ func TestGetUsers(t *testing.T) {
 		assert.Equal(t, []models.ReturnUser(nil), admin)
 	})
 	t.Run("UserExisits", func(t *testing.T) {
+		user.UserName = "anotheruser"
 		if err := logic.CreateUser(&adminUser); err != nil {
 			t.Error(err)
 		}
@@ -281,6 +282,9 @@ func TestVerifyAuthRequest(t *testing.T) {
 		assert.EqualError(t, err, "error retrieving user from db: could not find any records")
 	})
 	t.Run("Non-Admin", func(t *testing.T) {
+		user.IsAdmin = false
+		user.Password = "somepass"
+		user.UserName = "nonadmin"
 		if err := logic.CreateUser(&user); err != nil {
 			t.Error(err)
 		}
