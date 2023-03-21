@@ -385,7 +385,7 @@ func GetVerbosity() int32 {
 // AutoUpdateEnabled returns a boolean indicating whether netclient auto update is enabled or disabled
 // default is enabled
 func AutoUpdateEnabled() bool {
-	return os.Getenv("AUTO_UPDATE") != "disabled"
+	return os.Getenv("NETCLIENT_AUTO_UPDATE") != "disabled"
 }
 
 // IsDNSMode - should it run with DNS
