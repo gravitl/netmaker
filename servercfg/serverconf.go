@@ -46,6 +46,11 @@ func GetServerConfig() config.ServerConfig {
 	cfg.StunPort = GetStunPort()
 	cfg.BrokerType = GetBrokerType()
 	cfg.EmqxRestEndpoint = GetEmqxRestEndpoint()
+	if AutoUpdateEnabled() {
+		cfg.NetclientAutoUpdate = "enabled"
+	} else {
+		cfg.NetclientAutoUpdate = "disabled"
+	}
 	if IsRestBackend() {
 		cfg.RestBackend = "on"
 	}
@@ -385,7 +390,12 @@ func GetVerbosity() int32 {
 // AutoUpdateEnabled returns a boolean indicating whether netclient auto update is enabled or disabled
 // default is enabled
 func AutoUpdateEnabled() bool {
-	return os.Getenv("NETCLIENT_AUTO_UPDATE") != "disabled"
+	if os.Getenv("NETCLIENT_AUTO_UPDATE") == "disabled" {
+		return false
+	} else if config.Config.Server.NetclientAutoUpdate == "disabled" {
+		return false
+	}
+	return true
 }
 
 // IsDNSMode - should it run with DNS
