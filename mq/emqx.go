@@ -292,7 +292,7 @@ func CreateHostACL(hostID, serverName string) error {
 				Action:     "all",
 			},
 			{
-				Topic:      fmt.Sprintf("host/serverupdate/%s", hostID),
+				Topic:      fmt.Sprintf("host/serverupdate/%s/%s", serverName, hostID),
 				Permission: "allow",
 				Action:     "all",
 			},
@@ -327,7 +327,7 @@ func CreateHostACL(hostID, serverName string) error {
 var nodeAclMux sync.Mutex
 
 // AppendNodeUpdateACL - adds ACL rule for subscribing to node updates for a node ID
-func AppendNodeUpdateACL(hostID, nodeNetwork, nodeID string) error {
+func AppendNodeUpdateACL(hostID, nodeNetwork, nodeID, serverName string) error {
 	nodeAclMux.Lock()
 	defer nodeAclMux.Unlock()
 	token, err := getEmqxAuthToken()
@@ -345,22 +345,22 @@ func AppendNodeUpdateACL(hostID, nodeNetwork, nodeID string) error {
 			Action:     "subscribe",
 		},
 		{
-			Topic:      fmt.Sprintf("ping/%s", nodeID),
+			Topic:      fmt.Sprintf("ping/%s/%s", serverName, nodeID),
 			Permission: "allow",
 			Action:     "all",
 		},
 		{
-			Topic:      fmt.Sprintf("update/%s", nodeID),
+			Topic:      fmt.Sprintf("update/%s/%s", serverName, nodeID),
 			Permission: "allow",
 			Action:     "all",
 		},
 		{
-			Topic:      fmt.Sprintf("signal/%s", nodeID),
+			Topic:      fmt.Sprintf("signal/%s/%s", serverName, nodeID),
 			Permission: "allow",
 			Action:     "all",
 		},
 		{
-			Topic:      fmt.Sprintf("metrics/%s", nodeID),
+			Topic:      fmt.Sprintf("metrics/%s/%s", serverName, nodeID),
 			Permission: "allow",
 			Action:     "all",
 		},

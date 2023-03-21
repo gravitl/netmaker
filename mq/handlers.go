@@ -186,6 +186,12 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 				logger.Log(0, "failed to send new node to host", hostUpdate.Host.Name, currentHost.ID.String(), err.Error())
 				return
 			} else {
+				if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
+					if err = AppendNodeUpdateACL(hu.Host.ID.String(), hu.Node.Network, hu.Node.ID.String(), servercfg.GetServer()); err != nil {
+						logger.Log(0, "failed to add ACLs for EMQX node", err.Error())
+						return
+					}
+				}
 				if err = PublishSingleHostPeerUpdate(context.Background(), currentHost, nil, nil); err != nil {
 					logger.Log(0, "failed peers publish after join acknowledged", hostUpdate.Host.Name, currentHost.ID.String(), err.Error())
 					return
