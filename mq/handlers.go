@@ -382,8 +382,7 @@ func handleHostCheckin(h, currentHost *models.Host) bool {
 			}
 			continue
 		}
-		node.SetLastCheckIn()
-		if err := logic.UpdateNode(&node, &node); err != nil {
+		if err := logic.UpdateNodeCheckin(&node); err != nil {
 			logger.Log(0, "error updating node", node.ID.String(), " on checkin", err.Error())
 		}
 	}
@@ -391,13 +390,16 @@ func handleHostCheckin(h, currentHost *models.Host) bool {
 	for i := range h.Interfaces {
 		h.Interfaces[i].AddressString = h.Interfaces[i].Address.String()
 	}
-	h.HostPass = currentHost.HostPass
-	if err := logic.UpsertHost(h); err != nil {
+	ifaceDelta := len(h.Interfaces) != len(currentHost.Interfaces) || !h.EndpointIP.Equal(currentHost.EndpointIP)
+	currentHost.EndpointIP = h.EndpointIP
+	currentHost.Interfaces = h.Interfaces
+	currentHost.DefaultInterface = h.DefaultInterface
+	if err := logic.UpsertHost(currentHost); err != nil {
 		logger.Log(0, "failed to update host after check-in", h.Name, h.ID.String(), err.Error())
 		return false
 	}
 
-	logger.Log(3, "ping processed for host", h.Name, h.ID.String())
-	return len(h.Interfaces) != len(currentHost.Interfaces) ||
-		!h.EndpointIP.Equal(currentHost.EndpointIP)
+	logger.Log(0, "ping processed for host", h.Name, h.ID.String())
+	return ifaceDelta
+
 }
