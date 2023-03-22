@@ -647,7 +647,7 @@ setup_mesh() {
 
 	echo "Creating netmaker enrollment key"
 
-	tokenJson=$(nmctl enrollment_key create --uses 99999 --networks netmaker)
+	tokenJson=$(nmctl enrollment_key create --unlimited --networks netmaker)
 	TOKEN=$(jq -r '.token' <<< ${tokenJson})
 
 	wait_seconds 3
