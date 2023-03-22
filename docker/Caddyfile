@@ -35,6 +35,12 @@ https://stun.NETMAKER_BASE_DOMAIN {
 	reverse_proxy netmaker:3478
 }
 
+# TURN
+https://stun.NETMAKER_BASE_DOMAIN {
+	reverse_proxy netmaker:3479
+}
+
+
 
 # MQ
 wss://broker.NETMAKER_BASE_DOMAIN {

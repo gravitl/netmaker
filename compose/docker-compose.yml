@@ -28,9 +28,12 @@ services:
       MQ_PASSWORD: "REPLACE_MQ_PASSWORD"
       MQ_USERNAME: "REPLACE_MQ_USERNAME"
       STUN_PORT: "3478"
+      TURN_SERVER_HOST: "turn.NETMAKER_BASE_DOMAIN"
+      TURN_PORT: "3479"
       DEFAULT_PROXY_MODE: "off"
     ports:
       - "3478:3478/udp"
+      - "3479:3479/udp"
   netmaker-ui:
     container_name: netmaker-ui
     image: gravitl/netmaker-ui:REPLACE_UI_IMAGE_TAG

@@ -2,7 +2,9 @@ package servercfg
 
 import (
 	"errors"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -102,7 +104,7 @@ func GetServerInfo() models.ServerConfig {
 	cfg.Is_EE = Is_EE
 	cfg.StunPort = GetStunPort()
 	cfg.StunList = GetStunList()
-
+	cfg.TurnServer, _ = net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", GetTurnHost(), GetTurnPort()))
 	return cfg
 }
 
@@ -624,6 +626,31 @@ func GetStunPort() int {
 		port = config.Config.Server.StunPort
 	}
 	return port
+}
+
+// GetTurnPort - Get the port to run the turn server on
+func GetTurnPort() int {
+	port := 3479 //default
+	if os.Getenv("TURN_PORT") != "" {
+		portInt, err := strconv.Atoi(os.Getenv("TURN_PORT"))
+		if err == nil {
+			port = portInt
+		}
+	} else if config.Config.Server.TurnPort != 0 {
+		port = config.Config.Server.TurnPort
+	}
+	return port
+}
+
+// GetTurnHost - fetches the turn host name
+func GetTurnHost() string {
+	turnServer := ""
+	if os.Getenv("TURN_SERVER_HOST") != "" {
+		turnServer = os.Getenv("TURN_SERVER_HOST")
+	} else if config.Config.Server.TurnServer != "" {
+		turnServer = config.Config.Server.TurnServer
+	}
+	return turnServer
 }
 
 // IsProxyEnabled - is proxy on or off
