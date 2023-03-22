@@ -427,20 +427,6 @@ test_caddy() {
 # setup_netclient - adds netclient to docker-compose
 setup_netclient() {
 
-  # yq ".services.netclient += {\"container_name\": \"netclient\"}" -i /root/docker-compose.yml
-  # yq ".services.netclient += {\"image\": \"gravitl/netclient:testing\"}" -i /root/docker-compose.yml
-  # yq ".services.netclient += {\"hostname\": \"netmaker-1\"}" -i /root/docker-compose.yml
-  # yq ".services.netclient += {\"network_mode\": \"host\"}" -i /root/docker-compose.yml
-  # yq ".services.netclient.depends_on += [\"netmaker\"]" -i /root/docker-compose.yml
-  # yq ".services.netclient += {\"restart\": \"always\"}" -i /root/docker-compose.yml
-  # yq ".services.netclient.environment += {\"TOKEN\": \"$KEY\"}" -i /root/docker-compose.yml
-  # yq ".services.netclient.volumes += [\"/etc/netclient:/etc/netclient\"]" -i /root/docker-compose.yml
-  # yq ".services.netclient.cap_add += [\"NET_ADMIN\"]" -i /root/docker-compose.yml
-  # yq ".services.netclient.cap_add += [\"NET_RAW\"]" -i /root/docker-compose.yml
-  # yq ".services.netclient.cap_add += [\"SYS_MODULE\"]" -i /root/docker-compose.yml
-
-  # docker-compose up -d
-
 	set +e
 	netclient uninstall
 	set -e
@@ -449,7 +435,8 @@ setup_netclient() {
 
 	chmod +x /tmp/netclient
 	/tmp/netclient install
-	netclient join -t $KEY
+
+	netclient register -t $KEY
 
 	echo "waiting for client to become available"
 	wait_seconds 10 
@@ -520,11 +507,11 @@ join_networks() {
           confirm
 
           if [[ $NUM -eq 0 ]]; then 
-            echo "running command: ./nmctl keys create $NETWORK 1"
-            KEY_JSON=$(./nmctl keys create $NETWORK 1)          
-            KEY=$(echo $KEY_JSON | jq -r .accessstring)
+            echo "running command: ./nmctl enrollment_key create --uses 1 --networks $NETWORK"
+          	KEY_JSON=$(./nmctl enrollment_key create --uses 1 --networks $NETWORK)
+          	KEY=$(jq -r '.token' <<< ${KEY_JSON})
 
-            echo "join key created: $KEY"
+            echo "enrollment key created: $KEY"
 
             setup_netclient
           else
