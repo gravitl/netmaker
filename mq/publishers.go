@@ -88,7 +88,7 @@ func PublishSingleHostPeerUpdate(ctx context.Context, host *models.Host, deleted
 	if len(peerUpdate.Peers) == 0 { // no peers to send
 		return nil
 	}
-	if host.ProxyEnabled {
+	if host.ProxyEnabled || host.ShouldUseTurn {
 		proxyUpdate, err := logic.GetProxyUpdateForHost(ctx, host)
 		if err != nil {
 			return err
