@@ -178,21 +178,6 @@ install_yq() {
 # setup_netclient - adds netclient to docker-compose
 setup_netclient() {
 
-
-	# yq ".services.netclient += {\"container_name\": \"netclient\"}" -i /root/docker-compose.yml
-	# yq ".services.netclient += {\"image\": \"gravitl/netclient:$IMAGE_TAG\"}" -i /root/docker-compose.yml
-	# yq ".services.netclient += {\"hostname\": \"netmaker-1\"}" -i /root/docker-compose.yml
-	# yq ".services.netclient += {\"network_mode\": \"host\"}" -i /root/docker-compose.yml
-	# yq ".services.netclient.depends_on += [\"netmaker\"]" -i /root/docker-compose.yml
-	# yq ".services.netclient += {\"restart\": \"always\"}" -i /root/docker-compose.yml
-	# yq ".services.netclient.environment += {\"TOKEN\": \"$TOKEN\"}" -i /root/docker-compose.yml
-	# yq ".services.netclient.volumes += [\"/etc/netclient:/etc/netclient\"]" -i /root/docker-compose.yml
-	# yq ".services.netclient.cap_add += [\"NET_ADMIN\"]" -i /root/docker-compose.yml
-	# yq ".services.netclient.cap_add += [\"NET_RAW\"]" -i /root/docker-compose.yml
-	# yq ".services.netclient.cap_add += [\"SYS_MODULE\"]" -i /root/docker-compose.yml
-
-	# docker-compose up -d
-
 	set +e
 	netclient uninstall
 	set -e
@@ -200,7 +185,7 @@ setup_netclient() {
 	wget -O netclient https://github.com/gravitl/netclient/releases/download/$LATEST/netclient_linux_amd64
 	chmod +x netclient
 	./netclient install
-	netclient join -t $TOKEN
+	netclient register -t $TOKEN
 
 	echo "waiting for client to become available"
 	wait_seconds 10 
@@ -210,9 +195,9 @@ setup_netclient() {
 configure_netclient() {
 
 	NODE_ID=$(sudo cat /etc/netclient/nodes.yml | yq -r .netmaker.commonnode.id)
-	echo "join complete. New node ID: $NODE_ID"
+	echo "register complete. New node ID: $NODE_ID"
 	HOST_ID=$(sudo cat /etc/netclient/netclient.yml | yq -r .host.id)
-	echo "For first join, making host a default"
+	echo "making host a default"
 	echo "Host ID: $HOST_ID"
 	# set as a default host
 	set +e
@@ -660,11 +645,10 @@ setup_mesh() {
 
 	wait_seconds 5
 
-	echo "Creating netmaker access key"
+	echo "Creating netmaker enrollment key"
 
-	nmctl keys create test1 99999 --name netmaker-key
-	tokenJson=$(nmctl keys create netmaker 2)
-	TOKEN=$(jq -r '.accessstring' <<< ${tokenJson})
+	tokenJson=$(nmctl enrollment_key create --unlimited --networks netmaker)
+	TOKEN=$(jq -r '.token' <<< ${tokenJson})
 
 	wait_seconds 3
 
