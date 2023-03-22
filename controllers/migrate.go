@@ -61,6 +61,7 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !logic.HostExists(&data.NewHost) {
+		logic.CheckHostPorts(&data.NewHost)
 		if err = logic.CreateHost(&data.NewHost); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
