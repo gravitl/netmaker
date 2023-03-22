@@ -54,6 +54,8 @@ type Host struct {
 	Interfaces       []Iface          `json:"interfaces" yaml:"interfaces"`
 	DefaultInterface string           `json:"defaultinterface" yaml:"defaultinterface"`
 	EndpointIP       net.IP           `json:"endpointip" yaml:"endpointip"`
+	ShouldUseTurn    bool             `json:"should_use_turn" yaml:"should_use_turn"`
+	TurnRelayAddr    net.PacketConn   `json:"turn_relay_addr" yaml:"turn_relay_addr"`
 	ProxyEnabled     bool             `json:"proxy_enabled" yaml:"proxy_enabled"`
 	ProxyEnabledSet  bool             `json:"proxy_enabled_updated" yaml:"proxy_enabled_updated"`
 	IsDocker         bool             `json:"isdocker" yaml:"isdocker"`
