@@ -1,7 +1,6 @@
 package models
 
 import (
-	"net"
 	"strings"
 
 	jwt "github.com/golang-jwt/jwt/v4"
@@ -233,7 +232,8 @@ type ServerConfig struct {
 	StunPort    int          `yaml:"stun_port"`
 	StunList    []StunServer `yaml:"stun_list"`
 	TrafficKey  []byte       `yaml:"traffickey"`
-	TurnServer  *net.UDPAddr `yaml:"turn_server"`
+	TurnDomain  string       `yaml:"turn_domain"`
+	TurnPort    int          `yaml:"turn_port"`
 }
 
 // User.NameInCharset - returns if name is in charset below or not

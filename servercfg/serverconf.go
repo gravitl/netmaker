@@ -2,9 +2,7 @@ package servercfg
 
 import (
 	"errors"
-	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -104,7 +102,8 @@ func GetServerInfo() models.ServerConfig {
 	cfg.Is_EE = Is_EE
 	cfg.StunPort = GetStunPort()
 	cfg.StunList = GetStunList()
-	cfg.TurnServer, _ = net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", GetTurnHost(), GetTurnPort()))
+	cfg.TurnDomain = GetTurnHost()
+	cfg.TurnPort = GetTurnPort()
 	return cfg
 }
 
@@ -183,11 +182,11 @@ func GetAPIPort() string {
 // GetStunList - gets the stun servers
 func GetStunList() []models.StunServer {
 	stunList := []models.StunServer{
-		models.StunServer{
+		{
 			Domain: "stun1.netmaker.io",
 			Port:   3478,
 		},
-		models.StunServer{
+		{
 			Domain: "stun2.netmaker.io",
 			Port:   3478,
 		},
