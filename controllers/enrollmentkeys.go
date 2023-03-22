@@ -182,9 +182,21 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid enrollment key"), "badrequest"))
 		return
 	}
+	hostPass := newHost.HostPass
 	if !hostExists {
 		// register host
 		logic.CheckHostPorts(&newHost)
+		// create EMQX credentials and ACLs for host
+		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
+			if err := mq.CreateEmqxUser(newHost.ID.String(), newHost.HostPass, false); err != nil {
+				logger.Log(0, "failed to create host credentials for EMQX: ", err.Error())
+				return
+			}
+			if err := mq.CreateHostACL(newHost.ID.String(), servercfg.GetServerInfo().Server); err != nil {
+				logger.Log(0, "failed to add host ACL rules to EMQX: ", err.Error())
+				return
+			}
+		}
 		if err = logic.CreateHost(&newHost); err != nil {
 			logger.Log(0, "host", newHost.ID.String(), newHost.Name, "failed registration -", err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -205,6 +217,11 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	// ready the response
 	server := servercfg.GetServerInfo()
 	server.TrafficKey = key
+	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
+		// set MQ username and password for EMQX clients
+		server.MQUserName = newHost.ID.String()
+		server.MQPassword = hostPass
+	}
 	response := models.RegisterResponse{
 		ServerConf:    server,
 		RequestedHost: newHost,
