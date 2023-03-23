@@ -201,6 +201,17 @@ func GetPeerUpdateForHost(ctx context.Context, network string, hostToSend *model
 					nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) &&
 					(deletedNode == nil || (deletedNode != nil && peer.ID.String() != deletedNode.ID.String())) {
 					peerConfig.AllowedIPs = allowedips // only append allowed IPs if valid connection
+				} else {
+					nodePeerMap[peerHost.PublicKey.String()] = models.PeerRouteInfo{
+						PeerAddr: net.IPNet{
+							IP:   net.ParseIP(peer.PrimaryAddress()),
+							Mask: getCIDRMaskFromAddr(peer.PrimaryAddress()),
+						},
+						PeerKey: peerHost.PublicKey.String(),
+						Allow:   true,
+						ID:      peerHost.ID.String(),
+						Remove:  true,
+					}
 				}
 
 				if node.IsIngressGateway || node.IsEgressGateway {
@@ -283,6 +294,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, hostToSend *model
 					hostPeerUpdate.NodePeers = append(hostPeerUpdate.NodePeers, nodePeer)
 				}
 			}
+
 			if node.IsIngressGateway {
 				getIngressNodeAllowedIPs(network, &node, &hostPeerUpdate, nodePeerMap)
 			}
@@ -394,6 +406,17 @@ func GetPeerUpdateOfSingleHost(
 				nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) &&
 				(deletedNode == nil || (deletedNode != nil && peer.ID.String() != deletedNode.ID.String())) {
 				peerConfig.AllowedIPs = allowedips // only append allowed IPs if valid connection
+			} else {
+				nodePeerMap[updatedHost.PublicKey.String()] = models.PeerRouteInfo{
+					PeerAddr: net.IPNet{
+						IP:   net.ParseIP(peer.PrimaryAddress()),
+						Mask: getCIDRMaskFromAddr(peer.PrimaryAddress()),
+					},
+					PeerKey: updatedHost.PublicKey.String(),
+					Allow:   true,
+					ID:      updatedHost.ID.String(),
+					Remove:  true,
+				}
 			}
 
 			if node.IsIngressGateway || node.IsEgressGateway {
@@ -477,6 +500,18 @@ func GetPeerUpdateOfSingleHost(
 				hostPeerUpdate.NodePeers = append(hostPeerUpdate.NodePeers, nodePeer)
 			}
 		}
+		if deletedNode != nil {
+			nodePeerMap[updatedHost.PublicKey.String()] = models.PeerRouteInfo{
+				PeerAddr: net.IPNet{
+					IP:   net.ParseIP(deletedNode.PrimaryAddress()),
+					Mask: getCIDRMaskFromAddr(deletedNode.PrimaryAddress()),
+				},
+				PeerKey: updatedHost.PublicKey.String(),
+				Allow:   true,
+				ID:      deletedNode.ID.String(),
+				Remove:  true,
+			}
+		}
 		if node.IsIngressGateway {
 			getIngressNodeAllowedIPs(network, &node, &hostPeerUpdate, nodePeerMap)
 		}
@@ -500,8 +535,9 @@ func GetPeerUpdateOfSingleHost(
 		if len(peer.AllowedIPs) == 0 ||
 			(deleteHost && peer.PublicKey.String() == updatedHost.PublicKey.String()) {
 			peer.Remove = true
+			hostPeerUpdate.Peers[i] = peer
 		}
-		hostPeerUpdate.Peers[i] = peer
+
 	}
 
 	for i := range hostPeerUpdate.NodePeers {

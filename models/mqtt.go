@@ -43,6 +43,7 @@ type PeerRouteInfo struct {
 	PeerKey  string    `json:"peer_key" yaml:"peer_key"`
 	Allow    bool      `json:"allow" yaml:"allow"`
 	ID       string    `json:"id,omitempty" yaml:"id,omitempty"`
+	Remove   bool      `json:"remove" yaml:"remove"`
 }
 
 // ExtClientInfo - struct for ext. client and it's peers
