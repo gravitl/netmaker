@@ -103,8 +103,8 @@ func CreateIngressGateway(netid string, nodeid string, failover bool) (models.No
 	if err != nil {
 		return models.Node{}, err
 	}
-	if host.OS != "linux" {
-		return models.Node{}, errors.New("ingress can only be created on linux based node")
+	if host.OS != "linux" && host.OS != "freebsd" {
+		return models.Node{}, errors.New("ingress can only be created on linux/freebsd based nodes")
 	}
 	if host.FirewallInUse == models.FIREWALL_NONE {
 		return models.Node{}, errors.New("firewall is not supported for ingress gateways")
