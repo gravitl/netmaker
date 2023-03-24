@@ -705,10 +705,10 @@ setup_mesh
 set -e
 
 # 11. add netclient to docker-compose and start it up
-setup_netclient
+#setup_netclient
 
 # 12. make the netclient a default host and ingress gw
-configure_netclient
+#configure_netclient
 
 # 13. print success message
 print_success
