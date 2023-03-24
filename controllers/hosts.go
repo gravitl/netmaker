@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,6 +27,7 @@ func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/hosts/{hostid}/relay", logic.SecurityCheck(false, http.HandlerFunc(createHostRelay))).Methods(http.MethodPost)
 	r.HandleFunc("/api/hosts/{hostid}/relay", logic.SecurityCheck(false, http.HandlerFunc(deleteHostRelay))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/hosts/adm/authenticate", authenticateHost).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/host", authorize(true, false, "host", http.HandlerFunc(pull))).Methods(http.MethodGet)
 }
 
 // swagger:route GET /api/hosts hosts getHosts
@@ -51,6 +53,53 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiHosts)
+}
+
+// swagger:route GET /api/v1/host pull pullHost
+//
+// Used by clients for "pull" command
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: pull
+func pull(w http.ResponseWriter, r *http.Request) {
+
+	hostID := r.Header.Get(hostIDHeader) // return JSON/API formatted keys
+	if len(hostID) == 0 {
+		logger.Log(0, "no host authorized to pull")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("no host authorized to pull"), "internal"))
+		return
+	}
+	host, err := logic.GetHost(hostID)
+	if err != nil {
+		logger.Log(0, "no host found during pull", hostID)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	hPU, err := logic.GetPeerUpdateForHost(context.Background(), "", host, nil, nil)
+	if err != nil {
+		logger.Log(0, "could not pull peers for host", hostID)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	serverConf := servercfg.GetServerInfo()
+	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
+		serverConf.MQUserName = hostID
+	}
+	response := models.HostPull{
+		Host:         *host,
+		ServerConfig: serverConf,
+		Peers:        hPU.Peers,
+		PeerIDs:      hPU.PeerIDs,
+	}
+
+	logger.Log(1, hostID, "completed a pull")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(&response)
 }
 
 // swagger:route PUT /api/hosts/{hostid} hosts updateHost

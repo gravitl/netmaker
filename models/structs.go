@@ -198,6 +198,14 @@ type TrafficKeys struct {
 	Server []byte `json:"server" bson:"server" yaml:"server"`
 }
 
+// HostPull - response of a host's pull
+type HostPull struct {
+	Host         Host                 `json:"host" yaml:"host"`
+	Peers        []wgtypes.PeerConfig `json:"peers" yaml:"peers"`
+	ServerConfig ServerConfig         `json:"server_config" yaml:"server_config"`
+	PeerIDs      PeerMap              `json:"peer_ids,omitempty" yaml:"peer_ids,omitempty"`
+}
+
 // NodeGet - struct for a single node get response
 type NodeGet struct {
 	Node         Node                 `json:"node" bson:"node" yaml:"node"`
