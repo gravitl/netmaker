@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/nacl/box"
@@ -31,21 +32,14 @@ type apiServerConf struct {
 
 // AddLicenseHooks - adds the validation and cache clear hooks
 func AddLicenseHooks() {
-	logic.AddHook(ValidateLicense)
-	logic.AddHook(ClearLicenseCache)
-}
-func init() {
-	go func() {
-		for {
-			time.Sleep(time.Hour)
-			err := ValidateLicense()
-			if err != nil {
-				logger.Log(0, "failed to validate license: ", err.Error())
-				continue
-			}
-			logger.Log(0, "Validated License!!")
-		}
-	}()
+	logic.HookManangerCh <- models.HookDetails{
+		Hook:     ValidateLicense,
+		Interval: time.Hour,
+	}
+	logic.HookManangerCh <- models.HookDetails{
+		Hook:     ClearLicenseCache,
+		Interval: time.Hour,
+	}
 }
 
 // ValidateLicense - the initial license check for netmaker server

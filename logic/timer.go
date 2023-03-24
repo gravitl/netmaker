@@ -1,10 +1,13 @@
 package logic
 
 import (
+	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/models"
 )
 
 // == Constants ==
@@ -38,6 +41,37 @@ func TimerCheckpoint() error {
 // AddHook - adds a hook function to run every 24hrs
 func AddHook(ifaceToAdd interface{}) {
 	timeHooks = append(timeHooks, ifaceToAdd)
+}
+
+var HookManangerCh = make(chan models.HookDetails, 2)
+
+func StartHookManager(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Log(0, "## Stopping Hook Manager")
+			return
+		case newhook := <-HookManangerCh:
+			wg.Add(1)
+			go addHookWithInterval(ctx, wg, newhook.Hook, newhook.Interval)
+		}
+	}
+}
+
+func addHookWithInterval(ctx context.Context, wg *sync.WaitGroup, hook func() error, interval time.Duration) {
+	defer wg.Done()
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			hook()
+		}
+	}
+
 }
 
 // == private ==

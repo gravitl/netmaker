@@ -88,7 +88,6 @@ func initialize() { // Client Mode Prereq Check
 	if err != nil {
 		logger.Log(1, "Timer error occurred: ", err.Error())
 	}
-
 	logic.EnterpriseCheck()
 
 	var authProvider = auth.InitializeAuthProvider()
@@ -149,6 +148,9 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 	// starts the stun server
 	wg.Add(1)
 	go stunserver.Start(wg, ctx)
+
+	wg.Add(1)
+	go logic.StartHookManager(ctx, wg)
 }
 
 // Should we be using a context vice a waitgroup????????????

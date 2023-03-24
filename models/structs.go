@@ -267,3 +267,18 @@ type StunServer struct {
 	Domain string `json:"domain" yaml:"domain"`
 	Port   int    `json:"port" yaml:"port"`
 }
+
+// HookDetails - struct to hold hook info
+type HookDetails struct {
+	Hook     func() error
+	Interval time.Duration
+}
+
+// LicenseLimits - struct license limits
+type LicenseLimits struct {
+	Servers  int `json:"servers"`
+	Users    int `json:"users"`
+	Hosts    int `json:"hosts"`
+	Clients  int `json:"clients"`
+	Networks int `json:"networks"`
+}

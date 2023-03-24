@@ -30,7 +30,6 @@ func base64decode(input string) []byte {
 
 	return bytes
 }
-
 func getCurrentServerLimit() (limits LicenseLimits) {
 	limits.SetDefaults()
 	hosts, err := logic.GetAllHosts()
