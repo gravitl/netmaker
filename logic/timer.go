@@ -43,7 +43,7 @@ func AddHook(ifaceToAdd interface{}) {
 	timeHooks = append(timeHooks, ifaceToAdd)
 }
 
-var HookManangerCh = make(chan models.HookDetails, 2)
+var HookManagerCh = make(chan models.HookDetails, 2)
 
 func StartHookManager(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
@@ -52,7 +52,7 @@ func StartHookManager(ctx context.Context, wg *sync.WaitGroup) {
 		case <-ctx.Done():
 			logger.Log(0, "## Stopping Hook Manager")
 			return
-		case newhook := <-HookManangerCh:
+		case newhook := <-HookManagerCh:
 			wg.Add(1)
 			go addHookWithInterval(ctx, wg, newhook.Hook, newhook.Interval)
 		}
