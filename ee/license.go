@@ -32,11 +32,11 @@ type apiServerConf struct {
 
 // AddLicenseHooks - adds the validation and cache clear hooks
 func AddLicenseHooks() {
-	logic.HookManangerCh <- models.HookDetails{
+	logic.HookManagerCh <- models.HookDetails{
 		Hook:     ValidateLicense,
 		Interval: time.Hour,
 	}
-	logic.HookManangerCh <- models.HookDetails{
+	logic.HookManagerCh <- models.HookDetails{
 		Hook:     ClearLicenseCache,
 		Interval: time.Hour,
 	}

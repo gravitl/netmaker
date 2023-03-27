@@ -49,7 +49,10 @@ func getUsage(w http.ResponseWriter, r *http.Request) {
 		serverUsage.Networks = len(networks)
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(&serverUsage)
+	json.NewEncoder(w).Encode(models.SuccessResponse{
+		Code:     http.StatusOK,
+		Response: serverUsage,
+	})
 
 }
 
