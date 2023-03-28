@@ -88,14 +88,15 @@ func PublishSingleHostPeerUpdate(ctx context.Context, host *models.Host, deleted
 	if len(peerUpdate.Peers) == 0 { // no peers to send
 		return nil
 	}
-	if host.ProxyEnabled {
-		proxyUpdate, err := logic.GetProxyUpdateForHost(ctx, host)
-		if err != nil {
-			return err
-		}
-		proxyUpdate.Action = models.ProxyUpdate
-		peerUpdate.ProxyUpdate = proxyUpdate
+	//if host.ProxyEnabled {
+	proxyUpdate, err := logic.GetProxyUpdateForHost(ctx, host)
+	if err != nil {
+		return err
 	}
+	proxyUpdate.Server = servercfg.GetServer()
+	proxyUpdate.Action = models.ProxyUpdate
+	peerUpdate.ProxyUpdate = proxyUpdate
+	//}
 
 	data, err := json.Marshal(&peerUpdate)
 	if err != nil {

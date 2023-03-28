@@ -94,9 +94,10 @@ func GetProxyUpdateForHost(ctx context.Context, host *models.Host) (models.Proxy
 			var found bool
 			if currPeerConf, found = peerConfMap[peerHost.PublicKey.String()]; !found {
 				currPeerConf = models.PeerConf{
-					Proxy:            peerHost.ProxyEnabled,
-					PublicListenPort: int32(GetPeerListenPort(peerHost)),
-					ProxyListenPort:  GetProxyListenPort(peerHost),
+					Proxy:                 peerHost.ProxyEnabled,
+					PublicListenPort:      int32(GetPeerListenPort(peerHost)),
+					ProxyListenPort:       GetProxyListenPort(peerHost),
+					ProxyPublicListenPort: peerHost.PublicListenPort,
 				}
 			}
 
@@ -219,7 +220,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 				}
 				peerConfig.Endpoint = &net.UDPAddr{
 					IP:   peerHost.EndpointIP,
-					Port: GetPeerListenPort(peerHost),
+					Port: peerHost.ListenPort,
 				}
 
 				if uselocal {
