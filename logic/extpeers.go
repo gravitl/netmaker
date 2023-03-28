@@ -196,6 +196,7 @@ func UpdateExtClient(newclientid string, network string, enabled bool, client *m
 	}
 	client.ClientID = newclientid
 	client.Enabled = enabled
+	client.PublicKey = ""
 	SetClientACLs(client, newACLs)
 	if err = CreateExtClient(client); err != nil {
 		return client, err
