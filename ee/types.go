@@ -3,7 +3,7 @@ package ee
 import "fmt"
 
 const (
-	api_endpoint               = "https://188b-2a00-f28-ff05-4e7f-bcd8-150f-1d1-64e7.in.ngrok.io/api/v1/license/validate"
+	api_endpoint               = "https://466b-94-204-98-143.in.ngrok.io/api/v1/license/validate"
 	license_cache_key          = "license_response_cache"
 	license_validation_err_msg = "invalid license"
 	server_id_key              = "nm-server-id"
