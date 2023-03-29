@@ -94,10 +94,9 @@ func GetProxyUpdateForHost(ctx context.Context, host *models.Host) (models.Proxy
 			var found bool
 			if currPeerConf, found = peerConfMap[peerHost.PublicKey.String()]; !found {
 				currPeerConf = models.PeerConf{
-					Proxy:                 peerHost.ProxyEnabled,
-					PublicListenPort:      int32(GetPeerListenPort(peerHost)),
-					ProxyListenPort:       GetProxyListenPort(peerHost),
-					ProxyPublicListenPort: peerHost.PublicListenPort,
+					Proxy:            peerHost.ProxyEnabled,
+					PublicListenPort: int32(GetPeerListenPort(peerHost)),
+					ProxyListenPort:  GetProxyListenPort(peerHost),
 				}
 			}
 

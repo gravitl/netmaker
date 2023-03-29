@@ -35,15 +35,14 @@ type RelayedConf struct {
 
 // PeerConf - struct for peer config in the network
 type PeerConf struct {
-	Proxy                 bool         `json:"proxy"`
-	PublicListenPort      int32        `json:"public_listen_port"`
-	ProxyListenPort       int          `json:"proxy_listen_port"`
-	ProxyPublicListenPort int          `json:"proxy_public_listen_port"`
-	IsExtClient           bool         `json:"is_ext_client"`
-	Address               net.IP       `json:"address"`
-	ExtInternalIp         net.IP       `json:"ext_internal_ip"`
-	IsRelayed             bool         `json:"is_relayed"`
-	RelayedTo             *net.UDPAddr `json:"relayed_to"`
+	Proxy            bool         `json:"proxy"`
+	PublicListenPort int32        `json:"public_listen_port"`
+	ProxyListenPort  int          `json:"proxy_listen_port"`
+	IsExtClient      bool         `json:"is_ext_client"`
+	Address          net.IP       `json:"address"`
+	ExtInternalIp    net.IP       `json:"ext_internal_ip"`
+	IsRelayed        bool         `json:"is_relayed"`
+	RelayedTo        *net.UDPAddr `json:"relayed_to"`
 }
 
 // ProxyManagerPayload - struct for proxy manager payload
