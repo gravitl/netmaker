@@ -52,7 +52,7 @@ jobs:
     needs: [getbranch, terraform]
     uses: gravitl/devops/.github/workflows/branchtest.yml@master
     with:
-      tag: ${{ github.ref_name }}
-      network: ${{ github.ref_name }}
+      tag: ${{ github.run_id }}-${{ github.run_attempt }}
+      network: terraform
     secrets: inherit
     
