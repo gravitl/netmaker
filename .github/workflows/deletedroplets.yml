@@ -2,7 +2,7 @@ name: Delete Droplets
 
 on:
   workflow_run:
-    workflows: [Run All Test on Branch]
+    workflows: [Deploy and Test Branch]
     types:
       - completed
 
