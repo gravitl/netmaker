@@ -15,7 +15,7 @@ jobs:
       - id: skip
         uses: fkirc/skip-duplicate-actions@v5
         with:
-          concurrent_skiping: 'always'
+          concurrent_skipping: 'always'
   getbranch:
     runs-on: ubuntu-latest
     needs: skip-check
