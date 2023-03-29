@@ -31,9 +31,9 @@ jobs:
       - name: check if branch exists
         id: checkbranch
         run: |
-          if git show-ref ${{ github.ref_name}}; then
+          if git show-ref ${{ github.head_ref}}; then
             echo branch exists
-            echo "netclientbranch=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "netclientbranch=${{ github.head_ref }}" >> $GITHUB_OUTPUT
           else
             echo branch does not exist
             echo "netclientbranch=develop" >> $GITHUB_OUTPUT
@@ -43,7 +43,7 @@ jobs:
     needs: getbranch
     uses: gravitl/devops/.github/workflows/terraform.yml@master
     with:
-      netmakerbranch: ${{ github.ref_name }}
+      netmakerbranch: ${{ github.head_ref }}
       netclientbranch: ${{ needs.getbranch.outputs.netclientbranch }}
     secrets: inherit
 
