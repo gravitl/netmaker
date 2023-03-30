@@ -440,7 +440,7 @@ setup_netclient() {
 # setup_nmctl - pulls nmctl and makes it executable
 setup_nmctl() {
 
-    wget -O nmctl https://github.com/gravitl/netmaker/releases/download/$LATEST/nmctl_linux_amd64
+    wget -O nmctl https://github.com/gravitl/netmaker/releases/download/$LATEST/nmctl_linux_$(dpkg --print-architecture)
   
     chmod +x nmctl
     echo "using server $SERVER_HTTP_HOST"
