@@ -43,7 +43,7 @@ usage () {
     echo "  -t      tag of build; if buildtype=version, tag=version. If builtype=branch or builtype=local, tag=branch"
     echo "  -a      auto-build; skip prompts and use defaults, if none provided"
     echo "examples:"
-	echo "          nm-quick.sh -e -b version -t v0.18.5"
+	echo "          nm-quick.sh -e -b version -t $LATEST"
 	echo "          nm-quick.sh -e -b local -t feature_v0.17.2_newfeature"	
 	echo "          nm-quick.sh -e -b branch -t develop"
     exit 1
@@ -210,11 +210,8 @@ configure_netclient() {
 # setup_nmctl - pulls nmctl and makes it executable
 setup_nmctl() {
 
-	# DEV_TEMP - Temporary instructions for testing
-	wget -O /usr/bin/nmctl https://fileserver.netmaker.org/testing/nmctl
+	wget -O /usr/bin/nmctl https://github.com/gravitl/netmaker/releases/download/$LATEST/nmctl_linux_amd64
 
-	# RELEASE_REPLACE - Use this once release is ready
-	# wget https://github.com/gravitl/netmaker/releases/download/v0.17.1/nmctl
     chmod +x /usr/bin/nmctl
     echo "using server api.$NETMAKER_BASE_DOMAIN"
     echo "using master key $MASTER_KEY"
