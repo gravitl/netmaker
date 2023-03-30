@@ -180,7 +180,6 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 	}
 	if len(newHost.NatType) > 0 && newHost.NatType != currHost.NatType {
 		currHost.NatType = newHost.NatType
-		logger.Log(0, "updated host nat type", newHost.Name, newHost.NatType)
 		sendPeerUpdate = true
 	}
 
