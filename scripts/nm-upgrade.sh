@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LATEST="testing"
+LATEST="v0.18.5"
 
 # check_version - make sure current version is 0.17.1 before continuing
 check_version() {
@@ -337,17 +337,11 @@ set_compose() {
   rm /root/wait.sh
   rm /root/mosquitto.conf
 
-  # DEV_TEMP
-  wget -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/develop/docker/wait.sh 
-  # RELEASE_REPLACE - Use this once release is ready
-  # wget -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/master/docker/wait.sh
+  wget -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/master/docker/wait.sh
 
   chmod +x /root/wait.sh
 
-  # DEV_TEMP
-  wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/develop/docker/mosquitto.conf
-  # RELEASE_REPLACE - Use this once release is ready
-  # wget -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/master/docker/wait.sh
+  wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf
 
   chmod +x /root/mosquitto.conf
 
@@ -431,7 +425,7 @@ setup_netclient() {
 	netclient uninstall
 	set -e
 
-  wget -O /tmp/netclient https://fileserver.netmaker.org/$LATEST/netclient 
+  wget -O /tmp/netclient https://github.com/gravitl/netclient/releases/download/$LATEST/netclient_linux_amd64 
 
 	chmod +x /tmp/netclient
 	/tmp/netclient install
@@ -446,11 +440,8 @@ setup_netclient() {
 # setup_nmctl - pulls nmctl and makes it executable
 setup_nmctl() {
 
-  # DEV_TEMP - Temporary instructions for testing
-  wget https://fileserver.netmaker.org/testing/nmctl
- 
-  # RELEASE_REPLACE - Use this once release is ready
-  # wget https://github.com/gravitl/netmaker/releases/download/v0.17.1/nmctl
+    wget -O nmctl https://github.com/gravitl/netmaker/releases/download/$LATEST/nmctl_linux_amd64
+  
     chmod +x nmctl
     echo "using server $SERVER_HTTP_HOST"
     echo "using master key $MASTER_KEY"
