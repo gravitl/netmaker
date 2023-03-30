@@ -1,14 +1,18 @@
 package mq
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/logic/hostactions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
@@ -19,54 +23,141 @@ func DefaultHandler(client mqtt.Client, msg mqtt.Message) {
 	logger.Log(0, "MQTT Message: Topic: ", string(msg.Topic()), " Message: ", string(msg.Payload()))
 }
 
-// Ping message Handler -- handles ping topic from client nodes
-func Ping(client mqtt.Client, msg mqtt.Message) {
-	go func() {
-		id, err := getID(msg.Topic())
-		if err != nil {
-			logger.Log(0, "error getting node.ID sent on ping topic ")
-			return
-		}
-		node, err := logic.GetNodeByID(id)
-		if err != nil {
-			logger.Log(0, "mq-ping error getting node: ", err.Error())
-			record, err := database.FetchRecord(database.NODES_TABLE_NAME, id)
-			if err != nil {
-				logger.Log(0, "error reading database ", err.Error())
-				return
-			}
-			logger.Log(0, "record from database")
-			logger.Log(0, record)
-			return
-		}
-		decrypted, decryptErr := decryptMsg(&node, msg.Payload())
-		if decryptErr != nil {
-			logger.Log(0, "error decrypting when updating node ", node.ID, decryptErr.Error())
-			return
-		}
-		var checkin models.NodeCheckin
-		if err := json.Unmarshal(decrypted, &checkin); err != nil {
-			logger.Log(1, "error unmarshaling payload ", err.Error())
-			return
-		}
-		node.SetLastCheckIn()
-		node.Version = checkin.Version
-		node.Connected = checkin.Connected
-		node.Interfaces = checkin.Ifaces
-		if err := logic.UpdateNode(&node, &node); err != nil {
-			logger.Log(0, "error updating node", node.Name, node.ID, " on checkin", err.Error())
-			return
-		}
-
-		logger.Log(3, "ping processed for node", node.Name, node.ID)
-		// --TODO --set client version once feature is implemented.
-		//node.SetClientVersion(msg.Payload())
-	}()
-}
-
 // UpdateNode  message Handler -- handles updates from client nodes
 func UpdateNode(client mqtt.Client, msg mqtt.Message) {
-	go func() {
+	id, err := getID(msg.Topic())
+	if err != nil {
+		logger.Log(1, "error getting node.ID sent on ", msg.Topic(), err.Error())
+		return
+	}
+	currentNode, err := logic.GetNodeByID(id)
+	if err != nil {
+		logger.Log(1, "error getting node ", id, err.Error())
+		return
+	}
+	decrypted, decryptErr := decryptMsg(&currentNode, msg.Payload())
+	if decryptErr != nil {
+		logger.Log(1, "failed to decrypt message for node ", id, decryptErr.Error())
+		return
+	}
+	var newNode models.Node
+	if err := json.Unmarshal(decrypted, &newNode); err != nil {
+		logger.Log(1, "error unmarshaling payload ", err.Error())
+		return
+	}
+
+	ifaceDelta := logic.IfaceDelta(&currentNode, &newNode)
+	if servercfg.Is_EE && ifaceDelta {
+		if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID, currentNode.Network); err != nil {
+			logger.Log(1, "failed to reset failover list during node update", currentNode.ID.String(), currentNode.Network)
+		}
+	}
+	newNode.SetLastCheckIn()
+	if err := logic.UpdateNode(&currentNode, &newNode); err != nil {
+		logger.Log(1, "error saving node", err.Error())
+		return
+	}
+	if ifaceDelta { // reduce number of unneeded updates, by only sending on iface changes
+		if err = PublishPeerUpdate(); err != nil {
+			logger.Log(0, "error updating peers when node", currentNode.ID.String(), "informed the server of an interface change", err.Error())
+		}
+	}
+
+	logger.Log(1, "updated node", id, newNode.ID.String())
+}
+
+// UpdateHost  message Handler -- handles host updates from clients
+func UpdateHost(client mqtt.Client, msg mqtt.Message) {
+	id, err := getID(msg.Topic())
+	if err != nil {
+		logger.Log(1, "error getting host.ID sent on ", msg.Topic(), err.Error())
+		return
+	}
+	currentHost, err := logic.GetHost(id)
+	if err != nil {
+		logger.Log(1, "error getting host ", id, err.Error())
+		return
+	}
+	decrypted, decryptErr := decryptMsgWithHost(currentHost, msg.Payload())
+	if decryptErr != nil {
+		logger.Log(1, "failed to decrypt message for host ", id, decryptErr.Error())
+		return
+	}
+	var hostUpdate models.HostUpdate
+	if err := json.Unmarshal(decrypted, &hostUpdate); err != nil {
+		logger.Log(1, "error unmarshaling payload ", err.Error())
+		return
+	}
+	logger.Log(3, fmt.Sprintf("recieved host update: %s\n", hostUpdate.Host.ID.String()))
+	var sendPeerUpdate bool
+	switch hostUpdate.Action {
+	case models.CheckIn:
+		sendPeerUpdate = handleHostCheckin(&hostUpdate.Host, currentHost)
+	case models.Acknowledgement:
+		hu := hostactions.GetAction(currentHost.ID.String())
+		if hu != nil {
+			if err = HostUpdate(hu); err != nil {
+				logger.Log(0, "failed to send new node to host", hostUpdate.Host.Name, currentHost.ID.String(), err.Error())
+				return
+			} else {
+				if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
+					if err = AppendNodeUpdateACL(hu.Host.ID.String(), hu.Node.Network, hu.Node.ID.String(), servercfg.GetServer()); err != nil {
+						logger.Log(0, "failed to add ACLs for EMQX node", err.Error())
+						return
+					}
+				}
+				if err = PublishSingleHostPeerUpdate(context.Background(), currentHost, nil, nil); err != nil {
+					logger.Log(0, "failed peers publish after join acknowledged", hostUpdate.Host.Name, currentHost.ID.String(), err.Error())
+					return
+				}
+				if err = handleNewNodeDNS(&hu.Host, &hu.Node); err != nil {
+					logger.Log(0, "failed to send dns update after node,", hu.Node.ID.String(), ", added to host", hu.Host.Name, err.Error())
+					return
+				}
+			}
+		}
+	case models.UpdateHost:
+		sendPeerUpdate = logic.UpdateHostFromClient(&hostUpdate.Host, currentHost)
+		err := logic.UpsertHost(currentHost)
+		if err != nil {
+			logger.Log(0, "failed to update host: ", currentHost.ID.String(), err.Error())
+			return
+		}
+	case models.DeleteHost:
+		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
+			// delete EMQX credentials for host
+			if err := DeleteEmqxUser(currentHost.ID.String()); err != nil {
+				logger.Log(0, "failed to remove host credentials from EMQX: ", currentHost.ID.String(), err.Error())
+				return
+			}
+		}
+		if err := logic.DisassociateAllNodesFromHost(currentHost.ID.String()); err != nil {
+			logger.Log(0, "failed to delete all nodes of host: ", currentHost.ID.String(), err.Error())
+			return
+		}
+		if err := logic.RemoveHostByID(currentHost.ID.String()); err != nil {
+			logger.Log(0, "failed to delete host: ", currentHost.ID.String(), err.Error())
+			return
+		}
+		sendPeerUpdate = true
+	}
+
+	if sendPeerUpdate {
+		err := PublishPeerUpdate()
+		if err != nil {
+			logger.Log(0, "failed to pulish peer update: ", err.Error())
+		}
+	}
+	// if servercfg.Is_EE && ifaceDelta {
+	// 	if err = logic.EnterpriseResetAllPeersFailovers(currentHost.ID.String(), currentHost.Network); err != nil {
+	// 		logger.Log(1, "failed to reset failover list during node update", currentHost.ID.String(), currentHost.Network)
+	// 	}
+	// }
+}
+
+// UpdateMetrics  message Handler -- handles updates from client nodes for metrics
+func UpdateMetrics(client mqtt.Client, msg mqtt.Message) {
+	if servercfg.Is_EE {
 		id, err := getID(msg.Topic())
 		if err != nil {
 			logger.Log(1, "error getting node.ID sent on ", msg.Topic(), err.Error())
@@ -82,150 +173,84 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 			logger.Log(1, "failed to decrypt message for node ", id, decryptErr.Error())
 			return
 		}
-		var newNode models.Node
-		if err := json.Unmarshal(decrypted, &newNode); err != nil {
+
+		var newMetrics models.Metrics
+		if err := json.Unmarshal(decrypted, &newMetrics); err != nil {
 			logger.Log(1, "error unmarshaling payload ", err.Error())
 			return
 		}
-		ifaceDelta := logic.IfaceDelta(&currentNode, &newNode)
-		if servercfg.Is_EE && ifaceDelta {
-			if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID, currentNode.Network); err != nil {
-				logger.Log(1, "failed to reset failover list during node update", currentNode.Name, currentNode.Network)
-			}
-		}
-		newNode.SetLastCheckIn()
-		if err := logic.UpdateNode(&currentNode, &newNode); err != nil {
-			logger.Log(1, "error saving node", err.Error())
+
+		shouldUpdate := updateNodeMetrics(&currentNode, &newMetrics)
+
+		if err = logic.UpdateMetrics(id, &newMetrics); err != nil {
+			logger.Log(1, "faield to update node metrics", id, err.Error())
 			return
 		}
-		if ifaceDelta { // reduce number of unneeded updates, by only sending on iface changes
-			if err = PublishPeerUpdate(&currentNode, true); err != nil {
-				logger.Log(0, "error updating peers when node", currentNode.Name, currentNode.ID, "informed the server of an interface change", err.Error())
+		if servercfg.IsMetricsExporter() {
+			if err := pushMetricsToExporter(newMetrics); err != nil {
+				logger.Log(2, fmt.Sprintf("failed to push node: [%s] metrics to exporter, err: %v",
+					currentNode.ID, err))
 			}
 		}
-		logger.Log(1, "updated node", id, newNode.Name)
-	}()
-}
 
-// UpdateMetrics  message Handler -- handles updates from client nodes for metrics
-func UpdateMetrics(client mqtt.Client, msg mqtt.Message) {
-	if servercfg.Is_EE {
-		go func() {
-			id, err := getID(msg.Topic())
+		if newMetrics.Connectivity != nil {
+			err := logic.EnterpriseFailoverFunc(&currentNode)
 			if err != nil {
-				logger.Log(1, "error getting node.ID sent on ", msg.Topic(), err.Error())
-				return
+				logger.Log(0, "failed to failover for node", currentNode.ID.String(), "on network", currentNode.Network, "-", err.Error())
 			}
-			currentNode, err := logic.GetNodeByID(id)
-			if err != nil {
-				logger.Log(1, "error getting node ", id, err.Error())
-				return
-			}
-			decrypted, decryptErr := decryptMsg(&currentNode, msg.Payload())
-			if decryptErr != nil {
-				logger.Log(1, "failed to decrypt message for node ", id, decryptErr.Error())
-				return
-			}
+		}
 
-			var newMetrics models.Metrics
-			if err := json.Unmarshal(decrypted, &newMetrics); err != nil {
-				logger.Log(1, "error unmarshaling payload ", err.Error())
-				return
-			}
-
-			shouldUpdate := updateNodeMetrics(&currentNode, &newMetrics)
-
-			if err = logic.UpdateMetrics(id, &newMetrics); err != nil {
-				logger.Log(1, "faield to update node metrics", id, currentNode.Name, err.Error())
-				return
-			}
-			if servercfg.IsMetricsExporter() {
-				if err := pushMetricsToExporter(newMetrics); err != nil {
-					logger.Log(2, fmt.Sprintf("failed to push node: [%s] metrics to exporter, err: %v",
-						currentNode.Name, err))
+		if shouldUpdate {
+			logger.Log(2, "updating peers after node", currentNode.ID.String(), currentNode.Network, "detected connectivity issues")
+			host, err := logic.GetHost(currentNode.HostID.String())
+			if err == nil {
+				if err = PublishSingleHostPeerUpdate(context.Background(), host, nil, nil); err != nil {
+					logger.Log(0, "failed to publish update after failover peer change for node", currentNode.ID.String(), currentNode.Network)
 				}
 			}
+		}
 
-			if newMetrics.Connectivity != nil {
-				err := logic.EnterpriseFailoverFunc(&currentNode)
-				if err != nil {
-					logger.Log(0, "failed to failover for node", currentNode.Name, "on network", currentNode.Network, "-", err.Error())
-				}
-			}
-
-			if shouldUpdate {
-				logger.Log(2, "updating peers after node", currentNode.Name, currentNode.Network, "detected connectivity issues")
-				if err = PublishSinglePeerUpdate(&currentNode); err != nil {
-					logger.Log(0, "failed to publish update after failover peer change for node", currentNode.Name, currentNode.Network)
-				}
-			}
-
-			logger.Log(1, "updated node metrics", id, currentNode.Name)
-		}()
+		logger.Log(1, "updated node metrics", id)
 	}
 }
 
 // ClientPeerUpdate  message handler -- handles updating peers after signal from client nodes
 func ClientPeerUpdate(client mqtt.Client, msg mqtt.Message) {
-	go func() {
-		id, err := getID(msg.Topic())
-		if err != nil {
-			logger.Log(1, "error getting node.ID sent on ", msg.Topic(), err.Error())
-			return
-		}
-		currentNode, err := logic.GetNodeByID(id)
-		if err != nil {
-			logger.Log(1, "error getting node ", id, err.Error())
-			return
-		}
-		decrypted, decryptErr := decryptMsg(&currentNode, msg.Payload())
-		if decryptErr != nil {
-			logger.Log(1, "failed to decrypt message during client peer update for node ", id, decryptErr.Error())
-			return
-		}
-		switch decrypted[0] {
-		case ncutils.ACK:
-			currentServerNode, err := logic.GetNetworkServerLocal(currentNode.Network)
-			if err != nil {
-				return
-			}
-			if err := logic.ServerUpdate(&currentServerNode, false); err != nil {
-				logger.Log(1, "server node:", currentServerNode.ID, "failed update")
-				return
-			}
-		case ncutils.DONE:
-			updateNodePeers(&currentNode)
-		}
-
-		logger.Log(1, "sent peer updates after signal received from", id, currentNode.Name)
-	}()
-}
-
-func updateNodePeers(currentNode *models.Node) {
-	currentServerNode, err := logic.GetNetworkServerLocal(currentNode.Network)
+	id, err := getID(msg.Topic())
 	if err != nil {
-		logger.Log(1, "failed to get server node failed update\n", err.Error())
+		logger.Log(1, "error getting node.ID sent on ", msg.Topic(), err.Error())
 		return
 	}
-	if err := logic.ServerUpdate(&currentServerNode, false); err != nil {
-		logger.Log(1, "server node:", currentServerNode.ID, "failed update")
+	currentNode, err := logic.GetNodeByID(id)
+	if err != nil {
+		logger.Log(1, "error getting node ", id, err.Error())
 		return
 	}
-	if logic.IsLeader(&currentServerNode) {
-		if err := PublishPeerUpdate(currentNode, false); err != nil {
-			logger.Log(1, "error publishing peer update ", err.Error())
+	decrypted, decryptErr := decryptMsg(&currentNode, msg.Payload())
+	if decryptErr != nil {
+		logger.Log(1, "failed to decrypt message during client peer update for node ", id, decryptErr.Error())
+		return
+	}
+	switch decrypted[0] {
+	case ncutils.ACK:
+		// do we still need this
+	case ncutils.DONE:
+		if err = PublishPeerUpdate(); err != nil {
+			logger.Log(1, "error publishing peer update for node", currentNode.ID.String(), err.Error())
 			return
 		}
 	}
+
+	logger.Log(1, "sent peer updates after signal received from", id)
 }
 
 func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) bool {
 	if newMetrics.FailoverPeers == nil {
 		newMetrics.FailoverPeers = make(map[string]string)
 	}
-	oldMetrics, err := logic.GetMetrics(currentNode.ID)
+	oldMetrics, err := logic.GetMetrics(currentNode.ID.String())
 	if err != nil {
-		logger.Log(1, "error finding old metrics for node", currentNode.ID, currentNode.Name)
+		logger.Log(1, "error finding old metrics for node", currentNode.ID.String())
 		return false
 	}
 	if oldMetrics.FailoverPeers == nil {
@@ -233,8 +258,8 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 	}
 
 	var attachedClients []models.ExtClient
-	if currentNode.IsIngressGateway == "yes" {
-		clients, err := logic.GetExtClientsByID(currentNode.ID, currentNode.Network)
+	if currentNode.IsIngressGateway {
+		clients, err := logic.GetExtClientsByID(currentNode.ID.String(), currentNode.Network)
 		if err == nil {
 			attachedClients = clients
 		}
@@ -251,7 +276,6 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 				}
 			}
 			extMetric.NodeName = attachedClients[i].ClientID
-			extMetric.IsServer = "no"
 			delete(newMetrics.Connectivity, attachedClients[i].PublicKey)
 			newMetrics.Connectivity[attachedClients[i].ClientID] = extMetric
 		}
@@ -263,6 +287,21 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 		oldMetric := oldMetrics.Connectivity[k]
 		currMetric.TotalTime += oldMetric.TotalTime
 		currMetric.Uptime += oldMetric.Uptime // get the total uptime for this connection
+		if currMetric.CollectedByProxy {
+			currMetric.TotalReceived += oldMetric.TotalReceived
+			currMetric.TotalSent += oldMetric.TotalSent
+		} else {
+			if currMetric.TotalReceived < oldMetric.TotalReceived {
+				currMetric.TotalReceived += oldMetric.TotalReceived
+			} else {
+				currMetric.TotalReceived += int64(math.Abs(float64(currMetric.TotalReceived) - float64(oldMetric.TotalReceived)))
+			}
+			if currMetric.TotalSent < oldMetric.TotalSent {
+				currMetric.TotalSent += oldMetric.TotalSent
+			} else {
+				currMetric.TotalSent += int64(math.Abs(float64(currMetric.TotalSent) - float64(oldMetric.TotalSent)))
+			}
+		}
 		if currMetric.Uptime == 0 || currMetric.TotalTime == 0 {
 			currMetric.PercentUp = 0
 		} else {
@@ -272,6 +311,7 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 		currMetric.ActualUptime = time.Duration(totalUpMinutes) * time.Minute
 		delete(oldMetrics.Connectivity, k) // remove from old data
 		newMetrics.Connectivity[k] = currMetric
+
 	}
 
 	// add nodes that need failover
@@ -281,12 +321,12 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 		return false
 	}
 	for _, node := range nodes {
-		if !newMetrics.Connectivity[node.ID].Connected &&
-			len(newMetrics.Connectivity[node.ID].NodeName) > 0 &&
-			node.Connected == "yes" &&
+		if !newMetrics.Connectivity[node.ID.String()].Connected &&
+			len(newMetrics.Connectivity[node.ID.String()].NodeName) > 0 &&
+			node.Connected &&
 			len(node.FailoverNode) > 0 &&
-			node.Failover != "yes" {
-			newMetrics.FailoverPeers[node.ID] = node.FailoverNode
+			!node.Failover {
+			newMetrics.FailoverPeers[node.ID.String()] = node.FailoverNode.String()
 		}
 	}
 	shouldUpdate := len(oldMetrics.FailoverPeers) == 0 && len(newMetrics.FailoverPeers) > 0
@@ -304,4 +344,68 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 		delete(newMetrics.Connectivity, k)
 	}
 	return shouldUpdate
+}
+
+func handleNewNodeDNS(host *models.Host, node *models.Node) error {
+	dns := models.DNSUpdate{
+		Action: models.DNSInsert,
+		Name:   host.Name + "." + node.Network,
+	}
+	if node.Address.IP != nil {
+		dns.Address = node.Address.IP.String()
+		if err := PublishDNSUpdate(node.Network, dns); err != nil {
+			return err
+		}
+	} else if node.Address6.IP != nil {
+		dns.Address = node.Address6.IP.String()
+		if err := PublishDNSUpdate(node.Network, dns); err != nil {
+			return err
+		}
+	}
+	if err := PublishAllDNS(node); err != nil {
+		return err
+	}
+	return nil
+}
+
+func handleHostCheckin(h, currentHost *models.Host) bool {
+	if h == nil {
+		return false
+	}
+
+	for i := range currentHost.Nodes {
+		currNodeID := currentHost.Nodes[i]
+		node, err := logic.GetNodeByID(currNodeID)
+		if err != nil {
+			if database.IsEmptyRecord(err) {
+				fakeNode := models.Node{}
+				fakeNode.ID, _ = uuid.Parse(currNodeID)
+				fakeNode.Action = models.NODE_DELETE
+				fakeNode.PendingDelete = true
+				if err := NodeUpdate(&fakeNode); err != nil {
+					logger.Log(0, "failed to inform host", currentHost.Name, currentHost.ID.String(), "to remove node", currNodeID, err.Error())
+				}
+			}
+			continue
+		}
+		if err := logic.UpdateNodeCheckin(&node); err != nil {
+			logger.Log(0, "error updating node", node.ID.String(), " on checkin", err.Error())
+		}
+	}
+
+	for i := range h.Interfaces {
+		h.Interfaces[i].AddressString = h.Interfaces[i].Address.String()
+	}
+	ifaceDelta := len(h.Interfaces) != len(currentHost.Interfaces) || !h.EndpointIP.Equal(currentHost.EndpointIP)
+	currentHost.EndpointIP = h.EndpointIP
+	currentHost.Interfaces = h.Interfaces
+	currentHost.DefaultInterface = h.DefaultInterface
+	if err := logic.UpsertHost(currentHost); err != nil {
+		logger.Log(0, "failed to update host after check-in", h.Name, h.ID.String(), err.Error())
+		return false
+	}
+
+	logger.Log(0, "ping processed for host", h.Name, h.ID.String())
+	return ifaceDelta
+
 }

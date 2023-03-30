@@ -2,18 +2,22 @@ package models
 
 import (
 	"strings"
-	"time"
 
 	jwt "github.com/golang-jwt/jwt/v4"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-const PLACEHOLDER_KEY_TEXT = "ACCESS_KEY"
-const PLACEHOLDER_TOKEN_TEXT = "ACCESS_TOKEN"
+const (
+	// PLACEHOLDER_KEY_TEXT - access key placeholder text if option turned off
+	PLACEHOLDER_KEY_TEXT = "ACCESS_KEY"
+	// PLACEHOLDER_TOKEN_TEXT - access key token placeholder text if option turned off
+	PLACEHOLDER_TOKEN_TEXT = "ACCESS_TOKEN"
+)
 
 // CustomExtClient - struct for CustomExtClient params
 type CustomExtClient struct {
-	ClientID string `json:"clientid"`
+	ClientID  string `json:"clientid"`
+	PublicKey string `json:"publickey,omitempty"`
 }
 
 // AuthParams - struct for auth params
@@ -97,15 +101,6 @@ type SuccessResponse struct {
 	Response interface{}
 }
 
-// AccessKey - access key struct
-type AccessKey struct {
-	Name         string     `json:"name" bson:"name" validate:"omitempty,max=345"`
-	Value        string     `json:"value" bson:"value" validate:"omitempty,alphanum,max=16"`
-	AccessString string     `json:"accessstring" bson:"accessstring"`
-	Uses         int        `json:"uses" bson:"uses" validate:"numeric,min=0"`
-	Expiration   *time.Time `json:"expiration" bson:"expiration"`
-}
-
 // DisplayKey - what is displayed for key
 type DisplayKey struct {
 	Name string `json:"name" bson:"name"`
@@ -160,9 +155,6 @@ type EgressGatewayRequest struct {
 	NetID      string   `json:"netid" bson:"netid"`
 	NatEnabled string   `json:"natenabled" bson:"natenabled"`
 	Ranges     []string `json:"ranges" bson:"ranges"`
-	Interface  string   `json:"interface" bson:"interface"`
-	PostUp     string   `json:"postup" bson:"postup"`
-	PostDown   string   `json:"postdown" bson:"postdown"`
 }
 
 // RelayRequest - relay request struct
@@ -172,11 +164,17 @@ type RelayRequest struct {
 	RelayAddrs []string `json:"relayaddrs" bson:"relayaddrs"`
 }
 
+// HostRelayRequest - struct for host relay creation
+type HostRelayRequest struct {
+	HostID       string   `json:"host_id"`
+	RelayedHosts []string `json:"relayed_hosts"`
+}
+
 // ServerUpdateData - contains data to configure server
 // and if it should set peers
 type ServerUpdateData struct {
-	UpdatePeers bool `json:"updatepeers" bson:"updatepeers"`
-	Node        Node `json:"servernode" bson:"servernode"`
+	UpdatePeers bool       `json:"updatepeers" bson:"updatepeers"`
+	Node        LegacyNode `json:"servernode" bson:"servernode"`
 }
 
 // Telemetry - contains UUID of the server and timestamp of last send to posthog
@@ -200,25 +198,48 @@ type TrafficKeys struct {
 	Server []byte `json:"server" bson:"server" yaml:"server"`
 }
 
+// HostPull - response of a host's pull
+type HostPull struct {
+	Host         Host                 `json:"host" yaml:"host"`
+	Peers        []wgtypes.PeerConfig `json:"peers" yaml:"peers"`
+	ServerConfig ServerConfig         `json:"server_config" yaml:"server_config"`
+	PeerIDs      PeerMap              `json:"peer_ids,omitempty" yaml:"peer_ids,omitempty"`
+}
+
 // NodeGet - struct for a single node get response
 type NodeGet struct {
 	Node         Node                 `json:"node" bson:"node" yaml:"node"`
+	Host         Host                 `json:"host" yaml:"host"`
 	Peers        []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
+	HostPeers    []wgtypes.PeerConfig `json:"host_peers" bson:"host_peers" yaml:"host_peers"`
 	ServerConfig ServerConfig         `json:"serverconfig" bson:"serverconfig" yaml:"serverconfig"`
 	PeerIDs      PeerMap              `json:"peerids,omitempty" bson:"peerids,omitempty" yaml:"peerids,omitempty"`
 }
 
+// NodeJoinResponse data returned to node in response to join
+type NodeJoinResponse struct {
+	Node         Node                 `json:"node" bson:"node" yaml:"node"`
+	Host         Host                 `json:"host" yaml:"host"`
+	ServerConfig ServerConfig         `json:"serverconfig" bson:"serverconfig" yaml:"serverconfig"`
+	Peers        []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
+}
+
 // ServerConfig - struct for dealing with the server information for a netclient
 type ServerConfig struct {
-	CoreDNSAddr string `yaml:"corednsaddr"`
-	API         string `yaml:"api"`
-	APIPort     string `yaml:"apiport"`
-	ClientMode  string `yaml:"clientmode"`
-	DNSMode     string `yaml:"dnsmode"`
-	Version     string `yaml:"version"`
-	MQPort      string `yaml:"mqport"`
-	Server      string `yaml:"server"`
-	Is_EE       bool   `yaml:"isee"`
+	CoreDNSAddr string       `yaml:"corednsaddr"`
+	API         string       `yaml:"api"`
+	APIPort     string       `yaml:"apiport"`
+	DNSMode     string       `yaml:"dnsmode"`
+	Version     string       `yaml:"version"`
+	MQPort      string       `yaml:"mqport"`
+	MQUserName  string       `yaml:"mq_username"`
+	MQPassword  string       `yaml:"mq_password"`
+	Server      string       `yaml:"server"`
+	Broker      string       `yaml:"broker"`
+	Is_EE       bool         `yaml:"isee"`
+	StunPort    int          `yaml:"stun_port"`
+	StunList    []StunServer `yaml:"stun_list"`
+	TrafficKey  []byte       `yaml:"traffickey"`
 }
 
 // User.NameInCharset - returns if name is in charset below or not
@@ -235,4 +256,17 @@ func (user *User) NameInCharSet() bool {
 // ServerIDs - struct to hold server ids.
 type ServerIDs struct {
 	ServerIDs []string `json:"server_ids"`
+}
+
+// JoinData - struct to hold data required for node to join a network on server
+type JoinData struct {
+	Host Host   `json:"host" yaml:"host"`
+	Node Node   `json:"node" yaml:"node"`
+	Key  string `json:"key" yaml:"key"`
+}
+
+// StunServer - struct to hold data required for using stun server
+type StunServer struct {
+	Domain string `json:"domain" yaml:"domain"`
+	Port   int    `json:"port" yaml:"port"`
 }

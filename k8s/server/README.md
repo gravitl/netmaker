@@ -9,9 +9,10 @@ You may want a more simple Kubernetes setup. We recommend [this community projec
 Your cluster must meet a few conditions to host a netmaker server. Primarily:  
 a) **Nodes:** You must have at least 3 worker nodes available for Netmaker to deploy. Netmaker nodes have anti-affinity and will not deploy on the same kubernetes node.  
 b) **Storage:** RWX and RWO storage classes must be available  
-c) **Ingress:** Ingress must be configured with certs. Nginx + LetsEncrypt configs are provided by default. In addition, Traefik allows special ingress for TCP that may be preferable for HA MQTT. Additionally, be sure to have a wildcard DNS entry for use with Ingress/Netmaker  
+c) **Ingress:** Ingress must be configured with certs. Nginx + LetsEncrypt configs are provided by default. Netmaker uses MQTT with Secure Websockets (WSS), and Nginx Ingress supports Websockets. If your ingress controller does not support websockets, you **must** configure your cluster to get traffic to MQ correctly (see below).  
+d) **DNS:** You must have a wildcard DNS entry for use with Ingress/Netmaker  
 e) **Helm:** For our Postgresql installation we rely on a helm chart, so you must have helm installed and configured.  
-d) **MQ Broker Considerations:** Our method uses a NodePort for MQ. This can be used either with or without an external load balancer configured. If deploying without a load balancer, you must specify a node to host MQ, and this will not be HA. If using a load balancer, be aware that LB configuration could lead MQ connections to be lost. If this happens, on the client you will see a log like "unable to connect to broker, retrying ..." In either case DNS must be configured to point broker.domain either to the LB or directly to the hosting node. Finally, you can use a special TCPIngressRoute if Traefik is your Ingress provider ([see this repo](https://github.com/geragcp/netmaker-k3s) for an example). This is ideal, but is not a standard k8s object, so we avoid it to make installations possible across an array of k8s configurations.  
+f) **MQ Broker Considerations:** If your Ingress Controller does not support Websockets, we provide an alternative method for MQ using a NodePort. This can be used either with or without an external load balancer configured. If deploying without a load balancer, you must specify a node to host MQ, and this will not be HA. If using a load balancer, be aware that LB configuration could lead MQ connections to be lost. If this happens, on the client you will see a log like "unable to connect to broker, retrying ..." In either case DNS must be configured to point broker.domain either to the LB or directly to the hosting node. Finally, you can use a special TCPIngressRoute if Traefik is your Ingress provider ([see this repo](https://github.com/geragcp/netmaker-k3s) for an example). This is ideal, but is not a standard k8s object, so we avoid it to make installations possible across an array of k8s configurations.  
 
 Assuming you are prepared for the above, we can begin to deploy Netmaker.  
 
@@ -21,31 +22,38 @@ Assuming you are prepared for the above, we can begin to deploy Netmaker.
 
 ### 2. Deploy Database
 
-Netmaker can use sqlite, postgres, or rqlite as a backing database. For HA, we recommend using Postgres, as Bitnami provides a reliable helm chart for deploying an HA pqsql cluster.
-  
-Follow these instructions:  
-https://github.com/bitnami/charts/tree/master/bitnami/postgresql-ha  
-  
+Netmaker can use sqlite, postgres, or rqlite as a backing database. For HA, we recommend using Postgres, as Bitnami provides a reliable helm chart for deploying an HA pqsql cluster. [See here for more details](https://github.com/bitnami/charts/tree/master/bitnami/postgresql-ha):  
+
+`helm repo add bitnami https://charts.bitnami.com/bitnami`  
 `helm install postgres bitnami/postgresql`
-  
+
+Confirm the database is running:
+
+`kubectl get pods`  
+
 Once completed, retrieve the password to access postgres:
 
 `kubectl get secret --namespace netmaker postgres-postgresql -o jsonpath="{.data.postgres-password}" | base64 -d`  
 
 ### 3. Deploy MQTT
 
-Based on the prerequisites, you will have either an external load balancer, traefik + TCPIngressRoute, or neither:  
-a) **External LB:** Configure your LB to load balance 31883/tcp to your nodes. This will be for MQ traffic. **Important:** make sure that latency is not significant between clients and MQ. In testing, we found that some load balancers introduce too much latency, causing MQ to be unuseable.  
-b) **Traefik:** If you have Traefik as your Ingress provider, create a TCPIngressRoute from 443 to mq service on port 8883. [Example Here](https://github.com/geragcp/netmaker-k3s/blob/main/08-ingress.yaml)  
-c) **Neither (default):** Choose a cluster node to house MQTT and then run the following:  
+Based on the prerequisites, you will have one of the following scenarios. Configure accordingly:
 
-c.a) `kubectl label node <your node name> mqhost=true`  
+    a) **Nginx:** Uncomment the Ingress section from mosquitto.yaml and replace NETMAKER_SUBDOMAIN with your domain.
 
-c.b) `sed -i 's/MQ_NODE_NAME/<your node name>/g' mosquitto.yaml`  
+    b) **External LB:** Configure an LB to load balance TLS traffic to the MQ service on port 8883. If using a port other than 443, change the value of MQ_PORT in netmaker-server.yaml. The LB must support Secure Websockets (WSS), which requires a valid TLS certificate.
 
-(If you are not using option C, comment out the pod affinity section from mosquitto.yaml.)
+    c) **Traefik:** If you have Traefik as your Ingress provider, create a TCPIngressRoute from 443 to mq service on port 8883. [Example Here](https://github.com/geragcp/netmaker-k3s/blob/main/08-ingress.yaml)  
 
-You also need an RWX storage class. Run the following to input your RWX storage class:
+------------------------------------------------------------------------------
+
+Next, deploy MQ using the provided template (mosquitto.yaml). Modify the template:
+
+    a) **Nginx:** Remove the pod affinity section and the NodePort section. Uncomment the Ingress section at the bottom. Then, substitute in your wildcard domain:
+        sed -i 's/NETMAKER_SUBDOMAIN/<your subdomain>/g' mosquitto.yaml
+    b or c) **Ex. LB or Traefik:** Remove the pod affinity section
+
+Then, substitute in your RWX storage class:
 
 `sed -i 's/RWX_STORAGE_CLASS/<your storage class name>/g' mosquitto.yaml`
 
@@ -57,7 +65,9 @@ MQ should be in CrashLoopBackoff until Netmaker is deployed. If it's in pending 
 
 ### 4. Deploy Netmaker Server
 
-Make sure Wildcard DNS is set up for a netmaker subdomain, for instance: nm.mydomain.com. If you do not wish to use wildcard, edit the YAML file directly. Note you will need entries for broker.domain, api.domain, and dashboard.domain.  
+Make sure Wildcard DNS is set up for a netmaker subdomain, for instance: nm.mydomain.com. If you do not wish to use wildcard, edit the YAML file directly. Note you will need entries for broker.domain, api.domain, and dashboard.domain.
+
+If you are using Nginx as your ingress controller, uncomment the Nginx section at the bottom of the yaml file.
 
 `sed -i 's/NETMAKER_SUBDOMAIN/<your subdomain>/g' netmaker-server.yaml`  
 

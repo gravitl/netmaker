@@ -3,51 +3,42 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.17.1-ee
-    cap_add: 
-      - NET_ADMIN
-      - NET_RAW
-      - SYS_MODULE
-    sysctls:
-      - net.ipv4.ip_forward=1
-      - net.ipv4.conf.all.src_valid_mark=1
-      - net.ipv6.conf.all.disable_ipv6=0
-      - net.ipv6.conf.all.forwarding=1
+    image: gravitl/netmaker:REPLACE_SERVER_IMAGE_TAG
     restart: always
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
-      - mosquitto_data:/etc/netmaker
     environment:
-      SERVER_NAME: "broker.NETMAKER_BASE_DOMAIN"
+      BROKER_ENDPOINT: "wss://broker.NETMAKER_BASE_DOMAIN/mqtt"
+      BROKER_TYPE: "emqx"
+      EMQX_REST_ENDPOINT: "http://mq:18083"
+      SERVER_NAME: "NETMAKER_BASE_DOMAIN"
+      STUN_LIST: "stun.NETMAKER_BASE_DOMAIN:3478,stun1.netmaker.io:3478,stun2.netmaker.io:3478,stun1.l.google.com:19302,stun2.l.google.com:19302"
       SERVER_HOST: "SERVER_PUBLIC_IP"
       SERVER_API_CONN_STRING: "api.NETMAKER_BASE_DOMAIN:443"
       COREDNS_ADDR: "SERVER_PUBLIC_IP"
       DNS_MODE: "on"
       SERVER_HTTP_HOST: "api.NETMAKER_BASE_DOMAIN"
       API_PORT: "8081"
-      CLIENT_MODE: "on"
       MASTER_KEY: "REPLACE_MASTER_KEY"
       CORS_ALLOWED_ORIGIN: "*"
       DISPLAY_KEYS: "on"
       DATABASE: "sqlite"
       NODE_ID: "netmaker-server-1"
-      MQ_HOST: "mq"
-      MQ_PORT: "443"
-      MQ_SERVER_PORT: "1883"
-      HOST_NETWORK: "off"
+      SERVER_BROKER_ENDPOINT: "ws://mq:8083/mqtt"
+      MQ_USERNAME: "REPLACE_MQ_USERNAME"
+      MQ_PASSWORD: "REPLACE_MQ_PASSWORD"
+      STUN_PORT: "3478"
       VERBOSITY: "1"
-      MANAGE_IPTABLES: "on"
-      PORT_FORWARD_SERVICES: "dns"
       METRICS_EXPORTER: "on"
       LICENSE_KEY: "YOUR_LICENSE_KEY"
       NETMAKER_ACCOUNT_ID: "YOUR_ACCOUNT_ID"
-      MQ_ADMIN_PASSWORD: "REPLACE_MQ_ADMIN_PASSWORD"
+      DEFAULT_PROXY_MODE: "off"
     ports:
-      - "51821-51830:51821-51830/udp"
+      - "3478:3478/udp"
   netmaker-ui:
     container_name: netmaker-ui
-    image: gravitl/netmaker-ui:v0.17.1
+    image: gravitl/netmaker-ui:REPLACE_UI_IMAGE_TAG
     depends_on:
       - netmaker
     links:
@@ -77,21 +68,17 @@ services:
       - dnsconfig:/root/dnsconfig
   mq:
     container_name: mq
-    image: eclipse-mosquitto:2.0.15-openssl
-    depends_on:
-      - netmaker
+    image: emqx/emqx:5.0.17
     restart: unless-stopped
-    command: ["/mosquitto/config/wait.sh"]
     environment:
-      NETMAKER_SERVER_HOST: "https://api.NETMAKER_BASE_DOMAIN"
-    volumes:
-      - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
-      - /root/wait.sh:/mosquitto/config/wait.sh
-      - mosquitto_data:/mosquitto/data
-      - mosquitto_logs:/mosquitto/log
+      EMQX_NAME: "emqx"
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: "REPLACE_MQ_PASSWORD"
+      EMQX_DASHBOARD__DEFAULT_USERNAME: "REPLACE_MQ_USERNAME"
     ports:
-      - "1883:1883"
-      - "8883:8883"
+      - "1883:1883" # MQTT
+      - "8883:8883" # SSL MQTT
+      - "8083:8083" # Websockets
+      - "18083:18083" # Dashboard/REST_API
   prometheus:
     container_name: prometheus
     image: gravitl/netmaker-prometheus:latest
@@ -125,9 +112,8 @@ services:
     depends_on:
       - netmaker
     environment:
-      MQ_HOST: "mq"
-      MQ_PORT: "443"
-      MQ_SERVER_PORT: "1883"
+      SERVER_BROKER_ENDPOINT: "ws://mq:8083/mqtt"
+      BROKER_ENDPOINT: "wss://broker.NETMAKER_BASE_DOMAIN/mqtt"
       PROMETHEUS: "on"
       VERBOSITY: "1"
       API_PORT: "8085"
@@ -138,7 +124,6 @@ volumes:
   caddy_conf: {}
   sqldata: {}
   dnsconfig: {}
-  mosquitto_data: {}
   mosquitto_logs: {}
   prometheus_data: {}
   grafana_data: {}

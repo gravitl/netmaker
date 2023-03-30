@@ -4,11 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
-	"os/signal"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/gorilla/handlers"
@@ -28,10 +25,13 @@ var HttpHandlers = []interface{}{
 	extClientHandlers,
 	ipHandlers,
 	loggerHandlers,
+	hostHandlers,
+	enrollmentKeyHandlers,
+	legacyHandlers,
 }
 
 // HandleRESTRequests - handles the rest requests
-func HandleRESTRequests(wg *sync.WaitGroup) {
+func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context) {
 	defer wg.Done()
 
 	r := mux.NewRouter()
@@ -40,7 +40,7 @@ func HandleRESTRequests(wg *sync.WaitGroup) {
 	// should consider analyzing the allowed methods further
 	headersOk := handlers.AllowedHeaders([]string{"Access-Control-Allow-Origin", "X-Requested-With", "Content-Type", "authorization"})
 	originsOk := handlers.AllowedOrigins(strings.Split(servercfg.GetAllowedOrigin(), ","))
-	methodsOk := handlers.AllowedMethods([]string{"GET", "PUT", "POST", "DELETE"})
+	methodsOk := handlers.AllowedMethods([]string{http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete})
 
 	for _, handler := range HttpHandlers {
 		handler.(func(*mux.Router))(r)
@@ -57,18 +57,14 @@ func HandleRESTRequests(wg *sync.WaitGroup) {
 	}()
 	logger.Log(0, "REST Server successfully started on port ", port, " (REST)")
 
-	// Relay os.Interrupt to our channel (os.Interrupt = CTRL+C)
-	// Ignore other incoming signals
-	ctx, stop := signal.NotifyContext(context.TODO(), syscall.SIGTERM, os.Interrupt)
-	defer stop()
-
 	// Block main routine until a signal is received
 	// As long as user doesn't press CTRL+C a message is not passed and our main routine keeps running
 	<-ctx.Done()
-
 	// After receiving CTRL+C Properly stop the server
 	logger.Log(0, "Stopping the REST server...")
+	if err := srv.Shutdown(context.TODO()); err != nil {
+		logger.Log(0, "REST shutdown error occurred -", err.Error())
+	}
 	logger.Log(0, "REST Server closed.")
 	logger.DumpFile(fmt.Sprintf("data/netmaker.log.%s", time.Now().Format(logger.TimeFormatDay)))
-	srv.Shutdown(context.TODO())
 }

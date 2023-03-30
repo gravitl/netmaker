@@ -2,6 +2,7 @@ package logic
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
@@ -34,7 +35,7 @@ func GetExtPeersList(node *models.Node) ([]models.ExtPeersResponse, error) {
 			continue
 		}
 
-		if extClient.Enabled && extClient.Network == node.Network && extClient.IngressGatewayID == node.ID {
+		if extClient.Enabled && extClient.Network == node.Network && extClient.IngressGatewayID == node.ID.String() {
 			peers = append(peers, peer)
 		}
 	}
@@ -57,7 +58,7 @@ func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 		if currentNode.Network != client.Network {
 			continue
 		}
-		if currentNode.IsEgressGateway == "yes" { // add the egress gateway range(s) to the result
+		if currentNode.IsEgressGateway { // add the egress gateway range(s) to the result
 			if len(currentNode.EgressGatewayRanges) > 0 {
 				result = append(result, currentNode.EgressGatewayRanges...)
 			}
@@ -114,40 +115,57 @@ func GetExtClient(clientid string, network string) (models.ExtClient, error) {
 	return extclient, err
 }
 
+// GetExtClient - gets a single ext client on a network
+func GetExtClientByPubKey(publicKey string, network string) (*models.ExtClient, error) {
+	netClients, err := GetNetworkExtClients(network)
+	if err != nil {
+		return nil, err
+	}
+	for i := range netClients {
+		ec := netClients[i]
+		if ec.PublicKey == publicKey {
+			return &ec, nil
+		}
+	}
+
+	return nil, fmt.Errorf("no client found")
+}
+
 // CreateExtClient - creates an extclient
 func CreateExtClient(extclient *models.ExtClient) error {
-	if extclient.PrivateKey == "" {
+
+	if len(extclient.PublicKey) == 0 {
 		privateKey, err := wgtypes.GeneratePrivateKey()
 		if err != nil {
 			return err
 		}
-
 		extclient.PrivateKey = privateKey.String()
 		extclient.PublicKey = privateKey.PublicKey().String()
+	} else {
+		extclient.PrivateKey = "[ENTER PRIVATE KEY]"
 	}
 
 	parentNetwork, err := GetNetwork(extclient.Network)
 	if err != nil {
 		return err
 	}
-
 	if extclient.Address == "" {
 		if parentNetwork.IsIPv4 == "yes" {
-			newAddress, err := UniqueAddress(extclient.Network, false)
+			newAddress, err := UniqueAddress(extclient.Network, true)
 			if err != nil {
 				return err
 			}
-			extclient.Address = newAddress
+			extclient.Address = newAddress.String()
 		}
 	}
 
 	if extclient.Address6 == "" {
 		if parentNetwork.IsIPv6 == "yes" {
-			addr6, err := UniqueAddress6(extclient.Network, false)
+			addr6, err := UniqueAddress6(extclient.Network, true)
 			if err != nil {
 				return err
 			}
-			extclient.Address6 = addr6
+			extclient.Address6 = addr6.String()
 		}
 	}
 
@@ -156,7 +174,6 @@ func CreateExtClient(extclient *models.ExtClient) error {
 	}
 
 	extclient.LastModified = time.Now().Unix()
-
 	key, err := GetRecordKey(extclient.ClientID, extclient.Network)
 	if err != nil {
 		return err
@@ -172,15 +189,34 @@ func CreateExtClient(extclient *models.ExtClient) error {
 }
 
 // UpdateExtClient - only supports name changes right now
-func UpdateExtClient(newclientid string, network string, enabled bool, client *models.ExtClient) (*models.ExtClient, error) {
-
+func UpdateExtClient(newclientid string, network string, enabled bool, client *models.ExtClient, newACLs map[string]struct{}) (*models.ExtClient, error) {
 	err := DeleteExtClient(network, client.ClientID)
 	if err != nil {
 		return client, err
 	}
+	if newclientid != client.ClientID {
+		//name change only
+		client.ClientID = newclientid
+		client.LastModified = time.Now().Unix()
+		data, err := json.Marshal(&client)
+		if err != nil {
+			return nil, err
+		}
+		key, err := GetRecordKey(client.ClientID, client.Network)
+		if err != nil {
+			return nil, err
+		}
+		if err = database.Insert(key, string(data), database.EXT_CLIENT_TABLE_NAME); err != nil {
+			return client, err
+		}
+		return client, nil
+	}
 	client.ClientID = newclientid
 	client.Enabled = enabled
-	CreateExtClient(client)
+	SetClientACLs(client, newACLs)
+	if err = CreateExtClient(client); err != nil {
+		return client, err
+	}
 	return client, err
 }
 

@@ -12,7 +12,7 @@ import (
 )
 
 func ipHandlers(r *mux.Router) {
-	r.HandleFunc("/api/getip", http.HandlerFunc(getPublicIP)).Methods("GET")
+	r.HandleFunc("/api/getip", http.HandlerFunc(getPublicIP)).Methods(http.MethodGet)
 }
 
 // swagger:route GET /api/getip ipservice getPublicIP

@@ -53,8 +53,6 @@ spec:
           value: wireguard-go
         - name: DNS_MODE
           value: "off"
-        - name: CLIENT_MODE
-          value: "on"
         - name: DISPLAY_KEYS
           value: "on"
         - name: DATABASE
@@ -73,17 +71,15 @@ spec:
           value: REPLACE_MASTER_KEY
         - name: CORS_ALLOWED_ORIGIN
           value: '*'
-        - name: MQ_HOST
-          value: "mq"
-        - name: MQ_PORT
-          value: "31883"
-        - name: MQ_SERVER_PORT
-          value: "1883"
+        - name: SERVER_BROKER_ENDPOINT
+          value: "ws://mq:1883"
+        - name: BROKER_ENDPOINT
+          value: "wss://broker.NETMAKER_BASE_DOMAIN"
         - name: PLATFORM
           value: "Kubernetes"
         - name: VERBOSITY
           value: "3"
-        image: gravitl/netmaker:v0.17.1
+        image: gravitl/netmaker:v0.18.5
         imagePullPolicy: Always
         name: netmaker
         ports:
@@ -128,7 +124,7 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-  name: 'netmaker-wireguard'
+    name: 'netmaker-wireguard'
 spec:
   externalTrafficPolicy: Local
   type: NodePort

@@ -13,7 +13,6 @@ import (
 	"github.com/gravitl/netmaker/logic/pro/netcache"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/models/promodels"
-	"github.com/gravitl/netmaker/servercfg"
 )
 
 var (
@@ -41,7 +40,7 @@ func HandleNodeSSOCallback(w http.ResponseWriter, r *http.Request) {
 	var userClaims, err = functions[get_user_info].(func(string, string) (*OAuthUser, error))(state, code)
 	if err != nil {
 		logger.Log(0, "error when getting user info from callback:", err.Error())
-		http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?oauth=callback-error", http.StatusTemporaryRedirect)
+		handleOauthNotConfigured(w)
 		return
 	}
 
@@ -107,12 +106,12 @@ func HandleNodeSSOCallback(w http.ResponseWriter, r *http.Request) {
 	var answer string
 	// The registation logic is starting here:
 	// we request access key with 1 use for the required network
-	accessToken, err := requestAccessKey(reqKeyIf.Network, 1, userClaims.getUserName())
-	if err != nil {
-		answer = fmt.Sprintf("Error from the netmaker controller %s", err.Error())
-	} else {
-		answer = fmt.Sprintf("AccessToken: %s", accessToken)
-	}
+	// accessToken, err := requestAccessKey(reqKeyIf.Network, 1, userClaims.getUserName())
+	// if err != nil {
+	// 	answer = fmt.Sprintf("Error from the netmaker controller %s", err.Error())
+	// } else {
+	// 	answer = fmt.Sprintf("AccessToken: %s", accessToken)
+	// }
 	logger.Log(0, "Updating the token for the client request ... ")
 	// Give the user the access token via Pass in the DB
 	reqKeyIf.Pass = answer
@@ -135,7 +134,9 @@ func setNetcache(ncache *netcache.CValue, state string) error {
 
 func returnErrTemplate(uname, message, state string, ncache *netcache.CValue) []byte {
 	var response bytes.Buffer
-	ncache.Pass = message
+	if ncache != nil {
+		ncache.Pass = message
+	}
 	err := ssoErrCallbackTemplate.Execute(&response, ssoCallbackTemplateConfig{
 		User: uname,
 		Verb: message,
@@ -183,44 +184,44 @@ func RegisterNodeSSO(w http.ResponseWriter, r *http.Request) {
 
 // == private ==
 // API to create an access key for a given network with a given name
-func requestAccessKey(network string, uses int, name string) (accessKey string, err error) {
+// func requestAccessKey(network string, uses int, name string) (accessKey string, err error) {
 
-	var sAccessKey models.AccessKey
-	var sNetwork models.Network
+// 	var sAccessKey models.AccessKey
+// 	var sNetwork models.Network
 
-	sNetwork, err = logic.GetParentNetwork(network)
-	if err != nil {
-		logger.Log(0, "err calling GetParentNetwork API=%s", err.Error())
-		return "", fmt.Errorf("internal controller error %s", err.Error())
-	}
-	// If a key already exists, we recreate it.
-	// @TODO Is that a preferred handling ? We could also trying to re-use.
-	// can happen if user started log in but did not finish
-	for _, currentkey := range sNetwork.AccessKeys {
-		if currentkey.Name == name {
-			logger.Log(0, "erasing existing AccessKey for: ", name)
-			err = logic.DeleteKey(currentkey.Name, network)
-			if err != nil {
-				logger.Log(0, "err calling CreateAccessKey API ", err.Error())
-				return "", fmt.Errorf("key already exists. Contact admin to resolve")
-			}
-			break
-		}
-	}
-	// Only one usage is needed - for the next time new access key will be required
-	// it will be created next time after another IdP approval
-	sAccessKey.Uses = 1
-	sAccessKey.Name = name
+// 	sNetwork, err = logic.GetParentNetwork(network)
+// 	if err != nil {
+// 		logger.Log(0, "err calling GetParentNetwork API=%s", err.Error())
+// 		return "", fmt.Errorf("internal controller error %s", err.Error())
+// 	}
+// 	// If a key already exists, we recreate it.
+// 	// @TODO Is that a preferred handling ? We could also trying to re-use.
+// 	// can happen if user started log in but did not finish
+// 	for _, currentkey := range sNetwork.AccessKeys {
+// 		if currentkey.Name == name {
+// 			logger.Log(0, "erasing existing AccessKey for: ", name)
+// 			err = logic.DeleteKey(currentkey.Name, network)
+// 			if err != nil {
+// 				logger.Log(0, "err calling CreateAccessKey API ", err.Error())
+// 				return "", fmt.Errorf("key already exists. Contact admin to resolve")
+// 			}
+// 			break
+// 		}
+// 	}
+// 	// Only one usage is needed - for the next time new access key will be required
+// 	// it will be created next time after another IdP approval
+// 	sAccessKey.Uses = 1
+// 	sAccessKey.Name = name
 
-	accessToken, err := logic.CreateAccessKey(sAccessKey, sNetwork)
-	if err != nil {
-		logger.Log(0, "err calling CreateAccessKey API ", err.Error())
-		return "", fmt.Errorf("error from the netmaker controller %s", err.Error())
-	} else {
-		logger.Log(1, "created access key", sAccessKey.Name, "on", network)
-	}
-	return accessToken.AccessString, nil
-}
+// 	accessToken, err := logic.CreateAccessKey(sAccessKey, sNetwork)
+// 	if err != nil {
+// 		logger.Log(0, "err calling CreateAccessKey API ", err.Error())
+// 		return "", fmt.Errorf("error from the netmaker controller %s", err.Error())
+// 	} else {
+// 		logger.Log(1, "created access key", sAccessKey.Name, "on", network)
+// 	}
+// 	return accessToken.AccessString, nil
+// }
 
 func isUserIsAllowed(username, network string, shouldAddUser bool) (*models.User, error) {
 

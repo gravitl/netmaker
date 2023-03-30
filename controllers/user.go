@@ -21,33 +21,34 @@ var (
 
 func userHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/users/adm/hasadmin", hasAdmin).Methods("GET")
-	r.HandleFunc("/api/users/adm/createadmin", createAdmin).Methods("POST")
-	r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods("POST")
-	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUser)))).Methods("PUT")
-	r.HandleFunc("/api/users/networks/{username}", logic.SecurityCheck(true, http.HandlerFunc(updateUserNetworks))).Methods("PUT")
-	r.HandleFunc("/api/users/{username}/adm", logic.SecurityCheck(true, http.HandlerFunc(updateUserAdm))).Methods("PUT")
-	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, checkFreeTierLimits(users_l, http.HandlerFunc(createUser)))).Methods("POST")
-	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, http.HandlerFunc(deleteUser))).Methods("DELETE")
-	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUser)))).Methods("GET")
-	r.HandleFunc("/api/users", logic.SecurityCheck(true, http.HandlerFunc(getUsers))).Methods("GET")
-	r.HandleFunc("/api/oauth/login", auth.HandleAuthLogin).Methods("GET")
-	r.HandleFunc("/api/oauth/callback", auth.HandleAuthCallback).Methods("GET")
+	r.HandleFunc("/api/users/adm/hasadmin", hasAdmin).Methods(http.MethodGet)
+	r.HandleFunc("/api/users/adm/createadmin", createAdmin).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUser)))).Methods(http.MethodPut)
+	r.HandleFunc("/api/users/networks/{username}", logic.SecurityCheck(true, http.HandlerFunc(updateUserNetworks))).Methods(http.MethodPut)
+	r.HandleFunc("/api/users/{username}/adm", logic.SecurityCheck(true, http.HandlerFunc(updateUserAdm))).Methods(http.MethodPut)
+	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, checkFreeTierLimits(users_l, http.HandlerFunc(createUser)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, http.HandlerFunc(deleteUser))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUser)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/users", logic.SecurityCheck(true, http.HandlerFunc(getUsers))).Methods(http.MethodGet)
+	r.HandleFunc("/api/oauth/login", auth.HandleAuthLogin).Methods(http.MethodGet)
+	r.HandleFunc("/api/oauth/callback", auth.HandleAuthCallback).Methods(http.MethodGet)
 	r.HandleFunc("/api/oauth/node-handler", socketHandler)
-	r.HandleFunc("/api/oauth/register/{regKey}", auth.RegisterNodeSSO).Methods("GET")
+	r.HandleFunc("/api/oauth/headless", auth.HandleHeadlessSSO)
+	r.HandleFunc("/api/oauth/register/{regKey}", auth.RegisterNodeSSO).Methods(http.MethodGet)
 }
 
 // swagger:route POST /api/users/adm/authenticate user authenticateUser
 //
 // Node authenticates using its password and retrieves a JWT for authorization.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: successResponse
+//			Responses:
+//				200: successResponse
 func authenticateUser(response http.ResponseWriter, request *http.Request) {
 
 	// Auth request consists of Mac Address and Password (from node that is authorizing
@@ -113,13 +114,13 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 //
 // Checks whether the server has an admin.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: successResponse
+//			Responses:
+//				200: successResponse
 func hasAdmin(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -139,13 +140,13 @@ func hasAdmin(w http.ResponseWriter, r *http.Request) {
 //
 // Get an individual user.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: userBodyResponse
+//			Responses:
+//				200: userBodyResponse
 func getUser(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -167,13 +168,13 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 //
 // Get all users.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: userBodyResponse
+//			Responses:
+//				200: userBodyResponse
 func getUsers(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -194,13 +195,13 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 //
 // Make a user an admin.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: userBodyResponse
+//			Responses:
+//				200: userBodyResponse
 func createAdmin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -236,13 +237,13 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 //
 // Create a user.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: userBodyResponse
+//			Responses:
+//				200: userBodyResponse
 func createUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -270,13 +271,13 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 //
 // Updates the networks of the given user.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: userBodyResponse
+//			Responses:
+//				200: userBodyResponse
 func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -319,13 +320,13 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 //
 // Update a user.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: userBodyResponse
+//			Responses:
+//				200: userBodyResponse
 func updateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -369,13 +370,13 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 //
 // Updates the given admin user's info (as long as the user is an admin).
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: userBodyResponse
+//			Responses:
+//				200: userBodyResponse
 func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -420,13 +421,13 @@ func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 //
 // Delete a user.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: userBodyResponse
+//			Responses:
+//				200: userBodyResponse
 func deleteUser(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
@@ -466,5 +467,5 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Start handling the session
-	go auth.SessionHandler(conn)
+	// go auth.SessionHandler(conn)
 }

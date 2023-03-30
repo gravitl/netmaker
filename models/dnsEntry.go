@@ -1,5 +1,44 @@
-//TODO:  Either add a returnNetwork and returnKey, or delete this
+// TODO:  Either add a returnNetwork and returnKey, or delete this
 package models
+
+// DNSUpdateAction identifies the action to be performed with the dns update data
+type DNSUpdateAction int
+
+const (
+	// DNSDeleteByIP delete the dns entry
+	DNSDeleteByIP = iota
+	// DNSDeleteByName delete the dns entry
+	DNSDeleteByName
+	// DNSReplaceName replace the dns entry
+	DNSReplaceName
+	// DNSReplaceIP resplace the dns entry
+	DNSReplaceIP
+	// DNSInsert insert a new dns entry
+	DNSInsert
+)
+
+func (action DNSUpdateAction) String() string {
+	return [...]string{"DNSDeleteByIP", "DNSDeletByName", "DNSReplaceName", "DNSReplaceIP", "DNSInsert"}[action]
+}
+
+// DNSError.Error implementation of error interface
+func (e DNSError) Error() string {
+	return "error publishing dns update"
+}
+
+// DNSError error struct capable of holding multiple error messages
+type DNSError struct {
+	ErrorStrings []string
+}
+
+// DNSUpdate data for updating entries in /etc/hosts
+type DNSUpdate struct {
+	Action     DNSUpdateAction
+	Name       string
+	NewName    string
+	Address    string
+	NewAddress string
+}
 
 // DNSEntry - a DNS entry represented as struct
 type DNSEntry struct {

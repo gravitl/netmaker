@@ -1,0 +1,58 @@
+name: Deploy and Test Branch
+
+on:
+  workflow_dispatch:
+  pull_request:
+      types: [opened, synchronize, reopened]
+      branches: [develop]
+
+jobs:
+  skip-check:
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+    steps:
+      - id: skip
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          concurrent_skipping: 'always'
+  getbranch:
+    runs-on: ubuntu-latest
+    needs: skip-check
+    if: ${{ needs.skip-check.outputs.skip != 'true' }}
+    outputs:
+      netclientbranch: ${{ steps.checkbranch.outputs.netclientbranch }}
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+        with:
+          repository: gravitl/netclient
+          ref: develop
+      - name: check if branch exists
+        id: checkbranch
+        run: |
+          if git show-ref ${{ github.head_ref}}; then
+            echo branch exists
+            echo "netclientbranch=${{ github.head_ref }}" >> $GITHUB_OUTPUT
+          else
+            echo branch does not exist
+            echo "netclientbranch=develop" >> $GITHUB_OUTPUT
+          fi
+  
+  terraform:
+    needs: getbranch
+    uses: gravitl/devops/.github/workflows/terraform.yml@master
+    with:
+      netmakerbranch: ${{ github.head_ref }}
+      netclientbranch: ${{ needs.getbranch.outputs.netclientbranch }}
+    secrets: inherit
+
+
+  testbranch:
+    needs: [getbranch, terraform]
+    uses: gravitl/devops/.github/workflows/branchtest.yml@master
+    with:
+      tag: ${{ github.run_id }}-${{ github.run_attempt }}
+      network: terraform
+    secrets: inherit
+    

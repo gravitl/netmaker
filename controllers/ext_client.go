@@ -17,17 +17,18 @@ import (
 	"github.com/gravitl/netmaker/models/promodels"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/skip2/go-qrcode"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 func extClientHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/extclients", logic.SecurityCheck(false, http.HandlerFunc(getAllExtClients))).Methods("GET")
-	r.HandleFunc("/api/extclients/{network}", logic.SecurityCheck(false, http.HandlerFunc(getNetworkExtClients))).Methods("GET")
-	r.HandleFunc("/api/extclients/{network}/{clientid}", logic.SecurityCheck(false, http.HandlerFunc(getExtClient))).Methods("GET")
-	r.HandleFunc("/api/extclients/{network}/{clientid}/{type}", logic.NetUserSecurityCheck(false, true, http.HandlerFunc(getExtClientConf))).Methods("GET")
-	r.HandleFunc("/api/extclients/{network}/{clientid}", logic.NetUserSecurityCheck(false, true, http.HandlerFunc(updateExtClient))).Methods("PUT")
-	r.HandleFunc("/api/extclients/{network}/{clientid}", logic.NetUserSecurityCheck(false, true, http.HandlerFunc(deleteExtClient))).Methods("DELETE")
-	r.HandleFunc("/api/extclients/{network}/{nodeid}", logic.NetUserSecurityCheck(false, true, checkFreeTierLimits(clients_l, http.HandlerFunc(createExtClient)))).Methods("POST")
+	r.HandleFunc("/api/extclients", logic.SecurityCheck(false, http.HandlerFunc(getAllExtClients))).Methods(http.MethodGet)
+	r.HandleFunc("/api/extclients/{network}", logic.SecurityCheck(false, http.HandlerFunc(getNetworkExtClients))).Methods(http.MethodGet)
+	r.HandleFunc("/api/extclients/{network}/{clientid}", logic.SecurityCheck(false, http.HandlerFunc(getExtClient))).Methods(http.MethodGet)
+	r.HandleFunc("/api/extclients/{network}/{clientid}/{type}", logic.NetUserSecurityCheck(false, true, http.HandlerFunc(getExtClientConf))).Methods(http.MethodGet)
+	r.HandleFunc("/api/extclients/{network}/{clientid}", logic.NetUserSecurityCheck(false, true, http.HandlerFunc(updateExtClient))).Methods(http.MethodPut)
+	r.HandleFunc("/api/extclients/{network}/{clientid}", logic.NetUserSecurityCheck(false, true, http.HandlerFunc(deleteExtClient))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/extclients/{network}/{nodeid}", logic.NetUserSecurityCheck(false, true, checkFreeTierLimits(clients_l, http.HandlerFunc(createExtClient)))).Methods(http.MethodPost)
 }
 
 func checkIngressExists(nodeID string) bool {
@@ -35,7 +36,7 @@ func checkIngressExists(nodeID string) bool {
 	if err != nil {
 		return false
 	}
-	return node.IsIngressGateway == "yes"
+	return node.IsIngressGateway
 }
 
 // swagger:route GET /api/extclients/{network} ext_client getNetworkExtClients
@@ -184,6 +185,13 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	host, err := logic.GetHost(gwnode.HostID.String())
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to get host for ingress gateway node [%s] info: %v", client.IngressGatewayID, err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 
 	network, err := logic.GetParentNetwork(client.Network)
 	if err != nil {
@@ -207,7 +215,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	if network.DefaultKeepalive != 0 {
 		keepalive = "PersistentKeepalive = " + strconv.Itoa(int(network.DefaultKeepalive))
 	}
-	gwendpoint := gwnode.Endpoint + ":" + strconv.Itoa(int(gwnode.ListenPort))
+	gwendpoint := host.EndpointIP.String() + ":" + strconv.Itoa(host.ListenPort)
 	newAllowedIPs := network.AddressRange
 	if newAllowedIPs != "" && network.AddressRange6 != "" {
 		newAllowedIPs += ","
@@ -226,8 +234,8 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	}
 
 	defaultMTU := 1420
-	if gwnode.MTU != 0 {
-		defaultMTU = int(gwnode.MTU)
+	if host.MTU != 0 {
+		defaultMTU = host.MTU
 	}
 	config := fmt.Sprintf(`[Interface]
 Address = %s
@@ -245,7 +253,7 @@ Endpoint = %s
 		client.PrivateKey,
 		defaultMTU,
 		defaultDNS,
-		gwnode.PublicKey,
+		host.PublicKey,
 		newAllowedIPs,
 		gwendpoint,
 		keepalive)
@@ -310,16 +318,22 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var extclient models.ExtClient
-	var CustomExtClient models.CustomExtClient
+	var customExtClient models.CustomExtClient
 
-	err := json.NewDecoder(r.Body).Decode(&CustomExtClient)
-
+	err := json.NewDecoder(r.Body).Decode(&customExtClient)
 	if err == nil {
-		if CustomExtClient.ClientID != "" && !validName(CustomExtClient.ClientID) {
+		if customExtClient.ClientID != "" && !validName(customExtClient.ClientID) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errInvalidExtClientID, "badrequest"))
 			return
 		}
-		extclient.ClientID = CustomExtClient.ClientID
+		extclient.ClientID = customExtClient.ClientID
+		if len(customExtClient.PublicKey) > 0 {
+			if _, err := wgtypes.ParseKey(customExtClient.PublicKey); err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errInvalidExtClientPubKey, "badrequest"))
+				return
+			}
+			extclient.PublicKey = customExtClient.PublicKey
+		}
 	}
 
 	extclient.Network = networkName
@@ -331,17 +345,32 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	extclient.IngressGatewayEndpoint = node.Endpoint + ":" + strconv.FormatInt(int64(node.ListenPort), 10)
-
+	host, err := logic.GetHost(node.HostID.String())
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to get ingress gateway host for node [%s] info: %v", nodeid, err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	listenPort := host.ListenPort
+	if host.ProxyEnabled {
+		listenPort = host.ProxyListenPort
+	}
+	extclient.IngressGatewayEndpoint = host.EndpointIP.String() + ":" + strconv.FormatInt(int64(listenPort), 10)
 	extclient.Enabled = true
 	parentNetwork, err := logic.GetNetwork(networkName)
 	if err == nil { // check if parent network default ACL is enabled (yes) or not (no)
 		extclient.Enabled = parentNetwork.DefaultACL == "yes"
 	}
-	// check pro settings
 
-	err = logic.CreateExtClient(&extclient)
-	if err != nil {
+	if err := logic.SetClientDefaultACLs(&extclient); err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to assign ACLs to new ext client on network [%s]: %v", networkName, err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	if err = logic.CreateExtClient(&extclient); err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to create new ext client on network [%s]: %v", networkName, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -362,7 +391,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 				logger.Log(0, "failed to associate client", extclient.ClientID, "to user", userID)
 			}
 			extclient.OwnerID = userID
-			if _, err := logic.UpdateExtClient(extclient.ClientID, extclient.Network, extclient.Enabled, &extclient); err != nil {
+			if _, err := logic.UpdateExtClient(extclient.ClientID, extclient.Network, extclient.Enabled, &extclient, extclient.ACLs); err != nil {
 				logger.Log(0, "failed to add owner id", userID, "to client", extclient.ClientID)
 			}
 		}
@@ -370,10 +399,14 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 	logger.Log(0, r.Header.Get("user"), "created new ext client on network", networkName)
 	w.WriteHeader(http.StatusOK)
-	err = mq.PublishExtPeerUpdate(&node)
-	if err != nil {
-		logger.Log(1, "error setting ext peers on "+nodeid+": "+err.Error())
-	}
+	go func() {
+		if err := mq.PublishPeerUpdate(); err != nil {
+			logger.Log(1, "error setting ext peers on "+nodeid+": "+err.Error())
+		}
+		if err := mq.PublishExtCLientDNS(&extclient); err != nil {
+			logger.Log(1, "error publishing extclient dns", err.Error())
+		}
+	}()
 }
 
 // swagger:route PUT /api/extclients/{network}/{clientid} ext_client updateExtClient
@@ -441,7 +474,6 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-
 	if changedID && oldExtClient.OwnerID != "" {
 		if err := pro.DissociateNetworkUserClient(oldExtClient.OwnerID, networkName, oldExtClient.ClientID); err != nil {
 			logger.Log(0, "failed to dissociate client", oldExtClient.ClientID, "from user", oldExtClient.OwnerID)
@@ -452,9 +484,11 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 	// == END PRO ==
 
-	var changedEnabled = newExtClient.Enabled != oldExtClient.Enabled // indicates there was a change in enablement
-
-	newclient, err := logic.UpdateExtClient(newExtClient.ClientID, params["network"], newExtClient.Enabled, &oldExtClient)
+	var changedEnabled = (newExtClient.Enabled != oldExtClient.Enabled) || // indicates there was a change in enablement
+		len(newExtClient.ACLs) != len(oldExtClient.ACLs)
+	// extra var need as logic.Update changes oldExtClient
+	currentClient := oldExtClient
+	newclient, err := logic.UpdateExtClient(newExtClient.ClientID, params["network"], newExtClient.Enabled, &oldExtClient, newExtClient.ACLs)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to update ext client [%s], network [%s]: %v",
@@ -465,13 +499,20 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	logger.Log(0, r.Header.Get("user"), "updated ext client", newExtClient.ClientID)
 	if changedEnabled { // need to send a peer update to the ingress node as enablement of one of it's clients has changed
 		if ingressNode, err := logic.GetNodeByID(newclient.IngressGatewayID); err == nil {
-			if err = mq.PublishExtPeerUpdate(&ingressNode); err != nil {
-				logger.Log(1, "error setting ext peers on", ingressNode.ID, ":", err.Error())
+			if err = mq.PublishPeerUpdate(); err != nil {
+				logger.Log(1, "error setting ext peers on", ingressNode.ID.String(), ":", err.Error())
 			}
 		}
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newclient)
+	if changedID {
+		go func() {
+			if err := mq.PublishExtClientDNSUpdate(currentClient, newExtClient, networkName); err != nil {
+				logger.Log(1, "error pubishing dns update for extcient update", err.Error())
+			}
+		}()
+	}
 }
 
 // swagger:route DELETE /api/extclients/{network}/{clientid} ext_client deleteExtClient
@@ -536,10 +577,14 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = mq.PublishExtPeerUpdate(&ingressnode)
-	if err != nil {
-		logger.Log(1, "error setting ext peers on "+ingressnode.ID+": "+err.Error())
-	}
+	go func() {
+		if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+			logger.Log(1, "error setting ext peers on "+ingressnode.ID.String()+": "+err.Error())
+		}
+		if err = mq.PublishDeleteExtClientDNS(&extclient); err != nil {
+			logger.Log(1, "error publishing dns update for extclient deletion", err.Error())
+		}
+	}()
 
 	logger.Log(0, r.Header.Get("user"),
 		"Deleted extclient client", params["clientid"], "from network", params["network"])

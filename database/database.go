@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,96 +15,81 @@ import (
 	"golang.org/x/crypto/nacl/box"
 )
 
-// NETWORKS_TABLE_NAME - networks table
-const NETWORKS_TABLE_NAME = "networks"
+const (
+	// == Table Names ==
+	// NETWORKS_TABLE_NAME - networks table
+	NETWORKS_TABLE_NAME = "networks"
+	// NODES_TABLE_NAME - nodes table
+	NODES_TABLE_NAME = "nodes"
+	// DELETED_NODES_TABLE_NAME - deleted nodes table
+	DELETED_NODES_TABLE_NAME = "deletednodes"
+	// USERS_TABLE_NAME - users table
+	USERS_TABLE_NAME = "users"
+	// CERTS_TABLE_NAME - certificates table
+	CERTS_TABLE_NAME = "certs"
+	// DNS_TABLE_NAME - dns table
+	DNS_TABLE_NAME = "dns"
+	// EXT_CLIENT_TABLE_NAME - ext client table
+	EXT_CLIENT_TABLE_NAME = "extclients"
+	// PEERS_TABLE_NAME - peers table
+	PEERS_TABLE_NAME = "peers"
+	// SERVERCONF_TABLE_NAME - stores server conf
+	SERVERCONF_TABLE_NAME = "serverconf"
+	// SERVER_UUID_TABLE_NAME - stores unique netmaker server data
+	SERVER_UUID_TABLE_NAME = "serveruuid"
+	// SERVER_UUID_RECORD_KEY - telemetry thing
+	SERVER_UUID_RECORD_KEY = "serveruuid"
+	// DATABASE_FILENAME - database file name
+	DATABASE_FILENAME = "netmaker.db"
+	// GENERATED_TABLE_NAME - stores server generated k/v
+	GENERATED_TABLE_NAME = "generated"
+	// NODE_ACLS_TABLE_NAME - stores the node ACL rules
+	NODE_ACLS_TABLE_NAME = "nodeacls"
+	// SSO_STATE_CACHE - holds sso session information for OAuth2 sign-ins
+	SSO_STATE_CACHE = "ssostatecache"
+	// METRICS_TABLE_NAME - stores network metrics
+	METRICS_TABLE_NAME = "metrics"
+	// NETWORK_USER_TABLE_NAME - network user table tracks stats for a network user per network
+	NETWORK_USER_TABLE_NAME = "networkusers"
+	// USER_GROUPS_TABLE_NAME - table for storing usergroups
+	USER_GROUPS_TABLE_NAME = "usergroups"
+	// CACHE_TABLE_NAME - caching table
+	CACHE_TABLE_NAME = "cache"
+	// HOSTS_TABLE_NAME - the table name for hosts
+	HOSTS_TABLE_NAME = "hosts"
+	// ENROLLMENT_KEYS_TABLE_NAME - table name for enrollmentkeys
+	ENROLLMENT_KEYS_TABLE_NAME = "enrollmentkeys"
+	// HOST_ACTIONS_TABLE_NAME - table name for enrollmentkeys
+	HOST_ACTIONS_TABLE_NAME = "hostactions"
 
-// NODES_TABLE_NAME - nodes table
-const NODES_TABLE_NAME = "nodes"
+	// == ERROR CONSTS ==
+	// NO_RECORD - no singular result found
+	NO_RECORD = "no result found"
+	// NO_RECORDS - no results found
+	NO_RECORDS = "could not find any records"
 
-// DELETED_NODES_TABLE_NAME - deleted nodes table
-const DELETED_NODES_TABLE_NAME = "deletednodes"
+	// == DB Constants ==
+	// INIT_DB - initialize db
+	INIT_DB = "init"
+	// CREATE_TABLE - create table const
+	CREATE_TABLE = "createtable"
+	// INSERT - insert into db const
+	INSERT = "insert"
+	// INSERT_PEER - insert peer into db const
+	INSERT_PEER = "insertpeer"
+	// DELETE - delete db record const
+	DELETE = "delete"
+	// DELETE_ALL - delete a table const
+	DELETE_ALL = "deleteall"
+	// FETCH_ALL - fetch table contents const
+	FETCH_ALL = "fetchall"
+	// CLOSE_DB - graceful close of db const
+	CLOSE_DB = "closedb"
+	// isconnected
+	isConnected = "isconnected"
+)
 
-// USERS_TABLE_NAME - users table
-const USERS_TABLE_NAME = "users"
-
-// CERTS_TABLE_NAME - certificates table
-const CERTS_TABLE_NAME = "certs"
-
-// DNS_TABLE_NAME - dns table
-const DNS_TABLE_NAME = "dns"
-
-// EXT_CLIENT_TABLE_NAME - ext client table
-const EXT_CLIENT_TABLE_NAME = "extclients"
-
-// PEERS_TABLE_NAME - peers table
-const PEERS_TABLE_NAME = "peers"
-
-// SERVERCONF_TABLE_NAME - stores server conf
-const SERVERCONF_TABLE_NAME = "serverconf"
-
-// SERVER_UUID_TABLE_NAME - stores unique netmaker server data
-const SERVER_UUID_TABLE_NAME = "serveruuid"
-
-// SERVER_UUID_RECORD_KEY - telemetry thing
-const SERVER_UUID_RECORD_KEY = "serveruuid"
-
-// DATABASE_FILENAME - database file name
-const DATABASE_FILENAME = "netmaker.db"
-
-// GENERATED_TABLE_NAME - stores server generated k/v
-const GENERATED_TABLE_NAME = "generated"
-
-// NODE_ACLS_TABLE_NAME - stores the node ACL rules
-const NODE_ACLS_TABLE_NAME = "nodeacls"
-
-// SSO_STATE_CACHE - holds sso session information for OAuth2 sign-ins
-const SSO_STATE_CACHE = "ssostatecache"
-
-// METRICS_TABLE_NAME - stores network metrics
-const METRICS_TABLE_NAME = "metrics"
-
-// NETWORK_USER_TABLE_NAME - network user table tracks stats for a network user per network
-const NETWORK_USER_TABLE_NAME = "networkusers"
-
-// USER_GROUPS_TABLE_NAME - table for storing usergroups
-const USER_GROUPS_TABLE_NAME = "usergroups"
-
-// CACHE_TABLE_NAME - caching table
-const CACHE_TABLE_NAME = "cache"
-
-// == ERROR CONSTS ==
-
-// NO_RECORD - no singular result found
-const NO_RECORD = "no result found"
-
-// NO_RECORDS - no results found
-const NO_RECORDS = "could not find any records"
-
-// == Constants ==
-
-// INIT_DB - initialize db
-const INIT_DB = "init"
-
-// CREATE_TABLE - create table const
-const CREATE_TABLE = "createtable"
-
-// INSERT - insert into db const
-const INSERT = "insert"
-
-// INSERT_PEER - insert peer into db const
-const INSERT_PEER = "insertpeer"
-
-// DELETE - delete db record const
-const DELETE = "delete"
-
-// DELETE_ALL - delete a table const
-const DELETE_ALL = "deleteall"
-
-// FETCH_ALL - fetch table contents const
-const FETCH_ALL = "fetchall"
-
-// CLOSE_DB - graceful close of db const
-const CLOSE_DB = "closedb"
+var dbMutex sync.RWMutex
 
 func getCurrentDB() map[string]interface{} {
 	switch servercfg.GetDB() {
@@ -155,6 +141,9 @@ func createTables() {
 	createTable(NETWORK_USER_TABLE_NAME)
 	createTable(USER_GROUPS_TABLE_NAME)
 	createTable(CACHE_TABLE_NAME)
+	createTable(HOSTS_TABLE_NAME)
+	createTable(ENROLLMENT_KEYS_TABLE_NAME)
+	createTable(HOST_ACTIONS_TABLE_NAME)
 }
 
 func createTable(tableName string) error {
@@ -170,6 +159,8 @@ func IsJSONString(value string) bool {
 
 // Insert - inserts object into db
 func Insert(key string, value string, tableName string) error {
+	dbMutex.Lock()
+	defer dbMutex.Unlock()
 	if key != "" && value != "" && IsJSONString(value) {
 		return getCurrentDB()[INSERT].(func(string, string, string) error)(key, value, tableName)
 	} else {
@@ -179,6 +170,8 @@ func Insert(key string, value string, tableName string) error {
 
 // InsertPeer - inserts peer into db
 func InsertPeer(key string, value string) error {
+	dbMutex.Lock()
+	defer dbMutex.Unlock()
 	if key != "" && value != "" && IsJSONString(value) {
 		return getCurrentDB()[INSERT_PEER].(func(string, string) error)(key, value)
 	} else {
@@ -188,11 +181,15 @@ func InsertPeer(key string, value string) error {
 
 // DeleteRecord - deletes a record from db
 func DeleteRecord(tableName string, key string) error {
+	dbMutex.Lock()
+	defer dbMutex.Unlock()
 	return getCurrentDB()[DELETE].(func(string, string) error)(tableName, key)
 }
 
 // DeleteAllRecords - removes a table and remakes
 func DeleteAllRecords(tableName string) error {
+	dbMutex.Lock()
+	defer dbMutex.Unlock()
 	err := getCurrentDB()[DELETE_ALL].(func(string) error)(tableName)
 	if err != nil {
 		return err
@@ -218,6 +215,8 @@ func FetchRecord(tableName string, key string) (string, error) {
 
 // FetchRecords - fetches all records in given table
 func FetchRecords(tableName string) (map[string]string, error) {
+	dbMutex.RLock()
+	defer dbMutex.RUnlock()
 	return getCurrentDB()[FETCH_ALL].(func(string) (map[string]string, error))(tableName)
 }
 
@@ -262,4 +261,9 @@ func initializeUUID() error {
 // CloseDB - closes a database gracefully
 func CloseDB() {
 	getCurrentDB()[CLOSE_DB].(func())()
+}
+
+// IsConnected - tell if the database is connected or not
+func IsConnected() bool {
+	return getCurrentDB()[isConnected].(func() bool)()
 }

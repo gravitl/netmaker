@@ -1,16 +1,23 @@
 package pro
 
 import (
+	"os"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/models/promodels"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNetworkUserLogic(t *testing.T) {
+func TestMain(m *testing.M) {
 	database.InitializeDatabase()
+	defer database.CloseDB()
+	os.Exit(m.Run())
+}
+
+func TestNetworkUserLogic(t *testing.T) {
 	networkUser := promodels.NetworkUser{
 		ID: "helloworld",
 	}
@@ -18,12 +25,17 @@ func TestNetworkUserLogic(t *testing.T) {
 		NetID:        "skynet",
 		AddressRange: "192.168.0.0/24",
 	}
+	tmpCNode := models.CommonNode{
+		ID: uuid.New(),
+	}
+	tempNode := models.Node{}
+	tempNode.CommonNode = tmpCNode
 	nodes := []models.Node{
-		models.Node{ID: "coolnode"},
+		tempNode,
 	}
 
 	clients := []models.ExtClient{
-		models.ExtClient{
+		{
 			ClientID: "coolclient",
 		},
 	}
@@ -63,10 +75,10 @@ func TestNetworkUserLogic(t *testing.T) {
 	})
 
 	t.Run("Successful net user node isallowed", func(t *testing.T) {
-		networkUser.Nodes = append(networkUser.Nodes, "coolnode")
+		networkUser.Nodes = append(networkUser.Nodes, nodes[0].ID.String())
 		err := UpdateNetworkUser(network.NetID, &networkUser)
 		assert.Nil(t, err)
-		isUserNodeAllowed := IsUserNodeAllowed(nodes[:], network.NetID, string(networkUser.ID), "coolnode")
+		isUserNodeAllowed := IsUserNodeAllowed(nodes[:], network.NetID, string(networkUser.ID), nodes[0].ID.String())
 		assert.True(t, isUserNodeAllowed)
 	})
 

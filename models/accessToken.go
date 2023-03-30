@@ -8,7 +8,6 @@ type AccessToken struct {
 
 // ClientConfig - the config of the client
 type ClientConfig struct {
-	Network    string `json:"network"`
-	Key        string `json:"key"`
-	LocalRange string `json:"localrange"`
+	Network string `json:"network"`
+	Key     string `json:"key"`
 }

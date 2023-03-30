@@ -6,19 +6,50 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
 func serverHandlers(r *mux.Router) {
-	// r.HandleFunc("/api/server/addnetwork/{network}", securityCheckServer(true, http.HandlerFunc(addNetwork))).Methods("POST")
+	// r.HandleFunc("/api/server/addnetwork/{network}", securityCheckServer(true, http.HandlerFunc(addNetwork))).Methods(http.MethodPost)
 	r.HandleFunc("/api/server/health", http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
 		resp.WriteHeader(http.StatusOK)
 		resp.Write([]byte("Server is up and running!!"))
 	}))
-	r.HandleFunc("/api/server/getconfig", allowUsers(http.HandlerFunc(getConfig))).Methods("GET")
-	r.HandleFunc("/api/server/getserverinfo", authorize(true, false, "node", http.HandlerFunc(getServerInfo))).Methods("GET")
+	r.HandleFunc("/api/server/getconfig", allowUsers(http.HandlerFunc(getConfig))).Methods(http.MethodGet)
+	r.HandleFunc("/api/server/getserverinfo", authorize(true, false, "node", http.HandlerFunc(getServerInfo))).Methods(http.MethodGet)
+	r.HandleFunc("/api/server/status", http.HandlerFunc(getStatus)).Methods(http.MethodGet)
+}
+
+// swagger:route GET /api/server/status server getStatus
+//
+// Get the server configuration.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: serverConfigResponse
+func getStatus(w http.ResponseWriter, r *http.Request) {
+	// TODO
+	// - check health of broker
+	type status struct {
+		DB     bool `json:"db_connected"`
+		Broker bool `json:"broker_connected"`
+	}
+
+	currentServerStatus := status{
+		DB:     database.IsConnected(),
+		Broker: mq.IsConnected(),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(&currentServerStatus)
 }
 
 // allowUsers - allow all authenticated (valid) users - only used by getConfig, may be able to remove during refactor

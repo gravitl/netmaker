@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/posthog/posthog-go"
@@ -84,13 +85,22 @@ func fetchTelemetryData() (telemetryData, error) {
 	data.Users = getDBLength(database.USERS_TABLE_NAME)
 	data.Networks = getDBLength(database.NETWORKS_TABLE_NAME)
 	data.Version = servercfg.GetVersion()
-	data.Servers = GetServerCount()
+	data.Servers = getServerCount()
 	nodes, err := GetAllNodes()
 	if err == nil {
 		data.Nodes = len(nodes)
 		data.Count = getClientCount(nodes)
 	}
 	return data, err
+}
+
+// getServerCount returns number of servers from database
+func getServerCount() int {
+	data, err := database.FetchRecords(database.SERVER_UUID_TABLE_NAME)
+	if err != nil {
+		logger.Log(0, "errror retrieving server data", err.Error())
+	}
+	return len(data)
 }
 
 // setTelemetryTimestamp - Give the entry in the DB a new timestamp
@@ -114,7 +124,11 @@ func setTelemetryTimestamp(telRecord *models.Telemetry) error {
 func getClientCount(nodes []models.Node) clientCount {
 	var count clientCount
 	for _, node := range nodes {
-		switch node.OS {
+		host, err := GetHost(node.HostID.String())
+		if err != nil {
+			continue
+		}
+		switch host.OS {
 		case "darwin":
 			count.MacOS += 1
 		case "windows":
@@ -123,9 +137,6 @@ func getClientCount(nodes []models.Node) clientCount {
 			count.Linux += 1
 		case "freebsd":
 			count.FreeBSD += 1
-		}
-		if !(node.IsServer == "yes") {
-			count.NonServer += 1
 		}
 	}
 	return count

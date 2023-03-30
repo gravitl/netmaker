@@ -32,50 +32,55 @@ type EnvironmentConfig struct {
 
 // ServerConfig - server conf struct
 type ServerConfig struct {
-	CoreDNSAddr           string `yaml:"corednsaddr"`
-	APIConnString         string `yaml:"apiconn"`
-	APIHost               string `yaml:"apihost"`
-	APIPort               string `yaml:"apiport"`
-	MQHOST                string `yaml:"mqhost"`
-	MasterKey             string `yaml:"masterkey"`
-	DNSKey                string `yaml:"dnskey"`
-	AllowedOrigin         string `yaml:"allowedorigin"`
-	NodeID                string `yaml:"nodeid"`
-	RestBackend           string `yaml:"restbackend"`
-	AgentBackend          string `yaml:"agentbackend"`
-	MessageQueueBackend   string `yaml:"messagequeuebackend"`
-	ClientMode            string `yaml:"clientmode"`
-	DNSMode               string `yaml:"dnsmode"`
-	DisableRemoteIPCheck  string `yaml:"disableremoteipcheck"`
-	Version               string `yaml:"version"`
-	SQLConn               string `yaml:"sqlconn"`
-	Platform              string `yaml:"platform"`
-	Database              string `yaml:"database"`
-	DefaultNodeLimit      int32  `yaml:"defaultnodelimit"`
-	Verbosity             int32  `yaml:"verbosity"`
-	ServerCheckinInterval int64  `yaml:"servercheckininterval"`
-	AuthProvider          string `yaml:"authprovider"`
-	OIDCIssuer            string `yaml:"oidcissuer"`
-	ClientID              string `yaml:"clientid"`
-	ClientSecret          string `yaml:"clientsecret"`
-	FrontendURL           string `yaml:"frontendurl"`
-	DisplayKeys           string `yaml:"displaykeys"`
-	AzureTenant           string `yaml:"azuretenant"`
-	RCE                   string `yaml:"rce"`
-	Telemetry             string `yaml:"telemetry"`
-	ManageIPTables        string `yaml:"manageiptables"`
-	PortForwardServices   string `yaml:"portforwardservices"`
-	HostNetwork           string `yaml:"hostnetwork"`
-	MQPort                string `yaml:"mqport"`
-	MQServerPort          string `yaml:"mqserverport"`
-	Server                string `yaml:"server"`
-	PublicIPService       string `yaml:"publicipservice"`
-	MQAdminPassword       string `yaml:"mqadminpassword"`
-	MetricsExporter       string `yaml:"metrics_exporter"`
-	BasicAuth             string `yaml:"basic_auth"`
-	LicenseValue          string `yaml:"license_value"`
-	NetmakerAccountID     string `yaml:"netmaker_account_id"`
-	IsEE                  string `yaml:"is_ee"`
+	CoreDNSAddr          string    `yaml:"corednsaddr"`
+	APIConnString        string    `yaml:"apiconn"`
+	APIHost              string    `yaml:"apihost"`
+	APIPort              string    `yaml:"apiport"`
+	Broker               string    `yam:"broker"`
+	ServerBrokerEndpoint string    `yaml:"serverbrokerendpoint"`
+	BrokerType           string    `yaml:"brokertype"`
+	EmqxRestEndpoint     string    `yaml:"emqxrestendpoint"`
+	MasterKey            string    `yaml:"masterkey"`
+	DNSKey               string    `yaml:"dnskey"`
+	AllowedOrigin        string    `yaml:"allowedorigin"`
+	NodeID               string    `yaml:"nodeid"`
+	RestBackend          string    `yaml:"restbackend"`
+	MessageQueueBackend  string    `yaml:"messagequeuebackend"`
+	DNSMode              string    `yaml:"dnsmode"`
+	DisableRemoteIPCheck string    `yaml:"disableremoteipcheck"`
+	Version              string    `yaml:"version"`
+	SQLConn              string    `yaml:"sqlconn"`
+	Platform             string    `yaml:"platform"`
+	Database             string    `yaml:"database"`
+	Verbosity            int32     `yaml:"verbosity"`
+	AuthProvider         string    `yaml:"authprovider"`
+	OIDCIssuer           string    `yaml:"oidcissuer"`
+	ClientID             string    `yaml:"clientid"`
+	ClientSecret         string    `yaml:"clientsecret"`
+	FrontendURL          string    `yaml:"frontendurl"`
+	DisplayKeys          string    `yaml:"displaykeys"`
+	AzureTenant          string    `yaml:"azuretenant"`
+	Telemetry            string    `yaml:"telemetry"`
+	HostNetwork          string    `yaml:"hostnetwork"`
+	Server               string    `yaml:"server"`
+	PublicIPService      string    `yaml:"publicipservice"`
+	MQPassword           string    `yaml:"mqpassword"`
+	MQUserName           string    `yaml:"mqusername"`
+	MetricsExporter      string    `yaml:"metrics_exporter"`
+	BasicAuth            string    `yaml:"basic_auth"`
+	LicenseValue         string    `yaml:"license_value"`
+	NetmakerAccountID    string    `yaml:"netmaker_account_id"`
+	IsEE                 string    `yaml:"is_ee"`
+	StunPort             int       `yaml:"stun_port"`
+	StunList             string    `yaml:"stun_list"`
+	Proxy                string    `yaml:"proxy"`
+	DefaultProxyMode     ProxyMode `yaml:"defaultproxymode"`
+}
+
+// ProxyMode - default proxy mode for server
+type ProxyMode struct {
+	Set   bool
+	Value bool
 }
 
 // SQLConfig - Generic SQL Config

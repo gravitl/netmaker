@@ -6,6 +6,7 @@ on:
     types: [opened, synchronize, reopened]
 
 jobs:
+
   build:
     runs-on: ubuntu-latest
     steps:
@@ -19,58 +20,25 @@ jobs:
         run: |
          env CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build main.go
          env CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -tags=ee main.go
-         cd netclient
-         env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build main.go
-         env CGO_ENABLED=0 GOOS=freebsd GOARCH=amd64 go build main.go
-         env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build main.go
-         env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build main.go
-  linux-gui:
+
+  nmctl:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-      - name: Setup Go
+      - name: Setup go
         uses: actions/setup-go@v3
         with:
           go-version: 1.19
       - name: Build
         run: |
-         sudo apt-get update
-         sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev
-         env CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -tags=gui main.go
-  mac-gui:
-    runs-on: macos-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Setup Go
-        uses: actions/setup-go@v3
-        with:
-          go-version: 1.19
-      - name: Build mac
-        run: |
-          env CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -tags=gui main.go
-  win-gui:
-    runs-on: windows-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - name: Setup Go
-        uses: actions/setup-go@v3
-        with:
-          go-version: 1.19
-      - name: Mysys2 setup
-        uses: msys2/setup-msys2@v2
-        with:
-          install: >-
-            git
-            mingw-w64-x86_64-toolchain
-      - name: Build win gui
-        run: |
-          env CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -tags=gui main.go
+          cd cli
+          GOOS=linux GOARCH=amd64 go build -o nmctl
+          GOOS=darwin GOARCH=amd64 go build -o nmctl
+          GOOS=darwin GOARCH=arm64 go build -o nmctl
+          GOOS=windows GOARCH=amd64 go build -o nmctl
+
   tests:
-    env:
-      DATABASE: sqlite
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout
@@ -81,11 +49,25 @@ jobs:
           go-version: 1.19
       - name: run tests
         run: |
-          sudo apt update
-          sudo apt-get install -y gcc libgl1-mesa-dev xorg-dev
+          go vet ./...
           go test -p 1 ./... -v
-          go install honnef.co/go/tools/cmd/staticcheck@latest
-          { ~/go/bin/staticcheck  -tags=ee ./... ; }
         env:
           DATABASE: sqlite
           CLIENT_MODE: "off"
+
+  staticcheck:
+    env:
+      DATABASE: sqlite
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.19
+      - name: run static checks
+        run: |
+          sudo apt update
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          { ~/go/bin/staticcheck  -tags=ee ./... ; }

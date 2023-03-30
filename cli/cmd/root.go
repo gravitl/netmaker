@@ -4,10 +4,12 @@ import (
 	"os"
 
 	"github.com/gravitl/netmaker/cli/cmd/acl"
+	"github.com/gravitl/netmaker/cli/cmd/commons"
 	"github.com/gravitl/netmaker/cli/cmd/context"
 	"github.com/gravitl/netmaker/cli/cmd/dns"
+	"github.com/gravitl/netmaker/cli/cmd/enrollment_key"
 	"github.com/gravitl/netmaker/cli/cmd/ext_client"
-	"github.com/gravitl/netmaker/cli/cmd/keys"
+	"github.com/gravitl/netmaker/cli/cmd/host"
 	"github.com/gravitl/netmaker/cli/cmd/metrics"
 	"github.com/gravitl/netmaker/cli/cmd/network"
 	"github.com/gravitl/netmaker/cli/cmd/network_user"
@@ -20,12 +22,9 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "netmaker",
+	Use:   "nmctl",
 	Short: "CLI for interacting with Netmaker Server",
 	Long:  `CLI for interacting with Netmaker Server`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
 }
 
 // GetRoot returns the root of all subcommands
@@ -43,20 +42,10 @@ func Execute() {
 }
 
 func init() {
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.tctl.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-
-	// IMP: Bind subcommands here
+	rootCmd.PersistentFlags().StringVarP(&commons.OutputFormat, "output", "o", "", "List output in specific format (Enum:- json)")
+	// Bind subcommands here
 	rootCmd.AddCommand(network.GetRoot())
 	rootCmd.AddCommand(context.GetRoot())
-	rootCmd.AddCommand(keys.GetRoot())
 	rootCmd.AddCommand(acl.GetRoot())
 	rootCmd.AddCommand(node.GetRoot())
 	rootCmd.AddCommand(dns.GetRoot())
@@ -66,4 +55,6 @@ func init() {
 	rootCmd.AddCommand(usergroup.GetRoot())
 	rootCmd.AddCommand(metrics.GetRoot())
 	rootCmd.AddCommand(network_user.GetRoot())
+	rootCmd.AddCommand(host.GetRoot())
+	rootCmd.AddCommand(enrollment_key.GetRoot())
 }

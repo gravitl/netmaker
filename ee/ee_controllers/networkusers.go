@@ -15,13 +15,13 @@ import (
 )
 
 func NetworkUsersHandlers(r *mux.Router) {
-	r.HandleFunc("/api/networkusers", logic.SecurityCheck(true, http.HandlerFunc(getAllNetworkUsers))).Methods("GET")
-	r.HandleFunc("/api/networkusers/{network}", logic.SecurityCheck(true, http.HandlerFunc(getNetworkUsers))).Methods("GET")
-	r.HandleFunc("/api/networkusers/{network}/{networkuser}", logic.SecurityCheck(true, http.HandlerFunc(getNetworkUser))).Methods("GET")
-	r.HandleFunc("/api/networkusers/{network}", logic.SecurityCheck(true, http.HandlerFunc(createNetworkUser))).Methods("POST")
-	r.HandleFunc("/api/networkusers/{network}", logic.SecurityCheck(true, http.HandlerFunc(updateNetworkUser))).Methods("PUT")
-	r.HandleFunc("/api/networkusers/data/{networkuser}/me", logic.NetUserSecurityCheck(false, false, http.HandlerFunc(getNetworkUserData))).Methods("GET")
-	r.HandleFunc("/api/networkusers/{network}/{networkuser}", logic.SecurityCheck(true, http.HandlerFunc(deleteNetworkUser))).Methods("DELETE")
+	r.HandleFunc("/api/networkusers", logic.SecurityCheck(true, http.HandlerFunc(getAllNetworkUsers))).Methods(http.MethodGet)
+	r.HandleFunc("/api/networkusers/{network}", logic.SecurityCheck(true, http.HandlerFunc(getNetworkUsers))).Methods(http.MethodGet)
+	r.HandleFunc("/api/networkusers/{network}/{networkuser}", logic.SecurityCheck(true, http.HandlerFunc(getNetworkUser))).Methods(http.MethodGet)
+	r.HandleFunc("/api/networkusers/{network}", logic.SecurityCheck(true, http.HandlerFunc(createNetworkUser))).Methods(http.MethodPost)
+	r.HandleFunc("/api/networkusers/{network}", logic.SecurityCheck(true, http.HandlerFunc(updateNetworkUser))).Methods(http.MethodPut)
+	r.HandleFunc("/api/networkusers/data/{networkuser}/me", logic.NetUserSecurityCheck(false, false, http.HandlerFunc(getNetworkUserData))).Methods(http.MethodGet)
+	r.HandleFunc("/api/networkusers/{network}/{networkuser}", logic.SecurityCheck(true, http.HandlerFunc(deleteNetworkUser))).Methods(http.MethodDelete)
 }
 
 // == RETURN TYPES ==
@@ -110,16 +110,16 @@ func getNetworkUserData(w http.ResponseWriter, r *http.Request) {
 						// if access level is NODE_ACCESS, filter nodes
 						if netUser.AccessLevel == pro.NODE_ACCESS {
 							for i := range netNodes {
-								if logic.StringSliceContains(netUser.Nodes, netNodes[i].ID) {
+								if logic.StringSliceContains(netUser.Nodes, netNodes[i].ID.String()) {
 									newData.Nodes = append(newData.Nodes, netNodes[i])
 								}
 							}
 						} else { // net admin so, get all nodes and ext clients on network...
 							newData.Nodes = netNodes
 							for i := range netNodes {
-								if netNodes[i].IsIngressGateway == "yes" {
+								if netNodes[i].IsIngressGateway {
 									newData.Vpn = append(newData.Vpn, netNodes[i])
-									if clients, err := logic.GetExtClientsByID(netNodes[i].ID, netID); err == nil {
+									if clients, err := logic.GetExtClientsByID(netNodes[i].ID.String(), netID); err == nil {
 										newData.Clients = append(newData.Clients, clients...)
 									}
 								}
@@ -134,7 +134,7 @@ func getNetworkUserData(w http.ResponseWriter, r *http.Request) {
 							}
 						}
 						for i := range netNodes {
-							if netNodes[i].IsIngressGateway == "yes" {
+							if netNodes[i].IsIngressGateway {
 								newData.Vpn = append(newData.Vpn, netNodes[i])
 							}
 						}

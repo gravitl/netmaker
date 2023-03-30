@@ -3,6 +3,7 @@ package mq
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -23,39 +24,6 @@ var peer_force_send = 0
 
 var mqclient mqtt.Client
 
-// SetUpAdminClient - sets up admin client for the MQ
-func SetUpAdminClient() {
-	opts := mqtt.NewClientOptions()
-	setMqOptions(mqAdminUserName, servercfg.GetMqAdminPassword(), opts)
-	mqAdminClient = mqtt.NewClient(opts)
-	opts.SetOnConnectHandler(func(client mqtt.Client) {
-		if token := client.Subscribe(dynamicSecSubTopic, 2, mqtt.MessageHandler(watchDynSecTopic)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
-			client.Disconnect(240)
-			logger.Log(0, fmt.Sprintf("Dynamic security client subscription failed: %v ", token.Error()))
-		}
-
-		opts.SetOrderMatters(true)
-		opts.SetResumeSubs(true)
-	})
-	tperiod := time.Now().Add(10 * time.Second)
-	for {
-		if token := mqAdminClient.Connect(); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
-			logger.Log(2, "Admin: unable to connect to broker, retrying ...")
-			if time.Now().After(tperiod) {
-				if token.Error() == nil {
-					logger.FatalLog("Admin: could not connect to broker, token timeout, exiting ...")
-				} else {
-					logger.FatalLog("Admin: could not connect to broker, exiting ...", token.Error().Error())
-				}
-			}
-		} else {
-			break
-		}
-		time.Sleep(2 * time.Second)
-	}
-
-}
-
 func setMqOptions(user, password string, opts *mqtt.ClientOptions) {
 	broker, _ := servercfg.GetMessageQueueEndpoint()
 	opts.AddBroker(broker)
@@ -72,22 +40,42 @@ func setMqOptions(user, password string, opts *mqtt.ClientOptions) {
 
 // SetupMQTT creates a connection to broker and return client
 func SetupMQTT() {
-	opts := mqtt.NewClientOptions()
-	setMqOptions(mqNetmakerServerUserName, servercfg.GetMqAdminPassword(), opts)
-	opts.SetOnConnectHandler(func(client mqtt.Client) {
-		if token := client.Subscribe("ping/#", 2, mqtt.MessageHandler(Ping)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
-			client.Disconnect(240)
-			logger.Log(0, "ping subscription failed")
+	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
+		time.Sleep(10 * time.Second) // wait for the REST endpoint to be ready
+		// setup authenticator and create admin user
+		if err := CreateEmqxDefaultAuthenticator(); err != nil {
+			logger.Log(0, err.Error())
 		}
-		if token := client.Subscribe("update/#", 0, mqtt.MessageHandler(UpdateNode)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
+		DeleteEmqxUser(servercfg.GetMqUserName())
+		if err := CreateEmqxUser(servercfg.GetMqUserName(), servercfg.GetMqPassword(), true); err != nil {
+			log.Fatal(err)
+		}
+		// create an ACL authorization source for the built in EMQX MNESIA database
+		if err := CreateEmqxDefaultAuthorizer(); err != nil {
+			logger.Log(0, err.Error())
+		}
+		// create a default deny ACL to all topics for all users
+		if err := CreateDefaultDenyRule(); err != nil {
+			log.Fatal(err)
+		}
+	}
+	opts := mqtt.NewClientOptions()
+	setMqOptions(servercfg.GetMqUserName(), servercfg.GetMqPassword(), opts)
+	opts.SetOnConnectHandler(func(client mqtt.Client) {
+		serverName := servercfg.GetServer()
+		if token := client.Subscribe(fmt.Sprintf("update/%s/#", serverName), 0, mqtt.MessageHandler(UpdateNode)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
 			client.Disconnect(240)
 			logger.Log(0, "node update subscription failed")
 		}
-		if token := client.Subscribe("signal/#", 0, mqtt.MessageHandler(ClientPeerUpdate)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
+		if token := client.Subscribe(fmt.Sprintf("host/serverupdate/%s/#", serverName), 0, mqtt.MessageHandler(UpdateHost)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
+			client.Disconnect(240)
+			logger.Log(0, "host update subscription failed")
+		}
+		if token := client.Subscribe(fmt.Sprintf("signal/%s/#", serverName), 0, mqtt.MessageHandler(ClientPeerUpdate)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
 			client.Disconnect(240)
 			logger.Log(0, "node client subscription failed")
 		}
-		if token := client.Subscribe("metrics/#", 0, mqtt.MessageHandler(UpdateMetrics)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
+		if token := client.Subscribe(fmt.Sprintf("metrics/%s/#", serverName), 0, mqtt.MessageHandler(UpdateMetrics)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
 			client.Disconnect(240)
 			logger.Log(0, "node metrics subscription failed")
 		}
@@ -124,4 +112,14 @@ func Keepalive(ctx context.Context) {
 			sendPeers()
 		}
 	}
+}
+
+// IsConnected - function for determining if the mqclient is connected or not
+func IsConnected() bool {
+	return mqclient != nil && mqclient.IsConnected()
+}
+
+// CloseClient - function to close the mq connection from server
+func CloseClient() {
+	mqclient.Disconnect(250)
 }

@@ -10,7 +10,7 @@
 //
 //	Schemes: https
 //	BasePath: /
-//	Version: 0.17.1
+//	Version: 0.18.5
 //	Host: netmaker.io
 //
 //	Consumes:
@@ -29,7 +29,6 @@ import (
 	serverconfigpkg "github.com/gravitl/netmaker/config"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/config"
 )
 
 var _ = useUnused() // "use" the function to prevent "unused function" errors
@@ -204,27 +203,6 @@ type networkBodyResponse struct {
 	Network models.Network `json:"network"`
 }
 
-// swagger:parameters createAccessKey
-type accessKeyBodyParam struct {
-	// Access Key
-	// in: body
-	AccessKey models.AccessKey `json:"access_key"`
-}
-
-// swagger:response accessKeyBodyResponse
-type accessKeyBodyResponse struct {
-	// Access Key
-	// in: body
-	AccessKey models.AccessKey `json:"access_key"`
-}
-
-// swagger:response accessKeySliceBodyResponse
-type accessKeySliceBodyResponse struct {
-	// Access Keys
-	// in: body
-	AccessKey []models.AccessKey `json:"access_key"`
-}
-
 // swagger:parameters updateNetworkACL getNetworkACL
 type aclContainerBodyParam struct {
 	// ACL Container
@@ -243,21 +221,21 @@ type aclContainerResponse struct {
 type nodeSliceResponse struct {
 	// Nodes
 	// in: body
-	Nodes []models.Node `json:"nodes"`
+	Nodes []models.LegacyNode `json:"nodes"`
 }
 
 // swagger:response nodeResponse
 type nodeResponse struct {
 	// Node
 	// in: body
-	Node models.Node `json:"node"`
+	Node models.LegacyNode `json:"node"`
 }
 
 // swagger:parameters updateNode deleteNode
 type nodeBodyParam struct {
 	// Node
 	// in: body
-	Node models.Node `json:"node"`
+	Node models.LegacyNode `json:"node"`
 }
 
 // swagger:parameters createRelay
@@ -303,18 +281,18 @@ type nodeLastModifiedResponse struct {
 }
 
 // swagger:parameters register
-type registerRequestBodyParam struct {
-	// Register Request
-	// in: body
-	RegisterRequest config.RegisterRequest `json:"register_request"`
-}
-
-// swagger:response registerResponse
-type registerResponse struct {
-	// Register Response
-	// in: body
-	RegisterResponse config.RegisterResponse `json:"register_response"`
-}
+//type registerRequestBodyParam struct {
+//	// Register Request
+//	// in: body
+//	RegisterRequest config.RegisterRequest `json:"register_request"`
+//}
+//
+//// swagger:response registerResponse
+//type registerResponse struct {
+//	// Register Response
+//	// in: body
+//	RegisterResponse config.RegisterResponse `json:"register_response"`
+//}
 
 // swagger:response boolResponse
 type boolResponse struct {
@@ -374,9 +352,6 @@ func useUnused() bool {
 	_ = networkPathParam{}
 	_ = networkAccessKeyNamePathParam{}
 	_ = networkBodyResponse{}
-	_ = accessKeyBodyParam{}
-	_ = accessKeyBodyResponse{}
-	_ = accessKeySliceBodyResponse{}
 	_ = aclContainerBodyParam{}
 	_ = aclContainerResponse{}
 	_ = nodeSliceResponse{}
@@ -388,8 +363,8 @@ func useUnused() bool {
 	_ = serverConfigResponse{}
 	_ = nodeGetResponse{}
 	_ = nodeLastModifiedResponse{}
-	_ = registerRequestBodyParam{}
-	_ = registerResponse{}
+	//	_ = registerRequestBodyParam{}
+	//	_ = registerResponse{}
 	_ = boolResponse{}
 	_ = userBodyParam{}
 	_ = userBodyResponse{}

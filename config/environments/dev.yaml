@@ -4,8 +4,6 @@ server:
   masterkey: "" # defaults to 'secretkey' or MASTER_KEY (if set)
   allowedorigin: "" # defaults to '*' or CORS_ALLOWED_ORIGIN (if set)
   restbackend: "" # defaults to "on" or REST_BACKEND (if set)
-  agentbackend: "" # defaults to "on" or AGENT_BACKEND (if set)
-  clientmode: "" # defaults to "on" or CLIENT_MODE (if set)
   dnsmode: "" # defaults to "on" or DNS_MODE (if set)
   sqlconn: "" # defaults to "http://" or SQL_CONN (if set)
   disableremoteipcheck: "" # defaults to "false" or DISABLE_REMOTE_IP_CHECK (if set)

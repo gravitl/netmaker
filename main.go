@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"runtime/debug"
-	"strconv"
 	"sync"
 	"syscall"
 
@@ -25,9 +24,10 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
+	stunserver "github.com/gravitl/netmaker/stun-server"
 )
 
-var version = "dev"
+var version = "v0.18.5"
 
 // Start DB Connection and start API Request Handler
 func main() {
@@ -36,12 +36,16 @@ func main() {
 	setupConfig(*absoluteConfigPath)
 	servercfg.SetVersion(version)
 	fmt.Println(models.RetrieveLogo()) // print the logo
-	// fmt.Println(models.ProLogo())
-	initialize() // initial db and acls; gen cert if required
+	initialize()                       // initial db and acls
 	setGarbageCollection()
 	setVerbosity()
 	defer database.CloseDB()
-	startControllers() // start the api endpoint and mq
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
+	defer stop()
+	var waitGroup sync.WaitGroup
+	startControllers(&waitGroup, ctx) // start the api endpoint and mq and stun
+	<-ctx.Done()
+	waitGroup.Wait()
 }
 
 func setupConfig(absoluteConfigPath string) {
@@ -70,9 +74,6 @@ func initialize() { // Client Mode Prereq Check
 		logger.FatalLog("Error connecting to database: ", err.Error())
 	}
 	logger.Log(0, "database successfully connected")
-	if err = logic.AddServerIDIfNotPresent(); err != nil {
-		logger.Log(1, "failed to save server ID")
-	}
 
 	logic.SetJWTSecret()
 
@@ -99,29 +100,6 @@ func initialize() { // Client Mode Prereq Check
 		logger.FatalLog("error setting defaults: ", err.Error())
 	}
 
-	if servercfg.IsClientMode() != "off" {
-		output, err := ncutils.RunCmd("id -u", true)
-		if err != nil {
-			logger.FatalLog("Error running 'id -u' for prereq check. Please investigate or disable client mode.", output, err.Error())
-		}
-		uid, err := strconv.Atoi(string(output[:len(output)-1]))
-		if err != nil {
-			logger.FatalLog("Error retrieving uid from 'id -u' for prereq check. Please investigate or disable client mode.", err.Error())
-		}
-		if uid != 0 {
-			logger.FatalLog("To run in client mode requires root privileges. Either disable client mode or run with sudo.")
-		}
-		if err := serverctl.InitServerNetclient(); err != nil {
-			logger.FatalLog("Did not find netclient to use CLIENT_MODE")
-		}
-	}
-	// initialize iptables to ensure gateways work correctly and mq is forwarded if containerized
-	if servercfg.ManageIPTables() != "off" {
-		if err = serverctl.InitIPTables(true); err != nil {
-			logger.FatalLog("Unable to initialize iptables on host:", err.Error())
-		}
-	}
-
 	if servercfg.IsDNSMode() {
 		err := functions.SetDNSDir()
 		if err != nil {
@@ -136,17 +114,11 @@ func initialize() { // Client Mode Prereq Check
 	}
 }
 
-func startControllers() {
-	var waitnetwork sync.WaitGroup
+func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 	if servercfg.IsDNSMode() {
 		err := logic.SetDNS()
 		if err != nil {
 			logger.Log(0, "error occurred initializing DNS: ", err.Error())
-		}
-	}
-	if servercfg.IsMessageQueueBackend() {
-		if err := mq.Configure(); err != nil {
-			logger.FatalLog("failed to configure MQ: ", err.Error())
 		}
 	}
 
@@ -158,36 +130,47 @@ func startControllers() {
 				logger.FatalLog("Unable to Set host. Exiting...", err.Error())
 			}
 		}
-		waitnetwork.Add(1)
-		go controller.HandleRESTRequests(&waitnetwork)
+		wg.Add(1)
+		go controller.HandleRESTRequests(wg, ctx)
 	}
 	//Run MessageQueue
 	if servercfg.IsMessageQueueBackend() {
-		waitnetwork.Add(1)
-		go runMessageQueue(&waitnetwork)
+		wg.Add(1)
+		go runMessageQueue(wg, ctx)
 	}
 
-	if !servercfg.IsAgentBackend() && !servercfg.IsRestBackend() && !servercfg.IsMessageQueueBackend() {
-		logger.Log(0, "No Server Mode selected, so nothing is being served! Set Agent mode (AGENT_BACKEND) or Rest mode (REST_BACKEND) or MessageQueue (MESSAGEQUEUE_BACKEND) to 'true'.")
+	if !servercfg.IsRestBackend() && !servercfg.IsMessageQueueBackend() {
+		logger.Log(0, "No Server Mode selected, so nothing is being served! Set Rest mode (REST_BACKEND) or MessageQueue (MESSAGEQUEUE_BACKEND) to 'true'.")
 	}
 
-	waitnetwork.Wait()
+	// starts the stun server
+	wg.Add(1)
+	go stunserver.Start(wg, ctx)
 }
 
 // Should we be using a context vice a waitgroup????????????
-func runMessageQueue(wg *sync.WaitGroup) {
+func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 	defer wg.Done()
-	brokerHost, secure := servercfg.GetMessageQueueEndpoint()
-	logger.Log(0, "connecting to mq broker at", brokerHost, "with TLS?", fmt.Sprintf("%v", secure))
-	mq.SetUpAdminClient()
+	brokerHost, _ := servercfg.GetMessageQueueEndpoint()
+	logger.Log(0, "connecting to mq broker at", brokerHost)
 	mq.SetupMQTT()
-	ctx, cancel := context.WithCancel(context.Background())
+	if mq.IsConnected() {
+		logger.Log(0, "connected to MQ Broker")
+	} else {
+		logger.FatalLog("error connecting to MQ Broker")
+	}
+	defer mq.CloseClient()
 	go mq.Keepalive(ctx)
-	go logic.ManageZombies(ctx)
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGTERM, os.Interrupt)
-	<-quit
-	cancel()
+	go func() {
+		peerUpdate := make(chan *models.Node)
+		go logic.ManageZombies(ctx, peerUpdate)
+		for nodeUpdate := range peerUpdate {
+			if err := mq.NodeUpdate(nodeUpdate); err != nil {
+				logger.Log(0, "failed to send peer update for deleted node: ", nodeUpdate.ID.String(), err.Error())
+			}
+		}
+	}()
+	<-ctx.Done()
 	logger.Log(0, "Message Queue shutting down")
 }
 
