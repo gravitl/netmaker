@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sort"
 	"time"
 
 	validator "github.com/go-playground/validator/v10"
@@ -544,6 +545,14 @@ func createNode(node *models.Node) error {
 		err = SetDNS()
 	}
 	return err
+}
+
+// SortApiNodes - Sorts slice of ApiNodes by their ID alphabetically with numbers first
+func SortApiNodes(unsortedNodes []models.ApiNode) []models.ApiNode {
+	sort.Slice(unsortedNodes, func(i, j int) bool {
+		return unsortedNodes[i].ID < unsortedNodes[j].ID
+	})
+	return nil
 }
 
 // == END PRO ==

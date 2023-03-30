@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sort"
 	"strings"
 
 	"github.com/c-robinson/iplib"
@@ -620,5 +621,13 @@ func networkNodesUpdateAction(networkName string, action string) error {
 			database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
 		}
 	}
+	return nil
+}
+
+// SortNetworks - Sorts slice of Networks by their NetID alphabetically with numbers first
+func SortNetworks(unsortedNetworks []models.Network) []models.Network {
+	sort.Slice(unsortedNetworks, func(i, j int) bool {
+		return unsortedNetworks[i].NetID < unsortedNetworks[j].NetID
+	})
 	return nil
 }

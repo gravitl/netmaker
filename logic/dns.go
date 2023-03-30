@@ -3,6 +3,7 @@ package logic
 import (
 	"encoding/json"
 	"os"
+	"sort"
 
 	validator "github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
@@ -192,6 +193,14 @@ func GetDNSEntryNum(domain string, network string) (int, error) {
 	}
 
 	return num, nil
+}
+
+// SortDNSEntrys - Sorts slice of DNSEnteys by their Address alphabetically with numbers first
+func SortDNSEntrys(unsortedDNSEntrys []models.DNSEntry) []models.DNSEntry {
+	sort.Slice(unsortedDNSEntrys, func(i, j int) bool {
+		return unsortedDNSEntrys[i].Address < unsortedDNSEntrys[j].Address
+	})
+	return nil
 }
 
 // ValidateDNSCreate - checks if an entry is valid

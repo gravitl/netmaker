@@ -70,8 +70,9 @@ func getAllDNS(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	sortedDns := logic.SortDNSEntrys(dns)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(dns)
+	json.NewEncoder(w).Encode(sortedDns)
 }
 
 // swagger:route GET /api/dns/adm/{network}/custom dns getCustomDNS
