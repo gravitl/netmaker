@@ -116,7 +116,7 @@ install_dependencies() {
 
   if command -v docker >/dev/null 2>&1 ; then
     echo "Docker found"
-    echo "version: $(Docker version)"
+    echo "version: $(docker version)"
   else
     echo "Docker not found. adding to dependencies"
     $dependencies += " docker.io"
@@ -486,7 +486,7 @@ setup_netclient() {
   fi
   set +e
 
-  if  [ "$HAS_APT" = "true" ];; then
+  if  [ "$HAS_APT" = "true" ]; then
     curl -sL 'https://apt.netmaker.org/gpg.key' | sudo tee /etc/apt/trusted.gpg.d/netclient.asc
     curl -sL 'https://apt.netmaker.org/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/netclient.list
     sudo apt update
