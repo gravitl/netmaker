@@ -277,7 +277,7 @@ install_dependencies() {
 
 	OS=$(uname)
 	if [ -f /etc/debian_version ]; then
-		dependencies="git wireguard wireguard-tools jq docker.io docker-compose"
+		dependencies="git wireguard wireguard-tools dnsutils jq docker.io docker-compose"
 		update_cmd='apt update'
 		install_cmd='apt-get install -y'
 	elif [ -f /etc/alpine-release ]; then
@@ -285,19 +285,19 @@ install_dependencies() {
 		update_cmd='apk update'
 		install_cmd='apk --update add'
 	elif [ -f /etc/centos-release ]; then
-		dependencies="git wireguard jq docker.io docker-compose"
+		dependencies="git wireguard jq bind-utils docker.io docker-compose"
 		update_cmd='yum update'
 		install_cmd='yum install -y'
 	elif [ -f /etc/fedora-release ]; then
-		dependencies="git wireguard jq docker.io docker-compose"
+		dependencies="git wireguard bind-utils jq docker.io docker-compose"
 		update_cmd='dnf update'
 		install_cmd='dnf install -y'
 	elif [ -f /etc/redhat-release ]; then
-		dependencies="git wireguard jq docker.io docker-compose"
+		dependencies="git wireguard jq docker.io bind-utils docker-compose"
 		update_cmd='yum update'
 		install_cmd='yum install -y'
 	elif [ -f /etc/arch-release ]; then
-			dependecies="git wireguard-tools jq docker.io docker-compose"
+			dependecies="git wireguard-tools dnsutils jq docker.io docker-compose"
 		update_cmd='pacman -Sy'
 		install_cmd='pacman -S --noconfirm'
 	elif [ "${OS}" = "FreeBSD" ]; then
