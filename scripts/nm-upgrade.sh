@@ -60,6 +60,7 @@ get_install_path() {
         ;;
       *) echo "invalid option $REPLY";;
     esac
+  done
 }
 
 # wait_seconds - wait a number of seconds, print a log
