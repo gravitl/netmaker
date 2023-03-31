@@ -1,7 +1,7 @@
 #!/bin/bash
 
 LATEST="v0.18.5"
-INSTALL_PATH = "/root"
+INSTALL_PATH="/root"
 
 trap restore_old_netmaker_instructions
 
@@ -42,7 +42,7 @@ restore_old_netmaker_instructions() {
   echo "Your netmaker should be back to v0.17.1"
 }
 
-get_install_path(){
+get_install_path() {
   echo "-----------------------------------------------------"
   echo "Is your docker-compose located in $INSTALL_PATH ?"
   echo "-----------------------------------------------------"
