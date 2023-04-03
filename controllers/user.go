@@ -331,7 +331,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	// start here
-	jwtUser, _, isadmin, err := logic.VerifyJWS(r.Header.Get("Authorization"))
+	jwtUser, _, isadmin, err := logic.VerifyJWT(r.Header.Get("Authorization"))
 	if err != nil {
 		logger.Log(0, "verifyJWT error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))

@@ -103,7 +103,7 @@ func CreateUserJWT(username string, networks []string, isadmin bool) (response s
 }
 
 // VerifyJWT verifies Auth Header
-func VerifyJWS(bearerToken string) (username string, networks []string, isadmin bool, err error) {
+func VerifyJWT(bearerToken string) (username string, networks []string, isadmin bool, err error) {
 	token := ""
 	tokenSplit := strings.Split(bearerToken, " ")
 	if len(tokenSplit) > 1 {
