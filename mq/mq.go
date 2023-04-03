@@ -50,15 +50,19 @@ func SetupMQTT() {
 		if err := CreateEmqxUser(servercfg.GetMqUserName(), servercfg.GetMqPassword(), true); err != nil {
 			log.Fatal(err)
 		}
+		// create an ACL authorization source for the built in EMQX MNESIA database
+		if err := CreateEmqxDefaultAuthorizer(); err != nil {
+			logger.Log(0, err.Error())
+		}
+		// create a default deny ACL to all topics for all users
+		if err := CreateDefaultDenyRule(); err != nil {
+			log.Fatal(err)
+		}
 	}
 	opts := mqtt.NewClientOptions()
 	setMqOptions(servercfg.GetMqUserName(), servercfg.GetMqPassword(), opts)
 	opts.SetOnConnectHandler(func(client mqtt.Client) {
 		serverName := servercfg.GetServer()
-		if token := client.Subscribe(fmt.Sprintf("ping/%s/#", serverName), 2, mqtt.MessageHandler(Ping)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
-			client.Disconnect(240)
-			logger.Log(0, "ping subscription failed")
-		}
 		if token := client.Subscribe(fmt.Sprintf("update/%s/#", serverName), 0, mqtt.MessageHandler(UpdateNode)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
 			client.Disconnect(240)
 			logger.Log(0, "node update subscription failed")

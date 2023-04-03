@@ -19,6 +19,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+var hostIDHeader = "host-id"
+
 func nodeHandlers(r *mux.Router) {
 
 	r.HandleFunc("/api/nodes", authorize(false, false, "user", http.HandlerFunc(getAllNodes))).Methods(http.MethodGet)
@@ -152,7 +154,7 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 // even if it's technically ok
 // This is kind of a poor man's RBAC. There's probably a better/smarter way.
 // TODO: Consider better RBAC implementations
-func authorize(nodesAllowed, networkCheck bool, authNetwork string, next http.Handler) http.HandlerFunc {
+func authorize(hostAllowed, networkCheck bool, authNetwork string, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
 			Code: http.StatusUnauthorized, Message: logic.Unauthorized_Msg,
@@ -184,11 +186,11 @@ func authorize(nodesAllowed, networkCheck bool, authNetwork string, next http.Ha
 				logic.ReturnErrorResponse(w, r, errorResponse)
 				return
 			}
-			//check if node instead of user
-			if nodesAllowed {
+			// check if host instead of user
+			if hostAllowed {
 				// TODO --- should ensure that node is only operating on itself
-				if _, _, _, err := logic.VerifyToken(authToken); err == nil {
-
+				if hostID, _, _, err := logic.VerifyHostToken(authToken); err == nil {
+					r.Header.Set(hostIDHeader, hostID)
 					// this indicates request is from a node
 					// used for failover - if a getNode comes from node, this will trigger a metrics wipe
 					next.ServeHTTP(w, r)
@@ -244,6 +246,7 @@ func authorize(nodesAllowed, networkCheck bool, authNetwork string, next http.Ha
 					} else {
 						isAuthorized = (nodeID == params["netid"])
 					}
+				case "host":
 				case "user":
 					isAuthorized = true
 				default:
@@ -394,6 +397,10 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	server := servercfg.GetServerInfo()
+	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
+		// set MQ username for EMQX clients
+		server.MQUserName = host.ID.String()
+	}
 	response := models.NodeGet{
 		Node:         node,
 		Host:         *host,

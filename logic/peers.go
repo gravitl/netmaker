@@ -221,7 +221,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 				}
 				peerConfig.Endpoint = &net.UDPAddr{
 					IP:   peerHost.EndpointIP,
-					Port: GetPeerListenPort(peerHost),
+					Port: peerHost.ListenPort,
 				}
 
 				if uselocal {

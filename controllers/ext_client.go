@@ -215,7 +215,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	if network.DefaultKeepalive != 0 {
 		keepalive = "PersistentKeepalive = " + strconv.Itoa(int(network.DefaultKeepalive))
 	}
-	gwendpoint := host.EndpointIP.String() + ":" + strconv.Itoa(logic.GetPeerListenPort(host))
+	gwendpoint := host.EndpointIP.String() + ":" + strconv.Itoa(host.ListenPort)
 	newAllowedIPs := network.AddressRange
 	if newAllowedIPs != "" && network.AddressRange6 != "" {
 		newAllowedIPs += ","

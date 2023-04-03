@@ -3,7 +3,7 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.18.4
+    image: gravitl/netmaker:v0.18.5
     restart: always
     volumes:
       - dnsconfig:/root/config/dnsconfig

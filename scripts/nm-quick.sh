@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LATEST="v0.18.4"
+LATEST="v0.18.5"
 
 print_logo() {(
 cat << "EOF"
@@ -43,7 +43,7 @@ usage () {
     echo "  -t      tag of build; if buildtype=version, tag=version. If builtype=branch or builtype=local, tag=branch"
     echo "  -a      auto-build; skip prompts and use defaults, if none provided"
     echo "examples:"
-	echo "          nm-quick.sh -e -b version -t v0.18.4"
+	echo "          nm-quick.sh -e -b version -t $LATEST"
 	echo "          nm-quick.sh -e -b local -t feature_v0.17.2_newfeature"	
 	echo "          nm-quick.sh -e -b branch -t develop"
     exit 1
@@ -178,21 +178,6 @@ install_yq() {
 # setup_netclient - adds netclient to docker-compose
 setup_netclient() {
 
-
-	# yq ".services.netclient += {\"container_name\": \"netclient\"}" -i /root/docker-compose.yml
-	# yq ".services.netclient += {\"image\": \"gravitl/netclient:$IMAGE_TAG\"}" -i /root/docker-compose.yml
-	# yq ".services.netclient += {\"hostname\": \"netmaker-1\"}" -i /root/docker-compose.yml
-	# yq ".services.netclient += {\"network_mode\": \"host\"}" -i /root/docker-compose.yml
-	# yq ".services.netclient.depends_on += [\"netmaker\"]" -i /root/docker-compose.yml
-	# yq ".services.netclient += {\"restart\": \"always\"}" -i /root/docker-compose.yml
-	# yq ".services.netclient.environment += {\"TOKEN\": \"$TOKEN\"}" -i /root/docker-compose.yml
-	# yq ".services.netclient.volumes += [\"/etc/netclient:/etc/netclient\"]" -i /root/docker-compose.yml
-	# yq ".services.netclient.cap_add += [\"NET_ADMIN\"]" -i /root/docker-compose.yml
-	# yq ".services.netclient.cap_add += [\"NET_RAW\"]" -i /root/docker-compose.yml
-	# yq ".services.netclient.cap_add += [\"SYS_MODULE\"]" -i /root/docker-compose.yml
-
-	# docker-compose up -d
-
 	set +e
 	netclient uninstall
 	set -e
@@ -200,7 +185,7 @@ setup_netclient() {
 	wget -O netclient https://github.com/gravitl/netclient/releases/download/$LATEST/netclient_linux_amd64
 	chmod +x netclient
 	./netclient install
-	netclient join -t $TOKEN
+	netclient register -t $TOKEN
 
 	echo "waiting for client to become available"
 	wait_seconds 10 
@@ -210,9 +195,9 @@ setup_netclient() {
 configure_netclient() {
 
 	NODE_ID=$(sudo cat /etc/netclient/nodes.yml | yq -r .netmaker.commonnode.id)
-	echo "join complete. New node ID: $NODE_ID"
+	echo "register complete. New node ID: $NODE_ID"
 	HOST_ID=$(sudo cat /etc/netclient/netclient.yml | yq -r .host.id)
-	echo "For first join, making host a default"
+	echo "making host a default"
 	echo "Host ID: $HOST_ID"
 	# set as a default host
 	set +e
@@ -225,11 +210,8 @@ configure_netclient() {
 # setup_nmctl - pulls nmctl and makes it executable
 setup_nmctl() {
 
-	# DEV_TEMP - Temporary instructions for testing
-	wget -O /usr/bin/nmctl https://fileserver.netmaker.org/testing/nmctl
+	wget -O /usr/bin/nmctl https://github.com/gravitl/netmaker/releases/download/$LATEST/nmctl_linux_amd64
 
-	# RELEASE_REPLACE - Use this once release is ready
-	# wget https://github.com/gravitl/netmaker/releases/download/v0.17.1/nmctl
     chmod +x /usr/bin/nmctl
     echo "using server api.$NETMAKER_BASE_DOMAIN"
     echo "using master key $MASTER_KEY"
@@ -295,7 +277,7 @@ install_dependencies() {
 
 	OS=$(uname)
 	if [ -f /etc/debian_version ]; then
-		dependencies="git wireguard wireguard-tools jq docker.io docker-compose"
+		dependencies="git wireguard wireguard-tools dnsutils jq docker.io docker-compose"
 		update_cmd='apt update'
 		install_cmd='apt-get install -y'
 	elif [ -f /etc/alpine-release ]; then
@@ -303,19 +285,19 @@ install_dependencies() {
 		update_cmd='apk update'
 		install_cmd='apk --update add'
 	elif [ -f /etc/centos-release ]; then
-		dependencies="git wireguard jq docker.io docker-compose"
+		dependencies="git wireguard jq bind-utils docker.io docker-compose"
 		update_cmd='yum update'
 		install_cmd='yum install -y'
 	elif [ -f /etc/fedora-release ]; then
-		dependencies="git wireguard jq docker.io docker-compose"
+		dependencies="git wireguard bind-utils jq docker.io docker-compose"
 		update_cmd='dnf update'
 		install_cmd='dnf install -y'
 	elif [ -f /etc/redhat-release ]; then
-		dependencies="git wireguard jq docker.io docker-compose"
+		dependencies="git wireguard jq docker.io bind-utils docker-compose"
 		update_cmd='yum update'
 		install_cmd='yum install -y'
 	elif [ -f /etc/arch-release ]; then
-			dependecies="git wireguard-tools jq docker.io docker-compose"
+			dependecies="git wireguard-tools dnsutils jq docker.io docker-compose"
 		update_cmd='pacman -Sy'
 		install_cmd='pacman -S --noconfirm'
 	elif [ "${OS}" = "FreeBSD" ]; then
@@ -660,11 +642,10 @@ setup_mesh() {
 
 	wait_seconds 5
 
-	echo "Creating netmaker access key"
+	echo "Creating netmaker enrollment key"
 
-	nmctl keys create test1 99999 --name netmaker-key
-	tokenJson=$(nmctl keys create netmaker 2)
-	TOKEN=$(jq -r '.accessstring' <<< ${tokenJson})
+	tokenJson=$(nmctl enrollment_key create --unlimited --networks netmaker)
+	TOKEN=$(jq -r '.token' <<< ${tokenJson})
 
 	wait_seconds 3
 

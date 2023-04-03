@@ -96,6 +96,8 @@ const (
 	Acknowledgement = "ACK"
 	// RequestAck - request an ACK
 	RequestAck = "REQ_ACK"
+	// CheckIn - update last check in times and public address and interfaces
+	CheckIn = "CHECK_IN"
 )
 
 // HostUpdate - struct for host update

@@ -52,6 +52,16 @@ func GetNetworkNodesMemory(allNodes []models.Node, network string) []models.Node
 	return nodes
 }
 
+// UpdateNodeCheckin - updates the checkin time of a node
+func UpdateNodeCheckin(node *models.Node) error {
+	node.SetLastCheckIn()
+	data, err := json.Marshal(node)
+	if err != nil {
+		return err
+	}
+	return database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
+}
+
 // UpdateNode - takes a node and updates another node with it's values
 func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	if newNode.Address.IP.String() != currentNode.Address.IP.String() {

@@ -194,6 +194,23 @@ func UpdateExtClient(newclientid string, network string, enabled bool, client *m
 	if err != nil {
 		return client, err
 	}
+	if newclientid != client.ClientID {
+		//name change only
+		client.ClientID = newclientid
+		client.LastModified = time.Now().Unix()
+		data, err := json.Marshal(&client)
+		if err != nil {
+			return nil, err
+		}
+		key, err := GetRecordKey(client.ClientID, client.Network)
+		if err != nil {
+			return nil, err
+		}
+		if err = database.Insert(key, string(data), database.EXT_CLIENT_TABLE_NAME); err != nil {
+			return client, err
+		}
+		return client, nil
+	}
 	client.ClientID = newclientid
 	client.Enabled = enabled
 	SetClientACLs(client, newACLs)
