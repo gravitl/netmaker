@@ -1,6 +1,9 @@
 #!/bin/bash
 
 LATEST="v0.18.5"
+INSTALL_PATH="/root"
+
+trap restore_old_netmaker_instructions
 
 # check_version - make sure current version is 0.17.1 before continuing
 check_version() {
@@ -13,6 +16,51 @@ check_version() {
       echo "please upgrade to v0.17.1 in order to use the upgrade script"
       exit 1
   fi
+}
+
+backup_v17_files() {
+  mkdir $INSTALL_PATH/netmaker_0.17.1_backup
+  cp $INSTALL_PATH/docker-compose.yml  $INSTALL_PATH/netmaker_0.17.1_backup/docker-compose.yml
+  cp $INSTALL_PATH/Caddyfile $INSTALL_PATH/netmaker_0.17.1_backup/Caddyfile
+  cp $INSTALL_PATH/mosquitto.conf %INSTALL_PATH/netmaker_0.17.1_backup/mosquitto.conf
+  cp $INSTALL_PATH/wait.sh $INSTALL_PATH/netmaker_0.17.1_backup/wait.sh
+}
+
+backup_volumes() {
+  cp -r /var/lib/docker/volumes/root_caddy_conf/ /var/lib/docker/volumes/root_caddy_conf-backup/
+  cp -r /var/lib/docker/volumes/root_caddy_data/ /var/lib/docker/volumes/root_caddy_data-backup/
+  cp -r /var/lib/docker/volumes/root_dnsconfig/ /var/lib/docker/volumes/root_dnsconfig-backup/
+  cp -r /var/lib/docker/volumes/root_mosquitto_data/ /var/lib/docker/volumes/root_mosquitto_data-backup/
+  cp -r /var/lib/docker/volumes/root_mosquitto_logs/ /var/lib/docker/volumes/root_mosquitto_logs-backup/
+  cp -r /var/lib/docker/volumes/root_sqldata/ /var/lib/docker/volumes/root_sqldata-backup/
+}
+
+restore_old_netmaker_instructions() {
+  echo "There was a problem with the installation. Your config files and volumes have been backed up."
+  echo "To restore Netmaker back to v0.17.1, copy all the netmaker volume backups (caddy_conf-backup, caddy_data-backup, dnsconfig-backup, mosquitto_data-backup, mosquitto_logs-backup, and sqldata-backup) back to their regular names with out the -backup."
+  echo "Your config files should be located in ${INSALL_PATH}/netmaker_0.17.1_backup. Simply run cp ${INSALL_PATH}/netmaker_0.17.1_backup/* . (include the .) and run docker-compose up -d."
+  echo "Your netmaker should be back to v0.17.1"
+}
+
+get_install_path() {
+  echo "-----------------------------------------------------"
+  echo "Is your docker-compose located in $INSTALL_PATH ?"
+  echo "-----------------------------------------------------"
+  select install_option in "yes" "no (enter manually)"; do
+    case $REPLY in
+      1)
+        echo "using $INSTALL_PATH for an installation path."
+      break
+        ;;      
+      2)
+        read -p "Enter path where your docker-compose is located: " install_path
+        SERVER_HTTP_HOST=$install_path
+        echo "using $INSTALL_PATH"
+        break
+        ;;
+      *) echo "invalid option $REPLY";;
+    esac
+  done
 }
 
 # wait_seconds - wait a number of seconds, print a log
@@ -40,23 +88,23 @@ confirm() {
 install_dependencies() {
   OS=$(uname)
   if [ -f /etc/debian_version ]; then
-    dependencies="jq wireguard jq docker.io docker-compose"
+    dependencies="jq wireguard jq dnsutils docker-compose"
     update_cmd='apt update'
     install_cmd='apt install -y'
   elif [ -f /etc/centos-release ]; then
-    dependencies="wireguard jq docker.io docker-compose"
+    dependencies="wireguard jq bind-utils docker-compose"
     update_cmd='yum update'
     install_cmd='yum install -y'
   elif [ -f /etc/fedora-release ]; then
-    dependencies="wireguard jq docker.io docker-compose"
+    dependencies="wireguard jq bind-utils docker-compose"
     update_cmd='dnf update'
     install_cmd='dnf install -y'
   elif [ -f /etc/redhat-release ]; then
-    dependencies="wireguard jq docker.io docker-compose"
+    dependencies="wireguard jq bind-utils docker-compose"
     update_cmd='yum update'
     install_cmd='yum install -y'
   elif [ -f /etc/arch-release ]; then
-        dependecies="wireguard-tools jq docker.io docker-compose netclient"
+        dependencies="wireguard-tools jq dnsutils docker-compose netclient"
     update_cmd='pacman -Sy'
     install_cmd='pacman -S --noconfirm'
   else
@@ -65,6 +113,14 @@ install_dependencies() {
   fi
 
   set -- $dependencies
+
+  if command -v docker >/dev/null 2>&1 ; then
+    echo "Docker found"
+    echo "version: $(docker version)"
+  else
+    echo "Docker not found. adding to dependencies"
+    $dependencies += " docker.io"
+  fi
 
   ${update_cmd}
 
@@ -264,17 +320,17 @@ collect_node_settings() {
 # setup_caddy - updates Caddy with new info
 setup_caddy() {
 
-  echo "backing up Caddyfile to /root/Caddyfile.backup"
-  cp /root/Caddyfile /root/Caddyfile.backup
+  echo "backing up Caddyfile to ${INSTALL_PATH}/Caddyfile.backup"
+  cp $INSTALL_PATH/Caddyfile $INSTALL_PATH/Caddyfile.backup
 
   if grep -wq "acme.zerossl.com/v2/DV90" Caddyfile; then 
       echo "zerossl already set, continuing" 
   else 
     echo "editing Caddyfile"
-    sed -i '0,/email/{s~email~acme_ca https://acme.zerossl.com/v2/DV90\n\t&~}' /root/Caddyfile
+    sed -i '0,/email/{s~email~acme_ca https://acme.zerossl.com/v2/DV90\n\t&~}' $INSTALL_PATH/Caddyfile
   fi
 
-cat <<EOT >> /root/Caddyfile
+cat <<EOT >> $INSTALL_PATH/Caddyfile
 
 # STUN
 https://$STUN_DOMAIN {
@@ -334,63 +390,65 @@ set_compose() {
   set_mq_credentials
 
   echo "retrieving updated wait script and mosquitto conf"  
-  rm /root/wait.sh
-  rm /root/mosquitto.conf
+  rm $INSTALL_PATH/wait.sh
+  rm $INSTALL_PATH/mosquitto.conf
 
-  wget -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/master/docker/wait.sh
+  wget -O $INSTALL_PATH/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/master/docker/wait.sh
 
-  chmod +x /root/wait.sh
+  chmod +x $INSTALL_PATH/wait.sh
 
-  wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf
+  wget -O $INSTALL_PATH/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/master/docker/mosquitto.conf
 
-  chmod +x /root/mosquitto.conf
+  chmod +x $INSTALL_PATH/mosquitto.conf
 
   # DEV_TEMP
-  sed -i "s/v0.17.1/$LATEST/g" /root/docker-compose.yml
+  sed -i "s/v0.17.1/$LATEST/g" $INSTALL_PATH/docker-compose.yml
 
   STUN_PORT=3478
 
   # RELEASE_REPLACE - Use this once release is ready
-  #sed -i "s/v0.17.1/v0.18.6/g" /root/docker-compose.yml
-  yq ".services.netmaker.environment.SERVER_NAME = \"$SERVER_NAME\"" -i /root/docker-compose.yml
-  yq ".services.netmaker.environment += {\"BROKER_ENDPOINT\": \"wss://$BROKER_NAME\"}" -i /root/docker-compose.yml  
-  yq ".services.netmaker.environment += {\"SERVER_BROKER_ENDPOINT\": \"ws://mq:1883\"}" -i /root/docker-compose.yml  
-  yq ".services.netmaker.environment += {\"STUN_LIST\": \"$STUN_DOMAIN:$STUN_PORT,stun1.netmaker.io:3478,stun2.netmaker.io:3478,stun1.l.google.com:19302,stun2.l.google.com:19302\"}" -i /root/docker-compose.yml  
-  yq ".services.netmaker.environment += {\"MQ_PASSWORD\": \"$MQ_PASSWORD\"}" -i /root/docker-compose.yml  
-  yq ".services.netmaker.environment += {\"MQ_USERNAME\": \"$MQ_USERNAME\"}" -i /root/docker-compose.yml  
-  yq ".services.netmaker.environment += {\"STUN_PORT\": \"$STUN_PORT\"}" -i /root/docker-compose.yml  
-  yq ".services.netmaker.ports += \"3478:3478/udp\"" -i /root/docker-compose.yml
 
-  yq ".services.mq.environment += {\"MQ_PASSWORD\": \"$MQ_PASSWORD\"}" -i /root/docker-compose.yml  
-  yq ".services.mq.environment += {\"MQ_USERNAME\": \"$MQ_USERNAME\"}" -i /root/docker-compose.yml  
+  #sed -i "s/v0.17.1/v0.18.6/g" /root/docker-compose.yml
+  yq ".services.netmaker.environment.SERVER_NAME = \"$SERVER_NAME\"" -i $INSTALL_PATH/docker-compose.yml
+  yq ".services.netmaker.environment += {\"BROKER_ENDPOINT\": \"wss://$BROKER_NAME\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.netmaker.environment += {\"SERVER_BROKER_ENDPOINT\": \"ws://mq:1883\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.netmaker.environment += {\"STUN_LIST\": \"$STUN_DOMAIN:$STUN_PORT,stun1.netmaker.io:3478,stun2.netmaker.io:3478,stun1.l.google.com:19302,stun2.l.google.com:19302\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.netmaker.environment += {\"MQ_PASSWORD\": \"$MQ_PASSWORD\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.netmaker.environment += {\"MQ_USERNAME\": \"$MQ_USERNAME\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.netmaker.environment += {\"STUN_PORT\": \"$STUN_PORT\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.netmaker.ports += \"3478:3478/udp\"" -i $INSTALL_PATH/docker-compose.yml
+
+  yq ".services.mq.environment += {\"MQ_PASSWORD\": \"$MQ_PASSWORD\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.mq.environment += {\"MQ_USERNAME\": \"$MQ_USERNAME\"}" -i $INSTALL_PATH/docker-compose.yml  
+
 
   #remove unnecessary ports
-  yq eval 'del( .services.netmaker.ports[] | select(. == "51821*") )' -i /root/docker-compose.yml
-  yq eval 'del( .services.mq.ports[] | select(. == "8883*") )' -i /root/docker-compose.yml
-  yq eval 'del( .services.mq.ports[] | select(. == "1883*") )' -i /root/docker-compose.yml
-  yq eval 'del( .services.mq.expose[] | select(. == "8883*") )' -i /root/docker-compose.yml
-  yq eval 'del( .services.mq.expose[] | select(. == "1883*") )' -i /root/docker-compose.yml
+  yq eval 'del( .services.netmaker.ports[] | select(. == "51821*") )' -i $INSTALL_PATH/docker-compose.yml
+  yq eval 'del( .services.mq.ports[] | select(. == "8883*") )' -i $INSTALL_PATH/docker-compose.yml
+  yq eval 'del( .services.mq.ports[] | select(. == "1883*") )' -i $INSTALL_PATH/docker-compose.yml
+  yq eval 'del( .services.mq.expose[] | select(. == "8883*") )' -i $INSTALL_PATH/docker-compose.yml
+  yq eval 'del( .services.mq.expose[] | select(. == "1883*") )' -i $INSTALL_PATH/docker-compose.yml
 
   # delete unnecessary compose sections
-  yq eval 'del(.services.netmaker.cap_add)' -i /root/docker-compose.yml
-  yq eval 'del(.services.netmaker.sysctls)' -i /root/docker-compose.yml
-  yq eval 'del(.services.netmaker.environment.MQ_ADMIN_PASSWORD)' -i /root/docker-compose.yml
-  yq eval 'del(.services.netmaker.environment.MQ_HOST)' -i /root/docker-compose.yml
-  yq eval 'del(.services.netmaker.environment.MQ_PORT)' -i /root/docker-compose.yml
-  yq eval 'del(.services.netmaker.environment.MQ_SERVER_PORT)' -i /root/docker-compose.yml
-  yq eval 'del(.services.netmaker.environment.PORT_FORWARD_SERVICES)' -i /root/docker-compose.yml
-  yq eval 'del(.services.netmaker.environment.CLIENT_MODE)' -i /root/docker-compose.yml
-  yq eval 'del(.services.netmaker.environment.HOST_NETWORK)' -i /root/docker-compose.yml
-  yq eval 'del(.services.mq.environment.NETMAKER_SERVER_HOST)' -i /root/docker-compose.yml
-  yq eval 'del( .services.netmaker.volumes[] | select(. == "mosquitto_data*") )' -i /root/docker-compose.yml
-  yq eval 'del( .services.mq.volumes[] | select(. == "mosquitto_data*") )' -i /root/docker-compose.yml
-  yq eval 'del( .volumes.mosquitto_data )' -i /root/docker-compose.yml
+  yq eval 'del(.services.netmaker.cap_add)' -i $INSTALL_PATH/docker-compose.yml
+  yq eval 'del(.services.netmaker.sysctls)' -i $INSTALL_PATH/docker-compose.yml
+  yq eval 'del(.services.netmaker.environment.MQ_ADMIN_PASSWORD)' -i $INSTALL_PATH/docker-compose.yml
+  yq eval 'del(.services.netmaker.environment.MQ_HOST)' -i $INSTALL_PATH/docker-compose.yml
+  yq eval 'del(.services.netmaker.environment.MQ_PORT)' -i $INSTALL_PATH/docker-compose.yml
+  yq eval 'del(.services.netmaker.environment.MQ_SERVER_PORT)' -i $INSTALL_PATH/docker-compose.yml
+  yq eval 'del(.services.netmaker.environment.PORT_FORWARD_SERVICES)' -i $INSTALL_PATH/docker-compose.yml
+  yq eval 'del(.services.netmaker.environment.CLIENT_MODE)' -i $INSTALL_PATH/docker-compose.yml
+  yq eval 'del(.services.netmaker.environment.HOST_NETWORK)' -i $INSTALL_PATH/docker-compose.yml
+  yq eval 'del(.services.mq.environment.NETMAKER_SERVER_HOST)' -i $INSTALL_PATH/docker-compose.yml
+  yq eval 'del( .services.netmaker.volumes[] | select(. == "mosquitto_data*") )' -i $INSTALL_PATH/docker-compose.yml
+  yq eval 'del( .services.mq.volumes[] | select(. == "mosquitto_data*") )' -i $INSTALL_PATH/docker-compose.yml
+  yq eval 'del( .volumes.mosquitto_data )' -i $INSTALL_PATH/docker-compose.yml
 
 }
 
 # start_containers - run docker-compose up -d
 start_containers() {
-  docker-compose -f /root/docker-compose.yml up -d
+  docker-compose -f $INSTALL_PATH/docker-compose.yml up -d
 }
 
 # test_caddy - make sure caddy is working
@@ -423,12 +481,24 @@ setup_netclient() {
 
 	set +e
 	netclient uninstall
-	set -e
+	HAS_APT=false
+  set -e
+  if command -v apt >/dev/null; then
+    HAS_APT=true
+  fi
+  set +e
 
-  wget -O /tmp/netclient https://github.com/gravitl/netclient/releases/download/$LATEST/netclient_linux_amd64 
+  if  [ "$HAS_APT" = "true" ]; then
+    curl -sL 'https://apt.netmaker.org/gpg.key' | sudo tee /etc/apt/trusted.gpg.d/netclient.asc
+    curl -sL 'https://apt.netmaker.org/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/netclient.list
+    sudo apt update
+    sudo apt install netclient
+  else
+     wget -O /tmp/netclient https://github.com/gravitl/netclient/releases/download/$LATEST/netclient_linux_amd64 
 
-	chmod +x /tmp/netclient
-	/tmp/netclient install
+	  chmod +x /tmp/netclient
+	  /tmp/netclient install
+  fi
 
 	netclient register -t $KEY
 
@@ -478,6 +548,11 @@ join_networks() {
               HAS_EGRESS="yes"
               echo "          egress ranges: $(jq -r ".[$NUM].egressgatewayranges" ./nodejson.tmp | tr -d '[]\n"[:space:]')"
               EGRESS_RANGES=$(jq -r ".[$NUM].egressgatewayranges" ./nodejson.tmp | tr -d '[]\n"[:space:]')
+              EGRESS_RANGES=${EGRESS_RANGES//0.0.0.0\/0/0.0.0.0\/5,8.0.0.0\/7,11.0.0.0\/8,12.0.0.0\/6,16.0.0.0\/4,32.0.0.0\/3,64.0.0.0\/2,128.0.0.0\/3,160.0.0.0\/5,168.0.0.0\/6,172.0.0.0\/12,172.32.0.0\/11,172.64.0.0\/10,172.128.0.0\/9,173.0.0.0\/8,174.0.0.0\/7,176.0.0.0\/4,192.0.0.0\/9,192.128.0.0\/11,192.160.0.0\/13,192.169.0.0\/16,192.170.0.0\/15,192.172.0.0\/14,192.176.0.0\/12,192.192.0.0\/10,193.0.0.0\/8,194.0.0.0\/7,196.0.0.0\/6,200.0.0.0\/5,208.0.0.0\/4}
+              EGRESS_RANGES=${EGRESS_RANGES//0::\/0/}
+              EGRESS_RANGES=${EGRESS_RANGES//,,/,}
+              EGRESS_RANGES=`echo $EGRESS_RANGES | sed 's/,*$//g'`
+              EGRESS_RANGES=`echo $EGRESS_RANGES | sed 's/^,*//g'`
 
           fi
           echo "      is ingress: $(jq -r ".[$NUM].isingressgateway" ./nodejson.tmp)"
@@ -581,6 +656,13 @@ fi
 
 set +e
 
+#backup volumes and v0.17.1 configs in case of failure.
+backup_volumes
+backup_v17_files
+
+# get the installation path for docker-compose.yml and other config files
+get_install_path
+
 echo "...installing dependencies for script"
 install_dependencies
 
@@ -602,7 +684,7 @@ echo "...retrieving current server node settings"
 collect_node_settings
 
 echo "...backing up docker compose to docker-compose.yml.backup"
-cp /root/docker-compose.yml /root/docker-compose.yml.backup
+cp $INSTALL_PATH/docker-compose.yml $INSTALL_PATH/docker-compose.yml.backup
 
 echo "...setting Caddyfile values"
 setup_caddy
