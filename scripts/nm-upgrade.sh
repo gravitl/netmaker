@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LATEST="v"
+LATEST="v0.18.5"
 
 # check_version - make sure current version is 0.17.1 before continuing
 check_version() {
