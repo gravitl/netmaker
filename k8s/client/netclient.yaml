@@ -28,7 +28,7 @@ spec:
       #           - "<node label value>"
       containers:
       - name: netclient
-        image: gravitl/netclient:v
+        image: gravitl/netclient:v0.18.6
         env:
         - name: TOKEN
           value: "TOKEN_VALUE"

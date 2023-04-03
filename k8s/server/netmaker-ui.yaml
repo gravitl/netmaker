@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: netmaker-ui
-        image: gravitl/netmaker-ui:v
+        image: gravitl/netmaker-ui:v0.18.6
         ports:
         - containerPort: 443
         env:
