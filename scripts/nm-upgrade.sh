@@ -407,7 +407,8 @@ set_compose() {
   STUN_PORT=3478
 
   # RELEASE_REPLACE - Use this once release is ready
-  #sed -i "s/v0.17.1/v0.18.5/g" $INSTALL_PATH/docker-compose.yml
+
+  #sed -i "s/v0.17.1/v0.18.6/g" /root/docker-compose.yml
   yq ".services.netmaker.environment.SERVER_NAME = \"$SERVER_NAME\"" -i $INSTALL_PATH/docker-compose.yml
   yq ".services.netmaker.environment += {\"BROKER_ENDPOINT\": \"wss://$BROKER_NAME\"}" -i $INSTALL_PATH/docker-compose.yml  
   yq ".services.netmaker.environment += {\"SERVER_BROKER_ENDPOINT\": \"ws://mq:1883\"}" -i $INSTALL_PATH/docker-compose.yml  
@@ -419,6 +420,7 @@ set_compose() {
 
   yq ".services.mq.environment += {\"MQ_PASSWORD\": \"$MQ_PASSWORD\"}" -i $INSTALL_PATH/docker-compose.yml  
   yq ".services.mq.environment += {\"MQ_USERNAME\": \"$MQ_USERNAME\"}" -i $INSTALL_PATH/docker-compose.yml  
+
 
   #remove unnecessary ports
   yq eval 'del( .services.netmaker.ports[] | select(. == "51821*") )' -i $INSTALL_PATH/docker-compose.yml
