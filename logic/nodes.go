@@ -548,11 +548,10 @@ func createNode(node *models.Node) error {
 }
 
 // SortApiNodes - Sorts slice of ApiNodes by their ID alphabetically with numbers first
-func SortApiNodes(unsortedNodes []models.ApiNode) []models.ApiNode {
+func SortApiNodes(unsortedNodes []models.ApiNode) {
 	sort.Slice(unsortedNodes, func(i, j int) bool {
 		return unsortedNodes[i].ID < unsortedNodes[j].ID
 	})
-	return nil
 }
 
 // == END PRO ==

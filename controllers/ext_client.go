@@ -117,9 +117,9 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Return all the extclients in JSON format
-	sortedClients := logic.SortExtClient(clients)
+	logic.SortExtClient(clients[:])
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(sortedClients)
+	json.NewEncoder(w).Encode(clients)
 }
 
 // swagger:route GET /api/extclients/{network}/{clientid} ext_client getExtClient

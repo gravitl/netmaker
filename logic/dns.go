@@ -196,11 +196,10 @@ func GetDNSEntryNum(domain string, network string) (int, error) {
 }
 
 // SortDNSEntrys - Sorts slice of DNSEnteys by their Address alphabetically with numbers first
-func SortDNSEntrys(unsortedDNSEntrys []models.DNSEntry) []models.DNSEntry {
+func SortDNSEntrys(unsortedDNSEntrys []models.DNSEntry) {
 	sort.Slice(unsortedDNSEntrys, func(i, j int) bool {
 		return unsortedDNSEntrys[i].Address < unsortedDNSEntrys[j].Address
 	})
-	return nil
 }
 
 // ValidateDNSCreate - checks if an entry is valid

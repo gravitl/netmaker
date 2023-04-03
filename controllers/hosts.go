@@ -51,9 +51,9 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 	// return JSON/API formatted hosts
 	apiHosts := logic.GetAllHostsAPI(currentHosts[:])
 	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
-	sortedApiHosts := logic.SortApiHosts(apiHosts)
+	logic.SortApiHosts(apiHosts[:])
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(sortedApiHosts)
+	json.NewEncoder(w).Encode(apiHosts)
 }
 
 // swagger:route GET /api/v1/host pull pullHost

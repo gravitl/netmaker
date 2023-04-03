@@ -187,6 +187,7 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	logic.SortUsers(users[:])
 	logger.Log(2, r.Header.Get("user"), "fetched users")
 	json.NewEncoder(w).Encode(users)
 }

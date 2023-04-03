@@ -71,9 +71,9 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Log(2, r.Header.Get("user"), "fetched networks.")
-	sortedAllNetworks := logic.SortNetworks(allnetworks)
+	logic.SortNetworks(allnetworks[:])
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(sortedAllNetworks)
+	json.NewEncoder(w).Encode(allnetworks)
 }
 
 // swagger:route GET /api/networks/{networkname} networks getNetwork

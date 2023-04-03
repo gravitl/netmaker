@@ -427,9 +427,8 @@ func GetHostByNodeID(id string) *models.Host {
 }
 
 // SortApiHosts - Sorts slice of ApiHosts by their ID alphabetically with numbers first
-func SortApiHosts(unsortedHosts []models.ApiHost) []models.ApiHost {
+func SortApiHosts(unsortedHosts []models.ApiHost) {
 	sort.Slice(unsortedHosts, func(i, j int) bool {
 		return unsortedHosts[i].ID < unsortedHosts[j].ID
 	})
-	return nil
 }

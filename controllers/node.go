@@ -340,9 +340,9 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	logger.Log(3, r.Header.Get("user"), "fetched all nodes they have access to")
-	sortedApiNodes := logic.SortApiNodes(apiNodes)
+	logic.SortApiNodes(apiNodes[:])
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(sortedApiNodes)
+	json.NewEncoder(w).Encode(apiNodes)
 }
 
 func getUsersNodes(user models.User) ([]models.Node, error) {
