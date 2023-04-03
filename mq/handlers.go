@@ -396,16 +396,22 @@ func handleHostCheckin(h, currentHost *models.Host) bool {
 	for i := range h.Interfaces {
 		h.Interfaces[i].AddressString = h.Interfaces[i].Address.String()
 	}
-	ifaceDelta := len(h.Interfaces) != len(currentHost.Interfaces) || !h.EndpointIP.Equal(currentHost.EndpointIP)
-	currentHost.EndpointIP = h.EndpointIP
-	currentHost.Interfaces = h.Interfaces
-	currentHost.DefaultInterface = h.DefaultInterface
-	if err := logic.UpsertHost(currentHost); err != nil {
-		logger.Log(0, "failed to update host after check-in", h.Name, h.ID.String(), err.Error())
-		return false
+	ifaceDelta := len(h.Interfaces) != len(currentHost.Interfaces) ||
+		!h.EndpointIP.Equal(currentHost.EndpointIP) ||
+		(len(h.NatType) > 0 && h.NatType != currentHost.NatType) ||
+		h.DefaultInterface != currentHost.DefaultInterface
+	if ifaceDelta { // only save if something changes
+		currentHost.EndpointIP = h.EndpointIP
+		currentHost.Interfaces = h.Interfaces
+		currentHost.DefaultInterface = h.DefaultInterface
+		currentHost.NatType = h.NatType
+		if err := logic.UpsertHost(currentHost); err != nil {
+			logger.Log(0, "failed to update host after check-in", h.Name, h.ID.String(), err.Error())
+			return false
+		}
+		logger.Log(1, "updated host after check-in", currentHost.Name, currentHost.ID.String())
 	}
 
-	logger.Log(0, "ping processed for host", h.Name, h.ID.String())
+	logger.Log(2, "check-in processed for host", h.Name, h.ID.String())
 	return ifaceDelta
-
 }
