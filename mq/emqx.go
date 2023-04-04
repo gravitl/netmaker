@@ -205,7 +205,7 @@ func GetUserACL(username string) (*aclObject, error) {
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest(http.MethodGet, servercfg.GetEmqxRestEndpoint()+"/api/v5/authorization/sources/built_in_database/rules/users/"+username, nil)
+	req, err := http.NewRequest(http.MethodGet, servercfg.GetEmqxRestEndpoint()+"/api/v5/authorization/sources/built_in_database/username/"+username, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -241,7 +241,7 @@ func CreateDefaultDenyRule() error {
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest(http.MethodPost, servercfg.GetEmqxRestEndpoint()+"/api/v5/authorization/sources/built_in_database/rules/all", bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, servercfg.GetEmqxRestEndpoint()+"/api/v5/authorization/sources/built_in_database/all", bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}
@@ -301,7 +301,7 @@ func CreateHostACL(hostID, serverName string) error {
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest(http.MethodPut, servercfg.GetEmqxRestEndpoint()+"/api/v5/authorization/sources/built_in_database/rules/users/"+hostID, bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPut, servercfg.GetEmqxRestEndpoint()+"/api/v5/authorization/sources/built_in_database/username/"+hostID, bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}
@@ -369,7 +369,7 @@ func AppendNodeUpdateACL(hostID, nodeNetwork, nodeID, serverName string) error {
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest(http.MethodPut, servercfg.GetEmqxRestEndpoint()+"/api/v5/authorization/sources/built_in_database/rules/users/"+hostID, bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPut, servercfg.GetEmqxRestEndpoint()+"/api/v5/authorization/sources/built_in_database/username/"+hostID, bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}
