@@ -28,7 +28,7 @@ import (
 	"github.com/gravitl/netmaker/turnserver"
 )
 
-var version = "v0.18.5"
+var version = "v0.18.6"
 
 // Start DB Connection and start API Request Handler
 func main() {

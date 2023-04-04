@@ -2,6 +2,7 @@ package models
 
 import (
 	"net"
+	"net/netip"
 
 	"github.com/google/uuid"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -20,6 +21,19 @@ var OS_Types = struct {
 	Mac:     "darwin",
 	FreeBSD: "freebsd",
 	IoT:     "iot",
+}
+
+// NAT_Types - the type of NAT in which a HOST currently resides (simplified)
+var NAT_Types = struct {
+	Public     string
+	Symmetric  string
+	Asymmetric string
+	Double     string
+}{
+	Public:     "public",
+	Symmetric:  "symmetric",
+	Asymmetric: "asymmetric",
+	Double:     "double",
 }
 
 // WIREGUARD_INTERFACE name of wireguard interface
@@ -62,6 +76,8 @@ type Host struct {
 	IsK8S            bool             `json:"isk8s" yaml:"isk8s"`
 	IsStatic         bool             `json:"isstatic" yaml:"isstatic"`
 	IsDefault        bool             `json:"isdefault" yaml:"isdefault"`
+	NatType          string           `json:"nat_type,omitempty" yaml:"nat_type,omitempty"`
+	TurnEndpoint     *netip.AddrPort  `json:"turn_endpoint,omitempty" yaml:"turn_endpoint,omitempty"`
 }
 
 // FormatBool converts a boolean to a [yes|no] string
