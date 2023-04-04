@@ -68,7 +68,7 @@ services:
       - dnsconfig:/root/dnsconfig
   mq:
     container_name: mq
-    image: emqx/emqx:5.0.17
+    image: emqx/emqx:5.0.9
     restart: unless-stopped
     environment:
       EMQX_NAME: "emqx"
