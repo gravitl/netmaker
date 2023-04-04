@@ -2,10 +2,39 @@ package models
 
 import (
 	"net"
+	"net/netip"
 
 	"github.com/google/uuid"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
+
+// OS_Types - list of OS types Netmaker cares about
+var OS_Types = struct {
+	Linux   string
+	Windows string
+	Mac     string
+	FreeBSD string
+	IoT     string
+}{
+	Linux:   "linux",
+	Windows: "windows",
+	Mac:     "darwin",
+	FreeBSD: "freebsd",
+	IoT:     "iot",
+}
+
+// NAT_Types - the type of NAT in which a HOST currently resides (simplified)
+var NAT_Types = struct {
+	Public     string
+	Symmetric  string
+	Asymmetric string
+	Double     string
+}{
+	Public:     "public",
+	Symmetric:  "symmetric",
+	Asymmetric: "asymmetric",
+	Double:     "double",
+}
 
 // WIREGUARD_INTERFACE name of wireguard interface
 const WIREGUARD_INTERFACE = "netmaker"
@@ -29,7 +58,7 @@ type Host struct {
 	MTU              int              `json:"mtu" yaml:"mtu"`
 	PublicKey        wgtypes.Key      `json:"publickey" yaml:"publickey"`
 	MacAddress       net.HardwareAddr `json:"macaddress" yaml:"macaddress"`
-	TrafficKeyPublic []byte           `json:"traffickeypublic" yaml:"trafficekeypublic"`
+	TrafficKeyPublic []byte           `json:"traffickeypublic" yaml:"traffickeypublic"`
 	InternetGateway  net.UDPAddr      `json:"internetgateway" yaml:"internetgateway"`
 	Nodes            []string         `json:"nodes" yaml:"nodes"`
 	IsRelayed        bool             `json:"isrelayed" yaml:"isrelayed"`
@@ -37,13 +66,16 @@ type Host struct {
 	IsRelay          bool             `json:"isrelay" yaml:"isrelay"`
 	RelayedHosts     []string         `json:"relay_hosts" yaml:"relay_hosts"`
 	Interfaces       []Iface          `json:"interfaces" yaml:"interfaces"`
-	DefaultInterface string           `json:"defaultinterface" yaml:"defautlinterface"`
+	DefaultInterface string           `json:"defaultinterface" yaml:"defaultinterface"`
 	EndpointIP       net.IP           `json:"endpointip" yaml:"endpointip"`
 	ProxyEnabled     bool             `json:"proxy_enabled" yaml:"proxy_enabled"`
+	ProxyEnabledSet  bool             `json:"proxy_enabled_updated" yaml:"proxy_enabled_updated"`
 	IsDocker         bool             `json:"isdocker" yaml:"isdocker"`
 	IsK8S            bool             `json:"isk8s" yaml:"isk8s"`
 	IsStatic         bool             `json:"isstatic" yaml:"isstatic"`
 	IsDefault        bool             `json:"isdefault" yaml:"isdefault"`
+	NatType          string           `json:"nat_type,omitempty" yaml:"nat_type,omitempty"`
+	TurnEndpoint     *netip.AddrPort  `json:"turn_endpoint,omitempty" yaml:"turn_endpoint,omitempty"`
 }
 
 // FormatBool converts a boolean to a [yes|no] string
@@ -78,6 +110,8 @@ const (
 	Acknowledgement = "ACK"
 	// RequestAck - request an ACK
 	RequestAck = "REQ_ACK"
+	// CheckIn - update last check in times and public address and interfaces
+	CheckIn = "CHECK_IN"
 )
 
 // HostUpdate - struct for host update

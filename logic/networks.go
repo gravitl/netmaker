@@ -159,7 +159,6 @@ func GetNetworkSettings(networkname string) (models.Network, error) {
 	if err = json.Unmarshal([]byte(networkData), &network); err != nil {
 		return models.Network{}, err
 	}
-	network.AccessKeys = []models.AccessKey{}
 	return network, nil
 }
 
@@ -599,10 +598,13 @@ func networkNodesUpdateAction(networkName string, action string) error {
 		return err
 	}
 
-	for _, value := range collections {
+	for k, value := range collections {
 		var node models.Node
 		err := json.Unmarshal([]byte(value), &node)
 		if err != nil {
+			if IsLegacyNode(k) { // ignore legacy nodes
+				continue
+			}
 			fmt.Println("error in node address assignment!")
 			return err
 		}

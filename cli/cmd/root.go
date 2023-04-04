@@ -4,12 +4,12 @@ import (
 	"os"
 
 	"github.com/gravitl/netmaker/cli/cmd/acl"
+	"github.com/gravitl/netmaker/cli/cmd/commons"
 	"github.com/gravitl/netmaker/cli/cmd/context"
 	"github.com/gravitl/netmaker/cli/cmd/dns"
 	"github.com/gravitl/netmaker/cli/cmd/enrollment_key"
 	"github.com/gravitl/netmaker/cli/cmd/ext_client"
 	"github.com/gravitl/netmaker/cli/cmd/host"
-	"github.com/gravitl/netmaker/cli/cmd/keys"
 	"github.com/gravitl/netmaker/cli/cmd/metrics"
 	"github.com/gravitl/netmaker/cli/cmd/network"
 	"github.com/gravitl/netmaker/cli/cmd/network_user"
@@ -42,10 +42,10 @@ func Execute() {
 }
 
 func init() {
+	rootCmd.PersistentFlags().StringVarP(&commons.OutputFormat, "output", "o", "", "List output in specific format (Enum:- json)")
 	// Bind subcommands here
 	rootCmd.AddCommand(network.GetRoot())
 	rootCmd.AddCommand(context.GetRoot())
-	rootCmd.AddCommand(keys.GetRoot())
 	rootCmd.AddCommand(acl.GetRoot())
 	rootCmd.AddCommand(node.GetRoot())
 	rootCmd.AddCommand(dns.GetRoot())

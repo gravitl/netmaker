@@ -113,12 +113,12 @@ func TestGetNetworkNodes(t *testing.T) {
 	t.Run("BadNet", func(t *testing.T) {
 		node, err := logic.GetNetworkNodes("badnet")
 		assert.Nil(t, err)
-		assert.Nil(t, node)
+		assert.Equal(t, []models.Node{}, node)
 	})
 	t.Run("NoNodes", func(t *testing.T) {
 		node, err := logic.GetNetworkNodes("skynet")
 		assert.Nil(t, err)
-		assert.Nil(t, node)
+		assert.Equal(t, []models.Node{}, node)
 	})
 	t.Run("Success", func(t *testing.T) {
 		createTestNode()

@@ -85,7 +85,7 @@ func SessionHandler(conn *websocket.Conn) {
 			}
 			return
 		}
-		user, err := isUserIsAllowed(loginMessage.User, loginMessage.Network, false)
+		_, err = isUserIsAllowed(loginMessage.User, loginMessage.Network, false)
 		if err != nil {
 			err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
@@ -93,12 +93,7 @@ func SessionHandler(conn *websocket.Conn) {
 			}
 			return
 		}
-		accessToken, err := requestAccessKey(loginMessage.Network, 1, user.UserName)
-		if err != nil {
-			req.Pass = fmt.Sprintf("Error from the netmaker controller %s", err.Error())
-		} else {
-			req.Pass = fmt.Sprintf("AccessToken: %s", accessToken)
-		}
+
 		// Give the user the access token via Pass in the DB
 		if err = netcache.Set(stateStr, req); err != nil {
 			logger.Log(0, "machine failed to complete join on network,", loginMessage.Network, "-", err.Error())

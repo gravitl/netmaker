@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gravitl/netmaker/cli/cmd/commons"
 	"github.com/gravitl/netmaker/cli/functions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/guumaster/tablewriter"
@@ -25,12 +26,17 @@ var extClientListCmd = &cobra.Command{
 		} else {
 			data = *functions.GetAllExtClients()
 		}
-		table := tablewriter.NewWriter(os.Stdout)
-		table.SetHeader([]string{"Client ID", "Network", "IPv4 Address", "IPv6 Address", "Enabled", "Last Modified"})
-		for _, d := range data {
-			table.Append([]string{d.ClientID, d.Network, d.Address, d.Address6, strconv.FormatBool(d.Enabled), time.Unix(d.LastModified, 0).String()})
+		switch commons.OutputFormat {
+		case commons.JsonOutput:
+			functions.PrettyPrint(data)
+		default:
+			table := tablewriter.NewWriter(os.Stdout)
+			table.SetHeader([]string{"Client ID", "Network", "IPv4 Address", "IPv6 Address", "Enabled", "Last Modified"})
+			for _, d := range data {
+				table.Append([]string{d.ClientID, d.Network, d.Address, d.Address6, strconv.FormatBool(d.Enabled), time.Unix(d.LastModified, 0).String()})
+			}
+			table.Render()
 		}
-		table.Render()
 	},
 }
 

@@ -3,7 +3,7 @@ package ee
 import "fmt"
 
 const (
-	api_endpoint               = "https://466b-94-204-98-143.in.ngrok.io/api/v1/license/validate"
+	api_endpoint               = "https://api.staging.accounts.netmaker.io/api/v1/license/validate"
 	license_cache_key          = "license_response_cache"
 	license_validation_err_msg = "invalid license"
 	server_id_key              = "nm-server-id"
@@ -18,7 +18,7 @@ type LicenseKey struct {
 	LimitServers  int    `json:"limit_servers"`
 	LimitUsers    int    `json:"limit_users"`
 	LimitHosts    int    `json:"limit_hosts"`
-	LimitNetworks int    ` json:"limit_networks"`
+	LimitNetworks int    `json:"limit_networks"`
 	LimitClients  int    `json:"limit_clients"`
 	Metadata      string `json:"metadata"`
 	IsActive      bool   `json:"is_active"` // yes if active

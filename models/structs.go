@@ -8,12 +8,17 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-const PLACEHOLDER_KEY_TEXT = "ACCESS_KEY"
-const PLACEHOLDER_TOKEN_TEXT = "ACCESS_TOKEN"
+const (
+	// PLACEHOLDER_KEY_TEXT - access key placeholder text if option turned off
+	PLACEHOLDER_KEY_TEXT = "ACCESS_KEY"
+	// PLACEHOLDER_TOKEN_TEXT - access key token placeholder text if option turned off
+	PLACEHOLDER_TOKEN_TEXT = "ACCESS_TOKEN"
+)
 
 // CustomExtClient - struct for CustomExtClient params
 type CustomExtClient struct {
-	ClientID string `json:"clientid"`
+	ClientID  string `json:"clientid"`
+	PublicKey string `json:"publickey,omitempty"`
 }
 
 // AuthParams - struct for auth params
@@ -95,15 +100,6 @@ type SuccessResponse struct {
 	Code     int
 	Message  string
 	Response interface{}
-}
-
-// AccessKey - access key struct
-type AccessKey struct {
-	Name         string     `json:"name" bson:"name" validate:"omitempty,max=345"`
-	Value        string     `json:"value" bson:"value" validate:"omitempty,alphanum,max=16"`
-	AccessString string     `json:"accessstring" bson:"accessstring"`
-	Uses         int        `json:"uses" bson:"uses" validate:"numeric,min=0"`
-	Expiration   *time.Time `json:"expiration" bson:"expiration"`
 }
 
 // DisplayKey - what is displayed for key
@@ -201,6 +197,14 @@ type ServerAddr struct {
 type TrafficKeys struct {
 	Mine   []byte `json:"mine" bson:"mine" yaml:"mine"`
 	Server []byte `json:"server" bson:"server" yaml:"server"`
+}
+
+// HostPull - response of a host's pull
+type HostPull struct {
+	Host         Host                 `json:"host" yaml:"host"`
+	Peers        []wgtypes.PeerConfig `json:"peers" yaml:"peers"`
+	ServerConfig ServerConfig         `json:"server_config" yaml:"server_config"`
+	PeerIDs      PeerMap              `json:"peer_ids,omitempty" yaml:"peer_ids,omitempty"`
 }
 
 // NodeGet - struct for a single node get response

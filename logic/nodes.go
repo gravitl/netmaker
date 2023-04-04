@@ -32,17 +32,34 @@ const (
 
 // GetNetworkNodes - gets the nodes of a network
 func GetNetworkNodes(network string) ([]models.Node, error) {
-	var nodes []models.Node
 	allnodes, err := GetAllNodes()
 	if err != nil {
 		return []models.Node{}, err
 	}
-	for _, node := range allnodes {
+
+	return GetNetworkNodesMemory(allnodes, network), nil
+}
+
+// GetNetworkNodesMemory - gets all nodes belonging to a network from list in memory
+func GetNetworkNodesMemory(allNodes []models.Node, network string) []models.Node {
+	var nodes = []models.Node{}
+	for i := range allNodes {
+		node := allNodes[i]
 		if node.Network == network {
 			nodes = append(nodes, node)
 		}
 	}
-	return nodes, nil
+	return nodes
+}
+
+// UpdateNodeCheckin - updates the checkin time of a node
+func UpdateNodeCheckin(node *models.Node) error {
+	node.SetLastCheckIn()
+	data, err := json.Marshal(node)
+	if err != nil {
+		return err
+	}
+	return database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
 }
 
 // UpdateNode - takes a node and updates another node with it's values
