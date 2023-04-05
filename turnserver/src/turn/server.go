@@ -1,4 +1,4 @@
-package turnserver
+package turn
 
 import (
 	"context"
@@ -10,18 +10,12 @@ import (
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/turnserver/internal/auth"
+	"github.com/gravitl/netmaker/turnserver/internal/utils"
 	"github.com/pion/turn/v2"
 )
 
-var (
-	UsersMap = make(map[string][]byte)
-)
-
-func RegisterNewHostWithTurn(hostID, hostPass string) {
-	UsersMap[hostID] = turn.GenerateAuthKey(hostID, servercfg.GetTurnHost(), hostPass)
-}
-
-func Start(wg *sync.WaitGroup, ctx context.Context) {
+func Start(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 	// Create a UDP listener to pass into pion/turn
 	// pion/turn itself doesn't allocate any UDP sockets, but lets the user pass them in
@@ -30,14 +24,17 @@ func Start(wg *sync.WaitGroup, ctx context.Context) {
 	if err != nil {
 		log.Panicf("Failed to create TURN server listener: %s", err)
 	}
-
+	publicIP, err := utils.GetPublicIP()
+	if err != nil {
+		logger.FatalLog("failed to get public ip: ", err.Error())
+	}
 	s, err := turn.NewServer(turn.ServerConfig{
 		Realm: servercfg.GetTurnHost(),
 		// Set AuthHandler callback
 		// This is called every time a user tries to authenticate with the TURN server
 		// Return the key for that user, or false when no user is found
 		AuthHandler: func(username string, realm string, srcAddr net.Addr) ([]byte, bool) {
-			if key, ok := UsersMap[username]; ok {
+			if key, ok := auth.HostMap[username]; ok {
 				return key, true
 			}
 			return nil, false
@@ -47,8 +44,8 @@ func Start(wg *sync.WaitGroup, ctx context.Context) {
 			{
 				PacketConn: udpListener,
 				RelayAddressGenerator: &turn.RelayAddressGeneratorStatic{
-					RelayAddress: net.ParseIP("64.227.178.89"), // Claim that we are listening on IP passed by user (This should be your Public IP)
-					Address:      "0.0.0.0",                    // But actually be listening on every interface
+					RelayAddress: net.ParseIP(publicIP), // Claim that we are listening on IP passed by user (This should be your Public IP)
+					Address:      "0.0.0.0",             // But actually be listening on every interface
 				},
 			},
 		},
@@ -60,7 +57,6 @@ func Start(wg *sync.WaitGroup, ctx context.Context) {
 		for {
 			time.Sleep(time.Second * 10)
 			log.Print(s.AllocationCount())
-
 		}
 	}()
 

@@ -25,7 +25,6 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
 	stunserver "github.com/gravitl/netmaker/stun-server"
-	"github.com/gravitl/netmaker/turnserver"
 )
 
 var version = "v0.18.6"
@@ -148,9 +147,6 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 	// starts the stun server
 	wg.Add(1)
 	go stunserver.Start(wg, ctx)
-	// starts the turn server
-	wg.Add(1)
-	go turnserver.Start(wg, ctx)
 }
 
 // Should we be using a context vice a waitgroup????????????
@@ -195,7 +191,8 @@ func registerCurrHostsWithTurn() {
 	hosts, err := logic.GetAllHosts()
 	if err == nil {
 		for _, hostI := range hosts {
-			turnserver.RegisterNewHostWithTurn(hostI.ID.String(), hostI.HostPass)
+			//turnserver.RegisterNewHostWithTurn(hostI.ID.String(), hostI.HostPass)
+			fmt.Println(hostI)
 		}
 	}
 }

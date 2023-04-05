@@ -11,7 +11,6 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
-	"github.com/gravitl/netmaker/turnserver"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -98,7 +97,7 @@ func CreateHost(h *models.Host) error {
 		return err
 	}
 	h.HostPass = string(hash)
-	turnserver.RegisterNewHostWithTurn(h.ID.String(), h.HostPass)
+	//turnserver.RegisterNewHostWithTurn(h.ID.String(), h.HostPass)
 	// if another server has already updated proxyenabled, leave it alone
 	if !h.ProxyEnabledSet {
 		log.Println("checking default proxy", servercfg.GetServerConfig().DefaultProxyMode)
