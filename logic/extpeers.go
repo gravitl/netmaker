@@ -141,7 +141,7 @@ func CreateExtClient(extclient *models.ExtClient) error {
 		}
 		extclient.PrivateKey = privateKey.String()
 		extclient.PublicKey = privateKey.PublicKey().String()
-	} else {
+	} else if len(extclient.PrivateKey) == 0 && len(extclient.PublicKey) > 0 {
 		extclient.PrivateKey = "[ENTER PRIVATE KEY]"
 	}
 
@@ -194,8 +194,7 @@ func UpdateExtClient(newclientid string, network string, enabled bool, client *m
 	if err != nil {
 		return client, err
 	}
-	if newclientid != client.ClientID {
-		//name change only
+	if newclientid != client.ClientID { // name change only
 		client.ClientID = newclientid
 		client.LastModified = time.Now().Unix()
 		data, err := json.Marshal(&client)
