@@ -140,7 +140,7 @@ func ResetPeerUpdateContext() {
 }
 
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
-func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host, deletedNode *models.Node, deletedClient *models.ExtClient) (models.HostPeerUpdate, error) {
+func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host, deletedNode *models.Node, deletedClients []models.ExtClient) (models.HostPeerUpdate, error) {
 	if host == nil {
 		return models.HostPeerUpdate{}, errors.New("host is nil")
 	}
@@ -408,13 +408,16 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 		hostPeerUpdate.NodePeers[i] = peer
 	}
 
-	if deletedClient != nil {
-		key, err := wgtypes.ParseKey(deletedClient.PublicKey)
-		if err == nil {
-			hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, wgtypes.PeerConfig{
-				PublicKey: key,
-				Remove:    true,
-			})
+	if len(deletedClients) > 0 {
+		for i := range deletedClients {
+			deletedClient := deletedClients[i]
+			key, err := wgtypes.ParseKey(deletedClient.PublicKey)
+			if err == nil {
+				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, wgtypes.PeerConfig{
+					PublicKey: key,
+					Remove:    true,
+				})
+			}
 		}
 	}
 
