@@ -16,7 +16,7 @@ func Init(r *gin.Engine) *gin.Engine {
 
 func registerRoutes(r *gin.RouterGroup) {
 	r.POST("/host/register", host.Register)
-	r.DELETE("/host/unregister", host.Remove)
+	r.DELETE("/host/deregister", host.Remove)
 	r.GET("/status", status)
 }
 

@@ -104,6 +104,7 @@ func GetServerInfo() models.ServerConfig {
 	cfg.StunList = GetStunList()
 	cfg.TurnDomain = GetTurnHost()
 	cfg.TurnApiDomain = GetTurnApiHost()
+	cfg.TurnPort = GetTurnPort()
 	return cfg
 }
 
@@ -645,6 +646,20 @@ func GetStunPort() int {
 		}
 	} else if config.Config.Server.StunPort != 0 {
 		port = config.Config.Server.StunPort
+	}
+	return port
+}
+
+// GetTurnPort - Get the port to run the turn server on
+func GetTurnPort() int {
+	port := 3479 //default
+	if os.Getenv("TURN_PORT") != "" {
+		portInt, err := strconv.Atoi(os.Getenv("TURN_PORT"))
+		if err == nil {
+			port = portInt
+		}
+	} else if config.Config.Server.TurnPort != 0 {
+		port = config.Config.Server.TurnPort
 	}
 	return port
 }

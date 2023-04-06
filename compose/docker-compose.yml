@@ -31,6 +31,7 @@ services:
       DEFAULT_PROXY_MODE: "off"
       TURN_SERVER_HOST: "turn.NETMAKER_BASE_DOMAIN"
       TURN_SERVER_API_HOST: "https://api.turn.NETMAKER_BASE_DOMAIN"
+      TURN_PORT: "3479"
     ports:
       - "3478:3478/udp"
   netmaker-ui:

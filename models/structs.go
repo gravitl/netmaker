@@ -242,6 +242,7 @@ type ServerConfig struct {
 	TrafficKey    []byte       `yaml:"traffickey"`
 	TurnDomain    string       `yaml:"turn_domain"`
 	TurnApiDomain string       `yaml:"turn_api_domain"`
+	TurnPort      int          `yaml:"turn_port"`
 }
 
 // User.NameInCharset - returns if name is in charset below or not
