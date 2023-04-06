@@ -28,12 +28,11 @@ services:
       MQ_PASSWORD: "REPLACE_MQ_PASSWORD"
       MQ_USERNAME: "REPLACE_MQ_USERNAME"
       STUN_PORT: "3478"
-      TURN_SERVER_HOST: "turn.NETMAKER_BASE_DOMAIN"
-      TURN_PORT: "3479"
       DEFAULT_PROXY_MODE: "off"
+      TURN_SERVER_HOST: "turn.NETMAKER_BASE_DOMAIN"
+      TURN_SERVER_API_HOST: "https://api.turn.NETMAKER_BASE_DOMAIN"
     ports:
       - "3478:3478/udp"
-      - "3479:3479/udp"
   netmaker-ui:
     container_name: netmaker-ui
     image: gravitl/netmaker-ui:REPLACE_UI_IMAGE_TAG
@@ -78,9 +77,22 @@ services:
       - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
       - /root/wait.sh:/mosquitto/config/wait.sh
       - mosquitto_logs:/mosquitto/log
+  turn:
+    container_name: turn
+    image: gravitl/turnserver:testing
+    volumes:
+      - turn_server:/etc/config
+    environment:
+      DEBUG_MODE: "on"
+      VERBOSITY: "4"
+      TURN_PORT: "3479"
+      TURN_API_PORT: "8089"
+      CORS_ALLOWED_ORIGIN: "*"
+      TURN_SERVER_HOST: "turn.NETMAKER_BASE_DOMAIN"
 volumes:
   caddy_data: {}
   caddy_conf: {}
   sqldata: {}
   dnsconfig: {}
   mosquitto_logs: {}
+  turn_server: {}

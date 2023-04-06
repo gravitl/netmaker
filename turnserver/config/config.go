@@ -3,8 +3,6 @@ package config
 import (
 	"os"
 	"strconv"
-
-	"github.com/gravitl/netmaker/config"
 )
 
 var (
@@ -16,21 +14,8 @@ func GetAllowedOrigin() string {
 	allowedorigin := "*"
 	if os.Getenv("CORS_ALLOWED_ORIGIN") != "" {
 		allowedorigin = os.Getenv("CORS_ALLOWED_ORIGIN")
-	} else if config.Config.Server.AllowedOrigin != "" {
-		allowedorigin = config.Config.Server.AllowedOrigin
 	}
 	return allowedorigin
-}
-
-// GetAPIPort - gets the api port
-func GetAPIPort() string {
-	apiport := "8086"
-	if os.Getenv("API_PORT") != "" {
-		apiport = os.Getenv("API_PORT")
-	} else if config.Config.Server.APIPort != "" {
-		apiport = config.Config.Server.APIPort
-	}
-	return apiport
 }
 
 // SetVersion - set version of netmaker
@@ -63,11 +48,42 @@ func GetVerbosity() int32 {
 		if err != nil {
 			verbosity = 0
 		}
-	} else if config.Config.Server.Verbosity != 0 {
-		verbosity = int(config.Config.Server.Verbosity)
 	}
 	if verbosity < 0 || verbosity > 4 {
 		verbosity = 0
 	}
 	return int32(verbosity)
+}
+
+// GetTurnHost - fetches the turn host name
+func GetTurnHost() string {
+	turnServer := ""
+	if os.Getenv("TURN_SERVER_HOST") != "" {
+		turnServer = os.Getenv("TURN_SERVER_HOST")
+	}
+	return turnServer
+}
+
+// GetTurnPort - Get the port to run the turn server on
+func GetTurnPort() int {
+	port := 3479 //default
+	if os.Getenv("TURN_PORT") != "" {
+		portInt, err := strconv.Atoi(os.Getenv("TURN_PORT"))
+		if err == nil {
+			port = portInt
+		}
+	}
+	return port
+}
+
+// GetAPIPort - gets the api port
+func GetAPIPort() int {
+	apiport := 8089
+	if os.Getenv("TURN_API_PORT") != "" {
+		portInt, err := strconv.Atoi(os.Getenv("TURN_API_PORT"))
+		if err == nil {
+			apiport = portInt
+		}
+	}
+	return apiport
 }

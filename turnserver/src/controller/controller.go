@@ -43,9 +43,8 @@ func HandleRESTRequests(ctx context.Context, wg *sync.WaitGroup) {
 
 	// get server port from config
 	port := config.GetAPIPort()
-
 	srv := &http.Server{
-		Addr:    ":" + port,
+		Addr:    fmt.Sprintf(":%d", port),
 		Handler: handlers.CORS(originsOk, headersOk, methodsOk)(router),
 	}
 	go func() {
@@ -54,7 +53,7 @@ func HandleRESTRequests(ctx context.Context, wg *sync.WaitGroup) {
 			log.Fatalf("listen: %s\n", err)
 		}
 	}()
-	logger.Log(0, fmt.Sprintf("REST Server (Version: %s) successfully started on port (%s) ", config.GetVersion(), port))
+	logger.Log(0, fmt.Sprintf("REST Server (Version: %s) successfully started on port (%d) ", config.GetVersion(), port))
 	<-ctx.Done()
 	log.Println("Shutdown Server ...")
 	if err := srv.Shutdown(ctx); err != nil {

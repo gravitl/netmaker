@@ -3,25 +3,27 @@ package host
 import (
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/turnserver/internal/auth"
 	errpkg "github.com/gravitl/netmaker/turnserver/internal/errors"
-	"github.com/gravitl/netmaker/turnserver/internal/models"
 	"github.com/gravitl/netmaker/turnserver/internal/utils"
 )
 
 func Register(c *gin.Context) {
-	req := models.HostRegister{}
+	req := models.HostTurnRegister{}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		utils.ReturnErrorResponse(c, errpkg.FormatError(err, errpkg.Internal))
 		return
 	}
+	log.Printf("----> REG: %+v", req)
 	auth.RegisterNewHostWithTurn(req.HostID, req.HostPassHash)
 	utils.ReturnSuccessResponse(c,
-		fmt.Sprintf("registred host (%s) successfully", req.HostID), nil)
+		fmt.Sprintf("registered host (%s) successfully", req.HostID), nil)
 }
 
 func Remove(c *gin.Context) {

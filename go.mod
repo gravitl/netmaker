@@ -41,6 +41,7 @@ require (
 )
 
 require (
+	github.com/devilcove/httpclient v0.6.0
 	github.com/gin-gonic/gin v1.9.0
 	github.com/guumaster/tablewriter v0.0.10
 	github.com/matryer/is v1.4.1

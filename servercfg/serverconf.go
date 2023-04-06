@@ -103,8 +103,30 @@ func GetServerInfo() models.ServerConfig {
 	cfg.StunPort = GetStunPort()
 	cfg.StunList = GetStunList()
 	cfg.TurnDomain = GetTurnHost()
-	cfg.TurnPort = GetTurnPort()
+	cfg.TurnApiDomain = GetTurnApiHost()
 	return cfg
+}
+
+// GetTurnHost - fetches the turn host domain
+func GetTurnHost() string {
+	turnServer := ""
+	if os.Getenv("TURN_SERVER_HOST") != "" {
+		turnServer = os.Getenv("TURN_SERVER_HOST")
+	} else if config.Config.Server.TurnServer != "" {
+		turnServer = config.Config.Server.TurnServer
+	}
+	return turnServer
+}
+
+// GetTurnApiHost - fetches the turn api host domain
+func GetTurnApiHost() string {
+	turnApiServer := ""
+	if os.Getenv("TURN_SERVER_API_HOST") != "" {
+		turnApiServer = os.Getenv("TURN_SERVER_API_HOST")
+	} else if config.Config.Server.TurnApiServer != "" {
+		turnApiServer = config.Config.Server.TurnApiServer
+	}
+	return turnApiServer
 }
 
 // GetFrontendURL - gets the frontend url
@@ -625,31 +647,6 @@ func GetStunPort() int {
 		port = config.Config.Server.StunPort
 	}
 	return port
-}
-
-// GetTurnPort - Get the port to run the turn server on
-func GetTurnPort() int {
-	port := 3479 //default
-	if os.Getenv("TURN_PORT") != "" {
-		portInt, err := strconv.Atoi(os.Getenv("TURN_PORT"))
-		if err == nil {
-			port = portInt
-		}
-	} else if config.Config.Server.TurnPort != 0 {
-		port = config.Config.Server.TurnPort
-	}
-	return port
-}
-
-// GetTurnHost - fetches the turn host name
-func GetTurnHost() string {
-	turnServer := ""
-	if os.Getenv("TURN_SERVER_HOST") != "" {
-		turnServer = os.Getenv("TURN_SERVER_HOST")
-	} else if config.Config.Server.TurnServer != "" {
-		turnServer = config.Config.Server.TurnServer
-	}
-	return turnServer
 }
 
 // IsProxyEnabled - is proxy on or off

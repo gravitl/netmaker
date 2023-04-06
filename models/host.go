@@ -122,3 +122,8 @@ type HostUpdate struct {
 	Host   Host
 	Node   Node
 }
+
+type HostTurnRegister struct {
+	HostID       string `json:"host_id"`
+	HostPassHash string `json:"host_pass_hash"`
+}

@@ -7,28 +7,32 @@ import (
 	"sync"
 
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/turnserver/config"
 	"github.com/pion/turn/v2"
 )
 
 var (
-	AuthMapLock    = &sync.RWMutex{}
-	HostMap        = make(map[string][]byte)
+	authMapLock    = &sync.RWMutex{}
+	HostMap        = make(map[string]string)
 	authBackUpFile = "auth.json"
 )
 
+func init() {
+	os.MkdirAll("/etc/config", os.ModePerm)
+}
+
 func RegisterNewHostWithTurn(hostID, hostPass string) {
-	AuthMapLock.Lock()
-	HostMap[hostID] = turn.GenerateAuthKey(hostID, servercfg.GetTurnHost(), hostPass)
+	authMapLock.Lock()
+	HostMap[hostID] = string(turn.GenerateAuthKey(hostID, config.GetTurnHost(), hostPass))
 	dumpCredsToFile()
-	AuthMapLock.Unlock()
+	authMapLock.Unlock()
 }
 
 func UnRegisterNewHostWithTurn(hostID string) {
-	AuthMapLock.Lock()
+	authMapLock.Lock()
 	delete(HostMap, hostID)
 	dumpCredsToFile()
-	AuthMapLock.Unlock()
+	authMapLock.Unlock()
 }
 
 func dumpCredsToFile() {
@@ -37,13 +41,9 @@ func dumpCredsToFile() {
 		logger.Log(0, "failed to dump creds to file: ", err.Error())
 		return
 	}
-	userHomeDir, err := os.UserHomeDir()
+
+	err = os.WriteFile(filepath.Join("/etc/config", authBackUpFile), d, os.ModePerm)
 	if err != nil {
-		logger.Log(0, "failed to get user's home directory")
-		return
-	}
-	err = os.WriteFile(filepath.Join(userHomeDir, authBackUpFile), d, os.ModePerm)
-	if err != nil {
-		logger.Log(0, "failed to backup auth data: ", userHomeDir, err.Error())
+		logger.Log(0, "failed to backup auth data: ", err.Error())
 	}
 }

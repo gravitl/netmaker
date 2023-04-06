@@ -3,7 +3,7 @@ package errors
 import (
 	"net/http"
 
-	"github.com/gravitl/netmaker/turnserver/internal/models"
+	"github.com/gravitl/netmaker/models"
 )
 
 type ApiRespErr string

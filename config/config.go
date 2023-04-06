@@ -76,6 +76,7 @@ type ServerConfig struct {
 	Proxy                string    `yaml:"proxy"`
 	DefaultProxyMode     ProxyMode `yaml:"defaultproxymode"`
 	TurnServer           string    `yaml:"turn_server"`
+	TurnApiServer        string    `yaml:"turn_api_server"`
 	TurnPort             int       `yaml:"turn_port"`
 }
 

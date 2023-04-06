@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/gravitl/netmaker/turnserver/internal/host"
 )
@@ -14,4 +16,12 @@ func Init(r *gin.Engine) *gin.Engine {
 
 func registerRoutes(r *gin.RouterGroup) {
 	r.POST("/host/register", host.Register)
+	r.DELETE("/host/unregister", host.Remove)
+	r.GET("/status", status)
+}
+
+func status(c *gin.Context) {
+	c.JSON(http.StatusOK, struct {
+		Msg string `json:"msg"`
+	}{Msg: "hello"})
 }

@@ -112,7 +112,6 @@ func initialize() { // Client Mode Prereq Check
 			logger.Log(0, "error occurred when notifying nodes of startup", err.Error())
 		}
 	}
-	registerCurrHostsWithTurn()
 }
 
 func startControllers(wg *sync.WaitGroup, ctx context.Context) {
@@ -184,15 +183,5 @@ func setGarbageCollection() {
 	_, gcset := os.LookupEnv("GOGC")
 	if !gcset {
 		debug.SetGCPercent(ncutils.DEFAULT_GC_PERCENT)
-	}
-}
-
-func registerCurrHostsWithTurn() {
-	hosts, err := logic.GetAllHosts()
-	if err == nil {
-		for _, hostI := range hosts {
-			//turnserver.RegisterNewHostWithTurn(hostI.ID.String(), hostI.HostPass)
-			fmt.Println(hostI)
-		}
 	}
 }

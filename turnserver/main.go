@@ -22,9 +22,9 @@ func main() {
 	// kill -2 is syscall.SIGINT
 	// kill -9 is syscall. SIGKILL but cant be caught, so don't need add it
 	wg.Add(1)
-	controller.HandleRESTRequests(ctx, wg)
+	go controller.HandleRESTRequests(ctx, wg)
 	wg.Add(1)
-	turn.Start(ctx, wg)
+	go turn.Start(ctx, wg)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	logger.Log(0, "Recieved Shutdown Signal...")
