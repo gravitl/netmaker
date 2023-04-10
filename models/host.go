@@ -102,6 +102,8 @@ func ParseBool(s string) bool {
 type HostMqAction string
 
 const (
+	// SignalHost - const for host signal action
+	SignalHost = "SIGNAL_HOST"
 	// UpdateHost - constant for host update action
 	UpdateHost = "UPDATE_HOST"
 	// DeleteHost - constant for host delete action
@@ -121,9 +123,18 @@ type HostUpdate struct {
 	Action HostMqAction
 	Host   Host
 	Node   Node
+	Signal Signal
 }
 
+// HostTurnRegister - struct for host turn registration
 type HostTurnRegister struct {
 	HostID       string `json:"host_id"`
 	HostPassHash string `json:"host_pass_hash"`
+}
+
+// Signal - struct for signalling peer
+type Signal struct {
+	FromHostPubKey    string          `json:"from_host_pubkey"`
+	TurnRelayEndpoint *net.PacketConn `json:"turn_relay_addr"`
+	ToHostPubKey      string          `json:"to_host_pubkey"`
 }
