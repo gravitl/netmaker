@@ -28,7 +28,7 @@ func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/hosts/{hostid}/relay", logic.SecurityCheck(false, http.HandlerFunc(deleteHostRelay))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/hosts/adm/authenticate", authenticateHost).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/host", authorize(true, false, "host", http.HandlerFunc(pull))).Methods(http.MethodGet)
-	r.HandleFunc("/api/hosts/{hostid}/signalpeer", logic.SecurityCheck(false, http.HandlerFunc(createHostRelay))).Methods(http.MethodPost)
+	r.HandleFunc("/api/hosts/{hostid}/signalpeer", logic.SecurityCheck(false, http.HandlerFunc(signalPeer))).Methods(http.MethodPost)
 }
 
 // swagger:route GET /api/hosts hosts getHosts
@@ -502,6 +502,7 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to publish signal to peer: "+err.Error()), "badrequest"))
 				return
 			}
+			break
 		}
 	}
 	if !found {
