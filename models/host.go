@@ -134,7 +134,7 @@ type HostTurnRegister struct {
 
 // Signal - struct for signalling peer
 type Signal struct {
-	FromHostPubKey    string          `json:"from_host_pubkey"`
-	TurnRelayEndpoint *net.PacketConn `json:"turn_relay_addr"`
-	ToHostPubKey      string          `json:"to_host_pubkey"`
+	FromHostPubKey    string `json:"from_host_pubkey"`
+	TurnRelayEndpoint string `json:"turn_relay_addr"`
+	ToHostPubKey      string `json:"to_host_pubkey"`
 }

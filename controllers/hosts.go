@@ -28,7 +28,7 @@ func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/hosts/{hostid}/relay", logic.SecurityCheck(false, http.HandlerFunc(deleteHostRelay))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/hosts/adm/authenticate", authenticateHost).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/host", authorize(true, false, "host", http.HandlerFunc(pull))).Methods(http.MethodGet)
-	r.HandleFunc("/api/hosts/{hostid}/signalpeer", logic.SecurityCheck(false, http.HandlerFunc(signalPeer))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/host/{hostid}/signalpeer", authorize(true, false, "host", http.HandlerFunc(signalPeer))).Methods(http.MethodPost)
 }
 
 // swagger:route GET /api/hosts hosts getHosts
@@ -462,9 +462,9 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	hostid := params["hostid"]
 	// confirm host exists
-	currHost, err := logic.GetHost(hostid)
+	_, err := logic.GetHost(hostid)
 	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to get host:", currHost.ID.String(), err.Error())
+		logger.Log(0, r.Header.Get("user"), "failed to get host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -476,7 +476,7 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if signal.ToHostPubKey == "" || signal.TurnRelayEndpoint == nil {
+	if signal.ToHostPubKey == "" || signal.TurnRelayEndpoint != "" {
 		msg := "insufficient data to signal peer"
 		logger.Log(0, r.Header.Get("user"), msg)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New(msg), "badrequest"))
