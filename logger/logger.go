@@ -138,6 +138,12 @@ func FatalLog(message ...string) {
 	os.Exit(2)
 }
 
+// FatalLog0 - exits os after logging
+func FatalLog0(message ...string) {
+	fmt.Printf("[%s] Fatal: %s \n", program, MakeString(" ", message...))
+	os.Exit(0)
+}
+
 // == private ==
 
 // resetLogs - reallocates logs map

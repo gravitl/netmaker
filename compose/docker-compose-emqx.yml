@@ -4,7 +4,7 @@ services:
   netmaker:
     container_name: netmaker
     image: gravitl/netmaker:v0.18.6
-    restart: always
+    restart: on-failure
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
