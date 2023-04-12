@@ -140,16 +140,8 @@ func DeleteIngressGateway(networkName string, nodeid string) (models.Node, bool,
 	if err != nil {
 		return models.Node{}, false, removedClients, err
 	}
-	//host, err := GetHost(node.ID.String())
-	//if err != nil {
-	//return models.Node{}, false, err
-	//}
-	//network, err := GetParentNetwork(networkName)
-	if err != nil {
-		return models.Node{}, false, removedClients, err
-	}
 	clients, err := GetExtClientsByID(nodeid, networkName)
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return models.Node{}, false, removedClients, err
 	}
 
@@ -190,7 +182,10 @@ func DeleteIngressGateway(networkName string, nodeid string) (models.Node, bool,
 // DeleteGatewayExtClients - deletes ext clients based on gateway (mac) of ingress node and network
 func DeleteGatewayExtClients(gatewayID string, networkName string) error {
 	currentExtClients, err := GetNetworkExtClients(networkName)
-	if err != nil && !database.IsEmptyRecord(err) {
+	if database.IsEmptyRecord(err) {
+		return nil
+	}
+	if err != nil {
 		return err
 	}
 	for _, extClient := range currentExtClients {
