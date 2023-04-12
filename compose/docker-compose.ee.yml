@@ -111,8 +111,8 @@ services:
     depends_on:
       - netmaker
     environment:
-      SERVER_BROKER_ENDPOINT: "ws://mq:8083/mqtt"
-      BROKER_ENDPOINT: "wss://broker.NETMAKER_BASE_DOMAIN/mqtt"
+      SERVER_BROKER_ENDPOINT: "ws://mq:1883"
+      BROKER_ENDPOINT: "wss://broker.NETMAKER_BASE_DOMAIN"
       PROMETHEUS: "on"
       VERBOSITY: "1"
       API_PORT: "8085"
