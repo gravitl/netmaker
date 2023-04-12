@@ -140,16 +140,8 @@ func DeleteIngressGateway(networkName string, nodeid string) (models.Node, bool,
 	if err != nil {
 		return models.Node{}, false, removedClients, err
 	}
-	//host, err := GetHost(node.ID.String())
-	//if err != nil {
-	//return models.Node{}, false, err
-	//}
-	//network, err := GetParentNetwork(networkName)
-	if err != nil {
-		return models.Node{}, false, removedClients, err
-	}
 	clients, err := GetExtClientsByID(nodeid, networkName)
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return models.Node{}, false, removedClients, err
 	}
 
