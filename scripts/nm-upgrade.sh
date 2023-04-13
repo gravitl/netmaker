@@ -22,7 +22,7 @@ backup_v17_files() {
   mkdir $INSTALL_PATH/netmaker_0.17.1_backup
   cp $INSTALL_PATH/docker-compose.yml  $INSTALL_PATH/netmaker_0.17.1_backup/docker-compose.yml
   cp $INSTALL_PATH/Caddyfile $INSTALL_PATH/netmaker_0.17.1_backup/Caddyfile
-  cp $INSTALL_PATH/mosquitto.conf %INSTALL_PATH/netmaker_0.17.1_backup/mosquitto.conf
+  cp $INSTALL_PATH/mosquitto.conf $INSTALL_PATH/netmaker_0.17.1_backup/mosquitto.conf
   cp $INSTALL_PATH/wait.sh $INSTALL_PATH/netmaker_0.17.1_backup/wait.sh
 }
 
@@ -38,7 +38,7 @@ backup_volumes() {
 restore_old_netmaker_instructions() {
   echo "There was a problem with the installation. Your config files and volumes have been backed up."
   echo "To restore Netmaker back to v0.17.1, copy all the netmaker volume backups (caddy_conf-backup, caddy_data-backup, dnsconfig-backup, mosquitto_data-backup, mosquitto_logs-backup, and sqldata-backup) back to their regular names with out the -backup."
-  echo "Your config files should be located in ${INSALL_PATH}/netmaker_0.17.1_backup. Simply run cp ${INSALL_PATH}/netmaker_0.17.1_backup/* . (include the .) and run docker-compose up -d."
+  echo "Your config files should be located in ${INSTALL_PATH}/netmaker_0.17.1_backup. Simply run cp ${INSTALL_PATH}/netmaker_0.17.1_backup/* . (include the .) and run docker-compose up -d."
   echo "Your netmaker should be back to v0.17.1"
 }
 
@@ -119,7 +119,7 @@ install_dependencies() {
     echo "version: $(docker version)"
   else
     echo "Docker not found. adding to dependencies"
-    $dependencies += " docker.io"
+    dependencies+=" docker.io"
   fi
 
   ${update_cmd}
@@ -407,7 +407,8 @@ set_compose() {
   STUN_PORT=3478
 
   # RELEASE_REPLACE - Use this once release is ready
-  #sed -i "s/v0.17.1/v0.18.5/g" $INSTALL_PATH/docker-compose.yml
+
+  #sed -i "s/v0.17.1/v0.18.6/g" /root/docker-compose.yml
   yq ".services.netmaker.environment.SERVER_NAME = \"$SERVER_NAME\"" -i $INSTALL_PATH/docker-compose.yml
   yq ".services.netmaker.environment += {\"BROKER_ENDPOINT\": \"wss://$BROKER_NAME\"}" -i $INSTALL_PATH/docker-compose.yml  
   yq ".services.netmaker.environment += {\"SERVER_BROKER_ENDPOINT\": \"ws://mq:1883\"}" -i $INSTALL_PATH/docker-compose.yml  
@@ -419,6 +420,7 @@ set_compose() {
 
   yq ".services.mq.environment += {\"MQ_PASSWORD\": \"$MQ_PASSWORD\"}" -i $INSTALL_PATH/docker-compose.yml  
   yq ".services.mq.environment += {\"MQ_USERNAME\": \"$MQ_USERNAME\"}" -i $INSTALL_PATH/docker-compose.yml  
+
 
   #remove unnecessary ports
   yq eval 'del( .services.netmaker.ports[] | select(. == "51821*") )' -i $INSTALL_PATH/docker-compose.yml

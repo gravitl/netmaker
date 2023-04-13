@@ -112,6 +112,8 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.IsRelayed = a.IsRelayed
 	h.ProxyEnabled = a.ProxyEnabled
 	h.IsDefault = a.IsDefault
+	h.NatType = currentHost.NatType
+	h.TurnEndpoint = currentHost.TurnEndpoint
 
 	return &h
 }
