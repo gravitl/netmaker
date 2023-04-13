@@ -22,7 +22,7 @@ backup_v17_files() {
   mkdir $INSTALL_PATH/netmaker_0.17.1_backup
   cp $INSTALL_PATH/docker-compose.yml  $INSTALL_PATH/netmaker_0.17.1_backup/docker-compose.yml
   cp $INSTALL_PATH/Caddyfile $INSTALL_PATH/netmaker_0.17.1_backup/Caddyfile
-  cp $INSTALL_PATH/mosquitto.conf %INSTALL_PATH/netmaker_0.17.1_backup/mosquitto.conf
+  cp $INSTALL_PATH/mosquitto.conf $INSTALL_PATH/netmaker_0.17.1_backup/mosquitto.conf
   cp $INSTALL_PATH/wait.sh $INSTALL_PATH/netmaker_0.17.1_backup/wait.sh
 }
 
