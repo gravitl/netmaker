@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LATEST="v0.18.5"
+LATEST="v0.18.6"
 
 print_logo() {(
 cat << "EOF"
