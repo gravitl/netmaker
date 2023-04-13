@@ -257,7 +257,7 @@ func GetMasterKey() string {
 
 // GetDNSKey - gets the configured dns key of server
 func GetDNSKey() string {
-	key := "secretkey"
+	key := ""
 	if os.Getenv("DNS_KEY") != "" {
 		key = os.Getenv("DNS_KEY")
 	} else if config.Config.Server.DNSKey != "" {
