@@ -137,4 +137,5 @@ type Signal struct {
 	FromHostPubKey    string `json:"from_host_pubkey"`
 	TurnRelayEndpoint string `json:"turn_relay_addr"`
 	ToHostPubKey      string `json:"to_host_pubkey"`
+	Reply             bool   `json:"reply"`
 }
