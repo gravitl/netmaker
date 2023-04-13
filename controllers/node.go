@@ -564,7 +564,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
 	netid := params["network"]
-	node, wasFailover, err := logic.DeleteIngressGateway(netid, nodeid)
+	node, wasFailover, removedClients, err := logic.DeleteIngressGateway(netid, nodeid)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to delete ingress gateway on node [%s] on network [%s]: %v",
@@ -583,6 +583,18 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "deleted ingress gateway", nodeid)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
+
+	if len(removedClients) > 0 {
+		host, err := logic.GetHost(node.HostID.String())
+		if err == nil {
+			go mq.PublishSingleHostPeerUpdate(
+				context.Background(),
+				host,
+				nil,
+				removedClients[:],
+			)
+		}
+	}
 
 	runUpdates(&node, true)
 }
@@ -640,16 +652,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			fmt.Sprintf("failed to get host for node  [ %s ] info: %v", nodeid, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
-	}
-	if newNode.IsIngressGateway {
-		host.ProxyEnabled = true
-		err := logic.UpsertHost(host)
-		if err != nil {
-			logger.Log(0, r.Header.Get("user"),
-				fmt.Sprintf("failed to update host [ %s ]: %v", host.ID.String(), err))
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
 	}
 	relayedUpdate := false
 	if currentNode.IsRelayed && (currentNode.Address.String() != newNode.Address.String() || currentNode.Address6.String() != newNode.Address6.String()) {

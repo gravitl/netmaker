@@ -187,7 +187,7 @@ func authenticateDNSToken(tokenString string) bool {
 	if len(tokens) < 2 {
 		return false
 	}
-	return tokens[1] == servercfg.GetDNSKey()
+	return len(servercfg.GetDNSKey()) > 0 && tokens[1] == servercfg.GetDNSKey()
 }
 
 func ContinueIfUserMatch(next http.Handler) http.HandlerFunc {

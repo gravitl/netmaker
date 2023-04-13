@@ -331,7 +331,18 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	// start here
+	jwtUser, _, isadmin, err := logic.VerifyJWT(r.Header.Get("Authorization"))
+	if err != nil {
+		logger.Log(0, "verifyJWT error", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 	username := params["username"]
+	if username != jwtUser && !isadmin {
+		logger.Log(0, "non-admin user", jwtUser, "attempted to update user", username)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not authorizied"), "unauthorized"))
+		return
+	}
 	user, err := logic.GetUser(username)
 	if err != nil {
 		logger.Log(0, username,
@@ -352,6 +363,11 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, username, "error decoding request body: ",
 			err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if userchange.IsAdmin && !isadmin {
+		logger.Log(0, "non-admin user", jwtUser, "attempted get admin privilages")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not authorizied"), "unauthorized"))
 		return
 	}
 	userchange.Networks = nil
