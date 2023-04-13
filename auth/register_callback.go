@@ -19,13 +19,13 @@ var (
 	redirectUrl string
 )
 
-// HandleNodeSSOCallback handles the callback from the sso endpoint
+// HandleHostSSOCallback handles the callback from the sso endpoint
 // It is the analogue of auth.handleNodeSSOCallback but takes care of the end point flow
 // Retrieves the mkey from the state cache and adds the machine to the users email namespace
 // TODO: A confirmation page for new machines should be added to avoid phishing vulnerabilities
 // TODO: Add groups information from OIDC tokens into machine HostInfo
 // Listens in /oidc/callback.
-func HandleNodeSSOCallback(w http.ResponseWriter, r *http.Request) {
+func HandleHostSSOCallback(w http.ResponseWriter, r *http.Request) {
 
 	var functions = getCurrentAuthFunctions()
 	if functions == nil {
@@ -71,16 +71,7 @@ func HandleNodeSSOCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := isUserIsAllowed(userClaims.getUserName(), reqKeyIf.Network, true)
-	if err != nil {
-		logger.Log(0, "error occurred during SSO node join for user", userClaims.getUserName(), "on network", reqKeyIf.Network, "-", err.Error())
-		response := returnErrTemplate(user.UserName, err.Error(), state, reqKeyIf)
-		w.WriteHeader(http.StatusNotAcceptable)
-		w.Write(response)
-		return
-	}
-
-	logger.Log(1, "registering new node for user:", user.UserName, "on network", reqKeyIf.Network)
+	logger.Log(1, "registering host for user:", userClaims.getUserName(), reqKeyIf.Host.Name, reqKeyIf.Host.ID.String())
 
 	// Send OK to user in the browser
 	var response bytes.Buffer
@@ -89,32 +80,15 @@ func HandleNodeSSOCallback(w http.ResponseWriter, r *http.Request) {
 		Verb: "Authenticated",
 	}); err != nil {
 		logger.Log(0, "Could not render SSO callback template ", err.Error())
-		response := returnErrTemplate(user.UserName, "Could not render SSO callback template", state, reqKeyIf)
+		response := returnErrTemplate(reqKeyIf.User, "Could not render SSO callback template", state, reqKeyIf)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write(response)
-
 	} else {
 		w.WriteHeader(http.StatusOK)
 		w.Write(response.Bytes())
 	}
 
-	// Need to send access key to the client
-	logger.Log(1, "Handling new machine addition to network",
-		reqKeyIf.Network, "with key",
-		reqKeyIf.Value, " identity:", userClaims.getUserName(), "claims:", fmt.Sprintf("%+v", userClaims))
-
-	var answer string
-	// The registation logic is starting here:
-	// we request access key with 1 use for the required network
-	// accessToken, err := requestAccessKey(reqKeyIf.Network, 1, userClaims.getUserName())
-	// if err != nil {
-	// 	answer = fmt.Sprintf("Error from the netmaker controller %s", err.Error())
-	// } else {
-	// 	answer = fmt.Sprintf("AccessToken: %s", accessToken)
-	// }
-	logger.Log(0, "Updating the token for the client request ... ")
-	// Give the user the access token via Pass in the DB
-	reqKeyIf.Pass = answer
+	reqKeyIf.User = userClaims.getUserName() // set the cached registering hosts' user
 	if err = netcache.Set(state, reqKeyIf); err != nil {
 		logger.Log(0, "machine failed to complete join on network,", reqKeyIf.Network, "-", err.Error())
 		return
@@ -151,10 +125,10 @@ func returnErrTemplate(uname, message, state string, ncache *netcache.CValue) []
 	return response.Bytes()
 }
 
-// RegisterNodeSSO redirects to the IDP for authentication
+// RegisterHostSSO redirects to the IDP for authentication
 // Puts machine key in cache so the callback can retrieve it using the oidc state param
 // Listens in /oidc/register/:regKey.
-func RegisterNodeSSO(w http.ResponseWriter, r *http.Request) {
+func RegisterHostSSO(w http.ResponseWriter, r *http.Request) {
 
 	if auth_provider == nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -165,63 +139,16 @@ func RegisterNodeSSO(w http.ResponseWriter, r *http.Request) {
 
 	// machineKeyStr this is not key but state
 	machineKeyStr := vars["regKey"]
-	logger.Log(1, "requested key:", machineKeyStr)
-
 	if machineKeyStr == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("invalid login attempt"))
 		return
 	}
 
-	// machineKeyStr this not key but state
-	authURL := auth_provider.AuthCodeURL(machineKeyStr)
-	//authURL = authURL + "&connector_id=" + "google"
-	logger.Log(0, "Redirecting to ", authURL, " for authentication")
-
-	http.Redirect(w, r, authURL, http.StatusSeeOther)
-
+	http.Redirect(w, r, auth_provider.AuthCodeURL(machineKeyStr), http.StatusSeeOther)
 }
 
 // == private ==
-// API to create an access key for a given network with a given name
-// func requestAccessKey(network string, uses int, name string) (accessKey string, err error) {
-
-// 	var sAccessKey models.AccessKey
-// 	var sNetwork models.Network
-
-// 	sNetwork, err = logic.GetParentNetwork(network)
-// 	if err != nil {
-// 		logger.Log(0, "err calling GetParentNetwork API=%s", err.Error())
-// 		return "", fmt.Errorf("internal controller error %s", err.Error())
-// 	}
-// 	// If a key already exists, we recreate it.
-// 	// @TODO Is that a preferred handling ? We could also trying to re-use.
-// 	// can happen if user started log in but did not finish
-// 	for _, currentkey := range sNetwork.AccessKeys {
-// 		if currentkey.Name == name {
-// 			logger.Log(0, "erasing existing AccessKey for: ", name)
-// 			err = logic.DeleteKey(currentkey.Name, network)
-// 			if err != nil {
-// 				logger.Log(0, "err calling CreateAccessKey API ", err.Error())
-// 				return "", fmt.Errorf("key already exists. Contact admin to resolve")
-// 			}
-// 			break
-// 		}
-// 	}
-// 	// Only one usage is needed - for the next time new access key will be required
-// 	// it will be created next time after another IdP approval
-// 	sAccessKey.Uses = 1
-// 	sAccessKey.Name = name
-
-// 	accessToken, err := logic.CreateAccessKey(sAccessKey, sNetwork)
-// 	if err != nil {
-// 		logger.Log(0, "err calling CreateAccessKey API ", err.Error())
-// 		return "", fmt.Errorf("error from the netmaker controller %s", err.Error())
-// 	} else {
-// 		logger.Log(1, "created access key", sAccessKey.Name, "on", network)
-// 	}
-// 	return accessToken.AccessString, nil
-// }
 
 func isUserIsAllowed(username, network string, shouldAddUser bool) (*models.User, error) {
 
