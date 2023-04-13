@@ -41,13 +41,13 @@ func userHandlers(r *mux.Router) {
 //
 // Node authenticates using its password and retrieves a JWT for authorization.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: successResponse
+//			Responses:
+//				200: successResponse
 func authenticateUser(response http.ResponseWriter, request *http.Request) {
 
 	// Auth request consists of Mac Address and Password (from node that is authorizing
@@ -113,13 +113,13 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 //
 // Checks whether the server has an admin.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: successResponse
+//			Responses:
+//				200: successResponse
 func hasAdmin(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -139,13 +139,13 @@ func hasAdmin(w http.ResponseWriter, r *http.Request) {
 //
 // Get an individual user.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: userBodyResponse
+//			Responses:
+//				200: userBodyResponse
 func getUser(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -167,13 +167,13 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 //
 // Get all users.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: userBodyResponse
+//			Responses:
+//				200: userBodyResponse
 func getUsers(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -194,13 +194,13 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 //
 // Make a user an admin.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: userBodyResponse
+//			Responses:
+//				200: userBodyResponse
 func createAdmin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -236,13 +236,13 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 //
 // Create a user.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: userBodyResponse
+//			Responses:
+//				200: userBodyResponse
 func createUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -270,13 +270,13 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 //
 // Updates the networks of the given user.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: userBodyResponse
+//			Responses:
+//				200: userBodyResponse
 func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -319,18 +319,29 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 //
 // Update a user.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: userBodyResponse
+//			Responses:
+//				200: userBodyResponse
 func updateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	// start here
+	jwtUser, _, isadmin, err := logic.VerifyJWT(r.Header.Get("Authorization"))
+	if err != nil {
+		logger.Log(0, "verifyJWT error", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 	username := params["username"]
+	if username != jwtUser && !isadmin {
+		logger.Log(0, "non-admin user", jwtUser, "attempted to update user", username)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not authorized"), "unauthorized"))
+		return
+	}
 	user, err := logic.GetUser(username)
 	if err != nil {
 		logger.Log(0, username,
@@ -353,6 +364,11 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if userchange.IsAdmin && !isadmin {
+		logger.Log(0, "non-admin user", jwtUser, "attempted to get admin privileges")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not authorized"), "unauthorized"))
+		return
+	}
 	userchange.Networks = nil
 	user, err = logic.UpdateUser(&userchange, user)
 	if err != nil {
@@ -369,13 +385,13 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 //
 // Updates the given admin user's info (as long as the user is an admin).
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: userBodyResponse
+//			Responses:
+//				200: userBodyResponse
 func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -420,13 +436,13 @@ func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 //
 // Delete a user.
 //
-//		Schemes: https
+//			Schemes: https
 //
-// 		Security:
-//   		oauth
+//			Security:
+//	  		oauth
 //
-//		Responses:
-//			200: userBodyResponse
+//			Responses:
+//				200: userBodyResponse
 func deleteUser(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
