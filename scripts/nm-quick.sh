@@ -182,7 +182,7 @@ setup_netclient() {
 	netclient uninstall
 	set -e
 
-	wget -O netclient https://github.com/gravitl/netclient/releases/download/$LATEST/netclient_linux_amd64
+	wget -O netclient https://github.com/gravitl/netclient/releases/download/$LATEST/netclient-linux-amd64
 	chmod +x netclient
 	./netclient install
 	netclient register -t $TOKEN
