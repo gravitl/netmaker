@@ -1,20 +1,9 @@
-# Netmaker v0.18.6
+# Netmaker v0.18.7
 
 ## whats new
-- no new features
+- deprecated editing of network parameters
     
 ## whats fixed
-- a few ext client/ingress issues
-  - viewing addresses (UI)
-  - when deleting an ingress gateway, ext clients are now removed from peers immediately
-  - ext client peers should be populated immediately after creation
-  - ext clients no longer reset public key when disabled/enabled
-  - can delete an ingress without clients
-- removed unnecessary host update
-- host nat type is now collected from clients
-- fix peer update issue where caclulation was happening to frequently
-- nm-quick && nm-upgrade 
-- EMQX image change && api routes
 
 ## known issues
 - Caddy does not handle netmaker exporter well for EE
