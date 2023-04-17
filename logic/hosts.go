@@ -151,6 +151,10 @@ func UpdateHost(newHost, currentHost *models.Host) {
 // UpdateHostFromClient - used for updating host on server with update recieved from client
 func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) {
 
+	if newHost.PublicKey != currHost.PublicKey {
+		currHost.PublicKey = newHost.PublicKey
+		sendPeerUpdate = true
+	}
 	if newHost.ListenPort != 0 && currHost.ListenPort != newHost.ListenPort {
 		currHost.ListenPort = newHost.ListenPort
 		sendPeerUpdate = true
