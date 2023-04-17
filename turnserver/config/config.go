@@ -87,3 +87,13 @@ func GetAPIPort() int {
 	}
 	return apiport
 }
+
+// GetUserName - gets the username for the apis
+func GetUserName() string {
+	return os.Getenv("USERNAME")
+}
+
+// GetPassword - gets the password for the server apis
+func GetPassword() string {
+	return os.Getenv("PASSWORD")
+}

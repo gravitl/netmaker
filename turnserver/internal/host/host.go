@@ -35,5 +35,5 @@ func Remove(c *gin.Context) {
 		return
 	}
 	utils.ReturnSuccessResponse(c,
-		fmt.Sprintf("unregistred host (%s) successfully", hostID), nil)
+		fmt.Sprintf("unregistered host (%s) successfully", hostID), nil)
 }

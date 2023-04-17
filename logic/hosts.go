@@ -1,11 +1,15 @@
 package logic
 
 import (
+	"crypto/md5"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
+	"strconv"
 
+	"github.com/devilcove/httpclient"
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -201,11 +205,13 @@ func RemoveHost(h *models.Host) error {
 	if len(h.Nodes) > 0 {
 		return fmt.Errorf("host still has associated nodes")
 	}
+	DeRegisterHostWithTurn(h.ID.String())
 	return database.DeleteRecord(database.HOSTS_TABLE_NAME, h.ID.String())
 }
 
 // RemoveHostByID - removes a given host by id from server
 func RemoveHostByID(hostID string) error {
+	DeRegisterHostWithTurn(hostID)
 	return database.DeleteRecord(database.HOSTS_TABLE_NAME, hostID)
 }
 
@@ -425,6 +431,56 @@ func GetHostByNodeID(id string) *models.Host {
 		if StringSliceContains(h.Nodes, id) {
 			return &h
 		}
+	}
+	return nil
+}
+
+// ConvHostPassToHash - converts password to md5 hash
+func ConvHostPassToHash(hostPass string) string {
+	return fmt.Sprintf("%x", md5.Sum([]byte(hostPass)))
+}
+
+// RegisterHostWithTurn - registers the host with the given turn server
+func RegisterHostWithTurn(hostID, hostPass string) error {
+
+	api := httpclient.JSONEndpoint[models.SuccessResponse, models.ErrorResponse]{
+		URL:    servercfg.GetTurnApiHost(),
+		Route:  "/api/v1/host/register",
+		Method: http.MethodPost,
+		//Authorization: fmt.Sprintf("Bearer %s", op.AuthToken),
+		Data: models.HostTurnRegister{
+			HostID:       hostID,
+			HostPassHash: ConvHostPassToHash(hostPass),
+		},
+		Response:      models.SuccessResponse{},
+		ErrorResponse: models.ErrorResponse{},
+	}
+	_, errData, err := api.GetJSON(models.SuccessResponse{}, models.ErrorResponse{})
+	if err != nil {
+		if errors.Is(err, httpclient.ErrStatus) {
+			logger.Log(1, "error server status", strconv.Itoa(errData.Code), errData.Message)
+		}
+		return err
+	}
+	return nil
+}
+
+// DeRegisterHostWithTurn - to be called when host need to be deregistered from a turn server
+func DeRegisterHostWithTurn(hostID string) error {
+
+	api := httpclient.JSONEndpoint[models.SuccessResponse, models.ErrorResponse]{
+		URL:           servercfg.GetTurnApiHost(),
+		Route:         fmt.Sprintf("/api/v1/host/deregister?host_id=%s", hostID),
+		Method:        http.MethodPost,
+		Response:      models.SuccessResponse{},
+		ErrorResponse: models.ErrorResponse{},
+	}
+	_, errData, err := api.GetJSON(models.SuccessResponse{}, models.ErrorResponse{})
+	if err != nil {
+		if errors.Is(err, httpclient.ErrStatus) {
+			logger.Log(1, "error server status", strconv.Itoa(errData.Code), errData.Message)
+		}
+		return err
 	}
 	return nil
 }

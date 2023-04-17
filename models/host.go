@@ -116,6 +116,8 @@ const (
 	RequestAck = "REQ_ACK"
 	// CheckIn - update last check in times and public address and interfaces
 	CheckIn = "CHECK_IN"
+	// REGISTER_WITH_TURN - registers host with turn server if configured
+	RegisterWithTurn = "REGISTER_WITH_TURN"
 )
 
 // HostUpdate - struct for host update

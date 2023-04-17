@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gravitl/netmaker/turnserver/config"
 	"github.com/gravitl/netmaker/turnserver/internal/host"
 )
 
@@ -15,9 +16,15 @@ func Init(r *gin.Engine) *gin.Engine {
 }
 
 func registerRoutes(r *gin.RouterGroup) {
-	r.POST("/host/register", host.Register)
-	r.DELETE("/host/deregister", host.Remove)
-	r.GET("/status", status)
+	r.POST("/host/register", gin.BasicAuth(gin.Accounts{
+		config.GetUserName(): config.GetPassword(),
+	}), host.Register)
+	r.DELETE("/host/deregister", gin.BasicAuth(gin.Accounts{
+		config.GetUserName(): config.GetPassword(),
+	}), host.Remove)
+	r.GET("/status", gin.BasicAuth(gin.Accounts{
+		config.GetUserName(): config.GetPassword(),
+	}), status)
 }
 
 func status(c *gin.Context) {

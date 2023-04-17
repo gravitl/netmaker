@@ -140,6 +140,8 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 		sendPeerUpdate = true
+	case models.RegisterWithTurn:
+		logic.RegisterHostWithTurn(hostUpdate.Host.ID.String(), hostUpdate.Host.HostPass)
 	}
 
 	if sendPeerUpdate {
