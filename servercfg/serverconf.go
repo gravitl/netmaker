@@ -103,7 +103,6 @@ func GetServerInfo() models.ServerConfig {
 	cfg.StunPort = GetStunPort()
 	cfg.StunList = GetStunList()
 	cfg.TurnDomain = GetTurnHost()
-	cfg.TurnApiDomain = GetTurnApiHost()
 	cfg.TurnPort = GetTurnPort()
 	return cfg
 }
