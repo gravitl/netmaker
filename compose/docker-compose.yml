@@ -32,6 +32,8 @@ services:
       TURN_SERVER_HOST: "turn.NETMAKER_BASE_DOMAIN"
       TURN_SERVER_API_HOST: "https://api.turn.NETMAKER_BASE_DOMAIN"
       TURN_PORT: "3479"
+      TURN_USERNAME: "REPLACE_TURN_USERNAME"
+      TURN_PASSWORD: "REPLACE_TURN_PASSWORD"
     ports:
       - "3478:3478/udp"
   netmaker-ui:

@@ -2,6 +2,7 @@ package logic
 
 import (
 	"crypto/md5"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -442,12 +443,12 @@ func ConvHostPassToHash(hostPass string) string {
 
 // RegisterHostWithTurn - registers the host with the given turn server
 func RegisterHostWithTurn(hostID, hostPass string) error {
-
+	auth := servercfg.GetTurnUserName() + ":" + servercfg.GetTurnPassword()
 	api := httpclient.JSONEndpoint[models.SuccessResponse, models.ErrorResponse]{
-		URL:    servercfg.GetTurnApiHost(),
-		Route:  "/api/v1/host/register",
-		Method: http.MethodPost,
-		//Authorization: fmt.Sprintf("Bearer %s", op.AuthToken),
+		URL:           servercfg.GetTurnApiHost(),
+		Route:         "/api/v1/host/register",
+		Method:        http.MethodPost,
+		Authorization: fmt.Sprintf("Basic %s", base64.StdEncoding.EncodeToString([]byte(auth))),
 		Data: models.HostTurnRegister{
 			HostID:       hostID,
 			HostPassHash: ConvHostPassToHash(hostPass),
@@ -467,11 +468,12 @@ func RegisterHostWithTurn(hostID, hostPass string) error {
 
 // DeRegisterHostWithTurn - to be called when host need to be deregistered from a turn server
 func DeRegisterHostWithTurn(hostID string) error {
-
+	auth := servercfg.GetTurnUserName() + ":" + servercfg.GetTurnPassword()
 	api := httpclient.JSONEndpoint[models.SuccessResponse, models.ErrorResponse]{
 		URL:           servercfg.GetTurnApiHost(),
 		Route:         fmt.Sprintf("/api/v1/host/deregister?host_id=%s", hostID),
 		Method:        http.MethodPost,
+		Authorization: fmt.Sprintf("Basic %s", base64.StdEncoding.EncodeToString([]byte(auth))),
 		Response:      models.SuccessResponse{},
 		ErrorResponse: models.ErrorResponse{},
 	}

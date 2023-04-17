@@ -15,10 +15,12 @@ var (
 	authMapLock    = &sync.RWMutex{}
 	HostMap        = make(map[string]string)
 	authBackUpFile = "auth.json"
+	backUpFilePath = filepath.Join("/etc/config", authBackUpFile)
 )
 
 func init() {
 	os.MkdirAll("/etc/config", os.ModePerm)
+	loadCredsFromFile()
 }
 
 func RegisterNewHostWithTurn(hostID, hostPass string) {
@@ -42,8 +44,16 @@ func dumpCredsToFile() {
 		return
 	}
 
-	err = os.WriteFile(filepath.Join("/etc/config", authBackUpFile), d, os.ModePerm)
+	err = os.WriteFile(backUpFilePath, d, os.ModePerm)
 	if err != nil {
 		logger.Log(0, "failed to backup auth data: ", err.Error())
 	}
+}
+
+func loadCredsFromFile() error {
+	d, err := os.ReadFile(backUpFilePath)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(d, &HostMap)
 }

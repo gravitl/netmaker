@@ -78,6 +78,8 @@ type ServerConfig struct {
 	TurnServer           string    `yaml:"turn_server"`
 	TurnApiServer        string    `yaml:"turn_api_server"`
 	TurnPort             int       `yaml:"turn_port"`
+	TurnUserName         string    `yaml:"turn_username"`
+	TurnPassword         string    `yaml:"turn_password"`
 }
 
 // ProxyMode - default proxy mode for server

@@ -663,6 +663,30 @@ func GetTurnPort() int {
 	return port
 }
 
+// GetTurnUserName - fetches the turn server username
+func GetTurnUserName() string {
+	userName := ""
+	if os.Getenv("TURN_USERNAME") != "" {
+		userName = os.Getenv("TURN_USERNAME")
+	} else {
+		userName = config.Config.Server.TurnUserName
+	}
+	return userName
+
+}
+
+// GetTurnPassword - fetches the turn server password
+func GetTurnPassword() string {
+	pass := ""
+	if os.Getenv("TURN_PASSWORD") != "" {
+		pass = os.Getenv("TURN_PASSWORD")
+	} else {
+		pass = config.Config.Server.TurnPassword
+	}
+	return pass
+
+}
+
 // IsProxyEnabled - is proxy on or off
 func IsProxyEnabled() bool {
 	var enabled = false //default
