@@ -114,10 +114,10 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 	if err == nil || errors.Is(err, netcache.ErrExpired) {
 		switch len(state) {
 		case node_signin_length:
-			logger.Log(0, "proceeding with node SSO callback")
-			HandleNodeSSOCallback(w, r)
+			logger.Log(1, "proceeding with host SSO callback")
+			HandleHostSSOCallback(w, r)
 		case headless_signin_length:
-			logger.Log(0, "proceeding with headless SSO callback")
+			logger.Log(1, "proceeding with headless SSO callback")
 			HandleHeadlessSSOCallback(w, r)
 		default:
 			logger.Log(1, "invalid state length: ", fmt.Sprintf("%d", len(state)))

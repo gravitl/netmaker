@@ -8,12 +8,3 @@ type ProNetwork struct {
 	AllowedUsers           []string `json:"allowedusers" bson:"allowedusers" yaml:"allowedusers"`
 	AllowedGroups          []string `json:"allowedgroups" bson:"allowedgroups" yaml:"allowedgroups"`
 }
-
-// LoginMsg - login message struct for nodes to join via SSO login
-// Need to change mac to public key for tighter verification ?
-type LoginMsg struct {
-	Mac      string `json:"mac"`
-	Network  string `json:"network"`
-	User     string `json:"user,omitempty"`
-	Password string `json:"password,omitempty"`
-}
