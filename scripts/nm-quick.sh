@@ -704,52 +704,19 @@ print_success() {
 # 1. print netmaker logo
 print_logo
 
-
-
-set -e
-
-
 # 2. setup the build instructions
 set_buildinfo
 
-
-set -e
-
-
-
-
 # 3. get install dir, and make dir
 set_install_dir
-
-
-set -e
-
-
-
-
 
 set +e
 
 # 4. install necessary packages
 install_dependencies
 
-
-
-
-
-set -e
-
-
-
-
 # 5. install yq if necessary
 install_yq
-
-
-set -e
-
-
-
 
 # 6. if running a local build, clone git and build artifacts
 if [ "$BUILD_TYPE" = "local" ]; then
@@ -760,16 +727,6 @@ set -e
 
 # 7. get user input for variables
 set_install_vars
-
-
-
-
-
-set -e 
-
-
-
-
 
 # 8. get and set config files, startup docker-compose
 install_netmaker
