@@ -175,6 +175,39 @@ install_yq() {
 	fi	
 }
 
+
+set_install_dir() {
+
+	if [ -z $INSTALL_DIR]; then
+	    INSTALL_DIR=/root
+	fi
+
+	if [ -z $AUTO_BUILD ] && [ "$INSTALL_TYPE" != "ee" ]; then
+	    select directory_option in "Default install directory (/root)" "Custom install directory"; do
+		    case $REPLY in
+			1)
+			echo "using default install directory "$INSTALL_DIR" "
+			break
+			;;
+			2)
+			while true
+			do
+			    read -p "Enter your diserd install directory: " GET_INSTALL_DIR
+				INSTALL_DIR=$(echo "$GET_INSTALL_DIR" | sed 's#/$##')
+				echo "Using install directory "$INSTALL_DIR" "
+				break
+			done
+			break
+			;;
+		esac
+		done
+	fi
+
+	if [ "$INSTALL_DIR" != "/root" ]; then
+	    mkdir -p $INSTALL_DIR
+    fi
+}
+
 # setup_netclient - adds netclient to docker-compose
 setup_netclient() {
 
@@ -259,14 +292,14 @@ local_install_setup() {(
 	git pull origin $BUILD_TAG
 	docker build --no-cache --build-arg version=$IMAGE_TAG -t gravitl/netmaker:$IMAGE_TAG .
 	if [ "$INSTALL_TYPE" = "ee" ]; then
-		cp compose/docker-compose.ee.yml /root/docker-compose.yml 
-		cp docker/Caddyfile-EE /root/Caddyfile
+		cp compose/docker-compose.ee.yml $INSTALL_DIR/docker-compose.yml 
+		cp docker/Caddyfile-EE $INSTALL_DIR/Caddyfile
 	else
-		cp compose/docker-compose.yml /root/docker-compose.yml 
-		cp docker/Caddyfile /root/Caddyfile
+		cp compose/docker-compose.yml $INSTALL_DIR/docker-compose.yml 
+		cp docker/Caddyfile $INSTALL_DIR/Caddyfile
 	fi
-	cp docker/mosquitto.conf /root/mosquitto.conf
-	cp docker/wait.sh /root/wait.sh
+	cp docker/mosquitto.conf $INSTALL_DIR/mosquitto.conf
+	cp docker/wait.sh $INSTALL_DIR/wait.sh
 	cd ../../
 	rm -rf netmaker-tmp
 )}
@@ -524,31 +557,6 @@ set_install_vars() {
 		done
 	fi
 
-    unset GET_INSTALL_DIR
-	unset INSTALL_DIR
-	INSTALL_DIR=/root
-
-	if [ "$INSTALL_TYPE" = "ce" ] && [ -z $AUTO_BUILD ]; then
-	    select directory_option in "Default install directory (/root)" "Custom install directory"; do
-		    case $REPLY in
-			1)
-			echo "using default install directory "$INSTALL_DIR" "
-			break
-			;;
-			2)
-			while true
-			do
-			    read -p "Enter your diserd install directory: " GET_INSTALL_DIR
-				INSTALL_DIR=$(echo "$GET_INSTALL_DIR" | sed 's#/$##')
-				echo "Using install directory "$INSTALL_DIR" "
-				break
-			done
-			break
-			;;
-		esac
-		done
-	fi
-
 	wait_seconds 2
 
 	echo "-----------------------------------------------------------------"
@@ -578,10 +586,6 @@ install_netmaker() {
 	echo "-----------------------------------------------------------------"
 
 	wait_seconds 3
-
-    if [ "$INSTALL_DIR" != "/root" ]; then
-	    mkdir -p $INSTALL_DIR
-    fi
 	
 	echo "Pulling config files..."
 
@@ -700,50 +704,96 @@ print_success() {
 # 1. print netmaker logo
 print_logo
 
+
+
+set -e
+
+
 # 2. setup the build instructions
 set_buildinfo
 
+
+set -e
+
+
+
+
+# 3. get install dir, and make dir
+set_install_dir
+
+
+set -e
+
+
+
+
+
 set +e
 
-# 3. install necessary packages
+# 4. install necessary packages
 install_dependencies
 
-# 4. install yq if necessary
+
+
+
+
+set -e
+
+
+
+
+# 5. install yq if necessary
 install_yq
 
-# 5. if running a local build, clone git and build artifacts
+
+set -e
+
+
+
+
+# 6. if running a local build, clone git and build artifacts
 if [ "$BUILD_TYPE" = "local" ]; then
 	local_install_setup
 fi
 
 set -e
 
-# 6. get user input for variables
+# 7. get user input for variables
 set_install_vars
 
-# 7. get and set config files, startup docker-compose
+
+
+
+
+set -e 
+
+
+
+
+
+# 8. get and set config files, startup docker-compose
 install_netmaker
 
 set +e
 
-# 8. make sure Caddy certs are working
+# 9. make sure Caddy certs are working
 test_connection
 
-# 9. install the netmaker CLI
+# 10. install the netmaker CLI
 setup_nmctl
 
-# 10. create a default mesh network for netmaker
+# 11. create a default mesh network for netmaker
 setup_mesh
 
 set -e
 
-# 11. add netclient to docker-compose and start it up
+# 12. add netclient to docker-compose and start it up
 setup_netclient
 
-# 12. make the netclient a default host and ingress gw
+# 13. make the netclient a default host and ingress gw
 configure_netclient
 
-# 13. print success message
+# 14. print success message
 print_success
 
 # cp -f /etc/skel/.bashrc /root/.bashrc
