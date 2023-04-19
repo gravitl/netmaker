@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sort"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
@@ -432,4 +433,11 @@ func GetHostByNodeID(id string) *models.Host {
 		}
 	}
 	return nil
+}
+
+// SortApiHosts - Sorts slice of ApiHosts by their ID alphabetically with numbers first
+func SortApiHosts(unsortedHosts []models.ApiHost) {
+	sort.Slice(unsortedHosts, func(i, j int) bool {
+		return unsortedHosts[i].ID < unsortedHosts[j].ID
+	})
 }
