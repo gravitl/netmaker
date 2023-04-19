@@ -524,6 +524,31 @@ set_install_vars() {
 		done
 	fi
 
+    unset GET_INSTALL_DIR
+	unset INSTALL_DIR
+	INSTALL_DIR=/root
+
+	if [ "$INSTALL_TYPE" = "ce" ] && [ -z $AUTO_BUILD ]; then
+	    select directory_option in "Default install directory (/root)" "Custom install directory"; do
+		    case $REPLY in
+			1)
+			echo "using default install directory "$INSTALL_DIR" "
+			break
+			;;
+			2)
+			while true
+			do
+			    read -p "Enter your diserd install directory: " GET_INSTALL_DIR
+				INSTALL_DIR=$(echo "$GET_INSTALL_DIR" | sed 's#/$##')
+				echo "Using install directory "$INSTALL_DIR" "
+				break
+			done
+			break
+			;;
+		esac
+		done
+	fi
+
 	wait_seconds 2
 
 	echo "-----------------------------------------------------------------"
@@ -532,6 +557,7 @@ set_install_vars() {
 	echo "        domain: $NETMAKER_BASE_DOMAIN"
 	echo "         email: $EMAIL"
 	echo "     public ip: $SERVER_PUBLIC_IP"
+	echo "   install dir: $INSTALL_DIR"
 	if [ "$INSTALL_TYPE" = "ee" ]; then
 		echo "       license: $LICENSE_KEY"
 		echo "    account id: $ACCOUNT_ID"
@@ -553,6 +579,10 @@ install_netmaker() {
 
 	wait_seconds 3
 
+    if [ "$INSTALL_DIR" != "/root" ]; then
+	    mkdir -p $INSTALL_DIR
+    fi
+	
 	echo "Pulling config files..."
 
 
@@ -563,42 +593,48 @@ install_netmaker() {
 		CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/Caddyfile-EE"
 	fi
 	if [ ! "$BUILD_TYPE" = "local" ]; then
-		wget -O /root/docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/mosquitto.conf && wget -O /root/Caddyfile $CADDY_URL
-		wget -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/wait.sh
+		wget -O $INSTALL_DIR/docker-compose.yml $COMPOSE_URL && wget -O $INSTALL_DIR/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/mosquitto.conf && wget -O $INSTALL_DIR/Caddyfile $CADDY_URL
+		wget -O $INSTALL_DIR/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/wait.sh
 	fi
 
-	chmod +x /root/wait.sh
+	chmod +x $INSTALL_DIR/wait.sh
 	mkdir -p /etc/netmaker
 
 	echo "Setting docker-compose and Caddyfile..."
 
-	sed -i "s/SERVER_PUBLIC_IP/$SERVER_PUBLIC_IP/g" /root/docker-compose.yml
-	sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/Caddyfile
-	sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/docker-compose.yml
-	sed -i "s/REPLACE_MASTER_KEY/$MASTER_KEY/g" /root/docker-compose.yml
-	sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/Caddyfile
-	sed -i "s/REPLACE_MQ_PASSWORD/$MQ_PASSWORD/g" /root/docker-compose.yml
-	sed -i "s/REPLACE_MQ_USERNAME/$MQ_USERNAME/g" /root/docker-compose.yml 
+	sed -i "s/SERVER_PUBLIC_IP/$SERVER_PUBLIC_IP/g" $INSTALL_DIR/docker-compose.yml
+	sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" $INSTALL_DIR/Caddyfile
+	sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" $INSTALL_DIR/docker-compose.yml
+	sed -i "s/REPLACE_MASTER_KEY/$MASTER_KEY/g" $INSTALL_DIR/docker-compose.yml
+	sed -i "s/YOUR_EMAIL/$EMAIL/g" $INSTALL_DIR/Caddyfile
+	sed -i "s/REPLACE_MQ_PASSWORD/$MQ_PASSWORD/g" $INSTALL_DIR/docker-compose.yml
+	sed -i "s/REPLACE_MQ_USERNAME/$MQ_USERNAME/g" $INSTALL_DIR/docker-compose.yml 
 	if [ "$INSTALL_TYPE" = "ee" ]; then
-		sed -i "s~YOUR_LICENSE_KEY~$LICENSE_KEY~g" /root/docker-compose.yml
-		sed -i "s/YOUR_ACCOUNT_ID/$ACCOUNT_ID/g" /root/docker-compose.yml
+		sed -i "s~YOUR_LICENSE_KEY~$LICENSE_KEY~g" $INSTALL_DIR/docker-compose.yml
+		sed -i "s/YOUR_ACCOUNT_ID/$ACCOUNT_ID/g" $INSTALL_DIR/docker-compose.yml
 	fi
 
 	if [ "$BUILD_TYPE" = "version" ] && [ "$INSTALL_TYPE" = "ee" ]; then
-		sed -i "s/REPLACE_SERVER_IMAGE_TAG/$IMAGE_TAG-ee/g" /root/docker-compose.yml
+		sed -i "s/REPLACE_SERVER_IMAGE_TAG/$IMAGE_TAG-ee/g" $INSTALL_DIR/docker-compose.yml
 	else
-		sed -i "s/REPLACE_SERVER_IMAGE_TAG/$IMAGE_TAG/g" /root/docker-compose.yml
+		sed -i "s/REPLACE_SERVER_IMAGE_TAG/$IMAGE_TAG/g" $INSTALL_DIR/docker-compose.yml
 	fi
 
 	if [ "$BUILD_TYPE" = "local" ]; then
-		sed -i "s/REPLACE_UI_IMAGE_TAG/$LATEST/g" /root/docker-compose.yml
+		sed -i "s/REPLACE_UI_IMAGE_TAG/$LATEST/g" $INSTALL_DIR/docker-compose.yml
 	else
-		sed -i "s/REPLACE_UI_IMAGE_TAG/$IMAGE_TAG/g" /root/docker-compose.yml
+		sed -i "s/REPLACE_UI_IMAGE_TAG/$IMAGE_TAG/g" $INSTALL_DIR/docker-compose.yml
+	fi
+
+	if [ "$INSTALL_DIR" != "/root" ]; then
+	    sed -i "s|/root/Caddyfile|$INSTALL_DIR/Caddyfile|g" $INSTALL_DIR/docker-compose.yml
+	    sed -i "s|/root/mosquitto.conf|$INSTALL_DIR/mosquitto.conf|g" $INSTALL_DIR/docker-compose.yml
+	    sed -i "s|/root/wait.sh|$INSTALL_DIR/wait.sh|g" $INSTALL_DIR/docker-compose.yml
 	fi
 
 	echo "Starting containers..."
 
-	docker-compose -f /root/docker-compose.yml up -d
+	docker-compose -f $INSTALL_DIR/docker-compose.yml up -d
 
 	wait_seconds 2
 
