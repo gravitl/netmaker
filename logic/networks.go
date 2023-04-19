@@ -555,15 +555,6 @@ func ParseNetwork(value string) (models.Network, error) {
 	return network, err
 }
 
-// KeyUpdate - updates keys on network
-func KeyUpdate(netname string) (models.Network, error) {
-	err := networkNodesUpdateAction(netname, models.NODE_UPDATE_KEY)
-	if err != nil {
-		return models.Network{}, err
-	}
-	return models.Network{}, nil
-}
-
 // SaveNetwork - save network struct to database
 func SaveNetwork(network *models.Network) error {
 	data, err := json.Marshal(network)
@@ -587,46 +578,11 @@ func NetworkExists(name string) (bool, error) {
 	return len(network) > 0, nil
 }
 
-// == Private ==
-
-func networkNodesUpdateAction(networkName string, action string) error {
-
-	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
-	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return nil
-		}
-		return err
-	}
-
-	for k, value := range collections {
-		var node models.Node
-		err := json.Unmarshal([]byte(value), &node)
-		if err != nil {
-			if IsLegacyNode(k) { // ignore legacy nodes
-				continue
-			}
-			fmt.Println("error in node address assignment!")
-			return err
-		}
-		if action == models.NODE_UPDATE_KEY {
-			continue
-		}
-		if node.Network == networkName {
-			node.Action = action
-			data, err := json.Marshal(&node)
-			if err != nil {
-				return err
-			}
-			database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
-		}
-	}
-	return nil
-}
-
 // SortNetworks - Sorts slice of Networks by their NetID alphabetically with numbers first
 func SortNetworks(unsortedNetworks []models.Network) {
 	sort.Slice(unsortedNetworks, func(i, j int) bool {
 		return unsortedNetworks[i].NetID < unsortedNetworks[j].NetID
 	})
 }
+
+// == Private ==

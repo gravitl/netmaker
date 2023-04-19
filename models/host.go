@@ -113,6 +113,8 @@ const (
 	RequestAck = "REQ_ACK"
 	// CheckIn - update last check in times and public address and interfaces
 	CheckIn = "CHECK_IN"
+	// UpdateKeys - update wireguard private/public keys
+	UpdateKeys = "UPDATE_KEYS"
 )
 
 // HostUpdate - struct for host update

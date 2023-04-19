@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // DefaultHandler default message queue handler  -- NOT USED
@@ -117,6 +118,28 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 			}
 		}
 	case models.UpdateHost:
+		if hostUpdate.Host.PublicKey != currentHost.PublicKey {
+			//remove old peer entry
+			peerUpdate := models.HostPeerUpdate{
+				ServerVersion: servercfg.GetVersion(),
+				Peers: []wgtypes.PeerConfig{
+					{
+						PublicKey: currentHost.PublicKey,
+						Remove:    true,
+					},
+				},
+			}
+			data, err := json.Marshal(&peerUpdate)
+			if err != nil {
+				logger.Log(2, "json error", err.Error())
+			}
+			hosts := logic.GetRelatedHosts(hostUpdate.Host.ID.String())
+			server := servercfg.GetServer()
+			for _, host := range hosts {
+				publish(&host, fmt.Sprintf("peers/host/%s/%s", host.ID.String(), server), data)
+			}
+
+		}
 		sendPeerUpdate = logic.UpdateHostFromClient(&hostUpdate.Host, currentHost)
 		err := logic.UpsertHost(currentHost)
 		if err != nil {
