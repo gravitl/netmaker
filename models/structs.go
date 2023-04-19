@@ -16,8 +16,9 @@ const (
 
 // CustomExtClient - struct for CustomExtClient params
 type CustomExtClient struct {
-	ClientID  string `json:"clientid"`
-	PublicKey string `json:"publickey,omitempty"`
+	ClientID             string   `json:"clientid"`
+	PublicKey            string   `json:"publickey,omitempty"`
+	AdditionalAllowedIPs []string `json:"additional_allowed_ips,omitempty"`
 }
 
 // AuthParams - struct for auth params
