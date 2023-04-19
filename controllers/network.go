@@ -102,44 +102,6 @@ func getNetwork(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(network)
 }
 
-// swagger:route POST /api/networks/{networkname}/keyupdate networks keyUpdate
-//
-// Update keys for a network.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: networkBodyResponse
-func keyUpdate(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	var params = mux.Vars(r)
-	netname := params["networkname"]
-	network, err := logic.KeyUpdate(netname)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), fmt.Sprintf("failed to update keys for network [%s]: %v",
-			netname, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	logger.Log(2, r.Header.Get("user"), "updated key on network", netname)
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(network)
-	nodes, err := logic.GetNetworkNodes(netname)
-	if err != nil {
-		logger.Log(0, "failed to retrieve network nodes for network", netname, err.Error())
-		return
-	}
-	for _, node := range nodes {
-		logger.Log(2, "updating node ", node.ID.String(), " for a key update")
-		if err = mq.NodeUpdate(&node); err != nil {
-			logger.Log(1, "failed to send update to node during a network wide key update", node.ID.String(), err.Error())
-		}
-	}
-}
-
 // swagger:route PUT /api/networks/{networkname}/acls networks updateNetworkACL
 //
 // Update a network ACL (Access Control List).
