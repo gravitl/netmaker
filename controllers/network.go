@@ -69,6 +69,7 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Log(2, r.Header.Get("user"), "fetched networks.")
+	logic.SortNetworks(allnetworks[:])
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(allnetworks)
 }
