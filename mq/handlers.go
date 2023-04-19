@@ -134,8 +134,9 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 				logger.Log(2, "json error", err.Error())
 			}
 			hosts := logic.GetRelatedHosts(hostUpdate.Host.ID.String())
+			server := servercfg.GetServer()
 			for _, host := range hosts {
-				publish(&host, fmt.Sprintf("peers/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
+				publish(&host, fmt.Sprintf("peers/host/%s/%s", host.ID.String(), server), data)
 			}
 
 		}
