@@ -40,6 +40,7 @@ type ServerConfig struct {
 	ServerBrokerEndpoint string    `yaml:"serverbrokerendpoint"`
 	BrokerType           string    `yaml:"brokertype"`
 	EmqxRestEndpoint     string    `yaml:"emqxrestendpoint"`
+	NetclientAutoUpdate  string    `yaml:"netclientautoupdate"`
 	MasterKey            string    `yaml:"masterkey"`
 	DNSKey               string    `yaml:"dnskey"`
 	AllowedOrigin        string    `yaml:"allowedorigin"`

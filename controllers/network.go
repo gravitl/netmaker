@@ -22,7 +22,6 @@ func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks", logic.SecurityCheck(false, http.HandlerFunc(getNetworks))).Methods(http.MethodGet)
 	r.HandleFunc("/api/networks", logic.SecurityCheck(true, checkFreeTierLimits(networks_l, http.HandlerFunc(createNetwork)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(false, http.HandlerFunc(getNetwork))).Methods(http.MethodGet)
-	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(false, http.HandlerFunc(updateNetwork))).Methods(http.MethodPut)
 	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(true, http.HandlerFunc(deleteNetwork))).Methods(http.MethodDelete)
 	// ACLs
 	r.HandleFunc("/api/networks/{networkname}/acls", logic.SecurityCheck(true, http.HandlerFunc(updateNetworkACL))).Methods(http.MethodPut)
@@ -103,9 +102,9 @@ func getNetwork(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(network)
 }
 
-// swagger:route PUT /api/networks/{networkname} networks updateNetwork
+// swagger:route POST /api/networks/{networkname}/keyupdate networks keyUpdate
 //
-// Update a network.
+// Update keys for a network.
 //
 //			Schemes: https
 //
@@ -114,90 +113,31 @@ func getNetwork(w http.ResponseWriter, r *http.Request) {
 //
 //			Responses:
 //				200: networkBodyResponse
-func updateNetwork(w http.ResponseWriter, r *http.Request) {
+func keyUpdate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
-	var network models.Network
 	netname := params["networkname"]
-
-	network, err := logic.GetParentNetwork(netname)
+	network, err := logic.KeyUpdate(netname)
 	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to get network info: ",
-			err.Error())
+		logger.Log(0, r.Header.Get("user"), fmt.Sprintf("failed to update keys for network [%s]: %v",
+			netname, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	var newNetwork models.Network
-	err = json.NewDecoder(r.Body).Decode(&newNetwork)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "error decoding request body: ",
-			err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	rangeupdate4, rangeupdate6, holepunchupdate, groupsDelta, userDelta, err := logic.UpdateNetwork(&network, &newNetwork)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to update network: ",
-			err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-
-	if len(groupsDelta) > 0 {
-		for _, g := range groupsDelta {
-			users, err := logic.GetGroupUsers(g)
-			if err == nil {
-				for _, user := range users {
-					logic.AdjustNetworkUserPermissions(&user, &newNetwork)
-				}
-			}
-		}
-	}
-	if len(userDelta) > 0 {
-		for _, uname := range userDelta {
-			user, err := logic.GetReturnUser(uname)
-			if err == nil {
-				logic.AdjustNetworkUserPermissions(&user, &newNetwork)
-			}
-		}
-	}
-	if rangeupdate4 {
-		err = logic.UpdateNetworkNodeAddresses(network.NetID)
-		if err != nil {
-			logger.Log(0, r.Header.Get("user"),
-				fmt.Sprintf("failed to update network [%s] ipv4 addresses: %v",
-					network.NetID, err.Error()))
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-	}
-	if rangeupdate6 {
-		err = logic.UpdateNetworkNodeAddresses6(network.NetID)
-		if err != nil {
-			logger.Log(0, r.Header.Get("user"),
-				fmt.Sprintf("failed to update network [%s] ipv6 addresses: %v",
-					network.NetID, err.Error()))
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-	}
-	if rangeupdate4 || rangeupdate6 || holepunchupdate {
-		nodes, err := logic.GetNetworkNodes(network.NetID)
-		if err != nil {
-			logger.Log(0, r.Header.Get("user"),
-				fmt.Sprintf("failed to get network [%s] nodes: %v",
-					network.NetID, err.Error()))
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-		for _, node := range nodes {
-			runUpdates(&node, true)
-		}
-	}
-
-	logger.Log(1, r.Header.Get("user"), "updated network", netname)
+	logger.Log(2, r.Header.Get("user"), "updated key on network", netname)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(newNetwork)
+	json.NewEncoder(w).Encode(network)
+	nodes, err := logic.GetNetworkNodes(netname)
+	if err != nil {
+		logger.Log(0, "failed to retrieve network nodes for network", netname, err.Error())
+		return
+	}
+	for _, node := range nodes {
+		logger.Log(2, "updating node ", node.ID.String(), " for a key update")
+		if err = mq.NodeUpdate(&node); err != nil {
+			logger.Log(1, "failed to send update to node during a network wide key update", node.ID.String(), err.Error())
+		}
+	}
 }
 
 // swagger:route PUT /api/networks/{networkname}/acls networks updateNetworkACL
