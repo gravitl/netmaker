@@ -4,7 +4,7 @@ services:
   netmaker: # The Primary Server for running Netmaker
     container_name: netmaker
     image: gravitl/netmaker:REPLACE_SERVER_IMAGE_TAG
-    restart: always
+    restart: on-failure
     volumes: # Volume mounts necessary for sql, coredns, and mqtt
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
