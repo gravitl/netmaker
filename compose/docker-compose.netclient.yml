@@ -6,7 +6,7 @@ services:
     image: 'gravitl/netclient:v0.18.7'
     hostname: netmaker-1
     network_mode: host
-    restart: always
+    restart: on-failure
     environment:
       TOKEN: "TOKEN_VALUE"
     volumes:
