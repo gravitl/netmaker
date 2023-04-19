@@ -142,3 +142,12 @@ type Signal struct {
 	ToHostPubKey      string `json:"to_host_pubkey"`
 	Reply             bool   `json:"reply"`
 }
+
+// RegisterMsg - login message struct for hosts to join via SSO login
+type RegisterMsg struct {
+	RegisterHost Host   `json:"host"`
+	Network      string `json:"network,omitempty"`
+	User         string `json:"user,omitempty"`
+	Password     string `json:"password,omitempty"`
+	JoinAll      bool   `json:"join_all,omitempty"`
+}

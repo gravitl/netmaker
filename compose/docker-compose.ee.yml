@@ -9,9 +9,7 @@ services:
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
     environment:
-      BROKER_ENDPOINT: "wss://broker.NETMAKER_BASE_DOMAIN/mqtt"
-      BROKER_TYPE: "emqx"
-      EMQX_REST_ENDPOINT: "http://mq:18083"
+      BROKER_ENDPOINT: "wss://broker.NETMAKER_BASE_DOMAIN"
       SERVER_NAME: "NETMAKER_BASE_DOMAIN"
       STUN_LIST: "stun.NETMAKER_BASE_DOMAIN:3478,stun1.netmaker.io:3478,stun2.netmaker.io:3478,stun1.l.google.com:19302,stun2.l.google.com:19302"
       SERVER_HOST: "SERVER_PUBLIC_IP"
@@ -25,7 +23,7 @@ services:
       DISPLAY_KEYS: "on"
       DATABASE: "sqlite"
       NODE_ID: "netmaker-server-1"
-      SERVER_BROKER_ENDPOINT: "ws://mq:8083/mqtt"
+      SERVER_BROKER_ENDPOINT: "ws://mq:1883"
       MQ_USERNAME: "REPLACE_MQ_USERNAME"
       MQ_PASSWORD: "REPLACE_MQ_PASSWORD"
       STUN_PORT: "3478"
@@ -68,17 +66,18 @@ services:
       - dnsconfig:/root/dnsconfig
   mq:
     container_name: mq
-    image: emqx/emqx:5.0.17
+    image: eclipse-mosquitto:2.0.15-openssl
+    depends_on:
+      - netmaker
     restart: unless-stopped
+    command: ["/mosquitto/config/wait.sh"]
     environment:
-      EMQX_NAME: "emqx"
-      EMQX_DASHBOARD__DEFAULT_PASSWORD: "REPLACE_MQ_PASSWORD"
-      EMQX_DASHBOARD__DEFAULT_USERNAME: "REPLACE_MQ_USERNAME"
-    ports:
-      - "1883:1883" # MQTT
-      - "8883:8883" # SSL MQTT
-      - "8083:8083" # Websockets
-      - "18083:18083" # Dashboard/REST_API
+      MQ_PASSWORD: "REPLACE_MQ_PASSWORD"
+      MQ_USERNAME: "REPLACE_MQ_USERNAME"
+    volumes:
+      - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - /root/wait.sh:/mosquitto/config/wait.sh
+      - mosquitto_logs:/mosquitto/log
   prometheus:
     container_name: prometheus
     image: gravitl/netmaker-prometheus:latest
@@ -112,8 +111,8 @@ services:
     depends_on:
       - netmaker
     environment:
-      SERVER_BROKER_ENDPOINT: "ws://mq:8083/mqtt"
-      BROKER_ENDPOINT: "wss://broker.NETMAKER_BASE_DOMAIN/mqtt"
+      SERVER_BROKER_ENDPOINT: "ws://mq:1883"
+      BROKER_ENDPOINT: "wss://broker.NETMAKER_BASE_DOMAIN"
       PROMETHEUS: "on"
       VERBOSITY: "1"
       API_PORT: "8085"

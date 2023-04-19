@@ -29,6 +29,7 @@ func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/hosts/adm/authenticate", authenticateHost).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/host", authorize(true, false, "host", http.HandlerFunc(pull))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/host/{hostid}/signalpeer", authorize(true, false, "host", http.HandlerFunc(signalPeer))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/auth-register/host", socketHandler)
 }
 
 // swagger:route GET /api/hosts hosts getHosts

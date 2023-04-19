@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -83,5 +84,5 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(&response)
 	logger.Log(0, "successfully migrated host", data.NewHost.Name, data.NewHost.ID.String())
 	// notify host of changes, peer and node updates
-	go checkNetRegAndHostUpdate(networksToAdd, &data.NewHost)
+	go auth.CheckNetRegAndHostUpdate(networksToAdd, &data.NewHost)
 }

@@ -33,9 +33,8 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users", logic.SecurityCheck(true, http.HandlerFunc(getUsers))).Methods(http.MethodGet)
 	r.HandleFunc("/api/oauth/login", auth.HandleAuthLogin).Methods(http.MethodGet)
 	r.HandleFunc("/api/oauth/callback", auth.HandleAuthCallback).Methods(http.MethodGet)
-	r.HandleFunc("/api/oauth/node-handler", socketHandler)
 	r.HandleFunc("/api/oauth/headless", auth.HandleHeadlessSSO)
-	r.HandleFunc("/api/oauth/register/{regKey}", auth.RegisterNodeSSO).Methods(http.MethodGet)
+	r.HandleFunc("/api/oauth/register/{regKey}", auth.RegisterHostSSO).Methods(http.MethodGet)
 }
 
 // swagger:route POST /api/users/adm/authenticate user authenticateUser
@@ -331,7 +330,18 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	// start here
+	jwtUser, _, isadmin, err := logic.VerifyJWT(r.Header.Get("Authorization"))
+	if err != nil {
+		logger.Log(0, "verifyJWT error", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 	username := params["username"]
+	if username != jwtUser && !isadmin {
+		logger.Log(0, "non-admin user", jwtUser, "attempted to update user", username)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not authorizied"), "unauthorized"))
+		return
+	}
 	user, err := logic.GetUser(username)
 	if err != nil {
 		logger.Log(0, username,
@@ -352,6 +362,11 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, username, "error decoding request body: ",
 			err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if userchange.IsAdmin && !isadmin {
+		logger.Log(0, "non-admin user", jwtUser, "attempted get admin privilages")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not authorizied"), "unauthorized"))
 		return
 	}
 	userchange.Networks = nil
@@ -467,5 +482,5 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Start handling the session
-	// go auth.SessionHandler(conn)
+	go auth.SessionHandler(conn)
 }

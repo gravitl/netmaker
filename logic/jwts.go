@@ -3,6 +3,7 @@ package logic
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -99,6 +100,18 @@ func CreateUserJWT(username string, networks []string, isadmin bool) (response s
 		return tokenString, nil
 	}
 	return "", err
+}
+
+// VerifyJWT verifies Auth Header
+func VerifyJWT(bearerToken string) (username string, networks []string, isadmin bool, err error) {
+	token := ""
+	tokenSplit := strings.Split(bearerToken, " ")
+	if len(tokenSplit) > 1 {
+		token = tokenSplit[1]
+	} else {
+		return "", nil, false, errors.New("invalid auth header")
+	}
+	return VerifyUserToken(token)
 }
 
 // VerifyUserToken func will used to Verify the JWT Token while using APIS
