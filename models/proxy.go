@@ -47,10 +47,9 @@ type PeerConf struct {
 
 // ProxyManagerPayload - struct for proxy manager payload
 type ProxyManagerPayload struct {
-	Action        ProxyAction `json:"action"`
-	InterfaceName string      `json:"interface_name"`
-	Server        string      `json:"server"`
-	//WgAddr          string                 `json:"wg_addr"`
+	Action          ProxyAction            `json:"action"`
+	InterfaceName   string                 `json:"interface_name"`
+	Server          string                 `json:"server"`
 	Peers           []wgtypes.PeerConfig   `json:"peers"`
 	PeerMap         map[string]PeerConf    `json:"peer_map"`
 	IsIngress       bool                   `json:"is_ingress"`
