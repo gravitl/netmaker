@@ -1,5 +1,7 @@
 package models
 
+import "net"
+
 // ExtClient - struct for external clients
 type ExtClient struct {
 	ClientID               string              `json:"clientid" bson:"clientid"`
@@ -15,4 +17,5 @@ type ExtClient struct {
 	Enabled                bool                `json:"enabled" bson:"enabled"`
 	OwnerID                string              `json:"ownerid" bson:"ownerid"`
 	ACLs                   map[string]struct{} `json:"acls,omitempty" bson:"acls,omitempty"`
+	AdditionalAllowedIPs   []net.IPNet         `json:"additional_allowed_ips,omitempty" bson:"additional_allowed_ips,omitempty"`
 }

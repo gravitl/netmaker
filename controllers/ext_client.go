@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 
@@ -320,6 +321,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 	var extclient models.ExtClient
 	var customExtClient models.CustomExtClient
+	extclient.AdditionalAllowedIPs = []net.IPNet{}
 
 	err := json.NewDecoder(r.Body).Decode(&customExtClient)
 	if err == nil {
@@ -334,6 +336,17 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			extclient.PublicKey = customExtClient.PublicKey
+		}
+		if len(customExtClient.AdditionalAllowedIPs) > 0 {
+			for i := range customExtClient.AdditionalAllowedIPs {
+				currIP := customExtClient.AdditionalAllowedIPs[i]
+				_, newAllowedIP, err := net.ParseCIDR(currIP)
+				if err != nil || newAllowedIP == nil {
+					logic.ReturnErrorResponse(w, r, logic.FormatError(errInvalidExtClientAllowedIP, "badrequest"))
+					return
+				}
+				extclient.AdditionalAllowedIPs = append(extclient.AdditionalAllowedIPs, *newAllowedIP)
+			}
 		}
 	}
 
