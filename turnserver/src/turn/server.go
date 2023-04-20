@@ -2,12 +2,12 @@ package turn
 
 import (
 	"context"
+	"encoding/base64"
 	"log"
 	"net"
 	"strconv"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/turnserver/config"
@@ -74,24 +74,21 @@ func Start(ctx context.Context, wg *sync.WaitGroup) {
 		// Return the key for that user, or false when no user is found
 		AuthHandler: func(username string, realm string, srcAddr net.Addr) ([]byte, bool) {
 			if key, ok := auth.HostMap[username]; ok {
-				return []byte(key), true
+				keyBytes, err := base64.StdEncoding.DecodeString(key)
+				if err != nil {
+					return nil, false
+				}
+				return keyBytes, true
 			}
 			return nil, false
 		},
-		ChannelBindTimeout: time.Duration(time.Hour * 36),
+		//ChannelBindTimeout: time.Duration(time.Minute),
 		// PacketConnConfigs is a list of UDP Listeners and the configuration around them
 		PacketConnConfigs: packetConnConfigs,
 	})
 	if err != nil {
 		log.Panic(err)
 	}
-	go func() {
-		for {
-			time.Sleep(time.Second * 10)
-			log.Print(s.AllocationCount())
-		}
-	}()
-
 	// Block until user sends SIGINT or SIGTERM
 	<-ctx.Done()
 	logger.Log(0, "## Stopping Turn Server...")

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -25,7 +26,7 @@ func init() {
 
 func RegisterNewHostWithTurn(hostID, hostPass string) {
 	authMapLock.Lock()
-	HostMap[hostID] = string(turn.GenerateAuthKey(hostID, config.GetTurnHost(), hostPass))
+	HostMap[hostID] = base64.StdEncoding.EncodeToString(turn.GenerateAuthKey(hostID, config.GetTurnHost(), hostPass))
 	dumpCredsToFile()
 	authMapLock.Unlock()
 }
