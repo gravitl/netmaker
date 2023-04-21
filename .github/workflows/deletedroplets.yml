@@ -20,7 +20,7 @@ jobs:
             "https://api.digitalocean.com/v2/droplets?tag_name=$TAG"
         env:
           DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
-          TAG: ${{ github.event.workflow_run.run_id }}-${{ github.event.workflow_run.run_attempt }}
+          TAG: ${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
 
   on-failure:
     runs-on: ubuntu-latest
@@ -35,4 +35,4 @@ jobs:
             "https://api.digitalocean.com/v2/droplets?tag_name=$TAG"
         env:
           DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
-          TAG: ${{ github.event.workflow_run.run_id }}-${{ github.event.workflow_run.run_attempt }}
+          TAG: ${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
