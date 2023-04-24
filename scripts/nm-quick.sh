@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LATEST="v0.18.6"
+LATEST=$(curl -s https://api.github.com/repos/gravitl/netmaker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d [:space:],\")
 
 print_logo() {(
 cat << "EOF"
@@ -429,6 +429,7 @@ set_install_vars() {
 	echo "          dashboard.$NETMAKER_BASE_DOMAIN"
 	echo "                api.$NETMAKER_BASE_DOMAIN"
 	echo "             broker.$NETMAKER_BASE_DOMAIN"
+	echo "               stun.$NETMAKER_BASE_DOMAIN"
 
 	if [ "$INSTALL_TYPE" = "ee" ]; then
 		echo "         prometheus.$NETMAKER_BASE_DOMAIN"

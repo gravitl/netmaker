@@ -38,8 +38,3 @@ func GetNetwork(name string) *models.Network {
 func DeleteNetwork(name string) *string {
 	return request[string](http.MethodDelete, "/api/networks/"+name, nil)
 }
-
-// RefreshKeys - refresh public and private key pairs for a network
-func RefreshKeys(networkName string) *models.Network {
-	return request[models.Network](http.MethodPost, fmt.Sprintf("/api/networks/%s/keyupdate", networkName), nil)
-}

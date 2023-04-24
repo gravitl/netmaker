@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sort"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
@@ -97,6 +98,7 @@ func CreateHost(h *models.Host) error {
 		return err
 	}
 	h.HostPass = string(hash)
+	h.AutoUpdate = servercfg.AutoUpdateEnabled()
 	// if another server has already updated proxyenabled, leave it alone
 	if !h.ProxyEnabledSet {
 		log.Println("checking default proxy", servercfg.GetServerConfig().DefaultProxyMode)
@@ -151,6 +153,10 @@ func UpdateHost(newHost, currentHost *models.Host) {
 // UpdateHostFromClient - used for updating host on server with update recieved from client
 func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) {
 
+	if newHost.PublicKey != currHost.PublicKey {
+		currHost.PublicKey = newHost.PublicKey
+		sendPeerUpdate = true
+	}
 	if newHost.ListenPort != 0 && currHost.ListenPort != newHost.ListenPort {
 		currHost.ListenPort = newHost.ListenPort
 		sendPeerUpdate = true
@@ -427,4 +433,11 @@ func GetHostByNodeID(id string) *models.Host {
 		}
 	}
 	return nil
+}
+
+// SortApiHosts - Sorts slice of ApiHosts by their ID alphabetically with numbers first
+func SortApiHosts(unsortedHosts []models.ApiHost) {
+	sort.Slice(unsortedHosts, func(i, j int) bool {
+		return unsortedHosts[i].ID < unsortedHosts[j].ID
+	})
 }

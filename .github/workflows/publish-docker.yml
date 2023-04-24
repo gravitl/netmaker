@@ -19,8 +19,8 @@ jobs:
       -
         name: Set tag
         run: |
-            if [[ -n "${{ github.event.inputs.tag }}" ]]; then
-              TAG=${{ github.event.inputs.tag }}
+            if [[ -n "${{ inputs.tag }}" ]]; then
+              TAG=${{ inputs.tag }}
             elif [[ "${{ github.ref_name }}" == 'master' ]]; then
               TAG="latest"
             else
@@ -59,8 +59,8 @@ jobs:
       -
         name: Set tag
         run: |
-            if [[ -n "${{ github.event.inputs.tag }}" ]]; then
-              TAG=${{ github.event.inputs.tag }}
+            if [[ -n "${{ inputs.tag }}" ]]; then
+              TAG=${{ inputs.tag }}
             elif [[ "${{ github.ref_name }}" == 'master' ]]; then
               TAG="latest"
             else

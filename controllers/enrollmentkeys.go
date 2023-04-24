@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/hostactions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
@@ -230,35 +230,5 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&response)
 	// notify host of changes, peer and node updates
-	go checkNetRegAndHostUpdate(enrollmentKey.Networks, &newHost)
-}
-
-// run through networks and send a host update
-func checkNetRegAndHostUpdate(networks []string, h *models.Host) {
-	// publish host update through MQ
-	for i := range networks {
-		network := networks[i]
-		if ok, _ := logic.NetworkExists(network); ok {
-			newNode, err := logic.UpdateHostNetwork(h, network, true)
-			if err != nil {
-				logger.Log(0, "failed to add host to network:", h.ID.String(), h.Name, network, err.Error())
-				continue
-			}
-			logger.Log(1, "added new node", newNode.ID.String(), "to host", h.Name)
-			hostactions.AddAction(models.HostUpdate{
-				Action: models.JoinHostToNetwork,
-				Host:   *h,
-				Node:   *newNode,
-			})
-		}
-	}
-	if servercfg.IsMessageQueueBackend() {
-		mq.HostUpdate(&models.HostUpdate{
-			Action: models.RequestAck,
-			Host:   *h,
-		})
-		if err := mq.PublishPeerUpdate(); err != nil {
-			logger.Log(0, "failed to publish peer update during registration -", err.Error())
-		}
-	}
+	go auth.CheckNetRegAndHostUpdate(enrollmentKey.Networks, &newHost)
 }

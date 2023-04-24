@@ -11,6 +11,29 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
+      - name: get logs
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          run_id: ${{ github.event.workflow_run.id}}
+          if_no_artifact_found: warn
+      - name: discord success message
+        uses: appleboy/discord-action@master
+        with:
+          webhook_id: ${{ secrets.DISCORD_WEBHOOK_ID }}
+          webhook_token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
+          color: "#42f545"
+          username: "GitHub Bot"
+          message: " ${{ github.event.workflow_run.name }} was successful"
+          file: ./results/results.log
+      - name: discord server message
+        uses: appleboy/discord-action@master
+        with:
+          webhook_id: ${{ secrets.DISCORD_WEBHOOK_ID }}
+          webhook_token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
+          color: "#42f545"
+          username: "GitHub Bot"
+          message: "droplets from this workflow will be deleted in 15 min"
+          file: ./server/serverinfo.txt
       - name: delete droplets
         run: |
           sleep 15m
@@ -20,12 +43,44 @@ jobs:
             "https://api.digitalocean.com/v2/droplets?tag_name=$TAG"
         env:
           DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
-          TAG: ${{ github.event.workflow_run.run_id }}-${{ github.event.workflow_run.run_attempt }}
+          TAG: ${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
 
   on-failure:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'failure' }}
     steps:
+      - name: get logs
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          run_id: ${{ github.event.workflow_run.id}}
+          if_no_artifact_found: warn
+      - name: discord failure message
+        uses: appleboy/discord-action@master
+        with:
+          webhook_id: ${{ secrets.DISCORD_WEBHOOK_ID }}
+          webhook_token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
+          color: "#42f545"
+          username: "GitHub Bot"
+          message: " ${{ github.event.workflow_run.name }} failed"
+          file: ./results/results.log
+      - name: discord server message
+        uses: appleboy/discord-action@master
+        with:
+          webhook_id: ${{ secrets.DISCORD_WEBHOOK_ID }}
+          webhook_token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
+          color: "#42f545"
+          username: "GitHub Bot"
+          message: "droplets from this workflow will be deleted in 6 hours"
+          file: ./server/serverinfo.txt
+      - name: discord error message
+        uses: appleboy/discord-action@master
+        with:
+          webhook_id: ${{ secrets.DISCORD_WEBHOOK_ID }}
+          webhook_token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
+          color: "#990000"
+          username: "GitHub Bot"
+          message: "errors from ${{ github.event.workflow_run.name }}"
+          file: ./results/errors.log
       - name: delete droplets
         run: |
           sleep 6h
@@ -35,4 +90,4 @@ jobs:
             "https://api.digitalocean.com/v2/droplets?tag_name=$TAG"
         env:
           DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
-          TAG: ${{ github.event.workflow_run.run_id }}-${{ github.event.workflow_run.run_attempt }}
+          TAG: ${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}

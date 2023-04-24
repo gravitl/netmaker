@@ -20,6 +20,8 @@ jobs:
     uses: ./.github/workflows/release-branch.yml
     with:
       version: ${{ github.event.inputs.version }}
+    secrets: inherit
+
   
   release-assets:
     needs: release-branch
@@ -27,12 +29,14 @@ jobs:
     with:
       version: ${{ github.event.inputs.version }}
       prerelease: ${{ github.event.inputs.prerelease == 'true' }}
+    secrets: inherit
 
   docker:
     needs: release-branch
     uses: ./.github/workflows/publish-docker.yml
     with:
       tag: ${{ github.event.inputs.version }}
+    secrets: inherit
 
   packages:
     if: ${{ github.event.inputs.prerelease == 'false' }}
@@ -40,6 +44,7 @@ jobs:
     uses: ./.github/workflows/packages.yml
     with:
       version: ${{ github.event.inputs.version }}
+    secrets: inherit
 
   pull-request:
     if: ${{ github.event.inputs.prerelease == 'false' }}
@@ -47,3 +52,4 @@ jobs:
     uses: ./.github/workflows/pull-request.yml
     with:
       version: ${{ github.event.inputs.version }}
+    secrets: inherit

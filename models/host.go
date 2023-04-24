@@ -47,6 +47,7 @@ type Host struct {
 	Version          string           `json:"version" yaml:"version"`
 	IPForwarding     bool             `json:"ipforwarding" yaml:"ipforwarding"`
 	DaemonInstalled  bool             `json:"daemoninstalled" yaml:"daemoninstalled"`
+	AutoUpdate       bool             `json:"autoupdate" yaml:"autoupdate"`
 	HostPass         string           `json:"hostpass" yaml:"hostpass"`
 	Name             string           `json:"name" yaml:"name"`
 	OS               string           `json:"os" yaml:"os"`
@@ -112,6 +113,8 @@ const (
 	RequestAck = "REQ_ACK"
 	// CheckIn - update last check in times and public address and interfaces
 	CheckIn = "CHECK_IN"
+	// UpdateKeys - update wireguard private/public keys
+	UpdateKeys = "UPDATE_KEYS"
 )
 
 // HostUpdate - struct for host update
@@ -119,4 +122,13 @@ type HostUpdate struct {
 	Action HostMqAction
 	Host   Host
 	Node   Node
+}
+
+// RegisterMsg - login message struct for hosts to join via SSO login
+type RegisterMsg struct {
+	RegisterHost Host   `json:"host"`
+	Network      string `json:"network,omitempty"`
+	User         string `json:"user,omitempty"`
+	Password     string `json:"password,omitempty"`
+	JoinAll      bool   `json:"join_all,omitempty"`
 }
