@@ -1,7 +1,7 @@
 # Netmaker v0.18.7
 
 ## whats new
-- internet gateways (0.0.0.0/0 ::/0) for egress
+- internet gateways (0.0.0.0/0) for egress
 - deprecated editing of network parameters
 - allow extra ips for extclient (not enabled in UI)
     
