@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/turnserver/config"
@@ -22,10 +23,6 @@ func Start(ctx context.Context, wg *sync.WaitGroup) {
 	// Create a UDP listener to pass into pion/turn
 	// pion/turn itself doesn't allocate any UDP sockets, but lets the user pass them in
 	// this allows us to add logging, storage or modify inbound/outbound traffic
-	// udpListener, err := net.ListenPacket("udp4", "0.0.0.0:"+strconv.Itoa(config.GetTurnPort()))
-	// if err != nil {
-	// 	log.Panicf("Failed to create TURN server listener: %s", err)
-	// }
 	addr, err := net.ResolveUDPAddr("udp", "0.0.0.0:"+strconv.Itoa(config.GetTurnPort()))
 	if err != nil {
 		log.Fatalf("Failed to parse server address: %s", err)
@@ -82,7 +79,7 @@ func Start(ctx context.Context, wg *sync.WaitGroup) {
 			}
 			return nil, false
 		},
-		//ChannelBindTimeout: time.Duration(time.Minute),
+		ChannelBindTimeout: time.Duration(time.Minute * 10),
 		// PacketConnConfigs is a list of UDP Listeners and the configuration around them
 		PacketConnConfigs: packetConnConfigs,
 	})
