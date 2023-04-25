@@ -117,6 +117,7 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Return all the extclients in JSON format
+	logic.SortExtClient(clients[:])
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(clients)
 }

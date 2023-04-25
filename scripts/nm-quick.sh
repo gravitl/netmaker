@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LATEST="v0.18.6"
+LATEST=$(curl -s https://api.github.com/repos/gravitl/netmaker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d [:space:],\")
 
 print_logo() {(
 cat << "EOF"

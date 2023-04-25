@@ -1,6 +1,10 @@
 package logic
 
-import "github.com/gravitl/netmaker/models"
+import (
+	"sort"
+
+	"github.com/gravitl/netmaker/models"
+)
 
 // functions defined here, handle client ACLs, should be set on ee
 
@@ -50,4 +54,11 @@ func IsClientNodeAllowedByID(clientID, networkName, clientOrNodeID string) bool 
 		return false
 	}
 	return IsClientNodeAllowed(&client, clientOrNodeID)
+}
+
+// SortExtClient - Sorts slice of ExtClients by their ClientID alphabetically with numbers first
+func SortExtClient(unsortedExtClient []models.ExtClient) {
+	sort.Slice(unsortedExtClient, func(i, j int) bool {
+		return unsortedExtClient[i].ClientID < unsortedExtClient[j].ClientID
+	})
 }

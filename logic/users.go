@@ -2,6 +2,7 @@ package logic
 
 import (
 	"encoding/json"
+	"sort"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -76,4 +77,11 @@ func SetUserDefaults(user *models.User) {
 	if user.Groups == nil {
 		user.Groups = []string{pro.DEFAULT_ALLOWED_GROUPS}
 	}
+}
+
+// SortUsers - Sorts slice of Users by username
+func SortUsers(unsortedUsers []models.ReturnUser) {
+	sort.Slice(unsortedUsers, func(i, j int) bool {
+		return unsortedUsers[i].UserName < unsortedUsers[j].UserName
+	})
 }

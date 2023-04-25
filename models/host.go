@@ -47,6 +47,7 @@ type Host struct {
 	Version          string           `json:"version" yaml:"version"`
 	IPForwarding     bool             `json:"ipforwarding" yaml:"ipforwarding"`
 	DaemonInstalled  bool             `json:"daemoninstalled" yaml:"daemoninstalled"`
+	AutoUpdate       bool             `json:"autoupdate" yaml:"autoupdate"`
 	HostPass         string           `json:"hostpass" yaml:"hostpass"`
 	Name             string           `json:"name" yaml:"name"`
 	OS               string           `json:"os" yaml:"os"`
@@ -118,6 +119,8 @@ const (
 	CheckIn = "CHECK_IN"
 	// REGISTER_WITH_TURN - registers host with turn server if configured
 	RegisterWithTurn = "REGISTER_WITH_TURN"
+	// UpdateKeys - update wireguard private/public keys
+	UpdateKeys = "UPDATE_KEYS"
 )
 
 // HostUpdate - struct for host update

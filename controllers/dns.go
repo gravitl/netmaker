@@ -70,6 +70,7 @@ func getAllDNS(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logic.SortDNSEntrys(dns[:])
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(dns)
 }
