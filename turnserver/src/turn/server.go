@@ -32,6 +32,10 @@ func Start(ctx context.Context, wg *sync.WaitGroup) {
 	if err != nil {
 		logger.FatalLog("failed to get public ip: ", err.Error())
 	}
+
+	// Create `numThreads` UDP listeners to pass into pion/turn
+	// UDP listeners share the same local address:port with setting SO_REUSEPORT and the kernel
+	// will load-balance received packets per the IP 5-tuple
 	listenerConfig := &net.ListenConfig{
 		Control: func(network, address string, conn syscall.RawConn) error {
 			var operr error
@@ -44,23 +48,21 @@ func Start(ctx context.Context, wg *sync.WaitGroup) {
 			return operr
 		},
 	}
-
 	relayAddressGenerator := &turn.RelayAddressGeneratorStatic{
 		RelayAddress: net.ParseIP(publicIP),
 		Address:      "0.0.0.0",
 	}
-
-	packetConnConfigs := make([]turn.PacketConnConfig, 1)
+	packetConnConfigs := []turn.PacketConnConfig{}
 	for i := 0; i < 5; i++ {
 		conn, listErr := listenerConfig.ListenPacket(context.Background(), addr.Network(), addr.String())
 		if listErr != nil {
 			log.Fatalf("Failed to allocate UDP listener at %s:%s", addr.Network(), addr.String())
 		}
 
-		packetConnConfigs[i] = turn.PacketConnConfig{
+		packetConnConfigs = append(packetConnConfigs, turn.PacketConnConfig{
 			PacketConn:            conn,
 			RelayAddressGenerator: relayAddressGenerator,
-		}
+		})
 
 		log.Printf("Server %d listening on %s\n", i, conn.LocalAddr().String())
 	}
