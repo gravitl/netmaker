@@ -398,6 +398,8 @@ set_install_vars() {
 	echo "-----------------------------------------------------"
 	echo "Would you like to use your own domain for netmaker, or an auto-generated domain?"
 	echo "To use your own domain, add a Wildcard DNS record (e.x: *.netmaker.example.com) pointing to $SERVER_PUBLIC_IP"
+	echo "IMPORTANT: Due to the high volume of requests, the auto-generated domain has been rate-limited by the certificate provider."
+	echo "For this reason, we STRONGLY RECOMMEND using your own domain. Using the auto-generated domain may lead to a failed installation due to rate limiting."
 	echo "-----------------------------------------------------"
 
 	if [ "$AUTO_BUILD" = "on" ]; then
