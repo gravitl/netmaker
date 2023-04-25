@@ -18,6 +18,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// Start - initializes and handles the turn connections
 func Start(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 	// Create a UDP listener to pass into pion/turn
@@ -45,12 +46,12 @@ func Start(ctx context.Context, wg *sync.WaitGroup) {
 	}
 
 	relayAddressGenerator := &turn.RelayAddressGeneratorStatic{
-		RelayAddress: net.ParseIP(publicIP), // Claim that we are listening on IP passed by user
-		Address:      "0.0.0.0",             // But actually be listening on every interface
+		RelayAddress: net.ParseIP(publicIP),
+		Address:      "0.0.0.0",
 	}
 
 	packetConnConfigs := make([]turn.PacketConnConfig, 1)
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 5; i++ {
 		conn, listErr := listenerConfig.ListenPacket(context.Background(), addr.Network(), addr.String())
 		if listErr != nil {
 			log.Fatalf("Failed to allocate UDP listener at %s:%s", addr.Network(), addr.String())

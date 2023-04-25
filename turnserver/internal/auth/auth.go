@@ -21,9 +21,11 @@ var (
 
 func init() {
 	os.MkdirAll("/etc/config", os.ModePerm)
+	// reads creds from disk if any present
 	loadCredsFromFile()
 }
 
+// RegisterNewHostWithTurn - add new host's creds to map and dumps it to the disk
 func RegisterNewHostWithTurn(hostID, hostPass string) {
 	authMapLock.Lock()
 	HostMap[hostID] = base64.StdEncoding.EncodeToString(turn.GenerateAuthKey(hostID, config.GetTurnHost(), hostPass))
@@ -31,6 +33,7 @@ func RegisterNewHostWithTurn(hostID, hostPass string) {
 	authMapLock.Unlock()
 }
 
+// UnRegisterNewHostWithTurn - deletes the host creds
 func UnRegisterNewHostWithTurn(hostID string) {
 	authMapLock.Lock()
 	delete(HostMap, hostID)
@@ -38,6 +41,7 @@ func UnRegisterNewHostWithTurn(hostID string) {
 	authMapLock.Unlock()
 }
 
+// dumpCredsToFile - saves the creds to file
 func dumpCredsToFile() {
 	d, err := json.MarshalIndent(HostMap, "", " ")
 	if err != nil {
@@ -51,6 +55,7 @@ func dumpCredsToFile() {
 	}
 }
 
+// loadCredsFromFile - loads the creds from disk
 func loadCredsFromFile() error {
 	d, err := os.ReadFile(backUpFilePath)
 	if err != nil {

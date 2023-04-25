@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/turnserver/internal/utils"
 )
 
+// Register - handles the host registration
 func Register(c *gin.Context) {
 	req := models.HostTurnRegister{}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -26,6 +27,7 @@ func Register(c *gin.Context) {
 		fmt.Sprintf("registered host (%s) successfully", req.HostID), nil)
 }
 
+// Remove - unregisters the host from turn server
 func Remove(c *gin.Context) {
 	hostID, _ := c.GetQuery("host_id")
 	if hostID == "" {
