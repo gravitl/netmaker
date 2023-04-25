@@ -451,15 +451,9 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 	response.Write(successJSONResponse)
 }
 
-<<<<<<< HEAD
 // swagger:route POST /api/hosts/{hostid}/signalpeer signalPeer
 //
 // send signal to peer.
-=======
-// swagger:route POST /api/hosts/keys host updateAllKeys
-//
-// Update keys for a network.
->>>>>>> 6abbf075e061ffe58c35b3e75493ba5ffa175022
 //
 //			Schemes: https
 //
@@ -467,8 +461,7 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 //	  		oauth
 //
 //			Responses:
-<<<<<<< HEAD
-//				200: nodeResponse
+//				200: signal
 func signalPeer(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	hostid := params["hostid"]
@@ -522,8 +515,19 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(signal)
-=======
-//				200: networkBodyResponse
+}
+
+// swagger:route POST /api/hosts/keys host updateAllKeys
+//
+// Update keys for a network.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: nodeResponse
 func updateAllKeys(w http.ResponseWriter, r *http.Request) {
 	var errorResponse = models.ErrorResponse{}
 	w.Header().Set("Content-Type", "application/json")
@@ -588,5 +592,4 @@ func updateKeys(w http.ResponseWriter, r *http.Request) {
 	}()
 	logger.Log(2, r.Header.Get("user"), "updated key on host", host.Name)
 	w.WriteHeader(http.StatusOK)
->>>>>>> 6abbf075e061ffe58c35b3e75493ba5ffa175022
 }
