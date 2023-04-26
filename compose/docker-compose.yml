@@ -31,7 +31,7 @@ services:
       STUN_PORT: "3478"
       DEFAULT_PROXY_MODE: "off"
       TURN_SERVER_HOST: "turn.NETMAKER_BASE_DOMAIN"
-      TURN_SERVER_API_HOST: "https://api.turn.NETMAKER_BASE_DOMAIN"
+      TURN_SERVER_API_HOST: "https://turnapi.NETMAKER_BASE_DOMAIN"
       TURN_PORT: "3479"
       TURN_USERNAME: "REPLACE_TURN_USERNAME"
       TURN_PASSWORD: "REPLACE_TURN_PASSWORD"
@@ -51,6 +51,8 @@ services:
     image: caddy:2.6.2
     container_name: caddy
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - /root/Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
