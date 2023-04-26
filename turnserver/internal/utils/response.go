@@ -8,7 +8,6 @@ import (
 )
 
 // ReturnSuccessResponse - success api response
-// ReturnSuccessResponse - success api response
 func ReturnSuccessResponse(c *gin.Context, message string, responseBody interface{}) {
 	var httpResponse models.SuccessResponse
 	httpResponse.Code = http.StatusOK

@@ -36,9 +36,15 @@ https://stun.NETMAKER_BASE_DOMAIN {
 }
 
 # TURN
-https://stun.NETMAKER_BASE_DOMAIN {
-	reverse_proxy netmaker:3479
+https://turn.NETMAKER_BASE_DOMAIN {
+	reverse_proxy turn:3479
 }
+
+#TURN API
+https://turnapi.NETMAKER_BASE_DOMAIN {
+        reverse_proxy http://turn:8089
+}
+
 
 
 

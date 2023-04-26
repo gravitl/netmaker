@@ -30,5 +30,5 @@ func registerRoutes(r *gin.RouterGroup) {
 func status(c *gin.Context) {
 	c.JSON(http.StatusOK, struct {
 		Msg string `json:"msg"`
-	}{Msg: "hello"})
+	}{Msg: "active"})
 }

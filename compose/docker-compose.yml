@@ -87,8 +87,8 @@ services:
     volumes:
       - turn_server:/etc/config
     environment:
-      DEBUG_MODE: "on"
-      VERBOSITY: "4"
+      DEBUG_MODE: "off"
+      VERBOSITY: "1"
       TURN_PORT: "3479"
       TURN_API_PORT: "8089"
       CORS_ALLOWED_ORIGIN: "*"

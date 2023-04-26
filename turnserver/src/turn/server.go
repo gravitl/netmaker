@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/turnserver/config"
 	"github.com/gravitl/netmaker/turnserver/internal/auth"
-	"github.com/gravitl/netmaker/turnserver/internal/utils"
 	"github.com/pion/turn/v2"
 	"golang.org/x/sys/unix"
 )
@@ -28,7 +28,7 @@ func Start(ctx context.Context, wg *sync.WaitGroup) {
 	if err != nil {
 		log.Fatalf("Failed to parse server address: %s", err)
 	}
-	publicIP, err := utils.GetPublicIP()
+	publicIP, err := servercfg.GetPublicIP()
 	if err != nil {
 		logger.FatalLog("failed to get public ip: ", err.Error())
 	}
