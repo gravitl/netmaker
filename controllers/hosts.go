@@ -527,7 +527,7 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 //	  		oauth
 //
 //			Responses:
-//				200: nodeResponse
+//				200: networkBodyResponse
 func updateAllKeys(w http.ResponseWriter, r *http.Request) {
 	var errorResponse = models.ErrorResponse{}
 	w.Header().Set("Content-Type", "application/json")
