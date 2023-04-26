@@ -85,7 +85,7 @@ services:
       - mosquitto_logs:/mosquitto/log
   turn:
     container_name: turn
-    image: gravitl/turnserver:testing
+    image: gravitl/turnserver:v1
     volumes:
       - turn_server:/etc/config
     environment:

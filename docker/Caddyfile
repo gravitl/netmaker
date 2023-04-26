@@ -37,7 +37,7 @@ https://stun.NETMAKER_BASE_DOMAIN {
 
 # TURN
 https://turn.NETMAKER_BASE_DOMAIN {
-	reverse_proxy turn:3479
+	reverse_proxy host.docker.internal:3479
 }
 
 #TURN API
