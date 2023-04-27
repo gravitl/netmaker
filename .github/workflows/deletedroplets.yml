@@ -35,6 +35,7 @@ jobs:
           message: "droplets from this workflow will be deleted in 15 min"
           file: ./server/serverinfo.txt
       - name: delete droplets
+        if: success() || failure()
         run: |
           sleep 15m
           curl -X GET \
@@ -82,6 +83,7 @@ jobs:
           message: "errors from ${{ github.event.workflow_run.name }}"
           file: ./results/errors.log
       - name: delete droplets
+        if: success() || failure()
         run: |
           sleep 6h
           curl -X GET \
