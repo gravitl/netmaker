@@ -219,13 +219,18 @@ func RemoveHost(h *models.Host) error {
 	if len(h.Nodes) > 0 {
 		return fmt.Errorf("host still has associated nodes")
 	}
-	DeRegisterHostWithTurn(h.ID.String())
+	if servercfg.IsUsingTurn() {
+		DeRegisterHostWithTurn(h.ID.String())
+	}
+
 	return database.DeleteRecord(database.HOSTS_TABLE_NAME, h.ID.String())
 }
 
 // RemoveHostByID - removes a given host by id from server
 func RemoveHostByID(hostID string) error {
-	DeRegisterHostWithTurn(hostID)
+	if servercfg.IsUsingTurn() {
+		DeRegisterHostWithTurn(hostID)
+	}
 	return database.DeleteRecord(database.HOSTS_TABLE_NAME, hostID)
 }
 
