@@ -109,6 +109,7 @@ func GetServerInfo() models.ServerConfig {
 	cfg.StunList = GetStunList()
 	cfg.TurnDomain = GetTurnHost()
 	cfg.TurnPort = GetTurnPort()
+	cfg.UseTurn = IsUsingTurn()
 	return cfg
 }
 
@@ -121,6 +122,16 @@ func GetTurnHost() string {
 		turnServer = config.Config.Server.TurnServer
 	}
 	return turnServer
+}
+
+// IsUsingTurn - check if server has turn configured
+func IsUsingTurn() (b bool) {
+	if os.Getenv("USE_TURN") != "" {
+		b = os.Getenv("USE_TURN") == "true"
+	} else {
+		b = config.Config.Server.UseTurn
+	}
+	return
 }
 
 // GetTurnApiHost - fetches the turn api host domain

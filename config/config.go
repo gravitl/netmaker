@@ -81,6 +81,7 @@ type ServerConfig struct {
 	TurnPort             int       `yaml:"turn_port"`
 	TurnUserName         string    `yaml:"turn_username"`
 	TurnPassword         string    `yaml:"turn_password"`
+	UseTurn              bool      `yaml:"use_turn"`
 }
 
 // ProxyMode - default proxy mode for server

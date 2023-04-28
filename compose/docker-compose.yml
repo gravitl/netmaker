@@ -35,6 +35,7 @@ services:
       TURN_PORT: "3479"
       TURN_USERNAME: "REPLACE_TURN_USERNAME"
       TURN_PASSWORD: "REPLACE_TURN_PASSWORD"
+      USE_TURN: "false"
     ports:
       - "3478:3478/udp"
   netmaker-ui:
