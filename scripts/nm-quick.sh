@@ -210,7 +210,7 @@ configure_netclient() {
 # setup_nmctl - pulls nmctl and makes it executable
 setup_nmctl() {
 
-	wget -O /usr/bin/nmctl https://github.com/gravitl/netmaker/releases/download/$LATEST/nmctl_linux_amd64
+	wget -O /usr/bin/nmctl https://github.com/gravitl/netmaker/releases/download/$LATEST/nmctl-linux-amd64
 
     chmod +x /usr/bin/nmctl
     echo "using server api.$NETMAKER_BASE_DOMAIN"
