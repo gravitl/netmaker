@@ -60,7 +60,7 @@ jobs:
         with:
           webhook_id: ${{ secrets.DISCORD_WEBHOOK_ID }}
           webhook_token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
-          color: "#42f545"
+          color: "#990000"
           username: "GitHub Bot"
           message: " ${{ github.event.workflow_run.name }} failed"
           file: ./results/results.log
@@ -69,7 +69,7 @@ jobs:
         with:
           webhook_id: ${{ secrets.DISCORD_WEBHOOK_ID }}
           webhook_token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
-          color: "#42f545"
+          color: "#990000"
           username: "GitHub Bot"
           message: "droplets from this workflow will be deleted in 6 hours"
           file: ./server/serverinfo.txt
