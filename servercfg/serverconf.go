@@ -107,8 +107,42 @@ func GetServerInfo() models.ServerConfig {
 	cfg.Is_EE = Is_EE
 	cfg.StunPort = GetStunPort()
 	cfg.StunList = GetStunList()
-
+	cfg.TurnDomain = GetTurnHost()
+	cfg.TurnPort = GetTurnPort()
+	cfg.UseTurn = IsUsingTurn()
 	return cfg
+}
+
+// GetTurnHost - fetches the turn host domain
+func GetTurnHost() string {
+	turnServer := ""
+	if os.Getenv("TURN_SERVER_HOST") != "" {
+		turnServer = os.Getenv("TURN_SERVER_HOST")
+	} else if config.Config.Server.TurnServer != "" {
+		turnServer = config.Config.Server.TurnServer
+	}
+	return turnServer
+}
+
+// IsUsingTurn - check if server has turn configured
+func IsUsingTurn() (b bool) {
+	if os.Getenv("USE_TURN") != "" {
+		b = os.Getenv("USE_TURN") == "true"
+	} else {
+		b = config.Config.Server.UseTurn
+	}
+	return
+}
+
+// GetTurnApiHost - fetches the turn api host domain
+func GetTurnApiHost() string {
+	turnApiServer := ""
+	if os.Getenv("TURN_SERVER_API_HOST") != "" {
+		turnApiServer = os.Getenv("TURN_SERVER_API_HOST")
+	} else if config.Config.Server.TurnApiServer != "" {
+		turnApiServer = config.Config.Server.TurnApiServer
+	}
+	return turnApiServer
 }
 
 // GetFrontendURL - gets the frontend url
@@ -186,11 +220,11 @@ func GetAPIPort() string {
 // GetStunList - gets the stun servers
 func GetStunList() []models.StunServer {
 	stunList := []models.StunServer{
-		models.StunServer{
+		{
 			Domain: "stun1.netmaker.io",
 			Port:   3478,
 		},
-		models.StunServer{
+		{
 			Domain: "stun2.netmaker.io",
 			Port:   3478,
 		},
@@ -640,6 +674,44 @@ func GetStunPort() int {
 		port = config.Config.Server.StunPort
 	}
 	return port
+}
+
+// GetTurnPort - Get the port to run the turn server on
+func GetTurnPort() int {
+	port := 3479 //default
+	if os.Getenv("TURN_PORT") != "" {
+		portInt, err := strconv.Atoi(os.Getenv("TURN_PORT"))
+		if err == nil {
+			port = portInt
+		}
+	} else if config.Config.Server.TurnPort != 0 {
+		port = config.Config.Server.TurnPort
+	}
+	return port
+}
+
+// GetTurnUserName - fetches the turn server username
+func GetTurnUserName() string {
+	userName := ""
+	if os.Getenv("TURN_USERNAME") != "" {
+		userName = os.Getenv("TURN_USERNAME")
+	} else {
+		userName = config.Config.Server.TurnUserName
+	}
+	return userName
+
+}
+
+// GetTurnPassword - fetches the turn server password
+func GetTurnPassword() string {
+	pass := ""
+	if os.Getenv("TURN_PASSWORD") != "" {
+		pass = os.Getenv("TURN_PASSWORD")
+	} else {
+		pass = config.Config.Server.TurnPassword
+	}
+	return pass
+
 }
 
 // IsProxyEnabled - is proxy on or off

@@ -40,6 +40,12 @@ services:
       AZURE_TENANT: "" # "<only for azure, you may optionally specify the tenant for the OAuth>"
       OIDC_ISSUER: "" # https://oidc.yourprovider.com - URL of oidc provider
       DEFAULT_PROXY_MODE: "off" # if ON, all new clients will enable proxy by default if OFF, all new clients will disable proxy by default, if AUTO, stick with the existing logic for NAT detection
+      TURN_SERVER_HOST: "turn.NETMAKER_BASE_DOMAIN" # domain for your turn server
+      TURN_SERVER_API_HOST: "https://turnapi.NETMAKER_BASE_DOMAIN" # domain of the turn api server
+      TURN_PORT: "3479" #  port to access turn server
+      TURN_USERNAME: "REPLACE_TURN_USERNAME"  # the username to set for turn api access
+      TURN_PASSWORD: "REPLACE_TURN_PASSWORD" #  the password to set for turn api access
+      USE_TURN: "true" #config for using turn, accepts either true/false
     ports:
       - "3478:3478/udp" # the stun port
   netmaker-ui:  # The Netmaker UI Component

@@ -40,17 +40,16 @@ type PeerConf struct {
 	ProxyListenPort  int          `json:"proxy_listen_port"`
 	IsExtClient      bool         `json:"is_ext_client"`
 	Address          net.IP       `json:"address"`
-	ExtInternalIp    net.IP       `json:"ext_internal_ip"`
 	IsRelayed        bool         `json:"is_relayed"`
 	RelayedTo        *net.UDPAddr `json:"relayed_to"`
+	NatType          string       `json:"nat_type"`
 }
 
 // ProxyManagerPayload - struct for proxy manager payload
 type ProxyManagerPayload struct {
-	Action        ProxyAction `json:"action"`
-	InterfaceName string      `json:"interface_name"`
-	Server        string      `json:"server"`
-	//WgAddr          string                 `json:"wg_addr"`
+	Action          ProxyAction            `json:"action"`
+	InterfaceName   string                 `json:"interface_name"`
+	Server          string                 `json:"server"`
 	Peers           []wgtypes.PeerConfig   `json:"peers"`
 	PeerMap         map[string]PeerConf    `json:"peer_map"`
 	IsIngress       bool                   `json:"is_ingress"`

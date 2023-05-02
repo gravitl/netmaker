@@ -30,6 +30,7 @@ func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/hosts/{hostid}/relay", logic.SecurityCheck(false, http.HandlerFunc(deleteHostRelay))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/hosts/adm/authenticate", authenticateHost).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/host", authorize(true, false, "host", http.HandlerFunc(pull))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/host/{hostid}/signalpeer", authorize(true, false, "host", http.HandlerFunc(signalPeer))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/auth-register/host", socketHandler)
 }
 
@@ -448,6 +449,72 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 	response.WriteHeader(http.StatusOK)
 	response.Header().Set("Content-Type", "application/json")
 	response.Write(successJSONResponse)
+}
+
+// swagger:route POST /api/hosts/{hostid}/signalpeer signalPeer
+//
+// send signal to peer.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: signal
+func signalPeer(w http.ResponseWriter, r *http.Request) {
+	var params = mux.Vars(r)
+	hostid := params["hostid"]
+	// confirm host exists
+	_, err := logic.GetHost(hostid)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to get host:", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	var signal models.Signal
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewDecoder(r.Body).Decode(&signal)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if signal.ToHostPubKey == "" || signal.TurnRelayEndpoint == "" {
+		msg := "insufficient data to signal peer"
+		logger.Log(0, r.Header.Get("user"), msg)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New(msg), "badrequest"))
+		return
+	}
+	hosts, err := logic.GetAllHosts()
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	// push the signal to host through mq
+	found := false
+	for _, hostI := range hosts {
+		if hostI.PublicKey.String() == signal.ToHostPubKey {
+			// found host publish message and break
+			found = true
+			err = mq.HostUpdate(&models.HostUpdate{
+				Action: models.SignalHost,
+				Host:   hostI,
+				Signal: signal,
+			})
+			if err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to publish signal to peer: "+err.Error()), "badrequest"))
+				return
+			}
+			break
+		}
+	}
+	if !found {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to signal, peer not found"), "badrequest"))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(signal)
 }
 
 // swagger:route POST /api/hosts/keys host updateAllKeys

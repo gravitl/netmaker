@@ -76,6 +76,12 @@ type ServerConfig struct {
 	StunList             string    `yaml:"stun_list"`
 	Proxy                string    `yaml:"proxy"`
 	DefaultProxyMode     ProxyMode `yaml:"defaultproxymode"`
+	TurnServer           string    `yaml:"turn_server"`
+	TurnApiServer        string    `yaml:"turn_api_server"`
+	TurnPort             int       `yaml:"turn_port"`
+	TurnUserName         string    `yaml:"turn_username"`
+	TurnPassword         string    `yaml:"turn_password"`
+	UseTurn              bool      `yaml:"use_turn"`
 }
 
 // ProxyMode - default proxy mode for server
