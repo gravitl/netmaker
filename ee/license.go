@@ -163,6 +163,7 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, erro
 	}
 
 	msg := ValidateLicenseRequest{
+		LicenseKey:     servercfg.GetLicenseKey(),
 		NmServerPubKey: base64encode(publicKeyBytes),
 		EncryptedPart:  base64encode(encryptedData),
 	}
@@ -176,9 +177,6 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	reqParams := req.URL.Query()
-	reqParams.Add("licensevalue", servercfg.GetLicenseKey())
-	req.URL.RawQuery = reqParams.Encode()
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
 	client := &http.Client{}
