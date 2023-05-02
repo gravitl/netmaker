@@ -96,6 +96,8 @@ services:
       TURN_API_PORT: "8089"
       CORS_ALLOWED_ORIGIN: "*"
       TURN_SERVER_HOST: "turn.NETMAKER_BASE_DOMAIN"
+      USERNAME: "REPLACE_USERNAME"
+      PASSWORD: "REPLACE_PASSWORD
 volumes:
   caddy_data: {}
   caddy_conf: {}
