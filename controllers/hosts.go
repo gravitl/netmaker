@@ -95,6 +95,13 @@ func pull(w http.ResponseWriter, r *http.Request) {
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 		serverConf.MQUserName = hostID
 	}
+	key, keyErr := logic.RetrievePublicTrafficKey()
+	if keyErr != nil {
+		logger.Log(0, "error retrieving key:", keyErr.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	serverConf.TrafficKey = key
 	response := models.HostPull{
 		Host:         *host,
 		ServerConfig: serverConf,
