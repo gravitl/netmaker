@@ -1,20 +1,14 @@
-# Netmaker v0.18.6
+# Netmaker v0.18.7
 
 ## whats new
-- no new features
+- internet gateways (0.0.0.0/0) for egress
+- deprecated editing of network parameters
+- allow extra ips for extclient (not enabled in UI)
     
 ## whats fixed
-- a few ext client/ingress issues
-  - viewing addresses (UI)
-  - when deleting an ingress gateway, ext clients are now removed from peers immediately
-  - ext client peers should be populated immediately after creation
-  - ext clients no longer reset public key when disabled/enabled
-  - can delete an ingress without clients
-- removed unnecessary host update
-- host nat type is now collected from clients
-- fix peer update issue where caclulation was happening to frequently
-- nm-quick && nm-upgrade 
-- EMQX image change && api routes
+- nm-quick - determine lastest version from releases
+- wireguard public/private key rotation
+- ee-license checks
 
 ## known issues
 - Caddy does not handle netmaker exporter well for EE
@@ -25,4 +19,3 @@
 - Nodes on same local network may not always connect
 - List populates egress ranges twice
 - If you do NOT set STUN_LIST on server, it could lead to strange behavior on client
-- No internet gateways/default routes

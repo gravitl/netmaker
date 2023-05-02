@@ -51,17 +51,17 @@ func ValidateLicense() error {
 	netmakerAccountID := servercfg.GetNetmakerAccountID()
 	logger.Log(0, "proceeding with Netmaker license validation...")
 	if len(licenseKeyValue) == 0 || len(netmakerAccountID) == 0 {
-		logger.FatalLog(errValidation.Error())
+		logger.FatalLog0(errValidation.Error())
 	}
 
 	apiPublicKey, err := getLicensePublicKey(licenseKeyValue)
 	if err != nil {
-		logger.FatalLog(errValidation.Error())
+		logger.FatalLog0(errValidation.Error())
 	}
 
 	tempPubKey, tempPrivKey, err := FetchApiServerKeys()
 	if err != nil {
-		logger.FatalLog(errValidation.Error())
+		logger.FatalLog0(errValidation.Error())
 	}
 
 	licenseSecret := LicenseSecret{
@@ -71,32 +71,32 @@ func ValidateLicense() error {
 
 	secretData, err := json.Marshal(&licenseSecret)
 	if err != nil {
-		logger.FatalLog(errValidation.Error())
+		logger.FatalLog0(errValidation.Error())
 	}
 
 	encryptedData, err := ncutils.BoxEncrypt(secretData, apiPublicKey, tempPrivKey)
 	if err != nil {
-		logger.FatalLog(errValidation.Error())
+		logger.FatalLog0(errValidation.Error())
 	}
 
 	validationResponse, err := validateLicenseKey(encryptedData, tempPubKey)
 	if err != nil || len(validationResponse) == 0 {
-		logger.FatalLog(errValidation.Error())
+		logger.FatalLog0(errValidation.Error())
 	}
 
 	var licenseResponse ValidatedLicense
 	if err = json.Unmarshal(validationResponse, &licenseResponse); err != nil {
-		logger.FatalLog(errValidation.Error())
+		logger.FatalLog0(errValidation.Error())
 	}
 
 	respData, err := ncutils.BoxDecrypt(base64decode(licenseResponse.EncryptedLicense), apiPublicKey, tempPrivKey)
 	if err != nil {
-		logger.FatalLog(errValidation.Error())
+		logger.FatalLog0(errValidation.Error())
 	}
 
 	license := LicenseKey{}
 	if err = json.Unmarshal(respData, &license); err != nil {
-		logger.FatalLog(errValidation.Error())
+		logger.FatalLog0(errValidation.Error())
 	}
 
 	logger.Log(0, "License validation succeeded!")

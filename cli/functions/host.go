@@ -48,3 +48,12 @@ func CreateRelay(hostID string, relayedHosts []string) *models.ApiHost {
 func DeleteRelay(hostID string) *models.ApiHost {
 	return request[models.ApiHost](http.MethodDelete, fmt.Sprintf("/api/hosts/%s/relay", hostID), nil)
 }
+
+// RefreshKeys - refresh wireguard keys
+func RefreshKeys(hostID string) any {
+	if hostID == "" {
+		return request[any](http.MethodPut, "/api/hosts/keys", nil)
+	}
+	return request[any](http.MethodPut, fmt.Sprintf("/api/hosts/%s/keys", hostID), nil)
+
+}

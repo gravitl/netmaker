@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LATEST="v0.18.6"
+LATEST=$(curl -s https://api.github.com/repos/gravitl/netmaker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d [:space:],\")
 
 print_logo() {(
 cat << "EOF"
@@ -182,7 +182,7 @@ setup_netclient() {
 	netclient uninstall
 	set -e
 
-	wget -O netclient https://github.com/gravitl/netclient/releases/download/$LATEST/netclient_linux_amd64
+	wget -O netclient https://github.com/gravitl/netclient/releases/download/$LATEST/netclient-linux-amd64
 	chmod +x netclient
 	./netclient install
 	netclient register -t $TOKEN
@@ -210,7 +210,7 @@ configure_netclient() {
 # setup_nmctl - pulls nmctl and makes it executable
 setup_nmctl() {
 
-	wget -O /usr/bin/nmctl https://github.com/gravitl/netmaker/releases/download/$LATEST/nmctl_linux_amd64
+	wget -O /usr/bin/nmctl https://github.com/gravitl/netmaker/releases/download/$LATEST/nmctl-linux-amd64
 
     chmod +x /usr/bin/nmctl
     echo "using server api.$NETMAKER_BASE_DOMAIN"
@@ -398,6 +398,8 @@ set_install_vars() {
 	echo "-----------------------------------------------------"
 	echo "Would you like to use your own domain for netmaker, or an auto-generated domain?"
 	echo "To use your own domain, add a Wildcard DNS record (e.x: *.netmaker.example.com) pointing to $SERVER_PUBLIC_IP"
+	echo "IMPORTANT: Due to the high volume of requests, the auto-generated domain has been rate-limited by the certificate provider."
+	echo "For this reason, we STRONGLY RECOMMEND using your own domain. Using the auto-generated domain may lead to a failed installation due to rate limiting."
 	echo "-----------------------------------------------------"
 
 	if [ "$AUTO_BUILD" = "on" ]; then
@@ -429,6 +431,7 @@ set_install_vars() {
 	echo "          dashboard.$NETMAKER_BASE_DOMAIN"
 	echo "                api.$NETMAKER_BASE_DOMAIN"
 	echo "             broker.$NETMAKER_BASE_DOMAIN"
+	echo "               stun.$NETMAKER_BASE_DOMAIN"
 
 	if [ "$INSTALL_TYPE" = "ee" ]; then
 		echo "         prometheus.$NETMAKER_BASE_DOMAIN"

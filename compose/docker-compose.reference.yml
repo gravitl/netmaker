@@ -4,7 +4,7 @@ services:
   netmaker: # The Primary Server for running Netmaker
     container_name: netmaker
     image: gravitl/netmaker:REPLACE_SERVER_IMAGE_TAG
-    restart: always
+    restart: on-failure
     volumes: # Volume mounts necessary for sql, coredns, and mqtt
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
@@ -14,6 +14,7 @@ services:
       SERVER_NAME: "NETMAKER_BASE_DOMAIN" # The base domain of netmaker
       SERVER_HOST: "SERVER_PUBLIC_IP" # Set to public IP of machine.
       SERVER_HTTP_HOST: "api.NETMAKER_BASE_DOMAIN" # Overrides SERVER_HOST if set. Useful for making HTTP available via different interfaces/networks.
+      NETCLIENT_AUTO_UPDATE: "enabled" # Enable auto update of netclient ? ENUM:- enabled,disabled | default: enabled
       SERVER_API_CONN_STRING: "api.NETMAKER_BASE_DOMAIN:443"
       COREDNS_ADDR: "SERVER_PUBLIC_IP" # Address of the CoreDNS server. Defaults to SERVER_HOST
       DNS_MODE: "on" # Enables DNS Mode, meaning all nodes will set hosts file for private dns settings.

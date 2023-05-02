@@ -19,8 +19,6 @@ const (
 	// MAX_NAME_LENGTH - max name length of node
 	MAX_NAME_LENGTH = 62
 	// == ACTIONS == (can only be set by server)
-	// NODE_UPDATE_KEY - action to update key
-	NODE_UPDATE_KEY = "updatekey"
 	// NODE_DELETE - delete node action
 	NODE_DELETE = "delete"
 	// NODE_IS_PENDING - node pending status

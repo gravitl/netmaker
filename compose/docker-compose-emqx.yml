@@ -3,8 +3,8 @@ version: "3.4"
 services:
   netmaker:
     container_name: netmaker
-    image: gravitl/netmaker:v0.18.6
-    restart: always
+    image: gravitl/netmaker:v0.18.7
+    restart: on-failure
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
@@ -19,6 +19,7 @@ services:
       COREDNS_ADDR: "SERVER_PUBLIC_IP"
       DNS_MODE: "on"
       SERVER_HTTP_HOST: "api.NETMAKER_BASE_DOMAIN"
+      NETCLIENT_AUTO_UPDATE: "enabled"
       API_PORT: "8081"
       MASTER_KEY: "REPLACE_MASTER_KEY"
       CORS_ALLOWED_ORIGIN: "*"
@@ -35,7 +36,7 @@ services:
       - "3478:3478/udp"
   netmaker-ui:
     container_name: netmaker-ui
-    image: gravitl/netmaker-ui:v0.18.6
+    image: gravitl/netmaker-ui:v0.18.7
     depends_on:
       - netmaker
     links:

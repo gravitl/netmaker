@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/models"
 )
 
 const (
@@ -14,11 +15,13 @@ const (
 
 // CValue - the cache object for a network
 type CValue struct {
-	Network    string    `json:"network"`
-	Value      string    `json:"value"`
-	Pass       string    `json:"pass"`
-	User       string    `json:"user"`
-	Expiration time.Time `json:"expiration"`
+	Network    string      `json:"network,omitempty"`
+	Value      string      `json:"value"`
+	Host       models.Host `json:"host"`
+	Pass       string      `json:"pass,omitempty"`
+	User       string      `json:"user,omitempty"`
+	ALL        bool        `json:"all,omitempty"`
+	Expiration time.Time   `json:"expiration"`
 }
 
 var ErrExpired = fmt.Errorf("expired")

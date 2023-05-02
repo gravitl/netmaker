@@ -20,6 +20,8 @@ import (
 
 func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/hosts", logic.SecurityCheck(true, http.HandlerFunc(getHosts))).Methods(http.MethodGet)
+	r.HandleFunc("/api/hosts/keys", logic.SecurityCheck(true, http.HandlerFunc(updateAllKeys))).Methods(http.MethodPut)
+	r.HandleFunc("/api/hosts/{hostid}/keys", logic.SecurityCheck(true, http.HandlerFunc(updateKeys))).Methods(http.MethodPut)
 	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(updateHost))).Methods(http.MethodPut)
 	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(deleteHost))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", logic.SecurityCheck(true, http.HandlerFunc(addHostToNetwork))).Methods(http.MethodPost)
@@ -28,6 +30,7 @@ func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/hosts/{hostid}/relay", logic.SecurityCheck(false, http.HandlerFunc(deleteHostRelay))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/hosts/adm/authenticate", authenticateHost).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/host", authorize(true, false, "host", http.HandlerFunc(pull))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/auth-register/host", socketHandler)
 }
 
 // swagger:route GET /api/hosts hosts getHosts
@@ -51,6 +54,7 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 	// return JSON/API formatted hosts
 	apiHosts := logic.GetAllHostsAPI(currentHosts[:])
 	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
+	logic.SortApiHosts(apiHosts[:])
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiHosts)
 }
@@ -444,4 +448,81 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 	response.WriteHeader(http.StatusOK)
 	response.Header().Set("Content-Type", "application/json")
 	response.Write(successJSONResponse)
+}
+
+// swagger:route POST /api/hosts/keys host updateAllKeys
+//
+// Update keys for a network.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: networkBodyResponse
+func updateAllKeys(w http.ResponseWriter, r *http.Request) {
+	var errorResponse = models.ErrorResponse{}
+	w.Header().Set("Content-Type", "application/json")
+	hosts, err := logic.GetAllHosts()
+	if err != nil {
+		errorResponse.Code = http.StatusBadRequest
+		errorResponse.Message = err.Error()
+		logger.Log(0, r.Header.Get("user"),
+			"error retrieving hosts ", err.Error())
+		logic.ReturnErrorResponse(w, r, errorResponse)
+		return
+	}
+	go func() {
+		hostUpdate := models.HostUpdate{}
+		hostUpdate.Action = models.UpdateKeys
+		for _, host := range hosts {
+			hostUpdate.Host = host
+			logger.Log(2, "updating host", host.ID.String(), " for a key update")
+			if err = mq.HostUpdate(&hostUpdate); err != nil {
+				logger.Log(0, "failed to send update to node during a network wide key update", host.ID.String(), err.Error())
+			}
+		}
+	}()
+	logger.Log(2, r.Header.Get("user"), "updated keys for all hosts")
+	w.WriteHeader(http.StatusOK)
+}
+
+// swagger:route POST /api/hosts/{hostid}keys host updateKeys
+//
+// Update keys for a network.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: networkBodyResponse
+func updateKeys(w http.ResponseWriter, r *http.Request) {
+	var errorResponse = models.ErrorResponse{}
+	w.Header().Set("Content-Type", "application/json")
+	var params = mux.Vars(r)
+	hostid := params["hostid"]
+	host, err := logic.GetHost(hostid)
+	if err != nil {
+		logger.Log(0, "failed to retrieve host", hostid, err.Error())
+		errorResponse.Code = http.StatusBadRequest
+		errorResponse.Message = err.Error()
+		logger.Log(0, r.Header.Get("user"),
+			"error retrieving hosts ", err.Error())
+		logic.ReturnErrorResponse(w, r, errorResponse)
+		return
+	}
+	go func() {
+		hostUpdate := models.HostUpdate{
+			Action: models.UpdateKeys,
+			Host:   *host,
+		}
+		if err = mq.HostUpdate(&hostUpdate); err != nil {
+			logger.Log(0, "failed to send host key update", host.ID.String(), err.Error())
+		}
+	}()
+	logger.Log(2, r.Header.Get("user"), "updated key on host", host.Name)
+	w.WriteHeader(http.StatusOK)
 }

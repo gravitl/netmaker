@@ -53,6 +53,6 @@ jobs:
     uses: gravitl/devops/.github/workflows/branchtest.yml@master
     with:
       tag: ${{ github.run_id }}-${{ github.run_attempt }}
-      network: terraform
+      network: netmaker
     secrets: inherit
     

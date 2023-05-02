@@ -3,10 +3,10 @@ version: "3.4"
 services:
   netclient:
     container_name: netclient
-    image: 'gravitl/netclient:v0.18.6'
+    image: 'gravitl/netclient:v0.18.7'
     hostname: netmaker-1
     network_mode: host
-    restart: always
+    restart: on-failure
     environment:
       TOKEN: "TOKEN_VALUE"
     volumes:
