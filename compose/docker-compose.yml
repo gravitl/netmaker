@@ -87,6 +87,7 @@ services:
   turn:
     container_name: turn
     image: gravitl/turnserver:v1.0.0
+    network_mode: "host"
     volumes:
       - turn_server:/etc/config
     environment:
@@ -97,7 +98,7 @@ services:
       CORS_ALLOWED_ORIGIN: "*"
       TURN_SERVER_HOST: "turn.NETMAKER_BASE_DOMAIN"
       USERNAME: "REPLACE_USERNAME"
-      PASSWORD: "REPLACE_PASSWORD
+      PASSWORD: "REPLACE_PASSWORD"
 volumes:
   caddy_data: {}
   caddy_conf: {}
