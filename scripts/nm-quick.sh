@@ -192,7 +192,7 @@ set_install_dir() {
 			2)
 			while true
 			do
-			    read -p "Enter your diserd install directory: " GET_INSTALL_DIR
+			    read -p "Enter your desired install directory: " GET_INSTALL_DIR
 				INSTALL_DIR=$(echo "$GET_INSTALL_DIR" | sed 's#/$##')
 				echo "Using install directory "$INSTALL_DIR" "
 				break
