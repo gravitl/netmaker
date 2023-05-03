@@ -1,4 +1,4 @@
-# Netmaker v0.18.8
+# Netmaker v0.19.0
 
 ## whats new
 - internet gateways (0.0.0.0/0) for egress
