@@ -33,6 +33,12 @@ services:
       LICENSE_KEY: "YOUR_LICENSE_KEY"
       NETMAKER_ACCOUNT_ID: "YOUR_ACCOUNT_ID"
       DEFAULT_PROXY_MODE: "off"
+      TURN_SERVER_HOST: "turn.NETMAKER_BASE_DOMAIN"
+      TURN_SERVER_API_HOST: "https://turnapi.NETMAKER_BASE_DOMAIN"
+      TURN_PORT: "3479"
+      TURN_USERNAME: "REPLACE_TURN_USERNAME"
+      TURN_PASSWORD: "REPLACE_TURN_PASSWORD"
+      USE_TURN: "true"
     ports:
       - "3478:3478/udp"
   netmaker-ui:
@@ -119,6 +125,21 @@ services:
       API_PORT: "8085"
       LICENSE_KEY: "YOUR_LICENSE_KEY"
       PROMETHEUS_HOST: https://prometheus.NETMAKER_BASE_DOMAIN
+  turn:
+    container_name: turn
+    image: gravitl/turnserver:v1.0.0
+    network_mode: "host"
+    volumes:
+      - turn_server:/etc/config
+    environment:
+      DEBUG_MODE: "off"
+      VERBOSITY: "1"
+      TURN_PORT: "3479"
+      TURN_API_PORT: "8089"
+      CORS_ALLOWED_ORIGIN: "*"
+      TURN_SERVER_HOST: "turn.NETMAKER_BASE_DOMAIN"
+      USERNAME: "REPLACE_TURN_USERNAME"
+      PASSWORD: "REPLACE_TURN_PASSWORD"
 volumes:
   caddy_data: {}
   caddy_conf: {}
@@ -127,3 +148,4 @@ volumes:
   mosquitto_logs: {}
   prometheus_data: {}
   grafana_data: {}
+  turn_server: {}
