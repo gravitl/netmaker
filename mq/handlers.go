@@ -163,6 +163,15 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 		sendPeerUpdate = true
+	case models.RegisterWithTurn:
+		if servercfg.IsUsingTurn() {
+			err = logic.RegisterHostWithTurn(hostUpdate.Host.ID.String(), hostUpdate.Host.HostPass)
+			if err != nil {
+				logger.Log(0, "failed to register host with turn server: ", err.Error())
+				return
+			}
+		}
+
 	}
 
 	if sendPeerUpdate {

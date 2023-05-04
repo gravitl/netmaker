@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LATEST="v0.18.6"
+LATEST="v0.19.0"
 INSTALL_PATH="/root"
 
 trap restore_old_netmaker_instructions
@@ -259,10 +259,12 @@ collect_server_settings() {
   done
 
   STUN_DOMAIN="stun.$SERVER_NAME"
+  TURN_DOMAIN="turn.$SERVER_NAME"
+  TURNAPI_DOMAIN="turnapi.$SERVER_NAME"
   echo "-----------------------------------------------------"
-  echo "Netmaker v0.18 requires a new DNS entry for $STUN_DOMAIN."
-  echo "Please confirm this is added to your DNS provider before continuing"
-  echo "(note: this is not required if using an nip.io address)"
+  echo "Netmaker v0.19 requires new DNS entries for $STUN_DOMAIN, $TURN_DOMAIN, and $TURNAPI_DOMAIN."
+  echo "Please confirm this is added to your DNS provider before continuing."
+  echo "You can skip this step if using a wildcard DNS entry (e.g. *.$SERVER_NAME) or a nip.io address."
   echo "-----------------------------------------------------"
   confirm
 }
@@ -336,6 +338,16 @@ cat <<EOT >> $INSTALL_PATH/Caddyfile
 https://$STUN_DOMAIN {
   reverse_proxy netmaker:3478
 }
+
+# TURN
+https://$TURN_DOMAIN {
+  reverse_proxy netmaker:3479
+}
+
+#TURN API
+https://turnapi.$TURNAPI_DOMAIN {
+        reverse_proxy http://host.docker.internal:8089
+}
 EOT
 
 }
@@ -384,10 +396,55 @@ set_mq_credentials() {
   done
 }
 
+# set_turn_credentials - sets mq credentials
+set_turn_credentials() {
+
+  unset GET_TURN_USERNAME
+  unset GET_TURN_PASSWORD
+  unset CONFIRM_TURN_PASSWORD
+  echo "Enter Credentials For TURN..."
+  read -p "TURN Username (click 'enter' to use 'netmaker'): " GET_TURN_USERNAME
+  if [ -z "$GET_TURN_USERNAME" ]; then
+    echo "using default username for turn"
+    TURN_USERNAME="netmaker"
+  else
+    TURN_USERNAME="$GET_TURN_USERNAME"
+  fi
+
+  select domain_option in "Auto Generated Password" "Input Your Own Password"; do
+    case $REPLY in
+    1)
+    echo "generating random password for TURN"
+    TURN_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
+    break
+    ;;      
+      2)
+    while true
+      do
+          echo "Enter your Password For TURN: " 
+          read -s GET_TURN_PASSWORD
+          echo "Enter your password again to confirm: "
+          read -s CONFIRM_TURN_PASSWORD
+          if [ ${GET_TURN_PASSWORD} != ${CONFIRM_TURN_PASSWORD} ]; then
+              echo "wrong password entered, try again..."
+              continue
+          fi
+      TURN_PASSWORD="$GET_TURN_PASSWORD"
+          echo "TURN Password Saved Successfully!!"
+          break
+      done
+        break
+        ;;
+      *) echo "invalid option $REPLY";;
+    esac
+  done
+}
+
 # set_compose - set compose file with proper values
 set_compose() {
 
   set_mq_credentials
+  set_turn_credentials
 
   echo "retrieving updated wait script and mosquitto conf"  
   rm $INSTALL_PATH/wait.sh
@@ -406,21 +463,38 @@ set_compose() {
 
   STUN_PORT=3478
 
-  # RELEASE_REPLACE - Use this once release is ready
-
-  #sed -i "s/v0.17.1/v0.18.6/g" /root/docker-compose.yml
   yq ".services.netmaker.environment.SERVER_NAME = \"$SERVER_NAME\"" -i $INSTALL_PATH/docker-compose.yml
   yq ".services.netmaker.environment += {\"BROKER_ENDPOINT\": \"wss://$BROKER_NAME\"}" -i $INSTALL_PATH/docker-compose.yml  
   yq ".services.netmaker.environment += {\"SERVER_BROKER_ENDPOINT\": \"ws://mq:1883\"}" -i $INSTALL_PATH/docker-compose.yml  
   yq ".services.netmaker.environment += {\"STUN_LIST\": \"$STUN_DOMAIN:$STUN_PORT,stun1.netmaker.io:3478,stun2.netmaker.io:3478,stun1.l.google.com:19302,stun2.l.google.com:19302\"}" -i $INSTALL_PATH/docker-compose.yml  
-  yq ".services.netmaker.environment += {\"MQ_PASSWORD\": \"$MQ_PASSWORD\"}" -i $INSTALL_PATH/docker-compose.yml  
   yq ".services.netmaker.environment += {\"MQ_USERNAME\": \"$MQ_USERNAME\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.netmaker.environment += {\"MQ_PASSWORD\": \"$MQ_PASSWORD\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.netmaker.environment += {\"TURN_SERVER_HOST\": \"turn.$SERVER_NAME\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.netmaker.environment += {\"TURN_SERVER_API_HOST\": \"turnapi.$SERVER_NAME\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.netmaker.environment += {\"TURN_USERNAME\": \"$TURN_USERNAME\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.netmaker.environment += {\"TURN_PASSWORD\": \"$TURN_PASSWORD\"}" -i $INSTALL_PATH/docker-compose.yml  
   yq ".services.netmaker.environment += {\"STUN_PORT\": \"$STUN_PORT\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.netmaker.environment += {\"TURN_PORT\": \"3479\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.netmaker.environment += {\"USE_TURN\": \"true\"}" -i $INSTALL_PATH/docker-compose.yml  
   yq ".services.netmaker.ports += \"3478:3478/udp\"" -i $INSTALL_PATH/docker-compose.yml
 
-  yq ".services.mq.environment += {\"MQ_PASSWORD\": \"$MQ_PASSWORD\"}" -i $INSTALL_PATH/docker-compose.yml  
   yq ".services.mq.environment += {\"MQ_USERNAME\": \"$MQ_USERNAME\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.mq.environment += {\"MQ_PASSWORD\": \"$MQ_PASSWORD\"}" -i $INSTALL_PATH/docker-compose.yml  
 
+  yq ".services.turn += {\"container_name\": \"turn\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.turn += {\"image\": \"gravitl/turnserver:v1.0.0\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.turn += {\"network_mode\": \"host\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.turn.volumes += {\"turn_server:/etc/config\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.turn.environment += {\"DEBUG_MODE\": \"off\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.turn.environment += {\"VERBOSITY\": \"1\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.turn.environment += {\"TURN_PORT\": \"3479\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.turn.environment += {\"TURN_API_PORT\": \"8089\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.turn.environment += {\"CORS_ALLOWED_ORIGIN\": \"*\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.turn.environment += {\"TURN_SERVER_HOST\": \"$TURN_DOMAIN\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.turn.environment += {\"TURN_USERNAME\": \"$TURN_USERNAME\"}" -i $INSTALL_PATH/docker-compose.yml  
+  yq ".services.turn.environment += {\"TURN_PASSWORD\": \"$TURN_PASSWORD\"}" -i $INSTALL_PATH/docker-compose.yml  
+
+  yq ".services.volumes += {\".turn_server\": \"{}\"}" -i $INSTALL_PATH/docker-compose.yml  
 
   #remove unnecessary ports
   yq eval 'del( .services.netmaker.ports[] | select(. == "51821*") )' -i $INSTALL_PATH/docker-compose.yml

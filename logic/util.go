@@ -2,11 +2,10 @@
 package logic
 
 import (
-	crand "crypto/rand"
+	"crypto/rand"
+	"encoding/base32"
 	"encoding/base64"
 	"encoding/json"
-	"math/big"
-	"math/rand"
 	"net"
 	"os"
 	"strings"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logger"
 )
 
 // IsBase64 - checks if a string is in base64 format
@@ -68,32 +68,15 @@ func SetNetworkNodesLastModified(networkName string) error {
 	return nil
 }
 
-// GenerateCryptoString - generates random string of n length
-func GenerateCryptoString(n int) (string, error) {
-	const chars = "123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-"
-	ret := make([]byte, n)
-	for i := range ret {
-		num, err := crand.Int(crand.Reader, big.NewInt(int64(len(chars))))
-		if err != nil {
-			return "", err
-		}
-		ret[i] = chars[num.Int64()]
-	}
-
-	return string(ret), nil
-}
-
 // RandomString - returns a random string in a charset
 func RandomString(length int) string {
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
-	var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
-
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
+	randombytes := make([]byte, length)
+	_, err := rand.Read(randombytes)
+	if err != nil {
+		logger.Log(0, "random string", err.Error())
+		return ""
 	}
-	return string(b)
+	return base32.StdEncoding.EncodeToString(randombytes)[:length]
 }
 
 // StringSliceContains - sees if a string slice contains a string element

@@ -81,6 +81,12 @@ type ServerConfig struct {
 	NetworksLimit        int       `yaml:"network_limit"`
 	HostsLimit           int       `yaml:"host_limit"`
 	DeployedByOperator   bool      `yaml:"deployed_by_operator"`
+	TurnServer           string    `yaml:"turn_server"`
+	TurnApiServer        string    `yaml:"turn_api_server"`
+	TurnPort             int       `yaml:"turn_port"`
+	TurnUserName         string    `yaml:"turn_username"`
+	TurnPassword         string    `yaml:"turn_password"`
+	UseTurn              bool      `yaml:"use_turn"`
 }
 
 // ProxyMode - default proxy mode for server

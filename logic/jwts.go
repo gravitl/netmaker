@@ -19,10 +19,7 @@ var jwtSecretKey []byte
 func SetJWTSecret() {
 	currentSecret, jwtErr := FetchJWTSecret()
 	if jwtErr != nil {
-		newValue, err := GenerateCryptoString(64)
-		if err != nil {
-			logger.FatalLog("something went wrong when generating JWT signature")
-		}
+		newValue := RandomString(64)
 		jwtSecretKey = []byte(newValue) // 512 bit random password
 		if err := StoreJWTSecret(string(jwtSecretKey)); err != nil {
 			logger.FatalLog("something went wrong when configuring JWT authentication")

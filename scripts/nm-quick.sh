@@ -432,6 +432,8 @@ set_install_vars() {
 	echo "                api.$NETMAKER_BASE_DOMAIN"
 	echo "             broker.$NETMAKER_BASE_DOMAIN"
 	echo "               stun.$NETMAKER_BASE_DOMAIN"
+	echo "               turn.$NETMAKER_BASE_DOMAIN"
+	echo "               turnapi.$NETMAKER_BASE_DOMAIN"
 
 	if [ "$INSTALL_TYPE" = "ee" ]; then
 		echo "         prometheus.$NETMAKER_BASE_DOMAIN"
@@ -527,6 +529,51 @@ set_install_vars() {
 		done
 	fi
 
+	unset GET_TURN_USERNAME
+	unset GET_TURN_PASSWORD
+	unset CONFIRM_TURN_PASSWORD
+	echo "Enter Credentials For TURN..."
+	if [ -z $AUTO_BUILD ]; then
+		read -p "TURN Username (click 'enter' to use 'netmaker'): " GET_TURN_USERNAME
+	fi
+	if [ -z "$GET_TURN_USERNAME" ]; then
+	echo "using default username for mq"
+	TURN_USERNAME="netmaker"
+	else
+	TURN_USERNAME="$GET_TURN_USERNAME"
+	fi
+
+	TURN_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
+
+	if [ -z $AUTO_BUILD ]; then  
+		select domain_option in "Auto Generated Password" "Input Your Own Password"; do
+			case $REPLY in
+			1)
+			echo "using random password for turn"
+			break
+			;;      
+			2)
+			while true
+			do
+				echo "Enter your Password For TURN: " 
+				read -s GET_TURN_PASSWORD
+				echo "Enter your password again to confirm: "
+				read -s CONFIRM_TURN_PASSWORD
+				if [ ${GET_TURN_PASSWORD} != ${CONFIRM_TURN_PASSWORD} ]; then
+					echo "wrong password entered, try again..."
+					continue
+				fi
+				TURN_PASSWORD="$GET_TURN_PASSWORD"
+				echo "TURN Password Saved Successfully!!"
+				break
+			done
+			break
+			;;
+			*) echo "invalid option $REPLY";;
+		esac
+		done
+	fi
+
 	wait_seconds 2
 
 	echo "-----------------------------------------------------------------"
@@ -580,8 +627,11 @@ install_netmaker() {
 	sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/docker-compose.yml
 	sed -i "s/REPLACE_MASTER_KEY/$MASTER_KEY/g" /root/docker-compose.yml
 	sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/Caddyfile
-	sed -i "s/REPLACE_MQ_PASSWORD/$MQ_PASSWORD/g" /root/docker-compose.yml
 	sed -i "s/REPLACE_MQ_USERNAME/$MQ_USERNAME/g" /root/docker-compose.yml 
+	sed -i "s/REPLACE_MQ_PASSWORD/$MQ_PASSWORD/g" /root/docker-compose.yml
+	sed -i "s/REPLACE_TURN_USERNAME/$TURN_USERNAME/g" /root/docker-compose.yml 
+	sed -i "s/REPLACE_TURN_PASSWORD/$TURN_PASSWORD/g" /root/docker-compose.yml
+
 	if [ "$INSTALL_TYPE" = "ee" ]; then
 		sed -i "s~YOUR_LICENSE_KEY~$LICENSE_KEY~g" /root/docker-compose.yml
 		sed -i "s/YOUR_ACCOUNT_ID/$ACCOUNT_ID/g" /root/docker-compose.yml
