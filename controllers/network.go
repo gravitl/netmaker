@@ -170,12 +170,6 @@ func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 	var networkACL acls.ACLContainer
 	networkACL, err := networkACL.Get(acls.ContainerID(netname))
 	if err != nil {
-		if database.IsEmptyRecord(err) {
-			networkACL = acls.ACLContainer{}
-			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(networkACL)
-			return
-		}
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to fetch ACLs for network [%s]: %v", netname, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
