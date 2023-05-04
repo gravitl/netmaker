@@ -1,5 +1,6 @@
 #!/bin/bash
 
+CONFIG_FILE=netmaker.env
 LATEST=$(curl -s https://api.github.com/repos/gravitl/netmaker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d [:space:],\")
 
 print_logo() { (
@@ -281,40 +282,40 @@ install_dependencies() {
 
 	OS=$(uname)
 	if [ -f /etc/debian_version ]; then
-		dependencies="git wireguard wireguard-tools dnsutils jq docker.io docker-compose"
+		dependencies="git wireguard wireguard-tools dnsutils jq docker.io certbot docker-compose python-is-python3"
 		update_cmd='apt update'
 		install_cmd='apt-get install -y'
 	elif [ -f /etc/alpine-release ]; then
-		dependencies="git wireguard jq docker.io docker-compose"
+		dependencies="git wireguard jq docker.io certbot docker-compose"
 		update_cmd='apk update'
 		install_cmd='apk --update add'
 	elif [ -f /etc/centos-release ]; then
-		dependencies="git wireguard jq bind-utils docker.io docker-compose"
+		dependencies="git wireguard jq bind-utils docker.io certbot docker-compose"
 		update_cmd='yum update'
 		install_cmd='yum install -y'
 	elif [ -f /etc/fedora-release ]; then
-		dependencies="git wireguard bind-utils jq docker.io docker-compose"
+		dependencies="git wireguard bind-utils jq docker.io certbot docker-compose"
 		update_cmd='dnf update'
 		install_cmd='dnf install -y'
 	elif [ -f /etc/redhat-release ]; then
-		dependencies="git wireguard jq docker.io bind-utils docker-compose"
+		dependencies="git wireguard jq docker.io bind-utils certbot docker-compose"
 		update_cmd='yum update'
 		install_cmd='yum install -y'
 	elif [ -f /etc/arch-release ]; then
-		dependecies="git wireguard-tools dnsutils jq docker.io docker-compose"
+		dependecies="git wireguard-tools dnsutils jq docker.io certbot docker-compose"
 		update_cmd='pacman -Sy'
 		install_cmd='pacman -S --noconfirm'
 	elif [ "${OS}" = "FreeBSD" ]; then
-		dependencies="git wireguard wget jq docker.io docker-compose"
+		dependencies="git wireguard wget jq docker.io certbot docker-compose"
 		update_cmd='pkg update'
 		install_cmd='pkg install -y'
 	elif [ -f /etc/turris-version ]; then
-		dependencies="git wireguard-tools bash jq docker.io docker-compose"
+		dependencies="git wireguard-tools bash jq docker.io certbot docker-compose"
 		OS="TurrisOS"
 		update_cmd='opkg update'
 		install_cmd='opkg install'
 	elif [ -f /etc/openwrt_release ]; then
-		dependencies="git wireguard-tools bash jq docker.io docker-compose"
+		dependencies="git wireguard-tools bash jq docker.io certbot docker-compose"
 		OS="OpenWRT"
 		update_cmd='opkg update'
 		install_cmd='opkg install'
@@ -433,6 +434,14 @@ set_install_vars() {
 		done
 	fi
 
+	# update the config
+	touch $CONFIG_FILE
+	if grep -q "^DOMAIN=" $CONFIG_FILE; then
+			sed -i "s/DOMAIN=.*/DOMAIN=$NETMAKER_BASE_DOMAIN/" $CONFIG_FILE
+	else
+			echo "DOMAIN=$NETMAKER_BASE_DOMAIN" >> $CONFIG_FILE
+	fi
+
 	wait_seconds 2
 
 	echo "-----------------------------------------------------"
@@ -476,17 +485,32 @@ set_install_vars() {
 		done
 	fi
 
+	# read the config file
+	if [ -f $CONFIG_FILE ]; then
+			source $CONFIG_FILE
+	fi
+
 	unset GET_EMAIL
 	unset RAND_EMAIL
 	RAND_EMAIL="$(echo $RANDOM | md5sum | head -c 16)@email.com"
+	# suggest the prev email or a random one
+	EMAIL_SUGGESTED=${EMAIL:-$RAND_EMAIL}
 	if [ -z $AUTO_BUILD ]; then
-		read -p "Email Address for Domain Registration (click 'enter' to use $RAND_EMAIL): " GET_EMAIL
+		read -p "Email Address for Domain Registration (click 'enter' to use $EMAIL_SUGGESTED): " GET_EMAIL
 	fi
 	if [ -z "$GET_EMAIL" ]; then
 		echo "using rand email"
-		EMAIL="$RAND_EMAIL"
+		EMAIL="$EMAIL_SUGGESTED"
 	else
 		EMAIL="$GET_EMAIL"
+	fi
+
+	# update the config
+	touch $CONFIG_FILE
+	if grep -q "^EMAIL=" $CONFIG_FILE; then
+			sed -i "s/EMAIL=.*/EMAIL=$EMAIL/" $CONFIG_FILE
+	else
+			echo "EMAIL=$EMAIL" >> $CONFIG_FILE
 	fi
 
 	wait_seconds 1
@@ -576,7 +600,8 @@ install_netmaker() {
 		CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/Caddyfile-EE"
 	fi
 	if [ ! "$BUILD_TYPE" = "local" ]; then
-		wget -O /root/docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/mosquitto.conf && wget -O /root/Caddyfile $CADDY_URL
+		# TODO debug only
+		# wget -O /root/docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/mosquitto.conf && wget -O /root/Caddyfile $CADDY_URL
 		wget -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/wait.sh
 	fi
 
@@ -696,6 +721,8 @@ set -e
 
 # 6. get user input for variables
 set_install_vars
+
+./nm-certs.sh
 
 # 7. get and set config files, startup docker-compose
 install_netmaker
