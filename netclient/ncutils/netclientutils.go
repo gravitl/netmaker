@@ -2,7 +2,6 @@ package ncutils
 
 import (
 	"bytes"
-	"crypto/rand"
 	"encoding/gob"
 )
 
@@ -31,17 +30,4 @@ func ConvertBytesToKey(data []byte) (*[32]byte, error) {
 		return nil, err
 	}
 	return result, err
-}
-
-// MakeRandomString - generates a random string of len n
-func MakeRandomString(n int) string {
-	const validChars = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	result := make([]byte, n)
-	if _, err := rand.Reader.Read(result); err != nil {
-		return ""
-	}
-	for i, b := range result {
-		result[i] = validChars[b%byte(len(validChars))]
-	}
-	return string(result)
 }

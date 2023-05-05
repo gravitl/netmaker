@@ -25,6 +25,9 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	if host.OS != "linux" { // support for other OS to be added
 		return models.Node{}, errors.New(host.OS + " is unsupported for egress gateways")
 	}
+	if host.FirewallInUse == models.FIREWALL_NONE {
+		return models.Node{}, errors.New("firewall is not supported for egress gateways")
+	}
 	for i := len(gateway.Ranges) - 1; i >= 0; i-- {
 		if gateway.Ranges[i] == "::/0" {
 			logger.Log(0, "currently IPv6 internet gateways are not supported", gateway.Ranges[i])
