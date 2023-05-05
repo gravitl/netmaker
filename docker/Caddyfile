@@ -1,42 +1,39 @@
-{
-        # ZeroSSL account
-        # acme_ca https://acme.zerossl.com/v2/DV90
-        email YOUR_EMAIL
-}
-
 # Dashboard
 https://dashboard.NETMAKER_BASE_DOMAIN {
-        # Apply basic security headers
-        header {
-                # Enable cross origin access to *.NETMAKER_BASE_DOMAIN
-                Access-Control-Allow-Origin *.NETMAKER_BASE_DOMAIN
-                # Enable HTTP Strict Transport Security (HSTS)
-                Strict-Transport-Security "max-age=31536000;"
-                # Enable cross-site filter (XSS) and tell browser to block detected attacks
-                X-XSS-Protection "1; mode=block"
-                # Disallow the site to be rendered within a frame on a foreign domain (clickjacking protection)
-                X-Frame-Options "SAMEORIGIN"
-                # Prevent search engines from indexing
-                X-Robots-Tag "none"
-                # Remove the server name
-                -Server
-        }
+	tls /root/fullchain.pem /root/privkey.pem
+	# Apply basic security headers
+	header {
+		# Enable cross origin access to *.NETMAKER_BASE_DOMAIN
+		Access-Control-Allow-Origin *.NETMAKER_BASE_DOMAIN
+		# Enable HTTP Strict Transport Security (HSTS)
+		Strict-Transport-Security "max-age=31536000;"
+		# Enable cross-site filter (XSS) and tell browser to block detected attacks
+		X-XSS-Protection "1; mode=block"
+		# Disallow the site to be rendered within a frame on a foreign domain (clickjacking protection)
+		X-Frame-Options "SAMEORIGIN"
+		# Prevent search engines from indexing
+		X-Robots-Tag "none"
+		# Remove the server name
+		-Server
+	}
 
-        reverse_proxy http://netmaker-ui
+	reverse_proxy http://netmaker-ui
 }
 
 # API
 https://api.NETMAKER_BASE_DOMAIN {
-        reverse_proxy http://netmaker:8081
+	tls /root/fullchain.pem /root/privkey.pem
+	reverse_proxy http://netmaker:8081
 }
 
 # STUN
 https://stun.NETMAKER_BASE_DOMAIN {
+	tls /root/fullchain.pem /root/privkey.pem
 	reverse_proxy netmaker:3478
 }
 
-
 # MQ
 wss://broker.NETMAKER_BASE_DOMAIN {
-        reverse_proxy ws://mq:8883 # For EMQX websockets use `reverse_proxy ws://mq:8083`
+	tls /root/fullchain.pem /root/privkey.pem
+	reverse_proxy ws://mq:8883 # For EMQX websockets use `reverse_proxy ws://mq:8083`
 }

@@ -1,6 +1,8 @@
 #!/bin/bash
 
 CONFIG_FILE=netmaker.env
+# location of nm-quick.sh (usually `/root`)
+SCRIPT_DIR=$(dirname "$(realpath "$0")")
 LATEST=$(curl -s https://api.github.com/repos/gravitl/netmaker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d [:space:],\")
 
 print_logo() { (
@@ -398,7 +400,8 @@ set_install_vars() {
 	fi
 
 	NETMAKER_BASE_DOMAIN=nm.$(echo $IP_ADDR | tr . -).nip.io
-	COREDNS_IP=$(ip route get 1 | sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
+	# TODO dead code?
+	# COREDNS_IP=$(ip route get 1 | sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
 	SERVER_PUBLIC_IP=$IP_ADDR
 	MASTER_KEY=$(
 		tr -dc A-Za-z0-9 </dev/urandom | head -c 30
@@ -437,9 +440,9 @@ set_install_vars() {
 	# update the config
 	touch $CONFIG_FILE
 	if grep -q "^DOMAIN=" $CONFIG_FILE; then
-			sed -i "s/DOMAIN=.*/DOMAIN=$NETMAKER_BASE_DOMAIN/" $CONFIG_FILE
+		sed -i "s/DOMAIN=.*/DOMAIN=$NETMAKER_BASE_DOMAIN/" $CONFIG_FILE
 	else
-			echo "DOMAIN=$NETMAKER_BASE_DOMAIN" >> $CONFIG_FILE
+		echo "DOMAIN=$NETMAKER_BASE_DOMAIN" >>$CONFIG_FILE
 	fi
 
 	wait_seconds 2
@@ -487,7 +490,7 @@ set_install_vars() {
 
 	# read the config file
 	if [ -f $CONFIG_FILE ]; then
-			source $CONFIG_FILE
+		source $CONFIG_FILE
 	fi
 
 	unset GET_EMAIL
@@ -499,6 +502,7 @@ set_install_vars() {
 		read -p "Email Address for Domain Registration (click 'enter' to use $EMAIL_SUGGESTED): " GET_EMAIL
 	fi
 	if [ -z "$GET_EMAIL" ]; then
+		# TODO detect when inheriting from the config
 		echo "using rand email"
 		EMAIL="$EMAIL_SUGGESTED"
 	else
@@ -508,9 +512,9 @@ set_install_vars() {
 	# update the config
 	touch $CONFIG_FILE
 	if grep -q "^EMAIL=" $CONFIG_FILE; then
-			sed -i "s/EMAIL=.*/EMAIL=$EMAIL/" $CONFIG_FILE
+		sed -i "s/EMAIL=.*/EMAIL=$EMAIL/" $CONFIG_FILE
 	else
-			echo "EMAIL=$EMAIL" >> $CONFIG_FILE
+		echo "EMAIL=$EMAIL" >>$CONFIG_FILE
 	fi
 
 	wait_seconds 1
@@ -595,14 +599,18 @@ install_netmaker() {
 
 	COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/compose/docker-compose.yml"
 	CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/Caddyfile"
+	CERTS_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/scripts/nm-certs.sh"
 	if [ "$INSTALL_TYPE" = "ee" ]; then
 		COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/compose/docker-compose.ee.yml"
 		CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/Caddyfile-EE"
+		CERTS_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/scripts/nm-certs.sh"
 	fi
 	if [ ! "$BUILD_TYPE" = "local" ]; then
-		# TODO debug only
-		# wget -O /root/docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/mosquitto.conf && wget -O /root/Caddyfile $CADDY_URL
-		wget -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/wait.sh
+		wget -qO /root/docker-compose.yml $COMPOSE_URL
+		wget -qO /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/mosquitto.conf
+		wget -qO /root/Caddyfile $CADDY_URL
+		wget -qO /root/nm-quick.sh $CERTS_URL
+		wget -qO /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/wait.sh
 	fi
 
 	chmod +x /root/wait.sh
@@ -636,7 +644,12 @@ install_netmaker() {
 
 	echo "Starting containers..."
 
-	docker-compose -f /root/docker-compose.yml up -d
+	# increase the timeouts
+	export DOCKER_CLIENT_TIMEOUT=120
+	export COMPOSE_HTTP_TIMEOUT=120
+
+	# start docker and rebuild containers / networks
+	docker-compose -f /root/docker-compose.yml up -d --force-recreate
 
 	wait_seconds 2
 
@@ -722,7 +735,8 @@ set -e
 # 6. get user input for variables
 set_install_vars
 
-./nm-certs.sh
+# Fetch / update certs using certbot
+"$SCRIPT_DIR"/nm-certs.sh
 
 # 7. get and set config files, startup docker-compose
 install_netmaker
