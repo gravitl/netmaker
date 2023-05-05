@@ -4,6 +4,19 @@ import (
 	"time"
 )
 
+const (
+	Undefined KeyType = iota
+	TimeExpiration
+	Uses
+	Unlimited
+)
+
+type KeyType int
+
+func (k KeyType) String() string {
+	return [...]string{"Undefined", "TimeExpiration", "Uses", "Unlimited"}[k]
+}
+
 // EnrollmentToken - the tokenized version of an enrollmentkey;
 // to be used for host registration
 type EnrollmentToken struct {
@@ -23,6 +36,7 @@ type EnrollmentKey struct {
 	Unlimited     bool      `json:"unlimited"`
 	Tags          []string  `json:"tags"`
 	Token         string    `json:"token,omitempty"` // B64 value of EnrollmentToken
+	Type          KeyType   `json:"type"`
 }
 
 // APIEnrollmentKey - used to create enrollment keys via API
@@ -50,6 +64,9 @@ func (k *EnrollmentKey) IsValid() bool {
 	}
 	if !k.Expiration.IsZero() && time.Now().Before(k.Expiration) {
 		return true
+	}
+	if k.Type == Undefined {
+		return false
 	}
 
 	return k.Unlimited
