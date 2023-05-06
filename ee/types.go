@@ -3,7 +3,7 @@ package ee
 import "fmt"
 
 const (
-	api_endpoint               = "https://api.staging.accounts.netmaker.io/api/v1/license/validate"
+	api_endpoint               = "https://api.accounts.netmaker.io/api/v1/license/validate"
 	license_cache_key          = "license_response_cache"
 	license_validation_err_msg = "invalid license"
 	server_id_key              = "nm-server-id"
