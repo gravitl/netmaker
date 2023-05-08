@@ -46,6 +46,7 @@ type APIEnrollmentKey struct {
 	Networks      []string `json:"networks"`
 	Unlimited     bool     `json:"unlimited"`
 	Tags          []string `json:"tags"`
+	Type          KeyType  `json:"type"`
 }
 
 // RegisterResponse - the response to a successful enrollment register
