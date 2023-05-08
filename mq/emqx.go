@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/gravitl/netmaker/servercfg"
 )
+
+const already_exists = "ALREADY_EXISTS"
 
 type (
 	emqxUser struct {
@@ -99,7 +102,9 @@ func CreateEmqxUser(username, password string, admin bool) error {
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf("error creating EMQX user %v", string(msg))
+		if !strings.Contains(string(msg), already_exists) {
+			return fmt.Errorf("error creating EMQX user %v", string(msg))
+		}
 	}
 	return nil
 }
