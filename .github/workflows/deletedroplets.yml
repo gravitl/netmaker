@@ -23,7 +23,7 @@ jobs:
           webhook_token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
           color: "#42f545"
           username: "GitHub Bot"
-          message: "${{ github.respository }}: ${{ github.event.workflow_run.name }} was successful"
+          message: "${{ github.repository }}: ${{ github.event.workflow_run.name }} was successful"
           file: ./results/results.log
       - name: discord server message
         uses: appleboy/discord-action@master
@@ -62,7 +62,7 @@ jobs:
           webhook_token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
           color: "#990000"
           username: "GitHub Bot"
-          message: "${{ github.respository }}: ${{ github.event.workflow_run.name }} failed"
+          message: "${{ github.repository }}: ${{ github.event.workflow_run.name }} failed"
           file: ./results/results.log
       - name: discord server message
         uses: appleboy/discord-action@master
