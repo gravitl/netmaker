@@ -13,7 +13,7 @@ on:
 jobs:
 
   release:
-    uses: gravitl/devops/.github/workflows/netmakerRelease.yml@master
+    uses: mattkasun/devops/.github/workflows/netmakerRelease.yml@master
     with:
       version: ${{ inputs.version }}
     secrets: inherit
