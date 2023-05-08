@@ -38,7 +38,7 @@ usage() {
 	echo "  -e      if specified, will install netmaker EE"
 	echo "  -b      type of build; options:"
 	echo "          \"version\" - will install a specific version of Netmaker using remote git and dockerhub"
-	echo "          \"local\": - will install by cloning repo and and building images from git"
+	echo "          \"local\": - will install by cloning repo and building images from git"
 	echo "          \"branch\": - will install a specific branch using remote git and dockerhub"
 	echo "  -t      tag of build; if buildtype=version, tag=version. If builtype=branch or builtype=local, tag=branch"
 	echo "  -a      auto-build; skip prompts and use defaults, if none provided"
@@ -301,7 +301,7 @@ install_dependencies() {
 		update_cmd='yum update'
 		install_cmd='yum install -y'
 	elif [ -f /etc/arch-release ]; then
-		dependecies="git wireguard-tools dnsutils jq docker.io docker-compose"
+		dependencies="git wireguard-tools dnsutils jq docker.io docker-compose"
 		update_cmd='pacman -Sy'
 		install_cmd='pacman -S --noconfirm'
 	elif [ "${OS}" = "FreeBSD" ]; then
