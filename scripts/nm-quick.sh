@@ -3,6 +3,7 @@
 CONFIG_FILE=netmaker.env
 # location of nm-quick.sh (usually `/root`)
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
+CONFIG_PATH="$SCRIPT_DIR/$CONFIG_FILE"
 LATEST=$(curl -s https://api.github.com/repos/gravitl/netmaker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d [:space:],\")
 
 print_logo() { (
@@ -255,6 +256,23 @@ confirm() { (
 	done
 ) }
 
+save_config() { (
+	echo "Saving the config to $CONFIG_PATH"
+	touch "$CONFIG_PATH"
+	# email
+	if grep -q "^NM_EMAIL=" "$CONFIG_PATH"; then
+		sed -i "s/NM_EMAIL=.*/NM_EMAIL=$EMAIL/" "$CONFIG_PATH"
+	else
+		echo "NM_EMAIL=$EMAIL" >>"$CONFIG_PATH"
+	fi
+	# domain
+	if grep -q "^NM_DOMAIN=" "$CONFIG_PATH"; then
+		sed -i "s/NM_DOMAIN=.*/NM_DOMAIN=$NETMAKER_BASE_DOMAIN/" "$CONFIG_PATH"
+	else
+		echo "NM_DOMAIN=$NETMAKER_BASE_DOMAIN" >>"$CONFIG_PATH"
+	fi
+)}
+
 # local_install_setup - builds artifacts based on specified branch locally to use in install
 local_install_setup() { (
 	rm -rf netmaker-tmp
@@ -304,7 +322,7 @@ install_dependencies() {
 		update_cmd='yum update'
 		install_cmd='yum install -y'
 	elif [ -f /etc/arch-release ]; then
-		dependecies="git wireguard-tools dnsutils jq docker.io certbot docker-compose"
+		dependencies="git wireguard-tools dnsutils jq docker.io certbot docker-compose"
 		update_cmd='pacman -Sy'
 		install_cmd='pacman -S --noconfirm'
 	elif [ "${OS}" = "FreeBSD" ]; then
@@ -437,14 +455,6 @@ set_install_vars() {
 		done
 	fi
 
-	# update the config
-	touch $CONFIG_FILE
-	if grep -q "^DOMAIN=" $CONFIG_FILE; then
-		sed -i "s/DOMAIN=.*/DOMAIN=$NETMAKER_BASE_DOMAIN/" $CONFIG_FILE
-	else
-		echo "DOMAIN=$NETMAKER_BASE_DOMAIN" >>$CONFIG_FILE
-	fi
-
 	wait_seconds 2
 
 	echo "-----------------------------------------------------"
@@ -454,7 +464,7 @@ set_install_vars() {
 	echo "             broker.$NETMAKER_BASE_DOMAIN"
 	echo "               stun.$NETMAKER_BASE_DOMAIN"
 	echo "               turn.$NETMAKER_BASE_DOMAIN"
-	echo "               turnapi.$NETMAKER_BASE_DOMAIN"
+	echo "            turnapi.$NETMAKER_BASE_DOMAIN"
 
 	if [ "$INSTALL_TYPE" = "ee" ]; then
 		echo "         prometheus.$NETMAKER_BASE_DOMAIN"
@@ -491,32 +501,27 @@ set_install_vars() {
 	fi
 
 	# read the config file
-	if [ -f $CONFIG_FILE ]; then
-		source $CONFIG_FILE
+	if [ -f "$CONFIG_PATH" ]; then
+		source "$CONFIG_PATH"
 	fi
 
 	unset GET_EMAIL
 	unset RAND_EMAIL
 	RAND_EMAIL="$(echo $RANDOM | md5sum | head -c 16)@email.com"
 	# suggest the prev email or a random one
-	EMAIL_SUGGESTED=${EMAIL:-$RAND_EMAIL}
+	EMAIL_SUGGESTED=${NM_EMAIL:-$RAND_EMAIL}
 	if [ -z $AUTO_BUILD ]; then
 		read -p "Email Address for Domain Registration (click 'enter' to use $EMAIL_SUGGESTED): " GET_EMAIL
 	fi
 	if [ -z "$GET_EMAIL" ]; then
-		# TODO detect when inheriting from the config
-		echo "using rand email"
+		if [ "$EMAIL" = "$NM_EMAIL" ]; then
+			echo "using config email"
+		else
+			echo "using rand email"
+		fi
 		EMAIL="$EMAIL_SUGGESTED"
 	else
 		EMAIL="$GET_EMAIL"
-	fi
-
-	# update the config
-	touch $CONFIG_FILE
-	if grep -q "^EMAIL=" $CONFIG_FILE; then
-		sed -i "s/EMAIL=.*/EMAIL=$EMAIL/" $CONFIG_FILE
-	else
-		echo "EMAIL=$EMAIL" >>$CONFIG_FILE
 	fi
 
 	wait_seconds 1
@@ -576,7 +581,7 @@ set_install_vars() {
 		read -p "TURN Username (click 'enter' to use 'netmaker'): " GET_TURN_USERNAME
 	fi
 	if [ -z "$GET_TURN_USERNAME" ]; then
-		echo "using default username for mq"
+		echo "using default username for TURN"
 		TURN_USERNAME="netmaker"
 	else
 		TURN_USERNAME="$GET_TURN_USERNAME"
@@ -591,27 +596,27 @@ set_install_vars() {
 		select domain_option in "Auto Generated Password" "Input Your Own Password"; do
 			case $REPLY in
 			1)
-			echo "using random password for turn"
-			break
-			;;
+				echo "using random password for turn"
+				break
+				;;
 			2)
 				while true; do
-				echo "Enter your Password For TURN: "
-				read -s GET_TURN_PASSWORD
-				echo "Enter your password again to confirm: "
-				read -s CONFIRM_TURN_PASSWORD
-				if [ ${GET_TURN_PASSWORD} != ${CONFIRM_TURN_PASSWORD} ]; then
-					echo "wrong password entered, try again..."
-					continue
-				fi
-				TURN_PASSWORD="$GET_TURN_PASSWORD"
-				echo "TURN Password Saved Successfully!!"
+					echo "Enter your Password For TURN: "
+					read -s GET_TURN_PASSWORD
+					echo "Enter your password again to confirm: "
+					read -s CONFIRM_TURN_PASSWORD
+					if [ ${GET_TURN_PASSWORD} != ${CONFIRM_TURN_PASSWORD} ]; then
+						echo "wrong password entered, try again..."
+						continue
+					fi
+					TURN_PASSWORD="$GET_TURN_PASSWORD"
+					echo "TURN Password Saved Successfully!!"
+					break
+				done
 				break
-			done
-			break
-			;;
-			*) echo "invalid option $REPLY";;
-		esac
+				;;
+			*) echo "invalid option $REPLY" ;;
+			esac
 		done
 	fi
 
@@ -633,6 +638,7 @@ set_install_vars() {
 
 	confirm
 
+	save_config
 }
 
 # install_netmaker - sets the config files and starts docker-compose
@@ -652,13 +658,12 @@ install_netmaker() {
 	if [ "$INSTALL_TYPE" = "ee" ]; then
 		COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/compose/docker-compose.ee.yml"
 		CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/Caddyfile-EE"
-		CERTS_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/scripts/nm-certs.sh"
 	fi
 	if [ ! "$BUILD_TYPE" = "local" ]; then
 		wget -qO /root/docker-compose.yml $COMPOSE_URL
 		wget -qO /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/mosquitto.conf
 		wget -qO /root/Caddyfile $CADDY_URL
-		wget -qO /root/nm-quick.sh $CERTS_URL
+		wget -qO /root/nm-certs.sh $CERTS_URL
 		wget -qO /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/wait.sh
 	fi
 

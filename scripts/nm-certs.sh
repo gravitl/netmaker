@@ -2,7 +2,7 @@
 
 CONFIG_FILE=netmaker.env
 # TODO make sure this doesnt break, parse `certbot certificates` if yes
-CERT_DIR=/etc/letsencrypt/live/stun.$DOMAIN/
+CERT_DIR=/etc/letsencrypt/live/stun.$NM_DOMAIN/
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
 
 # get and check the config
@@ -11,7 +11,7 @@ if [ ! -f "$SCRIPT_DIR/$CONFIG_FILE" ]; then
 	exit 1
 fi
 source "$SCRIPT_DIR/$CONFIG_FILE"
-if [[ -n "$DOMAIN" || -n "$EMAIL" ]]; then
+if [[ -n "$NM_DOMAIN" || -n "$NM_EMAIL" ]]; then
 	echo "Config not valid"
 	exit 1
 fi
@@ -32,14 +32,14 @@ fi
 
 # request certs
 ./zerossl-bot.sh certonly --standalone \
-	-m "$EMAIL" \
-	-d "stun.$DOMAIN" \
-	-d "broker.$DOMAIN" \
-	-d "dashboard.$DOMAIN" \
-	-d "turnapi.$DOMAIN" \
-	-d "netmaker-exporter.$DOMAIN" \
-	-d "grafana.$DOMAIN" \
-	-d "prometheus.$DOMAIN"
+	-m "$NM_EMAIL" \
+	-d "stun.$NM_DOMAIN" \
+	-d "broker.$NM_DOMAIN" \
+	-d "dashboard.$NM_DOMAIN" \
+	-d "turnapi.$NM_DOMAIN" \
+	-d "netmaker-exporter.$NM_DOMAIN" \
+	-d "grafana.$NM_DOMAIN" \
+	-d "prometheus.$NM_DOMAIN"
 
 # TODO fallback to letsencrypt
 
