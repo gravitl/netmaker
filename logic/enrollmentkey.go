@@ -46,12 +46,10 @@ func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string
 	if uses > 0 {
 		k.UsesRemaining = uses
 		k.Type = models.Uses
-	}
-	if !expiration.IsZero() {
+	} else if !expiration.IsZero() {
 		k.Expiration = expiration
 		k.Type = models.TimeExpiration
-	}
-	if k.Unlimited {
+	} else if k.Unlimited {
 		k.Type = models.Unlimited
 	}
 	if len(networks) > 0 {
