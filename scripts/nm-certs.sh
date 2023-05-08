@@ -1,8 +1,6 @@
 #!/bin/bash
 
 CONFIG_FILE=netmaker.env
-# TODO make sure this doesnt break, parse `certbot certificates` if yes
-CERT_DIR=/etc/letsencrypt/live/stun.$NM_DOMAIN
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
 
 # get and check the config
@@ -15,6 +13,9 @@ if [ -z "$NM_DOMAIN" ] || [ -z "$NM_EMAIL" ]; then
 	echo "Config not valid"
 	exit 1
 fi
+
+# TODO make sure this doesnt break, parse `certbot certificates` if yes
+CERT_DIR=/etc/letsencrypt/live/stun.$NM_DOMAIN
 
 echo "Setting up SSL certificates..."
 
@@ -45,6 +46,7 @@ fi
 
 # check if successful
 if [ ! -f "$CERT_DIR"/fullchain.pem ]; then
+	echo "Missing file: $CERT_DIR/fullchain.pem"
 	echo "SSL certificates failed"
 	exit 1
 fi

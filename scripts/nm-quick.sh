@@ -81,26 +81,6 @@ print_logo() {
 EOF
 }
 
-# print_logo - prints the netmaker logo
-print_logo() {
-	cat <<"EOF"
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
- __   __     ______     ______   __    __     ______     __  __     ______     ______
-/\ "-.\ \   /\  ___\   /\__  _\ /\ "-./  \   /\  __ \   /\ \/ /    /\  ___\   /\  == \
-\ \ \-.  \  \ \  __\   \/_/\ \/ \ \ \-./\ \  \ \  __ \  \ \  _"-.  \ \  __\   \ \  __<
- \ \_\\"\_\  \ \_____\    \ \_\  \ \_\ \ \_\  \ \_\ \_\  \ \_\ \_\  \ \_____\  \ \_\ \_\
-  \/_/ \/_/   \/_____/     \/_/   \/_/  \/_/   \/_/\/_/   \/_/\/_/   \/_____/   \/_/ /_/
-
-
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-EOF
-}
-
 # set_buildinfo - sets the information based on script input for how the installation should be run
 set_buildinfo() {
 
@@ -251,6 +231,7 @@ confirm() { (
 		[Nn]*)
 			echo "exiting..."
 			exit 1
+			# TODO start from the beginning instead
 			;;
 		*) echo "Please answer yes or no." ;;
 		esac
@@ -498,6 +479,7 @@ set_install_vars() {
 
 	# read the config file
 	if [ -f "$CONFIG_PATH" ]; then
+		echo "Reading config from $CONFIG_PATH"
 		source "$CONFIG_PATH"
 	fi
 
@@ -510,12 +492,12 @@ set_install_vars() {
 		read -p "Email Address for Domain Registration (click 'enter' to use $EMAIL_SUGGESTED): " GET_EMAIL
 	fi
 	if [ -z "$GET_EMAIL" ]; then
+		EMAIL="$EMAIL_SUGGESTED"
 		if [ "$EMAIL" = "$NM_EMAIL" ]; then
 			echo "using config email"
 		else
 			echo "using rand email"
 		fi
-		EMAIL="$EMAIL_SUGGESTED"
 	else
 		EMAIL="$GET_EMAIL"
 	fi
@@ -650,17 +632,17 @@ install_netmaker() {
 
 	COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/compose/docker-compose.yml"
 	CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/Caddyfile"
-	CERTS_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/scripts/nm-certs.sh"
 	if [ "$INSTALL_TYPE" = "ee" ]; then
 		COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/compose/docker-compose.ee.yml"
 		CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/Caddyfile-EE"
 	fi
+
 	if [ ! "$BUILD_TYPE" = "local" ]; then
 		wget -qO /root/docker-compose.yml $COMPOSE_URL
-		wget -qO /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/mosquitto.conf
 		wget -qO /root/Caddyfile $CADDY_URL
-		wget -qO /root/nm-certs.sh $CERTS_URL
-		wget -qO /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/wait.sh
+		wget -qO /root/mosquitto.conf "https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/mosquitto.conf"
+		wget -qO /root/nm-certs.sh "https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/scripts/nm-certs.sh"
+		wget -qO /root/wait.sh "https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/wait.sh"
 	fi
 
 	chmod +x /root/wait.sh
@@ -788,11 +770,11 @@ set -e
 # 6. get user input for variables
 set_install_vars
 
-# Fetch / update certs using certbot
-"$SCRIPT_DIR"/nm-certs.sh
-
 # 7. get and set config files, startup docker-compose
 install_netmaker
+
+# Fetch / update certs using certbot
+"$SCRIPT_DIR"/nm-certs.sh
 
 set +e
 
