@@ -576,13 +576,16 @@ set_install_vars() {
 		read -p "TURN Username (click 'enter' to use 'netmaker'): " GET_TURN_USERNAME
 	fi
 	if [ -z "$GET_TURN_USERNAME" ]; then
-	echo "using default username for mq"
-	TURN_USERNAME="netmaker"
+		echo "using default username for mq"
+		TURN_USERNAME="netmaker"
 	else
-	TURN_USERNAME="$GET_TURN_USERNAME"
+		TURN_USERNAME="$GET_TURN_USERNAME"
 	fi
 
-	TURN_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30 ; echo '')
+	TURN_PASSWORD=$(
+		tr -dc A-Za-z0-9 </dev/urandom | head -c 30
+		echo ''
+	)
 
 	if [ -z $AUTO_BUILD ]; then
 		select domain_option in "Auto Generated Password" "Input Your Own Password"; do
@@ -592,8 +595,7 @@ set_install_vars() {
 			break
 			;;
 			2)
-			while true
-			do
+				while true; do
 				echo "Enter your Password For TURN: "
 				read -s GET_TURN_PASSWORD
 				echo "Enter your password again to confirm: "
