@@ -11,8 +11,10 @@ const (
 	Unlimited
 )
 
+// KeyType - the type of enrollment key
 type KeyType int
 
+// String - returns the string representation of a KeyType
 func (k KeyType) String() string {
 	return [...]string{"Undefined", "TimeExpiration", "Uses", "Unlimited"}[k]
 }

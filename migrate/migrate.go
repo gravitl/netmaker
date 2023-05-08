@@ -8,6 +8,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
+// Run - runs all migrations
 func Run() {
 	updateEnrollmentKeys()
 }
@@ -29,11 +30,9 @@ func updateEnrollmentKeys() {
 			logger.Log(2, "migration: updating enrollment key type")
 			if key.Unlimited {
 				key.Type = models.Unlimited
-			}
-			if key.UsesRemaining > 0 {
+			} else if key.UsesRemaining > 0 {
 				key.Type = models.Uses
-			}
-			if !key.Expiration.IsZero() {
+			} else if !key.Expiration.IsZero() {
 				key.Type = models.TimeExpiration
 			}
 		}
