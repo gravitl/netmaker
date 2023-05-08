@@ -32,6 +32,18 @@ https://stun.NETMAKER_BASE_DOMAIN {
 	reverse_proxy netmaker:3478
 }
 
+# TURN
+https://turn.NETMAKER_BASE_DOMAIN {
+	tls /root/fullchain.pem /root/privkey.pem
+	reverse_proxy host.docker.internal:3479
+}
+
+#TURN API
+https://turnapi.NETMAKER_BASE_DOMAIN {
+	tls /root/fullchain.pem /root/privkey.pem
+    reverse_proxy http://host.docker.internal:8089
+}
+
 # MQ
 wss://broker.NETMAKER_BASE_DOMAIN {
 	tls /root/fullchain.pem /root/privkey.pem

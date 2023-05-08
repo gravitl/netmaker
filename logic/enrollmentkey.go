@@ -9,7 +9,6 @@ import (
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/ncutils"
 )
 
 // EnrollmentErrors - struct for holding EnrollmentKey error messages
@@ -190,9 +189,9 @@ func getUniqueEnrollmentID() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	newID := ncutils.MakeRandomString(models.EnrollmentKeyLength)
+	newID := RandomString(models.EnrollmentKeyLength)
 	for _, ok := currentKeys[newID]; ok; {
-		newID = ncutils.MakeRandomString(models.EnrollmentKeyLength)
+		newID = RandomString(models.EnrollmentKeyLength)
 	}
 	return newID, nil
 }

@@ -30,6 +30,12 @@ services:
       MQ_USERNAME: "REPLACE_MQ_USERNAME"
       STUN_PORT: "3478"
       DEFAULT_PROXY_MODE: "off"
+      TURN_SERVER_HOST: "turn.NETMAKER_BASE_DOMAIN"
+      TURN_SERVER_API_HOST: "https://turnapi.NETMAKER_BASE_DOMAIN"
+      TURN_PORT: "3479"
+      TURN_USERNAME: "REPLACE_TURN_USERNAME"
+      TURN_PASSWORD: "REPLACE_TURN_PASSWORD"
+      USE_TURN: "true"
     ports:
       - "3478:3478/udp"
   netmaker-ui:
@@ -46,6 +52,8 @@ services:
     image: caddy:2.6.2
     container_name: caddy
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - /root/Caddyfile:/etc/caddy/Caddyfile
       - /root/fullchain.pem:/root/fullchain.pem
@@ -78,9 +86,25 @@ services:
       - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
       - /root/wait.sh:/mosquitto/config/wait.sh
       - mosquitto_logs:/mosquitto/log
+  turn:
+    container_name: turn
+    image: gravitl/turnserver:v1.0.0
+    network_mode: "host"
+    volumes:
+      - turn_server:/etc/config
+    environment:
+      DEBUG_MODE: "off"
+      VERBOSITY: "1"
+      TURN_PORT: "3479"
+      TURN_API_PORT: "8089"
+      CORS_ALLOWED_ORIGIN: "*"
+      TURN_SERVER_HOST: "turn.NETMAKER_BASE_DOMAIN"
+      USERNAME: "REPLACE_TURN_USERNAME"
+      PASSWORD: "REPLACE_TURN_PASSWORD"
 volumes:
   caddy_data: {}
   caddy_conf: {}
   sqldata: {}
   dnsconfig: {}
   mosquitto_logs: {}
+  turn_server: {}

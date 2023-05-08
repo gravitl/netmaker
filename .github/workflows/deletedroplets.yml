@@ -23,7 +23,7 @@ jobs:
           webhook_token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
           color: "#42f545"
           username: "GitHub Bot"
-          message: " ${{ github.event.workflow_run.name }} was successful"
+          message: "${{ github.respository }}: ${{ github.event.workflow_run.name }} was successful"
           file: ./results/results.log
       - name: discord server message
         uses: appleboy/discord-action@master
@@ -32,9 +32,10 @@ jobs:
           webhook_token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
           color: "#42f545"
           username: "GitHub Bot"
-          message: "droplets from this workflow will be deleted in 15 min"
+          message: "droplets from this workflow (tag ${{ github.event.workflow_run.id }}-{{ $github.event.workflow_run.run_number }}) will be deleted in 15 min"
           file: ./server/serverinfo.txt
       - name: delete droplets
+        if: success() || failure()
         run: |
           sleep 15m
           curl -X GET \
@@ -59,18 +60,18 @@ jobs:
         with:
           webhook_id: ${{ secrets.DISCORD_WEBHOOK_ID }}
           webhook_token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
-          color: "#42f545"
+          color: "#990000"
           username: "GitHub Bot"
-          message: " ${{ github.event.workflow_run.name }} failed"
+          message: "${{ github.respository }}: ${{ github.event.workflow_run.name }} failed"
           file: ./results/results.log
       - name: discord server message
         uses: appleboy/discord-action@master
         with:
           webhook_id: ${{ secrets.DISCORD_WEBHOOK_ID }}
           webhook_token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
-          color: "#42f545"
+          color: "#990000"
           username: "GitHub Bot"
-          message: "droplets from this workflow will be deleted in 6 hours"
+          message: "droplets from this workflow (tag ${{ github.event.workflow_run.id }}-{{ $github.event.workflow_run.run_number }}) will be deleted in 6 hours"
           file: ./server/serverinfo.txt
       - name: discord error message
         uses: appleboy/discord-action@master
@@ -82,6 +83,7 @@ jobs:
           message: "errors from ${{ github.event.workflow_run.name }}"
           file: ./results/errors.log
       - name: delete droplets
+        if: success() || failure()
         run: |
           sleep 6h
           curl -X GET \

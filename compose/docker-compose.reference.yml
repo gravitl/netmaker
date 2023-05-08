@@ -40,6 +40,12 @@ services:
       AZURE_TENANT: "" # "<only for azure, you may optionally specify the tenant for the OAuth>"
       OIDC_ISSUER: "" # https://oidc.yourprovider.com - URL of oidc provider
       DEFAULT_PROXY_MODE: "off" # if ON, all new clients will enable proxy by default if OFF, all new clients will disable proxy by default, if AUTO, stick with the existing logic for NAT detection
+      TURN_SERVER_HOST: "turn.NETMAKER_BASE_DOMAIN" # domain for your turn server
+      TURN_SERVER_API_HOST: "https://turnapi.NETMAKER_BASE_DOMAIN" # domain of the turn api server
+      TURN_PORT: "3479" #  port to access turn server
+      TURN_USERNAME: "REPLACE_TURN_USERNAME"  # the username to set for turn api access
+      TURN_PASSWORD: "REPLACE_TURN_PASSWORD" #  the password to set for turn api access
+      USE_TURN: "true" #config for using turn, accepts either true/false
     ports:
       - "3478:3478/udp" # the stun port
   netmaker-ui:  # The Netmaker UI Component
@@ -89,6 +95,22 @@ services:
     ports:
       - "1883:1883"
       - "8883:8883"
+  turn:
+    container_name: turn
+    image: gravitl/turnserver:v1.0.0
+    network_mode: "host"
+    volumes:
+      - turn_server:/etc/config
+    environment:
+      DEBUG_MODE: "off"
+      VERBOSITY: "1"
+      TURN_PORT: "3479"
+      TURN_API_PORT: "8089"
+      CORS_ALLOWED_ORIGIN: "*"
+      TURN_SERVER_HOST: "turn.NETMAKER_BASE_DOMAIN"
+      USERNAME: "REPLACE_TURN_USERNAME"
+      PASSWORD: "REPLACE_TURN_PASSWORD"
+      USE_TURN: "true"
 volumes:
   caddy_data: {} # runtime data for caddy
   caddy_conf: {} # configuration file for Caddy
@@ -96,3 +118,4 @@ volumes:
   sqldata: {} # storage for embedded sqlite
   dnsconfig: {} # storage for coredns
   mosquitto_logs: {} # storage for mqtt logs
+  turn_server: {}

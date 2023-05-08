@@ -1,14 +1,20 @@
-# Netmaker v0.18.7
+# Netmaker v0.19.0
 
 ## whats new
+- TURN
+- dependency updates
 - internet gateways (0.0.0.0/0) for egress
 - deprecated editing of network parameters
 - allow extra ips for extclient (not enabled in UI)
     
 ## whats fixed
-- nm-quick - determine lastest version from releases
-- wireguard public/private key rotation
-- ee-license checks
+- unbiased random string
+- get traffic keys on pull
+- CI updates
+- install/update script updates
+- firewall checks
+-  
+- 
 
 ## known issues
 - Caddy does not handle netmaker exporter well for EE

@@ -101,6 +101,8 @@ func ParseBool(s string) bool {
 type HostMqAction string
 
 const (
+	// SignalHost - const for host signal action
+	SignalHost = "SIGNAL_HOST"
 	// UpdateHost - constant for host update action
 	UpdateHost = "UPDATE_HOST"
 	// DeleteHost - constant for host delete action
@@ -113,6 +115,8 @@ const (
 	RequestAck = "REQ_ACK"
 	// CheckIn - update last check in times and public address and interfaces
 	CheckIn = "CHECK_IN"
+	// REGISTER_WITH_TURN - registers host with turn server if configured
+	RegisterWithTurn = "REGISTER_WITH_TURN"
 	// UpdateKeys - update wireguard private/public keys
 	UpdateKeys = "UPDATE_KEYS"
 )
@@ -122,6 +126,22 @@ type HostUpdate struct {
 	Action HostMqAction
 	Host   Host
 	Node   Node
+	Signal Signal
+}
+
+// HostTurnRegister - struct for host turn registration
+type HostTurnRegister struct {
+	HostID       string `json:"host_id"`
+	HostPassHash string `json:"host_pass_hash"`
+}
+
+// Signal - struct for signalling peer
+type Signal struct {
+	Server            string `json:"server"`
+	FromHostPubKey    string `json:"from_host_pubkey"`
+	TurnRelayEndpoint string `json:"turn_relay_addr"`
+	ToHostPubKey      string `json:"to_host_pubkey"`
+	Reply             bool   `json:"reply"`
 }
 
 // RegisterMsg - login message struct for hosts to join via SSO login
