@@ -2,7 +2,7 @@
 
 CONFIG_FILE=netmaker.env
 # TODO make sure this doesnt break, parse `certbot certificates` if yes
-CERT_DIR=/etc/letsencrypt/live/stun.$NM_DOMAIN/
+CERT_DIR=/etc/letsencrypt/live/stun.$NM_DOMAIN
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
 
 # get and check the config
@@ -11,7 +11,7 @@ if [ ! -f "$SCRIPT_DIR/$CONFIG_FILE" ]; then
 	exit 1
 fi
 source "$SCRIPT_DIR/$CONFIG_FILE"
-if [[ -n "$NM_DOMAIN" || -n "$NM_EMAIL" ]]; then
+if [ -z "$NM_DOMAIN" ] || [ -z "$NM_EMAIL" ]; then
 	echo "Config not valid"
 	exit 1
 fi
@@ -60,3 +60,6 @@ if [ "$RESTART_CADDY" = true ]; then
 	echo "Starting Caddy..."
 	docker-compose -f /root/docker-compose.yml start caddy
 fi
+
+# install crontab
+ln -sfn "$SCRIPT_DIR"/nm-certs.sh /etc/cron.monthly/nm-certs.sh
