@@ -20,7 +20,7 @@ const (
 func checkFreeTierLimits(limit_choice int, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
-			Code: http.StatusUnauthorized, Message: "free tier limits exceeded on networks",
+			Code: http.StatusForbidden, Message: "free tier limits exceeded on networks",
 		}
 
 		if logic.Free_Tier && servercfg.Is_EE { // check that free tier limits not exceeded
