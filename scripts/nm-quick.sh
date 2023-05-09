@@ -284,35 +284,35 @@ install_dependencies() {
 
 	OS=$(uname)
 	if [ -f /etc/debian_version ]; then
-		dependencies="git wireguard wireguard-tools dnsutils jq docker.io certbot docker-compose python-is-python3"
+		dependencies="git wireguard wireguard-tools dnsutils jq docker.io docker-compose"
 		update_cmd='apt update'
 		install_cmd='apt-get install -y'
 	elif [ -f /etc/alpine-release ]; then
-		dependencies="git wireguard jq docker.io certbot docker-compose"
+		dependencies="git wireguard jq docker.io docker-compose"
 		update_cmd='apk update'
 		install_cmd='apk --update add'
 	elif [ -f /etc/centos-release ]; then
-		dependencies="git wireguard jq bind-utils docker.io certbot docker-compose"
+		dependencies="git wireguard jq bind-utils docker.io docker-compose"
 		update_cmd='yum update'
 		install_cmd='yum install -y'
 	elif [ -f /etc/fedora-release ]; then
-		dependencies="git wireguard bind-utils jq docker.io certbot docker-compose"
+		dependencies="git wireguard bind-utils jq docker.io docker-compose"
 		update_cmd='dnf update'
 		install_cmd='dnf install -y'
 	elif [ -f /etc/redhat-release ]; then
-		dependencies="git wireguard jq docker.io bind-utils certbot docker-compose"
+		dependencies="git wireguard jq docker.io bind-utils docker-compose"
 		update_cmd='yum update'
 		install_cmd='yum install -y'
 	elif [ -f /etc/arch-release ]; then
-		dependencies="git wireguard-tools dnsutils jq docker.io certbot docker-compose"
+		dependencies="git wireguard-tools dnsutils jq docker.io docker-compose"
 		update_cmd='pacman -Sy'
 		install_cmd='pacman -S --noconfirm'
 	elif [ "${OS}" = "FreeBSD" ]; then
-		dependencies="git wireguard wget jq docker.io certbot docker-compose"
+		dependencies="git wireguard wget jq docker.io docker-compose"
 		update_cmd='pkg update'
 		install_cmd='pkg install -y'
 	elif [ -f /etc/turris-version ]; then
-		dependencies="git wireguard-tools bash jq docker.io certbot docker-compose"
+		dependencies="git wireguard-tools bash jq docker.io docker-compose"
 		OS="TurrisOS"
 		update_cmd='opkg update'
 		install_cmd='opkg install'
