@@ -27,17 +27,8 @@ if [ -n "$(docker ps | grep caddy)" ]; then
 	docker-compose -f /root/docker-compose.yml stop caddy
 fi
 
-# generate an entrypoint for certbot
-cat <<EOF > "$SCRIPT_DIR/certbot-entry.sh"
-#!/bin/sh
-# deps
-apk add bash curl
-# zerossl
-wget -qO zerossl-bot.sh "https://github.com/zerossl/zerossl-bot/raw/master/zerossl-bot.sh"
-chmod +x zerossl-bot.sh
-# request the certs
-./zerossl-bot.sh \
-	certonly --standalone \
+CERTBOT_PARAMS=$(cat <<EOF
+certonly --standalone \
 	--non-interactive --agree-tos \
 	-m "$NM_EMAIL" \
 	-d "stun.$NM_DOMAIN" \
@@ -49,6 +40,19 @@ chmod +x zerossl-bot.sh
 	-d "netmaker-exporter.$NM_DOMAIN" \
 	-d "grafana.$NM_DOMAIN" \
 	-d "prometheus.$NM_DOMAIN"
+EOF
+)
+
+# generate an entrypoint for zerossl-certbot
+cat <<EOF >"$SCRIPT_DIR/certbot-entry.sh"
+#!/bin/sh
+# deps
+apk add bash curl
+# zerossl
+wget -qO zerossl-bot.sh "https://github.com/zerossl/zerossl-bot/raw/master/zerossl-bot.sh"
+chmod +x zerossl-bot.sh
+# request the certs
+./zerossl-bot.sh "$CERTBOT_PARAMS"
 EOF
 chmod +x certbot-entry.sh
 
@@ -65,10 +69,17 @@ rm "$SCRIPT_DIR/certbot-entry.sh"
 
 # check if successful
 if [ ! -f "$CERT_DIR"/fullchain.pem ]; then
-	# TODO fallback to letsencrypt
-	echo "Missing file: $CERT_DIR/fullchain.pem"
-	echo "SSL certificates failed"
-	exit 1
+	# fallback to letsencrypt-certbot
+	sudo docker run -it --rm --name certbot \
+		-p 80:80 -p 443:443 \
+		-v "$SCRIPT_DIR/letsencrypt:/etc/letsencrypt" \
+		--entrypoint "/opt/certbot/certbot-entry.sh" \
+		certbot/certbot "$CERTBOT_PARAMS"
+	if [ ! -f "$CERT_DIR"/fullchain.pem ]; then
+		echo "Missing file: $CERT_DIR/fullchain.pem"
+		echo "SSL certificates failed"
+		exit 1
+	fi
 fi
 
 # copy for mounting
