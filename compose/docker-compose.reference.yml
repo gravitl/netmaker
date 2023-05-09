@@ -64,6 +64,8 @@ services:
     restart: unless-stopped
     volumes:
       - /root/Caddyfile:/etc/caddy/Caddyfile # Config file for Caddy
+      - /root/fullchain.pem:/root/fullchain.pem
+      - /root/privkey.pem:/root/privkey.pem
       - caddy_data:/data
       - caddy_conf:/config
     ports:

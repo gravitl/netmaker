@@ -260,7 +260,7 @@ local_install_setup() { (
 	rm -rf netmaker-tmp
 	mkdir netmaker-tmp
 	cd netmaker-tmp
-	git clone https://www.github.com/gravitl/netmaker
+	git clone --depth=1 https://www.github.com/gravitl/netmaker
 	cd netmaker
 	git checkout $BUILD_TAG
 	git pull origin $BUILD_TAG
