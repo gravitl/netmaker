@@ -43,6 +43,7 @@ chmod +x zerossl-bot.sh
 	-d "stun.$NM_DOMAIN" \
 	-d "broker.$NM_DOMAIN" \
 	-d "dashboard.$NM_DOMAIN" \
+	-d "turn.$NM_DOMAIN" \
 	-d "turnapi.$NM_DOMAIN" \
 	-d "netmaker-exporter.$NM_DOMAIN" \
 	-d "grafana.$NM_DOMAIN" \
