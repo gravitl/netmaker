@@ -311,11 +311,6 @@ install_dependencies() {
 		dependencies="git wireguard wget jq docker.io docker-compose"
 		update_cmd='pkg update'
 		install_cmd='pkg install -y'
-	elif [ -f /etc/turris-version ]; then
-		dependencies="git wireguard-tools bash jq docker.io docker-compose"
-		OS="TurrisOS"
-		update_cmd='opkg update'
-		install_cmd='opkg install'
 	else
 		install_cmd=''
 	fi
