@@ -14,5 +14,15 @@ var (
 
 // allow only dashes and alphaneumeric for ext client and node names
 func validName(name string) bool {
-	return regexp.MustCompile("^[a-zA-Z0-9-]+$").MatchString(name)
+	reg, err := regexp.Compile("^[a-zA-Z0-9-]+$")
+	if err != nil {
+		return false
+	}
+	if !reg.MatchString(name) {
+		return false
+	}
+	if len(name) > 15 {
+		return false
+	}
+	return true
 }
