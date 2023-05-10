@@ -64,8 +64,8 @@ sudo docker run -it --rm --name certbot \
 	--entrypoint "/opt/certbot/certbot-entry.sh" \
 	certbot/certbot
 
-# clean up
-rm "$SCRIPT_DIR/certbot-entry.sh"
+# clean up TODO enable
+#rm "$SCRIPT_DIR/certbot-entry.sh"
 
 # check if successful
 if [ ! -f "$CERT_DIR"/fullchain.pem ]; then
