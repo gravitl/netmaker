@@ -69,6 +69,7 @@ type CommonNode struct {
 	IsEgressGateway     bool          `json:"isegressgateway" yaml:"isegressgateway"`
 	EgressGatewayRanges []string      `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
 	IsIngressGateway    bool          `json:"isingressgateway" yaml:"isingressgateway"`
+	IngressDNS          string        `json:"extclientdns" yaml:"extclientdns"`
 	DNSOn               bool          `json:"dnson" yaml:"dnson"`
 	PersistentKeepalive time.Duration `json:"persistentkeepalive" yaml:"persistentkeepalive"`
 }

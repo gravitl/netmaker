@@ -231,8 +231,10 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	defaultDNS := ""
-	if network.DefaultExtClientDNS != "" {
-		defaultDNS = "DNS = " + network.DefaultExtClientDNS
+	if client.DNS != "" {
+		defaultDNS = "DNS = " + client.DNS
+	} else if gwnode.IngressDNS != "" {
+		defaultDNS = "DNS = " + gwnode.IngressDNS
 	}
 
 	defaultMTU := 1420
