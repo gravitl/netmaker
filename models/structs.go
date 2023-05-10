@@ -14,12 +14,6 @@ const (
 	PLACEHOLDER_TOKEN_TEXT = "ACCESS_TOKEN"
 )
 
-// CustomExtClient - struct for CustomExtClient params
-type CustomExtClient struct {
-	ClientID  string `json:"clientid"`
-	PublicKey string `json:"publickey,omitempty"`
-}
-
 // AuthParams - struct for auth params
 type AuthParams struct {
 	MacAddress string `json:"macaddress"`

@@ -43,7 +43,6 @@ var extClientUpdateCmd = &cobra.Command{
 			}
 		} else {
 			extClient.ClientID = clientID
-			extClient.Description = description
 			extClient.PrivateKey = privateKey
 			extClient.PublicKey = publicKey
 			extClient.Network = network
