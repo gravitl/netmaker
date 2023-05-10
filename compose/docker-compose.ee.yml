@@ -57,8 +57,7 @@ services:
     restart: unless-stopped
     volumes:
       - /root/Caddyfile:/etc/caddy/Caddyfile
-      - /root/fullchain.pem:/root/fullchain.pem
-      - /root/privkey.pem:/root/privkey.pem
+      - /root/certs:/root/certs
       - caddy_data:/data
       - caddy_conf:/config
     ports:
@@ -120,7 +119,9 @@ services:
     depends_on:
       - netmaker
     environment:
-      SERVER_BROKER_ENDPOINT: "ws://mq:1883"
+      MQ_PASSWORD: "REPLACE_MQ_PASSWORD"
+      MQ_USERNAME: "REPLACE_MQ_USERNAME"
+      MQ_URL: "ws://mq:1883"
       BROKER_ENDPOINT: "wss://broker.NETMAKER_BASE_DOMAIN"
       PROMETHEUS: "on"
       VERBOSITY: "1"

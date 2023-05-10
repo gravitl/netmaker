@@ -56,8 +56,7 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - /root/Caddyfile:/etc/caddy/Caddyfile
-      - /root/fullchain.pem:/root/fullchain.pem
-      - /root/privkey.pem:/root/privkey.pem
+      - /root/certs:/root/certs
       - caddy_data:/data
       - caddy_conf:/config
     ports:

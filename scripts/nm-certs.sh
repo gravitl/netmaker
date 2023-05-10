@@ -83,15 +83,16 @@ if [ ! -f "$CERT_DIR"/fullchain.pem ]; then
 fi
 
 # copy for mounting
-cp -L "$CERT_DIR"/fullchain.pem /root/fullchain.pem
-cp -L "$CERT_DIR"/privkey.pem /root/privkey.pem
+mkdir -p certs
+cp -L "$CERT_DIR/fullchain.pem" /root/certs/fullchain.pem
+cp -L "$CERT_DIR/privkey.pem" /root/certs/privkey.pem
 
 echo "SSL certificates ready"
 
 # preserve the env state
 if [ "$RESTART_CADDY" = true ]; then
 	echo "Starting Caddy..."
-	docker-compose -f /root/docker-compose.yml start caddy
+	docker-compose -f /root/docker-compose.yml start caddy --force-recreate
 fi
 
 # install crontab

@@ -640,6 +640,9 @@ install_netmaker() {
 		wget -qO /root/wait.sh "https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/wait.sh"
 	fi
 
+	# cleanup
+	docker stop netmaker-ui coredns mq turn caddy netmaker
+
 	chmod +x /root/wait.sh
 	mkdir -p /etc/netmaker
 
@@ -765,11 +768,11 @@ set -e
 # 6. get user input for variables
 set_install_vars
 
-# 7. get and set config files, startup docker-compose
-install_netmaker
-
 # Fetch / update certs using certbot
 "$SCRIPT_DIR"/nm-certs.sh
+
+# 7. get and set config files, startup docker-compose
+install_netmaker
 
 set +e
 
