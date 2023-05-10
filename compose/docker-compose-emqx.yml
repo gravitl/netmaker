@@ -50,6 +50,7 @@ services:
     restart: unless-stopped
     volumes:
       - /root/Caddyfile:/etc/caddy/Caddyfile
+      - /root/certs:/root/certs
       - caddy_data:/data
       - caddy_conf:/config
     ports:

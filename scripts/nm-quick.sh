@@ -1,29 +1,20 @@
 #!/bin/bash
 
+CONFIG_FILE=netmaker.env
+# location of nm-quick.sh (usually `/root`)
+SCRIPT_DIR=$(dirname "$(realpath "$0")")
+CONFIG_PATH="$SCRIPT_DIR/$CONFIG_FILE"
 LATEST=$(curl -s https://api.github.com/repos/gravitl/netmaker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d [:space:],\")
-
-print_logo() { (
-	cat <<"EOF"
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-                                                                                         
- __   __     ______     ______   __    __     ______     __  __     ______     ______    
-/\ "-.\ \   /\  ___\   /\__  _\ /\ "-./  \   /\  __ \   /\ \/ /    /\  ___\   /\  == \   
-\ \ \-.  \  \ \  __\   \/_/\ \/ \ \ \-./\ \  \ \  __ \  \ \  _"-.  \ \  __\   \ \  __<   
- \ \_\\"\_\  \ \_____\    \ \_\  \ \_\ \ \_\  \ \_\ \_\  \ \_\ \_\  \ \_____\  \ \_\ \_\ 
-  \/_/ \/_/   \/_____/     \/_/   \/_/  \/_/   \/_/\/_/   \/_/\/_/   \/_____/   \/_/ /_/ 
-                                                                                                                                                                                                 
-
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-EOF
-); }
 
 if [ $(id -u) -ne 0 ]; then
 	echo "This script must be run as root"
 	exit 1
+fi
+
+# read the config file
+if [ -f "$CONFIG_PATH" ]; then
+	echo "Reading config from $CONFIG_PATH"
+	source "$CONFIG_PATH"
 fi
 
 unset INSTALL_TYPE
@@ -246,22 +237,42 @@ confirm() { (
 		[Nn]*)
 			echo "exiting..."
 			exit 1
+			# TODO start from the beginning instead
 			;;
 		*) echo "Please answer yes or no." ;;
 		esac
 	done
 ) }
 
+save_config() { (
+	echo "Saving the config to $CONFIG_PATH"
+	touch "$CONFIG_PATH"
+	# email
+	if grep -q "^NM_EMAIL=" "$CONFIG_PATH"; then
+		sed -i "s/NM_EMAIL=.*/NM_EMAIL=$EMAIL/" "$CONFIG_PATH"
+	else
+		echo "NM_EMAIL=$EMAIL" >>"$CONFIG_PATH"
+	fi
+	# domain
+	if grep -q "^NM_DOMAIN=" "$CONFIG_PATH"; then
+		sed -i "s/NM_DOMAIN=.*/NM_DOMAIN=$NETMAKER_BASE_DOMAIN/" "$CONFIG_PATH"
+	else
+		echo "NM_DOMAIN=$NETMAKER_BASE_DOMAIN" >>"$CONFIG_PATH"
+	fi
+); }
+
 # local_install_setup - builds artifacts based on specified branch locally to use in install
 local_install_setup() { (
 	rm -rf netmaker-tmp
 	mkdir netmaker-tmp
 	cd netmaker-tmp
-	git clone https://www.github.com/gravitl/netmaker
+	git clone --single-branch --depth=1 --branch=$BUILD_TAG https://www.github.com/gravitl/netmaker
 	cd netmaker
-	git checkout $BUILD_TAG
-	git pull origin $BUILD_TAG
-	docker build --no-cache --build-arg version=$IMAGE_TAG -t gravitl/netmaker:$IMAGE_TAG .
+	if test -z "$NM_SKIP_BUILD"; then
+		docker build --no-cache --build-arg version=$IMAGE_TAG -t gravitl/netmaker:$IMAGE_TAG .
+	else
+		echo "Skipping build on NM_SKIP_BUILD"
+	fi
 	if [ "$INSTALL_TYPE" = "ee" ]; then
 		cp compose/docker-compose.ee.yml /root/docker-compose.yml
 		cp docker/Caddyfile-EE /root/Caddyfile
@@ -269,6 +280,7 @@ local_install_setup() { (
 		cp compose/docker-compose.yml /root/docker-compose.yml
 		cp docker/Caddyfile /root/Caddyfile
 	fi
+	cp scripts/nm-certs.sh /root/nm-certs.sh
 	cp docker/mosquitto.conf /root/mosquitto.conf
 	cp docker/wait.sh /root/wait.sh
 	cd ../../
@@ -308,22 +320,14 @@ install_dependencies() {
 		dependencies="git wireguard wget jq docker.io docker-compose"
 		update_cmd='pkg update'
 		install_cmd='pkg install -y'
-	elif [ -f /etc/turris-version ]; then
-		dependencies="git wireguard-tools bash jq docker.io docker-compose"
-		OS="TurrisOS"
-		update_cmd='opkg update'
-		install_cmd='opkg install'
-	elif [ -f /etc/openwrt_release ]; then
-		dependencies="git wireguard-tools bash jq docker.io docker-compose"
-		OS="OpenWRT"
-		update_cmd='opkg update'
-		install_cmd='opkg install'
 	else
 		install_cmd=''
 	fi
 
 	if [ -z "${install_cmd}" ]; then
 		echo "OS unsupported for automatic dependency install"
+		# TODO shouldnt exit, check if deps available, if not
+		#  ask the user to install manually and continue when ready
 		exit 1
 	fi
 
@@ -395,7 +399,8 @@ set_install_vars() {
 	fi
 
 	NETMAKER_BASE_DOMAIN=nm.$(echo $IP_ADDR | tr . -).nip.io
-	COREDNS_IP=$(ip route get 1 | sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
+	# TODO dead code?
+	# COREDNS_IP=$(ip route get 1 | sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
 	SERVER_PUBLIC_IP=$IP_ADDR
 	MASTER_KEY=$(
 		tr -dc A-Za-z0-9 </dev/urandom | head -c 30
@@ -440,7 +445,7 @@ set_install_vars() {
 	echo "             broker.$NETMAKER_BASE_DOMAIN"
 	echo "               stun.$NETMAKER_BASE_DOMAIN"
 	echo "               turn.$NETMAKER_BASE_DOMAIN"
-	echo "               turnapi.$NETMAKER_BASE_DOMAIN"
+	echo "            turnapi.$NETMAKER_BASE_DOMAIN"
 
 	if [ "$INSTALL_TYPE" = "ee" ]; then
 		echo "         prometheus.$NETMAKER_BASE_DOMAIN"
@@ -479,12 +484,18 @@ set_install_vars() {
 	unset GET_EMAIL
 	unset RAND_EMAIL
 	RAND_EMAIL="$(echo $RANDOM | md5sum | head -c 16)@email.com"
+	# suggest the prev email or a random one
+	EMAIL_SUGGESTED=${NM_EMAIL:-$RAND_EMAIL}
 	if [ -z $AUTO_BUILD ]; then
-		read -p "Email Address for Domain Registration (click 'enter' to use $RAND_EMAIL): " GET_EMAIL
+		read -p "Email Address for Domain Registration (click 'enter' to use $EMAIL_SUGGESTED): " GET_EMAIL
 	fi
 	if [ -z "$GET_EMAIL" ]; then
-		echo "using rand email"
-		EMAIL="$RAND_EMAIL"
+		EMAIL="$EMAIL_SUGGESTED"
+		if [ "$EMAIL" = "$NM_EMAIL" ]; then
+			echo "using config email"
+		else
+			echo "using rand email"
+		fi
 	else
 		EMAIL="$GET_EMAIL"
 	fi
@@ -546,7 +557,7 @@ set_install_vars() {
 		read -p "TURN Username (click 'enter' to use 'netmaker'): " GET_TURN_USERNAME
 	fi
 	if [ -z "$GET_TURN_USERNAME" ]; then
-		echo "using default username for mq"
+		echo "using default username for TURN"
 		TURN_USERNAME="netmaker"
 	else
 		TURN_USERNAME="$GET_TURN_USERNAME"
@@ -603,6 +614,7 @@ set_install_vars() {
 
 	confirm
 
+	save_config
 }
 
 # install_netmaker - sets the config files and starts docker-compose
@@ -614,6 +626,7 @@ install_netmaker() {
 
 	wait_seconds 3
 
+	# TODO extract wgets to setup(), mirror local_setup()
 	echo "Pulling config files..."
 
 	COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/compose/docker-compose.yml"
@@ -622,9 +635,13 @@ install_netmaker() {
 		COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/compose/docker-compose.ee.yml"
 		CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/Caddyfile-EE"
 	fi
+
 	if [ ! "$BUILD_TYPE" = "local" ]; then
-		wget -O /root/docker-compose.yml $COMPOSE_URL && wget -O /root/mosquitto.conf https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/mosquitto.conf && wget -O /root/Caddyfile $CADDY_URL
-		wget -O /root/wait.sh https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/wait.sh
+		wget -qO /root/docker-compose.yml $COMPOSE_URL
+		wget -qO /root/Caddyfile $CADDY_URL
+		wget -qO /root/mosquitto.conf "https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/mosquitto.conf"
+		wget -qO /root/nm-certs.sh "https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/scripts/nm-certs.sh"
+		wget -qO /root/wait.sh "https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/wait.sh"
 	fi
 
 	chmod +x /root/wait.sh
@@ -661,7 +678,12 @@ install_netmaker() {
 
 	echo "Starting containers..."
 
-	docker-compose -f /root/docker-compose.yml up -d
+	# increase the timeouts
+	export DOCKER_CLIENT_TIMEOUT=120
+	export COMPOSE_HTTP_TIMEOUT=120
+
+	# start docker and rebuild containers / networks
+	docker-compose -f /root/docker-compose.yml up -d --force-recreate
 
 	wait_seconds 2
 
@@ -746,6 +768,16 @@ set -e
 
 # 6. get user input for variables
 set_install_vars
+
+# stop
+for name in "mq" "netmaker-ui" "coredns" "turn" "caddy" "netmaker"; do
+	if test -n "$(docker ps | grep name)"; then
+		docker stop $name
+	fi
+done
+
+# Fetch / update certs using certbot
+"$SCRIPT_DIR"/nm-certs.sh
 
 # 7. get and set config files, startup docker-compose
 install_netmaker
