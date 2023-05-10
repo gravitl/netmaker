@@ -6,8 +6,10 @@ import (
 )
 
 var (
-	errInvalidExtClientPubKey = errors.New("incorrect ext client public key")
-	errInvalidExtClientID     = errors.New("ext client ID must be alphanumderic and/or dashes")
+	errInvalidExtClientPubKey  = errors.New("incorrect ext client public key")
+	errInvalidExtClientID      = errors.New("ext client ID must be alphanumderic and/or dashes")
+	errInvalidExtClientExtraIP = errors.New("ext client extra ip must be a valid cidr")
+	errInvalidExtClientDNS     = errors.New("ext client dns must be a valid ip address")
 )
 
 // allow only dashes and alphaneumeric for ext client and node names

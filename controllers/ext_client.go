@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 
@@ -321,20 +322,13 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	var extclient models.ExtClient
 	var customExtClient models.CustomExtClient
 
-	err := json.NewDecoder(r.Body).Decode(&customExtClient)
-	if err == nil {
-		if customExtClient.ClientID != "" && !validName(customExtClient.ClientID) {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errInvalidExtClientID, "badrequest"))
-			return
-		}
-		extclient.ClientID = customExtClient.ClientID
-		if len(customExtClient.PublicKey) > 0 {
-			if _, err := wgtypes.ParseKey(customExtClient.PublicKey); err != nil {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(errInvalidExtClientPubKey, "badrequest"))
-				return
-			}
-			extclient.PublicKey = customExtClient.PublicKey
-		}
+	if err := json.NewDecoder(r.Body).Decode(&customExtClient); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if err := validateExtClient(&extclient, &customExtClient); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
 	}
 
 	extclient.Network = networkName
@@ -647,4 +641,36 @@ func doesUserOwnClient(username, clientID, network string) (bool, bool) {
 	}
 
 	return false, logic.StringSliceContains(netUser.Clients, clientID)
+}
+
+// validateExtClient	Validates the extclient object
+func validateExtClient(extclient *models.ExtClient, customExtClient *models.CustomExtClient) error {
+	//validate clientid
+	if customExtClient.ClientID != "" && !validName(customExtClient.ClientID) {
+		return errInvalidExtClientID
+	}
+	extclient.ClientID = customExtClient.ClientID
+	if len(customExtClient.PublicKey) > 0 {
+		if _, err := wgtypes.ParseKey(customExtClient.PublicKey); err != nil {
+			return errInvalidExtClientPubKey
+		}
+		extclient.PublicKey = customExtClient.PublicKey
+	}
+	//validate extra ips
+	if len(customExtClient.ExtraAllowedIPs) > 0 {
+		for _, ip := range customExtClient.ExtraAllowedIPs {
+			if _, _, err := net.ParseCIDR(ip); err != nil {
+				return errInvalidExtClientExtraIP
+			}
+		}
+		extclient.ExtraAllowedIPs = customExtClient.ExtraAllowedIPs
+	}
+	//validate DNS
+	if customExtClient.DNS != "" {
+		if ip := net.ParseIP(customExtClient.DNS); ip == nil {
+			return errInvalidExtClientDNS
+		}
+		extclient.DNS = customExtClient.DNS
+	}
+	return nil
 }
