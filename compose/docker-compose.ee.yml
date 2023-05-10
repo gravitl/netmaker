@@ -118,6 +118,8 @@ services:
     depends_on:
       - netmaker
     environment:
+      MQ_PASSWORD: "REPLACE_MQ_PASSWORD"
+      MQ_USERNAME: "REPLACE_MQ_USERNAME"
       SERVER_BROKER_ENDPOINT: "ws://mq:1883"
       BROKER_ENDPOINT: "wss://broker.NETMAKER_BASE_DOMAIN"
       PROMETHEUS: "on"
