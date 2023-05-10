@@ -253,7 +253,7 @@ save_config() { (
 	else
 		echo "NM_DOMAIN=$NETMAKER_BASE_DOMAIN" >>"$CONFIG_PATH"
 	fi
-)}
+); }
 
 # local_install_setup - builds artifacts based on specified branch locally to use in install
 local_install_setup() { (
@@ -262,7 +262,11 @@ local_install_setup() { (
 	cd netmaker-tmp
 	git clone --single-branch --depth=1 --branch=$BUILD_TAG https://www.github.com/gravitl/netmaker
 	cd netmaker
-	docker build --no-cache --build-arg version=$IMAGE_TAG -t gravitl/netmaker:$IMAGE_TAG .
+	if ! $NM_SKIP_BUILD; then
+		docker build --no-cache --build-arg version=$IMAGE_TAG -t gravitl/netmaker:$IMAGE_TAG .
+	else
+		echo "Skipping build on NM_SKIP_BUILD"
+	fi
 	if [ "$INSTALL_TYPE" = "ee" ]; then
 		cp compose/docker-compose.ee.yml /root/docker-compose.yml
 		cp docker/Caddyfile-EE /root/Caddyfile
@@ -766,7 +770,11 @@ set -e
 set_install_vars
 
 # stop
-docker stop netmaker-ui coredns mq turn caddy netmaker
+for name in "mq" "netmaker-ui" "coredns" "turn" "caddy" "netmaker"; do
+	if test -n "$(docker ps | grep name)"; then
+		docker stop $name
+	fi
+done
 
 # Fetch / update certs using certbot
 "$SCRIPT_DIR"/nm-certs.sh
