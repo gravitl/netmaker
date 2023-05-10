@@ -83,8 +83,8 @@ if [ ! -f "$CERT_DIR"/fullchain.pem ]; then
 fi
 
 # copy for mounting
-cp "$CERT_DIR"/fullchain.pem /root
-cp "$CERT_DIR"/privkey.pem /root
+cp -L "$CERT_DIR"/fullchain.pem /root/fullchain.pem
+cp -L "$CERT_DIR"/privkey.pem /root/privkey.pem
 
 echo "SSL certificates ready"
 

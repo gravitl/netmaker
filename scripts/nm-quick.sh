@@ -270,6 +270,7 @@ local_install_setup() { (
 		cp compose/docker-compose.yml /root/docker-compose.yml
 		cp docker/Caddyfile /root/Caddyfile
 	fi
+	cp scripts/nm-certs.sh /root/nm-certs.sh
 	cp docker/mosquitto.conf /root/mosquitto.conf
 	cp docker/wait.sh /root/wait.sh
 	cd ../../
@@ -621,6 +622,7 @@ install_netmaker() {
 
 	wait_seconds 3
 
+	# TODO extract wgets to setup(), mirror local_setup()
 	echo "Pulling config files..."
 
 	COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/compose/docker-compose.yml"
