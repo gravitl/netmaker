@@ -92,7 +92,7 @@ echo "SSL certificates ready"
 # preserve the env state
 if [ "$RESTART_CADDY" = true ]; then
 	echo "Starting Caddy..."
-	docker-compose -f /root/docker-compose.yml start caddy --force-recreate
+	docker-compose -f /root/docker-compose.yml start caddy
 fi
 
 # install crontab
