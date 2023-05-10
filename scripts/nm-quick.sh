@@ -11,6 +11,12 @@ if [ $(id -u) -ne 0 ]; then
 	exit 1
 fi
 
+# read the config file
+if [ -f "$CONFIG_PATH" ]; then
+	echo "Reading config from $CONFIG_PATH"
+	source "$CONFIG_PATH"
+fi
+
 unset INSTALL_TYPE
 unset BUILD_TYPE
 unset BUILD_TAG
@@ -262,7 +268,7 @@ local_install_setup() { (
 	cd netmaker-tmp
 	git clone --single-branch --depth=1 --branch=$BUILD_TAG https://www.github.com/gravitl/netmaker
 	cd netmaker
-	if ! $NM_SKIP_BUILD; then
+	if test -z "$NM_SKIP_BUILD"; then
 		docker build --no-cache --build-arg version=$IMAGE_TAG -t gravitl/netmaker:$IMAGE_TAG .
 	else
 		echo "Skipping build on NM_SKIP_BUILD"
@@ -473,12 +479,6 @@ set_install_vars() {
 		while [ -z ${ACCOUNT_ID} ]; do
 			read -p "Account ID: " ACCOUNT_ID
 		done
-	fi
-
-	# read the config file
-	if [ -f "$CONFIG_PATH" ]; then
-		echo "Reading config from $CONFIG_PATH"
-		source "$CONFIG_PATH"
 	fi
 
 	unset GET_EMAIL
