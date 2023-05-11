@@ -388,7 +388,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 				logger.Log(0, "failed to associate client", extclient.ClientID, "to user", userID)
 			}
 			extclient.OwnerID = userID
-			if _, err := logic.UpdateExtClient(extclient.ClientID, extclient.Network, extclient.Enabled, &extclient, extclient.ACLs); err != nil {
+			if err := logic.SaveExtClient(&extclient); err != nil {
 				logger.Log(0, "failed to add owner id", userID, "to client", extclient.ClientID)
 			}
 		}
@@ -422,9 +422,9 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
 
-	var newExtClient models.ExtClient
+	var update models.CustomExtClient
 	var oldExtClient models.ExtClient
-	err := json.NewDecoder(r.Body).Decode(&newExtClient)
+	err := json.NewDecoder(r.Body).Decode(&update)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ",
 			err.Error())
@@ -441,7 +441,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if !validName(newExtClient.ClientID) {
+	if !validName(update.ClientID) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errInvalidExtClientID, "badrequest"))
 		return
 	}
@@ -462,7 +462,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 
 	// == PRO ==
 	networkName := params["network"]
-	var changedID = newExtClient.ClientID != oldExtClient.ClientID
+	var changedID = update.ClientID != oldExtClient.ClientID
 	if r.Header.Get("ismaster") != "yes" {
 		userID := r.Header.Get("user")
 		_, doesOwn := doesUserOwnClient(userID, params["clientid"], networkName)
@@ -475,17 +475,16 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		if err := pro.DissociateNetworkUserClient(oldExtClient.OwnerID, networkName, oldExtClient.ClientID); err != nil {
 			logger.Log(0, "failed to dissociate client", oldExtClient.ClientID, "from user", oldExtClient.OwnerID)
 		}
-		if err := pro.AssociateNetworkUserClient(oldExtClient.OwnerID, networkName, newExtClient.ClientID); err != nil {
-			logger.Log(0, "failed to associate client", newExtClient.ClientID, "to user", oldExtClient.OwnerID)
+		if err := pro.AssociateNetworkUserClient(oldExtClient.OwnerID, networkName, update.ClientID); err != nil {
+			logger.Log(0, "failed to associate client", update.ClientID, "to user", oldExtClient.OwnerID)
 		}
 	}
 	// == END PRO ==
 
-	var changedEnabled = (newExtClient.Enabled != oldExtClient.Enabled) || // indicates there was a change in enablement
-		len(newExtClient.ACLs) != len(oldExtClient.ACLs)
+	var changedEnabled = (update.Enabled != oldExtClient.Enabled) // indicates there was a change in enablement
 	// extra var need as logic.Update changes oldExtClient
 	currentClient := oldExtClient
-	newclient, err := logic.UpdateExtClient(newExtClient.ClientID, params["network"], newExtClient.Enabled, &oldExtClient, newExtClient.ACLs)
+	newclient, err := logic.UpdateExtClient(&oldExtClient, &update)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to update ext client [%s], network [%s]: %v",
@@ -493,7 +492,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logger.Log(0, r.Header.Get("user"), "updated ext client", newExtClient.ClientID)
+	logger.Log(0, r.Header.Get("user"), "updated ext client", update.ClientID)
 	if changedEnabled { // need to send a peer update to the ingress node as enablement of one of it's clients has changed
 		if ingressNode, err := logic.GetNodeByID(newclient.IngressGatewayID); err == nil {
 			if err = mq.PublishPeerUpdate(); err != nil {
@@ -505,7 +504,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(newclient)
 	if changedID {
 		go func() {
-			if err := mq.PublishExtClientDNSUpdate(currentClient, newExtClient, networkName); err != nil {
+			if err := mq.PublishExtClientDNSUpdate(currentClient, *newclient, networkName); err != nil {
 				logger.Log(1, "error pubishing dns update for extcient update", err.Error())
 			}
 		}()
