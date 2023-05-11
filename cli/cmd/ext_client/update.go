@@ -11,15 +11,10 @@ import (
 )
 
 var (
-	extClientUpdateFile    string
-	description            string
-	privateKey             string
-	publicKey              string
-	address                string
-	address6               string
-	ingressGatewayID       string
-	ingressGatewayEndpoint string
-	ownerID                string
+	extClientUpdateFile string
+	updatedPublicKey    string
+	updatedDNS          string
+	updatedAllowedips   []string
 )
 
 var extClientUpdateCmd = &cobra.Command{
@@ -31,7 +26,7 @@ var extClientUpdateCmd = &cobra.Command{
 		var (
 			network   = args[0]
 			clientID  = args[1]
-			extClient = &models.ExtClient{}
+			extClient = &models.CustomExtClient{}
 		)
 		if extClientUpdateFile != "" {
 			content, err := os.ReadFile(extClientUpdateFile)
@@ -43,14 +38,8 @@ var extClientUpdateCmd = &cobra.Command{
 			}
 		} else {
 			extClient.ClientID = clientID
-			extClient.PrivateKey = privateKey
-			extClient.PublicKey = publicKey
-			extClient.Network = network
-			extClient.Address = address
-			extClient.Address6 = address6
-			extClient.IngressGatewayID = ingressGatewayID
-			extClient.IngressGatewayEndpoint = ingressGatewayEndpoint
-			extClient.OwnerID = ownerID
+			extClient.PublicKey = updatedPublicKey
+			extClient.DNS = updatedDNS
 		}
 		functions.PrettyPrint(functions.UpdateExtClient(network, clientID, extClient))
 	},
@@ -58,13 +47,8 @@ var extClientUpdateCmd = &cobra.Command{
 
 func init() {
 	extClientUpdateCmd.Flags().StringVar(&extClientUpdateFile, "file", "", "Filepath of updated external client definition in JSON")
-	extClientUpdateCmd.Flags().StringVar(&description, "desc", "", "Description of the external client")
-	extClientUpdateCmd.Flags().StringVar(&privateKey, "private_key", "", "Filepath of updated external client definition in JSON")
-	extClientUpdateCmd.Flags().StringVar(&publicKey, "public_key", "", "Filepath of updated external client definition in JSON")
-	extClientUpdateCmd.Flags().StringVar(&address, "ipv4_addr", "", "IPv4 address of the external client")
-	extClientUpdateCmd.Flags().StringVar(&address6, "ipv6_addr", "", "IPv6 address of the external client")
-	extClientUpdateCmd.Flags().StringVar(&ingressGatewayID, "ingress_gateway_id", "", "ID of the ingress gateway")
-	extClientUpdateCmd.Flags().StringVar(&ingressGatewayEndpoint, "ingress_gateway_endpoint", "", "Endpoint of the ingress gateway")
-	extClientUpdateCmd.Flags().StringVar(&ownerID, "owner_id", "", "External Client owner's ID")
+	extClientUpdateCmd.Flags().StringVar(&updatedPublicKey, "public_key", "", "updated public key of the external client")
+	extClientUpdateCmd.Flags().StringVar(&updatedDNS, "dns", "", "updated DNS of the external client")
+	extClientUpdateCmd.Flags().StringSliceVar(&updatedAllowedips, "allowedips", []string{}, "updated extra allowed IPs of the external client")
 	rootCmd.AddCommand(extClientUpdateCmd)
 }
