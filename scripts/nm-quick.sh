@@ -2,6 +2,7 @@
 
 CONFIG_FILE=netmaker.env
 # location of nm-quick.sh (usually `/root`)
+# TODO use everywhere
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
 CONFIG_PATH="$SCRIPT_DIR/$CONFIG_FILE"
 LATEST=$(curl -s https://api.github.com/repos/gravitl/netmaker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d [:space:],\")
@@ -770,9 +771,9 @@ set -e
 set_install_vars
 
 # stop
-for name in "mq" "netmaker-ui" "coredns" "turn" "caddy" "netmaker"; do
-	if test -n "$(docker ps | grep name)"; then
-		docker stop $name
+for name in "mq" "netmaker-ui" "coredns" "turn" "caddy" "netmaker" "netmaker-exporter" "grafana" "prometheus"; do
+	if test -n "$(docker ps | grep -w name)"; then
+		docker stop "$name"
 	fi
 done
 
