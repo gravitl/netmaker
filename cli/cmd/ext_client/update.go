@@ -37,7 +37,7 @@ var extClientUpdateCmd = &cobra.Command{
 				log.Fatal(err)
 			}
 		} else {
-			extClient.ClientID = clientID
+			extClient.ClientID = extClientID
 			extClient.PublicKey = updatedPublicKey
 			extClient.DNS = updatedDNS
 		}
@@ -46,6 +46,7 @@ var extClientUpdateCmd = &cobra.Command{
 }
 
 func init() {
+	extClientUpdateCmd.Flags().StringVar(&extClientID, "id", "", "updated ID of the external client")
 	extClientUpdateCmd.Flags().StringVar(&extClientUpdateFile, "file", "", "Filepath of updated external client definition in JSON")
 	extClientUpdateCmd.Flags().StringVar(&updatedPublicKey, "public_key", "", "updated public key of the external client")
 	extClientUpdateCmd.Flags().StringVar(&updatedDNS, "dns", "", "updated DNS of the external client")

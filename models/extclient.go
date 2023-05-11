@@ -20,9 +20,9 @@ type ExtClient struct {
 
 // CustomExtClient - struct for CustomExtClient params
 type CustomExtClient struct {
-	ClientID        string   `json:"clientid"`
+	ClientID        string   `json:"clientid,omitempty"`
 	PublicKey       string   `json:"publickey,omitempty"`
 	DNS             string   `json:"dns,omitempty"`
 	ExtraAllowedIPs []string `json:"extraallowedips,omitempty"`
-	Enabled         bool     `json:"enabled"`
+	Enabled         bool     `json:"enabled,omitempty"`
 }

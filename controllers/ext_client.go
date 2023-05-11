@@ -441,8 +441,8 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if !validName(update.ClientID) {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errInvalidExtClientID, "badrequest"))
+	if err := validateExtClient(&oldExtClient, &update); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	data, err := database.FetchRecord(database.EXT_CLIENT_TABLE_NAME, key)
