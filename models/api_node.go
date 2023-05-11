@@ -25,11 +25,12 @@ type ApiNode struct {
 	NetworkRange6           string   `json:"networkrange6"`
 	IsRelayed               bool     `json:"isrelayed"`
 	IsRelay                 bool     `json:"isrelay"`
+	RelayedBy               string   `json:"relayedby" bson:"relayedby" yaml:"relayedby"`
+	RelayedNodes            []string `json:"relaynodes" yaml:"relayedNodes"`
 	IsEgressGateway         bool     `json:"isegressgateway"`
 	IsIngressGateway        bool     `json:"isingressgateway"`
 	EgressGatewayRanges     []string `json:"egressgatewayranges"`
 	EgressGatewayNatEnabled bool     `json:"egressgatewaynatenabled"`
-	RelayAddrs              []string `json:"relayaddrs"`
 	FailoverNode            string   `json:"failovernode"`
 	DNSOn                   bool     `json:"dnson"`
 	Server                  string   `json:"server"`
@@ -52,6 +53,8 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.HostID, _ = uuid.Parse(a.HostID)
 	convertedNode.IsRelay = a.IsRelay
 	convertedNode.IsRelayed = a.IsRelayed
+	convertedNode.RelayedBy = a.RelayedBy
+	convertedNode.RelayedNodes = a.RelayedNodes
 	convertedNode.PendingDelete = a.PendingDelete
 	convertedNode.Failover = a.Failover
 	convertedNode.IsEgressGateway = a.IsEgressGateway
@@ -64,7 +67,7 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.EgressGatewayRequest = currentNode.EgressGatewayRequest
 	convertedNode.EgressGatewayNatEnabled = currentNode.EgressGatewayNatEnabled
 	convertedNode.PersistentKeepalive = time.Second * time.Duration(a.PersistentKeepalive)
-	convertedNode.RelayAddrs = a.RelayAddrs
+	convertedNode.RelayedNodes = a.RelayedNodes
 	convertedNode.DefaultACL = a.DefaultACL
 	convertedNode.OwnerID = currentNode.OwnerID
 	_, networkRange, err := net.ParseCIDR(a.NetworkRange)
@@ -138,11 +141,12 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	}
 	apiNode.IsRelayed = nm.IsRelayed
 	apiNode.IsRelay = nm.IsRelay
+	apiNode.RelayedBy = nm.RelayedBy
+	apiNode.RelayedNodes = nm.RelayedNodes
 	apiNode.IsEgressGateway = nm.IsEgressGateway
 	apiNode.IsIngressGateway = nm.IsIngressGateway
 	apiNode.EgressGatewayRanges = nm.EgressGatewayRanges
 	apiNode.EgressGatewayNatEnabled = nm.EgressGatewayNatEnabled
-	apiNode.RelayAddrs = nm.RelayAddrs
 	apiNode.FailoverNode = nm.FailoverNode.String()
 	if isUUIDSet(apiNode.FailoverNode) {
 		apiNode.FailoverNode = ""
