@@ -167,7 +167,7 @@ func deleteHostRelay(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	hostid := params["hostid"]
-	relayHost, _, err := logic.DeleteHostRelay(hostid)
+	relayHost, relayed, err := logic.DeleteHostRelay(hostid)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -177,6 +177,20 @@ func deleteHostRelay(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		if err := mq.PublishPeerUpdate(); err != nil {
 			logger.Log(0, "fail to publish peer update: ", err.Error())
+		}
+		if err := mq.HostUpdate(&models.HostUpdate{
+			Action: models.UpdateHost,
+			Host:   *relayHost,
+		}); err != nil {
+			logger.Log(0, "failed to send host update: ", relayHost.Name, err.Error())
+		}
+		for _, relayedHost := range relayed {
+			if err := mq.HostUpdate(&models.HostUpdate{
+				Action: models.UpdateHost,
+				Host:   relayedHost,
+			}); err != nil {
+				logger.Log(0, "failed to send host update: ", relayedHost.Name, err.Error())
+			}
 		}
 	}()
 	apiHostData := relayHost.ConvertNMHostToAPI()
