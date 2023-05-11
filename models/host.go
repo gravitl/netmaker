@@ -127,6 +127,8 @@ type SignalAction string
 const (
 	// DissolveConn - action to stop using turn connection
 	DissolveConn SignalAction = "DISSOLVE_CONNECTION"
+	// ConnNegotitationv - action to negotitate connection between peers
+	ConnNegotitation SignalAction = "CONNECTION_NEGOTITATION"
 )
 
 // HostUpdate - struct for host update
