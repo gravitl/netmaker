@@ -61,7 +61,7 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 			Node: node,
 		}
 		clients := logic.GetNetworkClients(relay.Node.Network)
-		if err := mq.PublishRelayNew(&relay, &clients); err != nil {
+		if err := mq.PublishRelayPeerUpdate(&relay, &clients); err != nil {
 			logger.Log(1, "peer update to relayed node ", host.Name, "on network", relay.Node.Network, ": ", err.Error())
 		}
 	}()
@@ -97,24 +97,32 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(1, r.Header.Get("user"), "deleted relay server", nodeid, "on network", netid)
 	go func() {
+		//update relay node
 		host := logic.GetHostByNodeID(node.ID.String())
-		if err := mq.PublishSingleHostPeerUpdate(logic.PeerUpdateCtx, host, nil, []models.ExtClient{}); err != nil {
-			logger.Log(1, "peer update to relayed node ", host.Name, "on network", netid, ": ", err.Error())
+		if err := mq.NodeUpdate(&node); err != nil {
+			logger.Log(1, "relay node update", host.Name, "on network", node.Network, ": ", err.Error())
 		}
+		//update relayed nodes
 		for _, relayedNode := range updatenodes {
-			host := logic.GetHostByNodeID(relayedNode.ID.String())
-
 			err = mq.NodeUpdate(&relayedNode)
 			if err != nil {
-				logger.Log(1, "error sending update to relayed node ", relayedNode.ID.String(), "on network", netid, ": ", err.Error())
-			}
-			if err := mq.PublishSingleHostPeerUpdate(logic.PeerUpdateCtx, host, nil, []models.ExtClient{}); err != nil {
-				logger.Log(1, "peer update to relayed node ", host.Name, "on network", netid, ": ", err.Error())
+				logger.Log(1, "relayed node update ", relayedNode.ID.String(), "on network", relayedNode.Network, ": ", err.Error())
 			}
 		}
+		// peer updates
+		relay := models.Client{
+			Host: *host,
+			Node: node,
+		}
+		clients := logic.GetNetworkClients(relay.Node.Network)
+		if err := mq.PublishRelayPeerUpdate(&relay, &clients); err != nil {
+			logger.Log(1, "peer update to relayed node ", host.Name, "on network", relay.Node.Network, ": ", err.Error())
+		}
 	}()
+
+	logger.Log(1, r.Header.Get("user"), "deleted relay on node", node.ID.String(), "on network", node.Network)
 	apiNode := node.ConvertToAPINode()
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-	runUpdates(&node, true)
+	//runUpdates(&node, true)
 }

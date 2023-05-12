@@ -348,8 +348,8 @@ func PublishHostDNSUpdate(old, new *models.Host, networks []string) error {
 	return nil
 }
 
-// PublishRelayUpdate publishes peer update on relay changes
-func PublishRelayNew(relay *models.Client, clients *[]models.Client) error {
+// PublishRelayPeerUpdate publishes peer update on relay changes
+func PublishRelayPeerUpdate(relay *models.Client, clients *[]models.Client) error {
 	relayed := []models.Client{}
 	for _, client := range *clients {
 		var update []wgtypes.PeerConfig
