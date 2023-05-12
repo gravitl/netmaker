@@ -125,8 +125,8 @@ const (
 type SignalAction string
 
 const (
-	// DissolveConn - action to stop using turn connection
-	DissolveConn SignalAction = "DISSOLVE_CONNECTION"
+	// Disconnect - action to stop using turn connection
+	Disconnect SignalAction = "DISCONNECT"
 	// ConnNegotiation - action to negotiate connection between peers
 	ConnNegotiation SignalAction = "CONNECTION_NEGOTIATION"
 )
