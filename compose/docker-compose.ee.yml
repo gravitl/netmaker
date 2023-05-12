@@ -1,97 +1,10 @@
 version: "3.4"
 
 services:
-  netmaker:
-    container_name: netmaker
-    image: gravitl/netmaker:REPLACE_SERVER_IMAGE_TAG
-    restart: on-failure
-    volumes:
-      - dnsconfig:/root/config/dnsconfig
-      - sqldata:/root/data
-    environment:
-      BROKER_ENDPOINT: "wss://broker.NETMAKER_BASE_DOMAIN"
-      SERVER_NAME: "NETMAKER_BASE_DOMAIN"
-      STUN_LIST: "stun.NETMAKER_BASE_DOMAIN:3478,stun1.netmaker.io:3478,stun2.netmaker.io:3478,stun1.l.google.com:19302,stun2.l.google.com:19302"
-      SERVER_HOST: "SERVER_PUBLIC_IP"
-      SERVER_API_CONN_STRING: "api.NETMAKER_BASE_DOMAIN:443"
-      COREDNS_ADDR: "SERVER_PUBLIC_IP"
-      DNS_MODE: "on"
-      SERVER_HTTP_HOST: "api.NETMAKER_BASE_DOMAIN"
-      NETCLIENT_AUTO_UPDATE: "enabled"
-      API_PORT: "8081"
-      MASTER_KEY: "REPLACE_MASTER_KEY"
-      CORS_ALLOWED_ORIGIN: "*"
-      DISPLAY_KEYS: "on"
-      DATABASE: "sqlite"
-      NODE_ID: "netmaker-server-1"
-      SERVER_BROKER_ENDPOINT: "ws://mq:1883"
-      MQ_USERNAME: "REPLACE_MQ_USERNAME"
-      MQ_PASSWORD: "REPLACE_MQ_PASSWORD"
-      STUN_PORT: "3478"
-      VERBOSITY: "1"
-      METRICS_EXPORTER: "on"
-      LICENSE_KEY: "YOUR_LICENSE_KEY"
-      NETMAKER_ACCOUNT_ID: "YOUR_ACCOUNT_ID"
-      DEFAULT_PROXY_MODE: "off"
-      TURN_SERVER_HOST: "turn.NETMAKER_BASE_DOMAIN"
-      TURN_SERVER_API_HOST: "https://turnapi.NETMAKER_BASE_DOMAIN"
-      TURN_PORT: "3479"
-      TURN_USERNAME: "REPLACE_TURN_USERNAME"
-      TURN_PASSWORD: "REPLACE_TURN_PASSWORD"
-      USE_TURN: "true"
-    ports:
-      - "3478:3478/udp"
-  netmaker-ui:
-    container_name: netmaker-ui
-    image: gravitl/netmaker-ui:REPLACE_UI_IMAGE_TAG
-    depends_on:
-      - netmaker
-    links:
-      - "netmaker:api"
-    restart: always
-    environment:
-      BACKEND_URL: "https://api.NETMAKER_BASE_DOMAIN"
-  caddy:
-    image: caddy:2.6.2
-    container_name: caddy
-    restart: unless-stopped
-    volumes:
-      - /root/Caddyfile:/etc/caddy/Caddyfile
-      - /root/certs:/root/certs
-      - caddy_data:/data
-      - caddy_conf:/config
-    ports:
-      - "80:80"
-      - "443:443"
-  coredns:
-    container_name: coredns
-    image: coredns/coredns
-    command: -conf /root/dnsconfig/Corefile
-    depends_on:
-      - netmaker
-    restart: always
-    volumes:
-      - dnsconfig:/root/dnsconfig
-  mq:
-    container_name: mq
-    image: eclipse-mosquitto:2.0.15-openssl
-    depends_on:
-      - netmaker
-    restart: unless-stopped
-    command: ["/mosquitto/config/wait.sh"]
-    environment:
-      MQ_PASSWORD: "REPLACE_MQ_PASSWORD"
-      MQ_USERNAME: "REPLACE_MQ_USERNAME"
-    volumes:
-      - /root/mosquitto.conf:/mosquitto/config/mosquitto.conf
-      - /root/wait.sh:/mosquitto/config/wait.sh
-      - mosquitto_logs:/mosquitto/log
   prometheus:
     container_name: prometheus
     image: gravitl/netmaker-prometheus:latest
-    environment:
-      NETMAKER_METRICS_TARGET: "netmaker-exporter.NETMAKER_BASE_DOMAIN"
-      LICENSE_KEY: "YOUR_LICENSE_KEY"
+    env_file: ./netmaker.env
     restart: always
     volumes:
       - prometheus_data:/prometheus
@@ -100,10 +13,7 @@ services:
   grafana:
     container_name: grafana
     image: gravitl/netmaker-grafana:latest
-    environment:
-      PROMETHEUS_HOST: "prometheus.NETMAKER_BASE_DOMAIN"
-      NETMAKER_METRICS_TARGET: "netmaker-exporter.NETMAKER_BASE_DOMAIN"
-      LICENSE_KEY: "YOUR_LICENSE_KEY"
+    env_file: ./netmaker.env
     volumes:
       - grafana_data:/var/lib/grafana
     restart: always
@@ -115,40 +25,10 @@ services:
   netmaker-exporter:
     container_name: netmaker-exporter
     image: gravitl/netmaker-exporter:latest
+    env_file: ./netmaker.env
     restart: always
     depends_on:
       - netmaker
-    environment:
-      MQ_PASSWORD: "REPLACE_MQ_PASSWORD"
-      MQ_USERNAME: "REPLACE_MQ_USERNAME"
-      MQ_URL: "ws://mq:1883"
-      BROKER_ENDPOINT: "wss://broker.NETMAKER_BASE_DOMAIN"
-      PROMETHEUS: "on"
-      VERBOSITY: "1"
-      API_PORT: "8085"
-      LICENSE_KEY: "YOUR_LICENSE_KEY"
-      PROMETHEUS_HOST: https://prometheus.NETMAKER_BASE_DOMAIN
-  turn:
-    container_name: turn
-    image: gravitl/turnserver:v1.0.0
-    network_mode: "host"
-    volumes:
-      - turn_server:/etc/config
-    environment:
-      DEBUG_MODE: "off"
-      VERBOSITY: "1"
-      TURN_PORT: "3479"
-      TURN_API_PORT: "8089"
-      CORS_ALLOWED_ORIGIN: "*"
-      TURN_SERVER_HOST: "turn.NETMAKER_BASE_DOMAIN"
-      USERNAME: "REPLACE_TURN_USERNAME"
-      PASSWORD: "REPLACE_TURN_PASSWORD"
 volumes:
-  caddy_data: {}
-  caddy_conf: {}
-  sqldata: {}
-  dnsconfig: {}
-  mosquitto_logs: {}
   prometheus_data: {}
   grafana_data: {}
-  turn_server: {}
