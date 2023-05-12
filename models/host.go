@@ -75,6 +75,13 @@ type Host struct {
 	TurnEndpoint     *netip.AddrPort  `json:"turn_endpoint,omitempty" yaml:"turn_endpoint,omitempty"`
 }
 
+// Client - represents a client on the network
+type Client struct {
+	Host Host   `json:"host" yaml:"host"`
+	Node Node   `json:"node" yaml:"node"`
+	Kind string `json:"kind" yaml:"kind"`
+}
+
 // FormatBool converts a boolean to a [yes|no] string
 func FormatBool(b bool) string {
 	s := "no"

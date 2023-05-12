@@ -66,6 +66,8 @@ func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.N
 		node.IsRelayed = setRelayed
 		if node.IsRelayed {
 			node.RelayedBy = relay
+		} else {
+			node.RelayedBy = ""
 		}
 		node.SetLastModified()
 		data, err := json.Marshal(&node)
@@ -119,6 +121,23 @@ func DeleteRelay(network, nodeid string) ([]models.Node, models.Node, error) {
 	return returnnodes, node, nil
 }
 
+// GetNetworkClients - gets all clients in a network
+func GetNetworkClients(network string) []models.Client {
+	var clients []models.Client
+	nodes, err := GetNetworkNodes(network)
+	if err != nil {
+		return clients
+	}
+	for _, node := range nodes {
+		host := GetHostByNodeID(node.ID.String())
+		client := models.Client{
+			Host: *host,
+			Node: node,
+		}
+		clients = append(clients, client)
+	}
+	return clients
+}
 func getRelayedAddresses(id string) []net.IPNet {
 	addrs := []net.IPNet{}
 	node, err := GetNodeByID(id)

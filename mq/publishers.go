@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // PublishPeerUpdate --- determines and publishes a peer update to all the hosts
@@ -346,6 +348,30 @@ func PublishHostDNSUpdate(old, new *models.Host, networks []string) error {
 	return nil
 }
 
+// PublishRelayUpdate publishes peer update on relay changes
+func PublishRelayNew(relay *models.Client, clients *[]models.Client) error {
+	relayed := []models.Client{}
+	for _, client := range *clients {
+		var update []wgtypes.PeerConfig
+		if client.Host.ID == relay.Host.ID {
+			client.Kind = "relay"
+		}
+		if client.Node.RelayedBy == relay.Node.ID.String() {
+			client.Kind = "relayed"
+			update = setPeersForRelayedNode(*relay, client, clients)
+		} else {
+			client.Kind = "normal"
+			update = setPeersForUnrelayedNode(relayed, *relay, client, clients)
+		}
+		data, err := json.Marshal(update)
+		if err != nil {
+			return err
+		}
+		publish(&client.Host, fmt.Sprintf("relay/new/%s/%s", client.Host.ID.String(), servercfg.GetServer()), data)
+	}
+	return nil
+}
+
 func pushMetricsToExporter(metrics models.Metrics) error {
 	logger.Log(2, "----> Pushing metrics to exporter")
 	data, err := json.Marshal(metrics)
@@ -460,4 +486,67 @@ func sendPeers() {
 			}
 		}
 	}
+}
+
+func setPeersForRelayedNode(relay, relayed models.Client, clients *[]models.Client) []wgtypes.PeerConfig {
+	perrUpdate := []wgtypes.PeerConfig{}
+	relayUpdate := wgtypes.PeerConfig{
+		PublicKey:         relay.Host.PublicKey,
+		ReplaceAllowedIPs: true,
+	}
+	if relayed.Node.Address.IP != nil {
+		relayUpdate.AllowedIPs = append(relayUpdate.AllowedIPs, relayed.Node.Address)
+	}
+	if relayed.Node.Address6.IP != nil {
+		relayUpdate.AllowedIPs = append(relayUpdate.AllowedIPs, relayed.Node.Address6)
+	}
+	for _, c := range *clients {
+		update := wgtypes.PeerConfig{
+			PublicKey: c.Host.PublicKey,
+			Remove:    true,
+		}
+		perrUpdate = append(perrUpdate, update)
+		if c.Node.Address.IP != nil {
+			relayUpdate.AllowedIPs = append(relayUpdate.AllowedIPs, c.Node.Address)
+		}
+		if c.Node.Address6.IP != nil {
+			relayUpdate.AllowedIPs = append(relayUpdate.AllowedIPs, c.Node.Address6)
+		}
+	}
+	perrUpdate = append(perrUpdate, relayUpdate)
+	return perrUpdate
+}
+
+func setPeersForUnrelayedNode(relayedNodes []models.Client, relay, client models.Client, clients *[]models.Client) []wgtypes.PeerConfig {
+	perrUpdate := []wgtypes.PeerConfig{}
+	relayUpdate := wgtypes.PeerConfig{
+		PublicKey:         relay.Host.PublicKey,
+		ReplaceAllowedIPs: true,
+		AllowedIPs:        []net.IPNet{},
+	}
+	for _, relayed := range relayedNodes {
+		//remove relayed nodes from peer list
+		relayedUpdate := wgtypes.PeerConfig{
+			PublicKey: relayed.Host.PublicKey,
+			Remove:    true,
+		}
+		perrUpdate = append(perrUpdate, relayedUpdate)
+		// add relayed nodes to relay allowed ips
+		if relayed.Node.Address.IP != nil {
+			relayUpdate.AllowedIPs = append(relayUpdate.AllowedIPs, relayed.Node.Address)
+		}
+		if relayed.Node.Address6.IP != nil {
+			relayUpdate.AllowedIPs = append(relayUpdate.AllowedIPs, relayed.Node.Address6)
+		}
+	}
+	// add client addresses to relay allowed ips
+	if client.Node.Address.IP != nil {
+		relayUpdate.AllowedIPs = append(relayUpdate.AllowedIPs, client.Node.Address)
+	}
+	if client.Node.Address6.IP != nil {
+		relayUpdate.AllowedIPs = append(relayUpdate.AllowedIPs, client.Node.Address6)
+	}
+	perrUpdate = append(perrUpdate, relayUpdate)
+
+	return perrUpdate
 }
