@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var hostCreateRelayCmd = &cobra.Command{
+var createRelayCmd = &cobra.Command{
 	Use:   "create_relay [NETWORK][NODE ID] [RELAYED NODE IDS (comma separated)]",
 	Args:  cobra.ExactArgs(3),
 	Short: "Turn a Node into a Relay",
@@ -18,5 +18,5 @@ var hostCreateRelayCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(hostCreateRelayCmd)
+	rootCmd.AddCommand(createRelayCmd)
 }

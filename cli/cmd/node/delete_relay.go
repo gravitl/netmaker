@@ -5,7 +5,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var hostDeleteRelayCmd = &cobra.Command{
+var deleteRelayCmd = &cobra.Command{
 	Use:   "delete_relay [NETWORK] [NODE ID]",
 	Args:  cobra.ExactArgs(2),
 	Short: "Delete Relay from a node",
@@ -16,5 +16,5 @@ var hostDeleteRelayCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(hostDeleteRelayCmd)
+	rootCmd.AddCommand(deleteRelayCmd)
 }
