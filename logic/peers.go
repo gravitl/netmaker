@@ -29,41 +29,6 @@ func GetProxyUpdateForHost(ctx context.Context, host *models.Host) (models.Proxy
 		Action: models.ProxyUpdate,
 	}
 	peerConfMap := make(map[string]models.PeerConf)
-	if host.IsRelayed {
-		relayHost, err := GetHost(host.RelayedBy)
-		if err == nil {
-			relayEndpoint, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, GetPeerListenPort(relayHost)))
-			if err != nil {
-				logger.Log(1, "failed to resolve relay node endpoint: ", err.Error())
-			}
-			proxyPayload.IsRelayed = true
-			proxyPayload.RelayedTo = relayEndpoint
-		} else {
-			logger.Log(0, "couldn't find relay host for:  ", host.ID.String())
-		}
-	}
-	if host.IsRelay {
-		relayedHosts := GetRelayedHosts(host)
-		relayPeersMap := make(map[string]models.RelayedConf)
-		for _, relayedHost := range relayedHosts {
-			relayedHost := relayedHost
-			payload, err := GetPeerUpdateForHost(ctx, "", &relayedHost, nil, nil)
-			if err == nil {
-				relayedEndpoint, udpErr := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayedHost.EndpointIP, GetPeerListenPort(&relayedHost)))
-				if udpErr == nil {
-					relayPeersMap[relayedHost.PublicKey.String()] = models.RelayedConf{
-						RelayedPeerEndpoint: relayedEndpoint,
-						RelayedPeerPubKey:   relayedHost.PublicKey.String(),
-						Peers:               payload.Peers,
-					}
-				}
-
-			}
-		}
-		proxyPayload.IsRelay = true
-		proxyPayload.RelayedPeerConf = relayPeersMap
-
-	}
 	var ingressStatus bool
 	for _, nodeID := range host.Nodes {
 
@@ -98,18 +63,6 @@ func GetProxyUpdateForHost(ctx context.Context, host *models.Host) (models.Proxy
 					PublicListenPort: int32(GetPeerListenPort(peerHost)),
 					ProxyListenPort:  GetProxyListenPort(peerHost),
 					NatType:          peerHost.NatType,
-				}
-			}
-
-			if peerHost.IsRelayed && peerHost.RelayedBy != host.ID.String() {
-				relayHost, err := GetHost(peerHost.RelayedBy)
-				if err == nil {
-					relayTo, err := net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%d", relayHost.EndpointIP, GetPeerListenPort(relayHost)))
-					if err == nil {
-						currPeerConf.IsRelayed = true
-						currPeerConf.RelayedTo = relayTo
-					}
-
 				}
 			}
 
@@ -193,6 +146,10 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 				if peer.ID.String() == node.ID.String() {
 					logger.Log(2, "peer update, skipping self")
 					//skip yourself
+					continue
+				}
+				if peer.IsRelayed {
+					// skip relayed peers; will be included in relay peer
 					continue
 				}
 				var peerConfig wgtypes.PeerConfig
@@ -676,6 +633,12 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 		//hasGateway = true
 		egressIPs := getEgressIPs(node, peer)
 		allowedips = append(allowedips, egressIPs...)
+	}
+	if peer.IsRelay {
+		for _, relayed := range peer.RelayedNodes {
+			allowed := getRelayedAddresses(relayed)
+			allowedips = append(allowedips, allowed...)
+		}
 	}
 	return allowedips
 }

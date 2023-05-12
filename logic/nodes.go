@@ -326,34 +326,6 @@ func GetDeletedNodeByMacAddress(network string, macaddress string) (models.Node,
 	return node, nil
 }
 
-// GetNodeRelay - gets the relay node of a given network
-func GetNodeRelay(network string, relayedNodeAddr string) (models.Node, error) {
-	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
-	var relay models.Node
-	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return relay, nil
-		}
-		logger.Log(2, err.Error())
-		return relay, err
-	}
-	for _, value := range collection {
-		err := json.Unmarshal([]byte(value), &relay)
-		if err != nil {
-			logger.Log(2, err.Error())
-			continue
-		}
-		if relay.IsRelay {
-			for _, addr := range relay.RelayAddrs {
-				if addr == relayedNodeAddr {
-					return relay, nil
-				}
-			}
-		}
-	}
-	return relay, errors.New(RELAY_NODE_ERR + " " + relayedNodeAddr)
-}
-
 func GetNodeByID(uuid string) (models.Node, error) {
 	var record, err = database.FetchRecord(database.NODES_TABLE_NAME, uuid)
 	if err != nil {
@@ -387,24 +359,12 @@ func GetDeletedNodeByID(uuid string) (models.Node, error) {
 
 // FindRelay - returns the node that is the relay for a relayed node
 func FindRelay(node *models.Node) *models.Node {
-	if !node.IsRelayed {
-		return nil
-	}
-	peers, err := GetNetworkNodes(node.Network)
+	relay, err := GetNodeByID(node.RelayedBy)
 	if err != nil {
+		logger.Log(0, "FindRelay: "+err.Error())
 		return nil
 	}
-	for _, peer := range peers {
-		if !peer.IsRelay {
-			continue
-		}
-		for _, ip := range peer.RelayAddrs {
-			if ip == node.Address.IP.String() || ip == node.Address6.IP.String() {
-				return &peer
-			}
-		}
-	}
-	return nil
+	return &relay
 }
 
 // GetNetworkIngresses - gets the gateways of a network
