@@ -2,6 +2,7 @@ package controller
 
 import "testing"
 
+// TestValidName tests the validName function
 func TestValidName(t *testing.T) {
 	type args struct {
 		Name string

@@ -12,9 +12,6 @@ import (
 
 var (
 	extClientUpdateFile string
-	updatedPublicKey    string
-	updatedDNS          string
-	updatedAllowedips   []string
 )
 
 var extClientUpdateCmd = &cobra.Command{
@@ -38,8 +35,8 @@ var extClientUpdateCmd = &cobra.Command{
 			}
 		} else {
 			extClient.ClientID = extClientID
-			extClient.PublicKey = updatedPublicKey
-			extClient.DNS = updatedDNS
+			extClient.PublicKey = publicKey
+			extClient.DNS = dns
 		}
 		functions.PrettyPrint(functions.UpdateExtClient(network, clientID, extClient))
 	},
@@ -48,8 +45,8 @@ var extClientUpdateCmd = &cobra.Command{
 func init() {
 	extClientUpdateCmd.Flags().StringVar(&extClientID, "id", "", "updated ID of the external client")
 	extClientUpdateCmd.Flags().StringVar(&extClientUpdateFile, "file", "", "Filepath of updated external client definition in JSON")
-	extClientUpdateCmd.Flags().StringVar(&updatedPublicKey, "public_key", "", "updated public key of the external client")
-	extClientUpdateCmd.Flags().StringVar(&updatedDNS, "dns", "", "updated DNS of the external client")
-	extClientUpdateCmd.Flags().StringSliceVar(&updatedAllowedips, "allowedips", []string{}, "updated extra allowed IPs of the external client")
+	extClientUpdateCmd.Flags().StringVar(&publicKey, "public_key", "", "updated public key of the external client")
+	extClientUpdateCmd.Flags().StringVar(&dns, "dns", "", "updated DNS of the external client")
+	extClientUpdateCmd.Flags().StringSliceVar(&allowedips, "allowedips", []string{}, "updated extra allowed IPs of the external client")
 	rootCmd.AddCommand(extClientUpdateCmd)
 }
