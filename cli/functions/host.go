@@ -36,17 +36,18 @@ func DeleteHostFromNetwork(hostID, network string) *hostNetworksUpdatePayload {
 	return request[hostNetworksUpdatePayload](http.MethodDelete, "/api/hosts/"+hostID+"/networks/"+network, nil)
 }
 
-// CreateRelay - turn a host into a relay
-func CreateRelay(hostID string, relayedHosts []string) *models.ApiHost {
-	return request[models.ApiHost](http.MethodPost, fmt.Sprintf("/api/hosts/%s/relay", hostID), &models.HostRelayRequest{
-		HostID:       hostID,
-		RelayedHosts: relayedHosts,
+// CreateRelay - add relay to a node
+func CreateRelay(netID, nodeID string, relayedNodes []string) *models.ApiNode {
+	return request[models.ApiNode](http.MethodPost, fmt.Sprintf("/api/nodes/%s/%s/createrelay", netID, nodeID), &models.RelayRequest{
+		NodeID:       nodeID,
+		NetID:        netID,
+		RelayedNodes: relayedNodes,
 	})
 }
 
-// DeleteRelay - remove relay role from a host
-func DeleteRelay(hostID string) *models.ApiHost {
-	return request[models.ApiHost](http.MethodDelete, fmt.Sprintf("/api/hosts/%s/relay", hostID), nil)
+// DeleteRelay - remove relay from a node
+func DeleteRelay(netID, nodeID string) *models.ApiNode {
+	return request[models.ApiNode](http.MethodDelete, fmt.Sprintf("/api/nodes/%s/%s/deleterelay", netID, nodeID), nil)
 }
 
 // RefreshKeys - refresh wireguard keys

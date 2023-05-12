@@ -628,12 +628,12 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 	newNode := newData.ConvertToServerNode(&currentNode)
 	relayupdate := false
-	if currentNode.IsRelay && len(newNode.RelayAddrs) > 0 {
-		if len(newNode.RelayAddrs) != len(currentNode.RelayAddrs) {
+	if currentNode.IsRelay && len(newNode.RelayedNodes) > 0 {
+		if len(newNode.RelayedNodes) != len(currentNode.RelayedNodes) {
 			relayupdate = true
 		} else {
-			for i, addr := range newNode.RelayAddrs {
-				if addr != currentNode.RelayAddrs[i] {
+			for i, node := range newNode.RelayedNodes {
+				if node != currentNode.RelayedNodes[i] {
 					relayupdate = true
 				}
 			}
@@ -645,10 +645,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			fmt.Sprintf("failed to get host for node  [ %s ] info: %v", nodeid, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
-	}
-	relayedUpdate := false
-	if currentNode.IsRelayed && (currentNode.Address.String() != newNode.Address.String() || currentNode.Address6.String() != newNode.Address6.String()) {
-		relayedUpdate = true
 	}
 	ifaceDelta := logic.IfaceDelta(&currentNode, newNode)
 	aclUpdate := currentNode.DefaultACL != newNode.DefaultACL
@@ -666,15 +662,12 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if relayupdate {
-		updatenodes := logic.UpdateRelay(currentNode.Network, currentNode.RelayAddrs, newNode.RelayAddrs)
+		updatenodes := logic.UpdateRelayed(currentNode.ID.String(), currentNode.RelayedNodes, newNode.RelayedNodes)
 		if len(updatenodes) > 0 {
 			for _, relayedNode := range updatenodes {
 				runUpdates(&relayedNode, false)
 			}
 		}
-	}
-	if relayedUpdate {
-		updateRelay(&currentNode, newNode)
 	}
 	if servercfg.IsDNSMode() {
 		logic.SetDNS()
@@ -765,30 +758,6 @@ func runUpdates(node *models.Node, ifaceDelta bool) {
 			logger.Log(1, "error publishing node update to node", node.ID.String(), err.Error())
 		}
 	}()
-}
-
-func updateRelay(oldnode, newnode *models.Node) {
-	relay := logic.FindRelay(oldnode)
-	newrelay := relay
-	//check if node's address has been updated and if so, update the relayAddrs of the relay node with the updated address of the relayed node
-	if oldnode.Address.String() != newnode.Address.String() {
-		for i, ip := range newrelay.RelayAddrs {
-			if ip == oldnode.Address.IP.String() {
-				newrelay.RelayAddrs = append(newrelay.RelayAddrs[:i], relay.RelayAddrs[i+1:]...)
-				newrelay.RelayAddrs = append(newrelay.RelayAddrs, newnode.Address.IP.String())
-			}
-		}
-	}
-	//check if node's address(v6) has been updated and if so, update the relayAddrs of the relay node with the updated address(v6) of the relayed node
-	if oldnode.Address6.String() != newnode.Address6.String() {
-		for i, ip := range newrelay.RelayAddrs {
-			if ip == oldnode.Address.IP.String() {
-				newrelay.RelayAddrs = append(newrelay.RelayAddrs[:i], newrelay.RelayAddrs[i+1:]...)
-				newrelay.RelayAddrs = append(newrelay.RelayAddrs, newnode.Address6.IP.String())
-			}
-		}
-	}
-	logic.UpdateNode(relay, newrelay)
 }
 
 func doesUserOwnNode(username, network, nodeID string) bool {

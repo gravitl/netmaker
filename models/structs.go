@@ -153,9 +153,9 @@ type EgressGatewayRequest struct {
 
 // RelayRequest - relay request struct
 type RelayRequest struct {
-	NodeID     string   `json:"nodeid" bson:"nodeid"`
-	NetID      string   `json:"netid" bson:"netid"`
-	RelayAddrs []string `json:"relayaddrs" bson:"relayaddrs"`
+	NodeID       string   `json:"nodeid" bson:"nodeid"`
+	NetID        string   `json:"netid" bson:"netid"`
+	RelayedNodes []string `json:"relayaddrs" bson:"relayaddrs"`
 }
 
 // HostRelayRequest - struct for host relay creation
