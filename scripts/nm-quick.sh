@@ -537,7 +537,7 @@ set_install_vars() {
 		read -p "TURN Username (click 'enter' to use 'netmaker'): " GET_TURN_USERNAME
 	fi
 	if [ -z "$GET_TURN_USERNAME" ]; then
-	echo "using default username for mq"
+	echo "using default username for turn"
 	TURN_USERNAME="netmaker"
 	else
 	TURN_USERNAME="$GET_TURN_USERNAME"
