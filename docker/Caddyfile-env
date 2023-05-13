@@ -1,0 +1,51 @@
+{
+        # ZeroSSL account
+        # acme_ca https://acme.zerossl.com/v2/DV90
+        email {$MAIL}
+}
+
+# Dashboard
+https://{$DASHBOARD_URL_PREFIX}.{$NETMAKER_BASE_DOMAIN} {
+        # Apply basic security headers
+        header {
+                # Enable cross origin access to *.{$NETMAKER_BASE_DOMAIN}
+                Access-Control-Allow-Origin *.{$NETMAKER_BASE_DOMAIN}
+                # Enable HTTP Strict Transport Security (HSTS)
+                Strict-Transport-Security "max-age=31536000;"
+                # Enable cross-site filter (XSS) and tell browser to block detected attacks
+                X-XSS-Protection "1; mode=block"
+                # Disallow the site to be rendered within a frame on a foreign domain (clickjacking protection)
+                X-Frame-Options "SAMEORIGIN"
+                # Prevent search engines from indexing
+                X-Robots-Tag "none"
+                # Remove the server name
+                -Server
+        }
+
+        reverse_proxy http://netmaker-ui
+}
+
+# API
+https://{$API_URL_PREFIX}.{$NETMAKER_BASE_DOMAIN} {
+        reverse_proxy http://netmaker:8081
+}
+
+# STUN
+https://{$STUN_URL_PREFIX}.{$NETMAKER_BASE_DOMAIN} {
+	reverse_proxy netmaker:3478
+}
+
+# TURN
+https://{$TURN_URL_PREFIX}.{$NETMAKER_BASE_DOMAIN} {
+	reverse_proxy host.docker.internal:3479
+}
+
+#TURN API
+https://{$TURN_API_URL_PREFIX}.{$NETMAKER_BASE_DOMAIN} {
+        reverse_proxy http://host.docker.internal:8089
+}
+
+# MQ
+wss://{$BROKER_URL_PREFIX}.{$NETMAKER_BASE_DOMAIN} {
+        reverse_proxy ws://mq:8883 # For EMQX websockets use `reverse_proxy ws://mq:8083`
+}
