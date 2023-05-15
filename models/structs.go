@@ -164,6 +164,12 @@ type HostRelayRequest struct {
 	RelayedHosts []string `json:"relayed_hosts"`
 }
 
+// IngressRequest - ingress request struct
+type IngressRequest struct {
+	ExtclientDNS string `json:"extclientdns"`
+	Failover     bool   `json:"failover"`
+}
+
 // ServerUpdateData - contains data to configure server
 // and if it should set peers
 type ServerUpdateData struct {
