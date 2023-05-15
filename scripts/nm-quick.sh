@@ -281,13 +281,22 @@ save_config() { (
 	save_config_item NM_EMAIL "$EMAIL"
 	save_config_item NM_DOMAIN "$NETMAKER_BASE_DOMAIN"
 	save_config_item UI_IMAGE_TAG "$IMAGE_TAG"
+	if [ "$BUILD_TYPE" = "local" ]; then
+		save_config_item UI_IMAGE_TAG "$LATEST"
+	else
+		save_config_item UI_IMAGE_TAG "$IMAGE_TAG"
+	fi
 	# version-specific entries
 	if [ "$INSTALL_TYPE" = "ee" ]; then
 		save_config_item NETMAKER_ACCOUNT_ID "$ACCOUNT_ID"
 		save_config_item LICENSE_KEY "$LICENSE_KEY"
 		save_config_item METRICS_EXPORTER "on"
 		save_config_item PROMETHEUS "on"
-		save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG-ee"
+		if [ "$BUILD_TYPE" = "version" ]; then
+			save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG-ee"
+		else
+			save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG"
+		fi
 	else
 		save_config_item METRICS_EXPORTER "off"
 		save_config_item PROMETHEUS "off"
