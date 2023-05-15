@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
+	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // PublishPeerUpdate --- determines and publishes a peer update to all the hosts
@@ -106,6 +108,68 @@ func PublishSingleHostPeerUpdate(ctx context.Context, host *models.Host, deleted
 		return err
 	}
 	return publish(host, fmt.Sprintf("peers/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
+}
+
+func BroadCastDelPeer(host *models.Host, network string) error {
+	//relatedHosts := logic.GetRelatedHosts(host.ID.String())
+	nodes, err := logic.GetNetworkNodes(network)
+	if err != nil {
+		return err
+	}
+	p := models.PeerAction{
+		Action: models.RemovePeer,
+		Peer: wgtypes.PeerConfig{
+			PublicKey: host.PublicKey,
+			Remove:    true,
+		},
+	}
+	data, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	for _, nodeI := range nodes {
+		peerHost, err := logic.GetHost(nodeI.HostID.String())
+		if err == nil {
+			publish(peerHost, fmt.Sprintf("peer/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
+		}
+	}
+	return nil
+}
+
+func BroadCastAddPeer(host *models.Host, node *models.Node, network string, update bool) error {
+	nodes, err := logic.GetNetworkNodes(network)
+	if err != nil {
+		return err
+	}
+
+	p := models.PeerAction{
+		Action: models.AddPeer,
+		Peer: wgtypes.PeerConfig{
+			PublicKey: host.PublicKey,
+			Endpoint: &net.UDPAddr{
+				IP:   host.EndpointIP,
+				Port: logic.GetPeerListenPort(host),
+			},
+			PersistentKeepaliveInterval: &node.PersistentKeepalive,
+			ReplaceAllowedIPs:           true,
+		},
+	}
+	if update {
+		p.Action = models.UpdatePeer
+	}
+	for _, nodeI := range nodes {
+		// update allowed ips, according to the peer node
+		p.Peer.AllowedIPs = logic.GetAllowedIPs(&nodeI, node, nil)
+		data, err := json.Marshal(p)
+		if err != nil {
+			continue
+		}
+		peerHost, err := logic.GetHost(nodeI.HostID.String())
+		if err == nil {
+			publish(peerHost, fmt.Sprintf("peer/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
+		}
+	}
+	return nil
 }
 
 // NodeUpdate -- publishes a node update
