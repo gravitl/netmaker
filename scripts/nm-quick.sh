@@ -304,13 +304,13 @@ save_config() { (
 		save_config_item $name "${!name}"
 	done
 	# preserve debug entries
-	if test -z "$NM_SKIP_BUILD"; then
+	if test -n "$NM_SKIP_BUILD"; then
 		save_config_item NM_SKIP_BUILD "$NM_SKIP_BUILD"
 	fi
-	if test -z "$NM_SKIP_CLONE"; then
+	if test -n "$NM_SKIP_CLONE"; then
 		save_config_item NM_SKIP_CLONE "$NM_SKIP_CLONE"
 	fi
-	if test -z "$NM_SKIP_DEPS"; then
+	if test -n "$NM_SKIP_DEPS"; then
 		save_config_item NM_SKIP_DEPS "$NM_SKIP_DEPS"
 	fi
 ); }
