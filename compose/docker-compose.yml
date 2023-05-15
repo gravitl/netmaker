@@ -1,6 +1,7 @@
 version: "3.4"
 
 services:
+
   netmaker:
     container_name: netmaker
     image: gravitl/netmaker:$SERVER_IMAGE_TAG
@@ -9,17 +10,39 @@ services:
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
+    environment:
+      # config-dependant vars
+      - STUN_LIST=stun.${NM_DOMAIN}:${STUN_PORT},stun1.netmaker.io:3478,stun2.netmaker.io:3478,stun1.l.google.com:19302,stun2.l.google.com:19302
+      # The domain/host IP indicating the mq broker address
+      - BROKER_ENDPOINT=wss://broker.${NM_DOMAIN}
+      # The base domain of netmaker
+      - SERVER_NAME=${NM_DOMAIN}
+      - SERVER_API_CONN_STRING=api.${NM_DOMAIN}:443
+      # Address of the CoreDNS server. Defaults to SERVER_HOST
+      - COREDNS_ADDR=${SERVER_HOST}
+      # Overrides SERVER_HOST if set. Useful for making HTTP available via different interfaces/networks.
+      - SERVER_HTTP_HOST=api.${NM_DOMAIN}
+      # domain for your turn server
+      - TURN_SERVER_HOST=turn.${NM_DOMAIN}
+      # domain of the turn api server
+      - TURN_SERVER_API_HOST=https://turnapi.${NM_DOMAIN}
     ports:
       - "3478:3478/udp"
+
   netmaker-ui:
     container_name: netmaker-ui
     image: gravitl/netmaker-ui:$UI_IMAGE_TAG
     env_file: ./netmaker.env
+    environment:
+      # config-dependant vars
+      # URL where UI will send API requests. Change based on SERVER_HOST, SERVER_HTTP_HOST, and API_PORT
+      BACKEND_URL: "https://api.${NM_DOMAIN}"
     depends_on:
       - netmaker
     links:
       - "netmaker:api"
     restart: always
+
   caddy:
     image: caddy:2.6.2
     container_name: caddy
@@ -35,6 +58,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
+
   coredns:
     container_name: coredns
     image: coredns/coredns
@@ -52,22 +76,32 @@ services:
     depends_on:
       - netmaker
     restart: unless-stopped
-    command: ["/mosquitto/config/wait.sh"]
+    command: [ "/mosquitto/config/wait.sh" ]
     volumes:
       - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
       - ./wait.sh:/mosquitto/config/wait.sh
       - mosquitto_logs:/mosquitto/log
+      - mosquitto_data:/mosquitto/data
+
   turn:
     container_name: turn
     image: gravitl/turnserver:v1.0.0
     env_file: ./netmaker.env
+    environment:
+      # config-dependant vars
+      - USERNAME=${TURN_USERNAME}
+      - PASSWORD=${TURN_PASSWORD}
+      # domain for your turn server
+      - TURN_SERVER_HOST=turn.${NM_DOMAIN}
     network_mode: "host"
     volumes:
       - turn_server:/etc/config
+
 volumes:
-  caddy_data: {}
-  caddy_conf: {}
-  sqldata: {}
-  dnsconfig: {}
-  mosquitto_logs: {}
-  turn_server: {}
+  caddy_data: { } # runtime data for caddy
+  caddy_conf: { } # configuration file for Caddy
+  sqldata: { }
+  dnsconfig: { } # storage for coredns
+  mosquitto_logs: { } # storage for mqtt logs
+  mosquitto_data: { } # storage for mqtt data
+  turn_server: { }

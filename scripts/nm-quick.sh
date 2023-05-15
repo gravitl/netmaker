@@ -148,13 +148,13 @@ set_buildinfo() {
 # install_yq - install yq if not present
 install_yq() {
 	if ! command -v yq &>/dev/null; then
-		wget -O /usr/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_$(dpkg --print-architecture)
+		wget -qO /usr/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_$(dpkg --print-architecture)
 		chmod +x /usr/bin/yq
 	fi
 	set +e
 	if ! command -v yq &>/dev/null; then
 		set -e
-		wget -O /usr/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_amd64
+		wget -qO /usr/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_amd64
 		chmod +x /usr/bin/yq
 	fi
 	set -e
@@ -173,24 +173,43 @@ setup_netclient() {
 	set -e
 
 	# TODO arm support
-	wget -O netclient https://github.com/gravitl/netclient/releases/download/$LATEST/netclient-linux-amd64
+	wget -qO netclient https://github.com/gravitl/netclient/releases/download/$LATEST/netclient-linux-amd64
 	chmod +x netclient
 	./netclient install
 	echo "Register token: $TOKEN"
 	netclient register -t $TOKEN
 
-	echo "waiting for client to become available"
-	wait_seconds 10
+	echo "waiting for netclient to become available"
+	local found=false
+	local file=/etc/netclient/nodes.yml
+	for ((a = 1; a <= 90; a++)); do
+		if [ -f "$file" ]; then
+			found=true
+			break
+		fi
+		sleep 1
+	done
+
+	if [ "$found" = false ]; then
+		echo "Error - $file not present"
+		exit 1
+	fi
 }
 
 # configure_netclient - configures server's netclient as a default host and an ingress gateway
 configure_netclient() {
 
 	NODE_ID=$(sudo cat /etc/netclient/nodes.yml | yq -r .netmaker.commonnode.id)
-	# TODO check error
+	if [ "$NODE_ID" = "" ] || [ "$NODE_ID" = "null" ]; then
+		echo "Error obtaining NODE_ID for the new network"
+		exit 1
+	fi
 	echo "register complete. New node ID: $NODE_ID"
 	HOST_ID=$(sudo cat /etc/netclient/netclient.yml | yq -r .host.id)
-	# TODO check error
+	if [ "$HOST_ID" = "" ] || [ "$HOST_ID" = "null" ]; then
+		echo "Error obtaining HOST_ID for the new network"
+		exit 1
+	fi
 	echo "making host a default"
 	echo "Host ID: $HOST_ID"
 	# set as a default host
@@ -205,7 +224,14 @@ configure_netclient() {
 setup_nmctl() {
 
 	# TODO arm support
-	wget -O /usr/bin/nmctl https://github.com/gravitl/netmaker/releases/download/$LATEST/nmctl-linux-amd64
+	local URL="https://github.com/gravitl/netmaker/releases/download/$LATEST/nmctl-linux-amd64"
+	echo "Downloading nmctl..."
+	wget -qO /usr/bin/nmctl "$URL"
+
+	if [ ! -f /usr/bin/nmctl ]; then
+		echo "Error downloading nmctl from '$URL'"
+		exit 1
+	fi
 
 	chmod +x /usr/bin/nmctl
 	echo "using server api.$NETMAKER_BASE_DOMAIN"
@@ -253,14 +279,7 @@ save_config() { (
 	echo "Saving the config to $CONFIG_PATH"
 	touch "$CONFIG_PATH"
 	save_config_item NM_EMAIL "$EMAIL"
-	save_config_item NM_DOMAIN "$NM_DOMAIN"
-	save_config_item SERVER_HOST "$SERVER_HOST"
-	save_config_item MASTER_KEY "$MASTER_KEY"
-	save_config_item TURN_USERNAME "$TURN_USERNAME"
-	save_config_item TURN_PASSWORD "$TURN_PASSWORD"
-	save_config_item MQ_USERNAME "$MQ_USERNAME"
-	save_config_item MQ_PASSWORD "$MQ_PASSWORD"
-	save_config_item INSTALL_TYPE "$INSTALL_TYPE"
+	save_config_item NM_DOMAIN "$NETMAKER_BASE_DOMAIN"
 	save_config_item UI_IMAGE_TAG "$IMAGE_TAG"
 	# version-specific entries
 	if [ "$INSTALL_TYPE" = "ee" ]; then
@@ -270,23 +289,42 @@ save_config() { (
 		save_config_item PROMETHEUS "on"
 		save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG-ee"
 	else
+		save_config_item METRICS_EXPORTER "off"
+		save_config_item PROMETHEUS "off"
 		save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG"
 	fi
-	# substitute
-	sed -i "s/\$NM_DOMAIN/$NM_DOMAIN/g" "$CONFIG_PATH"
-	sed -i "s/\$SERVER_HOST/$SERVER_HOST/g" "$CONFIG_PATH"
-	# TODO temp
-	sed -i "s/\$TURN_USERNAME/$TURN_USERNAME/g" "$CONFIG_PATH"
-	sed -i "s/\$TURN_PASSWORD/$TURN_PASSWORD/g" "$CONFIG_PATH"
+	# copy entries from the previous config
+	local toCopy=("SERVER_HOST" "MASTER_KEY" "TURN_USERNAME" "MQ_USERNAME" "MQ_PASSWORD"
+		"INSTALL_TYPE" "NODE_ID" "METRICS_EXPORTER" "PROMETHEUS" "DNS_MODE" "NETCLIENT_AUTO_UPDATE" "API_PORT"
+		"CORS_ALLOWED_ORIGIN" "DISPLAY_KEYS" "DATABASE" "SERVER_BROKER_ENDPOINT" "STUN_PORT" "VERBOSITY"
+		"DEFAULT_PROXY_MODE" "TURN_PORT" "USE_TURN" "DEBUG_MODE" "TURN_API_PORT" "REST_BACKEND" "DISABLE_REMOTE_IP_CHECK"
+		"TELEMETRY" "AUTH_PROVIDER" "CLIENT_ID" "CLIENT_SECRET" "FRONTEND_URL" "AZURE_TENANT" "OIDC_ISSUER"
+		"EXPORTER_API_PORT")
+	for name in "${toCopy[@]}"; do
+		save_config_item $name "${!name}"
+	done
+	# preserve debug entries
+	if test -z "$NM_SKIP_BUILD"; then
+		save_config_item NM_SKIP_BUILD "$NM_SKIP_BUILD"
+	fi
+	if test -z "$NM_SKIP_CLONE"; then
+		save_config_item NM_SKIP_CLONE "$NM_SKIP_CLONE"
+	fi
+	if test -z "$NM_SKIP_DEPS"; then
+		save_config_item NM_SKIP_DEPS "$NM_SKIP_DEPS"
+	fi
 ); }
 
 save_config_item() { (
 	local NAME="$1"
 	local VALUE="$2"
+	# echo "NAME $NAME"
+	# echo "VALUE $VALUE"
 	if grep -q "^$NAME=" "$CONFIG_PATH"; then
-		sed -i "s/$NAME=.*/$NAME=$VALUE/" "$CONFIG_PATH"
+		# TODO escape | in the value
+		sed -i "s|$NAME=.*|$NAME='$VALUE'|" "$CONFIG_PATH"
 	else
-		echo "$NAME=$VALUE" >>"$CONFIG_PATH"
+		echo "$NAME=\"$VALUE\"" >>"$CONFIG_PATH"
 	fi
 ); }
 
@@ -327,6 +365,11 @@ local_install_setup() { (
 
 # install_dependencies - install necessary packages to run netmaker
 install_dependencies() {
+
+	if test -n "$NM_SKIP_DEPS"; then
+		return
+	fi
+
 	echo "checking dependencies..."
 
 	OS=$(uname)
@@ -437,10 +480,7 @@ set_install_vars() {
 	fi
 
 	NETMAKER_BASE_DOMAIN=nm.$(echo $IP_ADDR | tr . -).nip.io
-	# TODO dead code?
-	# COREDNS_IP=$(ip route get 1 | sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
 	SERVER_HOST=$IP_ADDR
-	# TODO revert bad merge (Matt)
 	MASTER_KEY=$(
 		tr -dc A-Za-z0-9 </dev/urandom | head -c 30
 		echo ''
@@ -744,22 +784,28 @@ setup_mesh() {
 
 	wait_seconds 5
 
-	echo "Creating netmaker network (10.101.0.0/16)"
+	local networkCount=$(nmctl network list -o json | jq '. | length')
 
-	nmctl network create --name netmaker --ipv4_addr 10.101.0.0/16
+	# add a network if none present
+	if [ "$networkCount" -lt 1 ]; then
+		echo "Creating netmaker network (10.101.0.0/16)"
 
-	wait_seconds 5
+		# TODO causes "Error Status: 400 Response: {"Code":400,"Message":"could not find any records"}"
+		nmctl network create --name netmaker --ipv4_addr 10.101.0.0/16
 
-	echo "Creating netmaker enrollment key"
+		wait_seconds 5
+	fi
+
+	echo "Obtaining a netmaker enrollment key..."
 
 	local tokenJson=$(nmctl enrollment_key create --unlimited --networks netmaker)
 	TOKEN=$(jq -r '.token' <<<${tokenJson})
 	if test -z "$TOKEN"; then
 		echo "Error creating an enrollment key"
 		exit 1
+	else
+		echo "Enrollment key ready"
 	fi
-	# TODO-2 debug
-	echo "TOKEN $TOKEN"
 
 	wait_seconds 3
 
@@ -775,17 +821,28 @@ print_success() {
 	echo "-----------------------------------------------------------------"
 }
 
-stop_docker() {
+cleanup() {
+	# remove the existing netclient's instance from the existing network
+	if command -v nmctl >/dev/null 2>&1; then
+		local node_id=$(netclient list | jq '.[0].node_id' 2>/dev/null)
+		# trim doublequotes
+		node_id="${node_id//\"/}"
+		if test -n "$node_id"; then
+			echo "De-registering the existing netclient..."
+			nmctl node delete netmaker $node_id >/dev/null 2>&1
+		fi
+	fi
+
 	echo "Stopping all containers..."
 	local containers=("mq" "netmaker-ui" "coredns" "turn" "caddy" "netmaker" "netmaker-exporter" "prometheus" "grafana")
 	for name in "${containers[@]}"; do
 		local running=$(docker ps | grep -w "$name")
 		local exists=$(docker ps -a | grep -w "$name")
 		if test -n "$running"; then
-			docker stop "$name"
+			docker stop "$name" 1>/dev/null
 		fi
 		if test -n "$exists"; then
-			docker rm "$name"
+			docker rm "$name" 1>/dev/null
 		fi
 	done
 }
@@ -809,7 +866,9 @@ set -e
 # 6. get user input for variables
 set_install_vars
 
-stop_docker
+set +e
+cleanup
+set -e
 
 # 7. get and set config files, startup docker-compose
 install_netmaker

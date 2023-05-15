@@ -41,7 +41,7 @@ https://turn.{$NM_DOMAIN} {
 # TURN API
 https://turnapi.{$NM_DOMAIN} {
 	tls /root/certs/fullchain.pem /root/certs/privkey.pem
-    reverse_proxy http://host.docker.internal:8089
+	reverse_proxy http://host.docker.internal:8089
 }
 
 # MQ
