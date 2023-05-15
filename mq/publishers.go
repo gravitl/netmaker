@@ -130,14 +130,14 @@ func BroadCastDelPeer(host *models.Host, network string) error {
 	for _, nodeI := range nodes {
 		peerHost, err := logic.GetHost(nodeI.HostID.String())
 		if err == nil {
-			publish(peerHost, fmt.Sprintf("peer/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
+			publish(peerHost, fmt.Sprintf("peer/host/%s/%s", peerHost.ID.String(), servercfg.GetServer()), data)
 		}
 	}
 	return nil
 }
 
-func BroadCastAddPeer(host *models.Host, node *models.Node, network string, update bool) error {
-	nodes, err := logic.GetNetworkNodes(network)
+func BroadCastAddPeer(host *models.Host, node *models.Node, update bool) error {
+	nodes, err := logic.GetNetworkNodes(node.Network)
 	if err != nil {
 		return err
 	}
@@ -158,6 +158,10 @@ func BroadCastAddPeer(host *models.Host, node *models.Node, network string, upda
 		p.Action = models.UpdatePeer
 	}
 	for _, nodeI := range nodes {
+		if nodeI.ID.String() == node.ID.String() {
+			// skip self...
+			continue
+		}
 		// update allowed ips, according to the peer node
 		p.Peer.AllowedIPs = logic.GetAllowedIPs(&nodeI, node, nil)
 		data, err := json.Marshal(p)
@@ -166,7 +170,7 @@ func BroadCastAddPeer(host *models.Host, node *models.Node, network string, upda
 		}
 		peerHost, err := logic.GetHost(nodeI.HostID.String())
 		if err == nil {
-			publish(peerHost, fmt.Sprintf("peer/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
+			publish(peerHost, fmt.Sprintf("peer/host/%s/%s", peerHost.ID.String(), servercfg.GetServer()), data)
 		}
 	}
 	return nil

@@ -753,8 +753,13 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	}
 	go func(deletedNode *models.Node, fromNode bool) { // notify of peer change
 		var err error
+		host, err := logic.GetHost(node.HostID.String())
+		if err != nil {
+			logger.Log(1, "failed to retrieve host for node", node.ID.String(), err.Error())
+		}
 		if fromNode {
 			err = mq.PublishDeletedNodePeerUpdate(deletedNode)
+			mq.BroadCastDelPeer(host, deletedNode.Network)
 		} else {
 			err = mq.PublishPeerUpdate()
 		}
@@ -762,10 +767,6 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 			logger.Log(1, "error publishing peer update ", err.Error())
 		}
 
-		host, err := logic.GetHost(node.HostID.String())
-		if err != nil {
-			logger.Log(1, "failed to retrieve host for node", node.ID.String(), err.Error())
-		}
 		if err := mq.PublishDNSDelete(&node, host); err != nil {
 			logger.Log(1, "error publishing dns update", err.Error())
 		}
