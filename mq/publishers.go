@@ -110,8 +110,8 @@ func PublishSingleHostPeerUpdate(ctx context.Context, host *models.Host, deleted
 	return publish(host, fmt.Sprintf("peers/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
 }
 
+// BroadCastDelPeer - notifys all the hosts in the network to remove peer
 func BroadCastDelPeer(host *models.Host, network string) error {
-	//relatedHosts := logic.GetRelatedHosts(host.ID.String())
 	nodes, err := logic.GetNetworkNodes(network)
 	if err != nil {
 		return err
@@ -136,6 +136,7 @@ func BroadCastDelPeer(host *models.Host, network string) error {
 	return nil
 }
 
+// BroadCastAddOrUpdatePeer - notifys the hosts in the network to add or update peer.
 func BroadCastAddOrUpdatePeer(host *models.Host, node *models.Node, update bool) error {
 	nodes, err := logic.GetNetworkNodes(node.Network)
 	if err != nil {
