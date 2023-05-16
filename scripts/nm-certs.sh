@@ -64,8 +64,8 @@ sudo docker run -it --rm --name certbot \
 	--entrypoint "/opt/certbot/certbot-entry.sh" \
 	certbot/certbot
 
-# clean up TODO enable
-#rm "$SCRIPT_DIR/certbot-entry.sh"
+# clean up
+rm "$SCRIPT_DIR/certbot-entry.sh"
 
 # check if successful
 if [ ! -f "$CERT_DIR"/fullchain.pem ]; then
@@ -84,8 +84,8 @@ fi
 
 # copy for mounting
 mkdir -p certs
-cp -L "$CERT_DIR/fullchain.pem" /root/certs/fullchain.pem
-cp -L "$CERT_DIR/privkey.pem" /root/certs/privkey.pem
+cp -L "$CERT_DIR/fullchain.pem" "$SCRIPT_DIR/certs/fullchain.pem"
+cp -L "$CERT_DIR/privkey.pem" "$SCRIPT_DIR/certs/privkey.pem"
 
 echo "SSL certificates ready"
 
