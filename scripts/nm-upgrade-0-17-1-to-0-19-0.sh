@@ -27,6 +27,7 @@ backup_v17_files() {
 }
 
 backup_volumes() {
+  # TODO backup to /root/nm-backup
   cp -r /var/lib/docker/volumes/root_caddy_conf/ /var/lib/docker/volumes/root_caddy_conf-backup/
   cp -r /var/lib/docker/volumes/root_caddy_data/ /var/lib/docker/volumes/root_caddy_data-backup/
   cp -r /var/lib/docker/volumes/root_dnsconfig/ /var/lib/docker/volumes/root_dnsconfig-backup/

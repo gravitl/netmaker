@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -91,6 +92,12 @@ func getNetworkExtMetrics(w http.ResponseWriter, r *http.Request) {
 
 	clients, err := logic.GetNetworkExtClients(network) // grab all the network ext clients
 	if err != nil {
+		if database.IsEmptyRecord(err) {
+			var metrics struct{}
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(metrics)
+			return
+		}
 		logger.Log(1, r.Header.Get("user"), "failed to fetch metrics of ext clients in network", network, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
