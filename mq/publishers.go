@@ -136,7 +136,7 @@ func BroadCastDelPeer(host *models.Host, network string) error {
 	return nil
 }
 
-func BroadCastAddPeer(host *models.Host, node *models.Node, update bool) error {
+func BroadCastAddOrUpdatePeer(host *models.Host, node *models.Node, update bool) error {
 	nodes, err := logic.GetNetworkNodes(node.Network)
 	if err != nil {
 		return err

@@ -699,6 +699,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 				logger.Log(0, "error during node ACL update for node", newNode.ID.String())
 			}
 		}
+		mq.BroadCastAddOrUpdatePeer(host, newNode, true)
 		if err := mq.PublishReplaceDNS(&currentNode, newNode, host); err != nil {
 			logger.Log(1, "failed to publish dns update", err.Error())
 		}
