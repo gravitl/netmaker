@@ -139,12 +139,13 @@ func FlushNetworkPeersToHost(host *models.Host, hNode *models.Node) error {
 			ReplaceAllowedIPs:           true,
 			AllowedIPs:                  logic.GetAllowedIPs(hNode, &nodeI, nil),
 		})
-		data, err := json.Marshal(p)
-		if err != nil {
-			continue
-		}
-		publish(host, fmt.Sprintf("peer/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
+
 	}
+	data, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	publish(host, fmt.Sprintf("peer/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
 	return nil
 }
 
