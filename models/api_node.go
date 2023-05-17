@@ -32,6 +32,7 @@ type ApiNode struct {
 	RelayAddrs              []string `json:"relayaddrs"`
 	FailoverNode            string   `json:"failovernode"`
 	DNSOn                   bool     `json:"dnson"`
+	IngressDns              string   `json:"ingressdns"`
 	Server                  string   `json:"server"`
 	InternetGateway         string   `json:"internetgateway"`
 	Connected               bool     `json:"connected"`
@@ -61,6 +62,7 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.IngressGatewayRange = currentNode.IngressGatewayRange
 	convertedNode.IngressGatewayRange6 = currentNode.IngressGatewayRange6
 	convertedNode.DNSOn = a.DNSOn
+	convertedNode.IngressDNS = a.IngressDns
 	convertedNode.EgressGatewayRequest = currentNode.EgressGatewayRequest
 	convertedNode.EgressGatewayNatEnabled = currentNode.EgressGatewayNatEnabled
 	convertedNode.PersistentKeepalive = time.Second * time.Duration(a.PersistentKeepalive)
@@ -148,6 +150,7 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 		apiNode.FailoverNode = ""
 	}
 	apiNode.DNSOn = nm.DNSOn
+	apiNode.IngressDns = nm.IngressDNS
 	apiNode.Server = nm.Server
 	apiNode.InternetGateway = nm.InternetGateway.String()
 	if isEmptyAddr(apiNode.InternetGateway) {
