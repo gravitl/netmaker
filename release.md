@@ -1,14 +1,15 @@
 
-# Netmaker v0.19.1
+# Netmaker v0.20.0
 
 ## whats new
-- 
+- New UI
+- revamped compose-files and install scripts
+- TURN
     
 ## whats fixed
-- status code for exceeding free tier limits  
+- Caddy does not handle netmaker exporter well for EE
 
 ## known issues
-- Caddy does not handle netmaker exporter well for EE
 - Migration causes a listen port of 0 for some upgraded hosts
 - Docker clients can not re-join after deletion
 - Innacurate Ext Client Metrics 
