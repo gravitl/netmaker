@@ -107,9 +107,14 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 						return
 					}
 				}
-				if err = PublishSingleHostPeerUpdate(context.Background(), currentHost, nil, nil); err != nil {
-					logger.Log(0, "failed peers publish after join acknowledged", hostUpdate.Host.Name, currentHost.ID.String(), err.Error())
-					return
+				// if err = PublishSingleHostPeerUpdate(context.Background(), currentHost, nil, nil); err != nil {
+				// 	logger.Log(0, "failed peers publish after join acknowledged", hostUpdate.Host.Name, currentHost.ID.String(), err.Error())
+				// 	return
+				// }
+				// flush peers to host
+				err = FlushNetworkPeersToHost(&hu.Host, &hu.Node)
+				if err != nil {
+					logger.Log(0, "failed to flush peers to host: ", err.Error())
 				}
 				if err = handleNewNodeDNS(&hu.Host, &hu.Node); err != nil {
 					logger.Log(0, "failed to send dns update after node,", hu.Node.ID.String(), ", added to host", hu.Host.Name, err.Error())

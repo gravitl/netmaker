@@ -110,6 +110,43 @@ func PublishSingleHostPeerUpdate(ctx context.Context, host *models.Host, deleted
 	return publish(host, fmt.Sprintf("peers/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
 }
 
+func FlushNetworkPeersToHost(host *models.Host, hNode *models.Node) error {
+	logger.Log(0, "flushing network peers to host: ", host.ID.String(), hNode.Network)
+	nodes, err := logic.GetNetworkNodes(hNode.Network)
+	if err != nil {
+		return err
+	}
+	for _, nodeI := range nodes {
+		if nodeI.ID == hNode.ID {
+			// skip self
+			continue
+		}
+		peerHost, err := logic.GetHost(nodeI.HostID.String())
+		if err != nil {
+			continue
+		}
+		p := models.PeerAction{
+			Action: models.AddPeer,
+			Peer: wgtypes.PeerConfig{
+				PublicKey: peerHost.PublicKey,
+				Endpoint: &net.UDPAddr{
+					IP:   peerHost.EndpointIP,
+					Port: logic.GetPeerListenPort(peerHost),
+				},
+				PersistentKeepaliveInterval: &nodeI.PersistentKeepalive,
+				ReplaceAllowedIPs:           true,
+				AllowedIPs:                  logic.GetAllowedIPs(hNode, &nodeI, nil),
+			},
+		}
+		data, err := json.Marshal(p)
+		if err != nil {
+			continue
+		}
+		publish(host, fmt.Sprintf("peer/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
+	}
+	return nil
+}
+
 // BroadCastDelPeer - notifys all the hosts in the network to remove peer
 func BroadCastDelPeer(host *models.Host, network string) error {
 	nodes, err := logic.GetNetworkNodes(network)
@@ -128,6 +165,10 @@ func BroadCastDelPeer(host *models.Host, network string) error {
 		return err
 	}
 	for _, nodeI := range nodes {
+		if nodeI.HostID == host.ID {
+			// skip self...
+			continue
+		}
 		peerHost, err := logic.GetHost(nodeI.HostID.String())
 		if err == nil {
 			publish(peerHost, fmt.Sprintf("peer/host/%s/%s", peerHost.ID.String(), servercfg.GetServer()), data)
@@ -138,6 +179,7 @@ func BroadCastDelPeer(host *models.Host, network string) error {
 
 // BroadCastAddOrUpdatePeer - notifys the hosts in the network to add or update peer.
 func BroadCastAddOrUpdatePeer(host *models.Host, node *models.Node, update bool) error {
+	// TODO: ACLs
 	nodes, err := logic.GetNetworkNodes(node.Network)
 	if err != nil {
 		return err

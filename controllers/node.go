@@ -695,11 +695,9 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	runUpdates(newNode, ifaceDelta)
 	go func(aclUpdate bool, newNode *models.Node) {
 		if aclUpdate {
-			if err := mq.PublishPeerUpdate(); err != nil {
-				logger.Log(0, "error during node ACL update for node", newNode.ID.String())
-			}
+			mq.BroadCastAddOrUpdatePeer(host, newNode, true)
 		}
-		mq.BroadCastAddOrUpdatePeer(host, newNode, true)
+
 		if err := mq.PublishReplaceDNS(&currentNode, newNode, host); err != nil {
 			logger.Log(1, "failed to publish dns update", err.Error())
 		}
@@ -758,12 +756,8 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			logger.Log(1, "failed to retrieve host for node", node.ID.String(), err.Error())
 		}
-		if fromNode {
-			err = mq.PublishDeletedNodePeerUpdate(deletedNode)
-			mq.BroadCastDelPeer(host, deletedNode.Network)
-		} else {
-			err = mq.PublishPeerUpdate()
-		}
+
+		err = mq.BroadCastDelPeer(host, deletedNode.Network)
 		if err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
 		}
