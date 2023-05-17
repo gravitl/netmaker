@@ -680,7 +680,7 @@ func GetStunPort() int {
 func GetUserLimit() int {
 	var userslimit int
 	if os.Getenv("USERS_LIMIT") != "" {
-		userslimit, _ = strconv.Atoi(os.Getenv("USER_LIMIT"))
+		userslimit, _ = strconv.Atoi(os.Getenv("USERS_LIMIT"))
 	} else {
 		userslimit = config.Config.Server.UsersLimit
 	}
