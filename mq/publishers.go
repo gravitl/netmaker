@@ -116,6 +116,10 @@ func FlushNetworkPeersToHost(host *models.Host, hNode *models.Node) error {
 	if err != nil {
 		return err
 	}
+	p := models.PeerAction{
+		Action: models.AddPeer,
+		Peers:  []wgtypes.PeerConfig{},
+	}
 	for _, nodeI := range nodes {
 		if nodeI.ID == hNode.ID {
 			// skip self
@@ -125,19 +129,16 @@ func FlushNetworkPeersToHost(host *models.Host, hNode *models.Node) error {
 		if err != nil {
 			continue
 		}
-		p := models.PeerAction{
-			Action: models.AddPeer,
-			Peer: wgtypes.PeerConfig{
-				PublicKey: peerHost.PublicKey,
-				Endpoint: &net.UDPAddr{
-					IP:   peerHost.EndpointIP,
-					Port: logic.GetPeerListenPort(peerHost),
-				},
-				PersistentKeepaliveInterval: &nodeI.PersistentKeepalive,
-				ReplaceAllowedIPs:           true,
-				AllowedIPs:                  logic.GetAllowedIPs(hNode, &nodeI, nil),
+		p.Peers = append(p.Peers, wgtypes.PeerConfig{
+			PublicKey: peerHost.PublicKey,
+			Endpoint: &net.UDPAddr{
+				IP:   peerHost.EndpointIP,
+				Port: logic.GetPeerListenPort(peerHost),
 			},
-		}
+			PersistentKeepaliveInterval: &nodeI.PersistentKeepalive,
+			ReplaceAllowedIPs:           true,
+			AllowedIPs:                  logic.GetAllowedIPs(hNode, &nodeI, nil),
+		})
 		data, err := json.Marshal(p)
 		if err != nil {
 			continue
@@ -155,9 +156,11 @@ func BroadCastDelPeer(host *models.Host, network string) error {
 	}
 	p := models.PeerAction{
 		Action: models.RemovePeer,
-		Peer: wgtypes.PeerConfig{
-			PublicKey: host.PublicKey,
-			Remove:    true,
+		Peers: []wgtypes.PeerConfig{
+			{
+				PublicKey: host.PublicKey,
+				Remove:    true,
+			},
 		},
 	}
 	data, err := json.Marshal(p)
@@ -187,14 +190,16 @@ func BroadCastAddOrUpdatePeer(host *models.Host, node *models.Node, update bool)
 
 	p := models.PeerAction{
 		Action: models.AddPeer,
-		Peer: wgtypes.PeerConfig{
-			PublicKey: host.PublicKey,
-			Endpoint: &net.UDPAddr{
-				IP:   host.EndpointIP,
-				Port: logic.GetPeerListenPort(host),
+		Peers: []wgtypes.PeerConfig{
+			{
+				PublicKey: host.PublicKey,
+				Endpoint: &net.UDPAddr{
+					IP:   host.EndpointIP,
+					Port: logic.GetPeerListenPort(host),
+				},
+				PersistentKeepaliveInterval: &node.PersistentKeepalive,
+				ReplaceAllowedIPs:           true,
 			},
-			PersistentKeepaliveInterval: &node.PersistentKeepalive,
-			ReplaceAllowedIPs:           true,
 		},
 	}
 	if update {
@@ -206,7 +211,7 @@ func BroadCastAddOrUpdatePeer(host *models.Host, node *models.Node, update bool)
 			continue
 		}
 		// update allowed ips, according to the peer node
-		p.Peer.AllowedIPs = logic.GetAllowedIPs(&nodeI, node, nil)
+		p.Peers[0].AllowedIPs = logic.GetAllowedIPs(&nodeI, node, nil)
 		data, err := json.Marshal(p)
 		if err != nil {
 			continue

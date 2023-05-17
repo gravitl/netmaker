@@ -107,10 +107,6 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 						return
 					}
 				}
-				// if err = PublishSingleHostPeerUpdate(context.Background(), currentHost, nil, nil); err != nil {
-				// 	logger.Log(0, "failed peers publish after join acknowledged", hostUpdate.Host.Name, currentHost.ID.String(), err.Error())
-				// 	return
-				// }
 				// flush peers to host
 				err = FlushNetworkPeersToHost(&hu.Host, &hu.Node)
 				if err != nil {
