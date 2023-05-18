@@ -17,7 +17,7 @@ require (
 	github.com/txn2/txeh v1.4.0
 	golang.org/x/crypto v0.9.0
 	golang.org/x/net v0.10.0 // indirect
-	golang.org/x/oauth2 v0.7.0
+	golang.org/x/oauth2 v0.8.0
 	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20220920152132-bb719d3a6e2c // indirect
