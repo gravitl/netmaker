@@ -132,7 +132,8 @@ func FlushNetworkPeersToHost(host *models.Host, hNode *models.Node, networkNodes
 			continue
 		}
 
-		if !nodeacls.AreNodesAllowed(nodeacls.NetworkID(nodeI.Network), nodeacls.NodeID(nodeI.ID.String()), nodeacls.NodeID(hNode.ID.String())) {
+		if !nodeacls.AreNodesAllowed(nodeacls.NetworkID(nodeI.Network), nodeacls.NodeID(hNode.ID.String()), nodeacls.NodeID(nodeI.ID.String())) ||
+			hNode.Action == models.NODE_DELETE || hNode.PendingDelete || !hNode.Connected {
 			// remove peer if not allowed
 			rmPeerAction.Peers = append(rmPeerAction.Peers, wgtypes.PeerConfig{
 				PublicKey: peerHost.PublicKey,
@@ -219,7 +220,6 @@ func BroadCastAclUpdate(network string) error {
 
 // BroadCastAddOrUpdatePeer - notifys the hosts in the network to add or update peer.
 func BroadCastAddOrUpdatePeer(host *models.Host, node *models.Node, update bool) error {
-	// TODO: ACLs
 	nodes, err := logic.GetNetworkNodes(node.Network)
 	if err != nil {
 		return err
@@ -249,9 +249,11 @@ func BroadCastAddOrUpdatePeer(host *models.Host, node *models.Node, update bool)
 		}
 		// update allowed ips, according to the peer node
 		p.Peers[0].AllowedIPs = logic.GetAllowedIPs(&nodeI, node, nil)
-		if update && !nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(nodeI.ID.String())) {
-			// remove peer if not allowed
+		if update && (!nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(nodeI.ID.String())) ||
+			node.Action == models.NODE_DELETE || node.PendingDelete || !node.Connected) {
+			// remove peer
 			p.Action = models.RemovePeer
+			p.Peers[0].Remove = true
 		}
 		data, err := json.Marshal(p)
 		if err != nil {

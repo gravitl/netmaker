@@ -59,9 +59,17 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 	if ifaceDelta { // reduce number of unneeded updates, by only sending on iface changes
-		if err = PublishPeerUpdate(); err != nil {
+		h, err := logic.GetHost(newNode.HostID.String())
+		if err != nil {
+			return
+		}
+		if err = BroadCastAddOrUpdatePeer(h, &newNode, true); err != nil {
 			logger.Log(0, "error updating peers when node", currentNode.ID.String(), "informed the server of an interface change", err.Error())
 		}
+		if nodes, err := logic.GetNetworkNodes(newNode.Network); err == nil {
+			FlushNetworkPeersToHost(h, &newNode, nodes)
+		}
+
 	}
 
 	logger.Log(1, "updated node", id, newNode.ID.String())
