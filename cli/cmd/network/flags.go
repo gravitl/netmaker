@@ -12,6 +12,5 @@ var (
 	nodeLimit                 int
 	defaultKeepalive          int
 	allowManualSignUp         bool
-	defaultExtClientDNS       string
 	defaultMTU                int
 )

@@ -1,23 +1,15 @@
-# Netmaker v0.19.0
+
+# Netmaker v0.20.0
 
 ## whats new
+- New UI
+- revamped compose-files and install scripts
 - TURN
-- dependency updates
-- internet gateways (0.0.0.0/0) for egress
-- deprecated editing of network parameters
-- allow extra ips for extclient (not enabled in UI)
     
 ## whats fixed
-- unbiased random string
-- get traffic keys on pull
-- CI updates
-- install/update script updates
-- firewall checks
--  
-- 
+- Caddy does not handle netmaker exporter well for EE
 
 ## known issues
-- Caddy does not handle netmaker exporter well for EE
 - Migration causes a listen port of 0 for some upgraded hosts
 - Docker clients can not re-join after deletion
 - Innacurate Ext Client Metrics 

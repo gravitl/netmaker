@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LATEST="v0.19.0"
+LATEST="v0.20.0"
 INSTALL_PATH="/root"
 
 trap restore_old_netmaker_instructions
@@ -27,6 +27,7 @@ backup_v17_files() {
 }
 
 backup_volumes() {
+  # TODO backup to /root/nm-backup
   cp -r /var/lib/docker/volumes/root_caddy_conf/ /var/lib/docker/volumes/root_caddy_conf-backup/
   cp -r /var/lib/docker/volumes/root_caddy_data/ /var/lib/docker/volumes/root_caddy_data-backup/
   cp -r /var/lib/docker/volumes/root_dnsconfig/ /var/lib/docker/volumes/root_dnsconfig-backup/

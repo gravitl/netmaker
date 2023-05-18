@@ -174,6 +174,11 @@ func CreateExtClient(extclient *models.ExtClient) error {
 	}
 
 	extclient.LastModified = time.Now().Unix()
+	return SaveExtClient(extclient)
+}
+
+// SaveExtClient - saves an ext client to database
+func SaveExtClient(extclient *models.ExtClient) error {
 	key, err := GetRecordKey(extclient.ClientID, extclient.Network)
 	if err != nil {
 		return err
@@ -188,35 +193,27 @@ func CreateExtClient(extclient *models.ExtClient) error {
 	return SetNetworkNodesLastModified(extclient.Network)
 }
 
-// UpdateExtClient - only supports name changes right now
-func UpdateExtClient(newclientid string, network string, enabled bool, client *models.ExtClient, newACLs map[string]struct{}) (*models.ExtClient, error) {
-	err := DeleteExtClient(network, client.ClientID)
+// UpdateExtClient - updates an ext client with new values
+func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) (*models.ExtClient, error) {
+	new := old
+	err := DeleteExtClient(old.Network, old.ClientID)
 	if err != nil {
-		return client, err
+		return new, err
 	}
-	if newclientid != client.ClientID { // name change only
-		client.ClientID = newclientid
-		client.LastModified = time.Now().Unix()
-		data, err := json.Marshal(&client)
-		if err != nil {
-			return nil, err
-		}
-		key, err := GetRecordKey(client.ClientID, client.Network)
-		if err != nil {
-			return nil, err
-		}
-		if err = database.Insert(key, string(data), database.EXT_CLIENT_TABLE_NAME); err != nil {
-			return client, err
-		}
-		return client, nil
+	new.ClientID = update.ClientID
+	if update.PublicKey != "" && old.PublicKey != update.PublicKey {
+		new.PublicKey = update.PublicKey
 	}
-	client.ClientID = newclientid
-	client.Enabled = enabled
-	SetClientACLs(client, newACLs)
-	if err = CreateExtClient(client); err != nil {
-		return client, err
+	if update.DNS != "" && update.DNS != old.DNS {
+		new.DNS = update.DNS
 	}
-	return client, err
+	if update.Enabled != old.Enabled {
+		new.Enabled = update.Enabled
+	}
+	if update.ExtraAllowedIPs != nil && StringDifference(old.ExtraAllowedIPs, update.ExtraAllowedIPs) != nil {
+		new.ExtraAllowedIPs = update.ExtraAllowedIPs
+	}
+	return new, CreateExtClient(new)
 }
 
 // GetExtClientsByID - gets the clients of attached gateway
