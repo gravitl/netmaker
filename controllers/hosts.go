@@ -303,7 +303,7 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 			Action: models.RequestAck,
 			Host:   *currHost,
 		})
-		mq.BroadCastAddOrUpdatePeer(currHost, newNode, false)
+		go mq.BroadCastAddOrUpdatePeer(currHost, newNode, false)
 	}
 
 	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("added host %s to network %s", currHost.Name, network))
@@ -355,7 +355,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 
 	runUpdates(node, false)
 	go func() { // notify of peer change
-		mq.BroadCastDelPeer(currHost, network)
+		go mq.BroadCastDelPeer(currHost, network)
 		if err := mq.PublishDNSDelete(node, currHost); err != nil {
 			logger.Log(1, "error publishing dns update", err.Error())
 		}
