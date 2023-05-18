@@ -203,6 +203,7 @@ func BroadCastDelPeer(host *models.Host, network string) error {
 	return nil
 }
 
+// BroadCastAclUpdate - sends new acl updates to peers
 func BroadCastAclUpdate(network string) error {
 	nodes, err := logic.GetNetworkNodes(network)
 	if err != nil {

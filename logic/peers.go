@@ -428,13 +428,13 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 // GetPeerListenPort - given a host, retrieve it's appropriate listening port
 func GetPeerListenPort(host *models.Host) int {
 	peerPort := host.ListenPort
-	if host.PublicListenPort != 0 {
-		peerPort = host.PublicListenPort
-	}
 	if host.ProxyEnabled {
 		if host.ProxyListenPort != 0 {
 			peerPort = host.ProxyListenPort
 		}
+	}
+	if host.PublicListenPort != 0 {
+		peerPort = host.PublicListenPort
 	}
 	return peerPort
 }
