@@ -331,7 +331,7 @@ save_config_item() { (
 	# echo "VALUE $VALUE"
 	if grep -q "^$NAME=" "$CONFIG_PATH"; then
 		# TODO escape | in the value
-		sed -i "s|$NAME=.*|$NAME='$VALUE'|" "$CONFIG_PATH"
+		sed -i "s|$NAME=.*|$NAME=$VALUE|" "$CONFIG_PATH"
 	else
 		echo "$NAME=\"$VALUE\"" >>"$CONFIG_PATH"
 	fi
