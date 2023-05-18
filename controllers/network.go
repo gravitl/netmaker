@@ -144,9 +144,11 @@ func updateNetworkACL(w http.ResponseWriter, r *http.Request) {
 
 	// send peer updates
 	if servercfg.IsMessageQueueBackend() {
-		if err = mq.PublishPeerUpdate(); err != nil {
-			logger.Log(0, "failed to publish peer update after ACL update on", netname)
-		}
+		// if err = mq.PublishPeerUpdate(); err != nil {
+		// 	logger.Log(0, "failed to publish peer update after ACL update on", netname)
+		// }
+		mq.BroadCastAclUpdate(netname)
+
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNetACL)

@@ -694,10 +694,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(apiNode)
 	runUpdates(newNode, ifaceDelta)
 	go func(aclUpdate bool, newNode *models.Node) {
-		if aclUpdate {
-			mq.BroadCastAddOrUpdatePeer(host, newNode, true)
-		}
-
+		mq.BroadCastAddOrUpdatePeer(host, newNode, true)
 		if err := mq.PublishReplaceDNS(&currentNode, newNode, host); err != nil {
 			logger.Log(1, "failed to publish dns update", err.Error())
 		}

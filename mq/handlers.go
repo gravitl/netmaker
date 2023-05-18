@@ -108,7 +108,11 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 					}
 				}
 				// flush peers to host
-				err = FlushNetworkPeersToHost(&hu.Host, &hu.Node)
+				nodes, err := logic.GetNetworkNodes(hu.Node.Network)
+				if err != nil {
+					return
+				}
+				err = FlushNetworkPeersToHost(&hu.Host, &hu.Node, nodes)
 				if err != nil {
 					logger.Log(0, "failed to flush peers to host: ", err.Error())
 				}
