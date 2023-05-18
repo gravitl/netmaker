@@ -747,6 +747,7 @@ install_netmaker() {
 	save_config
 
 	# Fetch / update certs using certbot
+	chmod +x "$SCRIPT_DIR"/nm-certs.sh
 	"$SCRIPT_DIR"/nm-certs.sh
 
 	echo "Starting containers..."
