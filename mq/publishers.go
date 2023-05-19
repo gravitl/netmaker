@@ -275,8 +275,8 @@ func BroadcastAddOrUpdatePeer(host *models.Host, node *models.Node, update bool)
 	return nil
 }
 
-// BroadcastNewExtClient - adds ext client to peers in the network
-func BroadcastNewExtClient(ingressHost *models.Host, ingressNode *models.Node) error {
+// BroadcastExtClient - adds ext client to peers in the network
+func BroadcastExtClient(ingressHost *models.Host, ingressNode *models.Node) error {
 
 	nodes, err := logic.GetNetworkNodes(ingressNode.Network)
 	if err != nil {

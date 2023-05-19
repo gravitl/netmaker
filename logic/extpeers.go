@@ -194,14 +194,16 @@ func SaveExtClient(extclient *models.ExtClient) error {
 }
 
 // UpdateExtClient - updates an ext client with new values
-func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) (*models.ExtClient, error) {
+func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) (*models.ExtClient, bool, error) {
 	new := old
+	replaceOldClient := false
 	err := DeleteExtClient(old.Network, old.ClientID)
 	if err != nil {
-		return new, err
+		return new, replaceOldClient, err
 	}
 	new.ClientID = update.ClientID
 	if update.PublicKey != "" && old.PublicKey != update.PublicKey {
+		replaceOldClient = true
 		new.PublicKey = update.PublicKey
 	}
 	if update.DNS != "" && update.DNS != old.DNS {
@@ -213,7 +215,7 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) (*mo
 	if update.ExtraAllowedIPs != nil && StringDifference(old.ExtraAllowedIPs, update.ExtraAllowedIPs) != nil {
 		new.ExtraAllowedIPs = update.ExtraAllowedIPs
 	}
-	return new, CreateExtClient(new)
+	return new, replaceOldClient, CreateExtClient(new)
 }
 
 // GetExtClientsByID - gets the clients of attached gateway
