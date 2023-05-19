@@ -237,6 +237,7 @@ func CheckNetRegAndHostUpdate(networks []string, h *models.Host) {
 				Host:   *h,
 				Node:   *newNode,
 			})
+			mq.PublishPeerAction(h)
 		}
 	}
 	if servercfg.IsMessageQueueBackend() {
@@ -247,6 +248,7 @@ func CheckNetRegAndHostUpdate(networks []string, h *models.Host) {
 		if err := mq.PublishPeerUpdate(); err != nil {
 			logger.Log(0, "failed to publish peer update during registration -", err.Error())
 		}
+
 	}
 }
 

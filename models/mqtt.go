@@ -60,3 +60,16 @@ type KeyUpdate struct {
 	Network   string `json:"network" bson:"network"`
 	Interface string `json:"interface" bson:"interface"`
 }
+
+type PeerActionType string
+
+const (
+	AddPeer    PeerActionType = "ADD_PEER"
+	UpdatePeer PeerActionType = "UPDATE_PEER"
+	RemovePeer PeerActionType = "REMOVE_PEER"
+)
+
+type PeerAction struct {
+	Action PeerActionType     `json:"action"`
+	Peer   wgtypes.PeerConfig `json:"peer"`
+}
