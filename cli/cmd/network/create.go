@@ -45,7 +45,6 @@ var networkCreateCmd = &cobra.Command{
 			if allowManualSignUp {
 				network.AllowManualSignUp = "yes"
 			}
-			network.DefaultExtClientDNS = defaultExtClientDNS
 			network.DefaultMTU = int32(defaultMTU)
 		}
 		functions.PrettyPrint(functions.CreateNetwork(network))
@@ -61,7 +60,6 @@ func init() {
 	networkCreateCmd.Flags().BoolVar(&udpHolePunch, "udp_hole_punch", false, "Enable UDP Hole Punching ?")
 	networkCreateCmd.Flags().BoolVar(&defaultACL, "default_acl", false, "Enable default Access Control List ?")
 	networkCreateCmd.Flags().StringVar(&defaultInterface, "interface", "", "Name of the network interface")
-	networkCreateCmd.Flags().StringVar(&defaultExtClientDNS, "ext_client_dns", "", "IPv4 address of DNS server to be used by external clients")
 	networkCreateCmd.Flags().IntVar(&defaultListenPort, "listen_port", 51821, "Default wireguard port each node will attempt to use")
 	networkCreateCmd.Flags().IntVar(&nodeLimit, "node_limit", 999999999, "Maximum number of nodes that can be associated with this network")
 	networkCreateCmd.Flags().IntVar(&defaultKeepalive, "keep_alive", 20, "Keep Alive in seconds")
