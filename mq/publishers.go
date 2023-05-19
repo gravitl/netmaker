@@ -275,15 +275,43 @@ func BroadcastAddOrUpdatePeer(host *models.Host, node *models.Node, update bool)
 	return nil
 }
 
-func BroadCastExtClient(ingressHost *models.Host, ingressNode *models.Node) error {
-	//1. flush peers to ingress
-	//2. broadcast update ingress peer msg to other hosts
+// BroadcastNewExtClient - adds ext client to peers in the network
+func BroadcastNewExtClient(ingressHost *models.Host, ingressNode *models.Node) error {
+
 	nodes, err := logic.GetNetworkNodes(ingressNode.Network)
 	if err != nil {
 		return err
 	}
+	//flush peers to ingress host
 	go FlushNetworkPeersToHost(ingressHost, ingressNode, nodes)
-	go BroadCastAddOrUpdatePeer(ingressHost, ingressNode, true)
+	// broadcast to update ingress peer to other hosts
+	go BroadcastAddOrUpdatePeer(ingressHost, ingressNode, true)
+	// TODO - send fw update
+	return nil
+}
+
+// BroadcastDelExtClient - removes ext client from network
+func BroadcastDelExtClient(ingressHost *models.Host, ingressNode *models.Node, extclient models.ExtClient) error {
+	// TODO - send fw update
+	go BroadcastAddOrUpdatePeer(ingressHost, ingressNode, true)
+	extPubKey, err := wgtypes.ParseKey(extclient.PublicKey)
+	if err != nil {
+		return err
+	}
+	p := models.PeerAction{
+		Action: models.RemovePeer,
+		Peers: []wgtypes.PeerConfig{
+			{
+				PublicKey: extPubKey,
+				Remove:    true,
+			},
+		},
+	}
+	data, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	publish(ingressHost, fmt.Sprintf("peer/host/%s/%s", ingressHost.ID.String(), servercfg.GetServer()), data)
 	return nil
 }
 

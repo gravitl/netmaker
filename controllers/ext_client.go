@@ -401,7 +401,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	logger.Log(0, r.Header.Get("user"), "created new ext client on network", networkName)
 	w.WriteHeader(http.StatusOK)
 	go func() {
-		go mq.BroadCastExtClient(host, &node)
+		go mq.BroadcastNewExtClient(host, &node)
 		// if err := mq.PublishPeerUpdate(); err != nil {
 		// 	logger.Log(1, "error setting ext peers on "+nodeid+": "+err.Error())
 		// }
@@ -582,7 +582,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		ingressHost, err := logic.GetHost(ingressnode.HostID.String())
 		if err == nil {
-			go mq.BroadCastExtClient(ingressHost, &ingressnode)
+			go mq.BroadcastDelExtClient(ingressHost, &ingressnode, extclient)
 		}
 
 		if err = mq.PublishDeleteExtClientDNS(&extclient); err != nil {
