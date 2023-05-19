@@ -178,8 +178,8 @@ func FlushNetworkPeersToHost(host *models.Host, hNode *models.Node, networkNodes
 	return nil
 }
 
-// BroadCastDelPeer - notifys all the hosts in the network to remove peer
-func BroadCastDelPeer(host *models.Host, network string) error {
+// BroadcastDelPeer - notifys all the hosts in the network to remove peer
+func BroadcastDelPeer(host *models.Host, network string) error {
 	nodes, err := logic.GetNetworkNodes(network)
 	if err != nil {
 		return err
@@ -210,8 +210,8 @@ func BroadCastDelPeer(host *models.Host, network string) error {
 	return nil
 }
 
-// BroadCastAclUpdate - sends new acl updates to peers
-func BroadCastAclUpdate(network string) error {
+// BroadcastAclUpdate - sends new acl updates to peers
+func BroadcastAclUpdate(network string) error {
 	nodes, err := logic.GetNetworkNodes(network)
 	if err != nil {
 		return err
@@ -226,8 +226,8 @@ func BroadCastAclUpdate(network string) error {
 	return err
 }
 
-// BroadCastAddOrUpdatePeer - notifys the hosts in the network to add or update peer.
-func BroadCastAddOrUpdatePeer(host *models.Host, node *models.Node, update bool) error {
+// BroadcastAddOrUpdatePeer - notifys the hosts in the network to add or update peer.
+func BroadcastAddOrUpdatePeer(host *models.Host, node *models.Node, update bool) error {
 	nodes, err := logic.GetNetworkNodes(node.Network)
 	if err != nil {
 		return err

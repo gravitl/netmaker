@@ -238,7 +238,7 @@ func CheckNetRegAndHostUpdate(networks []string, h *models.Host) {
 				Node:   *newNode,
 			})
 			if servercfg.IsMessageQueueBackend() {
-				mq.BroadCastAddOrUpdatePeer(h, newNode, false)
+				mq.BroadcastAddOrUpdatePeer(h, newNode, false)
 			}
 		}
 	}
