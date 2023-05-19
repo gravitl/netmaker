@@ -23,7 +23,6 @@ type Network struct {
 	IsIPv4              string                `json:"isipv4" bson:"isipv4" validate:"checkyesorno"`
 	IsIPv6              string                `json:"isipv6" bson:"isipv6" validate:"checkyesorno"`
 	DefaultUDPHolePunch string                `json:"defaultudpholepunch" bson:"defaultudpholepunch" validate:"checkyesorno"`
-	DefaultExtClientDNS string                `json:"defaultextclientdns" bson:"defaultextclientdns"`
 	DefaultMTU          int32                 `json:"defaultmtu" bson:"defaultmtu"`
 	DefaultACL          string                `json:"defaultacl" bson:"defaultacl" yaml:"defaultacl" validate:"checkyesorno"`
 	ProSettings         *promodels.ProNetwork `json:"prosettings,omitempty" bson:"prosettings,omitempty" yaml:"prosettings,omitempty"`
