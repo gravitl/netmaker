@@ -355,7 +355,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 
 	runUpdates(node, false)
 	go func() { // notify of peer change
-		go mq.BroadcastDelPeer(currHost, network)
+		mq.BroadcastDelPeer(currHost, network)
 		if err := mq.PublishDNSDelete(node, currHost); err != nil {
 			logger.Log(1, "error publishing dns update", err.Error())
 		}
