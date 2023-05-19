@@ -144,7 +144,7 @@ func updateNetworkACL(w http.ResponseWriter, r *http.Request) {
 
 	// send peer updates
 	if servercfg.IsMessageQueueBackend() {
-		go mq.BroadCastAclUpdate(netname)
+		go mq.BroadcastAclUpdate(netname)
 
 	}
 	w.WriteHeader(http.StatusOK)
