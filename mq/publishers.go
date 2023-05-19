@@ -154,6 +154,13 @@ func FlushNetworkPeersToHost(host *models.Host, hNode *models.Node, networkNodes
 		}
 		addPeerAction.Peers = append(addPeerAction.Peers, peerCfg)
 	}
+	if hNode.IsIngressGateway {
+		extPeers, _, err := logic.GetExtPeers(hNode)
+		if err == nil {
+			addPeerAction.Peers = append(addPeerAction.Peers, extPeers...)
+		}
+
+	}
 	if len(rmPeerAction.Peers) > 0 {
 		data, err := json.Marshal(rmPeerAction)
 		if err != nil {
@@ -265,6 +272,18 @@ func BroadCastAddOrUpdatePeer(host *models.Host, node *models.Node, update bool)
 			publish(peerHost, fmt.Sprintf("peer/host/%s/%s", peerHost.ID.String(), servercfg.GetServer()), data)
 		}
 	}
+	return nil
+}
+
+func BroadCastExtClient(ingressHost *models.Host, ingressNode *models.Node) error {
+	//1. flush peers to ingress
+	//2. broadcast update ingress peer msg to other hosts
+	nodes, err := logic.GetNetworkNodes(ingressNode.Network)
+	if err != nil {
+		return err
+	}
+	go FlushNetworkPeersToHost(ingressHost, ingressNode, nodes)
+	go BroadCastAddOrUpdatePeer(ingressHost, ingressNode, true)
 	return nil
 }
 
