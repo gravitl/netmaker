@@ -18,8 +18,7 @@ var (
 		NetID: "not-a-network",
 	}
 	testExternalClient = &models.ExtClient{
-		ClientID:    "testExtClient",
-		Description: "ext client for testing",
+		ClientID: "testExtClient",
 	}
 )
 
