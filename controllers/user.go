@@ -313,7 +313,15 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(1, username, "status was updated")
-	json.NewEncoder(w).Encode(user)
+	// re-read and return the new user struct
+	userUpdated, err := logic.GetUser(username)
+	if err != nil {
+		logger.Log(0, username,
+			"failed to fetch user: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	json.NewEncoder(w).Encode(userUpdated)
 }
 
 // swagger:route PUT /api/users/{username} user updateUser
