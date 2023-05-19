@@ -122,17 +122,17 @@ func FlushNetworkPeersToHost(host *models.Host, hNode *models.Node, networkNodes
 		Action: models.RemovePeer,
 		Peers:  []wgtypes.PeerConfig{},
 	}
-	for _, nodeI := range networkNodes {
-		if nodeI.ID == hNode.ID {
+	for _, node := range networkNodes {
+		if node.ID == hNode.ID {
 			// skip self
 			continue
 		}
-		peerHost, err := logic.GetHost(nodeI.HostID.String())
+		peerHost, err := logic.GetHost(node.HostID.String())
 		if err != nil {
 			continue
 		}
 
-		if !nodeacls.AreNodesAllowed(nodeacls.NetworkID(nodeI.Network), nodeacls.NodeID(hNode.ID.String()), nodeacls.NodeID(nodeI.ID.String())) ||
+		if !nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(hNode.ID.String()), nodeacls.NodeID(node.ID.String())) ||
 			hNode.Action == models.NODE_DELETE || hNode.PendingDelete || !hNode.Connected {
 			// remove peer if not allowed
 			rmPeerAction.Peers = append(rmPeerAction.Peers, wgtypes.PeerConfig{
@@ -148,9 +148,9 @@ func FlushNetworkPeersToHost(host *models.Host, hNode *models.Node, networkNodes
 				IP:   peerHost.EndpointIP,
 				Port: logic.GetPeerListenPort(peerHost),
 			},
-			PersistentKeepaliveInterval: &nodeI.PersistentKeepalive,
+			PersistentKeepaliveInterval: &node.PersistentKeepalive,
 			ReplaceAllowedIPs:           true,
-			AllowedIPs:                  logic.GetAllowedIPs(hNode, &nodeI, nil),
+			AllowedIPs:                  logic.GetAllowedIPs(hNode, &node, nil),
 		}
 		addPeerAction.Peers = append(addPeerAction.Peers, peerCfg)
 	}
