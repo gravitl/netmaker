@@ -54,7 +54,8 @@ chmod +x zerossl-bot.sh
 # request the certs
 ./zerossl-bot.sh "$CERTBOT_PARAMS"
 EOF
-chmod +x certbot-entry.sh
+
+chmod +x "$SCRIPT_DIR/certbot-entry.sh"
 
 # request certs
 sudo docker run -it --rm --name certbot \
@@ -73,7 +74,6 @@ if [ ! -f "$CERT_DIR"/fullchain.pem ]; then
 	sudo docker run -it --rm --name certbot \
 		-p 80:80 -p 443:443 \
 		-v "$SCRIPT_DIR/letsencrypt:/etc/letsencrypt" \
-		--entrypoint "/opt/certbot/certbot-entry.sh" \
 		certbot/certbot "$CERTBOT_PARAMS"
 	if [ ! -f "$CERT_DIR"/fullchain.pem ]; then
 		echo "Missing file: $CERT_DIR/fullchain.pem"
