@@ -397,10 +397,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	logger.Log(0, r.Header.Get("user"), "created new ext client on network", networkName)
 	w.WriteHeader(http.StatusOK)
 	go func() {
-		go mq.BroadcastExtClient(host, &node)
-		// if err := mq.PublishPeerUpdate(); err != nil {
-		// 	logger.Log(1, "error setting ext peers on "+nodeid+": "+err.Error())
-		// }
+		mq.BroadcastExtClient(host, &node)
 		if err := mq.PublishExtCLientDNS(&extclient); err != nil {
 			logger.Log(1, "error publishing extclient dns", err.Error())
 		}
@@ -494,25 +491,26 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(0, r.Header.Get("user"), "updated ext client", update.ClientID)
-	if ingressNode, err := logic.GetNodeByID(newclient.IngressGatewayID); err == nil {
-		if ingressHost, err := logic.GetHost(ingressNode.HostID.String()); err == nil {
-			if replaceOldClient || !update.Enabled {
-				go mq.BroadcastDelExtClient(ingressHost, &ingressNode, oldExtClient)
-			}
-			if replaceOldClient || changedEnabled {
-				// broadcast update
-				go mq.BroadcastExtClient(ingressHost, &ingressNode)
-			}
-		}
-	}
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newclient)
 	if changedID {
-		go func() {
-			if err := mq.PublishExtClientDNSUpdate(currentClient, *newclient, networkName); err != nil {
+		go func(currentClient, newclient models.ExtClient) {
+			if ingressNode, err := logic.GetNodeByID(newclient.IngressGatewayID); err == nil {
+				if ingressHost, err := logic.GetHost(ingressNode.HostID.String()); err == nil {
+					if replaceOldClient || !update.Enabled {
+						mq.BroadcastDelExtClient(ingressHost, &ingressNode, currentClient)
+					}
+					if replaceOldClient || changedEnabled {
+						// broadcast update
+						mq.BroadcastExtClient(ingressHost, &ingressNode)
+					}
+				}
+			}
+			if err := mq.PublishExtClientDNSUpdate(currentClient, newclient, networkName); err != nil {
 				logger.Log(1, "error pubishing dns update for extcient update", err.Error())
 			}
-		}()
+		}(currentClient, *newclient)
 	}
 }
 
