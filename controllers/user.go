@@ -315,8 +315,7 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, username, "status was updated")
 	// re-read and return the new user struct
 	if userChange, err = logic.GetUser(username); err != nil {
-		logger.Log(0, username,
-			"failed to fetch user: ", err.Error())
+		logger.Log(0, username, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
