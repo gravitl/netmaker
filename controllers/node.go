@@ -592,6 +592,9 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 				removedClients[:],
 			)
 		}
+		mq.PublishFwUpdate(host, &models.FwAction{
+			Action: models.FwIngressDel,
+		})
 	}
 
 	runUpdates(&node, true)

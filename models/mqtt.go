@@ -93,5 +93,6 @@ type FwAction struct {
 const (
 	FwIngressUpdate FwActionType = "FW_INGRESS_UPDATE"
 	FwAllUpdate     FwActionType = "FW_ALL_UPDATE"
-	FwIngressDel    FwActionType = "FW_INGRESS_DEL"
+	FwIngressDel    FwActionType = "FW_INGRESS_DELETE"
+	FwEgressDel     FwActionType = "FW_EGRESS_DELETE"
 )
