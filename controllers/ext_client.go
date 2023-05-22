@@ -494,24 +494,26 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newclient)
-	if changedID {
-		go func(currentClient, newclient models.ExtClient) {
-			if ingressNode, err := logic.GetNodeByID(newclient.IngressGatewayID); err == nil {
-				if ingressHost, err := logic.GetHost(ingressNode.HostID.String()); err == nil {
-					if replaceOldClient || !update.Enabled {
-						mq.BroadcastDelExtClient(ingressHost, &ingressNode, currentClient)
-					}
-					if replaceOldClient || changedEnabled {
-						// broadcast update
-						mq.BroadcastExtClient(ingressHost, &ingressNode)
-					}
+
+	go func() {
+		if ingressNode, err := logic.GetNodeByID(newclient.IngressGatewayID); err == nil {
+			if ingressHost, err := logic.GetHost(ingressNode.HostID.String()); err == nil {
+				if replaceOldClient || !update.Enabled {
+					mq.BroadcastDelExtClient(ingressHost, &ingressNode, currentClient)
+				}
+				if replaceOldClient || changedEnabled {
+					// broadcast update
+					mq.BroadcastExtClient(ingressHost, &ingressNode)
 				}
 			}
-			if err := mq.PublishExtClientDNSUpdate(currentClient, newclient, networkName); err != nil {
+		}
+		if changedID {
+			if err := mq.PublishExtClientDNSUpdate(currentClient, *newclient, networkName); err != nil {
 				logger.Log(1, "error pubishing dns update for extcient update", err.Error())
 			}
-		}(currentClient, *newclient)
-	}
+		}
+	}()
+
 }
 
 // swagger:route DELETE /api/extclients/{network}/{clientid} ext_client deleteExtClient
