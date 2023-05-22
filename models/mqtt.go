@@ -83,6 +83,8 @@ type FwActionType string
 
 type FwAction struct {
 	Action        FwActionType          `json:"action"`
+	IsIngressGw   bool                  `json:"is_ingress_gw"`
+	IsEgressGw    bool                  `json:"is_egress_gw"`
 	ExtClientInfo ExtClientInfo         `json:"ext_client_info"`
 	IngressInfo   IngressInfo           `json:"ingress_info"`
 	EgressInfo    map[string]EgressInfo `json:"egress_info"`
