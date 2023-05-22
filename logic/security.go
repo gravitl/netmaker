@@ -17,9 +17,9 @@ const (
 	// ALL_NETWORK_ACCESS - represents all networks
 	ALL_NETWORK_ACCESS = "THIS_USER_HAS_ALL"
 
-	master_uname     = "masteradministrator"
-	Unauthorized_Msg = "unauthorized"
-	Unauthorized_Err = models.Error(Unauthorized_Msg)
+	master_uname  = "masteradministrator"
+	Forbidden_Msg = "forbidden"
+	Forbidden_Err = models.Error(Forbidden_Msg)
 )
 
 // SecurityCheck - Check if user has appropriate permissions
@@ -27,7 +27,7 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
-			Code: http.StatusUnauthorized, Message: Unauthorized_Msg,
+			Code: http.StatusForbidden, Message: Forbidden_Msg,
 		}
 
 		var params = mux.Vars(r)
@@ -66,7 +66,7 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 func NetUserSecurityCheck(isNodes, isClients bool, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
-			Code: http.StatusUnauthorized, Message: "unauthorized",
+			Code: http.StatusForbidden, Message: Forbidden_Msg,
 		}
 		r.Header.Set("ismaster", "no")
 
@@ -139,7 +139,7 @@ func UserPermissions(reqAdmin bool, netname string, token string) ([]string, str
 	userNetworks := []string{}
 
 	if len(tokenSplit) < 2 {
-		return userNetworks, "", Unauthorized_Err
+		return userNetworks, "", Forbidden_Err
 	} else {
 		authToken = tokenSplit[1]
 	}
@@ -149,10 +149,10 @@ func UserPermissions(reqAdmin bool, netname string, token string) ([]string, str
 	}
 	username, networks, isadmin, err := VerifyUserToken(authToken)
 	if err != nil {
-		return nil, username, Unauthorized_Err
+		return nil, username, Forbidden_Err
 	}
 	if !isadmin && reqAdmin {
-		return nil, username, Unauthorized_Err
+		return nil, username, Forbidden_Err
 	}
 	userNetworks = networks
 	if isadmin {
@@ -160,10 +160,10 @@ func UserPermissions(reqAdmin bool, netname string, token string) ([]string, str
 	}
 	// check network admin access
 	if len(netname) > 0 && (len(userNetworks) == 0 || !authenticateNetworkUser(netname, userNetworks)) {
-		return nil, username, Unauthorized_Err
+		return nil, username, Forbidden_Err
 	}
 	if isEE && len(netname) > 0 && !pro.IsUserNetAdmin(netname, username) {
-		return nil, "", Unauthorized_Err
+		return nil, "", Forbidden_Err
 	}
 	return userNetworks, username, nil
 }
@@ -193,7 +193,7 @@ func authenticateDNSToken(tokenString string) bool {
 func ContinueIfUserMatch(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
-			Code: http.StatusUnauthorized, Message: Unauthorized_Msg,
+			Code: http.StatusUnauthorized, Message: Forbidden_Msg,
 		}
 		var params = mux.Vars(r)
 		var requestedUser = params["username"]

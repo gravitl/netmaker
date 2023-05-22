@@ -56,7 +56,7 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 func allowUsers(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
-			Code: http.StatusInternalServerError, Message: logic.Unauthorized_Msg,
+			Code: http.StatusInternalServerError, Message: logic.Forbidden_Msg,
 		}
 		bearerToken := r.Header.Get("Authorization")
 		var tokenSplit = strings.Split(bearerToken, " ")
