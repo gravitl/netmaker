@@ -401,6 +401,10 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		// if err := mq.PublishPeerUpdate(); err != nil {
 		// 	logger.Log(1, "error setting ext peers on "+nodeid+": "+err.Error())
 		// }
+		f, err := logic.GetFwUpdate(host)
+		if err == nil {
+			mq.PublishFwUpdate(host, &f)
+		}
 		if err := mq.PublishExtCLientDNS(&extclient); err != nil {
 			logger.Log(1, "error publishing extclient dns", err.Error())
 		}
@@ -503,6 +507,10 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 				// broadcast update
 				go mq.BroadcastExtClient(ingressHost, &ingressNode)
 			}
+			f, err := logic.GetFwUpdate(ingressHost)
+			if err == nil {
+				mq.PublishFwUpdate(ingressHost, &f)
+			}
 		}
 	}
 	w.WriteHeader(http.StatusOK)
@@ -582,6 +590,10 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 		ingressHost, err := logic.GetHost(ingressnode.HostID.String())
 		if err == nil {
 			go mq.BroadcastDelExtClient(ingressHost, &ingressnode, extclient)
+			f, err := logic.GetFwUpdate(ingressHost)
+			if err == nil {
+				mq.PublishFwUpdate(ingressHost, &f)
+			}
 		}
 
 		if err = mq.PublishDeleteExtClientDNS(&extclient); err != nil {

@@ -78,3 +78,18 @@ type PeerAction struct {
 	Action PeerMqActionType     `json:"action"`
 	Peers  []wgtypes.PeerConfig `json:"peers"`
 }
+
+type FwActionType string
+
+type FwAction struct {
+	Action        FwActionType          `json:"action"`
+	ExtClientInfo ExtClientInfo         `json:"ext_client_info"`
+	IngressInfo   IngressInfo           `json:"ingress_info"`
+	EgressInfo    map[string]EgressInfo `json:"egress_info"`
+}
+
+const (
+	FwIngressUpdate FwActionType = "FW_INGRESS_UPDATE"
+	FwAllUpdate     FwActionType = "FW_ALL_UPDATE"
+	FwIngressDel    FwActionType = "FW_INGRESS_DEL"
+)

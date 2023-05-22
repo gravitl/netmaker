@@ -175,6 +175,14 @@ func FlushNetworkPeersToHost(host *models.Host, hNode *models.Node, networkNodes
 		}
 		publish(host, fmt.Sprintf("peer/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
 	}
+	// send fw update if gw host
+	if hNode.IsIngressGateway || hNode.IsEgressGateway {
+		f, err := logic.GetFwUpdate(host)
+		if err == nil {
+			PublishFwUpdate(host, &f)
+		}
+
+	}
 	return nil
 }
 
@@ -551,6 +559,14 @@ func PublishHostDNSUpdate(old, new *models.Host, networks []string) error {
 		return errMsgs
 	}
 	return nil
+}
+
+func PublishFwUpdate(gwHost *models.Host, f *models.FwAction) error {
+	data, err := json.Marshal(f)
+	if err != nil {
+		return err
+	}
+	return publish(gwHost, fmt.Sprintf("fw/host/%s/%s", gwHost.ID.String(), servercfg.GetServer()), data)
 }
 
 func pushMetricsToExporter(metrics models.Metrics) error {

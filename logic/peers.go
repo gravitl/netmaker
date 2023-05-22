@@ -255,7 +255,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 								nodePeerMap[extPeerIdAndAddr.ID] = models.PeerRouteInfo{
 									PeerAddr: net.IPNet{
 										IP:   net.ParseIP(extPeerIdAndAddr.Address),
-										Mask: getCIDRMaskFromAddr(extPeerIdAndAddr.Address),
+										Mask: GetCIDRMaskFromAddr(extPeerIdAndAddr.Address),
 									},
 									PeerKey: extPeerIdAndAddr.ID,
 									Allow:   true,
@@ -271,7 +271,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 					nodePeerMap[peerHost.PublicKey.String()] = models.PeerRouteInfo{
 						PeerAddr: net.IPNet{
 							IP:   net.ParseIP(peer.PrimaryAddress()),
-							Mask: getCIDRMaskFromAddr(peer.PrimaryAddress()),
+							Mask: GetCIDRMaskFromAddr(peer.PrimaryAddress()),
 						},
 						PeerKey: peerHost.PublicKey.String(),
 						Allow:   true,
@@ -337,7 +337,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 					nodePeerMap[extPeerIdAndAddr.ID] = models.PeerRouteInfo{
 						PeerAddr: net.IPNet{
 							IP:   net.ParseIP(extPeerIdAndAddr.Address),
-							Mask: getCIDRMaskFromAddr(extPeerIdAndAddr.Address),
+							Mask: GetCIDRMaskFromAddr(extPeerIdAndAddr.Address),
 						},
 						PeerKey: extPeerIdAndAddr.ID,
 						Allow:   true,
@@ -359,12 +359,12 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 						Masquerade: true,
 						IngGwAddr: net.IPNet{
 							IP:   net.ParseIP(node.PrimaryAddress()),
-							Mask: getCIDRMaskFromAddr(node.PrimaryAddress()),
+							Mask: GetCIDRMaskFromAddr(node.PrimaryAddress()),
 						},
 						Network: node.PrimaryNetworkRange(),
 						ExtPeerAddr: net.IPNet{
 							IP:   net.ParseIP(extPeerIdAndAddr.Address),
-							Mask: getCIDRMaskFromAddr(extPeerIdAndAddr.Address),
+							Mask: GetCIDRMaskFromAddr(extPeerIdAndAddr.Address),
 						},
 						ExtPeerKey: extPeerIdAndAddr.ID,
 						Peers:      filterNodeMapForClientACLs(extPeerIdAndAddr.ID, node.Network, nodePeerMap),
@@ -384,7 +384,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 				Network:  node.PrimaryNetworkRange(),
 				EgressGwAddr: net.IPNet{
 					IP:   net.ParseIP(node.PrimaryAddress()),
-					Mask: getCIDRMaskFromAddr(node.PrimaryAddress()),
+					Mask: GetCIDRMaskFromAddr(node.PrimaryAddress()),
 				},
 				GwPeers:     nodePeerMap,
 				EgressGWCfg: node.EgressGatewayRequest,
@@ -423,6 +423,131 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 	}
 
 	return hostPeerUpdate, nil
+}
+
+func GetFwUpdate(host *models.Host) (models.FwAction, error) {
+	fwUpdate := models.FwAction{
+		Action: models.FwAllUpdate,
+		IngressInfo: models.IngressInfo{
+			ExtPeers: make(map[string]models.ExtClientInfo),
+		},
+		EgressInfo: make(map[string]models.EgressInfo),
+	}
+	allNodes, err := GetAllNodes()
+	if err != nil {
+		return fwUpdate, err
+	}
+	for _, nodeID := range host.Nodes {
+		nodeID := nodeID
+		node, err := GetNodeByID(nodeID)
+		if err != nil {
+			continue
+		}
+		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE {
+			continue
+		}
+		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
+		var nodePeerMap map[string]models.PeerRouteInfo
+		if node.IsIngressGateway || node.IsEgressGateway {
+			nodePeerMap = make(map[string]models.PeerRouteInfo)
+		}
+		for _, peer := range currentPeers {
+			peer := peer
+			if peer.ID.String() == node.ID.String() {
+				logger.Log(2, "peer update, skipping self")
+				//skip yourself
+				continue
+			}
+			peerHost, err := GetHost(peer.HostID.String())
+			if err != nil {
+				logger.Log(1, "no peer host", peer.HostID.String(), err.Error())
+				continue
+			}
+			if node.IsIngressGateway || node.IsEgressGateway {
+				if peer.IsIngressGateway {
+					_, extPeerIDAndAddrs, err := GetExtPeers(&peer)
+					if err == nil {
+						for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
+							extPeerIdAndAddr := extPeerIdAndAddr
+							nodePeerMap[extPeerIdAndAddr.ID] = models.PeerRouteInfo{
+								PeerAddr: net.IPNet{
+									IP:   net.ParseIP(extPeerIdAndAddr.Address),
+									Mask: GetCIDRMaskFromAddr(extPeerIdAndAddr.Address),
+								},
+								PeerKey: extPeerIdAndAddr.ID,
+								Allow:   true,
+								ID:      extPeerIdAndAddr.ID,
+							}
+						}
+					}
+				}
+				if node.IsIngressGateway && peer.IsEgressGateway {
+					fwUpdate.IngressInfo.EgressRanges = append(fwUpdate.IngressInfo.EgressRanges,
+						peer.EgressGatewayRanges...)
+				}
+				nodePeerMap[peerHost.PublicKey.String()] = models.PeerRouteInfo{
+					PeerAddr: net.IPNet{
+						IP:   net.ParseIP(peer.PrimaryAddress()),
+						Mask: GetCIDRMaskFromAddr(peer.PrimaryAddress()),
+					},
+					PeerKey: peerHost.PublicKey.String(),
+					Allow:   true,
+					ID:      peer.ID.String(),
+				}
+			}
+		}
+		var extPeerIDAndAddrs []models.IDandAddr
+		if node.IsIngressGateway {
+			_, extPeerIDAndAddrs, err = GetExtPeers(&node)
+			if err == nil {
+				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
+					extPeerIdAndAddr := extPeerIdAndAddr
+					nodePeerMap[extPeerIdAndAddr.ID] = models.PeerRouteInfo{
+						PeerAddr: net.IPNet{
+							IP:   net.ParseIP(extPeerIdAndAddr.Address),
+							Mask: GetCIDRMaskFromAddr(extPeerIdAndAddr.Address),
+						},
+						PeerKey: extPeerIdAndAddr.ID,
+						Allow:   true,
+						ID:      extPeerIdAndAddr.ID,
+					}
+				}
+				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
+					extPeerIdAndAddr := extPeerIdAndAddr
+
+					fwUpdate.IngressInfo.ExtPeers[extPeerIdAndAddr.ID] = models.ExtClientInfo{
+						Masquerade: true,
+						IngGwAddr: net.IPNet{
+							IP:   net.ParseIP(node.PrimaryAddress()),
+							Mask: GetCIDRMaskFromAddr(node.PrimaryAddress()),
+						},
+						Network: node.PrimaryNetworkRange(),
+						ExtPeerAddr: net.IPNet{
+							IP:   net.ParseIP(extPeerIdAndAddr.Address),
+							Mask: GetCIDRMaskFromAddr(extPeerIdAndAddr.Address),
+						},
+						ExtPeerKey: extPeerIdAndAddr.ID,
+						Peers:      filterNodeMapForClientACLs(extPeerIdAndAddr.ID, node.Network, nodePeerMap),
+					}
+				}
+			} else if !database.IsEmptyRecord(err) {
+				logger.Log(1, "error retrieving external clients:", err.Error())
+			}
+		}
+		if node.IsEgressGateway {
+			fwUpdate.EgressInfo[node.ID.String()] = models.EgressInfo{
+				EgressID: node.ID.String(),
+				Network:  node.PrimaryNetworkRange(),
+				EgressGwAddr: net.IPNet{
+					IP:   net.ParseIP(node.PrimaryAddress()),
+					Mask: GetCIDRMaskFromAddr(node.PrimaryAddress()),
+				},
+				GwPeers:     nodePeerMap,
+				EgressGWCfg: node.EgressGatewayRequest,
+			}
+		}
+	}
+	return fwUpdate, nil
 }
 
 // GetPeerListenPort - given a host, retrieve it's appropriate listening port
@@ -679,7 +804,7 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 	return allowedips
 }
 
-func getCIDRMaskFromAddr(addr string) net.IPMask {
+func GetCIDRMaskFromAddr(addr string) net.IPMask {
 	cidr := net.CIDRMask(32, 32)
 	ipAddr, err := netip.ParseAddr(addr)
 	if err != nil {
