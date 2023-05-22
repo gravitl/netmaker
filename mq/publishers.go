@@ -283,7 +283,7 @@ func BroadcastAddOrUpdatePeer(host *models.Host, node *models.Node, update bool)
 	return nil
 }
 
-// BroadcastExtClient - adds ext client to peers in the network
+// BroadcastExtClient - publishes msg to add/updates ext client in the network
 func BroadcastExtClient(ingressHost *models.Host, ingressNode *models.Node) error {
 
 	nodes, err := logic.GetNetworkNodes(ingressNode.Network)
@@ -298,7 +298,7 @@ func BroadcastExtClient(ingressHost *models.Host, ingressNode *models.Node) erro
 	return nil
 }
 
-// BroadcastDelExtClient - removes ext client from network
+// BroadcastDelExtClient - published msg to remove ext client from network
 func BroadcastDelExtClient(ingressHost *models.Host, ingressNode *models.Node, extclient models.ExtClient) error {
 	// TODO - send fw update
 	go BroadcastAddOrUpdatePeer(ingressHost, ingressNode, true)

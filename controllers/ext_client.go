@@ -397,10 +397,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	logger.Log(0, r.Header.Get("user"), "created new ext client on network", networkName)
 	w.WriteHeader(http.StatusOK)
 	go func() {
-		go mq.BroadcastExtClient(host, &node)
-		// if err := mq.PublishPeerUpdate(); err != nil {
-		// 	logger.Log(1, "error setting ext peers on "+nodeid+": "+err.Error())
-		// }
+		mq.BroadcastExtClient(host, &node)
 		f, err := logic.GetFwUpdate(host)
 		if err == nil {
 			mq.PublishFwUpdate(host, &f)
@@ -498,30 +495,32 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(0, r.Header.Get("user"), "updated ext client", update.ClientID)
-	if ingressNode, err := logic.GetNodeByID(newclient.IngressGatewayID); err == nil {
-		if ingressHost, err := logic.GetHost(ingressNode.HostID.String()); err == nil {
-			if replaceOldClient || !update.Enabled {
-				go mq.BroadcastDelExtClient(ingressHost, &ingressNode, oldExtClient)
-			}
-			if replaceOldClient || changedEnabled {
-				// broadcast update
-				go mq.BroadcastExtClient(ingressHost, &ingressNode)
-			}
-			f, err := logic.GetFwUpdate(ingressHost)
-			if err == nil {
-				mq.PublishFwUpdate(ingressHost, &f)
-			}
-		}
-	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newclient)
-	if changedID {
-		go func() {
+
+	go func() {
+		if ingressNode, err := logic.GetNodeByID(newclient.IngressGatewayID); err == nil {
+			if ingressHost, err := logic.GetHost(ingressNode.HostID.String()); err == nil {
+				if replaceOldClient || !update.Enabled {
+					mq.BroadcastDelExtClient(ingressHost, &ingressNode, currentClient)
+				}
+				if replaceOldClient || changedEnabled {
+					// broadcast update
+					mq.BroadcastExtClient(ingressHost, &ingressNode)
+				}
+				f, err := logic.GetFwUpdate(ingressHost)
+				if err == nil {
+					mq.PublishFwUpdate(ingressHost, &f)
+				}
+			}
+		}
+		if changedID {
 			if err := mq.PublishExtClientDNSUpdate(currentClient, *newclient, networkName); err != nil {
 				logger.Log(1, "error pubishing dns update for extcient update", err.Error())
 			}
-		}()
-	}
+		}
+	}()
+
 }
 
 // swagger:route DELETE /api/extclients/{network}/{clientid} ext_client deleteExtClient
