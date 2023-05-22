@@ -33,7 +33,7 @@ require (
 )
 
 require (
-	github.com/coreos/go-oidc/v3 v3.5.0
+	github.com/coreos/go-oidc/v3 v3.6.0
 	github.com/gorilla/websocket v1.5.0
 	github.com/pkg/errors v0.9.1
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
@@ -52,7 +52,6 @@ require (
 	cloud.google.com/go/compute/metadata v0.2.1 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/kr/pretty v0.3.1 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 )
