@@ -291,22 +291,26 @@ func BroadcastExtClient(ingressHost *models.Host, ingressNode *models.Node) erro
 }
 
 // BroadcastDelExtClient - published msg to remove ext client from network
-func BroadcastDelExtClient(ingressHost *models.Host, ingressNode *models.Node, extclient models.ExtClient) error {
+func BroadcastDelExtClient(ingressHost *models.Host, ingressNode *models.Node, extclients []models.ExtClient) error {
 	// TODO - send fw update
 	go BroadcastAddOrUpdatePeer(ingressHost, ingressNode, true)
-	extPubKey, err := wgtypes.ParseKey(extclient.PublicKey)
-	if err != nil {
-		return err
+	peers := []wgtypes.PeerConfig{}
+	for _, extclient := range extclients {
+		extPubKey, err := wgtypes.ParseKey(extclient.PublicKey)
+		if err != nil {
+			continue
+		}
+		peers = append(peers, wgtypes.PeerConfig{
+			PublicKey: extPubKey,
+			Remove:    true,
+		})
+
 	}
 	p := models.PeerAction{
 		Action: models.RemovePeer,
-		Peers: []wgtypes.PeerConfig{
-			{
-				PublicKey: extPubKey,
-				Remove:    true,
-			},
-		},
+		Peers:  peers,
 	}
+
 	data, err := json.Marshal(p)
 	if err != nil {
 		return err
