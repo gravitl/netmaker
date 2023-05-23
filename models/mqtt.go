@@ -60,3 +60,21 @@ type KeyUpdate struct {
 	Network   string `json:"network" bson:"network"`
 	Interface string `json:"interface" bson:"interface"`
 }
+
+// PeerMqActionType - peer update action type
+type PeerMqActionType string
+
+const (
+	// AddPeer - peer mq action type for adding peers
+	AddPeer PeerMqActionType = "ADD_PEER"
+	// UpdatePeer - peer mq action type for updating peers
+	UpdatePeer PeerMqActionType = "UPDATE_PEER"
+	// RemovePeer - peer mq action type for removing peers
+	RemovePeer PeerMqActionType = "REMOVE_PEER"
+)
+
+// PeerAction - struct for mq peer actions
+type PeerAction struct {
+	Action PeerMqActionType     `json:"action"`
+	Peers  []wgtypes.PeerConfig `json:"peers"`
+}
