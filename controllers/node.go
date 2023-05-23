@@ -606,12 +606,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	if len(removedClients) > 0 {
 		host, err := logic.GetHost(node.HostID.String())
 		if err == nil {
-			go mq.PublishSingleHostPeerUpdate(
-				context.Background(),
-				host,
-				nil,
-				removedClients[:],
-			)
+			mq.BroadcastDelExtClient(host, &node, removedClients)
 		}
 		// TODO: FW
 		// mq.PublishFwUpdate(host, &models.FwAction{
