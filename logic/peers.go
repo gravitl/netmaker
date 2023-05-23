@@ -458,7 +458,7 @@ func GetFwUpdate(host *models.Host) (models.FwAction, error) {
 		for _, peer := range currentPeers {
 			peer := peer
 			if peer.ID.String() == node.ID.String() {
-				logger.Log(2, "peer update, skipping self")
+				logger.Log(2, "fw update, skipping self")
 				//skip yourself
 				continue
 			}

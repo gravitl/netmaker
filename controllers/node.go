@@ -607,11 +607,11 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 		host, err := logic.GetHost(node.HostID.String())
 		if err == nil {
 			mq.BroadcastDelExtClient(host, &node, removedClients)
+			f, err := logic.GetFwUpdate(host)
+			if err == nil {
+				mq.PublishFwUpdate(host, &f)
+			}
 		}
-		// TODO: FW
-		// mq.PublishFwUpdate(host, &models.FwAction{
-		// 	Action: models.FwIngressDel,
-		// })
 	}
 
 	runUpdates(&node, true)

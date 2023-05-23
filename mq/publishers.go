@@ -214,7 +214,10 @@ func BroadcastDelPeer(host *models.Host, network string) error {
 		if err == nil {
 			publish(peerHost, fmt.Sprintf("peer/host/%s/%s", peerHost.ID.String(), servercfg.GetServer()), data)
 			if nodeI.IsIngressGateway {
-				// TODO: FW
+				f, err := logic.GetFwUpdate(peerHost)
+				if err == nil {
+					PublishFwUpdate(peerHost, &f)
+				}
 			}
 		}
 	}
@@ -329,10 +332,7 @@ func BroadcastDelExtClient(ingressHost *models.Host, ingressNode *models.Node, e
 	if err != nil {
 		return err
 	}
-	return PublishFwUpdate(ingressHost, &models.FwAction{
-		Action:  models.FwIngressDelExtClient,
-		PeerKey: extclient.PublicKey,
-	})
+	return nil
 }
 
 // NodeUpdate -- publishes a node update
