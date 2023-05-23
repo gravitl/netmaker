@@ -213,11 +213,13 @@ func BroadcastDelPeer(host *models.Host, network string) error {
 		peerHost, err := logic.GetHost(nodeI.HostID.String())
 		if err == nil {
 			publish(peerHost, fmt.Sprintf("peer/host/%s/%s", peerHost.ID.String(), servercfg.GetServer()), data)
-			if nodeI.IsIngressGateway {
-				f, err := logic.GetFwUpdate(peerHost)
-				if err == nil {
-					PublishFwUpdate(peerHost, &f)
-				}
+			if nodeI.IsIngressGateway || nodeI.IsEgressGateway {
+				go func(peerHost models.Host) {
+					f, err := logic.GetFwUpdate(&peerHost)
+					if err == nil {
+						PublishFwUpdate(&peerHost, &f)
+					}
+				}(*peerHost)
 			}
 		}
 	}
@@ -285,6 +287,16 @@ func BroadcastAddOrUpdatePeer(host *models.Host, node *models.Node, update bool)
 		if err == nil {
 			publish(peerHost, fmt.Sprintf("peer/host/%s/%s", peerHost.ID.String(), servercfg.GetServer()), data)
 		}
+		if nodeI.IsIngressGateway || nodeI.IsEgressGateway {
+			go func(peerHost models.Host) {
+				f, err := logic.GetFwUpdate(&peerHost)
+				if err == nil {
+					PublishFwUpdate(&peerHost, &f)
+				}
+			}(*peerHost)
+
+		}
+
 	}
 	return nil
 }
