@@ -41,6 +41,7 @@ type EgressInfo struct {
 type PeerRouteInfo struct {
 	PeerAddr net.IPNet `json:"peer_addr" yaml:"peer_addr"`
 	PeerKey  string    `json:"peer_key" yaml:"peer_key"`
+	Network  string    `json:"network" yaml:"network"`
 	Allow    bool      `json:"allow" yaml:"allow"`
 	ID       string    `json:"id,omitempty" yaml:"id,omitempty"`
 }
@@ -49,6 +50,7 @@ type PeerRouteInfo struct {
 type ExtClientInfo struct {
 	IngGwAddr   net.IPNet                `json:"ingress_gw_addr" yaml:"ingress_gw_addr"`
 	Network     net.IPNet                `json:"network" yaml:"network"`
+	NetworkName string                   `json:"network_name"`
 	Masquerade  bool                     `json:"masquerade" yaml:"masquerade"`
 	ExtPeerAddr net.IPNet                `json:"ext_peer_addr" yaml:"ext_peer_addr"`
 	ExtPeerKey  string                   `json:"ext_peer_key" yaml:"ext_peer_key"`
@@ -82,17 +84,13 @@ type PeerAction struct {
 type FwActionType string
 
 type FwAction struct {
-	Action        FwActionType          `json:"action"`
-	IsIngressGw   bool                  `json:"is_ingress_gw"`
-	IsEgressGw    bool                  `json:"is_egress_gw"`
-	ExtClientInfo ExtClientInfo         `json:"ext_client_info"`
-	IngressInfo   IngressInfo           `json:"ingress_info"`
-	EgressInfo    map[string]EgressInfo `json:"egress_info"`
+	Action      FwActionType          `json:"action"`
+	IsIngressGw bool                  `json:"is_ingress_gw"`
+	IsEgressGw  bool                  `json:"is_egress_gw"`
+	IngressInfo IngressInfo           `json:"ingress_info"`
+	EgressInfo  map[string]EgressInfo `json:"egress_info"`
 }
 
 const (
-	FwIngressUpdate FwActionType = "FW_INGRESS_UPDATE"
-	FwAllUpdate     FwActionType = "FW_ALL_UPDATE"
-	FwIngressDel    FwActionType = "FW_INGRESS_DELETE"
-	FwEgressDel     FwActionType = "FW_EGRESS_DELETE"
+	FwUpdate FwActionType = "FW_UPDATE"
 )
