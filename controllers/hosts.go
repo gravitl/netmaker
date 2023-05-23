@@ -108,6 +108,20 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		Peers:        hPU.Peers,
 		PeerIDs:      hPU.PeerIDs,
 	}
+	go func() {
+		for _, nodeID := range host.Nodes {
+			node, err := logic.GetNodeByID(nodeID)
+			if err == nil {
+				if node.IsEgressGateway || node.IsIngressGateway {
+					f, err := logic.GetFwUpdate(host)
+					if err == nil {
+						mq.PublishFwUpdate(host, &f)
+					}
+					break
+				}
+			}
+		}
+	}()
 
 	logger.Log(1, hostID, "completed a pull")
 	w.WriteHeader(http.StatusOK)
