@@ -30,6 +30,7 @@ func CreateRelay(relay models.RelayRequest) ([]models.Client, models.Node, error
 		return relayedClients, models.Node{}, err
 	}
 	node.IsRelay = true
+
 	node.RelayedNodes = relay.RelayedNodes
 	node.SetLastModified()
 	nodeData, err := json.Marshal(&node)
