@@ -493,10 +493,12 @@ set_install_vars() {
 
 	NETMAKER_BASE_DOMAIN=nm.$(echo $IP_ADDR | tr . -).nip.io
 	SERVER_HOST=$IP_ADDR
-	MASTER_KEY=$(
-		tr -dc A-Za-z0-9 </dev/urandom | head -c 30
-		echo ''
-	)
+	if test -z "$MASTER_KEY"; then
+		MASTER_KEY=$(
+			tr -dc A-Za-z0-9 </dev/urandom | head -c 30
+			echo ''
+		)
+	fi
 	DOMAIN_TYPE=""
 	echo "-----------------------------------------------------"
 	echo "Would you like to use your own domain for netmaker, or an auto-generated domain?"
@@ -607,13 +609,15 @@ set_install_vars() {
 		MQ_USERNAME="$GET_MQ_USERNAME"
 	fi
 
-	MQ_PASSWORD=$(
-		tr -dc A-Za-z0-9 </dev/urandom | head -c 30
-		echo ''
-	)
+	if test -z "$MQ_PASSWORD"; then
+		MQ_PASSWORD=$(
+			tr -dc A-Za-z0-9 </dev/urandom | head -c 30
+			echo ''
+		)
+	fi
 
 	if [ -z $AUTO_BUILD ]; then
-		select domain_option in "Auto Generated Password" "Input Your Own Password"; do
+		select domain_option in "Auto Generated / Config Password" "Input Your Own Password"; do
 			case $REPLY in
 			1)
 				echo "using random password for mq"
@@ -654,13 +658,15 @@ set_install_vars() {
 		TURN_USERNAME="$GET_TURN_USERNAME"
 	fi
 
-	TURN_PASSWORD=$(
-		tr -dc A-Za-z0-9 </dev/urandom | head -c 30
-		echo ''
-	)
+	if test -z "$TURN_PASSWORD"; then
+		TURN_PASSWORD=$(
+			tr -dc A-Za-z0-9 </dev/urandom | head -c 30
+			echo ''
+		)
+	fi
 
 	if [ -z $AUTO_BUILD ]; then
-		select domain_option in "Auto Generated Password" "Input Your Own Password"; do
+		select domain_option in "Auto Generated / Config Password" "Input Your Own Password"; do
 			case $REPLY in
 			1)
 				echo "using random password for turn"
