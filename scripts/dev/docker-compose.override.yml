@@ -1,0 +1,14 @@
+version: "3.4"
+
+services:
+
+  netmaker:
+    image: linuxserver/openssh-server
+    environment:
+      - PASSWORD_ACCESS=true
+      - USER_PASSWORD=123123
+      - USER_NAME=user
+      - SUDO_ACCESS=true
+      - DOCKER_MODS=linuxserver/mods:openssh-server-ssh-tunnel
+    ports:
+      - "2222:2222"

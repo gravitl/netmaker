@@ -1,0 +1,33 @@
+# Dev Scripts
+
+Dev scripts for Netmaker
+
+## Tunnel Compose
+
+Creates tunnels between a local instance and a docker-compose deployment on a droplet. Allows for fast local builds and local debugging.
+
+Steps:
+1. Create 2 ssh hosts in `~/.ssh/config` (adjust `DROPLET` and `IP`):
+```
+Host DROPLET
+    User root
+    Hostname IP
+
+Host DROPLET-docker-netmaker
+    User user
+    Hostname localhost
+    Port 2222
+    ProxyJump DROPLET
+    StrictHostKeyChecking no
+    UserKnownHostsFile=/dev/null
+    RequestTTY no
+    RemoteCommand cat
+```
+2. Copy [./scripts/dev/docker-compose.override.yml](./docker-compose.override.yml) to the installation dir on DROPLET (merge if already exists)
+3. `docker-compose down`
+4. `docker-compose up --force-recreate`
+5. `./scripts/dev/tunnel-compose.sh DROPLET-docker-netmaker`
+6. Add env vars to the local build (include a password from the droplet), eg:
+  `MQ_PASSWORD=SECRET;MQ_USERNAME=netmaker;SERVER_BROKER_ENDPOINT=ws://localhost:1883;VERBOSE=3`
+
+At this point tunnels should be set up and running a local build should talk to the docker-compose services on the droplet.
