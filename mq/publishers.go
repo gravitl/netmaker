@@ -154,6 +154,13 @@ func FlushNetworkPeersToHost(host *models.Host, hNode *models.Node, networkNodes
 		}
 		addPeerAction.Peers = append(addPeerAction.Peers, peerCfg)
 	}
+	if hNode.IsIngressGateway {
+		extPeers, _, err := logic.GetExtPeers(hNode)
+		if err == nil {
+			addPeerAction.Peers = append(addPeerAction.Peers, extPeers...)
+		}
+
+	}
 	if len(rmPeerAction.Peers) > 0 {
 		data, err := json.Marshal(rmPeerAction)
 		if err != nil {
@@ -265,6 +272,50 @@ func BroadcastAddOrUpdatePeer(host *models.Host, node *models.Node, update bool)
 			publish(peerHost, fmt.Sprintf("peer/host/%s/%s", peerHost.ID.String(), servercfg.GetServer()), data)
 		}
 	}
+	return nil
+}
+
+// BroadcastExtClient - publishes msg to add/updates ext client in the network
+func BroadcastExtClient(ingressHost *models.Host, ingressNode *models.Node) error {
+
+	nodes, err := logic.GetNetworkNodes(ingressNode.Network)
+	if err != nil {
+		return err
+	}
+	//flush peers to ingress host
+	go FlushNetworkPeersToHost(ingressHost, ingressNode, nodes)
+	// broadcast to update ingress peer to other hosts
+	go BroadcastAddOrUpdatePeer(ingressHost, ingressNode, true)
+	// TODO - send fw update
+	return nil
+}
+
+// BroadcastDelExtClient - published msg to remove ext client from network
+func BroadcastDelExtClient(ingressHost *models.Host, ingressNode *models.Node, extclients []models.ExtClient) error {
+	// TODO - send fw update
+	go BroadcastAddOrUpdatePeer(ingressHost, ingressNode, true)
+	peers := []wgtypes.PeerConfig{}
+	for _, extclient := range extclients {
+		extPubKey, err := wgtypes.ParseKey(extclient.PublicKey)
+		if err != nil {
+			continue
+		}
+		peers = append(peers, wgtypes.PeerConfig{
+			PublicKey: extPubKey,
+			Remove:    true,
+		})
+
+	}
+	p := models.PeerAction{
+		Action: models.RemovePeer,
+		Peers:  peers,
+	}
+
+	data, err := json.Marshal(p)
+	if err != nil {
+		return err
+	}
+	publish(ingressHost, fmt.Sprintf("peer/host/%s/%s", ingressHost.ID.String(), servercfg.GetServer()), data)
 	return nil
 }
 

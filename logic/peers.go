@@ -248,7 +248,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 
 				if node.IsIngressGateway || node.IsEgressGateway {
 					if peer.IsIngressGateway {
-						_, extPeerIDAndAddrs, err := getExtPeers(&peer)
+						_, extPeerIDAndAddrs, err := GetExtPeers(&peer)
 						if err == nil {
 							for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
 								extPeerIdAndAddr := extPeerIdAndAddr
@@ -330,7 +330,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 		var extPeers []wgtypes.PeerConfig
 		var extPeerIDAndAddrs []models.IDandAddr
 		if node.IsIngressGateway {
-			extPeers, extPeerIDAndAddrs, err = getExtPeers(&node)
+			extPeers, extPeerIDAndAddrs, err = GetExtPeers(&node)
 			if err == nil {
 				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
 					extPeerIdAndAddr := extPeerIdAndAddr
@@ -446,7 +446,7 @@ func GetProxyListenPort(host *models.Host) int {
 	return proxyPort
 }
 
-func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, error) {
+func GetExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, error) {
 	var peers []wgtypes.PeerConfig
 	var idsAndAddr []models.IDandAddr
 	extPeers, err := GetNetworkExtClients(node.Network)
@@ -581,7 +581,7 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 
 	// handle ingress gateway peers
 	if peer.IsIngressGateway {
-		extPeers, _, err := getExtPeers(peer)
+		extPeers, _, err := GetExtPeers(peer)
 		if err != nil {
 			logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 		}
