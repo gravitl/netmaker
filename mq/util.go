@@ -3,7 +3,6 @@ package mq
 import (
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -78,7 +77,6 @@ func publish(host *models.Host, dest string, msg []byte) error {
 	if encryptErr != nil {
 		return encryptErr
 	}
-	log.Println("publishing to ", dest, " with message lenght", len(encrypted))
 	if mqclient == nil {
 		return errors.New("cannot publish ... mqclient not connected")
 	}

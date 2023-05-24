@@ -3,7 +3,6 @@ package mq
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 
 	"github.com/gravitl/netmaker/logger"
@@ -166,7 +165,6 @@ func getIngressIPs(peer models.Client) []net.IPNet {
 
 // pubRelayedUpdate - publish peer update to a node (client) that is relayed by the relay
 func pubRelayedUpdate(client, relay *models.Client, peers *[]models.Client) {
-	log.Println("pubRelayedUpdate", client.Host.Name, relay.Host.Name, len(*peers))
 	//verify
 	if !logic.StringSliceContains(relay.Node.RelayedNodes, client.Node.ID.String()) {
 		logger.Log(0, "invalid call to pubRelayed update", client.Host.Name, relay.Host.Name)
@@ -176,10 +174,8 @@ func pubRelayedUpdate(client, relay *models.Client, peers *[]models.Client) {
 	p := models.PeerAction{
 		Action: models.RemovePeer,
 	}
-	log.Println("removing peers ")
 	for _, peer := range *peers {
 		if peer.Host.ID == relay.Host.ID || peer.Host.ID == client.Host.ID {
-			log.Println("skipping removal of ", peer.Host.Name)
 			continue
 		}
 		update := wgtypes.PeerConfig{
@@ -218,13 +214,10 @@ func pubRelayedUpdate(client, relay *models.Client, peers *[]models.Client) {
 	}
 	p.Peers = append(p.Peers, update)
 	// add all other peers to allowed ips
-	log.Println("adding peers to allowed ips")
 	for _, peer := range *peers {
 		if peer.Host.ID == relay.Host.ID || peer.Host.ID == client.Host.ID {
-			log.Println("skipping ", peer.Host.Name, "in allowedips")
 			continue
 		}
-		log.Println("adding ", peer.Host.Name, peer.Node.Address, "to allowedips")
 		if peer.Node.Address.IP != nil {
 			peer.Node.Address.Mask = net.CIDRMask(32, 32)
 			update.AllowedIPs = append(update.AllowedIPs, peer.Node.Address)

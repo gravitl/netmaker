@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 
 	"github.com/gravitl/netmaker/database"
@@ -57,7 +56,6 @@ func CreateRelay(relay models.RelayRequest) ([]models.Client, models.Node, error
 
 // SetRelayedNodes- sets and saves node as relayed
 func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.Client {
-	log.Println("setting relayed nodes", setRelayed, relay, relayed)
 	var returnnodes []models.Client
 	for _, id := range relayed {
 		node, err := GetNodeByID(id)
@@ -72,7 +70,6 @@ func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.C
 			node.RelayedBy = ""
 		}
 		node.SetLastModified()
-		log.Println("setting relayed nodes", node.ID.String(), node.IsRelayed, node.RelayedBy)
 		data, err := json.Marshal(&node)
 		if err != nil {
 			logger.Log(0, "setRelayedNodes.Marshal", err.Error())
@@ -142,6 +139,5 @@ func getRelayedAddresses(id string) []net.IPNet {
 	if node.Address6.IP != nil {
 		addrs = append(addrs, node.Address6)
 	}
-	log.Println("====================== relayed addresses", addrs)
 	return addrs
 }
