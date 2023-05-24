@@ -41,28 +41,12 @@ func PubPeerUpdate(client, relay *models.Client, peers *[]models.Client) {
 			},
 			PersistentKeepaliveInterval: &peer.Node.PersistentKeepalive,
 		}
-		if peer.Node.IsRelay {
-			update.AllowedIPs = append(update.AllowedIPs, getRelayAllowedIPs(peer)...)
-		}
 		if relay != nil {
 			if peer.Node.IsRelayed && peer.Node.RelayedBy == relay.Node.ID.String() {
 				update.Remove = true
 			}
 		}
-		if peer.Node.Address.IP != nil {
-			peer.Node.Address.Mask = net.CIDRMask(32, 32)
-			update.AllowedIPs = append(update.AllowedIPs, peer.Node.Address)
-		}
-		if peer.Node.Address6.IP != nil {
-			peer.Node.Address.Mask = net.CIDRMask(128, 128)
-			update.AllowedIPs = append(update.AllowedIPs, peer.Node.Address6)
-		}
-		if peer.Node.IsEgressGateway {
-			update.AllowedIPs = append(update.AllowedIPs, getEgressIPs(peer)...)
-		}
-		if peer.Node.IsIngressGateway {
-			update.AllowedIPs = append(update.AllowedIPs, getIngressIPs(peer)...)
-		}
+		addAllowedIPs(peer, &update)
 		p.Peers = append(p.Peers, update)
 	}
 	data, err := json.Marshal(p)
@@ -205,23 +189,7 @@ func pubRelayedUpdate(client, relay *models.Client, peers *[]models.Client) {
 		if peer.Host.ID == relay.Host.ID || peer.Host.ID == client.Host.ID {
 			continue
 		}
-		if peer.Node.Address.IP != nil {
-			peer.Node.Address.Mask = net.CIDRMask(32, 32)
-			update.AllowedIPs = append(update.AllowedIPs, peer.Node.Address)
-		}
-		if peer.Node.Address6.IP != nil {
-			peer.Node.Address6.Mask = net.CIDRMask(128, 128)
-			update.AllowedIPs = append(update.AllowedIPs, peer.Node.Address6)
-		}
-		if peer.Node.IsRelay {
-			update.AllowedIPs = append(update.AllowedIPs, getRelayAllowedIPs(peer)...)
-		}
-		if peer.Node.IsEgressGateway {
-			update.AllowedIPs = append(update.AllowedIPs, getEgressIPs(peer)...)
-		}
-		if peer.Node.IsIngressGateway {
-			update.AllowedIPs = append(update.AllowedIPs, getIngressIPs(peer)...)
-		}
+		addAllowedIPs(peer, &update)
 	}
 	p.Peers = append(p.Peers, update)
 	data, err = json.Marshal(p)
@@ -255,23 +223,7 @@ func pubRelayUpdate(client *models.Client, peers *[]models.Client) {
 			},
 			PersistentKeepaliveInterval: &peer.Node.PersistentKeepalive,
 		}
-		if peer.Node.Address.IP != nil {
-			peer.Node.Address.Mask = net.CIDRMask(32, 32)
-			update.AllowedIPs = append(update.AllowedIPs, peer.Node.Address)
-		}
-		if peer.Node.Address6.IP != nil {
-			peer.Node.Address6.Mask = net.CIDRMask(128, 128)
-			update.AllowedIPs = append(update.AllowedIPs, peer.Node.Address6)
-		}
-		if peer.Node.IsRelay {
-			update.AllowedIPs = append(update.AllowedIPs, getRelayAllowedIPs(peer)...)
-		}
-		if peer.Node.IsEgressGateway {
-			update.AllowedIPs = append(update.AllowedIPs, getEgressIPs(peer)...)
-		}
-		if peer.Node.IsIngressGateway {
-			update.AllowedIPs = append(update.AllowedIPs, getIngressIPs(peer)...)
-		}
+		addAllowedIPs(peer, &update)
 		p.Peers = append(p.Peers, update)
 	}
 	data, err := json.Marshal(p)
@@ -280,4 +232,24 @@ func pubRelayUpdate(client *models.Client, peers *[]models.Client) {
 		return
 	}
 	publish(&client.Host, fmt.Sprintf("peer/host/%s/%s", client.Host.ID.String(), servercfg.GetServer()), data)
+}
+
+func addAllowedIPs(peer models.Client, update *wgtypes.PeerConfig) {
+	if peer.Node.Address.IP != nil {
+		peer.Node.Address.Mask = net.CIDRMask(32, 32)
+		update.AllowedIPs = append(update.AllowedIPs, peer.Node.Address)
+	}
+	if peer.Node.Address6.IP != nil {
+		peer.Node.Address6.Mask = net.CIDRMask(128, 128)
+		update.AllowedIPs = append(update.AllowedIPs, peer.Node.Address6)
+	}
+	if peer.Node.IsRelay {
+		update.AllowedIPs = append(update.AllowedIPs, getRelayAllowedIPs(peer)...)
+	}
+	if peer.Node.IsEgressGateway {
+		update.AllowedIPs = append(update.AllowedIPs, getEgressIPs(peer)...)
+	}
+	if peer.Node.IsIngressGateway {
+		update.AllowedIPs = append(update.AllowedIPs, getIngressIPs(peer)...)
+	}
 }
