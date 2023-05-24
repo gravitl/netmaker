@@ -62,3 +62,17 @@ func SortExtClient(unsortedExtClient []models.ExtClient) {
 		return unsortedExtClient[i].ClientID < unsortedExtClient[j].ClientID
 	})
 }
+
+func getExtClients(node models.Node) []models.ExtClient {
+	var extClients []models.ExtClient
+	netec, err := GetNetworkExtClients(node.Network)
+	if err != nil {
+		return extClients
+	}
+	for _, ec := range netec {
+		if ec.IngressGatewayID == node.ID.String() {
+			extClients = append(extClients, ec)
+		}
+	}
+	return extClients
+}

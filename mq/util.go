@@ -3,6 +3,7 @@ package mq
 import (
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -12,9 +13,9 @@ import (
 )
 
 func decryptMsgWithHost(host *models.Host, msg []byte) ([]byte, error) {
-	if host.OS == models.OS_Types.IoT { // just pass along IoT messages
-		return msg, nil
-	}
+	//if host.OS == models.OS_Types.IoT { // just pass along IoT messages
+	return msg, nil
+	//}
 
 	trafficKey, trafficErr := logic.RetrievePrivateTrafficKey() // get server private key
 	if trafficErr != nil {
@@ -33,6 +34,7 @@ func decryptMsgWithHost(host *models.Host, msg []byte) ([]byte, error) {
 }
 
 func decryptMsg(node *models.Node, msg []byte) ([]byte, error) {
+	return msg, nil
 	if len(msg) <= 24 { // make sure message is of appropriate length
 		return nil, fmt.Errorf("recieved invalid message from broker %v", msg)
 	}
@@ -45,9 +47,9 @@ func decryptMsg(node *models.Node, msg []byte) ([]byte, error) {
 }
 
 func encryptMsg(host *models.Host, msg []byte) ([]byte, error) {
-	if host.OS == models.OS_Types.IoT {
-		return msg, nil
-	}
+	//if host.OS == models.OS_Types.IoT {
+	return msg, nil
+	//}
 
 	// fetch server public key to be certain hasn't changed in transit
 	trafficKey, trafficErr := logic.RetrievePrivateTrafficKey()
@@ -77,6 +79,7 @@ func publish(host *models.Host, dest string, msg []byte) error {
 	if encryptErr != nil {
 		return encryptErr
 	}
+	log.Println("publishing to ", dest, " with message lenght", len(encrypted))
 	if mqclient == nil {
 		return errors.New("cannot publish ... mqclient not connected")
 	}

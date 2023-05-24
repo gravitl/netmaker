@@ -24,50 +24,46 @@ import (
 //			Responses:
 //				200: nodeResponse
 func createRelay(w http.ResponseWriter, r *http.Request) {
-	var relay models.RelayRequest
+	var relayRequest models.RelayRequest
 	var params = mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
-	err := json.NewDecoder(r.Body).Decode(&relay)
+	err := json.NewDecoder(r.Body).Decode(&relayRequest)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	relay.NetID = params["network"]
-	relay.NodeID = params["nodeid"]
-	updatenodes, node, err := logic.CreateRelay(relay)
+
+	relayRequest.NetID = params["network"]
+	relayRequest.NodeID = params["nodeid"]
+	_, relayNode, err := logic.CreateRelay(relayRequest)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("failed to create relay on node [%s] on network [%s]: %v", relay.NodeID, relay.NetID, err))
+			fmt.Sprintf("failed to create relay on node [%s] on network [%s]: %v", relayRequest.NodeID, relayRequest.NetID, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	go func() {
-		// update relay node
-		host := logic.GetHostByNodeID(node.ID.String())
-		if err := mq.NodeUpdate(&node); err != nil {
-			logger.Log(1, "relay node update", host.Name, "on network", relay.NetID, ": ", err.Error())
-		}
-		// update relayed nodes
-		for _, relayedNode := range updatenodes {
-			err = mq.NodeUpdate(&relayedNode)
-			if err != nil {
-				logger.Log(1, "relayed node update ", relayedNode.ID.String(), "on network", relay.NetID, ": ", err.Error())
-			}
-		}
-		// peer updates
-		relay := models.Client{
-			Host: *host,
-			Node: node,
-		}
-		clients := logic.GetNetworkClients(relay.Node.Network)
-		if err := mq.PublishRelayPeerUpdate(&relay, &clients); err != nil {
-			logger.Log(1, "peer update to relayed node ", host.Name, "on network", relay.Node.Network, ": ", err.Error())
-		}
-	}()
+	relay := models.Client{
+		Host: *logic.GetHostByNodeID(params["nodeid"]),
+		Node: relayNode,
+	}
+	peers, err := logic.GetNetworkClients(relay.Node.Network)
+	if err != nil {
+		logger.Log(0, "error getting network nodes: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	//mq.PubPeersforRelay(relay, peers)
+	//for _, relayed := range relayedClients {
+	//mq.PubPeersForRelayedNode(relayed, relay, peers)
+	//}
+	clients := peers
+	for _, client := range clients {
+		mq.PubPeerUpdate(&client, &relay, &peers)
+	}
 
-	logger.Log(1, r.Header.Get("user"), "created relay on node", relay.NodeID, "on network", relay.NetID)
-	apiNode := node.ConvertToAPINode()
+	logger.Log(1, r.Header.Get("user"), "created relay on node", relayRequest.NodeID, "on network", relayRequest.NetID)
+	apiNode := relayNode.ConvertToAPINode()
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
 	//runUpdates(&node, true)
@@ -89,7 +85,7 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
 	netid := params["network"]
-	updatenodes, node, err := logic.DeleteRelay(netid, nodeid)
+	updateClients, node, err := logic.DeleteRelay(netid, nodeid)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -97,32 +93,32 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(1, r.Header.Get("user"), "deleted relay server", nodeid, "on network", netid)
 	go func() {
-		//update relay node
-		host := logic.GetHostByNodeID(node.ID.String())
+		//update relayHost node
+		relayHost := logic.GetHostByNodeID(node.ID.String())
 		if err := mq.NodeUpdate(&node); err != nil {
-			logger.Log(1, "relay node update", host.Name, "on network", node.Network, ": ", err.Error())
+			logger.Log(1, "relay node update", relayHost.Name, "on network", node.Network, ": ", err.Error())
 		}
-		//update relayed nodes
-		for _, relayedNode := range updatenodes {
-			err = mq.NodeUpdate(&relayedNode)
+		for _, relayedClient := range updateClients {
+			err = mq.NodeUpdate(&relayedClient.Node)
 			if err != nil {
-				logger.Log(1, "relayed node update ", relayedNode.ID.String(), "on network", relayedNode.Network, ": ", err.Error())
+				logger.Log(1, "relayed node update ", relayedClient.Node.ID.String(), "on network", relayedClient.Node.Network, ": ", err.Error())
+
 			}
 		}
-		// peer updates
-		relay := models.Client{
-			Host: *host,
-			Node: node,
+		peers, err := logic.GetNetworkClients(node.Network)
+		if err != nil {
+			logger.Log(0, "error getting network nodes: ", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
 		}
-		clients := logic.GetNetworkClients(relay.Node.Network)
-		if err := mq.PublishRelayPeerUpdate(&relay, &clients); err != nil {
-			logger.Log(1, "peer update to relayed node ", host.Name, "on network", relay.Node.Network, ": ", err.Error())
+		clients := peers
+		for _, client := range clients {
+			mq.PubPeerUpdate(&client, nil, &peers)
 		}
 	}()
-
 	logger.Log(1, r.Header.Get("user"), "deleted relay on node", node.ID.String(), "on network", node.Network)
 	apiNode := node.ConvertToAPINode()
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-	//runUpdates(&node, true)
+	runUpdates(&node, true)
 }

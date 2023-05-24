@@ -70,6 +70,6 @@ const (
 )
 
 type PeerAction struct {
-	Action PeerActionType     `json:"action"`
-	Peer   wgtypes.PeerConfig `json:"peer"`
+	Action PeerActionType       `json:"action"`
+	Peers  []wgtypes.PeerConfig `json:"peers"`
 }

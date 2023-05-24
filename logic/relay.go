@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 
 	"github.com/gravitl/netmaker/database"
@@ -12,51 +13,52 @@ import (
 )
 
 // CreateRelay - creates a relay
-func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) {
-	var returnnodes []models.Node
-
+func CreateRelay(relay models.RelayRequest) ([]models.Client, models.Node, error) {
+	var relayedClients []models.Client
 	node, err := GetNodeByID(relay.NodeID)
 	if err != nil {
-		return returnnodes, models.Node{}, err
+		return relayedClients, models.Node{}, err
 	}
 	host, err := GetHost(node.HostID.String())
 	if err != nil {
-		return returnnodes, models.Node{}, err
+		return relayedClients, models.Node{}, err
 	}
 	if host.OS != "linux" {
-		return returnnodes, models.Node{}, fmt.Errorf("only linux machines can be relay nodes")
+		return relayedClients, models.Node{}, fmt.Errorf("only linux machines can be relay nodes")
 	}
 	err = ValidateRelay(relay)
 	if err != nil {
-		return returnnodes, models.Node{}, err
+		return relayedClients, models.Node{}, err
 	}
 	node.IsRelay = true
+	node.RelayedNodes = relay.RelayedNodes
 	node.SetLastModified()
 	nodeData, err := json.Marshal(&node)
 	if err != nil {
-		return returnnodes, node, err
+		return relayedClients, node, err
 	}
 	if err = database.Insert(node.ID.String(), string(nodeData), database.NODES_TABLE_NAME); err != nil {
-		return returnnodes, models.Node{}, err
+		return relayedClients, models.Node{}, err
 	}
-	returnnodes = SetRelayedNodes(true, relay.NodeID, relay.RelayedNodes)
-	for _, relayedNode := range returnnodes {
-		data, err := json.Marshal(&relayedNode)
+	relayedClients = SetRelayedNodes(true, relay.NodeID, relay.RelayedNodes)
+	for _, relayed := range relayedClients {
+		data, err := json.Marshal(&relayed.Node)
 		if err != nil {
 			logger.Log(0, "marshalling relayed node", err.Error())
 			continue
 		}
-		if err := database.Insert(relayedNode.ID.String(), string(data), database.NODES_TABLE_NAME); err != nil {
+		if err := database.Insert(relayed.Node.ID.String(), string(data), database.NODES_TABLE_NAME); err != nil {
 			logger.Log(0, "inserting relayed node", err.Error())
 			continue
 		}
 	}
-	return returnnodes, node, nil
+	return relayedClients, node, nil
 }
 
 // SetRelayedNodes- sets and saves node as relayed
-func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.Node {
-	var returnnodes []models.Node
+func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.Client {
+	log.Println("setting relayed nodes", setRelayed, relay, relayed)
+	var returnnodes []models.Client
 	for _, id := range relayed {
 		node, err := GetNodeByID(id)
 		if err != nil {
@@ -70,6 +72,7 @@ func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.N
 			node.RelayedBy = ""
 		}
 		node.SetLastModified()
+		log.Println("setting relayed nodes", node.ID.String(), node.IsRelayed, node.RelayedBy)
 		data, err := json.Marshal(&node)
 		if err != nil {
 			logger.Log(0, "setRelayedNodes.Marshal", err.Error())
@@ -79,7 +82,11 @@ func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.N
 			logger.Log(0, "setRelayedNodes.Insert", err.Error())
 			continue
 		}
-		returnnodes = append(returnnodes, node)
+		host := GetHostByNodeID(node.ID.String())
+		returnnodes = append(returnnodes, models.Client{
+			Host: *host,
+			Node: node,
+		})
 	}
 	return returnnodes
 }
@@ -96,48 +103,32 @@ func ValidateRelay(relay models.RelayRequest) error {
 }
 
 // UpdateRelayed - updates relay nodes
-func UpdateRelayed(relay string, oldNodes []string, newNodes []string) []models.Node {
+func UpdateRelayed(relay string, oldNodes []string, newNodes []string) []models.Client {
 	_ = SetRelayedNodes(false, relay, oldNodes)
 	return SetRelayedNodes(true, relay, newNodes)
 }
 
 // DeleteRelay - deletes a relay
-func DeleteRelay(network, nodeid string) ([]models.Node, models.Node, error) {
-	var returnnodes []models.Node
+func DeleteRelay(network, nodeid string) ([]models.Client, models.Node, error) {
+	var returnClients []models.Client
 	node, err := GetNodeByID(nodeid)
 	if err != nil {
-		return returnnodes, models.Node{}, err
+		return returnClients, models.Node{}, err
 	}
-	returnnodes = SetRelayedNodes(false, nodeid, node.RelayedNodes)
+	returnClients = SetRelayedNodes(false, nodeid, node.RelayedNodes)
 	node.IsRelay = false
+	node.RelayedNodes = []string{}
 	node.SetLastModified()
 	data, err := json.Marshal(&node)
 	if err != nil {
-		return returnnodes, models.Node{}, err
+		return returnClients, models.Node{}, err
 	}
 	if err = database.Insert(nodeid, string(data), database.NODES_TABLE_NAME); err != nil {
-		return returnnodes, models.Node{}, err
+		return returnClients, models.Node{}, err
 	}
-	return returnnodes, node, nil
+	return returnClients, node, nil
 }
 
-// GetNetworkClients - gets all clients in a network
-func GetNetworkClients(network string) []models.Client {
-	var clients []models.Client
-	nodes, err := GetNetworkNodes(network)
-	if err != nil {
-		return clients
-	}
-	for _, node := range nodes {
-		host := GetHostByNodeID(node.ID.String())
-		client := models.Client{
-			Host: *host,
-			Node: node,
-		}
-		clients = append(clients, client)
-	}
-	return clients
-}
 func getRelayedAddresses(id string) []net.IPNet {
 	addrs := []net.IPNet{}
 	node, err := GetNodeByID(id)
@@ -151,5 +142,6 @@ func getRelayedAddresses(id string) []net.IPNet {
 	if node.Address6.IP != nil {
 		addrs = append(addrs, node.Address6)
 	}
+	log.Println("====================== relayed addresses", addrs)
 	return addrs
 }

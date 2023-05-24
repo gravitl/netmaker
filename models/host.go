@@ -77,9 +77,8 @@ type Host struct {
 
 // Client - represents a client on the network
 type Client struct {
-	Host Host   `json:"host" yaml:"host"`
-	Node Node   `json:"node" yaml:"node"`
-	Kind string `json:"kind" yaml:"kind"`
+	Host Host `json:"host" yaml:"host"`
+	Node Node `json:"node" yaml:"node"`
 }
 
 // FormatBool converts a boolean to a [yes|no] string
