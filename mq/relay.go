@@ -12,15 +12,9 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-// PubPeeUpdate publishes a peer update to the client
-// relay is set to a newly created relay node or nil for otherr peer updates
+// PubPeerUpdate publishes a peer update to the client
+// relay is set to a newly created relay node or nil for other peer updates
 func PubPeerUpdate(client, relay *models.Client, peers *[]models.Client) {
-	fmt.Println("calculating peer update for", client.Host.Name, " with relay ")
-	if relay != nil {
-		fmt.Println(relay.Host.Name, " with relayed nodes ", relay.Node.RelayedNodes)
-	} else {
-		fmt.Println("no relay")
-	}
 	p := models.PeerAction{
 		Action: models.UpdatePeer,
 	}
@@ -35,7 +29,6 @@ func PubPeerUpdate(client, relay *models.Client, peers *[]models.Client) {
 		}
 	}
 	for _, peer := range *peers {
-		fmt.Println("peer: ", peer.Host.Name)
 		if client.Host.ID == peer.Host.ID {
 			continue
 		}
@@ -49,13 +42,10 @@ func PubPeerUpdate(client, relay *models.Client, peers *[]models.Client) {
 			PersistentKeepaliveInterval: &peer.Node.PersistentKeepalive,
 		}
 		if peer.Node.IsRelay {
-			fmt.Println("processing relay peer")
-			update.AllowedIPs = append(update.AllowedIPs, getAllowedIPs(peer)...)
-			fmt.Println("adding relay ips", update.AllowedIPs)
+			update.AllowedIPs = append(update.AllowedIPs, getRelayAllowedIPs(peer)...)
 		}
 		if relay != nil {
 			if peer.Node.IsRelayed && peer.Node.RelayedBy == relay.Node.ID.String() {
-				fmt.Println("removing relayed peer", peer.Host.Name, " from ", client.Host.Name)
 				update.Remove = true
 			}
 		}
@@ -74,19 +64,17 @@ func PubPeerUpdate(client, relay *models.Client, peers *[]models.Client) {
 			update.AllowedIPs = append(update.AllowedIPs, getIngressIPs(peer)...)
 		}
 		p.Peers = append(p.Peers, update)
-		fmt.Println("update: ", update)
 	}
 	data, err := json.Marshal(p)
 	if err != nil {
 		logger.Log(0, "marshal peer update", err.Error())
 		return
 	}
-	fmt.Println("publishing peer update", client.Host.Name, p.Action, len(data))
 	publish(&client.Host, fmt.Sprintf("peer/host/%s/%s", client.Host.ID.String(), servercfg.GetServer()), data)
 }
 
-// getAllowedIPs returns the list of allowedips for a given peer
-func getAllowedIPs(peer models.Client) []net.IPNet {
+// getRelayAllowedIPs returns the list of allowedips for a given peer that is a relay
+func getRelayAllowedIPs(peer models.Client) []net.IPNet {
 	var relayIPs []net.IPNet
 	for _, relayed := range peer.Node.RelayedNodes {
 		node, err := logic.GetNodeByID(relayed)
@@ -103,7 +91,7 @@ func getAllowedIPs(peer models.Client) []net.IPNet {
 			relayIPs = append(relayIPs, node.Address6)
 		}
 		if node.IsRelay {
-			relayIPs = append(relayIPs, getAllowedIPs(peer)...)
+			relayIPs = append(relayIPs, getRelayAllowedIPs(peer)...)
 		}
 		if node.IsEgressGateway {
 			relayIPs = append(relayIPs, getEgressIPs(peer)...)
@@ -189,7 +177,6 @@ func pubRelayedUpdate(client, relay *models.Client, peers *[]models.Client) {
 		logger.Log(0, "marshal peer update", err.Error())
 		return
 	}
-	fmt.Println("publishing peer update", client.Host.Name, p.Action, len(data))
 	publish(&client.Host, fmt.Sprintf("peer/host/%s/%s", client.Host.ID.String(), servercfg.GetServer()), data)
 	//update the relay peer
 	p = models.PeerAction{
@@ -227,7 +214,7 @@ func pubRelayedUpdate(client, relay *models.Client, peers *[]models.Client) {
 			update.AllowedIPs = append(update.AllowedIPs, peer.Node.Address6)
 		}
 		if peer.Node.IsRelay {
-			update.AllowedIPs = append(update.AllowedIPs, getAllowedIPs(peer)...)
+			update.AllowedIPs = append(update.AllowedIPs, getRelayAllowedIPs(peer)...)
 		}
 		if peer.Node.IsEgressGateway {
 			update.AllowedIPs = append(update.AllowedIPs, getEgressIPs(peer)...)
@@ -242,7 +229,6 @@ func pubRelayedUpdate(client, relay *models.Client, peers *[]models.Client) {
 		logger.Log(0, "marshal peer update", err.Error())
 		return
 	}
-	fmt.Println("publishing peer update", client.Host.Name, p.Action, len(data))
 	publish(&client.Host, fmt.Sprintf("peer/host/%s/%s", client.Host.ID.String(), servercfg.GetServer()), data)
 }
 
@@ -278,7 +264,7 @@ func pubRelayUpdate(client *models.Client, peers *[]models.Client) {
 			update.AllowedIPs = append(update.AllowedIPs, peer.Node.Address6)
 		}
 		if peer.Node.IsRelay {
-			update.AllowedIPs = append(update.AllowedIPs, getAllowedIPs(peer)...)
+			update.AllowedIPs = append(update.AllowedIPs, getRelayAllowedIPs(peer)...)
 		}
 		if peer.Node.IsEgressGateway {
 			update.AllowedIPs = append(update.AllowedIPs, getEgressIPs(peer)...)
@@ -293,6 +279,5 @@ func pubRelayUpdate(client *models.Client, peers *[]models.Client) {
 		logger.Log(0, "marshal peer update", err.Error())
 		return
 	}
-	fmt.Println("publishing peer update", client.Host.Name, p.Action, len(data))
 	publish(&client.Host, fmt.Sprintf("peer/host/%s/%s", client.Host.ID.String(), servercfg.GetServer()), data)
 }
