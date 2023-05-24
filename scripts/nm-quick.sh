@@ -4,17 +4,12 @@ CONFIG_FILE=netmaker.env
 # location of nm-quick.sh (usually `/root`)
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
 CONFIG_PATH="$SCRIPT_DIR/$CONFIG_FILE"
+NM_QUICK_VERSION="0.1.0"
 LATEST=$(curl -s https://api.github.com/repos/gravitl/netmaker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d [:space:],\")
 
 if [ $(id -u) -ne 0 ]; then
 	echo "This script must be run as root"
 	exit 1
-fi
-
-# read the config file
-if [ -f "$CONFIG_PATH" ]; then
-	echo "Reading config from $CONFIG_PATH"
-	source "$CONFIG_PATH"
 fi
 
 unset INSTALL_TYPE
@@ -25,6 +20,7 @@ unset AUTO_BUILD
 
 # usage - displays usage instructions
 usage() {
+	echo "nm-quick.sh v$NM_QUICK_VERSION"
 	echo "usage: ./nm-quick.sh [-e] [-b buildtype] [-t tag] [-a auto]"
 	echo "  -e      if specified, will install netmaker EE"
 	echo "  -b      type of build; options:"
@@ -141,6 +137,7 @@ set_buildinfo() {
 	echo "  Build Type: $BUILD_TYPE"
 	echo "   Build Tag: $BUILD_TAG"
 	echo "   Image Tag: $IMAGE_TAG"
+	echo "   Installer: v$NM_QUICK_VERSION"
 	echo "-----------------------------------------------------"
 
 }
@@ -303,7 +300,7 @@ save_config() { (
 		save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG"
 	fi
 	# copy entries from the previous config
-	local toCopy=("SERVER_HOST" "MASTER_KEY" "TURN_USERNAME" "MQ_USERNAME" "MQ_PASSWORD"
+	local toCopy=("SERVER_HOST" "MASTER_KEY" "TURN_USERNAME" "TURN_PASSWORD" "MQ_USERNAME" "MQ_PASSWORD"
 		"INSTALL_TYPE" "NODE_ID" "METRICS_EXPORTER" "PROMETHEUS" "DNS_MODE" "NETCLIENT_AUTO_UPDATE" "API_PORT"
 		"CORS_ALLOWED_ORIGIN" "DISPLAY_KEYS" "DATABASE" "SERVER_BROKER_ENDPOINT" "STUN_PORT" "VERBOSITY"
 		"DEFAULT_PROXY_MODE" "TURN_PORT" "USE_TURN" "DEBUG_MODE" "TURN_API_PORT" "REST_BACKEND" "DISABLE_REMOTE_IP_CHECK"
@@ -327,13 +324,20 @@ save_config() { (
 save_config_item() { (
 	local NAME="$1"
 	local VALUE="$2"
-	# echo "NAME $NAME"
-	# echo "VALUE $VALUE"
+	#echo "$NAME=$VALUE"
+	if test -z "$VALUE"; then
+		# load the default for empty values
+		VALUE=$(awk -F'=' "/^$NAME/ { print \$2}"  "$SCRIPT_DIR/netmaker.default.env")
+		# trim quotes for docker
+		VALUE=$(echo "$VALUE" | sed -E "s|^(['\"])(.*)\1$|\2|g")
+		#echo "Default for $NAME=$VALUE"
+	fi
+	# TODO single quote passwords
 	if grep -q "^$NAME=" "$CONFIG_PATH"; then
 		# TODO escape | in the value
 		sed -i "s|$NAME=.*|$NAME=$VALUE|" "$CONFIG_PATH"
 	else
-		echo "$NAME=\"$VALUE\"" >>"$CONFIG_PATH"
+		echo "$NAME=$VALUE" >>"$CONFIG_PATH"
 	fi
 ); }
 
@@ -362,8 +366,7 @@ local_install_setup() { (
 		cp docker/Caddyfile "$SCRIPT_DIR/Caddyfile"
 	fi
 	cp scripts/nm-certs.sh "$SCRIPT_DIR/nm-certs.sh"
-	cp scripts/netmaker.env "$SCRIPT_DIR/netmaker.env"
-	ln -fs "$SCRIPT_DIR/netmaker.env" "$SCRIPT_DIR/.env"
+	cp scripts/netmaker.default.env "$SCRIPT_DIR/netmaker.default.env"
 	cp docker/mosquitto.conf "$SCRIPT_DIR/mosquitto.conf"
 	cp docker/wait.sh "$SCRIPT_DIR/wait.sh"
 	cd ../../
@@ -383,31 +386,31 @@ install_dependencies() {
 
 	OS=$(uname)
 	if [ -f /etc/debian_version ]; then
-		dependencies="git wireguard wireguard-tools dnsutils jq docker.io docker-compose"
+		dependencies="git wireguard wireguard-tools dnsutils jq docker.io docker-compose grep gawk"
 		update_cmd='apt update'
 		install_cmd='apt-get install -y'
 	elif [ -f /etc/alpine-release ]; then
-		dependencies="git wireguard jq docker.io docker-compose"
+		dependencies="git wireguard jq docker.io docker-compose grep gawk"
 		update_cmd='apk update'
 		install_cmd='apk --update add'
 	elif [ -f /etc/centos-release ]; then
-		dependencies="git wireguard jq bind-utils docker.io docker-compose"
+		dependencies="git wireguard jq bind-utils docker.io docker-compose grep gawk"
 		update_cmd='yum update'
 		install_cmd='yum install -y'
 	elif [ -f /etc/fedora-release ]; then
-		dependencies="git wireguard bind-utils jq docker.io docker-compose"
+		dependencies="git wireguard bind-utils jq docker.io docker-compose grep gawk"
 		update_cmd='dnf update'
 		install_cmd='dnf install -y'
 	elif [ -f /etc/redhat-release ]; then
-		dependencies="git wireguard jq docker.io bind-utils docker-compose"
+		dependencies="git wireguard jq docker.io bind-utils docker-compose grep gawk"
 		update_cmd='yum update'
 		install_cmd='yum install -y'
 	elif [ -f /etc/arch-release ]; then
-		dependencies="git wireguard-tools dnsutils jq docker.io docker-compose"
+		dependencies="git wireguard-tools dnsutils jq docker.io docker-compose grep gawk"
 		update_cmd='pacman -Sy'
 		install_cmd='pacman -S --noconfirm'
 	elif [ "${OS}" = "FreeBSD" ]; then
-		dependencies="git wireguard wget jq docker.io docker-compose"
+		dependencies="git wireguard wget jq docker.io docker-compose grep gawk"
 		update_cmd='pkg update'
 		install_cmd='pkg install -y'
 	else
@@ -734,8 +737,7 @@ install_netmaker() {
 			wget -qO "$SCRIPT_DIR"/docker-compose.override.yml $COMPOSE_OVERRIDE_URL
 		fi
 		wget -qO "$SCRIPT_DIR"/Caddyfile "$CADDY_URL"
-		wget -qO "$SCRIPT_DIR"/netmaker.env "$BASE_URL/scripts/netmaker.env"
-		ln -fs "$SCRIPT_DIR/netmaker.env" "$SCRIPT_DIR/.env"
+		wget -qO "$SCRIPT_DIR"/netmaker.default.env "$BASE_URL/scripts/netmaker.default.env"
 		wget -qO "$SCRIPT_DIR"/mosquitto.conf "$BASE_URL/docker/mosquitto.conf"
 		wget -qO "$SCRIPT_DIR"/nm-certs.sh "$BASE_URL/scripts/nm-certs.sh"
 		wget -qO "$SCRIPT_DIR"/wait.sh "$BASE_URL/docker/wait.sh"
@@ -744,6 +746,8 @@ install_netmaker() {
 	chmod +x "$SCRIPT_DIR"/wait.sh
 	mkdir -p /etc/netmaker
 
+	# link .env to the user config
+	ln -fs "$SCRIPT_DIR/netmaker.env" "$SCRIPT_DIR/.env"
 	save_config
 
 	# Fetch / update certs using certbot
@@ -859,6 +863,12 @@ cleanup() {
 
 # 1. print netmaker logo
 print_logo
+
+# read the config
+if [ -f "$CONFIG_PATH" ]; then
+	echo "Using config: $CONFIG_PATH"
+	source "$CONFIG_PATH"
+fi
 
 # 2. setup the build instructions
 set_buildinfo
