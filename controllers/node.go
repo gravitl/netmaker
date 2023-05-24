@@ -157,7 +157,7 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 func authorize(hostAllowed, networkCheck bool, authNetwork string, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
-			Code: http.StatusUnauthorized, Message: logic.Forbidden_Msg,
+			Code: http.StatusForbidden, Message: logic.Forbidden_Msg,
 		}
 
 		var params = mux.Vars(r)

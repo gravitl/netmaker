@@ -193,7 +193,7 @@ func authenticateDNSToken(tokenString string) bool {
 func ContinueIfUserMatch(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
-			Code: http.StatusUnauthorized, Message: Forbidden_Msg,
+			Code: http.StatusForbidden, Message: Forbidden_Msg,
 		}
 		var params = mux.Vars(r)
 		var requestedUser = params["username"]
