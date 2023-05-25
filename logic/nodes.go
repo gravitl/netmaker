@@ -41,6 +41,23 @@ func GetNetworkNodes(network string) ([]models.Node, error) {
 	return GetNetworkNodesMemory(allnodes, network), nil
 }
 
+// GetNetworkClients - gets the clients of a network
+func GetNetworkClients(network string) ([]models.Client, error) {
+	clients := []models.Client{}
+	nodes, err := GetNetworkNodes(network)
+	if err != nil {
+		return []models.Client{}, err
+	}
+	for _, node := range nodes {
+		client := models.Client{
+			Node: node,
+			Host: *GetHostByNodeID(node.ID.String()),
+		}
+		clients = append(clients, client)
+	}
+	return clients, nil
+}
+
 // GetNetworkNodesMemory - gets all nodes belonging to a network from list in memory
 func GetNetworkNodesMemory(allNodes []models.Node, network string) []models.Node {
 	var nodes = []models.Node{}
