@@ -28,6 +28,7 @@ import (
 	stunserver "github.com/gravitl/netmaker/stun-server"
 )
 
+// TODO debug only, dont merge
 var version = "v0.20.0-NET163"
 
 // Start DB Connection and start API Request Handler

@@ -17,9 +17,11 @@ const (
 	// ALL_NETWORK_ACCESS - represents all networks
 	ALL_NETWORK_ACCESS = "THIS_USER_HAS_ALL"
 
-	master_uname  = "masteradministrator"
-	Forbidden_Msg = "forbidden"
-	Forbidden_Err = models.Error(Forbidden_Msg)
+	master_uname     = "masteradministrator"
+	Forbidden_Msg    = "forbidden"
+	Forbidden_Err    = models.Error(Forbidden_Msg)
+	Unauthorized_Msg = "unauthorized"
+	Unauthorized_Err = models.Error(Unauthorized_Msg)
 )
 
 // SecurityCheck - Check if user has appropriate permissions
@@ -139,7 +141,7 @@ func UserPermissions(reqAdmin bool, netname string, token string) ([]string, str
 	userNetworks := []string{}
 
 	if len(tokenSplit) < 2 {
-		return userNetworks, "", Forbidden_Err
+		return userNetworks, "", Unauthorized_Err
 	} else {
 		authToken = tokenSplit[1]
 	}
@@ -149,7 +151,7 @@ func UserPermissions(reqAdmin bool, netname string, token string) ([]string, str
 	}
 	username, networks, isadmin, err := VerifyUserToken(authToken)
 	if err != nil {
-		return nil, username, Forbidden_Err
+		return nil, username, Unauthorized_Err
 	}
 	if !isadmin && reqAdmin {
 		return nil, username, Forbidden_Err
