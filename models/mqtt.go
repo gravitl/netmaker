@@ -77,6 +77,7 @@ type PeerAction struct {
 	Peers  []wgtypes.PeerConfig `json:"peers"`
 }
 
+// FwUpdate - struct for firewall updates
 type FwUpdate struct {
 	IsIngressGw bool                  `json:"is_ingress_gw"`
 	IsEgressGw  bool                  `json:"is_egress_gw"`
