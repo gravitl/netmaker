@@ -290,16 +290,16 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	var userchange models.User
+	var userChange *models.User
 	// we decode our body request params
-	err = json.NewDecoder(r.Body).Decode(&userchange)
+	err = json.NewDecoder(r.Body).Decode(userChange)
 	if err != nil {
 		logger.Log(0, username, "error decoding request body: ",
 			err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = logic.UpdateUserNetworks(userchange.Networks, userchange.Groups, userchange.IsAdmin, &models.ReturnUser{
+	err = logic.UpdateUserNetworks(userChange.Networks, userChange.Groups, userChange.IsAdmin, &models.ReturnUser{
 		Groups:   user.Groups,
 		IsAdmin:  user.IsAdmin,
 		Networks: user.Networks,
@@ -313,7 +313,13 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(1, username, "status was updated")
-	json.NewEncoder(w).Encode(user)
+	// re-read and return the new user struct
+	if userChange, err = logic.GetUser(username); err != nil {
+		logger.Log(0, username, "failed to fetch user: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	json.NewEncoder(w).Encode(userChange)
 }
 
 // swagger:route PUT /api/users/{username} user updateUser
