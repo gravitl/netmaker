@@ -123,6 +123,16 @@ const (
 	UpdateKeys = "UPDATE_KEYS"
 )
 
+// SignalAction - turn peer signal action
+type SignalAction string
+
+const (
+	// Disconnect - action to stop using turn connection
+	Disconnect SignalAction = "DISCONNECT"
+	// ConnNegotiation - action to negotiate connection between peers
+	ConnNegotiation SignalAction = "CONNECTION_NEGOTIATION"
+)
+
 // HostUpdate - struct for host update
 type HostUpdate struct {
 	Action HostMqAction
@@ -139,11 +149,12 @@ type HostTurnRegister struct {
 
 // Signal - struct for signalling peer
 type Signal struct {
-	Server            string `json:"server"`
-	FromHostPubKey    string `json:"from_host_pubkey"`
-	TurnRelayEndpoint string `json:"turn_relay_addr"`
-	ToHostPubKey      string `json:"to_host_pubkey"`
-	Reply             bool   `json:"reply"`
+	Server            string       `json:"server"`
+	FromHostPubKey    string       `json:"from_host_pubkey"`
+	TurnRelayEndpoint string       `json:"turn_relay_addr"`
+	ToHostPubKey      string       `json:"to_host_pubkey"`
+	Reply             bool         `json:"reply"`
+	Action            SignalAction `json:"action"`
 }
 
 // RegisterMsg - login message struct for hosts to join via SSO login

@@ -520,13 +520,10 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	nodeid := params["nodeid"]
 	netid := params["network"]
-	type failoverData struct {
-		Failover bool `json:"failover"`
-	}
-	var failoverReqBody failoverData
-	json.NewDecoder(r.Body).Decode(&failoverReqBody)
+	var request models.IngressRequest
+	json.NewDecoder(r.Body).Decode(&request)
 
-	node, err := logic.CreateIngressGateway(netid, nodeid, failoverReqBody.Failover)
+	node, err := logic.CreateIngressGateway(netid, nodeid, request)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to create ingress gateway on node [%s] on network [%s]: %v",
@@ -535,7 +532,7 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if servercfg.Is_EE && failoverReqBody.Failover {
+	if servercfg.Is_EE && request.Failover {
 		if err = logic.EnterpriseResetFailoverFunc(node.Network); err != nil {
 			logger.Log(1, "failed to reset failover list during failover create", node.ID.String(), node.Network)
 		}
@@ -588,12 +585,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	if len(removedClients) > 0 {
 		host, err := logic.GetHost(node.HostID.String())
 		if err == nil {
-			go mq.PublishSingleHostPeerUpdate(
-				context.Background(),
-				host,
-				nil,
-				removedClients[:],
-			)
+			mq.BroadcastDelExtClient(host, &node, removedClients)
 		}
 	}
 
@@ -687,11 +679,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(apiNode)
 	runUpdates(newNode, ifaceDelta)
 	go func(aclUpdate bool, newNode *models.Node) {
-		if aclUpdate {
-			if err := mq.PublishPeerUpdate(); err != nil {
-				logger.Log(0, "error during node ACL update for node", newNode.ID.String())
-			}
-		}
+		mq.BroadcastAddOrUpdatePeer(host, newNode, true)
 		if err := mq.PublishReplaceDNS(&currentNode, newNode, host); err != nil {
 			logger.Log(1, "failed to publish dns update", err.Error())
 		}
@@ -746,19 +734,17 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	}
 	go func(deletedNode *models.Node, fromNode bool) { // notify of peer change
 		var err error
-		if fromNode {
-			err = mq.PublishDeletedNodePeerUpdate(deletedNode)
-		} else {
-			err = mq.PublishPeerUpdate()
+		host, err := logic.GetHost(node.HostID.String())
+		if err != nil {
+			logger.Log(1, "failed to retrieve host for node", node.ID.String(), err.Error())
+			return
 		}
+
+		err = mq.BroadcastDelPeer(host, deletedNode.Network)
 		if err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
 		}
 
-		host, err := logic.GetHost(node.HostID.String())
-		if err != nil {
-			logger.Log(1, "failed to retrieve host for node", node.ID.String(), err.Error())
-		}
 		if err := mq.PublishDNSDelete(&node, host); err != nil {
 			logger.Log(1, "error publishing dns update", err.Error())
 		}

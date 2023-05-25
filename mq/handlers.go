@@ -59,9 +59,17 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 	if ifaceDelta { // reduce number of unneeded updates, by only sending on iface changes
-		if err = PublishPeerUpdate(); err != nil {
+		h, err := logic.GetHost(newNode.HostID.String())
+		if err != nil {
+			return
+		}
+		if err = BroadcastAddOrUpdatePeer(h, &newNode, true); err != nil {
 			logger.Log(0, "error updating peers when node", currentNode.ID.String(), "informed the server of an interface change", err.Error())
 		}
+		if nodes, err := logic.GetNetworkNodes(newNode.Network); err == nil {
+			FlushNetworkPeersToHost(h, &newNode, nodes)
+		}
+
 	}
 
 	logger.Log(1, "updated node", id, newNode.ID.String())
@@ -107,9 +115,14 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 						return
 					}
 				}
-				if err = PublishSingleHostPeerUpdate(context.Background(), currentHost, nil, nil); err != nil {
-					logger.Log(0, "failed peers publish after join acknowledged", hostUpdate.Host.Name, currentHost.ID.String(), err.Error())
+				// flush peers to host
+				nodes, err := logic.GetNetworkNodes(hu.Node.Network)
+				if err != nil {
 					return
+				}
+				err = FlushNetworkPeersToHost(&hu.Host, &hu.Node, nodes)
+				if err != nil {
+					logger.Log(0, "failed to flush peers to host: ", err.Error())
 				}
 				if err = handleNewNodeDNS(&hu.Host, &hu.Node); err != nil {
 					logger.Log(0, "failed to send dns update after node,", hu.Node.ID.String(), ", added to host", hu.Host.Name, err.Error())
