@@ -11,4 +11,4 @@ services:
       - SUDO_ACCESS=true
       - DOCKER_MODS=linuxserver/mods:openssh-server-ssh-tunnel
     ports:
-      - "2222:2222"
+      - "127.0.0.1:2222:2222"
