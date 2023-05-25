@@ -594,6 +594,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 				mq.PublishFwUpdate(ingressHost, &f)
 			}
 		}
+
 		if err = mq.PublishDeleteExtClientDNS(&extclient); err != nil {
 			logger.Log(1, "error publishing dns update for extclient deletion", err.Error())
 		}
