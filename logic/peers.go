@@ -124,7 +124,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 	peerIndexMap := make(map[string]int)
 	for _, nodeID := range host.Nodes {
 		nodeID := nodeID
-		node, err := GetNodeByID(nodeID) (should be simple change)
+		node, err := GetNodeByID(nodeID)
 		if err != nil {
 			continue
 		}
@@ -276,7 +276,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 					hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()] = models.IDandAddr{
 						ID:              peer.ID.String(),
 						Address:         peer.PrimaryAddress(),
-						Name:            peerHost.Name, (should be simple change)
+						Name:            peerHost.Name,
 						Network:         peer.Network,
 						ProxyListenPort: peerHost.ProxyListenPort,
 					}
@@ -371,7 +371,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 			deletedClient := deletedClients[i]
 			key, err := wgtypes.ParseKey(deletedClient.PublicKey)
 			if err == nil {
-				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, wgtypes.PeerConfig{ (should be simple change)
+				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, wgtypes.PeerConfig{
 					PublicKey: key,
 					Remove:    true,
 				})
