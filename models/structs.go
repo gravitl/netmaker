@@ -204,6 +204,7 @@ type HostPull struct {
 	Peers        []wgtypes.PeerConfig `json:"peers" yaml:"peers"`
 	ServerConfig ServerConfig         `json:"server_config" yaml:"server_config"`
 	PeerIDs      PeerMap              `json:"peer_ids,omitempty" yaml:"peer_ids,omitempty"`
+	FwUpdate     FwUpdate             `json:"fw_update" yaml:"fw_update"`
 }
 
 // NodeGet - struct for a single node get response
