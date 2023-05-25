@@ -81,16 +81,9 @@ type PeerAction struct {
 	Peers  []wgtypes.PeerConfig `json:"peers"`
 }
 
-type FwActionType string
-
-type FwAction struct {
-	Action      FwActionType          `json:"action"`
+type FwUpdate struct {
 	IsIngressGw bool                  `json:"is_ingress_gw"`
 	IsEgressGw  bool                  `json:"is_egress_gw"`
 	IngressInfo IngressInfo           `json:"ingress_info"`
 	EgressInfo  map[string]EgressInfo `json:"egress_info"`
 }
-
-const (
-	FwUpdate FwActionType = "FW_UPDATE"
-)

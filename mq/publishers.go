@@ -585,7 +585,7 @@ func PublishHostDNSUpdate(old, new *models.Host, networks []string) error {
 	return nil
 }
 
-func PublishFwUpdate(gwHost *models.Host, f *models.FwAction) error {
+func PublishFwUpdate(gwHost *models.Host, f *models.FwUpdate) error {
 	data, err := json.Marshal(f)
 	if err != nil {
 		return err
