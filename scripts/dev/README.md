@@ -28,8 +28,8 @@ Host DROPLET-docker-netmaker
 3. `docker-compose down`
 4. `docker-compose up --force-recreate`
 5. `./scripts/dev/tunnel-compose.sh DROPLET-docker-netmaker`
-6. Add env vars to the local build (include a password from the droplet), eg:
-  `MQ_PASSWORD=SECRET;MQ_USERNAME=netmaker;SERVER_BROKER_ENDPOINT=ws://localhost:1883;VERBOSE=3`
+6. Add env vars to the local build (include `MQ_PASSWORD` from the droplet), eg:<br />
+    `MQ_PASSWORD=SECRET;MQ_USERNAME=netmaker;SERVER_BROKER_ENDPOINT=ws://localhost:1883;VERBOSE=3`
 
 At this point tunnels should be set up and running a local build should talk to the docker-compose services on the droplet.
 
@@ -47,7 +47,7 @@ scp DROPLET:netmaker.db data
 
 **Option 2** (CE ONLY) - re-run nm-quick (WITH the override) to re-create the DB:
 ```bash
-wget https://raw.githubusercontent.com/gravitl/netmaker/NET-246/read-def-config/scripts/nm-quick.sh
+wget https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh
 chmod +x nm-quick.sh
 env NM_SKIP_BUILD=1 ./nm-quick.sh -b local -t BRANCH_NAME
 ```
