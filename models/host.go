@@ -41,20 +41,22 @@ const WIREGUARD_INTERFACE = "netmaker"
 
 // Host - represents a host on the network
 type Host struct {
-	ID               uuid.UUID        `json:"id" yaml:"id"`
-	Verbosity        int              `json:"verbosity" yaml:"verbosity"`
-	FirewallInUse    string           `json:"firewallinuse" yaml:"firewallinuse"`
-	Version          string           `json:"version" yaml:"version"`
-	IPForwarding     bool             `json:"ipforwarding" yaml:"ipforwarding"`
-	DaemonInstalled  bool             `json:"daemoninstalled" yaml:"daemoninstalled"`
-	AutoUpdate       bool             `json:"autoupdate" yaml:"autoupdate"`
-	HostPass         string           `json:"hostpass" yaml:"hostpass"`
-	Name             string           `json:"name" yaml:"name"`
-	OS               string           `json:"os" yaml:"os"`
-	Interface        string           `json:"interface" yaml:"interface"`
-	Debug            bool             `json:"debug" yaml:"debug"`
-	ListenPort       int              `json:"listenport" yaml:"listenport"`
-	PublicListenPort int              `json:"public_listen_port" yaml:"public_listen_port"`
+	ID                 uuid.UUID `json:"id" yaml:"id"`
+	Verbosity          int       `json:"verbosity" yaml:"verbosity"`
+	FirewallInUse      string    `json:"firewallinuse" yaml:"firewallinuse"`
+	Version            string    `json:"version" yaml:"version"`
+	IPForwarding       bool      `json:"ipforwarding" yaml:"ipforwarding"`
+	DaemonInstalled    bool      `json:"daemoninstalled" yaml:"daemoninstalled"`
+	AutoUpdate         bool      `json:"autoupdate" yaml:"autoupdate"`
+	HostPass           string    `json:"hostpass" yaml:"hostpass"`
+	Name               string    `json:"name" yaml:"name"`
+	OS                 string    `json:"os" yaml:"os"`
+	Interface          string    `json:"interface" yaml:"interface"`
+	Debug              bool      `json:"debug" yaml:"debug"`
+	ListenPort         int       `json:"listenport" yaml:"listenport"`
+	PublicListenPort   int       `json:"public_listen_port" yaml:"public_listen_port"`
+	WgPublicListenPort int       `json:"wg_public_listen_port" yaml:"wg_public_listen_port"` /* will be using existing `public_listen_port` \
+	once proxy is disabled for regular comms */
 	ProxyListenPort  int              `json:"proxy_listen_port" yaml:"proxy_listen_port"`
 	MTU              int              `json:"mtu" yaml:"mtu"`
 	PublicKey        wgtypes.Key      `json:"publickey" yaml:"publickey"`
