@@ -17,7 +17,7 @@ import (
 
 func enrollmentKeyHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/enrollment-keys", logic.SecurityCheck(true, http.HandlerFunc(createEnrollmentKey))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/enrollment-keys", logic.SecurityCheck(true, http.HandlerFunc(getEnrollmentKeys))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/enrollment-keys", logic.SecurityCheck(false, http.HandlerFunc(getEnrollmentKeys))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/enrollment-keys/{keyID}", logic.SecurityCheck(true, http.HandlerFunc(deleteEnrollmentKey))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/host/register/{token}", http.HandlerFunc(handleHostRegister)).Methods(http.MethodPost)
 }
@@ -34,24 +34,36 @@ func enrollmentKeyHandlers(r *mux.Router) {
 //			Responses:
 //				200: getEnrollmentKeysSlice
 func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
-	currentKeys, err := logic.GetAllEnrollmentKeys()
+	user, err := logic.GetUser(r.Header.Get("user"))
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to fetch user: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	fmt.Println(user)
+	keys, err := logic.GetAllEnrollmentKeys()
+	// TODO drop double pointer
+	accessKeys := []*models.EnrollmentKey{}
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to fetch enrollment keys: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	for i := range currentKeys {
-		currentKey := currentKeys[i]
-		if err = logic.Tokenize(currentKey, servercfg.GetAPIHost()); err != nil {
+	for _, key := range keys {
+		if !logic.HasNetworksAccess(key.Networks, user) {
+			continue
+		}
+		if err = logic.Tokenize(key, servercfg.GetAPIHost()); err != nil {
 			logger.Log(0, r.Header.Get("user"), "failed to get token values for keys:", err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
+		accessKeys = append(accessKeys, key)
 	}
 	// return JSON/API formatted keys
 	logger.Log(2, r.Header.Get("user"), "fetched enrollment keys")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(currentKeys)
+	json.NewEncoder(w).Encode(accessKeys)
 }
 
 // swagger:route DELETE /api/v1/enrollment-keys/{keyID} enrollmentKeys deleteEnrollmentKey

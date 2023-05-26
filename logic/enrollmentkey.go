@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"golang.org/x/exp/slices"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
@@ -68,6 +69,7 @@ func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string
 }
 
 // GetAllEnrollmentKeys - fetches all enrollment keys from DB
+// TODO drop double pointer
 func GetAllEnrollmentKeys() ([]*models.EnrollmentKey, error) {
 	currentKeys, err := getEnrollmentKeysMap()
 	if err != nil {
@@ -221,4 +223,17 @@ func getEnrollmentKeysMap() (map[string]*models.EnrollmentKey, error) {
 		}
 	}
 	return currentKeys, nil
+}
+
+// HasNetworksAccess - checks if a user `u` has access to all `networks` in `names`
+func HasNetworksAccess(networks []string, u *models.User) bool {
+	if u.IsAdmin {
+		return true
+	}
+	for _, n := range networks {
+		if !slices.Contains(u.Networks, n) {
+			return false
+		}
+	}
+	return true
 }

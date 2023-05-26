@@ -148,6 +148,7 @@ retry:
 	if res.StatusCode == http.StatusUnauthorized && !retried && ctx.MasterKey == "" {
 		req.Header.Set("Authorization", "Bearer "+getAuthToken(ctx, true))
 		retried = true
+		// TODO add a retry limit, drop goto
 		goto retry
 	}
 	resBodyBytes, err := io.ReadAll(res.Body)
