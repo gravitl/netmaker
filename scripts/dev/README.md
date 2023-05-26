@@ -45,7 +45,7 @@ docker cp netmaker:/data/netmaker.db .
 scp DROPLET:netmaker.db data 
 ```
 
-**Option 2** (CE ONLY) - re-run nm-quick (WITH the override) to re-create the DB:
+**Option 2** (CE ONLY) - re-run nm-quick (WITH the override and a running local server) to re-create the DB:
 ```bash
 wget https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh
 chmod +x nm-quick.sh
