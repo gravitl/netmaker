@@ -23,17 +23,8 @@ jobs:
           webhook_token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
           color: "#42f545"
           username: "GitHub Bot"
-          message: "${{ github.repository }}: ${{ github.event.workflow_run.name }} was successful"
+          message: "${{ github.repository }}: ${{ github.event.workflow_run.name }} was successful: droplets from this workflow (tag ${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}) will be deleted in 15 min"
           file: ./results/results.log
-      - name: discord server message
-        uses: appleboy/discord-action@master
-        with:
-          webhook_id: ${{ secrets.DISCORD_WEBHOOK_ID }}
-          webhook_token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
-          color: "#42f545"
-          username: "GitHub Bot"
-          message: "droplets from this workflow (tag ${{ github.event.workflow_run.id }}-{{ $github.event.workflow_run.run_number }}) will be deleted in 15 min"
-          file: ./server/serverinfo.txt
       - name: delete droplets
         if: success() || failure()
         run: |
@@ -62,17 +53,8 @@ jobs:
           webhook_token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
           color: "#990000"
           username: "GitHub Bot"
-          message: "${{ github.repository }}: ${{ github.event.workflow_run.name }} failed"
+          message: "${{ github.repository }}: ${{ github.event.workflow_run.name }} failed: droplets from this workflow (tag ${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt}}) will be deleted in 5 hours"
           file: ./results/results.log
-      - name: discord server message
-        uses: appleboy/discord-action@master
-        with:
-          webhook_id: ${{ secrets.DISCORD_WEBHOOK_ID }}
-          webhook_token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
-          color: "#990000"
-          username: "GitHub Bot"
-          message: "droplets from this workflow (tag ${{ github.event.workflow_run.id }}-{{ $github.event.workflow_run.run_number }}) will be deleted in 6 hours"
-          file: ./server/serverinfo.txt
       - name: discord error message
         uses: appleboy/discord-action@master
         with:
@@ -85,7 +67,7 @@ jobs:
       - name: delete droplets
         if: success() || failure()
         run: |
-          sleep 6h
+          sleep 5h
           curl -X GET \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $DIGITALOCEAN_TOKEN" \
