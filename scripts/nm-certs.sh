@@ -47,6 +47,7 @@ EOF
 cat <<EOF >"$SCRIPT_DIR/certbot-entry.sh"
 #!/bin/sh
 # deps
+apk update
 apk add bash curl
 # zerossl
 wget -qO zerossl-bot.sh "https://github.com/zerossl/zerossl-bot/raw/master/zerossl-bot.sh"
