@@ -30,16 +30,16 @@ fi
 CERTBOT_PARAMS=$(cat <<EOF
 certonly --standalone \
 	--non-interactive --agree-tos \
-	-m "$NM_EMAIL" \
-	-d "stun.$NM_DOMAIN" \
-	-d "api.$NM_DOMAIN" \
-	-d "broker.$NM_DOMAIN" \
-	-d "dashboard.$NM_DOMAIN" \
-	-d "turn.$NM_DOMAIN" \
-	-d "turnapi.$NM_DOMAIN" \
-	-d "netmaker-exporter.$NM_DOMAIN" \
-	-d "grafana.$NM_DOMAIN" \
-	-d "prometheus.$NM_DOMAIN"
+	-m $NM_EMAIL \
+	-d stun.$NM_DOMAIN \
+	-d api.$NM_DOMAIN \
+	-d broker.$NM_DOMAIN \
+	-d dashboard.$NM_DOMAIN \
+	-d turn.$NM_DOMAIN \
+	-d turnapi.$NM_DOMAIN \
+	-d netmaker-exporter.$NM_DOMAIN \
+	-d grafana.$NM_DOMAIN \
+	-d prometheus.$NM_DOMAIN
 EOF
 )
 
@@ -75,7 +75,7 @@ if [ ! -f "$CERT_DIR"/fullchain.pem ]; then
 	sudo docker run -it --rm --name certbot \
 		-p 80:80 -p 443:443 \
 		-v "$SCRIPT_DIR/letsencrypt:/etc/letsencrypt" \
-		certbot/certbot "$CERTBOT_PARAMS"
+		certbot/certbot $CERTBOT_PARAMS
 	if [ ! -f "$CERT_DIR"/fullchain.pem ]; then
 		echo "Missing file: $CERT_DIR/fullchain.pem"
 		echo "SSL certificates failed"
