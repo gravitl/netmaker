@@ -135,10 +135,16 @@ func getRelayedAddresses(id string) []net.IPNet {
 		return addrs
 	}
 	if node.Address.IP != nil {
-		addrs = append(addrs, node.Address)
+		addrs = append(addrs, net.IPNet{
+			IP:   node.Address.IP,
+			Mask: net.CIDRMask(32, 32),
+		})
 	}
 	if node.Address6.IP != nil {
-		addrs = append(addrs, node.Address6)
+		addrs = append(addrs, net.IPNet{
+			IP:   node.Address6.IP,
+			Mask: net.CIDRMask(128, 128),
+		})
 	}
 	return addrs
 }
