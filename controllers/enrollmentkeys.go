@@ -41,13 +41,13 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	keys, err := logic.GetAllEnrollmentKeys()
-	// TODO drop double pointer
-	accessKeys := []*models.EnrollmentKey{}
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to fetch enrollment keys: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	// TODO drop double pointer
+	accessKeys := []*models.EnrollmentKey{}
 	for _, key := range keys {
 		if !logic.UserHasNetworksAccess(key.Networks, user) {
 			continue
