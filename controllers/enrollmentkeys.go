@@ -40,7 +40,6 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	fmt.Println(user)
 	keys, err := logic.GetAllEnrollmentKeys()
 	// TODO drop double pointer
 	accessKeys := []*models.EnrollmentKey{}

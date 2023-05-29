@@ -3,14 +3,23 @@ package database
 import (
 	"database/sql"
 	"errors"
+	_ "github.com/mattn/go-sqlite3" // need to blank import this package
 	"os"
 	"path/filepath"
-
-	_ "github.com/mattn/go-sqlite3" // need to blank import this package
 )
 
 // == sqlite ==
-const dbFilename = "netmaker.db"
+var dbFilename = "netmaker.db"
+
+func init() {
+	for _, p := range os.Args {
+		// use a different DB for testing
+		if p == "-test.v" {
+			dbFilename = "netmaker-test.db"
+			return
+		}
+	}
+}
 
 // SqliteDB is the db object for sqlite database connections
 var SqliteDB *sql.DB
