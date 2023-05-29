@@ -19,7 +19,7 @@ import (
 )
 
 func hostHandlers(r *mux.Router) {
-	r.HandleFunc("/api/hosts", logic.SecurityCheck(true, http.HandlerFunc(getHosts))).Methods(http.MethodGet)
+	r.HandleFunc("/api/hosts", logic.SecurityCheck(false, http.HandlerFunc(getHosts))).Methods(http.MethodGet)
 	r.HandleFunc("/api/hosts/keys", logic.SecurityCheck(true, http.HandlerFunc(updateAllKeys))).Methods(http.MethodPut)
 	r.HandleFunc("/api/hosts/{hostid}/keys", logic.SecurityCheck(true, http.HandlerFunc(updateKeys))).Methods(http.MethodPut)
 	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(updateHost))).Methods(http.MethodPut)
@@ -52,12 +52,26 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	user, err := logic.GetUser(r.Header.Get("user"))
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to fetch user: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 	// return JSON/API formatted hosts
+	ret := []models.ApiHost{}
 	apiHosts := logic.GetAllHostsAPI(currentHosts[:])
 	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
-	logic.SortApiHosts(apiHosts[:])
+	for _, host := range apiHosts {
+		networks := logic.GetHostNetworks(host.ID)
+		if !logic.UserHasNetworksAccess(networks, user) {
+			continue
+		}
+		ret = append(ret, host)
+	}
+	logic.SortApiHosts(ret[:])
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(apiHosts)
+	json.NewEncoder(w).Encode(ret)
 }
 
 // swagger:route GET /api/v1/host pull pullHost

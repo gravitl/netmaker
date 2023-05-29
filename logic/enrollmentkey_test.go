@@ -272,9 +272,9 @@ func TestHasNetworksAccess(t *testing.T) {
 		},
 	}
 	for _, tc := range pass {
-		assert.True(t, HasNetworksAccess(tc.n, &tc.u))
+		assert.True(t, UserHasNetworksAccess(tc.n, &tc.u))
 	}
 	for _, tc := range deny {
-		assert.False(t, HasNetworksAccess(tc.n, &tc.u))
+		assert.False(t, UserHasNetworksAccess(tc.n, &tc.u))
 	}
 }

@@ -50,7 +50,7 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, key := range keys {
-		if !logic.HasNetworksAccess(key.Networks, user) {
+		if !logic.UserHasNetworksAccess(key.Networks, user) {
 			continue
 		}
 		if err = logic.Tokenize(key, servercfg.GetAPIHost()); err != nil {

@@ -225,8 +225,8 @@ func getEnrollmentKeysMap() (map[string]*models.EnrollmentKey, error) {
 	return currentKeys, nil
 }
 
-// HasNetworksAccess - checks if a user `u` has access to all `networks` in `names`
-func HasNetworksAccess(networks []string, u *models.User) bool {
+// UserHasNetworksAccess - checks if a user `u` has access to all `networks`
+func UserHasNetworksAccess(networks []string, u *models.User) bool {
 	if u.IsAdmin {
 		return true
 	}
