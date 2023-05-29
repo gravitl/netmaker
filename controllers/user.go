@@ -290,7 +290,7 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	var userChange *models.User = &models.User{}
+	userChange := &models.User{}
 	// we decode our body request params
 	err = json.NewDecoder(r.Body).Decode(userChange)
 	if err != nil {
