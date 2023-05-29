@@ -95,7 +95,7 @@ func ValidateRelay(relay models.RelayRequest) error {
 	//isIp := functions.IsIpCIDR(gateway.RangeString)
 	empty := len(relay.RelayedNodes) == 0
 	if empty {
-		err = errors.New("Relayed Nodes Cannot Be Empty")
+		err = errors.New("relayed nodes cannot be empty")
 	}
 	return err
 }
