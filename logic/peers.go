@@ -770,22 +770,18 @@ func getRelayAllowedIPs(peer *models.Client) []net.IPNet {
 	//logger.Log(0, "getRelayAllowedIPs called for non-relayed node", client.Host.Name, peer.Host.Name)
 	//return relayIPs
 	//}
-	fmt.Println("relayednodes", peer.Node.RelayedNodes)
 	for _, relayed := range peer.Node.RelayedNodes {
 		relayedNode, err := GetNodeByID(relayed)
-		fmt.Println("process relayed node", relayed, GetHostByNodeID(relayedNode.ID.String()).Name)
 		if err != nil {
 			logger.Log(0, "retrieve relayed node", err.Error())
 			continue
 		}
 		if relayedNode.Address.IP != nil {
 			relayedNode.Address.Mask = net.CIDRMask(32, 32)
-			fmt.Println("adding address", relayedNode.Address.String())
 			relayIPs = append(relayIPs, relayedNode.Address)
 		}
 		if relayedNode.Address6.IP != nil {
 			relayedNode.Address.Mask = net.CIDRMask(128, 128)
-			fmt.Println("adding address6", relayedNode.Address6.String())
 			relayIPs = append(relayIPs, relayedNode.Address6)
 		}
 		if relayedNode.IsRelay {

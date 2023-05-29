@@ -149,7 +149,6 @@ func getRelayedAddresses(id string) []net.IPNet {
 // peerUpdateForRelayed - returns the peerConfig for a relayed node
 func peerUpdateForRelayed(client *models.Client, peers *[]models.Client) []wgtypes.PeerConfig {
 	peerConfig := []wgtypes.PeerConfig{}
-	fmt.Println(client.Node.IsRelayed, client.Node.RelayedBy)
 	if !client.Node.IsRelayed {
 		logger.Log(0, "GetPeerUpdateForRelayed called for non-relayed node ", client.Host.Name)
 		return []wgtypes.PeerConfig{}
@@ -163,13 +162,11 @@ func peerUpdateForRelayed(client *models.Client, peers *[]models.Client) []wgtyp
 		Host: *GetHostByNodeID(relayNode.ID.String()),
 		Node: relayNode,
 	}
-	fmt.Println(client.Host.Name, "is relayed by", relay.Host.Name)
 	for _, peer := range *peers {
 		if peer.Host.ID == client.Host.ID {
 			continue
 		}
 		if peer.Host.ID == relay.Host.ID { // add relay as a peer
-			fmt.Println("adding relay as a peer", relay.Host.Name)
 			update := peerUpdateForRelayedByRelay(client, &relay)
 			peerConfig = append(peerConfig, update)
 			continue
@@ -178,7 +175,6 @@ func peerUpdateForRelayed(client *models.Client, peers *[]models.Client) []wgtyp
 			PublicKey: peer.Host.PublicKey,
 			Remove:    true,
 		}
-		fmt.Println("removing peer", peer.Host.Name)
 		peerConfig = append(peerConfig, update)
 	}
 	return peerConfig
