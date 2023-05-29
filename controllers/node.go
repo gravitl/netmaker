@@ -464,6 +464,7 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 		host, err := logic.GetHost(node.HostID.String())
 		if err != nil {
 			logger.Log(0, "failed to get egress host: ", err.Error())
+			return
 		}
 		mq.BroadcastAddOrUpdatePeer(host, &node, true)
 		f, err := logic.GetFwUpdate(host)
@@ -512,6 +513,7 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 		host, err := logic.GetHost(node.HostID.String())
 		if err != nil {
 			logger.Log(0, "failed to get egress host: ", err.Error())
+			return
 		}
 		mq.BroadcastAddOrUpdatePeer(host, &node, true)
 		f, err := logic.GetFwUpdate(host)
