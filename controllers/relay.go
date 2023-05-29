@@ -43,30 +43,30 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	relay := models.Client{
-		Host: *logic.GetHostByNodeID(params["nodeid"]),
-		Node: relayNode,
-	}
-	peers, err := logic.GetNetworkClients(relay.Node.Network)
-	if err != nil {
-		logger.Log(0, "error getting network nodes: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
+	// relay := models.Client{
+	// 	Host: *logic.GetHostByNodeID(params["nodeid"]),
+	// 	Node: relayNode,
+	// }
+	// peers, err := logic.GetNetworkClients(relay.Node.Network)
+	// if err != nil {
+	// 	logger.Log(0, "error getting network nodes: ", err.Error())
+	// 	logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+	// 	return
+	// }
 	//mq.PubPeersforRelay(relay, peers)
 	//for _, relayed := range relayedClients {
 	//mq.PubPeersForRelayedNode(relayed, relay, peers)
 	//}
-	clients := peers
-	for _, client := range clients {
-		mq.PubPeerUpdate(&client, &relay, &peers)
-	}
-
+	// clients := peers
+	// for _, client := range clients {
+	// 	mq.PubPeerUpdate(&client, &relay, &peers)
+	// }
+	go mq.PublishPeerUpdate()
 	logger.Log(1, r.Header.Get("user"), "created relay on node", relayRequest.NodeID, "on network", relayRequest.NetID)
 	apiNode := relayNode.ConvertToAPINode()
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-	//runUpdates(&node, true)
+	runUpdates(&relayNode, true)
 }
 
 // swagger:route DELETE /api/nodes/{network}/{nodeid}/deleterelay nodes deleteRelay
@@ -105,16 +105,17 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 
 			}
 		}
-		peers, err := logic.GetNetworkClients(node.Network)
-		if err != nil {
-			logger.Log(0, "error getting network nodes: ", err.Error())
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-		clients := peers
-		for _, client := range clients {
-			mq.PubPeerUpdate(&client, nil, &peers)
-		}
+		// peers, err := logic.GetNetworkClients(node.Network)
+		// if err != nil {
+		// 	logger.Log(0, "error getting network nodes: ", err.Error())
+		// 	logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		// 	return
+		// }
+		// clients := peers
+		// for _, client := range clients {
+		// 	mq.PubPeerUpdate(&client, nil, &peers)
+		// }
+		go mq.PublishPeerUpdate()
 	}()
 	logger.Log(1, r.Header.Get("user"), "deleted relay on node", node.ID.String(), "on network", node.Network)
 	apiNode := node.ConvertToAPINode()

@@ -131,7 +131,18 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE {
 			continue
 		}
-		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
+		var currentPeers []models.Node
+		if node.IsRelayed && node.RelayedBy != "" {
+			// get only relay peer
+			relayNode, err := GetNodeByID(node.RelayedBy)
+			if err == nil {
+				currentPeers = append(currentPeers, relayNode)
+			}
+
+		} else {
+			currentPeers = GetNetworkNodesMemory(allNodes, node.Network)
+		}
+
 		var nodePeerMap map[string]models.PeerRouteInfo
 		if node.IsIngressGateway || node.IsEgressGateway {
 			nodePeerMap = make(map[string]models.PeerRouteInfo)
@@ -148,7 +159,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 					//skip yourself
 					continue
 				}
-				if peer.IsRelayed {
+				if peer.IsRelayed && node.ID.String() != peer.RelayedBy {
 					// skip relayed peers; will be included in relay peer
 					continue
 				}
