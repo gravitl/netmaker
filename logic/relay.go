@@ -80,11 +80,13 @@ func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.C
 			logger.Log(0, "setRelayedNodes.Insert", err.Error())
 			continue
 		}
-		host := GetHostByNodeID(node.ID.String())
-		returnnodes = append(returnnodes, models.Client{
-			Host: *host,
-			Node: node,
-		})
+		host, err := GetHost(node.HostID.String())
+		if err == nil {
+			returnnodes = append(returnnodes, models.Client{
+				Host: *host,
+				Node: node,
+			})
+		}
 	}
 	return returnnodes
 }
@@ -158,8 +160,12 @@ func peerUpdateForRelayed(client *models.Client, peers []models.Client) []wgtype
 		logger.Log(0, "error retrieving relay node", err.Error())
 		return []wgtypes.PeerConfig{}
 	}
+	host, err := GetHost(relayNode.HostID.String())
+	if err != nil {
+		return []wgtypes.PeerConfig{}
+	}
 	relay := models.Client{
-		Host: *GetHostByNodeID(relayNode.ID.String()),
+		Host: *host,
 		Node: relayNode,
 	}
 	for _, peer := range peers {

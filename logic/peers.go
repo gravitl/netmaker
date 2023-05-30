@@ -193,11 +193,14 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 					}
 				}
 				if peer.IsEgressGateway {
-					allowedips = append(allowedips, getEgressIPs(
-						&models.Client{
-							Host: *GetHostByNodeID(peer.ID.String()),
-							Node: peer,
-						})...)
+					host, err := GetHost(peer.HostID.String())
+					if err == nil {
+						allowedips = append(allowedips, getEgressIPs(
+							&models.Client{
+								Host: *host,
+								Node: peer,
+							})...)
+					}
 				}
 				if peer.Action != models.NODE_DELETE &&
 					!peer.PendingDelete &&
@@ -628,12 +631,15 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 	// handle egress gateway peers
 	if peer.IsEgressGateway {
 		//hasGateway = true
-		egressIPs := getEgressIPs(
-			&models.Client{
-				Host: *GetHostByNodeID(peer.ID.String()),
-				Node: *peer,
-			})
-		allowedips = append(allowedips, egressIPs...)
+		host, err := GetHost(peer.HostID.String())
+		if err == nil {
+			egressIPs := getEgressIPs(
+				&models.Client{
+					Host: *host,
+					Node: *peer,
+				})
+			allowedips = append(allowedips, egressIPs...)
+		}
 	}
 	if peer.IsRelay {
 		for _, relayed := range peer.RelayedNodes {
@@ -783,26 +789,29 @@ func getRelayAllowedIPs(peer *models.Client) []net.IPNet {
 			relayedNode.Address.Mask = net.CIDRMask(128, 128)
 			relayIPs = append(relayIPs, relayedNode.Address6)
 		}
-		if relayedNode.IsRelay {
-			relayIPs = append(relayIPs, getRelayAllowedIPs(
-				&models.Client{
-					Host: *GetHostByNodeID(relayedNode.ID.String()),
-					Node: relayedNode,
-				})...)
-		}
-		if relayedNode.IsEgressGateway {
-			relayIPs = append(relayIPs, getEgressIPs(
-				&models.Client{
-					Host: *GetHostByNodeID(relayedNode.ID.String()),
-					Node: relayedNode,
-				})...)
-		}
-		if relayedNode.IsIngressGateway {
-			relayIPs = append(relayIPs, getIngressIPs(
-				&models.Client{
-					Host: *GetHostByNodeID(relayedNode.ID.String()),
-					Node: relayedNode,
-				})...)
+		host, err := GetHost(relayedNode.HostID.String())
+		if err == nil {
+			if relayedNode.IsRelay {
+				relayIPs = append(relayIPs, getRelayAllowedIPs(
+					&models.Client{
+						Host: *host,
+						Node: relayedNode,
+					})...)
+			}
+			if relayedNode.IsEgressGateway {
+				relayIPs = append(relayIPs, getEgressIPs(
+					&models.Client{
+						Host: *host,
+						Node: relayedNode,
+					})...)
+			}
+			if relayedNode.IsIngressGateway {
+				relayIPs = append(relayIPs, getIngressIPs(
+					&models.Client{
+						Host: *host,
+						Node: relayedNode,
+					})...)
+			}
 		}
 	}
 	return relayIPs

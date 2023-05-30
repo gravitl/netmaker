@@ -49,11 +49,14 @@ func GetNetworkClients(network string) ([]models.Client, error) {
 		return []models.Client{}, err
 	}
 	for _, node := range nodes {
-		client := models.Client{
-			Node: node,
-			Host: *GetHostByNodeID(node.ID.String()),
+		host, err := GetHost(node.HostID.String())
+		if err == nil {
+			client := models.Client{
+				Node: node,
+				Host: *host,
+			}
+			clients = append(clients, client)
 		}
-		clients = append(clients, client)
 	}
 	return clients, nil
 }
