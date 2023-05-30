@@ -34,22 +34,32 @@ func enrollmentKeyHandlers(r *mux.Router) {
 //			Responses:
 //				200: getEnrollmentKeysSlice
 func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
-	user, err := logic.GetUser(r.Header.Get("user"))
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to fetch user: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
 	keys, err := logic.GetAllEnrollmentKeys()
-	// TODO drop double pointer
-	accessKeys := []*models.EnrollmentKey{}
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to fetch enrollment keys: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	// handle masteradmin non-logged-in user
+	// TODO unify the user flow
+	headerNetworks, err := getHeaderNetworks(r)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to parse networks: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	isMasterAdmin := len(headerNetworks) > 0 && headerNetworks[0] == logic.ALL_NETWORK_ACCESS
+	// regular user flow
+	user, err := logic.GetUser(r.Header.Get("user"))
+	if err != nil && !isMasterAdmin {
+		logger.Log(0, r.Header.Get("user"), "failed to fetch user: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	// TODO drop double pointer
+	ret := []*models.EnrollmentKey{}
 	for _, key := range keys {
-		if !logic.UserHasNetworksAccess(key.Networks, user) {
+		if !isMasterAdmin && !logic.UserHasNetworksAccess(key.Networks, user) {
 			continue
 		}
 		if err = logic.Tokenize(key, servercfg.GetAPIHost()); err != nil {
@@ -57,12 +67,12 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		accessKeys = append(accessKeys, key)
+		ret = append(ret, key)
 	}
 	// return JSON/API formatted keys
 	logger.Log(2, r.Header.Get("user"), "fetched enrollment keys")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(accessKeys)
+	json.NewEncoder(w).Encode(ret)
 }
 
 // swagger:route DELETE /api/v1/enrollment-keys/{keyID} enrollmentKeys deleteEnrollmentKey

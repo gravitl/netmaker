@@ -147,6 +147,7 @@ func UserPermissions(reqAdmin bool, netname string, token string) ([]string, str
 	}
 	//all endpoints here require master so not as complicated
 	if authenticateMaster(authToken) {
+		// TODO log in as an actual admin user
 		return []string{ALL_NETWORK_ACCESS}, master_uname, nil
 	}
 	username, networks, isadmin, err := VerifyUserToken(authToken)
