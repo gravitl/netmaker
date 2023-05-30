@@ -40,15 +40,7 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	// handle masteradmin non-logged-in user
-	// TODO unify the user flow
-	headerNetworks, err := getHeaderNetworks(r)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to parse networks: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	isMasterAdmin := len(headerNetworks) > 0 && headerNetworks[0] == logic.ALL_NETWORK_ACCESS
+	isMasterAdmin := r.Header.Get("ismaster") == "yes"
 	// regular user flow
 	user, err := logic.GetUser(r.Header.Get("user"))
 	if err != nil && !isMasterAdmin {
