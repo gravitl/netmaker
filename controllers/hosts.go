@@ -52,8 +52,17 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	user, err := logic.GetUser(r.Header.Get("user"))
+	// handle masteradmin non-logged-in user
+	// TODO unify the user flow
+	headerNetworks, err := getHeaderNetworks(r)
 	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to parse networks: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	isMasterAdmin := len(headerNetworks) > 0 && headerNetworks[0] == logic.ALL_NETWORK_ACCESS
+	user, err := logic.GetUser(r.Header.Get("user"))
+	if err != nil && !isMasterAdmin {
 		logger.Log(0, r.Header.Get("user"), "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -63,11 +72,25 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 	apiHosts := logic.GetAllHostsAPI(currentHosts[:])
 	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
 	for _, host := range apiHosts {
-		networks := logic.GetHostNetworks(host.ID)
-		if !logic.UserHasNetworksAccess(networks, user) {
-			continue
+		nodes := host.Nodes
+		// work on the copy
+		host.Nodes = []string{}
+		for _, nid := range nodes {
+			node, err := logic.GetNodeByID(nid)
+			if err != nil {
+				logger.Log(0, r.Header.Get("user"), "failed to fetch node: ", err.Error())
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				return
+			}
+			if !isMasterAdmin && !logic.UserHasNetworksAccess([]string{node.Network}, user) {
+				continue
+			}
+			host.Nodes = append(host.Nodes, nid)
 		}
-		ret = append(ret, host)
+		// add to the response only if has perms to some nodes / networks
+		if len(host.Nodes) > 0 {
+			ret = append(ret, host)
+		}
 	}
 	logic.SortApiHosts(ret[:])
 	w.WriteHeader(http.StatusOK)
