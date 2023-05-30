@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/netip"
 
-	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
@@ -686,7 +685,7 @@ func filterNodeMapForClientACLs(publicKey, network string, nodePeerMap map[strin
 func GetPeerUpdate(host *models.Host) []wgtypes.PeerConfig {
 	peerUpdate := []wgtypes.PeerConfig{}
 	for _, nodeStr := range host.Nodes {
-		node, err := GetNodeByID(uuid.MustParse(nodeStr).String())
+		node, err := GetNodeByID(nodeStr)
 		if err != nil {
 			continue
 		}
@@ -696,11 +695,11 @@ func GetPeerUpdate(host *models.Host) []wgtypes.PeerConfig {
 			continue
 		}
 		if node.IsRelayed {
-			peerUpdate = append(peerUpdate, peerUpdateForRelayed(&client, &peers)...)
+			peerUpdate = append(peerUpdate, peerUpdateForRelayed(&client, peers)...)
 			continue
 		}
 		if node.IsRelay {
-			peerUpdate = append(peerUpdate, peerUpdateForRelay(&client, &peers)...)
+			peerUpdate = append(peerUpdate, peerUpdateForRelay(&client, peers)...)
 			continue
 		}
 		for _, peer := range peers {
@@ -842,12 +841,12 @@ func getIngressIPs(peer *models.Client) []net.IPNet {
 }
 
 // GetPeerUpdateForRelay - returns the peer update for a relay node
-func GetPeerUpdateForRelay(client *models.Client, peers *[]models.Client) []wgtypes.PeerConfig {
+func GetPeerUpdateForRelay(client *models.Client, peers []models.Client) []wgtypes.PeerConfig {
 	peerConfig := []wgtypes.PeerConfig{}
 	if !client.Node.IsRelay {
 		return []wgtypes.PeerConfig{}
 	}
-	for _, peer := range *peers {
+	for _, peer := range peers {
 		if peer.Host.ID == client.Host.ID {
 			continue
 		}

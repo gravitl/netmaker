@@ -59,7 +59,7 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 	//}
 	clients := peers
 	for _, client := range clients {
-		mq.PubPeerUpdate(&client, &relay, &peers)
+		mq.PubPeerUpdate(&client, &relay, peers)
 	}
 
 	logger.Log(1, r.Header.Get("user"), "created relay on node", relayRequest.NodeID, "on network", relayRequest.NetID)
@@ -113,7 +113,7 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 		}
 		clients := peers
 		for _, client := range clients {
-			mq.PubPeerUpdate(&client, nil, &peers)
+			mq.PubPeerUpdate(&client, nil, peers)
 		}
 	}()
 	logger.Log(1, r.Header.Get("user"), "deleted relay on node", node.ID.String(), "on network", node.Network)
