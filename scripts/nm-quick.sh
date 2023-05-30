@@ -730,8 +730,7 @@ install_netmaker() {
 	if [ "$BUILD_TYPE" = "local" ]; then
 		local_install_setup
 	else
-                # local BASE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG"
-                local BASE_URL="https://raw.githubusercontent.com/gravitl/netmaker/release-v0.20.0"
+		local BASE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG"
 
 		local COMPOSE_URL="$BASE_URL/compose/docker-compose.yml"
 		local CADDY_URL="$BASE_URL/docker/Caddyfile"
