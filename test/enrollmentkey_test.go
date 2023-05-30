@@ -5,6 +5,7 @@ package test
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -61,8 +62,12 @@ func TestHasNetworksAccessAPI(t *testing.T) {
 	}
 	adminConfig := userConfig
 	adminConfig.MasterKey = "foo123"
+	adminConfigBad := userConfig
+	adminConfigBad.MasterKey = "wrongpass"
+	adminConfigBad.Password = "wrongpass"
 	config.SetContext("user-ctx-1", userConfig)
 	config.SetContext("admin-ctx-1", adminConfig)
+	config.SetContext("admin-ctx-2", adminConfigBad)
 	config.SetCurrentContext("user-ctx-1")
 	t.Setenv("MASTER_KEY", adminConfig.MasterKey)
 
@@ -119,5 +124,15 @@ func TestHasNetworksAccessAPI(t *testing.T) {
 		config.SetCurrentContext("admin-ctx-1")
 		keys := *functions.GetEnrollmentKeys()
 		assert.Len(t, keys, 3, "3 keys expected")
+	})
+
+	// TODO assert no access
+	t.Run("incorrect masteradmin", func(t *testing.T) {
+		t.Skip("Skipping until err exposed")
+		config.SetCurrentContext("admin-ctx-2")
+		// TODO doesnt return err
+		res := *functions.GetEnrollmentKeys()
+		fmt.Println(res)
+		//assert.Error(t, res, "403 error")
 	})
 }
