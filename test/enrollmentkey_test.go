@@ -5,6 +5,10 @@ package test
 
 import (
 	"context"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/gravitl/netmaker/cli/config"
 	"github.com/gravitl/netmaker/cli/functions"
 	controller "github.com/gravitl/netmaker/controllers"
@@ -13,9 +17,6 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/stretchr/testify/assert"
-	"sync"
-	"testing"
-	"time"
 )
 
 func DBInit() {
@@ -53,13 +54,17 @@ func TestHasNetworksAccessAPI(t *testing.T) {
 	if err != nil {
 		t.Error("Error creating a user ", err)
 	}
-	configCtx := config.Context{
+	userConfig := config.Context{
 		Endpoint: "http://localhost:" + port,
 		Username: user.UserName,
 		Password: userPass,
 	}
-	config.SetContext("test-ctx-1", configCtx)
-	config.SetCurrentContext("test-ctx-1")
+	adminConfig := userConfig
+	adminConfig.MasterKey = "foo123"
+	config.SetContext("user-ctx-1", userConfig)
+	config.SetContext("admin-ctx-1", adminConfig)
+	config.SetCurrentContext("user-ctx-1")
+	t.Setenv("MASTER_KEY", adminConfig.MasterKey)
 
 	// fixtures
 	n1 := models.Network{
@@ -101,10 +106,18 @@ func TestHasNetworksAccessAPI(t *testing.T) {
 	go controller.HandleRESTRequests(&wg, ctx)
 	// TODO make sure that HTTP is up
 	time.Sleep(1 * time.Second)
-	keys := *functions.GetEnrollmentKeys()
 
-	assert.Len(t, keys, 1, "1 key expected")
-	assert.Len(t, keys[0].Networks, 1, "Key with 1 network expected")
-	assert.Equal(t, keys[0].Networks[0], n1.NetID, "Network ID matches")
-	assert.Equal(t, keys[0].Token, k1.Token, "Token matches")
+	t.Run("normal user", func(t *testing.T) {
+		keys := *functions.GetEnrollmentKeys()
+		assert.Len(t, keys, 1, "1 key expected")
+		assert.Len(t, keys[0].Networks, 1, "Key with 1 network expected")
+		assert.Equal(t, keys[0].Networks[0], n1.NetID, "Network ID matches")
+		assert.Equal(t, keys[0].Token, k1.Token, "Token matches")
+	})
+
+	t.Run("masteradmin", func(t *testing.T) {
+		config.SetCurrentContext("admin-ctx-1")
+		keys := *functions.GetEnrollmentKeys()
+		assert.Len(t, keys, 3, "3 keys expected")
+	})
 }

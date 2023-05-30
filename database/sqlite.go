@@ -3,9 +3,10 @@ package database
 import (
 	"database/sql"
 	"errors"
-	_ "github.com/mattn/go-sqlite3" // need to blank import this package
 	"os"
 	"path/filepath"
+
+	_ "github.com/mattn/go-sqlite3" // need to blank import this package
 )
 
 // == sqlite ==
