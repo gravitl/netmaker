@@ -14,7 +14,7 @@ import (
 
 // PubPeerUpdate publishes a peer update to the client
 // relay is set to a newly created relay node or nil for other peer updates
-func PubPeerUpdate(client, relay *models.Client, peers *[]models.Client) {
+func PubPeerUpdate(client, relay *models.Client, peers []models.Client) {
 	p := models.PeerAction{
 		Action: models.UpdatePeer,
 	}
@@ -28,7 +28,7 @@ func PubPeerUpdate(client, relay *models.Client, peers *[]models.Client) {
 			return
 		}
 	}
-	for _, peer := range *peers {
+	for _, peer := range peers {
 		if client.Host.ID == peer.Host.ID {
 			continue
 		}
@@ -139,7 +139,7 @@ func getIngressIPs(peer models.Client) []net.IPNet {
 }
 
 // pubRelayedUpdate - publish peer update to a node (client) that is relayed by the relay
-func pubRelayedUpdate(client, relay *models.Client, peers *[]models.Client) {
+func pubRelayedUpdate(client, relay *models.Client, peers []models.Client) {
 	//verify
 	if !logic.StringSliceContains(relay.Node.RelayedNodes, client.Node.ID.String()) {
 		logger.Log(0, "invalid call to pubRelayed update", client.Host.Name, relay.Host.Name)
@@ -149,7 +149,7 @@ func pubRelayedUpdate(client, relay *models.Client, peers *[]models.Client) {
 	p := models.PeerAction{
 		Action: models.RemovePeer,
 	}
-	for _, peer := range *peers {
+	for _, peer := range peers {
 		if peer.Host.ID == relay.Host.ID || peer.Host.ID == client.Host.ID {
 			continue
 		}
@@ -188,7 +188,7 @@ func pubRelayedUpdate(client, relay *models.Client, peers *[]models.Client) {
 	}
 	p.Peers = append(p.Peers, update)
 	// add all other peers to allowed ips
-	for _, peer := range *peers {
+	for _, peer := range peers {
 		if peer.Host.ID == relay.Host.ID || peer.Host.ID == client.Host.ID {
 			continue
 		}
@@ -204,7 +204,7 @@ func pubRelayedUpdate(client, relay *models.Client, peers *[]models.Client) {
 }
 
 // pubRelayUpdate - publish peer update to a relay
-func pubRelayUpdate(client *models.Client, peers *[]models.Client) {
+func pubRelayUpdate(client *models.Client, peers []models.Client) {
 	if !client.Node.IsRelay {
 		return
 	}
@@ -212,7 +212,7 @@ func pubRelayUpdate(client *models.Client, peers *[]models.Client) {
 	p := models.PeerAction{
 		Action: models.UpdatePeer,
 	}
-	for _, peer := range *peers {
+	for _, peer := range peers {
 		if peer.Host.ID == client.Host.ID {
 			continue
 		}
