@@ -55,6 +55,7 @@ func TestHasNetworksAccessAPI(t *testing.T) {
 	if err != nil {
 		t.Error("Error creating a user ", err)
 	}
+	// create configs
 	userConfig := config.Context{
 		Endpoint: "http://localhost:" + port,
 		Username: user.UserName,
@@ -65,9 +66,11 @@ func TestHasNetworksAccessAPI(t *testing.T) {
 	adminConfigBad := userConfig
 	adminConfigBad.MasterKey = "wrongpass"
 	adminConfigBad.Password = "wrongpass"
+	// add configs
 	config.SetContext("user-ctx-1", userConfig)
 	config.SetContext("admin-ctx-1", adminConfig)
 	config.SetContext("admin-ctx-2", adminConfigBad)
+	// set the active config
 	config.SetCurrentContext("user-ctx-1")
 	t.Setenv("MASTER_KEY", adminConfig.MasterKey)
 
