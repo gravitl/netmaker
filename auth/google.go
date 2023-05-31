@@ -68,7 +68,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	var newPass, fetchErr = fetchPassValue("")
+	var newPass, fetchErr = logic.FetchPassValue("")
 	if fetchErr != nil {
 		return
 	}

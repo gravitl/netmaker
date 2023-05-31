@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,6 +17,8 @@ import (
 	"github.com/gravitl/netmaker/models/promodels"
 	"github.com/gravitl/netmaker/servercfg"
 )
+
+const auth_key = "netmaker_auth"
 
 // HasAdmin - checks if server has an admin
 func HasAdmin() (bool, error) {
@@ -264,7 +267,7 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 
 	queryUser := user.UserName
 
-	if userchange.UserName != "" {
+	if !IsOauthUser(user) && userchange.UserName != "" { // cannot update username for an oAuth user
 		user.UserName = userchange.UserName
 	}
 	if len(userchange.Networks) > 0 {
@@ -273,7 +276,7 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 	if len(userchange.Groups) > 0 {
 		user.Groups = userchange.Groups
 	}
-	if userchange.Password != "" {
+	if !IsOauthUser(user) && userchange.Password != "" { // cannot update password for an oAuth User
 		// encrypt that password so we never see it again
 		hash, err := bcrypt.GenerateFromPassword([]byte(userchange.Password), 5)
 
@@ -371,6 +374,47 @@ func FetchAuthSecret(key string, secret string) (string, error) {
 		}
 	}
 	return record, nil
+}
+
+// IsOauthUser - returns
+func IsOauthUser(user *models.User) bool {
+	var currentValue, err = FetchPassValue("")
+	if err != nil {
+		return false
+	}
+	var bCryptErr = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentValue))
+	return bCryptErr == nil
+}
+
+func FetchPassValue(newValue string) (string, error) {
+
+	type valueHolder struct {
+		Value string `json:"value" bson:"value"`
+	}
+	var b64NewValue = base64.StdEncoding.EncodeToString([]byte(newValue))
+	var newValueHolder = &valueHolder{
+		Value: b64NewValue,
+	}
+	var data, marshalErr = json.Marshal(newValueHolder)
+	if marshalErr != nil {
+		return "", marshalErr
+	}
+
+	var currentValue, err = FetchAuthSecret(auth_key, string(data))
+	if err != nil {
+		return "", err
+	}
+	var unmarshErr = json.Unmarshal([]byte(currentValue), newValueHolder)
+	if unmarshErr != nil {
+		return "", unmarshErr
+	}
+
+	var b64CurrentValue, b64Err = base64.StdEncoding.DecodeString(newValueHolder.Value)
+	if b64Err != nil {
+		logger.Log(0, "could not decode pass")
+		return "", nil
+	}
+	return string(b64CurrentValue), nil
 }
 
 // GetState - gets an SsoState from DB, if expired returns error

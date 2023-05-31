@@ -1,15 +1,12 @@
 package auth
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
-	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
 
 	"github.com/gorilla/websocket"
@@ -31,7 +28,6 @@ const (
 	github_provider_name   = "github"
 	oidc_provider_name     = "oidc"
 	verify_user            = "verifyuser"
-	auth_key               = "netmaker_auth"
 	user_signin_length     = 16
 	node_signin_length     = 64
 	headless_signin_length = 32
@@ -74,7 +70,7 @@ func InitializeAuthProvider() string {
 	if functions == nil {
 		return ""
 	}
-	var _, err = fetchPassValue(logic.RandomString(64))
+	var _, err = logic.FetchPassValue(logic.RandomString(64))
 	if err != nil {
 		logger.Log(0, err.Error())
 		return ""
@@ -149,16 +145,6 @@ func HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	functions[handle_login].(func(http.ResponseWriter, *http.Request))(w, r)
-}
-
-// IsOauthUser - returns
-func IsOauthUser(user *models.User) error {
-	var currentValue, err = fetchPassValue("")
-	if err != nil {
-		return err
-	}
-	var bCryptErr = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentValue))
-	return bCryptErr
 }
 
 // HandleHeadlessSSO - handles the OAuth login flow for headless interfaces such as Netmaker CLI via websocket
@@ -243,7 +229,7 @@ func addUser(email string) error {
 		logger.Log(1, "error checking for existence of admin user during OAuth login for", email, "; user not added")
 		return err
 	} // generate random password to adapt to current model
-	var newPass, fetchErr = fetchPassValue("")
+	var newPass, fetchErr = logic.FetchPassValue("")
 	if fetchErr != nil {
 		return fetchErr
 	}
@@ -267,37 +253,6 @@ func addUser(email string) error {
 		}
 	}
 	return nil
-}
-
-func fetchPassValue(newValue string) (string, error) {
-
-	type valueHolder struct {
-		Value string `json:"value" bson:"value"`
-	}
-	var b64NewValue = base64.StdEncoding.EncodeToString([]byte(newValue))
-	var newValueHolder = &valueHolder{
-		Value: b64NewValue,
-	}
-	var data, marshalErr = json.Marshal(newValueHolder)
-	if marshalErr != nil {
-		return "", marshalErr
-	}
-
-	var currentValue, err = logic.FetchAuthSecret(auth_key, string(data))
-	if err != nil {
-		return "", err
-	}
-	var unmarshErr = json.Unmarshal([]byte(currentValue), newValueHolder)
-	if unmarshErr != nil {
-		return "", unmarshErr
-	}
-
-	var b64CurrentValue, b64Err = base64.StdEncoding.DecodeString(newValueHolder.Value)
-	if b64Err != nil {
-		logger.Log(0, "could not decode pass")
-		return "", nil
-	}
-	return string(b64CurrentValue), nil
 }
 
 func getStateAndCode(r *http.Request) (string, string) {

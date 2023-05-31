@@ -57,7 +57,7 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	newPass, fetchErr := fetchPassValue("")
+	newPass, fetchErr := logic.FetchPassValue("")
 	if fetchErr != nil {
 		return
 	}
