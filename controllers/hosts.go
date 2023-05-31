@@ -101,12 +101,14 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	fw, _ := logic.GetFwUpdate(host)
 	serverConf.TrafficKey = key
 	response := models.HostPull{
 		Host:         *host,
 		ServerConfig: serverConf,
 		Peers:        hPU.Peers,
 		PeerIDs:      hPU.PeerIDs,
+		FwUpdate:     fw,
 	}
 
 	logger.Log(1, hostID, "completed a pull")

@@ -398,6 +398,10 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	go func() {
 		mq.BroadcastExtClient(host, &node)
+		f, err := logic.GetFwUpdate(host)
+		if err == nil {
+			mq.PublishFwUpdate(host, &f)
+		}
 		if err := mq.PublishExtCLientDNS(&extclient); err != nil {
 			logger.Log(1, "error publishing extclient dns", err.Error())
 		}
@@ -491,7 +495,6 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(0, r.Header.Get("user"), "updated ext client", update.ClientID)
-
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newclient)
 
@@ -504,6 +507,10 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 				if replaceOldClient || changedEnabled {
 					// broadcast update
 					mq.BroadcastExtClient(ingressHost, &ingressNode)
+				}
+				f, err := logic.GetFwUpdate(ingressHost)
+				if err == nil {
+					mq.PublishFwUpdate(ingressHost, &f)
 				}
 			}
 		}
@@ -581,7 +588,11 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		ingressHost, err := logic.GetHost(ingressnode.HostID.String())
 		if err == nil {
-			go mq.BroadcastDelExtClient(ingressHost, &ingressnode, []models.ExtClient{extclient})
+			mq.BroadcastDelExtClient(ingressHost, &ingressnode, []models.ExtClient{extclient})
+			f, err := logic.GetFwUpdate(ingressHost)
+			if err == nil {
+				mq.PublishFwUpdate(ingressHost, &f)
+			}
 		}
 
 		if err = mq.PublishDeleteExtClientDNS(&extclient); err != nil {

@@ -175,6 +175,14 @@ func FlushNetworkPeersToHost(host *models.Host, hNode *models.Node, networkNodes
 		}
 		publish(host, fmt.Sprintf("peer/host/%s/%s", host.ID.String(), servercfg.GetServer()), data)
 	}
+	// send fw update if gw host
+	if hNode.IsIngressGateway || hNode.IsEgressGateway {
+		f, err := logic.GetFwUpdate(host)
+		if err == nil {
+			PublishFwUpdate(host, &f)
+		}
+
+	}
 	return nil
 }
 
@@ -205,6 +213,14 @@ func BroadcastDelPeer(host *models.Host, network string) error {
 		peerHost, err := logic.GetHost(nodeI.HostID.String())
 		if err == nil {
 			publish(peerHost, fmt.Sprintf("peer/host/%s/%s", peerHost.ID.String(), servercfg.GetServer()), data)
+			if nodeI.IsIngressGateway || nodeI.IsEgressGateway {
+				go func(peerHost models.Host) {
+					f, err := logic.GetFwUpdate(&peerHost)
+					if err == nil {
+						PublishFwUpdate(&peerHost, &f)
+					}
+				}(*peerHost)
+			}
 		}
 	}
 	return nil
@@ -271,6 +287,16 @@ func BroadcastAddOrUpdatePeer(host *models.Host, node *models.Node, update bool)
 		if err == nil {
 			publish(peerHost, fmt.Sprintf("peer/host/%s/%s", peerHost.ID.String(), servercfg.GetServer()), data)
 		}
+		if nodeI.IsIngressGateway || nodeI.IsEgressGateway {
+			go func(peerHost models.Host) {
+				f, err := logic.GetFwUpdate(&peerHost)
+				if err == nil {
+					PublishFwUpdate(&peerHost, &f)
+				}
+			}(*peerHost)
+
+		}
+
 	}
 	return nil
 }
@@ -286,7 +312,6 @@ func BroadcastExtClient(ingressHost *models.Host, ingressNode *models.Node) erro
 	go FlushNetworkPeersToHost(ingressHost, ingressNode, nodes)
 	// broadcast to update ingress peer to other hosts
 	go BroadcastAddOrUpdatePeer(ingressHost, ingressNode, true)
-	// TODO - send fw update
 	return nil
 }
 
@@ -315,7 +340,10 @@ func BroadcastDelExtClient(ingressHost *models.Host, ingressNode *models.Node, e
 	if err != nil {
 		return err
 	}
-	publish(ingressHost, fmt.Sprintf("peer/host/%s/%s", ingressHost.ID.String(), servercfg.GetServer()), data)
+	err = publish(ingressHost, fmt.Sprintf("peer/host/%s/%s", ingressHost.ID.String(), servercfg.GetServer()), data)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -555,6 +583,15 @@ func PublishHostDNSUpdate(old, new *models.Host, networks []string) error {
 		return errMsgs
 	}
 	return nil
+}
+
+// PublishFwUpdate - publishes fw update to host
+func PublishFwUpdate(gwHost *models.Host, f *models.FwUpdate) error {
+	data, err := json.Marshal(f)
+	if err != nil {
+		return err
+	}
+	return publish(gwHost, fmt.Sprintf("fw/host/%s/%s", gwHost.ID.String(), servercfg.GetServer()), data)
 }
 
 func pushMetricsToExporter(metrics models.Metrics) error {
