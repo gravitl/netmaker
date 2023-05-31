@@ -71,8 +71,8 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 			node, err := logic.GetNodeByID(nid)
 			if err != nil {
 				logger.Log(0, r.Header.Get("user"), "failed to fetch node: ", err.Error())
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-				return
+				// TODO find the reason for the DB error, skip this node for now
+				continue
 			}
 			if !isMasterAdmin && !logic.UserHasNetworksAccess([]string{node.Network}, user) {
 				continue
