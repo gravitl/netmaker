@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -82,12 +81,14 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	hPU, err := logic.GetPeerUpdateForHost(context.Background(), "", host, nil, nil)
-	if err != nil {
-		logger.Log(0, "could not pull peers for host", hostID)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
+	peers := logic.GetPeerUpdate(host)
+
+	//hPU, err := logic.GetPeerUpdateForHost(context.Background(), "", host, nil, nil)
+	//if err != nil {
+	//logger.Log(0, "could not pull peers for host", hostID)
+	//logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+	//return
+	//}
 	serverConf := servercfg.GetServerInfo()
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 		serverConf.MQUserName = hostID
@@ -102,8 +103,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 	response := models.HostPull{
 		Host:         *host,
 		ServerConfig: serverConf,
-		Peers:        hPU.Peers,
-		PeerIDs:      hPU.PeerIDs,
+		Peers:        peers,
 	}
 
 	logger.Log(1, hostID, "completed a pull")

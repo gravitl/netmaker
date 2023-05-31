@@ -70,9 +70,9 @@ type CommonNode struct {
 	EgressGatewayRanges []string      `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
 	IsIngressGateway    bool          `json:"isingressgateway" yaml:"isingressgateway"`
 	IngressDNS          string        `json:"ingressdns" yaml:"ingressdns"`
-	IsRelayed           bool          `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
-	RelayedBy           string        `json:"relayedby" bson:"relayedby" yaml:"relayedby"`
-	IsRelay             bool          `json:"isrelay" bson:"isrelay" yaml:"isrelay"`
+	IsRelayed           bool          `json:"isrelayed" yaml:"isrelayed"`
+	RelayedBy           string        `json:"relayedby" yaml:"relayedby"`
+	IsRelay             bool          `json:"isrelay" yaml:"isrelay"`
 	RelayedNodes        []string      `json:"relaynodes" yaml:"relayedNodes"`
 	DNSOn               bool          `json:"dnson" yaml:"dnson"`
 	PersistentKeepalive time.Duration `json:"persistentkeepalive" yaml:"persistentkeepalive"`
