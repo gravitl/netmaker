@@ -491,3 +491,14 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 	// Start handling the session
 	go auth.SessionHandler(conn)
 }
+
+// getHeaderNetworks returns a slice of networks parsed form the request header.
+func getHeaderNetworks(r *http.Request) ([]string, error) {
+	headerNetworks := r.Header.Get("networks")
+	networksSlice := []string{}
+	err := json.Unmarshal([]byte(headerNetworks), &networksSlice)
+	if err != nil {
+		return nil, err
+	}
+	return networksSlice, nil
+}

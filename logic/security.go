@@ -31,6 +31,7 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 		var errorResponse = models.ErrorResponse{
 			Code: http.StatusForbidden, Message: Forbidden_Msg,
 		}
+		r.Header.Set("ismaster", "no")
 
 		var params = mux.Vars(r)
 		bearerToken := r.Header.Get("Authorization")
@@ -52,6 +53,10 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 		if err != nil {
 			ReturnErrorResponse(w, r, errorResponse)
 			return
+		}
+		// detect masteradmin
+		if len(networks) > 0 && networks[0] == ALL_NETWORK_ACCESS {
+			r.Header.Set("ismaster", "yes")
 		}
 		networksJson, err := json.Marshal(&networks)
 		if err != nil {
@@ -147,6 +152,7 @@ func UserPermissions(reqAdmin bool, netname string, token string) ([]string, str
 	}
 	//all endpoints here require master so not as complicated
 	if authenticateMaster(authToken) {
+		// TODO log in as an actual admin user
 		return []string{ALL_NETWORK_ACCESS}, master_uname, nil
 	}
 	username, networks, isadmin, err := VerifyUserToken(authToken)
