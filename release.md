@@ -1,4 +1,5 @@
 
+
 # Netmaker v0.20.1
 
 ## whats new
@@ -10,7 +11,6 @@
 - upd hole punching improvments
 - SSL fallback to letsencrypt
 - permission handling for non-admin users
-
 
 ## known issues
 - Migration causes a listen port of 0 for some upgraded hosts
