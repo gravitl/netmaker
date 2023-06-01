@@ -267,7 +267,7 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 
 	queryUser := user.UserName
 
-	if !IsOauthUser(user) && userchange.UserName != "" { // cannot update username for an oAuth user
+	if !isOauthUser(user) && userchange.UserName != "" { // cannot update username for an oAuth user
 		user.UserName = userchange.UserName
 	}
 	if len(userchange.Networks) > 0 {
@@ -276,7 +276,7 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 	if len(userchange.Groups) > 0 {
 		user.Groups = userchange.Groups
 	}
-	if !IsOauthUser(user) && userchange.Password != "" { // cannot update password for an oAuth User
+	if !isOauthUser(user) && userchange.Password != "" { // cannot update password for an oAuth User
 		// encrypt that password so we never see it again
 		hash, err := bcrypt.GenerateFromPassword([]byte(userchange.Password), 5)
 
@@ -376,8 +376,7 @@ func FetchAuthSecret(key string, secret string) (string, error) {
 	return record, nil
 }
 
-// IsOauthUser - returns
-func IsOauthUser(user *models.User) bool {
+func isOauthUser(user *models.User) bool {
 	var currentValue, err = FetchPassValue("")
 	if err != nil {
 		return false
@@ -386,6 +385,7 @@ func IsOauthUser(user *models.User) bool {
 	return bCryptErr == nil
 }
 
+// FetchPassValue - fetches oAuth user password
 func FetchPassValue(newValue string) (string, error) {
 
 	type valueHolder struct {
