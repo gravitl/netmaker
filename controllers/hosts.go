@@ -105,6 +105,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		Host:         *host,
 		ServerConfig: serverConf,
 		Peers:        peers,
+		FwUpdate:     fw,
 	}
 
 	logger.Log(1, hostID, "completed a pull")
@@ -370,7 +371,7 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 	if err != nil {
 		errorResponse.Code = http.StatusBadRequest
 		errorResponse.Message = err.Error()
-		logger.Log(0, request.Header.Get("user"),var peerUpdate models.HostPeerUpdate
+		logger.Log(0, request.Header.Get("user"),
 			"error retrieving host: ", err.Error())
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
