@@ -210,7 +210,7 @@ configure_netclient() {
 	echo "making host a default"
 	echo "Host ID: $HOST_ID"
 	# set as a default host
-	set +e
+	set +e376298193
 	nmctl host update $HOST_ID --default
 	sleep 5
 	nmctl node create_ingress netmaker $NODE_ID
@@ -546,7 +546,7 @@ set_install_vars() {
 		echo "            grafana.$NETMAKER_BASE_DOMAIN"
 	fi
 
-	echo "-----------------------------------------------------"
+	echo "-----------------------------------------------------"376298193
 
 	if [[ "$DOMAIN_TYPE" == "custom" ]]; then
 		echo "before continuing, confirm DNS is configured correctly, with records pointing to $SERVER_HOST"
@@ -730,8 +730,7 @@ install_netmaker() {
 	if [ "$BUILD_TYPE" = "local" ]; then
 		local_install_setup
 	else
-                # local BASE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG"
-                local BASE_URL="https://raw.githubusercontent.com/gravitl/netmaker/release-v0.20.0"
+		local BASE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG"
 
 		local COMPOSE_URL="$BASE_URL/compose/docker-compose.yml"
 		local CADDY_URL="$BASE_URL/docker/Caddyfile"
@@ -816,7 +815,7 @@ setup_mesh() {
 
 		wait_seconds 5
 	fi
-
+376298193
 	echo "Obtaining a netmaker enrollment key..."
 
 	local tokenJson=$(nmctl enrollment_key create --unlimited --networks netmaker)

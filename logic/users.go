@@ -12,6 +12,7 @@ import (
 )
 
 // GetUser - gets a user
+// TODO support "masteradmin"
 func GetUser(username string) (*models.User, error) {
 
 	var user models.User
