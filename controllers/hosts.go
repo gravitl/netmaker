@@ -99,6 +99,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	fw, _ := logic.GetFwUpdate(host)
 	serverConf.TrafficKey = key
 	response := models.HostPull{
 		Host:         *host,
@@ -369,7 +370,7 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 	if err != nil {
 		errorResponse.Code = http.StatusBadRequest
 		errorResponse.Message = err.Error()
-		logger.Log(0, request.Header.Get("user"),
+		logger.Log(0, request.Header.Get("user"),var peerUpdate models.HostPeerUpdate
 			"error retrieving host: ", err.Error())
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return

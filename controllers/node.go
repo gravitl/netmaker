@@ -459,7 +459,19 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
 	go func() {
-		mq.PublishPeerUpdate()
+		host, err := logic.GetHost(node.HostID.String())
+		if err != nil {
+			logger.Log(0, "failed to get egress host: ", err.Error())
+			return
+		}
+		mq.BroadcastAddOrUpdatePeer(host, &node, true)
+		f, err := logic.GetFwUpdate(host)
+		if err != nil {
+			logger.Log(0, "failed to get egreess host: ", err.Error())
+			return
+		}
+		mq.PublishFwUpdate(host, &f)
+
 	}()
 	runUpdates(&node, true)
 }
@@ -495,7 +507,20 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
 	go func() {
-		mq.PublishPeerUpdate()
+
+		host, err := logic.GetHost(node.HostID.String())
+		if err != nil {
+			logger.Log(0, "failed to get egress host: ", err.Error())
+			return
+		}
+		mq.BroadcastAddOrUpdatePeer(host, &node, true)
+		f, err := logic.GetFwUpdate(host)
+		if err != nil {
+			logger.Log(0, "failed to get egreess host: ", err.Error())
+			return
+		}
+		mq.PublishFwUpdate(host, &f)
+
 	}()
 	runUpdates(&node, true)
 }
@@ -584,6 +609,10 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 		host, err := logic.GetHost(node.HostID.String())
 		if err == nil {
 			mq.BroadcastDelExtClient(host, &node, removedClients)
+			f, err := logic.GetFwUpdate(host)
+			if err == nil {
+				mq.PublishFwUpdate(host, &f)
+			}
 		}
 	}
 
