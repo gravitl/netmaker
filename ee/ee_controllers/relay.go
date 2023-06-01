@@ -1,4 +1,4 @@
-package controller
+package ee_controllers
 
 import (
 	"encoding/json"
@@ -6,11 +6,19 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 )
+
+// RelayHandlers - handle EE Relays
+func RelayHandlers(r *mux.Router) {
+
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/createrelay", controller.Authorize(false, true, "user", http.HandlerFunc(createRelay))).Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleterelay", controller.Authorize(false, true, "user", http.HandlerFunc(deleteRelay))).Methods(http.MethodDelete)
+}
 
 // swagger:route POST /api/nodes/{network}/{nodeid}/createrelay nodes createRelay
 //
@@ -33,7 +41,6 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
 	relayRequest.NetID = params["network"]
 	relayRequest.NodeID = params["nodeid"]
 	_, relayNode, err := logic.CreateRelay(relayRequest)
@@ -68,12 +75,10 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 	for _, client := range clients {
 		mq.PubPeerUpdate(&client, &relay, peers)
 	}
-
 	logger.Log(1, r.Header.Get("user"), "created relay on node", relayRequest.NodeID, "on network", relayRequest.NetID)
 	apiNode := relayNode.ConvertToAPINode()
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-	//runUpdates(&node, true)
 }
 
 // swagger:route DELETE /api/nodes/{network}/{nodeid}/deleterelay nodes deleteRelay
@@ -129,5 +134,4 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	apiNode := node.ConvertToAPINode()
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-	runUpdates(&node, true)
 }

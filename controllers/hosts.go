@@ -25,8 +25,8 @@ func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", logic.SecurityCheck(true, http.HandlerFunc(addHostToNetwork))).Methods(http.MethodPost)
 	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", logic.SecurityCheck(true, http.HandlerFunc(deleteHostFromNetwork))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/hosts/adm/authenticate", authenticateHost).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/host", authorize(true, false, "host", http.HandlerFunc(pull))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/host/{hostid}/signalpeer", authorize(true, false, "host", http.HandlerFunc(signalPeer))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/host", Authorize(true, false, "host", http.HandlerFunc(pull))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/host/{hostid}/signalpeer", Authorize(true, false, "host", http.HandlerFunc(signalPeer))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/auth-register/host", socketHandler)
 }
 
