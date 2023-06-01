@@ -626,7 +626,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 	newNode := newData.ConvertToServerNode(&currentNode)
 	relayupdate := false
-	if currentNode.IsRelay && len(newNode.RelayedNodes) > 0 {
+	if servercfg.Is_EE && newNode.IsRelay && len(newNode.RelayedNodes) > 0 {
 		if len(newNode.RelayedNodes) != len(currentNode.RelayedNodes) {
 			relayupdate = true
 		} else {
