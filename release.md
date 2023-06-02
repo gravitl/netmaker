@@ -1,5 +1,5 @@
 
-# Netmaker v0.20.1
+# Netmaker v0.20.2
 
 ## whats new
 - 
