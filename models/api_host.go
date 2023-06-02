@@ -29,10 +29,6 @@ type ApiHost struct {
 	Nodes            []string `json:"nodes"`
 	ProxyEnabled     bool     `json:"proxy_enabled" yaml:"proxy_enabled"`
 	IsDefault        bool     `json:"isdefault" yaml:"isdefault"`
-	IsRelayed        bool     `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
-	RelayedBy        string   `json:"relayed_by" bson:"relayed_by" yaml:"relayed_by"`
-	IsRelay          bool     `json:"isrelay" bson:"isrelay" yaml:"isrelay"`
-	RelayedHosts     []string `json:"relay_hosts" bson:"relay_hosts" yaml:"relay_hosts"`
 }
 
 // Host.ConvertNMHostToAPI - converts a Netmaker host to an API editable host
@@ -65,10 +61,6 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 	a.Verbosity = h.Verbosity
 	a.Version = h.Version
 	a.IsDefault = h.IsDefault
-	a.IsRelay = h.IsRelay
-	a.RelayedHosts = h.RelayedHosts
-	a.IsRelayed = h.IsRelayed
-	a.RelayedBy = h.RelayedBy
 	return &a
 }
 
@@ -106,10 +98,6 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.Nodes = currentHost.Nodes
 	h.TrafficKeyPublic = currentHost.TrafficKeyPublic
 	h.OS = currentHost.OS
-	h.RelayedBy = a.RelayedBy
-	h.RelayedHosts = a.RelayedHosts
-	h.IsRelay = a.IsRelay
-	h.IsRelayed = a.IsRelayed
 	h.ProxyEnabled = a.ProxyEnabled
 	h.IsDefault = a.IsDefault
 	h.NatType = currentHost.NatType

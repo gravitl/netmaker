@@ -23,18 +23,16 @@ var hostIDHeader = "host-id"
 
 func nodeHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/nodes", authorize(false, false, "user", http.HandlerFunc(getAllNodes))).Methods(http.MethodGet)
-	r.HandleFunc("/api/nodes/{network}", authorize(false, true, "network", http.HandlerFunc(getNetworkNodes))).Methods(http.MethodGet)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, true, "node", http.HandlerFunc(getNode))).Methods(http.MethodGet)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(false, true, "node", http.HandlerFunc(updateNode))).Methods(http.MethodPut)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, true, "node", http.HandlerFunc(deleteNode))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/createrelay", authorize(false, true, "user", http.HandlerFunc(createRelay))).Methods(http.MethodPost)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleterelay", authorize(false, true, "user", http.HandlerFunc(deleteRelay))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/creategateway", authorize(false, true, "user", http.HandlerFunc(createEgressGateway))).Methods(http.MethodPost)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/deletegateway", authorize(false, true, "user", http.HandlerFunc(deleteEgressGateway))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/nodes", Authorize(false, false, "user", http.HandlerFunc(getAllNodes))).Methods(http.MethodGet)
+	r.HandleFunc("/api/nodes/{network}", Authorize(false, true, "network", http.HandlerFunc(getNetworkNodes))).Methods(http.MethodGet)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}", Authorize(true, true, "node", http.HandlerFunc(getNode))).Methods(http.MethodGet)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}", Authorize(false, true, "node", http.HandlerFunc(updateNode))).Methods(http.MethodPut)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}", Authorize(true, true, "node", http.HandlerFunc(deleteNode))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/creategateway", Authorize(false, true, "user", http.HandlerFunc(createEgressGateway))).Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/deletegateway", Authorize(false, true, "user", http.HandlerFunc(deleteEgressGateway))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", logic.SecurityCheck(false, http.HandlerFunc(createIngressGateway))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", logic.SecurityCheck(false, http.HandlerFunc(deleteIngressGateway))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}", authorize(true, true, "node", http.HandlerFunc(updateNode))).Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}", Authorize(true, true, "node", http.HandlerFunc(updateNode))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/nodes/migrate", migrate).Methods(http.MethodPost)
 }
@@ -154,7 +152,7 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 // even if it's technically ok
 // This is kind of a poor man's RBAC. There's probably a better/smarter way.
 // TODO: Consider better RBAC implementations
-func authorize(hostAllowed, networkCheck bool, authNetwork string, next http.Handler) http.HandlerFunc {
+func Authorize(hostAllowed, networkCheck bool, authNetwork string, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
 			Code: http.StatusUnauthorized, Message: logic.Unauthorized_Msg,
@@ -657,12 +655,12 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 	newNode := newData.ConvertToServerNode(&currentNode)
 	relayupdate := false
-	if currentNode.IsRelay && len(newNode.RelayAddrs) > 0 {
-		if len(newNode.RelayAddrs) != len(currentNode.RelayAddrs) {
+	if servercfg.Is_EE && newNode.IsRelay && len(newNode.RelayedNodes) > 0 {
+		if len(newNode.RelayedNodes) != len(currentNode.RelayedNodes) {
 			relayupdate = true
 		} else {
-			for i, addr := range newNode.RelayAddrs {
-				if addr != currentNode.RelayAddrs[i] {
+			for i, node := range newNode.RelayedNodes {
+				if node != currentNode.RelayedNodes[i] {
 					relayupdate = true
 				}
 			}
@@ -674,10 +672,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			fmt.Sprintf("failed to get host for node  [ %s ] info: %v", nodeid, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
-	}
-	relayedUpdate := false
-	if currentNode.IsRelayed && (currentNode.Address.String() != newNode.Address.String() || currentNode.Address6.String() != newNode.Address6.String()) {
-		relayedUpdate = true
 	}
 	ifaceDelta := logic.IfaceDelta(&currentNode, newNode)
 	aclUpdate := currentNode.DefaultACL != newNode.DefaultACL
@@ -695,15 +689,12 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if relayupdate {
-		updatenodes := logic.UpdateRelay(currentNode.Network, currentNode.RelayAddrs, newNode.RelayAddrs)
-		if len(updatenodes) > 0 {
-			for _, relayedNode := range updatenodes {
-				runUpdates(&relayedNode, false)
+		updatedClients := logic.UpdateRelayed(currentNode.ID.String(), currentNode.RelayedNodes, newNode.RelayedNodes)
+		if len(updatedClients) > 0 {
+			for _, relayedClient := range updatedClients {
+				runUpdates(&relayedClient.Node, false)
 			}
 		}
-	}
-	if relayedUpdate {
-		updateRelay(&currentNode, newNode)
 	}
 	if servercfg.IsDNSMode() {
 		logic.SetDNS()
@@ -794,30 +785,6 @@ func runUpdates(node *models.Node, ifaceDelta bool) {
 			logger.Log(1, "error publishing node update to node", node.ID.String(), err.Error())
 		}
 	}()
-}
-
-func updateRelay(oldnode, newnode *models.Node) {
-	relay := logic.FindRelay(oldnode)
-	newrelay := relay
-	//check if node's address has been updated and if so, update the relayAddrs of the relay node with the updated address of the relayed node
-	if oldnode.Address.String() != newnode.Address.String() {
-		for i, ip := range newrelay.RelayAddrs {
-			if ip == oldnode.Address.IP.String() {
-				newrelay.RelayAddrs = append(newrelay.RelayAddrs[:i], relay.RelayAddrs[i+1:]...)
-				newrelay.RelayAddrs = append(newrelay.RelayAddrs, newnode.Address.IP.String())
-			}
-		}
-	}
-	//check if node's address(v6) has been updated and if so, update the relayAddrs of the relay node with the updated address(v6) of the relayed node
-	if oldnode.Address6.String() != newnode.Address6.String() {
-		for i, ip := range newrelay.RelayAddrs {
-			if ip == oldnode.Address.IP.String() {
-				newrelay.RelayAddrs = append(newrelay.RelayAddrs[:i], newrelay.RelayAddrs[i+1:]...)
-				newrelay.RelayAddrs = append(newrelay.RelayAddrs, newnode.Address6.IP.String())
-			}
-		}
-	}
-	logic.UpdateNode(relay, newrelay)
 }
 
 func doesUserOwnNode(username, network, nodeID string) bool {
