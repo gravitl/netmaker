@@ -130,9 +130,11 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+
 	serverConf.TrafficKey = key
 	response := models.HostPull{
 		Host:         *host,
+		Nodes:        logic.GetHostNodes(host),
 		ServerConfig: serverConf,
 		Peers:        hPU.Peers,
 		PeerIDs:      hPU.PeerIDs,
