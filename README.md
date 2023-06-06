@@ -12,7 +12,6 @@
      rel="noopener"
 />
     <img
-        style="width: 260px; height: 56px"
         src="https://runacap.com/wp-content/uploads/2023/02/Annual_ROSS_badge_white_2022.svg"
         alt="ROSS Index - Fastest Growing Open-Source Startups | Runa Capital"
         width="15%"
