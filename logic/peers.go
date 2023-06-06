@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/netip"
 
@@ -785,8 +786,13 @@ func GetPeerUpdate(host *models.Host) []wgtypes.PeerConfig {
 				update.AllowedIPs = append(update.AllowedIPs, getRelayAllowedIPs(&peer)...)
 			}
 			//normal peer
-			update.AllowedIPs = append(update.AllowedIPs, AddAllowedIPs(&peer)...)
-			peerUpdate = append(peerUpdate, update)
+			if nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.Node.ID.String())) {
+				log.Println("node allowed", client.Host.Name, peer.Host.Name)
+				update.AllowedIPs = append(update.AllowedIPs, AddAllowedIPs(&peer)...)
+				peerUpdate = append(peerUpdate, update)
+			} else {
+				log.Println("node not allowed", client.Host.Name, peer.Host.Name)
+			}
 		}
 	}
 	return peerUpdate
