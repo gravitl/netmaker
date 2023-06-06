@@ -21,7 +21,7 @@ jobs:
     needs: skip-check
     if: ${{ needs.skip-check.outputs.skip != 'true' }}
     outputs:
-      netclientbranch: ${{ steps.checkbranch.outputs.netclientbranch }}
+      netclientbranch: ${{ steps.getbranch.outputs.netclientbranch }}
     steps:
       - name: checkout
         uses: actions/checkout@v3
