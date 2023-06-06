@@ -440,12 +440,14 @@ func handleHostCheckin(h, currentHost *models.Host) bool {
 	ifaceDelta := len(h.Interfaces) != len(currentHost.Interfaces) ||
 		!h.EndpointIP.Equal(currentHost.EndpointIP) ||
 		(len(h.NatType) > 0 && h.NatType != currentHost.NatType) ||
-		h.DefaultInterface != currentHost.DefaultInterface
+		h.DefaultInterface != currentHost.DefaultInterface ||
+		h.EndpointDetection != currentHost.EndpointDetection
 	if ifaceDelta { // only save if something changes
 		currentHost.EndpointIP = h.EndpointIP
 		currentHost.Interfaces = h.Interfaces
 		currentHost.DefaultInterface = h.DefaultInterface
 		currentHost.NatType = h.NatType
+		currentHost.EndpointDetection = h.EndpointDetection
 		if err := logic.UpsertHost(currentHost); err != nil {
 			logger.Log(0, "failed to update host after check-in", h.Name, h.ID.String(), err.Error())
 			return false

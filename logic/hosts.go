@@ -190,6 +190,10 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 		currHost.ProxyEnabled = newHost.ProxyEnabled
 		sendPeerUpdate = true
 	}
+	if currHost.EndpointDetection != newHost.EndpointDetection {
+		currHost.EndpointDetection = newHost.EndpointDetection
+		sendPeerUpdate = true
+	}
 	if currHost.EndpointIP.String() != newHost.EndpointIP.String() {
 		currHost.EndpointIP = newHost.EndpointIP
 		sendPeerUpdate = true
