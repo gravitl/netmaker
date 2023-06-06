@@ -229,7 +229,6 @@ func peerUpdateForRelayedByRelay(relayed, relay *models.Client) wgtypes.PeerConf
 		}
 		if nodeacls.AreNodesAllowed(nodeacls.NetworkID(relayed.Node.Network), nodeacls.NodeID(relayed.Node.ID.String()), nodeacls.NodeID(peer.Node.ID.String())) {
 			update.AllowedIPs = append(update.AllowedIPs, AddAllowedIPs(&peer)...)
-		} else {
 		}
 	}
 	return update
