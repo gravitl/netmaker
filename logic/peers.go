@@ -791,6 +791,8 @@ func GetPeerUpdate(host *models.Host) []wgtypes.PeerConfig {
 				update.AllowedIPs = append(update.AllowedIPs, AddAllowedIPs(&peer)...)
 				peerUpdate = append(peerUpdate, update)
 			} else {
+				update.Remove = true
+				peerUpdate = append(peerUpdate, update)
 				log.Println("node not allowed", client.Host.Name, peer.Host.Name)
 			}
 		}

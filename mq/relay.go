@@ -47,6 +47,7 @@ func PubPeerUpdate(client, relay *models.Client, peers []models.Client) {
 			log.Println("node allowed", client.Host.Name, peer.Host.Name)
 			update.AllowedIPs = append(update.AllowedIPs, logic.AddAllowedIPs(&peer)...)
 		} else {
+			update.Remove = true
 			log.Println("node not allowed", client.Host.Name, client.Node.Address, peer.Host.Name, peer.Node.Address)
 		}
 		if relay != nil {
