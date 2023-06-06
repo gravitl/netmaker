@@ -428,6 +428,15 @@ func handleHostCheckin(h, currentHost *models.Host) bool {
 	for i := range h.Interfaces {
 		h.Interfaces[i].AddressString = h.Interfaces[i].Address.String()
 	}
+	/// version or firewall in use change does not require a peerUpdate
+	if h.Version != currentHost.Version || h.FirewallInUse != currentHost.FirewallInUse {
+		currentHost.FirewallInUse = h.FirewallInUse
+		currentHost.Version = h.Version
+		if err := logic.UpsertHost(currentHost); err != nil {
+			logger.Log(0, "failed to update host after check-in", h.Name, h.ID.String(), err.Error())
+			return false
+		}
+	}
 	ifaceDelta := len(h.Interfaces) != len(currentHost.Interfaces) ||
 		!h.EndpointIP.Equal(currentHost.EndpointIP) ||
 		(len(h.NatType) > 0 && h.NatType != currentHost.NatType) ||

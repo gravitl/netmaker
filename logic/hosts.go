@@ -174,6 +174,10 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 		currHost.ListenPort = newHost.ListenPort
 		sendPeerUpdate = true
 	}
+	if newHost.WgPublicListenPort != 0 && currHost.WgPublicListenPort != newHost.WgPublicListenPort {
+		currHost.WgPublicListenPort = newHost.WgPublicListenPort
+		sendPeerUpdate = true
+	}
 	if newHost.ProxyListenPort != 0 && currHost.ProxyListenPort != newHost.ProxyListenPort {
 		currHost.ProxyListenPort = newHost.ProxyListenPort
 		sendPeerUpdate = true
