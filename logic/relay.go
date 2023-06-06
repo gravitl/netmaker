@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 
 	"github.com/gravitl/netmaker/database"
@@ -229,10 +228,8 @@ func peerUpdateForRelayedByRelay(relayed, relay *models.Client) wgtypes.PeerConf
 			continue
 		}
 		if nodeacls.AreNodesAllowed(nodeacls.NetworkID(relayed.Node.Network), nodeacls.NodeID(relayed.Node.ID.String()), nodeacls.NodeID(peer.Node.ID.String())) {
-			log.Println("node allowed", relayed.Host.Name, peer.Host.Name)
 			update.AllowedIPs = append(update.AllowedIPs, AddAllowedIPs(&peer)...)
 		} else {
-			log.Println("node not allowed", relayed.Host.Name, peer.Host.Name)
 		}
 	}
 	return update
@@ -260,11 +257,8 @@ func peerUpdateForRelay(relay *models.Client, peers []models.Client) []wgtypes.P
 			PersistentKeepaliveInterval: &peer.Node.PersistentKeepalive,
 		}
 		if nodeacls.AreNodesAllowed(nodeacls.NetworkID(relay.Node.Network), nodeacls.NodeID(relay.Node.ID.String()), nodeacls.NodeID(peer.Node.ID.String())) {
-			log.Println("node allowed", relay.Host.Name, peer.Host.Name)
 			update.AllowedIPs = append(update.AllowedIPs, AddAllowedIPs(&peer)...)
 			peerConfig = append(peerConfig, update)
-		} else {
-			log.Println("node not allowed", relay.Host.Name, peer.Host.Name)
 		}
 	}
 	return peerConfig

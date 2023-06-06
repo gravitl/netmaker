@@ -3,7 +3,6 @@ package mq
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 
 	"github.com/gravitl/netmaker/logger"
@@ -44,11 +43,9 @@ func PubPeerUpdate(client, relay *models.Client, peers []models.Client) {
 			PersistentKeepaliveInterval: &peer.Node.PersistentKeepalive,
 		}
 		if nodeacls.AreNodesAllowed(nodeacls.NetworkID(client.Node.Network), nodeacls.NodeID(client.Node.ID.String()), nodeacls.NodeID(peer.Node.ID.String())) {
-			log.Println("node allowed", client.Host.Name, peer.Host.Name)
 			update.AllowedIPs = append(update.AllowedIPs, logic.AddAllowedIPs(&peer)...)
 		} else {
 			update.Remove = true
-			log.Println("node not allowed", client.Host.Name, client.Node.Address, peer.Host.Name, peer.Node.Address)
 		}
 		if relay != nil {
 			if peer.Node.IsRelayed && peer.Node.RelayedBy == relay.Node.ID.String() {
@@ -78,7 +75,6 @@ func getRelayAllowedIPs(client, peer models.Client) []net.IPNet {
 			continue
 		}
 		if !nodeacls.AreNodesAllowed(nodeacls.NetworkID(client.Node.Network), nodeacls.NodeID(client.Node.ID.String()), nodeacls.NodeID(node.ID.String())) {
-			log.Println("node not allowed", client.Host.Name, node.Address.IP)
 			continue
 		}
 		if node.Address.IP != nil {
@@ -205,10 +201,7 @@ func pubRelayedUpdate(client, relay *models.Client, peers []models.Client) {
 			continue
 		}
 		if nodeacls.AreNodesAllowed(nodeacls.NetworkID(client.Node.Network), nodeacls.NodeID(client.Node.ID.String()), nodeacls.NodeID(peer.Node.ID.String())) {
-			log.Println("node allowed", client.Host.Name, peer.Host.Name)
 			update.AllowedIPs = append(update.AllowedIPs, logic.AddAllowedIPs(&peer)...)
-		} else {
-			log.Println("node not allowed", client.Host.Name, peer.Host.Name)
 		}
 	}
 	p.Peers = append(p.Peers, update)
