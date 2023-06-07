@@ -10,13 +10,11 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
-	"github.com/kr/pretty"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // CreateRelay - creates a relay
 func CreateRelay(relay models.RelayRequest) ([]models.Client, models.Node, error) {
-	pretty.Println("relay request", relay)
 	var relayedClients []models.Client
 	node, err := GetNodeByID(relay.NodeID)
 	if err != nil {
