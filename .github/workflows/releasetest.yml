@@ -1,0 +1,41 @@
+name: Deploy and Test Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_branch:
+        description: 'Release Branch'
+        required: true
+
+jobs:
+
+  verifybranches:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          repository: gravitl/netmaker
+          ref: ${{ inputs.release_branch }}
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          repository: gravitl/netclient
+          ref: ${{ inputs.release_branch }}
+
+  terraform:
+    needs: [verifybranches]
+    uses: gravitl/devops/.github/workflows/terraform.yml@master
+    with:
+      netmakerbranch: ${{ inputs.release_branch }}
+      netclientbranch: ${{ inputs.release_branch }}
+    secrets: inherit
+
+
+  testbranch:
+    needs: [terraform]
+    uses: gravitl/devops/.github/workflows/branchtest.yml@master
+    with:
+      tag: ${{ github.run_id }}-${{ github.run_attempt }}
+      network: netmaker
+    secrets: inherit
