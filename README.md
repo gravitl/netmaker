@@ -6,18 +6,17 @@
 </p>
 
 <p align="center">
-<a href="https://runacap.com/ross-index/q1-2022/" target="_blank" rel="noopener">
-    <img src="https://runacap.com/wp-content/uploads/2022/06/ROSS_badge_white_Q1_2022.svg" alt="ROSS Index - Fastest Growing Open-Source Startups in Q1 2022 | Runa Capital"  width="15%"/>
+<a href="https://runacap.com/ross-index/annual-2022/" target="_blank" rel="noopener">
+    <img src="https://runacap.com/wp-content/uploads/2023/02/Annual_ROSS_badge_white_2022.svg" alt="ROSS Index - Fastest Growing Open-Source Startups | Runa Capital" width="17%" />
 </a>  
 <a href="https://www.ycombinator.com/companies/netmaker/" target="_blank" rel="noopener">
     <img src="https://raw.githubusercontent.com/gravitl/netmaker-docs/master/images/netmaker-github/y-combinator.png" alt="Y-Combinator" width="16%" />
 </a>  
-
 </p>
 
 <p align="center">
   <a href="https://github.com/gravitl/netmaker/releases">
-    <img src="https://img.shields.io/badge/Version-0.20.1-informational?style=flat-square" />
+    <img src="https://img.shields.io/badge/Version-0.20.2-informational?style=flat-square" />
   </a>
   <a href="https://hub.docker.com/r/gravitl/netmaker/tags">
     <img src="https://img.shields.io/docker/pulls/gravitl/netmaker?label=downloads" />
