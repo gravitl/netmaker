@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slices"
+	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -905,6 +906,15 @@ func getIngressIPs(peer *models.Client) []net.IPNet {
 			if ec.Address6 != "" {
 				ip, cidr, err := net.ParseCIDR(ec.Address6)
 				if err != nil {
+					continue
+				}
+				cidr.IP = ip
+				ingressIPs = append(ingressIPs, *cidr)
+			}
+			for _, extra := range ec.ExtraAllowedIPs {
+				ip, cidr, err := net.ParseCIDR(extra)
+				if err != nil {
+					slog.Warn("invalid extra allowed ip", "extraIP", extra, "for ext client", ec.ClientID)
 					continue
 				}
 				cidr.IP = ip
