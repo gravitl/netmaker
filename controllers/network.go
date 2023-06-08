@@ -23,6 +23,7 @@ func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks", logic.SecurityCheck(true, checkFreeTierLimits(networks_l, http.HandlerFunc(createNetwork)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(false, http.HandlerFunc(getNetwork))).Methods(http.MethodGet)
 	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(true, http.HandlerFunc(deleteNetwork))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(true, http.HandlerFunc(updateNetwork))).Methods(http.MethodPut)
 	// ACLs
 	r.HandleFunc("/api/networks/{networkname}/acls", logic.SecurityCheck(true, http.HandlerFunc(updateNetworkACL))).Methods(http.MethodPut)
 	r.HandleFunc("/api/networks/{networkname}/acls", logic.SecurityCheck(true, http.HandlerFunc(getNetworkACL))).Methods(http.MethodGet)
@@ -281,4 +282,58 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "created network", network.NetID)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(network)
+}
+
+// swagger:route PUT /api/networks networks updateNetwork
+//
+// Create a network.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: networkBodyResponse
+func updateNetwork(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+
+	var netNew models.Network
+
+	// we decode our body request params
+	err := json.NewDecoder(r.Body).Decode(&netNew)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "error decoding request body: ",
+			err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	if netNew.AddressRange == "" && netNew.AddressRange6 == "" {
+		err := errors.New("IPv4 or IPv6 CIDR required")
+		logger.Log(0, r.Header.Get("user"), "failed to create netNew: ",
+			err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	netOld, err := logic.GetNetwork(netNew.NetID)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "error fetching network: ",
+			err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	_, _, _, _, _, err = logic.UpdateNetwork(&netOld, &netNew)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to update netNew: ",
+			err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	logger.Log(1, r.Header.Get("user"), "updated netNew", netNew.NetID)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(netNew)
 }
