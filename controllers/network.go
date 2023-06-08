@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"golang.org/x/exp/slog"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -286,7 +287,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 
 // swagger:route PUT /api/networks networks updateNetwork
 //
-// Create a network.
+// Update pro settings for a network.
 //
 //			Schemes: https
 //
@@ -299,41 +300,33 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	var netNew models.Network
+	var payload models.Network
 
 	// we decode our body request params
-	err := json.NewDecoder(r.Body).Decode(&netNew)
+	err := json.NewDecoder(r.Body).Decode(&payload)
 	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "error decoding request body: ",
-			err.Error())
+		slog.Info("error decoding request body", "user", r.Header.Get("user"), "err", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 
-	if netNew.AddressRange == "" && netNew.AddressRange6 == "" {
-		err := errors.New("IPv4 or IPv6 CIDR required")
-		logger.Log(0, r.Header.Get("user"), "failed to create netNew: ",
-			err.Error())
+	netOld1, err := logic.GetNetwork(payload.NetID)
+	if err != nil {
+		slog.Info("error fetching network", "user", r.Header.Get("user"), "err", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	// partial update
+	netOld2 := netOld1
+	netOld2.ProSettings = payload.ProSettings
+	_, _, _, _, _, err = logic.UpdateNetwork(&netOld1, &netOld2)
+	if err != nil {
+		slog.Info("failed to update network", "user", r.Header.Get("user"), "err", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 
-	netOld, err := logic.GetNetwork(netNew.NetID)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "error fetching network: ",
-			err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	_, _, _, _, _, err = logic.UpdateNetwork(&netOld, &netNew)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to update netNew: ",
-			err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-
-	logger.Log(1, r.Header.Get("user"), "updated netNew", netNew.NetID)
+	slog.Info("updated network", "network", payload.NetID, "user", r.Header.Get("user"))
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(netNew)
+	json.NewEncoder(w).Encode(payload)
 }
