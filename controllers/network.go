@@ -40,10 +40,7 @@ func networkHandlers(r *mux.Router) {
 //			Responses:
 //				200: getNetworksSliceResponse
 func getNetworks(w http.ResponseWriter, r *http.Request) {
-
-	headerNetworks := r.Header.Get("networks")
-	networksSlice := []string{}
-	marshalErr := json.Unmarshal([]byte(headerNetworks), &networksSlice)
+	networksSlice, marshalErr := getHeaderNetworks(r)
 	if marshalErr != nil {
 		logger.Log(0, r.Header.Get("user"), "error unmarshalling networks: ",
 			marshalErr.Error())

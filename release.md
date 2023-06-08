@@ -1,13 +1,16 @@
 
-# Netmaker v0.20.0
+# Netmaker v0.20.2
 
 ## whats new
-- New UI
-- revamped compose-files and install scripts
-- TURN
+- 
     
 ## whats fixed
-- Caddy does not handle netmaker exporter well for EE
+- enrollment keys for non-admins 
+- client version displayed correctly in UI
+- upd hole punching improvments
+- SSL fallback to letsencrypt
+- permission handling for non-admin users
+
 
 ## known issues
 - Migration causes a listen port of 0 for some upgraded hosts

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime/debug"
 	"sync"
 	"syscall"
@@ -26,9 +27,10 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
 	stunserver "github.com/gravitl/netmaker/stun-server"
+	"golang.org/x/exp/slog"
 )
 
-var version = "v0.20.0"
+var version = "v0.20.2"
 
 // Start DB Connection and start API Request Handler
 func main() {
@@ -179,6 +181,25 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 func setVerbosity() {
 	verbose := int(servercfg.GetVerbosity())
 	logger.Verbosity = verbose
+	logLevel := &slog.LevelVar{}
+	replace := func(groups []string, a slog.Attr) slog.Attr {
+		if a.Key == slog.SourceKey {
+			a.Value = slog.StringValue(filepath.Base(a.Value.String()))
+		}
+		return a
+	}
+	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{AddSource: true, ReplaceAttr: replace, Level: logLevel}))
+	slog.SetDefault(logger)
+	switch verbose {
+	case 4:
+		logLevel.Set(slog.LevelDebug)
+	case 3:
+		logLevel.Set(slog.LevelInfo)
+	case 2:
+		logLevel.Set(slog.LevelWarn)
+	default:
+		logLevel.Set(slog.LevelError)
+	}
 }
 
 func setGarbageCollection() {

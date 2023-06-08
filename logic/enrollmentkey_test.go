@@ -204,3 +204,77 @@ func TestDeTokenize_EnrollmentKeys(t *testing.T) {
 
 	removeAllEnrollments()
 }
+
+func TestHasNetworksAccess(t *testing.T) {
+	type Case struct {
+		// network names
+		n []string
+		u models.User
+	}
+	pass := []Case{
+		{
+			n: []string{"n1", "n2"},
+			u: models.User{
+				Networks: []string{"n1", "n2"},
+				IsAdmin:  false,
+			},
+		},
+		{
+			n: []string{"n1", "n2"},
+			u: models.User{
+				Networks: []string{},
+				IsAdmin:  true,
+			},
+		},
+		{
+			n: []string{"n1", "n2"},
+			u: models.User{
+				Networks: []string{"n1", "n2", "n3"},
+				IsAdmin:  false,
+			},
+		},
+		{
+			n: []string{"n2"},
+			u: models.User{
+				Networks: []string{"n2"},
+				IsAdmin:  false,
+			},
+		},
+	}
+	deny := []Case{
+		{
+			n: []string{"n1", "n2"},
+			u: models.User{
+				Networks: []string{"n2"},
+				IsAdmin:  false,
+			},
+		},
+		{
+			n: []string{"n1", "n2"},
+			u: models.User{
+				Networks: []string{},
+				IsAdmin:  false,
+			},
+		},
+		{
+			n: []string{"n1", "n2"},
+			u: models.User{
+				Networks: []string{"n3"},
+				IsAdmin:  false,
+			},
+		},
+		{
+			n: []string{"n2"},
+			u: models.User{
+				Networks: []string{"n1"},
+				IsAdmin:  false,
+			},
+		},
+	}
+	for _, tc := range pass {
+		assert.True(t, UserHasNetworksAccess(tc.n, &tc.u))
+	}
+	for _, tc := range deny {
+		assert.False(t, UserHasNetworksAccess(tc.n, &tc.u))
+	}
+}
