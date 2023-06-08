@@ -7,6 +7,7 @@ import (
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -41,14 +42,18 @@ func PubPeerUpdate(client, relay *models.Client, peers []models.Client) {
 			},
 			PersistentKeepaliveInterval: &peer.Node.PersistentKeepalive,
 		}
-		update.AllowedIPs = append(update.AllowedIPs, logic.AddAllowedIPs(&peer)...)
+		if nodeacls.AreNodesAllowed(nodeacls.NetworkID(client.Node.Network), nodeacls.NodeID(client.Node.ID.String()), nodeacls.NodeID(peer.Node.ID.String())) {
+			update.AllowedIPs = append(update.AllowedIPs, logic.AddAllowedIPs(&peer)...)
+		} else {
+			update.Remove = true
+		}
 		if relay != nil {
 			if peer.Node.IsRelayed && peer.Node.RelayedBy == relay.Node.ID.String() {
 				update.Remove = true
 			}
 		}
 		if peer.Node.IsRelay {
-			update.AllowedIPs = append(update.AllowedIPs, getRelayAllowedIPs(peer)...)
+			update.AllowedIPs = append(update.AllowedIPs, getRelayAllowedIPs(*client, peer)...)
 		}
 		p.Peers = append(p.Peers, update)
 	}
@@ -61,12 +66,15 @@ func PubPeerUpdate(client, relay *models.Client, peers []models.Client) {
 }
 
 // getRelayAllowedIPs returns the list of allowedips for a given peer that is a relay
-func getRelayAllowedIPs(peer models.Client) []net.IPNet {
+func getRelayAllowedIPs(client, peer models.Client) []net.IPNet {
 	var relayIPs []net.IPNet
 	for _, relayed := range peer.Node.RelayedNodes {
 		node, err := logic.GetNodeByID(relayed)
 		if err != nil {
 			logger.Log(0, "retrieve relayed node", err.Error())
+			continue
+		}
+		if !nodeacls.AreNodesAllowed(nodeacls.NetworkID(client.Node.Network), nodeacls.NodeID(client.Node.ID.String()), nodeacls.NodeID(node.ID.String())) {
 			continue
 		}
 		if node.Address.IP != nil {
@@ -78,7 +86,7 @@ func getRelayAllowedIPs(peer models.Client) []net.IPNet {
 			relayIPs = append(relayIPs, node.Address6)
 		}
 		if node.IsRelay {
-			relayIPs = append(relayIPs, getRelayAllowedIPs(peer)...)
+			relayIPs = append(relayIPs, getRelayAllowedIPs(client, peer)...)
 		}
 		if node.IsEgressGateway {
 			relayIPs = append(relayIPs, getEgressIPs(peer)...)
@@ -192,7 +200,9 @@ func pubRelayedUpdate(client, relay *models.Client, peers []models.Client) {
 		if peer.Host.ID == relay.Host.ID || peer.Host.ID == client.Host.ID {
 			continue
 		}
-		update.AllowedIPs = append(update.AllowedIPs, logic.AddAllowedIPs(&peer)...)
+		if nodeacls.AreNodesAllowed(nodeacls.NetworkID(client.Node.Network), nodeacls.NodeID(client.Node.ID.String()), nodeacls.NodeID(peer.Node.ID.String())) {
+			update.AllowedIPs = append(update.AllowedIPs, logic.AddAllowedIPs(&peer)...)
+		}
 	}
 	p.Peers = append(p.Peers, update)
 	data, err = json.Marshal(p)

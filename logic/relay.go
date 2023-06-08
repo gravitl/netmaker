@@ -8,6 +8,7 @@ import (
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -224,7 +225,9 @@ func peerUpdateForRelayedByRelay(relayed, relay *models.Client) wgtypes.PeerConf
 		if peer.Host.ID == relayed.Host.ID || peer.Host.ID == relay.Host.ID {
 			continue
 		}
-		update.AllowedIPs = append(update.AllowedIPs, AddAllowedIPs(&peer)...)
+		if nodeacls.AreNodesAllowed(nodeacls.NetworkID(relayed.Node.Network), nodeacls.NodeID(relayed.Node.ID.String()), nodeacls.NodeID(peer.Node.ID.String())) {
+			update.AllowedIPs = append(update.AllowedIPs, AddAllowedIPs(&peer)...)
+		}
 	}
 	return update
 }
@@ -250,8 +253,10 @@ func peerUpdateForRelay(relay *models.Client, peers []models.Client) []wgtypes.P
 			},
 			PersistentKeepaliveInterval: &peer.Node.PersistentKeepalive,
 		}
-		update.AllowedIPs = append(update.AllowedIPs, AddAllowedIPs(&peer)...)
-		peerConfig = append(peerConfig, update)
+		if nodeacls.AreNodesAllowed(nodeacls.NetworkID(relay.Node.Network), nodeacls.NodeID(relay.Node.ID.String()), nodeacls.NodeID(peer.Node.ID.String())) {
+			update.AllowedIPs = append(update.AllowedIPs, AddAllowedIPs(&peer)...)
+			peerConfig = append(peerConfig, update)
+		}
 	}
 	return peerConfig
 }

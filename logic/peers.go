@@ -799,8 +799,13 @@ func GetPeerUpdate(host *models.Host) []wgtypes.PeerConfig {
 				update.AllowedIPs = append(update.AllowedIPs, getRelayAllowedIPs(&peer)...)
 			}
 			//normal peer
-			update.AllowedIPs = append(update.AllowedIPs, AddAllowedIPs(&peer)...)
-			peerUpdate = append(peerUpdate, update)
+			if nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.Node.ID.String())) {
+				update.AllowedIPs = append(update.AllowedIPs, AddAllowedIPs(&peer)...)
+				peerUpdate = append(peerUpdate, update)
+			} else {
+				update.Remove = true
+				peerUpdate = append(peerUpdate, update)
+			}
 		}
 	}
 	return peerUpdate
