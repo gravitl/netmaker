@@ -453,68 +453,6 @@ func GetExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, e
 
 }
 
-func getExtPeersForProxy(node *models.Node, proxyPeerConf map[string]models.PeerConf) ([]wgtypes.PeerConfig, map[string]models.PeerConf, error) {
-	var peers []wgtypes.PeerConfig
-	host, err := GetHost(node.HostID.String())
-	if err != nil {
-		logger.Log(0, "error retrieving host for node", node.ID.String(), err.Error())
-	}
-
-	extPeers, err := GetNetworkExtClients(node.Network)
-	if err != nil {
-		return peers, proxyPeerConf, err
-	}
-	for _, extPeer := range extPeers {
-		pubkey, err := wgtypes.ParseKey(extPeer.PublicKey)
-		if err != nil {
-			logger.Log(1, "error parsing ext pub key:", err.Error())
-			continue
-		}
-
-		if host.PublicKey.String() == extPeer.PublicKey ||
-			extPeer.IngressGatewayID != node.ID.String() || !extPeer.Enabled {
-			continue
-		}
-
-		var allowedips []net.IPNet
-		var peer wgtypes.PeerConfig
-		if extPeer.Address != "" {
-			var peeraddr = net.IPNet{
-				IP:   net.ParseIP(extPeer.Address),
-				Mask: net.CIDRMask(32, 32),
-			}
-			if peeraddr.IP != nil && peeraddr.Mask != nil {
-				allowedips = append(allowedips, peeraddr)
-			}
-		}
-
-		if extPeer.Address6 != "" {
-			var addr6 = net.IPNet{
-				IP:   net.ParseIP(extPeer.Address6),
-				Mask: net.CIDRMask(128, 128),
-			}
-			if addr6.IP != nil && addr6.Mask != nil {
-				allowedips = append(allowedips, addr6)
-			}
-		}
-
-		peer = wgtypes.PeerConfig{
-			PublicKey:         pubkey,
-			ReplaceAllowedIPs: true,
-			AllowedIPs:        allowedips,
-		}
-		extConf := models.PeerConf{
-			IsExtClient: true,
-			Address:     net.ParseIP(extPeer.Address),
-		}
-		proxyPeerConf[peer.PublicKey.String()] = extConf
-
-		peers = append(peers, peer)
-	}
-	return peers, proxyPeerConf, nil
-
-}
-
 // GetAllowedIPs - calculates the wireguard allowedip field for a peer of a node based on the peer and node settings
 func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet {
 	var allowedips []net.IPNet
