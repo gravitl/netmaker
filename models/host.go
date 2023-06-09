@@ -2,7 +2,6 @@ package models
 
 import (
 	"net"
-	"net/netip"
 
 	"github.com/google/uuid"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -54,9 +53,7 @@ type Host struct {
 	Interface          string           `json:"interface" yaml:"interface"`
 	Debug              bool             `json:"debug" yaml:"debug"`
 	ListenPort         int              `json:"listenport" yaml:"listenport"`
-	PublicListenPort   int              `json:"public_listen_port" yaml:"public_listen_port"`
 	WgPublicListenPort int              `json:"wg_public_listen_port" yaml:"wg_public_listen_port"`
-	ProxyListenPort    int              `json:"proxy_listen_port" yaml:"proxy_listen_port"`
 	MTU                int              `json:"mtu" yaml:"mtu"`
 	PublicKey          wgtypes.Key      `json:"publickey" yaml:"publickey"`
 	MacAddress         net.HardwareAddr `json:"macaddress" yaml:"macaddress"`
@@ -70,14 +67,11 @@ type Host struct {
 	Interfaces         []Iface          `json:"interfaces" yaml:"interfaces"`
 	DefaultInterface   string           `json:"defaultinterface" yaml:"defaultinterface"`
 	EndpointIP         net.IP           `json:"endpointip" yaml:"endpointip"`
-	ProxyEnabled       bool             `json:"proxy_enabled" yaml:"proxy_enabled"`
-	ProxyEnabledSet    bool             `json:"proxy_enabled_updated" yaml:"proxy_enabled_updated"`
 	IsDocker           bool             `json:"isdocker" yaml:"isdocker"`
 	IsK8S              bool             `json:"isk8s" yaml:"isk8s"`
 	IsStatic           bool             `json:"isstatic" yaml:"isstatic"`
 	IsDefault          bool             `json:"isdefault" yaml:"isdefault"`
 	NatType            string           `json:"nat_type,omitempty" yaml:"nat_type,omitempty"`
-	TurnEndpoint       *netip.AddrPort  `json:"turn_endpoint,omitempty" yaml:"turn_endpoint,omitempty"`
 }
 
 // Client - represents a client on the network

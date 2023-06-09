@@ -350,8 +350,8 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	listenPort := host.ListenPort
-	if host.ProxyEnabled {
-		listenPort = host.ProxyListenPort
+	if host.WgPublicListenPort != 0 {
+		listenPort = host.WgPublicListenPort
 	}
 	extclient.IngressGatewayEndpoint = host.EndpointIP.String() + ":" + strconv.FormatInt(int64(listenPort), 10)
 	extclient.Enabled = true

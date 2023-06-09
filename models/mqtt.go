@@ -14,10 +14,9 @@ type HostPeerUpdate struct {
 	ServerAddrs     []ServerAddr         `json:"serveraddrs" bson:"serveraddrs" yaml:"serveraddrs"`
 	NodePeers       []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
 	Peers           []wgtypes.PeerConfig
-	HostPeerIDs     HostPeerMap         `json:"hostpeerids" bson:"hostpeerids" yaml:"hostpeerids"`
-	ProxyUpdate     ProxyManagerPayload `json:"proxy_update" bson:"proxy_update" yaml:"proxy_update"`
-	PeerIDs         PeerMap             `json:"peerids" bson:"peerids" yaml:"peerids"`
-	HostNetworkInfo HostInfoMap         `json:"host_network_info,omitempty" bson:"host_network_info,omitempty" yaml:"host_network_info,omitempty"`
+	HostPeerIDs     HostPeerMap `json:"hostpeerids" bson:"hostpeerids" yaml:"hostpeerids"`
+	PeerIDs         PeerMap     `json:"peerids" bson:"peerids" yaml:"peerids"`
+	HostNetworkInfo HostInfoMap `json:"host_network_info,omitempty" bson:"host_network_info,omitempty" yaml:"host_network_info,omitempty"`
 }
 
 // IngressInfo - struct for ingress info
