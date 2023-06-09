@@ -82,12 +82,6 @@ type ServerConfig struct {
 	UseTurn              bool   `yaml:"use_turn"`
 }
 
-// ProxyMode - default proxy mode for server
-type ProxyMode struct {
-	Set   bool
-	Value bool
-}
-
 // SQLConfig - Generic SQL Config
 type SQLConfig struct {
 	Host     string `yaml:"host"`
