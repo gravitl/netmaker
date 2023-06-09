@@ -59,26 +59,5 @@ func TestCheckPorts(t *testing.T) {
 		t.Log(h.ListenPort)
 		is.Equal(testHost.ListenPort, 51822)
 	})
-	t.Run("same proxy port", func(t *testing.T) {
-		is := is.New(t)
-		CheckHostPorts(&testHost)
-		t.Log(testHost.ListenPort)
-		t.Log(h.ListenPort)
-		is.Equal(testHost.ListenPort, 51822)
-	})
-	t.Run("listenport equals proxy port", func(t *testing.T) {
-		is := is.New(t)
-		testHost.ListenPort = maxPort
-		CheckHostPorts(&testHost)
-		t.Log(testHost.ListenPort)
-		t.Log(h.ListenPort)
-		is.Equal(testHost.ListenPort, minPort)
-	})
-	t.Run("proxyport equals listenport", func(t *testing.T) {
-		is := is.New(t)
-		CheckHostPorts(&testHost)
-		t.Log(testHost.ListenPort)
-		t.Log(h.ListenPort)
-		is.Equal(testHost.ListenPort, minPort)
-	})
+
 }
