@@ -161,10 +161,11 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 					peerAllowedIPs = append(peerAllowedIPs, allowedips...)
 					hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].AllowedIPs = peerAllowedIPs
 					hostPeerUpdate.HostPeerIDs[peerHost.PublicKey.String()][peer.ID.String()] = models.IDandAddr{
-						ID:      peer.ID.String(),
-						Address: peer.PrimaryAddress(),
-						Name:    peerHost.Name,
-						Network: peer.Network,
+						ID:         peer.ID.String(),
+						Address:    peer.PrimaryAddress(),
+						Name:       peerHost.Name,
+						Network:    peer.Network,
+						ListenPort: GetPeerListenPort(peerHost),
 					}
 					hostPeerUpdate.HostNetworkInfo[peerHost.PublicKey.String()] = models.HostNetworkInfo{
 						Interfaces: peerHost.Interfaces,
@@ -174,10 +175,11 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 
 				if node.Network == network { // add to peers map for metrics
 					hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()] = models.IDandAddr{
-						ID:      peer.ID.String(),
-						Address: peer.PrimaryAddress(),
-						Name:    peerHost.Name,
-						Network: peer.Network,
+						ID:         peer.ID.String(),
+						Address:    peer.PrimaryAddress(),
+						Name:       peerHost.Name,
+						Network:    peer.Network,
+						ListenPort: GetPeerListenPort(peerHost),
 					}
 					hostPeerUpdate.NodePeers = append(hostPeerUpdate.NodePeers, nodePeer)
 				}
