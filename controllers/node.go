@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -388,7 +387,10 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	hostPeerUpdate, err := logic.GetPeerUpdateForHost(context.Background(), node.Network, host, nil, nil)
+	nodePeerUpdate, err := logic.NodePeersInfo(&models.Client{
+		Host: *host,
+		Node: node,
+	})
 	if err != nil && !database.IsEmptyRecord(err) {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("error fetching wg peers config for host [ %s ]: %v", host.ID.String(), err))
@@ -403,10 +405,9 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 	response := models.NodeGet{
 		Node:         node,
 		Host:         *host,
-		HostPeers:    hostPeerUpdate.Peers,
-		Peers:        hostPeerUpdate.NodePeers,
+		Peers:        nodePeerUpdate.Peers,
 		ServerConfig: server,
-		PeerIDs:      hostPeerUpdate.PeerIDs,
+		PeerIDs:      nodePeerUpdate.PeerIDs,
 	}
 
 	if servercfg.Is_EE && nodeRequest {
