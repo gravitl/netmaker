@@ -213,7 +213,6 @@ type NodeGet struct {
 	Node         Node                 `json:"node" bson:"node" yaml:"node"`
 	Host         Host                 `json:"host" yaml:"host"`
 	Peers        []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
-	HostPeers    []wgtypes.PeerConfig `json:"host_peers" bson:"host_peers" yaml:"host_peers"`
 	ServerConfig ServerConfig         `json:"serverconfig" bson:"serverconfig" yaml:"serverconfig"`
 	PeerIDs      PeerMap              `json:"peerids,omitempty" bson:"peerids,omitempty" yaml:"peerids,omitempty"`
 }
