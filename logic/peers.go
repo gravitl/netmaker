@@ -14,6 +14,7 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+// NodePeersInfo - fetches node's peers with their ids and addrs.
 func NodePeersInfo(client *models.Client) (models.NodePeersInfo, error) {
 	nodePeersInfo := models.NodePeersInfo{
 		PeerIDs: make(models.PeerMap),
