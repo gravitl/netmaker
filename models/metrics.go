@@ -28,11 +28,12 @@ type Metric struct {
 
 // IDandAddr - struct to hold ID and primary Address
 type IDandAddr struct {
-	ID         string `json:"id" bson:"id" yaml:"id"`
-	Address    string `json:"address" bson:"address" yaml:"address"`
-	Name       string `json:"name" bson:"name" yaml:"name"`
-	Network    string `json:"network" bson:"network" yaml:"network" validate:"network"`
-	ListenPort int    `json:"listen_port" yaml:"listen_port"`
+	ID          string `json:"id" bson:"id" yaml:"id"`
+	Address     string `json:"address" bson:"address" yaml:"address"`
+	Name        string `json:"name" bson:"name" yaml:"name"`
+	Network     string `json:"network" bson:"network" yaml:"network" validate:"network"`
+	ListenPort  int    `json:"listen_port" yaml:"listen_port"`
+	IsExtclient bool   `json:"is_ext_client" yaml:"is_ext_client"`
 }
 
 // HostInfoMap - map of host public keys to host networking info
