@@ -23,67 +23,6 @@ var (
 	PeerUpdateStop context.CancelFunc
 )
 
-// GetProxyUpdateForHost - gets the proxy update for host
-func GetProxyUpdateForHost(ctx context.Context, host *models.Host) (models.ProxyManagerPayload, error) {
-	proxyPayload := models.ProxyManagerPayload{
-		Action: models.ProxyUpdate,
-	}
-	peerConfMap := make(map[string]models.PeerConf)
-	var ingressStatus bool
-	for _, nodeID := range host.Nodes {
-
-		node, err := GetNodeByID(nodeID)
-		if err != nil {
-			continue
-		}
-		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE {
-			continue
-		}
-		currentPeers, err := GetNetworkNodes(node.Network)
-		if err != nil {
-			continue
-		}
-		for _, peer := range currentPeers {
-			if peer.ID == node.ID {
-				//skip yourself
-				continue
-			}
-			if !peer.Connected || peer.PendingDelete || peer.Action == models.NODE_DELETE {
-				continue
-			}
-			peerHost, err := GetHost(peer.HostID.String())
-			if err != nil {
-				continue
-			}
-			var currPeerConf models.PeerConf
-			var found bool
-			if currPeerConf, found = peerConfMap[peerHost.PublicKey.String()]; !found {
-				currPeerConf = models.PeerConf{
-					Proxy:            peerHost.ProxyEnabled,
-					PublicListenPort: int32(GetPeerListenPort(peerHost)),
-					ProxyListenPort:  GetProxyListenPort(peerHost),
-					NatType:          peerHost.NatType,
-				}
-			}
-
-			peerConfMap[peerHost.PublicKey.String()] = currPeerConf
-		}
-		if node.IsIngressGateway {
-			ingressStatus = true
-			_, peerConfMap, err = getExtPeersForProxy(&node, peerConfMap)
-			if err == nil {
-
-			} else if !database.IsEmptyRecord(err) {
-				logger.Log(1, "error retrieving external clients:", err.Error())
-			}
-		}
-
-	}
-	proxyPayload.IsIngress = ingressStatus
-	proxyPayload.PeerMap = peerConfMap
-	return proxyPayload, nil
-}
-
 // ResetPeerUpdateContext - kills any current peer updates and resets the context
 func ResetPeerUpdateContext() {
 	if PeerUpdateCtx != nil && PeerUpdateStop != nil {
@@ -202,23 +141,19 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 					(deletedNode == nil || (deletedNode != nil && peer.ID.String() != deletedNode.ID.String())) {
 					peerConfig.AllowedIPs = allowedips // only append allowed IPs if valid connection
 				}
-
-				peerProxyPort := GetProxyListenPort(peerHost)
 				var nodePeer wgtypes.PeerConfig
 				if _, ok := hostPeerUpdate.HostPeerIDs[peerHost.PublicKey.String()]; !ok {
 					hostPeerUpdate.HostPeerIDs[peerHost.PublicKey.String()] = make(map[string]models.IDandAddr)
 					hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
 					peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
 					hostPeerUpdate.HostPeerIDs[peerHost.PublicKey.String()][peer.ID.String()] = models.IDandAddr{
-						ID:              peer.ID.String(),
-						Address:         peer.PrimaryAddress(),
-						Name:            peerHost.Name,
-						Network:         peer.Network,
-						ProxyListenPort: peerProxyPort,
+						ID:      peer.ID.String(),
+						Address: peer.PrimaryAddress(),
+						Name:    peerHost.Name,
+						Network: peer.Network,
 					}
 					hostPeerUpdate.HostNetworkInfo[peerHost.PublicKey.String()] = models.HostNetworkInfo{
-						Interfaces:      peerHost.Interfaces,
-						ProxyListenPort: peerProxyPort,
+						Interfaces: peerHost.Interfaces,
 					}
 					nodePeer = peerConfig
 				} else {
@@ -226,26 +161,23 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 					peerAllowedIPs = append(peerAllowedIPs, allowedips...)
 					hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].AllowedIPs = peerAllowedIPs
 					hostPeerUpdate.HostPeerIDs[peerHost.PublicKey.String()][peer.ID.String()] = models.IDandAddr{
-						ID:              peer.ID.String(),
-						Address:         peer.PrimaryAddress(),
-						Name:            peerHost.Name,
-						Network:         peer.Network,
-						ProxyListenPort: GetProxyListenPort(peerHost),
+						ID:      peer.ID.String(),
+						Address: peer.PrimaryAddress(),
+						Name:    peerHost.Name,
+						Network: peer.Network,
 					}
 					hostPeerUpdate.HostNetworkInfo[peerHost.PublicKey.String()] = models.HostNetworkInfo{
-						Interfaces:      peerHost.Interfaces,
-						ProxyListenPort: peerProxyPort,
+						Interfaces: peerHost.Interfaces,
 					}
 					nodePeer = hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]]
 				}
 
 				if node.Network == network { // add to peers map for metrics
 					hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()] = models.IDandAddr{
-						ID:              peer.ID.String(),
-						Address:         peer.PrimaryAddress(),
-						Name:            peerHost.Name,
-						Network:         peer.Network,
-						ProxyListenPort: peerHost.ProxyListenPort,
+						ID:      peer.ID.String(),
+						Address: peer.PrimaryAddress(),
+						Name:    peerHost.Name,
+						Network: peer.Network,
 					}
 					hostPeerUpdate.NodePeers = append(hostPeerUpdate.NodePeers, nodePeer)
 				}
@@ -452,23 +384,7 @@ func GetPeerListenPort(host *models.Host) int {
 	if host.WgPublicListenPort != 0 {
 		peerPort = host.WgPublicListenPort
 	}
-	if host.ProxyEnabled {
-		if host.PublicListenPort != 0 {
-			peerPort = host.PublicListenPort
-		} else if host.ProxyListenPort != 0 {
-			peerPort = host.ProxyListenPort
-		}
-	}
 	return peerPort
-}
-
-// GetProxyListenPort - fetches the proxy listen port
-func GetProxyListenPort(host *models.Host) int {
-	proxyPort := host.ProxyListenPort
-	if host.PublicListenPort != 0 {
-		proxyPort = host.PublicListenPort
-	}
-	return proxyPort
 }
 
 func GetExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, error) {
@@ -534,68 +450,6 @@ func GetExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, e
 		})
 	}
 	return peers, idsAndAddr, nil
-
-}
-
-func getExtPeersForProxy(node *models.Node, proxyPeerConf map[string]models.PeerConf) ([]wgtypes.PeerConfig, map[string]models.PeerConf, error) {
-	var peers []wgtypes.PeerConfig
-	host, err := GetHost(node.HostID.String())
-	if err != nil {
-		logger.Log(0, "error retrieving host for node", node.ID.String(), err.Error())
-	}
-
-	extPeers, err := GetNetworkExtClients(node.Network)
-	if err != nil {
-		return peers, proxyPeerConf, err
-	}
-	for _, extPeer := range extPeers {
-		pubkey, err := wgtypes.ParseKey(extPeer.PublicKey)
-		if err != nil {
-			logger.Log(1, "error parsing ext pub key:", err.Error())
-			continue
-		}
-
-		if host.PublicKey.String() == extPeer.PublicKey ||
-			extPeer.IngressGatewayID != node.ID.String() || !extPeer.Enabled {
-			continue
-		}
-
-		var allowedips []net.IPNet
-		var peer wgtypes.PeerConfig
-		if extPeer.Address != "" {
-			var peeraddr = net.IPNet{
-				IP:   net.ParseIP(extPeer.Address),
-				Mask: net.CIDRMask(32, 32),
-			}
-			if peeraddr.IP != nil && peeraddr.Mask != nil {
-				allowedips = append(allowedips, peeraddr)
-			}
-		}
-
-		if extPeer.Address6 != "" {
-			var addr6 = net.IPNet{
-				IP:   net.ParseIP(extPeer.Address6),
-				Mask: net.CIDRMask(128, 128),
-			}
-			if addr6.IP != nil && addr6.Mask != nil {
-				allowedips = append(allowedips, addr6)
-			}
-		}
-
-		peer = wgtypes.PeerConfig{
-			PublicKey:         pubkey,
-			ReplaceAllowedIPs: true,
-			AllowedIPs:        allowedips,
-		}
-		extConf := models.PeerConf{
-			IsExtClient: true,
-			Address:     net.ParseIP(extPeer.Address),
-		}
-		proxyPeerConf[peer.PublicKey.String()] = extConf
-
-		peers = append(peers, peer)
-	}
-	return peers, proxyPeerConf, nil
 
 }
 
