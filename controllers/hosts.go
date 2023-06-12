@@ -112,11 +112,11 @@ func pull(w http.ResponseWriter, r *http.Request) {
 	}
 	peers := logic.GetPeerUpdate(host)
 	// hPU, err := logic.GetPeerUpdateForHost(host)
-	if err != nil {
-		logger.Log(0, "could not pull peers for host", hostID)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
+	// if err != nil {
+	// 	logger.Log(0, "could not pull peers for host", hostID)
+	// 	logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+	// 	return
+	// }
 	serverConf := servercfg.GetServerInfo()
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 		serverConf.MQUserName = hostID
