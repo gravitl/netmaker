@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"golang.org/x/exp/slog"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -23,6 +24,7 @@ func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks", logic.SecurityCheck(true, checkFreeTierLimits(networks_l, http.HandlerFunc(createNetwork)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(false, http.HandlerFunc(getNetwork))).Methods(http.MethodGet)
 	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(true, http.HandlerFunc(deleteNetwork))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(true, http.HandlerFunc(updateNetwork))).Methods(http.MethodPut)
 	// ACLs
 	r.HandleFunc("/api/networks/{networkname}/acls", logic.SecurityCheck(true, http.HandlerFunc(updateNetworkACL))).Methods(http.MethodPut)
 	r.HandleFunc("/api/networks/{networkname}/acls", logic.SecurityCheck(true, http.HandlerFunc(getNetworkACL))).Methods(http.MethodGet)
@@ -281,4 +283,50 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "created network", network.NetID)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(network)
+}
+
+// swagger:route PUT /api/networks networks updateNetwork
+//
+// Update pro settings for a network.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: networkBodyResponse
+func updateNetwork(w http.ResponseWriter, r *http.Request) {
+
+	w.Header().Set("Content-Type", "application/json")
+
+	var payload models.Network
+
+	// we decode our body request params
+	err := json.NewDecoder(r.Body).Decode(&payload)
+	if err != nil {
+		slog.Info("error decoding request body", "user", r.Header.Get("user"), "err", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	netOld1, err := logic.GetNetwork(payload.NetID)
+	if err != nil {
+		slog.Info("error fetching network", "user", r.Header.Get("user"), "err", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	// partial update
+	netOld2 := netOld1
+	netOld2.ProSettings = payload.ProSettings
+	_, _, _, _, _, err = logic.UpdateNetwork(&netOld1, &netOld2)
+	if err != nil {
+		slog.Info("failed to update network", "user", r.Header.Get("user"), "err", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	slog.Info("updated network", "network", payload.NetID, "user", r.Header.Get("user"))
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(payload)
 }
