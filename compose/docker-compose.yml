@@ -6,7 +6,7 @@ services:
     container_name: netmaker
     image: gravitl/netmaker:$SERVER_IMAGE_TAG
     env_file: ./netmaker.env
-    restart: on-failure
+    restart: always
     volumes:
       - dnsconfig:/root/config/dnsconfig
       - sqldata:/root/data
@@ -96,6 +96,7 @@ services:
     network_mode: "host"
     volumes:
       - turn_server:/etc/config
+    restart: always
 
 volumes:
   caddy_data: { } # runtime data for caddy
