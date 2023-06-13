@@ -259,7 +259,6 @@ collect_server_settings() {
     esac
   done
 
-  STUN_DOMAIN="stun.$SERVER_NAME"
   TURN_DOMAIN="turn.$SERVER_NAME"
   TURNAPI_DOMAIN="turnapi.$SERVER_NAME"
   echo "-----------------------------------------------------"

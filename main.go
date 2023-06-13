@@ -26,7 +26,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
-	stunserver "github.com/gravitl/netmaker/stun-server"
 	"golang.org/x/exp/slog"
 )
 
@@ -147,9 +146,6 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 		logger.Log(0, "No Server Mode selected, so nothing is being served! Set Rest mode (REST_BACKEND) or MessageQueue (MESSAGEQUEUE_BACKEND) to 'true'.")
 	}
 
-	// starts the stun server
-	wg.Add(1)
-	go stunserver.Start(wg, ctx)
 }
 
 // Should we be using a context vice a waitgroup????????????

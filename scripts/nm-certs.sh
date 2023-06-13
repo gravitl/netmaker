@@ -31,7 +31,6 @@ CERTBOT_PARAMS=$(cat <<EOF
 certonly --standalone \
 	--non-interactive --agree-tos \
 	-m $NM_EMAIL \
-	-d stun.$NM_DOMAIN \
 	-d api.$NM_DOMAIN \
 	-d broker.$NM_DOMAIN \
 	-d dashboard.$NM_DOMAIN \
