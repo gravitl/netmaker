@@ -1,12 +1,10 @@
 package controller
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
-	"reflect"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logger"
@@ -26,11 +24,9 @@ func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(deleteHost))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", logic.SecurityCheck(true, http.HandlerFunc(addHostToNetwork))).Methods(http.MethodPost)
 	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", logic.SecurityCheck(true, http.HandlerFunc(deleteHostFromNetwork))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/hosts/{hostid}/relay", logic.SecurityCheck(false, http.HandlerFunc(createHostRelay))).Methods(http.MethodPost)
-	r.HandleFunc("/api/hosts/{hostid}/relay", logic.SecurityCheck(false, http.HandlerFunc(deleteHostRelay))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/hosts/adm/authenticate", authenticateHost).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/host", authorize(true, false, "host", http.HandlerFunc(pull))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/host/{hostid}/signalpeer", authorize(true, false, "host", http.HandlerFunc(signalPeer))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/host", Authorize(true, false, "host", http.HandlerFunc(pull))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/host/{hostid}/signalpeer", Authorize(true, false, "host", http.HandlerFunc(signalPeer))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/auth-register/host", socketHandler)
 }
 
@@ -114,12 +110,14 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	hPU, err := logic.GetPeerUpdateForHost(context.Background(), "", host, nil, nil)
-	if err != nil {
-		logger.Log(0, "could not pull peers for host", hostID)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
+	peers := logic.GetPeerUpdate(host)
+
+	//hPU, err := logic.GetPeerUpdateForHost(context.Background(), "", host, nil, nil)
+	//if err != nil {
+	//logger.Log(0, "could not pull peers for host", hostID)
+	//logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+	//return
+	//}
 	serverConf := servercfg.GetServerInfo()
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 		serverConf.MQUserName = hostID
@@ -130,14 +128,14 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-
+	fw, _ := logic.GetFwUpdate(host)
 	serverConf.TrafficKey = key
 	response := models.HostPull{
 		Host:         *host,
 		Nodes:        logic.GetHostNodes(host),
 		ServerConfig: serverConf,
-		Peers:        hPU.Peers,
-		PeerIDs:      hPU.PeerIDs,
+		Peers:        peers,
+		FwUpdate:     fw,
 	}
 
 	logger.Log(1, hostID, "completed a pull")
@@ -174,22 +172,12 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newHost := newHostData.ConvertAPIHostToNMHost(currHost)
-	// check if relay information is changed
-	updateRelay := false
-	if newHost.IsRelay && len(newHost.RelayedHosts) > 0 {
-		if len(newHost.RelayedHosts) != len(currHost.RelayedHosts) || !reflect.DeepEqual(newHost.RelayedHosts, currHost.RelayedHosts) {
-			updateRelay = true
-		}
-	}
 
 	logic.UpdateHost(newHost, currHost) // update the in memory struct values
 	if err = logic.UpsertHost(newHost); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update a host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
-	}
-	if updateRelay {
-		logic.UpdateHostRelay(currHost.ID.String(), currHost.RelayedHosts, newHost.RelayedHosts)
 	}
 	// publish host update through MQ
 	if err := mq.HostUpdate(&models.HostUpdate{
@@ -243,33 +231,6 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, r.Header.Get("user"), "failed to delete a host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
-	}
-	if currHost.IsRelay {
-		if _, _, err := logic.DeleteHostRelay(hostid); err != nil {
-			logger.Log(0, r.Header.Get("user"), "failed to dissociate host from relays:", err.Error())
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-	}
-	if currHost.IsRelayed {
-		relayHost, err := logic.GetHost(currHost.RelayedBy)
-		if err != nil {
-			logger.Log(0, r.Header.Get("user"), "failed to fetch relay host:", err.Error())
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-		newRelayedHosts := make([]string, 0)
-		for _, relayedHostID := range relayHost.RelayedHosts {
-			if relayedHostID != hostid {
-				newRelayedHosts = append(newRelayedHosts, relayedHostID)
-			}
-		}
-		relayHost.RelayedHosts = newRelayedHosts
-		if err := logic.UpsertHost(relayHost); err != nil {
-			logger.Log(0, r.Header.Get("user"), "failed to update host relays:", err.Error())
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
 	}
 	if err = logic.RemoveHost(currHost); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to delete a host:", err.Error())
@@ -334,6 +295,7 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 			Action: models.RequestAck,
 			Host:   *currHost,
 		})
+		go mq.BroadcastAddOrUpdatePeer(currHost, newNode, false)
 	}
 
 	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("added host %s to network %s", currHost.Name, network))
@@ -385,9 +347,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 
 	runUpdates(node, false)
 	go func() { // notify of peer change
-		if err := mq.PublishPeerUpdate(); err != nil {
-			logger.Log(1, "error publishing peer update ", err.Error())
-		}
+		mq.BroadcastDelPeer(currHost, network)
 		if err := mq.PublishDNSDelete(node, currHost); err != nil {
 			logger.Log(1, "error publishing dns update", err.Error())
 		}

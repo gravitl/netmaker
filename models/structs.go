@@ -153,9 +153,9 @@ type EgressGatewayRequest struct {
 
 // RelayRequest - relay request struct
 type RelayRequest struct {
-	NodeID     string   `json:"nodeid" bson:"nodeid"`
-	NetID      string   `json:"netid" bson:"netid"`
-	RelayAddrs []string `json:"relayaddrs" bson:"relayaddrs"`
+	NodeID       string   `json:"nodeid"`
+	NetID        string   `json:"netid"`
+	RelayedNodes []string `json:"relayednodes"`
 }
 
 // HostRelayRequest - struct for host relay creation
@@ -205,6 +205,7 @@ type HostPull struct {
 	Peers        []wgtypes.PeerConfig `json:"peers" yaml:"peers"`
 	ServerConfig ServerConfig         `json:"server_config" yaml:"server_config"`
 	PeerIDs      PeerMap              `json:"peer_ids,omitempty" yaml:"peer_ids,omitempty"`
+	FwUpdate     FwUpdate             `json:"fw_update" yaml:"fw_update"`
 }
 
 // NodeGet - struct for a single node get response

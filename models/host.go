@@ -64,10 +64,6 @@ type Host struct {
 	TrafficKeyPublic   []byte           `json:"traffickeypublic" yaml:"traffickeypublic"`
 	InternetGateway    net.UDPAddr      `json:"internetgateway" yaml:"internetgateway"`
 	Nodes              []string         `json:"nodes" yaml:"nodes"`
-	IsRelayed          bool             `json:"isrelayed" yaml:"isrelayed"`
-	RelayedBy          string           `json:"relayed_by" yaml:"relayed_by"`
-	IsRelay            bool             `json:"isrelay" yaml:"isrelay"`
-	RelayedHosts       []string         `json:"relay_hosts" yaml:"relay_hosts"`
 	Interfaces         []Iface          `json:"interfaces" yaml:"interfaces"`
 	DefaultInterface   string           `json:"defaultinterface" yaml:"defaultinterface"`
 	EndpointIP         net.IP           `json:"endpointip" yaml:"endpointip"`
@@ -79,6 +75,12 @@ type Host struct {
 	IsDefault          bool             `json:"isdefault" yaml:"isdefault"`
 	NatType            string           `json:"nat_type,omitempty" yaml:"nat_type,omitempty"`
 	TurnEndpoint       *netip.AddrPort  `json:"turn_endpoint,omitempty" yaml:"turn_endpoint,omitempty"`
+}
+
+// Client - represents a client on the network
+type Client struct {
+	Host Host `json:"host" yaml:"host"`
+	Node Node `json:"node" yaml:"node"`
 }
 
 // FormatBool converts a boolean to a [yes|no] string

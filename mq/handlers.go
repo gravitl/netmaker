@@ -10,6 +10,7 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/hostactions"
 	"github.com/gravitl/netmaker/models"
@@ -59,9 +60,17 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 	if ifaceDelta { // reduce number of unneeded updates, by only sending on iface changes
-		if err = PublishPeerUpdate(); err != nil {
-			slog.Warn("error updating peers when node informed the server of an interface change", "nodeid", currentNode.ID, "error", err)
+		h, err := logic.GetHost(newNode.HostID.String())
+		if err != nil {
+			return
 		}
+		if err = BroadcastAddOrUpdatePeer(h, &newNode, true); err != nil {
+			logger.Log(0, "error updating peers when node", currentNode.ID.String(), "informed the server of an interface change", err.Error())
+		}
+		if nodes, err := logic.GetNetworkNodes(newNode.Network); err == nil {
+			FlushNetworkPeersToHost(h, &newNode, nodes)
+		}
+
 	}
 
 	slog.Info("updated node", "id", id, "newnodeid", newNode.ID)
@@ -107,9 +116,14 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 						return
 					}
 				}
-				if err = PublishSingleHostPeerUpdate(context.Background(), currentHost, nil, nil); err != nil {
-					slog.Error("failed peers publish after join acknowledged", "name", hostUpdate.Host.Name, "id", currentHost.ID, "error", err)
+				// flush peers to host
+				nodes, err := logic.GetNetworkNodes(hu.Node.Network)
+				if err != nil {
 					return
+				}
+				err = FlushNetworkPeersToHost(&hu.Host, &hu.Node, nodes)
+				if err != nil {
+					logger.Log(0, "failed to flush peers to host: ", err.Error())
 				}
 				if err = handleNewNodeDNS(&hu.Host, &hu.Node); err != nil {
 					slog.Error("failed to send dns update after node added to host", "name", hostUpdate.Host.Name, "id", currentHost.ID, "error", err)
