@@ -146,6 +146,38 @@ func getIngressIPs(peer models.Client) []net.IPNet {
 	return ingressIPs
 }
 
+func getRelayPeerCfgForRelayedNode(relayed, relay *models.Client) (relayPeer wgtypes.PeerConfig) {
+	relayPeer = wgtypes.PeerConfig{
+		PublicKey: relay.Host.PublicKey,
+		Endpoint: &net.UDPAddr{
+			IP:   relay.Host.EndpointIP,
+			Port: logic.GetPeerListenPort(&relay.Host),
+		},
+		PersistentKeepaliveInterval: &relay.Node.PersistentKeepalive,
+	}
+	peers, err := logic.GetNetworkClients(relay.Node.Network)
+	if err == nil {
+		if relay.Node.Address.IP != nil {
+			relay.Node.Address.Mask = net.CIDRMask(32, 32)
+			relayPeer.AllowedIPs = append(relayPeer.AllowedIPs, relay.Node.Address)
+		}
+		if relay.Node.Address6.IP != nil {
+			relay.Node.Address6.Mask = net.CIDRMask(128, 128)
+			relayPeer.AllowedIPs = append(relayPeer.AllowedIPs, relay.Node.Address6)
+		}
+		// add all other peers to allowed ips
+		for _, peer := range peers {
+			if peer.Host.ID == relay.Host.ID || peer.Host.ID == relayed.Host.ID {
+				continue
+			}
+			if nodeacls.AreNodesAllowed(nodeacls.NetworkID(relayed.Node.Network), nodeacls.NodeID(relayed.Node.ID.String()), nodeacls.NodeID(peer.Node.ID.String())) {
+				relayPeer.AllowedIPs = append(relayPeer.AllowedIPs, logic.AddAllowedIPs(&peer)...)
+			}
+		}
+	}
+	return
+}
+
 // pubRelayedUpdate - publish peer update to a node (client) that is relayed by the relay
 func pubRelayedUpdate(client, relay *models.Client, peers []models.Client) {
 	//verify

@@ -64,8 +64,8 @@ func FlushNetworkPeersToHost(host *models.Host, hNode *models.Node, networkNodes
 		Peers:  []wgtypes.PeerConfig{},
 	}
 	for _, node := range networkNodes {
-		if node.ID == hNode.ID {
-			// skip self
+		if node.ID == hNode.ID || node.IsRelayed {
+			// skip self or if relayed
 			continue
 		}
 		peerHost, err := logic.GetHost(node.HostID.String())
@@ -74,14 +74,13 @@ func FlushNetworkPeersToHost(host *models.Host, hNode *models.Node, networkNodes
 		}
 
 		if !nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(hNode.ID.String()), nodeacls.NodeID(node.ID.String())) ||
-			hNode.Action == models.NODE_DELETE || hNode.PendingDelete || !hNode.Connected {
+			hNode.Action == models.NODE_DELETE || hNode.PendingDelete || !hNode.Connected || (hNode.IsRelayed && hNode.RelayedBy != node.ID.String()) {
 			// remove peer if not allowed
 			rmPeerAction.Peers = append(rmPeerAction.Peers, wgtypes.PeerConfig{
 				PublicKey: peerHost.PublicKey,
 				Remove:    true,
 			})
 			continue
-
 		}
 		peerCfg := wgtypes.PeerConfig{
 			PublicKey: peerHost.PublicKey,
@@ -95,12 +94,32 @@ func FlushNetworkPeersToHost(host *models.Host, hNode *models.Node, networkNodes
 		}
 		addPeerAction.Peers = append(addPeerAction.Peers, peerCfg)
 	}
+	if hNode.IsRelayed {
+		// update the relay peer on this node
+		relayNode, err := logic.GetNodeByID(hNode.RelayedBy)
+		if err != nil {
+			return err
+		}
+		relayHost, err := logic.GetHost(relayNode.HostID.String())
+		if err != nil {
+			return err
+		}
+		relayedClient := &models.Client{
+			Host: *host,
+			Node: *hNode,
+		}
+		relayClient := &models.Client{
+			Host: *relayHost,
+			Node: relayNode,
+		}
+		relayPeerCfg := getRelayPeerCfgForRelayedNode(relayedClient, relayClient)
+		addPeerAction.Peers = append(addPeerAction.Peers, relayPeerCfg)
+	}
 	if hNode.IsIngressGateway {
 		extPeers, _, err := logic.GetExtPeers(hNode)
 		if err == nil {
 			addPeerAction.Peers = append(addPeerAction.Peers, extPeers...)
 		}
-
 	}
 	if len(rmPeerAction.Peers) > 0 {
 		data, err := json.Marshal(rmPeerAction)
@@ -220,12 +239,47 @@ func BroadcastAddOrUpdatePeer(host *models.Host, node *models.Node, update bool)
 			p.Action = models.RemovePeer
 			p.Peers[0].Remove = true
 		}
-		data, err := json.Marshal(p)
+		peerHost, err := logic.GetHost(nodeI.HostID.String())
 		if err != nil {
 			continue
 		}
-		peerHost, err := logic.GetHost(nodeI.HostID.String())
-		if err == nil {
+		if nodeI.IsRelayed {
+			r := models.PeerAction{
+				Action: models.AddPeer,
+			}
+			// update the relay peer on this node
+			relayNode, err := logic.GetNodeByID(nodeI.RelayedBy)
+			if err != nil {
+				continue
+			}
+			relayHost, err := logic.GetHost(relayNode.HostID.String())
+			if err != nil {
+				continue
+			}
+			relayedClient := &models.Client{
+				Host: *peerHost,
+				Node: nodeI,
+			}
+			relayClient := &models.Client{
+				Host: *relayHost,
+				Node: relayNode,
+			}
+			rPeerCfg := getRelayPeerCfgForRelayedNode(relayedClient, relayClient)
+			if update {
+				r.Action = models.UpdatePeer
+			}
+			r.Peers = append(r.Peers, rPeerCfg)
+			data, err := json.Marshal(r)
+			if err != nil {
+				continue
+			}
+			publish(peerHost, fmt.Sprintf("peer/host/%s/%s", peerHost.ID.String(), servercfg.GetServer()), data)
+
+		} else {
+			data, err := json.Marshal(p)
+			if err != nil {
+				continue
+			}
 			publish(peerHost, fmt.Sprintf("peer/host/%s/%s", peerHost.ID.String(), servercfg.GetServer()), data)
 		}
 		if nodeI.IsIngressGateway || nodeI.IsEgressGateway {
@@ -235,7 +289,6 @@ func BroadcastAddOrUpdatePeer(host *models.Host, node *models.Node, update bool)
 					PublishFwUpdate(&peerHost, &f)
 				}
 			}(*peerHost)
-
 		}
 
 	}
@@ -258,7 +311,6 @@ func BroadcastExtClient(ingressHost *models.Host, ingressNode *models.Node) erro
 
 // BroadcastDelExtClient - published msg to remove ext client from network
 func BroadcastDelExtClient(ingressHost *models.Host, ingressNode *models.Node, extclients []models.ExtClient) error {
-	// TODO - send fw update
 	go BroadcastAddOrUpdatePeer(ingressHost, ingressNode, true)
 	peers := []wgtypes.PeerConfig{}
 	for _, extclient := range extclients {

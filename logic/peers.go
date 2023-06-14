@@ -762,29 +762,3 @@ func getIngressIPs(peer *models.Client) []net.IPNet {
 	}
 	return ingressIPs
 }
-
-// GetPeerUpdateForRelay - returns the peer update for a relay node
-func GetPeerUpdateForRelay(client *models.Client, peers []models.Client) []wgtypes.PeerConfig {
-	peerConfig := []wgtypes.PeerConfig{}
-	if !client.Node.IsRelay {
-		return []wgtypes.PeerConfig{}
-	}
-	for _, peer := range peers {
-		if peer.Host.ID == client.Host.ID {
-			continue
-		}
-		update := wgtypes.PeerConfig{
-			PublicKey:         peer.Host.PublicKey,
-			ReplaceAllowedIPs: true,
-			Remove:            false,
-			Endpoint: &net.UDPAddr{
-				IP:   peer.Host.EndpointIP,
-				Port: peer.Host.ListenPort,
-			},
-			PersistentKeepaliveInterval: &peer.Node.PersistentKeepalive,
-		}
-		update.AllowedIPs = append(update.AllowedIPs, AddAllowedIPs(&peer)...)
-		peerConfig = append(peerConfig, update)
-	}
-	return peerConfig
-}
