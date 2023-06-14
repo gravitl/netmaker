@@ -63,11 +63,11 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 		if err != nil {
 			return
 		}
-		if err = BroadcastAddOrUpdatePeer(h, &newNode, true); err != nil {
+		if err = BroadcastAddOrUpdateNetworkPeer(&models.Client{Host: *h, Node: newNode}, true); err != nil {
 			logger.Log(0, "error updating peers when node", currentNode.ID.String(), "informed the server of an interface change", err.Error())
 		}
-		if nodes, err := logic.GetNetworkNodes(newNode.Network); err == nil {
-			FlushNetworkPeersToHost(h, &newNode, nodes)
+		if clients, err := logic.GetNetworkClients(newNode.Network); err == nil {
+			FlushNetworkPeersToHost(&models.Client{Host: *h, Node: newNode}, clients)
 		}
 
 	}
@@ -99,6 +99,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	}
 	slog.Info("recieved host update", "name", hostUpdate.Host.Name, "id", hostUpdate.Host.ID)
 	var sendPeerUpdate bool
+	var removeHost bool
 	switch hostUpdate.Action {
 	case models.CheckIn:
 		sendPeerUpdate = handleHostCheckin(&hostUpdate.Host, currentHost)
@@ -116,11 +117,11 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 					}
 				}
 				// flush peers to host
-				nodes, err := logic.GetNetworkNodes(hu.Node.Network)
+				clients, err := logic.GetNetworkClients(hu.Node.Network)
 				if err != nil {
 					return
 				}
-				err = FlushNetworkPeersToHost(&hu.Host, &hu.Node, nodes)
+				err = FlushNetworkPeersToHost(&models.Client{Host: hu.Host, Node: hu.Node}, clients)
 				if err != nil {
 					logger.Log(0, "failed to flush peers to host: ", err.Error())
 				}
@@ -175,7 +176,9 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 			slog.Error("failed to delete host", "id", currentHost.ID, "error", err)
 			return
 		}
+		removeHost = true
 		sendPeerUpdate = true
+
 	case models.RegisterWithTurn:
 		if servercfg.IsUsingTurn() {
 			err = logic.RegisterHostWithTurn(hostUpdate.Host.ID.String(), hostUpdate.Host.HostPass)
@@ -188,10 +191,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	}
 
 	if sendPeerUpdate {
-		err := PublishPeerUpdate()
-		if err != nil {
-			slog.Error("failed to publish peer update", "error", err)
-		}
+		go BroadcastHostUpdate(currentHost, removeHost)
 	}
 	// if servercfg.Is_EE && ifaceDelta {
 	// 	if err = logic.EnterpriseResetAllPeersFailovers(currentHost.ID.String(), currentHost.Network); err != nil {

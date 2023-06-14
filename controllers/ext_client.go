@@ -502,7 +502,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		if ingressNode, err := logic.GetNodeByID(newclient.IngressGatewayID); err == nil {
 			if ingressHost, err := logic.GetHost(ingressNode.HostID.String()); err == nil {
 				if replaceOldClient || !update.Enabled {
-					mq.BroadcastDelExtClient(ingressHost, &ingressNode, []models.ExtClient{currentClient})
+					mq.BroadcastDelExtClient(&models.Client{Host: *ingressHost, Node: ingressNode}, []models.ExtClient{currentClient})
 				}
 				if replaceOldClient || changedEnabled {
 					// broadcast update
@@ -588,7 +588,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		ingressHost, err := logic.GetHost(ingressnode.HostID.String())
 		if err == nil {
-			mq.BroadcastDelExtClient(ingressHost, &ingressnode, []models.ExtClient{extclient})
+			mq.BroadcastDelExtClient(&models.Client{Host: *ingressHost, Node: ingressnode}, []models.ExtClient{extclient})
 			f, err := logic.GetFwUpdate(ingressHost)
 			if err == nil {
 				mq.PublishFwUpdate(ingressHost, &f)

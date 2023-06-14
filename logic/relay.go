@@ -100,6 +100,15 @@ func ValidateRelay(relay models.RelayRequest) error {
 	if empty {
 		err = errors.New("relayed nodes cannot be empty")
 	}
+	for _, relayedNodeID := range relay.RelayedNodes {
+		relayedNode, err := GetNodeByID(relayedNodeID)
+		if err != nil {
+			return err
+		}
+		if relayedNode.IsIngressGateway {
+			return errors.New("cannot relay an ingress gateway (" + relayedNodeID + ")")
+		}
+	}
 	return err
 }
 
@@ -174,7 +183,7 @@ func peerUpdateForRelayed(client *models.Client, peers []models.Client) []wgtype
 			continue
 		}
 		if peer.Host.ID == relay.Host.ID { // add relay as a peer
-			update := peerUpdateForRelayedByRelay(client, &relay)
+			update := PeerUpdateForRelayedByRelay(client, &relay)
 			peerConfig = append(peerConfig, update)
 			continue
 		}
@@ -187,8 +196,8 @@ func peerUpdateForRelayed(client *models.Client, peers []models.Client) []wgtype
 	return peerConfig
 }
 
-// peerUpdateForRelayedByRelay - returns the peerConfig for a node relayed by relay
-func peerUpdateForRelayedByRelay(relayed, relay *models.Client) wgtypes.PeerConfig {
+// PeerUpdateForRelayedByRelay - returns the peerConfig for a node relayed by relay
+func PeerUpdateForRelayedByRelay(relayed, relay *models.Client) wgtypes.PeerConfig {
 	if relayed.Node.RelayedBy != relay.Node.ID.String() {
 		logger.Log(0, "peerUpdateForRelayedByRelay called with invalid parameters")
 		return wgtypes.PeerConfig{}
