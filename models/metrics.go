@@ -15,25 +15,25 @@ type Metrics struct {
 
 // Metric - holds a metric for data between nodes
 type Metric struct {
-	NodeName         string        `json:"node_name" bson:"node_name" yaml:"node_name"`
-	Uptime           int64         `json:"uptime" bson:"uptime" yaml:"uptime"`
-	TotalTime        int64         `json:"totaltime" bson:"totaltime" yaml:"totaltime"`
-	Latency          int64         `json:"latency" bson:"latency" yaml:"latency"`
-	TotalReceived    int64         `json:"totalreceived" bson:"totalreceived" yaml:"totalreceived"`
-	TotalSent        int64         `json:"totalsent" bson:"totalsent" yaml:"totalsent"`
-	ActualUptime     time.Duration `json:"actualuptime" bson:"actualuptime" yaml:"actualuptime"`
-	PercentUp        float64       `json:"percentup" bson:"percentup" yaml:"percentup"`
-	Connected        bool          `json:"connected" bson:"connected" yaml:"connected"`
-	CollectedByProxy bool          `json:"collected_by_proxy" bson:"collected_by_proxy" yaml:"collected_by_proxy"`
+	NodeName      string        `json:"node_name" bson:"node_name" yaml:"node_name"`
+	Uptime        int64         `json:"uptime" bson:"uptime" yaml:"uptime"`
+	TotalTime     int64         `json:"totaltime" bson:"totaltime" yaml:"totaltime"`
+	Latency       int64         `json:"latency" bson:"latency" yaml:"latency"`
+	TotalReceived int64         `json:"totalreceived" bson:"totalreceived" yaml:"totalreceived"`
+	TotalSent     int64         `json:"totalsent" bson:"totalsent" yaml:"totalsent"`
+	ActualUptime  time.Duration `json:"actualuptime" bson:"actualuptime" yaml:"actualuptime"`
+	PercentUp     float64       `json:"percentup" bson:"percentup" yaml:"percentup"`
+	Connected     bool          `json:"connected" bson:"connected" yaml:"connected"`
 }
 
 // IDandAddr - struct to hold ID and primary Address
 type IDandAddr struct {
-	ID       string `json:"id" bson:"id" yaml:"id"`
-	Address  string `json:"address" bson:"address" yaml:"address"`
-	Name     string `json:"name" bson:"name" yaml:"name"`
-	IsServer string `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
-	Network  string `json:"network" bson:"network" yaml:"network" validate:"network"`
+	ID          string `json:"id" bson:"id" yaml:"id"`
+	Address     string `json:"address" bson:"address" yaml:"address"`
+	Name        string `json:"name" bson:"name" yaml:"name"`
+	Network     string `json:"network" bson:"network" yaml:"network" validate:"network"`
+	ListenPort  int    `json:"listen_port" yaml:"listen_port"`
+	IsExtclient bool   `json:"is_ext_client" yaml:"is_ext_client"`
 }
 
 // HostInfoMap - map of host public keys to host networking info

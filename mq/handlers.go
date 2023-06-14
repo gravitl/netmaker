@@ -1,7 +1,6 @@
 package mq
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -249,7 +248,7 @@ func UpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 			slog.Info("updating peers after node detected connectivity issues", "id", currentNode.ID, "network", currentNode.Network)
 			host, err := logic.GetHost(currentNode.HostID.String())
 			if err == nil {
-				if err = PublishSingleHostPeerUpdate(context.Background(), host, nil, nil); err != nil {
+				if err = PublishSingleHostPeerUpdate(host); err != nil {
 					slog.Warn("failed to publish update after failover peer change for node", "id", currentNode.ID, "network", currentNode.Network, "error", err)
 				}
 			}
@@ -331,21 +330,18 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 		oldMetric := oldMetrics.Connectivity[k]
 		currMetric.TotalTime += oldMetric.TotalTime
 		currMetric.Uptime += oldMetric.Uptime // get the total uptime for this connection
-		if currMetric.CollectedByProxy {
+
+		if currMetric.TotalReceived < oldMetric.TotalReceived {
 			currMetric.TotalReceived += oldMetric.TotalReceived
+		} else {
+			currMetric.TotalReceived += int64(math.Abs(float64(currMetric.TotalReceived) - float64(oldMetric.TotalReceived)))
+		}
+		if currMetric.TotalSent < oldMetric.TotalSent {
 			currMetric.TotalSent += oldMetric.TotalSent
 		} else {
-			if currMetric.TotalReceived < oldMetric.TotalReceived {
-				currMetric.TotalReceived += oldMetric.TotalReceived
-			} else {
-				currMetric.TotalReceived += int64(math.Abs(float64(currMetric.TotalReceived) - float64(oldMetric.TotalReceived)))
-			}
-			if currMetric.TotalSent < oldMetric.TotalSent {
-				currMetric.TotalSent += oldMetric.TotalSent
-			} else {
-				currMetric.TotalSent += int64(math.Abs(float64(currMetric.TotalSent) - float64(oldMetric.TotalSent)))
-			}
+			currMetric.TotalSent += int64(math.Abs(float64(currMetric.TotalSent) - float64(oldMetric.TotalSent)))
 		}
+
 		if currMetric.Uptime == 0 || currMetric.TotalTime == 0 {
 			currMetric.PercentUp = 0
 		} else {

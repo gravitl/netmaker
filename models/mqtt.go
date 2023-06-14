@@ -6,17 +6,18 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+type NodePeersInfo struct {
+	Peers   []wgtypes.PeerConfig `json:"peers" yaml:"peers"`
+	PeerIDs PeerMap              `json:"peerids" yaml:"peerids"`
+}
+
 // HostPeerUpdate - struct for host peer updates
 type HostPeerUpdate struct {
 	Host            Host                 `json:"host" bson:"host" yaml:"host"`
 	Server          string               `json:"server" bson:"server" yaml:"server"`
 	ServerVersion   string               `json:"serverversion" bson:"serverversion" yaml:"serverversion"`
-	ServerAddrs     []ServerAddr         `json:"serveraddrs" bson:"serveraddrs" yaml:"serveraddrs"`
-	NodePeers       []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
-	Peers           []wgtypes.PeerConfig
-	HostPeerIDs     HostPeerMap `json:"hostpeerids" bson:"hostpeerids" yaml:"hostpeerids"`
-	PeerIDs         PeerMap     `json:"peerids" bson:"peerids" yaml:"peerids"`
-	HostNetworkInfo HostInfoMap `json:"host_network_info,omitempty" bson:"host_network_info,omitempty" yaml:"host_network_info,omitempty"`
+	Peers           []wgtypes.PeerConfig `json:"peers" yaml:"peers"`
+	HostNetworkInfo HostInfoMap          `json:"host_network_info,omitempty" bson:"host_network_info,omitempty" yaml:"host_network_info,omitempty"`
 }
 
 // IngressInfo - struct for ingress info
