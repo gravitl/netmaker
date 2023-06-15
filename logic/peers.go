@@ -148,16 +148,23 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 				// skip relayed peers; will be included in relay peer
 				continue
 			}
-			var peerConfig wgtypes.PeerConfig
 			peerHost, err := GetHost(peer.HostID.String())
 			if err != nil {
 				logger.Log(1, "no peer host", peer.HostID.String(), err.Error())
 				return models.HostPeerUpdate{}, err
 			}
-
-			peerConfig.PublicKey = peerHost.PublicKey
-			peerConfig.PersistentKeepaliveInterval = &peer.PersistentKeepalive
-			peerConfig.ReplaceAllowedIPs = true
+			peerConfig := wgtypes.PeerConfig{
+				PublicKey:                   peerHost.PublicKey,
+				PersistentKeepaliveInterval: &peer.PersistentKeepalive,
+				ReplaceAllowedIPs:           true,
+			}
+			if (node.IsRelayed && node.RelayedBy != peer.ID.String()) || shouldRemovePeer(node, peer) {
+				// if node is relayed and peer is not the relay, set remove to true
+				peerConfig.Remove = true
+				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
+				peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
+				continue
+			}
 			uselocal := false
 			if host.EndpointIP.String() == peerHost.EndpointIP.String() {
 				// peer is on same network
@@ -181,30 +188,6 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 				peerConfig.Endpoint.Port = peerHost.ListenPort
 			}
 			allowedips := GetAllowedIPs(&models.Client{Host: *peerHost, Node: peer})
-			if peer.IsIngressGateway {
-				for _, entry := range peer.IngressGatewayRange {
-					_, cidr, err := net.ParseCIDR(string(entry))
-					if err == nil {
-						allowedips = append(allowedips, *cidr)
-					}
-				}
-			}
-			if peer.IsEgressGateway {
-				host, err := GetHost(peer.HostID.String())
-				if err == nil {
-					allowedips = append(allowedips, getEgressIPs(
-						&models.Client{
-							Host: *host,
-							Node: peer,
-						})...)
-				}
-			}
-			if peer.Action != models.NODE_DELETE &&
-				!peer.PendingDelete &&
-				peer.Connected &&
-				nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) {
-				peerConfig.AllowedIPs = allowedips // only append allowed IPs if valid connection
-			}
 			if _, ok := peerIndexMap[peerHost.PublicKey.String()]; !ok {
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
 				peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
@@ -214,10 +197,8 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 			} else {
 				peerAllowedIPs := hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].AllowedIPs
 				peerAllowedIPs = append(peerAllowedIPs, allowedips...)
+				hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].Remove = false
 				hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].AllowedIPs = peerAllowedIPs
-				hostPeerUpdate.HostNetworkInfo[peerHost.PublicKey.String()] = models.HostNetworkInfo{
-					Interfaces: peerHost.Interfaces,
-				}
 			}
 
 		}
@@ -233,6 +214,14 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 	}
 
 	return hostPeerUpdate, nil
+}
+
+func shouldRemovePeer(node, peer models.Node) (remove bool) {
+	if peer.Action == models.NODE_DELETE || peer.PendingDelete || !peer.Connected ||
+		!nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) {
+		remove = true
+	}
+	return
 }
 
 // GetFwUpdate - fetches the firewall update for the gateway nodes on the host
@@ -555,68 +544,6 @@ func filterNodeMapForClientACLs(publicKey, network string, nodePeerMap map[strin
 		}
 	}
 	return nodePeerMap
-}
-
-func GetPeerUpdate(host *models.Host) []wgtypes.PeerConfig {
-	peerUpdate := []wgtypes.PeerConfig{}
-	for _, nodeStr := range host.Nodes {
-		node, err := GetNodeByID(nodeStr)
-		if err != nil {
-			continue
-		}
-		client := models.Client{Host: *host, Node: node}
-		peers, err := GetNetworkClients(node.Network)
-		if err != nil {
-			continue
-		}
-		if node.IsRelayed {
-			peerUpdate = append(peerUpdate, peerUpdateForRelayed(&client, peers)...)
-			continue
-		}
-		if node.IsRelay {
-			peerUpdate = append(peerUpdate, peerUpdateForRelay(&client, peers)...)
-			continue
-		}
-		for _, peer := range peers {
-			if peer.Host.ID == client.Host.ID {
-				continue
-			}
-			// if peer is relayed by some other node, remove it from the peer list,  it
-			// will be added to allowedips of relay peer
-			if peer.Node.IsRelayed {
-				update := wgtypes.PeerConfig{
-					PublicKey: peer.Host.PublicKey,
-					Remove:    true,
-				}
-				peerUpdate = append(peerUpdate, update)
-				continue
-			}
-			update := wgtypes.PeerConfig{
-				PublicKey:         peer.Host.PublicKey,
-				ReplaceAllowedIPs: true,
-				Endpoint: &net.UDPAddr{
-					IP:   peer.Host.EndpointIP,
-					Port: peer.Host.ListenPort,
-				},
-				PersistentKeepaliveInterval: &peer.Node.PersistentKeepalive,
-			}
-			// if peer is a relay that relays us, don't do anything
-			if peer.Node.IsRelay && client.Node.RelayedBy == peer.Node.ID.String() {
-				continue
-			} else {
-				update.AllowedIPs = append(update.AllowedIPs, getRelayAllowedIPs(&peer)...)
-			}
-			//normal peer
-			if nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.Node.ID.String())) {
-				update.AllowedIPs = append(update.AllowedIPs, GetAllowedIPs(&peer)...)
-				peerUpdate = append(peerUpdate, update)
-			} else {
-				update.Remove = true
-				peerUpdate = append(peerUpdate, update)
-			}
-		}
-	}
-	return peerUpdate
 }
 
 func AddHostAllowedIPs(h *models.Host) []net.IPNet {

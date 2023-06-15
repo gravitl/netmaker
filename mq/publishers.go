@@ -94,7 +94,7 @@ func FlushNetworkPeersToHost(client *models.Client, networkClients []models.Clie
 			Host: *relayHost,
 			Node: relayNode,
 		}
-		relayPeerCfg := logic.PeerUpdateForRelayedByRelay(relayedClient, relayClient)
+		relayPeerCfg := logic.GetPeerConfForRelayed(relayedClient, relayClient)
 		addPeerAction.Peers = append(addPeerAction.Peers, relayPeerCfg)
 	}
 	if client.Node.IsIngressGateway {
@@ -213,7 +213,7 @@ func BroadcastHostUpdate(host *models.Host, remove bool) error {
 
 // BroadcastAddOrUpdateNetworkPeer - notifys the hosts in the network to add or update peer.
 func BroadcastAddOrUpdateNetworkPeer(client *models.Client, update bool) error {
-	nodes, err := logic.GetNetworkNodes(client.Node.Network)
+	clients, err := logic.GetNetworkClients(client.Node.Network)
 	if err != nil {
 		return err
 	}
@@ -235,30 +235,30 @@ func BroadcastAddOrUpdateNetworkPeer(client *models.Client, update bool) error {
 	if update {
 		p.Action = models.UpdatePeer
 	}
-	for _, nodeI := range nodes {
-		nodeI := nodeI
-		if nodeI.ID.String() == client.Node.ID.String() {
+	for _, clientI := range clients {
+		clientI := clientI
+		if clientI.Node.ID.String() == client.Node.ID.String() {
 			// skip self...
 			continue
 		}
 		// update allowed ips, according to the peer node
 		p.Peers[0].AllowedIPs = logic.GetAllowedIPs(&models.Client{Host: client.Host, Node: client.Node})
-		if update && (!nodeacls.AreNodesAllowed(nodeacls.NetworkID(client.Node.Network), nodeacls.NodeID(client.Node.ID.String()), nodeacls.NodeID(nodeI.ID.String())) ||
+		if update && (!nodeacls.AreNodesAllowed(nodeacls.NetworkID(client.Node.Network), nodeacls.NodeID(client.Node.ID.String()), nodeacls.NodeID(clientI.Node.ID.String())) ||
 			client.Node.Action == models.NODE_DELETE || client.Node.PendingDelete || !client.Node.Connected) {
 			// remove peer
 			p.Action = models.RemovePeer
 			p.Peers[0].Remove = true
 		}
-		peerHost, err := logic.GetHost(nodeI.HostID.String())
+		peerHost, err := logic.GetHost(clientI.Host.ID.String())
 		if err != nil {
 			continue
 		}
-		if nodeI.IsRelayed {
+		if clientI.Node.IsRelayed {
 			r := models.PeerAction{
 				Action: models.AddPeer,
 			}
 			// update the relay peer on this node
-			relayNode, err := logic.GetNodeByID(nodeI.RelayedBy)
+			relayNode, err := logic.GetNodeByID(clientI.Node.RelayedBy)
 			if err != nil {
 				continue
 			}
@@ -268,13 +268,13 @@ func BroadcastAddOrUpdateNetworkPeer(client *models.Client, update bool) error {
 			}
 			relayedClient := &models.Client{
 				Host: *peerHost,
-				Node: nodeI,
+				Node: clientI.Node,
 			}
 			relayClient := &models.Client{
 				Host: *relayHost,
 				Node: relayNode,
 			}
-			rPeerCfg := logic.PeerUpdateForRelayedByRelay(relayedClient, relayClient)
+			rPeerCfg := logic.GetPeerConfForRelayed(relayedClient, relayClient)
 			if update {
 				r.Action = models.UpdatePeer
 			}
@@ -292,7 +292,7 @@ func BroadcastAddOrUpdateNetworkPeer(client *models.Client, update bool) error {
 			}
 			publish(peerHost, fmt.Sprintf("peer/host/%s/%s", peerHost.ID.String(), servercfg.GetServer()), data)
 		}
-		if nodeI.IsIngressGateway || nodeI.IsEgressGateway {
+		if clientI.Node.IsIngressGateway || clientI.Node.IsEgressGateway {
 			go func(peerHost models.Host) {
 				f, err := logic.GetFwUpdate(&peerHost)
 				if err == nil {
