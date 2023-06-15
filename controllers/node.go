@@ -767,8 +767,11 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 			logger.Log(1, "failed to retrieve host for node", node.ID.String(), err.Error())
 			return
 		}
-
-		err = mq.BroadcastDelPeer(host, deletedNode.Network)
+		clients, err := logic.GetNetworkClients(deletedNode.Network)
+		if err != nil {
+			return
+		}
+		err = mq.BroadcastDelPeer(host, clients)
 		if err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
 		}

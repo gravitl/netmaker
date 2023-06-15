@@ -149,11 +149,8 @@ func FlushNetworkPeersToHost(client *models.Client, networkClients []models.Clie
 }
 
 // BroadcastDelPeer - notifys all the hosts in the network to remove peer
-func BroadcastDelPeer(host *models.Host, network string) error {
-	nodes, err := logic.GetNetworkNodes(network)
-	if err != nil {
-		return err
-	}
+func BroadcastDelPeer(host *models.Host, networkClients []models.Client) error {
+
 	p := models.PeerAction{
 		Action: models.RemovePeer,
 		Peers: []wgtypes.PeerConfig{
@@ -167,23 +164,21 @@ func BroadcastDelPeer(host *models.Host, network string) error {
 	if err != nil {
 		return err
 	}
-	for _, nodeI := range nodes {
-		if nodeI.HostID == host.ID {
+	for _, clientI := range networkClients {
+		if clientI.Host.ID == host.ID {
 			// skip self...
 			continue
 		}
-		peerHost, err := logic.GetHost(nodeI.HostID.String())
-		if err == nil {
-			publish(peerHost, fmt.Sprintf("peer/host/%s/%s", peerHost.ID.String(), servercfg.GetServer()), data)
-			if nodeI.IsIngressGateway || nodeI.IsEgressGateway {
-				go func(peerHost models.Host) {
-					f, err := logic.GetFwUpdate(&peerHost)
-					if err == nil {
-						PublishFwUpdate(&peerHost, &f)
-					}
-				}(*peerHost)
-			}
+		publish(&clientI.Host, fmt.Sprintf("peer/host/%s/%s", clientI.Host.ID.String(), servercfg.GetServer()), data)
+		if clientI.Node.IsIngressGateway || clientI.Node.IsEgressGateway {
+			go func(peerHost models.Host) {
+				f, err := logic.GetFwUpdate(&peerHost)
+				if err == nil {
+					PublishFwUpdate(&peerHost, &f)
+				}
+			}(clientI.Host)
 		}
+
 	}
 	return nil
 }

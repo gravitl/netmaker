@@ -50,7 +50,7 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	go mq.BroadCastRelayUpdate(relayNode.Network)
+	go mq.BroadCastRelayUpdate(relayRequest)
 	logger.Log(1, r.Header.Get("user"), "created relay on node", relayRequest.NodeID, "on network", relayRequest.NetID)
 	apiNode := relayNode.ConvertToAPINode()
 	w.WriteHeader(http.StatusOK)
@@ -105,7 +105,7 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 		// 		mq.PubPeerUpdate(&client, nil, peers)
 		// 	}
 		// }
-		go mq.BroadCastRelayUpdate(netid)
+		go mq.BroadCastRelayRemoval(netid)
 	}()
 	logger.Log(1, r.Header.Get("user"), "deleted relay on node", node.ID.String(), "on network", node.Network)
 	apiNode := node.ConvertToAPINode()
