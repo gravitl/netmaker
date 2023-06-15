@@ -101,7 +101,6 @@ func FlushNetworkPeersToHost(client *models.Client, networkClients []models.Clie
 	}
 	if client.Node.IsRelayed {
 		// update the relay peer on this node
-		logger.Log(0, "HEREEEEEEEEEEEEEEE 1")
 		relayNode, err := logic.GetNodeByID(client.Node.RelayedBy)
 		if err != nil {
 			return err
@@ -110,7 +109,6 @@ func FlushNetworkPeersToHost(client *models.Client, networkClients []models.Clie
 		if err != nil {
 			return err
 		}
-		logger.Log(0, "HEREEEEEEEEEEEEEEE 2")
 		relayedClient := client
 		relayClient := &models.Client{
 			Host: *relayHost,
