@@ -31,6 +31,7 @@ func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) 
 		return returnnodes, models.Node{}, err
 	}
 	node.IsRelay = true
+	node.RelayedNodes = relay.RelayedNodes
 	node.SetLastModified()
 	nodeData, err := json.Marshal(&node)
 	if err != nil {
@@ -106,6 +107,15 @@ func ValidateRelay(relay models.RelayRequest) error {
 	if empty {
 		err = errors.New("IP Ranges Cannot Be Empty")
 	}
+	for _, relayedNodeID := range relay.RelayedNodes {
+		relayedNode, err := GetNodeByID(relayedNodeID)
+		if err != nil {
+			return err
+		}
+		if relayedNode.IsIngressGateway {
+			return errors.New("cannot relay an ingress gateway (" + relayedNodeID + ")")
+		}
+	}
 	return err
 }
 
@@ -124,6 +134,7 @@ func DeleteRelay(network, nodeid string) ([]models.Node, models.Node, error) {
 	}
 	returnnodes = SetRelayedNodes(false, nodeid, node.RelayedNodes)
 	node.IsRelay = false
+	node.RelayedBy = ""
 	node.SetLastModified()
 	data, err := json.Marshal(&node)
 	if err != nil {
@@ -143,9 +154,11 @@ func getRelayedAddresses(id string) []net.IPNet {
 		return addrs
 	}
 	if node.Address.IP != nil {
+		node.Address.Mask = net.CIDRMask(32, 32)
 		addrs = append(addrs, node.Address)
 	}
 	if node.Address6.IP != nil {
+		node.Address.Mask = net.CIDRMask(128, 128)
 		addrs = append(addrs, node.Address6)
 	}
 	return addrs

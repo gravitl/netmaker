@@ -102,6 +102,9 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	if err != nil {
 		return models.Node{}, err
 	}
+	if node.IsRelayed {
+		return models.Node{}, errors.New("ingress cannot be created on a relayed node")
+	}
 	host, err := GetHost(node.HostID.String())
 	if err != nil {
 		return models.Node{}, err

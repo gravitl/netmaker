@@ -85,7 +85,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 		}
 	}
 	nodeACLDelta := currentNode.DefaultACL != newNode.DefaultACL
-	newNode.Fill(currentNode)
+	newNode.Fill(currentNode, servercfg.Is_EE)
 
 	// check for un-settable server values
 	if err := ValidateNode(newNode, true); err != nil {

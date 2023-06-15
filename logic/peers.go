@@ -155,16 +155,23 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 					// skip relayed peers; will be included in relay peer
 					continue
 				}
-				var peerConfig wgtypes.PeerConfig
 				peerHost, err := GetHost(peer.HostID.String())
 				if err != nil {
 					logger.Log(1, "no peer host", peer.HostID.String(), err.Error())
 					return models.HostPeerUpdate{}, err
 				}
-
-				peerConfig.PublicKey = peerHost.PublicKey
-				peerConfig.PersistentKeepaliveInterval = &peer.PersistentKeepalive
-				peerConfig.ReplaceAllowedIPs = true
+				peerConfig := wgtypes.PeerConfig{
+					PublicKey:                   peerHost.PublicKey,
+					PersistentKeepaliveInterval: &peer.PersistentKeepalive,
+					ReplaceAllowedIPs:           true,
+				}
+				if node.IsRelayed && node.RelayedBy != peer.ID.String() {
+					// if node is relayed and peer is not the relay, set remove to true
+					peerConfig.Remove = true
+					hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
+					peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
+					continue
+				}
 				uselocal := false
 				if host.EndpointIP.String() == peerHost.EndpointIP.String() {
 					// peer is on same network
@@ -262,6 +269,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 					peerAllowedIPs := hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].AllowedIPs
 					peerAllowedIPs = append(peerAllowedIPs, allowedips...)
 					hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].AllowedIPs = peerAllowedIPs
+					hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].Remove = false
 					hostPeerUpdate.HostPeerIDs[peerHost.PublicKey.String()][peer.ID.String()] = models.IDandAddr{
 						ID:              peer.ID.String(),
 						Address:         peer.PrimaryAddress(),
