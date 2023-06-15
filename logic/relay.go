@@ -235,7 +235,7 @@ func PeerUpdateForRelayedByRelay(relayed, relay *models.Client) wgtypes.PeerConf
 			continue
 		}
 		if nodeacls.AreNodesAllowed(nodeacls.NetworkID(relayed.Node.Network), nodeacls.NodeID(relayed.Node.ID.String()), nodeacls.NodeID(peer.Node.ID.String())) {
-			update.AllowedIPs = append(update.AllowedIPs, AddAllowedIPs(&peer)...)
+			update.AllowedIPs = append(update.AllowedIPs, GetAllowedIPs(&peer)...)
 		}
 	}
 	return update
@@ -263,7 +263,7 @@ func peerUpdateForRelay(relay *models.Client, peers []models.Client) []wgtypes.P
 			PersistentKeepaliveInterval: &peer.Node.PersistentKeepalive,
 		}
 		if nodeacls.AreNodesAllowed(nodeacls.NetworkID(relay.Node.Network), nodeacls.NodeID(relay.Node.ID.String()), nodeacls.NodeID(peer.Node.ID.String())) {
-			update.AllowedIPs = append(update.AllowedIPs, AddAllowedIPs(&peer)...)
+			update.AllowedIPs = append(update.AllowedIPs, GetAllowedIPs(&peer)...)
 			peerConfig = append(peerConfig, update)
 		}
 	}

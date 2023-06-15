@@ -237,21 +237,14 @@ func CheckNetRegAndHostUpdate(networks []string, h *models.Host) {
 				Host:   *h,
 				Node:   *newNode,
 			})
-			if servercfg.IsMessageQueueBackend() {
-				mq.BroadcastAddOrUpdateNetworkPeer(&models.Client{Host: *h, Node: *newNode}, false)
-			}
+			mq.BroadcastAddOrUpdateNetworkPeer(&models.Client{Host: *h, Node: *newNode}, false)
 		}
 	}
-	if servercfg.IsMessageQueueBackend() {
-		mq.HostUpdate(&models.HostUpdate{
-			Action: models.RequestAck,
-			Host:   *h,
-		})
-		if err := mq.PublishPeerUpdate(); err != nil {
-			logger.Log(0, "failed to publish peer update during registration -", err.Error())
-		}
+	mq.HostUpdate(&models.HostUpdate{
+		Action: models.RequestAck,
+		Host:   *h,
+	})
 
-	}
 }
 
 func handleHostRegErr(conn *websocket.Conn, err error) {

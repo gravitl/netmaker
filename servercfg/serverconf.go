@@ -364,21 +364,6 @@ func IsMetricsExporter() bool {
 	return export
 }
 
-// IsMessageQueueBackend - checks if message queue is on or off
-func IsMessageQueueBackend() bool {
-	ismessagequeue := true
-	if os.Getenv("MESSAGEQUEUE_BACKEND") != "" {
-		if os.Getenv("MESSAGEQUEUE_BACKEND") == "off" {
-			ismessagequeue = false
-		}
-	} else if config.Config.Server.MessageQueueBackend != "" {
-		if config.Config.Server.MessageQueueBackend == "off" {
-			ismessagequeue = false
-		}
-	}
-	return ismessagequeue
-}
-
 // Telemetry - checks if telemetry data should be sent
 func Telemetry() string {
 	telemetry := "on"

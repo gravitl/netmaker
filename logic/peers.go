@@ -608,7 +608,7 @@ func GetPeerUpdate(host *models.Host) []wgtypes.PeerConfig {
 			}
 			//normal peer
 			if nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.Node.ID.String())) {
-				update.AllowedIPs = append(update.AllowedIPs, AddAllowedIPs(&peer)...)
+				update.AllowedIPs = append(update.AllowedIPs, GetAllowedIPs(&peer)...)
 				peerUpdate = append(peerUpdate, update)
 			} else {
 				update.Remove = true
@@ -646,25 +646,6 @@ func AddHostAllowedIPs(h *models.Host) []net.IPNet {
 	}
 	return allowedIPs
 
-}
-
-func AddAllowedIPs(peer *models.Client) []net.IPNet {
-	allowedIPs := []net.IPNet{}
-	if peer.Node.Address.IP != nil {
-		peer.Node.Address.Mask = net.CIDRMask(32, 32)
-		allowedIPs = append(allowedIPs, peer.Node.Address)
-	}
-	if peer.Node.Address6.IP != nil {
-		peer.Node.Address6.Mask = net.CIDRMask(128, 128)
-		allowedIPs = append(allowedIPs, peer.Node.Address6)
-	}
-	if peer.Node.IsEgressGateway {
-		allowedIPs = append(allowedIPs, getEgressIPs(peer)...)
-	}
-	if peer.Node.IsIngressGateway {
-		allowedIPs = append(allowedIPs, getIngressIPs(peer)...)
-	}
-	return allowedIPs
 }
 
 // getRelayAllowedIPs returns the list of allowedips for a peer that is a relay

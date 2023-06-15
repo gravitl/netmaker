@@ -186,9 +186,7 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, r.Header.Get("user"), "failed to send host update: ", currHost.ID.String(), err.Error())
 	}
 	go func() {
-		if err := mq.PublishPeerUpdate(); err != nil {
-			logger.Log(0, "fail to publish peer update: ", err.Error())
-		}
+		mq.BroadcastHostUpdate(newHost, false)
 		if newHost.Name != currHost.Name {
 			networks := logic.GetHostNetworks(currHost.ID.String())
 			if err := mq.PublishHostDNSUpdate(currHost, newHost, networks); err != nil {
@@ -289,13 +287,12 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		Host:   *currHost,
 		Node:   *newNode,
 	})
-	if servercfg.IsMessageQueueBackend() {
-		mq.HostUpdate(&models.HostUpdate{
-			Action: models.RequestAck,
-			Host:   *currHost,
-		})
-		go mq.BroadcastAddOrUpdateNetworkPeer(&models.Client{Host: *currHost, Node: *newNode}, false)
-	}
+
+	mq.HostUpdate(&models.HostUpdate{
+		Action: models.RequestAck,
+		Host:   *currHost,
+	})
+	go mq.BroadcastAddOrUpdateNetworkPeer(&models.Client{Host: *currHost, Node: *newNode}, false)
 
 	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("added host %s to network %s", currHost.Name, network))
 	w.WriteHeader(http.StatusOK)

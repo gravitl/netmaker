@@ -225,7 +225,7 @@ func UpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 
-		shouldUpdate := updateNodeMetrics(&currentNode, &newMetrics)
+		_ = updateNodeMetrics(&currentNode, &newMetrics)
 
 		if err = logic.UpdateMetrics(id, &newMetrics); err != nil {
 			slog.Error("failed to update node metrics", "id", id, "error", err)
@@ -243,48 +243,8 @@ func UpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 				slog.Error("failed to failover for node", "id", currentNode.ID, "network", currentNode.Network, "error", err)
 			}
 		}
-
-		if shouldUpdate {
-			slog.Info("updating peers after node detected connectivity issues", "id", currentNode.ID, "network", currentNode.Network)
-			host, err := logic.GetHost(currentNode.HostID.String())
-			if err == nil {
-				if err = PublishSingleHostPeerUpdate(host); err != nil {
-					slog.Warn("failed to publish update after failover peer change for node", "id", currentNode.ID, "network", currentNode.Network, "error", err)
-				}
-			}
-		}
 		slog.Info("updated node metrics", "id", id)
 	}
-}
-
-// ClientPeerUpdate  message handler -- handles updating peers after signal from client nodes
-func ClientPeerUpdate(client mqtt.Client, msg mqtt.Message) {
-	id, err := getID(msg.Topic())
-	if err != nil {
-		slog.Error("error getting node.ID sent on ", "topic", msg.Topic(), "error", err)
-		return
-	}
-	currentNode, err := logic.GetNodeByID(id)
-	if err != nil {
-		slog.Error("error getting node", "id", id, "error", err)
-		return
-	}
-	decrypted, decryptErr := decryptMsg(&currentNode, msg.Payload())
-	if decryptErr != nil {
-		slog.Error("failed to decrypt message for node", "id", id, "error", decryptErr)
-		return
-	}
-	switch decrypted[0] {
-	case ncutils.ACK:
-		// do we still need this
-	case ncutils.DONE:
-		if err = PublishPeerUpdate(); err != nil {
-			slog.Error("error publishing peer update for node", "id", currentNode.ID, "error", err)
-			return
-		}
-	}
-
-	slog.Info("sent peer updates after signal received from", "id", id)
 }
 
 func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) bool {

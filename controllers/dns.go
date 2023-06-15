@@ -11,7 +11,6 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
-	"github.com/gravitl/netmaker/servercfg"
 )
 
 func dnsHandlers(r *mux.Router) {
@@ -176,16 +175,13 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(1, "new DNS record added:", entry.Name)
-	if servercfg.IsMessageQueueBackend() {
-		go func() {
-			if err = mq.PublishPeerUpdate(); err != nil {
-				logger.Log(0, "failed to publish peer update after ACL update on", entry.Network)
-			}
-			if err := mq.PublishCustomDNS(&entry); err != nil {
-				logger.Log(0, "error publishing custom dns", err.Error())
-			}
-		}()
-	}
+
+	go func() {
+		if err := mq.PublishCustomDNS(&entry); err != nil {
+			logger.Log(0, "error publishing custom dns", err.Error())
+		}
+	}()
+
 	logger.Log(2, r.Header.Get("user"),
 		fmt.Sprintf("DNS entry is set: %+v", entry))
 	w.WriteHeader(http.StatusOK)

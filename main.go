@@ -110,12 +110,10 @@ func initialize() { // Client Mode Prereq Check
 			logger.FatalLog(err.Error())
 		}
 	}
-
-	if servercfg.IsMessageQueueBackend() {
-		if err = mq.ServerStartNotify(); err != nil {
-			logger.Log(0, "error occurred when notifying nodes of startup", err.Error())
-		}
+	if err = mq.ServerStartNotify(); err != nil {
+		logger.Log(0, "error occurred when notifying nodes of startup", err.Error())
 	}
+
 }
 
 func startControllers(wg *sync.WaitGroup, ctx context.Context) {
@@ -138,15 +136,8 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 		go controller.HandleRESTRequests(wg, ctx)
 	}
 	//Run MessageQueue
-	if servercfg.IsMessageQueueBackend() {
-		wg.Add(1)
-		go runMessageQueue(wg, ctx)
-	}
-
-	if !servercfg.IsRestBackend() && !servercfg.IsMessageQueueBackend() {
-		logger.Log(0, "No Server Mode selected, so nothing is being served! Set Rest mode (REST_BACKEND) or MessageQueue (MESSAGEQUEUE_BACKEND) to 'true'.")
-	}
-
+	wg.Add(1)
+	go runMessageQueue(wg, ctx)
 	// starts the stun server
 	wg.Add(1)
 	go stunserver.Start(wg, ctx)

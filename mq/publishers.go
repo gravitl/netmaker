@@ -15,26 +15,6 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-// PublishPeerUpdate --- determines and publishes a peer update to all the hosts
-func PublishPeerUpdate() error {
-	if !servercfg.IsMessageQueueBackend() {
-		return nil
-	}
-
-	hosts, err := logic.GetAllHosts()
-	if err != nil {
-		logger.Log(1, "err getting all hosts", err.Error())
-		return err
-	}
-	for _, host := range hosts {
-		host := host
-		if err = PublishSingleHostPeerUpdate(&host); err != nil {
-			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
-		}
-	}
-	return err
-}
-
 // PublishSingleHostPeerUpdate --- determines and publishes a peer update to one host
 func PublishSingleHostPeerUpdate(host *models.Host) error {
 
@@ -376,9 +356,6 @@ func NodeUpdate(node *models.Node) error {
 	if err != nil {
 		return nil
 	}
-	if !servercfg.IsMessageQueueBackend() {
-		return nil
-	}
 	logger.Log(3, "publishing node update to "+node.ID.String())
 
 	//if len(node.NetworkSettings.AccessKeys) > 0 {
@@ -400,9 +377,6 @@ func NodeUpdate(node *models.Node) error {
 
 // HostUpdate -- publishes a host update to clients
 func HostUpdate(hostUpdate *models.HostUpdate) error {
-	if !servercfg.IsMessageQueueBackend() {
-		return nil
-	}
 	logger.Log(3, "publishing host update to "+hostUpdate.Host.ID.String())
 
 	data, err := json.Marshal(hostUpdate)

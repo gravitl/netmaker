@@ -43,7 +43,7 @@ func PubPeerUpdate(client, relay *models.Client, peers []models.Client) {
 			PersistentKeepaliveInterval: &peer.Node.PersistentKeepalive,
 		}
 		if nodeacls.AreNodesAllowed(nodeacls.NetworkID(client.Node.Network), nodeacls.NodeID(client.Node.ID.String()), nodeacls.NodeID(peer.Node.ID.String())) {
-			update.AllowedIPs = append(update.AllowedIPs, logic.AddAllowedIPs(&peer)...)
+			update.AllowedIPs = append(update.AllowedIPs, logic.GetAllowedIPs(&peer)...)
 		} else {
 			update.Remove = true
 		}
@@ -201,7 +201,7 @@ func pubRelayedUpdate(client, relay *models.Client, peers []models.Client) {
 			continue
 		}
 		if nodeacls.AreNodesAllowed(nodeacls.NetworkID(client.Node.Network), nodeacls.NodeID(client.Node.ID.String()), nodeacls.NodeID(peer.Node.ID.String())) {
-			update.AllowedIPs = append(update.AllowedIPs, logic.AddAllowedIPs(&peer)...)
+			update.AllowedIPs = append(update.AllowedIPs, logic.GetAllowedIPs(&peer)...)
 		}
 	}
 	p.Peers = append(p.Peers, update)
@@ -236,7 +236,7 @@ func pubRelayUpdate(client *models.Client, peers []models.Client) {
 			},
 			PersistentKeepaliveInterval: &peer.Node.PersistentKeepalive,
 		}
-		update.AllowedIPs = append(update.AllowedIPs, logic.AddAllowedIPs(&peer)...)
+		update.AllowedIPs = append(update.AllowedIPs, logic.GetAllowedIPs(&peer)...)
 		p.Peers = append(p.Peers, update)
 	}
 	data, err := json.Marshal(p)
