@@ -158,7 +158,7 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 func authorize(hostAllowed, networkCheck bool, authNetwork string, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
-			Code: http.StatusUnauthorized, Message: logic.Unauthorized_Msg,
+			Code: http.StatusForbidden, Message: logic.Forbidden_Msg,
 		}
 
 		var params = mux.Vars(r)
@@ -521,13 +521,10 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	nodeid := params["nodeid"]
 	netid := params["network"]
-	type failoverData struct {
-		Failover bool `json:"failover"`
-	}
-	var failoverReqBody failoverData
-	json.NewDecoder(r.Body).Decode(&failoverReqBody)
+	var request models.IngressRequest
+	json.NewDecoder(r.Body).Decode(&request)
 
-	node, err := logic.CreateIngressGateway(netid, nodeid, failoverReqBody.Failover)
+	node, err := logic.CreateIngressGateway(netid, nodeid, request)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to create ingress gateway on node [%s] on network [%s]: %v",
@@ -536,7 +533,7 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if servercfg.Is_EE && failoverReqBody.Failover {
+	if servercfg.Is_EE && request.Failover {
 		if err = logic.EnterpriseResetFailoverFunc(node.Network); err != nil {
 			logger.Log(1, "failed to reset failover list during failover create", node.ID.String(), node.Network)
 		}

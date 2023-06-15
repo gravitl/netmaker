@@ -111,6 +111,7 @@ func CreateHost(h *models.Host) error {
 	}
 	h.HostPass = string(hash)
 	h.AutoUpdate = servercfg.AutoUpdateEnabled()
+	h.EndpointDetection = servercfg.EndpointDetectionEnabled()
 	// if another server has already updated proxyenabled, leave it alone
 	if !h.ProxyEnabledSet {
 		log.Println("checking default proxy", servercfg.GetServerConfig().DefaultProxyMode)
@@ -171,6 +172,10 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 	}
 	if newHost.ListenPort != 0 && currHost.ListenPort != newHost.ListenPort {
 		currHost.ListenPort = newHost.ListenPort
+		sendPeerUpdate = true
+	}
+	if newHost.WgPublicListenPort != 0 && currHost.WgPublicListenPort != newHost.WgPublicListenPort {
+		currHost.WgPublicListenPort = newHost.WgPublicListenPort
 		sendPeerUpdate = true
 	}
 	if newHost.ProxyListenPort != 0 && currHost.ProxyListenPort != newHost.ProxyListenPort {

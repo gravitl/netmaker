@@ -51,6 +51,11 @@ func GetServerConfig() config.ServerConfig {
 	} else {
 		cfg.NetclientAutoUpdate = "disabled"
 	}
+	if EndpointDetectionEnabled() {
+		cfg.NetclientEndpointDetection = "enabled"
+	} else {
+		cfg.NetclientEndpointDetection = "disabled"
+	}
 	if IsRestBackend() {
 		cfg.RestBackend = "on"
 	}
@@ -427,6 +432,17 @@ func AutoUpdateEnabled() bool {
 	if os.Getenv("NETCLIENT_AUTO_UPDATE") == "disabled" {
 		return false
 	} else if config.Config.Server.NetclientAutoUpdate == "disabled" {
+		return false
+	}
+	return true
+}
+
+// EndpointDetectionEnabled returns a boolean indicating whether netclient endpoint detection is enabled or disabled
+// default is enabled
+func EndpointDetectionEnabled() bool {
+	if os.Getenv("NETCLIENT_ENDPOINT_DETECTION") == "disabled" {
+		return false
+	} else if config.Config.Server.NetclientEndpointDetection == "disabled" {
 		return false
 	}
 	return true

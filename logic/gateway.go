@@ -96,7 +96,7 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 }
 
 // CreateIngressGateway - creates an ingress gateway
-func CreateIngressGateway(netid string, nodeid string, failover bool) (models.Node, error) {
+func CreateIngressGateway(netid string, nodeid string, ingress models.IngressRequest) (models.Node, error) {
 
 	node, err := GetNodeByID(nodeid)
 	if err != nil {
@@ -112,6 +112,9 @@ func CreateIngressGateway(netid string, nodeid string, failover bool) (models.No
 	if host.FirewallInUse == models.FIREWALL_NONE {
 		return models.Node{}, errors.New("firewall is not supported for ingress gateways")
 	}
+	if host.NatType != models.NAT_Types.Public {
+		return models.Node{}, errors.New("ingress cannot be created on nodes behind NAT")
+	}
 
 	network, err := GetParentNetwork(netid)
 	if err != nil {
@@ -120,8 +123,9 @@ func CreateIngressGateway(netid string, nodeid string, failover bool) (models.No
 	node.IsIngressGateway = true
 	node.IngressGatewayRange = network.AddressRange
 	node.IngressGatewayRange6 = network.AddressRange6
+	node.IngressDNS = ingress.ExtclientDNS
 	node.SetLastModified()
-	if failover && servercfg.Is_EE {
+	if ingress.Failover && servercfg.Is_EE {
 		node.Failover = true
 	}
 	data, err := json.Marshal(&node)

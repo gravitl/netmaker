@@ -120,6 +120,9 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 		HostNetworkInfo: models.HostInfoMap{},
 	}
 
+	// endpoint detection always comes from the server
+	hostPeerUpdate.Host.EndpointDetection = servercfg.EndpointDetectionEnabled()
+
 	logger.Log(1, "peer update for host", host.ID.String())
 	peerIndexMap := make(map[string]int)
 	for _, nodeID := range host.Nodes {
@@ -177,11 +180,12 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 				}
 				peerConfig.Endpoint = &net.UDPAddr{
 					IP:   peerHost.EndpointIP,
-					Port: peerHost.ListenPort,
+					Port: getPeerWgListenPort(peerHost),
 				}
 
 				if uselocal {
 					peerConfig.Endpoint.IP = peer.LocalAddress.IP
+					peerConfig.Endpoint.Port = peerHost.ListenPort
 				}
 				allowedips := GetAllowedIPs(&node, &peer, nil)
 				if peer.IsIngressGateway {
@@ -382,9 +386,21 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 	return hostPeerUpdate, nil
 }
 
+// getPeerWgListenPort - fetches the wg listen port for the host
+func getPeerWgListenPort(host *models.Host) int {
+	peerPort := host.ListenPort
+	if host.WgPublicListenPort != 0 {
+		peerPort = host.WgPublicListenPort
+	}
+	return peerPort
+}
+
 // GetPeerListenPort - given a host, retrieve it's appropriate listening port
 func GetPeerListenPort(host *models.Host) int {
 	peerPort := host.ListenPort
+	if host.WgPublicListenPort != 0 {
+		peerPort = host.WgPublicListenPort
+	}
 	if host.ProxyEnabled {
 		if host.PublicListenPort != 0 {
 			peerPort = host.PublicListenPort

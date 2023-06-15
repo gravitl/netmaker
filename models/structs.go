@@ -14,12 +14,6 @@ const (
 	PLACEHOLDER_TOKEN_TEXT = "ACCESS_TOKEN"
 )
 
-// CustomExtClient - struct for CustomExtClient params
-type CustomExtClient struct {
-	ClientID  string `json:"clientid"`
-	PublicKey string `json:"publickey,omitempty"`
-}
-
 // AuthParams - struct for auth params
 type AuthParams struct {
 	MacAddress string `json:"macaddress"`
@@ -170,6 +164,12 @@ type HostRelayRequest struct {
 	RelayedHosts []string `json:"relayed_hosts"`
 }
 
+// IngressRequest - ingress request struct
+type IngressRequest struct {
+	ExtclientDNS string `json:"extclientdns"`
+	Failover     bool   `json:"failover"`
+}
+
 // ServerUpdateData - contains data to configure server
 // and if it should set peers
 type ServerUpdateData struct {
@@ -201,6 +201,7 @@ type TrafficKeys struct {
 // HostPull - response of a host's pull
 type HostPull struct {
 	Host         Host                 `json:"host" yaml:"host"`
+	Nodes        []Node               `json:"nodes" yaml:"nodes"`
 	Peers        []wgtypes.PeerConfig `json:"peers" yaml:"peers"`
 	ServerConfig ServerConfig         `json:"server_config" yaml:"server_config"`
 	PeerIDs      PeerMap              `json:"peer_ids,omitempty" yaml:"peer_ids,omitempty"`

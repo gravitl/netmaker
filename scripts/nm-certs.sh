@@ -30,16 +30,16 @@ fi
 CERTBOT_PARAMS=$(cat <<EOF
 certonly --standalone \
 	--non-interactive --agree-tos \
-	-m "$NM_EMAIL" \
-	-d "stun.$NM_DOMAIN" \
-	-d "api.$NM_DOMAIN" \
-	-d "broker.$NM_DOMAIN" \
-	-d "dashboard.$NM_DOMAIN" \
-	-d "turn.$NM_DOMAIN" \
-	-d "turnapi.$NM_DOMAIN" \
-	-d "netmaker-exporter.$NM_DOMAIN" \
-	-d "grafana.$NM_DOMAIN" \
-	-d "prometheus.$NM_DOMAIN"
+	-m $NM_EMAIL \
+	-d stun.$NM_DOMAIN \
+	-d api.$NM_DOMAIN \
+	-d broker.$NM_DOMAIN \
+	-d dashboard.$NM_DOMAIN \
+	-d turn.$NM_DOMAIN \
+	-d turnapi.$NM_DOMAIN \
+	-d netmaker-exporter.$NM_DOMAIN \
+	-d grafana.$NM_DOMAIN \
+	-d prometheus.$NM_DOMAIN
 EOF
 )
 
@@ -47,6 +47,7 @@ EOF
 cat <<EOF >"$SCRIPT_DIR/certbot-entry.sh"
 #!/bin/sh
 # deps
+apk update
 apk add bash curl
 # zerossl
 wget -qO zerossl-bot.sh "https://github.com/zerossl/zerossl-bot/raw/master/zerossl-bot.sh"
@@ -54,7 +55,8 @@ chmod +x zerossl-bot.sh
 # request the certs
 ./zerossl-bot.sh "$CERTBOT_PARAMS"
 EOF
-chmod +x certbot-entry.sh
+
+chmod +x "$SCRIPT_DIR/certbot-entry.sh"
 
 # request certs
 sudo docker run -it --rm --name certbot \
@@ -64,8 +66,8 @@ sudo docker run -it --rm --name certbot \
 	--entrypoint "/opt/certbot/certbot-entry.sh" \
 	certbot/certbot
 
-# clean up TODO enable
-#rm "$SCRIPT_DIR/certbot-entry.sh"
+# clean up
+rm "$SCRIPT_DIR/certbot-entry.sh"
 
 # check if successful
 if [ ! -f "$CERT_DIR"/fullchain.pem ]; then
@@ -73,8 +75,7 @@ if [ ! -f "$CERT_DIR"/fullchain.pem ]; then
 	sudo docker run -it --rm --name certbot \
 		-p 80:80 -p 443:443 \
 		-v "$SCRIPT_DIR/letsencrypt:/etc/letsencrypt" \
-		--entrypoint "/opt/certbot/certbot-entry.sh" \
-		certbot/certbot "$CERTBOT_PARAMS"
+		certbot/certbot $CERTBOT_PARAMS
 	if [ ! -f "$CERT_DIR"/fullchain.pem ]; then
 		echo "Missing file: $CERT_DIR/fullchain.pem"
 		echo "SSL certificates failed"
@@ -84,8 +85,8 @@ fi
 
 # copy for mounting
 mkdir -p certs
-cp -L "$CERT_DIR/fullchain.pem" /root/certs/fullchain.pem
-cp -L "$CERT_DIR/privkey.pem" /root/certs/privkey.pem
+cp -L "$CERT_DIR/fullchain.pem" "$SCRIPT_DIR/certs/fullchain.pem"
+cp -L "$CERT_DIR/privkey.pem" "$SCRIPT_DIR/certs/privkey.pem"
 
 echo "SSL certificates ready"
 

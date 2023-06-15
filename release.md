@@ -1,14 +1,18 @@
 
-# Netmaker v0.19.1
+# Netmaker v0.20.2
 
 ## whats new
 - 
     
 ## whats fixed
-- status code for exceeding free tier limits  
+- enrollment keys for non-admins 
+- client version displayed correctly in UI
+- upd hole punching improvments
+- SSL fallback to letsencrypt
+- permission handling for non-admin users
+
 
 ## known issues
-- Caddy does not handle netmaker exporter well for EE
 - Migration causes a listen port of 0 for some upgraded hosts
 - Docker clients can not re-join after deletion
 - Innacurate Ext Client Metrics 

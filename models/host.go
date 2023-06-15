@@ -41,38 +41,44 @@ const WIREGUARD_INTERFACE = "netmaker"
 
 // Host - represents a host on the network
 type Host struct {
-	ID               uuid.UUID        `json:"id" yaml:"id"`
-	Verbosity        int              `json:"verbosity" yaml:"verbosity"`
-	FirewallInUse    string           `json:"firewallinuse" yaml:"firewallinuse"`
-	Version          string           `json:"version" yaml:"version"`
-	IPForwarding     bool             `json:"ipforwarding" yaml:"ipforwarding"`
-	DaemonInstalled  bool             `json:"daemoninstalled" yaml:"daemoninstalled"`
-	AutoUpdate       bool             `json:"autoupdate" yaml:"autoupdate"`
-	HostPass         string           `json:"hostpass" yaml:"hostpass"`
-	Name             string           `json:"name" yaml:"name"`
-	OS               string           `json:"os" yaml:"os"`
-	Interface        string           `json:"interface" yaml:"interface"`
-	Debug            bool             `json:"debug" yaml:"debug"`
-	ListenPort       int              `json:"listenport" yaml:"listenport"`
-	PublicListenPort int              `json:"public_listen_port" yaml:"public_listen_port"`
-	ProxyListenPort  int              `json:"proxy_listen_port" yaml:"proxy_listen_port"`
-	MTU              int              `json:"mtu" yaml:"mtu"`
-	PublicKey        wgtypes.Key      `json:"publickey" yaml:"publickey"`
-	MacAddress       net.HardwareAddr `json:"macaddress" yaml:"macaddress"`
-	TrafficKeyPublic []byte           `json:"traffickeypublic" yaml:"traffickeypublic"`
-	InternetGateway  net.UDPAddr      `json:"internetgateway" yaml:"internetgateway"`
-	Nodes            []string         `json:"nodes" yaml:"nodes"`
-	Interfaces       []Iface          `json:"interfaces" yaml:"interfaces"`
-	DefaultInterface string           `json:"defaultinterface" yaml:"defaultinterface"`
-	EndpointIP       net.IP           `json:"endpointip" yaml:"endpointip"`
-	ProxyEnabled     bool             `json:"proxy_enabled" yaml:"proxy_enabled"`
-	ProxyEnabledSet  bool             `json:"proxy_enabled_updated" yaml:"proxy_enabled_updated"`
-	IsDocker         bool             `json:"isdocker" yaml:"isdocker"`
-	IsK8S            bool             `json:"isk8s" yaml:"isk8s"`
-	IsStatic         bool             `json:"isstatic" yaml:"isstatic"`
-	IsDefault        bool             `json:"isdefault" yaml:"isdefault"`
-	NatType          string           `json:"nat_type,omitempty" yaml:"nat_type,omitempty"`
-	TurnEndpoint     *netip.AddrPort  `json:"turn_endpoint,omitempty" yaml:"turn_endpoint,omitempty"`
+	ID                 uuid.UUID        `json:"id" yaml:"id"`
+	Verbosity          int              `json:"verbosity" yaml:"verbosity"`
+	FirewallInUse      string           `json:"firewallinuse" yaml:"firewallinuse"`
+	Version            string           `json:"version" yaml:"version"`
+	IPForwarding       bool             `json:"ipforwarding" yaml:"ipforwarding"`
+	DaemonInstalled    bool             `json:"daemoninstalled" yaml:"daemoninstalled"`
+	AutoUpdate         bool             `json:"autoupdate" yaml:"autoupdate"`
+	EndpointDetection  bool             `json:"endpointdetection" yaml:"endpointdetection"`
+	HostPass           string           `json:"hostpass" yaml:"hostpass"`
+	Name               string           `json:"name" yaml:"name"`
+	OS                 string           `json:"os" yaml:"os"`
+	Interface          string           `json:"interface" yaml:"interface"`
+	Debug              bool             `json:"debug" yaml:"debug"`
+	ListenPort         int              `json:"listenport" yaml:"listenport"`
+	PublicListenPort   int              `json:"public_listen_port" yaml:"public_listen_port"`
+	WgPublicListenPort int              `json:"wg_public_listen_port" yaml:"wg_public_listen_port"`
+	ProxyListenPort    int              `json:"proxy_listen_port" yaml:"proxy_listen_port"`
+	MTU                int              `json:"mtu" yaml:"mtu"`
+	PublicKey          wgtypes.Key      `json:"publickey" yaml:"publickey"`
+	MacAddress         net.HardwareAddr `json:"macaddress" yaml:"macaddress"`
+	TrafficKeyPublic   []byte           `json:"traffickeypublic" yaml:"traffickeypublic"`
+	InternetGateway    net.UDPAddr      `json:"internetgateway" yaml:"internetgateway"`
+	Nodes              []string         `json:"nodes" yaml:"nodes"`
+	IsRelayed          bool             `json:"isrelayed" yaml:"isrelayed"`
+	RelayedBy          string           `json:"relayed_by" yaml:"relayed_by"`
+	IsRelay            bool             `json:"isrelay" yaml:"isrelay"`
+	RelayedHosts       []string         `json:"relay_hosts" yaml:"relay_hosts"`
+	Interfaces         []Iface          `json:"interfaces" yaml:"interfaces"`
+	DefaultInterface   string           `json:"defaultinterface" yaml:"defaultinterface"`
+	EndpointIP         net.IP           `json:"endpointip" yaml:"endpointip"`
+	ProxyEnabled       bool             `json:"proxy_enabled" yaml:"proxy_enabled"`
+	ProxyEnabledSet    bool             `json:"proxy_enabled_updated" yaml:"proxy_enabled_updated"`
+	IsDocker           bool             `json:"isdocker" yaml:"isdocker"`
+	IsK8S              bool             `json:"isk8s" yaml:"isk8s"`
+	IsStatic           bool             `json:"isstatic" yaml:"isstatic"`
+	IsDefault          bool             `json:"isdefault" yaml:"isdefault"`
+	NatType            string           `json:"nat_type,omitempty" yaml:"nat_type,omitempty"`
+	TurnEndpoint       *netip.AddrPort  `json:"turn_endpoint,omitempty" yaml:"turn_endpoint,omitempty"`
 }
 
 // FormatBool converts a boolean to a [yes|no] string
@@ -117,6 +123,16 @@ const (
 	UpdateKeys = "UPDATE_KEYS"
 )
 
+// SignalAction - turn peer signal action
+type SignalAction string
+
+const (
+	// Disconnect - action to stop using turn connection
+	Disconnect SignalAction = "DISCONNECT"
+	// ConnNegotiation - action to negotiate connection between peers
+	ConnNegotiation SignalAction = "CONNECTION_NEGOTIATION"
+)
+
 // HostUpdate - struct for host update
 type HostUpdate struct {
 	Action HostMqAction
@@ -133,11 +149,12 @@ type HostTurnRegister struct {
 
 // Signal - struct for signalling peer
 type Signal struct {
-	Server            string `json:"server"`
-	FromHostPubKey    string `json:"from_host_pubkey"`
-	TurnRelayEndpoint string `json:"turn_relay_addr"`
-	ToHostPubKey      string `json:"to_host_pubkey"`
-	Reply             bool   `json:"reply"`
+	Server            string       `json:"server"`
+	FromHostPubKey    string       `json:"from_host_pubkey"`
+	TurnRelayEndpoint string       `json:"turn_relay_addr"`
+	ToHostPubKey      string       `json:"to_host_pubkey"`
+	Reply             bool         `json:"reply"`
+	Action            SignalAction `json:"action"`
 }
 
 // RegisterMsg - login message struct for hosts to join via SSO login

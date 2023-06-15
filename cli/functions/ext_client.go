@@ -28,14 +28,8 @@ func GetExtClientConfig(networkName, clientID string) string {
 }
 
 // CreateExtClient - create an external client
-func CreateExtClient(networkName, nodeID, extClientID string) {
-	if extClientID != "" {
-		request[any](http.MethodPost, fmt.Sprintf("/api/extclients/%s/%s", networkName, nodeID), &models.CustomExtClient{
-			ClientID: extClientID,
-		})
-	} else {
-		request[any](http.MethodPost, fmt.Sprintf("/api/extclients/%s/%s", networkName, nodeID), nil)
-	}
+func CreateExtClient(networkName, nodeID string, extClient models.CustomExtClient) {
+	request[any](http.MethodPost, fmt.Sprintf("/api/extclients/%s/%s", networkName, nodeID), extClient)
 }
 
 // DeleteExtClient - delete an external client
@@ -44,6 +38,6 @@ func DeleteExtClient(networkName, clientID string) *models.SuccessResponse {
 }
 
 // UpdateExtClient - update an external client
-func UpdateExtClient(networkName, clientID string, payload *models.ExtClient) *models.ExtClient {
+func UpdateExtClient(networkName, clientID string, payload *models.CustomExtClient) *models.ExtClient {
 	return request[models.ExtClient](http.MethodPut, fmt.Sprintf("/api/extclients/%s/%s", networkName, clientID), payload)
 }

@@ -18,7 +18,7 @@ import (
 )
 
 func hostHandlers(r *mux.Router) {
-	r.HandleFunc("/api/hosts", logic.SecurityCheck(true, http.HandlerFunc(getHosts))).Methods(http.MethodGet)
+	r.HandleFunc("/api/hosts", logic.SecurityCheck(false, http.HandlerFunc(getHosts))).Methods(http.MethodGet)
 	r.HandleFunc("/api/hosts/keys", logic.SecurityCheck(true, http.HandlerFunc(updateAllKeys))).Methods(http.MethodPut)
 	r.HandleFunc("/api/hosts/{hostid}/keys", logic.SecurityCheck(true, http.HandlerFunc(updateKeys))).Methods(http.MethodPut)
 	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(updateHost))).Methods(http.MethodPut)
@@ -49,9 +49,38 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	//isMasterAdmin := r.Header.Get("ismaster") == "yes"
+	//user, err := logic.GetUser(r.Header.Get("user"))
+	//if err != nil && !isMasterAdmin {
+	//	logger.Log(0, r.Header.Get("user"), "failed to fetch user: ", err.Error())
+	//	logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+	//	return
+	//}
 	// return JSON/API formatted hosts
+	//ret := []models.ApiHost{}
 	apiHosts := logic.GetAllHostsAPI(currentHosts[:])
 	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
+	//for _, host := range apiHosts {
+	//	nodes := host.Nodes
+	//	// work on the copy
+	//	host.Nodes = []string{}
+	//	for _, nid := range nodes {
+	//		node, err := logic.GetNodeByID(nid)
+	//		if err != nil {
+	//			logger.Log(0, r.Header.Get("user"), "failed to fetch node: ", err.Error())
+	//			// TODO find the reason for the DB error, skip this node for now
+	//			continue
+	//		}
+	//		if !isMasterAdmin && !logic.UserHasNetworksAccess([]string{node.Network}, user) {
+	//			continue
+	//		}
+	//		host.Nodes = append(host.Nodes, nid)
+	//	}
+	//	// add to the response only if has perms to some nodes / networks
+	//	if len(host.Nodes) > 0 {
+	//		ret = append(ret, host)
+	//	}
+	//}
 	logic.SortApiHosts(apiHosts[:])
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiHosts)
@@ -98,9 +127,11 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+
 	serverConf.TrafficKey = key
 	response := models.HostPull{
 		Host:         *host,
+		Nodes:        logic.GetHostNodes(host),
 		ServerConfig: serverConf,
 		Peers:        hPU.Peers,
 		PeerIDs:      hPU.PeerIDs,

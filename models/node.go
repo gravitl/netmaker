@@ -73,6 +73,7 @@ type CommonNode struct {
 	RelayedBy           string        `json:"relayedby" bson:"relayedby" yaml:"relayedby"`
 	IsRelay             bool          `json:"isrelay" bson:"isrelay" yaml:"isrelay"`
 	RelayedNodes        []string      `json:"relaynodes" yaml:"relayedNodes"`
+	IngressDNS          string        `json:"ingressdns" yaml:"ingressdns"`
 	DNSOn               bool          `json:"dnson" yaml:"dnson"`
 	PersistentKeepalive time.Duration `json:"persistentkeepalive" yaml:"persistentkeepalive"`
 }

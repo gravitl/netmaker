@@ -4,17 +4,12 @@ CONFIG_FILE=netmaker.env
 # location of nm-quick.sh (usually `/root`)
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
 CONFIG_PATH="$SCRIPT_DIR/$CONFIG_FILE"
+NM_QUICK_VERSION="0.1.0"
 LATEST=$(curl -s https://api.github.com/repos/gravitl/netmaker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d [:space:],\")
 
 if [ $(id -u) -ne 0 ]; then
 	echo "This script must be run as root"
 	exit 1
-fi
-
-# read the config file
-if [ -f "$CONFIG_PATH" ]; then
-	echo "Reading config from $CONFIG_PATH"
-	source "$CONFIG_PATH"
 fi
 
 unset INSTALL_TYPE
@@ -25,6 +20,7 @@ unset AUTO_BUILD
 
 # usage - displays usage instructions
 usage() {
+	echo "nm-quick.sh v$NM_QUICK_VERSION"
 	echo "usage: ./nm-quick.sh [-e] [-b buildtype] [-t tag] [-a auto]"
 	echo "  -e      if specified, will install netmaker EE"
 	echo "  -b      type of build; options:"
@@ -141,6 +137,7 @@ set_buildinfo() {
 	echo "  Build Type: $BUILD_TYPE"
 	echo "   Build Tag: $BUILD_TAG"
 	echo "   Image Tag: $IMAGE_TAG"
+	echo "   Installer: v$NM_QUICK_VERSION"
 	echo "-----------------------------------------------------"
 
 }
@@ -148,13 +145,13 @@ set_buildinfo() {
 # install_yq - install yq if not present
 install_yq() {
 	if ! command -v yq &>/dev/null; then
-		wget -O /usr/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_$(dpkg --print-architecture)
+		wget -qO /usr/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_$(dpkg --print-architecture)
 		chmod +x /usr/bin/yq
 	fi
 	set +e
 	if ! command -v yq &>/dev/null; then
 		set -e
-		wget -O /usr/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_amd64
+		wget -qO /usr/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_amd64
 		chmod +x /usr/bin/yq
 	fi
 	set -e
@@ -172,21 +169,44 @@ setup_netclient() {
 	netclient uninstall
 	set -e
 
-	wget -O netclient https://github.com/gravitl/netclient/releases/download/$LATEST/netclient-linux-amd64
+	# TODO arm support
+	wget -qO netclient https://github.com/gravitl/netclient/releases/download/$LATEST/netclient-linux-amd64
 	chmod +x netclient
 	./netclient install
+	echo "Register token: $TOKEN"
 	netclient register -t $TOKEN
 
-	echo "waiting for client to become available"
-	wait_seconds 10
+	echo "waiting for netclient to become available"
+	local found=false
+	local file=/etc/netclient/nodes.yml
+	for ((a = 1; a <= 90; a++)); do
+		if [ -f "$file" ]; then
+			found=true
+			break
+		fi
+		sleep 1
+	done
+
+	if [ "$found" = false ]; then
+		echo "Error - $file not present"
+		exit 1
+	fi
 }
 
 # configure_netclient - configures server's netclient as a default host and an ingress gateway
 configure_netclient() {
 
 	NODE_ID=$(sudo cat /etc/netclient/nodes.yml | yq -r .netmaker.commonnode.id)
+	if [ "$NODE_ID" = "" ] || [ "$NODE_ID" = "null" ]; then
+		echo "Error obtaining NODE_ID for the new network"
+		exit 1
+	fi
 	echo "register complete. New node ID: $NODE_ID"
 	HOST_ID=$(sudo cat /etc/netclient/netclient.yml | yq -r .host.id)
+	if [ "$HOST_ID" = "" ] || [ "$HOST_ID" = "null" ]; then
+		echo "Error obtaining HOST_ID for the new network"
+		exit 1
+	fi
 	echo "making host a default"
 	echo "Host ID: $HOST_ID"
 	# set as a default host
@@ -200,7 +220,15 @@ configure_netclient() {
 # setup_nmctl - pulls nmctl and makes it executable
 setup_nmctl() {
 
-	wget -O /usr/bin/nmctl https://github.com/gravitl/netmaker/releases/download/$LATEST/nmctl-linux-amd64
+	# TODO arm support
+	local URL="https://github.com/gravitl/netmaker/releases/download/$LATEST/nmctl-linux-amd64"
+	echo "Downloading nmctl..."
+	wget -qO /usr/bin/nmctl "$URL"
+
+	if [ ! -f /usr/bin/nmctl ]; then
+		echo "Error downloading nmctl from '$URL'"
+		exit 1
+	fi
 
 	chmod +x /usr/bin/nmctl
 	echo "using server api.$NETMAKER_BASE_DOMAIN"
@@ -247,77 +275,142 @@ confirm() { (
 save_config() { (
 	echo "Saving the config to $CONFIG_PATH"
 	touch "$CONFIG_PATH"
-	# email
-	if grep -q "^NM_EMAIL=" "$CONFIG_PATH"; then
-		sed -i "s/NM_EMAIL=.*/NM_EMAIL=$EMAIL/" "$CONFIG_PATH"
+	save_config_item NM_EMAIL "$EMAIL"
+	save_config_item NM_DOMAIN "$NETMAKER_BASE_DOMAIN"
+	save_config_item UI_IMAGE_TAG "$IMAGE_TAG"
+	if [ "$BUILD_TYPE" = "local" ]; then
+		save_config_item UI_IMAGE_TAG "$LATEST"
 	else
-		echo "NM_EMAIL=$EMAIL" >>"$CONFIG_PATH"
+		save_config_item UI_IMAGE_TAG "$IMAGE_TAG"
 	fi
-	# domain
-	if grep -q "^NM_DOMAIN=" "$CONFIG_PATH"; then
-		sed -i "s/NM_DOMAIN=.*/NM_DOMAIN=$NETMAKER_BASE_DOMAIN/" "$CONFIG_PATH"
+	# version-specific entries
+	if [ "$INSTALL_TYPE" = "ee" ]; then
+		save_config_item NETMAKER_ACCOUNT_ID "$ACCOUNT_ID"
+		save_config_item LICENSE_KEY "$LICENSE_KEY"
+		save_config_item METRICS_EXPORTER "on"
+		save_config_item PROMETHEUS "on"
+		if [ "$BUILD_TYPE" = "version" ]; then
+			save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG-ee"
+		else
+			save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG"
+		fi
 	else
-		echo "NM_DOMAIN=$NETMAKER_BASE_DOMAIN" >>"$CONFIG_PATH"
+		save_config_item METRICS_EXPORTER "off"
+		save_config_item PROMETHEUS "off"
+		save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG"
+	fi
+	# copy entries from the previous config
+	local toCopy=("SERVER_HOST" "MASTER_KEY" "TURN_USERNAME" "TURN_PASSWORD" "MQ_USERNAME" "MQ_PASSWORD"
+		"INSTALL_TYPE" "NODE_ID" "METRICS_EXPORTER" "PROMETHEUS" "DNS_MODE" "NETCLIENT_AUTO_UPDATE" "API_PORT"
+		"CORS_ALLOWED_ORIGIN" "DISPLAY_KEYS" "DATABASE" "SERVER_BROKER_ENDPOINT" "STUN_PORT" "VERBOSITY"
+		"DEFAULT_PROXY_MODE" "TURN_PORT" "USE_TURN" "DEBUG_MODE" "TURN_API_PORT" "REST_BACKEND"
+		"DISABLE_REMOTE_IP_CHECK" "NETCLIENT_ENDPOINT_DETECTION" "TELEMETRY" "AUTH_PROVIDER" "CLIENT_ID" "CLIENT_SECRET"
+		"FRONTEND_URL" "AZURE_TENANT" "OIDC_ISSUER" "EXPORTER_API_PORT")
+	for name in "${toCopy[@]}"; do
+		save_config_item $name "${!name}"
+	done
+	# preserve debug entries
+	if test -n "$NM_SKIP_BUILD"; then
+		save_config_item NM_SKIP_BUILD "$NM_SKIP_BUILD"
+	fi
+	if test -n "$NM_SKIP_CLONE"; then
+		save_config_item NM_SKIP_CLONE "$NM_SKIP_CLONE"
+	fi
+	if test -n "$NM_SKIP_DEPS"; then
+		save_config_item NM_SKIP_DEPS "$NM_SKIP_DEPS"
+	fi
+); }
+
+save_config_item() { (
+	local NAME="$1"
+	local VALUE="$2"
+	#echo "$NAME=$VALUE"
+	if test -z "$VALUE"; then
+		# load the default for empty values
+		VALUE=$(awk -F'=' "/^$NAME/ { print \$2}"  "$SCRIPT_DIR/netmaker.default.env")
+		# trim quotes for docker
+		VALUE=$(echo "$VALUE" | sed -E "s|^(['\"])(.*)\1$|\2|g")
+		#echo "Default for $NAME=$VALUE"
+	fi
+	# TODO single quote passwords
+	if grep -q "^$NAME=" "$CONFIG_PATH"; then
+		# TODO escape | in the value
+		sed -i "s|$NAME=.*|$NAME=$VALUE|" "$CONFIG_PATH"
+	else
+		echo "$NAME=$VALUE" >>"$CONFIG_PATH"
 	fi
 ); }
 
 # local_install_setup - builds artifacts based on specified branch locally to use in install
 local_install_setup() { (
-	rm -rf netmaker-tmp
-	mkdir netmaker-tmp
-	cd netmaker-tmp
-	git clone --single-branch --depth=1 --branch=$BUILD_TAG https://www.github.com/gravitl/netmaker
+	if test -z "$NM_SKIP_CLONE"; then
+		rm -rf netmaker-tmp
+		mkdir netmaker-tmp
+		cd netmaker-tmp
+		git clone --single-branch --depth=1 --branch=$BUILD_TAG https://www.github.com/gravitl/netmaker
+	else
+		cd netmaker-tmp
+		echo "Skipping git clone on NM_SKIP_CLONE"
+	fi
 	cd netmaker
 	if test -z "$NM_SKIP_BUILD"; then
 		docker build --no-cache --build-arg version=$IMAGE_TAG -t gravitl/netmaker:$IMAGE_TAG .
 	else
 		echo "Skipping build on NM_SKIP_BUILD"
 	fi
+	cp compose/docker-compose.yml "$SCRIPT_DIR/docker-compose.yml"
 	if [ "$INSTALL_TYPE" = "ee" ]; then
-		cp compose/docker-compose.ee.yml /root/docker-compose.yml
-		cp docker/Caddyfile-EE /root/Caddyfile
+		cp compose/docker-compose.ee.yml "$SCRIPT_DIR/docker-compose.override.yml"
+		cp docker/Caddyfile-EE "$SCRIPT_DIR/Caddyfile"
 	else
-		cp compose/docker-compose.yml /root/docker-compose.yml
-		cp docker/Caddyfile /root/Caddyfile
+		cp docker/Caddyfile "$SCRIPT_DIR/Caddyfile"
 	fi
-	cp scripts/nm-certs.sh /root/nm-certs.sh
-	cp docker/mosquitto.conf /root/mosquitto.conf
-	cp docker/wait.sh /root/wait.sh
+	cp scripts/nm-certs.sh "$SCRIPT_DIR/nm-certs.sh"
+	cp scripts/netmaker.default.env "$SCRIPT_DIR/netmaker.default.env"
+	cp docker/mosquitto.conf "$SCRIPT_DIR/mosquitto.conf"
+	cp docker/wait.sh "$SCRIPT_DIR/wait.sh"
 	cd ../../
-	rm -rf netmaker-tmp
+	if test -z "$NM_SKIP_CLONE"; then
+		rm -rf netmaker-tmp
+	fi
 ); }
 
 # install_dependencies - install necessary packages to run netmaker
 install_dependencies() {
+
+	if test -n "$NM_SKIP_DEPS"; then
+		return
+	fi
+
 	echo "checking dependencies..."
 
 	OS=$(uname)
 	if [ -f /etc/debian_version ]; then
-		dependencies="git wireguard wireguard-tools dnsutils jq docker.io docker-compose"
+		dependencies="git wireguard wireguard-tools dnsutils jq docker.io docker-compose grep gawk"
 		update_cmd='apt update'
 		install_cmd='apt-get install -y'
 	elif [ -f /etc/alpine-release ]; then
-		dependencies="git wireguard jq docker.io docker-compose"
+		dependencies="git wireguard jq docker.io docker-compose grep gawk"
 		update_cmd='apk update'
 		install_cmd='apk --update add'
 	elif [ -f /etc/centos-release ]; then
-		dependencies="git wireguard jq bind-utils docker.io docker-compose"
+		dependencies="git wireguard jq bind-utils docker.io docker-compose grep gawk"
 		update_cmd='yum update'
 		install_cmd='yum install -y'
 	elif [ -f /etc/fedora-release ]; then
-		dependencies="git wireguard bind-utils jq docker.io docker-compose"
+		dependencies="git wireguard bind-utils jq docker.io docker-compose grep gawk"
 		update_cmd='dnf update'
 		install_cmd='dnf install -y'
 	elif [ -f /etc/redhat-release ]; then
-		dependencies="git wireguard jq docker.io bind-utils docker-compose"
+		dependencies="git wireguard jq docker.io bind-utils docker-compose grep gawk"
 		update_cmd='yum update'
 		install_cmd='yum install -y'
 	elif [ -f /etc/arch-release ]; then
-		dependencies="git wireguard-tools dnsutils jq docker.io docker-compose"
+		dependencies="git wireguard-tools dnsutils jq docker.io docker-compose grep gawk"
 		update_cmd='pacman -Sy'
 		install_cmd='pacman -S --noconfirm'
 	elif [ "${OS}" = "FreeBSD" ]; then
-		dependencies="git wireguard wget jq docker.io docker-compose"
+		dependencies="git wireguard wget jq docker.io docker-compose grep gawk"
 		update_cmd='pkg update'
 		install_cmd='pkg install -y'
 	else
@@ -399,17 +492,17 @@ set_install_vars() {
 	fi
 
 	NETMAKER_BASE_DOMAIN=nm.$(echo $IP_ADDR | tr . -).nip.io
-	# TODO dead code?
-	# COREDNS_IP=$(ip route get 1 | sed -n 's/^.*src \([0-9.]*\) .*$/\1/p')
-	SERVER_PUBLIC_IP=$IP_ADDR
-	MASTER_KEY=$(
-		tr -dc A-Za-z0-9 </dev/urandom | head -c 30
-		echo ''
-	)
+	SERVER_HOST=$IP_ADDR
+	if test -z "$MASTER_KEY"; then
+		MASTER_KEY=$(
+			tr -dc A-Za-z0-9 </dev/urandom | head -c 30
+			echo ''
+		)
+	fi
 	DOMAIN_TYPE=""
 	echo "-----------------------------------------------------"
 	echo "Would you like to use your own domain for netmaker, or an auto-generated domain?"
-	echo "To use your own domain, add a Wildcard DNS record (e.x: *.netmaker.example.com) pointing to $SERVER_PUBLIC_IP"
+	echo "To use your own domain, add a Wildcard DNS record (e.x: *.netmaker.example.com) pointing to $SERVER_HOST"
 	echo "IMPORTANT: Due to the high volume of requests, the auto-generated domain has been rate-limited by the certificate provider."
 	echo "For this reason, we STRONGLY RECOMMEND using your own domain. Using the auto-generated domain may lead to a failed installation due to rate limiting."
 	echo "-----------------------------------------------------"
@@ -425,7 +518,7 @@ set_install_vars() {
 				break
 				;;
 			2)
-				read -p "Enter Custom Domain (make sure  *.domain points to $SERVER_PUBLIC_IP first): " domain
+				read -p "Enter Custom Domain (make sure  *.domain points to $SERVER_HOST first): " domain
 				NETMAKER_BASE_DOMAIN=$domain
 				echo "using $NETMAKER_BASE_DOMAIN"
 				DOMAIN_TYPE="custom"
@@ -456,7 +549,7 @@ set_install_vars() {
 	echo "-----------------------------------------------------"
 
 	if [[ "$DOMAIN_TYPE" == "custom" ]]; then
-		echo "before continuing, confirm DNS is configured correctly, with records pointing to $SERVER_PUBLIC_IP"
+		echo "before continuing, confirm DNS is configured correctly, with records pointing to $SERVER_HOST"
 		confirm
 	fi
 
@@ -516,13 +609,15 @@ set_install_vars() {
 		MQ_USERNAME="$GET_MQ_USERNAME"
 	fi
 
-	MQ_PASSWORD=$(
-		tr -dc A-Za-z0-9 </dev/urandom | head -c 30
-		echo ''
-	)
+	if test -z "$MQ_PASSWORD"; then
+		MQ_PASSWORD=$(
+			tr -dc A-Za-z0-9 </dev/urandom | head -c 30
+			echo ''
+		)
+	fi
 
 	if [ -z $AUTO_BUILD ]; then
-		select domain_option in "Auto Generated Password" "Input Your Own Password"; do
+		select domain_option in "Auto Generated / Config Password" "Input Your Own Password"; do
 			case $REPLY in
 			1)
 				echo "using random password for mq"
@@ -563,13 +658,15 @@ set_install_vars() {
 		TURN_USERNAME="$GET_TURN_USERNAME"
 	fi
 
-	TURN_PASSWORD=$(
-		tr -dc A-Za-z0-9 </dev/urandom | head -c 30
-		echo ''
-	)
+	if test -z "$TURN_PASSWORD"; then
+		TURN_PASSWORD=$(
+			tr -dc A-Za-z0-9 </dev/urandom | head -c 30
+			echo ''
+		)
+	fi
 
 	if [ -z $AUTO_BUILD ]; then
-		select domain_option in "Auto Generated Password" "Input Your Own Password"; do
+		select domain_option in "Auto Generated / Config Password" "Input Your Own Password"; do
 			case $REPLY in
 			1)
 				echo "using random password for turn"
@@ -603,7 +700,7 @@ set_install_vars() {
 	echo "-----------------------------------------------------------------"
 	echo "        domain: $NETMAKER_BASE_DOMAIN"
 	echo "         email: $EMAIL"
-	echo "     public ip: $SERVER_PUBLIC_IP"
+	echo "     public ip: $SERVER_HOST"
 	if [ "$INSTALL_TYPE" = "ee" ]; then
 		echo "       license: $LICENSE_KEY"
 		echo "    account id: $ACCOUNT_ID"
@@ -612,9 +709,11 @@ set_install_vars() {
 	echo "Confirm Settings for Installation"
 	echo "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
 
-	confirm
+	if [ ! "$BUILD_TYPE" = "local" ]; then
+		IMAGE_TAG="$LATEST"
+	fi
 
-	save_config
+	confirm
 }
 
 # install_netmaker - sets the config files and starts docker-compose
@@ -626,55 +725,40 @@ install_netmaker() {
 
 	wait_seconds 3
 
-	# TODO extract wgets to setup(), mirror local_setup()
 	echo "Pulling config files..."
 
-	COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/compose/docker-compose.yml"
-	CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/Caddyfile"
-	if [ "$INSTALL_TYPE" = "ee" ]; then
-		COMPOSE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/compose/docker-compose.ee.yml"
-		CADDY_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/Caddyfile-EE"
+	if [ "$BUILD_TYPE" = "local" ]; then
+		local_install_setup
+	else
+		local BASE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG"
+
+		local COMPOSE_URL="$BASE_URL/compose/docker-compose.yml"
+		local CADDY_URL="$BASE_URL/docker/Caddyfile"
+		if [ "$INSTALL_TYPE" = "ee" ]; then
+			local COMPOSE_OVERRIDE_URL="$BASE_URL/compose/docker-compose.ee.yml"
+			local CADDY_URL="$BASE_URL/docker/Caddyfile-EE"
+		fi
+		wget -qO "$SCRIPT_DIR"/docker-compose.yml $COMPOSE_URL
+		if test -n "$COMPOSE_OVERRIDE_URL"; then
+			wget -qO "$SCRIPT_DIR"/docker-compose.override.yml $COMPOSE_OVERRIDE_URL
+		fi
+		wget -qO "$SCRIPT_DIR"/Caddyfile "$CADDY_URL"
+		wget -qO "$SCRIPT_DIR"/netmaker.default.env "$BASE_URL/scripts/netmaker.default.env"
+		wget -qO "$SCRIPT_DIR"/mosquitto.conf "$BASE_URL/docker/mosquitto.conf"
+		wget -qO "$SCRIPT_DIR"/nm-certs.sh "$BASE_URL/scripts/nm-certs.sh"
+		wget -qO "$SCRIPT_DIR"/wait.sh "$BASE_URL/docker/wait.sh"
 	fi
 
-	if [ ! "$BUILD_TYPE" = "local" ]; then
-		wget -qO /root/docker-compose.yml $COMPOSE_URL
-		wget -qO /root/Caddyfile $CADDY_URL
-		wget -qO /root/mosquitto.conf "https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/mosquitto.conf"
-		wget -qO /root/nm-certs.sh "https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/scripts/nm-certs.sh"
-		wget -qO /root/wait.sh "https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG/docker/wait.sh"
-	fi
-
-	chmod +x /root/wait.sh
+	chmod +x "$SCRIPT_DIR"/wait.sh
 	mkdir -p /etc/netmaker
 
-	echo "Setting docker-compose and Caddyfile..."
+	# link .env to the user config
+	ln -fs "$SCRIPT_DIR/netmaker.env" "$SCRIPT_DIR/.env"
+	save_config
 
-	sed -i "s/SERVER_PUBLIC_IP/$SERVER_PUBLIC_IP/g" /root/docker-compose.yml
-	sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/Caddyfile
-	sed -i "s/NETMAKER_BASE_DOMAIN/$NETMAKER_BASE_DOMAIN/g" /root/docker-compose.yml
-	sed -i "s/REPLACE_MASTER_KEY/$MASTER_KEY/g" /root/docker-compose.yml
-	sed -i "s/YOUR_EMAIL/$EMAIL/g" /root/Caddyfile
-	sed -i "s/REPLACE_MQ_USERNAME/$MQ_USERNAME/g" /root/docker-compose.yml
-	sed -i "s/REPLACE_MQ_PASSWORD/$MQ_PASSWORD/g" /root/docker-compose.yml
-	sed -i "s/REPLACE_TURN_USERNAME/$TURN_USERNAME/g" /root/docker-compose.yml
-	sed -i "s/REPLACE_TURN_PASSWORD/$TURN_PASSWORD/g" /root/docker-compose.yml
-
-	if [ "$INSTALL_TYPE" = "ee" ]; then
-		sed -i "s~YOUR_LICENSE_KEY~$LICENSE_KEY~g" /root/docker-compose.yml
-		sed -i "s/YOUR_ACCOUNT_ID/$ACCOUNT_ID/g" /root/docker-compose.yml
-	fi
-
-	if [ "$BUILD_TYPE" = "version" ] && [ "$INSTALL_TYPE" = "ee" ]; then
-		sed -i "s/REPLACE_SERVER_IMAGE_TAG/$IMAGE_TAG-ee/g" /root/docker-compose.yml
-	else
-		sed -i "s/REPLACE_SERVER_IMAGE_TAG/$IMAGE_TAG/g" /root/docker-compose.yml
-	fi
-
-	if [ "$BUILD_TYPE" = "local" ]; then
-		sed -i "s/REPLACE_UI_IMAGE_TAG/$LATEST/g" /root/docker-compose.yml
-	else
-		sed -i "s/REPLACE_UI_IMAGE_TAG/$IMAGE_TAG/g" /root/docker-compose.yml
-	fi
+	# Fetch / update certs using certbot
+	chmod +x "$SCRIPT_DIR"/nm-certs.sh
+	"$SCRIPT_DIR"/nm-certs.sh
 
 	echo "Starting containers..."
 
@@ -683,7 +767,7 @@ install_netmaker() {
 	export COMPOSE_HTTP_TIMEOUT=120
 
 	# start docker and rebuild containers / networks
-	docker-compose -f /root/docker-compose.yml up -d --force-recreate
+	docker-compose -f "$SCRIPT_DIR"/docker-compose.yml up -d --force-recreate
 
 	wait_seconds 2
 
@@ -720,16 +804,28 @@ setup_mesh() {
 
 	wait_seconds 5
 
-	echo "Creating netmaker network (10.101.0.0/16)"
+	local networkCount=$(nmctl network list -o json | jq '. | length')
 
-	nmctl network create --name netmaker --ipv4_addr 10.101.0.0/16
+	# add a network if none present
+	if [ "$networkCount" -lt 1 ]; then
+		echo "Creating netmaker network (10.101.0.0/16)"
 
-	wait_seconds 5
+		# TODO causes "Error Status: 400 Response: {"Code":400,"Message":"could not find any records"}"
+		nmctl network create --name netmaker --ipv4_addr 10.101.0.0/16
 
-	echo "Creating netmaker enrollment key"
+		wait_seconds 5
+	fi
 
-	tokenJson=$(nmctl enrollment_key create --unlimited --networks netmaker)
+	echo "Obtaining a netmaker enrollment key..."
+
+	local tokenJson=$(nmctl enrollment_key create --unlimited --networks netmaker)
 	TOKEN=$(jq -r '.token' <<<${tokenJson})
+	if test -z "$TOKEN"; then
+		echo "Error creating an enrollment key"
+		exit 1
+	else
+		echo "Enrollment key ready"
+	fi
 
 	wait_seconds 3
 
@@ -745,8 +841,40 @@ print_success() {
 	echo "-----------------------------------------------------------------"
 }
 
+cleanup() {
+	# remove the existing netclient's instance from the existing network
+	if command -v nmctl >/dev/null 2>&1; then
+		local node_id=$(netclient list | jq '.[0].node_id' 2>/dev/null)
+		# trim doublequotes
+		node_id="${node_id//\"/}"
+		if test -n "$node_id"; then
+			echo "De-registering the existing netclient..."
+			nmctl node delete netmaker $node_id >/dev/null 2>&1
+		fi
+	fi
+
+	echo "Stopping all containers..."
+	local containers=("mq" "netmaker-ui" "coredns" "turn" "caddy" "netmaker" "netmaker-exporter" "prometheus" "grafana")
+	for name in "${containers[@]}"; do
+		local running=$(docker ps | grep -w "$name")
+		local exists=$(docker ps -a | grep -w "$name")
+		if test -n "$running"; then
+			docker stop "$name" 1>/dev/null
+		fi
+		if test -n "$exists"; then
+			docker rm "$name" 1>/dev/null
+		fi
+	done
+}
+
 # 1. print netmaker logo
 print_logo
+
+# read the config
+if [ -f "$CONFIG_PATH" ]; then
+	echo "Using config: $CONFIG_PATH"
+	source "$CONFIG_PATH"
+fi
 
 # 2. setup the build instructions
 set_buildinfo
@@ -759,25 +887,14 @@ install_dependencies
 # 4. install yq if necessary
 install_yq
 
-# 5. if running a local build, clone git and build artifacts
-if [ "$BUILD_TYPE" = "local" ]; then
-	local_install_setup
-fi
-
 set -e
 
 # 6. get user input for variables
 set_install_vars
 
-# stop
-for name in "mq" "netmaker-ui" "coredns" "turn" "caddy" "netmaker"; do
-	if test -n "$(docker ps | grep name)"; then
-		docker stop $name
-	fi
-done
-
-# Fetch / update certs using certbot
-"$SCRIPT_DIR"/nm-certs.sh
+set +e
+cleanup
+set -e
 
 # 7. get and set config files, startup docker-compose
 install_netmaker
