@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
+	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -707,5 +708,17 @@ func sendPeers() {
 				logger.Log(1, "error publishing peer updates for host: ", host.ID.String(), " Err: ", err.Error())
 			}
 		}
+	}
+}
+
+func PubPeerUpdateToHost(host *models.Host, update models.PeerAction) {
+	data, err := json.Marshal(update)
+	if err != nil {
+		slog.Error("error mashalling peer update for", "host", host.Name, "err", err)
+		return
+	}
+	if err = publish(host, fmt.Sprintf("peer/host/%s/%s", host.ID.String(), servercfg.GetServer()), data); err != nil {
+		slog.Error("error publishing peer update to host", "host", host.Name, "err", err)
+		return
 	}
 }

@@ -754,7 +754,7 @@ func filterNodeMapForClientACLs(publicKey, network string, nodePeerMap map[strin
 
 func GetPeerUpdate(host *models.Host) []wgtypes.PeerConfig {
 	peerUpdate := []wgtypes.PeerConfig{}
-	for _, nodeStr := range host.Nodes {
+	for i, nodeStr := range host.Nodes {
 		node, err := GetNodeByID(nodeStr)
 		if err != nil {
 			continue
@@ -778,12 +778,16 @@ func GetPeerUpdate(host *models.Host) []wgtypes.PeerConfig {
 			}
 			// if peer is relayed by some other node, remove it from the peer list,  it
 			// will be added to allowedips of relay peer
-			if peer.Node.IsRelayed {
+			if peer.Node.IsRelayed && i == 0 {
 				update := wgtypes.PeerConfig{
 					PublicKey: peer.Host.PublicKey,
 					Remove:    true,
 				}
 				peerUpdate = append(peerUpdate, update)
+				continue
+			}
+			// on multiple networks, do not remove, just skip
+			if peer.Node.IsRelayed && i > 0 {
 				continue
 			}
 			update := wgtypes.PeerConfig{
@@ -794,6 +798,10 @@ func GetPeerUpdate(host *models.Host) []wgtypes.PeerConfig {
 					Port: peer.Host.ListenPort,
 				},
 				PersistentKeepaliveInterval: &peer.Node.PersistentKeepalive,
+			}
+			// if multiple networks, append to allowedips
+			if i > 0 {
+				update.ReplaceAllowedIPs = false
 			}
 			// if peer is a relay that relays us, don't do anything
 			if peer.Node.IsRelay && client.Node.RelayedBy == peer.Node.ID.String() {

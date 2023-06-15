@@ -397,8 +397,10 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	logger.Log(0, r.Header.Get("user"), "created new ext client on network", networkName)
 	w.WriteHeader(http.StatusOK)
 	go func() {
-		if err := mq.PublishPeerUpdate(); err != nil {
-			logger.Log(1, "error setting ext peers on "+nodeid+": "+err.Error())
+		mq.BroadcastExtClient(host, &node)
+		f, err := logic.GetFwUpdate(host)
+		if err == nil {
+			mq.PublishFwUpdate(host, &f)
 		}
 		if err := mq.PublishExtCLientDNS(&extclient); err != nil {
 			logger.Log(1, "error publishing extclient dns", err.Error())
