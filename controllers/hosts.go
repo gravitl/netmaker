@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/exp/slog"
 )
 
 func hostHandlers(r *mux.Router) {
@@ -295,7 +296,9 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 			Action: models.RequestAck,
 			Host:   *currHost,
 		})
-		go mq.BroadcastAddOrUpdatePeer(currHost, newNode, false)
+		go func() {
+
+		}()
 	}
 
 	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("added host %s to network %s", currHost.Name, network))
@@ -347,7 +350,16 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 
 	runUpdates(node, false)
 	go func() { // notify of peer change
-		mq.BroadcastDelPeer(currHost, network)
+		peers, err := logic.GetNetworkClients(node.Network)
+		if err != nil {
+			slog.Warn("error getting network clients: ", "error", err)
+		}
+		for _, client := range peers {
+			update := models.PeerAction{
+				Peers: logic.GetPeerUpdate(&client.Host),
+			}
+			mq.PubPeerUpdateToHost(&client.Host, update)
+		}
 		if err := mq.PublishDNSDelete(node, currHost); err != nil {
 			logger.Log(1, "error publishing dns update", err.Error())
 		}

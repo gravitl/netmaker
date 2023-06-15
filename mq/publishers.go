@@ -187,46 +187,6 @@ func FlushNetworkPeersToHost(host *models.Host, hNode *models.Node, networkNodes
 	return nil
 }
 
-// BroadcastDelPeer - notifys all the hosts in the network to remove peer
-func BroadcastDelPeer(host *models.Host, network string) error {
-	nodes, err := logic.GetNetworkNodes(network)
-	if err != nil {
-		return err
-	}
-	p := models.PeerAction{
-		Action: models.RemovePeer,
-		Peers: []wgtypes.PeerConfig{
-			{
-				PublicKey: host.PublicKey,
-				Remove:    true,
-			},
-		},
-	}
-	data, err := json.Marshal(p)
-	if err != nil {
-		return err
-	}
-	for _, nodeI := range nodes {
-		if nodeI.HostID == host.ID {
-			// skip self...
-			continue
-		}
-		peerHost, err := logic.GetHost(nodeI.HostID.String())
-		if err == nil {
-			publish(peerHost, fmt.Sprintf("peer/host/%s/%s", peerHost.ID.String(), servercfg.GetServer()), data)
-			if nodeI.IsIngressGateway || nodeI.IsEgressGateway {
-				go func(peerHost models.Host) {
-					f, err := logic.GetFwUpdate(&peerHost)
-					if err == nil {
-						PublishFwUpdate(&peerHost, &f)
-					}
-				}(*peerHost)
-			}
-		}
-	}
-	return nil
-}
-
 // BroadcastAclUpdate - sends new acl updates to peers
 func BroadcastAclUpdate(network string) error {
 	nodes, err := logic.GetNetworkNodes(network)
@@ -241,111 +201,6 @@ func BroadcastAclUpdate(network string) error {
 		}
 	}
 	return err
-}
-
-// BroadcastAddOrUpdatePeer - notifys the hosts in the network to add or update peer.
-func BroadcastAddOrUpdatePeer(host *models.Host, node *models.Node, update bool) error {
-	nodes, err := logic.GetNetworkNodes(node.Network)
-	if err != nil {
-		return err
-	}
-
-	p := models.PeerAction{
-		Action: models.AddPeer,
-		Peers: []wgtypes.PeerConfig{
-			{
-				PublicKey: host.PublicKey,
-				Endpoint: &net.UDPAddr{
-					IP:   host.EndpointIP,
-					Port: logic.GetPeerListenPort(host),
-				},
-				PersistentKeepaliveInterval: &node.PersistentKeepalive,
-				ReplaceAllowedIPs:           true,
-			},
-		},
-	}
-	if update {
-		p.Action = models.UpdatePeer
-	}
-	for _, nodeI := range nodes {
-		if nodeI.ID.String() == node.ID.String() {
-			// skip self...
-			continue
-		}
-		// update allowed ips, according to the peer node
-		p.Peers[0].AllowedIPs = logic.GetAllowedIPs(&nodeI, node, nil)
-		if update && (!nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(nodeI.ID.String())) ||
-			node.Action == models.NODE_DELETE || node.PendingDelete || !node.Connected) {
-			// remove peer
-			p.Action = models.RemovePeer
-			p.Peers[0].Remove = true
-		}
-		data, err := json.Marshal(p)
-		if err != nil {
-			continue
-		}
-		peerHost, err := logic.GetHost(nodeI.HostID.String())
-		if err == nil {
-			publish(peerHost, fmt.Sprintf("peer/host/%s/%s", peerHost.ID.String(), servercfg.GetServer()), data)
-		}
-		if nodeI.IsIngressGateway || nodeI.IsEgressGateway {
-			go func(peerHost models.Host) {
-				f, err := logic.GetFwUpdate(&peerHost)
-				if err == nil {
-					PublishFwUpdate(&peerHost, &f)
-				}
-			}(*peerHost)
-
-		}
-
-	}
-	return nil
-}
-
-// BroadcastExtClient - publishes msg to add/updates ext client in the network
-func BroadcastExtClient(ingressHost *models.Host, ingressNode *models.Node) error {
-
-	nodes, err := logic.GetNetworkNodes(ingressNode.Network)
-	if err != nil {
-		return err
-	}
-	//flush peers to ingress host
-	go FlushNetworkPeersToHost(ingressHost, ingressNode, nodes)
-	// broadcast to update ingress peer to other hosts
-	go BroadcastAddOrUpdatePeer(ingressHost, ingressNode, true)
-	return nil
-}
-
-// BroadcastDelExtClient - published msg to remove ext client from network
-func BroadcastDelExtClient(ingressHost *models.Host, ingressNode *models.Node, extclients []models.ExtClient) error {
-	// TODO - send fw update
-	go BroadcastAddOrUpdatePeer(ingressHost, ingressNode, true)
-	peers := []wgtypes.PeerConfig{}
-	for _, extclient := range extclients {
-		extPubKey, err := wgtypes.ParseKey(extclient.PublicKey)
-		if err != nil {
-			continue
-		}
-		peers = append(peers, wgtypes.PeerConfig{
-			PublicKey: extPubKey,
-			Remove:    true,
-		})
-
-	}
-	p := models.PeerAction{
-		Action: models.RemovePeer,
-		Peers:  peers,
-	}
-
-	data, err := json.Marshal(p)
-	if err != nil {
-		return err
-	}
-	err = publish(ingressHost, fmt.Sprintf("peer/host/%s/%s", ingressHost.ID.String(), servercfg.GetServer()), data)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 // NodeUpdate -- publishes a node update
@@ -721,4 +576,5 @@ func PubPeerUpdateToHost(host *models.Host, update models.PeerAction) {
 		slog.Error("error publishing peer update to host", "host", host.Name, "err", err)
 		return
 	}
+	slog.Info("published peer update to host", "host", host.Name)
 }

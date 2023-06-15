@@ -18,6 +18,7 @@ import (
 	"github.com/gravitl/netmaker/models/promodels"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/skip2/go-qrcode"
+	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -397,7 +398,16 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	logger.Log(0, r.Header.Get("user"), "created new ext client on network", networkName)
 	w.WriteHeader(http.StatusOK)
 	go func() {
-		mq.BroadcastExtClient(host, &node)
+		peers, err := logic.GetNetworkClients(node.Network)
+		if err != nil {
+			slog.Warn("error getting network clients: ", "error", err)
+		}
+		for _, client := range peers {
+			update := models.PeerAction{
+				Peers: logic.GetPeerUpdate(&client.Host),
+			}
+			mq.PubPeerUpdateToHost(&client.Host, update)
+		}
 		f, err := logic.GetFwUpdate(host)
 		if err == nil {
 			mq.PublishFwUpdate(host, &f)
@@ -502,11 +512,29 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		if ingressNode, err := logic.GetNodeByID(newclient.IngressGatewayID); err == nil {
 			if ingressHost, err := logic.GetHost(ingressNode.HostID.String()); err == nil {
 				if replaceOldClient || !update.Enabled {
-					mq.BroadcastDelExtClient(ingressHost, &ingressNode, []models.ExtClient{currentClient})
+					peers, err := logic.GetNetworkClients(ingressNode.Network)
+					if err != nil {
+						slog.Warn("error getting network clients: ", "error", err)
+					}
+					for _, client := range peers {
+						update := models.PeerAction{
+							Peers: logic.GetPeerUpdate(&client.Host),
+						}
+						mq.PubPeerUpdateToHost(&client.Host, update)
+					}
 				}
 				if replaceOldClient || changedEnabled {
 					// broadcast update
-					mq.BroadcastExtClient(ingressHost, &ingressNode)
+					peers, err := logic.GetNetworkClients(ingressNode.Network)
+					if err != nil {
+						slog.Warn("error getting network clients: ", "error", err)
+					}
+					for _, client := range peers {
+						update := models.PeerAction{
+							Peers: logic.GetPeerUpdate(&client.Host),
+						}
+						mq.PubPeerUpdateToHost(&client.Host, update)
+					}
 				}
 				f, err := logic.GetFwUpdate(ingressHost)
 				if err == nil {
@@ -588,7 +616,16 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		ingressHost, err := logic.GetHost(ingressnode.HostID.String())
 		if err == nil {
-			mq.BroadcastDelExtClient(ingressHost, &ingressnode, []models.ExtClient{extclient})
+			peers, err := logic.GetNetworkClients(ingressnode.Network)
+			if err != nil {
+				slog.Warn("error getting network clients: ", "error", err)
+			}
+			for _, client := range peers {
+				update := models.PeerAction{
+					Peers: logic.GetPeerUpdate(&client.Host),
+				}
+				mq.PubPeerUpdateToHost(&client.Host, update)
+			}
 			f, err := logic.GetFwUpdate(ingressHost)
 			if err == nil {
 				mq.PublishFwUpdate(ingressHost, &f)

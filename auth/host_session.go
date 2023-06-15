@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
+	"golang.org/x/exp/slog"
 )
 
 // SessionHandler - called by the HTTP router when user
@@ -237,7 +238,16 @@ func CheckNetRegAndHostUpdate(networks []string, h *models.Host) {
 				Host:   *h,
 				Node:   *newNode,
 			})
-			mq.BroadcastAddOrUpdatePeer(h, newNode, false)
+			peers, err := logic.GetNetworkClients(newNode.Network)
+			if err != nil {
+				slog.Warn("error getting network clients: ", "error", err)
+			}
+			for _, client := range peers {
+				update := models.PeerAction{
+					Peers: logic.GetPeerUpdate(&client.Host),
+				}
+				mq.PubPeerUpdateToHost(&client.Host, update)
+			}
 		}
 	}
 	if servercfg.IsMessageQueueBackend() {

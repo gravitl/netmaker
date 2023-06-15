@@ -17,6 +17,7 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/exp/slog"
 )
 
 var hostIDHeader = "host-id"
@@ -464,7 +465,16 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 			logger.Log(0, "failed to get egress host: ", err.Error())
 			return
 		}
-		mq.BroadcastAddOrUpdatePeer(host, &node, true)
+		peers, err := logic.GetNetworkClients(node.Network)
+		if err != nil {
+			slog.Warn("error getting network clients: ", "error", err)
+		}
+		for _, client := range peers {
+			update := models.PeerAction{
+				Peers: logic.GetPeerUpdate(&client.Host),
+			}
+			mq.PubPeerUpdateToHost(&client.Host, update)
+		}
 		f, err := logic.GetFwUpdate(host)
 		if err != nil {
 			logger.Log(0, "failed to get egreess host: ", err.Error())
@@ -507,13 +517,21 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
 	go func() {
-
 		host, err := logic.GetHost(node.HostID.String())
 		if err != nil {
 			logger.Log(0, "failed to get egress host: ", err.Error())
 			return
 		}
-		mq.BroadcastAddOrUpdatePeer(host, &node, true)
+		peers, err := logic.GetNetworkClients(node.Network)
+		if err != nil {
+			slog.Warn("error getting network clients: ", "error", err)
+		}
+		for _, client := range peers {
+			update := models.PeerAction{
+				Peers: logic.GetPeerUpdate(&client.Host),
+			}
+			mq.PubPeerUpdateToHost(&client.Host, update)
+		}
 		f, err := logic.GetFwUpdate(host)
 		if err != nil {
 			logger.Log(0, "failed to get egreess host: ", err.Error())
@@ -608,7 +626,16 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	if len(removedClients) > 0 {
 		host, err := logic.GetHost(node.HostID.String())
 		if err == nil {
-			mq.BroadcastDelExtClient(host, &node, removedClients)
+			peers, err := logic.GetNetworkClients(node.Network)
+			if err != nil {
+				slog.Warn("error getting network clients: ", "error", err)
+			}
+			for _, client := range peers {
+				update := models.PeerAction{
+					Peers: logic.GetPeerUpdate(&client.Host),
+				}
+				mq.PubPeerUpdateToHost(&client.Host, update)
+			}
 			f, err := logic.GetFwUpdate(host)
 			if err == nil {
 				mq.PublishFwUpdate(host, &f)
@@ -706,7 +733,16 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(apiNode)
 	runUpdates(newNode, ifaceDelta)
 	go func(aclUpdate bool, newNode *models.Node) {
-		mq.BroadcastAddOrUpdatePeer(host, newNode, true)
+		peers, err := logic.GetNetworkClients(newNode.Network)
+		if err != nil {
+			slog.Warn("error getting network clients: ", "error", err)
+		}
+		for _, client := range peers {
+			update := models.PeerAction{
+				Peers: logic.GetPeerUpdate(&client.Host),
+			}
+			mq.PubPeerUpdateToHost(&client.Host, update)
+		}
 		if err := mq.PublishReplaceDNS(&currentNode, newNode, host); err != nil {
 			logger.Log(1, "failed to publish dns update", err.Error())
 		}
@@ -766,8 +802,16 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 			logger.Log(1, "failed to retrieve host for node", node.ID.String(), err.Error())
 			return
 		}
-
-		err = mq.BroadcastDelPeer(host, deletedNode.Network)
+		peers, err := logic.GetNetworkClients(node.Network)
+		if err != nil {
+			slog.Warn("error getting network clients: ", "error", err)
+		}
+		for _, client := range peers {
+			update := models.PeerAction{
+				Peers: logic.GetPeerUpdate(&client.Host),
+			}
+			mq.PubPeerUpdateToHost(&client.Host, update)
+		}
 		if err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
 		}
