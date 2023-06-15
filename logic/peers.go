@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slices"
+	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -757,11 +758,13 @@ func GetPeerUpdate(host *models.Host) []wgtypes.PeerConfig {
 	for i, nodeStr := range host.Nodes {
 		node, err := GetNodeByID(nodeStr)
 		if err != nil {
+			slog.Warn("error getting node by id", nodeStr, err)
 			continue
 		}
 		client := models.Client{Host: *host, Node: node}
 		peers, err := GetNetworkClients(node.Network)
 		if err != nil {
+			slog.Warn("error getting network clients", node.Network, err)
 			continue
 		}
 		if node.IsRelayed {
@@ -813,6 +816,10 @@ func GetPeerUpdate(host *models.Host) []wgtypes.PeerConfig {
 			update.AllowedIPs = append(update.AllowedIPs, AddAllowedIPs(&peer)...)
 			peerUpdate = append(peerUpdate, update)
 		}
+	}
+	fmt.Println("peer update for relayed node")
+	for _, peer := range peerUpdate {
+		fmt.Println(peer.PublicKey, peer.AllowedIPs, peer.Endpoint)
 	}
 	return peerUpdate
 }

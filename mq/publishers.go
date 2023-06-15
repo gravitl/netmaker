@@ -566,7 +566,15 @@ func sendPeers() {
 	}
 }
 
-func PubPeerUpdateToHost(host *models.Host, update models.PeerAction) {
+// PubPeerUpdateToHost - publishes a full peer update to a host
+func PubPeerUpdateToHost(host *models.Host) {
+	update := models.PeerAction{
+		Peers: logic.GetPeerUpdate(host),
+	}
+	if len(update.Peers) == 0 {
+		slog.Info("no peer update for host", "host", host.Name)
+		return
+	}
 	data, err := json.Marshal(update)
 	if err != nil {
 		slog.Error("error mashalling peer update for", "host", host.Name, "err", err)

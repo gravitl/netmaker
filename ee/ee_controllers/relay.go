@@ -75,10 +75,7 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 	//clients := peers
 	go func() {
 		for _, client := range peers {
-			update := models.PeerAction{
-				Peers: logic.GetPeerUpdate(&client.Host),
-			}
-			mq.PubPeerUpdateToHost(&client.Host, update)
+			mq.PubPeerUpdateToHost(&client.Host)
 		}
 	}()
 	slog.Info("created relay on node", "user", r.Header.Get("user"), "node", relayRequest.NodeID, "network", relayRequest.NetID)
@@ -116,10 +113,7 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 			slog.Warn("error getting network clients: ", "error", err)
 		}
 		for _, client := range peers {
-			update := models.PeerAction{
-				Peers: logic.GetPeerUpdate(&client.Host),
-			}
-			mq.PubPeerUpdateToHost(&client.Host, update)
+			mq.PubPeerUpdateToHost(&client.Host)
 		}
 	}()
 	logger.Log(1, r.Header.Get("user"), "deleted relay on node", node.ID.String(), "on network", node.Network)

@@ -403,10 +403,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			slog.Warn("error getting network clients: ", "error", err)
 		}
 		for _, client := range peers {
-			update := models.PeerAction{
-				Peers: logic.GetPeerUpdate(&client.Host),
-			}
-			mq.PubPeerUpdateToHost(&client.Host, update)
+			mq.PubPeerUpdateToHost(&client.Host)
 		}
 		f, err := logic.GetFwUpdate(host)
 		if err == nil {
@@ -517,10 +514,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 						slog.Warn("error getting network clients: ", "error", err)
 					}
 					for _, client := range peers {
-						update := models.PeerAction{
-							Peers: logic.GetPeerUpdate(&client.Host),
-						}
-						mq.PubPeerUpdateToHost(&client.Host, update)
+						mq.PubPeerUpdateToHost(&client.Host)
 					}
 				}
 				if replaceOldClient || changedEnabled {
@@ -530,10 +524,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 						slog.Warn("error getting network clients: ", "error", err)
 					}
 					for _, client := range peers {
-						update := models.PeerAction{
-							Peers: logic.GetPeerUpdate(&client.Host),
-						}
-						mq.PubPeerUpdateToHost(&client.Host, update)
+						mq.PubPeerUpdateToHost(&client.Host)
 					}
 				}
 				f, err := logic.GetFwUpdate(ingressHost)
@@ -621,10 +612,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 				slog.Warn("error getting network clients: ", "error", err)
 			}
 			for _, client := range peers {
-				update := models.PeerAction{
-					Peers: logic.GetPeerUpdate(&client.Host),
-				}
-				mq.PubPeerUpdateToHost(&client.Host, update)
+				mq.PubPeerUpdateToHost(&client.Host)
 			}
 			f, err := logic.GetFwUpdate(ingressHost)
 			if err == nil {

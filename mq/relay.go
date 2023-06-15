@@ -9,52 +9,25 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
+	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // PubPeerUpdate publishes a peer update to the client
 // relay is set to a newly created relay node or nil for other peer updates
-func PubPeerUpdate(client, relay *models.Client, peers []models.Client) {
+func PubPeerUpdate(client *models.Client) {
+	peers := logic.GetPeerUpdate(&client.Host)
 	p := models.PeerAction{
 		Action: models.UpdatePeer,
+		Peers:  peers,
 	}
-	if client.Node.IsRelay {
-		pubRelayUpdate(client, peers)
+	if len(p.Peers) == 0 {
+		slog.Info("no peer update for host", "host", client.Host.Name)
 		return
-	}
-	if relay != nil {
-		if client.Node.RelayedBy == relay.Node.ID.String() {
-			pubRelayedUpdate(client, relay, peers)
-			return
-		}
-	}
-	for _, peer := range peers {
-		if client.Host.ID == peer.Host.ID {
-			continue
-		}
-		update := wgtypes.PeerConfig{
-			PublicKey:         peer.Host.PublicKey,
-			ReplaceAllowedIPs: true,
-			Endpoint: &net.UDPAddr{
-				IP:   peer.Host.EndpointIP,
-				Port: peer.Host.ListenPort,
-			},
-			PersistentKeepaliveInterval: &peer.Node.PersistentKeepalive,
-		}
-		update.AllowedIPs = append(update.AllowedIPs, logic.AddAllowedIPs(&peer)...)
-		if relay != nil {
-			if peer.Node.IsRelayed && peer.Node.RelayedBy == relay.Node.ID.String() {
-				update.Remove = true
-			}
-		}
-		if peer.Node.IsRelay {
-			update.AllowedIPs = append(update.AllowedIPs, getRelayAllowedIPs(peer)...)
-		}
-		p.Peers = append(p.Peers, update)
 	}
 	data, err := json.Marshal(p)
 	if err != nil {
-		logger.Log(0, "marshal peer update", err.Error())
+		slog.Error("marshal peer update", "error", err)
 		return
 	}
 	publish(&client.Host, fmt.Sprintf("peer/host/%s/%s", client.Host.ID.String(), servercfg.GetServer()), data)

@@ -69,10 +69,7 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 			slog.Warn("error getting network clients: ", "error", err)
 		}
 		for _, client := range peers {
-			update := models.PeerAction{
-				Peers: logic.GetPeerUpdate(&client.Host),
-			}
-			PubPeerUpdateToHost(&client.Host, update)
+			PubPeerUpdateToHost(&client.Host)
 		}
 		if nodes, err := logic.GetNetworkNodes(newNode.Network); err == nil {
 			FlushNetworkPeersToHost(h, &newNode, nodes)

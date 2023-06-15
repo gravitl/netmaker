@@ -291,15 +291,19 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		Host:   *currHost,
 		Node:   *newNode,
 	})
-	if servercfg.IsMessageQueueBackend() {
+	go func() {
 		mq.HostUpdate(&models.HostUpdate{
 			Action: models.RequestAck,
 			Host:   *currHost,
 		})
-		go func() {
-
-		}()
-	}
+		peers, err := logic.GetNetworkClients(newNode.Network)
+		if err != nil {
+			slog.Warn("error getting network clients: ", "error", err)
+		}
+		for _, client := range peers {
+			mq.PubPeerUpdateToHost(&client.Host)
+		}
+	}()
 
 	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("added host %s to network %s", currHost.Name, network))
 	w.WriteHeader(http.StatusOK)
@@ -355,10 +359,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 			slog.Warn("error getting network clients: ", "error", err)
 		}
 		for _, client := range peers {
-			update := models.PeerAction{
-				Peers: logic.GetPeerUpdate(&client.Host),
-			}
-			mq.PubPeerUpdateToHost(&client.Host, update)
+			mq.PubPeerUpdateToHost(&client.Host)
 		}
 		if err := mq.PublishDNSDelete(node, currHost); err != nil {
 			logger.Log(1, "error publishing dns update", err.Error())

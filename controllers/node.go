@@ -470,10 +470,7 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 			slog.Warn("error getting network clients: ", "error", err)
 		}
 		for _, client := range peers {
-			update := models.PeerAction{
-				Peers: logic.GetPeerUpdate(&client.Host),
-			}
-			mq.PubPeerUpdateToHost(&client.Host, update)
+			mq.PubPeerUpdateToHost(&client.Host)
 		}
 		f, err := logic.GetFwUpdate(host)
 		if err != nil {
@@ -527,10 +524,7 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 			slog.Warn("error getting network clients: ", "error", err)
 		}
 		for _, client := range peers {
-			update := models.PeerAction{
-				Peers: logic.GetPeerUpdate(&client.Host),
-			}
-			mq.PubPeerUpdateToHost(&client.Host, update)
+			mq.PubPeerUpdateToHost(&client.Host)
 		}
 		f, err := logic.GetFwUpdate(host)
 		if err != nil {
@@ -631,10 +625,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 				slog.Warn("error getting network clients: ", "error", err)
 			}
 			for _, client := range peers {
-				update := models.PeerAction{
-					Peers: logic.GetPeerUpdate(&client.Host),
-				}
-				mq.PubPeerUpdateToHost(&client.Host, update)
+				mq.PubPeerUpdateToHost(&client.Host)
 			}
 			f, err := logic.GetFwUpdate(host)
 			if err == nil {
@@ -738,10 +729,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			slog.Warn("error getting network clients: ", "error", err)
 		}
 		for _, client := range peers {
-			update := models.PeerAction{
-				Peers: logic.GetPeerUpdate(&client.Host),
-			}
-			mq.PubPeerUpdateToHost(&client.Host, update)
+			mq.PubPeerUpdateToHost(&client.Host)
 		}
 		if err := mq.PublishReplaceDNS(&currentNode, newNode, host); err != nil {
 			logger.Log(1, "failed to publish dns update", err.Error())
@@ -807,10 +795,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 			slog.Warn("error getting network clients: ", "error", err)
 		}
 		for _, client := range peers {
-			update := models.PeerAction{
-				Peers: logic.GetPeerUpdate(&client.Host),
-			}
-			mq.PubPeerUpdateToHost(&client.Host, update)
+			mq.PubPeerUpdateToHost(&client.Host)
 		}
 		if err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())

@@ -243,10 +243,7 @@ func CheckNetRegAndHostUpdate(networks []string, h *models.Host) {
 				slog.Warn("error getting network clients: ", "error", err)
 			}
 			for _, client := range peers {
-				update := models.PeerAction{
-					Peers: logic.GetPeerUpdate(&client.Host),
-				}
-				mq.PubPeerUpdateToHost(&client.Host, update)
+				mq.PubPeerUpdateToHost(&client.Host)
 			}
 		}
 	}
