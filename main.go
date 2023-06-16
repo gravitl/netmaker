@@ -48,6 +48,21 @@ func main() {
 	var waitGroup sync.WaitGroup
 	startControllers(&waitGroup, ctx) // start the api endpoint and mq and stun
 	<-ctx.Done()
+	// PROFILE START
+	pprof.StopCPUProfile()
+	f.Close()
+	log.Println("saved CPU profile")
+	f, err = os.Create("data/mem.prof")
+	if err != nil {
+		log.Fatal("could not create MEM profile: ", err)
+	}
+	defer f.Close() // error handling omitted for example
+	runtime.GC()    // get up-to-date statistics
+	if err := pprof.WriteHeapProfile(f); err != nil {
+		log.Fatal("could not write MEM profile: ", err)
+	}
+	log.Println("saved MEM profile")
+	// PROFILE END
 	waitGroup.Wait()
 }
 

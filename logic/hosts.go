@@ -62,6 +62,7 @@ var CacheHosts map[string]*models.Host
 var CacheHostsMutex = sync.RWMutex{}
 
 // GetHostsMap - gets all the current hosts on machine in a map
+// TODO remove pointer
 func GetHostsMap() (map[string]*models.Host, error) {
 	CacheHostsMutex.RLock()
 	if CacheHosts != nil {

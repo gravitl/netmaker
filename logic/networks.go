@@ -7,6 +7,7 @@ import (
 	"net"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/c-robinson/iplib"
 	validator "github.com/go-playground/validator/v10"
@@ -18,10 +19,21 @@ import (
 	"github.com/gravitl/netmaker/validation"
 )
 
+var CacheNetworks []models.Network
+var CacheNetworksMutex = sync.RWMutex{}
+
 // GetNetworks - returns all networks from database
 func GetNetworks() ([]models.Network, error) {
-	var networks []models.Network
+	// cache read
+	CacheNetworksMutex.RLock()
+	if CacheNetworks != nil {
+		defer CacheNetworksMutex.RUnlock()
+		return CacheNetworks, nil
+	}
+	CacheNetworksMutex.RUnlock()
 
+	// fetch
+	var networks []models.Network
 	collection, err := database.FetchRecords(database.NETWORKS_TABLE_NAME)
 
 	if err != nil {
@@ -37,6 +49,10 @@ func GetNetworks() ([]models.Network, error) {
 		networks = append(networks, network)
 	}
 
+	// cache write
+	CacheNetworksMutex.Lock()
+	CacheNetworks = networks
+	CacheNetworksMutex.Unlock()
 	return networks, err
 }
 
@@ -53,6 +69,10 @@ func DeleteNetwork(network string) error {
 		if err = pro.RemoveAllNetworkUsers(network); err != nil {
 			logger.Log(0, "failed to remove network users on network delete for network", network, err.Error())
 		}
+		// invalidate cache
+		CacheNetworksMutex.Lock()
+		CacheNetworks = nil
+		CacheNetworksMutex.Unlock()
 		return database.DeleteRecord(database.NETWORKS_TABLE_NAME, network)
 	}
 	return errors.New("node check failed. All nodes must be deleted before deleting network")
@@ -101,6 +121,10 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 		return models.Network{}, err
 	}
 
+	// invalidate cache
+	CacheNetworksMutex.Lock()
+	CacheNetworks = nil
+	CacheNetworksMutex.Unlock()
 	if err = database.Insert(network.NetID, string(data), database.NETWORKS_TABLE_NAME); err != nil {
 		return models.Network{}, err
 	}
@@ -189,8 +213,8 @@ func UniqueAddress(networkName string, reverse bool) (net.IP, error) {
 	}
 
 	for {
-		if IsIPUnique(networkName, newAddrs.String(), database.NODES_TABLE_NAME, false) &&
-			IsIPUnique(networkName, newAddrs.String(), database.EXT_CLIENT_TABLE_NAME, false) {
+		if IsIPUniqueNodes(networkName, newAddrs.String(), false) &&
+			IsIPUniqueExtClients(networkName, newAddrs.String(), false) {
 			return newAddrs, nil
 		}
 		if reverse {
@@ -206,50 +230,49 @@ func UniqueAddress(networkName string, reverse bool) (net.IP, error) {
 	return add, errors.New("ERROR: No unique addresses available. Check network subnet")
 }
 
-// IsIPUnique - checks if an IP is unique
-func IsIPUnique(network string, ip string, tableName string, isIpv6 bool) bool {
-
+// IsIPUnique - checks if an IP is unique for nodes
+func IsIPUniqueNodes(network string, ip string, isIpv6 bool) bool {
 	isunique := true
-	collection, err := database.FetchRecords(tableName)
+	collection, err := GetAllNodes()
 	if err != nil {
 		return isunique
 	}
 
-	for _, value := range collection { // filter
-
-		if tableName == database.NODES_TABLE_NAME {
-			var node models.Node
-			if err = json.Unmarshal([]byte(value), &node); err != nil {
-				continue
+	for _, node := range collection {
+		if isIpv6 {
+			if node.Address6.IP.String() == ip && node.Network == network {
+				return false
 			}
-			if isIpv6 {
-				if node.Address6.IP.String() == ip && node.Network == network {
-					return false
-				}
-			} else {
-				if node.Address.IP.String() == ip && node.Network == network {
-					return false
-				}
-			}
-		} else if tableName == database.EXT_CLIENT_TABLE_NAME {
-			var extClient models.ExtClient
-			if err = json.Unmarshal([]byte(value), &extClient); err != nil {
-				continue
-			}
-			if isIpv6 {
-				if (extClient.Address6 == ip) && extClient.Network == network {
-					return false
-				}
-
-			} else {
-				if (extClient.Address == ip) && extClient.Network == network {
-					return false
-				}
+		} else {
+			if node.Address.IP.String() == ip && node.Network == network {
+				return false
 			}
 		}
-
 	}
 
+	return isunique
+}
+
+// IsIPUnique - checks if an IP is unique for ext clients
+func IsIPUniqueExtClients(network string, ip string, isIpv6 bool) bool {
+	isunique := true
+	collection, err := GetAllExtClients()
+	if err != nil {
+		return isunique
+	}
+
+	for _, extClient := range collection {
+		if isIpv6 {
+			if (extClient.Address6 == ip) && extClient.Network == network {
+				return false
+			}
+
+		} else {
+			if (extClient.Address == ip) && extClient.Network == network {
+				return false
+			}
+		}
+	}
 	return isunique
 }
 
@@ -281,8 +304,8 @@ func UniqueAddress6(networkName string, reverse bool) (net.IP, error) {
 	}
 
 	for {
-		if IsIPUnique(networkName, newAddrs.String(), database.NODES_TABLE_NAME, true) &&
-			IsIPUnique(networkName, newAddrs.String(), database.EXT_CLIENT_TABLE_NAME, true) {
+		if IsIPUniqueNodes(networkName, newAddrs.String(), true) &&
+			IsIPUniqueExtClients(networkName, newAddrs.String(), true) {
 			return newAddrs, nil
 		}
 		if reverse {
@@ -307,6 +330,8 @@ func UpdateNetworkLocalAddresses(networkName string) error {
 		return err
 	}
 
+	CacheNetworksMutex.Lock()
+	defer CacheNetworksMutex.Unlock()
 	for _, value := range collection {
 
 		var node models.Node
@@ -334,6 +359,8 @@ func UpdateNetworkLocalAddresses(networkName string) error {
 			database.Insert(node.ID.String(), string(newNodeData), database.NODES_TABLE_NAME)
 		}
 	}
+	// invalidate cache
+	CacheNetworks = nil
 
 	return nil
 }
@@ -346,6 +373,8 @@ func RemoveNetworkNodeIPv6Addresses(networkName string) error {
 		return err
 	}
 
+	CacheNetworksMutex.Lock()
+	defer CacheNetworksMutex.Unlock()
 	for _, value := range collections {
 
 		var node models.Node
@@ -363,6 +392,8 @@ func RemoveNetworkNodeIPv6Addresses(networkName string) error {
 			database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
 		}
 	}
+	// invalidate cache
+	CacheNetworks = nil
 
 	return nil
 }
@@ -375,6 +406,8 @@ func UpdateNetworkNodeAddresses(networkName string) error {
 		return err
 	}
 
+	CacheNetworksMutex.Lock()
+	defer CacheNetworksMutex.Unlock()
 	for _, value := range collections {
 
 		var node models.Node
@@ -400,6 +433,8 @@ func UpdateNetworkNodeAddresses(networkName string) error {
 			database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
 		}
 	}
+	// invalidate cache
+	CacheNetworks = nil
 
 	return nil
 }
@@ -412,6 +447,8 @@ func UpdateNetworkNodeAddresses6(networkName string) error {
 		return err
 	}
 
+	CacheNetworksMutex.Lock()
+	defer CacheNetworksMutex.Unlock()
 	for _, value := range collections {
 
 		var node models.Node
@@ -437,6 +474,8 @@ func UpdateNetworkNodeAddresses6(networkName string) error {
 			database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
 		}
 	}
+	// invalidate cache
+	CacheNetworks = nil
 
 	return nil
 }
@@ -480,6 +519,10 @@ func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (
 			return false, false, false, nil, nil, err
 		}
 		newNetwork.SetNetworkLastModified()
+		// invalidate cache
+		CacheNetworksMutex.Lock()
+		CacheNetworks = nil
+		CacheNetworksMutex.Unlock()
 		err = database.Insert(newNetwork.NetID, string(data), database.NETWORKS_TABLE_NAME)
 		return hasrangeupdate4, hasrangeupdate6, hasholepunchupdate, groupDelta, userDelta, err
 	}
@@ -489,7 +532,7 @@ func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (
 
 // GetNetwork - gets a network from database
 func GetNetwork(networkname string) (models.Network, error) {
-
+	// TODO cache
 	var network models.Network
 	networkData, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, networkname)
 	if err != nil {
@@ -561,6 +604,10 @@ func SaveNetwork(network *models.Network) error {
 	if err != nil {
 		return err
 	}
+	// invalidate cache
+	CacheNetworksMutex.Lock()
+	CacheNetworks = nil
+	CacheNetworksMutex.Unlock()
 	if err := database.Insert(network.NetID, string(data), database.NETWORKS_TABLE_NAME); err != nil {
 		return err
 	}

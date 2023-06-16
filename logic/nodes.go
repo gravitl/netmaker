@@ -529,7 +529,7 @@ func createNode(node *models.Node) error {
 			}
 			node.Address.Mask = net.CIDRMask(cidr.Mask.Size())
 		}
-	} else if !IsIPUnique(node.Network, node.Address.String(), database.NODES_TABLE_NAME, false) {
+	} else if !IsIPUniqueNodes(node.Network, node.Address.String(), false) {
 		return fmt.Errorf("invalid address: ipv4 " + node.Address.String() + " is not unique")
 	}
 	if node.Address6.IP == nil {
@@ -543,7 +543,7 @@ func createNode(node *models.Node) error {
 			}
 			node.Address6.Mask = net.CIDRMask(cidr.Mask.Size())
 		}
-	} else if !IsIPUnique(node.Network, node.Address6.String(), database.NODES_TABLE_NAME, true) {
+	} else if !IsIPUniqueNodes(node.Network, node.Address6.String(), true) {
 		return fmt.Errorf("invalid address: ipv6 " + node.Address6.String() + " is not unique")
 	}
 	node.ID = uuid.New()

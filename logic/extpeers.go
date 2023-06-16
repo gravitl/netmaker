@@ -3,6 +3,7 @@ package logic
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
@@ -46,15 +47,11 @@ func GetExtPeersList(node *models.Node) ([]models.ExtPeersResponse, error) {
 func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 
 	var result []string
-	nodesData, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	nodesData, err := GetAllNodes()
 	if err != nil {
 		return []string{}, err
 	}
-	for _, nodeData := range nodesData {
-		var currentNode models.Node
-		if err = json.Unmarshal([]byte(nodeData), &currentNode); err != nil {
-			continue
-		}
+	for _, currentNode := range nodesData {
 		if currentNode.Network != client.Network {
 			continue
 		}
@@ -74,6 +71,10 @@ func DeleteExtClient(network string, clientid string) error {
 	if err != nil {
 		return err
 	}
+	// invalidate cache
+	CacheExtClientsMutex.Lock()
+	CacheExtClients = nil
+	CacheExtClientsMutex.Unlock()
 	err = database.DeleteRecord(database.EXT_CLIENT_TABLE_NAME, key)
 	return err
 }
@@ -82,16 +83,11 @@ func DeleteExtClient(network string, clientid string) error {
 func GetNetworkExtClients(network string) ([]models.ExtClient, error) {
 	var extclients []models.ExtClient
 
-	records, err := database.FetchRecords(database.EXT_CLIENT_TABLE_NAME)
+	records, err := fetchExtClients()
 	if err != nil {
 		return extclients, err
 	}
-	for _, value := range records {
-		var extclient models.ExtClient
-		err = json.Unmarshal([]byte(value), &extclient)
-		if err != nil {
-			continue
-		}
+	for _, extclient := range records {
 		if extclient.Network == network {
 			extclients = append(extclients, extclient)
 		}
@@ -101,6 +97,7 @@ func GetNetworkExtClients(network string) ([]models.ExtClient, error) {
 
 // GetExtClient - gets a single ext client on a network
 func GetExtClient(clientid string, network string) (models.ExtClient, error) {
+	// TODO cache
 	var extclient models.ExtClient
 	key, err := GetRecordKey(clientid, network)
 	if err != nil {
@@ -187,6 +184,10 @@ func SaveExtClient(extclient *models.ExtClient) error {
 	if err != nil {
 		return err
 	}
+	// invalidate cache
+	CacheExtClientsMutex.Lock()
+	CacheExtClients = nil
+	CacheExtClientsMutex.Unlock()
 	if err = database.Insert(key, string(data), database.EXT_CLIENT_TABLE_NAME); err != nil {
 		return err
 	}
@@ -251,4 +252,35 @@ func GetAllExtClients() ([]models.ExtClient, error) {
 	}
 
 	return clients, nil
+}
+
+var CacheExtClients []models.ExtClient
+var CacheExtClientsMutex = sync.RWMutex{}
+
+func fetchExtClients() ([]models.ExtClient, error) {
+	// cache read
+	CacheExtClientsMutex.RLock()
+	if CacheExtClients != nil {
+		defer CacheExtClientsMutex.RUnlock()
+		return CacheExtClients, nil
+	}
+	CacheExtClientsMutex.RUnlock()
+	// fetch
+	var extclients []models.ExtClient
+	records, err := database.FetchRecords(database.EXT_CLIENT_TABLE_NAME)
+	if err != nil {
+		return extclients, err
+	}
+	for _, value := range records {
+		var extclient models.ExtClient
+		err = json.Unmarshal([]byte(value), &extclient)
+		if err != nil {
+			continue
+		}
+	}
+	// cache write
+	CacheExtClientsMutex.Lock()
+	CacheExtClients = extclients
+	CacheExtClientsMutex.Unlock()
+	return extclients, err
 }

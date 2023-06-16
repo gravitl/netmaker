@@ -103,6 +103,7 @@ func fetchACLContainer(containerID ContainerID) (ACLContainer, error) {
 			defer CacheACLMutex.RUnlock()
 			return CacheACL[containerID], nil
 		}
+		CacheACLMutex.RUnlock()
 	} else {
 		CacheACLMutex.RUnlock()
 		CacheACLMutex.Lock()
