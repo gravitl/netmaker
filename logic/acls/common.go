@@ -2,8 +2,10 @@ package acls
 
 import (
 	"encoding/json"
+	"sync"
 
 	"github.com/gravitl/netmaker/database"
+	"golang.org/x/exp/slog"
 )
 
 // == type functions ==
@@ -52,6 +54,22 @@ func (aclContainer ACLContainer) RemoveACL(ID AclID) ACLContainer {
 
 // ACLContainer.ChangeAccess - changes the relationship between two nodes in memory
 func (networkACL ACLContainer) ChangeAccess(ID1, ID2 AclID, value byte) {
+	if _, ok := networkACL[ID1]; !ok {
+		slog.Error("ACL missing for ", "id", ID1)
+		return
+	}
+	if _, ok := networkACL[ID2]; !ok {
+		slog.Error("ACL missing for ", "id", ID2)
+		return
+	}
+	if _, ok := networkACL[ID1][ID2]; !ok {
+		slog.Error("ACL missing for ", "id1", ID1, "id2", ID2)
+		return
+	}
+	if _, ok := networkACL[ID2][ID1]; !ok {
+		slog.Error("ACL missing for ", "id2", ID2, "id1", ID1)
+		return
+	}
 	networkACL[ID1][ID2] = value
 	networkACL[ID2][ID1] = value
 }
@@ -73,9 +91,26 @@ func (aclContainer ACLContainer) Get(containerID ContainerID) (ACLContainer, err
 
 // == private ==
 
+var CacheACL map[ContainerID]ACLContainer
+var CacheACLMutex = sync.RWMutex{}
+
 // fetchACLContainer - fetches all current rules in given ACL container
+// TODO pointer
 func fetchACLContainer(containerID ContainerID) (ACLContainer, error) {
-	aclJson, err := fetchACLContainerJson(ContainerID(containerID))
+	CacheACLMutex.RLock()
+	if CacheACL != nil {
+		if _, ok := CacheACL[containerID]; ok {
+			defer CacheACLMutex.RUnlock()
+			return CacheACL[containerID], nil
+		}
+	} else {
+		CacheACLMutex.RUnlock()
+		CacheACLMutex.Lock()
+		CacheACL = make(map[ContainerID]ACLContainer)
+		CacheACLMutex.Unlock()
+	}
+	// TODO cache
+	aclJson, err := fetchACLContainerJson(containerID)
 	if err != nil {
 		return nil, err
 	}
@@ -83,6 +118,9 @@ func fetchACLContainer(containerID ContainerID) (ACLContainer, error) {
 	if err := json.Unmarshal([]byte(aclJson), &currentNetworkACL); err != nil {
 		return nil, err
 	}
+	CacheACLMutex.Lock()
+	CacheACL[containerID] = currentNetworkACL
+	CacheACLMutex.Unlock()
 	return currentNetworkACL, nil
 }
 
@@ -102,6 +140,10 @@ func upsertACL(containerID ContainerID, ID AclID, acl ACL) (ACL, error) {
 		return acl, err
 	}
 	currentNetACL[ID] = acl
+	// invalidate cache
+	CacheACLMutex.Lock()
+	delete(CacheACL, containerID)
+	CacheACLMutex.Unlock()
 	_, err = upsertACLContainer(containerID, currentNetACL)
 	return acl, err
 }
@@ -112,6 +154,10 @@ func upsertACLContainer(containerID ContainerID, aclContainer ACLContainer) (ACL
 	if aclContainer == nil {
 		aclContainer = make(ACLContainer)
 	}
+	// invalidate cache
+	CacheACLMutex.Lock()
+	delete(CacheACL, containerID)
+	CacheACLMutex.Unlock()
 	return aclContainer, database.Insert(string(containerID), string(convertNetworkACLtoACLJson(aclContainer)), database.NODE_ACLS_TABLE_NAME)
 }
 

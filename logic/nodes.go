@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"sync"
 	"time"
 
 	validator "github.com/go-playground/validator/v10"
@@ -104,6 +105,10 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 		if data, err := json.Marshal(newNode); err != nil {
 			return err
 		} else {
+			// invalidate cache
+			CacheNodesMutex.Lock()
+			CacheNodes = nil
+			CacheNodesMutex.Unlock()
 			return database.Insert(newNode.ID.String(), string(data), database.NODES_TABLE_NAME)
 		}
 	}
@@ -157,6 +162,10 @@ func deleteNodeByID(node *models.Node) error {
 			logger.Log(0, "failed to deleted ext clients", err.Error())
 		}
 	}
+	// invalidate cache
+	CacheNodesMutex.Lock()
+	CacheNodes = nil
+	CacheNodesMutex.Unlock()
 	if err = database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
 		if !database.IsEmptyRecord(err) {
 			return err
@@ -224,8 +233,17 @@ func IsFailoverPresent(network string) bool {
 	return false
 }
 
+var CacheNodes []models.Node
+var CacheNodesMutex = sync.RWMutex{}
+
 // GetAllNodes - returns all nodes in the DB
 func GetAllNodes() ([]models.Node, error) {
+	CacheNodesMutex.RLock()
+	if CacheNodes != nil {
+		defer CacheNodesMutex.RUnlock()
+		return CacheNodes, nil
+	}
+	CacheNodesMutex.RUnlock()
 	var nodes []models.Node
 
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
@@ -246,6 +264,10 @@ func GetAllNodes() ([]models.Node, error) {
 		// add node to our array
 		nodes = append(nodes, node)
 	}
+
+	CacheNodesMutex.Lock()
+	CacheNodes = nodes
+	CacheNodesMutex.Unlock()
 
 	return nodes, nil
 }
@@ -366,7 +388,18 @@ func GetNodeRelay(network string, relayedNodeAddr string) (models.Node, error) {
 	return relay, errors.New(RELAY_NODE_ERR + " " + relayedNodeAddr)
 }
 
+// TODO pointer
 func GetNodeByID(uuid string) (models.Node, error) {
+	CacheNodesMutex.RLock()
+	if CacheNodes != nil {
+		for _, node := range CacheNodes {
+			if node.ID.String() == uuid {
+				defer CacheNodesMutex.RUnlock()
+				return node, nil
+			}
+		}
+	}
+	CacheNodesMutex.RUnlock()
 	var record, err = database.FetchRecord(database.NODES_TABLE_NAME, uuid)
 	if err != nil {
 		return models.Node{}, err
@@ -532,6 +565,10 @@ func createNode(node *models.Node) error {
 	if err != nil {
 		return err
 	}
+	// invalidate cache
+	CacheNodesMutex.Lock()
+	CacheNodes = nil
+	CacheNodesMutex.Unlock()
 	err = database.Insert(node.ID.String(), string(nodebytes), database.NODES_TABLE_NAME)
 	if err != nil {
 		return err

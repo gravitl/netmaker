@@ -13,7 +13,9 @@ func AreNodesAllowed(networkID NetworkID, node1, node2 NodeID) bool {
 	if err != nil {
 		return false
 	}
-	return currentNetworkACL[acls.AclID(node1)].IsAllowed(acls.AclID(node2)) && currentNetworkACL[acls.AclID(node2)].IsAllowed(acls.AclID(node1))
+	nodeID1 := acls.AclID(node1)
+	nodeID2 := acls.AclID(node2)
+	return currentNetworkACL[nodeID1].IsAllowed(nodeID2) && currentNetworkACL[nodeID2].IsAllowed(nodeID1)
 }
 
 // FetchNodeACL - fetches a specific node's ACL in a given network

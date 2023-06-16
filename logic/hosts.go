@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"sync"
 
 	"github.com/devilcove/httpclient"
 	"github.com/google/uuid"
@@ -57,8 +58,17 @@ func GetAllHostsAPI(hosts []models.Host) []models.ApiHost {
 	return apiHosts[:]
 }
 
+var CacheHosts map[string]*models.Host
+var CacheHostsMutex = sync.RWMutex{}
+
 // GetHostsMap - gets all the current hosts on machine in a map
 func GetHostsMap() (map[string]*models.Host, error) {
+	CacheHostsMutex.RLock()
+	if CacheHosts != nil {
+		defer CacheHostsMutex.RUnlock()
+		return CacheHosts, nil
+	}
+	CacheHostsMutex.RUnlock()
 	records, err := database.FetchRecords(database.HOSTS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return nil, err
@@ -72,12 +82,23 @@ func GetHostsMap() (map[string]*models.Host, error) {
 		}
 		currHostMap[h.ID.String()] = &h
 	}
+	CacheHostsMutex.Lock()
+	CacheHosts = currHostMap
+	CacheHostsMutex.Unlock()
 
 	return currHostMap, nil
 }
 
 // GetHost - gets a host from db given id
 func GetHost(hostid string) (*models.Host, error) {
+	CacheHostsMutex.RLock()
+	if CacheHosts != nil {
+		if _, ok := CacheHosts[hostid]; ok {
+			defer CacheHostsMutex.RUnlock()
+			return CacheHosts[hostid], nil
+		}
+	}
+	CacheHostsMutex.RUnlock()
 	record, err := database.FetchRecord(database.HOSTS_TABLE_NAME, hostid)
 	if err != nil {
 		return nil, err
@@ -216,6 +237,10 @@ func UpsertHost(h *models.Host) error {
 		return err
 	}
 
+	// invalidate cache
+	CacheHostsMutex.Lock()
+	CacheHosts = nil
+	CacheHostsMutex.Unlock()
 	return database.Insert(h.ID.String(), string(data), database.HOSTS_TABLE_NAME)
 }
 
@@ -228,6 +253,10 @@ func RemoveHost(h *models.Host) error {
 		DeRegisterHostWithTurn(h.ID.String())
 	}
 
+	// invalidate cache
+	CacheHostsMutex.Lock()
+	CacheHosts = nil
+	CacheHostsMutex.Unlock()
 	return database.DeleteRecord(database.HOSTS_TABLE_NAME, h.ID.String())
 }
 
@@ -236,6 +265,10 @@ func RemoveHostByID(hostID string) error {
 	if servercfg.IsUsingTurn() {
 		DeRegisterHostWithTurn(hostID)
 	}
+	// invalidate cache
+	CacheHostsMutex.Lock()
+	CacheHosts = nil
+	CacheHostsMutex.Unlock()
 	return database.DeleteRecord(database.HOSTS_TABLE_NAME, hostID)
 }
 

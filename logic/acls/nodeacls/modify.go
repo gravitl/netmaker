@@ -83,5 +83,9 @@ func RemoveNodeACL(networkID NetworkID, nodeID NodeID) (acls.ACLContainer, error
 
 // DeleteACLContainer - removes an ACLContainer state from db
 func DeleteACLContainer(network NetworkID) error {
+	// invalidate cache
+	acls.CacheACLMutex.Lock()
+	acls.CacheACL = nil
+	acls.CacheACLMutex.Unlock()
 	return database.DeleteRecord(database.NODE_ACLS_TABLE_NAME, string(network))
 }
