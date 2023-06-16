@@ -391,12 +391,10 @@ func GetNodeRelay(network string, relayedNodeAddr string) (models.Node, error) {
 // TODO pointer
 func GetNodeByID(uuid string) (models.Node, error) {
 	CacheNodesMutex.RLock()
-	if CacheNodes != nil {
-		for _, node := range CacheNodes {
-			if node.ID.String() == uuid {
-				defer CacheNodesMutex.RUnlock()
-				return node, nil
-			}
+	for _, node := range CacheNodes {
+		if node.ID.String() == uuid {
+			defer CacheNodesMutex.RUnlock()
+			return node, nil
 		}
 	}
 	CacheNodesMutex.RUnlock()
