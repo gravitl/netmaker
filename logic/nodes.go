@@ -75,6 +75,16 @@ func UpdateNodeCheckin(node *models.Node) error {
 	return database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
 }
 
+// UpsertNode - updates node in the DB
+func UpsertNode(newNode *models.Node) error {
+	newNode.SetLastModified()
+	data, err := json.Marshal(newNode)
+	if err != nil {
+		return err
+	}
+	return database.Insert(newNode.ID.String(), string(data), database.NODES_TABLE_NAME)
+}
+
 // UpdateNode - takes a node and updates another node with it's values
 func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	if newNode.Address.IP.String() != currentNode.Address.IP.String() {

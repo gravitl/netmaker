@@ -67,6 +67,8 @@ func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.N
 		node.IsRelayed = setRelayed
 		if node.IsRelayed {
 			node.RelayedBy = relay
+		} else {
+			node.RelayedBy = ""
 		}
 		node.SetLastModified()
 		data, err := json.Marshal(&node)
@@ -141,7 +143,7 @@ func DeleteRelay(network, nodeid string) ([]models.Node, models.Node, error) {
 	}
 	returnnodes = SetRelayedNodes(false, nodeid, node.RelayedNodes)
 	node.IsRelay = false
-	node.RelayedBy = ""
+	node.RelayedNodes = []string{}
 	node.SetLastModified()
 	data, err := json.Marshal(&node)
 	if err != nil {
