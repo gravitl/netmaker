@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/gravitl/netmaker/database"
+	"golang.org/x/exp/slog"
 )
 
 // == type functions ==
