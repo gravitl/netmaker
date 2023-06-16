@@ -52,6 +52,22 @@ func (aclContainer ACLContainer) RemoveACL(ID AclID) ACLContainer {
 
 // ACLContainer.ChangeAccess - changes the relationship between two nodes in memory
 func (networkACL ACLContainer) ChangeAccess(ID1, ID2 AclID, value byte) {
+	if _, ok := networkACL[ID1]; !ok {
+		slog.Error("ACL missing for ", "id", ID1)
+		return
+	}
+	if _, ok := networkACL[ID2]; !ok {
+		slog.Error("ACL missing for ", "id", ID2)
+		return
+	}
+	if _, ok := networkACL[ID1][ID2]; !ok {
+		slog.Error("ACL missing for ", "id1", ID1, "id2", ID2)
+		return
+	}
+	if _, ok := networkACL[ID2][ID1]; !ok {
+		slog.Error("ACL missing for ", "id2", ID2, "id1", ID1)
+		return
+	}
 	networkACL[ID1][ID2] = value
 	networkACL[ID2][ID1] = value
 }
