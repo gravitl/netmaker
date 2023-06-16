@@ -105,7 +105,14 @@ func ValidateRelay(relay models.RelayRequest) error {
 	//isIp := functions.IsIpCIDR(gateway.RangeString)
 	empty := len(relay.RelayedNodes) == 0
 	if empty {
-		err = errors.New("IP Ranges Cannot Be Empty")
+		return errors.New("IP Ranges Cannot Be Empty")
+	}
+	node, err := GetNodeByID(relay.NodeID)
+	if err != nil {
+		return err
+	}
+	if node.IsRelay {
+		return errors.New("node is already acting as a relay")
 	}
 	for _, relayedNodeID := range relay.RelayedNodes {
 		relayedNode, err := GetNodeByID(relayedNodeID)

@@ -162,15 +162,11 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 					PersistentKeepaliveInterval: &peer.PersistentKeepalive,
 					ReplaceAllowedIPs:           true,
 				}
-				if peer.IsRelayed && peer.RelayedBy != node.ID.String() {
-					// skip relayed peers; will be included in relay peer
-					peerConfig.Remove = true
-					hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
-					peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
-					continue
-				}
-				if node.IsRelayed && node.RelayedBy != peer.ID.String() {
+				if (node.IsRelayed && node.RelayedBy != peer.ID.String()) || (peer.IsRelayed && peer.RelayedBy != node.ID.String()) {
 					// if node is relayed and peer is not the relay, set remove to true
+					if _, ok := hostPeerUpdate.HostPeerIDs[peerHost.PublicKey.String()]; ok {
+						continue
+					}
 					peerConfig.Remove = true
 					hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
 					peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
