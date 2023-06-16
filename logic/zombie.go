@@ -78,10 +78,10 @@ func ManageZombies(ctx context.Context, peerUpdate chan *models.Node) {
 	logger.Log(2, "Zombie management started")
 	InitializeZombies()
 
+	// run this check 4 times a day
+	duration := time.Hour * ZOMBIE_TIMEOUT
+	delay := time.NewTimer(duration)
 	for {
-		// run this check 4 times a day
-		duration := time.Hour * ZOMBIE_TIMEOUT
-		delay := time.NewTimer(duration)
 		select {
 		case <-ctx.Done():
 			close(peerUpdate)
