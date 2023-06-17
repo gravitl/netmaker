@@ -691,35 +691,6 @@ func getAllowedIpsForRelayed(relayed, relay *models.Node) (allowedIPs []net.IPNe
 	return
 }
 
-func getIngressIPs(peer *models.Node) []net.IPNet {
-	var ingressIPs []net.IPNet
-	extclients, err := GetNetworkExtClients(peer.Network)
-	if err != nil {
-		return ingressIPs
-	}
-	for _, ec := range extclients {
-		if ec.IngressGatewayID == peer.ID.String() {
-			if ec.Address != "" {
-				ip, cidr, err := net.ParseCIDR(ec.Address)
-				if err != nil {
-					continue
-				}
-				cidr.IP = ip
-				ingressIPs = append(ingressIPs, *cidr)
-			}
-			if ec.Address6 != "" {
-				ip, cidr, err := net.ParseCIDR(ec.Address6)
-				if err != nil {
-					continue
-				}
-				cidr.IP = ip
-				ingressIPs = append(ingressIPs, *cidr)
-			}
-		}
-	}
-	return ingressIPs
-}
-
 func getCIDRMaskFromAddr(addr string) net.IPMask {
 	cidr := net.CIDRMask(32, 32)
 	ipAddr, err := netip.ParseAddr(addr)
