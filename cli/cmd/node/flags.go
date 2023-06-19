@@ -12,7 +12,7 @@ var (
 	postUp                 string
 	postDown               string
 	keepAlive              int
-	relayAddrs             string
+	relayedNodes           string
 	egressGatewayRanges    string
 	expirationDateTime     int
 	defaultACL             bool

@@ -67,10 +67,6 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 	a.Verbosity = h.Verbosity
 	a.Version = h.Version
 	a.IsDefault = h.IsDefault
-	a.IsRelay = h.IsRelay
-	a.RelayedHosts = h.RelayedHosts
-	a.IsRelayed = h.IsRelayed
-	a.RelayedBy = h.RelayedBy
 	return &a
 }
 
@@ -108,10 +104,6 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.Nodes = currentHost.Nodes
 	h.TrafficKeyPublic = currentHost.TrafficKeyPublic
 	h.OS = currentHost.OS
-	h.RelayedBy = a.RelayedBy
-	h.RelayedHosts = a.RelayedHosts
-	h.IsRelay = a.IsRelay
-	h.IsRelayed = a.IsRelayed
 	h.ProxyEnabled = a.ProxyEnabled
 	h.IsDefault = a.IsDefault
 	h.NatType = currentHost.NatType
