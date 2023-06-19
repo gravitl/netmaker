@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 
@@ -665,9 +664,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	log.Println("relay was  updated")
 	if relayupdate {
-		log.Println("updating relayed nodes")
 		updatenodes := logic.UpdateRelayed(currentNode.ID.String(), currentNode.RelayedNodes, newNode.RelayedNodes)
 		if len(updatenodes) > 0 {
 			for _, relayedNode := range updatenodes {
