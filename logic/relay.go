@@ -38,6 +38,10 @@ func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) 
 	if err != nil {
 		return returnnodes, node, err
 	}
+	// invalidate cache
+	CacheNodesMutex.Lock()
+	CacheNodes = nil
+	CacheNodesMutex.Unlock()
 	if err = database.Insert(node.ID.String(), string(nodeData), database.NODES_TABLE_NAME); err != nil {
 		return returnnodes, models.Node{}, err
 	}
@@ -112,6 +116,10 @@ func SetRelayedNodes(setRelayed bool, networkName string, addrs []string) ([]mod
 				if err != nil {
 					return returnnodes, err
 				}
+				// invalidate cache
+				CacheNodesMutex.Lock()
+				CacheNodes = nil
+				CacheNodesMutex.Unlock()
 				database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
 				returnnodes = append(returnnodes, node)
 			}
@@ -201,6 +209,10 @@ func DeleteRelay(network, nodeid string) ([]models.Node, models.Node, error) {
 	if err != nil {
 		return returnnodes, models.Node{}, err
 	}
+	// invalidate cache
+	CacheNodesMutex.Lock()
+	CacheNodes = nil
+	CacheNodesMutex.Unlock()
 	if err = database.Insert(nodeid, string(data), database.NODES_TABLE_NAME); err != nil {
 		return returnnodes, models.Node{}, err
 	}

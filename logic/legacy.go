@@ -24,6 +24,10 @@ func IsLegacyNode(nodeID string) bool {
 // CheckAndRemoveLegacyNode - checks for legacy node and removes
 func CheckAndRemoveLegacyNode(nodeID string) bool {
 	if IsLegacyNode(nodeID) {
+		// invalidate cache
+		CacheNodesMutex.Lock()
+		CacheNodes = nil
+		CacheNodesMutex.Unlock()
 		if err := database.DeleteRecord(database.NODES_TABLE_NAME, nodeID); err == nil {
 			return true
 		}

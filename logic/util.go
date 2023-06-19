@@ -61,6 +61,10 @@ func SetNetworkNodesLastModified(networkName string) error {
 	if err != nil {
 		return err
 	}
+	// invalidate cache
+	CacheNetworksMutex.Lock()
+	CacheNodes = nil
+	CacheNetworksMutex.Unlock()
 	err = database.Insert(networkName, string(data), database.NETWORKS_TABLE_NAME)
 	if err != nil {
 		return err

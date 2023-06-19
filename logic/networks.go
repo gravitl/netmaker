@@ -356,6 +356,10 @@ func UpdateNetworkLocalAddresses(networkName string) error {
 				logger.Log(1, "error in node  address assignment!")
 				return err
 			}
+			// invalidate cache
+			CacheNodesMutex.Lock()
+			CacheNodes = nil
+			CacheNodesMutex.Unlock()
 			database.Insert(node.ID.String(), string(newNodeData), database.NODES_TABLE_NAME)
 		}
 	}
@@ -389,6 +393,10 @@ func RemoveNetworkNodeIPv6Addresses(networkName string) error {
 			if err != nil {
 				return err
 			}
+			// invalidate cache
+			CacheNodesMutex.Lock()
+			CacheNodes = nil
+			CacheNodesMutex.Unlock()
 			database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
 		}
 	}
@@ -430,6 +438,10 @@ func UpdateNetworkNodeAddresses(networkName string) error {
 			if err != nil {
 				return err
 			}
+			// invalidate cache
+			CacheNodesMutex.Lock()
+			CacheNodes = nil
+			CacheNodesMutex.Unlock()
 			database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
 		}
 	}
@@ -471,6 +483,10 @@ func UpdateNetworkNodeAddresses6(networkName string) error {
 			if err != nil {
 				return err
 			}
+			// invalidate cache
+			CacheNodesMutex.Lock()
+			CacheNodes = nil
+			CacheNodesMutex.Unlock()
 			database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
 		}
 	}

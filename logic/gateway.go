@@ -57,6 +57,10 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	if err != nil {
 		return node, err
 	}
+	// invalidate cache
+	CacheNodesMutex.Lock()
+	CacheNodes = nil
+	CacheNodesMutex.Unlock()
 	if err = database.Insert(node.ID.String(), string(nodeData), database.NODES_TABLE_NAME); err != nil {
 		return models.Node{}, err
 	}
@@ -132,6 +136,10 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	if err != nil {
 		return models.Node{}, err
 	}
+	// invalidate cache
+	CacheNodesMutex.Lock()
+	CacheNodes = nil
+	CacheNodesMutex.Unlock()
 	err = database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
 	if err != nil {
 		return models.Node{}, err
@@ -178,6 +186,10 @@ func DeleteIngressGateway(networkName string, nodeid string) (models.Node, bool,
 	if err != nil {
 		return models.Node{}, false, removedClients, err
 	}
+	// invalidate cache
+	CacheNodesMutex.Lock()
+	CacheNodes = nil
+	CacheNodesMutex.Unlock()
 	err = database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
 	if err != nil {
 		return models.Node{}, wasFailover, removedClients, err
