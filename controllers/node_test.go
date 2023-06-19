@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
@@ -217,7 +216,10 @@ func TestNodeACLs(t *testing.T) {
 }
 
 func deleteAllNodes() {
-	database.DeleteAllRecords(database.NODES_TABLE_NAME)
+	nodes, _ := logic.GetAllNodes()
+	for _, n := range nodes {
+		logic.DeleteNode(&n, true)
+	}
 }
 
 func createTestNode() *models.Node {
