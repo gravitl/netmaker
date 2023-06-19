@@ -583,9 +583,7 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 	}
 	if node.IsRelayed && node.RelayedBy == peer.ID.String() {
 		allowedips = append(allowedips, getAllowedIpsForRelayed(node, peer)...)
-		if node.IsEgressGateway {
-			allowedips = append(allowedips, getEgressIPs(node)...)
-		}
+
 	}
 	return allowedips
 }
