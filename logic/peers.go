@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slices"
+	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -170,7 +171,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 	// endpoint detection always comes from the server
 	hostPeerUpdate.Host.EndpointDetection = servercfg.EndpointDetectionEnabled()
 
-	logger.Log(1, "peer update for host", host.ID.String())
+	slog.Debug("peer update for host", "hostId", host.ID.String())
 	peerIndexMap := make(map[string]int)
 	for _, nodeID := range host.Nodes {
 		nodeID := nodeID
