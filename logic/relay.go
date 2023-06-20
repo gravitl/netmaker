@@ -91,13 +91,36 @@ func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.C
 	return returnnodes
 }
 
+//func GetRelayedNodes(relayNode *models.Node) (models.Node, error) {
+//	var returnnodes []models.Node
+//	networkNodes, err := GetNetworkNodes(relayNode.Network)
+//	if err != nil {
+//		return returnnodes, err
+//	}
+//	for _, node := range networkNodes {
+//		for _, addr := range relayNode.RelayAddrs {
+//			if addr == node.Address.IP.String() || addr == node.Address6.IP.String() {
+//				returnnodes = append(returnnodes, node)
+//			}
+//		}
+//	}
+//	return returnnodes, nil
+//}
+
 // ValidateRelay - checks if relay is valid
 func ValidateRelay(relay models.RelayRequest) error {
 	var err error
 	//isIp := functions.IsIpCIDR(gateway.RangeString)
 	empty := len(relay.RelayedNodes) == 0
 	if empty {
-		err = errors.New("relayed nodes cannot be empty")
+		return errors.New("IP Ranges Cannot Be Empty")
+	}
+	node, err := GetNodeByID(relay.NodeID)
+	if err != nil {
+		return err
+	}
+	if node.IsRelay {
+		return errors.New("node is already acting as a relay")
 	}
 	for _, relayedNodeID := range relay.RelayedNodes {
 		relayedNode, err := GetNodeByID(relayedNodeID)

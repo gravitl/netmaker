@@ -706,12 +706,14 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
 	runUpdates(newNode, ifaceDelta)
-	go func(aclUpdate bool, newNode *models.Node) {
-		mq.BroadcastAddOrUpdateNetworkPeer(&models.Client{Host: *host, Node: *newNode}, true)
+	go func(aclUpdate, relayupdate bool, newNode *models.Node) {
+		if aclUpdate || relayupdate {
+			mq.BroadcastAddOrUpdateNetworkPeer(&models.Client{Host: *host, Node: *newNode}, true)
+		}
 		if err := mq.PublishReplaceDNS(&currentNode, newNode, host); err != nil {
 			logger.Log(1, "failed to publish dns update", err.Error())
 		}
-	}(aclUpdate, newNode)
+	}(aclUpdate, relayupdate, newNode)
 }
 
 // swagger:route DELETE /api/nodes/{network}/{nodeid} nodes deleteNode
@@ -754,6 +756,22 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	if err := logic.DeleteNode(&node, fromNode); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
 		return
+	}
+	if node.IsRelayed {
+		// cleanup node from relayednodes on relay node
+		relayNode, err := logic.GetNodeByID(node.RelayedBy)
+		if err == nil {
+			relayedNodes := []string{}
+			for _, relayedNodeID := range relayNode.RelayedNodes {
+				if relayedNodeID == node.ID.String() {
+					continue
+				}
+				relayedNodes = append(relayedNodes, relayedNodeID)
+			}
+			relayNode.RelayedNodes = relayedNodes
+			logic.UpsertNode(&relayNode)
+		}
+
 	}
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
