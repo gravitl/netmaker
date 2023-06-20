@@ -241,7 +241,7 @@ func UpsertHost(h *models.Host) error {
 	// invalidate cache
 	CacheHostsMutex.Lock()
 	CacheHosts = nil
-	CacheHostsMutex.Unlock()
+	defer CacheHostsMutex.Unlock()
 	return database.Insert(h.ID.String(), string(data), database.HOSTS_TABLE_NAME)
 }
 

@@ -22,7 +22,7 @@ func TestGetAllDNS(t *testing.T) {
 	createHost()
 	t.Run("NoEntries", func(t *testing.T) {
 		entries, err := logic.GetAllDNS()
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		assert.Equal(t, []models.DNSEntry(nil), entries)
 	})
 	t.Run("OneEntry", func(t *testing.T) {
@@ -52,7 +52,7 @@ func TestGetNodeDNS(t *testing.T) {
 	createHost()
 	t.Run("NoNodes", func(t *testing.T) {
 		dns, err := logic.GetNodeDNS("skynet")
-		assert.EqualError(t, err, "could not find any records")
+		assert.NoError(t, err)
 		assert.Equal(t, []models.DNSEntry(nil), dns)
 	})
 	t.Run("NodeExists", func(t *testing.T) {

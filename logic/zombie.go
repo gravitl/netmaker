@@ -76,7 +76,7 @@ func checkForZombieHosts(h *models.Host) {
 // ManageZombies - goroutine which adds/removes/deletes nodes from the zombie node quarantine list
 func ManageZombies(ctx context.Context, peerUpdate chan *models.Node) {
 	logger.Log(2, "Zombie management started")
-	InitializeZombies()
+	CheckAllZombies()
 
 	// run this check 4 times a day
 	duration := time.Hour * ZOMBIE_TIMEOUT
@@ -135,30 +135,37 @@ func ManageZombies(ctx context.Context, peerUpdate chan *models.Node) {
 	}
 }
 
-// InitializeZombies - populates the zombie quarantine list (should be called from initialization)
-func InitializeZombies() {
+// CheckAllZombies - populates the zombie quarantine list (should be called from initialization)
+func CheckAllZombies() {
 	nodes, err := GetAllNodes()
 	if err != nil {
 		logger.Log(1, "failed to retrieve nodes", err.Error())
 		return
 	}
+	index := map[string][]models.Node{}
 	for _, node := range nodes {
-		othernodes, err := GetNetworkNodes(node.Network)
-		if err != nil {
-			logger.Log(1, "failled to retrieve nodes for network", node.Network, err.Error())
-			continue
+		if _, ok := index[node.Network]; !ok {
+			index[node.Network] = []models.Node{}
 		}
-		for _, othernode := range othernodes {
-			if node.ID == othernode.ID {
-				continue
-			}
-			if node.HostID == othernode.HostID {
-				if node.LastCheckIn.After(othernode.LastCheckIn) {
-					newZombie <- othernode.ID
-					logger.Log(1, "adding", othernode.ID.String(), "to zombie list")
-				} else {
-					newZombie <- node.ID
-					logger.Log(1, "adding", node.ID.String(), "to zombie list")
+		index[node.Network] = append(index[node.Network], node)
+	}
+	for i := range index {
+		net := index[i]
+		for ii := range net {
+			node1 := net[ii]
+			for iii := range net {
+				node2 := net[iii]
+				if node1.ID == node2.ID {
+					continue
+				}
+				if node1.HostID == node2.HostID {
+					if node1.LastCheckIn.After(node2.LastCheckIn) {
+						newZombie <- node2.ID
+						logger.Log(1, "adding", node2.ID.String(), "to zombie list")
+					} else {
+						newZombie <- node1.ID
+						logger.Log(1, "adding", node1.ID.String(), "to zombie list")
+					}
 				}
 			}
 		}

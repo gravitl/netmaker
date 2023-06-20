@@ -105,10 +105,18 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 		if data, err := json.Marshal(newNode); err != nil {
 			return err
 		} else {
-			// invalidate cache
+			dataOld, err := json.Marshal(newNode)
+			if err != nil {
+				return err
+			}
+			// TODO compare fields instead of json
+			if string(data) == string(dataOld) {
+				return nil
+			}
+			// update cache
 			CacheNodesMutex.Lock()
-			CacheNodes = nil
-			CacheNodesMutex.Unlock()
+			CacheNodes = append(CacheNodes, *newNode)
+			defer CacheNodesMutex.Unlock()
 			return database.Insert(newNode.ID.String(), string(data), database.NODES_TABLE_NAME)
 		}
 	}
@@ -275,12 +283,8 @@ func GetAllNodes() ([]models.Node, error) {
 // GetNetworkByNode - gets the network model from a node
 func GetNetworkByNode(node *models.Node) (models.Network, error) {
 
-	var network = models.Network{}
-	networkData, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, node.Network)
+	network, err := GetNetwork(node.Network)
 	if err != nil {
-		return network, err
-	}
-	if err = json.Unmarshal([]byte(networkData), &network); err != nil {
 		return models.Network{}, err
 	}
 	return network, nil
