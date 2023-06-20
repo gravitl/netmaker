@@ -291,7 +291,7 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		Action: models.RequestAck,
 		Host:   *currHost,
 	})
-	go mq.BroadcastAddOrUpdateNetworkPeer(&models.Client{Host: *currHost, Node: *newNode}, false)
+	go mq.BroadcastAddOrUpdateNetworkPeer(models.Client{Host: *currHost, Node: *newNode}, false)
 
 	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("added host %s to network %s", currHost.Name, network))
 	w.WriteHeader(http.StatusOK)

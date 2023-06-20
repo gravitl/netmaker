@@ -163,7 +163,7 @@ func DeleteRelay(network, nodeid string) ([]models.Client, models.Node, error) {
 }
 
 // GetPeerConfForRelayed - returns the peerConfig for a node relayed by relay
-func GetPeerConfForRelayed(relayed, relay *models.Client) wgtypes.PeerConfig {
+func GetPeerConfForRelayed(relayed, relay models.Client) wgtypes.PeerConfig {
 	if relayed.Node.RelayedBy != relay.Node.ID.String() {
 		logger.Log(0, "peerUpdateForRelayedByRelay called with invalid parameters")
 		return wgtypes.PeerConfig{}
@@ -175,19 +175,22 @@ func GetPeerConfForRelayed(relayed, relay *models.Client) wgtypes.PeerConfig {
 			IP:   relay.Host.EndpointIP,
 			Port: relay.Host.ListenPort,
 		},
+		AllowedIPs:                  getAllowedIpsForRelayed(relayed, relay),
 		PersistentKeepaliveInterval: &relay.Node.PersistentKeepalive,
 	}
-
-	peers, err := GetNetworkClients(relay.Node.Network)
-	if err != nil {
-		logger.Log(0, "error getting network clients", err.Error())
-		return update
-	}
-	for _, peer := range peers {
-		if peer.Host.ID == relayed.Host.ID {
-			continue
+	if relay.Node.Address.IP != nil {
+		allowed := net.IPNet{
+			IP:   relay.Node.Address.IP,
+			Mask: net.CIDRMask(32, 32),
 		}
-		update.AllowedIPs = append(update.AllowedIPs, GetAllowedIPs(relayed, &peer)...)
+		update.AllowedIPs = append(update.AllowedIPs, allowed)
+	}
+	if relay.Node.Address6.IP != nil {
+		allowed := net.IPNet{
+			IP:   relay.Node.Address6.IP,
+			Mask: net.CIDRMask(128, 128),
+		}
+		update.AllowedIPs = append(update.AllowedIPs, allowed)
 	}
 	return update
 }

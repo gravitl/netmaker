@@ -63,11 +63,11 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 		if err != nil {
 			return
 		}
-		if err = BroadcastAddOrUpdateNetworkPeer(&models.Client{Host: *h, Node: newNode}, true); err != nil {
+		if err = BroadcastAddOrUpdateNetworkPeer(models.Client{Host: *h, Node: newNode}, true); err != nil {
 			logger.Log(0, "error updating peers when node", currentNode.ID.String(), "informed the server of an interface change", err.Error())
 		}
 		if clients, err := logic.GetNetworkClients(newNode.Network); err == nil {
-			FlushNetworkPeersToHost(&models.Client{Host: *h, Node: newNode}, clients)
+			FlushNetworkPeersToHost(models.Client{Host: *h, Node: newNode}, clients)
 		}
 
 	}
@@ -121,7 +121,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 				if err != nil {
 					return
 				}
-				err = FlushNetworkPeersToHost(&models.Client{Host: hu.Host, Node: hu.Node}, clients)
+				err = FlushNetworkPeersToHost(models.Client{Host: hu.Host, Node: hu.Node}, clients)
 				if err != nil {
 					logger.Log(0, "failed to flush peers to host: ", err.Error())
 				}

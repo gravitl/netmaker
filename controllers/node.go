@@ -465,7 +465,7 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 			logger.Log(0, "failed to get egress host: ", err.Error())
 			return
 		}
-		mq.BroadcastAddOrUpdateNetworkPeer(&models.Client{Host: *host, Node: node}, true)
+		mq.BroadcastAddOrUpdateNetworkPeer(models.Client{Host: *host, Node: node}, true)
 		f, err := logic.GetFwUpdate(host)
 		if err != nil {
 			logger.Log(0, "failed to get egreess host: ", err.Error())
@@ -514,7 +514,7 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 			logger.Log(0, "failed to get egress host: ", err.Error())
 			return
 		}
-		mq.BroadcastAddOrUpdateNetworkPeer(&models.Client{Host: *host, Node: node}, true)
+		mq.BroadcastAddOrUpdateNetworkPeer(models.Client{Host: *host, Node: node}, true)
 		f, err := logic.GetFwUpdate(host)
 		if err != nil {
 			logger.Log(0, "failed to get egreess host: ", err.Error())
@@ -609,7 +609,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	if len(removedClients) > 0 {
 		host, err := logic.GetHost(node.HostID.String())
 		if err == nil {
-			mq.BroadcastDelExtClient(&models.Client{Host: *host, Node: node}, removedClients)
+			mq.BroadcastDelExtClient(models.Client{Host: *host, Node: node}, removedClients)
 			f, err := logic.GetFwUpdate(host)
 			if err == nil {
 				mq.PublishFwUpdate(host, &f)
@@ -708,7 +708,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	runUpdates(newNode, ifaceDelta)
 	go func(aclUpdate, relayupdate bool, newNode *models.Node) {
 		if aclUpdate || relayupdate {
-			mq.BroadcastAddOrUpdateNetworkPeer(&models.Client{Host: *host, Node: *newNode}, true)
+			mq.BroadcastAddOrUpdateNetworkPeer(models.Client{Host: *host, Node: *newNode}, true)
 		}
 		if err := mq.PublishReplaceDNS(&currentNode, newNode, host); err != nil {
 			logger.Log(1, "failed to publish dns update", err.Error())

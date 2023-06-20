@@ -237,7 +237,7 @@ func CheckNetRegAndHostUpdate(networks []string, h *models.Host) {
 				Host:   *h,
 				Node:   *newNode,
 			})
-			mq.BroadcastAddOrUpdateNetworkPeer(&models.Client{Host: *h, Node: *newNode}, false)
+			mq.BroadcastAddOrUpdateNetworkPeer(models.Client{Host: *h, Node: *newNode}, false)
 		}
 	}
 	mq.HostUpdate(&models.HostUpdate{

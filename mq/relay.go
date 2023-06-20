@@ -29,7 +29,7 @@ func BroadCastRelayUpdate(relayReq models.RelayRequest) error {
 			continue
 		}
 		BroadcastDelPeer(h, filteredClients)
-		FlushNetworkPeersToHost(&models.Client{Host: *h, Node: relayedNode}, clients)
+		FlushNetworkPeersToHost(models.Client{Host: *h, Node: relayedNode}, clients)
 	}
 	relayNode, err := logic.GetNodeByID(relayReq.NodeID)
 	if err != nil {
@@ -40,7 +40,7 @@ func BroadCastRelayUpdate(relayReq models.RelayRequest) error {
 		return err
 	}
 
-	return BroadcastAddOrUpdateNetworkPeer(&models.Client{Host: *relayHost, Node: relayNode}, true)
+	return BroadcastAddOrUpdateNetworkPeer(models.Client{Host: *relayHost, Node: relayNode}, true)
 }
 
 func BroadCastRelayRemoval(network string) error {
@@ -50,7 +50,7 @@ func BroadCastRelayRemoval(network string) error {
 	}
 	for _, client := range clients {
 		client := client
-		go FlushNetworkPeersToHost(&client, clients)
+		go FlushNetworkPeersToHost(client, clients)
 	}
 	return err
 }

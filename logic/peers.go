@@ -63,24 +63,8 @@ func NodePeersInfo(client *models.Client) (models.NodePeersInfo, error) {
 			peerConfig.Endpoint.IP = peer.LocalAddress.IP
 			peerConfig.Endpoint.Port = peerHost.ListenPort
 		}
-		allowedips := GetNetworkAllowedIPs(&models.Client{Host: *peerHost, Node: peer})
-		if peer.IsIngressGateway {
-			for _, entry := range peer.IngressGatewayRange {
-				_, cidr, err := net.ParseCIDR(string(entry))
-				if err == nil {
-					allowedips = append(allowedips, *cidr)
-				}
-			}
-		}
-		if peer.IsEgressGateway {
+		allowedips := GetNetworkAllowedIPs(*client, models.Client{Host: *peerHost, Node: peer})
 
-			allowedips = append(allowedips, getEgressIPs(
-				&models.Client{
-					Host: *peerHost,
-					Node: peer,
-				})...)
-
-		}
 		peerConfig.AllowedIPs = allowedips
 		nodePeersInfo.Peers = append(nodePeersInfo.Peers, peerConfig)
 		nodePeersInfo.PeerIDs[peerHost.PublicKey.String()] = models.IDandAddr{
@@ -158,7 +142,7 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 				PersistentKeepaliveInterval: &peer.PersistentKeepalive,
 				ReplaceAllowedIPs:           true,
 			}
-			if (node.IsRelayed && node.RelayedBy != peer.ID.String()) || ShouldRemovePeer(node, peer) {
+			if (node.IsRelayed && node.RelayedBy != peer.ID.String()) || (peer.IsRelayed && peer.RelayedBy != node.ID.String()) || ShouldRemovePeer(node, peer) {
 				// if node is relayed and peer is not the relay, set remove to true
 				peerConfig.Remove = true
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
@@ -187,7 +171,7 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 				peerConfig.Endpoint.IP = peer.LocalAddress.IP
 				peerConfig.Endpoint.Port = peerHost.ListenPort
 			}
-			peerConfig.AllowedIPs = GetNetworkAllowedIPs(&models.Client{Host: *peerHost, Node: peer})
+			peerConfig.AllowedIPs = GetNetworkAllowedIPs(models.Client{Host: *host, Node: node}, models.Client{Host: *peerHost, Node: peer})
 
 			if _, ok := peerIndexMap[peerHost.PublicKey.String()]; !ok {
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
@@ -219,8 +203,7 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 
 func ShouldRemovePeer(node, peer models.Node) (remove bool) {
 	if peer.Action == models.NODE_DELETE || peer.PendingDelete || !peer.Connected ||
-		!nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) ||
-		(node.IsRelayed && node.RelayedBy != peer.ID.String()) {
+		!nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) {
 		remove = true
 	}
 	return
@@ -449,7 +432,7 @@ func getNodeByNetworkFromHost(h *models.Host, network string) *models.Node {
 }
 
 // GetAllowedIPs - calculates the wireguard allowedip field for a peer of a node based on the peer and node settings
-func GetAllowedIPs(client, peer *models.Client) []net.IPNet {
+func GetAllowedIPs(client, peer models.Client) []net.IPNet {
 	var allowedips []net.IPNet
 	for _, nodeID := range peer.Host.Nodes {
 		node, err := GetNodeByID(nodeID)
@@ -484,7 +467,7 @@ func GetAllowedIPs(client, peer *models.Client) []net.IPNet {
 			allowedips = append(allowedips, getEgressIPs(peer)...)
 		}
 		if peer.Node.IsRelay {
-			allowedips = append(allowedips, getRelayAllowedIPs(peer)...)
+			allowedips = append(allowedips, getRelayAllowedIPs(client, peer)...)
 		}
 		// handle ingress gateway peers
 		if peer.Node.IsIngressGateway {
@@ -496,7 +479,7 @@ func GetAllowedIPs(client, peer *models.Client) []net.IPNet {
 }
 
 // GetNetworkAllowedIPs - calculates the wireguard allowedip field for a peer of a node based on the peer and node settings
-func GetNetworkAllowedIPs(peer *models.Client) []net.IPNet {
+func GetNetworkAllowedIPs(client, peer models.Client) []net.IPNet {
 	var allowedips []net.IPNet
 	if peer.Node.Address.IP != nil {
 		allowed := net.IPNet{
@@ -514,16 +497,12 @@ func GetNetworkAllowedIPs(peer *models.Client) []net.IPNet {
 	}
 	// handle egress gateway peers
 	if peer.Node.IsEgressGateway {
-		egressIPs := getEgressIPs(
-			&models.Client{
-				Host: peer.Host,
-				Node: peer.Node,
-			})
+		egressIPs := getEgressIPs(peer)
 		allowedips = append(allowedips, egressIPs...)
 
 	}
 	if peer.Node.IsRelay {
-		allowedips = append(allowedips, getRelayAllowedIPs(&models.Client{Node: peer.Node, Host: peer.Host})...)
+		allowedips = append(allowedips, getRelayAllowedIPs(client, peer)...)
 	}
 	// handle ingress gateway peers
 	if peer.Node.IsIngressGateway {
@@ -533,7 +512,7 @@ func GetNetworkAllowedIPs(peer *models.Client) []net.IPNet {
 }
 
 // getEgressIPs - gets the egress IPs for a client
-func getEgressIPs(client *models.Client) []net.IPNet {
+func getEgressIPs(client models.Client) []net.IPNet {
 
 	//check for internet gateway
 	internetGateway := false
@@ -606,20 +585,20 @@ func filterNodeMapForClientACLs(publicKey, network string, nodePeerMap map[strin
 }
 
 // getRelayAllowedIPs returns the list of allowedips for a peer that is a relay
-func getRelayAllowedIPs(peer *models.Client) []net.IPNet {
+func getRelayAllowedIPs(client, relayPeer models.Client) []net.IPNet {
 	var relayIPs []net.IPNet
-	if !peer.Node.IsRelay {
-		logger.Log(0, "getRelayAllowedIPs called for a non-relay node", peer.Host.Name)
+	if !relayPeer.Node.IsRelay {
+		logger.Log(0, "getRelayAllowedIPs called for a non-relay node", relayPeer.Host.Name)
 		return relayIPs
 	}
-	//if !client.Node.IsRelayed || client.Node.RelayedBy != peer.Node.ID.String() {
-	//logger.Log(0, "getRelayAllowedIPs called for non-relayed node", client.Host.Name, peer.Host.Name)
-	//return relayIPs
-	//}
-	for _, relayed := range peer.Node.RelayedNodes {
+	for _, relayed := range relayPeer.Node.RelayedNodes {
 		relayedNode, err := GetNodeByID(relayed)
 		if err != nil {
 			logger.Log(0, "retrieve relayed node", err.Error())
+			continue
+		}
+		if relayedNode.ID == client.Node.ID {
+			relayIPs = append(relayIPs, getAllowedIpsForRelayed(client, relayPeer)...)
 			continue
 		}
 		if relayedNode.Address.IP != nil {
@@ -630,38 +609,47 @@ func getRelayAllowedIPs(peer *models.Client) []net.IPNet {
 			relayedNode.Address.Mask = net.CIDRMask(128, 128)
 			relayIPs = append(relayIPs, relayedNode.Address6)
 		}
-		host, err := GetHost(relayedNode.HostID.String())
-		if err == nil {
-			if relayedNode.IsRelay {
-				relayIPs = append(relayIPs, getRelayAllowedIPs(
-					&models.Client{
-						Host: *host,
-						Node: relayedNode,
-					})...)
+		if relayedNode.IsEgressGateway {
+			relayedHost, err := GetHost(relayedNode.HostID.String())
+			if err == nil {
+				relayIPs = append(relayIPs, getEgressIPs(models.Client{
+					Host: *relayedHost,
+					Node: relayedNode,
+				})...)
 			}
-			if relayedNode.IsEgressGateway {
-				relayIPs = append(relayIPs, getEgressIPs(
-					&models.Client{
-						Host: *host,
-						Node: relayedNode,
-					})...)
-			}
-			if relayedNode.IsIngressGateway {
-				relayIPs = append(relayIPs, getIngressIPs(
-					&models.Client{
-						Host: *host,
-						Node: relayedNode,
-					})...)
-			}
+
 		}
+
 	}
 	return relayIPs
+}
+
+// getAllowedIpsForRelayed - returns the peerConfig for a node relayed by relay
+func getAllowedIpsForRelayed(relayed, relay models.Client) (allowedIPs []net.IPNet) {
+	if relayed.Node.RelayedBy != relay.Node.ID.String() {
+		logger.Log(0, "RelayedByRelay called with invalid parameters")
+		return
+	}
+	peers, err := GetNetworkClients(relay.Node.Network)
+	if err != nil {
+		logger.Log(0, "error getting network clients", err.Error())
+		return
+	}
+	for _, peer := range peers {
+		if peer.Node.ID == relayed.Node.ID || peer.Node.ID == relay.Node.ID {
+			continue
+		}
+		if nodeacls.AreNodesAllowed(nodeacls.NetworkID(relayed.Node.Network), nodeacls.NodeID(relayed.Node.ID.String()), nodeacls.NodeID(peer.Node.ID.String())) {
+			allowedIPs = append(allowedIPs, GetAllowedIPs(relayed, peer)...)
+		}
+	}
+	return
 }
 
 // getIngressIPs returns the additional allowedips (ext client addresses) that need
 // to be included for an ingress gateway peer
 // TODO:  add ExtraAllowedIPs
-func getIngressIPs(peer *models.Client) []net.IPNet {
+func getIngressIPs(peer models.Client) []net.IPNet {
 	var ingressIPs []net.IPNet
 	extclients, err := GetNetworkExtClients(peer.Node.Network)
 	if err != nil {

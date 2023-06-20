@@ -32,7 +32,7 @@ func PublishSingleHostPeerUpdate(host *models.Host) error {
 }
 
 // FlushNetworkPeersToHost - sends all the peers in the network to the host.
-func FlushNetworkPeersToHost(client *models.Client, networkClients []models.Client) error {
+func FlushNetworkPeersToHost(client models.Client, networkClients []models.Client) error {
 	logger.Log(0, "flushing network peers to host: ", client.Host.ID.String(), client.Node.Network)
 	addPeerAction := models.PeerAction{
 		Action: models.AddPeer,
@@ -48,7 +48,7 @@ func FlushNetworkPeersToHost(client *models.Client, networkClients []models.Clie
 			// skip self
 			continue
 		}
-		allowedIPs := logic.GetAllowedIPs(client, &clientI)
+		allowedIPs := logic.GetAllowedIPs(client, clientI)
 		peerCfg := wgtypes.PeerConfig{
 			PublicKey: clientI.Host.PublicKey,
 			Endpoint: &net.UDPAddr{
@@ -70,24 +70,6 @@ func FlushNetworkPeersToHost(client *models.Client, networkClients []models.Clie
 		}
 
 		addPeerAction.Peers = append(addPeerAction.Peers, peerCfg)
-	}
-	if client.Node.IsRelayed {
-		// update the relay peer on this node
-		relayNode, err := logic.GetNodeByID(client.Node.RelayedBy)
-		if err != nil {
-			return err
-		}
-		relayHost, err := logic.GetHost(relayNode.HostID.String())
-		if err != nil {
-			return err
-		}
-		relayedClient := client
-		relayClient := &models.Client{
-			Host: *relayHost,
-			Node: relayNode,
-		}
-		relayPeerCfg := logic.GetPeerConfForRelayed(relayedClient, relayClient)
-		addPeerAction.Peers = append(addPeerAction.Peers, relayPeerCfg)
 	}
 	if len(rmPeerAction.Peers) > 0 {
 		data, err := json.Marshal(rmPeerAction)
@@ -141,7 +123,7 @@ func BroadcastDelPeer(host *models.Host, networkClients []models.Client) error {
 			// skip self...
 			continue
 		}
-		allowedIPs := logic.GetAllowedIPs(&clientI, &models.Client{Host: *host})
+		allowedIPs := logic.GetAllowedIPs(clientI, models.Client{Host: *host})
 		if len(allowedIPs) != 0 {
 			p.Peers[0].Remove = false
 			p.Peers[0].AllowedIPs = allowedIPs
@@ -169,7 +151,7 @@ func BroadcastAclUpdate(network string) error {
 	}
 	for _, client := range clients {
 		client := client
-		go FlushNetworkPeersToHost(&client, clients)
+		go FlushNetworkPeersToHost(client, clients)
 	}
 	return err
 }
@@ -207,7 +189,7 @@ func BroadcastHostUpdate(host *models.Host, remove bool) error {
 }
 
 // BroadcastAddOrUpdateNetworkPeer - notifys the hosts in the network to add or update peer.
-func BroadcastAddOrUpdateNetworkPeer(client *models.Client, update bool) error {
+func BroadcastAddOrUpdateNetworkPeer(client models.Client, update bool) error {
 	clients, err := logic.GetNetworkClients(client.Node.Network)
 	if err != nil {
 		return err
@@ -237,7 +219,7 @@ func BroadcastAddOrUpdateNetworkPeer(client *models.Client, update bool) error {
 			continue
 		}
 		// update allowed ips, according to the peer node
-		p.Peers[0].AllowedIPs = logic.GetAllowedIPs(&clientI, &models.Client{Host: client.Host, Node: client.Node})
+		p.Peers[0].AllowedIPs = logic.GetAllowedIPs(clientI, models.Client{Host: client.Host, Node: client.Node})
 		if update && len(p.Peers[0].AllowedIPs) == 0 {
 			// remove peer
 			p.Action = models.RemovePeer
@@ -261,11 +243,11 @@ func BroadcastAddOrUpdateNetworkPeer(client *models.Client, update bool) error {
 			if err != nil {
 				continue
 			}
-			relayedClient := &models.Client{
+			relayedClient := models.Client{
 				Host: *peerHost,
 				Node: clientI.Node,
 			}
-			relayClient := &models.Client{
+			relayClient := models.Client{
 				Host: *relayHost,
 				Node: relayNode,
 			}
@@ -308,14 +290,14 @@ func BroadcastExtClient(ingressHost *models.Host, ingressNode *models.Node) erro
 		return err
 	}
 	//flush peers to ingress host
-	go FlushNetworkPeersToHost(&models.Client{Host: *ingressHost, Node: *ingressNode}, clients)
+	go FlushNetworkPeersToHost(models.Client{Host: *ingressHost, Node: *ingressNode}, clients)
 	// broadcast to update ingress peer to other hosts
-	go BroadcastAddOrUpdateNetworkPeer(&models.Client{Host: *ingressHost, Node: *ingressNode}, true)
+	go BroadcastAddOrUpdateNetworkPeer(models.Client{Host: *ingressHost, Node: *ingressNode}, true)
 	return nil
 }
 
 // BroadcastDelExtClient - published msg to remove ext client from network
-func BroadcastDelExtClient(ingressClient *models.Client, extclients []models.ExtClient) error {
+func BroadcastDelExtClient(ingressClient models.Client, extclients []models.ExtClient) error {
 	go BroadcastAddOrUpdateNetworkPeer(ingressClient, true)
 	peers := []wgtypes.PeerConfig{}
 	for _, extclient := range extclients {
