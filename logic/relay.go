@@ -8,7 +8,6 @@ import (
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -155,32 +154,17 @@ func GetPeerConfForRelayed(relayed, relay *models.Client) wgtypes.PeerConfig {
 		},
 		PersistentKeepaliveInterval: &relay.Node.PersistentKeepalive,
 	}
-	if relay.Node.Address.IP != nil {
-		relay.Node.Address.Mask = net.CIDRMask(32, 32)
-		update.AllowedIPs = append(update.AllowedIPs, relay.Node.Address)
-	}
-	if relay.Node.Address6.IP != nil {
-		relay.Node.Address6.Mask = net.CIDRMask(128, 128)
-		update.AllowedIPs = append(update.AllowedIPs, relay.Node.Address6)
-	}
-	if relay.Node.IsEgressGateway {
-		update.AllowedIPs = append(update.AllowedIPs, getEgressIPs(relay)...)
-	}
-	if relay.Node.IsIngressGateway {
-		update.AllowedIPs = append(update.AllowedIPs, getIngressIPs(relay)...)
-	}
+
 	peers, err := GetNetworkClients(relay.Node.Network)
 	if err != nil {
 		logger.Log(0, "error getting network clients", err.Error())
 		return update
 	}
 	for _, peer := range peers {
-		if peer.Host.ID == relayed.Host.ID || peer.Host.ID == relay.Host.ID {
+		if peer.Host.ID == relayed.Host.ID {
 			continue
 		}
-		if nodeacls.AreNodesAllowed(nodeacls.NetworkID(relayed.Node.Network), nodeacls.NodeID(relayed.Node.ID.String()), nodeacls.NodeID(peer.Node.ID.String())) {
-			update.AllowedIPs = append(update.AllowedIPs, GetAllowedIPs(&peer)...)
-		}
+		update.AllowedIPs = append(update.AllowedIPs, GetAllowedIPs(relayed, &peer)...)
 	}
 	return update
 }

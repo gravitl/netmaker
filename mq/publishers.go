@@ -9,7 +9,6 @@ import (
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -49,24 +48,7 @@ func FlushNetworkPeersToHost(client *models.Client, networkClients []models.Clie
 			// skip self
 			continue
 		}
-		if clientI.Node.IsRelayed && (clientI.Node.RelayedBy != client.Node.ID.String()) {
-			// remove this peer, will be added to relay node's allowed ips
-			rmPeerAction.Peers = append(rmPeerAction.Peers, wgtypes.PeerConfig{
-				PublicKey: clientI.Host.PublicKey,
-				Remove:    true,
-			})
-			continue
-		}
-
-		if !nodeacls.AreNodesAllowed(nodeacls.NetworkID(clientI.Node.Network), nodeacls.NodeID(client.Node.ID.String()), nodeacls.NodeID(clientI.Node.ID.String())) ||
-			client.Node.Action == models.NODE_DELETE || client.Node.PendingDelete || !client.Node.Connected || (client.Node.IsRelayed && client.Node.RelayedBy != clientI.Node.ID.String()) {
-			// remove peer if not allowed
-			rmPeerAction.Peers = append(rmPeerAction.Peers, wgtypes.PeerConfig{
-				PublicKey: clientI.Host.PublicKey,
-				Remove:    true,
-			})
-			continue
-		}
+		allowedIPs := logic.GetAllowedIPs(client, &clientI)
 		peerCfg := wgtypes.PeerConfig{
 			PublicKey: clientI.Host.PublicKey,
 			Endpoint: &net.UDPAddr{
@@ -75,8 +57,18 @@ func FlushNetworkPeersToHost(client *models.Client, networkClients []models.Clie
 			},
 			PersistentKeepaliveInterval: &clientI.Node.PersistentKeepalive,
 			ReplaceAllowedIPs:           true,
-			AllowedIPs:                  logic.GetAllowedIPs(&clientI),
+			AllowedIPs:                  allowedIPs,
 		}
+
+		if len(peerCfg.AllowedIPs) == 0 || (client.Node.IsRelayed && (client.Node.RelayedBy != clientI.Node.ID.String())) {
+			// remove peer if not allowed
+			rmPeerAction.Peers = append(rmPeerAction.Peers, wgtypes.PeerConfig{
+				PublicKey: clientI.Host.PublicKey,
+				Remove:    true,
+			})
+			continue
+		}
+
 		addPeerAction.Peers = append(addPeerAction.Peers, peerCfg)
 	}
 	if client.Node.IsRelayed {
@@ -96,12 +88,6 @@ func FlushNetworkPeersToHost(client *models.Client, networkClients []models.Clie
 		}
 		relayPeerCfg := logic.GetPeerConfForRelayed(relayedClient, relayClient)
 		addPeerAction.Peers = append(addPeerAction.Peers, relayPeerCfg)
-	}
-	if client.Node.IsIngressGateway {
-		extPeers, _, err := logic.GetExtPeers(&client.Node)
-		if err == nil {
-			addPeerAction.Peers = append(addPeerAction.Peers, extPeers...)
-		}
 	}
 	if len(rmPeerAction.Peers) > 0 {
 		data, err := json.Marshal(rmPeerAction)
@@ -136,7 +122,13 @@ func BroadcastDelPeer(host *models.Host, networkClients []models.Client) error {
 		Peers: []wgtypes.PeerConfig{
 			{
 				PublicKey: host.PublicKey,
-				Remove:    true,
+				Endpoint: &net.UDPAddr{
+					IP:   host.EndpointIP,
+					Port: logic.GetPeerListenPort(host),
+				},
+				ReplaceAllowedIPs: true,
+				UpdateOnly:        true,
+				Remove:            true,
 			},
 		},
 	}
@@ -148,6 +140,12 @@ func BroadcastDelPeer(host *models.Host, networkClients []models.Client) error {
 		if clientI.Host.ID == host.ID {
 			// skip self...
 			continue
+		}
+		allowedIPs := logic.GetAllowedIPs(&clientI, &models.Client{Host: *host})
+		if len(allowedIPs) != 0 {
+			p.Peers[0].Remove = false
+			p.Peers[0].AllowedIPs = allowedIPs
+
 		}
 		publish(&clientI.Host, fmt.Sprintf("peer/host/%s/%s", clientI.Host.ID.String(), servercfg.GetServer()), data)
 		if clientI.Node.IsIngressGateway || clientI.Node.IsEgressGateway {
@@ -188,16 +186,13 @@ func BroadcastHostUpdate(host *models.Host, remove bool) error {
 					IP:   host.EndpointIP,
 					Port: logic.GetPeerListenPort(host),
 				},
-				ReplaceAllowedIPs: true,
-				Remove:            remove,
+				UpdateOnly: true,
+				Remove:     remove,
 			},
 		},
 	}
 	if remove {
 		p.Action = models.RemovePeer
-	} else {
-		p.Peers[0].AllowedIPs = logic.AddHostAllowedIPs(host)
-		fmt.Println(0, "Allowed IPs: ", p.Peers[0].AllowedIPs)
 	}
 	peerHosts := logic.GetRelatedHosts(host.ID.String())
 	data, err := json.Marshal(p)
@@ -242,12 +237,12 @@ func BroadcastAddOrUpdateNetworkPeer(client *models.Client, update bool) error {
 			continue
 		}
 		// update allowed ips, according to the peer node
-		p.Peers[0].AllowedIPs = logic.GetAllowedIPs(&models.Client{Host: client.Host, Node: client.Node})
-		if update && (!nodeacls.AreNodesAllowed(nodeacls.NetworkID(client.Node.Network), nodeacls.NodeID(client.Node.ID.String()), nodeacls.NodeID(clientI.Node.ID.String())) ||
-			client.Node.Action == models.NODE_DELETE || client.Node.PendingDelete || !client.Node.Connected) {
+		p.Peers[0].AllowedIPs = logic.GetAllowedIPs(&clientI, &models.Client{Host: client.Host, Node: client.Node})
+		if update && len(p.Peers[0].AllowedIPs) == 0 {
 			// remove peer
 			p.Action = models.RemovePeer
 			p.Peers[0].Remove = true
+
 		}
 		peerHost, err := logic.GetHost(clientI.Host.ID.String())
 		if err != nil {
