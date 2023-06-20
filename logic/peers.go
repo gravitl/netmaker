@@ -128,10 +128,6 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 				//skip yourself
 				continue
 			}
-			if peer.IsRelayed {
-				// skip relayed peers; will be included in relay peer
-				continue
-			}
 			peerHost, err := GetHost(peer.HostID.String())
 			if err != nil {
 				logger.Log(1, "no peer host", peer.HostID.String(), err.Error())
