@@ -240,7 +240,7 @@ func UpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 				}
 			}
 		}
-		slog.Info("updated node metrics", "id", id)
+		slog.Debug("updated node metrics", "id", id)
 	}
 }
 
