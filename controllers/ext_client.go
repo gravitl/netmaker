@@ -397,7 +397,8 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	logger.Log(0, r.Header.Get("user"), "created new ext client on network", networkName)
 	w.WriteHeader(http.StatusOK)
 	go func() {
-		mq.BroadcastExtClient(host, &node)
+		ingressClient := models.Client{Host: *host, Node: node}
+		mq.BroadcastExtClient(ingressClient)
 		f, err := logic.GetFwUpdate(host)
 		if err == nil {
 			mq.PublishFwUpdate(host, &f)
@@ -501,12 +502,13 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		if ingressNode, err := logic.GetNodeByID(newclient.IngressGatewayID); err == nil {
 			if ingressHost, err := logic.GetHost(ingressNode.HostID.String()); err == nil {
+				ingressClient := models.Client{Host: *ingressHost, Node: ingressNode}
 				if replaceOldClient || !update.Enabled {
-					mq.BroadcastDelExtClient(models.Client{Host: *ingressHost, Node: ingressNode}, []models.ExtClient{currentClient})
+					mq.BroadcastDelExtClient(ingressClient, []models.ExtClient{currentClient})
 				}
 				if replaceOldClient || changedEnabled {
 					// broadcast update
-					mq.BroadcastExtClient(ingressHost, &ingressNode)
+					mq.BroadcastExtClient(ingressClient)
 				}
 				f, err := logic.GetFwUpdate(ingressHost)
 				if err == nil {

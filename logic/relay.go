@@ -192,5 +192,11 @@ func GetPeerConfForRelayed(relayed, relay models.Client) wgtypes.PeerConfig {
 		}
 		update.AllowedIPs = append(update.AllowedIPs, allowed)
 	}
+	if relay.Node.IsIngressGateway {
+		update.AllowedIPs = append(update.AllowedIPs, getIngressIPs(relay)...)
+	}
+	if relay.Node.IsEgressGateway {
+		update.AllowedIPs = append(update.AllowedIPs, getEgressIPs(relay)...)
+	}
 	return update
 }

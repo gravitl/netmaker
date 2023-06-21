@@ -71,6 +71,12 @@ func FlushNetworkPeersToHost(client models.Client, networkClients []models.Clien
 
 		addPeerAction.Peers = append(addPeerAction.Peers, peerCfg)
 	}
+	if client.Node.IsIngressGateway {
+		extPeers, _, err := logic.GetExtPeers(&client.Node)
+		if err == nil {
+			addPeerAction.Peers = append(addPeerAction.Peers, extPeers...)
+		}
+	}
 	if len(rmPeerAction.Peers) > 0 {
 		data, err := json.Marshal(rmPeerAction)
 		if err != nil {
@@ -182,8 +188,10 @@ func BroadcastHostUpdate(host *models.Host, remove bool) error {
 		return err
 	}
 	for _, peerHost := range peerHosts {
+		if !remove {
+			p.Peers[0].AllowedIPs = logic.GetAllowedIPs(models.Client{Host: peerHost}, models.Client{Host: *host})
+		}
 		publish(&peerHost, fmt.Sprintf("peer/host/%s/%s", peerHost.ID.String(), servercfg.GetServer()), data)
-
 	}
 	return nil
 }
@@ -209,8 +217,40 @@ func BroadcastAddOrUpdateNetworkPeer(client models.Client, update bool) error {
 			},
 		},
 	}
+	var relayPeerCfg models.PeerAction
+	var relayClient models.Client
+	if client.Node.IsRelayed {
+		relayNode, err := logic.GetNodeByID(client.Node.RelayedBy)
+		if err != nil {
+			return err
+		}
+		relayHost, err := logic.GetHost(relayNode.HostID.String())
+		if err != nil {
+			return err
+		}
+		relayClient = models.Client{
+			Host: *relayHost,
+			Node: relayNode,
+		}
+		relayPeerCfg = models.PeerAction{
+			Action: models.AddPeer,
+			Peers: []wgtypes.PeerConfig{
+				{
+					PublicKey: relayHost.PublicKey,
+					Endpoint: &net.UDPAddr{
+						IP:   relayHost.EndpointIP,
+						Port: logic.GetPeerListenPort(relayHost),
+					},
+					PersistentKeepaliveInterval: &relayNode.PersistentKeepalive,
+					ReplaceAllowedIPs:           true,
+				},
+			},
+		}
+
+	}
 	if update {
 		p.Action = models.UpdatePeer
+		relayPeerCfg.Action = models.UpdatePeer
 	}
 	for _, clientI := range clients {
 		clientI := clientI
@@ -219,7 +259,10 @@ func BroadcastAddOrUpdateNetworkPeer(client models.Client, update bool) error {
 			continue
 		}
 		// update allowed ips, according to the peer node
-		p.Peers[0].AllowedIPs = logic.GetAllowedIPs(clientI, models.Client{Host: client.Host, Node: client.Node})
+		p.Peers[0].AllowedIPs = logic.GetAllowedIPs(clientI, client)
+		if client.Node.IsRelayed {
+			relayPeerCfg.Peers[0].AllowedIPs = logic.GetAllowedIPs(clientI, relayClient)
+		}
 		if update && len(p.Peers[0].AllowedIPs) == 0 {
 			// remove peer
 			p.Action = models.RemovePeer
@@ -230,6 +273,7 @@ func BroadcastAddOrUpdateNetworkPeer(client models.Client, update bool) error {
 		if err != nil {
 			continue
 		}
+
 		if clientI.Node.IsRelayed {
 			r := models.PeerAction{
 				Action: models.AddPeer,
@@ -263,10 +307,19 @@ func BroadcastAddOrUpdateNetworkPeer(client models.Client, update bool) error {
 			publish(peerHost, fmt.Sprintf("peer/host/%s/%s", peerHost.ID.String(), servercfg.GetServer()), data)
 
 		} else {
-			data, err := json.Marshal(p)
-			if err != nil {
-				continue
+			var data []byte
+			if client.Node.IsRelayed && client.Node.RelayedBy != clientI.Node.ID.String() {
+				data, err = json.Marshal(relayPeerCfg)
+				if err != nil {
+					continue
+				}
+			} else {
+				data, err = json.Marshal(p)
+				if err != nil {
+					continue
+				}
 			}
+
 			publish(peerHost, fmt.Sprintf("peer/host/%s/%s", peerHost.ID.String(), servercfg.GetServer()), data)
 		}
 		if clientI.Node.IsIngressGateway || clientI.Node.IsEgressGateway {
@@ -283,16 +336,16 @@ func BroadcastAddOrUpdateNetworkPeer(client models.Client, update bool) error {
 }
 
 // BroadcastExtClient - publishes msg to add/updates ext client in the network
-func BroadcastExtClient(ingressHost *models.Host, ingressNode *models.Node) error {
+func BroadcastExtClient(ingressClient models.Client) error {
 
-	clients, err := logic.GetNetworkClients(ingressNode.Network)
+	clients, err := logic.GetNetworkClients(ingressClient.Node.Network)
 	if err != nil {
 		return err
 	}
 	//flush peers to ingress host
-	go FlushNetworkPeersToHost(models.Client{Host: *ingressHost, Node: *ingressNode}, clients)
+	go FlushNetworkPeersToHost(ingressClient, clients)
 	// broadcast to update ingress peer to other hosts
-	go BroadcastAddOrUpdateNetworkPeer(models.Client{Host: *ingressHost, Node: *ingressNode}, true)
+	go BroadcastAddOrUpdateNetworkPeer(ingressClient, true)
 	return nil
 }
 

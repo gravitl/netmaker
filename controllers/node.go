@@ -561,7 +561,6 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 			logger.Log(1, "failed to reset failover list during failover create", node.ID.String(), node.Network)
 		}
 	}
-
 	apiNode := node.ConvertToAPINode()
 	logger.Log(1, r.Header.Get("user"), "created ingress gateway on node", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
@@ -707,8 +706,15 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(apiNode)
 	runUpdates(newNode, ifaceDelta)
 	go func(aclUpdate, relayupdate bool, newNode *models.Node) {
-		if aclUpdate || relayupdate {
-			mq.BroadcastAddOrUpdateNetworkPeer(models.Client{Host: *host, Node: *newNode}, true)
+		if aclUpdate {
+			mq.BroadcastAclUpdate(newNode.Network)
+		}
+		if relayupdate {
+			mq.BroadCastRelayUpdate(models.RelayRequest{
+				NodeID:       newNode.ID.String(),
+				NetID:        newNode.Network,
+				RelayedNodes: newNode.RelayedNodes,
+			})
 		}
 		if err := mq.PublishReplaceDNS(&currentNode, newNode, host); err != nil {
 			logger.Log(1, "failed to publish dns update", err.Error())

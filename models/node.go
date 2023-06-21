@@ -70,10 +70,6 @@ type CommonNode struct {
 	EgressGatewayRanges []string      `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
 	IsIngressGateway    bool          `json:"isingressgateway" yaml:"isingressgateway"`
 	IngressDNS          string        `json:"ingressdns" yaml:"ingressdns"`
-	IsRelayed           bool          `json:"isrelayed" yaml:"isrelayed"`
-	RelayedBy           string        `json:"relayedby" yaml:"relayedby"`
-	IsRelay             bool          `json:"isrelay" yaml:"isrelay"`
-	RelayedNodes        []string      `json:"relaynodes" yaml:"relayedNodes"`
 	DNSOn               bool          `json:"dnson" yaml:"dnson"`
 	PersistentKeepalive time.Duration `json:"persistentkeepalive" yaml:"persistentkeepalive"`
 }
@@ -95,6 +91,10 @@ type Node struct {
 	OwnerID      string    `json:"ownerid,omitempty" bson:"ownerid,omitempty" yaml:"ownerid,omitempty"`
 	FailoverNode uuid.UUID `json:"failovernode" bson:"failovernode" yaml:"failovernode"`
 	Failover     bool      `json:"failover" bson:"failover" yaml:"failover"`
+	IsRelayed    bool      `json:"isrelayed" yaml:"isrelayed"`
+	RelayedBy    string    `json:"relayedby" yaml:"relayedby"`
+	IsRelay      bool      `json:"isrelay" yaml:"isrelay"`
+	RelayedNodes []string  `json:"relaynodes" yaml:"relayedNodes"`
 }
 
 // LegacyNode - legacy struct for node model

@@ -439,7 +439,7 @@ func GetAllowedIPs(client, peer models.Client) []net.IPNet {
 		if clientNode == nil {
 			continue
 		}
-
+		client.Node = *clientNode
 		peer.Node = node
 		if ShouldRemovePeer(*clientNode, peer.Node) {
 			continue
@@ -654,20 +654,23 @@ func getIngressIPs(peer models.Client) []net.IPNet {
 	for _, ec := range extclients {
 		if ec.IngressGatewayID == peer.Node.ID.String() {
 			if ec.Address != "" {
-				ip, cidr, err := net.ParseCIDR(ec.Address)
-				if err != nil {
-					continue
+				var peeraddr = net.IPNet{
+					IP:   net.ParseIP(ec.Address),
+					Mask: net.CIDRMask(32, 32),
 				}
-				cidr.IP = ip
-				ingressIPs = append(ingressIPs, *cidr)
+				if peeraddr.IP != nil && peeraddr.Mask != nil {
+					ingressIPs = append(ingressIPs, peeraddr)
+				}
 			}
+
 			if ec.Address6 != "" {
-				ip, cidr, err := net.ParseCIDR(ec.Address6)
-				if err != nil {
-					continue
+				var addr6 = net.IPNet{
+					IP:   net.ParseIP(ec.Address6),
+					Mask: net.CIDRMask(128, 128),
 				}
-				cidr.IP = ip
-				ingressIPs = append(ingressIPs, *cidr)
+				if addr6.IP != nil && addr6.Mask != nil {
+					ingressIPs = append(ingressIPs, addr6)
+				}
 			}
 		}
 	}
