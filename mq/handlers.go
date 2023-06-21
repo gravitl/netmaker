@@ -191,6 +191,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	}
 
 	if sendPeerUpdate {
+		logger.Log(0, "Sending Host Update.......")
 		go BroadcastHostUpdate(currentHost, removeHost)
 	}
 	// if servercfg.Is_EE && ifaceDelta {
@@ -408,8 +409,7 @@ func handleHostCheckin(h, currentHost *models.Host) bool {
 	ifaceDelta := len(h.Interfaces) != len(currentHost.Interfaces) ||
 		!h.EndpointIP.Equal(currentHost.EndpointIP) ||
 		(len(h.NatType) > 0 && h.NatType != currentHost.NatType) ||
-		h.DefaultInterface != currentHost.DefaultInterface ||
-		h.EndpointDetection != servercfg.EndpointDetectionEnabled()
+		h.DefaultInterface != currentHost.DefaultInterface
 	if ifaceDelta { // only save if something changes
 		currentHost.EndpointIP = h.EndpointIP
 		currentHost.Interfaces = h.Interfaces

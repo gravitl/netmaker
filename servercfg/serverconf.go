@@ -113,6 +113,7 @@ func GetServerInfo() models.ServerConfig {
 	cfg.TurnDomain = GetTurnHost()
 	cfg.TurnPort = GetTurnPort()
 	cfg.UseTurn = IsUsingTurn()
+	cfg.EndpointDetection = EndpointDetectionEnabled()
 	return cfg
 }
 
