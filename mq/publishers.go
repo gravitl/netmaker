@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/mailru/easyjson"
 )
 
 // PublishPeerUpdate --- determines and publishes a peer update to all the hosts
@@ -78,8 +81,20 @@ func PublishDeletedClientPeerUpdate(delClient *models.ExtClient) error {
 	return err
 }
 
+// feature flag for peer updates throttling
+var MaxPeerUpdates, _ = strconv.Atoi(os.Getenv("MAX_PEER_UPDATES"))
+var peerUpdatesCount = 0
+
 // PublishSingleHostPeerUpdate --- determines and publishes a peer update to one host
 func PublishSingleHostPeerUpdate(ctx context.Context, host *models.Host, deletedNode *models.Node, deletedClients []models.ExtClient) error {
+	if MaxPeerUpdates != 0 && peerUpdatesCount >= MaxPeerUpdates {
+		logger.Log(1, "Skipping peer update for", host.Name, "- too many concurrent updates")
+		return nil
+	}
+	peerUpdatesCount++
+	defer func() {
+		peerUpdatesCount--
+	}()
 
 	peerUpdate, err := logic.GetPeerUpdateForHost(ctx, "", host, deletedNode, deletedClients)
 	if err != nil {
@@ -101,7 +116,7 @@ func PublishSingleHostPeerUpdate(ctx context.Context, host *models.Host, deleted
 
 	peerUpdate.ProxyUpdate = proxyUpdate
 
-	data, err := json.Marshal(&peerUpdate)
+	data, err := easyjson.Marshal(peerUpdate)
 	if err != nil {
 		return err
 	}
@@ -149,7 +164,7 @@ func HostUpdate(hostUpdate *models.HostUpdate) error {
 		return err
 	}
 	if err = publish(&hostUpdate.Host, fmt.Sprintf("host/update/%s/%s", hostUpdate.Host.ID.String(), servercfg.GetServer()), data); err != nil {
-		logger.Log(2, "error publishing host update to", hostUpdate.Host.ID.String(), err.Error())
+		logger.Log(2, "error publishing host update to", hostUpdate.Host.Name, hostUpdate.Host.ID.String(), err.Error())
 		return err
 	}
 

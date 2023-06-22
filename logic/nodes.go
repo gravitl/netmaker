@@ -567,14 +567,15 @@ func createNode(node *models.Node) error {
 	if err != nil {
 		return err
 	}
-	// invalidate cache
+	// update cache
 	CacheNodesMutex.Lock()
-	CacheNodes = nil
-	CacheNodesMutex.Unlock()
+	CacheNodes = append(CacheNodes, *node)
 	err = database.Insert(node.ID.String(), string(nodebytes), database.NODES_TABLE_NAME)
 	if err != nil {
+		CacheNodesMutex.Unlock()
 		return err
 	}
+	CacheNodesMutex.Unlock()
 
 	_, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), defaultACLVal)
 	if err != nil {

@@ -40,10 +40,12 @@ func GetAllHosts() ([]models.Host, error) {
 		return nil, err
 	}
 	var currentHosts = []models.Host{}
+	CacheHostsMutex.RLock()
 	for k := range currHostMap {
 		var h = *currHostMap[k]
 		currentHosts = append(currentHosts, h)
 	}
+	CacheHostsMutex.RUnlock()
 
 	return currentHosts, nil
 }
@@ -98,8 +100,10 @@ func GetHost(hostid string) (*models.Host, error) {
 			defer CacheHostsMutex.RUnlock()
 			return CacheHosts[hostid], nil
 		}
+		CacheHostsMutex.RUnlock()
+	} else {
+		CacheHostsMutex.RUnlock()
 	}
-	CacheHostsMutex.RUnlock()
 	record, err := database.FetchRecord(database.HOSTS_TABLE_NAME, hostid)
 	if err != nil {
 		return nil, err
@@ -238,9 +242,12 @@ func UpsertHost(h *models.Host) error {
 		return err
 	}
 
-	// invalidate cache
+	// update cache
 	CacheHostsMutex.Lock()
-	CacheHosts = nil
+	if CacheHosts == nil {
+		CacheHosts = make(map[string]*models.Host)
+	}
+	CacheHosts[h.ID.String()] = h
 	defer CacheHostsMutex.Unlock()
 	return database.Insert(h.ID.String(), string(data), database.HOSTS_TABLE_NAME)
 }

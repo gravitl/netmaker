@@ -23,12 +23,16 @@ type HostPeerUpdate struct {
 }
 
 // IngressInfo - struct for ingress info
+//
+//easyjson:skip
 type IngressInfo struct {
 	ExtPeers     map[string]ExtClientInfo `json:"ext_peers" yaml:"ext_peers"`
 	EgressRanges []string                 `json:"egress_ranges" yaml:"egress_ranges"`
 }
 
 // EgressInfo - struct for egress info
+//
+//easyjson:skip
 type EgressInfo struct {
 	EgressID     string                   `json:"egress_id" yaml:"egress_id"`
 	Network      net.IPNet                `json:"network" yaml:"network"`
@@ -38,6 +42,8 @@ type EgressInfo struct {
 }
 
 // PeerRouteInfo - struct for peer info for an ext. client
+//
+//easyjson:skip
 type PeerRouteInfo struct {
 	PeerAddr net.IPNet `json:"peer_addr" yaml:"peer_addr"`
 	PeerKey  string    `json:"peer_key" yaml:"peer_key"`
@@ -46,6 +52,8 @@ type PeerRouteInfo struct {
 }
 
 // ExtClientInfo - struct for ext. client and it's peers
+//
+//easyjson:skip
 type ExtClientInfo struct {
 	IngGwAddr   net.IPNet                `json:"ingress_gw_addr" yaml:"ingress_gw_addr"`
 	Network     net.IPNet                `json:"network" yaml:"network"`
@@ -56,6 +64,8 @@ type ExtClientInfo struct {
 }
 
 // KeyUpdate - key update struct
+//
+//easyjson:skip
 type KeyUpdate struct {
 	Network   string `json:"network" bson:"network"`
 	Interface string `json:"interface" bson:"interface"`

@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/gravitl/netmaker/database"
-	"golang.org/x/exp/slog"
 )
 
 // == type functions ==
@@ -55,19 +54,19 @@ func (aclContainer ACLContainer) RemoveACL(ID AclID) ACLContainer {
 // ACLContainer.ChangeAccess - changes the relationship between two nodes in memory
 func (networkACL ACLContainer) ChangeAccess(ID1, ID2 AclID, value byte) {
 	if _, ok := networkACL[ID1]; !ok {
-		slog.Error("ACL missing for ", "id", ID1)
+		//slog.Error("ACL missing for ", "id", ID1)
 		return
 	}
 	if _, ok := networkACL[ID2]; !ok {
-		slog.Error("ACL missing for ", "id", ID2)
+		//slog.Error("ACL missing for ", "id", ID2)
 		return
 	}
 	if _, ok := networkACL[ID1][ID2]; !ok {
-		slog.Error("ACL missing for ", "id1", ID1, "id2", ID2)
+		//slog.Error("ACL missing for ", "id1", ID1, "id2", ID2)
 		return
 	}
 	if _, ok := networkACL[ID2][ID1]; !ok {
-		slog.Error("ACL missing for ", "id2", ID2, "id1", ID1)
+		//slog.Error("ACL missing for ", "id2", ID2, "id1", ID1)
 		return
 	}
 	networkACL[ID1][ID2] = value
@@ -141,10 +140,6 @@ func upsertACL(containerID ContainerID, ID AclID, acl ACL) (ACL, error) {
 		return acl, err
 	}
 	currentNetACL[ID] = acl
-	// invalidate cache
-	CacheACLMutex.Lock()
-	delete(CacheACL, containerID)
-	CacheACLMutex.Unlock()
 	_, err = upsertACLContainer(containerID, currentNetACL)
 	return acl, err
 }
@@ -158,7 +153,7 @@ func upsertACLContainer(containerID ContainerID, aclContainer ACLContainer) (ACL
 	// invalidate cache
 	CacheACLMutex.Lock()
 	delete(CacheACL, containerID)
-	CacheACLMutex.Unlock()
+	defer CacheACLMutex.Unlock()
 	return aclContainer, database.Insert(string(containerID), string(convertNetworkACLtoACLJson(aclContainer)), database.NODE_ACLS_TABLE_NAME)
 }
 

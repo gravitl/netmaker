@@ -137,6 +137,7 @@ func ResetPeerUpdateContext() {
 		PeerUpdateStop() // tell any current peer updates to stop
 	}
 
+	logger.Log(1, "ResetPeerUpdateContext")
 	PeerUpdateCtx, PeerUpdateStop = context.WithCancel(context.Background())
 }
 
@@ -170,7 +171,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 	// endpoint detection always comes from the server
 	hostPeerUpdate.Host.EndpointDetection = servercfg.EndpointDetectionEnabled()
 
-	logger.Log(1, "peer update for host", host.ID.String())
+	logger.Log(1, "peer update for host", host.Name, host.ID.String())
 	peerIndexMap := make(map[string]int)
 	for _, nodeID := range host.Nodes {
 		nodeID := nodeID
@@ -189,12 +190,12 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 		for _, peer := range currentPeers {
 			select {
 			case <-ctx.Done():
-				logger.Log(2, "cancelled peer update for host", host.Name, host.ID.String())
+				//logger.Log(2, "cancelled peer update for host", host.Name, host.ID.String())
 				return models.HostPeerUpdate{}, fmt.Errorf("peer update cancelled")
 			default:
 				peer := peer
 				if peer.ID.String() == node.ID.String() {
-					logger.Log(2, "peer update, skipping self")
+					//logger.Debug(2, "peer update, skipping self")
 					//skip yourself
 					continue
 				}

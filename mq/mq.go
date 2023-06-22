@@ -36,10 +36,23 @@ func setMqOptions(user, password string, opts *mqtt.ClientOptions) {
 	opts.SetConnectRetryInterval(time.Second << 2)
 	opts.SetKeepAlive(time.Minute)
 	opts.SetWriteTimeout(time.Minute)
+	opts.OnConnectionLost = func(c mqtt.Client, err error) {
+		logger.Log(0, "MQ connection lost: ", err.Error())
+	}
+	opts.OnReconnecting = func(c mqtt.Client, opts *mqtt.ClientOptions) {
+		logger.Log(0, "Trying to reconnect MQ...")
+	}
 }
+
+var setupInProgress = false
 
 // SetupMQTT creates a connection to broker and return client
 func SetupMQTT() {
+	if setupInProgress {
+		return
+	}
+	logger.Log(0, "SetupMQTT")
+	setupInProgress = true
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 		time.Sleep(10 * time.Second) // wait for the REST endpoint to be ready
 		// setup authenticator and create admin user
@@ -62,6 +75,7 @@ func SetupMQTT() {
 	opts := mqtt.NewClientOptions()
 	setMqOptions(servercfg.GetMqUserName(), servercfg.GetMqPassword(), opts)
 	opts.SetOnConnectHandler(func(client mqtt.Client) {
+		logger.Log(0, "MQ connected")
 		serverName := servercfg.GetServer()
 		if token := client.Subscribe(fmt.Sprintf("update/%s/#", serverName), 0, mqtt.MessageHandler(UpdateNode)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
 			client.Disconnect(240)
@@ -100,6 +114,7 @@ func SetupMQTT() {
 		}
 		time.Sleep(2 * time.Second)
 	}
+	setupInProgress = false
 }
 
 // Keepalive -- periodically pings all nodes to let them know server is still alive and doing well
@@ -116,7 +131,7 @@ func Keepalive(ctx context.Context) {
 
 // IsConnected - function for determining if the mqclient is connected or not
 func IsConnected() bool {
-	return mqclient != nil && mqclient.IsConnected()
+	return mqclient != nil && mqclient.IsConnected() && mqclient.IsConnectionOpen()
 }
 
 // CloseClient - function to close the mq connection from server
