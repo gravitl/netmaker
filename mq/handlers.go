@@ -191,7 +191,6 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	}
 
 	if sendPeerUpdate {
-		logger.Log(0, "Sending Host Update.......")
 		go BroadcastHostUpdate(currentHost, removeHost)
 	}
 	// if servercfg.Is_EE && ifaceDelta {

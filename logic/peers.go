@@ -29,8 +29,9 @@ func NodePeersInfo(client *models.Client) (models.NodePeersInfo, error) {
 		if peer.ID == client.Node.ID {
 			continue
 		}
-		if peer.Action == models.NODE_DELETE || peer.PendingDelete || !peer.Connected ||
-			!nodeacls.AreNodesAllowed(nodeacls.NetworkID(peer.Network), nodeacls.NodeID(client.Node.ID.String()), nodeacls.NodeID(peer.ID.String())) {
+		if (client.Node.IsRelayed && client.Node.RelayedBy != peer.ID.String()) ||
+			(peer.IsRelayed && peer.RelayedBy != client.Node.ID.String()) ||
+			ShouldRemovePeer(client.Node, peer) {
 			continue
 		}
 		peerHost, err := GetHost(peer.HostID.String())
@@ -138,7 +139,9 @@ func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
 				PersistentKeepaliveInterval: &peer.PersistentKeepalive,
 				ReplaceAllowedIPs:           true,
 			}
-			if (node.IsRelayed && node.RelayedBy != peer.ID.String()) || (peer.IsRelayed && peer.RelayedBy != node.ID.String()) || ShouldRemovePeer(node, peer) {
+			if (node.IsRelayed && node.RelayedBy != peer.ID.String()) ||
+				(peer.IsRelayed && peer.RelayedBy != node.ID.String()) ||
+				ShouldRemovePeer(node, peer) {
 				// if node is relayed and peer is not the relay, set remove to true
 				peerConfig.Remove = true
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)

@@ -14,8 +14,8 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-// PublishSingleHostPeerUpdate --- determines and publishes a peer update to one host
-func PublishSingleHostPeerUpdate(host *models.Host) error {
+// PublishHostPeerUpdate --- determines and publishes a peer update to one host
+func PublishHostPeerUpdate(host *models.Host) error {
 
 	peerUpdate, err := logic.GetPeerUpdateForHost(host)
 	if err != nil {
@@ -174,8 +174,8 @@ func BroadcastHostUpdate(host *models.Host, remove bool) error {
 					IP:   host.EndpointIP,
 					Port: logic.GetPeerListenPort(host),
 				},
-				UpdateOnly: true,
-				Remove:     remove,
+				ReplaceAllowedIPs: true,
+				Remove:            remove,
 			},
 		},
 	}
@@ -183,13 +183,13 @@ func BroadcastHostUpdate(host *models.Host, remove bool) error {
 		p.Action = models.RemovePeer
 	}
 	peerHosts := logic.GetRelatedHosts(host.ID.String())
-	data, err := json.Marshal(p)
-	if err != nil {
-		return err
-	}
 	for _, peerHost := range peerHosts {
 		if !remove {
 			p.Peers[0].AllowedIPs = logic.GetAllowedIPs(models.Client{Host: peerHost}, models.Client{Host: *host})
+		}
+		data, err := json.Marshal(p)
+		if err != nil {
+			return err
 		}
 		publish(&peerHost, fmt.Sprintf("peer/host/%s/%s", peerHost.ID.String(), servercfg.GetServer()), data)
 	}
@@ -729,7 +729,7 @@ func sendPeers() {
 		for _, host := range hosts {
 			host := host
 			logger.Log(2, "sending scheduled peer update (5 min)")
-			if err = PublishSingleHostPeerUpdate(&host); err != nil {
+			if err = PublishHostPeerUpdate(&host); err != nil {
 				logger.Log(1, "error publishing peer updates for host: ", host.ID.String(), " Err: ", err.Error())
 			}
 		}
