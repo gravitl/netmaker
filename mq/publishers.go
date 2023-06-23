@@ -407,7 +407,7 @@ func NodeUpdate(node *models.Node) error {
 
 // HostUpdate -- publishes a host update to clients
 func HostUpdate(hostUpdate *models.HostUpdate) error {
-	logger.Log(3, "publishing host update to "+hostUpdate.Host.ID.String())
+	logger.Log(4, "publishing host update to "+hostUpdate.Host.ID.String())
 
 	data, err := json.Marshal(hostUpdate)
 	if err != nil {

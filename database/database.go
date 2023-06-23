@@ -215,8 +215,6 @@ func FetchRecord(tableName string, key string) (string, error) {
 
 // FetchRecords - fetches all records in given table
 func FetchRecords(tableName string) (map[string]string, error) {
-	dbMutex.RLock()
-	defer dbMutex.RUnlock()
 	return getCurrentDB()[FETCH_ALL].(func(string) (map[string]string, error))(tableName)
 }
 

@@ -491,18 +491,18 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 	// push the signal to host through mq
 	found := false
 	for _, hostI := range hosts {
+		hostI := hostI
 		if hostI.PublicKey.String() == signal.ToHostPubKey {
 			// found host publish message and break
 			found = true
-			err = mq.HostUpdate(&models.HostUpdate{
-				Action: models.SignalHost,
-				Host:   hostI,
-				Signal: signal,
-			})
-			if err != nil {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to publish signal to peer: "+err.Error()), "badrequest"))
-				return
-			}
+			go func(host models.Host) {
+				mq.HostUpdate(&models.HostUpdate{
+					Action: models.SignalHost,
+					Host:   hostI,
+					Signal: signal,
+				})
+			}(hostI)
+
 			break
 		}
 	}
