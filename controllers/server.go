@@ -20,9 +20,9 @@ func serverHandlers(r *mux.Router) {
 		resp.Write([]byte("Server is up and running!!"))
 	}))
 	r.HandleFunc("/api/server/getconfig", allowUsers(http.HandlerFunc(getConfig))).Methods(http.MethodGet)
-	r.HandleFunc("/api/server/getserverinfo", authorize(true, false, "node", http.HandlerFunc(getServerInfo))).Methods(http.MethodGet)
+	r.HandleFunc("/api/server/getserverinfo", Authorize(true, false, "node", http.HandlerFunc(getServerInfo))).Methods(http.MethodGet)
 	r.HandleFunc("/api/server/status", http.HandlerFunc(getStatus)).Methods(http.MethodGet)
-	r.HandleFunc("/api/server/usage", authorize(true, false, "user", http.HandlerFunc(getUsage))).Methods(http.MethodGet)
+	r.HandleFunc("/api/server/usage", Authorize(true, false, "user", http.HandlerFunc(getUsage))).Methods(http.MethodGet)
 }
 func getUsage(w http.ResponseWriter, r *http.Request) {
 	type usage struct {

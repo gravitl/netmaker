@@ -102,6 +102,9 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	if err != nil {
 		return models.Node{}, err
 	}
+	if node.IsRelayed {
+		return models.Node{}, errors.New("ingress cannot be created on a relayed node")
+	}
 	host, err := GetHost(node.HostID.String())
 	if err != nil {
 		return models.Node{}, err
@@ -111,6 +114,9 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	}
 	if host.FirewallInUse == models.FIREWALL_NONE {
 		return models.Node{}, errors.New("firewall is not supported for ingress gateways")
+	}
+	if host.NatType != models.NAT_Types.Public {
+		return models.Node{}, errors.New("ingress cannot be created on nodes behind NAT")
 	}
 
 	network, err := GetParentNetwork(netid)

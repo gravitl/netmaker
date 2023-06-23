@@ -69,6 +69,10 @@ type CommonNode struct {
 	IsEgressGateway     bool          `json:"isegressgateway" yaml:"isegressgateway"`
 	EgressGatewayRanges []string      `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
 	IsIngressGateway    bool          `json:"isingressgateway" yaml:"isingressgateway"`
+	IsRelayed           bool          `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
+	RelayedBy           string        `json:"relayedby" bson:"relayedby" yaml:"relayedby"`
+	IsRelay             bool          `json:"isrelay" bson:"isrelay" yaml:"isrelay"`
+	RelayedNodes        []string      `json:"relaynodes" yaml:"relayedNodes"`
 	IngressDNS          string        `json:"ingressdns" yaml:"ingressdns"`
 	DNSOn               bool          `json:"dnson" yaml:"dnson"`
 	PersistentKeepalive time.Duration `json:"persistentkeepalive" yaml:"persistentkeepalive"`
@@ -86,9 +90,6 @@ type Node struct {
 	EgressGatewayRequest    EgressGatewayRequest `json:"egressgatewayrequest" bson:"egressgatewayrequest" yaml:"egressgatewayrequest"`
 	IngressGatewayRange     string               `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
 	IngressGatewayRange6    string               `json:"ingressgatewayrange6" bson:"ingressgatewayrange6" yaml:"ingressgatewayrange6"`
-	IsRelayed               bool                 `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
-	IsRelay                 bool                 `json:"isrelay" bson:"isrelay" yaml:"isrelay"`
-	RelayAddrs              []string             `json:"relayaddrs" bson:"relayaddrs" yaml:"relayaddrs"`
 	// == PRO ==
 	DefaultACL   string    `json:"defaultacl,omitempty" bson:"defaultacl,omitempty" yaml:"defaultacl,omitempty" validate:"checkyesornoorunset"`
 	OwnerID      string    `json:"ownerid,omitempty" bson:"ownerid,omitempty" yaml:"ownerid,omitempty"`
@@ -350,7 +351,7 @@ func (node *LegacyNode) SetDefaultFailover() {
 }
 
 // Node.Fill - fills other node data into calling node data if not set on calling node
-func (newNode *Node) Fill(currentNode *Node) { // TODO add new field for nftables present
+func (newNode *Node) Fill(currentNode *Node, isEE bool) { // TODO add new field for nftables present
 	newNode.ID = currentNode.ID
 	newNode.HostID = currentNode.HostID
 	// Revisit the logic for boolean values
@@ -401,13 +402,13 @@ func (newNode *Node) Fill(currentNode *Node) { // TODO add new field for nftable
 	if newNode.Action == "" {
 		newNode.Action = currentNode.Action
 	}
-	if newNode.RelayAddrs == nil {
-		newNode.RelayAddrs = currentNode.RelayAddrs
+	if newNode.RelayedNodes == nil {
+		newNode.RelayedNodes = currentNode.RelayedNodes
 	}
-	if newNode.IsRelay != currentNode.IsRelay {
+	if newNode.IsRelay != currentNode.IsRelay && isEE {
 		newNode.IsRelay = currentNode.IsRelay
 	}
-	if newNode.IsRelayed == currentNode.IsRelayed {
+	if newNode.IsRelayed == currentNode.IsRelayed && isEE {
 		newNode.IsRelayed = currentNode.IsRelayed
 	}
 	if newNode.Server == "" {

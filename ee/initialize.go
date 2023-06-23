@@ -23,6 +23,7 @@ func InitEE() {
 		ee_controllers.MetricHandlers,
 		ee_controllers.NetworkUsersHandlers,
 		ee_controllers.UserGroupsHandlers,
+		ee_controllers.RelayHandlers,
 	)
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
 		// == License Handling ==
