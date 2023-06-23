@@ -226,6 +226,9 @@ func GetFwUpdate(host *models.Host) (models.FwUpdate, error) {
 		if err != nil {
 			continue
 		}
+		if !(node.IsEgressGateway || node.IsIngressGateway) {
+			continue
+		}
 		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE {
 			continue
 		}

@@ -43,6 +43,28 @@ func initSqliteDB() error {
 	if dbOpenErr != nil {
 		return dbOpenErr
 	}
+	const q = `
+	PRAGMA foreign_keys = OFF;
+	PRAGMA synchronous = NORMAL;
+	PRAGMA journal_mode = 'WAL';
+	PRAGMA busy_timeout = 10000;
+	`
+	_, dbOpenErr = SqliteDB.Exec(q)
+	if dbOpenErr != nil {
+		return dbOpenErr
+	}
+	// if _, dbOpenErr = SqliteDB.Exec("PRAGMA synchronous = NORMAL"); dbOpenErr != nil {
+	// 	return dbOpenErr
+	// }
+	// if _, dbOpenErr = SqliteDB.Exec("PRAGMA busy_timeout = 10000"); dbOpenErr != nil {
+	// 	return dbOpenErr
+	// }
+	// if _, dbOpenErr = SqliteDB.Exec("PRAGMA foreign_keys = false"); dbOpenErr != nil {
+	// 	return dbOpenErr
+	// }
+	// if _, dbOpenErr = SqliteDB.Exec("PRAGMA journal_mode = WAL"); dbOpenErr != nil {
+	// 	return dbOpenErr
+	// }
 	SqliteDB.SetMaxOpenConns(1)
 	return nil
 }

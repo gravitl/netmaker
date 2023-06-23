@@ -36,6 +36,7 @@ func setMqOptions(user, password string, opts *mqtt.ClientOptions) {
 	opts.SetConnectRetryInterval(time.Second * 5)
 	opts.SetKeepAlive(time.Minute)
 	opts.SetWriteTimeout(time.Minute)
+	opts.SetCleanSession(true)
 }
 
 // SetupMQTT creates a connection to broker and return client
@@ -77,8 +78,11 @@ func SetupMQTT() {
 			logger.Log(0, "node metrics subscription failed")
 		}
 
-		opts.SetOrderMatters(true)
-		opts.SetResumeSubs(true)
+		opts.SetOrderMatters(false)
+		opts.SetResumeSubs(false)
+	})
+	opts.SetConnectionLostHandler(func(c mqtt.Client, e error) {
+		setMqOptions(servercfg.GetMqUserName(), servercfg.GetMqPassword(), opts)
 	})
 	mqclient = mqtt.NewClient(opts)
 	tperiod := time.Now().Add(10 * time.Second)
