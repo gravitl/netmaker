@@ -15,6 +15,9 @@ import (
 // How long to wait before sending telemetry to server (24 hours)
 const timer_hours_between_runs = 24
 
+// HookManagerCh - channel to add any new hooks
+var HookManagerCh = make(chan models.HookDetails, 2)
+
 // == Public ==
 
 // TimerCheckpoint - Checks if 24 hours has passed since telemetry was last sent. If so, sends telemetry data to posthog
@@ -43,8 +46,7 @@ func AddHook(ifaceToAdd interface{}) {
 	timeHooks = append(timeHooks, ifaceToAdd)
 }
 
-var HookManagerCh = make(chan models.HookDetails, 2)
-
+// StartHookManager - listens on `HookManagerCh` to run any hook
 func StartHookManager(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 	for {

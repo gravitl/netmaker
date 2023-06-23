@@ -693,16 +693,6 @@ func GetStunPort() int {
 	return port
 }
 
-func GetUserLimit() int {
-	var userslimit int
-	if os.Getenv("USERS_LIMIT") != "" {
-		userslimit, _ = strconv.Atoi(os.Getenv("USERS_LIMIT"))
-	} else {
-		userslimit = config.Config.Server.UsersLimit
-	}
-	return userslimit
-}
-
 // GetTurnPort - Get the port to run the turn server on
 func GetTurnPort() int {
 	port := 3479 //default
@@ -752,6 +742,18 @@ func IsProxyEnabled() bool {
 	return enabled
 }
 
+// GetNetworkLimit - fetches free tier limits on users
+func GetUserLimit() int {
+	var userslimit int
+	if os.Getenv("USERS_LIMIT") != "" {
+		userslimit, _ = strconv.Atoi(os.Getenv("USERS_LIMIT"))
+	} else {
+		userslimit = config.Config.Server.UsersLimit
+	}
+	return userslimit
+}
+
+// GetNetworkLimit - fetches free tier limits on networks
 func GetNetworkLimit() int {
 	var networkslimit int
 	if os.Getenv("NETWORKS_LIMIT") != "" {
@@ -762,6 +764,7 @@ func GetNetworkLimit() int {
 	return networkslimit
 }
 
+// GetClientLimit - fetches free tier limits on ext. clients
 func GetClientLimit() int {
 	var clientsLimit int
 	if os.Getenv("CLIENTS_LIMIT") != "" {
@@ -772,6 +775,7 @@ func GetClientLimit() int {
 	return clientsLimit
 }
 
+// GetHostLimit - fetches free tier limits on hosts
 func GetHostLimit() int {
 	var hostsLimit int
 	if os.Getenv("HOSTS_LIMIT") != "" {
@@ -782,6 +786,7 @@ func GetHostLimit() int {
 	return hostsLimit
 }
 
+// DeployedByOperator - returns true if the instance is deployed by netmaker operator
 func DeployedByOperator() bool {
 	if os.Getenv("DEPLOYED_BY_OPERATOR") != "" {
 		return os.Getenv("DEPLOYED_BY_OPERATOR") == "true"
