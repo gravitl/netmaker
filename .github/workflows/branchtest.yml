@@ -47,6 +47,19 @@ jobs:
     outputs:
       netmakerserver: ${{ steps.getserver.outputs.server }}
     steps:
+      - name: setup ssh
+        run: |
+          mkdir -p ~/.ssh/
+          echo "$SSH_KEY" > ~/.ssh/id_devops
+          chmod 600 ~/.ssh/id_devops
+          cat >>~/.ssh/config <<END
+          Host *.clustercat.com
+            User root
+            IdentityFile ~/.ssh/id_devops
+            StrictHostKeyChecking no
+          END
+        env:
+          SSH_KEY: ${{ secrets.TESTING_SSH_KEY }}
       - name: getserver
         id: getserver
         run: |
