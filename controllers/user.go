@@ -19,6 +19,9 @@ var (
 	upgrader = websocket.Upgrader{}
 )
 
+// verifyJWT makes logic.VerifyJWT fakeable/mockable in tests
+var verifyJWT = logic.VerifyJWT
+
 func userHandlers(r *mux.Router) {
 
 	r.HandleFunc("/api/users/adm/hasadmin", hasAdmin).Methods(http.MethodGet)
@@ -152,7 +155,7 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
 	usernameFetched := params["username"]
-	user, err := logic.GetUser(usernameFetched)
+	user, err := logic.GetReturnUser(usernameFetched)
 
 	if err != nil {
 		logger.Log(0, usernameFetched, "failed to fetch user: ", err.Error())
@@ -230,7 +233,7 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Log(1, admin.UserName, "was made a new admin")
-	json.NewEncoder(w).Encode(admin)
+	json.NewEncoder(w).Encode(logic.ToReturnUser(admin))
 }
 
 // swagger:route POST /api/users/{username} user createUser
@@ -264,7 +267,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(1, user.UserName, "was created")
-	json.NewEncoder(w).Encode(user)
+	json.NewEncoder(w).Encode(logic.ToReturnUser(user))
 }
 
 // swagger:route PUT /api/users/networks/{username} user updateUserNetworks
@@ -314,12 +317,13 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(1, username, "status was updated")
 	// re-read and return the new user struct
-	if userChange, err = logic.GetUser(username); err != nil {
+	returnUser, err := logic.GetReturnUser(username)
+	if err != nil {
 		logger.Log(0, username, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	json.NewEncoder(w).Encode(userChange)
+	json.NewEncoder(w).Encode(returnUser)
 }
 
 // swagger:route PUT /api/users/{username} user updateUser
@@ -337,7 +341,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	// start here
-	jwtUser, _, isadmin, err := logic.VerifyJWT(r.Header.Get("Authorization"))
+	jwtUser, _, isadmin, err := verifyJWT(r.Header.Get("Authorization"))
 	if err != nil {
 		logger.Log(0, "verifyJWT error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -385,7 +389,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(1, username, "was updated")
-	json.NewEncoder(w).Encode(user)
+	json.NewEncoder(w).Encode(logic.ToReturnUser(*user))
 }
 
 // swagger:route PUT /api/users/{username}/adm user updateUserAdm
@@ -409,7 +413,7 @@ func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if auth.IsOauthUser(user) != nil {
+	if auth.IsOauthUser(user) == nil {
 		err := fmt.Errorf("cannot update user info for oauth user %s", username)
 		logger.Log(0, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
@@ -436,7 +440,7 @@ func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(1, username, "was updated (admin)")
-	json.NewEncoder(w).Encode(user)
+	json.NewEncoder(w).Encode(logic.ToReturnUser(*user))
 }
 
 // swagger:route DELETE /api/users/{username} user deleteUser
