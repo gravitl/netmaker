@@ -10,12 +10,13 @@ jobs:
   skip-check:
     runs-on: ubuntu-latest
     outputs:
-      skip: ${{ steps.check.outputs.skip }}
+      skip: ${{ steps.skip.outputs.skip }}
     steps:
       - id: skip
         uses: fkirc/skip-duplicate-actions@v5
         with:
           concurrent_skipping: 'always'
+  
   getbranch:
     runs-on: ubuntu-latest
     needs: skip-check
@@ -29,7 +30,7 @@ jobs:
           repository: gravitl/netclient
           ref: develop
       - name: check if branch exists
-        id: checkbranch
+        id: getbranch 
         run: |
           if git show-ref ${{ github.head_ref}}; then
             echo branch exists
@@ -39,12 +40,62 @@ jobs:
             echo "netclientbranch=develop" >> $GITHUB_OUTPUT
           fi
   
+  getserver:
+    runs-on: ubuntu-latest
+    needs: skip-check
+    if: ${{ needs.skip-check.outputs.skip != 'true' }}
+    outputs:
+      netmakerserver: ${{ steps.getserver.outputs.server }}
+    steps:
+      - name: setup ssh
+        run: |
+          mkdir -p ~/.ssh/
+          echo "$SSH_KEY" > ~/.ssh/id_devops
+          chmod 600 ~/.ssh/id_devops
+          cat >>~/.ssh/config <<END
+          Host *.clustercat.com
+            User root
+            IdentityFile ~/.ssh/id_devops
+            StrictHostKeyChecking no
+          END
+        env:
+          SSH_KEY: ${{ secrets.TESTING_SSH_KEY }}
+      - name: getserver
+        id: getserver
+        run: |
+          server=""
+          for arg in "branch1" "branch2" "branch3" "branch4" "branch5"; do
+            echo checking $arg
+            result=$( ssh root@server.${arg}.clustercat.com '~/branchtesting/check.sh') 
+            echo $result
+            if [ "$result" == "pass" ]
+            then
+              server=$arg
+              echo server >> /tmp/server
+              break
+            fi
+          done
+          echo server is $server
+          if [ "$server" == "" ]
+          then
+            echo server not set
+            exit 1
+          fi
+          echo "netmakerserver=${ server }" >> $GITHUB_OUTPUT
+      - name: save server name
+        uses: actions/upload-artifact@v3
+        with:
+          name: server
+          path: /tmp/ping
+          retention-days: 3
+          
   terraform:
-    needs: getbranch
+    needs: [getbranch, getserver]
     uses: gravitl/devops/.github/workflows/terraform.yml@master
     with:
       netmakerbranch: ${{ github.head_ref }}
       netclientbranch: ${{ needs.getbranch.outputs.netclientbranch }}
+      server: ${{ needs.getserver.outputs.netmakerserver }}
     secrets: inherit
 
 
