@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"sync"
 
 	"github.com/devilcove/httpclient"
 	"github.com/google/uuid"
@@ -21,11 +22,47 @@ import (
 )
 
 var (
+	HostCacheMutex = &sync.RWMutex{}
+	HostsCacheMap  = make(map[string]models.Host)
+)
+
+var (
 	// ErrHostExists error indicating that host exists when trying to create new host
 	ErrHostExists error = errors.New("host already exists")
 	// ErrInvalidHostID
 	ErrInvalidHostID error = errors.New("invalid host id")
 )
+
+func GetHostsFromCache() (hostsMap map[string]models.Host) {
+	HostCacheMutex.RLock()
+	hostsMap = HostsCacheMap
+	HostCacheMutex.RUnlock()
+	return
+}
+
+func GetHostFromCache(hostID string) (host models.Host, ok bool) {
+	HostCacheMutex.RLock()
+	host, ok = HostsCacheMap[hostID]
+	HostCacheMutex.RUnlock()
+	return
+}
+
+func StoreHostInCache(h models.Host) {
+	HostCacheMutex.Lock()
+	HostsCacheMap[h.ID.String()] = h
+	HostCacheMutex.Unlock()
+}
+
+func DeleteHostFromCache(hostID string) {
+	HostCacheMutex.Lock()
+	delete(HostsCacheMap, hostID)
+	HostCacheMutex.Unlock()
+}
+func LoadHostsIntoCache(hMap map[string]models.Host) {
+	HostCacheMutex.Lock()
+	HostsCacheMap = hMap
+	HostCacheMutex.Unlock()
+}
 
 const (
 	maxPort = 1<<16 - 1
@@ -34,17 +71,31 @@ const (
 
 // GetAllHosts - returns all hosts in flat list or error
 func GetAllHosts() ([]models.Host, error) {
-	currHostMap, err := GetHostsMap()
-	if err != nil {
+	currHosts := []models.Host{}
+	hostsMap := GetHostsFromCache()
+	if len(hostsMap) != 0 {
+		for _, host := range hostsMap {
+			currHosts = append(currHosts, host)
+		}
+		return currHosts, nil
+	}
+	records, err := database.FetchRecords(database.HOSTS_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
 		return nil, err
 	}
-	var currentHosts = []models.Host{}
-	for k := range currHostMap {
-		var h = *currHostMap[k]
-		currentHosts = append(currentHosts, h)
+	currHostsMap := make(map[string]models.Host)
+	defer LoadHostsIntoCache(currHostsMap)
+	for k := range records {
+		var h models.Host
+		err = json.Unmarshal([]byte(records[k]), &h)
+		if err != nil {
+			return nil, err
+		}
+		currHosts = append(currHosts, h)
+		currHostsMap[h.ID.String()] = h
 	}
 
-	return currentHosts, nil
+	return currHosts, nil
 }
 
 // GetAllHostsAPI - get's all the hosts in an API usable format
@@ -58,19 +109,24 @@ func GetAllHostsAPI(hosts []models.Host) []models.ApiHost {
 }
 
 // GetHostsMap - gets all the current hosts on machine in a map
-func GetHostsMap() (map[string]*models.Host, error) {
+func GetHostsMap() (map[string]models.Host, error) {
+	hostsMap := GetHostsFromCache()
+	if len(hostsMap) != 0 {
+		return hostsMap, nil
+	}
 	records, err := database.FetchRecords(database.HOSTS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return nil, err
 	}
-	currHostMap := make(map[string]*models.Host)
+	currHostMap := make(map[string]models.Host)
+	defer LoadHostsIntoCache(currHostMap)
 	for k := range records {
 		var h models.Host
 		err = json.Unmarshal([]byte(records[k]), &h)
 		if err != nil {
 			return nil, err
 		}
-		currHostMap[h.ID.String()] = &h
+		currHostMap[h.ID.String()] = h
 	}
 
 	return currHostMap, nil
@@ -78,6 +134,10 @@ func GetHostsMap() (map[string]*models.Host, error) {
 
 // GetHost - gets a host from db given id
 func GetHost(hostid string) (*models.Host, error) {
+
+	if host, ok := GetHostFromCache(hostid); ok {
+		return &host, nil
+	}
 	record, err := database.FetchRecord(database.HOSTS_TABLE_NAME, hostid)
 	if err != nil {
 		return nil, err
@@ -87,7 +147,7 @@ func GetHost(hostid string) (*models.Host, error) {
 	if err = json.Unmarshal([]byte(record), &h); err != nil {
 		return nil, err
 	}
-
+	StoreHostInCache(h)
 	return &h, nil
 }
 
@@ -215,8 +275,12 @@ func UpsertHost(h *models.Host) error {
 	if err != nil {
 		return err
 	}
-
-	return database.Insert(h.ID.String(), string(data), database.HOSTS_TABLE_NAME)
+	err = database.Insert(h.ID.String(), string(data), database.HOSTS_TABLE_NAME)
+	if err != nil {
+		return err
+	}
+	StoreHostInCache(*h)
+	return nil
 }
 
 // RemoveHost - removes a given host from server
@@ -227,8 +291,12 @@ func RemoveHost(h *models.Host) error {
 	if servercfg.IsUsingTurn() {
 		DeRegisterHostWithTurn(h.ID.String())
 	}
-
-	return database.DeleteRecord(database.HOSTS_TABLE_NAME, h.ID.String())
+	err := database.DeleteRecord(database.HOSTS_TABLE_NAME, h.ID.String())
+	if err != nil {
+		return err
+	}
+	DeleteHostFromCache(h.ID.String())
+	return nil
 }
 
 // RemoveHostByID - removes a given host by id from server
@@ -236,7 +304,13 @@ func RemoveHostByID(hostID string) error {
 	if servercfg.IsUsingTurn() {
 		DeRegisterHostWithTurn(hostID)
 	}
-	return database.DeleteRecord(database.HOSTS_TABLE_NAME, hostID)
+
+	err := database.DeleteRecord(database.HOSTS_TABLE_NAME, hostID)
+	if err != nil {
+		return err
+	}
+	DeleteHostFromCache(hostID)
+	return nil
 }
 
 // UpdateHostNetwork - adds/deletes host from a network
