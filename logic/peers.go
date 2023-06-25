@@ -92,14 +92,11 @@ func NodePeersInfo(client *models.Client) (models.NodePeersInfo, error) {
 }
 
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
-func GetPeerUpdateForHost(host *models.Host) (models.HostPeerUpdate, error) {
+func GetPeerUpdateForHost(host *models.Host, allNodes []models.Node) (models.HostPeerUpdate, error) {
 	if host == nil {
 		return models.HostPeerUpdate{}, errors.New("host is nil")
 	}
-	allNodes, err := GetAllNodes()
-	if err != nil {
-		return models.HostPeerUpdate{}, err
-	}
+
 	// track which nodes are deleted
 	// after peer calculation, if peer not in list, add delete config of peer
 	hostPeerUpdate := models.HostPeerUpdate{

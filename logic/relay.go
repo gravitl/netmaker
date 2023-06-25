@@ -1,12 +1,10 @@
 package logic
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -33,21 +31,14 @@ func CreateRelay(relay models.RelayRequest) ([]models.Client, models.Node, error
 	node.IsRelay = true
 	node.RelayedNodes = relay.RelayedNodes
 	node.SetLastModified()
-	nodeData, err := json.Marshal(&node)
+	err = UpsertNode(&node)
 	if err != nil {
 		return relayedClients, node, err
 	}
-	if err = database.Insert(node.ID.String(), string(nodeData), database.NODES_TABLE_NAME); err != nil {
-		return relayedClients, models.Node{}, err
-	}
 	relayedClients = SetRelayedNodes(true, relay.NodeID, relay.RelayedNodes)
 	for _, relayed := range relayedClients {
-		data, err := json.Marshal(&relayed.Node)
-		if err != nil {
-			logger.Log(0, "marshalling relayed node", err.Error())
-			continue
-		}
-		if err := database.Insert(relayed.Node.ID.String(), string(data), database.NODES_TABLE_NAME); err != nil {
+
+		if err := UpsertNode(&relayed.Node); err != nil {
 			logger.Log(0, "inserting relayed node", err.Error())
 			continue
 		}
@@ -71,12 +62,7 @@ func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.C
 			node.RelayedBy = ""
 		}
 		node.SetLastModified()
-		data, err := json.Marshal(&node)
-		if err != nil {
-			logger.Log(0, "setRelayedNodes.Marshal", err.Error())
-			continue
-		}
-		if err := database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME); err != nil {
+		if err := UpsertNode(&node); err != nil {
 			logger.Log(0, "setRelayedNodes.Insert", err.Error())
 			continue
 		}
@@ -152,11 +138,7 @@ func DeleteRelay(network, nodeid string) ([]models.Client, models.Node, error) {
 	node.IsRelay = false
 	node.RelayedNodes = []string{}
 	node.SetLastModified()
-	data, err := json.Marshal(&node)
-	if err != nil {
-		return returnClients, models.Node{}, err
-	}
-	if err = database.Insert(nodeid, string(data), database.NODES_TABLE_NAME); err != nil {
+	if err = UpsertNode(&node); err != nil {
 		return returnClients, models.Node{}, err
 	}
 	return returnClients, node, nil

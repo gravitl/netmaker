@@ -46,15 +46,11 @@ func GetExtPeersList(node *models.Node) ([]models.ExtPeersResponse, error) {
 func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 
 	var result []string
-	nodesData, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	networkNodes, err := GetNetworkNodes(client.Network)
 	if err != nil {
 		return []string{}, err
 	}
-	for _, nodeData := range nodesData {
-		var currentNode models.Node
-		if err = json.Unmarshal([]byte(nodeData), &currentNode); err != nil {
-			continue
-		}
+	for _, currentNode := range networkNodes {
 		if currentNode.Network != client.Network {
 			continue
 		}
