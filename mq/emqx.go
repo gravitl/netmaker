@@ -282,6 +282,16 @@ func CreateHostACL(hostID, serverName string) error {
 				Action:     "all",
 			},
 			{
+				Topic:      fmt.Sprintf("peer/host/%s/%s", hostID, serverName),
+				Permission: "allow",
+				Action:     "all",
+			},
+			{
+				Topic:      fmt.Sprintf("fw/host/%s/%s", hostID, serverName),
+				Permission: "allow",
+				Action:     "all",
+			},
+			{
 				Topic:      fmt.Sprintf("dns/all/%s/%s", hostID, serverName),
 				Permission: "allow",
 				Action:     "all",
