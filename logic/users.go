@@ -26,6 +26,30 @@ func GetUser(username string) (*models.User, error) {
 	return &user, err
 }
 
+// GetReturnUser - gets a user
+func GetReturnUser(username string) (models.ReturnUser, error) {
+
+	var user models.ReturnUser
+	record, err := database.FetchRecord(database.USERS_TABLE_NAME, username)
+	if err != nil {
+		return user, err
+	}
+	if err = json.Unmarshal([]byte(record), &user); err != nil {
+		return models.ReturnUser{}, err
+	}
+	return user, err
+}
+
+// ToReturnUser - gets a user as a return user
+func ToReturnUser(user models.User) models.ReturnUser {
+	return models.ReturnUser{
+		UserName: user.UserName,
+		Networks: user.Networks,
+		IsAdmin:  user.IsAdmin,
+		Groups:   user.Groups,
+	}
+}
+
 // GetGroupUsers - gets users in a group
 func GetGroupUsers(group string) ([]models.ReturnUser, error) {
 	var returnUsers []models.ReturnUser

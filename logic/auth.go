@@ -42,20 +42,6 @@ func HasAdmin() (bool, error) {
 	return false, err
 }
 
-// GetReturnUser - gets a user
-func GetReturnUser(username string) (models.ReturnUser, error) {
-
-	var user models.ReturnUser
-	record, err := database.FetchRecord(database.USERS_TABLE_NAME, username)
-	if err != nil {
-		return user, err
-	}
-	if err = json.Unmarshal([]byte(record), &user); err != nil {
-		return models.ReturnUser{}, err
-	}
-	return user, err
-}
-
 // GetUsers - gets users
 func GetUsers() ([]models.ReturnUser, error) {
 
