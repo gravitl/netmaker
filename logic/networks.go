@@ -194,18 +194,12 @@ func UniqueAddress(networkName string, reverse bool) (net.IP, error) {
 func IsIPUnique(network string, ip string, tableName string, isIpv6 bool) bool {
 
 	isunique := true
-	collection, err := database.FetchRecords(tableName)
-	if err != nil {
-		return isunique
-	}
-
-	for _, value := range collection { // filter
-
-		if tableName == database.NODES_TABLE_NAME {
-			var node models.Node
-			if err = json.Unmarshal([]byte(value), &node); err != nil {
-				continue
-			}
+	if tableName == database.NODES_TABLE_NAME {
+		nodes, err := GetNetworkNodes(network)
+		if err != nil {
+			return isunique
+		}
+		for _, node := range nodes {
 			if isIpv6 {
 				if node.Address6.IP.String() == ip && node.Network == network {
 					return false
@@ -215,8 +209,15 @@ func IsIPUnique(network string, ip string, tableName string, isIpv6 bool) bool {
 					return false
 				}
 			}
-		} else if tableName == database.EXT_CLIENT_TABLE_NAME {
-			var extClient models.ExtClient
+		}
+
+	} else if tableName == database.EXT_CLIENT_TABLE_NAME {
+		collection, err := database.FetchRecords(tableName)
+		if err != nil {
+			return isunique
+		}
+		var extClient models.ExtClient
+		for _, value := range collection { // filter
 			if err = json.Unmarshal([]byte(value), &extClient); err != nil {
 				continue
 			}
@@ -231,7 +232,6 @@ func IsIPUnique(network string, ip string, tableName string, isIpv6 bool) bool {
 				}
 			}
 		}
-
 	}
 
 	return isunique
