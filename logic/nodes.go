@@ -23,44 +23,44 @@ import (
 )
 
 var (
-	NodeCacheMutex = &sync.RWMutex{}
-	NodesCacheMap  = make(map[string]models.Node)
+	nodeCacheMutex = &sync.RWMutex{}
+	nodesCacheMap  = make(map[string]models.Node)
 )
 
-func GetNodeFromCache(nodeID string) (node models.Node, ok bool) {
-	NodeCacheMutex.RLock()
-	node, ok = NodesCacheMap[nodeID]
-	NodeCacheMutex.RUnlock()
+func getNodeFromCache(nodeID string) (node models.Node, ok bool) {
+	nodeCacheMutex.RLock()
+	node, ok = nodesCacheMap[nodeID]
+	nodeCacheMutex.RUnlock()
 	return
 }
-func GetNodesFromCache() (nMap map[string]models.Node) {
-	NodeCacheMutex.RLock()
-	nMap = NodesCacheMap
-	NodeCacheMutex.RUnlock()
+func getNodesFromCache() (nMap map[string]models.Node) {
+	nodeCacheMutex.RLock()
+	nMap = nodesCacheMap
+	nodeCacheMutex.RUnlock()
 	return
 }
 
-func DeleteNodeFromCache(nodeID string) {
-	NodeCacheMutex.Lock()
-	delete(NodesCacheMap, nodeID)
-	NodeCacheMutex.Unlock()
+func deleteNodeFromCache(nodeID string) {
+	nodeCacheMutex.Lock()
+	delete(nodesCacheMap, nodeID)
+	nodeCacheMutex.Unlock()
 }
 
-func StoreNodeInCache(node models.Node) {
-	NodeCacheMutex.Lock()
-	NodesCacheMap[node.ID.String()] = node
-	NodeCacheMutex.Unlock()
+func storeNodeInCache(node models.Node) {
+	nodeCacheMutex.Lock()
+	nodesCacheMap[node.ID.String()] = node
+	nodeCacheMutex.Unlock()
 }
 
-func LoadNodesIntoCache(nMap map[string]models.Node) {
-	NodeCacheMutex.Lock()
-	NodesCacheMap = nMap
-	NodeCacheMutex.Unlock()
+func loadNodesIntoCache(nMap map[string]models.Node) {
+	nodeCacheMutex.Lock()
+	nodesCacheMap = nMap
+	nodeCacheMutex.Unlock()
 }
 func ClearNodeCache() {
-	NodeCacheMutex.Lock()
-	NodesCacheMap = make(map[string]models.Node)
-	NodeCacheMutex.Unlock()
+	nodeCacheMutex.Lock()
+	nodesCacheMap = make(map[string]models.Node)
+	nodeCacheMutex.Unlock()
 }
 
 const (
@@ -137,7 +137,7 @@ func UpdateNodeCheckin(node *models.Node) error {
 	if err != nil {
 		return err
 	}
-	StoreNodeInCache(*node)
+	storeNodeInCache(*node)
 	return nil
 }
 
@@ -152,7 +152,7 @@ func UpsertNode(newNode *models.Node) error {
 	if err != nil {
 		return err
 	}
-	StoreNodeInCache(*newNode)
+	storeNodeInCache(*newNode)
 	return nil
 }
 
@@ -189,7 +189,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 			if err != nil {
 				return err
 			}
-			StoreNodeInCache(*newNode)
+			storeNodeInCache(*newNode)
 			return nil
 		}
 	}
@@ -248,7 +248,7 @@ func deleteNodeByID(node *models.Node) error {
 			return err
 		}
 	}
-	DeleteNodeFromCache(node.ID.String())
+	deleteNodeFromCache(node.ID.String())
 	if servercfg.IsDNSMode() {
 		SetDNS()
 	}
@@ -314,7 +314,7 @@ func IsFailoverPresent(network string) bool {
 // GetAllNodes - returns all nodes in the DB
 func GetAllNodes() ([]models.Node, error) {
 	var nodes []models.Node
-	nodesMap := GetNodesFromCache()
+	nodesMap := getNodesFromCache()
 	if len(nodesMap) != 0 {
 		for _, node := range nodesMap {
 			nodes = append(nodes, node)
@@ -322,7 +322,7 @@ func GetAllNodes() ([]models.Node, error) {
 		return nodes, nil
 	}
 	nodesMap = make(map[string]models.Node)
-	defer LoadNodesIntoCache(nodesMap)
+	defer loadNodesIntoCache(nodesMap)
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil {
 		if database.IsEmptyRecord(err) {
@@ -396,7 +396,7 @@ func GetRecordKey(id string, network string) (string, error) {
 }
 
 func GetNodeByID(uuid string) (models.Node, error) {
-	if node, ok := GetNodeFromCache(uuid); ok {
+	if node, ok := getNodeFromCache(uuid); ok {
 		return node, nil
 	}
 	var record, err = database.FetchRecord(database.NODES_TABLE_NAME, uuid)
@@ -407,7 +407,7 @@ func GetNodeByID(uuid string) (models.Node, error) {
 	if err = json.Unmarshal([]byte(record), &node); err != nil {
 		return models.Node{}, err
 	}
-	StoreNodeInCache(node)
+	storeNodeInCache(node)
 	return node, nil
 }
 
@@ -557,7 +557,7 @@ func createNode(node *models.Node) error {
 	if err != nil {
 		return err
 	}
-	StoreNodeInCache(*node)
+	storeNodeInCache(*node)
 	_, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), defaultACLVal)
 	if err != nil {
 		logger.Log(1, "failed to create node ACL for node,", node.ID.String(), "err:", err.Error())

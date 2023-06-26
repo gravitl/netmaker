@@ -21,8 +21,8 @@ import (
 )
 
 var (
-	HostCacheMutex = &sync.RWMutex{}
-	HostsCacheMap  = make(map[string]models.Host)
+	hostCacheMutex = &sync.RWMutex{}
+	hostsCacheMap  = make(map[string]models.Host)
 )
 
 var (
@@ -32,35 +32,35 @@ var (
 	ErrInvalidHostID error = errors.New("invalid host id")
 )
 
-func GetHostsFromCache() (hostsMap map[string]models.Host) {
-	HostCacheMutex.RLock()
-	hostsMap = HostsCacheMap
-	HostCacheMutex.RUnlock()
+func getHostsFromCache() (hostsMap map[string]models.Host) {
+	hostCacheMutex.RLock()
+	hostsMap = hostsCacheMap
+	hostCacheMutex.RUnlock()
 	return
 }
 
-func GetHostFromCache(hostID string) (host models.Host, ok bool) {
-	HostCacheMutex.RLock()
-	host, ok = HostsCacheMap[hostID]
-	HostCacheMutex.RUnlock()
+func getHostFromCache(hostID string) (host models.Host, ok bool) {
+	hostCacheMutex.RLock()
+	host, ok = hostsCacheMap[hostID]
+	hostCacheMutex.RUnlock()
 	return
 }
 
-func StoreHostInCache(h models.Host) {
-	HostCacheMutex.Lock()
-	HostsCacheMap[h.ID.String()] = h
-	HostCacheMutex.Unlock()
+func storeHostInCache(h models.Host) {
+	hostCacheMutex.Lock()
+	hostsCacheMap[h.ID.String()] = h
+	hostCacheMutex.Unlock()
 }
 
-func DeleteHostFromCache(hostID string) {
-	HostCacheMutex.Lock()
-	delete(HostsCacheMap, hostID)
-	HostCacheMutex.Unlock()
+func deleteHostFromCache(hostID string) {
+	hostCacheMutex.Lock()
+	delete(hostsCacheMap, hostID)
+	hostCacheMutex.Unlock()
 }
-func LoadHostsIntoCache(hMap map[string]models.Host) {
-	HostCacheMutex.Lock()
-	HostsCacheMap = hMap
-	HostCacheMutex.Unlock()
+func loadHostsIntoCache(hMap map[string]models.Host) {
+	hostCacheMutex.Lock()
+	hostsCacheMap = hMap
+	hostCacheMutex.Unlock()
 }
 
 const (
@@ -71,7 +71,7 @@ const (
 // GetAllHosts - returns all hosts in flat list or error
 func GetAllHosts() ([]models.Host, error) {
 	currHosts := []models.Host{}
-	hostsMap := GetHostsFromCache()
+	hostsMap := getHostsFromCache()
 	if len(hostsMap) != 0 {
 		for _, host := range hostsMap {
 			currHosts = append(currHosts, host)
@@ -83,7 +83,7 @@ func GetAllHosts() ([]models.Host, error) {
 		return nil, err
 	}
 	currHostsMap := make(map[string]models.Host)
-	defer LoadHostsIntoCache(currHostsMap)
+	defer loadHostsIntoCache(currHostsMap)
 	for k := range records {
 		var h models.Host
 		err = json.Unmarshal([]byte(records[k]), &h)
@@ -109,7 +109,7 @@ func GetAllHostsAPI(hosts []models.Host) []models.ApiHost {
 
 // GetHostsMap - gets all the current hosts on machine in a map
 func GetHostsMap() (map[string]models.Host, error) {
-	hostsMap := GetHostsFromCache()
+	hostsMap := getHostsFromCache()
 	if len(hostsMap) != 0 {
 		return hostsMap, nil
 	}
@@ -118,7 +118,7 @@ func GetHostsMap() (map[string]models.Host, error) {
 		return nil, err
 	}
 	currHostMap := make(map[string]models.Host)
-	defer LoadHostsIntoCache(currHostMap)
+	defer loadHostsIntoCache(currHostMap)
 	for k := range records {
 		var h models.Host
 		err = json.Unmarshal([]byte(records[k]), &h)
@@ -134,7 +134,7 @@ func GetHostsMap() (map[string]models.Host, error) {
 // GetHost - gets a host from db given id
 func GetHost(hostid string) (*models.Host, error) {
 
-	if host, ok := GetHostFromCache(hostid); ok {
+	if host, ok := getHostFromCache(hostid); ok {
 		return &host, nil
 	}
 	record, err := database.FetchRecord(database.HOSTS_TABLE_NAME, hostid)
@@ -146,7 +146,7 @@ func GetHost(hostid string) (*models.Host, error) {
 	if err = json.Unmarshal([]byte(record), &h); err != nil {
 		return nil, err
 	}
-	StoreHostInCache(h)
+	storeHostInCache(h)
 	return &h, nil
 }
 
@@ -251,7 +251,7 @@ func UpsertHost(h *models.Host) error {
 	if err != nil {
 		return err
 	}
-	StoreHostInCache(*h)
+	storeHostInCache(*h)
 	return nil
 }
 
@@ -267,7 +267,7 @@ func RemoveHost(h *models.Host) error {
 	if err != nil {
 		return err
 	}
-	DeleteHostFromCache(h.ID.String())
+	deleteHostFromCache(h.ID.String())
 	return nil
 }
 
@@ -281,7 +281,7 @@ func RemoveHostByID(hostID string) error {
 	if err != nil {
 		return err
 	}
-	DeleteHostFromCache(hostID)
+	deleteHostFromCache(hostID)
 	return nil
 }
 
