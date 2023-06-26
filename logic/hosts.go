@@ -32,7 +32,16 @@ var (
 	ErrInvalidHostID error = errors.New("invalid host id")
 )
 
-func getHostsFromCache() (hostsMap map[string]models.Host) {
+func getHostsFromCache() (hosts []models.Host) {
+	hostCacheMutex.RLock()
+	for _, host := range hostsCacheMap {
+		hosts = append(hosts, host)
+	}
+	hostCacheMutex.RUnlock()
+	return
+}
+
+func getHostsMapFromCache() (hostsMap map[string]models.Host) {
 	hostCacheMutex.RLock()
 	hostsMap = hostsCacheMap
 	hostCacheMutex.RUnlock()
@@ -70,12 +79,9 @@ const (
 
 // GetAllHosts - returns all hosts in flat list or error
 func GetAllHosts() ([]models.Host, error) {
-	currHosts := []models.Host{}
-	hostsMap := getHostsFromCache()
-	if len(hostsMap) != 0 {
-		for _, host := range hostsMap {
-			currHosts = append(currHosts, host)
-		}
+
+	currHosts := getHostsFromCache()
+	if len(currHosts) != 0 {
 		return currHosts, nil
 	}
 	records, err := database.FetchRecords(database.HOSTS_TABLE_NAME)
@@ -109,7 +115,7 @@ func GetAllHostsAPI(hosts []models.Host) []models.ApiHost {
 
 // GetHostsMap - gets all the current hosts on machine in a map
 func GetHostsMap() (map[string]models.Host, error) {
-	hostsMap := getHostsFromCache()
+	hostsMap := getHostsMapFromCache()
 	if len(hostsMap) != 0 {
 		return hostsMap, nil
 	}

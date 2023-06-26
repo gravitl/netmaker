@@ -205,6 +205,21 @@ func ShouldRemovePeer(node, peer models.Node) (remove bool) {
 	return
 }
 
+// checks if host has a node that is acrting as a gateway
+func IsHostActingAsGw(host *models.Host) bool {
+	for _, nodeID := range host.Nodes {
+		nodeID := nodeID
+		node, err := GetNodeByID(nodeID)
+		if err != nil {
+			continue
+		}
+		if node.IsEgressGateway || node.IsIngressGateway {
+			return true
+		}
+	}
+	return false
+}
+
 // GetFwUpdate - fetches the firewall update for the gateway nodes on the host
 func GetFwUpdate(host *models.Host) (models.FwUpdate, error) {
 	fwUpdate := models.FwUpdate{

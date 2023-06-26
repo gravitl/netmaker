@@ -2,10 +2,35 @@ package acls
 
 import (
 	"encoding/json"
+	"sync"
 
 	"github.com/gravitl/netmaker/database"
 	"golang.org/x/exp/slog"
 )
+
+var (
+	aclCacheMutex = &sync.RWMutex{}
+	aclCacheMap   = make(map[ContainerID]ACLContainer)
+)
+
+func fetchAclContainerFromCache(containerID ContainerID) (aclCont ACLContainer, ok bool) {
+	aclCacheMutex.RLock()
+	aclCont, ok = aclCacheMap[containerID]
+	aclCacheMutex.RUnlock()
+	return
+}
+
+func storeAclContainerInCache(containerID ContainerID, aclContainer ACLContainer) {
+	aclCacheMutex.Lock()
+	aclCacheMap[containerID] = aclContainer
+	aclCacheMutex.Unlock()
+}
+
+func DeleteAclFromCache(containerID ContainerID) {
+	aclCacheMutex.Lock()
+	delete(aclCacheMap, containerID)
+	aclCacheMutex.Unlock()
+}
 
 // == type functions ==
 
@@ -92,6 +117,9 @@ func (aclContainer ACLContainer) Get(containerID ContainerID) (ACLContainer, err
 
 // fetchACLContainer - fetches all current rules in given ACL container
 func fetchACLContainer(containerID ContainerID) (ACLContainer, error) {
+	if aclContainer, ok := fetchAclContainerFromCache(containerID); ok {
+		return aclContainer, nil
+	}
 	aclJson, err := fetchACLContainerJson(ContainerID(containerID))
 	if err != nil {
 		return nil, err
@@ -100,6 +128,7 @@ func fetchACLContainer(containerID ContainerID) (ACLContainer, error) {
 	if err := json.Unmarshal([]byte(aclJson), &currentNetworkACL); err != nil {
 		return nil, err
 	}
+	storeAclContainerInCache(containerID, currentNetworkACL)
 	return currentNetworkACL, nil
 }
 
@@ -129,7 +158,12 @@ func upsertACLContainer(containerID ContainerID, aclContainer ACLContainer) (ACL
 	if aclContainer == nil {
 		aclContainer = make(ACLContainer)
 	}
-	return aclContainer, database.Insert(string(containerID), string(convertNetworkACLtoACLJson(aclContainer)), database.NODE_ACLS_TABLE_NAME)
+	err := database.Insert(string(containerID), string(convertNetworkACLtoACLJson(aclContainer)), database.NODE_ACLS_TABLE_NAME)
+	if err != nil {
+		return aclContainer, err
+	}
+	storeAclContainerInCache(containerID, aclContainer)
+	return aclContainer, nil
 }
 
 func convertNetworkACLtoACLJson(networkACL ACLContainer) ACLJson {

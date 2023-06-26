@@ -33,9 +33,11 @@ func getNodeFromCache(nodeID string) (node models.Node, ok bool) {
 	nodeCacheMutex.RUnlock()
 	return
 }
-func getNodesFromCache() (nMap map[string]models.Node) {
+func getNodesFromCache() (nodes []models.Node) {
 	nodeCacheMutex.RLock()
-	nMap = nodesCacheMap
+	for _, node := range nodesCacheMap {
+		nodes = append(nodes, node)
+	}
 	nodeCacheMutex.RUnlock()
 	return
 }
@@ -314,14 +316,11 @@ func IsFailoverPresent(network string) bool {
 // GetAllNodes - returns all nodes in the DB
 func GetAllNodes() ([]models.Node, error) {
 	var nodes []models.Node
-	nodesMap := getNodesFromCache()
-	if len(nodesMap) != 0 {
-		for _, node := range nodesMap {
-			nodes = append(nodes, node)
-		}
+	nodes = getNodesFromCache()
+	if len(nodes) != 0 {
 		return nodes, nil
 	}
-	nodesMap = make(map[string]models.Node)
+	nodesMap := make(map[string]models.Node)
 	defer loadNodesIntoCache(nodesMap)
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil {
