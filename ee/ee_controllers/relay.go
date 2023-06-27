@@ -1,6 +1,7 @@
 package ee_controllers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -86,6 +87,14 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				logger.Log(1, "relayed node update ", relayedNode.ID.String(), "on network", relayedNode.Network, ": ", err.Error())
 
+			}
+			h, err := logic.GetHost(relayedNode.HostID.String())
+			if err == nil {
+				if h.OS == models.OS_Types.IoT {
+					if err = mq.PublishSingleHostPeerUpdate(context.Background(), h, &node, nil); err != nil {
+						logger.Log(1, "failed to publish peer update to host", h.ID.String(), ": ", err.Error())
+					}
+				}
 			}
 		}
 		mq.PublishPeerUpdate()
