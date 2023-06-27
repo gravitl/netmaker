@@ -149,35 +149,41 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 					PublicKey:                   relayHost.PublicKey,
 					PersistentKeepaliveInterval: &relayNode.PersistentKeepalive,
 					ReplaceAllowedIPs:           true,
+					AllowedIPs:                  GetAllowedIPs(&node, &relayNode, nil),
 				}
-				if deletedNode != nil && deletedNode.ID.String() == relayNode.ID.String() {
-					relayPeer.Remove = true
-				} else {
-					relayPeer.AllowedIPs = GetAllowedIPs(&node, &relayNode, nil)
-					uselocal := false
-					if host.EndpointIP.String() == relayHost.EndpointIP.String() {
-						// peer is on same network
-						// set to localaddress
-						uselocal = true
-						if node.LocalAddress.IP == nil {
-							// use public endpint
-							uselocal = false
-						}
-						if node.LocalAddress.String() == relayNode.LocalAddress.String() {
-							uselocal = false
-						}
+				uselocal := false
+				if host.EndpointIP.String() == relayHost.EndpointIP.String() {
+					// peer is on same network
+					// set to localaddress
+					uselocal = true
+					if node.LocalAddress.IP == nil {
+						// use public endpint
+						uselocal = false
 					}
-					relayPeer.Endpoint = &net.UDPAddr{
-						IP:   relayHost.EndpointIP,
-						Port: getPeerWgListenPort(relayHost),
-					}
-
-					if uselocal {
-						relayPeer.Endpoint.IP = relayNode.LocalAddress.IP
-						relayPeer.Endpoint.Port = relayHost.ListenPort
+					if node.LocalAddress.String() == relayNode.LocalAddress.String() {
+						uselocal = false
 					}
 				}
+				relayPeer.Endpoint = &net.UDPAddr{
+					IP:   relayHost.EndpointIP,
+					Port: getPeerWgListenPort(relayHost),
+				}
 
+				if uselocal {
+					relayPeer.Endpoint.IP = relayNode.LocalAddress.IP
+					relayPeer.Endpoint.Port = relayHost.ListenPort
+				}
+
+				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, relayPeer)
+			} else if deletedNode != nil && deletedNode.IsRelay {
+				relayHost, err := GetHost(deletedNode.HostID.String())
+				if err != nil {
+					continue
+				}
+				relayPeer := wgtypes.PeerConfig{
+					PublicKey: relayHost.PublicKey,
+					Remove:    true,
+				}
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, relayPeer)
 			}
 			continue
