@@ -212,15 +212,12 @@ func IsIPUnique(network string, ip string, tableName string, isIpv6 bool) bool {
 		}
 
 	} else if tableName == database.EXT_CLIENT_TABLE_NAME {
-		collection, err := database.FetchRecords(tableName)
+
+		extClients, err := GetNetworkExtClients(network)
 		if err != nil {
 			return isunique
 		}
-		var extClient models.ExtClient
-		for _, value := range collection { // filter
-			if err = json.Unmarshal([]byte(value), &extClient); err != nil {
-				continue
-			}
+		for _, extClient := range extClients { // filter
 			if isIpv6 {
 				if (extClient.Address6 == ip) && extClient.Network == network {
 					return false
