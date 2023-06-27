@@ -91,6 +91,7 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 			h, err := logic.GetHost(relayedNode.HostID.String())
 			if err == nil {
 				if h.OS == models.OS_Types.IoT {
+					node.IsRelay = true // for iot update to recognise that it has to delete relay peer
 					if err = mq.PublishSingleHostPeerUpdate(context.Background(), h, &node, nil); err != nil {
 						logger.Log(1, "failed to publish peer update to host", h.ID.String(), ": ", err.Error())
 					}
