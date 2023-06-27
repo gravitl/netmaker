@@ -21,6 +21,7 @@ func getAllExtClientsFromCache() (extClients []models.ExtClient) {
 	for _, extclient := range extClientCacheMap {
 		extClients = append(extClients, extclient)
 	}
+	extClientCacheMutex.RUnlock()
 	return
 }
 
