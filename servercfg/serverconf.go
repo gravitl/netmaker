@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/config"
+
 	"github.com/gravitl/netmaker/models"
 )
 
@@ -50,6 +51,11 @@ func GetServerConfig() config.ServerConfig {
 		cfg.NetclientAutoUpdate = "enabled"
 	} else {
 		cfg.NetclientAutoUpdate = "disabled"
+	}
+	if EndpointDetectionEnabled() {
+		cfg.NetclientEndpointDetection = "enabled"
+	} else {
+		cfg.NetclientEndpointDetection = "disabled"
 	}
 	if IsRestBackend() {
 		cfg.RestBackend = "on"
@@ -432,6 +438,17 @@ func AutoUpdateEnabled() bool {
 	return true
 }
 
+// EndpointDetectionEnabled returns a boolean indicating whether netclient endpoint detection is enabled or disabled
+// default is enabled
+func EndpointDetectionEnabled() bool {
+	if os.Getenv("NETCLIENT_ENDPOINT_DETECTION") == "disabled" {
+		return false
+	} else if config.Config.Server.NetclientEndpointDetection == "disabled" {
+		return false
+	}
+	return true
+}
+
 // IsDNSMode - should it run with DNS
 func IsDNSMode() bool {
 	isdns := true
@@ -723,6 +740,58 @@ func IsProxyEnabled() bool {
 		enabled = config.Config.Server.Proxy == "on"
 	}
 	return enabled
+}
+
+// GetNetworkLimit - fetches free tier limits on users
+func GetUserLimit() int {
+	var userslimit int
+	if os.Getenv("USERS_LIMIT") != "" {
+		userslimit, _ = strconv.Atoi(os.Getenv("USERS_LIMIT"))
+	} else {
+		userslimit = config.Config.Server.UsersLimit
+	}
+	return userslimit
+}
+
+// GetNetworkLimit - fetches free tier limits on networks
+func GetNetworkLimit() int {
+	var networkslimit int
+	if os.Getenv("NETWORKS_LIMIT") != "" {
+		networkslimit, _ = strconv.Atoi(os.Getenv("NETWORKS_LIMIT"))
+	} else {
+		networkslimit = config.Config.Server.NetworksLimit
+	}
+	return networkslimit
+}
+
+// GetClientLimit - fetches free tier limits on ext. clients
+func GetClientLimit() int {
+	var clientsLimit int
+	if os.Getenv("CLIENTS_LIMIT") != "" {
+		clientsLimit, _ = strconv.Atoi(os.Getenv("CLIENTS_LIMIT"))
+	} else {
+		clientsLimit = config.Config.Server.ClientsLimit
+	}
+	return clientsLimit
+}
+
+// GetHostLimit - fetches free tier limits on hosts
+func GetHostLimit() int {
+	var hostsLimit int
+	if os.Getenv("HOSTS_LIMIT") != "" {
+		hostsLimit, _ = strconv.Atoi(os.Getenv("HOSTS_LIMIT"))
+	} else {
+		hostsLimit = config.Config.Server.HostsLimit
+	}
+	return hostsLimit
+}
+
+// DeployedByOperator - returns true if the instance is deployed by netmaker operator
+func DeployedByOperator() bool {
+	if os.Getenv("DEPLOYED_BY_OPERATOR") != "" {
+		return os.Getenv("DEPLOYED_BY_OPERATOR") == "true"
+	}
+	return config.Config.Server.DeployedByOperator
 }
 
 // GetDefaultProxyMode - default proxy mode for a server

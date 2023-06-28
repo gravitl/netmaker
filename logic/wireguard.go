@@ -29,11 +29,11 @@ func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 		}
 	}
 	if newNode.IsRelay {
-		if len(currentNode.RelayAddrs) != len(newNode.RelayAddrs) {
+		if len(currentNode.RelayedNodes) != len(newNode.RelayedNodes) {
 			return true
 		}
-		for _, address := range newNode.RelayAddrs {
-			if !StringSliceContains(currentNode.RelayAddrs, address) {
+		for _, node := range newNode.RelayedNodes {
+			if !StringSliceContains(currentNode.RelayedNodes, node) {
 				return true
 			}
 		}

@@ -4,7 +4,7 @@ CONFIG_FILE=netmaker.env
 # location of nm-quick.sh (usually `/root`)
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
 CONFIG_PATH="$SCRIPT_DIR/$CONFIG_FILE"
-NM_QUICK_VERSION="0.1.0"
+NM_QUICK_VERSION="0.1.1"
 LATEST=$(curl -s https://api.github.com/repos/gravitl/netmaker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d [:space:],\")
 
 if [ $(id -u) -ne 0 ]; then
@@ -17,11 +17,12 @@ unset BUILD_TYPE
 unset BUILD_TAG
 unset IMAGE_TAG
 unset AUTO_BUILD
+unset NETMAKER_BASE_DOMAIN
 
 # usage - displays usage instructions
 usage() {
 	echo "nm-quick.sh v$NM_QUICK_VERSION"
-	echo "usage: ./nm-quick.sh [-e] [-b buildtype] [-t tag] [-a auto]"
+	echo "usage: ./nm-quick.sh [-e] [-b buildtype] [-t tag] [-a auto] [-d domain]"
 	echo "  -e      if specified, will install netmaker EE"
 	echo "  -b      type of build; options:"
 	echo "          \"version\" - will install a specific version of Netmaker using remote git and dockerhub"
@@ -29,14 +30,16 @@ usage() {
 	echo "          \"branch\": - will install a specific branch using remote git and dockerhub"
 	echo "  -t      tag of build; if buildtype=version, tag=version. If builtype=branch or builtype=local, tag=branch"
 	echo "  -a      auto-build; skip prompts and use defaults, if none provided"
+	echo "  -d      domain; if specified, will use this domain instead of auto-generating one"
 	echo "examples:"
 	echo "          nm-quick.sh -e -b version -t $LATEST"
 	echo "          nm-quick.sh -e -b local -t feature_v0.17.2_newfeature"
 	echo "          nm-quick.sh -e -b branch -t develop"
+	echo "          nm-quick.sh -e -b version -t $LATEST -a -d example.com"
 	exit 1
 }
 
-while getopts evab:t: flag; do
+while getopts evab:d:t: flag; do
 	case "${flag}" in
 	e)
 		INSTALL_TYPE="ee"
@@ -59,6 +62,9 @@ while getopts evab:t: flag; do
 		;;
 	t)
 		BUILD_TAG=${OPTARG}
+		;;
+	d)
+		NETMAKER_BASE_DOMAIN=${OPTARG}
 		;;
 	esac
 done
@@ -303,9 +309,9 @@ save_config() { (
 	local toCopy=("SERVER_HOST" "MASTER_KEY" "TURN_USERNAME" "TURN_PASSWORD" "MQ_USERNAME" "MQ_PASSWORD"
 		"INSTALL_TYPE" "NODE_ID" "METRICS_EXPORTER" "PROMETHEUS" "DNS_MODE" "NETCLIENT_AUTO_UPDATE" "API_PORT"
 		"CORS_ALLOWED_ORIGIN" "DISPLAY_KEYS" "DATABASE" "SERVER_BROKER_ENDPOINT" "STUN_PORT" "VERBOSITY"
-		"DEFAULT_PROXY_MODE" "TURN_PORT" "USE_TURN" "DEBUG_MODE" "TURN_API_PORT" "REST_BACKEND" "DISABLE_REMOTE_IP_CHECK"
-		"TELEMETRY" "AUTH_PROVIDER" "CLIENT_ID" "CLIENT_SECRET" "FRONTEND_URL" "AZURE_TENANT" "OIDC_ISSUER"
-		"EXPORTER_API_PORT")
+		"DEFAULT_PROXY_MODE" "TURN_PORT" "USE_TURN" "DEBUG_MODE" "TURN_API_PORT" "REST_BACKEND"
+		"DISABLE_REMOTE_IP_CHECK" "NETCLIENT_ENDPOINT_DETECTION" "TELEMETRY" "AUTH_PROVIDER" "CLIENT_ID" "CLIENT_SECRET"
+		"FRONTEND_URL" "AZURE_TENANT" "OIDC_ISSUER" "EXPORTER_API_PORT")
 	for name in "${toCopy[@]}"; do
 		save_config_item $name "${!name}"
 	done
@@ -490,8 +496,9 @@ set_install_vars() {
 	if [ "$IP_ADDR" = "" ]; then
 		IP_ADDR=$(curl -s ifconfig.me)
 	fi
-
-	NETMAKER_BASE_DOMAIN=nm.$(echo $IP_ADDR | tr . -).nip.io
+	if [ "$NETMAKER_BASE_DOMAIN" = "" ]; then
+		NETMAKER_BASE_DOMAIN=nm.$(echo $IP_ADDR | tr . -).nip.io
+	fi
 	SERVER_HOST=$IP_ADDR
 	if test -z "$MASTER_KEY"; then
 		MASTER_KEY=$(

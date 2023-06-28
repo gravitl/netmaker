@@ -2,6 +2,7 @@ package models
 
 import (
 	"strings"
+	"time"
 
 	jwt "github.com/golang-jwt/jwt/v4"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -153,9 +154,9 @@ type EgressGatewayRequest struct {
 
 // RelayRequest - relay request struct
 type RelayRequest struct {
-	NodeID     string   `json:"nodeid" bson:"nodeid"`
-	NetID      string   `json:"netid" bson:"netid"`
-	RelayAddrs []string `json:"relayaddrs" bson:"relayaddrs"`
+	NodeID       string   `json:"nodeid"`
+	NetID        string   `json:"netid"`
+	RelayedNodes []string `json:"relayaddrs"`
 }
 
 // HostRelayRequest - struct for host relay creation
@@ -273,4 +274,19 @@ type JoinData struct {
 type StunServer struct {
 	Domain string `json:"domain" yaml:"domain"`
 	Port   int    `json:"port" yaml:"port"`
+}
+
+// HookDetails - struct to hold hook info
+type HookDetails struct {
+	Hook     func() error
+	Interval time.Duration
+}
+
+// LicenseLimits - struct license limits
+type LicenseLimits struct {
+	Servers  int `json:"servers"`
+	Users    int `json:"users"`
+	Hosts    int `json:"hosts"`
+	Clients  int `json:"clients"`
+	Networks int `json:"networks"`
 }

@@ -1,16 +1,22 @@
 package logic
 
 import (
+	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/models"
 )
 
 // == Constants ==
 
 // How long to wait before sending telemetry to server (24 hours)
 const timer_hours_between_runs = 24
+
+// HookManagerCh - channel to add any new hooks
+var HookManagerCh = make(chan models.HookDetails, 2)
 
 // == Public ==
 
@@ -38,6 +44,36 @@ func TimerCheckpoint() error {
 // AddHook - adds a hook function to run every 24hrs
 func AddHook(ifaceToAdd interface{}) {
 	timeHooks = append(timeHooks, ifaceToAdd)
+}
+
+// StartHookManager - listens on `HookManagerCh` to run any hook
+func StartHookManager(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Log(0, "## Stopping Hook Manager")
+			return
+		case newhook := <-HookManagerCh:
+			wg.Add(1)
+			go addHookWithInterval(ctx, wg, newhook.Hook, newhook.Interval)
+		}
+	}
+}
+
+func addHookWithInterval(ctx context.Context, wg *sync.WaitGroup, hook func() error, interval time.Duration) {
+	defer wg.Done()
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			hook()
+		}
+	}
+
 }
 
 // == private ==

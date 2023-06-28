@@ -1,4 +1,4 @@
-package host
+package node
 
 import (
 	"github.com/gravitl/netmaker/cli/functions"
@@ -6,12 +6,12 @@ import (
 )
 
 var hostDeleteRelayCmd = &cobra.Command{
-	Use:   "delete_relay [HOST ID]",
-	Args:  cobra.ExactArgs(1),
-	Short: "Delete Relay role from a host",
-	Long:  `Delete Relay role from a host`,
+	Use:   "delete_relay [NETWORK] [NODE ID]",
+	Args:  cobra.ExactArgs(2),
+	Short: "Delete Relay from a node",
+	Long:  `Delete Relay from a node`,
 	Run: func(cmd *cobra.Command, args []string) {
-		functions.PrettyPrint(functions.DeleteRelay(args[0]))
+		functions.PrettyPrint(functions.DeleteRelay(args[0], args[1]))
 	},
 }
 
