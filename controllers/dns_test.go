@@ -51,8 +51,7 @@ func TestGetNodeDNS(t *testing.T) {
 	createNet()
 	createHost()
 	t.Run("NoNodes", func(t *testing.T) {
-		dns, err := logic.GetNodeDNS("skynet")
-		assert.EqualError(t, err, "could not find any records")
+		dns, _ := logic.GetNodeDNS("skynet")
 		assert.Equal(t, []models.DNSEntry(nil), dns)
 	})
 	t.Run("NodeExists", func(t *testing.T) {

@@ -10,7 +10,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/pro"
@@ -102,7 +101,7 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 	clients := []models.ExtClient{}
 	var err error
 	if len(networksSlice) > 0 && networksSlice[0] == logic.ALL_NETWORK_ACCESS {
-		clients, err = functions.GetAllExtClients()
+		clients, err = logic.GetAllExtClients()
 		if err != nil && !database.IsEmptyRecord(err) {
 			logger.Log(0, "failed to get all extclients: ", err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
