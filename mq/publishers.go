@@ -100,18 +100,20 @@ func PublishSingleHostPeerUpdate(ctx context.Context, host *models.Host, allNode
 	if len(peerUpdate.Peers) == 0 { // no peers to send
 		return nil
 	}
-	proxyUpdate, err := logic.GetProxyUpdateForHost(ctx, host)
-	if err != nil {
-		return err
-	}
-	proxyUpdate.Server = servercfg.GetServer()
-	if host.ProxyEnabled {
-		proxyUpdate.Action = models.ProxyUpdate
-	} else {
-		proxyUpdate.Action = models.NoProxy
-	}
+	if host.OS != models.OS_Types.IoT {
+		proxyUpdate, err := logic.GetProxyUpdateForHost(ctx, host)
+		if err != nil {
+			return err
+		}
+		proxyUpdate.Server = servercfg.GetServer()
+		if host.ProxyEnabled {
+			proxyUpdate.Action = models.ProxyUpdate
+		} else {
+			proxyUpdate.Action = models.NoProxy
+		}
 
-	peerUpdate.ProxyUpdate = proxyUpdate
+		peerUpdate.ProxyUpdate = proxyUpdate
+	}
 
 	data, err := json.Marshal(&peerUpdate)
 	if err != nil {

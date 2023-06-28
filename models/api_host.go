@@ -34,6 +34,7 @@ type ApiHost struct {
 	RelayedBy          string   `json:"relayed_by" bson:"relayed_by" yaml:"relayed_by"`
 	IsRelay            bool     `json:"isrelay" bson:"isrelay" yaml:"isrelay"`
 	RelayedHosts       []string `json:"relay_hosts" bson:"relay_hosts" yaml:"relay_hosts"`
+	NatType            string   `json:"nat_type" yaml:"nat_type"`
 }
 
 // Host.ConvertNMHostToAPI - converts a Netmaker host to an API editable host
@@ -67,6 +68,7 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 	a.Verbosity = h.Verbosity
 	a.Version = h.Version
 	a.IsDefault = h.IsDefault
+	a.NatType = h.NatType
 	return &a
 }
 

@@ -4,17 +4,18 @@ import (
 	"encoding/json"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 var (
-	// Node_Limit - dummy var for community
-	Node_Limit = 1000000000
 	// Networks_Limit - dummy var for community
 	Networks_Limit = 1000000000
 	// Users_Limit - dummy var for community
 	Users_Limit = 1000000000
 	// Clients_Limit - dummy var for community
 	Clients_Limit = 1000000000
+	// Hosts_Limit - dummy var for community
+	Hosts_Limit = 1000000000
 	// Free_Tier - specifies if free tier
 	Free_Tier = false
 )
@@ -84,4 +85,12 @@ func StoreJWTSecret(privateKey string) error {
 		return err
 	}
 	return database.Insert("nm-jwt-secret", string(data), database.SERVERCONF_TABLE_NAME)
+}
+
+func SetFreeTierLimits() {
+	Free_Tier = true
+	Users_Limit = servercfg.GetUserLimit()
+	Clients_Limit = servercfg.GetClientLimit()
+	Networks_Limit = servercfg.GetNetworkLimit()
+	Hosts_Limit = servercfg.GetHostLimit()
 }

@@ -22,6 +22,38 @@ func serverHandlers(r *mux.Router) {
 	r.HandleFunc("/api/server/getconfig", allowUsers(http.HandlerFunc(getConfig))).Methods(http.MethodGet)
 	r.HandleFunc("/api/server/getserverinfo", Authorize(true, false, "node", http.HandlerFunc(getServerInfo))).Methods(http.MethodGet)
 	r.HandleFunc("/api/server/status", http.HandlerFunc(getStatus)).Methods(http.MethodGet)
+	r.HandleFunc("/api/server/usage", Authorize(true, false, "user", http.HandlerFunc(getUsage))).Methods(http.MethodGet)
+}
+func getUsage(w http.ResponseWriter, r *http.Request) {
+	type usage struct {
+		Hosts    int `json:"hosts"`
+		Clients  int `json:"clients"`
+		Networks int `json:"networks"`
+		Users    int `json:"users"`
+	}
+	var serverUsage usage
+	hosts, err := logic.GetAllHosts()
+	if err == nil {
+		serverUsage.Hosts = len(hosts)
+	}
+	clients, err := logic.GetAllExtClients()
+	if err == nil {
+		serverUsage.Clients = len(clients)
+	}
+	users, err := logic.GetUsers()
+	if err == nil {
+		serverUsage.Users = len(users)
+	}
+	networks, err := logic.GetNetworks()
+	if err == nil {
+		serverUsage.Networks = len(networks)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(models.SuccessResponse{
+		Code:     http.StatusOK,
+		Response: serverUsage,
+	})
+
 }
 
 // swagger:route GET /api/server/status server getStatus
@@ -41,6 +73,12 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 	type status struct {
 		DB     bool `json:"db_connected"`
 		Broker bool `json:"broker_connected"`
+		Usage  struct {
+			Hosts    int `json:"hosts"`
+			Clients  int `json:"clients"`
+			Networks int `json:"networks"`
+			Users    int `json:"users"`
+		} `json:"usage"`
 	}
 
 	currentServerStatus := status{
