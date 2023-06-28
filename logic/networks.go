@@ -115,24 +115,8 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 
 // GetNetworkNonServerNodeCount - get number of network non server nodes
 func GetNetworkNonServerNodeCount(networkName string) (int, error) {
-
-	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
-	count := 0
-	if err != nil && !database.IsEmptyRecord(err) {
-		return count, err
-	}
-	for _, value := range collection {
-		var node models.Node
-		if err = json.Unmarshal([]byte(value), &node); err != nil {
-			return count, err
-		} else {
-			if node.Network == networkName {
-				count++
-			}
-		}
-	}
-
-	return count, nil
+	nodes, err := GetNetworkNodes(networkName)
+	return len(nodes), err
 }
 
 // GetParentNetwork - get parent network
@@ -210,18 +194,12 @@ func UniqueAddress(networkName string, reverse bool) (net.IP, error) {
 func IsIPUnique(network string, ip string, tableName string, isIpv6 bool) bool {
 
 	isunique := true
-	collection, err := database.FetchRecords(tableName)
-	if err != nil {
-		return isunique
-	}
-
-	for _, value := range collection { // filter
-
-		if tableName == database.NODES_TABLE_NAME {
-			var node models.Node
-			if err = json.Unmarshal([]byte(value), &node); err != nil {
-				continue
-			}
+	if tableName == database.NODES_TABLE_NAME {
+		nodes, err := GetNetworkNodes(network)
+		if err != nil {
+			return isunique
+		}
+		for _, node := range nodes {
 			if isIpv6 {
 				if node.Address6.IP.String() == ip && node.Network == network {
 					return false
@@ -231,11 +209,15 @@ func IsIPUnique(network string, ip string, tableName string, isIpv6 bool) bool {
 					return false
 				}
 			}
-		} else if tableName == database.EXT_CLIENT_TABLE_NAME {
-			var extClient models.ExtClient
-			if err = json.Unmarshal([]byte(value), &extClient); err != nil {
-				continue
-			}
+		}
+
+	} else if tableName == database.EXT_CLIENT_TABLE_NAME {
+
+		extClients, err := GetNetworkExtClients(network)
+		if err != nil {
+			return isunique
+		}
+		for _, extClient := range extClients { // filter
 			if isIpv6 {
 				if (extClient.Address6 == ip) && extClient.Network == network {
 					return false
@@ -247,7 +229,6 @@ func IsIPUnique(network string, ip string, tableName string, isIpv6 bool) bool {
 				}
 			}
 		}
-
 	}
 
 	return isunique
@@ -296,149 +277,6 @@ func UniqueAddress6(networkName string, reverse bool) (net.IP, error) {
 	}
 
 	return add, errors.New("ERROR: No unique IPv6 addresses available. Check network subnet")
-}
-
-// UpdateNetworkLocalAddresses - updates network localaddresses
-func UpdateNetworkLocalAddresses(networkName string) error {
-
-	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
-
-	if err != nil {
-		return err
-	}
-
-	for _, value := range collection {
-
-		var node models.Node
-
-		err := json.Unmarshal([]byte(value), &node)
-		if err != nil {
-			fmt.Println("error in node address assignment!")
-			return err
-		}
-		if node.Network == networkName {
-			var ipaddr net.IP
-			var iperr error
-			ipaddr, iperr = UniqueAddress(networkName, false)
-			if iperr != nil {
-				fmt.Println("error in node  address assignment!")
-				return iperr
-			}
-
-			node.Address.IP = ipaddr
-			newNodeData, err := json.Marshal(&node)
-			if err != nil {
-				logger.Log(1, "error in node  address assignment!")
-				return err
-			}
-			database.Insert(node.ID.String(), string(newNodeData), database.NODES_TABLE_NAME)
-		}
-	}
-
-	return nil
-}
-
-// RemoveNetworkNodeIPv6Addresses - removes network node IPv6 addresses
-func RemoveNetworkNodeIPv6Addresses(networkName string) error {
-
-	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
-	if err != nil {
-		return err
-	}
-
-	for _, value := range collections {
-
-		var node models.Node
-		err := json.Unmarshal([]byte(value), &node)
-		if err != nil {
-			fmt.Println("error in node address assignment!")
-			return err
-		}
-		if node.Network == networkName {
-			node.Address6.IP = nil
-			data, err := json.Marshal(&node)
-			if err != nil {
-				return err
-			}
-			database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
-		}
-	}
-
-	return nil
-}
-
-// UpdateNetworkNodeAddresses - updates network node addresses
-func UpdateNetworkNodeAddresses(networkName string) error {
-
-	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
-	if err != nil {
-		return err
-	}
-
-	for _, value := range collections {
-
-		var node models.Node
-		err := json.Unmarshal([]byte(value), &node)
-		if err != nil {
-			logger.Log(1, "error in node ipv4 address assignment!")
-			return err
-		}
-		if node.Network == networkName {
-			var ipaddr net.IP
-			var iperr error
-			ipaddr, iperr = UniqueAddress(networkName, false)
-			if iperr != nil {
-				logger.Log(1, "error in node ipv4 address assignment!")
-				return iperr
-			}
-
-			node.Address.IP = ipaddr
-			data, err := json.Marshal(&node)
-			if err != nil {
-				return err
-			}
-			database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
-		}
-	}
-
-	return nil
-}
-
-// UpdateNetworkNodeAddresses6 - updates network node addresses
-func UpdateNetworkNodeAddresses6(networkName string) error {
-
-	collections, err := database.FetchRecords(database.NODES_TABLE_NAME)
-	if err != nil {
-		return err
-	}
-
-	for _, value := range collections {
-
-		var node models.Node
-		err := json.Unmarshal([]byte(value), &node)
-		if err != nil {
-			logger.Log(1, "error in node ipv6 address assignment!")
-			return err
-		}
-		if node.Network == networkName {
-			var ipaddr net.IP
-			var iperr error
-			ipaddr, iperr = UniqueAddress6(networkName, false)
-			if iperr != nil {
-				logger.Log(1, "error in node ipv6 address assignment!")
-				return iperr
-			}
-
-			node.Address6.IP = ipaddr
-			data, err := json.Marshal(&node)
-			if err != nil {
-				return err
-			}
-			database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
-		}
-	}
-
-	return nil
 }
 
 // IsNetworkNameUnique - checks to see if any other networks have the same name (id)
