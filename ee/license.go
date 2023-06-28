@@ -9,12 +9,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
+	"time"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/nacl/box"
@@ -31,8 +32,14 @@ type apiServerConf struct {
 
 // AddLicenseHooks - adds the validation and cache clear hooks
 func AddLicenseHooks() {
-	logic.AddHook(ValidateLicense)
-	logic.AddHook(ClearLicenseCache)
+	logic.HookManagerCh <- models.HookDetails{
+		Hook:     ValidateLicense,
+		Interval: time.Hour,
+	}
+	logic.HookManagerCh <- models.HookDetails{
+		Hook:     ClearLicenseCache,
+		Interval: time.Hour,
+	}
 }
 
 // ValidateLicense - the initial license check for netmaker server
@@ -58,8 +65,8 @@ func ValidateLicense() error {
 	}
 
 	licenseSecret := LicenseSecret{
-		UserID: netmakerAccountID,
-		Limits: getCurrentServerLimit(),
+		AssociatedID: netmakerAccountID,
+		Limits:       getCurrentServerLimit(),
 	}
 
 	secretData, err := json.Marshal(&licenseSecret)
@@ -91,17 +98,6 @@ func ValidateLicense() error {
 	if err = json.Unmarshal(respData, &license); err != nil {
 		logger.FatalLog0(errValidation.Error())
 	}
-
-	Limits.Networks = math.MaxInt
-	Limits.FreeTier = license.FreeTier == "yes"
-	Limits.Clients = license.LimitClients
-	Limits.Nodes = license.LimitNodes
-	Limits.Servers = license.LimitServers
-	Limits.Users = license.LimitUsers
-	if Limits.FreeTier {
-		Limits.Networks = 3
-	}
-	setControllerLimits()
 
 	logger.Log(0, "License validation succeeded!")
 	return nil
@@ -167,6 +163,7 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, erro
 	}
 
 	msg := ValidateLicenseRequest{
+		LicenseKey:     servercfg.GetLicenseKey(),
 		NmServerPubKey: base64encode(publicKeyBytes),
 		EncryptedPart:  base64encode(encryptedData),
 	}
@@ -180,9 +177,6 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	reqParams := req.URL.Query()
-	reqParams.Add("licensevalue", servercfg.GetLicenseKey())
-	req.URL.RawQuery = reqParams.Encode()
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
 	client := &http.Client{}
