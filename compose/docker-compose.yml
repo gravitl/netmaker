@@ -26,8 +26,6 @@ services:
       - TURN_SERVER_HOST=turn.${NM_DOMAIN}
       # domain of the turn api server
       - TURN_SERVER_API_HOST=https://turnapi.${NM_DOMAIN}
-    ports:
-      - "3478:3478/udp"
 
   netmaker-ui:
     container_name: netmaker-ui
