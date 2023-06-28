@@ -62,10 +62,11 @@ func (acl ACL) Save(containerID ContainerID, ID AclID) (ACL, error) {
 }
 
 // ACL.IsAllowed - sees if ID is allowed in referring ACL
-func (acl ACL) IsAllowed(ID AclID) bool {
+func (acl ACL) IsAllowed(ID AclID) (allowed bool) {
 	aclMutex.RLock()
-	defer aclMutex.RUnlock()
-	return acl[ID] == Allowed
+	allowed = acl[ID] == Allowed
+	aclMutex.RUnlock()
+	return
 }
 
 // ACLContainer.UpdateACL - saves the state of a ACL in the ACLContainer in memory
