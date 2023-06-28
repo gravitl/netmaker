@@ -11,6 +11,7 @@ import (
 var (
 	aclCacheMutex = &sync.RWMutex{}
 	aclCacheMap   = make(map[ContainerID]ACLContainer)
+	aclMutex      = &sync.RWMutex{}
 )
 
 func fetchAclContainerFromCache(containerID ContainerID) (aclCont ACLContainer, ok bool) {
@@ -117,6 +118,8 @@ func (aclContainer ACLContainer) Get(containerID ContainerID) (ACLContainer, err
 
 // fetchACLContainer - fetches all current rules in given ACL container
 func fetchACLContainer(containerID ContainerID) (ACLContainer, error) {
+	aclMutex.RLock()
+	defer aclMutex.RUnlock()
 	if aclContainer, ok := fetchAclContainerFromCache(containerID); ok {
 		return aclContainer, nil
 	}
@@ -155,9 +158,12 @@ func upsertACL(containerID ContainerID, ID AclID, acl ACL) (ACL, error) {
 // upsertACLContainer - Inserts or updates a network ACL given the json string of the ACL and the container ID
 // if nil, create it
 func upsertACLContainer(containerID ContainerID, aclContainer ACLContainer) (ACLContainer, error) {
+	aclMutex.Lock()
+	defer aclMutex.Unlock()
 	if aclContainer == nil {
 		aclContainer = make(ACLContainer)
 	}
+
 	err := database.Insert(string(containerID), string(convertNetworkACLtoACLJson(aclContainer)), database.NODE_ACLS_TABLE_NAME)
 	if err != nil {
 		return aclContainer, err
