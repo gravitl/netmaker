@@ -174,11 +174,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			nodePeerMap = make(map[string]models.PeerRouteInfo)
 		}
 		for _, peer := range currentPeers {
-			//select {
-			// case <-ctx.Done():
-			// 	logger.Log(2, "cancelled peer update for host", host.Name, host.ID.String())
-			// 	return models.HostPeerUpdate{}, fmt.Errorf("peer update cancelled")
-			//default:
 			peer := peer
 			if peer.ID.String() == node.ID.String() {
 				logger.Log(2, "peer update, skipping self")
