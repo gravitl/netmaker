@@ -1,7 +1,6 @@
 package logic
 
 import (
-	"context"
 	"errors"
 	"net"
 	"net/netip"
@@ -16,15 +15,8 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-var (
-	// PeerUpdateCtx context to send to host peer updates
-	PeerUpdateCtx context.Context
-	// PeerUpdateStop - the cancel for PeerUpdateCtx
-	PeerUpdateStop context.CancelFunc
-)
-
 // GetProxyUpdateForHost - gets the proxy update for host
-func GetProxyUpdateForHost(ctx context.Context, host *models.Host) (models.ProxyManagerPayload, error) {
+func GetProxyUpdateForHost(host *models.Host) (models.ProxyManagerPayload, error) {
 	proxyPayload := models.ProxyManagerPayload{
 		Action: models.ProxyUpdate,
 	}
@@ -84,18 +76,8 @@ func GetProxyUpdateForHost(ctx context.Context, host *models.Host) (models.Proxy
 	return proxyPayload, nil
 }
 
-// ResetPeerUpdateContext - kills any current peer updates and resets the context
-func ResetPeerUpdateContext() {
-	return
-	if PeerUpdateCtx != nil && PeerUpdateStop != nil {
-		PeerUpdateStop() // tell any current peer updates to stop
-	}
-
-	PeerUpdateCtx, PeerUpdateStop = context.WithCancel(context.Background())
-}
-
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
-func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host, allNodes []models.Node, deletedNode *models.Node, deletedClients []models.ExtClient) (models.HostPeerUpdate, error) {
+func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.Node, deletedNode *models.Node, deletedClients []models.ExtClient) (models.HostPeerUpdate, error) {
 	if host == nil {
 		return models.HostPeerUpdate{}, errors.New("host is nil")
 	}

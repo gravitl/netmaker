@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -395,7 +394,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	hostPeerUpdate, err := logic.GetPeerUpdateForHost(context.Background(), node.Network, host, allNodes, nil, nil)
+	hostPeerUpdate, err := logic.GetPeerUpdateForHost(node.Network, host, allNodes, nil, nil)
 	if err != nil && !database.IsEmptyRecord(err) {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("error fetching wg peers config for host [ %s ]: %v", host.ID.String(), err))
@@ -595,7 +594,6 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			go mq.PublishSingleHostPeerUpdate(
-				context.Background(),
 				host,
 				allNodes,
 				nil,
