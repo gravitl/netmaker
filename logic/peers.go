@@ -136,6 +136,7 @@ func GetPeerUpdateForHost(ctx context.Context, network string, host *models.Host
 			continue
 		}
 		if host.OS == models.OS_Types.IoT {
+			hostPeerUpdate.NodeAddrs = append(hostPeerUpdate.NodeAddrs, node.PrimaryAddressIPNet())
 			if node.IsRelayed {
 				relayNode, err := GetNodeByID(node.RelayedBy)
 				if err != nil {
