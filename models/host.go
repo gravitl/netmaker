@@ -48,7 +48,6 @@ type Host struct {
 	IPForwarding       bool             `json:"ipforwarding" yaml:"ipforwarding"`
 	DaemonInstalled    bool             `json:"daemoninstalled" yaml:"daemoninstalled"`
 	AutoUpdate         bool             `json:"autoupdate" yaml:"autoupdate"`
-	EndpointDetection  bool             `json:"endpointdetection" yaml:"endpointdetection"`
 	HostPass           string           `json:"hostpass" yaml:"hostpass"`
 	Name               string           `json:"name" yaml:"name"`
 	OS                 string           `json:"os" yaml:"os"`

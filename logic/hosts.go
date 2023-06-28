@@ -111,7 +111,6 @@ func CreateHost(h *models.Host) error {
 	}
 	h.HostPass = string(hash)
 	h.AutoUpdate = servercfg.AutoUpdateEnabled()
-	h.EndpointDetection = servercfg.EndpointDetectionEnabled()
 	// if another server has already updated proxyenabled, leave it alone
 	if !h.ProxyEnabledSet {
 		log.Println("checking default proxy", servercfg.GetServerConfig().DefaultProxyMode)
