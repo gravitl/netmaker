@@ -543,7 +543,6 @@ set_install_vars() {
 	echo "          dashboard.$NETMAKER_BASE_DOMAIN"
 	echo "                api.$NETMAKER_BASE_DOMAIN"
 	echo "             broker.$NETMAKER_BASE_DOMAIN"
-	echo "               stun.$NETMAKER_BASE_DOMAIN"
 	echo "               turn.$NETMAKER_BASE_DOMAIN"
 	echo "            turnapi.$NETMAKER_BASE_DOMAIN"
 
