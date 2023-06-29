@@ -37,16 +37,22 @@ func DeleteAclFromCache(containerID ContainerID) {
 
 // ACL.Allow - allows access by ID in memory
 func (acl ACL) Allow(ID AclID) {
+	aclMutex.Lock()
+	defer aclMutex.Unlock()
 	acl[ID] = Allowed
 }
 
 // ACL.DisallowNode - disallows access by ID in memory
 func (acl ACL) Disallow(ID AclID) {
+	aclMutex.Lock()
+	defer aclMutex.Unlock()
 	acl[ID] = NotAllowed
 }
 
 // ACL.Remove - removes a node from a ACL in memory
 func (acl ACL) Remove(ID AclID) {
+	aclMutex.Lock()
+	defer aclMutex.Unlock()
 	delete(acl, ID)
 }
 
@@ -56,23 +62,25 @@ func (acl ACL) Save(containerID ContainerID, ID AclID) (ACL, error) {
 }
 
 // ACL.IsAllowed - sees if ID is allowed in referring ACL
-func (acl ACL) IsAllowed(ID AclID) bool {
-	return acl[ID] == Allowed
-}
-
-// ACLContainer.IsAllowed - returns if the current ACL container contains allowed ACLs between two IDs
-func (aclContainer ACLContainer) IsAllowed(ID1, ID2 AclID) bool {
-	return aclContainer[ID1].IsAllowed(ID2) && aclContainer[ID2].IsAllowed(ID1)
+func (acl ACL) IsAllowed(ID AclID) (allowed bool) {
+	aclMutex.RLock()
+	allowed = acl[ID] == Allowed
+	aclMutex.RUnlock()
+	return
 }
 
 // ACLContainer.UpdateACL - saves the state of a ACL in the ACLContainer in memory
 func (aclContainer ACLContainer) UpdateACL(ID AclID, acl ACL) ACLContainer {
+	aclMutex.Lock()
+	defer aclMutex.Unlock()
 	aclContainer[ID] = acl
 	return aclContainer
 }
 
 // ACLContainer.RemoveACL - removes the state of a ACL in the ACLContainer in memory
 func (aclContainer ACLContainer) RemoveACL(ID AclID) ACLContainer {
+	aclMutex.Lock()
+	defer aclMutex.Unlock()
 	delete(aclContainer, ID)
 	return aclContainer
 }

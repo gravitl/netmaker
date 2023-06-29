@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -81,7 +80,13 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	hPU, err := logic.GetPeerUpdateForHost(context.Background(), "", host, nil, nil)
+	allNodes, err := logic.GetAllNodes()
+	if err != nil {
+		logger.Log(0, "could not pull peers for host", hostID)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	hPU, err := logic.GetPeerUpdateForHost("", host, allNodes, nil, nil)
 	if err != nil {
 		logger.Log(0, "could not pull peers for host", hostID)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
