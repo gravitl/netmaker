@@ -693,7 +693,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	runUpdates(newNode, ifaceDelta)
 	go func(aclUpdate, relayupdate bool, currNode, newNode *models.Node) {
 		if relayupdate {
-			// need to check if relayed node deleted IOT client, if so should tell it to delete it's relay peer
+			// need to check if deleted relayed node is a IOT client, if so should tell it to delete it's relay peer
 			deletedRelayedID := logic.GetDeletedRelayedNode(*currNode, *newNode)
 			deletedRelayedNode, err := logic.GetNodeByID(deletedRelayedID)
 			if err == nil {
