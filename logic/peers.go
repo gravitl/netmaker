@@ -578,9 +578,12 @@ func getExtPeersForProxy(node *models.Node, proxyPeerConf map[string]models.Peer
 func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet {
 	var allowedips []net.IPNet
 	allowedips = getNodeAllowedIPs(peer, node)
-
+	h, err := GetHost(node.HostID.String())
+	if err != nil {
+		return allowedips
+	}
 	// handle ingress gateway peers
-	if peer.IsIngressGateway {
+	if peer.IsIngressGateway && h.OS != models.OS_Types.IoT {
 		extPeers, _, err := getExtPeers(peer)
 		if err != nil {
 			logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
@@ -610,7 +613,7 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 			}
 		}
 	}
-	if node.IsRelayed && node.RelayedBy == peer.ID.String() {
+	if node.IsRelayed && node.RelayedBy == peer.ID.String() && h.OS != models.OS_Types.IoT {
 		allowedips = append(allowedips, getAllowedIpsForRelayed(node, peer)...)
 
 	}
