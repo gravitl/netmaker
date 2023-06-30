@@ -120,7 +120,7 @@ func ManageZombies(ctx context.Context, peerUpdate chan *models.Node) {
 						continue
 					}
 					if len(host.Nodes) == 0 {
-						if err := RemoveHost(host); err != nil {
+						if err := RemoveHost(host, true); err != nil {
 							logger.Log(0, "error deleting zombie host", host.ID.String(), err.Error())
 						}
 					}
