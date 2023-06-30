@@ -681,7 +681,24 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
 	runUpdates(newNode, ifaceDelta)
-	go func(aclUpdate, relayupdate bool, newNode *models.Node) {
+	go func(aclUpdate, relayupdate bool, currNode, newNode *models.Node) {
+		if relayupdate {
+			// need to check if relayed node deleted IOT client, if so should tell it to delete it's relay peer
+			deletedRelayedID := logic.GetDeletedRelayedNode(*currNode, *newNode)
+			deletedRelayedNode, err := logic.GetNodeByID(deletedRelayedID)
+			if err == nil {
+				h, err := logic.GetHost(deletedRelayedNode.HostID.String())
+				if err == nil {
+					if h.OS == models.OS_Types.IoT {
+						if err = mq.PublishSingleHostPeerUpdate(context.Background(), h, currNode, nil); err != nil {
+							logger.Log(1, "failed to publish peer update to host", h.ID.String(), ": ", err.Error())
+						}
+					}
+				}
+
+			}
+
+		}
 		if aclUpdate || relayupdate {
 			if err := mq.PublishPeerUpdate(); err != nil {
 				logger.Log(0, "error during node ACL update for node", newNode.ID.String())
@@ -690,7 +707,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		if err := mq.PublishReplaceDNS(&currentNode, newNode, host); err != nil {
 			logger.Log(1, "failed to publish dns update", err.Error())
 		}
-	}(aclUpdate, relayupdate, newNode)
+	}(aclUpdate, relayupdate, &currentNode, newNode)
 }
 
 // swagger:route DELETE /api/nodes/{network}/{nodeid} nodes deleteNode

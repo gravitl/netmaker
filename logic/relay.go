@@ -134,6 +134,21 @@ func UpdateRelayed(relay string, oldNodes []string, newNodes []string) []models.
 	return SetRelayedNodes(true, relay, newNodes)
 }
 
+func GetDeletedRelayedNode(currRelay, updatedRelay models.Node) (deletedRelayedNodeID string) {
+	updatedRelayedNodeMap := make(map[string]struct{})
+	for _, relayedNodeID := range updatedRelay.RelayedNodes {
+		updatedRelayedNodeMap[relayedNodeID] = struct{}{}
+	}
+
+	for _, relayedNodeID := range currRelay.RelayedNodes {
+		if _, ok := updatedRelayedNodeMap[relayedNodeID]; !ok {
+			deletedRelayedNodeID = relayedNodeID
+			break
+		}
+	}
+	return
+}
+
 // DeleteRelay - deletes a relay
 func DeleteRelay(network, nodeid string) ([]models.Node, models.Node, error) {
 	var returnnodes []models.Node
