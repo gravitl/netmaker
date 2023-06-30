@@ -217,6 +217,7 @@ func TestNodeACLs(t *testing.T) {
 }
 
 func deleteAllNodes() {
+	logic.ClearNodeCache()
 	database.DeleteAllRecords(database.NODES_TABLE_NAME)
 }
 

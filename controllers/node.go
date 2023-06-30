@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -388,7 +387,14 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	hostPeerUpdate, err := logic.GetPeerUpdateForHost(context.Background(), node.Network, host, nil, nil)
+	allNodes, err := logic.GetAllNodes()
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("error fetching wg peers config for host [ %s ]: %v", host.ID.String(), err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	hostPeerUpdate, err := logic.GetPeerUpdateForHost(node.Network, host, allNodes, nil, nil)
 	if err != nil && !database.IsEmptyRecord(err) {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("error fetching wg peers config for host [ %s ]: %v", host.ID.String(), err))
@@ -583,9 +589,13 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	if len(removedClients) > 0 {
 		host, err := logic.GetHost(node.HostID.String())
 		if err == nil {
+			allNodes, err := logic.GetAllNodes()
+			if err != nil {
+				return
+			}
 			go mq.PublishSingleHostPeerUpdate(
-				context.Background(),
 				host,
+				allNodes,
 				nil,
 				removedClients[:],
 			)
@@ -690,7 +700,11 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 				h, err := logic.GetHost(deletedRelayedNode.HostID.String())
 				if err == nil {
 					if h.OS == models.OS_Types.IoT {
-						if err = mq.PublishSingleHostPeerUpdate(context.Background(), h, currNode, nil); err != nil {
+						nodes, err := logic.GetAllNodes()
+						if err != nil {
+							return
+						}
+						if err = mq.PublishSingleHostPeerUpdate(h, nodes, currNode, nil); err != nil {
 							logger.Log(1, "failed to publish peer update to host", h.ID.String(), ": ", err.Error())
 						}
 					}

@@ -83,6 +83,11 @@ type ServerConfig struct {
 	TurnUserName               string    `yaml:"turn_username"`
 	TurnPassword               string    `yaml:"turn_password"`
 	UseTurn                    bool      `yaml:"use_turn"`
+	UsersLimit                 int       `yaml:"user_limit"`
+	ClientsLimit               int       `yaml:"client_limit"`
+	NetworksLimit              int       `yaml:"network_limit"`
+	HostsLimit                 int       `yaml:"host_limit"`
+	DeployedByOperator         bool      `yaml:"deployed_by_operator"`
 }
 
 // ProxyMode - default proxy mode for server
