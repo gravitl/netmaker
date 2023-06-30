@@ -760,6 +760,10 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		}
 
 	}
+	if node.IsRelay {
+		// unset all the relayed nodes
+		logic.SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
+	}
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
 	if !fromNode { // notify node change
