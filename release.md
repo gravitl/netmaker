@@ -1,22 +1,26 @@
 
-# Netmaker v0.20.2
+# Netmaker v0.20.3
 
-## whats new
-- 
-    
-## whats fixed
-- enrollment keys for non-admins 
-- client version displayed correctly in UI
-- upd hole punching improvments
-- SSL fallback to letsencrypt
-- permission handling for non-admin users
+## Whats New
+- Moved to new licensing server for self-hosted
+- STUN removed from netmaker server to improve memory performance
+- Added DB caching to drastically reduce read/writes from disk
 
-
+## What's Fixed
+- Major memory leak resolved due to STUN
+- Issues with netclient ports on daemon restart
+- Windows GUI unable to find netclient backend
+- Major scalability fixes - Can now scale to hundreds of hosts with low resources
+- Resolved ACL panic
+- Reverted blocking creation of Ingress with NAT
+     
 ## known issues
-- Migration causes a listen port of 0 for some upgraded hosts
-- Docker clients can not re-join after deletion
-- Innacurate Ext Client Metrics 
-- Issue with Mac + IPv6 addressing
-- Nodes on same local network may not always connect
-- List populates egress ranges twice
-- If you do NOT set STUN_LIST on server, it could lead to strange behavior on client
+- netclient-gui (windows) will display an erroneous error dialog when joining a network (can be ignored)
+- netclient-gui will continously display error dialog if netmaker server is offline
+- Incorrect metrics against ext clients
+- Host ListenPorts set to 0 after migration from 0.17.1 -> 0.20.3
+- Mac IPv6 addresses/route issues
+- Docker client can not re-join after complete deletion
+- netclient-gui network tab blank after disconnect
+
+

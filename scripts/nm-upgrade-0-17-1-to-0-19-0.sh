@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LATEST="v0.20.2"
+LATEST="v0.20.3"
 INSTALL_PATH="/root"
 
 trap restore_old_netmaker_instructions
@@ -259,7 +259,6 @@ collect_server_settings() {
     esac
   done
 
-  STUN_DOMAIN="stun.$SERVER_NAME"
   TURN_DOMAIN="turn.$SERVER_NAME"
   TURNAPI_DOMAIN="turnapi.$SERVER_NAME"
   echo "-----------------------------------------------------"

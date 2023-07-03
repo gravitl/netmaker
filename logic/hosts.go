@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"sync"
 
 	"github.com/devilcove/httpclient"
 	"github.com/google/uuid"
@@ -21,11 +22,56 @@ import (
 )
 
 var (
+	hostCacheMutex = &sync.RWMutex{}
+	hostsCacheMap  = make(map[string]models.Host)
+)
+
+var (
 	// ErrHostExists error indicating that host exists when trying to create new host
 	ErrHostExists error = errors.New("host already exists")
 	// ErrInvalidHostID
 	ErrInvalidHostID error = errors.New("invalid host id")
 )
+
+func getHostsFromCache() (hosts []models.Host) {
+	hostCacheMutex.RLock()
+	for _, host := range hostsCacheMap {
+		hosts = append(hosts, host)
+	}
+	hostCacheMutex.RUnlock()
+	return
+}
+
+func getHostsMapFromCache() (hostsMap map[string]models.Host) {
+	hostCacheMutex.RLock()
+	hostsMap = hostsCacheMap
+	hostCacheMutex.RUnlock()
+	return
+}
+
+func getHostFromCache(hostID string) (host models.Host, ok bool) {
+	hostCacheMutex.RLock()
+	host, ok = hostsCacheMap[hostID]
+	hostCacheMutex.RUnlock()
+	return
+}
+
+func storeHostInCache(h models.Host) {
+	hostCacheMutex.Lock()
+	hostsCacheMap[h.ID.String()] = h
+	hostCacheMutex.Unlock()
+}
+
+func deleteHostFromCache(hostID string) {
+	hostCacheMutex.Lock()
+	delete(hostsCacheMap, hostID)
+	hostCacheMutex.Unlock()
+}
+func loadHostsIntoCache(hMap map[string]models.Host) {
+	hostCacheMutex.Lock()
+	hostsCacheMap = hMap
+	hostCacheMutex.Unlock()
+}
 
 const (
 	maxPort = 1<<16 - 1
@@ -34,17 +80,28 @@ const (
 
 // GetAllHosts - returns all hosts in flat list or error
 func GetAllHosts() ([]models.Host, error) {
-	currHostMap, err := GetHostsMap()
-	if err != nil {
+
+	currHosts := getHostsFromCache()
+	if len(currHosts) != 0 {
+		return currHosts, nil
+	}
+	records, err := database.FetchRecords(database.HOSTS_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
 		return nil, err
 	}
-	var currentHosts = []models.Host{}
-	for k := range currHostMap {
-		var h = *currHostMap[k]
-		currentHosts = append(currentHosts, h)
+	currHostsMap := make(map[string]models.Host)
+	defer loadHostsIntoCache(currHostsMap)
+	for k := range records {
+		var h models.Host
+		err = json.Unmarshal([]byte(records[k]), &h)
+		if err != nil {
+			return nil, err
+		}
+		currHosts = append(currHosts, h)
+		currHostsMap[h.ID.String()] = h
 	}
 
-	return currentHosts, nil
+	return currHosts, nil
 }
 
 // GetAllHostsAPI - get's all the hosts in an API usable format
@@ -58,19 +115,24 @@ func GetAllHostsAPI(hosts []models.Host) []models.ApiHost {
 }
 
 // GetHostsMap - gets all the current hosts on machine in a map
-func GetHostsMap() (map[string]*models.Host, error) {
+func GetHostsMap() (map[string]models.Host, error) {
+	hostsMap := getHostsMapFromCache()
+	if len(hostsMap) != 0 {
+		return hostsMap, nil
+	}
 	records, err := database.FetchRecords(database.HOSTS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return nil, err
 	}
-	currHostMap := make(map[string]*models.Host)
+	currHostMap := make(map[string]models.Host)
+	defer loadHostsIntoCache(currHostMap)
 	for k := range records {
 		var h models.Host
 		err = json.Unmarshal([]byte(records[k]), &h)
 		if err != nil {
 			return nil, err
 		}
-		currHostMap[h.ID.String()] = &h
+		currHostMap[h.ID.String()] = h
 	}
 
 	return currHostMap, nil
@@ -78,6 +140,10 @@ func GetHostsMap() (map[string]*models.Host, error) {
 
 // GetHost - gets a host from db given id
 func GetHost(hostid string) (*models.Host, error) {
+
+	if host, ok := getHostFromCache(hostid); ok {
+		return &host, nil
+	}
 	record, err := database.FetchRecord(database.HOSTS_TABLE_NAME, hostid)
 	if err != nil {
 		return nil, err
@@ -87,13 +153,20 @@ func GetHost(hostid string) (*models.Host, error) {
 	if err = json.Unmarshal([]byte(record), &h); err != nil {
 		return nil, err
 	}
-
+	storeHostInCache(h)
 	return &h, nil
 }
 
 // CreateHost - creates a host if not exist
 func CreateHost(h *models.Host) error {
-	_, err := GetHost(h.ID.String())
+	hosts, err := GetAllHosts()
+	if err != nil && !database.IsEmptyRecord(err) {
+		return err
+	}
+	if len(hosts) >= Hosts_Limit {
+		return errors.New("free tier limits exceeded on hosts")
+	}
+	_, err = GetHost(h.ID.String())
 	if (err != nil && !database.IsEmptyRecord(err)) || (err == nil) {
 		return ErrHostExists
 	}
@@ -111,7 +184,6 @@ func CreateHost(h *models.Host) error {
 	}
 	h.HostPass = string(hash)
 	h.AutoUpdate = servercfg.AutoUpdateEnabled()
-	h.EndpointDetection = servercfg.EndpointDetectionEnabled()
 	// if another server has already updated proxyenabled, leave it alone
 	if !h.ProxyEnabledSet {
 		log.Println("checking default proxy", servercfg.GetServerConfig().DefaultProxyMode)
@@ -215,8 +287,12 @@ func UpsertHost(h *models.Host) error {
 	if err != nil {
 		return err
 	}
-
-	return database.Insert(h.ID.String(), string(data), database.HOSTS_TABLE_NAME)
+	err = database.Insert(h.ID.String(), string(data), database.HOSTS_TABLE_NAME)
+	if err != nil {
+		return err
+	}
+	storeHostInCache(*h)
+	return nil
 }
 
 // RemoveHost - removes a given host from server
@@ -227,8 +303,12 @@ func RemoveHost(h *models.Host) error {
 	if servercfg.IsUsingTurn() {
 		DeRegisterHostWithTurn(h.ID.String())
 	}
-
-	return database.DeleteRecord(database.HOSTS_TABLE_NAME, h.ID.String())
+	err := database.DeleteRecord(database.HOSTS_TABLE_NAME, h.ID.String())
+	if err != nil {
+		return err
+	}
+	deleteHostFromCache(h.ID.String())
+	return nil
 }
 
 // RemoveHostByID - removes a given host by id from server
@@ -236,7 +316,13 @@ func RemoveHostByID(hostID string) error {
 	if servercfg.IsUsingTurn() {
 		DeRegisterHostWithTurn(hostID)
 	}
-	return database.DeleteRecord(database.HOSTS_TABLE_NAME, hostID)
+
+	err := database.DeleteRecord(database.HOSTS_TABLE_NAME, hostID)
+	if err != nil {
+		return err
+	}
+	deleteHostFromCache(hostID)
+	return nil
 }
 
 // UpdateHostNetwork - adds/deletes host from a network

@@ -80,7 +80,7 @@ func SetupMQTT() {
 			logger.Log(0, "node metrics subscription failed")
 		}
 
-		opts.SetOrderMatters(true)
+		opts.SetOrderMatters(false)
 		opts.SetResumeSubs(true)
 	})
 	mqclient = mqtt.NewClient(opts)

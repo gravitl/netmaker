@@ -1,7 +1,6 @@
 package logic
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -53,11 +52,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	node.EgressGatewayNatEnabled = models.ParseBool(gateway.NatEnabled)
 	node.EgressGatewayRequest = gateway // store entire request for use when preserving the egress gateway
 	node.SetLastModified()
-	nodeData, err := json.Marshal(&node)
-	if err != nil {
-		return node, err
-	}
-	if err = database.Insert(node.ID.String(), string(nodeData), database.NODES_TABLE_NAME); err != nil {
+	if err = UpsertNode(&node); err != nil {
 		return models.Node{}, err
 	}
 	return node, nil
@@ -84,12 +79,7 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 	node.EgressGatewayRanges = []string{}
 	node.EgressGatewayRequest = models.EgressGatewayRequest{} // remove preserved request as the egress gateway is gone
 	node.SetLastModified()
-
-	data, err := json.Marshal(&node)
-	if err != nil {
-		return models.Node{}, err
-	}
-	if err = database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME); err != nil {
+	if err = UpsertNode(&node); err != nil {
 		return models.Node{}, err
 	}
 	return node, nil
@@ -115,9 +105,6 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	if host.FirewallInUse == models.FIREWALL_NONE {
 		return models.Node{}, errors.New("firewall is not supported for ingress gateways")
 	}
-	if host.NatType != models.NAT_Types.Public {
-		return models.Node{}, errors.New("ingress cannot be created on nodes behind NAT")
-	}
 
 	network, err := GetParentNetwork(netid)
 	if err != nil {
@@ -131,11 +118,7 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	if ingress.Failover && servercfg.Is_EE {
 		node.Failover = true
 	}
-	data, err := json.Marshal(&node)
-	if err != nil {
-		return models.Node{}, err
-	}
-	err = database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
+	err = UpsertNode(&node)
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -176,12 +159,7 @@ func DeleteIngressGateway(networkName string, nodeid string) (models.Node, bool,
 				node.EgressGatewayRequest.NodeID, node.EgressGatewayRequest.NetID, err))
 		}
 	}
-
-	data, err := json.Marshal(&node)
-	if err != nil {
-		return models.Node{}, false, removedClients, err
-	}
-	err = database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
+	err = UpsertNode(&node)
 	if err != nil {
 		return models.Node{}, wasFailover, removedClients, err
 	}

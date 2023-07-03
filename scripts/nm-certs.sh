@@ -15,7 +15,7 @@ if [ -z "$NM_DOMAIN" ] || [ -z "$NM_EMAIL" ]; then
 fi
 
 # TODO make sure this doesnt break, parse `certbot certificates` if yes
-CERT_DIR="$SCRIPT_DIR/letsencrypt/live/stun.$NM_DOMAIN"
+CERT_DIR="$SCRIPT_DIR/letsencrypt/live/api.$NM_DOMAIN"
 
 echo "Setting up SSL certificates..."
 
@@ -31,7 +31,6 @@ CERTBOT_PARAMS=$(cat <<EOF
 certonly --standalone \
 	--non-interactive --agree-tos \
 	-m $NM_EMAIL \
-	-d stun.$NM_DOMAIN \
 	-d api.$NM_DOMAIN \
 	-d broker.$NM_DOMAIN \
 	-d dashboard.$NM_DOMAIN \
