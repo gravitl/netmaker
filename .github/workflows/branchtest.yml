@@ -71,7 +71,9 @@ jobs:
             if [ "$result" == "pass" ]
             then
               server=$arg
+
               echo $server >> /tmp/server
+
               break
             fi
           done
