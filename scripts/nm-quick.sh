@@ -576,7 +576,7 @@ set_install_vars() {
 		done
 		unset ACCOUNT_ID
 		while [ -z ${ACCOUNT_ID} ]; do
-			read -p "Account ID: " ACCOUNT_ID
+			read -p "Tenant ID: " ACCOUNT_ID
 		done
 	fi
 
