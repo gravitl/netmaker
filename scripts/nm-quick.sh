@@ -120,7 +120,7 @@ set_buildinfo() {
 	elif [ -z "$INSTALL_TYPE" ]; then
 		echo "-----------------------------------------------------"
 		echo "Would you like to install Netmaker Community Edition (CE), or Netmaker Enterprise Edition (EE)?"
-		echo "EE will require you to create an account at https://dashboard.license.netmaker.io"
+		echo "EE will require you to create an account at https://app.netmaker.io"
 		echo "-----------------------------------------------------"
 		select install_option in "Community Edition" "Enterprise Edition"; do
 			case $REPLY in
@@ -307,7 +307,7 @@ save_config() { (
 	fi
 	# copy entries from the previous config
 	local toCopy=("SERVER_HOST" "MASTER_KEY" "TURN_USERNAME" "TURN_PASSWORD" "MQ_USERNAME" "MQ_PASSWORD"
-		"INSTALL_TYPE" "NODE_ID" "METRICS_EXPORTER" "PROMETHEUS" "DNS_MODE" "NETCLIENT_AUTO_UPDATE" "API_PORT"
+		"INSTALL_TYPE" "NODE_ID" "DNS_MODE" "NETCLIENT_AUTO_UPDATE" "API_PORT"
 		"CORS_ALLOWED_ORIGIN" "DISPLAY_KEYS" "DATABASE" "SERVER_BROKER_ENDPOINT" "STUN_PORT" "VERBOSITY"
 		"DEFAULT_PROXY_MODE" "TURN_PORT" "USE_TURN" "DEBUG_MODE" "TURN_API_PORT" "REST_BACKEND"
 		"DISABLE_REMOTE_IP_CHECK" "NETCLIENT_ENDPOINT_DETECTION" "TELEMETRY" "AUTH_PROVIDER" "CLIENT_ID" "CLIENT_SECRET"
@@ -565,9 +565,9 @@ set_install_vars() {
 
 		echo "-----------------------------------------------------"
 		echo "Provide Details for EE installation:"
-		echo "    1. Log into https://dashboard.license.netmaker.io"
-		echo "    2. Copy License Key Value: https://dashboard.license.netmaker.io/license-keys"
-		echo "    3. Retrieve Account ID: https://dashboard.license.netmaker.io/user"
+		echo "    1. Log into https://app.netmaker.io"
+		echo "    2. follow instructions to get a license at: https://docs.netmaker.io/ee/ee-setup.html"
+		echo "    3. Retrieve License Tenant ID"
 		echo "    4. note email address"
 		echo "-----------------------------------------------------"
 		unset LICENSE_KEY
