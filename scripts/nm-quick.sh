@@ -567,7 +567,7 @@ set_install_vars() {
 		echo "Provide Details for EE installation:"
 		echo "    1. Log into https://app.netmaker.io"
 		echo "    2. follow instructions to get a license at: https://docs.netmaker.io/ee/ee-setup.html"
-		echo "    3. Retrieve License Tenant ID"
+		echo "    3. Retrieve License and Tenant ID"
 		echo "    4. note email address"
 		echo "-----------------------------------------------------"
 		unset LICENSE_KEY
