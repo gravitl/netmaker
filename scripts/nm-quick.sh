@@ -291,7 +291,7 @@ save_config() { (
 	fi
 	# version-specific entries
 	if [ "$INSTALL_TYPE" = "ee" ]; then
-		save_config_item NETMAKER_ACCOUNT_ID "$ACCOUNT_ID"
+		save_config_item NETMAKER_TENANT_ID "$TENANT_ID"
 		save_config_item LICENSE_KEY "$LICENSE_KEY"
 		save_config_item METRICS_EXPORTER "on"
 		save_config_item PROMETHEUS "on"
@@ -574,9 +574,9 @@ set_install_vars() {
 		while [ -z "$LICENSE_KEY" ]; do
 			read -p "License Key: " LICENSE_KEY
 		done
-		unset ACCOUNT_ID
-		while [ -z ${ACCOUNT_ID} ]; do
-			read -p "Tenant ID: " ACCOUNT_ID
+		unset TENANT_ID
+		while [ -z ${TENANT_ID} ]; do
+			read -p "Tenant ID: " TENANT_ID
 		done
 	fi
 
@@ -709,7 +709,7 @@ set_install_vars() {
 	echo "     public ip: $SERVER_HOST"
 	if [ "$INSTALL_TYPE" = "ee" ]; then
 		echo "       license: $LICENSE_KEY"
-		echo "    account id: $ACCOUNT_ID"
+		echo "    account id: $TENANT_ID"
 	fi
 	echo "-----------------------------------------------------------------"
 	echo "Confirm Settings for Installation"

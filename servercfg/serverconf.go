@@ -672,7 +672,7 @@ func GetLicenseKey() string {
 
 // GetNetmakerAccountID - get's the associated, Netmaker, account ID to verify ownership
 func GetNetmakerAccountID() string {
-	netmakerAccountID := os.Getenv("NETMAKER_ACCOUNT_ID")
+	netmakerAccountID := os.Getenv("NETMAKER_TENANT_ID")
 	if netmakerAccountID == "" {
 		netmakerAccountID = config.Config.Server.NetmakerAccountID
 	}
