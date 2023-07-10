@@ -3,7 +3,7 @@ module github.com/gravitl/netmaker
 go 1.19
 
 require (
-	github.com/eclipse/paho.mqtt.golang v1.4.2
+	github.com/eclipse/paho.mqtt.golang v1.4.3
 	github.com/go-playground/validator/v10 v10.14.1
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/google/uuid v1.3.0
@@ -35,13 +35,12 @@ require (
 require (
 	github.com/coreos/go-oidc/v3 v3.6.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/pkg/errors v0.9.1
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
-	gortc.io/stun v1.23.0
 )
 
 require (
 	github.com/devilcove/httpclient v0.6.0
+	github.com/go-jose/go-jose/v3 v3.0.0
 	github.com/guumaster/tablewriter v0.0.10
 	github.com/matryer/is v1.4.1
 	github.com/olekukonko/tablewriter v0.0.5
@@ -51,7 +50,6 @@ require (
 require (
 	cloud.google.com/go/compute/metadata v0.2.1 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
-	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
