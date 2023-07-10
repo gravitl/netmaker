@@ -312,7 +312,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				}
 				hostPeerUpdate.NodePeers = append(hostPeerUpdate.NodePeers, nodePeer)
 			}
-			//}
 		}
 		var extPeers []wgtypes.PeerConfig
 		var extPeerIDAndAddrs []models.IDandAddr
@@ -386,6 +385,18 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			peer.Remove = true
 		}
 		hostPeerUpdate.Peers[i] = peer
+	}
+	if deletedNode != nil {
+		peerHost, err := GetHost(deletedNode.HostID.String())
+		if err == nil && host.ID != peerHost.ID {
+			if _, ok := peerIndexMap[peerHost.PublicKey.String()]; !ok {
+				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, wgtypes.PeerConfig{
+					PublicKey: peerHost.PublicKey,
+					Remove:    true,
+				})
+			}
+		}
+
 	}
 
 	for i := range hostPeerUpdate.NodePeers {
