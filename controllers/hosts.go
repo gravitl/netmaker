@@ -199,6 +199,8 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 func deleteHost(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	hostid := params["hostid"]
+	forceDelete := r.URL.Query().Get("force") == "true"
+
 	// confirm host exists
 	currHost, err := logic.GetHost(hostid)
 	if err != nil {
@@ -206,7 +208,7 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if err = logic.RemoveHost(currHost); err != nil {
+	if err = logic.RemoveHost(currHost, forceDelete); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to delete a host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -291,6 +293,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	hostid := params["hostid"]
 	network := params["network"]
+	forceDelete := r.URL.Query().Get("force") == "true"
 	if hostid == "" || network == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("hostid or network cannot be empty"), "badrequest"))
 		return
@@ -312,7 +315,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	node.Action = models.NODE_DELETE
 	node.PendingDelete = true
 	logger.Log(1, "deleting  node", node.ID.String(), "from host", currHost.Name)
-	if err := logic.DeleteNode(node, false); err != nil {
+	if err := logic.DeleteNode(node, forceDelete); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
 		return
 	}
