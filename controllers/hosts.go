@@ -258,13 +258,14 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(1, "added new node", newNode.ID.String(), "to host", currHost.Name)
-
-	mq.HostUpdate(&models.HostUpdate{
-		Action: models.JoinHostToNetwork,
-		Host:   *currHost,
-		Node:   *newNode,
-	})
-	go mq.PublishPeerUpdate()
+	go func() {
+		mq.HostUpdate(&models.HostUpdate{
+			Action: models.JoinHostToNetwork,
+			Host:   *currHost,
+			Node:   *newNode,
+		})
+		mq.PublishPeerUpdate()
+	}()
 	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("added host %s to network %s", currHost.Name, network))
 	w.WriteHeader(http.StatusOK)
 }
