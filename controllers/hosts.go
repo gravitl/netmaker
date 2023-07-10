@@ -199,6 +199,8 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 func deleteHost(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	hostid := params["hostid"]
+	forceDelete := r.URL.Query().Get("force") == "true"
+
 	// confirm host exists
 	currHost, err := logic.GetHost(hostid)
 	if err != nil {
@@ -206,7 +208,7 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if err = logic.RemoveHost(currHost); err != nil {
+	if err = logic.RemoveHost(currHost, forceDelete); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to delete a host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
