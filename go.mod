@@ -15,11 +15,11 @@ require (
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/stretchr/testify v1.8.4
 	github.com/txn2/txeh v1.4.0
-	golang.org/x/crypto v0.10.0
+	golang.org/x/crypto v0.11.0
 	golang.org/x/net v0.11.0 // indirect
 	golang.org/x/oauth2 v0.9.0
-	golang.org/x/sys v0.9.0 // indirect
-	golang.org/x/text v0.10.0 // indirect
+	golang.org/x/sys v0.10.0 // indirect
+	golang.org/x/text v0.11.0 // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20220920152132-bb719d3a6e2c // indirect
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220324164955-056925b7df31
 	google.golang.org/protobuf v1.28.1 // indirect
@@ -35,13 +35,12 @@ require (
 require (
 	github.com/coreos/go-oidc/v3 v3.6.0
 	github.com/gorilla/websocket v1.5.0
-	github.com/pkg/errors v0.9.1
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
-	gortc.io/stun v1.23.0
 )
 
 require (
 	github.com/devilcove/httpclient v0.6.0
+	github.com/go-jose/go-jose/v3 v3.0.0
 	github.com/guumaster/tablewriter v0.0.10
 	github.com/matryer/is v1.4.1
 	github.com/olekukonko/tablewriter v0.0.5
@@ -51,7 +50,6 @@ require (
 require (
 	cloud.google.com/go/compute/metadata v0.2.1 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
-	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
