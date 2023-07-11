@@ -73,14 +73,23 @@ type ServerConfig struct {
 	LicenseValue               string `yaml:"license_value"`
 	NetmakerAccountID          string `yaml:"netmaker_account_id"`
 	IsEE                       string `yaml:"is_ee"`
-	StunPort                   int    `yaml:"stun_port"`
-	StunList                   string `yaml:"stun_list"`
 	TurnServer                 string `yaml:"turn_server"`
 	TurnApiServer              string `yaml:"turn_api_server"`
 	TurnPort                   int    `yaml:"turn_port"`
 	TurnUserName               string `yaml:"turn_username"`
 	TurnPassword               string `yaml:"turn_password"`
 	UseTurn                    bool   `yaml:"use_turn"`
+	UsersLimit                 int    `yaml:"user_limit"`
+	ClientsLimit               int    `yaml:"client_limit"`
+	NetworksLimit              int    `yaml:"network_limit"`
+	HostsLimit                 int    `yaml:"host_limit"`
+	DeployedByOperator         bool   `yaml:"deployed_by_operator"`
+}
+
+// ProxyMode - default proxy mode for server
+type ProxyMode struct {
+	Set   bool
+	Value bool
 }
 
 // SQLConfig - Generic SQL Config

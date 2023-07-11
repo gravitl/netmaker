@@ -225,7 +225,7 @@ func UpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 
-		_ = updateNodeMetrics(&currentNode, &newMetrics)
+		shouldUpdate := updateNodeMetrics(&currentNode, &newMetrics)
 
 		if err = logic.UpdateMetrics(id, &newMetrics); err != nil {
 			slog.Error("failed to update node metrics", "id", id, "error", err)
@@ -243,7 +243,21 @@ func UpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 				slog.Error("failed to failover for node", "id", currentNode.ID, "network", currentNode.Network, "error", err)
 			}
 		}
-		slog.Info("updated node metrics", "id", id)
+
+		if shouldUpdate {
+			slog.Info("updating peers after node detected connectivity issues", "id", currentNode.ID, "network", currentNode.Network)
+			host, err := logic.GetHost(currentNode.HostID.String())
+			if err == nil {
+				nodes, err := logic.GetAllNodes()
+				if err != nil {
+					return
+				}
+				if err = PublishHostPeerUpdate(host, nodes); err != nil {
+					slog.Warn("failed to publish update after failover peer change for node", "id", currentNode.ID, "network", currentNode.Network, "error", err)
+				}
+			}
+		}
+		slog.Debug("updated node metrics", "id", id)
 	}
 }
 
@@ -408,12 +422,19 @@ func handleHostCheckin(h, currentHost *models.Host) bool {
 	ifaceDelta := len(h.Interfaces) != len(currentHost.Interfaces) ||
 		!h.EndpointIP.Equal(currentHost.EndpointIP) ||
 		(len(h.NatType) > 0 && h.NatType != currentHost.NatType) ||
-		h.DefaultInterface != currentHost.DefaultInterface
+		h.DefaultInterface != currentHost.DefaultInterface ||
+		(h.ListenPort != 0 && h.ListenPort != currentHost.ListenPort) || (h.WgPublicListenPort != 0 && h.WgPublicListenPort != currentHost.WgPublicListenPort)
 	if ifaceDelta { // only save if something changes
 		currentHost.EndpointIP = h.EndpointIP
 		currentHost.Interfaces = h.Interfaces
 		currentHost.DefaultInterface = h.DefaultInterface
 		currentHost.NatType = h.NatType
+		if h.ListenPort != 0 {
+			currentHost.ListenPort = h.ListenPort
+		}
+		if h.WgPublicListenPort != 0 {
+			currentHost.WgPublicListenPort = h.WgPublicListenPort
+		}
 		if err := logic.UpsertHost(currentHost); err != nil {
 			slog.Error("failed to update host after check-in", "name", h.Name, "id", h.ID, "error", err)
 			return false

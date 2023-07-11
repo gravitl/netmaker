@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/config"
+
 	"github.com/gravitl/netmaker/models"
 )
 
@@ -43,7 +44,6 @@ func GetServerConfig() config.ServerConfig {
 	cfg.AllowedOrigin = GetAllowedOrigin()
 	cfg.RestBackend = "off"
 	cfg.NodeID = GetNodeID()
-	cfg.StunPort = GetStunPort()
 	cfg.BrokerType = GetBrokerType()
 	cfg.EmqxRestEndpoint = GetEmqxRestEndpoint()
 	if AutoUpdateEnabled() {
@@ -83,7 +83,6 @@ func GetServerConfig() config.ServerConfig {
 	cfg.FrontendURL = GetFrontendURL()
 	cfg.Telemetry = Telemetry()
 	cfg.Server = GetServer()
-	cfg.StunList = GetStunListString()
 	cfg.Verbosity = GetVerbosity()
 	cfg.IsEE = "no"
 	if Is_EE {
@@ -108,8 +107,6 @@ func GetServerInfo() models.ServerConfig {
 	}
 	cfg.Version = GetVersion()
 	cfg.Is_EE = Is_EE
-	cfg.StunPort = GetStunPort()
-	cfg.StunList = GetStunList()
 	cfg.TurnDomain = GetTurnHost()
 	cfg.TurnPort = GetTurnPort()
 	cfg.UseTurn = IsUsingTurn()
@@ -219,46 +216,6 @@ func GetAPIPort() string {
 		apiport = config.Config.Server.APIPort
 	}
 	return apiport
-}
-
-// GetStunList - gets the stun servers
-func GetStunList() []models.StunServer {
-	stunList := []models.StunServer{
-		{
-			Domain: "stun1.netmaker.io",
-			Port:   3478,
-		},
-		{
-			Domain: "stun2.netmaker.io",
-			Port:   3478,
-		},
-	}
-	parsed := false
-	if os.Getenv("STUN_LIST") != "" {
-		stuns, err := parseStunList(os.Getenv("STUN_LIST"))
-		if err == nil {
-			parsed = true
-			stunList = stuns
-		}
-	}
-	if !parsed && config.Config.Server.StunList != "" {
-		stuns, err := parseStunList(config.Config.Server.StunList)
-		if err == nil {
-			stunList = stuns
-		}
-	}
-	return stunList
-}
-
-// GetStunList - gets the stun servers w/o parsing to struct
-func GetStunListString() string {
-	stunList := "stun1.netmaker.io:3478,stun2.netmaker.io:3478"
-	if os.Getenv("STUN_LIST") != "" {
-		stunList = os.Getenv("STUN_LIST")
-	} else if config.Config.Server.StunList != "" {
-		stunList = config.Config.Server.StunList
-	}
-	return stunList
 }
 
 // GetCoreDNSAddr - gets the core dns address
@@ -662,20 +619,6 @@ func GetNetmakerAccountID() string {
 	return netmakerAccountID
 }
 
-// GetStunPort - Get the port to run the stun server on
-func GetStunPort() int {
-	port := 3478 //default
-	if os.Getenv("STUN_PORT") != "" {
-		portInt, err := strconv.Atoi(os.Getenv("STUN_PORT"))
-		if err == nil {
-			port = portInt
-		}
-	} else if config.Config.Server.StunPort != 0 {
-		port = config.Config.Server.StunPort
-	}
-	return port
-}
-
 // GetTurnPort - Get the port to run the turn server on
 func GetTurnPort() int {
 	port := 3479 //default
@@ -714,32 +657,54 @@ func GetTurnPassword() string {
 
 }
 
-// parseStunList - turn string into slice of StunServers
-func parseStunList(stunString string) ([]models.StunServer, error) {
-	var err error
-	stunServers := []models.StunServer{}
-	stuns := strings.Split(stunString, ",")
-	if len(stuns) == 0 {
-		return stunServers, errors.New("no stun servers provided")
+// GetNetworkLimit - fetches free tier limits on users
+func GetUserLimit() int {
+	var userslimit int
+	if os.Getenv("USERS_LIMIT") != "" {
+		userslimit, _ = strconv.Atoi(os.Getenv("USERS_LIMIT"))
+	} else {
+		userslimit = config.Config.Server.UsersLimit
 	}
-	for _, stun := range stuns {
-		stun = strings.Trim(stun, " ")
-		stunInfo := strings.Split(stun, ":")
-		if len(stunInfo) != 2 {
-			continue
-		}
-		port, err := strconv.Atoi(stunInfo[1])
-		if err != nil || port == 0 {
-			continue
-		}
-		stunServers = append(stunServers, models.StunServer{
-			Domain: stunInfo[0],
-			Port:   port,
-		})
+	return userslimit
+}
 
+// GetNetworkLimit - fetches free tier limits on networks
+func GetNetworkLimit() int {
+	var networkslimit int
+	if os.Getenv("NETWORKS_LIMIT") != "" {
+		networkslimit, _ = strconv.Atoi(os.Getenv("NETWORKS_LIMIT"))
+	} else {
+		networkslimit = config.Config.Server.NetworksLimit
 	}
-	if len(stunServers) == 0 {
-		err = errors.New("no stun entries parsable")
+	return networkslimit
+}
+
+// GetClientLimit - fetches free tier limits on ext. clients
+func GetClientLimit() int {
+	var clientsLimit int
+	if os.Getenv("CLIENTS_LIMIT") != "" {
+		clientsLimit, _ = strconv.Atoi(os.Getenv("CLIENTS_LIMIT"))
+	} else {
+		clientsLimit = config.Config.Server.ClientsLimit
 	}
-	return stunServers, err
+	return clientsLimit
+}
+
+// GetHostLimit - fetches free tier limits on hosts
+func GetHostLimit() int {
+	var hostsLimit int
+	if os.Getenv("HOSTS_LIMIT") != "" {
+		hostsLimit, _ = strconv.Atoi(os.Getenv("HOSTS_LIMIT"))
+	} else {
+		hostsLimit = config.Config.Server.HostsLimit
+	}
+	return hostsLimit
+}
+
+// DeployedByOperator - returns true if the instance is deployed by netmaker operator
+func DeployedByOperator() bool {
+	if os.Getenv("DEPLOYED_BY_OPERATOR") != "" {
+		return os.Getenv("DEPLOYED_BY_OPERATOR") == "true"
+	}
+	return config.Config.Server.DeployedByOperator
 }

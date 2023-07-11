@@ -13,11 +13,13 @@ type NodePeersInfo struct {
 
 // HostPeerUpdate - struct for host peer updates
 type HostPeerUpdate struct {
-	Host            Host                 `json:"host" bson:"host" yaml:"host"`
-	Server          string               `json:"server" bson:"server" yaml:"server"`
-	ServerVersion   string               `json:"serverversion" bson:"serverversion" yaml:"serverversion"`
-	Peers           []wgtypes.PeerConfig `json:"peers" yaml:"peers"`
-	HostNetworkInfo HostInfoMap          `json:"host_network_info,omitempty" bson:"host_network_info,omitempty" yaml:"host_network_info,omitempty"`
+	Host              Host                 `json:"host" bson:"host" yaml:"host"`
+	NodeAddrs         []net.IPNet          `json:"nodes_addrs" yaml:"nodes_addrs"`
+	Server            string               `json:"server" bson:"server" yaml:"server"`
+	ServerVersion     string               `json:"serverversion" bson:"serverversion" yaml:"serverversion"`
+	Peers             []wgtypes.PeerConfig `json:"peers" yaml:"peers"`
+	HostNetworkInfo   HostInfoMap          `json:"host_network_info,omitempty" bson:"host_network_info,omitempty" yaml:"host_network_info,omitempty"`
+	EndpointDetection bool                 `json:"endpointdetection" yaml:"endpointdetection"`
 }
 
 // IngressInfo - struct for ingress info

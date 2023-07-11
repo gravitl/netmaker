@@ -15,9 +15,9 @@ import (
 )
 
 // PublishHostPeerUpdate --- determines and publishes a peer update to one host
-func PublishHostPeerUpdate(host *models.Host) error {
+func PublishHostPeerUpdate(host *models.Host, nodes []models.Node) error {
 
-	peerUpdate, err := logic.GetPeerUpdateForHost(host)
+	peerUpdate, err := logic.GetPeerUpdateForHost(host, nodes)
 	if err != nil {
 		return err
 	}
@@ -711,7 +711,10 @@ func sendPeers() {
 	if err != nil && len(hosts) > 0 {
 		logger.Log(1, "error retrieving networks for keepalive", err.Error())
 	}
-
+	nodes, err := logic.GetAllNodes()
+	if err != nil {
+		return
+	}
 	var force bool
 	peer_force_send++
 	if peer_force_send == 5 {
@@ -729,7 +732,7 @@ func sendPeers() {
 		for _, host := range hosts {
 			host := host
 			logger.Log(2, "sending scheduled peer update (5 min)")
-			if err = PublishHostPeerUpdate(&host); err != nil {
+			if err = PublishHostPeerUpdate(&host, nodes); err != nil {
 				logger.Log(1, "error publishing peer updates for host: ", host.ID.String(), " Err: ", err.Error())
 			}
 		}

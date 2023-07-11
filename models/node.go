@@ -182,6 +182,14 @@ func isLess(ipA string, ipB string) bool {
 }
 
 // Node.PrimaryAddress - return ipv4 address if present, else return ipv6
+func (node *Node) PrimaryAddressIPNet() net.IPNet {
+	if node.Address.IP != nil {
+		return node.Address
+	}
+	return node.Address6
+}
+
+// Node.PrimaryAddress - return ipv4 address if present, else return ipv6
 func (node *Node) PrimaryAddress() string {
 	if node.Address.IP != nil {
 		return node.Address.IP.String()

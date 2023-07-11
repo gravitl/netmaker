@@ -79,10 +79,7 @@ func SetupMQTT() {
 		}
 
 		opts.SetOrderMatters(false)
-		opts.SetResumeSubs(false)
-	})
-	opts.SetConnectionLostHandler(func(c mqtt.Client, e error) {
-		setMqOptions(servercfg.GetMqUserName(), servercfg.GetMqPassword(), opts)
+		opts.SetResumeSubs(true)
 	})
 	mqclient = mqtt.NewClient(opts)
 	tperiod := time.Now().Add(10 * time.Second)

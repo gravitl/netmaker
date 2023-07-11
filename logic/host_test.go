@@ -42,7 +42,7 @@ func TestCheckPorts(t *testing.T) {
 	//not sure why this initialization is required but without it
 	// RemoveHost returns database is closed
 	database.InitializeDatabase()
-	RemoveHost(&h)
+	RemoveHost(&h, true)
 	CreateHost(&h)
 	t.Run("no change", func(t *testing.T) {
 		is := is.New(t)

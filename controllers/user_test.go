@@ -1,6 +1,12 @@
 package controller
 
 import (
+	"bytes"
+	"github.com/go-jose/go-jose/v3/json"
+	"github.com/gorilla/mux"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -17,6 +23,123 @@ func deleteAllUsers(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+}
+
+func TestGetUserNoHashedPassword(t *testing.T) {
+	// prepare existing user base
+	user := models.User{UserName: "freddie", Password: "password"}
+	haveOnlyOneUser(t, user)
+
+	// prepare request
+	rec, req := prepareUserRequest(t, models.User{}, user.UserName)
+
+	// test response
+	getUser(rec, req)
+	assertUserNameButNoPassword(t, rec.Body, user.UserName)
+}
+
+func TestCreateAdminNoHashedPassword(t *testing.T) {
+	// prepare existing user base
+	deleteAllUsers(t)
+
+	// prepare request
+	user := models.User{UserName: "jonathan", Password: "password"}
+	rec, req := prepareUserRequest(t, user, "")
+
+	// test response
+	createAdmin(rec, req)
+	assertUserNameButNoPassword(t, rec.Body, user.UserName)
+}
+
+func TestCreateUserNoHashedPassword(t *testing.T) {
+	// prepare existing user base
+	deleteAllUsers(t)
+
+	// prepare request
+	user := models.User{UserName: "jonathan", Password: "password"}
+	rec, req := prepareUserRequest(t, user, "")
+
+	// test response
+	createUser(rec, req)
+	assertUserNameButNoPassword(t, rec.Body, user.UserName)
+}
+
+func TestUpdateUserNetworksNoHashedPassword(t *testing.T) {
+	// prepare existing user base
+	user1 := models.User{UserName: "joestar", Password: "jonathan"}
+	haveOnlyOneUser(t, user1)
+
+	// prepare request
+	user2 := models.User{UserName: "joestar", Password: "joseph"}
+	rec, req := prepareUserRequest(t, user2, user1.UserName)
+
+	// test response
+	updateUserNetworks(rec, req)
+	assertUserNameButNoPassword(t, rec.Body, user1.UserName)
+}
+
+func TestUpdateUserNoHashedPassword(t *testing.T) {
+	// prepare existing user base
+	user1 := models.User{UserName: "dio", Password: "brando"}
+	haveOnlyOneUser(t, user1)
+
+	// prepare request
+	user2 := models.User{UserName: "giorno", Password: "giovanna"}
+	rec, req := prepareUserRequest(t, user2, user1.UserName)
+
+	// mock the jwt verification
+	oldVerify := verifyJWT
+	verifyJWT = func(bearerToken string) (username string, networks []string, isadmin bool, err error) {
+		return user1.UserName, user1.Networks, user1.IsAdmin, nil
+	}
+	defer func() { verifyJWT = oldVerify }()
+
+	// test response
+	updateUser(rec, req)
+	assertUserNameButNoPassword(t, rec.Body, user2.UserName)
+}
+
+func TestUpdateUserAdmNoHashedPassword(t *testing.T) {
+	// prepare existing user base
+	user1 := models.User{UserName: "dio", Password: "brando", IsAdmin: true}
+	haveOnlyOneUser(t, user1)
+
+	// prepare request
+	user2 := models.User{UserName: "giorno", Password: "giovanna"}
+	rec, req := prepareUserRequest(t, user2, user1.UserName)
+
+	// test response
+	updateUserAdm(rec, req)
+	assertUserNameButNoPassword(t, rec.Body, user2.UserName)
+}
+
+func prepareUserRequest(t *testing.T, userForBody models.User, userNameForParam string) (*httptest.ResponseRecorder, *http.Request) {
+	bits, err := json.Marshal(userForBody)
+	assert.Nil(t, err)
+	body := bytes.NewReader(bits)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("ANY", "https://example.com", body) // only the body matters here
+	req = mux.SetURLVars(req, map[string]string{"username": userNameForParam})
+	return rec, req
+}
+
+func haveOnlyOneUser(t *testing.T, user models.User) {
+	deleteAllUsers(t)
+	var err error
+	if user.IsAdmin {
+		err = logic.CreateAdmin(&user)
+	} else {
+		err = logic.CreateUser(&user)
+	}
+	assert.Nil(t, err)
+}
+
+func assertUserNameButNoPassword(t *testing.T, r io.Reader, userName string) {
+	var resp models.User
+	err := json.NewDecoder(r).Decode(&resp)
+	assert.Nil(t, err)
+	assert.Equal(t, userName, resp.UserName)
+	assert.Empty(t, resp.Password)
 }
 
 func TestHasAdmin(t *testing.T) {

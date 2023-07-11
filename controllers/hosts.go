@@ -48,38 +48,8 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	//isMasterAdmin := r.Header.Get("ismaster") == "yes"
-	//user, err := logic.GetUser(r.Header.Get("user"))
-	//if err != nil && !isMasterAdmin {
-	//	logger.Log(0, r.Header.Get("user"), "failed to fetch user: ", err.Error())
-	//	logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-	//	return
-	//}
-	// return JSON/API formatted hosts
-	//ret := []models.ApiHost{}
 	apiHosts := logic.GetAllHostsAPI(currentHosts[:])
 	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
-	//for _, host := range apiHosts {
-	//	nodes := host.Nodes
-	//	// work on the copy
-	//	host.Nodes = []string{}
-	//	for _, nid := range nodes {
-	//		node, err := logic.GetNodeByID(nid)
-	//		if err != nil {
-	//			logger.Log(0, r.Header.Get("user"), "failed to fetch node: ", err.Error())
-	//			// TODO find the reason for the DB error, skip this node for now
-	//			continue
-	//		}
-	//		if !isMasterAdmin && !logic.UserHasNetworksAccess([]string{node.Network}, user) {
-	//			continue
-	//		}
-	//		host.Nodes = append(host.Nodes, nid)
-	//	}
-	//	// add to the response only if has perms to some nodes / networks
-	//	if len(host.Nodes) > 0 {
-	//		ret = append(ret, host)
-	//	}
-	//}
 	logic.SortApiHosts(apiHosts[:])
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiHosts)
@@ -110,7 +80,14 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	hPU, err := logic.GetPeerUpdateForHost(host)
+
+	allNodes, err := logic.GetAllNodes()
+	if err != nil {
+		logger.Log(0, "could not pull peers for host", hostID)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	hPU, err := logic.GetPeerUpdateForHost(host, allNodes)
 	if err != nil {
 		logger.Log(0, "could not pull peers for host", hostID)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -221,6 +198,8 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 func deleteHost(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	hostid := params["hostid"]
+	forceDelete := r.URL.Query().Get("force") == "true"
+
 	// confirm host exists
 	currHost, err := logic.GetHost(hostid)
 	if err != nil {
@@ -228,7 +207,7 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if err = logic.RemoveHost(currHost); err != nil {
+	if err = logic.RemoveHost(currHost, forceDelete); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to delete a host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -313,6 +292,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	hostid := params["hostid"]
 	network := params["network"]
+	forceDelete := r.URL.Query().Get("force") == "true"
 	if hostid == "" || network == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("hostid or network cannot be empty"), "badrequest"))
 		return
@@ -334,12 +314,11 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	node.Action = models.NODE_DELETE
 	node.PendingDelete = true
 	logger.Log(1, "deleting  node", node.ID.String(), "from host", currHost.Name)
-	if err := logic.DeleteNode(node, false); err != nil {
+	if err := logic.DeleteNode(node, forceDelete); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
 		return
 	}
 	// notify node change
-
 	runUpdates(node, false)
 	go func() { // notify of peer change
 		clients, err := logic.GetNetworkClients(network)

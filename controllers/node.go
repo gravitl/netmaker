@@ -740,6 +740,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	// get params
 	var params = mux.Vars(r)
 	var nodeid = params["nodeid"]
+	forceDelete := r.URL.Query().Get("force") == "true"
 	fromNode := r.Header.Get("requestfrom") == "node"
 	node, err := logic.GetNodeByID(nodeid)
 	if err != nil {
@@ -759,10 +760,6 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if err := logic.DeleteNode(&node, fromNode); err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
-		return
-	}
 	if node.IsRelayed {
 		// cleanup node from relayednodes on relay node
 		relayNode, err := logic.GetNodeByID(node.RelayedBy)
@@ -779,6 +776,16 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		}
 
 	}
+	if node.IsRelay {
+		// unset all the relayed nodes
+		logic.SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
+	}
+	purge := forceDelete || fromNode
+	if err := logic.DeleteNode(&node, purge); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
+		return
+	}
+
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
 	if !fromNode { // notify node change

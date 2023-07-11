@@ -44,12 +44,6 @@ https://api.{$NM_DOMAIN} {
 	reverse_proxy http://netmaker:8081
 }
 
-# STUN
-https://stun.{$NM_DOMAIN} {
-	tls /root/certs/fullchain.pem /root/certs/privkey.pem
-	reverse_proxy netmaker:3478
-}
-
 # TURN
 https://turn.{$NM_DOMAIN} {
 	tls /root/certs/fullchain.pem /root/certs/privkey.pem

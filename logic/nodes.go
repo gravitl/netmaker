@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"sort"
+	"sync"
 	"time"
 
 	validator "github.com/go-playground/validator/v10"
@@ -17,10 +18,52 @@ import (
 	"github.com/gravitl/netmaker/logic/pro"
 	"github.com/gravitl/netmaker/logic/pro/proacls"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/validation"
 )
+
+var (
+	nodeCacheMutex = &sync.RWMutex{}
+	nodesCacheMap  = make(map[string]models.Node)
+)
+
+func getNodeFromCache(nodeID string) (node models.Node, ok bool) {
+	nodeCacheMutex.RLock()
+	node, ok = nodesCacheMap[nodeID]
+	nodeCacheMutex.RUnlock()
+	return
+}
+func getNodesFromCache() (nodes []models.Node) {
+	nodeCacheMutex.RLock()
+	for _, node := range nodesCacheMap {
+		nodes = append(nodes, node)
+	}
+	nodeCacheMutex.RUnlock()
+	return
+}
+
+func deleteNodeFromCache(nodeID string) {
+	nodeCacheMutex.Lock()
+	delete(nodesCacheMap, nodeID)
+	nodeCacheMutex.Unlock()
+}
+
+func storeNodeInCache(node models.Node) {
+	nodeCacheMutex.Lock()
+	nodesCacheMap[node.ID.String()] = node
+	nodeCacheMutex.Unlock()
+}
+
+func loadNodesIntoCache(nMap map[string]models.Node) {
+	nodeCacheMutex.Lock()
+	nodesCacheMap = nMap
+	nodeCacheMutex.Unlock()
+}
+func ClearNodeCache() {
+	nodeCacheMutex.Lock()
+	nodesCacheMap = make(map[string]models.Node)
+	nodeCacheMutex.Unlock()
+}
 
 const (
 	// RELAY_NODE_ERR - error to return if relay node is unfound
@@ -92,7 +135,12 @@ func UpdateNodeCheckin(node *models.Node) error {
 	if err != nil {
 		return err
 	}
-	return database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
+	err = database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
+	if err != nil {
+		return err
+	}
+	storeNodeInCache(*node)
+	return nil
 }
 
 // UpsertNode - updates node in the DB
@@ -102,7 +150,12 @@ func UpsertNode(newNode *models.Node) error {
 	if err != nil {
 		return err
 	}
-	return database.Insert(newNode.ID.String(), string(data), database.NODES_TABLE_NAME)
+	err = database.Insert(newNode.ID.String(), string(data), database.NODES_TABLE_NAME)
+	if err != nil {
+		return err
+	}
+	storeNodeInCache(*newNode)
+	return nil
 }
 
 // UpdateNode - takes a node and updates another node with it's values
@@ -134,7 +187,12 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 		if data, err := json.Marshal(newNode); err != nil {
 			return err
 		} else {
-			return database.Insert(newNode.ID.String(), string(data), database.NODES_TABLE_NAME)
+			err = database.Insert(newNode.ID.String(), string(data), database.NODES_TABLE_NAME)
+			if err != nil {
+				return err
+			}
+			storeNodeInCache(*newNode)
+			return nil
 		}
 	}
 
@@ -192,6 +250,7 @@ func deleteNodeByID(node *models.Node) error {
 			return err
 		}
 	}
+	deleteNodeFromCache(node.ID.String())
 	if servercfg.IsDNSMode() {
 		SetDNS()
 	}
@@ -257,7 +316,12 @@ func IsFailoverPresent(network string) bool {
 // GetAllNodes - returns all nodes in the DB
 func GetAllNodes() ([]models.Node, error) {
 	var nodes []models.Node
-
+	nodes = getNodesFromCache()
+	if len(nodes) != 0 {
+		return nodes, nil
+	}
+	nodesMap := make(map[string]models.Node)
+	defer loadNodesIntoCache(nodesMap)
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil {
 		if database.IsEmptyRecord(err) {
@@ -275,6 +339,7 @@ func GetAllNodes() ([]models.Node, error) {
 		}
 		// add node to our array
 		nodes = append(nodes, node)
+		nodesMap[node.ID.String()] = node
 	}
 
 	return nodes, nil
@@ -329,46 +394,10 @@ func GetRecordKey(id string, network string) (string, error) {
 	return id + "###" + network, nil
 }
 
-// GetNodesByAddress - gets a node by mac address
-func GetNodesByAddress(network string, addresses []string) ([]models.Node, error) {
-	var nodes []models.Node
-	allnodes, err := GetAllNodes()
-	if err != nil {
-		return []models.Node{}, err
-	}
-	for _, node := range allnodes {
-		if node.Network == network && ncutils.StringSliceContains(addresses, node.Address.String()) {
-			nodes = append(nodes, node)
-		}
-	}
-	return nodes, nil
-}
-
-// GetDeletedNodeByMacAddress - get a deleted node
-func GetDeletedNodeByMacAddress(network string, macaddress string) (models.Node, error) {
-
-	var node models.Node
-
-	key, err := GetRecordKey(macaddress, network)
-	if err != nil {
-		return node, err
-	}
-
-	record, err := database.FetchRecord(database.DELETED_NODES_TABLE_NAME, key)
-	if err != nil {
-		return models.Node{}, err
-	}
-
-	if err = json.Unmarshal([]byte(record), &node); err != nil {
-		return models.Node{}, err
-	}
-
-	SetNodeDefaults(&node)
-
-	return node, nil
-}
-
 func GetNodeByID(uuid string) (models.Node, error) {
+	if node, ok := getNodeFromCache(uuid); ok {
+		return node, nil
+	}
 	var record, err = database.FetchRecord(database.NODES_TABLE_NAME, uuid)
 	if err != nil {
 		return models.Node{}, err
@@ -377,6 +406,7 @@ func GetNodeByID(uuid string) (models.Node, error) {
 	if err = json.Unmarshal([]byte(record), &node); err != nil {
 		return models.Node{}, err
 	}
+	storeNodeInCache(node)
 	return node, nil
 }
 
@@ -526,7 +556,7 @@ func createNode(node *models.Node) error {
 	if err != nil {
 		return err
 	}
-
+	storeNodeInCache(*node)
 	_, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), defaultACLVal)
 	if err != nil {
 		logger.Log(1, "failed to create node ACL for node,", node.ID.String(), "err:", err.Error())

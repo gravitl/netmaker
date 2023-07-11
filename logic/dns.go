@@ -69,16 +69,12 @@ func GetNodeDNS(network string) ([]models.DNSEntry, error) {
 
 	var dns []models.DNSEntry
 
-	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	nodes, err := GetNetworkNodes(network)
 	if err != nil {
 		return dns, err
 	}
 
-	for _, value := range collection {
-		var node models.Node
-		if err = json.Unmarshal([]byte(value), &node); err != nil {
-			continue
-		}
+	for _, node := range nodes {
 		if node.Network != network {
 			continue
 		}

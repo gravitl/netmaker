@@ -3,58 +3,56 @@ package logic
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-// GetExtPeersList - gets the ext peers lists
-func GetExtPeersList(node *models.Node) ([]models.ExtPeersResponse, error) {
+var (
+	extClientCacheMutex = &sync.RWMutex{}
+	extClientCacheMap   = make(map[string]models.ExtClient)
+)
 
-	var peers []models.ExtPeersResponse
-	records, err := database.FetchRecords(database.EXT_CLIENT_TABLE_NAME)
-
-	if err != nil {
-		return peers, err
+func getAllExtClientsFromCache() (extClients []models.ExtClient) {
+	extClientCacheMutex.RLock()
+	for _, extclient := range extClientCacheMap {
+		extClients = append(extClients, extclient)
 	}
+	extClientCacheMutex.RUnlock()
+	return
+}
 
-	for _, value := range records {
-		var peer models.ExtPeersResponse
-		var extClient models.ExtClient
-		err = json.Unmarshal([]byte(value), &peer)
-		if err != nil {
-			logger.Log(2, "failed to unmarshal peer when getting ext peer list")
-			continue
-		}
-		err = json.Unmarshal([]byte(value), &extClient)
-		if err != nil {
-			logger.Log(2, "failed to unmarshal ext client")
-			continue
-		}
+func deleteExtClientFromCache(key string) {
+	extClientCacheMutex.Lock()
+	delete(extClientCacheMap, key)
+	extClientCacheMutex.Unlock()
+}
 
-		if extClient.Enabled && extClient.Network == node.Network && extClient.IngressGatewayID == node.ID.String() {
-			peers = append(peers, peer)
-		}
-	}
-	return peers, err
+func getExtClientFromCache(key string) (extclient models.ExtClient, ok bool) {
+	extClientCacheMutex.RLock()
+	extclient, ok = extClientCacheMap[key]
+	extClientCacheMutex.RUnlock()
+	return
+}
+
+func storeExtClientInCache(key string, extclient models.ExtClient) {
+	extClientCacheMutex.Lock()
+	extClientCacheMap[key] = extclient
+	extClientCacheMutex.Unlock()
 }
 
 // ExtClient.GetEgressRangesOnNetwork - returns the egress ranges on network of ext client
 func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 
 	var result []string
-	nodesData, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	networkNodes, err := GetNetworkNodes(client.Network)
 	if err != nil {
 		return []string{}, err
 	}
-	for _, nodeData := range nodesData {
-		var currentNode models.Node
-		if err = json.Unmarshal([]byte(nodeData), &currentNode); err != nil {
-			continue
-		}
+	for _, currentNode := range networkNodes {
 		if currentNode.Network != client.Network {
 			continue
 		}
@@ -75,13 +73,25 @@ func DeleteExtClient(network string, clientid string) error {
 		return err
 	}
 	err = database.DeleteRecord(database.EXT_CLIENT_TABLE_NAME, key)
-	return err
+	if err != nil {
+		return err
+	}
+	deleteExtClientFromCache(key)
+	return nil
 }
 
 // GetNetworkExtClients - gets the ext clients of given network
 func GetNetworkExtClients(network string) ([]models.ExtClient, error) {
 	var extclients []models.ExtClient
-
+	allextclients := getAllExtClientsFromCache()
+	if len(allextclients) != 0 {
+		for _, extclient := range allextclients {
+			if extclient.Network == network {
+				extclients = append(extclients, extclient)
+			}
+		}
+		return extclients, nil
+	}
 	records, err := database.FetchRecords(database.EXT_CLIENT_TABLE_NAME)
 	if err != nil {
 		return extclients, err
@@ -91,6 +101,10 @@ func GetNetworkExtClients(network string) ([]models.ExtClient, error) {
 		err = json.Unmarshal([]byte(value), &extclient)
 		if err != nil {
 			continue
+		}
+		key, err := GetRecordKey(extclient.ClientID, network)
+		if err == nil {
+			storeExtClientInCache(key, extclient)
 		}
 		if extclient.Network == network {
 			extclients = append(extclients, extclient)
@@ -106,12 +120,15 @@ func GetExtClient(clientid string, network string) (models.ExtClient, error) {
 	if err != nil {
 		return extclient, err
 	}
+	if extclient, ok := getExtClientFromCache(key); ok {
+		return extclient, nil
+	}
 	data, err := database.FetchRecord(database.EXT_CLIENT_TABLE_NAME, key)
 	if err != nil {
 		return extclient, err
 	}
 	err = json.Unmarshal([]byte(data), &extclient)
-
+	storeExtClientInCache(key, extclient)
 	return extclient, err
 }
 
@@ -190,6 +207,7 @@ func SaveExtClient(extclient *models.ExtClient) error {
 	if err = database.Insert(key, string(data), database.EXT_CLIENT_TABLE_NAME); err != nil {
 		return err
 	}
+	storeExtClientInCache(key, *extclient)
 	return SetNetworkNodesLastModified(extclient.Network)
 }
 
