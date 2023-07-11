@@ -672,11 +672,11 @@ func GetLicenseKey() string {
 
 // GetNetmakerTenantID - get's the associated, Netmaker, tenant ID to verify ownership
 func GetNetmakerTenantID() string {
-	NetmakerTenantID := os.Getenv("NETMAKER_TENANT_ID")
-	if NetmakerTenantID == "" {
-		NetmakerTenantID = config.Config.Server.NetmakerTenantID
+	netmakerTenantID := os.Getenv("NETMAKER_TENANT_ID")
+	if netmakerTenantID == "" {
+		netmakerTenantID = config.Config.Server.NetmakerTenantID
 	}
-	return NetmakerTenantID
+	return netmakerTenantID
 }
 
 // GetStunPort - Get the port to run the stun server on
