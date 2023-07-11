@@ -9,7 +9,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/hostactions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
@@ -261,18 +260,14 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(1, "added new node", newNode.ID.String(), "to host", currHost.Name)
-	hostactions.AddAction(models.HostUpdate{
-		Action: models.JoinHostToNetwork,
-		Host:   *currHost,
-		Node:   *newNode,
-	})
-	if servercfg.IsMessageQueueBackend() {
+	go func() {
 		mq.HostUpdate(&models.HostUpdate{
-			Action: models.RequestAck,
+			Action: models.JoinHostToNetwork,
 			Host:   *currHost,
+			Node:   *newNode,
 		})
-	}
-
+		mq.PublishPeerUpdate()
+	}()
 	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("added host %s to network %s", currHost.Name, network))
 	w.WriteHeader(http.StatusOK)
 }
@@ -312,6 +307,25 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	if node.IsRelayed {
+		// cleanup node from relayednodes on relay node
+		relayNode, err := logic.GetNodeByID(node.RelayedBy)
+		if err == nil {
+			relayedNodes := []string{}
+			for _, relayedNodeID := range relayNode.RelayedNodes {
+				if relayedNodeID == node.ID.String() {
+					continue
+				}
+				relayedNodes = append(relayedNodes, relayedNodeID)
+			}
+			relayNode.RelayedNodes = relayedNodes
+			logic.UpsertNode(&relayNode)
+		}
+	}
+	if node.IsRelay {
+		// unset all the relayed nodes
+		logic.SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
+	}
 	node.Action = models.NODE_DELETE
 	node.PendingDelete = true
 	logger.Log(1, "deleting  node", node.ID.String(), "from host", currHost.Name)
@@ -320,10 +334,10 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// notify node change
-
 	runUpdates(node, false)
 	go func() { // notify of peer change
-		if err := mq.PublishPeerUpdate(); err != nil {
+		err = mq.PublishDeletedNodePeerUpdate(node)
+		if err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
 		}
 		if err := mq.PublishDNSDelete(node, currHost); err != nil {
