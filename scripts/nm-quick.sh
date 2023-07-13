@@ -120,7 +120,7 @@ set_buildinfo() {
 	elif [ -z "$INSTALL_TYPE" ]; then
 		echo "-----------------------------------------------------"
 		echo "Would you like to install Netmaker Community Edition (CE), or Netmaker Enterprise Edition (EE)?"
-		echo "EE will require you to create an account at https://dashboard.license.netmaker.io"
+		echo "EE will require you to create an account at https://app.netmaker.io"
 		echo "-----------------------------------------------------"
 		select install_option in "Community Edition" "Enterprise Edition"; do
 			case $REPLY in
@@ -291,7 +291,7 @@ save_config() { (
 	fi
 	# version-specific entries
 	if [ "$INSTALL_TYPE" = "ee" ]; then
-		save_config_item NETMAKER_ACCOUNT_ID "$ACCOUNT_ID"
+		save_config_item NETMAKER_TENANT_ID "$TENANT_ID"
 		save_config_item LICENSE_KEY "$LICENSE_KEY"
 		save_config_item METRICS_EXPORTER "on"
 		save_config_item PROMETHEUS "on"
@@ -307,7 +307,7 @@ save_config() { (
 	fi
 	# copy entries from the previous config
 	local toCopy=("SERVER_HOST" "MASTER_KEY" "TURN_USERNAME" "TURN_PASSWORD" "MQ_USERNAME" "MQ_PASSWORD"
-		"INSTALL_TYPE" "NODE_ID" "METRICS_EXPORTER" "PROMETHEUS" "DNS_MODE" "NETCLIENT_AUTO_UPDATE" "API_PORT"
+		"INSTALL_TYPE" "NODE_ID" "DNS_MODE" "NETCLIENT_AUTO_UPDATE" "API_PORT"
 		"CORS_ALLOWED_ORIGIN" "DISPLAY_KEYS" "DATABASE" "SERVER_BROKER_ENDPOINT" "STUN_PORT" "VERBOSITY"
 		"DEFAULT_PROXY_MODE" "TURN_PORT" "USE_TURN" "DEBUG_MODE" "TURN_API_PORT" "REST_BACKEND"
 		"DISABLE_REMOTE_IP_CHECK" "NETCLIENT_ENDPOINT_DETECTION" "TELEMETRY" "AUTH_PROVIDER" "CLIENT_ID" "CLIENT_SECRET"
@@ -565,18 +565,18 @@ set_install_vars() {
 
 		echo "-----------------------------------------------------"
 		echo "Provide Details for EE installation:"
-		echo "    1. Log into https://dashboard.license.netmaker.io"
-		echo "    2. Copy License Key Value: https://dashboard.license.netmaker.io/license-keys"
-		echo "    3. Retrieve Account ID: https://dashboard.license.netmaker.io/user"
+		echo "    1. Log into https://app.netmaker.io"
+		echo "    2. follow instructions to get a license at: https://docs.netmaker.io/ee/ee-setup.html"
+		echo "    3. Retrieve License and Tenant ID"
 		echo "    4. note email address"
 		echo "-----------------------------------------------------"
 		unset LICENSE_KEY
 		while [ -z "$LICENSE_KEY" ]; do
 			read -p "License Key: " LICENSE_KEY
 		done
-		unset ACCOUNT_ID
-		while [ -z ${ACCOUNT_ID} ]; do
-			read -p "Account ID: " ACCOUNT_ID
+		unset TENANT_ID
+		while [ -z ${TENANT_ID} ]; do
+			read -p "Tenant ID: " TENANT_ID
 		done
 	fi
 
@@ -709,7 +709,7 @@ set_install_vars() {
 	echo "     public ip: $SERVER_HOST"
 	if [ "$INSTALL_TYPE" = "ee" ]; then
 		echo "       license: $LICENSE_KEY"
-		echo "    account id: $ACCOUNT_ID"
+		echo "    account id: $TENANT_ID"
 	fi
 	echo "-----------------------------------------------------------------"
 	echo "Confirm Settings for Installation"

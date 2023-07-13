@@ -48,9 +48,9 @@ func AddLicenseHooks() {
 // if license is not valid, server should terminate
 func ValidateLicense() error {
 	licenseKeyValue := servercfg.GetLicenseKey()
-	netmakerAccountID := servercfg.GetNetmakerAccountID()
+	netmakerTenantID := servercfg.GetNetmakerTenantID()
 	logger.Log(0, "proceeding with Netmaker license validation...")
-	if len(licenseKeyValue) == 0 || len(netmakerAccountID) == 0 {
+	if len(licenseKeyValue) == 0 || len(netmakerTenantID) == 0 {
 		logger.FatalLog0(errValidation.Error())
 	}
 
@@ -65,7 +65,7 @@ func ValidateLicense() error {
 	}
 
 	licenseSecret := LicenseSecret{
-		AssociatedID: netmakerAccountID,
+		AssociatedID: netmakerTenantID,
 		Limits:       getCurrentServerLimit(),
 	}
 
