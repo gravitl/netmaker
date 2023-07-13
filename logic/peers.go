@@ -386,7 +386,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		}
 		hostPeerUpdate.Peers[i] = peer
 	}
-	if deletedNode != nil {
+	if deletedNode != nil && host.OS != models.OS_Types.IoT {
 		peerHost, err := GetHost(deletedNode.HostID.String())
 		if err == nil && host.ID != peerHost.ID {
 			if _, ok := peerIndexMap[peerHost.PublicKey.String()]; !ok {
