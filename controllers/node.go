@@ -754,7 +754,6 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 			relayNode.RelayedNodes = relayedNodes
 			logic.UpsertNode(&relayNode)
 		}
-
 	}
 	if node.IsRelay {
 		// unset all the relayed nodes
@@ -770,17 +769,12 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	if !fromNode { // notify node change
 		runUpdates(&node, false)
 	}
-	go func(deletedNode *models.Node, fromNode bool) { // notify of peer change
+	go func() { // notify of peer change
 		var err error
-		if fromNode {
-			err = mq.PublishDeletedNodePeerUpdate(deletedNode)
-		} else {
-			err = mq.PublishPeerUpdate()
-		}
+		err = mq.PublishDeletedNodePeerUpdate(&node)
 		if err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
 		}
-
 		host, err := logic.GetHost(node.HostID.String())
 		if err != nil {
 			logger.Log(1, "failed to retrieve host for node", node.ID.String(), err.Error())
@@ -788,7 +782,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		if err := mq.PublishDNSDelete(&node, host); err != nil {
 			logger.Log(1, "error publishing dns update", err.Error())
 		}
-	}(&node, fromNode)
+	}()
 }
 
 func runUpdates(node *models.Node, ifaceDelta bool) {
