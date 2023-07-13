@@ -22,6 +22,7 @@ type HostPeerUpdate struct {
 	PeerIDs           PeerMap               `json:"peerids" bson:"peerids" yaml:"peerids"`
 	EndpointDetection bool                  `json:"endpointdetection" yaml:"endpointdetection"`
 	HostNetworkInfo   HostInfoMap           `json:"host_network_info,omitempty" bson:"host_network_info,omitempty" yaml:"host_network_info,omitempty"`
+	EgressRoutes      []EgressNetworkRoutes `json:"egress_network_routes"`
 }
 
 // IngressInfo - struct for ingress info
@@ -37,6 +38,12 @@ type EgressInfo struct {
 	EgressGwAddr net.IPNet                `json:"egress_gw_addr" yaml:"egress_gw_addr"`
 	GwPeers      map[string]PeerRouteInfo `json:"gateway_peers" yaml:"gateway_peers"`
 	EgressGWCfg  EgressGatewayRequest     `json:"egress_gateway_cfg" yaml:"egress_gateway_cfg"`
+}
+
+// EgressNetworkRoutes - struct for egress network routes for adding routes to peer's interface
+type EgressNetworkRoutes struct {
+	NodeAddr     net.IPNet `json:"node_addr"`
+	EgressRanges []string  `json:"egress_ranges"`
 }
 
 // PeerRouteInfo - struct for peer info for an ext. client

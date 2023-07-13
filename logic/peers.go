@@ -191,6 +191,12 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				PersistentKeepaliveInterval: &peer.PersistentKeepalive,
 				ReplaceAllowedIPs:           true,
 			}
+			if peer.IsEgressGateway {
+				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, models.EgressNetworkRoutes{
+					NodeAddr:     node.PrimaryAddressIPNet(),
+					EgressRanges: peer.EgressGatewayRanges,
+				})
+			}
 			if node.IsIngressGateway || node.IsEgressGateway {
 				if peer.IsIngressGateway {
 					_, extPeerIDAndAddrs, err := getExtPeers(&peer)
