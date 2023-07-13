@@ -26,7 +26,7 @@ jobs:
           webhook_token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
           color: "#42f545"
           username: "GitHub Bot"
-          message: "${{ github.repository }}: ${{ github.event.workflow_run.name }} on dashboard.${{ env.SERVER }}.clustercat.com was successful: droplets from this workflow (tag ${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}) will be deleted in 15 min"
+          message: " ${{ github.repository }}:${{ github.event.workflow_run.name }}:PR ${{ env.pull_request }} was successful: droplets from this workflow (tag ${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt}}) will be deleted in 15 min"
           file: ./results/results.log
       - name: delete droplets
         if: success() || failure()
@@ -67,7 +67,7 @@ jobs:
           webhook_token: ${{ secrets.DISCORD_WEBHOOK_TOKEN }}
           color: "#990000"
           username: "GitHub Bot"
-          message: "${{ github.repository }}: ${{ github.event.workflow_run.name }} failed: droplets from this workflow (tag ${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt}}) will be deleted in 3 hours"
+          message: " ${{ github.repository}}:${{ github.event.workflow_run.name }}:PR ${{ env.pull_request}} failed: droplets from this workflow (tag ${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}) will be deleted in 3 hours"
           file: ./results/results.log
       - name: discord error message
         uses: appleboy/discord-action@master
