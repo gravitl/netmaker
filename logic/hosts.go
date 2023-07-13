@@ -296,17 +296,26 @@ func UpsertHost(h *models.Host) error {
 }
 
 // RemoveHost - removes a given host from server
-func RemoveHost(h *models.Host) error {
-	if len(h.Nodes) > 0 {
+func RemoveHost(h *models.Host, forceDelete bool) error {
+	if !forceDelete && len(h.Nodes) > 0 {
 		return fmt.Errorf("host still has associated nodes")
 	}
+
 	if servercfg.IsUsingTurn() {
 		DeRegisterHostWithTurn(h.ID.String())
 	}
+
+	if len(h.Nodes) > 0 {
+		if err := DisassociateAllNodesFromHost(h.ID.String()); err != nil {
+			return err
+		}
+	}
+
 	err := database.DeleteRecord(database.HOSTS_TABLE_NAME, h.ID.String())
 	if err != nil {
 		return err
 	}
+
 	deleteHostFromCache(h.ID.String())
 	return nil
 }
