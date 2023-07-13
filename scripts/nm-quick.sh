@@ -43,6 +43,7 @@ while getopts evab:d:t: flag; do
 	case "${flag}" in
 	e)
 		INSTALL_TYPE="ee"
+		UPGRADE_FLAG="yes"
 		;;
 	v)
 		usage
@@ -880,6 +881,9 @@ print_logo
 if [ -f "$CONFIG_PATH" ]; then
 	echo "Using config: $CONFIG_PATH"
 	source "$CONFIG_PATH"
+	if [ "$UPGRADE_FLAG" = "yes" ]; then
+		INSTALL_TYPE="ee"
+	fi
 fi
 
 # 2. setup the build instructions
