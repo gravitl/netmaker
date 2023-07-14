@@ -9,7 +9,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/hostactions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
@@ -260,18 +259,14 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(1, "added new node", newNode.ID.String(), "to host", currHost.Name)
-	hostactions.AddAction(models.HostUpdate{
-		Action: models.JoinHostToNetwork,
-		Host:   *currHost,
-		Node:   *newNode,
-	})
-
-	mq.HostUpdate(&models.HostUpdate{
-		Action: models.RequestAck,
-		Host:   *currHost,
-	})
-	go mq.BroadcastAddOrUpdateNetworkPeer(models.Client{Host: *currHost, Node: *newNode}, false)
-
+	go func() {
+		mq.HostUpdate(&models.HostUpdate{
+			Action: models.JoinHostToNetwork,
+			Host:   *currHost,
+			Node:   *newNode,
+		})
+		mq.BroadcastAddOrUpdateNetworkPeer(models.Client{Host: *currHost, Node: *newNode}, false)
+	}()
 	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("added host %s to network %s", currHost.Name, network))
 	w.WriteHeader(http.StatusOK)
 }
@@ -310,6 +305,25 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, r.Header.Get("user"), "failed to remove host from network:", hostid, network, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
+	}
+	if node.IsRelayed {
+		// cleanup node from relayednodes on relay node
+		relayNode, err := logic.GetNodeByID(node.RelayedBy)
+		if err == nil {
+			relayedNodes := []string{}
+			for _, relayedNodeID := range relayNode.RelayedNodes {
+				if relayedNodeID == node.ID.String() {
+					continue
+				}
+				relayedNodes = append(relayedNodes, relayedNodeID)
+			}
+			relayNode.RelayedNodes = relayedNodes
+			logic.UpsertNode(&relayNode)
+		}
+	}
+	if node.IsRelay {
+		// unset all the relayed nodes
+		logic.SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
 	}
 	node.Action = models.NODE_DELETE
 	node.PendingDelete = true

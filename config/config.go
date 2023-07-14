@@ -71,7 +71,7 @@ type ServerConfig struct {
 	MetricsExporter            string `yaml:"metrics_exporter"`
 	BasicAuth                  string `yaml:"basic_auth"`
 	LicenseValue               string `yaml:"license_value"`
-	NetmakerAccountID          string `yaml:"netmaker_account_id"`
+	NetmakerTenantID           string `yaml:"netmaker_tenant_id"`
 	IsEE                       string `yaml:"is_ee"`
 	TurnServer                 string `yaml:"turn_server"`
 	TurnApiServer              string `yaml:"turn_api_server"`
