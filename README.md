@@ -47,18 +47,22 @@
 | :heavy_check_mark: Mesh VPNs              | :heavy_check_mark: Private DNS          | :heavy_check_mark: Mac                  |
 | :heavy_check_mark: Site-to-Site           | :heavy_check_mark: Access Control Lists | :heavy_check_mark: Windows              |
 
-# Get Started in 5 Minutes  
+# Try Online  
 
-(For production-grade installations, visit the [Install Docs](https://netmaker.readthedocs.io/en/master/install.html).)  
+If you're just looking to use Netmaker, you can create an account for free at [netmaker.io](https://account.netmaker.io).  
+
+# Self-Hosted Quick Start  
+
+These are the instructions for deploying a Netmaker server on your own cloud VM as quickly as possible. For more detailed instructions, visit the [Install Docs](https://netmaker.readthedocs.io/en/master/install.html).  
 
 1. Get a cloud VM with Ubuntu 22.04 and a public IP.
-2. Open ports 443, 80, and 51821-51830/udp on the VM firewall and in cloud security settings.
-3. (optional) Prepare DNS - Set a wildcard subdomain in your DNS for Netmaker, e.g. *.netmaker.example.com
+2. Open ports 443, 80, 3479, 8089 and 51821-51830/udp on the VM firewall and in cloud security settings.
+3. (recommended) Prepare DNS - Set a wildcard subdomain in your DNS settings for Netmaker, e.g. *.netmaker.example.com, which points to your VM's pubic IP.
 4. Run the script: 
 
 `sudo wget -qO /root/nm-quick.sh https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh && sudo chmod +x /root/nm-quick.sh && sudo /root/nm-quick.sh`  
 
-This script gives you the option to deploy the Community or Enterprise version of Netmaker. If deploying Enterprise, you get a free account with a 50 node limit by default. It also gives you the option to use your own domain (recommended) or an auto-generated domain. 
+This script gives you the option to deploy the Community or Enterprise version of Netmaker. It also gives you the option to use your own domain (recommended) or an auto-generated domain. 
 
 <p float="left" align="middle">
 <img src="https://raw.githubusercontent.com/gravitl/netmaker-docs/master/images/netmaker-github/readme.gif" />
