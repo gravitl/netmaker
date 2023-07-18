@@ -90,7 +90,6 @@ func GetServerConfig() config.ServerConfig {
 	if Is_EE {
 		cfg.IsEE = "yes"
 	}
-	cfg.DefaultProxyMode = GetDefaultProxyMode()
 
 	return cfg
 }
@@ -731,17 +730,6 @@ func GetTurnPassword() string {
 
 }
 
-// IsProxyEnabled - is proxy on or off
-func IsProxyEnabled() bool {
-	var enabled = false //default
-	if os.Getenv("PROXY") != "" {
-		enabled = os.Getenv("PROXY") == "on"
-	} else if config.Config.Server.Proxy != "" {
-		enabled = config.Config.Server.Proxy == "on"
-	}
-	return enabled
-}
-
 // GetNetworkLimit - fetches free tier limits on users
 func GetUserLimit() int {
 	var userslimit int
@@ -792,32 +780,6 @@ func DeployedByOperator() bool {
 		return os.Getenv("DEPLOYED_BY_OPERATOR") == "true"
 	}
 	return config.Config.Server.DeployedByOperator
-}
-
-// GetDefaultProxyMode - default proxy mode for a server
-func GetDefaultProxyMode() config.ProxyMode {
-	var (
-		mode config.ProxyMode
-		def  string
-	)
-	if os.Getenv("DEFAULT_PROXY_MODE") != "" {
-		def = os.Getenv("DEFAULT_PROXY_MODE")
-	} else if config.Config.Server.DefaultProxyMode.Set {
-		return config.Config.Server.DefaultProxyMode
-	}
-	switch strings.ToUpper(def) {
-	case "ON":
-		mode.Set = true
-		mode.Value = true
-	case "OFF":
-		mode.Set = true
-		mode.Value = false
-	// AUTO or any other value
-	default:
-		mode.Set = false
-	}
-	return mode
-
 }
 
 // parseStunList - turn string into slice of StunServers

@@ -15,8 +15,6 @@ type HostPeerUpdate struct {
 	ServerAddrs       []ServerAddr         `json:"serveraddrs" bson:"serveraddrs" yaml:"serveraddrs"`
 	NodePeers         []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
 	Peers             []wgtypes.PeerConfig
-	HostPeerIDs       HostPeerMap           `json:"hostpeerids" bson:"hostpeerids" yaml:"hostpeerids"`
-	ProxyUpdate       ProxyManagerPayload   `json:"proxy_update" bson:"proxy_update" yaml:"proxy_update"`
 	EgressInfo        map[string]EgressInfo `json:"egress_info" bson:"egress_info" yaml:"egress_info"` // map key is node ID
 	IngressInfo       IngressInfo           `json:"ingress_info" bson:"ext_peers" yaml:"ext_peers"`
 	PeerIDs           PeerMap               `json:"peerids" bson:"peerids" yaml:"peerids"`

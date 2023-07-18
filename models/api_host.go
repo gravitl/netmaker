@@ -60,10 +60,7 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 	a.Name = h.Name
 	a.OS = h.OS
 	a.Nodes = h.Nodes
-	a.ProxyEnabled = h.ProxyEnabled
-	a.PublicListenPort = h.PublicListenPort
 	a.WgPublicListenPort = h.WgPublicListenPort
-	a.ProxyListenPort = h.ProxyListenPort
 	a.PublicKey = h.PublicKey.String()
 	a.Verbosity = h.Verbosity
 	a.Version = h.Version
@@ -95,8 +92,6 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.IsK8S = currentHost.IsK8S
 	h.IsStatic = a.IsStatic
 	h.ListenPort = a.ListenPort
-	h.ProxyListenPort = a.ProxyListenPort
-	h.PublicListenPort = currentHost.PublicListenPort
 	h.MTU = a.MTU
 	h.MacAddress = currentHost.MacAddress
 	h.PublicKey = currentHost.PublicKey
@@ -106,7 +101,6 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.Nodes = currentHost.Nodes
 	h.TrafficKeyPublic = currentHost.TrafficKeyPublic
 	h.OS = currentHost.OS
-	h.ProxyEnabled = a.ProxyEnabled
 	h.IsDefault = a.IsDefault
 	h.NatType = currentHost.NatType
 	h.TurnEndpoint = currentHost.TurnEndpoint

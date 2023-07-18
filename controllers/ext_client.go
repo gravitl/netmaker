@@ -348,11 +348,8 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	listenPort := host.ListenPort
-	if host.ProxyEnabled {
-		listenPort = host.ProxyListenPort
-	}
-	extclient.IngressGatewayEndpoint = host.EndpointIP.String() + ":" + strconv.FormatInt(int64(listenPort), 10)
+	listenPort := logic.GetPeerListenPort(host)
+	extclient.IngressGatewayEndpoint = fmt.Sprintf("%s:%d", host.EndpointIP.String(), listenPort)
 	extclient.Enabled = true
 	parentNetwork, err := logic.GetNetwork(networkName)
 	if err == nil { // check if parent network default ACL is enabled (yes) or not (no)

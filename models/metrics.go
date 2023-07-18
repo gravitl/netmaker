@@ -29,12 +29,12 @@ type Metric struct {
 
 // IDandAddr - struct to hold ID and primary Address
 type IDandAddr struct {
-	ID              string `json:"id" bson:"id" yaml:"id"`
-	Address         string `json:"address" bson:"address" yaml:"address"`
-	Name            string `json:"name" bson:"name" yaml:"name"`
-	IsServer        string `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
-	Network         string `json:"network" bson:"network" yaml:"network" validate:"network"`
-	ProxyListenPort int    `json:"proxy_listen_port" yaml:"proxy_listen_port"`
+	ID         string `json:"id" bson:"id" yaml:"id"`
+	Address    string `json:"address" bson:"address" yaml:"address"`
+	Name       string `json:"name" bson:"name" yaml:"name"`
+	IsServer   string `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
+	Network    string `json:"network" bson:"network" yaml:"network" validate:"network"`
+	ListenPort int    `json:"listen_port" yaml:"listen_port"`
 }
 
 // HostInfoMap - map of host public keys to host networking info
@@ -42,15 +42,12 @@ type HostInfoMap map[string]HostNetworkInfo
 
 // HostNetworkInfo - holds info related to host networking (used for client side peer calculations)
 type HostNetworkInfo struct {
-	Interfaces      []Iface `json:"interfaces" yaml:"interfaces"`
-	ProxyListenPort int     `json:"proxy_listen_port" yaml:"proxy_listen_port"`
+	Interfaces []Iface `json:"interfaces" yaml:"interfaces"`
+	ListenPort int     `json:"listen_port" yaml:"listen_port"`
 }
 
 // PeerMap - peer map for ids and addresses in metrics
 type PeerMap map[string]IDandAddr
-
-// HostPeerMap - host peer map for ids and addresses
-type HostPeerMap map[string]map[string]IDandAddr
 
 // MetricsMap - map for holding multiple metrics in memory
 type MetricsMap map[string]Metrics
