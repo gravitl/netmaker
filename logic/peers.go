@@ -416,9 +416,10 @@ func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, e
 		}
 		peers = append(peers, peer)
 		idsAndAddr = append(idsAndAddr, models.IDandAddr{
-			ID:      peer.PublicKey.String(),
-			Name:    extPeer.ClientID,
-			Address: primaryAddr,
+			ID:          peer.PublicKey.String(),
+			Name:        extPeer.ClientID,
+			Address:     primaryAddr,
+			IsExtClient: true,
 		})
 	}
 	return peers, idsAndAddr, nil
