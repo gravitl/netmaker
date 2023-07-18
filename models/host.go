@@ -25,15 +25,11 @@ var OS_Types = struct {
 
 // NAT_Types - the type of NAT in which a HOST currently resides (simplified)
 var NAT_Types = struct {
-	Public     string
-	Symmetric  string
-	Asymmetric string
-	Double     string
+	Public    string
+	BehindNAT string
 }{
-	Public:     "public",
-	Symmetric:  "symmetric",
-	Asymmetric: "asymmetric",
-	Double:     "double",
+	Public:    "public",
+	BehindNAT: "behind_nat",
 }
 
 // WIREGUARD_INTERFACE name of wireguard interface
