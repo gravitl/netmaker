@@ -15,12 +15,11 @@ type HostPeerUpdate struct {
 	ServerAddrs       []ServerAddr         `json:"serveraddrs" bson:"serveraddrs" yaml:"serveraddrs"`
 	NodePeers         []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
 	Peers             []wgtypes.PeerConfig
-	EgressInfo        map[string]EgressInfo `json:"egress_info" bson:"egress_info" yaml:"egress_info"` // map key is node ID
-	IngressInfo       IngressInfo           `json:"ingress_info" bson:"ext_peers" yaml:"ext_peers"`
 	PeerIDs           PeerMap               `json:"peerids" bson:"peerids" yaml:"peerids"`
 	EndpointDetection bool                  `json:"endpointdetection" yaml:"endpointdetection"`
 	HostNetworkInfo   HostInfoMap           `json:"host_network_info,omitempty" bson:"host_network_info,omitempty" yaml:"host_network_info,omitempty"`
 	EgressRoutes      []EgressNetworkRoutes `json:"egress_network_routes"`
+	FwUpdate          FwUpdate              `json:"fw_update"`
 }
 
 // IngressInfo - struct for ingress info
@@ -66,4 +65,12 @@ type ExtClientInfo struct {
 type KeyUpdate struct {
 	Network   string `json:"network" bson:"network"`
 	Interface string `json:"interface" bson:"interface"`
+}
+
+// FwUpdate - struct for firewall updates
+type FwUpdate struct {
+	IsIngressGw bool                  `json:"is_ingress_gw"`
+	IsEgressGw  bool                  `json:"is_egress_gw"`
+	IngressInfo IngressInfo           `json:"ingress_info"`
+	EgressInfo  map[string]EgressInfo `json:"egress_info"`
 }

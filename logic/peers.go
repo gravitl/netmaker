@@ -29,10 +29,12 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		Server:        servercfg.GetServer(),
 		ServerVersion: servercfg.GetVersion(),
 		ServerAddrs:   []models.ServerAddr{},
-		IngressInfo: models.IngressInfo{
-			ExtPeers: make(map[string]models.ExtClientInfo),
+		FwUpdate: models.FwUpdate{
+			IngressInfo: models.IngressInfo{
+				ExtPeers: make(map[string]models.ExtClientInfo),
+			},
+			EgressInfo: make(map[string]models.EgressInfo),
 		},
-		EgressInfo:      make(map[string]models.EgressInfo),
 		PeerIDs:         make(models.PeerMap, 0),
 		Peers:           []wgtypes.PeerConfig{},
 		NodePeers:       []wgtypes.PeerConfig{},
@@ -155,7 +157,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					}
 				}
 				if node.IsIngressGateway && peer.IsEgressGateway {
-					hostPeerUpdate.IngressInfo.EgressRanges = append(hostPeerUpdate.IngressInfo.EgressRanges,
+					hostPeerUpdate.FwUpdate.IngressInfo.EgressRanges = append(hostPeerUpdate.FwUpdate.IngressInfo.EgressRanges,
 						peer.EgressGatewayRanges...)
 				}
 				nodePeerMap[peerHost.PublicKey.String()] = models.PeerRouteInfo{
@@ -246,6 +248,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		var extPeers []wgtypes.PeerConfig
 		var extPeerIDAndAddrs []models.IDandAddr
 		if node.IsIngressGateway {
+			hostPeerUpdate.FwUpdate.IsIngressGw = true
 			extPeers, extPeerIDAndAddrs, err = getExtPeers(&node)
 			if err == nil {
 				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
@@ -264,7 +267,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
 					extPeerIdAndAddr := extPeerIdAndAddr
 
-					hostPeerUpdate.IngressInfo.ExtPeers[extPeerIdAndAddr.ID] = models.ExtClientInfo{
+					hostPeerUpdate.FwUpdate.IngressInfo.ExtPeers[extPeerIdAndAddr.ID] = models.ExtClientInfo{
 						Masquerade: true,
 						IngGwAddr: net.IPNet{
 							IP:   net.ParseIP(node.PrimaryAddress()),
@@ -288,7 +291,8 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			}
 		}
 		if node.IsEgressGateway {
-			hostPeerUpdate.EgressInfo[node.ID.String()] = models.EgressInfo{
+			hostPeerUpdate.FwUpdate.IsEgressGw = true
+			hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()] = models.EgressInfo{
 				EgressID: node.ID.String(),
 				Network:  node.PrimaryNetworkRange(),
 				EgressGwAddr: net.IPNet{
