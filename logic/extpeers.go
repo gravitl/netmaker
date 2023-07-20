@@ -94,6 +94,9 @@ func GetNetworkExtClients(network string) ([]models.ExtClient, error) {
 	}
 	records, err := database.FetchRecords(database.EXT_CLIENT_TABLE_NAME)
 	if err != nil {
+		if database.IsEmptyRecord(err) {
+			return extclients, nil
+		}
 		return extclients, err
 	}
 	for _, value := range records {
