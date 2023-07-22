@@ -16,9 +16,6 @@ type ApiHost struct {
 	Debug              bool     `json:"debug"`
 	IsStatic           bool     `json:"isstatic"`
 	ListenPort         int      `json:"listenport"`
-	LocalListenPort    int      `json:"locallistenport"`
-	ProxyListenPort    int      `json:"proxy_listen_port"`
-	PublicListenPort   int      `json:"public_listen_port" yaml:"public_listen_port"`
 	WgPublicListenPort int      `json:"wg_public_listen_port" yaml:"wg_public_listen_port"`
 	MTU                int      `json:"mtu" yaml:"mtu"`
 	Interfaces         []Iface  `json:"interfaces" yaml:"interfaces"`
@@ -28,7 +25,6 @@ type ApiHost struct {
 	MacAddress         string   `json:"macaddress"`
 	InternetGateway    string   `json:"internetgateway"`
 	Nodes              []string `json:"nodes"`
-	ProxyEnabled       bool     `json:"proxy_enabled" yaml:"proxy_enabled"`
 	IsDefault          bool     `json:"isdefault" yaml:"isdefault"`
 	IsRelayed          bool     `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
 	RelayedBy          string   `json:"relayed_by" bson:"relayed_by" yaml:"relayed_by"`
