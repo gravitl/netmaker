@@ -18,7 +18,7 @@ jobs:
           if_no_artifact_found: warn
       - name: get server name
         run: |
-          echo "SERVER=$(cat ./server/server) >> $GITHUB_ENV"
+          echo "SERVER=$(cat ./server/server)" >> $GITHUB_ENV
       - name: discord success message
         uses: appleboy/discord-action@master
         with:
@@ -59,7 +59,7 @@ jobs:
           if_no_artifact_found: warn
       - name: get server name
         run: |
-          echo "SERVER=$(cat ./server/server) >> $GITHUB_ENV"
+          echo "SERVER=$(cat ./server/server)" >> $GITHUB_ENV
       - name: discord failure message
         uses: appleboy/discord-action@master
         with:
