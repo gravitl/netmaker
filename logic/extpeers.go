@@ -151,6 +151,10 @@ func GetExtClientByPubKey(publicKey string, network string) (*models.ExtClient, 
 // CreateExtClient - creates an extclient
 func CreateExtClient(extclient *models.ExtClient) error {
 
+	// lock because we need unique IPs and having it concurrent makes parallel calls result in same "unique" IPs
+	addressLock.Lock()
+	defer addressLock.Unlock()
+
 	if len(extclient.PublicKey) == 0 {
 		privateKey, err := wgtypes.GeneratePrivateKey()
 		if err != nil {
