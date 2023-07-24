@@ -766,7 +766,7 @@ func filterNodeMapForClientACLs(publicKey, network string, nodePeerMap map[strin
 	}
 	for k := range nodePeerMap {
 		currNodePeer := nodePeerMap[k]
-		if _, ok := client.ACLs[currNodePeer.ID]; ok {
+		if _, ok := client.DeniedACLs[currNodePeer.ID]; ok {
 			delete(nodePeerMap, k)
 		}
 	}

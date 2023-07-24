@@ -7,11 +7,11 @@ func DenyClientNode(ec *models.ExtClient, clientOrNodeID string) (ok bool) {
 	if ec == nil || len(clientOrNodeID) == 0 {
 		return
 	}
-	if ec.ACLs == nil {
-		ec.ACLs = map[string]struct{}{}
+	if ec.DeniedACLs == nil {
+		ec.DeniedACLs = map[string]struct{}{}
 	}
 	ok = true
-	ec.ACLs[clientOrNodeID] = struct{}{}
+	ec.DeniedACLs[clientOrNodeID] = struct{}{}
 	return
 }
 
@@ -20,22 +20,22 @@ func IsClientNodeAllowed(ec *models.ExtClient, clientOrNodeID string) bool {
 	if ec == nil || len(clientOrNodeID) == 0 {
 		return false
 	}
-	if ec.ACLs == nil {
+	if ec.DeniedACLs == nil {
 		return true
 	}
-	_, ok := ec.ACLs[clientOrNodeID]
+	_, ok := ec.DeniedACLs[clientOrNodeID]
 	return ok
 }
 
 // RemoveDeniedNodeFromClient - removes a node id from set of denied nodes
 func RemoveDeniedNodeFromClient(ec *models.ExtClient, clientOrNodeID string) bool {
-	if ec.ACLs == nil {
+	if ec.DeniedACLs == nil {
 		return true
 	}
-	_, ok := ec.ACLs[clientOrNodeID]
+	_, ok := ec.DeniedACLs[clientOrNodeID]
 	if !ok {
 		return false
 	}
-	delete(ec.ACLs, clientOrNodeID)
+	delete(ec.DeniedACLs, clientOrNodeID)
 	return true
 }
