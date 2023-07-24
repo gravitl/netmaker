@@ -150,7 +150,6 @@ func GetNetworkSettings(networkname string) (models.Network, error) {
 
 // UniqueAddress - get a unique ipv4 address
 func UniqueAddress(networkName string, reverse bool) (net.IP, error) {
-
 	add := net.IP{}
 	var network models.Network
 	network, err := GetParentNetwork(networkName)
@@ -238,7 +237,6 @@ func IsIPUnique(network string, ip string, tableName string, isIpv6 bool) bool {
 
 // UniqueAddress6 - see if ipv6 address is unique
 func UniqueAddress6(networkName string, reverse bool) (net.IP, error) {
-
 	add := net.IP{}
 	var network models.Network
 	network, err := GetParentNetwork(networkName)
