@@ -15,14 +15,15 @@ type ExtClient struct {
 	LastModified           int64               `json:"lastmodified" bson:"lastmodified"`
 	Enabled                bool                `json:"enabled" bson:"enabled"`
 	OwnerID                string              `json:"ownerid" bson:"ownerid"`
-	DeniedACLs             map[string]struct{} `json:"deniedNodeAcls,omitempty" bson:"acls,omitempty"`
+	DeniedACLs             map[string]struct{} `json:"deniednodeacls" bson:"acls,omitempty"`
 }
 
 // CustomExtClient - struct for CustomExtClient params
 type CustomExtClient struct {
-	ClientID        string   `json:"clientid,omitempty"`
-	PublicKey       string   `json:"publickey,omitempty"`
-	DNS             string   `json:"dns,omitempty"`
-	ExtraAllowedIPs []string `json:"extraallowedips,omitempty"`
-	Enabled         bool     `json:"enabled,omitempty"`
+	ClientID        string              `json:"clientid,omitempty"`
+	PublicKey       string              `json:"publickey,omitempty"`
+	DNS             string              `json:"dns,omitempty"`
+	ExtraAllowedIPs []string            `json:"extraallowedips,omitempty"`
+	Enabled         bool                `json:"enabled,omitempty"`
+	DeniedACLs      map[string]struct{} `json:"deniednodeacls" bson:"acls,omitempty"`
 }

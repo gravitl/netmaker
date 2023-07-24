@@ -3,6 +3,7 @@ package logic
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"sync"
 	"time"
 
@@ -233,6 +234,9 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) (*mo
 	}
 	if update.ExtraAllowedIPs != nil && StringDifference(old.ExtraAllowedIPs, update.ExtraAllowedIPs) != nil {
 		new.ExtraAllowedIPs = update.ExtraAllowedIPs
+	}
+	if update.DeniedACLs != nil && !reflect.DeepEqual(old.DeniedACLs, update.DeniedACLs) {
+		new.DeniedACLs = update.DeniedACLs
 	}
 	return new, CreateExtClient(new)
 }

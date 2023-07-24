@@ -478,6 +478,9 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 			logger.Log(0, "failed to associate client", update.ClientID, "to user", oldExtClient.OwnerID)
 		}
 	}
+	if update.DeniedACLs != nil {
+		logic.SetClientACLs(&oldExtClient, update.DeniedACLs)
+	}
 	// == END PRO ==
 
 	var changedEnabled = (update.Enabled != oldExtClient.Enabled) // indicates there was a change in enablement
