@@ -24,7 +24,7 @@ func IsClientNodeAllowed(ec *models.ExtClient, clientOrNodeID string) bool {
 		return true
 	}
 	_, ok := ec.DeniedACLs[clientOrNodeID]
-	return ok
+	return !ok
 }
 
 // RemoveDeniedNodeFromClient - removes a node id from set of denied nodes

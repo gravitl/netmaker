@@ -11,17 +11,14 @@ import (
 var (
 	// DenyClientNodeAccess - function to handle adding a node to an ext client's denied node set
 	DenyClientNodeAccess = func(ec *models.ExtClient, clientOrNodeID string) bool {
-		ec.DeniedACLs[clientOrNodeID] = struct{}{}
 		return true
 	}
 	// IsClientNodeAllowed - function to check if an ext client's denied node set contains a node ID
 	IsClientNodeAllowed = func(ec *models.ExtClient, clientOrNodeID string) bool {
-		_, isNodeDenied := ec.DeniedACLs[clientOrNodeID]
-		return !isNodeDenied
+		return true
 	}
 	// AllowClientNodeAccess - function to handle removing a node ID from ext client's denied nodes, thus allowing it
 	AllowClientNodeAccess = func(ec *models.ExtClient, clientOrNodeID string) bool {
-		delete(ec.DeniedACLs, clientOrNodeID)
 		return true
 	}
 )
