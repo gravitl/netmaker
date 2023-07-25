@@ -51,17 +51,18 @@ func ValidateLicense() error {
 	netmakerTenantID := servercfg.GetNetmakerTenantID()
 	logger.Log(0, "proceeding with Netmaker license validation...")
 	if len(licenseKeyValue) == 0 || len(netmakerTenantID) == 0 {
-		logger.FatalLog0(errValidation.Error())
+		err := fmt.Errorf("license-key: %s, tenant-id: %s", licenseKeyValue, netmakerTenantID)
+		logger.FatalLog0(fmt.Errorf("%w: %w", errValidation, err))
 	}
 
 	apiPublicKey, err := getLicensePublicKey(licenseKeyValue)
 	if err != nil {
-		logger.FatalLog0(errValidation.Error())
+		logger.FatalLog0(fmt.Errorf("%w: %w", errValidation, err))
 	}
 
 	tempPubKey, tempPrivKey, err := FetchApiServerKeys()
 	if err != nil {
-		logger.FatalLog0(errValidation.Error())
+		logger.FatalLog0(fmt.Errorf("%w: %w", errValidation, err))
 	}
 
 	licenseSecret := LicenseSecret{
@@ -71,32 +72,33 @@ func ValidateLicense() error {
 
 	secretData, err := json.Marshal(&licenseSecret)
 	if err != nil {
-		logger.FatalLog0(errValidation.Error())
+		logger.FatalLog0(fmt.Errorf("%w: %w", errValidation, err))
 	}
 
 	encryptedData, err := ncutils.BoxEncrypt(secretData, apiPublicKey, tempPrivKey)
 	if err != nil {
-		logger.FatalLog0(errValidation.Error())
+		logger.FatalLog0(fmt.Errorf("%w: %w", errValidation, err))
 	}
 
 	validationResponse, err := validateLicenseKey(encryptedData, tempPubKey)
 	if err != nil || len(validationResponse) == 0 {
-		logger.FatalLog0(errValidation.Error())
+		err := fmt.Errorf("err: %w, validation-response: %s", err, string(validationResponse))
+		logger.FatalLog0(fmt.Errorf("%w: %w", errValidation, err))
 	}
 
 	var licenseResponse ValidatedLicense
 	if err = json.Unmarshal(validationResponse, &licenseResponse); err != nil {
-		logger.FatalLog0(errValidation.Error())
+		logger.FatalLog0(fmt.Errorf("%w: %w", errValidation, err))
 	}
 
 	respData, err := ncutils.BoxDecrypt(base64decode(licenseResponse.EncryptedLicense), apiPublicKey, tempPrivKey)
 	if err != nil {
-		logger.FatalLog0(errValidation.Error())
+		logger.FatalLog0(fmt.Errorf("%w: %w", errValidation, err))
 	}
 
 	license := LicenseKey{}
 	if err = json.Unmarshal(respData, &license); err != nil {
-		logger.FatalLog0(errValidation.Error())
+		logger.FatalLog0(fmt.Errorf("%w: %w", errValidation, err))
 	}
 
 	logger.Log(0, "License validation succeeded!")
