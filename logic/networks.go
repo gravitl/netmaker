@@ -426,8 +426,4 @@ func SortNetworks(unsortedNetworks []models.Network) {
 
 // == Private ==
 
-var addressLock sync.Locker
-
-func init() {
-	addressLock = &sync.Mutex{}
-}
+var addressLock = &sync.Mutex{}
