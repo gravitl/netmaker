@@ -25,15 +25,11 @@ var OS_Types = struct {
 
 // NAT_Types - the type of NAT in which a HOST currently resides (simplified)
 var NAT_Types = struct {
-	Public     string
-	Symmetric  string
-	Asymmetric string
-	Double     string
+	Public    string
+	BehindNAT string
 }{
-	Public:     "public",
-	Symmetric:  "symmetric",
-	Asymmetric: "asymmetric",
-	Double:     "double",
+	Public:    "public",
+	BehindNAT: "behind_nat",
 }
 
 // WIREGUARD_INTERFACE name of wireguard interface
@@ -54,24 +50,16 @@ type Host struct {
 	Interface          string           `json:"interface" yaml:"interface"`
 	Debug              bool             `json:"debug" yaml:"debug"`
 	ListenPort         int              `json:"listenport" yaml:"listenport"`
-	PublicListenPort   int              `json:"public_listen_port" yaml:"public_listen_port"`
 	WgPublicListenPort int              `json:"wg_public_listen_port" yaml:"wg_public_listen_port"`
-	ProxyListenPort    int              `json:"proxy_listen_port" yaml:"proxy_listen_port"`
 	MTU                int              `json:"mtu" yaml:"mtu"`
 	PublicKey          wgtypes.Key      `json:"publickey" yaml:"publickey"`
 	MacAddress         net.HardwareAddr `json:"macaddress" yaml:"macaddress"`
 	TrafficKeyPublic   []byte           `json:"traffickeypublic" yaml:"traffickeypublic"`
 	InternetGateway    net.UDPAddr      `json:"internetgateway" yaml:"internetgateway"`
 	Nodes              []string         `json:"nodes" yaml:"nodes"`
-	IsRelayed          bool             `json:"isrelayed" yaml:"isrelayed"`
-	RelayedBy          string           `json:"relayed_by" yaml:"relayed_by"`
-	IsRelay            bool             `json:"isrelay" yaml:"isrelay"`
-	RelayedHosts       []string         `json:"relay_hosts" yaml:"relay_hosts"`
 	Interfaces         []Iface          `json:"interfaces" yaml:"interfaces"`
 	DefaultInterface   string           `json:"defaultinterface" yaml:"defaultinterface"`
 	EndpointIP         net.IP           `json:"endpointip" yaml:"endpointip"`
-	ProxyEnabled       bool             `json:"proxy_enabled" yaml:"proxy_enabled"`
-	ProxyEnabledSet    bool             `json:"proxy_enabled_updated" yaml:"proxy_enabled_updated"`
 	IsDocker           bool             `json:"isdocker" yaml:"isdocker"`
 	IsK8S              bool             `json:"isk8s" yaml:"isk8s"`
 	IsStatic           bool             `json:"isstatic" yaml:"isstatic"`
