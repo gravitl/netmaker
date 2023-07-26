@@ -423,6 +423,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 
 	var update models.CustomExtClient
 	var oldExtClient models.ExtClient
+	var sendPeerUpdate bool
 	err := json.NewDecoder(r.Body).Decode(&update)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ",
@@ -478,9 +479,15 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 			logger.Log(0, "failed to associate client", update.ClientID, "to user", oldExtClient.OwnerID)
 		}
 	}
+	if len(update.DeniedACLs) != len(oldExtClient.DeniedACLs) {
+		sendPeerUpdate = true
+		logic.SetClientACLs(&oldExtClient, update.DeniedACLs)
+	}
 	// == END PRO ==
 
-	var changedEnabled = (update.Enabled != oldExtClient.Enabled) // indicates there was a change in enablement
+	if update.Enabled != oldExtClient.Enabled {
+		sendPeerUpdate = true
+	}
 	// extra var need as logic.Update changes oldExtClient
 	currentClient := oldExtClient
 	newclient, err := logic.UpdateExtClient(&oldExtClient, &update)
@@ -492,7 +499,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(0, r.Header.Get("user"), "updated ext client", update.ClientID)
-	if changedEnabled { // need to send a peer update to the ingress node as enablement of one of it's clients has changed
+	if sendPeerUpdate { // need to send a peer update to the ingress node as enablement of one of it's clients has changed
 		if ingressNode, err := logic.GetNodeByID(newclient.IngressGatewayID); err == nil {
 			if err = mq.PublishPeerUpdate(); err != nil {
 				logger.Log(1, "error setting ext peers on", ingressNode.ID.String(), ":", err.Error())

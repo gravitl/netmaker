@@ -409,6 +409,15 @@ func DissasociateNodeFromHost(n *models.Node, h *models.Host) error {
 	} else {
 		h.Nodes = RemoveStringSlice(h.Nodes, index)
 	}
+	go func() {
+		if servercfg.Is_EE {
+			if clients, err := GetNetworkExtClients(n.Network); err != nil {
+				for i := range clients {
+					AllowClientNodeAccess(&clients[i], n.ID.String())
+				}
+			}
+		}
+	}()
 	if err := deleteNodeByID(n); err != nil {
 		return err
 	}

@@ -199,7 +199,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			}
 			if node.IsIngressGateway || node.IsEgressGateway {
 				if peer.IsIngressGateway {
-					_, extPeerIDAndAddrs, err := getExtPeers(&peer)
+					_, extPeerIDAndAddrs, err := getExtPeers(&peer, &node)
 					if err == nil {
 						for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
 							extPeerIdAndAddr := extPeerIdAndAddr
@@ -322,7 +322,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		var extPeers []wgtypes.PeerConfig
 		var extPeerIDAndAddrs []models.IDandAddr
 		if node.IsIngressGateway {
-			extPeers, extPeerIDAndAddrs, err = getExtPeers(&node)
+			extPeers, extPeerIDAndAddrs, err = getExtPeers(&node, &node)
 			if err == nil {
 				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
 					extPeerIdAndAddr := extPeerIdAndAddr
@@ -463,7 +463,7 @@ func GetProxyListenPort(host *models.Host) int {
 	return proxyPort
 }
 
-func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, error) {
+func getExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, error) {
 	var peers []wgtypes.PeerConfig
 	var idsAndAddr []models.IDandAddr
 	extPeers, err := GetNetworkExtClients(node.Network)
@@ -476,6 +476,9 @@ func getExtPeers(node *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, e
 	}
 	for _, extPeer := range extPeers {
 		extPeer := extPeer
+		if !IsClientNodeAllowed(&extPeer, peer.ID.String()) {
+			continue
+		}
 		pubkey, err := wgtypes.ParseKey(extPeer.PublicKey)
 		if err != nil {
 			logger.Log(1, "error parsing ext pub key:", err.Error())
@@ -598,7 +601,7 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 
 	// handle ingress gateway peers
 	if peer.IsIngressGateway {
-		extPeers, _, err := getExtPeers(peer)
+		extPeers, _, err := getExtPeers(peer, node)
 		if err != nil {
 			logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 		}
@@ -766,7 +769,7 @@ func filterNodeMapForClientACLs(publicKey, network string, nodePeerMap map[strin
 	}
 	for k := range nodePeerMap {
 		currNodePeer := nodePeerMap[k]
-		if _, ok := client.ACLs[currNodePeer.ID]; ok {
+		if _, ok := client.DeniedACLs[currNodePeer.ID]; ok {
 			delete(nodePeerMap, k)
 		}
 	}
