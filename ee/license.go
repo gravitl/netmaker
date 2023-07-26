@@ -9,12 +9,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"golang.org/x/exp/slog"
 	"io"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
@@ -50,7 +51,7 @@ func AddLicenseHooks() {
 func ValidateLicense() error {
 	licenseKeyValue := servercfg.GetLicenseKey()
 	netmakerTenantID := servercfg.GetNetmakerTenantID()
-	logger.Log(0, "proceeding with Netmaker license validation...")
+	slog.Info("proceeding with Netmaker license validation...")
 	if len(licenseKeyValue) == 0 {
 		failValidation(errors.New("empty license-key (LICENSE_KEY environment variable)"))
 	}
@@ -106,7 +107,7 @@ func ValidateLicense() error {
 		failValidation(fmt.Errorf("failed to unmarshal license key: %w", err))
 	}
 
-	logger.Log(0, "License validation succeeded!")
+	slog.Info("License validation succeeded!")
 	return nil
 }
 
@@ -158,7 +159,8 @@ func FetchApiServerKeys() (pub *[32]byte, priv *[32]byte, err error) {
 }
 
 func failValidation(err error) {
-	logger.FatalLog0(errValidation.Error(), ":", err.Error())
+	slog.Error(errValidation.Error(), "error", err)
+	os.Exit(0)
 }
 
 func getLicensePublicKey(licensePubKeyEncoded string) (*[32]byte, error) {
@@ -198,7 +200,7 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, erro
 		if err != nil {
 			return nil, err
 		}
-		logger.Log(3, "proceeding with cached response, Netmaker API may be down")
+		slog.Warn("proceeding with cached response, Netmaker API may be down")
 	} else {
 		defer validateResponse.Body.Close()
 		if validateResponse.StatusCode != 200 {
