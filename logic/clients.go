@@ -10,11 +10,17 @@ import (
 
 var (
 	// DenyClientNodeAccess - function to handle adding a node to an ext client's denied node set
-	DenyClientNodeAccess = func(ec *models.ExtClient, clientOrNodeID string) bool { return true }
+	DenyClientNodeAccess = func(ec *models.ExtClient, clientOrNodeID string) bool {
+		return true
+	}
 	// IsClientNodeAllowed - function to check if an ext client's denied node set contains a node ID
-	IsClientNodeAllowed = func(ec *models.ExtClient, clientOrNodeID string) bool { return true }
+	IsClientNodeAllowed = func(ec *models.ExtClient, clientOrNodeID string) bool {
+		return true
+	}
 	// AllowClientNodeAccess - function to handle removing a node ID from ext client's denied nodes, thus allowing it
-	AllowClientNodeAccess = func(ec *models.ExtClient, clientOrNodeID string) bool { return true }
+	AllowClientNodeAccess = func(ec *models.ExtClient, clientOrNodeID string) bool {
+		return true
+	}
 )
 
 // SetClientDefaultACLs - set's a client's default ACLs based on network and nodes in network
@@ -34,6 +40,8 @@ func SetClientDefaultACLs(ec *models.ExtClient) error {
 		currNode := networkNodes[i]
 		if network.DefaultACL == "no" || currNode.DefaultACL == "no" {
 			DenyClientNodeAccess(ec, currNode.ID.String())
+		} else {
+			AllowClientNodeAccess(ec, currNode.ID.String())
 		}
 	}
 	return nil
@@ -44,7 +52,7 @@ func SetClientACLs(ec *models.ExtClient, newACLs map[string]struct{}) {
 	if ec == nil || newACLs == nil || !isEE {
 		return
 	}
-	ec.ACLs = newACLs
+	ec.DeniedACLs = newACLs
 }
 
 // IsClientNodeAllowedByID - checks if a given ext client ID + nodeID are allowed
