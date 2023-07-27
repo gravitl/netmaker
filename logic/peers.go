@@ -516,29 +516,3 @@ func getCIDRMaskFromAddr(addr string) net.IPMask {
 	}
 	return cidr
 }
-
-// accounts for ext client ACLs
-func filterNodeMapForClientACLs(publicKey, network string, nodePeerMap map[string]models.PeerRouteInfo) map[string]models.PeerRouteInfo {
-	if !isEE {
-		return nodePeerMap
-	}
-	if nodePeerMap == nil {
-		return map[string]models.PeerRouteInfo{}
-	}
-
-	if len(publicKey) == 0 || len(network) == 0 {
-		return nodePeerMap
-	}
-
-	client, err := GetExtClientByPubKey(publicKey, network)
-	if err != nil {
-		return nodePeerMap
-	}
-	for k := range nodePeerMap {
-		currNodePeer := nodePeerMap[k]
-		if _, ok := client.DeniedACLs[currNodePeer.ID]; ok {
-			delete(nodePeerMap, k)
-		}
-	}
-	return nodePeerMap
-}
