@@ -38,7 +38,7 @@ jobs:
         if: success() || failure()
         run: |
           sleep 15m
-          curl -X GET \
+          curl -X DELETE \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $DIGITALOCEAN_TOKEN" \
             "https://api.digitalocean.com/v2/droplets?tag_name=$TAG"
@@ -95,7 +95,7 @@ jobs:
         if: success() || failure()
         run: |
           sleep 3h
-          curl -X GET \
+          curl -X DELETE \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $DIGITALOCEAN_TOKEN" \
             "https://api.digitalocean.com/v2/droplets?tag_name=$TAG"
