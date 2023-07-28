@@ -142,6 +142,7 @@ type Signal struct {
 	ToHostPubKey      string       `json:"to_host_pubkey"`
 	Reply             bool         `json:"reply"`
 	Action            SignalAction `json:"action"`
+	TimeStamp         int64        `json:"timestamp"`
 }
 
 // RegisterMsg - login message struct for hosts to join via SSO login
