@@ -14,7 +14,10 @@ import (
 
 // SetDNS - sets the dns on file
 func SetDNS() error {
-	hostfile := txeh.Hosts{}
+	hostfile, err := txeh.NewHosts(&txeh.HostsConfig{})
+	if err != nil {
+		return err
+	}
 	var corefilestring string
 	networks, err := GetNetworks()
 	if err != nil && !database.IsEmptyRecord(err) {
