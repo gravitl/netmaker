@@ -30,11 +30,10 @@ type IngressInfo struct {
 
 // EgressInfo - struct for egress info
 type EgressInfo struct {
-	EgressID     string                   `json:"egress_id" yaml:"egress_id"`
-	Network      net.IPNet                `json:"network" yaml:"network"`
-	EgressGwAddr net.IPNet                `json:"egress_gw_addr" yaml:"egress_gw_addr"`
-	GwPeers      map[string]PeerRouteInfo `json:"gateway_peers" yaml:"gateway_peers"`
-	EgressGWCfg  EgressGatewayRequest     `json:"egress_gateway_cfg" yaml:"egress_gateway_cfg"`
+	EgressID     string               `json:"egress_id" yaml:"egress_id"`
+	Network      net.IPNet            `json:"network" yaml:"network"`
+	EgressGwAddr net.IPNet            `json:"egress_gw_addr" yaml:"egress_gw_addr"`
+	EgressGWCfg  EgressGatewayRequest `json:"egress_gateway_cfg" yaml:"egress_gateway_cfg"`
 }
 
 // EgressNetworkRoutes - struct for egress network routes for adding routes to peer's interface
@@ -69,8 +68,6 @@ type KeyUpdate struct {
 
 // FwUpdate - struct for firewall updates
 type FwUpdate struct {
-	IsIngressGw bool                  `json:"is_ingress_gw"`
-	IsEgressGw  bool                  `json:"is_egress_gw"`
-	IngressInfo IngressInfo           `json:"ingress_info"`
-	EgressInfo  map[string]EgressInfo `json:"egress_info"`
+	IsEgressGw bool                  `json:"is_egress_gw"`
+	EgressInfo map[string]EgressInfo `json:"egress_info"`
 }
