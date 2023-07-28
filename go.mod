@@ -14,7 +14,7 @@ require (
 	github.com/rqlite/gorqlite v0.0.0-20210514125552-08ff1e76b22f
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/stretchr/testify v1.8.4
-	github.com/txn2/txeh v1.4.0
+	github.com/txn2/txeh v1.5.3
 	golang.org/x/crypto v0.11.0
 	golang.org/x/net v0.12.0 // indirect
 	golang.org/x/oauth2 v0.10.0
