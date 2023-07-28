@@ -358,7 +358,7 @@ func (node *LegacyNode) SetDefaultFailover() {
 	}
 }
 
-// Node.Fill - fills other node data into calling node data if not set on calling node
+// Node.Fill - fills other node data into calling node data if not set on calling node (skips DNSOn)
 func (newNode *Node) Fill(currentNode *Node, isEE bool) { // TODO add new field for nftables present
 	newNode.ID = currentNode.ID
 	newNode.HostID = currentNode.HostID
@@ -403,9 +403,6 @@ func (newNode *Node) Fill(currentNode *Node, isEE bool) { // TODO add new field 
 	}
 	if newNode.IngressGatewayRange6 == "" {
 		newNode.IngressGatewayRange6 = currentNode.IngressGatewayRange6
-	}
-	if newNode.DNSOn != currentNode.DNSOn {
-		newNode.DNSOn = currentNode.DNSOn
 	}
 	if newNode.Action == "" {
 		newNode.Action = currentNode.Action
