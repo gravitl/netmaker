@@ -2,7 +2,10 @@ package logic
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"golang.org/x/exp/slog"
+	"os"
 	"sync"
 	"time"
 
@@ -17,6 +20,9 @@ const timer_hours_between_runs = 24
 
 // HookManagerCh - channel to add any new hooks
 var HookManagerCh = make(chan models.HookDetails, 2)
+
+// HookManagerFatalError is an error to which is fatal to the hook manager (stops the program!)
+var HookManagerFatalError = errors.New("fatal periodic procedure")
 
 // == Public ==
 
@@ -70,7 +76,13 @@ func addHookWithInterval(ctx context.Context, wg *sync.WaitGroup, hook func() er
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			hook()
+			if err := hook(); err != nil {
+				// stop the server if there was a fatal error
+				if errors.Is(err, HookManagerFatalError) {
+					slog.Error(err.Error())
+					os.Exit(0)
+				}
+			}
 		}
 	}
 
