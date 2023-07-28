@@ -10,6 +10,7 @@ var (
 	errInvalidExtClientID      = errors.New("ext client ID must be alphanumderic and/or dashes and less that 15 chars")
 	errInvalidExtClientExtraIP = errors.New("ext client extra ip must be a valid cidr")
 	errInvalidExtClientDNS     = errors.New("ext client dns must be a valid ip address")
+	errDuplicateExtClientName  = errors.New("duplicate client name")
 )
 
 // allow only dashes and alphaneumeric for ext client and node names
