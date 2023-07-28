@@ -18,8 +18,9 @@ import (
 const EmqxBrokerType = "emqx"
 
 var (
-	Version = "dev"
-	Is_EE   = false
+	Version      = "dev"
+	Is_EE        = false
+	IsUnlicensed = false
 )
 
 // SetHost - sets the host ip

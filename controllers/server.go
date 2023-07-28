@@ -68,22 +68,16 @@ func getUsage(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //				200: serverConfigResponse
 func getStatus(w http.ResponseWriter, r *http.Request) {
-	// TODO
-	// - check health of broker
 	type status struct {
-		DB     bool `json:"db_connected"`
-		Broker bool `json:"broker_connected"`
-		Usage  struct {
-			Hosts    int `json:"hosts"`
-			Clients  int `json:"clients"`
-			Networks int `json:"networks"`
-			Users    int `json:"users"`
-		} `json:"usage"`
+		DB           bool `json:"db_connected"`
+		Broker       bool `json:"broker_connected"`
+		UnlicensedEE bool `json:"unlicensed_ee"`
 	}
 
 	currentServerStatus := status{
-		DB:     database.IsConnected(),
-		Broker: mq.IsConnected(),
+		DB:           database.IsConnected(),
+		Broker:       mq.IsConnected(),
+		UnlicensedEE: servercfg.Is_EE && servercfg.IsUnlicensed,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
