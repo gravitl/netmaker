@@ -18,8 +18,8 @@ func InitEE() {
 	setIsEnterprise()
 	servercfg.Is_EE = true
 	models.SetLogo(retrieveEELogo())
-	controller.HttpHandlers = append(
-		controller.HttpHandlers,
+	controller.FullHttpHandlers = append(
+		controller.FullHttpHandlers,
 		ee_controllers.MetricHandlers,
 		ee_controllers.NetworkUsersHandlers,
 		ee_controllers.UserGroupsHandlers,
