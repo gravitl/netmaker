@@ -124,6 +124,14 @@ func initialize() { // Client Mode Prereq Check
 }
 
 func startControllers(wg *sync.WaitGroup, ctx context.Context) {
+	// limit the controllers when unlicensed
+	if servercfg.IsUnlicensed {
+		wg.Add(2)
+		go controller.HandleRESTRequests(wg, ctx, controller.LimitedHttpHandlers)
+		go logic.StartHookManager(ctx, wg)
+		return
+	}
+
 	if servercfg.IsDNSMode() {
 		err := logic.SetDNS()
 		if err != nil {
