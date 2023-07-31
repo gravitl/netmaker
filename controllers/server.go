@@ -69,15 +69,20 @@ func getUsage(w http.ResponseWriter, r *http.Request) {
 //				200: serverConfigResponse
 func getStatus(w http.ResponseWriter, r *http.Request) {
 	type status struct {
-		DB           bool `json:"db_connected"`
-		Broker       bool `json:"broker_connected"`
-		UnlicensedEE bool `json:"unlicensed_ee"`
+		DB           bool   `json:"db_connected"`
+		Broker       bool   `json:"broker_connected"`
+		LicenseError string `json:"license_error"`
+	}
+
+	licenseErr := ""
+	if servercfg.ErrLicenseValidation != nil {
+		licenseErr = servercfg.ErrLicenseValidation.Error()
 	}
 
 	currentServerStatus := status{
 		DB:           database.IsConnected(),
 		Broker:       mq.IsConnected(),
-		UnlicensedEE: servercfg.Is_EE && servercfg.IsUnlicensed,
+		LicenseError: licenseErr,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
