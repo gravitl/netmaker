@@ -201,7 +201,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					Address:    peer.PrimaryAddress(),
 					Name:       peerHost.Name,
 					Network:    peer.Network,
-					ListenPort: GetPeerListenPort(peerHost),
+					ListenPort: peerHost.ListenPort,
 				}
 				hostPeerUpdate.NodePeers = append(hostPeerUpdate.NodePeers, nodePeer)
 			}
