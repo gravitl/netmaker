@@ -10,7 +10,7 @@
 //
 //	Schemes: https
 //	BasePath: /
-//	Version: 0.20.5
+//	Version: 0.20.6
 //	Host: netmaker.io
 //
 //	Consumes:
