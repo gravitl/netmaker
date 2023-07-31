@@ -1,8 +1,6 @@
 package ee
 
-import (
-	"errors"
-)
+import "fmt"
 
 const (
 	api_endpoint               = "https://api.accounts.netmaker.io/api/v1/license/validate"
@@ -11,7 +9,7 @@ const (
 	server_id_key              = "nm-server-id"
 )
 
-var ErrValidation = errors.New(license_validation_err_msg)
+var errValidation = fmt.Errorf(license_validation_err_msg)
 
 // LicenseKey - the license key struct representation with associated data
 type LicenseKey struct {
