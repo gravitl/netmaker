@@ -3,19 +3,19 @@ package controller
 import (
 	"context"
 	"fmt"
-	"github.com/gorilla/handlers"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-// FullHttpHandlers - handler functions for REST interactions
-var FullHttpHandlers = []func(r *mux.Router){
+// HttpHandlers - handler functions for REST interactions
+var HttpHandlers = []interface{}{
 	nodeHandlers,
 	userHandlers,
 	networkHandlers,
@@ -30,13 +30,8 @@ var FullHttpHandlers = []func(r *mux.Router){
 	legacyHandlers,
 }
 
-// LimitedHttpHandlers - limited handler functions for REST interactions
-var LimitedHttpHandlers = []func(r *mux.Router){
-	serverHandlers,
-}
-
 // HandleRESTRequests - handles the rest requests
-func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context, httpHandlers []func(r *mux.Router)) {
+func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context) {
 	defer wg.Done()
 
 	r := mux.NewRouter()
@@ -47,8 +42,8 @@ func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context, httpHandlers []
 	originsOk := handlers.AllowedOrigins(strings.Split(servercfg.GetAllowedOrigin(), ","))
 	methodsOk := handlers.AllowedMethods([]string{http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete})
 
-	for _, handler := range httpHandlers {
-		handler(r)
+	for _, handler := range HttpHandlers {
+		handler.(func(*mux.Router))(r)
 	}
 
 	port := servercfg.GetAPIPort()

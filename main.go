@@ -148,7 +148,7 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 			}
 		}
 		wg.Add(1)
-		go controller.HandleRESTRequests(wg, ctx, controller.FullHttpHandlers)
+		go controller.HandleRESTRequests(wg, ctx)
 	}
 	//Run MessageQueue
 	if servercfg.IsMessageQueueBackend() {
