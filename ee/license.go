@@ -12,6 +12,7 @@ import (
 	"golang.org/x/exp/slog"
 	"io"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
@@ -34,14 +35,7 @@ type apiServerConf struct {
 // AddLicenseHooks - adds the validation and cache clear hooks
 func AddLicenseHooks() {
 	logic.HookManagerCh <- models.HookDetails{
-		Hook: func() error {
-			if err := ValidateLicense(); err != nil {
-				// stop the program when license is not valid anymore
-				// if the server restarts and still fails the license check, it can reboot in a limited mode
-				return fmt.Errorf("%w: %s", logic.HookManagerFatalError, err.Error())
-			}
-			return nil
-		},
+		Hook:     ValidateLicense,
 		Interval: time.Hour,
 	}
 	logic.HookManagerCh <- models.HookDetails{
@@ -54,26 +48,25 @@ func AddLicenseHooks() {
 // checks if a license is valid + limits are not exceeded
 // if license is free_tier and limits exceeds, then server should terminate
 // if license is not valid, server should terminate
-// TODO update comment
 func ValidateLicense() error {
 	licenseKeyValue := servercfg.GetLicenseKey()
 	netmakerTenantID := servercfg.GetNetmakerTenantID()
 	slog.Info("proceeding with Netmaker license validation...")
 	if len(licenseKeyValue) == 0 {
-		return wrappedInErrValidation(errors.New("empty license-key (LICENSE_KEY environment variable)"))
+		failValidation(errors.New("empty license-key (LICENSE_KEY environment variable)"))
 	}
 	if len(netmakerTenantID) == 0 {
-		return wrappedInErrValidation(errors.New("empty tenant-id (NETMAKER_TENANT_ID environment variable)"))
+		failValidation(errors.New("empty tenant-id (NETMAKER_TENANT_ID environment variable)"))
 	}
 
 	apiPublicKey, err := getLicensePublicKey(licenseKeyValue)
 	if err != nil {
-		return wrappedInErrValidation(fmt.Errorf("failed to get license public key: %w", err))
+		failValidation(fmt.Errorf("failed to get license public key: %w", err))
 	}
 
 	tempPubKey, tempPrivKey, err := FetchApiServerKeys()
 	if err != nil {
-		return wrappedInErrValidation(fmt.Errorf("failed to fetch api server keys: %w", err))
+		failValidation(fmt.Errorf("failed to fetch api server keys: %w", err))
 	}
 
 	licenseSecret := LicenseSecret{
@@ -83,35 +76,35 @@ func ValidateLicense() error {
 
 	secretData, err := json.Marshal(&licenseSecret)
 	if err != nil {
-		return wrappedInErrValidation(fmt.Errorf("failed to marshal license secret: %w", err))
+		failValidation(fmt.Errorf("failed to marshal license secret: %w", err))
 	}
 
 	encryptedData, err := ncutils.BoxEncrypt(secretData, apiPublicKey, tempPrivKey)
 	if err != nil {
-		return wrappedInErrValidation(fmt.Errorf("failed to encrypt license secret data: %w", err))
+		failValidation(fmt.Errorf("failed to encrypt license secret data: %w", err))
 	}
 
 	validationResponse, err := validateLicenseKey(encryptedData, tempPubKey)
 	if err != nil {
-		return wrappedInErrValidation(fmt.Errorf("failed to validate license key: %w", err))
+		failValidation(fmt.Errorf("failed to validate license key: %w", err))
 	}
 	if len(validationResponse) == 0 {
-		return wrappedInErrValidation(errors.New("empty validation response"))
+		failValidation(errors.New("empty validation response"))
 	}
 
 	var licenseResponse ValidatedLicense
 	if err = json.Unmarshal(validationResponse, &licenseResponse); err != nil {
-		return wrappedInErrValidation(fmt.Errorf("failed to unmarshal validation response: %w", err))
+		failValidation(fmt.Errorf("failed to unmarshal validation response: %w", err))
 	}
 
 	respData, err := ncutils.BoxDecrypt(base64decode(licenseResponse.EncryptedLicense), apiPublicKey, tempPrivKey)
 	if err != nil {
-		return wrappedInErrValidation(fmt.Errorf("failed to decrypt license: %w", err))
+		failValidation(fmt.Errorf("failed to decrypt license: %w", err))
 	}
 
 	license := LicenseKey{}
 	if err = json.Unmarshal(respData, &license); err != nil {
-		return wrappedInErrValidation(fmt.Errorf("failed to unmarshal license key: %w", err))
+		failValidation(fmt.Errorf("failed to unmarshal license key: %w", err))
 	}
 
 	slog.Info("License validation succeeded!")
@@ -165,8 +158,9 @@ func FetchApiServerKeys() (pub *[32]byte, priv *[32]byte, err error) {
 	return pub, priv, nil
 }
 
-func wrappedInErrValidation(err error) error {
-	return fmt.Errorf("%w: %s", ErrValidation, err.Error())
+func failValidation(err error) {
+	slog.Error(errValidation.Error(), "error", err)
+	os.Exit(0)
 }
 
 func getLicensePublicKey(licensePubKeyEncoded string) (*[32]byte, error) {
