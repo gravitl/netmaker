@@ -12,6 +12,7 @@
 - Simplified Firewall rules for added stability
      
 ## known issues
+- Expired nodes are not getting cleaned up
 - Windows installer does not install WireGuard
 - netclient-gui will continously display error dialog if netmaker server is offline
 - Incorrect metrics against ext clients
