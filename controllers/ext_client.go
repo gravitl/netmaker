@@ -432,9 +432,16 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if err := validateCustomExtClient(&update, false); err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
+	if oldExtClient.ClientID == update.ClientID {
+		if err := validateCustomExtClient(&update, false); err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+	} else {
+		if err := validateCustomExtClient(&update, true); err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
 	}
 
 	// == PRO ==
@@ -668,16 +675,15 @@ func isValid(clientid string, checkID bool) error {
 	if !validName(clientid) {
 		return errInvalidExtClientID
 	}
-	if !checkID {
-		return nil
-	}
-	extclients, err := logic.GetAllExtClients()
-	if err != nil {
-		return fmt.Errorf("extclients isValid: %v", err)
-	}
-	for _, extclient := range extclients {
-		if clientid == extclient.ClientID {
-			return errDuplicateExtClientName
+	if checkID {
+		extclients, err := logic.GetAllExtClients()
+		if err != nil {
+			return fmt.Errorf("extclients isValid: %v", err)
+		}
+		for _, extclient := range extclients {
+			if clientid == extclient.ClientID {
+				return errDuplicateExtClientName
+			}
 		}
 	}
 	return nil
