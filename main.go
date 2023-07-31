@@ -91,11 +91,7 @@ func initialize() { // Client Mode Prereq Check
 	if err != nil {
 		logger.Log(1, "Timer error occurred: ", err.Error())
 	}
-
-	if err := logic.EnterpriseCheck(); err != nil {
-		servercfg.IsUnlicensed = true
-		return
-	}
+	logic.EnterpriseCheck()
 
 	var authProvider = auth.InitializeAuthProvider()
 	if authProvider != "" {

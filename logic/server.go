@@ -6,7 +6,7 @@ import (
 )
 
 // EnterpriseCheckFuncs - can be set to run functions for EE
-var EnterpriseCheckFuncs []func() error
+var EnterpriseCheckFuncs []func()
 
 // EnterpriseFailoverFunc - interface to control failover funcs
 var EnterpriseFailoverFunc func(node *models.Node) error
@@ -26,11 +26,8 @@ const KUBERNETES_LISTEN_PORT = 31821
 const KUBERNETES_SERVER_MTU = 1024
 
 // EnterpriseCheck - Runs enterprise functions if presented
-func EnterpriseCheck() error {
+func EnterpriseCheck() {
 	for _, check := range EnterpriseCheckFuncs {
-		if err := check(); err != nil {
-			return err
-		}
+		check()
 	}
-	return nil
 }
