@@ -152,9 +152,9 @@ func GetExtClientByPubKey(publicKey string, network string) (*models.ExtClient, 
 	return nil, fmt.Errorf("no client found")
 }
 
-// CreateExtClient - creates an extclient
+// CreateExtClient - creates and saves an extclient
 func CreateExtClient(extclient *models.ExtClient) error {
-	// lock because we need unique IPs and having it concurrent makes parallel calls result in same "unique" IPs
+	// lock because we may need unique IPs and having it concurrent makes parallel calls result in same "unique" IPs
 	addressLock.Lock()
 	defer addressLock.Unlock()
 
@@ -219,12 +219,8 @@ func SaveExtClient(extclient *models.ExtClient) error {
 }
 
 // UpdateExtClient - updates an ext client with new values
-func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) (*models.ExtClient, error) {
-	new := old
-	err := DeleteExtClient(old.Network, old.ClientID)
-	if err != nil {
-		return new, err
-	}
+func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) models.ExtClient {
+	new := *old
 	new.ClientID = update.ClientID
 	if update.PublicKey != "" && old.PublicKey != update.PublicKey {
 		new.PublicKey = update.PublicKey
@@ -241,7 +237,7 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) (*mo
 	if update.DeniedACLs != nil && !reflect.DeepEqual(old.DeniedACLs, update.DeniedACLs) {
 		new.DeniedACLs = update.DeniedACLs
 	}
-	return new, CreateExtClient(new)
+	return new
 }
 
 // GetExtClientsByID - gets the clients of attached gateway
