@@ -7,6 +7,7 @@ import (
 	"net"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/c-robinson/iplib"
 	validator "github.com/go-playground/validator/v10"
@@ -147,7 +148,7 @@ func GetNetworkSettings(networkname string) (models.Network, error) {
 	return network, nil
 }
 
-// UniqueAddress - see if address is unique
+// UniqueAddress - get a unique ipv4 address
 func UniqueAddress(networkName string, reverse bool) (net.IP, error) {
 	add := net.IP{}
 	var network models.Network
@@ -424,3 +425,5 @@ func SortNetworks(unsortedNetworks []models.Network) {
 }
 
 // == Private ==
+
+var addressLock = &sync.Mutex{}

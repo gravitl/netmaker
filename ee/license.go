@@ -7,13 +7,15 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"golang.org/x/exp/slog"
 	"io"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
@@ -49,19 +51,22 @@ func AddLicenseHooks() {
 func ValidateLicense() error {
 	licenseKeyValue := servercfg.GetLicenseKey()
 	netmakerTenantID := servercfg.GetNetmakerTenantID()
-	logger.Log(0, "proceeding with Netmaker license validation...")
-	if len(licenseKeyValue) == 0 || len(netmakerTenantID) == 0 {
-		logger.FatalLog0(errValidation.Error())
+	slog.Info("proceeding with Netmaker license validation...")
+	if len(licenseKeyValue) == 0 {
+		failValidation(errors.New("empty license-key (LICENSE_KEY environment variable)"))
+	}
+	if len(netmakerTenantID) == 0 {
+		failValidation(errors.New("empty tenant-id (NETMAKER_TENANT_ID environment variable)"))
 	}
 
 	apiPublicKey, err := getLicensePublicKey(licenseKeyValue)
 	if err != nil {
-		logger.FatalLog0(errValidation.Error())
+		failValidation(fmt.Errorf("failed to get license public key: %w", err))
 	}
 
 	tempPubKey, tempPrivKey, err := FetchApiServerKeys()
 	if err != nil {
-		logger.FatalLog0(errValidation.Error())
+		failValidation(fmt.Errorf("failed to fetch api server keys: %w", err))
 	}
 
 	licenseSecret := LicenseSecret{
@@ -71,35 +76,38 @@ func ValidateLicense() error {
 
 	secretData, err := json.Marshal(&licenseSecret)
 	if err != nil {
-		logger.FatalLog0(errValidation.Error())
+		failValidation(fmt.Errorf("failed to marshal license secret: %w", err))
 	}
 
 	encryptedData, err := ncutils.BoxEncrypt(secretData, apiPublicKey, tempPrivKey)
 	if err != nil {
-		logger.FatalLog0(errValidation.Error())
+		failValidation(fmt.Errorf("failed to encrypt license secret data: %w", err))
 	}
 
 	validationResponse, err := validateLicenseKey(encryptedData, tempPubKey)
-	if err != nil || len(validationResponse) == 0 {
-		logger.FatalLog0(errValidation.Error())
+	if err != nil {
+		failValidation(fmt.Errorf("failed to validate license key: %w", err))
+	}
+	if len(validationResponse) == 0 {
+		failValidation(errors.New("empty validation response"))
 	}
 
 	var licenseResponse ValidatedLicense
 	if err = json.Unmarshal(validationResponse, &licenseResponse); err != nil {
-		logger.FatalLog0(errValidation.Error())
+		failValidation(fmt.Errorf("failed to unmarshal validation response: %w", err))
 	}
 
 	respData, err := ncutils.BoxDecrypt(base64decode(licenseResponse.EncryptedLicense), apiPublicKey, tempPrivKey)
 	if err != nil {
-		logger.FatalLog0(errValidation.Error())
+		failValidation(fmt.Errorf("failed to decrypt license: %w", err))
 	}
 
 	license := LicenseKey{}
 	if err = json.Unmarshal(respData, &license); err != nil {
-		logger.FatalLog0(errValidation.Error())
+		failValidation(fmt.Errorf("failed to unmarshal license key: %w", err))
 	}
 
-	logger.Log(0, "License validation succeeded!")
+	slog.Info("License validation succeeded!")
 	return nil
 }
 
@@ -150,6 +158,11 @@ func FetchApiServerKeys() (pub *[32]byte, priv *[32]byte, err error) {
 	return pub, priv, nil
 }
 
+func failValidation(err error) {
+	slog.Error(errValidation.Error(), "error", err)
+	os.Exit(0)
+}
+
 func getLicensePublicKey(licensePubKeyEncoded string) (*[32]byte, error) {
 	decodedPubKey := base64decode(licensePubKeyEncoded)
 	return ncutils.ConvertBytesToKey(decodedPubKey)
@@ -187,11 +200,11 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, erro
 		if err != nil {
 			return nil, err
 		}
-		logger.Log(3, "proceeding with cached response, Netmaker API may be down")
+		slog.Warn("proceeding with cached response, Netmaker API may be down")
 	} else {
 		defer validateResponse.Body.Close()
 		if validateResponse.StatusCode != 200 {
-			return nil, fmt.Errorf("could not validate license")
+			return nil, fmt.Errorf("could not validate license, got status code %d", validateResponse.StatusCode)
 		} // if you received a 200 cache the response locally
 
 		body, err = io.ReadAll(validateResponse.Body)

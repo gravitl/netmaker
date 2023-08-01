@@ -566,7 +566,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
 	netid := params["network"]
-	node, wasFailover, removedClients, err := logic.DeleteIngressGateway(netid, nodeid)
+	node, wasFailover, removedClients, err := logic.DeleteIngressGateway(nodeid)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to delete ingress gateway on node [%s] on network [%s]: %v",
