@@ -186,7 +186,7 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, erro
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, api_endpoint, bytes.NewReader(requestBody))
+	req, err := http.NewRequest(http.MethodPost, getAccountsHost()+"/api/v1/license/validate", bytes.NewReader(requestBody))
 	if err != nil {
 		return nil, err
 	}
@@ -215,6 +215,17 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, erro
 	}
 
 	return body, err
+}
+
+func getAccountsHost() string {
+	switch servercfg.GetEnvironment() {
+	case "dev":
+		return accountsHostDevelopment
+	case "staging":
+		return accountsHostStaging
+	default:
+		return accountsHostProduction
+	}
 }
 
 func cacheResponse(response []byte) error {
