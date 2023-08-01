@@ -175,9 +175,6 @@ func FetchApiServerKeys() (pub *[32]byte, priv *[32]byte, err error) {
 	return pub, priv, nil
 }
 
-func failValidation(err error) {
-}
-
 func getLicensePublicKey(licensePubKeyEncoded string) (*[32]byte, error) {
 	decodedPubKey := base64decode(licensePubKeyEncoded)
 	return ncutils.ConvertBytesToKey(decodedPubKey)
