@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"sort"
 	"strconv"
@@ -184,15 +183,6 @@ func CreateHost(h *models.Host) error {
 	}
 	h.HostPass = string(hash)
 	h.AutoUpdate = servercfg.AutoUpdateEnabled()
-	// if another server has already updated proxyenabled, leave it alone
-	if !h.ProxyEnabledSet {
-		log.Println("checking default proxy", servercfg.GetServerConfig().DefaultProxyMode)
-		if servercfg.GetServerConfig().DefaultProxyMode.Set {
-			h.ProxyEnabledSet = true
-			h.ProxyEnabled = servercfg.GetServerConfig().DefaultProxyMode.Value
-			log.Println("set proxy enabled to ", h.ProxyEnabled)
-		}
-	}
 	checkForZombieHosts(h)
 	return UpsertHost(h)
 }
@@ -228,11 +218,6 @@ func UpdateHost(newHost, currentHost *models.Host) {
 		newHost.ListenPort = currentHost.ListenPort
 	}
 
-	if newHost.ProxyListenPort == 0 {
-		newHost.ProxyListenPort = currentHost.ProxyListenPort
-	}
-	newHost.PublicListenPort = currentHost.PublicListenPort
-
 }
 
 // UpdateHostFromClient - used for updating host on server with update recieved from client
@@ -248,18 +233,6 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 	}
 	if newHost.WgPublicListenPort != 0 && currHost.WgPublicListenPort != newHost.WgPublicListenPort {
 		currHost.WgPublicListenPort = newHost.WgPublicListenPort
-		sendPeerUpdate = true
-	}
-	if newHost.ProxyListenPort != 0 && currHost.ProxyListenPort != newHost.ProxyListenPort {
-		currHost.ProxyListenPort = newHost.ProxyListenPort
-		sendPeerUpdate = true
-	}
-	if newHost.PublicListenPort != 0 && currHost.PublicListenPort != newHost.PublicListenPort {
-		currHost.PublicListenPort = newHost.PublicListenPort
-		sendPeerUpdate = true
-	}
-	if currHost.ProxyEnabled != newHost.ProxyEnabled {
-		currHost.ProxyEnabled = newHost.ProxyEnabled
 		sendPeerUpdate = true
 	}
 	if currHost.EndpointIP.String() != newHost.EndpointIP.String() {
@@ -409,6 +382,15 @@ func DissasociateNodeFromHost(n *models.Node, h *models.Host) error {
 	} else {
 		h.Nodes = RemoveStringSlice(h.Nodes, index)
 	}
+	go func() {
+		if servercfg.Is_EE {
+			if clients, err := GetNetworkExtClients(n.Network); err != nil {
+				for i := range clients {
+					AllowClientNodeAccess(&clients[i], n.ID.String())
+				}
+			}
+		}
+	}()
 	if err := deleteNodeByID(n); err != nil {
 		return err
 	}
@@ -514,7 +496,6 @@ func CheckHostPorts(h *models.Host) {
 			continue
 		}
 		portsInUse[host.ListenPort] = true
-		portsInUse[host.ProxyListenPort] = true
 	}
 	// iterate until port is not found or max iteration is reached
 	for i := 0; portsInUse[h.ListenPort] && i < maxPort-minPort+1; i++ {
@@ -523,14 +504,7 @@ func CheckHostPorts(h *models.Host) {
 			h.ListenPort = minPort
 		}
 	}
-	// allocate h.ListenPort so it is unavailable to h.ProxyListenPort
-	portsInUse[h.ListenPort] = true
-	for i := 0; portsInUse[h.ProxyListenPort] && i < maxPort-minPort+1; i++ {
-		h.ProxyListenPort++
-		if h.ProxyListenPort > maxPort {
-			h.ProxyListenPort = minPort
-		}
-	}
+
 }
 
 // HostExists - checks if given host already exists

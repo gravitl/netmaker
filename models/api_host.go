@@ -16,9 +16,6 @@ type ApiHost struct {
 	Debug              bool     `json:"debug"`
 	IsStatic           bool     `json:"isstatic"`
 	ListenPort         int      `json:"listenport"`
-	LocalListenPort    int      `json:"locallistenport"`
-	ProxyListenPort    int      `json:"proxy_listen_port"`
-	PublicListenPort   int      `json:"public_listen_port" yaml:"public_listen_port"`
 	WgPublicListenPort int      `json:"wg_public_listen_port" yaml:"wg_public_listen_port"`
 	MTU                int      `json:"mtu" yaml:"mtu"`
 	Interfaces         []Iface  `json:"interfaces" yaml:"interfaces"`
@@ -28,7 +25,6 @@ type ApiHost struct {
 	MacAddress         string   `json:"macaddress"`
 	InternetGateway    string   `json:"internetgateway"`
 	Nodes              []string `json:"nodes"`
-	ProxyEnabled       bool     `json:"proxy_enabled" yaml:"proxy_enabled"`
 	IsDefault          bool     `json:"isdefault" yaml:"isdefault"`
 	IsRelayed          bool     `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
 	RelayedBy          string   `json:"relayed_by" bson:"relayed_by" yaml:"relayed_by"`
@@ -60,10 +56,7 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 	a.Name = h.Name
 	a.OS = h.OS
 	a.Nodes = h.Nodes
-	a.ProxyEnabled = h.ProxyEnabled
-	a.PublicListenPort = h.PublicListenPort
 	a.WgPublicListenPort = h.WgPublicListenPort
-	a.ProxyListenPort = h.ProxyListenPort
 	a.PublicKey = h.PublicKey.String()
 	a.Verbosity = h.Verbosity
 	a.Version = h.Version
@@ -95,8 +88,6 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.IsK8S = currentHost.IsK8S
 	h.IsStatic = a.IsStatic
 	h.ListenPort = a.ListenPort
-	h.ProxyListenPort = a.ProxyListenPort
-	h.PublicListenPort = currentHost.PublicListenPort
 	h.MTU = a.MTU
 	h.MacAddress = currentHost.MacAddress
 	h.PublicKey = currentHost.PublicKey
@@ -106,7 +97,6 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.Nodes = currentHost.Nodes
 	h.TrafficKeyPublic = currentHost.TrafficKeyPublic
 	h.OS = currentHost.OS
-	h.ProxyEnabled = a.ProxyEnabled
 	h.IsDefault = a.IsDefault
 	h.NatType = currentHost.NatType
 	h.TurnEndpoint = currentHost.TurnEndpoint

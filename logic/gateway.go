@@ -127,13 +127,13 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 }
 
 // DeleteIngressGateway - deletes an ingress gateway
-func DeleteIngressGateway(networkName string, nodeid string) (models.Node, bool, []models.ExtClient, error) {
+func DeleteIngressGateway(nodeid string) (models.Node, bool, []models.ExtClient, error) {
 	removedClients := []models.ExtClient{}
 	node, err := GetNodeByID(nodeid)
 	if err != nil {
 		return models.Node{}, false, removedClients, err
 	}
-	clients, err := GetExtClientsByID(nodeid, networkName)
+	clients, err := GetExtClientsByID(nodeid, node.Network)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return models.Node{}, false, removedClients, err
 	}
@@ -141,7 +141,7 @@ func DeleteIngressGateway(networkName string, nodeid string) (models.Node, bool,
 	removedClients = clients
 
 	// delete ext clients belonging to ingress gateway
-	if err = DeleteGatewayExtClients(node.ID.String(), networkName); err != nil {
+	if err = DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
 		return models.Node{}, false, removedClients, err
 	}
 	logger.Log(3, "deleting ingress gateway")
@@ -163,7 +163,7 @@ func DeleteIngressGateway(networkName string, nodeid string) (models.Node, bool,
 	if err != nil {
 		return models.Node{}, wasFailover, removedClients, err
 	}
-	err = SetNetworkNodesLastModified(networkName)
+	err = SetNetworkNodesLastModified(node.Network)
 	return node, wasFailover, removedClients, err
 }
 

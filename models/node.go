@@ -358,7 +358,7 @@ func (node *LegacyNode) SetDefaultFailover() {
 	}
 }
 
-// Node.Fill - fills other node data into calling node data if not set on calling node
+// Node.Fill - fills other node data into calling node data if not set on calling node (skips DNSOn)
 func (newNode *Node) Fill(currentNode *Node, isEE bool) { // TODO add new field for nftables present
 	newNode.ID = currentNode.ID
 	newNode.HostID = currentNode.HostID
@@ -403,9 +403,6 @@ func (newNode *Node) Fill(currentNode *Node, isEE bool) { // TODO add new field 
 	}
 	if newNode.IngressGatewayRange6 == "" {
 		newNode.IngressGatewayRange6 = currentNode.IngressGatewayRange6
-	}
-	if newNode.DNSOn != currentNode.DNSOn {
-		newNode.DNSOn = currentNode.DNSOn
 	}
 	if newNode.Action == "" {
 		newNode.Action = currentNode.Action
@@ -483,7 +480,6 @@ func (ln *LegacyNode) ConvertToNewNode() (*Host, *Node) {
 		host.HostPass = ln.Password
 		host.Name = ln.Name
 		host.ListenPort = int(ln.ListenPort)
-		host.ProxyListenPort = int(ln.ProxyListenPort)
 		host.MTU = int(ln.MTU)
 		host.PublicKey, _ = wgtypes.ParseKey(ln.PublicKey)
 		host.MacAddress, _ = net.ParseMAC(ln.MacAddress)
@@ -540,7 +536,6 @@ func (n *Node) Legacy(h *Host, s *ServerConfig, net *Network) *LegacyNode {
 	l.Name = h.Name
 	l.NetworkSettings = *net
 	l.ListenPort = int32(h.ListenPort)
-	l.ProxyListenPort = int32(h.ProxyListenPort)
 	l.PublicKey = h.PublicKey.String()
 	l.Endpoint = h.EndpointIP.String()
 	//l.AllowedIPs =
@@ -580,7 +575,6 @@ func (n *Node) Legacy(h *Host, s *ServerConfig, net *Network) *LegacyNode {
 	l.InternetGateway = h.InternetGateway.String()
 	l.Connected = formatBool(n.Connected)
 	//l.PendingDelete = formatBool(n.PendingDelete)
-	l.Proxy = h.ProxyEnabled
 	l.DefaultACL = n.DefaultACL
 	l.OwnerID = n.OwnerID
 	//l.Failover = n.Failover

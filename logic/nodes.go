@@ -460,6 +460,10 @@ func updateProNodeACLS(node *models.Node) error {
 
 // createNode - creates a node in database
 func createNode(node *models.Node) error {
+	// lock because we need unique IPs and having it concurrent makes parallel calls result in same "unique" IPs
+	addressLock.Lock()
+	defer addressLock.Unlock()
+
 	host, err := GetHost(node.HostID.String())
 	if err != nil {
 		return err

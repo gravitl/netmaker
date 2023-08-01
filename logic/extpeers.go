@@ -3,6 +3,7 @@ package logic
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"sync"
 	"time"
 
@@ -94,6 +95,9 @@ func GetNetworkExtClients(network string) ([]models.ExtClient, error) {
 	}
 	records, err := database.FetchRecords(database.EXT_CLIENT_TABLE_NAME)
 	if err != nil {
+		if database.IsEmptyRecord(err) {
+			return extclients, nil
+		}
 		return extclients, err
 	}
 	for _, value := range records {
@@ -150,6 +154,9 @@ func GetExtClientByPubKey(publicKey string, network string) (*models.ExtClient, 
 
 // CreateExtClient - creates an extclient
 func CreateExtClient(extclient *models.ExtClient) error {
+	// lock because we need unique IPs and having it concurrent makes parallel calls result in same "unique" IPs
+	addressLock.Lock()
+	defer addressLock.Unlock()
 
 	if len(extclient.PublicKey) == 0 {
 		privateKey, err := wgtypes.GeneratePrivateKey()
@@ -230,6 +237,9 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) (*mo
 	}
 	if update.ExtraAllowedIPs != nil && StringDifference(old.ExtraAllowedIPs, update.ExtraAllowedIPs) != nil {
 		new.ExtraAllowedIPs = update.ExtraAllowedIPs
+	}
+	if update.DeniedACLs != nil && !reflect.DeepEqual(old.DeniedACLs, update.DeniedACLs) {
+		new.DeniedACLs = update.DeniedACLs
 	}
 	return new, CreateExtClient(new)
 }
