@@ -782,6 +782,17 @@ func DeployedByOperator() bool {
 	return config.Config.Server.DeployedByOperator
 }
 
+// GetEnvironment returns the environment the server is running in (e.g. dev, staging, prod...)
+func GetEnvironment() string {
+	if env := os.Getenv("ENVIRONMENT"); env != "" {
+		return env
+	}
+	if env := config.Config.Server.Environment; env != "" {
+		return env
+	}
+	return ""
+}
+
 // parseStunList - turn string into slice of StunServers
 func parseStunList(stunString string) ([]models.StunServer, error) {
 	var err error
