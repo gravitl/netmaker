@@ -198,7 +198,6 @@ func UpdateHost(newHost, currentHost *models.Host) {
 	newHost.Debug = currentHost.Debug
 	newHost.Nodes = currentHost.Nodes
 	newHost.PublicKey = currentHost.PublicKey
-	newHost.InternetGateway = currentHost.InternetGateway
 	newHost.TrafficKeyPublic = currentHost.TrafficKeyPublic
 
 	// changeable fields
