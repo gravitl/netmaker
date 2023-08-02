@@ -176,7 +176,7 @@ func PublishDNSUpdate(network string, dns models.DNSUpdate) error {
 	for _, node := range nodes {
 		host, err := logic.GetHost(node.HostID.String())
 		if err != nil {
-			logger.Log(0, "error retrieving host for dns update", host.ID.String(), err.Error())
+			logger.Log(0, "error retrieving host for dns update", node.HostID.String(), err.Error())
 			continue
 		}
 		data, err := json.Marshal(dns)
@@ -370,7 +370,7 @@ func getNodeDNS(network string) []models.DNSUpdate {
 	for _, node := range nodes {
 		host, err := logic.GetHost(node.HostID.String())
 		if err != nil {
-			logger.Log(0, "error retrieving host for dns update", host.ID.String(), err.Error())
+			logger.Log(0, "error retrieving host for dns update", node.HostID.String(), err.Error())
 			continue
 		}
 		dns.Action = models.DNSInsert
