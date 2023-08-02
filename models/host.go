@@ -55,7 +55,6 @@ type Host struct {
 	PublicKey          wgtypes.Key      `json:"publickey" yaml:"publickey"`
 	MacAddress         net.HardwareAddr `json:"macaddress" yaml:"macaddress"`
 	TrafficKeyPublic   []byte           `json:"traffickeypublic" yaml:"traffickeypublic"`
-	InternetGateway    net.UDPAddr      `json:"internetgateway" yaml:"internetgateway"`
 	Nodes              []string         `json:"nodes" yaml:"nodes"`
 	Interfaces         []Iface          `json:"interfaces" yaml:"interfaces"`
 	DefaultInterface   string           `json:"defaultinterface" yaml:"defaultinterface"`
