@@ -480,10 +480,6 @@ func (ln *LegacyNode) ConvertToNewNode() (*Host, *Node) {
 		host.PublicKey, _ = wgtypes.ParseKey(ln.PublicKey)
 		host.MacAddress, _ = net.ParseMAC(ln.MacAddress)
 		host.TrafficKeyPublic = ln.TrafficKeys.Mine
-		gateway, err := net.ResolveUDPAddr("udp", ln.InternetGateway)
-		if err == nil {
-			host.InternetGateway = *gateway
-		}
 		id, _ := uuid.Parse(ln.ID)
 		host.Nodes = append(host.Nodes, id.String())
 		host.Interfaces = ln.Interfaces
@@ -568,7 +564,6 @@ func (n *Node) Legacy(h *Host, s *ServerConfig, net *Network) *LegacyNode {
 	l.TrafficKeys.Mine = h.TrafficKeyPublic
 	l.TrafficKeys.Server = s.TrafficKey
 	l.FirewallInUse = h.FirewallInUse
-	l.InternetGateway = h.InternetGateway.String()
 	l.Connected = formatBool(n.Connected)
 	//l.PendingDelete = formatBool(n.PendingDelete)
 	l.DefaultACL = n.DefaultACL
