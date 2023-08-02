@@ -10,10 +10,10 @@ import (
 
 // limit consts
 const (
-	nodesLimit = iota
-	networksLimit
-	usersLimit
-	clientsLimit
+	limitChoiceNodes = iota
+	limitChoiceNetworks
+	limitChoiceUsers
+	limitChoiceClients
 )
 
 func checkFreeTierLimits(limitChoice int, next http.Handler) http.HandlerFunc {
@@ -22,24 +22,24 @@ func checkFreeTierLimits(limitChoice int, next http.Handler) http.HandlerFunc {
 			Code: http.StatusForbidden, Message: "free tier limits exceeded on networks",
 		}
 
-		if logic.Free_Tier { // check that free tier limits not exceeded
+		if logic.FreeTier { // check that free tier limits not exceeded
 			switch limitChoice {
-			case networksLimit:
+			case limitChoiceNetworks:
 				currentNetworks, err := logic.GetNetworks()
-				if (err != nil && !database.IsEmptyRecord(err)) || len(currentNetworks) >= logic.Networks_Limit {
+				if (err != nil && !database.IsEmptyRecord(err)) || len(currentNetworks) >= logic.NetworksLimit {
 					logic.ReturnErrorResponse(w, r, errorResponse)
 					return
 				}
-			case usersLimit:
+			case limitChoiceUsers:
 				users, err := logic.GetUsers()
-				if (err != nil && !database.IsEmptyRecord(err)) || len(users) >= logic.Users_Limit {
+				if (err != nil && !database.IsEmptyRecord(err)) || len(users) >= logic.UsersLimit {
 					errorResponse.Message = "free tier limits exceeded on users"
 					logic.ReturnErrorResponse(w, r, errorResponse)
 					return
 				}
-			case clientsLimit:
+			case limitChoiceClients:
 				clients, err := logic.GetAllExtClients()
-				if (err != nil && !database.IsEmptyRecord(err)) || len(clients) >= logic.Clients_Limit {
+				if (err != nil && !database.IsEmptyRecord(err)) || len(clients) >= logic.ClientsLimit {
 					errorResponse.Message = "free tier limits exceeded on external clients"
 					logic.ReturnErrorResponse(w, r, errorResponse)
 					return

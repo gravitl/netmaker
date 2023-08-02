@@ -162,7 +162,7 @@ func CreateHost(h *models.Host) error {
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
-	if len(hosts) >= Hosts_Limit {
+	if len(hosts) >= HostsLimit {
 		return errors.New("free tier limits exceeded on hosts")
 	}
 	_, err = GetHost(h.ID.String())
