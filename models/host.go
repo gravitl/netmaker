@@ -108,6 +108,8 @@ const (
 	RegisterWithTurn = "REGISTER_WITH_TURN"
 	// UpdateKeys - update wireguard private/public keys
 	UpdateKeys = "UPDATE_KEYS"
+	// RequestPull - request a pull from a host
+	RequestPull = "REQ_PULL"
 )
 
 // SignalAction - turn peer signal action
