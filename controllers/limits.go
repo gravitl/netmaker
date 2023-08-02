@@ -23,20 +23,21 @@ func checkFreeTierLimits(limitChoice int, next http.Handler) http.HandlerFunc {
 		}
 
 		if logic.Free_Tier { // check that free tier limits not exceeded
-			if limitChoice == networksLimit {
+			switch limitChoice {
+			case networksLimit:
 				currentNetworks, err := logic.GetNetworks()
 				if (err != nil && !database.IsEmptyRecord(err)) || len(currentNetworks) >= logic.Networks_Limit {
 					logic.ReturnErrorResponse(w, r, errorResponse)
 					return
 				}
-			} else if limitChoice == usersLimit {
+			case usersLimit:
 				users, err := logic.GetUsers()
 				if (err != nil && !database.IsEmptyRecord(err)) || len(users) >= logic.Users_Limit {
 					errorResponse.Message = "free tier limits exceeded on users"
 					logic.ReturnErrorResponse(w, r, errorResponse)
 					return
 				}
-			} else if limitChoice == clientsLimit {
+			case clientsLimit:
 				clients, err := logic.GetAllExtClients()
 				if (err != nil && !database.IsEmptyRecord(err)) || len(clients) >= logic.Clients_Limit {
 					errorResponse.Message = "free tier limits exceeded on external clients"
