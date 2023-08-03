@@ -2,7 +2,6 @@ package logic
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
@@ -10,6 +9,36 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 )
+
+// GetAllIngresses - gets all the hosts that are ingresses
+func GetAllIngresses() ([]models.Node, error) {
+	nodes, err := GetAllNodes()
+	if err != nil {
+		return nil, err
+	}
+	ingresses := make([]models.Node, 0)
+	for _, node := range nodes {
+		if node.IsIngressGateway {
+			ingresses = append(ingresses, node)
+		}
+	}
+	return ingresses, nil
+}
+
+// GetAllEgresses - gets all the hosts that are egresses
+func GetAllEgresses() ([]models.Node, error) {
+	nodes, err := GetAllNodes()
+	if err != nil {
+		return nil, err
+	}
+	egresses := make([]models.Node, 0)
+	for _, node := range nodes {
+		if node.IsEgressGateway {
+			egresses = append(egresses, node)
+		}
+	}
+	return egresses, nil
+}
 
 // CreateEgressGateway - creates an egress gateway
 func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, error) {
@@ -28,6 +57,13 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 		return models.Node{}, errors.New("firewall is not supported for egress gateways")
 	}
 	for i := len(gateway.Ranges) - 1; i >= 0; i-- {
+		// check if internet gateway IPv4
+		if gateway.Ranges[i] == "0.0.0.0/0" && FreeTier {
+			logger.Log(0, "currently IPv4 internet gateways are not supported on the free tier", gateway.Ranges[i])
+			gateway.Ranges = append(gateway.Ranges[:i], gateway.Ranges[i+1:]...)
+			continue
+		}
+		// check if internet gateway IPv6
 		if gateway.Ranges[i] == "::/0" {
 			logger.Log(0, "currently IPv6 internet gateways are not supported", gateway.Ranges[i])
 			gateway.Ranges = append(gateway.Ranges[:i], gateway.Ranges[i+1:]...)
@@ -150,15 +186,6 @@ func DeleteIngressGateway(nodeid string) (models.Node, bool, []models.ExtClient,
 	node.IsIngressGateway = false
 	node.IngressGatewayRange = ""
 	node.Failover = false
-
-	//logger.Log(3, "deleting ingress gateway firewall in use is '", host.FirewallInUse, "' and isEgressGateway is", node.IsEgressGateway)
-	if node.EgressGatewayRequest.NodeID != "" {
-		_, err := CreateEgressGateway(node.EgressGatewayRequest)
-		if err != nil {
-			logger.Log(0, fmt.Sprintf("failed to create egress gateway on node [%s] on network [%s]: %v",
-				node.EgressGatewayRequest.NodeID, node.EgressGatewayRequest.NetID, err))
-		}
-	}
 	err = UpsertNode(&node)
 	if err != nil {
 		return models.Node{}, wasFailover, removedClients, err

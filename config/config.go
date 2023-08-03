@@ -85,6 +85,9 @@ type ServerConfig struct {
 	ClientsLimit               int    `yaml:"client_limit"`
 	NetworksLimit              int    `yaml:"network_limit"`
 	HostsLimit                 int    `yaml:"host_limit"`
+	MachinesLimit              int    `yaml:"machines_limit"`
+	IngressesLimit             int    `yaml:"ingresses_limit"`
+	EgressesLimit              int    `yaml:"egresses_limit"`
 	DeployedByOperator         bool   `yaml:"deployed_by_operator"`
 }
 

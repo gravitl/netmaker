@@ -775,6 +775,30 @@ func GetHostLimit() int {
 	return hostsLimit
 }
 
+// GetMachinesLimit - fetches free tier limits on machines (clients + hosts)
+func GetMachinesLimit() int {
+	if l, err := strconv.Atoi(os.Getenv("MACHINES_LIMIT")); err == nil {
+		return l
+	}
+	return config.Config.Server.MachinesLimit
+}
+
+// GetIngressLimit - fetches free tier limits on ingresses
+func GetIngressLimit() int {
+	if l, err := strconv.Atoi(os.Getenv("INGRESSES_LIMIT")); err == nil {
+		return l
+	}
+	return config.Config.Server.IngressesLimit
+}
+
+// GetEgressLimit - fetches free tier limits on egresses
+func GetEgressLimit() int {
+	if l, err := strconv.Atoi(os.Getenv("EGRESSES_LIMIT")); err == nil {
+		return l
+	}
+	return config.Config.Server.EgressesLimit
+}
+
 // DeployedByOperator - returns true if the instance is deployed by netmaker operator
 func DeployedByOperator() bool {
 	if os.Getenv("DEPLOYED_BY_OPERATOR") != "" {
