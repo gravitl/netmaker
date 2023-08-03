@@ -2,7 +2,6 @@ package logic
 
 import (
 	"encoding/json"
-
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/servercfg"
 )
@@ -12,10 +11,16 @@ var (
 	NetworksLimit = 1000000000
 	// UsersLimit - dummy var for community
 	UsersLimit = 1000000000
+	// MachinesLimit - dummy var for community
+	MachinesLimit = 1000000000
 	// ClientsLimit - dummy var for community
 	ClientsLimit = 1000000000
 	// HostsLimit - dummy var for community
 	HostsLimit = 1000000000
+	// IngressesLimit - dummy var for community
+	IngressesLimit = 1000000000
+	// EgressesLimit - dummy var for community
+	EgressesLimit = 1000000000
 	// FreeTier - specifies if free tier
 	FreeTier = false
 )
@@ -87,10 +92,14 @@ func StoreJWTSecret(privateKey string) error {
 	return database.Insert("nm-jwt-secret", string(data), database.SERVERCONF_TABLE_NAME)
 }
 
+// SetFreeTierLimits - sets limits for free tier
 func SetFreeTierLimits() {
 	FreeTier = true
 	UsersLimit = servercfg.GetUserLimit()
 	ClientsLimit = servercfg.GetClientLimit()
 	NetworksLimit = servercfg.GetNetworkLimit()
 	HostsLimit = servercfg.GetHostLimit()
+	MachinesLimit = servercfg.GetMachinesLimit()
+	IngressesLimit = servercfg.GetIngressLimit()
+	EgressesLimit = servercfg.GetEgressLimit()
 }

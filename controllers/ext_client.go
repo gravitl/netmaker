@@ -29,7 +29,7 @@ func extClientHandlers(r *mux.Router) {
 	r.HandleFunc("/api/extclients/{network}/{clientid}/{type}", logic.NetUserSecurityCheck(false, true, http.HandlerFunc(getExtClientConf))).Methods(http.MethodGet)
 	r.HandleFunc("/api/extclients/{network}/{clientid}", logic.NetUserSecurityCheck(false, true, http.HandlerFunc(updateExtClient))).Methods(http.MethodPut)
 	r.HandleFunc("/api/extclients/{network}/{clientid}", logic.NetUserSecurityCheck(false, true, http.HandlerFunc(deleteExtClient))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/extclients/{network}/{nodeid}", logic.NetUserSecurityCheck(false, true, checkFreeTierLimits(limitChoiceClients, http.HandlerFunc(createExtClient)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/extclients/{network}/{nodeid}", logic.NetUserSecurityCheck(false, true, checkFreeTierLimits(limitChoiceMachines, http.HandlerFunc(createExtClient)))).Methods(http.MethodPost)
 }
 
 func checkIngressExists(nodeID string) bool {
