@@ -7,10 +7,10 @@ import (
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/ee/ee_controllers"
 	eelogic "github.com/gravitl/netmaker/ee/logic"
-	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
+	"golang.org/x/exp/slog"
 )
 
 // InitEE - Initialize EE Logic
@@ -18,6 +18,10 @@ func InitEE() {
 	setIsEnterprise()
 	servercfg.Is_EE = true
 	models.SetLogo(retrieveEELogo())
+	controller.HttpMiddlewares = append(
+		controller.HttpMiddlewares,
+		ee_controllers.OnlyServerAPIWhenUnlicensedMiddleware,
+	)
 	controller.HttpHandlers = append(
 		controller.HttpHandlers,
 		ee_controllers.MetricHandlers,
@@ -27,8 +31,11 @@ func InitEE() {
 	)
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
 		// == License Handling ==
-		ValidateLicense()
-		logger.Log(0, "proceeding with Paid Tier license")
+		if err := ValidateLicense(); err != nil {
+			slog.Error(err.Error())
+			return
+		}
+		slog.Info("proceeding with Paid Tier license")
 		logic.SetFreeTierForTelemetry(false)
 		// == End License Handling ==
 		AddLicenseHooks()
@@ -48,7 +55,7 @@ func resetFailover() {
 		for _, net := range nets {
 			err = eelogic.ResetFailover(net.NetID)
 			if err != nil {
-				logger.Log(0, "failed to reset failover on network", net.NetID, ":", err.Error())
+				slog.Error("failed to reset failover", "network", net.NetID, "error", err.Error())
 			}
 		}
 	}
