@@ -38,11 +38,14 @@ type LicenseSecret struct {
 
 // LicenseLimits - struct license limits
 type LicenseLimits struct {
-	Servers  int `json:"servers"`
-	Users    int `json:"users"`
-	Hosts    int `json:"hosts"`
-	Clients  int `json:"clients"`
-	Networks int `json:"networks"`
+	Servers   int `json:"servers"`
+	Users     int `json:"users"`
+	Hosts     int `json:"hosts"`
+	Clients   int `json:"clients"`
+	Networks  int `json:"networks"`
+	Machines  int `json:"machines"`
+	Ingresses int `json:"ingresses"`
+	Egresses  int `json:"egresses"`
 }
 
 // LicenseLimits.SetDefaults - sets the default values for limits
@@ -52,6 +55,9 @@ func (l *LicenseLimits) SetDefaults() {
 	l.Hosts = 0
 	l.Users = 1
 	l.Networks = 0
+	l.Machines = 0
+	l.Ingresses = 0
+	l.Egresses = 0
 }
 
 // ValidateLicenseRequest - used for request to validate license endpoint
