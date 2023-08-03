@@ -3,10 +3,11 @@ package logic
 import (
 	"context"
 	"fmt"
+	"github.com/gravitl/netmaker/logger"
+	"golang.org/x/exp/slog"
 	"sync"
 	"time"
 
-	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 )
 
@@ -52,7 +53,7 @@ func StartHookManager(ctx context.Context, wg *sync.WaitGroup) {
 	for {
 		select {
 		case <-ctx.Done():
-			logger.Log(0, "## Stopping Hook Manager")
+			slog.Error("## Stopping Hook Manager")
 			return
 		case newhook := <-HookManagerCh:
 			wg.Add(1)
@@ -70,7 +71,9 @@ func addHookWithInterval(ctx context.Context, wg *sync.WaitGroup, hook func() er
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			hook()
+			if err := hook(); err != nil {
+				slog.Error(err.Error())
+			}
 		}
 	}
 
@@ -85,6 +88,7 @@ var timeHooks = []interface{}{
 }
 
 func loggerDump() error {
+	// TODO use slog?
 	logger.DumpFile(fmt.Sprintf("data/netmaker.log.%s", time.Now().Format(logger.TimeFormatDay)))
 	return nil
 }
@@ -93,7 +97,7 @@ func loggerDump() error {
 func runHooks() {
 	for _, hook := range timeHooks {
 		if err := hook.(func() error)(); err != nil {
-			logger.Log(1, "error occurred when running timer function:", err.Error())
+			slog.Error("error occurred when running timer function", "error", err.Error())
 		}
 	}
 }
