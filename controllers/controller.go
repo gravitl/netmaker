@@ -14,6 +14,9 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
+// HttpMiddlewares - middleware functions for REST interactions
+var HttpMiddlewares []mux.MiddlewareFunc
+
 // HttpHandlers - handler functions for REST interactions
 var HttpHandlers = []interface{}{
 	nodeHandlers,
@@ -41,6 +44,10 @@ func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context) {
 	headersOk := handlers.AllowedHeaders([]string{"Access-Control-Allow-Origin", "X-Requested-With", "Content-Type", "authorization"})
 	originsOk := handlers.AllowedOrigins(strings.Split(servercfg.GetAllowedOrigin(), ","))
 	methodsOk := handlers.AllowedMethods([]string{http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete})
+
+	for _, middleware := range HttpMiddlewares {
+		r.Use(middleware)
+	}
 
 	for _, handler := range HttpHandlers {
 		handler.(func(*mux.Router))(r)
