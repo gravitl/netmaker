@@ -23,7 +23,6 @@ type ApiHost struct {
 	EndpointIP         string   `json:"endpointip" yaml:"endpointip"`
 	PublicKey          string   `json:"publickey"`
 	MacAddress         string   `json:"macaddress"`
-	InternetGateway    string   `json:"internetgateway"`
 	Nodes              []string `json:"nodes"`
 	IsDefault          bool     `json:"isdefault" yaml:"isdefault"`
 	IsRelayed          bool     `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
@@ -45,10 +44,6 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 		a.Interfaces[i].AddressString = a.Interfaces[i].Address.String()
 	}
 	a.DefaultInterface = h.DefaultInterface
-	a.InternetGateway = h.InternetGateway.String()
-	if isEmptyAddr(a.InternetGateway) {
-		a.InternetGateway = ""
-	}
 	a.IsStatic = h.IsStatic
 	a.ListenPort = h.ListenPort
 	a.MTU = h.MTU
@@ -83,7 +78,6 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.Interface = currentHost.Interface
 	h.Interfaces = currentHost.Interfaces
 	h.DefaultInterface = currentHost.DefaultInterface
-	h.InternetGateway = currentHost.InternetGateway
 	h.IsDocker = currentHost.IsDocker
 	h.IsK8S = currentHost.IsK8S
 	h.IsStatic = a.IsStatic

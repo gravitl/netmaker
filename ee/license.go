@@ -12,7 +12,6 @@ import (
 	"golang.org/x/exp/slog"
 	"io"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
@@ -44,29 +43,40 @@ func AddLicenseHooks() {
 	}
 }
 
-// ValidateLicense - the initial license check for netmaker server
+// ValidateLicense - the initial and periodic license check for netmaker server
 // checks if a license is valid + limits are not exceeded
-// if license is free_tier and limits exceeds, then server should terminate
-// if license is not valid, server should terminate
-func ValidateLicense() error {
+// if license is free_tier and limits exceeds, then function should error
+// if license is not valid, function should error
+func ValidateLicense() (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("%w: %s", errValidation, err.Error())
+			servercfg.ErrLicenseValidation = err
+		}
+	}()
+
 	licenseKeyValue := servercfg.GetLicenseKey()
 	netmakerTenantID := servercfg.GetNetmakerTenantID()
 	slog.Info("proceeding with Netmaker license validation...")
 	if len(licenseKeyValue) == 0 {
-		failValidation(errors.New("empty license-key (LICENSE_KEY environment variable)"))
+		err = errors.New("empty license-key (LICENSE_KEY environment variable)")
+		return err
 	}
 	if len(netmakerTenantID) == 0 {
-		failValidation(errors.New("empty tenant-id (NETMAKER_TENANT_ID environment variable)"))
+		err = errors.New("empty tenant-id (NETMAKER_TENANT_ID environment variable)")
+		return err
 	}
 
 	apiPublicKey, err := getLicensePublicKey(licenseKeyValue)
 	if err != nil {
-		failValidation(fmt.Errorf("failed to get license public key: %w", err))
+		err = fmt.Errorf("failed to get license public key: %w", err)
+		return err
 	}
 
 	tempPubKey, tempPrivKey, err := FetchApiServerKeys()
 	if err != nil {
-		failValidation(fmt.Errorf("failed to fetch api server keys: %w", err))
+		err = fmt.Errorf("failed to fetch api server keys: %w", err)
+		return err
 	}
 
 	licenseSecret := LicenseSecret{
@@ -76,35 +86,42 @@ func ValidateLicense() error {
 
 	secretData, err := json.Marshal(&licenseSecret)
 	if err != nil {
-		failValidation(fmt.Errorf("failed to marshal license secret: %w", err))
+		err = fmt.Errorf("failed to marshal license secret: %w", err)
+		return err
 	}
 
 	encryptedData, err := ncutils.BoxEncrypt(secretData, apiPublicKey, tempPrivKey)
 	if err != nil {
-		failValidation(fmt.Errorf("failed to encrypt license secret data: %w", err))
+		err = fmt.Errorf("failed to encrypt license secret data: %w", err)
+		return err
 	}
 
 	validationResponse, err := validateLicenseKey(encryptedData, tempPubKey)
 	if err != nil {
-		failValidation(fmt.Errorf("failed to validate license key: %w", err))
+		err = fmt.Errorf("failed to validate license key: %w", err)
+		return err
 	}
 	if len(validationResponse) == 0 {
-		failValidation(errors.New("empty validation response"))
+		err = errors.New("empty validation response")
+		return err
 	}
 
 	var licenseResponse ValidatedLicense
 	if err = json.Unmarshal(validationResponse, &licenseResponse); err != nil {
-		failValidation(fmt.Errorf("failed to unmarshal validation response: %w", err))
+		err = fmt.Errorf("failed to unmarshal validation response: %w", err)
+		return err
 	}
 
 	respData, err := ncutils.BoxDecrypt(base64decode(licenseResponse.EncryptedLicense), apiPublicKey, tempPrivKey)
 	if err != nil {
-		failValidation(fmt.Errorf("failed to decrypt license: %w", err))
+		err = fmt.Errorf("failed to decrypt license: %w", err)
+		return err
 	}
 
 	license := LicenseKey{}
 	if err = json.Unmarshal(respData, &license); err != nil {
-		failValidation(fmt.Errorf("failed to unmarshal license key: %w", err))
+		err = fmt.Errorf("failed to unmarshal license key: %w", err)
+		return err
 	}
 
 	slog.Info("License validation succeeded!")
@@ -156,11 +173,6 @@ func FetchApiServerKeys() (pub *[32]byte, priv *[32]byte, err error) {
 	}
 
 	return pub, priv, nil
-}
-
-func failValidation(err error) {
-	slog.Error(errValidation.Error(), "error", err)
-	os.Exit(0)
 }
 
 func getLicensePublicKey(licensePubKeyEncoded string) (*[32]byte, error) {
