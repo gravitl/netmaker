@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/kr/pretty"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -82,6 +83,8 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 		} else {
 			node = convertLegacyNode(legacyNode, host.ID)
 		}
+		pretty.Println(host)
+		pretty.Println(node)
 		if err := logic.UpsertNode(&node); err != nil {
 			slog.Error("update node", "error", err)
 			continue
