@@ -217,7 +217,12 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	if network.DefaultKeepalive != 0 {
 		keepalive = "PersistentKeepalive = " + strconv.Itoa(int(network.DefaultKeepalive))
 	}
-	gwendpoint := host.EndpointIP.String() + ":" + strconv.Itoa(host.ListenPort)
+	gwendpoint := ""
+	if host.EndpointIP.To4() == nil {
+		gwendpoint = "[" + host.EndpointIP.String() + "]" + ":" + strconv.Itoa(host.ListenPort)
+	} else {
+		gwendpoint = host.EndpointIP.String() + ":" + strconv.Itoa(host.ListenPort)
+	}
 	newAllowedIPs := network.AddressRange
 	if newAllowedIPs != "" && network.AddressRange6 != "" {
 		newAllowedIPs += ","
