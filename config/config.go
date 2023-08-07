@@ -82,9 +82,7 @@ type ServerConfig struct {
 	TurnPassword               string `yaml:"turn_password"`
 	UseTurn                    bool   `yaml:"use_turn"`
 	UsersLimit                 int    `yaml:"user_limit"`
-	ClientsLimit               int    `yaml:"client_limit"`
 	NetworksLimit              int    `yaml:"network_limit"`
-	HostsLimit                 int    `yaml:"host_limit"`
 	MachinesLimit              int    `yaml:"machines_limit"`
 	IngressesLimit             int    `yaml:"ingresses_limit"`
 	EgressesLimit              int    `yaml:"egresses_limit"`
