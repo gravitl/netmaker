@@ -245,6 +245,14 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(network.NetID) > 32 {
+		err := errors.New("Network name shouldn't exceed 32 characters")
+		logger.Log(0, r.Header.Get("user"), "failed to create network: ",
+			err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
 	if network.AddressRange == "" && network.AddressRange6 == "" {
 		err := errors.New("IPv4 or IPv6 CIDR required")
 		logger.Log(0, r.Header.Get("user"), "failed to create network: ",

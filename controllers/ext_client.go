@@ -219,9 +219,9 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	}
 	gwendpoint := ""
 	if host.EndpointIP.To4() == nil {
-		gwendpoint = "[" + host.EndpointIP.String() + "]" + ":" + strconv.Itoa(host.ListenPort)
+		gwendpoint = fmt.Sprintf("[%s]:%d", host.EndpointIP.String(), host.ListenPort)
 	} else {
-		gwendpoint = host.EndpointIP.String() + ":" + strconv.Itoa(host.ListenPort)
+		gwendpoint = fmt.Sprintf("%s:%d", host.EndpointIP.String(), host.ListenPort)
 	}
 	newAllowedIPs := network.AddressRange
 	if newAllowedIPs != "" && network.AddressRange6 != "" {
