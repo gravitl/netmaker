@@ -13,10 +13,6 @@ var (
 	UsersLimit = 1000000000
 	// MachinesLimit - dummy var for community
 	MachinesLimit = 1000000000
-	// ClientsLimit - dummy var for community
-	ClientsLimit = 1000000000
-	// HostsLimit - dummy var for community
-	HostsLimit = 1000000000
 	// IngressesLimit - dummy var for community
 	IngressesLimit = 1000000000
 	// EgressesLimit - dummy var for community
@@ -96,9 +92,7 @@ func StoreJWTSecret(privateKey string) error {
 func SetFreeTierLimits() {
 	FreeTier = true
 	UsersLimit = servercfg.GetUserLimit()
-	ClientsLimit = servercfg.GetClientLimit()
 	NetworksLimit = servercfg.GetNetworkLimit()
-	HostsLimit = servercfg.GetHostLimit()
 	MachinesLimit = servercfg.GetMachinesLimit()
 	IngressesLimit = servercfg.GetIngressLimit()
 	EgressesLimit = servercfg.GetEgressLimit()
