@@ -12,8 +12,6 @@ import (
 const (
 	limitChoiceNetworks = iota
 	limitChoiceUsers
-	limitChoiceHosts
-	limitChoiceClients
 	limitChoiceMachines
 	limitChoiceIngress
 	limitChoiceEgress
@@ -40,22 +38,6 @@ func checkFreeTierLimits(limitChoice int, next http.Handler) http.HandlerFunc {
 				if (err != nil && !database.IsEmptyRecord(err)) ||
 					len(users) >= logic.UsersLimit {
 					errorResponse.Message += "users"
-					logic.ReturnErrorResponse(w, r, errorResponse)
-					return
-				}
-			case limitChoiceClients:
-				clients, err := logic.GetAllExtClients()
-				if (err != nil && !database.IsEmptyRecord(err)) ||
-					len(clients) >= logic.ClientsLimit {
-					errorResponse.Message += "clients"
-					logic.ReturnErrorResponse(w, r, errorResponse)
-					return
-				}
-			case limitChoiceHosts:
-				hosts, err := logic.GetAllHosts()
-				if (err != nil && !database.IsEmptyRecord(err)) ||
-					len(hosts) >= logic.HostsLimit {
-					errorResponse.Message += "hosts"
 					logic.ReturnErrorResponse(w, r, errorResponse)
 					return
 				}
