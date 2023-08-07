@@ -2,6 +2,7 @@ package logic
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
@@ -59,15 +60,11 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	for i := len(gateway.Ranges) - 1; i >= 0; i-- {
 		// check if internet gateway IPv4
 		if gateway.Ranges[i] == "0.0.0.0/0" && FreeTier {
-			logger.Log(0, "currently IPv4 internet gateways are not supported on the free tier", gateway.Ranges[i])
-			gateway.Ranges = append(gateway.Ranges[:i], gateway.Ranges[i+1:]...)
-			continue
+			return models.Node{}, fmt.Errorf("currently IPv4 internet gateways are not supported on the free tier: %s", gateway.Ranges[i])
 		}
 		// check if internet gateway IPv6
 		if gateway.Ranges[i] == "::/0" {
-			logger.Log(0, "currently IPv6 internet gateways are not supported", gateway.Ranges[i])
-			gateway.Ranges = append(gateway.Ranges[:i], gateway.Ranges[i+1:]...)
-			continue
+			return models.Node{}, fmt.Errorf("currently IPv6 internet gateways are not supported: %s", gateway.Ranges[i])
 		}
 		normalized, err := NormalizeCIDR(gateway.Ranges[i])
 		if err != nil {
