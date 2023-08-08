@@ -1,9 +1,20 @@
 package ee
 
-import "fmt"
+import (
+	"fmt"
+)
+
+// constants for accounts api hosts
+const (
+	// accountsHostDevelopment is the accounts api host for development environment
+	accountsHostDevelopment = "https://api.dev.accounts.netmaker.io"
+	// accountsHostStaging is the accounts api host for staging environment
+	accountsHostStaging = "https://api.staging.accounts.netmaker.io"
+	// accountsHostProduction is the accounts api host for production environment
+	accountsHostProduction = "https://api.accounts.netmaker.io"
+)
 
 const (
-	api_endpoint               = "https://api.accounts.netmaker.io/api/v1/license/validate"
 	license_cache_key          = "license_response_cache"
 	license_validation_err_msg = "invalid license"
 	server_id_key              = "nm-server-id"
