@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,6 +21,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/validation"
+	"golang.org/x/exp/slog"
 )
 
 var (
@@ -442,6 +444,35 @@ func GetAllNodesAPI(nodes []models.Node) []models.ApiNode {
 		apiNodes = append(apiNodes, *newApiNode)
 	}
 	return apiNodes[:]
+}
+
+// DeleteExpiredNodes - goroutine which deletes nodes which are expired
+func DeleteExpiredNodes(ctx context.Context, peerUpdate chan *models.Node) {
+	for {
+		select {
+		case <-ctx.Done():
+			close(peerUpdate)
+			return
+		case <-time.After(time.Hour):
+			// Delete Expired Nodes Every Hour
+			allnodes, err := GetAllNodes()
+			if err != nil {
+				slog.Error("failed to retrieve all nodes", "error", err.Error())
+				return
+			}
+			for _, node := range allnodes {
+				if time.Now().After(node.ExpirationDateTime) {
+					if err := DeleteNode(&node, true); err != nil {
+						slog.Error("error deleting expired node", "nodeid", node.ID.String(), "error", err.Error())
+						continue
+					}
+					node.Action = models.NODE_DELETE
+					peerUpdate <- &node
+					slog.Info("deleting expired node", "nodeid", node.ID.String())
+				}
+			}
+		}
+	}
 }
 
 // == PRO ==
