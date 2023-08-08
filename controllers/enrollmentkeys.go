@@ -222,6 +222,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		} else {
+			slog.Info("no custom host port set. attempting to use", "port", newHost.ListenPort)
 			logic.CheckHostPorts(&newHost, true)
 		}
 		// create EMQX credentials and ACLs for host
