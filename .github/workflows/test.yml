@@ -51,6 +51,7 @@ jobs:
         run: |
           go vet ./...
           go test -p 1 ./... -v
+          go test -p 1 ./ee -v --tags ee
         env:
           DATABASE: sqlite
           CLIENT_MODE: "off"
