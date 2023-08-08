@@ -22,7 +22,7 @@ func validName(name string) bool {
 	if !reg.MatchString(name) {
 		return false
 	}
-	if len(name) > 15 {
+	if len(name) < 5 || len(name) > 32 {
 		return false
 	}
 	return true
