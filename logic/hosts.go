@@ -480,11 +480,11 @@ func GetRelatedHosts(hostID string) []models.Host {
 // CheckHostPort checks host endpoints to ensures that hosts on the same server
 // with the same endpoint have different listen ports
 // in the case of 64535 hosts or more with same endpoint, ports will not be changed
-func CheckHostPorts(h *models.Host) {
+func CheckHostPorts(h *models.Host, assignPort bool) (bool, error) {
 	portsInUse := make(map[int]bool, 0)
 	hosts, err := GetAllHosts()
 	if err != nil {
-		return
+		return false, err
 	}
 	for _, host := range hosts {
 		if host.ID.String() == h.ID.String() {
@@ -496,6 +496,9 @@ func CheckHostPorts(h *models.Host) {
 		}
 		portsInUse[host.ListenPort] = true
 	}
+	if !assignPort {
+		return portsInUse[h.ListenPort], nil
+	}
 	// iterate until port is not found or max iteration is reached
 	for i := 0; portsInUse[h.ListenPort] && i < maxPort-minPort+1; i++ {
 		h.ListenPort++
@@ -503,7 +506,7 @@ func CheckHostPorts(h *models.Host) {
 			h.ListenPort = minPort
 		}
 	}
-
+	return false, nil
 }
 
 // HostExists - checks if given host already exists

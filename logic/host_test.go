@@ -46,7 +46,14 @@ func TestCheckPorts(t *testing.T) {
 	CreateHost(&h)
 	t.Run("no change", func(t *testing.T) {
 		is := is.New(t)
-		CheckHostPorts(&testHost)
+		CheckHostPorts(&testHost, true)
+		t.Log(testHost.ListenPort)
+		t.Log(h.ListenPort)
+		is.Equal(testHost.ListenPort, 51830)
+	})
+	t.Run("no change with assign=false", func(t *testing.T) {
+		is := is.New(t)
+		CheckHostPorts(&testHost, false)
 		t.Log(testHost.ListenPort)
 		t.Log(h.ListenPort)
 		is.Equal(testHost.ListenPort, 51830)
@@ -54,10 +61,17 @@ func TestCheckPorts(t *testing.T) {
 	t.Run("same listen port", func(t *testing.T) {
 		is := is.New(t)
 		testHost.ListenPort = 51821
-		CheckHostPorts(&testHost)
+		CheckHostPorts(&testHost, true)
 		t.Log(testHost.ListenPort)
 		t.Log(h.ListenPort)
 		is.Equal(testHost.ListenPort, 51822)
 	})
-
+	t.Run("no change for same listen port with assign=false", func(t *testing.T) {
+		is := is.New(t)
+		testHost.ListenPort = 51821
+		CheckHostPorts(&testHost, false)
+		t.Log(testHost.ListenPort)
+		t.Log(h.ListenPort)
+		is.Equal(testHost.ListenPort, 51821)
+	})
 }

@@ -13,6 +13,8 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
+	"golang.org/x/exp/slices"
+	"golang.org/x/exp/slog"
 )
 
 func enrollmentKeyHandlers(r *mux.Router) {
@@ -157,14 +159,15 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	// get the host
-	var newHost models.Host
-	if err = json.NewDecoder(r.Body).Decode(&newHost); err != nil {
+	reqBody := models.HostRegisterReqDto{}
+	if err = json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ",
 			err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	// get the host
+	var newHost models.Host = reqBody.Host
 	hostExists := false
 	// re-register host with turn just in case.
 	if servercfg.IsUsingTurn() {
@@ -205,7 +208,22 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	hostPass := newHost.HostPass
 	if !hostExists {
 		// register host
-		logic.CheckHostPorts(&newHost)
+		if slices.Contains(reqBody.CustomParams, models.HostRegisterCustomParamListenPort) {
+			slog.Info("checking custom host port", "port", newHost.ListenPort)
+			isPortInUse, err := logic.CheckHostPorts(&newHost, false)
+			if err != nil {
+				slog.Error("failed to check host port", "error", err)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				return
+			}
+			if isPortInUse {
+				slog.Error("port is already in use", "port", newHost.ListenPort)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("port %d is already in use", newHost.ListenPort), "badrequest"))
+				return
+			}
+		} else {
+			logic.CheckHostPorts(&newHost, true)
+		}
 		// create EMQX credentials and ACLs for host
 		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 			if err := mq.CreateEmqxUser(newHost.ID.String(), newHost.HostPass, false); err != nil {

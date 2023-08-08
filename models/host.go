@@ -154,3 +154,16 @@ type RegisterMsg struct {
 	Password     string `json:"password,omitempty"`
 	JoinAll      bool   `json:"join_all,omitempty"`
 }
+
+// HostRegisterCustomParams - enum for host registration custom params
+type HostRegisterCustomParams int
+
+const (
+	HostRegisterCustomParamEndpointIp HostRegisterCustomParams = iota // EnumIndex = 0
+	HostRegisterCustomParamListenPort
+)
+
+type HostRegisterReqDto struct {
+	Host         Host                       `json:"host"`
+	CustomParams []HostRegisterCustomParams `json:"customParams"`
+}
