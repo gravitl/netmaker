@@ -11,10 +11,10 @@ import (
 type Network struct {
 	AddressRange        string                `json:"addressrange" bson:"addressrange" validate:"omitempty,cidrv4"`
 	AddressRange6       string                `json:"addressrange6" bson:"addressrange6" validate:"omitempty,cidrv6"`
-	NetID               string                `json:"netid" bson:"netid" validate:"required,min=1,max=12,netid_valid"`
+	NetID               string                `json:"netid" bson:"netid" validate:"required,min=1,max=32,netid_valid"`
 	NodesLastModified   int64                 `json:"nodeslastmodified" bson:"nodeslastmodified"`
 	NetworkLastModified int64                 `json:"networklastmodified" bson:"networklastmodified"`
-	DefaultInterface    string                `json:"defaultinterface" bson:"defaultinterface" validate:"min=1,max=15"`
+	DefaultInterface    string                `json:"defaultinterface" bson:"defaultinterface" validate:"min=1,max=35"`
 	DefaultListenPort   int32                 `json:"defaultlistenport,omitempty" bson:"defaultlistenport,omitempty" validate:"omitempty,min=1024,max=65535"`
 	NodeLimit           int32                 `json:"nodelimit" bson:"nodelimit"`
 	DefaultPostDown     string                `json:"defaultpostdown" bson:"defaultpostdown"`
@@ -30,7 +30,7 @@ type Network struct {
 
 // SaveData - sensitive fields of a network that should be kept the same
 type SaveData struct { // put sensitive fields here
-	NetID string `json:"netid" bson:"netid" validate:"required,min=1,max=12,netid_valid"`
+	NetID string `json:"netid" bson:"netid" validate:"required,min=1,max=32,netid_valid"`
 }
 
 // Network.SetNodesLastModified - sets nodes last modified on network, depricated
@@ -49,7 +49,7 @@ func (network *Network) SetDefaults() {
 		network.DefaultUDPHolePunch = "no"
 	}
 	if network.DefaultInterface == "" {
-		if len(network.NetID) < 13 {
+		if len(network.NetID) < 33 {
 			network.DefaultInterface = "nm-" + network.NetID
 		} else {
 			network.DefaultInterface = network.NetID
