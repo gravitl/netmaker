@@ -115,10 +115,6 @@ func convertLegacyHostNode(legacy models.LegacyNode) (models.Host, models.Node) 
 	host.PublicKey, _ = wgtypes.ParseKey(legacy.PublicKey)
 	host.MacAddress = net.HardwareAddr(legacy.MacAddress)
 	host.TrafficKeyPublic = legacy.TrafficKeys.Mine
-	updAddr, err := net.ResolveUDPAddr("udp", legacy.InternetGateway)
-	if err == nil {
-		host.InternetGateway = *updAddr
-	}
 	host.Nodes = append([]string{}, legacy.ID)
 	host.Interfaces = legacy.Interfaces
 	//host.DefaultInterface = legacy.Defaul
