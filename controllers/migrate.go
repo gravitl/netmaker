@@ -100,6 +100,38 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(&response)
 
 	slog.Info("migrated nodes")
+	// check for gateways
+	for _, node := range data.LegacyNodes {
+		if node.IsEgressGateway == "yes" {
+			egressGateway := models.EgressGatewayRequest{
+				NodeID:     node.ID,
+				Ranges:     node.EgressGatewayRanges,
+				NatEnabled: node.EgressGatewayNatEnabled,
+			}
+			if _, err := logic.CreateEgressGateway(egressGateway); err != nil {
+				logger.Log(0, "error creating egress gateway for node", node.ID, err.Error())
+			}
+		}
+		if node.IsIngressGateway == "yes" {
+			ingressGateway := models.IngressRequest{}
+			ingressNode, err := logic.CreateIngressGateway(node.Network, node.ID, ingressGateway)
+			if err != nil {
+				logger.Log(0, "error creating ingress gateway for node", node.ID, err.Error())
+			}
+			runUpdates(&ingressNode, true)
+		}
+		if node.IsRelay == "yes" && servercfg.Is_EE {
+			_, relayNode, err := logic.CreateRelay(models.RelayRequest{
+				NodeID:       node.ID,
+				NetID:        node.Network,
+				RelayedNodes: node.RelayAddrs,
+			})
+			if err != nil {
+				logger.Log(0, "error creating relay for node", node.ID, err.Error())
+			}
+			runUpdates(&relayNode, true)
+		}
+	}
 }
 
 func convertLegacyHostNode(legacy models.LegacyNode) (models.Host, models.Node) {
