@@ -753,26 +753,28 @@ func GetNetworkLimit() int {
 	return networkslimit
 }
 
-// GetClientLimit - fetches free tier limits on ext. clients
-func GetClientLimit() int {
-	var clientsLimit int
-	if os.Getenv("CLIENTS_LIMIT") != "" {
-		clientsLimit, _ = strconv.Atoi(os.Getenv("CLIENTS_LIMIT"))
-	} else {
-		clientsLimit = config.Config.Server.ClientsLimit
+// GetMachinesLimit - fetches free tier limits on machines (clients + hosts)
+func GetMachinesLimit() int {
+	if l, err := strconv.Atoi(os.Getenv("MACHINES_LIMIT")); err == nil {
+		return l
 	}
-	return clientsLimit
+	return config.Config.Server.MachinesLimit
 }
 
-// GetHostLimit - fetches free tier limits on hosts
-func GetHostLimit() int {
-	var hostsLimit int
-	if os.Getenv("HOSTS_LIMIT") != "" {
-		hostsLimit, _ = strconv.Atoi(os.Getenv("HOSTS_LIMIT"))
-	} else {
-		hostsLimit = config.Config.Server.HostsLimit
+// GetIngressLimit - fetches free tier limits on ingresses
+func GetIngressLimit() int {
+	if l, err := strconv.Atoi(os.Getenv("INGRESSES_LIMIT")); err == nil {
+		return l
 	}
-	return hostsLimit
+	return config.Config.Server.IngressesLimit
+}
+
+// GetEgressLimit - fetches free tier limits on egresses
+func GetEgressLimit() int {
+	if l, err := strconv.Atoi(os.Getenv("EGRESSES_LIMIT")); err == nil {
+		return l
+	}
+	return config.Config.Server.EgressesLimit
 }
 
 // DeployedByOperator - returns true if the instance is deployed by netmaker operator

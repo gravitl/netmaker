@@ -158,14 +158,14 @@ func GetHost(hostid string) (*models.Host, error) {
 
 // CreateHost - creates a host if not exist
 func CreateHost(h *models.Host) error {
-	hosts, err := GetAllHosts()
-	if err != nil && !database.IsEmptyRecord(err) {
-		return err
+	hosts, hErr := GetAllHosts()
+	clients, cErr := GetAllExtClients()
+	if (hErr != nil && !database.IsEmptyRecord(hErr)) ||
+		(cErr != nil && !database.IsEmptyRecord(cErr)) ||
+		len(hosts)+len(clients) >= MachinesLimit {
+		return errors.New("free tier limits exceeded on machines")
 	}
-	if len(hosts) >= Hosts_Limit {
-		return errors.New("free tier limits exceeded on hosts")
-	}
-	_, err = GetHost(h.ID.String())
+	_, err := GetHost(h.ID.String())
 	if (err != nil && !database.IsEmptyRecord(err)) || (err == nil) {
 		return ErrHostExists
 	}
