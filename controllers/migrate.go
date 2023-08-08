@@ -64,6 +64,8 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 		if i == 0 {
 			host, node = convertLegacyHostNode(legacyNode)
 			host.Name = data.HostName
+			host.HostPass = data.Password
+			host.OS = data.OS
 			if err := logic.CreateHost(&host); err != nil {
 				slog.Error("create host", "error", err)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -133,11 +135,15 @@ func convertLegacyNode(legacy models.LegacyNode, hostID uuid.UUID) models.Node {
 	node.HostID = hostID
 	node.Network = legacy.Network
 	_, cidr4, err := net.ParseCIDR(legacy.NetworkSettings.AddressRange)
-	if err == nil {
+	if err != nil {
+		slog.Warn("parsing address range", "error", err)
+	} else {
 		node.Address = *cidr4
 	}
 	_, cidr6, err := net.ParseCIDR(legacy.NetworkSettings.AddressRange6)
-	if err == nil {
+	if err != nil {
+		slog.Warn("paring address range6", "error", err)
+	} else {
 		node.Address6 = *cidr6
 	}
 	node.Server = legacy.Server
