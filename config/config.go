@@ -86,6 +86,7 @@ type ServerConfig struct {
 	NetworksLimit              int    `yaml:"network_limit"`
 	HostsLimit                 int    `yaml:"host_limit"`
 	DeployedByOperator         bool   `yaml:"deployed_by_operator"`
+	Environment                string `yaml:"environment"`
 }
 
 // SQLConfig - Generic SQL Config
