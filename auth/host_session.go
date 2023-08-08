@@ -15,6 +15,8 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
+	"golang.org/x/exp/slices"
+	"golang.org/x/exp/slog"
 )
 
 // SessionHandler - called by the HTTP router when user
@@ -31,7 +33,7 @@ func SessionHandler(conn *websocket.Conn) {
 		return
 	}
 
-	var registerMessage models.RegisterMsg
+	var registerMessage models.HostRegisterNonTokenReqDto
 	if err = json.Unmarshal(message, &registerMessage); err != nil {
 		logger.Log(0, "Failed to unmarshall data err=", err.Error())
 		return
@@ -140,7 +142,22 @@ func SessionHandler(conn *websocket.Conn) {
 					return
 				}
 			}
-			logic.CheckHostPorts(&result.Host, true)
+			if slices.Contains(registerMessage.CustomParams, models.HostRegisterCustomParamListenPort) {
+				slog.Info("checking custom host port", "port", result.Host.ListenPort)
+				isPortInUse, err := logic.CheckHostPorts(&result.Host, false)
+				if err != nil {
+					slog.Error("failed to check host port", "error", err)
+					handleHostRegErr(conn, err)
+					return
+				}
+				if isPortInUse {
+					slog.Error("port is already in use", "port", result.Host.ListenPort)
+					handleHostRegErr(conn, err)
+					return
+				}
+			} else {
+				logic.CheckHostPorts(&result.Host, true)
+			}
 			if err := logic.CreateHost(&result.Host); err != nil {
 				handleHostRegErr(conn, err)
 				return

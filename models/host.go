@@ -146,13 +146,14 @@ type Signal struct {
 	TimeStamp         int64        `json:"timestamp"`
 }
 
-// RegisterMsg - login message struct for hosts to join via SSO login
-type RegisterMsg struct {
-	RegisterHost Host   `json:"host"`
-	Network      string `json:"network,omitempty"`
-	User         string `json:"user,omitempty"`
-	Password     string `json:"password,omitempty"`
-	JoinAll      bool   `json:"join_all,omitempty"`
+// HostRegisterNonTokenReqDto - login message struct for hosts to join via SSO login
+type HostRegisterNonTokenReqDto struct {
+	RegisterHost Host                       `json:"host"`
+	Network      string                     `json:"network,omitempty"`
+	User         string                     `json:"user,omitempty"`
+	Password     string                     `json:"password,omitempty"`
+	JoinAll      bool                       `json:"join_all,omitempty"`
+	CustomParams []HostRegisterCustomParams `json:"customParams"`
 }
 
 // HostRegisterCustomParams - enum for host registration custom params
