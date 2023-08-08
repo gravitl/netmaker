@@ -176,8 +176,7 @@ setup_netclient() {
 	netclient uninstall
 	set -e
 
-	# TODO arm support
-	wget -qO netclient https://github.com/gravitl/netclient/releases/download/$LATEST/netclient-linux-amd64
+	wget -qO netclient https://github.com/gravitl/netclient/releases/download/$LATEST/netclient-linux-$ARCH
 	chmod +x netclient
 	./netclient install
 	echo "Register token: $TOKEN"
@@ -227,8 +226,7 @@ configure_netclient() {
 # setup_nmctl - pulls nmctl and makes it executable
 setup_nmctl() {
 
-	# TODO arm support
-	local URL="https://github.com/gravitl/netmaker/releases/download/$LATEST/nmctl-linux-amd64"
+	local URL="https://github.com/gravitl/netmaker/releases/download/$LATEST/nmctl-linux-$ARCH"
 	echo "Downloading nmctl..."
 	wget -qO /usr/bin/nmctl "$URL"
 
@@ -430,7 +428,16 @@ install_dependencies() {
 		#  ask the user to install manually and continue when ready
 		exit 1
 	fi
-
+	# TODO add other supported architectures
+	ARCH=$(uname -m)
+    if [ "$ARCH" = "x86_64" ]; then
+    	ARCH=amd64
+    elif [ "$ARCH" = "aarch64" ]; then
+    	ARCH=arm64
+    else
+    	echo "Unsupported architechure"
+    	# exit 1
+    fi
 	set -- $dependencies
 
 	${update_cmd}
