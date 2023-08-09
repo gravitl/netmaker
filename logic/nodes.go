@@ -451,7 +451,6 @@ func DeleteExpiredNodes(ctx context.Context, peerUpdate chan *models.Node) {
 	for {
 		select {
 		case <-ctx.Done():
-			close(peerUpdate)
 			return
 		case <-time.After(time.Hour):
 			// Delete Expired Nodes Every Hour
@@ -462,11 +461,12 @@ func DeleteExpiredNodes(ctx context.Context, peerUpdate chan *models.Node) {
 			}
 			for _, node := range allnodes {
 				if time.Now().After(node.ExpirationDateTime) {
-					if err := DeleteNode(&node, true); err != nil {
+					if err := DeleteNode(&node, false); err != nil {
 						slog.Error("error deleting expired node", "nodeid", node.ID.String(), "error", err.Error())
 						continue
 					}
 					node.Action = models.NODE_DELETE
+					node.PendingDelete = true
 					peerUpdate <- &node
 					slog.Info("deleting expired node", "nodeid", node.ID.String())
 				}

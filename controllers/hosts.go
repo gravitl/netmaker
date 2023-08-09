@@ -328,13 +328,13 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		// unset all the relayed nodes
 		logic.SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
 	}
-	node.Action = models.NODE_DELETE
-	node.PendingDelete = true
-	logger.Log(1, "deleting  node", node.ID.String(), "from host", currHost.Name)
-	if err := logic.DeleteNode(node, forceDelete); err != nil {
+	logger.Log(1, "deleting node", node.ID.String(), "from host", currHost.Name)
+	if err := logic.DeleteNode(node, false); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
 		return
 	}
+	node.Action = models.NODE_DELETE
+	node.PendingDelete = true
 	// notify node change
 	runUpdates(node, false)
 	go func() { // notify of peer change
