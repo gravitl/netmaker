@@ -61,7 +61,7 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if i == 0 {
-			host, node = convertLegacyHostNode(legacyNode)
+			host, node = convertLegacyHostNode(legacy)
 			host.Name = data.HostName
 			host.HostPass = data.Password
 			host.OS = data.OS
