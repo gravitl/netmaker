@@ -329,7 +329,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
 	}
 	logger.Log(1, "deleting node", node.ID.String(), "from host", currHost.Name)
-	if err := logic.DeleteNode(node, false); err != nil {
+	if err := logic.DeleteNode(node, forceDelete); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
 		return
 	}
