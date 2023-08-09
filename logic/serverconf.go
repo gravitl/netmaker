@@ -2,22 +2,23 @@ package logic
 
 import (
 	"encoding/json"
-
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
 var (
-	// Networks_Limit - dummy var for community
-	Networks_Limit = 1000000000
-	// Users_Limit - dummy var for community
-	Users_Limit = 1000000000
-	// Clients_Limit - dummy var for community
-	Clients_Limit = 1000000000
-	// Hosts_Limit - dummy var for community
-	Hosts_Limit = 1000000000
-	// Free_Tier - specifies if free tier
-	Free_Tier = false
+	// NetworksLimit - dummy var for community
+	NetworksLimit = 1000000000
+	// UsersLimit - dummy var for community
+	UsersLimit = 1000000000
+	// MachinesLimit - dummy var for community
+	MachinesLimit = 1000000000
+	// IngressesLimit - dummy var for community
+	IngressesLimit = 1000000000
+	// EgressesLimit - dummy var for community
+	EgressesLimit = 1000000000
+	// FreeTier - specifies if free tier
+	FreeTier = false
 )
 
 type serverData struct {
@@ -87,10 +88,12 @@ func StoreJWTSecret(privateKey string) error {
 	return database.Insert("nm-jwt-secret", string(data), database.SERVERCONF_TABLE_NAME)
 }
 
+// SetFreeTierLimits - sets limits for free tier
 func SetFreeTierLimits() {
-	Free_Tier = true
-	Users_Limit = servercfg.GetUserLimit()
-	Clients_Limit = servercfg.GetClientLimit()
-	Networks_Limit = servercfg.GetNetworkLimit()
-	Hosts_Limit = servercfg.GetHostLimit()
+	FreeTier = true
+	UsersLimit = servercfg.GetUserLimit()
+	NetworksLimit = servercfg.GetNetworkLimit()
+	MachinesLimit = servercfg.GetMachinesLimit()
+	IngressesLimit = servercfg.GetIngressLimit()
+	EgressesLimit = servercfg.GetEgressLimit()
 }

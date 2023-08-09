@@ -81,7 +81,7 @@ func ValidateLicense() (err error) {
 
 	licenseSecret := LicenseSecret{
 		AssociatedID: netmakerTenantID,
-		Limits:       getCurrentServerLimit(),
+		Usage:        getCurrentServerUsage(),
 	}
 
 	secretData, err := json.Marshal(&licenseSecret)
