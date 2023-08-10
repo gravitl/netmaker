@@ -37,7 +37,7 @@ func CheckZombies(newnode *models.Node) {
 			//skip self
 			continue
 		}
-		if node.HostID == newnode.HostID || time.Now().After(node.ExpirationDateTime) {
+		if node.HostID == newnode.HostID {
 			logger.Log(0, "adding ", node.ID.String(), " to zombie list")
 			newZombie <- node.ID
 		}
@@ -97,7 +97,7 @@ func ManageZombies(ctx context.Context, peerUpdate chan *models.Node) {
 						zombies = append(zombies[:i], zombies[i+1:]...)
 						continue
 					}
-					if time.Since(node.LastCheckIn) > time.Minute*ZOMBIE_DELETE_TIME || time.Now().After(node.ExpirationDateTime) {
+					if time.Since(node.LastCheckIn) > time.Minute*ZOMBIE_DELETE_TIME {
 						if err := DeleteNode(&node, true); err != nil {
 							logger.Log(1, "error deleting zombie node", zombies[i].String(), err.Error())
 							continue
