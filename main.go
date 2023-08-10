@@ -168,6 +168,7 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 	go func() {
 		peerUpdate := make(chan *models.Node)
 		go logic.ManageZombies(ctx, peerUpdate)
+		go logic.DeleteExpiredNodes(ctx, peerUpdate)
 		for nodeUpdate := range peerUpdate {
 			if err := mq.NodeUpdate(nodeUpdate); err != nil {
 				logger.Log(0, "failed to send peer update for deleted node: ", nodeUpdate.ID.String(), err.Error())
