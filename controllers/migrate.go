@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
@@ -84,16 +85,17 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 		} else {
 			node = convertLegacyNode(legacyNode, host.ID)
 		}
-		if err := logic.AssociateNodeToHost(&node, &host); err != nil {
-			slog.Error("associate node to host", "node", node.ID, "host", host.ID, "hostname", host.Name, "error", err)
-		}
 		if err := logic.UpsertNode(&node); err != nil {
 			slog.Error("update node", "error", err)
 			continue
 		}
-		slog.Info("")
+		host.Nodes = append(host.Nodes, node.ID.String())
+		if err := logic.UpsertHost(&host); err != nil {
+			slog.Error("save host", "error", err)
+		}
 		nodes = append(nodes, node)
 	}
+	go mq.PublishPeerUpdate()
 	response := models.HostPull{
 		Host:         host,
 		Nodes:        nodes,
