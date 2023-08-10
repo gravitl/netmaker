@@ -178,7 +178,7 @@ upgrade() {
 	wget -qO /tmp/nm-upgrade https://fileserver.netmaker.io/upgrade/nm-upgrade-${ARCH}
 	chmod +x /tmp/nm-upgrade
 	echo "generating netclient configuration files"
-	/tmp/upgrade
+	/tmp/nm-upgrade
 }
 
 # setup_netclient - installs netclient 
