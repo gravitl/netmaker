@@ -84,6 +84,9 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 		} else {
 			node = convertLegacyNode(legacyNode, host.ID)
 		}
+		if err := logic.AssociateNodeToHost(&node, &host); err != nil {
+			slog.Error("associate node to host", "node", node.ID, "host", host.ID, "hostname", host.Name, "error", err)
+		}
 		if err := logic.UpsertNode(&node); err != nil {
 			slog.Error("update node", "error", err)
 			continue
