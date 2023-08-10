@@ -337,7 +337,9 @@ func (node *Node) SetLastPeerUpdate() {
 
 // Node.SetExpirationDateTime - sets node expiry time
 func (node *Node) SetExpirationDateTime() {
-	node.ExpirationDateTime = time.Now().Add(TEN_YEARS_IN_SECONDS)
+	if node.ExpirationDateTime.IsZero() {
+		node.ExpirationDateTime = time.Now().Add(TEN_YEARS_IN_SECONDS)
+	}
 }
 
 // Node.SetDefaultName - sets a random name to node
