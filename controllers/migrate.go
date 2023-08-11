@@ -158,27 +158,35 @@ func convertLegacyNode(legacy models.LegacyNode, hostID uuid.UUID) models.Node {
 	node.ID, _ = uuid.Parse(legacy.ID)
 	node.HostID = hostID
 	node.Network = legacy.Network
+	valid4 := true
+	valid6 := true
 	_, cidr4, err := net.ParseCIDR(legacy.NetworkSettings.AddressRange)
 	if err != nil {
+		valid4 = false
 		slog.Warn("parsing address range", "error", err)
 	} else {
 		node.NetworkRange = *cidr4
 	}
 	_, cidr6, err := net.ParseCIDR(legacy.NetworkSettings.AddressRange6)
 	if err != nil {
-		slog.Warn("paring address range6", "error", err)
+		valid6 = false
+		slog.Warn("parsing address range6", "error", err)
 	} else {
 		node.NetworkRange6 = *cidr6
 	}
 	node.Server = servercfg.GetServer()
 	node.Connected = models.ParseBool(legacy.Connected)
-	node.Address = net.IPNet{
-		IP:   net.ParseIP(legacy.Address),
-		Mask: cidr4.Mask,
+	if valid4 {
+		node.Address = net.IPNet{
+			IP:   net.ParseIP(legacy.Address),
+			Mask: cidr4.Mask,
+		}
 	}
-	node.Address6 = net.IPNet{
-		IP:   net.ParseIP(legacy.Address6),
-		Mask: cidr6.Mask,
+	if valid6 {
+		node.Address6 = net.IPNet{
+			IP:   net.ParseIP(legacy.Address6),
+			Mask: cidr6.Mask,
+		}
 	}
 	node.Action = models.NODE_NOOP
 	node.LocalAddress = net.IPNet{
