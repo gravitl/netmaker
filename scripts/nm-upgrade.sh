@@ -4,7 +4,7 @@ CONFIG_FILE=netmaker.env
 # location of nm-quick.sh (usually `/root`)
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
 CONFIG_PATH="$SCRIPT_DIR/$CONFIG_FILE"
-NM_QUICK_VERSION="0.1.1"
+NM_QUICK_VERSION="0.1.0"
 LATEST=$(curl -s https://api.github.com/repos/gravitl/netmaker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d [:space:],\")
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -13,59 +13,20 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 unset INSTALL_TYPE
-unset BUILD_TYPE
-unset BUILD_TAG
-unset IMAGE_TAG
-unset AUTO_BUILD
 unset NETMAKER_BASE_DOMAIN
 
 # usage - displays usage instructions
 usage() {
 	echo "nm-upgrade.sh v$NM_QUICK_VERSION"
-	echo "usage: ./nm-quick.sh [-e] [-b buildtype] [-t tag] [-a auto] [-d domain]"
-	echo "  -e      if specified, will install netmaker EE"
-	echo "  -b      type of build; options:"
-	echo "          \"version\" - will install a specific version of Netmaker using remote git and dockerhub"
-	echo "          \"local\": - will install by cloning repo and building images from git"
-	echo "          \"branch\": - will install a specific branch using remote git and dockerhub"
-	echo "  -t      tag of build; if buildtype=version, tag=version. If builtype=branch or builtype=local, tag=branch"
-	echo "  -a      auto-build; skip prompts and use defaults, if none provided"
-	echo "  -d      domain; if specified, will use this domain instead of auto-generating one"
-	echo "examples:"
-	echo "          nm-quick.sh -e -b version -t $LATEST"
-	echo "          nm-quick.sh -e -b local -t feature_v0.17.2_newfeature"
-	echo "          nm-quick.sh -e -b branch -t develop"
-	echo "          nm-quick.sh -e -b version -t $LATEST -a -d example.com"
+	echo "usage: ./nm-upgrade.sh"
 	exit 1
 }
 
-while getopts evab:d:t: flag; do
+while getopts v flag; do
 	case "${flag}" in
-	e)
-		INSTALL_TYPE="ee"
-		UPGRADE_FLAG="yes"
-		;;
 	v)
 		usage
 		exit 0
-		;;
-	a)
-		AUTO_BUILD="on"
-		;;
-	b)
-		BUILD_TYPE=${OPTARG}
-		if [[ ! "$BUILD_TYPE" =~ ^(version|local|branch)$ ]]; then
-			echo "error: $BUILD_TYPE is invalid"
-			echo "valid options: version, local, branch"
-			usage
-			exit 1
-		fi
-		;;
-	t)
-		BUILD_TAG=${OPTARG}
-		;;
-	d)
-		NETMAKER_BASE_DOMAIN=${OPTARG}
 		;;
 	*)
 		usage
@@ -97,32 +58,13 @@ EOF
 # set_buildinfo - sets the information based on script input for how the installation should be run
 set_buildinfo() {
 
-	if [ -z "$BUILD_TYPE" ]; then
-		BUILD_TYPE="version"
-		BUILD_TAG=$LATEST
-	fi
-
-	if [ -z "$BUILD_TAG" ] && [ "$BUILD_TYPE" = "version" ]; then
-		BUILD_TAG=$LATEST
-	fi
-
-	if [ -z "$BUILD_TAG" ] && [ ! -z "$BUILD_TYPE" ]; then
-		echo "error: must specify build tag when build type \"$BUILD_TYPE\" is specified"
-		usage
-		exit 1
-	fi
-
-	IMAGE_TAG=$(sed 's/\//-/g' <<<"$BUILD_TAG")
-
 	if [ "$1" = "ce" ]; then
 		INSTALL_TYPE="ce"
 	elif [ "$1" = "ee" ]; then
 		INSTALL_TYPE="ee"
 	fi
 
-	if [ "$AUTO_BUILD" = "on" ] && [ -z "$INSTALL_TYPE" ]; then
-		INSTALL_TYPE="ce"
-	elif [ -z "$INSTALL_TYPE" ]; then
+	if [ -z "$INSTALL_TYPE" ]; then
 		echo "-----------------------------------------------------"
 		echo "Would you like to install Netmaker Community Edition (CE), or Netmaker Enterprise Edition (EE)?"
 		echo "EE will require you to create an account at https://app.netmaker.io"
@@ -145,9 +87,7 @@ set_buildinfo() {
 	fi
 	echo "-----------Build Options-----------------------------"
 	echo "    EE or CE: $INSTALL_TYPE"
-	echo "  Build Type: $BUILD_TYPE"
-	echo "   Build Tag: $BUILD_TAG"
-	echo "   Image Tag: $IMAGE_TAG"
+	echo "   Version: $LATEST"
 	echo "   Installer: v$NM_QUICK_VERSION"
 	echo "-----------------------------------------------------"
 
@@ -215,9 +155,6 @@ wait_seconds() { (
 
 # confirm - get user input to confirm that they want to perform the next step
 confirm() { (
-	if [ "$AUTO_BUILD" = "on" ]; then
-		return 0
-	fi
 	while true; do
 		read -p 'Does everything look right? [y/n]: ' yn
 		case $yn in
@@ -240,27 +177,18 @@ save_config() { (
 	touch "$CONFIG_PATH"
 	save_config_item NM_EMAIL "$EMAIL"
 	save_config_item NM_DOMAIN "$NETMAKER_BASE_DOMAIN"
-	save_config_item UI_IMAGE_TAG "$IMAGE_TAG"
-	if [ "$BUILD_TYPE" = "local" ]; then
-		save_config_item UI_IMAGE_TAG "$LATEST"
-	else
-		save_config_item UI_IMAGE_TAG "$IMAGE_TAG"
-	fi
+	save_config_item UI_IMAGE_TAG "$LATEST"
 	# version-specific entries
 	if [ "$INSTALL_TYPE" = "ee" ]; then
 		save_config_item NETMAKER_TENANT_ID "$TENANT_ID"
 		save_config_item LICENSE_KEY "$LICENSE_KEY"
 		save_config_item METRICS_EXPORTER "on"
 		save_config_item PROMETHEUS "on"
-		if [ "$BUILD_TYPE" = "version" ]; then
-			save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG-ee"
-		else
-			save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG"
-		fi
+		ave_config_item SERVER_IMAGE_TAG "$LATEST-ee"
 	else
 		save_config_item METRICS_EXPORTER "off"
 		save_config_item PROMETHEUS "off"
-		save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG"
+		save_config_item SERVER_IMAGE_TAG "$LATEST"
 	fi
 	# copy entries from the previous config
 	local toCopy=("SERVER_HOST" "MASTER_KEY" "TURN_USERNAME" "TURN_PASSWORD" "MQ_USERNAME" "MQ_PASSWORD"
@@ -301,40 +229,6 @@ save_config_item() { (
 		sed -i "s|$NAME=.*|$NAME=$VALUE|" "$CONFIG_PATH"
 	else
 		echo "$NAME=$VALUE" >>"$CONFIG_PATH"
-	fi
-); }
-
-# local_install_setup - builds artifacts based on specified branch locally to use in install
-local_install_setup() { (
-	if test -z "$NM_SKIP_CLONE"; then
-		rm -rf netmaker-tmp
-		mkdir netmaker-tmp
-		cd netmaker-tmp
-		git clone --single-branch --depth=1 --branch=$BUILD_TAG https://www.github.com/gravitl/netmaker
-	else
-		cd netmaker-tmp
-		echo "Skipping git clone on NM_SKIP_CLONE"
-	fi
-	cd netmaker
-	if test -z "$NM_SKIP_BUILD"; then
-		docker build --no-cache --build-arg version=$IMAGE_TAG -t gravitl/netmaker:$IMAGE_TAG .
-	else
-		echo "Skipping build on NM_SKIP_BUILD"
-	fi
-	cp compose/docker-compose.yml "$SCRIPT_DIR/docker-compose.yml"
-	if [ "$INSTALL_TYPE" = "ee" ]; then
-		cp compose/docker-compose.ee.yml "$SCRIPT_DIR/docker-compose.override.yml"
-		cp docker/Caddyfile-EE "$SCRIPT_DIR/Caddyfile"
-	else
-		cp docker/Caddyfile "$SCRIPT_DIR/Caddyfile"
-	fi
-	cp scripts/nm-certs.sh "$SCRIPT_DIR/nm-certs.sh"
-	cp scripts/netmaker.default.env "$SCRIPT_DIR/netmaker.default.env"
-	cp docker/mosquitto.conf "$SCRIPT_DIR/mosquitto.conf"
-	cp docker/wait.sh "$SCRIPT_DIR/wait.sh"
-	cd ../../
-	if test -z "$NM_SKIP_CLONE"; then
-		rm -rf netmaker-tmp
 	fi
 ); }
 
@@ -480,9 +374,6 @@ set_install_vars() {
 	echo "For this reason, we STRONGLY RECOMMEND using your own domain. Using the auto-generated domain may lead to a failed installation due to rate limiting."
 	echo "-----------------------------------------------------"
 
-	if [ "$AUTO_BUILD" = "on" ]; then
-		DOMAIN_TYPE="auto"
-	else
 		select domain_option in "Auto Generated ($NETMAKER_BASE_DOMAIN)" "Custom Domain (e.x: netmaker.example.com)"; do
 			case $REPLY in
 			1)
@@ -500,7 +391,6 @@ set_install_vars() {
 			*) echo "invalid option $REPLY" ;;
 			esac
 		done
-	fi
 
 	wait_seconds 2
 
@@ -551,9 +441,6 @@ set_install_vars() {
 	RAND_EMAIL="$(echo $RANDOM | md5sum | head -c 16)@email.com"
 	# suggest the prev email or a random one
 	EMAIL_SUGGESTED=${NM_EMAIL:-$RAND_EMAIL}
-	if [ -z $AUTO_BUILD ]; then
-		read -p "Email Address for Domain Registration (click 'enter' to use $EMAIL_SUGGESTED): " GET_EMAIL
-	fi
 	if [ -z "$GET_EMAIL" ]; then
 		EMAIL="$EMAIL_SUGGESTED"
 		if [ "$EMAIL" = "$NM_EMAIL" ]; then
@@ -571,9 +458,6 @@ set_install_vars() {
 	unset GET_MQ_PASSWORD
 	unset CONFIRM_MQ_PASSWORD
 	echo "Enter Credentials For MQ..."
-	if [ -z $AUTO_BUILD ]; then
-		read -p "MQ Username (click 'enter' to use 'netmaker'): " GET_MQ_USERNAME
-	fi
 	if [ -z "$GET_MQ_USERNAME" ]; then
 		echo "using default username for mq"
 		MQ_USERNAME="netmaker"
@@ -588,7 +472,6 @@ set_install_vars() {
 		)
 	fi
 
-	if [ -z $AUTO_BUILD ]; then
 		select domain_option in "Auto Generated / Config Password" "Input Your Own Password"; do
 			case $REPLY in
 			1)
@@ -614,15 +497,11 @@ set_install_vars() {
 			*) echo "invalid option $REPLY" ;;
 			esac
 		done
-	fi
 
 	unset GET_TURN_USERNAME
 	unset GET_TURN_PASSWORD
 	unset CONFIRM_TURN_PASSWORD
 	echo "Enter Credentials For TURN..."
-	if [ -z $AUTO_BUILD ]; then
-		read -p "TURN Username (click 'enter' to use 'netmaker'): " GET_TURN_USERNAME
-	fi
 	if [ -z "$GET_TURN_USERNAME" ]; then
 		echo "using default username for TURN"
 		TURN_USERNAME="netmaker"
@@ -637,7 +516,6 @@ set_install_vars() {
 		)
 	fi
 
-	if [ -z $AUTO_BUILD ]; then
 		select domain_option in "Auto Generated / Config Password" "Input Your Own Password"; do
 			case $REPLY in
 			1)
@@ -663,7 +541,6 @@ set_install_vars() {
 			*) echo "invalid option $REPLY" ;;
 			esac
 		done
-	fi
 
 	wait_seconds 2
 
@@ -681,10 +558,6 @@ set_install_vars() {
 	echo "Confirm Settings for Installation"
 	echo "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
 
-	if [ ! "$BUILD_TYPE" = "local" ]; then
-		IMAGE_TAG="$LATEST"
-	fi
-
 	confirm
 }
 
@@ -699,10 +572,7 @@ install_netmaker() {
 
 	echo "Pulling config files..."
 
-	if [ "$BUILD_TYPE" = "local" ]; then
-		local_install_setup
-	else
-		local BASE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG"
+		local BASE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$LATEST"
 
 		local COMPOSE_URL="$BASE_URL/compose/docker-compose.yml"
 		local CADDY_URL="$BASE_URL/docker/Caddyfile"
@@ -719,7 +589,6 @@ install_netmaker() {
 		wget -qO "$SCRIPT_DIR"/mosquitto.conf "$BASE_URL/docker/mosquitto.conf"
 		wget -qO "$SCRIPT_DIR"/nm-certs.sh "$BASE_URL/scripts/nm-certs.sh"
 		wget -qO "$SCRIPT_DIR"/wait.sh "$BASE_URL/docker/wait.sh"
-	fi
 
 	chmod +x "$SCRIPT_DIR"/wait.sh
 	mkdir -p /etc/netmaker
@@ -809,7 +678,7 @@ if [ -f "$CONFIG_PATH" ]; then
 fi
 
 # setup the build instructions
-set_buildinfo
+#set_buildinfo
 
 set +e
 
