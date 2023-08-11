@@ -90,7 +90,7 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		host.Nodes = append(host.Nodes, node.ID.String())
-		
+
 		nodes = append(nodes, node)
 	}
 	if err := logic.UpsertHost(&host); err != nil {
@@ -125,17 +125,6 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 				logger.Log(0, "error creating ingress gateway for node", node.ID, err.Error())
 			}
 			runUpdates(&ingressNode, true)
-		}
-		if node.IsRelay == "yes" && servercfg.Is_EE {
-			_, relayNode, err := logic.CreateRelay(models.RelayRequest{
-				NodeID:       node.ID,
-				NetID:        node.Network,
-				RelayedNodes: node.RelayAddrs,
-			})
-			if err != nil {
-				logger.Log(0, "error creating relay for node", node.ID, err.Error())
-			}
-			runUpdates(&relayNode, true)
 		}
 	}
 }
@@ -198,9 +187,9 @@ func convertLegacyNode(legacy models.LegacyNode, hostID uuid.UUID) models.Node {
 	node.IsEgressGateway = models.ParseBool(legacy.IsEgressGateway)
 	node.EgressGatewayRanges = legacy.EgressGatewayRanges
 	node.IsIngressGateway = models.ParseBool(legacy.IsIngressGateway)
-	node.IsRelayed = models.ParseBool(legacy.IsRelayed)
-	node.IsRelay = models.ParseBool(legacy.IsRelay)
-	node.RelayedNodes = legacy.RelayAddrs
+	node.IsRelayed = false
+	node.IsRelay = false
+	node.RelayedNodes = []string{}
 	node.DNSOn = models.ParseBool(legacy.DNSOn)
 	node.PersistentKeepalive = time.Duration(legacy.PersistentKeepalive)
 	node.LastModified = time.Now()
