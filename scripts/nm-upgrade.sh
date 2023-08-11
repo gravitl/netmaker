@@ -58,13 +58,13 @@ EOF
 # set_buildinfo - sets the information based on script input for how the installation should be run
 set_buildinfo() {
 
-	if [ "$1" = "ce" ]; then
-		INSTALL_TYPE="ce"
-	elif [ "$1" = "ee" ]; then
-		INSTALL_TYPE="ee"
-	fi
+	MASTERKEY=$(grep MASTER_KEY docker-compose.yml | awk '{print $2;}' | tr -d '"')
+	EMAIL=$(grep email Caddyfile | awk '{print $2;}' | tr -d '"')
+	BROKER=$(grep SERVER_NAME docker-compose.yml | awk '{print $2;}' | tr -d '"')
+	PREFIX="broker."
+	NETMAKER_BASE_DOMAIN=${BROKER/#$PREFIX}
 
-	if [ -z "$INSTALL_TYPE" ]; then
+
 		echo "-----------------------------------------------------"
 		echo "Would you like to install Netmaker Community Edition (CE), or Netmaker Enterprise Edition (EE)?"
 		echo "EE will require you to create an account at https://app.netmaker.io"
@@ -84,7 +84,7 @@ set_buildinfo() {
 			*) echo "invalid option $REPLY" ;;
 			esac
 		done
-	fi
+
 	echo "-----------Build Options-----------------------------"
 	echo "    EE or CE: $INSTALL_TYPE"
 	echo "   Version: $LATEST"
@@ -125,23 +125,7 @@ upgrade() {
 setup_netclient() {
 	wget -qO netclient https://github.com/gravitl/netclient/releases/download/$LATEST/netclient-linux-$ARCH
 	chmod +x netclient
-	./netclient install
-
-	echo "waiting for netclient to become available"
-	local found=false
-	local file=/etc/netclient/nodes.yml
-	for ((a = 1; a <= 90; a++)); do
-		if [ -f "$file" ]; then
-			found=true
-			break
-		fi
-		sleep 1
-	done
-
-	if [ "$found" = false ]; then
-		echo "Error - $file not present"
-		exit 1
-	fi
+	./netclient install -v 3
 }
 
 
@@ -347,7 +331,6 @@ install_dependencies() {
 	echo "dependency check complete"
 	echo "-----------------------------------------------------"
 }
-set -e
 
 # set_install_vars - sets the variables that will be used throughout installation
 set_install_vars() {
@@ -366,33 +349,7 @@ set_install_vars() {
 			echo ''
 		)
 	fi
-	DOMAIN_TYPE=""
-	echo "-----------------------------------------------------"
-	echo "Would you like to use your own domain for netmaker, or an auto-generated domain?"
-	echo "To use your own domain, add a Wildcard DNS record (e.x: *.netmaker.example.com) pointing to $SERVER_HOST"
-	echo "IMPORTANT: Due to the high volume of requests, the auto-generated domain has been rate-limited by the certificate provider."
-	echo "For this reason, we STRONGLY RECOMMEND using your own domain. Using the auto-generated domain may lead to a failed installation due to rate limiting."
-	echo "-----------------------------------------------------"
-
-		select domain_option in "Auto Generated ($NETMAKER_BASE_DOMAIN)" "Custom Domain (e.x: netmaker.example.com)"; do
-			case $REPLY in
-			1)
-				echo "using $NETMAKER_BASE_DOMAIN for base domain"
-				DOMAIN_TYPE="auto"
-				break
-				;;
-			2)
-				read -p "Enter Custom Domain (make sure  *.domain points to $SERVER_HOST first): " domain
-				NETMAKER_BASE_DOMAIN=$domain
-				echo "using $NETMAKER_BASE_DOMAIN"
-				DOMAIN_TYPE="custom"
-				break
-				;;
-			*) echo "invalid option $REPLY" ;;
-			esac
-		done
-
-	wait_seconds 2
+	DOMAIN_TYPE="auto"
 
 	echo "-----------------------------------------------------"
 	echo "The following subdomains will be used:"
@@ -409,13 +366,6 @@ set_install_vars() {
 	fi
 
 	echo "-----------------------------------------------------"
-
-	if [[ "$DOMAIN_TYPE" == "custom" ]]; then
-		echo "before continuing, confirm DNS is configured correctly, with records pointing to $SERVER_HOST"
-		confirm
-	fi
-
-	wait_seconds 1
 
 	if [ "$INSTALL_TYPE" = "ee" ]; then
 
@@ -436,114 +386,19 @@ set_install_vars() {
 		done
 	fi
 
-	unset GET_EMAIL
-	unset RAND_EMAIL
-	RAND_EMAIL="$(echo $RANDOM | md5sum | head -c 16)@email.com"
-	# suggest the prev email or a random one
-	EMAIL_SUGGESTED=${NM_EMAIL:-$RAND_EMAIL}
-	if [ -z "$GET_EMAIL" ]; then
-		EMAIL="$EMAIL_SUGGESTED"
-		if [ "$EMAIL" = "$NM_EMAIL" ]; then
-			echo "using config email"
-		else
-			echo "using rand email"
-		fi
-	else
-		EMAIL="$GET_EMAIL"
-	fi
+	echo "using default username/randon pass for MQ"
+	MQ_USERNAME="netmaker"
+	MQ_PASSWORD=$(
+		tr -dc A-Za-z0-9 </dev/urandom | head -c 30
+		echo ''
+	)
 
-	wait_seconds 1
-
-	unset GET_MQ_USERNAME
-	unset GET_MQ_PASSWORD
-	unset CONFIRM_MQ_PASSWORD
-	echo "Enter Credentials For MQ..."
-	if [ -z "$GET_MQ_USERNAME" ]; then
-		echo "using default username for mq"
-		MQ_USERNAME="netmaker"
-	else
-		MQ_USERNAME="$GET_MQ_USERNAME"
-	fi
-
-	if test -z "$MQ_PASSWORD"; then
-		MQ_PASSWORD=$(
-			tr -dc A-Za-z0-9 </dev/urandom | head -c 30
-			echo ''
-		)
-	fi
-
-		select domain_option in "Auto Generated / Config Password" "Input Your Own Password"; do
-			case $REPLY in
-			1)
-				echo "using random password for mq"
-				break
-				;;
-			2)
-				while true; do
-					echo "Enter your Password For MQ: "
-					read -s GET_MQ_PASSWORD
-					echo "Enter your password again to confirm: "
-					read -s CONFIRM_MQ_PASSWORD
-					if [ ${GET_MQ_PASSWORD} != ${CONFIRM_MQ_PASSWORD} ]; then
-						echo "wrong password entered, try again..."
-						continue
-					fi
-					MQ_PASSWORD="$GET_MQ_PASSWORD"
-					echo "MQ Password Saved Successfully!!"
-					break
-				done
-				break
-				;;
-			*) echo "invalid option $REPLY" ;;
-			esac
-		done
-
-	unset GET_TURN_USERNAME
-	unset GET_TURN_PASSWORD
-	unset CONFIRM_TURN_PASSWORD
-	echo "Enter Credentials For TURN..."
-	if [ -z "$GET_TURN_USERNAME" ]; then
-		echo "using default username for TURN"
-		TURN_USERNAME="netmaker"
-	else
-		TURN_USERNAME="$GET_TURN_USERNAME"
-	fi
-
-	if test -z "$TURN_PASSWORD"; then
-		TURN_PASSWORD=$(
-			tr -dc A-Za-z0-9 </dev/urandom | head -c 30
-			echo ''
-		)
-	fi
-
-		select domain_option in "Auto Generated / Config Password" "Input Your Own Password"; do
-			case $REPLY in
-			1)
-				echo "using random password for turn"
-				break
-				;;
-			2)
-				while true; do
-					echo "Enter your Password For TURN: "
-					read -s GET_TURN_PASSWORD
-					echo "Enter your password again to confirm: "
-					read -s CONFIRM_TURN_PASSWORD
-					if [ ${GET_TURN_PASSWORD} != ${CONFIRM_TURN_PASSWORD} ]; then
-						echo "wrong password entered, try again..."
-						continue
-					fi
-					TURN_PASSWORD="$GET_TURN_PASSWORD"
-					echo "TURN Password Saved Successfully!!"
-					break
-				done
-				break
-				;;
-			*) echo "invalid option $REPLY" ;;
-			esac
-		done
-
-	wait_seconds 2
-
+	echo "using default username/randon pass for TURN"
+	TURN_USERNAME="netmaker"
+	TURN_PASSWORD=$(
+		tr -dc A-Za-z0-9 </dev/urandom | head -c 30
+		echo ''
+	)
 	echo "-----------------------------------------------------------------"
 	echo "                SETUP ARGUMENTS"
 	echo "-----------------------------------------------------------------"
@@ -678,7 +533,7 @@ if [ -f "$CONFIG_PATH" ]; then
 fi
 
 # setup the build instructions
-#set_buildinfo
+set_buildinfo
 
 set +e
 
