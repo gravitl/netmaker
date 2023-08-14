@@ -202,13 +202,15 @@ func TestCreateDNS(t *testing.T) {
 func TestSetDNS(t *testing.T) {
 	deleteAllDNS(t)
 	deleteAllNetworks()
+	etc, err := os.Stat("/etc/hosts")
+	assert.Nil(t, err)
 	t.Run("NoNetworks", func(t *testing.T) {
 		err := logic.SetDNS()
 		assert.Nil(t, err)
 		info, err := os.Stat("./config/dnsconfig/netmaker.hosts")
 		assert.Nil(t, err)
 		assert.False(t, info.IsDir())
-		assert.Equal(t, int64(0), info.Size())
+		assert.Equal(t, etc.Size(), info.Size())
 	})
 	t.Run("NoEntries", func(t *testing.T) {
 		createNet()
@@ -217,7 +219,7 @@ func TestSetDNS(t *testing.T) {
 		info, err := os.Stat("./config/dnsconfig/netmaker.hosts")
 		assert.Nil(t, err)
 		assert.False(t, info.IsDir())
-		assert.Equal(t, int64(0), info.Size())
+		assert.Equal(t, etc.Size(), info.Size())
 	})
 	t.Run("NodeExists", func(t *testing.T) {
 		createTestNode()
