@@ -386,14 +386,14 @@ set_install_vars() {
 		done
 	fi
 
-	echo "using default username/randon pass for MQ"
+	echo "using default username/random pass for MQ"
 	MQ_USERNAME="netmaker"
 	MQ_PASSWORD=$(
 		tr -dc A-Za-z0-9 </dev/urandom | head -c 30
 		echo ''
 	)
 
-	echo "using default username/randon pass for TURN"
+	echo "using default username/random pass for TURN"
 	TURN_USERNAME="netmaker"
 	TURN_PASSWORD=$(
 		tr -dc A-Za-z0-9 </dev/urandom | head -c 30
