@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/txn2/txeh"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
 	"github.com/gravitl/netmaker/functions"
@@ -205,26 +206,28 @@ func TestCreateDNS(t *testing.T) {
 func TestSetDNS(t *testing.T) {
 	deleteAllDNS(t)
 	deleteAllNetworks()
-	etc, err := os.ReadFile("/etc/hosts")
+	etc, err := txeh.NewHosts(&txeh.HostsConfig{})
 	assert.Nil(t, err)
 	err = functions.SetDNSDir()
 	assert.Nil(t, err)
 	t.Run("NoNetworks", func(t *testing.T) {
 		err := logic.SetDNS()
 		assert.Nil(t, err)
-		info, err := os.ReadFile("./config/dnsconfig/netmaker.hosts")
+		info, err := txeh.NewHosts(&txeh.HostsConfig{
+			ReadFilePath: "./config/dnsconfig/netmaker.hosts",
+		})
 		assert.Nil(t, err)
-		//assert.False(t, info.IsDir())
-		assert.Equal(t, etc, info)
-		t.Log(string(etc), string(info))
+		assert.Equal(t, etc.RenderHostsFile(), info.RenderHostsFile())
 	})
 	t.Run("NoEntries", func(t *testing.T) {
 		createNet()
 		err := logic.SetDNS()
 		assert.Nil(t, err)
-		info, err := os.ReadFile("./config/dnsconfig/netmaker.hosts")
+		info, err := txeh.NewHosts(&txeh.HostsConfig{
+			ReadFilePath: "./config/dnsconfig/netmaker.hosts",
+		})
 		assert.Nil(t, err)
-		assert.Equal(t, etc, info)
+		assert.Equal(t, etc.RenderHostsFile(), info.RenderHostsFile())
 	})
 	t.Run("NodeExists", func(t *testing.T) {
 		createTestNode()
