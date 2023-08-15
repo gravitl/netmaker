@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
+	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 )
@@ -50,6 +51,8 @@ func TestGetNodeDNS(t *testing.T) {
 	deleteAllNetworks()
 	createNet()
 	createHost()
+	err := functions.SetDNSDir()
+	assert.Nil(t, err)
 	t.Run("NoNodes", func(t *testing.T) {
 		dns, _ := logic.GetNodeDNS("skynet")
 		assert.Equal(t, []models.DNSEntry(nil), dns)
@@ -203,6 +206,8 @@ func TestSetDNS(t *testing.T) {
 	deleteAllDNS(t)
 	deleteAllNetworks()
 	etc, err := os.Stat("/etc/hosts")
+	assert.Nil(t, err)
+	err = functions.SetDNSDir()
 	assert.Nil(t, err)
 	t.Run("NoNetworks", func(t *testing.T) {
 		err := logic.SetDNS()
