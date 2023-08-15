@@ -116,7 +116,9 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 			}
 			if _, err := logic.CreateEgressGateway(egressGateway); err != nil {
 				logger.Log(0, "error creating egress gateway for node", node.ID, err.Error())
-			}
+			}node.PersistentKeepalive = time.Duration(int64(time.Millisecond) * int64(legacy.PersistentKeepalive*1000))
+￼
+
 		}
 		if node.IsIngressGateway == "yes" {
 			ingressGateway := models.IngressRequest{}
@@ -203,7 +205,9 @@ func convertLegacyNode(legacy models.LegacyNode, hostID uuid.UUID) models.Node {
 	node.LastModified = time.Now()
 	node.ExpirationDateTime, _ = time.Parse(strconv.Itoa(int(legacy.ExpirationDateTime)), "0")
 	node.EgressGatewayNatEnabled = models.ParseBool(legacy.EgressGatewayNatEnabled)
-	node.EgressGatewayRequest = legacy.EgressGatewayRequest
+	node.EgressGatewayRequest = legacy.EgressGatewayRequestnode.PersistentKeepalive = time.Duration(int64(time.Millisecond) * int64(legacy.PersistentKeepalive*1000))
+￼
+
 	node.IngressGatewayRange = legacy.IngressGatewayRange
 	node.IngressGatewayRange6 = legacy.IngressGatewayRange6
 	node.DefaultACL = legacy.DefaultACL
