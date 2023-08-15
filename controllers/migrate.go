@@ -116,9 +116,7 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 			}
 			if _, err := logic.CreateEgressGateway(egressGateway); err != nil {
 				logger.Log(0, "error creating egress gateway for node", node.ID, err.Error())
-			}node.PersistentKeepalive = time.Duration(int64(time.Millisecond) * int64(legacy.PersistentKeepalive*1000))
-￼
-
+			}
 		}
 		if node.IsIngressGateway == "yes" {
 			ingressGateway := models.IngressRequest{}
