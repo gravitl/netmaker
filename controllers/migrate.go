@@ -203,9 +203,7 @@ func convertLegacyNode(legacy models.LegacyNode, hostID uuid.UUID) models.Node {
 	node.LastModified = time.Now()
 	node.ExpirationDateTime, _ = time.Parse(strconv.Itoa(int(legacy.ExpirationDateTime)), "0")
 	node.EgressGatewayNatEnabled = models.ParseBool(legacy.EgressGatewayNatEnabled)
-	node.EgressGatewayRequest = legacy.EgressGatewayRequestnode.PersistentKeepalive = time.Duration(int64(time.Millisecond) * int64(legacy.PersistentKeepalive*1000))
-￼
-
+	node.EgressGatewayRequest = legacy.EgressGatewayRequest
 	node.IngressGatewayRange = legacy.IngressGatewayRange
 	node.IngressGatewayRange6 = legacy.IngressGatewayRange6
 	node.DefaultACL = legacy.DefaultACL
