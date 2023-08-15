@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
-	"github.com/gravitl/netclient/ncutils"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -206,30 +205,26 @@ func TestCreateDNS(t *testing.T) {
 func TestSetDNS(t *testing.T) {
 	deleteAllDNS(t)
 	deleteAllNetworks()
-	etc, err := os.Stat("/etc/hosts")
+	etc, err := os.ReadFile("/etc/hosts")
 	assert.Nil(t, err)
-	out, _ := ncutils.RunCmd("cat /etc/hosts", false)
-	t.Log(out)
 	err = functions.SetDNSDir()
 	assert.Nil(t, err)
 	t.Run("NoNetworks", func(t *testing.T) {
 		err := logic.SetDNS()
 		assert.Nil(t, err)
-		info, err := os.Stat("./config/dnsconfig/netmaker.hosts")
+		info, err := os.ReadFile("./config/dnsconfig/netmaker.hosts")
 		assert.Nil(t, err)
-		assert.False(t, info.IsDir())
-		assert.Equal(t, etc.Size(), info.Size())
-		out, _ := ncutils.RunCmd("cat ./config/dnsconfig/netmaker.hosts", false)
-		t.Log(out)
+		//assert.False(t, info.IsDir())
+		assert.Equal(t, etc, info)
+		t.Log(string(etc), string(info))
 	})
 	t.Run("NoEntries", func(t *testing.T) {
 		createNet()
 		err := logic.SetDNS()
 		assert.Nil(t, err)
-		info, err := os.Stat("./config/dnsconfig/netmaker.hosts")
+		info, err := os.ReadFile("./config/dnsconfig/netmaker.hosts")
 		assert.Nil(t, err)
-		assert.False(t, info.IsDir())
-		assert.Equal(t, etc.Size(), info.Size())
+		assert.Equal(t, etc, info)
 	})
 	t.Run("NodeExists", func(t *testing.T) {
 		createTestNode()
