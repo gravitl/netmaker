@@ -20,7 +20,7 @@ require (
 	golang.org/x/oauth2 v0.11.0
 	golang.org/x/sys v0.11.0 // indirect
 	golang.org/x/text v0.12.0 // indirect
-	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220324164955-056925b7df31
+	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20221104135756-97bc4ad4a1cb
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -40,6 +40,7 @@ require (
 require (
 	github.com/devilcove/httpclient v0.6.0
 	github.com/go-jose/go-jose/v3 v3.0.0
+	github.com/gravitl/netclient v0.20.5
 	github.com/guumaster/tablewriter v0.0.10
 	github.com/matryer/is v1.4.1
 	github.com/olekukonko/tablewriter v0.0.5
@@ -52,6 +53,8 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/vishvananda/netlink v1.1.0 // indirect
+	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
 )
 
 require (

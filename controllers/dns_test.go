@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
+	"github.com/gravitl/netclient/ncutils"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -207,6 +208,8 @@ func TestSetDNS(t *testing.T) {
 	deleteAllNetworks()
 	etc, err := os.Stat("/etc/hosts")
 	assert.Nil(t, err)
+	out, _ := ncutils.RunCmd("cat /etc/hosts", false)
+	t.Log(out)
 	err = functions.SetDNSDir()
 	assert.Nil(t, err)
 	t.Run("NoNetworks", func(t *testing.T) {
@@ -216,6 +219,8 @@ func TestSetDNS(t *testing.T) {
 		assert.Nil(t, err)
 		assert.False(t, info.IsDir())
 		assert.Equal(t, etc.Size(), info.Size())
+		out, _ := ncutils.RunCmd("cat ./config/dnsconfig/netmaker.hosts", false)
+		t.Log(out)
 	})
 	t.Run("NoEntries", func(t *testing.T) {
 		createNet()
