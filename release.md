@@ -6,10 +6,10 @@
 
 ## What's Fixed
 - Upgrade Process from v0.17.1 to latest version can be now done seamlessly, please refer docs
-- Expired Nodes CleanUp is Fixed
+- Expired nodes clean up is handled correctly now
 - Ext client config generation fixed for ipv6 endpoints
 - installation process will only generate certs required for required Domains based on CE or EE
-- support for arm machines on install script
+- support for ARM machines on install script
      
 ## known issues
 - Windows installer does not install WireGuard
