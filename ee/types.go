@@ -26,13 +26,13 @@ var errValidation = fmt.Errorf(license_validation_err_msg)
 type LicenseKey struct {
 	LicenseValue   string `json:"license_value"` // actual (public) key and the unique value for the key
 	Expiration     int64  `json:"expiration"`
-	UsageServers   int    `json:"usage_servers"`
-	UsageUsers     int    `json:"usage_users"`
-	UsageClients   int    `json:"usage_clients"`
-	UsageHosts     int    `json:"usage_hosts"`
-	UsageNetworks  int    `json:"usage_networks"`
-	UsageIngresses int    `json:"usage_ingresses"`
-	UsageEgresses  int    `json:"usage_egresses"`
+	UsageServers   int    `json:"limit_servers"`
+	UsageUsers     int    `json:"limit_users"`
+	UsageClients   int    `json:"limit_clients"`
+	UsageHosts     int    `json:"limit_hosts"`
+	UsageNetworks  int    `json:"limit_networks"`
+	UsageIngresses int    `json:"limit_ingresses"`
+	UsageEgresses  int    `json:"limit_egresses"`
 	Metadata       string `json:"metadata"`
 	IsActive       bool   `json:"is_active"` // yes if active
 }
