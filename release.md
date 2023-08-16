@@ -1,5 +1,5 @@
 
-# Netmaker v0.20.6
+# Netmaker v0.20.7
 
 ## Whats New
 - Sync clients with server state from UI
