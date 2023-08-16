@@ -79,7 +79,6 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 
 	network.SetDefaults()
 	network.SetNodesLastModified()
-	network.SetNetworkLastModified()
 
 	pro.AddProNetDefaults(&network)
 
@@ -302,28 +301,20 @@ func IsNetworkNameUnique(network *models.Network) (bool, error) {
 }
 
 // UpdateNetwork - updates a network with another network's fields
-func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (bool, bool, bool, []string, []string, error) {
+func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) error {
 	if err := ValidateNetwork(newNetwork, true); err != nil {
-		return false, false, false, nil, nil, err
+		return err
 	}
 	if newNetwork.NetID == currentNetwork.NetID {
-		hasrangeupdate4 := newNetwork.AddressRange != currentNetwork.AddressRange
-		hasrangeupdate6 := newNetwork.AddressRange6 != currentNetwork.AddressRange6
-		hasholepunchupdate := newNetwork.DefaultUDPHolePunch != currentNetwork.DefaultUDPHolePunch
-		groupDelta := append(StringDifference(newNetwork.ProSettings.AllowedGroups, currentNetwork.ProSettings.AllowedGroups),
-			StringDifference(currentNetwork.ProSettings.AllowedGroups, newNetwork.ProSettings.AllowedGroups)...)
-		userDelta := append(StringDifference(newNetwork.ProSettings.AllowedUsers, currentNetwork.ProSettings.AllowedUsers),
-			StringDifference(currentNetwork.ProSettings.AllowedUsers, newNetwork.ProSettings.AllowedUsers)...)
 		data, err := json.Marshal(newNetwork)
 		if err != nil {
-			return false, false, false, nil, nil, err
+			return err
 		}
-		newNetwork.SetNetworkLastModified()
 		err = database.Insert(newNetwork.NetID, string(data), database.NETWORKS_TABLE_NAME)
-		return hasrangeupdate4, hasrangeupdate6, hasholepunchupdate, groupDelta, userDelta, err
+		return err
 	}
 	// copy values
-	return false, false, false, nil, nil, errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
+	return errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
 }
 
 // GetNetwork - gets a network from database
