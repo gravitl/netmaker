@@ -23,9 +23,8 @@ var (
 var verifyJWT = logic.VerifyJWT
 
 func userHandlers(r *mux.Router) {
-
-	r.HandleFunc("/api/users/adm/hasadmin", hasAdmin).Methods(http.MethodGet)
-	r.HandleFunc("/api/users/adm/createadmin", createAdmin).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/adm/hassuperadmin", hasSuperAdmin).Methods(http.MethodGet)
+	r.HandleFunc("/api/users/adm/createsuperadmin", createSuperAdmin).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUser)))).Methods(http.MethodPut)
 	r.HandleFunc("/api/users/networks/{username}", logic.SecurityCheck(true, http.HandlerFunc(updateUserNetworks))).Methods(http.MethodPut)
@@ -112,7 +111,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	response.Write(successJSONResponse)
 }
 
-// swagger:route GET /api/users/adm/hasadmin user hasAdmin
+// swagger:route GET /api/users/adm/hassuperadmin user hasSuperAdmin
 //
 // Checks whether the server has an admin.
 //
@@ -123,18 +122,18 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 //
 //			Responses:
 //				200: successResponse
-func hasAdmin(w http.ResponseWriter, r *http.Request) {
+func hasSuperAdmin(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	hasadmin, err := logic.HasAdmin()
+	hasSuperAdmin, err := logic.HasSuperAdmin()
 	if err != nil {
 		logger.Log(0, "failed to check for admin: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
-	json.NewEncoder(w).Encode(hasadmin)
+	json.NewEncoder(w).Encode(hasSuperAdmin)
 
 }
 
@@ -194,7 +193,7 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(users)
 }
 
-// swagger:route POST /api/users/adm/createadmin user createAdmin
+// swagger:route POST /api/users/adm/createsuperadmin user createAdmin
 //
 // Make a user an admin.
 //
@@ -205,15 +204,15 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 //
 //			Responses:
 //				200: userBodyResponse
-func createAdmin(w http.ResponseWriter, r *http.Request) {
+func createSuperAdmin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	var admin models.User
+	var u models.User
 
-	err := json.NewDecoder(r.Body).Decode(&admin)
+	err := json.NewDecoder(r.Body).Decode(&u)
 	if err != nil {
 
-		logger.Log(0, admin.UserName, "error decoding request body: ",
+		logger.Log(0, u.UserName, "error decoding request body: ",
 			err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -224,16 +223,16 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = logic.CreateAdmin(&admin)
+	err = logic.CreateSuperAdmin(&u)
 	if err != nil {
-		logger.Log(0, admin.UserName, "failed to create admin: ",
+		logger.Log(0, u.UserName, "failed to create admin: ",
 			err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 
-	logger.Log(1, admin.UserName, "was made a new admin")
-	json.NewEncoder(w).Encode(logic.ToReturnUser(admin))
+	logger.Log(1, u.UserName, "was made a super admin")
+	json.NewEncoder(w).Encode(logic.ToReturnUser(u))
 }
 
 // swagger:route POST /api/users/{username} user createUser
@@ -428,7 +427,7 @@ func updateUserAdm(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if !user.IsAdmin {
+	if !user.IsAdmin && !user.IsSuperAdmin {
 		logger.Log(0, username, "not an admin user")
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not a admin user"), "badrequest"))
 	}

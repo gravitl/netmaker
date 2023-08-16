@@ -25,7 +25,7 @@ var netHost models.Host
 func TestMain(m *testing.M) {
 	database.InitializeDatabase()
 	defer database.CloseDB()
-	logic.CreateAdmin(&models.User{
+	logic.CreateSuperAdmin(&models.User{
 		UserName: "admin",
 		Password: "password",
 		IsAdmin:  true,

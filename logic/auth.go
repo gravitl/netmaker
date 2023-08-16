@@ -17,8 +17,8 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-// HasAdmin - checks if server has an admin
-func HasAdmin() (bool, error) {
+// HasSuperAdmin - checks if server has an superadmin/owner
+func HasSuperAdmin() (bool, error) {
 
 	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
 	if err != nil {
@@ -34,7 +34,7 @@ func HasAdmin() (bool, error) {
 		if err != nil {
 			continue
 		}
-		if user.IsAdmin {
+		if user.IsSuperAdmin {
 			return true, nil
 		}
 	}
@@ -142,17 +142,17 @@ func CreateUser(user *models.User) error {
 	return nil
 }
 
-// CreateAdmin - creates an admin user
-func CreateAdmin(admin *models.User) error {
-	hasadmin, err := HasAdmin()
+// CreateSuperAdmin - creates an super admin user
+func CreateSuperAdmin(u *models.User) error {
+	hassuperadmin, err := HasSuperAdmin()
 	if err != nil {
 		return err
 	}
-	if hasadmin {
-		return errors.New("admin user already exists")
+	if hassuperadmin {
+		return errors.New("superadmin user already exists")
 	}
-	admin.IsAdmin = true
-	return CreateUser(admin)
+	u.IsSuperAdmin = true
+	return CreateUser(u)
 }
 
 // VerifyAuthRequest - verifies an auth request

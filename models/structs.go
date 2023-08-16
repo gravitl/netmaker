@@ -24,11 +24,12 @@ type AuthParams struct {
 
 // User struct - struct for Users
 type User struct {
-	UserName string   `json:"username" bson:"username" validate:"min=3,max=40,in_charset|email"`
-	Password string   `json:"password" bson:"password" validate:"required,min=5"`
-	Networks []string `json:"networks" bson:"networks"`
-	IsAdmin  bool     `json:"isadmin" bson:"isadmin"`
-	Groups   []string `json:"groups" bson:"groups" yaml:"groups"`
+	UserName     string   `json:"username" bson:"username" validate:"min=3,max=40,in_charset|email"`
+	Password     string   `json:"password" bson:"password" validate:"required,min=5"`
+	Networks     []string `json:"networks" bson:"networks"`
+	IsAdmin      bool     `json:"isadmin" bson:"isadmin"`
+	IsSuperAdmin bool     `json:"super_admin"`
+	Groups       []string `json:"groups" bson:"groups" yaml:"groups"`
 }
 
 // ReturnUser - return user struct
