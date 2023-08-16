@@ -46,7 +46,7 @@ type ValidatedLicense struct {
 // LicenseSecret - the encrypted struct for sending user-id
 type LicenseSecret struct {
 	AssociatedID string `json:"associated_id" binding:"required"` // UUID for user foreign key to User table
-	Usage        Usage  `json:"usage" binding:"required"`
+	Usage        Usage  `json:"limits" binding:"required"`
 }
 
 // Usage - struct for license usage
