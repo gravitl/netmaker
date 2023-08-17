@@ -241,6 +241,17 @@ func UpdateUserNetworks(newNetworks, newGroups []string, isadmin bool, currentUs
 	return err
 }
 
+func UpdateUserV1(user models.User) error {
+	data, err := json.Marshal(&user)
+	if err != nil {
+		return err
+	}
+	if err = database.Insert(user.UserName, string(data), database.USERS_TABLE_NAME); err != nil {
+		return err
+	}
+	return nil
+}
+
 // UpdateUser - updates a given user
 func UpdateUser(userchange, user *models.User) (*models.User, error) {
 	// check if user exists

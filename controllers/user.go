@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
+	"golang.org/x/exp/slog"
 )
 
 var (
@@ -26,6 +27,9 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/adm/hassuperadmin", hasSuperAdmin).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/adm/createsuperadmin", createSuperAdmin).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}/remote_access_gw", attachUserToRemoteAccessGw).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}/remote_access_gw", removeUserFromRemoteAccessGW).Methods(http.MethodDelete)
+	r.HandleFunc("/api/nodes/user/remote_access_gws", logic.SecurityCheck(false, http.HandlerFunc(getUserRemoteAccessGws))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUser)))).Methods(http.MethodPut)
 	r.HandleFunc("/api/users/networks/{username}", logic.SecurityCheck(true, http.HandlerFunc(updateUserNetworks))).Methods(http.MethodPut)
 	r.HandleFunc("/api/users/{username}/adm", logic.SecurityCheck(true, http.HandlerFunc(updateUserAdm))).Methods(http.MethodPut)
@@ -163,6 +167,149 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(2, r.Header.Get("user"), "fetched user", usernameFetched)
 	json.NewEncoder(w).Encode(user)
+}
+
+// swagger:route POST /api/users/{username}/remote_access_gw user attachUserToRemoteAccessGateway
+//
+// Attach User to a remote access gateway.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: userBodyResponse
+func attachUserToRemoteAccessGw(w http.ResponseWriter, r *http.Request) {
+	// set header.
+	w.Header().Set("Content-Type", "application/json")
+
+	var params = mux.Vars(r)
+	username := params["username"]
+	remoteGwID := params["remote_access_gateway_id"]
+	if username == "" || remoteGwID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("required params `username` and `remote_access_gateway_id`"), "badrequest"))
+		return
+	}
+	user, err := logic.GetUser(username)
+	if err != nil {
+		logger.Log(0, username, "failed to fetch user: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user", username, err), "badrequest"))
+		return
+	}
+	node, err := logic.GetNodeByID(remoteGwID)
+	if err != nil {
+		slog.Error("failed to fetch gateway node", "nodeID", remoteGwID, "error", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch remote access gaetway node", err), "badrequest"))
+		return
+	}
+	if !node.IsIngressGateway {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("node is not a remote access gateway"), "badrequest"))
+		return
+	}
+	if user.RemoteGwIDs == nil {
+		user.RemoteGwIDs = make(map[string]struct{})
+	}
+	user.RemoteGwIDs[node.ID.String()] = struct{}{}
+	err = logic.UpdateUserV1(*user)
+	if err != nil {
+		slog.Error("failed to update user gateways", "user", username, "error", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch remote access gaetway node", err), "badrequest"))
+		return
+	}
+	json.NewEncoder(w).Encode(user)
+}
+
+// swagger:route DELETE /api/users/{username}/remote_access_gw user removeUserFromRemoteAccessGW
+//
+// Attach User to a remote access gateway.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: userBodyResponse
+func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
+	// set header.
+	w.Header().Set("Content-Type", "application/json")
+
+	var params = mux.Vars(r)
+	username := params["username"]
+	remoteGwID := params["remote_access_gateway_id"]
+	if username == "" || remoteGwID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("required params `username` and `remote_access_gateway_id`"), "badrequest"))
+		return
+	}
+	user, err := logic.GetUser(username)
+	if err != nil {
+		logger.Log(0, username, "failed to fetch user: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user", username, err), "badrequest"))
+		return
+	}
+	delete(user.RemoteGwIDs, remoteGwID)
+	err = logic.UpdateUserV1(*user)
+	if err != nil {
+		slog.Error("failed to update user gateways", "user", username, "error", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch remote access gaetway node", err), "badrequest"))
+		return
+	}
+	logic.ReturnSuccessResponse(w, r, fmt.Sprintf("removed user %s from remote access gateway %s", username, remoteGwID))
+}
+
+type UserRemoteGws struct {
+	GwID      string `json:"remote_access_gw_id"`
+	Network   string `json:"network"`
+	Connected bool   `json:"connected"`
+}
+
+// swagger:route GET "/api/nodes/{username}/remote_access_gws" nodes getUserRemoteAccessGws
+//
+// Get an individual node.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: nodeResponse
+func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
+	// set header.
+	w.Header().Set("Content-Type", "application/json")
+
+	var params = mux.Vars(r)
+	username := params["username"]
+	if username == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("required param username"), "badrequest"))
+	}
+	userGws := []UserRemoteGws{}
+	allNodes, err := logic.GetAllNodes()
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	user, err := logic.GetUser(username)
+	if err != nil {
+		logger.Log(0, username, "failed to fetch user: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
+		return
+	}
+	if user.RemoteGwIDs != nil {
+		for _, node := range allNodes {
+			if _, ok := user.RemoteGwIDs[node.ID.String()]; ok {
+				userGws = append(userGws, UserRemoteGws{
+					GwID:    node.ID.String(),
+					Network: node.Network,
+				})
+				// check if on the gw user has ext client created and set the connected flag
+			}
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(userGws)
 }
 
 // swagger:route GET /api/users user getUsers
