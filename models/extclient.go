@@ -16,14 +16,16 @@ type ExtClient struct {
 	Enabled                bool                `json:"enabled" bson:"enabled"`
 	OwnerID                string              `json:"ownerid" bson:"ownerid"`
 	DeniedACLs             map[string]struct{} `json:"deniednodeacls" bson:"acls,omitempty"`
+	RemoteAccessClientID   string              `json:"remote_access_client_id"`
 }
 
 // CustomExtClient - struct for CustomExtClient params
 type CustomExtClient struct {
-	ClientID        string              `json:"clientid,omitempty"`
-	PublicKey       string              `json:"publickey,omitempty"`
-	DNS             string              `json:"dns,omitempty"`
-	ExtraAllowedIPs []string            `json:"extraallowedips,omitempty"`
-	Enabled         bool                `json:"enabled,omitempty"`
-	DeniedACLs      map[string]struct{} `json:"deniednodeacls" bson:"acls,omitempty"`
+	ClientID             string              `json:"clientid,omitempty"`
+	PublicKey            string              `json:"publickey,omitempty"`
+	DNS                  string              `json:"dns,omitempty"`
+	ExtraAllowedIPs      []string            `json:"extraallowedips,omitempty"`
+	Enabled              bool                `json:"enabled,omitempty"`
+	DeniedACLs           map[string]struct{} `json:"deniednodeacls" bson:"acls,omitempty"`
+	RemoteAccessClientID string              `json:"remote_access_client_id"`
 }

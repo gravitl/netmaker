@@ -245,23 +245,26 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 	user, err := logic.GetUser(username)
 	if err != nil {
 		logger.Log(0, username, "failed to fetch user: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user", username, err), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
 		return
 	}
 	delete(user.RemoteGwIDs, remoteGwID)
+	//TODO:  remove all related ext client configs of the user
 	err = logic.UpdateUserV1(*user)
 	if err != nil {
 		slog.Error("failed to update user gateways", "user", username, "error", err)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch remote access gaetway node", err), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to fetch remote access gaetway node "+err.Error()), "badrequest"))
 		return
 	}
 	logic.ReturnSuccessResponse(w, r, fmt.Sprintf("removed user %s from remote access gateway %s", username, remoteGwID))
 }
 
 type UserRemoteGws struct {
-	GwID      string `json:"remote_access_gw_id"`
-	Network   string `json:"network"`
-	Connected bool   `json:"connected"`
+	GwID      string           `json:"remote_access_gw_id"`
+	GWName    string           `json:"gw_name"`
+	Network   string           `json:"network"`
+	Connected bool             `json:"connected"`
+	GwClient  models.ExtClient `json:"gw_client"`
 }
 
 // swagger:route GET "/api/nodes/{username}/remote_access_gws" nodes getUserRemoteAccessGws
@@ -281,31 +284,70 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
 	username := params["username"]
-	if username == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("required param username"), "badrequest"))
-	}
-	userGws := []UserRemoteGws{}
-	allNodes, err := logic.GetAllNodes()
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+	remoteClientID := params["remote_client_id"]
+	if username == "" || remoteClientID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("required params username and remote_client_id"), "badrequest"))
 		return
 	}
+
+	userGws := []UserRemoteGws{}
 	user, err := logic.GetUser(username)
 	if err != nil {
 		logger.Log(0, username, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
 		return
 	}
+	allextClients, err := logic.GetAllExtClients()
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 	if user.RemoteGwIDs != nil {
-		for _, node := range allNodes {
-			if _, ok := user.RemoteGwIDs[node.ID.String()]; ok {
-				userGws = append(userGws, UserRemoteGws{
-					GwID:    node.ID.String(),
-					Network: node.Network,
-				})
-				// check if on the gw user has ext client created and set the connected flag
+		for _, extClient := range allextClients {
+			if extClient.RemoteAccessClientID == remoteClientID && extClient.OwnerID == username {
+				node, err := logic.GetNodeByID(extClient.IngressGatewayID)
+				if err != nil {
+					continue
+				}
+				if node.PendingDelete {
+					continue
+				}
+				host, err := logic.GetHost(node.HostID.String())
+				if err != nil {
+					continue
+				}
+				if _, ok := user.RemoteGwIDs[node.ID.String()]; ok {
+					userGws = append(userGws, UserRemoteGws{
+						GwID:      node.ID.String(),
+						GWName:    host.Name,
+						Network:   node.Network,
+						GwClient:  extClient,
+						Connected: true,
+					})
+					delete(user.RemoteGwIDs, node.ID.String())
+				}
 			}
+
 		}
+	}
+	// add remaining gw nodes to resp
+	for gwID := range user.RemoteGwIDs {
+		node, err := logic.GetNodeByID(gwID)
+		if err != nil {
+			continue
+		}
+		if node.PendingDelete {
+			continue
+		}
+		host, err := logic.GetHost(node.HostID.String())
+		if err != nil {
+			continue
+		}
+		userGws = append(userGws, UserRemoteGws{
+			GwID:    node.ID.String(),
+			GWName:  host.Name,
+			Network: node.Network,
+		})
 	}
 
 	w.WriteHeader(http.StatusOK)
