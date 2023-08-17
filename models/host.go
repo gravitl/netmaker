@@ -55,7 +55,6 @@ type Host struct {
 	PublicKey          wgtypes.Key      `json:"publickey" yaml:"publickey"`
 	MacAddress         net.HardwareAddr `json:"macaddress" yaml:"macaddress"`
 	TrafficKeyPublic   []byte           `json:"traffickeypublic" yaml:"traffickeypublic"`
-	InternetGateway    net.UDPAddr      `json:"internetgateway" yaml:"internetgateway"`
 	Nodes              []string         `json:"nodes" yaml:"nodes"`
 	Interfaces         []Iface          `json:"interfaces" yaml:"interfaces"`
 	DefaultInterface   string           `json:"defaultinterface" yaml:"defaultinterface"`
@@ -108,6 +107,8 @@ const (
 	RegisterWithTurn = "REGISTER_WITH_TURN"
 	// UpdateKeys - update wireguard private/public keys
 	UpdateKeys = "UPDATE_KEYS"
+	// RequestPull - request a pull from a host
+	RequestPull = "REQ_PULL"
 )
 
 // SignalAction - turn peer signal action

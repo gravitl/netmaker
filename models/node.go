@@ -100,7 +100,6 @@ type Node struct {
 // LegacyNode - legacy struct for node model
 type LegacyNode struct {
 	ID                      string               `json:"id,omitempty" bson:"id,omitempty" yaml:"id,omitempty" validate:"required,min=5,id_unique"`
-	HostID                  string               `json:"hostid,omitempty" bson:"id,omitempty" yaml:"hostid,omitempty" validate:"required,min=5,id_unique"`
 	Address                 string               `json:"address" bson:"address" yaml:"address" validate:"omitempty,ipv4"`
 	Address6                string               `json:"address6" bson:"address6" yaml:"address6" validate:"omitempty,ipv6"`
 	LocalAddress            string               `json:"localaddress" bson:"localaddress" yaml:"localaddress" validate:"omitempty"`
@@ -109,7 +108,6 @@ type LegacyNode struct {
 	NetworkSettings         Network              `json:"networksettings" bson:"networksettings" yaml:"networksettings" validate:"-"`
 	ListenPort              int32                `json:"listenport" bson:"listenport" yaml:"listenport" validate:"omitempty,numeric,min=1024,max=65535"`
 	LocalListenPort         int32                `json:"locallistenport" bson:"locallistenport" yaml:"locallistenport" validate:"numeric,min=0,max=65535"`
-	ProxyListenPort         int32                `json:"proxy_listen_port" bson:"proxy_listen_port" yaml:"proxy_listen_port" validate:"numeric,min=0,max=65535"`
 	PublicKey               string               `json:"publickey" bson:"publickey" yaml:"publickey" validate:"required,base64"`
 	Endpoint                string               `json:"endpoint" bson:"endpoint" yaml:"endpoint" validate:"required,ip"`
 	AllowedIPs              []string             `json:"allowedips" bson:"allowedips" yaml:"allowedips"`
@@ -153,8 +151,6 @@ type LegacyNode struct {
 	FirewallInUse   string      `json:"firewallinuse" bson:"firewallinuse" yaml:"firewallinuse"`
 	InternetGateway string      `json:"internetgateway" bson:"internetgateway" yaml:"internetgateway"`
 	Connected       string      `json:"connected" bson:"connected" yaml:"connected" validate:"checkyesorno"`
-	PendingDelete   bool        `json:"pendingdelete" bson:"pendingdelete" yaml:"pendingdelete"`
-	Proxy           bool        `json:"proxy" bson:"proxy" yaml:"proxy"`
 	// == PRO ==
 	DefaultACL string `json:"defaultacl,omitempty" bson:"defaultacl,omitempty" yaml:"defaultacl,omitempty" validate:"checkyesornoorunset"`
 	OwnerID    string `json:"ownerid,omitempty" bson:"ownerid,omitempty" yaml:"ownerid,omitempty"`
@@ -341,7 +337,9 @@ func (node *Node) SetLastPeerUpdate() {
 
 // Node.SetExpirationDateTime - sets node expiry time
 func (node *Node) SetExpirationDateTime() {
-	node.ExpirationDateTime = time.Now().Add(TEN_YEARS_IN_SECONDS)
+	if node.ExpirationDateTime.IsZero() {
+		node.ExpirationDateTime = time.Now().Add(TEN_YEARS_IN_SECONDS)
+	}
 }
 
 // Node.SetDefaultName - sets a random name to node
@@ -484,10 +482,6 @@ func (ln *LegacyNode) ConvertToNewNode() (*Host, *Node) {
 		host.PublicKey, _ = wgtypes.ParseKey(ln.PublicKey)
 		host.MacAddress, _ = net.ParseMAC(ln.MacAddress)
 		host.TrafficKeyPublic = ln.TrafficKeys.Mine
-		gateway, err := net.ResolveUDPAddr("udp", ln.InternetGateway)
-		if err == nil {
-			host.InternetGateway = *gateway
-		}
 		id, _ := uuid.Parse(ln.ID)
 		host.Nodes = append(host.Nodes, id.String())
 		host.Interfaces = ln.Interfaces
@@ -529,7 +523,7 @@ func (ln *LegacyNode) ConvertToNewNode() (*Host, *Node) {
 func (n *Node) Legacy(h *Host, s *ServerConfig, net *Network) *LegacyNode {
 	l := LegacyNode{}
 	l.ID = n.ID.String()
-	l.HostID = h.ID.String()
+	//l.HostID = h.ID.String()
 	l.Address = n.Address.String()
 	l.Address6 = n.Address6.String()
 	l.Interfaces = h.Interfaces
@@ -572,7 +566,6 @@ func (n *Node) Legacy(h *Host, s *ServerConfig, net *Network) *LegacyNode {
 	l.TrafficKeys.Mine = h.TrafficKeyPublic
 	l.TrafficKeys.Server = s.TrafficKey
 	l.FirewallInUse = h.FirewallInUse
-	l.InternetGateway = h.InternetGateway.String()
 	l.Connected = formatBool(n.Connected)
 	//l.PendingDelete = formatBool(n.PendingDelete)
 	l.DefaultACL = n.DefaultACL

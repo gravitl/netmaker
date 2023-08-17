@@ -30,14 +30,15 @@ func base64decode(input string) []byte {
 
 	return bytes
 }
-func getCurrentServerLimit() (limits LicenseLimits) {
+
+func getCurrentServerUsage() (limits Usage) {
 	limits.SetDefaults()
-	hosts, err := logic.GetAllHosts()
-	if err == nil {
+	hosts, hErr := logic.GetAllHosts()
+	if hErr == nil {
 		limits.Hosts = len(hosts)
 	}
-	clients, err := logic.GetAllExtClients()
-	if err == nil {
+	clients, cErr := logic.GetAllExtClients()
+	if cErr == nil {
 		limits.Clients = len(clients)
 	}
 	users, err := logic.GetUsers()
@@ -47,6 +48,14 @@ func getCurrentServerLimit() (limits LicenseLimits) {
 	networks, err := logic.GetNetworks()
 	if err == nil {
 		limits.Networks = len(networks)
+	}
+	ingresses, err := logic.GetAllIngresses()
+	if err == nil {
+		limits.Ingresses = len(ingresses)
+	}
+	egresses, err := logic.GetAllEgresses()
+	if err == nil {
+		limits.Egresses = len(egresses)
 	}
 	return
 }

@@ -27,18 +27,32 @@ func TestValidName(t *testing.T) {
 			Want: false,
 		},
 		{
-			Name: "nametoolong",
+			Name: "longname",
 			Args: args{
 				Name: "TestvalidNameTestvalidName",
 			},
-			Want: false,
+			Want: true,
 		},
 		{
-			Name: "maxlength",
+			Name: "max length",
 			Args: args{
 				Name: "123456789012345",
 			},
 			Want: true,
+		},
+		{
+			Name: "min length",
+			Args: args{
+				Name: "ama",
+			},
+			Want: false,
+		},
+		{
+			Name: "toolong",
+			Args: args{
+				Name: "123456789012345123123123123123123123123123123",
+			},
+			Want: false,
 		},
 	}
 	for _, tt := range tests {

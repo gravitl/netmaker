@@ -4,14 +4,23 @@ services:
   mq:
     container_name: mq
     image: emqx/emqx:5.0.9
+    env_file: ./netmaker.env
     restart: unless-stopped
     environment:
-      - EMQX_NAME: "emqx"
+      - EMQX_NAME=emqx
       - EMQX_DASHBOARD__DEFAULT_PASSWORD=${MQ_PASSWORD}
       - EMQX_DASHBOARD__DEFAULT_USERNAME=${MQ_USERNAME}
     ports:
-      - "1883:1883" # MQTT
-      - "8883:8883" # SSL MQTT
-      - "8083:8083" # Websockets
+      - "1883:1883"   # MQTT
+      - "8883:8883"   # SSL MQTT
+      - "8083:8083"   # Websockets
+      - "8084:8084"   # SSL Websockets
       - "18083:18083" # Dashboard/REST_API
-
+    volumes:
+      - emqx_data:/opt/emqx/data
+      - emqx_etc:/opt/emqx/etc
+      - emqx_logs:/opt/emqx/log
+volumes:
+  emqx_data: { } # storage for emqx data
+  emqx_etc: { }  # storage for emqx etc
+  emqx_logs: { } # storage for emqx logs

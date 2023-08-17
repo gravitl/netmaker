@@ -13,12 +13,14 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/exp/slog"
 )
 
 func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/hosts", logic.SecurityCheck(false, http.HandlerFunc(getHosts))).Methods(http.MethodGet)
 	r.HandleFunc("/api/hosts/keys", logic.SecurityCheck(true, http.HandlerFunc(updateAllKeys))).Methods(http.MethodPut)
 	r.HandleFunc("/api/hosts/{hostid}/keys", logic.SecurityCheck(true, http.HandlerFunc(updateKeys))).Methods(http.MethodPut)
+	r.HandleFunc("/api/hosts/{hostid}/sync", logic.SecurityCheck(true, http.HandlerFunc(syncHost))).Methods(http.MethodPost)
 	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(updateHost))).Methods(http.MethodPut)
 	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(deleteHost))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", logic.SecurityCheck(true, http.HandlerFunc(addHostToNetwork))).Methods(http.MethodPost)
@@ -326,13 +328,13 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		// unset all the relayed nodes
 		logic.SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
 	}
-	node.Action = models.NODE_DELETE
-	node.PendingDelete = true
-	logger.Log(1, "deleting  node", node.ID.String(), "from host", currHost.Name)
+	logger.Log(1, "deleting node", node.ID.String(), "from host", currHost.Name)
 	if err := logic.DeleteNode(node, forceDelete); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
 		return
 	}
+	node.Action = models.NODE_DELETE
+	node.PendingDelete = true
 	// notify node change
 	runUpdates(node, false)
 	go func() { // notify of peer change
@@ -581,5 +583,45 @@ func updateKeys(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	logger.Log(2, r.Header.Get("user"), "updated key on host", host.Name)
+	w.WriteHeader(http.StatusOK)
+}
+
+// swagger:route POST /api/hosts/{hostId}/sync host syncHost
+//
+// Requests a host to pull.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: networkBodyResponse
+func syncHost(w http.ResponseWriter, r *http.Request) {
+	hostId := mux.Vars(r)["hostid"]
+
+	var errorResponse = models.ErrorResponse{}
+	w.Header().Set("Content-Type", "application/json")
+
+	host, err := logic.GetHost(hostId)
+	if err != nil {
+		slog.Error("failed to retrieve host", "user", r.Header.Get("user"), "error", err)
+		errorResponse.Code = http.StatusBadRequest
+		errorResponse.Message = err.Error()
+		logic.ReturnErrorResponse(w, r, errorResponse)
+		return
+	}
+
+	go func() {
+		hostUpdate := models.HostUpdate{
+			Action: models.RequestPull,
+			Host:   *host,
+		}
+		if err = mq.HostUpdate(&hostUpdate); err != nil {
+			slog.Error("failed to send host pull request", "host", host.ID.String(), "error", err)
+		}
+	}()
+
+	slog.Info("requested host pull", "user", r.Header.Get("user"), "host", host.ID)
 	w.WriteHeader(http.StatusOK)
 }

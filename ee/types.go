@@ -1,9 +1,20 @@
 package ee
 
-import "fmt"
+import (
+	"fmt"
+)
+
+// constants for accounts api hosts
+const (
+	// accountsHostDevelopment is the accounts api host for development environment
+	accountsHostDevelopment = "https://api.dev.accounts.netmaker.io"
+	// accountsHostStaging is the accounts api host for staging environment
+	accountsHostStaging = "https://api.staging.accounts.netmaker.io"
+	// accountsHostProduction is the accounts api host for production environment
+	accountsHostProduction = "https://api.accounts.netmaker.io"
+)
 
 const (
-	api_endpoint               = "https://api.accounts.netmaker.io/api/v1/license/validate"
 	license_cache_key          = "license_response_cache"
 	license_validation_err_msg = "invalid license"
 	server_id_key              = "nm-server-id"
@@ -13,15 +24,17 @@ var errValidation = fmt.Errorf(license_validation_err_msg)
 
 // LicenseKey - the license key struct representation with associated data
 type LicenseKey struct {
-	LicenseValue  string `json:"license_value"` // actual (public) key and the unique value for the key
-	Expiration    int64  `json:"expiration"`
-	LimitServers  int    `json:"limit_servers"`
-	LimitUsers    int    `json:"limit_users"`
-	LimitHosts    int    `json:"limit_hosts"`
-	LimitNetworks int    `json:"limit_networks"`
-	LimitClients  int    `json:"limit_clients"`
-	Metadata      string `json:"metadata"`
-	IsActive      bool   `json:"is_active"` // yes if active
+	LicenseValue   string `json:"license_value"` // actual (public) key and the unique value for the key
+	Expiration     int64  `json:"expiration"`
+	UsageServers   int    `json:"limit_servers"`
+	UsageUsers     int    `json:"limit_users"`
+	UsageClients   int    `json:"limit_clients"`
+	UsageHosts     int    `json:"limit_hosts"`
+	UsageNetworks  int    `json:"limit_networks"`
+	UsageIngresses int    `json:"limit_ingresses"`
+	UsageEgresses  int    `json:"limit_egresses"`
+	Metadata       string `json:"metadata"`
+	IsActive       bool   `json:"is_active"` // yes if active
 }
 
 // ValidatedLicense - the validated license struct
@@ -32,26 +45,30 @@ type ValidatedLicense struct {
 
 // LicenseSecret - the encrypted struct for sending user-id
 type LicenseSecret struct {
-	AssociatedID string        `json:"associated_id" binding:"required"` // UUID for user foreign key to User table
-	Limits       LicenseLimits `json:"limits" binding:"required"`
+	AssociatedID string `json:"associated_id" binding:"required"` // UUID for user foreign key to User table
+	Usage        Usage  `json:"limits" binding:"required"`
 }
 
-// LicenseLimits - struct license limits
-type LicenseLimits struct {
-	Servers  int `json:"servers"`
-	Users    int `json:"users"`
-	Hosts    int `json:"hosts"`
-	Clients  int `json:"clients"`
-	Networks int `json:"networks"`
+// Usage - struct for license usage
+type Usage struct {
+	Servers   int `json:"servers"`
+	Users     int `json:"users"`
+	Hosts     int `json:"hosts"`
+	Clients   int `json:"clients"`
+	Networks  int `json:"networks"`
+	Ingresses int `json:"ingresses"`
+	Egresses  int `json:"egresses"`
 }
 
-// LicenseLimits.SetDefaults - sets the default values for limits
-func (l *LicenseLimits) SetDefaults() {
+// Usage.SetDefaults - sets the default values for usage
+func (l *Usage) SetDefaults() {
 	l.Clients = 0
 	l.Servers = 1
 	l.Hosts = 0
 	l.Users = 1
 	l.Networks = 0
+	l.Ingresses = 0
+	l.Egresses = 0
 }
 
 // ValidateLicenseRequest - used for request to validate license endpoint

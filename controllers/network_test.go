@@ -80,7 +80,7 @@ func TestDeleteNetwork(t *testing.T) {
 		err := logic.DeleteNetwork("skynet")
 		assert.Nil(t, err)
 	})
-	t.Run("NonExistantNetwork", func(t *testing.T) {
+	t.Run("NonExistentNetwork", func(t *testing.T) {
 		err := logic.DeleteNetwork("skynet")
 		assert.Nil(t, err)
 	})
@@ -151,7 +151,7 @@ func TestValidateNetwork(t *testing.T) {
 		{
 			testname: "NetIDTooLong",
 			network: models.Network{
-				NetID: "LongNetIDName",
+				NetID: "LongNetIDNameForMaxCharactersTest",
 			},
 			errMessage: "Field validation for 'NetID' failed on the 'max' tag",
 		},

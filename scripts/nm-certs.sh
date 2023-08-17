@@ -27,20 +27,34 @@ if [ -n "$(docker ps | grep caddy)" ]; then
 	docker-compose -f /root/docker-compose.yml stop caddy
 fi
 
-CERTBOT_PARAMS=$(cat <<EOF
-certonly --standalone \
-	--non-interactive --agree-tos \
-	-m $NM_EMAIL \
-	-d api.$NM_DOMAIN \
-	-d broker.$NM_DOMAIN \
-	-d dashboard.$NM_DOMAIN \
-	-d turn.$NM_DOMAIN \
-	-d turnapi.$NM_DOMAIN \
-	-d netmaker-exporter.$NM_DOMAIN \
-	-d grafana.$NM_DOMAIN \
-	-d prometheus.$NM_DOMAIN
+if [ "$INSTALL_TYPE" = "ce" ]; then
+	CERTBOT_PARAMS=$(cat <<EOF
+	certonly --standalone \
+		--non-interactive --agree-tos \
+		-m $NM_EMAIL \
+		-d api.$NM_DOMAIN \
+		-d broker.$NM_DOMAIN \
+		-d dashboard.$NM_DOMAIN \
+		-d turn.$NM_DOMAIN \
+		-d turnapi.$NM_DOMAIN
 EOF
 )
+elif [ "$INSTALL_TYPE" = "ee" ]; then
+	CERTBOT_PARAMS=$(cat <<EOF
+	certonly --standalone \
+		--non-interactive --expand --agree-tos \
+		-m $NM_EMAIL \
+		-d api.$NM_DOMAIN \
+		-d broker.$NM_DOMAIN \
+		-d dashboard.$NM_DOMAIN \
+		-d turn.$NM_DOMAIN \
+		-d turnapi.$NM_DOMAIN \
+		-d netmaker-exporter.$NM_DOMAIN \
+		-d grafana.$NM_DOMAIN \
+		-d prometheus.$NM_DOMAIN
+EOF
+)
+fi
 
 # generate an entrypoint for zerossl-certbot
 cat <<EOF >"$SCRIPT_DIR/certbot-entry.sh"
