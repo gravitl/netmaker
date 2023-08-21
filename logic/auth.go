@@ -82,11 +82,10 @@ func CreateUser(user *models.User) error {
 	// set password to encrypted password
 	user.Password = string(hash)
 
-	// tokenString, _ := CreateUserJWT(user.UserName, user.Networks, user.IsAdmin)
-	// if tokenString == "" {
-	// 	// logic.ReturnErrorResponse(w, r, errorResponse)
-	// 	return err
-	// }
+	tokenString, _ := CreateUserJWT(user.UserName, user.IsSuperAdmin, user.IsAdmin)
+	if tokenString == "" {
+		return err
+	}
 
 	SetUserDefaults(user)
 

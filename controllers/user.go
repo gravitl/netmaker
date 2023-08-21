@@ -191,14 +191,18 @@ func attachUserToRemoteAccessGw(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := logic.GetUser(username)
 	if err != nil {
-		logger.Log(0, username, "failed to fetch user: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user", username, err), "badrequest"))
+		slog.Error("failed to fetch user: ", "username", username, "error", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
+		return
+	}
+	if user.IsAdmin || user.IsSuperAdmin {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("superadmins/admins have access to all gateways"), "badrequest"))
 		return
 	}
 	node, err := logic.GetNodeByID(remoteGwID)
 	if err != nil {
 		slog.Error("failed to fetch gateway node", "nodeID", remoteGwID, "error", err)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch remote access gaetway node", err), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch remote access gateway node, error: %v", err), "badrequest"))
 		return
 	}
 	if !node.IsIngressGateway {
@@ -265,7 +269,7 @@ type UserRemoteGws struct {
 	GwClient  models.ExtClient `json:"gw_client"`
 }
 
-// swagger:route GET "/api/nodes/{username}/remote_access_gws" nodes getUserRemoteAccessGws
+// swagger:route GET "/api/users/{username}/remote_access_gw" nodes getUserRemoteAccessGws
 //
 // Get an individual node.
 //
@@ -300,59 +304,86 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if user.RemoteGwIDs != nil {
-		for _, extClient := range allextClients {
-			if extClient.RemoteAccessClientID == remoteClientID && extClient.OwnerID == username {
-				node, err := logic.GetNodeByID(extClient.IngressGatewayID)
-				if err != nil {
-					continue
-				}
-				if node.PendingDelete {
-					continue
-				}
-				host, err := logic.GetHost(node.HostID.String())
-				if err != nil {
-					continue
-				}
 
-				if _, ok := user.RemoteGwIDs[node.ID.String()]; ok {
-					gws := userGws[node.Network]
-
-					gws = append(gws, UserRemoteGws{
-						GwID:      node.ID.String(),
-						GWName:    host.Name,
-						Network:   node.Network,
-						GwClient:  extClient,
-						Connected: true,
-					})
-					userGws[node.Network] = gws
-					delete(user.RemoteGwIDs, node.ID.String())
-				}
+	for _, extClient := range allextClients {
+		if extClient.RemoteAccessClientID == remoteClientID && extClient.OwnerID == username {
+			node, err := logic.GetNodeByID(extClient.IngressGatewayID)
+			if err != nil {
+				continue
+			}
+			if node.PendingDelete {
+				continue
+			}
+			host, err := logic.GetHost(node.HostID.String())
+			if err != nil {
+				continue
 			}
 
-		}
-	}
-	// add remaining gw nodes to resp
-	for gwID := range user.RemoteGwIDs {
-		node, err := logic.GetNodeByID(gwID)
-		if err != nil {
-			continue
-		}
-		if node.PendingDelete {
-			continue
-		}
-		host, err := logic.GetHost(node.HostID.String())
-		if err != nil {
-			continue
-		}
-		gws := userGws[node.Network]
+			if _, ok := user.RemoteGwIDs[node.ID.String()]; ok || user.IsSuperAdmin || user.IsAdmin {
+				gws := userGws[node.Network]
 
-		gws = append(gws, UserRemoteGws{
-			GwID:    node.ID.String(),
-			GWName:  host.Name,
-			Network: node.Network,
-		})
-		userGws[node.Network] = gws
+				gws = append(gws, UserRemoteGws{
+					GwID:      node.ID.String(),
+					GWName:    host.Name,
+					Network:   node.Network,
+					GwClient:  extClient,
+					Connected: true,
+				})
+				userGws[node.Network] = gws
+				if user.IsAdmin || user.IsSuperAdmin {
+					user.RemoteGwIDs[node.ID.String()] = struct{}{}
+				} else {
+					delete(user.RemoteGwIDs, node.ID.String())
+				}
+
+			}
+		}
+
+	}
+	if user.IsAdmin || user.IsSuperAdmin {
+		nodes, err := logic.GetAllNodes()
+		if err == nil {
+			for _, node := range nodes {
+				if node.IsIngressGateway {
+					if _, ok := user.RemoteGwIDs[node.ID.String()]; !ok {
+						gws := userGws[node.Network]
+						host, err := logic.GetHost(node.HostID.String())
+						if err != nil {
+							continue
+						}
+						gws = append(gws, UserRemoteGws{
+							GwID:    node.ID.String(),
+							GWName:  host.Name,
+							Network: node.Network,
+						})
+						userGws[node.Network] = gws
+					}
+				}
+			}
+		}
+	} else {
+		// add remaining gw nodes to resp
+		for gwID := range user.RemoteGwIDs {
+			node, err := logic.GetNodeByID(gwID)
+			if err != nil {
+				continue
+			}
+			if node.PendingDelete {
+				continue
+			}
+			host, err := logic.GetHost(node.HostID.String())
+			if err != nil {
+				continue
+			}
+			gws := userGws[node.Network]
+
+			gws = append(gws, UserRemoteGws{
+				GwID:    node.ID.String(),
+				GWName:  host.Name,
+				Network: node.Network,
+			})
+			userGws[node.Network] = gws
+		}
 	}
 
 	w.WriteHeader(http.StatusOK)

@@ -25,8 +25,6 @@ func InitEE() {
 	controller.HttpHandlers = append(
 		controller.HttpHandlers,
 		ee_controllers.MetricHandlers,
-		ee_controllers.NetworkUsersHandlers,
-		ee_controllers.UserGroupsHandlers,
 		ee_controllers.RelayHandlers,
 	)
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
