@@ -16,7 +16,6 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
-	"github.com/gravitl/netmaker/logic/pro"
 	"github.com/gravitl/netmaker/logic/pro/proacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
@@ -235,12 +234,6 @@ func deleteNodeByID(node *models.Node) error {
 	deleteNodeFromCache(node.ID.String())
 	if servercfg.IsDNSMode() {
 		SetDNS()
-	}
-	if node.OwnerID != "" {
-		err = pro.DissociateNetworkUserNode(node.OwnerID, node.Network, node.ID.String())
-		if err != nil {
-			logger.Log(0, "failed to dissasociate", node.OwnerID, "from node", node.ID.String(), ":", err.Error())
-		}
 	}
 	_, err = nodeacls.RemoveNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()))
 	if err != nil {

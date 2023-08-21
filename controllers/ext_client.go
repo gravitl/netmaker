@@ -12,9 +12,9 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/pro"
+
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/models/promodels"
+
 	"github.com/gravitl/netmaker/mq"
 	"github.com/skip2/go-qrcode"
 	"golang.org/x/exp/slog"
@@ -26,10 +26,10 @@ func extClientHandlers(r *mux.Router) {
 	r.HandleFunc("/api/extclients", logic.SecurityCheck(false, http.HandlerFunc(getAllExtClients))).Methods(http.MethodGet)
 	r.HandleFunc("/api/extclients/{network}", logic.SecurityCheck(false, http.HandlerFunc(getNetworkExtClients))).Methods(http.MethodGet)
 	r.HandleFunc("/api/extclients/{network}/{clientid}", logic.SecurityCheck(false, http.HandlerFunc(getExtClient))).Methods(http.MethodGet)
-	r.HandleFunc("/api/extclients/{network}/{clientid}/{type}", logic.NetUserSecurityCheck(false, true, http.HandlerFunc(getExtClientConf))).Methods(http.MethodGet)
-	r.HandleFunc("/api/extclients/{network}/{clientid}", logic.NetUserSecurityCheck(false, true, http.HandlerFunc(updateExtClient))).Methods(http.MethodPut)
-	r.HandleFunc("/api/extclients/{network}/{clientid}", logic.NetUserSecurityCheck(false, true, http.HandlerFunc(deleteExtClient))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/extclients/{network}/{nodeid}", logic.NetUserSecurityCheck(false, true, checkFreeTierLimits(limitChoiceMachines, http.HandlerFunc(createExtClient)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/extclients/{network}/{clientid}/{type}", getExtClientConf).Methods(http.MethodGet)
+	r.HandleFunc("/api/extclients/{network}/{clientid}", updateExtClient).Methods(http.MethodPut)
+	r.HandleFunc("/api/extclients/{network}/{clientid}", deleteExtClient).Methods(http.MethodDelete)
+	r.HandleFunc("/api/extclients/{network}/{nodeid}", createExtClient).Methods(http.MethodPost)
 }
 
 func checkIngressExists(nodeID string) bool {
@@ -372,26 +372,6 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var isAdmin bool
-	if r.Header.Get("ismaster") != "yes" {
-		userID := r.Header.Get("user")
-		if isAdmin, err = checkProClientAccess(userID, extclient.ClientID, &parentNetwork); err != nil {
-			slog.Error("pro client access check failed", "user", userID, "network", node.Network, "error", err)
-			logic.DeleteExtClient(node.Network, extclient.ClientID)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-		if !isAdmin {
-			if err = pro.AssociateNetworkUserClient(userID, node.Network, extclient.ClientID); err != nil {
-				logger.Log(0, "failed to associate client", extclient.ClientID, "to user", userID)
-			}
-			extclient.OwnerID = userID
-			if err := logic.SaveExtClient(&extclient); err != nil {
-				logger.Log(0, "failed to add owner id", userID, "to client", extclient.ClientID)
-			}
-		}
-	}
-
 	slog.Info("created extclient", "user", r.Header.Get("user"), "network", node.Network, "clientid", extclient.ClientID)
 	w.WriteHeader(http.StatusOK)
 	go func() {
@@ -448,31 +428,12 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-
-	// == PRO ==
-	//networkName := params["network"]
 	var changedID = update.ClientID != oldExtClient.ClientID
-	if r.Header.Get("ismaster") != "yes" {
-		userID := r.Header.Get("user")
-		_, doesOwn := doesUserOwnClient(userID, params["clientid"], oldExtClient.Network)
-		if !doesOwn {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("user not permitted"), "internal"))
-			return
-		}
-	}
-	if changedID && oldExtClient.OwnerID != "" {
-		if err := pro.DissociateNetworkUserClient(oldExtClient.OwnerID, oldExtClient.Network, oldExtClient.ClientID); err != nil {
-			logger.Log(0, "failed to dissociate client", oldExtClient.ClientID, "from user", oldExtClient.OwnerID)
-		}
-		if err := pro.AssociateNetworkUserClient(oldExtClient.OwnerID, oldExtClient.Network, update.ClientID); err != nil {
-			logger.Log(0, "failed to associate client", update.ClientID, "to user", oldExtClient.OwnerID)
-		}
-	}
+
 	if len(update.DeniedACLs) != len(oldExtClient.DeniedACLs) {
 		sendPeerUpdate = true
 		logic.SetClientACLs(&oldExtClient, update.DeniedACLs)
 	}
-	// == END PRO ==
 
 	if update.Enabled != oldExtClient.Enabled {
 		sendPeerUpdate = true
@@ -543,24 +504,6 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// == PRO ==
-	if r.Header.Get("ismaster") != "yes" {
-		userID, clientID, networkName := r.Header.Get("user"), params["clientid"], params["network"]
-		_, doesOwn := doesUserOwnClient(userID, clientID, networkName)
-		if !doesOwn {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("user not permitted"), "internal"))
-			return
-		}
-	}
-
-	if extclient.OwnerID != "" {
-		if err = pro.DissociateNetworkUserClient(extclient.OwnerID, extclient.Network, extclient.ClientID); err != nil {
-			logger.Log(0, "failed to dissociate client", extclient.ClientID, "from user", extclient.OwnerID)
-		}
-	}
-
-	// == END PRO ==
-
 	err = logic.DeleteExtClient(params["network"], params["clientid"])
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
@@ -582,63 +525,6 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	logger.Log(0, r.Header.Get("user"),
 		"Deleted extclient client", params["clientid"], "from network", params["network"])
 	logic.ReturnSuccessResponse(w, r, params["clientid"]+" deleted.")
-}
-
-func checkProClientAccess(username, clientID string, network *models.Network) (bool, error) {
-	u, err := logic.GetUser(username)
-	if err != nil {
-		return false, err
-	}
-	if u.IsAdmin {
-		return true, nil
-	}
-
-	netUser, err := pro.GetNetworkUser(network.NetID, promodels.NetworkUserID(u.UserName))
-	if err != nil {
-		return false, err
-	}
-
-	if netUser.AccessLevel == pro.NET_ADMIN {
-		return false, nil
-	}
-
-	if netUser.AccessLevel == pro.NO_ACCESS {
-		return false, fmt.Errorf("user does not have access")
-	}
-
-	if !(len(netUser.Clients) < netUser.ClientLimit) {
-		return false, fmt.Errorf("user can not create more clients")
-	}
-
-	if netUser.AccessLevel < pro.NO_ACCESS {
-		netUser.Clients = append(netUser.Clients, clientID)
-		if err = pro.UpdateNetworkUser(network.NetID, netUser); err != nil {
-			return false, err
-		}
-	}
-	return false, nil
-}
-
-// checks if net user owns an ext client or is an admin
-func doesUserOwnClient(username, clientID, network string) (bool, bool) {
-	u, err := logic.GetUser(username)
-	if err != nil {
-		return false, false
-	}
-	if u.IsAdmin {
-		return true, true
-	}
-
-	netUser, err := pro.GetNetworkUser(network, promodels.NetworkUserID(u.UserName))
-	if err != nil {
-		return false, false
-	}
-
-	if netUser.AccessLevel == pro.NET_ADMIN {
-		return false, true
-	}
-
-	return false, logic.StringSliceContains(netUser.Clients, clientID)
 }
 
 // validateCustomExtClient	Validates the extclient object

@@ -326,8 +326,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 	// partial update
 	netOld2 := netOld1
-	netOld2.ProSettings = payload.ProSettings
-	_, _, _, _, _, err = logic.UpdateNetwork(&netOld1, &netOld2)
+	_, _, _, err = logic.UpdateNetwork(&netOld1, &netOld2)
 	if err != nil {
 		slog.Info("failed to update network", "user", r.Header.Get("user"), "err", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))

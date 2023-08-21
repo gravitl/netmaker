@@ -10,9 +10,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/pro"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/models/promodels"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
@@ -198,7 +196,7 @@ func Authorize(hostAllowed, networkCheck bool, authNetwork string, next http.Han
 
 			var isAuthorized = false
 			var nodeID = ""
-			username, networks, isadmin, errN := logic.VerifyUserToken(authToken)
+			username, _, isadmin, errN := logic.VerifyUserToken(authToken)
 			if errN != nil {
 				logic.ReturnErrorResponse(w, r, errorResponse)
 				return
@@ -210,11 +208,11 @@ func Authorize(hostAllowed, networkCheck bool, authNetwork string, next http.Han
 				isAuthorized = true
 				r.Header.Set("ismasterkey", "yes")
 			}
-			if !isadmin && params["network"] != "" {
-				if logic.StringSliceContains(networks, params["network"]) && pro.IsUserNetAdmin(params["network"], username) {
-					isnetadmin = true
-				}
-			}
+			// if !isadmin && params["network"] != "" {
+			// 	if logic.StringSliceContains(networks, params["network"]) && pro.IsUserNetAdmin(params["network"], username) {
+			// 		isnetadmin = true
+			// 	}
+			// }
 			//The mastermac (login with masterkey from config) can do everything!! May be dangerous.
 			if nodeID == "mastermac" {
 				isAuthorized = true
@@ -744,11 +742,11 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	forceDelete := r.URL.Query().Get("force") == "true"
 	fromNode := r.Header.Get("requestfrom") == "node"
 	if r.Header.Get("ismaster") != "yes" {
-		username := r.Header.Get("user")
-		if username != "" && !doesUserOwnNode(username, params["network"], nodeid) {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("user not permitted"), "badrequest"))
-			return
-		}
+		// username := r.Header.Get("user")
+		// if username != "" && !doesUserOwnNode(username, params["network"], nodeid) {
+		// 	logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("user not permitted"), "badrequest"))
+		// 	return
+		// }
 	}
 	if node.IsRelayed {
 		// cleanup node from relayednodes on relay node
@@ -803,27 +801,6 @@ func runUpdates(node *models.Node, ifaceDelta bool) {
 			logger.Log(1, "error publishing node update to node", node.ID.String(), err.Error())
 		}
 	}()
-}
-
-func doesUserOwnNode(username, network, nodeID string) bool {
-	u, err := logic.GetUser(username)
-	if err != nil {
-		return false
-	}
-	if u.IsAdmin {
-		return true
-	}
-
-	netUser, err := pro.GetNetworkUser(network, promodels.NetworkUserID(u.UserName))
-	if err != nil {
-		return false
-	}
-
-	if netUser.AccessLevel == pro.NET_ADMIN {
-		return true
-	}
-
-	return logic.StringSliceContains(netUser.Nodes, nodeID)
 }
 
 func validateParams(nodeid, netid string) (models.Node, error) {

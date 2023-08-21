@@ -11,10 +11,7 @@ import (
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic/pro"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/models/promodels"
-	"github.com/gravitl/netmaker/servercfg"
 )
 
 // HasSuperAdmin - checks if server has an superadmin/owner
@@ -85,11 +82,11 @@ func CreateUser(user *models.User) error {
 	// set password to encrypted password
 	user.Password = string(hash)
 
-	tokenString, _ := CreateProUserJWT(user.UserName, user.Networks, user.Groups, user.IsAdmin)
-	if tokenString == "" {
-		// logic.ReturnErrorResponse(w, r, errorResponse)
-		return err
-	}
+	// tokenString, _ := CreateUserJWT(user.UserName, user.Networks, user.IsAdmin)
+	// if tokenString == "" {
+	// 	// logic.ReturnErrorResponse(w, r, errorResponse)
+	// 	return err
+	// }
 
 	SetUserDefaults(user)
 
@@ -102,42 +99,6 @@ func CreateUser(user *models.User) error {
 	if err != nil {
 		return err
 	}
-
-	// == PRO == Add user to every network as network user ==
-	currentNets, err := GetNetworks()
-	if err != nil {
-		currentNets = []models.Network{}
-	}
-	for i := range currentNets {
-		newUser := promodels.NetworkUser{
-			ID:      promodels.NetworkUserID(user.UserName),
-			Clients: []string{},
-			Nodes:   []string{},
-		}
-
-		pro.AddProNetDefaults(&currentNets[i])
-		if pro.IsUserAllowed(&currentNets[i], user.UserName, user.Groups) {
-			newUser.AccessLevel = currentNets[i].ProSettings.DefaultAccessLevel
-			newUser.ClientLimit = currentNets[i].ProSettings.DefaultUserClientLimit
-			newUser.NodeLimit = currentNets[i].ProSettings.DefaultUserNodeLimit
-		} else {
-			newUser.AccessLevel = pro.NO_ACCESS
-			newUser.ClientLimit = 0
-			newUser.NodeLimit = 0
-		}
-
-		// legacy
-		if StringSliceContains(user.Networks, currentNets[i].NetID) {
-			if !servercfg.Is_EE {
-				newUser.AccessLevel = pro.NET_ADMIN
-			}
-		}
-		userErr := pro.CreateNetworkUser(&currentNets[i], &newUser)
-		if userErr != nil {
-			logger.Log(0, "failed to add network user data on network", currentNets[i].NetID, "for user", user.UserName)
-		}
-	}
-	// == END PRO ==
 
 	return nil
 }
@@ -180,7 +141,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 	}
 
 	// Create a new JWT for the node
-	tokenString, _ := CreateProUserJWT(authRequest.UserName, result.Networks, result.Groups, result.IsAdmin)
+	tokenString, _ := CreateUserJWT(authRequest.UserName, result.Networks, result.IsAdmin)
 	return tokenString, nil
 }
 
@@ -196,38 +157,7 @@ func UpdateUserNetworks(newNetworks, newGroups []string, isadmin bool, currentUs
 	if isadmin {
 		currentUser.IsAdmin = true
 		currentUser.Networks = nil
-	} else {
-		// == PRO ==
-		currentUser.Groups = newGroups
-		for _, n := range newNetworks {
-			if !StringSliceContains(currentUser.Networks, n) {
-				// make net admin of any network not previously assigned
-				pro.MakeNetAdmin(n, currentUser.UserName)
-			}
-		}
-		// Compare networks, find networks not in previous
-		for _, n := range currentUser.Networks {
-			if !StringSliceContains(newNetworks, n) {
-				// if user was removed from a network, re-assign access to net default level
-				if network, err := GetNetwork(n); err == nil {
-					if network.ProSettings != nil {
-						ok := pro.AssignAccessLvl(n, currentUser.UserName, network.ProSettings.DefaultAccessLevel)
-						if ok {
-							logger.Log(0, "changed", currentUser.UserName, "access level on network", network.NetID, "to", fmt.Sprintf("%d", network.ProSettings.DefaultAccessLevel))
-						}
-					}
-				}
-			}
-		}
-
-		if err := AdjustGroupPermissions(currentUser); err != nil {
-			logger.Log(0, "failed to update user", currentUser.UserName, "after group update", err.Error())
-		}
-		// == END PRO ==
-
-		currentUser.Networks = newNetworks
 	}
-
 	userChange := models.User{
 		UserName: currentUser.UserName,
 		Networks: currentUser.Networks,
@@ -337,23 +267,6 @@ func DeleteUser(user string) (bool, error) {
 		return false, err
 	}
 
-	// == pro - remove user from all network user instances ==
-	currentNets, err := GetNetworks()
-	if err != nil {
-		if database.IsEmptyRecord(err) {
-			currentNets = []models.Network{}
-		} else {
-			return true, err
-		}
-	}
-
-	for i := range currentNets {
-		netID := currentNets[i].NetID
-		if err = pro.DeleteNetworkUser(netID, user); err != nil {
-			logger.Log(0, "failed to remove", user, "as network user from network", netID, err.Error())
-		}
-	}
-
 	return true, nil
 }
 
@@ -424,52 +337,4 @@ func IsStateValid(state string) (string, bool) {
 // delState - removes a state from cache/db
 func delState(state string) error {
 	return database.DeleteRecord(database.SSO_STATE_CACHE, state)
-}
-
-// PRO
-
-// AdjustGroupPermissions - adjusts a given user's network access based on group changes
-func AdjustGroupPermissions(user *models.ReturnUser) error {
-	networks, err := GetNetworks()
-	if err != nil {
-		return err
-	}
-	// UPDATE
-	// go through all networks and see if new group is in
-	// if access level of current user is greater (value) than network's default
-	// assign network's default
-	// DELETE
-	// if user not allowed on network a
-	for i := range networks {
-		AdjustNetworkUserPermissions(user, &networks[i])
-	}
-
-	return nil
-}
-
-// AdjustNetworkUserPermissions - adjusts a given user's network access based on group changes
-func AdjustNetworkUserPermissions(user *models.ReturnUser, network *models.Network) error {
-	networkUser, err := pro.GetNetworkUser(
-		network.NetID,
-		promodels.NetworkUserID(user.UserName),
-	)
-	if err == nil && network.ProSettings != nil {
-		if pro.IsUserAllowed(network, user.UserName, user.Groups) {
-			if networkUser.AccessLevel > network.ProSettings.DefaultAccessLevel {
-				networkUser.AccessLevel = network.ProSettings.DefaultAccessLevel
-			}
-			if networkUser.NodeLimit < network.ProSettings.DefaultUserNodeLimit {
-				networkUser.NodeLimit = network.ProSettings.DefaultUserNodeLimit
-			}
-			if networkUser.ClientLimit < network.ProSettings.DefaultUserClientLimit {
-				networkUser.ClientLimit = network.ProSettings.DefaultUserClientLimit
-			}
-		} else {
-			networkUser.AccessLevel = pro.NO_ACCESS
-			networkUser.NodeLimit = 0
-			networkUser.ClientLimit = 0
-		}
-		pro.UpdateNetworkUser(network.NetID, networkUser)
-	}
-	return err
 }

@@ -7,9 +7,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logic/pro"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/models/promodels"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -69,76 +67,6 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 	}
 }
 
-// NetUserSecurityCheck - Check if network user has appropriate permissions
-func NetUserSecurityCheck(isNodes, isClients bool, next http.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var errorResponse = models.ErrorResponse{
-			Code: http.StatusForbidden, Message: Forbidden_Msg,
-		}
-		r.Header.Set("ismaster", "no")
-
-		var params = mux.Vars(r)
-		var netUserName = params["networkuser"]
-		var network = params["network"]
-
-		bearerToken := r.Header.Get("Authorization")
-
-		var tokenSplit = strings.Split(bearerToken, " ")
-		var authToken = ""
-
-		if len(tokenSplit) < 2 {
-			ReturnErrorResponse(w, r, errorResponse)
-			return
-		} else {
-			authToken = tokenSplit[1]
-		}
-
-		isMasterAuthenticated := authenticateMaster(authToken)
-		if isMasterAuthenticated {
-			r.Header.Set("user", "master token user")
-			r.Header.Set("ismaster", "yes")
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		userName, _, isadmin, err := VerifyUserToken(authToken)
-		if err != nil {
-			ReturnErrorResponse(w, r, errorResponse)
-			return
-		}
-		r.Header.Set("user", userName)
-
-		if isadmin {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		if isNodes || isClients {
-			necessaryAccess := pro.NET_ADMIN
-			if isClients {
-				necessaryAccess = pro.CLIENT_ACCESS
-			}
-			if isNodes {
-				necessaryAccess = pro.NODE_ACCESS
-			}
-			u, err := pro.GetNetworkUser(network, promodels.NetworkUserID(userName))
-			if err != nil {
-				ReturnErrorResponse(w, r, errorResponse)
-				return
-			}
-			if u.AccessLevel > necessaryAccess {
-				ReturnErrorResponse(w, r, errorResponse)
-				return
-			}
-		} else if netUserName != userName {
-			ReturnErrorResponse(w, r, errorResponse)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	}
-}
-
 // UserPermissions - checks token stuff
 func UserPermissions(reqAdmin bool, netname string, token string) ([]string, string, error) {
 	var tokenSplit = strings.Split(token, " ")
@@ -170,7 +98,7 @@ func UserPermissions(reqAdmin bool, netname string, token string) ([]string, str
 	if len(netname) > 0 && (len(userNetworks) == 0 || !authenticateNetworkUser(netname, userNetworks)) {
 		return nil, username, Forbidden_Err
 	}
-	if isEE && len(netname) > 0 && !pro.IsUserNetAdmin(netname, username) {
+	if isEE && len(netname) > 0 {
 		return nil, "", Forbidden_Err
 	}
 	return userNetworks, username, nil
