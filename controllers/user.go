@@ -29,10 +29,8 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/remote_access_gw", attachUserToRemoteAccessGw).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/remote_access_gw", removeUserFromRemoteAccessGW).Methods(http.MethodDelete)
-	r.HandleFunc("/api/nodes/user/remote_access_gws", logic.SecurityCheck(false, http.HandlerFunc(getUserRemoteAccessGws))).Methods(http.MethodGet)
-	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUser)))).Methods(http.MethodPut)
-	r.HandleFunc("/api/users/networks/{username}", logic.SecurityCheck(true, http.HandlerFunc(updateUserNetworks))).Methods(http.MethodPut)
-	r.HandleFunc("/api/users/{username}/adm", logic.SecurityCheck(true, http.HandlerFunc(updateUserAdm))).Methods(http.MethodPut)
+	r.HandleFunc("/api/users/{username}/remote_access_gw", logic.SecurityCheck(false, http.HandlerFunc(getUserRemoteAccessGws))).Methods(http.MethodGet)
+	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, http.HandlerFunc(updateUser))).Methods(http.MethodPut)
 	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceUsers, http.HandlerFunc(createUser)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, http.HandlerFunc(deleteUser))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUser)))).Methods(http.MethodGet)
@@ -290,7 +288,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userGws := []UserRemoteGws{}
+	userGws := make(map[string][]UserRemoteGws)
 	user, err := logic.GetUser(username)
 	if err != nil {
 		logger.Log(0, username, "failed to fetch user: ", err.Error())
@@ -316,14 +314,18 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					continue
 				}
+
 				if _, ok := user.RemoteGwIDs[node.ID.String()]; ok {
-					userGws = append(userGws, UserRemoteGws{
+					gws := userGws[node.Network]
+
+					gws = append(gws, UserRemoteGws{
 						GwID:      node.ID.String(),
 						GWName:    host.Name,
 						Network:   node.Network,
 						GwClient:  extClient,
 						Connected: true,
 					})
+					userGws[node.Network] = gws
 					delete(user.RemoteGwIDs, node.ID.String())
 				}
 			}
@@ -343,11 +345,14 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			continue
 		}
-		userGws = append(userGws, UserRemoteGws{
+		gws := userGws[node.Network]
+
+		gws = append(gws, UserRemoteGws{
 			GwID:    node.ID.String(),
 			GWName:  host.Name,
 			Network: node.Network,
 		})
+		userGws[node.Network] = gws
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -437,12 +442,27 @@ func createSuperAdmin(w http.ResponseWriter, r *http.Request) {
 //				200: userBodyResponse
 func createUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-
+	caller, err := logic.GetUser(r.Header.Get("user"))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+	}
 	var user models.User
-	err := json.NewDecoder(r.Body).Decode(&user)
+	err = json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
 		logger.Log(0, user.UserName, "error decoding request body: ",
 			err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if !caller.IsSuperAdmin && user.IsAdmin {
+		slog.Error("error creating new user: ", "user", user.UserName, "error",
+			errors.New("only superadmin can create admin users"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if user.IsSuperAdmin {
+		slog.Error("error creating new user: ", "user", user.UserName, "error",
+			errors.New("additional superadmins cannot be created"))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -456,50 +476,6 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(1, user.UserName, "was created")
 	json.NewEncoder(w).Encode(logic.ToReturnUser(user))
-}
-
-// swagger:route PUT /api/users/networks/{username} user updateUserNetworks
-//
-// Updates the networks of the given user.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: userBodyResponse
-func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	var params = mux.Vars(r)
-	// start here
-	username := params["username"]
-	_, err := logic.GetUser(username)
-	if err != nil {
-		logger.Log(0, username,
-			"failed to update user networks: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	userChange := &models.User{}
-	// we decode our body request params
-	err = json.NewDecoder(r.Body).Decode(userChange)
-	if err != nil {
-		logger.Log(0, username, "error decoding request body: ",
-			err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-
-	logger.Log(1, username, "status was updated")
-	// re-read and return the new user struct
-	returnUser, err := logic.GetReturnUser(username)
-	if err != nil {
-		logger.Log(0, username, "failed to fetch user: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	json.NewEncoder(w).Encode(returnUser)
 }
 
 // swagger:route PUT /api/users/{username} user updateUser
@@ -517,29 +493,17 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	// start here
-	jwtUser, _, isadmin, err := verifyJWT(r.Header.Get("Authorization"))
+
+	caller, err := logic.GetUser(r.Header.Get("user"))
 	if err != nil {
-		logger.Log(0, "verifyJWT error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
 	}
 	username := params["username"]
-	if username != jwtUser && !isadmin {
-		logger.Log(0, "non-admin user", jwtUser, "attempted to update user", username)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not authorizied"), "unauthorized"))
-		return
-	}
 	user, err := logic.GetUser(username)
 	if err != nil {
 		logger.Log(0, username,
 			"failed to update user info: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	if auth.IsOauthUser(user) == nil {
-		err := fmt.Errorf("cannot update user info for oauth user %s", username)
-		logger.Log(0, err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
 	var userchange models.User
@@ -551,11 +515,44 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if userchange.IsAdmin && !isadmin {
-		logger.Log(0, "non-admin user", jwtUser, "attempted get admin privilages")
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not authorizied"), "unauthorized"))
+	selfUpdate := false
+	if caller.UserName == user.UserName {
+		selfUpdate = true
+	}
+
+	if !caller.IsSuperAdmin {
+		if user.IsSuperAdmin {
+			slog.Error("non-superadmin user", "caller", caller.UserName, "attempted to update superadmin user", username)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update superadmin user"), "forbidden"))
+			return
+		}
+		if !selfUpdate && !(caller.IsAdmin) {
+			slog.Error("non-admin user", "caller", caller.UserName, "attempted to update  user", username)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not authorized"), "forbidden"))
+			return
+		}
+
+		if userchange.IsAdmin != user.IsAdmin || userchange.IsSuperAdmin != user.IsSuperAdmin {
+			if selfUpdate {
+				slog.Error("user cannot change his own role", "caller", caller.UserName, "attempted to update user role", username)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user not allowed to self assign role"), "forbidden"))
+				return
+			}
+		}
+		if caller.IsAdmin && user.IsAdmin {
+			slog.Error("admin user cannot update another admin", "caller", caller.UserName, "attempted to update admin user", username)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("admin user cannot update another admin"), "forbidden"))
+			return
+		}
+	}
+
+	if auth.IsOauthUser(user) == nil {
+		err := fmt.Errorf("cannot update user info for oauth user %s", username)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
+
 	user, err = logic.UpdateUser(&userchange, user)
 	if err != nil {
 		logger.Log(0, username,
@@ -635,9 +632,32 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 
 	// get params
 	var params = mux.Vars(r)
-
+	caller, err := logic.GetUser(r.Header.Get("user"))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+	}
 	username := params["username"]
-
+	user, err := logic.GetUser(username)
+	if err != nil {
+		logger.Log(0, username,
+			"failed to update user info: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	if user.IsSuperAdmin {
+		slog.Error(
+			"failed to delete user: ", "user", username, "error", "superadmin cannot be deleted")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	if !caller.IsSuperAdmin {
+		if caller.IsAdmin && user.IsAdmin {
+			slog.Error(
+				"failed to delete user: ", "user", username, "error", "admin cannot delete another admin user")
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+	}
 	success, err := logic.DeleteUser(username)
 	if err != nil {
 		logger.Log(0, username,

@@ -65,20 +65,6 @@ func TestCreateUserNoHashedPassword(t *testing.T) {
 	assertUserNameButNoPassword(t, rec.Body, user.UserName)
 }
 
-func TestUpdateUserNetworksNoHashedPassword(t *testing.T) {
-	// prepare existing user base
-	user1 := models.User{UserName: "joestar", Password: "jonathan"}
-	haveOnlyOneUser(t, user1)
-
-	// prepare request
-	user2 := models.User{UserName: "joestar", Password: "joseph"}
-	rec, req := prepareUserRequest(t, user2, user1.UserName)
-
-	// test response
-	updateUserNetworks(rec, req)
-	assertUserNameButNoPassword(t, rec.Body, user1.UserName)
-}
-
 func TestUpdateUserNoHashedPassword(t *testing.T) {
 	// prepare existing user base
 	user1 := models.User{UserName: "dio", Password: "brando"}

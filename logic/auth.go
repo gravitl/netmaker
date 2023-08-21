@@ -206,10 +206,7 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 
 		user.Password = userchange.Password
 	}
-
-	if (userchange.IsAdmin != user.IsAdmin) && !user.IsAdmin {
-		user.IsAdmin = userchange.IsAdmin
-	}
+	user.IsAdmin = userchange.IsAdmin
 
 	err := ValidateUser(user)
 	if err != nil {

@@ -320,17 +320,6 @@ func GetMasterKey() string {
 	return key
 }
 
-// GetDNSKey - gets the configured dns key of server
-func GetDNSKey() string {
-	key := ""
-	if os.Getenv("DNS_KEY") != "" {
-		key = os.Getenv("DNS_KEY")
-	} else if config.Config.Server.DNSKey != "" {
-		key = config.Config.Server.DNSKey
-	}
-	return key
-}
-
 // GetAllowedOrigin - get the allowed origin
 func GetAllowedOrigin() string {
 	allowedorigin := "*"
