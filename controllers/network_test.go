@@ -89,24 +89,13 @@ func TestSecurityCheck(t *testing.T) {
 
 	os.Setenv("MASTER_KEY", "secretkey")
 	t.Run("NoNetwork", func(t *testing.T) {
-		username, err := logic.UserPermissions(false, "", "Bearer secretkey")
+		username, err := logic.UserPermissions(false, "Bearer secretkey")
 		assert.Nil(t, err)
 		t.Log(username)
 	})
-	t.Run("WithNetwork", func(t *testing.T) {
-		username, err := logic.UserPermissions(false, "skynet", "Bearer secretkey")
-		assert.Nil(t, err)
-		t.Log(username)
-	})
-	t.Run("BadNet", func(t *testing.T) {
-		t.Skip()
-		username, err := logic.UserPermissions(false, "badnet", "Bearer secretkey")
-		assert.NotNil(t, err)
-		t.Log(err)
-		t.Log(username)
-	})
+
 	t.Run("BadToken", func(t *testing.T) {
-		username, err := logic.UserPermissions(false, "skynet", "Bearer badkey")
+		username, err := logic.UserPermissions(false, "Bearer badkey")
 		assert.NotNil(t, err)
 		t.Log(err)
 		t.Log(username)
