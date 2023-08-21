@@ -27,8 +27,8 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/adm/hassuperadmin", hasSuperAdmin).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/adm/createsuperadmin", createSuperAdmin).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/{username}/remote_access_gw", attachUserToRemoteAccessGw).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/{username}/remote_access_gw", removeUserFromRemoteAccessGW).Methods(http.MethodDelete)
+	r.HandleFunc("/api/users/{username}/remote_access_gw", logic.SecurityCheck(true, http.HandlerFunc(attachUserToRemoteAccessGw))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}/remote_access_gw", logic.SecurityCheck(true, http.HandlerFunc(removeUserFromRemoteAccessGW))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/users/{username}/remote_access_gw", logic.SecurityCheck(false, http.HandlerFunc(getUserRemoteAccessGws))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, http.HandlerFunc(updateUser))).Methods(http.MethodPut)
 	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceUsers, http.HandlerFunc(createUser)))).Methods(http.MethodPost)
@@ -209,7 +209,7 @@ func attachUserToRemoteAccessGw(w http.ResponseWriter, r *http.Request) {
 		user.RemoteGwIDs = make(map[string]struct{})
 	}
 	user.RemoteGwIDs[node.ID.String()] = struct{}{}
-	err = logic.UpdateUserV1(*user)
+	err = logic.UpsertUser(*user)
 	if err != nil {
 		slog.Error("failed to update user gateways", "user", username, "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch remote access gaetway node", err), "badrequest"))
@@ -248,7 +248,7 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 	}
 	delete(user.RemoteGwIDs, remoteGwID)
 	//TODO:  remove all related ext client configs of the user
-	err = logic.UpdateUserV1(*user)
+	err = logic.UpsertUser(*user)
 	if err != nil {
 		slog.Error("failed to update user gateways", "user", username, "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to fetch remote access gaetway node "+err.Error()), "badrequest"))

@@ -196,23 +196,18 @@ func Authorize(hostAllowed, networkCheck bool, authNetwork string, next http.Han
 
 			var isAuthorized = false
 			var nodeID = ""
-			username, _, isadmin, errN := logic.VerifyUserToken(authToken)
+			username, issuperadmin, isadmin, errN := logic.VerifyUserToken(authToken)
 			if errN != nil {
 				logic.ReturnErrorResponse(w, r, errorResponse)
 				return
 			}
 
-			isnetadmin := isadmin
-			if errN == nil && isadmin {
+			isnetadmin := issuperadmin || isadmin
+			if errN == nil && (issuperadmin || isadmin) {
 				nodeID = "mastermac"
 				isAuthorized = true
 				r.Header.Set("ismasterkey", "yes")
 			}
-			// if !isadmin && params["network"] != "" {
-			// 	if logic.StringSliceContains(networks, params["network"]) && pro.IsUserNetAdmin(params["network"], username) {
-			// 		isnetadmin = true
-			// 	}
-			// }
 			//The mastermac (login with masterkey from config) can do everything!! May be dangerous.
 			if nodeID == "mastermac" {
 				isAuthorized = true

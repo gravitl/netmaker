@@ -145,32 +145,8 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 	return tokenString, nil
 }
 
-// UpdateUserNetworks - updates the networks of a given user
-func UpdateUserNetworks(newNetworks, newGroups []string, isadmin bool, currentUser *models.ReturnUser) error {
-	// check if user exists
-	returnedUser, err := GetUser(currentUser.UserName)
-	if err != nil {
-		return err
-	} else if returnedUser.IsAdmin {
-		return fmt.Errorf("can not make changes to an admin user, attempted to change %s", returnedUser.UserName)
-	}
-	if isadmin {
-		currentUser.IsAdmin = true
-		currentUser.Networks = nil
-	}
-	userChange := models.User{
-		UserName:     currentUser.UserName,
-		IsSuperAdmin: currentUser.IsSuperAdmin,
-		IsAdmin:      currentUser.IsAdmin,
-		Password:     "",
-	}
-
-	_, err = UpdateUser(&userChange, returnedUser)
-
-	return err
-}
-
-func UpdateUserV1(user models.User) error {
+// UpsertUser - updates user in the db
+func UpsertUser(user models.User) error {
 	data, err := json.Marshal(&user)
 	if err != nil {
 		return err
