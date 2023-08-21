@@ -51,7 +51,7 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 	// TODO drop double pointer
 	ret := []*models.EnrollmentKey{}
 	for _, key := range keys {
-		if !isMasterAdmin && !logic.UserHasNetworksAccess(key.Networks, user) {
+		if !isMasterAdmin && (!user.IsAdmin || !user.IsSuperAdmin) {
 			continue
 		}
 		if err = logic.Tokenize(key, servercfg.GetAPIHost()); err != nil {

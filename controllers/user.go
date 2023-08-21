@@ -474,7 +474,7 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	// start here
 	username := params["username"]
-	user, err := logic.GetUser(username)
+	_, err := logic.GetUser(username)
 	if err != nil {
 		logger.Log(0, username,
 			"failed to update user networks: ", err.Error())
@@ -490,19 +490,7 @@ func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = logic.UpdateUserNetworks(userChange.Networks, userChange.Groups, userChange.IsAdmin, &models.ReturnUser{
-		Groups:   user.Groups,
-		IsAdmin:  user.IsAdmin,
-		Networks: user.Networks,
-		UserName: user.UserName,
-	})
 
-	if err != nil {
-		logger.Log(0, username,
-			"failed to update user networks: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
 	logger.Log(1, username, "status was updated")
 	// re-read and return the new user struct
 	returnUser, err := logic.GetReturnUser(username)
@@ -568,7 +556,6 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not authorizied"), "unauthorized"))
 		return
 	}
-	userchange.Networks = nil
 	user, err = logic.UpdateUser(&userchange, user)
 	if err != nil {
 		logger.Log(0, username,

@@ -141,7 +141,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 	}
 
 	// Create a new JWT for the node
-	tokenString, _ := CreateUserJWT(authRequest.UserName, result.Networks, result.IsAdmin)
+	tokenString, _ := CreateUserJWT(authRequest.UserName, result.IsSuperAdmin, result.IsAdmin)
 	return tokenString, nil
 }
 
@@ -159,11 +159,10 @@ func UpdateUserNetworks(newNetworks, newGroups []string, isadmin bool, currentUs
 		currentUser.Networks = nil
 	}
 	userChange := models.User{
-		UserName: currentUser.UserName,
-		Networks: currentUser.Networks,
-		IsAdmin:  currentUser.IsAdmin,
-		Password: "",
-		Groups:   currentUser.Groups,
+		UserName:     currentUser.UserName,
+		IsSuperAdmin: currentUser.IsSuperAdmin,
+		IsAdmin:      currentUser.IsAdmin,
+		Password:     "",
 	}
 
 	_, err = UpdateUser(&userChange, returnedUser)
@@ -194,12 +193,7 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 	if userchange.UserName != "" {
 		user.UserName = userchange.UserName
 	}
-	if len(userchange.Networks) > 0 {
-		user.Networks = userchange.Networks
-	}
-	if len(userchange.Groups) > 0 {
-		user.Groups = userchange.Groups
-	}
+
 	if userchange.Password != "" {
 		// encrypt that password so we never see it again
 		hash, err := bcrypt.GenerateFromPassword([]byte(userchange.Password), 5)

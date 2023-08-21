@@ -90,8 +90,8 @@ func TestUpdateUserNoHashedPassword(t *testing.T) {
 
 	// mock the jwt verification
 	oldVerify := verifyJWT
-	verifyJWT = func(bearerToken string) (username string, networks []string, isadmin bool, err error) {
-		return user1.UserName, user1.Networks, user1.IsAdmin, nil
+	verifyJWT = func(bearerToken string) (username string, issuperadmin, isadmin bool, err error) {
+		return user1.UserName, user1.IsSuperAdmin, user1.IsAdmin, nil
 	}
 	defer func() { verifyJWT = oldVerify }()
 
@@ -281,7 +281,7 @@ func TestValidateUser(t *testing.T) {
 func TestGetUser(t *testing.T) {
 	deleteAllUsers(t)
 
-	user := models.User{UserName: "admin", Password: "password", Networks: nil, IsAdmin: true, Groups: nil}
+	user := models.User{UserName: "admin", Password: "password", IsAdmin: true}
 
 	t.Run("NonExistantUser", func(t *testing.T) {
 		admin, err := logic.GetUser("admin")
@@ -339,7 +339,7 @@ func TestGetUsers(t *testing.T) {
 func TestUpdateUser(t *testing.T) {
 	deleteAllUsers(t)
 	user := models.User{UserName: "admin", Password: "password", IsAdmin: true}
-	newuser := models.User{UserName: "hello", Password: "world", Networks: []string{"wirecat, netmaker"}, IsAdmin: true, Groups: []string{}}
+	newuser := models.User{UserName: "hello", Password: "world", IsAdmin: true}
 	t.Run("NonExistantUser", func(t *testing.T) {
 		admin, err := logic.UpdateUser(&newuser, &user)
 		assert.EqualError(t, err, "could not find any records")
@@ -382,7 +382,7 @@ func TestUpdateUser(t *testing.T) {
 
 func TestVerifyAuthRequest(t *testing.T) {
 	deleteAllUsers(t)
-	user := models.User{UserName: "admin", Password: "password", Networks: nil, IsAdmin: true, Groups: nil}
+	user := models.User{UserName: "admin", Password: "password", IsSuperAdmin: false, IsAdmin: true}
 	var authRequest models.UserAuthParams
 	t.Run("EmptyUserName", func(t *testing.T) {
 		authRequest.UserName = ""
@@ -418,7 +418,7 @@ func TestVerifyAuthRequest(t *testing.T) {
 		assert.Nil(t, err)
 	})
 	t.Run("WrongPassword", func(t *testing.T) {
-		user := models.User{UserName: "admin", Password: "password", Groups: []string{}}
+		user := models.User{UserName: "admin", Password: "password"}
 		if err := logic.CreateUser(&user); err != nil {
 			t.Error(err)
 		}

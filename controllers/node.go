@@ -324,14 +324,6 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-	} else {
-		nodes, err = getUsersNodes(*user)
-		if err != nil {
-			logger.Log(0, r.Header.Get("user"),
-				"error fetching nodes: ", err.Error())
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
 	}
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
@@ -339,19 +331,6 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	logic.SortApiNodes(apiNodes[:])
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNodes)
-}
-
-func getUsersNodes(user models.User) ([]models.Node, error) {
-	var nodes []models.Node
-	var err error
-	for _, networkName := range user.Networks {
-		tmpNodes, err := logic.GetNetworkNodes(networkName)
-		if err != nil {
-			continue
-		}
-		nodes = append(nodes, tmpNodes...)
-	}
-	return nodes, err
 }
 
 // swagger:route GET /api/nodes/{network}/{nodeid} nodes getNode

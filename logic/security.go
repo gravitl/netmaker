@@ -83,24 +83,14 @@ func UserPermissions(reqAdmin bool, netname string, token string) ([]string, str
 		// TODO log in as an actual admin user
 		return []string{ALL_NETWORK_ACCESS}, master_uname, nil
 	}
-	username, networks, isadmin, err := VerifyUserToken(authToken)
+	username, _, isadmin, err := VerifyUserToken(authToken)
 	if err != nil {
 		return nil, username, Unauthorized_Err
 	}
 	if !isadmin && reqAdmin {
 		return nil, username, Forbidden_Err
 	}
-	userNetworks = networks
-	if isadmin {
-		return []string{ALL_NETWORK_ACCESS}, username, nil
-	}
-	// check network admin access
-	if len(netname) > 0 && (len(userNetworks) == 0 || !authenticateNetworkUser(netname, userNetworks)) {
-		return nil, username, Forbidden_Err
-	}
-	if isEE && len(netname) > 0 {
-		return nil, "", Forbidden_Err
-	}
+
 	return userNetworks, username, nil
 }
 

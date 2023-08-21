@@ -26,11 +26,9 @@ type AuthParams struct {
 type User struct {
 	UserName     string              `json:"username" bson:"username" validate:"min=3,max=40,in_charset|email"`
 	Password     string              `json:"password" bson:"password" validate:"required,min=5"`
-	Networks     []string            `json:"networks" bson:"networks"`
 	IsAdmin      bool                `json:"isadmin" bson:"isadmin"`
 	IsSuperAdmin bool                `json:"super_admin"`
 	RemoteGwIDs  map[string]struct{} `json:"remote_gw_ids"`
-	Groups       []string            `json:"groups" bson:"groups" yaml:"groups"`
 }
 
 // ReturnUser - return user struct
@@ -53,9 +51,6 @@ type UserClaims struct {
 	IsAdmin      bool
 	IsSuperAdmin bool
 	UserName     string
-	Networks     []string
-	Groups       []string
-	GateWays     map[string]struct{}
 	jwt.RegisteredClaims
 }
 

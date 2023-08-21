@@ -40,10 +40,9 @@ func GetReturnUser(username string) (models.ReturnUser, error) {
 // ToReturnUser - gets a user as a return user
 func ToReturnUser(user models.User) models.ReturnUser {
 	return models.ReturnUser{
-		UserName: user.UserName,
-		Networks: user.Networks,
-		IsAdmin:  user.IsAdmin,
-		Groups:   user.Groups,
+		UserName:     user.UserName,
+		IsSuperAdmin: user.IsSuperAdmin,
+		IsAdmin:      user.IsAdmin,
 	}
 }
 

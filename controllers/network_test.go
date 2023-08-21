@@ -29,8 +29,6 @@ func TestMain(m *testing.M) {
 		UserName: "admin",
 		Password: "password",
 		IsAdmin:  true,
-		Networks: []string{},
-		Groups:   []string{},
 	})
 	peerUpdate := make(chan *models.Node)
 	go logic.ManageZombies(context.Background(), peerUpdate)
