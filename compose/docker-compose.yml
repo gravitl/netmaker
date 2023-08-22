@@ -62,7 +62,7 @@ services:
 
   coredns:
     container_name: coredns
-    image: coredns/coredns
+    image: coredns/coredns:1.10.1
     command: -conf /root/dnsconfig/Corefile
     env_file: ./netmaker.env
     depends_on:
