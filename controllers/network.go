@@ -20,9 +20,9 @@ import (
 )
 
 func networkHandlers(r *mux.Router) {
-	r.HandleFunc("/api/networks", logic.SecurityCheck(false, http.HandlerFunc(getNetworks))).Methods(http.MethodGet)
+	r.HandleFunc("/api/networks", logic.SecurityCheck(true, http.HandlerFunc(getNetworks))).Methods(http.MethodGet)
 	r.HandleFunc("/api/networks", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceNetworks, http.HandlerFunc(createNetwork)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(false, http.HandlerFunc(getNetwork))).Methods(http.MethodGet)
+	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(true, http.HandlerFunc(getNetwork))).Methods(http.MethodGet)
 	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(true, http.HandlerFunc(deleteNetwork))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(true, http.HandlerFunc(updateNetwork))).Methods(http.MethodPut)
 	// ACLs
@@ -42,29 +42,14 @@ func networkHandlers(r *mux.Router) {
 //			Responses:
 //				200: getNetworksSliceResponse
 func getNetworks(w http.ResponseWriter, r *http.Request) {
-	networksSlice, marshalErr := getHeaderNetworks(r)
-	if marshalErr != nil {
-		logger.Log(0, r.Header.Get("user"), "error unmarshalling networks: ",
-			marshalErr.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(marshalErr, "badrequest"))
-		return
-	}
-	allnetworks := []models.Network{}
+
 	var err error
-	if len(networksSlice) > 0 && networksSlice[0] == logic.ALL_NETWORK_ACCESS {
-		allnetworks, err = logic.GetNetworks()
-		if err != nil && !database.IsEmptyRecord(err) {
-			logger.Log(0, r.Header.Get("user"), "failed to fetch networks: ", err.Error())
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-	} else {
-		for _, network := range networksSlice {
-			netObject, parentErr := logic.GetParentNetwork(network)
-			if parentErr == nil {
-				allnetworks = append(allnetworks, netObject)
-			}
-		}
+
+	allnetworks, err := logic.GetNetworks()
+	if err != nil && !database.IsEmptyRecord(err) {
+		logger.Log(0, r.Header.Get("user"), "failed to fetch networks: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
 	}
 
 	logger.Log(2, r.Header.Get("user"), "fetched networks.")

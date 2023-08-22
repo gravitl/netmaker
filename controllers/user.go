@@ -544,22 +544,21 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !caller.IsSuperAdmin && user.IsAdmin {
-		slog.Error("error creating new user: ", "user", user.UserName, "error",
-			errors.New("only superadmin can create admin users"))
+		err = errors.New("only superadmin can create admin users")
+		slog.Error("error creating new user: ", "user", user.UserName, "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
 	if user.IsSuperAdmin {
-		slog.Error("error creating new user: ", "user", user.UserName, "error",
-			errors.New("additional superadmins cannot be created"))
+		err = errors.New("additional superadmins cannot be created")
+		slog.Error("error creating new user: ", "user", user.UserName, "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
 
 	err = logic.CreateUser(&user)
 	if err != nil {
-		logger.Log(0, user.UserName, "error creating new user: ",
-			err.Error())
+		logger.Log(0, user.UserName, "error creating new user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}

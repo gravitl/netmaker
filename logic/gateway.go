@@ -229,3 +229,17 @@ func DeleteGatewayExtClients(gatewayID string, networkName string) error {
 	}
 	return nil
 }
+
+// IsUserAllowedAccessToExtClient - checks if user has permission to access extclient
+func IsUserAllowedAccessToExtClient(username string, client models.ExtClient) bool {
+	user, err := GetUser(username)
+	if err != nil {
+		return false
+	}
+	if !user.IsAdmin && !user.IsSuperAdmin {
+		if user.UserName != client.ClientID {
+			return false
+		}
+	}
+	return true
+}

@@ -10,9 +10,6 @@ import (
 )
 
 const (
-	// ALL_NETWORK_ACCESS - represents all networks
-	ALL_NETWORK_ACCESS = "THIS_USER_HAS_ALL"
-
 	master_uname     = "masteradministrator"
 	Forbidden_Msg    = "forbidden"
 	Forbidden_Err    = models.Error(Forbidden_Msg)
