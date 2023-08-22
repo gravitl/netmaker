@@ -27,17 +27,16 @@ type User struct {
 	UserName     string              `json:"username" bson:"username" validate:"min=3,max=40,in_charset|email"`
 	Password     string              `json:"password" bson:"password" validate:"required,min=5"`
 	IsAdmin      bool                `json:"isadmin" bson:"isadmin"`
-	IsSuperAdmin bool                `json:"super_admin"`
+	IsSuperAdmin bool                `json:"issuperadmin"`
 	RemoteGwIDs  map[string]struct{} `json:"remote_gw_ids"`
 }
 
 // ReturnUser - return user struct
 type ReturnUser struct {
-	UserName     string   `json:"username"`
-	Networks     []string `json:"networks"`
-	IsAdmin      bool     `json:"isadmin"`
-	IsSuperAdmin bool     `json:"is_superadmin"`
-	Groups       []string `json:"groups"`
+	UserName     string              `json:"username"`
+	IsAdmin      bool                `json:"isadmin"`
+	IsSuperAdmin bool                `json:"issuperadmin"`
+	RemoteGwIDs  map[string]struct{} `json:"remote_gw_ids"`
 }
 
 // UserAuthParams - user auth params struct
@@ -52,6 +51,12 @@ type UserClaims struct {
 	IsSuperAdmin bool
 	UserName     string
 	jwt.RegisteredClaims
+}
+
+type IngressGwUsers struct {
+	NodeID  string       `json:"node_id"`
+	Network string       `json:"network"`
+	Users   []ReturnUser `json:"users"`
 }
 
 // SuccessfulUserLoginResponse - successlogin struct

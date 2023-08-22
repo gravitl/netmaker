@@ -159,6 +159,25 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	return node, err
 }
 
+// GetIngressGwUsers - lists the users having to access to ingressGW
+func GetIngressGwUsers(node models.Node) (models.IngressGwUsers, error) {
+
+	gwUsers := models.IngressGwUsers{
+		NodeID:  node.ID.String(),
+		Network: node.Network,
+	}
+	users, err := GetUsers()
+	if err != nil {
+		return gwUsers, err
+	}
+	for _, user := range users {
+		if _, ok := user.RemoteGwIDs[node.ID.String()]; ok {
+			gwUsers.Users = append(gwUsers.Users, user)
+		}
+	}
+	return gwUsers, nil
+}
+
 // DeleteIngressGateway - deletes an ingress gateway
 func DeleteIngressGateway(nodeid string) (models.Node, bool, []models.ExtClient, error) {
 	removedClients := []models.ExtClient{}

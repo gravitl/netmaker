@@ -46,21 +46,6 @@ func ToReturnUser(user models.User) models.ReturnUser {
 	}
 }
 
-// GetGroupUsers - gets users in a group
-func GetGroupUsers(group string) ([]models.ReturnUser, error) {
-	var returnUsers []models.ReturnUser
-	users, err := GetUsers()
-	if err != nil {
-		return returnUsers, err
-	}
-	for _, user := range users {
-		if StringSliceContains(user.Groups, group) {
-			users = append(users, user)
-		}
-	}
-	return users, err
-}
-
 // SetUserDefaults - sets the defaults of a user to avoid empty fields
 func SetUserDefaults(user *models.User) {
 	if user.RemoteGwIDs == nil {

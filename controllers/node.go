@@ -30,7 +30,7 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deletegateway", Authorize(false, true, "user", http.HandlerFunc(deleteEgressGateway))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", logic.SecurityCheck(false, checkFreeTierLimits(limitChoiceIngress, http.HandlerFunc(createIngressGateway)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", logic.SecurityCheck(false, http.HandlerFunc(deleteIngressGateway))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/ingress/users", logic.SecurityCheck(false, http.HandlerFunc(deleteIngressGateway))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/ingress/users", logic.SecurityCheck(false, http.HandlerFunc(IngressGatewayUsers))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", Authorize(true, true, "node", http.HandlerFunc(updateNode))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/nodes/migrate", migrate).Methods(http.MethodPost)
@@ -617,43 +617,15 @@ func IngressGatewayUsers(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "bad request"))
 		return
 	}
-	node, wasFailover, removedClients, err := logic.DeleteIngressGateway(nodeid)
+	gwUsers, err := logic.GetIngressGwUsers(node)
 	if err != nil {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("failed to delete ingress gateway on node [%s] on network [%s]: %v",
-				nodeid, netid, err))
+		slog.Error("failed to get users on ingress gateway", "nodeid", nodeid, "network", netid, "user", r.Header.Get("user"),
+			"error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-
-	if servercfg.Is_EE && wasFailover {
-		if err = logic.EnterpriseResetFailoverFunc(node.Network); err != nil {
-			logger.Log(1, "failed to reset failover list during failover create", node.ID.String(), node.Network)
-		}
-	}
-
-	apiNode := node.ConvertToAPINode()
-	logger.Log(1, r.Header.Get("user"), "deleted ingress gateway", nodeid)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(apiNode)
-
-	if len(removedClients) > 0 {
-		host, err := logic.GetHost(node.HostID.String())
-		if err == nil {
-			allNodes, err := logic.GetAllNodes()
-			if err != nil {
-				return
-			}
-			go mq.PublishSingleHostPeerUpdate(
-				host,
-				allNodes,
-				nil,
-				removedClients[:],
-			)
-		}
-	}
-
-	runUpdates(&node, true)
+	json.NewEncoder(w).Encode(gwUsers)
 }
 
 // swagger:route PUT /api/nodes/{network}/{nodeid} nodes updateNode
