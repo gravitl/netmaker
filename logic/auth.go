@@ -166,6 +166,10 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 	queryUser := user.UserName
 
 	if userchange.UserName != "" {
+		// check if username is available
+		if _, err := GetUser(userchange.UserName); err == nil {
+			return &models.User{}, errors.New("username exists already")
+		}
 		user.UserName = userchange.UserName
 	}
 

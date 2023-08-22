@@ -26,6 +26,7 @@ var verifyJWT = logic.VerifyJWT
 func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/adm/hassuperadmin", hasSuperAdmin).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/adm/createsuperadmin", createSuperAdmin).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/adm/transfersuperadmin", logic.SecurityCheck(true, http.HandlerFunc(transferSuperAdmin))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/remote_access_gw", logic.SecurityCheck(true, http.HandlerFunc(attachUserToRemoteAccessGw))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/remote_access_gw", logic.SecurityCheck(true, http.HandlerFunc(removeUserFromRemoteAccessGW))).Methods(http.MethodDelete)
@@ -460,6 +461,63 @@ func createSuperAdmin(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(logic.ToReturnUser(u))
 }
 
+// swagger:route POST /api/users/adm/transfersuperadmin user transferSuperAdmin
+//
+// Transfers suoeradmin role to an admin user.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: userBodyResponse
+func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	caller, err := logic.GetUser(r.Header.Get("user"))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+	}
+	if !caller.IsSuperAdmin {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only superadmin can assign the superadmin role to another user"), "forbidden"))
+		return
+	}
+	var u models.User
+	err = json.NewDecoder(r.Body).Decode(&u)
+	if err != nil {
+		slog.Error("error decoding request body: ", "error", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if !u.IsAdmin {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only admins can be promoted to superadmin role"), "forbidden"))
+		return
+	}
+	if !servercfg.IsBasicAuthEnabled() {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("basic auth is disabled"), "badrequest"))
+		return
+	}
+
+	u.IsSuperAdmin = true
+	u.IsAdmin = false
+	err = logic.UpsertUser(u)
+	if err != nil {
+		slog.Error("error updating user to superadmin: ", "user", u.UserName, "error", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	caller.IsSuperAdmin = false
+	caller.IsAdmin = true
+	err = logic.UpsertUser(*caller)
+	if err != nil {
+		slog.Error("error demoting user to admin: ", "user", caller.UserName, "error", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	slog.Info("user was made a super admin", "user", u.UserName)
+	json.NewEncoder(w).Encode(logic.ToReturnUser(u))
+}
+
 // swagger:route POST /api/users/{username} user createUser
 //
 // Create a user.
@@ -488,13 +546,13 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	if !caller.IsSuperAdmin && user.IsAdmin {
 		slog.Error("error creating new user: ", "user", user.UserName, "error",
 			errors.New("only superadmin can create admin users"))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
 	if user.IsSuperAdmin {
 		slog.Error("error creating new user: ", "user", user.UserName, "error",
 			errors.New("additional superadmins cannot be created"))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
 
@@ -570,7 +628,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		if caller.IsAdmin && user.IsAdmin {
+		if caller.IsAdmin && userchange.IsAdmin {
 			slog.Error("admin user cannot update another admin", "caller", caller.UserName, "attempted to update admin user", username)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("admin user cannot update another admin"), "forbidden"))
 			return

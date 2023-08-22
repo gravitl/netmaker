@@ -30,6 +30,7 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deletegateway", Authorize(false, true, "user", http.HandlerFunc(deleteEgressGateway))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", logic.SecurityCheck(false, checkFreeTierLimits(limitChoiceIngress, http.HandlerFunc(createIngressGateway)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", logic.SecurityCheck(false, http.HandlerFunc(deleteIngressGateway))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/ingress/users", logic.SecurityCheck(false, http.HandlerFunc(deleteIngressGateway))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", Authorize(true, true, "node", http.HandlerFunc(updateNode))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/nodes/migrate", migrate).Methods(http.MethodPost)
@@ -547,6 +548,66 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //				200: nodeResponse
 func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var params = mux.Vars(r)
+	nodeid := params["nodeid"]
+	netid := params["network"]
+	node, err := validateParams(nodeid, netid)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "bad request"))
+		return
+	}
+	node, wasFailover, removedClients, err := logic.DeleteIngressGateway(nodeid)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to delete ingress gateway on node [%s] on network [%s]: %v",
+				nodeid, netid, err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	if servercfg.Is_EE && wasFailover {
+		if err = logic.EnterpriseResetFailoverFunc(node.Network); err != nil {
+			logger.Log(1, "failed to reset failover list during failover create", node.ID.String(), node.Network)
+		}
+	}
+
+	apiNode := node.ConvertToAPINode()
+	logger.Log(1, r.Header.Get("user"), "deleted ingress gateway", nodeid)
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(apiNode)
+
+	if len(removedClients) > 0 {
+		host, err := logic.GetHost(node.HostID.String())
+		if err == nil {
+			allNodes, err := logic.GetAllNodes()
+			if err != nil {
+				return
+			}
+			go mq.PublishSingleHostPeerUpdate(
+				host,
+				allNodes,
+				nil,
+				removedClients[:],
+			)
+		}
+	}
+
+	runUpdates(&node, true)
+}
+
+// swagger:route GET /api/nodes/{network}/{nodeid}/ingress/users nodes IngressGatewayUsers
+//
+// Lists all the users attached to an ingress gateway.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: nodeResponse
+func IngressGatewayUsers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
