@@ -43,6 +43,7 @@ func ToReturnUser(user models.User) models.ReturnUser {
 		UserName:     user.UserName,
 		IsSuperAdmin: user.IsSuperAdmin,
 		IsAdmin:      user.IsAdmin,
+		RemoteGwIDs:  user.RemoteGwIDs,
 	}
 }
 

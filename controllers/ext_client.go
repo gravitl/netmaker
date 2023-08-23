@@ -327,18 +327,6 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	caller, err := logic.GetUser(r.Header.Get("user"))
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-	}
-	if !caller.IsAdmin || !caller.IsSuperAdmin {
-		if _, ok := caller.RemoteGwIDs[nodeid]; !ok {
-			slog.Error("failed to create extclient", "error", errors.New("no permission"))
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("no permission"), "forbidden"))
-			return
-		}
-	}
-
 	var customExtClient models.CustomExtClient
 
 	if err := json.NewDecoder(r.Body).Decode(&customExtClient); err != nil {
@@ -349,9 +337,6 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	extclient := logic.UpdateExtClient(&models.ExtClient{}, &customExtClient)
-
-	extclient.IngressGatewayID = nodeid
 	node, err := logic.GetNodeByID(nodeid)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
@@ -359,6 +344,42 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	caller, err := logic.GetUser(r.Header.Get("user"))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	if !caller.IsAdmin && !caller.IsSuperAdmin {
+		if _, ok := caller.RemoteGwIDs[nodeid]; !ok {
+			err = errors.New("permission denied")
+			slog.Error("failed to create extclient", "error", err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+			return
+		}
+		// check if user has a config already for remote access client
+		extclients, err := logic.GetNetworkExtClients(node.Network)
+		if err != nil {
+			slog.Error("failed to get extclients", "error", err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+		for _, extclient := range extclients {
+			if extclient.RemoteAccessClientID != "" &&
+				extclient.RemoteAccessClientID == customExtClient.RemoteAccessClientID && nodeid == extclient.IngressGatewayID {
+				// extclient on the gw already exists for the remote access client
+				err = errors.New("remote client config already exists on the gateway")
+				slog.Error("failed to get extclients", "error", err)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+				return
+			}
+		}
+	}
+
+	extclient := logic.UpdateExtClient(&models.ExtClient{}, &customExtClient)
+	extclient.OwnerID = caller.UserName
+	extclient.RemoteAccessClientID = customExtClient.RemoteAccessClientID
+	extclient.IngressGatewayID = nodeid
+
 	extclient.Network = node.Network
 	host, err := logic.GetHost(node.HostID.String())
 	if err != nil {

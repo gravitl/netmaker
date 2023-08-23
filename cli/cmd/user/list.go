@@ -3,7 +3,6 @@ package user
 import (
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/gravitl/netmaker/cli/cmd/commons"
 	"github.com/gravitl/netmaker/cli/functions"
@@ -25,7 +24,7 @@ var userListCmd = &cobra.Command{
 			table := tablewriter.NewWriter(os.Stdout)
 			table.SetHeader([]string{"Name", "Admin", "Networks", "Groups"})
 			for _, d := range *data {
-				table.Append([]string{d.UserName, strconv.FormatBool(d.IsAdmin), strings.Join(d.Networks, ", "), strings.Join(d.Groups, ", ")})
+				table.Append([]string{d.UserName, strconv.FormatBool(d.IsSuperAdmin), strconv.FormatBool(d.IsAdmin)})
 			}
 			table.Render()
 		}

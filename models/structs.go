@@ -53,10 +53,25 @@ type UserClaims struct {
 	jwt.RegisteredClaims
 }
 
+// IngressGwUsers - struct to hold users on a ingress gw
 type IngressGwUsers struct {
 	NodeID  string       `json:"node_id"`
 	Network string       `json:"network"`
 	Users   []ReturnUser `json:"users"`
+}
+
+// UserRemoteGws - struct to hold user's remote gws
+type UserRemoteGws struct {
+	GwID      string    `json:"remote_access_gw_id"`
+	GWName    string    `json:"gw_name"`
+	Network   string    `json:"network"`
+	Connected bool      `json:"connected"`
+	GwClient  ExtClient `json:"gw_client"`
+}
+
+// UserRemoteGwsReq - struct to hold user remote acccess gws req
+type UserRemoteGwsReq struct {
+	RemoteAccessClientID string `json:"remote_access_clientid"`
 }
 
 // SuccessfulUserLoginResponse - successlogin struct
