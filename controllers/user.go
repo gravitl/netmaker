@@ -20,9 +20,6 @@ var (
 	upgrader = websocket.Upgrader{}
 )
 
-// verifyJWT makes logic.VerifyJWT fakeable/mockable in tests
-var verifyJWT = logic.VerifyJWT
-
 func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/adm/hassuperadmin", hasSuperAdmin).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/adm/createsuperadmin", createSuperAdmin).Methods(http.MethodPost)
@@ -644,57 +641,6 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(logic.ToReturnUser(*user))
 }
 
-// swagger:route PUT /api/users/{username}/adm user updateUserAdm
-//
-// Updates the given admin user's info (as long as the user is an admin).
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: userBodyResponse
-func updateUserAdm(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	var params = mux.Vars(r)
-	// start here
-	username := params["username"]
-	user, err := logic.GetUser(username)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	if auth.IsOauthUser(user) == nil {
-		err := fmt.Errorf("cannot update user info for oauth user %s", username)
-		logger.Log(0, err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
-		return
-	}
-	var userchange models.User
-	// we decode our body request params
-	err = json.NewDecoder(r.Body).Decode(&userchange)
-	if err != nil {
-		logger.Log(0, username, "error decoding request body: ",
-			err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	if !user.IsAdmin && !user.IsSuperAdmin {
-		logger.Log(0, username, "not an admin user")
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not a admin user"), "badrequest"))
-	}
-	user, err = logic.UpdateUser(&userchange, user)
-	if err != nil {
-		logger.Log(0, username,
-			"failed to update user (admin) info: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	logger.Log(1, username, "was updated (admin)")
-	json.NewEncoder(w).Encode(logic.ToReturnUser(*user))
-}
-
 // swagger:route DELETE /api/users/{username} user deleteUser
 //
 // Delete a user.
@@ -769,15 +715,4 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// Start handling the session
 	go auth.SessionHandler(conn)
-}
-
-// getHeaderNetworks returns a slice of networks parsed form the request header.
-func getHeaderNetworks(r *http.Request) ([]string, error) {
-	headerNetworks := r.Header.Get("networks")
-	networksSlice := []string{}
-	err := json.Unmarshal([]byte(headerNetworks), &networksSlice)
-	if err != nil {
-		return nil, err
-	}
-	return networksSlice, nil
 }
