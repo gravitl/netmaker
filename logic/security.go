@@ -34,6 +34,11 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 		// detect masteradmin
 		if username == master_uname {
 			r.Header.Set("ismaster", "yes")
+			// set user as superadmin
+			user, err := GetSuperAdmin()
+			if err == nil {
+				username = user.UserName
+			}
 		}
 		r.Header.Set("user", username)
 		next.ServeHTTP(w, r)

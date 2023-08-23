@@ -2,6 +2,7 @@ package logic
 
 import (
 	"encoding/json"
+	"errors"
 	"sort"
 
 	"github.com/gravitl/netmaker/database"
@@ -59,4 +60,18 @@ func SortUsers(unsortedUsers []models.ReturnUser) {
 	sort.Slice(unsortedUsers, func(i, j int) bool {
 		return unsortedUsers[i].UserName < unsortedUsers[j].UserName
 	})
+}
+
+// GetSuperAdmin - fetches superadmin user
+func GetSuperAdmin() (models.ReturnUser, error) {
+	users, err := GetUsers()
+	if err != nil {
+		return models.ReturnUser{}, err
+	}
+	for _, user := range users {
+		if user.IsSuperAdmin {
+			return user, nil
+		}
+	}
+	return models.ReturnUser{}, errors.New("superadmin not found")
 }
