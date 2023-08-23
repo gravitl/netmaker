@@ -342,7 +342,7 @@ func PublishHostDNSUpdate(old, new *models.Host, networks []string) error {
 	return nil
 }
 
-func pushMetricsToExporter(metrics models.Metrics) error {
+func PushMetricsToExporter(metrics models.Metrics) error {
 	logger.Log(2, "----> Pushing metrics to exporter")
 	data, err := json.Marshal(metrics)
 	if err != nil {

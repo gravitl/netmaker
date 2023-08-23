@@ -3,6 +3,7 @@ package ee_controllers
 import (
 	"encoding/json"
 	"fmt"
+	eelogic "github.com/gravitl/netmaker/ee/logic"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -43,7 +44,7 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 	}
 	relayRequest.NetID = params["network"]
 	relayRequest.NodeID = params["nodeid"]
-	_, relayNode, err := logic.CreateRelay(relayRequest)
+	_, relayNode, err := eelogic.CreateRelay(relayRequest)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to create relay on node [%s] on network [%s]: %v", relayRequest.NodeID, relayRequest.NetID, err))
@@ -73,7 +74,7 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
 	netid := params["network"]
-	updateNodes, node, err := logic.DeleteRelay(netid, nodeid)
+	updateNodes, node, err := eelogic.DeleteRelay(netid, nodeid)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))

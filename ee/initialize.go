@@ -9,14 +9,14 @@ import (
 	eelogic "github.com/gravitl/netmaker/ee/logic"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
 
 // InitEE - Initialize EE Logic
 func InitEE() {
-	setIsEnterprise()
-	servercfg.Is_EE = true
+	servercfg.IsPro = true
 	models.SetLogo(retrieveEELogo())
 	controller.HttpMiddlewares = append(
 		controller.HttpMiddlewares,
@@ -47,6 +47,18 @@ func InitEE() {
 	logic.DenyClientNodeAccess = eelogic.DenyClientNode
 	logic.IsClientNodeAllowed = eelogic.IsClientNodeAllowed
 	logic.AllowClientNodeAccess = eelogic.RemoveDeniedNodeFromClient
+	logic.SetClientDefaultACLs = eelogic.SetClientDefaultACLs
+	logic.SetClientACLs = eelogic.SetClientACLs
+	logic.UpdateProNodeACLs = eelogic.UpdateProNodeACLs
+	logic.GetMetrics = eelogic.GetMetrics
+	logic.UpdateMetrics = eelogic.UpdateMetrics
+	logic.DeleteMetrics = eelogic.DeleteMetrics
+	logic.GetAllowedIpsForRelayed = eelogic.GetAllowedIpsForRelayed
+	logic.RelayedAllowedIPs = eelogic.RelayedAllowedIPs
+	logic.UpdateRelayed = eelogic.UpdateRelayed
+	logic.SetRelayedNodes = eelogic.SetRelayedNodes
+	logic.RelayUpdates = eelogic.RelayUpdates
+	mq.UpdateMetrics = eelogic.MQUpdateMetrics
 }
 
 func resetFailover() {

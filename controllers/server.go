@@ -25,7 +25,6 @@ func serverHandlers(r *mux.Router) {
 	r.HandleFunc("/api/server/usage", Authorize(true, false, "user", http.HandlerFunc(getUsage))).Methods(http.MethodGet)
 }
 
-// TODO move to EE package? there is a function and a type there for that already
 func getUsage(w http.ResponseWriter, r *http.Request) {
 	type usage struct {
 		Hosts     int `json:"hosts"`
@@ -165,7 +164,7 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 
 	scfg := servercfg.GetServerConfig()
 	scfg.IsEE = "no"
-	if servercfg.Is_EE {
+	if servercfg.IsPro {
 		scfg.IsEE = "yes"
 	}
 	json.NewEncoder(w).Encode(scfg)

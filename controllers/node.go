@@ -415,7 +415,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		PeerIDs:      hostPeerUpdate.PeerIDs,
 	}
 
-	if servercfg.Is_EE && nodeRequest {
+	if servercfg.IsPro && nodeRequest {
 		if err = logic.EnterpriseResetAllPeersFailovers(node.ID, node.Network); err != nil {
 			logger.Log(1, "failed to reset failover list during node config pull", node.ID.String(), node.Network)
 		}
@@ -471,7 +471,7 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		mq.PublishPeerUpdate()
 	}()
-	runUpdates(&node, true)
+	mq.RunUpdates(&node, true)
 }
 
 // swagger:route DELETE /api/nodes/{network}/{nodeid}/deletegateway nodes deleteEgressGateway
@@ -512,7 +512,7 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		mq.PublishPeerUpdate()
 	}()
-	runUpdates(&node, true)
+	mq.RunUpdates(&node, true)
 }
 
 // == INGRESS ==
@@ -549,7 +549,7 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if servercfg.Is_EE && request.Failover {
+	if servercfg.IsPro && request.Failover {
 		if err = logic.EnterpriseResetFailoverFunc(node.Network); err != nil {
 			logger.Log(1, "failed to reset failover list during failover create", node.ID.String(), node.Network)
 		}
@@ -560,7 +560,7 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
 
-	runUpdates(&node, true)
+	mq.RunUpdates(&node, true)
 }
 
 // swagger:route DELETE /api/nodes/{network}/{nodeid}/deleteingress nodes deleteIngressGateway
@@ -593,7 +593,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if servercfg.Is_EE && wasFailover {
+	if servercfg.IsPro && wasFailover {
 		if err = logic.EnterpriseResetFailoverFunc(node.Network); err != nil {
 			logger.Log(1, "failed to reset failover list during failover create", node.ID.String(), node.Network)
 		}
@@ -620,7 +620,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	runUpdates(&node, true)
+	mq.RunUpdates(&node, true)
 }
 
 // swagger:route PUT /api/nodes/{network}/{nodeid} nodes updateNode
@@ -655,18 +655,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	newNode := newData.ConvertToServerNode(&currentNode)
-	relayupdate := false
-	if servercfg.Is_EE && newNode.IsRelay && len(newNode.RelayedNodes) > 0 {
-		if len(newNode.RelayedNodes) != len(currentNode.RelayedNodes) {
-			relayupdate = true
-		} else {
-			for i, node := range newNode.RelayedNodes {
-				if node != currentNode.RelayedNodes[i] {
-					relayupdate = true
-				}
-			}
-		}
-	}
+	relayUpdate := logic.RelayUpdates(&currentNode, newNode)
 	host, err := logic.GetHost(newNode.HostID.String())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
@@ -676,7 +665,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 	ifaceDelta := logic.IfaceDelta(&currentNode, newNode)
 	aclUpdate := currentNode.DefaultACL != newNode.DefaultACL
-	if ifaceDelta && servercfg.Is_EE {
+	if ifaceDelta && servercfg.IsPro {
 		if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID, currentNode.Network); err != nil {
 			logger.Log(0, "failed to reset failover lists during node update for node", currentNode.ID.String(), currentNode.Network)
 		}
@@ -689,13 +678,8 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if relayupdate {
-		updatenodes := logic.UpdateRelayed(currentNode.ID.String(), currentNode.RelayedNodes, newNode.RelayedNodes)
-		if len(updatenodes) > 0 {
-			for _, relayedNode := range updatenodes {
-				runUpdates(&relayedNode, false)
-			}
-		}
+	if relayUpdate {
+		logic.UpdateRelayed(&currentNode, newNode)
 	}
 	if servercfg.IsDNSMode() {
 		logic.SetDNS()
@@ -705,7 +689,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "updated node", currentNode.ID.String(), "on network", currentNode.Network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-	runUpdates(newNode, ifaceDelta)
+	mq.RunUpdates(newNode, ifaceDelta)
 	go func(aclUpdate, relayupdate bool, newNode *models.Node) {
 		if aclUpdate || relayupdate {
 			if err := mq.PublishPeerUpdate(); err != nil {
@@ -715,7 +699,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		if err := mq.PublishReplaceDNS(&currentNode, newNode, host); err != nil {
 			logger.Log(1, "failed to publish dns update", err.Error())
 		}
-	}(aclUpdate, relayupdate, newNode)
+	}(aclUpdate, relayUpdate, newNode)
 }
 
 // swagger:route DELETE /api/nodes/{network}/{nodeid} nodes deleteNode
@@ -778,7 +762,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
 	if !fromNode { // notify node change
-		runUpdates(&node, false)
+		mq.RunUpdates(&node, false)
 	}
 	go func() { // notify of peer change
 		var err error
@@ -792,15 +776,6 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := mq.PublishDNSDelete(&node, host); err != nil {
 			logger.Log(1, "error publishing dns update", err.Error())
-		}
-	}()
-}
-
-func runUpdates(node *models.Node, ifaceDelta bool) {
-	go func() { // don't block http response
-		// publish node update if not server
-		if err := mq.NodeUpdate(node); err != nil {
-			logger.Log(1, "error publishing node update to node", node.ID.String(), err.Error())
 		}
 	}()
 }

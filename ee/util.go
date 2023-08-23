@@ -6,14 +6,6 @@ import (
 	"github.com/gravitl/netmaker/logic"
 )
 
-var isEnterprise bool
-
-// setIsEnterprise - sets server to use enterprise features
-func setIsEnterprise() {
-	isEnterprise = true
-	logic.SetEEForTelemetry(isEnterprise)
-}
-
 // base64encode - base64 encode helper function
 func base64encode(input []byte) string {
 	return base64.StdEncoding.EncodeToString(input)

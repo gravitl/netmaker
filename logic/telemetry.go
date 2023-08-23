@@ -13,19 +13,12 @@ import (
 
 // flags to keep for telemetry
 var isFreeTier bool
-var isEE bool
 
 // posthog_pub_key - Key for sending data to PostHog
 const posthog_pub_key = "phc_1vEXhPOA1P7HP5jP2dVU9xDTUqXHAelmtravyZ1vvES"
 
 // posthog_endpoint - Endpoint of PostHog server
 const posthog_endpoint = "https://app.posthog.com"
-
-// setEEForTelemetry - store EE flag without having an import cycle when used for telemetry
-// (as the ee package needs the logic package as currently written).
-func SetEEForTelemetry(eeFlag bool) {
-	isEE = eeFlag
-}
 
 // setFreeTierForTelemetry - store free tier flag without having an import cycle when used for telemetry
 // (as the ee package needs the logic package as currently written).
@@ -73,7 +66,7 @@ func sendTelemetry() error {
 			Set("docker", d.Count.Docker).
 			Set("k8s", d.Count.K8S).
 			Set("version", d.Version).
-			Set("is_ee", isEE).
+			Set("is_ee", d.IsEE).
 			Set("is_free_tier", isFreeTier),
 	})
 }
@@ -82,6 +75,7 @@ func sendTelemetry() error {
 func fetchTelemetryData() (telemetryData, error) {
 	var data telemetryData
 
+	data.IsEE = servercfg.IsPro
 	data.ExtClients = getDBLength(database.EXT_CLIENT_TABLE_NAME)
 	data.Users = getDBLength(database.USERS_TABLE_NAME)
 	data.Networks = getDBLength(database.NETWORKS_TABLE_NAME)

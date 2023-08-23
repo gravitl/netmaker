@@ -375,36 +375,14 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 		for _, extPeer := range extPeers {
 			allowedips = append(allowedips, extPeer.AllowedIPs...)
 		}
-		// if node is a failover node, add allowed ips from nodes it is handling
-		if metrics != nil && peer.Failover && metrics.FailoverPeers != nil {
-			// traverse through nodes that need handling
-			logger.Log(3, "peer", peer.ID.String(), "was found to be failover for", node.ID.String(), "checking failover peers...")
-			for k := range metrics.FailoverPeers {
-				// if FailoverNode is me for this node, add allowedips
-				if metrics.FailoverPeers[k] == peer.ID.String() {
-					// get original node so we can traverse the allowed ips
-					nodeToFailover, err := GetNodeByID(k)
-					if err == nil {
-						failoverNodeMetrics, err := GetMetrics(nodeToFailover.ID.String())
-						if err == nil && failoverNodeMetrics != nil {
-							if len(failoverNodeMetrics.NodeName) > 0 {
-								allowedips = append(allowedips, getNodeAllowedIPs(&nodeToFailover, peer)...)
-								logger.Log(0, "failing over node", nodeToFailover.ID.String(), nodeToFailover.PrimaryAddress(), "to failover node", peer.ID.String())
-							}
-						}
-					}
-				}
-			}
-		}
 	}
 	if node.IsRelayed && node.RelayedBy == peer.ID.String() {
-		allowedips = append(allowedips, getAllowedIpsForRelayed(node, peer)...)
-
+		allowedips = append(allowedips, GetAllowedIpsForRelayed(node, peer)...)
 	}
 	return allowedips
 }
 
-func getEgressIPs(peer *models.Node) []net.IPNet {
+func GetEgressIPs(peer *models.Node) []net.IPNet {
 
 	peerHost, err := GetHost(peer.HostID.String())
 	if err != nil {
@@ -461,48 +439,13 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 	// handle egress gateway peers
 	if peer.IsEgressGateway {
 		//hasGateway = true
-		egressIPs := getEgressIPs(peer)
+		egressIPs := GetEgressIPs(peer)
 		allowedips = append(allowedips, egressIPs...)
 	}
 	if peer.IsRelay {
-		for _, relayedNodeID := range peer.RelayedNodes {
-			if node.ID.String() == relayedNodeID {
-				continue
-			}
-			relayedNode, err := GetNodeByID(relayedNodeID)
-			if err != nil {
-				continue
-			}
-			allowed := getRelayedAddresses(relayedNodeID)
-			if relayedNode.IsEgressGateway {
-				allowed = append(allowed, getEgressIPs(&relayedNode)...)
-			}
-			allowedips = append(allowedips, allowed...)
-		}
+		allowedips = append(allowedips, RelayedAllowedIPs(peer, node)...)
 	}
 	return allowedips
-}
-
-// getAllowedIpsForRelayed - returns the peerConfig for a node relayed by relay
-func getAllowedIpsForRelayed(relayed, relay *models.Node) (allowedIPs []net.IPNet) {
-	if relayed.RelayedBy != relay.ID.String() {
-		logger.Log(0, "RelayedByRelay called with invalid parameters")
-		return
-	}
-	peers, err := GetNetworkNodes(relay.Network)
-	if err != nil {
-		logger.Log(0, "error getting network clients", err.Error())
-		return
-	}
-	for _, peer := range peers {
-		if peer.ID == relayed.ID || peer.ID == relay.ID {
-			continue
-		}
-		if nodeacls.AreNodesAllowed(nodeacls.NetworkID(relayed.Network), nodeacls.NodeID(relayed.ID.String()), nodeacls.NodeID(peer.ID.String())) {
-			allowedIPs = append(allowedIPs, GetAllowedIPs(relayed, &peer, nil)...)
-		}
-	}
-	return
 }
 
 func getCIDRMaskFromAddr(addr string) net.IPMask {

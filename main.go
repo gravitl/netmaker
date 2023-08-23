@@ -41,7 +41,7 @@ func main() {
 	initialize()                       // initial db and acls
 	setGarbageCollection()
 	setVerbosity()
-	if servercfg.DeployedByOperator() && !servercfg.Is_EE {
+	if servercfg.DeployedByOperator() && !servercfg.IsPro {
 		logic.SetFreeTierLimits()
 	}
 	defer database.CloseDB()
