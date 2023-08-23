@@ -3,6 +3,7 @@ package logic
 import (
 	"encoding/json"
 	"os"
+	"regexp"
 	"sort"
 
 	validator "github.com/go-playground/validator/v10"
@@ -203,6 +204,11 @@ func ValidateDNSCreate(entry models.DNSEntry) error {
 
 	v := validator.New()
 
+	_ = v.RegisterValidation("whitespace", func(f1 validator.FieldLevel) bool {
+		match, _ := regexp.MatchString(`\s`, entry.Name)
+		return !match
+	})
+
 	_ = v.RegisterValidation("name_unique", func(fl validator.FieldLevel) bool {
 		num, err := GetDNSEntryNum(entry.Name, entry.Network)
 		return err == nil && num == 0
@@ -226,6 +232,11 @@ func ValidateDNSCreate(entry models.DNSEntry) error {
 func ValidateDNSUpdate(change models.DNSEntry, entry models.DNSEntry) error {
 
 	v := validator.New()
+
+	_ = v.RegisterValidation("whitespace", func(f1 validator.FieldLevel) bool {
+		match, _ := regexp.MatchString(`\s`, entry.Name)
+		return !match
+	})
 
 	_ = v.RegisterValidation("name_unique", func(fl validator.FieldLevel) bool {
 		//if name & net not changing name we are good

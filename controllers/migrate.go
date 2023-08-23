@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -201,7 +200,7 @@ func convertLegacyNode(legacy models.LegacyNode, hostID uuid.UUID) models.Node {
 	node.DNSOn = models.ParseBool(legacy.DNSOn)
 	node.PersistentKeepalive = time.Duration(int64(time.Second) * int64(legacy.PersistentKeepalive))
 	node.LastModified = time.Now()
-	node.ExpirationDateTime, _ = time.Parse(strconv.Itoa(int(legacy.ExpirationDateTime)), "0")
+	node.ExpirationDateTime = time.Unix(legacy.ExpirationDateTime, 0)
 	node.EgressGatewayNatEnabled = models.ParseBool(legacy.EgressGatewayNatEnabled)
 	node.EgressGatewayRequest = legacy.EgressGatewayRequest
 	node.IngressGatewayRange = legacy.IngressGatewayRange
