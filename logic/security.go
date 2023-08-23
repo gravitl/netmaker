@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	master_uname     = "masteradministrator"
+	Master_uname     = "masteradministrator"
 	Forbidden_Msg    = "forbidden"
 	Forbidden_Err    = models.Error(Forbidden_Msg)
 	Unauthorized_Msg = "unauthorized"
@@ -32,13 +32,8 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 			return
 		}
 		// detect masteradmin
-		if username == master_uname {
+		if username == Master_uname {
 			r.Header.Set("ismaster", "yes")
-			// set user as superadmin
-			user, err := GetSuperAdmin()
-			if err == nil {
-				username = user.UserName
-			}
 		}
 		r.Header.Set("user", username)
 		next.ServeHTTP(w, r)
@@ -58,7 +53,7 @@ func UserPermissions(reqAdmin bool, token string) (string, error) {
 	//all endpoints here require master so not as complicated
 	if authenticateMaster(authToken) {
 		// TODO log in as an actual admin user
-		return master_uname, nil
+		return Master_uname, nil
 	}
 	username, issuperadmin, isadmin, err := VerifyUserToken(authToken)
 	if err != nil {
