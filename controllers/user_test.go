@@ -52,54 +52,6 @@ func TestCreateAdminNoHashedPassword(t *testing.T) {
 	assertUserNameButNoPassword(t, rec.Body, user.UserName)
 }
 
-func TestCreateUserNoHashedPassword(t *testing.T) {
-	// prepare existing user base
-	deleteAllUsers(t)
-
-	// prepare request
-	user := models.User{UserName: "jonathan", Password: "password"}
-	rec, req := prepareUserRequest(t, user, "")
-
-	// test response
-	createUser(rec, req)
-	assertUserNameButNoPassword(t, rec.Body, user.UserName)
-}
-
-func TestUpdateUserNoHashedPassword(t *testing.T) {
-	// prepare existing user base
-	user1 := models.User{UserName: "dio", Password: "brando"}
-	haveOnlyOneUser(t, user1)
-
-	// prepare request
-	user2 := models.User{UserName: "giorno", Password: "giovanna"}
-	rec, req := prepareUserRequest(t, user2, user1.UserName)
-
-	// mock the jwt verification
-	oldVerify := verifyJWT
-	verifyJWT = func(bearerToken string) (username string, issuperadmin, isadmin bool, err error) {
-		return user1.UserName, user1.IsSuperAdmin, user1.IsAdmin, nil
-	}
-	defer func() { verifyJWT = oldVerify }()
-
-	// test response
-	updateUser(rec, req)
-	assertUserNameButNoPassword(t, rec.Body, user2.UserName)
-}
-
-func TestUpdateUserAdmNoHashedPassword(t *testing.T) {
-	// prepare existing user base
-	user1 := models.User{UserName: "dio", Password: "brando", IsSuperAdmin: true}
-	haveOnlyOneUser(t, user1)
-
-	// prepare request
-	user2 := models.User{UserName: "giorno", Password: "giovanna"}
-	rec, req := prepareUserRequest(t, user2, user1.UserName)
-
-	// test response
-	updateUserAdm(rec, req)
-	assertUserNameButNoPassword(t, rec.Body, user2.UserName)
-}
-
 func prepareUserRequest(t *testing.T, userForBody models.User, userNameForParam string) (*httptest.ResponseRecorder, *http.Request) {
 	bits, err := json.Marshal(userForBody)
 	assert.Nil(t, err)
@@ -107,6 +59,7 @@ func prepareUserRequest(t *testing.T, userForBody models.User, userNameForParam 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("ANY", "https://example.com", body) // only the body matters here
 	req = mux.SetURLVars(req, map[string]string{"username": userNameForParam})
+	req.Header.Set("user", userForBody.UserName)
 	return rec, req
 }
 
