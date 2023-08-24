@@ -23,7 +23,7 @@ var (
 func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/adm/hassuperadmin", hasSuperAdmin).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/adm/createsuperadmin", createSuperAdmin).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/adm/transfersuperadmin", logic.SecurityCheck(true, http.HandlerFunc(transferSuperAdmin))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/adm/transfersuperadmin/{username}", logic.SecurityCheck(true, http.HandlerFunc(transferSuperAdmin))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/remote_access_gw/{remote_access_gateway_id}", logic.SecurityCheck(true, http.HandlerFunc(attachUserToRemoteAccessGw))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/remote_access_gw/{remote_access_gateway_id}", logic.SecurityCheck(true, http.HandlerFunc(removeUserFromRemoteAccessGW))).Methods(http.MethodDelete)
@@ -471,10 +471,11 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only superadmin can assign the superadmin role to another user"), "forbidden"))
 		return
 	}
-	var u models.User
-	err = json.NewDecoder(r.Body).Decode(&u)
+	var params = mux.Vars(r)
+	username := params["username"]
+	u, err := logic.GetUser(username)
 	if err != nil {
-		slog.Error("error decoding request body: ", "error", err.Error())
+		slog.Error("error getting user", "user", u.UserName, "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -489,7 +490,7 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 
 	u.IsSuperAdmin = true
 	u.IsAdmin = false
-	err = logic.UpsertUser(u)
+	err = logic.UpsertUser(*u)
 	if err != nil {
 		slog.Error("error updating user to superadmin: ", "user", u.UserName, "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -504,7 +505,7 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	slog.Info("user was made a super admin", "user", u.UserName)
-	json.NewEncoder(w).Encode(logic.ToReturnUser(u))
+	json.NewEncoder(w).Encode(logic.ToReturnUser(*u))
 }
 
 // swagger:route POST /api/users/{username} user createUser

@@ -171,7 +171,7 @@ func GetIngressGwUsers(node models.Node) (models.IngressGwUsers, error) {
 		return gwUsers, err
 	}
 	for _, user := range users {
-		if _, ok := user.RemoteGwIDs[node.ID.String()]; ok {
+		if !user.IsAdmin && !user.IsSuperAdmin {
 			gwUsers.Users = append(gwUsers.Users, user)
 		}
 	}

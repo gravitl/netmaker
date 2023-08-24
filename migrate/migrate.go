@@ -5,12 +5,47 @@ import (
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"golang.org/x/exp/slog"
 )
 
 // Run - runs all migrations
 func Run() {
 	updateEnrollmentKeys()
+	assignSuperAdmin()
+}
+
+func assignSuperAdmin() {
+	ok, _ := logic.HasSuperAdmin()
+	if !ok {
+		createdSuperAdmin := false
+		users, err := logic.GetUsers()
+		if err == nil {
+			for _, u := range users {
+				if u.IsAdmin {
+					user, err := logic.GetUser(u.UserName)
+					if err != nil {
+						slog.Error("error getting user", "user", u.UserName, "error", err.Error())
+						continue
+					}
+					user.IsSuperAdmin = true
+					user.IsAdmin = false
+					err = logic.UpsertUser(*user)
+					if err != nil {
+						slog.Error("error updating user to superadmin", "user", user.UserName, "error", err.Error())
+						continue
+					} else {
+						createdSuperAdmin = true
+					}
+					break
+				}
+			}
+		}
+		if !createdSuperAdmin {
+			logger.FatalLog0("failed to create superadmin!!")
+		}
+	}
 }
 
 func updateEnrollmentKeys() {
