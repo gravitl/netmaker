@@ -1,4 +1,4 @@
-package ee
+package pro
 
 import (
 	"encoding/base64"

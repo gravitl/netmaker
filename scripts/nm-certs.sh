@@ -39,7 +39,7 @@ if [ "$INSTALL_TYPE" = "ce" ]; then
 		-d turnapi.$NM_DOMAIN
 EOF
 )
-elif [ "$INSTALL_TYPE" = "ee" ]; then
+elif [ "$INSTALL_TYPE" = "pro" ]; then
 	CERTBOT_PARAMS=$(cat <<EOF
 	certonly --standalone \
 		--non-interactive --expand --agree-tos \

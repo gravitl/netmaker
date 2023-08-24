@@ -23,7 +23,7 @@ unset NETMAKER_BASE_DOMAIN
 usage() {
 	echo "nm-quick.sh v$NM_QUICK_VERSION"
 	echo "usage: ./nm-quick.sh [-e] [-b buildtype] [-t tag] [-a auto] [-d domain]"
-	echo "  -e      if specified, will install netmaker EE"
+	echo "  -e      if specified, will install netmaker pro"
 	echo "  -b      type of build; options:"
 	echo "          \"version\" - will install a specific version of Netmaker using remote git and dockerhub"
 	echo "          \"local\": - will install by cloning repo and building images from git"
@@ -42,7 +42,7 @@ usage() {
 while getopts evab:d:t: flag; do
 	case "${flag}" in
 	e)
-		INSTALL_TYPE="ee"
+		INSTALL_TYPE="pro"
 		UPGRADE_FLAG="yes"
 		;;
 	v)
@@ -112,16 +112,16 @@ set_buildinfo() {
 
 	if [ "$1" = "ce" ]; then
 		INSTALL_TYPE="ce"
-	elif [ "$1" = "ee" ]; then
-		INSTALL_TYPE="ee"
+	elif [ "$1" = "pro" ]; then
+		INSTALL_TYPE="pro"
 	fi
 
 	if [ "$AUTO_BUILD" = "on" ] && [ -z "$INSTALL_TYPE" ]; then
 		INSTALL_TYPE="ce"
 	elif [ -z "$INSTALL_TYPE" ]; then
 		echo "-----------------------------------------------------"
-		echo "Would you like to install Netmaker Community Edition (CE), or Netmaker Enterprise Edition (EE)?"
-		echo "EE will require you to create an account at https://app.netmaker.io"
+		echo "Would you like to install Netmaker Community Edition (CE), or Netmaker Enterprise Edition (pro)?"
+		echo "pro will require you to create an account at https://app.netmaker.io"
 		echo "-----------------------------------------------------"
 		select install_option in "Community Edition" "Enterprise Edition"; do
 			case $REPLY in
@@ -131,8 +131,8 @@ set_buildinfo() {
 				break
 				;;
 			2)
-				echo "installing Netmaker EE"
-				INSTALL_TYPE="ee"
+				echo "installing Netmaker pro"
+				INSTALL_TYPE="pro"
 				break
 				;;
 			*) echo "invalid option $REPLY" ;;
@@ -140,7 +140,7 @@ set_buildinfo() {
 		done
 	fi
 	echo "-----------Build Options-----------------------------"
-	echo "    EE or CE: $INSTALL_TYPE"
+	echo "   Pro or CE: $INSTALL_TYPE"
 	echo "  Build Type: $BUILD_TYPE"
 	echo "   Build Tag: $BUILD_TAG"
 	echo "   Image Tag: $IMAGE_TAG"
@@ -289,13 +289,13 @@ save_config() { (
 		save_config_item UI_IMAGE_TAG "$IMAGE_TAG"
 	fi
 	# version-specific entries
-	if [ "$INSTALL_TYPE" = "ee" ]; then
+	if [ "$INSTALL_TYPE" = "pro" ]; then
 		save_config_item NETMAKER_TENANT_ID "$TENANT_ID"
 		save_config_item LICENSE_KEY "$LICENSE_KEY"
 		save_config_item METRICS_EXPORTER "on"
 		save_config_item PROMETHEUS "on"
 		if [ "$BUILD_TYPE" = "version" ]; then
-			save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG-ee"
+			save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG-pro"
 		else
 			save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG"
 		fi
@@ -364,9 +364,9 @@ local_install_setup() { (
 		echo "Skipping build on NM_SKIP_BUILD"
 	fi
 	cp compose/docker-compose.yml "$SCRIPT_DIR/docker-compose.yml"
-	if [ "$INSTALL_TYPE" = "ee" ]; then
+	if [ "$INSTALL_TYPE" = "pro" ]; then
 		cp compose/docker-compose.ee.yml "$SCRIPT_DIR/docker-compose.override.yml"
-		cp docker/Caddyfile-EE "$SCRIPT_DIR/Caddyfile"
+		cp docker/Caddyfile-pro "$SCRIPT_DIR/Caddyfile"
 	else
 		cp docker/Caddyfile "$SCRIPT_DIR/Caddyfile"
 	fi
@@ -554,7 +554,7 @@ set_install_vars() {
 	echo "               turn.$NETMAKER_BASE_DOMAIN"
 	echo "            turnapi.$NETMAKER_BASE_DOMAIN"
 
-	if [ "$INSTALL_TYPE" = "ee" ]; then
+	if [ "$INSTALL_TYPE" = "pro" ]; then
 		echo "         prometheus.$NETMAKER_BASE_DOMAIN"
 		echo "  netmaker-exporter.$NETMAKER_BASE_DOMAIN"
 		echo "            grafana.$NETMAKER_BASE_DOMAIN"
@@ -569,10 +569,10 @@ set_install_vars() {
 
 	wait_seconds 1
 
-	if [ "$INSTALL_TYPE" = "ee" ]; then
+	if [ "$INSTALL_TYPE" = "pro" ]; then
 
 		echo "-----------------------------------------------------"
-		echo "Provide Details for EE installation:"
+		echo "Provide Details for pro installation:"
 		echo "    1. Log into https://app.netmaker.io"
 		echo "    2. follow instructions to get a license at: https://docs.netmaker.io/ee/ee-setup.html"
 		echo "    3. Retrieve License and Tenant ID"
@@ -715,7 +715,7 @@ set_install_vars() {
 	echo "        domain: $NETMAKER_BASE_DOMAIN"
 	echo "         email: $EMAIL"
 	echo "     public ip: $SERVER_HOST"
-	if [ "$INSTALL_TYPE" = "ee" ]; then
+	if [ "$INSTALL_TYPE" = "pro" ]; then
 		echo "       license: $LICENSE_KEY"
 		echo "    account id: $TENANT_ID"
 	fi
@@ -748,9 +748,9 @@ install_netmaker() {
 
 		local COMPOSE_URL="$BASE_URL/compose/docker-compose.yml"
 		local CADDY_URL="$BASE_URL/docker/Caddyfile"
-		if [ "$INSTALL_TYPE" = "ee" ]; then
-			local COMPOSE_OVERRIDE_URL="$BASE_URL/compose/docker-compose.ee.yml"
-			local CADDY_URL="$BASE_URL/docker/Caddyfile-EE"
+		if [ "$INSTALL_TYPE" = "pro" ]; then
+			local COMPOSE_OVERRIDE_URL="$BASE_URL/compose/docker-compose.pro.yml"
+			local CADDY_URL="$BASE_URL/docker/Caddyfile-pro"
 		fi
 		wget -qO "$SCRIPT_DIR"/docker-compose.yml $COMPOSE_URL
 		if test -n "$COMPOSE_OVERRIDE_URL"; then
@@ -889,7 +889,7 @@ if [ -f "$CONFIG_PATH" ]; then
 	echo "Using config: $CONFIG_PATH"
 	source "$CONFIG_PATH"
 	if [ "$UPGRADE_FLAG" = "yes" ]; then
-		INSTALL_TYPE="ee"
+		INSTALL_TYPE="pro"
 	fi
 fi
 

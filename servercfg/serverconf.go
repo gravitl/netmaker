@@ -87,9 +87,9 @@ func GetServerConfig() config.ServerConfig {
 	cfg.Server = GetServer()
 	cfg.StunList = GetStunListString()
 	cfg.Verbosity = GetVerbosity()
-	cfg.IsEE = "no"
+	cfg.IsPro = "no"
 	if IsPro {
-		cfg.IsEE = "yes"
+		cfg.IsPro = "yes"
 	}
 
 	return cfg
@@ -110,7 +110,7 @@ func GetServerInfo() models.ServerConfig {
 		cfg.DNSMode = "on"
 	}
 	cfg.Version = GetVersion()
-	cfg.Is_EE = IsPro
+	cfg.IsPro = IsPro
 	cfg.StunPort = GetStunPort()
 	cfg.StunList = GetStunList()
 	cfg.TurnDomain = GetTurnHost()

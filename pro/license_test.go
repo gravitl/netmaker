@@ -1,7 +1,7 @@
-//go:build ee
-// +build ee
+//go:build pro
+// +build pro
 
-package ee
+package pro
 
 import (
 	"github.com/gravitl/netmaker/config"

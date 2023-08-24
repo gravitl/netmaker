@@ -1,8 +1,8 @@
-package ee_controllers
+package controllers
 
 import (
 	"encoding/json"
-	eelogic "github.com/gravitl/netmaker/ee/logic"
+	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -12,7 +12,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
-// MetricHandlers - How we handle EE Metrics
+// MetricHandlers - How we handle Pro Metrics
 func MetricHandlers(r *mux.Router) {
 	r.HandleFunc("/api/metrics/{network}/{nodeid}", logic.SecurityCheck(true, http.HandlerFunc(getNodeMetrics))).Methods(http.MethodGet)
 	r.HandleFunc("/api/metrics/{network}", logic.SecurityCheck(true, http.HandlerFunc(getNetworkNodesMetrics))).Methods(http.MethodGet)
@@ -62,7 +62,7 @@ func getNetworkNodesMetrics(w http.ResponseWriter, r *http.Request) {
 
 	for i := range networkNodes {
 		id := networkNodes[i].ID
-		metrics, err := eelogic.GetMetrics(id.String())
+		metrics, err := proLogic.GetMetrics(id.String())
 		if err != nil {
 			logger.Log(1, r.Header.Get("user"), "failed to append metrics of node", id.String(), "during network metrics fetch", err.Error())
 			continue
@@ -84,7 +84,7 @@ func getNetworkExtMetrics(w http.ResponseWriter, r *http.Request) {
 	network := params["network"]
 
 	logger.Log(1, r.Header.Get("user"), "requested fetching external client metrics on network", network)
-	ingresses, err := eelogic.GetNetworkIngresses(network) // grab all the ingress gateways
+	ingresses, err := proLogic.GetNetworkIngresses(network) // grab all the ingress gateways
 	if err != nil {
 		logger.Log(1, r.Header.Get("user"), "failed to fetch metrics of ext clients in network", network, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -109,7 +109,7 @@ func getNetworkExtMetrics(w http.ResponseWriter, r *http.Request) {
 
 	for i := range ingresses {
 		id := ingresses[i].ID
-		ingressMetrics, err := eelogic.GetMetrics(id.String())
+		ingressMetrics, err := proLogic.GetMetrics(id.String())
 		if err != nil {
 			logger.Log(1, r.Header.Get("user"), "failed to append external client metrics from ingress node", id.String(), err.Error())
 			continue
@@ -150,7 +150,7 @@ func getAllMetrics(w http.ResponseWriter, r *http.Request) {
 
 	for i := range allNodes {
 		id := allNodes[i].ID
-		metrics, err := eelogic.GetMetrics(id.String())
+		metrics, err := proLogic.GetMetrics(id.String())
 		if err != nil {
 			logger.Log(1, r.Header.Get("user"), "failed to append metrics of node", id.String(), "during all nodes metrics fetch", err.Error())
 			continue

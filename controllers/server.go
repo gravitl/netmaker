@@ -163,9 +163,9 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 	// get params
 
 	scfg := servercfg.GetServerConfig()
-	scfg.IsEE = "no"
+	scfg.IsPro = "no"
 	if servercfg.IsPro {
-		scfg.IsEE = "yes"
+		scfg.IsPro = "yes"
 	}
 	json.NewEncoder(w).Encode(scfg)
 	//w.WriteHeader(http.StatusOK)

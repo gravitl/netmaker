@@ -1,12 +1,10 @@
-//go:build ee
-// +build ee
+//go:build pro
+// +build pro
 
 package main
 
-import (
-	"github.com/gravitl/netmaker/ee"
-)
+import "github.com/gravitl/netmaker/pro"
 
 func init() {
-	ee.InitEE()
+	pro.InitPro()
 }

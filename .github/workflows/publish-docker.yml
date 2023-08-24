@@ -53,7 +53,7 @@ jobs:
           build-args: | 
             tags=ce
 
-  docker-ee:
+  docker-pro:
     runs-on: ubuntu-latest
     steps:
       -
@@ -89,6 +89,6 @@ jobs:
           context: .
           platforms: linux/amd64, linux/arm64
           push: true
-          tags: ${{ github.repository }}:${{ env.TAG }}-ee
+          tags: ${{ github.repository }}:${{ env.TAG }}-pro
           build-args: |
-            tags=ee
+            tags=pro

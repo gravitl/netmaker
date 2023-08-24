@@ -5,7 +5,7 @@ WORKDIR /app
 COPY . .
 
 RUN GOOS=linux CGO_ENABLED=1 go build -ldflags="-s -w " -tags ${tags} .
-# RUN go build -tags=ee . -o netmaker main.go
+# RUN go build -tags=pro . -o netmaker main.go
 FROM alpine:3.18.3
 
 # add a c lib
