@@ -400,6 +400,19 @@ func TestValidateDNSCreate(t *testing.T) {
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "Field validation for 'Name' failed on the 'name_unique' tag")
 	})
+	t.Run("WhiteSpace", func(t *testing.T) {
+		entry := models.DNSEntry{Address: "10.10.10.5", Name: "white space", Network: "skynet"}
+		err := logic.ValidateDNSCreate(entry)
+		assert.NotNil(t, err)
+		assert.Contains(t, err.Error(), "Field validation for 'Name' failed on the 'whitespace' tag")
+	})
+	t.Run("AllSpaces", func(t *testing.T) {
+		entry := models.DNSEntry{Address: "10.10.10.5", Name: "     ", Network: "skynet"}
+		err := logic.ValidateDNSCreate(entry)
+		assert.NotNil(t, err)
+		assert.Contains(t, err.Error(), "Field validation for 'Name' failed on the 'whitespace' tag")
+	})
+
 }
 
 func createHost() {
