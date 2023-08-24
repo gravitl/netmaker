@@ -17,35 +17,39 @@ func Run() {
 }
 
 func assignSuperAdmin() {
-	ok, _ := logic.HasSuperAdmin()
-	if !ok {
-		createdSuperAdmin := false
-		users, err := logic.GetUsers()
-		if err == nil {
-			for _, u := range users {
-				if u.IsAdmin {
-					user, err := logic.GetUser(u.UserName)
-					if err != nil {
-						slog.Error("error getting user", "user", u.UserName, "error", err.Error())
-						continue
-					}
-					user.IsSuperAdmin = true
-					user.IsAdmin = false
-					err = logic.UpsertUser(*user)
-					if err != nil {
-						slog.Error("error updating user to superadmin", "user", user.UserName, "error", err.Error())
-						continue
-					} else {
-						createdSuperAdmin = true
-					}
-					break
-				}
+	users, err := logic.GetUsers()
+	if err != nil || len(users) == 0 {
+		return
+	}
+
+	if ok, _ := logic.HasSuperAdmin(); ok {
+		return
+	}
+	createdSuperAdmin := false
+	for _, u := range users {
+		if u.IsAdmin {
+			user, err := logic.GetUser(u.UserName)
+			if err != nil {
+				slog.Error("error getting user", "user", u.UserName, "error", err.Error())
+				continue
 			}
-		}
-		if !createdSuperAdmin {
-			logger.FatalLog0("failed to create superadmin!!")
+			user.IsSuperAdmin = true
+			user.IsAdmin = false
+			err = logic.UpsertUser(*user)
+			if err != nil {
+				slog.Error("error updating user to superadmin", "user", user.UserName, "error", err.Error())
+				continue
+			} else {
+				createdSuperAdmin = true
+			}
+			break
 		}
 	}
+
+	if !createdSuperAdmin {
+		slog.Error("failed to create superadmin!!")
+	}
+
 }
 
 func updateEnrollmentKeys() {

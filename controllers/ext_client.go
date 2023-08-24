@@ -353,6 +353,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
+		userName = caller.UserName
 		if !caller.IsAdmin && !caller.IsSuperAdmin {
 			if _, ok := caller.RemoteGwIDs[nodeid]; !ok {
 				err = errors.New("permission denied")
