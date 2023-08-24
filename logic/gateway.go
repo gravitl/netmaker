@@ -240,7 +240,7 @@ func IsUserAllowedAccessToExtClient(username string, client models.ExtClient) bo
 		return false
 	}
 	if !user.IsAdmin && !user.IsSuperAdmin {
-		if user.UserName != client.ClientID {
+		if user.UserName != client.OwnerID {
 			return false
 		}
 	}
