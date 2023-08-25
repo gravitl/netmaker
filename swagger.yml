@@ -771,6 +771,257 @@ paths:
             summary: Create an ingress gateway.
             tags:
                 - nodes
+    /api/metrics/{network}/{nodeid}:
+        get:
+            operationId: getNodeMetrics
+            parameters:
+                - $ref: '#/components/parameters/networkName'
+                - $ref: '#/components/parameters/nodeID'
+            responses:
+                "200":
+                    description: "metrics"
+                    $ref: '#/components/responses/metric'
+            summary: Get metrics for a node.
+            tags:
+                - metrics (Pro Feature)
+    /api/metrics/{network}:
+        get:
+            operationId: getNetworkNodeMetrics
+            parameters:
+                - $ref: '#/components/parameters/networkName'
+            responses:
+                "200":
+                    description: "metrics"
+                    $ref: '#/components/responses/networkMetrics'
+            summary: Get metrics for a network.
+            tags:
+                - metrics (Pro Feature)            
+    /api/metrics:
+        get:
+            operationId: getAllMetrics
+            responses:
+                "200":
+                    description: "metrics"
+                    $ref: '#/components/responses/networkMetrics'
+            summary: Get metrics for all nodes.
+            tags:
+                - metrics (Pro Feature)
+    /api/metrics-ext/{network}:
+        get:
+            operationId: getNetworkExtMetrics
+            parameters:
+                - $ref: '#/components/parameters/networkName'
+            responses:
+                "200":
+                    description: "metrics"
+                    $ref: '#/components/responses/networkMetricsConnectivity'
+            summary: Get metrics for a network.
+            tags:
+                - metrics (Pro Feature)
+    /api/networkusers:
+        get:
+            operationId: getAllNetworkUsers
+            responses:
+                "200":
+                    description: "networkusers"
+                    content:
+                        application/json:
+                            schema:
+                                type: array
+                                items:
+                                    $ref: '#/components/responses/allNetworkUsers'
+            summary: Get all network users.
+            tags:
+                - networkusers (Pro Feature)
+    /api/networkusers/{network}:
+        get:
+            operationId: getNetworkNetworkUsers
+            parameters:
+                - $ref: '#/components/parameters/networkName'
+            responses:
+                "200":
+                    description: "networkusers"
+                    content:
+                        application/json:
+                            schema:
+                                type: array
+                                items:
+                                    $ref: '#/components/responses/networkUsers'
+            summary: Get all network users for a network.
+            tags:
+                - networkusers (Pro Feature)
+        post:
+            operationId: createNetworkUser
+            parameters:
+                - $ref: '#/components/parameters/networkName'
+            requestBody:
+                $ref: '#/components/responses/networkUser'
+            responses:
+                "200":
+                    description: "networkusers"
+                    $ref: '#/components/responses/networkUser'
+            summary: Create a network user.
+            tags:
+                - networkusers (Pro Feature)
+        put:
+            operationId: updateNetworkUser
+            parameters:
+                - $ref: '#/components/parameters/networkName'
+            requestBody:
+                $ref: '#/components/responses/networkUser'
+            responses:
+                "200":
+                    description: "networkusers"
+                    $ref: '#/components/responses/networkUser'
+            summary: Update a network user.
+            tags:
+                - networkusers (Pro Feature)
+    /api/networkusers/{network}/{username}:
+        get:
+            operationId: getNetworkUser
+            parameters:
+                - $ref: '#/components/parameters/networkName'
+                - description: Username
+                  in: path
+                  name: username
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: "networkusers"
+                    $ref: '#/components/responses/networkUser'
+            summary: Get a network user.
+            tags:
+                - networkusers (Pro Feature)
+        delete:
+            operationId: deleteNetworkUser
+            parameters:
+                - $ref: '#/components/parameters/networkName'
+                - description: Username
+                  in: path
+                  name: username
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: "networkusers"
+                    $ref: '#/components/responses/successResponse'
+            summary: Delete a network user.
+            tags:
+                - networkusers (Pro Feature)
+    /api/networkusers/data/{username}/me:
+        delete:
+            operationId: deleteNetworkUser
+            parameters:
+                - description: Username
+                  in: path
+                  name: username
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: "networkusers"
+                    $ref: '#/components/responses/successResponse'
+            summary: Delete a network user.
+            tags:
+                - networkusers (Pro Feature)
+    /api/nodes/{network}/{nodeid}/createrelay:
+        post:
+            operationId: createRelay
+            parameters:
+                - $ref: '#/components/parameters/networkName'
+                - $ref: '#/components/parameters/nodeID'
+            requestBody:
+                description: Relay Request
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            description: Relay Request
+                            type: object
+                            properties:
+                                NodeID:
+                                    type: string
+                                NetID:
+                                    type: string
+                                NatEnabled:
+                                    type: boolean
+                                Ranges:
+                                    type: array
+                                    items:
+                                        type: string
+            responses:
+                "200":
+                    $ref: '#/components/responses/node'
+            summary: Create a relay.
+            tags:
+                - relay (Pro Feature)
+    /api/nodes/{network}/{nodeid}/deleterelay:
+        delete:
+            operationId: deleteRelay
+            parameters:
+                - $ref: '#/components/parameters/networkName'
+                - $ref: '#/components/parameters/nodeID'
+            responses:
+                "200":
+                    $ref: '#/components/responses/node'
+            summary: Delete a relay.
+            tags:
+                - relay (Pro Feature)
+    /api/usergroups:
+        get:
+            operationId: getUserGroups
+            responses:
+                "200":
+                    description: "usergroups"
+                    content:
+                        application/json:
+                            schema:
+                                type: array
+                                items:
+                                    $ref: '#/components/responses/userGroup'
+            summary: Get all user groups.
+            tags:
+                - usergroups (Pro Feature)
+    /api/usergroups/{usergroup}:
+        post:
+            operationId: createUserGroup
+            parameters:
+                - description: User Group
+                  in: path
+                  name: usergroup
+                  required: true
+                  schema:
+                    type: string
+            requestBody:
+                $ref: '#/components/responses/userGroup'
+            responses:
+                "200":
+                    description: "usergroups"
+                    $ref: '#/components/responses/userGroup'
+            summary: Create a user group.
+            tags:
+                - usergroups (Pro Feature)
+        delete:
+            operationId: deleteUserGroup
+            parameters:
+                - description: User Group
+                  in: path
+                  name: usergroup
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: "usergroups"
+                    $ref: '#/components/responses/successResponse'
+            summary: Delete a user group.
+            tags:
+                - usergroups (Pro Feature)
+
 components:
     securitySchemes:
         bearerAuth:
@@ -1157,62 +1408,109 @@ components:
                         type: string
                       TurnEndpoint:
                         type: string
-#       aclContainerResponse:
-#            description: ""
-#            schema:
-#                $ref: '#/definitions/ACLContainer'
-#                type: array
-#        extClient:
-#            description: ""
-#            schema:
-#                $ref: '#/definitions/ExtClient'
-#        extClientSliceResponse:
-#            description: ""
-#            schema:
-#                items:
-#                    $ref: '#/definitions/ExtClient'
-#                type: array
-#        getNetworksSliceResponse:
-#            description: ""
-#            schema:
-#                items:
-#                    $ref: '#/definitions/Network'
-#                type: array
-#        networkBodyResponse:
-#            description: ""
-#            schema:
-#                $ref: '#/definitions/Network'
-#        nodeGetResponse:
-#            description: ""
-#            schema:
-#                $ref: '#/definitions/NodeGet'
-#        nodeLastModifiedResponse:
-#            description: ""
-#        node:
-#            description: ""
-#            schema:
-#                $ref: '#/definitions/Node'
-#        nodeSliceResponse:
-#            description: ""
-#            schema:
-#                items:
-#                    $ref: '#/definitions/Node'
-#                type: array
-#        serverConfigResponse:
-#            description: ""
-#            schema:
-#                $ref: '#/definitions/ServerConfig'
-#        stringJSONResponse:
-#            description: ""
-#        successResponse:
-#            description: ""
-#            schema:
-#                $ref: '#/definitions/SuccessResponse'
-#        userBodyResponse:
-#            description: ""
-#            schema:
-#                $ref: '#/definitions/User'
-#
+        metrics:
+            description: "Metrics"
+            content:
+              application/json:
+                schema:
+                    type: object
+                    properties:
+                      Network:
+                        type: string
+                      NodeID:
+                        type: string
+                      NodeName:
+                        type: string
+                      Connectivity:
+                        type: string # todo map[string]struct{}
+                      FailoverPeers:
+                        type: string # todo map[string]struct{}
+                        
+        metric:
+            description: "Metric"
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                          NodeName:
+                            type: string
+                          Uptime:
+                            type: integer
+                          TotalTime:
+                            type: integer
+                          Latency:
+                            type: integer
+                          TotalReceived:
+                            type: integer
+                          TotalSent:
+                            type: integer
+                          ActualUptime:
+                            type: integer
+                          PercentUp:
+                            type: number
+                          Connected:
+                            type: boolean
+        networkMetrics:
+            description: "Network Metrics"
+            content:
+                application/json:
+                    schema:
+                        type: string # todo map[string]struct{}
+        networkMetricsConnectivity:
+            description: "Network Metrics Connectivity"
+            content:
+                application/json:
+                    schema:
+                        type: string # todo map[string]struct{}
+        networkUsers:
+            description: "Network Users"
+            content:
+                application/json:
+                    schema:
+                        type: string # todo map[string]struct{}
+        networkUser:
+            description: "Network User"
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            AccessLevel:
+                                type: integer
+                            ClientLimit:
+                                type: integer
+                            NodeLimit:
+                                type: integer
+                            ID:
+                                type: string
+                            Clients:
+                                type: array
+                                items:
+                                    type: string
+                            Nodes:
+                                type: array
+                                items:
+                                    type: string
+        allNetworkUsers:
+            description: "All Network Users"
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            Network:
+                                type: string
+                            Users:
+                                type: array
+                                items:
+                                    $ref: '#/components/responses/networkUser'
+        userGroup:
+            description: "User Group"
+            content:
+                application/json:
+                    schema:
+                        type: string # todo map[string]struct{}
     requestBodies:
       nodeAuth:
         content:
