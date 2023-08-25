@@ -617,7 +617,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		if caller.IsAdmin && userchange.IsAdmin {
+		if !selfUpdate && caller.IsAdmin && userchange.IsAdmin {
 			slog.Error("admin user cannot update another admin", "caller", caller.UserName, "attempted to update admin user", username)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("admin user cannot update another admin"), "forbidden"))
 			return

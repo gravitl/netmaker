@@ -164,15 +164,13 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 	}
 
 	queryUser := user.UserName
-
-	if userchange.UserName != "" {
+	if userchange.UserName != "" && user.UserName != userchange.UserName {
 		// check if username is available
 		if _, err := GetUser(userchange.UserName); err == nil {
 			return &models.User{}, errors.New("username exists already")
 		}
 		user.UserName = userchange.UserName
 	}
-
 	if userchange.Password != "" {
 		// encrypt that password so we never see it again
 		hash, err := bcrypt.GenerateFromPassword([]byte(userchange.Password), 5)

@@ -198,7 +198,7 @@ func Authorize(hostAllowed, networkCheck bool, authNetwork string, next http.Han
 			var nodeID = ""
 			username, issuperadmin, isadmin, errN := logic.VerifyUserToken(authToken)
 			if errN != nil {
-				logic.ReturnErrorResponse(w, r, errorResponse)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errN, logic.Unauthorized_Msg))
 				return
 			}
 
