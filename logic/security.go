@@ -21,14 +21,11 @@ const (
 func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		var errorResponse = models.ErrorResponse{
-			Code: http.StatusForbidden, Message: Forbidden_Msg,
-		}
 		r.Header.Set("ismaster", "no")
 		bearerToken := r.Header.Get("Authorization")
 		username, err := UserPermissions(reqAdmin, bearerToken)
 		if err != nil {
-			ReturnErrorResponse(w, r, errorResponse)
+			ReturnErrorResponse(w, r, FormatError(err, err.Error()))
 			return
 		}
 		// detect masteradmin
