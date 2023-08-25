@@ -30,7 +30,6 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deletegateway", logic.SecurityCheck(true, http.HandlerFunc(deleteEgressGateway))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceIngress, http.HandlerFunc(createIngressGateway)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", logic.SecurityCheck(true, http.HandlerFunc(deleteIngressGateway))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/ingress/users", logic.SecurityCheck(true, http.HandlerFunc(IngressGatewayUsers))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/nodes/migrate", migrate).Methods(http.MethodPost)
 }
@@ -593,38 +592,6 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	}
 
 	runUpdates(&node, true)
-}
-
-// swagger:route GET /api/nodes/{network}/{nodeid}/ingress/users nodes IngressGatewayUsers
-//
-// Lists all the users attached to an ingress gateway.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: nodeResponse
-func IngressGatewayUsers(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	var params = mux.Vars(r)
-	nodeid := params["nodeid"]
-	netid := params["network"]
-	node, err := validateParams(nodeid, netid)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "bad request"))
-		return
-	}
-	gwUsers, err := logic.GetIngressGwUsers(node)
-	if err != nil {
-		slog.Error("failed to get users on ingress gateway", "nodeid", nodeid, "network", netid, "user", r.Header.Get("user"),
-			"error", err)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(gwUsers)
 }
 
 // swagger:route PUT /api/nodes/{network}/{nodeid} nodes updateNode
