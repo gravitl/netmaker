@@ -19,7 +19,7 @@ jobs:
       - name: Build
         run: |
          env CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build main.go
-         env CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -tags=pro main.go
+         env CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -tags=ee main.go
 
   nmctl:
     runs-on: ubuntu-latest
@@ -71,4 +71,4 @@ jobs:
         run: |
           sudo apt update
           go install honnef.co/go/tools/cmd/staticcheck@latest
-          { ~/go/bin/staticcheck  -tags=pro ./... ; }
+          { ~/go/bin/staticcheck  -tags=ee ./... ; }
