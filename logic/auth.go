@@ -126,7 +126,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 	// Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API until approved).
 	record, err := database.FetchRecord(database.USERS_TABLE_NAME, authRequest.UserName)
 	if err != nil {
-		return "", errors.New("error retrieving user from db: " + err.Error())
+		return "", errors.New("incorrect credentials")
 	}
 	if err = json.Unmarshal([]byte(record), &result); err != nil {
 		return "", errors.New("error unmarshalling user json: " + err.Error())
