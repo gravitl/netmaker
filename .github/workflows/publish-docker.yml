@@ -89,6 +89,6 @@ jobs:
           context: .
           platforms: linux/amd64, linux/arm64
           push: true
-          tags: ${{ github.repository }}:${{ env.TAG }}-pro
+          tags: ${{ github.repository }}:${{ env.TAG }}-ee
           build-args: |
             tags=pro

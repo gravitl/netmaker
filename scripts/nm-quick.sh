@@ -295,7 +295,7 @@ save_config() { (
 		save_config_item METRICS_EXPORTER "on"
 		save_config_item PROMETHEUS "on"
 		if [ "$BUILD_TYPE" = "version" ]; then
-			save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG-pro"
+			save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG-ee"
 		else
 			save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG"
 		fi
