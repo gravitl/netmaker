@@ -26,6 +26,7 @@ func InitEE() {
 		controller.HttpHandlers,
 		ee_controllers.MetricHandlers,
 		ee_controllers.RelayHandlers,
+		ee_controllers.UserHandlers,
 	)
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
 		// == License Handling ==
