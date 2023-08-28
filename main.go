@@ -1,4 +1,4 @@
-// -build pro
+// -build ee
 package main
 
 import (

@@ -1,5 +1,5 @@
-//go:build pro
-// +build pro
+//go:build ee
+// +build ee
 
 package main
 

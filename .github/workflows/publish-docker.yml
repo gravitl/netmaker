@@ -91,4 +91,4 @@ jobs:
           push: true
           tags: ${{ github.repository }}:${{ env.TAG }}-ee
           build-args: |
-            tags=pro
+            tags=ee
