@@ -370,9 +370,12 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	// we decode our body request params
 	err = json.NewDecoder(r.Body).Decode(&userchange)
 	if err != nil {
-		logger.Log(0, username, "error decoding request body: ",
-			err.Error())
+		slog.Error("failed to decode body", "error ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if user.UserName != userchange.UserName {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user in param and request body not matching"), "badrequest"))
 		return
 	}
 	selfUpdate := false
@@ -380,29 +383,36 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		selfUpdate = true
 	}
 
-	if !caller.IsSuperAdmin {
-		if user.IsSuperAdmin {
+	if !selfUpdate {
+		if caller.IsAdmin && user.IsSuperAdmin {
 			slog.Error("non-superadmin user", "caller", caller.UserName, "attempted to update superadmin user", username)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update superadmin user"), "forbidden"))
 			return
 		}
-		if !selfUpdate && !(caller.IsAdmin) {
-			slog.Error("non-admin user", "caller", caller.UserName, "attempted to update  user", username)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not authorized"), "forbidden"))
+		if !caller.IsAdmin && !caller.IsSuperAdmin {
+			slog.Error("operation not allowed", "caller", caller.UserName, "attempted to update user", username)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update superadmin user"), "forbidden"))
 			return
 		}
-
-		if userchange.IsAdmin != user.IsAdmin || userchange.IsSuperAdmin != user.IsSuperAdmin {
-			if selfUpdate {
-				slog.Error("user cannot change his own role", "caller", caller.UserName, "attempted to update user role", username)
-				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user not allowed to self assign role"), "forbidden"))
-				return
-			}
-		}
-		if !selfUpdate && caller.IsAdmin && userchange.IsAdmin {
+		if caller.IsAdmin && user.IsAdmin {
 			slog.Error("admin user cannot update another admin", "caller", caller.UserName, "attempted to update admin user", username)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("admin user cannot update another admin"), "forbidden"))
 			return
+		}
+		if caller.IsAdmin && userchange.IsAdmin {
+			err = errors.New("admin user cannot update role of an another user to admin")
+			slog.Error("failed to update user", "caller", caller.UserName, "attempted to update user", username, "error", err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+			return
+		}
+
+	}
+	if selfUpdate {
+		if user.IsAdmin != userchange.IsAdmin || user.IsSuperAdmin != userchange.IsSuperAdmin {
+			slog.Error("user cannot change his own role", "caller", caller.UserName, "attempted to update user role", username)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user not allowed to self assign role"), "forbidden"))
+			return
+
 		}
 	}
 
