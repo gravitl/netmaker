@@ -79,8 +79,10 @@ func PublishDeletedClientPeerUpdate(delClient *models.ExtClient) error {
 	}
 	for _, host := range hosts {
 		host := host
-		if err = PublishSingleHostPeerUpdate(&host, nodes, nil, []models.ExtClient{*delClient}); err != nil {
-			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+		if host.OS != models.OS_Types.IoT {
+			if err = PublishSingleHostPeerUpdate(&host, nodes, nil, []models.ExtClient{*delClient}); err != nil {
+				logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+			}
 		}
 	}
 	return err
@@ -258,7 +260,7 @@ func PublishReplaceDNS(oldNode, newNode *models.Node, host *models.Host) error {
 }
 
 // PublishExtClientDNS publish dns update for new extclient
-func PublishExtCLientDNS(client *models.ExtClient) error {
+func PublishExtClientDNS(client *models.ExtClient) error {
 	errMsgs := models.DNSError{}
 	dns := models.DNSUpdate{
 		Action:  models.DNSInsert,
