@@ -342,7 +342,7 @@ func TestVerifyAuthRequest(t *testing.T) {
 		authRequest.Password = "password"
 		jwt, err := logic.VerifyAuthRequest(authRequest)
 		assert.Equal(t, "", jwt)
-		assert.EqualError(t, err, "error retrieving user from db: could not find any records")
+		assert.EqualError(t, err, "incorrect credentials")
 	})
 	t.Run("Non-Admin", func(t *testing.T) {
 		user.IsAdmin = false
