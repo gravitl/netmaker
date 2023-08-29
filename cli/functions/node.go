@@ -27,7 +27,10 @@ func UpdateNode(networkName, nodeID string, node *models.ApiNode) *models.ApiNod
 }
 
 // DeleteNode - delete a node
-func DeleteNode(networkName, nodeID string) *models.SuccessResponse {
+func DeleteNode(networkName, nodeID string, force bool) *models.SuccessResponse {
+	if force {
+		return request[models.SuccessResponse](http.MethodDelete, fmt.Sprintf("/api/nodes/%s/%s/?force=true", networkName, nodeID), nil)
+	}
 	return request[models.SuccessResponse](http.MethodDelete, fmt.Sprintf("/api/nodes/%s/%s", networkName, nodeID), nil)
 }
 
