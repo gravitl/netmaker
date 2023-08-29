@@ -94,8 +94,7 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 	networksSlice := []string{}
 	marshalErr := json.Unmarshal([]byte(headerNetworks), &networksSlice)
 	if marshalErr != nil {
-		logger.Log(0, "error unmarshalling networks: ",
-			marshalErr.Error())
+		slog.Error("error unmarshalling networks", "error", marshalErr.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(marshalErr, "internal"))
 		return
 	}

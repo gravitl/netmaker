@@ -208,9 +208,7 @@ func createSuperAdmin(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewDecoder(r.Body).Decode(&u)
 	if err != nil {
-
-		logger.Log(0, u.UserName, "error decoding request body: ",
-			err.Error())
+		slog.Error("error decoding request body", "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -222,19 +220,17 @@ func createSuperAdmin(w http.ResponseWriter, r *http.Request) {
 
 	err = logic.CreateSuperAdmin(&u)
 	if err != nil {
-		logger.Log(0, u.UserName, "failed to create admin: ",
-			err.Error())
+		slog.Error("failed to create admin", "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
 	logger.Log(1, u.UserName, "was made a super admin")
 	json.NewEncoder(w).Encode(logic.ToReturnUser(u))
 }
 
 // swagger:route POST /api/users/adm/transfersuperadmin user transferSuperAdmin
 //
-// Transfers suoeradmin role to an admin user.
+// Transfers superadmin role to an admin user.
 //
 //			Schemes: https
 //
@@ -330,11 +326,11 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 
 	err = logic.CreateUser(&user)
 	if err != nil {
-		logger.Log(0, user.UserName, "error creating new user: ", err.Error())
+		slog.Error("error creating new user: ", "user", user.UserName, "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	logger.Log(1, user.UserName, "was created")
+	slog.Info("user was created", "username", user.UserName)
 	json.NewEncoder(w).Encode(logic.ToReturnUser(user))
 }
 

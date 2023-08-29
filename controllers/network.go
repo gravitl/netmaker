@@ -47,7 +47,7 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 
 	allnetworks, err := logic.GetNetworks()
 	if err != nil && !database.IsEmptyRecord(err) {
-		logger.Log(0, r.Header.Get("user"), "failed to fetch networks: ", err.Error())
+		slog.Error("failed to fetch networks", "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
