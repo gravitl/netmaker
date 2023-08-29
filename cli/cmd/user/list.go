@@ -22,7 +22,7 @@ var userListCmd = &cobra.Command{
 			functions.PrettyPrint(data)
 		default:
 			table := tablewriter.NewWriter(os.Stdout)
-			table.SetHeader([]string{"Name", "Admin", "Networks", "Groups"})
+			table.SetHeader([]string{"Name", "SuperAdmin", "Admin"})
 			for _, d := range *data {
 				table.Append([]string{d.UserName, strconv.FormatBool(d.IsSuperAdmin), strconv.FormatBool(d.IsAdmin)})
 			}
