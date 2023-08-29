@@ -92,7 +92,7 @@ func VerifyUserToken(tokenString string) (username string, issuperadmin, isadmin
 	claims := &models.UserClaims{}
 
 	if tokenString == servercfg.GetMasterKey() && servercfg.GetMasterKey() != "" {
-		return Master_uname, true, true, nil
+		return MasterUser, true, true, nil
 	}
 
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {

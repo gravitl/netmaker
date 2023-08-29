@@ -353,11 +353,18 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	// start here
-
-	caller, err := logic.GetUser(r.Header.Get("user"))
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+	var caller *models.User
+	var err error
+	var ismaster bool
+	if r.Header.Get("user") == logic.MasterUser {
+		ismaster = true
+	} else {
+		caller, err = logic.GetUser(r.Header.Get("user"))
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		}
 	}
+
 	username := params["username"]
 	user, err := logic.GetUser(username)
 	if err != nil {
@@ -379,11 +386,11 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	selfUpdate := false
-	if caller.UserName == user.UserName {
+	if !ismaster && caller.UserName == user.UserName {
 		selfUpdate = true
 	}
 
-	if !selfUpdate {
+	if !ismaster && !selfUpdate {
 		if caller.IsAdmin && user.IsSuperAdmin {
 			slog.Error("non-superadmin user", "caller", caller.UserName, "attempted to update superadmin user", username)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update superadmin user"), "forbidden"))
@@ -407,12 +414,19 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		}
 
 	}
-	if selfUpdate {
+	if !ismaster && selfUpdate {
 		if user.IsAdmin != userchange.IsAdmin || user.IsSuperAdmin != userchange.IsSuperAdmin {
 			slog.Error("user cannot change his own role", "caller", caller.UserName, "attempted to update user role", username)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user not allowed to self assign role"), "forbidden"))
 			return
 
+		}
+	}
+	if ismaster {
+		if !user.IsSuperAdmin && userchange.IsSuperAdmin {
+			slog.Error("operation not allowed", "caller", logic.MasterUser, "attempted to update user role to superadmin", username)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("attempted to update user role to superadmin"), "forbidden"))
+			return
 		}
 	}
 

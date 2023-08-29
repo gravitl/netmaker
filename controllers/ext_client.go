@@ -346,7 +346,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 	var userName string
 	if r.Header.Get("ismaster") == "yes" {
-		userName = logic.Master_uname
+		userName = logic.MasterUser
 	} else {
 		caller, err := logic.GetUser(r.Header.Get("user"))
 		if err != nil {
