@@ -14,20 +14,20 @@ require (
 	github.com/rqlite/gorqlite v0.0.0-20210514125552-08ff1e76b22f
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/stretchr/testify v1.8.4
-	github.com/txn2/txeh v1.4.0
+	github.com/txn2/txeh v1.5.3
 	golang.org/x/crypto v0.12.0
 	golang.org/x/net v0.14.0 // indirect
 	golang.org/x/oauth2 v0.11.0
 	golang.org/x/sys v0.11.0 // indirect
 	golang.org/x/text v0.12.0 // indirect
-	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220324164955-056925b7df31
+	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20221104135756-97bc4ad4a1cb
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
 	filippo.io/edwards25519 v1.0.0
-	github.com/c-robinson/iplib v1.0.6
+	github.com/c-robinson/iplib v1.0.7
 	github.com/posthog/posthog-go v0.0.0-20211028072449-93c17c49e2b0
 )
 
