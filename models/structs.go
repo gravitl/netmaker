@@ -238,7 +238,7 @@ type ServerConfig struct {
 	MQPassword  string       `yaml:"mq_password"`
 	Server      string       `yaml:"server"`
 	Broker      string       `yaml:"broker"`
-	IsPro       bool         `yaml:"is_pro" json:"IsEE"`
+	IsPro       bool         `yaml:"isee" json:"Is_EE"`
 	StunPort    int          `yaml:"stun_port"`
 	StunList    []StunServer `yaml:"stun_list"`
 	TrafficKey  []byte       `yaml:"traffickey"`
