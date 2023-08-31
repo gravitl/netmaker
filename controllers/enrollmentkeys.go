@@ -40,20 +40,10 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	isMasterAdmin := r.Header.Get("ismaster") == "yes"
-	// regular user flow
-	user, err := logic.GetUser(r.Header.Get("user"))
-	if err != nil && !isMasterAdmin {
-		logger.Log(0, r.Header.Get("user"), "failed to fetch user: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	// TODO drop double pointer
+
 	ret := []*models.EnrollmentKey{}
 	for _, key := range keys {
-		if !isMasterAdmin && (!user.IsAdmin || !user.IsSuperAdmin) {
-			continue
-		}
+		key := key
 		if err = logic.Tokenize(key, servercfg.GetAPIHost()); err != nil {
 			logger.Log(0, r.Header.Get("user"), "failed to get token values for keys:", err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
