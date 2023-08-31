@@ -419,7 +419,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		if err := mq.PublishPeerUpdate(); err != nil {
 			logger.Log(1, "error setting ext peers on "+nodeid+": "+err.Error())
 		}
-		if err := mq.PublishExtCLientDNS(&extclient); err != nil {
+		if err := mq.PublishExtClientDNS(&extclient); err != nil {
 			logger.Log(1, "error publishing extclient dns", err.Error())
 		}
 	}()
