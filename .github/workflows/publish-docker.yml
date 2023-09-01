@@ -53,7 +53,7 @@ jobs:
           build-args: | 
             tags=ce
 
-  docker-ee:
+  docker-pro:
     runs-on: ubuntu-latest
     steps:
       -

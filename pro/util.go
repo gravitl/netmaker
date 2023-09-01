@@ -1,18 +1,13 @@
-package ee
+//go:build ee
+// +build ee
+
+package pro
 
 import (
 	"encoding/base64"
 
 	"github.com/gravitl/netmaker/logic"
 )
-
-var isEnterprise bool
-
-// setIsEnterprise - sets server to use enterprise features
-func setIsEnterprise() {
-	isEnterprise = true
-	logic.SetEEForTelemetry(isEnterprise)
-}
 
 // base64encode - base64 encode helper function
 func base64encode(input []byte) string {
