@@ -1,4 +1,7 @@
-package ee
+//go:build ee
+// +build ee
+
+package pro
 
 import (
 	"fmt"

@@ -52,37 +52,13 @@ func CreateJWT(uuid string, macAddress string, network string) (response string,
 	return "", err
 }
 
-// CreateProUserJWT - creates a user jwt token
-func CreateProUserJWT(username string, networks, groups []string, isadmin bool) (response string, err error) {
-	expirationTime := time.Now().Add(60 * 12 * time.Minute)
-	claims := &models.UserClaims{
-		UserName: username,
-		Networks: networks,
-		IsAdmin:  isadmin,
-		Groups:   groups,
-		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    "Netmaker",
-			Subject:   fmt.Sprintf("user|%s", username),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			ExpiresAt: jwt.NewNumericDate(expirationTime),
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(jwtSecretKey)
-	if err == nil {
-		return tokenString, nil
-	}
-	return "", err
-}
-
 // CreateUserJWT - creates a user jwt token
-func CreateUserJWT(username string, networks []string, isadmin bool) (response string, err error) {
+func CreateUserJWT(username string, issuperadmin, isadmin bool) (response string, err error) {
 	expirationTime := time.Now().Add(60 * 12 * time.Minute)
 	claims := &models.UserClaims{
-		UserName: username,
-		Networks: networks,
-		IsAdmin:  isadmin,
+		UserName:     username,
+		IsSuperAdmin: issuperadmin,
+		IsAdmin:      isadmin,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "Netmaker",
 			Subject:   fmt.Sprintf("user|%s", username),
@@ -100,23 +76,23 @@ func CreateUserJWT(username string, networks []string, isadmin bool) (response s
 }
 
 // VerifyJWT verifies Auth Header
-func VerifyJWT(bearerToken string) (username string, networks []string, isadmin bool, err error) {
+func VerifyJWT(bearerToken string) (username string, issuperadmin, isadmin bool, err error) {
 	token := ""
 	tokenSplit := strings.Split(bearerToken, " ")
 	if len(tokenSplit) > 1 {
 		token = tokenSplit[1]
 	} else {
-		return "", nil, false, errors.New("invalid auth header")
+		return "", false, false, errors.New("invalid auth header")
 	}
 	return VerifyUserToken(token)
 }
 
 // VerifyUserToken func will used to Verify the JWT Token while using APIS
-func VerifyUserToken(tokenString string) (username string, networks []string, isadmin bool, err error) {
+func VerifyUserToken(tokenString string) (username string, issuperadmin, isadmin bool, err error) {
 	claims := &models.UserClaims{}
 
 	if tokenString == servercfg.GetMasterKey() && servercfg.GetMasterKey() != "" {
-		return "masteradministrator", nil, true, nil
+		return MasterUser, true, true, nil
 	}
 
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
@@ -128,15 +104,15 @@ func VerifyUserToken(tokenString string) (username string, networks []string, is
 		// check that user exists
 		user, err = GetUser(claims.UserName)
 		if err != nil {
-			return "", nil, false, err
+			return "", false, false, err
 		}
 
 		if user.UserName != "" {
-			return claims.UserName, claims.Networks, claims.IsAdmin, nil
+			return claims.UserName, claims.IsSuperAdmin, claims.IsAdmin, nil
 		}
 		err = errors.New("user does not exist")
 	}
-	return "", nil, false, err
+	return "", false, false, err
 }
 
 // VerifyHostToken - [hosts] Only

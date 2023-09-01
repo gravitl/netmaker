@@ -17,7 +17,7 @@ import (
 )
 
 func hostHandlers(r *mux.Router) {
-	r.HandleFunc("/api/hosts", logic.SecurityCheck(false, http.HandlerFunc(getHosts))).Methods(http.MethodGet)
+	r.HandleFunc("/api/hosts", logic.SecurityCheck(true, http.HandlerFunc(getHosts))).Methods(http.MethodGet)
 	r.HandleFunc("/api/hosts/keys", logic.SecurityCheck(true, http.HandlerFunc(updateAllKeys))).Methods(http.MethodPut)
 	r.HandleFunc("/api/hosts/{hostid}/keys", logic.SecurityCheck(true, http.HandlerFunc(updateKeys))).Methods(http.MethodPut)
 	r.HandleFunc("/api/hosts/{hostid}/sync", logic.SecurityCheck(true, http.HandlerFunc(syncHost))).Methods(http.MethodPost)
@@ -336,7 +336,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	node.Action = models.NODE_DELETE
 	node.PendingDelete = true
 	// notify node change
-	runUpdates(node, false)
+	mq.RunUpdates(node, false)
 	go func() { // notify of peer change
 		err = mq.PublishDeletedNodePeerUpdate(node)
 		if err != nil {

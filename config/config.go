@@ -72,7 +72,7 @@ type ServerConfig struct {
 	BasicAuth                  string `yaml:"basic_auth"`
 	LicenseValue               string `yaml:"license_value"`
 	NetmakerTenantID           string `yaml:"netmaker_tenant_id"`
-	IsEE                       string `yaml:"is_ee"`
+	IsPro                      string `yaml:"is_ee" json:"IsEE"`
 	StunPort                   int    `yaml:"stun_port"`
 	StunList                   string `yaml:"stun_list"`
 	TurnServer                 string `yaml:"turn_server"`
