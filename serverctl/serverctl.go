@@ -8,6 +8,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
+	"golang.org/x/exp/slog"
 )
 
 const (
@@ -97,13 +98,12 @@ func setUserDefaults() error {
 	for _, user := range users {
 		updateUser, err := logic.GetUser(user.UserName)
 		if err != nil {
-			logger.Log(0, "could not update user", updateUser.UserName)
+			slog.Error("could not get user", "user", updateUser.UserName, "error", err.Error())
 		}
 		logic.SetUserDefaults(updateUser)
-		copyUser := updateUser
-		copyUser.Password = ""
-		if _, err = logic.UpdateUser(copyUser, updateUser); err != nil {
-			logger.Log(0, "could not update user", updateUser.UserName)
+		err = logic.UpsertUser(*updateUser)
+		if err != nil {
+			slog.Error("could not update user", "user", updateUser.UserName, "error", err.Error())
 		}
 	}
 	return nil
