@@ -1,8 +1,6 @@
 package user
 
 import (
-	"strings"
-
 	"github.com/gravitl/netmaker/cli/functions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/spf13/cobra"
@@ -15,14 +13,6 @@ var userUpdateCmd = &cobra.Command{
 	Long:  `Update a user`,
 	Run: func(cmd *cobra.Command, args []string) {
 		user := &models.User{UserName: args[0], IsAdmin: admin}
-		if networks != "" {
-			user.Networks = strings.Split(networks, ",")
-		}
-		if groups != "" {
-			user.Groups = strings.Split(groups, ",")
-		} else {
-			user.Groups = []string{"*"}
-		}
 		functions.PrettyPrint(functions.UpdateUser(user))
 	},
 }

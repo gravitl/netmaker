@@ -17,7 +17,7 @@ import (
 
 func enrollmentKeyHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/enrollment-keys", logic.SecurityCheck(true, http.HandlerFunc(createEnrollmentKey))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/enrollment-keys", logic.SecurityCheck(false, http.HandlerFunc(getEnrollmentKeys))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/enrollment-keys", logic.SecurityCheck(true, http.HandlerFunc(getEnrollmentKeys))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/enrollment-keys/{keyID}", logic.SecurityCheck(true, http.HandlerFunc(deleteEnrollmentKey))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/host/register/{token}", http.HandlerFunc(handleHostRegister)).Methods(http.MethodPost)
 }
@@ -40,20 +40,10 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	isMasterAdmin := r.Header.Get("ismaster") == "yes"
-	// regular user flow
-	user, err := logic.GetUser(r.Header.Get("user"))
-	if err != nil && !isMasterAdmin {
-		logger.Log(0, r.Header.Get("user"), "failed to fetch user: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	// TODO drop double pointer
+
 	ret := []*models.EnrollmentKey{}
 	for _, key := range keys {
-		if !isMasterAdmin && !logic.UserHasNetworksAccess(key.Networks, user) {
-			continue
-		}
+		key := key
 		if err = logic.Tokenize(key, servercfg.GetAPIHost()); err != nil {
 			logger.Log(0, r.Header.Get("user"), "failed to get token values for keys:", err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))

@@ -24,19 +24,19 @@ type AuthParams struct {
 
 // User struct - struct for Users
 type User struct {
-	UserName string   `json:"username" bson:"username" validate:"min=3,max=40,in_charset|email"`
-	Password string   `json:"password" bson:"password" validate:"required,min=5"`
-	Networks []string `json:"networks" bson:"networks"`
-	IsAdmin  bool     `json:"isadmin" bson:"isadmin"`
-	Groups   []string `json:"groups" bson:"groups" yaml:"groups"`
+	UserName     string              `json:"username" bson:"username" validate:"min=3,max=40,in_charset|email"`
+	Password     string              `json:"password" bson:"password" validate:"required,min=5"`
+	IsAdmin      bool                `json:"isadmin" bson:"isadmin"`
+	IsSuperAdmin bool                `json:"issuperadmin"`
+	RemoteGwIDs  map[string]struct{} `json:"remote_gw_ids"`
 }
 
 // ReturnUser - return user struct
 type ReturnUser struct {
-	UserName string   `json:"username" bson:"username"`
-	Networks []string `json:"networks" bson:"networks"`
-	IsAdmin  bool     `json:"isadmin" bson:"isadmin"`
-	Groups   []string `json:"groups" bson:"groups"`
+	UserName     string              `json:"username"`
+	IsAdmin      bool                `json:"isadmin"`
+	IsSuperAdmin bool                `json:"issuperadmin"`
+	RemoteGwIDs  map[string]struct{} `json:"remote_gw_ids"`
 }
 
 // UserAuthParams - user auth params struct
@@ -47,11 +47,31 @@ type UserAuthParams struct {
 
 // UserClaims - user claims struct
 type UserClaims struct {
-	IsAdmin  bool
-	UserName string
-	Networks []string
-	Groups   []string
+	IsAdmin      bool
+	IsSuperAdmin bool
+	UserName     string
 	jwt.RegisteredClaims
+}
+
+// IngressGwUsers - struct to hold users on a ingress gw
+type IngressGwUsers struct {
+	NodeID  string       `json:"node_id"`
+	Network string       `json:"network"`
+	Users   []ReturnUser `json:"users"`
+}
+
+// UserRemoteGws - struct to hold user's remote gws
+type UserRemoteGws struct {
+	GwID      string    `json:"remote_access_gw_id"`
+	GWName    string    `json:"gw_name"`
+	Network   string    `json:"network"`
+	Connected bool      `json:"connected"`
+	GwClient  ExtClient `json:"gw_client"`
+}
+
+// UserRemoteGwsReq - struct to hold user remote acccess gws req
+type UserRemoteGwsReq struct {
+	RemoteAccessClientID string `json:"remote_access_clientid"`
 }
 
 // SuccessfulUserLoginResponse - successlogin struct

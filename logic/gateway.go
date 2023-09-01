@@ -159,6 +159,25 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	return node, err
 }
 
+// GetIngressGwUsers - lists the users having to access to ingressGW
+func GetIngressGwUsers(node models.Node) (models.IngressGwUsers, error) {
+
+	gwUsers := models.IngressGwUsers{
+		NodeID:  node.ID.String(),
+		Network: node.Network,
+	}
+	users, err := GetUsers()
+	if err != nil {
+		return gwUsers, err
+	}
+	for _, user := range users {
+		if !user.IsAdmin && !user.IsSuperAdmin {
+			gwUsers.Users = append(gwUsers.Users, user)
+		}
+	}
+	return gwUsers, nil
+}
+
 // DeleteIngressGateway - deletes an ingress gateway
 func DeleteIngressGateway(nodeid string) (models.Node, bool, []models.ExtClient, error) {
 	removedClients := []models.ExtClient{}
@@ -209,4 +228,21 @@ func DeleteGatewayExtClients(gatewayID string, networkName string) error {
 		}
 	}
 	return nil
+}
+
+// IsUserAllowedAccessToExtClient - checks if user has permission to access extclient
+func IsUserAllowedAccessToExtClient(username string, client models.ExtClient) bool {
+	if username == MasterUser {
+		return true
+	}
+	user, err := GetUser(username)
+	if err != nil {
+		return false
+	}
+	if !user.IsAdmin && !user.IsSuperAdmin {
+		if user.UserName != client.OwnerID {
+			return false
+		}
+	}
+	return true
 }

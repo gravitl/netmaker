@@ -25,9 +25,8 @@ func InitPro() {
 	controller.HttpHandlers = append(
 		controller.HttpHandlers,
 		proControllers.MetricHandlers,
-		proControllers.NetworkUsersHandlers,
-		proControllers.UserGroupsHandlers,
 		proControllers.RelayHandlers,
+		proControllers.UserHandlers,
 	)
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
 		// == License Handling ==

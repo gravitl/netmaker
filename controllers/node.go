@@ -10,9 +10,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/pro"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/models/promodels"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
@@ -26,13 +24,12 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes", Authorize(false, false, "user", http.HandlerFunc(getAllNodes))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/{network}", Authorize(false, true, "network", http.HandlerFunc(getNetworkNodes))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", Authorize(true, true, "node", http.HandlerFunc(getNode))).Methods(http.MethodGet)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}", Authorize(false, true, "node", http.HandlerFunc(updateNode))).Methods(http.MethodPut)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}", logic.SecurityCheck(true, http.HandlerFunc(updateNode))).Methods(http.MethodPut)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", Authorize(true, true, "node", http.HandlerFunc(deleteNode))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/creategateway", Authorize(false, true, "user", checkFreeTierLimits(limitChoiceEgress, http.HandlerFunc(createEgressGateway)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/deletegateway", Authorize(false, true, "user", http.HandlerFunc(deleteEgressGateway))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", logic.SecurityCheck(false, checkFreeTierLimits(limitChoiceIngress, http.HandlerFunc(createIngressGateway)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", logic.SecurityCheck(false, http.HandlerFunc(deleteIngressGateway))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}", Authorize(true, true, "node", http.HandlerFunc(updateNode))).Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/creategateway", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceEgress, http.HandlerFunc(createEgressGateway)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/deletegateway", logic.SecurityCheck(true, http.HandlerFunc(deleteEgressGateway))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceIngress, http.HandlerFunc(createIngressGateway)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", logic.SecurityCheck(true, http.HandlerFunc(deleteIngressGateway))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/nodes/migrate", migrate).Methods(http.MethodPost)
 }
@@ -198,22 +195,17 @@ func Authorize(hostAllowed, networkCheck bool, authNetwork string, next http.Han
 
 			var isAuthorized = false
 			var nodeID = ""
-			username, networks, isadmin, errN := logic.VerifyUserToken(authToken)
+			username, issuperadmin, isadmin, errN := logic.VerifyUserToken(authToken)
 			if errN != nil {
-				logic.ReturnErrorResponse(w, r, errorResponse)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errN, logic.Unauthorized_Msg))
 				return
 			}
 
-			isnetadmin := isadmin
-			if errN == nil && isadmin {
+			isnetadmin := issuperadmin || isadmin
+			if errN == nil && (issuperadmin || isadmin) {
 				nodeID = "mastermac"
 				isAuthorized = true
 				r.Header.Set("ismasterkey", "yes")
-			}
-			if !isadmin && params["network"] != "" {
-				if logic.StringSliceContains(networks, params["network"]) && pro.IsUserNetAdmin(params["network"], username) {
-					isnetadmin = true
-				}
 			}
 			//The mastermac (login with masterkey from config) can do everything!! May be dangerous.
 			if nodeID == "mastermac" {
@@ -326,14 +318,6 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-	} else {
-		nodes, err = getUsersNodes(*user)
-		if err != nil {
-			logger.Log(0, r.Header.Get("user"),
-				"error fetching nodes: ", err.Error())
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
 	}
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
@@ -341,19 +325,6 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	logic.SortApiNodes(apiNodes[:])
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNodes)
-}
-
-func getUsersNodes(user models.User) ([]models.Node, error) {
-	var nodes []models.Node
-	var err error
-	for _, networkName := range user.Networks {
-		tmpNodes, err := logic.GetNetworkNodes(networkName)
-		if err != nil {
-			continue
-		}
-		nodes = append(nodes, tmpNodes...)
-	}
-	return nodes, err
 }
 
 // swagger:route GET /api/nodes/{network}/{nodeid} nodes getNode
@@ -727,13 +698,6 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	}
 	forceDelete := r.URL.Query().Get("force") == "true"
 	fromNode := r.Header.Get("requestfrom") == "node"
-	if r.Header.Get("ismaster") != "yes" {
-		username := r.Header.Get("user")
-		if username != "" && !doesUserOwnNode(username, params["network"], nodeid) {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("user not permitted"), "badrequest"))
-			return
-		}
-	}
 	if node.IsRelayed {
 		// cleanup node from relayednodes on relay node
 		relayNode, err := logic.GetNodeByID(node.RelayedBy)
@@ -778,27 +742,6 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 			logger.Log(1, "error publishing dns update", err.Error())
 		}
 	}()
-}
-
-func doesUserOwnNode(username, network, nodeID string) bool {
-	u, err := logic.GetUser(username)
-	if err != nil {
-		return false
-	}
-	if u.IsAdmin {
-		return true
-	}
-
-	netUser, err := pro.GetNetworkUser(network, promodels.NetworkUserID(u.UserName))
-	if err != nil {
-		return false
-	}
-
-	if netUser.AccessLevel == pro.NET_ADMIN {
-		return true
-	}
-
-	return logic.StringSliceContains(netUser.Nodes, nodeID)
 }
 
 func validateParams(nodeid, netid string) (models.Node, error) {
