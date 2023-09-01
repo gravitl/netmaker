@@ -128,7 +128,7 @@ func CreateUser(user *models.User) error {
 
 		// legacy
 		if StringSliceContains(user.Networks, currentNets[i].NetID) {
-			if !servercfg.Is_EE {
+			if !servercfg.IsPro {
 				newUser.AccessLevel = pro.NET_ADMIN
 			}
 		}

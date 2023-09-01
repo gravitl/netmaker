@@ -19,7 +19,7 @@ const EmqxBrokerType = "emqx"
 
 var (
 	Version              = "dev"
-	Is_EE                = false
+	IsPro                = false
 	ErrLicenseValidation error
 )
 
@@ -87,9 +87,9 @@ func GetServerConfig() config.ServerConfig {
 	cfg.Server = GetServer()
 	cfg.StunList = GetStunListString()
 	cfg.Verbosity = GetVerbosity()
-	cfg.IsEE = "no"
-	if Is_EE {
-		cfg.IsEE = "yes"
+	cfg.IsPro = "no"
+	if IsPro {
+		cfg.IsPro = "yes"
 	}
 
 	return cfg
@@ -110,7 +110,7 @@ func GetServerInfo() models.ServerConfig {
 		cfg.DNSMode = "on"
 	}
 	cfg.Version = GetVersion()
-	cfg.Is_EE = Is_EE
+	cfg.IsPro = IsPro
 	cfg.StunPort = GetStunPort()
 	cfg.StunList = GetStunList()
 	cfg.TurnDomain = GetTurnHost()

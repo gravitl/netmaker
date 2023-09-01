@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gravitl/netmaker/ee/ee_controllers"
 	"github.com/gravitl/netmaker/models/promodels"
+	proControllers "github.com/gravitl/netmaker/pro/controllers"
 )
 
 // GetAllNetworkUsers - fetch all network users
@@ -34,8 +34,8 @@ func UpdateNetworkUser(networkName string, payload *promodels.NetworkUser) {
 }
 
 // GetNetworkUserData - fetch a network user's complete data
-func GetNetworkUserData(networkUserName string) *ee_controllers.NetworkUserDataMap {
-	return request[ee_controllers.NetworkUserDataMap](http.MethodGet, fmt.Sprintf("/api/networkusers/data/%s/me", networkUserName), nil)
+func GetNetworkUserData(networkUserName string) *proControllers.NetworkUserDataMap {
+	return request[proControllers.NetworkUserDataMap](http.MethodGet, fmt.Sprintf("/api/networkusers/data/%s/me", networkUserName), nil)
 }
 
 // DeleteNetworkUser - delete a network user

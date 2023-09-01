@@ -1,7 +1,7 @@
 //go:build ee
 // +build ee
 
-package ee
+package pro
 
 import (
 	"bytes"

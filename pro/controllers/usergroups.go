@@ -1,4 +1,4 @@
-package ee_controllers
+package controllers
 
 import (
 	"encoding/json"
