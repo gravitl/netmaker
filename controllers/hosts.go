@@ -330,11 +330,13 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 	if node.IsIngressGateway {
 		// delete ext clients belonging to ingress gateway
-		if err = logic.DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
-			slog.Error("failed to delete extclients", "gatewayid", node.ID.String(), "network", node.Network, "error", err.Error())
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "bad request"))
-			return
-		}
+		go func(node models.Node) {
+			if err = logic.DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
+				slog.Error("failed to delete extclients", "gatewayid", node.ID.String(), "network", node.Network, "error", err.Error())
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "bad request"))
+				return
+			}
+		}(*node)
 	}
 	logger.Log(1, "deleting node", node.ID.String(), "from host", currHost.Name)
 	if err := logic.DeleteNode(node, forceDelete); err != nil {

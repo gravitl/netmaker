@@ -718,12 +718,15 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		logic.SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
 	}
 	if node.IsIngressGateway {
-		// delete ext clients belonging to ingress gateway
-		if err = logic.DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
-			slog.Error("failed to delete extclients", "gatewayid", node.ID.String(), "network", node.Network, "error", err.Error())
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "bad request"))
-			return
-		}
+		// delete ext clients belonging to ingress gatewa
+		go func(node models.Node) {
+			if err = logic.DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
+				slog.Error("failed to delete extclients", "gatewayid", node.ID.String(), "network", node.Network, "error", err.Error())
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "bad request"))
+				return
+			}
+		}(node)
+
 	}
 
 	purge := forceDelete || fromNode
