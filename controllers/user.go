@@ -13,23 +13,19 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
+	"golang.org/x/exp/slog"
 )
 
 var (
 	upgrader = websocket.Upgrader{}
 )
 
-// verifyJWT makes logic.VerifyJWT fakeable/mockable in tests
-var verifyJWT = logic.VerifyJWT
-
 func userHandlers(r *mux.Router) {
-
-	r.HandleFunc("/api/users/adm/hasadmin", hasAdmin).Methods(http.MethodGet)
-	r.HandleFunc("/api/users/adm/createadmin", createAdmin).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/adm/hassuperadmin", hasSuperAdmin).Methods(http.MethodGet)
+	r.HandleFunc("/api/users/adm/createsuperadmin", createSuperAdmin).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/adm/transfersuperadmin/{username}", logic.SecurityCheck(true, http.HandlerFunc(transferSuperAdmin))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUser)))).Methods(http.MethodPut)
-	r.HandleFunc("/api/users/networks/{username}", logic.SecurityCheck(true, http.HandlerFunc(updateUserNetworks))).Methods(http.MethodPut)
-	r.HandleFunc("/api/users/{username}/adm", logic.SecurityCheck(true, http.HandlerFunc(updateUserAdm))).Methods(http.MethodPut)
+	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, http.HandlerFunc(updateUser))).Methods(http.MethodPut)
 	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceUsers, http.HandlerFunc(createUser)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, http.HandlerFunc(deleteUser))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUser)))).Methods(http.MethodGet)
@@ -112,7 +108,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	response.Write(successJSONResponse)
 }
 
-// swagger:route GET /api/users/adm/hasadmin user hasAdmin
+// swagger:route GET /api/users/adm/hassuperadmin user hasSuperAdmin
 //
 // Checks whether the server has an admin.
 //
@@ -123,18 +119,18 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 //
 //			Responses:
 //				200: successResponse
-func hasAdmin(w http.ResponseWriter, r *http.Request) {
+func hasSuperAdmin(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	hasadmin, err := logic.HasAdmin()
+	hasSuperAdmin, err := logic.HasSuperAdmin()
 	if err != nil {
 		logger.Log(0, "failed to check for admin: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
-	json.NewEncoder(w).Encode(hasadmin)
+	json.NewEncoder(w).Encode(hasSuperAdmin)
 
 }
 
@@ -194,7 +190,7 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(users)
 }
 
-// swagger:route POST /api/users/adm/createadmin user createAdmin
+// swagger:route POST /api/users/adm/createsuperadmin user createAdmin
 //
 // Make a user an admin.
 //
@@ -205,16 +201,14 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 //
 //			Responses:
 //				200: userBodyResponse
-func createAdmin(w http.ResponseWriter, r *http.Request) {
+func createSuperAdmin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	var admin models.User
+	var u models.User
 
-	err := json.NewDecoder(r.Body).Decode(&admin)
+	err := json.NewDecoder(r.Body).Decode(&u)
 	if err != nil {
-
-		logger.Log(0, admin.UserName, "error decoding request body: ",
-			err.Error())
+		slog.Error("error decoding request body", "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -224,16 +218,72 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = logic.CreateAdmin(&admin)
+	err = logic.CreateSuperAdmin(&u)
 	if err != nil {
-		logger.Log(0, admin.UserName, "failed to create admin: ",
-			err.Error())
+		slog.Error("failed to create admin", "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	logger.Log(1, u.UserName, "was made a super admin")
+	json.NewEncoder(w).Encode(logic.ToReturnUser(u))
+}
 
-	logger.Log(1, admin.UserName, "was made a new admin")
-	json.NewEncoder(w).Encode(logic.ToReturnUser(admin))
+// swagger:route POST /api/users/adm/transfersuperadmin user transferSuperAdmin
+//
+// Transfers superadmin role to an admin user.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: userBodyResponse
+func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	caller, err := logic.GetUser(r.Header.Get("user"))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+	}
+	if !caller.IsSuperAdmin {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only superadmin can assign the superadmin role to another user"), "forbidden"))
+		return
+	}
+	var params = mux.Vars(r)
+	username := params["username"]
+	u, err := logic.GetUser(username)
+	if err != nil {
+		slog.Error("error getting user", "user", u.UserName, "error", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if !u.IsAdmin {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only admins can be promoted to superadmin role"), "forbidden"))
+		return
+	}
+	if !servercfg.IsBasicAuthEnabled() {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("basic auth is disabled"), "badrequest"))
+		return
+	}
+
+	u.IsSuperAdmin = true
+	u.IsAdmin = false
+	err = logic.UpsertUser(*u)
+	if err != nil {
+		slog.Error("error updating user to superadmin: ", "user", u.UserName, "error", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	caller.IsSuperAdmin = false
+	caller.IsAdmin = true
+	err = logic.UpsertUser(*caller)
+	if err != nil {
+		slog.Error("error demoting user to admin: ", "user", caller.UserName, "error", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	slog.Info("user was made a super admin", "user", u.UserName)
+	json.NewEncoder(w).Encode(logic.ToReturnUser(*u))
 }
 
 // swagger:route POST /api/users/{username} user createUser
@@ -249,81 +299,39 @@ func createAdmin(w http.ResponseWriter, r *http.Request) {
 //				200: userBodyResponse
 func createUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-
+	caller, err := logic.GetUser(r.Header.Get("user"))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+	}
 	var user models.User
-	err := json.NewDecoder(r.Body).Decode(&user)
+	err = json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
 		logger.Log(0, user.UserName, "error decoding request body: ",
 			err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if !caller.IsSuperAdmin && user.IsAdmin {
+		err = errors.New("only superadmin can create admin users")
+		slog.Error("error creating new user: ", "user", user.UserName, "error", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+		return
+	}
+	if user.IsSuperAdmin {
+		err = errors.New("additional superadmins cannot be created")
+		slog.Error("error creating new user: ", "user", user.UserName, "error", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+		return
+	}
 
 	err = logic.CreateUser(&user)
 	if err != nil {
-		logger.Log(0, user.UserName, "error creating new user: ",
-			err.Error())
+		slog.Error("error creating new user: ", "user", user.UserName, "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	logger.Log(1, user.UserName, "was created")
+	slog.Info("user was created", "username", user.UserName)
 	json.NewEncoder(w).Encode(logic.ToReturnUser(user))
-}
-
-// swagger:route PUT /api/users/networks/{username} user updateUserNetworks
-//
-// Updates the networks of the given user.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: userBodyResponse
-func updateUserNetworks(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	var params = mux.Vars(r)
-	// start here
-	username := params["username"]
-	user, err := logic.GetUser(username)
-	if err != nil {
-		logger.Log(0, username,
-			"failed to update user networks: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	userChange := &models.User{}
-	// we decode our body request params
-	err = json.NewDecoder(r.Body).Decode(userChange)
-	if err != nil {
-		logger.Log(0, username, "error decoding request body: ",
-			err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	err = logic.UpdateUserNetworks(userChange.Networks, userChange.Groups, userChange.IsAdmin, &models.ReturnUser{
-		Groups:   user.Groups,
-		IsAdmin:  user.IsAdmin,
-		Networks: user.Networks,
-		UserName: user.UserName,
-	})
-
-	if err != nil {
-		logger.Log(0, username,
-			"failed to update user networks: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	logger.Log(1, username, "status was updated")
-	// re-read and return the new user struct
-	returnUser, err := logic.GetReturnUser(username)
-	if err != nil {
-		logger.Log(0, username, "failed to fetch user: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	json.NewEncoder(w).Encode(returnUser)
 }
 
 // swagger:route PUT /api/users/{username} user updateUser
@@ -341,18 +349,19 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	// start here
-	jwtUser, _, isadmin, err := verifyJWT(r.Header.Get("Authorization"))
-	if err != nil {
-		logger.Log(0, "verifyJWT error", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
+	var caller *models.User
+	var err error
+	var ismaster bool
+	if r.Header.Get("user") == logic.MasterUser {
+		ismaster = true
+	} else {
+		caller, err = logic.GetUser(r.Header.Get("user"))
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		}
 	}
+
 	username := params["username"]
-	if username != jwtUser && !isadmin {
-		logger.Log(0, "non-admin user", jwtUser, "attempted to update user", username)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not authorizied"), "unauthorized"))
-		return
-	}
 	user, err := logic.GetUser(username)
 	if err != nil {
 		logger.Log(0, username,
@@ -360,27 +369,70 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	var userchange models.User
+	// we decode our body request params
+	err = json.NewDecoder(r.Body).Decode(&userchange)
+	if err != nil {
+		slog.Error("failed to decode body", "error ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if user.UserName != userchange.UserName {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user in param and request body not matching"), "badrequest"))
+		return
+	}
+	selfUpdate := false
+	if !ismaster && caller.UserName == user.UserName {
+		selfUpdate = true
+	}
+
+	if !ismaster && !selfUpdate {
+		if caller.IsAdmin && user.IsSuperAdmin {
+			slog.Error("non-superadmin user", "caller", caller.UserName, "attempted to update superadmin user", username)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update superadmin user"), "forbidden"))
+			return
+		}
+		if !caller.IsAdmin && !caller.IsSuperAdmin {
+			slog.Error("operation not allowed", "caller", caller.UserName, "attempted to update user", username)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update superadmin user"), "forbidden"))
+			return
+		}
+		if caller.IsAdmin && user.IsAdmin {
+			slog.Error("admin user cannot update another admin", "caller", caller.UserName, "attempted to update admin user", username)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("admin user cannot update another admin"), "forbidden"))
+			return
+		}
+		if caller.IsAdmin && userchange.IsAdmin {
+			err = errors.New("admin user cannot update role of an another user to admin")
+			slog.Error("failed to update user", "caller", caller.UserName, "attempted to update user", username, "error", err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+			return
+		}
+
+	}
+	if !ismaster && selfUpdate {
+		if user.IsAdmin != userchange.IsAdmin || user.IsSuperAdmin != userchange.IsSuperAdmin {
+			slog.Error("user cannot change his own role", "caller", caller.UserName, "attempted to update user role", username)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user not allowed to self assign role"), "forbidden"))
+			return
+
+		}
+	}
+	if ismaster {
+		if !user.IsSuperAdmin && userchange.IsSuperAdmin {
+			slog.Error("operation not allowed", "caller", logic.MasterUser, "attempted to update user role to superadmin", username)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("attempted to update user role to superadmin"), "forbidden"))
+			return
+		}
+	}
+
 	if auth.IsOauthUser(user) == nil {
 		err := fmt.Errorf("cannot update user info for oauth user %s", username)
 		logger.Log(0, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
-	var userchange models.User
-	// we decode our body request params
-	err = json.NewDecoder(r.Body).Decode(&userchange)
-	if err != nil {
-		logger.Log(0, username, "error decoding request body: ",
-			err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	if userchange.IsAdmin && !isadmin {
-		logger.Log(0, "non-admin user", jwtUser, "attempted get admin privilages")
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not authorizied"), "unauthorized"))
-		return
-	}
-	userchange.Networks = nil
+
 	user, err = logic.UpdateUser(&userchange, user)
 	if err != nil {
 		logger.Log(0, username,
@@ -389,57 +441,6 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(1, username, "was updated")
-	json.NewEncoder(w).Encode(logic.ToReturnUser(*user))
-}
-
-// swagger:route PUT /api/users/{username}/adm user updateUserAdm
-//
-// Updates the given admin user's info (as long as the user is an admin).
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: userBodyResponse
-func updateUserAdm(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	var params = mux.Vars(r)
-	// start here
-	username := params["username"]
-	user, err := logic.GetUser(username)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	if auth.IsOauthUser(user) == nil {
-		err := fmt.Errorf("cannot update user info for oauth user %s", username)
-		logger.Log(0, err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
-		return
-	}
-	var userchange models.User
-	// we decode our body request params
-	err = json.NewDecoder(r.Body).Decode(&userchange)
-	if err != nil {
-		logger.Log(0, username, "error decoding request body: ",
-			err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	if !user.IsAdmin {
-		logger.Log(0, username, "not an admin user")
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not a admin user"), "badrequest"))
-	}
-	user, err = logic.UpdateUser(&userchange, user)
-	if err != nil {
-		logger.Log(0, username,
-			"failed to update user (admin) info: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	logger.Log(1, username, "was updated (admin)")
 	json.NewEncoder(w).Encode(logic.ToReturnUser(*user))
 }
 
@@ -460,9 +461,32 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 
 	// get params
 	var params = mux.Vars(r)
-
+	caller, err := logic.GetUser(r.Header.Get("user"))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+	}
 	username := params["username"]
-
+	user, err := logic.GetUser(username)
+	if err != nil {
+		logger.Log(0, username,
+			"failed to update user info: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	if user.IsSuperAdmin {
+		slog.Error(
+			"failed to delete user: ", "user", username, "error", "superadmin cannot be deleted")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	if !caller.IsSuperAdmin {
+		if caller.IsAdmin && user.IsAdmin {
+			slog.Error(
+				"failed to delete user: ", "user", username, "error", "admin cannot delete another admin user")
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+	}
 	success, err := logic.DeleteUser(username)
 	if err != nil {
 		logger.Log(0, username,
@@ -494,15 +518,4 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// Start handling the session
 	go auth.SessionHandler(conn)
-}
-
-// getHeaderNetworks returns a slice of networks parsed form the request header.
-func getHeaderNetworks(r *http.Request) ([]string, error) {
-	headerNetworks := r.Header.Get("networks")
-	networksSlice := []string{}
-	err := json.Unmarshal([]byte(headerNetworks), &networksSlice)
-	if err != nil {
-		return nil, err
-	}
-	return networksSlice, nil
 }

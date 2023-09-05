@@ -22,48 +22,15 @@ var (
 	AllowClientNodeAccess = func(ec *models.ExtClient, clientOrNodeID string) bool {
 		return true
 	}
-)
-
-// SetClientDefaultACLs - set's a client's default ACLs based on network and nodes in network
-func SetClientDefaultACLs(ec *models.ExtClient) error {
-	if !isEE {
+	SetClientDefaultACLs = func(ec *models.ExtClient) error {
 		return nil
 	}
-	networkNodes, err := GetNetworkNodes(ec.Network)
-	if err != nil {
-		return err
+	SetClientACLs = func(ec *models.ExtClient, newACLs map[string]struct{}) {
 	}
-	network, err := GetNetwork(ec.Network)
-	if err != nil {
-		return err
+	UpdateProNodeACLs = func(node *models.Node) error {
+		return nil
 	}
-	for i := range networkNodes {
-		currNode := networkNodes[i]
-		if network.DefaultACL == "no" || currNode.DefaultACL == "no" {
-			DenyClientNodeAccess(ec, currNode.ID.String())
-		} else {
-			AllowClientNodeAccess(ec, currNode.ID.String())
-		}
-	}
-	return nil
-}
-
-// SetClientACLs - overwrites an ext client's ACL
-func SetClientACLs(ec *models.ExtClient, newACLs map[string]struct{}) {
-	if ec == nil || newACLs == nil || !isEE {
-		return
-	}
-	ec.DeniedACLs = newACLs
-}
-
-// IsClientNodeAllowedByID - checks if a given ext client ID + nodeID are allowed
-func IsClientNodeAllowedByID(clientID, networkName, clientOrNodeID string) bool {
-	client, err := GetExtClient(clientID, networkName)
-	if err != nil {
-		return false
-	}
-	return IsClientNodeAllowed(&client, clientOrNodeID)
-}
+)
 
 // SortExtClient - Sorts slice of ExtClients by their ClientID alphabetically with numbers first
 func SortExtClient(unsortedExtClient []models.ExtClient) {

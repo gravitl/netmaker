@@ -10,9 +10,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/pro"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/models/promodels"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
@@ -26,13 +24,12 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes", Authorize(false, false, "user", http.HandlerFunc(getAllNodes))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/{network}", Authorize(false, true, "network", http.HandlerFunc(getNetworkNodes))).Methods(http.MethodGet)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", Authorize(true, true, "node", http.HandlerFunc(getNode))).Methods(http.MethodGet)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}", Authorize(false, true, "node", http.HandlerFunc(updateNode))).Methods(http.MethodPut)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}", logic.SecurityCheck(true, http.HandlerFunc(updateNode))).Methods(http.MethodPut)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", Authorize(true, true, "node", http.HandlerFunc(deleteNode))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/creategateway", Authorize(false, true, "user", checkFreeTierLimits(limitChoiceEgress, http.HandlerFunc(createEgressGateway)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/deletegateway", Authorize(false, true, "user", http.HandlerFunc(deleteEgressGateway))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", logic.SecurityCheck(false, checkFreeTierLimits(limitChoiceIngress, http.HandlerFunc(createIngressGateway)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", logic.SecurityCheck(false, http.HandlerFunc(deleteIngressGateway))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}", Authorize(true, true, "node", http.HandlerFunc(updateNode))).Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/creategateway", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceEgress, http.HandlerFunc(createEgressGateway)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/deletegateway", logic.SecurityCheck(true, http.HandlerFunc(deleteEgressGateway))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceIngress, http.HandlerFunc(createIngressGateway)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", logic.SecurityCheck(true, http.HandlerFunc(deleteIngressGateway))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/nodes/migrate", migrate).Methods(http.MethodPost)
 }
@@ -198,22 +195,17 @@ func Authorize(hostAllowed, networkCheck bool, authNetwork string, next http.Han
 
 			var isAuthorized = false
 			var nodeID = ""
-			username, networks, isadmin, errN := logic.VerifyUserToken(authToken)
+			username, issuperadmin, isadmin, errN := logic.VerifyUserToken(authToken)
 			if errN != nil {
-				logic.ReturnErrorResponse(w, r, errorResponse)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errN, logic.Unauthorized_Msg))
 				return
 			}
 
-			isnetadmin := isadmin
-			if errN == nil && isadmin {
+			isnetadmin := issuperadmin || isadmin
+			if errN == nil && (issuperadmin || isadmin) {
 				nodeID = "mastermac"
 				isAuthorized = true
 				r.Header.Set("ismasterkey", "yes")
-			}
-			if !isadmin && params["network"] != "" {
-				if logic.StringSliceContains(networks, params["network"]) && pro.IsUserNetAdmin(params["network"], username) {
-					isnetadmin = true
-				}
 			}
 			//The mastermac (login with masterkey from config) can do everything!! May be dangerous.
 			if nodeID == "mastermac" {
@@ -326,14 +318,6 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-	} else {
-		nodes, err = getUsersNodes(*user)
-		if err != nil {
-			logger.Log(0, r.Header.Get("user"),
-				"error fetching nodes: ", err.Error())
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
 	}
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
@@ -341,19 +325,6 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	logic.SortApiNodes(apiNodes[:])
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNodes)
-}
-
-func getUsersNodes(user models.User) ([]models.Node, error) {
-	var nodes []models.Node
-	var err error
-	for _, networkName := range user.Networks {
-		tmpNodes, err := logic.GetNetworkNodes(networkName)
-		if err != nil {
-			continue
-		}
-		nodes = append(nodes, tmpNodes...)
-	}
-	return nodes, err
 }
 
 // swagger:route GET /api/nodes/{network}/{nodeid} nodes getNode
@@ -415,7 +386,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		PeerIDs:      hostPeerUpdate.PeerIDs,
 	}
 
-	if servercfg.Is_EE && nodeRequest {
+	if servercfg.IsPro && nodeRequest {
 		if err = logic.EnterpriseResetAllPeersFailovers(node.ID, node.Network); err != nil {
 			logger.Log(1, "failed to reset failover list during node config pull", node.ID.String(), node.Network)
 		}
@@ -471,7 +442,7 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		mq.PublishPeerUpdate()
 	}()
-	runUpdates(&node, true)
+	mq.RunUpdates(&node, true)
 }
 
 // swagger:route DELETE /api/nodes/{network}/{nodeid}/deletegateway nodes deleteEgressGateway
@@ -512,7 +483,7 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		mq.PublishPeerUpdate()
 	}()
-	runUpdates(&node, true)
+	mq.RunUpdates(&node, true)
 }
 
 // == INGRESS ==
@@ -549,7 +520,7 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if servercfg.Is_EE && request.Failover {
+	if servercfg.IsPro && request.Failover {
 		if err = logic.EnterpriseResetFailoverFunc(node.Network); err != nil {
 			logger.Log(1, "failed to reset failover list during failover create", node.ID.String(), node.Network)
 		}
@@ -560,7 +531,7 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
 
-	runUpdates(&node, true)
+	mq.RunUpdates(&node, true)
 }
 
 // swagger:route DELETE /api/nodes/{network}/{nodeid}/deleteingress nodes deleteIngressGateway
@@ -593,7 +564,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if servercfg.Is_EE && wasFailover {
+	if servercfg.IsPro && wasFailover {
 		if err = logic.EnterpriseResetFailoverFunc(node.Network); err != nil {
 			logger.Log(1, "failed to reset failover list during failover create", node.ID.String(), node.Network)
 		}
@@ -620,7 +591,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	runUpdates(&node, true)
+	mq.RunUpdates(&node, true)
 }
 
 // swagger:route PUT /api/nodes/{network}/{nodeid} nodes updateNode
@@ -655,18 +626,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	newNode := newData.ConvertToServerNode(&currentNode)
-	relayupdate := false
-	if servercfg.Is_EE && newNode.IsRelay && len(newNode.RelayedNodes) > 0 {
-		if len(newNode.RelayedNodes) != len(currentNode.RelayedNodes) {
-			relayupdate = true
-		} else {
-			for i, node := range newNode.RelayedNodes {
-				if node != currentNode.RelayedNodes[i] {
-					relayupdate = true
-				}
-			}
-		}
-	}
+	relayUpdate := logic.RelayUpdates(&currentNode, newNode)
 	host, err := logic.GetHost(newNode.HostID.String())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
@@ -676,7 +636,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 	ifaceDelta := logic.IfaceDelta(&currentNode, newNode)
 	aclUpdate := currentNode.DefaultACL != newNode.DefaultACL
-	if ifaceDelta && servercfg.Is_EE {
+	if ifaceDelta && servercfg.IsPro {
 		if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID, currentNode.Network); err != nil {
 			logger.Log(0, "failed to reset failover lists during node update for node", currentNode.ID.String(), currentNode.Network)
 		}
@@ -689,13 +649,8 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if relayupdate {
-		updatenodes := logic.UpdateRelayed(currentNode.ID.String(), currentNode.RelayedNodes, newNode.RelayedNodes)
-		if len(updatenodes) > 0 {
-			for _, relayedNode := range updatenodes {
-				runUpdates(&relayedNode, false)
-			}
-		}
+	if relayUpdate {
+		logic.UpdateRelayed(&currentNode, newNode)
 	}
 	if servercfg.IsDNSMode() {
 		logic.SetDNS()
@@ -705,7 +660,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "updated node", currentNode.ID.String(), "on network", currentNode.Network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-	runUpdates(newNode, ifaceDelta)
+	mq.RunUpdates(newNode, ifaceDelta)
 	go func(aclUpdate, relayupdate bool, newNode *models.Node) {
 		if aclUpdate || relayupdate {
 			if err := mq.PublishPeerUpdate(); err != nil {
@@ -715,7 +670,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		if err := mq.PublishReplaceDNS(&currentNode, newNode, host); err != nil {
 			logger.Log(1, "failed to publish dns update", err.Error())
 		}
-	}(aclUpdate, relayupdate, newNode)
+	}(aclUpdate, relayUpdate, newNode)
 }
 
 // swagger:route DELETE /api/nodes/{network}/{nodeid} nodes deleteNode
@@ -743,13 +698,6 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	}
 	forceDelete := r.URL.Query().Get("force") == "true"
 	fromNode := r.Header.Get("requestfrom") == "node"
-	if r.Header.Get("ismaster") != "yes" {
-		username := r.Header.Get("user")
-		if username != "" && !doesUserOwnNode(username, params["network"], nodeid) {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("user not permitted"), "badrequest"))
-			return
-		}
-	}
 	if node.IsRelayed {
 		// cleanup node from relayednodes on relay node
 		relayNode, err := logic.GetNodeByID(node.RelayedBy)
@@ -778,7 +726,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
 	if !fromNode { // notify node change
-		runUpdates(&node, false)
+		mq.RunUpdates(&node, false)
 	}
 	go func() { // notify of peer change
 		var err error
@@ -794,36 +742,6 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 			logger.Log(1, "error publishing dns update", err.Error())
 		}
 	}()
-}
-
-func runUpdates(node *models.Node, ifaceDelta bool) {
-	go func() { // don't block http response
-		// publish node update if not server
-		if err := mq.NodeUpdate(node); err != nil {
-			logger.Log(1, "error publishing node update to node", node.ID.String(), err.Error())
-		}
-	}()
-}
-
-func doesUserOwnNode(username, network, nodeID string) bool {
-	u, err := logic.GetUser(username)
-	if err != nil {
-		return false
-	}
-	if u.IsAdmin {
-		return true
-	}
-
-	netUser, err := pro.GetNetworkUser(network, promodels.NetworkUserID(u.UserName))
-	if err != nil {
-		return false
-	}
-
-	if netUser.AccessLevel == pro.NET_ADMIN {
-		return true
-	}
-
-	return logic.StringSliceContains(netUser.Nodes, nodeID)
 }
 
 func validateParams(nodeid, netid string) (models.Node, error) {

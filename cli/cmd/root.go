@@ -12,11 +12,9 @@ import (
 	"github.com/gravitl/netmaker/cli/cmd/host"
 	"github.com/gravitl/netmaker/cli/cmd/metrics"
 	"github.com/gravitl/netmaker/cli/cmd/network"
-	"github.com/gravitl/netmaker/cli/cmd/network_user"
 	"github.com/gravitl/netmaker/cli/cmd/node"
 	"github.com/gravitl/netmaker/cli/cmd/server"
 	"github.com/gravitl/netmaker/cli/cmd/user"
-	"github.com/gravitl/netmaker/cli/cmd/usergroup"
 	"github.com/spf13/cobra"
 )
 
@@ -52,9 +50,7 @@ func init() {
 	rootCmd.AddCommand(server.GetRoot())
 	rootCmd.AddCommand(ext_client.GetRoot())
 	rootCmd.AddCommand(user.GetRoot())
-	rootCmd.AddCommand(usergroup.GetRoot())
 	rootCmd.AddCommand(metrics.GetRoot())
-	rootCmd.AddCommand(network_user.GetRoot())
 	rootCmd.AddCommand(host.GetRoot())
 	rootCmd.AddCommand(enrollment_key.GetRoot())
 }

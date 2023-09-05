@@ -3,10 +3,8 @@
 
 package main
 
-import (
-	"github.com/gravitl/netmaker/ee"
-)
+import "github.com/gravitl/netmaker/pro"
 
 func init() {
-	ee.InitEE()
+	pro.InitPro()
 }

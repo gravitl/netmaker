@@ -2,12 +2,13 @@ package controller
 
 import (
 	"bytes"
-	"github.com/go-jose/go-jose/v3/json"
-	"github.com/gorilla/mux"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/go-jose/go-jose/v3/json"
+	"github.com/gorilla/mux"
 
 	"github.com/stretchr/testify/assert"
 
@@ -47,70 +48,8 @@ func TestCreateAdminNoHashedPassword(t *testing.T) {
 	rec, req := prepareUserRequest(t, user, "")
 
 	// test response
-	createAdmin(rec, req)
+	createSuperAdmin(rec, req)
 	assertUserNameButNoPassword(t, rec.Body, user.UserName)
-}
-
-func TestCreateUserNoHashedPassword(t *testing.T) {
-	// prepare existing user base
-	deleteAllUsers(t)
-
-	// prepare request
-	user := models.User{UserName: "jonathan", Password: "password"}
-	rec, req := prepareUserRequest(t, user, "")
-
-	// test response
-	createUser(rec, req)
-	assertUserNameButNoPassword(t, rec.Body, user.UserName)
-}
-
-func TestUpdateUserNetworksNoHashedPassword(t *testing.T) {
-	// prepare existing user base
-	user1 := models.User{UserName: "joestar", Password: "jonathan"}
-	haveOnlyOneUser(t, user1)
-
-	// prepare request
-	user2 := models.User{UserName: "joestar", Password: "joseph"}
-	rec, req := prepareUserRequest(t, user2, user1.UserName)
-
-	// test response
-	updateUserNetworks(rec, req)
-	assertUserNameButNoPassword(t, rec.Body, user1.UserName)
-}
-
-func TestUpdateUserNoHashedPassword(t *testing.T) {
-	// prepare existing user base
-	user1 := models.User{UserName: "dio", Password: "brando"}
-	haveOnlyOneUser(t, user1)
-
-	// prepare request
-	user2 := models.User{UserName: "giorno", Password: "giovanna"}
-	rec, req := prepareUserRequest(t, user2, user1.UserName)
-
-	// mock the jwt verification
-	oldVerify := verifyJWT
-	verifyJWT = func(bearerToken string) (username string, networks []string, isadmin bool, err error) {
-		return user1.UserName, user1.Networks, user1.IsAdmin, nil
-	}
-	defer func() { verifyJWT = oldVerify }()
-
-	// test response
-	updateUser(rec, req)
-	assertUserNameButNoPassword(t, rec.Body, user2.UserName)
-}
-
-func TestUpdateUserAdmNoHashedPassword(t *testing.T) {
-	// prepare existing user base
-	user1 := models.User{UserName: "dio", Password: "brando", IsAdmin: true}
-	haveOnlyOneUser(t, user1)
-
-	// prepare request
-	user2 := models.User{UserName: "giorno", Password: "giovanna"}
-	rec, req := prepareUserRequest(t, user2, user1.UserName)
-
-	// test response
-	updateUserAdm(rec, req)
-	assertUserNameButNoPassword(t, rec.Body, user2.UserName)
 }
 
 func prepareUserRequest(t *testing.T, userForBody models.User, userNameForParam string) (*httptest.ResponseRecorder, *http.Request) {
@@ -120,14 +59,15 @@ func prepareUserRequest(t *testing.T, userForBody models.User, userNameForParam 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("ANY", "https://example.com", body) // only the body matters here
 	req = mux.SetURLVars(req, map[string]string{"username": userNameForParam})
+	req.Header.Set("user", userForBody.UserName)
 	return rec, req
 }
 
 func haveOnlyOneUser(t *testing.T, user models.User) {
 	deleteAllUsers(t)
 	var err error
-	if user.IsAdmin {
-		err = logic.CreateAdmin(&user)
+	if user.IsSuperAdmin {
+		err = logic.CreateSuperAdmin(&user)
 	} else {
 		err = logic.CreateUser(&user)
 	}
@@ -142,7 +82,7 @@ func assertUserNameButNoPassword(t *testing.T, r io.Reader, userName string) {
 	assert.Empty(t, resp.Password)
 }
 
-func TestHasAdmin(t *testing.T) {
+func TestHasSuperAdmin(t *testing.T) {
 	// delete all current users
 	users, _ := logic.GetUsers()
 	for _, user := range users {
@@ -151,31 +91,31 @@ func TestHasAdmin(t *testing.T) {
 		assert.True(t, success)
 	}
 	t.Run("NoUser", func(t *testing.T) {
-		found, err := logic.HasAdmin()
+		found, err := logic.HasSuperAdmin()
 		assert.Nil(t, err)
 		assert.False(t, found)
 	})
-	t.Run("No admin user", func(t *testing.T) {
-		var user = models.User{UserName: "noadmin", Password: "password"}
+	t.Run("No superadmin user", func(t *testing.T) {
+		var user = models.User{UserName: "nosuperadmin", Password: "password"}
 		err := logic.CreateUser(&user)
 		assert.Nil(t, err)
-		found, err := logic.HasAdmin()
+		found, err := logic.HasSuperAdmin()
 		assert.Nil(t, err)
 		assert.False(t, found)
 	})
-	t.Run("admin user", func(t *testing.T) {
-		var user = models.User{UserName: "admin", Password: "password", IsAdmin: true}
+	t.Run("superadmin user", func(t *testing.T) {
+		var user = models.User{UserName: "superadmin", Password: "password", IsSuperAdmin: true}
 		err := logic.CreateUser(&user)
 		assert.Nil(t, err)
-		found, err := logic.HasAdmin()
+		found, err := logic.HasSuperAdmin()
 		assert.Nil(t, err)
 		assert.True(t, found)
 	})
-	t.Run("multiple admins", func(t *testing.T) {
-		var user = models.User{UserName: "admin1", Password: "password", IsAdmin: true}
+	t.Run("multiple superadmins", func(t *testing.T) {
+		var user = models.User{UserName: "superadmin1", Password: "password", IsSuperAdmin: true}
 		err := logic.CreateUser(&user)
 		assert.Nil(t, err)
-		found, err := logic.HasAdmin()
+		found, err := logic.HasSuperAdmin()
 		assert.Nil(t, err)
 		assert.True(t, found)
 	})
@@ -195,20 +135,20 @@ func TestCreateUser(t *testing.T) {
 	})
 }
 
-func TestCreateAdmin(t *testing.T) {
+func TestCreateSuperAdmin(t *testing.T) {
 	deleteAllUsers(t)
 	var user models.User
-	t.Run("NoAdmin", func(t *testing.T) {
+	t.Run("NoSuperAdmin", func(t *testing.T) {
 		user.UserName = "admin"
 		user.Password = "password"
-		err := logic.CreateAdmin(&user)
+		err := logic.CreateSuperAdmin(&user)
 		assert.Nil(t, err)
 	})
-	t.Run("AdminExists", func(t *testing.T) {
+	t.Run("SuperAdminExists", func(t *testing.T) {
 		user.UserName = "admin2"
 		user.Password = "password1"
-		err := logic.CreateAdmin(&user)
-		assert.EqualError(t, err, "admin user already exists")
+		err := logic.CreateSuperAdmin(&user)
+		assert.EqualError(t, err, "superadmin user already exists")
 	})
 }
 
@@ -280,7 +220,7 @@ func TestValidateUser(t *testing.T) {
 func TestGetUser(t *testing.T) {
 	deleteAllUsers(t)
 
-	user := models.User{UserName: "admin", Password: "password", Networks: nil, IsAdmin: true, Groups: nil}
+	user := models.User{UserName: "admin", Password: "password", IsAdmin: true}
 
 	t.Run("NonExistantUser", func(t *testing.T) {
 		admin, err := logic.GetUser("admin")
@@ -338,7 +278,7 @@ func TestGetUsers(t *testing.T) {
 func TestUpdateUser(t *testing.T) {
 	deleteAllUsers(t)
 	user := models.User{UserName: "admin", Password: "password", IsAdmin: true}
-	newuser := models.User{UserName: "hello", Password: "world", Networks: []string{"wirecat, netmaker"}, IsAdmin: true, Groups: []string{}}
+	newuser := models.User{UserName: "hello", Password: "world", IsAdmin: true}
 	t.Run("NonExistantUser", func(t *testing.T) {
 		admin, err := logic.UpdateUser(&newuser, &user)
 		assert.EqualError(t, err, "could not find any records")
@@ -381,7 +321,7 @@ func TestUpdateUser(t *testing.T) {
 
 func TestVerifyAuthRequest(t *testing.T) {
 	deleteAllUsers(t)
-	user := models.User{UserName: "admin", Password: "password", Networks: nil, IsAdmin: true, Groups: nil}
+	user := models.User{UserName: "admin", Password: "password", IsSuperAdmin: false, IsAdmin: true}
 	var authRequest models.UserAuthParams
 	t.Run("EmptyUserName", func(t *testing.T) {
 		authRequest.UserName = ""
@@ -402,7 +342,7 @@ func TestVerifyAuthRequest(t *testing.T) {
 		authRequest.Password = "password"
 		jwt, err := logic.VerifyAuthRequest(authRequest)
 		assert.Equal(t, "", jwt)
-		assert.EqualError(t, err, "error retrieving user from db: could not find any records")
+		assert.EqualError(t, err, "incorrect credentials")
 	})
 	t.Run("Non-Admin", func(t *testing.T) {
 		user.IsAdmin = false
@@ -417,7 +357,7 @@ func TestVerifyAuthRequest(t *testing.T) {
 		assert.Nil(t, err)
 	})
 	t.Run("WrongPassword", func(t *testing.T) {
-		user := models.User{UserName: "admin", Password: "password", Groups: []string{}}
+		user := models.User{UserName: "admin", Password: "password"}
 		if err := logic.CreateUser(&user); err != nil {
 			t.Error(err)
 		}

@@ -1,33 +1,32 @@
 //go:build ee
 // +build ee
 
-package ee
+package pro
 
 import (
 	controller "github.com/gravitl/netmaker/controllers"
-	"github.com/gravitl/netmaker/ee/ee_controllers"
-	eelogic "github.com/gravitl/netmaker/ee/logic"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
+	proControllers "github.com/gravitl/netmaker/pro/controllers"
+	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
 
-// InitEE - Initialize EE Logic
-func InitEE() {
-	setIsEnterprise()
-	servercfg.Is_EE = true
-	models.SetLogo(retrieveEELogo())
+// InitPro - Initialize Pro Logic
+func InitPro() {
+	servercfg.IsPro = true
+	models.SetLogo(retrieveProLogo())
 	controller.HttpMiddlewares = append(
 		controller.HttpMiddlewares,
-		ee_controllers.OnlyServerAPIWhenUnlicensedMiddleware,
+		proControllers.OnlyServerAPIWhenUnlicensedMiddleware,
 	)
 	controller.HttpHandlers = append(
 		controller.HttpHandlers,
-		ee_controllers.MetricHandlers,
-		ee_controllers.NetworkUsersHandlers,
-		ee_controllers.UserGroupsHandlers,
-		ee_controllers.RelayHandlers,
+		proControllers.MetricHandlers,
+		proControllers.RelayHandlers,
+		proControllers.UserHandlers,
 	)
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
 		// == License Handling ==
@@ -41,19 +40,31 @@ func InitEE() {
 		AddLicenseHooks()
 		resetFailover()
 	})
-	logic.EnterpriseFailoverFunc = eelogic.SetFailover
-	logic.EnterpriseResetFailoverFunc = eelogic.ResetFailover
-	logic.EnterpriseResetAllPeersFailovers = eelogic.WipeAffectedFailoversOnly
-	logic.DenyClientNodeAccess = eelogic.DenyClientNode
-	logic.IsClientNodeAllowed = eelogic.IsClientNodeAllowed
-	logic.AllowClientNodeAccess = eelogic.RemoveDeniedNodeFromClient
+	logic.EnterpriseFailoverFunc = proLogic.SetFailover
+	logic.EnterpriseResetFailoverFunc = proLogic.ResetFailover
+	logic.EnterpriseResetAllPeersFailovers = proLogic.WipeAffectedFailoversOnly
+	logic.DenyClientNodeAccess = proLogic.DenyClientNode
+	logic.IsClientNodeAllowed = proLogic.IsClientNodeAllowed
+	logic.AllowClientNodeAccess = proLogic.RemoveDeniedNodeFromClient
+	logic.SetClientDefaultACLs = proLogic.SetClientDefaultACLs
+	logic.SetClientACLs = proLogic.SetClientACLs
+	logic.UpdateProNodeACLs = proLogic.UpdateProNodeACLs
+	logic.GetMetrics = proLogic.GetMetrics
+	logic.UpdateMetrics = proLogic.UpdateMetrics
+	logic.DeleteMetrics = proLogic.DeleteMetrics
+	logic.GetAllowedIpsForRelayed = proLogic.GetAllowedIpsForRelayed
+	logic.RelayedAllowedIPs = proLogic.RelayedAllowedIPs
+	logic.UpdateRelayed = proLogic.UpdateRelayed
+	logic.SetRelayedNodes = proLogic.SetRelayedNodes
+	logic.RelayUpdates = proLogic.RelayUpdates
+	mq.UpdateMetrics = proLogic.MQUpdateMetrics
 }
 
 func resetFailover() {
 	nets, err := logic.GetNetworks()
 	if err == nil {
 		for _, net := range nets {
-			err = eelogic.ResetFailover(net.NetID)
+			err = proLogic.ResetFailover(net.NetID)
 			if err != nil {
 				slog.Error("failed to reset failover", "network", net.NetID, "error", err.Error())
 			}
@@ -61,7 +72,7 @@ func resetFailover() {
 	}
 }
 
-func retrieveEELogo() string {
+func retrieveProLogo() string {
 	return `              
  __   __     ______     ______   __    __     ______     __  __     ______     ______    
 /\ "-.\ \   /\  ___\   /\__  _\ /\ "-./  \   /\  __ \   /\ \/ /    /\  ___\   /\  == \   

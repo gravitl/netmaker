@@ -44,6 +44,7 @@ type HostInfoMap map[string]HostNetworkInfo
 type HostNetworkInfo struct {
 	Interfaces []Iface `json:"interfaces" yaml:"interfaces"`
 	ListenPort int     `json:"listen_port" yaml:"listen_port"`
+	IsStatic   bool    `json:"is_static"`
 }
 
 // PeerMap - peer map for ids and addresses in metrics

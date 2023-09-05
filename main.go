@@ -19,7 +19,6 @@ import (
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/pro"
 	"github.com/gravitl/netmaker/migrate"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
@@ -41,7 +40,7 @@ func main() {
 	initialize()                       // initial db and acls
 	setGarbageCollection()
 	setVerbosity()
-	if servercfg.DeployedByOperator() && !servercfg.Is_EE {
+	if servercfg.DeployedByOperator() && !servercfg.IsPro {
 		logic.SetFreeTierLimits()
 	}
 	defer database.CloseDB()
@@ -82,10 +81,6 @@ func initialize() { // Client Mode Prereq Check
 	migrate.Run()
 
 	logic.SetJWTSecret()
-
-	if err = pro.InitializeGroups(); err != nil {
-		logger.Log(0, "could not initialize default user group, \"*\"")
-	}
 
 	err = logic.TimerCheckpoint()
 	if err != nil {
