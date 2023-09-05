@@ -722,8 +722,6 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 		go func(node models.Node) {
 			if err = logic.DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
 				slog.Error("failed to delete extclients", "gatewayid", node.ID.String(), "network", node.Network, "error", err.Error())
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "bad request"))
-				return
 			}
 		}(node)
 
