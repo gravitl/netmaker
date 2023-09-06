@@ -83,7 +83,7 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 		DB           bool   `json:"db_connected"`
 		Broker       bool   `json:"broker_connected"`
 		LicenseError string `json:"license_error"`
-		IsEE         string `json:"IsEE"`
+		IsEE         bool   `json:"IsEE"`
 	}
 
 	licenseErr := ""
@@ -91,16 +91,11 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 		licenseErr = servercfg.ErrLicenseValidation.Error()
 	}
 
-	isEE := "no"
-	if servercfg.IsPro {
-		isEE = "yes"
-	}
-
 	currentServerStatus := status{
 		DB:           database.IsConnected(),
 		Broker:       mq.IsConnected(),
 		LicenseError: licenseErr,
-		IsEE:         isEE,
+		IsEE:         servercfg.IsPro,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
