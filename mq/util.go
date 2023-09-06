@@ -32,7 +32,7 @@ func decryptMsgWithHost(host *models.Host, msg []byte) ([]byte, error) {
 	return ncutils.DeChunk(msg, nodePubTKey, serverPrivTKey)
 }
 
-func decryptMsg(node *models.Node, msg []byte) ([]byte, error) {
+func DecryptMsg(node *models.Node, msg []byte) ([]byte, error) {
 	if len(msg) <= 24 { // make sure message is of appropriate length
 		return nil, fmt.Errorf("recieved invalid message from broker %v", msg)
 	}
@@ -93,7 +93,7 @@ func publish(host *models.Host, dest string, msg []byte) error {
 }
 
 // decodes a message queue topic and returns the embedded node.ID
-func getID(topic string) (string, error) {
+func GetID(topic string) (string, error) {
 	parts := strings.Split(topic, "/")
 	count := len(parts)
 	if count == 1 {

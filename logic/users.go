@@ -2,13 +2,11 @@ package logic
 
 import (
 	"encoding/json"
+	"errors"
 	"sort"
 
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic/pro"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/models/promodels"
 )
 
 // GetUser - gets a user
@@ -43,64 +41,17 @@ func GetReturnUser(username string) (models.ReturnUser, error) {
 // ToReturnUser - gets a user as a return user
 func ToReturnUser(user models.User) models.ReturnUser {
 	return models.ReturnUser{
-		UserName: user.UserName,
-		Networks: user.Networks,
-		IsAdmin:  user.IsAdmin,
-		Groups:   user.Groups,
+		UserName:     user.UserName,
+		IsSuperAdmin: user.IsSuperAdmin,
+		IsAdmin:      user.IsAdmin,
+		RemoteGwIDs:  user.RemoteGwIDs,
 	}
-}
-
-// GetGroupUsers - gets users in a group
-func GetGroupUsers(group string) ([]models.ReturnUser, error) {
-	var returnUsers []models.ReturnUser
-	users, err := GetUsers()
-	if err != nil {
-		return returnUsers, err
-	}
-	for _, user := range users {
-		if StringSliceContains(user.Groups, group) {
-			users = append(users, user)
-		}
-	}
-	return users, err
-}
-
-// == PRO ==
-
-// InitializeNetUsers - intializes network users for all users/networks
-func InitializeNetUsers(network *models.Network) error {
-	// == add all current users to network as network users ==
-	currentUsers, err := GetUsers()
-	if err != nil {
-		return err
-	}
-
-	for i := range currentUsers { // add all users to given network
-		newUser := promodels.NetworkUser{
-			ID:          promodels.NetworkUserID(currentUsers[i].UserName),
-			Clients:     []string{},
-			Nodes:       []string{},
-			AccessLevel: pro.NO_ACCESS,
-			ClientLimit: 0,
-			NodeLimit:   0,
-		}
-		if pro.IsUserAllowed(network, currentUsers[i].UserName, currentUsers[i].Groups) {
-			newUser.AccessLevel = network.ProSettings.DefaultAccessLevel
-			newUser.ClientLimit = network.ProSettings.DefaultUserClientLimit
-			newUser.NodeLimit = network.ProSettings.DefaultUserNodeLimit
-		}
-
-		if err = pro.CreateNetworkUser(network, &newUser); err != nil {
-			logger.Log(0, "failed to add network user settings to user", string(newUser.ID), "on network", network.NetID)
-		}
-	}
-	return nil
 }
 
 // SetUserDefaults - sets the defaults of a user to avoid empty fields
 func SetUserDefaults(user *models.User) {
-	if user.Groups == nil {
-		user.Groups = []string{pro.DEFAULT_ALLOWED_GROUPS}
+	if user.RemoteGwIDs == nil {
+		user.RemoteGwIDs = make(map[string]struct{})
 	}
 }
 
@@ -109,4 +60,18 @@ func SortUsers(unsortedUsers []models.ReturnUser) {
 	sort.Slice(unsortedUsers, func(i, j int) bool {
 		return unsortedUsers[i].UserName < unsortedUsers[j].UserName
 	})
+}
+
+// GetSuperAdmin - fetches superadmin user
+func GetSuperAdmin() (models.ReturnUser, error) {
+	users, err := GetUsers()
+	if err != nil {
+		return models.ReturnUser{}, err
+	}
+	for _, user := range users {
+		if user.IsSuperAdmin {
+			return user, nil
+		}
+	}
+	return models.ReturnUser{}, errors.New("superadmin not found")
 }

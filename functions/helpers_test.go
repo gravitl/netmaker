@@ -25,12 +25,10 @@ var (
 func TestMain(m *testing.M) {
 	database.InitializeDatabase()
 	defer database.CloseDB()
-	logic.CreateAdmin(&models.User{
-		UserName: "admin",
-		Password: "password",
-		IsAdmin:  true,
-		Networks: []string{},
-		Groups:   []string{},
+	logic.CreateSuperAdmin(&models.User{
+		UserName:     "superadmin",
+		Password:     "password",
+		IsSuperAdmin: true,
 	})
 	peerUpdate := make(chan *models.Node)
 	go logic.ManageZombies(context.Background(), peerUpdate)

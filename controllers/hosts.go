@@ -17,12 +17,12 @@ import (
 )
 
 func hostHandlers(r *mux.Router) {
-	r.HandleFunc("/api/hosts", logic.SecurityCheck(false, http.HandlerFunc(getHosts))).Methods(http.MethodGet)
+	r.HandleFunc("/api/hosts", logic.SecurityCheck(true, http.HandlerFunc(getHosts))).Methods(http.MethodGet)
 	r.HandleFunc("/api/hosts/keys", logic.SecurityCheck(true, http.HandlerFunc(updateAllKeys))).Methods(http.MethodPut)
 	r.HandleFunc("/api/hosts/{hostid}/keys", logic.SecurityCheck(true, http.HandlerFunc(updateKeys))).Methods(http.MethodPut)
 	r.HandleFunc("/api/hosts/{hostid}/sync", logic.SecurityCheck(true, http.HandlerFunc(syncHost))).Methods(http.MethodPost)
 	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(updateHost))).Methods(http.MethodPut)
-	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(deleteHost))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/hosts/{hostid}", Authorize(true, false, "all", http.HandlerFunc(deleteHost))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", logic.SecurityCheck(true, http.HandlerFunc(addHostToNetwork))).Methods(http.MethodPost)
 	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", logic.SecurityCheck(true, http.HandlerFunc(deleteHostFromNetwork))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/hosts/adm/authenticate", authenticateHost).Methods(http.MethodPost)
@@ -328,6 +328,14 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		// unset all the relayed nodes
 		logic.SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
 	}
+	if node.IsIngressGateway {
+		// delete ext clients belonging to ingress gateway
+		go func(node models.Node) {
+			if err = logic.DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
+				slog.Error("failed to delete extclients", "gatewayid", node.ID.String(), "network", node.Network, "error", err.Error())
+			}
+		}(*node)
+	}
 	logger.Log(1, "deleting node", node.ID.String(), "from host", currHost.Name)
 	if err := logic.DeleteNode(node, forceDelete); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
@@ -336,7 +344,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	node.Action = models.NODE_DELETE
 	node.PendingDelete = true
 	// notify node change
-	runUpdates(node, false)
+	mq.RunUpdates(node, false)
 	go func() { // notify of peer change
 		err = mq.PublishDeletedNodePeerUpdate(node)
 		if err != nil {

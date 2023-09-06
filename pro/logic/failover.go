@@ -45,7 +45,7 @@ func determineFailoverCandidate(nodeToBeRelayed *models.Node) *models.Node {
 		return nil
 	}
 
-	currentMetrics, err := logic.GetMetrics(nodeToBeRelayed.ID.String())
+	currentMetrics, err := GetMetrics(nodeToBeRelayed.ID.String())
 	if err != nil || currentMetrics == nil || currentMetrics.Connectivity == nil {
 		return nil
 	}
@@ -84,7 +84,7 @@ func setFailoverNode(failoverNode, node *models.Node) error {
 
 // WipeFailover - removes the failover peers of given node (ID)
 func WipeFailover(nodeid string) error {
-	metrics, err := logic.GetMetrics(nodeid)
+	metrics, err := GetMetrics(nodeid)
 	if err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func WipeAffectedFailoversOnly(nodeid uuid.UUID, network string) error {
 		if currNodeID == nodeid {
 			continue
 		}
-		currMetrics, err := logic.GetMetrics(currNodeID.String())
+		currMetrics, err := GetMetrics(currNodeID.String())
 		if err != nil || currMetrics == nil {
 			continue
 		}

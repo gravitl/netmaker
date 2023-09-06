@@ -9,10 +9,8 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/pro"
 	"github.com/gravitl/netmaker/logic/pro/netcache"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/models/promodels"
 )
 
 var (
@@ -163,26 +161,6 @@ func isUserIsAllowed(username, network string, shouldAddUser bool) (*models.User
 		}
 		logger.Log(0, "user", username, "was added during a node SSO network join on network", network)
 		user, _ = logic.GetUser(username)
-	}
-
-	if !user.IsAdmin { // perform check to see if user is allowed to join a node to network
-		netUser, err := pro.GetNetworkUser(network, promodels.NetworkUserID(user.UserName))
-		if err != nil {
-			logger.Log(0, "failed to get net user details for user", user.UserName, "during node SSO")
-			return nil, fmt.Errorf("failed to verify network user")
-		}
-		if netUser.AccessLevel != pro.NET_ADMIN { // if user is a net admin on network, good to go
-			// otherwise, check if they have node access + haven't reached node limit on network
-			if netUser.AccessLevel == pro.NODE_ACCESS {
-				if len(netUser.Nodes) >= netUser.NodeLimit {
-					logger.Log(0, "user", user.UserName, "has reached their node limit on network", network)
-					return nil, fmt.Errorf("user node limit exceeded")
-				}
-			} else {
-				logger.Log(0, "user", user.UserName, "attempted to access network", network, "via node SSO")
-				return nil, fmt.Errorf("network user not allowed")
-			}
-		}
 	}
 
 	return user, nil

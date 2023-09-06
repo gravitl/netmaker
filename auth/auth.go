@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/exp/slog"
 	"golang.org/x/oauth2"
 
 	"github.com/gorilla/websocket"
@@ -238,9 +239,9 @@ func HandleHeadlessSSO(w http.ResponseWriter, r *http.Request) {
 // == private methods ==
 
 func addUser(email string) error {
-	var hasAdmin, err = logic.HasAdmin()
+	var hasSuperAdmin, err = logic.HasSuperAdmin()
 	if err != nil {
-		logger.Log(1, "error checking for existence of admin user during OAuth login for", email, "; user not added")
+		slog.Error("error checking for existence of admin user during OAuth login for", "email", email, "error", err)
 		return err
 	} // generate random password to adapt to current model
 	var newPass, fetchErr = fetchPassValue("")
@@ -251,11 +252,11 @@ func addUser(email string) error {
 		UserName: email,
 		Password: newPass,
 	}
-	if !hasAdmin { // must be first attempt, create an admin
-		if err = logic.CreateAdmin(&newUser); err != nil {
-			logger.Log(1, "error creating admin from user,", email, "; user not added")
+	if !hasSuperAdmin { // must be first attempt, create a superadmin
+		if err = logic.CreateSuperAdmin(&newUser); err != nil {
+			slog.Error("error creating super admin from user", "email", email, "error", err)
 		} else {
-			logger.Log(1, "admin created from user,", email, "; was first user added")
+			slog.Info("superadmin created from user", "email", email)
 		}
 	} else { // otherwise add to db as admin..?
 		// TODO: add ability to add users with preemptive permissions

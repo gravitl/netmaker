@@ -16,8 +16,6 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
-	"github.com/gravitl/netmaker/logic/pro"
-	"github.com/gravitl/netmaker/logic/pro/proacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/validation"
@@ -150,7 +148,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 		}
 	}
 	nodeACLDelta := currentNode.DefaultACL != newNode.DefaultACL
-	newNode.Fill(currentNode, servercfg.Is_EE)
+	newNode.Fill(currentNode, servercfg.IsPro)
 
 	// check for un-settable server values
 	if err := ValidateNode(newNode, true); err != nil {
@@ -159,7 +157,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 
 	if newNode.ID == currentNode.ID {
 		if nodeACLDelta {
-			if err := updateProNodeACLS(newNode); err != nil {
+			if err := UpdateProNodeACLs(newNode); err != nil {
 				logger.Log(1, "failed to apply node level ACLs during creation of node", newNode.ID.String(), "-", err.Error())
 				return err
 			}
@@ -208,7 +206,7 @@ func DeleteNode(node *models.Node, purge bool) error {
 	if err := DissasociateNodeFromHost(node, host); err != nil {
 		return err
 	}
-	if servercfg.Is_EE {
+	if servercfg.IsPro {
 		if err := EnterpriseResetAllPeersFailovers(node.ID, node.Network); err != nil {
 			logger.Log(0, "failed to reset failover lists during node delete for node", host.Name, node.Network)
 		}
@@ -235,12 +233,6 @@ func deleteNodeByID(node *models.Node) error {
 	deleteNodeFromCache(node.ID.String())
 	if servercfg.IsDNSMode() {
 		SetDNS()
-	}
-	if node.OwnerID != "" {
-		err = pro.DissociateNetworkUserNode(node.OwnerID, node.Network, node.ID.String())
-		if err != nil {
-			logger.Log(0, "failed to dissasociate", node.OwnerID, "from node", node.ID.String(), ":", err.Error())
-		}
 	}
 	_, err = nodeacls.RemoveNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()))
 	if err != nil {
@@ -421,21 +413,6 @@ func FindRelay(node *models.Node) *models.Node {
 	return &relay
 }
 
-// GetNetworkIngresses - gets the gateways of a network
-func GetNetworkIngresses(network string) ([]models.Node, error) {
-	var ingresses []models.Node
-	netNodes, err := GetNetworkNodes(network)
-	if err != nil {
-		return []models.Node{}, err
-	}
-	for i := range netNodes {
-		if netNodes[i].IsIngressGateway {
-			ingresses = append(ingresses, netNodes[i])
-		}
-	}
-	return ingresses, nil
-}
-
 // GetAllNodesAPI - get all nodes for api usage
 func GetAllNodesAPI(nodes []models.Node) []models.ApiNode {
 	apiNodes := []models.ApiNode{}
@@ -475,20 +452,6 @@ func DeleteExpiredNodes(ctx context.Context, peerUpdate chan *models.Node) {
 			}
 		}
 	}
-}
-
-// == PRO ==
-
-func updateProNodeACLS(node *models.Node) error {
-	// == PRO node ACLs ==
-	networkNodes, err := GetNetworkNodes(node.Network)
-	if err != nil {
-		return err
-	}
-	if err = proacls.AdjustNodeAcls(node, networkNodes[:]); err != nil {
-		return err
-	}
-	return nil
 }
 
 // createNode - creates a node in database
@@ -580,7 +543,7 @@ func createNode(node *models.Node) error {
 		return err
 	}
 
-	if err = updateProNodeACLS(node); err != nil {
+	if err = UpdateProNodeACLs(node); err != nil {
 		logger.Log(1, "failed to apply node level ACLs during creation of node", node.ID.String(), "-", err.Error())
 		return err
 	}
@@ -602,5 +565,3 @@ func SortApiNodes(unsortedNodes []models.ApiNode) {
 		return unsortedNodes[i].ID < unsortedNodes[j].ID
 	})
 }
-
-// == END PRO ==

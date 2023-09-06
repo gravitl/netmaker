@@ -8,7 +8,7 @@
 - Upgrade Process from v0.17.1 to latest version can be now done seamlessly, please refer docs for more information
 - Expired nodes clean up is handled correctly now
 - Ext client config generation fixed for ipv6 endpoints
-- installation process will only generate certs required for required Domains based on CE or EE
+- installation process will only generate certs required for required Domains based on CE or Pro
 - support for ARM machines on install script
      
 ## known issues

@@ -357,7 +357,7 @@ func (node *LegacyNode) SetDefaultFailover() {
 }
 
 // Node.Fill - fills other node data into calling node data if not set on calling node (skips DNSOn)
-func (newNode *Node) Fill(currentNode *Node, isEE bool) { // TODO add new field for nftables present
+func (newNode *Node) Fill(currentNode *Node, isPro bool) { // TODO add new field for nftables present
 	newNode.ID = currentNode.ID
 	newNode.HostID = currentNode.HostID
 	// Revisit the logic for boolean values
@@ -408,10 +408,10 @@ func (newNode *Node) Fill(currentNode *Node, isEE bool) { // TODO add new field 
 	if newNode.RelayedNodes == nil {
 		newNode.RelayedNodes = currentNode.RelayedNodes
 	}
-	if newNode.IsRelay != currentNode.IsRelay && isEE {
+	if newNode.IsRelay != currentNode.IsRelay && isPro {
 		newNode.IsRelay = currentNode.IsRelay
 	}
-	if newNode.IsRelayed == currentNode.IsRelayed && isEE {
+	if newNode.IsRelayed == currentNode.IsRelayed && isPro {
 		newNode.IsRelayed = currentNode.IsRelayed
 	}
 	if newNode.Server == "" {
