@@ -2,15 +2,10 @@
 # Netmaker v0.21.0
 
 ## Whats New
-- Sync clients with server state from UI
-
+- New User Management, Refer Docs For More Info
+- Added Functionality For Remote Access Client
 ## What's Fixed
-- Upgrade Process from v0.17.1 to latest version can be now done seamlessly, please refer docs for more information
-- Expired nodes clean up is handled correctly now
-- Ext client config generation fixed for ipv6 endpoints
-- installation process will only generate certs required for required Domains based on CE or Pro
-- support for ARM machines on install script
-     
+-  Proper Cleanup Of Extclients On a Client Gateway Deletion
 ## known issues
 - Windows installer does not install WireGuard
 - netclient-gui will continously display error dialog if netmaker server is offline
