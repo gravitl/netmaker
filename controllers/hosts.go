@@ -23,12 +23,29 @@ func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/hosts/{hostid}/sync", logic.SecurityCheck(true, http.HandlerFunc(syncHost))).Methods(http.MethodPost)
 	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(updateHost))).Methods(http.MethodPut)
 	r.HandleFunc("/api/hosts/{hostid}", Authorize(true, false, "all", http.HandlerFunc(deleteHost))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/hosts/{hostid}/upgrade", logic.SecurityCheck(true, http.HandlerFunc(upgradeHost))).Methods(http.MethodPut)
 	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", logic.SecurityCheck(true, http.HandlerFunc(addHostToNetwork))).Methods(http.MethodPost)
 	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", logic.SecurityCheck(true, http.HandlerFunc(deleteHostFromNetwork))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/hosts/adm/authenticate", authenticateHost).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/host", Authorize(true, false, "host", http.HandlerFunc(pull))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/host/{hostid}/signalpeer", Authorize(true, false, "host", http.HandlerFunc(signalPeer))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/auth-register/host", socketHandler)
+}
+
+// upgrade host is a handler to send upgrade message to a host
+func upgradeHost(w http.ResponseWriter, r *http.Request) {
+	host, err := logic.GetHost(mux.Vars(r)["hostid"])
+	if err != nil {
+		slog.Error("failed to find host", "error", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "notfound"))
+		return
+	}
+	if err := mq.HostUpdate(&models.HostUpdate{Action: models.Upgrade, Host: *host}); err != nil {
+		slog.Error("failed to upgrade host", "error", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	logic.ReturnSuccessResponse(w, r, "passed message to upgrade host")
 }
 
 // swagger:route GET /api/hosts hosts getHosts
