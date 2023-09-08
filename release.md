@@ -3,7 +3,7 @@
 
 ## Whats New
 - New User Management, Refer Docs For More Info
-- Added Functionality For Remote Access Client
+- Added Support For Remote Access Client
 ## What's Fixed
 -  Proper Cleanup Of Extclients On a Client Gateway Deletion
 ## known issues
