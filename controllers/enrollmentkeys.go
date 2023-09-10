@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
+	"golang.org/x/exp/slog"
 )
 
 func enrollmentKeyHandlers(r *mux.Router) {
@@ -223,6 +224,19 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		enrollmentKey.Networks = networksToAdd
+		currHost, err := logic.GetHost(newHost.ID.String())
+		if err != nil {
+			slog.Error("failed registration", "hostID", newHost.ID.String(), "hostName", newHost.Name, "error", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+		logic.UpdateHostFromClient(&newHost, currHost)
+		err = logic.UpsertHost(currHost)
+		if err != nil {
+			slog.Error("failed to update host", "id", currHost.ID, "error", err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
 	}
 	// ready the response
 	server := servercfg.GetServerInfo()
