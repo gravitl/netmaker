@@ -77,16 +77,21 @@ func checkForZombieHosts(h *models.Host) {
 func ManageZombies(ctx context.Context, peerUpdate chan *models.Node) {
 	logger.Log(2, "Zombie management started")
 	InitializeZombies()
+
+	// Zombie Nodes Cleanup Four Times a Day
+	ticker := time.NewTicker(time.Hour * ZOMBIE_TIMEOUT)
+
 	for {
 		select {
 		case <-ctx.Done():
+			ticker.Stop()
 			close(peerUpdate)
 			return
 		case id := <-newZombie:
 			zombies = append(zombies, id)
 		case id := <-newHostZombie:
 			hostZombies = append(hostZombies, id)
-		case <-time.After(time.Hour * ZOMBIE_TIMEOUT): // run this check 4 times a day
+		case <-ticker.C: // run this check 4 times a day
 			logger.Log(3, "checking for zombie nodes")
 			if len(zombies) > 0 {
 				for i := len(zombies) - 1; i >= 0; i-- {
