@@ -425,12 +425,14 @@ func GetAllNodesAPI(nodes []models.Node) []models.ApiNode {
 
 // DeleteExpiredNodes - goroutine which deletes nodes which are expired
 func DeleteExpiredNodes(ctx context.Context, peerUpdate chan *models.Node) {
+	// Delete Expired Nodes Every Hour
+	ticker := time.NewTicker(time.Hour)
 	for {
 		select {
 		case <-ctx.Done():
+			ticker.Stop()
 			return
-		case <-time.After(time.Hour):
-			// Delete Expired Nodes Every Hour
+		case <-ticker.C:
 			allnodes, err := GetAllNodes()
 			if err != nil {
 				slog.Error("failed to retrieve all nodes", "error", err.Error())

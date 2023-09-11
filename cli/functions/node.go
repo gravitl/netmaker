@@ -52,8 +52,3 @@ func CreateIngress(networkName, nodeID string, failover bool) *models.ApiNode {
 func DeleteIngress(networkName, nodeID string) *models.ApiNode {
 	return request[models.ApiNode](http.MethodDelete, fmt.Sprintf("/api/nodes/%s/%s/deleteingress", networkName, nodeID), nil)
 }
-
-// UncordonNode - uncordon a node
-func UncordonNode(networkName, nodeID string) *string {
-	return request[string](http.MethodPost, fmt.Sprintf("/api/nodes/%s/%s/approve", networkName, nodeID), nil)
-}
