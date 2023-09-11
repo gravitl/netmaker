@@ -32,7 +32,7 @@ func SetDNS() error {
 			return err
 		}
 		for _, entry := range dns {
-			hostfile.AddHost(entry.Address, entry.Name+"."+entry.Network)
+			hostfile.AddHost(entry.Address, entry.Name)
 		}
 	}
 	if corefilestring == "" {
