@@ -1,5 +1,5 @@
 
-# Netmaker v0.21.0
+# Netmaker v0.21.1
 
 ## Whats New
 - New User Management, Refer Docs For More Info
