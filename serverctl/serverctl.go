@@ -8,7 +8,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
-	"github.com/gravitl/netmaker/logic/pro"
+	"golang.org/x/exp/slog"
 )
 
 const (
@@ -59,10 +59,6 @@ func setNetworkDefaults() error {
 		return err
 	}
 	for _, network := range networks {
-		if err = pro.InitializeNetworkUsers(network.NetID); err != nil {
-			logger.Log(0, "could not initialize NetworkUsers on network", network.NetID)
-		}
-		pro.AddProNetDefaults(&network)
 		update := false
 		newNet := network
 		if strings.Contains(network.NetID, ".") {
@@ -85,7 +81,7 @@ func setNetworkDefaults() error {
 			}
 		} else {
 			network.SetDefaults()
-			_, _, _, _, _, err = logic.UpdateNetwork(&network, &network)
+			_, _, _, err = logic.UpdateNetwork(&network, &network)
 			if err != nil {
 				logger.Log(0, "could not set defaults on network", network.NetID)
 			}
@@ -102,13 +98,12 @@ func setUserDefaults() error {
 	for _, user := range users {
 		updateUser, err := logic.GetUser(user.UserName)
 		if err != nil {
-			logger.Log(0, "could not update user", updateUser.UserName)
+			slog.Error("could not get user", "user", updateUser.UserName, "error", err.Error())
 		}
 		logic.SetUserDefaults(updateUser)
-		copyUser := updateUser
-		copyUser.Password = ""
-		if _, err = logic.UpdateUser(copyUser, updateUser); err != nil {
-			logger.Log(0, "could not update user", updateUser.UserName)
+		err = logic.UpsertUser(*updateUser)
+		if err != nil {
+			slog.Error("could not update user", "user", updateUser.UserName, "error", err.Error())
 		}
 	}
 	return nil

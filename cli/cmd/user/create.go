@@ -1,8 +1,6 @@
 package user
 
 import (
-	"strings"
-
 	"github.com/gravitl/netmaker/cli/functions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/spf13/cobra"
@@ -15,12 +13,6 @@ var userCreateCmd = &cobra.Command{
 	Long:  `Create a new user`,
 	Run: func(cmd *cobra.Command, args []string) {
 		user := &models.User{UserName: username, Password: password, IsAdmin: admin}
-		if networks != "" {
-			user.Networks = strings.Split(networks, ",")
-		}
-		if groups != "" {
-			user.Groups = strings.Split(groups, ",")
-		}
 		functions.PrettyPrint(functions.CreateUser(user))
 	},
 }

@@ -7,8 +7,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/txn2/txeh"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
+	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 )
@@ -50,6 +52,8 @@ func TestGetNodeDNS(t *testing.T) {
 	deleteAllNetworks()
 	createNet()
 	createHost()
+	err := functions.SetDNSDir()
+	assert.Nil(t, err)
 	t.Run("NoNodes", func(t *testing.T) {
 		dns, _ := logic.GetNodeDNS("skynet")
 		assert.Equal(t, []models.DNSEntry(nil), dns)
@@ -202,22 +206,28 @@ func TestCreateDNS(t *testing.T) {
 func TestSetDNS(t *testing.T) {
 	deleteAllDNS(t)
 	deleteAllNetworks()
+	etc, err := txeh.NewHosts(&txeh.HostsConfig{})
+	assert.Nil(t, err)
+	err = functions.SetDNSDir()
+	assert.Nil(t, err)
 	t.Run("NoNetworks", func(t *testing.T) {
 		err := logic.SetDNS()
 		assert.Nil(t, err)
-		info, err := os.Stat("./config/dnsconfig/netmaker.hosts")
+		info, err := txeh.NewHosts(&txeh.HostsConfig{
+			ReadFilePath: "./config/dnsconfig/netmaker.hosts",
+		})
 		assert.Nil(t, err)
-		assert.False(t, info.IsDir())
-		assert.Equal(t, int64(0), info.Size())
+		assert.Equal(t, etc.RenderHostsFile(), info.RenderHostsFile())
 	})
 	t.Run("NoEntries", func(t *testing.T) {
 		createNet()
 		err := logic.SetDNS()
 		assert.Nil(t, err)
-		info, err := os.Stat("./config/dnsconfig/netmaker.hosts")
+		info, err := txeh.NewHosts(&txeh.HostsConfig{
+			ReadFilePath: "./config/dnsconfig/netmaker.hosts",
+		})
 		assert.Nil(t, err)
-		assert.False(t, info.IsDir())
-		assert.Equal(t, int64(0), info.Size())
+		assert.Equal(t, etc.RenderHostsFile(), info.RenderHostsFile())
 	})
 	t.Run("NodeExists", func(t *testing.T) {
 		createTestNode()
@@ -400,6 +410,19 @@ func TestValidateDNSCreate(t *testing.T) {
 		assert.NotNil(t, err)
 		assert.Contains(t, err.Error(), "Field validation for 'Name' failed on the 'name_unique' tag")
 	})
+	t.Run("WhiteSpace", func(t *testing.T) {
+		entry := models.DNSEntry{Address: "10.10.10.5", Name: "white space", Network: "skynet"}
+		err := logic.ValidateDNSCreate(entry)
+		assert.NotNil(t, err)
+		assert.Contains(t, err.Error(), "Field validation for 'Name' failed on the 'whitespace' tag")
+	})
+	t.Run("AllSpaces", func(t *testing.T) {
+		entry := models.DNSEntry{Address: "10.10.10.5", Name: "     ", Network: "skynet"}
+		err := logic.ValidateDNSCreate(entry)
+		assert.NotNil(t, err)
+		assert.Contains(t, err.Error(), "Field validation for 'Name' failed on the 'whitespace' tag")
+	})
+
 }
 
 func createHost() {

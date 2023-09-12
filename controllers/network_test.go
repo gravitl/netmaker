@@ -25,12 +25,10 @@ var netHost models.Host
 func TestMain(m *testing.M) {
 	database.InitializeDatabase()
 	defer database.CloseDB()
-	logic.CreateAdmin(&models.User{
+	logic.CreateSuperAdmin(&models.User{
 		UserName: "admin",
 		Password: "password",
 		IsAdmin:  true,
-		Networks: []string{},
-		Groups:   []string{},
 	})
 	peerUpdate := make(chan *models.Node)
 	go logic.ManageZombies(context.Background(), peerUpdate)
@@ -91,27 +89,16 @@ func TestSecurityCheck(t *testing.T) {
 
 	os.Setenv("MASTER_KEY", "secretkey")
 	t.Run("NoNetwork", func(t *testing.T) {
-		networks, username, err := logic.UserPermissions(false, "", "Bearer secretkey")
+		username, err := logic.UserPermissions(false, "Bearer secretkey")
 		assert.Nil(t, err)
-		t.Log(networks, username)
+		t.Log(username)
 	})
-	t.Run("WithNetwork", func(t *testing.T) {
-		networks, username, err := logic.UserPermissions(false, "skynet", "Bearer secretkey")
-		assert.Nil(t, err)
-		t.Log(networks, username)
-	})
-	t.Run("BadNet", func(t *testing.T) {
-		t.Skip()
-		networks, username, err := logic.UserPermissions(false, "badnet", "Bearer secretkey")
-		assert.NotNil(t, err)
-		t.Log(err)
-		t.Log(networks, username)
-	})
+
 	t.Run("BadToken", func(t *testing.T) {
-		networks, username, err := logic.UserPermissions(false, "skynet", "Bearer badkey")
+		username, err := logic.UserPermissions(false, "Bearer badkey")
 		assert.NotNil(t, err)
 		t.Log(err)
-		t.Log(networks, username)
+		t.Log(username)
 	})
 }
 

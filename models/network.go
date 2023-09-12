@@ -2,30 +2,27 @@ package models
 
 import (
 	"time"
-
-	"github.com/gravitl/netmaker/models/promodels"
 )
 
 // Network Struct - contains info for a given unique network
 // At  some point, need to replace all instances of Name with something else like  Identifier
 type Network struct {
-	AddressRange        string                `json:"addressrange" bson:"addressrange" validate:"omitempty,cidrv4"`
-	AddressRange6       string                `json:"addressrange6" bson:"addressrange6" validate:"omitempty,cidrv6"`
-	NetID               string                `json:"netid" bson:"netid" validate:"required,min=1,max=32,netid_valid"`
-	NodesLastModified   int64                 `json:"nodeslastmodified" bson:"nodeslastmodified"`
-	NetworkLastModified int64                 `json:"networklastmodified" bson:"networklastmodified"`
-	DefaultInterface    string                `json:"defaultinterface" bson:"defaultinterface" validate:"min=1,max=35"`
-	DefaultListenPort   int32                 `json:"defaultlistenport,omitempty" bson:"defaultlistenport,omitempty" validate:"omitempty,min=1024,max=65535"`
-	NodeLimit           int32                 `json:"nodelimit" bson:"nodelimit"`
-	DefaultPostDown     string                `json:"defaultpostdown" bson:"defaultpostdown"`
-	DefaultKeepalive    int32                 `json:"defaultkeepalive" bson:"defaultkeepalive" validate:"omitempty,max=1000"`
-	AllowManualSignUp   string                `json:"allowmanualsignup" bson:"allowmanualsignup" validate:"checkyesorno"`
-	IsIPv4              string                `json:"isipv4" bson:"isipv4" validate:"checkyesorno"`
-	IsIPv6              string                `json:"isipv6" bson:"isipv6" validate:"checkyesorno"`
-	DefaultUDPHolePunch string                `json:"defaultudpholepunch" bson:"defaultudpholepunch" validate:"checkyesorno"`
-	DefaultMTU          int32                 `json:"defaultmtu" bson:"defaultmtu"`
-	DefaultACL          string                `json:"defaultacl" bson:"defaultacl" yaml:"defaultacl" validate:"checkyesorno"`
-	ProSettings         *promodels.ProNetwork `json:"prosettings,omitempty" bson:"prosettings,omitempty" yaml:"prosettings,omitempty"`
+	AddressRange        string `json:"addressrange" bson:"addressrange" validate:"omitempty,cidrv4"`
+	AddressRange6       string `json:"addressrange6" bson:"addressrange6" validate:"omitempty,cidrv6"`
+	NetID               string `json:"netid" bson:"netid" validate:"required,min=1,max=32,netid_valid"`
+	NodesLastModified   int64  `json:"nodeslastmodified" bson:"nodeslastmodified"`
+	NetworkLastModified int64  `json:"networklastmodified" bson:"networklastmodified"`
+	DefaultInterface    string `json:"defaultinterface" bson:"defaultinterface" validate:"min=1,max=35"`
+	DefaultListenPort   int32  `json:"defaultlistenport,omitempty" bson:"defaultlistenport,omitempty" validate:"omitempty,min=1024,max=65535"`
+	NodeLimit           int32  `json:"nodelimit" bson:"nodelimit"`
+	DefaultPostDown     string `json:"defaultpostdown" bson:"defaultpostdown"`
+	DefaultKeepalive    int32  `json:"defaultkeepalive" bson:"defaultkeepalive" validate:"omitempty,max=1000"`
+	AllowManualSignUp   string `json:"allowmanualsignup" bson:"allowmanualsignup" validate:"checkyesorno"`
+	IsIPv4              string `json:"isipv4" bson:"isipv4" validate:"checkyesorno"`
+	IsIPv6              string `json:"isipv6" bson:"isipv6" validate:"checkyesorno"`
+	DefaultUDPHolePunch string `json:"defaultudpholepunch" bson:"defaultudpholepunch" validate:"checkyesorno"`
+	DefaultMTU          int32  `json:"defaultmtu" bson:"defaultmtu"`
+	DefaultACL          string `json:"defaultacl" bson:"defaultacl" yaml:"defaultacl" validate:"checkyesorno"`
 }
 
 // SaveData - sensitive fields of a network that should be kept the same
