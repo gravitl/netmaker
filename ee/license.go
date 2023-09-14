@@ -51,8 +51,8 @@ func ValidateLicense() (err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("%w: %s", errValidation, err.Error())
-			servercfg.ErrLicenseValidation = err
 		}
+		servercfg.ErrLicenseValidation = err
 	}()
 
 	licenseKeyValue := servercfg.GetLicenseKey()
