@@ -87,6 +87,7 @@ type ServerConfig struct {
 	EgressesLimit              int    `yaml:"egresses_limit"`
 	DeployedByOperator         bool   `yaml:"deployed_by_operator"`
 	Environment                string `yaml:"environment"`
+	JwtValidityDuration        int    `yaml:"jwt_validity_duration"`
 }
 
 // SQLConfig - Generic SQL Config

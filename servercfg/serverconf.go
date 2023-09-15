@@ -90,8 +90,19 @@ func GetServerConfig() config.ServerConfig {
 	if IsPro {
 		cfg.IsPro = "yes"
 	}
+	cfg.JwtValidityDuration = GetJwtValidityDuration()
 
 	return cfg
+}
+
+func GetJwtValidityDuration() int {
+	var duration int
+	if os.Getenv("JWT_VALIDITY_DURATION") != "" {
+		duration, _ = strconv.Atoi(os.Getenv("JWT_VALIDITY_DURATION"))
+	} else {
+		duration = int(time.Duration(24 * time.Hour).Seconds())
+	}
+	return duration
 }
 
 // GetServerConfig - gets the server config into memory from file or env

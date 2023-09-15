@@ -24,19 +24,21 @@ type AuthParams struct {
 
 // User struct - struct for Users
 type User struct {
-	UserName     string              `json:"username" bson:"username" validate:"min=3,max=40,in_charset|email"`
-	Password     string              `json:"password" bson:"password" validate:"required,min=5"`
-	IsAdmin      bool                `json:"isadmin" bson:"isadmin"`
-	IsSuperAdmin bool                `json:"issuperadmin"`
-	RemoteGwIDs  map[string]struct{} `json:"remote_gw_ids"`
+	UserName      string              `json:"username" bson:"username" validate:"min=3,max=40,in_charset|email"`
+	Password      string              `json:"password" bson:"password" validate:"required,min=5"`
+	IsAdmin       bool                `json:"isadmin" bson:"isadmin"`
+	IsSuperAdmin  bool                `json:"issuperadmin"`
+	RemoteGwIDs   map[string]struct{} `json:"remote_gw_ids"`
+	LastLoginTime time.Time           `json:"lastlogintime"`
 }
 
 // ReturnUser - return user struct
 type ReturnUser struct {
-	UserName     string              `json:"username"`
-	IsAdmin      bool                `json:"isadmin"`
-	IsSuperAdmin bool                `json:"issuperadmin"`
-	RemoteGwIDs  map[string]struct{} `json:"remote_gw_ids"`
+	UserName      string              `json:"username"`
+	IsAdmin       bool                `json:"isadmin"`
+	IsSuperAdmin  bool                `json:"issuperadmin"`
+	RemoteGwIDs   map[string]struct{} `json:"remote_gw_ids"`
+	LastLoginTime time.Time           `json:"lastlogintime"`
 }
 
 // UserAuthParams - user auth params struct
