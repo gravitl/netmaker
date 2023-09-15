@@ -26,45 +26,12 @@ func serverHandlers(r *mux.Router) {
 }
 
 func getUsage(w http.ResponseWriter, r *http.Request) {
-	type usage struct {
-		Hosts     int `json:"hosts"`
-		Clients   int `json:"clients"`
-		Networks  int `json:"networks"`
-		Users     int `json:"users"`
-		Ingresses int `json:"ingresses"`
-		Egresses  int `json:"egresses"`
-	}
-	var serverUsage usage
-	hosts, err := logic.GetAllHosts()
-	if err == nil {
-		serverUsage.Hosts = len(hosts)
-	}
-	clients, err := logic.GetAllExtClients()
-	if err == nil {
-		serverUsage.Clients = len(clients)
-	}
-	users, err := logic.GetUsers()
-	if err == nil {
-		serverUsage.Users = len(users)
-	}
-	networks, err := logic.GetNetworks()
-	if err == nil {
-		serverUsage.Networks = len(networks)
-	}
-	ingresses, err := logic.GetAllIngresses()
-	if err == nil {
-		serverUsage.Ingresses = len(ingresses)
-	}
-	egresses, err := logic.GetAllEgresses()
-	if err == nil {
-		serverUsage.Egresses = len(egresses)
-	}
+	serverUsage := logic.GetCurrentServerUsage()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(models.SuccessResponse{
 		Code:     http.StatusOK,
 		Response: serverUsage,
 	})
-
 }
 
 // swagger:route GET /api/server/status server getStatus

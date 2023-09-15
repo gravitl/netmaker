@@ -31,3 +31,41 @@ func EnterpriseCheck() {
 		check()
 	}
 }
+
+func GetCurrentServerUsage() (usage models.Usage) {
+	usage.SetDefaults()
+	hosts, hErr := GetAllHosts()
+	if hErr == nil {
+		usage.Hosts = len(hosts)
+	}
+	clients, cErr := GetAllExtClients()
+	if cErr == nil {
+		usage.Clients = len(clients)
+	}
+	users, err := GetUsers()
+	if err == nil {
+		usage.Users = len(users)
+	}
+	networks, err := GetNetworks()
+	if err == nil {
+		usage.Networks = len(networks)
+	}
+	// TODO this part bellow can be optimized to get nodes just once
+	ingresses, err := GetAllIngresses()
+	if err == nil {
+		usage.Ingresses = len(ingresses)
+	}
+	egresses, err := GetAllEgresses()
+	if err == nil {
+		usage.Egresses = len(egresses)
+	}
+	relays, err := GetRelays()
+	if err == nil {
+		usage.Relays = len(relays)
+	}
+	gateways, err := GetInternetGateways()
+	if err == nil {
+		usage.InternetGateways = len(gateways)
+	}
+	return
+}
