@@ -27,8 +27,8 @@ func UpdateNode(networkName, nodeID string, node *models.ApiNode) *models.ApiNod
 }
 
 // DeleteNode - delete a node
-func DeleteNode(networkName, nodeID string) *models.SuccessResponse {
-	return request[models.SuccessResponse](http.MethodDelete, fmt.Sprintf("/api/nodes/%s/%s", networkName, nodeID), nil)
+func DeleteNode(networkName, nodeID string, force bool) *models.SuccessResponse {
+	return request[models.SuccessResponse](http.MethodDelete, fmt.Sprintf("/api/nodes/%s/%s?force=%t", networkName, nodeID, force), nil)
 }
 
 // CreateEgress - turn a node into an egress
@@ -51,9 +51,4 @@ func CreateIngress(networkName, nodeID string, failover bool) *models.ApiNode {
 // DeleteIngress - remove ingress role from a node
 func DeleteIngress(networkName, nodeID string) *models.ApiNode {
 	return request[models.ApiNode](http.MethodDelete, fmt.Sprintf("/api/nodes/%s/%s/deleteingress", networkName, nodeID), nil)
-}
-
-// UncordonNode - uncordon a node
-func UncordonNode(networkName, nodeID string) *string {
-	return request[string](http.MethodPost, fmt.Sprintf("/api/nodes/%s/%s/approve", networkName, nodeID), nil)
 }
