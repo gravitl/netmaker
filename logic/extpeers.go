@@ -225,7 +225,7 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 	if update.PublicKey != "" && old.PublicKey != update.PublicKey {
 		new.PublicKey = update.PublicKey
 	}
-	if update.DNS != "" && update.DNS != old.DNS {
+	if update.DNS != old.DNS {
 		new.DNS = update.DNS
 	}
 	if update.Enabled != old.Enabled {
