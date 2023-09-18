@@ -1,3 +1,4 @@
+---
 openapi: 3.0.1
 servers:
   - url: https://api.demo.netmaker.io
@@ -941,6 +942,18 @@ paths:
       summary: check for superadmin
       tags:
         - admin
+  /api/users/adm/createsuperadmin:
+    post:
+      operationId: createSuperAdmin
+      requestBody:
+        $ref: '#/components/requestBodies/user'
+      responses:
+        '200':
+            $ref: '#/components/responses/returnedUser'
+      summary: create superadmin
+      tags:
+        - admin
+        
 components:
   securitySchemes:
     bearerAuth:
@@ -1638,6 +1651,23 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/signal'
+    returnedUser:
+      description: user resonse
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              Username:
+                type: string
+              IsSuperAdmin:
+                type: boolean
+              IsAdmin:
+                type: boolean
+              RemoteGWIDs:
+                type: array
+                items:
+                    type: string
     userGroup:
       description: User Group
       content:
@@ -1726,7 +1756,7 @@ components:
                 type: string
               Password:
                 type: string
-    userGroup:
+    user:
       content:
         application/json:
           schema:
