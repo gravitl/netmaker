@@ -1,1757 +1,1738 @@
----
-openapi: "3.0.1"
+openapi: 3.0.1
 servers:
-    - url: "https://api.demo.netmaker.io"
+  - url: https://api.demo.netmaker.io
 info:
-    description: |-
-        API Usage
-
-        Most actions that can be performed via API can be performed via UI. We recommend managing your networks using the official netmaker-ui project. However, Netmaker can also be run without the UI, and all functions can be achieved via API calls. If your use case requires using Netmaker without the UI or you need to do some troubleshooting/advanced configuration, using the API directly may help.
+  description: >-
+    API Usage
 
 
-        Authentication
+    Most actions that can be performed via API can be performed via UI. We
+    recommend managing your networks using the official netmaker-ui project.
+    However, Netmaker can also be run without the UI, and all functions can be
+    achieved via API calls. If your use case requires using Netmaker without the
+    UI or you need to do some troubleshooting/advanced configuration, using the
+    API directly may help.
 
-        API calls must be authenticated via a header of the format -H “Authorization: Bearer <YOUR_SECRET_KEY>” There are two methods to obtain YOUR_SECRET_KEY: 1. Using the masterkey. This value can be set via env var at startup or in a config file (config/environments/< env >.yaml). See the [Netmaker](https://docs.netmaker.org/index.html) documentation for more details. 2. Using a JWT received for a node. This can be retrieved by calling the /api/nodes/<network>/authenticate endpoint, as documented below.
-    title: Netmaker
-    version: 0.20.6
+
+
+    Authentication
+
+
+    API calls must be authenticated via a header of the format -H
+    “Authorization: Bearer <YOUR_SECRET_KEY>” There are two methods to obtain
+    YOUR_SECRET_KEY: 1. Using the masterkey. This value can be set via env var
+    at startup or in a config file (config/environments/< env >.yaml). See the
+    [Netmaker](https://docs.netmaker.org/index.html) documentation for more
+    details. 2. Using a JWT received for a node. This can be retrieved by
+    calling the /api/nodes/<network>/authenticate endpoint, as documented below.
+  title: Netmaker
+  version: 0.20.6
 security:
   - bearerAuth: []
 paths:
-    /api/nodes/adm/{network}/authenticate:
-        post:
-            operationId: authenticate
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-            requestBody:
-                $ref: '#/components/requestBodies/nodeAuth'
-            responses:
-                "200":
-                    $ref: '#/components/responses/node'
-            summary: Node authenticates using its password and retrieves a JWT.
-            tags:
-                - authorization
-    /api/users/adm/authenticate:
-        post:
-            operationId: authenticateUser
-            requestBody:
-                $ref: '#/components/requestBodies/userAuth'
-            responses:
-                "200":
-                    $ref: '#/components/responses/successResponse'
-            summary: user authenticates using its password and retrieves a JWT.
-            tags:
-                - authorization
-    /api/dns:
-        get:
-            operationId: getAllDNS
-            responses:
-                "200":
-                    $ref: '#/components/responses/dns'
-                "403":
-                    $ref: '#/components/responses/errorResponse'
-            summary: Gets all DNS entries.
-            tags:
-                - dns
-    /api/dns/{network}:
-        post:
-            operationId: createDNS
-            parameters:
-            - $ref: '#/components/parameters/networkName'
-            responses:
-                "200":
-                    $ref: '#/components/responses/dns'
-                "403":
-                    $ref: '#/components/responses/errorResponse'                        
-                "400":
-                    $ref: '#/components/responses/badResponse'                        
-            summary: Create a DNS entry.
-            tags:
-                - dns
-    /api/dns/{network}/{domain}:
-        delete:
-            operationId: deleteDNS
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-                - $ref: '#/components/parameters/domain'
-            responses:
-                "200":
-                    description: "deletion successful"
-                    content:
-                        application/json:
-                            schema:
-                                type: string
-                            examples:
-                                success:
-                                    value: "{host}.{network} deleted"
-            summary: Delete a DNS entry.
-            tags:
-                - dns
-    /api/dns/adm/{network}:
-        get:
-            operationId: getDNS
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-            responses:
-                "200":
-                    $ref: '#/components/responses/dns'
-            summary: Gets all DNS entries associated with the network.
-            tags:
-                - dns
-    /api/dns/adm/{network}/custom:
-        get:
-            operationId: getCustomDNS
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-            responses:
-                "200":
-                    $ref: '#/components/responses/dns'
-            summary: Gets custom DNS entries associated with a network.
-            tags:
-                - dns
-    /api/dns/adm/{network}/nodes:
-        get:
-            operationId: getNodeDNS
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-            summary: Gets node DNS entries associated with a network.
-            tags:
-                - dns
-            responses:
-                "200":
-                    $ref: '#/components/responses/dns'
-                "403":
-                    $ref: '#/components/responses/errorResponse'                        
-    /api/dns/adm/pushdns:
-        post:
-            operationId: pushDNS
-            responses:
-                "200":
-                    description: "success"
-                    content:
-                        application/json:
-                            schema:
-                                type: string
-                            examples:
-                                success:
-                                    value: "DNS entries pushed to nameserver"
-            summary: Push DNS entries to nameserver.
-            tags:
-                - dns
-    /api/v1/enrollment-keys:
-        get:
-            operationId: getAllEnrollmentKeys
-            responses:
-                "200":
-                    $ref: '#/components/responses/enrollmentKeys'
-            summary: Get all en keys.
-            tags:
-                - enrollment_keys
-        post:
-            operationId: createEnrollmentKey
-            requestBody:
-                $ref: '#/components/requestBodies/enrollmentKey'
-            responses:
-                "200":
-                    $ref: '#/components/responses/enrollmentKey'
-            summary: Create an access key.
-            tags:
-                - enrollment_keys
-    /api/v1/enrollment-keys/{key}:
-        delete:
-            operationId: deleteEnrollmentKey
-            parameters:
-                - description: Key
-                  in: path
-                  name: key
-                  required: true
-                  schema:
+  /api/nodes/adm/{network}/authenticate:
+    post:
+      operationId: authenticate
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+      requestBody:
+        $ref: '#/components/requestBodies/nodeAuth'
+      responses:
+        '200':
+          $ref: '#/components/responses/node'
+      summary: Node authenticates using its password and retrieves a JWT.
+      tags:
+        - authorization
+  /api/users/adm/authenticate:
+    post:
+      operationId: authenticateUser
+      requestBody:
+        $ref: '#/components/requestBodies/userAuth'
+      responses:
+        '200':
+          $ref: '#/components/responses/successResponse'
+      summary: user authenticates using its password and retrieves a JWT.
+      tags:
+        - authorization
+  /api/dns:
+    get:
+      operationId: getAllDNS
+      responses:
+        '200':
+          $ref: '#/components/responses/dns'
+        '403':
+          $ref: '#/components/responses/errorResponse'
+      summary: Gets all DNS entries.
+      tags:
+        - dns
+  /api/dns/{network}:
+    post:
+      operationId: createDNS
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+      responses:
+        '200':
+          $ref: '#/components/responses/dns'
+        '400':
+          $ref: '#/components/responses/badResponse'
+        '403':
+          $ref: '#/components/responses/errorResponse'
+      summary: Create a DNS entry.
+      tags:
+        - dns
+  /api/dns/{network}/{domain}:
+    delete:
+      operationId: deleteDNS
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+        - $ref: '#/components/parameters/domain'
+      responses:
+        '200':
+          description: deletion successful
+          content:
+            application/json:
+              schema:
+                type: string
+              examples:
+                success:
+                  value: '{host}.{network} deleted'
+      summary: Delete a DNS entry.
+      tags:
+        - dns
+  /api/dns/adm/{network}:
+    get:
+      operationId: getDNS
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+      responses:
+        '200':
+          $ref: '#/components/responses/dns'
+      summary: Gets all DNS entries associated with the network.
+      tags:
+        - dns
+  /api/dns/adm/{network}/custom:
+    get:
+      operationId: getCustomDNS
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+      responses:
+        '200':
+          $ref: '#/components/responses/dns'
+      summary: Gets custom DNS entries associated with a network.
+      tags:
+        - dns
+  /api/dns/adm/{network}/nodes:
+    get:
+      operationId: getNodeDNS
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+      summary: Gets node DNS entries associated with a network.
+      tags:
+        - dns
+      responses:
+        '200':
+          $ref: '#/components/responses/dns'
+        '403':
+          $ref: '#/components/responses/errorResponse'
+  /api/dns/adm/pushdns:
+    post:
+      operationId: pushDNS
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                type: string
+              examples:
+                success:
+                  value: DNS entries pushed to nameserver
+      summary: Push DNS entries to nameserver.
+      tags:
+        - dns
+  /api/v1/enrollment-keys:
+    get:
+      operationId: getAllEnrollmentKeys
+      responses:
+        '200':
+          $ref: '#/components/responses/enrollmentKeys'
+      summary: Get all en keys.
+      tags:
+        - enrollment_keys
+    post:
+      operationId: createEnrollmentKey
+      requestBody:
+        $ref: '#/components/requestBodies/enrollmentKey'
+      responses:
+        '200':
+          $ref: '#/components/responses/enrollmentKey'
+      summary: Create an access key.
+      tags:
+        - enrollment_keys
+  /api/v1/enrollment-keys/{key}:
+    delete:
+      operationId: deleteEnrollmentKey
+      parameters:
+        - description: Key
+          in: path
+          name: key
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: success
+        '403':
+          $ref: '#/components/responses/errorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/responses/errorResponse'
+              example:
+                Code: 500
+                Message: no enrollmentkey found
+      summary: Delete an access key.
+      tags:
+        - enrollment_keys
+  /api/v1/host/register/{token}:
+    post:
+      operationId: registerHost
+      parameters:
+        - description: Token
+          in: path
+          name: token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        $ref: '#/components/requestBodies/host'
+      responses:
+        '200':
+          $ref: '#/components/responses/node'
+      summary: Register a node using a token.
+      tags:
+        - enrollment_keys
+  /api/extclients:
+    get:
+      operationId: getAllExtClients
+      responses:
+        '200':
+          $ref: '#/components/responses/extClients'
+      summary: >-
+        A separate function to get all extclients, not just extclients for a
+        particular network.
+      tags:
+        - ext_client
+  /api/extclients/{network}:
+    get:
+      description: >-
+        Gets all extclients associated with network, including pending
+        extclients.
+      operationId: getNetworkExtClients
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+      responses:
+        '200':
+          $ref: '#/components/responses/extClients'
+      summary: Get all extclients associated with network.
+      tags:
+        - ext_client
+  /api/extclients/{network}/{clientid}:
+    get:
+      operationId: getExtClient
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+        - $ref: '#/components/parameters/extclientID'
+      responses:
+        '200':
+          $ref: '#/components/responses/extClient'
+      summary: Get an individual extclient.
+      tags:
+        - ext_client
+    put:
+      operationId: updateExtClient
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+        - $ref: '#/components/parameters/extclientID'
+      requestBody:
+        $ref: '#/components/requestBodies/customExtClient'
+      responses:
+        '200':
+          $ref: '#/components/responses/extClient'
+      summary: Update an individual extclient.
+      tags:
+        - ext_client
+    delete:
+      operationId: deleteExtClient
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+        - $ref: '#/components/parameters/extclientID'
+      responses:
+        '200':
+          $ref: '#/components/responses/successResponse'
+      summary: Delete an individual extclient.
+      tags:
+        - ext_client
+  /api/extclients/{network}/{clientid}/{type}:
+    get:
+      operationId: getExtClientConf
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+        - $ref: '#/components/parameters/extclientID'
+        - description: Type
+          in: path
+          name: type
+          required: true
+          schema:
+            type: string
+          examples:
+            file:
+              value: wg
+            qr code:
+              value: qr
+      responses:
+        '200':
+          $ref: '#/components/responses/extClient'
+      summary: Get an individual extclient.
+      tags:
+        - ext_client
+  /api/extclients/{network}/{nodeid}:
+    post:
+      operationId: createExtClient
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+        - $ref: '#/components/parameters/nodeID'
+      requestBody:
+        $ref: '#/components/requestBodies/customExtClient'
+        required: true
+      summary: Create an individual extclient.  Must have valid key and be unique.
+      responses:
+        '200':
+          $ref: '#/components/responses/extClient'
+      tags:
+        - ext_client
+  /api/getip:
+    get:
+      operationId: getIP
+      responses:
+        '200':
+          description: IP Address
+          content:
+            application/json:
+              schema:
+                type: string
+              examples:
+                result:
+                  value: 192.168.0.25
+      summary: Get the current public IP address.
+      tags:
+        - ipservice
+  /api/hosts:
+    get:
+      operationId: getAllHosts
+      responses:
+        '200':
+          $ref: '#/components/responses/host'
+      summary: Get all hosts across all networks.
+      tags:
+        - hosts
+  /api/hosts/keys:
+    put:
+      operationId: updateAllKeys
+      responses:
+        '200':
+          description: success
+        '400':
+          $ref: '#/components/responses/badResponse'
+      summary: Update all wireguard keys .
+      tags:
+        - hosts
+  /api/hosts/{hostid}/keys:
+    put:
+      operationId: updateKeys
+      parameters:
+        - $ref: '#/components/parameters/hostID'
+      responses:
+        '200':
+          description: success
+        '400':
+          $ref: '#/components/responses/badResponse'
+      summary: Update wireguard keys for a host.
+      tags:
+        - hosts
+  /api/hosts/{hostid}/sync:
+    put:
+      operationId: syncHost
+      parameters:
+        - $ref: '#/components/parameters/hostID'
+      responses:
+        '200':
+          description: success
+        '400':
+          $ref: '#/components/responses/badResponse'
+      summary: Sync a host.
+      tags:
+        - hosts
+  /api/hosts/{hostid}:
+    put:
+      operationId: updateHost
+      parameters:
+        - $ref: '#/components/parameters/hostID'
+      requestBody:
+        $ref: '#/components/requestBodies/host'
+      responses:
+        '200':
+          $ref: '#/components/responses/host'
+      summary: Update an individual host.
+      tags:
+        - hosts
+    delete:
+      operationId: deleteHost
+      parameters:
+        - $ref: '#/components/parameters/hostID'
+      responses:
+        '200':
+          $ref: '#/components/responses/host'
+      summary: Delete an individual host.
+      tags:
+        - hosts
+  /api/hosts/{hostid}/networks/{network}:
+    post:
+      operationId: addHostToNetwork
+      parameters:
+        - $ref: '#/components/parameters/hostID'
+        - $ref: '#/components/parameters/networkName'
+      responses:
+        '200':
+          description: success
+      summary: Create an individual host.
+      tags:
+        - hosts
+    delete:
+      operationId: deletedHostFromNetwork
+      parameters:
+        - $ref: '#/components/parameters/hostID'
+        - $ref: '#/components/parameters/networkName'
+        - description: force
+          in: query
+          name: force
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: success
+      summary: Delete an individual host.
+      tags:
+        - hosts
+  /api/v1/host:
+    get:
+      operationId: pull
+      responses:
+        '200':
+          description: success
+          $ref: '#/components/responses/host'
+      summary: Get an individual host.
+      tags:
+        - hosts
+  /api/v1/host/{hostid}/signalpeer:
+    post:
+      operationId: signalPeer
+      parameters:
+        - $ref: '#/components/parameters/hostID'
+      requestBody:
+        $ref: '#/components/requestBodies/signal'
+      responses:
+        '200':
+          description: success
+          $ref: '#/components/responses/signal'
+      summary: Get an individual host.
+      tags:
+        - hosts
+  /api/v1/legacy/nodes:
+    delete:
+      operationId: wipeLegayNodes
+      responses:
+        '200':
+          description: success
+          $ref: '#/components/responses/successResponse'
+      summary: Delete all legacy nodes across all networks.
+      tags:
+        - legacy
+  /api/logs:
+    get:
+      operationId: getLogs
+      responses:
+        '200':
+          description: logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+      summary: Get all logs across all networks.
+      tags:
+        - logs
+  /api/v1/nodes/migrate:
+    post:
+      operationId: migrate
+      requestBody:
+        $ref: '#/components/requestBodies/migrate'
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  NodeID:
                     type: string
-            responses:
-                "200":
-                    description: "success"
-                "403":
-                    $ref: '#/components/responses/errorResponse'
-                "500":
-                    description: "Internal Server Error"
-                    content:
-                        application/json:
-                            schema:
-                                $ref: '#/components/responses/errorResponse'
-                            example:
-                                    {
-                                        "Code": 500,
-                                        "Message": "no enrollmentkey found"
-                                    }
-            summary: Delete an access key.
-            tags:
-                - enrollment_keys
-    /api/v1/host/register/{token}:
-        post:
-            operationId: registerHost
-            parameters:
-                - description: Token
-                  in: path
-                  name: token
-                  required: true
-                  schema:
+                  NetID:
                     type: string
-            requestBody:
-                $ref: '#/components/requestBodies/host'
-            responses:
-                "200":
-                    $ref: '#/components/responses/node'
-            summary: Register a node using a token.
-            tags:
-                - enrollment_keys
-
-    /api/extclients:
-        get:
-            operationId: getAllExtClients
-            responses:
-                "200":
-                    $ref: '#/components/responses/extClients'
-            summary: A separate function to get all extclients, not just extclients for a particular network.
-            tags:
-                - ext_client
-    /api/extclients/{network}:
-        get:
-            description: Gets all extclients associated with network, including pending extclients.
-            operationId: getNetworkExtClients
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-            responses:
-                "200":
-                    $ref: '#/components/responses/extClients'
-            summary: Get all extclients associated with network.
-            tags:
-                - ext_client
-    /api/extclients/{network}/{clientid}:
-        get:
-            operationId: getExtClient
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-                - $ref: '#/components/parameters/extclientID'
-            responses:
-                "200":
-                    $ref: '#/components/responses/extClient'
-            summary: Get an individual extclient.
-            tags:
-                - ext_client
-        put:
-            operationId: updateExtClient
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-                - $ref: '#/components/parameters/extclientID'
-            requestBody:
-                $ref: '#/components/requestBodies/customExtClient'
-            responses:
-                "200":
-                    $ref: '#/components/responses/extClient'
-            summary: Update an individual extclient.
-            tags:
-                - ext_client
-        delete:
-            operationId: deleteExtClient
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-                - $ref: '#/components/parameters/extclientID'
-            responses:
-                "200":
-                    $ref: '#/components/responses/successResponse'
-            summary: Delete an individual extclient.
-            tags:
-                - ext_client
-    /api/extclients/{network}/{clientid}/{type}:
-        get:
-            operationId: getExtClientConf
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-                - $ref: '#/components/parameters/extclientID'
-                - description: Type
-                  in: path
-                  name: type
-                  required: true
-                  schema:
-                    type: string
-                  examples:
-                    file:
-                        value: "wg"
-                    qr code:
-                        value: "qr"
-            responses:
-                "200":
-                    $ref: '#/components/responses/extClient'
-            summary: Get an individual extclient.
-            tags:
-                - ext_client
-    /api/extclients/{network}/{nodeid}:
-        post:
-            operationId: createExtClient
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-                - $ref: '#/components/parameters/nodeID'
-            requestBody:
-                $ref: '#/components/requestBodies/customExtClient'
-                required: true
-            summary: Create an individual extclient.  Must have valid key and be unique.
-            responses:
-                "200":
-                    $ref: '#/components/responses/extClient'
-            tags:
-                - ext_client
-    /api/getip:
-        get:
-            operationId: getIP
-            responses:
-                "200":
-                    description: IP Address
-                    content:
-                       application/json:
-                        schema:
-                            type: string
-                        examples:
-                            result:
-                                value:
-                                    "192.168.0.25"
-            summary: Get the current public IP address.
-            tags:
-                - ipservice
-
-    /api/hosts:
-        get:
-            operationId: getAllHosts
-            responses:
-                "200":
-                    $ref: '#/components/responses/host'
-            summary: Get all hosts across all networks.
-            tags:
-                - hosts
-    /api/hosts/keys:
-        put:
-            operationId: updateAllKeys
-            responses:
-                "200":
-                    description: "success"
-                "400":
-                    $ref: '#/components/responses/badResponse'
-            summary: Update all wireguard keys .
-            tags:
-                - hosts                
-    /api/hosts/{hostid}/keys:
-        put:
-            operationId: updateKeys
-            parameters:
-                - $ref: '#/components/parameters/hostID'
-            responses:
-                "200":
-                    description: "success"
-                "400":
-                    $ref: '#/components/responses/badResponse'
-            summary: Update wireguard keys for a host.
-            tags:
-                - hosts
-    /api/hosts/{hostid}/sync:
-        put:
-            operationId: syncHost
-            parameters:
-                - $ref: '#/components/parameters/hostID'
-            responses:
-                "200":
-                    description: "success"
-                "400":
-                    $ref: '#/components/responses/badResponse'
-            summary: Sync a host.
-            tags:
-                - hosts
-    /api/hosts/{hostid}:
-        put:
-            operationId: updateHost
-            parameters:
-                - $ref: '#/components/parameters/hostID'
-            requestBody:
-                $ref: '#/components/requestBodies/host'
-            responses:
-                "200":
-                    $ref: '#/components/responses/host'
-            summary: Update an individual host.
-            tags:
-                - hosts
-        delete:
-            operationId: deleteHost
-            parameters:
-                - $ref: '#/components/parameters/hostID'
-            responses:
-                "200":
-                    $ref: '#/components/responses/host'
-            summary: Delete an individual host.
-            tags:
-                - hosts
-    /api/hosts/{hostid}/networks/{network}:
-        post:
-            operationId: addHostToNetwork
-            parameters:
-                - $ref: '#/components/parameters/hostID'
-                - $ref: '#/components/parameters/networkName'
-            responses:
-                "200":
-                    description: "success"
-            summary: Create an individual host.
-            tags:
-                - hosts
-        delete:
-            operationId: deletedHostFromNetwork
-            parameters:
-                - $ref: '#/components/parameters/hostID'
-                - $ref: '#/components/parameters/networkName'
-                - description: force
-                  in: query
-                  name: force
-                  required: false
-                  schema:
+                  NatEnabled:
                     type: boolean
-            responses:
-                "200":
-                    description: "success"
-            summary: Delete an individual host.
-            tags:
-                - hosts
-    /api/v1/host:
-        get:
-            operationId: pull
-            responses:
-                "200":
-                    description: "success"
-                    $ref: '#/components/responses/host'
-            summary: Get an individual host.
-            tags:
-                - hosts
-    /api/v1/host/{hostid}/signalpeer:
-        post:
-            operationId: signalPeer
-            parameters:
-                - $ref: '#/components/parameters/hostID'
-            requestBody:
-                $ref: '#/components/requestBodies/signal'
-            responses:
-                "200":
-                    description: "success"
-                    $ref: '#/components/responses/signal'
-            summary: Get an individual host.
-            tags:
-                - hosts
-
-    /api/v1/legacy/nodes:
-        delete:
-            operationId: wipeLegayNodes
-            responses:
-                "200":
-                    description: "success"
-                    $ref: '#/components/responses/successResponse'
-            summary: Delete all legacy nodes across all networks.
-            tags:
-                - legacy
-    
-    /api/logs:
-        get:
-            operationId: getLogs
-            responses:
-                "200":
-                    description: "logs"
-                    content:
-                        application/json:
-                            schema:
-                                type: array
-                                items:
-                                    type: string
-            summary: Get all logs across all networks.
-            tags:
-                - logs
-
-    /api/v1/nodes/migrate:
-        post:
-            operationId: migrate
-            requestBody:
-                $ref: '#/components/requestBodies/migrate'
-            responses:
-                "200":
-                    description: "success"
-                    content:
-                        application/json:
-                            schema:
-                                type: object
-                                properties:
-                                  NodeID:
-                                    type: string
-                                  NetID:
-                                    type: string
-                                  NatEnabled:
-                                    type: boolean
-                                  Ranges:
-                                    type: array
-                                    items:
-                                        type: string
-            summary: Migrate legacy nodes into host/nodes.
-            tags:
-                - migration
-
-    /api/networks:
-        get:
-            operationId: getAllNetworks
-            responses:
-                "200":
-                    $ref: '#/components/responses/networks'
-            summary: Lists all networks.
-            tags:
-                - networks
-        post:
-            operationId: createNetwork
-            requestBody:
-                $ref: '#/components/requestBodies/network'
-                #required: true
-            responses:
-                "200":
-                    $ref: '#/components/responses/network'
-            summary: Create a network.
-            tags:
-                - networks
-    /api/networks/{network}:
-        delete:
-            operationId: deleteNetwork
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-                  in: path 
-            responses:
-                "200":
-                    $ref: '#/components/responses/successResponse'
-            summary: Delete a network.  Will not delete if there are any nodes that belong to the network.
-            tags:
-                - networks
-        get:
-            operationId: getNetwork
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-            responses:
-                "200":
-                    $ref: '#/components/responses/network'
-            summary: Get a network.
-            tags:
-                - networks
-        put:
-            operationId: updateNetwork
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-            requestBody:
-                    $ref: '#/components/requestBodies/network'
-            responses:
-                "200":
-                    $ref: '#/components/responses/network'
-            summary: Update a network.
-            tags:
-                - networks
-    /api/networks/{network}/acls:
-        get:
-            operationId: getNetworkACLs
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-            responses:
-                "200":
-                    description: "acls"
-                    content:
-                        application/json:
-                            schema:
-                                type: object
-                                example: {
-                                    "4bf4f244-6882-44dd-a18d-83abefcd7330":{
-                                        "5e58ada3-11a4-4073-9249-9bcdfded9dc7":2
-                                    }
-                                }
-                                    
-            summary: Get a network ACL (Access Control List).
-            tags:
-                - networks
-        put:
-            operationId: updateNetworkACLs
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-            requestBody:
-                description: ACL Container
-                required: true
-                content:
-                    application/json:
-                        schema:
-                            type: object
-                            example: {
-                                "4bf4f244-6882-44dd-a18d-83abefcd7330":{
-                                    "5e58ada3-11a4-4073-9249-9bcdfded9dc7":2
-                                    }
-                                }
-            responses:
-                "200":
-                    description: "acls"
-                    content:
-                        application/json:
-                            schema:
-                                type: object
-                                example: {
-                                    "4bf4f244-6882-44dd-a18d-83abefcd7330":{
-                                        "5e58ada3-11a4-4073-9249-9bcdfded9dc7":2
-                                    }
-                                }
-                                    
-            summary: Update a network ACL (Access Control List).
-            tags:
-                - networks
-    /api/nodes:
-        get:
-            operationId: getAllNodes
-            responses:
-                "200":
-                    $ref: '#/components/responses/nodes'
-            summary: Get all nodes across all networks.
-            tags:
-                - nodes
-    /api/nodes/{network}:
-        get:
-            operationId: getNetworkNodes
-            parameters:
-              - $ref: '#/components/parameters/networkName'
-            responses:
-                "200":
-                    $ref: '#/components/responses/nodes'
-            summary: Gets all nodes associated with network including pending nodes.
-            tags:
-                - nodes
-    /api/nodes/{network}/{nodeid}:
-        get:
-            operationId: getNode
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-                - $ref: '#/components/parameters/nodeID'
-            responses:
-                "200":
-                    $ref: '#/components/responses/node'
-            summary: Get an individual node.
-            tags:
-                - nodes
-        put:
-            operationId: updateNode
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-                - $ref: '#/components/parameters/nodeID'
-            requestBody:
-                $ref: '#/components/requestBodies/node'
-            responses:
-                "200":
-                    $ref: '#/components/responses/node'
-            summary: Update an individual node from UI.
-            tags:
-                - nodes
-        post:
-            operationId: updateNodeFromHost
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-                - $ref: '#/components/parameters/nodeID'
-            requestBody:
-                $ref: '#/components/requestBodies/node'
-            responses:
-                "200":
-                    $ref: '#/components/responses/node'
-            summary: Update an individual node from host.
-            tags:
-                - nodes
-        delete:
-            operationId: deleteNode
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-                - $ref: '#/components/parameters/nodeID'
-            responses:
-                "200":
-                    $ref: '#/components/responses/successResponse'
-            summary: Delete an individual node.
-            tags:
-                - nodes
-    /api/nodes/{network}/{nodeid}/creategateway:
-        post:
-            operationId: createEgressGateway
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-                - $ref: '#/components/parameters/nodeID'
-            requestBody:
-                $ref: '#/components/requestBodies/egressGatewayRequest'
-                description: Egress Gateway Request
-                required: true
-                content:
-                    application/json:
-                        schema:
-                            description: Egress Gateway Request
-                            type: object
-                            properties:
-                                NodeID:
-                                    type: string
-                                NetID:
-                                    type: string
-                                NatEnabled:
-                                    type: boolean
-                                Ranges:
-                                    type: array
-                                    items:
-                                        type: string
-            responses:
-                "200":
-                    $ref: '#/components/responses/node'
-            summary: Create an egress gateway.
-            tags:
-                - nodes
-    /api/nodes/{network}/{nodeid}/deletegateway:
-        delete:
-            operationId: deleteEgressGateway
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-                - $ref: '#/components/parameters/nodeID'
-            responses:
-                "200":
-                    $ref: '#/components/responses/node'
-            summary: Delete an egress gateway.
-            tags:
-                - nodes
-    /api/nodes/{network}/{nodeid}/createingress:
-        post:
-            operationId: createIngressGateway
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-                - $ref: '#/components/parameters/nodeID'
-            requestBody:
-                $ref: '#/components/requestBodies/ingressGatewayRequest'
-                description: Ingress Gateway Request
-                required: true
-                content:
-                    application/json:
-                        schema:
-                            description: Ingress Gateway Request
-                            type: object
-                            properties:
-                                ExtClientDNS:
-                                    type: string
-                                FailOver:
-                                    type: string
-            responses:
-                "200":
-                    $ref: '#/components/responses/node'
-            summary: Create an ingress gateway.
-            tags:
-                - nodes
-    /api/nodes/{network}/{nodeid}/deleteingress:
-        delete:
-            operationId: deleteIngressGateway
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-                - $ref: '#/components/parameters/nodeID'
-            responses:
-                "200":
-                    $ref: '#/components/responses/node'
-            summary: Create an ingress gateway.
-            tags:
-                - nodes
-    /api/metrics/{network}/{nodeid}:
-        get:
-            operationId: getNodeMetrics
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-                - $ref: '#/components/parameters/nodeID'
-            responses:
-                "200":
-                    description: "metrics"
-                    $ref: '#/components/responses/metric'
-            summary: Get metrics for a node.
-            tags:
-                - metrics (Pro Feature)
-    /api/metrics/{network}:
-        get:
-            operationId: getNetworkNodeMetrics
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-            responses:
-                "200":
-                    description: "metrics"
-                    $ref: '#/components/responses/networkMetrics'
-            summary: Get metrics for a network.
-            tags:
-                - metrics (Pro Feature)            
-    /api/metrics:
-        get:
-            operationId: getAllMetrics
-            responses:
-                "200":
-                    description: "metrics"
-                    $ref: '#/components/responses/networkMetrics'
-            summary: Get metrics for all nodes.
-            tags:
-                - metrics (Pro Feature)
-    /api/metrics-ext/{network}:
-        get:
-            operationId: getNetworkExtMetrics
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-            responses:
-                "200":
-                    description: "metrics"
-                    $ref: '#/components/responses/networkMetricsConnectivity'
-            summary: Get metrics for a network.
-            tags:
-                - metrics (Pro Feature)
-    /api/networkusers:
-        get:
-            operationId: getAllNetworkUsers
-            responses:
-                "200":
-                    description: "networkusers"
-                    content:
-                        application/json:
-                            schema:
-                                type: array
-                                items:
-                                    $ref: '#/components/responses/allNetworkUsers'
-            summary: Get all network users.
-            tags:
-                - networkusers (Pro Feature)
-    /api/networkusers/{network}:
-        get:
-            operationId: getNetworkNetworkUsers
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-            responses:
-                "200":
-                    description: "networkusers"
-                    content:
-                        application/json:
-                            schema:
-                                type: array
-                                items:
-                                    $ref: '#/components/responses/networkUsers'
-            summary: Get all network users for a network.
-            tags:
-                - networkusers (Pro Feature)
-        post:
-            operationId: createNetworkUser
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-            requestBody:
-                $ref: '#/components/requestBodies/networkUser'
-            responses:
-                "200":
-                    description: "networkusers"
-                    $ref: '#/components/responses/networkUser'
-            summary: Create a network user.
-            tags:
-                - networkusers (Pro Feature)
-        put:
-            operationId: updateNetworkUser
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-            requestBody:
-                $ref: '#/components/requestBodies/networkUser'
-            responses:
-                "200":
-                    description: "networkusers"
-                    $ref: '#/components/responses/networkUser'
-            summary: Update a network user.
-            tags:
-                - networkusers (Pro Feature)
-    /api/networkusers/{network}/{username}:
-        get:
-            operationId: getNetworkUser
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-                - $ref: '#/components/parameters/username'
-            responses:
-                "200":
-                    description: "networkusers"
-                    $ref: '#/components/responses/networkUser'
-            summary: Get a network user.
-            tags:
-                - networkusers (Pro Feature)
-        delete:
-            operationId: deleteNetworkUser
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-                - $ref: '#/components/parameters/username'
-            responses:
-                "200":
-                    description: "networkusers"
-                    $ref: '#/components/responses/successResponse'
-            summary: Delete a network user.
-            tags:
-                - networkusers (Pro Feature)
-    /api/networkusers/data/{username}/me:
-        delete:
-            operationId: deleteCurrentUser
-            parameters:
-                - $ref: '#/components/parameters/username'
-            responses:
-                "200":
-                    description: "networkusers"
-                    $ref: '#/components/responses/successResponse'
-            summary: Delete a network user.
-            tags:
-                - networkusers (Pro Feature)
-    /api/nodes/{network}/{nodeid}/createrelay:
-        post:
-            operationId: createRelay
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-                - $ref: '#/components/parameters/nodeID'
-            requestBody:
-                $ref: '#/components/requestBodies/relayRequest'
-                description: Relay Request
-                required: true
-            responses:
-                "200":
-                    $ref: '#/components/responses/node'
-            summary: Create a relay.
-            tags:
-                - relay (Pro Feature)
-    /api/nodes/{network}/{nodeid}/deleterelay:
-        delete:
-            operationId: deleteRelay
-            parameters:
-                - $ref: '#/components/parameters/networkName'
-                - $ref: '#/components/parameters/nodeID'
-            responses:
-                "200":
-                    $ref: '#/components/responses/node'
-            summary: Delete a relay.
-            tags:
-                - relay (Pro Feature)
-    /api/usergroups:
-        get:
-            operationId: getUserGroups
-            responses:
-                "200":
-                    description: "usergroups"
-                    content:
-                        application/json:
-                            schema:
-                                type: array
-                                items:
-                                    $ref: '#/components/responses/userGroup'
-            summary: Get all user groups.
-            tags:
-                - usergroups (Pro Feature)
-    #/api/users/adm/hassuperadmin:
-    #    get:
-    #        responses:
-    #            "200":
-    #                description: "admin exists"
-    #                content:
-    #                    application/json:
-    #                        schema:
-    #                            type: boolean
-    #                        examples:
-    #                            exists:
-    #                            {
-    #                                true
-    #                            }
-    #                            does-not:
-    #                            {
-    #                                false
-    #                            } 
-components:
-    securitySchemes:
-        bearerAuth:
-            type: http
-            scheme: bearer
-            bearerFormat: JWT
-    schemas:
-        accessKey:
-            type: object
-            properties:
-                Expiration:
-                    type: string
-                UsesRemaining:
-                    type: integer
-                value:
-                    type: string
-                networks:
-                    type: string
-                unlimited:
-                    type: boolean
-                Tags: 
-                    type: string
-                Token:
-                    type: string
-
-        customExtClient:
-            type: object
-            properties:
-                ClientID:
-                    type: string
-                PublicKey:
-                    type: string
-                DNS:
-                    type: string
-                ExtraAllowedIPs:
+                  Ranges:
                     type: array
                     items:
-                        type: string
-                Enabled:
-                    type: boolean
-                DeniedACLs:
-                    type: string # todo map[string]struct{}
-        dns:
-            type: object
-            properties:
-                Name:
-                    type: string
-                Network:
-                    type: string
-                Address:
-                    type: string
-                Address6:
-                    type: string
-        egressGatewayRequest:
-            type: object
-            properties:
+                      type: string
+      summary: Migrate legacy nodes into host/nodes.
+      tags:
+        - migration
+  /api/networks:
+    get:
+      operationId: getAllNetworks
+      responses:
+        '200':
+          $ref: '#/components/responses/networks'
+      summary: Lists all networks.
+      tags:
+        - networks
+    post:
+      operationId: createNetwork
+      requestBody:
+        $ref: '#/components/requestBodies/network'
+      responses:
+        '200':
+          $ref: '#/components/responses/network'
+      summary: Create a network.
+      tags:
+        - networks
+  /api/networks/{network}:
+    delete:
+      operationId: deleteNetwork
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+      responses:
+        '200':
+          $ref: '#/components/responses/successResponse'
+      summary: >-
+        Delete a network.  Will not delete if there are any nodes that belong to
+        the network.
+      tags:
+        - networks
+    get:
+      operationId: getNetwork
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+      responses:
+        '200':
+          $ref: '#/components/responses/network'
+      summary: Get a network.
+      tags:
+        - networks
+    put:
+      operationId: updateNetwork
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+      requestBody:
+        $ref: '#/components/requestBodies/network'
+      responses:
+        '200':
+          $ref: '#/components/responses/network'
+      summary: Update a network.
+      tags:
+        - networks
+  /api/networks/{network}/acls:
+    get:
+      operationId: getNetworkACLs
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+      responses:
+        '200':
+          description: acls
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  4bf4f244-6882-44dd-a18d-83abefcd7330:
+                    5e58ada3-11a4-4073-9249-9bcdfded9dc7: 2
+      summary: Get a network ACL (Access Control List).
+      tags:
+        - networks
+    put:
+      operationId: updateNetworkACLs
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+      requestBody:
+        description: ACL Container
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              example:
+                4bf4f244-6882-44dd-a18d-83abefcd7330:
+                  5e58ada3-11a4-4073-9249-9bcdfded9dc7: 2
+      responses:
+        '200':
+          description: acls
+          content:
+            application/json:
+              schema:
+                type: object
+                example:
+                  4bf4f244-6882-44dd-a18d-83abefcd7330:
+                    5e58ada3-11a4-4073-9249-9bcdfded9dc7: 2
+      summary: Update a network ACL (Access Control List).
+      tags:
+        - networks
+  /api/nodes:
+    get:
+      operationId: getAllNodes
+      responses:
+        '200':
+          $ref: '#/components/responses/nodes'
+      summary: Get all nodes across all networks.
+      tags:
+        - nodes
+  /api/nodes/{network}:
+    get:
+      operationId: getNetworkNodes
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+      responses:
+        '200':
+          $ref: '#/components/responses/nodes'
+      summary: Gets all nodes associated with network including pending nodes.
+      tags:
+        - nodes
+  /api/nodes/{network}/{nodeid}:
+    get:
+      operationId: getNode
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+        - $ref: '#/components/parameters/nodeID'
+      responses:
+        '200':
+          $ref: '#/components/responses/node'
+      summary: Get an individual node.
+      tags:
+        - nodes
+    put:
+      operationId: updateNode
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+        - $ref: '#/components/parameters/nodeID'
+      requestBody:
+        $ref: '#/components/requestBodies/node'
+      responses:
+        '200':
+          $ref: '#/components/responses/node'
+      summary: Update an individual node from UI.
+      tags:
+        - nodes
+    post:
+      operationId: updateNodeFromHost
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+        - $ref: '#/components/parameters/nodeID'
+      requestBody:
+        $ref: '#/components/requestBodies/node'
+      responses:
+        '200':
+          $ref: '#/components/responses/node'
+      summary: Update an individual node from host.
+      tags:
+        - nodes
+    delete:
+      operationId: deleteNode
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+        - $ref: '#/components/parameters/nodeID'
+      responses:
+        '200':
+          $ref: '#/components/responses/successResponse'
+      summary: Delete an individual node.
+      tags:
+        - nodes
+  /api/nodes/{network}/{nodeid}/creategateway:
+    post:
+      operationId: createEgressGateway
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+        - $ref: '#/components/parameters/nodeID'
+      requestBody:
+        $ref: '#/components/requestBodies/egressGatewayRequest'
+        description: Egress Gateway Request
+        required: true
+        content:
+          application/json:
+            schema:
+              description: Egress Gateway Request
+              type: object
+              properties:
                 NodeID:
-                    type: string
+                  type: string
                 NetID:
-                    type: string
+                  type: string
                 NatEnabled:
-                    type: boolean
+                  type: boolean
                 Ranges:
-                    type: array
-                    items:
-                        type: string
-        enrollmentKey:
-            type: object
-            properties:
-                Key:
+                  type: array
+                  items:
                     type: string
-                Name:
-                    type: string
-                Notes:
-                    type: string
-                Tags:
-                    type: string
-                Unlimited:
-                    type: boolean
-                UsesRemaining:
-                    type: integer
-                Expiration:
-                    type: string
-        extClient:
-            type: object
-            properties:
-                ClientID:
-                    type: string
-                PrivateKey:
-                    type: string
-                PublicKey:
-                    type: string
-                Network:
-                    type: string
-                DNS:
-                    type: string
-                Address:
-                    type: string
-                Address6:
-                    type: string
-                ExtraAllowedIPs:
-                    type: array
-                    items:
-                        type: string
-                IngressGatewayID:
-                    type: string
-                IngressGatewayEndpoint:
-                    type: string
-                LastModified:
-                    type: integer
-                Enabled:
-                    type: boolean
-                OwnerID:
-                    type: string
-                DeniedACLs:
-                    type: string # todo map[string]struct{}
-        host:
-            type: object
-            properties:
-                ID:
-                    type: string
-                Verbosity:
-                    type: string
-                FirewallIInUse:
-                    type: string
-                Version:
-                    type: string
-                DaemonInstlled:
-                    type: boolean
-                AutoUpdate:
-                    type: boolean
-                HostPass:
-                    type: string
-                Name:
-                    type: string
-                OS:
-                    type: string
-                Interface:
-                    type: string
-                Debug:
-                    type: boolean
-                ListenPort:
-                    type: integer
-                WgPublicListenPort:
-                    type: integer
-                MTU:
-                    type: integer
-                PublicKey:
-                    type: string
-                MacAddress:
-                    type: string
-                TrafficKeyPublic:
-                    type: string
-                Nodes: 
-                    type: array
-                    items:
-                        type: string
-                Interfaces:
-                    type: array
-                    items:
-                        type: string
-                DefaultInterface:
-                    type: string
-                EndpointIP:
-                    type: string
-                IsDocker:
-                    type: boolean
-                IsK8s:
-                    type: boolean
-                IsStatic:
-                    type: boolean
-                IsDefault:
-                    type: boolean
-                NatType:
-                    type: string
-                TurnEndpoint:
-                    type: string
-        ingressGatewayRequest:
-            type: object
-            properties:
+      responses:
+        '200':
+          $ref: '#/components/responses/node'
+      summary: Create an egress gateway.
+      tags:
+        - nodes
+  /api/nodes/{network}/{nodeid}/deletegateway:
+    delete:
+      operationId: deleteEgressGateway
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+        - $ref: '#/components/parameters/nodeID'
+      responses:
+        '200':
+          $ref: '#/components/responses/node'
+      summary: Delete an egress gateway.
+      tags:
+        - nodes
+  /api/nodes/{network}/{nodeid}/createingress:
+    post:
+      operationId: createIngressGateway
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+        - $ref: '#/components/parameters/nodeID'
+      requestBody:
+        $ref: '#/components/requestBodies/ingressGatewayRequest'
+        description: Ingress Gateway Request
+        required: true
+        content:
+          application/json:
+            schema:
+              description: Ingress Gateway Request
+              type: object
+              properties:
                 ExtClientDNS:
-                    type: string
-                FailOver:
-                    type: boolean
-        metric:
-            type: object
-            properties:
-                NodeName:
-                  type: string
-                Uptime:
-                  type: integer
-                TotalTime:
-                  type: integer
-                Latency:
-                  type: integer
-                TotalReceived:
-                  type: integer
-                TotalSent:
-                  type: integer
-                ActualUptime:
-                  type: integer
-                PercentUp:
-                  type: number
-                Connected:
-                  type: boolean
-        metrics:
-            type: object
-            properties:
-              Network:
-                type: string
-              NodeID:
-                type: string
-              NodeName:
-                type: string
-              Connectivity:
-                type: string # todo map[string]struct{}
-              FailoverPeers:
-                type: string # todo map[string]struct{}
-
-        migrate:
-            type: object
-            properties:
-                ID:
-                  type: string
-                Address:
-                  type: string
-                Address6:
-                  type: string
-                LocalAddress:
-                  type: string
-                Interfaces:
-                  type: array
-                  items:
-                    type: string
-                NetworkSettings:
-                  $ref: '#/components/schemas/network'
-                ListenPort:
-                  type: integer
-                LocalListenPort:
-                  type: integer
-                PublicKey:
-                  type: string
-                Endpoint:
-                  type: string
-                AllowedIPs:
-                  type: array
-                  items:
-                    type: string
-                PersistentKeepalive:
-                  type: integer
-                IsHub:
-                  type: boolean
-                AccessKey:
-                  type: string
-                Interface:
-                  type: string
-                LastModified:
-                  type: integer
-                ExpirationDateTime:
-                  type: string
-                LastPeerUpdate:
-                  type: integer
-                MacAddress:
-                  type: string
-                Password:
-                  type: string
-                Network:
-                  type: string
-                IsRelayed:
-                  type: boolean
-                IsPending:
-                  type: boolean
-                IsDocker:
-                  type: boolean
-                IsK8s:
-                  type: boolean
-                IsEgressGateway:
-                  type: boolean
-                IsIngressGateway:
-                  type: boolean
-                EgressGatewayRanges:
-                  type: array
-                  items:
-                    type: string
-                EgressGatewayNatEnabled:
-                  type: boolean
-                EgressGatewayRequest:
-                   type: object
-                   properties:
-                      NodeID:
-                          type: string
-                      NetID:
-                          type: string
-                      NatEnabled:
-                          type: boolean
-                      Ranges:
-                          type: array
-                          items:
-                              type: string
-                RelayAddrs:
-                  type: array
-                  items:
-                    type: string
-                FailoverNode:
-                  type: string
-                IngressGatewayRange:
-                  type: string
-                IngressGatewayRange6:
-                  type: string
-                IsStatic:
-                  type: boolean
-                UDPHolePunch:
-                  type: boolean
-                DNSOn:
-                  type: boolean
-                IsServer:
-                  type: boolean
-                Action:
-                  type: string
-                IPForwarding:
-                  type: boolean
-                OS:
-                  type: string
-                MTU:
-                  type: integer
-                Version:
-                  type: string
-                Server:
-                  type: string
-                TrafficKeys:
-                  type: object
-                  properties:
-                    Private:
-                      type: string
-                    Public:
-                      type: string
-                FirewallInUse:
-                  type: string
-                InternetGateway:
-                  type: string
-                Connected:
-                  type: boolean
-                DefaultACL:
-                  type: string
-                OwnerID:
                   type: string
                 FailOver:
                   type: string
-        networkUser:
-            type: object
-            properties:
-                AccessLevel:
-                    type: integer
-                ClientLimit:
-                    type: integer
-                NodeLimit:
-                    type: integer
-                ID:
-                    type: string
-                Clients:
-                    type: array
-                    items:
-                        type: string
-                Nodes:
-                    type: array
-                    items:
-                        type: string
-        networkUsers:
-            type: object
-            properties:
-                Network:
-                    type: string
-                Users:
-                    type: array
-                    items:
-                        $ref: '#/components/responses/networkUser'
-        node:
-            type: object
-            properties:
-                ID:
-                    type: string
-                HostID:
-                  type: string
-                Network:
-                  type: string
-                NetworkRange:
-                  type: string
-                NetworkRange6:
-                  type: string
-                InternetGateway:
-                  type: string
-                Server:
-                  type: string
-                Connected:
-                  type: boolean
-                Address:
-                  type: string
-                Address6:
-                  type: string
-                Action:
-                  type: string
-                LocalAddress:
-                  type: string
-                IsEgressGateway:
-                  type: boolean
-                EgressGatewayRanges:
-                  type: array
-                  items:
-                    type: string
-                IsIngressGateway: 
-                  type: boolean
-                IsRelayed:
-                  type: boolean
-                RelayedBy:
-                  type: string
-                RelayedNodes:
-                  type: array
-                  items:
-                    type: string
-                IngressDNS:
-                  type: string
-                DNSOn:
-                  type: boolean
-                PersistentKeepaliveInterval:
-                  type: integer
-        network:
-            type: object
-            properties:
-                AddressRange:
-                    type: string
-                AddressRange6:
-                    type: string
-                NetID:
-                    type: string
-                NodesLastModified:
-                    type: integer
-                DefaultListenPort:
-                    type: integer
-                NodeLimit:
-                    type: integer
-                DefaultKeepAlive:
-                    type: integer
-                IsIPv4: 
-                    type: string
-                IsIPv6:  
-                    type: string
-                DefaultACL:
-                    type: string
-                ProSettings:
-                    type: string # todo promodels.ProNetwork
-        relayRequest:
-                description: Relay Request
-                type: object
-                properties:
-                    NodeID:
-                        type: string
-                    NetID:
-                        type: string
-                    NatEnabled:
-                        type: boolean
-                    Ranges:
-                        type: array
-                        items:
-                            type: string
-        signal:
-                type: object
-                properties:
-                    Server:
-                      type: string
-                    FromHostPubicKey:
-                      type: string
-                    TurnRelayEndpoint:
-                      type: string
-                    Reply:
-                      type: boolean
-                    Action: 
-                      type: string
-                    Timestamp:
-                      type: integer
-            
-    parameters:
-        domain:
-            description: dns domain 
-            in: path
-            name: domain
-            required: true
-            schema:
-                type: string
-        extclientID:
-            description: Client ID
-            in: path
-            name: clientid
-            required: true
-            schema:
-                type: string
-        hostID:        
-            description: Host ID
-            in: path
-            name: hostid
-            required: true
-            x-go-name: HostID
-            schema:
-              type: string
-        networkName:
-            description: Network Name
-            in: path
-            name: network
-            required: true
-            schema:
-                type: string
-        nodeID:
-            description: node ID
-            in: path
-            name: nodeid
-            required: true
-            schema:
-                type: string
-        username:
-            description: UserName
-            in: path
-            name: username
-            required: true
-            schema:
-                type: string
-
-    responses:
-        errorResponse:
-            description: Error
-            content:
-                application/json:
-                    schema:
-                        type: object
-                        properties:
-                            Code:
-                                type: integer
-                            Message:
-                                type: string
-                    examples:
-                        error:
-                            value:
-                                Code: 403
-                                Message: "forbidden"
-
-        badResponse:
-            description: Error
-            content:
-                application/json:
-                    schema:
-                        type: object
-                        properties:
-                            Code:
-                                type: integer
-                            Message:
-                                type: string
-                    examples:
-                        error:
-                            value:
-                                Code: 400
-                                Message: "Key: 'DNSEntry.Address' Error:Field validation for 'Address' failed on the 'required' tag"
-
-        successResponse:
-            description: Success
-            content:
-                application/json:
-                    schema:
-                        type: object
-                        properties:
-                            Code: 
-                                type: integer
-                            Message: 
-                                type: string
-                            Response: 
-                                type: string # todo interface{}
-                    examples:
-                        success:
-                            value:
-                                Code: 200
-                                Message: "success"
-                                Response: "success"
-        accessKey:
-            description: "AccessKey"
-            content:
-                application/json:
-                    schema:
-                        $ref: '#/components/schemas/accessKey'
-        dns:
-            description: DNSEntry
-            content:
-                application/json:
-                    schema:
-                        $ref: '#/components/schemas/dns'
-        enrollmentKeys:
-            description: "Enrollment Keys"
-            content:
-              application/json:
-                schema:
-                    type: array
-                    items:
-                        $ref: '#/components/responses/enrollmentKey'
-        enrollmentKey:    
-            description: "Enrollment Key"
-            content:
-              application/json:
-                schema:
-                    $ref: '#/components/schemas/enrollmentKey'
-        extClients:
-            description: "ExtClients"
-            content:
-              application/json:
-                schema:
-                    type: array
-                    items:
-                        $ref: '#/components/responses/extClient'    
-        extClient:
-            description: "ExtClient"
-            content:
-                application/json:
-                    schema:
-                        $ref: '#/components/schemas/extClient'
-        host:
-            description: "Host"
-            content:
-              application/json:
-                schema:
-                    $ref: '#/components/schemas/host'
-        metric:
-            description: "Metric"
-            content:
-                application/json:
-                    schema:
-                        $ref: '#/components/schemas/metric'
-        metrics:
-            description: "Metrics"
-            content:
-              application/json:
-                schema:
-                    $ref: '#/components/schemas/metrics'
-        network:
-            description: "Network"
-            content:
-                application/json:
-                    schema:
-                        $ref: '#/components/schemas/network'
+      responses:
+        '200':
+          $ref: '#/components/responses/node'
+      summary: Create an ingress gateway.
+      tags:
+        - nodes
+  /api/nodes/{network}/{nodeid}/deleteingress:
+    delete:
+      operationId: deleteIngressGateway
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+        - $ref: '#/components/parameters/nodeID'
+      responses:
+        '200':
+          $ref: '#/components/responses/node'
+      summary: Create an ingress gateway.
+      tags:
+        - nodes
+  /api/metrics/{network}/{nodeid}:
+    get:
+      operationId: getNodeMetrics
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+        - $ref: '#/components/parameters/nodeID'
+      responses:
+        '200':
+          description: metrics
+          $ref: '#/components/responses/metric'
+      summary: Get metrics for a node.
+      tags:
+        - metrics (Pro Feature)
+  /api/metrics/{network}:
+    get:
+      operationId: getNetworkNodeMetrics
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+      responses:
+        '200':
+          description: metrics
+          $ref: '#/components/responses/networkMetrics'
+      summary: Get metrics for a network.
+      tags:
+        - metrics (Pro Feature)
+  /api/metrics:
+    get:
+      operationId: getAllMetrics
+      responses:
+        '200':
+          description: metrics
+          $ref: '#/components/responses/networkMetrics'
+      summary: Get metrics for all nodes.
+      tags:
+        - metrics (Pro Feature)
+  /api/metrics-ext/{network}:
+    get:
+      operationId: getNetworkExtMetrics
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+      responses:
+        '200':
+          description: metrics
+          $ref: '#/components/responses/networkMetricsConnectivity'
+      summary: Get metrics for a network.
+      tags:
+        - metrics (Pro Feature)
+  /api/networkusers:
+    get:
+      operationId: getAllNetworkUsers
+      responses:
+        '200':
+          description: networkusers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/responses/allNetworkUsers'
+      summary: Get all network users.
+      tags:
+        - networkusers (Pro Feature)
+  /api/networkusers/{network}:
+    get:
+      operationId: getNetworkNetworkUsers
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+      responses:
+        '200':
+          description: networkusers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/responses/networkUsers'
+      summary: Get all network users for a network.
+      tags:
+        - networkusers (Pro Feature)
+    post:
+      operationId: createNetworkUser
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+      requestBody:
+        $ref: '#/components/requestBodies/networkUser'
+      responses:
+        '200':
+          description: networkusers
+          $ref: '#/components/responses/networkUser'
+      summary: Create a network user.
+      tags:
+        - networkusers (Pro Feature)
+    put:
+      operationId: updateNetworkUser
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+      requestBody:
+        $ref: '#/components/requestBodies/networkUser'
+      responses:
+        '200':
+          description: networkusers
+          $ref: '#/components/responses/networkUser'
+      summary: Update a network user.
+      tags:
+        - networkusers (Pro Feature)
+  /api/networkusers/{network}/{username}:
+    get:
+      operationId: getNetworkUser
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+        - $ref: '#/components/parameters/username'
+      responses:
+        '200':
+          description: networkusers
+          $ref: '#/components/responses/networkUser'
+      summary: Get a network user.
+      tags:
+        - networkusers (Pro Feature)
+    delete:
+      operationId: deleteNetworkUser
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+        - $ref: '#/components/parameters/username'
+      responses:
+        '200':
+          description: networkusers
+          $ref: '#/components/responses/successResponse'
+      summary: Delete a network user.
+      tags:
+        - networkusers (Pro Feature)
+  /api/networkusers/data/{username}/me:
+    delete:
+      operationId: deleteCurrentUser
+      parameters:
+        - $ref: '#/components/parameters/username'
+      responses:
+        '200':
+          description: networkusers
+          $ref: '#/components/responses/successResponse'
+      summary: Delete a network user.
+      tags:
+        - networkusers (Pro Feature)
+  /api/nodes/{network}/{nodeid}/createrelay:
+    post:
+      operationId: createRelay
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+        - $ref: '#/components/parameters/nodeID'
+      requestBody:
+        $ref: '#/components/requestBodies/relayRequest'
+        description: Relay Request
+        required: true
+      responses:
+        '200':
+          $ref: '#/components/responses/node'
+      summary: Create a relay.
+      tags:
+        - relay (Pro Feature)
+  /api/nodes/{network}/{nodeid}/deleterelay:
+    delete:
+      operationId: deleteRelay
+      parameters:
+        - $ref: '#/components/parameters/networkName'
+        - $ref: '#/components/parameters/nodeID'
+      responses:
+        '200':
+          $ref: '#/components/responses/node'
+      summary: Delete a relay.
+      tags:
+        - relay (Pro Feature)
+  /api/users/adm/hassuperadmin:
+    get:
+      responses:
+        '200':
+          description: admin exists
+          content:
+            application/json:
+              schema:
+                type: boolean
+              examples:
+                exists:
+                  value: |-
+                    { true }
+                missign:
+                  value: |-
+                   { false, }
+      summary: check for superadmin
+      tags:
+        - admin
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    accessKey:
+      type: object
+      properties:
+        Expiration:
+          type: string
+        UsesRemaining:
+          type: integer
+        value:
+          type: string
         networks:
-            description: "Networks"
-            content:
-              application/json:
-                schema:
-                    type: array
-                    items:
-                        $ref: '#/components/responses/network'    
-        networkMetrics:
-            description: "Network Metrics"
-            content:
-                application/json:
-                    schema:
-                        type: string # todo map[string]struct{}
-        networkMetricsConnectivity:
-            description: "Network Metrics Connectivity"
-            content:
-                application/json:
-                    schema:
-                        type: string # todo map[string]struct{}
-        networkUsers:
-            description: "Network Users"
-            content:
-                application/json:
-                    schema:
-                        type: string # todo map[string]struct{}
-        networkUser:
-            description: "Network User"
-            content:
-                application/json:
-                    schema:
-                        $ref: "#/components/schemas/networkUser"
-        allNetworkUsers:
-            description: "All Network Users"
-            content:
-                application/json:
-                    schema:
-                        $ref: "#/components/schemas/networkUsers"
-        node:
-            description: "Node"
-            content:
-                applicaton/json:
-                    schema:
-                        $ref: '#/components/schemas/node'
-        nodes:
-            description: "Nodes"
-            content:
-              application/json:
-                schema:
-                    type: array
-                    items:
-                        $ref: '#/components/responses/node'
-        signal:
-            description: "Signal"
-            content:
-                application/json:
-                    schema:
-                        $ref: '#/components/schemas/signal'
-        userGroup:
-            description: "User Group"
-            content:
-                application/json:
-                    schema:
-                        type: string # todo map[string]struct{}
-    requestBodies:
-
-        customExtClient:
-            content:
-                application/json:
-                    schema:
-                        $ref: '#/components/schemas/customExtClient'
-            description: ExtClient
-            required: true
-        egressGatewayRequest:
-            content:
-                application/json:
-                    schema:
-                        $ref: '#/components/schemas/egressGatewayRequest'
-        enrollmentKey:
-            content:
-                application/json:
-                    schema:
-                        $ref: '#/components/schemas/enrollmentKey'
-        host:
-            content:
-                application/json:
-                    schema:
-                        $ref: '#/components/schemas/host'
-        ingressGatewayRequest:
-            content:
-                application/json:
-                    schema:
-                        $ref: '#/components/schemas/ingressGatewayRequest'
-        migrate:
-            content:
-              application/json:
-                schema:
-                    $ref: '#/components/schemas/migrate'
-        network:
-            content:
-                application/json:
-                    schema:
-                        $ref: '#/components/schemas/network'
-        networkUser:
-            content:
-                application/json:
-                    schema:
-                        $ref: '#/components/schemas/networkUser'
-        node:
-            content:
-                application/json:
-                    schema:
-                        $ref: '#/components/schemas/node'
-        nodeAuth:
-            description: NodeAuth
-            required: true
-            content:
-                application/json:
-                    schema:
-                        type: object
-                        properties:
-                            MacAddress:
-                                type: string
-                            ID:
-                                type: string
-                            Password:
-                                type: string
-        relayRequest:
-                content:
-                    application/json:
-                        schema:
-                            $ref: '#/components/schemas/relayRequest'
-        signal:
-            content:
-                application/json:
-                    schema:
-                        $ref: '#/components/schemas/signal'
-        userAuth:
-            content:
-              application/json:
-                schema:
-                    type: object
-                    properties:
-                      Username:
-                        type: string
-                      Password:
-                        type: string
-        userGroup:
-            content:
-              application/json:
-                schema:
-                    type: object
-                    properties:
-                      Username:
-                        type: string
-                      Password:
-                        type: string
+          type: string
+        unlimited:
+          type: boolean
+        Tags:
+          type: string
+        Token:
+          type: string
+    customExtClient:
+      type: object
+      properties:
+        ClientID:
+          type: string
+        PublicKey:
+          type: string
+        DNS:
+          type: string
+        ExtraAllowedIPs:
+          type: array
+          items:
+            type: string
+        Enabled:
+          type: boolean
+        DeniedACLs:
+          type: string
+    dns:
+      type: object
+      properties:
+        Name:
+          type: string
+        Network:
+          type: string
+        Address:
+          type: string
+        Address6:
+          type: string
+    egressGatewayRequest:
+      type: object
+      properties:
+        NodeID:
+          type: string
+        NetID:
+          type: string
+        NatEnabled:
+          type: boolean
+        Ranges:
+          type: array
+          items:
+            type: string
+    enrollmentKey:
+      type: object
+      properties:
+        Key:
+          type: string
+        Name:
+          type: string
+        Notes:
+          type: string
+        Tags:
+          type: string
+        Unlimited:
+          type: boolean
+        UsesRemaining:
+          type: integer
+        Expiration:
+          type: string
+    extClient:
+      type: object
+      properties:
+        ClientID:
+          type: string
+        PrivateKey:
+          type: string
+        PublicKey:
+          type: string
+        Network:
+          type: string
+        DNS:
+          type: string
+        Address:
+          type: string
+        Address6:
+          type: string
+        ExtraAllowedIPs:
+          type: array
+          items:
+            type: string
+        IngressGatewayID:
+          type: string
+        IngressGatewayEndpoint:
+          type: string
+        LastModified:
+          type: integer
+        Enabled:
+          type: boolean
+        OwnerID:
+          type: string
+        DeniedACLs:
+          type: string
+    host:
+      type: object
+      properties:
+        ID:
+          type: string
+        Verbosity:
+          type: string
+        FirewallIInUse:
+          type: string
+        Version:
+          type: string
+        DaemonInstlled:
+          type: boolean
+        AutoUpdate:
+          type: boolean
+        HostPass:
+          type: string
+        Name:
+          type: string
+        OS:
+          type: string
+        Interface:
+          type: string
+        Debug:
+          type: boolean
+        ListenPort:
+          type: integer
+        WgPublicListenPort:
+          type: integer
+        MTU:
+          type: integer
+        PublicKey:
+          type: string
+        MacAddress:
+          type: string
+        TrafficKeyPublic:
+          type: string
+        Nodes:
+          type: array
+          items:
+            type: string
+        Interfaces:
+          type: array
+          items:
+            type: string
+        DefaultInterface:
+          type: string
+        EndpointIP:
+          type: string
+        IsDocker:
+          type: boolean
+        IsK8s:
+          type: boolean
+        IsStatic:
+          type: boolean
+        IsDefault:
+          type: boolean
+        NatType:
+          type: string
+        TurnEndpoint:
+          type: string
+    ingressGatewayRequest:
+      type: object
+      properties:
+        ExtClientDNS:
+          type: string
+        FailOver:
+          type: boolean
+    metric:
+      type: object
+      properties:
+        NodeName:
+          type: string
+        Uptime:
+          type: integer
+        TotalTime:
+          type: integer
+        Latency:
+          type: integer
+        TotalReceived:
+          type: integer
+        TotalSent:
+          type: integer
+        ActualUptime:
+          type: integer
+        PercentUp:
+          type: number
+        Connected:
+          type: boolean
+    metrics:
+      type: object
+      properties:
+        Network:
+          type: string
+        NodeID:
+          type: string
+        NodeName:
+          type: string
+        Connectivity:
+          type: string
+        FailoverPeers:
+          type: string
+    migrate:
+      type: object
+      properties:
+        ID:
+          type: string
+        Address:
+          type: string
+        Address6:
+          type: string
+        LocalAddress:
+          type: string
+        Interfaces:
+          type: array
+          items:
+            type: string
+        NetworkSettings:
+          $ref: '#/components/schemas/network'
+        ListenPort:
+          type: integer
+        LocalListenPort:
+          type: integer
+        PublicKey:
+          type: string
+        Endpoint:
+          type: string
+        AllowedIPs:
+          type: array
+          items:
+            type: string
+        PersistentKeepalive:
+          type: integer
+        IsHub:
+          type: boolean
+        AccessKey:
+          type: string
+        Interface:
+          type: string
+        LastModified:
+          type: integer
+        ExpirationDateTime:
+          type: string
+        LastPeerUpdate:
+          type: integer
+        MacAddress:
+          type: string
+        Password:
+          type: string
+        Network:
+          type: string
+        IsRelayed:
+          type: boolean
+        IsPending:
+          type: boolean
+        IsDocker:
+          type: boolean
+        IsK8s:
+          type: boolean
+        IsEgressGateway:
+          type: boolean
+        IsIngressGateway:
+          type: boolean
+        EgressGatewayRanges:
+          type: array
+          items:
+            type: string
+        EgressGatewayNatEnabled:
+          type: boolean
+        EgressGatewayRequest:
+          type: object
+          properties:
+            NodeID:
+              type: string
+            NetID:
+              type: string
+            NatEnabled:
+              type: boolean
+            Ranges:
+              type: array
+              items:
+                type: string
+        RelayAddrs:
+          type: array
+          items:
+            type: string
+        FailoverNode:
+          type: string
+        IngressGatewayRange:
+          type: string
+        IngressGatewayRange6:
+          type: string
+        IsStatic:
+          type: boolean
+        UDPHolePunch:
+          type: boolean
+        DNSOn:
+          type: boolean
+        IsServer:
+          type: boolean
+        Action:
+          type: string
+        IPForwarding:
+          type: boolean
+        OS:
+          type: string
+        MTU:
+          type: integer
+        Version:
+          type: string
+        Server:
+          type: string
+        TrafficKeys:
+          type: object
+          properties:
+            Private:
+              type: string
+            Public:
+              type: string
+        FirewallInUse:
+          type: string
+        InternetGateway:
+          type: string
+        Connected:
+          type: boolean
+        DefaultACL:
+          type: string
+        OwnerID:
+          type: string
+        FailOver:
+          type: string
+    networkUser:
+      type: object
+      properties:
+        AccessLevel:
+          type: integer
+        ClientLimit:
+          type: integer
+        NodeLimit:
+          type: integer
+        ID:
+          type: string
+        Clients:
+          type: array
+          items:
+            type: string
+        Nodes:
+          type: array
+          items:
+            type: string
+    networkUsers:
+      type: object
+      properties:
+        Network:
+          type: string
+        Users:
+          type: array
+          items:
+            $ref: '#/components/responses/networkUser'
+    node:
+      type: object
+      properties:
+        ID:
+          type: string
+        HostID:
+          type: string
+        Network:
+          type: string
+        NetworkRange:
+          type: string
+        NetworkRange6:
+          type: string
+        InternetGateway:
+          type: string
+        Server:
+          type: string
+        Connected:
+          type: boolean
+        Address:
+          type: string
+        Address6:
+          type: string
+        Action:
+          type: string
+        LocalAddress:
+          type: string
+        IsEgressGateway:
+          type: boolean
+        EgressGatewayRanges:
+          type: array
+          items:
+            type: string
+        IsIngressGateway:
+          type: boolean
+        IsRelayed:
+          type: boolean
+        RelayedBy:
+          type: string
+        RelayedNodes:
+          type: array
+          items:
+            type: string
+        IngressDNS:
+          type: string
+        DNSOn:
+          type: boolean
+        PersistentKeepaliveInterval:
+          type: integer
+    network:
+      type: object
+      properties:
+        AddressRange:
+          type: string
+        AddressRange6:
+          type: string
+        NetID:
+          type: string
+        NodesLastModified:
+          type: integer
+        DefaultListenPort:
+          type: integer
+        NodeLimit:
+          type: integer
+        DefaultKeepAlive:
+          type: integer
+        IsIPv4:
+          type: string
+        IsIPv6:
+          type: string
+        DefaultACL:
+          type: string
+        ProSettings:
+          type: string
+    relayRequest:
+      description: Relay Request
+      type: object
+      properties:
+        NodeID:
+          type: string
+        NetID:
+          type: string
+        NatEnabled:
+          type: boolean
+        Ranges:
+          type: array
+          items:
+            type: string
+    signal:
+      type: object
+      properties:
+        Server:
+          type: string
+        FromHostPubicKey:
+          type: string
+        TurnRelayEndpoint:
+          type: string
+        Reply:
+          type: boolean
+        Action:
+          type: string
+        Timestamp:
+          type: integer
+  parameters:
+    domain:
+      description: dns domain
+      in: path
+      name: domain
+      required: true
+      schema:
+        type: string
+    extclientID:
+      description: Client ID
+      in: path
+      name: clientid
+      required: true
+      schema:
+        type: string
+    hostID:
+      description: Host ID
+      in: path
+      name: hostid
+      required: true
+      x-go-name: HostID
+      schema:
+        type: string
+    networkName:
+      description: Network Name
+      in: path
+      name: network
+      required: true
+      schema:
+        type: string
+    nodeID:
+      description: node ID
+      in: path
+      name: nodeid
+      required: true
+      schema:
+        type: string
+    username:
+      description: UserName
+      in: path
+      name: username
+      required: true
+      schema:
+        type: string
+  responses:
+    errorResponse:
+      description: Error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              Code:
+                type: integer
+              Message:
+                type: string
+          examples:
+            error:
+              value:
+                Code: 403
+                Message: forbidden
+    badResponse:
+      description: Error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              Code:
+                type: integer
+              Message:
+                type: string
+          examples:
+            error:
+              value:
+                Code: 400
+                Message: >-
+                  Key: 'DNSEntry.Address' Error:Field validation for 'Address'
+                  failed on the 'required' tag
+    successResponse:
+      description: Success
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              Code:
+                type: integer
+              Message:
+                type: string
+              Response:
+                type: string
+          examples:
+            success:
+              value:
+                Code: 200
+                Message: success
+                Response: success
+    accessKey:
+      description: AccessKey
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/accessKey'
+    dns:
+      description: DNSEntry
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/dns'
+    enrollmentKeys:
+      description: Enrollment Keys
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '#/components/responses/enrollmentKey'
+    enrollmentKey:
+      description: Enrollment Key
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/enrollmentKey'
+    extClients:
+      description: ExtClients
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '#/components/responses/extClient'
+    extClient:
+      description: ExtClient
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/extClient'
+    host:
+      description: Host
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/host'
+    metric:
+      description: Metric
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/metric'
+    metrics:
+      description: Metrics
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/metrics'
+    network:
+      description: Network
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/network'
+    networks:
+      description: Networks
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '#/components/responses/network'
+    networkMetrics:
+      description: Network Metrics
+      content:
+        application/json:
+          schema:
+            type: string
+    networkMetricsConnectivity:
+      description: Network Metrics Connectivity
+      content:
+        application/json:
+          schema:
+            type: string
+    networkUsers:
+      description: Network Users
+      content:
+        application/json:
+          schema:
+            type: string
+    networkUser:
+      description: Network User
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/networkUser'
+    allNetworkUsers:
+      description: All Network Users
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/networkUsers'
+    node:
+      description: Node
+      content:
+        applicaton/json:
+          schema:
+            $ref: '#/components/schemas/node'
+    nodes:
+      description: Nodes
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '#/components/responses/node'
+    signal:
+      description: Signal
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/signal'
+    userGroup:
+      description: User Group
+      content:
+        application/json:
+          schema:
+            type: string
+  requestBodies:
+    customExtClient:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/customExtClient'
+      description: ExtClient
+      required: true
+    egressGatewayRequest:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/egressGatewayRequest'
+    enrollmentKey:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/enrollmentKey'
+    host:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/host'
+    ingressGatewayRequest:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ingressGatewayRequest'
+    migrate:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/migrate'
+    network:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/network'
+    networkUser:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/networkUser'
+    node:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/node'
+    nodeAuth:
+      description: NodeAuth
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              MacAddress:
+                type: string
+              ID:
+                type: string
+              Password:
+                type: string
+    relayRequest:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/relayRequest'
+    signal:
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/signal'
+    userAuth:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              Username:
+                type: string
+              Password:
+                type: string
+    userGroup:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              Username:
+                type: string
+              Password:
+                type: string
