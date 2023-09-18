@@ -67,12 +67,12 @@ paths:
             summary: Create a DNS entry.
             tags:
                 - dns
-    /api/dns/{network}/{hostID}:
+    /api/dns/{network}/{domain}:
         delete:
             operationId: deleteDNS
             parameters:
                 - $ref: '#/components/parameters/networkName'
-                - $ref: '#/components/parameters/hostID'
+                - $ref: '#/components/parameters/domain'
             responses:
                 "200":
                     description: "deletion successful"
@@ -176,7 +176,7 @@ paths:
                     content:
                         application/json:
                             schema:
-                                $ref: '#components/responses/ErrorResponse'
+                                $ref: '#/components/responses/errorResponse'
                             example:
                                     {
                                         "Code": 500,
@@ -507,18 +507,19 @@ paths:
             operationId: createNetwork
             requestBody:
                 $ref: '#/components/requestBodies/network'
-                required: true
+                #required: true
             responses:
                 "200":
                     $ref: '#/components/responses/network'
             summary: Create a network.
             tags:
                 - networks
-    /api/networks/{networkname}:
+    /api/networks/{network}:
         delete:
             operationId: deleteNetwork
             parameters:
                 - $ref: '#/components/parameters/networkName'
+                  in: path 
             responses:
                 "200":
                     $ref: '#/components/responses/successResponse'
@@ -547,7 +548,7 @@ paths:
             summary: Update a network.
             tags:
                 - networks
-    /api/networks/{networkname}/acls:
+    /api/networks/{network}/acls:
         get:
             operationId: getNetworkACLs
             parameters:
@@ -676,7 +677,7 @@ paths:
                 - $ref: '#/components/parameters/networkName'
                 - $ref: '#/components/parameters/nodeID'
             requestBody:
-                $ref: '#components/requestBodies/egressGatewayRequest'
+                $ref: '#/components/requestBodies/egressGatewayRequest'
                 description: Egress Gateway Request
                 required: true
                 content:
@@ -883,7 +884,7 @@ paths:
                 - networkusers (Pro Feature)
     /api/networkusers/data/{username}/me:
         delete:
-            operationId: deleteNetworkUser
+            operationId: deleteCurrentUser
             parameters:
                 - $ref: '#/components/parameters/username'
             responses:
@@ -936,42 +937,24 @@ paths:
             summary: Get all user groups.
             tags:
                 - usergroups (Pro Feature)
-    /api/usergroups/{usergroup}:
-        post:
-            operationId: createUserGroup
-            parameters:
-                - description: User Group
-                  in: path
-                  name: usergroup
-                  required: true
-                  schema:
-                    type: string
-            requestBody:
-                $ref: '#/components/responses/userGroup'
-            responses:
-                "200":
-                    description: "usergroups"
-                    $ref: '#/components/responses/userGroup'
-            summary: Create a user group.
-            tags:
-                - usergroups (Pro Feature)
-        delete:
-            operationId: deleteUserGroup
-            parameters:
-                - description: User Group
-                  in: path
-                  name: usergroup
-                  required: true
-                  schema:
-                    type: string
-            responses:
-                "200":
-                    description: "usergroups"
-                    $ref: '#/components/responses/successResponse'
-            summary: Delete a user group.
-            tags:
-                - usergroups (Pro Feature)
-
+    #/api/users/adm/hassuperadmin:
+    #    get:
+    #        responses:
+    #            "200":
+    #                description: "admin exists"
+    #                content:
+    #                    application/json:
+    #                        schema:
+    #                            type: boolean
+    #                        examples:
+    #                            exists:
+    #                            {
+    #                                true
+    #                            }
+    #                            does-not:
+    #                            {
+    #                                false
+    #                            } 
 components:
     securitySchemes:
         bearerAuth:
@@ -1025,6 +1008,19 @@ components:
                     type: string
                 Address6:
                     type: string
+        egressGatewayRequest:
+            type: object
+            properties:
+                NodeID:
+                    type: string
+                NetID:
+                    type: string
+                NatEnabled:
+                    type: boolean
+                Ranges:
+                    type: array
+                    items:
+                        type: string
         enrollmentKey:
             type: object
             properties:
@@ -1193,8 +1189,8 @@ components:
                   type: array
                   items:
                     type: string
-                NetworkSetttings:
-                  $ref: '#/components/responses/network'
+                NetworkSettings:
+                  $ref: '#/components/schemas/network'
                 ListenPort:
                   type: integer
                 LocalListenPort:
@@ -1438,9 +1434,15 @@ components:
                       type: string
                     Timestamp:
                       type: integer
-
             
     parameters:
+        domain:
+            description: dns domain 
+            in: path
+            name: domain
+            required: true
+            schema:
+                type: string
         extclientID:
             description: Client ID
             in: path
@@ -1595,7 +1597,7 @@ components:
             content:
                 application/json:
                     schema:
-                        $ref: '#components/schemas/network'
+                        $ref: '#/components/schemas/network'
         networks:
             description: "Networks"
             content:
@@ -1669,6 +1671,11 @@ components:
                         $ref: '#/components/schemas/customExtClient'
             description: ExtClient
             required: true
+        egressGatewayRequest:
+            content:
+                application/json:
+                    schema:
+                        $ref: '#/components/schemas/egressGatewayRequest'
         enrollmentKey:
             content:
                 application/json:
@@ -1729,6 +1736,16 @@ components:
                     schema:
                         $ref: '#/components/schemas/signal'
         userAuth:
+            content:
+              application/json:
+                schema:
+                    type: object
+                    properties:
+                      Username:
+                        type: string
+                      Password:
+                        type: string
+        userGroup:
             content:
               application/json:
                 schema:
