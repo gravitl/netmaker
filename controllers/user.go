@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
@@ -96,7 +97,6 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	}
 	// Send back the JWT
 	successJSONResponse, jsonError := json.Marshal(successResponse)
-
 	if jsonError != nil {
 		logger.Log(0, username,
 			"error marshalling resp: ", err.Error())
@@ -106,6 +106,35 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	logger.Log(2, username, "was authenticated")
 	response.Header().Set("Content-Type", "application/json")
 	response.Write(successJSONResponse)
+
+	go func() {
+		if servercfg.IsPro && servercfg.GetRacAutoDisable() {
+			// enable all associeated clients for the user
+			clients, err := logic.GetAllExtClients()
+			if err != nil {
+				slog.Error("error getting clients: ", "error", err)
+				return
+			}
+			for _, client := range clients {
+				if client.OwnerID == username {
+					slog.Info(fmt.Sprintf("enabling ext client %s for user %s due to RAC autodisabling feature", client.ClientID, client.OwnerID))
+					if newClient, err := logic.ToggleExtClientConnectivity(&client, true); err != nil {
+						slog.Error("error disabling ext client in RAC autodisable hook", "error", err)
+						return
+					} else {
+						// publish peer update to ingress gateway
+						if ingressNode, err := logic.GetNodeByID(newClient.IngressGatewayID); err == nil {
+							if err = mq.PublishPeerUpdate(); err != nil {
+								slog.Error("error updating ext clients on", "ingress", ingressNode.ID.String(), "err", err.Error())
+							}
+						} else {
+							return
+						}
+					}
+				}
+			}
+		}
+	}()
 }
 
 // swagger:route GET /api/users/adm/hassuperadmin user hasSuperAdmin

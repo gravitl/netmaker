@@ -59,34 +59,17 @@ func racAutoDisableHook() error {
 }
 
 func disableExtClient(client *models.ExtClient) error {
-	update := models.CustomExtClient{
-		Enabled:              false,
-		ClientID:             client.ClientID,
-		PublicKey:            client.PublicKey,
-		DNS:                  client.DNS,
-		ExtraAllowedIPs:      client.ExtraAllowedIPs,
-		DeniedACLs:           client.DeniedACLs,
-		RemoteAccessClientID: client.RemoteAccessClientID,
-	}
-
-	// update in DB
-	newClient := logic.UpdateExtClient(client, &update)
-	if err := logic.DeleteExtClient(client.Network, client.ClientID); err != nil {
-		slog.Error("failed to delete ext client during update", "id", client.ClientID, "network", client.Network, "error", err)
+	if newClient, err := logic.ToggleExtClientConnectivity(client, false); err != nil {
 		return err
-	}
-	if err := logic.SaveExtClient(&newClient); err != nil {
-		slog.Error("failed to save updated ext client during update", "id", newClient.ClientID, "network", newClient.Network, "error", err)
-		return err
-	}
-
-	// publish peer update to ingress gateway
-	if ingressNode, err := logic.GetNodeByID(newClient.IngressGatewayID); err == nil {
-		if err = mq.PublishPeerUpdate(); err != nil {
-			slog.Error("error updating ext clients on", "ingress", ingressNode.ID.String(), "err", err.Error())
-		}
 	} else {
-		return err
+		// publish peer update to ingress gateway
+		if ingressNode, err := logic.GetNodeByID(newClient.IngressGatewayID); err == nil {
+			if err = mq.PublishPeerUpdate(); err != nil {
+				slog.Error("error updating ext clients on", "ingress", ingressNode.ID.String(), "err", err.Error())
+			}
+		} else {
+			return err
+		}
 	}
 
 	return nil
