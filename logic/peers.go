@@ -64,7 +64,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				}
 				relayPeer := wgtypes.PeerConfig{
 					PublicKey:                   relayHost.PublicKey,
-					PersistentKeepaliveInterval: &relayNode.PersistentKeepalive,
+					PersistentKeepaliveInterval: &relayHost.PersistentKeepalive,
 					ReplaceAllowedIPs:           true,
 					AllowedIPs:                  GetAllowedIPs(&node, &relayNode, nil),
 				}
@@ -122,7 +122,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			}
 			peerConfig := wgtypes.PeerConfig{
 				PublicKey:                   peerHost.PublicKey,
-				PersistentKeepaliveInterval: &peer.PersistentKeepalive,
+				PersistentKeepaliveInterval: &peerHost.PersistentKeepalive, // TODO remove?
 				ReplaceAllowedIPs:           true,
 			}
 			if peer.IsEgressGateway {

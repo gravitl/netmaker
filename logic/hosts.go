@@ -6,11 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
-	"sort"
-	"strconv"
-	"sync"
-
 	"github.com/devilcove/httpclient"
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
@@ -18,6 +13,10 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
+	"net/http"
+	"sort"
+	"strconv"
+	"sync"
 )
 
 var (
@@ -217,6 +216,9 @@ func UpdateHost(newHost, currentHost *models.Host) {
 		newHost.ListenPort = currentHost.ListenPort
 	}
 
+	if newHost.PersistentKeepalive == 0 {
+		newHost.PersistentKeepalive = currentHost.PersistentKeepalive
+	}
 }
 
 // UpdateHostFromClient - used for updating host on server with update recieved from client
