@@ -3,33 +3,35 @@ package models
 import (
 	"net"
 	"strings"
+	"time"
 )
 
 // ApiHost - the host struct for API usage
 type ApiHost struct {
-	ID                 string   `json:"id"`
-	Verbosity          int      `json:"verbosity"`
-	FirewallInUse      string   `json:"firewallinuse"`
-	Version            string   `json:"version"`
-	Name               string   `json:"name"`
-	OS                 string   `json:"os"`
-	Debug              bool     `json:"debug"`
-	IsStatic           bool     `json:"isstatic"`
-	ListenPort         int      `json:"listenport"`
-	WgPublicListenPort int      `json:"wg_public_listen_port" yaml:"wg_public_listen_port"`
-	MTU                int      `json:"mtu" yaml:"mtu"`
-	Interfaces         []Iface  `json:"interfaces" yaml:"interfaces"`
-	DefaultInterface   string   `json:"defaultinterface" yaml:"defautlinterface"`
-	EndpointIP         string   `json:"endpointip" yaml:"endpointip"`
-	PublicKey          string   `json:"publickey"`
-	MacAddress         string   `json:"macaddress"`
-	Nodes              []string `json:"nodes"`
-	IsDefault          bool     `json:"isdefault" yaml:"isdefault"`
-	IsRelayed          bool     `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
-	RelayedBy          string   `json:"relayed_by" bson:"relayed_by" yaml:"relayed_by"`
-	IsRelay            bool     `json:"isrelay" bson:"isrelay" yaml:"isrelay"`
-	RelayedHosts       []string `json:"relay_hosts" bson:"relay_hosts" yaml:"relay_hosts"`
-	NatType            string   `json:"nat_type" yaml:"nat_type"`
+	ID                  string   `json:"id"`
+	Verbosity           int      `json:"verbosity"`
+	FirewallInUse       string   `json:"firewallinuse"`
+	Version             string   `json:"version"`
+	Name                string   `json:"name"`
+	OS                  string   `json:"os"`
+	Debug               bool     `json:"debug"`
+	IsStatic            bool     `json:"isstatic"`
+	ListenPort          int      `json:"listenport"`
+	WgPublicListenPort  int      `json:"wg_public_listen_port" yaml:"wg_public_listen_port"`
+	MTU                 int      `json:"mtu" yaml:"mtu"`
+	Interfaces          []Iface  `json:"interfaces" yaml:"interfaces"`
+	DefaultInterface    string   `json:"defaultinterface" yaml:"defautlinterface"`
+	EndpointIP          string   `json:"endpointip" yaml:"endpointip"`
+	PublicKey           string   `json:"publickey"`
+	MacAddress          string   `json:"macaddress"`
+	Nodes               []string `json:"nodes"`
+	IsDefault           bool     `json:"isdefault" yaml:"isdefault"`
+	IsRelayed           bool     `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
+	RelayedBy           string   `json:"relayed_by" bson:"relayed_by" yaml:"relayed_by"`
+	IsRelay             bool     `json:"isrelay" bson:"isrelay" yaml:"isrelay"`
+	RelayedHosts        []string `json:"relay_hosts" bson:"relay_hosts" yaml:"relay_hosts"`
+	NatType             string   `json:"nat_type" yaml:"nat_type"`
+	PersistentKeepalive int32    `json:"persistentkeepalive" yaml:"persistentkeepalive"`
 }
 
 // Host.ConvertNMHostToAPI - converts a Netmaker host to an API editable host
@@ -57,6 +59,7 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 	a.Version = h.Version
 	a.IsDefault = h.IsDefault
 	a.NatType = h.NatType
+	a.PersistentKeepalive = int32(h.PersistentKeepalive)
 	return &a
 }
 
@@ -94,6 +97,10 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.IsDefault = a.IsDefault
 	h.NatType = currentHost.NatType
 	h.TurnEndpoint = currentHost.TurnEndpoint
-
+	if h.PersistentKeepalive == 0 {
+		h.PersistentKeepalive = time.Duration(a.PersistentKeepalive)
+	} else {
+		h.PersistentKeepalive = currentHost.PersistentKeepalive
+	}
 	return &h
 }
