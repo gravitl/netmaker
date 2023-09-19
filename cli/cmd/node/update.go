@@ -34,7 +34,6 @@ var nodeUpdateCmd = &cobra.Command{
 			node.Address = address
 			node.Address6 = address6
 			node.LocalAddress = localAddress
-			node.PersistentKeepalive = int32(keepAlive)
 			if relayedNodes != "" {
 				node.RelayedNodes = strings.Split(relayedNodes, ",")
 			}
@@ -61,7 +60,6 @@ func init() {
 	nodeUpdateCmd.Flags().StringVar(&name, "name", "", "Node name")
 	nodeUpdateCmd.Flags().StringVar(&postUp, "post_up", "", "Commands to run after node is up `;` separated")
 	nodeUpdateCmd.Flags().StringVar(&postDown, "post_down", "", "Commands to run after node is down `;` separated")
-	nodeUpdateCmd.Flags().IntVar(&keepAlive, "keep_alive", 0, "Interval in which packets are sent to keep connections open with peers")
 	nodeUpdateCmd.Flags().StringVar(&relayedNodes, "relayed_nodes", "", "relayed nodes if node acts as a relay")
 	nodeUpdateCmd.Flags().StringVar(&egressGatewayRanges, "egress_addrs", "", "Addresses for egressing traffic if node acts as an egress")
 	nodeUpdateCmd.Flags().IntVar(&expirationDateTime, "expiry", 0, "UNIX timestamp after which node will lose access to the network")
