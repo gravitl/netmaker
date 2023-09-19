@@ -102,7 +102,7 @@ func updateHosts() {
 			continue
 		}
 		if host.PersistentKeepalive == 0 {
-			host.PersistentKeepalive = 20 * time.Millisecond
+			host.PersistentKeepalive = 20 * time.Second
 			if err := logic.UpsertHost(&host); err != nil {
 				logger.Log(0, "failed to upsert host", host.ID.String())
 				continue
