@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -14,6 +15,7 @@ import (
 func Run() {
 	updateEnrollmentKeys()
 	assignSuperAdmin()
+	updateHosts()
 }
 
 func assignSuperAdmin() {
@@ -85,5 +87,26 @@ func updateEnrollmentKeys() {
 			continue
 		}
 
+	}
+}
+
+func updateHosts() {
+	rows, err := database.FetchRecords(database.HOSTS_TABLE_NAME)
+	if err != nil {
+		logger.Log(0, "failed to fetch database records for hosts")
+	}
+	for _, row := range rows {
+		var host models.Host
+		if err := json.Unmarshal([]byte(row), &host); err != nil {
+			logger.Log(0, "failed to unmarshal database row to host", "row", row)
+			continue
+		}
+		if host.PersistentKeepalive == 0 {
+			host.PersistentKeepalive = 20 * time.Millisecond
+			if err := logic.UpsertHost(&host); err != nil {
+				logger.Log(0, "failed to upsert host", host.ID.String())
+				continue
+			}
+		}
 	}
 }
