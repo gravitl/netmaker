@@ -313,6 +313,8 @@ Endpoint = %s
 //
 //			Security:
 //	  		oauth
+//			Responses:
+//			200:  okResponse
 func createExtClient(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 

@@ -136,6 +136,8 @@ func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
 //
 //			Security:
 //	  		oauth
+//			Responses:
+//			200:  okResponse
 func HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	if auth_provider == nil {
 		handleOauthNotConfigured(w)

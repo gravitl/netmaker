@@ -36,9 +36,9 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/oauth/register/{regKey}", auth.RegisterHostSSO).Methods(http.MethodGet)
 }
 
-// swagger:route POST /api/users/adm/authenticate user authenticateUser
+// swagger:route POST /api/users/adm/authenticate authenticate authenticateUser
 //
-// Node authenticates using its password and retrieves a JWT for authorization.
+// User authenticates using its password and retrieves a JWT for authorization.
 //
 //			Schemes: https
 //
@@ -118,7 +118,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 //	  		oauth
 //
 //			Responses:
-//				200: successResponse
+//				200: hasAdmin
 func hasSuperAdmin(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")

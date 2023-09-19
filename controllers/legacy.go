@@ -22,7 +22,7 @@ func legacyHandlers(r *mux.Router) {
 //	  		oauth
 //
 //			Responses:
-//				200: wipeLegacyNodesResponse
+//				200: successResponse
 func wipeLegacyNodes(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")

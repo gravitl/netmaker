@@ -1,1768 +1,2495 @@
----
-openapi: 3.0.1
-servers:
-  - url: https://api.demo.netmaker.io
-info:
-  description: >-
-    API Usage
-
-
-    Most actions that can be performed via API can be performed via UI. We
-    recommend managing your networks using the official netmaker-ui project.
-    However, Netmaker can also be run without the UI, and all functions can be
-    achieved via API calls. If your use case requires using Netmaker without the
-    UI or you need to do some troubleshooting/advanced configuration, using the
-    API directly may help.
-
-
-
-    Authentication
-
-
-    API calls must be authenticated via a header of the format -H
-    “Authorization: Bearer <YOUR_SECRET_KEY>” There are two methods to obtain
-    YOUR_SECRET_KEY: 1. Using the masterkey. This value can be set via env var
-    at startup or in a config file (config/environments/< env >.yaml). See the
-    [Netmaker](https://docs.netmaker.org/index.html) documentation for more
-    details. 2. Using a JWT received for a node. This can be retrieved by
-    calling the /api/nodes/<network>/authenticate endpoint, as documented below.
-  title: Netmaker
-  version: 0.20.6
-security:
-  - bearerAuth: []
-paths:
-  /api/nodes/adm/{network}/authenticate:
-    post:
-      operationId: authenticate
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-      requestBody:
-        $ref: '#/components/requestBodies/nodeAuth'
-      responses:
-        '200':
-          $ref: '#/components/responses/node'
-      summary: Node authenticates using its password and retrieves a JWT.
-      tags:
-        - authorization
-  /api/users/adm/authenticate:
-    post:
-      operationId: authenticateUser
-      requestBody:
-        $ref: '#/components/requestBodies/userAuth'
-      responses:
-        '200':
-          $ref: '#/components/responses/successResponse'
-      summary: user authenticates using its password and retrieves a JWT.
-      tags:
-        - authorization
-  /api/dns:
-    get:
-      operationId: getAllDNS
-      responses:
-        '200':
-          $ref: '#/components/responses/dns'
-        '403':
-          $ref: '#/components/responses/errorResponse'
-      summary: Gets all DNS entries.
-      tags:
-        - dns
-  /api/dns/{network}:
-    post:
-      operationId: createDNS
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-      responses:
-        '200':
-          $ref: '#/components/responses/dns'
-        '400':
-          $ref: '#/components/responses/badResponse'
-        '403':
-          $ref: '#/components/responses/errorResponse'
-      summary: Create a DNS entry.
-      tags:
-        - dns
-  /api/dns/{network}/{domain}:
-    delete:
-      operationId: deleteDNS
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-        - $ref: '#/components/parameters/domain'
-      responses:
-        '200':
-          description: deletion successful
-          content:
-            application/json:
-              schema:
-                type: string
-              examples:
-                success:
-                  value: '{host}.{network} deleted'
-      summary: Delete a DNS entry.
-      tags:
-        - dns
-  /api/dns/adm/{network}:
-    get:
-      operationId: getDNS
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-      responses:
-        '200':
-          $ref: '#/components/responses/dns'
-      summary: Gets all DNS entries associated with the network.
-      tags:
-        - dns
-  /api/dns/adm/{network}/custom:
-    get:
-      operationId: getCustomDNS
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-      responses:
-        '200':
-          $ref: '#/components/responses/dns'
-      summary: Gets custom DNS entries associated with a network.
-      tags:
-        - dns
-  /api/dns/adm/{network}/nodes:
-    get:
-      operationId: getNodeDNS
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-      summary: Gets node DNS entries associated with a network.
-      tags:
-        - dns
-      responses:
-        '200':
-          $ref: '#/components/responses/dns'
-        '403':
-          $ref: '#/components/responses/errorResponse'
-  /api/dns/adm/pushdns:
-    post:
-      operationId: pushDNS
-      responses:
-        '200':
-          description: success
-          content:
-            application/json:
-              schema:
-                type: string
-              examples:
-                success:
-                  value: DNS entries pushed to nameserver
-      summary: Push DNS entries to nameserver.
-      tags:
-        - dns
-  /api/v1/enrollment-keys:
-    get:
-      operationId: getAllEnrollmentKeys
-      responses:
-        '200':
-          $ref: '#/components/responses/enrollmentKeys'
-      summary: Get all en keys.
-      tags:
-        - enrollment_keys
-    post:
-      operationId: createEnrollmentKey
-      requestBody:
-        $ref: '#/components/requestBodies/enrollmentKey'
-      responses:
-        '200':
-          $ref: '#/components/responses/enrollmentKey'
-      summary: Create an access key.
-      tags:
-        - enrollment_keys
-  /api/v1/enrollment-keys/{key}:
-    delete:
-      operationId: deleteEnrollmentKey
-      parameters:
-        - description: Key
-          in: path
-          name: key
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: success
-        '403':
-          $ref: '#/components/responses/errorResponse'
-        '500':
-          description: Internal Server Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/responses/errorResponse'
-              example:
-                Code: 500
-                Message: no enrollmentkey found
-      summary: Delete an access key.
-      tags:
-        - enrollment_keys
-  /api/v1/host/register/{token}:
-    post:
-      operationId: registerHost
-      parameters:
-        - description: Token
-          in: path
-          name: token
-          required: true
-          schema:
-            type: string
-      requestBody:
-        $ref: '#/components/requestBodies/host'
-      responses:
-        '200':
-          $ref: '#/components/responses/node'
-      summary: Register a node using a token.
-      tags:
-        - enrollment_keys
-  /api/extclients:
-    get:
-      operationId: getAllExtClients
-      responses:
-        '200':
-          $ref: '#/components/responses/extClients'
-      summary: >-
-        A separate function to get all extclients, not just extclients for a
-        particular network.
-      tags:
-        - ext_client
-  /api/extclients/{network}:
-    get:
-      description: >-
-        Gets all extclients associated with network, including pending
-        extclients.
-      operationId: getNetworkExtClients
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-      responses:
-        '200':
-          $ref: '#/components/responses/extClients'
-      summary: Get all extclients associated with network.
-      tags:
-        - ext_client
-  /api/extclients/{network}/{clientid}:
-    get:
-      operationId: getExtClient
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-        - $ref: '#/components/parameters/extclientID'
-      responses:
-        '200':
-          $ref: '#/components/responses/extClient'
-      summary: Get an individual extclient.
-      tags:
-        - ext_client
-    put:
-      operationId: updateExtClient
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-        - $ref: '#/components/parameters/extclientID'
-      requestBody:
-        $ref: '#/components/requestBodies/customExtClient'
-      responses:
-        '200':
-          $ref: '#/components/responses/extClient'
-      summary: Update an individual extclient.
-      tags:
-        - ext_client
-    delete:
-      operationId: deleteExtClient
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-        - $ref: '#/components/parameters/extclientID'
-      responses:
-        '200':
-          $ref: '#/components/responses/successResponse'
-      summary: Delete an individual extclient.
-      tags:
-        - ext_client
-  /api/extclients/{network}/{clientid}/{type}:
-    get:
-      operationId: getExtClientConf
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-        - $ref: '#/components/parameters/extclientID'
-        - description: Type
-          in: path
-          name: type
-          required: true
-          schema:
-            type: string
-          examples:
-            file:
-              value: wg
-            qr code:
-              value: qr
-      responses:
-        '200':
-          $ref: '#/components/responses/extClient'
-      summary: Get an individual extclient.
-      tags:
-        - ext_client
-  /api/extclients/{network}/{nodeid}:
-    post:
-      operationId: createExtClient
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-        - $ref: '#/components/parameters/nodeID'
-      requestBody:
-        $ref: '#/components/requestBodies/customExtClient'
-        required: true
-      summary: Create an individual extclient.  Must have valid key and be unique.
-      responses:
-        '200':
-          $ref: '#/components/responses/extClient'
-      tags:
-        - ext_client
-  /api/getip:
-    get:
-      operationId: getIP
-      responses:
-        '200':
-          description: IP Address
-          content:
-            application/json:
-              schema:
-                type: string
-              examples:
-                result:
-                  value: 192.168.0.25
-      summary: Get the current public IP address.
-      tags:
-        - ipservice
-  /api/hosts:
-    get:
-      operationId: getAllHosts
-      responses:
-        '200':
-          $ref: '#/components/responses/host'
-      summary: Get all hosts across all networks.
-      tags:
-        - hosts
-  /api/hosts/keys:
-    put:
-      operationId: updateAllKeys
-      responses:
-        '200':
-          description: success
-        '400':
-          $ref: '#/components/responses/badResponse'
-      summary: Update all wireguard keys .
-      tags:
-        - hosts
-  /api/hosts/{hostid}/keys:
-    put:
-      operationId: updateKeys
-      parameters:
-        - $ref: '#/components/parameters/hostID'
-      responses:
-        '200':
-          description: success
-        '400':
-          $ref: '#/components/responses/badResponse'
-      summary: Update wireguard keys for a host.
-      tags:
-        - hosts
-  /api/hosts/{hostid}/sync:
-    put:
-      operationId: syncHost
-      parameters:
-        - $ref: '#/components/parameters/hostID'
-      responses:
-        '200':
-          description: success
-        '400':
-          $ref: '#/components/responses/badResponse'
-      summary: Sync a host.
-      tags:
-        - hosts
-  /api/hosts/{hostid}:
-    put:
-      operationId: updateHost
-      parameters:
-        - $ref: '#/components/parameters/hostID'
-      requestBody:
-        $ref: '#/components/requestBodies/host'
-      responses:
-        '200':
-          $ref: '#/components/responses/host'
-      summary: Update an individual host.
-      tags:
-        - hosts
-    delete:
-      operationId: deleteHost
-      parameters:
-        - $ref: '#/components/parameters/hostID'
-      responses:
-        '200':
-          $ref: '#/components/responses/host'
-      summary: Delete an individual host.
-      tags:
-        - hosts
-  /api/hosts/{hostid}/networks/{network}:
-    post:
-      operationId: addHostToNetwork
-      parameters:
-        - $ref: '#/components/parameters/hostID'
-        - $ref: '#/components/parameters/networkName'
-      responses:
-        '200':
-          description: success
-      summary: Create an individual host.
-      tags:
-        - hosts
-    delete:
-      operationId: deletedHostFromNetwork
-      parameters:
-        - $ref: '#/components/parameters/hostID'
-        - $ref: '#/components/parameters/networkName'
-        - description: force
-          in: query
-          name: force
-          required: false
-          schema:
-            type: boolean
-      responses:
-        '200':
-          description: success
-      summary: Delete an individual host.
-      tags:
-        - hosts
-  /api/v1/host:
-    get:
-      operationId: pull
-      responses:
-        '200':
-          description: success
-          $ref: '#/components/responses/host'
-      summary: Get an individual host.
-      tags:
-        - hosts
-  /api/v1/host/{hostid}/signalpeer:
-    post:
-      operationId: signalPeer
-      parameters:
-        - $ref: '#/components/parameters/hostID'
-      requestBody:
-        $ref: '#/components/requestBodies/signal'
-      responses:
-        '200':
-          description: success
-          $ref: '#/components/responses/signal'
-      summary: Get an individual host.
-      tags:
-        - hosts
-  /api/v1/legacy/nodes:
-    delete:
-      operationId: wipeLegayNodes
-      responses:
-        '200':
-          description: success
-          $ref: '#/components/responses/successResponse'
-      summary: Delete all legacy nodes across all networks.
-      tags:
-        - legacy
-  /api/logs:
-    get:
-      operationId: getLogs
-      responses:
-        '200':
-          description: logs
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: string
-      summary: Get all logs across all networks.
-      tags:
-        - logs
-  /api/v1/nodes/migrate:
-    post:
-      operationId: migrate
-      requestBody:
-        $ref: '#/components/requestBodies/migrate'
-      responses:
-        '200':
-          description: success
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  NodeID:
-                    type: string
-                  NetID:
-                    type: string
-                  NatEnabled:
-                    type: boolean
-                  Ranges:
-                    type: array
-                    items:
-                      type: string
-      summary: Migrate legacy nodes into host/nodes.
-      tags:
-        - migration
-  /api/networks:
-    get:
-      operationId: getAllNetworks
-      responses:
-        '200':
-          $ref: '#/components/responses/networks'
-      summary: Lists all networks.
-      tags:
-        - networks
-    post:
-      operationId: createNetwork
-      requestBody:
-        $ref: '#/components/requestBodies/network'
-      responses:
-        '200':
-          $ref: '#/components/responses/network'
-      summary: Create a network.
-      tags:
-        - networks
-  /api/networks/{network}:
-    delete:
-      operationId: deleteNetwork
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-      responses:
-        '200':
-          $ref: '#/components/responses/successResponse'
-      summary: >-
-        Delete a network.  Will not delete if there are any nodes that belong to
-        the network.
-      tags:
-        - networks
-    get:
-      operationId: getNetwork
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-      responses:
-        '200':
-          $ref: '#/components/responses/network'
-      summary: Get a network.
-      tags:
-        - networks
-    put:
-      operationId: updateNetwork
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-      requestBody:
-        $ref: '#/components/requestBodies/network'
-      responses:
-        '200':
-          $ref: '#/components/responses/network'
-      summary: Update a network.
-      tags:
-        - networks
-  /api/networks/{network}/acls:
-    get:
-      operationId: getNetworkACLs
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-      responses:
-        '200':
-          description: acls
-          content:
-            application/json:
-              schema:
-                type: object
-                example:
-                  4bf4f244-6882-44dd-a18d-83abefcd7330:
-                    5e58ada3-11a4-4073-9249-9bcdfded9dc7: 2
-      summary: Get a network ACL (Access Control List).
-      tags:
-        - networks
-    put:
-      operationId: updateNetworkACLs
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-      requestBody:
-        description: ACL Container
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              example:
-                4bf4f244-6882-44dd-a18d-83abefcd7330:
-                  5e58ada3-11a4-4073-9249-9bcdfded9dc7: 2
-      responses:
-        '200':
-          description: acls
-          content:
-            application/json:
-              schema:
-                type: object
-                example:
-                  4bf4f244-6882-44dd-a18d-83abefcd7330:
-                    5e58ada3-11a4-4073-9249-9bcdfded9dc7: 2
-      summary: Update a network ACL (Access Control List).
-      tags:
-        - networks
-  /api/nodes:
-    get:
-      operationId: getAllNodes
-      responses:
-        '200':
-          $ref: '#/components/responses/nodes'
-      summary: Get all nodes across all networks.
-      tags:
-        - nodes
-  /api/nodes/{network}:
-    get:
-      operationId: getNetworkNodes
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-      responses:
-        '200':
-          $ref: '#/components/responses/nodes'
-      summary: Gets all nodes associated with network including pending nodes.
-      tags:
-        - nodes
-  /api/nodes/{network}/{nodeid}:
-    get:
-      operationId: getNode
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-        - $ref: '#/components/parameters/nodeID'
-      responses:
-        '200':
-          $ref: '#/components/responses/node'
-      summary: Get an individual node.
-      tags:
-        - nodes
-    put:
-      operationId: updateNode
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-        - $ref: '#/components/parameters/nodeID'
-      requestBody:
-        $ref: '#/components/requestBodies/node'
-      responses:
-        '200':
-          $ref: '#/components/responses/node'
-      summary: Update an individual node from UI.
-      tags:
-        - nodes
-    post:
-      operationId: updateNodeFromHost
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-        - $ref: '#/components/parameters/nodeID'
-      requestBody:
-        $ref: '#/components/requestBodies/node'
-      responses:
-        '200':
-          $ref: '#/components/responses/node'
-      summary: Update an individual node from host.
-      tags:
-        - nodes
-    delete:
-      operationId: deleteNode
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-        - $ref: '#/components/parameters/nodeID'
-      responses:
-        '200':
-          $ref: '#/components/responses/successResponse'
-      summary: Delete an individual node.
-      tags:
-        - nodes
-  /api/nodes/{network}/{nodeid}/creategateway:
-    post:
-      operationId: createEgressGateway
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-        - $ref: '#/components/parameters/nodeID'
-      requestBody:
-        $ref: '#/components/requestBodies/egressGatewayRequest'
-        description: Egress Gateway Request
-        required: true
-        content:
-          application/json:
-            schema:
-              description: Egress Gateway Request
-              type: object
-              properties:
-                NodeID:
-                  type: string
-                NetID:
-                  type: string
-                NatEnabled:
-                  type: boolean
-                Ranges:
-                  type: array
-                  items:
-                    type: string
-      responses:
-        '200':
-          $ref: '#/components/responses/node'
-      summary: Create an egress gateway.
-      tags:
-        - nodes
-  /api/nodes/{network}/{nodeid}/deletegateway:
-    delete:
-      operationId: deleteEgressGateway
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-        - $ref: '#/components/parameters/nodeID'
-      responses:
-        '200':
-          $ref: '#/components/responses/node'
-      summary: Delete an egress gateway.
-      tags:
-        - nodes
-  /api/nodes/{network}/{nodeid}/createingress:
-    post:
-      operationId: createIngressGateway
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-        - $ref: '#/components/parameters/nodeID'
-      requestBody:
-        $ref: '#/components/requestBodies/ingressGatewayRequest'
-        description: Ingress Gateway Request
-        required: true
-        content:
-          application/json:
-            schema:
-              description: Ingress Gateway Request
-              type: object
-              properties:
-                ExtClientDNS:
-                  type: string
-                FailOver:
-                  type: string
-      responses:
-        '200':
-          $ref: '#/components/responses/node'
-      summary: Create an ingress gateway.
-      tags:
-        - nodes
-  /api/nodes/{network}/{nodeid}/deleteingress:
-    delete:
-      operationId: deleteIngressGateway
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-        - $ref: '#/components/parameters/nodeID'
-      responses:
-        '200':
-          $ref: '#/components/responses/node'
-      summary: Create an ingress gateway.
-      tags:
-        - nodes
-  /api/metrics/{network}/{nodeid}:
-    get:
-      operationId: getNodeMetrics
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-        - $ref: '#/components/parameters/nodeID'
-      responses:
-        '200':
-          description: metrics
-          $ref: '#/components/responses/metric'
-      summary: Get metrics for a node.
-      tags:
-        - metrics (Pro Feature)
-  /api/metrics/{network}:
-    get:
-      operationId: getNetworkNodeMetrics
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-      responses:
-        '200':
-          description: metrics
-          $ref: '#/components/responses/networkMetrics'
-      summary: Get metrics for a network.
-      tags:
-        - metrics (Pro Feature)
-  /api/metrics:
-    get:
-      operationId: getAllMetrics
-      responses:
-        '200':
-          description: metrics
-          $ref: '#/components/responses/networkMetrics'
-      summary: Get metrics for all nodes.
-      tags:
-        - metrics (Pro Feature)
-  /api/metrics-ext/{network}:
-    get:
-      operationId: getNetworkExtMetrics
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-      responses:
-        '200':
-          description: metrics
-          $ref: '#/components/responses/networkMetricsConnectivity'
-      summary: Get metrics for a network.
-      tags:
-        - metrics (Pro Feature)
-  /api/networkusers:
-    get:
-      operationId: getAllNetworkUsers
-      responses:
-        '200':
-          description: networkusers
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/responses/allNetworkUsers'
-      summary: Get all network users.
-      tags:
-        - networkusers (Pro Feature)
-  /api/networkusers/{network}:
-    get:
-      operationId: getNetworkNetworkUsers
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-      responses:
-        '200':
-          description: networkusers
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/responses/networkUsers'
-      summary: Get all network users for a network.
-      tags:
-        - networkusers (Pro Feature)
-    post:
-      operationId: createNetworkUser
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-      requestBody:
-        $ref: '#/components/requestBodies/networkUser'
-      responses:
-        '200':
-          description: networkusers
-          $ref: '#/components/responses/networkUser'
-      summary: Create a network user.
-      tags:
-        - networkusers (Pro Feature)
-    put:
-      operationId: updateNetworkUser
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-      requestBody:
-        $ref: '#/components/requestBodies/networkUser'
-      responses:
-        '200':
-          description: networkusers
-          $ref: '#/components/responses/networkUser'
-      summary: Update a network user.
-      tags:
-        - networkusers (Pro Feature)
-  /api/networkusers/{network}/{username}:
-    get:
-      operationId: getNetworkUser
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-        - $ref: '#/components/parameters/username'
-      responses:
-        '200':
-          description: networkusers
-          $ref: '#/components/responses/networkUser'
-      summary: Get a network user.
-      tags:
-        - networkusers (Pro Feature)
-    delete:
-      operationId: deleteNetworkUser
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-        - $ref: '#/components/parameters/username'
-      responses:
-        '200':
-          description: networkusers
-          $ref: '#/components/responses/successResponse'
-      summary: Delete a network user.
-      tags:
-        - networkusers (Pro Feature)
-  /api/networkusers/data/{username}/me:
-    delete:
-      operationId: deleteCurrentUser
-      parameters:
-        - $ref: '#/components/parameters/username'
-      responses:
-        '200':
-          description: networkusers
-          $ref: '#/components/responses/successResponse'
-      summary: Delete a network user.
-      tags:
-        - networkusers (Pro Feature)
-  /api/nodes/{network}/{nodeid}/createrelay:
-    post:
-      operationId: createRelay
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-        - $ref: '#/components/parameters/nodeID'
-      requestBody:
-        $ref: '#/components/requestBodies/relayRequest'
-        description: Relay Request
-        required: true
-      responses:
-        '200':
-          $ref: '#/components/responses/node'
-      summary: Create a relay.
-      tags:
-        - relay (Pro Feature)
-  /api/nodes/{network}/{nodeid}/deleterelay:
-    delete:
-      operationId: deleteRelay
-      parameters:
-        - $ref: '#/components/parameters/networkName'
-        - $ref: '#/components/parameters/nodeID'
-      responses:
-        '200':
-          $ref: '#/components/responses/node'
-      summary: Delete a relay.
-      tags:
-        - relay (Pro Feature)
-  /api/users/adm/hassuperadmin:
-    get:
-      responses:
-        '200':
-          description: admin exists
-          content:
-            application/json:
-              schema:
+basePath: /
+consumes:
+    - application/json
+definitions:
+    ACL:
+        additionalProperties:
+            format: uint8
+            type: integer
+        description: ACL - the ACL of other nodes in a NetworkACL for a single unique node
+        type: object
+        x-go-package: github.com/gravitl/netmaker/logic/acls
+    ACLContainer:
+        additionalProperties:
+            $ref: '#/definitions/ACL'
+        description: ACLContainer - the total list of all node's ACL in a given network
+        type: object
+        x-go-package: github.com/gravitl/netmaker/logic/acls
+    ApiHost:
+        description: ApiHost - the host struct for API usage
+        properties:
+            debug:
                 type: boolean
-              examples:
-                exists:
-                  value: |-
-                    { true }
-                missign:
-                  value: |-
-                   { false, }
-      summary: check for superadmin
-      tags:
-        - admin
-  /api/users/adm/createsuperadmin:
-    post:
-      operationId: createSuperAdmin
-      requestBody:
-        $ref: '#/components/requestBodies/user'
-      responses:
-        '200':
-            $ref: '#/components/responses/returnedUser'
-      summary: create superadmin
-      tags:
-        - admin
-        
-components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-  schemas:
-    accessKey:
-      type: object
-      properties:
-        Expiration:
-          type: string
-        UsesRemaining:
-          type: integer
-        value:
-          type: string
-        networks:
-          type: string
-        unlimited:
-          type: boolean
-        Tags:
-          type: string
-        Token:
-          type: string
-    customExtClient:
-      type: object
-      properties:
-        ClientID:
-          type: string
-        PublicKey:
-          type: string
-        DNS:
-          type: string
-        ExtraAllowedIPs:
-          type: array
-          items:
-            type: string
-        Enabled:
-          type: boolean
-        DeniedACLs:
-          type: string
-    dns:
-      type: object
-      properties:
-        Name:
-          type: string
-        Network:
-          type: string
-        Address:
-          type: string
-        Address6:
-          type: string
-    egressGatewayRequest:
-      type: object
-      properties:
-        NodeID:
-          type: string
-        NetID:
-          type: string
-        NatEnabled:
-          type: boolean
-        Ranges:
-          type: array
-          items:
-            type: string
-    enrollmentKey:
-      type: object
-      properties:
-        Key:
-          type: string
-        Name:
-          type: string
-        Notes:
-          type: string
-        Tags:
-          type: string
-        Unlimited:
-          type: boolean
-        UsesRemaining:
-          type: integer
-        Expiration:
-          type: string
-    extClient:
-      type: object
-      properties:
-        ClientID:
-          type: string
-        PrivateKey:
-          type: string
-        PublicKey:
-          type: string
-        Network:
-          type: string
-        DNS:
-          type: string
-        Address:
-          type: string
-        Address6:
-          type: string
-        ExtraAllowedIPs:
-          type: array
-          items:
-            type: string
-        IngressGatewayID:
-          type: string
-        IngressGatewayEndpoint:
-          type: string
-        LastModified:
-          type: integer
-        Enabled:
-          type: boolean
-        OwnerID:
-          type: string
-        DeniedACLs:
-          type: string
-    host:
-      type: object
-      properties:
-        ID:
-          type: string
-        Verbosity:
-          type: string
-        FirewallIInUse:
-          type: string
-        Version:
-          type: string
-        DaemonInstlled:
-          type: boolean
-        AutoUpdate:
-          type: boolean
-        HostPass:
-          type: string
-        Name:
-          type: string
-        OS:
-          type: string
-        Interface:
-          type: string
-        Debug:
-          type: boolean
-        ListenPort:
-          type: integer
-        WgPublicListenPort:
-          type: integer
-        MTU:
-          type: integer
-        PublicKey:
-          type: string
-        MacAddress:
-          type: string
-        TrafficKeyPublic:
-          type: string
-        Nodes:
-          type: array
-          items:
-            type: string
-        Interfaces:
-          type: array
-          items:
-            type: string
-        DefaultInterface:
-          type: string
-        EndpointIP:
-          type: string
-        IsDocker:
-          type: boolean
-        IsK8s:
-          type: boolean
-        IsStatic:
-          type: boolean
-        IsDefault:
-          type: boolean
-        NatType:
-          type: string
-        TurnEndpoint:
-          type: string
-    ingressGatewayRequest:
-      type: object
-      properties:
-        ExtClientDNS:
-          type: string
-        FailOver:
-          type: boolean
-    metric:
-      type: object
-      properties:
-        NodeName:
-          type: string
-        Uptime:
-          type: integer
-        TotalTime:
-          type: integer
-        Latency:
-          type: integer
-        TotalReceived:
-          type: integer
-        TotalSent:
-          type: integer
-        ActualUptime:
-          type: integer
-        PercentUp:
-          type: number
-        Connected:
-          type: boolean
-    metrics:
-      type: object
-      properties:
-        Network:
-          type: string
-        NodeID:
-          type: string
-        NodeName:
-          type: string
-        Connectivity:
-          type: string
-        FailoverPeers:
-          type: string
-    migrate:
-      type: object
-      properties:
-        ID:
-          type: string
-        Address:
-          type: string
-        Address6:
-          type: string
-        LocalAddress:
-          type: string
-        Interfaces:
-          type: array
-          items:
-            type: string
-        NetworkSettings:
-          $ref: '#/components/schemas/network'
-        ListenPort:
-          type: integer
-        LocalListenPort:
-          type: integer
-        PublicKey:
-          type: string
-        Endpoint:
-          type: string
-        AllowedIPs:
-          type: array
-          items:
-            type: string
-        PersistentKeepalive:
-          type: integer
-        IsHub:
-          type: boolean
-        AccessKey:
-          type: string
-        Interface:
-          type: string
-        LastModified:
-          type: integer
-        ExpirationDateTime:
-          type: string
-        LastPeerUpdate:
-          type: integer
-        MacAddress:
-          type: string
-        Password:
-          type: string
-        Network:
-          type: string
-        IsRelayed:
-          type: boolean
-        IsPending:
-          type: boolean
-        IsDocker:
-          type: boolean
-        IsK8s:
-          type: boolean
-        IsEgressGateway:
-          type: boolean
-        IsIngressGateway:
-          type: boolean
-        EgressGatewayRanges:
-          type: array
-          items:
-            type: string
-        EgressGatewayNatEnabled:
-          type: boolean
-        EgressGatewayRequest:
-          type: object
-          properties:
+                x-go-name: Debug
+            defaultinterface:
+                type: string
+                x-go-name: DefaultInterface
+            endpointip:
+                type: string
+                x-go-name: EndpointIP
+            firewallinuse:
+                type: string
+                x-go-name: FirewallInUse
+            id:
+                type: string
+                x-go-name: ID
+            interfaces:
+                items:
+                    $ref: '#/definitions/Iface'
+                type: array
+                x-go-name: Interfaces
+            isdefault:
+                type: boolean
+                x-go-name: IsDefault
+            isrelay:
+                type: boolean
+                x-go-name: IsRelay
+            isrelayed:
+                type: boolean
+                x-go-name: IsRelayed
+            isstatic:
+                type: boolean
+                x-go-name: IsStatic
+            listenport:
+                format: int64
+                type: integer
+                x-go-name: ListenPort
+            macaddress:
+                type: string
+                x-go-name: MacAddress
+            mtu:
+                format: int64
+                type: integer
+                x-go-name: MTU
+            name:
+                type: string
+                x-go-name: Name
+            nat_type:
+                type: string
+                x-go-name: NatType
+            nodes:
+                items:
+                    type: string
+                type: array
+                x-go-name: Nodes
+            os:
+                type: string
+                x-go-name: OS
+            publickey:
+                type: string
+                x-go-name: PublicKey
+            relay_hosts:
+                items:
+                    type: string
+                type: array
+                x-go-name: RelayedHosts
+            relayed_by:
+                type: string
+                x-go-name: RelayedBy
+            verbosity:
+                format: int64
+                type: integer
+                x-go-name: Verbosity
+            version:
+                type: string
+                x-go-name: Version
+            wg_public_listen_port:
+                format: int64
+                type: integer
+                x-go-name: WgPublicListenPort
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    AuthParams:
+        description: AuthParams - struct for auth params
+        properties:
+            id:
+                type: string
+                x-go-name: ID
+            macaddress:
+                type: string
+                x-go-name: MacAddress
+            password:
+                type: string
+                x-go-name: Password
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    CustomExtClient:
+        description: CustomExtClient - struct for CustomExtClient params
+        properties:
+            clientid:
+                type: string
+                x-go-name: ClientID
+            deniednodeacls:
+                additionalProperties:
+                    type: object
+                type: object
+                x-go-name: DeniedACLs
+            dns:
+                type: string
+                x-go-name: DNS
+            enabled:
+                type: boolean
+                x-go-name: Enabled
+            extraallowedips:
+                items:
+                    type: string
+                type: array
+                x-go-name: ExtraAllowedIPs
+            publickey:
+                type: string
+                x-go-name: PublicKey
+            remote_access_client_id:
+                type: string
+                x-go-name: RemoteAccessClientID
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    DNSEntry:
+        description: DNSEntry - a DNS entry represented as struct
+        properties:
+            address:
+                type: string
+                x-go-name: Address
+            address6:
+                type: string
+                x-go-name: Address6
+            name:
+                type: string
+                x-go-name: Name
+            network:
+                type: string
+                x-go-name: Network
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    Duration:
+        description: |-
+            A Duration represents the elapsed time between two instants
+            as an int64 nanosecond count. The representation limits the
+            largest representable duration to approximately 290 years.
+        format: int64
+        type: integer
+        x-go-package: time
+    EgressGatewayRequest:
+        description: EgressGatewayRequest - egress gateway request
+        properties:
+            natenabled:
+                type: string
+                x-go-name: NatEnabled
+            netid:
+                type: string
+                x-go-name: NetID
+            nodeid:
+                type: string
+                x-go-name: NodeID
+            ranges:
+                items:
+                    type: string
+                type: array
+                x-go-name: Ranges
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    EnrollmentKey:
+        description: EnrollmentKey - the key used to register hosts and join them to specific networks
+        properties:
+            expiration:
+                format: date-time
+                type: string
+                x-go-name: Expiration
+            networks:
+                items:
+                    type: string
+                type: array
+                x-go-name: Networks
+            tags:
+                items:
+                    type: string
+                type: array
+                x-go-name: Tags
+            token:
+                type: string
+                x-go-name: Token
+            type:
+                $ref: '#/definitions/KeyType'
+            unlimited:
+                type: boolean
+                x-go-name: Unlimited
+            uses_remaining:
+                format: int64
+                type: integer
+                x-go-name: UsesRemaining
+            value:
+                type: string
+                x-go-name: Value
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    ExtClient:
+        description: ExtClient - struct for external clients
+        properties:
+            address:
+                type: string
+                x-go-name: Address
+            address6:
+                type: string
+                x-go-name: Address6
+            clientid:
+                type: string
+                x-go-name: ClientID
+            deniednodeacls:
+                additionalProperties:
+                    type: object
+                type: object
+                x-go-name: DeniedACLs
+            dns:
+                type: string
+                x-go-name: DNS
+            enabled:
+                type: boolean
+                x-go-name: Enabled
+            extraallowedips:
+                items:
+                    type: string
+                type: array
+                x-go-name: ExtraAllowedIPs
+            ingressgatewayendpoint:
+                type: string
+                x-go-name: IngressGatewayEndpoint
+            ingressgatewayid:
+                type: string
+                x-go-name: IngressGatewayID
+            lastmodified:
+                format: int64
+                type: integer
+                x-go-name: LastModified
+            network:
+                type: string
+                x-go-name: Network
+            ownerid:
+                type: string
+                x-go-name: OwnerID
+            privatekey:
+                type: string
+                x-go-name: PrivateKey
+            publickey:
+                type: string
+                x-go-name: PublicKey
+            remote_access_client_id:
+                type: string
+                x-go-name: RemoteAccessClientID
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    File:
+        title: File represents an open file descriptor.
+        type: object
+        x-go-package: os
+    HardwareAddr:
+        items:
+            format: uint8
+            type: integer
+        title: A HardwareAddr represents a physical hardware address.
+        type: array
+        x-go-package: net
+    Host:
+        description: Host - represents a host on the network
+        properties:
+            autoupdate:
+                type: boolean
+                x-go-name: AutoUpdate
+            daemoninstalled:
+                type: boolean
+                x-go-name: DaemonInstalled
+            debug:
+                type: boolean
+                x-go-name: Debug
+            defaultinterface:
+                type: string
+                x-go-name: DefaultInterface
+            endpointip:
+                type: string
+                x-go-name: EndpointIP
+            firewallinuse:
+                type: string
+                x-go-name: FirewallInUse
+            hostpass:
+                type: string
+                x-go-name: HostPass
+            id:
+                format: uuid
+                type: string
+                x-go-name: ID
+            interface:
+                type: string
+                x-go-name: Interface
+            interfaces:
+                items:
+                    $ref: '#/definitions/Iface'
+                type: array
+                x-go-name: Interfaces
+            ipforwarding:
+                type: boolean
+                x-go-name: IPForwarding
+            isdefault:
+                type: boolean
+                x-go-name: IsDefault
+            isdocker:
+                type: boolean
+                x-go-name: IsDocker
+            isk8s:
+                type: boolean
+                x-go-name: IsK8S
+            isstatic:
+                type: boolean
+                x-go-name: IsStatic
+            listenport:
+                format: int64
+                type: integer
+                x-go-name: ListenPort
+            macaddress:
+                $ref: '#/definitions/HardwareAddr'
+            mtu:
+                format: int64
+                type: integer
+                x-go-name: MTU
+            name:
+                type: string
+                x-go-name: Name
+            nat_type:
+                type: string
+                x-go-name: NatType
+            nodes:
+                items:
+                    type: string
+                type: array
+                x-go-name: Nodes
+            os:
+                type: string
+                x-go-name: OS
+            publickey:
+                $ref: '#/definitions/Key'
+            traffickeypublic:
+                items:
+                    format: uint8
+                    type: integer
+                type: array
+                x-go-name: TrafficKeyPublic
+            turn_endpoint:
+                type: string
+                x-go-name: TurnEndpoint
+            verbosity:
+                format: int64
+                type: integer
+                x-go-name: Verbosity
+            version:
+                type: string
+                x-go-name: Version
+            wg_public_listen_port:
+                format: int64
+                type: integer
+                x-go-name: WgPublicListenPort
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    HostPull:
+        description: HostPull - response of a host's pull
+        properties:
+            host:
+                $ref: '#/definitions/Host'
+            nodes:
+                items:
+                    $ref: '#/definitions/Node'
+                type: array
+                x-go-name: Nodes
+            peer_ids:
+                $ref: '#/definitions/PeerMap'
+            peers:
+                items:
+                    $ref: '#/definitions/PeerConfig'
+                type: array
+                x-go-name: Peers
+            server_config:
+                $ref: '#/definitions/ServerConfig'
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    IDandAddr:
+        description: IDandAddr - struct to hold ID and primary Address
+        properties:
+            address:
+                type: string
+                x-go-name: Address
+            id:
+                type: string
+                x-go-name: ID
+            is_extclient:
+                type: boolean
+                x-go-name: IsExtClient
+            isserver:
+                type: string
+                x-go-name: IsServer
+            listen_port:
+                format: int64
+                type: integer
+                x-go-name: ListenPort
+            name:
+                type: string
+                x-go-name: Name
+            network:
+                type: string
+                x-go-name: Network
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    IPMask:
+        description: See type IPNet and func ParseCIDR for details.
+        items:
+            format: uint8
+            type: integer
+        title: |-
+            An IPMask is a bitmask that can be used to manipulate
+            IP addresses for IP addressing and routing.
+        type: array
+        x-go-package: net
+    IPNet:
+        properties:
+            IP:
+                type: string
+            Mask:
+                $ref: '#/definitions/IPMask'
+        title: An IPNet represents an IP network.
+        type: object
+        x-go-package: net
+    Iface:
+        description: Iface struct for local interfaces of a node
+        properties:
+            address:
+                $ref: '#/definitions/IPNet'
+            addressString:
+                type: string
+                x-go-name: AddressString
+            name:
+                type: string
+                x-go-name: Name
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    Key:
+        description: |-
+            A Key is a public, private, or pre-shared secret key.  The Key constructor
+            functions in this package can be used to create Keys suitable for each of
+            these applications.
+        items:
+            format: uint8
+            type: integer
+        type: array
+        x-go-package: golang.zx2c4.com/wireguard/wgctrl/wgtypes
+    KeyType:
+        description: KeyType - the type of enrollment key
+        format: int64
+        type: integer
+        x-go-package: github.com/gravitl/netmaker/models
+    LegacyNode:
+        description: LegacyNode - legacy struct for node model
+        properties:
+            accesskey:
+                type: string
+                x-go-name: AccessKey
+            action:
+                type: string
+                x-go-name: Action
+            address:
+                type: string
+                x-go-name: Address
+            address6:
+                type: string
+                x-go-name: Address6
+            allowedips:
+                items:
+                    type: string
+                type: array
+                x-go-name: AllowedIPs
+            connected:
+                type: string
+                x-go-name: Connected
+            defaultacl:
+                description: == PRO ==
+                type: string
+                x-go-name: DefaultACL
+            dnson:
+                type: string
+                x-go-name: DNSOn
+            egressgatewaynatenabled:
+                type: string
+                x-go-name: EgressGatewayNatEnabled
+            egressgatewayranges:
+                items:
+                    type: string
+                type: array
+                x-go-name: EgressGatewayRanges
+            egressgatewayrequest:
+                $ref: '#/definitions/EgressGatewayRequest'
+            endpoint:
+                type: string
+                x-go-name: Endpoint
+            expdatetime:
+                format: int64
+                type: integer
+                x-go-name: ExpirationDateTime
+            failover:
+                type: string
+                x-go-name: Failover
+            failovernode:
+                type: string
+                x-go-name: FailoverNode
+            firewallinuse:
+                type: string
+                x-go-name: FirewallInUse
+            id:
+                type: string
+                x-go-name: ID
+            ingressgatewayrange:
+                type: string
+                x-go-name: IngressGatewayRange
+            ingressgatewayrange6:
+                type: string
+                x-go-name: IngressGatewayRange6
+            interface:
+                type: string
+                x-go-name: Interface
+            interfaces:
+                items:
+                    $ref: '#/definitions/Iface'
+                type: array
+                x-go-name: Interfaces
+            internetgateway:
+                type: string
+                x-go-name: InternetGateway
+            ipforwarding:
+                type: string
+                x-go-name: IPForwarding
+            isdocker:
+                type: string
+                x-go-name: IsDocker
+            isegressgateway:
+                type: string
+                x-go-name: IsEgressGateway
+            ishub:
+                type: string
+                x-go-name: IsHub
+            isingressgateway:
+                type: string
+                x-go-name: IsIngressGateway
+            isk8s:
+                type: string
+                x-go-name: IsK8S
+            ispending:
+                type: string
+                x-go-name: IsPending
+            isrelay:
+                type: string
+                x-go-name: IsRelay
+            isrelayed:
+                type: string
+                x-go-name: IsRelayed
+            isserver:
+                type: string
+                x-go-name: IsServer
+            isstatic:
+                description: IsStatic - refers to if the Endpoint is set manually or dynamically
+                type: string
+                x-go-name: IsStatic
+            lastcheckin:
+                format: int64
+                type: integer
+                x-go-name: LastCheckIn
+            lastmodified:
+                format: int64
+                type: integer
+                x-go-name: LastModified
+            lastpeerupdate:
+                format: int64
+                type: integer
+                x-go-name: LastPeerUpdate
+            listenport:
+                format: int32
+                type: integer
+                x-go-name: ListenPort
+            localaddress:
+                type: string
+                x-go-name: LocalAddress
+            locallistenport:
+                format: int32
+                type: integer
+                x-go-name: LocalListenPort
+            macaddress:
+                type: string
+                x-go-name: MacAddress
+            mtu:
+                format: int32
+                type: integer
+                x-go-name: MTU
+            name:
+                type: string
+                x-go-name: Name
+            network:
+                type: string
+                x-go-name: Network
+            networksettings:
+                $ref: '#/definitions/Network'
+            os:
+                type: string
+                x-go-name: OS
+            ownerid:
+                type: string
+                x-go-name: OwnerID
+            password:
+                type: string
+                x-go-name: Password
+            persistentkeepalive:
+                format: int32
+                type: integer
+                x-go-name: PersistentKeepalive
+            publickey:
+                type: string
+                x-go-name: PublicKey
+            relayaddrs:
+                items:
+                    type: string
+                type: array
+                x-go-name: RelayAddrs
+            server:
+                type: string
+                x-go-name: Server
+            traffickeys:
+                $ref: '#/definitions/TrafficKeys'
+            udpholepunch:
+                type: string
+                x-go-name: UDPHolePunch
+            version:
+                type: string
+                x-go-name: Version
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    Network:
+        description: |-
+            Network Struct - contains info for a given unique network
+            At  some point, need to replace all instances of Name with something else like  Identifier
+        properties:
+            addressrange:
+                type: string
+                x-go-name: AddressRange
+            addressrange6:
+                type: string
+                x-go-name: AddressRange6
+            allowmanualsignup:
+                type: string
+                x-go-name: AllowManualSignUp
+            defaultacl:
+                type: string
+                x-go-name: DefaultACL
+            defaultinterface:
+                type: string
+                x-go-name: DefaultInterface
+            defaultkeepalive:
+                format: int32
+                type: integer
+                x-go-name: DefaultKeepalive
+            defaultlistenport:
+                format: int32
+                type: integer
+                x-go-name: DefaultListenPort
+            defaultmtu:
+                format: int32
+                type: integer
+                x-go-name: DefaultMTU
+            defaultpostdown:
+                type: string
+                x-go-name: DefaultPostDown
+            defaultudpholepunch:
+                type: string
+                x-go-name: DefaultUDPHolePunch
+            isipv4:
+                type: string
+                x-go-name: IsIPv4
+            isipv6:
+                type: string
+                x-go-name: IsIPv6
+            netid:
+                type: string
+                x-go-name: NetID
+            networklastmodified:
+                format: int64
+                type: integer
+                x-go-name: NetworkLastModified
+            nodelimit:
+                format: int32
+                type: integer
+                x-go-name: NodeLimit
+            nodeslastmodified:
+                format: int64
+                type: integer
+                x-go-name: NodesLastModified
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    Node:
+        description: Node - a model of a network node
+        properties:
+            action:
+                type: string
+                x-go-name: Action
+            address:
+                $ref: '#/definitions/IPNet'
+            address6:
+                $ref: '#/definitions/IPNet'
+            connected:
+                type: boolean
+                x-go-name: Connected
+            defaultacl:
+                description: == PRO ==
+                type: string
+                x-go-name: DefaultACL
+            dnson:
+                type: boolean
+                x-go-name: DNSOn
+            egressgatewaynatenabled:
+                type: boolean
+                x-go-name: EgressGatewayNatEnabled
+            egressgatewayranges:
+                items:
+                    type: string
+                type: array
+                x-go-name: EgressGatewayRanges
+            egressgatewayrequest:
+                $ref: '#/definitions/EgressGatewayRequest'
+            expdatetime:
+                format: date-time
+                type: string
+                x-go-name: ExpirationDateTime
+            failover:
+                type: boolean
+                x-go-name: Failover
+            failovernode:
+                format: uuid
+                type: string
+                x-go-name: FailoverNode
+            hostid:
+                format: uuid
+                type: string
+                x-go-name: HostID
+            id:
+                format: uuid
+                type: string
+                x-go-name: ID
+            ingressdns:
+                type: string
+                x-go-name: IngressDNS
+            ingressgatewayrange:
+                type: string
+                x-go-name: IngressGatewayRange
+            ingressgatewayrange6:
+                type: string
+                x-go-name: IngressGatewayRange6
+            internetgateway:
+                $ref: '#/definitions/UDPAddr'
+            isegressgateway:
+                type: boolean
+                x-go-name: IsEgressGateway
+            isingressgateway:
+                type: boolean
+                x-go-name: IsIngressGateway
+            isrelay:
+                type: boolean
+                x-go-name: IsRelay
+            isrelayed:
+                type: boolean
+                x-go-name: IsRelayed
+            lastcheckin:
+                format: date-time
+                type: string
+                x-go-name: LastCheckIn
+            lastmodified:
+                format: date-time
+                type: string
+                x-go-name: LastModified
+            lastpeerupdate:
+                format: date-time
+                type: string
+                x-go-name: LastPeerUpdate
+            localaddress:
+                $ref: '#/definitions/IPNet'
+            network:
+                type: string
+                x-go-name: Network
+            networkrange:
+                $ref: '#/definitions/IPNet'
+            networkrange6:
+                $ref: '#/definitions/IPNet'
+            ownerid:
+                type: string
+                x-go-name: OwnerID
+            pendingdelete:
+                type: boolean
+                x-go-name: PendingDelete
+            persistentkeepalive:
+                $ref: '#/definitions/Duration'
+            relayedby:
+                type: string
+                x-go-name: RelayedBy
+            relaynodes:
+                items:
+                    type: string
+                type: array
+                x-go-name: RelayedNodes
+            server:
+                type: string
+                x-go-name: Server
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    PeerConfig:
+        description: |-
+            Because the zero value of some Go types may be significant to WireGuard for
+            PeerConfig fields, pointer types are used for some of these fields. Only
+            pointer fields which are not nil will be applied when configuring a peer.
+        properties:
+            AllowedIPs:
+                description: |-
+                    AllowedIPs specifies a list of allowed IP addresses in CIDR notation
+                    for this peer.
+                items:
+                    $ref: '#/definitions/IPNet'
+                type: array
+            Endpoint:
+                $ref: '#/definitions/UDPAddr'
+            PersistentKeepaliveInterval:
+                $ref: '#/definitions/Duration'
+            PresharedKey:
+                $ref: '#/definitions/Key'
+            PublicKey:
+                $ref: '#/definitions/Key'
+            Remove:
+                description: |-
+                    Remove specifies if the peer with this public key should be removed
+                    from a device's peer list.
+                type: boolean
+            ReplaceAllowedIPs:
+                description: |-
+                    ReplaceAllowedIPs specifies if the allowed IPs specified in this peer
+                    configuration should replace any existing ones, instead of appending them
+                    to the allowed IPs list.
+                type: boolean
+            UpdateOnly:
+                description: |-
+                    UpdateOnly specifies that an operation will only occur on this peer
+                    if the peer already exists as part of the interface.
+                type: boolean
+        title: A PeerConfig is a WireGuard device peer configuration.
+        type: object
+        x-go-package: golang.zx2c4.com/wireguard/wgctrl/wgtypes
+    PeerMap:
+        additionalProperties:
+            $ref: '#/definitions/IDandAddr'
+        description: PeerMap - peer map for ids and addresses in metrics
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    RegisterResponse:
+        description: RegisterResponse - the response to a successful enrollment register
+        properties:
+            requested_host:
+                $ref: '#/definitions/Host'
+            server_config:
+                $ref: '#/definitions/ServerConfig'
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    RelayRequest:
+        description: RelayRequest - relay request struct
+        properties:
+            netid:
+                type: string
+                x-go-name: NetID
+            nodeid:
+                type: string
+                x-go-name: NodeID
+            relayaddrs:
+                items:
+                    type: string
+                type: array
+                x-go-name: RelayedNodes
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    ServerConfig:
+        description: ServerConfig - server conf struct
+        properties:
+            APIConnString:
+                type: string
+            APIHost:
+                type: string
+            APIPort:
+                type: string
+            AllowedOrigin:
+                type: string
+            AuthProvider:
+                type: string
+            AzureTenant:
+                type: string
+            BasicAuth:
+                type: string
+            Broker:
+                type: string
+            BrokerType:
+                type: string
+            ClientID:
+                type: string
+            ClientSecret:
+                type: string
+            CoreDNSAddr:
+                type: string
+            DNSKey:
+                type: string
+            DNSMode:
+                type: string
+            Database:
+                type: string
+            DeployedByOperator:
+                type: boolean
+            DisableRemoteIPCheck:
+                type: string
+            DisplayKeys:
+                type: string
+            EgressesLimit:
+                format: int64
+                type: integer
+            EmqxRestEndpoint:
+                type: string
+            Environment:
+                type: string
+            FrontendURL:
+                type: string
+            HostNetwork:
+                type: string
+            IngressesLimit:
+                format: int64
+                type: integer
+            IsEE:
+                type: string
+                x-go-name: IsPro
+            LicenseValue:
+                type: string
+            MQPassword:
+                type: string
+            MQUserName:
+                type: string
+            MachinesLimit:
+                format: int64
+                type: integer
+            MasterKey:
+                type: string
+            MessageQueueBackend:
+                type: string
+            MetricsExporter:
+                type: string
+            NetclientAutoUpdate:
+                type: string
+            NetclientEndpointDetection:
+                type: string
+            NetmakerTenantID:
+                type: string
+            NetworksLimit:
+                format: int64
+                type: integer
             NodeID:
-              type: string
-            NetID:
-              type: string
-            NatEnabled:
-              type: boolean
-            Ranges:
-              type: array
-              items:
                 type: string
-        RelayAddrs:
-          type: array
-          items:
-            type: string
-        FailoverNode:
-          type: string
-        IngressGatewayRange:
-          type: string
-        IngressGatewayRange6:
-          type: string
-        IsStatic:
-          type: boolean
-        UDPHolePunch:
-          type: boolean
-        DNSOn:
-          type: boolean
-        IsServer:
-          type: boolean
-        Action:
-          type: string
-        IPForwarding:
-          type: boolean
-        OS:
-          type: string
-        MTU:
-          type: integer
-        Version:
-          type: string
-        Server:
-          type: string
-        TrafficKeys:
-          type: object
-          properties:
-            Private:
-              type: string
-            Public:
-              type: string
-        FirewallInUse:
-          type: string
-        InternetGateway:
-          type: string
-        Connected:
-          type: boolean
-        DefaultACL:
-          type: string
-        OwnerID:
-          type: string
-        FailOver:
-          type: string
-    networkUser:
-      type: object
-      properties:
-        AccessLevel:
-          type: integer
-        ClientLimit:
-          type: integer
-        NodeLimit:
-          type: integer
-        ID:
-          type: string
-        Clients:
-          type: array
-          items:
-            type: string
-        Nodes:
-          type: array
-          items:
-            type: string
-    networkUsers:
-      type: object
-      properties:
-        Network:
-          type: string
-        Users:
-          type: array
-          items:
-            $ref: '#/components/responses/networkUser'
-    node:
-      type: object
-      properties:
-        ID:
-          type: string
-        HostID:
-          type: string
-        Network:
-          type: string
-        NetworkRange:
-          type: string
-        NetworkRange6:
-          type: string
-        InternetGateway:
-          type: string
-        Server:
-          type: string
-        Connected:
-          type: boolean
-        Address:
-          type: string
-        Address6:
-          type: string
-        Action:
-          type: string
-        LocalAddress:
-          type: string
-        IsEgressGateway:
-          type: boolean
-        EgressGatewayRanges:
-          type: array
-          items:
-            type: string
-        IsIngressGateway:
-          type: boolean
-        IsRelayed:
-          type: boolean
-        RelayedBy:
-          type: string
-        RelayedNodes:
-          type: array
-          items:
-            type: string
-        IngressDNS:
-          type: string
-        DNSOn:
-          type: boolean
-        PersistentKeepaliveInterval:
-          type: integer
-    network:
-      type: object
-      properties:
-        AddressRange:
-          type: string
-        AddressRange6:
-          type: string
-        NetID:
-          type: string
-        NodesLastModified:
-          type: integer
-        DefaultListenPort:
-          type: integer
-        NodeLimit:
-          type: integer
-        DefaultKeepAlive:
-          type: integer
-        IsIPv4:
-          type: string
-        IsIPv6:
-          type: string
-        DefaultACL:
-          type: string
-        ProSettings:
-          type: string
-    relayRequest:
-      description: Relay Request
-      type: object
-      properties:
-        NodeID:
-          type: string
-        NetID:
-          type: string
-        NatEnabled:
-          type: boolean
-        Ranges:
-          type: array
-          items:
-            type: string
-    signal:
-      type: object
-      properties:
-        Server:
-          type: string
-        FromHostPubicKey:
-          type: string
-        TurnRelayEndpoint:
-          type: string
-        Reply:
-          type: boolean
-        Action:
-          type: string
-        Timestamp:
-          type: integer
-  parameters:
-    domain:
-      description: dns domain
-      in: path
-      name: domain
-      required: true
-      schema:
-        type: string
-    extclientID:
-      description: Client ID
-      in: path
-      name: clientid
-      required: true
-      schema:
-        type: string
-    hostID:
-      description: Host ID
-      in: path
-      name: hostid
-      required: true
-      x-go-name: HostID
-      schema:
-        type: string
-    networkName:
-      description: Network Name
-      in: path
-      name: network
-      required: true
-      schema:
-        type: string
-    nodeID:
-      description: node ID
-      in: path
-      name: nodeid
-      required: true
-      schema:
-        type: string
-    username:
-      description: UserName
-      in: path
-      name: username
-      required: true
-      schema:
-        type: string
-  responses:
-    errorResponse:
-      description: Error
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              Code:
+            OIDCIssuer:
+                type: string
+            Platform:
+                type: string
+            PublicIPService:
+                type: string
+            RestBackend:
+                type: string
+            SQLConn:
+                type: string
+            Server:
+                type: string
+            ServerBrokerEndpoint:
+                type: string
+            StunList:
+                type: string
+            StunPort:
+                format: int64
                 type: integer
-              Message:
+            Telemetry:
                 type: string
-          examples:
-            error:
-              value:
-                Code: 403
-                Message: forbidden
-    badResponse:
-      description: Error
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              Code:
+            TurnApiServer:
+                type: string
+            TurnPassword:
+                type: string
+            TurnPort:
+                format: int64
                 type: integer
-              Message:
+            TurnServer:
                 type: string
-          examples:
-            error:
-              value:
-                Code: 400
-                Message: >-
-                  Key: 'DNSEntry.Address' Error:Field validation for 'Address'
-                  failed on the 'required' tag
-    successResponse:
-      description: Success
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              Code:
-                type: integer
-              Message:
+            TurnUserName:
                 type: string
-              Response:
-                type: string
-          examples:
-            success:
-              value:
-                Code: 200
-                Message: success
-                Response: success
-    accessKey:
-      description: AccessKey
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/accessKey'
-    dns:
-      description: DNSEntry
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/dns'
-    enrollmentKeys:
-      description: Enrollment Keys
-      content:
-        application/json:
-          schema:
-            type: array
-            items:
-              $ref: '#/components/responses/enrollmentKey'
-    enrollmentKey:
-      description: Enrollment Key
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/enrollmentKey'
-    extClients:
-      description: ExtClients
-      content:
-        application/json:
-          schema:
-            type: array
-            items:
-              $ref: '#/components/responses/extClient'
-    extClient:
-      description: ExtClient
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/extClient'
-    host:
-      description: Host
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/host'
-    metric:
-      description: Metric
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/metric'
-    metrics:
-      description: Metrics
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/metrics'
-    network:
-      description: Network
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/network'
-    networks:
-      description: Networks
-      content:
-        application/json:
-          schema:
-            type: array
-            items:
-              $ref: '#/components/responses/network'
-    networkMetrics:
-      description: Network Metrics
-      content:
-        application/json:
-          schema:
-            type: string
-    networkMetricsConnectivity:
-      description: Network Metrics Connectivity
-      content:
-        application/json:
-          schema:
-            type: string
-    networkUsers:
-      description: Network Users
-      content:
-        application/json:
-          schema:
-            type: string
-    networkUser:
-      description: Network User
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/networkUser'
-    allNetworkUsers:
-      description: All Network Users
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/networkUsers'
-    node:
-      description: Node
-      content:
-        applicaton/json:
-          schema:
-            $ref: '#/components/schemas/node'
-    nodes:
-      description: Nodes
-      content:
-        application/json:
-          schema:
-            type: array
-            items:
-              $ref: '#/components/responses/node'
-    signal:
-      description: Signal
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/signal'
-    returnedUser:
-      description: user resonse
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              Username:
-                type: string
-              IsSuperAdmin:
+            UseTurn:
                 type: boolean
-              IsAdmin:
+            UsersLimit:
+                format: int64
+                type: integer
+            Verbosity:
+                format: int32
+                type: integer
+            Version:
+                type: string
+        type: object
+        x-go-package: github.com/gravitl/netmaker/config
+    Signal:
+        description: Signal - struct for signalling peer
+        properties:
+            action:
+                $ref: '#/definitions/SignalAction'
+            from_host_pubkey:
+                type: string
+                x-go-name: FromHostPubKey
+            reply:
                 type: boolean
-              RemoteGWIDs:
-                type: array
+                x-go-name: Reply
+            server:
+                type: string
+                x-go-name: Server
+            timestamp:
+                format: int64
+                type: integer
+                x-go-name: TimeStamp
+            to_host_pubkey:
+                type: string
+                x-go-name: ToHostPubKey
+            turn_relay_addr:
+                type: string
+                x-go-name: TurnRelayEndpoint
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    SignalAction:
+        description: SignalAction - turn peer signal action
+        type: string
+        x-go-package: github.com/gravitl/netmaker/models
+    SuccessResponse:
+        properties:
+            Code:
+                format: int64
+                type: integer
+            Message:
+                type: string
+            Response: {}
+        title: SuccessResponse is struct for sending error message with code.
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    TrafficKeys:
+        description: TrafficKeys - struct to hold public keys
+        properties:
+            mine:
                 items:
-                    type: string
-    userGroup:
-      description: User Group
-      content:
-        application/json:
-          schema:
-            type: string
-  requestBodies:
-    customExtClient:
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/customExtClient'
-      description: ExtClient
-      required: true
-    egressGatewayRequest:
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/egressGatewayRequest'
-    enrollmentKey:
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/enrollmentKey'
-    host:
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/host'
-    ingressGatewayRequest:
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ingressGatewayRequest'
-    migrate:
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/migrate'
-    network:
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/network'
-    networkUser:
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/networkUser'
-    node:
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/node'
-    nodeAuth:
-      description: NodeAuth
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              MacAddress:
+                    format: uint8
+                    type: integer
+                type: array
+                x-go-name: Mine
+            server:
+                items:
+                    format: uint8
+                    type: integer
+                type: array
+                x-go-name: Server
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    UDPAddr:
+        properties:
+            IP:
                 type: string
-              ID:
+            Port:
+                format: int64
+                type: integer
+            Zone:
                 type: string
-              Password:
+        title: UDPAddr represents the address of a UDP end point.
+        type: object
+        x-go-package: net
+    User:
+        description: User struct - struct for Users
+        properties:
+            isadmin:
+                type: boolean
+                x-go-name: IsAdmin
+            issuperadmin:
+                type: boolean
+                x-go-name: IsSuperAdmin
+            password:
                 type: string
-    relayRequest:
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/relayRequest'
+                x-go-name: Password
+            remote_gw_ids:
+                additionalProperties:
+                    type: object
+                type: object
+                x-go-name: RemoteGwIDs
+            username:
+                type: string
+                x-go-name: UserName
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    UserAuthParams:
+        description: UserAuthParams - user auth params struct
+        properties:
+            password:
+                type: string
+                x-go-name: Password
+            username:
+                type: string
+                x-go-name: UserName
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+host: api.demo.netmaker.io
+info:
+    description: |-
+        # API Usage
+
+        Most actions that can be performed via API can be performed via UI. We recommend managing your networks using the official netmaker-ui project. However, Netmaker can also be run without the UI, and all functions can be achieved via API calls. If your use case requires using Netmaker without the UI or you need to do some troubleshooting/advanced configuration, using the API directly may help.
+
+        # Authentication
+
+        API calls must be authenticated via a header of the format -H “Authorization: Bearer <YOUR_SECRET_KEY>” There are two methods to obtain YOUR_SECRET_KEY: 1. Using the masterkey. By default, this value is “secret key,” but you should change this on your instance and keep it secure. This value can be set via env var at startup or in a config file (config/environments/< env >.yaml). See the [Netmaker](https://docs.netmaker.org/index.html) documentation for more details. 2. Using a JWT received for a node. This can be retrieved by calling the /api/nodes/<network>/authenticate endpoint, as documented below.
+    title: Netmaker
+    version: 0.21.1
+paths:
+    /api/dns:
+        get:
+            operationId: getAllDNS
+            responses:
+                "200":
+                    $ref: '#/responses/dnsResponse'
+            schemes:
+                - https
+            summary: Gets all DNS entries.
+            tags:
+                - dns
+    /api/dns/{network}:
+        post:
+            operationId: createDNS
+            parameters:
+                - description: Network
+                  in: path
+                  name: network
+                  required: true
+                  type: string
+                  x-go-name: Network
+                - description: DNS Entry
+                  in: body
+                  name: body
+                  schema:
+                    items:
+                        $ref: '#/definitions/DNSEntry'
+                    type: array
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/dnsResponse'
+            schemes:
+                - https
+            summary: Create a DNS entry.
+            tags:
+                - dns
+    /api/dns/{network}/{domain}:
+        delete:
+            operationId: deleteDNS
+            parameters:
+                - description: Network
+                  in: path
+                  name: network
+                  required: true
+                  type: string
+                  x-go-name: Network
+                - description: Domain
+                  in: path
+                  name: domain
+                  required: true
+                  type: string
+                  x-go-name: Domain
+            responses:
+                "200":
+                    $ref: '#/responses/stringJSONResponse'
+            schemes:
+                - https
+            summary: Delete a DNS entry.
+            tags:
+                - dns
+    /api/dns/adm/{network}:
+        get:
+            operationId: getDNS
+            parameters:
+                - description: Network
+                  in: path
+                  name: network
+                  required: true
+                  type: string
+                  x-go-name: Network
+            responses:
+                "200":
+                    $ref: '#/responses/dnsResponse'
+            schemes:
+                - https
+            summary: Gets all DNS entries associated with the network.
+            tags:
+                - dns
+    /api/dns/adm/{network}/custom:
+        get:
+            operationId: getCustomDNS
+            parameters:
+                - description: Network
+                  in: path
+                  name: network
+                  required: true
+                  type: string
+                  x-go-name: Network
+            responses:
+                "200":
+                    $ref: '#/responses/dnsResponse'
+            schemes:
+                - https
+            summary: Gets custom DNS entries associated with a network.
+            tags:
+                - dns
+    /api/dns/adm/{network}/nodes:
+        get:
+            operationId: getNodeDNS
+            parameters:
+                - description: Network
+                  in: path
+                  name: network
+                  required: true
+                  type: string
+                  x-go-name: Network
+            responses:
+                "200":
+                    $ref: '#/responses/dnsResponse'
+            schemes:
+                - https
+            summary: Gets node DNS entries associated with a network.
+            tags:
+                - dns
+    /api/dns/adm/pushdns:
+        post:
+            operationId: pushDNS
+            responses:
+                "200":
+                    $ref: '#/responses/dnsResponse'
+            schemes:
+                - https
+            summary: Push DNS entries to nameserver.
+            tags:
+                - dns
+    /api/extclients:
+        get:
+            operationId: getAllExtClients
+            parameters:
+                - description: Networks
+                  in: body
+                  name: networks
+                  schema:
+                    items:
+                        type: string
+                    type: array
+                  x-go-name: Networks
+            responses:
+                "200":
+                    $ref: '#/responses/extClientSliceResponse'
+            schemes:
+                - https
+            summary: A separate function to get all extclients, not just extclients for a particular network.
+            tags:
+                - ext_client
+    /api/extclients/{network}:
+        get:
+            description: Gets all extclients associated with network, including pending extclients.
+            operationId: getNetworkExtClients
+            parameters:
+                - description: Network
+                  in: path
+                  name: network
+                  required: true
+                  type: string
+                  x-go-name: Network
+            responses:
+                "200":
+                    $ref: '#/responses/extClientSliceResponse'
+            schemes:
+                - https
+            summary: Get all extclients associated with network.
+            tags:
+                - ext_client
+    /api/extclients/{network}/{clientid}:
+        delete:
+            operationId: deleteExtClient
+            parameters:
+                - description: Client ID
+                  in: path
+                  name: clientid
+                  required: true
+                  type: string
+                  x-go-name: ClientID
+                - description: Network
+                  in: path
+                  name: network
+                  required: true
+                  type: string
+                  x-go-name: Network
+            responses:
+                "200":
+                    $ref: '#/responses/successResponse'
+            schemes:
+                - https
+            summary: Delete an individual extclient.
+            tags:
+                - ext_client
+        get:
+            operationId: getExtClient
+            parameters:
+                - description: Client ID
+                  in: path
+                  name: clientid
+                  required: true
+                  type: string
+                  x-go-name: ClientID
+                - description: Network
+                  in: path
+                  name: network
+                  required: true
+                  type: string
+                  x-go-name: Network
+            responses:
+                "200":
+                    $ref: '#/responses/extClientResponse'
+            schemes:
+                - https
+            summary: Get an individual extclient.
+            tags:
+                - ext_client
+        put:
+            operationId: updateExtClient
+            parameters:
+                - description: Client ID
+                  in: path
+                  name: clientid
+                  required: true
+                  type: string
+                  x-go-name: ClientID
+                - description: Network
+                  in: path
+                  name: network
+                  required: true
+                  type: string
+                  x-go-name: Network
+                - description: ExtClient
+                  in: body
+                  name: ext_client
+                  schema:
+                    $ref: '#/definitions/ExtClient'
+                  x-go-name: ExtClient
+            responses:
+                "200":
+                    $ref: '#/responses/extClientResponse'
+            schemes:
+                - https
+            summary: Update an individual extclient.
+            tags:
+                - ext_client
+    /api/extclients/{network}/{clientid}/{type}:
+        get:
+            operationId: getExtClientConf
+            parameters:
+                - description: Type
+                  in: path
+                  name: type
+                  required: true
+                  type: string
+                  x-go-name: Type
+                - description: Client ID
+                  in: path
+                  name: clientid
+                  required: true
+                  type: string
+                  x-go-name: ClientID
+                - description: Network
+                  in: path
+                  name: network
+                  required: true
+                  type: string
+                  x-go-name: Network
+            responses:
+                "200":
+                    $ref: '#/responses/extClientResponse'
+            schemes:
+                - https
+            summary: Get an individual extclient.
+            tags:
+                - ext_client
+    /api/extclients/{network}/{nodeid}:
+        post:
+            operationId: createExtClient
+            parameters:
+                - description: Network
+                  in: path
+                  name: network
+                  required: true
+                  type: string
+                  x-go-name: Network
+                - description: Node ID
+                  in: path
+                  name: nodeid
+                  required: true
+                  type: string
+                  x-go-name: NodeID
+                - description: Custom ExtClient
+                  in: body
+                  name: custom_ext_client
+                  schema:
+                    $ref: '#/definitions/CustomExtClient'
+                  x-go-name: CustomExtClient
+            responses:
+                "200":
+                    $ref: '#/responses/okResponse'
+            schemes:
+                - https
+            summary: Create an individual extclient.  Must have valid key and be unique.
+            tags:
+                - ext_client
+    /api/getip:
+        get:
+            operationId: getPublicIP
+            responses:
+                "200":
+                    $ref: '#/responses/byteArrayResponse'
+            schemes:
+                - https
+            summary: Get the current public IP address.
+            tags:
+                - ipservice
+    /api/hosts:
+        get:
+            operationId: getHosts
+            responses:
+                "200":
+                    $ref: '#/responses/apiHostResponse'
+            schemes:
+                - https
+            summary: Lists all hosts.
+            tags:
+                - hosts
+    /api/hosts/{hostid}:
+        delete:
+            operationId: deleteHost
+            parameters:
+                - description: HostID
+                  in: path
+                  name: hostid
+                  required: true
+                  type: string
+                  x-go-name: HostID
+            responses:
+                "200":
+                    $ref: '#/responses/apiHostResponse'
+            schemes:
+                - https
+            summary: Deletes a Netclient host from Netmaker server.
+            tags:
+                - hosts
+        put:
+            operationId: updateHost
+            parameters:
+                - description: HostID
+                  in: path
+                  name: hostid
+                  required: true
+                  type: string
+                  x-go-name: HostID
+            responses:
+                "200":
+                    $ref: '#/responses/apiHostResponse'
+            schemes:
+                - https
+            summary: Updates a Netclient host on Netmaker server.
+            tags:
+                - hosts
+    /api/hosts/{hostid}/networks/{network}:
+        delete:
+            operationId: deleteHostFromNetwork
+            parameters:
+                - description: hostid to add or delete from network
+                  in: path
+                  name: hostid
+                  required: true
+                  type: string
+                  x-go-name: HostID
+                - description: network
+                  in: path
+                  name: network
+                  required: true
+                  type: string
+                  x-go-name: Network
+            responses:
+                "200":
+                    $ref: '#/responses/okResponse'
+            schemes:
+                - https
+            summary: Given a network, a host is removed from the network.
+            tags:
+                - hosts
+        post:
+            operationId: addHostToNetwork
+            parameters:
+                - description: hostid to add or delete from network
+                  in: path
+                  name: hostid
+                  required: true
+                  type: string
+                  x-go-name: HostID
+                - description: network
+                  in: path
+                  name: network
+                  required: true
+                  type: string
+                  x-go-name: Network
+            responses:
+                "200":
+                    $ref: '#/responses/okResponse'
+            schemes:
+                - https
+            summary: Given a network, a host is added to the network.
+            tags:
+                - hosts
+    /api/hosts/{hostid}/signalpeer:
+        post:
+            operationId: signalPeer
+            parameters:
+                - description: HostID
+                  in: path
+                  name: hostid
+                  required: true
+                  type: string
+                  x-go-name: HostID
+            responses:
+                "200":
+                    $ref: '#/responses/signal'
+            schemes:
+                - https
+            summary: send signal to peer.
+            tags:
+                - hosts
+    /api/hosts/{hostid}/sync:
+        post:
+            operationId: synchost
+            parameters:
+                - description: HostID
+                  in: path
+                  name: hostid
+                  required: true
+                  type: string
+                  x-go-name: HostID
+            responses:
+                "200":
+                    $ref: '#/responses/networkBodyResponse'
+            schemes:
+                - https
+            summary: Requests a host to pull.
+            tags:
+                - hosts
+    /api/hosts/{hostid}keys:
+        post:
+            operationId: updateKeys
+            parameters:
+                - description: HostID
+                  in: path
+                  name: hostid
+                  required: true
+                  type: string
+                  x-go-name: HostID
+            responses:
+                "200":
+                    $ref: '#/responses/networkBodyResponse'
+            schemes:
+                - https
+            summary: Update keys for a network.
+            tags:
+                - hosts
+    /api/hosts/adm/authenticate:
+        post:
+            operationId: authenticateHost
+            responses:
+                "200":
+                    $ref: '#/responses/successResponse'
+            schemes:
+                - https
+            summary: Host based authentication for making further API calls.
+            tags:
+                - authenticate
+    /api/hosts/keys:
+        post:
+            operationId: updateAllKeys
+            responses:
+                "200":
+                    $ref: '#/responses/networkBodyResponse'
+            schemes:
+                - https
+            summary: Update keys for a network.
+            tags:
+                - hosts
+    /api/networks:
+        get:
+            operationId: getNetworks
+            responses:
+                "200":
+                    $ref: '#/responses/getNetworksSliceResponse'
+            schemes:
+                - https
+            summary: Lists all networks.
+            tags:
+                - networks
+        post:
+            operationId: createNetwork
+            parameters:
+                - description: Network
+                  in: body
+                  name: network
+                  schema:
+                    $ref: '#/definitions/Network'
+                  x-go-name: Network
+            responses:
+                "200":
+                    $ref: '#/responses/networkBodyResponse'
+            schemes:
+                - https
+            summary: Create a network.
+            tags:
+                - networks
+        put:
+            operationId: updateNetwork
+            parameters:
+                - description: Network
+                  in: body
+                  name: network
+                  schema:
+                    $ref: '#/definitions/Network'
+                  x-go-name: Network
+            responses:
+                "200":
+                    $ref: '#/responses/networkBodyResponse'
+            schemes:
+                - https
+            summary: Update pro settings for a network.
+            tags:
+                - networks
+    /api/networks/{networkname}:
+        delete:
+            operationId: deleteNetwork
+            parameters:
+                - description: 'name: network name'
+                  in: path
+                  name: networkname
+                  required: true
+                  type: string
+                  x-go-name: Networkname
+            responses:
+                "200":
+                    $ref: '#/responses/successResponse'
+            schemes:
+                - https
+            summary: Delete a network.  Will not delete if there are any nodes that belong to the network.
+            tags:
+                - networks
+        get:
+            operationId: getNetwork
+            parameters:
+                - description: 'name: network name'
+                  in: path
+                  name: networkname
+                  required: true
+                  type: string
+                  x-go-name: Networkname
+            responses:
+                "200":
+                    $ref: '#/responses/networkBodyResponse'
+            schemes:
+                - https
+            summary: Get a network.
+            tags:
+                - networks
+    /api/networks/{networkname}/acls:
+        get:
+            operationId: getNetworkACL
+            parameters:
+                - description: 'name: network name'
+                  in: path
+                  name: networkname
+                  required: true
+                  type: string
+                  x-go-name: Networkname
+                - description: ACL Container
+                  in: body
+                  name: acl_container
+                  schema:
+                    $ref: '#/definitions/ACLContainer'
+                  x-go-name: ACLContainer
+            responses:
+                "200":
+                    $ref: '#/responses/aclContainerResponse'
+            schemes:
+                - https
+            summary: Get a network ACL (Access Control List).
+            tags:
+                - networks
+        put:
+            operationId: updateNetworkACL
+            parameters:
+                - description: 'name: network name'
+                  in: path
+                  name: networkname
+                  required: true
+                  type: string
+                  x-go-name: Networkname
+                - description: ACL Container
+                  in: body
+                  name: acl_container
+                  schema:
+                    $ref: '#/definitions/ACLContainer'
+                  x-go-name: ACLContainer
+            responses:
+                "200":
+                    $ref: '#/responses/aclContainerResponse'
+            schemes:
+                - https
+            summary: Update a network ACL (Access Control List).
+            tags:
+                - networks
+    /api/nodes:
+        get:
+            operationId: getAllNodes
+            responses:
+                "200":
+                    $ref: '#/responses/nodeSliceResponse'
+            schemes:
+                - https
+            summary: Get all nodes across all networks.
+            tags:
+                - nodes
+    /api/nodes/{network}/{nodeid}:
+        delete:
+            operationId: deleteNode
+            parameters:
+                - in: path
+                  name: network
+                  required: true
+                  type: string
+                  x-go-name: Network
+                - in: path
+                  name: nodeid
+                  required: true
+                  type: string
+                  x-go-name: NodeID
+                - description: Node
+                  in: body
+                  name: node
+                  schema:
+                    $ref: '#/definitions/LegacyNode'
+                  x-go-name: Node
+            responses:
+                "200":
+                    $ref: '#/responses/nodeResponse'
+            schemes:
+                - https
+            summary: Delete an individual node.
+            tags:
+                - nodes
+        get:
+            operationId: getNode
+            parameters:
+                - in: path
+                  name: network
+                  required: true
+                  type: string
+                  x-go-name: Network
+                - in: path
+                  name: nodeid
+                  required: true
+                  type: string
+                  x-go-name: NodeID
+            responses:
+                "200":
+                    $ref: '#/responses/nodeResponse'
+            schemes:
+                - https
+            summary: Get an individual node.
+            tags:
+                - nodes
+        put:
+            operationId: updateNode
+            parameters:
+                - in: path
+                  name: network
+                  required: true
+                  type: string
+                  x-go-name: Network
+                - in: path
+                  name: nodeid
+                  required: true
+                  type: string
+                  x-go-name: NodeID
+                - description: Node
+                  in: body
+                  name: node
+                  schema:
+                    $ref: '#/definitions/LegacyNode'
+                  x-go-name: Node
+            responses:
+                "200":
+                    $ref: '#/responses/nodeResponse'
+            schemes:
+                - https
+            summary: Update an individual node.
+            tags:
+                - nodes
+    /api/nodes/{network}/{nodeid}/creategateway:
+        post:
+            operationId: createEgressGateway
+            parameters:
+                - in: path
+                  name: network
+                  required: true
+                  type: string
+                  x-go-name: Network
+                - in: path
+                  name: nodeid
+                  required: true
+                  type: string
+                  x-go-name: NodeID
+                - description: Egress Gateway Request
+                  in: body
+                  name: egress_gateway_request
+                  schema:
+                    $ref: '#/definitions/EgressGatewayRequest'
+                  x-go-name: EgressGatewayRequest
+            responses:
+                "200":
+                    $ref: '#/responses/nodeResponse'
+            schemes:
+                - https
+            summary: Create an egress gateway.
+            tags:
+                - nodes
+    /api/nodes/{network}/{nodeid}/createingress:
+        post:
+            operationId: createIngressGateway
+            parameters:
+                - in: path
+                  name: network
+                  required: true
+                  type: string
+                  x-go-name: Network
+                - in: path
+                  name: nodeid
+                  required: true
+                  type: string
+                  x-go-name: NodeID
+            responses:
+                "200":
+                    $ref: '#/responses/nodeResponse'
+            schemes:
+                - https
+            summary: Create an ingress gateway.
+            tags:
+                - nodes
+    /api/nodes/{network}/{nodeid}/createrelay:
+        post:
+            operationId: createRelay
+            parameters:
+                - in: path
+                  name: network
+                  required: true
+                  type: string
+                  x-go-name: Network
+                - in: path
+                  name: nodeid
+                  required: true
+                  type: string
+                  x-go-name: NodeID
+                - description: Relay Request
+                  in: body
+                  name: relay_request
+                  schema:
+                    $ref: '#/definitions/RelayRequest'
+                  x-go-name: RelayRequest
+            responses:
+                "200":
+                    $ref: '#/responses/nodeResponse'
+            schemes:
+                - https
+            summary: Create a relay.
+            tags:
+                - nodes
+    /api/nodes/{network}/{nodeid}/deletegateway:
+        delete:
+            operationId: deleteEgressGateway
+            parameters:
+                - in: path
+                  name: network
+                  required: true
+                  type: string
+                  x-go-name: Network
+                - in: path
+                  name: nodeid
+                  required: true
+                  type: string
+                  x-go-name: NodeID
+            responses:
+                "200":
+                    $ref: '#/responses/nodeResponse'
+            schemes:
+                - https
+            summary: Delete an egress gateway.
+            tags:
+                - nodes
+    /api/nodes/{network}/{nodeid}/deleteingress:
+        delete:
+            operationId: deleteIngressGateway
+            parameters:
+                - in: path
+                  name: network
+                  required: true
+                  type: string
+                  x-go-name: Network
+                - in: path
+                  name: nodeid
+                  required: true
+                  type: string
+                  x-go-name: NodeID
+            responses:
+                "200":
+                    $ref: '#/responses/nodeResponse'
+            schemes:
+                - https
+            summary: Delete an ingress gateway.
+            tags:
+                - nodes
+    /api/nodes/{network}/{nodeid}/deleterelay:
+        delete:
+            operationId: deleteRelay
+            parameters:
+                - in: path
+                  name: network
+                  required: true
+                  type: string
+                  x-go-name: Network
+                - in: path
+                  name: nodeid
+                  required: true
+                  type: string
+                  x-go-name: NodeID
+            responses:
+                "200":
+                    $ref: '#/responses/nodeResponse'
+            schemes:
+                - https
+            summary: Remove a relay.
+            tags:
+                - nodes
+    /api/nodes/{network}/{nodeid}/ingress/users:
+        get:
+            operationId: ingressGatewayUsers
+            parameters:
+                - in: path
+                  name: network
+                  required: true
+                  type: string
+                  x-go-name: Network
+                - in: path
+                  name: nodeid
+                  required: true
+                  type: string
+                  x-go-name: NodeID
+            responses:
+                "200":
+                    $ref: '#/responses/nodeResponse'
+            schemes:
+                - https
+            summary: Lists all the users attached to an ingress gateway.
+            tags:
+                - users
+    /api/nodes/{networkname}:
+        get:
+            operationId: getNetworkNodes
+            parameters:
+                - description: 'name: network name'
+                  in: path
+                  name: networkname
+                  required: true
+                  type: string
+                  x-go-name: Networkname
+            responses:
+                "200":
+                    $ref: '#/responses/nodeSliceResponse'
+            schemes:
+                - https
+            summary: Gets all nodes associated with network including pending nodes.
+            tags:
+                - nodes
+    /api/nodes/adm/{network}/authenticate:
+        post:
+            operationId: authenticate
+            parameters:
+                - description: network
+                  in: path
+                  name: network
+                  required: true
+                  type: string
+                  x-go-name: Network
+                - description: AuthParams
+                  in: body
+                  name: auth_params
+                  schema:
+                    $ref: '#/definitions/AuthParams'
+                  x-go-name: AuthParams
+            responses:
+                "200":
+                    $ref: '#/responses/successResponse'
+            schemes:
+                - https
+            summary: Authenticate to make further API calls related to a network.
+            tags:
+                - authenticate
+    /api/oauth/login:
+        get:
+            operationId: HandleAuthLogin
+            responses:
+                "200":
+                    $ref: '#/responses/okResponse'
+            schemes:
+                - https
+            summary: Handles OAuth login.
+            tags:
+                - nodes
+    /api/server/getconfig:
+        get:
+            operationId: getConfig
+            responses:
+                "200":
+                    $ref: '#/responses/serverConfigResponse'
+            schemes:
+                - https
+            summary: Get the server configuration.
+            tags:
+                - server
+    /api/server/getserverinfo:
+        get:
+            operationId: getServerInfo
+            responses:
+                "200":
+                    $ref: '#/responses/serverConfigResponse'
+            schemes:
+                - https
+            summary: Get the server configuration.
+            tags:
+                - server
+    /api/server/status:
+        get:
+            operationId: getStatus
+            responses:
+                "200":
+                    $ref: '#/responses/serverConfigResponse'
+            schemes:
+                - https
+            summary: Get the server configuration.
+            tags:
+                - server
+    /api/users:
+        get:
+            operationId: getUsers
+            responses:
+                "200":
+                    $ref: '#/responses/userBodyResponse'
+            schemes:
+                - https
+            summary: Get all users.
+            tags:
+                - user
+    /api/users/{username}:
+        delete:
+            operationId: deleteUser
+            parameters:
+                - description: Username
+                  in: path
+                  name: username
+                  required: true
+                  type: string
+                  x-go-name: Username
+            responses:
+                "200":
+                    $ref: '#/responses/userBodyResponse'
+            schemes:
+                - https
+            summary: Delete a user.
+            tags:
+                - user
+        get:
+            operationId: getUser
+            parameters:
+                - description: Username
+                  in: path
+                  name: username
+                  required: true
+                  type: string
+                  x-go-name: Username
+            responses:
+                "200":
+                    $ref: '#/responses/userBodyResponse'
+            schemes:
+                - https
+            summary: Get an individual user.
+            tags:
+                - user
+        post:
+            operationId: createUser
+            parameters:
+                - description: User
+                  in: body
+                  name: user
+                  schema:
+                    $ref: '#/definitions/User'
+                  x-go-name: User
+                - description: Username
+                  in: path
+                  name: username
+                  required: true
+                  type: string
+                  x-go-name: Username
+            responses:
+                "200":
+                    $ref: '#/responses/userBodyResponse'
+            schemes:
+                - https
+            summary: Create a user.
+            tags:
+                - user
+        put:
+            operationId: updateUser
+            parameters:
+                - description: User
+                  in: body
+                  name: user
+                  schema:
+                    $ref: '#/definitions/User'
+                  x-go-name: User
+                - description: Username
+                  in: path
+                  name: username
+                  required: true
+                  type: string
+                  x-go-name: Username
+            responses:
+                "200":
+                    $ref: '#/responses/userBodyResponse'
+            schemes:
+                - https
+            summary: Update a user.
+            tags:
+                - user
+    /api/users/{username}/remote_access_gw:
+        delete:
+            operationId: removeUserFromRemoteAccessGW
+            parameters:
+                - in: path
+                  name: username
+                  required: true
+                  type: string
+                  x-go-name: Username
+            responses:
+                "200":
+                    $ref: '#/responses/userBodyResponse'
+            schemes:
+                - https
+            summary: Delete User from a remote access gateway.
+            tags:
+                - user
+        post:
+            operationId: attachUserToRemoteAccessGateway
+            parameters:
+                - in: path
+                  name: username
+                  required: true
+                  type: string
+                  x-go-name: Username
+            responses:
+                "200":
+                    $ref: '#/responses/userBodyResponse'
+            schemes:
+                - https
+            summary: Attach User to a remote access gateway.
+            tags:
+                - user
+    /api/users/adm/authenticate:
+        post:
+            operationId: authenticateUser
+            parameters:
+                - description: User Auth Params
+                  in: body
+                  name: user_auth_params
+                  schema:
+                    $ref: '#/definitions/UserAuthParams'
+                  x-go-name: UserAuthParams
+            responses:
+                "200":
+                    $ref: '#/responses/successResponse'
+            schemes:
+                - https
+            summary: User authenticates using its password and retrieves a JWT for authorization.
+            tags:
+                - authenticate
+    /api/users/adm/createsuperadmin:
+        post:
+            operationId: createAdmin
+            parameters:
+                - description: User
+                  in: body
+                  name: user
+                  schema:
+                    $ref: '#/definitions/User'
+                  x-go-name: User
+            responses:
+                "200":
+                    $ref: '#/responses/userBodyResponse'
+            schemes:
+                - https
+            summary: Make a user an admin.
+            tags:
+                - user
+    /api/users/adm/hassuperadmin:
+        get:
+            operationId: hasSuperAdmin
+            responses:
+                "200":
+                    $ref: '#/responses/hasAdmin'
+            schemes:
+                - https
+            summary: Checks whether the server has an admin.
+            tags:
+                - user
+    /api/users/adm/transfersuperadmin:
+        post:
+            operationId: transferSuperAdmin
+            responses:
+                "200":
+                    $ref: '#/responses/userBodyResponse'
+            schemes:
+                - https
+            summary: Transfers superadmin role to an admin user.
+            tags:
+                - user
+    /api/v1/enrollment-keys:
+        get:
+            operationId: getEnrollmentKeys
+            responses:
+                "200":
+                    $ref: '#/responses/EnrollmentKeys'
+            schemes:
+                - https
+            summary: Lists all EnrollmentKeys for admins.
+            tags:
+                - enrollmentKeys
+        post:
+            operationId: createEnrollmentKey
+            responses:
+                "200":
+                    $ref: '#/responses/EnrollmentKey'
+            schemes:
+                - https
+            summary: Creates an EnrollmentKey for hosts to use on Netmaker server.
+            tags:
+                - enrollmentKeys
+    /api/v1/enrollment-keys/{keyid}:
+        delete:
+            operationId: deleteEnrollmentKey
+            parameters:
+                - in: path
+                  name: keyid
+                  required: true
+                  type: string
+                  x-go-name: KeyID
+            responses:
+                "200":
+                    $ref: '#/responses/okResponse'
+            schemes:
+                - https
+            summary: Deletes an EnrollmentKey from Netmaker server.
+            tags:
+                - enrollmentKeys
+    /api/v1/enrollment-keys/{token}:
+        post:
+            operationId: handleHostRegister
+            parameters:
+                - in: path
+                  name: token
+                  required: true
+                  type: string
+                  x-go-name: Token
+                - in: body
+                  name: host
+                  schema:
+                    $ref: '#/definitions/Host'
+                  x-go-name: Host
+            responses:
+                "200":
+                    $ref: '#/responses/RegisterResponse'
+            schemes:
+                - https
+            summary: Handles a Netclient registration with server and add nodes accordingly.
+            tags:
+                - enrollmentKeys
+    /api/v1/host:
+        get:
+            description: Used by clients for "pull" command
+            operationId: pullHost
+            responses:
+                "200":
+                    $ref: '#/responses/hostPull'
+            schemes:
+                - https
+            tags:
+                - hosts
+    /api/v1/legacy/nodes:
+        delete:
+            operationId: wipeLegacyNodes
+            responses:
+                "200":
+                    $ref: '#/responses/successResponse'
+            schemes:
+                - https
+            summary: Delete all legacy nodes from DB.
+            tags:
+                - nodes
+    /api/v1/nodes/migrate:
+        put:
+            operationId: migrateData
+            responses:
+                "200":
+                    $ref: '#/responses/hostPull'
+            schemes:
+                - https
+            summary: Used to migrate a legacy node.
+            tags:
+                - nodes
+    /meshclient/files/{filename}:
+        get:
+            operationId: getFile
+            parameters:
+                - description: Filename
+                  in: path
+                  name: filename
+                  required: true
+                  type: string
+                  x-go-name: Filename
+            responses:
+                "200":
+                    $ref: '#/responses/fileResponse'
+            schemes:
+                - https
+            summary: Retrieve a file from the file server.
+            tags:
+                - meshclient
+produces:
+    - application/json
+responses:
+    EnrollmentKey:
+        description: ""
+        schema:
+            $ref: '#/definitions/EnrollmentKey'
+    EnrollmentKeys:
+        description: ""
+        schema:
+            items:
+                $ref: '#/definitions/EnrollmentKey'
+            type: array
+    RegisterResponse:
+        description: ""
+        schema:
+            $ref: '#/definitions/RegisterResponse'
+    aclContainerResponse:
+        description: ""
+        schema:
+            $ref: '#/definitions/ACLContainer'
+    apiHostResponse:
+        description: ""
+        schema:
+            $ref: '#/definitions/ApiHost'
+    byteArrayResponse:
+        description: ""
+        schema:
+            items:
+                format: uint8
+                type: integer
+            type: array
+    dnsResponse:
+        description: Success
+        schema:
+            items:
+                $ref: '#/definitions/DNSEntry'
+            type: array
+    extClientResponse:
+        description: ""
+        schema:
+            $ref: '#/definitions/ExtClient'
+    extClientSliceResponse:
+        description: ""
+        schema:
+            items:
+                $ref: '#/definitions/ExtClient'
+            type: array
+    fileResponse:
+        description: ""
+        schema:
+            $ref: '#/definitions/File'
+    getNetworksSliceResponse:
+        description: ""
+        schema:
+            items:
+                $ref: '#/definitions/Network'
+            type: array
+    hasAdmin:
+        description: ""
+    hostPull:
+        description: ""
+        schema:
+            $ref: '#/definitions/HostPull'
+    networkBodyResponse:
+        description: ""
+        schema:
+            $ref: '#/definitions/Network'
+    nodeResponse:
+        description: ""
+        schema:
+            $ref: '#/definitions/LegacyNode'
+    nodeSliceResponse:
+        description: ""
+        schema:
+            items:
+                $ref: '#/definitions/LegacyNode'
+            type: array
+    okResponse:
+        description: ""
+    serverConfigResponse:
+        description: ""
+        schema:
+            $ref: '#/definitions/ServerConfig'
     signal:
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/signal'
-    userAuth:
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              Username:
-                type: string
-              Password:
-                type: string
-    user:
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              Username:
-                type: string
-              Password:
-                type: string
+        description: ""
+        schema:
+            $ref: '#/definitions/Signal'
+    stringJSONResponse:
+        description: ""
+    successResponse:
+        description: ""
+        schema:
+            $ref: '#/definitions/SuccessResponse'
+    userBodyResponse:
+        description: ""
+        schema:
+            $ref: '#/definitions/User'
+schemes:
+    - https
+swagger: "2.0"

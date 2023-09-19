@@ -32,7 +32,7 @@ func enrollmentKeyHandlers(r *mux.Router) {
 //	  		oauth
 //
 //			Responses:
-//				200: getEnrollmentKeysSlice
+//				200: EnrollmentKeys
 func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 	keys, err := logic.GetAllEnrollmentKeys()
 	if err != nil {
@@ -57,7 +57,7 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(ret)
 }
 
-// swagger:route DELETE /api/v1/enrollment-keys/{keyID} enrollmentKeys deleteEnrollmentKey
+// swagger:route DELETE /api/v1/enrollment-keys/{keyid} enrollmentKeys deleteEnrollmentKey
 //
 // Deletes an EnrollmentKey from Netmaker server.
 //
@@ -67,7 +67,7 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 //	  		oauth
 //
 //			Responses:
-//				200: deleteEnrollmentKeyResponse
+//				200: okResponse
 func deleteEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	keyID := params["keyID"]
@@ -91,7 +91,7 @@ func deleteEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 //	  		oauth
 //
 //			Responses:
-//				200: createEnrollmentKeyResponse
+//				200: EnrollmentKey
 func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 
 	var enrollmentKeyBody models.APIEnrollmentKey
@@ -135,7 +135,7 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 //	  		oauth
 //
 //			Responses:
-//				200: handleHostRegisterResponse
+//				200: RegisterResponse
 func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	token := params["token"]

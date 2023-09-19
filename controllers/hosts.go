@@ -41,7 +41,7 @@ func hostHandlers(r *mux.Router) {
 //	  		oauth
 //
 //			Responses:
-//				200: getHostsSliceResponse
+//				200: apiHostResponse
 func getHosts(w http.ResponseWriter, r *http.Request) {
 	currentHosts, err := logic.GetAllHosts()
 	if err != nil {
@@ -56,7 +56,7 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(apiHosts)
 }
 
-// swagger:route GET /api/v1/host pull pullHost
+// swagger:route GET /api/v1/host hosts pullHost
 //
 // Used by clients for "pull" command
 //
@@ -66,7 +66,7 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 //	  		oauth
 //
 //			Responses:
-//				200: pull
+//				200: hostPull
 func pull(w http.ResponseWriter, r *http.Request) {
 
 	hostID := r.Header.Get(hostIDHeader) // return JSON/API formatted keys
@@ -128,7 +128,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 //	  		oauth
 //
 //			Responses:
-//				200: updateHostResponse
+//				200: apiHostResponse
 func updateHost(w http.ResponseWriter, r *http.Request) {
 	var newHostData models.ApiHost
 	err := json.NewDecoder(r.Body).Decode(&newHostData)
@@ -196,7 +196,7 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 //	  		oauth
 //
 //			Responses:
-//				200: deleteHostResponse
+//				200: apiHostResponse
 func deleteHost(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	hostid := params["hostid"]
@@ -235,9 +235,8 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 //
 //			Security:
 //	  		oauth
-//
 //			Responses:
-//				200: addHostToNetworkResponse
+//				200: okResponse
 func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
@@ -284,7 +283,7 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 //	  		oauth
 //
 //			Responses:
-//				200: deleteHostFromNetworkResponse
+//				200: okResponse
 func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
@@ -358,7 +357,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// swagger:route POST /api/hosts/adm/authenticate hosts authenticateHost
+// swagger:route POST /api/hosts/adm/authenticate authenticate authenticateHost
 //
 // Host based authentication for making further API calls.
 //
@@ -451,7 +450,7 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 	response.Write(successJSONResponse)
 }
 
-// swagger:route POST /api/hosts/{hostid}/signalpeer signalPeer
+// swagger:route POST /api/hosts/{hostid}/signalpeer hosts signalPeer
 //
 // send signal to peer.
 //
@@ -517,7 +516,7 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(signal)
 }
 
-// swagger:route POST /api/hosts/keys host updateAllKeys
+// swagger:route POST /api/hosts/keys hosts updateAllKeys
 //
 // Update keys for a network.
 //
@@ -555,7 +554,7 @@ func updateAllKeys(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// swagger:route POST /api/hosts/{hostid}keys host updateKeys
+// swagger:route POST /api/hosts/{hostid}keys hosts updateKeys
 //
 // Update keys for a network.
 //
@@ -594,7 +593,7 @@ func updateKeys(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// swagger:route POST /api/hosts/{hostId}/sync host syncHost
+// swagger:route POST /api/hosts/{hostid}/sync hosts synchost
 //
 // Requests a host to pull.
 //
