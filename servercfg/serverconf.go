@@ -111,7 +111,7 @@ func GetJwtValidityDuration() time.Duration {
 
 // GetRacAutoDisable - returns whether the feature to autodisable RAC is enabled
 func GetRacAutoDisable() bool {
-	return os.Getenv("RAC_AUTO_DISABLE") != "true"
+	return os.Getenv("RAC_AUTO_DISABLE") == "true"
 }
 
 // GetServerInfo - gets the server config into memory from file or env
