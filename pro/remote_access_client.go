@@ -13,15 +13,16 @@ import (
 
 const racAutoDisableCheckInterval = 3 * time.Minute
 
-func addRacHooks() {
+// AddRacHooks - adds hooks for Remote Access Client
+func AddRacHooks() {
 	logic.HookManagerCh <- models.HookDetails{
-		Hook:     RacAutoDisableHook,
+		Hook:     racAutoDisableHook,
 		Interval: racAutoDisableCheckInterval,
 	}
 }
 
-// RacAutoDisableHook - checks if RAC is enabled and if it is, checks if it should be disabled
-func RacAutoDisableHook() error {
+// racAutoDisableHook - checks if RAC is enabled and if it is, checks if it should be disabled
+func racAutoDisableHook() error {
 	slog.Debug("running RAC autodisable hook")
 
 	users, err := logic.GetUsers()

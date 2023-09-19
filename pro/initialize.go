@@ -39,7 +39,7 @@ func InitPro() {
 		// == End License Handling ==
 		AddLicenseHooks()
 		if servercfg.GetServerConfig().RacAutoDisable {
-			addRacHooks()
+			AddRacHooks()
 		}
 		resetFailover()
 	})
