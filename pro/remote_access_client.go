@@ -15,6 +15,7 @@ const racAutoDisableCheckInterval = 3 * time.Minute
 
 // AddRacHooks - adds hooks for Remote Access Client
 func AddRacHooks() {
+	slog.Debug("adding RAC autodisable hook")
 	logic.HookManagerCh <- models.HookDetails{
 		Hook:     racAutoDisableHook,
 		Interval: racAutoDisableCheckInterval,
