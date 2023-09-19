@@ -98,13 +98,13 @@ func GetServerConfig() config.ServerConfig {
 
 // GetJwtValidityDuration - returns the JWT validity duration in seconds
 func GetJwtValidityDuration() time.Duration {
-	var defaultDuration = time.Duration(24 * time.Hour)
+	var defaultDuration = time.Duration(24) * time.Hour
 	if os.Getenv("JWT_VALIDITY_DURATION") != "" {
 		t, err := strconv.Atoi(os.Getenv("JWT_VALIDITY_DURATION"))
 		if err != nil {
 			return defaultDuration
 		}
-		return time.Duration(t)
+		return time.Duration(t) * time.Second
 	}
 	return defaultDuration
 }
