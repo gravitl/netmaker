@@ -29,7 +29,7 @@ type User struct {
 	IsAdmin       bool                `json:"isadmin" bson:"isadmin"`
 	IsSuperAdmin  bool                `json:"issuperadmin"`
 	RemoteGwIDs   map[string]struct{} `json:"remote_gw_ids"`
-	LastLoginTime time.Time           `json:"lastlogintime"`
+	LastLoginTime time.Time           `json:"last_login_time"`
 }
 
 // ReturnUser - return user struct
@@ -38,7 +38,7 @@ type ReturnUser struct {
 	IsAdmin       bool                `json:"isadmin"`
 	IsSuperAdmin  bool                `json:"issuperadmin"`
 	RemoteGwIDs   map[string]struct{} `json:"remote_gw_ids"`
-	LastLoginTime time.Time           `json:"lastlogintime"`
+	LastLoginTime time.Time           `json:"last_login_time"`
 }
 
 // UserAuthParams - user auth params struct

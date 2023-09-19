@@ -54,7 +54,7 @@ func CreateJWT(uuid string, macAddress string, network string) (response string,
 
 // CreateUserJWT - creates a user jwt token
 func CreateUserJWT(username string, issuperadmin, isadmin bool) (response string, err error) {
-	expirationTime := time.Now().Add(time.Duration(servercfg.GetServerConfig().JwtValidityDuration * int(time.Second)))
+	expirationTime := time.Now().Add(servercfg.GetServerConfig().JwtValidityDuration)
 	claims := &models.UserClaims{
 		UserName:     username,
 		IsSuperAdmin: issuperadmin,
