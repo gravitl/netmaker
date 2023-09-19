@@ -120,15 +120,13 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 					slog.Info(fmt.Sprintf("enabling ext client %s for user %s due to RAC autodisabling feature", client.ClientID, client.OwnerID))
 					if newClient, err := logic.ToggleExtClientConnectivity(&client, true); err != nil {
 						slog.Error("error disabling ext client in RAC autodisable hook", "error", err)
-						return
+						continue // dont return but try for other clients
 					} else {
 						// publish peer update to ingress gateway
 						if ingressNode, err := logic.GetNodeByID(newClient.IngressGatewayID); err == nil {
 							if err = mq.PublishPeerUpdate(); err != nil {
 								slog.Error("error updating ext clients on", "ingress", ingressNode.ID.String(), "err", err.Error())
 							}
-						} else {
-							return
 						}
 					}
 				}

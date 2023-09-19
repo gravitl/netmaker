@@ -48,7 +48,7 @@ func racAutoDisableHook() error {
 				slog.Info(fmt.Sprintf("disabling ext client %s for user %s due to RAC autodisabling", client.ClientID, client.OwnerID))
 				if err := disableExtClient(&client); err != nil {
 					slog.Error("error disabling ext client in RAC autodisable hook", "error", err)
-					return err
+					continue // dont return but try for other clients
 				}
 			}
 		}
