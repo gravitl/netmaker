@@ -30,7 +30,7 @@ func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks/{networkname}/acls", logic.SecurityCheck(true, http.HandlerFunc(getNetworkACL))).Methods(http.MethodGet)
 }
 
-// swagger:route GET /api/networks networks getNetworks
+// swagger:route GET /api/networks networks getAllNetworks
 //
 // Lists all networks.
 //

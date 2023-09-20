@@ -1634,7 +1634,7 @@ paths:
                 - hosts
     /api/networks:
         get:
-            operationId: getNetworks
+            operationId: getAllNetworks
             responses:
                 "200":
                     $ref: '#/responses/getNetworksSliceResponse'
@@ -1664,10 +1664,10 @@ paths:
             operationId: updateNetwork
             parameters:
                 - description: Network
-                  in: body
+                  in: path
                   name: network
-                  schema:
-                    $ref: '#/definitions/Network'
+                  required: true
+                  type: string
                   x-go-name: Network
             responses:
                 "200":

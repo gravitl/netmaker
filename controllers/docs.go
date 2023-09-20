@@ -237,11 +237,11 @@ type networkBodyParam struct {
 	Network models.Network `json:"network"`
 }
 
-// swagger:parameters updateNetwork updateNetwork updateNetworkNodeLimit deleteNetwork keyUpdate createAccessKey getAccessKeys updateNetworkACL getNetworkACL
+// swagger:parameters updateNetwork updateNetwork updateNetworkNodeLimit keyUpdate createAccessKey getAccessKeys
 type networkPathParam struct {
 	// Network
 	// in: path
-	network string
+	Network string `json:"network"`
 }
 
 // swagger:response networkBodyResponse
@@ -339,7 +339,7 @@ type HostID struct {
 }
 
 // swagger:parameters addHostToNetwork deleteHostFromNetwork
-type hostFromNetworkParams struct {
+type HostFromNetworkParams struct {
 	// hostid to add or delete from network
 	// in: path
 	HostID string `json:"hostid"`
@@ -349,20 +349,13 @@ type hostFromNetworkParams struct {
 }
 
 // swagger:parameters deleteEnrollmentKey
-type deleteEnrollmentKeyParam struct {
+type DeleteEnrollmentKeyParam struct {
 	// in: path
 	KeyID string `json:"keyid"`
 }
 
-// swagger:parameters getEnrollmentKey createEnrollmentKey
-type token struct {
-	// token
-	// in: path
-	token string
-}
-
 // swagger:parameters handleHostRegister
-type registerParams struct {
+type RegisterParams struct {
 	// in: path
 	Token string `json:"token"`
 	// in: body
@@ -448,5 +441,7 @@ func useUnused() bool {
 	_ = hostPull{}
 	_ = okRespone{}
 	_ = signal{}
+	_ = filenameToGet{}
+	_ = dnsNetworkPathParam{}
 	return false
 }
