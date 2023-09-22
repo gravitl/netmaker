@@ -3,13 +3,15 @@ package logic
 import (
 	"errors"
 	"fmt"
+	"net"
+
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
-	"net"
+	"golang.org/x/exp/slog"
 )
 
 // CreateRelay - creates a relay
@@ -136,7 +138,13 @@ func UpdateRelayed(currentNode, newNode *models.Node) {
 	updatenodes := updateRelayNodes(currentNode.ID.String(), currentNode.RelayedNodes, newNode.RelayedNodes)
 	if len(updatenodes) > 0 {
 		for _, relayedNode := range updatenodes {
-			mq.RunUpdates(&relayedNode, false)
+			node := relayedNode
+			go func() {
+				if err := mq.NodeUpdate(&node); err != nil {
+					slog.Error("error publishing node update to node", "node", node.ID, "error", err)
+				}
+
+			}()
 		}
 	}
 }
