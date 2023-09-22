@@ -209,7 +209,7 @@ type byteArrayResponse struct {
 	ByteArray []byte `json:"byte_array"`
 }
 
-// swagger:parameters getNetwork deleteNetwork getNetworkACL updateNetworkACL getNetworkNodes
+// swagger:parameters getNetwork deleteNetwork updateNetwork getNetworkACL updateNetworkACL
 type NetworkParam struct {
 	// name: network name
 	// in:  path
@@ -237,7 +237,7 @@ type networkBodyParam struct {
 	Network models.Network `json:"network"`
 }
 
-// swagger:parameters updateNetwork updateNetwork updateNetworkNodeLimit keyUpdate createAccessKey getAccessKeys
+// swagger:parameters updateNetworkNodeLimit keyUpdate createAccessKey getAccessKeys getNetworkNodes
 type networkPathParam struct {
 	// Network
 	// in: path

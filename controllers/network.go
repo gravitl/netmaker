@@ -30,7 +30,7 @@ func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks/{networkname}/acls", logic.SecurityCheck(true, http.HandlerFunc(getNetworkACL))).Methods(http.MethodGet)
 }
 
-// swagger:route GET /api/networks networks getAllNetworks
+// swagger:route GET /api/networks networks getNetworks
 //
 // Lists all networks.
 //
@@ -278,7 +278,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(network)
 }
 
-// swagger:route PUT /api/networks networks updateNetwork
+// swagger:route PUT /api/networks/{networkname} networks updateNetwork
 //
 // Update pro settings for a network.
 //

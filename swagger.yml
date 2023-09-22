@@ -1634,7 +1634,7 @@ paths:
                 - hosts
     /api/networks:
         get:
-            operationId: getAllNetworks
+            operationId: getNetworks
             responses:
                 "200":
                     $ref: '#/responses/getNetworksSliceResponse'
@@ -1658,23 +1658,6 @@ paths:
             schemes:
                 - https
             summary: Create a network.
-            tags:
-                - networks
-        put:
-            operationId: updateNetwork
-            parameters:
-                - description: Network
-                  in: path
-                  name: network
-                  required: true
-                  type: string
-                  x-go-name: Network
-            responses:
-                "200":
-                    $ref: '#/responses/networkBodyResponse'
-            schemes:
-                - https
-            summary: Update pro settings for a network.
             tags:
                 - networks
     /api/networks/{networkname}:
@@ -1710,6 +1693,29 @@ paths:
             schemes:
                 - https
             summary: Get a network.
+            tags:
+                - networks
+        put:
+            operationId: updateNetwork
+            parameters:
+                - description: 'name: network name'
+                  in: path
+                  name: networkname
+                  required: true
+                  type: string
+                  x-go-name: Networkname
+                - description: Network
+                  in: body
+                  name: network
+                  schema:
+                    $ref: '#/definitions/Network'
+                  x-go-name: Network
+            responses:
+                "200":
+                    $ref: '#/responses/networkBodyResponse'
+            schemes:
+                - https
+            summary: Update pro settings for a network.
             tags:
                 - networks
     /api/networks/{networkname}/acls:
@@ -1768,6 +1774,24 @@ paths:
             schemes:
                 - https
             summary: Get all nodes across all networks.
+            tags:
+                - nodes
+    /api/nodes/{network}:
+        get:
+            operationId: getNetworkNodes
+            parameters:
+                - description: Network
+                  in: path
+                  name: network
+                  required: true
+                  type: string
+                  x-go-name: Network
+            responses:
+                "200":
+                    $ref: '#/responses/nodeSliceResponse'
+            schemes:
+                - https
+            summary: Gets all nodes associated with network including pending nodes.
             tags:
                 - nodes
     /api/nodes/{network}/{nodeid}:
@@ -2012,24 +2036,6 @@ paths:
             summary: Lists all the users attached to an ingress gateway.
             tags:
                 - users
-    /api/nodes/{networkname}:
-        get:
-            operationId: getNetworkNodes
-            parameters:
-                - description: 'name: network name'
-                  in: path
-                  name: networkname
-                  required: true
-                  type: string
-                  x-go-name: Networkname
-            responses:
-                "200":
-                    $ref: '#/responses/nodeSliceResponse'
-            schemes:
-                - https
-            summary: Gets all nodes associated with network including pending nodes.
-            tags:
-                - nodes
     /api/nodes/adm/{network}/authenticate:
         post:
             operationId: authenticate

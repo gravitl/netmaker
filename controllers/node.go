@@ -258,7 +258,7 @@ func Authorize(hostAllowed, networkCheck bool, authNetwork string, next http.Han
 	}
 }
 
-// swagger:route GET /api/nodes/{networkname} nodes getNetworkNodes
+// swagger:route GET /api/nodes/{network} nodes getNetworkNodes
 //
 // Gets all nodes associated with network including pending nodes.
 //
