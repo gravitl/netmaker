@@ -16,9 +16,7 @@ func base64encode(input []byte) string {
 
 // base64decode - base64 decode helper function
 func base64decode(input string) []byte {
-
 	bytes, err := base64.StdEncoding.DecodeString(input)
-
 	if err != nil {
 		return nil
 	}

@@ -9,17 +9,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"golang.org/x/exp/slog"
 	"io"
 	"net/http"
 	"time"
+
+	"golang.org/x/crypto/nacl/box"
+	"golang.org/x/exp/slog"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
-	"golang.org/x/crypto/nacl/box"
 )
 
 const (
@@ -28,7 +29,7 @@ const (
 
 type apiServerConf struct {
 	PrivateKey []byte `json:"private_key" binding:"required"`
-	PublicKey  []byte `json:"public_key" binding:"required"`
+	PublicKey  []byte `json:"public_key"  binding:"required"`
 }
 
 // AddLicenseHooks - adds the validation and cache clear hooks
@@ -81,7 +82,7 @@ func ValidateLicense() (err error) {
 
 	licenseSecret := LicenseSecret{
 		AssociatedID: netmakerTenantID,
-		Usage:        logic.GetCurrentServerUsage(),
+		Usage:        getCurrentServerUsage(),
 	}
 
 	secretData, err := json.Marshal(&licenseSecret)
@@ -112,7 +113,11 @@ func ValidateLicense() (err error) {
 		return err
 	}
 
-	respData, err := ncutils.BoxDecrypt(base64decode(licenseResponse.EncryptedLicense), apiPublicKey, tempPrivKey)
+	respData, err := ncutils.BoxDecrypt(
+		base64decode(licenseResponse.EncryptedLicense),
+		apiPublicKey,
+		tempPrivKey,
+	)
 	if err != nil {
 		err = fmt.Errorf("failed to decrypt license: %w", err)
 		return err
@@ -132,7 +137,7 @@ func ValidateLicense() (err error) {
 // as well as secure communication with API
 // if none present, it generates a new pair
 func FetchApiServerKeys() (pub *[32]byte, priv *[32]byte, err error) {
-	var returnData = apiServerConf{}
+	returnData := apiServerConf{}
 	currentData, err := database.FetchRecord(database.SERVERCONF_TABLE_NAME, db_license_key)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return nil, nil, err
@@ -181,7 +186,6 @@ func getLicensePublicKey(licensePubKeyEncoded string) (*[32]byte, error) {
 }
 
 func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, error) {
-
 	publicKeyBytes, err := ncutils.ConvertKeyToBytes(publicKey)
 	if err != nil {
 		return nil, err
@@ -198,7 +202,11 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, erro
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, getAccountsHost()+"/api/v1/license/validate", bytes.NewReader(requestBody))
+	req, err := http.NewRequest(
+		http.MethodPost,
+		getAccountsHost()+"/api/v1/license/validate",
+		bytes.NewReader(requestBody),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -241,7 +249,7 @@ func getAccountsHost() string {
 }
 
 func cacheResponse(response []byte) error {
-	var lrc = licenseResponseCache{
+	lrc := licenseResponseCache{
 		Body: response,
 	}
 
