@@ -29,6 +29,7 @@ func getAllExtClientsFromCache() (extClients []models.ExtClient) {
 
 func deleteExtClientFromCache(key string) {
 	extClientCacheMutex.Lock()
+	slog.Debug("deleting extclient from cache", "key", key, "TAG", "junk")
 	delete(extClientCacheMap, key)
 	extClientCacheMutex.Unlock()
 }
@@ -70,6 +71,7 @@ func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 
 // DeleteExtClient - deletes an existing ext client
 func DeleteExtClient(network string, clientid string) error {
+	slog.Debug("deleting extclient", "clientid", clientid, "network", network)
 	key, err := GetRecordKey(clientid, network)
 	if err != nil {
 		return err
@@ -78,7 +80,10 @@ func DeleteExtClient(network string, clientid string) error {
 	if err != nil {
 		return err
 	}
+	slog.Debug("extclient deleted from database", "TAG", "junk")
 	deleteExtClientFromCache(key)
+	clients := getAllExtClientsFromCache()
+	slog.Debug("extclient in cache", "clients", clients, "TAG", "junk")
 	return nil
 }
 

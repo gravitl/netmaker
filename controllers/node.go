@@ -553,6 +553,7 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //				200: nodeResponse
 func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
+	slog.Debug("deleting ingress gateway", "TAG", "junk")
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
@@ -570,6 +571,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	slog.Debug("delete ingress", "TAG", "junk", "removed clients", removedClients)
 
 	if servercfg.IsPro {
 		if wasFailover {
