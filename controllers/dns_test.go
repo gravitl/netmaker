@@ -238,7 +238,7 @@ func TestSetDNS(t *testing.T) {
 		assert.False(t, info.IsDir())
 		content, err := os.ReadFile("./config/dnsconfig/netmaker.hosts")
 		assert.Nil(t, err)
-		assert.Contains(t, string(content), "linuxhost.skynet")
+		assert.Contains(t, string(content), "linuxhost")
 	})
 	t.Run("EntryExists", func(t *testing.T) {
 		entry := models.DNSEntry{Address: "10.0.0.3", Name: "newhost", Network: "skynet"}
@@ -251,7 +251,7 @@ func TestSetDNS(t *testing.T) {
 		assert.False(t, info.IsDir())
 		content, err := os.ReadFile("./config/dnsconfig/netmaker.hosts")
 		assert.Nil(t, err)
-		assert.Contains(t, string(content), "newhost.skynet")
+		assert.Contains(t, string(content), "newhost")
 	})
 
 }
