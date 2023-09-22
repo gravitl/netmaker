@@ -9,10 +9,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"golang.org/x/exp/slog"
 	"io"
 	"net/http"
 	"time"
+
+	"golang.org/x/exp/slog"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
@@ -51,8 +52,8 @@ func ValidateLicense() (err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("%w: %s", errValidation, err.Error())
-			servercfg.ErrLicenseValidation = err
 		}
+		servercfg.ErrLicenseValidation = err
 	}()
 
 	licenseKeyValue := servercfg.GetLicenseKey()
