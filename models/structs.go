@@ -248,23 +248,22 @@ type NodeJoinResponse struct {
 
 // ServerConfig - struct for dealing with the server information for a netclient
 type ServerConfig struct {
-	CoreDNSAddr string       `yaml:"corednsaddr"`
-	API         string       `yaml:"api"`
-	APIPort     string       `yaml:"apiport"`
-	DNSMode     string       `yaml:"dnsmode"`
-	Version     string       `yaml:"version"`
-	MQPort      string       `yaml:"mqport"`
-	MQUserName  string       `yaml:"mq_username"`
-	MQPassword  string       `yaml:"mq_password"`
-	Server      string       `yaml:"server"`
-	Broker      string       `yaml:"broker"`
-	IsPro       bool         `yaml:"isee" json:"Is_EE"`
-	StunPort    int          `yaml:"stun_port"`
-	StunList    []StunServer `yaml:"stun_list"`
-	TrafficKey  []byte       `yaml:"traffickey"`
-	TurnDomain  string       `yaml:"turn_domain"`
-	TurnPort    int          `yaml:"turn_port"`
-	UseTurn     bool         `yaml:"use_turn"`
+	CoreDNSAddr string `yaml:"corednsaddr"`
+	API         string `yaml:"api"`
+	APIPort     string `yaml:"apiport"`
+	DNSMode     string `yaml:"dnsmode"`
+	Version     string `yaml:"version"`
+	MQPort      string `yaml:"mqport"`
+	MQUserName  string `yaml:"mq_username"`
+	MQPassword  string `yaml:"mq_password"`
+	Server      string `yaml:"server"`
+	Broker      string `yaml:"broker"`
+	IsPro       bool   `yaml:"isee" json:"Is_EE"`
+	StunPort    int    `yaml:"stun_port"`
+	TrafficKey  []byte `yaml:"traffickey"`
+	TurnDomain  string `yaml:"turn_domain"`
+	TurnPort    int    `yaml:"turn_port"`
+	UseTurn     bool   `yaml:"use_turn"`
 }
 
 // User.NameInCharset - returns if name is in charset below or not
@@ -288,12 +287,6 @@ type JoinData struct {
 	Host Host   `json:"host" yaml:"host"`
 	Node Node   `json:"node" yaml:"node"`
 	Key  string `json:"key" yaml:"key"`
-}
-
-// StunServer - struct to hold data required for using stun server
-type StunServer struct {
-	Domain string `json:"domain" yaml:"domain"`
-	Port   int    `json:"port" yaml:"port"`
 }
 
 // HookDetails - struct to hold hook info
