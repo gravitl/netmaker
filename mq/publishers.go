@@ -315,7 +315,7 @@ func PublishDeleteExtClientDNS(client *models.ExtClient) error {
 func PublishCustomDNS(entry *models.DNSEntry) error {
 	dns := models.DNSUpdate{
 		Action: models.DNSInsert,
-		Name:   entry.Name + "." + entry.Network,
+		Name:   entry.Name,
 		//entry.Address6 is never used
 		Address: entry.Address,
 	}
