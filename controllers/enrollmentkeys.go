@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+
 	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -16,10 +17,14 @@ import (
 )
 
 func enrollmentKeyHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/enrollment-keys", logic.SecurityCheck(true, http.HandlerFunc(createEnrollmentKey))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/enrollment-keys", logic.SecurityCheck(true, http.HandlerFunc(getEnrollmentKeys))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/enrollment-keys/{keyID}", logic.SecurityCheck(true, http.HandlerFunc(deleteEnrollmentKey))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/host/register/{token}", http.HandlerFunc(handleHostRegister)).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/enrollment-keys", logic.SecurityCheck(true, http.HandlerFunc(createEnrollmentKey))).
+		Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/enrollment-keys", logic.SecurityCheck(true, http.HandlerFunc(getEnrollmentKeys))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/enrollment-keys/{keyID}", logic.SecurityCheck(true, http.HandlerFunc(deleteEnrollmentKey))).
+		Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/host/register/{token}", http.HandlerFunc(handleHostRegister)).
+		Methods(http.MethodPost)
 }
 
 // swagger:route GET /api/v1/enrollment-keys enrollmentKeys getEnrollmentKeys
@@ -69,7 +74,7 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //				200: deleteEnrollmentKeyResponse
 func deleteEnrollmentKey(w http.ResponseWriter, r *http.Request) {
-	var params = mux.Vars(r)
+	params := mux.Vars(r)
 	keyID := params["keyID"]
 	err := logic.DeleteEnrollmentKey(keyID)
 	if err != nil {
@@ -93,7 +98,6 @@ func deleteEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //				200: createEnrollmentKeyResponse
 func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
-
 	var enrollmentKeyBody models.APIEnrollmentKey
 
 	err := json.NewDecoder(r.Body).Decode(&enrollmentKeyBody)
@@ -108,7 +112,13 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		newTime = time.Unix(enrollmentKeyBody.Expiration, 0)
 	}
 
-	newEnrollmentKey, err := logic.CreateEnrollmentKey(enrollmentKeyBody.UsesRemaining, newTime, enrollmentKeyBody.Networks, enrollmentKeyBody.Tags, enrollmentKeyBody.Unlimited)
+	newEnrollmentKey, err := logic.CreateEnrollmentKey(
+		enrollmentKeyBody.UsesRemaining,
+		newTime,
+		enrollmentKeyBody.Networks,
+		enrollmentKeyBody.Tags,
+		enrollmentKeyBody.Unlimited,
+	)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to create enrollment key:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -137,7 +147,7 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //				200: handleHostRegisterResponse
 func handleHostRegister(w http.ResponseWriter, r *http.Request) {
-	var params = mux.Vars(r)
+	params := mux.Vars(r)
 	token := params["token"]
 	logger.Log(0, "received registration attempt with token", token)
 	// check if token exists
@@ -155,7 +165,10 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	// set defaults
+	newHost.PersistentKeepalive = models.DefaultPersistentKeepAlive
 	hostExists := false
+
 	// re-register host with turn just in case.
 	if servercfg.IsUsingTurn() {
 		err = logic.RegisterHostWithTurn(newHost.ID.String(), newHost.HostPass)
@@ -165,8 +178,18 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	// check if host already exists
 	if hostExists = logic.HostExists(&newHost); hostExists && len(enrollmentKey.Networks) == 0 {
-		logger.Log(0, "host", newHost.ID.String(), newHost.Name, "attempted to re-register with no networks")
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("host already exists"), "badrequest"))
+		logger.Log(
+			0,
+			"host",
+			newHost.ID.String(),
+			newHost.Name,
+			"attempted to re-register with no networks",
+		)
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(fmt.Errorf("host already exists"), "badrequest"),
+		)
 		return
 	}
 	// version check
@@ -189,7 +212,11 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	// use the token
 	if ok := logic.TryToUseEnrollmentKey(enrollmentKey); !ok {
 		logger.Log(0, "host", newHost.ID.String(), newHost.Name, "failed registration")
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid enrollment key"), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(fmt.Errorf("invalid enrollment key"), "badrequest"),
+		)
 		return
 	}
 	hostPass := newHost.HostPass
@@ -208,14 +235,21 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if err = logic.CreateHost(&newHost); err != nil {
-			logger.Log(0, "host", newHost.ID.String(), newHost.Name, "failed registration -", err.Error())
+			logger.Log(
+				0,
+				"host",
+				newHost.ID.String(),
+				newHost.Name,
+				"failed registration -",
+				err.Error(),
+			)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
 	} else {
 		// need to revise the list of networks from key
 		// based on the ones host currently has
-		var networksToAdd = []string{}
+		networksToAdd := []string{}
 		currentNets := logic.GetHostNetworks(newHost.ID.String())
 		for _, newNet := range enrollmentKey.Networks {
 			if !logic.StringSliceContains(currentNets, newNet) {
