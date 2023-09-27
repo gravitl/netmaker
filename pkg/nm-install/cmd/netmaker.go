@@ -62,6 +62,11 @@ func installNetmaker() {
 	os.Symlink("netmaker.env", ".env")
 	//Fetch/Update certs
 	pterm.Println("\nGetting certificates")
+	//ensure docker daemon is running
+	_, err = script.Exec("systemctl start docker").Stdout()
+	if err != nil {
+		panic(err)
+	}
 	//fix nm-cert.sh  remove -it from docker run -it --rm .....
 	if _, err := script.File("./nm-certs.sh").Replace("-it", "").WriteFile("./certs.sh"); err != nil {
 		panic(err)

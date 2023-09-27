@@ -58,8 +58,8 @@ to quickly create a Cobra application.`,
 		pterm.DefaultBigText.WithLetters(
 			putils.LettersFromStringWithStyle("NETMAKER", pterm.FgCyan.ToStyle())).Render()
 		getBuildType(&pro)
-		installDependencies()
 		setInstallVars()
+		installDependencies()
 		installNetmaker()
 		installNmctl()
 		createNetwork()
