@@ -5,9 +5,10 @@ import (
 	"log"
 	"os"
 
+	"github.com/spf13/cobra"
+
 	"github.com/gravitl/netmaker/cli/functions"
 	"github.com/gravitl/netmaker/models"
-	"github.com/spf13/cobra"
 )
 
 var (
@@ -18,7 +19,7 @@ var (
 	mtu             int
 	isStatic        bool
 	isDefault       bool
-	keepAlive       int
+	keepAlive       int64
 )
 
 var hostUpdateCmd = &cobra.Command{
@@ -44,7 +45,7 @@ var hostUpdateCmd = &cobra.Command{
 			apiHost.MTU = mtu
 			apiHost.IsStatic = isStatic
 			apiHost.IsDefault = isDefault
-			apiHost.PersistentKeepalive = int32(keepAlive)
+			apiHost.PersistentKeepalive = keepAlive
 		}
 		functions.PrettyPrint(functions.UpdateHost(args[0], apiHost))
 	},
@@ -56,7 +57,8 @@ func init() {
 	hostUpdateCmd.Flags().StringVar(&name, "name", "", "Host name")
 	hostUpdateCmd.Flags().IntVar(&listenPort, "listen_port", 0, "Listen port of the host")
 	hostUpdateCmd.Flags().IntVar(&mtu, "mtu", 0, "Host MTU size")
-	hostUpdateCmd.Flags().IntVar(&keepAlive, "keep_alive", 0, "Interval in which packets are sent to keep connections open with peers")
+	hostUpdateCmd.Flags().
+		Int64Var(&keepAlive, "keep_alive", 0, "Interval in which packets are sent to keep connections open with peers")
 	hostUpdateCmd.Flags().BoolVar(&isStatic, "static", false, "Make Host Static ?")
 	hostUpdateCmd.Flags().BoolVar(&isDefault, "default", false, "Make Host Default ?")
 	rootCmd.AddCommand(hostUpdateCmd)

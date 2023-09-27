@@ -18,20 +18,20 @@ type ApiHost struct {
 	IsStatic            bool     `json:"isstatic"`
 	ListenPort          int      `json:"listenport"`
 	WgPublicListenPort  int      `json:"wg_public_listen_port" yaml:"wg_public_listen_port"`
-	MTU                 int      `json:"mtu" yaml:"mtu"`
-	Interfaces          []Iface  `json:"interfaces" yaml:"interfaces"`
-	DefaultInterface    string   `json:"defaultinterface" yaml:"defautlinterface"`
-	EndpointIP          string   `json:"endpointip" yaml:"endpointip"`
+	MTU                 int      `json:"mtu"                   yaml:"mtu"`
+	Interfaces          []Iface  `json:"interfaces"            yaml:"interfaces"`
+	DefaultInterface    string   `json:"defaultinterface"      yaml:"defautlinterface"`
+	EndpointIP          string   `json:"endpointip"            yaml:"endpointip"`
 	PublicKey           string   `json:"publickey"`
 	MacAddress          string   `json:"macaddress"`
 	Nodes               []string `json:"nodes"`
-	IsDefault           bool     `json:"isdefault" yaml:"isdefault"`
-	IsRelayed           bool     `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
-	RelayedBy           string   `json:"relayed_by" bson:"relayed_by" yaml:"relayed_by"`
-	IsRelay             bool     `json:"isrelay" bson:"isrelay" yaml:"isrelay"`
-	RelayedHosts        []string `json:"relay_hosts" bson:"relay_hosts" yaml:"relay_hosts"`
-	NatType             string   `json:"nat_type" yaml:"nat_type"`
-	PersistentKeepalive int32    `json:"persistentkeepalive" yaml:"persistentkeepalive"`
+	IsDefault           bool     `json:"isdefault"             yaml:"isdefault"`
+	IsRelayed           bool     `json:"isrelayed"             yaml:"isrelayed"             bson:"isrelayed"`
+	RelayedBy           string   `json:"relayed_by"            yaml:"relayed_by"            bson:"relayed_by"`
+	IsRelay             bool     `json:"isrelay"               yaml:"isrelay"               bson:"isrelay"`
+	RelayedHosts        []string `json:"relay_hosts"           yaml:"relay_hosts"           bson:"relay_hosts"`
+	NatType             string   `json:"nat_type"              yaml:"nat_type"`
+	PersistentKeepalive int64    `json:"persistentkeepalive"   yaml:"persistentkeepalive"`
 }
 
 // Host.ConvertNMHostToAPI - converts a Netmaker host to an API editable host
@@ -59,7 +59,7 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 	a.Version = h.Version
 	a.IsDefault = h.IsDefault
 	a.NatType = h.NatType
-	a.PersistentKeepalive = int32(h.PersistentKeepalive)
+	a.PersistentKeepalive = int64(h.PersistentKeepalive)
 	return &a
 }
 
