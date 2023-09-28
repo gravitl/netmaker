@@ -440,9 +440,11 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
 	go func() {
+		if err := mq.NodeUpdate(&node); err != nil {
+			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
+		}
 		mq.PublishPeerUpdate()
 	}()
-	mq.RunUpdates(&node, true)
 }
 
 // swagger:route DELETE /api/nodes/{network}/{nodeid}/deletegateway nodes deleteEgressGateway
@@ -481,9 +483,11 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
 	go func() {
+		if err := mq.NodeUpdate(&node); err != nil {
+			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
+		}
 		mq.PublishPeerUpdate()
 	}()
-	mq.RunUpdates(&node, true)
 }
 
 // == INGRESS ==
@@ -530,8 +534,11 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "created ingress gateway on node", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-
-	mq.RunUpdates(&node, true)
+	go func() {
+		if err := mq.NodeUpdate(&node); err != nil {
+			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
+		}
+	}()
 }
 
 // swagger:route DELETE /api/nodes/{network}/{nodeid}/deleteingress nodes deleteIngressGateway
@@ -582,16 +589,16 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return
 			}
-			go mq.PublishSingleHostPeerUpdate(
-				host,
-				allNodes,
-				nil,
-				removedClients[:],
-			)
+			go func() {
+				if err := mq.PublishSingleHostPeerUpdate(host, allNodes, nil, removedClients[:]); err != nil {
+					slog.Error("publishSingleHostUpdate", "host", host.Name, "error", err)
+				}
+				if err := mq.NodeUpdate(&node); err != nil {
+					slog.Error("error publishing node update to node", "node", node.ID, "error", err)
+				}
+			}()
 		}
 	}
-
-	mq.RunUpdates(&node, true)
 }
 
 // swagger:route PUT /api/nodes/{network}/{nodeid} nodes updateNode
@@ -660,9 +667,11 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "updated node", currentNode.ID.String(), "on network", currentNode.Network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-	mq.RunUpdates(newNode, ifaceDelta)
 	go func(aclUpdate, relayupdate bool, newNode *models.Node) {
-		if aclUpdate || relayupdate {
+		if err := mq.NodeUpdate(newNode); err != nil {
+			slog.Error("error publishing node update to node", "node", newNode.ID, "error", err)
+		}
+		if aclUpdate || relayupdate || ifaceDelta {
 			if err := mq.PublishPeerUpdate(); err != nil {
 				logger.Log(0, "error during node ACL update for node", newNode.ID.String())
 			}
@@ -735,13 +744,13 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
-	if !fromNode { // notify node change
-		mq.RunUpdates(&node, false)
-	}
 	go func() { // notify of peer change
-		var err error
-		err = mq.PublishDeletedNodePeerUpdate(&node)
-		if err != nil {
+		if !fromNode {
+			if err := mq.NodeUpdate(&node); err != nil {
+				slog.Error("error publishing node update to node", "node", node.ID, "error", err)
+			}
+		}
+		if err := mq.PublishDeletedNodePeerUpdate(&node); err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
 		}
 		host, err := logic.GetHost(node.HostID.String())
