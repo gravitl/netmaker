@@ -426,12 +426,12 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if auth.IsOauthUser(user) == nil {
-		err := fmt.Errorf("cannot update user info for oauth user %s", username)
-		logger.Log(0, err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
-		return
-	}
+	// if auth.IsOauthUser(user) == nil {
+	// 	err := fmt.Errorf("cannot update user info for oauth user %s", username)
+	// 	logger.Log(0, err.Error())
+	// 	logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+	// 	return
+	// }
 
 	user, err = logic.UpdateUser(&userchange, user)
 	if err != nil {
