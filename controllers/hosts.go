@@ -342,9 +342,12 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 	node.Action = models.NODE_DELETE
 	node.PendingDelete = true
-	// notify node change
-	mq.RunUpdates(node, false)
-	go func() { // notify of peer change
+	go func() {
+		// notify node change
+		if err := mq.NodeUpdate(node); err != nil {
+			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
+		}
+		// notify of peer change
 		err = mq.PublishDeletedNodePeerUpdate(node)
 		if err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())

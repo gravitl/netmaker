@@ -123,7 +123,11 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				logger.Log(0, "error creating ingress gateway for node", node.ID, err.Error())
 			}
-			mq.RunUpdates(&ingressNode, true)
+			go func() {
+				if err := mq.NodeUpdate(&ingressNode); err != nil {
+					slog.Error("error publishing node update to node", "node", ingressNode.ID, "error", err)
+				}
+			}()
 		}
 	}
 }
