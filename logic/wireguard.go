@@ -6,9 +6,6 @@ import (
 
 // IfaceDelta - checks if the new node causes an interface change
 func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
-	currentHost := GetHostByNodeID(string(currentNode.ID.String()))
-	newHost := GetHostByNodeID(string(newNode.ID.String()))
-
 	// single comparison statements
 	if newNode.Address.String() != currentNode.Address.String() ||
 		newNode.Address6.String() != currentNode.Address6.String() ||
@@ -16,8 +13,7 @@ func IfaceDelta(currentNode *models.Node, newNode *models.Node) bool {
 		newNode.IsIngressGateway != currentNode.IsIngressGateway ||
 		newNode.IsRelay != currentNode.IsRelay ||
 		newNode.DNSOn != currentNode.DNSOn ||
-		newNode.Connected != currentNode.Connected ||
-		newHost.PersistentKeepalive != currentHost.PersistentKeepalive {
+		newNode.Connected != currentNode.Connected {
 		return true
 	}
 	// multi-comparison statements
