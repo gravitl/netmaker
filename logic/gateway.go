@@ -11,21 +11,6 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-// GetRelays - gets all the nodes that are relays
-func GetRelays() ([]models.Node, error) {
-	nodes, err := GetAllNodes()
-	if err != nil {
-		return nil, err
-	}
-	relays := make([]models.Node, 0)
-	for _, node := range nodes {
-		if node.IsRelay {
-			relays = append(relays, node)
-		}
-	}
-	return relays, nil
-}
-
 // GetInternetGateways - gets all the nodes that are internet gateways
 func GetInternetGateways() ([]models.Node, error) {
 	nodes, err := GetAllNodes()

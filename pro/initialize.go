@@ -52,6 +52,7 @@ func InitPro() {
 	logic.GetMetrics = proLogic.GetMetrics
 	logic.UpdateMetrics = proLogic.UpdateMetrics
 	logic.DeleteMetrics = proLogic.DeleteMetrics
+	logic.GetRelays = proLogic.GetRelays
 	logic.GetAllowedIpsForRelayed = proLogic.GetAllowedIpsForRelayed
 	logic.RelayedAllowedIPs = proLogic.RelayedAllowedIPs
 	logic.UpdateRelayed = proLogic.UpdateRelayed
