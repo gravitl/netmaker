@@ -100,7 +100,7 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	if h.PersistentKeepalive == 0 {
 		h.PersistentKeepalive = time.Duration(a.PersistentKeepalive)
 	} else {
-		h.PersistentKeepalive = currentHost.PersistentKeepalive
+		h.PersistentKeepalive = time.Duration(a.PersistentKeepalive)
 	}
 	return &h
 }
