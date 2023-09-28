@@ -116,7 +116,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 				return
 			}
 			for _, client := range clients {
-				if client.OwnerID == username {
+				if client.OwnerID == username && !client.Enabled {
 					slog.Info(fmt.Sprintf("enabling ext client %s for user %s due to RAC autodisabling feature", client.ClientID, client.OwnerID))
 					if newClient, err := logic.ToggleExtClientConnectivity(&client, true); err != nil {
 						slog.Error("error disabling ext client in RAC autodisable hook", "error", err)
