@@ -1136,6 +1136,8 @@ components:
                     type: string
                 TurnEndpoint:
                     type: string
+                PersistentKeepAlive:
+                    type: number
         ingressGatewayRequest:
             type: object
             properties:
