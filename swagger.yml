@@ -1136,8 +1136,6 @@ components:
                     type: string
                 TurnEndpoint:
                     type: string
-                PersistentKeepAlive:
-                    type: number
         ingressGatewayRequest:
             type: object
             properties:
@@ -1209,6 +1207,8 @@ components:
                   type: array
                   items:
                     type: string
+                PersistentKeepalive:
+                    type: integer
                 IsHub:
                   type: boolean
                 AccessKey:
@@ -1382,6 +1382,8 @@ components:
                   type: string
                 DNSOn:
                   type: boolean
+                PersistentKeepaliveInterval:
+                    type: integer
         network:
             type: object
             properties:
