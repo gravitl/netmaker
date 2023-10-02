@@ -759,7 +759,6 @@ install_netmaker() {
 		wget -qO "$SCRIPT_DIR"/Caddyfile "$CADDY_URL"
 		wget -qO "$SCRIPT_DIR"/netmaker.default.env "$BASE_URL/scripts/netmaker.default.env"
 		wget -qO "$SCRIPT_DIR"/mosquitto.conf "$BASE_URL/docker/mosquitto.conf"
-		wget -qO "$SCRIPT_DIR"/nm-certs.sh "$BASE_URL/scripts/nm-certs.sh"
 		wget -qO "$SCRIPT_DIR"/wait.sh "$BASE_URL/docker/wait.sh"
 	fi
 
@@ -769,10 +768,6 @@ install_netmaker() {
 	# link .env to the user config
 	ln -fs "$SCRIPT_DIR/netmaker.env" "$SCRIPT_DIR/.env"
 	save_config
-
-	# Fetch / update certs using certbot
-	chmod +x "$SCRIPT_DIR"/nm-certs.sh
-	"$SCRIPT_DIR"/nm-certs.sh
 
 	echo "Starting containers..."
 
