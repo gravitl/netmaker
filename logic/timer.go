@@ -17,7 +17,7 @@ import (
 const timer_hours_between_runs = 24
 
 // HookManagerCh - channel to add any new hooks
-var HookManagerCh = make(chan models.HookDetails, 2)
+var HookManagerCh = make(chan models.HookDetails, 3)
 
 // == Public ==
 
