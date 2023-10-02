@@ -89,26 +89,28 @@ func ParseBool(s string) bool {
 type HostMqAction string
 
 const (
+	// Upgrade - const to request host to update it's client
+	Upgrade HostMqAction = "UPGRADE"
 	// SignalHost - const for host signal action
-	SignalHost = "SIGNAL_HOST"
+	SignalHost HostMqAction = "SIGNAL_HOST"
 	// UpdateHost - constant for host update action
-	UpdateHost = "UPDATE_HOST"
+	UpdateHost HostMqAction = "UPDATE_HOST"
 	// DeleteHost - constant for host delete action
-	DeleteHost = "DELETE_HOST"
+	DeleteHost HostMqAction = "DELETE_HOST"
 	// JoinHostToNetwork - constant for host network join action
-	JoinHostToNetwork = "JOIN_HOST_TO_NETWORK"
+	JoinHostToNetwork HostMqAction = "JOIN_HOST_TO_NETWORK"
 	// Acknowledgement - ACK response for hosts
-	Acknowledgement = "ACK"
+	Acknowledgement HostMqAction = "ACK"
 	// RequestAck - request an ACK
-	RequestAck = "REQ_ACK"
+	RequestAck HostMqAction = "REQ_ACK"
 	// CheckIn - update last check in times and public address and interfaces
-	CheckIn = "CHECK_IN"
-	// REGISTER_WITH_TURN - registers host with turn server if configured
-	RegisterWithTurn = "REGISTER_WITH_TURN"
+	CheckIn HostMqAction = "CHECK_IN"
+	// RegisterWithTurn - registers host with turn server if configured
+	RegisterWithTurn HostMqAction = "REGISTER_WITH_TURN"
 	// UpdateKeys - update wireguard private/public keys
-	UpdateKeys = "UPDATE_KEYS"
+	UpdateKeys HostMqAction = "UPDATE_KEYS"
 	// RequestPull - request a pull from a host
-	RequestPull = "REQ_PULL"
+	RequestPull HostMqAction = "REQ_PULL"
 )
 
 // SignalAction - turn peer signal action
