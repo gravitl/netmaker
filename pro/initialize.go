@@ -38,6 +38,9 @@ func InitPro() {
 		logic.SetFreeTierForTelemetry(false)
 		// == End License Handling ==
 		AddLicenseHooks()
+		if servercfg.GetServerConfig().RacAutoDisable {
+			AddRacHooks()
+		}
 		resetFailover()
 	})
 	logic.EnterpriseFailoverFunc = proLogic.SetFailover

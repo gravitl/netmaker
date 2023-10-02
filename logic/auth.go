@@ -141,6 +141,11 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 
 	// Create a new JWT for the node
 	tokenString, _ := CreateUserJWT(authRequest.UserName, result.IsSuperAdmin, result.IsAdmin)
+
+	// update last login time
+	result.LastLoginTime = time.Now()
+	UpsertUser(result)
+
 	return tokenString, nil
 }
 
