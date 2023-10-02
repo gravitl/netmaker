@@ -60,7 +60,7 @@ These are the instructions for deploying a Netmaker server on your own cloud VM 
 3. (recommended) Prepare DNS - Set a wildcard subdomain in your DNS settings for Netmaker, e.g. *.netmaker.example.com, which points to your VM's pubic IP.
 4. Run the script: 
 
-`sudo wget -qO /root/nm-quick.sh https://raw.githubusercontent.com/gravitl/nm-install/master/nm-install && sudo chmod +x /root/nm-install && sudo /root/nm-install`  
+`sudo wget -qO /root/nm-install https://raw.githubusercontent.com/gravitl/nm-install/master/nm-install && sudo chmod +x /root/nm-install && sudo /root/nm-install`  
 
 This script gives you the option to deploy the Community or Enterprise version of Netmaker. It also gives you the option to use your own domain (recommended) or an auto-generated domain. 
 
