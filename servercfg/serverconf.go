@@ -90,11 +90,31 @@ func GetServerConfig() config.ServerConfig {
 	if IsPro {
 		cfg.IsPro = "yes"
 	}
+	cfg.JwtValidityDuration = GetJwtValidityDuration()
+	cfg.RacAutoDisable = GetRacAutoDisable()
 
 	return cfg
 }
 
-// GetServerConfig - gets the server config into memory from file or env
+// GetJwtValidityDuration - returns the JWT validity duration in seconds
+func GetJwtValidityDuration() time.Duration {
+	var defaultDuration = time.Duration(24) * time.Hour
+	if os.Getenv("JWT_VALIDITY_DURATION") != "" {
+		t, err := strconv.Atoi(os.Getenv("JWT_VALIDITY_DURATION"))
+		if err != nil {
+			return defaultDuration
+		}
+		return time.Duration(t) * time.Second
+	}
+	return defaultDuration
+}
+
+// GetRacAutoDisable - returns whether the feature to autodisable RAC is enabled
+func GetRacAutoDisable() bool {
+	return os.Getenv("RAC_AUTO_DISABLE") == "true"
+}
+
+// GetServerInfo - gets the server config into memory from file or env
 func GetServerInfo() models.ServerConfig {
 	var cfg models.ServerConfig
 	cfg.Server = GetServer()
