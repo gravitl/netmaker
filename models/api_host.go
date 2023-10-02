@@ -97,10 +97,6 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.IsDefault = a.IsDefault
 	h.NatType = currentHost.NatType
 	h.TurnEndpoint = currentHost.TurnEndpoint
-	if h.PersistentKeepalive == 0 {
-		h.PersistentKeepalive = time.Duration(a.PersistentKeepalive)
-	} else {
-		h.PersistentKeepalive = time.Duration(a.PersistentKeepalive)
-	}
+	h.PersistentKeepalive = time.Duration(a.PersistentKeepalive)
 	return &h
 }
