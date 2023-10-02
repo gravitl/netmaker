@@ -165,10 +165,6 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	// set defaults
-	newHost.PersistentKeepalive = models.DefaultPersistentKeepAlive
-	hostExists := false
-
 	// re-register host with turn just in case.
 	if servercfg.IsUsingTurn() {
 		err = logic.RegisterHostWithTurn(newHost.ID.String(), newHost.HostPass)
@@ -177,6 +173,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// check if host already exists
+	hostExists := false
 	if hostExists = logic.HostExists(&newHost); hostExists && len(enrollmentKey.Networks) == 0 {
 		logger.Log(
 			0,
@@ -221,6 +218,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	hostPass := newHost.HostPass
 	if !hostExists {
+		newHost.PersistentKeepalive = models.DefaultPersistentKeepAlive
 		// register host
 		logic.CheckHostPorts(&newHost)
 		// create EMQX credentials and ACLs for host
