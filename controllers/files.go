@@ -7,7 +7,7 @@ import (
 )
 
 func fileHandlers(r *mux.Router) {
-	// swagger:route GET /meshclient/files/{filename} meshclient fileServer
+	// swagger:route GET /meshclient/files/{filename} meshclient getFile
 	//
 	// Retrieve a file from the file server.
 	//
@@ -15,5 +15,7 @@ func fileHandlers(r *mux.Router) {
 	//
 	// 		Security:
 	//   		oauth
+	//		Responses:
+	//		200: fileResponse
 	r.PathPrefix("/meshclient/files").Handler(http.StripPrefix("/meshclient/files", http.FileServer(http.Dir("./meshclient/files"))))
 }

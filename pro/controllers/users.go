@@ -78,7 +78,7 @@ func attachUserToRemoteAccessGw(w http.ResponseWriter, r *http.Request) {
 
 // swagger:route DELETE /api/users/{username}/remote_access_gw user removeUserFromRemoteAccessGW
 //
-// Attach User to a remote access gateway.
+// Delete User from a remote access gateway.
 //
 //			Schemes: https
 //

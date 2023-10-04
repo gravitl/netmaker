@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
+	"golang.org/x/exp/slog"
 )
 
 func enrollmentKeyHandlers(r *mux.Router) {
@@ -37,7 +38,7 @@ func enrollmentKeyHandlers(r *mux.Router) {
 //	  		oauth
 //
 //			Responses:
-//				200: getEnrollmentKeysSlice
+//				200: EnrollmentKeys
 func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 	keys, err := logic.GetAllEnrollmentKeys()
 	if err != nil {
@@ -62,7 +63,7 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(ret)
 }
 
-// swagger:route DELETE /api/v1/enrollment-keys/{keyID} enrollmentKeys deleteEnrollmentKey
+// swagger:route DELETE /api/v1/enrollment-keys/{keyid} enrollmentKeys deleteEnrollmentKey
 //
 // Deletes an EnrollmentKey from Netmaker server.
 //
@@ -72,7 +73,7 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 //	  		oauth
 //
 //			Responses:
-//				200: deleteEnrollmentKeyResponse
+//				200: okResponse
 func deleteEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	keyID := params["keyID"]
@@ -96,7 +97,7 @@ func deleteEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 //	  		oauth
 //
 //			Responses:
-//				200: createEnrollmentKeyResponse
+//				200: EnrollmentKey
 func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 	var enrollmentKeyBody models.APIEnrollmentKey
 
@@ -145,7 +146,7 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 //	  		oauth
 //
 //			Responses:
-//				200: handleHostRegisterResponse
+//				200: RegisterResponse
 func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	token := params["token"]
@@ -255,6 +256,19 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		enrollmentKey.Networks = networksToAdd
+		currHost, err := logic.GetHost(newHost.ID.String())
+		if err != nil {
+			slog.Error("failed registration", "hostID", newHost.ID.String(), "hostName", newHost.Name, "error", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+		logic.UpdateHostFromClient(&newHost, currHost)
+		err = logic.UpsertHost(currHost)
+		if err != nil {
+			slog.Error("failed to update host", "id", currHost.ID, "error", err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
 	}
 	// ready the response
 	server := servercfg.GetServerInfo()

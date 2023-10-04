@@ -34,7 +34,7 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/nodes/migrate", migrate).Methods(http.MethodPost)
 }
 
-// swagger:route POST /api/nodes/adm/{network}/authenticate nodes authenticate
+// swagger:route POST /api/nodes/adm/{network}/authenticate authenticate authenticate
 //
 // Authenticate to make further API calls related to a network.
 //

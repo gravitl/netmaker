@@ -37,9 +37,9 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/oauth/register/{regKey}", auth.RegisterHostSSO).Methods(http.MethodGet)
 }
 
-// swagger:route POST /api/users/adm/authenticate user authenticateUser
+// swagger:route POST /api/users/adm/authenticate authenticate authenticateUser
 //
-// Node authenticates using its password and retrieves a JWT for authorization.
+// User authenticates using its password and retrieves a JWT for authorization.
 //
 //			Schemes: https
 //
@@ -145,7 +145,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 //	  		oauth
 //
 //			Responses:
-//				200: successResponse
+//				200: hasAdmin
 func hasSuperAdmin(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -453,9 +453,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if auth.IsOauthUser(user) == nil {
-		err := fmt.Errorf("cannot update user info for oauth user %s", username)
-		logger.Log(0, err.Error())
+	if auth.IsOauthUser(user) == nil && userchange.Password != "" {
+		err := fmt.Errorf("cannot update user's password for an oauth user %s", username)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
