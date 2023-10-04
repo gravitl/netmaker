@@ -19,7 +19,7 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-// swagger:route PUT /api/v1/nodes/migrate nodes migrateNode
+// swagger:route PUT /api/v1/nodes/migrate nodes migrateData
 //
 // Used to migrate a legacy node.
 //
@@ -29,7 +29,7 @@ import (
 //	  		oauth
 //
 //			Responses:
-//				200: nodeJoinResponse
+//				200: hostPull
 func migrate(w http.ResponseWriter, r *http.Request) {
 	data := models.MigrationData{}
 	host := models.Host{}
