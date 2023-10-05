@@ -19,7 +19,7 @@ var (
 	mtu             int
 	isStatic        bool
 	isDefault       bool
-	keepAlive       int64
+	keepAlive       int
 )
 
 var hostUpdateCmd = &cobra.Command{
@@ -57,8 +57,7 @@ func init() {
 	hostUpdateCmd.Flags().StringVar(&name, "name", "", "Host name")
 	hostUpdateCmd.Flags().IntVar(&listenPort, "listen_port", 0, "Listen port of the host")
 	hostUpdateCmd.Flags().IntVar(&mtu, "mtu", 0, "Host MTU size")
-	hostUpdateCmd.Flags().
-		Int64Var(&keepAlive, "keep_alive", 0, "Interval in which packets are sent to keep connections open with peers")
+	hostUpdateCmd.Flags().IntVar(&keepAlive, "keep_alive", 0, "Interval (seconds) in which packets are sent to keep connections open with peers")
 	hostUpdateCmd.Flags().BoolVar(&isStatic, "static", false, "Make Host Static ?")
 	hostUpdateCmd.Flags().BoolVar(&isDefault, "default", false, "Make Host Default ?")
 	rootCmd.AddCommand(hostUpdateCmd)

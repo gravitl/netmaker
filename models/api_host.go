@@ -31,7 +31,7 @@ type ApiHost struct {
 	IsRelay             bool     `json:"isrelay"               yaml:"isrelay"               bson:"isrelay"`
 	RelayedHosts        []string `json:"relay_hosts"           yaml:"relay_hosts"           bson:"relay_hosts"`
 	NatType             string   `json:"nat_type"              yaml:"nat_type"`
-	PersistentKeepalive int64    `json:"persistentkeepalive"   yaml:"persistentkeepalive"`
+	PersistentKeepalive int      `json:"persistentkeepalive"   yaml:"persistentkeepalive"`
 }
 
 // Host.ConvertNMHostToAPI - converts a Netmaker host to an API editable host
@@ -59,7 +59,7 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 	a.Version = h.Version
 	a.IsDefault = h.IsDefault
 	a.NatType = h.NatType
-	a.PersistentKeepalive = int64(h.PersistentKeepalive)
+	a.PersistentKeepalive = int(h.PersistentKeepalive.Seconds())
 	return &a
 }
 
@@ -97,6 +97,6 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.IsDefault = a.IsDefault
 	h.NatType = currentHost.NatType
 	h.TurnEndpoint = currentHost.TurnEndpoint
-	h.PersistentKeepalive = time.Duration(a.PersistentKeepalive)
+	h.PersistentKeepalive = time.Duration(a.PersistentKeepalive) * time.Second
 	return &h
 }
