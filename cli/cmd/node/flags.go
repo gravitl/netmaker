@@ -11,7 +11,6 @@ var (
 	name                   string
 	postUp                 string
 	postDown               string
-	keepAlive              int
 	relayedNodes           string
 	egressGatewayRanges    string
 	expirationDateTime     int

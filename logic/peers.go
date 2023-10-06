@@ -64,7 +64,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				}
 				relayPeer := wgtypes.PeerConfig{
 					PublicKey:                   relayHost.PublicKey,
-					PersistentKeepaliveInterval: &relayNode.PersistentKeepalive,
+					PersistentKeepaliveInterval: &relayHost.PersistentKeepalive,
 					ReplaceAllowedIPs:           true,
 					AllowedIPs:                  GetAllowedIPs(&node, &relayNode, nil),
 				}
@@ -111,7 +111,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			peer := peer
 			if peer.ID.String() == node.ID.String() {
 				logger.Log(2, "peer update, skipping self")
-				//skip yourself
+				// skip yourself
 				continue
 			}
 
@@ -122,7 +122,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			}
 			peerConfig := wgtypes.PeerConfig{
 				PublicKey:                   peerHost.PublicKey,
-				PersistentKeepaliveInterval: &peer.PersistentKeepalive,
+				PersistentKeepaliveInterval: &peerHost.PersistentKeepalive,
 				ReplaceAllowedIPs:           true,
 			}
 			if peer.IsEgressGateway {
@@ -390,7 +390,7 @@ func GetEgressIPs(peer *models.Node) []net.IPNet {
 		logger.Log(0, "error retrieving host for peer", peer.ID.String(), err.Error())
 	}
 
-	//check for internet gateway
+	// check for internet gateway
 	internetGateway := false
 	if slices.Contains(peer.EgressGatewayRanges, "0.0.0.0/0") || slices.Contains(peer.EgressGatewayRanges, "::/0") {
 		internetGateway = true
@@ -439,7 +439,7 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 	}
 	// handle egress gateway peers
 	if peer.IsEgressGateway {
-		//hasGateway = true
+		// hasGateway = true
 		egressIPs := GetEgressIPs(peer)
 		allowedips = append(allowedips, egressIPs...)
 	}

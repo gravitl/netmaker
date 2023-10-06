@@ -13,11 +13,12 @@ import (
 
 	"github.com/devilcove/httpclient"
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -66,6 +67,7 @@ func deleteHostFromCache(hostID string) {
 	delete(hostsCacheMap, hostID)
 	hostCacheMutex.Unlock()
 }
+
 func loadHostsIntoCache(hMap map[string]models.Host) {
 	hostCacheMutex.Lock()
 	hostsCacheMap = hMap
@@ -79,7 +81,6 @@ const (
 
 // GetAllHosts - returns all hosts in flat list or error
 func GetAllHosts() ([]models.Host, error) {
-
 	currHosts := getHostsFromCache()
 	if len(currHosts) != 0 {
 		return currHosts, nil
@@ -139,7 +140,6 @@ func GetHostsMap() (map[string]models.Host, error) {
 
 // GetHost - gets a host from db given id
 func GetHost(hostid string) (*models.Host, error) {
-
 	if host, ok := getHostFromCache(hostid); ok {
 		return &host, nil
 	}
@@ -217,11 +217,13 @@ func UpdateHost(newHost, currentHost *models.Host) {
 		newHost.ListenPort = currentHost.ListenPort
 	}
 
+	if newHost.PersistentKeepalive == 0 {
+		newHost.PersistentKeepalive = currentHost.PersistentKeepalive
+	}
 }
 
 // UpdateHostFromClient - used for updating host on server with update recieved from client
 func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) {
-
 	if newHost.PublicKey != currHost.PublicKey {
 		currHost.PublicKey = newHost.PublicKey
 		sendPeerUpdate = true
@@ -230,7 +232,8 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 		currHost.ListenPort = newHost.ListenPort
 		sendPeerUpdate = true
 	}
-	if newHost.WgPublicListenPort != 0 && currHost.WgPublicListenPort != newHost.WgPublicListenPort {
+	if newHost.WgPublicListenPort != 0 &&
+		currHost.WgPublicListenPort != newHost.WgPublicListenPort {
 		currHost.WgPublicListenPort = newHost.WgPublicListenPort
 		sendPeerUpdate = true
 	}
@@ -488,7 +491,7 @@ func CheckHostPorts(h *models.Host) {
 	}
 	for _, host := range hosts {
 		if host.ID.String() == h.ID.String() {
-			//skip self
+			// skip self
 			continue
 		}
 		if !host.EndpointIP.Equal(h.EndpointIP) {
@@ -503,7 +506,6 @@ func CheckHostPorts(h *models.Host) {
 			h.ListenPort = minPort
 		}
 	}
-
 }
 
 // HostExists - checks if given host already exists

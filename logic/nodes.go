@@ -350,9 +350,6 @@ func SetNodeDefaults(node *models.Node) {
 		node.DefaultACL = parentNetwork.DefaultACL
 	}
 
-	if node.PersistentKeepalive == 0 {
-		node.PersistentKeepalive = time.Second * time.Duration(parentNetwork.DefaultKeepalive)
-	}
 	node.SetLastModified()
 	node.SetLastCheckIn()
 	node.SetDefaultConnected()

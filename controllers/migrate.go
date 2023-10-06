@@ -65,6 +65,7 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 			host.Name = data.HostName
 			host.HostPass = data.Password
 			host.OS = data.OS
+			host.PersistentKeepalive = time.Duration(legacy.PersistentKeepalive)
 			if err := logic.CreateHost(&host); err != nil {
 				slog.Error("create host", "error", err)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -202,7 +203,6 @@ func convertLegacyNode(legacy models.LegacyNode, hostID uuid.UUID) models.Node {
 	node.IsRelay = false
 	node.RelayedNodes = []string{}
 	node.DNSOn = models.ParseBool(legacy.DNSOn)
-	node.PersistentKeepalive = time.Duration(int64(time.Second) * int64(legacy.PersistentKeepalive))
 	node.LastModified = time.Now()
 	node.ExpirationDateTime = time.Unix(legacy.ExpirationDateTime, 0)
 	node.EgressGatewayNatEnabled = models.ParseBool(legacy.EgressGatewayNatEnabled)
