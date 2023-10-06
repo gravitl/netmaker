@@ -16,9 +16,7 @@ func base64encode(input []byte) string {
 
 // base64decode - base64 decode helper function
 func base64decode(input string) []byte {
-
 	bytes, err := base64.StdEncoding.DecodeString(input)
-
 	if err != nil {
 		return nil
 	}
@@ -44,6 +42,7 @@ func getCurrentServerUsage() (limits Usage) {
 	if err == nil {
 		limits.Networks = len(networks)
 	}
+	// TODO this part bellow can be optimized to get nodes just once
 	ingresses, err := logic.GetAllIngresses()
 	if err == nil {
 		limits.Ingresses = len(ingresses)
@@ -51,6 +50,14 @@ func getCurrentServerUsage() (limits Usage) {
 	egresses, err := logic.GetAllEgresses()
 	if err == nil {
 		limits.Egresses = len(egresses)
+	}
+	relays, err := logic.GetRelays()
+	if err == nil {
+		limits.Relays = len(relays)
+	}
+	gateways, err := logic.GetInternetGateways()
+	if err == nil {
+		limits.InternetGateways = len(gateways)
 	}
 	return
 }

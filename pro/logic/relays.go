@@ -14,6 +14,21 @@ import (
 	"golang.org/x/exp/slog"
 )
 
+// GetRelays - gets all the nodes that are relays
+func GetRelays() ([]models.Node, error) {
+	nodes, err := logic.GetAllNodes()
+	if err != nil {
+		return nil, err
+	}
+	relays := make([]models.Node, 0)
+	for _, node := range nodes {
+		if node.IsRelay {
+			relays = append(relays, node)
+		}
+	}
+	return relays, nil
+}
+
 // CreateRelay - creates a relay
 func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) {
 	var returnnodes []models.Node
@@ -69,7 +84,7 @@ func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.N
 	return returnnodes
 }
 
-//func GetRelayedNodes(relayNode *models.Node) (models.Node, error) {
+// func GetRelayedNodes(relayNode *models.Node) (models.Node, error) {
 //	var returnnodes []models.Node
 //	networkNodes, err := GetNetworkNodes(relayNode.Network)
 //	if err != nil {
@@ -83,12 +98,12 @@ func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.N
 //		}
 //	}
 //	return returnnodes, nil
-//}
+// }
 
 // ValidateRelay - checks if relay is valid
 func ValidateRelay(relay models.RelayRequest) error {
 	var err error
-	//isIp := functions.IsIpCIDR(gateway.RangeString)
+	// isIp := functions.IsIpCIDR(gateway.RangeString)
 	empty := len(relay.RelayedNodes) == 0
 	if empty {
 		return errors.New("IP Ranges Cannot Be Empty")
