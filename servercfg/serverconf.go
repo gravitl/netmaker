@@ -638,7 +638,7 @@ func GetEmqxRestEndpoint() string {
 
 // IsBasicAuthEnabled - checks if basic auth has been configured to be turned off
 func IsBasicAuthEnabled() bool {
-	var enabled = true //default
+	var enabled = true // default
 	if os.Getenv("BASIC_AUTH") != "" {
 		enabled = os.Getenv("BASIC_AUTH") == "yes"
 	} else if config.Config.Server.BasicAuth != "" {
@@ -667,7 +667,7 @@ func GetNetmakerTenantID() string {
 
 // GetStunPort - Get the port to run the stun server on
 func GetStunPort() int {
-	port := 3478 //default
+	port := 3478 // default
 	if os.Getenv("STUN_PORT") != "" {
 		portInt, err := strconv.Atoi(os.Getenv("STUN_PORT"))
 		if err == nil {
@@ -681,7 +681,7 @@ func GetStunPort() int {
 
 // GetTurnPort - Get the port to run the turn server on
 func GetTurnPort() int {
-	port := 3479 //default
+	port := 3479 // default
 	if os.Getenv("TURN_PORT") != "" {
 		portInt, err := strconv.Atoi(os.Getenv("TURN_PORT"))
 		if err == nil {
