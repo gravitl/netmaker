@@ -1,6 +1,7 @@
 package servercfg
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -93,6 +94,23 @@ func TestGetPublicIP(t *testing.T) {
 		if !strings.EqualFold(res, testIP) {
 			t.Errorf("GetPublicIP() did not fallback to the correct IP: %v", res)
 		}
+
+		t.Run("Assert error is passed down", func(t *testing.T) {
+			oldConfig = config.Config.Server.PublicIPService
+			oldEnv := os.Getenv("NETMAKER_TEST_IP_SERVICE")
+
+			// make sure that even the fallback fails
+			if err = os.Setenv("NETMAKER_TEST_IP_SERVICE", badServer.URL); err != nil {
+				t.Skipf("could not set NETMAKER_TEST_IP_SERVICE env var")
+			}
+			defer func() { _ = os.Setenv("NETMAKER_TEST_IP_SERVICE", oldEnv) }()
+
+			// https://github.com/golang/go/issues/63445
+			// if _, err = GetPublicIP(); !errors.Is(err, context.DeadlineExceeded) {
+			if _, err = GetPublicIP(); err == nil || !strings.Contains(err.Error(), "context deadline exceeded") {
+				t.Errorf("expected error to be %v, got %v", context.DeadlineExceeded, err)
+			}
+		})
 	})
 
 }
