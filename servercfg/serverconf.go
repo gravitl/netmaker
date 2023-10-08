@@ -479,9 +479,26 @@ func GetPublicIP() (string, error) {
 		iplist = append([]string{publicIpService}, iplist...)
 	}
 
+	// regular timeout
+	timeoutTarget := time.Duration(10) * time.Second
+
+	// our unit test sets a bad ip service to test the timeout and fallback mechanics
+	// if that env variable is set, lower the timeout so the test doesn't take forever
+	testCheck := os.Getenv("NETMAKER_TEST_BAD_IP_SERVICE")
+	if testCheck != "" {
+		// we also don't really need to be checking all the services in the list after the planned timeout
+		// we just need to make sure that it falls back to the following service, which will be a mock
+		iplist = iplist[:1]
+		iplist = append(iplist, os.Getenv("NETMAKER_TEST_IP_SERVICE"))
+	}
+
 	for _, ipserver := range iplist {
+		if testCheck != "" && strings.EqualFold(testCheck, ipserver) {
+			timeoutTarget = time.Duration(2) * time.Second
+		}
+
 		client := &http.Client{
-			Timeout: time.Second * 10,
+			Timeout: timeoutTarget,
 		}
 		var resp *http.Response
 		resp, err = client.Get(ipserver)
