@@ -23,7 +23,6 @@ func TestGetPublicIP(t *testing.T) {
 		t.Logf("WARNING: could not set NETMAKER_TEST_IP_SERVICE env var")
 	}
 
-	// 1. Test that the function checks the environment variable PUBLIC_IP_SERVICE first.
 	t.Run("Use PUBLIC_IP_SERVICE if set", func(t *testing.T) {
 
 		// set the environment variable
@@ -45,7 +44,6 @@ func TestGetPublicIP(t *testing.T) {
 	})
 
 	t.Run("Use config.Config.Server.PublicIPService if PUBLIC_IP_SERVICE isn't set", func(t *testing.T) {
-		// Mock the config
 		config.Config.Server.PublicIPService = server.URL
 		defer func() { config.Config.Server.PublicIPService = "" }()
 
@@ -98,5 +96,3 @@ func TestGetPublicIP(t *testing.T) {
 	})
 
 }
-
-// Note: The rest of the GetPublicIP function would remain unchanged in this file.
