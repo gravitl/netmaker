@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="https://github.com/gravitl/netmaker/releases">
-    <img src="https://img.shields.io/badge/Version-0.21.0-informational?style=flat-square" />
+    <img src="https://img.shields.io/badge/Version-0.21.1-informational?style=flat-square" />
   </a>
   <a href="https://hub.docker.com/r/gravitl/netmaker/tags">
     <img src="https://img.shields.io/docker/pulls/gravitl/netmaker?label=downloads" />
@@ -113,4 +113,11 @@ After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting
 
 ## License
 
-Netmaker's source code and all artifacts in this repository are freely available. All versions are published under the Server Side Public License (SSPL), version 1, which can be found here: [LICENSE.txt](./LICENSE.txt).
+Netmaker's source code and all artifacts in this repository are freely available.
+All content that resides under the "pro/" directory of this repository, if that
+directory exists, is licensed under the license defined in "pro/LICENSE".
+All third party components incorporated into the Netmaker Software are licensed
+under the original license provided by the owner of the applicable component.
+Content outside of the above mentioned directories or restrictions above is
+available under the "Apache Version 2.0" license as defined below.
+All details for the licenses used can be found here: [LICENSE.md](./LICENSE.md).

@@ -17,8 +17,8 @@ func GetHosts() *[]models.ApiHost {
 }
 
 // DeleteHost - delete a host
-func DeleteHost(hostID string) *models.ApiHost {
-	return request[models.ApiHost](http.MethodDelete, "/api/hosts/"+hostID, nil)
+func DeleteHost(hostID string, force bool) *models.ApiHost {
+	return request[models.ApiHost](http.MethodDelete, fmt.Sprintf("/api/hosts/%s?force=%t", hostID, force), nil)
 }
 
 // UpdateHost - update a host

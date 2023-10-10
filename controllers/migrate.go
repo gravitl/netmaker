@@ -19,7 +19,7 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-// swagger:route PUT /api/v1/nodes/migrate nodes migrateNode
+// swagger:route PUT /api/v1/nodes/migrate nodes migrateData
 //
 // Used to migrate a legacy node.
 //
@@ -29,7 +29,7 @@ import (
 //	  		oauth
 //
 //			Responses:
-//				200: nodeJoinResponse
+//				200: hostPull
 func migrate(w http.ResponseWriter, r *http.Request) {
 	data := models.MigrationData{}
 	host := models.Host{}
@@ -65,6 +65,7 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 			host.Name = data.HostName
 			host.HostPass = data.Password
 			host.OS = data.OS
+			host.PersistentKeepalive = time.Duration(legacy.PersistentKeepalive)
 			if err := logic.CreateHost(&host); err != nil {
 				slog.Error("create host", "error", err)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -123,7 +124,11 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				logger.Log(0, "error creating ingress gateway for node", node.ID, err.Error())
 			}
-			mq.RunUpdates(&ingressNode, true)
+			go func() {
+				if err := mq.NodeUpdate(&ingressNode); err != nil {
+					slog.Error("error publishing node update to node", "node", ingressNode.ID, "error", err)
+				}
+			}()
 		}
 	}
 }
@@ -198,7 +203,6 @@ func convertLegacyNode(legacy models.LegacyNode, hostID uuid.UUID) models.Node {
 	node.IsRelay = false
 	node.RelayedNodes = []string{}
 	node.DNSOn = models.ParseBool(legacy.DNSOn)
-	node.PersistentKeepalive = time.Duration(int64(time.Second) * int64(legacy.PersistentKeepalive))
 	node.LastModified = time.Now()
 	node.ExpirationDateTime = time.Unix(legacy.ExpirationDateTime, 0)
 	node.EgressGatewayNatEnabled = models.ParseBool(legacy.EgressGatewayNatEnabled)

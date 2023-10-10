@@ -112,6 +112,7 @@ func CreateSuperAdmin(u *models.User) error {
 		return errors.New("superadmin user already exists")
 	}
 	u.IsSuperAdmin = true
+	u.IsAdmin = false
 	return CreateUser(u)
 }
 
@@ -141,6 +142,11 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 
 	// Create a new JWT for the node
 	tokenString, _ := CreateUserJWT(authRequest.UserName, result.IsSuperAdmin, result.IsAdmin)
+
+	// update last login time
+	result.LastLoginTime = time.Now()
+	UpsertUser(result)
+
 	return tokenString, nil
 }
 

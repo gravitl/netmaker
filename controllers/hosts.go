@@ -23,12 +23,29 @@ func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/hosts/{hostid}/sync", logic.SecurityCheck(true, http.HandlerFunc(syncHost))).Methods(http.MethodPost)
 	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(updateHost))).Methods(http.MethodPut)
 	r.HandleFunc("/api/hosts/{hostid}", Authorize(true, false, "all", http.HandlerFunc(deleteHost))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/hosts/{hostid}/upgrade", logic.SecurityCheck(true, http.HandlerFunc(upgradeHost))).Methods(http.MethodPut)
 	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", logic.SecurityCheck(true, http.HandlerFunc(addHostToNetwork))).Methods(http.MethodPost)
 	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", logic.SecurityCheck(true, http.HandlerFunc(deleteHostFromNetwork))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/hosts/adm/authenticate", authenticateHost).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/host", Authorize(true, false, "host", http.HandlerFunc(pull))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/host/{hostid}/signalpeer", Authorize(true, false, "host", http.HandlerFunc(signalPeer))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/auth-register/host", socketHandler)
+}
+
+// upgrade host is a handler to send upgrade message to a host
+func upgradeHost(w http.ResponseWriter, r *http.Request) {
+	host, err := logic.GetHost(mux.Vars(r)["hostid"])
+	if err != nil {
+		slog.Error("failed to find host", "error", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "notfound"))
+		return
+	}
+	if err := mq.HostUpdate(&models.HostUpdate{Action: models.Upgrade, Host: *host}); err != nil {
+		slog.Error("failed to upgrade host", "error", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	logic.ReturnSuccessResponse(w, r, "passed message to upgrade host")
 }
 
 // swagger:route GET /api/hosts hosts getHosts
@@ -41,7 +58,7 @@ func hostHandlers(r *mux.Router) {
 //	  		oauth
 //
 //			Responses:
-//				200: getHostsSliceResponse
+//				200: apiHostResponse
 func getHosts(w http.ResponseWriter, r *http.Request) {
 	currentHosts, err := logic.GetAllHosts()
 	if err != nil {
@@ -56,7 +73,7 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(apiHosts)
 }
 
-// swagger:route GET /api/v1/host pull pullHost
+// swagger:route GET /api/v1/host hosts pullHost
 //
 // Used by clients for "pull" command
 //
@@ -66,7 +83,7 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 //	  		oauth
 //
 //			Responses:
-//				200: pull
+//				200: hostPull
 func pull(w http.ResponseWriter, r *http.Request) {
 
 	hostID := r.Header.Get(hostIDHeader) // return JSON/API formatted keys
@@ -128,7 +145,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 //	  		oauth
 //
 //			Responses:
-//				200: updateHostResponse
+//				200: apiHostResponse
 func updateHost(w http.ResponseWriter, r *http.Request) {
 	var newHostData models.ApiHost
 	err := json.NewDecoder(r.Body).Decode(&newHostData)
@@ -196,7 +213,7 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 //	  		oauth
 //
 //			Responses:
-//				200: deleteHostResponse
+//				200: apiHostResponse
 func deleteHost(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	hostid := params["hostid"]
@@ -235,9 +252,8 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 //
 //			Security:
 //	  		oauth
-//
 //			Responses:
-//				200: addHostToNetworkResponse
+//				200: okResponse
 func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
@@ -284,7 +300,7 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 //	  		oauth
 //
 //			Responses:
-//				200: deleteHostFromNetworkResponse
+//				200: okResponse
 func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
@@ -343,9 +359,12 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 	node.Action = models.NODE_DELETE
 	node.PendingDelete = true
-	// notify node change
-	mq.RunUpdates(node, false)
-	go func() { // notify of peer change
+	go func() {
+		// notify node change
+		if err := mq.NodeUpdate(node); err != nil {
+			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
+		}
+		// notify of peer change
 		err = mq.PublishDeletedNodePeerUpdate(node)
 		if err != nil {
 			logger.Log(1, "error publishing peer update ", err.Error())
@@ -358,7 +377,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// swagger:route POST /api/hosts/adm/authenticate hosts authenticateHost
+// swagger:route POST /api/hosts/adm/authenticate authenticate authenticateHost
 //
 // Host based authentication for making further API calls.
 //
@@ -451,7 +470,7 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 	response.Write(successJSONResponse)
 }
 
-// swagger:route POST /api/hosts/{hostid}/signalpeer signalPeer
+// swagger:route POST /api/hosts/{hostid}/signalpeer hosts signalPeer
 //
 // send signal to peer.
 //
@@ -517,7 +536,7 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(signal)
 }
 
-// swagger:route POST /api/hosts/keys host updateAllKeys
+// swagger:route POST /api/hosts/keys hosts updateAllKeys
 //
 // Update keys for a network.
 //
@@ -555,7 +574,7 @@ func updateAllKeys(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// swagger:route POST /api/hosts/{hostid}keys host updateKeys
+// swagger:route POST /api/hosts/{hostid}keys hosts updateKeys
 //
 // Update keys for a network.
 //
@@ -594,7 +613,7 @@ func updateKeys(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// swagger:route POST /api/hosts/{hostId}/sync host syncHost
+// swagger:route POST /api/hosts/{hostid}/sync hosts synchost
 //
 // Requests a host to pull.
 //

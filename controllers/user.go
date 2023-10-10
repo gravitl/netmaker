@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
@@ -36,9 +37,9 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/oauth/register/{regKey}", auth.RegisterHostSSO).Methods(http.MethodGet)
 }
 
-// swagger:route POST /api/users/adm/authenticate user authenticateUser
+// swagger:route POST /api/users/adm/authenticate authenticate authenticateUser
 //
-// Node authenticates using its password and retrieves a JWT for authorization.
+// User authenticates using its password and retrieves a JWT for authorization.
 //
 //			Schemes: https
 //
@@ -96,7 +97,6 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	}
 	// Send back the JWT
 	successJSONResponse, jsonError := json.Marshal(successResponse)
-
 	if jsonError != nil {
 		logger.Log(0, username,
 			"error marshalling resp: ", err.Error())
@@ -106,6 +106,33 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	logger.Log(2, username, "was authenticated")
 	response.Header().Set("Content-Type", "application/json")
 	response.Write(successJSONResponse)
+
+	go func() {
+		if servercfg.IsPro && servercfg.GetRacAutoDisable() {
+			// enable all associeated clients for the user
+			clients, err := logic.GetAllExtClients()
+			if err != nil {
+				slog.Error("error getting clients: ", "error", err)
+				return
+			}
+			for _, client := range clients {
+				if client.OwnerID == username && !client.Enabled {
+					slog.Info(fmt.Sprintf("enabling ext client %s for user %s due to RAC autodisabling feature", client.ClientID, client.OwnerID))
+					if newClient, err := logic.ToggleExtClientConnectivity(&client, true); err != nil {
+						slog.Error("error disabling ext client in RAC autodisable hook", "error", err)
+						continue // dont return but try for other clients
+					} else {
+						// publish peer update to ingress gateway
+						if ingressNode, err := logic.GetNodeByID(newClient.IngressGatewayID); err == nil {
+							if err = mq.PublishPeerUpdate(); err != nil {
+								slog.Error("error updating ext clients on", "ingress", ingressNode.ID.String(), "err", err.Error())
+							}
+						}
+					}
+				}
+			}
+		}
+	}()
 }
 
 // swagger:route GET /api/users/adm/hassuperadmin user hasSuperAdmin
@@ -118,7 +145,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 //	  		oauth
 //
 //			Responses:
-//				200: successResponse
+//				200: hasAdmin
 func hasSuperAdmin(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -426,9 +453,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if auth.IsOauthUser(user) == nil {
-		err := fmt.Errorf("cannot update user info for oauth user %s", username)
-		logger.Log(0, err.Error())
+	if auth.IsOauthUser(user) == nil && userchange.Password != "" {
+		err := fmt.Errorf("cannot update user's password for an oauth user %s", username)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}

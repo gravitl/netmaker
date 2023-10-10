@@ -180,7 +180,7 @@ func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 //	  		oauth
 //
 //			Responses:
-//				200: stringJSONResponse
+//				200: successResponse
 func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
@@ -278,7 +278,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(network)
 }
 
-// swagger:route PUT /api/networks networks updateNetwork
+// swagger:route PUT /api/networks/{networkname} networks updateNetwork
 //
 // Update pro settings for a network.
 //

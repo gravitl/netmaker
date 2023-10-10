@@ -3,10 +3,10 @@ package mq
 import (
 	"encoding/json"
 	"fmt"
+
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/hostactions"
 	"github.com/gravitl/netmaker/models"
@@ -18,15 +18,6 @@ import (
 
 // UpdateMetrics  message Handler -- handles updates from client nodes for metrics
 var UpdateMetrics = func(client mqtt.Client, msg mqtt.Message) {
-}
-
-func RunUpdates(node *models.Node, ifaceDelta bool) {
-	go func() { // don't block http response
-		// publish node update if not server
-		if err := NodeUpdate(node); err != nil {
-			logger.Log(1, "error publishing node update to node", node.ID.String(), err.Error())
-		}
-	}()
 }
 
 // DefaultHandler default message queue handler  -- NOT USED
