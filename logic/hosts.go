@@ -199,7 +199,7 @@ func UpdateHost(newHost, currentHost *models.Host) {
 	newHost.Nodes = currentHost.Nodes
 	newHost.PublicKey = currentHost.PublicKey
 	newHost.TrafficKeyPublic = currentHost.TrafficKeyPublic
-
+	newHost.AutoUpdate = currentHost.AutoUpdate
 	// changeable fields
 	if len(newHost.Version) == 0 {
 		newHost.Version = currentHost.Version
