@@ -11,7 +11,27 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-// GetAllIngresses - gets all the hosts that are ingresses
+// GetInternetGateways - gets all the nodes that are internet gateways
+func GetInternetGateways() ([]models.Node, error) {
+	nodes, err := GetAllNodes()
+	if err != nil {
+		return nil, err
+	}
+	igs := make([]models.Node, 0)
+	for _, node := range nodes {
+		if !node.IsEgressGateway {
+			continue
+		}
+		for _, ran := range node.EgressGatewayRanges {
+			if ran == "0.0.0.0/0" {
+				igs = append(igs, node)
+			}
+		}
+	}
+	return igs, nil
+}
+
+// GetAllIngresses - gets all the nodes that are ingresses
 func GetAllIngresses() ([]models.Node, error) {
 	nodes, err := GetAllNodes()
 	if err != nil {
@@ -26,7 +46,7 @@ func GetAllIngresses() ([]models.Node, error) {
 	return ingresses, nil
 }
 
-// GetAllEgresses - gets all the hosts that are egresses
+// GetAllEgresses - gets all the nodes that are egresses
 func GetAllEgresses() ([]models.Node, error) {
 	nodes, err := GetAllNodes()
 	if err != nil {

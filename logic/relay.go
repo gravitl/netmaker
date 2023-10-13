@@ -5,6 +5,10 @@ import (
 	"net"
 )
 
+var GetRelays = func() ([]models.Node, error) {
+	return []models.Node{}, nil
+}
+
 var RelayedAllowedIPs = func(peer, node *models.Node) []net.IPNet {
 	return []net.IPNet{}
 }

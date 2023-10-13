@@ -140,6 +140,9 @@ func convertLegacyHostNode(legacy models.LegacyNode) (models.Host, models.Node) 
 	host.AutoUpdate = servercfg.AutoUpdateEnabled()
 	host.Interface = "netmaker"
 	host.ListenPort = int(legacy.ListenPort)
+	if host.ListenPort == 0 {
+		host.ListenPort = 51821
+	}
 	host.MTU = int(legacy.MTU)
 	host.PublicKey, _ = wgtypes.ParseKey(legacy.PublicKey)
 	host.MacAddress = net.HardwareAddr(legacy.MacAddress)
@@ -151,6 +154,11 @@ func convertLegacyHostNode(legacy models.LegacyNode) (models.Host, models.Node) 
 	host.IsDocker = models.ParseBool(legacy.IsDocker)
 	host.IsK8S = models.ParseBool(legacy.IsK8S)
 	host.IsStatic = models.ParseBool(legacy.IsStatic)
+	host.PersistentKeepalive = time.Duration(legacy.PersistentKeepalive)
+	if host.PersistentKeepalive == 0 {
+		host.PersistentKeepalive = models.DefaultPersistentKeepAlive
+	}
+
 	node := convertLegacyNode(legacy, host.ID)
 	return host, node
 }
@@ -202,7 +210,6 @@ func convertLegacyNode(legacy models.LegacyNode, hostID uuid.UUID) models.Node {
 	node.IsRelay = false
 	node.RelayedNodes = []string{}
 	node.DNSOn = models.ParseBool(legacy.DNSOn)
-	node.PersistentKeepalive = time.Duration(int64(time.Second) * int64(legacy.PersistentKeepalive))
 	node.LastModified = time.Now()
 	node.ExpirationDateTime = time.Unix(legacy.ExpirationDateTime, 0)
 	node.EgressGatewayNatEnabled = models.ParseBool(legacy.EgressGatewayNatEnabled)

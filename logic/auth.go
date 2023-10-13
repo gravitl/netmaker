@@ -112,6 +112,7 @@ func CreateSuperAdmin(u *models.User) error {
 		return errors.New("superadmin user already exists")
 	}
 	u.IsSuperAdmin = true
+	u.IsAdmin = false
 	return CreateUser(u)
 }
 

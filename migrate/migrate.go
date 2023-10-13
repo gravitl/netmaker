@@ -3,17 +3,19 @@ package migrate
 import (
 	"encoding/json"
 
+	"golang.org/x/exp/slog"
+
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
-	"golang.org/x/exp/slog"
 )
 
 // Run - runs all migrations
 func Run() {
 	updateEnrollmentKeys()
 	assignSuperAdmin()
+	updateHosts()
 }
 
 func assignSuperAdmin() {
@@ -37,7 +39,13 @@ func assignSuperAdmin() {
 			user.IsAdmin = false
 			err = logic.UpsertUser(*user)
 			if err != nil {
-				slog.Error("error updating user to superadmin", "user", user.UserName, "error", err.Error())
+				slog.Error(
+					"error updating user to superadmin",
+					"user",
+					user.UserName,
+					"error",
+					err.Error(),
+				)
 				continue
 			} else {
 				createdSuperAdmin = true
@@ -49,7 +57,6 @@ func assignSuperAdmin() {
 	if !createdSuperAdmin {
 		slog.Error("failed to create superadmin!!")
 	}
-
 }
 
 func updateEnrollmentKeys() {
@@ -85,5 +92,26 @@ func updateEnrollmentKeys() {
 			continue
 		}
 
+	}
+}
+
+func updateHosts() {
+	rows, err := database.FetchRecords(database.HOSTS_TABLE_NAME)
+	if err != nil {
+		logger.Log(0, "failed to fetch database records for hosts")
+	}
+	for _, row := range rows {
+		var host models.Host
+		if err := json.Unmarshal([]byte(row), &host); err != nil {
+			logger.Log(0, "failed to unmarshal database row to host", "row", row)
+			continue
+		}
+		if host.PersistentKeepalive == 0 {
+			host.PersistentKeepalive = models.DefaultPersistentKeepAlive
+			if err := logic.UpsertHost(&host); err != nil {
+				logger.Log(0, "failed to upsert host", host.ID.String())
+				continue
+			}
+		}
 	}
 }
