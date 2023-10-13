@@ -48,6 +48,7 @@ func main() {
 	defer stop()
 	var waitGroup sync.WaitGroup
 	startControllers(&waitGroup, ctx) // start the api endpoint and mq and stun
+	startHooks()
 	<-ctx.Done()
 	waitGroup.Wait()
 }
@@ -61,6 +62,14 @@ func setupConfig(absoluteConfigPath string) {
 		}
 		config.Config = cfg
 	}
+}
+
+func startHooks() {
+	err := logic.TimerCheckpoint()
+	if err != nil {
+		logger.Log(1, "Timer error occurred: ", err.Error())
+	}
+	logic.EnterpriseCheck()
 }
 
 func initialize() { // Client Mode Prereq Check
@@ -81,12 +90,6 @@ func initialize() { // Client Mode Prereq Check
 	migrate.Run()
 
 	logic.SetJWTSecret()
-
-	err = logic.TimerCheckpoint()
-	if err != nil {
-		logger.Log(1, "Timer error occurred: ", err.Error())
-	}
-	logic.EnterpriseCheck()
 
 	var authProvider = auth.InitializeAuthProvider()
 	if authProvider != "" {
