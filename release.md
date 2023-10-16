@@ -2,7 +2,7 @@
 # Netmaker v0.21.1
 
 ## Whats New
-- Users Session Management 
+- Remote Access Client Session Management, refer users section in docs for more details
 - Can now create generic DNS entries
 - Upgrade client version to match server version from UI
 - Moved PersistentKeepAlive setting from node to host level
