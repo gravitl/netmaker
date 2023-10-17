@@ -364,7 +364,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 					extclient.RemoteAccessClientID == customExtClient.RemoteAccessClientID && nodeid == extclient.IngressGatewayID {
 					// extclient on the gw already exists for the remote access client
 					err = errors.New("remote client config already exists on the gateway")
-					slog.Error("failed to get extclients", "error", err)
+					slog.Error("failed to create extclient", "user", userName, "error", err)
 					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 					return
 				}
@@ -537,7 +537,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	network := params["network"]
 	extclient, err := logic.GetExtClient(clientid, network)
 	if err != nil {
-		err = errors.New("Could not delete extclient " + params["clientid"])
+		err = errors.New("1. Could not delete extclient " + params["clientid"])
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to delete extclient [%s],network [%s]: %v", clientid, network, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
