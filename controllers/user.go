@@ -528,18 +528,18 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	// check and delete extclient with this ownerID
 	go func() {
 		extclients, err := logic.GetAllExtClients()
-		if err == nil {
-			for _, extclient := range extclients {
-				if extclient.OwnerID == user.UserName {
-					err = logic.DeleteExtClient(extclient.Network, extclient.ClientID)
-					if err != nil {
-						slog.Error("failed to delete extclient",
-							"id", extclient.ClientID, "owner", user.UserName, "error", err)
-					}
+		if err != nil {
+			slog.Error("failed to get extclients", "error", err)
+			return
+		}
+		for _, extclient := range extclients {
+			if extclient.OwnerID == user.UserName {
+				err = logic.DeleteExtClient(extclient.Network, extclient.ClientID)
+				if err != nil {
+					slog.Error("failed to delete extclient",
+						"id", extclient.ClientID, "owner", user.UserName, "error", err)
 				}
 			}
-		} else {
-			slog.Error("failed to get extclients", "error", err)
 		}
 	}()
 	logger.Log(1, username, "was deleted")
