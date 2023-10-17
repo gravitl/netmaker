@@ -10,8 +10,8 @@
 //
 //	Schemes: https
 //	BasePath: /
-//	Version: 0.21.0
-//	Host: netmaker.io
+//	Version: 0.21.1
+//	Host: api.demo.netmaker.io
 //
 //	Consumes:
 //	- application/json
@@ -26,15 +26,37 @@
 package controller
 
 import (
-	serverconfigpkg "github.com/gravitl/netmaker/config"
+	"os"
+
+	"github.com/gravitl/netmaker/config"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/models"
 )
 
 var _ = useUnused() // "use" the function to prevent "unused function" errors
 
+// swagger:parameters getFile
+type filenameToGet struct {
+	// Filename
+	// in: path
+	// required: true
+	Filename string `json:"filename"`
+}
+
+// swagger:response hasAdmin
+type hasAdmin struct {
+	// in: body
+	Admin bool
+}
+
+// swagger:response apiHostResponse
+type apiHostResponse struct {
+	// in: body
+	Host models.ApiHost
+}
+
 // swagger:parameters getNodeDNS getCustomDNS getDNS
-type dnsPathParams struct {
+type dnsNetworkPathParam struct {
 	// Network
 	// in: path
 	Network string `json:"network"`
@@ -45,7 +67,6 @@ type dnsParams struct {
 	// Network
 	// in: path
 	Network string `json:"network"`
-
 	// DNS Entry
 	// in: body
 	Body []models.DNSEntry `json:"body"`
@@ -76,6 +97,18 @@ type stringJSONResponse struct {
 	Response string `json:"response"`
 }
 
+//swagger:response EnrollmentKey
+type EnrollmentKey struct {
+	// in: body
+	EnrollmentKey models.EnrollmentKey
+}
+
+//swagger:response EnrollmentKeys
+type EnrollmentKeys struct {
+	// in: body
+	EnrollmentKeys []models.EnrollmentKey
+}
+
 // swagger:parameters getAllExtClients
 type getAllClientsRequest struct {
 	// Networks
@@ -97,6 +130,12 @@ type extClientResponse struct {
 	ExtClient models.ExtClient `json:"ext_client"`
 }
 
+// swagger:response fileResponse
+type fileResponse struct {
+	// in: body
+	File os.File
+}
+
 // swagger:response successResponse
 type successResponse struct {
 	// Success Response
@@ -104,12 +143,24 @@ type successResponse struct {
 	SuccessResponse models.SuccessResponse `json:"success_response"`
 }
 
+// swagger:parameters getExtClientConf
+type extClientConfParams struct {
+	// Client ID
+	// in: path
+	ClientID string `json:"clientid"`
+	// Network
+	// in: path
+	Network string `json:"network"`
+	// Type
+	// in: path
+	Type string `json:"type"`
+}
+
 // swagger:parameters getExtClient getExtClientConf updateExtClient deleteExtClient
 type extClientPathParams struct {
 	// Client ID
 	// in: path
 	ClientID string `json:"clientid"`
-
 	// Network
 	// in: path
 	Network string `json:"network"`
@@ -137,20 +188,17 @@ type createExtClientPathParams struct {
 
 	// Node ID
 	// in: path
-	NodeID string `json:"node"`
+	NodeID string `json:"nodeid"`
 
 	// Custom ExtClient
 	// in: body
 	CustomExtClient models.CustomExtClient `json:"custom_ext_client"`
 }
 
-// swagger:parameters getNode updateNode deleteNode createRelay deleteRelay createEgressGateway deleteEgressGateway createIngressGateway deleteIngressGateway uncordonNode
+// swagger:parameters getNode updateNode deleteNode createRelay deleteRelay createEgressGateway deleteEgressGateway createIngressGateway deleteIngressGateway ingressGatewayUsers
 type networkNodePathParams struct {
-	// Network
 	// in: path
 	Network string `json:"network"`
-
-	// Node ID
 	// in: path
 	NodeID string `json:"nodeid"`
 }
@@ -161,11 +209,11 @@ type byteArrayResponse struct {
 	ByteArray []byte `json:"byte_array"`
 }
 
-// swagger:parameters getNetworks
-type headerNetworks struct {
-	// name: networks
-	// in: header
-	Networks []string `json:"networks"`
+// swagger:parameters getNetwork deleteNetwork updateNetwork getNetworkACL updateNetworkACL
+type NetworkParam struct {
+	// name: network name
+	// in:  path
+	Networkname string `json:"networkname"`
 }
 
 // swagger:response getNetworksSliceResponse
@@ -175,6 +223,13 @@ type getNetworksSliceResponse struct {
 	Networks []models.Network `json:"networks"`
 }
 
+// swagger:response hostPull
+type hostPull struct {
+	// hostPull
+	// in: body
+	HostPull models.HostPull
+}
+
 // swagger:parameters createNetwork updateNetwork
 type networkBodyParam struct {
 	// Network
@@ -182,18 +237,11 @@ type networkBodyParam struct {
 	Network models.Network `json:"network"`
 }
 
-// swagger:parameters updateNetwork getNetwork updateNetwork updateNetworkNodeLimit deleteNetwork keyUpdate createAccessKey getAccessKeys deleteAccessKey updateNetworkACL getNetworkACL
+// swagger:parameters updateNetworkNodeLimit keyUpdate createAccessKey getAccessKeys getNetworkNodes
 type networkPathParam struct {
-	// Network Name
+	// Network
 	// in: path
-	NetworkName string `json:"networkname"`
-}
-
-// swagger:parameters deleteAccessKey
-type networkAccessKeyNamePathParam struct {
-	// Access Key Name
-	// in: path
-	AccessKeyName string `json:"access_key_name"`
+	Network string `json:"network"`
 }
 
 // swagger:response networkBodyResponse
@@ -238,6 +286,15 @@ type nodeBodyParam struct {
 	Node models.LegacyNode `json:"node"`
 }
 
+//swagger:response okResponse
+type okRespone struct{}
+
+// swagger:response RegisterResponse
+type RegisterResponse struct {
+	// in: body
+	RegisterResponse models.RegisterResponse
+}
+
 // swagger:parameters createRelay
 type relayRequestBodyParam struct {
 	// Relay Request
@@ -252,53 +309,68 @@ type egressGatewayBodyParam struct {
 	EgressGatewayRequest models.EgressGatewayRequest `json:"egress_gateway_request"`
 }
 
+// swagger:parameters attachUserToRemoteAccessGateway removeUserFromRemoteAccessGW getUserRemoteAccessGws
+type RemoteAccessGatewayUser struct {
+	// in: path
+	Username string `json:"username"`
+}
+
 // swagger:parameters authenticate
 type authParamBodyParam struct {
+	// network
+	// in: path
+	Network string `json:"network"`
 	// AuthParams
 	// in: body
 	AuthParams models.AuthParams `json:"auth_params"`
+}
+
+// swagger:response signal
+type signal struct {
+	// in: body
+	Signal models.Signal
+}
+
+// swagger:parameters synchost deleteHost updateHost signalPeer updateKeys
+type HostID struct {
+	// HostID
+	// in: path
+	HostID string `json:"hostid"`
+}
+
+// swagger:parameters addHostToNetwork deleteHostFromNetwork
+type HostFromNetworkParams struct {
+	// hostid to add or delete from network
+	// in: path
+	HostID string `json:"hostid"`
+	// network
+	// in: path
+	Network string `json:"network"`
+}
+
+// swagger:parameters deleteEnrollmentKey
+type DeleteEnrollmentKeyParam struct {
+	// in: path
+	KeyID string `json:"keyid"`
+}
+
+// swagger:parameters handleHostRegister
+type RegisterParams struct {
+	// in: path
+	Token string `json:"token"`
+	// in: body
+	Host models.Host `json:"host"`
 }
 
 // swagger:response serverConfigResponse
 type serverConfigResponse struct {
 	// Server Config
 	// in: body
-	ServerConfig serverconfigpkg.ServerConfig `json:"server_config"`
-}
-
-// swagger:response nodeGetResponse
-type nodeGetResponse struct {
-	// Node Get
-	// in: body
-	NodeGet models.NodeGet `json:"node_get"`
-}
-
-// swagger:response nodeLastModifiedResponse
-type nodeLastModifiedResponse struct {
-	// Node Last Modified
-	// in: body
-	NodesLastModified int64 `json:"nodes_last_modified"`
-}
-
-// swagger:parameters register
-//type registerRequestBodyParam struct {
-//	// Register Request
-//	// in: body
-//	RegisterRequest config.RegisterRequest `json:"register_request"`
-//}
-//
-//// swagger:response registerResponse
-//type registerResponse struct {
-//	// Register Response
-//	// in: body
-//	RegisterResponse config.RegisterResponse `json:"register_response"`
-//}
-
-// swagger:response boolResponse
-type boolResponse struct {
-	// Boolean Response
-	// in: body
-	BoolResponse bool `json:"bool_response"`
+	// example
+	//{
+	//"mqusername": "xxxxxxx"
+	//}
+	ServerConfig config.ServerConfig `json:"server_config"`
 }
 
 // swagger:parameters createAdmin updateUser updateUserNetworks createUser
@@ -331,7 +403,6 @@ type usernamePathParam struct {
 
 // prevent issues with integration tests for types just used by Swagger docs.
 func useUnused() bool {
-	_ = dnsPathParams{}
 	_ = dnsParams{}
 	_ = dnsResponse{}
 	_ = dnsDeletePathParams{}
@@ -346,11 +417,9 @@ func useUnused() bool {
 	_ = createExtClientPathParams{}
 	_ = networkNodePathParams{}
 	_ = byteArrayResponse{}
-	_ = headerNetworks{}
 	_ = getNetworksSliceResponse{}
 	_ = networkBodyParam{}
 	_ = networkPathParam{}
-	_ = networkAccessKeyNamePathParam{}
 	_ = networkBodyResponse{}
 	_ = aclContainerBodyParam{}
 	_ = aclContainerResponse{}
@@ -361,14 +430,18 @@ func useUnused() bool {
 	_ = egressGatewayBodyParam{}
 	_ = authParamBodyParam{}
 	_ = serverConfigResponse{}
-	_ = nodeGetResponse{}
-	_ = nodeLastModifiedResponse{}
-	//	_ = registerRequestBodyParam{}
-	//	_ = registerResponse{}
-	_ = boolResponse{}
 	_ = userBodyParam{}
 	_ = userBodyResponse{}
 	_ = userAuthBodyParam{}
 	_ = usernamePathParam{}
+	_ = hasAdmin{}
+	_ = apiHostResponse{}
+	_ = fileResponse{}
+	_ = extClientConfParams{}
+	_ = hostPull{}
+	_ = okRespone{}
+	_ = signal{}
+	_ = filenameToGet{}
+	_ = dnsNetworkPathParam{}
 	return false
 }

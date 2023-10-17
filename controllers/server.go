@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -15,24 +16,32 @@ import (
 
 func serverHandlers(r *mux.Router) {
 	// r.HandleFunc("/api/server/addnetwork/{network}", securityCheckServer(true, http.HandlerFunc(addNetwork))).Methods(http.MethodPost)
-	r.HandleFunc("/api/server/health", http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		resp.WriteHeader(http.StatusOK)
-		resp.Write([]byte("Server is up and running!!"))
-	}))
-	r.HandleFunc("/api/server/getconfig", allowUsers(http.HandlerFunc(getConfig))).Methods(http.MethodGet)
-	r.HandleFunc("/api/server/getserverinfo", Authorize(true, false, "node", http.HandlerFunc(getServerInfo))).Methods(http.MethodGet)
+	r.HandleFunc(
+		"/api/server/health",
+		http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+			resp.WriteHeader(http.StatusOK)
+			resp.Write([]byte("Server is up and running!!"))
+		}),
+	)
+	r.HandleFunc("/api/server/getconfig", allowUsers(http.HandlerFunc(getConfig))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/server/getserverinfo", Authorize(true, false, "node", http.HandlerFunc(getServerInfo))).
+		Methods(http.MethodGet)
 	r.HandleFunc("/api/server/status", http.HandlerFunc(getStatus)).Methods(http.MethodGet)
-	r.HandleFunc("/api/server/usage", Authorize(true, false, "user", http.HandlerFunc(getUsage))).Methods(http.MethodGet)
+	r.HandleFunc("/api/server/usage", Authorize(true, false, "user", http.HandlerFunc(getUsage))).
+		Methods(http.MethodGet)
 }
 
-func getUsage(w http.ResponseWriter, r *http.Request) {
+func getUsage(w http.ResponseWriter, _ *http.Request) {
 	type usage struct {
-		Hosts     int `json:"hosts"`
-		Clients   int `json:"clients"`
-		Networks  int `json:"networks"`
-		Users     int `json:"users"`
-		Ingresses int `json:"ingresses"`
-		Egresses  int `json:"egresses"`
+		Hosts            int `json:"hosts"`
+		Clients          int `json:"clients"`
+		Networks         int `json:"networks"`
+		Users            int `json:"users"`
+		Ingresses        int `json:"ingresses"`
+		Egresses         int `json:"egresses"`
+		Relays           int `json:"relays"`
+		InternetGateways int `json:"internet_gateways"`
 	}
 	var serverUsage usage
 	hosts, err := logic.GetAllHosts()
@@ -51,6 +60,7 @@ func getUsage(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		serverUsage.Networks = len(networks)
 	}
+	// TODO this part bellow can be optimized to get nodes just once
 	ingresses, err := logic.GetAllIngresses()
 	if err == nil {
 		serverUsage.Ingresses = len(ingresses)
@@ -59,12 +69,19 @@ func getUsage(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		serverUsage.Egresses = len(egresses)
 	}
+	relays, err := logic.GetRelays()
+	if err == nil {
+		serverUsage.Relays = len(relays)
+	}
+	gateways, err := logic.GetInternetGateways()
+	if err == nil {
+		serverUsage.InternetGateways = len(gateways)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(models.SuccessResponse{
 		Code:     http.StatusOK,
 		Response: serverUsage,
 	})
-
 }
 
 // swagger:route GET /api/server/status server getStatus
@@ -83,6 +100,7 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 		DB           bool   `json:"db_connected"`
 		Broker       bool   `json:"broker_connected"`
 		LicenseError string `json:"license_error"`
+		IsPro        bool   `json:"is_pro"`
 	}
 
 	licenseErr := ""
@@ -94,6 +112,7 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 		DB:           database.IsConnected(),
 		Broker:       mq.IsConnected(),
 		LicenseError: licenseErr,
+		IsPro:        servercfg.IsPro,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -103,12 +122,12 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 // allowUsers - allow all authenticated (valid) users - only used by getConfig, may be able to remove during refactor
 func allowUsers(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var errorResponse = models.ErrorResponse{
+		errorResponse := models.ErrorResponse{
 			Code: http.StatusUnauthorized, Message: logic.Unauthorized_Msg,
 		}
 		bearerToken := r.Header.Get("Authorization")
-		var tokenSplit = strings.Split(bearerToken, " ")
-		var authToken = ""
+		tokenSplit := strings.Split(bearerToken, " ")
+		authToken := ""
 		if len(tokenSplit) < 2 {
 			logic.ReturnErrorResponse(w, r, errorResponse)
 			return
@@ -142,7 +161,7 @@ func getServerInfo(w http.ResponseWriter, r *http.Request) {
 	// get params
 
 	json.NewEncoder(w).Encode(servercfg.GetServerInfo())
-	//w.WriteHeader(http.StatusOK)
+	// w.WriteHeader(http.StatusOK)
 }
 
 // swagger:route GET /api/server/getconfig server getConfig
@@ -168,5 +187,5 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 		scfg.IsPro = "yes"
 	}
 	json.NewEncoder(w).Encode(scfg)
-	//w.WriteHeader(http.StatusOK)
+	// w.WriteHeader(http.StatusOK)
 }

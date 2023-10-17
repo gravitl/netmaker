@@ -9,6 +9,7 @@ import (
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
+	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
@@ -225,7 +226,7 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 	if update.PublicKey != "" && old.PublicKey != update.PublicKey {
 		new.PublicKey = update.PublicKey
 	}
-	if update.DNS != "" && update.DNS != old.DNS {
+	if update.DNS != old.DNS {
 		new.DNS = update.DNS
 	}
 	if update.Enabled != old.Enabled {
@@ -275,4 +276,30 @@ func GetAllExtClients() ([]models.ExtClient, error) {
 	}
 
 	return clients, nil
+}
+
+// ToggleExtClientConnectivity - enables or disables an ext client
+func ToggleExtClientConnectivity(client *models.ExtClient, enable bool) (models.ExtClient, error) {
+	update := models.CustomExtClient{
+		Enabled:              enable,
+		ClientID:             client.ClientID,
+		PublicKey:            client.PublicKey,
+		DNS:                  client.DNS,
+		ExtraAllowedIPs:      client.ExtraAllowedIPs,
+		DeniedACLs:           client.DeniedACLs,
+		RemoteAccessClientID: client.RemoteAccessClientID,
+	}
+
+	// update in DB
+	newClient := UpdateExtClient(client, &update)
+	if err := DeleteExtClient(client.Network, client.ClientID); err != nil {
+		slog.Error("failed to delete ext client during update", "id", client.ClientID, "network", client.Network, "error", err)
+		return newClient, err
+	}
+	if err := SaveExtClient(&newClient); err != nil {
+		slog.Error("failed to save updated ext client during update", "id", newClient.ClientID, "network", newClient.Network, "error", err)
+		return newClient, err
+	}
+
+	return newClient, nil
 }

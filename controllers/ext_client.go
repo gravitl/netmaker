@@ -90,16 +90,6 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	headerNetworks := r.Header.Get("networks")
-	networksSlice := []string{}
-	marshalErr := json.Unmarshal([]byte(headerNetworks), &networksSlice)
-	if marshalErr != nil {
-		slog.Error("error unmarshalling networks", "error", marshalErr.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(marshalErr, "internal"))
-		return
-	}
-
-	var err error
 	clients, err := logic.GetAllExtClients()
 	if err != nil && !database.IsEmptyRecord(err) {
 		logger.Log(0, "failed to get all extclients: ", err.Error())
@@ -313,6 +303,8 @@ Endpoint = %s
 //
 //			Security:
 //	  		oauth
+//			Responses:
+//			200:  okResponse
 func createExtClient(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -384,6 +376,11 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	extclient.OwnerID = userName
 	extclient.RemoteAccessClientID = customExtClient.RemoteAccessClientID
 	extclient.IngressGatewayID = nodeid
+
+	// set extclient dns to ingressdns if extclient dns is not explicitly set
+	if (extclient.DNS == "") && (node.IngressDNS != "") {
+		extclient.DNS = node.IngressDNS
+	}
 
 	extclient.Network = node.Network
 	host, err := logic.GetHost(node.HostID.String())

@@ -310,7 +310,7 @@ save_config() { (
 		"CORS_ALLOWED_ORIGIN" "DISPLAY_KEYS" "DATABASE" "SERVER_BROKER_ENDPOINT" "STUN_PORT" "VERBOSITY"
 		"TURN_PORT" "USE_TURN" "DEBUG_MODE" "TURN_API_PORT" "REST_BACKEND"
 		"DISABLE_REMOTE_IP_CHECK" "NETCLIENT_ENDPOINT_DETECTION" "TELEMETRY" "AUTH_PROVIDER" "CLIENT_ID" "CLIENT_SECRET"
-		"FRONTEND_URL" "AZURE_TENANT" "OIDC_ISSUER" "EXPORTER_API_PORT")
+		"FRONTEND_URL" "AZURE_TENANT" "OIDC_ISSUER" "EXPORTER_API_PORT" "JWT_VALIDITY_DURATION" "RAC_AUTO_DISABLE")
 	for name in "${toCopy[@]}"; do
 		save_config_item $name "${!name}"
 	done
@@ -759,7 +759,6 @@ install_netmaker() {
 		wget -qO "$SCRIPT_DIR"/Caddyfile "$CADDY_URL"
 		wget -qO "$SCRIPT_DIR"/netmaker.default.env "$BASE_URL/scripts/netmaker.default.env"
 		wget -qO "$SCRIPT_DIR"/mosquitto.conf "$BASE_URL/docker/mosquitto.conf"
-		wget -qO "$SCRIPT_DIR"/nm-certs.sh "$BASE_URL/scripts/nm-certs.sh"
 		wget -qO "$SCRIPT_DIR"/wait.sh "$BASE_URL/docker/wait.sh"
 	fi
 
@@ -769,10 +768,6 @@ install_netmaker() {
 	# link .env to the user config
 	ln -fs "$SCRIPT_DIR/netmaker.env" "$SCRIPT_DIR/.env"
 	save_config
-
-	# Fetch / update certs using certbot
-	chmod +x "$SCRIPT_DIR"/nm-certs.sh
-	"$SCRIPT_DIR"/nm-certs.sh
 
 	echo "Starting containers..."
 

@@ -1,6 +1,5 @@
 # Dashboard
 https://dashboard.{$NM_DOMAIN} {
-	tls /root/certs/fullchain.pem /root/certs/privkey.pem
 	# Apply basic security headers
 	header {
 		# Enable cross origin access to *.{$NM_DOMAIN}
@@ -22,42 +21,35 @@ https://dashboard.{$NM_DOMAIN} {
 
 # Netmaker Exporter
 https://netmaker-exporter.{$NM_DOMAIN} {
-	tls /root/certs/fullchain.pem /root/certs/privkey.pem
 	reverse_proxy http://netmaker-exporter:8085
 }
 
 # Prometheus
 https://prometheus.{$NM_DOMAIN} {
-	tls /root/certs/fullchain.pem /root/certs/privkey.pem
 	reverse_proxy http://prometheus:9090
 }
 
 # Grafana
 https://grafana.{$NM_DOMAIN} {
-	tls /root/certs/fullchain.pem /root/certs/privkey.pem
 	reverse_proxy http://grafana:3000
 }
 
 # API
 https://api.{$NM_DOMAIN} {
-	tls /root/certs/fullchain.pem /root/certs/privkey.pem
 	reverse_proxy http://netmaker:8081
 }
 
 # TURN
 https://turn.{$NM_DOMAIN} {
-	tls /root/certs/fullchain.pem /root/certs/privkey.pem
 	reverse_proxy host.docker.internal:3479
 }
 
 # TURN API
 https://turnapi.{$NM_DOMAIN} {
-	tls /root/certs/fullchain.pem /root/certs/privkey.pem
 	reverse_proxy http://host.docker.internal:8089
 }
 
 # MQ
 wss://broker.{$NM_DOMAIN} {
-	tls /root/certs/fullchain.pem /root/certs/privkey.pem
 	reverse_proxy ws://mq:8883
 }

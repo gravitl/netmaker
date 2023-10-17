@@ -15,7 +15,6 @@ type ApiNode struct {
 	Address6                string   `json:"address6" validate:"omitempty,ipv6"`
 	LocalAddress            string   `json:"localaddress" validate:"omitempty,ipv4"`
 	AllowedIPs              []string `json:"allowedips"`
-	PersistentKeepalive     int32    `json:"persistentkeepalive"`
 	LastModified            int64    `json:"lastmodified"`
 	ExpirationDateTime      int64    `json:"expdatetime"`
 	LastCheckIn             int64    `json:"lastcheckin"`
@@ -68,7 +67,6 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.IngressDNS = a.IngressDns
 	convertedNode.EgressGatewayRequest = currentNode.EgressGatewayRequest
 	convertedNode.EgressGatewayNatEnabled = currentNode.EgressGatewayNatEnabled
-	convertedNode.PersistentKeepalive = time.Second * time.Duration(a.PersistentKeepalive)
 	convertedNode.RelayedNodes = a.RelayedNodes
 	convertedNode.DefaultACL = a.DefaultACL
 	convertedNode.OwnerID = currentNode.OwnerID
@@ -127,7 +125,6 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	if isEmptyAddr(apiNode.LocalAddress) {
 		apiNode.LocalAddress = ""
 	}
-	apiNode.PersistentKeepalive = int32(nm.PersistentKeepalive.Seconds())
 	apiNode.LastModified = nm.LastModified.Unix()
 	apiNode.LastCheckIn = nm.LastCheckIn.Unix()
 	apiNode.LastPeerUpdate = nm.LastPeerUpdate.Unix()

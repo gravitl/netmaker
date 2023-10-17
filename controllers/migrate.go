@@ -19,7 +19,7 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-// swagger:route PUT /api/v1/nodes/migrate nodes migrateNode
+// swagger:route PUT /api/v1/nodes/migrate nodes migrateData
 //
 // Used to migrate a legacy node.
 //
@@ -29,7 +29,7 @@ import (
 //	  		oauth
 //
 //			Responses:
-//				200: nodeJoinResponse
+//				200: hostPull
 func migrate(w http.ResponseWriter, r *http.Request) {
 	data := models.MigrationData{}
 	host := models.Host{}
@@ -123,7 +123,11 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				logger.Log(0, "error creating ingress gateway for node", node.ID, err.Error())
 			}
-			mq.RunUpdates(&ingressNode, true)
+			go func() {
+				if err := mq.NodeUpdate(&ingressNode); err != nil {
+					slog.Error("error publishing node update to node", "node", ingressNode.ID, "error", err)
+				}
+			}()
 		}
 	}
 }
@@ -136,6 +140,9 @@ func convertLegacyHostNode(legacy models.LegacyNode) (models.Host, models.Node) 
 	host.AutoUpdate = servercfg.AutoUpdateEnabled()
 	host.Interface = "netmaker"
 	host.ListenPort = int(legacy.ListenPort)
+	if host.ListenPort == 0 {
+		host.ListenPort = 51821
+	}
 	host.MTU = int(legacy.MTU)
 	host.PublicKey, _ = wgtypes.ParseKey(legacy.PublicKey)
 	host.MacAddress = net.HardwareAddr(legacy.MacAddress)
@@ -147,6 +154,11 @@ func convertLegacyHostNode(legacy models.LegacyNode) (models.Host, models.Node) 
 	host.IsDocker = models.ParseBool(legacy.IsDocker)
 	host.IsK8S = models.ParseBool(legacy.IsK8S)
 	host.IsStatic = models.ParseBool(legacy.IsStatic)
+	host.PersistentKeepalive = time.Duration(legacy.PersistentKeepalive) * time.Second
+	if host.PersistentKeepalive == 0 {
+		host.PersistentKeepalive = models.DefaultPersistentKeepAlive
+	}
+
 	node := convertLegacyNode(legacy, host.ID)
 	return host, node
 }
@@ -198,7 +210,6 @@ func convertLegacyNode(legacy models.LegacyNode, hostID uuid.UUID) models.Node {
 	node.IsRelay = false
 	node.RelayedNodes = []string{}
 	node.DNSOn = models.ParseBool(legacy.DNSOn)
-	node.PersistentKeepalive = time.Duration(int64(time.Second) * int64(legacy.PersistentKeepalive))
 	node.LastModified = time.Now()
 	node.ExpirationDateTime = time.Unix(legacy.ExpirationDateTime, 0)
 	node.EgressGatewayNatEnabled = models.ParseBool(legacy.EgressGatewayNatEnabled)

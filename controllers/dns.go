@@ -33,6 +33,8 @@ func dnsHandlers(r *mux.Router) {
 //
 //			Security:
 //	  		oauth
+//			Responses:
+//			200: dnsResponse
 func getNodeDNS(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -264,8 +266,8 @@ func GetDNSEntry(domain string, network string) (models.DNSEntry, error) {
 //	  		oauth
 //
 //			Responses:
-//				200: dnsStringJSONResponse
-//				*: dnsStringJSONResponse
+//			200: dnsResponse
+//				*: dnsResponse
 func pushDNS(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")

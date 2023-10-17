@@ -1,11 +1,15 @@
 
-# Netmaker v0.21.0
+# Netmaker v0.21.1
 
 ## Whats New
-- New User Management, Refer Docs For More Info
-- Added Support For Remote Access Client
+- Remote access client session management, refer users section in docs for more details
+- Can now create generic DNS entries
+- Upgrade client version to match server version from UI
+- Moved PersistentKeepAlive setting from node to host level
 ## What's Fixed
--  Proper Cleanup Of Extclients On a Client Gateway Deletion
+- Extclients DNS now properly set from ingress dns value provided
+- Allow role update of OAuth user
+- Fixed zombie node issue
 ## known issues
 - Windows installer does not install WireGuard
 - netclient-gui will continously display error dialog if netmaker server is offline
