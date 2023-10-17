@@ -571,10 +571,28 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if servercfg.IsPro && wasFailover {
-		if err = logic.EnterpriseResetFailoverFunc(node.Network); err != nil {
-			logger.Log(1, "failed to reset failover list during failover create", node.ID.String(), node.Network)
+	if servercfg.IsPro {
+		if wasFailover {
+			if err = logic.EnterpriseResetFailoverFunc(node.Network); err != nil {
+				logger.Log(1, "failed to reset failover list during failover create", node.ID.String(), node.Network)
+			}
 		}
+		go func() {
+			users, err := logic.GetUsersDB()
+			if err == nil {
+				for _, user := range users {
+					if _, ok := user.RemoteGwIDs[nodeid]; ok {
+						delete(user.RemoteGwIDs, nodeid)
+						err = logic.UpsertUser(user)
+						if err != nil {
+							slog.Error("failed to get user", "user", user.UserName, "error", err)
+						}
+					}
+				}
+			} else {
+				slog.Error("failed to get users", "error", err)
+			}
+		}()
 	}
 
 	apiNode := node.ConvertToAPINode()

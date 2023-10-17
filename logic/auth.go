@@ -39,6 +39,30 @@ func HasSuperAdmin() (bool, error) {
 	return false, err
 }
 
+// GetUsersDB - gets users
+func GetUsersDB() ([]models.User, error) {
+
+	var users []models.User
+
+	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
+
+	if err != nil {
+		return users, err
+	}
+
+	for _, value := range collection {
+
+		var user models.User
+		err = json.Unmarshal([]byte(value), &user)
+		if err != nil {
+			continue // get users
+		}
+		users = append(users, user)
+	}
+
+	return users, err
+}
+
 // GetUsers - gets users
 func GetUsers() ([]models.ReturnUser, error) {
 
