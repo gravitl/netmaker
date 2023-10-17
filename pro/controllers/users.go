@@ -185,6 +185,9 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 			if node.PendingDelete {
 				continue
 			}
+			if !node.IsIngressGateway {
+				continue
+			}
 			host, err := logic.GetHost(node.HostID.String())
 			if err != nil {
 				continue
@@ -212,6 +215,9 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 	for gwID := range user.RemoteGwIDs {
 		node, err := logic.GetNodeByID(gwID)
 		if err != nil {
+			continue
+		}
+		if !node.IsIngressGateway {
 			continue
 		}
 		if node.PendingDelete {
