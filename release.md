@@ -1,5 +1,5 @@
 
-# Netmaker v0.21.1
+# Netmaker v0.21.2
 
 ## Whats New
 - Remote access client session management, refer users section in docs for more details
