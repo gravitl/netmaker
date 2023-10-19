@@ -364,7 +364,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 					extclient.RemoteAccessClientID == customExtClient.RemoteAccessClientID && nodeid == extclient.IngressGatewayID {
 					// extclient on the gw already exists for the remote access client
 					err = errors.New("remote client config already exists on the gateway")
-					slog.Error("failed to get extclients", "error", err)
+					slog.Error("failed to create extclient", "user", userName, "error", err)
 					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 					return
 				}
@@ -539,12 +539,12 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		err = errors.New("Could not delete extclient " + params["clientid"])
 		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("failed to delete extclient [%s],network [%s]: %v", clientid, network, err))
+			fmt.Sprintf("failed to get extclient [%s],network [%s]: %v", clientid, network, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	if !logic.IsUserAllowedAccessToExtClient(r.Header.Get("user"), extclient) {
-		slog.Error("failed to get extclient", "network", network, "clientID",
+		slog.Error("user not allowed to delete", "network", network, "clientID",
 			clientid, "error", errors.New("access is denied"))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("access is denied"), "forbidden"))
 		return

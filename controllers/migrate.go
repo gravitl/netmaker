@@ -65,7 +65,6 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 			host.Name = data.HostName
 			host.HostPass = data.Password
 			host.OS = data.OS
-			host.PersistentKeepalive = time.Duration(legacy.PersistentKeepalive)
 			if err := logic.CreateHost(&host); err != nil {
 				slog.Error("create host", "error", err)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -141,6 +140,9 @@ func convertLegacyHostNode(legacy models.LegacyNode) (models.Host, models.Node) 
 	host.AutoUpdate = servercfg.AutoUpdateEnabled()
 	host.Interface = "netmaker"
 	host.ListenPort = int(legacy.ListenPort)
+	if host.ListenPort == 0 {
+		host.ListenPort = 51821
+	}
 	host.MTU = int(legacy.MTU)
 	host.PublicKey, _ = wgtypes.ParseKey(legacy.PublicKey)
 	host.MacAddress = net.HardwareAddr(legacy.MacAddress)
@@ -152,6 +154,11 @@ func convertLegacyHostNode(legacy models.LegacyNode) (models.Host, models.Node) 
 	host.IsDocker = models.ParseBool(legacy.IsDocker)
 	host.IsK8S = models.ParseBool(legacy.IsK8S)
 	host.IsStatic = models.ParseBool(legacy.IsStatic)
+	host.PersistentKeepalive = time.Duration(legacy.PersistentKeepalive) * time.Second
+	if host.PersistentKeepalive == 0 {
+		host.PersistentKeepalive = models.DefaultPersistentKeepAlive
+	}
+
 	node := convertLegacyNode(legacy, host.ID)
 	return host, node
 }
