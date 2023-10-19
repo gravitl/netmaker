@@ -118,7 +118,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			peerHost, err := GetHost(peer.HostID.String())
 			if err != nil {
 				logger.Log(1, "no peer host", peer.HostID.String(), err.Error())
-				return models.HostPeerUpdate{}, err
+				continue
 			}
 			peerConfig := wgtypes.PeerConfig{
 				PublicKey:                   peerHost.PublicKey,
