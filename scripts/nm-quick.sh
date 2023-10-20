@@ -776,8 +776,9 @@ install_netmaker() {
 	export COMPOSE_HTTP_TIMEOUT=120
 
 	# start docker and rebuild containers / networks
-	docker-compose -f "$SCRIPT_DIR"/docker-compose.yml up -d --force-recreate
-
+	cd "${SCRIPT_DIR}"
+	docker-compose up -d --force-recreate
+	cd -
 	wait_seconds 2
 
 }
