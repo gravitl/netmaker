@@ -7,9 +7,7 @@ import (
 
 // CreateNodeACL - inserts or updates a node ACL on given network and adds to state
 func CreateNodeACL(networkID NetworkID, nodeID NodeID, defaultVal byte) (acls.ACL, error) {
-	if defaultVal != acls.NotAllowed && defaultVal != acls.Allowed {
-		defaultVal = acls.NotAllowed
-	}
+
 	var currentNetworkACL, err = FetchAllACLs(networkID)
 	if err != nil {
 		if database.IsEmptyRecord(err) {
