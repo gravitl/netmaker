@@ -107,6 +107,7 @@ func ManageZombies(ctx context.Context, peerUpdate chan *models.Node) {
 							logger.Log(1, "error deleting zombie node", zombies[i].String(), err.Error())
 							continue
 						}
+						node.PendingDelete = true
 						node.Action = models.NODE_DELETE
 						peerUpdate <- &node
 						logger.Log(1, "deleting zombie node", node.ID.String())

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logger"
@@ -321,6 +322,22 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 
 	node, err := logic.UpdateHostNetwork(currHost, network, false)
 	if err != nil {
+		if strings.Contains(err.Error(), "host not part of the network") && forceDelete {
+			// force cleanup the nodex
+			node, err := logic.GetNodeByHostRef(hostid, network)
+			if err != nil {
+				slog.Error("couldn't get node for host", "hostid", hostid, "network", network, "error", err)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+				return
+			}
+			err = logic.DeleteNodeByID(&node)
+			if err != nil {
+				slog.Error("failed to force delete daemon node",
+					"nodeid", node.ID.String(), "hostid", hostid, "network", network, "error", err)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to force delete daemon node: "+err.Error()), "internal"))
+				return
+			}
+		}
 		logger.Log(0, r.Header.Get("user"), "failed to remove host from network:", hostid, network, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
