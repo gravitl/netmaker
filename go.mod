@@ -16,7 +16,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/txn2/txeh v1.5.5
 	golang.org/x/crypto v0.14.0
-	golang.org/x/net v0.16.0 // indirect
+	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/oauth2 v0.13.0
 	golang.org/x/sys v0.13.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
@@ -32,7 +32,7 @@ require (
 )
 
 require (
-	github.com/coreos/go-oidc/v3 v3.6.0
+	github.com/coreos/go-oidc/v3 v3.7.0
 	github.com/gorilla/websocket v1.5.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 )
@@ -67,5 +67,5 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
 	golang.org/x/sync v0.1.0 // indirect
-	google.golang.org/appengine v1.6.7 // indirect
+	google.golang.org/appengine v1.6.8 // indirect
 )
