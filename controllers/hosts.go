@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logger"
@@ -322,7 +321,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 
 	node, err := logic.UpdateHostNetwork(currHost, network, false)
 	if err != nil {
-		if strings.Contains(err.Error(), "host not part of the network") && forceDelete {
+		if node == nil && forceDelete {
 			// force cleanup the node
 			node, err := logic.GetNodeByHostRef(hostid, network)
 			if err != nil {
