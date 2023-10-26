@@ -329,8 +329,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 				return
 			}
-			err = logic.DeleteNodeByID(&node)
-			if err != nil {
+			if err = logic.DeleteNodeByID(&node); err != nil {
 				slog.Error("failed to force delete daemon node",
 					"nodeid", node.ID.String(), "hostid", hostid, "network", network, "error", err)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to force delete daemon node: "+err.Error()), "internal"))
