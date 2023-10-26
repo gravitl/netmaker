@@ -34,7 +34,7 @@ func decryptMsgWithHost(host *models.Host, msg []byte) ([]byte, error) {
 
 func DecryptMsg(node *models.Node, msg []byte) ([]byte, error) {
 	if len(msg) <= 24 { // make sure message is of appropriate length
-		return nil, fmt.Errorf("recieved invalid message from broker %v", msg)
+		return nil, fmt.Errorf("received invalid message from broker %v", msg)
 	}
 	host, err := logic.GetHost(node.HostID.String())
 	if err != nil {

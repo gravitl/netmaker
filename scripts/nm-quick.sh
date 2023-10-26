@@ -370,7 +370,6 @@ local_install_setup() { (
 	else
 		cp docker/Caddyfile "$SCRIPT_DIR/Caddyfile"
 	fi
-	cp scripts/nm-certs.sh "$SCRIPT_DIR/nm-certs.sh"
 	cp scripts/netmaker.default.env "$SCRIPT_DIR/netmaker.default.env"
 	cp docker/mosquitto.conf "$SCRIPT_DIR/mosquitto.conf"
 	cp docker/wait.sh "$SCRIPT_DIR/wait.sh"
@@ -776,8 +775,9 @@ install_netmaker() {
 	export COMPOSE_HTTP_TIMEOUT=120
 
 	# start docker and rebuild containers / networks
-	docker-compose -f "$SCRIPT_DIR"/docker-compose.yml up -d --force-recreate
-
+	cd "${SCRIPT_DIR}"
+	docker-compose up -d --force-recreate
+	cd -
 	wait_seconds 2
 
 }
