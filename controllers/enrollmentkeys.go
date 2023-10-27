@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 
 	"github.com/gravitl/netmaker/auth"
@@ -26,6 +27,8 @@ func enrollmentKeyHandlers(r *mux.Router) {
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/host/register/{token}", http.HandlerFunc(handleHostRegister)).
 		Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/enrollment-keys/{keyID}", logic.SecurityCheck(true, http.HandlerFunc(updateEnrollmentKey))).
+		Methods(http.MethodPut)
 }
 
 // swagger:route GET /api/v1/enrollment-keys enrollmentKeys getEnrollmentKeys
@@ -113,12 +116,20 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		newTime = time.Unix(enrollmentKeyBody.Expiration, 0)
 	}
 
+	relayId, err := uuid.Parse(enrollmentKeyBody.Relay)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "error parsing relay id: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
 	newEnrollmentKey, err := logic.CreateEnrollmentKey(
 		enrollmentKeyBody.UsesRemaining,
 		newTime,
 		enrollmentKeyBody.Networks,
 		enrollmentKeyBody.Tags,
 		enrollmentKeyBody.Unlimited,
+		relayId,
 	)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to create enrollment key:", err.Error())
@@ -136,6 +147,54 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(newEnrollmentKey)
 }
 
+// swagger:route PUT /api/v1/enrollment-keys/:id enrollmentKeys updateEnrollmentKey
+//
+// Updates an EnrollmentKey for hosts to use on Netmaker server. Updates only the relay to use.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: EnrollmentKey
+func updateEnrollmentKey(w http.ResponseWriter, r *http.Request) {
+	var enrollmentKeyBody models.APIEnrollmentKey
+	params := mux.Vars(r)
+	keyId := params["keyID"]
+
+	err := json.NewDecoder(r.Body).Decode(&enrollmentKeyBody)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	relayId, err := uuid.Parse(enrollmentKeyBody.Relay)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "error parsing relay id: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	newEnrollmentKey, err := logic.UpdateEnrollmentKey(keyId, relayId)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to update enrollment key:", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	if err = logic.Tokenize(newEnrollmentKey, servercfg.GetAPIHost()); err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to create enrollment key:", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	logger.Log(2, r.Header.Get("user"), "updated enrollment key")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(newEnrollmentKey)
+}
+
 // swagger:route POST /api/v1/enrollment-keys/{token} enrollmentKeys handleHostRegister
 //
 // Handles a Netclient registration with server and add nodes accordingly.
@@ -148,6 +207,7 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //				200: RegisterResponse
 func handleHostRegister(w http.ResponseWriter, r *http.Request) {
+	shouldOmitRelaying := r.URL.Query().Get("omitRelay") == "true"
 	params := mux.Vars(r)
 	token := params["token"]
 	logger.Log(0, "received registration attempt with token", token)
@@ -286,5 +346,9 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&response)
 	// notify host of changes, peer and node updates
-	go auth.CheckNetRegAndHostUpdate(enrollmentKey.Networks, &newHost)
+	if server.IsPro && !shouldOmitRelaying {
+		go auth.CheckNetRegAndHostUpdate(enrollmentKey.Networks, &newHost, enrollmentKey.Relay)
+	} else {
+		go auth.CheckNetRegAndHostUpdate(enrollmentKey.Networks, &newHost, uuid.Nil)
+	}
 }

@@ -160,4 +160,5 @@ type RegisterMsg struct {
 	User         string `json:"user,omitempty"`
 	Password     string `json:"password,omitempty"`
 	JoinAll      bool   `json:"join_all,omitempty"`
+	Relay        string `json:"relay,omitempty"`
 }

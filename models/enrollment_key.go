@@ -2,6 +2,8 @@ package models
 
 import (
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -39,6 +41,7 @@ type EnrollmentKey struct {
 	Tags          []string  `json:"tags"`
 	Token         string    `json:"token,omitempty"` // B64 value of EnrollmentToken
 	Type          KeyType   `json:"type"`
+	Relay         uuid.UUID `json:"relay"`
 }
 
 // APIEnrollmentKey - used to create enrollment keys via API
@@ -49,6 +52,7 @@ type APIEnrollmentKey struct {
 	Unlimited     bool     `json:"unlimited"`
 	Tags          []string `json:"tags"`
 	Type          KeyType  `json:"type"`
+	Relay         string   `json:"relay"`
 }
 
 // RegisterResponse - the response to a successful enrollment register
