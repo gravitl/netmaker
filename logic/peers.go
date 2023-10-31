@@ -38,8 +38,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		HostNetworkInfo: models.HostInfoMap{},
 	}
 
-	// endpoint detection always comes from the server
-	hostPeerUpdate.EndpointDetection = servercfg.EndpointDetectionEnabled()
 	slog.Debug("peer update for host", "hostId", host.ID.String())
 	peerIndexMap := make(map[string]int)
 	for _, nodeID := range host.Nodes {
