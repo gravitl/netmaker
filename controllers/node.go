@@ -725,34 +725,6 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	}
 	forceDelete := r.URL.Query().Get("force") == "true"
 	fromNode := r.Header.Get("requestfrom") == "node"
-	if node.IsRelayed {
-		// cleanup node from relayednodes on relay node
-		relayNode, err := logic.GetNodeByID(node.RelayedBy)
-		if err == nil {
-			relayedNodes := []string{}
-			for _, relayedNodeID := range relayNode.RelayedNodes {
-				if relayedNodeID == node.ID.String() {
-					continue
-				}
-				relayedNodes = append(relayedNodes, relayedNodeID)
-			}
-			relayNode.RelayedNodes = relayedNodes
-			logic.UpsertNode(&relayNode)
-		}
-	}
-	if node.IsRelay {
-		// unset all the relayed nodes
-		logic.SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
-	}
-	if node.IsIngressGateway {
-		// delete ext clients belonging to ingress gatewa
-		go func(node models.Node) {
-			if err = logic.DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
-				slog.Error("failed to delete extclients", "gatewayid", node.ID.String(), "network", node.Network, "error", err.Error())
-			}
-		}(node)
-
-	}
 
 	purge := forceDelete || fromNode
 	if err := logic.DeleteNode(&node, purge); err != nil {
@@ -764,6 +736,8 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
 	go func() { // notify of peer change
 		if !fromNode {
+			node.PendingDelete = true
+			node.Action = models.NODE_DELETE
 			if err := mq.NodeUpdate(&node); err != nil {
 				slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 			}

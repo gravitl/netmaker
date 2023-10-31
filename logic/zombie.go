@@ -107,6 +107,7 @@ func ManageZombies(ctx context.Context, peerUpdate chan *models.Node) {
 							logger.Log(1, "error deleting zombie node", zombies[i].String(), err.Error())
 							continue
 						}
+						node.PendingDelete = true
 						node.Action = models.NODE_DELETE
 						peerUpdate <- &node
 						logger.Log(1, "deleting zombie node", node.ID.String())
@@ -120,14 +121,17 @@ func ManageZombies(ctx context.Context, peerUpdate chan *models.Node) {
 					host, err := GetHost(hostZombies[i].String())
 					if err != nil {
 						logger.Log(1, "error retrieving zombie host", err.Error())
-						logger.Log(1, "deleting ", host.ID.String(), " from zombie list")
-						zombies = append(zombies[:i], zombies[i+1:]...)
+						if host != nil {
+							logger.Log(1, "deleting ", host.ID.String(), " from zombie list")
+						}
+						hostZombies = append(hostZombies[:i], hostZombies[i+1:]...)
 						continue
 					}
 					if len(host.Nodes) == 0 {
 						if err := RemoveHost(host, true); err != nil {
 							logger.Log(0, "error deleting zombie host", host.ID.String(), err.Error())
 						}
+						hostZombies = append(hostZombies[:i], hostZombies[i+1:]...)
 					}
 				}
 			}

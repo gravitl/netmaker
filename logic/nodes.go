@@ -183,6 +183,35 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 func DeleteNode(node *models.Node, purge bool) error {
 	alreadyDeleted := node.PendingDelete || node.Action == models.NODE_DELETE
 	node.Action = models.NODE_DELETE
+
+	if !alreadyDeleted {
+		//delete ext clients if node is ingress gw
+		if node.IsIngressGateway {
+			if err := DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
+				slog.Error("failed to delete ext clients", "nodeid", node.ID.String(), "error", err.Error())
+			}
+		}
+		if node.IsRelayed {
+			// cleanup node from relayednodes on relay node
+			relayNode, err := GetNodeByID(node.RelayedBy)
+			if err == nil {
+				relayedNodes := []string{}
+				for _, relayedNodeID := range relayNode.RelayedNodes {
+					if relayedNodeID == node.ID.String() {
+						continue
+					}
+					relayedNodes = append(relayedNodes, relayedNodeID)
+				}
+				relayNode.RelayedNodes = relayedNodes
+				UpsertNode(&relayNode)
+			}
+		}
+		if node.IsRelay {
+			// unset all the relayed nodes
+			SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
+		}
+	}
+
 	if !purge && !alreadyDeleted {
 		newnode := *node
 		newnode.PendingDelete = true
@@ -198,7 +227,7 @@ func DeleteNode(node *models.Node, purge bool) error {
 	host, err := GetHost(node.HostID.String())
 	if err != nil {
 		logger.Log(1, "no host found for node", node.ID.String(), "deleting..")
-		if delErr := deleteNodeByID(node); delErr != nil {
+		if delErr := DeleteNodeByID(node); delErr != nil {
 			logger.Log(0, "failed to delete node", node.ID.String(), delErr.Error())
 		}
 		return err
@@ -215,16 +244,25 @@ func DeleteNode(node *models.Node, purge bool) error {
 	return nil
 }
 
-// deleteNodeByID - deletes a node from database
-func deleteNodeByID(node *models.Node) error {
-	var err error
-	var key = node.ID.String()
-	//delete any ext clients as required
-	if node.IsIngressGateway {
-		if err := DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
-			logger.Log(0, "failed to deleted ext clients", err.Error())
+// GetNodeByHostRef - gets the node by host id and network
+func GetNodeByHostRef(hostid, network string) (node models.Node, err error) {
+	nodes, err := GetNetworkNodes(network)
+	if err != nil {
+		return models.Node{}, err
+	}
+	for _, node := range nodes {
+		if node.HostID.String() == hostid && node.Network == network {
+			return node, nil
 		}
 	}
+	return models.Node{}, errors.New("node not found")
+}
+
+// DeleteNodeByID - deletes a node from database
+func DeleteNodeByID(node *models.Node) error {
+	var err error
+	var key = node.ID.String()
+
 	if err = database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
 		if !database.IsEmptyRecord(err) {
 			return err

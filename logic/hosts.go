@@ -392,7 +392,7 @@ func DissasociateNodeFromHost(n *models.Node, h *models.Host) error {
 			}
 		}
 	}()
-	if err := deleteNodeByID(n); err != nil {
+	if err := DeleteNodeByID(n); err != nil {
 		return err
 	}
 
