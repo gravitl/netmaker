@@ -123,11 +123,12 @@ func pull(w http.ResponseWriter, r *http.Request) {
 
 	serverConf.TrafficKey = key
 	response := models.HostPull{
-		Host:         *host,
-		Nodes:        logic.GetHostNodes(host),
-		ServerConfig: serverConf,
-		Peers:        hPU.Peers,
-		PeerIDs:      hPU.PeerIDs,
+		Host:            *host,
+		Nodes:           logic.GetHostNodes(host),
+		ServerConfig:    serverConf,
+		Peers:           hPU.Peers,
+		PeerIDs:         hPU.PeerIDs,
+		HostNetworkInfo: hPU.HostNetworkInfo,
 	}
 
 	logger.Log(1, hostID, "completed a pull")
