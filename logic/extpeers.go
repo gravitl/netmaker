@@ -265,8 +265,8 @@ func GetExtClientsByID(nodeid, network string) ([]models.ExtClient, error) {
 	return result, nil
 }
 
-func GetAllExtclientsFromCache() []models.ExtClient {
-	return getAllExtClientsFromCache()
+func GetAllExtclientsFromCache() map[string]models.ExtClient {
+	return extClientCacheMap
 }
 
 // GetAllExtClients - gets all ext clients from DB

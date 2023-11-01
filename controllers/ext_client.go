@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"strconv"
@@ -543,7 +542,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	clientid := params["clientid"]
 	network := params["network"]
-	log.Println("------> EXTCLIENT CACHE")
+
 	extclient, err := logic.GetExtClient(clientid, network)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
