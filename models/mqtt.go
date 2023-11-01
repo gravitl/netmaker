@@ -8,18 +8,17 @@ import (
 
 // HostPeerUpdate - struct for host peer updates
 type HostPeerUpdate struct {
-	Host              Host                 `json:"host" bson:"host" yaml:"host"`
-	NodeAddrs         []net.IPNet          `json:"nodes_addrs" yaml:"nodes_addrs"`
-	Server            string               `json:"server" bson:"server" yaml:"server"`
-	ServerVersion     string               `json:"serverversion" bson:"serverversion" yaml:"serverversion"`
-	ServerAddrs       []ServerAddr         `json:"serveraddrs" bson:"serveraddrs" yaml:"serveraddrs"`
-	NodePeers         []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
-	Peers             []wgtypes.PeerConfig
-	PeerIDs           PeerMap               `json:"peerids" bson:"peerids" yaml:"peerids"`
-	EndpointDetection bool                  `json:"endpointdetection" yaml:"endpointdetection"`
-	HostNetworkInfo   HostInfoMap           `json:"host_network_info,omitempty" bson:"host_network_info,omitempty" yaml:"host_network_info,omitempty"`
-	EgressRoutes      []EgressNetworkRoutes `json:"egress_network_routes"`
-	FwUpdate          FwUpdate              `json:"fw_update"`
+	Host            Host                 `json:"host" bson:"host" yaml:"host"`
+	NodeAddrs       []net.IPNet          `json:"nodes_addrs" yaml:"nodes_addrs"`
+	Server          string               `json:"server" bson:"server" yaml:"server"`
+	ServerVersion   string               `json:"serverversion" bson:"serverversion" yaml:"serverversion"`
+	ServerAddrs     []ServerAddr         `json:"serveraddrs" bson:"serveraddrs" yaml:"serveraddrs"`
+	NodePeers       []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
+	Peers           []wgtypes.PeerConfig
+	PeerIDs         PeerMap               `json:"peerids" bson:"peerids" yaml:"peerids"`
+	HostNetworkInfo HostInfoMap           `json:"host_network_info,omitempty" bson:"host_network_info,omitempty" yaml:"host_network_info,omitempty"`
+	EgressRoutes    []EgressNetworkRoutes `json:"egress_network_routes"`
+	FwUpdate        FwUpdate              `json:"fw_update"`
 }
 
 // IngressInfo - struct for ingress info
