@@ -107,7 +107,7 @@ func GetNetworkExtClients(network string) ([]models.ExtClient, error) {
 		if err != nil {
 			continue
 		}
-		key, err := GetRecordKey(extclient.ClientID, network)
+		key, err := GetRecordKey(extclient.ClientID, extclient.Network)
 		if err == nil {
 			storeExtClientInCache(key, extclient)
 		}
