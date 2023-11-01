@@ -223,8 +223,15 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, erro
 		slog.Warn("proceeding with cached response, Netmaker API may be down")
 	} else {
 		defer validateResponse.Body.Close()
-		if validateResponse.StatusCode != 200 {
-			return nil, fmt.Errorf("could not validate license, got status code %d", validateResponse.StatusCode)
+		if validateResponse.StatusCode != http.StatusOK {
+			err := fmt.Errorf("could not validate license, got status code %d", validateResponse.StatusCode)
+			// if it's a temp error, just log it, don't consider license invalid
+			if validateResponse.StatusCode == http.StatusServiceUnavailable ||
+				validateResponse.StatusCode == http.StatusGatewayTimeout {
+				slog.Warn(err.Error())
+				return nil, nil
+			}
+			return nil, err
 		} // if you received a 200 cache the response locally
 
 		body, err = io.ReadAll(validateResponse.Body)
