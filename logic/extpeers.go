@@ -3,6 +3,7 @@ package logic
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"reflect"
 	"sync"
 	"time"
@@ -131,6 +132,8 @@ func GetExtClient(clientid string, network string) (models.ExtClient, error) {
 	if err != nil {
 		return extclient, err
 	}
+	log.Println("\n-------> EXTCLIENTS: ", extClientCacheMap)
+	log.Println("\n------> EXTCLIENT CACHE---> ", key, extClientCacheMap[key])
 	if extclient, ok := getExtClientFromCache(key); ok {
 		return extclient, nil
 	}
