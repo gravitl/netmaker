@@ -77,7 +77,10 @@ func DeleteExtClient(network string, clientid string) error {
 	err = database.DeleteRecord(database.EXT_CLIENT_TABLE_NAME, key)
 	if err != nil {
 		if database.IsEmptyRecord(err) {
-			deleteExtClientFromCache(key)
+			if _, ok := getExtClientFromCache(key); ok {
+				deleteExtClientFromCache(key)
+				return nil
+			}
 		}
 		return err
 	}
