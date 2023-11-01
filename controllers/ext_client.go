@@ -30,6 +30,13 @@ func extClientHandlers(r *mux.Router) {
 	r.HandleFunc("/api/extclients/{network}/{clientid}", logic.SecurityCheck(false, http.HandlerFunc(updateExtClient))).Methods(http.MethodPut)
 	r.HandleFunc("/api/extclients/{network}/{clientid}", logic.SecurityCheck(false, http.HandlerFunc(deleteExtClient))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/extclients/{network}/{nodeid}", logic.SecurityCheck(false, checkFreeTierLimits(limitChoiceMachines, http.HandlerFunc(createExtClient)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/extclients/cache", getCacheExtClients)
+}
+
+func getCacheExtClients(w http.ResponseWriter, r *http.Request) {
+	//Returns all the extclients in JSON format
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(logic.GetAllExtclientsFromCache())
 }
 
 func checkIngressExists(nodeID string) bool {
@@ -537,9 +544,9 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	network := params["network"]
 	extclient, err := logic.GetExtClient(clientid, network)
 	if err != nil {
-		err = errors.New("Could not get extclient " + params["clientid"])
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get extclient [%s],network [%s]: %v", clientid, network, err))
+		err = errors.New("Could not delete extclient " + params["clientid"])
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
