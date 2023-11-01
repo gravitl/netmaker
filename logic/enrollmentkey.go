@@ -64,17 +64,10 @@ func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string
 	if ok := k.Validate(); !ok {
 		return nil, EnrollmentErrors.InvalidCreate
 	}
-	if k.Relay != uuid.Nil {
-		var relayNode models.Node
-		nodes, err := GetAllNodes()
+	if relay != uuid.Nil {
+		relayNode, err := GetNodeByID(relay.String())
 		if err != nil {
 			return nil, err
-		}
-		for _, node := range nodes {
-			if node.ID == k.Relay {
-				relayNode = node
-				break
-			}
 		}
 		if !slices.Contains(k.Networks, relayNode.Network) {
 			return nil, errors.New("relay node not in key's networks")
@@ -97,16 +90,9 @@ func UpdateEnrollmentKey(keyId string, relayId uuid.UUID) (*models.EnrollmentKey
 	}
 
 	if relayId != uuid.Nil {
-		var relayNode models.Node
-		nodes, err := GetAllNodes()
+		relayNode, err := GetNodeByID(relayId.String())
 		if err != nil {
 			return nil, err
-		}
-		for _, node := range nodes {
-			if node.ID == relayId {
-				relayNode = node
-				break
-			}
 		}
 		if !slices.Contains(key.Networks, relayNode.Network) {
 			return nil, errors.New("relay node not in key's networks")

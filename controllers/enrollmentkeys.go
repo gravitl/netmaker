@@ -116,11 +116,14 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		newTime = time.Unix(enrollmentKeyBody.Expiration, 0)
 	}
 
-	relayId, err := uuid.Parse(enrollmentKeyBody.Relay)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "error parsing relay id: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
+	relayId := uuid.Nil
+	if enrollmentKeyBody.Relay != "" {
+		relayId, err = uuid.Parse(enrollmentKeyBody.Relay)
+		if err != nil {
+			logger.Log(0, r.Header.Get("user"), "error parsing relay id: ", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
 	}
 
 	newEnrollmentKey, err := logic.CreateEnrollmentKey(
@@ -165,32 +168,35 @@ func updateEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewDecoder(r.Body).Decode(&enrollmentKeyBody)
 	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
+		slog.Error("error decoding request body", "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 
-	relayId, err := uuid.Parse(enrollmentKeyBody.Relay)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "error parsing relay id: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
+	relayId := uuid.Nil
+	if enrollmentKeyBody.Relay != "" {
+		relayId, err = uuid.Parse(enrollmentKeyBody.Relay)
+		if err != nil {
+			slog.Error("error parsing relay id", "error", err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
 	}
 
 	newEnrollmentKey, err := logic.UpdateEnrollmentKey(keyId, relayId)
 	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to update enrollment key:", err.Error())
+		slog.Error("failed to update enrollment key", "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
 	if err = logic.Tokenize(newEnrollmentKey, servercfg.GetAPIHost()); err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to create enrollment key:", err.Error())
+		slog.Error("failed to update enrollment key", "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
-	logger.Log(2, r.Header.Get("user"), "updated enrollment key")
+	slog.Info("updated enrollment key", "id", keyId)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newEnrollmentKey)
 }
@@ -207,7 +213,6 @@ func updateEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //				200: RegisterResponse
 func handleHostRegister(w http.ResponseWriter, r *http.Request) {
-	shouldOmitRelaying := r.URL.Query().Get("omitRelay") == "true"
 	params := mux.Vars(r)
 	token := params["token"]
 	logger.Log(0, "received registration attempt with token", token)
@@ -346,9 +351,5 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&response)
 	// notify host of changes, peer and node updates
-	if server.IsPro && !shouldOmitRelaying {
-		go auth.CheckNetRegAndHostUpdate(enrollmentKey.Networks, &newHost, enrollmentKey.Relay)
-	} else {
-		go auth.CheckNetRegAndHostUpdate(enrollmentKey.Networks, &newHost, uuid.Nil)
-	}
+	go auth.CheckNetRegAndHostUpdate(enrollmentKey.Networks, &newHost, enrollmentKey.Relay)
 }

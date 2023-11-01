@@ -232,10 +232,13 @@ func CheckNetRegAndHostUpdate(networks []string, h *models.Host, relayNodeId uui
 				logger.Log(0, "failed to add host to network:", h.ID.String(), h.Name, network, err.Error())
 				continue
 			}
-			if relayNodeId != uuid.Nil {
+			if relayNodeId != uuid.Nil && !newNode.IsRelayed {
 				newNode.IsRelayed = true
 				newNode.RelayedBy = relayNodeId.String()
 				slog.Info(fmt.Sprintf("adding relayed node %s to relay %s on network %s", newNode.ID.String(), relayNodeId.String(), network))
+				if err := logic.UpsertNode(newNode); err != nil {
+					slog.Error("failed to update node", "nodeid", relayNodeId.String())
+				}
 			}
 			logger.Log(1, "added new node", newNode.ID.String(), "to host", h.Name)
 			hostactions.AddAction(models.HostUpdate{

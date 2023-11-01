@@ -149,7 +149,7 @@ func RelayUpdates(currentNode, newNode *models.Node) bool {
 	return relayUpdates
 }
 
-// UpdateRelayed - updates a ralay's relayed nodes, and sends updates to the relayed nodes over MQ
+// UpdateRelayed - updates a relay's relayed nodes, and sends updates to the relayed nodes over MQ
 func UpdateRelayed(currentNode, newNode *models.Node) {
 	updatenodes := updateRelayNodes(currentNode.ID.String(), currentNode.RelayedNodes, newNode.RelayedNodes)
 	if len(updatenodes) > 0 {
