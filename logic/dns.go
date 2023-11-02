@@ -2,6 +2,7 @@ package logic
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"regexp"
 	"sort"
@@ -87,7 +88,7 @@ func GetNodeDNS(network string) ([]models.DNSEntry, error) {
 			continue
 		}
 		var entry = models.DNSEntry{}
-		entry.Name = host.Name
+		entry.Name = fmt.Sprintf("%s.%s", host.Name, network)
 		entry.Network = network
 		if node.Address.IP != nil {
 			entry.Address = node.Address.IP.String()
