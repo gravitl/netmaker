@@ -286,6 +286,7 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 			Node:   *newNode,
 		})
 		mq.PublishPeerUpdate()
+		mq.HandleNewNodeDNS(currHost, newNode)
 	}()
 	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("added host %s to network %s", currHost.Name, network))
 	w.WriteHeader(http.StatusOK)
