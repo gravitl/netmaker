@@ -137,6 +137,21 @@ func GetExtClient(clientid string, network string) (models.ExtClient, error) {
 	return extclient, err
 }
 
+// GetGwExtclients - return all ext clients attached to the passed gw id
+func GetGwExtclients(nodeID, network string) []models.ExtClient {
+	gwClients := []models.ExtClient{}
+	clients, err := GetNetworkExtClients(network)
+	if err != nil {
+		return gwClients
+	}
+	for _, client := range clients {
+		if client.IngressGatewayID == nodeID {
+			gwClients = append(gwClients, client)
+		}
+	}
+	return gwClients
+}
+
 // GetExtClient - gets a single ext client on a network
 func GetExtClientByPubKey(publicKey string, network string) (*models.ExtClient, error) {
 	netClients, err := GetNetworkExtClients(network)

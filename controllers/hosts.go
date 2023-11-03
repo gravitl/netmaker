@@ -227,6 +227,19 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	for _, nodeID := range currHost.Nodes {
+		node, err := logic.GetNodeByID(nodeID)
+		if err != nil {
+			slog.Error("failed to get node", "nodeid", nodeID, "error", err)
+			continue
+		}
+		var gwClients []models.ExtClient
+		if node.IsIngressGateway {
+			gwClients = logic.GetGwExtclients(node.ID.String(), node.Network)
+		}
+		go mq.PublishMqUpdatesForDeletedNode(node, false, gwClients)
+
+	}
 	if err = logic.RemoveHost(currHost, forceDelete); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to delete a host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -344,54 +357,16 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if node.IsRelayed {
-		// cleanup node from relayednodes on relay node
-		relayNode, err := logic.GetNodeByID(node.RelayedBy)
-		if err == nil {
-			relayedNodes := []string{}
-			for _, relayedNodeID := range relayNode.RelayedNodes {
-				if relayedNodeID == node.ID.String() {
-					continue
-				}
-				relayedNodes = append(relayedNodes, relayedNodeID)
-			}
-			relayNode.RelayedNodes = relayedNodes
-			logic.UpsertNode(&relayNode)
-		}
-	}
-	if node.IsRelay {
-		// unset all the relayed nodes
-		logic.SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
-	}
+	var gwClients []models.ExtClient
 	if node.IsIngressGateway {
-		// delete ext clients belonging to ingress gateway
-		go func(node models.Node) {
-			if err = logic.DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
-				slog.Error("failed to delete extclients", "gatewayid", node.ID.String(), "network", node.Network, "error", err.Error())
-			}
-		}(*node)
+		gwClients = logic.GetGwExtclients(node.ID.String(), node.Network)
 	}
 	logger.Log(1, "deleting node", node.ID.String(), "from host", currHost.Name)
 	if err := logic.DeleteNode(node, forceDelete); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
 		return
 	}
-	node.Action = models.NODE_DELETE
-	node.PendingDelete = true
-	go func() {
-		// notify node change
-		if err := mq.NodeUpdate(node); err != nil {
-			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
-		}
-		// notify of peer change
-		err = mq.PublishDeletedNodePeerUpdate(node)
-		if err != nil {
-			logger.Log(1, "error publishing peer update ", err.Error())
-		}
-		if err := mq.PublishDNSDelete(node, currHost); err != nil {
-			logger.Log(1, "error publishing dns update", err.Error())
-		}
-	}()
+	go mq.PublishMqUpdatesForDeletedNode(*node, true, gwClients)
 	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("removed host %s from network %s", currHost.Name, network))
 	w.WriteHeader(http.StatusOK)
 }

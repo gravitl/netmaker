@@ -184,32 +184,30 @@ func DeleteNode(node *models.Node, purge bool) error {
 	alreadyDeleted := node.PendingDelete || node.Action == models.NODE_DELETE
 	node.Action = models.NODE_DELETE
 
-	if !alreadyDeleted {
-		//delete ext clients if node is ingress gw
-		if node.IsIngressGateway {
-			if err := DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
-				slog.Error("failed to delete ext clients", "nodeid", node.ID.String(), "error", err.Error())
-			}
+	//delete ext clients if node is ingress gw
+	if node.IsIngressGateway {
+		if err := DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
+			slog.Error("failed to delete ext clients", "nodeid", node.ID.String(), "error", err.Error())
 		}
-		if node.IsRelayed {
-			// cleanup node from relayednodes on relay node
-			relayNode, err := GetNodeByID(node.RelayedBy)
-			if err == nil {
-				relayedNodes := []string{}
-				for _, relayedNodeID := range relayNode.RelayedNodes {
-					if relayedNodeID == node.ID.String() {
-						continue
-					}
-					relayedNodes = append(relayedNodes, relayedNodeID)
+	}
+	if node.IsRelayed {
+		// cleanup node from relayednodes on relay node
+		relayNode, err := GetNodeByID(node.RelayedBy)
+		if err == nil {
+			relayedNodes := []string{}
+			for _, relayedNodeID := range relayNode.RelayedNodes {
+				if relayedNodeID == node.ID.String() {
+					continue
 				}
-				relayNode.RelayedNodes = relayedNodes
-				UpsertNode(&relayNode)
+				relayedNodes = append(relayedNodes, relayedNodeID)
 			}
+			relayNode.RelayedNodes = relayedNodes
+			UpsertNode(&relayNode)
 		}
-		if node.IsRelay {
-			// unset all the relayed nodes
-			SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
-		}
+	}
+	if node.IsRelay {
+		// unset all the relayed nodes
+		SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
 	}
 
 	if !purge && !alreadyDeleted {
