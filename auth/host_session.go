@@ -15,6 +15,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
+	"golang.org/x/exp/slog"
 )
 
 // SessionHandler - called by the HTTP router when user
@@ -202,7 +203,7 @@ func SessionHandler(conn *websocket.Conn) {
 		if err = conn.WriteMessage(messageType, reponseData); err != nil {
 			logger.Log(0, "error during message writing:", err.Error())
 		}
-		go CheckNetRegAndHostUpdate(netsToAdd[:], &result.Host)
+		go CheckNetRegAndHostUpdate(netsToAdd[:], &result.Host, uuid.Nil)
 	case <-timeout: // the read from req.answerCh has timed out
 		if err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")); err != nil {
 			logger.Log(0, "error during timeout message writing:", err.Error())
@@ -221,7 +222,7 @@ func SessionHandler(conn *websocket.Conn) {
 }
 
 // CheckNetRegAndHostUpdate - run through networks and send a host update
-func CheckNetRegAndHostUpdate(networks []string, h *models.Host) {
+func CheckNetRegAndHostUpdate(networks []string, h *models.Host, relayNodeId uuid.UUID) {
 	// publish host update through MQ
 	for i := range networks {
 		network := networks[i]
@@ -230,6 +231,14 @@ func CheckNetRegAndHostUpdate(networks []string, h *models.Host) {
 			if err != nil {
 				logger.Log(0, "failed to add host to network:", h.ID.String(), h.Name, network, err.Error())
 				continue
+			}
+			if relayNodeId != uuid.Nil && !newNode.IsRelayed {
+				newNode.IsRelayed = true
+				newNode.RelayedBy = relayNodeId.String()
+				slog.Info(fmt.Sprintf("adding relayed node %s to relay %s on network %s", newNode.ID.String(), relayNodeId.String(), network))
+				if err := logic.UpsertNode(newNode); err != nil {
+					slog.Error("failed to update node", "nodeid", relayNodeId.String())
+				}
 			}
 			logger.Log(1, "added new node", newNode.ID.String(), "to host", h.Name)
 			hostactions.AddAction(models.HostUpdate{

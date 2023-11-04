@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
+	"golang.org/x/exp/slices"
 )
 
 // EnrollmentErrors - struct for holding EnrollmentKey error messages
@@ -29,12 +31,12 @@ var EnrollmentErrors = struct {
 }
 
 // CreateEnrollmentKey - creates a new enrollment key in db
-func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string, unlimited bool) (k *models.EnrollmentKey, err error) {
+func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string, unlimited bool, relay uuid.UUID) (*models.EnrollmentKey, error) {
 	newKeyID, err := getUniqueEnrollmentID()
 	if err != nil {
 		return nil, err
 	}
-	k = &models.EnrollmentKey{
+	k := &models.EnrollmentKey{
 		Value:         newKeyID,
 		Expiration:    time.Time{},
 		UsesRemaining: 0,
@@ -42,6 +44,7 @@ func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string
 		Networks:      []string{},
 		Tags:          []string{},
 		Type:          models.Undefined,
+		Relay:         relay,
 	}
 	if uses > 0 {
 		k.UsesRemaining = uses
@@ -61,10 +64,51 @@ func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string
 	if ok := k.Validate(); !ok {
 		return nil, EnrollmentErrors.InvalidCreate
 	}
+	if relay != uuid.Nil {
+		relayNode, err := GetNodeByID(relay.String())
+		if err != nil {
+			return nil, err
+		}
+		if !slices.Contains(k.Networks, relayNode.Network) {
+			return nil, errors.New("relay node not in key's networks")
+		}
+		if !relayNode.IsRelay {
+			return nil, errors.New("relay node is not a relay")
+		}
+	}
 	if err = upsertEnrollmentKey(k); err != nil {
 		return nil, err
 	}
-	return
+	return k, nil
+}
+
+// UpdateEnrollmentKey - updates an existing enrollment key's associated relay
+func UpdateEnrollmentKey(keyId string, relayId uuid.UUID) (*models.EnrollmentKey, error) {
+	key, err := GetEnrollmentKey(keyId)
+	if err != nil {
+		return nil, err
+	}
+
+	if relayId != uuid.Nil {
+		relayNode, err := GetNodeByID(relayId.String())
+		if err != nil {
+			return nil, err
+		}
+		if !slices.Contains(key.Networks, relayNode.Network) {
+			return nil, errors.New("relay node not in key's networks")
+		}
+		if !relayNode.IsRelay {
+			return nil, errors.New("relay node is not a relay")
+		}
+	}
+
+	key.Relay = relayId
+
+	if err = upsertEnrollmentKey(key); err != nil {
+		return nil, err
+	}
+
+	return key, nil
 }
 
 // GetAllEnrollmentKeys - fetches all enrollment keys from DB
