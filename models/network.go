@@ -1,6 +1,7 @@
 package models
 
 import (
+	"net"
 	"time"
 )
 
@@ -80,4 +81,19 @@ func (network *Network) SetDefaults() {
 	if network.DefaultACL == "" {
 		network.DefaultACL = "yes"
 	}
+}
+
+func (network *Network) GetNetworkNetworkCIDR4() *net.IPNet {
+	if network.AddressRange == "" {
+		return nil
+	}
+	_, netCidr, _ := net.ParseCIDR(network.AddressRange)
+	return netCidr
+}
+func (network *Network) GetNetworkNetworkCIDR6() *net.IPNet {
+	if network.AddressRange6 == "" {
+		return nil
+	}
+	_, netCidr, _ := net.ParseCIDR(network.AddressRange6)
+	return netCidr
 }
