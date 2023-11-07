@@ -245,6 +245,7 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 	currHost.Verbosity = newHost.Verbosity
 	currHost.Version = newHost.Version
 	currHost.IsStatic = newHost.IsStatic
+	currHost.Interface = newHost.Interface
 	currHost.MTU = newHost.MTU
 	currHost.Name = newHost.Name
 	if len(newHost.NatType) > 0 && newHost.NatType != currHost.NatType {
