@@ -23,7 +23,6 @@ func GetNetworks() ([]models.Network, error) {
 	var networks []models.Network
 
 	collection, err := database.FetchRecords(database.NETWORKS_TABLE_NAME)
-
 	if err != nil {
 		return networks, err
 	}
@@ -72,6 +71,9 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 		}
 		network.AddressRange6 = normalizedRange
 	}
+	if !IsNetworkCIDRUnique(network.GetNetworkNetworkCIDR4(), network.GetNetworkNetworkCIDR6()) {
+		return models.Network{}, errors.New("network cidr already in use")
+	}
 
 	network.SetDefaults()
 	network.SetNodesLastModified()
@@ -99,6 +101,27 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 func GetNetworkNonServerNodeCount(networkName string) (int, error) {
 	nodes, err := GetNetworkNodes(networkName)
 	return len(nodes), err
+}
+
+func IsNetworkCIDRUnique(cidr4 *net.IPNet, cidr6 *net.IPNet) bool {
+	networks, err := GetNetworks()
+	if err != nil {
+		return database.IsEmptyRecord(err)
+	}
+	for _, network := range networks {
+		if intersect(network.GetNetworkNetworkCIDR4(), cidr4) ||
+			intersect(network.GetNetworkNetworkCIDR6(), cidr6) {
+			return false
+		}
+	}
+	return true
+}
+
+func intersect(n1, n2 *net.IPNet) bool {
+	if n1 == nil || n2 == nil {
+		return false
+	}
+	return n2.Contains(n1.IP) || n1.Contains(n2.IP)
 }
 
 // GetParentNetwork - get parent network
