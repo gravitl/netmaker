@@ -116,7 +116,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 					slog.Error("failed peers publish after join acknowledged", "name", hostUpdate.Host.Name, "id", currentHost.ID, "error", err)
 					return
 				}
-				if err = handleNewNodeDNS(&hu.Host, &hu.Node); err != nil {
+				if err = HandleNewNodeDNS(&hu.Host, &hu.Node); err != nil {
 					slog.Error("failed to send dns update after node added to host", "name", hostUpdate.Host.Name, "id", currentHost.ID, "error", err)
 					return
 				}
@@ -217,7 +217,7 @@ func ClientPeerUpdate(client mqtt.Client, msg mqtt.Message) {
 	slog.Info("sent peer updates after signal received from", "id", id)
 }
 
-func handleNewNodeDNS(host *models.Host, node *models.Node) error {
+func HandleNewNodeDNS(host *models.Host, node *models.Node) error {
 	dns := models.DNSUpdate{
 		Action: models.DNSInsert,
 		Name:   host.Name + "." + node.Network,
