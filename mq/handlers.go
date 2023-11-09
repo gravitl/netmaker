@@ -159,6 +159,26 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 				return
 			}
 		}
+
+		// notify of deleted peer change
+		go func(host models.Host) {
+			for _, nodeID := range host.Nodes {
+				node, err := logic.GetNodeByID(nodeID)
+				if err == nil {
+					var gwClients []models.ExtClient
+					if node.IsIngressGateway {
+						gwClients = logic.GetGwExtclients(node.ID.String(), node.Network)
+					}
+					err = PublishDeletedNodePeerUpdate(&node)
+					if err != nil {
+						slog.Error("error publishing peer update", "error", err.Error())
+					}
+					go PublishMqUpdatesForDeletedNode(node, false, gwClients)
+				}
+
+			}
+		}(*currentHost)
+
 		if err := logic.DisassociateAllNodesFromHost(currentHost.ID.String()); err != nil {
 			slog.Error("failed to delete all nodes of host", "id", currentHost.ID, "error", err)
 			return
