@@ -169,10 +169,6 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 					if node.IsIngressGateway {
 						gwClients = logic.GetGwExtclients(node.ID.String(), node.Network)
 					}
-					err = PublishDeletedNodePeerUpdate(&node)
-					if err != nil {
-						slog.Error("error publishing peer update", "error", err.Error())
-					}
 					go PublishMqUpdatesForDeletedNode(node, false, gwClients)
 				}
 
