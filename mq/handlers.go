@@ -98,7 +98,6 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	case models.Acknowledgement:
 		hu := hostactions.GetAction(currentHost.ID.String())
 		if hu != nil {
-			fmt.Println("2. $$$$$$$$$$$$$$$$$@@@@@@ ------------------->HEREEEEEEEE ")
 			if err = HostUpdate(hu); err != nil {
 				slog.Error("failed to send new node to host", "name", hostUpdate.Host.Name, "id", currentHost.ID, "error", err)
 				return

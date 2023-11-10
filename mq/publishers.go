@@ -141,7 +141,6 @@ func HostUpdate(hostUpdate *models.HostUpdate) error {
 		return nil
 	}
 	logger.Log(3, "publishing host update to "+hostUpdate.Host.ID.String())
-	fmt.Printf("------>############ %s\n", hostUpdate.Action)
 	data, err := json.Marshal(hostUpdate)
 	if err != nil {
 		logger.Log(2, "error marshalling node update ", err.Error())
