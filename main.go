@@ -11,6 +11,7 @@ import (
 	"runtime/debug"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/config"
@@ -27,7 +28,6 @@ import (
 	"github.com/gravitl/netmaker/serverctl"
 	"golang.org/x/exp/slog"
 )
-
 
 var version = "v0.21.2"
 
@@ -138,11 +138,23 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 		go controller.HandleRESTRequests(wg, ctx)
 	}
 	//Run MessageQueue
-	if servercfg.IsMessageQueueBackend() {
-		wg.Add(1)
-		go runMessageQueue(wg, ctx)
-	}
-
+	wg.Add(1)
+	go runMessageQueue(wg, ctx)
+	go func() {
+		peerUpdate := make(chan *models.Node)
+		go logic.ManageZombies(ctx, peerUpdate)
+		go logic.DeleteExpiredNodes(ctx, peerUpdate)
+		for {
+			select {
+			case nodeUpdate := <-peerUpdate:
+				if err := mq.NodeUpdate(nodeUpdate); err != nil {
+					logger.Log(0, "failed to send peer update for deleted node: ", nodeUpdate.ID.String(), err.Error())
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 	if !servercfg.IsRestBackend() && !servercfg.IsMessageQueueBackend() {
 		logger.Log(0, "No Server Mode selected, so nothing is being served! Set Rest mode (REST_BACKEND) or MessageQueue (MESSAGEQUEUE_BACKEND) to 'true'.")
 	}
@@ -154,28 +166,27 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 // Should we be using a context vice a waitgroup????????????
 func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 	defer wg.Done()
-	brokerHost, _ := servercfg.GetMessageQueueEndpoint()
-	logger.Log(0, "connecting to mq broker at", brokerHost)
-	mq.SetupMQTT()
-	if mq.IsConnected() {
-		logger.Log(0, "connected to MQ Broker")
-	} else {
-		logger.FatalLog("error connecting to MQ Broker")
-	}
-	defer mq.CloseClient()
 	go mq.Keepalive(ctx)
-	go func() {
-		peerUpdate := make(chan *models.Node)
-		go logic.ManageZombies(ctx, peerUpdate)
-		go logic.DeleteExpiredNodes(ctx, peerUpdate)
-		for nodeUpdate := range peerUpdate {
-			if err := mq.NodeUpdate(nodeUpdate); err != nil {
-				logger.Log(0, "failed to send peer update for deleted node: ", nodeUpdate.ID.String(), err.Error())
-			}
+	defer mq.CloseClient()
+	for {
+		brokerHost, _ := servercfg.GetMessageQueueEndpoint()
+		logger.Log(0, "connecting to mq broker at", brokerHost)
+		mq.SetupMQTT()
+		if mq.IsConnected() {
+			logger.Log(0, "connected to MQ Broker")
+		} else {
+			logger.FatalLog("error connecting to MQ Broker")
 		}
-	}()
-	<-ctx.Done()
-	logger.Log(0, "Message Queue shutting down")
+		select {
+		case <-mq.ResetCh:
+			mq.CloseClient()
+			time.Sleep(time.Second * 2)
+			continue
+		case <-ctx.Done():
+			return
+		}
+	}
+
 }
 
 func setVerbosity() {

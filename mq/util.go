@@ -83,6 +83,7 @@ func publish(host *models.Host, dest string, msg []byte) error {
 	if token := mqclient.Publish(dest, 0, true, encrypted); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
 		var err error
 		if token.Error() == nil {
+			ResetCh <- struct{}{}
 			err = errors.New("connection timeout")
 		} else {
 			err = token.Error()

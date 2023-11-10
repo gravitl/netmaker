@@ -12,17 +12,21 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-// KEEPALIVE_TIMEOUT - time in seconds for timeout
-const KEEPALIVE_TIMEOUT = 60 //timeout in seconds
-// MQ_DISCONNECT - disconnects MQ
-const MQ_DISCONNECT = 250
+const (
+	// KEEPALIVE_TIMEOUT - time in seconds for timeout
+	KEEPALIVE_TIMEOUT = 60 //timeout in seconds
+	// MQ_DISCONNECT - disconnects MQ
+	MQ_DISCONNECT = 250
+	// MQ_TIMEOUT - timeout for MQ
+	MQ_TIMEOUT = 30
+)
 
-// MQ_TIMEOUT - timeout for MQ
-const MQ_TIMEOUT = 30
-
-var peer_force_send = 0
-
-var mqclient mqtt.Client
+var (
+	peer_force_send = 0
+	mqclient        mqtt.Client
+	// mq channetl to reset mq connection
+	ResetCh = make(chan struct{}, 2)
+)
 
 func setMqOptions(user, password string, opts *mqtt.ClientOptions) {
 	broker, _ := servercfg.GetMessageQueueEndpoint()
