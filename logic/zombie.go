@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -74,8 +75,9 @@ func checkForZombieHosts(h *models.Host) {
 }
 
 // ManageZombies - goroutine which adds/removes/deletes nodes from the zombie node quarantine list
-func ManageZombies(ctx context.Context, peerUpdate chan *models.Node) {
+func ManageZombies(ctx context.Context, wg *sync.WaitGroup, peerUpdate chan *models.Node) {
 	logger.Log(2, "Zombie management started")
+	defer wg.Done()
 	InitializeZombies()
 
 	// Zombie Nodes Cleanup Four Times a Day
