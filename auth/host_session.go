@@ -249,6 +249,7 @@ func CheckNetRegAndHostUpdate(networks []string, h *models.Host, relayNodeId uui
 		}
 	}
 	if servercfg.IsMessageQueueBackend() {
+		fmt.Println("1. $$$$$$$$$$$$$$$$$@@@@@@ ------------------->HEREEEEEEEE ")
 		mq.HostUpdate(&models.HostUpdate{
 			Action: models.RequestAck,
 			Host:   *h,
