@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/gravitl/netmaker/database"
@@ -31,7 +32,9 @@ func TestMain(m *testing.M) {
 		IsSuperAdmin: true,
 	})
 	peerUpdate := make(chan *models.Node)
-	go logic.ManageZombies(context.Background(), peerUpdate)
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go logic.ManageZombies(context.Background(), wg, peerUpdate)
 	go func() {
 		for update := range peerUpdate {
 			//do nothing

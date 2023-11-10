@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/google/uuid"
@@ -31,7 +32,9 @@ func TestMain(m *testing.M) {
 		IsAdmin:  true,
 	})
 	peerUpdate := make(chan *models.Node)
-	go logic.ManageZombies(context.Background(), peerUpdate)
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go logic.ManageZombies(context.Background(), wg, peerUpdate)
 	go func() {
 		for update := range peerUpdate {
 			//do nothing

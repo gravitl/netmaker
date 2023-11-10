@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/google/uuid"
@@ -14,10 +15,12 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	wg := &sync.WaitGroup{}
 	database.InitializeDatabase()
 	defer database.CloseDB()
 	peerUpdate := make(chan *models.Node)
-	go ManageZombies(context.Background(), peerUpdate)
+	wg.Add(1)
+	go ManageZombies(context.Background(), wg, peerUpdate)
 	go func() {
 		for y := range peerUpdate {
 			fmt.Printf("Pointless %v\n", y)
