@@ -168,15 +168,6 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 	defer wg.Done()
 	go mq.Keepalive(ctx)
 	defer mq.CloseClient()
-	go func() {
-		st := time.Second * 30
-		for {
-			time.Sleep(st)
-			logger.Log(0, "-----------> $$$$$$$ Restting MQ CONN")
-			mq.ResetCh <- struct{}{}
-			st = time.Second * 5
-		}
-	}()
 	for {
 		brokerHost, _ := servercfg.GetMessageQueueEndpoint()
 		logger.Log(0, "connecting to mq broker at", brokerHost)
@@ -188,7 +179,7 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 		}
 		select {
 		case <-mq.ResetCh:
-			logger.Log(0, "\n\n$$$$$$$-------> Resetting MQ----------------> \n\n")
+			slog.Info("## Resetting MQ Connection")
 			mq.CloseClient()
 			time.Sleep(time.Second * 2)
 			continue
