@@ -60,7 +60,12 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 	if ifaceDelta { // reduce number of unneeded updates, by only sending on iface changes
-		if err = PublishPeerUpdate(); err != nil {
+		if !newNode.Connected {
+			err = PublishDeletedNodePeerUpdate(&newNode)
+		} else {
+			err = PublishPeerUpdate()
+		}
+		if err != nil {
 			slog.Warn("error updating peers when node informed the server of an interface change", "nodeid", currentNode.ID, "error", err)
 		}
 	}
