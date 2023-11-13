@@ -96,10 +96,6 @@ func PublishSingleHostPeerUpdate(host *models.Host, allNodes []models.Node, dele
 	if err != nil {
 		return err
 	}
-	if len(peerUpdate.Peers) == 0 { // no peers to send
-		return nil
-	}
-
 	data, err := json.Marshal(&peerUpdate)
 	if err != nil {
 		return err
