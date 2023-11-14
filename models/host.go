@@ -70,6 +70,7 @@ type Host struct {
 	NatType             string           `json:"nat_type,omitempty"      yaml:"nat_type,omitempty"`
 	TurnEndpoint        *netip.AddrPort  `json:"turn_endpoint,omitempty" yaml:"turn_endpoint,omitempty"`
 	PersistentKeepalive time.Duration    `json:"persistentkeepalive"     yaml:"persistentkeepalive"`
+	AutoRelay           bool             `json:"auto_relay" yaml:"auto_relay"`
 }
 
 // FormatBool converts a boolean to a [yes|no] string
@@ -126,6 +127,8 @@ const (
 	Disconnect SignalAction = "DISCONNECT"
 	// ConnNegotiation - action to negotiate connection between peers
 	ConnNegotiation SignalAction = "CONNECTION_NEGOTIATION"
+	// RelayME - action to relay the peer
+	RelayME SignalAction = "RELAY_ME"
 )
 
 // HostUpdate - struct for host update
@@ -150,6 +153,7 @@ type Signal struct {
 	ToHostPubKey      string       `json:"to_host_pubkey"`
 	Reply             bool         `json:"reply"`
 	Action            SignalAction `json:"action"`
+	IsPro             bool         `json:"is_pro"`
 	TimeStamp         int64        `json:"timestamp"`
 }
 
