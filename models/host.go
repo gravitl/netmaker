@@ -154,6 +154,7 @@ type Signal struct {
 	Reply             bool         `json:"reply"`
 	Action            SignalAction `json:"action"`
 	IsPro             bool         `json:"is_pro"`
+	PeerNATtype       string       `json:"peer_nat_type"`
 	TimeStamp         int64        `json:"timestamp"`
 }
 

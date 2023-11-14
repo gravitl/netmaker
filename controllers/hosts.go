@@ -493,7 +493,7 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if signal.ToHostPubKey == "" || signal.TurnRelayEndpoint == "" {
+	if signal.ToHostPubKey == "" || (!servercfg.IsPro && signal.TurnRelayEndpoint == "") {
 		msg := "insufficient data to signal peer"
 		logger.Log(0, r.Header.Get("user"), msg)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New(msg), "badrequest"))

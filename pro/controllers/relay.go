@@ -21,7 +21,7 @@ func RelayHandlers(r *mux.Router) {
 
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createrelay", controller.Authorize(false, true, "user", http.HandlerFunc(createRelay))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleterelay", controller.Authorize(false, true, "user", http.HandlerFunc(deleteRelay))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/host/{hostid}/relayme", controller.Authorize(true, true, "host", http.HandlerFunc(relayme))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/host/{hostid}/relayme", controller.Authorize(true, true, "host", http.HandlerFunc(relayme))).Methods(http.MethodPost)
 }
 
 // swagger:route POST /api/nodes/{network}/{nodeid}/createrelay nodes createRelay
