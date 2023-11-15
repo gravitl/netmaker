@@ -499,6 +499,7 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New(msg), "badrequest"))
 		return
 	}
+	signal.IsPro = servercfg.IsPro
 	hosts, err := logic.GetAllHosts()
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
