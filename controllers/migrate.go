@@ -218,7 +218,5 @@ func convertLegacyNode(legacy models.LegacyNode, hostID uuid.UUID) models.Node {
 	node.IngressGatewayRange6 = legacy.IngressGatewayRange6
 	node.DefaultACL = legacy.DefaultACL
 	node.OwnerID = legacy.OwnerID
-	node.FailoverNode, _ = uuid.Parse(legacy.FailoverNode)
-	node.Failover = models.ParseBool(legacy.Failover)
 	return node
 }

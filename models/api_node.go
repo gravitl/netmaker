@@ -30,7 +30,6 @@ type ApiNode struct {
 	IsIngressGateway        bool     `json:"isingressgateway"`
 	EgressGatewayRanges     []string `json:"egressgatewayranges"`
 	EgressGatewayNatEnabled bool     `json:"egressgatewaynatenabled"`
-	FailoverNode            string   `json:"failovernode"`
 	DNSOn                   bool     `json:"dnson"`
 	IngressDns              string   `json:"ingressdns"`
 	Server                  string   `json:"server"`
@@ -39,7 +38,7 @@ type ApiNode struct {
 	PendingDelete           bool     `json:"pendingdelete"`
 	// == PRO ==
 	DefaultACL string `json:"defaultacl,omitempty" validate:"checkyesornoorunset"`
-	Failover   bool   `json:"failover"`
+	FailOver   bool   `json:"fail_over"`
 }
 
 // ApiNode.ConvertToServerNode - converts an api node to a server node
@@ -56,7 +55,9 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.RelayedBy = a.RelayedBy
 	convertedNode.RelayedNodes = a.RelayedNodes
 	convertedNode.PendingDelete = a.PendingDelete
-	convertedNode.Failover = a.Failover
+	convertedNode.FailedOverBy = currentNode.FailedOverBy
+	convertedNode.FailOverPeers = currentNode.FailOverPeers
+	convertedNode.FailOver = a.FailOver
 	convertedNode.IsEgressGateway = a.IsEgressGateway
 	convertedNode.IsIngressGateway = a.IsIngressGateway
 	// prevents user from changing ranges, must delete and recreate
@@ -100,7 +101,6 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 		convertedNode.Address6 = *addr6
 		convertedNode.Address6.IP = ip6
 	}
-	convertedNode.FailoverNode, _ = uuid.Parse(a.FailoverNode)
 	convertedNode.LastModified = time.Unix(a.LastModified, 0)
 	convertedNode.LastCheckIn = time.Unix(a.LastCheckIn, 0)
 	convertedNode.LastPeerUpdate = time.Unix(a.LastPeerUpdate, 0)
@@ -146,10 +146,6 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.IsIngressGateway = nm.IsIngressGateway
 	apiNode.EgressGatewayRanges = nm.EgressGatewayRanges
 	apiNode.EgressGatewayNatEnabled = nm.EgressGatewayNatEnabled
-	apiNode.FailoverNode = nm.FailoverNode.String()
-	if isUUIDSet(apiNode.FailoverNode) {
-		apiNode.FailoverNode = ""
-	}
 	apiNode.DNSOn = nm.DNSOn
 	apiNode.IngressDns = nm.IngressDNS
 	apiNode.Server = nm.Server
@@ -160,7 +156,6 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.Connected = nm.Connected
 	apiNode.PendingDelete = nm.PendingDelete
 	apiNode.DefaultACL = nm.DefaultACL
-	apiNode.Failover = nm.Failover
 	return &apiNode
 }
 

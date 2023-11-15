@@ -43,9 +43,6 @@ func InitPro() {
 		}
 		resetFailover()
 	})
-	logic.EnterpriseFailoverFunc = proLogic.SetFailover
-	logic.EnterpriseResetFailoverFunc = proLogic.ResetFailover
-	logic.EnterpriseResetAllPeersFailovers = proLogic.WipeAffectedFailoversOnly
 	logic.DenyClientNodeAccess = proLogic.DenyClientNode
 	logic.IsClientNodeAllowed = proLogic.IsClientNodeAllowed
 	logic.AllowClientNodeAccess = proLogic.RemoveDeniedNodeFromClient

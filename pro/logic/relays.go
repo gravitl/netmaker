@@ -240,25 +240,3 @@ func getRelayedAddresses(id string) []net.IPNet {
 	}
 	return addrs
 }
-
-// GetAutoRelayHostNode - gets the host acting as auto relay in the network
-func GetAutoRelayHostNode(network string) (models.Node, error) {
-	hosts, err := logic.GetAllHosts()
-	if err != nil {
-		return models.Node{}, err
-	}
-	for _, host := range hosts {
-		if host.AutoRelay {
-			for _, nodeid := range host.Nodes {
-				node, err := logic.GetNodeByID(nodeid)
-				if err != nil {
-					continue
-				}
-				if node.Network == network {
-					return node, nil
-				}
-			}
-		}
-	}
-	return models.Node{}, errors.New("auto relay not found")
-}

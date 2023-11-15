@@ -2,6 +2,9 @@ package logic
 
 import (
 	"encoding/json"
+	"math"
+	"time"
+
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
@@ -10,8 +13,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
-	"math"
-	"time"
 )
 
 // GetMetrics - gets the metrics
@@ -77,13 +78,6 @@ func MQUpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 	if servercfg.IsMetricsExporter() {
 		if err := mq.PushMetricsToExporter(newMetrics); err != nil {
 			slog.Error("failed to push node metrics to exporter", "id", currentNode.ID, "error", err)
-		}
-	}
-
-	if newMetrics.Connectivity != nil {
-		err := logic.EnterpriseFailoverFunc(&currentNode)
-		if err != nil {
-			slog.Error("failed to failover for node", "id", currentNode.ID, "network", currentNode.Network, "error", err)
 		}
 	}
 
@@ -170,21 +164,6 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 
 	}
 
-	// add nodes that need failover
-	nodes, err := logic.GetNetworkNodes(currentNode.Network)
-	if err != nil {
-		slog.Error("failed to retrieve nodes while updating metrics", "error", err)
-		return false
-	}
-	for _, node := range nodes {
-		if !newMetrics.Connectivity[node.ID.String()].Connected &&
-			len(newMetrics.Connectivity[node.ID.String()].NodeName) > 0 &&
-			node.Connected &&
-			len(node.FailoverNode) > 0 &&
-			!node.Failover {
-			newMetrics.FailoverPeers[node.ID.String()] = node.FailoverNode.String()
-		}
-	}
 	shouldUpdate := len(oldMetrics.FailoverPeers) == 0 && len(newMetrics.FailoverPeers) > 0
 	for k, v := range oldMetrics.FailoverPeers {
 		if len(newMetrics.FailoverPeers[k]) > 0 && len(v) == 0 {

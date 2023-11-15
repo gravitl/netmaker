@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	proLogic "github.com/gravitl/netmaker/pro/logic"
-	"golang.org/x/exp/slog"
 
 	"github.com/gorilla/mux"
 	controller "github.com/gravitl/netmaker/controllers"
@@ -21,7 +20,7 @@ func RelayHandlers(r *mux.Router) {
 
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createrelay", controller.Authorize(false, true, "user", http.HandlerFunc(createRelay))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleterelay", controller.Authorize(false, true, "user", http.HandlerFunc(deleteRelay))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/host/{hostid}/relayme", controller.Authorize(true, false, "host", http.HandlerFunc(relayme))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/host/{hostid}/failoverme", controller.Authorize(true, false, "host", http.HandlerFunc(failOverME))).Methods(http.MethodPost)
 }
 
 // swagger:route POST /api/nodes/{network}/{nodeid}/createrelay nodes createRelay
@@ -111,64 +110,4 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	apiNode := node.ConvertToAPINode()
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
-}
-
-// swagger:route POST /api/host/relayme host relayme
-//
-// Create a relay.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: nodeResponse
-func relayme(w http.ResponseWriter, r *http.Request) {
-	var params = mux.Vars(r)
-	hostid := params["hostid"]
-	// confirm host exists
-	host, err := logic.GetHost(hostid)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to get host:", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	var sendPeerUpdate bool
-	for _, nodeID := range host.Nodes {
-		node, err := logic.GetNodeByID(nodeID)
-		if err != nil {
-			slog.Error("couldn't find node", "id", nodeID, "error", err)
-			continue
-		}
-		if node.IsRelayed {
-			continue
-		}
-		// get auto relay Host in this network
-		relayNode, err := proLogic.GetAutoRelayHostNode(node.Network)
-		if err != nil {
-			slog.Error("auto relay not found", "network", node.Network)
-			continue
-		}
-		relayNode.RelayedNodes = append(relayNode.RelayedNodes, node.ID.String())
-		_, _, err = proLogic.CreateRelay(models.RelayRequest{
-			NodeID:       relayNode.ID.String(),
-			NetID:        node.Network,
-			RelayedNodes: relayNode.RelayedNodes,
-		})
-		if err != nil {
-			slog.Error("failed to create relay:", "id", node.ID.String(),
-				"network", node.Network, "error", err)
-			continue
-		}
-		slog.Info("[auto-relay] created relay on node", "node", node.ID.String(), "network", node.Network)
-		sendPeerUpdate = true
-	}
-
-	if sendPeerUpdate {
-		go mq.PublishPeerUpdate()
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	logic.ReturnSuccessResponse(w, r, "relayed successfully")
 }

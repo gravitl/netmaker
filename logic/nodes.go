@@ -233,11 +233,6 @@ func DeleteNode(node *models.Node, purge bool) error {
 	if err := DissasociateNodeFromHost(node, host); err != nil {
 		return err
 	}
-	if servercfg.IsPro {
-		if err := EnterpriseResetAllPeersFailovers(node.ID, node.Network); err != nil {
-			logger.Log(0, "failed to reset failover lists during node delete for node", host.Name, node.Network)
-		}
-	}
 
 	return nil
 }
@@ -307,20 +302,6 @@ func ValidateNode(node *models.Node, isUpdate bool) error {
 	})
 	err := v.Struct(node)
 	return err
-}
-
-// IsFailoverPresent - checks if a node is marked as a failover in given network
-func IsFailoverPresent(network string) bool {
-	netNodes, err := GetNetworkNodes(network)
-	if err != nil {
-		return false
-	}
-	for i := range netNodes {
-		if netNodes[i].Failover {
-			return true
-		}
-	}
-	return false
 }
 
 // GetAllNodes - returns all nodes in the DB
