@@ -227,6 +227,7 @@ type HostPull struct {
 	Nodes           []Node                `json:"nodes" yaml:"nodes"`
 	Peers           []wgtypes.PeerConfig  `json:"peers" yaml:"peers"`
 	ServerConfig    ServerConfig          `json:"server_config" yaml:"server_config"`
+	ServerVersion   string                `json:"serverversion" bson:"serverversion" yaml:"serverversion"`
 	PeerIDs         PeerMap               `json:"peer_ids,omitempty" yaml:"peer_ids,omitempty"`
 	HostNetworkInfo HostInfoMap           `json:"host_network_info,omitempty"  yaml:"host_network_info,omitempty"`
 	EgressRoutes    []EgressNetworkRoutes `json:"egress_network_routes"`
