@@ -41,8 +41,8 @@ func InitPro() {
 		if servercfg.GetServerConfig().RacAutoDisable {
 			AddRacHooks()
 		}
-		resetFailover()
 	})
+	logic.ResetFailOveredPeers = proLogic.ResetFailOveredPeers
 	logic.DenyClientNodeAccess = proLogic.DenyClientNode
 	logic.IsClientNodeAllowed = proLogic.IsClientNodeAllowed
 	logic.AllowClientNodeAccess = proLogic.RemoveDeniedNodeFromClient
@@ -59,18 +59,6 @@ func InitPro() {
 	logic.SetRelayedNodes = proLogic.SetRelayedNodes
 	logic.RelayUpdates = proLogic.RelayUpdates
 	mq.UpdateMetrics = proLogic.MQUpdateMetrics
-}
-
-func resetFailover() {
-	nets, err := logic.GetNetworks()
-	if err == nil {
-		for _, net := range nets {
-			err = proLogic.ResetFailover(net.NetID)
-			if err != nil {
-				slog.Error("failed to reset failover", "network", net.NetID, "error", err.Error())
-			}
-		}
-	}
 }
 
 func retrieveProLogo() string {

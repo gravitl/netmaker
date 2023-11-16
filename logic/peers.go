@@ -15,6 +15,13 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+var (
+	// ResetFailOveredPeers - function to reset failOvered peers on this node
+	ResetFailOveredPeers = func(failOverNode *models.Node) error {
+		return nil
+	}
+)
+
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
 func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.Node,
 	deletedNode *models.Node, deletedClients []models.ExtClient) (models.HostPeerUpdate, error) {
