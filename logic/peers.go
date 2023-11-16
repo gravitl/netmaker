@@ -129,7 +129,9 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					EgressRanges: peer.EgressGatewayRanges,
 				})
 			}
-			if (node.IsRelayed && node.RelayedBy != peer.ID.String()) || (peer.IsRelayed && peer.RelayedBy != node.ID.String()) {
+			_, isFailOverPeer := node.FailOverPeers[peer.ID.String()]
+			if (node.IsRelayed && node.RelayedBy != peer.ID.String()) ||
+				(peer.IsRelayed && peer.RelayedBy != node.ID.String()) || isFailOverPeer {
 				// if node is relayed and peer is not the relay, set remove to true
 				if _, ok := peerIndexMap[peerHost.PublicKey.String()]; ok {
 					continue
@@ -381,6 +383,31 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 	return allowedips
 }
 
+func GetFailOverPeerIps(peer, node *models.Node) []net.IPNet {
+	allowedips := []net.IPNet{}
+	for failOverpeerID := range node.FailOverPeers {
+		failOverpeer, err := GetNodeByID(failOverpeerID)
+		if err == nil && failOverpeer.FailedOverBy == peer.ID {
+			if failOverpeer.Address.IP != nil {
+				allowed := net.IPNet{
+					IP:   failOverpeer.Address.IP,
+					Mask: net.CIDRMask(32, 32),
+				}
+				allowedips = append(allowedips, allowed)
+			}
+			if failOverpeer.Address6.IP != nil {
+				allowed := net.IPNet{
+					IP:   failOverpeer.Address6.IP,
+					Mask: net.CIDRMask(128, 128),
+				}
+				allowedips = append(allowedips, allowed)
+			}
+
+		}
+	}
+	return allowedips
+}
+
 func GetEgressIPs(peer *models.Node) []net.IPNet {
 
 	peerHost, err := GetHost(peer.HostID.String())
@@ -443,6 +470,9 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 	}
 	if peer.IsRelay {
 		allowedips = append(allowedips, RelayedAllowedIPs(peer, node)...)
+	}
+	if peer.FailOver {
+		allowedips = append(allowedips, GetFailOverPeerIps(peer, node)...)
 	}
 	return allowedips
 }

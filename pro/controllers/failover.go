@@ -86,6 +86,9 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			continue
 		}
+		if peerNode.IsRelayed {
+			continue
+		}
 		// get auto relay Host in this network
 		failOverNode, err := proLogic.GetFailOverNode(node.Network, allNodes)
 		if err != nil {
