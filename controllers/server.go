@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"syscall"
 
 	"github.com/gorilla/mux"
 
@@ -18,16 +19,23 @@ func serverHandlers(r *mux.Router) {
 	// r.HandleFunc("/api/server/addnetwork/{network}", securityCheckServer(true, http.HandlerFunc(addNetwork))).Methods(http.MethodPost)
 	r.HandleFunc(
 		"/api/server/health",
-		http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+		func(resp http.ResponseWriter, req *http.Request) {
 			resp.WriteHeader(http.StatusOK)
 			resp.Write([]byte("Server is up and running!!"))
-		}),
-	)
+		},
+	).Methods(http.MethodGet)
+	r.HandleFunc(
+		"/api/server/health",
+		func(w http.ResponseWriter, _ *http.Request) {
+			_ = syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+			_, _ = w.Write([]byte("Shutting down server..."))
+		},
+	).Methods(http.MethodDelete)
 	r.HandleFunc("/api/server/getconfig", allowUsers(http.HandlerFunc(getConfig))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/server/getserverinfo", Authorize(true, false, "node", http.HandlerFunc(getServerInfo))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/server/status", http.HandlerFunc(getStatus)).Methods(http.MethodGet)
+	r.HandleFunc("/api/server/status", getStatus).Methods(http.MethodGet)
 	r.HandleFunc("/api/server/usage", Authorize(true, false, "user", http.HandlerFunc(getUsage))).
 		Methods(http.MethodGet)
 }
