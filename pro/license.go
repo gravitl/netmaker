@@ -213,38 +213,46 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, erro
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
 	client := &http.Client{}
-	var body []byte
 	validateResponse, err := client.Do(req)
 	if err != nil { // check cache
-		body, err = getCachedResponse()
+		slog.Warn("proceeding with cached response, Netmaker API may be down")
+		return getCachedResponse()
+	}
+	defer validateResponse.Body.Close()
+	code := validateResponse.StatusCode
+
+	// if we received a 200, cache the response locally
+	if code == http.StatusOK {
+		body, err := io.ReadAll(validateResponse.Body)
 		if err != nil {
+			slog.Warn("failed to parse response", "error", err)
 			return nil, err
 		}
-		slog.Warn("proceeding with cached response, Netmaker API may be down")
-		return body, err
-	}
-
-	defer validateResponse.Body.Close()
-	if validateResponse.StatusCode != http.StatusOK {
-		// read response to produce better logs/errors
-		body, _ = io.ReadAll(validateResponse.Body)
-		err := fmt.Errorf("could not validate license, got status code %d (%s)", validateResponse.StatusCode, string(body))
-		// if it's a temp error, just log it, don't consider license invalid
-		if validateResponse.StatusCode == http.StatusServiceUnavailable ||
-			validateResponse.StatusCode == http.StatusGatewayTimeout {
-			slog.Warn(err.Error())
-			return nil, nil
+		if err := cacheResponse(body); err != nil {
+			slog.Warn("failed to cache response", "error", err)
 		}
-		return nil, err
-	} // if you received a 200 cache the response locally
-
-	body, err = io.ReadAll(validateResponse.Body)
-	if err != nil {
-		return nil, err
+		return body, nil
 	}
-	cacheResponse(body)
 
-	return body, err
+	// at this point the backend returned some undesired state
+
+	// inform failure via logs
+	err = fmt.Errorf("could not validate license with validation backend, got status code %d", validateResponse.StatusCode)
+	slog.Warn(err.Error())
+	body, err := io.ReadAll(validateResponse.Body)
+	if err != nil {
+		slog.Warn(err.Error())
+	}
+	slog.Warn("license-validation backend response: %s", string(body))
+
+	// try to use cache if we had a temporary error
+	if code == http.StatusServiceUnavailable || code == http.StatusGatewayTimeout {
+		slog.Warn("proceeding with cached response, Netmaker API may be down")
+		return getCachedResponse()
+	}
+
+	// at this point the error is irreversible, return it
+	return nil, err
 }
 
 func getAccountsHost() string {
