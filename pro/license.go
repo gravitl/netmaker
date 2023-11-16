@@ -221,7 +221,7 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, erro
 			return nil, err
 		}
 		slog.Warn("proceeding with cached response, Netmaker API may be down")
-		return nil, err
+		return body, err
 	}
 
 	defer validateResponse.Body.Close()
