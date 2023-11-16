@@ -471,7 +471,7 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 	if peer.IsRelay {
 		allowedips = append(allowedips, RelayedAllowedIPs(peer, node)...)
 	}
-	if peer.FailOver {
+	if peer.IsFailOver {
 		allowedips = append(allowedips, GetFailOverPeerIps(peer, node)...)
 	}
 	return allowedips

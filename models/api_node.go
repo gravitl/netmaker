@@ -57,7 +57,7 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.PendingDelete = a.PendingDelete
 	convertedNode.FailedOverBy = currentNode.FailedOverBy
 	convertedNode.FailOverPeers = currentNode.FailOverPeers
-	convertedNode.FailOver = a.FailOver
+	convertedNode.IsFailOver = a.FailOver
 	convertedNode.IsEgressGateway = a.IsEgressGateway
 	convertedNode.IsIngressGateway = a.IsIngressGateway
 	// prevents user from changing ranges, must delete and recreate

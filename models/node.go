@@ -92,7 +92,7 @@ type Node struct {
 	// == PRO ==
 	DefaultACL    string              `json:"defaultacl,omitempty" bson:"defaultacl,omitempty" yaml:"defaultacl,omitempty" validate:"checkyesornoorunset"`
 	OwnerID       string              `json:"ownerid,omitempty" bson:"ownerid,omitempty" yaml:"ownerid,omitempty"`
-	FailOver      bool                `json:"fail_over" yaml:"fail_over"`
+	IsFailOver    bool                `json:"is_fail_over" yaml:"is_fail_over"`
 	FailOverPeers map[string]struct{} `json:"fail_over_peers" yaml:"fail_over_peers"`
 	FailedOverBy  uuid.UUID           `json:"failed_over_by" yaml:"failed_over_by"`
 }
@@ -417,8 +417,8 @@ func (newNode *Node) Fill(currentNode *Node, isPro bool) { // TODO add new field
 	if newNode.DefaultACL == "" {
 		newNode.DefaultACL = currentNode.DefaultACL
 	}
-	if newNode.FailOver != currentNode.FailOver {
-		newNode.FailOver = currentNode.FailOver
+	if newNode.IsFailOver != currentNode.IsFailOver {
+		newNode.IsFailOver = currentNode.IsFailOver
 	}
 }
 
