@@ -60,7 +60,7 @@ func createfailOver(w http.ResponseWriter, r *http.Request) {
 	}
 	go mq.PublishPeerUpdate()
 	w.Header().Set("Content-Type", "application/json")
-	logic.ReturnSuccessResponse(w, r, "relayed successfully")
+	logic.ReturnSuccessResponse(w, r, "created failover successfully")
 }
 
 // swagger:route DELETE /api/v1/node/failover node deletefailOver
@@ -152,14 +152,14 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 			slog.Error("couldn't find node", "id", nodeID, "error", err)
 			continue
 		}
-		if node.IsRelayed {
+		if node.IsRelayed || node.IsFailOver {
 			continue
 		}
 		peerNode, ok := peerNodeMap[node.Network]
 		if !ok {
 			continue
 		}
-		if peerNode.IsRelayed {
+		if peerNode.IsRelayed || peerNode.IsFailOver {
 			continue
 		}
 		// get auto relay Host in this network
