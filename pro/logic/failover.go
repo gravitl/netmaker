@@ -8,12 +8,15 @@ import (
 )
 
 func SetFailOverCtx(failOverNode, victimNode, peerNode models.Node) error {
-	failOverNode.FailOverPeers[victimNode.ID.String()] = struct{}{}
+	peerNode.FailOverPeers[victimNode.ID.String()] = struct{}{}
 	victimNode.FailedOverBy = failOverNode.ID
 	if err := logic.UpsertNode(&failOverNode); err != nil {
 		return err
 	}
 	if err := logic.UpsertNode(&victimNode); err != nil {
+		return err
+	}
+	if err := logic.UpsertNode(&peerNode); err != nil {
 		return err
 	}
 	return nil
