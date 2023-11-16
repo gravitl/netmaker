@@ -122,6 +122,17 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Create EMQX creds if not found
+	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
+		if err := mq.CreateEmqxUser(hostID, host.HostPass, false); err != nil {
+			slog.Error("failed to create host credentials for EMQX: ", err.Error())
+		} else {
+			if err := mq.CreateHostACL(hostID, servercfg.GetServerInfo().Server); err != nil {
+				slog.Error("failed to add host ACL rules to EMQX: ", err.Error())
+			}
+		}
+	}
+
 	serverConf.TrafficKey = key
 	response := models.HostPull{
 		Host:            *host,
