@@ -55,7 +55,21 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 	if ifaceDelta { // reduce number of unneeded updates, by only sending on iface changes
-		if err = PublishPeerUpdate(); err != nil {
+		if !newNode.Connected {
+			err = PublishDeletedNodePeerUpdate(&newNode)
+			host, err := logic.GetHost(newNode.HostID.String())
+			if err != nil {
+				slog.Error("failed to get host for the node", "nodeid", newNode.ID.String(), "error", err)
+				return
+			}
+			allNodes, err := logic.GetAllNodes()
+			if err == nil {
+				PublishSingleHostPeerUpdate(host, allNodes, nil, nil)
+			}
+		} else {
+			err = PublishPeerUpdate()
+		}
+		if err != nil {
 			slog.Warn("error updating peers when node informed the server of an interface change", "nodeid", currentNode.ID, "error", err)
 		}
 	}
@@ -154,6 +168,22 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 				return
 			}
 		}
+
+		// notify of deleted peer change
+		go func(host models.Host) {
+			for _, nodeID := range host.Nodes {
+				node, err := logic.GetNodeByID(nodeID)
+				if err == nil {
+					var gwClients []models.ExtClient
+					if node.IsIngressGateway {
+						gwClients = logic.GetGwExtclients(node.ID.String(), node.Network)
+					}
+					go PublishMqUpdatesForDeletedNode(node, false, gwClients)
+				}
+
+			}
+		}(*currentHost)
+
 		if err := logic.DisassociateAllNodesFromHost(currentHost.ID.String()); err != nil {
 			slog.Error("failed to delete all nodes of host", "id", currentHost.ID, "error", err)
 			return
