@@ -9,6 +9,12 @@ import (
 )
 
 func SetFailOverCtx(failOverNode, victimNode, peerNode models.Node) error {
+	if peerNode.FailOverPeers == nil {
+		peerNode.FailOverPeers = make(map[string]struct{})
+	}
+	if victimNode.FailOverPeers == nil {
+		victimNode.FailOverPeers = make(map[string]struct{})
+	}
 	peerNode.FailOverPeers[victimNode.ID.String()] = struct{}{}
 	victimNode.FailOverPeers[peerNode.ID.String()] = struct{}{}
 	victimNode.FailedOverBy = failOverNode.ID
