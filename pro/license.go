@@ -237,13 +237,10 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, erro
 	// at this point the backend returned some undesired state
 
 	// inform failure via logs
-	err = fmt.Errorf("could not validate license with validation backend, got status code %d", validateResponse.StatusCode)
+	body, _ := io.ReadAll(validateResponse.Body)
+	err = fmt.Errorf("could not validate license with validation backend (status={%d}, body={%s})",
+		validateResponse.StatusCode, string(body))
 	slog.Warn(err.Error())
-	body, err := io.ReadAll(validateResponse.Body)
-	if err != nil {
-		slog.Warn(err.Error())
-	}
-	slog.Warn("license-validation backend response: %s", string(body))
 
 	// try to use cache if we had a temporary error
 	if code == http.StatusServiceUnavailable || code == http.StatusGatewayTimeout {
