@@ -28,6 +28,7 @@ func serverHandlers(r *mux.Router) {
 		"/api/server/health",
 		func(w http.ResponseWriter, _ *http.Request) {
 			_ = syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte("Shutting down server..."))
 		},
 	).Methods(http.MethodDelete)
