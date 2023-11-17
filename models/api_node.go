@@ -38,7 +38,7 @@ type ApiNode struct {
 	PendingDelete           bool     `json:"pendingdelete"`
 	// == PRO ==
 	DefaultACL string `json:"defaultacl,omitempty" validate:"checkyesornoorunset"`
-	FailOver   bool   `json:"fail_over"`
+	IsFailOver bool   `json:"is_fail_over" `
 }
 
 // ApiNode.ConvertToServerNode - converts an api node to a server node
@@ -57,7 +57,6 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.PendingDelete = a.PendingDelete
 	convertedNode.FailedOverBy = currentNode.FailedOverBy
 	convertedNode.FailOverPeers = currentNode.FailOverPeers
-	convertedNode.IsFailOver = a.FailOver
 	convertedNode.IsEgressGateway = a.IsEgressGateway
 	convertedNode.IsIngressGateway = a.IsIngressGateway
 	// prevents user from changing ranges, must delete and recreate
@@ -156,6 +155,7 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.Connected = nm.Connected
 	apiNode.PendingDelete = nm.PendingDelete
 	apiNode.DefaultACL = nm.DefaultACL
+	apiNode.IsFailOver = nm.IsFailOver
 	return &apiNode
 }
 
