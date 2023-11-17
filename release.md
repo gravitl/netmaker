@@ -2,19 +2,17 @@
 # Netmaker v0.21.2
 
 ## Whats New
-- Remote access client session management, refer users section in docs for more details
-- Can now create generic DNS entries
-- Upgrade client version to match server version from UI
-- Moved PersistentKeepAlive setting from node to host level
+- Auto Relay via Enrollment key
+- Local Routing Improvements
 ## What's Fixed
-- Extclients DNS now properly set from ingress dns value provided
-- Allow role update of OAuth user
-- Fixed zombie node issue
+- Inconsistency in DNS Entries for Network has been fixed
+- Unique network CIDR validation
+- Fixed extclient caching decrepancies
+- Deleted node peer update fixes when disconnected from network
 ## known issues
 - Windows installer does not install WireGuard
 - netclient-gui will continously display error dialog if netmaker server is offline
 - Mac IPv6 addresses/route issues
-- Docker client can not re-join after complete deletion
 - netclient-gui network tab blank after disconnect
 
 
