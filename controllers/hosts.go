@@ -519,14 +519,19 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	signal.IsPro = servercfg.IsPro
-	host, err := logic.GetHost(signal.ToHostID)
+	var peerHost *models.Host
+	if signal.ToHostID == "" {
+		peerHost, err = logic.GetHostByPubKey(signal.ToHostPubKey)
+	} else {
+		peerHost, err = logic.GetHost(signal.ToHostID)
+	}
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to signal, peer not found"), "badrequest"))
 		return
 	}
 	err = mq.HostUpdate(&models.HostUpdate{
 		Action: models.SignalHost,
-		Host:   *host,
+		Host:   *peerHost,
 		Signal: signal,
 	})
 	if err != nil {
