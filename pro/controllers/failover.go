@@ -3,20 +3,20 @@ package controllers
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"golang.org/x/exp/slog"
 )
 
 type FailOverMeReq struct {
-	PeerPubKey string `json:"peer_pub_key"`
+	NodeID string `json:"node_id"`
 }
 
 // FailOverHandlers - handlers for FailOver
@@ -113,11 +113,11 @@ func deletefailOver(w http.ResponseWriter, r *http.Request) {
 //				200: nodeResponse
 func failOverME(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
-	hostid := params["hostid"]
+	nodeid := params["nodeid"]
 	// confirm host exists
-	host, err := logic.GetHost(hostid)
+	node, err := logic.GetNodeByID(nodeid)
 	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to get host:", err.Error())
+		logger.Log(0, r.Header.Get("user"), "failed to get node:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -132,51 +132,38 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 	allNodes, err := logic.GetAllNodes()
 	if err != nil {
 		slog.Error("failed to get all nodes", "error", err)
-	}
-	peerHost, err := logic.GetHostByPubKey(failOverReq.PeerPubKey)
-	if err != nil {
-		slog.Error("peer not found: ", "publickey", failOverReq.PeerPubKey, "error", err)
 		return
 	}
-	peerNodeMap := make(map[string]models.Node)
-	for _, nodeID := range peerHost.Nodes {
-		node, err := logic.GetNodeByID(nodeID)
-		if err != nil {
-			continue
-		}
-		peerNodeMap[node.Network] = node
+	peerNode, err := logic.GetNodeByID(failOverReq.NodeID)
+	if err != nil {
+		slog.Error("peer not found: ", "nodeid", failOverReq.NodeID, "error", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("peer not found"), "badrequest"))
+		return
 	}
-	for _, nodeID := range host.Nodes {
-		node, err := logic.GetNodeByID(nodeID)
-		if err != nil {
-			slog.Error("couldn't find node", "id", nodeID, "error", err)
-			continue
-		}
-		if node.IsRelayed || node.IsFailOver {
-			continue
-		}
-		peerNode, ok := peerNodeMap[node.Network]
-		if !ok {
-			continue
-		}
-		if peerNode.IsRelayed || peerNode.IsFailOver {
-			continue
-		}
-		// get auto relay Host in this network
-		failOverNode, err := proLogic.GetFailOverNode(node.Network, allNodes)
-		if err != nil {
-			slog.Error("auto relay not found", "network", node.Network)
-			continue
-		}
-		err = proLogic.SetFailOverCtx(failOverNode, node, peerNode)
-		if err != nil {
-			slog.Error("failed to create relay:", "id", node.ID.String(),
-				"network", node.Network, "error", err)
-			continue
-		}
-		slog.Info("[auto-relay] created relay on node", "node", node.ID.String(), "network", node.Network)
-		sendPeerUpdate = true
+	if node.IsRelayed || node.IsFailOver {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node is relayed or acting as failover"), "badrequest"))
+		return
 	}
+	if peerNode.IsRelayed || peerNode.IsFailOver {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("peer node is relayed or acting as failover"), "badrequest"))
+		return
+	}
+	// get failOver node in this network
+	failOverNode, err := proLogic.GetFailOverNode(node.Network, allNodes)
+	if err != nil {
+		slog.Error("auto relay not found", "network", node.Network)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("auto relay not found"), "internal"))
+		return
+	}
+	err = proLogic.SetFailOverCtx(failOverNode, node, peerNode)
+	if err != nil {
+		slog.Error("failed to create failover", "id", node.ID.String(),
+			"network", node.Network, "error", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to create failover: %v", err), "internal"))
+		return
+	}
+	slog.Info("[auto-relay] created relay on node", "node", node.ID.String(), "network", node.Network)
+	sendPeerUpdate = true
 
 	if sendPeerUpdate {
 		go mq.PublishPeerUpdate()
