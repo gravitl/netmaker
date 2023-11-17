@@ -150,6 +150,8 @@ type Signal struct {
 	FromHostPubKey    string       `json:"from_host_pubkey"`
 	TurnRelayEndpoint string       `json:"turn_relay_addr"`
 	ToHostPubKey      string       `json:"to_host_pubkey"`
+	FromHostID        string       `json:"from_host_id"`
+	ToHostID          string       `json:"to_host_id"`
 	Reply             bool         `json:"reply"`
 	Action            SignalAction `json:"action"`
 	IsPro             bool         `json:"is_pro"`

@@ -206,6 +206,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			if node.Network == network { // add to peers map for metrics
 				hostPeerUpdate.PeerIDs[peerHost.PublicKey.String()] = models.IDandAddr{
 					ID:         peer.ID.String(),
+					HostID:     peerHost.ID.String(),
 					Address:    peer.PrimaryAddress(),
 					Name:       peerHost.Name,
 					Network:    peer.Network,
