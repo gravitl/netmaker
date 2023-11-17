@@ -9,6 +9,7 @@
 - Unique network CIDR validation
 - Fixed extclient caching decrepancies
 - Deleted node peer update fixes when disconnected from network
+- Force Deletion of Daemon Nodes that are stuck in removing state
 ## known issues
 - Windows installer does not install WireGuard
 - netclient-gui will continously display error dialog if netmaker server is offline
