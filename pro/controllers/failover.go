@@ -20,7 +20,7 @@ import (
 func FailOverHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/node/{nodeid}/failover", logic.SecurityCheck(true, http.HandlerFunc(createfailOver))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/node/{nodeid}/failover", logic.SecurityCheck(true, http.HandlerFunc(deletefailOver))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/host/{hostid}/failover_me", controller.Authorize(true, false, "host", http.HandlerFunc(failOverME))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/node/{nodeid}/failover_me", controller.Authorize(true, false, "host", http.HandlerFunc(failOverME))).Methods(http.MethodPost)
 }
 
 // swagger:route POST /api/v1/node/failover node createfailOver
@@ -97,7 +97,7 @@ func deletefailOver(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, "relayed successfully")
 }
 
-// swagger:route POST /api/host/failOverME host failOver_me
+// swagger:route POST /api/node/{nodeid}/failOverME node failOver_me
 //
 // Create a relay.
 //
