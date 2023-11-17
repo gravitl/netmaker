@@ -10,14 +10,11 @@ import (
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"golang.org/x/exp/slog"
 )
-
-type FailOverMeReq struct {
-	NodeID string `json:"node_id"`
-}
 
 // FailOverHandlers - handlers for FailOver
 func FailOverHandlers(r *mux.Router) {
@@ -121,7 +118,7 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	var failOverReq FailOverMeReq
+	var failOverReq models.FailOverMeReq
 	err = json.NewDecoder(r.Body).Decode(&failOverReq)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
