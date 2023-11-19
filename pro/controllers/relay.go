@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/google/uuid"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 
 	"github.com/gorilla/mux"
@@ -52,6 +53,15 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 			fmt.Sprintf("failed to create relay on node [%s] on network [%s]: %v", relayRequest.NodeID, relayRequest.NetID, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
+	}
+	for _, relayedNodeID := range relayNode.RelayedNodes {
+		relayedNode, err := logic.GetNodeByID(relayedNodeID)
+		if err == nil {
+			if relayedNode.FailedOverBy != uuid.Nil {
+				go logic.ResetFailedOverPeer(&relayedNode)
+			}
+
+		}
 	}
 	go mq.PublishPeerUpdate()
 	logger.Log(1, r.Header.Get("user"), "created relay on node", relayRequest.NodeID, "on network", relayRequest.NetID)

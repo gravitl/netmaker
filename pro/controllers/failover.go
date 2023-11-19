@@ -90,7 +90,7 @@ func deletefailOver(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	go func() {
-		proLogic.ResetFailOveredPeers(&node)
+		proLogic.ResetFailOver(&node)
 		mq.PublishPeerUpdate()
 	}()
 	w.Header().Set("Content-Type", "application/json")

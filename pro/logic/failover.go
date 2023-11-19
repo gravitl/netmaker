@@ -57,8 +57,30 @@ func FailOverExists(network string) (exists bool) {
 	return
 }
 
-// ResetFailOveredPeers - reset failovered peers
-func ResetFailOveredPeers(failOverNode *models.Node) error {
+// ResetFailedOverPeer - removes failed over node from network peers
+func ResetFailedOverPeer(failedOveredNode *models.Node) error {
+	nodes, err := logic.GetNetworkNodes(failedOveredNode.Network)
+	if err != nil {
+		return err
+	}
+	failedOveredNode.FailedOverBy = uuid.Nil
+	failedOveredNode.FailOverPeers = make(map[string]struct{})
+	err = logic.UpsertNode(failedOveredNode)
+	if err != nil {
+		return err
+	}
+	for _, node := range nodes {
+		if node.FailOverPeers == nil || node.ID == failedOveredNode.ID {
+			continue
+		}
+		delete(node.FailOverPeers, failedOveredNode.ID.String())
+		logic.UpsertNode(&node)
+	}
+	return nil
+}
+
+// ResetFailOver - reset failovered peers
+func ResetFailOver(failOverNode *models.Node) error {
 	// Unset FailedOverPeers
 	nodes, err := logic.GetNetworkNodes(failOverNode.Network)
 	if err != nil {

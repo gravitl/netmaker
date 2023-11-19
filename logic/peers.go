@@ -16,8 +16,12 @@ import (
 )
 
 var (
-	// ResetFailOveredPeers - function to reset failOvered peers on this node
-	ResetFailOveredPeers = func(failOverNode *models.Node) error {
+	// ResetFailOver - function to reset failOvered peers on this node
+	ResetFailOver = func(failOverNode *models.Node) error {
+		return nil
+	}
+	// ResetFailedOverPeer - removes failed over node from network peers
+	ResetFailedOverPeer = func(failedOverNode *models.Node) error {
 		return nil
 	}
 )

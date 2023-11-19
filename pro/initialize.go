@@ -43,7 +43,8 @@ func InitPro() {
 			AddRacHooks()
 		}
 	})
-	logic.ResetFailOveredPeers = proLogic.ResetFailOveredPeers
+	logic.ResetFailOver = proLogic.ResetFailOver
+	logic.ResetFailedOverPeer = proLogic.ResetFailedOverPeer
 	logic.DenyClientNodeAccess = proLogic.DenyClientNode
 	logic.IsClientNodeAllowed = proLogic.IsClientNodeAllowed
 	logic.AllowClientNodeAccess = proLogic.RemoveDeniedNodeFromClient
