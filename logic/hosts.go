@@ -199,7 +199,6 @@ func UpdateHost(newHost, currentHost *models.Host) {
 	newHost.Nodes = currentHost.Nodes
 	newHost.PublicKey = currentHost.PublicKey
 	newHost.TrafficKeyPublic = currentHost.TrafficKeyPublic
-
 	// changeable fields
 	if len(newHost.Version) == 0 {
 		newHost.Version = currentHost.Version
@@ -393,7 +392,7 @@ func DissasociateNodeFromHost(n *models.Node, h *models.Host) error {
 			}
 		}
 	}()
-	if err := deleteNodeByID(n); err != nil {
+	if err := DeleteNodeByID(n); err != nil {
 		return err
 	}
 

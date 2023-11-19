@@ -10,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
+	"golang.org/x/exp/slog"
 )
 
 // PublishPeerUpdate --- determines and publishes a peer update to all the hosts
@@ -95,10 +96,6 @@ func PublishSingleHostPeerUpdate(host *models.Host, allNodes []models.Node, dele
 	if err != nil {
 		return err
 	}
-	if len(peerUpdate.Peers) == 0 { // no peers to send
-		return nil
-	}
-
 	data, err := json.Marshal(&peerUpdate)
 	if err != nil {
 		return err
@@ -169,6 +166,27 @@ func ServerStartNotify() error {
 	return nil
 }
 
+// PublishDNSUpdatev1 - published dns updates to all nodes passed
+func PublishDNSUpdatev1(network string, dns models.DNSUpdate, nodes []models.Node) error {
+	for _, node := range nodes {
+		host, err := logic.GetHost(node.HostID.String())
+		if err != nil {
+			logger.Log(0, "error retrieving host for dns update", node.HostID.String(), err.Error())
+			continue
+		}
+		data, err := json.Marshal(dns)
+		if err != nil {
+			logger.Log(0, "failed to encode dns data for node", node.ID.String(), err.Error())
+		}
+		if err := publish(host, "dns/update/"+host.ID.String()+"/"+servercfg.GetServer(), data); err != nil {
+			logger.Log(0, "error publishing dns update to host", host.ID.String(), err.Error())
+			continue
+		}
+		logger.Log(3, "published dns update to host", host.ID.String())
+	}
+	return nil
+}
+
 // PublishDNSUpdate publishes a dns update to all nodes on a network
 func PublishDNSUpdate(network string, dns models.DNSUpdate) error {
 	nodes, err := logic.GetNetworkNodes(network)
@@ -213,6 +231,32 @@ func PublishAllDNS(newnode *models.Node) error {
 	}
 	logger.Log(3, "published full dns update to %s", newnodeHost.ID.String())
 	return nil
+}
+
+// PublishMqUpdatesForDeletedNode - published all the required updates for deleted node
+func PublishMqUpdatesForDeletedNode(node models.Node, sendNodeUpdate bool, gwClients []models.ExtClient) {
+	// notify of peer change
+	node.PendingDelete = true
+	node.Action = models.NODE_DELETE
+	if sendNodeUpdate {
+		if err := NodeUpdate(&node); err != nil {
+			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
+		}
+	}
+	if err := PublishDeletedNodePeerUpdate(&node); err != nil {
+		logger.Log(1, "error publishing peer update ", err.Error())
+	}
+	host, err := logic.GetHost(node.HostID.String())
+	if err != nil {
+		logger.Log(1, "failed to retrieve host for node", node.ID.String(), err.Error())
+	}
+	if err := PublishDNSDelete(&node, host); err != nil {
+		logger.Log(1, "error publishing dns update", err.Error())
+	}
+	if err := PublishDeleteAllExtclientsDNS(node.Network, gwClients); err != nil {
+		logger.Log(1, "error publishing ext dns update", err.Error())
+	}
+
 }
 
 // PublishDNSDelete publish a dns update deleting a node to all hosts on a network
@@ -295,6 +339,22 @@ func PublishExtClientDNSUpdate(old, new models.ExtClient, network string) error 
 	}
 	if err := PublishDNSUpdate(network, dns); err != nil {
 		return err
+	}
+	return nil
+}
+
+// PublishDeleteAllExtclientsDNS - publish to delete all passed ext clients dns entries
+func PublishDeleteAllExtclientsDNS(network string, clients []models.ExtClient) error {
+	nodes, err := logic.GetNetworkNodes(network)
+	if err != nil {
+		return err
+	}
+	for _, client := range clients {
+		dns := models.DNSUpdate{
+			Action: models.DNSDeleteByName,
+			Name:   client.ClientID + "." + client.Network,
+		}
+		go PublishDNSUpdatev1(client.Network, dns, nodes)
 	}
 	return nil
 }

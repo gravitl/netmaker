@@ -309,7 +309,7 @@ save_config() { (
 		"INSTALL_TYPE" "NODE_ID" "DNS_MODE" "NETCLIENT_AUTO_UPDATE" "API_PORT"
 		"CORS_ALLOWED_ORIGIN" "DISPLAY_KEYS" "DATABASE" "SERVER_BROKER_ENDPOINT" "STUN_PORT" "VERBOSITY"
 		"TURN_PORT" "USE_TURN" "DEBUG_MODE" "TURN_API_PORT" "REST_BACKEND"
-		"DISABLE_REMOTE_IP_CHECK" "NETCLIENT_ENDPOINT_DETECTION" "TELEMETRY" "AUTH_PROVIDER" "CLIENT_ID" "CLIENT_SECRET"
+		"DISABLE_REMOTE_IP_CHECK" "TELEMETRY" "AUTH_PROVIDER" "CLIENT_ID" "CLIENT_SECRET"
 		"FRONTEND_URL" "AZURE_TENANT" "OIDC_ISSUER" "EXPORTER_API_PORT" "JWT_VALIDITY_DURATION" "RAC_AUTO_DISABLE")
 	for name in "${toCopy[@]}"; do
 		save_config_item $name "${!name}"
@@ -370,7 +370,6 @@ local_install_setup() { (
 	else
 		cp docker/Caddyfile "$SCRIPT_DIR/Caddyfile"
 	fi
-	cp scripts/nm-certs.sh "$SCRIPT_DIR/nm-certs.sh"
 	cp scripts/netmaker.default.env "$SCRIPT_DIR/netmaker.default.env"
 	cp docker/mosquitto.conf "$SCRIPT_DIR/mosquitto.conf"
 	cp docker/wait.sh "$SCRIPT_DIR/wait.sh"
@@ -776,8 +775,9 @@ install_netmaker() {
 	export COMPOSE_HTTP_TIMEOUT=120
 
 	# start docker and rebuild containers / networks
-	docker-compose -f "$SCRIPT_DIR"/docker-compose.yml up -d --force-recreate
-
+	cd "${SCRIPT_DIR}"
+	docker-compose up -d --force-recreate
+	cd -
 	wait_seconds 2
 
 }

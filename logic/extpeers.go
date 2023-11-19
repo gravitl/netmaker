@@ -107,7 +107,7 @@ func GetNetworkExtClients(network string) ([]models.ExtClient, error) {
 		if err != nil {
 			continue
 		}
-		key, err := GetRecordKey(extclient.ClientID, network)
+		key, err := GetRecordKey(extclient.ClientID, extclient.Network)
 		if err == nil {
 			storeExtClientInCache(key, extclient)
 		}
@@ -135,6 +135,21 @@ func GetExtClient(clientid string, network string) (models.ExtClient, error) {
 	err = json.Unmarshal([]byte(data), &extclient)
 	storeExtClientInCache(key, extclient)
 	return extclient, err
+}
+
+// GetGwExtclients - return all ext clients attached to the passed gw id
+func GetGwExtclients(nodeID, network string) []models.ExtClient {
+	gwClients := []models.ExtClient{}
+	clients, err := GetNetworkExtClients(network)
+	if err != nil {
+		return gwClients
+	}
+	for _, client := range clients {
+		if client.IngressGatewayID == nodeID {
+			gwClients = append(gwClients, client)
+		}
+	}
+	return gwClients
 }
 
 // GetExtClient - gets a single ext client on a network

@@ -614,6 +614,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 				if err := mq.NodeUpdate(&node); err != nil {
 					slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 				}
+				mq.PublishDeleteAllExtclientsDNS(node.Network, removedClients)
 			}()
 		}
 	}
@@ -725,35 +726,10 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	}
 	forceDelete := r.URL.Query().Get("force") == "true"
 	fromNode := r.Header.Get("requestfrom") == "node"
-	if node.IsRelayed {
-		// cleanup node from relayednodes on relay node
-		relayNode, err := logic.GetNodeByID(node.RelayedBy)
-		if err == nil {
-			relayedNodes := []string{}
-			for _, relayedNodeID := range relayNode.RelayedNodes {
-				if relayedNodeID == node.ID.String() {
-					continue
-				}
-				relayedNodes = append(relayedNodes, relayedNodeID)
-			}
-			relayNode.RelayedNodes = relayedNodes
-			logic.UpsertNode(&relayNode)
-		}
-	}
-	if node.IsRelay {
-		// unset all the relayed nodes
-		logic.SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
-	}
+	var gwClients []models.ExtClient
 	if node.IsIngressGateway {
-		// delete ext clients belonging to ingress gatewa
-		go func(node models.Node) {
-			if err = logic.DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
-				slog.Error("failed to delete extclients", "gatewayid", node.ID.String(), "network", node.Network, "error", err.Error())
-			}
-		}(node)
-
+		gwClients = logic.GetGwExtclients(node.ID.String(), node.Network)
 	}
-
 	purge := forceDelete || fromNode
 	if err := logic.DeleteNode(&node, purge); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
@@ -762,23 +738,7 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
-	go func() { // notify of peer change
-		if !fromNode {
-			if err := mq.NodeUpdate(&node); err != nil {
-				slog.Error("error publishing node update to node", "node", node.ID, "error", err)
-			}
-		}
-		if err := mq.PublishDeletedNodePeerUpdate(&node); err != nil {
-			logger.Log(1, "error publishing peer update ", err.Error())
-		}
-		host, err := logic.GetHost(node.HostID.String())
-		if err != nil {
-			logger.Log(1, "failed to retrieve host for node", node.ID.String(), err.Error())
-		}
-		if err := mq.PublishDNSDelete(&node, host); err != nil {
-			logger.Log(1, "error publishing dns update", err.Error())
-		}
-	}()
+	go mq.PublishMqUpdatesForDeletedNode(node, !fromNode, gwClients)
 }
 
 func validateParams(nodeid, netid string) (models.Node, error) {
