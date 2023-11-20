@@ -73,14 +73,15 @@ func encryptMsg(host *models.Host, msg []byte) ([]byte, error) {
 }
 
 func publish(host *models.Host, dest string, msg []byte) error {
-	encrypted, encryptErr := encryptMsg(host, msg)
-	if encryptErr != nil {
-		return encryptErr
-	}
+	// encrypted, encryptErr := encryptMsg(host, msg)
+	// if encryptErr != nil {
+	// 	return encryptErr
+	// }
 	if mqclient == nil {
 		return errors.New("cannot publish ... mqclient not connected")
 	}
-	if token := mqclient.Publish(dest, 0, true, encrypted); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
+
+	if token := mqclient.Publish(dest, 0, true, msg); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
 		var err error
 		if token.Error() == nil {
 			err = errors.New("connection timeout")
