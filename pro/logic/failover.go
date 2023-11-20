@@ -43,7 +43,7 @@ func GetFailOverNode(network string, allNodes []models.Node) (models.Node, error
 }
 
 // FailOverExists - checks if failOver exists already in the network
-func FailOverExists(network string) (exists bool) {
+func FailOverExists(network string) (failOverNode models.Node, exists bool) {
 	nodes, err := logic.GetNetworkNodes(network)
 	if err != nil {
 		return
@@ -51,6 +51,7 @@ func FailOverExists(network string) (exists bool) {
 	for _, node := range nodes {
 		if node.IsFailOver {
 			exists = true
+			failOverNode = node
 			return
 		}
 	}

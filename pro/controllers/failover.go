@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/logger"
@@ -20,6 +21,7 @@ import (
 func FailOverHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/node/{nodeid}/failover", logic.SecurityCheck(true, http.HandlerFunc(createfailOver))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/node/{nodeid}/failover", logic.SecurityCheck(true, http.HandlerFunc(deletefailOver))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/node/{network}/failover/reset", logic.SecurityCheck(true, http.HandlerFunc(resetFailOver))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/node/{nodeid}/failover_me", controller.Authorize(true, false, "host", http.HandlerFunc(failOverME))).Methods(http.MethodPost)
 }
 
@@ -44,7 +46,7 @@ func createfailOver(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if proLogic.FailOverExists(node.Network) {
+	if _, exists := proLogic.FailOverExists(node.Network); exists {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failover exists already in the network"), "badrequest"))
 		return
 	}
@@ -58,6 +60,26 @@ func createfailOver(w http.ResponseWriter, r *http.Request) {
 	go mq.PublishPeerUpdate()
 	w.Header().Set("Content-Type", "application/json")
 	logic.ReturnSuccessResponseWithJson(w, r, node, "created failover successfully")
+}
+
+func resetFailOver(w http.ResponseWriter, r *http.Request) {
+	var params = mux.Vars(r)
+	net := params["network"]
+	nodes, err := logic.GetNetworkNodes(net)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	for _, node := range nodes {
+		if node.FailedOverBy != uuid.Nil {
+			node.FailedOverBy = uuid.Nil
+			node.FailOverPeers = make(map[string]struct{})
+			logic.UpsertNode(&node)
+		}
+	}
+	go mq.PublishPeerUpdate()
+	w.Header().Set("Content-Type", "application/json")
+	logic.ReturnSuccessResponse(w, r, "failover has been reset successfully")
 }
 
 // swagger:route DELETE /api/v1/node/failover node deletefailOver
