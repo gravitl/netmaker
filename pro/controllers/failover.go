@@ -140,6 +140,12 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+
+	failOverNode, exists := proLogic.FailOverExists(node.Network)
+	if !exists {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failover node doesn't exist in the network"), "badrequest"))
+		return
+	}
 	var failOverReq models.FailOverMeReq
 	err = json.NewDecoder(r.Body).Decode(&failOverReq)
 	if err != nil {
@@ -148,11 +154,6 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var sendPeerUpdate bool
-	allNodes, err := logic.GetAllNodes()
-	if err != nil {
-		slog.Error("failed to get all nodes", "error", err)
-		return
-	}
 	peerNode, err := logic.GetNodeByID(failOverReq.NodeID)
 	if err != nil {
 		slog.Error("peer not found: ", "nodeid", failOverReq.NodeID, "error", err)
@@ -167,13 +168,7 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("peer node is relayed or acting as failover"), "badrequest"))
 		return
 	}
-	// get failOver node in this network
-	failOverNode, err := proLogic.GetFailOverNode(node.Network, allNodes)
-	if err != nil {
-		slog.Error("auto relay not found", "network", node.Network)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("auto relay not found"), "internal"))
-		return
-	}
+
 	err = proLogic.SetFailOverCtx(failOverNode, node, peerNode)
 	if err != nil {
 		slog.Error("failed to create failover", "id", node.ID.String(),
