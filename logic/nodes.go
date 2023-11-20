@@ -369,6 +369,9 @@ func SetNodeDefaults(node *models.Node) {
 	if node.DefaultACL == "" {
 		node.DefaultACL = parentNetwork.DefaultACL
 	}
+	if node.FailOverPeers == nil {
+		node.FailOverPeers = make(map[string]struct{})
+	}
 
 	node.SetLastModified()
 	node.SetLastCheckIn()
