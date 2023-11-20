@@ -69,7 +69,7 @@ func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.N
 			continue
 		}
 		node.IsRelayed = setRelayed
-		if node.IsRelayed {
+		if setRelayed {
 			node.RelayedBy = relay
 		} else {
 			node.RelayedBy = ""

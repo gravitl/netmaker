@@ -37,8 +37,10 @@ type ApiNode struct {
 	Connected               bool     `json:"connected"`
 	PendingDelete           bool     `json:"pendingdelete"`
 	// == PRO ==
-	DefaultACL string `json:"defaultacl,omitempty" validate:"checkyesornoorunset"`
-	IsFailOver bool   `json:"is_fail_over" `
+	DefaultACL    string              `json:"defaultacl,omitempty" validate:"checkyesornoorunset"`
+	IsFailOver    bool                `json:"is_fail_over"`
+	FailOverPeers map[string]struct{} `json:"fail_over_peers" yaml:"fail_over_peers"`
+	FailedOverBy  uuid.UUID           `json:"failed_over_by" yaml:"failed_over_by"`
 }
 
 // ApiNode.ConvertToServerNode - converts an api node to a server node
@@ -156,6 +158,8 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.PendingDelete = nm.PendingDelete
 	apiNode.DefaultACL = nm.DefaultACL
 	apiNode.IsFailOver = nm.IsFailOver
+	apiNode.FailOverPeers = nm.FailOverPeers
+	apiNode.FailedOverBy = nm.FailedOverBy
 	return &apiNode
 }
 

@@ -94,7 +94,7 @@ func deletefailOver(w http.ResponseWriter, r *http.Request) {
 		mq.PublishPeerUpdate()
 	}()
 	w.Header().Set("Content-Type", "application/json")
-	logic.ReturnSuccessResponseWithJson(w, r, node, "created failover successfully")
+	logic.ReturnSuccessResponseWithJson(w, r, node, "deleted failover successfully")
 }
 
 // swagger:route POST /api/node/{nodeid}/failOverME node failOver_me
