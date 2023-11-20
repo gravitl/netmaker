@@ -50,6 +50,10 @@ func createfailOver(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failover exists already in the network"), "badrequest"))
 		return
 	}
+	if node.IsRelayed {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot set relayed node as failover"), "badrequest"))
+		return
+	}
 	node.IsFailOver = true
 	err = logic.UpsertNode(&node)
 	if err != nil {
