@@ -75,6 +75,7 @@ func encryptMsg(host *models.Host, msg []byte) ([]byte, error) {
 
 func publish(host *models.Host, dest string, msg []byte) error {
 	if len(msg) == 0 {
+		fmt.Println("----->  $$$$$$ ZERO MSG_-------> ", string(msg))
 		pc, _, _, ok := runtime.Caller(1)
 		details := runtime.FuncForPC(pc)
 		if ok && details != nil {
