@@ -143,6 +143,10 @@ func HostUpdate(hostUpdate *models.HostUpdate) error {
 		logger.Log(2, "error marshalling node update ", err.Error())
 		return err
 	}
+	if hostUpdate.Action == models.SignalHost {
+		encrypted, encryptErr := encryptMsg(&hostUpdate.Host, data)
+		fmt.Println("------------> SINGAL MQ  MSG: ", len(encrypted), encryptErr)
+	}
 	if err = publish(&hostUpdate.Host, fmt.Sprintf("host/update/%s/%s", hostUpdate.Host.ID.String(), servercfg.GetServer()), data); err != nil {
 		logger.Log(2, "error publishing host update to", hostUpdate.Host.ID.String(), err.Error())
 		return err
