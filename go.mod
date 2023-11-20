@@ -39,7 +39,7 @@ require (
 
 require (
 	github.com/devilcove/httpclient v0.6.0
-	github.com/go-jose/go-jose/v3 v3.0.0
+	github.com/go-jose/go-jose/v3 v3.0.1
 	github.com/guumaster/tablewriter v0.0.10
 	github.com/matryer/is v1.4.1
 	github.com/olekukonko/tablewriter v0.0.5
