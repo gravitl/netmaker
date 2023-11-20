@@ -26,15 +26,15 @@ func serverHandlers(r *mux.Router) {
 		},
 	).Methods(http.MethodGet)
 	r.HandleFunc(
-		"/api/server/health",
+		"/api/server/shutdown",
 		func(w http.ResponseWriter, _ *http.Request) {
-			msg := "received api call to restart server, sending interruption..."
+			msg := "received api call to shutdown server, sending interruption..."
 			slog.Warn(msg)
 			_, _ = w.Write([]byte(msg))
 			w.WriteHeader(http.StatusOK)
 			_ = syscall.Kill(syscall.Getpid(), syscall.SIGINT)
 		},
-	).Methods(http.MethodDelete)
+	).Methods(http.MethodPost)
 	r.HandleFunc("/api/server/getconfig", allowUsers(http.HandlerFunc(getConfig))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/server/getserverinfo", Authorize(true, false, "node", http.HandlerFunc(getServerInfo))).
