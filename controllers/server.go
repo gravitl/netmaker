@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"github.com/gorilla/mux"
+	"golang.org/x/exp/slog"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
@@ -27,9 +28,11 @@ func serverHandlers(r *mux.Router) {
 	r.HandleFunc(
 		"/api/server/health",
 		func(w http.ResponseWriter, _ *http.Request) {
-			_ = syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+			msg := "received api call to restart server, sending interruption..."
+			slog.Warn(msg)
+			_, _ = w.Write([]byte(msg))
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte("Shutting down server..."))
+			_ = syscall.Kill(syscall.Getpid(), syscall.SIGINT)
 		},
 	).Methods(http.MethodDelete)
 	r.HandleFunc("/api/server/getconfig", allowUsers(http.HandlerFunc(getConfig))).
