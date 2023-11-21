@@ -122,17 +122,6 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create EMQX creds if not found
-	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
-		if err := mq.CreateEmqxUser(hostID, host.HostPass, false); err != nil {
-			slog.Error("failed to create host credentials for EMQX: ", err.Error())
-		} else {
-			if err := mq.CreateHostACL(hostID, servercfg.GetServerInfo().Server); err != nil {
-				slog.Error("failed to add host ACL rules to EMQX: ", err.Error())
-			}
-		}
-	}
-
 	serverConf.TrafficKey = key
 	response := models.HostPull{
 		Host:            *host,
@@ -489,6 +478,18 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
+
+	// Create EMQX creds if not found
+	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
+		if err := mq.CreateEmqxUser(host.ID.String(), host.HostPass, false); err != nil {
+			slog.Error("failed to create host credentials for EMQX: ", err.Error())
+		} else {
+			if err := mq.CreateHostACL(host.ID.String(), servercfg.GetServerInfo().Server); err != nil {
+				slog.Error("failed to add host ACL rules to EMQX: ", err.Error())
+			}
+		}
+	}
+
 	response.WriteHeader(http.StatusOK)
 	response.Header().Set("Content-Type", "application/json")
 	response.Write(successJSONResponse)
