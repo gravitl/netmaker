@@ -166,7 +166,3 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 func isEmptyAddr(addr string) bool {
 	return addr == "<nil>" || addr == ":0"
 }
-
-func isUUIDSet(uuid string) bool {
-	return uuid != "00000000-0000-0000-0000-000000000000"
-}
