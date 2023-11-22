@@ -129,6 +129,8 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		Peers:           hPU.Peers,
 		PeerIDs:         hPU.PeerIDs,
 		HostNetworkInfo: hPU.HostNetworkInfo,
+		EgressRoutes:    hPU.EgressRoutes,
+		FwUpdate:        hPU.FwUpdate,
 	}
 
 	logger.Log(1, hostID, "completed a pull")
