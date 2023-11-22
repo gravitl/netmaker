@@ -540,7 +540,6 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to signal, peer not found"), "badrequest"))
 		return
 	}
-	fmt.Printf("\n######------------> SIGNAL: %+v\n", signal)
 	err = mq.HostUpdate(&models.HostUpdate{
 		Action: models.SignalHost,
 		Host:   *peerHost,
