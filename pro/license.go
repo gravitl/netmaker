@@ -97,10 +97,13 @@ func ValidateLicense() (err error) {
 		return err
 	}
 
-	validationResponse, err := validateLicenseKey(encryptedData, tempPubKey)
+	validationResponse, timedOut, err := validateLicenseKey(encryptedData, tempPubKey)
 	if err != nil {
 		err = fmt.Errorf("failed to validate license key: %w", err)
 		return err
+	}
+	if timedOut {
+		return
 	}
 	if len(validationResponse) == 0 {
 		err = errors.New("empty validation response")
@@ -185,12 +188,11 @@ func getLicensePublicKey(licensePubKeyEncoded string) (*[32]byte, error) {
 	return ncutils.ConvertBytesToKey(decodedPubKey)
 }
 
-func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, error) {
+func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, bool, error) {
 	publicKeyBytes, err := ncutils.ConvertKeyToBytes(publicKey)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-
 	msg := ValidateLicenseRequest{
 		LicenseKey:     servercfg.GetLicenseKey(),
 		NmServerPubKey: base64encode(publicKeyBytes),
@@ -199,7 +201,7 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, erro
 
 	requestBody, err := json.Marshal(msg)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	req, err := http.NewRequest(
@@ -208,7 +210,7 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, erro
 		bytes.NewReader(requestBody),
 	)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
@@ -216,7 +218,8 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, erro
 	validateResponse, err := client.Do(req)
 	if err != nil { // check cache
 		slog.Warn("proceeding with cached response, Netmaker API may be down")
-		return getCachedResponse()
+		cachedResp, err := getCachedResponse()
+		return cachedResp, false, err
 	}
 	defer validateResponse.Body.Close()
 	code := validateResponse.StatusCode
@@ -226,12 +229,12 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, erro
 		body, err := io.ReadAll(validateResponse.Body)
 		if err != nil {
 			slog.Warn("failed to parse response", "error", err)
-			return nil, err
+			return nil, false, err
 		}
 		if err := cacheResponse(body); err != nil {
 			slog.Warn("failed to cache response", "error", err)
 		}
-		return body, nil
+		return body, false, nil
 	}
 
 	// at this point the backend returned some undesired state
@@ -244,12 +247,12 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, erro
 
 	// try to use cache if we had a temporary error
 	if code == http.StatusServiceUnavailable || code == http.StatusGatewayTimeout {
-		slog.Warn("proceeding with cached response, Netmaker API may be down")
-		return getCachedResponse()
+		slog.Warn("Netmaker API may be down, will retry later...", "code", code)
+		return nil, true, nil
 	}
 
 	// at this point the error is irreversible, return it
-	return nil, err
+	return nil, false, err
 }
 
 func getAccountsHost() string {
