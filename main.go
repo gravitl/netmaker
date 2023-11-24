@@ -167,6 +167,7 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 		keepAlive = false
 	}
 	if keepAlive {
+		slog.Info("## Starting KeepAlive Thread")
 		go mq.Keepalive(ctx)
 	}
 	go func() {
