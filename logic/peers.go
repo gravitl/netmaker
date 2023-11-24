@@ -129,6 +129,9 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					EgressRanges: peer.EgressGatewayRanges,
 				})
 			}
+			if peer.IsIngressGateway {
+				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, getExtpeersExtraRoutes(peer.Network)...)
+			}
 			if (node.IsRelayed && node.RelayedBy != peer.ID.String()) || (peer.IsRelayed && peer.RelayedBy != node.ID.String()) {
 				// if node is relayed and peer is not the relay, set remove to true
 				if _, ok := peerIndexMap[peerHost.PublicKey.String()]; ok {
@@ -207,9 +210,11 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		}
 		var extPeers []wgtypes.PeerConfig
 		var extPeerIDAndAddrs []models.IDandAddr
+		var egressRoutes []models.EgressNetworkRoutes
 		if node.IsIngressGateway {
-			extPeers, extPeerIDAndAddrs, err = getExtPeers(&node, &node)
+			extPeers, extPeerIDAndAddrs, egressRoutes, err = getExtPeers(&node, &node)
 			if err == nil {
+				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, egressRoutes...)
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, extPeers...)
 				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
 					extPeerIdAndAddr := extPeerIdAndAddr
@@ -290,16 +295,17 @@ func GetPeerListenPort(host *models.Host) int {
 	return peerPort
 }
 
-func getExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, error) {
+func getExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, []models.EgressNetworkRoutes, error) {
 	var peers []wgtypes.PeerConfig
 	var idsAndAddr []models.IDandAddr
+	var egressRoutes []models.EgressNetworkRoutes
 	extPeers, err := GetNetworkExtClients(node.Network)
 	if err != nil {
-		return peers, idsAndAddr, err
+		return peers, idsAndAddr, egressRoutes, err
 	}
 	host, err := GetHost(node.HostID.String())
 	if err != nil {
-		return peers, idsAndAddr, err
+		return peers, idsAndAddr, egressRoutes, err
 	}
 	for _, extPeer := range extPeers {
 		extPeer := extPeer
@@ -338,6 +344,12 @@ func getExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandA
 				allowedips = append(allowedips, addr6)
 			}
 		}
+		for _, extraAllowedIP := range extPeer.ExtraAllowedIPs {
+			_, cidr, err := net.ParseCIDR(extraAllowedIP)
+			if err == nil {
+				allowedips = append(allowedips, *cidr)
+			}
+		}
 
 		primaryAddr := extPeer.Address
 		if primaryAddr == "" {
@@ -356,8 +368,35 @@ func getExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandA
 			IsExtClient: true,
 		})
 	}
-	return peers, idsAndAddr, nil
+	return peers, idsAndAddr, egressRoutes, nil
 
+}
+
+func getExtPeerEgressRoute(extPeer models.ExtClient) (egressRoutes []models.EgressNetworkRoutes) {
+	if extPeer.Address != "" {
+		egressRoutes = append(egressRoutes, models.EgressNetworkRoutes{
+			NodeAddr:     extPeer.AddressIPNet4(),
+			EgressRanges: extPeer.ExtraAllowedIPs,
+		})
+	}
+	if extPeer.Address6 != "" {
+		egressRoutes = append(egressRoutes, models.EgressNetworkRoutes{
+			NodeAddr:     extPeer.AddressIPNet6(),
+			EgressRanges: extPeer.ExtraAllowedIPs,
+		})
+	}
+	return
+}
+
+func getExtpeersExtraRoutes(network string) (egressRoutes []models.EgressNetworkRoutes) {
+	extPeers, err := GetNetworkExtClients(network)
+	if err != nil {
+		return
+	}
+	for _, extPeer := range extPeers {
+		egressRoutes = append(egressRoutes, getExtPeerEgressRoute(extPeer)...)
+	}
+	return
 }
 
 // GetAllowedIPs - calculates the wireguard allowedip field for a peer of a node based on the peer and node settings
@@ -367,7 +406,7 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 
 	// handle ingress gateway peers
 	if peer.IsIngressGateway {
-		extPeers, _, err := getExtPeers(peer, node)
+		extPeers, _, _, err := getExtPeers(peer, node)
 		if err != nil {
 			logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 		}
