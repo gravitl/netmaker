@@ -30,6 +30,7 @@ func InitPro() {
 	)
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
 		// == License Handling ==
+		ClearLicenseCache()
 		if err := ValidateLicense(); err != nil {
 			slog.Error(err.Error())
 			return
