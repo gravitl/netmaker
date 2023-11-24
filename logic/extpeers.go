@@ -247,9 +247,7 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 	if update.Enabled != old.Enabled {
 		new.Enabled = update.Enabled
 	}
-	if update.ExtraAllowedIPs != nil && StringDifference(old.ExtraAllowedIPs, update.ExtraAllowedIPs) != nil {
-		new.ExtraAllowedIPs = update.ExtraAllowedIPs
-	}
+	new.ExtraAllowedIPs = update.ExtraAllowedIPs
 	if update.DeniedACLs != nil && !reflect.DeepEqual(old.DeniedACLs, update.DeniedACLs) {
 		new.DeniedACLs = update.DeniedACLs
 	}
