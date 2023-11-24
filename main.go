@@ -28,7 +28,6 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-
 var version = "v0.21.2"
 
 // Start DB Connection and start API Request Handler
@@ -163,7 +162,13 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 		logger.FatalLog("error connecting to MQ Broker")
 	}
 	defer mq.CloseClient()
-	go mq.Keepalive(ctx)
+	keepAlive := true
+	if servercfg.IsDeloyedOnK8s() && !logic.K8sMasterPod() {
+		keepAlive = false
+	}
+	if keepAlive {
+		go mq.Keepalive(ctx)
+	}
 	go func() {
 		peerUpdate := make(chan *models.Node)
 		go logic.ManageZombies(ctx, peerUpdate)

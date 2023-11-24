@@ -247,6 +247,17 @@ func GetCoreDNSAddr() string {
 	return addr
 }
 
+// IsDeloyedOnK8s - returns true if deployed on k8s
+func IsDeloyedOnK8s() bool {
+	k8s := false
+	if os.Getenv("K8s") == "true" {
+		k8s = true
+	} else if config.Config.Server.K8s {
+		k8s = true
+	}
+	return k8s
+}
+
 // GetPublicBrokerEndpoint - returns the public broker endpoint which shall be used by netclient
 func GetPublicBrokerEndpoint() string {
 	if os.Getenv("BROKER_ENDPOINT") != "" {

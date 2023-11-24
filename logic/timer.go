@@ -3,10 +3,12 @@ package logic
 import (
 	"context"
 	"fmt"
-	"github.com/gravitl/netmaker/logger"
-	"golang.org/x/exp/slog"
 	"sync"
 	"time"
+
+	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/servercfg"
+	"golang.org/x/exp/slog"
 
 	"github.com/gravitl/netmaker/models"
 )
@@ -56,8 +58,14 @@ func StartHookManager(ctx context.Context, wg *sync.WaitGroup) {
 			slog.Error("## Stopping Hook Manager")
 			return
 		case newhook := <-HookManagerCh:
-			wg.Add(1)
-			go addHookWithInterval(ctx, wg, newhook.Hook, newhook.Interval)
+			addHook := true
+			if servercfg.IsDeloyedOnK8s() && !K8sMasterPod() {
+				addHook = false
+			}
+			if addHook {
+				wg.Add(1)
+				go addHookWithInterval(ctx, wg, newhook.Hook, newhook.Interval)
+			}
 		}
 	}
 }

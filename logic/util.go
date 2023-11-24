@@ -134,4 +134,11 @@ func RemoveStringSlice(slice []string, i int) []string {
 	return append(slice[:i], slice[i+1:]...)
 }
 
+// K8sMasterPod - check if this statefulset 0th pod
+func K8sMasterPod() bool {
+	podName := os.Getenv("HOSTNAME")
+	nameSlice := strings.Split(podName, "-")
+	return nameSlice[len(nameSlice)-1] == "0"
+}
+
 // == private ==

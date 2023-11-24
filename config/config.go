@@ -48,6 +48,7 @@ type ServerConfig struct {
 	AllowedOrigin              string        `yaml:"allowedorigin"`
 	NodeID                     string        `yaml:"nodeid"`
 	RestBackend                string        `yaml:"restbackend"`
+	K8s                        bool          `yaml:"k8s"`
 	MessageQueueBackend        string        `yaml:"messagequeuebackend"`
 	DNSMode                    string        `yaml:"dnsmode"`
 	DisableRemoteIPCheck       string        `yaml:"disableremoteipcheck"`
