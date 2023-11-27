@@ -134,4 +134,18 @@ func RemoveStringSlice(slice []string, i int) []string {
 	return append(slice[:i], slice[i+1:]...)
 }
 
+// IsSlicesEqual tells whether a and b contain the same elements.
+// A nil argument is equivalent to an empty slice.
+func IsSlicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // == private ==
