@@ -481,6 +481,9 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		sendPeerUpdate = true
 		logic.SetClientACLs(&oldExtClient, update.DeniedACLs)
 	}
+	if !logic.IsSlicesEqual(update.ExtraAllowedIPs, oldExtClient.ExtraAllowedIPs) {
+		sendPeerUpdate = true
+	}
 
 	if update.Enabled != oldExtClient.Enabled {
 		sendPeerUpdate = true
