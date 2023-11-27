@@ -194,26 +194,18 @@ func (node *Node) PrimaryAddress() string {
 
 // ExtClient.PrimaryAddress - returns ipv4 IPNet format
 func (extPeer *ExtClient) AddressIPNet4() net.IPNet {
-	if extPeer.Address == "" {
-		return net.IPNet{}
+	return net.IPNet{
+		IP:   net.ParseIP(extPeer.Address),
+		Mask: net.CIDRMask(32, 32),
 	}
-	_, cidr, err := net.ParseCIDR(extPeer.Address)
-	if err != nil {
-		return net.IPNet{}
-	}
-	return *cidr
 }
 
 // ExtClient.AddressIPNet6 - return ipv6 IPNet format
 func (extPeer *ExtClient) AddressIPNet6() net.IPNet {
-	if extPeer.Address6 == "" {
-		return net.IPNet{}
+	return net.IPNet{
+		IP:   net.ParseIP(extPeer.Address),
+		Mask: net.CIDRMask(128, 128),
 	}
-	_, cidr6, err := net.ParseCIDR(extPeer.Address6)
-	if err != nil {
-		return net.IPNet{}
-	}
-	return *cidr6
 }
 
 // Node.PrimaryNetworkRange - returns node's parent network, returns ipv4 address if present, else return ipv6
