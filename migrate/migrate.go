@@ -2,6 +2,7 @@ package migrate
 
 import (
 	"encoding/json"
+	"log"
 
 	"golang.org/x/exp/slog"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 // Run - runs all migrations
@@ -28,6 +30,26 @@ func assignSuperAdmin() {
 		return
 	}
 	createdSuperAdmin := false
+	owner := servercfg.GetOwnerEmail()
+	if owner != "" {
+		user, err := logic.GetUser(owner)
+		if err != nil {
+			log.Fatal("error getting user", "user", owner, "error", err.Error())
+		}
+		user.IsSuperAdmin = true
+		user.IsAdmin = false
+		err = logic.UpsertUser(*user)
+		if err != nil {
+			log.Fatal(
+				"error updating user to superadmin",
+				"user",
+				user.UserName,
+				"error",
+				err.Error(),
+			)
+		}
+		return
+	}
 	for _, u := range users {
 		if u.IsAdmin {
 			user, err := logic.GetUser(u.UserName)
