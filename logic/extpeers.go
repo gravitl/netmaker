@@ -374,7 +374,7 @@ func getExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandA
 				allowedips = append(allowedips, *cidr)
 			}
 		}
-
+		egressRoutes = append(egressRoutes, getExtPeerEgressRoute(extPeer)...)
 		primaryAddr := extPeer.Address
 		if primaryAddr == "" {
 			primaryAddr = extPeer.Address6
