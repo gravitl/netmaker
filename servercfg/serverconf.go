@@ -256,6 +256,11 @@ func GetPublicBrokerEndpoint() string {
 	}
 }
 
+// GetOwnerEmail - gets the owner email (saas)
+func GetOwnerEmail() string {
+	return os.Getenv("OWNER_EMAIL")
+}
+
 // GetMessageQueueEndpoint - gets the message queue endpoint
 func GetMessageQueueEndpoint() (string, bool) {
 	host, _ := GetPublicIP()
