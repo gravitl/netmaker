@@ -164,6 +164,7 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 		return models.Node{}, err
 	}
 	node.IsIngressGateway = true
+	node.IsInternetGateway = ingress.IsInternetGateway
 	node.IngressGatewayRange = network.AddressRange
 	node.IngressGatewayRange6 = network.AddressRange6
 	node.IngressDNS = ingress.ExtclientDNS
@@ -220,6 +221,7 @@ func DeleteIngressGateway(nodeid string) (models.Node, bool, []models.ExtClient,
 	wasFailover := node.Failover
 	node.LastModified = time.Now()
 	node.IsIngressGateway = false
+	node.IsInternetGateway = false
 	node.IngressGatewayRange = ""
 	node.Failover = false
 	err = UpsertNode(&node)

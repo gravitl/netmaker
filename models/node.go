@@ -69,6 +69,7 @@ type CommonNode struct {
 	IsEgressGateway     bool         `json:"isegressgateway" yaml:"isegressgateway"`
 	EgressGatewayRanges []string     `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
 	IsIngressGateway    bool         `json:"isingressgateway" yaml:"isingressgateway"`
+	IsInternetGateway   bool         `json:"isinternetgateway" yaml:"isinternetgateway"`
 	IsRelayed           bool         `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
 	RelayedBy           string       `json:"relayedby" bson:"relayedby" yaml:"relayedby"`
 	IsRelay             bool         `json:"isrelay" bson:"isrelay" yaml:"isrelay"`

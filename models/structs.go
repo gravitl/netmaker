@@ -189,8 +189,9 @@ type HostRelayRequest struct {
 
 // IngressRequest - ingress request struct
 type IngressRequest struct {
-	ExtclientDNS string `json:"extclientdns"`
-	Failover     bool   `json:"failover"`
+	ExtclientDNS      string `json:"extclientdns"`
+	Failover          bool   `json:"failover"`
+	IsInternetGateway bool   `json:"is_internet_gw"`
 }
 
 // ServerUpdateData - contains data to configure server

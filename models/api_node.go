@@ -28,6 +28,7 @@ type ApiNode struct {
 	RelayedNodes            []string `json:"relaynodes" yaml:"relayedNodes"`
 	IsEgressGateway         bool     `json:"isegressgateway"`
 	IsIngressGateway        bool     `json:"isingressgateway"`
+	IsInternetGateway       bool     `json:"isinternetgateway" yaml:"isinternetgateway"`
 	EgressGatewayRanges     []string `json:"egressgatewayranges"`
 	EgressGatewayNatEnabled bool     `json:"egressgatewaynatenabled"`
 	FailoverNode            string   `json:"failovernode"`
@@ -161,6 +162,7 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.PendingDelete = nm.PendingDelete
 	apiNode.DefaultACL = nm.DefaultACL
 	apiNode.Failover = nm.Failover
+	apiNode.IsInternetGateway = nm.IsInternetGateway
 	return &apiNode
 }
 
