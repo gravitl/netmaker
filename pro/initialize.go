@@ -27,6 +27,7 @@ func InitPro() {
 		proControllers.MetricHandlers,
 		proControllers.RelayHandlers,
 		proControllers.UserHandlers,
+		proControllers.FailOverHandlers,
 	)
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
 		// == License Handling ==
@@ -42,11 +43,9 @@ func InitPro() {
 		if servercfg.GetServerConfig().RacAutoDisable {
 			AddRacHooks()
 		}
-		resetFailover()
 	})
-	logic.EnterpriseFailoverFunc = proLogic.SetFailover
-	logic.EnterpriseResetFailoverFunc = proLogic.ResetFailover
-	logic.EnterpriseResetAllPeersFailovers = proLogic.WipeAffectedFailoversOnly
+	logic.ResetFailOver = proLogic.ResetFailOver
+	logic.ResetFailedOverPeer = proLogic.ResetFailedOverPeer
 	logic.DenyClientNodeAccess = proLogic.DenyClientNode
 	logic.IsClientNodeAllowed = proLogic.IsClientNodeAllowed
 	logic.AllowClientNodeAccess = proLogic.RemoveDeniedNodeFromClient
@@ -63,18 +62,6 @@ func InitPro() {
 	logic.SetRelayedNodes = proLogic.SetRelayedNodes
 	logic.RelayUpdates = proLogic.RelayUpdates
 	mq.UpdateMetrics = proLogic.MQUpdateMetrics
-}
-
-func resetFailover() {
-	nets, err := logic.GetNetworks()
-	if err == nil {
-		for _, net := range nets {
-			err = proLogic.ResetFailover(net.NetID)
-			if err != nil {
-				slog.Error("failed to reset failover", "network", net.NetID, "error", err.Error())
-			}
-		}
-	}
 }
 
 func retrieveProLogo() string {

@@ -70,3 +70,8 @@ type FwUpdate struct {
 	IsEgressGw bool                  `json:"is_egress_gw"`
 	EgressInfo map[string]EgressInfo `json:"egress_info"`
 }
+
+// FailOverMeReq - struct for failover req
+type FailOverMeReq struct {
+	NodeID string `json:"node_id"`
+}

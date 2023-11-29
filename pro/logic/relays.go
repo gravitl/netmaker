@@ -69,7 +69,7 @@ func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.N
 			continue
 		}
 		node.IsRelayed = setRelayed
-		if node.IsRelayed {
+		if setRelayed {
 			node.RelayedBy = relay
 		} else {
 			node.RelayedBy = ""
@@ -155,6 +155,7 @@ func UpdateRelayed(currentNode, newNode *models.Node) {
 	if len(updatenodes) > 0 {
 		for _, relayedNode := range updatenodes {
 			node := relayedNode
+			ResetFailedOverPeer(&node)
 			go func() {
 				if err := mq.NodeUpdate(&node); err != nil {
 					slog.Error("error publishing node update to node", "node", node.ID, "error", err)

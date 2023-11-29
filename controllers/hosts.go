@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -98,6 +99,16 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, "no host found during pull", hostID)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
+	}
+	for _, nodeID := range host.Nodes {
+		node, err := logic.GetNodeByID(nodeID)
+		if err != nil {
+			slog.Error("failed to get node:", "id", node.ID, "error", err)
+			continue
+		}
+		if node.FailedOverBy != uuid.Nil {
+			go logic.ResetFailedOverPeer(&node)
+		}
 	}
 	allNodes, err := logic.GetAllNodes()
 	if err != nil {
@@ -533,39 +544,33 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if signal.ToHostPubKey == "" || signal.TurnRelayEndpoint == "" {
+	if signal.ToHostPubKey == "" || (!servercfg.IsPro && signal.TurnRelayEndpoint == "") {
 		msg := "insufficient data to signal peer"
 		logger.Log(0, r.Header.Get("user"), msg)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New(msg), "badrequest"))
 		return
 	}
-	hosts, err := logic.GetAllHosts()
+	signal.IsPro = servercfg.IsPro
+	var peerHost *models.Host
+	if signal.ToHostID == "" {
+		peerHost, err = logic.GetHostByPubKey(signal.ToHostPubKey)
+	} else {
+		peerHost, err = logic.GetHost(signal.ToHostID)
+	}
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	// push the signal to host through mq
-	found := false
-	for _, hostI := range hosts {
-		if hostI.PublicKey.String() == signal.ToHostPubKey {
-			// found host publish message and break
-			found = true
-			err = mq.HostUpdate(&models.HostUpdate{
-				Action: models.SignalHost,
-				Host:   hostI,
-				Signal: signal,
-			})
-			if err != nil {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to publish signal to peer: "+err.Error()), "badrequest"))
-				return
-			}
-			break
-		}
-	}
-	if !found {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to signal, peer not found"), "badrequest"))
 		return
 	}
+	err = mq.HostUpdate(&models.HostUpdate{
+		Action: models.SignalHost,
+		Host:   *peerHost,
+		Signal: signal,
+	})
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to publish signal to peer: "+err.Error()), "badrequest"))
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(signal)
 }

@@ -126,6 +126,8 @@ const (
 	Disconnect SignalAction = "DISCONNECT"
 	// ConnNegotiation - action to negotiate connection between peers
 	ConnNegotiation SignalAction = "CONNECTION_NEGOTIATION"
+	// RelayME - action to relay the peer
+	RelayME SignalAction = "RELAY_ME"
 )
 
 // HostUpdate - struct for host update
@@ -148,8 +150,13 @@ type Signal struct {
 	FromHostPubKey    string       `json:"from_host_pubkey"`
 	TurnRelayEndpoint string       `json:"turn_relay_addr"`
 	ToHostPubKey      string       `json:"to_host_pubkey"`
+	FromHostID        string       `json:"from_host_id"`
+	ToHostID          string       `json:"to_host_id"`
+	FromNodeID        string       `json:"from_node_id"`
+	ToNodeID          string       `json:"to_node_id"`
 	Reply             bool         `json:"reply"`
 	Action            SignalAction `json:"action"`
+	IsPro             bool         `json:"is_pro"`
 	TimeStamp         int64        `json:"timestamp"`
 }
 

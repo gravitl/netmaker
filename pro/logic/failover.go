@@ -1,122 +1,97 @@
 package logic
 
 import (
+	"errors"
+
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 )
 
-// SetFailover - finds a suitable failover candidate and sets it
-func SetFailover(node *models.Node) error {
-	failoverNode := determineFailoverCandidate(node)
-	if failoverNode != nil {
-		return setFailoverNode(failoverNode, node)
+func SetFailOverCtx(failOverNode, victimNode, peerNode models.Node) error {
+	if peerNode.FailOverPeers == nil {
+		peerNode.FailOverPeers = make(map[string]struct{})
+	}
+	if victimNode.FailOverPeers == nil {
+		victimNode.FailOverPeers = make(map[string]struct{})
+	}
+	peerNode.FailOverPeers[victimNode.ID.String()] = struct{}{}
+	victimNode.FailOverPeers[peerNode.ID.String()] = struct{}{}
+	victimNode.FailedOverBy = failOverNode.ID
+	peerNode.FailedOverBy = failOverNode.ID
+	if err := logic.UpsertNode(&failOverNode); err != nil {
+		return err
+	}
+	if err := logic.UpsertNode(&victimNode); err != nil {
+		return err
+	}
+	if err := logic.UpsertNode(&peerNode); err != nil {
+		return err
 	}
 	return nil
 }
 
-// ResetFailover - sets the failover node and wipes disconnected status
-func ResetFailover(network string) error {
+// GetFailOverNode - gets the host acting as failOver
+func GetFailOverNode(network string, allNodes []models.Node) (models.Node, error) {
+	nodes := logic.GetNetworkNodesMemory(allNodes, network)
+	for _, node := range nodes {
+		if node.IsFailOver {
+			return node, nil
+		}
+	}
+	return models.Node{}, errors.New("auto relay not found")
+}
+
+// FailOverExists - checks if failOver exists already in the network
+func FailOverExists(network string) (failOverNode models.Node, exists bool) {
 	nodes, err := logic.GetNetworkNodes(network)
+	if err != nil {
+		return
+	}
+	for _, node := range nodes {
+		if node.IsFailOver {
+			exists = true
+			failOverNode = node
+			return
+		}
+	}
+	return
+}
+
+// ResetFailedOverPeer - removes failed over node from network peers
+func ResetFailedOverPeer(failedOveredNode *models.Node) error {
+	nodes, err := logic.GetNetworkNodes(failedOveredNode.Network)
+	if err != nil {
+		return err
+	}
+	failedOveredNode.FailedOverBy = uuid.Nil
+	failedOveredNode.FailOverPeers = make(map[string]struct{})
+	err = logic.UpsertNode(failedOveredNode)
 	if err != nil {
 		return err
 	}
 	for _, node := range nodes {
-		node := node
-		err = SetFailover(&node)
-		if err != nil {
-			logger.Log(2, "error setting failover for node", node.ID.String(), ":", err.Error())
+		if node.FailOverPeers == nil || node.ID == failedOveredNode.ID {
+			continue
 		}
-		err = WipeFailover(node.ID.String())
-		if err != nil {
-			logger.Log(2, "error wiping failover for node", node.ID.String(), ":", err.Error())
-		}
+		delete(node.FailOverPeers, failedOveredNode.ID.String())
+		logic.UpsertNode(&node)
 	}
 	return nil
 }
 
-// determineFailoverCandidate - returns a list of nodes that
-// are suitable for relaying a given node
-func determineFailoverCandidate(nodeToBeRelayed *models.Node) *models.Node {
-
-	currentNetworkNodes, err := logic.GetNetworkNodes(nodeToBeRelayed.Network)
-	if err != nil {
-		return nil
-	}
-
-	currentMetrics, err := GetMetrics(nodeToBeRelayed.ID.String())
-	if err != nil || currentMetrics == nil || currentMetrics.Connectivity == nil {
-		return nil
-	}
-
-	minLatency := int64(9223372036854775807) // max signed int64 value
-	var fastestCandidate *models.Node
-	for i := range currentNetworkNodes {
-		if currentNetworkNodes[i].ID == nodeToBeRelayed.ID {
-			continue
-		}
-
-		if currentMetrics.Connectivity[currentNetworkNodes[i].ID.String()].Connected && (currentNetworkNodes[i].Failover) {
-			if currentMetrics.Connectivity[currentNetworkNodes[i].ID.String()].Latency < int64(minLatency) {
-				fastestCandidate = &currentNetworkNodes[i]
-				minLatency = currentMetrics.Connectivity[currentNetworkNodes[i].ID.String()].Latency
-			}
-		}
-	}
-
-	return fastestCandidate
-}
-
-// setFailoverNode - changes node's failover node
-func setFailoverNode(failoverNode, node *models.Node) error {
-
-	node.FailoverNode = failoverNode.ID
-	nodeToUpdate, err := logic.GetNodeByID(node.ID.String())
+// ResetFailOver - reset failovered peers
+func ResetFailOver(failOverNode *models.Node) error {
+	// Unset FailedOverPeers
+	nodes, err := logic.GetNetworkNodes(failOverNode.Network)
 	if err != nil {
 		return err
 	}
-	if nodeToUpdate.FailoverNode == failoverNode.ID {
-		return nil
-	}
-	return logic.UpdateNode(&nodeToUpdate, node)
-}
-
-// WipeFailover - removes the failover peers of given node (ID)
-func WipeFailover(nodeid string) error {
-	metrics, err := GetMetrics(nodeid)
-	if err != nil {
-		return err
-	}
-	if metrics != nil {
-		metrics.FailoverPeers = make(map[string]string)
-		return logic.UpdateMetrics(nodeid, metrics)
-	}
-	return nil
-}
-
-// WipeAffectedFailoversOnly - wipes failovers for nodes that have given node (ID)
-// in their respective failover lists
-func WipeAffectedFailoversOnly(nodeid uuid.UUID, network string) error {
-	currentNetworkNodes, err := logic.GetNetworkNodes(network)
-	if err != nil {
-		return nil
-	}
-	WipeFailover(nodeid.String())
-
-	for i := range currentNetworkNodes {
-		currNodeID := currentNetworkNodes[i].ID
-		if currNodeID == nodeid {
-			continue
-		}
-		currMetrics, err := GetMetrics(currNodeID.String())
-		if err != nil || currMetrics == nil {
-			continue
-		}
-		if currMetrics.FailoverPeers != nil {
-			if len(currMetrics.FailoverPeers[nodeid.String()]) > 0 {
-				WipeFailover(currNodeID.String())
-			}
+	for _, node := range nodes {
+		if node.FailedOverBy == failOverNode.ID {
+			node.FailedOverBy = uuid.Nil
+			node.FailOverPeers = make(map[string]struct{})
+			logic.UpsertNode(&node)
 		}
 	}
 	return nil
