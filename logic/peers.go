@@ -227,8 +227,18 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				logger.Log(1, "error retrieving external clients:", err.Error())
 			}
 		}
+		addedInetGwRanges := false
 		if node.IsEgressGateway && node.EgressGatewayRequest.NatEnabled == "yes" && len(node.EgressGatewayRequest.Ranges) > 0 {
 			hostPeerUpdate.FwUpdate.IsEgressGw = true
+			if node.IsInternetGateway {
+				hostPeerUpdate.FwUpdate.IsEgressGw = true
+				egressrange := []string{"0.0.0.0/0"}
+				if node.Address.IP == nil {
+					egressrange = []string{"::/0"}
+				}
+				node.EgressGatewayRequest.Ranges = append(node.EgressGatewayRequest.Ranges, egressrange...)
+				addedInetGwRanges = true
+			}
 			hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()] = models.EgressInfo{
 				EgressID: node.ID.String(),
 				Network:  node.PrimaryNetworkRange(),
@@ -237,6 +247,28 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					Mask: getCIDRMaskFromAddr(node.PrimaryAddress()),
 				},
 				EgressGWCfg: node.EgressGatewayRequest,
+			}
+
+		}
+		if node.IsInternetGateway && !addedInetGwRanges {
+			hostPeerUpdate.FwUpdate.IsEgressGw = true
+			egressrange := []string{"0.0.0.0/0"}
+			if node.Address.IP == nil {
+				egressrange = []string{"::/0"}
+			}
+			hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()] = models.EgressInfo{
+				EgressID: node.ID.String(),
+				Network:  node.PrimaryAddressIPNet(),
+				EgressGwAddr: net.IPNet{
+					IP:   net.ParseIP(node.PrimaryAddress()),
+					Mask: getCIDRMaskFromAddr(node.PrimaryAddress()),
+				},
+				EgressGWCfg: models.EgressGatewayRequest{
+					NodeID:     node.ID.String(),
+					NetID:      node.Network,
+					NatEnabled: "yes",
+					Ranges:     egressrange,
+				},
 			}
 		}
 	}
