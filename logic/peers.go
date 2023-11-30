@@ -233,8 +233,8 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			if node.IsInternetGateway {
 				hostPeerUpdate.FwUpdate.IsEgressGw = true
 				egressrange := []string{"0.0.0.0/0"}
-				if node.Address.IP == nil {
-					egressrange = []string{"::/0"}
+				if node.Address6.IP != nil {
+					egressrange = append(egressrange, "::/0")
 				}
 				node.EgressGatewayRequest.Ranges = append(node.EgressGatewayRequest.Ranges, egressrange...)
 				addedInetGwRanges = true
@@ -253,8 +253,8 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		if node.IsInternetGateway && !addedInetGwRanges {
 			hostPeerUpdate.FwUpdate.IsEgressGw = true
 			egressrange := []string{"0.0.0.0/0"}
-			if node.Address.IP == nil {
-				egressrange = []string{"::/0"}
+			if node.Address6.IP != nil {
+				egressrange = append(egressrange, "::/0")
 			}
 			hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()] = models.EgressInfo{
 				EgressID: node.ID.String(),

@@ -219,10 +219,10 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	var newAllowedIPs string
 	if gwnode.IsInternetGateway {
 		egressrange := "0.0.0.0/0"
-		if gwnode.Address.IP == nil {
-			egressrange = "::/0"
+		if gwnode.Address6.IP != nil && client.Address6 != "" {
+			egressrange += "," + "::/0"
 		}
-		newAllowedIPs += "," + egressrange
+		newAllowedIPs = egressrange
 	} else {
 		newAllowedIPs = network.AddressRange
 		if newAllowedIPs != "" && network.AddressRange6 != "" {
