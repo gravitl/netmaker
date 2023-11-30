@@ -79,12 +79,8 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	}
 	for i := len(gateway.Ranges) - 1; i >= 0; i-- {
 		// check if internet gateway IPv4
-		if gateway.Ranges[i] == "0.0.0.0/0" && FreeTier {
-			return models.Node{}, fmt.Errorf("currently IPv4 internet gateways are not supported on the free tier: %s", gateway.Ranges[i])
-		}
-		// check if internet gateway IPv6
-		if gateway.Ranges[i] == "::/0" {
-			return models.Node{}, fmt.Errorf("currently IPv6 internet gateways are not supported: %s", gateway.Ranges[i])
+		if gateway.Ranges[i] == "0.0.0.0/0" || gateway.Ranges[i] == "::/0" {
+			return models.Node{}, fmt.Errorf("create internet gateways on the remote client gateway")
 		}
 		normalized, err := NormalizeCIDR(gateway.Ranges[i])
 		if err != nil {
