@@ -350,6 +350,10 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
+	if !servercfg.IsPro && !user.IsAdmin {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+		return
+	}
 
 	err = logic.CreateUser(&user)
 	if err != nil {
