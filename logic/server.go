@@ -1,21 +1,7 @@
 package logic
 
-import (
-	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/models"
-)
-
 // EnterpriseCheckFuncs - can be set to run functions for EE
 var EnterpriseCheckFuncs []func()
-
-// EnterpriseFailoverFunc - interface to control failover funcs
-var EnterpriseFailoverFunc func(node *models.Node) error
-
-// EnterpriseResetFailoverFunc - interface to control reset failover funcs
-var EnterpriseResetFailoverFunc func(network string) error
-
-// EnterpriseResetAllPeersFailovers - resets all nodes that are considering a node to be failover worthy (inclusive)
-var EnterpriseResetAllPeersFailovers func(nodeid uuid.UUID, network string) error
 
 // == Join, Checkin, and Leave for Server ==
 

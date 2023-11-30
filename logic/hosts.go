@@ -156,6 +156,20 @@ func GetHost(hostid string) (*models.Host, error) {
 	return &h, nil
 }
 
+// GetHostByPubKey - gets a host from db given pubkey
+func GetHostByPubKey(hostPubKey string) (*models.Host, error) {
+	hosts, err := GetAllHosts()
+	if err != nil {
+		return nil, err
+	}
+	for _, host := range hosts {
+		if host.PublicKey.String() == hostPubKey {
+			return &host, nil
+		}
+	}
+	return nil, errors.New("host not found")
+}
+
 // CreateHost - creates a host if not exist
 func CreateHost(h *models.Host) error {
 	hosts, hErr := GetAllHosts()

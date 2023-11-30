@@ -341,7 +341,6 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 func getNode(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
-	nodeRequest := r.Header.Get("requestfrom") == "node"
 
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
@@ -384,12 +383,6 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		Peers:        hostPeerUpdate.NodePeers,
 		ServerConfig: server,
 		PeerIDs:      hostPeerUpdate.PeerIDs,
-	}
-
-	if servercfg.IsPro && nodeRequest {
-		if err = logic.EnterpriseResetAllPeersFailovers(node.ID, node.Network); err != nil {
-			logger.Log(1, "failed to reset failover list during node config pull", node.ID.String(), node.Network)
-		}
 	}
 
 	logger.Log(2, r.Header.Get("user"), "fetched node", params["nodeid"])
@@ -524,12 +517,6 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if servercfg.IsPro && request.Failover {
-		if err = logic.EnterpriseResetFailoverFunc(node.Network); err != nil {
-			logger.Log(1, "failed to reset failover list during failover create", node.ID.String(), node.Network)
-		}
-	}
-
 	apiNode := node.ConvertToAPINode()
 	logger.Log(1, r.Header.Get("user"), "created ingress gateway on node", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
@@ -562,7 +549,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "bad request"))
 		return
 	}
-	node, wasFailover, removedClients, err := logic.DeleteIngressGateway(nodeid)
+	node, removedClients, err := logic.DeleteIngressGateway(nodeid)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to delete ingress gateway on node [%s] on network [%s]: %v",
@@ -572,11 +559,6 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if servercfg.IsPro {
-		if wasFailover {
-			if err = logic.EnterpriseResetFailoverFunc(node.Network); err != nil {
-				logger.Log(1, "failed to reset failover list during failover create", node.ID.String(), node.Network)
-			}
-		}
 		go func() {
 			users, err := logic.GetUsersDB()
 			if err == nil {
@@ -662,11 +644,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 	ifaceDelta := logic.IfaceDelta(&currentNode, newNode)
 	aclUpdate := currentNode.DefaultACL != newNode.DefaultACL
-	if ifaceDelta && servercfg.IsPro {
-		if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID, currentNode.Network); err != nil {
-			logger.Log(0, "failed to reset failover lists during node update for node", currentNode.ID.String(), currentNode.Network)
-		}
-	}
 
 	err = logic.UpdateNode(&currentNode, newNode)
 	if err != nil {

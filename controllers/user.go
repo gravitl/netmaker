@@ -502,14 +502,14 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	if user.IsSuperAdmin {
 		slog.Error(
 			"failed to delete user: ", "user", username, "error", "superadmin cannot be deleted")
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("superadmin cannot be deleted"), "internal"))
 		return
 	}
 	if !caller.IsSuperAdmin {
 		if caller.IsAdmin && user.IsAdmin {
 			slog.Error(
-				"failed to delete user: ", "user", username, "error", "admin cannot delete another admin user")
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				"failed to delete user: ", "user", username, "error", "admin cannot delete another admin user, including oneself")
+			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("admin cannot delete another admin user, including oneself"), "internal"))
 			return
 		}
 	}

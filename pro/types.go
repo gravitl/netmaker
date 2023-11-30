@@ -1,3 +1,4 @@
+// go:build ee
 //go:build ee
 // +build ee
 

@@ -8,7 +8,6 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/servercfg"
 )
 
 // GetInternetGateways - gets all the nodes that are internet gateways
@@ -165,9 +164,6 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	node.IngressGatewayRange6 = network.AddressRange6
 	node.IngressDNS = ingress.ExtclientDNS
 	node.SetLastModified()
-	if ingress.Failover && servercfg.IsPro {
-		node.Failover = true
-	}
 	err = UpsertNode(&node)
 	if err != nil {
 		return models.Node{}, err
@@ -196,36 +192,34 @@ func GetIngressGwUsers(node models.Node) (models.IngressGwUsers, error) {
 }
 
 // DeleteIngressGateway - deletes an ingress gateway
-func DeleteIngressGateway(nodeid string) (models.Node, bool, []models.ExtClient, error) {
+func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error) {
 	removedClients := []models.ExtClient{}
 	node, err := GetNodeByID(nodeid)
 	if err != nil {
-		return models.Node{}, false, removedClients, err
+		return models.Node{}, removedClients, err
 	}
 	clients, err := GetExtClientsByID(nodeid, node.Network)
 	if err != nil && !database.IsEmptyRecord(err) {
-		return models.Node{}, false, removedClients, err
+		return models.Node{}, removedClients, err
 	}
 
 	removedClients = clients
 
 	// delete ext clients belonging to ingress gateway
 	if err = DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
-		return models.Node{}, false, removedClients, err
+		return models.Node{}, removedClients, err
 	}
 	logger.Log(3, "deleting ingress gateway")
-	wasFailover := node.Failover
 	node.LastModified = time.Now()
 	node.IsIngressGateway = false
 	node.IsInternetGateway = false
 	node.IngressGatewayRange = ""
-	node.Failover = false
 	err = UpsertNode(&node)
 	if err != nil {
-		return models.Node{}, wasFailover, removedClients, err
+		return models.Node{}, removedClients, err
 	}
 	err = SetNetworkNodesLastModified(node.Network)
-	return node, wasFailover, removedClients, err
+	return node, removedClients, err
 }
 
 // DeleteGatewayExtClients - deletes ext clients based on gateway (mac) of ingress node and network

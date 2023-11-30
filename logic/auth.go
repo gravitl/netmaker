@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/exp/slog"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -165,11 +166,19 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 	}
 
 	// Create a new JWT for the node
-	tokenString, _ := CreateUserJWT(authRequest.UserName, result.IsSuperAdmin, result.IsAdmin)
+	tokenString, err := CreateUserJWT(authRequest.UserName, result.IsSuperAdmin, result.IsAdmin)
+	if err != nil {
+		slog.Error("error creating jwt", "error", err)
+		return "", err
+	}
 
 	// update last login time
 	result.LastLoginTime = time.Now()
-	UpsertUser(result)
+	err = UpsertUser(result)
+	if err != nil {
+		slog.Error("error upserting user", "error", err)
+		return "", err
+	}
 
 	return tokenString, nil
 }
@@ -178,9 +187,11 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 func UpsertUser(user models.User) error {
 	data, err := json.Marshal(&user)
 	if err != nil {
+		slog.Error("error marshalling user", "user", user.UserName, "error", err.Error())
 		return err
 	}
 	if err = database.Insert(user.UserName, string(data), database.USERS_TABLE_NAME); err != nil {
+		slog.Error("error inserting user", "user", user.UserName, "error", err.Error())
 		return err
 	}
 	return nil

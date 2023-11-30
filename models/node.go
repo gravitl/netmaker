@@ -91,10 +91,11 @@ type Node struct {
 	IngressGatewayRange     string               `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
 	IngressGatewayRange6    string               `json:"ingressgatewayrange6" bson:"ingressgatewayrange6" yaml:"ingressgatewayrange6"`
 	// == PRO ==
-	DefaultACL   string    `json:"defaultacl,omitempty" bson:"defaultacl,omitempty" yaml:"defaultacl,omitempty" validate:"checkyesornoorunset"`
-	OwnerID      string    `json:"ownerid,omitempty" bson:"ownerid,omitempty" yaml:"ownerid,omitempty"`
-	FailoverNode uuid.UUID `json:"failovernode" bson:"failovernode" yaml:"failovernode"`
-	Failover     bool      `json:"failover" bson:"failover" yaml:"failover"`
+	DefaultACL    string              `json:"defaultacl,omitempty" bson:"defaultacl,omitempty" yaml:"defaultacl,omitempty" validate:"checkyesornoorunset"`
+	OwnerID       string              `json:"ownerid,omitempty" bson:"ownerid,omitempty" yaml:"ownerid,omitempty"`
+	IsFailOver    bool                `json:"is_fail_over" yaml:"is_fail_over"`
+	FailOverPeers map[string]struct{} `json:"fail_over_peers" yaml:"fail_over_peers"`
+	FailedOverBy  uuid.UUID           `json:"failed_over_by" yaml:"failed_over_by"`
 }
 
 // LegacyNode - legacy struct for node model
@@ -433,8 +434,8 @@ func (newNode *Node) Fill(currentNode *Node, isPro bool) { // TODO add new field
 	if newNode.DefaultACL == "" {
 		newNode.DefaultACL = currentNode.DefaultACL
 	}
-	if newNode.Failover != currentNode.Failover {
-		newNode.Failover = currentNode.Failover
+	if newNode.IsFailOver != currentNode.IsFailOver {
+		newNode.IsFailOver = currentNode.IsFailOver
 	}
 }
 
