@@ -119,7 +119,9 @@ func UpdateNodeCheckin(node *models.Node) error {
 	if err != nil {
 		return err
 	}
-	storeNodeInCache(*node)
+	if servercfg.CacheEnabled() {
+		storeNodeInCache(*node)
+	}
 	return nil
 }
 
@@ -134,7 +136,9 @@ func UpsertNode(newNode *models.Node) error {
 	if err != nil {
 		return err
 	}
-	storeNodeInCache(*newNode)
+	if servercfg.CacheEnabled() {
+		storeNodeInCache(*newNode)
+	}
 	return nil
 }
 
@@ -171,7 +175,9 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 			if err != nil {
 				return err
 			}
-			storeNodeInCache(*newNode)
+			if servercfg.CacheEnabled() {
+				storeNodeInCache(*newNode)
+			}
 			return nil
 		}
 	}
@@ -264,7 +270,9 @@ func DeleteNodeByID(node *models.Node) error {
 			return err
 		}
 	}
-	deleteNodeFromCache(node.ID.String())
+	if servercfg.CacheEnabled() {
+		deleteNodeFromCache(node.ID.String())
+	}
 	if servercfg.IsDNSMode() {
 		SetDNS()
 	}
@@ -310,12 +318,16 @@ func ValidateNode(node *models.Node, isUpdate bool) error {
 // GetAllNodes - returns all nodes in the DB
 func GetAllNodes() ([]models.Node, error) {
 	var nodes []models.Node
-	nodes = getNodesFromCache()
-	if len(nodes) != 0 {
-		return nodes, nil
+	if servercfg.CacheEnabled() {
+		nodes = getNodesFromCache()
+		if len(nodes) != 0 {
+			return nodes, nil
+		}
 	}
 	nodesMap := make(map[string]models.Node)
-	defer loadNodesIntoCache(nodesMap)
+	if servercfg.CacheEnabled() {
+		defer loadNodesIntoCache(nodesMap)
+	}
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil {
 		if database.IsEmptyRecord(err) {
@@ -389,8 +401,10 @@ func GetRecordKey(id string, network string) (string, error) {
 }
 
 func GetNodeByID(uuid string) (models.Node, error) {
-	if node, ok := getNodeFromCache(uuid); ok {
-		return node, nil
+	if servercfg.CacheEnabled() {
+		if node, ok := getNodeFromCache(uuid); ok {
+			return node, nil
+		}
 	}
 	var record, err = database.FetchRecord(database.NODES_TABLE_NAME, uuid)
 	if err != nil {
@@ -400,7 +414,9 @@ func GetNodeByID(uuid string) (models.Node, error) {
 	if err = json.Unmarshal([]byte(record), &node); err != nil {
 		return models.Node{}, err
 	}
-	storeNodeInCache(node)
+	if servercfg.CacheEnabled() {
+		storeNodeInCache(node)
+	}
 	return node, nil
 }
 
@@ -556,7 +572,9 @@ func createNode(node *models.Node) error {
 	if err != nil {
 		return err
 	}
-	storeNodeInCache(*node)
+	if servercfg.CacheEnabled() {
+		storeNodeInCache(*node)
+	}
 	_, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), defaultACLVal)
 	if err != nil {
 		logger.Log(1, "failed to create node ACL for node,", node.ID.String(), "err:", err.Error())

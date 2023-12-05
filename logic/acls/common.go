@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
 
@@ -128,8 +129,10 @@ func (aclContainer ACLContainer) Get(containerID ContainerID) (ACLContainer, err
 func fetchACLContainer(containerID ContainerID) (ACLContainer, error) {
 	aclMutex.RLock()
 	defer aclMutex.RUnlock()
-	if aclContainer, ok := fetchAclContainerFromCache(containerID); ok {
-		return aclContainer, nil
+	if servercfg.CacheEnabled() {
+		if aclContainer, ok := fetchAclContainerFromCache(containerID); ok {
+			return aclContainer, nil
+		}
 	}
 	aclJson, err := fetchACLContainerJson(ContainerID(containerID))
 	if err != nil {
@@ -139,7 +142,9 @@ func fetchACLContainer(containerID ContainerID) (ACLContainer, error) {
 	if err := json.Unmarshal([]byte(aclJson), &currentNetworkACL); err != nil {
 		return nil, err
 	}
-	storeAclContainerInCache(containerID, currentNetworkACL)
+	if servercfg.CacheEnabled() {
+		storeAclContainerInCache(containerID, currentNetworkACL)
+	}
 	return currentNetworkACL, nil
 }
 
@@ -176,7 +181,9 @@ func upsertACLContainer(containerID ContainerID, aclContainer ACLContainer) (ACL
 	if err != nil {
 		return aclContainer, err
 	}
-	storeAclContainerInCache(containerID, aclContainer)
+	if servercfg.CacheEnabled() {
+		storeAclContainerInCache(containerID, aclContainer)
+	}
 	return aclContainer, nil
 }
 

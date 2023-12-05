@@ -81,16 +81,21 @@ const (
 
 // GetAllHosts - returns all hosts in flat list or error
 func GetAllHosts() ([]models.Host, error) {
-	currHosts := getHostsFromCache()
-	if len(currHosts) != 0 {
-		return currHosts, nil
+	var currHosts []models.Host
+	if servercfg.CacheEnabled() {
+		currHosts := getHostsFromCache()
+		if len(currHosts) != 0 {
+			return currHosts, nil
+		}
 	}
 	records, err := database.FetchRecords(database.HOSTS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return nil, err
 	}
 	currHostsMap := make(map[string]models.Host)
-	defer loadHostsIntoCache(currHostsMap)
+	if servercfg.CacheEnabled() {
+		defer loadHostsIntoCache(currHostsMap)
+	}
 	for k := range records {
 		var h models.Host
 		err = json.Unmarshal([]byte(records[k]), &h)
@@ -116,16 +121,20 @@ func GetAllHostsAPI(hosts []models.Host) []models.ApiHost {
 
 // GetHostsMap - gets all the current hosts on machine in a map
 func GetHostsMap() (map[string]models.Host, error) {
-	hostsMap := getHostsMapFromCache()
-	if len(hostsMap) != 0 {
-		return hostsMap, nil
+	if servercfg.CacheEnabled() {
+		hostsMap := getHostsMapFromCache()
+		if len(hostsMap) != 0 {
+			return hostsMap, nil
+		}
 	}
 	records, err := database.FetchRecords(database.HOSTS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return nil, err
 	}
 	currHostMap := make(map[string]models.Host)
-	defer loadHostsIntoCache(currHostMap)
+	if servercfg.CacheEnabled() {
+		defer loadHostsIntoCache(currHostMap)
+	}
 	for k := range records {
 		var h models.Host
 		err = json.Unmarshal([]byte(records[k]), &h)
@@ -140,8 +149,10 @@ func GetHostsMap() (map[string]models.Host, error) {
 
 // GetHost - gets a host from db given id
 func GetHost(hostid string) (*models.Host, error) {
-	if host, ok := getHostFromCache(hostid); ok {
-		return &host, nil
+	if servercfg.CacheEnabled() {
+		if host, ok := getHostFromCache(hostid); ok {
+			return &host, nil
+		}
 	}
 	record, err := database.FetchRecord(database.HOSTS_TABLE_NAME, hostid)
 	if err != nil {
@@ -152,7 +163,10 @@ func GetHost(hostid string) (*models.Host, error) {
 	if err = json.Unmarshal([]byte(record), &h); err != nil {
 		return nil, err
 	}
-	storeHostInCache(h)
+	if servercfg.CacheEnabled() {
+		storeHostInCache(h)
+	}
+
 	return &h, nil
 }
 
@@ -279,7 +293,10 @@ func UpsertHost(h *models.Host) error {
 	if err != nil {
 		return err
 	}
-	storeHostInCache(*h)
+	if servercfg.CacheEnabled() {
+		storeHostInCache(*h)
+	}
+
 	return nil
 }
 
@@ -303,8 +320,10 @@ func RemoveHost(h *models.Host, forceDelete bool) error {
 	if err != nil {
 		return err
 	}
+	if servercfg.CacheEnabled() {
+		deleteHostFromCache(h.ID.String())
+	}
 
-	deleteHostFromCache(h.ID.String())
 	return nil
 }
 
@@ -318,7 +337,9 @@ func RemoveHostByID(hostID string) error {
 	if err != nil {
 		return err
 	}
-	deleteHostFromCache(hostID)
+	if servercfg.CacheEnabled() {
+		deleteHostFromCache(hostID)
+	}
 	return nil
 }
 
