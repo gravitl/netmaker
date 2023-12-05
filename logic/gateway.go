@@ -10,6 +10,16 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
+var (
+	// SetInternetGw - sets the node as internet gw based on flag bool
+	SetInternetGw = func(node *models.Node, flag bool) {
+	}
+	// IsInternetGw - checks if node is acting as internet gw
+	IsInternetGw = func(node models.Node) bool {
+		return false
+	}
+)
+
 // GetInternetGateways - gets all the nodes that are internet gateways
 func GetInternetGateways() ([]models.Node, error) {
 	nodes, err := GetAllNodes()
@@ -159,7 +169,7 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 		return models.Node{}, err
 	}
 	node.IsIngressGateway = true
-	node.IsInternetGateway = ingress.IsInternetGateway
+	SetInternetGw(&node, ingress.IsInternetGateway)
 	node.IngressGatewayRange = network.AddressRange
 	node.IngressGatewayRange6 = network.AddressRange6
 	node.IngressDNS = ingress.ExtclientDNS
