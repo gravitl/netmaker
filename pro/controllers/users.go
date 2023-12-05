@@ -197,11 +197,12 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 				gws := userGws[node.Network]
 
 				gws = append(gws, models.UserRemoteGws{
-					GwID:      node.ID.String(),
-					GWName:    host.Name,
-					Network:   node.Network,
-					GwClient:  extClient,
-					Connected: true,
+					GwID:              node.ID.String(),
+					GWName:            host.Name,
+					Network:           node.Network,
+					GwClient:          extClient,
+					Connected:         true,
+					IsInternetGateway: node.IsInternetGateway,
 				})
 				userGws[node.Network] = gws
 				delete(user.RemoteGwIDs, node.ID.String())
@@ -230,9 +231,10 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 		gws := userGws[node.Network]
 
 		gws = append(gws, models.UserRemoteGws{
-			GwID:    node.ID.String(),
-			GWName:  host.Name,
-			Network: node.Network,
+			GwID:              node.ID.String(),
+			GWName:            host.Name,
+			Network:           node.Network,
+			IsInternetGateway: node.IsInternetGateway,
 		})
 		userGws[node.Network] = gws
 	}
