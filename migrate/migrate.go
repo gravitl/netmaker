@@ -149,6 +149,7 @@ func updateNodes() {
 		if node.IsEgressGateway {
 			egressRanges, update := removeInterGw(node.EgressGatewayRanges)
 			if update {
+				node.EgressGatewayRequest.Ranges = egressRanges
 				node.EgressGatewayRanges = egressRanges
 				logic.UpsertNode(&node)
 			}

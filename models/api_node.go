@@ -68,6 +68,7 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.IngressGatewayRange6 = currentNode.IngressGatewayRange6
 	convertedNode.DNSOn = a.DNSOn
 	convertedNode.IngressDNS = a.IngressDns
+	convertedNode.IsInternetGateway = a.IsInternetGateway
 	convertedNode.EgressGatewayRequest = currentNode.EgressGatewayRequest
 	convertedNode.EgressGatewayNatEnabled = currentNode.EgressGatewayNatEnabled
 	convertedNode.RelayedNodes = a.RelayedNodes
@@ -88,10 +89,6 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 		}
 	} else if !isEmptyAddr(currentNode.LocalAddress.String()) {
 		convertedNode.LocalAddress = currentNode.LocalAddress
-	}
-	udpAddr, err := net.ResolveUDPAddr("udp", a.InternetGateway)
-	if err == nil {
-		convertedNode.InternetGateway = udpAddr
 	}
 	ip, addr, err := net.ParseCIDR(a.Address)
 	if err == nil {
@@ -151,7 +148,6 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.DNSOn = nm.DNSOn
 	apiNode.IngressDns = nm.IngressDNS
 	apiNode.Server = nm.Server
-	apiNode.InternetGateway = nm.InternetGateway.String()
 	if isEmptyAddr(apiNode.InternetGateway) {
 		apiNode.InternetGateway = ""
 	}
