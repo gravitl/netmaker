@@ -10,6 +10,16 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
+var (
+	// SetInternetGw - sets the node as internet gw based on flag bool
+	SetInternetGw = func(node *models.Node, flag bool) {
+	}
+	// IsInternetGw - checks if node is acting as internet gw
+	IsInternetGw = func(node models.Node) bool {
+		return false
+	}
+)
+
 // GetInternetGateways - gets all the nodes that are internet gateways
 func GetInternetGateways() ([]models.Node, error) {
 	nodes, err := GetAllNodes()
@@ -78,12 +88,8 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	}
 	for i := len(gateway.Ranges) - 1; i >= 0; i-- {
 		// check if internet gateway IPv4
-		if gateway.Ranges[i] == "0.0.0.0/0" && FreeTier {
-			return models.Node{}, fmt.Errorf("currently IPv4 internet gateways are not supported on the free tier: %s", gateway.Ranges[i])
-		}
-		// check if internet gateway IPv6
-		if gateway.Ranges[i] == "::/0" {
-			return models.Node{}, fmt.Errorf("currently IPv6 internet gateways are not supported: %s", gateway.Ranges[i])
+		if gateway.Ranges[i] == "0.0.0.0/0" || gateway.Ranges[i] == "::/0" {
+			return models.Node{}, fmt.Errorf("create internet gateways on the remote client gateway")
 		}
 		normalized, err := NormalizeCIDR(gateway.Ranges[i])
 		if err != nil {
@@ -163,6 +169,7 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 		return models.Node{}, err
 	}
 	node.IsIngressGateway = true
+	SetInternetGw(&node, ingress.IsInternetGateway)
 	node.IngressGatewayRange = network.AddressRange
 	node.IngressGatewayRange6 = network.AddressRange6
 	node.IngressDNS = ingress.ExtclientDNS
@@ -215,6 +222,7 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 	logger.Log(3, "deleting ingress gateway")
 	node.LastModified = time.Now()
 	node.IsIngressGateway = false
+	node.IsInternetGateway = false
 	node.IngressGatewayRange = ""
 	err = UpsertNode(&node)
 	if err != nil {

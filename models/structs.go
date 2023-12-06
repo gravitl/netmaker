@@ -64,11 +64,12 @@ type IngressGwUsers struct {
 
 // UserRemoteGws - struct to hold user's remote gws
 type UserRemoteGws struct {
-	GwID      string    `json:"remote_access_gw_id"`
-	GWName    string    `json:"gw_name"`
-	Network   string    `json:"network"`
-	Connected bool      `json:"connected"`
-	GwClient  ExtClient `json:"gw_client"`
+	GwID              string    `json:"remote_access_gw_id"`
+	GWName            string    `json:"gw_name"`
+	Network           string    `json:"network"`
+	Connected         bool      `json:"connected"`
+	IsInternetGateway bool      `json:"is_internet_gateway"`
+	GwClient          ExtClient `json:"gw_client"`
 }
 
 // UserRemoteGwsReq - struct to hold user remote acccess gws req
@@ -189,8 +190,8 @@ type HostRelayRequest struct {
 
 // IngressRequest - ingress request struct
 type IngressRequest struct {
-	ExtclientDNS string `json:"extclientdns"`
-	Failover     bool   `json:"failover"`
+	ExtclientDNS      string `json:"extclientdns"`
+	IsInternetGateway bool   `json:"is_internet_gw"`
 }
 
 // ServerUpdateData - contains data to configure server

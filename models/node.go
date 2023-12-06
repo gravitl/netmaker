@@ -54,27 +54,27 @@ type Iface struct {
 
 // CommonNode - represents a commonn node data elements shared by netmaker and netclient
 type CommonNode struct {
-	ID                  uuid.UUID    `json:"id" yaml:"id"`
-	HostID              uuid.UUID    `json:"hostid" yaml:"hostid"`
-	Network             string       `json:"network" yaml:"network"`
-	NetworkRange        net.IPNet    `json:"networkrange" yaml:"networkrange"`
-	NetworkRange6       net.IPNet    `json:"networkrange6" yaml:"networkrange6"`
-	InternetGateway     *net.UDPAddr `json:"internetgateway" yaml:"internetgateway"`
-	Server              string       `json:"server" yaml:"server"`
-	Connected           bool         `json:"connected" yaml:"connected"`
-	Address             net.IPNet    `json:"address" yaml:"address"`
-	Address6            net.IPNet    `json:"address6" yaml:"address6"`
-	Action              string       `json:"action" yaml:"action"`
-	LocalAddress        net.IPNet    `json:"localaddress" yaml:"localaddress"`
-	IsEgressGateway     bool         `json:"isegressgateway" yaml:"isegressgateway"`
-	EgressGatewayRanges []string     `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
-	IsIngressGateway    bool         `json:"isingressgateway" yaml:"isingressgateway"`
-	IsRelayed           bool         `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
-	RelayedBy           string       `json:"relayedby" bson:"relayedby" yaml:"relayedby"`
-	IsRelay             bool         `json:"isrelay" bson:"isrelay" yaml:"isrelay"`
-	RelayedNodes        []string     `json:"relaynodes" yaml:"relayedNodes"`
-	IngressDNS          string       `json:"ingressdns" yaml:"ingressdns"`
-	DNSOn               bool         `json:"dnson" yaml:"dnson"`
+	ID                  uuid.UUID `json:"id" yaml:"id"`
+	HostID              uuid.UUID `json:"hostid" yaml:"hostid"`
+	Network             string    `json:"network" yaml:"network"`
+	NetworkRange        net.IPNet `json:"networkrange" yaml:"networkrange"`
+	NetworkRange6       net.IPNet `json:"networkrange6" yaml:"networkrange6"`
+	Server              string    `json:"server" yaml:"server"`
+	Connected           bool      `json:"connected" yaml:"connected"`
+	Address             net.IPNet `json:"address" yaml:"address"`
+	Address6            net.IPNet `json:"address6" yaml:"address6"`
+	Action              string    `json:"action" yaml:"action"`
+	LocalAddress        net.IPNet `json:"localaddress" yaml:"localaddress"`
+	IsEgressGateway     bool      `json:"isegressgateway" yaml:"isegressgateway"`
+	EgressGatewayRanges []string  `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
+	IsIngressGateway    bool      `json:"isingressgateway" yaml:"isingressgateway"`
+	IsInternetGateway   bool      `json:"isinternetgateway" yaml:"isinternetgateway"`
+	IsRelayed           bool      `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
+	RelayedBy           string    `json:"relayedby" bson:"relayedby" yaml:"relayedby"`
+	IsRelay             bool      `json:"isrelay" bson:"isrelay" yaml:"isrelay"`
+	RelayedNodes        []string  `json:"relaynodes" yaml:"relayedNodes"`
+	IngressDNS          string    `json:"ingressdns" yaml:"ingressdns"`
+	DNSOn               bool      `json:"dnson" yaml:"dnson"`
 }
 
 // Node - a model of a network node

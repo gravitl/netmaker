@@ -61,6 +61,8 @@ func InitPro() {
 	logic.UpdateRelayed = proLogic.UpdateRelayed
 	logic.SetRelayedNodes = proLogic.SetRelayedNodes
 	logic.RelayUpdates = proLogic.RelayUpdates
+	logic.IsInternetGw = proLogic.IsInternetGw
+	logic.SetInternetGw = proLogic.SetInternetGw
 	mq.UpdateMetrics = proLogic.MQUpdateMetrics
 }
 
