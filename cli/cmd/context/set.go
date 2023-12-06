@@ -36,19 +36,23 @@ var contextSetCmd = &cobra.Command{
 		}
 		if !ctx.Saas {
 			if ctx.Username == "" && ctx.MasterKey == "" && !ctx.SSO {
-				cmd.Usage()
 				log.Fatal("Either username/password or master key is required")
+				cmd.Usage()
 			}
 			if ctx.Endpoint == "" {
-				cmd.Usage()
 				log.Fatal("Endpoint is required when for self-hosted tenants")
+				cmd.Usage()
 			}
 		} else {
 			if ctx.TenantId == "" {
-				cmd.Usage()
 				log.Fatal("Tenant ID is required for SaaS tenants")
+				cmd.Usage()
 			}
 			ctx.Endpoint = fmt.Sprintf(functions.TenantUrlTemplate, tenantId)
+			if ctx.Username == "" && ctx.Password == "" && !ctx.SSO {
+				log.Fatal("Username/password is required for non-SSO SaaS contexts")
+				cmd.Usage()
+			}
 		}
 		config.SetContext(args[0], ctx)
 	},

@@ -22,7 +22,7 @@ import (
 
 const (
 	ambBaseUrl        = "https://api.accounts.netmaker.io"
-	TenantUrlTemplate = "api-%s.app.prod.netmaker.io"
+	TenantUrlTemplate = "https://api-%s.app.prod.netmaker.io"
 	ambOauthWssUrl    = "wss://api.accounts.netmaker.io/api/v1/auth/sso"
 )
 
@@ -126,7 +126,6 @@ func getAuthToken(ctx config.Context, force bool) string {
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Println("supertoken acquired: ", sToken)
 		authToken, _, err := tenantLogin(ctx, sToken)
 		if err != nil {
 			log.Fatal(err)
@@ -292,8 +291,6 @@ func tenantLogin(ctx config.Context, sToken string) (string, string, error) {
 	}
 	req.Header.Add("Cookie", fmt.Sprintf("sAccessToken=%s", sToken))
 
-	fmt.Println("sending req to tenant login url: ", url)
-	fmt.Println(req)
 	res, err := client.Do(req)
 	if err != nil {
 		return "", "", err
@@ -332,8 +329,6 @@ func handleServerSSORegisterConn(payload *models.SsoLoginReqDto, conn *websocket
 	if err := conn.WriteMessage(websocket.TextMessage, reqData); err != nil {
 		return "", err
 	}
-	done := make(chan struct{})
-	defer close(done)
 	dataCh := make(chan string)
 	defer close(dataCh)
 	interrupt := make(chan os.Signal, 1)
@@ -345,7 +340,6 @@ func handleServerSSORegisterConn(payload *models.SsoLoginReqDto, conn *websocket
 			if err != nil {
 				if msgType < 0 {
 					slog.Info("received close message from server")
-					done <- struct{}{}
 					return
 				}
 				if !strings.Contains(err.Error(), "normal") { // Error reading a message from the server
@@ -355,7 +349,6 @@ func handleServerSSORegisterConn(payload *models.SsoLoginReqDto, conn *websocket
 			}
 			if msgType == websocket.CloseMessage {
 				slog.Info("received close message from server")
-				done <- struct{}{}
 				return
 			}
 			if strings.Contains(string(msg), "auth/sso") {
@@ -379,17 +372,15 @@ func handleServerSSORegisterConn(payload *models.SsoLoginReqDto, conn *websocket
 
 	for {
 		select {
-		case <-done:
-			slog.Info("wss phase finished")
-		case <-time.After(30 * time.Second):
-			slog.Info("authentiation timed out")
-			return "", nil
 		case accessToken := <-dataCh:
 			if accessToken == "" {
 				slog.Info("error getting access token")
 				return "", fmt.Errorf("error getting access token")
 			}
 			return accessToken, nil
+		case <-time.After(30 * time.Second):
+			slog.Error("authentiation timed out")
+			os.Exit(1)
 		case <-interrupt:
 			slog.Info("interrupt received, closing connection")
 			// Cleanly close the connection by sending a close message and then
@@ -398,7 +389,7 @@ func handleServerSSORegisterConn(payload *models.SsoLoginReqDto, conn *websocket
 			if err != nil {
 				log.Fatal(err)
 			}
-			return "", err
+			os.Exit(1)
 		}
 	}
 }
