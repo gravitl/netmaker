@@ -38,10 +38,10 @@ func AddLicenseHooks() {
 		Hook:     ValidateLicense,
 		Interval: time.Hour,
 	}
-	logic.HookManagerCh <- models.HookDetails{
-		Hook:     ClearLicenseCache,
-		Interval: time.Hour,
-	}
+	// logic.HookManagerCh <- models.HookDetails{
+	// 	Hook:     ClearLicenseCache,
+	// 	Interval: time.Hour,
+	// }
 }
 
 // ValidateLicense - the initial and periodic license check for netmaker server
@@ -97,10 +97,13 @@ func ValidateLicense() (err error) {
 		return err
 	}
 
-	validationResponse, err := validateLicenseKey(encryptedData, tempPubKey)
+	validationResponse, timedOut, err := validateLicenseKey(encryptedData, tempPubKey)
 	if err != nil {
 		err = fmt.Errorf("failed to validate license key: %w", err)
 		return err
+	}
+	if timedOut {
+		return
 	}
 	if len(validationResponse) == 0 {
 		err = errors.New("empty validation response")
@@ -185,12 +188,11 @@ func getLicensePublicKey(licensePubKeyEncoded string) (*[32]byte, error) {
 	return ncutils.ConvertBytesToKey(decodedPubKey)
 }
 
-func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, error) {
+func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, bool, error) {
 	publicKeyBytes, err := ncutils.ConvertKeyToBytes(publicKey)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-
 	msg := ValidateLicenseRequest{
 		LicenseKey:     servercfg.GetLicenseKey(),
 		NmServerPubKey: base64encode(publicKeyBytes),
@@ -199,7 +201,7 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, erro
 
 	requestBody, err := json.Marshal(msg)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	req, err := http.NewRequest(
@@ -208,40 +210,49 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, erro
 		bytes.NewReader(requestBody),
 	)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
 	client := &http.Client{}
-	var body []byte
 	validateResponse, err := client.Do(req)
 	if err != nil { // check cache
-		body, err = getCachedResponse()
-		if err != nil {
-			return nil, err
-		}
 		slog.Warn("proceeding with cached response, Netmaker API may be down")
-	} else {
-		defer validateResponse.Body.Close()
-		if validateResponse.StatusCode != http.StatusOK {
-			err := fmt.Errorf("could not validate license, got status code %d", validateResponse.StatusCode)
-			// if it's a temp error, just log it, don't consider license invalid
-			if validateResponse.StatusCode == http.StatusServiceUnavailable ||
-				validateResponse.StatusCode == http.StatusGatewayTimeout {
-				slog.Warn(err.Error())
-				return nil, nil
-			}
-			return nil, err
-		} // if you received a 200 cache the response locally
+		cachedResp, err := getCachedResponse()
+		return cachedResp, false, err
+	}
+	defer validateResponse.Body.Close()
+	code := validateResponse.StatusCode
 
-		body, err = io.ReadAll(validateResponse.Body)
+	// if we received a 200, cache the response locally
+	if code == http.StatusOK {
+		body, err := io.ReadAll(validateResponse.Body)
 		if err != nil {
-			return nil, err
+			slog.Warn("failed to parse response", "error", err)
+			return nil, false, err
 		}
-		cacheResponse(body)
+		if err := cacheResponse(body); err != nil {
+			slog.Warn("failed to cache response", "error", err)
+		}
+		return body, false, nil
 	}
 
-	return body, err
+	// at this point the backend returned some undesired state
+
+	// inform failure via logs
+	body, _ := io.ReadAll(validateResponse.Body)
+	err = fmt.Errorf("could not validate license with validation backend (status={%d}, body={%s})",
+		validateResponse.StatusCode, string(body))
+	slog.Warn(err.Error())
+
+	// try to use cache if we had a temporary error
+	if code == http.StatusServiceUnavailable || code == http.StatusGatewayTimeout {
+		slog.Warn("Netmaker API may be down, will retry later...", "code", code)
+		return nil, true, nil
+	}
+
+	// at this point the error is irreversible, return it
+	return nil, false, err
 }
 
 func getAccountsHost() string {

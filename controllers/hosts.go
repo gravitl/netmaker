@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -97,6 +99,16 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, "no host found during pull", hostID)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
+	}
+	for _, nodeID := range host.Nodes {
+		node, err := logic.GetNodeByID(nodeID)
+		if err != nil {
+			slog.Error("failed to get node:", "id", node.ID, "error", err)
+			continue
+		}
+		if node.FailedOverBy != uuid.Nil {
+			go logic.ResetFailedOverPeer(&node)
+		}
 	}
 	allNodes, err := logic.GetAllNodes()
 	if err != nil {
@@ -331,6 +343,24 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	// confirm host exists
 	currHost, err := logic.GetHost(hostid)
 	if err != nil {
+		if database.IsEmptyRecord(err) {
+			// check if there is any daemon nodes that needs to be deleted
+			node, err := logic.GetNodeByHostRef(hostid, network)
+			if err != nil {
+				slog.Error("couldn't get node for host", "hostid", hostid, "network", network, "error", err)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+				return
+			}
+			if err = logic.DeleteNodeByID(&node); err != nil {
+				slog.Error("failed to force delete daemon node",
+					"nodeid", node.ID.String(), "hostid", hostid, "network", network, "error", err)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to force delete daemon node: "+err.Error()), "internal"))
+				return
+			}
+			logic.ReturnSuccessResponse(w, r, "force deleted daemon node successfully")
+			return
+		}
+
 		logger.Log(0, r.Header.Get("user"), "failed to find host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -461,6 +491,27 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
+
+	// Create EMQX creds and ACLs if not found
+	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
+		if err := mq.CreateEmqxUser(host.ID.String(), host.HostPass, false); err != nil {
+			slog.Error("failed to create host credentials for EMQX: ", err.Error())
+		} else {
+			if err := mq.CreateHostACL(host.ID.String(), servercfg.GetServerInfo().Server); err != nil {
+				slog.Error("failed to add host ACL rules to EMQX: ", err.Error())
+			}
+			for _, nodeID := range host.Nodes {
+				if node, err := logic.GetNodeByID(nodeID); err == nil {
+					if err = mq.AppendNodeUpdateACL(host.ID.String(), node.Network, node.ID.String(), servercfg.GetServer()); err != nil {
+						slog.Error("failed to add ACLs for EMQX node", "error", err)
+					}
+				} else {
+					slog.Error("failed to get node", "nodeid", nodeID, "error", err)
+				}
+			}
+		}
+	}
+
 	response.WriteHeader(http.StatusOK)
 	response.Header().Set("Content-Type", "application/json")
 	response.Write(successJSONResponse)
@@ -495,39 +546,33 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if signal.ToHostPubKey == "" || signal.TurnRelayEndpoint == "" {
+	if signal.ToHostPubKey == "" || (!servercfg.IsPro && signal.TurnRelayEndpoint == "") {
 		msg := "insufficient data to signal peer"
 		logger.Log(0, r.Header.Get("user"), msg)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New(msg), "badrequest"))
 		return
 	}
-	hosts, err := logic.GetAllHosts()
+	signal.IsPro = servercfg.IsPro
+	var peerHost *models.Host
+	if signal.ToHostID == "" {
+		peerHost, err = logic.GetHostByPubKey(signal.ToHostPubKey)
+	} else {
+		peerHost, err = logic.GetHost(signal.ToHostID)
+	}
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	// push the signal to host through mq
-	found := false
-	for _, hostI := range hosts {
-		if hostI.PublicKey.String() == signal.ToHostPubKey {
-			// found host publish message and break
-			found = true
-			err = mq.HostUpdate(&models.HostUpdate{
-				Action: models.SignalHost,
-				Host:   hostI,
-				Signal: signal,
-			})
-			if err != nil {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to publish signal to peer: "+err.Error()), "badrequest"))
-				return
-			}
-			break
-		}
-	}
-	if !found {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to signal, peer not found"), "badrequest"))
 		return
 	}
+	err = mq.HostUpdate(&models.HostUpdate{
+		Action: models.SignalHost,
+		Host:   *peerHost,
+		Signal: signal,
+	})
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to publish signal to peer: "+err.Error()), "badrequest"))
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(signal)
 }

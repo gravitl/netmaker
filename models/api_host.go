@@ -26,10 +26,6 @@ type ApiHost struct {
 	MacAddress          string   `json:"macaddress"`
 	Nodes               []string `json:"nodes"`
 	IsDefault           bool     `json:"isdefault"             yaml:"isdefault"`
-	IsRelayed           bool     `json:"isrelayed"             yaml:"isrelayed"             bson:"isrelayed"`
-	RelayedBy           string   `json:"relayed_by"            yaml:"relayed_by"            bson:"relayed_by"`
-	IsRelay             bool     `json:"isrelay"               yaml:"isrelay"               bson:"isrelay"`
-	RelayedHosts        []string `json:"relay_hosts"           yaml:"relay_hosts"           bson:"relay_hosts"`
 	NatType             string   `json:"nat_type"              yaml:"nat_type"`
 	PersistentKeepalive int      `json:"persistentkeepalive"   yaml:"persistentkeepalive"`
 	AutoUpdate          bool     `json:"autoupdate"              yaml:"autoupdate"`

@@ -207,6 +207,17 @@ func GetDB() string {
 	return database
 }
 
+// CacheEnabled - checks if cache is enabled
+func CacheEnabled() bool {
+	caching := false
+	if os.Getenv("CACHING_ENABLED") != "" {
+		caching = os.Getenv("CACHING_ENABLED") == "true"
+	} else if config.Config.Server.Database != "" {
+		caching = config.Config.Server.CacheEnabled
+	}
+	return caching
+}
+
 // GetAPIHost - gets the api host
 func GetAPIHost() string {
 	serverhost := "127.0.0.1"
@@ -254,6 +265,11 @@ func GetPublicBrokerEndpoint() string {
 	} else {
 		return config.Config.Server.Broker
 	}
+}
+
+// GetOwnerEmail - gets the owner email (saas)
+func GetOwnerEmail() string {
+	return os.Getenv("SAAS_OWNER_EMAIL")
 }
 
 // GetMessageQueueEndpoint - gets the message queue endpoint

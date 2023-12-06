@@ -3,12 +3,15 @@ package logic
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"reflect"
 	"sync"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -78,21 +81,25 @@ func DeleteExtClient(network string, clientid string) error {
 	if err != nil {
 		return err
 	}
-	deleteExtClientFromCache(key)
+	if servercfg.CacheEnabled() {
+		deleteExtClientFromCache(key)
+	}
 	return nil
 }
 
 // GetNetworkExtClients - gets the ext clients of given network
 func GetNetworkExtClients(network string) ([]models.ExtClient, error) {
 	var extclients []models.ExtClient
-	allextclients := getAllExtClientsFromCache()
-	if len(allextclients) != 0 {
-		for _, extclient := range allextclients {
-			if extclient.Network == network {
-				extclients = append(extclients, extclient)
+	if servercfg.CacheEnabled() {
+		allextclients := getAllExtClientsFromCache()
+		if len(allextclients) != 0 {
+			for _, extclient := range allextclients {
+				if extclient.Network == network {
+					extclients = append(extclients, extclient)
+				}
 			}
+			return extclients, nil
 		}
-		return extclients, nil
 	}
 	records, err := database.FetchRecords(database.EXT_CLIENT_TABLE_NAME)
 	if err != nil {
@@ -109,7 +116,9 @@ func GetNetworkExtClients(network string) ([]models.ExtClient, error) {
 		}
 		key, err := GetRecordKey(extclient.ClientID, extclient.Network)
 		if err == nil {
-			storeExtClientInCache(key, extclient)
+			if servercfg.CacheEnabled() {
+				storeExtClientInCache(key, extclient)
+			}
 		}
 		if extclient.Network == network {
 			extclients = append(extclients, extclient)
@@ -125,15 +134,19 @@ func GetExtClient(clientid string, network string) (models.ExtClient, error) {
 	if err != nil {
 		return extclient, err
 	}
-	if extclient, ok := getExtClientFromCache(key); ok {
-		return extclient, nil
+	if servercfg.CacheEnabled() {
+		if extclient, ok := getExtClientFromCache(key); ok {
+			return extclient, nil
+		}
 	}
 	data, err := database.FetchRecord(database.EXT_CLIENT_TABLE_NAME, key)
 	if err != nil {
 		return extclient, err
 	}
 	err = json.Unmarshal([]byte(data), &extclient)
-	storeExtClientInCache(key, extclient)
+	if servercfg.CacheEnabled() {
+		storeExtClientInCache(key, extclient)
+	}
 	return extclient, err
 }
 
@@ -184,6 +197,9 @@ func CreateExtClient(extclient *models.ExtClient) error {
 	} else if len(extclient.PrivateKey) == 0 && len(extclient.PublicKey) > 0 {
 		extclient.PrivateKey = "[ENTER PRIVATE KEY]"
 	}
+	if extclient.ExtraAllowedIPs == nil {
+		extclient.ExtraAllowedIPs = []string{}
+	}
 
 	parentNetwork, err := GetNetwork(extclient.Network)
 	if err != nil {
@@ -230,7 +246,9 @@ func SaveExtClient(extclient *models.ExtClient) error {
 	if err = database.Insert(key, string(data), database.EXT_CLIENT_TABLE_NAME); err != nil {
 		return err
 	}
-	storeExtClientInCache(key, *extclient)
+	if servercfg.CacheEnabled() {
+		storeExtClientInCache(key, *extclient)
+	}
 	return SetNetworkNodesLastModified(extclient.Network)
 }
 
@@ -247,9 +265,7 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 	if update.Enabled != old.Enabled {
 		new.Enabled = update.Enabled
 	}
-	if update.ExtraAllowedIPs != nil && StringDifference(old.ExtraAllowedIPs, update.ExtraAllowedIPs) != nil {
-		new.ExtraAllowedIPs = update.ExtraAllowedIPs
-	}
+	new.ExtraAllowedIPs = update.ExtraAllowedIPs
 	if update.DeniedACLs != nil && !reflect.DeepEqual(old.DeniedACLs, update.DeniedACLs) {
 		new.DeniedACLs = update.DeniedACLs
 	}
@@ -317,4 +333,108 @@ func ToggleExtClientConnectivity(client *models.ExtClient, enable bool) (models.
 	}
 
 	return newClient, nil
+}
+
+func getExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, []models.EgressNetworkRoutes, error) {
+	var peers []wgtypes.PeerConfig
+	var idsAndAddr []models.IDandAddr
+	var egressRoutes []models.EgressNetworkRoutes
+	extPeers, err := GetNetworkExtClients(node.Network)
+	if err != nil {
+		return peers, idsAndAddr, egressRoutes, err
+	}
+	host, err := GetHost(node.HostID.String())
+	if err != nil {
+		return peers, idsAndAddr, egressRoutes, err
+	}
+	for _, extPeer := range extPeers {
+		extPeer := extPeer
+		if !IsClientNodeAllowed(&extPeer, peer.ID.String()) {
+			continue
+		}
+		pubkey, err := wgtypes.ParseKey(extPeer.PublicKey)
+		if err != nil {
+			logger.Log(1, "error parsing ext pub key:", err.Error())
+			continue
+		}
+
+		if host.PublicKey.String() == extPeer.PublicKey ||
+			extPeer.IngressGatewayID != node.ID.String() || !extPeer.Enabled {
+			continue
+		}
+
+		var allowedips []net.IPNet
+		var peer wgtypes.PeerConfig
+		if extPeer.Address != "" {
+			var peeraddr = net.IPNet{
+				IP:   net.ParseIP(extPeer.Address),
+				Mask: net.CIDRMask(32, 32),
+			}
+			if peeraddr.IP != nil && peeraddr.Mask != nil {
+				allowedips = append(allowedips, peeraddr)
+			}
+		}
+
+		if extPeer.Address6 != "" {
+			var addr6 = net.IPNet{
+				IP:   net.ParseIP(extPeer.Address6),
+				Mask: net.CIDRMask(128, 128),
+			}
+			if addr6.IP != nil && addr6.Mask != nil {
+				allowedips = append(allowedips, addr6)
+			}
+		}
+		for _, extraAllowedIP := range extPeer.ExtraAllowedIPs {
+			_, cidr, err := net.ParseCIDR(extraAllowedIP)
+			if err == nil {
+				allowedips = append(allowedips, *cidr)
+			}
+		}
+		egressRoutes = append(egressRoutes, getExtPeerEgressRoute(extPeer)...)
+		primaryAddr := extPeer.Address
+		if primaryAddr == "" {
+			primaryAddr = extPeer.Address6
+		}
+		peer = wgtypes.PeerConfig{
+			PublicKey:         pubkey,
+			ReplaceAllowedIPs: true,
+			AllowedIPs:        allowedips,
+		}
+		peers = append(peers, peer)
+		idsAndAddr = append(idsAndAddr, models.IDandAddr{
+			ID:          peer.PublicKey.String(),
+			Name:        extPeer.ClientID,
+			Address:     primaryAddr,
+			IsExtClient: true,
+		})
+	}
+	return peers, idsAndAddr, egressRoutes, nil
+
+}
+
+func getExtPeerEgressRoute(extPeer models.ExtClient) (egressRoutes []models.EgressNetworkRoutes) {
+	if extPeer.Address != "" {
+		egressRoutes = append(egressRoutes, models.EgressNetworkRoutes{
+			NodeAddr:     extPeer.AddressIPNet4(),
+			EgressRanges: extPeer.ExtraAllowedIPs,
+		})
+	}
+	if extPeer.Address6 != "" {
+		egressRoutes = append(egressRoutes, models.EgressNetworkRoutes{
+			NodeAddr:     extPeer.AddressIPNet6(),
+			EgressRanges: extPeer.ExtraAllowedIPs,
+		})
+	}
+	return
+}
+
+func getExtpeersExtraRoutes(network string) (egressRoutes []models.EgressNetworkRoutes) {
+	extPeers, err := GetNetworkExtClients(network)
+	if err != nil {
+		return
+	}
+	for _, extPeer := range extPeers {
+		egressRoutes = append(egressRoutes, getExtPeerEgressRoute(extPeer)...)
+	}
+	return
 }

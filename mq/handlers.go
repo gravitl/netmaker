@@ -49,18 +49,27 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 	}
 
 	ifaceDelta := logic.IfaceDelta(&currentNode, &newNode)
-	if servercfg.IsPro && ifaceDelta {
-		if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID, currentNode.Network); err != nil {
-			slog.Warn("failed to reset failover list during node update", "nodeid", currentNode.ID, "network", currentNode.Network)
-		}
-	}
 	newNode.SetLastCheckIn()
 	if err := logic.UpdateNode(&currentNode, &newNode); err != nil {
 		slog.Error("error saving node", "id", id, "error", err)
 		return
 	}
 	if ifaceDelta { // reduce number of unneeded updates, by only sending on iface changes
-		if err = PublishPeerUpdate(); err != nil {
+		if !newNode.Connected {
+			err = PublishDeletedNodePeerUpdate(&newNode)
+			host, err := logic.GetHost(newNode.HostID.String())
+			if err != nil {
+				slog.Error("failed to get host for the node", "nodeid", newNode.ID.String(), "error", err)
+				return
+			}
+			allNodes, err := logic.GetAllNodes()
+			if err == nil {
+				PublishSingleHostPeerUpdate(host, allNodes, nil, nil)
+			}
+		} else {
+			err = PublishPeerUpdate()
+		}
+		if err != nil {
 			slog.Warn("error updating peers when node informed the server of an interface change", "nodeid", currentNode.ID, "error", err)
 		}
 	}

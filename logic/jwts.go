@@ -108,7 +108,7 @@ func VerifyUserToken(tokenString string) (username string, issuperadmin, isadmin
 		}
 
 		if user.UserName != "" {
-			return claims.UserName, claims.IsSuperAdmin, claims.IsAdmin, nil
+			return user.UserName, user.IsSuperAdmin, user.IsAdmin, nil
 		}
 		err = errors.New("user does not exist")
 	}
