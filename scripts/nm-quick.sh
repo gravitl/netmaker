@@ -305,11 +305,10 @@ save_config() { (
 		save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG"
 	fi
 	# copy entries from the previous config
-	local toCopy=("SERVER_HOST" "MASTER_KEY" "TURN_USERNAME" "TURN_PASSWORD" "MQ_USERNAME" "MQ_PASSWORD"
+	local toCopy=("SERVER_HOST" "MASTER_KEY" "MQ_USERNAME" "MQ_PASSWORD"
 		"INSTALL_TYPE" "NODE_ID" "DNS_MODE" "NETCLIENT_AUTO_UPDATE" "API_PORT"
-		"CORS_ALLOWED_ORIGIN" "DISPLAY_KEYS" "DATABASE" "SERVER_BROKER_ENDPOINT" "STUN_PORT" "VERBOSITY"
-		"TURN_PORT" "USE_TURN" "DEBUG_MODE" "TURN_API_PORT" "REST_BACKEND"
-		"DISABLE_REMOTE_IP_CHECK" "TELEMETRY" "AUTH_PROVIDER" "CLIENT_ID" "CLIENT_SECRET"
+		"CORS_ALLOWED_ORIGIN" "DISPLAY_KEYS" "DATABASE" "SERVER_BROKER_ENDPOINT" "VERBOSITY"
+		"DEBUG_MODE"  "REST_BACKEND" "DISABLE_REMOTE_IP_CHECK" "TELEMETRY" "AUTH_PROVIDER" "CLIENT_ID" "CLIENT_SECRET"
 		"FRONTEND_URL" "AZURE_TENANT" "OIDC_ISSUER" "EXPORTER_API_PORT" "JWT_VALIDITY_DURATION" "RAC_AUTO_DISABLE")
 	for name in "${toCopy[@]}"; do
 		save_config_item $name "${!name}"
@@ -550,8 +549,6 @@ set_install_vars() {
 	echo "          dashboard.$NETMAKER_BASE_DOMAIN"
 	echo "                api.$NETMAKER_BASE_DOMAIN"
 	echo "             broker.$NETMAKER_BASE_DOMAIN"
-	echo "               turn.$NETMAKER_BASE_DOMAIN"
-	echo "            turnapi.$NETMAKER_BASE_DOMAIN"
 
 	if [ "$INSTALL_TYPE" = "pro" ]; then
 		echo "         prometheus.$NETMAKER_BASE_DOMAIN"
@@ -648,55 +645,6 @@ set_install_vars() {
 					fi
 					MQ_PASSWORD="$GET_MQ_PASSWORD"
 					echo "MQ Password Saved Successfully!!"
-					break
-				done
-				break
-				;;
-			*) echo "invalid option $REPLY" ;;
-			esac
-		done
-	fi
-
-	unset GET_TURN_USERNAME
-	unset GET_TURN_PASSWORD
-	unset CONFIRM_TURN_PASSWORD
-	echo "Enter Credentials For TURN..."
-	if [ -z $AUTO_BUILD ]; then
-		read -p "TURN Username (click 'enter' to use 'netmaker'): " GET_TURN_USERNAME
-	fi
-	if [ -z "$GET_TURN_USERNAME" ]; then
-		echo "using default username for TURN"
-		TURN_USERNAME="netmaker"
-	else
-		TURN_USERNAME="$GET_TURN_USERNAME"
-	fi
-
-	if test -z "$TURN_PASSWORD"; then
-		TURN_PASSWORD=$(
-			tr -dc A-Za-z0-9 </dev/urandom | head -c 30
-			echo ''
-		)
-	fi
-
-	if [ -z $AUTO_BUILD ]; then
-		select domain_option in "Auto Generated / Config Password" "Input Your Own Password"; do
-			case $REPLY in
-			1)
-				echo "using random password for turn"
-				break
-				;;
-			2)
-				while true; do
-					echo "Enter your Password For TURN: "
-					read -s GET_TURN_PASSWORD
-					echo "Enter your password again to confirm: "
-					read -s CONFIRM_TURN_PASSWORD
-					if [ ${GET_TURN_PASSWORD} != ${CONFIRM_TURN_PASSWORD} ]; then
-						echo "wrong password entered, try again..."
-						continue
-					fi
-					TURN_PASSWORD="$GET_TURN_PASSWORD"
-					echo "TURN Password Saved Successfully!!"
 					break
 				done
 				break

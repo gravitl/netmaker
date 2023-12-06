@@ -263,11 +263,7 @@ type ServerConfig struct {
 	Server      string `yaml:"server"`
 	Broker      string `yaml:"broker"`
 	IsPro       bool   `yaml:"isee" json:"Is_EE"`
-	StunPort    int    `yaml:"stun_port"`
 	TrafficKey  []byte `yaml:"traffickey"`
-	TurnDomain  string `yaml:"turn_domain"`
-	TurnPort    int    `yaml:"turn_port"`
-	UseTurn     bool   `yaml:"use_turn"`
 }
 
 // User.NameInCharset - returns if name is in charset below or not
