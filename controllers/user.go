@@ -62,7 +62,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	if val := request.Header.Get("from-ui"); val == "true" {
+	if val := request.Header.Get("From-UI"); val == "true" {
 		// request came from UI, if normal user block Login
 		user, err := logic.GetUser(authRequest.UserName)
 		if err != nil {
