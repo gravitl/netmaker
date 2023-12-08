@@ -36,6 +36,10 @@ func SetDNS() error {
 			hostfile.AddHost(entry.Address, entry.Name)
 		}
 	}
+	dns := GetExtclientDNS()
+	for _, entry := range dns {
+		hostfile.AddHost(entry.Address, entry.Name)
+	}
 	if corefilestring == "" {
 		corefilestring = "example.com"
 	}
@@ -67,6 +71,28 @@ func GetDNS(network string) ([]models.DNSEntry, error) {
 
 	dns = append(dns, customdns...)
 	return dns, nil
+}
+
+// GetExtclientDNS - gets all extclients dns entries
+func GetExtclientDNS() []models.DNSEntry {
+	extclients, err := GetAllExtClients()
+	if err != nil {
+		return []models.DNSEntry{}
+	}
+	var dns []models.DNSEntry
+	for _, extclient := range extclients {
+		var entry = models.DNSEntry{}
+		entry.Name = fmt.Sprintf("%s.%s", extclient.ClientID, extclient.Network)
+		entry.Network = extclient.Network
+		if extclient.Address != "" {
+			entry.Address = extclient.Address
+		}
+		if extclient.Address6 != "" {
+			entry.Address6 = extclient.Address6
+		}
+		dns = append(dns, entry)
+	}
+	return dns
 }
 
 // GetNodeDNS - gets the DNS of a network node
