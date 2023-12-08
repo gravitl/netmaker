@@ -545,6 +545,9 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+		if servercfg.IsDNSMode() {
+			logic.SetDNS()
+		}
 	}()
 	logger.Log(1, username, "was deleted")
 	json.NewEncoder(w).Encode(params["username"] + " deleted.")

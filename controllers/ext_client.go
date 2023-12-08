@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/servercfg"
 
 	"github.com/gravitl/netmaker/models"
 
@@ -426,8 +427,8 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		if err := mq.PublishPeerUpdate(); err != nil {
 			logger.Log(1, "error setting ext peers on "+nodeid+": "+err.Error())
 		}
-		if err := mq.PublishExtClientDNS(&extclient); err != nil {
-			logger.Log(1, "error publishing extclient dns", err.Error())
+		if servercfg.IsDNSMode() {
+			logic.SetDNS()
 		}
 	}()
 }
@@ -522,8 +523,8 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(newclient)
 	if changedID {
 		go func() {
-			if err := mq.PublishExtClientDNSUpdate(oldExtClient, newclient, oldExtClient.Network); err != nil {
-				logger.Log(1, "error pubishing dns update for extcient update", err.Error())
+			if servercfg.IsDNSMode() {
+				logic.SetDNS()
 			}
 		}()
 	}
@@ -583,8 +584,8 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 		if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
 			logger.Log(1, "error setting ext peers on "+ingressnode.ID.String()+": "+err.Error())
 		}
-		if err = mq.PublishDeleteExtClientDNS(&extclient); err != nil {
-			logger.Log(1, "error publishing dns update for extclient deletion", err.Error())
+		if servercfg.IsDNSMode() {
+			logic.SetDNS()
 		}
 	}()
 

@@ -323,6 +323,11 @@ func RemoveHost(h *models.Host, forceDelete bool) error {
 	if servercfg.CacheEnabled() {
 		deleteHostFromCache(h.ID.String())
 	}
+	go func() {
+		if servercfg.IsDNSMode() {
+			SetDNS()
+		}
+	}()
 
 	return nil
 }

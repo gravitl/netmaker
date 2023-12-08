@@ -10,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
 
@@ -115,6 +116,9 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 			if extclient.OwnerID == user.UserName && remoteGwID == extclient.IngressGatewayID {
 				logic.DeleteExtClient(extclient.Network, extclient.ClientID)
 			}
+		}
+		if servercfg.IsDNSMode() {
+			logic.SetDNS()
 		}
 	}(*user, remoteGwID)
 
