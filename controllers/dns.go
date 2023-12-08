@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 func dnsHandlers(r *mux.Router) {
@@ -168,13 +170,16 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	err = logic.SetDNS()
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("Failed to set DNS entries on file: %v", err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
+	if servercfg.IsDNSMode() {
+		err = logic.SetDNS()
+		if err != nil {
+			logger.Log(0, r.Header.Get("user"),
+				fmt.Sprintf("Failed to set DNS entries on file: %v", err))
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
 	}
+
 	logger.Log(1, "new DNS record added:", entry.Name)
 	logger.Log(2, r.Header.Get("user"),
 		fmt.Sprintf("DNS entry is set: %+v", entry))
@@ -209,13 +214,16 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(1, "deleted dns entry: ", entrytext)
-	err = logic.SetDNS()
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("Failed to set DNS entries on file: %v", err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
+	if servercfg.IsDNSMode() {
+		err = logic.SetDNS()
+		if err != nil {
+			logger.Log(0, r.Header.Get("user"),
+				fmt.Sprintf("Failed to set DNS entries on file: %v", err))
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
 	}
+
 	json.NewEncoder(w).Encode(entrytext + " deleted.")
 
 }
@@ -250,7 +258,10 @@ func GetDNSEntry(domain string, network string) (models.DNSEntry, error) {
 func pushDNS(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
-
+	if !servercfg.IsDNSMode() {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("DNS Mode is set to off"), "badrequest"))
+		return
+	}
 	err := logic.SetDNS()
 
 	if err != nil {
