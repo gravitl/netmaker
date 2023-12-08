@@ -62,6 +62,15 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
+	decoder := json.NewDecoder(request.Body)
+	decoderErr := decoder.Decode(&authRequest)
+	defer request.Body.Close()
+	if decoderErr != nil {
+		logger.Log(0, "error decoding request body: ",
+			decoderErr.Error())
+		logic.ReturnErrorResponse(response, request, errorResponse)
+		return
+	}
 	if val := request.Header.Get("From-Ui"); val == "true" {
 		// request came from UI, if normal user block Login
 		user, err := logic.GetUser(authRequest.UserName)
@@ -75,16 +84,6 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("only admins can access dashboard"), "unauthorized"))
 			return
 		}
-	}
-
-	decoder := json.NewDecoder(request.Body)
-	decoderErr := decoder.Decode(&authRequest)
-	defer request.Body.Close()
-	if decoderErr != nil {
-		logger.Log(0, "error decoding request body: ",
-			decoderErr.Error())
-		logic.ReturnErrorResponse(response, request, errorResponse)
-		return
 	}
 	username := authRequest.UserName
 	jwt, err := logic.VerifyAuthRequest(authRequest)
