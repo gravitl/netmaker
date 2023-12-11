@@ -438,3 +438,37 @@ func getExtpeersExtraRoutes(network string) (egressRoutes []models.EgressNetwork
 	}
 	return
 }
+
+func GetExtclientAllowedIPs(client models.ExtClient) (allowedIPs []string) {
+	gwnode, err := GetNodeByID(client.IngressGatewayID)
+	if err != nil {
+		logger.Log(0,
+			fmt.Sprintf("failed to get ingress gateway node [%s] info: %v", client.IngressGatewayID, err))
+		return
+	}
+
+	network, err := GetParentNetwork(client.Network)
+	if err != nil {
+		logger.Log(1, "Could not retrieve Ingress Gateway Network", client.Network)
+		return
+	}
+	if IsInternetGw(gwnode) {
+		egressrange := "0.0.0.0/0"
+		if gwnode.Address6.IP != nil && client.Address6 != "" {
+			egressrange += "," + "::/0"
+		}
+		allowedIPs = []string{egressrange}
+	} else {
+		allowedIPs = []string{network.AddressRange}
+
+		if network.AddressRange6 != "" {
+			allowedIPs = append(allowedIPs, network.AddressRange6)
+		}
+		if egressGatewayRanges, err := GetEgressRangesOnNetwork(&client); err == nil {
+			for _, egressGatewayRange := range egressGatewayRanges {
+				allowedIPs = append(allowedIPs, egressGatewayRange)
+			}
+		}
+	}
+	return
+}
