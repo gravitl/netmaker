@@ -356,8 +356,6 @@ set_install_vars() {
 	echo "          dashboard.$NETMAKER_BASE_DOMAIN"
 	echo "                api.$NETMAKER_BASE_DOMAIN"
 	echo "             broker.$NETMAKER_BASE_DOMAIN"
-	echo "               turn.$NETMAKER_BASE_DOMAIN"
-	echo "            turnapi.$NETMAKER_BASE_DOMAIN"
 
 	if [ "$INSTALL_TYPE" = "pro" ]; then
 		echo "         prometheus.$NETMAKER_BASE_DOMAIN"
