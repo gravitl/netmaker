@@ -70,6 +70,7 @@ type UserRemoteGws struct {
 	Connected         bool      `json:"connected"`
 	IsInternetGateway bool      `json:"is_internet_gateway"`
 	GwClient          ExtClient `json:"gw_client"`
+	GwPeerPublicKey   string    `json:"gw_peer_public_key"`
 }
 
 // UserRemoteGwsReq - struct to hold user remote acccess gws req
@@ -263,11 +264,7 @@ type ServerConfig struct {
 	Server      string `yaml:"server"`
 	Broker      string `yaml:"broker"`
 	IsPro       bool   `yaml:"isee" json:"Is_EE"`
-	StunPort    int    `yaml:"stun_port"`
 	TrafficKey  []byte `yaml:"traffickey"`
-	TurnDomain  string `yaml:"turn_domain"`
-	TurnPort    int    `yaml:"turn_port"`
-	UseTurn     bool   `yaml:"use_turn"`
 }
 
 // User.NameInCharset - returns if name is in charset below or not

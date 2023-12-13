@@ -2,16 +2,12 @@ package logic
 
 import (
 	"crypto/md5"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"sort"
-	"strconv"
 	"sync"
 
-	"github.com/devilcove/httpclient"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
@@ -197,12 +193,6 @@ func CreateHost(h *models.Host) error {
 	if (err != nil && !database.IsEmptyRecord(err)) || (err == nil) {
 		return ErrHostExists
 	}
-	if servercfg.IsUsingTurn() {
-		err = RegisterHostWithTurn(h.ID.String(), h.HostPass)
-		if err != nil {
-			logger.Log(0, "failed to register host with turn server: ", err.Error())
-		}
-	}
 
 	// encrypt that password so we never see it
 	hash, err := bcrypt.GenerateFromPassword([]byte(h.HostPass), 5)
@@ -306,10 +296,6 @@ func RemoveHost(h *models.Host, forceDelete bool) error {
 		return fmt.Errorf("host still has associated nodes")
 	}
 
-	if servercfg.IsUsingTurn() {
-		DeRegisterHostWithTurn(h.ID.String())
-	}
-
 	if len(h.Nodes) > 0 {
 		if err := DisassociateAllNodesFromHost(h.ID.String()); err != nil {
 			return err
@@ -334,9 +320,6 @@ func RemoveHost(h *models.Host, forceDelete bool) error {
 
 // RemoveHostByID - removes a given host by id from server
 func RemoveHostByID(hostID string) error {
-	if servercfg.IsUsingTurn() {
-		DeRegisterHostWithTurn(hostID)
-	}
 
 	err := database.DeleteRecord(database.HOSTS_TABLE_NAME, hostID)
 	if err != nil {
@@ -571,52 +554,6 @@ func GetHostByNodeID(id string) *models.Host {
 // ConvHostPassToHash - converts password to md5 hash
 func ConvHostPassToHash(hostPass string) string {
 	return fmt.Sprintf("%x", md5.Sum([]byte(hostPass)))
-}
-
-// RegisterHostWithTurn - registers the host with the given turn server
-func RegisterHostWithTurn(hostID, hostPass string) error {
-	auth := servercfg.GetTurnUserName() + ":" + servercfg.GetTurnPassword()
-	api := httpclient.JSONEndpoint[models.SuccessResponse, models.ErrorResponse]{
-		URL:           servercfg.GetTurnApiHost(),
-		Route:         "/api/v1/host/register",
-		Method:        http.MethodPost,
-		Authorization: fmt.Sprintf("Basic %s", base64.StdEncoding.EncodeToString([]byte(auth))),
-		Data: models.HostTurnRegister{
-			HostID:       hostID,
-			HostPassHash: ConvHostPassToHash(hostPass),
-		},
-		Response:      models.SuccessResponse{},
-		ErrorResponse: models.ErrorResponse{},
-	}
-	_, errData, err := api.GetJSON(models.SuccessResponse{}, models.ErrorResponse{})
-	if err != nil {
-		if errors.Is(err, httpclient.ErrStatus) {
-			logger.Log(1, "error server status", strconv.Itoa(errData.Code), errData.Message)
-		}
-		return err
-	}
-	return nil
-}
-
-// DeRegisterHostWithTurn - to be called when host need to be deregistered from a turn server
-func DeRegisterHostWithTurn(hostID string) error {
-	auth := servercfg.GetTurnUserName() + ":" + servercfg.GetTurnPassword()
-	api := httpclient.JSONEndpoint[models.SuccessResponse, models.ErrorResponse]{
-		URL:           servercfg.GetTurnApiHost(),
-		Route:         fmt.Sprintf("/api/v1/host/deregister?host_id=%s", hostID),
-		Method:        http.MethodPost,
-		Authorization: fmt.Sprintf("Basic %s", base64.StdEncoding.EncodeToString([]byte(auth))),
-		Response:      models.SuccessResponse{},
-		ErrorResponse: models.ErrorResponse{},
-	}
-	_, errData, err := api.GetJSON(models.SuccessResponse{}, models.ErrorResponse{})
-	if err != nil {
-		if errors.Is(err, httpclient.ErrStatus) {
-			logger.Log(1, "error server status", strconv.Itoa(errData.Code), errData.Message)
-		}
-		return err
-	}
-	return nil
 }
 
 // SortApiHosts - Sorts slice of ApiHosts by their ID alphabetically with numbers first

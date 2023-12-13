@@ -231,13 +231,6 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	// re-register host with turn just in case.
-	if servercfg.IsUsingTurn() {
-		err = logic.RegisterHostWithTurn(newHost.ID.String(), newHost.HostPass)
-		if err != nil {
-			logger.Log(0, "failed to register host with turn server: ", err.Error())
-		}
-	}
 	// check if host already exists
 	hostExists := false
 	if hostExists = logic.HostExists(&newHost); hostExists && len(enrollmentKey.Networks) == 0 {

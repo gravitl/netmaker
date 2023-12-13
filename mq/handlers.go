@@ -7,6 +7,7 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/hostactions"
 	"github.com/gravitl/netmaker/models"
@@ -191,14 +192,8 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 			logic.SetDNS()
 		}
 		sendPeerUpdate = true
-	case models.RegisterWithTurn:
-		if servercfg.IsUsingTurn() {
-			err = logic.RegisterHostWithTurn(hostUpdate.Host.ID.String(), hostUpdate.Host.HostPass)
-			if err != nil {
-				slog.Error("failed to register host with turn server", "id", currentHost.ID, "error", err)
-				return
-			}
-		}
+	case models.SignalHost:
+		signalPeer(hostUpdate.Signal)
 
 	}
 
@@ -207,6 +202,29 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 		if err != nil {
 			slog.Error("failed to publish peer update", "error", err)
 		}
+	}
+}
+
+func signalPeer(signal models.Signal) {
+
+	if signal.ToHostPubKey == "" {
+		msg := "insufficient data to signal peer"
+		logger.Log(0, msg)
+		return
+	}
+	signal.IsPro = servercfg.IsPro
+	peerHost, err := logic.GetHost(signal.ToHostID)
+	if err != nil {
+		slog.Error("failed to signal, peer not found", "error", err)
+		return
+	}
+	err = HostUpdate(&models.HostUpdate{
+		Action: models.SignalHost,
+		Host:   *peerHost,
+		Signal: signal,
+	})
+	if err != nil {
+		slog.Error("failed to publish signal to peer", "error", err)
 	}
 }
 

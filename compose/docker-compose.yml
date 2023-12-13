@@ -25,10 +25,6 @@ services:
       - COREDNS_ADDR=${SERVER_HOST}
       # Overrides SERVER_HOST if set. Useful for making HTTP available via different interfaces/networks.
       - SERVER_HTTP_HOST=api.${NM_DOMAIN}
-      # domain for your turn server
-      - TURN_SERVER_HOST=turn.${NM_DOMAIN}
-      # domain of the turn api server
-      - TURN_SERVER_API_HOST=https://turnapi.${NM_DOMAIN}
 
   netmaker-ui:
     container_name: netmaker-ui
@@ -83,22 +79,6 @@ services:
       - ./wait.sh:/mosquitto/config/wait.sh
       - mosquitto_logs:/mosquitto/log
       - mosquitto_data:/mosquitto/data
-
-  turn:
-    container_name: turn
-    image: gravitl/turnserver:v1.0.0
-    env_file: ./netmaker.env
-    environment:
-      # config-dependant vars
-      - USERNAME=${TURN_USERNAME}
-      - PASSWORD=${TURN_PASSWORD}
-      # domain for your turn server
-      - TURN_SERVER_HOST=turn.${NM_DOMAIN}
-    network_mode: "host"
-    volumes:
-      - turn_server:/etc/config
-    restart: always
-
 volumes:
   caddy_data: { } # runtime data for caddy
   caddy_conf: { } # configuration file for Caddy
@@ -106,4 +86,4 @@ volumes:
   dnsconfig: { } # storage for coredns
   mosquitto_logs: { } # storage for mqtt logs
   mosquitto_data: { } # storage for mqtt data
-  turn_server: { }
+
