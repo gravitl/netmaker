@@ -60,6 +60,7 @@ services:
       - "443:443"
 
   coredns:
+    #network_mode: host
     container_name: coredns
     image: coredns/coredns:1.10.1
     command: -conf /root/dnsconfig/Corefile
