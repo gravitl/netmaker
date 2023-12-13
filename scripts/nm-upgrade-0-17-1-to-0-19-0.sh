@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LATEST="v0.21.3"
+LATEST="v0.21.0"
 INSTALL_PATH="/root"
 
 trap restore_old_netmaker_instructions
