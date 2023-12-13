@@ -195,7 +195,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 
 			if _, ok := user.RemoteGwIDs[node.ID.String()]; ok {
 				gws := userGws[node.Network]
-
+				extClient.AllowedIPs = logic.GetExtclientAllowedIPs(extClient)
 				gws = append(gws, models.UserRemoteGws{
 					GwID:              node.ID.String(),
 					GWName:            host.Name,
@@ -203,6 +203,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 					GwClient:          extClient,
 					Connected:         true,
 					IsInternetGateway: node.IsInternetGateway,
+					GwPeerPublicKey:   host.PublicKey.String(),
 				})
 				userGws[node.Network] = gws
 				delete(user.RemoteGwIDs, node.ID.String())
@@ -235,6 +236,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 			GWName:            host.Name,
 			Network:           node.Network,
 			IsInternetGateway: node.IsInternetGateway,
+			GwPeerPublicKey:   host.PublicKey.String(),
 		})
 		userGws[node.Network] = gws
 	}

@@ -70,6 +70,7 @@ type UserRemoteGws struct {
 	Connected         bool      `json:"connected"`
 	IsInternetGateway bool      `json:"is_internet_gateway"`
 	GwClient          ExtClient `json:"gw_client"`
+	GwPeerPublicKey   string    `json:"gw_peer_public_key"`
 }
 
 // UserRemoteGwsReq - struct to hold user remote acccess gws req
