@@ -355,29 +355,27 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		userName = caller.UserName
-		if !caller.IsAdmin && !caller.IsSuperAdmin {
-			if _, ok := caller.RemoteGwIDs[nodeid]; !ok {
-				err = errors.New("permission denied")
-				slog.Error("failed to create extclient", "error", err)
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+		if _, ok := caller.RemoteGwIDs[nodeid]; (!caller.IsAdmin && !caller.IsSuperAdmin) && !ok {
+			err = errors.New("permission denied")
+			slog.Error("failed to create extclient", "error", err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+			return
+		}
+		// check if user has a config already for remote access client
+		extclients, err := logic.GetNetworkExtClients(node.Network)
+		if err != nil {
+			slog.Error("failed to get extclients", "error", err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+		for _, extclient := range extclients {
+			if extclient.RemoteAccessClientID != "" &&
+				extclient.RemoteAccessClientID == customExtClient.RemoteAccessClientID && nodeid == extclient.IngressGatewayID {
+				// extclient on the gw already exists for the remote access client
+				err = errors.New("remote client config already exists on the gateway. it may have been created by another user with this same remote client machine")
+				slog.Error("failed to create extclient", "user", userName, "error", err)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 				return
-			}
-			// check if user has a config already for remote access client
-			extclients, err := logic.GetNetworkExtClients(node.Network)
-			if err != nil {
-				slog.Error("failed to get extclients", "error", err)
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-				return
-			}
-			for _, extclient := range extclients {
-				if extclient.RemoteAccessClientID != "" &&
-					extclient.RemoteAccessClientID == customExtClient.RemoteAccessClientID && nodeid == extclient.IngressGatewayID {
-					// extclient on the gw already exists for the remote access client
-					err = errors.New("remote client config already exists on the gateway")
-					slog.Error("failed to create extclient", "user", userName, "error", err)
-					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-					return
-				}
 			}
 		}
 	}
