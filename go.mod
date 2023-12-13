@@ -26,13 +26,13 @@ require (
 )
 
 require (
-	filippo.io/edwards25519 v1.0.0
+	filippo.io/edwards25519 v1.1.0
 	github.com/c-robinson/iplib v1.0.7
 	github.com/posthog/posthog-go v0.0.0-20211028072449-93c17c49e2b0
 )
 
 require (
-	github.com/coreos/go-oidc/v3 v3.8.0
+	github.com/coreos/go-oidc/v3 v3.9.0
 	github.com/gorilla/websocket v1.5.1
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 )
