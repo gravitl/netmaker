@@ -465,9 +465,7 @@ func GetExtclientAllowedIPs(client models.ExtClient) (allowedIPs []string) {
 			allowedIPs = append(allowedIPs, network.AddressRange6)
 		}
 		if egressGatewayRanges, err := GetEgressRangesOnNetwork(&client); err == nil {
-			for _, egressGatewayRange := range egressGatewayRanges {
-				allowedIPs = append(allowedIPs, egressGatewayRange)
-			}
+			allowedIPs = append(allowedIPs, egressGatewayRanges...)
 		}
 	}
 	return
