@@ -31,6 +31,7 @@ func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/hosts/adm/authenticate", authenticateHost).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/host", Authorize(true, false, "host", http.HandlerFunc(pull))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/host/{hostid}/signalpeer", Authorize(true, false, "host", http.HandlerFunc(signalPeer))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/fallback/host/{hostid}", Authorize(true, false, "host", http.HandlerFunc(hostUpdateFallback))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/auth-register/host", socketHandler)
 }
 
@@ -216,6 +217,51 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 	logger.Log(2, r.Header.Get("user"), "updated host", newHost.ID.String())
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiHostData)
+}
+
+// swagger:route PUT /api/v1/fallback/host/{hostid} hosts hostUpdateFallback
+//
+// Updates a Netclient host on Netmaker server.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: apiHostResponse
+func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
+	var params = mux.Vars(r)
+	hostid := params["hostid"]
+	currentHost, err := logic.GetHost(hostid)
+	if err != nil {
+		slog.Error("error getting host", "id", hostid, "error", err)
+		return
+	}
+
+	var hostUpdate models.HostUpdate
+	err = json.NewDecoder(r.Body).Decode(&hostUpdate)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to update a host:", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	slog.Info("recieved host update", "name", hostUpdate.Host.Name, "id", hostUpdate.Host.ID)
+	switch hostUpdate.Action {
+	case models.CheckIn:
+		_ = mq.HandleHostCheckin(&hostUpdate.Host, currentHost)
+
+	case models.UpdateHost:
+
+		_ = logic.UpdateHostFromClient(&hostUpdate.Host, currentHost)
+		err := logic.UpsertHost(currentHost)
+		if err != nil {
+			slog.Error("failed to update host", "id", currentHost.ID, "error", err)
+			return
+		}
+
+	}
+
 }
 
 // swagger:route DELETE /api/hosts/{hostid} hosts deleteHost
