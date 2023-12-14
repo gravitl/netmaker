@@ -18,6 +18,8 @@ type Context struct {
 	Current   bool   `yaml:"current,omitempty"`
 	AuthToken string `yaml:"auth_token,omitempty"`
 	SSO       bool   `yaml:"sso,omitempty"`
+	TenantId  string `yaml:"tenant_id,omitempty"`
+	Saas      bool   `yaml:"saas,omitempty"`
 }
 
 var (

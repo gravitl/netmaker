@@ -10,6 +10,7 @@ type ExtClient struct {
 	Address                string              `json:"address" bson:"address"`
 	Address6               string              `json:"address6" bson:"address6"`
 	ExtraAllowedIPs        []string            `json:"extraallowedips" bson:"extraallowedips"`
+	AllowedIPs             []string            `json:"allowed_ips"`
 	IngressGatewayID       string              `json:"ingressgatewayid" bson:"ingressgatewayid"`
 	IngressGatewayEndpoint string              `json:"ingressgatewayendpoint" bson:"ingressgatewayendpoint"`
 	LastModified           int64               `json:"lastmodified" bson:"lastmodified"`

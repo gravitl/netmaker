@@ -216,18 +216,28 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	} else {
 		gwendpoint = fmt.Sprintf("%s:%d", host.EndpointIP.String(), host.ListenPort)
 	}
-	newAllowedIPs := network.AddressRange
-	if newAllowedIPs != "" && network.AddressRange6 != "" {
-		newAllowedIPs += ","
-	}
-	if network.AddressRange6 != "" {
-		newAllowedIPs += network.AddressRange6
-	}
-	if egressGatewayRanges, err := logic.GetEgressRangesOnNetwork(&client); err == nil {
-		for _, egressGatewayRange := range egressGatewayRanges {
-			newAllowedIPs += "," + egressGatewayRange
+	var newAllowedIPs string
+	if logic.IsInternetGw(gwnode) {
+		egressrange := "0.0.0.0/0"
+		if gwnode.Address6.IP != nil && client.Address6 != "" {
+			egressrange += "," + "::/0"
+		}
+		newAllowedIPs = egressrange
+	} else {
+		newAllowedIPs = network.AddressRange
+		if newAllowedIPs != "" && network.AddressRange6 != "" {
+			newAllowedIPs += ","
+		}
+		if network.AddressRange6 != "" {
+			newAllowedIPs += network.AddressRange6
+		}
+		if egressGatewayRanges, err := logic.GetEgressRangesOnNetwork(&client); err == nil {
+			for _, egressGatewayRange := range egressGatewayRanges {
+				newAllowedIPs += "," + egressGatewayRange
+			}
 		}
 	}
+
 	defaultDNS := ""
 	if client.DNS != "" {
 		defaultDNS = "DNS = " + client.DNS
