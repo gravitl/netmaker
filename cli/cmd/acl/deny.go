@@ -2,6 +2,7 @@ package acl
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/gravitl/netmaker/cli/functions"
 	"github.com/gravitl/netmaker/logic/acls"
@@ -14,17 +15,34 @@ var aclDenyCmd = &cobra.Command{
 	Short: "Deny access from one node to another",
 	Long:  `Deny access from one node to another`,
 	Run: func(cmd *cobra.Command, args []string) {
+		network := args[0]
 		fromNodeID := args[1]
 		toNodeID := args[2]
-		payload := acls.ACLContainer(map[acls.AclID]acls.ACL{
-			acls.AclID(fromNodeID): map[acls.AclID]byte{
-				acls.AclID(toNodeID): acls.NotAllowed,
-			},
-			acls.AclID(toNodeID): map[acls.AclID]byte{
-				acls.AclID(fromNodeID): acls.NotAllowed,
-			},
-		})
-		functions.UpdateACL(args[0], &payload)
+
+		if fromNodeID == toNodeID {
+			log.Fatal("Cannot deny access to self")
+		}
+
+		// get current acls
+		res := functions.GetACL(network)
+		if res == nil {
+			log.Fatalf("Could not load network ACLs")
+		}
+
+		payload := *res
+
+		if _, ok := payload[acls.AclID(fromNodeID)]; !ok {
+			log.Fatalf("Node [%s] does not exist", fromNodeID)
+		}
+		if _, ok := payload[acls.AclID(toNodeID)]; !ok {
+			log.Fatalf("Node [%s] does not exist", toNodeID)
+		}
+
+		// update acls
+		payload[acls.AclID(fromNodeID)][acls.AclID(toNodeID)] = acls.NotAllowed
+		payload[acls.AclID(toNodeID)][acls.AclID(fromNodeID)] = acls.NotAllowed
+
+		functions.UpdateACL(network, &payload)
 		fmt.Println("Success")
 	},
 }
