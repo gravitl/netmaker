@@ -460,12 +460,19 @@ func GetExtclientAllowedIPs(client models.ExtClient) (allowedIPs []string) {
 		allowedIPs = []string{egressrange}
 	} else {
 		allowedIPs = []string{network.AddressRange}
-
 		if network.AddressRange6 != "" {
 			allowedIPs = append(allowedIPs, network.AddressRange6)
 		}
 		if egressGatewayRanges, err := GetEgressRangesOnNetwork(&client); err == nil {
 			allowedIPs = append(allowedIPs, egressGatewayRanges...)
+		}
+		if extclients, err := GetAllExtClients(); err == nil {
+			for _, extclient := range extclients {
+				if extclient.ClientID == client.ClientID {
+					continue
+				}
+				allowedIPs = append(allowedIPs, extclient.ExtraAllowedIPs...)
+			}
 		}
 	}
 	return
