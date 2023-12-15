@@ -92,7 +92,6 @@ body:
       multiple: true
       options:
         - Linux
-        - FreeBSD
         - Windows
         - Mac
         - Unlisted
