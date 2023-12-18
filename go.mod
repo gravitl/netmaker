@@ -10,7 +10,7 @@ require (
 	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/mux v1.8.1
 	github.com/lib/pq v1.10.9
-	github.com/mattn/go-sqlite3 v1.14.18
+	github.com/mattn/go-sqlite3 v1.14.19
 	github.com/rqlite/gorqlite v0.0.0-20210514125552-08ff1e76b22f
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/stretchr/testify v1.8.4
@@ -38,7 +38,6 @@ require (
 )
 
 require (
-	github.com/devilcove/httpclient v0.6.0
 	github.com/go-jose/go-jose/v3 v3.0.1
 	github.com/guumaster/tablewriter v0.0.10
 	github.com/matryer/is v1.4.1
