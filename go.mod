@@ -6,7 +6,7 @@ require (
 	github.com/eclipse/paho.mqtt.golang v1.4.3
 	github.com/go-playground/validator/v10 v10.16.0
 	github.com/golang-jwt/jwt/v4 v4.5.0
-	github.com/google/uuid v1.4.0
+	github.com/google/uuid v1.5.0
 	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/mux v1.8.1
 	github.com/lib/pq v1.10.9
@@ -38,7 +38,6 @@ require (
 )
 
 require (
-	github.com/devilcove/httpclient v0.6.0
 	github.com/go-jose/go-jose/v3 v3.0.1
 	github.com/guumaster/tablewriter v0.0.10
 	github.com/matryer/is v1.4.1
