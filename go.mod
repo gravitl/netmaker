@@ -15,7 +15,7 @@ require (
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/stretchr/testify v1.8.4
 	github.com/txn2/txeh v1.5.5
-	golang.org/x/crypto v0.16.0
+	golang.org/x/crypto v0.17.0
 	golang.org/x/net v0.19.0 // indirect
 	golang.org/x/oauth2 v0.15.0
 	golang.org/x/sys v0.15.0 // indirect
@@ -38,7 +38,6 @@ require (
 )
 
 require (
-	github.com/devilcove/httpclient v0.6.0
 	github.com/go-jose/go-jose/v3 v3.0.1
 	github.com/guumaster/tablewriter v0.0.10
 	github.com/matryer/is v1.4.1
