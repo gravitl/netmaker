@@ -1,5 +1,5 @@
 
-# Netmaker v0.21.3
+# Netmaker v0.22.0
 
 ## Whats New
 - Auto Relay via Enrollment key

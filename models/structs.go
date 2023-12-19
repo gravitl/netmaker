@@ -264,11 +264,7 @@ type ServerConfig struct {
 	Server      string `yaml:"server"`
 	Broker      string `yaml:"broker"`
 	IsPro       bool   `yaml:"isee" json:"Is_EE"`
-	StunPort    int    `yaml:"stun_port"`
 	TrafficKey  []byte `yaml:"traffickey"`
-	TurnDomain  string `yaml:"turn_domain"`
-	TurnPort    int    `yaml:"turn_port"`
-	UseTurn     bool   `yaml:"use_turn"`
 }
 
 // User.NameInCharset - returns if name is in charset below or not
@@ -308,3 +304,54 @@ type LicenseLimits struct {
 	Clients  int `json:"clients"`
 	Networks int `json:"networks"`
 }
+
+type SignInReqDto struct {
+	FormFields FormFields `json:"formFields"`
+}
+
+type FormField struct {
+	Id    string `json:"id"`
+	Value any    `json:"value"`
+}
+
+type FormFields []FormField
+
+type SignInResDto struct {
+	Status string `json:"status"`
+	User   User   `json:"user"`
+}
+
+type TenantLoginResDto struct {
+	Code     int    `json:"code"`
+	Message  string `json:"message"`
+	Response struct {
+		UserName  string `json:"UserName"`
+		AuthToken string `json:"AuthToken"`
+	} `json:"response"`
+}
+
+type SsoLoginReqDto struct {
+	OauthProvider string `json:"oauthprovider"`
+}
+
+type SsoLoginResDto struct {
+	User      string `json:"UserName"`
+	AuthToken string `json:"AuthToken"`
+}
+
+type SsoLoginData struct {
+	Expiration     time.Time `json:"expiration"`
+	OauthProvider  string    `json:"oauthprovider,omitempty"`
+	OauthCode      string    `json:"oauthcode,omitempty"`
+	Username       string    `json:"username,omitempty"`
+	AmbAccessToken string    `json:"ambaccesstoken,omitempty"`
+}
+
+type LoginReqDto struct {
+	Email    string `json:"email"`
+	TenantID string `json:"tenant_id"`
+}
+
+const (
+	ResHeaderKeyStAccessToken = "St-Access-Token"
+)
