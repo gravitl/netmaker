@@ -150,11 +150,13 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 	}
 	remoteAccessClientID := params["remote_access_clientid"]
 	var req models.UserRemoteGwsReq
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		slog.Error("error decoding request body: ", "error", err)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
+	if remoteAccessClientID == "" {
+		err := json.NewDecoder(r.Body).Decode(&req)
+		if err != nil {
+			slog.Error("error decoding request body: ", "error", err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
 	}
 	if req.RemoteAccessClientID == "" && remoteAccessClientID == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("remote access client id cannot be empty"), "badrequest"))
