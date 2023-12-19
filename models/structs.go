@@ -263,6 +263,7 @@ type ServerConfig struct {
 	MQPort      string `yaml:"mqport"`
 	MQUserName  string `yaml:"mq_username"`
 	MQPassword  string `yaml:"mq_password"`
+	BrokerType  string `yaml:"broker_type"`
 	Server      string `yaml:"server"`
 	Broker      string `yaml:"broker"`
 	IsPro       bool   `yaml:"isee" json:"Is_EE"`
