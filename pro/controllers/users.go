@@ -149,6 +149,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	remoteAccessClientID := params["remote_access_clientid"]
+	fmt.Println("------> #### REMOTE CLCIENDIDN ", remoteAccessClientID)
 	var req models.UserRemoteGwsReq
 	if remoteAccessClientID == "" {
 		err := json.NewDecoder(r.Body).Decode(&req)
