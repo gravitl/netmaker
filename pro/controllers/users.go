@@ -16,7 +16,7 @@ import (
 func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}/remote_access_gw/{remote_access_gateway_id}", logic.SecurityCheck(true, http.HandlerFunc(attachUserToRemoteAccessGw))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/remote_access_gw/{remote_access_gateway_id}", logic.SecurityCheck(true, http.HandlerFunc(removeUserFromRemoteAccessGW))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/users/{username}/remote_access_gw", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserRemoteAccessGws)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/users/{username}/remote_access_gw", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserRemoteAccessGws)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/ingress/{ingress_id}", logic.SecurityCheck(true, http.HandlerFunc(ingressGatewayUsers))).Methods(http.MethodGet)
 }
 
@@ -148,23 +148,18 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("required params username"), "badrequest"))
 		return
 	}
-	remoteAccessClientID := params["remoteclientid"]
-	fmt.Println("------> #### REMOTE CLCIENDIDN ", remoteAccessClientID)
 	var req models.UserRemoteGwsReq
-	if remoteAccessClientID == "" {
-		err := json.NewDecoder(r.Body).Decode(&req)
-		if err != nil {
-			slog.Error("error decoding request body: ", "error", err)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-			return
-		}
-	}
-	if req.RemoteAccessClientID == "" && remoteAccessClientID == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("remote access client id cannot be empty"), "badrequest"))
+
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		slog.Error("error decoding request body: ", "error", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if remoteAccessClientID != "" {
-		req.RemoteAccessClientID = remoteAccessClientID
+
+	if req.RemoteAccessClientID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("remote access client id cannot be empty"), "badrequest"))
+		return
 	}
 	userGws := make(map[string][]models.UserRemoteGws)
 	user, err := logic.GetUser(username)
