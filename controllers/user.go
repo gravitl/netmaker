@@ -71,6 +71,20 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
+	if val := request.Header.Get("From-Ui"); val == "true" {
+		// request came from UI, if normal user block Login
+		user, err := logic.GetUser(authRequest.UserName)
+		if err != nil {
+			logger.Log(0, authRequest.UserName, "user validation failed: ",
+				err.Error())
+			logic.ReturnErrorResponse(response, request, logic.FormatError(err, "unauthorized"))
+			return
+		}
+		if !(user.IsAdmin || user.IsSuperAdmin) {
+			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("only admins can access dashboard"), "unauthorized"))
+			return
+		}
+	}
 	username := authRequest.UserName
 	jwt, err := logic.VerifyAuthRequest(authRequest)
 	if err != nil {
@@ -119,7 +133,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 				if client.OwnerID == username && !client.Enabled {
 					slog.Info(fmt.Sprintf("enabling ext client %s for user %s due to RAC autodisabling feature", client.ClientID, client.OwnerID))
 					if newClient, err := logic.ToggleExtClientConnectivity(&client, true); err != nil {
-						slog.Error("error disabling ext client in RAC autodisable hook", "error", err)
+						slog.Error("error enabling ext client in RAC autodisable hook", "error", err)
 						continue // dont return but try for other clients
 					} else {
 						// publish peer update to ingress gateway
