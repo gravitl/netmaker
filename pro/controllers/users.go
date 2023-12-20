@@ -166,16 +166,13 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
 		return
 	}
-	if user.IsAdmin || user.IsSuperAdmin {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("admins can visit dashboard to create remote clients"), "badrequest"))
-		return
-	}
 	allextClients, err := logic.GetAllExtClients()
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
+	processedAdminNodeIds := make(map[string]struct{})
 	for _, extClient := range allextClients {
 		if extClient.RemoteAccessClientID == req.RemoteAccessClientID && extClient.OwnerID == username {
 			node, err := logic.GetNodeByID(extClient.IngressGatewayID)
@@ -193,7 +190,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			if _, ok := user.RemoteGwIDs[node.ID.String()]; ok {
+			if _, ok := user.RemoteGwIDs[node.ID.String()]; (!user.IsAdmin && !user.IsSuperAdmin) && ok {
 				gws := userGws[node.Network]
 				extClient.AllowedIPs = logic.GetExtclientAllowedIPs(extClient)
 				gws = append(gws, models.UserRemoteGws{
@@ -207,40 +204,81 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 				})
 				userGws[node.Network] = gws
 				delete(user.RemoteGwIDs, node.ID.String())
-
+			} else {
+				gws := userGws[node.Network]
+				extClient.AllowedIPs = logic.GetExtclientAllowedIPs(extClient)
+				gws = append(gws, models.UserRemoteGws{
+					GwID:              node.ID.String(),
+					GWName:            host.Name,
+					Network:           node.Network,
+					GwClient:          extClient,
+					Connected:         true,
+					IsInternetGateway: node.IsInternetGateway,
+					GwPeerPublicKey:   host.PublicKey.String(),
+				})
+				userGws[node.Network] = gws
+				processedAdminNodeIds[node.ID.String()] = struct{}{}
 			}
 		}
-
 	}
 
 	// add remaining gw nodes to resp
-	for gwID := range user.RemoteGwIDs {
-		node, err := logic.GetNodeByID(gwID)
-		if err != nil {
-			continue
-		}
-		if !node.IsIngressGateway {
-			continue
-		}
-		if node.PendingDelete {
-			continue
-		}
-		host, err := logic.GetHost(node.HostID.String())
-		if err != nil {
-			continue
-		}
-		gws := userGws[node.Network]
+	if !user.IsAdmin && !user.IsSuperAdmin {
+		for gwID := range user.RemoteGwIDs {
+			node, err := logic.GetNodeByID(gwID)
+			if err != nil {
+				continue
+			}
+			if !node.IsIngressGateway {
+				continue
+			}
+			if node.PendingDelete {
+				continue
+			}
+			host, err := logic.GetHost(node.HostID.String())
+			if err != nil {
+				continue
+			}
+			gws := userGws[node.Network]
 
-		gws = append(gws, models.UserRemoteGws{
-			GwID:              node.ID.String(),
-			GWName:            host.Name,
-			Network:           node.Network,
-			IsInternetGateway: node.IsInternetGateway,
-			GwPeerPublicKey:   host.PublicKey.String(),
-		})
-		userGws[node.Network] = gws
+			gws = append(gws, models.UserRemoteGws{
+				GwID:              node.ID.String(),
+				GWName:            host.Name,
+				Network:           node.Network,
+				IsInternetGateway: node.IsInternetGateway,
+				GwPeerPublicKey:   host.PublicKey.String(),
+			})
+			userGws[node.Network] = gws
+		}
+	} else {
+		allNodes, err := logic.GetAllNodes()
+		if err != nil {
+			slog.Error("failed to fetch all nodes", "error", err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+		for _, node := range allNodes {
+			_, ok := processedAdminNodeIds[node.ID.String()]
+			if node.IsIngressGateway && !node.PendingDelete && !ok {
+				host, err := logic.GetHost(node.HostID.String())
+				if err != nil {
+					slog.Error("failed to fetch host", "error", err)
+					continue
+				}
+				gws := userGws[node.Network]
+
+				gws = append(gws, models.UserRemoteGws{
+					GwID:              node.ID.String(),
+					GWName:            host.Name,
+					Network:           node.Network,
+					IsInternetGateway: node.IsInternetGateway,
+					GwPeerPublicKey:   host.PublicKey.String(),
+				})
+				userGws[node.Network] = gws
+			}
+		}
 	}
-
+	slog.Debug("returned user gws", "user", username, "gws", userGws)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(userGws)
 }
