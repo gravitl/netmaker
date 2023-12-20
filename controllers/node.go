@@ -596,7 +596,9 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 				if err := mq.NodeUpdate(&node); err != nil {
 					slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 				}
-				mq.PublishDeleteAllExtclientsDNS(node.Network, removedClients)
+				if servercfg.IsDNSMode() {
+					logic.SetDNS()
+				}
 			}()
 		}
 	}
@@ -635,7 +637,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 	newNode := newData.ConvertToServerNode(&currentNode)
 	relayUpdate := logic.RelayUpdates(&currentNode, newNode)
-	host, err := logic.GetHost(newNode.HostID.String())
+	_, err = logic.GetHost(newNode.HostID.String())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get host for node  [ %s ] info: %v", nodeid, err))
@@ -655,9 +657,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	if relayUpdate {
 		logic.UpdateRelayed(&currentNode, newNode)
 	}
-	if servercfg.IsDNSMode() {
-		logic.SetDNS()
-	}
 
 	apiNode := newNode.ConvertToAPINode()
 	logger.Log(1, r.Header.Get("user"), "updated node", currentNode.ID.String(), "on network", currentNode.Network)
@@ -672,8 +671,8 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 				logger.Log(0, "error during node ACL update for node", newNode.ID.String())
 			}
 		}
-		if err := mq.PublishReplaceDNS(&currentNode, newNode, host); err != nil {
-			logger.Log(1, "failed to publish dns update", err.Error())
+		if servercfg.IsDNSMode() {
+			logic.SetDNS()
 		}
 	}(aclUpdate, relayUpdate, newNode)
 }
