@@ -287,16 +287,6 @@ func CreateHostACL(hostID, serverName string) error {
 				Action:     "all",
 			},
 			{
-				Topic:      fmt.Sprintf("dns/all/%s/%s", hostID, serverName),
-				Permission: "allow",
-				Action:     "all",
-			},
-			{
-				Topic:      fmt.Sprintf("dns/update/%s/%s", hostID, serverName),
-				Permission: "allow",
-				Action:     "all",
-			},
-			{
 				Topic:      fmt.Sprintf("host/serverupdate/%s/%s", serverName, hostID),
 				Permission: "allow",
 				Action:     "all",
