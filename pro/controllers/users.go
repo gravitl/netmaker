@@ -152,16 +152,22 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("required params username"), "badrequest"))
 		return
 	}
+	remoteAccessClientID := r.URL.Query().Get("remote_access_clientid")
 	var req models.UserRemoteGwsReq
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		slog.Error("error decoding request body: ", "error", err)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+	if remoteAccessClientID == "" {
+		err := json.NewDecoder(r.Body).Decode(&req)
+		if err != nil {
+			slog.Error("error decoding request body: ", "error", err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+	}
+	if req.RemoteAccessClientID == "" && remoteAccessClientID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("remote access client id cannot be empty"), "badrequest"))
 		return
 	}
 	if req.RemoteAccessClientID == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("remote access client id cannot be empty"), "badrequest"))
-		return
+		req.RemoteAccessClientID = remoteAccessClientID
 	}
 	userGws := make(map[string][]models.UserRemoteGws)
 	user, err := logic.GetUser(username)
