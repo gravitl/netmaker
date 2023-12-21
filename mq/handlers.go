@@ -104,7 +104,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	var sendPeerUpdate bool
 	switch hostUpdate.Action {
 	case models.CheckIn:
-		sendPeerUpdate = handleHostCheckin(&hostUpdate.Host, currentHost)
+		sendPeerUpdate = HandleHostCheckin(&hostUpdate.Host, currentHost)
 	case models.Acknowledgement:
 		hu := hostactions.GetAction(currentHost.ID.String())
 		if hu != nil {
@@ -258,7 +258,7 @@ func ClientPeerUpdate(client mqtt.Client, msg mqtt.Message) {
 	slog.Info("sent peer updates after signal received from", "id", id)
 }
 
-func handleHostCheckin(h, currentHost *models.Host) bool {
+func HandleHostCheckin(h, currentHost *models.Host) bool {
 	if h == nil {
 		return false
 	}

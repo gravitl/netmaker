@@ -78,7 +78,7 @@ func publish(host *models.Host, dest string, msg []byte) error {
 	if encryptErr != nil {
 		return encryptErr
 	}
-	if mqclient == nil {
+	if mqclient == nil || !mqclient.IsConnectionOpen() {
 		return errors.New("cannot publish ... mqclient not connected")
 	}
 
