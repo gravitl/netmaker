@@ -104,7 +104,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	var sendPeerUpdate bool
 	switch hostUpdate.Action {
 	case models.CheckIn:
-		sendPeerUpdate = handleHostCheckin(&hostUpdate.Host, currentHost)
+		sendPeerUpdate = HandleHostCheckin(&hostUpdate.Host, currentHost)
 	case models.Acknowledgement:
 		hu := hostactions.GetAction(currentHost.ID.String())
 		if hu != nil {
@@ -124,10 +124,6 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 				}
 				if err = PublishSingleHostPeerUpdate(currentHost, nodes, nil, nil); err != nil {
 					slog.Error("failed peers publish after join acknowledged", "name", hostUpdate.Host.Name, "id", currentHost.ID, "error", err)
-					return
-				}
-				if err = HandleNewNodeDNS(&hu.Host, &hu.Node); err != nil {
-					slog.Error("failed to send dns update after node added to host", "name", hostUpdate.Host.Name, "id", currentHost.ID, "error", err)
 					return
 				}
 			}
@@ -166,7 +162,6 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 			// delete EMQX credentials for host
 			if err := DeleteEmqxUser(currentHost.ID.String()); err != nil {
 				slog.Error("failed to remove host credentials from EMQX", "id", currentHost.ID, "error", err)
-				return
 			}
 		}
 
@@ -192,6 +187,9 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 		if err := logic.RemoveHostByID(currentHost.ID.String()); err != nil {
 			slog.Error("failed to delete host", "id", currentHost.ID, "error", err)
 			return
+		}
+		if servercfg.IsDNSMode() {
+			logic.SetDNS()
 		}
 		sendPeerUpdate = true
 	case models.SignalHost:
@@ -260,29 +258,7 @@ func ClientPeerUpdate(client mqtt.Client, msg mqtt.Message) {
 	slog.Info("sent peer updates after signal received from", "id", id)
 }
 
-func HandleNewNodeDNS(host *models.Host, node *models.Node) error {
-	dns := models.DNSUpdate{
-		Action: models.DNSInsert,
-		Name:   host.Name + "." + node.Network,
-	}
-	if node.Address.IP != nil {
-		dns.Address = node.Address.IP.String()
-		if err := PublishDNSUpdate(node.Network, dns); err != nil {
-			return err
-		}
-	} else if node.Address6.IP != nil {
-		dns.Address = node.Address6.IP.String()
-		if err := PublishDNSUpdate(node.Network, dns); err != nil {
-			return err
-		}
-	}
-	if err := PublishAllDNS(node); err != nil {
-		return err
-	}
-	return nil
-}
-
-func handleHostCheckin(h, currentHost *models.Host) bool {
+func HandleHostCheckin(h, currentHost *models.Host) bool {
 	if h == nil {
 		return false
 	}

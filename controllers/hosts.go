@@ -31,6 +31,7 @@ func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/hosts/adm/authenticate", authenticateHost).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/host", Authorize(true, false, "host", http.HandlerFunc(pull))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/host/{hostid}/signalpeer", Authorize(true, false, "host", http.HandlerFunc(signalPeer))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/fallback/host/{hostid}", Authorize(true, false, "host", http.HandlerFunc(hostUpdateFallback))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/auth-register/host", socketHandler)
 }
 
@@ -141,6 +142,8 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		Peers:           hPU.Peers,
 		PeerIDs:         hPU.PeerIDs,
 		HostNetworkInfo: hPU.HostNetworkInfo,
+		EgressRoutes:    hPU.EgressRoutes,
+		FwUpdate:        hPU.FwUpdate,
 	}
 
 	logger.Log(1, hostID, "completed a pull")
@@ -196,16 +199,8 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 			logger.Log(0, "fail to publish peer update: ", err.Error())
 		}
 		if newHost.Name != currHost.Name {
-			networks := logic.GetHostNetworks(currHost.ID.String())
-			if err := mq.PublishHostDNSUpdate(currHost, newHost, networks); err != nil {
-				var dnsError *models.DNSError
-				if errors.Is(err, dnsError) {
-					for _, message := range err.(models.DNSError).ErrorStrings {
-						logger.Log(0, message)
-					}
-				} else {
-					logger.Log(0, err.Error())
-				}
+			if servercfg.IsDNSMode() {
+				logic.SetDNS()
 			}
 		}
 	}()
@@ -214,6 +209,51 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 	logger.Log(2, r.Header.Get("user"), "updated host", newHost.ID.String())
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiHostData)
+}
+
+// swagger:route PUT /api/v1/fallback/host/{hostid} hosts hostUpdateFallback
+//
+// Updates a Netclient host on Netmaker server.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: apiHostResponse
+func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
+	var params = mux.Vars(r)
+	hostid := params["hostid"]
+	currentHost, err := logic.GetHost(hostid)
+	if err != nil {
+		slog.Error("error getting host", "id", hostid, "error", err)
+		return
+	}
+
+	var hostUpdate models.HostUpdate
+	err = json.NewDecoder(r.Body).Decode(&hostUpdate)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to update a host:", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	slog.Info("recieved host update", "name", hostUpdate.Host.Name, "id", hostUpdate.Host.ID)
+	switch hostUpdate.Action {
+	case models.CheckIn:
+		_ = mq.HandleHostCheckin(&hostUpdate.Host, currentHost)
+
+	case models.UpdateHost:
+
+		_ = logic.UpdateHostFromClient(&hostUpdate.Host, currentHost)
+		err := logic.UpsertHost(currentHost)
+		if err != nil {
+			slog.Error("failed to update host", "id", currentHost.ID, "error", err)
+			return
+		}
+
+	}
+
 }
 
 // swagger:route DELETE /api/hosts/{hostid} hosts deleteHost
@@ -251,6 +291,12 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		}
 		go mq.PublishMqUpdatesForDeletedNode(node, false, gwClients)
 
+	}
+	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
+		// delete EMQX credentials for host
+		if err := mq.DeleteEmqxUser(currHost.ID.String()); err != nil {
+			slog.Error("failed to remove host credentials from EMQX", "id", currHost.ID, "error", err)
+		}
 	}
 	if err = logic.RemoveHost(currHost, forceDelete); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to delete a host:", err.Error())
@@ -311,7 +357,9 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 			Node:   *newNode,
 		})
 		mq.PublishPeerUpdate()
-		mq.HandleNewNodeDNS(currHost, newNode)
+		if servercfg.IsDNSMode() {
+			logic.SetDNS()
+		}
 	}()
 	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("added host %s to network %s", currHost.Name, network))
 	w.WriteHeader(http.StatusOK)
@@ -396,7 +444,12 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
 		return
 	}
-	go mq.PublishMqUpdatesForDeletedNode(*node, true, gwClients)
+	go func() {
+		mq.PublishMqUpdatesForDeletedNode(*node, true, gwClients)
+		if servercfg.IsDNSMode() {
+			logic.SetDNS()
+		}
+	}()
 	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("removed host %s from network %s", currHost.Name, network))
 	w.WriteHeader(http.StatusOK)
 }
@@ -492,7 +545,7 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 
 	// Create EMQX creds and ACLs if not found
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
-		if err := mq.CreateEmqxUser(host.ID.String(), host.HostPass, false); err != nil {
+		if err := mq.CreateEmqxUser(host.ID.String(), authRequest.Password, false); err != nil {
 			slog.Error("failed to create host credentials for EMQX: ", err.Error())
 		} else {
 			if err := mq.CreateHostACL(host.ID.String(), servercfg.GetServerInfo().Server); err != nil {

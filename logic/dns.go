@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 	"github.com/txn2/txeh"
 )
 
@@ -35,6 +36,10 @@ func SetDNS() error {
 		for _, entry := range dns {
 			hostfile.AddHost(entry.Address, entry.Name)
 		}
+	}
+	dns := GetExtclientDNS()
+	for _, entry := range dns {
+		hostfile.AddHost(entry.Address, entry.Name)
 	}
 	if corefilestring == "" {
 		corefilestring = "example.com"
@@ -67,6 +72,28 @@ func GetDNS(network string) ([]models.DNSEntry, error) {
 
 	dns = append(dns, customdns...)
 	return dns, nil
+}
+
+// GetExtclientDNS - gets all extclients dns entries
+func GetExtclientDNS() []models.DNSEntry {
+	extclients, err := GetAllExtClients()
+	if err != nil {
+		return []models.DNSEntry{}
+	}
+	var dns []models.DNSEntry
+	for _, extclient := range extclients {
+		var entry = models.DNSEntry{}
+		entry.Name = fmt.Sprintf("%s.%s", extclient.ClientID, extclient.Network)
+		entry.Network = extclient.Network
+		if extclient.Address != "" {
+			entry.Address = extclient.Address
+		}
+		if extclient.Address6 != "" {
+			entry.Address6 = extclient.Address6
+		}
+		dns = append(dns, entry)
+	}
+	return dns
 }
 
 // GetNodeDNS - gets the DNS of a network node
@@ -142,6 +169,7 @@ func SetCorefile(domains string) error {
 	}
 
 	corefile := domains + ` {
+	bind %s
     reload 15s
     hosts /root/dnsconfig/netmaker.hosts {
 	fallthrough	
@@ -150,8 +178,7 @@ func SetCorefile(domains string) error {
     log
 }
 `
-	corebytes := []byte(corefile)
-
+	corebytes := []byte(fmt.Sprintf(corefile, servercfg.GetCoreDNSAddr()))
 	err = os.WriteFile(dir+"/config/dnsconfig/Corefile", corebytes, 0644)
 	if err != nil {
 		return err

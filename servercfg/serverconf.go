@@ -119,6 +119,7 @@ func GetServerInfo() models.ServerConfig {
 	cfg.APIPort = GetAPIPort()
 	cfg.DNSMode = "off"
 	cfg.Broker = GetPublicBrokerEndpoint()
+	cfg.BrokerType = GetBrokerType()
 	if IsDNSMode() {
 		cfg.DNSMode = "on"
 	}
