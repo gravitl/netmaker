@@ -22,7 +22,7 @@ var EnrollmentErrors = struct {
 	FailedToTokenize   error
 	FailedToDeTokenize error
 }{
-	InvalidCreate:      fmt.Errorf("invalid enrollment key created"),
+	InvalidCreate:      fmt.Errorf("failed to create enrollment key. paramters invalid"),
 	NoKeyFound:         fmt.Errorf("no enrollmentkey found"),
 	InvalidKey:         fmt.Errorf("invalid key provided"),
 	NoUsesRemaining:    fmt.Errorf("no uses remaining"),
@@ -61,8 +61,8 @@ func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string
 	if len(tags) > 0 {
 		k.Tags = tags
 	}
-	if ok := k.Validate(); !ok {
-		return nil, EnrollmentErrors.InvalidCreate
+	if err := k.Validate(); err != nil {
+		return nil, err
 	}
 	if relay != uuid.Nil {
 		relayNode, err := GetNodeByID(relay.String())
