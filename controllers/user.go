@@ -343,6 +343,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	caller, err := logic.GetUser(r.Header.Get("user"))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
 	}
 	var user models.User
 	err = json.NewDecoder(r.Body).Decode(&user)
@@ -365,7 +366,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !servercfg.IsPro && !user.IsAdmin {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("non-admins users can only be created on Pro version"), "forbidden"))
 		return
 	}
 
