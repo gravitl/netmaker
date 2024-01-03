@@ -1,6 +1,8 @@
 module github.com/gravitl/netmaker
 
-go 1.19
+go 1.21
+
+toolchain go1.21.4
 
 require (
 	github.com/eclipse/paho.mqtt.golang v1.4.3
