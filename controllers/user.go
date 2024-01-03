@@ -339,7 +339,6 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //				200: userBodyResponse
 func createUser(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("------> HEREEEEE 1")
 	w.Header().Set("Content-Type", "application/json")
 	caller, err := logic.GetUser(r.Header.Get("user"))
 	if err != nil {
@@ -354,7 +353,6 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	fmt.Println("------> HEREEEEE 2")
 	if !caller.IsSuperAdmin && user.IsAdmin {
 		err = errors.New("only superadmin can create admin users")
 		slog.Error("error creating new user: ", "user", user.UserName, "error", err)
@@ -367,9 +365,8 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
-	fmt.Println("------> HEREEEEE 3")
 	if !servercfg.IsPro && !user.IsAdmin {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("non-admins users can only be created on Pro version"), "forbidden"))
 		return
 	}
 
@@ -379,7 +376,6 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	fmt.Println("------> HEREEEEE 4")
 	slog.Info("user was created", "username", user.UserName)
 	json.NewEncoder(w).Encode(logic.ToReturnUser(user))
 }
