@@ -412,6 +412,10 @@ install_dependencies() {
 		dependencies="git wireguard-tools dnsutils jq docker.io docker-compose grep gawk"
 		update_cmd='pacman -Sy'
 		install_cmd='pacman -S --noconfirm'
+	elif [ "${OS}" = "FreeBSD" ]; then
+		dependencies="git wireguard wget jq docker.io docker-compose grep gawk"
+		update_cmd='pkg update'
+		install_cmd='pkg install -y'
 	else
 		install_cmd=''
 	fi
@@ -437,18 +441,25 @@ install_dependencies() {
 	${update_cmd}
 
 	while [ -n "$1" ]; do
-		
-		if [ "${OS}" = "OpenWRT" ] || [ "${OS}" = "TurrisOS" ]; then
-			is_installed=$(opkg list-installed $1 | grep $1)
+		if [ "${OS}" = "FreeBSD" ]; then
+			is_installed=$(pkg check -d $1 | grep "Checking" | grep "done")
+			if [ "$is_installed" != "" ]; then
+				echo "  " $1 is installed
+			else
+				echo "  " $1 is not installed. Attempting install.
+				${install_cmd} $1
+				sleep 5
+				is_installed=$(pkg check -d $1 | grep "Checking" | grep "done")
+				if [ "$is_installed" != "" ]; then
+					echo "  " $1 is installed
+				elif [ -x "$(command -v $1)" ]; then
+					echo "  " $1 is installed
+				else
+					echo "  " FAILED TO INSTALL $1
+					echo "  " This may break functionality.
+				fi
+			fi
 		else
-			is_installed=$(dpkg-query -W --showformat='${Status}\n' $1 | grep "install ok installed")
-		fi
-		if [ "${is_installed}" != "" ]; then
-			echo "    " $1 is installed
-		else
-			echo "    " $1 is not installed. Attempting install.
-			${install_cmd} $1
-			sleep 5
 			if [ "${OS}" = "OpenWRT" ] || [ "${OS}" = "TurrisOS" ]; then
 				is_installed=$(opkg list-installed $1 | grep $1)
 			else
@@ -456,14 +467,26 @@ install_dependencies() {
 			fi
 			if [ "${is_installed}" != "" ]; then
 				echo "    " $1 is installed
-			elif [ -x "$(command -v $1)" ]; then
-				echo "  " $1 is installed
 			else
-				echo "  " FAILED TO INSTALL $1
-				echo "  " This may break functionality.
+				echo "    " $1 is not installed. Attempting install.
+				${install_cmd} $1
+				sleep 5
+				if [ "${OS}" = "OpenWRT" ] || [ "${OS}" = "TurrisOS" ]; then
+					is_installed=$(opkg list-installed $1 | grep $1)
+				else
+					is_installed=$(dpkg-query -W --showformat='${Status}\n' $1 | grep "install ok installed")
+				fi
+				if [ "${is_installed}" != "" ]; then
+					echo "    " $1 is installed
+				elif [ -x "$(command -v $1)" ]; then
+					echo "  " $1 is installed
+				else
+					echo "  " FAILED TO INSTALL $1
+					echo "  " This may break functionality.
+				fi
 			fi
 		fi
-	shift
+		shift
 	done
 
 	echo "-----------------------------------------------------"
