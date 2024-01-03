@@ -17,7 +17,7 @@ func TestCreateEnrollmentKey(t *testing.T) {
 		newKey, err := CreateEnrollmentKey(0, time.Time{}, nil, nil, false, uuid.Nil)
 		assert.Nil(t, newKey)
 		assert.NotNil(t, err)
-		assert.Equal(t, err, EnrollmentErrors.InvalidCreate)
+		assert.ErrorIs(t, err, models.ErrInvalidEnrollmentKey)
 	})
 	t.Run("Can_Create_Key_Uses", func(t *testing.T) {
 		newKey, err := CreateEnrollmentKey(1, time.Time{}, nil, nil, false, uuid.Nil)

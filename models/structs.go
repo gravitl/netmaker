@@ -225,12 +225,14 @@ type TrafficKeys struct {
 
 // HostPull - response of a host's pull
 type HostPull struct {
-	Host            Host                 `json:"host" yaml:"host"`
-	Nodes           []Node               `json:"nodes" yaml:"nodes"`
-	Peers           []wgtypes.PeerConfig `json:"peers" yaml:"peers"`
-	ServerConfig    ServerConfig         `json:"server_config" yaml:"server_config"`
-	PeerIDs         PeerMap              `json:"peer_ids,omitempty" yaml:"peer_ids,omitempty"`
-	HostNetworkInfo HostInfoMap          `json:"host_network_info,omitempty"  yaml:"host_network_info,omitempty"`
+	Host            Host                  `json:"host" yaml:"host"`
+	Nodes           []Node                `json:"nodes" yaml:"nodes"`
+	Peers           []wgtypes.PeerConfig  `json:"peers" yaml:"peers"`
+	ServerConfig    ServerConfig          `json:"server_config" yaml:"server_config"`
+	PeerIDs         PeerMap               `json:"peer_ids,omitempty" yaml:"peer_ids,omitempty"`
+	HostNetworkInfo HostInfoMap           `json:"host_network_info,omitempty"  yaml:"host_network_info,omitempty"`
+	EgressRoutes    []EgressNetworkRoutes `json:"egress_network_routes"`
+	FwUpdate        FwUpdate              `json:"fw_update"`
 }
 
 // NodeGet - struct for a single node get response
@@ -261,6 +263,7 @@ type ServerConfig struct {
 	MQPort      string `yaml:"mqport"`
 	MQUserName  string `yaml:"mq_username"`
 	MQPassword  string `yaml:"mq_password"`
+	BrokerType  string `yaml:"broker_type"`
 	Server      string `yaml:"server"`
 	Broker      string `yaml:"broker"`
 	IsPro       bool   `yaml:"isee" json:"Is_EE"`

@@ -17,7 +17,7 @@ type ExtClient struct {
 	Enabled                bool                `json:"enabled" bson:"enabled"`
 	OwnerID                string              `json:"ownerid" bson:"ownerid"`
 	DeniedACLs             map[string]struct{} `json:"deniednodeacls" bson:"acls,omitempty"`
-	RemoteAccessClientID   string              `json:"remote_access_client_id"`
+	RemoteAccessClientID   string              `json:"remote_access_client_id"` // unique ID (MAC address) of RAC machine
 }
 
 // CustomExtClient - struct for CustomExtClient params
@@ -28,5 +28,5 @@ type CustomExtClient struct {
 	ExtraAllowedIPs      []string            `json:"extraallowedips,omitempty"`
 	Enabled              bool                `json:"enabled,omitempty"`
 	DeniedACLs           map[string]struct{} `json:"deniednodeacls" bson:"acls,omitempty"`
-	RemoteAccessClientID string              `json:"remote_access_client_id"`
+	RemoteAccessClientID string              `json:"remote_access_client_id"` // unique ID (MAC address) of RAC machine
 }
