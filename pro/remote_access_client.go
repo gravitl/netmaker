@@ -67,6 +67,15 @@ func disableExtClient(client *models.ExtClient) error {
 			if err = mq.PublishPeerUpdate(); err != nil {
 				slog.Error("error updating ext clients on", "ingress", ingressNode.ID.String(), "err", err.Error())
 			}
+			ingressHost, err := logic.GetHost(ingressNode.HostID.String())
+			if err != nil {
+				return err
+			}
+			nodes, err := logic.GetAllNodes()
+			if err != nil {
+				return err
+			}
+			go mq.PublishSingleHostPeerUpdate(ingressHost, nodes, nil, []models.ExtClient{*client})
 		} else {
 			return err
 		}
