@@ -162,6 +162,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	reqFromMobile := r.URL.Query().Get("from_mobile") == "true"
 	if req.RemoteAccessClientID == "" && remoteAccessClientID == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("remote access client id cannot be empty"), "badrequest"))
 		return
@@ -287,6 +288,15 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 				userGws[node.Network] = gws
 			}
 		}
+	}
+	if reqFromMobile {
+		// send resp in array format
+		userGwsArr := []models.UserRemoteGws{}
+		for _, userGwI := range userGws {
+			userGwsArr = append(userGwsArr, userGwI...)
+		}
+		logic.ReturnSuccessResponseWithJson(w, r, userGwsArr, "fetched gateways for user"+username)
+		return
 	}
 	slog.Debug("returned user gws", "user", username, "gws", userGws)
 	w.WriteHeader(http.StatusOK)
