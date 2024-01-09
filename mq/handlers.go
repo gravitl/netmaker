@@ -2,7 +2,6 @@ package mq
 
 import (
 	"encoding/json"
-	"fmt"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
@@ -14,7 +13,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
 // UpdateMetrics  message Handler -- handles updates from client nodes for metrics
@@ -65,10 +63,10 @@ func UpdateNode(client mqtt.Client, msg mqtt.Message) {
 			}
 			allNodes, err := logic.GetAllNodes()
 			if err == nil {
-				PublishSingleHostPeerUpdate(host, allNodes, nil, nil)
+				PublishSingleHostPeerUpdate(host, allNodes, nil, nil, false)
 			}
 		} else {
-			err = PublishPeerUpdate()
+			err = PublishPeerUpdate(false)
 		}
 		if err != nil {
 			slog.Warn("error updating peers when node informed the server of an interface change", "nodeid", currentNode.ID, "error", err)
@@ -102,6 +100,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	}
 	slog.Info("recieved host update", "name", hostUpdate.Host.Name, "id", hostUpdate.Host.ID)
 	var sendPeerUpdate bool
+	var replacePeers bool
 	switch hostUpdate.Action {
 	case models.CheckIn:
 		sendPeerUpdate = HandleHostCheckin(&hostUpdate.Host, currentHost)
@@ -122,7 +121,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 				if err != nil {
 					return
 				}
-				if err = PublishSingleHostPeerUpdate(currentHost, nodes, nil, nil); err != nil {
+				if err = PublishSingleHostPeerUpdate(currentHost, nodes, nil, nil, false); err != nil {
 					slog.Error("failed peers publish after join acknowledged", "name", hostUpdate.Host.Name, "id", currentHost.ID, "error", err)
 					return
 				}
@@ -131,25 +130,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	case models.UpdateHost:
 		if hostUpdate.Host.PublicKey != currentHost.PublicKey {
 			//remove old peer entry
-			peerUpdate := models.HostPeerUpdate{
-				ServerVersion: servercfg.GetVersion(),
-				Peers: []wgtypes.PeerConfig{
-					{
-						PublicKey: currentHost.PublicKey,
-						Remove:    true,
-					},
-				},
-			}
-			data, err := json.Marshal(&peerUpdate)
-			if err != nil {
-				slog.Error("failed to marshal peer update", "error", err)
-			}
-			hosts := logic.GetRelatedHosts(hostUpdate.Host.ID.String())
-			server := servercfg.GetServer()
-			for _, host := range hosts {
-				publish(&host, fmt.Sprintf("peers/host/%s/%s", host.ID.String(), server), data)
-			}
-
+			replacePeers = true
 		}
 		sendPeerUpdate = logic.UpdateHostFromClient(&hostUpdate.Host, currentHost)
 		err := logic.UpsertHost(currentHost)
@@ -198,7 +179,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	}
 
 	if sendPeerUpdate {
-		err := PublishPeerUpdate()
+		err := PublishPeerUpdate(replacePeers)
 		if err != nil {
 			slog.Error("failed to publish peer update", "error", err)
 		}
@@ -249,7 +230,7 @@ func ClientPeerUpdate(client mqtt.Client, msg mqtt.Message) {
 	case ncutils.ACK:
 		// do we still need this
 	case ncutils.DONE:
-		if err = PublishPeerUpdate(); err != nil {
+		if err = PublishPeerUpdate(false); err != nil {
 			slog.Error("error publishing peer update for node", "id", currentNode.ID, "error", err)
 			return
 		}

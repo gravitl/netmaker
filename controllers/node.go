@@ -436,7 +436,7 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 		if err := mq.NodeUpdate(&node); err != nil {
 			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 		}
-		mq.PublishPeerUpdate()
+		mq.PublishPeerUpdate(false)
 	}()
 }
 
@@ -479,7 +479,7 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 		if err := mq.NodeUpdate(&node); err != nil {
 			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 		}
-		mq.PublishPeerUpdate()
+		mq.PublishPeerUpdate(false)
 	}()
 }
 
@@ -590,7 +590,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			go func() {
-				if err := mq.PublishSingleHostPeerUpdate(host, allNodes, nil, removedClients[:]); err != nil {
+				if err := mq.PublishSingleHostPeerUpdate(host, allNodes, nil, removedClients[:], false); err != nil {
 					slog.Error("publishSingleHostUpdate", "host", host.Name, "error", err)
 				}
 				if err := mq.NodeUpdate(&node); err != nil {
@@ -667,7 +667,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			slog.Error("error publishing node update to node", "node", newNode.ID, "error", err)
 		}
 		if aclUpdate || relayupdate || ifaceDelta {
-			if err := mq.PublishPeerUpdate(); err != nil {
+			if err := mq.PublishPeerUpdate(false); err != nil {
 				logger.Log(0, "error during node ACL update for node", newNode.ID.String())
 			}
 		}

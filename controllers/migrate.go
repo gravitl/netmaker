@@ -95,7 +95,7 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 	if err := logic.UpsertHost(&host); err != nil {
 		slog.Error("save host", "error", err)
 	}
-	go mq.PublishPeerUpdate()
+	go mq.PublishPeerUpdate(false)
 	response := models.HostPull{
 		Host:         host,
 		Nodes:        nodes,
