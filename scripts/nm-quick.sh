@@ -51,20 +51,21 @@ usage() {
 	cat <<EOF
 nm-quick.sh v${NM_QUICK_VERSION}
 usage: ./nm-quick.sh [-e] [-b buildtype] [-t tag] [-a auto] [-d domain]
-	-e      if specified, will install netmaker pro
-	-b      type of build; options:
-					\"version\" - will install a specific version of Netmaker using remote git and dockerhub
-					\"local\": - will install by cloning repo and building images from git
-					\"branch\": - will install a specific branch using remote git and dockerhub
-	-t      tag of build; if buildtype=version, tag=version. If builtype=branch or builtype=local, tag=branch
-	-a      auto-build; skip prompts and use defaults, if none provided
-	-d      domain; if specified, will use this domain instead of auto-generating one
-	-m      email; if specified, will use this email for certificate requests instead of auto-generating one
+  -e      if specified, will install netmaker pro
+  -b      type of build; options:
+          \"version\" - will install a specific version of Netmaker using remote git and dockerhub
+          \"local\": - will install by cloning repo and building images from git
+          \"branch\": - will install a specific branch using remote git and dockerhub
+  -t      tag of build; if buildtype=version, tag=version. If builtype=branch or builtype=local, tag=branch
+  -a      auto-build; skip prompts and use defaults, if none provided
+  -d      domain; if specified, will use this domain instead of auto-generating one
+  -m      email; if specified, will use this email for certificate requests instead of auto-generating one
+  -C      don't configure Netclient
 examples:
-					nm-quick.sh -e -b version -t $LATEST
-					nm-quick.sh -e -b local -t feature_v0.17.2_newfeature
-					nm-quick.sh -e -b branch -t develop
-					nm-quick.sh -e -b version -t $LATEST -a -d example.com
+          nm-quick.sh -e -b version -t $LATEST
+          nm-quick.sh -e -b local -t feature_v0.17.2_newfeature
+          nm-quick.sh -e -b branch -t develop
+          nm-quick.sh -e -b version -t $LATEST -a -d example.com
 EOF
 	exit 1
 }
@@ -88,7 +89,7 @@ read_arguments() {
 	unset AUTO_BUILD
 	unset NETMAKER_BASE_DOMAIN
 
-	while getopts evab:d:t:m: flag; do
+	while getopts evabC:d:t:m: flag; do
 		case "${flag}" in
 		e)
 			INSTALL_TYPE="pro"
@@ -118,6 +119,9 @@ read_arguments() {
 			;;
 		m)
 			NM_EMAIL="${OPTARG}"
+			;;
+		C)
+			NM_SKIP_CLIENT=1
 			;;
 		*)
 			echo "error: unknown flag ${flag}"
@@ -251,7 +255,7 @@ setup_netclient() {
 
 	netclient install
 
-  local token
+	local token
 	token="$(get_enrollment_key)"
 	echo "Register token: $token"
 	netclient register -t $token
