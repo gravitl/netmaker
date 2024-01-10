@@ -2,13 +2,20 @@
 set -eEuo pipefail
 
 NM_QUICK_VERSION="0.1.2"
+ARGV=("$@")
 
 if [ "$(id -u)" -ne 0 ]; then
-	echo "This script must be run as root"
+	echo "This script must be run as root" >&2
 	exit 1
 fi
 
 configure() {
+	# set to empty instead of swapping all calls to "${VAR:-""}"
+	: "${NM_SKIP_BUILD:=""}"
+	: "${NM_SKIP_DEPS:=""}"
+	: "${NM_SKIP_CLIENT:=""}"
+	: "${NM_SKIP_CLONE:=""}"
+
 	CONFIG_FILENAME=netmaker.env
 	# location of nm-quick.sh (usually `/root`)
 	SCRIPT_DIR="${BASH_SOURCE[0]%/*}"
@@ -16,13 +23,13 @@ configure() {
 	XDG_DATA_HOME="${XDG_DATA_HOME:-"$HOME/.local/share"}"
 	NM_QUICK_DATA_DIR="${NM_QUICK_DATA_DIR:-"$XDG_DATA_HOME/netmaker/nm-quick"}"
 	if [ -f "${SCRIPT_DIR}/${CONFIG_FILENAME}" ]; then
-		# backwards compatibilty for old installs
+		# backwards compatibility for old installs
 		NM_QUICK_DATA_DIR="${SCRIPT_DIR}"
 	fi
 
 	DATA_DIR="${NM_QUICK_DATA_DIR}"
 	CONFIG_PATH="$DATA_DIR/$CONFIG_FILENAME"
-	echo "Running in ${DATA_DIR}"
+	info "Running in ${DATA_DIR}"
 	mkdir -p "${DATA_DIR}/bin"
 	pushd "${DATA_DIR}"
 
@@ -30,12 +37,12 @@ configure() {
 
 	LATEST="$(get_latest_version)"
 
-	OS=$(uname)
+	OS="$(uname)"
 	# TODO add other supported architectures
 	case "$(uname -m)" in
 	x86_64) ARCH=amd64 ;;
 	aarch64) ARCH=arm64 ;;
-	*) echo "Unsupported architecture" && exit 1 ;;
+	*) info "Unsupported architecture" && exit 1 ;;
 	esac
 
 	# read arguments
@@ -68,14 +75,18 @@ examples:
           nm-quick.sh -e -b branch -t develop
           nm-quick.sh -e -b version -t $LATEST -a -d example.com
 EOF
-	exit 1
+}
+
+info() {
+	echo "$@" >&2
 }
 
 load_config() {
 	if [ -f "$CONFIG_PATH" ]; then
-		echo "Using config: $CONFIG_PATH"
+		info "Using config: $CONFIG_PATH"
+		# shellcheck disable=SC1090
 		source "$CONFIG_PATH"
-		if [ "$UPGRADE_FLAG" = "yes" ]; then
+		if [ "${UPGRADE_FLAG:-}" = "yes" ]; then
 			INSTALL_TYPE="pro"
 		fi
 	fi
@@ -104,10 +115,10 @@ read_arguments() {
 			AUTO_BUILD="on"
 			;;
 		b)
-			BUILD_TYPE=${OPTARG}
+			BUILD_TYPE="${OPTARG}"
 			if [[ ! "$BUILD_TYPE" =~ ^(version|local|branch)$ ]]; then
-				echo "error: $BUILD_TYPE is invalid"
-				echo "valid options: version, local, branch"
+				info "error: $BUILD_TYPE is invalid"
+				info "valid options: version, local, branch"
 				usage
 				exit 1
 			fi
@@ -125,7 +136,7 @@ read_arguments() {
 			NM_SKIP_CLIENT=1
 			;;
 		*)
-			echo "error: unknown flag ${flag}"
+			info "error: unknown flag ${flag}"
 			usage
 			exit 1
 			;;
@@ -180,8 +191,8 @@ set_buildinfo() {
 		BUILD_TAG="$LATEST"
 	fi
 
-	if [ -z "$BUILD_TAG" ] && [ ! -z "$BUILD_TYPE" ]; then
-		echo "error: must specify build tag when build type \"$BUILD_TYPE\" is specified"
+	if [ -z "$BUILD_TAG" ] && [ -n "$BUILD_TYPE" ]; then
+		info "error: must specify build tag when build type \"$BUILD_TYPE\" is specified"
 		usage
 		exit 1
 	fi
@@ -191,37 +202,37 @@ set_buildinfo() {
 	if [ "$AUTO_BUILD" = "on" ] && [ -z "$INSTALL_TYPE" ]; then
 		INSTALL_TYPE="ce"
 	elif [ -z "$INSTALL_TYPE" ]; then
-		echo "-----------------------------------------------------"
-		echo "Would you like to install Netmaker Community Edition (CE), or Netmaker Enterprise Edition (pro)?"
-		echo "pro will require you to create an account at https://app.netmaker.io"
-		echo "-----------------------------------------------------"
-		select install_option in "Community Edition" "Enterprise Edition"; do
+		info "-----------------------------------------------------"
+		info "Would you like to install Netmaker Community Edition (CE), or Netmaker Enterprise Edition (pro)?"
+		info "pro will require you to create an account at https://app.netmaker.io"
+		info "-----------------------------------------------------"
+		select _ in "Community Edition" "Enterprise Edition"; do
 			case $REPLY in
 			1)
-				echo "installing Netmaker CE"
+				info "installing Netmaker CE"
 				INSTALL_TYPE="ce"
 				break
 				;;
 			2)
-				echo "installing Netmaker pro"
+				info "installing Netmaker pro"
 				INSTALL_TYPE="pro"
 				break
 				;;
-			*) echo "invalid option $REPLY" ;;
+			*) info "invalid option $REPLY" ;;
 			esac
 		done
 	fi
 
-	echo "-----------Build Options-----------------------------"
-	echo "        Pro or CE: $INSTALL_TYPE"
-	echo "       Build Type: $BUILD_TYPE"
-	echo "        Build Tag: $BUILD_TAG"
-	echo "        Image Tag: $IMAGE_TAG"
-	echo "        Installer: v$NM_QUICK_VERSION"
-	echo " Operating System: $OS"
-	echo "     Architecture: $ARCH"
-	echo "      Install Dir: $DATA_DIR"
-	echo "-----------------------------------------------------"
+	info "-----------Build Options-----------------------------"
+	info "        Pro or CE: $INSTALL_TYPE"
+	info "       Build Type: $BUILD_TYPE"
+	info "        Build Tag: $BUILD_TAG"
+	info "        Image Tag: $IMAGE_TAG"
+	info "        Installer: v$NM_QUICK_VERSION"
+	info " Operating System: $OS"
+	info "     Architecture: $ARCH"
+	info "      Install Dir: $DATA_DIR"
+	info "-----------------------------------------------------"
 }
 
 setup_yq() {
@@ -230,8 +241,8 @@ setup_yq() {
 		chmod +x "${DATA_DIR}"/bin/yq
 	fi
 	if ! command -v yq &>/dev/null; then
-		echo "failed to install yq. Please install yq and try again."
-		echo "https://github.com/mikefarah/yq/#install"
+		info "failed to install yq. Please install yq and try again."
+		info "https://github.com/mikefarah/yq/#install"
 		exit 1
 	fi
 }
@@ -248,7 +259,7 @@ yq() {
 # setup_netclient - adds netclient to docker-compose
 setup_netclient() {
 	if [ -n "$NM_SKIP_CLIENT" ]; then
-		echo "Skipping setup_netclient() due to NM_SKIP_CLIENT"
+		info "Skipping setup_netclient() due to NM_SKIP_CLIENT"
 		return
 	fi
 
@@ -258,10 +269,10 @@ setup_netclient() {
 
 	local token
 	token="$(get_enrollment_key)"
-	echo "Register token: $token"
-	netclient register -t $token
+	info "Register token: $token"
+	netclient register -t "$token"
 
-	echo "waiting for netclient to become available"
+	info "waiting for netclient to become available"
 	local found=false
 	local file=/etc/netclient/nodes.yml
 	for ((a = 1; a <= 90; a++)); do
@@ -273,7 +284,7 @@ setup_netclient() {
 	done
 
 	if [ "$found" = false ]; then
-		echo "Error - $file not present"
+		info "Error - $file not present"
 		exit 1
 	fi
 }
@@ -290,47 +301,47 @@ netclient() {
 # configure_netclient - configures server's netclient as a default host and an ingress gateway
 configure_netclient() {
 	if [ -n "$NM_SKIP_CLIENT" ]; then
-		echo "Skipping configure_netclient() due to NM_SKIP_CLIENT"
+		info "Skipping configure_netclient() due to NM_SKIP_CLIENT"
 		return
 	fi
 
 	NODE_ID=$(sudo cat /etc/netclient/nodes.yml | yq -r .netmaker.commonnode.id)
 	if [ "$NODE_ID" = "" ] || [ "$NODE_ID" = "null" ]; then
-		echo "Error obtaining NODE_ID for the new network"
+		info "Error obtaining NODE_ID for the new network"
 		exit 1
 	fi
-	echo "register complete. New node ID: $NODE_ID"
+	info "register complete. New node ID: $NODE_ID"
 	HOST_ID=$(sudo cat /etc/netclient/netclient.yml | yq -r .host.id)
 	if [ "$HOST_ID" = "" ] || [ "$HOST_ID" = "null" ]; then
-		echo "Error obtaining HOST_ID for the new network"
+		info "Error obtaining HOST_ID for the new network"
 		exit 1
 	fi
-	echo "making host a default"
-	echo "Host ID: $HOST_ID"
+	info "making host a default"
+	info "Host ID: $HOST_ID"
 	# set as a default host
-	nmctl host update $HOST_ID --default || :
+	nmctl host update "$HOST_ID" --default || :
 	sleep 5
-	nmctl node create_ingress netmaker $NODE_ID || :
+	nmctl node create_ingress netmaker "$NODE_ID" || :
 }
 
 setup_nmctl() {
 	local URL="https://github.com/gravitl/netmaker/releases/download/$LATEST/nmctl-linux-$ARCH"
-	echo "Downloading nmctl..."
+	info "Downloading nmctl..."
 	wget -qO "${DATA_DIR}/bin/nmctl" "$URL"
 
 	if [ ! -f "${DATA_DIR}/bin/nmctl" ]; then
-		echo "Error downloading nmctl from '$URL'"
+		info "Error downloading nmctl from '$URL'"
 		exit 1
 	fi
 	chmod +x "${DATA_DIR}/bin/nmctl"
 
-	echo "using server api.$NETMAKER_BASE_DOMAIN"
-	echo "using master key Y"
+	info "using server api.$NETMAKER_BASE_DOMAIN"
+	info "using master key Y"
 	nmctl context set default --endpoint="https://api.$NETMAKER_BASE_DOMAIN" --master_key="$MASTER_KEY"
 	nmctl context use default
 	RESP=$(nmctl network list)
 	if [[ $RESP == *"unauthorized"* ]]; then
-		echo "Unable to properly configure NMCTL, exiting..."
+		info "Unable to properly configure NMCTL, exiting..."
 		exit 1
 	fi
 }
@@ -347,7 +358,7 @@ nmctl() {
 # wait_seconds - wait for the specified period of time
 wait_seconds() { (
 	for ((a = 1; a <= $1; a++)); do
-		echo ". . ."
+		info ". . ."
 		sleep 1
 	done
 ); }
@@ -358,24 +369,23 @@ confirm() { (
 		return 0
 	fi
 	while true; do
-		read -p 'Does everything look right? [y/n]: ' yn
+		read -r -p 'Does everything look right? [y/n]: ' yn
 		case $yn in
 		[Yy]*)
-			override="true"
 			break
 			;;
 		[Nn]*)
-			echo "exiting..."
-			exit 1
-			# TODO start from the beginning instead
+			info "starting from the beginning..."
+			main "${ARGV[@]}"
+			exit
 			;;
-		*) echo "Please answer yes or no." ;;
+		*) info "Please answer yes or no." ;;
 		esac
 	done
 ) }
 
 save_config() { (
-	echo "Saving the config to $CONFIG_PATH"
+	info "Saving the config to $CONFIG_PATH"
 	touch "$CONFIG_PATH"
 	save_config_item NM_EMAIL "$EMAIL"
 	save_config_item NM_DOMAIN "$NETMAKER_BASE_DOMAIN"
@@ -401,66 +411,86 @@ save_config() { (
 		save_config_item PROMETHEUS "off"
 		save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG"
 	fi
+
 	# copy entries from the previous config
-	local toCopy=("SERVER_HOST" "MASTER_KEY" "MQ_USERNAME" "MQ_PASSWORD"
-		"INSTALL_TYPE" "NODE_ID" "DNS_MODE" "NETCLIENT_AUTO_UPDATE" "API_PORT"
-		"CORS_ALLOWED_ORIGIN" "DISPLAY_KEYS" "DATABASE" "SERVER_BROKER_ENDPOINT" "VERBOSITY"
-		"DEBUG_MODE"  "REST_BACKEND" "DISABLE_REMOTE_IP_CHECK" "TELEMETRY" "AUTH_PROVIDER" "CLIENT_ID" "CLIENT_SECRET"
-		"FRONTEND_URL" "AZURE_TENANT" "OIDC_ISSUER" "EXPORTER_API_PORT" "JWT_VALIDITY_DURATION" "RAC_AUTO_DISABLE")
-	for name in "${toCopy[@]}"; do
-		save_config_item $name "${!name}"
+	local toCopyAlways=(
+		API_PORT
+		AUTH_PROVIDER
+		AZURE_TENANT
+		CLIENT_ID
+		CLIENT_SECRET
+		CORS_ALLOWED_ORIGIN
+		DATABASE
+		DEBUG_MODE
+		DISABLE_REMOTE_IP_CHECK
+		DISPLAY_KEYS
+		DNS_MODE
+		EXPORTER_API_PORT
+		FRONTEND_URL
+		INSTALL_TYPE
+		JWT_VALIDITY_DURATION
+		MASTER_KEY
+		MQ_PASSWORD
+		MQ_USERNAME
+		NETCLIENT_AUTO_UPDATE
+		NM_SKIP_BUILD
+		NM_SKIP_CLIENT
+		NM_SKIP_CLONE
+		NM_SKIP_DEPS
+		NODE_ID
+		OIDC_ISSUER
+		RAC_AUTO_DISABLE
+		REST_BACKEND
+		SERVER_BROKER_ENDPOINT
+		SERVER_HOST
+		TELEMETRY
+		VERBOSITY
+	)
+	for name in "${toCopyAlways[@]}"; do
+		save_config_item "$name"
 	done
-	# preserve debug entries
-	if test -n "$NM_SKIP_BUILD"; then
-		save_config_item NM_SKIP_BUILD "$NM_SKIP_BUILD"
-	fi
-	if test -n "$NM_SKIP_CLONE"; then
-		save_config_item NM_SKIP_CLONE "$NM_SKIP_CLONE"
-	fi
-	if test -n "$NM_SKIP_DEPS"; then
-		save_config_item NM_SKIP_DEPS "$NM_SKIP_DEPS"
-	fi
-	if test -n "$NM_SKIP_CLIENT"; then
-		save_config_item NM_SKIP_CLIENT "$NM_SKIP_CLIENT"
-	fi
 ); }
 
-save_config_item() { (
+save_config_item() {
 	local NAME="$1"
-	local VALUE="$2"
-	#echo "$NAME=$VALUE"
+	local VALUE="${2:"${!NAME:-""}"}"
+	#info "$NAME=$VALUE"
 	if test -z "$VALUE"; then
 		# load the default for empty values
-		VALUE=$(awk -F'=' "/^$NAME/ { print \$2}" "$DATA_DIR/netmaker.default.env")
+		VALUE="$(awk -F'=' "/^$NAME/ { print \$2}" "$DATA_DIR/netmaker.default.env")"
 		# trim quotes for docker
-		VALUE=$(echo "$VALUE" | sed -E "s|^(['\"])(.*)\1$|\2|g")
-		#echo "Default for $NAME=$VALUE"
+		VALUE="$(info "$VALUE" | sed -E "s|^(['\"])(.*)\1$|\2|g")"
+		#info "Default for $NAME=$VALUE"
 	fi
-	# TODO single quote passwords
+	# escape | in the value
+	VALUE="${VALUE//|/"\|"}"
+	# escape single quotes
+	VALUE="${VALUE//"'"/\'\"\'\"\'}"
+	# single-quote the value
+	VALUE="'${VALUE}'"
 	if grep -q "^$NAME=" "$CONFIG_PATH"; then
-		# TODO escape | in the value
 		sed -i "s|$NAME=.*|$NAME=$VALUE|" "$CONFIG_PATH"
 	else
-		echo "$NAME=$VALUE" >>"$CONFIG_PATH"
+		info "$NAME=$VALUE" >>"$CONFIG_PATH"
 	fi
-); }
+}
 
 # local_install_setup - builds artifacts based on specified branch locally to use in install
 local_install_setup() { (
 	if test -z "$NM_SKIP_CLONE"; then
 		rm -rf netmaker-tmp
 		mkdir netmaker-tmp
-		git clone --single-branch --depth=1 --branch=$BUILD_TAG https://www.github.com/gravitl/netmaker
+		git clone --single-branch --depth=1 --branch="$BUILD_TAG" https://www.github.com/gravitl/netmaker
 	else
-		echo "Skipping git clone on NM_SKIP_CLONE"
+		info "Skipping git clone on NM_SKIP_CLONE"
 	fi
 
 	pushd netmaker-tmp/netmaker
 
 	if test -z "$NM_SKIP_BUILD"; then
-		docker build --no-cache --build-arg version=$IMAGE_TAG -t gravitl/netmaker:$IMAGE_TAG .
+		docker build --no-cache --build-arg version="$IMAGE_TAG" -t "gravitl/netmaker:$IMAGE_TAG" .
 	else
-		echo "Skipping build on NM_SKIP_BUILD"
+		info "Skipping build on NM_SKIP_BUILD"
 	fi
 	cp compose/docker-compose.yml "$DATA_DIR/docker-compose.yml"
 	if [ "$INSTALL_TYPE" = "pro" ]; then
@@ -482,108 +512,132 @@ local_install_setup() { (
 
 # install_dependencies - install necessary packages to run netmaker
 install_dependencies() {
+	local command missing_commands=() required_commands=(
+		git
+		wg
+		dig
+		jq
+		docker
+		docker-compose
+		grep
+		awk
+	)
+	info "checking dependencies..."
 
-	if test -n "$NM_SKIP_DEPS"; then
+	if [ -f /etc/debian_version ]; then
+		dependencies=(git wireguard wireguard-tools dnsutils jq docker.io docker-compose grep gawk)
+		update_cmd=(apt update)
+		install_cmd=(apt-get install -y)
+	elif [ -f /etc/alpine-release ]; then
+		dependencies=(git wireguard jq docker.io docker-compose grep gawk)
+		update_cmd=(apk update)
+		install_cmd=(apk --update add)
+	elif [ -f /etc/centos-release ]; then
+		dependencies=(git wireguard jq bind-utils docker.io docker-compose grep gawk)
+		update_cmd=(yum update)
+		install_cmd=(yum install -y)
+	elif [ -f /etc/fedora-release ]; then
+		dependencies=(git wireguard bind-utils jq docker.io docker-compose grep gawk)
+		update_cmd=(dnf update)
+		install_cmd=(dnf install -y)
+	elif [ -f /etc/redhat-release ]; then
+		dependencies=(git wireguard jq docker.io bind-utils docker-compose grep gawk)
+		update_cmd=(yum update)
+		install_cmd=(yum install -y)
+	elif [ -f /etc/arch-release ]; then
+		dependencies=(git wireguard-tools dnsutils jq docker.io docker-compose grep gawk)
+		update_cmd=(pacman -Sy)
+		install_cmd=(pacman -S --noconfirm)
+	elif [ "${OS}" = "FreeBSD" ]; then
+		dependencies=(git wireguard wget jq docker.io docker-compose grep gawk)
+		update_cmd=(pkg update)
+		install_cmd=(pkg install -y)
+	else
+		install_cmd=()
+	fi
+
+	for command in "${required_commands[@]}"; do
+		if ! command -v "$command" &>/dev/null; then
+			missing_commands+=("$command")
+		fi
+	done
+	if test "${#missing_commands[@]}" -gt 0; then
+		info "Following binaries are missing:"
+		printf "- %s\n" "${missing_commands[@]}" >&2
+		if test "${#install_cmd[@]}" == 0; then
+			info "OS is not supported for automatic dependencies installation, you need to figure it out yourself"
+			exit 1
+		fi
+	else
+		info "All dependencies are available: ${required_commands[*]}"
 		return
 	fi
 
-	echo "checking dependencies..."
-
-	if [ -f /etc/debian_version ]; then
-		dependencies="git wireguard wireguard-tools dnsutils jq docker.io docker-compose grep gawk"
-		update_cmd='apt update'
-		install_cmd='apt-get install -y'
-	elif [ -f /etc/alpine-release ]; then
-		dependencies="git wireguard jq docker.io docker-compose grep gawk"
-		update_cmd='apk update'
-		install_cmd='apk --update add'
-	elif [ -f /etc/centos-release ]; then
-		dependencies="git wireguard jq bind-utils docker.io docker-compose grep gawk"
-		update_cmd='yum update'
-		install_cmd='yum install -y'
-	elif [ -f /etc/fedora-release ]; then
-		dependencies="git wireguard bind-utils jq docker.io docker-compose grep gawk"
-		update_cmd='dnf update'
-		install_cmd='dnf install -y'
-	elif [ -f /etc/redhat-release ]; then
-		dependencies="git wireguard jq docker.io bind-utils docker-compose grep gawk"
-		update_cmd='yum update'
-		install_cmd='yum install -y'
-	elif [ -f /etc/arch-release ]; then
-		dependencies="git wireguard-tools dnsutils jq docker.io docker-compose grep gawk"
-		update_cmd='pacman -Sy'
-		install_cmd='pacman -S --noconfirm'
-	elif [ "${OS}" = "FreeBSD" ]; then
-		dependencies="git wireguard wget jq docker.io docker-compose grep gawk"
-		update_cmd='pkg update'
-		install_cmd='pkg install -y'
-	else
-		install_cmd=''
+	if test -n "$NM_SKIP_DEPS"; then
+		info "Skipping dependencies installation due to $NM_SKIP_DEPS"
+		return 1
 	fi
 
-	if [ -z "${install_cmd}" ]; then
-		echo "OS unsupported for automatic dependency install"
-		# TODO shouldnt exit, check if deps available, if not
-		#  ask the user to install manually and continue when ready
-		exit 1
-	fi
+	set -- "${dependencies[@]}"
 
-	set -- $dependencies
-
-	${update_cmd}
+	"${update_cmd[@]}"
 
 	while [ -n "$1" ]; do
 		if [ "${OS}" = "FreeBSD" ]; then
-			is_installed=$(pkg check -d $1 | grep "Checking" | grep "done")
+			is_installed="$(pkg check -d "$1" | grep "Checking" | grep "done")"
 			if [ "$is_installed" != "" ]; then
-				echo "  " $1 is installed
+				info "   $1 is installed"
 			else
-				echo "  " $1 is not installed. Attempting install.
-				${install_cmd} $1
+				info "   $1 is not installed. Attempting install."
+				"${install_cmd[@]}" "$1"
 				sleep 5
-				is_installed=$(pkg check -d $1 | grep "Checking" | grep "done")
+				is_installed="$(pkg check -d "$1" | grep "Checking" | grep "done")"
 				if [ "$is_installed" != "" ]; then
-					echo "  " $1 is installed
-				elif [ -x "$(command -v $1)" ]; then
-					echo "  " $1 is installed
+					info "   $1 is installed"
+				elif [ -x "$(command -v "$1")" ]; then
+					info "   $1 is installed"
 				else
-					echo "  " FAILED TO INSTALL $1
-					echo "  " This may break functionality.
+					info "   FAILED TO INSTALL $1"
+					info "   This may break functionality."
 				fi
 			fi
 		else
 			if [ "${OS}" = "OpenWRT" ] || [ "${OS}" = "TurrisOS" ]; then
-				is_installed=$(opkg list-installed $1 | grep $1)
+				is_installed="$(opkg list-installed "$1" | grep "$1")"
 			else
-				is_installed=$(dpkg-query -W --showformat='${Status}\n' $1 | grep "install ok installed")
+				is_installed="$(dpkg-query -W --showformat='${Status}\n' "$1" | grep "install ok installed")"
 			fi
 			if [ "${is_installed}" != "" ]; then
-				echo "    " $1 is installed
+				info "     $1 is installed"
 			else
-				echo "    " $1 is not installed. Attempting install.
-				${install_cmd} $1
+				info "     $1 is not installed. Attempting install."
+				"${install_cmd[@]}" "$1"
 				sleep 5
 				if [ "${OS}" = "OpenWRT" ] || [ "${OS}" = "TurrisOS" ]; then
-					is_installed=$(opkg list-installed $1 | grep $1)
+					is_installed="$(opkg list-installed "$1" | grep "$1")"
 				else
-					is_installed=$(dpkg-query -W --showformat='${Status}\n' $1 | grep "install ok installed")
+					is_installed="$(dpkg-query -W --showformat='${Status}\n' "$1" | grep "install ok installed")"
 				fi
 				if [ "${is_installed}" != "" ]; then
-					echo "    " $1 is installed
-				elif [ -x "$(command -v $1)" ]; then
-					echo "  " $1 is installed
+					info "   $1 is installed"
+				elif [ -x "$(command -v "$1")" ]; then
+					info "   $1 is installed"
 				else
-					echo "  " FAILED TO INSTALL $1
-					echo "  " This may break functionality.
+					info "   FAILED TO INSTALL $1"
+					info "   This may break functionality."
 				fi
 			fi
 		fi
 		shift
 	done
 
-	echo "-----------------------------------------------------"
-	echo "dependency check complete"
-	echo "-----------------------------------------------------"
+	info "-----------------------------------------------------"
+	info "dependency check complete"
+	info "-----------------------------------------------------"
+}
+
+make_password() {
+	tr -dc A-Za-z0-9 </dev/urandom | head -c "$1"
 }
 
 # set_install_vars - sets the variables that will be used throughout installation
@@ -591,66 +645,63 @@ set_install_vars() {
 
 	IP_ADDR=$(dig -4 myip.opendns.com @resolver1.opendns.com +short)
 	if [ "$IP_ADDR" = "" ]; then
-		IP_ADDR=$(curl -s ifconfig.me)
+		IP_ADDR="$(curl -s ifconfig.me)"
 	fi
 	if [ "$NETMAKER_BASE_DOMAIN" = "" ]; then
-		NETMAKER_BASE_DOMAIN=nm.$(echo $IP_ADDR | tr . -).nip.io
+		NETMAKER_BASE_DOMAIN=nm.$(info "$IP_ADDR" | tr . -).nip.io
 	fi
-	SERVER_HOST=$IP_ADDR
+	SERVER_HOST="$IP_ADDR"
 	if test -z "$MASTER_KEY"; then
-		MASTER_KEY=$(
-			tr -dc A-Za-z0-9 </dev/urandom | head -c 30
-			echo ''
-		)
+		MASTER_KEY="$(make_password 30)"
 	fi
 	DOMAIN_TYPE=""
-	echo "-----------------------------------------------------"
-	echo "Would you like to use your own domain for netmaker, or an auto-generated domain?"
-	echo "To use your own domain, add a Wildcard DNS record (e.x: *.netmaker.example.com) pointing to $SERVER_HOST"
-	echo "IMPORTANT: Due to the high volume of requests, the auto-generated domain has been rate-limited by the certificate provider."
-	echo "For this reason, we STRONGLY RECOMMEND using your own domain. Using the auto-generated domain may lead to a failed installation due to rate limiting."
-	echo "-----------------------------------------------------"
+	info "-----------------------------------------------------"
+	info "Would you like to use your own domain for netmaker, or an auto-generated domain?"
+	info "To use your own domain, add a Wildcard DNS record (e.x: *.netmaker.example.com) pointing to $SERVER_HOST"
+	info "IMPORTANT: Due to the high volume of requests, the auto-generated domain has been rate-limited by the certificate provider."
+	info "For this reason, we STRONGLY RECOMMEND using your own domain. Using the auto-generated domain may lead to a failed installation due to rate limiting."
+	info "-----------------------------------------------------"
 
 	if [ "$AUTO_BUILD" = "on" ]; then
 		DOMAIN_TYPE="auto"
 	else
-		select domain_option in "Auto Generated ($NETMAKER_BASE_DOMAIN)" "Custom Domain (e.x: netmaker.example.com)"; do
+		select _ in "Auto Generated ($NETMAKER_BASE_DOMAIN)" "Custom Domain (e.x: netmaker.example.com)"; do
 			case $REPLY in
 			1)
-				echo "using $NETMAKER_BASE_DOMAIN for base domain"
+				info "using $NETMAKER_BASE_DOMAIN for base domain"
 				DOMAIN_TYPE="auto"
 				break
 				;;
 			2)
-				read -p "Enter Custom Domain (make sure  *.domain points to $SERVER_HOST first): " domain
+				read -r -p "Enter Custom Domain (make sure  *.domain points to $SERVER_HOST first): " domain
 				NETMAKER_BASE_DOMAIN=$domain
-				echo "using $NETMAKER_BASE_DOMAIN"
+				info "using $NETMAKER_BASE_DOMAIN"
 				DOMAIN_TYPE="custom"
 				break
 				;;
-			*) echo "invalid option $REPLY" ;;
+			*) info "invalid option $REPLY" ;;
 			esac
 		done
 	fi
 
 	wait_seconds 2
 
-	echo "-----------------------------------------------------"
-	echo "The following subdomains will be used:"
-	echo "          dashboard.$NETMAKER_BASE_DOMAIN"
-	echo "                api.$NETMAKER_BASE_DOMAIN"
-	echo "             broker.$NETMAKER_BASE_DOMAIN"
+	info "-----------------------------------------------------"
+	info "The following subdomains will be used:"
+	info "          dashboard.$NETMAKER_BASE_DOMAIN"
+	info "                api.$NETMAKER_BASE_DOMAIN"
+	info "             broker.$NETMAKER_BASE_DOMAIN"
 
 	if [ "$INSTALL_TYPE" = "pro" ]; then
-		echo "         prometheus.$NETMAKER_BASE_DOMAIN"
-		echo "  netmaker-exporter.$NETMAKER_BASE_DOMAIN"
-		echo "            grafana.$NETMAKER_BASE_DOMAIN"
+		info "         prometheus.$NETMAKER_BASE_DOMAIN"
+		info "  netmaker-exporter.$NETMAKER_BASE_DOMAIN"
+		info "            grafana.$NETMAKER_BASE_DOMAIN"
 	fi
 
-	echo "-----------------------------------------------------"
+	info "-----------------------------------------------------"
 
 	if [[ "$DOMAIN_TYPE" == "custom" ]]; then
-		echo "before continuing, confirm DNS is configured correctly, with records pointing to $SERVER_HOST"
+		info "before continuing, confirm DNS is configured correctly, with records pointing to $SERVER_HOST"
 		confirm
 	fi
 
@@ -658,37 +709,37 @@ set_install_vars() {
 
 	if [ "$INSTALL_TYPE" = "pro" ]; then
 
-		echo "-----------------------------------------------------"
-		echo "Provide Details for pro installation:"
-		echo "    1. Log into https://app.netmaker.io"
-		echo "    2. follow instructions to get a license at: https://docs.netmaker.io/ee/ee-setup.html"
-		echo "    3. Retrieve License and Tenant ID"
-		echo "    4. note email address"
-		echo "-----------------------------------------------------"
+		info "-----------------------------------------------------"
+		info "Provide Details for pro installation:"
+		info "    1. Log into https://app.netmaker.io"
+		info "    2. follow instructions to get a license at: https://docs.netmaker.io/ee/ee-setup.html"
+		info "    3. Retrieve License and Tenant ID"
+		info "    4. note email address"
+		info "-----------------------------------------------------"
 		unset LICENSE_KEY
 		while [ -z "$LICENSE_KEY" ]; do
-			read -p "License Key: " LICENSE_KEY
+			read -r -p "License Key: " LICENSE_KEY
 		done
 		unset TENANT_ID
-		while [ -z ${TENANT_ID} ]; do
-			read -p "Tenant ID: " TENANT_ID
+		while [ -z "${TENANT_ID}" ]; do
+			read -r -p "Tenant ID: " TENANT_ID
 		done
 	fi
 
 	unset GET_EMAIL
 	unset RAND_EMAIL
-	RAND_EMAIL="$(echo $RANDOM | md5sum | head -c 16)@email.com"
+	RAND_EMAIL="$(info $RANDOM | md5sum | head -c 16)@email.com"
 	# suggest the prev email or a random one
 	EMAIL_SUGGESTED=${NM_EMAIL:-$RAND_EMAIL}
 	if [ -z $AUTO_BUILD ]; then
-		read -p "Email Address for Domain Registration (click 'enter' to use $EMAIL_SUGGESTED): " GET_EMAIL
+		read -r -p "Email Address for Domain Registration (click 'enter' to use $EMAIL_SUGGESTED): " GET_EMAIL
 	fi
 	if [ -z "$GET_EMAIL" ]; then
 		EMAIL="$EMAIL_SUGGESTED"
 		if [ "$EMAIL" = "$NM_EMAIL" ]; then
-			echo "using config email"
+			info "using config email"
 		else
-			echo "using rand email"
+			info "using rand email"
 		fi
 	else
 		EMAIL="$GET_EMAIL"
@@ -699,67 +750,65 @@ set_install_vars() {
 	unset GET_MQ_USERNAME
 	unset GET_MQ_PASSWORD
 	unset CONFIRM_MQ_PASSWORD
-	echo "Enter Credentials For MQ..."
+	info "Enter Credentials For MQ..."
 	if [ -z $AUTO_BUILD ]; then
-		read -p "MQ Username (click 'enter' to use 'netmaker'): " GET_MQ_USERNAME
+		read -r -p "MQ Username (click 'enter' to use 'netmaker'): " GET_MQ_USERNAME
 	fi
 	if [ -z "$GET_MQ_USERNAME" ]; then
-		echo "using default username for mq"
+		info "using default username for mq"
 		MQ_USERNAME="netmaker"
 	else
+		# shellcheck disable=SC2034
 		MQ_USERNAME="$GET_MQ_USERNAME"
 	fi
 
 	if test -z "$MQ_PASSWORD"; then
-		MQ_PASSWORD=$(
-			tr -dc A-Za-z0-9 </dev/urandom | head -c 30
-			echo ''
-		)
+		MQ_PASSWORD="$(make_password 30)"
 	fi
 
 	if [ -z $AUTO_BUILD ]; then
-		select domain_option in "Auto Generated / Config Password" "Input Your Own Password"; do
+		select _ in "Auto Generated / Config Password" "Input Your Own Password"; do
 			case $REPLY in
 			1)
-				echo "using random password for mq"
+				info "using random password for mq"
 				break
 				;;
 			2)
 				while true; do
-					echo "Enter your Password For MQ: "
-					read -s GET_MQ_PASSWORD
-					echo "Enter your password again to confirm: "
-					read -s CONFIRM_MQ_PASSWORD
-					if [ ${GET_MQ_PASSWORD} != ${CONFIRM_MQ_PASSWORD} ]; then
-						echo "wrong password entered, try again..."
+					info "Enter your Password For MQ: "
+					read -r -s GET_MQ_PASSWORD
+					info "Enter your password again to confirm: "
+					read -r -s CONFIRM_MQ_PASSWORD
+					if [ "${GET_MQ_PASSWORD}" != "${CONFIRM_MQ_PASSWORD}" ]; then
+						info "wrong password entered, try again..."
 						continue
 					fi
 					MQ_PASSWORD="$GET_MQ_PASSWORD"
-					echo "MQ Password Saved Successfully!!"
+					info "MQ Password Saved Successfully!!"
 					break
 				done
 				break
 				;;
-			*) echo "invalid option $REPLY" ;;
+			*) info "invalid option $REPLY" ;;
 			esac
 		done
 	fi
 
 	wait_seconds 2
 
-	echo "-----------------------------------------------------------------"
-	echo "                SETUP ARGUMENTS"
-	echo "-----------------------------------------------------------------"
-	echo "        domain: $NETMAKER_BASE_DOMAIN"
-	echo "         email: $EMAIL"
-	echo "     public ip: $SERVER_HOST"
+	info "-----------------------------------------------------------------"
+	info "                SETUP ARGUMENTS"
+	info "-----------------------------------------------------------------"
+	info "        domain: $NETMAKER_BASE_DOMAIN"
+	info "         email: $EMAIL"
+	info "     public ip: $SERVER_HOST"
 	if [ "$INSTALL_TYPE" = "pro" ]; then
-		echo "       license: $LICENSE_KEY"
-		echo "    account id: $TENANT_ID"
+		info "       license: $LICENSE_KEY"
+		info "    account id: $TENANT_ID"
 	fi
-	echo "-----------------------------------------------------------------"
-	echo "Confirm Settings for Installation"
-	echo "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
+	info "-----------------------------------------------------------------"
+	info "Confirm Settings for Installation"
+	info "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
 
 	if [ ! "$BUILD_TYPE" = "local" ]; then
 		IMAGE_TAG="$LATEST"
@@ -771,13 +820,13 @@ set_install_vars() {
 # install_netmaker - sets the config files and starts docker-compose
 install_netmaker() {
 
-	echo "-----------------------------------------------------------------"
-	echo "Beginning installation..."
-	echo "-----------------------------------------------------------------"
+	info "-----------------------------------------------------------------"
+	info "Beginning installation..."
+	info "-----------------------------------------------------------------"
 
 	wait_seconds 3
 
-	echo "Pulling config files..."
+	info "Pulling config files..."
 
 	if [ "$BUILD_TYPE" = "local" ]; then
 		local_install_setup
@@ -790,9 +839,9 @@ install_netmaker() {
 			local COMPOSE_OVERRIDE_URL="$BASE_URL/compose/docker-compose.pro.yml"
 			local CADDY_URL="$BASE_URL/docker/Caddyfile-pro"
 		fi
-		wget -qO "$DATA_DIR"/docker-compose.yml $COMPOSE_URL
+		wget -qO "$DATA_DIR"/docker-compose.yml "$COMPOSE_URL"
 		if test -n "$COMPOSE_OVERRIDE_URL"; then
-			wget -qO "$DATA_DIR"/docker-compose.override.yml $COMPOSE_OVERRIDE_URL
+			wget -qO "$DATA_DIR"/docker-compose.override.yml "$COMPOSE_OVERRIDE_URL"
 		fi
 		wget -qO "$DATA_DIR"/Caddyfile "$CADDY_URL"
 		wget -qO "$DATA_DIR"/netmaker.default.env "$BASE_URL/scripts/netmaker.default.env"
@@ -807,7 +856,7 @@ install_netmaker() {
 	# link .env to the user config
 	ln -fs "$CONFIG_FILENAME" "$DATA_DIR/.env"
 
-	echo "Starting containers..."
+	info "Starting containers..."
 
 	# increase the timeouts
 	export DOCKER_CLIENT_TIMEOUT=120
@@ -822,128 +871,132 @@ install_netmaker() {
 # test_connection - tests to make sure Caddy has proper SSL certs
 test_connection() {
 
-	echo "Testing Caddy setup (please be patient, this may take 1-2 minutes)"
+	info "Testing Caddy setup (please be patient, this may take 1-2 minutes)"
 	for i in 1 2 3 4 5 6 7 8; do
-		curlresponse=$(curl -vIs https://api.${NETMAKER_BASE_DOMAIN} 2>&1)
+		curlresponse="$(curl -vIs "https://api.${NETMAKER_BASE_DOMAIN}" 2>&1)"
 
 		if [[ "$i" == 8 ]]; then
-			echo "    Caddy is having an issue setting up certificates, please investigate (docker logs caddy)"
-			echo "    Exiting..."
+			info "    Caddy is having an issue setting up certificates, please investigate (docker logs caddy)"
+			info "    Exiting..."
 			exit 1
 		elif [[ "$curlresponse" == *"failed to verify the legitimacy of the server"* ]]; then
-			echo "    Certificates not yet configured, retrying..."
+			info "    Certificates not yet configured, retrying..."
 
 		elif [[ "$curlresponse" == *"left intact"* ]]; then
-			echo "    Certificates ok"
+			info "    Certificates ok"
 			break
 		else
-			secs=$(($i * 5 + 10))
-			echo "    Issue establishing connection...retrying in $secs seconds..."
+			secs="$(("$i" * 5 + 10))"
+			info "    Issue establishing connection...retrying in $secs seconds..."
 		fi
-		sleep $secs
+		sleep "$secs"
 	done
 
 }
 
 # setup_mesh - sets up a default mesh network on the server
 setup_mesh() {
+	local networkCount
 
 	wait_seconds 5
 
-	local networkCount=$(nmctl network list -o json | jq '. | length')
+	networkCount="$(nmctl network list -o json | jq '. | length')"
 
 	# add a network if none present
 	if [ "$networkCount" -lt 1 ]; then
-		echo "Creating netmaker network (10.101.0.0/16)"
+		info "Creating netmaker network (10.101.0.0/16)"
 
 		# TODO causes "Error Status: 400 Response: {"Code":400,"Message":"could not find any records"}"
 		nmctl network create --name netmaker --ipv4_addr 10.101.0.0/16
 
 		wait_seconds 5
 	fi
-
-	echo "Obtaining a netmaker enrollment key..."
-
 }
 
 get_enrollment_key() {
+	info "Obtaining a netmaker enrollment key..."
+
 	if test -z "$TOKEN"; then
 		TOKEN="$(nmctl enrollment_key create --tags netmaker --unlimited --networks netmaker | jq -r '.token')"
 	fi
 	if test -z "$TOKEN"; then
-		echo "Error creating an enrollment key"
+		info "Error creating an enrollment key"
 		exit 1
 	else
-		echo "Enrollment key ready"
+		info "Enrollment key ready"
 	fi
-	echo -n "$TOKEN"
+	info -n "$TOKEN"
 	wait_seconds 3
 }
 
 # print_success - prints a success message upon completion
 print_success() {
-	echo "-----------------------------------------------------------------"
-	echo "-----------------------------------------------------------------"
-	echo "Netmaker setup is now complete. You are ready to begin using Netmaker."
-	echo "Visit dashboard.$NETMAKER_BASE_DOMAIN to log in"
-	echo "-----------------------------------------------------------------"
-	echo "-----------------------------------------------------------------"
+	info "-----------------------------------------------------------------"
+	info "-----------------------------------------------------------------"
+	info "Netmaker setup is now complete. You are ready to begin using Netmaker."
+	info "Visit dashboard.$NETMAKER_BASE_DOMAIN to log in"
+	info "-----------------------------------------------------------------"
+	info "-----------------------------------------------------------------"
 }
 
 cleanup() {
 	# remove the existing netclient's instance from the existing network
-	if test -z $NM_SKIP_CLIENT; then
-		local node_id=$(netclient list | jq '.[0].node_id' 2>/dev/null)
-		# trim doublequotes
-		node_id="${node_id//\"/}"
+	if test -z "$NM_SKIP_CLIENT"; then
+		local node_id
+		node_id="$(netclient list | jq -r '.[0].node_id' 2>/dev/null || :)"
 		if test -n "$node_id"; then
-			echo "De-registering the existing netclient..."
-			nmctl node delete netmaker $node_id >/dev/null 2>&1
+			info "De-registering the existing netclient..."
+			nmctl node delete netmaker "$node_id" >/dev/null 2>&1
 		fi
 	fi
 
-	echo "Stopping all containers..."
+	info "Stopping all containers..."
 	local containers=("mq" "netmaker-ui" "coredns" "turn" "caddy" "netmaker" "netmaker-exporter" "prometheus" "grafana")
+	local running exists
 	for name in "${containers[@]}"; do
-		local running=$(docker ps | grep -w "$name")
-		local exists=$(docker ps -a | grep -w "$name")
+		running=$(docker ps "$name" || :)
+		exists=$(docker ps -a "$name" || :)
 		if test -n "$running"; then
-			docker stop "$name" 1>/dev/null
+			docker stop "$name"
 		fi
 		if test -n "$exists"; then
-			docker rm "$name" 1>/dev/null
+			docker rm "$name"
 		fi
 	done
 }
 
-# 1. print netmaker logo
-print_logo
+main() {
+	# 1. print netmaker logo
+	print_logo
 
-# 2. prepare configuration & setup the build instruction
-configure "$@"
+	# 2. prepare configuration & setup the build instruction
+	configure "$@"
 
-# 3. install necessary packages
-install_dependencies || :
+	# 3. install necessary packages
+	install_dependencies || :
 
-# 4. get user input for variables
-set_install_vars
+	# 4. get user input for variables
+	set_install_vars
 
-cleanup || :
+	cleanup || :
 
-# 5. get and set config files, startup docker-compose
-install_netmaker
+	# 5. get and set config files, startup docker-compose
+	install_netmaker
 
-# 6. make sure Caddy certs are working
-test_connection
+	# 6. make sure Caddy certs are working
+	test_connection
 
-# 7. create a default mesh network for netmaker
-setup_mesh
+	# 7. create a default mesh network for netmaker
+	setup_mesh
 
-# 8. add netclient to docker-compose and start it up
-setup_netclient
+	# 8. add netclient to docker-compose and start it up
+	setup_netclient
 
-# 9. make the netclient a default host and ingress gw
-configure_netclient
+	# 9. make the netclient a default host and ingress gw
+	configure_netclient
 
-# 10. print success message
-print_success
+	# 10. print success message
+	print_success
+}
+
+main "${ARGV[@]}"
