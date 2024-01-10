@@ -5,32 +5,46 @@ if [ "$(id -u)" -ne 0 ]; then
 	exit 1
 fi
 
-CONFIG_FILENAME=netmaker.env
-# location of nm-quick.sh (usually `/root`)
-SCRIPT_DIR="${BASH_SOURCE[0]%/*}"
+configure() {
+	CONFIG_FILENAME=netmaker.env
+	# location of nm-quick.sh (usually `/root`)
+	SCRIPT_DIR="${BASH_SOURCE[0]%/*}"
 
-XDG_DATA_HOME="${XDG_DATA_HOME:-"$HOME/.local/share"}"
-NM_QUICK_DATA_DIR="${NM_QUICK_DATA_DIR:-"$XDG_DATA_HOME/netmaker/nm-quick"}"
-if [ -f "${SCRIPT_DIR}/${CONFIG_FILENAME}" ]; then
-	# backwards compatibilty for old installs
-	NM_QUICK_DATA_DIR="${SCRIPT_DIR}"
-fi
+	XDG_DATA_HOME="${XDG_DATA_HOME:-"$HOME/.local/share"}"
+	NM_QUICK_DATA_DIR="${NM_QUICK_DATA_DIR:-"$XDG_DATA_HOME/netmaker/nm-quick"}"
+	if [ -f "${SCRIPT_DIR}/${CONFIG_FILENAME}" ]; then
+		# backwards compatibilty for old installs
+		NM_QUICK_DATA_DIR="${SCRIPT_DIR}"
+	fi
 
 NM_QUICK_VERSION="0.1.1"
 
-DATA_DIR="${NM_QUICK_DATA_DIR}"
-CONFIG_PATH="$DATA_DIR/$CONFIG_FILENAME"
-echo "Running in ${DATA_DIR}"
-mkdir -p "${DATA_DIR}/bin"
-pushd "${DATA_DIR}"
-export PATH="${DATA_DIR}/bin:${PATH}"
+	DATA_DIR="${NM_QUICK_DATA_DIR}"
+	CONFIG_PATH="$DATA_DIR/$CONFIG_FILENAME"
+	echo "Running in ${DATA_DIR}"
+	mkdir -p "${DATA_DIR}/bin"
+	pushd "${DATA_DIR}"
 
-unset INSTALL_TYPE
-unset BUILD_TYPE
-unset BUILD_TAG
-unset IMAGE_TAG
-unset AUTO_BUILD
-unset NETMAKER_BASE_DOMAIN
+	export PATH="${DATA_DIR}/bin:${PATH}"
+
+	LATEST="$(get_latest_version)"
+
+	OS=$(uname)
+	# TODO add other supported architectures
+	case "$(uname -m)" in
+	x86_64) ARCH=amd64 ;;
+	aarch64) ARCH=arm64 ;;
+	*) echo "Unsupported architecture" && exit 1 ;;
+	esac
+
+	# read arguments
+	read_arguments "$@"
+
+	# read the config
+	load_config
+
+	set_buildinfo
+}
 
 # usage - displays usage instructions
 usage() {
@@ -52,36 +66,69 @@ usage() {
 	exit 1
 }
 
-while getopts evab:d:t: flag; do
-	case "${flag}" in
-	e)
-		INSTALL_TYPE="pro"
-		UPGRADE_FLAG="yes"
-		;;
-	v)
-		usage
-		exit 0
-		;;
-	a)
-		AUTO_BUILD="on"
-		;;
-	b)
-		BUILD_TYPE=${OPTARG}
-		if [[ ! "$BUILD_TYPE" =~ ^(version|local|branch)$ ]]; then
-			echo "error: $BUILD_TYPE is invalid"
-			echo "valid options: version, local, branch"
+load_config() {
+	if [ -f "$CONFIG_PATH" ]; then
+		echo "Using config: $CONFIG_PATH"
+		source "$CONFIG_PATH"
+		if [ "$UPGRADE_FLAG" = "yes" ]; then
+			INSTALL_TYPE="pro"
+		fi
+	fi
+}
+
+read_arguments() {
+	INSTALL_TYPE="ce"
+
+	unset BUILD_TYPE
+	unset BUILD_TAG
+	unset IMAGE_TAG
+	unset AUTO_BUILD
+	unset NETMAKER_BASE_DOMAIN
+
+	while getopts evab:d:t: flag; do
+		case "${flag}" in
+		e)
+			INSTALL_TYPE="pro"
+			UPGRADE_FLAG="yes"
+			;;
+		v)
+			usage
+			exit 0
+			;;
+		a)
+			AUTO_BUILD="on"
+			;;
+		b)
+			BUILD_TYPE=${OPTARG}
+			if [[ ! "$BUILD_TYPE" =~ ^(version|local|branch)$ ]]; then
+				echo "error: $BUILD_TYPE is invalid"
+				echo "valid options: version, local, branch"
+				usage
+				exit 1
+			fi
+			;;
+		t)
+			BUILD_TAG=${OPTARG}
+			;;
+		d)
+			NETMAKER_BASE_DOMAIN=${OPTARG}
+			;;
+		*)
+			echo "error: unknown flag ${flag}"
 			usage
 			exit 1
-		fi
-		;;
-	t)
-		BUILD_TAG=${OPTARG}
-		;;
-	d)
-		NETMAKER_BASE_DOMAIN=${OPTARG}
-		;;
-	esac
-done
+			;;
+		esac
+	done
+}
+
+get_latest() {
+	wget -qO- https://api.github.com/repos/gravitl/netmaker/releases/latest | if command -v jq &>/dev/null; then
+		jq -r .tag_name
+	else
+		grep "tag_name" | cut -d : -f 2,3 | tr -d '[:space:],"'
+	fi
+}
 
 # print_logo - prints the netmaker logo
 print_logo() {
@@ -113,15 +160,13 @@ get_latest_version() {
 
 # set_buildinfo - sets the information based on script input for how the installation should be run
 set_buildinfo() {
-	LATEST="$(get_latest_version)"
-
 	if [ -z "$BUILD_TYPE" ]; then
 		BUILD_TYPE="version"
-		BUILD_TAG=$LATEST
+		BUILD_TAG="$LATEST"
 	fi
 
 	if [ -z "$BUILD_TAG" ] && [ "$BUILD_TYPE" = "version" ]; then
-		BUILD_TAG=$LATEST
+		BUILD_TAG="$LATEST"
 	fi
 
 	if [ -z "$BUILD_TAG" ] && [ ! -z "$BUILD_TYPE" ]; then
@@ -131,12 +176,6 @@ set_buildinfo() {
 	fi
 
 	IMAGE_TAG=$(sed 's/\//-/g' <<<"$BUILD_TAG")
-
-	if [ "$1" = "ce" ]; then
-		INSTALL_TYPE="ce"
-	elif [ "$1" = "pro" ]; then
-		INSTALL_TYPE="pro"
-	fi
 
 	if [ "$AUTO_BUILD" = "on" ] && [ -z "$INSTALL_TYPE" ]; then
 		INSTALL_TYPE="ce"
@@ -161,26 +200,25 @@ set_buildinfo() {
 			esac
 		done
 	fi
-	echo "-----------Build Options-----------------------------"
-	echo "   Pro or CE: $INSTALL_TYPE"
-	echo "  Build Type: $BUILD_TYPE"
-	echo "   Build Tag: $BUILD_TAG"
-	echo "   Image Tag: $IMAGE_TAG"
-	echo "   Installer: v$NM_QUICK_VERSION"
-	echo "-----------------------------------------------------"
 
+	echo "-----------Build Options-----------------------------"
+	echo "        Pro or CE: $INSTALL_TYPE"
+	echo "       Build Type: $BUILD_TYPE"
+	echo "        Build Tag: $BUILD_TAG"
+	echo "        Image Tag: $IMAGE_TAG"
+	echo "        Installer: v$NM_QUICK_VERSION"
+	echo " Operating System: $OS"
+	echo "     Architecture: $ARCH"
+	echo "      Install Dir: $DATA_DIR"
+	echo "-----------------------------------------------------"
 }
 
 # install_yq - install yq if not present
 install_yq() {
-	if ! command -v yq &>/dev/null; then
-		wget -qO "${DATA_DIR}"/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_$(dpkg --print-architecture)
-		chmod +x "${DATA_DIR}"/bin/yq
-	fi
 	set +e
 	if ! command -v yq &>/dev/null; then
 		set -e
-		wget -qO "${DATA_DIR}"/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_amd64
+		wget -qO "${DATA_DIR}"/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_"$ARCH"
 		chmod +x "${DATA_DIR}"/bin/yq
 	fi
 	set -e
@@ -198,12 +236,15 @@ setup_netclient() {
 	netclient uninstall
 	set -e
 
-	wget -qO "${DATA_DIR}/bin/netclient" https://github.com/gravitl/netclient/releases/download/$LATEST/netclient-linux-$ARCH
+	wget -qO "${DATA_DIR}/bin/netclient" "https://github.com/gravitl/netclient/releases/download/$LATEST/netclient-linux-$ARCH"
 	chmod +x "${DATA_DIR}/bin/netclient"
 
 	netclient install
-	echo "Register token: $TOKEN"
-	netclient register -t $TOKEN
+
+  local token
+	token="$(get_enrollment_key)"
+	echo "Register token: $token"
+	netclient register -t $token
 
 	echo "waiting for netclient to become available"
 	local found=false
@@ -373,13 +414,13 @@ local_install_setup() { (
 	if test -z "$NM_SKIP_CLONE"; then
 		rm -rf netmaker-tmp
 		mkdir netmaker-tmp
-		cd netmaker-tmp
 		git clone --single-branch --depth=1 --branch=$BUILD_TAG https://www.github.com/gravitl/netmaker
 	else
-		cd netmaker-tmp
 		echo "Skipping git clone on NM_SKIP_CLONE"
 	fi
-	cd netmaker
+
+	pushd netmaker-tmp/netmaker
+
 	if test -z "$NM_SKIP_BUILD"; then
 		docker build --no-cache --build-arg version=$IMAGE_TAG -t gravitl/netmaker:$IMAGE_TAG .
 	else
@@ -395,7 +436,8 @@ local_install_setup() { (
 	cp scripts/netmaker.default.env "$DATA_DIR/netmaker.default.env"
 	cp docker/mosquitto.conf "$DATA_DIR/mosquitto.conf"
 	cp docker/wait.sh "$DATA_DIR/wait.sh"
-	cd ../../
+
+	popd
 	if test -z "$NM_SKIP_CLONE"; then
 		rm -rf netmaker-tmp
 	fi
@@ -410,7 +452,6 @@ install_dependencies() {
 
 	echo "checking dependencies..."
 
-	OS=$(uname)
 	if [ -f /etc/debian_version ]; then
 		dependencies="git wireguard wireguard-tools dnsutils jq docker.io docker-compose grep gawk"
 		update_cmd='apt update'
@@ -449,16 +490,7 @@ install_dependencies() {
 		#  ask the user to install manually and continue when ready
 		exit 1
 	fi
-	# TODO add other supported architectures
-	ARCH=$(uname -m)
-	if [ "$ARCH" = "x86_64" ]; then
-		ARCH=amd64
-	elif [ "$ARCH" = "aarch64" ]; then
-		ARCH=arm64
-	else
-		echo "Unsupported architechure"
-		# exit 1
-	fi
+
 	set -- $dependencies
 
 	${update_cmd}
@@ -746,9 +778,7 @@ install_netmaker() {
 	export COMPOSE_HTTP_TIMEOUT=120
 
 	# start docker and rebuild containers / networks
-	cd "${DATA_DIR}"
 	docker-compose up -d --force-recreate
-	cd -
 	wait_seconds 2
 
 }
@@ -798,17 +828,20 @@ setup_mesh() {
 
 	echo "Obtaining a netmaker enrollment key..."
 
-	local tokenJson=$(nmctl enrollment_key create --tags netmaker --unlimited --networks netmaker)
-	TOKEN=$(jq -r '.token' <<<${tokenJson})
+}
+
+get_enrollment_key() {
+	if test -z "$TOKEN"; then
+		TOKEN="$(nmctl enrollment_key create --tags netmaker --unlimited --networks netmaker | jq -r '.token')"
+	fi
 	if test -z "$TOKEN"; then
 		echo "Error creating an enrollment key"
 		exit 1
 	else
 		echo "Enrollment key ready"
 	fi
-
+	echo -n "$TOKEN"
 	wait_seconds 3
-
 }
 
 # print_success - prints a success message upon completion
@@ -850,17 +883,8 @@ cleanup() {
 # 1. print netmaker logo
 print_logo
 
-# read the config
-if [ -f "$CONFIG_PATH" ]; then
-	echo "Using config: $CONFIG_PATH"
-	source "$CONFIG_PATH"
-	if [ "$UPGRADE_FLAG" = "yes" ]; then
-		INSTALL_TYPE="pro"
-	fi
-fi
-
-# 2. setup the build instructions
-set_buildinfo
+# 2. prepare configuration & setup the build instruction
+configure "$@"
 
 set +e
 
