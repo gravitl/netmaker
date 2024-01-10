@@ -951,15 +951,27 @@ cleanup() {
 	fi
 
 	info "Stopping all containers..."
-	local containers=("mq" "netmaker-ui" "coredns" "turn" "caddy" "netmaker" "netmaker-exporter" "prometheus" "grafana")
-	local running exists
+	local containers=(
+		"caddy"
+		"coredns"
+		"grafana"
+		"mq"
+		"netmaker"
+		"netmaker-exporter"
+		"netmaker-ui"
+		"prometheus"
+		"turn"
+	)
+	local running
 	for name in "${containers[@]}"; do
-		running=$(docker ps "$name" || :)
-		exists=$(docker ps -a "$name" || :)
-		if test -n "$running"; then
+		# running == true - obvious
+		# running == false - exists, but isn't running
+		# running == "" - does not exist
+		running="$(docker container inspect "$name" 2>/dev/null | jq .State.Running 2>/dev/null || :)"
+		if test "$running" == "true"; then
 			docker stop "$name"
 		fi
-		if test -n "$exists"; then
+		if test -n "$running"; then
 			docker rm "$name"
 		fi
 	done
