@@ -444,6 +444,7 @@ local_install_setup() { (
 	else
 		cp docker/Caddyfile "$DATA_DIR/Caddyfile"
 	fi
+	cp scripts/.envrc "$DATA_DIR/.envrc"
 	cp scripts/netmaker.default.env "$DATA_DIR/netmaker.default.env"
 	cp docker/mosquitto.conf "$DATA_DIR/mosquitto.conf"
 	cp docker/wait.sh "$DATA_DIR/wait.sh"
