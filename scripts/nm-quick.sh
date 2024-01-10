@@ -1,4 +1,5 @@
 #!/bin/bash
+set -eEuo pipefail
 
 NM_QUICK_VERSION="0.1.2"
 
@@ -251,9 +252,7 @@ setup_netclient() {
 		return
 	fi
 
-	set +e
-	netclient uninstall
-	set -e
+	netclient uninstall || :
 
 	netclient install
 
@@ -309,11 +308,9 @@ configure_netclient() {
 	echo "making host a default"
 	echo "Host ID: $HOST_ID"
 	# set as a default host
-	set +e
-	nmctl host update $HOST_ID --default
+	nmctl host update $HOST_ID --default || :
 	sleep 5
-	nmctl node create_ingress netmaker $NODE_ID
-	set -e
+	nmctl node create_ingress netmaker $NODE_ID || :
 }
 
 setup_nmctl() {
@@ -588,7 +585,6 @@ install_dependencies() {
 	echo "dependency check complete"
 	echo "-----------------------------------------------------"
 }
-set -e
 
 # set_install_vars - sets the variables that will be used throughout installation
 set_install_vars() {
@@ -926,32 +922,22 @@ print_logo
 # 2. prepare configuration & setup the build instruction
 configure "$@"
 
-set +e
-
 # 3. install necessary packages
-install_dependencies
-
-set -e
+install_dependencies || :
 
 # 4. get user input for variables
 set_install_vars
 
-set +e
-cleanup
-set -e
+cleanup || :
 
 # 5. get and set config files, startup docker-compose
 install_netmaker
-
-set +e
 
 # 6. make sure Caddy certs are working
 test_connection
 
 # 7. create a default mesh network for netmaker
 setup_mesh
-
-set -e
 
 # 8. add netclient to docker-compose and start it up
 setup_netclient
