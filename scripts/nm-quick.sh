@@ -331,7 +331,7 @@ save_config_item() { (
 	#echo "$NAME=$VALUE"
 	if test -z "$VALUE"; then
 		# load the default for empty values
-		VALUE=$(awk -F'=' "/^$NAME/ { print \$2}"  "$SCRIPT_DIR/netmaker.default.env")
+		VALUE=$(awk -F'=' "/^$NAME/ { print \$2}" "$SCRIPT_DIR/netmaker.default.env")
 		# trim quotes for docker
 		VALUE=$(echo "$VALUE" | sed -E "s|^(['\"])(.*)\1$|\2|g")
 		#echo "Default for $NAME=$VALUE"
@@ -428,14 +428,14 @@ install_dependencies() {
 	fi
 	# TODO add other supported architectures
 	ARCH=$(uname -m)
-    if [ "$ARCH" = "x86_64" ]; then
-    	ARCH=amd64
-    elif [ "$ARCH" = "aarch64" ]; then
-    	ARCH=arm64
-    else
-    	echo "Unsupported architechure"
-    	# exit 1
-    fi
+	if [ "$ARCH" = "x86_64" ]; then
+		ARCH=amd64
+	elif [ "$ARCH" = "aarch64" ]; then
+		ARCH=arm64
+	else
+		echo "Unsupported architechure"
+		# exit 1
+	fi
 	set -- $dependencies
 
 	${update_cmd}
