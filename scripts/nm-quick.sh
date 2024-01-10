@@ -231,6 +231,10 @@ install_yq() {
 
 # setup_netclient - adds netclient to docker-compose
 setup_netclient() {
+	if [ -n "$NM_SKIP_CLIENT" ] ; then
+		echo "Skipping setup_netclient() due to NM_SKIP_CLIENT"
+		return
+	fi
 
 	set +e
 	netclient uninstall
@@ -265,6 +269,10 @@ setup_netclient() {
 
 # configure_netclient - configures server's netclient as a default host and an ingress gateway
 configure_netclient() {
+	if [ -n "$NM_SKIP_CLIENT" ] ; then
+		echo "Skipping configure_netclient() due to NM_SKIP_CLIENT"
+		return
+	fi
 
 	NODE_ID=$(sudo cat /etc/netclient/nodes.yml | yq -r .netmaker.commonnode.id)
 	if [ "$NODE_ID" = "" ] || [ "$NODE_ID" = "null" ]; then
@@ -386,6 +394,9 @@ save_config() { (
 	fi
 	if test -n "$NM_SKIP_DEPS"; then
 		save_config_item NM_SKIP_DEPS "$NM_SKIP_DEPS"
+	fi
+	if test -n "$NM_SKIP_CLIENT"; then
+		save_config_item NM_SKIP_CLIENT "$NM_SKIP_CLIENT"
 	fi
 ); }
 
@@ -856,7 +867,7 @@ print_success() {
 
 cleanup() {
 	# remove the existing netclient's instance from the existing network
-	if command -v nmctl >/dev/null 2>&1; then
+	if test -z $NM_SKIP_CLIENT && command -v nmctl &>/dev/null; then
 		local node_id=$(netclient list | jq '.[0].node_id' 2>/dev/null)
 		# trim doublequotes
 		node_id="${node_id//\"/}"
