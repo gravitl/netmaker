@@ -1,5 +1,10 @@
 #!/bin/bash
 
+if [ "$(id -u)" -ne 0 ]; then
+	echo "This script must be run as root"
+	exit 1
+fi
+
 CONFIG_FILENAME=netmaker.env
 # location of nm-quick.sh (usually `/root`)
 SCRIPT_DIR="${BASH_SOURCE[0]%/*}"
