@@ -25,13 +25,6 @@ mkdir -p "${DATA_DIR}/bin"
 pushd "${DATA_DIR}"
 export PATH="${DATA_DIR}/bin:${PATH}"
 
-LATEST=$(curl -s https://api.github.com/repos/gravitl/netmaker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d [:space:],\")
-
-if [ $(id -u) -ne 0 ]; then
-	echo "This script must be run as root"
-	exit 1
-fi
-
 unset INSTALL_TYPE
 unset BUILD_TYPE
 unset BUILD_TAG
@@ -110,8 +103,17 @@ print_logo() {
 EOF
 }
 
+get_latest_version() {
+	wget -qO- https://api.github.com/repos/gravitl/netmaker/releases/latest | if command -v jq &>/dev/null; then
+		jq -r .tag_name
+	else
+		grep "tag_name" | cut -d : -f 2,3 | tr -d '[:space:],"'
+	fi
+}
+
 # set_buildinfo - sets the information based on script input for how the installation should be run
 set_buildinfo() {
+	LATEST="$(get_latest_version)"
 
 	if [ -z "$BUILD_TYPE" ]; then
 		BUILD_TYPE="version"
