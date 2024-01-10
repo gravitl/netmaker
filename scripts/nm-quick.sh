@@ -223,15 +223,11 @@ set_buildinfo() {
 	echo "-----------------------------------------------------"
 }
 
-# install_yq - install yq if not present
-install_yq() {
-	set +e
+setup_yq() {
 	if ! command -v yq &>/dev/null; then
-		set -e
 		wget -qO "${DATA_DIR}"/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_"$ARCH"
 		chmod +x "${DATA_DIR}"/bin/yq
 	fi
-	set -e
 	if ! command -v yq &>/dev/null; then
 		echo "failed to install yq. Please install yq and try again."
 		echo "https://github.com/mikefarah/yq/#install"
@@ -239,9 +235,18 @@ install_yq() {
 	fi
 }
 
+# installs and runs yq on demand
+yq() {
+	if test -z "$HAS_YQ"; then
+		HAS_YQ=1
+		setup_yq >&2
+	fi
+	command yq "$@"
+}
+
 # setup_netclient - adds netclient to docker-compose
 setup_netclient() {
-	if [ -n "$NM_SKIP_CLIENT" ] ; then
+	if [ -n "$NM_SKIP_CLIENT" ]; then
 		echo "Skipping setup_netclient() due to NM_SKIP_CLIENT"
 		return
 	fi
@@ -249,9 +254,6 @@ setup_netclient() {
 	set +e
 	netclient uninstall
 	set -e
-
-	wget -qO "${DATA_DIR}/bin/netclient" "https://github.com/gravitl/netclient/releases/download/$LATEST/netclient-linux-$ARCH"
-	chmod +x "${DATA_DIR}/bin/netclient"
 
 	netclient install
 
@@ -277,9 +279,18 @@ setup_netclient() {
 	fi
 }
 
+netclient() {
+	if test -z "$HAS_NETCLIENT"; then
+		HAS_NETCLIENT=1
+		wget -qO "${DATA_DIR}/bin/netclient" "https://github.com/gravitl/netclient/releases/download/$LATEST/netclient-linux-$ARCH"
+		chmod +x "${DATA_DIR}/bin/netclient"
+	fi
+	command netclient "$@"
+}
+
 # configure_netclient - configures server's netclient as a default host and an ingress gateway
 configure_netclient() {
-	if [ -n "$NM_SKIP_CLIENT" ] ; then
+	if [ -n "$NM_SKIP_CLIENT" ]; then
 		echo "Skipping configure_netclient() due to NM_SKIP_CLIENT"
 		return
 	fi
@@ -305,9 +316,7 @@ configure_netclient() {
 	set -e
 }
 
-# setup_nmctl - pulls nmctl and makes it executable
 setup_nmctl() {
-
 	local URL="https://github.com/gravitl/netmaker/releases/download/$LATEST/nmctl-linux-$ARCH"
 	echo "Downloading nmctl..."
 	wget -qO "${DATA_DIR}/bin/nmctl" "$URL"
@@ -316,10 +325,10 @@ setup_nmctl() {
 		echo "Error downloading nmctl from '$URL'"
 		exit 1
 	fi
-
 	chmod +x "${DATA_DIR}/bin/nmctl"
+
 	echo "using server api.$NETMAKER_BASE_DOMAIN"
-	echo "using master key $MASTER_KEY"
+	echo "using master key Y"
 	nmctl context set default --endpoint="https://api.$NETMAKER_BASE_DOMAIN" --master_key="$MASTER_KEY"
 	nmctl context use default
 	RESP=$(nmctl network list)
@@ -327,6 +336,15 @@ setup_nmctl() {
 		echo "Unable to properly configure NMCTL, exiting..."
 		exit 1
 	fi
+}
+
+# nmctl - pulls and configures nmctl on demand
+nmctl() {
+	if test -z "$HAS_NMCTL"; then
+		HAS_NMCTL=1
+		setup_nmctl >&2
+	fi
+	command nmctl "$@"
 }
 
 # wait_seconds - wait for the specified period of time
@@ -878,7 +896,7 @@ print_success() {
 
 cleanup() {
 	# remove the existing netclient's instance from the existing network
-	if test -z $NM_SKIP_CLIENT && command -v nmctl &>/dev/null; then
+	if test -z $NM_SKIP_CLIENT; then
 		local node_id=$(netclient list | jq '.[0].node_id' 2>/dev/null)
 		# trim doublequotes
 		node_id="${node_id//\"/}"
@@ -913,41 +931,33 @@ set +e
 # 3. install necessary packages
 install_dependencies
 
-# 4. install yq if necessary
-install_yq
-
 set -e
 
-# 6. get user input for variables
+# 4. get user input for variables
 set_install_vars
 
 set +e
 cleanup
 set -e
 
-# 7. get and set config files, startup docker-compose
+# 5. get and set config files, startup docker-compose
 install_netmaker
 
 set +e
 
-# 8. make sure Caddy certs are working
+# 6. make sure Caddy certs are working
 test_connection
 
-# 9. install the netmaker CLI
-setup_nmctl
-
-# 10. create a default mesh network for netmaker
+# 7. create a default mesh network for netmaker
 setup_mesh
 
 set -e
 
-# 11. add netclient to docker-compose and start it up
+# 8. add netclient to docker-compose and start it up
 setup_netclient
 
-# 12. make the netclient a default host and ingress gw
+# 9. make the netclient a default host and ingress gw
 configure_netclient
 
-# 13. print success message
+# 10. print success message
 print_success
-
-# cp -f /etc/skel/.bashrc /root/.bashrc
