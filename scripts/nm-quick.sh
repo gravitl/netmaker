@@ -1,10 +1,25 @@
 #!/bin/bash
 
-CONFIG_FILE=netmaker.env
+CONFIG_FILENAME=netmaker.env
 # location of nm-quick.sh (usually `/root`)
-SCRIPT_DIR=$(dirname "$(realpath "$0")")
-CONFIG_PATH="$SCRIPT_DIR/$CONFIG_FILE"
+SCRIPT_DIR="${BASH_SOURCE[0]%/*}"
+
+XDG_DATA_HOME="${XDG_DATA_HOME:-"$HOME/.local/share"}"
+NM_QUICK_DATA_DIR="${NM_QUICK_DATA_DIR:-"$XDG_DATA_HOME/netmaker/nm-quick"}"
+if [ -f "${SCRIPT_DIR}/${CONFIG_FILENAME}" ]; then
+	# backwards compatibilty for old installs
+	NM_QUICK_DATA_DIR="${SCRIPT_DIR}"
+fi
+
 NM_QUICK_VERSION="0.1.1"
+
+DATA_DIR="${NM_QUICK_DATA_DIR}"
+CONFIG_PATH="$DATA_DIR/$CONFIG_FILENAME"
+echo "Running in ${DATA_DIR}"
+mkdir -p "${DATA_DIR}/bin"
+pushd "${DATA_DIR}"
+export PATH="${DATA_DIR}/bin:${PATH}"
+
 LATEST=$(curl -s https://api.github.com/repos/gravitl/netmaker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d [:space:],\")
 
 if [ $(id -u) -ne 0 ]; then
@@ -76,13 +91,13 @@ print_logo() {
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-                                                                                         
- __   __     ______     ______   __    __     ______     __  __     ______     ______    
-/\ "-.\ \   /\  ___\   /\__  _\ /\ "-./  \   /\  __ \   /\ \/ /    /\  ___\   /\  == \   
-\ \ \-.  \  \ \  __\   \/_/\ \/ \ \ \-./\ \  \ \  __ \  \ \  _"-.  \ \  __\   \ \  __<   
- \ \_\\"\_\  \ \_____\    \ \_\  \ \_\ \ \_\  \ \_\ \_\  \ \_\ \_\  \ \_____\  \ \_\ \_\ 
-  \/_/ \/_/   \/_____/     \/_/   \/_/  \/_/   \/_/\/_/   \/_/\/_/   \/_____/   \/_/ /_/ 
-                                                                                                                                                                                                 
+
+ __   __     ______     ______   __    __     ______     __  __     ______     ______
+/\ "-.\ \   /\  ___\   /\__  _\ /\ "-./  \   /\  __ \   /\ \/ /    /\  ___\   /\  == \
+\ \ \-.  \  \ \  __\   \/_/\ \/ \ \ \-./\ \  \ \  __ \  \ \  _"-.  \ \  __\   \ \  __<
+ \ \_\\"\_\  \ \_____\    \ \_\  \ \_\ \ \_\  \ \_\ \_\  \ \_\ \_\  \ \_____\  \ \_\ \_\
+  \/_/ \/_/   \/_____/     \/_/   \/_/  \/_/   \/_/\/_/   \/_/\/_/   \/_____/   \/_/ /_/
+
 
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -152,14 +167,14 @@ set_buildinfo() {
 # install_yq - install yq if not present
 install_yq() {
 	if ! command -v yq &>/dev/null; then
-		wget -qO /usr/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_$(dpkg --print-architecture)
-		chmod +x /usr/bin/yq
+		wget -qO "${DATA_DIR}"/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_$(dpkg --print-architecture)
+		chmod +x "${DATA_DIR}"/bin/yq
 	fi
 	set +e
 	if ! command -v yq &>/dev/null; then
 		set -e
-		wget -qO /usr/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_amd64
-		chmod +x /usr/bin/yq
+		wget -qO "${DATA_DIR}"/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_amd64
+		chmod +x "${DATA_DIR}"/bin/yq
 	fi
 	set -e
 	if ! command -v yq &>/dev/null; then
@@ -176,9 +191,10 @@ setup_netclient() {
 	netclient uninstall
 	set -e
 
-	wget -qO netclient https://github.com/gravitl/netclient/releases/download/$LATEST/netclient-linux-$ARCH
-	chmod +x netclient
-	./netclient install
+	wget -qO "${DATA_DIR}/bin/netclient" https://github.com/gravitl/netclient/releases/download/$LATEST/netclient-linux-$ARCH
+	chmod +x "${DATA_DIR}/bin/netclient"
+
+	netclient install
 	echo "Register token: $TOKEN"
 	netclient register -t $TOKEN
 
@@ -228,14 +244,14 @@ setup_nmctl() {
 
 	local URL="https://github.com/gravitl/netmaker/releases/download/$LATEST/nmctl-linux-$ARCH"
 	echo "Downloading nmctl..."
-	wget -qO /usr/bin/nmctl "$URL"
+	wget -qO "${DATA_DIR}/bin/nmctl" "$URL"
 
-	if [ ! -f /usr/bin/nmctl ]; then
+	if [ ! -f "${DATA_DIR}/bin/nmctl" ]; then
 		echo "Error downloading nmctl from '$URL'"
 		exit 1
 	fi
 
-	chmod +x /usr/bin/nmctl
+	chmod +x "${DATA_DIR}/bin/nmctl"
 	echo "using server api.$NETMAKER_BASE_DOMAIN"
 	echo "using master key $MASTER_KEY"
 	nmctl context set default --endpoint="https://api.$NETMAKER_BASE_DOMAIN" --master_key="$MASTER_KEY"
@@ -331,7 +347,7 @@ save_config_item() { (
 	#echo "$NAME=$VALUE"
 	if test -z "$VALUE"; then
 		# load the default for empty values
-		VALUE=$(awk -F'=' "/^$NAME/ { print \$2}" "$SCRIPT_DIR/netmaker.default.env")
+		VALUE=$(awk -F'=' "/^$NAME/ { print \$2}" "$DATA_DIR/netmaker.default.env")
 		# trim quotes for docker
 		VALUE=$(echo "$VALUE" | sed -E "s|^(['\"])(.*)\1$|\2|g")
 		#echo "Default for $NAME=$VALUE"
@@ -362,16 +378,16 @@ local_install_setup() { (
 	else
 		echo "Skipping build on NM_SKIP_BUILD"
 	fi
-	cp compose/docker-compose.yml "$SCRIPT_DIR/docker-compose.yml"
+	cp compose/docker-compose.yml "$DATA_DIR/docker-compose.yml"
 	if [ "$INSTALL_TYPE" = "pro" ]; then
-		cp compose/docker-compose.ee.yml "$SCRIPT_DIR/docker-compose.override.yml"
-		cp docker/Caddyfile-pro "$SCRIPT_DIR/Caddyfile"
+		cp compose/docker-compose.ee.yml "$DATA_DIR/docker-compose.override.yml"
+		cp docker/Caddyfile-pro "$DATA_DIR/Caddyfile"
 	else
-		cp docker/Caddyfile "$SCRIPT_DIR/Caddyfile"
+		cp docker/Caddyfile "$DATA_DIR/Caddyfile"
 	fi
-	cp scripts/netmaker.default.env "$SCRIPT_DIR/netmaker.default.env"
-	cp docker/mosquitto.conf "$SCRIPT_DIR/mosquitto.conf"
-	cp docker/wait.sh "$SCRIPT_DIR/wait.sh"
+	cp scripts/netmaker.default.env "$DATA_DIR/netmaker.default.env"
+	cp docker/mosquitto.conf "$DATA_DIR/mosquitto.conf"
+	cp docker/wait.sh "$DATA_DIR/wait.sh"
 	cd ../../
 	if test -z "$NM_SKIP_CLONE"; then
 		rm -rf netmaker-tmp
@@ -699,22 +715,22 @@ install_netmaker() {
 			local COMPOSE_OVERRIDE_URL="$BASE_URL/compose/docker-compose.pro.yml"
 			local CADDY_URL="$BASE_URL/docker/Caddyfile-pro"
 		fi
-		wget -qO "$SCRIPT_DIR"/docker-compose.yml $COMPOSE_URL
+		wget -qO "$DATA_DIR"/docker-compose.yml $COMPOSE_URL
 		if test -n "$COMPOSE_OVERRIDE_URL"; then
-			wget -qO "$SCRIPT_DIR"/docker-compose.override.yml $COMPOSE_OVERRIDE_URL
+			wget -qO "$DATA_DIR"/docker-compose.override.yml $COMPOSE_OVERRIDE_URL
 		fi
-		wget -qO "$SCRIPT_DIR"/Caddyfile "$CADDY_URL"
-		wget -qO "$SCRIPT_DIR"/netmaker.default.env "$BASE_URL/scripts/netmaker.default.env"
-		wget -qO "$SCRIPT_DIR"/mosquitto.conf "$BASE_URL/docker/mosquitto.conf"
-		wget -qO "$SCRIPT_DIR"/wait.sh "$BASE_URL/docker/wait.sh"
+		wget -qO "$DATA_DIR"/Caddyfile "$CADDY_URL"
+		wget -qO "$DATA_DIR"/netmaker.default.env "$BASE_URL/scripts/netmaker.default.env"
+		wget -qO "$DATA_DIR"/mosquitto.conf "$BASE_URL/docker/mosquitto.conf"
+		wget -qO "$DATA_DIR"/wait.sh "$BASE_URL/docker/wait.sh"
 	fi
 
-	chmod +x "$SCRIPT_DIR"/wait.sh
+	chmod +x "$DATA_DIR"/wait.sh
 	mkdir -p /etc/netmaker
 
-	# link .env to the user config
-	ln -fs "$SCRIPT_DIR/netmaker.env" "$SCRIPT_DIR/.env"
 	save_config
+	# link .env to the user config
+	ln -fs "$CONFIG_FILENAME" "$DATA_DIR/.env"
 
 	echo "Starting containers..."
 
@@ -723,7 +739,7 @@ install_netmaker() {
 	export COMPOSE_HTTP_TIMEOUT=120
 
 	# start docker and rebuild containers / networks
-	cd "${SCRIPT_DIR}"
+	cd "${DATA_DIR}"
 	docker-compose up -d --force-recreate
 	cd -
 	wait_seconds 2
