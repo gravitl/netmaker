@@ -452,8 +452,12 @@ save_config() { (
 ); }
 
 save_config_item() {
-	local NAME="$1"
-	local VALUE="${2:"${!NAME:-""}"}"
+	local NAME="$1" VALUE
+	if test "$#" -ge 2; then
+		VALUE="$2"
+	else
+		VALUE="${!NAME:-""}"
+	fi
 	#info "$NAME=$VALUE"
 	if test -z "$VALUE"; then
 		# load the default for empty values
