@@ -249,7 +249,7 @@ setup_yq() {
 
 # installs and runs yq on demand
 yq() {
-	if test -z "$HAS_YQ"; then
+	if test -z "${HAS_YQ:-}"; then
 		HAS_YQ=1
 		setup_yq >&2
 	fi
@@ -290,7 +290,7 @@ setup_netclient() {
 }
 
 netclient() {
-	if test -z "$HAS_NETCLIENT"; then
+	if test -z "${HAS_NETCLIENT:-}"; then
 		HAS_NETCLIENT=1
 		wget -qO "${DATA_DIR}/bin/netclient" "https://github.com/gravitl/netclient/releases/download/$LATEST/netclient-linux-$ARCH"
 		chmod +x "${DATA_DIR}/bin/netclient"
@@ -348,7 +348,7 @@ setup_nmctl() {
 
 # nmctl - pulls and configures nmctl on demand
 nmctl() {
-	if test -z "$HAS_NMCTL"; then
+	if test -z "${HAS_NMCTL:-}"; then
 		HAS_NMCTL=1
 		setup_nmctl >&2
 	fi
