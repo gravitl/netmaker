@@ -17,7 +17,6 @@ import (
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
-	"github.com/gravitl/netmaker/servercfg"
 )
 
 func networkHandlers(r *mux.Router) {
@@ -128,11 +127,12 @@ func updateNetworkACL(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "updated ACLs for network", netname)
 
 	// send peer updates
-	if servercfg.IsMessageQueueBackend() {
+	go func() {
 		if err = mq.PublishPeerUpdate(); err != nil {
 			logger.Log(0, "failed to publish peer update after ACL update on", netname)
 		}
-	}
+	}()
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNetACL)
 }
