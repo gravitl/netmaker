@@ -1,5 +1,7 @@
 #!/bin/bash
 
+NM_QUICK_VERSION="0.1.2"
+
 if [ "$(id -u)" -ne 0 ]; then
 	echo "This script must be run as root"
 	exit 1
@@ -16,8 +18,6 @@ configure() {
 		# backwards compatibilty for old installs
 		NM_QUICK_DATA_DIR="${SCRIPT_DIR}"
 	fi
-
-NM_QUICK_VERSION="0.1.1"
 
 	DATA_DIR="${NM_QUICK_DATA_DIR}"
 	CONFIG_PATH="$DATA_DIR/$CONFIG_FILENAME"
