@@ -11,10 +11,10 @@ fi
 
 configure() {
 	# set to empty instead of swapping all calls to "${VAR:-""}"
-	: "${NM_SKIP_BUILD:=""}"
-	: "${NM_SKIP_DEPS:=""}"
-	: "${NM_SKIP_CLIENT:=""}"
-	: "${NM_SKIP_CLONE:=""}"
+	: "${NM_SKIP_BUILD:=''}"
+	: "${NM_SKIP_DEPS:=''}"
+	: "${NM_SKIP_CLIENT:=''}"
+	: "${NM_SKIP_CLONE:=''}"
 
 	CONFIG_FILENAME=netmaker.env
 	# location of nm-quick.sh (usually `/root`)
@@ -95,11 +95,11 @@ load_config() {
 read_arguments() {
 	INSTALL_TYPE="ce"
 
-	unset BUILD_TYPE
-	unset BUILD_TAG
-	unset IMAGE_TAG
-	unset AUTO_BUILD
-	unset NETMAKER_BASE_DOMAIN
+	BUILD_TYPE=''
+	BUILD_TAG=''
+	IMAGE_TAG=''
+	AUTO_BUILD=''
+	NETMAKER_BASE_DOMAIN=''
 
 	while getopts evabC:d:t:m: flag; do
 		case "${flag}" in
@@ -654,7 +654,7 @@ set_install_vars() {
 	if test -z "$MASTER_KEY"; then
 		MASTER_KEY="$(make_password 30)"
 	fi
-	DOMAIN_TYPE=""
+	DOMAIN_TYPE=''
 	info "-----------------------------------------------------"
 	info "Would you like to use your own domain for netmaker, or an auto-generated domain?"
 	info "To use your own domain, add a Wildcard DNS record (e.x: *.netmaker.example.com) pointing to $SERVER_HOST"
@@ -716,21 +716,20 @@ set_install_vars() {
 		info "    3. Retrieve License and Tenant ID"
 		info "    4. note email address"
 		info "-----------------------------------------------------"
-		unset LICENSE_KEY
+		LICENSE_KEY=''
 		while [ -z "$LICENSE_KEY" ]; do
 			read -r -p "License Key: " LICENSE_KEY
 		done
-		unset TENANT_ID
+		TENANT_ID=''
 		while [ -z "${TENANT_ID}" ]; do
 			read -r -p "Tenant ID: " TENANT_ID
 		done
 	fi
 
-	unset GET_EMAIL
-	unset RAND_EMAIL
+	GET_EMAIL=''
 	RAND_EMAIL="$(info $RANDOM | md5sum | head -c 16)@email.com"
 	# suggest the prev email or a random one
-	EMAIL_SUGGESTED=${NM_EMAIL:-$RAND_EMAIL}
+	EMAIL_SUGGESTED="${NM_EMAIL:-$RAND_EMAIL}"
 	if [ -z $AUTO_BUILD ]; then
 		read -r -p "Email Address for Domain Registration (click 'enter' to use $EMAIL_SUGGESTED): " GET_EMAIL
 	fi
@@ -747,9 +746,10 @@ set_install_vars() {
 
 	wait_seconds 1
 
-	unset GET_MQ_USERNAME
-	unset GET_MQ_PASSWORD
-	unset CONFIRM_MQ_PASSWORD
+	GET_MQ_USERNAME=''
+	GET_MQ_PASSWORD=''
+	CONFIRM_MQ_PASSWORD=''
+
 	info "Enter Credentials For MQ..."
 	if [ -z $AUTO_BUILD ]; then
 		read -r -p "MQ Username (click 'enter' to use 'netmaker'): " GET_MQ_USERNAME
