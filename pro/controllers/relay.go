@@ -63,7 +63,7 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 
 		}
 	}
-	go mq.PublishPeerUpdate()
+	go mq.PublishPeerUpdate(false)
 	logger.Log(1, r.Header.Get("user"), "created relay on node", relayRequest.NodeID, "on network", relayRequest.NetID)
 	apiNode := relayNode.ConvertToAPINode()
 	w.WriteHeader(http.StatusOK)
@@ -108,13 +108,13 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 						return
 					}
 					node.IsRelay = true // for iot update to recognise that it has to delete relay peer
-					if err = mq.PublishSingleHostPeerUpdate(h, nodes, &node, nil); err != nil {
+					if err = mq.PublishSingleHostPeerUpdate(h, nodes, &node, nil, false); err != nil {
 						logger.Log(1, "failed to publish peer update to host", h.ID.String(), ": ", err.Error())
 					}
 				}
 			}
 		}
-		mq.PublishPeerUpdate()
+		mq.PublishPeerUpdate(false)
 	}()
 	logger.Log(1, r.Header.Get("user"), "deleted relay on node", node.ID.String(), "on network", node.Network)
 	apiNode := node.ConvertToAPINode()

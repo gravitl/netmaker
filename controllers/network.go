@@ -128,7 +128,7 @@ func updateNetworkACL(w http.ResponseWriter, r *http.Request) {
 
 	// send peer updates
 	go func() {
-		if err = mq.PublishPeerUpdate(); err != nil {
+		if err = mq.PublishPeerUpdate(false); err != nil {
 			logger.Log(0, "failed to publish peer update after ACL update on", netname)
 		}
 	}()

@@ -89,7 +89,7 @@ func MQUpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 			if err != nil {
 				return
 			}
-			if err = mq.PublishSingleHostPeerUpdate(host, nodes, nil, nil); err != nil {
+			if err = mq.PublishSingleHostPeerUpdate(host, nodes, nil, nil, false); err != nil {
 				slog.Warn("failed to publish update after failover peer change for node", "id", currentNode.ID, "network", currentNode.Network, "error", err)
 			}
 		}
