@@ -168,9 +168,14 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 		go logic.ManageZombies(ctx, peerUpdate)
 		go logic.DeleteExpiredNodes(ctx, peerUpdate)
 		for nodeUpdate := range peerUpdate {
-			if err := mq.NodeUpdate(nodeUpdate); err != nil {
-				logger.Log(0, "failed to send peer update for deleted node: ", nodeUpdate.ID.String(), err.Error())
+			if nodeUpdate == nil {
+				continue
 			}
+			node := nodeUpdate
+			if err := mq.NodeUpdate(node); err != nil {
+				logger.Log(0, "failed to send peer update for deleted node: ", node.ID.String(), err.Error())
+			}
+			go mq.PublishDeletedNodePeerUpdate(node)
 		}
 	}()
 	<-ctx.Done()
