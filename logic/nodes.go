@@ -475,6 +475,7 @@ func DeleteExpiredNodes(ctx context.Context, peerUpdate chan *models.Node) {
 				return
 			}
 			for _, node := range allnodes {
+				node := node
 				if time.Now().After(node.ExpirationDateTime) {
 					peerUpdate <- &node
 					slog.Info("deleting expired node", "nodeid", node.ID.String())
