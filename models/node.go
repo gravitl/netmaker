@@ -14,8 +14,6 @@ import (
 const (
 	// NODE_SERVER_NAME - the default server name
 	NODE_SERVER_NAME = "netmaker"
-	// TEN_YEARS_IN_SECONDS - ten years in seconds
-	TEN_YEARS_IN_SECONDS = 315670000000000000
 	// MAX_NAME_LENGTH - max name length of node
 	MAX_NAME_LENGTH = 62
 	// == ACTIONS == (can only be set by server)
@@ -354,7 +352,7 @@ func (node *Node) SetLastPeerUpdate() {
 // Node.SetExpirationDateTime - sets node expiry time
 func (node *Node) SetExpirationDateTime() {
 	if node.ExpirationDateTime.IsZero() {
-		node.ExpirationDateTime = time.Now().Add(TEN_YEARS_IN_SECONDS)
+		node.ExpirationDateTime = time.Now().AddDate(100, 1, 0)
 	}
 }
 
