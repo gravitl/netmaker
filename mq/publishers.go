@@ -30,9 +30,12 @@ func PublishPeerUpdate(replacePeers bool) error {
 	}
 	for _, host := range hosts {
 		host := host
-		if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers); err != nil {
-			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
-		}
+		go func(host models.Host) {
+			if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers); err != nil {
+				logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+			}
+		}(host)
+
 	}
 	return err
 }

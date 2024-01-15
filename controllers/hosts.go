@@ -228,6 +228,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	currentHost, err := logic.GetHost(hostid)
 	if err != nil {
 		slog.Error("error getting host", "id", hostid, "error", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 
@@ -249,10 +250,13 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 		err := logic.UpsertHost(currentHost)
 		if err != nil {
 			slog.Error("failed to update host", "id", currentHost.ID, "error", err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-
+	case models.UpdateMetrics:
+		mq.UpdateMetricsFallBack(hostUpdate.Node.ID.String(), hostUpdate.NewMetrics)
 	}
+	logic.ReturnSuccessResponse(w, r, "updated host data")
 
 }
 

@@ -19,6 +19,8 @@ import (
 var UpdateMetrics = func(client mqtt.Client, msg mqtt.Message) {
 }
 
+var UpdateMetricsFallBack = func(nodeid string, newMetrics models.Metrics) {}
+
 // DefaultHandler default message queue handler  -- NOT USED
 func DefaultHandler(client mqtt.Client, msg mqtt.Message) {
 	slog.Info("mqtt default handler", "topic", msg.Topic(), "message", msg.Payload())
