@@ -251,7 +251,8 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			slog.Error("failed to update host", "id", currentHost.ID, "error", err)
 			return
 		}
-
+	case models.UpdateMetrics:
+		mq.UpdateMetricsFallBack(hostUpdate.Node.ID.String(), hostUpdate.NewMetrics)
 	}
 
 }
