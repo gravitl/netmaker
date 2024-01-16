@@ -348,6 +348,24 @@ type HostFromNetworkParams struct {
 	Network string `json:"network"`
 }
 
+// swagger:parameters createEnrollmentKey
+type createEnrollmentKeyParams struct {
+	// APIEnrollmentKey
+	// in: body
+	Body models.APIEnrollmentKey `json:"body"`
+}
+
+// swagger:parameters updateEnrollmentKey
+type updateEnrollmentKeyParams struct {
+	// KeyID
+	// in: path
+	KeyID string `json:"keyid"`
+
+	// APIEnrollmentKey
+	// in: body
+	Body models.APIEnrollmentKey `json:"body"`
+}
+
 // swagger:parameters deleteEnrollmentKey
 type deleteEnrollmentKeyParam struct {
 	// in: path
@@ -443,6 +461,8 @@ func useUnused() bool {
 	_ = signal{}
 	_ = filenameToGet{}
 	_ = dnsNetworkPathParam{}
+	_ = createEnrollmentKeyParams{}
+	_ = updateEnrollmentKeyParams{}
 	_ = deleteEnrollmentKeyParam{}
 	return false
 }
