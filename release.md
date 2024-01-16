@@ -6,6 +6,7 @@
 - MQ fallback
 - Deprecating TURN in favour of failover hosts on Pro
 - Switch to CoreDNS for DNS resolution
+- DNS is no longer managed with OS hosts file (/etc/hosts file)
 - Add support for RAC on mobile
 
 ## What's Fixed
