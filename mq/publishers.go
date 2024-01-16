@@ -14,7 +14,7 @@ import (
 )
 
 // PublishPeerUpdate --- determines and publishes a peer update to all the hosts
-func PublishPeerUpdate() error {
+func PublishPeerUpdate(replacePeers bool) error {
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
@@ -30,9 +30,12 @@ func PublishPeerUpdate() error {
 	}
 	for _, host := range hosts {
 		host := host
-		if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil); err != nil {
-			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
-		}
+		go func(host models.Host) {
+			if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers); err != nil {
+				logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+			}
+		}(host)
+
 	}
 	return err
 }
@@ -55,7 +58,7 @@ func PublishDeletedNodePeerUpdate(delNode *models.Node) error {
 	}
 	for _, host := range hosts {
 		host := host
-		if err = PublishSingleHostPeerUpdate(&host, allNodes, delNode, nil); err != nil {
+		if err = PublishSingleHostPeerUpdate(&host, allNodes, delNode, nil, false); err != nil {
 			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 		}
 	}
@@ -81,7 +84,7 @@ func PublishDeletedClientPeerUpdate(delClient *models.ExtClient) error {
 	for _, host := range hosts {
 		host := host
 		if host.OS != models.OS_Types.IoT {
-			if err = PublishSingleHostPeerUpdate(&host, nodes, nil, []models.ExtClient{*delClient}); err != nil {
+			if err = PublishSingleHostPeerUpdate(&host, nodes, nil, []models.ExtClient{*delClient}, false); err != nil {
 				logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 			}
 		}
@@ -90,12 +93,13 @@ func PublishDeletedClientPeerUpdate(delClient *models.ExtClient) error {
 }
 
 // PublishSingleHostPeerUpdate --- determines and publishes a peer update to one host
-func PublishSingleHostPeerUpdate(host *models.Host, allNodes []models.Node, deletedNode *models.Node, deletedClients []models.ExtClient) error {
+func PublishSingleHostPeerUpdate(host *models.Host, allNodes []models.Node, deletedNode *models.Node, deletedClients []models.ExtClient, replacePeers bool) error {
 
 	peerUpdate, err := logic.GetPeerUpdateForHost("", host, allNodes, deletedNode, deletedClients)
 	if err != nil {
 		return err
 	}
+	peerUpdate.ReplacePeers = replacePeers
 	data, err := json.Marshal(&peerUpdate)
 	if err != nil {
 		return err
@@ -231,7 +235,7 @@ func sendPeers() {
 		for _, host := range hosts {
 			host := host
 			logger.Log(2, "sending scheduled peer update (5 min)")
-			if err = PublishSingleHostPeerUpdate(&host, nodes, nil, nil); err != nil {
+			if err = PublishSingleHostPeerUpdate(&host, nodes, nil, nil, false); err != nil {
 				logger.Log(1, "error publishing peer updates for host: ", host.ID.String(), " Err: ", err.Error())
 			}
 		}

@@ -64,6 +64,7 @@ func InitPro() {
 	logic.IsInternetGw = proLogic.IsInternetGw
 	logic.SetInternetGw = proLogic.SetInternetGw
 	mq.UpdateMetrics = proLogic.MQUpdateMetrics
+	mq.UpdateMetricsFallBack = proLogic.MQUpdateMetricsFallBack
 }
 
 func retrieveProLogo() string {

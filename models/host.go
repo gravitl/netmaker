@@ -114,6 +114,8 @@ const (
 	UpdateKeys HostMqAction = "UPDATE_KEYS"
 	// RequestPull - request a pull from a host
 	RequestPull HostMqAction = "REQ_PULL"
+	// UpdateMetrics - updates metrics data
+	UpdateMetrics HostMqAction = "UPDATE_METRICS"
 )
 
 // SignalAction - turn peer signal action
@@ -128,10 +130,11 @@ const (
 
 // HostUpdate - struct for host update
 type HostUpdate struct {
-	Action HostMqAction
-	Host   Host
-	Node   Node
-	Signal Signal
+	Action     HostMqAction
+	Host       Host
+	Node       Node
+	Signal     Signal
+	NewMetrics Metrics
 }
 
 // HostTurnRegister - struct for host turn registration

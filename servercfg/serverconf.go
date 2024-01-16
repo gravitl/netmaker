@@ -173,11 +173,11 @@ func GetDB() string {
 
 // CacheEnabled - checks if cache is enabled
 func CacheEnabled() bool {
-	caching := false
-	if os.Getenv("CACHING_ENABLED") != "" {
-		caching = os.Getenv("CACHING_ENABLED") == "true"
-	} else if config.Config.Server.Database != "" {
-		caching = config.Config.Server.CacheEnabled
+	caching := true
+	if os.Getenv("CACHING_ENABLED") == "false" {
+		caching = false
+	} else if config.Config.Server.CacheEnabled == "false" {
+		caching = false
 	}
 	return caching
 }

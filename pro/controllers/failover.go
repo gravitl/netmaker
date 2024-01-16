@@ -70,7 +70,7 @@ func createfailOver(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	go mq.PublishPeerUpdate()
+	go mq.PublishPeerUpdate(false)
 	w.Header().Set("Content-Type", "application/json")
 	logic.ReturnSuccessResponseWithJson(w, r, node, "created failover successfully")
 }
@@ -90,7 +90,7 @@ func resetFailOver(w http.ResponseWriter, r *http.Request) {
 			logic.UpsertNode(&node)
 		}
 	}
-	go mq.PublishPeerUpdate()
+	go mq.PublishPeerUpdate(false)
 	w.Header().Set("Content-Type", "application/json")
 	logic.ReturnSuccessResponse(w, r, "failover has been reset successfully")
 }
@@ -126,7 +126,7 @@ func deletefailOver(w http.ResponseWriter, r *http.Request) {
 	}
 	go func() {
 		proLogic.ResetFailOver(&node)
-		mq.PublishPeerUpdate()
+		mq.PublishPeerUpdate(false)
 	}()
 	w.Header().Set("Content-Type", "application/json")
 	logic.ReturnSuccessResponseWithJson(w, r, node, "deleted failover successfully")
@@ -193,7 +193,7 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 	sendPeerUpdate = true
 
 	if sendPeerUpdate {
-		go mq.PublishPeerUpdate()
+		go mq.PublishPeerUpdate(false)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
