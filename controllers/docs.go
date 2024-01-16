@@ -349,7 +349,7 @@ type HostFromNetworkParams struct {
 }
 
 // swagger:parameters deleteEnrollmentKey
-type DeleteEnrollmentKeyParam struct {
+type deleteEnrollmentKeyParam struct {
 	// in: path
 	KeyID string `json:"keyid"`
 }
@@ -443,5 +443,6 @@ func useUnused() bool {
 	_ = signal{}
 	_ = filenameToGet{}
 	_ = dnsNetworkPathParam{}
+	_ = deleteEnrollmentKeyParam{}
 	return false
 }
