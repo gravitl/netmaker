@@ -45,7 +45,6 @@ func GetServerConfig() config.ServerConfig {
 	cfg.AllowedOrigin = GetAllowedOrigin()
 	cfg.RestBackend = "off"
 	cfg.NodeID = GetNodeID()
-	cfg.StunPort = GetStunPort()
 	cfg.BrokerType = GetBrokerType()
 	cfg.EmqxRestEndpoint = GetEmqxRestEndpoint()
 	if AutoUpdateEnabled() {
@@ -120,48 +119,13 @@ func GetServerInfo() models.ServerConfig {
 	cfg.APIPort = GetAPIPort()
 	cfg.DNSMode = "off"
 	cfg.Broker = GetPublicBrokerEndpoint()
+	cfg.BrokerType = GetBrokerType()
 	if IsDNSMode() {
 		cfg.DNSMode = "on"
 	}
 	cfg.Version = GetVersion()
 	cfg.IsPro = IsPro
-	cfg.StunPort = GetStunPort()
-	cfg.TurnDomain = GetTurnHost()
-	cfg.TurnPort = GetTurnPort()
-	cfg.UseTurn = IsUsingTurn()
 	return cfg
-}
-
-// GetTurnHost - fetches the turn host domain
-func GetTurnHost() string {
-	turnServer := ""
-	if os.Getenv("TURN_SERVER_HOST") != "" {
-		turnServer = os.Getenv("TURN_SERVER_HOST")
-	} else if config.Config.Server.TurnServer != "" {
-		turnServer = config.Config.Server.TurnServer
-	}
-	return turnServer
-}
-
-// IsUsingTurn - check if server has turn configured
-func IsUsingTurn() (b bool) {
-	if os.Getenv("USE_TURN") != "" {
-		b = os.Getenv("USE_TURN") == "true"
-	} else {
-		b = config.Config.Server.UseTurn
-	}
-	return
-}
-
-// GetTurnApiHost - fetches the turn api host domain
-func GetTurnApiHost() string {
-	turnApiServer := ""
-	if os.Getenv("TURN_SERVER_API_HOST") != "" {
-		turnApiServer = os.Getenv("TURN_SERVER_API_HOST")
-	} else if config.Config.Server.TurnApiServer != "" {
-		turnApiServer = config.Config.Server.TurnApiServer
-	}
-	return turnApiServer
 }
 
 // GetFrontendURL - gets the frontend url
@@ -205,6 +169,17 @@ func GetDB() string {
 		database = config.Config.Server.Database
 	}
 	return database
+}
+
+// CacheEnabled - checks if cache is enabled
+func CacheEnabled() bool {
+	caching := true
+	if os.Getenv("CACHING_ENABLED") == "false" {
+		caching = false
+	} else if config.Config.Server.CacheEnabled == "false" {
+		caching = false
+	}
+	return caching
 }
 
 // GetAPIHost - gets the api host
@@ -633,58 +608,6 @@ func GetNetmakerTenantID() string {
 		netmakerTenantID = config.Config.Server.NetmakerTenantID
 	}
 	return netmakerTenantID
-}
-
-// GetStunPort - Get the port to run the stun server on
-func GetStunPort() int {
-	port := 3478 //default
-	if os.Getenv("STUN_PORT") != "" {
-		portInt, err := strconv.Atoi(os.Getenv("STUN_PORT"))
-		if err == nil {
-			port = portInt
-		}
-	} else if config.Config.Server.StunPort != 0 {
-		port = config.Config.Server.StunPort
-	}
-	return port
-}
-
-// GetTurnPort - Get the port to run the turn server on
-func GetTurnPort() int {
-	port := 3479 //default
-	if os.Getenv("TURN_PORT") != "" {
-		portInt, err := strconv.Atoi(os.Getenv("TURN_PORT"))
-		if err == nil {
-			port = portInt
-		}
-	} else if config.Config.Server.TurnPort != 0 {
-		port = config.Config.Server.TurnPort
-	}
-	return port
-}
-
-// GetTurnUserName - fetches the turn server username
-func GetTurnUserName() string {
-	userName := ""
-	if os.Getenv("TURN_USERNAME") != "" {
-		userName = os.Getenv("TURN_USERNAME")
-	} else {
-		userName = config.Config.Server.TurnUserName
-	}
-	return userName
-
-}
-
-// GetTurnPassword - fetches the turn server password
-func GetTurnPassword() string {
-	pass := ""
-	if os.Getenv("TURN_PASSWORD") != "" {
-		pass = os.Getenv("TURN_PASSWORD")
-	} else {
-		pass = config.Config.Server.TurnPassword
-	}
-	return pass
-
 }
 
 // GetNetworkLimit - fetches free tier limits on users

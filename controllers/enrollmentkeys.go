@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 
@@ -114,6 +115,35 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 	var newTime time.Time
 	if enrollmentKeyBody.Expiration > 0 {
 		newTime = time.Unix(enrollmentKeyBody.Expiration, 0)
+	}
+	v := validator.New()
+	err = v.Struct(enrollmentKeyBody)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "error validating request body: ",
+			err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("validation error: name length must be between 3 and 32: %w", err), "badrequest"))
+		return
+	}
+
+	if existingKeys, err := logic.GetAllEnrollmentKeys(); err != nil {
+		logger.Log(0, r.Header.Get("user"), "error validating request body: ",
+			err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	} else {
+		// check if any tags are duplicate
+		existingTags := make(map[string]struct{})
+		for _, existingKey := range existingKeys {
+			for _, t := range existingKey.Tags {
+				existingTags[t] = struct{}{}
+			}
+		}
+		for _, t := range enrollmentKeyBody.Tags {
+			if _, ok := existingTags[t]; ok {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("key names must be unique"), "badrequest"))
+				return
+			}
+		}
 	}
 
 	relayId := uuid.Nil
@@ -230,13 +260,6 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
-	}
-	// re-register host with turn just in case.
-	if servercfg.IsUsingTurn() {
-		err = logic.RegisterHostWithTurn(newHost.ID.String(), newHost.HostPass)
-		if err != nil {
-			logger.Log(0, "failed to register host with turn server: ", err.Error())
-		}
 	}
 	// check if host already exists
 	hostExists := false

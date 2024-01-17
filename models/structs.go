@@ -64,11 +64,13 @@ type IngressGwUsers struct {
 
 // UserRemoteGws - struct to hold user's remote gws
 type UserRemoteGws struct {
-	GwID      string    `json:"remote_access_gw_id"`
-	GWName    string    `json:"gw_name"`
-	Network   string    `json:"network"`
-	Connected bool      `json:"connected"`
-	GwClient  ExtClient `json:"gw_client"`
+	GwID              string    `json:"remote_access_gw_id"`
+	GWName            string    `json:"gw_name"`
+	Network           string    `json:"network"`
+	Connected         bool      `json:"connected"`
+	IsInternetGateway bool      `json:"is_internet_gateway"`
+	GwClient          ExtClient `json:"gw_client"`
+	GwPeerPublicKey   string    `json:"gw_peer_public_key"`
 }
 
 // UserRemoteGwsReq - struct to hold user remote acccess gws req
@@ -189,8 +191,8 @@ type HostRelayRequest struct {
 
 // IngressRequest - ingress request struct
 type IngressRequest struct {
-	ExtclientDNS string `json:"extclientdns"`
-	Failover     bool   `json:"failover"`
+	ExtclientDNS      string `json:"extclientdns"`
+	IsInternetGateway bool   `json:"is_internet_gw"`
 }
 
 // ServerUpdateData - contains data to configure server
@@ -223,12 +225,14 @@ type TrafficKeys struct {
 
 // HostPull - response of a host's pull
 type HostPull struct {
-	Host            Host                 `json:"host" yaml:"host"`
-	Nodes           []Node               `json:"nodes" yaml:"nodes"`
-	Peers           []wgtypes.PeerConfig `json:"peers" yaml:"peers"`
-	ServerConfig    ServerConfig         `json:"server_config" yaml:"server_config"`
-	PeerIDs         PeerMap              `json:"peer_ids,omitempty" yaml:"peer_ids,omitempty"`
-	HostNetworkInfo HostInfoMap          `json:"host_network_info,omitempty"  yaml:"host_network_info,omitempty"`
+	Host            Host                  `json:"host" yaml:"host"`
+	Nodes           []Node                `json:"nodes" yaml:"nodes"`
+	Peers           []wgtypes.PeerConfig  `json:"peers" yaml:"peers"`
+	ServerConfig    ServerConfig          `json:"server_config" yaml:"server_config"`
+	PeerIDs         PeerMap               `json:"peer_ids,omitempty" yaml:"peer_ids,omitempty"`
+	HostNetworkInfo HostInfoMap           `json:"host_network_info,omitempty"  yaml:"host_network_info,omitempty"`
+	EgressRoutes    []EgressNetworkRoutes `json:"egress_network_routes"`
+	FwUpdate        FwUpdate              `json:"fw_update"`
 }
 
 // NodeGet - struct for a single node get response
@@ -259,14 +263,11 @@ type ServerConfig struct {
 	MQPort      string `yaml:"mqport"`
 	MQUserName  string `yaml:"mq_username"`
 	MQPassword  string `yaml:"mq_password"`
+	BrokerType  string `yaml:"broker_type"`
 	Server      string `yaml:"server"`
 	Broker      string `yaml:"broker"`
 	IsPro       bool   `yaml:"isee" json:"Is_EE"`
-	StunPort    int    `yaml:"stun_port"`
 	TrafficKey  []byte `yaml:"traffickey"`
-	TurnDomain  string `yaml:"turn_domain"`
-	TurnPort    int    `yaml:"turn_port"`
-	UseTurn     bool   `yaml:"use_turn"`
 }
 
 // User.NameInCharset - returns if name is in charset below or not
@@ -306,3 +307,54 @@ type LicenseLimits struct {
 	Clients  int `json:"clients"`
 	Networks int `json:"networks"`
 }
+
+type SignInReqDto struct {
+	FormFields FormFields `json:"formFields"`
+}
+
+type FormField struct {
+	Id    string `json:"id"`
+	Value any    `json:"value"`
+}
+
+type FormFields []FormField
+
+type SignInResDto struct {
+	Status string `json:"status"`
+	User   User   `json:"user"`
+}
+
+type TenantLoginResDto struct {
+	Code     int    `json:"code"`
+	Message  string `json:"message"`
+	Response struct {
+		UserName  string `json:"UserName"`
+		AuthToken string `json:"AuthToken"`
+	} `json:"response"`
+}
+
+type SsoLoginReqDto struct {
+	OauthProvider string `json:"oauthprovider"`
+}
+
+type SsoLoginResDto struct {
+	User      string `json:"UserName"`
+	AuthToken string `json:"AuthToken"`
+}
+
+type SsoLoginData struct {
+	Expiration     time.Time `json:"expiration"`
+	OauthProvider  string    `json:"oauthprovider,omitempty"`
+	OauthCode      string    `json:"oauthcode,omitempty"`
+	Username       string    `json:"username,omitempty"`
+	AmbAccessToken string    `json:"ambaccesstoken,omitempty"`
+}
+
+type LoginReqDto struct {
+	Email    string `json:"email"`
+	TenantID string `json:"tenant_id"`
+}
+
+const (
+	ResHeaderKeyStAccessToken = "St-Access-Token"
+)

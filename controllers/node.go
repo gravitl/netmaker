@@ -341,7 +341,6 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 func getNode(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
-	nodeRequest := r.Header.Get("requestfrom") == "node"
 
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
@@ -384,12 +383,6 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		Peers:        hostPeerUpdate.NodePeers,
 		ServerConfig: server,
 		PeerIDs:      hostPeerUpdate.PeerIDs,
-	}
-
-	if servercfg.IsPro && nodeRequest {
-		if err = logic.EnterpriseResetAllPeersFailovers(node.ID, node.Network); err != nil {
-			logger.Log(1, "failed to reset failover list during node config pull", node.ID.String(), node.Network)
-		}
 	}
 
 	logger.Log(2, r.Header.Get("user"), "fetched node", params["nodeid"])
@@ -443,7 +436,7 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 		if err := mq.NodeUpdate(&node); err != nil {
 			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 		}
-		mq.PublishPeerUpdate()
+		mq.PublishPeerUpdate(false)
 	}()
 }
 
@@ -486,7 +479,7 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 		if err := mq.NodeUpdate(&node); err != nil {
 			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 		}
-		mq.PublishPeerUpdate()
+		mq.PublishPeerUpdate(false)
 	}()
 }
 
@@ -524,12 +517,6 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if servercfg.IsPro && request.Failover {
-		if err = logic.EnterpriseResetFailoverFunc(node.Network); err != nil {
-			logger.Log(1, "failed to reset failover list during failover create", node.ID.String(), node.Network)
-		}
-	}
-
 	apiNode := node.ConvertToAPINode()
 	logger.Log(1, r.Header.Get("user"), "created ingress gateway on node", nodeid, "on network", netid)
 	w.WriteHeader(http.StatusOK)
@@ -562,7 +549,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "bad request"))
 		return
 	}
-	node, wasFailover, removedClients, err := logic.DeleteIngressGateway(nodeid)
+	node, removedClients, err := logic.DeleteIngressGateway(nodeid)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to delete ingress gateway on node [%s] on network [%s]: %v",
@@ -572,11 +559,6 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if servercfg.IsPro {
-		if wasFailover {
-			if err = logic.EnterpriseResetFailoverFunc(node.Network); err != nil {
-				logger.Log(1, "failed to reset failover list during failover create", node.ID.String(), node.Network)
-			}
-		}
 		go func() {
 			users, err := logic.GetUsersDB()
 			if err == nil {
@@ -608,13 +590,15 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			go func() {
-				if err := mq.PublishSingleHostPeerUpdate(host, allNodes, nil, removedClients[:]); err != nil {
+				if err := mq.PublishSingleHostPeerUpdate(host, allNodes, nil, removedClients[:], false); err != nil {
 					slog.Error("publishSingleHostUpdate", "host", host.Name, "error", err)
 				}
 				if err := mq.NodeUpdate(&node); err != nil {
 					slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 				}
-				mq.PublishDeleteAllExtclientsDNS(node.Network, removedClients)
+				if servercfg.IsDNSMode() {
+					logic.SetDNS()
+				}
 			}()
 		}
 	}
@@ -653,7 +637,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 	newNode := newData.ConvertToServerNode(&currentNode)
 	relayUpdate := logic.RelayUpdates(&currentNode, newNode)
-	host, err := logic.GetHost(newNode.HostID.String())
+	_, err = logic.GetHost(newNode.HostID.String())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get host for node  [ %s ] info: %v", nodeid, err))
@@ -662,11 +646,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 	ifaceDelta := logic.IfaceDelta(&currentNode, newNode)
 	aclUpdate := currentNode.DefaultACL != newNode.DefaultACL
-	if ifaceDelta && servercfg.IsPro {
-		if err = logic.EnterpriseResetAllPeersFailovers(currentNode.ID, currentNode.Network); err != nil {
-			logger.Log(0, "failed to reset failover lists during node update for node", currentNode.ID.String(), currentNode.Network)
-		}
-	}
 
 	err = logic.UpdateNode(&currentNode, newNode)
 	if err != nil {
@@ -678,9 +657,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	if relayUpdate {
 		logic.UpdateRelayed(&currentNode, newNode)
 	}
-	if servercfg.IsDNSMode() {
-		logic.SetDNS()
-	}
 
 	apiNode := newNode.ConvertToAPINode()
 	logger.Log(1, r.Header.Get("user"), "updated node", currentNode.ID.String(), "on network", currentNode.Network)
@@ -691,12 +667,12 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			slog.Error("error publishing node update to node", "node", newNode.ID, "error", err)
 		}
 		if aclUpdate || relayupdate || ifaceDelta {
-			if err := mq.PublishPeerUpdate(); err != nil {
+			if err := mq.PublishPeerUpdate(false); err != nil {
 				logger.Log(0, "error during node ACL update for node", newNode.ID.String())
 			}
 		}
-		if err := mq.PublishReplaceDNS(&currentNode, newNode, host); err != nil {
-			logger.Log(1, "failed to publish dns update", err.Error())
+		if servercfg.IsDNSMode() {
+			logic.SetDNS()
 		}
 	}(aclUpdate, relayUpdate, newNode)
 }

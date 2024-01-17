@@ -19,6 +19,7 @@ type HostPeerUpdate struct {
 	HostNetworkInfo HostInfoMap           `json:"host_network_info,omitempty" bson:"host_network_info,omitempty" yaml:"host_network_info,omitempty"`
 	EgressRoutes    []EgressNetworkRoutes `json:"egress_network_routes"`
 	FwUpdate        FwUpdate              `json:"fw_update"`
+	ReplacePeers    bool                  `json:"replace_peers"`
 }
 
 // IngressInfo - struct for ingress info
@@ -69,4 +70,9 @@ type KeyUpdate struct {
 type FwUpdate struct {
 	IsEgressGw bool                  `json:"is_egress_gw"`
 	EgressInfo map[string]EgressInfo `json:"egress_info"`
+}
+
+// FailOverMeReq - struct for failover req
+type FailOverMeReq struct {
+	NodeID string `json:"node_id"`
 }

@@ -110,30 +110,31 @@ const (
 	RequestAck HostMqAction = "REQ_ACK"
 	// CheckIn - update last check in times and public address and interfaces
 	CheckIn HostMqAction = "CHECK_IN"
-	// RegisterWithTurn - registers host with turn server if configured
-	RegisterWithTurn HostMqAction = "REGISTER_WITH_TURN"
 	// UpdateKeys - update wireguard private/public keys
 	UpdateKeys HostMqAction = "UPDATE_KEYS"
 	// RequestPull - request a pull from a host
 	RequestPull HostMqAction = "REQ_PULL"
+	// UpdateMetrics - updates metrics data
+	UpdateMetrics HostMqAction = "UPDATE_METRICS"
 )
 
 // SignalAction - turn peer signal action
 type SignalAction string
 
 const (
-	// Disconnect - action to stop using turn connection
-	Disconnect SignalAction = "DISCONNECT"
 	// ConnNegotiation - action to negotiate connection between peers
 	ConnNegotiation SignalAction = "CONNECTION_NEGOTIATION"
+	// RelayME - action to relay the peer
+	RelayME SignalAction = "RELAY_ME"
 )
 
 // HostUpdate - struct for host update
 type HostUpdate struct {
-	Action HostMqAction
-	Host   Host
-	Node   Node
-	Signal Signal
+	Action     HostMqAction
+	Host       Host
+	Node       Node
+	Signal     Signal
+	NewMetrics Metrics
 }
 
 // HostTurnRegister - struct for host turn registration
@@ -144,13 +145,17 @@ type HostTurnRegister struct {
 
 // Signal - struct for signalling peer
 type Signal struct {
-	Server            string       `json:"server"`
-	FromHostPubKey    string       `json:"from_host_pubkey"`
-	TurnRelayEndpoint string       `json:"turn_relay_addr"`
-	ToHostPubKey      string       `json:"to_host_pubkey"`
-	Reply             bool         `json:"reply"`
-	Action            SignalAction `json:"action"`
-	TimeStamp         int64        `json:"timestamp"`
+	Server         string       `json:"server"`
+	FromHostPubKey string       `json:"from_host_pubkey"`
+	ToHostPubKey   string       `json:"to_host_pubkey"`
+	FromHostID     string       `json:"from_host_id"`
+	ToHostID       string       `json:"to_host_id"`
+	FromNodeID     string       `json:"from_node_id"`
+	ToNodeID       string       `json:"to_node_id"`
+	Reply          bool         `json:"reply"`
+	Action         SignalAction `json:"action"`
+	IsPro          bool         `json:"is_pro"`
+	TimeStamp      int64        `json:"timestamp"`
 }
 
 // RegisterMsg - login message struct for hosts to join via SSO login

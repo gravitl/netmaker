@@ -6,11 +6,10 @@ import (
 
 // Metrics - metrics struct
 type Metrics struct {
-	Network       string            `json:"network" bson:"network" yaml:"network"`
-	NodeID        string            `json:"node_id" bson:"node_id" yaml:"node_id"`
-	NodeName      string            `json:"node_name" bson:"node_name" yaml:"node_name"`
-	Connectivity  map[string]Metric `json:"connectivity" bson:"connectivity" yaml:"connectivity"`
-	FailoverPeers map[string]string `json:"needsfailover" bson:"needsfailover" yaml:"needsfailover"`
+	Network      string            `json:"network" bson:"network" yaml:"network"`
+	NodeID       string            `json:"node_id" bson:"node_id" yaml:"node_id"`
+	NodeName     string            `json:"node_name" bson:"node_name" yaml:"node_name"`
+	Connectivity map[string]Metric `json:"connectivity" bson:"connectivity" yaml:"connectivity"`
 }
 
 // Metric - holds a metric for data between nodes
@@ -29,6 +28,7 @@ type Metric struct {
 // IDandAddr - struct to hold ID and primary Address
 type IDandAddr struct {
 	ID          string `json:"id" bson:"id" yaml:"id"`
+	HostID      string `json:"host_id"`
 	Address     string `json:"address" bson:"address" yaml:"address"`
 	Name        string `json:"name" bson:"name" yaml:"name"`
 	IsServer    string `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`

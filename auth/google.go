@@ -68,6 +68,15 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	user, err := logic.GetUser(content.Email)
+	if err != nil {
+		handleOauthUserNotFound(w)
+		return
+	}
+	if !(user.IsSuperAdmin || user.IsAdmin) {
+		handleOauthUserNotAllowed(w)
+		return
+	}
 	var newPass, fetchErr = fetchPassValue("")
 	if fetchErr != nil {
 		return

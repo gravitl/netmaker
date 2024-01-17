@@ -24,16 +24,6 @@ https://api.{$NM_DOMAIN} {
 	reverse_proxy http://netmaker:8081
 }
 
-# TURN
-https://turn.{$NM_DOMAIN} {
-	reverse_proxy host.docker.internal:3479
-}
-
-# TURN API
-https://turnapi.{$NM_DOMAIN} {
-	reverse_proxy http://host.docker.internal:8089
-}
-
 # MQ
 wss://broker.{$NM_DOMAIN} {
 	reverse_proxy ws://mq:8883 # For EMQX websockets use `reverse_proxy ws://mq:8083`

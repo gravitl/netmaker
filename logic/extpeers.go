@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -80,21 +81,25 @@ func DeleteExtClient(network string, clientid string) error {
 	if err != nil {
 		return err
 	}
-	deleteExtClientFromCache(key)
+	if servercfg.CacheEnabled() {
+		deleteExtClientFromCache(key)
+	}
 	return nil
 }
 
 // GetNetworkExtClients - gets the ext clients of given network
 func GetNetworkExtClients(network string) ([]models.ExtClient, error) {
 	var extclients []models.ExtClient
-	allextclients := getAllExtClientsFromCache()
-	if len(allextclients) != 0 {
-		for _, extclient := range allextclients {
-			if extclient.Network == network {
-				extclients = append(extclients, extclient)
+	if servercfg.CacheEnabled() {
+		allextclients := getAllExtClientsFromCache()
+		if len(allextclients) != 0 {
+			for _, extclient := range allextclients {
+				if extclient.Network == network {
+					extclients = append(extclients, extclient)
+				}
 			}
+			return extclients, nil
 		}
-		return extclients, nil
 	}
 	records, err := database.FetchRecords(database.EXT_CLIENT_TABLE_NAME)
 	if err != nil {
@@ -111,7 +116,9 @@ func GetNetworkExtClients(network string) ([]models.ExtClient, error) {
 		}
 		key, err := GetRecordKey(extclient.ClientID, extclient.Network)
 		if err == nil {
-			storeExtClientInCache(key, extclient)
+			if servercfg.CacheEnabled() {
+				storeExtClientInCache(key, extclient)
+			}
 		}
 		if extclient.Network == network {
 			extclients = append(extclients, extclient)
@@ -127,15 +134,19 @@ func GetExtClient(clientid string, network string) (models.ExtClient, error) {
 	if err != nil {
 		return extclient, err
 	}
-	if extclient, ok := getExtClientFromCache(key); ok {
-		return extclient, nil
+	if servercfg.CacheEnabled() {
+		if extclient, ok := getExtClientFromCache(key); ok {
+			return extclient, nil
+		}
 	}
 	data, err := database.FetchRecord(database.EXT_CLIENT_TABLE_NAME, key)
 	if err != nil {
 		return extclient, err
 	}
 	err = json.Unmarshal([]byte(data), &extclient)
-	storeExtClientInCache(key, extclient)
+	if servercfg.CacheEnabled() {
+		storeExtClientInCache(key, extclient)
+	}
 	return extclient, err
 }
 
@@ -235,7 +246,9 @@ func SaveExtClient(extclient *models.ExtClient) error {
 	if err = database.Insert(key, string(data), database.EXT_CLIENT_TABLE_NAME); err != nil {
 		return err
 	}
-	storeExtClientInCache(key, *extclient)
+	if servercfg.CacheEnabled() {
+		storeExtClientInCache(key, *extclient)
+	}
 	return SetNetworkNodesLastModified(extclient.Network)
 }
 
@@ -422,6 +435,38 @@ func getExtpeersExtraRoutes(network string) (egressRoutes []models.EgressNetwork
 	}
 	for _, extPeer := range extPeers {
 		egressRoutes = append(egressRoutes, getExtPeerEgressRoute(extPeer)...)
+	}
+	return
+}
+
+func GetExtclientAllowedIPs(client models.ExtClient) (allowedIPs []string) {
+	gwnode, err := GetNodeByID(client.IngressGatewayID)
+	if err != nil {
+		logger.Log(0,
+			fmt.Sprintf("failed to get ingress gateway node [%s] info: %v", client.IngressGatewayID, err))
+		return
+	}
+
+	network, err := GetParentNetwork(client.Network)
+	if err != nil {
+		logger.Log(1, "Could not retrieve Ingress Gateway Network", client.Network)
+		return
+	}
+	if IsInternetGw(gwnode) {
+		egressrange := "0.0.0.0/0"
+		if gwnode.Address6.IP != nil && client.Address6 != "" {
+			egressrange += "," + "::/0"
+		}
+		allowedIPs = []string{egressrange}
+	} else {
+		allowedIPs = []string{network.AddressRange}
+
+		if network.AddressRange6 != "" {
+			allowedIPs = append(allowedIPs, network.AddressRange6)
+		}
+		if egressGatewayRanges, err := GetEgressRangesOnNetwork(&client); err == nil {
+			allowedIPs = append(allowedIPs, egressGatewayRanges...)
+		}
 	}
 	return
 }

@@ -8,7 +8,16 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/servercfg"
+)
+
+var (
+	// SetInternetGw - sets the node as internet gw based on flag bool
+	SetInternetGw = func(node *models.Node, flag bool) {
+	}
+	// IsInternetGw - checks if node is acting as internet gw
+	IsInternetGw = func(node models.Node) bool {
+		return false
+	}
 )
 
 // GetInternetGateways - gets all the nodes that are internet gateways
@@ -79,12 +88,8 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	}
 	for i := len(gateway.Ranges) - 1; i >= 0; i-- {
 		// check if internet gateway IPv4
-		if gateway.Ranges[i] == "0.0.0.0/0" && FreeTier {
-			return models.Node{}, fmt.Errorf("currently IPv4 internet gateways are not supported on the free tier: %s", gateway.Ranges[i])
-		}
-		// check if internet gateway IPv6
-		if gateway.Ranges[i] == "::/0" {
-			return models.Node{}, fmt.Errorf("currently IPv6 internet gateways are not supported: %s", gateway.Ranges[i])
+		if gateway.Ranges[i] == "0.0.0.0/0" || gateway.Ranges[i] == "::/0" {
+			return models.Node{}, fmt.Errorf("create internet gateways on the remote client gateway")
 		}
 		normalized, err := NormalizeCIDR(gateway.Ranges[i])
 		if err != nil {
@@ -164,13 +169,11 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 		return models.Node{}, err
 	}
 	node.IsIngressGateway = true
+	SetInternetGw(&node, ingress.IsInternetGateway)
 	node.IngressGatewayRange = network.AddressRange
 	node.IngressGatewayRange6 = network.AddressRange6
 	node.IngressDNS = ingress.ExtclientDNS
 	node.SetLastModified()
-	if ingress.Failover && servercfg.IsPro {
-		node.Failover = true
-	}
 	err = UpsertNode(&node)
 	if err != nil {
 		return models.Node{}, err
@@ -199,35 +202,34 @@ func GetIngressGwUsers(node models.Node) (models.IngressGwUsers, error) {
 }
 
 // DeleteIngressGateway - deletes an ingress gateway
-func DeleteIngressGateway(nodeid string) (models.Node, bool, []models.ExtClient, error) {
+func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error) {
 	removedClients := []models.ExtClient{}
 	node, err := GetNodeByID(nodeid)
 	if err != nil {
-		return models.Node{}, false, removedClients, err
+		return models.Node{}, removedClients, err
 	}
 	clients, err := GetExtClientsByID(nodeid, node.Network)
 	if err != nil && !database.IsEmptyRecord(err) {
-		return models.Node{}, false, removedClients, err
+		return models.Node{}, removedClients, err
 	}
 
 	removedClients = clients
 
 	// delete ext clients belonging to ingress gateway
 	if err = DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
-		return models.Node{}, false, removedClients, err
+		return models.Node{}, removedClients, err
 	}
 	logger.Log(3, "deleting ingress gateway")
-	wasFailover := node.Failover
 	node.LastModified = time.Now()
 	node.IsIngressGateway = false
+	node.IsInternetGateway = false
 	node.IngressGatewayRange = ""
-	node.Failover = false
 	err = UpsertNode(&node)
 	if err != nil {
-		return models.Node{}, wasFailover, removedClients, err
+		return models.Node{}, removedClients, err
 	}
 	err = SetNetworkNodesLastModified(node.Network)
-	return node, wasFailover, removedClients, err
+	return node, removedClients, err
 }
 
 // DeleteGatewayExtClients - deletes ext clients based on gateway (mac) of ingress node and network

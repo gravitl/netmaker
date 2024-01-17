@@ -3,6 +3,7 @@ package nodeacls
 import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic/acls"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 // CreateNodeACL - inserts or updates a node ACL on given network and adds to state
@@ -87,6 +88,8 @@ func DeleteACLContainer(network NetworkID) error {
 	if err != nil {
 		return err
 	}
-	acls.DeleteAclFromCache(acls.ContainerID(network))
+	if servercfg.CacheEnabled() {
+		acls.DeleteAclFromCache(acls.ContainerID(network))
+	}
 	return nil
 }

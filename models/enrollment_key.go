@@ -1,6 +1,8 @@
 package models
 
 import (
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,6 +13,14 @@ const (
 	TimeExpiration
 	Uses
 	Unlimited
+)
+
+var (
+	ErrNilEnrollmentKey          = errors.New("enrollment key is nil")
+	ErrNilNetworksEnrollmentKey  = errors.New("enrollment key networks is nil")
+	ErrNilTagsEnrollmentKey      = errors.New("enrollment key tags is nil")
+	ErrInvalidEnrollmentKey      = errors.New("enrollment key is not valid")
+	ErrInvalidEnrollmentKeyValue = errors.New("enrollment key value is not valid")
 )
 
 // KeyType - the type of enrollment key
@@ -50,7 +60,7 @@ type APIEnrollmentKey struct {
 	UsesRemaining int      `json:"uses_remaining"`
 	Networks      []string `json:"networks"`
 	Unlimited     bool     `json:"unlimited"`
-	Tags          []string `json:"tags"`
+	Tags          []string `json:"tags" validate:"required,dive,min=3,max=32"`
 	Type          KeyType  `json:"type"`
 	Relay         string   `json:"relay"`
 }
@@ -81,9 +91,18 @@ func (k *EnrollmentKey) IsValid() bool {
 
 // EnrollmentKey.Validate - validate's an EnrollmentKey
 // should be used during creation
-func (k *EnrollmentKey) Validate() bool {
-	return k.Networks != nil &&
-		k.Tags != nil &&
-		len(k.Value) == EnrollmentKeyLength &&
-		k.IsValid()
+func (k *EnrollmentKey) Validate() error {
+	if k == nil {
+		return ErrNilEnrollmentKey
+	}
+	if k.Tags == nil {
+		return ErrNilTagsEnrollmentKey
+	}
+	if len(k.Value) != EnrollmentKeyLength {
+		return fmt.Errorf("%w: length not %d characters", ErrInvalidEnrollmentKeyValue, EnrollmentKeyLength)
+	}
+	if !k.IsValid() {
+		return fmt.Errorf("%w: uses remaining: %d, expiration: %s, unlimited: %t", ErrInvalidEnrollmentKey, k.UsesRemaining, k.Expiration, k.Unlimited)
+	}
+	return nil
 }

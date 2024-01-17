@@ -23,7 +23,6 @@ builds:
       - linux_arm64
       - darwin_amd64
       - darwin_arm64
-      - freebsd_amd64
       - windows_amd64
     binary: 'nmctl'
 archives:

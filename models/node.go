@@ -14,8 +14,6 @@ import (
 const (
 	// NODE_SERVER_NAME - the default server name
 	NODE_SERVER_NAME = "netmaker"
-	// TEN_YEARS_IN_SECONDS - ten years in seconds
-	TEN_YEARS_IN_SECONDS = 315670000000000000
 	// MAX_NAME_LENGTH - max name length of node
 	MAX_NAME_LENGTH = 62
 	// == ACTIONS == (can only be set by server)
@@ -54,27 +52,27 @@ type Iface struct {
 
 // CommonNode - represents a commonn node data elements shared by netmaker and netclient
 type CommonNode struct {
-	ID                  uuid.UUID    `json:"id" yaml:"id"`
-	HostID              uuid.UUID    `json:"hostid" yaml:"hostid"`
-	Network             string       `json:"network" yaml:"network"`
-	NetworkRange        net.IPNet    `json:"networkrange" yaml:"networkrange"`
-	NetworkRange6       net.IPNet    `json:"networkrange6" yaml:"networkrange6"`
-	InternetGateway     *net.UDPAddr `json:"internetgateway" yaml:"internetgateway"`
-	Server              string       `json:"server" yaml:"server"`
-	Connected           bool         `json:"connected" yaml:"connected"`
-	Address             net.IPNet    `json:"address" yaml:"address"`
-	Address6            net.IPNet    `json:"address6" yaml:"address6"`
-	Action              string       `json:"action" yaml:"action"`
-	LocalAddress        net.IPNet    `json:"localaddress" yaml:"localaddress"`
-	IsEgressGateway     bool         `json:"isegressgateway" yaml:"isegressgateway"`
-	EgressGatewayRanges []string     `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
-	IsIngressGateway    bool         `json:"isingressgateway" yaml:"isingressgateway"`
-	IsRelayed           bool         `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
-	RelayedBy           string       `json:"relayedby" bson:"relayedby" yaml:"relayedby"`
-	IsRelay             bool         `json:"isrelay" bson:"isrelay" yaml:"isrelay"`
-	RelayedNodes        []string     `json:"relaynodes" yaml:"relayedNodes"`
-	IngressDNS          string       `json:"ingressdns" yaml:"ingressdns"`
-	DNSOn               bool         `json:"dnson" yaml:"dnson"`
+	ID                  uuid.UUID `json:"id" yaml:"id"`
+	HostID              uuid.UUID `json:"hostid" yaml:"hostid"`
+	Network             string    `json:"network" yaml:"network"`
+	NetworkRange        net.IPNet `json:"networkrange" yaml:"networkrange"`
+	NetworkRange6       net.IPNet `json:"networkrange6" yaml:"networkrange6"`
+	Server              string    `json:"server" yaml:"server"`
+	Connected           bool      `json:"connected" yaml:"connected"`
+	Address             net.IPNet `json:"address" yaml:"address"`
+	Address6            net.IPNet `json:"address6" yaml:"address6"`
+	Action              string    `json:"action" yaml:"action"`
+	LocalAddress        net.IPNet `json:"localaddress" yaml:"localaddress"`
+	IsEgressGateway     bool      `json:"isegressgateway" yaml:"isegressgateway"`
+	EgressGatewayRanges []string  `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
+	IsIngressGateway    bool      `json:"isingressgateway" yaml:"isingressgateway"`
+	IsInternetGateway   bool      `json:"isinternetgateway" yaml:"isinternetgateway"`
+	IsRelayed           bool      `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
+	RelayedBy           string    `json:"relayedby" bson:"relayedby" yaml:"relayedby"`
+	IsRelay             bool      `json:"isrelay" bson:"isrelay" yaml:"isrelay"`
+	RelayedNodes        []string  `json:"relaynodes" yaml:"relayedNodes"`
+	IngressDNS          string    `json:"ingressdns" yaml:"ingressdns"`
+	DNSOn               bool      `json:"dnson" yaml:"dnson"`
 }
 
 // Node - a model of a network node
@@ -90,10 +88,11 @@ type Node struct {
 	IngressGatewayRange     string               `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
 	IngressGatewayRange6    string               `json:"ingressgatewayrange6" bson:"ingressgatewayrange6" yaml:"ingressgatewayrange6"`
 	// == PRO ==
-	DefaultACL   string    `json:"defaultacl,omitempty" bson:"defaultacl,omitempty" yaml:"defaultacl,omitempty" validate:"checkyesornoorunset"`
-	OwnerID      string    `json:"ownerid,omitempty" bson:"ownerid,omitempty" yaml:"ownerid,omitempty"`
-	FailoverNode uuid.UUID `json:"failovernode" bson:"failovernode" yaml:"failovernode"`
-	Failover     bool      `json:"failover" bson:"failover" yaml:"failover"`
+	DefaultACL    string              `json:"defaultacl,omitempty" bson:"defaultacl,omitempty" yaml:"defaultacl,omitempty" validate:"checkyesornoorunset"`
+	OwnerID       string              `json:"ownerid,omitempty" bson:"ownerid,omitempty" yaml:"ownerid,omitempty"`
+	IsFailOver    bool                `json:"is_fail_over" yaml:"is_fail_over"`
+	FailOverPeers map[string]struct{} `json:"fail_over_peers" yaml:"fail_over_peers"`
+	FailedOverBy  uuid.UUID           `json:"failed_over_by" yaml:"failed_over_by"`
 }
 
 // LegacyNode - legacy struct for node model
@@ -353,7 +352,7 @@ func (node *Node) SetLastPeerUpdate() {
 // Node.SetExpirationDateTime - sets node expiry time
 func (node *Node) SetExpirationDateTime() {
 	if node.ExpirationDateTime.IsZero() {
-		node.ExpirationDateTime = time.Now().Add(TEN_YEARS_IN_SECONDS)
+		node.ExpirationDateTime = time.Now().AddDate(100, 1, 0)
 	}
 }
 
@@ -432,8 +431,8 @@ func (newNode *Node) Fill(currentNode *Node, isPro bool) { // TODO add new field
 	if newNode.DefaultACL == "" {
 		newNode.DefaultACL = currentNode.DefaultACL
 	}
-	if newNode.Failover != currentNode.Failover {
-		newNode.Failover = currentNode.Failover
+	if newNode.IsFailOver != currentNode.IsFailOver {
+		newNode.IsFailOver = currentNode.IsFailOver
 	}
 }
 

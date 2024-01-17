@@ -71,6 +71,20 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
+	if val := request.Header.Get("From-Ui"); val == "true" {
+		// request came from UI, if normal user block Login
+		user, err := logic.GetUser(authRequest.UserName)
+		if err != nil {
+			logger.Log(0, authRequest.UserName, "user validation failed: ",
+				err.Error())
+			logic.ReturnErrorResponse(response, request, logic.FormatError(err, "unauthorized"))
+			return
+		}
+		if !(user.IsAdmin || user.IsSuperAdmin) {
+			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("only admins can access dashboard"), "unauthorized"))
+			return
+		}
+	}
 	username := authRequest.UserName
 	jwt, err := logic.VerifyAuthRequest(authRequest)
 	if err != nil {
@@ -119,12 +133,12 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 				if client.OwnerID == username && !client.Enabled {
 					slog.Info(fmt.Sprintf("enabling ext client %s for user %s due to RAC autodisabling feature", client.ClientID, client.OwnerID))
 					if newClient, err := logic.ToggleExtClientConnectivity(&client, true); err != nil {
-						slog.Error("error disabling ext client in RAC autodisable hook", "error", err)
+						slog.Error("error enabling ext client in RAC autodisable hook", "error", err)
 						continue // dont return but try for other clients
 					} else {
 						// publish peer update to ingress gateway
 						if ingressNode, err := logic.GetNodeByID(newClient.IngressGatewayID); err == nil {
-							if err = mq.PublishPeerUpdate(); err != nil {
+							if err = mq.PublishPeerUpdate(false); err != nil {
 								slog.Error("error updating ext clients on", "ingress", ingressNode.ID.String(), "err", err.Error())
 							}
 						}
@@ -329,6 +343,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	caller, err := logic.GetUser(r.Header.Get("user"))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
 	}
 	var user models.User
 	err = json.NewDecoder(r.Body).Decode(&user)
@@ -348,6 +363,10 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		err = errors.New("additional superadmins cannot be created")
 		slog.Error("error creating new user: ", "user", user.UserName, "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+		return
+	}
+	if !servercfg.IsPro && !user.IsAdmin {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("non-admins users can only be created on Pro version"), "forbidden"))
 		return
 	}
 
@@ -502,14 +521,14 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	if user.IsSuperAdmin {
 		slog.Error(
 			"failed to delete user: ", "user", username, "error", "superadmin cannot be deleted")
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("superadmin cannot be deleted"), "internal"))
 		return
 	}
 	if !caller.IsSuperAdmin {
 		if caller.IsAdmin && user.IsAdmin {
 			slog.Error(
-				"failed to delete user: ", "user", username, "error", "admin cannot delete another admin user")
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				"failed to delete user: ", "user", username, "error", "admin cannot delete another admin user, including oneself")
+			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("admin cannot delete another admin user, including oneself"), "internal"))
 			return
 		}
 	}
@@ -540,6 +559,9 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 						"id", extclient.ClientID, "owner", user.UserName, "error", err)
 				}
 			}
+		}
+		if servercfg.IsDNSMode() {
+			logic.SetDNS()
 		}
 	}()
 	logger.Log(1, username, "was deleted")

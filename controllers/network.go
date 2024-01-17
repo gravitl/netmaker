@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 
@@ -16,7 +17,6 @@ import (
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
-	"github.com/gravitl/netmaker/servercfg"
 )
 
 func networkHandlers(r *mux.Router) {
@@ -127,11 +127,12 @@ func updateNetworkACL(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "updated ACLs for network", netname)
 
 	// send peer updates
-	if servercfg.IsMessageQueueBackend() {
-		if err = mq.PublishPeerUpdate(); err != nil {
+	go func() {
+		if err = mq.PublishPeerUpdate(false); err != nil {
 			logger.Log(0, "failed to publish peer update after ACL update on", netname)
 		}
-	}
+	}()
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newNetACL)
 }
@@ -244,6 +245,40 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
+	}
+
+	// validate address ranges: must be private
+	if network.AddressRange != "" {
+		_, ipNet, err := net.ParseCIDR(network.AddressRange)
+		if err != nil {
+			logger.Log(0, r.Header.Get("user"), "failed to create network: ",
+				err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+		if !ipNet.IP.IsPrivate() {
+			err := errors.New("address range must be private")
+			logger.Log(0, r.Header.Get("user"), "failed to create network: ",
+				err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+	}
+	if network.AddressRange6 != "" {
+		_, ipNet, err := net.ParseCIDR(network.AddressRange6)
+		if err != nil {
+			logger.Log(0, r.Header.Get("user"), "failed to create network: ",
+				err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+		if !ipNet.IP.IsPrivate() {
+			err := errors.New("address range must be private")
+			logger.Log(0, r.Header.Get("user"), "failed to create network: ",
+				err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
 	}
 
 	network, err = logic.CreateNetwork(network)

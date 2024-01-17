@@ -2,6 +2,9 @@ package logic
 
 import (
 	"encoding/json"
+	"math"
+	"time"
+
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
@@ -10,8 +13,6 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
-	"math"
-	"time"
 )
 
 // GetMetrics - gets the metrics
@@ -45,6 +46,28 @@ func DeleteMetrics(nodeid string) error {
 	return database.DeleteRecord(database.METRICS_TABLE_NAME, nodeid)
 }
 
+// MQUpdateMetricsFallBack - called when mq fallback thread is triggered on client
+func MQUpdateMetricsFallBack(nodeid string, newMetrics models.Metrics) {
+
+	currentNode, err := logic.GetNodeByID(nodeid)
+	if err != nil {
+		slog.Error("error getting node", "id", nodeid, "error", err)
+		return
+	}
+
+	updateNodeMetrics(&currentNode, &newMetrics)
+	if err = logic.UpdateMetrics(nodeid, &newMetrics); err != nil {
+		slog.Error("failed to update node metrics", "id", nodeid, "error", err)
+		return
+	}
+	if servercfg.IsMetricsExporter() {
+		if err := mq.PushMetricsToExporter(newMetrics); err != nil {
+			slog.Error("failed to push node metrics to exporter", "id", currentNode.ID, "error", err)
+		}
+	}
+	slog.Debug("updated node metrics", "id", nodeid)
+}
+
 func MQUpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 	id, err := mq.GetID(msg.Topic())
 	if err != nil {
@@ -67,9 +90,7 @@ func MQUpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 		slog.Error("error unmarshaling payload", "error", err)
 		return
 	}
-
-	shouldUpdate := updateNodeMetrics(&currentNode, &newMetrics)
-
+	updateNodeMetrics(&currentNode, &newMetrics)
 	if err = logic.UpdateMetrics(id, &newMetrics); err != nil {
 		slog.Error("failed to update node metrics", "id", id, "error", err)
 		return
@@ -79,41 +100,15 @@ func MQUpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 			slog.Error("failed to push node metrics to exporter", "id", currentNode.ID, "error", err)
 		}
 	}
-
-	if newMetrics.Connectivity != nil {
-		err := logic.EnterpriseFailoverFunc(&currentNode)
-		if err != nil {
-			slog.Error("failed to failover for node", "id", currentNode.ID, "network", currentNode.Network, "error", err)
-		}
-	}
-
-	if shouldUpdate {
-		slog.Info("updating peers after node detected connectivity issues", "id", currentNode.ID, "network", currentNode.Network)
-		host, err := logic.GetHost(currentNode.HostID.String())
-		if err == nil {
-			nodes, err := logic.GetAllNodes()
-			if err != nil {
-				return
-			}
-			if err = mq.PublishSingleHostPeerUpdate(host, nodes, nil, nil); err != nil {
-				slog.Warn("failed to publish update after failover peer change for node", "id", currentNode.ID, "network", currentNode.Network, "error", err)
-			}
-		}
-	}
 	slog.Debug("updated node metrics", "id", id)
 }
 
-func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) bool {
-	if newMetrics.FailoverPeers == nil {
-		newMetrics.FailoverPeers = make(map[string]string)
-	}
+func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) {
+
 	oldMetrics, err := logic.GetMetrics(currentNode.ID.String())
 	if err != nil {
 		slog.Error("error finding old metrics for node", "id", currentNode.ID, "error", err)
-		return false
-	}
-	if oldMetrics.FailoverPeers == nil {
-		oldMetrics.FailoverPeers = make(map[string]string)
+		return
 	}
 
 	var attachedClients []models.ExtClient
@@ -170,34 +165,7 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) boo
 
 	}
 
-	// add nodes that need failover
-	nodes, err := logic.GetNetworkNodes(currentNode.Network)
-	if err != nil {
-		slog.Error("failed to retrieve nodes while updating metrics", "error", err)
-		return false
-	}
-	for _, node := range nodes {
-		if !newMetrics.Connectivity[node.ID.String()].Connected &&
-			len(newMetrics.Connectivity[node.ID.String()].NodeName) > 0 &&
-			node.Connected &&
-			len(node.FailoverNode) > 0 &&
-			!node.Failover {
-			newMetrics.FailoverPeers[node.ID.String()] = node.FailoverNode.String()
-		}
-	}
-	shouldUpdate := len(oldMetrics.FailoverPeers) == 0 && len(newMetrics.FailoverPeers) > 0
-	for k, v := range oldMetrics.FailoverPeers {
-		if len(newMetrics.FailoverPeers[k]) > 0 && len(v) == 0 {
-			shouldUpdate = true
-		}
-
-		if len(v) > 0 && len(newMetrics.FailoverPeers[k]) == 0 {
-			newMetrics.FailoverPeers[k] = v
-		}
-	}
-
 	for k := range oldMetrics.Connectivity { // cleanup any left over data, self healing
 		delete(newMetrics.Connectivity, k)
 	}
-	return shouldUpdate
 }

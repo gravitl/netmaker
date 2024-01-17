@@ -3,8 +3,10 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
-	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"net/http"
+
+	"github.com/google/uuid"
+	proLogic "github.com/gravitl/netmaker/pro/logic"
 
 	"github.com/gorilla/mux"
 	controller "github.com/gravitl/netmaker/controllers"
@@ -19,6 +21,7 @@ func RelayHandlers(r *mux.Router) {
 
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createrelay", controller.Authorize(false, true, "user", http.HandlerFunc(createRelay))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleterelay", controller.Authorize(false, true, "user", http.HandlerFunc(deleteRelay))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/host/{hostid}/failoverme", controller.Authorize(true, false, "host", http.HandlerFunc(failOverME))).Methods(http.MethodPost)
 }
 
 // swagger:route POST /api/nodes/{network}/{nodeid}/createrelay nodes createRelay
@@ -51,7 +54,16 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	go mq.PublishPeerUpdate()
+	for _, relayedNodeID := range relayNode.RelayedNodes {
+		relayedNode, err := logic.GetNodeByID(relayedNodeID)
+		if err == nil {
+			if relayedNode.FailedOverBy != uuid.Nil {
+				go logic.ResetFailedOverPeer(&relayedNode)
+			}
+
+		}
+	}
+	go mq.PublishPeerUpdate(false)
 	logger.Log(1, r.Header.Get("user"), "created relay on node", relayRequest.NodeID, "on network", relayRequest.NetID)
 	apiNode := relayNode.ConvertToAPINode()
 	w.WriteHeader(http.StatusOK)
@@ -96,13 +108,13 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 						return
 					}
 					node.IsRelay = true // for iot update to recognise that it has to delete relay peer
-					if err = mq.PublishSingleHostPeerUpdate(h, nodes, &node, nil); err != nil {
+					if err = mq.PublishSingleHostPeerUpdate(h, nodes, &node, nil, false); err != nil {
 						logger.Log(1, "failed to publish peer update to host", h.ID.String(), ": ", err.Error())
 					}
 				}
 			}
 		}
-		mq.PublishPeerUpdate()
+		mq.PublishPeerUpdate(false)
 	}()
 	logger.Log(1, r.Header.Get("user"), "deleted relay on node", node.ID.String(), "on network", node.Network)
 	apiNode := node.ConvertToAPINode()

@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="https://github.com/gravitl/netmaker/releases">
-    <img src="https://img.shields.io/badge/Version-0.21.2-informational?style=flat-square" />
+    <img src="https://img.shields.io/badge/Version-0.22.0-informational?style=flat-square" />
   </a>
   <a href="https://hub.docker.com/r/gravitl/netmaker/tags">
     <img src="https://img.shields.io/docker/pulls/gravitl/netmaker?label=downloads" />
@@ -43,7 +43,7 @@
 | Create                                    | Manage                                  | Automate                                |
 |-------------------------------------------|-----------------------------------------|-----------------------------------------|
 | :heavy_check_mark: WireGuard Networks     | :heavy_check_mark: Admin UI             | :heavy_check_mark: Linux                |
-| :heavy_check_mark: Remote Access Gateways | :heavy_check_mark: OAuth                | :heavy_check_mark: FreeBSD              |
+| :heavy_check_mark: Remote Access Gateways | :heavy_check_mark: OAuth                | :heavy_check_mark: Docker              |
 | :heavy_check_mark: Mesh VPNs              | :heavy_check_mark: Private DNS          | :heavy_check_mark: Mac                  |
 | :heavy_check_mark: Site-to-Site           | :heavy_check_mark: Access Control Lists | :heavy_check_mark: Windows              |
 
