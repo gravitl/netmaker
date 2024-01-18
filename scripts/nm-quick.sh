@@ -463,7 +463,7 @@ save_config_item() {
 		# load the default for empty values
 		VALUE="$(awk -F'=' "/^$NAME/ { print \$2}" "$DATA_DIR/netmaker.default.env")"
 		# trim quotes for docker
-		VALUE="$(info "$VALUE" | sed -E "s|^(['\"])(.*)\1$|\2|g")"
+		VALUE="$(echo "$VALUE" | sed -E "s|^(['\"])(.*)\1$|\2|g")"
 		#info "Default for $NAME=$VALUE"
 	fi
 	# escape | in the value
@@ -475,7 +475,7 @@ save_config_item() {
 	if grep -q "^$NAME=" "$CONFIG_PATH"; then
 		sed -i "s|$NAME=.*|$NAME=$VALUE|" "$CONFIG_PATH"
 	else
-		info "$NAME=$VALUE" >>"$CONFIG_PATH"
+		echo "$NAME=$VALUE" >>"$CONFIG_PATH"
 	fi
 }
 
@@ -652,7 +652,7 @@ set_install_vars() {
 		IP_ADDR="$(curl -s ifconfig.me)"
 	fi
 	if [ "$NETMAKER_BASE_DOMAIN" = "" ]; then
-		NETMAKER_BASE_DOMAIN=nm.$(info "$IP_ADDR" | tr . -).nip.io
+		NETMAKER_BASE_DOMAIN=nm.$(echo "$IP_ADDR" | tr . -).nip.io
 	fi
 	SERVER_HOST="$IP_ADDR"
 	if test -z "$MASTER_KEY"; then
@@ -731,7 +731,7 @@ set_install_vars() {
 	fi
 
 	GET_EMAIL=''
-	RAND_EMAIL="$(info $RANDOM | md5sum | head -c 16)@email.com"
+	RAND_EMAIL="$(echo $RANDOM | md5sum | head -c 16)@email.com"
 	# suggest the prev email or a random one
 	EMAIL_SUGGESTED="${NM_EMAIL:-$RAND_EMAIL}"
 	if [ -z $AUTO_BUILD ]; then
