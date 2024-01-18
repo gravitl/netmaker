@@ -18,6 +18,7 @@ unset IMAGE_TAG
 unset AUTO_BUILD
 unset NETMAKER_BASE_DOMAIN
 INSTALL_TYPE="pro"
+UPGRADE_FLAG="yes"
 # usage - displays usage instructions
 usage() {
 	echo "nm-quick.sh v$NM_QUICK_VERSION"
@@ -31,6 +32,7 @@ while getopts evab:d:t: flag; do
 	case "${flag}" in
 	c)
 		INSTALL_TYPE="ce"
+		UPGRADE_FLAG="no"
 		;;
 	v)
 		usage
@@ -129,7 +131,9 @@ install_yq() {
 setup_netclient() {
 
 	set +e
-	netclient uninstall
+	if [ -x "$(command -v netclient)" ]; then
+		netclient uninstall
+	fi
 	set -e
 
 	wget -qO netclient https://github.com/gravitl/netclient/releases/download/$LATEST/netclient-linux-$ARCH
@@ -739,9 +743,6 @@ print_logo
 if [ -f "$CONFIG_PATH" ]; then
 	echo "Using config: $CONFIG_PATH"
 	source "$CONFIG_PATH"
-	if [ "$UPGRADE_FLAG" = "yes" ]; then
-		INSTALL_TYPE="pro"
-	fi
 fi
 
 # 2. setup the build instructions
