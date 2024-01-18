@@ -13,59 +13,28 @@ if [ $(id -u) -ne 0 ]; then
 fi
 
 unset INSTALL_TYPE
-unset BUILD_TYPE
 unset BUILD_TAG
 unset IMAGE_TAG
 unset AUTO_BUILD
 unset NETMAKER_BASE_DOMAIN
-
+INSTALL_TYPE="pro"
 # usage - displays usage instructions
 usage() {
 	echo "nm-quick.sh v$NM_QUICK_VERSION"
-	echo "usage: ./nm-quick.sh [-e] [-b buildtype] [-t tag] [-a auto] [-d domain]"
-	echo "  -e      if specified, will install netmaker pro"
-	echo "  -b      type of build; options:"
-	echo "          \"version\" - will install a specific version of Netmaker using remote git and dockerhub"
-	echo "          \"local\": - will install by cloning repo and building images from git"
-	echo "          \"branch\": - will install a specific branch using remote git and dockerhub"
-	echo "  -t      tag of build; if buildtype=version, tag=version. If builtype=branch or builtype=local, tag=branch"
-	echo "  -a      auto-build; skip prompts and use defaults, if none provided"
-	echo "  -d      domain; if specified, will use this domain instead of auto-generating one"
-	echo "examples:"
-	echo "          nm-quick.sh -e -b version -t $LATEST"
-	echo "          nm-quick.sh -e -b local -t feature_v0.17.2_newfeature"
-	echo "          nm-quick.sh -e -b branch -t develop"
-	echo "          nm-quick.sh -e -b version -t $LATEST -a -d example.com"
+	echo "usage: ./nm-quick.sh [-c]"
+	echo "  -c      if specified, will install netmaker community version"
+
 	exit 1
 }
 
 while getopts evab:d:t: flag; do
 	case "${flag}" in
-	e)
-		INSTALL_TYPE="pro"
-		UPGRADE_FLAG="yes"
+	c)
+		INSTALL_TYPE="ce"
 		;;
 	v)
 		usage
 		exit 0
-		;;
-	a)
-		AUTO_BUILD="on"
-		;;
-	b)
-		BUILD_TYPE=${OPTARG}
-		if [[ ! "$BUILD_TYPE" =~ ^(version|local|branch)$ ]]; then
-			echo "error: $BUILD_TYPE is invalid"
-			echo "valid options: version, local, branch"
-			usage
-			exit 1
-		fi
-		;;
-	t)
-		BUILD_TAG=${OPTARG}
-		;;
-	d)
-		NETMAKER_BASE_DOMAIN=${OPTARG}
 		;;
 	esac
 done
@@ -93,21 +62,9 @@ EOF
 # set_buildinfo - sets the information based on script input for how the installation should be run
 set_buildinfo() {
 
-	if [ -z "$BUILD_TYPE" ]; then
-		BUILD_TYPE="version"
-		BUILD_TAG=$LATEST
-	fi
 
-	if [ -z "$BUILD_TAG" ] && [ "$BUILD_TYPE" = "version" ]; then
-		BUILD_TAG=$LATEST
-	fi
-
-	if [ -z "$BUILD_TAG" ] && [ ! -z "$BUILD_TYPE" ]; then
-		echo "error: must specify build tag when build type \"$BUILD_TYPE\" is specified"
-		usage
-		exit 1
-	fi
-
+	
+	BUILD_TAG=$LATEST
 	IMAGE_TAG=$(sed 's/\//-/g' <<<"$BUILD_TAG")
 
 	if [ "$1" = "ce" ]; then
@@ -141,7 +98,6 @@ set_buildinfo() {
 	fi
 	echo "-----------Build Options-----------------------------"
 	echo "   Pro or CE: $INSTALL_TYPE"
-	echo "  Build Type: $BUILD_TYPE"
 	echo "   Build Tag: $BUILD_TAG"
 	echo "   Image Tag: $IMAGE_TAG"
 	echo "   Installer: v$NM_QUICK_VERSION"
@@ -283,24 +239,15 @@ save_config() { (
 	save_config_item NM_EMAIL "$EMAIL"
 	save_config_item NM_DOMAIN "$NETMAKER_BASE_DOMAIN"
 	save_config_item UI_IMAGE_TAG "$IMAGE_TAG"
-	if [ "$BUILD_TYPE" = "local" ]; then
-		save_config_item UI_IMAGE_TAG "$LATEST"
-	else
-		save_config_item UI_IMAGE_TAG "$IMAGE_TAG"
-	fi
 	# version-specific entries
 	if [ "$INSTALL_TYPE" = "pro" ]; then
 		save_config_item NETMAKER_TENANT_ID "$TENANT_ID"
 		save_config_item LICENSE_KEY "$LICENSE_KEY"
 		save_config_item METRICS_EXPORTER "on"
 		save_config_item PROMETHEUS "on"
-		if [ "$BUILD_TYPE" = "version" ]; then
-			save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG-ee"
-		else
-			save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG"
-		fi
+		save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG-ee"
 	else
-		save_config_item METRICS_EXPORTER "off"
+		save_config_item "off"
 		save_config_item PROMETHEUS "off"
 		save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG"
 	fi
@@ -345,38 +292,7 @@ save_config_item() { (
 	fi
 ); }
 
-# local_install_setup - builds artifacts based on specified branch locally to use in install
-local_install_setup() { (
-	if test -z "$NM_SKIP_CLONE"; then
-		rm -rf netmaker-tmp
-		mkdir netmaker-tmp
-		cd netmaker-tmp
-		git clone --single-branch --depth=1 --branch=$BUILD_TAG https://www.github.com/gravitl/netmaker
-	else
-		cd netmaker-tmp
-		echo "Skipping git clone on NM_SKIP_CLONE"
-	fi
-	cd netmaker
-	if test -z "$NM_SKIP_BUILD"; then
-		docker build --no-cache --build-arg version=$IMAGE_TAG -t gravitl/netmaker:$IMAGE_TAG .
-	else
-		echo "Skipping build on NM_SKIP_BUILD"
-	fi
-	cp compose/docker-compose.yml "$SCRIPT_DIR/docker-compose.yml"
-	if [ "$INSTALL_TYPE" = "pro" ]; then
-		cp compose/docker-compose.ee.yml "$SCRIPT_DIR/docker-compose.override.yml"
-		cp docker/Caddyfile-pro "$SCRIPT_DIR/Caddyfile"
-	else
-		cp docker/Caddyfile "$SCRIPT_DIR/Caddyfile"
-	fi
-	cp scripts/netmaker.default.env "$SCRIPT_DIR/netmaker.default.env"
-	cp docker/mosquitto.conf "$SCRIPT_DIR/mosquitto.conf"
-	cp docker/wait.sh "$SCRIPT_DIR/wait.sh"
-	cd ../../
-	if test -z "$NM_SKIP_CLONE"; then
-		rm -rf netmaker-tmp
-	fi
-); }
+
 
 # install_dependencies - install necessary packages to run netmaker
 install_dependencies() {
@@ -670,10 +586,6 @@ set_install_vars() {
 	echo "Confirm Settings for Installation"
 	echo "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
 
-	if [ ! "$BUILD_TYPE" = "local" ]; then
-		IMAGE_TAG="$LATEST"
-	fi
-
 	confirm
 }
 
@@ -688,26 +600,22 @@ install_netmaker() {
 
 	echo "Pulling config files..."
 
-	if [ "$BUILD_TYPE" = "local" ]; then
-		local_install_setup
-	else
-		local BASE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG"
-
-		local COMPOSE_URL="$BASE_URL/compose/docker-compose.yml"
-		local CADDY_URL="$BASE_URL/docker/Caddyfile"
-		if [ "$INSTALL_TYPE" = "pro" ]; then
-			local COMPOSE_OVERRIDE_URL="$BASE_URL/compose/docker-compose.pro.yml"
-			local CADDY_URL="$BASE_URL/docker/Caddyfile-pro"
-		fi
-		wget -qO "$SCRIPT_DIR"/docker-compose.yml $COMPOSE_URL
-		if test -n "$COMPOSE_OVERRIDE_URL"; then
-			wget -qO "$SCRIPT_DIR"/docker-compose.override.yml $COMPOSE_OVERRIDE_URL
-		fi
-		wget -qO "$SCRIPT_DIR"/Caddyfile "$CADDY_URL"
-		wget -qO "$SCRIPT_DIR"/netmaker.default.env "$BASE_URL/scripts/netmaker.default.env"
-		wget -qO "$SCRIPT_DIR"/mosquitto.conf "$BASE_URL/docker/mosquitto.conf"
-		wget -qO "$SCRIPT_DIR"/wait.sh "$BASE_URL/docker/wait.sh"
+	
+	local BASE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG"
+	local COMPOSE_URL="$BASE_URL/compose/docker-compose.yml"
+	local CADDY_URL="$BASE_URL/docker/Caddyfile"
+	if [ "$INSTALL_TYPE" = "pro" ]; then
+		local COMPOSE_OVERRIDE_URL="$BASE_URL/compose/docker-compose.pro.yml"
+		local CADDY_URL="$BASE_URL/docker/Caddyfile-pro"
 	fi
+	wget -qO "$SCRIPT_DIR"/docker-compose.yml $COMPOSE_URL
+	if test -n "$COMPOSE_OVERRIDE_URL"; then
+		wget -qO "$SCRIPT_DIR"/docker-compose.override.yml $COMPOSE_OVERRIDE_URL
+	fi
+	wget -qO "$SCRIPT_DIR"/Caddyfile "$CADDY_URL"
+	wget -qO "$SCRIPT_DIR"/netmaker.default.env "$BASE_URL/scripts/netmaker.default.env"
+	wget -qO "$SCRIPT_DIR"/mosquitto.conf "$BASE_URL/docker/mosquitto.conf"
+	wget -qO "$SCRIPT_DIR"/wait.sh "$BASE_URL/docker/wait.sh"
 
 	chmod +x "$SCRIPT_DIR"/wait.sh
 	mkdir -p /etc/netmaker
@@ -881,4 +789,3 @@ configure_netclient
 # 13. print success message
 print_success
 
-# cp -f /etc/skel/.bashrc /root/.bashrc
