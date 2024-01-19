@@ -212,6 +212,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 					Connected:         true,
 					IsInternetGateway: node.IsInternetGateway,
 					GwPeerPublicKey:   host.PublicKey.String(),
+					Metadata:          node.Metadata,
 				})
 				userGws[node.Network] = gws
 				delete(user.RemoteGwIDs, node.ID.String())
@@ -226,6 +227,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 					Connected:         true,
 					IsInternetGateway: node.IsInternetGateway,
 					GwPeerPublicKey:   host.PublicKey.String(),
+					Metadata:          node.Metadata,
 				})
 				userGws[node.Network] = gws
 				processedAdminNodeIds[node.ID.String()] = struct{}{}
@@ -258,6 +260,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 				Network:           node.Network,
 				IsInternetGateway: node.IsInternetGateway,
 				GwPeerPublicKey:   host.PublicKey.String(),
+				Metadata:          node.Metadata,
 			})
 			userGws[node.Network] = gws
 		}
@@ -284,6 +287,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 					Network:           node.Network,
 					IsInternetGateway: node.IsInternetGateway,
 					GwPeerPublicKey:   host.PublicKey.String(),
+					Metadata:          node.Metadata,
 				})
 				userGws[node.Network] = gws
 			}

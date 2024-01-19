@@ -11,9 +11,9 @@ import (
 type ApiNode struct {
 	ID                      string   `json:"id,omitempty" validate:"required,min=5,id_unique"`
 	HostID                  string   `json:"hostid,omitempty" validate:"required,min=5,id_unique"`
-	Address                 string   `json:"address" validate:"omitempty,ipv4"`
-	Address6                string   `json:"address6" validate:"omitempty,ipv6"`
-	LocalAddress            string   `json:"localaddress" validate:"omitempty,ipv4"`
+	Address                 string   `json:"address" validate:"omitempty,cidrv4"`
+	Address6                string   `json:"address6" validate:"omitempty,cidrv6"`
+	LocalAddress            string   `json:"localaddress" validate:"omitempty,cidr"`
 	AllowedIPs              []string `json:"allowedips"`
 	LastModified            int64    `json:"lastmodified"`
 	ExpirationDateTime      int64    `json:"expdatetime"`
@@ -37,6 +37,7 @@ type ApiNode struct {
 	InternetGateway         string   `json:"internetgateway"`
 	Connected               bool     `json:"connected"`
 	PendingDelete           bool     `json:"pendingdelete"`
+	Metadata                string   `json:"metadata" validate:"max=256"`
 	// == PRO ==
 	DefaultACL    string              `json:"defaultacl,omitempty" validate:"checkyesornoorunset"`
 	IsFailOver    bool                `json:"is_fail_over"`
@@ -104,6 +105,7 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.LastCheckIn = time.Unix(a.LastCheckIn, 0)
 	convertedNode.LastPeerUpdate = time.Unix(a.LastPeerUpdate, 0)
 	convertedNode.ExpirationDateTime = time.Unix(a.ExpirationDateTime, 0)
+	convertedNode.Metadata = a.Metadata
 	return &convertedNode
 }
 
@@ -158,6 +160,7 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.IsFailOver = nm.IsFailOver
 	apiNode.FailOverPeers = nm.FailOverPeers
 	apiNode.FailedOverBy = nm.FailedOverBy
+	apiNode.Metadata = nm.Metadata
 	return &apiNode
 }
 

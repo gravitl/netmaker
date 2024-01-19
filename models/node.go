@@ -87,6 +87,7 @@ type Node struct {
 	EgressGatewayRequest    EgressGatewayRequest `json:"egressgatewayrequest" bson:"egressgatewayrequest" yaml:"egressgatewayrequest"`
 	IngressGatewayRange     string               `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
 	IngressGatewayRange6    string               `json:"ingressgatewayrange6" bson:"ingressgatewayrange6" yaml:"ingressgatewayrange6"`
+	Metadata                string               `json:"metadata"`
 	// == PRO ==
 	DefaultACL    string              `json:"defaultacl,omitempty" bson:"defaultacl,omitempty" yaml:"defaultacl,omitempty" validate:"checkyesornoorunset"`
 	OwnerID       string              `json:"ownerid,omitempty" bson:"ownerid,omitempty" yaml:"ownerid,omitempty"`
