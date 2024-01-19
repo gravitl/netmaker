@@ -62,7 +62,7 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	_, err = logic.GetUser(content.Login)
 	if err != nil { // user must not exist, so try to make one
-		if err = addUser(content.Login); err != nil {
+		if err = addUser(content.Login, true); err != nil {
 			return
 		}
 	}

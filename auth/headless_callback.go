@@ -52,7 +52,7 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 
 	_, err = logic.GetUser(userClaims.getUserName())
 	if err != nil { // user must not exists, so try to make one
-		if err = addUser(userClaims.getUserName()); err != nil {
+		if err = addUser(userClaims.getUserName(), true); err != nil {
 			logger.Log(1, "could not create new user: ", userClaims.getUserName())
 			return
 		}

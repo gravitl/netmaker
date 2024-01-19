@@ -146,8 +146,6 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 	var result models.User
 	if authRequest.UserName == "" {
 		return "", errors.New("username can't be empty")
-	} else if authRequest.Password == "" {
-		return "", errors.New("password can't be empty")
 	}
 	// Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API until approved).
 	record, err := database.FetchRecord(database.USERS_TABLE_NAME, authRequest.UserName)
@@ -156,6 +154,12 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 	}
 	if err = json.Unmarshal([]byte(record), &result); err != nil {
 		return "", errors.New("error unmarshalling user json: " + err.Error())
+	}
+
+	if result.Password == "" {
+		return "", errors.New("password login is not allowed, try SSO or resetting password")
+	} else if authRequest.Password == "" {
+		return "", errors.New("password can't be empty")
 	}
 
 	// compare password from request to stored password in database
@@ -247,11 +251,19 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 
 // ValidateUser - validates a user model
 func ValidateUser(user *models.User) error {
+	// note: trying to add `is_sso` tag on a validator would require
+	// appending `|is_sso` to all `validate` entries, for example:
+	//   `validate:"min=3|is_sso,max=40|is_sso,in_charset|email|is_sso"`
+	// so we can as well skip validation completely as there is only:
+	// - Username: should be always valid whatever SSO provides
+	// - Password: should always be empty and unable to login for SSO
+	if user.IsSSO {
+		return nil
+	}
 
 	v := validator.New()
 	_ = v.RegisterValidation("in_charset", func(fl validator.FieldLevel) bool {
-		isgood := user.NameInCharSet()
-		return isgood
+		return user.NameInCharSet()
 	})
 	err := v.Struct(user)
 

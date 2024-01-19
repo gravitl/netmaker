@@ -62,7 +62,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	_, err = logic.GetUser(content.UserPrincipalName)
 	if err != nil { // user must not exists, so try to make one
-		if err = addUser(content.UserPrincipalName); err != nil {
+		if err = addUser(content.UserPrincipalName, true); err != nil {
 			return
 		}
 	}

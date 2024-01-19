@@ -472,8 +472,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if auth.IsOauthUser(user) == nil && userchange.Password != "" {
-		err := fmt.Errorf("cannot update user's password for an oauth user %s", username)
+	if user.IsSSO && userchange.Password != "" {
+		err := fmt.Errorf("cannot update user's password for an SSO user %s", username)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
