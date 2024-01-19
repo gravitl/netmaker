@@ -75,7 +75,7 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	_, err = logic.GetUser(content.Email)
 	if err != nil { // user must not exists, so try to make one
-		if err = addUser(content.Email); err != nil {
+		if err = addUser(content.Email, true); err != nil {
 			return
 		}
 	}

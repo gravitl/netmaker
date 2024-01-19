@@ -28,6 +28,7 @@ type User struct {
 	Password      string              `json:"password" bson:"password" validate:"required,min=5"`
 	IsAdmin       bool                `json:"isadmin" bson:"isadmin"`
 	IsSuperAdmin  bool                `json:"issuperadmin"`
+	IsSSO         bool                `json:"issso"`
 	RemoteGwIDs   map[string]struct{} `json:"remote_gw_ids"`
 	LastLoginTime time.Time           `json:"last_login_time"`
 }

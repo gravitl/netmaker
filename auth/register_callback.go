@@ -152,7 +152,7 @@ func isUserIsAllowed(username, network string, shouldAddUser bool) (*models.User
 
 	user, err := logic.GetUser(username)
 	if err != nil && shouldAddUser { // user must not exist, so try to make one
-		if err = addUser(username); err != nil {
+		if err = addUser(username, false); err != nil {
 			logger.Log(0, "failed to add user", username, "during a node SSO network join on network", network)
 			// response := returnErrTemplate(user.UserName, "failed to add user", state, reqKeyIf)
 			// w.WriteHeader(http.StatusInternalServerError)

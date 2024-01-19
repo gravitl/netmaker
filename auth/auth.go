@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
 	"golang.org/x/oauth2"
 
@@ -154,16 +153,6 @@ func HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 	functions[handle_login].(func(http.ResponseWriter, *http.Request))(w, r)
 }
 
-// IsOauthUser - returns
-func IsOauthUser(user *models.User) error {
-	var currentValue, err = fetchPassValue("")
-	if err != nil {
-		return err
-	}
-	var bCryptErr = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentValue))
-	return bCryptErr
-}
-
 // HandleHeadlessSSO - handles the OAuth login flow for headless interfaces such as Netmaker CLI via websocket
 func HandleHeadlessSSO(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -240,7 +229,7 @@ func HandleHeadlessSSO(w http.ResponseWriter, r *http.Request) {
 
 // == private methods ==
 
-func addUser(email string) error {
+func addUser(email string, isSSO bool) error {
 	var hasSuperAdmin, err = logic.HasSuperAdmin()
 	if err != nil {
 		slog.Error("error checking for existence of admin user during OAuth login for", "email", email, "error", err)
@@ -253,6 +242,7 @@ func addUser(email string) error {
 	var newUser = models.User{
 		UserName: email,
 		Password: newPass,
+		IsSSO:    isSSO,
 	}
 	if !hasSuperAdmin { // must be first attempt, create a superadmin
 		if err = logic.CreateSuperAdmin(&newUser); err != nil {
