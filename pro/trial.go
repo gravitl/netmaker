@@ -85,7 +85,11 @@ func initTrial() error {
 	if err != nil {
 		return err
 	}
-	trialDatesSecret, err := ncutils.BoxEncrypt(trialDatesData, (*[32]byte)(tel.TrafficKeyPub), (*[32]byte)(t.PrivKey))
+	telePubKey, err := ncutils.ConvertBytesToKey(tel.TrafficKeyPub)
+	if err != nil {
+		return err
+	}
+	trialDatesSecret, err := ncutils.BoxEncrypt(trialDatesData, telePubKey, trafficPrivKey)
 	if err != nil {
 		return err
 	}
@@ -128,8 +132,16 @@ func getTrialEndDate() (time.Time, error) {
 	if err != nil {
 		return time.Time{}, err
 	}
+	telePrivKey, err := ncutils.ConvertBytesToKey(tel.TrafficKeyPriv)
+	if err != nil {
+		return time.Time{}, err
+	}
+	trialPubKey, err := ncutils.ConvertBytesToKey(trialInfo.PubKey)
+	if err != nil {
+		return time.Time{}, err
+	}
 	// decrypt secret
-	secretDecrypt, err := ncutils.BoxDecrypt(trialInfo.Secret, (*[32]byte)(trialInfo.PubKey), (*[32]byte)(tel.TrafficKeyPriv))
+	secretDecrypt, err := ncutils.BoxDecrypt(trialInfo.Secret, trialPubKey, telePrivKey)
 	if err != nil {
 		return time.Time{}, err
 	}
