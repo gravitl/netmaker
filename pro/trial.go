@@ -52,7 +52,6 @@ func initTrial() error {
 	err = database.CreateTable(trial_table_name)
 	if err != nil {
 		slog.Error("failed to create table", "table name", trial_table_name, "err", err.Error())
-		if errors.Is
 		return err
 	}
 	// setup encryption keys
