@@ -32,12 +32,12 @@ func sendTelemetry() error {
 		return nil
 	}
 
-	var telRecord, err = fetchTelemetryRecord()
+	var telRecord, err = FetchTelemetryRecord()
 	if err != nil {
 		return err
 	}
 	// get telemetry data
-	d, err := fetchTelemetryData()
+	d, err := FetchTelemetryData()
 	if err != nil {
 		return err
 	}
@@ -71,8 +71,8 @@ func sendTelemetry() error {
 	})
 }
 
-// fetchTelemetry - fetches telemetry data: count of various object types in DB
-func fetchTelemetryData() (telemetryData, error) {
+// FetchTelemetryData - fetches telemetry data: count of various object types in DB
+func FetchTelemetryData() (telemetryData, error) {
 	var data telemetryData
 
 	data.IsPro = servercfg.IsPro
@@ -138,8 +138,8 @@ func getClientCount(nodes []models.Node) clientCount {
 	return count
 }
 
-// fetchTelemetryRecord - get the existing UUID and Timestamp from the DB
-func fetchTelemetryRecord() (models.Telemetry, error) {
+// FetchTelemetryRecord - get the existing UUID and Timestamp from the DB
+func FetchTelemetryRecord() (models.Telemetry, error) {
 	var rawData string
 	var telObj models.Telemetry
 	var err error

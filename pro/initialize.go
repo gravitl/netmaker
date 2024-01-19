@@ -4,6 +4,8 @@
 package pro
 
 import (
+	"time"
+
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -17,6 +19,7 @@ import (
 // InitPro - Initialize Pro Logic
 func InitPro() {
 	servercfg.IsPro = true
+	proLogic.InitTrial()
 	models.SetLogo(retrieveProLogo())
 	controller.HttpMiddlewares = append(
 		controller.HttpMiddlewares,
@@ -31,18 +34,36 @@ func InitPro() {
 	)
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
 		// == License Handling ==
-		ClearLicenseCache()
-		if err := ValidateLicense(); err != nil {
-			slog.Error(err.Error())
-			return
+		enableLicenseHook := false
+		trialEndDate, err := getTrialEndDate()
+		if err != nil {
+			slog.Error("failed to get trial end date", "error", err)
+			enableLicenseHook = true
 		}
-		slog.Info("proceeding with Paid Tier license")
-		logic.SetFreeTierForTelemetry(false)
-		// == End License Handling ==
-		AddLicenseHooks()
+		// check if trial ended
+		if time.Now().After(trialEndDate) {
+			// trial ended already
+			enableLicenseHook = true
+		}
+		if enableLicenseHook {
+			slog.Info("starting license checker")
+			ClearLicenseCache()
+			if err := ValidateLicense(); err != nil {
+				slog.Error(err.Error())
+				return
+			}
+			slog.Info("proceeding with Paid Tier license")
+			logic.SetFreeTierForTelemetry(false)
+			// == End License Handling ==
+			AddLicenseHooks()
+		} else {
+			addTrialLicenseHook()
+		}
+
 		if servercfg.GetServerConfig().RacAutoDisable {
 			AddRacHooks()
 		}
+
 	})
 	logic.ResetFailOver = proLogic.ResetFailOver
 	logic.ResetFailedOverPeer = proLogic.ResetFailedOverPeer
