@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/gorilla/mux"
 	"golang.org/x/exp/slog"
@@ -109,22 +110,24 @@ func getUsage(w http.ResponseWriter, _ *http.Request) {
 //				200: serverConfigResponse
 func getStatus(w http.ResponseWriter, r *http.Request) {
 	type status struct {
-		DB           bool   `json:"db_connected"`
-		Broker       bool   `json:"broker_connected"`
-		LicenseError string `json:"license_error"`
-		IsPro        bool   `json:"is_pro"`
+		DB           bool      `json:"db_connected"`
+		Broker       bool      `json:"broker_connected"`
+		LicenseError string    `json:"license_error"`
+		IsPro        bool      `json:"is_pro"`
+		TrialEndDate time.Time `json:"trial_end_date"`
 	}
 
 	licenseErr := ""
 	if servercfg.ErrLicenseValidation != nil {
 		licenseErr = servercfg.ErrLicenseValidation.Error()
 	}
-
+	trialEndDate, _ := logic.GetTrialEndDate()
 	currentServerStatus := status{
 		DB:           database.IsConnected(),
 		Broker:       mq.IsConnected(),
 		LicenseError: licenseErr,
 		IsPro:        servercfg.IsPro,
+		TrialEndDate: trialEndDate,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -96,6 +96,7 @@ func InitPro() {
 	logic.RelayUpdates = proLogic.RelayUpdates
 	logic.IsInternetGw = proLogic.IsInternetGw
 	logic.SetInternetGw = proLogic.SetInternetGw
+	logic.GetTrialEndDate = getTrialEndDate
 	mq.UpdateMetrics = proLogic.MQUpdateMetrics
 	mq.UpdateMetricsFallBack = proLogic.MQUpdateMetricsFallBack
 }
