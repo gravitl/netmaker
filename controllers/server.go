@@ -121,7 +121,10 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 	if servercfg.ErrLicenseValidation != nil {
 		licenseErr = servercfg.ErrLicenseValidation.Error()
 	}
-	trialEndDate, _ := logic.GetTrialEndDate()
+	var trialEndDate time.Time
+	if servercfg.GetLicenseKey() == "" {
+		trialEndDate, _ = logic.GetTrialEndDate()
+	}
 	currentServerStatus := status{
 		DB:           database.IsConnected(),
 		Broker:       mq.IsConnected(),
