@@ -7,6 +7,7 @@ import (
 	"time"
 
 	controller "github.com/gravitl/netmaker/controllers"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
@@ -34,16 +35,28 @@ func InitPro() {
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
 		// == License Handling ==
 		enableLicenseHook := false
-		trialEndDate, err := getTrialEndDate()
-		if err != nil {
-			slog.Error("failed to get trial end date", "error", err)
+		licenseKeyValue := servercfg.GetLicenseKey()
+		netmakerTenantID := servercfg.GetNetmakerTenantID()
+		if licenseKeyValue != "" && netmakerTenantID != "" {
 			enableLicenseHook = true
 		}
-		// check if trial ended
-		if time.Now().After(trialEndDate) {
-			// trial ended already
-			enableLicenseHook = true
+		if !enableLicenseHook {
+			err := initTrial()
+			if err != nil {
+				logger.FatalLog0("failed to init trail", err.Error())
+			}
+			trialEndDate, err := getTrialEndDate()
+			if err != nil {
+				slog.Error("failed to get trial end date", "error", err)
+				enableLicenseHook = true
+			}
+			// check if trial ended
+			if time.Now().After(trialEndDate) {
+				// trial ended already
+				enableLicenseHook = true
+			}
 		}
+
 		if enableLicenseHook {
 			slog.Info("starting license checker")
 			ClearLicenseCache()

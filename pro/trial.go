@@ -41,7 +41,7 @@ const trial_table_name = "trial"
 const trial_data_key = "trialdata"
 
 // store trial date
-func InitTrial() error {
+func initTrial() error {
 	telData, err := logic.FetchTelemetryData()
 	if err != nil {
 		return err
@@ -52,6 +52,7 @@ func InitTrial() error {
 	err = database.CreateTable(trial_table_name)
 	if err != nil {
 		slog.Error("failed to create table", "table name", trial_table_name, "err", err.Error())
+		if errors.Is
 		return err
 	}
 	// setup encryption keys
