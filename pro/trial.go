@@ -21,7 +21,7 @@ import (
 type TrialInfo struct {
 	PrivKey []byte `json:"priv_key"`
 	PubKey  []byte `json:"pub_key"`
-	Secret  string `json:"secret"`
+	Secret  []byte `json:"secret"`
 }
 
 func addTrialLicenseHook() {
@@ -89,7 +89,7 @@ func initTrial() error {
 	if err != nil {
 		return err
 	}
-	t.Secret = string(trialDatesSecret)
+	t.Secret = trialDatesSecret
 	trialData, err := json.Marshal(t)
 	if err != nil {
 		return err
@@ -129,7 +129,7 @@ func getTrialEndDate() (time.Time, error) {
 		return time.Time{}, err
 	}
 	// decrypt secret
-	secretDecrypt, err := ncutils.BoxDecrypt([]byte(trialInfo.Secret), (*[32]byte)(trialInfo.PubKey), (*[32]byte)(tel.TrafficKeyPriv))
+	secretDecrypt, err := ncutils.BoxDecrypt(trialInfo.Secret, (*[32]byte)(trialInfo.PubKey), (*[32]byte)(tel.TrafficKeyPriv))
 	if err != nil {
 		return time.Time{}, err
 	}
