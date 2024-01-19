@@ -485,24 +485,6 @@ set_install_vars() {
 
 	wait_seconds 1
 
-	if [ "$INSTALL_TYPE" = "pro" ]; then
-
-		echo "-----------------------------------------------------"
-		echo "Provide Details for pro installation:"
-		echo "    1. Log into https://app.netmaker.io"
-		echo "    2. follow instructions to get a license at: https://docs.netmaker.io/ee/ee-setup.html"
-		echo "    3. Retrieve License and Tenant ID"
-		echo "    4. note email address"
-		echo "-----------------------------------------------------"
-		unset LICENSE_KEY
-		while [ -z "$LICENSE_KEY" ]; do
-			read -p "License Key: " LICENSE_KEY
-		done
-		unset TENANT_ID
-		while [ -z ${TENANT_ID} ]; do
-			read -p "Tenant ID: " TENANT_ID
-		done
-	fi
 
 	unset GET_EMAIL
 	unset RAND_EMAIL
@@ -582,10 +564,6 @@ set_install_vars() {
 	echo "        domain: $NETMAKER_BASE_DOMAIN"
 	echo "         email: $EMAIL"
 	echo "     public ip: $SERVER_HOST"
-	if [ "$INSTALL_TYPE" = "pro" ]; then
-		echo "       license: $LICENSE_KEY"
-		echo "    account id: $TENANT_ID"
-	fi
 	echo "-----------------------------------------------------------------"
 	echo "Confirm Settings for Installation"
 	echo "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -"
