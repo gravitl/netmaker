@@ -19,7 +19,6 @@ import (
 // InitPro - Initialize Pro Logic
 func InitPro() {
 	servercfg.IsPro = true
-	proLogic.InitTrial()
 	models.SetLogo(retrieveProLogo())
 	controller.HttpMiddlewares = append(
 		controller.HttpMiddlewares,

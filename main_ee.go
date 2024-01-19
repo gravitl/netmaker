@@ -6,5 +6,6 @@ package main
 import "github.com/gravitl/netmaker/pro"
 
 func init() {
+	pro.InitTrial()
 	pro.InitPro()
 }
