@@ -700,7 +700,7 @@ stop_services(){
 
 upgrade() {
 	print_logo
-	set_buildinfo
+	set_buildinfo "$INSTALL_TYPE"
 	stop_services
 	echo "-----------------------------------------------------"
 	echo "Provide Details for pro installation:"
@@ -723,7 +723,7 @@ upgrade() {
 
 downgrade () {
 	print_logo
-	set_buildinfo
+	set_buildinfo "$INSTALL_TYPE"
 	stop_services
 	save_config
 	if [ -a "$SCRIPT_DIR"/docker-compose.override.yml ]; then
