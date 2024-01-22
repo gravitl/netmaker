@@ -15,31 +15,19 @@ fi
 unset INSTALL_TYPE
 unset BUILD_TAG
 unset IMAGE_TAG
-unset AUTO_BUILD
 unset NETMAKER_BASE_DOMAIN
 INSTALL_TYPE="pro"
-UPGRADE_FLAG="yes"
 # usage - displays usage instructions
 usage() {
 	echo "nm-quick.sh v$NM_QUICK_VERSION"
 	echo "usage: ./nm-quick.sh [-c]"
-	echo "  -c      if specified, will install netmaker community version"
-
+	echo " -c  if specified, will install netmaker community version"
+	echo " -u  if specified, will upgrade netmaker to pro version"
+	echo " -d if specified, will downgrade netmaker to community version"
 	exit 1
 }
 
-while getopts evab:d:t: flag; do
-	case "${flag}" in
-	c)
-		INSTALL_TYPE="ce"
-		UPGRADE_FLAG="no"
-		;;
-	v)
-		usage
-		exit 0
-		;;
-	esac
-done
+
 
 # print_logo - prints the netmaker logo
 print_logo() {
@@ -74,10 +62,7 @@ set_buildinfo() {
 	elif [ "$1" = "pro" ]; then
 		INSTALL_TYPE="pro"
 	fi
-
-	if [ "$AUTO_BUILD" = "on" ] && [ -z "$INSTALL_TYPE" ]; then
-		INSTALL_TYPE="ce"
-	elif [ -z "$INSTALL_TYPE" ]; then
+	if [ -z "$INSTALL_TYPE" ]; then
 		echo "-----------------------------------------------------"
 		echo "Would you like to install Netmaker Community Edition (CE), or Netmaker Enterprise Edition (pro)?"
 		echo "pro will require you to create an account at https://app.netmaker.io"
@@ -217,9 +202,6 @@ wait_seconds() { (
 
 # confirm - get user input to confirm that they want to perform the next step
 confirm() { (
-	if [ "$AUTO_BUILD" = "on" ]; then
-		return 0
-	fi
 	while true; do
 		read -p 'Does everything look right? [y/n]: ' yn
 		case $yn in
@@ -440,27 +422,23 @@ set_install_vars() {
 	echo "For this reason, we STRONGLY RECOMMEND using your own domain. Using the auto-generated domain may lead to a failed installation due to rate limiting."
 	echo "-----------------------------------------------------"
 
-	if [ "$AUTO_BUILD" = "on" ]; then
-		DOMAIN_TYPE="auto"
-	else
-		select domain_option in "Auto Generated ($NETMAKER_BASE_DOMAIN)" "Custom Domain (e.x: netmaker.example.com)"; do
-			case $REPLY in
-			1)
-				echo "using $NETMAKER_BASE_DOMAIN for base domain"
-				DOMAIN_TYPE="auto"
-				break
-				;;
-			2)
-				read -p "Enter Custom Domain (make sure  *.domain points to $SERVER_HOST first): " domain
-				NETMAKER_BASE_DOMAIN=$domain
-				echo "using $NETMAKER_BASE_DOMAIN"
-				DOMAIN_TYPE="custom"
-				break
-				;;
-			*) echo "invalid option $REPLY" ;;
-			esac
-		done
-	fi
+	select domain_option in "Auto Generated ($NETMAKER_BASE_DOMAIN)" "Custom Domain (e.x: netmaker.example.com)"; do
+		case $REPLY in
+		1)
+			echo "using $NETMAKER_BASE_DOMAIN for base domain"
+			DOMAIN_TYPE="auto"
+			break
+			;;
+		2)
+			read -p "Enter Custom Domain (make sure  *.domain points to $SERVER_HOST first): " domain
+			NETMAKER_BASE_DOMAIN=$domain
+			echo "using $NETMAKER_BASE_DOMAIN"
+			DOMAIN_TYPE="custom"
+			break
+			;;
+		*) echo "invalid option $REPLY" ;;
+		esac
+	done
 
 	wait_seconds 2
 
@@ -491,9 +469,7 @@ set_install_vars() {
 	RAND_EMAIL="$(echo $RANDOM | md5sum | head -c 16)@email.com"
 	# suggest the prev email or a random one
 	EMAIL_SUGGESTED=${NM_EMAIL:-$RAND_EMAIL}
-	if [ -z $AUTO_BUILD ]; then
-		read -p "Email Address for Domain Registration (click 'enter' to use $EMAIL_SUGGESTED): " GET_EMAIL
-	fi
+	read -p "Email Address for Domain Registration (click 'enter' to use $EMAIL_SUGGESTED): " GET_EMAIL
 	if [ -z "$GET_EMAIL" ]; then
 		EMAIL="$EMAIL_SUGGESTED"
 		if [ "$EMAIL" = "$NM_EMAIL" ]; then
@@ -511,9 +487,8 @@ set_install_vars() {
 	unset GET_MQ_PASSWORD
 	unset CONFIRM_MQ_PASSWORD
 	echo "Enter Credentials For MQ..."
-	if [ -z $AUTO_BUILD ]; then
-		read -p "MQ Username (click 'enter' to use 'netmaker'): " GET_MQ_USERNAME
-	fi
+	
+	read -p "MQ Username (click 'enter' to use 'netmaker'): " GET_MQ_USERNAME
 	if [ -z "$GET_MQ_USERNAME" ]; then
 		echo "using default username for mq"
 		MQ_USERNAME="netmaker"
@@ -528,33 +503,33 @@ set_install_vars() {
 		)
 	fi
 
-	if [ -z $AUTO_BUILD ]; then
-		select domain_option in "Auto Generated / Config Password" "Input Your Own Password"; do
-			case $REPLY in
-			1)
-				echo "using random password for mq"
+
+	select domain_option in "Auto Generated / Config Password" "Input Your Own Password"; do
+		case $REPLY in
+		1)
+			echo "using random password for mq"
+			break
+			;;
+		2)
+			while true; do
+				echo "Enter your Password For MQ: "
+				read -s GET_MQ_PASSWORD
+				echo "Enter your password again to confirm: "
+				read -s CONFIRM_MQ_PASSWORD
+				if [ ${GET_MQ_PASSWORD} != ${CONFIRM_MQ_PASSWORD} ]; then
+					echo "wrong password entered, try again..."
+					continue
+				fi
+				MQ_PASSWORD="$GET_MQ_PASSWORD"
+				echo "MQ Password Saved Successfully!!"
 				break
-				;;
-			2)
-				while true; do
-					echo "Enter your Password For MQ: "
-					read -s GET_MQ_PASSWORD
-					echo "Enter your password again to confirm: "
-					read -s CONFIRM_MQ_PASSWORD
-					if [ ${GET_MQ_PASSWORD} != ${CONFIRM_MQ_PASSWORD} ]; then
-						echo "wrong password entered, try again..."
-						continue
-					fi
-					MQ_PASSWORD="$GET_MQ_PASSWORD"
-					echo "MQ Password Saved Successfully!!"
-					break
-				done
-				break
-				;;
-			*) echo "invalid option $REPLY" ;;
-			esac
-		done
-	fi
+			done
+			break
+			;;
+		*) echo "invalid option $REPLY" ;;
+		esac
+	done
+	
 
 	wait_seconds 2
 
@@ -700,6 +675,10 @@ cleanup() {
 		fi
 	fi
 
+	stop_services
+}
+
+stop_services(){
 	echo "Stopping all containers..."
 	local containers=("mq" "netmaker-ui" "coredns" "turn" "caddy" "netmaker" "netmaker-exporter" "prometheus" "grafana")
 	for name in "${containers[@]}"; do
@@ -714,57 +693,114 @@ cleanup() {
 	done
 }
 
-# 1. print netmaker logo
-print_logo
+upgrade() {
+	set_buildinfo
+	stop_services
+	echo "-----------------------------------------------------"
+	echo "Provide Details for pro installation:"
+	echo "    1. Log into https://app.netmaker.io"
+	echo "    2. follow instructions to get a license at: https://docs.netmaker.io/ee/ee-setup.html"
+	echo "    3. Retrieve License and Tenant ID"
+	echo "    4. note email address"
+	echo "-----------------------------------------------------"
+	unset LICENSE_KEY
+	while [ -z "$LICENSE_KEY" ]; do
+		read -p "License Key: " LICENSE_KEY
+	done
+	unset TENANT_ID
+	while [ -z ${TENANT_ID} ]; do
+		read -p "Tenant ID: " TENANT_ID
+	done
+	save_config
+	install_netmaker
+}
 
-# read the config
-if [ -f "$CONFIG_PATH" ]; then
-	echo "Using config: $CONFIG_PATH"
-	source "$CONFIG_PATH"
-fi
+downgrade () {
+	set_buildinfo
+	stop_services
+	save_config
+	if [ -a "$SCRIPT_DIR"/docker-compose.override.yml ]; then
+		rm -f "$SCRIPT_DIR"/docker-compose.override.yml
+	fi
+	install_netmaker
+}
 
-# 2. setup the build instructions
-set_buildinfo
 
-set +e
+main (){
+	# 1. print netmaker logo
+	print_logo
 
-# 3. install necessary packages
-install_dependencies
+	# read the config
+	if [ -f "$CONFIG_PATH" ]; then
+		echo "Using config: $CONFIG_PATH"
+		source "$CONFIG_PATH"
+	fi
 
-# 4. install yq if necessary
-install_yq
 
-set -e
+	while getopts evab:d:t: flag; do
+	case "${flag}" in
+	c)
+		INSTALL_TYPE="ce"
+		;;
+	u)
+		INSTALL_TYPE="pro"
+		upgrade
+		exit 0
+		;;
+	d) 
+		INSTALL_TYPE="ce"
+		downgrade
+		exit 0
+		;;
+	v)
+		usage
+		exit 0
+		;;
+	esac
+done
 
-# 6. get user input for variables
-set_install_vars
+	# 2. setup the build instructions
+	set_buildinfo
+	set +e
+	# 3. install necessary packages
+	install_dependencies
 
-set +e
-cleanup
-set -e
+	# 4. install yq if necessary
+	install_yq
 
-# 7. get and set config files, startup docker-compose
-install_netmaker
+	set -e
 
-set +e
+	# 6. get user input for variables
+	set_install_vars
 
-# 8. make sure Caddy certs are working
-test_connection
+	set +e
+	cleanup
+	set -e
 
-# 9. install the netmaker CLI
-setup_nmctl
+	# 7. get and set config files, startup docker-compose
+	install_netmaker
 
-# 10. create a default mesh network for netmaker
-setup_mesh
+	set +e
 
-set -e
+	# 8. make sure Caddy certs are working
+	test_connection
 
-# 11. add netclient to docker-compose and start it up
-setup_netclient
+	# 9. install the netmaker CLI
+	setup_nmctl
 
-# 12. make the netclient a default host and ingress gw
-configure_netclient
+	# 10. create a default mesh network for netmaker
+	setup_mesh
 
-# 13. print success message
-print_success
+	set -e
 
+	# 11. add netclient to docker-compose and start it up
+	setup_netclient
+
+	# 12. make the netclient a default host and ingress gw
+	configure_netclient
+
+	# 13. print success message
+	print_success
+}
+
+main "${@}"
