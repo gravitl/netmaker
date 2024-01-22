@@ -157,8 +157,8 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 	}
 
 	if result.Password == "" {
-		return "", errors.New("password login is not allowed, try SSO or resetting password")
-	} else if authRequest.Password == "" {
+		return "", errors.New("password login is not allowed, try SSO or resetting password by admin")
+	} else if authRequest.Password == "" && !result.IsSSO {
 		return "", errors.New("password can't be empty")
 	}
 
