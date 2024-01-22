@@ -2,6 +2,7 @@ package functions
 
 import (
 	"net/http"
+	"net/url"
 
 	"github.com/gravitl/netmaker/models"
 )
@@ -18,5 +19,5 @@ func GetEnrollmentKeys() *[]models.EnrollmentKey {
 
 // DeleteEnrollmentKey - delete an enrollment key
 func DeleteEnrollmentKey(keyID string) {
-	request[any](http.MethodDelete, "/api/v1/enrollment-keys/"+keyID, nil)
+	request[any](http.MethodDelete, "/api/v1/enrollment-keys/"+url.QueryEscape(keyID), nil)
 }

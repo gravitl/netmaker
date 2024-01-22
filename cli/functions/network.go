@@ -3,6 +3,7 @@ package functions
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/gravitl/netmaker/models"
 )
@@ -14,12 +15,12 @@ func CreateNetwork(payload *models.Network) *models.Network {
 
 // UpdateNetwork - updates a network
 func UpdateNetwork(name string, payload *models.Network) *models.Network {
-	return request[models.Network](http.MethodPut, "/api/networks/"+name, payload)
+	return request[models.Network](http.MethodPut, "/api/networks/"+url.QueryEscape(name), payload)
 }
 
 // UpdateNetworkNodeLimit - updates a network
 func UpdateNetworkNodeLimit(name string, nodeLimit int32) *models.Network {
-	return request[models.Network](http.MethodPut, fmt.Sprintf("/api/networks/%s/nodelimit", name), &models.Network{
+	return request[models.Network](http.MethodPut, fmt.Sprintf("/api/networks/%s/nodelimit", url.QueryEscape(name)), &models.Network{
 		NodeLimit: nodeLimit,
 	})
 }
@@ -31,10 +32,10 @@ func GetNetworks() *[]models.Network {
 
 // GetNetwork - fetch a single network
 func GetNetwork(name string) *models.Network {
-	return request[models.Network](http.MethodGet, "/api/networks/"+name, nil)
+	return request[models.Network](http.MethodGet, "/api/networks/"+url.QueryEscape(name), nil)
 }
 
 // DeleteNetwork - delete a network
 func DeleteNetwork(name string) *string {
-	return request[string](http.MethodDelete, "/api/networks/"+name, nil)
+	return request[string](http.MethodDelete, "/api/networks/"+url.QueryEscape(name), nil)
 }
