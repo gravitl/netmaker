@@ -88,8 +88,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	username := authRequest.UserName
 	jwt, err := logic.VerifyAuthRequest(authRequest)
 	if err != nil {
-		logger.Log(0, username, "user validation failed: ",
-			err.Error())
+		logger.Log(0, username, "user validation failed: ", err.Error())
 		logic.ReturnErrorResponse(response, request, logic.FormatError(err, "badrequest"))
 		return
 	}

@@ -66,7 +66,7 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 		Password: newPass,
 	})
 	if jwtErr != nil {
-		logger.Log(1, "could not parse jwt for user", userClaims.getUserName())
+		logger.Log(1, "could not parse jwt for user", userClaims.getUserName(), "due to error", jwtErr.Error())
 		return
 	}
 

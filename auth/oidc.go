@@ -100,7 +100,7 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 
 	var jwt, jwtErr = logic.VerifyAuthRequest(authRequest)
 	if jwtErr != nil {
-		logger.Log(1, "could not parse jwt for user", authRequest.UserName, jwtErr.Error())
+		logger.Log(1, "could not parse jwt for user", authRequest.UserName, "due to error", jwtErr.Error())
 		return
 	}
 
