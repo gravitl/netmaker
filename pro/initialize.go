@@ -4,8 +4,6 @@
 package pro
 
 import (
-	"time"
-
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -45,16 +43,16 @@ func InitPro() {
 			if err != nil {
 				logger.FatalLog0("failed to init trail", err.Error())
 			}
-			trialEndDate, err := getTrialEndDate()
-			if err != nil {
-				slog.Error("failed to get trial end date", "error", err)
-				enableLicenseHook = true
-			}
-			// check if trial ended
-			if time.Now().After(trialEndDate) {
-				// trial ended already
-				enableLicenseHook = true
-			}
+			// trialEndDate, err := getTrialEndDate()
+			// if err != nil {
+			// 	slog.Error("failed to get trial end date", "error", err)
+			// 	enableLicenseHook = true
+			// }
+			// // check if trial ended
+			// if time.Now().After(trialEndDate) {
+			// 	// trial ended already
+			// 	enableLicenseHook = true
+			// }
 		}
 
 		if enableLicenseHook {

@@ -26,7 +26,7 @@ type TrialInfo struct {
 func addTrialLicenseHook() {
 	logic.HookManagerCh <- models.HookDetails{
 		Hook:     TrialLicenseHook,
-		Interval: time.Hour,
+		Interval: time.Minute * 2,
 	}
 }
 
@@ -72,7 +72,7 @@ func initTrial() error {
 	}
 	trialDates := TrialDates{
 		TrialStartedAt: time.Now(),
-		TrialEndsAt:    time.Now().Add(time.Hour * 24 * 30),
+		TrialEndsAt:    time.Now().Add(time.Minute),
 	}
 	t := TrialInfo{
 		PrivKey: tPriv,
