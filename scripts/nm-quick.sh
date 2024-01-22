@@ -736,7 +736,7 @@ main (){
 		source "$CONFIG_PATH"
 	fi
 
-
+	INSTALL_TYPE="pro"
 	while getopts :cudv flag; do
 	case "${flag}" in
 	c)
