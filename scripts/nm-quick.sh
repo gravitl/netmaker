@@ -679,7 +679,7 @@ cleanup() {
 }
 
 stop_services(){
-	echo "Stopping all containers..."
+	echo "Stopping all containers, this will take a while please wait..."
 	local containers=("mq" "netmaker-ui" "coredns" "turn" "caddy" "netmaker" "netmaker-exporter" "prometheus" "grafana")
 	for name in "${containers[@]}"; do
 		local running=$(docker ps | grep -w "$name")
