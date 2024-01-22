@@ -201,9 +201,20 @@ func GetAPIHost() string {
 }
 
 // GetAPIPort - gets the api port
+func GetAPIListenerAddress() string {
+	address := ""
+	if os.Getenv("NETMAKER_API_LISTENER_ADDRESS") != "" {
+		address = os.Getenv("NETMAKER_API_LISTENER_ADDRESS")
+	}
+	return address
+}
+
+// GetAPIPort - gets the api port
 func GetAPIPort() string {
 	apiport := "8081"
-	if os.Getenv("API_PORT") != "" {
+	if os.Getenv("NETMAKER_API_PORT") != "" {
+		apiport = os.Getenv("NETMAKER_API_PORT")
+	} else if os.Getenv("API_PORT") != "" {
 		apiport = os.Getenv("API_PORT")
 	} else if config.Config.Server.APIPort != "" {
 		apiport = config.Config.Server.APIPort
