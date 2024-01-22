@@ -19,7 +19,7 @@ func CreateUser(payload *models.User) *models.User {
 
 // UpdateUser - update a user
 func UpdateUser(payload *models.User) *models.User {
-	return request[models.User](http.MethodPut, "/api/users/networks/"+url.QueryEscape(payload.UserName), payload)
+	return request[models.User](http.MethodPut, "/api/users/"+url.QueryEscape(payload.UserName), payload)
 }
 
 // DeleteUser - delete a user
