@@ -219,11 +219,16 @@ confirm() { (
 	done
 ) }
 
+
 save_config() { (
 	echo "Saving the config to $CONFIG_PATH"
 	touch "$CONFIG_PATH"
-	save_config_item NM_EMAIL "$EMAIL"
-	save_config_item NM_DOMAIN "$NETMAKER_BASE_DOMAIN"
+	if [ -n "$EMAIL" ]; then 
+		save_config_item NM_EMAIL "$EMAIL"
+	fi
+	if [ -n "$NETMAKER_BASE_DOMAIN" ]; then
+		save_config_item NM_DOMAIN "$NETMAKER_BASE_DOMAIN"
+	fi
 	save_config_item UI_IMAGE_TAG "$IMAGE_TAG"
 	# version-specific entries
 	if [ "$INSTALL_TYPE" = "pro" ]; then
