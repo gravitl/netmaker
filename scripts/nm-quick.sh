@@ -694,6 +694,7 @@ stop_services(){
 }
 
 upgrade() {
+	print_logo
 	set_buildinfo
 	stop_services
 	echo "-----------------------------------------------------"
@@ -716,6 +717,7 @@ upgrade() {
 }
 
 downgrade () {
+	print_logo
 	set_buildinfo
 	stop_services
 	save_config
@@ -727,8 +729,6 @@ downgrade () {
 
 
 main (){
-	# 1. print netmaker logo
-	print_logo
 
 	# read the config
 	if [ -f "$CONFIG_PATH" ]; then
@@ -737,7 +737,7 @@ main (){
 	fi
 
 
-	while getopts evab:d:t: flag; do
+	while getopts :cudv flag; do
 	case "${flag}" in
 	c)
 		INSTALL_TYPE="ce"
@@ -758,6 +758,9 @@ main (){
 		;;
 	esac
 done
+
+	# 1. print netmaker logo
+	print_logo
 
 	# 2. setup the build instructions
 	set_buildinfo
