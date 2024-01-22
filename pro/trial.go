@@ -15,7 +15,6 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"golang.org/x/crypto/nacl/box"
-	"golang.org/x/exp/slog"
 )
 
 type TrialInfo struct {
@@ -49,10 +48,13 @@ func initTrial() error {
 	if telData.Hosts > 0 || telData.Networks > 0 || telData.Users > 0 {
 		return nil
 	}
-	err = database.CreateTable(trial_table_name)
-	if err != nil {
-		slog.Error("failed to create table", "table name", trial_table_name, "err", err.Error())
+	database.CreateTable(trial_table_name)
+	records, err := database.FetchRecords(trial_table_name)
+	if err != nil && !database.IsEmptyRecord(err) {
 		return err
+	}
+	if len(records) > 0 {
+		return nil
 	}
 	// setup encryption keys
 	trafficPubKey, trafficPrivKey, err := box.GenerateKey(rand.Reader) // generate traffic keys
