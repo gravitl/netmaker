@@ -4,15 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
+	"io"
+	"net/http"
 )
 
 var github_functions = map[string]interface{}{
@@ -60,12 +58,14 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthNotConfigured(w)
 		return
 	}
-	user, err := logic.GetUser(content.Login)
+	username := content.Login
+
+	user, err := logic.GetUser(username)
 	if err != nil { // user must not exist, so try to make one
-		if err = addUser(content.Login, true); err != nil {
+		if err = addUser(username, true); err != nil {
 			return
 		}
-		user, err = logic.GetUser(content.Login)
+		user, err = logic.GetUser(username)
 	}
 	if err != nil {
 		handleOauthUserNotFound(w)
@@ -81,7 +81,7 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	// send a netmaker jwt token
 	var authRequest = models.UserAuthParams{
-		UserName: content.Login,
+		UserName: username,
 		Password: newPass,
 	}
 
@@ -90,9 +90,7 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		logger.Log(1, "could not parse jwt for user", authRequest.UserName, "due to error", jwtErr.Error())
 		return
 	}
-
-	logger.Log(1, "completed github OAuth sigin in for", content.Login)
-	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+content.Login, http.StatusPermanentRedirect)
+	performSSORedirect("GitHub", w, r, jwt, username)
 }
 
 func getGithubUserInfo(state string, code string) (*OAuthUser, error) {

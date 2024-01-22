@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -323,4 +324,9 @@ func (user *OAuthUser) getUserName() string {
 func isStateCached(state string) bool {
 	_, err := netcache.Get(state)
 	return err == nil || strings.Contains(err.Error(), "expired")
+}
+
+func performSSORedirect(authType string, w http.ResponseWriter, r *http.Request, jwt string, username string) {
+	logger.Log(1, fmt.Sprintf("completed %s sign-in for %s", authType, username))
+	http.Redirect(w, r, fmt.Sprintf("%s/login?login=%s&user=%s", servercfg.GetFrontendURL(), url.QueryEscape(jwt), url.QueryEscape(username)), http.StatusPermanentRedirect)
 }

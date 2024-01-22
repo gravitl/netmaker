@@ -4,15 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/microsoft"
+	"io"
+	"net/http"
 )
 
 var azure_ad_functions = map[string]interface{}{
@@ -60,12 +59,14 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthNotConfigured(w)
 		return
 	}
-	user, err := logic.GetUser(content.UserPrincipalName)
+	username := content.UserPrincipalName
+
+	user, err := logic.GetUser(username)
 	if err != nil { // user must not exists, so try to make one
-		if err = addUser(content.UserPrincipalName, true); err != nil {
+		if err = addUser(username, true); err != nil {
 			return
 		}
-		user, err = logic.GetUser(content.UserPrincipalName)
+		user, err = logic.GetUser(username)
 	}
 	if err != nil {
 		handleOauthUserNotFound(w)
@@ -81,7 +82,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	// send a netmaker jwt token
 	var authRequest = models.UserAuthParams{
-		UserName: content.UserPrincipalName,
+		UserName: username,
 		Password: newPass,
 	}
 
@@ -91,8 +92,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Log(1, "completed azure OAuth sigin in for", content.UserPrincipalName)
-	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+content.UserPrincipalName, http.StatusPermanentRedirect)
+	performSSORedirect("AzureAD", w, r, jwt, username)
 }
 
 func getAzureUserInfo(state string, code string) (*OAuthUser, error) {
