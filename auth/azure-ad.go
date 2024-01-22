@@ -60,13 +60,13 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthNotConfigured(w)
 		return
 	}
-	_, err = logic.GetUser(content.UserPrincipalName)
+	user, err := logic.GetUser(content.UserPrincipalName)
 	if err != nil { // user must not exists, so try to make one
 		if err = addUser(content.UserPrincipalName, true); err != nil {
 			return
 		}
+		user, err = logic.GetUser(content.UserPrincipalName)
 	}
-	user, err := logic.GetUser(content.Email)
 	if err != nil {
 		handleOauthUserNotFound(w)
 		return

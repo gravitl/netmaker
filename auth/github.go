@@ -60,13 +60,13 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthNotConfigured(w)
 		return
 	}
-	_, err = logic.GetUser(content.Login)
+	user, err := logic.GetUser(content.Login)
 	if err != nil { // user must not exist, so try to make one
 		if err = addUser(content.Login, true); err != nil {
 			return
 		}
+		user, err = logic.GetUser(content.Login)
 	}
-	user, err := logic.GetUser(content.Email)
 	if err != nil {
 		handleOauthUserNotFound(w)
 		return
