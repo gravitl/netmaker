@@ -60,18 +60,18 @@ func InitPro() {
 		}
 
 		if enableLicenseHook {
-			slog.Info("starting license checker")
+			logger.Log(0, "starting license checker")
 			ClearLicenseCache()
 			if err := ValidateLicense(); err != nil {
 				slog.Error(err.Error())
 				return
 			}
-			slog.Info("proceeding with Paid Tier license")
+			logger.Log(0, "proceeding with Paid Tier license")
 			logic.SetFreeTierForTelemetry(false)
 			// == End License Handling ==
 			AddLicenseHooks()
 		} else {
-			slog.Info("starting trial license hook")
+			logger.Log(0, "starting trial license hook")
 			addTrialLicenseHook()
 		}
 
