@@ -11,7 +11,6 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/servercfg"
 	"github.com/txn2/txeh"
 )
 
@@ -159,17 +158,13 @@ func SetCorefile(domains string) error {
 		return err
 	}
 
-	_, err = os.Stat(dir + "/config/dnsconfig")
-	if os.IsNotExist(err) {
-		err = os.MkdirAll(dir+"/config/dnsconfig", 0744)
-	}
+	err = os.MkdirAll(dir+"/config/dnsconfig", 0744)
 	if err != nil {
 		logger.Log(0, "couldnt find or create /config/dnsconfig")
 		return err
 	}
 
 	corefile := domains + ` {
-	bind %s
     reload 15s
     hosts /root/dnsconfig/netmaker.hosts {
 	fallthrough	
@@ -178,8 +173,7 @@ func SetCorefile(domains string) error {
     log
 }
 `
-	corebytes := []byte(fmt.Sprintf(corefile, servercfg.GetCoreDNSAddr()))
-	err = os.WriteFile(dir+"/config/dnsconfig/Corefile", corebytes, 0644)
+	err = os.WriteFile(dir+"/config/dnsconfig/Corefile", []byte(corefile), 0644)
 	if err != nil {
 		return err
 	}

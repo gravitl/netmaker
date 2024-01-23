@@ -254,7 +254,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	case models.UpdateMetrics:
-		mq.UpdateMetricsFallBack(hostUpdate.Node.ID.String(), hostUpdate.NewMetrics)
+		// mq.UpdateMetricsFallBack(hostUpdate.Node.ID.String(), hostUpdate.NewMetrics)
 	}
 	logic.ReturnSuccessResponse(w, r, "updated host data")
 
