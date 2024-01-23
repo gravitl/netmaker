@@ -2,7 +2,6 @@ package logic
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
@@ -89,7 +88,9 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	for i := len(gateway.Ranges) - 1; i >= 0; i-- {
 		// check if internet gateway IPv4
 		if gateway.Ranges[i] == "0.0.0.0/0" || gateway.Ranges[i] == "::/0" {
-			return models.Node{}, fmt.Errorf("create internet gateways on the remote client gateway")
+			// remove inet range
+			gateway.Ranges = append(gateway.Ranges[:i], gateway.Ranges[i+1:]...)
+			continue
 		}
 		normalized, err := NormalizeCIDR(gateway.Ranges[i])
 		if err != nil {
