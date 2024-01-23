@@ -61,6 +61,7 @@ services:
     image: coredns/coredns:1.10.1
     command: -conf /root/dnsconfig/Corefile
     env_file: ./netmaker.env
+    restart: always
     depends_on:
       - netmaker
     volumes:
