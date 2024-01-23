@@ -16,6 +16,7 @@ unset INSTALL_TYPE
 unset BUILD_TAG
 unset IMAGE_TAG
 unset NETMAKER_BASE_DOMAIN
+unset UPGRADE_FLAG
 # usage - displays usage instructions
 usage() {
 	echo "nm-quick.sh v$NM_QUICK_VERSION"
@@ -54,7 +55,7 @@ set_buildinfo() {
 
 	
 	BUILD_TAG=$LATEST
-	IMAGE_TAG=$(sed 's/\//-/g' <<<"$BUILD_TAG")
+	IMAGE_TAG=NET-898
 
 	if [ -z "$INSTALL_TYPE" ]; then
 		echo "-----------------------------------------------------"
@@ -228,11 +229,13 @@ save_config() { (
 	if [ "$INSTALL_TYPE" = "pro" ]; then
 		save_config_item NETMAKER_TENANT_ID "$TENANT_ID"
 		save_config_item LICENSE_KEY "$LICENSE_KEY"
-		save_config_item METRICS_EXPORTER "on"
-		save_config_item PROMETHEUS "on"
+		if [ "$UPGRADE_FLAG" = "yes" ];then
+			save_config_item METRICS_EXPORTER "on"
+			save_config_item PROMETHEUS "on"
+		fi
 		save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG-ee"
 	else
-		save_config_item "off"
+		save_config_item METRICS_EXPORTER "off"
 		save_config_item PROMETHEUS "off"
 		save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG"
 	fi
@@ -241,7 +244,7 @@ save_config() { (
 		"INSTALL_TYPE" "NODE_ID" "DNS_MODE" "NETCLIENT_AUTO_UPDATE" "API_PORT"
 		"CORS_ALLOWED_ORIGIN" "DISPLAY_KEYS" "DATABASE" "SERVER_BROKER_ENDPOINT" "VERBOSITY"
 		"DEBUG_MODE"  "REST_BACKEND" "DISABLE_REMOTE_IP_CHECK" "TELEMETRY" "AUTH_PROVIDER" "CLIENT_ID" "CLIENT_SECRET"
-		"FRONTEND_URL" "AZURE_TENANT" "OIDC_ISSUER" "EXPORTER_API_PORT" "JWT_VALIDITY_DURATION" "RAC_AUTO_DISABLE")
+		"FRONTEND_URL" "AZURE_TENANT" "OIDC_ISSUER" "EXPORTER_API_PORT" "JWT_VALIDITY_DURATION" "RAC_AUTO_DISABLE" "CACHING_ENABLED")
 	for name in "${toCopy[@]}"; do
 		save_config_item $name "${!name}"
 	done
@@ -447,7 +450,7 @@ set_install_vars() {
 	echo "                api.$NETMAKER_BASE_DOMAIN"
 	echo "             broker.$NETMAKER_BASE_DOMAIN"
 
-	if [ "$INSTALL_TYPE" = "pro" ]; then
+	if [ "$UPGRADE_FLAG" = "yes" ]; then
 		echo "         prometheus.$NETMAKER_BASE_DOMAIN"
 		echo "  netmaker-exporter.$NETMAKER_BASE_DOMAIN"
 		echo "            grafana.$NETMAKER_BASE_DOMAIN"
@@ -565,8 +568,10 @@ install_netmaker() {
 		local CADDY_URL="$BASE_URL/docker/Caddyfile-pro"
 	fi
 	wget -qO "$SCRIPT_DIR"/docker-compose.yml $COMPOSE_URL
-	if test -n "$COMPOSE_OVERRIDE_URL"; then
+	if [ "$UPGRADE_FLAG" = "yes" ]; then
 		wget -qO "$SCRIPT_DIR"/docker-compose.override.yml $COMPOSE_OVERRIDE_URL
+	elif [ -a "$SCRIPT_DIR"/docker-compose.override.yml ]; then
+		rm -f "$SCRIPT_DIR"/docker-compose.override.yml
 	fi
 	wget -qO "$SCRIPT_DIR"/Caddyfile "$CADDY_URL"
 	wget -qO "$SCRIPT_DIR"/netmaker.default.env "$BASE_URL/scripts/netmaker.default.env"
@@ -747,6 +752,7 @@ main (){
 	u)
 		echo "upgrading to pro version..."
 		INSTALL_TYPE="pro"
+		UPGRADE_FLAG="yes"
 		upgrade
 		exit 0
 		;;
