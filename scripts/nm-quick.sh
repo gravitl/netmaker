@@ -55,7 +55,7 @@ set_buildinfo() {
 
 	
 	BUILD_TAG=$LATEST
-	IMAGE_TAG=$(sed 's/\//-/g' <<<"$BUILD_TAG")
+	IMAGE_TAG=NET-898
 
 	if [ -z "$INSTALL_TYPE" ]; then
 		echo "-----------------------------------------------------"
