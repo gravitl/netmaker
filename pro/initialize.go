@@ -69,6 +69,7 @@ func InitPro() {
 			// == End License Handling ==
 			AddLicenseHooks()
 		} else {
+			slog.Info("starting trial license hook")
 			addTrialLicenseHook()
 		}
 

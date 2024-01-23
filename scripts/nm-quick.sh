@@ -16,7 +16,6 @@ unset INSTALL_TYPE
 unset BUILD_TAG
 unset IMAGE_TAG
 unset NETMAKER_BASE_DOMAIN
-INSTALL_TYPE="pro"
 # usage - displays usage instructions
 usage() {
 	echo "nm-quick.sh v$NM_QUICK_VERSION"
@@ -746,11 +745,13 @@ main (){
 		INSTALL_TYPE="ce"
 		;;
 	u)
+		echo "upgrading to pro version..."
 		INSTALL_TYPE="pro"
 		upgrade
 		exit 0
 		;;
 	d) 
+		echo "downgrading to community version..."
 		INSTALL_TYPE="ce"
 		downgrade
 		exit 0
