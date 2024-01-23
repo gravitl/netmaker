@@ -16,6 +16,7 @@ unset INSTALL_TYPE
 unset BUILD_TAG
 unset IMAGE_TAG
 unset NETMAKER_BASE_DOMAIN
+unset UPGRADE_FLAG
 # usage - displays usage instructions
 usage() {
 	echo "nm-quick.sh v$NM_QUICK_VERSION"
@@ -565,7 +566,7 @@ install_netmaker() {
 		local CADDY_URL="$BASE_URL/docker/Caddyfile-pro"
 	fi
 	wget -qO "$SCRIPT_DIR"/docker-compose.yml $COMPOSE_URL
-	if test -n "$COMPOSE_OVERRIDE_URL"; then
+	if [ "$UPGRADE_FLAG" = "yes" ]; then
 		wget -qO "$SCRIPT_DIR"/docker-compose.override.yml $COMPOSE_OVERRIDE_URL
 	fi
 	wget -qO "$SCRIPT_DIR"/Caddyfile "$CADDY_URL"
@@ -747,6 +748,7 @@ main (){
 	u)
 		echo "upgrading to pro version..."
 		INSTALL_TYPE="pro"
+		UPGRADE_FLAG="yes"
 		upgrade
 		exit 0
 		;;
