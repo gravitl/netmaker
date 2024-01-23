@@ -450,7 +450,7 @@ set_install_vars() {
 	echo "                api.$NETMAKER_BASE_DOMAIN"
 	echo "             broker.$NETMAKER_BASE_DOMAIN"
 
-	if [ "$INSTALL_TYPE" = "pro" ]; then
+	if [ "$UPGRADE_FLAG" = "yes" ]; then
 		echo "         prometheus.$NETMAKER_BASE_DOMAIN"
 		echo "  netmaker-exporter.$NETMAKER_BASE_DOMAIN"
 		echo "            grafana.$NETMAKER_BASE_DOMAIN"
