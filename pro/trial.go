@@ -46,7 +46,7 @@ func initTrial() error {
 		return err
 	}
 	if telData.Hosts > 0 || telData.Networks > 0 || telData.Users > 0 {
-		return nil
+		return nil // database is already populated, so skip creating trial
 	}
 	database.CreateTable(trial_table_name)
 	records, err := database.FetchRecords(trial_table_name)

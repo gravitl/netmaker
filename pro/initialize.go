@@ -49,12 +49,14 @@ func InitPro() {
 			if err != nil {
 				slog.Error("failed to get trial end date", "error", err)
 				enableLicenseHook = true
+			} else {
+				// check if trial ended
+				if time.Now().After(trialEndDate) {
+					// trial ended already
+					enableLicenseHook = true
+				}
 			}
-			// check if trial ended
-			if time.Now().After(trialEndDate) {
-				// trial ended already
-				enableLicenseHook = true
-			}
+
 		}
 
 		if enableLicenseHook {
