@@ -118,6 +118,9 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) {
 			attachedClients = clients
 		}
 	}
+	if newMetrics.Connectivity == nil {
+		newMetrics.Connectivity = make(map[string]models.Metric)
+	}
 	if len(attachedClients) > 0 {
 		// associate ext clients with IDs
 		for i := range attachedClients {
