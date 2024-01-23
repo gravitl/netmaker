@@ -4,6 +4,8 @@
 package pro
 
 import (
+	"time"
+
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -41,32 +43,36 @@ func InitPro() {
 		if !enableLicenseHook {
 			err := initTrial()
 			if err != nil {
-				logger.FatalLog0("failed to init trail", err.Error())
+				logger.Log(0, "failed to init trial", err.Error())
+				enableLicenseHook = true
 			}
-			// trialEndDate, err := getTrialEndDate()
-			// if err != nil {
-			// 	slog.Error("failed to get trial end date", "error", err)
-			// 	enableLicenseHook = true
-			// }
-			// // check if trial ended
-			// if time.Now().After(trialEndDate) {
-			// 	// trial ended already
-			// 	enableLicenseHook = true
-			// }
+			trialEndDate, err := getTrialEndDate()
+			if err != nil {
+				slog.Error("failed to get trial end date", "error", err)
+				enableLicenseHook = true
+			} else {
+				// check if trial ended
+				if time.Now().After(trialEndDate) {
+					// trial ended already
+					enableLicenseHook = true
+				}
+			}
+
 		}
 
 		if enableLicenseHook {
-			slog.Info("starting license checker")
+			logger.Log(0, "starting license checker")
 			ClearLicenseCache()
 			if err := ValidateLicense(); err != nil {
 				slog.Error(err.Error())
 				return
 			}
-			slog.Info("proceeding with Paid Tier license")
+			logger.Log(0, "proceeding with Paid Tier license")
 			logic.SetFreeTierForTelemetry(false)
 			// == End License Handling ==
 			AddLicenseHooks()
 		} else {
+			logger.Log(0, "starting trial license hook")
 			addTrialLicenseHook()
 		}
 

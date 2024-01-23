@@ -1,6 +1,3 @@
-//go:build ee
-// +build ee
-
 package pro
 
 import (
@@ -14,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/nacl/box"
 )
 
@@ -39,14 +37,14 @@ const trial_table_name = "trial"
 
 const trial_data_key = "trialdata"
 
-// store trial date
+// stores trial end date
 func initTrial() error {
 	telData, err := logic.FetchTelemetryData()
 	if err != nil {
 		return err
 	}
 	if telData.Hosts > 0 || telData.Networks > 0 || telData.Users > 0 {
-		return nil
+		return nil // database is already populated, so skip creating trial
 	}
 	database.CreateTable(trial_table_name)
 	records, err := database.FetchRecords(trial_table_name)
@@ -72,7 +70,7 @@ func initTrial() error {
 	}
 	trialDates := TrialDates{
 		TrialStartedAt: time.Now(),
-		TrialEndsAt:    time.Now().Add(time.Minute),
+		TrialEndsAt:    time.Now().Add(time.Minute * 5),
 	}
 	t := TrialInfo{
 		PrivKey: tPriv,
@@ -107,14 +105,17 @@ func initTrial() error {
 	return nil
 }
 
+// TrialLicenseHook - hook func to check if pro trial has ended
 func TrialLicenseHook() error {
 	endDate, err := getTrialEndDate()
 	if err != nil {
 		logger.FatalLog0("failed to trial end date", err.Error())
 	}
 	if time.Now().After(endDate) {
-		logger.FatalLog0("***IMPORTANT: Your Trial Has Ended, to continue using pro version, please visit https://app.netmaker.io/ and create on-prem tenant to obtain a license***\nIf you wish to downgrade to community version, please run this command `/root/nm-quick.sh -d`")
-
+		logger.Log(0, "***IMPORTANT: Your Trial Has Ended, to continue using pro version, please visit https://app.netmaker.io/ and create on-prem tenant to obtain a license***\nIf you wish to downgrade to community version, please run this command `/root/nm-quick.sh -d`")
+		err = errors.New("your trial has ended")
+		servercfg.ErrLicenseValidation = err
+		return err
 	}
 	return nil
 }
