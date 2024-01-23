@@ -122,7 +122,7 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 		licenseErr = servercfg.ErrLicenseValidation.Error()
 	}
 	var trialEndDate time.Time
-	if servercfg.GetLicenseKey() == "" {
+	if servercfg.GetLicenseKey() == "" || servercfg.GetNetmakerTenantID() == "" {
 		trialEndDate, _ = logic.GetTrialEndDate()
 	}
 	currentServerStatus := status{
