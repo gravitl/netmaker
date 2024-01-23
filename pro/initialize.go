@@ -43,7 +43,8 @@ func InitPro() {
 		if !enableLicenseHook {
 			err := initTrial()
 			if err != nil {
-				logger.FatalLog0("failed to init trail", err.Error())
+				logger.Log(0, "failed to init trial", err.Error())
+				enableLicenseHook = true
 			}
 			trialEndDate, err := getTrialEndDate()
 			if err != nil {
