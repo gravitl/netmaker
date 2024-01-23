@@ -665,6 +665,9 @@ print_success() {
 
 cleanup() {
 	# remove the existing netclient's instance from the existing network
+	if ! command -v netclient >/dev/null 2>&1; then
+		return
+	fi
 	if command -v nmctl >/dev/null 2>&1; then
 		local node_id=$(netclient list | jq '.[0].node_id' 2>/dev/null)
 		# trim doublequotes
