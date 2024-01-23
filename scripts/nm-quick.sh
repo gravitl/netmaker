@@ -570,7 +570,7 @@ install_netmaker() {
 	wget -qO "$SCRIPT_DIR"/docker-compose.yml $COMPOSE_URL
 	if [ "$UPGRADE_FLAG" = "yes" ]; then
 		wget -qO "$SCRIPT_DIR"/docker-compose.override.yml $COMPOSE_OVERRIDE_URL
-	elif [ test -f "$SCRIPT_DIR"/docker-compose.override.yml ]; then
+	elif [ -a "$SCRIPT_DIR"/docker-compose.override.yml ]; then
 		rm -f "$SCRIPT_DIR"/docker-compose.override.yml
 	fi
 	wget -qO "$SCRIPT_DIR"/Caddyfile "$CADDY_URL"
