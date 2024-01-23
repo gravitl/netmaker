@@ -148,16 +148,18 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, getExtpeersExtraRoutes(peer.Network)...)
 			}
 			_, isFailOverPeer := node.FailOverPeers[peer.ID.String()]
-			if servercfg.IsPro && (node.IsRelayed && node.RelayedBy != peer.ID.String()) ||
-				(peer.IsRelayed && peer.RelayedBy != node.ID.String()) || isFailOverPeer {
-				// if node is relayed and peer is not the relay, set remove to true
-				if _, ok := peerIndexMap[peerHost.PublicKey.String()]; ok {
+			if servercfg.IsPro {
+				if (node.IsRelayed && node.RelayedBy != peer.ID.String()) ||
+					(peer.IsRelayed && peer.RelayedBy != node.ID.String()) || isFailOverPeer {
+					// if node is relayed and peer is not the relay, set remove to true
+					if _, ok := peerIndexMap[peerHost.PublicKey.String()]; ok {
+						continue
+					}
+					peerConfig.Remove = true
+					hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
+					peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
 					continue
 				}
-				peerConfig.Remove = true
-				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
-				peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
-				continue
 			}
 
 			uselocal := false
