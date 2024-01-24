@@ -703,9 +703,9 @@ stop_services(){
 upgrade() {
 	print_logo
 	unset IMAGE_TAG
+	unset BUILD_TAG
 	IMAGE_TAG=$UI_IMAGE_TAG
 	BUILD_TAG=$UI_IMAGE_TAG
-	unset BUILD_TAG
 	echo "-----------------------------------------------------"
 	echo "Provide Details for pro installation:"
 	echo "    1. Log into https://app.netmaker.io"
