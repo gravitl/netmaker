@@ -55,7 +55,7 @@ set_buildinfo() {
 
 	
 	BUILD_TAG=$LATEST
-	IMAGE_TAG=NET-898
+	IMAGE_TAG=$(sed 's/\//-/g' <<<"$BUILD_TAG")
 
 	if [ -z "$INSTALL_TYPE" ]; then
 		echo "-----------------------------------------------------"
@@ -702,8 +702,9 @@ stop_services(){
 
 upgrade() {
 	print_logo
-	set_buildinfo
 	stop_services
+	unset IMAGE_TAG
+	IMAGE_TAG=$UI_IMAGE_TAG
 	echo "-----------------------------------------------------"
 	echo "Provide Details for pro installation:"
 	echo "    1. Log into https://app.netmaker.io"
@@ -725,7 +726,8 @@ upgrade() {
 
 downgrade () {
 	print_logo
-	set_buildinfo
+	unset IMAGE_TAG
+	IMAGE_TAG=$UI_IMAGE_TAG
 	stop_services
 	save_config
 	if [ -a "$SCRIPT_DIR"/docker-compose.override.yml ]; then
