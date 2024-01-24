@@ -704,12 +704,13 @@ upgrade() {
 	print_logo
 	unset IMAGE_TAG
 	IMAGE_TAG=$UI_IMAGE_TAG
+	BUILD_TAG=$UI_IMAGE_TAG
+	unset BUILD_TAG
 	echo "-----------------------------------------------------"
 	echo "Provide Details for pro installation:"
 	echo "    1. Log into https://app.netmaker.io"
 	echo "    2. follow instructions to get a license at: https://docs.netmaker.io/ee/ee-setup.html"
 	echo "    3. Retrieve License and Tenant ID"
-	echo "    4. note email address"
 	echo "-----------------------------------------------------"
 	unset LICENSE_KEY
 	while [ -z "$LICENSE_KEY" ]; do
@@ -720,7 +721,7 @@ upgrade() {
 		read -p "Tenant ID: " TENANT_ID
 	done
 	save_config
-	
+	local BASE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG"
 	local COMPOSE_OVERRIDE_URL="$BASE_URL/compose/docker-compose.pro.yml"
 	wget -qO "$SCRIPT_DIR"/docker-compose.override.yml $COMPOSE_OVERRIDE_URL
 	local CADDY_URL="$BASE_URL/docker/Caddyfile-pro"
@@ -735,7 +736,9 @@ upgrade() {
 downgrade () {
 	print_logo
 	unset IMAGE_TAG
+	unset BUILD_TAG
 	IMAGE_TAG=$UI_IMAGE_TAG
+	BUILD_TAG=$UI_IMAGE_TAG
 	save_config
 	if [ -a "$SCRIPT_DIR"/docker-compose.override.yml ]; then
 		rm -f "$SCRIPT_DIR"/docker-compose.override.yml
