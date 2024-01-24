@@ -3,10 +3,11 @@ package logic
 import (
 	"context"
 	"fmt"
-	"github.com/gravitl/netmaker/logger"
-	"golang.org/x/exp/slog"
 	"sync"
 	"time"
+
+	"github.com/gravitl/netmaker/logger"
+	"golang.org/x/exp/slog"
 
 	"github.com/gravitl/netmaker/models"
 )
@@ -24,7 +25,7 @@ var HookManagerCh = make(chan models.HookDetails, 3)
 // TimerCheckpoint - Checks if 24 hours has passed since telemetry was last sent. If so, sends telemetry data to posthog
 func TimerCheckpoint() error {
 	// get the telemetry record in the DB, which contains a timestamp
-	telRecord, err := fetchTelemetryRecord()
+	telRecord, err := FetchTelemetryRecord()
 	if err != nil {
 		return err
 	}

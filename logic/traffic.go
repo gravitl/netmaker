@@ -2,7 +2,7 @@ package logic
 
 // RetrievePrivateTrafficKey - retrieves private key of server
 func RetrievePrivateTrafficKey() ([]byte, error) {
-	var telRecord, err = fetchTelemetryRecord()
+	var telRecord, err = FetchTelemetryRecord()
 	if err != nil {
 		return nil, err
 	}
@@ -12,7 +12,7 @@ func RetrievePrivateTrafficKey() ([]byte, error) {
 
 // RetrievePublicTrafficKey - retrieves public key of server
 func RetrievePublicTrafficKey() ([]byte, error) {
-	var telRecord, err = fetchTelemetryRecord()
+	var telRecord, err = FetchTelemetryRecord()
 	if err != nil {
 		return nil, err
 	}
