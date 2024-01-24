@@ -721,16 +721,8 @@ upgrade() {
 		read -p "Tenant ID: " TENANT_ID
 	done
 	save_config
-	local BASE_URL="https://raw.githubusercontent.com/gravitl/netmaker/$BUILD_TAG"
-	local COMPOSE_OVERRIDE_URL="$BASE_URL/compose/docker-compose.pro.yml"
-	wget -qO "$SCRIPT_DIR"/docker-compose.override.yml $COMPOSE_OVERRIDE_URL
-	local CADDY_URL="$BASE_URL/docker/Caddyfile-pro"
-	wget -qO "$SCRIPT_DIR"/Caddyfile "$CADDY_URL"
 	# start docker and rebuild containers / networks
-	cd "${SCRIPT_DIR}"
-	docker-compose up -d --force-recreate
-	cd -
-	wait_seconds 2
+	install_netmaker
 }
 
 downgrade () {
@@ -744,10 +736,7 @@ downgrade () {
 		rm -f "$SCRIPT_DIR"/docker-compose.override.yml
 	fi
 	# start docker and rebuild containers / networks
-	cd "${SCRIPT_DIR}"
-	docker-compose up -d --force-recreate
-	cd -
-	wait_seconds 2
+	install_netmaker
 }
 
 
