@@ -722,6 +722,7 @@ upgrade() {
 	done
 	save_config
 	# start docker and rebuild containers / networks
+	stop_services
 	install_netmaker
 }
 
