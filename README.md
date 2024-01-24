@@ -47,9 +47,9 @@
 | :heavy_check_mark: Mesh VPNs              | :heavy_check_mark: Private DNS          | :heavy_check_mark: Mac                  |
 | :heavy_check_mark: Site-to-Site           | :heavy_check_mark: Access Control Lists | :heavy_check_mark: Windows              |
 
-# Try Online  
+# Try Netmaker SaaS  
 
-If you're just looking to use Netmaker, you can create an account for free at [netmaker.io](https://account.netmaker.io).  
+If you're looking for a managed service, you can get started with just few clicks, visit [netmaker.io](https://account.netmaker.io) to create your netmaker server.  
 
 # Self-Hosted Quick Start  
 
