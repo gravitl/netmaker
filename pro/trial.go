@@ -70,7 +70,7 @@ func initTrial() error {
 	}
 	trialDates := TrialDates{
 		TrialStartedAt: time.Now(),
-		TrialEndsAt:    time.Now().Add(time.Hour * 24 * 30),
+		TrialEndsAt:    time.Now().Add(time.Hour * 24 * 14),
 	}
 	t := TrialInfo{
 		PrivKey: tPriv,
