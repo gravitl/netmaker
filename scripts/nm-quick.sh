@@ -11,7 +11,9 @@ if [ $(id -u) -ne 0 ]; then
 	echo "This script must be run as root"
 	exit 1
 fi
-
+# increase the timeouts
+export DOCKER_CLIENT_TIMEOUT=120
+export COMPOSE_HTTP_TIMEOUT=120
 unset INSTALL_TYPE
 unset BUILD_TAG
 unset IMAGE_TAG
@@ -587,9 +589,7 @@ install_netmaker() {
 
 	echo "Starting containers..."
 
-	# increase the timeouts
-	export DOCKER_CLIENT_TIMEOUT=120
-	export COMPOSE_HTTP_TIMEOUT=120
+	
 
 	# start docker and rebuild containers / networks
 	cd "${SCRIPT_DIR}"
@@ -721,7 +721,11 @@ upgrade() {
 		read -p "Tenant ID: " TENANT_ID
 	done
 	save_config
-	install_netmaker
+	# start docker and rebuild containers / networks
+	cd "${SCRIPT_DIR}"
+	docker-compose up -d --force-recreate
+	cd -
+	wait_seconds 2
 }
 
 downgrade () {
@@ -733,7 +737,11 @@ downgrade () {
 	if [ -a "$SCRIPT_DIR"/docker-compose.override.yml ]; then
 		rm -f "$SCRIPT_DIR"/docker-compose.override.yml
 	fi
-	install_netmaker
+	# start docker and rebuild containers / networks
+	cd "${SCRIPT_DIR}"
+	docker-compose up -d --force-recreate
+	cd -
+	wait_seconds 2
 }
 
 
