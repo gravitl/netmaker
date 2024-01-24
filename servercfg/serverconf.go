@@ -92,15 +92,13 @@ func GetServerConfig() config.ServerConfig {
 
 // GetJwtValidityDuration - returns the JWT validity duration in seconds
 func GetJwtValidityDuration() time.Duration {
-	var defaultDuration = time.Duration(24) * time.Hour
-	if os.Getenv("JWT_VALIDITY_DURATION") != "" {
-		t, err := strconv.Atoi(os.Getenv("JWT_VALIDITY_DURATION"))
-		if err != nil {
-			return defaultDuration
-		}
-		return time.Duration(t) * time.Second
+	var duration = time.Duration(24) * time.Hour
+	if t, err := strconv.Atoi(os.Getenv("JWT_VALIDITY_DURATION")); err == nil {
+		duration = time.Duration(t) * time.Second
+	} else if config.Config.Server.JwtValiditySeconds != 0 {
+		duration = time.Duration(config.Config.Server.JwtValiditySeconds) * time.Second
 	}
-	return defaultDuration
+	return duration
 }
 
 // GetRacAutoDisable - returns whether the feature to autodisable RAC is enabled
@@ -200,11 +198,13 @@ func GetAPIHost() string {
 	return serverhost
 }
 
-// GetAPIPort - gets the api port
-func GetAPIListenerAddress() string {
+// GetAPIListenAddress - gets the address API is (internally) listening on
+func GetAPIListenAddress() string {
 	address := ""
-	if os.Getenv("NETMAKER_API_LISTENER_ADDRESS") != "" {
-		address = os.Getenv("NETMAKER_API_LISTENER_ADDRESS")
+	if os.Getenv("NETMAKER_API_LISTEN_ADDRESS") != "" {
+		address = os.Getenv("NETMAKER_API_LISTEN_ADDRESS")
+	} else if config.Config.Server.APIListenAddress != "" {
+		address = config.Config.Server.APIListenAddress
 	}
 	return address
 }

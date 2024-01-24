@@ -53,7 +53,7 @@ func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context) {
 		handler.(func(*mux.Router))(r)
 	}
 
-	address := servercfg.GetAPIListenerAddress()
+	address := servercfg.GetAPIListenAddress()
 	port := servercfg.GetAPIPort()
 
 	srv := &http.Server{Addr: address + ":" + port, Handler: handlers.CORS(originsOk, headersOk, methodsOk)(r)}
