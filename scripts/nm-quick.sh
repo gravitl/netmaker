@@ -736,6 +736,7 @@ downgrade () {
 		rm -f "$SCRIPT_DIR"/docker-compose.override.yml
 	fi
 	# start docker and rebuild containers / networks
+	stop_services
 	install_netmaker
 }
 
