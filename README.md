@@ -53,7 +53,7 @@ If you're just looking to use Netmaker, you can create an account for free at [n
 
 # Self-Hosted Quick Start  
 
-These are the instructions for deploying a Netmaker server on your own cloud VM as quickly as possible. For more detailed instructions, visit the [Install Docs](https://netmaker.readthedocs.io/en/master/install.html).  
+These are the instructions for deploying a Netmaker server on your own cloud VM as quickly as possible. For more detailed instructions, visit the [Install Docs](https://docs.netmaker.io/install.html).  
 
 1. Get a cloud VM with Ubuntu 22.04 and a public IP.
 2. Open ports 443, 80, 3479, 8089 and 51821-51830/udp on the VM firewall and in cloud security settings.
@@ -68,7 +68,7 @@ This script gives you the option to deploy the Community or Enterprise version o
 <img src="https://raw.githubusercontent.com/gravitl/netmaker-docs/master/images/netmaker-github/readme.gif" />
 </p>
 
-After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting-started-with-netmaker-a-wireguard-virtual-networking-platform-3d563fbd87f0) and [Getting Started](https://netmaker.readthedocs.io/en/master/getting-started.html) guides to learn more about configuring networks. Or, check out some of our other [Tutorials](https://www.netmaker.io/blog) for different use cases, including Kubernetes.
+After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting-started-with-netmaker-a-wireguard-virtual-networking-platform-3d563fbd87f0) and [Getting Started](https://docs.netmaker.io/getting-started.html) guides to learn more about configuring networks. Or, check out some of our other [Tutorials](https://www.netmaker.io/blog) for different use cases, including Kubernetes.
 
 # Get Support
 

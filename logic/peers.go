@@ -24,6 +24,10 @@ var (
 	ResetFailedOverPeer = func(failedOverNode *models.Node) error {
 		return nil
 	}
+	// GetFailOverPeerIps - gets failover peerips
+	GetFailOverPeerIps = func(peer, node *models.Node) []net.IPNet {
+		return []net.IPNet{}
+	}
 )
 
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
@@ -144,16 +148,18 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, getExtpeersExtraRoutes(peer.Network)...)
 			}
 			_, isFailOverPeer := node.FailOverPeers[peer.ID.String()]
-			if (node.IsRelayed && node.RelayedBy != peer.ID.String()) ||
-				(peer.IsRelayed && peer.RelayedBy != node.ID.String()) || isFailOverPeer {
-				// if node is relayed and peer is not the relay, set remove to true
-				if _, ok := peerIndexMap[peerHost.PublicKey.String()]; ok {
+			if servercfg.IsPro {
+				if (node.IsRelayed && node.RelayedBy != peer.ID.String()) ||
+					(peer.IsRelayed && peer.RelayedBy != node.ID.String()) || isFailOverPeer {
+					// if node is relayed and peer is not the relay, set remove to true
+					if _, ok := peerIndexMap[peerHost.PublicKey.String()]; ok {
+						continue
+					}
+					peerConfig.Remove = true
+					hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
+					peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
 					continue
 				}
-				peerConfig.Remove = true
-				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
-				peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
-				continue
 			}
 
 			uselocal := false
@@ -358,31 +364,6 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 	}
 	if node.IsRelayed && node.RelayedBy == peer.ID.String() {
 		allowedips = append(allowedips, GetAllowedIpsForRelayed(node, peer)...)
-	}
-	return allowedips
-}
-
-func GetFailOverPeerIps(peer, node *models.Node) []net.IPNet {
-	allowedips := []net.IPNet{}
-	for failOverpeerID := range node.FailOverPeers {
-		failOverpeer, err := GetNodeByID(failOverpeerID)
-		if err == nil && failOverpeer.FailedOverBy == peer.ID {
-			if failOverpeer.Address.IP != nil {
-				allowed := net.IPNet{
-					IP:   failOverpeer.Address.IP,
-					Mask: net.CIDRMask(32, 32),
-				}
-				allowedips = append(allowedips, allowed)
-			}
-			if failOverpeer.Address6.IP != nil {
-				allowed := net.IPNet{
-					IP:   failOverpeer.Address6.IP,
-					Mask: net.CIDRMask(128, 128),
-				}
-				allowedips = append(allowedips, allowed)
-			}
-
-		}
 	}
 	return allowedips
 }
