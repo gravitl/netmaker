@@ -62,7 +62,7 @@ These are the instructions for deploying a Netmaker server on your own cloud VM 
 
 `sudo wget -qO /root/nm-quick.sh https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh && sudo chmod +x /root/nm-quick.sh && sudo /root/nm-quick.sh`  
 
-This script gives you the option to deploy the Community or Enterprise version of Netmaker. It also gives you the option to use your own domain (recommended) or an auto-generated domain. 
+This script by default installs PRO version with 14-day trial, check out these instructions for post trial period https://docs.netmaker.io/install.html#after-trial-period-ends. It also gives you the option to use your own domain (recommended) or an auto-generated domain. 
 
 <p float="left" align="middle">
 <img src="https://raw.githubusercontent.com/gravitl/netmaker-docs/master/images/netmaker-github/readme.gif" />
