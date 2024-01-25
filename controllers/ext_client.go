@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"reflect"
 	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/servercfg"
 
 	"github.com/gravitl/netmaker/models"
@@ -486,7 +488,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 	var changedID = update.ClientID != oldExtClient.ClientID
 
-	if len(update.DeniedACLs) != len(oldExtClient.DeniedACLs) {
+	if !reflect.DeepEqual(update.DeniedACLs, oldExtClient.DeniedACLs) {
 		sendPeerUpdate = true
 		logic.SetClientACLs(&oldExtClient, update.DeniedACLs)
 	}
@@ -589,6 +591,24 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to delete extclient [%s],network [%s]: %v", clientid, network, err))
 		err = errors.New("Could not delete extclient " + params["clientid"])
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	// delete client acls
+	var networkAcls acls.ACLContainer
+	networkAcls, err = networkAcls.Get(acls.ContainerID(network))
+	if err != nil {
+		slog.Error("failed to get network acls", "err", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	for objId := range networkAcls {
+		delete(networkAcls[objId], acls.AclID(clientid))
+	}
+	delete(networkAcls, acls.AclID(clientid))
+	if _, err = networkAcls.Save(acls.ContainerID(network)); err != nil {
+		slog.Error("failed to update network acls", "err", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
