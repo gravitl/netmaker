@@ -17,10 +17,15 @@ import (
 // EmqxBrokerType denotes the broker type for EMQX MQTT
 const EmqxBrokerType = "emqx"
 
+// Emqxdeploy - emqx deploy type
+type Emqxdeploy string
+
 var (
 	Version              = "dev"
 	IsPro                = false
 	ErrLicenseValidation error
+	EmqxCloudDeploy      Emqxdeploy = "cloud"
+	EmqxOnPremDeploy     Emqxdeploy = "on-prem"
 )
 
 // SetHost - sets the host ip
@@ -673,4 +678,13 @@ func GetEnvironment() string {
 		return env
 	}
 	return ""
+}
+
+// GetEmqxDeployType - fetches emqx deploy type this server uses
+func GetEmqxDeployType() (deployType Emqxdeploy) {
+	deployType = EmqxOnPremDeploy
+	if os.Getenv("EMQX_DEPLOY_TYPE") == string(EmqxCloudDeploy) {
+		deployType = EmqxCloudDeploy
+	}
+	return
 }

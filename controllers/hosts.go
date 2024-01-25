@@ -298,7 +298,7 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 	}
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 		// delete EMQX credentials for host
-		if err := mq.DeleteEmqxUser(currHost.ID.String()); err != nil {
+		if err := mq.GetEmqxHandler().DeleteEmqxUser(currHost.ID.String()); err != nil {
 			slog.Error("failed to remove host credentials from EMQX", "id", currHost.ID, "error", err)
 		}
 	}
@@ -549,15 +549,15 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 
 	// Create EMQX creds and ACLs if not found
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
-		if err := mq.CreateEmqxUser(host.ID.String(), authRequest.Password, false); err != nil {
+		if err := mq.GetEmqxHandler().CreateEmqxUser(host.ID.String(), authRequest.Password, false); err != nil {
 			slog.Error("failed to create host credentials for EMQX: ", err.Error())
 		} else {
-			if err := mq.CreateHostACL(host.ID.String(), servercfg.GetServerInfo().Server); err != nil {
+			if err := mq.GetEmqxHandler().CreateHostACL(host.ID.String(), servercfg.GetServerInfo().Server); err != nil {
 				slog.Error("failed to add host ACL rules to EMQX: ", err.Error())
 			}
 			for _, nodeID := range host.Nodes {
 				if node, err := logic.GetNodeByID(nodeID); err == nil {
-					if err = mq.AppendNodeUpdateACL(host.ID.String(), node.Network, node.ID.String(), servercfg.GetServer()); err != nil {
+					if err = mq.GetEmqxHandler().AppendNodeUpdateACL(host.ID.String(), node.Network, node.ID.String(), servercfg.GetServer()); err != nil {
 						slog.Error("failed to add ACLs for EMQX node", "error", err)
 					}
 				} else {
