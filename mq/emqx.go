@@ -35,6 +35,7 @@ func init() {
 	}
 }
 
+// GetEmqxHandler - gets emqx handler
 func GetEmqxHandler() Emqx {
 	return emqx
 }
