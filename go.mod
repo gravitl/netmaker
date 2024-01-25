@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/eclipse/paho.mqtt.golang v1.4.3
-	github.com/go-playground/validator/v10 v10.16.0
+	github.com/go-playground/validator/v10 v10.17.0
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/google/uuid v1.5.0
 	github.com/gorilla/handlers v1.5.2
@@ -15,10 +15,10 @@ require (
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/stretchr/testify v1.8.4
 	github.com/txn2/txeh v1.5.5
-	golang.org/x/crypto v0.17.0
-	golang.org/x/net v0.19.0 // indirect
-	golang.org/x/oauth2 v0.15.0
-	golang.org/x/sys v0.15.0 // indirect
+	golang.org/x/crypto v0.18.0
+	golang.org/x/net v0.20.0 // indirect
+	golang.org/x/oauth2 v0.16.0
+	golang.org/x/sys v0.16.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20221104135756-97bc4ad4a1cb
 	google.golang.org/protobuf v1.31.0 // indirect
@@ -27,7 +27,7 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.1.0
-	github.com/c-robinson/iplib v1.0.7
+	github.com/c-robinson/iplib v1.0.8
 	github.com/posthog/posthog-go v0.0.0-20211028072449-93c17c49e2b0
 )
 

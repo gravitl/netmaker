@@ -2,6 +2,7 @@ package logic
 
 import (
 	"errors"
+	"net"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/logic"
@@ -95,4 +96,30 @@ func ResetFailOver(failOverNode *models.Node) error {
 		}
 	}
 	return nil
+}
+
+// GetFailOverPeerIps - adds the failedOvered peerIps by the peer
+func GetFailOverPeerIps(peer, node *models.Node) []net.IPNet {
+	allowedips := []net.IPNet{}
+	for failOverpeerID := range node.FailOverPeers {
+		failOverpeer, err := logic.GetNodeByID(failOverpeerID)
+		if err == nil && failOverpeer.FailedOverBy == peer.ID {
+			if failOverpeer.Address.IP != nil {
+				allowed := net.IPNet{
+					IP:   failOverpeer.Address.IP,
+					Mask: net.CIDRMask(32, 32),
+				}
+				allowedips = append(allowedips, allowed)
+			}
+			if failOverpeer.Address6.IP != nil {
+				allowed := net.IPNet{
+					IP:   failOverpeer.Address6.IP,
+					Mask: net.CIDRMask(128, 128),
+				}
+				allowedips = append(allowedips, allowed)
+			}
+
+		}
+	}
+	return allowedips
 }

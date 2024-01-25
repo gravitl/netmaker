@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/gorilla/mux"
 	"golang.org/x/exp/slog"
@@ -109,22 +110,36 @@ func getUsage(w http.ResponseWriter, _ *http.Request) {
 //				200: serverConfigResponse
 func getStatus(w http.ResponseWriter, r *http.Request) {
 	type status struct {
-		DB           bool   `json:"db_connected"`
-		Broker       bool   `json:"broker_connected"`
-		LicenseError string `json:"license_error"`
-		IsPro        bool   `json:"is_pro"`
+		DB               bool      `json:"db_connected"`
+		Broker           bool      `json:"broker_connected"`
+		LicenseError     string    `json:"license_error"`
+		IsPro            bool      `json:"is_pro"`
+		TrialEndDate     time.Time `json:"trial_end_date"`
+		IsOnTrialLicense bool      `json:"is_on_trial_license"`
 	}
 
 	licenseErr := ""
 	if servercfg.ErrLicenseValidation != nil {
 		licenseErr = servercfg.ErrLicenseValidation.Error()
 	}
-
+	var trialEndDate time.Time
+	var err error
+	isOnTrial := false
+	if servercfg.IsPro && (servercfg.GetLicenseKey() == "" || servercfg.GetNetmakerTenantID() == "") {
+		trialEndDate, err = logic.GetTrialEndDate()
+		if err != nil {
+			slog.Error("failed to get trial end date", "error", err)
+		} else {
+			isOnTrial = true
+		}
+	}
 	currentServerStatus := status{
-		DB:           database.IsConnected(),
-		Broker:       mq.IsConnected(),
-		LicenseError: licenseErr,
-		IsPro:        servercfg.IsPro,
+		DB:               database.IsConnected(),
+		Broker:           mq.IsConnected(),
+		LicenseError:     licenseErr,
+		IsPro:            servercfg.IsPro,
+		TrialEndDate:     trialEndDate,
+		IsOnTrialLicense: isOnTrial,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

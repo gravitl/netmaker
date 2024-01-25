@@ -4,7 +4,10 @@
 package pro
 
 import (
+	"time"
+
 	controller "github.com/gravitl/netmaker/controllers"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
@@ -31,21 +34,56 @@ func InitPro() {
 	)
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
 		// == License Handling ==
-		ClearLicenseCache()
-		if err := ValidateLicense(); err != nil {
-			slog.Error(err.Error())
-			return
+		enableLicenseHook := false
+		licenseKeyValue := servercfg.GetLicenseKey()
+		netmakerTenantID := servercfg.GetNetmakerTenantID()
+		if licenseKeyValue != "" && netmakerTenantID != "" {
+			enableLicenseHook = true
 		}
-		slog.Info("proceeding with Paid Tier license")
-		logic.SetFreeTierForTelemetry(false)
-		// == End License Handling ==
-		AddLicenseHooks()
+		if !enableLicenseHook {
+			err := initTrial()
+			if err != nil {
+				logger.Log(0, "failed to init trial", err.Error())
+				enableLicenseHook = true
+			}
+			trialEndDate, err := getTrialEndDate()
+			if err != nil {
+				slog.Error("failed to get trial end date", "error", err)
+				enableLicenseHook = true
+			} else {
+				// check if trial ended
+				if time.Now().After(trialEndDate) {
+					// trial ended already
+					enableLicenseHook = true
+				}
+			}
+
+		}
+
+		if enableLicenseHook {
+			logger.Log(0, "starting license checker")
+			ClearLicenseCache()
+			if err := ValidateLicense(); err != nil {
+				slog.Error(err.Error())
+				return
+			}
+			logger.Log(0, "proceeding with Paid Tier license")
+			logic.SetFreeTierForTelemetry(false)
+			// == End License Handling ==
+			AddLicenseHooks()
+		} else {
+			logger.Log(0, "starting trial license hook")
+			addTrialLicenseHook()
+		}
+
 		if servercfg.GetServerConfig().RacAutoDisable {
 			AddRacHooks()
 		}
+
 	})
 	logic.ResetFailOver = proLogic.ResetFailOver
 	logic.ResetFailedOverPeer = proLogic.ResetFailedOverPeer
+	logic.GetFailOverPeerIps = proLogic.GetFailOverPeerIps
 	logic.DenyClientNodeAccess = proLogic.DenyClientNode
 	logic.IsClientNodeAllowed = proLogic.IsClientNodeAllowed
 	logic.AllowClientNodeAccess = proLogic.RemoveDeniedNodeFromClient
@@ -63,6 +101,7 @@ func InitPro() {
 	logic.RelayUpdates = proLogic.RelayUpdates
 	logic.IsInternetGw = proLogic.IsInternetGw
 	logic.SetInternetGw = proLogic.SetInternetGw
+	logic.GetTrialEndDate = getTrialEndDate
 	mq.UpdateMetrics = proLogic.MQUpdateMetrics
 	mq.UpdateMetricsFallBack = proLogic.MQUpdateMetricsFallBack
 }

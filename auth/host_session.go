@@ -86,6 +86,24 @@ func SessionHandler(conn *websocket.Conn) {
 			return
 		}
 		req.Pass = req.Host.ID.String()
+		user, err := logic.GetUser(req.User)
+		if err != nil {
+			logger.Log(0, "failed to get user", req.User, "from database")
+			err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			if err != nil {
+				logger.Log(0, "error during message writing:", err.Error())
+			}
+			return
+		}
+		if !user.IsAdmin && !user.IsSuperAdmin {
+			logger.Log(0, "user", req.User, "is neither an admin or superadmin. denying registeration")
+			conn.WriteMessage(messageType, []byte("cannot register with a non-admin or non-superadmin"))
+			err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			if err != nil {
+				logger.Log(0, "error during message writing:", err.Error())
+			}
+			return
+		}
 
 		if err = netcache.Set(stateStr, req); err != nil { // give the user's host access in the DB
 			logger.Log(0, "machine failed to complete join on network,", registerMessage.Network, "-", err.Error())
