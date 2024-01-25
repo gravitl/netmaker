@@ -119,10 +119,38 @@ func (e *EmqxCloud) CreateHostACL(hostID, serverName string) error {
 }
 
 func (e *EmqxCloud) AppendNodeUpdateACL(hostID, nodeNetwork, nodeID, serverName string) error {
+	acls := []cloudAcl{
+		{
+
+			Topic:      fmt.Sprintf("node/update/%s/%s", nodeNetwork, nodeID),
+			Permission: "allow",
+			Action:     "subscribe",
+		},
+		{
+			Topic:      fmt.Sprintf("ping/%s/%s", serverName, nodeID),
+			Permission: "allow",
+			Action:     "all",
+		},
+		{
+			Topic:      fmt.Sprintf("update/%s/%s", serverName, nodeID),
+			Permission: "allow",
+			Action:     "all",
+		},
+		{
+			Topic:      fmt.Sprintf("signal/%s/%s", serverName, nodeID),
+			Permission: "allow",
+			Action:     "all",
+		},
+		{
+			Topic:      fmt.Sprintf("metrics/%s/%s", serverName, nodeID),
+			Permission: "allow",
+			Action:     "all",
+		},
+	}
 	return nil
 }
 
-func (e *EmqxCloud) GetUserACL(username string) (*aclObject, error) { return nil, nil }
+func (e *EmqxCloud) GetUserACL(username string) ([]cloudAcl, error) { return nil, nil }
 
 func (e *EmqxCloud) DeleteEmqxUser(username string) error {
 
