@@ -121,36 +121,64 @@ func (e *EmqxCloud) CreateHostACL(hostID, serverName string) error {
 func (e *EmqxCloud) AppendNodeUpdateACL(hostID, nodeNetwork, nodeID, serverName string) error {
 	acls := []cloudAcl{
 		{
+			UserName: hostID,
+			Topic:    fmt.Sprintf("node/update/%s/%s", nodeNetwork, nodeID),
+			Access:   "allow",
+			Action:   "sub",
+		},
+		{
+			UserName: hostID,
+			Topic:    fmt.Sprintf("ping/%s/%s", serverName, nodeID),
+			Access:   "allow",
+			Action:   "pubsub",
+		},
+		{
+			UserName: hostID,
+			Topic:    fmt.Sprintf("update/%s/%s", serverName, nodeID),
+			Access:   "allow",
+			Action:   "pubsub",
+		},
+		{
+			UserName: hostID,
+			Topic:    fmt.Sprintf("signal/%s/%s", serverName, nodeID),
+			Access:   "allow",
+			Action:   "pubsub",
+		},
+		{
+			UserName: hostID,
+			Topic:    fmt.Sprintf("metrics/%s/%s", serverName, nodeID),
+			Access:   "allow",
+			Action:   "pubsub",
+		},
+	}
+	payload, err := json.Marshal(acls)
+	if err != nil {
+		return err
+	}
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodPost, e.URL, strings.NewReader(string(payload)))
+	if err != nil {
+		return err
+	}
+	req.Header.Add("Content-Type", "application/json")
+	req.SetBasicAuth(e.AppID, e.AppSecret)
+	res, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
 
-			Topic:      fmt.Sprintf("node/update/%s/%s", nodeNetwork, nodeID),
-			Permission: "allow",
-			Action:     "subscribe",
-		},
-		{
-			Topic:      fmt.Sprintf("ping/%s/%s", serverName, nodeID),
-			Permission: "allow",
-			Action:     "all",
-		},
-		{
-			Topic:      fmt.Sprintf("update/%s/%s", serverName, nodeID),
-			Permission: "allow",
-			Action:     "all",
-		},
-		{
-			Topic:      fmt.Sprintf("signal/%s/%s", serverName, nodeID),
-			Permission: "allow",
-			Action:     "all",
-		},
-		{
-			Topic:      fmt.Sprintf("metrics/%s/%s", serverName, nodeID),
-			Permission: "allow",
-			Action:     "all",
-		},
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
+	if res.StatusCode != http.StatusOK {
+		return errors.New("request failed " + string(body))
 	}
 	return nil
 }
 
-func (e *EmqxCloud) GetUserACL(username string) ([]cloudAcl, error) { return nil, nil }
+func (e *EmqxCloud) GetUserACL(username string) (*aclObject, error) { return nil, nil } // ununsed on cloud since it doesn't overwrite acls list
 
 func (e *EmqxCloud) DeleteEmqxUser(username string) error {
 
