@@ -39,7 +39,7 @@ func (e *EmqxCloud) CreateEmqxUser(username, pass string) error {
 	}
 	data, _ := json.Marshal(payload)
 	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodPost, e.URL, strings.NewReader(string(data)))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/auth_username", e.URL), strings.NewReader(string(data)))
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func (e *EmqxCloud) CreateEmqxUserforServer() error {
 	}
 	data, _ := json.Marshal(payload)
 	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodPost, e.URL, strings.NewReader(string(data)))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/auth_username", e.URL), strings.NewReader(string(data)))
 	if err != nil {
 		return err
 	}
@@ -153,7 +153,7 @@ func (e *EmqxCloud) createacls(acls []cloudAcl) error {
 		return err
 	}
 	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodPost, e.URL, strings.NewReader(string(payload)))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/acl", e.URL), strings.NewReader(string(payload)))
 	if err != nil {
 		return err
 	}
@@ -233,31 +233,8 @@ func (e *EmqxCloud) AppendNodeUpdateACL(hostID, nodeNetwork, nodeID, serverName 
 			Action:   "pubsub",
 		},
 	}
-	payload, err := json.Marshal(acls)
-	if err != nil {
-		return err
-	}
-	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodPost, e.URL, strings.NewReader(string(payload)))
-	if err != nil {
-		return err
-	}
-	req.Header.Add("Content-Type", "application/json")
-	req.SetBasicAuth(e.AppID, e.AppSecret)
-	res, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
 
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		return err
-	}
-	if res.StatusCode != http.StatusOK {
-		return errors.New("request failed " + string(body))
-	}
-	return nil
+	return e.createacls(acls)
 }
 
 func (e *EmqxCloud) GetUserACL(username string) (*aclObject, error) { return nil, nil } // ununsed on cloud since it doesn't overwrite acls list
@@ -265,7 +242,7 @@ func (e *EmqxCloud) GetUserACL(username string) (*aclObject, error) { return nil
 func (e *EmqxCloud) DeleteEmqxUser(username string) error {
 
 	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodDelete, e.URL, nil)
+	req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/api/auth_username/%s", e.URL, username), nil)
 	if err != nil {
 		return err
 	}
