@@ -372,10 +372,6 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	server := servercfg.GetServerInfo()
-	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
-		// set MQ username for EMQX clients
-		server.MQUserName = host.ID.String()
-	}
 	response := models.NodeGet{
 		Node:         node,
 		Host:         *host,

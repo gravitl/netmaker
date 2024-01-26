@@ -305,7 +305,6 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	hostPass := newHost.HostPass
 	if !hostExists {
 		newHost.PersistentKeepalive = models.DefaultPersistentKeepAlive
 		// register host
@@ -361,11 +360,6 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	// ready the response
 	server := servercfg.GetServerInfo()
 	server.TrafficKey = key
-	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
-		// set MQ username and password for EMQX clients
-		server.MQUserName = newHost.ID.String()
-		server.MQPassword = hostPass
-	}
 	response := models.RegisterResponse{
 		ServerConf:    server,
 		RequestedHost: newHost,
