@@ -117,8 +117,13 @@ func GetRacAutoDisable() bool {
 func GetServerInfo() models.ServerConfig {
 	var cfg models.ServerConfig
 	cfg.Server = GetServer()
-	cfg.MQUserName = GetMqUserName()
-	cfg.MQPassword = GetMqPassword()
+	if GetBrokerType() == EmqxBrokerType {
+		cfg.MQUserName = "HOST_ID"
+		cfg.MQPassword = "HOST_PASS"
+	} else {
+		cfg.MQUserName = GetMqUserName()
+		cfg.MQPassword = GetMqPassword()
+	}
 	cfg.API = GetAPIConnString()
 	cfg.CoreDNSAddr = GetCoreDNSAddr()
 	cfg.APIPort = GetAPIPort()

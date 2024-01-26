@@ -124,9 +124,6 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	serverConf := servercfg.GetServerInfo()
-	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
-		serverConf.MQUserName = hostID
-	}
 	key, keyErr := logic.RetrievePublicTrafficKey()
 	if keyErr != nil {
 		logger.Log(0, "error retrieving key:", keyErr.Error())
