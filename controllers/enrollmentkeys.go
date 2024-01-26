@@ -312,7 +312,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		logic.CheckHostPorts(&newHost)
 		// create EMQX credentials and ACLs for host
 		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
-			if err := mq.GetEmqxHandler().CreateEmqxUser(newHost.ID.String(), newHost.HostPass, false); err != nil {
+			if err := mq.GetEmqxHandler().CreateEmqxUser(newHost.ID.String(), newHost.HostPass); err != nil {
 				logger.Log(0, "failed to create host credentials for EMQX: ", err.Error())
 				return
 			}

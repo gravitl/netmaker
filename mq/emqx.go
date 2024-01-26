@@ -6,7 +6,8 @@ var emqx Emqx
 
 type Emqx interface {
 	GetType() servercfg.Emqxdeploy
-	CreateEmqxUser(username, password string, admin bool) error
+	CreateEmqxUser(username, password string) error
+	CreateEmqxUserforServer() error
 	CreateEmqxDefaultAuthenticator() error
 	CreateEmqxDefaultAuthorizer() error
 	CreateDefaultDenyRule() error
@@ -23,8 +24,8 @@ func init() {
 	if servercfg.GetEmqxDeployType() == servercfg.EmqxCloudDeploy {
 		emqx = &EmqxCloud{
 			URL:       servercfg.GetEmqxRestEndpoint(),
-			AppID:     servercfg.GetMqUserName(),
-			AppSecret: servercfg.GetMqPassword(),
+			AppID:     servercfg.GetEmqxAppID(),
+			AppSecret: servercfg.GetEmqxAppSecret(),
 		}
 	} else {
 		emqx = &EmqxOnPrem{

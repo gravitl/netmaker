@@ -549,7 +549,7 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 
 	// Create EMQX creds and ACLs if not found
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
-		if err := mq.GetEmqxHandler().CreateEmqxUser(host.ID.String(), authRequest.Password, false); err != nil {
+		if err := mq.GetEmqxHandler().CreateEmqxUser(host.ID.String(), authRequest.Password); err != nil {
 			slog.Error("failed to create host credentials for EMQX: ", err.Error())
 		} else {
 			if err := mq.GetEmqxHandler().CreateHostACL(host.ID.String(), servercfg.GetServerInfo().Server); err != nil {

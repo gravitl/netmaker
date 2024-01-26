@@ -132,7 +132,7 @@ func SessionHandler(conn *websocket.Conn) {
 		hostPass := result.Host.HostPass
 		if !logic.HostExists(&result.Host) { // check if host already exists, add if not
 			if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
-				if err := mq.GetEmqxHandler().CreateEmqxUser(result.Host.ID.String(), result.Host.HostPass, false); err != nil {
+				if err := mq.GetEmqxHandler().CreateEmqxUser(result.Host.ID.String(), result.Host.HostPass); err != nil {
 					logger.Log(0, "failed to create host credentials for EMQX: ", err.Error())
 					return
 				}

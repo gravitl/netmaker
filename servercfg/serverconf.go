@@ -688,3 +688,13 @@ func GetEmqxDeployType() (deployType Emqxdeploy) {
 	}
 	return
 }
+
+// GetEmqxAppID - gets the emqx cloud app id
+func GetEmqxAppID() string {
+	return os.Getenv("EMQX_APP_ID")
+}
+
+// GetEmqxAppSecret - gets the emqx cloud app secret
+func GetEmqxAppSecret() string {
+	return os.Getenv("EMQX_APP_SECRET")
+}

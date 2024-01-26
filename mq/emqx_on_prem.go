@@ -81,7 +81,7 @@ func getEmqxAuthToken() (string, error) {
 func (e *EmqxOnPrem) GetType() servercfg.Emqxdeploy { return servercfg.EmqxOnPremDeploy }
 
 // CreateEmqxUser - creates an EMQX user
-func (e *EmqxOnPrem) CreateEmqxUser(username, password string, admin bool) error {
+func (e *EmqxOnPrem) CreateEmqxUser(username, password string) error {
 	token, err := getEmqxAuthToken()
 	if err != nil {
 		return err
@@ -89,7 +89,41 @@ func (e *EmqxOnPrem) CreateEmqxUser(username, password string, admin bool) error
 	payload, err := json.Marshal(&emqxUser{
 		UserID:   username,
 		Password: password,
-		Admin:    admin,
+	})
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest(http.MethodPost, servercfg.GetEmqxRestEndpoint()+"/api/v5/authentication/password_based:built_in_database/users", bytes.NewReader(payload))
+	if err != nil {
+		return err
+	}
+	req.Header.Add("content-type", "application/json")
+	req.Header.Add("authorization", "Bearer "+token)
+	resp, err := (&http.Client{}).Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		msg, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		if !strings.Contains(string(msg), already_exists) {
+			return fmt.Errorf("error creating EMQX user %v", string(msg))
+		}
+	}
+	return nil
+}
+func (e *EmqxOnPrem) CreateEmqxUserforServer() error {
+	token, err := getEmqxAuthToken()
+	if err != nil {
+		return err
+	}
+	payload, err := json.Marshal(&emqxUser{
+		UserID:   servercfg.GetMqUserName(),
+		Password: servercfg.GetMqPassword(),
+		Admin:    true,
 	})
 	if err != nil {
 		return err
