@@ -7,7 +7,9 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -250,10 +252,23 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	if host.MTU != 0 {
 		defaultMTU = host.MTU
 	}
+
+	postUp := strings.Builder{}
+	for _, loc := range strings.Split(client.PostUp, "\n") {
+		postUp.WriteString(fmt.Sprintf("PostUp = %s\n", loc))
+	}
+
+	postDown := strings.Builder{}
+	for _, loc := range strings.Split(client.PostDown, "\n") {
+		postDown.WriteString(fmt.Sprintf("PostDown = %s\n", loc))
+	}
+
 	config := fmt.Sprintf(`[Interface]
 Address = %s
 PrivateKey = %s
 MTU = %d
+%s
+%s
 %s
 
 [Peer]
@@ -266,10 +281,13 @@ Endpoint = %s
 		client.PrivateKey,
 		defaultMTU,
 		defaultDNS,
+		postUp.String(),
+		postDown.String(),
 		host.PublicKey,
 		newAllowedIPs,
 		gwendpoint,
-		keepalive)
+		keepalive,
+	)
 
 	if params["type"] == "qr" {
 		bytes, err := qrcode.Encode(config, qrcode.Medium, 220)
@@ -330,7 +348,6 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var customExtClient models.CustomExtClient
-
 	if err := json.NewDecoder(r.Body).Decode(&customExtClient); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -499,7 +516,6 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 	newclient := logic.UpdateExtClient(&oldExtClient, &update)
 	if err := logic.DeleteExtClient(oldExtClient.Network, oldExtClient.ClientID); err != nil {
-
 		slog.Error("failed to delete ext client", "user", r.Header.Get("user"), "id", oldExtClient.ClientID, "network", oldExtClient.Network, "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -609,6 +625,11 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 
 // validateCustomExtClient	Validates the extclient object
 func validateCustomExtClient(customExtClient *models.CustomExtClient, checkID bool) error {
+	v := validator.New()
+	err := v.Struct(customExtClient)
+	if err != nil {
+		return err
+	}
 	//validate clientid
 	if customExtClient.ClientID != "" {
 		if err := isValid(customExtClient.ClientID, checkID); err != nil {
