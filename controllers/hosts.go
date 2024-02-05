@@ -354,6 +354,12 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(1, "added new node", newNode.ID.String(), "to host", currHost.Name)
+	if currHost.IsDefault {
+		// make  host failover
+		logic.CreateFailOver(*newNode)
+		// make host remote access gateway
+		logic.CreateIngressGateway(network, newNode.ID.String(), models.IngressRequest{})
+	}
 	go func() {
 		mq.HostUpdate(&models.HostUpdate{
 			Action: models.JoinHostToNetwork,

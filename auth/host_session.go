@@ -264,6 +264,12 @@ func CheckNetRegAndHostUpdate(networks []string, h *models.Host, relayNodeId uui
 				Host:   *h,
 				Node:   *newNode,
 			})
+			if h.IsDefault {
+				// make  host failover
+				logic.CreateFailOver(*newNode)
+				// make host remote access gateway
+				logic.CreateIngressGateway(network, newNode.ID.String(), models.IngressRequest{})
+			}
 		}
 	}
 	if servercfg.IsMessageQueueBackend() {
