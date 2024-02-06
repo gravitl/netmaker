@@ -29,8 +29,8 @@ func initRqliteDatabase() error {
 	if err != nil {
 		return err
 	}
-	RQliteDatabase = conn
-	RQliteDatabase.SetConsistencyLevel("strong")
+	RQliteDatabase = *conn
+	RQliteDatabase.SetConsistencyLevel(gorqlite.ConsistencyLevelStrong)
 	return nil
 }
 
