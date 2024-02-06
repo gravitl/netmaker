@@ -28,6 +28,10 @@ var (
 	GetFailOverPeerIps = func(peer, node *models.Node) []net.IPNet {
 		return []net.IPNet{}
 	}
+
+	CreateFailOver = func(node models.Node) error {
+		return nil
+	}
 )
 
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks

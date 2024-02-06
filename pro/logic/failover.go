@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"golang.org/x/exp/slog"
 )
 
 func SetFailOverCtx(failOverNode, victimNode, peerNode models.Node) error {
@@ -122,4 +123,27 @@ func GetFailOverPeerIps(peer, node *models.Node) []net.IPNet {
 		}
 	}
 	return allowedips
+}
+
+func CreateFailOver(node models.Node) error {
+	if _, exists := FailOverExists(node.Network); exists {
+		return errors.New("failover already exists in the network")
+	}
+	host, err := logic.GetHost(node.HostID.String())
+	if err != nil {
+		return err
+	}
+	if host.OS != models.OS_Types.Linux {
+		return err
+	}
+	if node.IsRelayed {
+		return err
+	}
+	node.IsFailOver = true
+	err = logic.UpsertNode(&node)
+	if err != nil {
+		slog.Error("failed to upsert node", "node", node.ID.String(), "error", err)
+		return err
+	}
+	return nil
 }

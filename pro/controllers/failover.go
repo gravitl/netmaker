@@ -46,27 +46,8 @@ func createfailOver(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if _, exists := proLogic.FailOverExists(node.Network); exists {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failover exists already in the network"), "badrequest"))
-		return
-	}
-	host, err := logic.GetHost(node.HostID.String())
+	err = proLogic.CreateFailOver(node)
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("error getting host"+err.Error()), "badrequest"))
-		return
-	}
-	if host.OS != models.OS_Types.Linux {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only linux nodes can act as failovers"), "badrequest"))
-		return
-	}
-	if node.IsRelayed {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot set relayed node as failover"), "badrequest"))
-		return
-	}
-	node.IsFailOver = true
-	err = logic.UpsertNode(&node)
-	if err != nil {
-		slog.Error("failed to upsert node", "node", node.ID.String(), "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}

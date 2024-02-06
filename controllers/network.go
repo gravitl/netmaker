@@ -288,25 +288,30 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
-	defaultHosts := logic.GetDefaultHosts()
-	for i := range defaultHosts {
-		currHost := &defaultHosts[i]
-		newNode, err := logic.UpdateHostNetwork(currHost, network.NetID, true)
-		if err != nil {
-			logger.Log(0, r.Header.Get("user"), "failed to add host to network:", currHost.ID.String(), network.NetID, err.Error())
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
+	go func() {
+		defaultHosts := logic.GetDefaultHosts()
+		for i := range defaultHosts {
+			currHost := &defaultHosts[i]
+			newNode, err := logic.UpdateHostNetwork(currHost, network.NetID, true)
+			if err != nil {
+				logger.Log(0, r.Header.Get("user"), "failed to add host to network:", currHost.ID.String(), network.NetID, err.Error())
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				return
+			}
+			logger.Log(1, "added new node", newNode.ID.String(), "to host", currHost.Name)
+			if err = mq.HostUpdate(&models.HostUpdate{
+				Action: models.JoinHostToNetwork,
+				Host:   *currHost,
+				Node:   *newNode,
+			}); err != nil {
+				logger.Log(0, r.Header.Get("user"), "failed to add host to network:", currHost.ID.String(), network.NetID, err.Error())
+			}
+			// make  host failover
+			logic.CreateFailOver(*newNode)
+			// make host remote access gateway
+			logic.CreateIngressGateway(network.NetID, newNode.ID.String(), models.IngressRequest{})
 		}
-		logger.Log(1, "added new node", newNode.ID.String(), "to host", currHost.Name)
-		if err = mq.HostUpdate(&models.HostUpdate{
-			Action: models.JoinHostToNetwork,
-			Host:   *currHost,
-			Node:   *newNode,
-		}); err != nil {
-			logger.Log(0, r.Header.Get("user"), "failed to add host to network:", currHost.ID.String(), network.NetID, err.Error())
-		}
-	}
+	}()
 
 	logger.Log(1, r.Header.Get("user"), "created network", network.NetID)
 	w.WriteHeader(http.StatusOK)
