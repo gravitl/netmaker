@@ -114,7 +114,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 				return
 			} else {
 				if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
-					if err = AppendNodeUpdateACL(hu.Host.ID.String(), hu.Node.Network, hu.Node.ID.String(), servercfg.GetServer()); err != nil {
+					if err = emqx.AppendNodeUpdateACL(hu.Host.ID.String(), hu.Node.Network, hu.Node.ID.String(), servercfg.GetServer()); err != nil {
 						slog.Error("failed to add ACLs for EMQX node", "error", err)
 						return
 					}
@@ -143,7 +143,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	case models.DeleteHost:
 		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 			// delete EMQX credentials for host
-			if err := DeleteEmqxUser(currentHost.ID.String()); err != nil {
+			if err := emqx.DeleteEmqxUser(currentHost.ID.String()); err != nil {
 				slog.Error("failed to remove host credentials from EMQX", "id", currentHost.ID, "error", err)
 			}
 		}

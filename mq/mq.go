@@ -41,24 +41,31 @@ func setMqOptions(user, password string, opts *mqtt.ClientOptions) {
 // SetupMQTT creates a connection to broker and return client
 func SetupMQTT() {
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
-		time.Sleep(10 * time.Second) // wait for the REST endpoint to be ready
-		// setup authenticator and create admin user
-		if err := CreateEmqxDefaultAuthenticator(); err != nil {
-			logger.Log(0, err.Error())
-		}
-		DeleteEmqxUser(servercfg.GetMqUserName())
-		if err := CreateEmqxUser(servercfg.GetMqUserName(), servercfg.GetMqPassword(), true); err != nil {
-			log.Fatal(err)
-		}
-		// create an ACL authorization source for the built in EMQX MNESIA database
-		if err := CreateEmqxDefaultAuthorizer(); err != nil {
-			logger.Log(0, err.Error())
-		}
-		// create a default deny ACL to all topics for all users
-		if err := CreateDefaultDenyRule(); err != nil {
-			log.Fatal(err)
+		if emqx.GetType() == servercfg.EmqxOnPremDeploy {
+			time.Sleep(10 * time.Second) // wait for the REST endpoint to be ready
+			// setup authenticator and create admin user
+			if err := emqx.CreateEmqxDefaultAuthenticator(); err != nil {
+				logger.Log(0, err.Error())
+			}
+			emqx.DeleteEmqxUser(servercfg.GetMqUserName())
+			if err := emqx.CreateEmqxUserforServer(); err != nil {
+				log.Fatal(err)
+			}
+			// create an ACL authorization source for the built in EMQX MNESIA database
+			if err := emqx.CreateEmqxDefaultAuthorizer(); err != nil {
+				logger.Log(0, err.Error())
+			}
+			// create a default deny ACL to all topics for all users
+			if err := emqx.CreateDefaultDenyRule(); err != nil {
+				log.Fatal(err)
+			}
+		} else {
+			if err := emqx.CreateEmqxUserforServer(); err != nil {
+				log.Fatal(err)
+			}
 		}
 	}
+
 	opts := mqtt.NewClientOptions()
 	setMqOptions(servercfg.GetMqUserName(), servercfg.GetMqPassword(), opts)
 	opts.SetOnConnectHandler(func(client mqtt.Client) {

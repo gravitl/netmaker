@@ -17,10 +17,15 @@ import (
 // EmqxBrokerType denotes the broker type for EMQX MQTT
 const EmqxBrokerType = "emqx"
 
+// Emqxdeploy - emqx deploy type
+type Emqxdeploy string
+
 var (
 	Version              = "dev"
 	IsPro                = false
 	ErrLicenseValidation error
+	EmqxCloudDeploy      Emqxdeploy = "cloud"
+	EmqxOnPremDeploy     Emqxdeploy = "on-prem"
 )
 
 // SetHost - sets the host ip
@@ -112,8 +117,13 @@ func GetRacAutoDisable() bool {
 func GetServerInfo() models.ServerConfig {
 	var cfg models.ServerConfig
 	cfg.Server = GetServer()
-	cfg.MQUserName = GetMqUserName()
-	cfg.MQPassword = GetMqPassword()
+	if GetBrokerType() == EmqxBrokerType {
+		cfg.MQUserName = "HOST_ID"
+		cfg.MQPassword = "HOST_PASS"
+	} else {
+		cfg.MQUserName = GetMqUserName()
+		cfg.MQPassword = GetMqPassword()
+	}
 	cfg.API = GetAPIConnString()
 	cfg.CoreDNSAddr = GetCoreDNSAddr()
 	cfg.APIPort = GetAPIPort()
@@ -673,4 +683,23 @@ func GetEnvironment() string {
 		return env
 	}
 	return ""
+}
+
+// GetEmqxDeployType - fetches emqx deploy type this server uses
+func GetEmqxDeployType() (deployType Emqxdeploy) {
+	deployType = EmqxOnPremDeploy
+	if os.Getenv("EMQX_DEPLOY_TYPE") == string(EmqxCloudDeploy) {
+		deployType = EmqxCloudDeploy
+	}
+	return
+}
+
+// GetEmqxAppID - gets the emqx cloud app id
+func GetEmqxAppID() string {
+	return os.Getenv("EMQX_APP_ID")
+}
+
+// GetEmqxAppSecret - gets the emqx cloud app secret
+func GetEmqxAppSecret() string {
+	return os.Getenv("EMQX_APP_SECRET")
 }
