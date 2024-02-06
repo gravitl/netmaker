@@ -175,6 +175,9 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	node.IngressGatewayRange6 = network.AddressRange6
 	node.IngressDNS = ingress.ExtclientDNS
 	node.SetLastModified()
+	if node.Metadata == "" {
+		node.Metadata = "This host can be used for remote access"
+	}
 	err = UpsertNode(&node)
 	if err != nil {
 		return models.Node{}, err
@@ -225,6 +228,7 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 	node.IsIngressGateway = false
 	node.IsInternetGateway = false
 	node.IngressGatewayRange = ""
+	node.Metadata = ""
 	err = UpsertNode(&node)
 	if err != nil {
 		return models.Node{}, removedClients, err
