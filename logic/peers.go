@@ -122,7 +122,14 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			}
 			continue
 		}
+		if node.InternetGwID != "" {
+			inetNode, err := GetNodeByID(node.InternetGwID)
+			if err == nil {
+				hostPeerUpdate.ChangeDefaultGw = true
+				hostPeerUpdate.DefaultGwIp = inetNode.Address.IP
+			}
 
+		}
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
 		for _, peer := range currentPeers {
 			peer := peer
