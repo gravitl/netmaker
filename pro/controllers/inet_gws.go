@@ -51,7 +51,7 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = proLogic.ValidateInetGwReq(request)
+	err = proLogic.ValidateInetGwReq(node, request)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -100,7 +100,7 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node is not a internet gw"), "badrequest"))
 		return
 	}
-	err = proLogic.ValidateInetGwReq(request)
+	err = proLogic.ValidateInetGwReq(node, request)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
