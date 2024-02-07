@@ -51,6 +51,15 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	host, err := logic.GetHost(node.HostID.String())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	if host.OS != models.OS_Types.Linux {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only linux nodes can be made internet gws"), "badrequest"))
+		return
+	}
 	err = proLogic.ValidateInetGwReq(node, request)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
