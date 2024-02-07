@@ -198,7 +198,7 @@ type IngressRequest struct {
 
 // InetNodeReq - exit node request struct
 type InetNodeReq struct {
-	InetNodeClientIDs []string `json:"inet_node_client_id"`
+	InetNodeClientIDs []string `json:"inet_node_client_ids"`
 }
 
 // ServerUpdateData - contains data to configure server
