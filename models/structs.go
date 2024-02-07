@@ -196,6 +196,11 @@ type IngressRequest struct {
 	IsInternetGateway bool   `json:"is_internet_gw"`
 }
 
+// InetNodeReq - exit node request struct
+type InetNodeReq struct {
+	InetNodeClientIDs []string `json:"inet_node_client_id"`
+}
+
 // ServerUpdateData - contains data to configure server
 // and if it should set peers
 type ServerUpdateData struct {

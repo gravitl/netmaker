@@ -598,3 +598,16 @@ func SortApiNodes(unsortedNodes []models.ApiNode) {
 		return unsortedNodes[i].ID < unsortedNodes[j].ID
 	})
 }
+
+func ValidateParams(nodeid, netid string) (models.Node, error) {
+	node, err := GetNodeByID(nodeid)
+	if err != nil {
+		slog.Error("error fetching node", "node", nodeid, "error", err.Error())
+		return node, fmt.Errorf("error fetching node during parameter validation: %v", err)
+	}
+	if node.Network != netid {
+		slog.Error("network url param does not match node id", "url nodeid", netid, "node", node.Network)
+		return node, fmt.Errorf("network url param does not match node network")
+	}
+	return node, nil
+}

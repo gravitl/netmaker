@@ -345,7 +345,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
 
-	node, err := validateParams(nodeid, params["network"])
+	node, err := logic.ValidateParams(nodeid, params["network"])
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -402,9 +402,9 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	var gateway models.EgressGatewayRequest
 	var params = mux.Vars(r)
-	node, err := validateParams(params["nodeid"], params["network"])
+	node, err := logic.ValidateParams(params["nodeid"], params["network"])
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "bad request"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -453,9 +453,9 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
 	netid := params["network"]
-	node, err := validateParams(nodeid, netid)
+	node, err := logic.ValidateParams(nodeid, netid)
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "bad request"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	node, err = logic.DeleteEgressGateway(netid, nodeid)
@@ -497,9 +497,9 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	nodeid := params["nodeid"]
 	netid := params["network"]
-	node, err := validateParams(nodeid, netid)
+	node, err := logic.ValidateParams(nodeid, netid)
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "bad request"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	var request models.IngressRequest
@@ -540,9 +540,9 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
 	netid := params["network"]
-	node, err := validateParams(nodeid, netid)
+	node, err := logic.ValidateParams(nodeid, netid)
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "bad request"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	node, removedClients, err := logic.DeleteIngressGateway(nodeid)
@@ -618,9 +618,9 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 
 	//start here
 	nodeid := params["nodeid"]
-	currentNode, err := validateParams(nodeid, params["network"])
+	currentNode, err := logic.ValidateParams(nodeid, params["network"])
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "bad request"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	var newData models.ApiNode
@@ -695,9 +695,9 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	// get params
 	var params = mux.Vars(r)
 	var nodeid = params["nodeid"]
-	node, err := validateParams(nodeid, params["network"])
+	node, err := logic.ValidateParams(nodeid, params["network"])
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "bad request"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	forceDelete := r.URL.Query().Get("force") == "true"
@@ -715,17 +715,4 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
 	go mq.PublishMqUpdatesForDeletedNode(node, !fromNode, gwClients)
-}
-
-func validateParams(nodeid, netid string) (models.Node, error) {
-	node, err := logic.GetNodeByID(nodeid)
-	if err != nil {
-		slog.Error("error fetching node", "node", nodeid, "error", err.Error())
-		return node, fmt.Errorf("error fetching node during parameter validation: %v", err)
-	}
-	if node.Network != netid {
-		slog.Error("network url param does not match node id", "url nodeid", netid, "node", node.Network)
-		return node, fmt.Errorf("network url param does not match node network")
-	}
-	return node, nil
 }
