@@ -31,6 +31,7 @@ func InitPro() {
 		proControllers.RelayHandlers,
 		proControllers.UserHandlers,
 		proControllers.FailOverHandlers,
+		proControllers.InetHandlers,
 	)
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
 		// == License Handling ==
