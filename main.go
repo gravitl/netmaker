@@ -28,7 +28,7 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-var version = "v0.22.1"
+var version = "v0.23.0"
 
 // Start DB Connection and start API Request Handler
 func main() {

@@ -16,7 +16,7 @@ spec:
       hostNetwork: true
       containers:
       - name: netclient
-        image: gravitl/netclient:v0.22.1
+        image: gravitl/netclient:v0.23.0
         env:
         - name: TOKEN
           value: "TOKEN_VALUE"
