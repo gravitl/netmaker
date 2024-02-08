@@ -1,6 +1,7 @@
 package models
 
 import (
+	"net"
 	"strings"
 	"time"
 
@@ -239,6 +240,11 @@ type HostPull struct {
 	HostNetworkInfo HostInfoMap           `json:"host_network_info,omitempty"  yaml:"host_network_info,omitempty"`
 	EgressRoutes    []EgressNetworkRoutes `json:"egress_network_routes"`
 	FwUpdate        FwUpdate              `json:"fw_update"`
+	ChangeDefaultGw bool                  `json:"change_default_gw"`
+	DefaultGwIp     net.IP                `json:"default_gw_ip"`
+}
+
+type DefaultGwInfo struct {
 }
 
 // NodeGet - struct for a single node get response
