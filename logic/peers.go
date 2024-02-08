@@ -37,6 +37,14 @@ var (
 	SetDefaultGw = func(node models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
 		return peerUpdate
 	}
+	// UnsetInternetGw
+	UnsetInternetGw = func(node *models.Node) {
+		node.IsInternetGateway = false
+	}
+	// SetInternetGw
+	SetInternetGw = func(node *models.Node, req models.InetNodeReq) {
+		node.IsInternetGateway = true
+	}
 )
 
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks

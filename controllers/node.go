@@ -636,6 +636,14 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	newNode := newData.ConvertToServerNode(&currentNode)
+	if newNode.IsInternetGateway != currentNode.IsInternetGateway {
+		if newNode.IsInternetGateway {
+			logic.SetInternetGw(newNode, models.InetNodeReq{})
+		} else {
+			logic.UnsetInternetGw(newNode)
+		}
+
+	}
 	relayUpdate := logic.RelayUpdates(&currentNode, newNode)
 	_, err = logic.GetHost(newNode.HostID.String())
 	if err != nil {
