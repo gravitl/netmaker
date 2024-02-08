@@ -28,21 +28,22 @@ type ApiNode struct {
 	RelayedNodes            []string `json:"relaynodes" yaml:"relayedNodes"`
 	IsEgressGateway         bool     `json:"isegressgateway"`
 	IsIngressGateway        bool     `json:"isingressgateway"`
-	IsInternetGateway       bool     `json:"isinternetgateway" yaml:"isinternetgateway"`
 	EgressGatewayRanges     []string `json:"egressgatewayranges"`
 	EgressGatewayNatEnabled bool     `json:"egressgatewaynatenabled"`
 	DNSOn                   bool     `json:"dnson"`
 	IngressDns              string   `json:"ingressdns"`
 	Server                  string   `json:"server"`
-	InternetGateway         string   `json:"internetgateway"`
 	Connected               bool     `json:"connected"`
 	PendingDelete           bool     `json:"pendingdelete"`
 	Metadata                string   `json:"metadata" validate:"max=256"`
 	// == PRO ==
-	DefaultACL    string              `json:"defaultacl,omitempty" validate:"checkyesornoorunset"`
-	IsFailOver    bool                `json:"is_fail_over"`
-	FailOverPeers map[string]struct{} `json:"fail_over_peers" yaml:"fail_over_peers"`
-	FailedOverBy  uuid.UUID           `json:"failed_over_by" yaml:"failed_over_by"`
+	DefaultACL        string              `json:"defaultacl,omitempty" validate:"checkyesornoorunset"`
+	IsFailOver        bool                `json:"is_fail_over"`
+	FailOverPeers     map[string]struct{} `json:"fail_over_peers" yaml:"fail_over_peers"`
+	FailedOverBy      uuid.UUID           `json:"failed_over_by" yaml:"failed_over_by"`
+	IsInternetGateway bool                `json:"isinternetgateway" yaml:"isinternetgateway"`
+	InetNodeReq       InetNodeReq         `json:"inet_node_req" yaml:"inet_node_req"`
+	InternetGwID      string              `json:"internetgw_node_id" yaml:"internetgw_node_id"`
 }
 
 // ApiNode.ConvertToServerNode - converts an api node to a server node
@@ -150,13 +151,12 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.DNSOn = nm.DNSOn
 	apiNode.IngressDns = nm.IngressDNS
 	apiNode.Server = nm.Server
-	if isEmptyAddr(apiNode.InternetGateway) {
-		apiNode.InternetGateway = ""
-	}
 	apiNode.Connected = nm.Connected
 	apiNode.PendingDelete = nm.PendingDelete
 	apiNode.DefaultACL = nm.DefaultACL
 	apiNode.IsInternetGateway = nm.IsInternetGateway
+	apiNode.InternetGwID = nm.InternetGwID
+	apiNode.InetNodeReq = nm.InetNodeReq
 	apiNode.IsFailOver = nm.IsFailOver
 	apiNode.FailOverPeers = nm.FailOverPeers
 	apiNode.FailedOverBy = nm.FailedOverBy
