@@ -101,6 +101,7 @@ func InitPro() {
 	logic.SetRelayedNodes = proLogic.SetRelayedNodes
 	logic.RelayUpdates = proLogic.RelayUpdates
 	logic.GetTrialEndDate = getTrialEndDate
+	logic.SetDefaultGw = proLogic.SetDefaultGw
 	mq.UpdateMetrics = proLogic.MQUpdateMetrics
 	mq.UpdateMetricsFallBack = proLogic.MQUpdateMetricsFallBack
 }

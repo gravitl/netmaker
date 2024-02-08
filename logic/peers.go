@@ -28,9 +28,14 @@ var (
 	GetFailOverPeerIps = func(peer, node *models.Node) []net.IPNet {
 		return []net.IPNet{}
 	}
-
+	// CreateFailOver - creates failover in a network
 	CreateFailOver = func(node models.Node) error {
 		return nil
+	}
+
+	// SetDefaulGw
+	SetDefaultGw = func(node models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
+		return peerUpdate
 	}
 )
 
@@ -122,14 +127,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			}
 			continue
 		}
-		if node.InternetGwID != "" {
-			inetNode, err := GetNodeByID(node.InternetGwID)
-			if err == nil {
-				hostPeerUpdate.ChangeDefaultGw = true
-				hostPeerUpdate.DefaultGwIp = inetNode.Address.IP
-			}
-
-		}
+		hostPeerUpdate = SetDefaultGw(node, hostPeerUpdate)
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
 		for _, peer := range currentPeers {
 			peer := peer

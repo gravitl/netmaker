@@ -74,6 +74,18 @@ func UnsetInternetGw(node *models.Node) {
 
 }
 
+func SetDefaultGw(node models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
+	if node.InternetGwID != "" {
+		inetNode, err := logic.GetNodeByID(node.InternetGwID)
+		if err == nil {
+			peerUpdate.ChangeDefaultGw = true
+			peerUpdate.DefaultGwIp = inetNode.Address.IP
+		}
+
+	}
+	return peerUpdate
+}
+
 // GetNetworkIngresses - gets the gateways of a network
 func GetNetworkIngresses(network string) ([]models.Node, error) {
 	var ingresses []models.Node
