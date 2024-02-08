@@ -45,6 +45,10 @@ var (
 	SetInternetGw = func(node *models.Node, req models.InetNodeReq) {
 		node.IsInternetGateway = true
 	}
+	// GetAllowedIpForInet
+	GetAllowedIpForInet = func(node, peer *models.Node) []net.IPNet {
+		return []net.IPNet{}
+	}
 )
 
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
@@ -381,6 +385,9 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 	}
 	if node.IsRelayed && node.RelayedBy == peer.ID.String() {
 		allowedips = append(allowedips, GetAllowedIpsForRelayed(node, peer)...)
+	}
+	if peer.IsInternetGateway && node.InternetGwID == peer.ID.String() {
+		allowedips = append(allowedips, GetAllowedIpForInet(node, peer)...)
 	}
 	return allowedips
 }

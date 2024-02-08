@@ -3,6 +3,7 @@ package logic
 import (
 	"errors"
 	"fmt"
+	"net"
 
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -99,4 +100,10 @@ func GetNetworkIngresses(network string) ([]models.Node, error) {
 		}
 	}
 	return ingresses, nil
+}
+
+// GetAllowedIpsForInet - get inet cidr
+func GetAllowedIpsForInet(node, peer *models.Node) []net.IPNet {
+	_, ipnet, _ := net.ParseCIDR("0.0.0.0/0")
+	return []net.IPNet{*ipnet}
 }
