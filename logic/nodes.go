@@ -218,6 +218,23 @@ func DeleteNode(node *models.Node, purge bool) error {
 		// unset all the relayed nodes
 		SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
 	}
+	if node.InternetGwID != "" {
+		inetNode, err := GetNodeByID(node.InternetGwID)
+		if err == nil {
+			clientNodeIDs := []string{}
+			for _, inetNodeClientID := range inetNode.InetNodeReq.InetNodeClientIDs {
+				if inetNodeClientID == node.ID.String() {
+					continue
+				}
+				clientNodeIDs = append(clientNodeIDs, inetNodeClientID)
+			}
+			inetNode.InetNodeReq.InetNodeClientIDs = clientNodeIDs
+			UpsertNode(&inetNode)
+		}
+	}
+	if node.IsInternetGateway {
+		UnsetInternetGw(node)
+	}
 
 	if !purge && !alreadyDeleted {
 		newnode := *node
