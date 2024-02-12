@@ -119,13 +119,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 
 // ValidateEgressGateway - validates the egress gateway model
 func ValidateEgressGateway(gateway models.EgressGatewayRequest) error {
-	var err error
-
-	empty := len(gateway.Ranges) == 0
-	if empty {
-		err = errors.New("IP Ranges Cannot Be Empty")
-	}
-	return err
+	return nil
 }
 
 // DeleteEgressGateway - deletes egress from node
