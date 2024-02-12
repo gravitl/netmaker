@@ -22,13 +22,8 @@ func GetInternetGateways() ([]models.Node, error) {
 	}
 	igs := make([]models.Node, 0)
 	for _, node := range nodes {
-		if !node.IsEgressGateway {
-			continue
-		}
-		for _, ran := range node.EgressGatewayRanges {
-			if ran == "0.0.0.0/0" {
-				igs = append(igs, node)
-			}
+		if node.IsInternetGateway {
+			igs = append(igs, node)
 		}
 	}
 	return igs, nil

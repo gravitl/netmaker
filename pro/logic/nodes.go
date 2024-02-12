@@ -68,7 +68,7 @@ func UnsetInternetGw(node *models.Node) {
 	for _, clientNode := range nodes {
 		if node.ID.String() == clientNode.InternetGwID {
 			node.InternetGwID = ""
-			logic.UpsertNode(node)
+			logic.UpsertNode(&clientNode)
 		}
 
 	}
