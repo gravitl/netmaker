@@ -7,6 +7,7 @@ import (
 
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"golang.org/x/exp/slog"
 )
 
 func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq) error {
@@ -59,11 +60,12 @@ func SetInternetGw(node *models.Node, req models.InetNodeReq) {
 }
 
 func UnsetInternetGw(node *models.Node) {
-	for _, nodeID := range node.InetNodeReq.InetNodeClientIDs {
-		clientNode, err := logic.GetNodeByID(nodeID)
-		if err != nil {
-			continue
-		}
+	nodes, err := logic.GetNetworkNodes(node.Network)
+	if err != nil {
+		slog.Error("failed to get network nodes", "network", node.Network, "error", err)
+		return
+	}
+	for _, clientNode := range nodes {
 		if node.ID.String() == clientNode.InternetGwID {
 			node.InternetGwID = ""
 			logic.UpsertNode(node)
