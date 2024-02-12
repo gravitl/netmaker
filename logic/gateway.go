@@ -106,6 +106,9 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	if err != nil {
 		return models.Node{}, err
 	}
+	if gateway.Ranges == nil {
+		gateway.Ranges = make([]string, 0)
+	}
 	node.IsEgressGateway = true
 	node.EgressGatewayRanges = gateway.Ranges
 	node.EgressGatewayNatEnabled = models.ParseBool(gateway.NatEnabled)
