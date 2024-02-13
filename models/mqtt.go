@@ -8,20 +8,21 @@ import (
 
 // HostPeerUpdate - struct for host peer updates
 type HostPeerUpdate struct {
-	Host            Host                 `json:"host" bson:"host" yaml:"host"`
-	ChangeDefaultGw bool                 `json:"change_default_gw"`
-	DefaultGwIp     net.IP               `json:"default_gw_ip"`
-	NodeAddrs       []net.IPNet          `json:"nodes_addrs" yaml:"nodes_addrs"`
-	Server          string               `json:"server" bson:"server" yaml:"server"`
-	ServerVersion   string               `json:"serverversion" bson:"serverversion" yaml:"serverversion"`
-	ServerAddrs     []ServerAddr         `json:"serveraddrs" bson:"serveraddrs" yaml:"serveraddrs"`
-	NodePeers       []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
-	Peers           []wgtypes.PeerConfig
-	PeerIDs         PeerMap               `json:"peerids" bson:"peerids" yaml:"peerids"`
-	HostNetworkInfo HostInfoMap           `json:"host_network_info,omitempty" bson:"host_network_info,omitempty" yaml:"host_network_info,omitempty"`
-	EgressRoutes    []EgressNetworkRoutes `json:"egress_network_routes"`
-	FwUpdate        FwUpdate              `json:"fw_update"`
-	ReplacePeers    bool                  `json:"replace_peers"`
+	Host              Host                 `json:"host" bson:"host" yaml:"host"`
+	ChangeDefaultGw   bool                 `json:"change_default_gw"`
+	DefaultGwIp       net.IP               `json:"default_gw_ip"`
+	DefaultGwEndpoint net.IPNet            `json:"default_gw_endpoint"`
+	NodeAddrs         []net.IPNet          `json:"nodes_addrs" yaml:"nodes_addrs"`
+	Server            string               `json:"server" bson:"server" yaml:"server"`
+	ServerVersion     string               `json:"serverversion" bson:"serverversion" yaml:"serverversion"`
+	ServerAddrs       []ServerAddr         `json:"serveraddrs" bson:"serveraddrs" yaml:"serveraddrs"`
+	NodePeers         []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
+	Peers             []wgtypes.PeerConfig
+	PeerIDs           PeerMap               `json:"peerids" bson:"peerids" yaml:"peerids"`
+	HostNetworkInfo   HostInfoMap           `json:"host_network_info,omitempty" bson:"host_network_info,omitempty" yaml:"host_network_info,omitempty"`
+	EgressRoutes      []EgressNetworkRoutes `json:"egress_network_routes"`
+	FwUpdate          FwUpdate              `json:"fw_update"`
+	ReplacePeers      bool                  `json:"replace_peers"`
 }
 
 // IngressInfo - struct for ingress info

@@ -79,11 +79,25 @@ func UnsetInternetGw(node *models.Node) {
 
 func SetDefaultGw(node models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
 	if node.InternetGwID != "" {
-		inetNode, err := logic.GetNodeByID(node.InternetGwID)
-		if err == nil {
-			peerUpdate.ChangeDefaultGw = true
-			peerUpdate.DefaultGwIp = inetNode.Address.IP
+		inetHost, err := logic.GetHost(node.HostID.String())
+		if err != nil {
+			return peerUpdate
 		}
+		inetNode, err := logic.GetNodeByID(node.InternetGwID)
+		if err != nil {
+			return peerUpdate
+		}
+		peerUpdate.ChangeDefaultGw = true
+		peerUpdate.DefaultGwIp = inetNode.Address.IP
+		mask := 32
+		if inetHost.EndpointIP.To4() == nil {
+			mask = 128
+		}
+		_, cidr, err := net.ParseCIDR(fmt.Sprintf("%s/%d", inetHost.EndpointIP.String(), mask))
+		if err != nil {
+			return peerUpdate
+		}
+		peerUpdate.DefaultGwEndpoint = *cidr
 
 	}
 	return peerUpdate
