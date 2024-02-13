@@ -79,11 +79,12 @@ func UnsetInternetGw(node *models.Node) {
 
 func SetDefaultGw(node models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
 	if node.InternetGwID != "" {
-		inetHost, err := logic.GetHost(node.HostID.String())
+
+		inetNode, err := logic.GetNodeByID(node.InternetGwID)
 		if err != nil {
 			return peerUpdate
 		}
-		inetNode, err := logic.GetNodeByID(node.InternetGwID)
+		inetHost, err := logic.GetHost(inetNode.HostID.String())
 		if err != nil {
 			return peerUpdate
 		}
