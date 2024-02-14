@@ -109,12 +109,13 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node is not a internet gw"), "badrequest"))
 		return
 	}
+
+	proLogic.UnsetInternetGw(&node)
 	err = proLogic.ValidateInetGwReq(node, request)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	proLogic.UnsetInternetGw(&node)
 	proLogic.SetInternetGw(&node, request)
 	err = logic.UpsertNode(&node)
 	if err != nil {
