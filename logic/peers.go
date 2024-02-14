@@ -181,7 +181,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
 					continue
 				}
-				if peer.InternetGwID != "" {
+				if peer.InternetGwID != "" && peer.InternetGwID != node.ID.String() {
 					continue
 				}
 			}
