@@ -181,6 +181,9 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
 					continue
 				}
+				if peer.InternetGwID != "" {
+					continue
+				}
 			}
 
 			uselocal := false
@@ -386,8 +389,29 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 	if node.IsRelayed && node.RelayedBy == peer.ID.String() {
 		allowedips = append(allowedips, GetAllowedIpsForRelayed(node, peer)...)
 	}
-	if peer.IsInternetGateway && node.InternetGwID == peer.ID.String() {
-		allowedips = append(allowedips, GetAllowedIpForInet(node, peer)...)
+	if peer.IsInternetGateway {
+		if node.InternetGwID == peer.ID.String() {
+			allowedips = append(allowedips, GetAllowedIpForInet(node, peer)...)
+		}
+		for _, peerID := range peer.InetNodeReq.InetNodeClientIDs {
+			peerI, err := GetNodeByID(peerID)
+			if err == nil {
+				if peerI.Address.IP != nil {
+					allowed := net.IPNet{
+						IP:   peerI.Address.IP,
+						Mask: net.CIDRMask(32, 32),
+					}
+					allowedips = append(allowedips, allowed)
+				}
+				if peerI.Address6.IP != nil {
+					allowed := net.IPNet{
+						IP:   peerI.Address6.IP,
+						Mask: net.CIDRMask(128, 128),
+					}
+					allowedips = append(allowedips, allowed)
+				}
+			}
+		}
 	}
 	return allowedips
 }
