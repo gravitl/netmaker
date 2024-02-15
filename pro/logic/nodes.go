@@ -26,7 +26,7 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq) error {
 		if clientNode.IsInternetGateway {
 			return fmt.Errorf("node %s acting as internet gateway cannot use another internet gateway", clientHost.Name)
 		}
-		if clientNode.InternetGwID != "" {
+		if clientNode.InternetGwID != "" && clientNode.InternetGwID != inetNode.ID.String() {
 			return fmt.Errorf("node %s is already using a internet gateway", clientHost.Name)
 		}
 
