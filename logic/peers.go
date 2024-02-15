@@ -175,7 +175,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			_, isFailOverPeer := node.FailOverPeers[peer.ID.String()]
 			if servercfg.IsPro {
 				if (node.IsRelayed && node.RelayedBy != peer.ID.String()) ||
-					(peer.IsRelayed && peer.RelayedBy != node.ID.String()) || isFailOverPeer || peer.InternetGwID != "" {
+					(peer.IsRelayed && peer.RelayedBy != node.ID.String()) || isFailOverPeer || node.InternetGwID != "" {
 					// if node is relayed and peer is not the relay, set remove to true
 					if _, ok := peerIndexMap[peerHost.PublicKey.String()]; ok {
 						continue
@@ -183,9 +183,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					peerConfig.Remove = true
 					hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
 					peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
-					continue
-				}
-				if peer.InternetGwID != "" && peer.InternetGwID != node.ID.String() {
 					continue
 				}
 			}
