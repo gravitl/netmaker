@@ -115,7 +115,6 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	proLogic.UnsetInternetGw(&node)
-
 	proLogic.SetInternetGw(&node, request)
 	err = logic.UpsertNode(&node)
 	if err != nil {
