@@ -45,8 +45,12 @@ var (
 	SetInternetGw = func(node *models.Node, req models.InetNodeReq) {
 		node.IsInternetGateway = true
 	}
-	// GetAllowedIpForInet
-	GetAllowedIpForInet = func(node, peer *models.Node) []net.IPNet {
+	// GetAllowedIpForInetNodeClient
+	GetAllowedIpForInetNodeClient = func(node, peer *models.Node) []net.IPNet {
+		return []net.IPNet{}
+	}
+	// GetAllowedIpForInetPeerClient
+	GetAllowedIpForInetPeerClient = func(peer *models.Node) []net.IPNet {
 		return []net.IPNet{}
 	}
 )
@@ -171,7 +175,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			_, isFailOverPeer := node.FailOverPeers[peer.ID.String()]
 			if servercfg.IsPro {
 				if (node.IsRelayed && node.RelayedBy != peer.ID.String()) ||
-					(peer.IsRelayed && peer.RelayedBy != node.ID.String()) || isFailOverPeer {
+					(peer.IsRelayed && peer.RelayedBy != node.ID.String()) || isFailOverPeer || peer.InternetGwID != "" {
 					// if node is relayed and peer is not the relay, set remove to true
 					if _, ok := peerIndexMap[peerHost.PublicKey.String()]; ok {
 						continue
@@ -391,26 +395,9 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 	}
 	if peer.IsInternetGateway {
 		if node.InternetGwID == peer.ID.String() {
-			allowedips = append(allowedips, GetAllowedIpForInet(node, peer)...)
-		}
-		for _, peerID := range peer.InetNodeReq.InetNodeClientIDs {
-			peerI, err := GetNodeByID(peerID)
-			if err == nil {
-				if peerI.Address.IP != nil {
-					allowed := net.IPNet{
-						IP:   peerI.Address.IP,
-						Mask: net.CIDRMask(32, 32),
-					}
-					allowedips = append(allowedips, allowed)
-				}
-				if peerI.Address6.IP != nil {
-					allowed := net.IPNet{
-						IP:   peerI.Address6.IP,
-						Mask: net.CIDRMask(128, 128),
-					}
-					allowedips = append(allowedips, allowed)
-				}
-			}
+			allowedips = append(allowedips, GetAllowedIpForInetNodeClient(node, peer)...)
+		} else {
+			allowedips = append(allowedips, GetAllowedIpForInetPeerClient(peer)...)
 		}
 	}
 	return allowedips

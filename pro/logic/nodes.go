@@ -119,8 +119,32 @@ func GetNetworkIngresses(network string) ([]models.Node, error) {
 	return ingresses, nil
 }
 
-// GetAllowedIpsForInet - get inet cidr
-func GetAllowedIpsForInet(node, peer *models.Node) []net.IPNet {
+// GetAllowedIpsForInet - get inet cidr for node using a inet gw
+func GetAllowedIpForInetNodeClient(node, peer *models.Node) []net.IPNet {
 	_, ipnet, _ := net.ParseCIDR("0.0.0.0/0")
 	return []net.IPNet{*ipnet}
+}
+
+// GetAllowedIpForInetPeerClient - get allowedips for inet gw peer
+func GetAllowedIpForInetPeerClient(peer *models.Node) (allowedips []net.IPNet) {
+	for _, peerID := range peer.InetNodeReq.InetNodeClientIDs {
+		peerI, err := logic.GetNodeByID(peerID)
+		if err == nil {
+			if peerI.Address.IP != nil {
+				allowed := net.IPNet{
+					IP:   peerI.Address.IP,
+					Mask: net.CIDRMask(32, 32),
+				}
+				allowedips = append(allowedips, allowed)
+			}
+			if peerI.Address6.IP != nil {
+				allowed := net.IPNet{
+					IP:   peerI.Address6.IP,
+					Mask: net.CIDRMask(128, 128),
+				}
+				allowedips = append(allowedips, allowed)
+			}
+		}
+	}
+	return
 }

@@ -105,7 +105,8 @@ func InitPro() {
 	logic.SetDefaultGw = proLogic.SetDefaultGw
 	logic.UnsetInternetGw = proLogic.UnsetInternetGw
 	logic.SetInternetGw = proLogic.SetInternetGw
-	logic.GetAllowedIpForInet = proLogic.GetAllowedIpsForInet
+	logic.GetAllowedIpForInetNodeClient = proLogic.GetAllowedIpForInetNodeClient
+	logic.GetAllowedIpForInetPeerClient = proLogic.GetAllowedIpForInetPeerClient
 	mq.UpdateMetrics = proLogic.MQUpdateMetrics
 	mq.UpdateMetricsFallBack = proLogic.MQUpdateMetricsFallBack
 }
