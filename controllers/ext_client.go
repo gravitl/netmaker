@@ -256,13 +256,17 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	}
 
 	postUp := strings.Builder{}
-	for _, loc := range strings.Split(client.PostUp, "\n") {
-		postUp.WriteString(fmt.Sprintf("PostUp = %s\n", loc))
+	if client.PostUp != "" && params["type"] != "qr" {
+		for _, loc := range strings.Split(client.PostUp, "\n") {
+			postUp.WriteString(fmt.Sprintf("PostUp = %s\n", loc))
+		}
 	}
 
 	postDown := strings.Builder{}
-	for _, loc := range strings.Split(client.PostDown, "\n") {
-		postDown.WriteString(fmt.Sprintf("PostDown = %s\n", loc))
+	if client.PostDown != "" && params["type"] != "qr" {
+		for _, loc := range strings.Split(client.PostDown, "\n") {
+			postDown.WriteString(fmt.Sprintf("PostDown = %s\n", loc))
+		}
 	}
 
 	config := fmt.Sprintf(`[Interface]
