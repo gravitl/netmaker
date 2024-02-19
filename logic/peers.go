@@ -175,9 +175,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			_, isFailOverPeer := node.FailOverPeers[peer.ID.String()]
 			if servercfg.IsPro {
 				if (node.IsRelayed && node.RelayedBy != peer.ID.String()) ||
-					(peer.IsRelayed && peer.RelayedBy != node.ID.String()) || isFailOverPeer ||
-					(node.InternetGwID != "" && node.InternetGwID != peer.ID.String()) ||
-					(peer.InternetGwID != "" && !(node.IsRelayed && node.RelayedBy == peer.ID.String()) && peer.InternetGwID != node.ID.String()) {
+					(peer.IsRelayed && peer.RelayedBy != node.ID.String()) || isFailOverPeer {
 					// if node is relayed and peer is not the relay, set remove to true
 					if _, ok := peerIndexMap[peerHost.PublicKey.String()]; ok {
 						continue
@@ -377,13 +375,9 @@ func GetPeerListenPort(host *models.Host) int {
 // GetAllowedIPs - calculates the wireguard allowedip field for a peer of a node based on the peer and node settings
 func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet {
 	var allowedips []net.IPNet
-	if peer.IsInternetGateway {
-		if node.InternetGwID == peer.ID.String() {
-			allowedips = append(allowedips, GetAllowedIpForInetNodeClient(node, peer)...)
-			return allowedips
-		} else {
-			allowedips = append(allowedips, GetAllowedIpForInetPeerClient(peer)...)
-		}
+	if peer.IsInternetGateway && node.InternetGwID == peer.ID.String() {
+		allowedips = append(allowedips, GetAllowedIpForInetNodeClient(node, peer)...)
+		return allowedips
 	}
 	allowedips = append(allowedips, getNodeAllowedIPs(peer, node)...)
 
