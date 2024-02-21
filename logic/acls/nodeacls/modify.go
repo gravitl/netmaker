@@ -22,12 +22,14 @@ func CreateNodeACL(networkID NetworkID, nodeID NodeID, defaultVal byte) (acls.AC
 			return nil, err
 		}
 	}
+	acls.AclMutex.Lock()
 	var newNodeACL = make(acls.ACL)
 	for existingNodeID := range currentNetworkACL {
 		currentNetworkACL[existingNodeID][acls.AclID(nodeID)] = defaultVal // set the old nodes to default value for new node
 		newNodeACL[existingNodeID] = defaultVal                            // set the old nodes in new node ACL to default value
 	}
-	currentNetworkACL[acls.AclID(nodeID)] = newNodeACL                        // append the new node's ACL
+	currentNetworkACL[acls.AclID(nodeID)] = newNodeACL // append the new node's ACL
+	acls.AclMutex.Unlock()
 	retNetworkACL, err := currentNetworkACL.Save(acls.ContainerID(networkID)) // insert into db
 	if err != nil {
 		return nil, err
@@ -63,7 +65,9 @@ func UpdateNodeACL(networkID NetworkID, nodeID NodeID, acl acls.ACL) (acls.ACL, 
 	if err != nil {
 		return nil, err
 	}
+	acls.AclMutex.Lock()
 	currentNetworkACL[acls.AclID(nodeID)] = acl
+	acls.AclMutex.Unlock()
 	return currentNetworkACL[acls.AclID(nodeID)].Save(acls.ContainerID(networkID), acls.AclID(nodeID))
 }
 
@@ -73,12 +77,14 @@ func RemoveNodeACL(networkID NetworkID, nodeID NodeID) (acls.ACLContainer, error
 	if err != nil {
 		return nil, err
 	}
+	acls.AclMutex.Lock()
 	for currentNodeID := range currentNetworkACL {
 		if NodeID(currentNodeID) != nodeID {
 			currentNetworkACL[currentNodeID].Remove(acls.AclID(nodeID))
 		}
 	}
 	delete(currentNetworkACL, acls.AclID(nodeID))
+	acls.AclMutex.Unlock()
 	return currentNetworkACL.Save(acls.ContainerID(networkID))
 }
 

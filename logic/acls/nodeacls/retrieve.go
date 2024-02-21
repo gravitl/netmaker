@@ -13,6 +13,8 @@ func AreNodesAllowed(networkID NetworkID, node1, node2 NodeID) bool {
 	if err != nil {
 		return false
 	}
+	acls.AclMutex.RLock()
+	defer acls.AclMutex.RUnlock()
 	return currentNetworkACL[acls.AclID(node1)].IsAllowed(acls.AclID(node2)) && currentNetworkACL[acls.AclID(node2)].IsAllowed(acls.AclID(node1))
 }
 
@@ -22,6 +24,8 @@ func FetchNodeACL(networkID NetworkID, nodeID NodeID) (acls.ACL, error) {
 	if err != nil {
 		return nil, err
 	}
+	acls.AclMutex.RLock()
+	defer acls.AclMutex.RUnlock()
 	if currentNetworkACL[acls.AclID(nodeID)] == nil {
 		return nil, fmt.Errorf("no node ACL present for node %s", nodeID)
 	}
@@ -34,6 +38,8 @@ func FetchNodeACLJson(networkID NetworkID, nodeID NodeID) (acls.ACLJson, error) 
 	if err != nil {
 		return "", err
 	}
+	acls.AclMutex.RLock()
+	defer acls.AclMutex.RUnlock()
 	jsonData, err := json.Marshal(&currentNodeACL)
 	if err != nil {
 		return "", err

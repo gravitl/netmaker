@@ -12,7 +12,7 @@ import (
 var (
 	aclCacheMutex = &sync.RWMutex{}
 	aclCacheMap   = make(map[ContainerID]ACLContainer)
-	aclMutex      = &sync.RWMutex{}
+	AclMutex      = &sync.RWMutex{}
 )
 
 func fetchAclContainerFromCache(containerID ContainerID) (aclCont ACLContainer, ok bool) {
@@ -38,22 +38,22 @@ func DeleteAclFromCache(containerID ContainerID) {
 
 // ACL.Allow - allows access by ID in memory
 func (acl ACL) Allow(ID AclID) {
-	aclMutex.Lock()
-	defer aclMutex.Unlock()
+	AclMutex.Lock()
+	defer AclMutex.Unlock()
 	acl[ID] = Allowed
 }
 
 // ACL.DisallowNode - disallows access by ID in memory
 func (acl ACL) Disallow(ID AclID) {
-	aclMutex.Lock()
-	defer aclMutex.Unlock()
+	AclMutex.Lock()
+	defer AclMutex.Unlock()
 	acl[ID] = NotAllowed
 }
 
 // ACL.Remove - removes a node from a ACL in memory
 func (acl ACL) Remove(ID AclID) {
-	aclMutex.Lock()
-	defer aclMutex.Unlock()
+	AclMutex.Lock()
+	defer AclMutex.Unlock()
 	delete(acl, ID)
 }
 
@@ -64,24 +64,24 @@ func (acl ACL) Save(containerID ContainerID, ID AclID) (ACL, error) {
 
 // ACL.IsAllowed - sees if ID is allowed in referring ACL
 func (acl ACL) IsAllowed(ID AclID) (allowed bool) {
-	aclMutex.RLock()
+	AclMutex.RLock()
 	allowed = acl[ID] == Allowed
-	aclMutex.RUnlock()
+	AclMutex.RUnlock()
 	return
 }
 
 // ACLContainer.UpdateACL - saves the state of a ACL in the ACLContainer in memory
 func (aclContainer ACLContainer) UpdateACL(ID AclID, acl ACL) ACLContainer {
-	aclMutex.Lock()
-	defer aclMutex.Unlock()
+	AclMutex.Lock()
+	defer AclMutex.Unlock()
 	aclContainer[ID] = acl
 	return aclContainer
 }
 
 // ACLContainer.RemoveACL - removes the state of a ACL in the ACLContainer in memory
 func (aclContainer ACLContainer) RemoveACL(ID AclID) ACLContainer {
-	aclMutex.Lock()
-	defer aclMutex.Unlock()
+	AclMutex.Lock()
+	defer AclMutex.Unlock()
 	delete(aclContainer, ID)
 	return aclContainer
 }
@@ -127,8 +127,8 @@ func (aclContainer ACLContainer) Get(containerID ContainerID) (ACLContainer, err
 
 // fetchACLContainer - fetches all current rules in given ACL container
 func fetchACLContainer(containerID ContainerID) (ACLContainer, error) {
-	aclMutex.RLock()
-	defer aclMutex.RUnlock()
+	AclMutex.RLock()
+	defer AclMutex.RUnlock()
 	if servercfg.CacheEnabled() {
 		if aclContainer, ok := fetchAclContainerFromCache(containerID); ok {
 			return aclContainer, nil
@@ -171,8 +171,8 @@ func upsertACL(containerID ContainerID, ID AclID, acl ACL) (ACL, error) {
 // upsertACLContainer - Inserts or updates a network ACL given the json string of the ACL and the container ID
 // if nil, create it
 func upsertACLContainer(containerID ContainerID, aclContainer ACLContainer) (ACLContainer, error) {
-	aclMutex.Lock()
-	defer aclMutex.Unlock()
+	AclMutex.Lock()
+	defer AclMutex.Unlock()
 	if aclContainer == nil {
 		aclContainer = make(ACLContainer)
 	}
