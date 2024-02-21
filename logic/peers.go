@@ -185,7 +185,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					continue
 				}
 				if node.IsRelayed && node.RelayedBy == peer.ID.String() {
-					SetDefaultGwForRelayedUpdate(node, peer, hostPeerUpdate)
+					hostPeerUpdate = SetDefaultGwForRelayedUpdate(node, peer, hostPeerUpdate)
 				}
 			}
 
