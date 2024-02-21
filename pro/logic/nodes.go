@@ -29,6 +29,9 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq) error {
 		if clientNode.InternetGwID != "" && clientNode.InternetGwID != inetNode.ID.String() {
 			return fmt.Errorf("node %s is already using a internet gateway", clientHost.Name)
 		}
+		if clientNode.IsRelayed {
+			return fmt.Errorf("node %s is being relayed", clientHost.Name)
+		}
 
 		for _, nodeID := range clientHost.Nodes {
 			node, err := logic.GetNodeByID(nodeID)
@@ -79,21 +82,9 @@ func UnsetInternetGw(node *models.Node) {
 
 func SetDefaultGwForRelayedUpdate(relayed, relay models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
 	if relay.InternetGwID != "" {
-		relayHost, err := logic.GetHost(relay.HostID.String())
-		if err != nil {
-			return peerUpdate
-		}
 		peerUpdate.ChangeDefaultGw = true
 		peerUpdate.DefaultGwIp = relay.Address.IP
-		mask := 32
-		if relayHost.EndpointIP.To4() == nil {
-			mask = 128
-		}
-		_, cidr, err := net.ParseCIDR(fmt.Sprintf("%s/%d", relayHost.EndpointIP.String(), mask))
-		if err != nil {
-			return peerUpdate
-		}
-		peerUpdate.DefaultGwEndpoint = *cidr
+
 	}
 	return peerUpdate
 }
@@ -105,21 +96,8 @@ func SetDefaultGw(node models.Node, peerUpdate models.HostPeerUpdate) models.Hos
 		if err != nil {
 			return peerUpdate
 		}
-		inetHost, err := logic.GetHost(inetNode.HostID.String())
-		if err != nil {
-			return peerUpdate
-		}
 		peerUpdate.ChangeDefaultGw = true
 		peerUpdate.DefaultGwIp = inetNode.Address.IP
-		mask := 32
-		if inetHost.EndpointIP.To4() == nil {
-			mask = 128
-		}
-		_, cidr, err := net.ParseCIDR(fmt.Sprintf("%s/%d", inetHost.EndpointIP.String(), mask))
-		if err != nil {
-			return peerUpdate
-		}
-		peerUpdate.DefaultGwEndpoint = *cidr
 
 	}
 	return peerUpdate
