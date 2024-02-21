@@ -1,5 +1,5 @@
 
-# Netmaker v0.22.1
+# Netmaker v0.23.0
 
 ## Whats New
 - Revamped Internet Gateways
