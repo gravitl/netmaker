@@ -381,6 +381,12 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 		allowedips = append(allowedips, GetAllowedIpForInetNodeClient(node, peer)...)
 		return allowedips
 	}
+	if node.IsRelayed && node.RelayedBy == peer.ID.String() {
+		allowedips = append(allowedips, GetAllowedIpsForRelayed(node, peer)...)
+		if peer.InternetGwID != "" {
+			return allowedips
+		}
+	}
 	allowedips = append(allowedips, getNodeAllowedIPs(peer, node)...)
 
 	// handle ingress gateway peers
@@ -392,9 +398,6 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 		for _, extPeer := range extPeers {
 			allowedips = append(allowedips, extPeer.AllowedIPs...)
 		}
-	}
-	if node.IsRelayed && node.RelayedBy == peer.ID.String() {
-		allowedips = append(allowedips, GetAllowedIpsForRelayed(node, peer)...)
 	}
 
 	return allowedips
