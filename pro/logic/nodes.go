@@ -77,6 +77,27 @@ func UnsetInternetGw(node *models.Node) {
 
 }
 
+func SetDefaultGwForRelayedUpdate(relayed, relay models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
+	if relay.InternetGwID != "" {
+		relayHost, err := logic.GetHost(relay.HostID.String())
+		if err != nil {
+			return peerUpdate
+		}
+		peerUpdate.ChangeDefaultGw = true
+		peerUpdate.DefaultGwIp = relay.Address.IP
+		mask := 32
+		if relayHost.EndpointIP.To4() == nil {
+			mask = 128
+		}
+		_, cidr, err := net.ParseCIDR(fmt.Sprintf("%s/%d", relayHost.EndpointIP.String(), mask))
+		if err != nil {
+			return peerUpdate
+		}
+		peerUpdate.DefaultGwEndpoint = *cidr
+	}
+	return peerUpdate
+}
+
 func SetDefaultGw(node models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
 	if node.InternetGwID != "" {
 
@@ -123,28 +144,4 @@ func GetNetworkIngresses(network string) ([]models.Node, error) {
 func GetAllowedIpForInetNodeClient(node, peer *models.Node) []net.IPNet {
 	_, ipnet, _ := net.ParseCIDR("0.0.0.0/0")
 	return []net.IPNet{*ipnet}
-}
-
-// GetAllowedIpForInetPeerClient - get allowedips for inet gw peer
-func GetAllowedIpForInetPeerClient(peer *models.Node) (allowedips []net.IPNet) {
-	for _, peerID := range peer.InetNodeReq.InetNodeClientIDs {
-		peerI, err := logic.GetNodeByID(peerID)
-		if err == nil {
-			if peerI.Address.IP != nil {
-				allowed := net.IPNet{
-					IP:   peerI.Address.IP,
-					Mask: net.CIDRMask(32, 32),
-				}
-				allowedips = append(allowedips, allowed)
-			}
-			if peerI.Address6.IP != nil {
-				allowed := net.IPNet{
-					IP:   peerI.Address6.IP,
-					Mask: net.CIDRMask(128, 128),
-				}
-				allowedips = append(allowedips, allowed)
-			}
-		}
-	}
-	return
 }

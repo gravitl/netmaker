@@ -37,6 +37,9 @@ var (
 	SetDefaultGw = func(node models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
 		return peerUpdate
 	}
+	SetDefaultGwForRelayedUpdate = func(relayed, relay models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
+		return peerUpdate
+	}
 	// UnsetInternetGw
 	UnsetInternetGw = func(node *models.Node) {
 		node.IsInternetGateway = false
@@ -47,10 +50,6 @@ var (
 	}
 	// GetAllowedIpForInetNodeClient
 	GetAllowedIpForInetNodeClient = func(node, peer *models.Node) []net.IPNet {
-		return []net.IPNet{}
-	}
-	// GetAllowedIpForInetPeerClient
-	GetAllowedIpForInetPeerClient = func(peer *models.Node) []net.IPNet {
 		return []net.IPNet{}
 	}
 )
@@ -184,6 +183,9 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
 					peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
 					continue
+				}
+				if node.IsRelayed && node.RelayedBy == peer.ID.String() {
+					SetDefaultGwForRelayedUpdate(node, peer, hostPeerUpdate)
 				}
 			}
 

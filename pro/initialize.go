@@ -103,10 +103,10 @@ func InitPro() {
 	logic.RelayUpdates = proLogic.RelayUpdates
 	logic.GetTrialEndDate = getTrialEndDate
 	logic.SetDefaultGw = proLogic.SetDefaultGw
+	logic.SetDefaultGwForRelayedUpdate = proLogic.SetDefaultGwForRelayedUpdate
 	logic.UnsetInternetGw = proLogic.UnsetInternetGw
 	logic.SetInternetGw = proLogic.SetInternetGw
 	logic.GetAllowedIpForInetNodeClient = proLogic.GetAllowedIpForInetNodeClient
-	logic.GetAllowedIpForInetPeerClient = proLogic.GetAllowedIpForInetPeerClient
 	mq.UpdateMetrics = proLogic.MQUpdateMetrics
 	mq.UpdateMetricsFallBack = proLogic.MQUpdateMetricsFallBack
 }
