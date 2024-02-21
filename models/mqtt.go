@@ -11,6 +11,7 @@ type HostPeerUpdate struct {
 	Host            Host                 `json:"host" bson:"host" yaml:"host"`
 	ChangeDefaultGw bool                 `json:"change_default_gw"`
 	DefaultGwIp     net.IP               `json:"default_gw_ip"`
+	IsInternetGw    bool                 `json:"is_inet_gw"`
 	NodeAddrs       []net.IPNet          `json:"nodes_addrs" yaml:"nodes_addrs"`
 	Server          string               `json:"server" bson:"server" yaml:"server"`
 	ServerVersion   string               `json:"serverversion" bson:"serverversion" yaml:"serverversion"`

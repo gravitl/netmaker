@@ -143,6 +143,9 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			continue
 		}
 		hostPeerUpdate = SetDefaultGw(node, hostPeerUpdate)
+		if !hostPeerUpdate.IsInternetGw {
+			hostPeerUpdate.IsInternetGw = IsInternetGw(node)
+		}
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
 		for _, peer := range currentPeers {
 			peer := peer
