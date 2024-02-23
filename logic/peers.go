@@ -298,14 +298,14 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				egressrange = append(egressrange, "::/0")
 			}
 			hostPeerUpdate.FwUpdate.EgressInfo[fmt.Sprintf("%s-%s", node.ID.String(), "inet")] = models.EgressInfo{
-				EgressID: node.ID.String(),
+				EgressID: fmt.Sprintf("%s-%s", node.ID.String(), "inet"),
 				Network:  node.PrimaryAddressIPNet(),
 				EgressGwAddr: net.IPNet{
 					IP:   net.ParseIP(node.PrimaryAddress()),
 					Mask: getCIDRMaskFromAddr(node.PrimaryAddress()),
 				},
 				EgressGWCfg: models.EgressGatewayRequest{
-					NodeID:     node.ID.String(),
+					NodeID:     fmt.Sprintf("%s-%s", node.ID.String(), "inet"),
 					NetID:      node.Network,
 					NatEnabled: "yes",
 					Ranges:     egressrange,
