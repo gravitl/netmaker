@@ -10,7 +10,7 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq) error {
+func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool) error {
 	for _, clientNodeID := range req.InetNodeClientIDs {
 		clientNode, err := logic.GetNodeByID(clientNodeID)
 		if err != nil {
@@ -26,9 +26,16 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq) error {
 		if clientNode.IsInternetGateway {
 			return fmt.Errorf("node %s acting as internet gateway cannot use another internet gateway", clientHost.Name)
 		}
-		if clientNode.InternetGwID != "" && clientNode.InternetGwID != inetNode.ID.String() {
-			return fmt.Errorf("node %s is already using a internet gateway", clientHost.Name)
+		if update {
+			if clientNode.InternetGwID != "" && clientNode.InternetGwID != inetNode.ID.String() {
+				return fmt.Errorf("node %s is already using a internet gateway", clientHost.Name)
+			}
+		} else {
+			if clientNode.InternetGwID != "" {
+				return fmt.Errorf("node %s is already using a internet gateway", clientHost.Name)
+			}
 		}
+
 		if clientNode.IsRelayed {
 			return fmt.Errorf("node %s is being relayed", clientHost.Name)
 		}
