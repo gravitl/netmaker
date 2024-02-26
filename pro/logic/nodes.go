@@ -11,11 +11,18 @@ import (
 )
 
 func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool) error {
+	inetHost, err := logic.GetHost(inetNode.HostID.String())
+	if err != nil {
+		return err
+	}
+	if inetHost.FirewallInUse == models.FIREWALL_NONE {
+		return errors.New("iptables or nftables needs to be installed")
+	}
 	if inetNode.InternetGwID != "" {
-		return errors.New("node is using a internet gateway already")
+		return fmt.Errorf("node %s is using a internet gateway already", inetHost.Name)
 	}
 	if inetNode.IsRelayed {
-		return errors.New("node is being relayed")
+		return fmt.Errorf("node %s is being relayed", inetHost.Name)
 	}
 	for _, clientNodeID := range req.InetNodeClientIDs {
 		clientNode, err := logic.GetNodeByID(clientNodeID)
