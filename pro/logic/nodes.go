@@ -12,10 +12,10 @@ import (
 
 func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool) error {
 	if inetNode.InternetGwID != "" {
-		return errors.New("node is using a internet gateway")
+		return errors.New("node is using a internet gateway already")
 	}
 	if inetNode.IsRelayed {
-		return errors.New("node is relayed")
+		return errors.New("node is being relayed")
 	}
 	for _, clientNodeID := range req.InetNodeClientIDs {
 		clientNode, err := logic.GetNodeByID(clientNodeID)
