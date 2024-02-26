@@ -7,6 +7,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 // IsInternetGw - checks if node is acting as internet gw
@@ -157,7 +158,9 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 		return models.Node{}, err
 	}
 	node.IsIngressGateway = true
-	node.IsInternetGateway = ingress.IsInternetGateway
+	if !servercfg.IsPro {
+		node.IsInternetGateway = ingress.IsInternetGateway
+	}
 	node.IngressGatewayRange = network.AddressRange
 	node.IngressGatewayRange6 = network.AddressRange6
 	node.IngressDNS = ingress.ExtclientDNS
