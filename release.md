@@ -9,11 +9,11 @@
 
 ## What's Fixed/Improved 🛠
 
-- Allow creation of gateways, relays and egress without clients, relayed hosts and external ranges respqctively
+- Allow creation of gateways, relays and egress without clients, relayed hosts and external ranges respectively
 - Make default host a remote access gateway and a failover host on joining a new network
 - Stability fixes with ACLs
-- Fix issues with install/upgrade scripts
-- Fix issues with CoreDNS
+- Fixed issues with install/upgrade scripts
+- Fixed issues with CoreDNS
 - Metadata for Remote Access Gateways
 
 ## Known Issues 🐞
