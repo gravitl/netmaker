@@ -6,6 +6,7 @@
   On community edition, internet gateways for clients can be accessed via the Remote Access tab.
 - PostUp and PostDown commands for clients
 - EMQX cloud support
+- Metadata for Remote Access Gateways
 
 ## What's Fixed/Improved 🛠
 
@@ -14,6 +15,5 @@
 - Stability fixes with ACLs
 - Fixed issues with install/upgrade scripts
 - Fixed issues with CoreDNS
-- Metadata for Remote Access Gateways
 
 ## Known Issues 🐞
