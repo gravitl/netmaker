@@ -430,14 +430,14 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		extclient.Enabled = parentNetwork.DefaultACL == "yes"
 	}
 
-	if err := logic.SetClientDefaultACLs(&extclient); err != nil {
-		slog.Error("failed to set default acls for extclient", "user", r.Header.Get("user"), "network", node.Network, "error", err)
+	if err = logic.CreateExtClient(&extclient); err != nil {
+		slog.Error("failed to create extclient", "user", r.Header.Get("user"), "network", node.Network, "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
-	if err = logic.CreateExtClient(&extclient); err != nil {
-		slog.Error("failed to create extclient", "user", r.Header.Get("user"), "network", node.Network, "error", err)
+	if err := logic.SetClientDefaultACLs(&extclient); err != nil {
+		slog.Error("failed to set default acls for extclient", "user", r.Header.Get("user"), "network", node.Network, "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}

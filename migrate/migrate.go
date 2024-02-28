@@ -284,9 +284,11 @@ func updateAcls() {
 		}
 
 		// save new acls
+		slog.Info(fmt.Sprintf("(migration) saving new acls for network: %s", network.NetID), "networkAcl", networkAcl)
 		if _, err := networkAcl.Save(acls.ContainerID(network.NetID)); err != nil {
 			slog.Error(fmt.Sprintf("error during acls migration. error saving new acls for network: %s", network.NetID), "error", err)
 			continue
 		}
+		slog.Info(fmt.Sprintf("(migration) successfully saved new acls for network: %s", network.NetID))
 	}
 }
