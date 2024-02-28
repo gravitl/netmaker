@@ -222,7 +222,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		gwendpoint = fmt.Sprintf("%s:%d", host.EndpointIP.String(), host.ListenPort)
 	}
 	var newAllowedIPs string
-	if logic.IsInternetGw(gwnode) {
+	if logic.IsInternetGw(gwnode) || gwnode.InternetGwID != "" {
 		egressrange := "0.0.0.0/0"
 		if gwnode.Address6.IP != nil && client.Address6 != "" {
 			egressrange += "," + "::/0"

@@ -31,6 +31,7 @@ func InitPro() {
 		proControllers.RelayHandlers,
 		proControllers.UserHandlers,
 		proControllers.FailOverHandlers,
+		proControllers.InetHandlers,
 	)
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
 		// == License Handling ==
@@ -100,9 +101,12 @@ func InitPro() {
 	logic.UpdateRelayed = proLogic.UpdateRelayed
 	logic.SetRelayedNodes = proLogic.SetRelayedNodes
 	logic.RelayUpdates = proLogic.RelayUpdates
-	logic.IsInternetGw = proLogic.IsInternetGw
-	logic.SetInternetGw = proLogic.SetInternetGw
 	logic.GetTrialEndDate = getTrialEndDate
+	logic.SetDefaultGw = proLogic.SetDefaultGw
+	logic.SetDefaultGwForRelayedUpdate = proLogic.SetDefaultGwForRelayedUpdate
+	logic.UnsetInternetGw = proLogic.UnsetInternetGw
+	logic.SetInternetGw = proLogic.SetInternetGw
+	logic.GetAllowedIpForInetNodeClient = proLogic.GetAllowedIpForInetNodeClient
 	mq.UpdateMetrics = proLogic.MQUpdateMetrics
 	mq.UpdateMetricsFallBack = proLogic.MQUpdateMetricsFallBack
 }

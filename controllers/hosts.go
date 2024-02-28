@@ -141,6 +141,9 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		HostNetworkInfo: hPU.HostNetworkInfo,
 		EgressRoutes:    hPU.EgressRoutes,
 		FwUpdate:        hPU.FwUpdate,
+		ChangeDefaultGw: hPU.ChangeDefaultGw,
+		DefaultGwIp:     hPU.DefaultGwIp,
+		IsInternetGw:    hPU.IsInternetGw,
 	}
 
 	logger.Log(1, hostID, "completed a pull")

@@ -7,17 +7,13 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
-var (
-	// SetInternetGw - sets the node as internet gw based on flag bool
-	SetInternetGw = func(node *models.Node, flag bool) {
-	}
-	// IsInternetGw - checks if node is acting as internet gw
-	IsInternetGw = func(node models.Node) bool {
-		return false
-	}
-)
+// IsInternetGw - checks if node is acting as internet gw
+func IsInternetGw(node models.Node) bool {
+	return node.IsInternetGateway
+}
 
 // GetInternetGateways - gets all the nodes that are internet gateways
 func GetInternetGateways() ([]models.Node, error) {
@@ -27,13 +23,8 @@ func GetInternetGateways() ([]models.Node, error) {
 	}
 	igs := make([]models.Node, 0)
 	for _, node := range nodes {
-		if !node.IsEgressGateway {
-			continue
-		}
-		for _, ran := range node.EgressGatewayRanges {
-			if ran == "0.0.0.0/0" {
-				igs = append(igs, node)
-			}
+		if node.IsInternetGateway {
+			igs = append(igs, node)
 		}
 	}
 	return igs, nil
@@ -167,7 +158,9 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 		return models.Node{}, err
 	}
 	node.IsIngressGateway = true
-	SetInternetGw(&node, ingress.IsInternetGateway)
+	if !servercfg.IsPro {
+		node.IsInternetGateway = ingress.IsInternetGateway
+	}
 	node.IngressGatewayRange = network.AddressRange
 	node.IngressGatewayRange6 = network.AddressRange6
 	node.IngressDNS = ingress.ExtclientDNS
@@ -223,7 +216,9 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 	logger.Log(3, "deleting ingress gateway")
 	node.LastModified = time.Now()
 	node.IsIngressGateway = false
-	node.IsInternetGateway = false
+	if !servercfg.IsPro {
+		node.IsInternetGateway = false
+	}
 	node.IngressGatewayRange = ""
 	node.Metadata = ""
 	err = UpsertNode(&node)

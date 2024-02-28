@@ -218,6 +218,23 @@ func DeleteNode(node *models.Node, purge bool) error {
 		// unset all the relayed nodes
 		SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
 	}
+	if node.InternetGwID != "" {
+		inetNode, err := GetNodeByID(node.InternetGwID)
+		if err == nil {
+			clientNodeIDs := []string{}
+			for _, inetNodeClientID := range inetNode.InetNodeReq.InetNodeClientIDs {
+				if inetNodeClientID == node.ID.String() {
+					continue
+				}
+				clientNodeIDs = append(clientNodeIDs, inetNodeClientID)
+			}
+			inetNode.InetNodeReq.InetNodeClientIDs = clientNodeIDs
+			UpsertNode(&inetNode)
+		}
+	}
+	if node.IsInternetGateway {
+		UnsetInternetGw(node)
+	}
 
 	if !purge && !alreadyDeleted {
 		newnode := *node
@@ -597,4 +614,17 @@ func SortApiNodes(unsortedNodes []models.ApiNode) {
 	sort.Slice(unsortedNodes, func(i, j int) bool {
 		return unsortedNodes[i].ID < unsortedNodes[j].ID
 	})
+}
+
+func ValidateParams(nodeid, netid string) (models.Node, error) {
+	node, err := GetNodeByID(nodeid)
+	if err != nil {
+		slog.Error("error fetching node", "node", nodeid, "error", err.Error())
+		return node, fmt.Errorf("error fetching node during parameter validation: %v", err)
+	}
+	if node.Network != netid {
+		slog.Error("network url param does not match node id", "url nodeid", netid, "node", node.Network)
+		return node, fmt.Errorf("network url param does not match node network")
+	}
+	return node, nil
 }
