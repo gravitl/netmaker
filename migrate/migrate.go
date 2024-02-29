@@ -299,17 +299,15 @@ func updateAcls() {
 }
 
 func migrateEmqx() {
-	hosts, err := logic.GetAllHosts()
+
+	err := mq.SendPullSYN()
 	if err != nil {
-		slog.Error("failed to migrate emqx: ", "error", err)
-		return
+		slog.Error("failed to send pull syn to clients", "error", err)
+		slog.Info("proceeding to kicking out clients from emqx")
+		err := mq.KickOutClients()
+		if err != nil {
+			slog.Error("failed to migrate emqx: ", "kickout-error", err)
+		}
 	}
-	clientIDs := []string{}
-	for _, host := range hosts {
-		clientIDs = append(clientIDs, host.ID.String())
-	}
-	err = mq.KickOutClients(clientIDs)
-	if err != nil {
-		slog.Error("failed to migrate emqx: ", "kickout-error", err)
-	}
+
 }
