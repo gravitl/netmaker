@@ -25,6 +25,7 @@ func Run() {
 	updateNodes()
 	updateAcls()
 	if os.Getenv("MIGRATE_EMQX") == "true" {
+		logger.Log(0, "migrating emqx...")
 		migrateEmqx()
 	}
 }
@@ -302,11 +303,11 @@ func migrateEmqx() {
 
 	err := mq.SendPullSYN()
 	if err != nil {
-		slog.Error("failed to send pull syn to clients", "error", err)
+		logger.Log(0, "failed to send pull syn to clients", "error", err.Error())
 		slog.Info("proceeding to kicking out clients from emqx")
 		err := mq.KickOutClients()
 		if err != nil {
-			slog.Error("failed to migrate emqx: ", "kickout-error", err)
+			logger.Log(0, "failed to migrate emqx: ", "kickout-error", err.Error())
 		}
 	}
 
