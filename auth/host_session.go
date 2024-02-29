@@ -86,6 +86,24 @@ func SessionHandler(conn *websocket.Conn) {
 			return
 		}
 		req.Pass = req.Host.ID.String()
+		user, err := logic.GetUser(req.User)
+		if err != nil {
+			logger.Log(0, "failed to get user", req.User, "from database")
+			err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			if err != nil {
+				logger.Log(0, "error during message writing:", err.Error())
+			}
+			return
+		}
+		if !user.IsAdmin && !user.IsSuperAdmin {
+			logger.Log(0, "user", req.User, "is neither an admin or superadmin. denying registeration")
+			conn.WriteMessage(messageType, []byte("cannot register with a non-admin or non-superadmin"))
+			err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			if err != nil {
+				logger.Log(0, "error during message writing:", err.Error())
+			}
+			return
+		}
 
 		if err = netcache.Set(stateStr, req); err != nil { // give the user's host access in the DB
 			logger.Log(0, "machine failed to complete join on network,", registerMessage.Network, "-", err.Error())
@@ -129,14 +147,13 @@ func SessionHandler(conn *websocket.Conn) {
 	select {
 	case result := <-answer: // a read from req.answerCh has occurred
 		// add the host, if not exists, handle like enrollment registration
-		hostPass := result.Host.HostPass
 		if !logic.HostExists(&result.Host) { // check if host already exists, add if not
 			if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
-				if err := mq.CreateEmqxUser(result.Host.ID.String(), result.Host.HostPass, false); err != nil {
+				if err := mq.GetEmqxHandler().CreateEmqxUser(result.Host.ID.String(), result.Host.HostPass); err != nil {
 					logger.Log(0, "failed to create host credentials for EMQX: ", err.Error())
 					return
 				}
-				if err := mq.CreateHostACL(result.Host.ID.String(), servercfg.GetServerInfo().Server); err != nil {
+				if err := mq.GetEmqxHandler().CreateHostACL(result.Host.ID.String(), servercfg.GetServerInfo().Server); err != nil {
 					logger.Log(0, "failed to add host ACL rules to EMQX: ", err.Error())
 					return
 				}
@@ -185,11 +202,6 @@ func SessionHandler(conn *websocket.Conn) {
 		}
 		server := servercfg.GetServerInfo()
 		server.TrafficKey = key
-		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
-			// set MQ username and password for EMQX clients
-			server.MQUserName = result.Host.ID.String()
-			server.MQPassword = hostPass
-		}
 		result.Host.HostPass = ""
 		response := models.RegisterResponse{
 			ServerConf:    server,
@@ -233,11 +245,15 @@ func CheckNetRegAndHostUpdate(networks []string, h *models.Host, relayNodeId uui
 				continue
 			}
 			if relayNodeId != uuid.Nil && !newNode.IsRelayed {
-				newNode.IsRelayed = true
-				newNode.RelayedBy = relayNodeId.String()
-				slog.Info(fmt.Sprintf("adding relayed node %s to relay %s on network %s", newNode.ID.String(), relayNodeId.String(), network))
-				if err := logic.UpsertNode(newNode); err != nil {
-					slog.Error("failed to update node", "nodeid", relayNodeId.String())
+				// check if relay node exists and acting as relay
+				relaynode, err := logic.GetNodeByID(relayNodeId.String())
+				if err == nil && relaynode.IsRelay {
+					newNode.IsRelayed = true
+					newNode.RelayedBy = relayNodeId.String()
+					slog.Info(fmt.Sprintf("adding relayed node %s to relay %s on network %s", newNode.ID.String(), relayNodeId.String(), network))
+					if err := logic.UpsertNode(newNode); err != nil {
+						slog.Error("failed to update node", "nodeid", relayNodeId.String())
+					}
 				}
 			}
 			logger.Log(1, "added new node", newNode.ID.String(), "to host", h.Name)
@@ -246,6 +262,12 @@ func CheckNetRegAndHostUpdate(networks []string, h *models.Host, relayNodeId uui
 				Host:   *h,
 				Node:   *newNode,
 			})
+			if h.IsDefault {
+				// make  host failover
+				logic.CreateFailOver(*newNode)
+				// make host remote access gateway
+				logic.CreateIngressGateway(network, newNode.ID.String(), models.IngressRequest{})
+			}
 		}
 	}
 	if servercfg.IsMessageQueueBackend() {

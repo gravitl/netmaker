@@ -5,6 +5,7 @@ import (
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
+	"golang.org/x/exp/slog"
 )
 
 // DenyClientNode - add a denied node to an ext client's list
@@ -55,13 +56,39 @@ func SetClientDefaultACLs(ec *models.ExtClient) error {
 	if err != nil {
 		return err
 	}
+	var networkAcls acls.ACLContainer
+	networkAcls, err = networkAcls.Get(acls.ContainerID(ec.Network))
+	if err != nil {
+		slog.Error("failed to get network acls", "error", err)
+		return err
+	}
+	networkAcls[acls.AclID(ec.ClientID)] = acls.ACL{}
 	for i := range networkNodes {
 		currNode := networkNodes[i]
 		if network.DefaultACL == "no" || currNode.DefaultACL == "no" {
 			DenyClientNode(ec, currNode.ID.String())
+			networkAcls[acls.AclID(ec.ClientID)][acls.AclID(currNode.ID.String())] = acls.NotAllowed
+			networkAcls[acls.AclID(currNode.ID.String())][acls.AclID(ec.ClientID)] = acls.NotAllowed
 		} else {
 			RemoveDeniedNodeFromClient(ec, currNode.ID.String())
+			networkAcls[acls.AclID(ec.ClientID)][acls.AclID(currNode.ID.String())] = acls.Allowed
+			networkAcls[acls.AclID(currNode.ID.String())][acls.AclID(ec.ClientID)] = acls.Allowed
 		}
+	}
+	networkClients, err := logic.GetNetworkExtClients(ec.Network)
+	if err != nil {
+		slog.Error("failed to get network clients", "error", err)
+		return err
+	}
+	for _, client := range networkClients {
+		// TODO: revisit when client-client acls are supported
+		networkAcls[acls.AclID(ec.ClientID)][acls.AclID(client.ClientID)] = acls.Allowed
+		networkAcls[acls.AclID(client.ClientID)][acls.AclID(ec.ClientID)] = acls.Allowed
+	}
+	delete(networkAcls[acls.AclID(ec.ClientID)], acls.AclID(ec.ClientID)) // remove oneself
+	if _, err = networkAcls.Save(acls.ContainerID(ec.Network)); err != nil {
+		slog.Error("failed to update network acls", "error", err)
+		return err
 	}
 	return nil
 }

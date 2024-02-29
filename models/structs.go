@@ -1,6 +1,7 @@
 package models
 
 import (
+	"net"
 	"strings"
 	"time"
 
@@ -71,6 +72,7 @@ type UserRemoteGws struct {
 	IsInternetGateway bool      `json:"is_internet_gateway"`
 	GwClient          ExtClient `json:"gw_client"`
 	GwPeerPublicKey   string    `json:"gw_peer_public_key"`
+	Metadata          string    `json:"metadata"`
 }
 
 // UserRemoteGwsReq - struct to hold user remote acccess gws req
@@ -195,6 +197,11 @@ type IngressRequest struct {
 	IsInternetGateway bool   `json:"is_internet_gw"`
 }
 
+// InetNodeReq - exit node request struct
+type InetNodeReq struct {
+	InetNodeClientIDs []string `json:"inet_node_client_ids"`
+}
+
 // ServerUpdateData - contains data to configure server
 // and if it should set peers
 type ServerUpdateData struct {
@@ -233,6 +240,12 @@ type HostPull struct {
 	HostNetworkInfo HostInfoMap           `json:"host_network_info,omitempty"  yaml:"host_network_info,omitempty"`
 	EgressRoutes    []EgressNetworkRoutes `json:"egress_network_routes"`
 	FwUpdate        FwUpdate              `json:"fw_update"`
+	ChangeDefaultGw bool                  `json:"change_default_gw"`
+	DefaultGwIp     net.IP                `json:"default_gw_ip"`
+	IsInternetGw    bool                  `json:"is_inet_gw"`
+}
+
+type DefaultGwInfo struct {
 }
 
 // NodeGet - struct for a single node get response

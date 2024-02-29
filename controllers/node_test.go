@@ -132,11 +132,7 @@ func TestGetNetworkNodes(t *testing.T) {
 
 func TestValidateEgressGateway(t *testing.T) {
 	var gateway models.EgressGatewayRequest
-	t.Run("EmptyRange", func(t *testing.T) {
-		gateway.Ranges = []string{}
-		err := logic.ValidateEgressGateway(gateway)
-		assert.EqualError(t, err, "IP Ranges Cannot Be Empty")
-	})
+
 	t.Run("Success", func(t *testing.T) {
 		gateway.Ranges = []string{"10.100.100.0/24"}
 		err := logic.ValidateEgressGateway(gateway)

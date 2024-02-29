@@ -103,11 +103,7 @@ func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.N
 // ValidateRelay - checks if relay is valid
 func ValidateRelay(relay models.RelayRequest) error {
 	var err error
-	// isIp := functions.IsIpCIDR(gateway.RangeString)
-	empty := len(relay.RelayedNodes) == 0
-	if empty {
-		return errors.New("IP Ranges Cannot Be Empty")
-	}
+
 	node, err := logic.GetNodeByID(relay.NodeID)
 	if err != nil {
 		return err
@@ -135,7 +131,7 @@ func updateRelayNodes(relay string, oldNodes []string, newNodes []string) []mode
 
 func RelayUpdates(currentNode, newNode *models.Node) bool {
 	relayUpdates := false
-	if servercfg.IsPro && newNode.IsRelay && len(newNode.RelayedNodes) > 0 {
+	if servercfg.IsPro && newNode.IsRelay {
 		if len(newNode.RelayedNodes) != len(currentNode.RelayedNodes) {
 			relayUpdates = true
 		} else {
@@ -207,6 +203,9 @@ func GetAllowedIpsForRelayed(relayed, relay *models.Node) (allowedIPs []net.IPNe
 	if relayed.RelayedBy != relay.ID.String() {
 		logger.Log(0, "RelayedByRelay called with invalid parameters")
 		return
+	}
+	if relay.InternetGwID != "" {
+		return GetAllowedIpForInetNodeClient(relayed, relay)
 	}
 	peers, err := logic.GetNetworkNodes(relay.Network)
 	if err != nil {

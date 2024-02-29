@@ -124,9 +124,6 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	serverConf := servercfg.GetServerInfo()
-	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
-		serverConf.MQUserName = hostID
-	}
 	key, keyErr := logic.RetrievePublicTrafficKey()
 	if keyErr != nil {
 		logger.Log(0, "error retrieving key:", keyErr.Error())
@@ -144,6 +141,9 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		HostNetworkInfo: hPU.HostNetworkInfo,
 		EgressRoutes:    hPU.EgressRoutes,
 		FwUpdate:        hPU.FwUpdate,
+		ChangeDefaultGw: hPU.ChangeDefaultGw,
+		DefaultGwIp:     hPU.DefaultGwIp,
+		IsInternetGw:    hPU.IsInternetGw,
 	}
 
 	logger.Log(1, hostID, "completed a pull")
@@ -254,7 +254,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	case models.UpdateMetrics:
-		// mq.UpdateMetricsFallBack(hostUpdate.Node.ID.String(), hostUpdate.NewMetrics)
+		mq.UpdateMetricsFallBack(hostUpdate.Node.ID.String(), hostUpdate.NewMetrics)
 	}
 	logic.ReturnSuccessResponse(w, r, "updated host data")
 
@@ -298,7 +298,7 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 	}
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 		// delete EMQX credentials for host
-		if err := mq.DeleteEmqxUser(currHost.ID.String()); err != nil {
+		if err := mq.GetEmqxHandler().DeleteEmqxUser(currHost.ID.String()); err != nil {
 			slog.Error("failed to remove host credentials from EMQX", "id", currHost.ID, "error", err)
 		}
 	}
@@ -354,6 +354,12 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(1, "added new node", newNode.ID.String(), "to host", currHost.Name)
+	if currHost.IsDefault {
+		// make  host failover
+		logic.CreateFailOver(*newNode)
+		// make host remote access gateway
+		logic.CreateIngressGateway(network, newNode.ID.String(), models.IngressRequest{})
+	}
 	go func() {
 		mq.HostUpdate(&models.HostUpdate{
 			Action: models.JoinHostToNetwork,
@@ -549,15 +555,15 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 
 	// Create EMQX creds and ACLs if not found
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
-		if err := mq.CreateEmqxUser(host.ID.String(), authRequest.Password, false); err != nil {
+		if err := mq.GetEmqxHandler().CreateEmqxUser(host.ID.String(), authRequest.Password); err != nil {
 			slog.Error("failed to create host credentials for EMQX: ", err.Error())
 		} else {
-			if err := mq.CreateHostACL(host.ID.String(), servercfg.GetServerInfo().Server); err != nil {
+			if err := mq.GetEmqxHandler().CreateHostACL(host.ID.String(), servercfg.GetServerInfo().Server); err != nil {
 				slog.Error("failed to add host ACL rules to EMQX: ", err.Error())
 			}
 			for _, nodeID := range host.Nodes {
 				if node, err := logic.GetNodeByID(nodeID); err == nil {
-					if err = mq.AppendNodeUpdateACL(host.ID.String(), node.Network, node.ID.String(), servercfg.GetServer()); err != nil {
+					if err = mq.GetEmqxHandler().AppendNodeUpdateACL(host.ID.String(), node.Network, node.ID.String(), servercfg.GetServer()); err != nil {
 						slog.Error("failed to add ACLs for EMQX node", "error", err)
 					}
 				} else {

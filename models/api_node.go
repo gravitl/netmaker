@@ -11,9 +11,9 @@ import (
 type ApiNode struct {
 	ID                      string   `json:"id,omitempty" validate:"required,min=5,id_unique"`
 	HostID                  string   `json:"hostid,omitempty" validate:"required,min=5,id_unique"`
-	Address                 string   `json:"address" validate:"omitempty,ipv4"`
-	Address6                string   `json:"address6" validate:"omitempty,ipv6"`
-	LocalAddress            string   `json:"localaddress" validate:"omitempty,ipv4"`
+	Address                 string   `json:"address" validate:"omitempty,cidrv4"`
+	Address6                string   `json:"address6" validate:"omitempty,cidrv6"`
+	LocalAddress            string   `json:"localaddress" validate:"omitempty,cidr"`
 	AllowedIPs              []string `json:"allowedips"`
 	LastModified            int64    `json:"lastmodified"`
 	ExpirationDateTime      int64    `json:"expdatetime"`
@@ -28,20 +28,22 @@ type ApiNode struct {
 	RelayedNodes            []string `json:"relaynodes" yaml:"relayedNodes"`
 	IsEgressGateway         bool     `json:"isegressgateway"`
 	IsIngressGateway        bool     `json:"isingressgateway"`
-	IsInternetGateway       bool     `json:"isinternetgateway" yaml:"isinternetgateway"`
 	EgressGatewayRanges     []string `json:"egressgatewayranges"`
 	EgressGatewayNatEnabled bool     `json:"egressgatewaynatenabled"`
 	DNSOn                   bool     `json:"dnson"`
 	IngressDns              string   `json:"ingressdns"`
 	Server                  string   `json:"server"`
-	InternetGateway         string   `json:"internetgateway"`
 	Connected               bool     `json:"connected"`
 	PendingDelete           bool     `json:"pendingdelete"`
+	Metadata                string   `json:"metadata" validate:"max=256"`
 	// == PRO ==
-	DefaultACL    string              `json:"defaultacl,omitempty" validate:"checkyesornoorunset"`
-	IsFailOver    bool                `json:"is_fail_over"`
-	FailOverPeers map[string]struct{} `json:"fail_over_peers" yaml:"fail_over_peers"`
-	FailedOverBy  uuid.UUID           `json:"failed_over_by" yaml:"failed_over_by"`
+	DefaultACL        string              `json:"defaultacl,omitempty" validate:"checkyesornoorunset"`
+	IsFailOver        bool                `json:"is_fail_over"`
+	FailOverPeers     map[string]struct{} `json:"fail_over_peers" yaml:"fail_over_peers"`
+	FailedOverBy      uuid.UUID           `json:"failed_over_by" yaml:"failed_over_by"`
+	IsInternetGateway bool                `json:"isinternetgateway" yaml:"isinternetgateway"`
+	InetNodeReq       InetNodeReq         `json:"inet_node_req" yaml:"inet_node_req"`
+	InternetGwID      string              `json:"internetgw_node_id" yaml:"internetgw_node_id"`
 }
 
 // ApiNode.ConvertToServerNode - converts an api node to a server node
@@ -71,6 +73,8 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.IsInternetGateway = a.IsInternetGateway
 	convertedNode.EgressGatewayRequest = currentNode.EgressGatewayRequest
 	convertedNode.EgressGatewayNatEnabled = currentNode.EgressGatewayNatEnabled
+	convertedNode.InternetGwID = currentNode.InternetGwID
+	convertedNode.InetNodeReq = currentNode.InetNodeReq
 	convertedNode.RelayedNodes = a.RelayedNodes
 	convertedNode.DefaultACL = a.DefaultACL
 	convertedNode.OwnerID = currentNode.OwnerID
@@ -104,6 +108,7 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.LastCheckIn = time.Unix(a.LastCheckIn, 0)
 	convertedNode.LastPeerUpdate = time.Unix(a.LastPeerUpdate, 0)
 	convertedNode.ExpirationDateTime = time.Unix(a.ExpirationDateTime, 0)
+	convertedNode.Metadata = a.Metadata
 	return &convertedNode
 }
 
@@ -148,16 +153,16 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.DNSOn = nm.DNSOn
 	apiNode.IngressDns = nm.IngressDNS
 	apiNode.Server = nm.Server
-	if isEmptyAddr(apiNode.InternetGateway) {
-		apiNode.InternetGateway = ""
-	}
 	apiNode.Connected = nm.Connected
 	apiNode.PendingDelete = nm.PendingDelete
 	apiNode.DefaultACL = nm.DefaultACL
 	apiNode.IsInternetGateway = nm.IsInternetGateway
+	apiNode.InternetGwID = nm.InternetGwID
+	apiNode.InetNodeReq = nm.InetNodeReq
 	apiNode.IsFailOver = nm.IsFailOver
 	apiNode.FailOverPeers = nm.FailOverPeers
 	apiNode.FailedOverBy = nm.FailedOverBy
+	apiNode.Metadata = nm.Metadata
 	return &apiNode
 }
 

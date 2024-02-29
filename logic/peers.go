@@ -2,6 +2,7 @@ package logic
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"net/netip"
 
@@ -26,6 +27,30 @@ var (
 	}
 	// GetFailOverPeerIps - gets failover peerips
 	GetFailOverPeerIps = func(peer, node *models.Node) []net.IPNet {
+		return []net.IPNet{}
+	}
+	// CreateFailOver - creates failover in a network
+	CreateFailOver = func(node models.Node) error {
+		return nil
+	}
+
+	// SetDefaulGw
+	SetDefaultGw = func(node models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
+		return peerUpdate
+	}
+	SetDefaultGwForRelayedUpdate = func(relayed, relay models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
+		return peerUpdate
+	}
+	// UnsetInternetGw
+	UnsetInternetGw = func(node *models.Node) {
+		node.IsInternetGateway = false
+	}
+	// SetInternetGw
+	SetInternetGw = func(node *models.Node, req models.InetNodeReq) {
+		node.IsInternetGateway = true
+	}
+	// GetAllowedIpForInetNodeClient
+	GetAllowedIpForInetNodeClient = func(node, peer *models.Node) []net.IPNet {
 		return []net.IPNet{}
 	}
 )
@@ -118,7 +143,10 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			}
 			continue
 		}
-
+		hostPeerUpdate = SetDefaultGw(node, hostPeerUpdate)
+		if !hostPeerUpdate.IsInternetGw {
+			hostPeerUpdate.IsInternetGw = IsInternetGw(node)
+		}
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
 		for _, peer := range currentPeers {
 			peer := peer
@@ -159,6 +187,9 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
 					peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
 					continue
+				}
+				if node.IsRelayed && node.RelayedBy == peer.ID.String() {
+					hostPeerUpdate = SetDefaultGwForRelayedUpdate(node, peer, hostPeerUpdate)
 				}
 			}
 
@@ -247,18 +278,8 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				logger.Log(1, "error retrieving external clients:", err.Error())
 			}
 		}
-		addedInetGwRanges := false
 		if node.IsEgressGateway && node.EgressGatewayRequest.NatEnabled == "yes" && len(node.EgressGatewayRequest.Ranges) > 0 {
 			hostPeerUpdate.FwUpdate.IsEgressGw = true
-			if IsInternetGw(node) {
-				hostPeerUpdate.FwUpdate.IsEgressGw = true
-				egressrange := []string{"0.0.0.0/0"}
-				if node.Address6.IP != nil {
-					egressrange = append(egressrange, "::/0")
-				}
-				node.EgressGatewayRequest.Ranges = append(node.EgressGatewayRequest.Ranges, egressrange...)
-				addedInetGwRanges = true
-			}
 			hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()] = models.EgressInfo{
 				EgressID: node.ID.String(),
 				Network:  node.PrimaryNetworkRange(),
@@ -270,21 +291,21 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			}
 
 		}
-		if IsInternetGw(node) && !addedInetGwRanges {
+		if IsInternetGw(node) {
 			hostPeerUpdate.FwUpdate.IsEgressGw = true
 			egressrange := []string{"0.0.0.0/0"}
 			if node.Address6.IP != nil {
 				egressrange = append(egressrange, "::/0")
 			}
-			hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()] = models.EgressInfo{
-				EgressID: node.ID.String(),
+			hostPeerUpdate.FwUpdate.EgressInfo[fmt.Sprintf("%s-%s", node.ID.String(), "inet")] = models.EgressInfo{
+				EgressID: fmt.Sprintf("%s-%s", node.ID.String(), "inet"),
 				Network:  node.PrimaryAddressIPNet(),
 				EgressGwAddr: net.IPNet{
 					IP:   net.ParseIP(node.PrimaryAddress()),
 					Mask: getCIDRMaskFromAddr(node.PrimaryAddress()),
 				},
 				EgressGWCfg: models.EgressGatewayRequest{
-					NodeID:     node.ID.String(),
+					NodeID:     fmt.Sprintf("%s-%s", node.ID.String(), "inet"),
 					NetID:      node.Network,
 					NatEnabled: "yes",
 					Ranges:     egressrange,
@@ -350,7 +371,17 @@ func GetPeerListenPort(host *models.Host) int {
 // GetAllowedIPs - calculates the wireguard allowedip field for a peer of a node based on the peer and node settings
 func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet {
 	var allowedips []net.IPNet
-	allowedips = getNodeAllowedIPs(peer, node)
+	if peer.IsInternetGateway && node.InternetGwID == peer.ID.String() {
+		allowedips = append(allowedips, GetAllowedIpForInetNodeClient(node, peer)...)
+		return allowedips
+	}
+	if node.IsRelayed && node.RelayedBy == peer.ID.String() {
+		allowedips = append(allowedips, GetAllowedIpsForRelayed(node, peer)...)
+		if peer.InternetGwID != "" {
+			return allowedips
+		}
+	}
+	allowedips = append(allowedips, getNodeAllowedIPs(peer, node)...)
 
 	// handle ingress gateway peers
 	if peer.IsIngressGateway {
@@ -362,9 +393,7 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 			allowedips = append(allowedips, extPeer.AllowedIPs...)
 		}
 	}
-	if node.IsRelayed && node.RelayedBy == peer.ID.String() {
-		allowedips = append(allowedips, GetAllowedIpsForRelayed(node, peer)...)
-	}
+
 	return allowedips
 }
 

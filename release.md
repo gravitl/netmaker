@@ -1,19 +1,19 @@
+# Netmaker v0.23.0
 
-# Netmaker v0.22.0
+## Whats New ✨
 
-## Whats New
-- Revamped Internet Gateways
-- MQ fallback
-- Deprecating TURN in favour of failover hosts on Pro
-- Switch to CoreDNS for DNS resolution
-- DNS is no longer managed with OS hosts file (/etc/hosts file)
-- Add support for RAC on mobile
+- Revamped Internet Gateways: hosts and clients can now use internet gateways! More info [here](https://docs.netmaker.io/pro/internet-gateways.html)
+  On community edition, internet gateways for clients can be accessed via the Remote Access tab.
+- PostUp and PostDown commands for clients
+- EMQX cloud support
+- Metadata for Remote Access Gateways
 
-## What's Fixed
-- Expired nodes not getting deleted
-- NMCTL acl subcommand leading to dirty state
-- Enforce private network ranges
-- Minor bugs and enhacements with user management
-- Scalability issues
+## What's Fixed/Improved 🛠
 
-## Known issues
+- Allow creation of gateways, relays and egress without clients, relayed hosts and external ranges respectively
+- Make default host a remote access gateway and a failover host on joining a new network
+- Stability fixes with ACLs
+- Fixed issues with install/upgrade scripts
+- Fixed issues with CoreDNS
+
+## Known Issues 🐞

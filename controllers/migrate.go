@@ -71,9 +71,6 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			server = servercfg.GetServerInfo()
-			if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
-				server.MQUserName = host.ID.String()
-			}
 			key, keyErr := logic.RetrievePublicTrafficKey()
 			if keyErr != nil {
 				slog.Error("retrieving traffickey", "error", err)

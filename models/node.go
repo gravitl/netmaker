@@ -66,7 +66,6 @@ type CommonNode struct {
 	IsEgressGateway     bool      `json:"isegressgateway" yaml:"isegressgateway"`
 	EgressGatewayRanges []string  `json:"egressgatewayranges" bson:"egressgatewayranges" yaml:"egressgatewayranges"`
 	IsIngressGateway    bool      `json:"isingressgateway" yaml:"isingressgateway"`
-	IsInternetGateway   bool      `json:"isinternetgateway" yaml:"isinternetgateway"`
 	IsRelayed           bool      `json:"isrelayed" bson:"isrelayed" yaml:"isrelayed"`
 	RelayedBy           string    `json:"relayedby" bson:"relayedby" yaml:"relayedby"`
 	IsRelay             bool      `json:"isrelay" bson:"isrelay" yaml:"isrelay"`
@@ -87,12 +86,16 @@ type Node struct {
 	EgressGatewayRequest    EgressGatewayRequest `json:"egressgatewayrequest" bson:"egressgatewayrequest" yaml:"egressgatewayrequest"`
 	IngressGatewayRange     string               `json:"ingressgatewayrange" bson:"ingressgatewayrange" yaml:"ingressgatewayrange"`
 	IngressGatewayRange6    string               `json:"ingressgatewayrange6" bson:"ingressgatewayrange6" yaml:"ingressgatewayrange6"`
+	Metadata                string               `json:"metadata"`
 	// == PRO ==
-	DefaultACL    string              `json:"defaultacl,omitempty" bson:"defaultacl,omitempty" yaml:"defaultacl,omitempty" validate:"checkyesornoorunset"`
-	OwnerID       string              `json:"ownerid,omitempty" bson:"ownerid,omitempty" yaml:"ownerid,omitempty"`
-	IsFailOver    bool                `json:"is_fail_over" yaml:"is_fail_over"`
-	FailOverPeers map[string]struct{} `json:"fail_over_peers" yaml:"fail_over_peers"`
-	FailedOverBy  uuid.UUID           `json:"failed_over_by" yaml:"failed_over_by"`
+	DefaultACL        string              `json:"defaultacl,omitempty" bson:"defaultacl,omitempty" yaml:"defaultacl,omitempty" validate:"checkyesornoorunset"`
+	OwnerID           string              `json:"ownerid,omitempty" bson:"ownerid,omitempty" yaml:"ownerid,omitempty"`
+	IsFailOver        bool                `json:"is_fail_over" yaml:"is_fail_over"`
+	FailOverPeers     map[string]struct{} `json:"fail_over_peers" yaml:"fail_over_peers"`
+	FailedOverBy      uuid.UUID           `json:"failed_over_by" yaml:"failed_over_by"`
+	IsInternetGateway bool                `json:"isinternetgateway" yaml:"isinternetgateway"`
+	InetNodeReq       InetNodeReq         `json:"inet_node_req" yaml:"inet_node_req"`
+	InternetGwID      string              `json:"internetgw_node_id" yaml:"internetgw_node_id"`
 }
 
 // LegacyNode - legacy struct for node model

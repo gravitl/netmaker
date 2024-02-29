@@ -1,8 +1,9 @@
 package logic
 
 import (
-	"github.com/gravitl/netmaker/models"
 	"net"
+
+	"github.com/gravitl/netmaker/models"
 )
 
 var GetRelays = func() ([]models.Node, error) {
