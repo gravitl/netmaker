@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 
 	"golang.org/x/exp/slog"
 
@@ -24,10 +23,7 @@ func Run() {
 	updateHosts()
 	updateNodes()
 	updateAcls()
-	if os.Getenv("MIGRATE_EMQX") == "true" {
-		logger.Log(0, "migrating emqx...")
-		migrateEmqx()
-	}
+
 }
 
 func assignSuperAdmin() {
@@ -299,7 +295,7 @@ func updateAcls() {
 	}
 }
 
-func migrateEmqx() {
+func MigrateEmqx() {
 
 	// err := mq.SendPullSYN()
 	// if err != nil {
