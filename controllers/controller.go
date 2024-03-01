@@ -66,6 +66,7 @@ func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context) {
 	}()
 	if os.Getenv("MIGRATE_EMQX") == "true" {
 		logger.Log(0, "migrating emqx...")
+		time.Sleep(time.Second * 2)
 		m.MigrateEmqx()
 	}
 	logger.Log(0, "REST Server successfully started on port ", port, " (REST)")
