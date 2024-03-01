@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	"golang.org/x/exp/slog"
 
@@ -300,11 +301,13 @@ func MigrateEmqx() {
 	err := mq.SendPullSYN()
 	if err != nil {
 		logger.Log(0, "failed to send pull syn to clients", "error", err.Error())
-		slog.Info("proceeding to kicking out clients from emqx")
-		err := mq.KickOutClients()
-		if err != nil {
-			logger.Log(0, "failed to migrate emqx: ", "kickout-error", err.Error())
-		}
+
+	}
+	time.Sleep(time.Second * 3)
+	slog.Info("proceeding to kicking out clients from emqx")
+	err = mq.KickOutClients()
+	if err != nil {
+		logger.Log(0, "failed to migrate emqx: ", "kickout-error", err.Error())
 	}
 
 }
