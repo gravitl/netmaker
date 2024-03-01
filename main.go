@@ -48,10 +48,6 @@ func main() {
 	defer stop()
 	var waitGroup sync.WaitGroup
 	startControllers(&waitGroup, ctx) // start the api endpoint and mq and stun
-	if os.Getenv("MIGRATE_EMQX") == "true" {
-		logger.Log(0, "migrating emqx...")
-		migrate.MigrateEmqx()
-	}
 	startHooks()
 	<-ctx.Done()
 	waitGroup.Wait()

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logger"
+	m "github.com/gravitl/netmaker/migrate"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -62,6 +64,10 @@ func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context) {
 			logger.Log(0, err.Error())
 		}
 	}()
+	if os.Getenv("MIGRATE_EMQX") == "true" {
+		logger.Log(0, "migrating emqx...")
+		m.MigrateEmqx()
+	}
 	logger.Log(0, "REST Server successfully started on port ", port, " (REST)")
 
 	// Block main routine until a signal is received
