@@ -301,14 +301,14 @@ func updateAcls() {
 
 func migrateEmqx() {
 
-	err := mq.SendPullSYN()
+	// err := mq.SendPullSYN()
+	// if err != nil {
+	// 	logger.Log(0, "failed to send pull syn to clients", "error", err.Error())
+	slog.Info("proceeding to kicking out clients from emqx")
+	err := mq.KickOutClients()
 	if err != nil {
-		logger.Log(0, "failed to send pull syn to clients", "error", err.Error())
-		slog.Info("proceeding to kicking out clients from emqx")
-		err := mq.KickOutClients()
-		if err != nil {
-			logger.Log(0, "failed to migrate emqx: ", "kickout-error", err.Error())
-		}
+		logger.Log(0, "failed to migrate emqx: ", "kickout-error", err.Error())
 	}
+	//}
 
 }
