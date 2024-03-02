@@ -28,3 +28,7 @@ var SetRelayedNodes = func(setRelayed bool, relay string, relayed []string) []mo
 var RelayUpdates = func(currentNode, newNode *models.Node) bool {
 	return false
 }
+
+var ValidateRelay = func(relay models.RelayRequest) error {
+	return nil
+}
