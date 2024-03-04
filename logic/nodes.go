@@ -189,7 +189,6 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 func DeleteNode(node *models.Node, purge bool) error {
 	alreadyDeleted := node.PendingDelete || node.Action == models.NODE_DELETE
 	node.Action = models.NODE_DELETE
-
 	//delete ext clients if node is ingress gw
 	if node.IsIngressGateway {
 		if err := DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
@@ -235,7 +234,6 @@ func DeleteNode(node *models.Node, purge bool) error {
 	if node.IsInternetGateway {
 		UnsetInternetGw(node)
 	}
-
 	if !purge && !alreadyDeleted {
 		newnode := *node
 		newnode.PendingDelete = true
@@ -281,7 +279,6 @@ func GetNodeByHostRef(hostid, network string) (node models.Node, err error) {
 func DeleteNodeByID(node *models.Node) error {
 	var err error
 	var key = node.ID.String()
-
 	if err = database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
 		if !database.IsEmptyRecord(err) {
 			return err

@@ -77,14 +77,12 @@ func RemoveNodeACL(networkID NetworkID, nodeID NodeID) (acls.ACLContainer, error
 	if err != nil {
 		return nil, err
 	}
-	acls.AclMutex.Lock()
 	for currentNodeID := range currentNetworkACL {
 		if NodeID(currentNodeID) != nodeID {
 			currentNetworkACL[currentNodeID].Remove(acls.AclID(nodeID))
 		}
 	}
 	delete(currentNetworkACL, acls.AclID(nodeID))
-	acls.AclMutex.Unlock()
 	return currentNetworkACL.Save(acls.ContainerID(networkID))
 }
 

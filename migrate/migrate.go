@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	"golang.org/x/exp/slog"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -22,6 +24,7 @@ func Run() {
 	updateHosts()
 	updateNodes()
 	updateAcls()
+
 }
 
 func assignSuperAdmin() {
@@ -291,4 +294,20 @@ func updateAcls() {
 		}
 		slog.Info(fmt.Sprintf("(migration) successfully saved new acls for network: %s", network.NetID))
 	}
+}
+
+func MigrateEmqx() {
+
+	err := mq.SendPullSYN()
+	if err != nil {
+		logger.Log(0, "failed to send pull syn to clients", "error", err.Error())
+
+	}
+	time.Sleep(time.Second * 3)
+	slog.Info("proceeding to kicking out clients from emqx")
+	err = mq.KickOutClients()
+	if err != nil {
+		logger.Log(0, "failed to migrate emqx: ", "kickout-error", err.Error())
+	}
+
 }
