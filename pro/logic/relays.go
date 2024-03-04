@@ -44,7 +44,7 @@ func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) 
 	if host.OS != "linux" {
 		return returnnodes, models.Node{}, fmt.Errorf("only linux machines can be relay nodes")
 	}
-	err = ValidateRelay(relay)
+	err = ValidateRelay(relay, false)
 	if err != nil {
 		return returnnodes, models.Node{}, err
 	}
@@ -101,14 +101,14 @@ func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.N
 // }
 
 // ValidateRelay - checks if relay is valid
-func ValidateRelay(relay models.RelayRequest) error {
+func ValidateRelay(relay models.RelayRequest, update bool) error {
 	var err error
 
 	node, err := logic.GetNodeByID(relay.NodeID)
 	if err != nil {
 		return err
 	}
-	if node.IsRelay {
+	if !update && node.IsRelay {
 		return errors.New("node is already acting as a relay")
 	}
 	for _, relayedNodeID := range relay.RelayedNodes {
@@ -118,6 +118,9 @@ func ValidateRelay(relay models.RelayRequest) error {
 		}
 		if relayedNode.IsIngressGateway {
 			return errors.New("cannot relay an ingress gateway (" + relayedNodeID + ")")
+		}
+		if relayedNode.IsInternetGateway {
+			return errors.New("cannot relay an internet gateway (" + relayedNodeID + ")")
 		}
 	}
 	return err

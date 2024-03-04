@@ -645,6 +645,17 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 
 	}
 	relayUpdate := logic.RelayUpdates(&currentNode, newNode)
+	if relayUpdate && newNode.IsRelay {
+		err = logic.ValidateRelay(models.RelayRequest{
+			NodeID:       newNode.ID.String(),
+			NetID:        newNode.Network,
+			RelayedNodes: newNode.RelayedNodes,
+		}, true)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+	}
 	_, err = logic.GetHost(newNode.HostID.String())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
