@@ -180,7 +180,7 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(newEnrollmentKey)
 }
 
-// swagger:route PUT /api/v1/enrollment-keys/:id enrollmentKeys updateEnrollmentKey
+// swagger:route PUT /api/v1/enrollment-keys/{keyid} enrollmentKeys updateEnrollmentKey
 //
 // Updates an EnrollmentKey for hosts to use on Netmaker server. Updates only the relay to use.
 //
