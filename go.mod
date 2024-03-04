@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/eclipse/paho.mqtt.golang v1.4.3
-	github.com/go-playground/validator/v10 v10.18.0
+	github.com/go-playground/validator/v10 v10.19.0
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/handlers v1.5.2
