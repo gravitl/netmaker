@@ -189,13 +189,14 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 func DeleteNode(node *models.Node, purge bool) error {
 	alreadyDeleted := node.PendingDelete || node.Action == models.NODE_DELETE
 	node.Action = models.NODE_DELETE
-
+	logger.Log(0, "Hereeeee-----> 4.1")
 	//delete ext clients if node is ingress gw
 	if node.IsIngressGateway {
 		if err := DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
 			slog.Error("failed to delete ext clients", "nodeid", node.ID.String(), "error", err.Error())
 		}
 	}
+	logger.Log(0, "Hereeeee-----> 4.2")
 	if node.IsRelayed {
 		// cleanup node from relayednodes on relay node
 		relayNode, err := GetNodeByID(node.RelayedBy)
@@ -211,6 +212,7 @@ func DeleteNode(node *models.Node, purge bool) error {
 			UpsertNode(&relayNode)
 		}
 	}
+	logger.Log(0, "Hereeeee-----> 4.3")
 	if node.FailedOverBy != uuid.Nil {
 		ResetFailedOverPeer(node)
 	}
@@ -218,6 +220,7 @@ func DeleteNode(node *models.Node, purge bool) error {
 		// unset all the relayed nodes
 		SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
 	}
+	logger.Log(0, "Hereeeee-----> 4.4")
 	if node.InternetGwID != "" {
 		inetNode, err := GetNodeByID(node.InternetGwID)
 		if err == nil {
@@ -232,10 +235,11 @@ func DeleteNode(node *models.Node, purge bool) error {
 			UpsertNode(&inetNode)
 		}
 	}
+	logger.Log(0, "Hereeeee-----> 4.5")
 	if node.IsInternetGateway {
 		UnsetInternetGw(node)
 	}
-
+	logger.Log(0, "Hereeeee-----> 4.6")
 	if !purge && !alreadyDeleted {
 		newnode := *node
 		newnode.PendingDelete = true
@@ -256,9 +260,11 @@ func DeleteNode(node *models.Node, purge bool) error {
 		}
 		return err
 	}
+	logger.Log(0, "Hereeeee-----> 4.7")
 	if err := DissasociateNodeFromHost(node, host); err != nil {
 		return err
 	}
+	logger.Log(0, "Hereeeee-----> 4.8")
 
 	return nil
 }

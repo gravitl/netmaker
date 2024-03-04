@@ -452,19 +452,20 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	if node.IsIngressGateway {
 		gwClients = logic.GetGwExtclients(node.ID.String(), node.Network)
 	}
+	logger.Log(0, "Hereeeee-----> 4")
 	logger.Log(1, "deleting node", node.ID.String(), "from host", currHost.Name)
 	if err := logic.DeleteNode(node, forceDelete); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
 		return
 	}
-	logger.Log(0, "Hereeeee-----> 4")
+	logger.Log(0, "Hereeeee-----> 5")
 	go func() {
 		mq.PublishMqUpdatesForDeletedNode(*node, true, gwClients)
 		if servercfg.IsDNSMode() {
 			logic.SetDNS()
 		}
 	}()
-	logger.Log(0, "Hereeeee-----> 5")
+	logger.Log(0, "Hereeeee-----> 6")
 	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("removed host %s from network %s", currHost.Name, network))
 	w.WriteHeader(http.StatusOK)
 }
