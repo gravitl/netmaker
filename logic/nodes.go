@@ -287,32 +287,26 @@ func GetNodeByHostRef(hostid, network string) (node models.Node, err error) {
 func DeleteNodeByID(node *models.Node) error {
 	var err error
 	var key = node.ID.String()
-	logger.Log(0, "Hereeeee-----> 4.7.4.1")
 	if err = database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
 		if !database.IsEmptyRecord(err) {
 			return err
 		}
 	}
-	logger.Log(0, "Hereeeee-----> 4.7.4.2")
 	if servercfg.CacheEnabled() {
 		deleteNodeFromCache(node.ID.String())
 	}
-	logger.Log(0, "Hereeeee-----> 4.7.4.3")
 	if servercfg.IsDNSMode() {
 		SetDNS()
 	}
-	logger.Log(0, "Hereeeee-----> 4.7.4.4")
 	_, err = nodeacls.RemoveNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()))
 	if err != nil {
 		// ignoring for now, could hit a nil pointer if delete called twice
 		logger.Log(2, "attempted to remove node ACL for node", node.ID.String())
 	}
-	logger.Log(0, "Hereeeee-----> 4.7.4.5")
 	// removeZombie <- node.ID
 	if err = DeleteMetrics(node.ID.String()); err != nil {
 		logger.Log(1, "unable to remove metrics from DB for node", node.ID.String(), err.Error())
 	}
-	logger.Log(0, "Hereeeee-----> 4.7.4.6")
 	return nil
 }
 
