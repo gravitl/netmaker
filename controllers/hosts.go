@@ -396,6 +396,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("hostid or network cannot be empty"), "badrequest"))
 		return
 	}
+	logger.Log(0, "Hereeeee-----> 1")
 	// confirm host exists
 	currHost, err := logic.GetHost(hostid)
 	if err != nil {
@@ -421,6 +422,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logger.Log(0, "Hereeeee-----> 2")
 
 	node, err := logic.UpdateHostNetwork(currHost, network, false)
 	if err != nil {
@@ -445,6 +447,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logger.Log(0, "Hereeeee-----> 3")
 	var gwClients []models.ExtClient
 	if node.IsIngressGateway {
 		gwClients = logic.GetGwExtclients(node.ID.String(), node.Network)
@@ -454,12 +457,14 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
 		return
 	}
+	logger.Log(0, "Hereeeee-----> 4")
 	go func() {
 		mq.PublishMqUpdatesForDeletedNode(*node, true, gwClients)
 		if servercfg.IsDNSMode() {
 			logic.SetDNS()
 		}
 	}()
+	logger.Log(0, "Hereeeee-----> 5")
 	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("removed host %s from network %s", currHost.Name, network))
 	w.WriteHeader(http.StatusOK)
 }
