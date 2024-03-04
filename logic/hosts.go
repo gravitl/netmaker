@@ -411,16 +411,16 @@ func DissasociateNodeFromHost(n *models.Node, h *models.Host) error {
 	logger.Log(0, "Hereeeee-----> 4.7.3")
 	go func() {
 		if servercfg.IsPro {
-			logger.Log(0, "Hereeeee-----> 4.7.3.1")
+			//logger.Log(0, "Hereeeee-----> 4.7.3.1")
 			if clients, err := GetNetworkExtClients(n.Network); err != nil {
-				logger.Log(0, "Hereeeee-----> 4.7.3.2")
+				//logger.Log(0, "Hereeeee-----> 4.7.3.2")
 				for i := range clients {
 					AllowClientNodeAccess(&clients[i], n.ID.String())
-					logger.Log(0, "Hereeeee-----> 4.7.3.3")
+					//logger.Log(0, "Hereeeee-----> 4.7.3.3")
 				}
-				logger.Log(0, "Hereeeee-----> 4.7.3.4")
+				//logger.Log(0, "Hereeeee-----> 4.7.3.4")
 			}
-			logger.Log(0, "Hereeeee-----> 4.7.3.5")
+			//logger.Log(0, "Hereeeee-----> 4.7.3.5")
 
 		}
 	}()
@@ -428,7 +428,7 @@ func DissasociateNodeFromHost(n *models.Node, h *models.Host) error {
 	if err := DeleteNodeByID(n); err != nil {
 		return err
 	}
-
+	logger.Log(0, "Hereeeee-----> 4.7.5")
 	return UpsertHost(h)
 }
 
