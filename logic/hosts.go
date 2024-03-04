@@ -386,6 +386,7 @@ func DissasociateNodeFromHost(n *models.Node, h *models.Host) error {
 	if len(h.ID.String()) == 0 || h.ID == uuid.Nil {
 		return ErrInvalidHostID
 	}
+	logger.Log(0, "Hereeeee-----> 4.7.1")
 	if n.HostID != h.ID { // check if node actually belongs to host
 		return fmt.Errorf("node is not associated with host")
 	}
@@ -399,6 +400,7 @@ func DissasociateNodeFromHost(n *models.Node, h *models.Host) error {
 			break
 		}
 	}
+	logger.Log(0, "Hereeeee-----> 4.7.2")
 	if index < 0 {
 		if len(h.Nodes) == 0 {
 			return fmt.Errorf("node %s, not found in host, %s", n.ID.String(), h.ID.String())
@@ -406,15 +408,23 @@ func DissasociateNodeFromHost(n *models.Node, h *models.Host) error {
 	} else {
 		h.Nodes = RemoveStringSlice(h.Nodes, index)
 	}
+	logger.Log(0, "Hereeeee-----> 4.7.3")
 	go func() {
 		if servercfg.IsPro {
+			logger.Log(0, "Hereeeee-----> 4.7.3.1")
 			if clients, err := GetNetworkExtClients(n.Network); err != nil {
+				logger.Log(0, "Hereeeee-----> 4.7.3.2")
 				for i := range clients {
 					AllowClientNodeAccess(&clients[i], n.ID.String())
+					logger.Log(0, "Hereeeee-----> 4.7.3.3")
 				}
+				logger.Log(0, "Hereeeee-----> 4.7.3.4")
 			}
+			logger.Log(0, "Hereeeee-----> 4.7.3.5")
+
 		}
 	}()
+	logger.Log(0, "Hereeeee-----> 4.7.4")
 	if err := DeleteNodeByID(n); err != nil {
 		return err
 	}
