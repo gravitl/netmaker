@@ -29,6 +29,6 @@ var RelayUpdates = func(currentNode, newNode *models.Node) bool {
 	return false
 }
 
-var ValidateRelay = func(relay models.RelayRequest) error {
+var ValidateRelay = func(relay models.RelayRequest, update bool) error {
 	return nil
 }

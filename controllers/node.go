@@ -650,7 +650,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			NodeID:       newNode.ID.String(),
 			NetID:        newNode.Network,
 			RelayedNodes: newNode.RelayedNodes,
-		})
+		}, true)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
