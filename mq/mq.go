@@ -60,6 +60,7 @@ func SetupMQTT() {
 				log.Fatal(err)
 			}
 		} else {
+			emqx.DeleteEmqxUser(servercfg.GetMqUserName())
 			if err := emqx.CreateEmqxUserforServer(); err != nil {
 				log.Fatal(err)
 			}
