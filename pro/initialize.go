@@ -101,6 +101,7 @@ func InitPro() {
 	logic.UpdateRelayed = proLogic.UpdateRelayed
 	logic.SetRelayedNodes = proLogic.SetRelayedNodes
 	logic.RelayUpdates = proLogic.RelayUpdates
+	logic.ValidateRelay = proLogic.ValidateRelay
 	logic.GetTrialEndDate = getTrialEndDate
 	logic.SetDefaultGw = proLogic.SetDefaultGw
 	logic.SetDefaultGwForRelayedUpdate = proLogic.SetDefaultGwForRelayedUpdate

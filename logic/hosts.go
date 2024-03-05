@@ -418,7 +418,6 @@ func DissasociateNodeFromHost(n *models.Node, h *models.Host) error {
 	if err := DeleteNodeByID(n); err != nil {
 		return err
 	}
-
 	return UpsertHost(h)
 }
 
