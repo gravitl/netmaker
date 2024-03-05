@@ -307,7 +307,7 @@ func MigrateEmqx() {
 	slog.Info("proceeding to kicking out clients from emqx")
 	err = mq.KickOutClients()
 	if err != nil {
-		logger.Log(0, "failed to migrate emqx: ", "kickout-error", err.Error())
+		logger.Log(2, "failed to migrate emqx: ", "kickout-error", err.Error())
 	}
 
 }
