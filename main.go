@@ -43,8 +43,6 @@ func main() {
 	if servercfg.DeployedByOperator() && !servercfg.IsPro {
 		logic.SetFreeTierLimits()
 	}
-	ip, _ := servercfg.GetPublicIP()
-	fmt.Println("######----> PUBLIC IP: ", ip)
 	defer database.CloseDB()
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
 	defer stop()
