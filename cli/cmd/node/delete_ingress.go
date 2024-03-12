@@ -6,10 +6,11 @@ import (
 )
 
 var nodeDeleteIngressCmd = &cobra.Command{
-	Use:   "delete_ingress [NETWORK NAME] [NODE ID]",
-	Args:  cobra.ExactArgs(2),
-	Short: "Delete Ingress role from a Node",
-	Long:  `Delete Ingress role from a Node`,
+	Use:     "delete_remote_access_gateway [NETWORK NAME] [NODE ID]",
+	Args:    cobra.ExactArgs(2),
+	Short:   "Delete Remote Access Gateway role from a Node",
+	Long:    `Delete Remote Access Gateway role from a Node`,
+	Aliases: []string{"delete_rag"},
 	Run: func(cmd *cobra.Command, args []string) {
 		functions.PrettyPrint(functions.DeleteIngress(args[0], args[1]))
 	},
