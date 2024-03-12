@@ -710,7 +710,7 @@ upgrade() {
 	IMAGE_TAG=$UI_IMAGE_TAG
 	semver=$(chsv_check_version_ex "$UI_IMAGE_TAG")
   	if [[ ! "$semver" ]]; then
-    	BUILD_TAG=$LATEST
+		BUILD_TAG=$LATEST
 	else
 		BUILD_TAG=$UI_IMAGE_TAG
   	fi
@@ -742,7 +742,7 @@ downgrade () {
 
 	semver=$(chsv_check_version_ex "$UI_IMAGE_TAG")
   	if [[ ! "$semver" ]]; then
-    	BUILD_TAG=$LATEST
+		BUILD_TAG=$LATEST
 	else
 		BUILD_TAG=$UI_IMAGE_TAG
   	fi
