@@ -358,6 +358,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	fmt.Printf("\n REQ: %+v", customExtClient)
 	if err := validateCustomExtClient(&customExtClient, true); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
