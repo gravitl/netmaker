@@ -13,7 +13,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/rqlite/gorqlite v0.0.0-20240122221808-a8a425b1a6aa
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	github.com/txn2/txeh v1.5.5
 	golang.org/x/crypto v0.21.0
 	golang.org/x/net v0.21.0 // indirect
