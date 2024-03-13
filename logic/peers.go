@@ -72,10 +72,11 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		FwUpdate: models.FwUpdate{
 			EgressInfo: make(map[string]models.EgressInfo),
 		},
-		PeerIDs:         make(models.PeerMap, 0),
-		Peers:           []wgtypes.PeerConfig{},
-		NodePeers:       []wgtypes.PeerConfig{},
-		HostNetworkInfo: models.HostInfoMap{},
+		PeerIDs:           make(models.PeerMap, 0),
+		Peers:             []wgtypes.PeerConfig{},
+		NodePeers:         []wgtypes.PeerConfig{},
+		HostNetworkInfo:   models.HostInfoMap{},
+		EndpointDetection: servercfg.IsEndpointDetectionEnabled(),
 	}
 
 	slog.Debug("peer update for host", "hostId", host.ID.String())
