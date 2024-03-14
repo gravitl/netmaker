@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -66,18 +67,23 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_, err = logic.GetUser(content.Login)
-	if err != nil { // user must not exist, so try to make one
-		err = logic.InsertPendingUser(&models.User{
-			UserName: content.Login,
-		})
-		if err != nil {
+	if err != nil {
+		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
+			err = logic.InsertPendingUser(&models.User{
+				UserName: content.Login,
+			})
+			if err != nil {
+				handleSomethingWentWrong(w)
+				return
+			}
+			handleOauthUserNotAllowed(w)
+			return
+		} else {
 			handleSomethingWentWrong(w)
 			return
 		}
-		handleOauthUserNotAllowed(w)
-		return
 	}
-	user, err := logic.GetUser(content.Email)
+	user, err := logic.GetUser(content.Login)
 	if err != nil {
 		handleOauthUserNotFound(w)
 		return
