@@ -107,7 +107,7 @@ func IsPendingUser(username string) bool {
 func ListPendingUsers() ([]models.ReturnUser, error) {
 	pendingUsers := []models.ReturnUser{}
 	records, err := database.FetchRecords(database.PENDING_USERS_TABLE_NAME)
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return pendingUsers, err
 	}
 	for _, record := range records {
