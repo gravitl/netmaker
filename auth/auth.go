@@ -334,3 +334,23 @@ func isStateCached(state string) bool {
 	_, err := netcache.Get(state)
 	return err == nil || strings.Contains(err.Error(), "expired")
 }
+
+// isEmailAllowed - checks if email is allowed to signup
+func isEmailAllowed(email string) bool {
+	allowedDomains := servercfg.GetAllowedEmailDomains()
+	domains := strings.Split(allowedDomains, ",")
+	if len(domains) == 1 && domains[0] == "*" {
+		return true
+	}
+	emailParts := strings.Split(email, "@")
+	if len(emailParts) < 2 {
+		return false
+	}
+	baseDomainOfEmail := emailParts[1]
+	for _, domain := range domains {
+		if domain == baseDomainOfEmail {
+			return true
+		}
+	}
+	return false
+}

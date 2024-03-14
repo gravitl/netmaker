@@ -74,6 +74,10 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthNotConfigured(w)
 		return
 	}
+	if !isEmailAllowed(content.Email) {
+		handleOauthUserNotAllowedToSignUp(w)
+		return
+	}
 	// check if user approval is already pending
 	if logic.IsPendingUser(content.Email) {
 		handleOauthUserNotAllowed(w)

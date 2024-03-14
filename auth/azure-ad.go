@@ -61,6 +61,10 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthNotConfigured(w)
 		return
 	}
+	if !isEmailAllowed(content.UserPrincipalName) {
+		handleOauthUserNotAllowedToSignUp(w)
+		return
+	}
 	// check if user approval is already pending
 	if logic.IsPendingUser(content.UserPrincipalName) {
 		handleOauthUserNotAllowed(w)

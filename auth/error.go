@@ -30,6 +30,12 @@ const somethingwentwrong = `<!DOCTYPE html><html>
 </body>
 </html>`
 
+const notallowedtosignup = `<!DOCTYPE html><html>
+<body>
+<h3>You are not allowed to SignUp.</h3>
+</body>
+</html>`
+
 func handleOauthUserNotFound(response http.ResponseWriter) {
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	response.WriteHeader(http.StatusNotFound)
@@ -40,6 +46,12 @@ func handleOauthUserNotAllowed(response http.ResponseWriter) {
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	response.WriteHeader(http.StatusForbidden)
 	response.Write([]byte(userNotAllowed))
+}
+
+func handleOauthUserNotAllowedToSignUp(response http.ResponseWriter) {
+	response.Header().Set("Content-Type", "text/html; charset=utf-8")
+	response.WriteHeader(http.StatusForbidden)
+	response.Write([]byte(notallowedtosignup))
 }
 
 // handleOauthNotConfigured - returns an appropriate html page when oauth is not configured on netmaker server but an oauth login was attempted

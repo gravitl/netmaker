@@ -61,6 +61,10 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthNotConfigured(w)
 		return
 	}
+	if !isEmailAllowed(content.Login) {
+		handleOauthUserNotAllowedToSignUp(w)
+		return
+	}
 	// check if user approval is already pending
 	if logic.IsPendingUser(content.Login) {
 		handleOauthUserNotAllowed(w)
