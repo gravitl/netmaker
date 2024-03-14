@@ -36,10 +36,10 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/oauth/callback", auth.HandleAuthCallback).Methods(http.MethodGet)
 	r.HandleFunc("/api/oauth/headless", auth.HandleHeadlessSSO)
 	r.HandleFunc("/api/oauth/register/{regKey}", auth.RegisterHostSSO).Methods(http.MethodGet)
-	r.HandleFunc("/api/users/pending", logic.SecurityCheck(true, http.HandlerFunc(getPendingUsers))).Methods(http.MethodGet)
-	r.HandleFunc("/api/users/pending", logic.SecurityCheck(true, http.HandlerFunc(deleteAllPendingUsers))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/users/{username}/pending", logic.SecurityCheck(true, http.HandlerFunc(deletePendingUser))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/users/{username}/approve", logic.SecurityCheck(true, http.HandlerFunc(approvePendingUser))).Methods(http.MethodGet)
+	r.HandleFunc("/api/users_pending", logic.SecurityCheck(true, http.HandlerFunc(getPendingUsers))).Methods(http.MethodGet)
+	r.HandleFunc("/api/users_pending", logic.SecurityCheck(true, http.HandlerFunc(deleteAllPendingUsers))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/users_pending/user/{username}", logic.SecurityCheck(true, http.HandlerFunc(deletePendingUser))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/users_pending/user/{username}", logic.SecurityCheck(true, http.HandlerFunc(approvePendingUser))).Methods(http.MethodPost)
 
 }
 
@@ -590,7 +590,7 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 	go auth.SessionHandler(conn)
 }
 
-// swagger:route GET /api/users/pending user getPendingUsers
+// swagger:route GET /api/users_pending user getPendingUsers
 //
 // Get all pending users.
 //
@@ -618,7 +618,7 @@ func getPendingUsers(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(users)
 }
 
-// swagger:route POST /api/users/{username}/approve user approvePendingUser
+// swagger:route POST /api/users_pending/user/{username} user approvePendingUser
 //
 // approve pending user.
 //
@@ -666,7 +666,7 @@ func approvePendingUser(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, "approved "+username)
 }
 
-// swagger:route DELETE /api/users/{username}/pending user deletePendingUser
+// swagger:route DELETE /api/users_pending/user/{username} user deletePendingUser
 //
 // delete pending user.
 //
@@ -702,7 +702,7 @@ func deletePendingUser(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, "deleted pending "+username)
 }
 
-// swagger:route DELETE /api/users/{username}/pending user deleteAllPendingUsers
+// swagger:route DELETE /api/users_pending/{username}/pending user deleteAllPendingUsers
 //
 // delete all pending users.
 //
