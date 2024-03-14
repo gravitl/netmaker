@@ -77,7 +77,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserNotAllowed(w)
 		return
 	}
-	var newPass, fetchErr = fetchPassValue("")
+	var newPass, fetchErr = FetchPassValue("")
 	if fetchErr != nil {
 		return
 	}

@@ -13,13 +13,20 @@ const oauthNotConfigured = `<!DOCTYPE html><html>
 const userNotAllowed = `<!DOCTYPE html><html>
 <body>
 <h3>Only Admins are allowed to access Dashboard.</h3>
-<p>Non-Admins can access the netmaker networks using <a href="https://docs.netmaker.io/pro/rac.html" target="_blank" rel="noopener">RemoteAccessClient.</a></p>
+<h3>Furthermore, Admin has to approve your identity to have access to netmaker networks</h3>
+<p>Once your identity is approved, Non-Admins can access the netmaker networks using <a href="https://docs.netmaker.io/pro/rac.html" target="_blank" rel="noopener">RemoteAccessClient.</a></p>
 </body>
 </html>
 `
 const userNotFound = `<!DOCTYPE html><html>
 <body>
 <h3>User Not Found.</h3>
+</body>
+</html>`
+
+const somethingwentwrong = `<!DOCTYPE html><html>
+<body>
+<h3>Something went wrong. Contact Admin</h3>
 </body>
 </html>`
 
@@ -40,4 +47,10 @@ func handleOauthNotConfigured(response http.ResponseWriter) {
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	response.WriteHeader(http.StatusInternalServerError)
 	response.Write([]byte(oauthNotConfigured))
+}
+
+func handleSomethingWentWrong(response http.ResponseWriter) {
+	response.Header().Set("Content-Type", "text/html; charset=utf-8")
+	response.WriteHeader(http.StatusInternalServerError)
+	response.Write([]byte(somethingwentwrong))
 }

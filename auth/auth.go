@@ -75,7 +75,7 @@ func InitializeAuthProvider() string {
 	if functions == nil {
 		return ""
 	}
-	var _, err = fetchPassValue(logic.RandomString(64))
+	var _, err = FetchPassValue(logic.RandomString(64))
 	if err != nil {
 		logger.Log(0, err.Error())
 		return ""
@@ -156,7 +156,7 @@ func HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 
 // IsOauthUser - returns
 func IsOauthUser(user *models.User) error {
-	var currentValue, err = fetchPassValue("")
+	var currentValue, err = FetchPassValue("")
 	if err != nil {
 		return err
 	}
@@ -246,7 +246,7 @@ func addUser(email string) error {
 		slog.Error("error checking for existence of admin user during OAuth login for", "email", email, "error", err)
 		return err
 	} // generate random password to adapt to current model
-	var newPass, fetchErr = fetchPassValue("")
+	var newPass, fetchErr = FetchPassValue("")
 	if fetchErr != nil {
 		return fetchErr
 	}
@@ -272,7 +272,7 @@ func addUser(email string) error {
 	return nil
 }
 
-func fetchPassValue(newValue string) (string, error) {
+func FetchPassValue(newValue string) (string, error) {
 
 	type valueHolder struct {
 		Value string `json:"value" bson:"value"`

@@ -60,11 +60,22 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthNotConfigured(w)
 		return
 	}
+	// check if user approval is already pending
+	if logic.IsPendingUser(content.Login) {
+		handleOauthUserNotAllowed(w)
+		return
+	}
 	_, err = logic.GetUser(content.Login)
 	if err != nil { // user must not exist, so try to make one
-		if err = addUser(content.Login); err != nil {
+		err = logic.InsertPendingUser(&models.User{
+			UserName: content.Login,
+		})
+		if err != nil {
+			handleSomethingWentWrong(w)
 			return
 		}
+		handleOauthUserNotAllowed(w)
+		return
 	}
 	user, err := logic.GetUser(content.Email)
 	if err != nil {
@@ -75,7 +86,7 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserNotAllowed(w)
 		return
 	}
-	var newPass, fetchErr = fetchPassValue("")
+	var newPass, fetchErr = FetchPassValue("")
 	if fetchErr != nil {
 		return
 	}

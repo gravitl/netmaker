@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/gravitl/netmaker/auth"
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -35,6 +36,11 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/oauth/callback", auth.HandleAuthCallback).Methods(http.MethodGet)
 	r.HandleFunc("/api/oauth/headless", auth.HandleHeadlessSSO)
 	r.HandleFunc("/api/oauth/register/{regKey}", auth.RegisterHostSSO).Methods(http.MethodGet)
+	r.HandleFunc("/api/users/pending", logic.SecurityCheck(true, http.HandlerFunc(getPendingUsers))).Methods(http.MethodGet)
+	r.HandleFunc("/api/users/pending", logic.SecurityCheck(true, http.HandlerFunc(deleteAllPendingUsers))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/users/{username}/pending", logic.SecurityCheck(true, http.HandlerFunc(deletePendingUser))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/users/{username}/approve", logic.SecurityCheck(true, http.HandlerFunc(approvePendingUser))).Methods(http.MethodGet)
+
 }
 
 // swagger:route POST /api/users/adm/authenticate authenticate authenticateUser
@@ -582,4 +588,138 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// Start handling the session
 	go auth.SessionHandler(conn)
+}
+
+// swagger:route GET /api/users/pending user getPendingUsers
+//
+// Get all pending users.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: userBodyResponse
+func getPendingUsers(w http.ResponseWriter, r *http.Request) {
+	// set header.
+	w.Header().Set("Content-Type", "application/json")
+
+	users, err := logic.ListPendingUsers()
+
+	if err != nil {
+		logger.Log(0, "failed to fetch users: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	logic.SortUsers(users[:])
+	logger.Log(2, r.Header.Get("user"), "fetched pending users")
+	json.NewEncoder(w).Encode(users)
+}
+
+// swagger:route POST /api/users/{username}/approve user approvePendingUser
+//
+// approve pending user.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: userBodyResponse
+func approvePendingUser(w http.ResponseWriter, r *http.Request) {
+	// set header.
+	w.Header().Set("Content-Type", "application/json")
+	var params = mux.Vars(r)
+	username := params["username"]
+	users, err := logic.ListPendingUsers()
+
+	if err != nil {
+		logger.Log(0, "failed to fetch users: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	for _, user := range users {
+		if user.UserName == username {
+			var newPass, fetchErr = auth.FetchPassValue("")
+			if fetchErr != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(fetchErr, "internal"))
+				return
+			}
+			if err = logic.CreateUser(&models.User{
+				UserName: user.UserName,
+				Password: newPass,
+			}); err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to create user: %s", err), "internal"))
+				return
+			}
+			err = logic.DeletePendingUser(username)
+			if err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete pending user: %s", err), "internal"))
+				return
+			}
+			break
+		}
+	}
+	logic.ReturnSuccessResponse(w, r, "approved "+username)
+}
+
+// swagger:route DELETE /api/users/{username}/pending user deletePendingUser
+//
+// delete pending user.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: userBodyResponse
+func deletePendingUser(w http.ResponseWriter, r *http.Request) {
+	// set header.
+	w.Header().Set("Content-Type", "application/json")
+	var params = mux.Vars(r)
+	username := params["username"]
+	users, err := logic.ListPendingUsers()
+
+	if err != nil {
+		logger.Log(0, "failed to fetch users: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	for _, user := range users {
+		if user.UserName == username {
+			err = logic.DeletePendingUser(username)
+			if err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete pending user: %s", err), "internal"))
+				return
+			}
+			break
+		}
+	}
+	logic.ReturnSuccessResponse(w, r, "deleted pending "+username)
+}
+
+// swagger:route DELETE /api/users/{username}/pending user deleteAllPendingUsers
+//
+// delete all pending users.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: userBodyResponse
+func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
+	// set header.
+	w.Header().Set("Content-Type", "application/json")
+	err := database.DeleteAllRecords(database.PENDING_USERS_TABLE_NAME)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to delete all pending users "+err.Error()), "internal"))
+		return
+	}
+	logic.ReturnSuccessResponse(w, r, "cleared all pending users")
 }
