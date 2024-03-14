@@ -703,3 +703,14 @@ func GetEmqxAppID() string {
 func GetEmqxAppSecret() string {
 	return os.Getenv("EMQX_APP_SECRET")
 }
+
+// GetAllowedEmailDomains - gets the allowed email domains for oauth signup
+func GetAllowedEmailDomains() string {
+	allowedDomains := "*"
+	if os.Getenv("ALLOWED_EMAIL_DOMAINS") != "" {
+		allowedDomains = os.Getenv("ALLOWED_EMAIL_DOMAINS")
+	} else if config.Config.Server.AllowedEmailDomains != "" {
+		allowedDomains = config.Config.Server.AllowedEmailDomains
+	}
+	return allowedDomains
+}

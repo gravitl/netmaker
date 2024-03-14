@@ -92,6 +92,7 @@ type ServerConfig struct {
 	JwtValidityDuration        time.Duration `yaml:"jwt_validity_duration"`
 	RacAutoDisable             bool          `yaml:"rac_auto_disable"`
 	CacheEnabled               string        `yaml:"caching_enabled"`
+	AllowedEmailDomains        string        `yaml:"allowed_email_domains"`
 }
 
 // SQLConfig - Generic SQL Config
