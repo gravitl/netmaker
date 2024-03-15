@@ -103,8 +103,8 @@ type SuccessfulLoginResponse struct {
 
 // ErrorResponse is struct for error
 type ErrorResponse struct {
-	Code    int
-	Message string
+	Code    int    `json:"code"`
+	Message string `json:"message"`
 }
 
 // NodeAuth - struct for node auth
@@ -117,9 +117,9 @@ type NodeAuth struct {
 
 // SuccessResponse is struct for sending error message with code.
 type SuccessResponse struct {
-	Code     int
-	Message  string
-	Response interface{}
+	Code     int         `json:"code"`
+	Message  string      `json:"message"`
+	Response interface{} `json:"response"`
 }
 
 // DisplayKey - what is displayed for key
