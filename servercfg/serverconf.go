@@ -678,7 +678,7 @@ func DeployedByOperator() bool {
 func IsEndpointDetectionEnabled() bool {
 	var enabled = true //default
 	if os.Getenv("ENDPOINT_DETECTION") != "" {
-		enabled = os.Getenv("ENDPOINT_DETECTION") == "yes"
+		enabled = os.Getenv("ENDPOINT_DETECTION") == "true"
 	} else {
 		enabled = config.Config.Server.EndpointDetection
 	}
