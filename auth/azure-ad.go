@@ -66,7 +66,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	user, err := logic.GetUser(content.Email)
+	user, err := logic.GetUser(content.UserPrincipalName)
 	if err != nil {
 		handleOauthUserNotFound(w)
 		return
