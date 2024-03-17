@@ -49,6 +49,12 @@ type hasAdmin struct {
 	Admin bool
 }
 
+// swagger:response apiHostSliceResponse
+type apiHostSliceResponse struct {
+	// in: body
+	Host []models.ApiHost
+}
+
 // swagger:response apiHostResponse
 type apiHostResponse struct {
 	// in: body
@@ -453,6 +459,7 @@ func useUnused() bool {
 	_ = userAuthBodyParam{}
 	_ = usernamePathParam{}
 	_ = hasAdmin{}
+	_ = apiHostSliceResponse{}
 	_ = apiHostResponse{}
 	_ = fileResponse{}
 	_ = extClientConfParams{}
