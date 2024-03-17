@@ -275,7 +275,7 @@ type aclContainerResponse struct {
 type nodeSliceResponse struct {
 	// Nodes
 	// in: body
-	Nodes []models.LegacyNode `json:"nodes"`
+	Nodes []models.ApiNode `json:"nodes"`
 }
 
 // swagger:response nodeResponse
