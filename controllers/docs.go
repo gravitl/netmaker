@@ -257,7 +257,7 @@ type networkBodyResponse struct {
 	Network models.Network `json:"network"`
 }
 
-// swagger:parameters updateNetworkACL getNetworkACL
+// swagger:parameters updateNetworkACL
 type aclContainerBodyParam struct {
 	// ACL Container
 	// in: body
