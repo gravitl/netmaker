@@ -32,6 +32,7 @@ func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/host", Authorize(true, false, "host", http.HandlerFunc(pull))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/host/{hostid}/signalpeer", Authorize(true, false, "host", http.HandlerFunc(signalPeer))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/fallback/host/{hostid}", Authorize(true, false, "host", http.HandlerFunc(hostUpdateFallback))).Methods(http.MethodPut)
+	r.HandleFunc("/api/emqx/hosts", logic.SecurityCheck(true, http.HandlerFunc(delEmqxHosts))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/auth-register/host", socketHandler)
 }
 
@@ -748,4 +749,32 @@ func syncHost(w http.ResponseWriter, r *http.Request) {
 
 	slog.Info("requested host pull", "user", r.Header.Get("user"), "host", host.ID)
 	w.WriteHeader(http.StatusOK)
+}
+
+// swagger:route DELETE /api/emqx/hosts hosts delEmqxHosts
+//
+// Lists all hosts.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: apiHostResponse
+func delEmqxHosts(w http.ResponseWriter, r *http.Request) {
+	currentHosts, err := logic.GetAllHosts()
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to fetch hosts: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	for _, host := range currentHosts {
+		// delete EMQX credentials for host
+		if err := mq.GetEmqxHandler().DeleteEmqxUser(host.ID.String()); err != nil {
+			slog.Error("failed to remove host credentials from EMQX", "id", host.ID, "error", err)
+		}
+	}
+
+	logic.ReturnSuccessResponse(w, r, "deleted hosts data on emqx")
 }
