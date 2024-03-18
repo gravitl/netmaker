@@ -8,8 +8,9 @@ import (
 )
 
 var limitedApis = map[string]struct{}{
-	"/api/server/status": {},
-	"/api/emqx/hosts":    {},
+	"/api/server/status":          {},
+	"/api/emqx/hosts":             {},
+	"/api/users/adm/authenticate": {},
 }
 
 func OnlyServerAPIWhenUnlicensedMiddleware(handler http.Handler) http.Handler {
