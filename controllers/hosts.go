@@ -775,6 +775,9 @@ func delEmqxHosts(w http.ResponseWriter, r *http.Request) {
 			slog.Error("failed to remove host credentials from EMQX", "id", host.ID, "error", err)
 		}
 	}
-
+	err = mq.GetEmqxHandler().DeleteEmqxUser(servercfg.GetMqUserName())
+	if err != nil {
+		slog.Error("failed to remove server credentials from EMQX", "user", servercfg.GetMqUserName(), "error", err)
+	}
 	logic.ReturnSuccessResponse(w, r, "deleted hosts data on emqx")
 }
