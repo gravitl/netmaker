@@ -9,6 +9,7 @@ import (
 	"github.com/gravitl/netmaker/cli/cmd/dns"
 	"github.com/gravitl/netmaker/cli/cmd/enrollment_key"
 	"github.com/gravitl/netmaker/cli/cmd/ext_client"
+	"github.com/gravitl/netmaker/cli/cmd/failover"
 	"github.com/gravitl/netmaker/cli/cmd/host"
 	"github.com/gravitl/netmaker/cli/cmd/metrics"
 	"github.com/gravitl/netmaker/cli/cmd/network"
@@ -53,4 +54,5 @@ func init() {
 	rootCmd.AddCommand(metrics.GetRoot())
 	rootCmd.AddCommand(host.GetRoot())
 	rootCmd.AddCommand(enrollment_key.GetRoot())
+	rootCmd.AddCommand(failover.GetRoot())
 }
