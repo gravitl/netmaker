@@ -246,7 +246,7 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, bool
 	slog.Warn(err.Error())
 
 	// try to use cache if we had a temporary error
-	if code == http.StatusServiceUnavailable || code == http.StatusGatewayTimeout {
+	if code == http.StatusServiceUnavailable || code == http.StatusGatewayTimeout || code == http.StatusBadGateway {
 		slog.Warn("Netmaker API may be down, will retry later...", "code", code)
 		return nil, true, nil
 	}
