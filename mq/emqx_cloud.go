@@ -89,6 +89,7 @@ func (e *EmqxCloud) CreateEmqxUserforServer() error {
 	if res.StatusCode != http.StatusOK {
 		return errors.New("request failed " + string(body))
 	}
+	return nil
 	// add acls
 	acls := []cloudAcl{
 		{
@@ -148,6 +149,7 @@ func (e *EmqxCloud) CreateDefaultDenyRule() error {
 }
 
 func (e *EmqxCloud) createacls(acls []cloudAcl) error {
+	return nil
 	payload, err := json.Marshal(acls)
 	if err != nil {
 		return err
@@ -176,6 +178,7 @@ func (e *EmqxCloud) createacls(acls []cloudAcl) error {
 }
 
 func (e *EmqxCloud) CreateHostACL(hostID, serverName string) error {
+	return nil
 	acls := []cloudAcl{
 		{
 			UserName: hostID,
@@ -201,6 +204,7 @@ func (e *EmqxCloud) CreateHostACL(hostID, serverName string) error {
 }
 
 func (e *EmqxCloud) AppendNodeUpdateACL(hostID, nodeNetwork, nodeID, serverName string) error {
+	return nil
 	acls := []cloudAcl{
 		{
 			UserName: hostID,
