@@ -104,6 +104,9 @@ func SetDefaultGwForRelayedUpdate(relayed, relay models.Node, peerUpdate models.
 	if relay.InternetGwID != "" {
 		peerUpdate.ChangeDefaultGw = true
 		peerUpdate.DefaultGwIp = relay.Address.IP
+		if peerUpdate.DefaultGwIp == nil {
+			peerUpdate.DefaultGwIp = relay.Address6.IP
+		}
 
 	}
 	return peerUpdate
@@ -118,7 +121,9 @@ func SetDefaultGw(node models.Node, peerUpdate models.HostPeerUpdate) models.Hos
 		}
 		peerUpdate.ChangeDefaultGw = true
 		peerUpdate.DefaultGwIp = inetNode.Address.IP
-
+		if peerUpdate.DefaultGwIp == nil {
+			peerUpdate.DefaultGwIp = inetNode.Address6.IP
+		}
 	}
 	return peerUpdate
 }
@@ -140,6 +145,18 @@ func GetNetworkIngresses(network string) ([]models.Node, error) {
 
 // GetAllowedIpsForInet - get inet cidr for node using a inet gw
 func GetAllowedIpForInetNodeClient(node, peer *models.Node) []net.IPNet {
-	_, ipnet, _ := net.ParseCIDR("0.0.0.0/0")
-	return []net.IPNet{*ipnet}
+	var allowedips = []net.IPNet{}
+
+	if peer.Address.IP != nil {
+		_, ipnet, _ := net.ParseCIDR("0.0.0.0/0")
+		allowedips = append(allowedips, *ipnet)
+		return allowedips
+	}
+
+	if peer.Address6.IP != nil {
+		_, ipnet, _ := net.ParseCIDR("0::/0")
+		allowedips = append(allowedips, *ipnet)
+	}
+
+	return allowedips
 }
