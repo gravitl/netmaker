@@ -69,7 +69,7 @@ definitions:
                 x-go-name: ID
             interfaces:
                 items:
-                    $ref: '#/definitions/Iface'
+                    $ref: '#/definitions/ApiIface'
                 type: array
                 x-go-name: Interfaces
             isdefault:
@@ -121,6 +121,139 @@ definitions:
                 format: int64
                 type: integer
                 x-go-name: WgPublicListenPort
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    ApiIface:
+        description: |-
+            ApiIface - the interface struct for API usage
+            The original Iface struct contains a net.Address, which does not get marshalled correctly
+        properties:
+            addressString:
+                type: string
+                x-go-name: AddressString
+            name:
+                type: string
+                x-go-name: Name
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    ApiNode:
+        description: ApiNode is a stripped down Node DTO that exposes only required fields to external systems
+        properties:
+            address:
+                type: string
+                x-go-name: Address
+            address6:
+                type: string
+                x-go-name: Address6
+            allowedips:
+                items:
+                    type: string
+                type: array
+                x-go-name: AllowedIPs
+            connected:
+                type: boolean
+                x-go-name: Connected
+            defaultacl:
+                description: == PRO ==
+                type: string
+                x-go-name: DefaultACL
+            dnson:
+                type: boolean
+                x-go-name: DNSOn
+            egressgatewaynatenabled:
+                type: boolean
+                x-go-name: EgressGatewayNatEnabled
+            egressgatewayranges:
+                items:
+                    type: string
+                type: array
+                x-go-name: EgressGatewayRanges
+            expdatetime:
+                format: int64
+                type: integer
+                x-go-name: ExpirationDateTime
+            fail_over_peers:
+                additionalProperties:
+                    type: object
+                type: object
+                x-go-name: FailOverPeers
+            failed_over_by:
+                format: uuid
+                type: string
+                x-go-name: FailedOverBy
+            hostid:
+                type: string
+                x-go-name: HostID
+            id:
+                type: string
+                x-go-name: ID
+            inet_node_req:
+                $ref: '#/definitions/InetNodeReq'
+            ingressdns:
+                type: string
+                x-go-name: IngressDns
+            internetgw_node_id:
+                type: string
+                x-go-name: InternetGwID
+            is_fail_over:
+                type: boolean
+                x-go-name: IsFailOver
+            isegressgateway:
+                type: boolean
+                x-go-name: IsEgressGateway
+            isingressgateway:
+                type: boolean
+                x-go-name: IsIngressGateway
+            isinternetgateway:
+                type: boolean
+                x-go-name: IsInternetGateway
+            isrelay:
+                type: boolean
+                x-go-name: IsRelay
+            isrelayed:
+                type: boolean
+                x-go-name: IsRelayed
+            lastcheckin:
+                format: int64
+                type: integer
+                x-go-name: LastCheckIn
+            lastmodified:
+                format: int64
+                type: integer
+                x-go-name: LastModified
+            lastpeerupdate:
+                format: int64
+                type: integer
+                x-go-name: LastPeerUpdate
+            localaddress:
+                type: string
+                x-go-name: LocalAddress
+            metadata:
+                type: string
+                x-go-name: Metadata
+            network:
+                type: string
+                x-go-name: Network
+            networkrange:
+                type: string
+                x-go-name: NetworkRange
+            networkrange6:
+                type: string
+                x-go-name: NetworkRange6
+            pendingdelete:
+                type: boolean
+                x-go-name: PendingDelete
+            relayedby:
+                type: string
+                x-go-name: RelayedBy
+            relaynodes:
+                items:
+                    type: string
+                type: array
+                x-go-name: RelayedNodes
+            server:
+                type: string
+                x-go-name: Server
         type: object
         x-go-package: github.com/gravitl/netmaker/models
     AuthParams:
@@ -1642,7 +1775,7 @@ paths:
             operationId: getHosts
             responses:
                 "200":
-                    $ref: '#/responses/apiHostResponse'
+                    $ref: '#/responses/apiHostSliceResponse'
             schemes:
                 - https
             summary: Lists all hosts.
@@ -1902,12 +2035,6 @@ paths:
                   required: true
                   type: string
                   x-go-name: Networkname
-                - description: ACL Container
-                  in: body
-                  name: acl_container
-                  schema:
-                    $ref: '#/definitions/ACLContainer'
-                  x-go-name: ACLContainer
             responses:
                 "200":
                     $ref: '#/responses/aclContainerResponse'
@@ -2725,6 +2852,12 @@ responses:
         description: ""
         schema:
             $ref: '#/definitions/ApiHost'
+    apiHostSliceResponse:
+        description: ""
+        schema:
+            items:
+                $ref: '#/definitions/ApiHost'
+            type: array
     byteArrayResponse:
         description: ""
         schema:
@@ -2776,7 +2909,7 @@ responses:
         description: ""
         schema:
             items:
-                $ref: '#/definitions/LegacyNode'
+                $ref: '#/definitions/ApiNode'
             type: array
     okResponse:
         description: ""

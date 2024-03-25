@@ -49,6 +49,12 @@ type hasAdmin struct {
 	Admin bool
 }
 
+// swagger:response apiHostSliceResponse
+type apiHostSliceResponse struct {
+	// in: body
+	Host []models.ApiHost
+}
+
 // swagger:response apiHostResponse
 type apiHostResponse struct {
 	// in: body
@@ -251,7 +257,7 @@ type networkBodyResponse struct {
 	Network models.Network `json:"network"`
 }
 
-// swagger:parameters updateNetworkACL getNetworkACL
+// swagger:parameters updateNetworkACL
 type aclContainerBodyParam struct {
 	// ACL Container
 	// in: body
@@ -269,7 +275,7 @@ type aclContainerResponse struct {
 type nodeSliceResponse struct {
 	// Nodes
 	// in: body
-	Nodes []models.LegacyNode `json:"nodes"`
+	Nodes []models.ApiNode `json:"nodes"`
 }
 
 // swagger:response nodeResponse
@@ -453,6 +459,7 @@ func useUnused() bool {
 	_ = userAuthBodyParam{}
 	_ = usernamePathParam{}
 	_ = hasAdmin{}
+	_ = apiHostSliceResponse{}
 	_ = apiHostResponse{}
 	_ = fileResponse{}
 	_ = extClientConfParams{}

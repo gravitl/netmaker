@@ -62,7 +62,7 @@ func upgradeHost(w http.ResponseWriter, r *http.Request) {
 //	  		oauth
 //
 //			Responses:
-//				200: apiHostResponse
+//				200: apiHostSliceResponse
 func getHosts(w http.ResponseWriter, r *http.Request) {
 	currentHosts, err := logic.GetAllHosts()
 	if err != nil {
