@@ -8,7 +8,6 @@ import (
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -27,8 +26,7 @@ var mqclient mqtt.Client
 func setMqOptions(user, password string, opts *mqtt.ClientOptions) {
 	broker, _ := servercfg.GetMessageQueueEndpoint()
 	opts.AddBroker(broker)
-	id := logic.RandomString(23)
-	opts.ClientID = id
+	opts.ClientID = user
 	opts.SetUsername(user)
 	opts.SetPassword(password)
 	opts.SetAutoReconnect(true)
