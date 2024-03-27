@@ -342,6 +342,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 				networksToAdd = append(networksToAdd, newNet)
 			}
 		}
+		fmt.Println("------> REG: network to add", newHost.Name, currentNets, networksToAdd)
 		enrollmentKey.Networks = networksToAdd
 		currHost, err := logic.GetHost(newHost.ID.String())
 		if err != nil {
@@ -349,6 +350,14 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
+		fmt.Println("-----> REG: Before: \n")
+		fmt.Printf("------> %+v", newHost)
+		fmt.Printf("------> %+v", currHost)
+		fmt.Println("--------------------- \n")
+		fmt.Println("-----> REG: After: \n")
+		fmt.Printf("------> %+v", newHost)
+		fmt.Printf("------> %+v", currHost)
+		fmt.Println("--------------------- \n")
 		logic.UpdateHostFromClient(&newHost, currHost)
 		err = logic.UpsertHost(currHost)
 		if err != nil {

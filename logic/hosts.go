@@ -349,6 +349,7 @@ func UpdateHostNetwork(h *models.Host, network string, add bool) (*models.Node, 
 	if !add {
 		return nil, errors.New("host not part of the network " + network)
 	} else {
+		fmt.Println("----------->REG:  ADDING NODE TO HOST: ", h.Name)
 		newNode := models.Node{}
 		newNode.Server = servercfg.GetServer()
 		newNode.Network = network
