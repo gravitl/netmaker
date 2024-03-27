@@ -504,7 +504,7 @@ func createNode(node *models.Node) error {
 	// lock because we need unique IPs and having it concurrent makes parallel calls result in same "unique" IPs
 	addressLock.Lock()
 	defer addressLock.Unlock()
-
+	fmt.Println("------> REG: HEREEE - 1.1")
 	host, err := GetHost(node.HostID.String())
 	if err != nil {
 		return err
@@ -517,9 +517,9 @@ func createNode(node *models.Node) error {
 			node.DNSOn = false
 		}
 	}
-
+	fmt.Println("------> REG: HEREEE - 1.2")
 	SetNodeDefaults(node)
-
+	fmt.Println("------> REG: HEREEE - 1.3")
 	defaultACLVal := acls.Allowed
 	parentNetwork, err := GetNetwork(node.Network)
 	if err == nil {
@@ -527,7 +527,7 @@ func createNode(node *models.Node) error {
 			defaultACLVal = acls.NotAllowed
 		}
 	}
-
+	fmt.Println("------> REG: HEREEE - 1.4")
 	if node.DefaultACL == "" {
 		node.DefaultACL = "unset"
 	}
@@ -546,6 +546,7 @@ func createNode(node *models.Node) error {
 	} else if !IsIPUnique(node.Network, node.Address.String(), database.NODES_TABLE_NAME, false) {
 		return fmt.Errorf("invalid address: ipv4 " + node.Address.String() + " is not unique")
 	}
+	fmt.Println("------> REG: HEREEE - 1.5")
 	if node.Address6.IP == nil {
 		if parentNetwork.IsIPv6 == "yes" {
 			if node.Address6.IP, err = UniqueAddress6(node.Network, false); err != nil {
@@ -560,6 +561,7 @@ func createNode(node *models.Node) error {
 	} else if !IsIPUnique(node.Network, node.Address6.String(), database.NODES_TABLE_NAME, true) {
 		return fmt.Errorf("invalid address: ipv6 " + node.Address6.String() + " is not unique")
 	}
+	fmt.Println("------> REG: HEREEE - 1.6")
 	node.ID = uuid.New()
 	//Create a JWT for the node
 	tokenString, _ := CreateJWT(node.ID.String(), host.MacAddress.String(), node.Network)
@@ -571,8 +573,9 @@ func createNode(node *models.Node) error {
 	if err != nil {
 		return err
 	}
+	fmt.Println("------> REG: HEREEE - 1.7")
 	CheckZombies(node)
-
+	fmt.Println("------> REG: HEREEE - 1.8")
 	nodebytes, err := json.Marshal(&node)
 	if err != nil {
 		return err
@@ -584,21 +587,23 @@ func createNode(node *models.Node) error {
 	if servercfg.CacheEnabled() {
 		storeNodeInCache(*node)
 	}
+	fmt.Println("------> REG: HEREEE - 1.9")
 	_, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), defaultACLVal)
 	if err != nil {
 		logger.Log(1, "failed to create node ACL for node,", node.ID.String(), "err:", err.Error())
 		return err
 	}
+	fmt.Println("------> REG: HEREEE - 1.10")
 
 	if err = UpdateProNodeACLs(node); err != nil {
 		logger.Log(1, "failed to apply node level ACLs during creation of node", node.ID.String(), "-", err.Error())
 		return err
 	}
-
+	fmt.Println("------> REG: HEREEE - 1.11")
 	if err = UpdateMetrics(node.ID.String(), &models.Metrics{Connectivity: make(map[string]models.Metric)}); err != nil {
 		logger.Log(1, "failed to initialize metrics for node", node.ID.String(), err.Error())
 	}
-
+	fmt.Println("------> REG: HEREEE - 1.12")
 	SetNetworkNodesLastModified(node.Network)
 	if servercfg.IsDNSMode() {
 		err = SetDNS()

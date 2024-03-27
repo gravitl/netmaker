@@ -369,11 +369,13 @@ func AssociateNodeToHost(n *models.Node, h *models.Host) error {
 	if len(h.ID.String()) == 0 || h.ID == uuid.Nil {
 		return ErrInvalidHostID
 	}
+	fmt.Println("------> REG: HEREEE - 1")
 	n.HostID = h.ID
 	err := createNode(n)
 	if err != nil {
 		return err
 	}
+	fmt.Println("------> REG: HEREEE - 2")
 	currentHost, err := GetHost(h.ID.String())
 	if err != nil {
 		return err
