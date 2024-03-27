@@ -64,9 +64,9 @@ func (acl ACL) Save(containerID ContainerID, ID AclID) (ACL, error) {
 
 // ACL.IsAllowed - sees if ID is allowed in referring ACL
 func (acl ACL) IsAllowed(ID AclID) (allowed bool) {
-	AclMutex.RLock()
+	AclMutex.Lock()
 	allowed = acl[ID] == Allowed
-	AclMutex.RUnlock()
+	AclMutex.Unlock()
 	return
 }
 
