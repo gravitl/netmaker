@@ -9,7 +9,6 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/servercfg"
-	"golang.org/x/exp/slog"
 )
 
 // KEEPALIVE_TIMEOUT - time in seconds for timeout
@@ -92,13 +91,13 @@ func SetupMQTT() {
 		opts.SetOrderMatters(false)
 		opts.SetResumeSubs(true)
 	})
-	opts.SetConnectionLostHandler(func(c mqtt.Client, e error) {
-		slog.Warn("detected broker connection lost", "err", e.Error())
-		c.Disconnect(250)
-		slog.Info("re-initiating MQ connection")
-		SetupMQTT()
+	// opts.SetConnectionLostHandler(func(c mqtt.Client, e error) {
+	// 	slog.Warn("detected broker connection lost", "err", e.Error())
+	// 	c.Disconnect(250)
+	// 	slog.Info("re-initiating MQ connection")
+	// 	SetupMQTT()
 
-	})
+	// })
 	mqclient = mqtt.NewClient(opts)
 	tperiod := time.Now().Add(10 * time.Second)
 	for {
