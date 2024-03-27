@@ -355,8 +355,10 @@ func UpdateHostNetwork(h *models.Host, network string, add bool) (*models.Node, 
 		newNode.Network = network
 		newNode.HostID = h.ID
 		if err := AssociateNodeToHost(&newNode, h); err != nil {
+			fmt.Println("----------->REG: 1  ADDING NODE TO HOST: ", h.Name, err)
 			return nil, err
 		}
+		fmt.Printf("----------->REG: 1  ADDING NODE TO HOST:%s,NewNODE:  %+v \n", h.Name, newNode)
 		return &newNode, nil
 	}
 }
