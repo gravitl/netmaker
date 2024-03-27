@@ -76,11 +76,10 @@ func checkForZombieHosts(h *models.Host) {
 // ManageZombies - goroutine which adds/removes/deletes nodes from the zombie node quarantine list
 func ManageZombies(ctx context.Context, peerUpdate chan *models.Node) {
 	logger.Log(2, "Zombie management started")
-	InitializeZombies()
+	go InitializeZombies()
 
 	// Zombie Nodes Cleanup Four Times a Day
 	ticker := time.NewTicker(time.Hour * ZOMBIE_TIMEOUT)
-
 	for {
 		select {
 		case <-ctx.Done():
