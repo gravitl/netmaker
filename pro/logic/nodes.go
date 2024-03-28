@@ -10,6 +10,11 @@ import (
 	"golang.org/x/exp/slog"
 )
 
+const (
+	IPv4Network = "0.0.0.0/0"
+	IPv6Network = "::/0"
+)
+
 func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool) error {
 	inetHost, err := logic.GetHost(inetNode.HostID.String())
 	if err != nil {
@@ -148,13 +153,13 @@ func GetAllowedIpForInetNodeClient(node, peer *models.Node) []net.IPNet {
 	var allowedips = []net.IPNet{}
 
 	if peer.Address.IP != nil {
-		_, ipnet, _ := net.ParseCIDR("0.0.0.0/0")
+		_, ipnet, _ := net.ParseCIDR(IPv4Network)
 		allowedips = append(allowedips, *ipnet)
 		return allowedips
 	}
 
 	if peer.Address6.IP != nil {
-		_, ipnet, _ := net.ParseCIDR("0::/0")
+		_, ipnet, _ := net.ParseCIDR(IPv6Network)
 		allowedips = append(allowedips, *ipnet)
 	}
 
