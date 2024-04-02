@@ -63,6 +63,7 @@ type Host struct {
 	Interfaces          []Iface          `json:"interfaces"              yaml:"interfaces"`
 	DefaultInterface    string           `json:"defaultinterface"        yaml:"defaultinterface"`
 	EndpointIP          net.IP           `json:"endpointip"              yaml:"endpointip"`
+	EndpointIPv6        net.IP           `json:"endpointipv6"            yaml:"endpointipv6"`
 	IsDocker            bool             `json:"isdocker"                yaml:"isdocker"`
 	IsK8S               bool             `json:"isk8s"                   yaml:"isk8s"`
 	IsStatic            bool             `json:"isstatic"                yaml:"isstatic"`
