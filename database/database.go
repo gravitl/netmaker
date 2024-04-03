@@ -61,7 +61,8 @@ const (
 	ENROLLMENT_KEYS_TABLE_NAME = "enrollmentkeys"
 	// HOST_ACTIONS_TABLE_NAME - table name for enrollmentkeys
 	HOST_ACTIONS_TABLE_NAME = "hostactions"
-
+	// PENDING_USERS_TABLE_NAME - table name for pending users
+	PENDING_USERS_TABLE_NAME = "pending_users"
 	// == ERROR CONSTS ==
 	// NO_RECORD - no singular result found
 	NO_RECORD = "no result found"
@@ -144,6 +145,7 @@ func createTables() {
 	CreateTable(HOSTS_TABLE_NAME)
 	CreateTable(ENROLLMENT_KEYS_TABLE_NAME)
 	CreateTable(HOST_ACTIONS_TABLE_NAME)
+	CreateTable(PENDING_USERS_TABLE_NAME)
 }
 
 func CreateTable(tableName string) error {

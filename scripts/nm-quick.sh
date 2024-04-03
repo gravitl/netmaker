@@ -248,7 +248,7 @@ save_config() { (
 	local toCopy=("SERVER_HOST" "MASTER_KEY" "MQ_USERNAME" "MQ_PASSWORD"
 		"INSTALL_TYPE" "NODE_ID" "DNS_MODE" "NETCLIENT_AUTO_UPDATE" "API_PORT"
 		"CORS_ALLOWED_ORIGIN" "DISPLAY_KEYS" "DATABASE" "SERVER_BROKER_ENDPOINT" "VERBOSITY"
-		"DEBUG_MODE"  "REST_BACKEND" "DISABLE_REMOTE_IP_CHECK" "TELEMETRY" "AUTH_PROVIDER" "CLIENT_ID" "CLIENT_SECRET"
+		"DEBUG_MODE"  "REST_BACKEND" "DISABLE_REMOTE_IP_CHECK" "TELEMETRY" "ALLOWED_EMAIL_DOMAINS" "AUTH_PROVIDER" "CLIENT_ID" "CLIENT_SECRET"
 		"FRONTEND_URL" "AZURE_TENANT" "OIDC_ISSUER" "EXPORTER_API_PORT" "JWT_VALIDITY_DURATION" "RAC_AUTO_DISABLE" "CACHING_ENABLED" "ENDPOINT_DETECTION")
 	for name in "${toCopy[@]}"; do
 		save_config_item $name "${!name}"
@@ -470,23 +470,11 @@ set_install_vars() {
 
 	wait_seconds 1
 
-
 	unset GET_EMAIL
-	unset RAND_EMAIL
-	RAND_EMAIL="$(echo $RANDOM | md5sum | head -c 16)@email.com"
-	# suggest the prev email or a random one
-	EMAIL_SUGGESTED=${NM_EMAIL:-$RAND_EMAIL}
-	read -p "Email Address for Domain Registration (click 'enter' to use $EMAIL_SUGGESTED): " GET_EMAIL
-	if [ -z "$GET_EMAIL" ]; then
-		EMAIL="$EMAIL_SUGGESTED"
-		if [ "$EMAIL" = "$NM_EMAIL" ]; then
-			echo "using config email"
-		else
-			echo "using rand email"
-		fi
-	else
-		EMAIL="$GET_EMAIL"
-	fi
+	while [ -z "$GET_EMAIL" ]; do
+		read -p "Email Address for Domain Registration: " GET_EMAIL
+	done
+	EMAIL="$GET_EMAIL"
 
 	wait_seconds 1
 
@@ -591,8 +579,6 @@ install_netmaker() {
 	save_config
 
 	echo "Starting containers..."
-
-	
 
 	# start docker and rebuild containers / networks
 	cd "${SCRIPT_DIR}"

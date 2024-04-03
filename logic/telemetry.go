@@ -2,6 +2,7 @@ package logic
 
 import (
 	"encoding/json"
+	"os"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
@@ -9,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/posthog/posthog-go"
+	"golang.org/x/exp/slog"
 )
 
 // flags to keep for telemetry
@@ -39,13 +41,17 @@ func sendTelemetry() error {
 	// get telemetry data
 	d, err := FetchTelemetryData()
 	if err != nil {
-		return err
+		slog.Error("error fetching telemetry data", "error", err)
 	}
+	// get tenant admin email
+	adminEmail := os.Getenv("NM_EMAIL")
 	client, err := posthog.NewWithConfig(posthog_pub_key, posthog.Config{Endpoint: posthog_endpoint})
 	if err != nil {
 		return err
 	}
 	defer client.Close()
+
+	slog.Info("sending telemetry data to posthog", "data", d)
 
 	// send to posthog
 	return client.Enqueue(posthog.Capture{
@@ -67,7 +73,11 @@ func sendTelemetry() error {
 			Set("k8s", d.Count.K8S).
 			Set("version", d.Version).
 			Set("is_ee", d.IsPro). // TODO change is_ee to is_pro for consistency, but probably needs changes in posthog
-			Set("is_free_tier", isFreeTier),
+			Set("is_free_tier", isFreeTier).
+			Set("is_pro_trial", d.IsProTrial).
+			Set("pro_trial_end_date", d.ProTrialEndDate.In(time.UTC).Format("2006-01-02")).
+			Set("admin_email", adminEmail).
+			Set("is_saas_tenant", d.IsSaasTenant),
 	})
 }
 
@@ -87,6 +97,15 @@ func FetchTelemetryData() (telemetryData, error) {
 		data.Nodes = len(nodes)
 		data.Count = getClientCount(nodes)
 	}
+	endDate, err := GetTrialEndDate()
+	if err != nil {
+		logger.Log(0, "error getting trial end date", err.Error())
+	}
+	data.ProTrialEndDate = endDate
+	if endDate.After(time.Now()) {
+		data.IsProTrial = true
+	}
+	data.IsSaasTenant = servercfg.DeployedByOperator()
 	return data, err
 }
 
@@ -162,16 +181,19 @@ func getDBLength(dbname string) int {
 
 // telemetryData - What data to send to posthog
 type telemetryData struct {
-	Nodes      int
-	Hosts      int
-	ExtClients int
-	Users      int
-	Count      clientCount
-	Networks   int
-	Servers    int
-	Version    string
-	IsPro      bool
-	IsFreeTier bool
+	Nodes           int
+	Hosts           int
+	ExtClients      int
+	Users           int
+	Count           clientCount
+	Networks        int
+	Servers         int
+	Version         string
+	IsPro           bool
+	IsFreeTier      bool
+	IsProTrial      bool
+	ProTrialEndDate time.Time
+	IsSaasTenant    bool
 }
 
 // clientCount - What types of netclients we're tallying

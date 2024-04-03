@@ -93,6 +93,7 @@ type ServerConfig struct {
 	RacAutoDisable             bool          `yaml:"rac_auto_disable"`
 	CacheEnabled               string        `yaml:"caching_enabled"`
 	EndpointDetection          bool          `json:"endpoint_detection"`
+	AllowedEmailDomains        string        `yaml:"allowed_email_domains"`
 }
 
 // SQLConfig - Generic SQL Config
