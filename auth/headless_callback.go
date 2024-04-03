@@ -50,19 +50,24 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = logic.GetUser(userClaims.getUserName())
-	if err != nil { // user must not exists, so try to make one
-		if err = addUser(userClaims.getUserName()); err != nil {
-			logger.Log(1, "could not create new user: ", userClaims.getUserName())
-			return
-		}
+	// check if user approval is already pending
+	if logic.IsPendingUser(userClaims.getUserName()) {
+		handleOauthUserNotAllowed(w)
+		return
 	}
-	newPass, fetchErr := fetchPassValue("")
+	user, err := logic.GetUser(userClaims.getUserName())
+	if err != nil {
+		response := returnErrTemplate("", "user not found", state, reqKeyIf)
+		w.WriteHeader(http.StatusForbidden)
+		w.Write(response)
+		return
+	}
+	newPass, fetchErr := FetchPassValue("")
 	if fetchErr != nil {
 		return
 	}
 	jwt, jwtErr := logic.VerifyAuthRequest(models.UserAuthParams{
-		UserName: userClaims.getUserName(),
+		UserName: user.UserName,
 		Password: newPass,
 	})
 	if jwtErr != nil {
