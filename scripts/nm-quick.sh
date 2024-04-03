@@ -470,23 +470,11 @@ set_install_vars() {
 
 	wait_seconds 1
 
-
 	unset GET_EMAIL
-	unset RAND_EMAIL
-	RAND_EMAIL="$(echo $RANDOM | md5sum | head -c 16)@email.com"
-	# suggest the prev email or a random one
-	EMAIL_SUGGESTED=${NM_EMAIL:-$RAND_EMAIL}
-	read -p "Email Address for Domain Registration (click 'enter' to use $EMAIL_SUGGESTED): " GET_EMAIL
-	if [ -z "$GET_EMAIL" ]; then
-		EMAIL="$EMAIL_SUGGESTED"
-		if [ "$EMAIL" = "$NM_EMAIL" ]; then
-			echo "using config email"
-		else
-			echo "using rand email"
-		fi
-	else
-		EMAIL="$GET_EMAIL"
-	fi
+	while [ -z "$GET_EMAIL" ]; do
+		read -p "Email Address for Domain Registration: " GET_EMAIL
+	done
+	EMAIL="$GET_EMAIL"
 
 	wait_seconds 1
 
@@ -591,8 +579,6 @@ install_netmaker() {
 	save_config
 
 	echo "Starting containers..."
-
-	
 
 	# start docker and rebuild containers / networks
 	cd "${SCRIPT_DIR}"
