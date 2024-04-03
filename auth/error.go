@@ -12,12 +12,26 @@ const oauthNotConfigured = `<!DOCTYPE html><html>
 
 const userNotAllowed = `<!DOCTYPE html><html>
 <body>
-<h3>Only Admins are allowed to access Dashboard.</h3>
-<h3>Furthermore, Admin has to approve your identity to have access to netmaker networks</h3>
-<p>Once your identity is approved, Non-Admins can access the netmaker networks using <a href="https://docs.netmaker.io/pro/rac.html" target="_blank" rel="noopener">RemoteAccessClient.</a></p>
+<h3>Only administrators can access the Dashboard. Please contact your administrator to elevate your account.</h3>
+<p>Non-Admins can access the netmaker networks using <a href="https://docs.netmaker.io/pro/rac.html" target="_blank" rel="noopener">RemoteAccessClient.</a></p>
 </body>
 </html>
 `
+
+const userFirstTimeSignUp = `<!DOCTYPE html><html>
+<body>
+<h3>Thank you for signing up. Please contact your administrator for access.</h3>
+</body>
+</html>
+`
+
+const userSignUpApprovalPending = `<!DOCTYPE html><html>
+<body>
+<h3>Your account is yet to be approved. Please contact your administrator for access.</h3>
+</body>
+</html>
+`
+
 const userNotFound = `<!DOCTYPE html><html>
 <body>
 <h3>User Not Found.</h3>
@@ -26,13 +40,13 @@ const userNotFound = `<!DOCTYPE html><html>
 
 const somethingwentwrong = `<!DOCTYPE html><html>
 <body>
-<h3>Something went wrong. Contact Admin</h3>
+<h3>Something went wrong. Contact Admin.</h3>
 </body>
 </html>`
 
 const notallowedtosignup = `<!DOCTYPE html><html>
 <body>
-<h3>You are not allowed to SignUp.</h3>
+<h3>Your email is not allowed. Please contact your administrator.</h3>
 </body>
 </html>`
 
@@ -46,6 +60,17 @@ func handleOauthUserNotAllowed(response http.ResponseWriter) {
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	response.WriteHeader(http.StatusForbidden)
 	response.Write([]byte(userNotAllowed))
+}
+func handleFirstTimeOauthUserSignUp(response http.ResponseWriter) {
+	response.Header().Set("Content-Type", "text/html; charset=utf-8")
+	response.WriteHeader(http.StatusForbidden)
+	response.Write([]byte(userFirstTimeSignUp))
+}
+
+func handleOauthUserSignUpApprovalPending(response http.ResponseWriter) {
+	response.Header().Set("Content-Type", "text/html; charset=utf-8")
+	response.WriteHeader(http.StatusForbidden)
+	response.Write([]byte(userSignUpApprovalPending))
 }
 
 func handleOauthUserNotAllowedToSignUp(response http.ResponseWriter) {

@@ -69,7 +69,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	// check if user approval is already pending
 	if logic.IsPendingUser(content.Email) {
-		handleOauthUserNotAllowed(w)
+		handleOauthUserSignUpApprovalPending(w)
 		return
 	}
 	_, err = logic.GetUser(content.Email)
@@ -82,7 +82,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 				handleSomethingWentWrong(w)
 				return
 			}
-			handleOauthUserNotAllowed(w)
+			handleFirstTimeOauthUserSignUp(w)
 			return
 		} else {
 			handleSomethingWentWrong(w)

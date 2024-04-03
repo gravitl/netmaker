@@ -42,7 +42,7 @@ const trial_data_key = "trialdata"
 
 // stores trial end date
 func initTrial() error {
-	telData, _ := logic.FetchTelemetryData()
+	telData := logic.FetchTelemetryData()
 	if telData.Hosts > 0 || telData.Networks > 0 || telData.Users > 0 {
 		return nil // database is already populated, so skip creating trial
 	}
