@@ -75,3 +75,47 @@ func GetSuperAdmin() (models.ReturnUser, error) {
 	}
 	return models.ReturnUser{}, errors.New("superadmin not found")
 }
+
+func InsertPendingUser(u *models.User) error {
+	data, err := json.Marshal(u)
+	if err != nil {
+		return err
+	}
+	return database.Insert(u.UserName, string(data), database.PENDING_USERS_TABLE_NAME)
+}
+
+func DeletePendingUser(username string) error {
+	return database.DeleteRecord(database.PENDING_USERS_TABLE_NAME, username)
+}
+
+func IsPendingUser(username string) bool {
+	records, err := database.FetchRecords(database.PENDING_USERS_TABLE_NAME)
+	if err != nil {
+		return false
+
+	}
+	for _, record := range records {
+		u := models.ReturnUser{}
+		err := json.Unmarshal([]byte(record), &u)
+		if err == nil && u.UserName == username {
+			return true
+		}
+	}
+	return false
+}
+
+func ListPendingUsers() ([]models.ReturnUser, error) {
+	pendingUsers := []models.ReturnUser{}
+	records, err := database.FetchRecords(database.PENDING_USERS_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return pendingUsers, err
+	}
+	for _, record := range records {
+		u := models.ReturnUser{}
+		err = json.Unmarshal([]byte(record), &u)
+		if err == nil {
+			pendingUsers = append(pendingUsers, u)
+		}
+	}
+	return pendingUsers, nil
+}

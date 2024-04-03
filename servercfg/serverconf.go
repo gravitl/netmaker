@@ -674,6 +674,17 @@ func DeployedByOperator() bool {
 	return config.Config.Server.DeployedByOperator
 }
 
+// IsEndpointDetectionEnabled - returns true if endpoint detection enabled
+func IsEndpointDetectionEnabled() bool {
+	var enabled = true //default
+	if os.Getenv("ENDPOINT_DETECTION") != "" {
+		enabled = os.Getenv("ENDPOINT_DETECTION") == "true"
+	} else {
+		enabled = config.Config.Server.EndpointDetection
+	}
+	return enabled
+}
+
 // GetEnvironment returns the environment the server is running in (e.g. dev, staging, prod...)
 func GetEnvironment() string {
 	if env := os.Getenv("ENVIRONMENT"); env != "" {
@@ -702,4 +713,15 @@ func GetEmqxAppID() string {
 // GetEmqxAppSecret - gets the emqx cloud app secret
 func GetEmqxAppSecret() string {
 	return os.Getenv("EMQX_APP_SECRET")
+}
+
+// GetAllowedEmailDomains - gets the allowed email domains for oauth signup
+func GetAllowedEmailDomains() string {
+	allowedDomains := "*"
+	if os.Getenv("ALLOWED_EMAIL_DOMAINS") != "" {
+		allowedDomains = os.Getenv("ALLOWED_EMAIL_DOMAINS")
+	} else if config.Config.Server.AllowedEmailDomains != "" {
+		allowedDomains = config.Config.Server.AllowedEmailDomains
+	}
+	return allowedDomains
 }

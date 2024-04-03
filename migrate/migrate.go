@@ -177,7 +177,7 @@ func removeInterGw(egressRanges []string) ([]string, bool) {
 func updateAcls() {
 	// get all networks
 	networks, err := logic.GetNetworks()
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		slog.Error("acls migration failed. error getting networks", "error", err)
 		return
 	}

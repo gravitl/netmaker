@@ -62,7 +62,7 @@ func upgradeHost(w http.ResponseWriter, r *http.Request) {
 //	  		oauth
 //
 //			Responses:
-//				200: apiHostResponse
+//				200: apiHostSliceResponse
 func getHosts(w http.ResponseWriter, r *http.Request) {
 	currentHosts, err := logic.GetAllHosts()
 	if err != nil {
@@ -134,17 +134,18 @@ func pull(w http.ResponseWriter, r *http.Request) {
 
 	serverConf.TrafficKey = key
 	response := models.HostPull{
-		Host:            *host,
-		Nodes:           logic.GetHostNodes(host),
-		ServerConfig:    serverConf,
-		Peers:           hPU.Peers,
-		PeerIDs:         hPU.PeerIDs,
-		HostNetworkInfo: hPU.HostNetworkInfo,
-		EgressRoutes:    hPU.EgressRoutes,
-		FwUpdate:        hPU.FwUpdate,
-		ChangeDefaultGw: hPU.ChangeDefaultGw,
-		DefaultGwIp:     hPU.DefaultGwIp,
-		IsInternetGw:    hPU.IsInternetGw,
+		Host:              *host,
+		Nodes:             logic.GetHostNodes(host),
+		ServerConfig:      serverConf,
+		Peers:             hPU.Peers,
+		PeerIDs:           hPU.PeerIDs,
+		HostNetworkInfo:   hPU.HostNetworkInfo,
+		EgressRoutes:      hPU.EgressRoutes,
+		FwUpdate:          hPU.FwUpdate,
+		ChangeDefaultGw:   hPU.ChangeDefaultGw,
+		DefaultGwIp:       hPU.DefaultGwIp,
+		IsInternetGw:      hPU.IsInternetGw,
+		EndpointDetection: servercfg.IsEndpointDetectionEnabled(),
 	}
 
 	logger.Log(1, hostID, "completed a pull")
