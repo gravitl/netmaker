@@ -674,6 +674,17 @@ func DeployedByOperator() bool {
 	return config.Config.Server.DeployedByOperator
 }
 
+// IsEndpointDetectionEnabled - returns true if endpoint detection enabled
+func IsEndpointDetectionEnabled() bool {
+	var enabled = true //default
+	if os.Getenv("ENDPOINT_DETECTION") != "" {
+		enabled = os.Getenv("ENDPOINT_DETECTION") == "true"
+	} else {
+		enabled = config.Config.Server.EndpointDetection
+	}
+	return enabled
+}
+
 // GetEnvironment returns the environment the server is running in (e.g. dev, staging, prod...)
 func GetEnvironment() string {
 	if env := os.Getenv("ENVIRONMENT"); env != "" {
