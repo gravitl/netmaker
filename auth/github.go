@@ -67,7 +67,7 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	// check if user approval is already pending
 	if logic.IsPendingUser(content.Login) {
-		handleOauthUserNotAllowed(w)
+		handleOauthUserSignUpApprovalPending(w)
 		return
 	}
 	_, err = logic.GetUser(content.Login)
@@ -80,7 +80,7 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 				handleSomethingWentWrong(w)
 				return
 			}
-			handleOauthUserNotAllowed(w)
+			handleFirstTimeOauthUserSignUp(w)
 			return
 		} else {
 			handleSomethingWentWrong(w)
