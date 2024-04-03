@@ -39,10 +39,7 @@ func sendTelemetry() error {
 		return err
 	}
 	// get telemetry data
-	d, err := FetchTelemetryData()
-	if err != nil {
-		slog.Error("error fetching telemetry data", "error", err)
-	}
+	d := FetchTelemetryData()
 	// get tenant admin email
 	adminEmail := os.Getenv("NM_EMAIL")
 	client, err := posthog.NewWithConfig(posthog_pub_key, posthog.Config{Endpoint: posthog_endpoint})
@@ -82,7 +79,7 @@ func sendTelemetry() error {
 }
 
 // FetchTelemetryData - fetches telemetry data: count of various object types in DB
-func FetchTelemetryData() (telemetryData, error) {
+func FetchTelemetryData() telemetryData {
 	var data telemetryData
 
 	data.IsPro = servercfg.IsPro
@@ -92,21 +89,16 @@ func FetchTelemetryData() (telemetryData, error) {
 	data.Hosts = getDBLength(database.HOSTS_TABLE_NAME)
 	data.Version = servercfg.GetVersion()
 	data.Servers = getServerCount()
-	nodes, err := GetAllNodes()
-	if err == nil {
-		data.Nodes = len(nodes)
-		data.Count = getClientCount(nodes)
-	}
-	endDate, err := GetTrialEndDate()
-	if err != nil {
-		logger.Log(0, "error getting trial end date", err.Error())
-	}
+	nodes, _ := GetAllNodes()
+	data.Nodes = len(nodes)
+	data.Count = getClientCount(nodes)
+	endDate, _ := GetTrialEndDate()
 	data.ProTrialEndDate = endDate
 	if endDate.After(time.Now()) {
 		data.IsProTrial = true
 	}
 	data.IsSaasTenant = servercfg.DeployedByOperator()
-	return data, err
+	return data
 }
 
 // getServerCount returns number of servers from database
