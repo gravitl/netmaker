@@ -264,7 +264,7 @@ func addUser(email string) error {
 		// TODO: add ability to add users with preemptive permissions
 		newUser.IsAdmin = false
 		if err = logic.CreateUser(&newUser); err != nil {
-			logger.Log(1, "error creating user,", email, "; user not added")
+			logger.Log(1, "error creating user,", email, "; user not added", "error", err.Error())
 		} else {
 			logger.Log(0, "user created from ", email)
 		}
