@@ -39,7 +39,7 @@ func (e *EmqxCloud) CreateEmqxUser(username, pass string) error {
 	}
 	data, _ := json.Marshal(payload)
 	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/auth_username", e.URL), strings.NewReader(string(data)))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/auth_username", e.URL), strings.NewReader(string(data)))
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func (e *EmqxCloud) CreateEmqxUserforServer() error {
 	}
 	data, _ := json.Marshal(payload)
 	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/auth_username", e.URL), strings.NewReader(string(data)))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/auth_username", e.URL), strings.NewReader(string(data)))
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ func (e *EmqxCloud) createacls(acls []cloudAcl) error {
 		return err
 	}
 	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/acl", e.URL), strings.NewReader(string(payload)))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/api/acl", e.URL), strings.NewReader(string(payload)))
 	if err != nil {
 		return err
 	}
@@ -246,7 +246,7 @@ func (e *EmqxCloud) GetUserACL(username string) (*aclObject, error) { return nil
 func (e *EmqxCloud) DeleteEmqxUser(username string) error {
 
 	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/auth_username/%s", e.URL, username), nil)
+	req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/api/auth_username/%s", e.URL, username), nil)
 	if err != nil {
 		return err
 	}
