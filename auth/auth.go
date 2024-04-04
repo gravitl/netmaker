@@ -75,10 +75,10 @@ func InitializeAuthProvider() string {
 	if functions == nil {
 		return ""
 	}
+	logger.Log(0, "setting oauth secret")
 	var err = logic.SetAuthSecret(auth_key, logic.RandomString(64))
 	if err != nil {
 		logger.FatalLog("failed to set auth_secret", err.Error())
-		return ""
 	}
 	var authInfo = servercfg.GetAuthProviderInfo()
 	var serverConn = servercfg.GetAPIHost()
@@ -285,7 +285,7 @@ func fetchPassValue(newValue string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	var unmarshErr = json.Unmarshal([]byte(currentValue), newValueHolder)
+	var unmarshErr = json.Unmarshal([]byte(currentValue), &newValueHolder)
 	if unmarshErr != nil {
 		return "", unmarshErr
 	}
