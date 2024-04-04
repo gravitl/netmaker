@@ -75,9 +75,9 @@ func InitializeAuthProvider() string {
 	if functions == nil {
 		return ""
 	}
-	var _, err = fetchPassValue(logic.RandomString(64))
+	var err = logic.SetAuthSecret(auth_key, logic.RandomString(64))
 	if err != nil {
-		logger.Log(0, err.Error())
+		logger.FatalLog("failed to set auth_secret", err.Error())
 		return ""
 	}
 	var authInfo = servercfg.GetAuthProviderInfo()
@@ -280,16 +280,8 @@ func fetchPassValue(newValue string) (string, error) {
 	type valueHolder struct {
 		Value string `json:"value" bson:"value"`
 	}
-	var b64NewValue = base64.StdEncoding.EncodeToString([]byte(newValue))
-	var newValueHolder = &valueHolder{
-		Value: b64NewValue,
-	}
-	var data, marshalErr = json.Marshal(newValueHolder)
-	if marshalErr != nil {
-		return "", marshalErr
-	}
-
-	var currentValue, err = logic.FetchAuthSecret(auth_key, string(data))
+	newValueHolder := valueHolder{}
+	var currentValue, err = logic.FetchAuthSecret(auth_key)
 	if err != nil {
 		return "", err
 	}
