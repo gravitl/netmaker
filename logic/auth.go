@@ -96,12 +96,14 @@ func CreateUser(user *models.User) error {
 	}
 	var err = ValidateUser(user)
 	if err != nil {
+		logger.Log(0, "failed to validate user", err.Error())
 		return err
 	}
 
 	// encrypt that password so we never see it again
 	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), 5)
 	if err != nil {
+		logger.Log(0, "error encrypting pass", err.Error())
 		return err
 	}
 	// set password to encrypted password
@@ -109,6 +111,7 @@ func CreateUser(user *models.User) error {
 
 	tokenString, _ := CreateUserJWT(user.UserName, user.IsSuperAdmin, user.IsAdmin)
 	if tokenString == "" {
+		logger.Log(0, "failed to generate token", err.Error())
 		return err
 	}
 
@@ -117,10 +120,12 @@ func CreateUser(user *models.User) error {
 	// connect db
 	data, err := json.Marshal(user)
 	if err != nil {
+		logger.Log(0, "failed to marshal", err.Error())
 		return err
 	}
 	err = database.Insert(user.UserName, string(data), database.USERS_TABLE_NAME)
 	if err != nil {
+		logger.Log(0, "failed to insert user", err.Error())
 		return err
 	}
 

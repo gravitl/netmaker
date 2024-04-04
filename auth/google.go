@@ -70,6 +70,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := logic.GetUser(content.Email)
 	if err != nil {
+		logger.Log(0, "error fetching user: ", err.Error())
 		handleOauthUserNotFound(w)
 		return
 	}
