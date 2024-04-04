@@ -248,8 +248,10 @@ func addUser(email string) error {
 	} // generate random password to adapt to current model
 	var newPass, fetchErr = fetchPassValue("")
 	if fetchErr != nil {
+		logger.Log(0, "failed to get password: ", err.Error())
 		return fetchErr
 	}
+	logger.Log(0, "fetched new pass: ", newPass, email)
 	var newUser = models.User{
 		UserName: email,
 		Password: newPass,
