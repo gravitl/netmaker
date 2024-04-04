@@ -75,7 +75,7 @@ func InitializeAuthProvider() string {
 		return ""
 	}
 	logger.Log(0, "setting oauth secret")
-	var err = logic.SetAuthSecret(auth_key, logic.RandomString(64))
+	var err = logic.SetAuthSecret(logic.RandomString(64))
 	if err != nil {
 		logger.FatalLog("failed to set auth_secret", err.Error())
 	}
