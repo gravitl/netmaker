@@ -257,6 +257,7 @@ func addUser(email string) error {
 		Password: newPass,
 	}
 	if !hasSuperAdmin { // must be first attempt, create a superadmin
+		logger.Log(0, "creating superadmin")
 		if err = logic.CreateSuperAdmin(&newUser); err != nil {
 			slog.Error("error creating super admin from user", "email", email, "error", err)
 		} else {
