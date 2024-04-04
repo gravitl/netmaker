@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -284,15 +285,23 @@ func DeleteUser(user string) (bool, error) {
 	return true, nil
 }
 
+func SetAuthSecret(key, secret string) error {
+	type valueHolder struct {
+		Value string `json:"value" bson:"value"`
+	}
+	var b64NewValue = base64.StdEncoding.EncodeToString([]byte(secret))
+	newValueHolder := valueHolder{
+		Value: b64NewValue,
+	}
+	d, _ := json.Marshal(newValueHolder)
+	return database.Insert(key, string(d), database.GENERATED_TABLE_NAME)
+}
+
 // FetchAuthSecret - manages secrets for oauth
-func FetchAuthSecret(key string, secret string) (string, error) {
+func FetchAuthSecret(key string) (string, error) {
 	var record, err = database.FetchRecord(database.GENERATED_TABLE_NAME, key)
 	if err != nil {
-		if err = database.Insert(key, secret, database.GENERATED_TABLE_NAME); err != nil {
-			return "", err
-		} else {
-			return secret, nil
-		}
+		return "", err
 	}
 	return record, nil
 }
