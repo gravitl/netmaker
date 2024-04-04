@@ -32,7 +32,6 @@ const (
 	github_provider_name   = "github"
 	oidc_provider_name     = "oidc"
 	verify_user            = "verifyuser"
-	auth_key               = "netmaker_auth"
 	user_signin_length     = 16
 	node_signin_length     = 64
 	headless_signin_length = 32
@@ -281,7 +280,7 @@ func fetchPassValue(newValue string) (string, error) {
 		Value string `json:"value" bson:"value"`
 	}
 	newValueHolder := valueHolder{}
-	var currentValue, err = logic.FetchAuthSecret(auth_key)
+	var currentValue, err = logic.FetchAuthSecret()
 	if err != nil {
 		return "", err
 	}

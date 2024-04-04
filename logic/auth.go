@@ -16,6 +16,10 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
+const (
+	auth_key = "netmaker_auth"
+)
+
 // HasSuperAdmin - checks if server has an superadmin/owner
 func HasSuperAdmin() (bool, error) {
 
@@ -289,6 +293,14 @@ func SetAuthSecret(key, secret string) error {
 	type valueHolder struct {
 		Value string `json:"value" bson:"value"`
 	}
+	record, err := FetchAuthSecret()
+	if err == nil {
+		v := valueHolder{}
+		json.Unmarshal([]byte(record), &v)
+		if v.Value != "" {
+			return nil
+		}
+	}
 	var b64NewValue = base64.StdEncoding.EncodeToString([]byte(secret))
 	newValueHolder := valueHolder{
 		Value: b64NewValue,
@@ -298,8 +310,8 @@ func SetAuthSecret(key, secret string) error {
 }
 
 // FetchAuthSecret - manages secrets for oauth
-func FetchAuthSecret(key string) (string, error) {
-	var record, err = database.FetchRecord(database.GENERATED_TABLE_NAME, key)
+func FetchAuthSecret() (string, error) {
+	var record, err = database.FetchRecord(database.GENERATED_TABLE_NAME, auth_key)
 	if err != nil {
 		return "", err
 	}
