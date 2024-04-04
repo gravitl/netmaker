@@ -289,7 +289,7 @@ func DeleteUser(user string) (bool, error) {
 	return true, nil
 }
 
-func SetAuthSecret(key, secret string) error {
+func SetAuthSecret(secret string) error {
 	type valueHolder struct {
 		Value string `json:"value" bson:"value"`
 	}
@@ -306,7 +306,7 @@ func SetAuthSecret(key, secret string) error {
 		Value: b64NewValue,
 	}
 	d, _ := json.Marshal(newValueHolder)
-	return database.Insert(key, string(d), database.GENERATED_TABLE_NAME)
+	return database.Insert(auth_key, string(d), database.GENERATED_TABLE_NAME)
 }
 
 // FetchAuthSecret - manages secrets for oauth
