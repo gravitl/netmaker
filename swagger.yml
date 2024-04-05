@@ -15,9 +15,43 @@ definitions:
         description: ACLContainer - the total list of all node's ACL in a given network
         type: object
         x-go-package: github.com/gravitl/netmaker/logic/acls
+    APIEnrollmentKey:
+        description: APIEnrollmentKey - used to create enrollment keys via API
+        properties:
+            expiration:
+                format: int64
+                type: integer
+                x-go-name: Expiration
+            networks:
+                items:
+                    type: string
+                type: array
+                x-go-name: Networks
+            relay:
+                type: string
+                x-go-name: Relay
+            tags:
+                items:
+                    type: string
+                type: array
+                x-go-name: Tags
+            type:
+                $ref: '#/definitions/KeyType'
+            unlimited:
+                type: boolean
+                x-go-name: Unlimited
+            uses_remaining:
+                format: int64
+                type: integer
+                x-go-name: UsesRemaining
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
     ApiHost:
         description: ApiHost - the host struct for API usage
         properties:
+            autoupdate:
+                type: boolean
+                x-go-name: AutoUpdate
             debug:
                 type: boolean
                 x-go-name: Debug
@@ -35,18 +69,12 @@ definitions:
                 x-go-name: ID
             interfaces:
                 items:
-                    $ref: '#/definitions/Iface'
+                    $ref: '#/definitions/ApiIface'
                 type: array
                 x-go-name: Interfaces
             isdefault:
                 type: boolean
                 x-go-name: IsDefault
-            isrelay:
-                type: boolean
-                x-go-name: IsRelay
-            isrelayed:
-                type: boolean
-                x-go-name: IsRelayed
             isstatic:
                 type: boolean
                 x-go-name: IsStatic
@@ -75,17 +103,13 @@ definitions:
             os:
                 type: string
                 x-go-name: OS
+            persistentkeepalive:
+                format: int64
+                type: integer
+                x-go-name: PersistentKeepalive
             publickey:
                 type: string
                 x-go-name: PublicKey
-            relay_hosts:
-                items:
-                    type: string
-                type: array
-                x-go-name: RelayedHosts
-            relayed_by:
-                type: string
-                x-go-name: RelayedBy
             verbosity:
                 format: int64
                 type: integer
@@ -97,6 +121,139 @@ definitions:
                 format: int64
                 type: integer
                 x-go-name: WgPublicListenPort
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    ApiIface:
+        description: |-
+            ApiIface - the interface struct for API usage
+            The original Iface struct contains a net.Address, which does not get marshalled correctly
+        properties:
+            addressString:
+                type: string
+                x-go-name: AddressString
+            name:
+                type: string
+                x-go-name: Name
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    ApiNode:
+        description: ApiNode is a stripped down Node DTO that exposes only required fields to external systems
+        properties:
+            address:
+                type: string
+                x-go-name: Address
+            address6:
+                type: string
+                x-go-name: Address6
+            allowedips:
+                items:
+                    type: string
+                type: array
+                x-go-name: AllowedIPs
+            connected:
+                type: boolean
+                x-go-name: Connected
+            defaultacl:
+                description: == PRO ==
+                type: string
+                x-go-name: DefaultACL
+            dnson:
+                type: boolean
+                x-go-name: DNSOn
+            egressgatewaynatenabled:
+                type: boolean
+                x-go-name: EgressGatewayNatEnabled
+            egressgatewayranges:
+                items:
+                    type: string
+                type: array
+                x-go-name: EgressGatewayRanges
+            expdatetime:
+                format: int64
+                type: integer
+                x-go-name: ExpirationDateTime
+            fail_over_peers:
+                additionalProperties:
+                    type: object
+                type: object
+                x-go-name: FailOverPeers
+            failed_over_by:
+                format: uuid
+                type: string
+                x-go-name: FailedOverBy
+            hostid:
+                type: string
+                x-go-name: HostID
+            id:
+                type: string
+                x-go-name: ID
+            inet_node_req:
+                $ref: '#/definitions/InetNodeReq'
+            ingressdns:
+                type: string
+                x-go-name: IngressDns
+            internetgw_node_id:
+                type: string
+                x-go-name: InternetGwID
+            is_fail_over:
+                type: boolean
+                x-go-name: IsFailOver
+            isegressgateway:
+                type: boolean
+                x-go-name: IsEgressGateway
+            isingressgateway:
+                type: boolean
+                x-go-name: IsIngressGateway
+            isinternetgateway:
+                type: boolean
+                x-go-name: IsInternetGateway
+            isrelay:
+                type: boolean
+                x-go-name: IsRelay
+            isrelayed:
+                type: boolean
+                x-go-name: IsRelayed
+            lastcheckin:
+                format: int64
+                type: integer
+                x-go-name: LastCheckIn
+            lastmodified:
+                format: int64
+                type: integer
+                x-go-name: LastModified
+            lastpeerupdate:
+                format: int64
+                type: integer
+                x-go-name: LastPeerUpdate
+            localaddress:
+                type: string
+                x-go-name: LocalAddress
+            metadata:
+                type: string
+                x-go-name: Metadata
+            network:
+                type: string
+                x-go-name: Network
+            networkrange:
+                type: string
+                x-go-name: NetworkRange
+            networkrange6:
+                type: string
+                x-go-name: NetworkRange6
+            pendingdelete:
+                type: boolean
+                x-go-name: PendingDelete
+            relayedby:
+                type: string
+                x-go-name: RelayedBy
+            relaynodes:
+                items:
+                    type: string
+                type: array
+                x-go-name: RelayedNodes
+            server:
+                type: string
+                x-go-name: Server
         type: object
         x-go-package: github.com/gravitl/netmaker/models
     AuthParams:
@@ -135,6 +292,12 @@ definitions:
                     type: string
                 type: array
                 x-go-name: ExtraAllowedIPs
+            postdown:
+                type: string
+                x-go-name: PostDown
+            postup:
+                type: string
+                x-go-name: PostUp
             publickey:
                 type: string
                 x-go-name: PublicKey
@@ -187,6 +350,32 @@ definitions:
                 x-go-name: Ranges
         type: object
         x-go-package: github.com/gravitl/netmaker/models
+    EgressInfo:
+        description: EgressInfo - struct for egress info
+        properties:
+            egress_gateway_cfg:
+                $ref: '#/definitions/EgressGatewayRequest'
+            egress_gw_addr:
+                $ref: '#/definitions/IPNet'
+            egress_id:
+                type: string
+                x-go-name: EgressID
+            network:
+                $ref: '#/definitions/IPNet'
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    EgressNetworkRoutes:
+        description: EgressNetworkRoutes - struct for egress network routes for adding routes to peer's interface
+        properties:
+            egress_ranges:
+                items:
+                    type: string
+                type: array
+                x-go-name: EgressRanges
+            node_addr:
+                $ref: '#/definitions/IPNet'
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
     EnrollmentKey:
         description: EnrollmentKey - the key used to register hosts and join them to specific networks
         properties:
@@ -199,6 +388,10 @@ definitions:
                     type: string
                 type: array
                 x-go-name: Networks
+            relay:
+                format: uuid
+                type: string
+                x-go-name: Relay
             tags:
                 items:
                     type: string
@@ -230,6 +423,11 @@ definitions:
             address6:
                 type: string
                 x-go-name: Address6
+            allowed_ips:
+                items:
+                    type: string
+                type: array
+                x-go-name: AllowedIPs
             clientid:
                 type: string
                 x-go-name: ClientID
@@ -265,6 +463,12 @@ definitions:
             ownerid:
                 type: string
                 x-go-name: OwnerID
+            postdown:
+                type: string
+                x-go-name: PostDown
+            postup:
+                type: string
+                x-go-name: PostUp
             privatekey:
                 type: string
                 x-go-name: PrivateKey
@@ -280,6 +484,19 @@ definitions:
         title: File represents an open file descriptor.
         type: object
         x-go-package: os
+    FwUpdate:
+        description: FwUpdate - struct for firewall updates
+        properties:
+            egress_info:
+                additionalProperties:
+                    $ref: '#/definitions/EgressInfo'
+                type: object
+                x-go-name: EgressInfo
+            is_egress_gw:
+                type: boolean
+                x-go-name: IsEgressGw
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
     HardwareAddr:
         items:
             format: uint8
@@ -362,6 +579,8 @@ definitions:
             os:
                 type: string
                 x-go-name: OS
+            persistentkeepalive:
+                $ref: '#/definitions/Duration'
             publickey:
                 $ref: '#/definitions/Key'
             traffickeypublic:
@@ -386,11 +605,52 @@ definitions:
                 x-go-name: WgPublicListenPort
         type: object
         x-go-package: github.com/gravitl/netmaker/models
+    HostInfoMap:
+        additionalProperties:
+            $ref: '#/definitions/HostNetworkInfo'
+        description: HostInfoMap - map of host public keys to host networking info
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    HostNetworkInfo:
+        description: HostNetworkInfo - holds info related to host networking (used for client side peer calculations)
+        properties:
+            interfaces:
+                items:
+                    $ref: '#/definitions/Iface'
+                type: array
+                x-go-name: Interfaces
+            is_static:
+                type: boolean
+                x-go-name: IsStatic
+            listen_port:
+                format: int64
+                type: integer
+                x-go-name: ListenPort
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
     HostPull:
         description: HostPull - response of a host's pull
         properties:
+            change_default_gw:
+                type: boolean
+                x-go-name: ChangeDefaultGw
+            default_gw_ip:
+                type: string
+                x-go-name: DefaultGwIp
+            egress_network_routes:
+                items:
+                    $ref: '#/definitions/EgressNetworkRoutes'
+                type: array
+                x-go-name: EgressRoutes
+            fw_update:
+                $ref: '#/definitions/FwUpdate'
             host:
                 $ref: '#/definitions/Host'
+            host_network_info:
+                $ref: '#/definitions/HostInfoMap'
+            is_inet_gw:
+                type: boolean
+                x-go-name: IsInternetGw
             nodes:
                 items:
                     $ref: '#/definitions/Node'
@@ -413,6 +673,9 @@ definitions:
             address:
                 type: string
                 x-go-name: Address
+            host_id:
+                type: string
+                x-go-name: HostID
             id:
                 type: string
                 x-go-name: ID
@@ -464,6 +727,16 @@ definitions:
             name:
                 type: string
                 x-go-name: Name
+        type: object
+        x-go-package: github.com/gravitl/netmaker/models
+    InetNodeReq:
+        description: InetNodeReq - exit node request struct
+        properties:
+            inet_node_client_ids:
+                items:
+                    type: string
+                type: array
+                x-go-name: InetNodeClientIDs
         type: object
         x-go-package: github.com/gravitl/netmaker/models
     Key:
@@ -758,13 +1031,15 @@ definitions:
                 format: date-time
                 type: string
                 x-go-name: ExpirationDateTime
-            failover:
-                type: boolean
-                x-go-name: Failover
-            failovernode:
+            fail_over_peers:
+                additionalProperties:
+                    type: object
+                type: object
+                x-go-name: FailOverPeers
+            failed_over_by:
                 format: uuid
                 type: string
-                x-go-name: FailoverNode
+                x-go-name: FailedOverBy
             hostid:
                 format: uuid
                 type: string
@@ -773,6 +1048,8 @@ definitions:
                 format: uuid
                 type: string
                 x-go-name: ID
+            inet_node_req:
+                $ref: '#/definitions/InetNodeReq'
             ingressdns:
                 type: string
                 x-go-name: IngressDNS
@@ -782,14 +1059,21 @@ definitions:
             ingressgatewayrange6:
                 type: string
                 x-go-name: IngressGatewayRange6
-            internetgateway:
-                $ref: '#/definitions/UDPAddr'
+            internetgw_node_id:
+                type: string
+                x-go-name: InternetGwID
+            is_fail_over:
+                type: boolean
+                x-go-name: IsFailOver
             isegressgateway:
                 type: boolean
                 x-go-name: IsEgressGateway
             isingressgateway:
                 type: boolean
                 x-go-name: IsIngressGateway
+            isinternetgateway:
+                type: boolean
+                x-go-name: IsInternetGateway
             isrelay:
                 type: boolean
                 x-go-name: IsRelay
@@ -810,6 +1094,9 @@ definitions:
                 x-go-name: LastPeerUpdate
             localaddress:
                 $ref: '#/definitions/IPNet'
+            metadata:
+                type: string
+                x-go-name: Metadata
             network:
                 type: string
                 x-go-name: Network
@@ -823,8 +1110,6 @@ definitions:
             pendingdelete:
                 type: boolean
                 x-go-name: PendingDelete
-            persistentkeepalive:
-                $ref: '#/definitions/Duration'
             relayedby:
                 type: string
                 x-go-name: RelayedBy
@@ -930,6 +1215,8 @@ definitions:
                 type: string
             BrokerType:
                 type: string
+            CacheEnabled:
+                type: string
             ClientID:
                 type: string
             ClientSecret:
@@ -965,6 +1252,8 @@ definitions:
             IsEE:
                 type: string
                 x-go-name: IsPro
+            JwtValidityDuration:
+                $ref: '#/definitions/Duration'
             LicenseValue:
                 type: string
             MQPassword:
@@ -997,6 +1286,8 @@ definitions:
                 type: string
             PublicIPService:
                 type: string
+            RacAutoDisable:
+                type: boolean
             RestBackend:
                 type: string
             SQLConn:
@@ -1040,9 +1331,18 @@ definitions:
         properties:
             action:
                 $ref: '#/definitions/SignalAction'
+            from_host_id:
+                type: string
+                x-go-name: FromHostID
             from_host_pubkey:
                 type: string
                 x-go-name: FromHostPubKey
+            from_node_id:
+                type: string
+                x-go-name: FromNodeID
+            is_pro:
+                type: boolean
+                x-go-name: IsPro
             reply:
                 type: boolean
                 x-go-name: Reply
@@ -1053,12 +1353,15 @@ definitions:
                 format: int64
                 type: integer
                 x-go-name: TimeStamp
+            to_host_id:
+                type: string
+                x-go-name: ToHostID
             to_host_pubkey:
                 type: string
                 x-go-name: ToHostPubKey
-            turn_relay_addr:
+            to_node_id:
                 type: string
-                x-go-name: TurnRelayEndpoint
+                x-go-name: ToNodeID
         type: object
         x-go-package: github.com/gravitl/netmaker/models
     SignalAction:
@@ -1114,6 +1417,10 @@ definitions:
             issuperadmin:
                 type: boolean
                 x-go-name: IsSuperAdmin
+            last_login_time:
+                format: date-time
+                type: string
+                x-go-name: LastLoginTime
             password:
                 type: string
                 x-go-name: Password
@@ -1149,7 +1456,7 @@ info:
 
         API calls must be authenticated via a header of the format -H “Authorization: Bearer <YOUR_SECRET_KEY>” There are two methods to obtain YOUR_SECRET_KEY: 1. Using the masterkey. By default, this value is “secret key,” but you should change this on your instance and keep it secure. This value can be set via env var at startup or in a config file (config/environments/< env >.yaml). See the [Netmaker](https://docs.netmaker.org/index.html) documentation for more details. 2. Using a JWT received for a node. This can be retrieved by calling the /api/nodes/<network>/authenticate endpoint, as documented below.
     title: Netmaker
-    version: 0.23.0
+    version: 0.23.1
 paths:
     /api/dns:
         get:
@@ -1468,7 +1775,7 @@ paths:
             operationId: getHosts
             responses:
                 "200":
-                    $ref: '#/responses/apiHostResponse'
+                    $ref: '#/responses/apiHostSliceResponse'
             schemes:
                 - https
             summary: Lists all hosts.
@@ -1728,12 +2035,6 @@ paths:
                   required: true
                   type: string
                   x-go-name: Networkname
-                - description: ACL Container
-                  in: body
-                  name: acl_container
-                  schema:
-                    $ref: '#/definitions/ACLContainer'
-                  x-go-name: ACLContainer
             responses:
                 "200":
                     $ref: '#/responses/aclContainerResponse'
@@ -1765,6 +2066,41 @@ paths:
             summary: Update a network ACL (Access Control List).
             tags:
                 - networks
+    /api/networks/{networkname}/acls/v2:
+        put:
+            operationId: updateNetworkACL
+            parameters:
+                - description: 'name: network name'
+                  in: path
+                  name: networkname
+                  required: true
+                  type: string
+                  x-go-name: Networkname
+                - description: ACL Container
+                  in: body
+                  name: acl_container
+                  schema:
+                    $ref: '#/definitions/ACLContainer'
+                  x-go-name: ACLContainer
+            responses:
+                "200":
+                    $ref: '#/responses/aclContainerResponse'
+            schemes:
+                - https
+            summary: Update a network ACL (Access Control List).
+            tags:
+                - networks
+    /api/node/{nodeid}/failOverME:
+        post:
+            operationId: failOver_me
+            responses:
+                "200":
+                    $ref: '#/responses/nodeResponse'
+            schemes:
+                - https
+            summary: Create a relay.
+            tags:
+                - node
     /api/nodes:
         get:
             operationId: getAllNodes
@@ -2012,6 +2348,37 @@ paths:
             schemes:
                 - https
             summary: Remove a relay.
+            tags:
+                - nodes
+    /api/nodes/{network}/{nodeid}/inet_gw:
+        delete:
+            operationId: deleteInternetGw
+            responses:
+                "200":
+                    $ref: '#/responses/nodeResponse'
+            schemes:
+                - https
+            summary: Delete an internet gw.
+            tags:
+                - nodes
+        post:
+            operationId: createInternetGw
+            responses:
+                "200":
+                    $ref: '#/responses/nodeResponse'
+            schemes:
+                - https
+            summary: Create an inet node.
+            tags:
+                - nodes
+        put:
+            operationId: updateInternetGw
+            responses:
+                "200":
+                    $ref: '#/responses/nodeResponse'
+            schemes:
+                - https
+            summary: update an inet node.
             tags:
                 - nodes
     /api/nodes/{network}/{nodeid}/ingress/users:
@@ -2300,6 +2667,13 @@ paths:
                 - enrollmentKeys
         post:
             operationId: createEnrollmentKey
+            parameters:
+                - description: APIEnrollmentKey
+                  in: body
+                  name: body
+                  schema:
+                    $ref: '#/definitions/APIEnrollmentKey'
+                  x-go-name: Body
             responses:
                 "200":
                     $ref: '#/responses/EnrollmentKey'
@@ -2325,6 +2699,29 @@ paths:
             summary: Deletes an EnrollmentKey from Netmaker server.
             tags:
                 - enrollmentKeys
+        put:
+            operationId: updateEnrollmentKey
+            parameters:
+                - description: KeyID
+                  in: path
+                  name: keyid
+                  required: true
+                  type: string
+                  x-go-name: KeyID
+                - description: APIEnrollmentKey
+                  in: body
+                  name: body
+                  schema:
+                    $ref: '#/definitions/APIEnrollmentKey'
+                  x-go-name: Body
+            responses:
+                "200":
+                    $ref: '#/responses/EnrollmentKey'
+            schemes:
+                - https
+            summary: Updates an EnrollmentKey for hosts to use on Netmaker server. Updates only the relay to use.
+            tags:
+                - enrollmentKeys
     /api/v1/enrollment-keys/{token}:
         post:
             operationId: handleHostRegister
@@ -2347,6 +2744,17 @@ paths:
             summary: Handles a Netclient registration with server and add nodes accordingly.
             tags:
                 - enrollmentKeys
+    /api/v1/fallback/host/{hostid}:
+        put:
+            operationId: hostUpdateFallback
+            responses:
+                "200":
+                    $ref: '#/responses/apiHostResponse'
+            schemes:
+                - https
+            summary: Updates a Netclient host on Netmaker server.
+            tags:
+                - hosts
     /api/v1/host:
         get:
             description: Used by clients for "pull" command
@@ -2369,6 +2777,27 @@ paths:
             summary: Delete all legacy nodes from DB.
             tags:
                 - nodes
+    /api/v1/node/failover:
+        delete:
+            operationId: deletefailOver
+            responses:
+                "200":
+                    $ref: '#/responses/nodeResponse'
+            schemes:
+                - https
+            summary: Create a relay.
+            tags:
+                - node
+        post:
+            operationId: createfailOver
+            responses:
+                "200":
+                    $ref: '#/responses/nodeResponse'
+            schemes:
+                - https
+            summary: Create a relay.
+            tags:
+                - node
     /api/v1/nodes/migrate:
         put:
             operationId: migrateData
@@ -2423,6 +2852,12 @@ responses:
         description: ""
         schema:
             $ref: '#/definitions/ApiHost'
+    apiHostSliceResponse:
+        description: ""
+        schema:
+            items:
+                $ref: '#/definitions/ApiHost'
+            type: array
     byteArrayResponse:
         description: ""
         schema:
@@ -2474,7 +2909,7 @@ responses:
         description: ""
         schema:
             items:
-                $ref: '#/definitions/LegacyNode'
+                $ref: '#/definitions/ApiNode'
             type: array
     okResponse:
         description: ""

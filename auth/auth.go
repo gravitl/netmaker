@@ -155,7 +155,7 @@ func HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 
 // IsOauthUser - returns
 func IsOauthUser(user *models.User) error {
-	var currentValue, err = fetchPassValue("")
+	var currentValue, err = FetchPassValue("")
 	if err != nil {
 		return err
 	}
@@ -245,12 +245,11 @@ func addUser(email string) error {
 		slog.Error("error checking for existence of admin user during OAuth login for", "email", email, "error", err)
 		return err
 	} // generate random password to adapt to current model
-	var newPass, fetchErr = fetchPassValue("")
+	var newPass, fetchErr = FetchPassValue("")
 	if fetchErr != nil {
-		logger.Log(0, "failed to get password: ", err.Error())
+		slog.Error("failed to get password", "error", err.Error())
 		return fetchErr
 	}
-	logger.Log(0, "fetched new pass: ", newPass, email)
 	var newUser = models.User{
 		UserName: email,
 		Password: newPass,
@@ -266,7 +265,7 @@ func addUser(email string) error {
 		// TODO: add ability to add users with preemptive permissions
 		newUser.IsAdmin = false
 		if err = logic.CreateUser(&newUser); err != nil {
-			logger.Log(1, "error creating user,", email, "; user not added", "error", err.Error())
+			logger.Log(0, "error creating user,", email, "; user not added", "error", err.Error())
 		} else {
 			logger.Log(0, "user created from ", email)
 		}
@@ -274,7 +273,7 @@ func addUser(email string) error {
 	return nil
 }
 
-func fetchPassValue(newValue string) (string, error) {
+func FetchPassValue(newValue string) (string, error) {
 
 	type valueHolder struct {
 		Value string `json:"value" bson:"value"`
@@ -327,4 +326,24 @@ func (user *OAuthUser) getUserName() string {
 func isStateCached(state string) bool {
 	_, err := netcache.Get(state)
 	return err == nil || strings.Contains(err.Error(), "expired")
+}
+
+// isEmailAllowed - checks if email is allowed to signup
+func isEmailAllowed(email string) bool {
+	allowedDomains := servercfg.GetAllowedEmailDomains()
+	domains := strings.Split(allowedDomains, ",")
+	if len(domains) == 1 && domains[0] == "*" {
+		return true
+	}
+	emailParts := strings.Split(email, "@")
+	if len(emailParts) < 2 {
+		return false
+	}
+	baseDomainOfEmail := emailParts[1]
+	for _, domain := range domains {
+		if domain == baseDomainOfEmail {
+			return true
+		}
+	}
+	return false
 }

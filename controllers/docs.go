@@ -10,7 +10,7 @@
 //
 //	Schemes: https
 //	BasePath: /
-//	Version: 0.23.0
+//	Version: 0.23.1
 //	Host: api.demo.netmaker.io
 //
 //	Consumes:
@@ -47,6 +47,12 @@ type filenameToGet struct {
 type hasAdmin struct {
 	// in: body
 	Admin bool
+}
+
+// swagger:response apiHostSliceResponse
+type apiHostSliceResponse struct {
+	// in: body
+	Host []models.ApiHost
 }
 
 // swagger:response apiHostResponse
@@ -251,7 +257,7 @@ type networkBodyResponse struct {
 	Network models.Network `json:"network"`
 }
 
-// swagger:parameters updateNetworkACL getNetworkACL
+// swagger:parameters updateNetworkACL
 type aclContainerBodyParam struct {
 	// ACL Container
 	// in: body
@@ -269,7 +275,7 @@ type aclContainerResponse struct {
 type nodeSliceResponse struct {
 	// Nodes
 	// in: body
-	Nodes []models.LegacyNode `json:"nodes"`
+	Nodes []models.ApiNode `json:"nodes"`
 }
 
 // swagger:response nodeResponse
@@ -348,8 +354,26 @@ type HostFromNetworkParams struct {
 	Network string `json:"network"`
 }
 
+// swagger:parameters createEnrollmentKey
+type createEnrollmentKeyParams struct {
+	// APIEnrollmentKey
+	// in: body
+	Body models.APIEnrollmentKey `json:"body"`
+}
+
+// swagger:parameters updateEnrollmentKey
+type updateEnrollmentKeyParams struct {
+	// KeyID
+	// in: path
+	KeyID string `json:"keyid"`
+
+	// APIEnrollmentKey
+	// in: body
+	Body models.APIEnrollmentKey `json:"body"`
+}
+
 // swagger:parameters deleteEnrollmentKey
-type DeleteEnrollmentKeyParam struct {
+type deleteEnrollmentKeyParam struct {
 	// in: path
 	KeyID string `json:"keyid"`
 }
@@ -435,6 +459,7 @@ func useUnused() bool {
 	_ = userAuthBodyParam{}
 	_ = usernamePathParam{}
 	_ = hasAdmin{}
+	_ = apiHostSliceResponse{}
 	_ = apiHostResponse{}
 	_ = fileResponse{}
 	_ = extClientConfParams{}
@@ -443,5 +468,8 @@ func useUnused() bool {
 	_ = signal{}
 	_ = filenameToGet{}
 	_ = dnsNetworkPathParam{}
+	_ = createEnrollmentKeyParams{}
+	_ = updateEnrollmentKeyParams{}
+	_ = deleteEnrollmentKeyParam{}
 	return false
 }

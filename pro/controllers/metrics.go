@@ -2,8 +2,10 @@ package controllers
 
 import (
 	"encoding/json"
-	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"net/http"
+
+	proLogic "github.com/gravitl/netmaker/pro/logic"
+	"golang.org/x/exp/slog"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -122,12 +124,13 @@ func getNetworkExtMetrics(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			// if metrics for that client have been reported, append them
-			if len(ingressMetrics.Connectivity[clients[j].ClientID].NodeName) > 0 {
+			if _, ok := ingressMetrics.Connectivity[clients[j].ClientID]; ok {
 				networkMetrics.Connectivity[clients[j].ClientID] = ingressMetrics.Connectivity[clients[j].ClientID]
 			}
 		}
 	}
 
+	slog.Debug("sending collected client metrics", "metrics", networkMetrics.Connectivity)
 	logger.Log(1, r.Header.Get("user"), "fetched ext client metrics for network", network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(networkMetrics.Connectivity)

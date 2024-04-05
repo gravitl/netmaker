@@ -104,7 +104,6 @@ func MQUpdateMetrics(client mqtt.Client, msg mqtt.Message) {
 }
 
 func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) {
-
 	oldMetrics, err := logic.GetMetrics(currentNode.ID.String())
 	if err != nil {
 		slog.Error("error finding old metrics for node", "id", currentNode.ID, "error", err)
@@ -121,21 +120,13 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) {
 	if newMetrics.Connectivity == nil {
 		newMetrics.Connectivity = make(map[string]models.Metric)
 	}
-	if len(attachedClients) > 0 {
-		// associate ext clients with IDs
-		for i := range attachedClients {
-			extMetric := newMetrics.Connectivity[attachedClients[i].PublicKey]
-			if len(extMetric.NodeName) == 0 &&
-				len(newMetrics.Connectivity[attachedClients[i].ClientID].NodeName) > 0 { // cover server clients
-				extMetric = newMetrics.Connectivity[attachedClients[i].ClientID]
-				if extMetric.TotalReceived > 0 && extMetric.TotalSent > 0 {
-					extMetric.Connected = true
-				}
-			}
-			extMetric.NodeName = attachedClients[i].ClientID
-			delete(newMetrics.Connectivity, attachedClients[i].PublicKey)
-			newMetrics.Connectivity[attachedClients[i].ClientID] = extMetric
-		}
+	for i := range attachedClients {
+		slog.Debug("[metrics] processing attached client", "client", attachedClients[i].ClientID, "public key", attachedClients[i].PublicKey)
+		clientMetric := newMetrics.Connectivity[attachedClients[i].PublicKey]
+		clientMetric.NodeName = attachedClients[i].ClientID
+		newMetrics.Connectivity[attachedClients[i].ClientID] = clientMetric
+		delete(newMetrics.Connectivity, attachedClients[i].PublicKey)
+		slog.Debug("[metrics] attached client metric", "metric", clientMetric)
 	}
 
 	// run through metrics for each peer
@@ -168,7 +159,5 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) {
 
 	}
 
-	for k := range oldMetrics.Connectivity { // cleanup any left over data, self healing
-		delete(newMetrics.Connectivity, k)
-	}
+	slog.Debug("[metrics] node metrics data", "node ID", currentNode.ID, "metrics", newMetrics)
 }

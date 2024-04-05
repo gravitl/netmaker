@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -73,9 +74,29 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthNotConfigured(w)
 		return
 	}
+	if !isEmailAllowed(content.Email) {
+		handleOauthUserNotAllowedToSignUp(w)
+		return
+	}
+	// check if user approval is already pending
+	if logic.IsPendingUser(content.Email) {
+		handleOauthUserSignUpApprovalPending(w)
+		return
+	}
 	_, err = logic.GetUser(content.Email)
-	if err != nil { // user must not exists, so try to make one
-		if err = addUser(content.Email); err != nil {
+	if err != nil {
+		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
+			err = logic.InsertPendingUser(&models.User{
+				UserName: content.Email,
+			})
+			if err != nil {
+				handleSomethingWentWrong(w)
+				return
+			}
+			handleFirstTimeOauthUserSignUp(w)
+			return
+		} else {
+			handleSomethingWentWrong(w)
 			return
 		}
 	}
@@ -88,7 +109,7 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserNotAllowed(w)
 		return
 	}
-	var newPass, fetchErr = fetchPassValue("")
+	var newPass, fetchErr = FetchPassValue("")
 	if fetchErr != nil {
 		return
 	}

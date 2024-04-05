@@ -106,7 +106,6 @@ func VerifyUserToken(tokenString string) (username string, issuperadmin, isadmin
 		if err != nil {
 			return "", false, false, err
 		}
-
 		if user.UserName != "" {
 			return user.UserName, user.IsSuperAdmin, user.IsAdmin, nil
 		}
