@@ -345,7 +345,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
-
+	logger.Log(0, "---> Hereeeee---> 1")
 	ingressExists := checkIngressExists(nodeid)
 	if !ingressExists {
 		err := errors.New("ingress does not exist")
@@ -353,6 +353,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	logger.Log(0, "---> Hereeeee---> 2")
 	var customExtClient models.CustomExtClient
 	if err := json.NewDecoder(r.Body).Decode(&customExtClient); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -362,6 +363,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	logger.Log(0, "---> Hereeeee---> 3")
 	node, err := logic.GetNodeByID(nodeid)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
@@ -369,10 +371,13 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logger.Log(0, "---> Hereeeee---> 4")
 	var userName string
 	if r.Header.Get("ismaster") == "yes" {
+		logger.Log(0, "---> Hereeeee---> 5")
 		userName = logic.MasterUser
 	} else {
+		logger.Log(0, "---> Hereeeee---> 6")
 		caller, err := logic.GetUser(r.Header.Get("user"))
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -402,8 +407,9 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+		logger.Log(0, "---> Hereeeee---> 7")
 	}
-
+	logger.Log(0, "---> Hereeeee---> 8")
 	extclient := logic.UpdateExtClient(&models.ExtClient{}, &customExtClient)
 	extclient.OwnerID = userName
 	extclient.RemoteAccessClientID = customExtClient.RemoteAccessClientID
@@ -413,7 +419,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	if (extclient.DNS == "") && (node.IngressDNS != "") {
 		extclient.DNS = node.IngressDNS
 	}
-
+	logger.Log(0, "---> Hereeeee---> 9")
 	extclient.Network = node.Network
 	host, err := logic.GetHost(node.HostID.String())
 	if err != nil {
@@ -422,6 +428,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logger.Log(0, "---> Hereeeee---> 10")
 	listenPort := logic.GetPeerListenPort(host)
 	extclient.IngressGatewayEndpoint = fmt.Sprintf("%s:%d", host.EndpointIP.String(), listenPort)
 	extclient.Enabled = true
@@ -429,22 +436,21 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	if err == nil { // check if parent network default ACL is enabled (yes) or not (no)
 		extclient.Enabled = parentNetwork.DefaultACL == "yes"
 	}
-
+	logger.Log(0, "---> Hereeeee---> 11")
 	if err = logic.CreateExtClient(&extclient); err != nil {
 		slog.Error("failed to create extclient", "user", r.Header.Get("user"), "network", node.Network, "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-
-	if err := logic.SetClientDefaultACLs(&extclient); err != nil {
-		slog.Error("failed to set default acls for extclient", "user", r.Header.Get("user"), "network", node.Network, "error", err)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-
+	logger.Log(0, "---> Hereeeee---> 12")
 	slog.Info("created extclient", "user", r.Header.Get("user"), "network", node.Network, "clientid", extclient.ClientID)
 	w.WriteHeader(http.StatusOK)
 	go func() {
+		if err := logic.SetClientDefaultACLs(&extclient); err != nil {
+			slog.Error("failed to set default acls for extclient", "user", r.Header.Get("user"), "network", node.Network, "error", err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
 		if err := mq.PublishPeerUpdate(false); err != nil {
 			logger.Log(1, "error setting ext peers on "+nodeid+": "+err.Error())
 		}
