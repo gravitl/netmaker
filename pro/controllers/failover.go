@@ -134,10 +134,14 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
+	host, err := logic.GetHost(node.HostID.String())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	failOverNode, exists := proLogic.FailOverExists(node.Network)
 	if !exists {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failover node doesn't exist in the network"), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("req-from: %s, failover node doesn't exist in the network", host.Name), "badrequest"))
 		return
 	}
 	var failOverReq models.FailOverMeReq
