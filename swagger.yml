@@ -642,6 +642,9 @@ definitions:
                     $ref: '#/definitions/EgressNetworkRoutes'
                 type: array
                 x-go-name: EgressRoutes
+            endpoint_detection:
+                type: boolean
+                x-go-name: EndpointDetection
             fw_update:
                 $ref: '#/definitions/FwUpdate'
             host:
@@ -1203,6 +1206,8 @@ definitions:
                 type: string
             APIPort:
                 type: string
+            AllowedEmailDomains:
+                type: string
             AllowedOrigin:
                 type: string
             AuthProvider:
@@ -1324,6 +1329,9 @@ definitions:
                 type: integer
             Version:
                 type: string
+            endpoint_detection:
+                type: boolean
+                x-go-name: EndpointDetection
         type: object
         x-go-package: github.com/gravitl/netmaker/config
     Signal:
@@ -1584,6 +1592,17 @@ paths:
             summary: Push DNS entries to nameserver.
             tags:
                 - dns
+    /api/emqx/hosts:
+        delete:
+            operationId: delEmqxHosts
+            responses:
+                "200":
+                    $ref: '#/responses/apiHostResponse'
+            schemes:
+                - https
+            summary: Lists all hosts.
+            tags:
+                - hosts
     /api/extclients:
         get:
             operationId: getAllExtClients
@@ -2652,6 +2671,49 @@ paths:
             schemes:
                 - https
             summary: Transfers superadmin role to an admin user.
+            tags:
+                - user
+    /api/users_pending:
+        get:
+            operationId: getPendingUsers
+            responses:
+                "200":
+                    $ref: '#/responses/userBodyResponse'
+            schemes:
+                - https
+            summary: Get all pending users.
+            tags:
+                - user
+    /api/users_pending/{username}/pending:
+        delete:
+            operationId: deleteAllPendingUsers
+            responses:
+                "200":
+                    $ref: '#/responses/userBodyResponse'
+            schemes:
+                - https
+            summary: delete all pending users.
+            tags:
+                - user
+    /api/users_pending/user/{username}:
+        delete:
+            operationId: deletePendingUser
+            responses:
+                "200":
+                    $ref: '#/responses/userBodyResponse'
+            schemes:
+                - https
+            summary: delete pending user.
+            tags:
+                - user
+        post:
+            operationId: approvePendingUser
+            responses:
+                "200":
+                    $ref: '#/responses/userBodyResponse'
+            schemes:
+                - https
+            summary: approve pending user.
             tags:
                 - user
     /api/v1/enrollment-keys:
