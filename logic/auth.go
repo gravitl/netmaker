@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +14,10 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+)
+
+const (
+	auth_key = "netmaker_auth"
 )
 
 // HasSuperAdmin - checks if server has an superadmin/owner
@@ -96,12 +101,14 @@ func CreateUser(user *models.User) error {
 	}
 	var err = ValidateUser(user)
 	if err != nil {
+		logger.Log(0, "failed to validate user", err.Error())
 		return err
 	}
 
 	// encrypt that password so we never see it again
 	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), 5)
 	if err != nil {
+		logger.Log(0, "error encrypting pass", err.Error())
 		return err
 	}
 	// set password to encrypted password
@@ -109,6 +116,7 @@ func CreateUser(user *models.User) error {
 
 	tokenString, _ := CreateUserJWT(user.UserName, user.IsSuperAdmin, user.IsAdmin)
 	if tokenString == "" {
+		logger.Log(0, "failed to generate token", err.Error())
 		return err
 	}
 
@@ -117,10 +125,12 @@ func CreateUser(user *models.User) error {
 	// connect db
 	data, err := json.Marshal(user)
 	if err != nil {
+		logger.Log(0, "failed to marshal", err.Error())
 		return err
 	}
 	err = database.Insert(user.UserName, string(data), database.USERS_TABLE_NAME)
 	if err != nil {
+		logger.Log(0, "failed to insert user", err.Error())
 		return err
 	}
 
@@ -279,15 +289,31 @@ func DeleteUser(user string) (bool, error) {
 	return true, nil
 }
 
-// FetchAuthSecret - manages secrets for oauth
-func FetchAuthSecret(key string, secret string) (string, error) {
-	var record, err = database.FetchRecord(database.GENERATED_TABLE_NAME, key)
-	if err != nil {
-		if err = database.Insert(key, secret, database.GENERATED_TABLE_NAME); err != nil {
-			return "", err
-		} else {
-			return secret, nil
+func SetAuthSecret(secret string) error {
+	type valueHolder struct {
+		Value string `json:"value" bson:"value"`
+	}
+	record, err := FetchAuthSecret()
+	if err == nil {
+		v := valueHolder{}
+		json.Unmarshal([]byte(record), &v)
+		if v.Value != "" {
+			return nil
 		}
+	}
+	var b64NewValue = base64.StdEncoding.EncodeToString([]byte(secret))
+	newValueHolder := valueHolder{
+		Value: b64NewValue,
+	}
+	d, _ := json.Marshal(newValueHolder)
+	return database.Insert(auth_key, string(d), database.GENERATED_TABLE_NAME)
+}
+
+// FetchAuthSecret - manages secrets for oauth
+func FetchAuthSecret() (string, error) {
+	var record, err = database.FetchRecord(database.GENERATED_TABLE_NAME, auth_key)
+	if err != nil {
+		return "", err
 	}
 	return record, nil
 }

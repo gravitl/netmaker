@@ -32,7 +32,6 @@ const (
 	github_provider_name   = "github"
 	oidc_provider_name     = "oidc"
 	verify_user            = "verifyuser"
-	auth_key               = "netmaker_auth"
 	user_signin_length     = 16
 	node_signin_length     = 64
 	headless_signin_length = 32
@@ -75,10 +74,10 @@ func InitializeAuthProvider() string {
 	if functions == nil {
 		return ""
 	}
-	var _, err = FetchPassValue(logic.RandomString(64))
+	logger.Log(0, "setting oauth secret")
+	var err = logic.SetAuthSecret(logic.RandomString(64))
 	if err != nil {
-		logger.Log(0, err.Error())
-		return ""
+		logger.FatalLog("failed to set auth_secret", err.Error())
 	}
 	var authInfo = servercfg.GetAuthProviderInfo()
 	var serverConn = servercfg.GetAPIHost()
@@ -248,6 +247,7 @@ func addUser(email string) error {
 	} // generate random password to adapt to current model
 	var newPass, fetchErr = FetchPassValue("")
 	if fetchErr != nil {
+		slog.Error("failed to get password", "error", err.Error())
 		return fetchErr
 	}
 	var newUser = models.User{
@@ -255,6 +255,7 @@ func addUser(email string) error {
 		Password: newPass,
 	}
 	if !hasSuperAdmin { // must be first attempt, create a superadmin
+		logger.Log(0, "creating superadmin")
 		if err = logic.CreateSuperAdmin(&newUser); err != nil {
 			slog.Error("error creating super admin from user", "email", email, "error", err)
 		} else {
@@ -264,7 +265,7 @@ func addUser(email string) error {
 		// TODO: add ability to add users with preemptive permissions
 		newUser.IsAdmin = false
 		if err = logic.CreateUser(&newUser); err != nil {
-			logger.Log(1, "error creating user,", email, "; user not added")
+			logger.Log(0, "error creating user,", email, "; user not added", "error", err.Error())
 		} else {
 			logger.Log(0, "user created from ", email)
 		}
@@ -277,20 +278,12 @@ func FetchPassValue(newValue string) (string, error) {
 	type valueHolder struct {
 		Value string `json:"value" bson:"value"`
 	}
-	var b64NewValue = base64.StdEncoding.EncodeToString([]byte(newValue))
-	var newValueHolder = &valueHolder{
-		Value: b64NewValue,
-	}
-	var data, marshalErr = json.Marshal(newValueHolder)
-	if marshalErr != nil {
-		return "", marshalErr
-	}
-
-	var currentValue, err = logic.FetchAuthSecret(auth_key, string(data))
+	newValueHolder := valueHolder{}
+	var currentValue, err = logic.FetchAuthSecret()
 	if err != nil {
 		return "", err
 	}
-	var unmarshErr = json.Unmarshal([]byte(currentValue), newValueHolder)
+	var unmarshErr = json.Unmarshal([]byte(currentValue), &newValueHolder)
 	if unmarshErr != nil {
 		return "", unmarshErr
 	}
