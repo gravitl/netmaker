@@ -164,6 +164,11 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	node.IngressGatewayRange = network.AddressRange
 	node.IngressGatewayRange6 = network.AddressRange6
 	node.IngressDNS = ingress.ExtclientDNS
+	if servercfg.IsPro {
+		if _, exists := FailOverExists(node.Network); exists {
+			ResetFailedOverPeer(&node)
+		}
+	}
 	node.SetLastModified()
 	if node.Metadata == "" {
 		node.Metadata = "This host can be used for remote access"
