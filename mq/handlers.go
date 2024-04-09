@@ -198,7 +198,21 @@ func signalPeer(signal models.Signal) {
 	signal.IsPro = servercfg.IsPro
 	peerHost, err := logic.GetHost(signal.ToHostID)
 	if err != nil {
-		slog.Error("failed to signal, peer not found", "error", err)
+		slog.Error("failed to signal, peer host not found", "error", err)
+		return
+	}
+	peerNode, err := logic.GetNodeByID(signal.ToNodeID)
+	if err != nil {
+		slog.Error("failed to signal, node not found", "error", err)
+		return
+	}
+	node, err := logic.GetNodeByID(signal.FromNodeID)
+	if err != nil {
+		slog.Error("failed to signal, peer node not found", "error", err)
+		return
+	}
+	if peerNode.IsIngressGateway || node.IsIngressGateway {
+		signal.Action = ""
 		return
 	}
 	err = HostUpdate(&models.HostUpdate{
