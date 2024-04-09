@@ -372,6 +372,7 @@ func GetPeerListenPort(host *models.Host) int {
 // GetAllowedIPs - calculates the wireguard allowedip field for a peer of a node based on the peer and node settings
 func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet {
 	var allowedips []net.IPNet
+	allowedips = getNodeAllowedIPs(peer, node)
 	if peer.IsInternetGateway && node.InternetGwID == peer.ID.String() {
 		allowedips = append(allowedips, GetAllowedIpForInetNodeClient(node, peer)...)
 		return allowedips
@@ -382,7 +383,6 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 			return allowedips
 		}
 	}
-	allowedips = append(allowedips, getNodeAllowedIPs(peer, node)...)
 
 	// handle ingress gateway peers
 	if peer.IsIngressGateway {

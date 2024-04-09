@@ -32,6 +32,9 @@ var networkCreateCmd = &cobra.Command{
 				network.AddressRange6 = address6
 				network.IsIPv6 = "yes"
 			}
+			if address == "" {
+				network.IsIPv4 = "no"
+			}
 			if udpHolePunch {
 				network.DefaultUDPHolePunch = "yes"
 			}
