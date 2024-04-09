@@ -211,7 +211,7 @@ func signalPeer(signal models.Signal) {
 		slog.Error("failed to signal, peer node not found", "error", err)
 		return
 	}
-	if peerNode.IsIngressGateway || node.IsIngressGateway {
+	if peerNode.IsIngressGateway || node.IsIngressGateway || peerNode.IsInternetGateway || node.IsInternetGateway {
 		signal.Action = ""
 		return
 	}
