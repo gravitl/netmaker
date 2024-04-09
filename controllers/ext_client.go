@@ -269,18 +269,18 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	config := fmt.Sprintf(`[Interface]\n
-Address = %s\n
-PrivateKey = %s\n
-MTU = %d\n
-%s\n
-%s\n
-%s\n
+	config := fmt.Sprintf(`[Interface]
+Address = %s
+PrivateKey = %s
+MTU = %d
+%s
+%s
+%s
 
-[Peer]\n
-PublicKey = %s\n
-AllowedIPs = %s\n
-Endpoint = %s\n
+[Peer]
+PublicKey = %s
+AllowedIPs = %s
+Endpoint = %s
 %s
 
 `, addrString,
