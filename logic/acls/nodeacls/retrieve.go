@@ -19,10 +19,10 @@ func AreNodesAllowed(networkID NetworkID, node1, node2 NodeID) bool {
 		return false
 	}
 	var allowed bool
-	acls.AclMutex.RLock()
+	acls.AclMutex.Lock()
 	currNetworkACLNode1 := currentNetworkACL[acls.AclID(node1)]
 	currNetworkACLNode2 := currentNetworkACL[acls.AclID(node2)]
-	acls.AclMutex.RUnlock()
+	acls.AclMutex.Unlock()
 	allowed = currNetworkACLNode1.IsAllowed(acls.AclID(node2)) && currNetworkACLNode2.IsAllowed(acls.AclID(node1))
 	return allowed
 }
