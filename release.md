@@ -1,4 +1,4 @@
-# Netmaker v0.23.1
+# Netmaker v0.24.0
 
 ## Whats New ✨
 
