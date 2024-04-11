@@ -32,6 +32,7 @@ func setMqOptions(user, password string, opts *mqtt.ClientOptions) {
 	opts.SetPassword(password)
 	opts.SetAutoReconnect(true)
 	opts.SetConnectRetry(true)
+	opts.SetCleanSession(true)
 	opts.SetConnectRetryInterval(time.Second * 4)
 	opts.SetKeepAlive(time.Minute)
 	opts.SetCleanSession(true)
@@ -39,7 +40,7 @@ func setMqOptions(user, password string, opts *mqtt.ClientOptions) {
 }
 
 // SetupMQTT creates a connection to broker and return client
-func SetupMQTT() {
+func SetupMQTT(fatal bool) {
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 		if emqx.GetType() == servercfg.EmqxOnPremDeploy {
 			time.Sleep(10 * time.Second) // wait for the REST endpoint to be ready
@@ -96,7 +97,7 @@ func SetupMQTT() {
 		slog.Warn("detected broker connection lost", "err", e.Error())
 		c.Disconnect(250)
 		slog.Info("re-initiating MQ connection")
-		SetupMQTT()
+		SetupMQTT(false)
 
 	})
 	mqclient = mqtt.NewClient(opts)
@@ -106,9 +107,16 @@ func SetupMQTT() {
 			logger.Log(2, "unable to connect to broker, retrying ...")
 			if time.Now().After(tperiod) {
 				if token.Error() == nil {
-					logger.FatalLog("could not connect to broker, token timeout, exiting ...")
+					if fatal {
+						logger.FatalLog("could not connect to broker, token timeout, exiting ...")
+					}
+					logger.Log(0, "could not connect to broker, token timeout, exiting ...")
+
 				} else {
-					logger.FatalLog("could not connect to broker, exiting ...", token.Error().Error())
+					if fatal {
+						logger.FatalLog("could not connect to broker, exiting ...", token.Error().Error())
+					}
+					logger.Log(0, "could not connect to broker, exiting ...", token.Error().Error())
 				}
 			}
 		} else {

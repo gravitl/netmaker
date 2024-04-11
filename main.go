@@ -155,7 +155,7 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 	defer wg.Done()
 	brokerHost, _ := servercfg.GetMessageQueueEndpoint()
 	logger.Log(0, "connecting to mq broker at", brokerHost)
-	mq.SetupMQTT()
+	mq.SetupMQTT(true)
 	if mq.IsConnected() {
 		logger.Log(0, "connected to MQ Broker")
 	} else {
