@@ -3,7 +3,7 @@ version: "3.4"
 services:
   netclient:
     container_name: netclient
-    image: 'gravitl/netclient:v0.23.1'
+    image: 'gravitl/netclient:v0.24.0'
     hostname: netmaker-1
     network_mode: host
     restart: on-failure
