@@ -217,6 +217,7 @@ func UpdateHost(newHost, currentHost *models.Host) {
 	newHost.Nodes = currentHost.Nodes
 	newHost.PublicKey = currentHost.PublicKey
 	newHost.TrafficKeyPublic = currentHost.TrafficKeyPublic
+	newHost.EndpointIPv6 = currentHost.EndpointIPv6
 	// changeable fields
 	if len(newHost.Version) == 0 {
 		newHost.Version = currentHost.Version
@@ -256,6 +257,10 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 	}
 	if currHost.EndpointIP.String() != newHost.EndpointIP.String() {
 		currHost.EndpointIP = newHost.EndpointIP
+		sendPeerUpdate = true
+	}
+	if currHost.EndpointIPv6.String() != newHost.EndpointIPv6.String() {
+		currHost.EndpointIPv6 = newHost.EndpointIPv6
 		sendPeerUpdate = true
 	}
 	currHost.DaemonInstalled = newHost.DaemonInstalled

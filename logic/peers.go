@@ -207,8 +207,21 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					uselocal = false
 				}
 			}
+
+			//if host is ipv4 only or ipv4+ipv6, set the peer endpoint to ipv4 address, if host is ipv6 only, set the peer endpoint to ipv6 address
+			peerEndpoint := peerHost.EndpointIP
+			if ipv4 := host.EndpointIP.To4(); ipv4 != nil {
+				peerEndpoint = peerHost.EndpointIP
+			} else {
+				//if peer host's ipv6 address is empty, it means that peer is an IPv4 only host
+				//IPv4 only host could not communicate with IPv6 only host
+				if peerHost.EndpointIPv6 != nil && peerHost.EndpointIPv6.String() != "" {
+					peerEndpoint = peerHost.EndpointIPv6
+				}
+			}
+
 			peerConfig.Endpoint = &net.UDPAddr{
-				IP:   peerHost.EndpointIP,
+				IP:   peerEndpoint,
 				Port: GetPeerListenPort(peerHost),
 			}
 
@@ -372,6 +385,7 @@ func GetPeerListenPort(host *models.Host) int {
 // GetAllowedIPs - calculates the wireguard allowedip field for a peer of a node based on the peer and node settings
 func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet {
 	var allowedips []net.IPNet
+	allowedips = getNodeAllowedIPs(peer, node)
 	if peer.IsInternetGateway && node.InternetGwID == peer.ID.String() {
 		allowedips = append(allowedips, GetAllowedIpForInetNodeClient(node, peer)...)
 		return allowedips
@@ -382,7 +396,6 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 			return allowedips
 		}
 	}
-	allowedips = append(allowedips, getNodeAllowedIPs(peer, node)...)
 
 	// handle ingress gateway peers
 	if peer.IsIngressGateway {

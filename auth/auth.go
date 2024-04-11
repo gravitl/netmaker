@@ -247,7 +247,7 @@ func addUser(email string) error {
 	} // generate random password to adapt to current model
 	var newPass, fetchErr = FetchPassValue("")
 	if fetchErr != nil {
-		logger.Log(0, "failed to get password: ", err.Error())
+		slog.Error("failed to get password", "error", err.Error())
 		return fetchErr
 	}
 	logger.Log(0, "fetched new pass: ", newPass, email)
@@ -266,7 +266,7 @@ func addUser(email string) error {
 		// TODO: add ability to add users with preemptive permissions
 		newUser.IsAdmin = false
 		if err = logic.CreateUser(&newUser); err != nil {
-			logger.Log(1, "error creating user,", email, "; user not added", "error", err.Error())
+			logger.Log(0, "error creating user,", email, "; user not added", "error", err.Error())
 		} else {
 			logger.Log(0, "user created from ", email)
 		}

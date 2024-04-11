@@ -25,3 +25,4 @@ data/
 netmaker.exe
 netmaker.code-workspace
 dist/
+nmctl
