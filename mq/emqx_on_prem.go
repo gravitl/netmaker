@@ -248,7 +248,6 @@ func (e *EmqxOnPrem) CreateEmqxDefaultAuthorizer() error {
 
 // GetUserACL - returns ACL rules by username
 func (e *EmqxOnPrem) GetUserACL(username string) (*aclObject, error) {
-	return nil, nil
 	token, err := getEmqxAuthToken()
 	if err != nil {
 		return nil, err
@@ -281,7 +280,6 @@ func (e *EmqxOnPrem) GetUserACL(username string) (*aclObject, error) {
 // CreateDefaultDenyRule - creates a rule to deny access to all topics for all users by default
 // to allow user access to topics use the `mq.CreateUserAccessRule` function
 func (e *EmqxOnPrem) CreateDefaultDenyRule() error {
-	return nil
 	token, err := getEmqxAuthToken()
 	if err != nil {
 		return err
@@ -313,7 +311,6 @@ func (e *EmqxOnPrem) CreateDefaultDenyRule() error {
 
 // CreateHostACL - create host ACL rules
 func (e *EmqxOnPrem) CreateHostACL(hostID, serverName string) error {
-	return nil
 	token, err := getEmqxAuthToken()
 	if err != nil {
 		return err
@@ -368,7 +365,6 @@ var nodeAclMux sync.Mutex
 
 // AppendNodeUpdateACL - adds ACL rule for subscribing to node updates for a node ID
 func (e *EmqxOnPrem) AppendNodeUpdateACL(hostID, nodeNetwork, nodeID, serverName string) error {
-	return nil
 	nodeAclMux.Lock()
 	defer nodeAclMux.Unlock()
 	token, err := getEmqxAuthToken()
