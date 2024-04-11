@@ -138,7 +138,7 @@ func GetParentNetwork(networkname string) (models.Network, error) {
 	return network, nil
 }
 
-// GetParentNetwork - get parent network
+// GetNetworkSettings - get parent network
 func GetNetworkSettings(networkname string) (models.Network, error) {
 
 	var network models.Network
