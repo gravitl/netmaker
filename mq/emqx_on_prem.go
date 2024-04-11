@@ -279,7 +279,7 @@ func (e *EmqxOnPrem) GetUserACL(username string) (*aclObject, error) {
 
 // CreateDefaultDenyRule - creates a rule to deny access to all topics for all users by default
 // to allow user access to topics use the `mq.CreateUserAccessRule` function
-func (e *EmqxOnPrem) CreateDefaultAllowRule() error {
+func (e *EmqxOnPrem) CreateDefaultDenyRule() error {
 	token, err := getEmqxAuthToken()
 	if err != nil {
 		return err
