@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/sasha-s/go-deadlock"
-
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
@@ -14,7 +12,7 @@ import (
 var (
 	aclCacheMutex = &sync.RWMutex{}
 	aclCacheMap   = make(map[ContainerID]ACLContainer)
-	AclMutex      = &deadlock.RWMutex{}
+	AclMutex      = &sync.RWMutex{}
 )
 
 func fetchAclContainerFromCache(containerID ContainerID) (aclCont ACLContainer, ok bool) {
