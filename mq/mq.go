@@ -114,7 +114,7 @@ func SetupMQTT(fatal bool) {
 					if fatal {
 						logger.FatalLog("could not connect to broker, exiting ...", token.Error().Error())
 					}
-					logger.FatalLog("could not connect to broker, exiting ...", token.Error().Error())
+					logger.Log(0, "could not connect to broker, exiting ...", token.Error().Error())
 				}
 			}
 		} else {
