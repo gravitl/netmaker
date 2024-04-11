@@ -22,6 +22,7 @@ type ApiHost struct {
 	Interfaces          []ApiIface `json:"interfaces"            yaml:"interfaces"`
 	DefaultInterface    string     `json:"defaultinterface"      yaml:"defautlinterface"`
 	EndpointIP          string     `json:"endpointip"            yaml:"endpointip"`
+	EndpointIPv6        string     `json:"endpointipv6"            yaml:"endpointipv6"`
 	PublicKey           string     `json:"publickey"`
 	MacAddress          string     `json:"macaddress"`
 	Nodes               []string   `json:"nodes"`
@@ -43,6 +44,7 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 	a := ApiHost{}
 	a.Debug = h.Debug
 	a.EndpointIP = h.EndpointIP.String()
+	a.EndpointIPv6 = h.EndpointIPv6.String()
 	a.FirewallInUse = h.FirewallInUse
 	a.ID = h.ID.String()
 	a.Interfaces = make([]ApiIface, len(h.Interfaces))
@@ -82,6 +84,11 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 		h.EndpointIP = currentHost.EndpointIP
 	} else {
 		h.EndpointIP = net.ParseIP(a.EndpointIP)
+	}
+	if len(a.EndpointIPv6) == 0 || strings.Contains(a.EndpointIPv6, "nil") {
+		h.EndpointIPv6 = currentHost.EndpointIPv6
+	} else {
+		h.EndpointIPv6 = net.ParseIP(a.EndpointIPv6)
 	}
 	h.Debug = a.Debug
 	h.FirewallInUse = a.FirewallInUse
