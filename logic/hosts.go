@@ -259,6 +259,10 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 		currHost.EndpointIP = newHost.EndpointIP
 		sendPeerUpdate = true
 	}
+	if currHost.EndpointIPv6.String() != newHost.EndpointIPv6.String() {
+		currHost.EndpointIPv6 = newHost.EndpointIPv6
+		sendPeerUpdate = true
+	}
 	currHost.DaemonInstalled = newHost.DaemonInstalled
 	currHost.Debug = newHost.Debug
 	currHost.Verbosity = newHost.Verbosity
