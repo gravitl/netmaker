@@ -250,7 +250,6 @@ func addUser(email string) error {
 		slog.Error("failed to get password", "error", err.Error())
 		return fetchErr
 	}
-	logger.Log(0, "fetched new pass: ", newPass, email)
 	var newUser = models.User{
 		UserName: email,
 		Password: newPass,
