@@ -3,12 +3,13 @@ package nodeacls
 import (
 	"encoding/json"
 	"fmt"
-	"sync"
+
+	"github.com/sasha-s/go-deadlock"
 
 	"github.com/gravitl/netmaker/logic/acls"
 )
 
-var NodesAllowedACLMutex = &sync.Mutex{}
+var NodesAllowedACLMutex = &deadlock.Mutex{}
 
 // AreNodesAllowed - checks if nodes are allowed to communicate in their network ACL
 func AreNodesAllowed(networkID NetworkID, node1, node2 NodeID) bool {
