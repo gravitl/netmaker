@@ -92,7 +92,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	}
 	decrypted, decryptErr := decryptMsgWithHost(currentHost, msg.Payload())
 	if decryptErr != nil {
-		slog.Error("failed to decrypt message for host", "id", id, "error", decryptErr)
+		slog.Error("failed to decrypt message for host", "id", id, "name", currentHost.Name, "error", decryptErr)
 		return
 	}
 	var hostUpdate models.HostUpdate

@@ -64,9 +64,9 @@ func (acl ACL) Save(containerID ContainerID, ID AclID) (ACL, error) {
 
 // ACL.IsAllowed - sees if ID is allowed in referring ACL
 func (acl ACL) IsAllowed(ID AclID) (allowed bool) {
-	AclMutex.RLock()
+	AclMutex.Lock()
 	allowed = acl[ID] == Allowed
-	AclMutex.RUnlock()
+	AclMutex.Unlock()
 	return
 }
 
@@ -88,6 +88,8 @@ func (aclContainer ACLContainer) RemoveACL(ID AclID) ACLContainer {
 
 // ACLContainer.ChangeAccess - changes the relationship between two nodes in memory
 func (networkACL ACLContainer) ChangeAccess(ID1, ID2 AclID, value byte) {
+	AclMutex.Lock()
+	defer AclMutex.Unlock()
 	if _, ok := networkACL[ID1]; !ok {
 		slog.Error("ACL missing for ", "id", ID1)
 		return
