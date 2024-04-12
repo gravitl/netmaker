@@ -436,15 +436,14 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := logic.SetClientDefaultACLs(&extclient); err != nil {
-		slog.Error("failed to set default acls for extclient", "user", r.Header.Get("user"), "network", node.Network, "error", err)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-
 	slog.Info("created extclient", "user", r.Header.Get("user"), "network", node.Network, "clientid", extclient.ClientID)
 	w.WriteHeader(http.StatusOK)
 	go func() {
+		if err := logic.SetClientDefaultACLs(&extclient); err != nil {
+			slog.Error("failed to set default acls for extclient", "user", r.Header.Get("user"), "network", node.Network, "error", err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
 		if err := mq.PublishPeerUpdate(false); err != nil {
 			logger.Log(1, "error setting ext peers on "+nodeid+": "+err.Error())
 		}

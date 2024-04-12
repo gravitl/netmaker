@@ -14,6 +14,7 @@ import (
 var (
 	apiHostFilePath string
 	endpoint        string
+	endpoint6       string
 	name            string
 	listenPort      int
 	mtu             int
@@ -40,6 +41,7 @@ var hostUpdateCmd = &cobra.Command{
 		} else {
 			apiHost.ID = args[0]
 			apiHost.EndpointIP = endpoint
+			apiHost.EndpointIPv6 = endpoint6
 			apiHost.Name = name
 			apiHost.ListenPort = listenPort
 			apiHost.MTU = mtu
@@ -54,6 +56,7 @@ var hostUpdateCmd = &cobra.Command{
 func init() {
 	hostUpdateCmd.Flags().StringVar(&apiHostFilePath, "file", "", "Path to host_definition.json")
 	hostUpdateCmd.Flags().StringVar(&endpoint, "endpoint", "", "Endpoint of the Host")
+	hostUpdateCmd.Flags().StringVar(&endpoint6, "endpoint6", "", "IPv6 Endpoint of the Host")
 	hostUpdateCmd.Flags().StringVar(&name, "name", "", "Host name")
 	hostUpdateCmd.Flags().IntVar(&listenPort, "listen_port", 0, "Listen port of the host")
 	hostUpdateCmd.Flags().IntVar(&mtu, "mtu", 0, "Host MTU size")

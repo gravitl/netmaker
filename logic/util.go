@@ -89,7 +89,7 @@ func StringSliceContains(slice []string, item string) bool {
 	return false
 }
 
-// NormalCIDR - returns the first address of CIDR
+// NormalizeCIDR - returns the first address of CIDR
 func NormalizeCIDR(address string) (string, error) {
 	ip, IPNet, err := net.ParseCIDR(address)
 	if err != nil {

@@ -554,26 +554,27 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
-
-	// Create EMQX creds and ACLs if not found
-	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
-		if err := mq.GetEmqxHandler().CreateEmqxUser(host.ID.String(), authRequest.Password); err != nil {
-			slog.Error("failed to create host credentials for EMQX: ", err.Error())
-		} else {
-			if err := mq.GetEmqxHandler().CreateHostACL(host.ID.String(), servercfg.GetServerInfo().Server); err != nil {
-				slog.Error("failed to add host ACL rules to EMQX: ", err.Error())
-			}
-			for _, nodeID := range host.Nodes {
-				if node, err := logic.GetNodeByID(nodeID); err == nil {
-					if err = mq.GetEmqxHandler().AppendNodeUpdateACL(host.ID.String(), node.Network, node.ID.String(), servercfg.GetServer()); err != nil {
-						slog.Error("failed to add ACLs for EMQX node", "error", err)
+	go func() {
+		// Create EMQX creds and ACLs if not found
+		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
+			if err := mq.GetEmqxHandler().CreateEmqxUser(host.ID.String(), authRequest.Password); err != nil {
+				slog.Error("failed to create host credentials for EMQX: ", err.Error())
+			} else {
+				if err := mq.GetEmqxHandler().CreateHostACL(host.ID.String(), servercfg.GetServerInfo().Server); err != nil {
+					slog.Error("failed to add host ACL rules to EMQX: ", err.Error())
+				}
+				for _, nodeID := range host.Nodes {
+					if node, err := logic.GetNodeByID(nodeID); err == nil {
+						if err = mq.GetEmqxHandler().AppendNodeUpdateACL(host.ID.String(), node.Network, node.ID.String(), servercfg.GetServer()); err != nil {
+							slog.Error("failed to add ACLs for EMQX node", "error", err)
+						}
+					} else {
+						slog.Error("failed to get node", "nodeid", nodeID, "error", err)
 					}
-				} else {
-					slog.Error("failed to get node", "nodeid", nodeID, "error", err)
 				}
 			}
 		}
-	}
+	}()
 
 	response.WriteHeader(http.StatusOK)
 	response.Header().Set("Content-Type", "application/json")

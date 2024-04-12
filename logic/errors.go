@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"golang.org/x/exp/slog"
 )
 
 // FormatError - takes ErrorResponse and uses correct code
@@ -62,7 +62,7 @@ func ReturnErrorResponse(response http.ResponseWriter, request *http.Request, er
 	if err != nil {
 		panic(err)
 	}
-	logger.Log(1, "processed request error:", errorMessage.Message)
+	slog.Debug("processed request error", "err", errorMessage.Message)
 	response.Header().Set("Content-Type", "application/json")
 	response.WriteHeader(errorMessage.Code)
 	response.Write(jsonResponse)
