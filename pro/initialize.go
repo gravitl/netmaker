@@ -84,6 +84,7 @@ func InitPro() {
 	})
 	logic.ResetFailOver = proLogic.ResetFailOver
 	logic.ResetFailedOverPeer = proLogic.ResetFailedOverPeer
+	logic.FailOverExists = proLogic.FailOverExists
 	logic.CreateFailOver = proLogic.CreateFailOver
 	logic.GetFailOverPeerIps = proLogic.GetFailOverPeerIps
 	logic.DenyClientNodeAccess = proLogic.DenyClientNode

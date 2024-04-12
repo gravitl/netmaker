@@ -25,6 +25,10 @@ var (
 	ResetFailedOverPeer = func(failedOverNode *models.Node) error {
 		return nil
 	}
+	// FailOverExists - check if failover node existed or not
+	FailOverExists = func(network string) (failOverNode models.Node, exists bool) {
+		return failOverNode, exists
+	}
 	// GetFailOverPeerIps - gets failover peerips
 	GetFailOverPeerIps = func(peer, node *models.Node) []net.IPNet {
 		return []net.IPNet{}

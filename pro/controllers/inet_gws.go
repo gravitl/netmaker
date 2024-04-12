@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 // InetHandlers - handlers for internet gw
@@ -66,6 +67,14 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	proLogic.SetInternetGw(&node, request)
+	if servercfg.IsPro {
+		if _, exists := proLogic.FailOverExists(node.Network); exists {
+			go func() {
+				proLogic.ResetFailedOverPeer(&node)
+				mq.PublishPeerUpdate(false)
+			}()
+		}
+	}
 	err = logic.UpsertNode(&node)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))

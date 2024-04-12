@@ -11,6 +11,9 @@ import (
 )
 
 func SetFailOverCtx(failOverNode, victimNode, peerNode models.Node) error {
+	if victimNode.IsIngressGateway || peerNode.IsIngressGateway || victimNode.IsInternetGateway || peerNode.IsInternetGateway {
+		return nil
+	}
 	if peerNode.FailOverPeers == nil {
 		peerNode.FailOverPeers = make(map[string]struct{})
 	}
@@ -118,6 +121,9 @@ func GetFailOverPeerIps(peer, node *models.Node) []net.IPNet {
 					Mask: net.CIDRMask(128, 128),
 				}
 				allowedips = append(allowedips, allowed)
+			}
+			if failOverpeer.IsEgressGateway {
+				allowedips = append(allowedips, logic.GetEgressIPs(&failOverpeer)...)
 			}
 
 		}
