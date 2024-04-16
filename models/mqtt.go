@@ -43,6 +43,7 @@ type EgressInfo struct {
 // EgressNetworkRoutes - struct for egress network routes for adding routes to peer's interface
 type EgressNetworkRoutes struct {
 	NodeAddr     net.IPNet `json:"node_addr"`
+	NodeAddr6    net.IPNet `json:"node_addr6"`
 	EgressRanges []string  `json:"egress_ranges"`
 }
 
