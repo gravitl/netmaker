@@ -625,3 +625,18 @@ func ValidateParams(nodeid, netid string) (models.Node, error) {
 	}
 	return node, nil
 }
+
+// GetAllFailOvers - gets all the nodes that are failovers
+func GetAllFailOvers() ([]models.Node, error) {
+	nodes, err := GetAllNodes()
+	if err != nil {
+		return nil, err
+	}
+	igs := make([]models.Node, 0)
+	for _, node := range nodes {
+		if node.IsFailOver {
+			igs = append(igs, node)
+		}
+	}
+	return igs, nil
+}

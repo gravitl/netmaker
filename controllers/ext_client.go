@@ -394,9 +394,9 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, extclient := range extclients {
 			if extclient.RemoteAccessClientID != "" &&
-				extclient.RemoteAccessClientID == customExtClient.RemoteAccessClientID && nodeid == extclient.IngressGatewayID {
+				extclient.RemoteAccessClientID == customExtClient.RemoteAccessClientID && extclient.OwnerID == caller.UserName && nodeid == extclient.IngressGatewayID {
 				// extclient on the gw already exists for the remote access client
-				err = errors.New("remote client config already exists on the gateway. it may have been created by another user with this same remote client machine")
+				err = errors.New("remote client config already exists on the gateway")
 				slog.Error("failed to create extclient", "user", userName, "error", err)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 				return
