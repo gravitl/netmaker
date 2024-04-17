@@ -9,7 +9,7 @@ import (
 
 const MinVersion = "v0.17.0"
 
-// IsVersionCompatible checks that the version passed is compabtible (>=) with MinVersion
+// IsVersionComptatible checks that the version passed is compabtible (>=) with MinVersion
 func IsVersionComptatible(ver string) bool {
 	// during dev, assume developers know what they are doing
 	if ver == "dev" {

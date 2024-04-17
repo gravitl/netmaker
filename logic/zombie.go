@@ -49,7 +49,7 @@ func CheckZombies(newnode *models.Node) {
 func checkForZombieHosts(h *models.Host) {
 	hosts, err := GetAllHosts()
 	if err != nil {
-		logger.Log(3, "errror retrieving all hosts", err.Error())
+		logger.Log(3, "error retrieving all hosts", err.Error())
 	}
 	for _, existing := range hosts {
 		if existing.ID == h.ID {

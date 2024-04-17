@@ -113,7 +113,7 @@ func FetchTelemetryData() (telemetryData, error) {
 func getServerCount() int {
 	data, err := database.FetchRecords(database.SERVER_UUID_TABLE_NAME)
 	if err != nil {
-		logger.Log(0, "errror retrieving server data", err.Error())
+		logger.Log(0, "error retrieving server data", err.Error())
 	}
 	return len(data)
 }
