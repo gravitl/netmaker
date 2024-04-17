@@ -5,6 +5,7 @@
 - Added Failover Commands to nmctl
 - IPv6 and Dual Stack Networks Support Across Platform
 - Endpoint Detection Can Now Be Turned Off By Setting `ENDPOINT_DETECTION=false` On Server Config
+- New SignUp Flow For Oauth Users, With Admin Approval Process.
 
 ## What's Fixed/Improved 🛠
 
@@ -12,6 +13,9 @@
 - Fixed Zombie Node Logic To Avoid Choking On the Channel
 - Fixed Egress Routes In Dual Stack Netmaker Overlay Networks
 - Fixed Client Connectivity Metrics Data
+- Fixed auto-relay with enrollment key
+- Imporved Logic Around Oauth Sceret Management
+- Improved Oauth Message Templates
 
 ## Known Issues 🐞
 
