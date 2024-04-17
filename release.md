@@ -2,10 +2,10 @@
 
 ## Whats New ✨
 
-- Added Failover Commands to nmctl
 - IPv6 and Dual Stack Networks Support Across Platform
 - Endpoint Detection Can Now Be Turned Off By Setting `ENDPOINT_DETECTION=false` On Server Config
 - New SignUp Flow For Oauth Users, With Admin Approval Process.
+- Added Failover Commands to nmctl
 
 ## What's Fixed/Improved 🛠
 
