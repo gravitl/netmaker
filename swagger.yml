@@ -61,6 +61,9 @@ definitions:
             endpointip:
                 type: string
                 x-go-name: EndpointIP
+            endpointipv6:
+                type: string
+                x-go-name: EndpointIPv6
             firewallinuse:
                 type: string
                 x-go-name: FirewallInUse
@@ -374,6 +377,8 @@ definitions:
                 x-go-name: EgressRanges
             node_addr:
                 $ref: '#/definitions/IPNet'
+            node_addr6:
+                $ref: '#/definitions/IPNet'
         type: object
         x-go-package: github.com/gravitl/netmaker/models
     EnrollmentKey:
@@ -522,6 +527,9 @@ definitions:
             endpointip:
                 type: string
                 x-go-name: EndpointIP
+            endpointipv6:
+                type: string
+                x-go-name: EndpointIPv6
             firewallinuse:
                 type: string
                 x-go-name: FirewallInUse
