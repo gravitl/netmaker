@@ -205,7 +205,7 @@ func (extPeer *ExtClient) AddressIPNet4() net.IPNet {
 // ExtClient.AddressIPNet6 - return ipv6 IPNet format
 func (extPeer *ExtClient) AddressIPNet6() net.IPNet {
 	return net.IPNet{
-		IP:   net.ParseIP(extPeer.Address),
+		IP:   net.ParseIP(extPeer.Address6),
 		Mask: net.CIDRMask(128, 128),
 	}
 }

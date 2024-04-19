@@ -59,5 +59,9 @@ func getCurrentServerUsage() (limits Usage) {
 	if err == nil {
 		limits.InternetGateways = len(gateways)
 	}
+	failovers, err := logic.GetAllFailOvers()
+	if err == nil {
+		limits.FailOvers = len(failovers)
+	}
 	return
 }

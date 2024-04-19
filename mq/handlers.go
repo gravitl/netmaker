@@ -92,7 +92,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	}
 	decrypted, decryptErr := decryptMsgWithHost(currentHost, msg.Payload())
 	if decryptErr != nil {
-		slog.Error("failed to decrypt message for host", "id", id, "error", decryptErr)
+		slog.Error("failed to decrypt message for host", "id", id, "name", currentHost.Name, "error", decryptErr)
 		return
 	}
 	var hostUpdate models.HostUpdate
@@ -198,7 +198,21 @@ func signalPeer(signal models.Signal) {
 	signal.IsPro = servercfg.IsPro
 	peerHost, err := logic.GetHost(signal.ToHostID)
 	if err != nil {
-		slog.Error("failed to signal, peer not found", "error", err)
+		slog.Error("failed to signal, peer host not found", "error", err)
+		return
+	}
+	peerNode, err := logic.GetNodeByID(signal.ToNodeID)
+	if err != nil {
+		slog.Error("failed to signal, node not found", "error", err)
+		return
+	}
+	node, err := logic.GetNodeByID(signal.FromNodeID)
+	if err != nil {
+		slog.Error("failed to signal, peer node not found", "error", err)
+		return
+	}
+	if peerNode.IsIngressGateway || node.IsIngressGateway || peerNode.IsInternetGateway || node.IsInternetGateway {
+		signal.Action = ""
 		return
 	}
 	err = HostUpdate(&models.HostUpdate{
@@ -282,9 +296,11 @@ func HandleHostCheckin(h, currentHost *models.Host) bool {
 		!h.EndpointIP.Equal(currentHost.EndpointIP) ||
 		(len(h.NatType) > 0 && h.NatType != currentHost.NatType) ||
 		h.DefaultInterface != currentHost.DefaultInterface ||
-		(h.ListenPort != 0 && h.ListenPort != currentHost.ListenPort) || (h.WgPublicListenPort != 0 && h.WgPublicListenPort != currentHost.WgPublicListenPort)
+		(h.ListenPort != 0 && h.ListenPort != currentHost.ListenPort) ||
+		(h.WgPublicListenPort != 0 && h.WgPublicListenPort != currentHost.WgPublicListenPort) || (!h.EndpointIPv6.Equal(currentHost.EndpointIPv6))
 	if ifaceDelta { // only save if something changes
 		currentHost.EndpointIP = h.EndpointIP
+		currentHost.EndpointIPv6 = h.EndpointIPv6
 		currentHost.Interfaces = h.Interfaces
 		currentHost.DefaultInterface = h.DefaultInterface
 		currentHost.NatType = h.NatType

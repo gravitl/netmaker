@@ -10,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/servercfg"
+	"golang.org/x/exp/slog"
 )
 
 // KEEPALIVE_TIMEOUT - time in seconds for timeout
@@ -27,19 +28,20 @@ var mqclient mqtt.Client
 func setMqOptions(user, password string, opts *mqtt.ClientOptions) {
 	broker, _ := servercfg.GetMessageQueueEndpoint()
 	opts.AddBroker(broker)
-	id := logic.RandomString(23)
-	opts.ClientID = id
+	opts.ClientID = logic.RandomString(23)
 	opts.SetUsername(user)
 	opts.SetPassword(password)
 	opts.SetAutoReconnect(true)
 	opts.SetConnectRetry(true)
-	opts.SetConnectRetryInterval(time.Second << 2)
+	opts.SetCleanSession(true)
+	opts.SetConnectRetryInterval(time.Second * 4)
 	opts.SetKeepAlive(time.Minute)
+	opts.SetCleanSession(true)
 	opts.SetWriteTimeout(time.Minute)
 }
 
 // SetupMQTT creates a connection to broker and return client
-func SetupMQTT() {
+func SetupMQTT(fatal bool) {
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 		if emqx.GetType() == servercfg.EmqxOnPremDeploy {
 			time.Sleep(10 * time.Second) // wait for the REST endpoint to be ready
@@ -69,6 +71,7 @@ func SetupMQTT() {
 
 	opts := mqtt.NewClientOptions()
 	setMqOptions(servercfg.GetMqUserName(), servercfg.GetMqPassword(), opts)
+	logger.Log(0, "Mq Client Connecting with Random ID: ", opts.ClientID)
 	opts.SetOnConnectHandler(func(client mqtt.Client) {
 		serverName := servercfg.GetServer()
 		if token := client.Subscribe(fmt.Sprintf("update/%s/#", serverName), 0, mqtt.MessageHandler(UpdateNode)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
@@ -91,6 +94,13 @@ func SetupMQTT() {
 		opts.SetOrderMatters(false)
 		opts.SetResumeSubs(true)
 	})
+	opts.SetConnectionLostHandler(func(c mqtt.Client, e error) {
+		slog.Warn("detected broker connection lost", "err", e.Error())
+		c.Disconnect(250)
+		slog.Info("re-initiating MQ connection")
+		SetupMQTT(false)
+
+	})
 	mqclient = mqtt.NewClient(opts)
 	tperiod := time.Now().Add(10 * time.Second)
 	for {
@@ -98,9 +108,16 @@ func SetupMQTT() {
 			logger.Log(2, "unable to connect to broker, retrying ...")
 			if time.Now().After(tperiod) {
 				if token.Error() == nil {
-					logger.FatalLog("could not connect to broker, token timeout, exiting ...")
+					if fatal {
+						logger.FatalLog("could not connect to broker, token timeout, exiting ...")
+					}
+					logger.Log(0, "could not connect to broker, token timeout, exiting ...")
+
 				} else {
-					logger.FatalLog("could not connect to broker, exiting ...", token.Error().Error())
+					if fatal {
+						logger.FatalLog("could not connect to broker, exiting ...", token.Error().Error())
+					}
+					logger.Log(0, "could not connect to broker, exiting ...", token.Error().Error())
 				}
 			}
 		} else {
@@ -124,7 +141,7 @@ func Keepalive(ctx context.Context) {
 
 // IsConnected - function for determining if the mqclient is connected or not
 func IsConnected() bool {
-	return mqclient != nil && mqclient.IsConnected()
+	return mqclient != nil && mqclient.IsConnectionOpen()
 }
 
 // CloseClient - function to close the mq connection from server

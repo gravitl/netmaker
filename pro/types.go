@@ -63,6 +63,7 @@ type Usage struct {
 	Egresses         int `json:"egresses"`
 	Relays           int `json:"relays"`
 	InternetGateways int `json:"internet_gateways"`
+	FailOvers        int `json:"fail_overs"`
 }
 
 // Usage.SetDefaults - sets the default values for usage

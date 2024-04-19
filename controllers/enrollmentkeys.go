@@ -180,7 +180,7 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(newEnrollmentKey)
 }
 
-// swagger:route PUT /api/v1/enrollment-keys/:id enrollmentKeys updateEnrollmentKey
+// swagger:route PUT /api/v1/enrollment-keys/{keyid} enrollmentKeys updateEnrollmentKey
 //
 // Updates an EnrollmentKey for hosts to use on Netmaker server. Updates only the relay to use.
 //
@@ -308,7 +308,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	if !hostExists {
 		newHost.PersistentKeepalive = models.DefaultPersistentKeepAlive
 		// register host
-		logic.CheckHostPorts(&newHost)
+		//logic.CheckHostPorts(&newHost)
 		// create EMQX credentials and ACLs for host
 		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 			if err := mq.GetEmqxHandler().CreateEmqxUser(newHost.ID.String(), newHost.HostPass); err != nil {

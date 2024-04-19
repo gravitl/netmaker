@@ -394,9 +394,9 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, extclient := range extclients {
 			if extclient.RemoteAccessClientID != "" &&
-				extclient.RemoteAccessClientID == customExtClient.RemoteAccessClientID && nodeid == extclient.IngressGatewayID {
+				extclient.RemoteAccessClientID == customExtClient.RemoteAccessClientID && extclient.OwnerID == caller.UserName && nodeid == extclient.IngressGatewayID {
 				// extclient on the gw already exists for the remote access client
-				err = errors.New("remote client config already exists on the gateway. it may have been created by another user with this same remote client machine")
+				err = errors.New("remote client config already exists on the gateway")
 				slog.Error("failed to create extclient", "user", userName, "error", err)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 				return
@@ -436,15 +436,14 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := logic.SetClientDefaultACLs(&extclient); err != nil {
-		slog.Error("failed to set default acls for extclient", "user", r.Header.Get("user"), "network", node.Network, "error", err)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-
 	slog.Info("created extclient", "user", r.Header.Get("user"), "network", node.Network, "clientid", extclient.ClientID)
 	w.WriteHeader(http.StatusOK)
 	go func() {
+		if err := logic.SetClientDefaultACLs(&extclient); err != nil {
+			slog.Error("failed to set default acls for extclient", "user", r.Header.Get("user"), "network", node.Network, "error", err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
 		if err := mq.PublishPeerUpdate(false); err != nil {
 			logger.Log(1, "error setting ext peers on "+nodeid+": "+err.Error())
 		}

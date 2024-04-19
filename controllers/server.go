@@ -55,6 +55,7 @@ func getUsage(w http.ResponseWriter, _ *http.Request) {
 		Egresses         int `json:"egresses"`
 		Relays           int `json:"relays"`
 		InternetGateways int `json:"internet_gateways"`
+		FailOvers        int `json:"fail_overs"`
 	}
 	var serverUsage usage
 	hosts, err := logic.GetAllHosts()
@@ -89,6 +90,10 @@ func getUsage(w http.ResponseWriter, _ *http.Request) {
 	gateways, err := logic.GetInternetGateways()
 	if err == nil {
 		serverUsage.InternetGateways = len(gateways)
+	}
+	failOvers, err := logic.GetAllFailOvers()
+	if err == nil {
+		serverUsage.FailOvers = len(failOvers)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(models.SuccessResponse{

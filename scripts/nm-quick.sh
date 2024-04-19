@@ -248,8 +248,8 @@ save_config() { (
 	local toCopy=("SERVER_HOST" "MASTER_KEY" "MQ_USERNAME" "MQ_PASSWORD"
 		"INSTALL_TYPE" "NODE_ID" "DNS_MODE" "NETCLIENT_AUTO_UPDATE" "API_PORT"
 		"CORS_ALLOWED_ORIGIN" "DISPLAY_KEYS" "DATABASE" "SERVER_BROKER_ENDPOINT" "VERBOSITY"
-		"DEBUG_MODE"  "REST_BACKEND" "DISABLE_REMOTE_IP_CHECK" "TELEMETRY" "AUTH_PROVIDER" "CLIENT_ID" "CLIENT_SECRET"
-		"FRONTEND_URL" "AZURE_TENANT" "OIDC_ISSUER" "EXPORTER_API_PORT" "JWT_VALIDITY_DURATION" "RAC_AUTO_DISABLE" "CACHING_ENABLED")
+		"DEBUG_MODE"  "REST_BACKEND" "DISABLE_REMOTE_IP_CHECK" "TELEMETRY" "ALLOWED_EMAIL_DOMAINS" "AUTH_PROVIDER" "CLIENT_ID" "CLIENT_SECRET"
+		"FRONTEND_URL" "AZURE_TENANT" "OIDC_ISSUER" "EXPORTER_API_PORT" "JWT_VALIDITY_DURATION" "RAC_AUTO_DISABLE" "CACHING_ENABLED" "ENDPOINT_DETECTION")
 	for name in "${toCopy[@]}"; do
 		save_config_item $name "${!name}"
 	done
@@ -694,7 +694,12 @@ upgrade() {
 	unset IMAGE_TAG
 	unset BUILD_TAG
 	IMAGE_TAG=$UI_IMAGE_TAG
-	BUILD_TAG=$UI_IMAGE_TAG
+	semver=$(chsv_check_version_ex "$UI_IMAGE_TAG")
+  	if [[ ! "$semver" ]]; then
+		BUILD_TAG=$LATEST
+	else
+		BUILD_TAG=$UI_IMAGE_TAG
+  	fi
 	echo "-----------------------------------------------------"
 	echo "Provide Details for pro installation:"
 	echo "    1. Log into https://app.netmaker.io"
@@ -720,7 +725,13 @@ downgrade () {
 	unset IMAGE_TAG
 	unset BUILD_TAG
 	IMAGE_TAG=$UI_IMAGE_TAG
-	BUILD_TAG=$UI_IMAGE_TAG
+
+	semver=$(chsv_check_version_ex "$UI_IMAGE_TAG")
+  	if [[ ! "$semver" ]]; then
+		BUILD_TAG=$LATEST
+	else
+		BUILD_TAG=$UI_IMAGE_TAG
+  	fi
 	save_config
 	if [ -a "$SCRIPT_DIR"/docker-compose.override.yml ]; then
 		rm -f "$SCRIPT_DIR"/docker-compose.override.yml
@@ -729,6 +740,23 @@ downgrade () {
 	stop_services
 	install_netmaker
 }
+
+function chsv_check_version() {
+  if [[ $1 =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(\+([0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*))?$ ]]; then
+    echo "$1"
+  else
+    echo ""
+  fi
+}
+
+function chsv_check_version_ex() {
+  if [[ $1 =~ ^v.+$ ]]; then
+    chsv_check_version "${1:1}"
+  else
+    chsv_check_version "${1}"
+  fi
+}
+
 
 
 main (){

@@ -29,7 +29,7 @@ var nodeListCmd = &cobra.Command{
 			functions.PrettyPrint(data)
 		default:
 			table := tablewriter.NewWriter(os.Stdout)
-			table.SetHeader([]string{"ID", "Addresses", "Network", "Egress", "Ingress", "Relay"})
+			table.SetHeader([]string{"ID", "Addresses", "Network", "Egress", "Remote Access Gateway", "Relay"})
 			for _, d := range data {
 				addresses := ""
 				if d.Address != "" {

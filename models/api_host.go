@@ -8,27 +8,35 @@ import (
 
 // ApiHost - the host struct for API usage
 type ApiHost struct {
-	ID                  string   `json:"id"`
-	Verbosity           int      `json:"verbosity"`
-	FirewallInUse       string   `json:"firewallinuse"`
-	Version             string   `json:"version"`
-	Name                string   `json:"name"`
-	OS                  string   `json:"os"`
-	Debug               bool     `json:"debug"`
-	IsStatic            bool     `json:"isstatic"`
-	ListenPort          int      `json:"listenport"`
-	WgPublicListenPort  int      `json:"wg_public_listen_port" yaml:"wg_public_listen_port"`
-	MTU                 int      `json:"mtu"                   yaml:"mtu"`
-	Interfaces          []Iface  `json:"interfaces"            yaml:"interfaces"`
-	DefaultInterface    string   `json:"defaultinterface"      yaml:"defautlinterface"`
-	EndpointIP          string   `json:"endpointip"            yaml:"endpointip"`
-	PublicKey           string   `json:"publickey"`
-	MacAddress          string   `json:"macaddress"`
-	Nodes               []string `json:"nodes"`
-	IsDefault           bool     `json:"isdefault"             yaml:"isdefault"`
-	NatType             string   `json:"nat_type"              yaml:"nat_type"`
-	PersistentKeepalive int      `json:"persistentkeepalive"   yaml:"persistentkeepalive"`
-	AutoUpdate          bool     `json:"autoupdate"              yaml:"autoupdate"`
+	ID                  string     `json:"id"`
+	Verbosity           int        `json:"verbosity"`
+	FirewallInUse       string     `json:"firewallinuse"`
+	Version             string     `json:"version"`
+	Name                string     `json:"name"`
+	OS                  string     `json:"os"`
+	Debug               bool       `json:"debug"`
+	IsStatic            bool       `json:"isstatic"`
+	ListenPort          int        `json:"listenport"`
+	WgPublicListenPort  int        `json:"wg_public_listen_port" yaml:"wg_public_listen_port"`
+	MTU                 int        `json:"mtu"                   yaml:"mtu"`
+	Interfaces          []ApiIface `json:"interfaces"            yaml:"interfaces"`
+	DefaultInterface    string     `json:"defaultinterface"      yaml:"defautlinterface"`
+	EndpointIP          string     `json:"endpointip"            yaml:"endpointip"`
+	EndpointIPv6        string     `json:"endpointipv6"            yaml:"endpointipv6"`
+	PublicKey           string     `json:"publickey"`
+	MacAddress          string     `json:"macaddress"`
+	Nodes               []string   `json:"nodes"`
+	IsDefault           bool       `json:"isdefault"             yaml:"isdefault"`
+	NatType             string     `json:"nat_type"              yaml:"nat_type"`
+	PersistentKeepalive int        `json:"persistentkeepalive"   yaml:"persistentkeepalive"`
+	AutoUpdate          bool       `json:"autoupdate"              yaml:"autoupdate"`
+}
+
+// ApiIface - the interface struct for API usage
+// The original Iface struct contains a net.Address, which does not get marshalled correctly
+type ApiIface struct {
+	Name          string `json:"name"`
+	AddressString string `json:"addressString"`
 }
 
 // Host.ConvertNMHostToAPI - converts a Netmaker host to an API editable host
@@ -36,11 +44,15 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 	a := ApiHost{}
 	a.Debug = h.Debug
 	a.EndpointIP = h.EndpointIP.String()
+	a.EndpointIPv6 = h.EndpointIPv6.String()
 	a.FirewallInUse = h.FirewallInUse
 	a.ID = h.ID.String()
-	a.Interfaces = h.Interfaces
+	a.Interfaces = make([]ApiIface, len(h.Interfaces))
 	for i := range a.Interfaces {
-		a.Interfaces[i].AddressString = a.Interfaces[i].Address.String()
+		a.Interfaces[i] = ApiIface{
+			Name:          h.Interfaces[i].Name,
+			AddressString: h.Interfaces[i].Address.String(),
+		}
 	}
 	a.DefaultInterface = h.DefaultInterface
 	a.IsStatic = h.IsStatic
@@ -72,6 +84,11 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 		h.EndpointIP = currentHost.EndpointIP
 	} else {
 		h.EndpointIP = net.ParseIP(a.EndpointIP)
+	}
+	if len(a.EndpointIPv6) == 0 || strings.Contains(a.EndpointIPv6, "nil") {
+		h.EndpointIPv6 = currentHost.EndpointIPv6
+	} else {
+		h.EndpointIPv6 = net.ParseIP(a.EndpointIPv6)
 	}
 	h.Debug = a.Debug
 	h.FirewallInUse = a.FirewallInUse
