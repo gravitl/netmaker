@@ -146,7 +146,7 @@ func getOIDCUserInfo(state string, code string) (u *OAuthUser, e error) {
 	ctx, cancel := context.WithTimeout(context.Background(), OIDC_TIMEOUT)
 	defer cancel()
 
-	oauth2Token, err := auth_provider.Exchange(ctx, code)
+	oauth2Token, err := auth_provider.Exchange(ctx, code, oauth2.SetAuthURLParam("prompt", "login"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to exchange oauth2 token using code \"%s\"", code)
 	}

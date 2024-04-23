@@ -121,7 +121,7 @@ func getGithubUserInfo(state string, code string) (*OAuthUser, error) {
 	if (!isValid || state != oauth_state_string) && !isStateCached(state) {
 		return nil, fmt.Errorf("invalid oauth state")
 	}
-	var token, err = auth_provider.Exchange(context.Background(), code)
+	var token, err = auth_provider.Exchange(context.Background(), code, oauth2.SetAuthURLParam("prompt", "login"))
 	if err != nil {
 		return nil, fmt.Errorf("code exchange failed: %s", err.Error())
 	}
