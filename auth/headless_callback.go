@@ -52,7 +52,7 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 
 	// check if user approval is already pending
 	if logic.IsPendingUser(userClaims.getUserName()) {
-		handleOauthUserNotAllowed(w)
+		handleOauthUserSignUpApprovalPending(w)
 		return
 	}
 	user, err := logic.GetUser(userClaims.getUserName())
