@@ -22,6 +22,7 @@ import (
 
 	"github.com/gravitl/netmaker/mq"
 	"github.com/skip2/go-qrcode"
+	"golang.org/x/exp/slices"
 	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -200,6 +201,24 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	preferredIp := strings.TrimSpace(r.URL.Query().Get("preferredip"))
+	if preferredIp != "" {
+		allowedPreferredIps := []string{}
+		for i := range gwnode.AdditionalRagIps {
+			allowedPreferredIps = append(allowedPreferredIps, gwnode.AdditionalRagIps[i].String())
+		}
+		allowedPreferredIps = append(allowedPreferredIps, host.EndpointIP.String())
+		allowedPreferredIps = append(allowedPreferredIps, host.EndpointIPv6.String())
+		if !slices.Contains(allowedPreferredIps, preferredIp) {
+			slog.Warn("preferred endpoint ip is not associated with the RAG. proceeding with preferred ip", "preferred ip", preferredIp)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("preferred endpoint ip is not associated with the RAG"), "badrequest"))
+			return
+		}
+		if net.ParseIP(preferredIp).To4() == nil {
+			preferredIp = fmt.Sprintf("[%s]", preferredIp)
+		}
+	}
+
 	addrString := client.Address
 	if addrString != "" {
 		addrString += "/32"
@@ -215,12 +234,18 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	if network.DefaultKeepalive != 0 {
 		keepalive = "PersistentKeepalive = " + strconv.Itoa(int(network.DefaultKeepalive))
 	}
+
 	gwendpoint := ""
-	if host.EndpointIP.To4() == nil {
-		gwendpoint = fmt.Sprintf("[%s]:%d", host.EndpointIP.String(), host.ListenPort)
+	if preferredIp == "" {
+		if host.EndpointIP.To4() == nil {
+			gwendpoint = fmt.Sprintf("[%s]:%d", host.EndpointIPv6.String(), host.ListenPort)
+		} else {
+			gwendpoint = fmt.Sprintf("%s:%d", host.EndpointIP.String(), host.ListenPort)
+		}
 	} else {
-		gwendpoint = fmt.Sprintf("%s:%d", host.EndpointIP.String(), host.ListenPort)
+		gwendpoint = fmt.Sprintf("%s:%d", preferredIp, host.ListenPort)
 	}
+
 	var newAllowedIPs string
 	if logic.IsInternetGw(gwnode) || gwnode.InternetGwID != "" {
 		egressrange := "0.0.0.0/0"

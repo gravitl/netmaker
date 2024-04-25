@@ -44,7 +44,13 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 	a := ApiHost{}
 	a.Debug = h.Debug
 	a.EndpointIP = h.EndpointIP.String()
+	if a.EndpointIP == "<nil>" {
+		a.EndpointIP = ""
+	}
 	a.EndpointIPv6 = h.EndpointIPv6.String()
+	if a.EndpointIPv6 == "<nil>" {
+		a.EndpointIPv6 = ""
+	}
 	a.FirewallInUse = h.FirewallInUse
 	a.ID = h.ID.String()
 	a.Interfaces = make([]ApiIface, len(h.Interfaces))

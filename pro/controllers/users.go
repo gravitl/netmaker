@@ -213,6 +213,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 					IsInternetGateway: node.IsInternetGateway,
 					GwPeerPublicKey:   host.PublicKey.String(),
 					Metadata:          node.Metadata,
+					AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 				})
 				userGws[node.Network] = gws
 				delete(user.RemoteGwIDs, node.ID.String())
@@ -228,6 +229,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 					IsInternetGateway: node.IsInternetGateway,
 					GwPeerPublicKey:   host.PublicKey.String(),
 					Metadata:          node.Metadata,
+					AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 				})
 				userGws[node.Network] = gws
 				processedAdminNodeIds[node.ID.String()] = struct{}{}
@@ -261,6 +263,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 				IsInternetGateway: node.IsInternetGateway,
 				GwPeerPublicKey:   host.PublicKey.String(),
 				Metadata:          node.Metadata,
+				AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 			})
 			userGws[node.Network] = gws
 		}
@@ -288,6 +291,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 					IsInternetGateway: node.IsInternetGateway,
 					GwPeerPublicKey:   host.PublicKey.String(),
 					Metadata:          node.Metadata,
+					AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 				})
 				userGws[node.Network] = gws
 			}
@@ -337,4 +341,20 @@ func ingressGatewayUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(gwUsers)
+}
+
+func getAllowedRagEndpoints(ragNode *models.Node, ragHost *models.Host) []string {
+	endpoints := []string{}
+	if len(ragHost.EndpointIP) > 0 {
+		endpoints = append(endpoints, ragHost.EndpointIP.String())
+	}
+	if len(ragHost.EndpointIPv6) > 0 {
+		endpoints = append(endpoints, ragHost.EndpointIPv6.String())
+	}
+	if servercfg.IsPro {
+		for _, ip := range ragNode.AdditionalRagIps {
+			endpoints = append(endpoints, ip.String())
+		}
+	}
+	return endpoints
 }
