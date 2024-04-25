@@ -306,6 +306,11 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					IP:   net.ParseIP(node.PrimaryAddress()),
 					Mask: getCIDRMaskFromAddr(node.PrimaryAddress()),
 				},
+				Network6: node.NetworkRange6,
+				EgressGwAddr6: net.IPNet{
+					IP:   node.Address6.IP,
+					Mask: getCIDRMaskFromAddr(node.Address6.IP.String()),
+				},
 				EgressGWCfg: node.EgressGatewayRequest,
 			}
 
@@ -322,6 +327,11 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				EgressGwAddr: net.IPNet{
 					IP:   net.ParseIP(node.PrimaryAddress()),
 					Mask: getCIDRMaskFromAddr(node.PrimaryAddress()),
+				},
+				Network6: node.NetworkRange6,
+				EgressGwAddr6: net.IPNet{
+					IP:   node.Address6.IP,
+					Mask: getCIDRMaskFromAddr(node.Address6.IP.String()),
 				},
 				EgressGWCfg: models.EgressGatewayRequest{
 					NodeID:     fmt.Sprintf("%s-%s", node.ID.String(), "inet"),
