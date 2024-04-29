@@ -74,6 +74,7 @@ func sendTelemetry() error {
 			Set("is_pro_trial", d.IsProTrial).
 			Set("pro_trial_end_date", d.ProTrialEndDate.In(time.UTC).Format("2006-01-02")).
 			Set("admin_email", adminEmail).
+			Set("email", adminEmail). // needed for posthog intgration with hubspot. "admin_admin" can only be removed if not used in posthog
 			Set("is_saas_tenant", d.IsSaasTenant),
 	})
 }
