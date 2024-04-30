@@ -74,8 +74,10 @@ func HandleHostSSOCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserNotFound(w)
 		return
 	}
-	if !user.IsAdmin || !user.IsSuperAdmin {
-		handleOauthUserNotAllowed(w)
+	if !user.IsAdmin && !user.IsSuperAdmin {
+		response := returnErrTemplate("", "only admin users can register using SSO", state, reqKeyIf)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write(response)
 		return
 	}
 	logger.Log(1, "registering host for user:", userClaims.getUserName(), reqKeyIf.Host.Name, reqKeyIf.Host.ID.String())
