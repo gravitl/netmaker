@@ -148,7 +148,7 @@ func GetNetworkIngresses(network string) ([]models.Node, error) {
 	return ingresses, nil
 }
 
-// GetAllowedIpsForInet - get inet cidr for node using a inet gw
+// GetAllowedIpForInetNodeClient - get inet cidr for node using a inet gw
 func GetAllowedIpForInetNodeClient(node, peer *models.Node) []net.IPNet {
 	var allowedips = []net.IPNet{}
 

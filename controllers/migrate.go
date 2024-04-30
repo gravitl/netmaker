@@ -51,7 +51,7 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 		}
 		var legacyNode models.LegacyNode
 		if err = json.Unmarshal([]byte(record), &legacyNode); err != nil {
-			slog.Error("decoding legacy node", "errror", err)
+			slog.Error("decoding legacy node", "error", err)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("decode legacy node %w", err), "badrequest"))
 			return
 		}
