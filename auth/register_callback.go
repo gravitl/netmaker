@@ -75,8 +75,8 @@ func HandleHostSSOCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !user.IsAdmin && !user.IsSuperAdmin {
-		response := returnErrTemplate("", "only admin users can register using SSO", state, reqKeyIf)
-		w.WriteHeader(http.StatusInternalServerError)
+		response := returnErrTemplate(userClaims.getUserName(), "only admin users can register using SSO", state, reqKeyIf)
+		w.WriteHeader(http.StatusForbidden)
 		w.Write(response)
 		return
 	}
