@@ -50,16 +50,18 @@ func initOIDC(redirectURL string, clientID string, clientSecret string, issuer s
 }
 
 func handleOIDCLogin(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("# Heree-----> 1")
 	var oauth_state_string = logic.RandomString(user_signin_length)
 	if auth_provider == nil {
 		handleOauthNotConfigured(w)
 		return
 	}
-
+	fmt.Println("# Heree-----> 2")
 	if err := logic.SetState(oauth_state_string); err != nil {
 		handleOauthNotConfigured(w)
 		return
 	}
+	fmt.Println("# Heree-----> 3")
 	var url = auth_provider.AuthCodeURL(oauth_state_string)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
@@ -67,22 +69,25 @@ func handleOIDCLogin(w http.ResponseWriter, r *http.Request) {
 func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 
 	var rState, rCode = getStateAndCode(r)
-
+	fmt.Println("# Heree-----> 4")
 	var content, err = getOIDCUserInfo(rState, rCode)
 	if err != nil {
 		logger.Log(1, "error when getting user info from callback:", err.Error())
 		handleOauthNotConfigured(w)
 		return
 	}
+	fmt.Println("# Heree-----> 5")
 	if !isEmailAllowed(content.Email) {
 		handleOauthUserNotAllowedToSignUp(w)
 		return
 	}
+	fmt.Println("# Heree-----> 6")
 	// check if user approval is already pending
 	if logic.IsPendingUser(content.Email) {
 		handleOauthUserSignUpApprovalPending(w)
 		return
 	}
+	fmt.Println("# Heree-----> 7")
 	_, err = logic.GetUser(content.Email)
 	if err != nil {
 		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
@@ -100,6 +105,7 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	fmt.Println("# Heree-----> 8")
 	user, err := logic.GetUser(content.Email)
 	if err != nil {
 		handleOauthUserNotFound(w)
