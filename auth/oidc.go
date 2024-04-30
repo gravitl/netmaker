@@ -32,10 +32,10 @@ var oidc_verifier *oidc.IDTokenVerifier
 func initOIDC(redirectURL string, clientID string, clientSecret string, issuer string) {
 	ctx, cancel := context.WithTimeout(context.Background(), OIDC_TIMEOUT)
 	defer cancel()
-
+	fmt.Println("INSIDE OIDC INIT")
 	provider, err := oidc.NewProvider(ctx, issuer)
 	if err != nil {
-		logger.Log(1, "error when initializing OIDC provider with issuer \""+issuer+"\"", err.Error())
+		logger.Log(0, "error when initializing OIDC provider with issuer \""+issuer+"\"", err.Error())
 		return
 	}
 
