@@ -68,7 +68,16 @@ func HandleHostSSOCallback(w http.ResponseWriter, r *http.Request) {
 		w.Write(response)
 		return
 	}
-
+	// check if user exists
+	user, err := logic.GetUser(userClaims.getUserName())
+	if err != nil {
+		handleOauthUserNotFound(w)
+		return
+	}
+	if !user.IsAdmin || !user.IsSuperAdmin {
+		handleOauthUserNotAllowed(w)
+		return
+	}
 	logger.Log(1, "registering host for user:", userClaims.getUserName(), reqKeyIf.Host.Name, reqKeyIf.Host.ID.String())
 
 	// Send OK to user in the browser
