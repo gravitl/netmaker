@@ -74,12 +74,14 @@ func InitializeAuthProvider() string {
 	if functions == nil {
 		return ""
 	}
+	fmt.Println("----> OAUTH  PROVIDER INFO: ", auth_provider)
 	logger.Log(0, "setting oauth secret")
 	var err = logic.SetAuthSecret(logic.RandomString(64))
 	if err != nil {
 		logger.FatalLog("failed to set auth_secret", err.Error())
 	}
 	var authInfo = servercfg.GetAuthProviderInfo()
+	fmt.Println("----> OAUTH funcs: ", authInfo)
 	var serverConn = servercfg.GetAPIHost()
 	if strings.Contains(serverConn, "localhost") || strings.Contains(serverConn, "127.0.0.1") {
 		serverConn = "http://" + serverConn
@@ -90,6 +92,7 @@ func InitializeAuthProvider() string {
 	}
 
 	if authInfo[0] == "oidc" {
+		fmt.Println("-----> INSIDE OIDC CHECK")
 		functions[init_provider].(func(string, string, string, string))(serverConn+"/api/oauth/callback", authInfo[1], authInfo[2], authInfo[3])
 		return authInfo[0]
 	}
