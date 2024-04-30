@@ -64,8 +64,9 @@ func SessionHandler(conn *websocket.Conn) {
 	answer := make(chan netcache.CValue, 1)
 	defer close(answer)
 	defer close(timeout)
-
+	fmt.Println("-------> HEREEEE1")
 	if len(registerMessage.User) > 0 { // handle basic auth
+		fmt.Println("-------> HEREEEE2")
 		logger.Log(0, "user registration attempted with host:", registerMessage.RegisterHost.Name, "user:", registerMessage.User)
 
 		if !servercfg.IsBasicAuthEnabled() {
@@ -110,6 +111,7 @@ func SessionHandler(conn *websocket.Conn) {
 			return
 		}
 	} else { // handle SSO / OAuth
+		fmt.Println("-------> HEREEEE3")
 		if auth_provider == nil {
 			err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
