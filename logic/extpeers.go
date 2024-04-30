@@ -11,6 +11,7 @@ import (
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
@@ -92,6 +93,35 @@ func DeleteExtClient(network string, clientid string) error {
 	if servercfg.CacheEnabled() {
 		deleteExtClientFromCache(key)
 	}
+	return nil
+}
+
+// DeleteExtClientAndCleanup - deletes an existing ext client and update ACLs
+func DeleteExtClientAndCleanup(extClient models.ExtClient) error {
+
+	//delete extClient record
+	err := DeleteExtClient(extClient.Network, extClient.ClientID)
+	if err != nil {
+		slog.Error("DeleteExtClientAndCleanup-remove extClient record: ", "Error", err.Error())
+		return err
+	}
+
+	//update ACLs
+	var networkAcls acls.ACLContainer
+	networkAcls, err = networkAcls.Get(acls.ContainerID(extClient.Network))
+	if err != nil {
+		slog.Error("DeleteExtClientAndCleanup-update network acls: ", "Error", err.Error())
+		return err
+	}
+	for objId := range networkAcls {
+		delete(networkAcls[objId], acls.AclID(extClient.ClientID))
+	}
+	delete(networkAcls, acls.AclID(extClient.ClientID))
+	if _, err = networkAcls.Save(acls.ContainerID(extClient.Network)); err != nil {
+		slog.Error("DeleteExtClientAndCleanup-update network acls:", "Error", err.Error())
+		return err
+	}
+
 	return nil
 }
 
