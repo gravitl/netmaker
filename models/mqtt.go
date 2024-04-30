@@ -34,10 +34,12 @@ type IngressInfo struct {
 
 // EgressInfo - struct for egress info
 type EgressInfo struct {
-	EgressID     string               `json:"egress_id" yaml:"egress_id"`
-	Network      net.IPNet            `json:"network" yaml:"network"`
-	EgressGwAddr net.IPNet            `json:"egress_gw_addr" yaml:"egress_gw_addr"`
-	EgressGWCfg  EgressGatewayRequest `json:"egress_gateway_cfg" yaml:"egress_gateway_cfg"`
+	EgressID      string               `json:"egress_id" yaml:"egress_id"`
+	Network       net.IPNet            `json:"network" yaml:"network"`
+	EgressGwAddr  net.IPNet            `json:"egress_gw_addr" yaml:"egress_gw_addr"`
+	Network6      net.IPNet            `json:"network6" yaml:"network6"`
+	EgressGwAddr6 net.IPNet            `json:"egress_gw_addr6" yaml:"egress_gw_addr6"`
+	EgressGWCfg   EgressGatewayRequest `json:"egress_gateway_cfg" yaml:"egress_gateway_cfg"`
 }
 
 // EgressNetworkRoutes - struct for egress network routes for adding routes to peer's interface
