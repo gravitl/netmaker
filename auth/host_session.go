@@ -25,6 +25,7 @@ import (
 // When this method finishes - the auth flow has finished either OK or by timeout or any other error occured
 func SessionHandler(conn *websocket.Conn) {
 	defer conn.Close()
+	defer logger.Log(0, "#######CLOSING WEBSOCKET CONNN------------------> ")
 	// If reached here we have a session from user to handle...
 	messageType, message, err := conn.ReadMessage()
 	if err != nil {
@@ -236,6 +237,7 @@ func SessionHandler(conn *websocket.Conn) {
 		if err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")); err != nil {
 			logger.Log(0, "error during timeout message writing:", err.Error())
 		}
+		break
 	}
 	// The entry is not needed anymore, but we will let the producer to close it to avoid panic cases
 	if err = netcache.Del(stateStr); err != nil {
