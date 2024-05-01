@@ -234,9 +234,7 @@ func SessionHandler(conn *websocket.Conn) {
 		}
 		go CheckNetRegAndHostUpdate(netsToAdd[:], &result.Host, uuid.Nil)
 	case <-timeout: // the read from req.answerCh has timed out
-		if err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")); err != nil {
-			logger.Log(0, "error during timeout message writing:", err.Error())
-		}
+		logger.Log(0, "timeout signal recv,exiting oauth socket conn")
 		break
 	}
 	// The entry is not needed anymore, but we will let the producer to close it to avoid panic cases
