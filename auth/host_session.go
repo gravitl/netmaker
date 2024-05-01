@@ -59,8 +59,9 @@ func SessionHandler(conn *websocket.Conn) {
 		logger.Log(0, "Failed to process sso request -", err.Error())
 		return
 	}
+	defer netcache.Del(stateStr)
 	// Wait for the user to finish his auth flow...
-	timeout := make(chan bool, 1)
+	timeout := make(chan bool, 2)
 	answer := make(chan netcache.CValue, 1)
 	defer close(answer)
 	defer close(timeout)
@@ -127,6 +128,18 @@ func SessionHandler(conn *websocket.Conn) {
 			logger.Log(0, "error during message writing:", err.Error())
 		}
 	}
+
+	go func() {
+		for {
+			msgType, _, err := conn.ReadMessage()
+			if err != nil || msgType == websocket.CloseMessage {
+				if timeout != nil {
+					timeout <- true
+				}
+				return
+			}
+		}
+	}()
 
 	go func() {
 		for {
