@@ -309,12 +309,16 @@ install_dependencies() {
 		dependencies="git wireguard jq bind-utils docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
 		update_cmd='yum update'
 		install_cmd='yum install -y'
+	elif [ -f /etc/amazon-linux-release ]; then
+		dependencies="git wireguard bind-utils jq docker grep gawk"
+		update_cmd='yum update'
+		install_cmd='yum install -y'
 	elif [ -f /etc/fedora-release ]; then
 		dependencies="git wireguard bind-utils jq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
 		update_cmd='dnf update'
 		install_cmd='dnf install -y'
 	elif [ -f /etc/redhat-release ]; then
-		dependencies="git wireguard jq docker.io bind-utils docker-compose grep gawk"
+		dependencies="wget git wireguard jq bind-utils docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
 		update_cmd='yum update'
 		install_cmd='yum install -y'
 	elif [ -f /etc/arch-release ]; then
@@ -325,8 +329,14 @@ install_dependencies() {
 		dependencies="git wireguard wget jq docker.io docker-compose grep gawk"
 		update_cmd='pkg update'
 		install_cmd='pkg install -y'
+	elif [ "$(cat /etc/*-release |grep suse |wc -l)" -gt 0 ]; then
+		dependencies="git wireguard wget jq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
+		update_cmd='zypper ref'
+		install_cmd='zypper install -y'
 	else
-		install_cmd=''
+		dependencies="wget git wireguard jq bind-utils docker.io docker-compose grep gawk"
+		update_cmd='yum update'
+		install_cmd='yum install -y'
 	fi
 
 	if [ -z "${install_cmd}" ]; then
@@ -346,15 +356,13 @@ install_dependencies() {
     	# exit 1
     fi
 
-	# setup docker apt repository for Ubuntu and debian
+	# setup docker repository
 	if [ "$(cat /etc/*-release |grep ubuntu |wc -l)" -gt 0 ]; then
 		apt update
 		apt install -y ca-certificates curl
 		install -m 0755 -d /etc/apt/keyrings
 		curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
 		chmod a+r /etc/apt/keyrings/docker.asc
-
-		# Add the repository to Apt sources:
 		echo \
 		  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
 		  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
@@ -366,8 +374,6 @@ install_dependencies() {
 		install -m 0755 -d /etc/apt/keyrings
 		curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
 		chmod a+r /etc/apt/keyrings/docker.asc
-
-		# Add the repository to Apt sources:
 		echo \
 		  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
 		  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
@@ -379,6 +385,11 @@ install_dependencies() {
 	elif [ -f /etc/centos-release ]; then
 		yum install -y yum-utils
 		yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+	elif [ -f /etc/redhat-release ]; then
+		yum install -y yum-utils
+		yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+	elif [ "$(cat /etc/*-release |grep suse |wc -l)" -gt 0 ]; then
+		zypper addrepo https://download.docker.com/linux/sles/docker-ce.repo
 	fi
 
 	set -- $dependencies
@@ -434,10 +445,26 @@ install_dependencies() {
 		shift
 	done
 
+	# Startup docker daemon for OS which does not start it automatically
 	if [ -f /etc/fedora-release ]; then
 		systemctl start docker
 		systemctl enable docker
+	elif [ -f /etc/amazon-linux-release ]; then
+		systemctl start docker
+		systemctl enable docker
+		usermod -a -G docker ec2-user
+		mkdir -p /usr/local/lib/docker/cli-plugins
+		curl -sL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$(uname -m) \
+		-o /usr/local/lib/docker/cli-plugins/docker-compose
+		chown root:root /usr/local/lib/docker/cli-plugins/docker-compose
+		chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 	elif [ -f /etc/centos-release ]; then
+		systemctl start docker
+		systemctl enable docker
+	elif [ -f /etc/redhat-release ]; then
+		systemctl start docker
+		systemctl enable docker
+	elif [ "$(cat /etc/*-release |grep suse |wc -l)" -gt 0 ]; then
 		systemctl start docker
 		systemctl enable docker
 	fi
@@ -630,7 +657,13 @@ install_netmaker() {
 		docker compose up -d --force-recreate
 	elif [ -f /etc/fedora-release ]; then
 		docker compose up -d --force-recreate
+	elif [ -f /etc/amazon-linux-release ]; then
+		docker compose up -d --force-recreate
 	elif [ -f /etc/centos-release ]; then
+		docker compose up -d --force-recreate
+	elif [ -f /etc/redhat-release ]; then
+		docker compose up -d --force-recreate
+	elif [ "$(cat /etc/*-release |grep suse |wc -l)" -gt 0 ]; then
 		docker compose up -d --force-recreate
 	else
 		docker-compose up -d --force-recreate
