@@ -298,7 +298,7 @@ install_dependencies() {
 
 	OS=$(uname)
 	if [ -f /etc/debian_version ]; then
-		dependencies="git wireguard wireguard-tools dnsutils jq docker.io docker-compose grep gawk"
+		dependencies="git wireguard wireguard-tools dnsutils jq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
 		update_cmd='apt update'
 		install_cmd='apt-get install -y'
 	elif [ -f /etc/alpine-release ]; then
@@ -306,11 +306,11 @@ install_dependencies() {
 		update_cmd='apk update'
 		install_cmd='apk --update add'
 	elif [ -f /etc/centos-release ]; then
-		dependencies="git wireguard jq bind-utils docker.io docker-compose grep gawk"
+		dependencies="git wireguard jq bind-utils docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
 		update_cmd='yum update'
 		install_cmd='yum install -y'
 	elif [ -f /etc/fedora-release ]; then
-		dependencies="git wireguard bind-utils jq docker.io docker-compose grep gawk"
+		dependencies="git wireguard bind-utils jq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
 		update_cmd='dnf update'
 		install_cmd='dnf install -y'
 	elif [ -f /etc/redhat-release ]; then
@@ -345,6 +345,42 @@ install_dependencies() {
     	echo "Unsupported architechure"
     	# exit 1
     fi
+
+	# setup docker apt repository for Ubuntu and debian
+	if [ "$(cat /etc/*-release |grep ubuntu |wc -l)" -gt 0 ]; then
+		apt update
+		apt install -y ca-certificates curl
+		install -m 0755 -d /etc/apt/keyrings
+		curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+		chmod a+r /etc/apt/keyrings/docker.asc
+
+		# Add the repository to Apt sources:
+		echo \
+		  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+		  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+		  tee /etc/apt/sources.list.d/docker.list > /dev/null
+		apt update
+	elif [ "$(cat /etc/*-release |grep debian |wc -l)" -gt 0 ]; then
+		apt update
+		apt install -y ca-certificates curl
+		install -m 0755 -d /etc/apt/keyrings
+		curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+		chmod a+r /etc/apt/keyrings/docker.asc
+
+		# Add the repository to Apt sources:
+		echo \
+		  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
+		  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+		  tee /etc/apt/sources.list.d/docker.list > /dev/null
+		apt update
+	elif [ -f /etc/fedora-release ]; then
+		dnf -y install dnf-plugins-core
+		dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+	elif [ -f /etc/centos-release ]; then
+		yum install -y yum-utils
+		yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+	fi
+
 	set -- $dependencies
 
 	${update_cmd}
@@ -397,6 +433,14 @@ install_dependencies() {
 		fi
 		shift
 	done
+
+	if [ -f /etc/fedora-release ]; then
+		systemctl start docker
+		systemctl enable docker
+	elif [ -f /etc/centos-release ]; then
+		systemctl start docker
+		systemctl enable docker
+	fi
 
 	echo "-----------------------------------------------------"
 	echo "dependency check complete"
@@ -582,7 +626,15 @@ install_netmaker() {
 
 	# start docker and rebuild containers / networks
 	cd "${SCRIPT_DIR}"
-	docker-compose up -d --force-recreate
+	if [ -f /etc/debian_version ]; then
+		docker compose up -d --force-recreate
+	elif [ -f /etc/fedora-release ]; then
+		docker compose up -d --force-recreate
+	elif [ -f /etc/centos-release ]; then
+		docker compose up -d --force-recreate
+	else
+		docker-compose up -d --force-recreate
+	fi
 	cd -
 	wait_seconds 2
 
