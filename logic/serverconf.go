@@ -21,9 +21,11 @@ var (
 	EgressesLimit = 1000000000
 	// FreeTier - specifies if free tier
 	FreeTier = false
+	// DefaultTrialEndDate - is a placeholder date for not applicable trial end dates
+	DefaultTrialEndDate, _ = time.Parse("2006-Jan-02", "2021-Apr-01")
 
 	GetTrialEndDate = func() (time.Time, error) {
-		return time.Time{}, nil
+		return DefaultTrialEndDate, nil
 	}
 )
 

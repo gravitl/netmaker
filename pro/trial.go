@@ -124,37 +124,37 @@ func TrialLicenseHook() error {
 func getTrialEndDate() (time.Time, error) {
 	record, err := database.FetchRecord(trial_table_name, trial_data_key)
 	if err != nil {
-		return time.Time{}, err
+		return logic.DefaultTrialEndDate, err
 	}
 	var trialInfo TrialInfo
 	err = json.Unmarshal([]byte(record), &trialInfo)
 	if err != nil {
-		return time.Time{}, err
+		return logic.DefaultTrialEndDate, err
 	}
 	tel, err := logic.FetchTelemetryRecord()
 	if err != nil {
-		return time.Time{}, err
+		return logic.DefaultTrialEndDate, err
 	}
 	telePrivKey, err := ncutils.ConvertBytesToKey(tel.TrafficKeyPriv)
 	if err != nil {
-		return time.Time{}, err
+		return logic.DefaultTrialEndDate, err
 	}
 	trialPubKey, err := ncutils.ConvertBytesToKey(trialInfo.PubKey)
 	if err != nil {
-		return time.Time{}, err
+		return logic.DefaultTrialEndDate, err
 	}
 	// decrypt secret
 	secretDecrypt, err := ncutils.BoxDecrypt(trialInfo.Secret, trialPubKey, telePrivKey)
 	if err != nil {
-		return time.Time{}, err
+		return logic.DefaultTrialEndDate, err
 	}
 	trialDates := TrialDates{}
 	err = json.Unmarshal(secretDecrypt, &trialDates)
 	if err != nil {
-		return time.Time{}, err
+		return logic.DefaultTrialEndDate, err
 	}
 	if trialDates.TrialEndsAt.IsZero() {
-		return time.Time{}, errors.New("invalid date")
+		return logic.DefaultTrialEndDate, errors.New("invalid date")
 	}
 	return trialDates.TrialEndsAt, nil
 
