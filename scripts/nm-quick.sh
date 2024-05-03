@@ -331,14 +331,24 @@ install_dependencies() {
 		dependencies="git wireguard wget jq docker.io docker-compose grep gawk"
 		update_cmd='pkg update'
 		install_cmd='pkg install -y'
-	elif [ "$(cat /etc/*-release |grep suse |wc -l)" -gt 0 ]; then
-		dependencies="git wireguard wget jq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
-		update_cmd='zypper ref'
-		install_cmd='zypper install -y'
 	else
-		dependencies="wget git wireguard jq bind-utils docker.io docker-compose grep gawk"
-		update_cmd='yum update'
-		install_cmd='yum install -y'
+		echo "-----------------------nm-quick.sh----------------------------------------------"
+		echo "OS supported and tested include:"
+		echo "   Debian"
+		echo "   Ubuntu"
+		echo "   Fedora"
+		echo "   Centos"
+		echo "   Redhat"
+		echo "   Amazon Linux"
+		echo "   Rocky Linux"
+		echo "   AlmaLinux"
+		echo "   Alpine"
+		echo "   ArchLinux"
+		echo "   FreeBSD"
+
+		echo "Your OS system is not in the support list, please chanage to an OS in the list"
+		echo "--------------------------------------------------------------------------------"
+		exit 1
 	fi
 
 	if [ -z "${install_cmd}" ]; then
@@ -390,8 +400,6 @@ install_dependencies() {
 	elif [ -f /etc/redhat-release ]; then
 		yum install -y yum-utils
 		yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-	elif [ "$(cat /etc/*-release |grep suse |wc -l)" -gt 0 ]; then
-		zypper addrepo https://download.docker.com/linux/sles/docker-ce.repo
 	fi
 
 	set -- $dependencies
@@ -468,9 +476,6 @@ install_dependencies() {
 		systemctl start docker
 		systemctl enable docker
 	elif [ -f /etc/redhat-release ]; then
-		systemctl start docker
-		systemctl enable docker
-	elif [ "$(cat /etc/*-release |grep suse |wc -l)" -gt 0 ]; then
 		systemctl start docker
 		systemctl enable docker
 	fi
@@ -668,8 +673,6 @@ install_netmaker() {
 	elif [ -f /etc/centos-release ]; then
 		docker compose up -d --force-recreate
 	elif [ -f /etc/redhat-release ]; then
-		docker compose up -d --force-recreate
-	elif [ "$(cat /etc/*-release |grep suse |wc -l)" -gt 0 ]; then
 		docker compose up -d --force-recreate
 	else
 		docker-compose up -d --force-recreate
