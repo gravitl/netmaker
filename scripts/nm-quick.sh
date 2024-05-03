@@ -91,9 +91,11 @@ set_buildinfo() {
 
 # install_yq - install yq if not present
 install_yq() {
-	if ! command -v yq &>/dev/null; then
-		wget -qO /usr/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_$(dpkg --print-architecture)
-		chmod +x /usr/bin/yq
+	if [ -f /etc/debian_version ]; then
+		if ! command -v yq &>/dev/null; then
+			wget -qO /usr/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_$(dpkg --print-architecture)
+			chmod +x /usr/bin/yq
+		fi
 	fi
 	set +e
 	if ! command -v yq &>/dev/null; then
@@ -306,7 +308,7 @@ install_dependencies() {
 		update_cmd='apk update'
 		install_cmd='apk --update add'
 	elif [ -f /etc/centos-release ]; then
-		dependencies="git wireguard jq bind-utils docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
+		dependencies="wget git wireguard jq bind-utils docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
 		update_cmd='yum update'
 		install_cmd='yum install -y'
 	elif [ -f /etc/amazon-linux-release ]; then
@@ -314,7 +316,7 @@ install_dependencies() {
 		update_cmd='yum update'
 		install_cmd='yum install -y'
 	elif [ -f /etc/fedora-release ]; then
-		dependencies="git wireguard bind-utils jq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
+		dependencies="wget git wireguard bind-utils jq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
 		update_cmd='dnf update'
 		install_cmd='dnf install -y'
 	elif [ -f /etc/redhat-release ]; then
@@ -418,8 +420,10 @@ install_dependencies() {
 		else
 			if [ "${OS}" = "OpenWRT" ] || [ "${OS}" = "TurrisOS" ]; then
 				is_installed=$(opkg list-installed $1 | grep $1)
-			else
+			elif [ -f /etc/debian_version ]; then
 				is_installed=$(dpkg-query -W --showformat='${Status}\n' $1 | grep "install ok installed")
+			else
+				is_installed=$(yum list installed | grep $1)
 			fi
 			if [ "${is_installed}" != "" ]; then
 				echo "    " $1 is installed
@@ -429,8 +433,10 @@ install_dependencies() {
 				sleep 5
 				if [ "${OS}" = "OpenWRT" ] || [ "${OS}" = "TurrisOS" ]; then
 					is_installed=$(opkg list-installed $1 | grep $1)
-				else
+				elif [ -f /etc/debian_version ]; then
 					is_installed=$(dpkg-query -W --showformat='${Status}\n' $1 | grep "install ok installed")
+				else
+					is_installed=$(yum list installed | grep $1)
 				fi
 				if [ "${is_installed}" != "" ]; then
 					echo "    " $1 is installed
