@@ -1,0 +1,14 @@
+name: Send to Kitemaker
+
+on:
+    issues:
+        types: opened
+
+
+jobs:
+    send-ticket:
+        uses: gravitl/devops/.github/workflows/makekitemakerticket.yml@master
+        with:
+            title: ${{ github.event.issue.title }}
+            body: ${{ github.event.issue.body }}
+            repo_name: ${{ github.event.repository.name }}
