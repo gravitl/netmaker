@@ -12,7 +12,7 @@ const oauthNotConfigured = `<!DOCTYPE html><html>
 
 const oauthStateInvalid = `<!DOCTYPE html><html>
 <body>
-<h3>Invalid OAuth Session.Please re-try again</h3>
+<h3>Invalid OAuth Session. Please re-try again.</h3>
 </body>
 </html>`
 
