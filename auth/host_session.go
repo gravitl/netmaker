@@ -133,7 +133,10 @@ func SessionHandler(conn *websocket.Conn) {
 	go func() {
 		for {
 			msgType, _, err := conn.ReadMessage()
-			if err != nil || msgType == websocket.CloseMessage {
+			if err != nil {
+				return
+			}
+			if msgType == websocket.CloseMessage {
 				if timeout != nil {
 					timeout <- true
 				}
