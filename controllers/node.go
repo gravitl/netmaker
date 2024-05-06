@@ -202,7 +202,7 @@ func Authorize(hostAllowed, networkCheck bool, authNetwork string, next http.Han
 			}
 
 			isnetadmin := issuperadmin || isadmin
-			if errN == nil && (issuperadmin || isadmin) {
+			if issuperadmin || isadmin {
 				nodeID = "mastermac"
 				isAuthorized = true
 				r.Header.Set("ismasterkey", "yes")

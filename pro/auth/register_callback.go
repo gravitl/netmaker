@@ -8,9 +8,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/pro/netcache"
-	"github.com/gravitl/netmaker/models"
 )
 
 var (
@@ -144,24 +142,4 @@ func RegisterHostSSO(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, auth_provider.AuthCodeURL(machineKeyStr), http.StatusSeeOther)
-}
-
-// == private ==
-
-func isUserIsAllowed(username, network string, shouldAddUser bool) (*models.User, error) {
-
-	user, err := logic.GetUser(username)
-	if err != nil && shouldAddUser { // user must not exist, so try to make one
-		if err = addUser(username); err != nil {
-			logger.Log(0, "failed to add user", username, "during a node SSO network join on network", network)
-			// response := returnErrTemplate(user.UserName, "failed to add user", state, reqKeyIf)
-			// w.WriteHeader(http.StatusInternalServerError)
-			// w.Write(response)
-			return nil, fmt.Errorf("failed to add user to system")
-		}
-		logger.Log(0, "user", username, "was added during a node SSO network join on network", network)
-		user, _ = logic.GetUser(username)
-	}
-
-	return user, nil
 }

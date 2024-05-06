@@ -8,12 +8,12 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
-	"github.com/gravitl/netmaker/pro/auth"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
@@ -115,7 +115,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	successJSONResponse, jsonError := json.Marshal(successResponse)
 	if jsonError != nil {
 		logger.Log(0, username,
-			"error marshalling resp: ", err.Error())
+			"error marshalling resp: ", jsonError.Error())
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}

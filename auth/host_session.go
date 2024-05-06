@@ -118,7 +118,7 @@ func SessionHandler(conn *websocket.Conn) {
 			return
 		}
 		logger.Log(0, "user registration attempted with host:", registerMessage.RegisterHost.Name, "via SSO")
-		redirectUrl = fmt.Sprintf("https://%s/api/oauth/register/%s", servercfg.GetAPIConnString(), stateStr)
+		redirectUrl := fmt.Sprintf("https://%s/api/oauth/register/%s", servercfg.GetAPIConnString(), stateStr)
 		err = conn.WriteMessage(messageType, []byte(redirectUrl))
 		if err != nil {
 			logger.Log(0, "error during message writing:", err.Error())

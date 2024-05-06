@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -96,7 +97,7 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserNotAllowed(w)
 		return
 	}
-	var newPass, fetchErr = FetchPassValue("")
+	var newPass, fetchErr = auth.FetchPassValue("")
 	if fetchErr != nil {
 		return
 	}
