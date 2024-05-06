@@ -131,15 +131,11 @@ func SessionHandler(conn *websocket.Conn) {
 	}
 
 	go func() {
+		defer fmt.Println("#######-----------> Exiting CONN CLOSE watcher")
 		for {
 			msgType, _, err := conn.ReadMessage()
-			if err != nil {
-				return
-			}
-			if msgType == websocket.CloseMessage {
-				if timeout != nil {
-					timeout <- true
-				}
+			if err != nil || msgType == websocket.CloseMessage {
+				netcache.Del(stateStr)
 				return
 			}
 		}
@@ -239,10 +235,6 @@ func SessionHandler(conn *websocket.Conn) {
 	case <-timeout: // the read from req.answerCh has timed out
 		logger.Log(0, "timeout signal recv,exiting oauth socket conn")
 		break
-	}
-	// The entry is not needed anymore, but we will let the producer to close it to avoid panic cases
-	if err = netcache.Del(stateStr); err != nil {
-		logger.Log(0, "failed to remove node SSO cache entry", err.Error())
 	}
 	// Cleanly close the connection by sending a close message and then
 	// waiting (with timeout) for the server to close the connection.
