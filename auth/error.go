@@ -94,7 +94,7 @@ func handleOauthNotConfigured(response http.ResponseWriter) {
 
 func handleOauthNotValid(response http.ResponseWriter) {
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
-	response.WriteHeader(http.StatusInternalServerError)
+	response.WriteHeader(http.StatusBadRequest)
 	response.Write([]byte(oauthStateInvalid))
 }
 
