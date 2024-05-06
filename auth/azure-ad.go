@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -58,6 +59,10 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 	var content, err = getAzureUserInfo(rState, rCode)
 	if err != nil {
 		logger.Log(1, "error when getting user info from azure:", err.Error())
+		if errors.Is(err, errors.New("invalid oauth state")) {
+			handleOauthNotValid(w)
+			return
+		}
 		handleOauthNotConfigured(w)
 		return
 	}

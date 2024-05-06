@@ -10,6 +10,12 @@ const oauthNotConfigured = `<!DOCTYPE html><html>
 </body>
 </html>`
 
+const oauthStateInvalid = `<!DOCTYPE html><html>
+<body>
+<h3>Invalid OAuth Session.Please re-try again</h3>
+</body>
+</html>`
+
 const userNotAllowed = `<!DOCTYPE html><html>
 <body>
 <h3>Only administrators can access the Dashboard. Please contact your administrator to elevate your account.</h3>
@@ -84,6 +90,12 @@ func handleOauthNotConfigured(response http.ResponseWriter) {
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	response.WriteHeader(http.StatusInternalServerError)
 	response.Write([]byte(oauthNotConfigured))
+}
+
+func handleOauthNotValid(response http.ResponseWriter) {
+	response.Header().Set("Content-Type", "text/html; charset=utf-8")
+	response.WriteHeader(http.StatusInternalServerError)
+	response.Write([]byte(oauthStateInvalid))
 }
 
 func handleSomethingWentWrong(response http.ResponseWriter) {
