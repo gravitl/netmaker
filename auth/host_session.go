@@ -3,7 +3,6 @@ package auth
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -145,17 +144,16 @@ func SessionHandler(conn *websocket.Conn) {
 		for {
 			cachedReq, err := netcache.Get(stateStr)
 			if err != nil {
-				if strings.Contains(err.Error(), "expired") {
-					logger.Log(1, "timeout occurred while waiting for SSO registration")
-					timeout <- true
-					break
-				}
-				continue
+				logger.Log(0, "oauth state has been deleted ", err.Error())
+				timeout <- true
+				break
+
 			} else if len(cachedReq.User) > 0 {
 				logger.Log(0, "host SSO process completed for user", cachedReq.User)
 				answer <- *cachedReq
 				break
 			}
+			fmt.Printf("-----> CACHE REQ CHECKER: %+v", cachedReq)
 			time.Sleep(time.Second)
 		}
 	}()
@@ -236,6 +234,7 @@ func SessionHandler(conn *websocket.Conn) {
 		logger.Log(0, "timeout signal recv,exiting oauth socket conn")
 		break
 	}
+	logger.Log(0, "-------> ##### Closing Connnection")
 	// Cleanly close the connection by sending a close message and then
 	// waiting (with timeout) for the server to close the connection.
 	if err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")); err != nil {
