@@ -156,7 +156,7 @@ func SessionHandler(conn *websocket.Conn) {
 				answer <- *cachedReq
 				break
 			}
-			time.Sleep(500) // try it 2 times per second to see if auth is completed
+			time.Sleep(time.Second)
 		}
 	}()
 
