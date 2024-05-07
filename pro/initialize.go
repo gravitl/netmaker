@@ -84,7 +84,7 @@ func InitPro() {
 
 		var authProvider = auth.InitializeAuthProvider()
 		if authProvider != "" {
-			slog.Error("OAuth provider,", authProvider+",", "initialized")
+			slog.Info("OAuth provider,", authProvider+",", "initialized")
 		} else {
 			slog.Error("no OAuth provider found or not configured, continuing without OAuth")
 		}
