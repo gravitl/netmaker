@@ -300,7 +300,7 @@ install_dependencies() {
 
 	OS=$(uname)
 	if [ -f /etc/debian_version ]; then
-		dependencies="git wireguard wireguard-tools dnsutils jq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
+		dependencies="git wireguard-tools dnsutils jq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
 		update_cmd='apt update'
 		install_cmd='apt-get install -y'
 	elif [ -f /etc/alpine-release ]; then
@@ -308,19 +308,19 @@ install_dependencies() {
 		update_cmd='apk update'
 		install_cmd='apk --update add'
 	elif [ -f /etc/centos-release ]; then
-		dependencies="wget git wireguard jq bind-utils docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
+		dependencies="wget git wireguard-tools jq bind-utils docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
 		update_cmd='yum update'
 		install_cmd='yum install -y'
 	elif [ -f /etc/amazon-linux-release ]; then
-		dependencies="git wireguard bind-utils jq docker grep gawk"
+		dependencies="git wireguard-tools bind-utils jq docker grep gawk"
 		update_cmd='yum update'
 		install_cmd='yum install -y'
 	elif [ -f /etc/fedora-release ]; then
-		dependencies="wget git wireguard bind-utils jq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
+		dependencies="wget git wireguard-tools bind-utils jq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
 		update_cmd='dnf update'
 		install_cmd='dnf install -y'
 	elif [ -f /etc/redhat-release ]; then
-		dependencies="wget git wireguard jq bind-utils docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
+		dependencies="wget git wireguard-tools jq bind-utils docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
 		update_cmd='yum update'
 		install_cmd='yum install -y'
 	elif [ -f /etc/arch-release ]; then
@@ -342,9 +342,6 @@ install_dependencies() {
 		echo "   Amazon Linux"
 		echo "   Rocky Linux"
 		echo "   AlmaLinux"
-		echo "   Alpine"
-		echo "   ArchLinux"
-		echo "   FreeBSD"
 
 		echo "Your OS system is not in the support list, please chanage to an OS in the list"
 		echo "--------------------------------------------------------------------------------"
