@@ -124,6 +124,7 @@ setup_netclient() {
 	chmod +x netclient
 	./netclient install
 	echo "Register token: $TOKEN"
+	sleep 2
 	netclient register -t $TOKEN
 
 	echo "waiting for netclient to become available"
@@ -145,7 +146,7 @@ setup_netclient() {
 
 # configure_netclient - configures server's netclient as a default host and an ingress gateway
 configure_netclient() {
-
+	sleep 2
 	NODE_ID=$(sudo cat /etc/netclient/nodes.yml | yq -r .netmaker.commonnode.id)
 	if [ "$NODE_ID" = "" ] || [ "$NODE_ID" = "null" ]; then
 		echo "Error obtaining NODE_ID for the new network"
@@ -403,6 +404,9 @@ install_dependencies() {
 	elif [ -f /etc/redhat-release ]; then
 		yum install -y yum-utils
 		yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+		if [ "$(cat /etc/*-release |grep 'release 8' |wc -l)" -gt 0 ]; then
+			yum install -y elrepo-release epel-release
+		fi
 	fi
 
 	set -- $dependencies
