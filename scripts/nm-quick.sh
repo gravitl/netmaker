@@ -309,19 +309,19 @@ install_dependencies() {
 		install_cmd='apk --update add'
 	elif [ -f /etc/centos-release ]; then
 		dependencies="wget git wireguard-tools jq bind-utils docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
-		update_cmd='yum update'
+		update_cmd='yum updateinfo'
 		install_cmd='yum install -y'
 	elif [ -f /etc/amazon-linux-release ]; then
 		dependencies="git wireguard-tools bind-utils jq docker grep gawk"
-		update_cmd='yum update'
+		update_cmd='yum updateinfo'
 		install_cmd='yum install -y'
 	elif [ -f /etc/fedora-release ]; then
 		dependencies="wget git wireguard-tools bind-utils jq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
-		update_cmd='dnf update'
+		update_cmd='dnf updateinfo'
 		install_cmd='dnf install -y'
 	elif [ -f /etc/redhat-release ]; then
 		dependencies="wget git wireguard-tools jq bind-utils docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
-		update_cmd='yum update'
+		update_cmd='yum updateinfo'
 		install_cmd='yum install -y'
 	elif [ -f /etc/arch-release ]; then
 		dependencies="git wireguard-tools dnsutils jq docker.io docker-compose grep gawk"
@@ -394,6 +394,12 @@ install_dependencies() {
 	elif [ -f /etc/centos-release ]; then
 		yum install -y yum-utils
 		yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+		if [ "$(cat /etc/*-release |grep 'release 8' |wc -l)" -gt 0 ]; then
+			yum install -y elrepo-release epel-release
+		elif [ "$(cat /etc/*-release |grep 'release 7' |wc -l)" -gt 0 ]; then
+			yum install -y elrepo-release epel-release
+			yum install -y yum-plugin-elrepo
+		fi
 	elif [ -f /etc/redhat-release ]; then
 		yum install -y yum-utils
 		yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
