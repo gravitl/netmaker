@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/pro/auth"
 	proControllers "github.com/gravitl/netmaker/pro/controllers"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/servercfg"
@@ -79,6 +80,13 @@ func InitPro() {
 
 		if servercfg.GetServerConfig().RacAutoDisable {
 			AddRacHooks()
+		}
+
+		var authProvider = auth.InitializeAuthProvider()
+		if authProvider != "" {
+			slog.Info("OAuth provider,", authProvider+",", "initialized")
+		} else {
+			slog.Error("no OAuth provider found or not configured, continuing without OAuth")
 		}
 
 	})

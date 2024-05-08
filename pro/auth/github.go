@@ -7,38 +7,38 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
+	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
+	"golang.org/x/oauth2/github"
 )
 
-var google_functions = map[string]interface{}{
-	init_provider:   initGoogle,
-	get_user_info:   getGoogleUserInfo,
-	handle_callback: handleGoogleCallback,
-	handle_login:    handleGoogleLogin,
-	verify_user:     verifyGoogleUser,
+var github_functions = map[string]interface{}{
+	init_provider:   initGithub,
+	get_user_info:   getGithubUserInfo,
+	handle_callback: handleGithubCallback,
+	handle_login:    handleGithubLogin,
+	verify_user:     verifyGithubUser,
 }
 
-// == handle google authentication here ==
+// == handle github authentication here ==
 
-func initGoogle(redirectURL string, clientID string, clientSecret string) {
+func initGithub(redirectURL string, clientID string, clientSecret string) {
 	auth_provider = &oauth2.Config{
 		RedirectURL:  redirectURL,
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
-		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
-		Endpoint:     google.Endpoint,
+		Scopes:       []string{},
+		Endpoint:     github.Endpoint,
 	}
 }
 
-func handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
+func handleGithubLogin(w http.ResponseWriter, r *http.Request) {
 	var oauth_state_string = logic.RandomString(user_signin_length)
 	if auth_provider == nil {
 		handleOauthNotConfigured(w)
@@ -54,13 +54,12 @@ func handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
-func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
+func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 
 	var rState, rCode = getStateAndCode(r)
-
-	var content, err = getGoogleUserInfo(rState, rCode)
+	var content, err = getGithubUserInfo(rState, rCode)
 	if err != nil {
-		logger.Log(1, "error when getting user info from google:", err.Error())
+		logger.Log(1, "error when getting user info from github:", err.Error())
 		if strings.Contains(err.Error(), "invalid oauth state") {
 			handleOauthNotValid(w)
 			return
@@ -68,20 +67,20 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthNotConfigured(w)
 		return
 	}
-	if !isEmailAllowed(content.Email) {
+	if !isEmailAllowed(content.Login) {
 		handleOauthUserNotAllowedToSignUp(w)
 		return
 	}
 	// check if user approval is already pending
-	if logic.IsPendingUser(content.Email) {
+	if logic.IsPendingUser(content.Login) {
 		handleOauthUserSignUpApprovalPending(w)
 		return
 	}
-	_, err = logic.GetUser(content.Email)
+	_, err = logic.GetUser(content.Login)
 	if err != nil {
 		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
 			err = logic.InsertPendingUser(&models.User{
-				UserName: content.Email,
+				UserName: content.Login,
 			})
 			if err != nil {
 				handleSomethingWentWrong(w)
@@ -94,9 +93,8 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	user, err := logic.GetUser(content.Email)
+	user, err := logic.GetUser(content.Login)
 	if err != nil {
-		logger.Log(0, "error fetching user: ", err.Error())
 		handleOauthUserNotFound(w)
 		return
 	}
@@ -104,13 +102,13 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserNotAllowed(w)
 		return
 	}
-	var newPass, fetchErr = FetchPassValue("")
+	var newPass, fetchErr = auth.FetchPassValue("")
 	if fetchErr != nil {
 		return
 	}
 	// send a netmaker jwt token
 	var authRequest = models.UserAuthParams{
-		UserName: content.Email,
+		UserName: content.Login,
 		Password: newPass,
 	}
 
@@ -120,11 +118,11 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Log(1, "completed google OAuth sigin in for", content.Email)
-	http.Redirect(w, r, fmt.Sprintf("%s/login?login=%s&user=%s", servercfg.GetFrontendURL(), jwt, content.Email), http.StatusPermanentRedirect)
+	logger.Log(1, "completed github OAuth sigin in for", content.Login)
+	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+content.Login, http.StatusPermanentRedirect)
 }
 
-func getGoogleUserInfo(state string, code string) (*OAuthUser, error) {
+func getGithubUserInfo(state string, code string) (*OAuthUser, error) {
 	oauth_state_string, isValid := logic.IsStateValid(state)
 	if (!isValid || state != oauth_state_string) && !isStateCached(state) {
 		return nil, fmt.Errorf("invalid oauth state")
@@ -133,15 +131,21 @@ func getGoogleUserInfo(state string, code string) (*OAuthUser, error) {
 	if err != nil {
 		return nil, fmt.Errorf("code exchange failed: %s", err.Error())
 	}
+	if !token.Valid() {
+		return nil, fmt.Errorf("GitHub code exchange yielded invalid token")
+	}
 	var data []byte
 	data, err = json.Marshal(token)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert token to json: %s", err.Error())
 	}
-	client := &http.Client{
-		Timeout: time.Second * 30,
+	var httpClient = &http.Client{}
+	var httpReq, reqErr = http.NewRequest("GET", "https://api.github.com/user", nil)
+	if reqErr != nil {
+		return nil, fmt.Errorf("failed to create request to GitHub")
 	}
-	response, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
+	httpReq.Header.Set("Authorization", "token "+token.AccessToken)
+	response, err := httpClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed getting user info: %s", err.Error())
 	}
@@ -158,6 +162,6 @@ func getGoogleUserInfo(state string, code string) (*OAuthUser, error) {
 	return userInfo, nil
 }
 
-func verifyGoogleUser(token *oauth2.Token) bool {
+func verifyGithubUser(token *oauth2.Token) bool {
 	return token.Valid()
 }
