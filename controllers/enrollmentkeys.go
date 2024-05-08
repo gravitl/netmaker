@@ -279,7 +279,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// version check
-	if !logic.IsVersionComptatible(newHost.Version) {
+	if !logic.IsVersionCompatible(newHost.Version) {
 		err := fmt.Errorf("bad client version on register: %s", newHost.Version)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
