@@ -24,7 +24,6 @@ import (
 // When this method finishes - the auth flow has finished either OK or by timeout or any other error occured
 func SessionHandler(conn *websocket.Conn) {
 	defer conn.Close()
-	defer logger.Log(0, "#######CLOSING WEBSOCKET CONNN------------------> ")
 	// If reached here we have a session from user to handle...
 	messageType, message, err := conn.ReadMessage()
 	if err != nil {
@@ -130,7 +129,6 @@ func SessionHandler(conn *websocket.Conn) {
 	}
 
 	go func() {
-		defer fmt.Println("#######-----------> Exiting CONN CLOSE watcher")
 		for {
 			msgType, _, err := conn.ReadMessage()
 			if err != nil || msgType == websocket.CloseMessage {
@@ -153,7 +151,6 @@ func SessionHandler(conn *websocket.Conn) {
 				answer <- *cachedReq
 				break
 			}
-			fmt.Printf("-----> CACHE REQ CHECKER: %+v", cachedReq)
 			time.Sleep(time.Second)
 		}
 	}()
@@ -234,7 +231,6 @@ func SessionHandler(conn *websocket.Conn) {
 		logger.Log(0, "timeout signal recv,exiting oauth socket conn")
 		break
 	}
-	logger.Log(0, "-------> ##### Closing Connnection")
 	// Cleanly close the connection by sending a close message and then
 	// waiting (with timeout) for the server to close the connection.
 	if err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")); err != nil {
