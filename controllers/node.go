@@ -635,14 +635,20 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("metadata cannot be longer than 255 characters"), "badrequest"))
 		return
 	}
+	if !servercfg.IsPro {
+		newData.AdditionalRagIps = []string{}
+	}
 	newNode := newData.ConvertToServerNode(&currentNode)
+	if newNode == nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("error converting node"), "badrequest"))
+		return
+	}
 	if newNode.IsInternetGateway != currentNode.IsInternetGateway {
 		if newNode.IsInternetGateway {
 			logic.SetInternetGw(newNode, models.InetNodeReq{})
 		} else {
 			logic.UnsetInternetGw(newNode)
 		}
-
 	}
 	relayUpdate := logic.RelayUpdates(&currentNode, newNode)
 	if relayUpdate && newNode.IsRelay {
