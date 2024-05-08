@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
@@ -60,6 +61,10 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	var content, err = getGoogleUserInfo(rState, rCode)
 	if err != nil {
 		logger.Log(1, "error when getting user info from google:", err.Error())
+		if strings.Contains(err.Error(), "invalid oauth state") {
+			handleOauthNotValid(w)
+			return
+		}
 		handleOauthNotConfigured(w)
 		return
 	}
