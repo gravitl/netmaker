@@ -91,9 +91,11 @@ set_buildinfo() {
 
 # install_yq - install yq if not present
 install_yq() {
-	if ! command -v yq &>/dev/null; then
-		wget -qO /usr/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_$(dpkg --print-architecture)
-		chmod +x /usr/bin/yq
+	if [ -f /etc/debian_version ]; then
+		if ! command -v yq &>/dev/null; then
+			wget -qO /usr/bin/yq https://github.com/mikefarah/yq/releases/download/v4.31.1/yq_linux_$(dpkg --print-architecture)
+			chmod +x /usr/bin/yq
+		fi
 	fi
 	set +e
 	if ! command -v yq &>/dev/null; then
@@ -122,6 +124,7 @@ setup_netclient() {
 	chmod +x netclient
 	./netclient install
 	echo "Register token: $TOKEN"
+	sleep 2
 	netclient register -t $TOKEN
 
 	echo "waiting for netclient to become available"
@@ -143,7 +146,7 @@ setup_netclient() {
 
 # configure_netclient - configures server's netclient as a default host and an ingress gateway
 configure_netclient() {
-
+	sleep 2
 	NODE_ID=$(sudo cat /etc/netclient/nodes.yml | yq -r .netmaker.commonnode.id)
 	if [ "$NODE_ID" = "" ] || [ "$NODE_ID" = "null" ]; then
 		echo "Error obtaining NODE_ID for the new network"
@@ -298,7 +301,7 @@ install_dependencies() {
 
 	OS=$(uname)
 	if [ -f /etc/debian_version ]; then
-		dependencies="git wireguard wireguard-tools dnsutils jq docker.io docker-compose grep gawk"
+		dependencies="git wireguard-tools dnsutils jq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
 		update_cmd='apt update'
 		install_cmd='apt-get install -y'
 	elif [ -f /etc/alpine-release ]; then
@@ -306,16 +309,20 @@ install_dependencies() {
 		update_cmd='apk update'
 		install_cmd='apk --update add'
 	elif [ -f /etc/centos-release ]; then
-		dependencies="git wireguard jq bind-utils docker.io docker-compose grep gawk"
-		update_cmd='yum update'
+		dependencies="wget git wireguard-tools jq bind-utils docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
+		update_cmd='yum updateinfo'
+		install_cmd='yum install -y'
+	elif [ -f /etc/amazon-linux-release ]; then
+		dependencies="git wireguard-tools bind-utils jq docker grep gawk"
+		update_cmd='yum updateinfo'
 		install_cmd='yum install -y'
 	elif [ -f /etc/fedora-release ]; then
-		dependencies="git wireguard bind-utils jq docker.io docker-compose grep gawk"
-		update_cmd='dnf update'
+		dependencies="wget git wireguard-tools bind-utils jq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
+		update_cmd='dnf updateinfo'
 		install_cmd='dnf install -y'
 	elif [ -f /etc/redhat-release ]; then
-		dependencies="git wireguard jq docker.io bind-utils docker-compose grep gawk"
-		update_cmd='yum update'
+		dependencies="wget git wireguard-tools jq bind-utils docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin grep gawk"
+		update_cmd='yum updateinfo'
 		install_cmd='yum install -y'
 	elif [ -f /etc/arch-release ]; then
 		dependencies="git wireguard-tools dnsutils jq docker.io docker-compose grep gawk"
@@ -326,7 +333,20 @@ install_dependencies() {
 		update_cmd='pkg update'
 		install_cmd='pkg install -y'
 	else
-		install_cmd=''
+		echo "-----------------------nm-quick.sh----------------------------------------------"
+		echo "OS supported and tested include:"
+		echo "   Debian"
+		echo "   Ubuntu"
+		echo "   Fedora"
+		echo "   Centos"
+		echo "   Redhat"
+		echo "   Amazon Linux"
+		echo "   Rocky Linux"
+		echo "   AlmaLinux"
+
+		echo "Your OS system is not in the support list, please chanage to an OS in the list"
+		echo "--------------------------------------------------------------------------------"
+		exit 1
 	fi
 
 	if [ -z "${install_cmd}" ]; then
@@ -345,6 +365,50 @@ install_dependencies() {
     	echo "Unsupported architechure"
     	# exit 1
     fi
+
+	# setup docker repository
+	if [ "$(cat /etc/*-release |grep ubuntu |wc -l)" -gt 0 ]; then
+		apt update
+		apt install -y ca-certificates curl
+		install -m 0755 -d /etc/apt/keyrings
+		curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+		chmod a+r /etc/apt/keyrings/docker.asc
+		echo \
+		  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+		  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+		  tee /etc/apt/sources.list.d/docker.list > /dev/null
+		apt update
+	elif [ "$(cat /etc/*-release |grep debian |wc -l)" -gt 0 ]; then
+		apt update
+		apt install -y ca-certificates curl
+		install -m 0755 -d /etc/apt/keyrings
+		curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+		chmod a+r /etc/apt/keyrings/docker.asc
+		echo \
+		  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
+		  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+		  tee /etc/apt/sources.list.d/docker.list > /dev/null
+		apt update
+	elif [ -f /etc/fedora-release ]; then
+		dnf -y install dnf-plugins-core
+		dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+	elif [ -f /etc/centos-release ]; then
+		yum install -y yum-utils
+		yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+		if [ "$(cat /etc/*-release |grep 'release 8' |wc -l)" -gt 0 ]; then
+			yum install -y elrepo-release epel-release
+		elif [ "$(cat /etc/*-release |grep 'release 7' |wc -l)" -gt 0 ]; then
+			yum install -y elrepo-release epel-release
+			yum install -y yum-plugin-elrepo
+		fi
+	elif [ -f /etc/redhat-release ]; then
+		yum install -y yum-utils
+		yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+		if [ "$(cat /etc/*-release |grep 'release 8' |wc -l)" -gt 0 ]; then
+			yum install -y elrepo-release epel-release
+		fi
+	fi
+
 	set -- $dependencies
 
 	${update_cmd}
@@ -371,8 +435,10 @@ install_dependencies() {
 		else
 			if [ "${OS}" = "OpenWRT" ] || [ "${OS}" = "TurrisOS" ]; then
 				is_installed=$(opkg list-installed $1 | grep $1)
-			else
+			elif [ -f /etc/debian_version ]; then
 				is_installed=$(dpkg-query -W --showformat='${Status}\n' $1 | grep "install ok installed")
+			else
+				is_installed=$(yum list installed | grep $1)
 			fi
 			if [ "${is_installed}" != "" ]; then
 				echo "    " $1 is installed
@@ -382,8 +448,10 @@ install_dependencies() {
 				sleep 5
 				if [ "${OS}" = "OpenWRT" ] || [ "${OS}" = "TurrisOS" ]; then
 					is_installed=$(opkg list-installed $1 | grep $1)
-				else
+				elif [ -f /etc/debian_version ]; then
 					is_installed=$(dpkg-query -W --showformat='${Status}\n' $1 | grep "install ok installed")
+				else
+					is_installed=$(yum list installed | grep $1)
 				fi
 				if [ "${is_installed}" != "" ]; then
 					echo "    " $1 is installed
@@ -397,6 +465,27 @@ install_dependencies() {
 		fi
 		shift
 	done
+
+	# Startup docker daemon for OS which does not start it automatically
+	if [ -f /etc/fedora-release ]; then
+		systemctl start docker
+		systemctl enable docker
+	elif [ -f /etc/amazon-linux-release ]; then
+		systemctl start docker
+		systemctl enable docker
+		usermod -a -G docker ec2-user
+		mkdir -p /usr/local/lib/docker/cli-plugins
+		curl -sL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$(uname -m) \
+		-o /usr/local/lib/docker/cli-plugins/docker-compose
+		chown root:root /usr/local/lib/docker/cli-plugins/docker-compose
+		chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+	elif [ -f /etc/centos-release ]; then
+		systemctl start docker
+		systemctl enable docker
+	elif [ -f /etc/redhat-release ]; then
+		systemctl start docker
+		systemctl enable docker
+	fi
 
 	echo "-----------------------------------------------------"
 	echo "dependency check complete"
@@ -582,7 +671,19 @@ install_netmaker() {
 
 	# start docker and rebuild containers / networks
 	cd "${SCRIPT_DIR}"
-	docker-compose up -d --force-recreate
+	if [ -f /etc/debian_version ]; then
+		docker compose up -d --force-recreate
+	elif [ -f /etc/fedora-release ]; then
+		docker compose up -d --force-recreate
+	elif [ -f /etc/amazon-linux-release ]; then
+		docker compose up -d --force-recreate
+	elif [ -f /etc/centos-release ]; then
+		docker compose up -d --force-recreate
+	elif [ -f /etc/redhat-release ]; then
+		docker compose up -d --force-recreate
+	else
+		docker-compose up -d --force-recreate
+	fi
 	cd -
 	wait_seconds 2
 

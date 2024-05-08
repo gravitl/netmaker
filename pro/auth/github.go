@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/database"
@@ -59,6 +60,10 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 	var content, err = getGithubUserInfo(rState, rCode)
 	if err != nil {
 		logger.Log(1, "error when getting user info from github:", err.Error())
+		if strings.Contains(err.Error(), "invalid oauth state") {
+			handleOauthNotValid(w)
+			return
+		}
 		handleOauthNotConfigured(w)
 		return
 	}

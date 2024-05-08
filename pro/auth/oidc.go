@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -72,6 +73,10 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	var content, err = getOIDCUserInfo(rState, rCode)
 	if err != nil {
 		logger.Log(1, "error when getting user info from callback:", err.Error())
+		if strings.Contains(err.Error(), "invalid oauth state") {
+			handleOauthNotValid(w)
+			return
+		}
 		handleOauthNotConfigured(w)
 		return
 	}
