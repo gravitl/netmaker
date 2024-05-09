@@ -10,8 +10,8 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/pro/auth"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/pro/auth"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
@@ -226,6 +226,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 					Connected:         true,
 					IsInternetGateway: node.IsInternetGateway,
 					GwPeerPublicKey:   host.PublicKey.String(),
+					GwListenPort:      logic.GetPeerListenPort(host),
 					Metadata:          node.Metadata,
 					AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 				})
@@ -242,6 +243,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 					Connected:         true,
 					IsInternetGateway: node.IsInternetGateway,
 					GwPeerPublicKey:   host.PublicKey.String(),
+					GwListenPort:      logic.GetPeerListenPort(host),
 					Metadata:          node.Metadata,
 					AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 				})
@@ -276,6 +278,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 				Network:           node.Network,
 				IsInternetGateway: node.IsInternetGateway,
 				GwPeerPublicKey:   host.PublicKey.String(),
+				GwListenPort:      logic.GetPeerListenPort(host),
 				Metadata:          node.Metadata,
 				AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 			})
@@ -304,6 +307,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 					Network:           node.Network,
 					IsInternetGateway: node.IsInternetGateway,
 					GwPeerPublicKey:   host.PublicKey.String(),
+					GwListenPort:      logic.GetPeerListenPort(host),
 					Metadata:          node.Metadata,
 					AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 				})

@@ -72,6 +72,7 @@ type UserRemoteGws struct {
 	IsInternetGateway bool      `json:"is_internet_gateway"`
 	GwClient          ExtClient `json:"gw_client"`
 	GwPeerPublicKey   string    `json:"gw_peer_public_key"`
+	GwListenPort      int       `json:"gw_listen_port"`
 	Metadata          string    `json:"metadata"`
 	AllowedEndpoints  []string  `json:"allowed_endpoints"`
 }
