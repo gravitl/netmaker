@@ -173,9 +173,11 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			}
 			if peer.IsEgressGateway {
 				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, models.EgressNetworkRoutes{
-					NodeAddr:     node.Address,
-					NodeAddr6:    node.Address6,
-					EgressRanges: peer.EgressGatewayRanges,
+					EgressGwAddr:  peer.Address,
+					EgressGwAddr6: peer.Address6,
+					NodeAddr:      node.Address,
+					NodeAddr6:     node.Address6,
+					EgressRanges:  peer.EgressGatewayRanges,
 				})
 			}
 			if peer.IsIngressGateway {
