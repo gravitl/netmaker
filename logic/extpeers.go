@@ -475,6 +475,9 @@ func getExtpeersExtraRoutes(network string) (egressRoutes []models.EgressNetwork
 		return
 	}
 	for _, extPeer := range extPeers {
+		if len(extPeer.ExtraAllowedIPs) == 0 {
+			continue
+		}
 		egressRoutes = append(egressRoutes, getExtPeerEgressRoute(extPeer)...)
 	}
 	return

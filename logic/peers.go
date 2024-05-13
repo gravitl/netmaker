@@ -215,16 +215,15 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				}
 			}
 
+			//1. check currHost has ipv4 endpoint and peerhost has ipv4 then set ipv4 endpoint for peer
+			// 2. check currHost has ipv6 endpoint and peerhost has ipv6 then set ipv6 endpoint for peer
+
 			//if host is ipv4 only or ipv4+ipv6, set the peer endpoint to ipv4 address, if host is ipv6 only, set the peer endpoint to ipv6 address
-			peerEndpoint := peerHost.EndpointIP
-			if ipv4 := host.EndpointIP.To4(); ipv4 != nil {
+			var peerEndpoint net.IP
+			if host.EndpointIP != nil && peerHost.EndpointIP != nil {
 				peerEndpoint = peerHost.EndpointIP
-			} else {
-				//if peer host's ipv6 address is empty, it means that peer is an IPv4 only host
-				//IPv4 only host could not communicate with IPv6 only host
-				if peerHost.EndpointIPv6 != nil && peerHost.EndpointIPv6.String() != "" {
-					peerEndpoint = peerHost.EndpointIPv6
-				}
+			} else if host.EndpointIPv6 != nil && peerHost.EndpointIPv6 != nil {
+				peerEndpoint = peerHost.EndpointIPv6
 			}
 
 			peerConfig.Endpoint = &net.UDPAddr{
