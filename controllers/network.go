@@ -442,15 +442,8 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 
 	// validate address ranges: must be private
 	if network.AddressRange != "" {
-		_, ipNet, err := net.ParseCIDR(network.AddressRange)
+		_, _, err := net.ParseCIDR(network.AddressRange)
 		if err != nil {
-			logger.Log(0, r.Header.Get("user"), "failed to create network: ",
-				err.Error())
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-			return
-		}
-		if !ipNet.IP.IsPrivate() {
-			err := errors.New("address range must be private")
 			logger.Log(0, r.Header.Get("user"), "failed to create network: ",
 				err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -458,15 +451,8 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if network.AddressRange6 != "" {
-		_, ipNet, err := net.ParseCIDR(network.AddressRange6)
+		_, _, err := net.ParseCIDR(network.AddressRange6)
 		if err != nil {
-			logger.Log(0, r.Header.Get("user"), "failed to create network: ",
-				err.Error())
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-			return
-		}
-		if !ipNet.IP.IsPrivate() {
-			err := errors.New("address range must be private")
 			logger.Log(0, r.Header.Get("user"), "failed to create network: ",
 				err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
