@@ -44,9 +44,11 @@ type EgressInfo struct {
 
 // EgressNetworkRoutes - struct for egress network routes for adding routes to peer's interface
 type EgressNetworkRoutes struct {
-	NodeAddr     net.IPNet `json:"node_addr"`
-	NodeAddr6    net.IPNet `json:"node_addr6"`
-	EgressRanges []string  `json:"egress_ranges"`
+	EgressGwAddr  net.IPNet `json:"egress_gw_addr" yaml:"egress_gw_addr"`
+	EgressGwAddr6 net.IPNet `json:"egress_gw_addr6" yaml:"egress_gw_addr6"`
+	NodeAddr      net.IPNet `json:"node_addr"`
+	NodeAddr6     net.IPNet `json:"node_addr6"`
+	EgressRanges  []string  `json:"egress_ranges"`
 }
 
 // PeerRouteInfo - struct for peer info for an ext. client
