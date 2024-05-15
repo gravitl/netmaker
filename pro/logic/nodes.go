@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"golang.org/x/exp/slog"
@@ -29,6 +30,9 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 	if inetNode.IsRelayed {
 		return fmt.Errorf("node %s is being relayed", inetHost.Name)
 	}
+	if inetNode.FailedOverBy != uuid.Nil {
+		ResetFailedOverPeer(&inetNode)
+	}
 	for _, clientNodeID := range req.InetNodeClientIDs {
 		clientNode, err := logic.GetNodeByID(clientNodeID)
 		if err != nil {
@@ -52,6 +56,9 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 			if clientNode.InternetGwID != "" {
 				return fmt.Errorf("node %s is already using a internet gateway", clientHost.Name)
 			}
+		}
+		if clientNode.FailedOverBy != uuid.Nil {
+			ResetFailedOverPeer(&clientNode)
 		}
 
 		if clientNode.IsRelayed {

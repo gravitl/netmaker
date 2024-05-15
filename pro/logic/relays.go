@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
@@ -121,6 +122,9 @@ func ValidateRelay(relay models.RelayRequest, update bool) error {
 		}
 		if relayedNode.IsInternetGateway {
 			return errors.New("cannot relay an internet gateway (" + relayedNodeID + ")")
+		}
+		if relayedNode.FailedOverBy != uuid.Nil {
+			ResetFailedOverPeer(&relayedNode)
 		}
 	}
 	return err

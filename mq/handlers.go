@@ -215,6 +215,14 @@ func signalPeer(signal models.Signal) {
 		signal.Action = ""
 		return
 	}
+	if node.IsRelay || node.InternetGwID != "" || node.FailedOverBy != uuid.Nil {
+		signal.Action = ""
+		return
+	}
+	if peerNode.IsRelay || peerNode.InternetGwID != "" || peerNode.FailedOverBy != uuid.Nil {
+		signal.Action = ""
+		return
+	}
 	err = HostUpdate(&models.HostUpdate{
 		Action: models.SignalHost,
 		Host:   *peerHost,
