@@ -2,23 +2,25 @@
 
 ## Whats New ✨
 
-- IPv6 and Dual Stack Networks Support Across Platform
-- Endpoint Detection Can Now Be Turned Off By Setting `ENDPOINT_DETECTION=false` On Server Config
-- New SignUp Flow For Oauth Users, With Admin Approval Process.
-- Added Failover Commands to nmctl
+- OAUTH Code Move From CE To Pro
+- nm-quick.sh Enhancement To Install Latest docker, `docker-compose` Sunset, Replaced By `docker compose`
+- EnpointIp And EndpointIPv6 Display Individually
+- Create Reference Architectures
 
 ## What's Fixed/Improved 🛠
 
-- Scalability Fixes around Mq connection, ACLs
-- Fixed Zombie Node Logic To Avoid Choking On the Channel
-- Fixed Egress Routes In Dual Stack Netmaker Overlay Networks
-- Fixed Client Connectivity Metrics Data
-- Fixed auto-relay with enrollment key
-- Imporved Logic Around Oauth Sceret Management
-- Improved Oauth Message Templates
+- Egress Enhancement In Multiple Networks
+- Fix armv5-v7 Upgrade Download Link
+- Fix Windows Interface Issue In Multiple Networks
+- Scalability Fixes
+- Blog Usability Improvements
+- Misc Document Enhancement
+- Misc RAC Changes
+- Misc UI Changes
+- Remove Egress Routes After Egress Gateway Removed
+
 
 ## Known Issues 🐞
 
 - Erratic Traffic Data In Metrics
 - `netclient server leave` Leaves a Stale Node Record In At Least One Network When Part Of Multiple Networks, But Can Be Deleted From The UI.
-- On Darwin Stale Egress Route Entries Remain On The Machine After Removing Egress Range Or Removing The Egress Server
