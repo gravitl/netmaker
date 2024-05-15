@@ -167,6 +167,18 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("peer node is relayed or acting as failover"), "badrequest"))
 		return
 	}
+	if node.IsRelay {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node acting as relay cannot be failedOver"), "badrequest"))
+		return
+	}
+	if node.IsInternetGateway {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node acting as internet gw cannot be failedOver"), "badrequest"))
+		return
+	}
+	if node.InternetGwID != "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node using a internet gw cannot be failedOver"), "badrequest"))
+		return
+	}
 
 	err = proLogic.SetFailOverCtx(failOverNode, node, peerNode)
 	if err != nil {
