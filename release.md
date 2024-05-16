@@ -1,4 +1,4 @@
-# Netmaker v0.24.1
+# Netmaker v0.24.2
 
 ## Whats New ✨
 - Users Can define Multiple Endpoints On The Remote Access Gateway To Choose From While Establishing a Connection.
