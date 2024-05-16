@@ -438,7 +438,7 @@ func DisassociateAllNodesFromHost(hostID string) error {
 			logger.Log(0, "failed to get host node", err.Error())
 			continue
 		}
-		if err := DeleteNode(&node, true); err != nil {
+		if err := DeleteNodeByID(&node); err != nil {
 			logger.Log(0, "failed to delete node", node.ID.String(), err.Error())
 			continue
 		}
