@@ -10,6 +10,8 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/pro/auth"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
@@ -19,6 +21,10 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}/remote_access_gw/{remote_access_gateway_id}", logic.SecurityCheck(true, http.HandlerFunc(removeUserFromRemoteAccessGW))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/users/{username}/remote_access_gw", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserRemoteAccessGws)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/ingress/{ingress_id}", logic.SecurityCheck(true, http.HandlerFunc(ingressGatewayUsers))).Methods(http.MethodGet)
+	r.HandleFunc("/api/oauth/login", auth.HandleAuthLogin).Methods(http.MethodGet)
+	r.HandleFunc("/api/oauth/callback", auth.HandleAuthCallback).Methods(http.MethodGet)
+	r.HandleFunc("/api/oauth/headless", auth.HandleHeadlessSSO)
+	r.HandleFunc("/api/oauth/register/{regKey}", auth.RegisterHostSSO).Methods(http.MethodGet)
 }
 
 // swagger:route POST /api/users/{username}/remote_access_gw user attachUserToRemoteAccessGateway
@@ -114,7 +120,15 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, extclient := range extclients {
 			if extclient.OwnerID == user.UserName && remoteGwID == extclient.IngressGatewayID {
-				logic.DeleteExtClient(extclient.Network, extclient.ClientID)
+				err = logic.DeleteExtClientAndCleanup(extclient)
+				if err != nil {
+					slog.Error("failed to delete extclient",
+						"id", extclient.ClientID, "owner", user.UserName, "error", err)
+				} else {
+					if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+						slog.Error("error setting ext peers: " + err.Error())
+					}
+				}
 			}
 		}
 		if servercfg.IsDNSMode() {
@@ -212,7 +226,9 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 					Connected:         true,
 					IsInternetGateway: node.IsInternetGateway,
 					GwPeerPublicKey:   host.PublicKey.String(),
+					GwListenPort:      logic.GetPeerListenPort(host),
 					Metadata:          node.Metadata,
+					AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 				})
 				userGws[node.Network] = gws
 				delete(user.RemoteGwIDs, node.ID.String())
@@ -227,7 +243,9 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 					Connected:         true,
 					IsInternetGateway: node.IsInternetGateway,
 					GwPeerPublicKey:   host.PublicKey.String(),
+					GwListenPort:      logic.GetPeerListenPort(host),
 					Metadata:          node.Metadata,
+					AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 				})
 				userGws[node.Network] = gws
 				processedAdminNodeIds[node.ID.String()] = struct{}{}
@@ -260,7 +278,9 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 				Network:           node.Network,
 				IsInternetGateway: node.IsInternetGateway,
 				GwPeerPublicKey:   host.PublicKey.String(),
+				GwListenPort:      logic.GetPeerListenPort(host),
 				Metadata:          node.Metadata,
+				AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 			})
 			userGws[node.Network] = gws
 		}
@@ -287,7 +307,9 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 					Network:           node.Network,
 					IsInternetGateway: node.IsInternetGateway,
 					GwPeerPublicKey:   host.PublicKey.String(),
+					GwListenPort:      logic.GetPeerListenPort(host),
 					Metadata:          node.Metadata,
+					AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 				})
 				userGws[node.Network] = gws
 			}
@@ -337,4 +359,20 @@ func ingressGatewayUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(gwUsers)
+}
+
+func getAllowedRagEndpoints(ragNode *models.Node, ragHost *models.Host) []string {
+	endpoints := []string{}
+	if len(ragHost.EndpointIP) > 0 {
+		endpoints = append(endpoints, ragHost.EndpointIP.String())
+	}
+	if len(ragHost.EndpointIPv6) > 0 {
+		endpoints = append(endpoints, ragHost.EndpointIPv6.String())
+	}
+	if servercfg.IsPro {
+		for _, ip := range ragNode.AdditionalRagIps {
+			endpoints = append(endpoints, ip.String())
+		}
+	}
+	return endpoints
 }

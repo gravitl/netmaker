@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -71,6 +73,10 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	var content, err = getOIDCUserInfo(rState, rCode)
 	if err != nil {
 		logger.Log(1, "error when getting user info from callback:", err.Error())
+		if strings.Contains(err.Error(), "invalid oauth state") {
+			handleOauthNotValid(w)
+			return
+		}
 		handleOauthNotConfigured(w)
 		return
 	}
@@ -109,7 +115,7 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserNotAllowed(w)
 		return
 	}
-	var newPass, fetchErr = FetchPassValue("")
+	var newPass, fetchErr = auth.FetchPassValue("")
 	if fetchErr != nil {
 		return
 	}
@@ -146,7 +152,7 @@ func getOIDCUserInfo(state string, code string) (u *OAuthUser, e error) {
 	ctx, cancel := context.WithTimeout(context.Background(), OIDC_TIMEOUT)
 	defer cancel()
 
-	oauth2Token, err := auth_provider.Exchange(ctx, code)
+	oauth2Token, err := auth_provider.Exchange(ctx, code, oauth2.SetAuthURLParam("prompt", "login"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to exchange oauth2 token using code \"%s\"", code)
 	}

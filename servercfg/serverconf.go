@@ -620,7 +620,7 @@ func GetNetmakerTenantID() string {
 	return netmakerTenantID
 }
 
-// GetNetworkLimit - fetches free tier limits on users
+// GetUserLimit - fetches free tier limits on users
 func GetUserLimit() int {
 	var userslimit int
 	if os.Getenv("USERS_LIMIT") != "" {

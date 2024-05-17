@@ -15,13 +15,13 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/servercfg"
 
 	"github.com/gravitl/netmaker/models"
 
 	"github.com/gravitl/netmaker/mq"
 	"github.com/skip2/go-qrcode"
+	"golang.org/x/exp/slices"
 	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -200,6 +200,24 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	preferredIp := strings.TrimSpace(r.URL.Query().Get("preferredip"))
+	if preferredIp != "" {
+		allowedPreferredIps := []string{}
+		for i := range gwnode.AdditionalRagIps {
+			allowedPreferredIps = append(allowedPreferredIps, gwnode.AdditionalRagIps[i].String())
+		}
+		allowedPreferredIps = append(allowedPreferredIps, host.EndpointIP.String())
+		allowedPreferredIps = append(allowedPreferredIps, host.EndpointIPv6.String())
+		if !slices.Contains(allowedPreferredIps, preferredIp) {
+			slog.Warn("preferred endpoint ip is not associated with the RAG. proceeding with preferred ip", "preferred ip", preferredIp)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("preferred endpoint ip is not associated with the RAG"), "badrequest"))
+			return
+		}
+		if net.ParseIP(preferredIp).To4() == nil {
+			preferredIp = fmt.Sprintf("[%s]", preferredIp)
+		}
+	}
+
 	addrString := client.Address
 	if addrString != "" {
 		addrString += "/32"
@@ -215,12 +233,18 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	if network.DefaultKeepalive != 0 {
 		keepalive = "PersistentKeepalive = " + strconv.Itoa(int(network.DefaultKeepalive))
 	}
+
 	gwendpoint := ""
-	if host.EndpointIP.To4() == nil {
-		gwendpoint = fmt.Sprintf("[%s]:%d", host.EndpointIP.String(), host.ListenPort)
+	if preferredIp == "" {
+		if host.EndpointIP.To4() == nil {
+			gwendpoint = fmt.Sprintf("[%s]:%d", host.EndpointIPv6.String(), host.ListenPort)
+		} else {
+			gwendpoint = fmt.Sprintf("%s:%d", host.EndpointIP.String(), host.ListenPort)
+		}
 	} else {
-		gwendpoint = fmt.Sprintf("%s:%d", host.EndpointIP.String(), host.ListenPort)
+		gwendpoint = fmt.Sprintf("%s:%d", preferredIp, host.ListenPort)
 	}
+
 	var newAllowedIPs string
 	if logic.IsInternetGw(gwnode) || gwnode.InternetGwID != "" {
 		egressrange := "0.0.0.0/0"
@@ -605,36 +629,17 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = logic.DeleteExtClient(params["network"], params["clientid"])
+	err = logic.DeleteExtClientAndCleanup(extclient)
 	if err != nil {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("failed to delete extclient [%s],network [%s]: %v", clientid, network, err))
+		slog.Error("deleteExtClient: ", "Error", err.Error())
 		err = errors.New("Could not delete extclient " + params["clientid"])
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-
-	// delete client acls
-	var networkAcls acls.ACLContainer
-	networkAcls, err = networkAcls.Get(acls.ContainerID(network))
-	if err != nil {
-		slog.Error("failed to get network acls", "err", err)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	for objId := range networkAcls {
-		delete(networkAcls[objId], acls.AclID(clientid))
-	}
-	delete(networkAcls, acls.AclID(clientid))
-	if _, err = networkAcls.Save(acls.ContainerID(network)); err != nil {
-		slog.Error("failed to update network acls", "err", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
 	go func() {
 		if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
-			logger.Log(1, "error setting ext peers on "+ingressnode.ID.String()+": "+err.Error())
+			slog.Error("error setting ext peers on " + ingressnode.ID.String() + ": " + err.Error())
 		}
 		if servercfg.IsDNSMode() {
 			logic.SetDNS()

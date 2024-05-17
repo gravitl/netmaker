@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/pro/netcache"
@@ -52,7 +53,7 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 
 	// check if user approval is already pending
 	if logic.IsPendingUser(userClaims.getUserName()) {
-		handleOauthUserNotAllowed(w)
+		handleOauthUserSignUpApprovalPending(w)
 		return
 	}
 	user, err := logic.GetUser(userClaims.getUserName())
@@ -62,7 +63,7 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 		w.Write(response)
 		return
 	}
-	newPass, fetchErr := FetchPassValue("")
+	newPass, fetchErr := auth.FetchPassValue("")
 	if fetchErr != nil {
 		return
 	}

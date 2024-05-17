@@ -12,7 +12,6 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/config"
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/database"
@@ -28,7 +27,7 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-var version = "v0.24.0"
+var version = "v0.24.1"
 
 // Start DB Connection and start API Request Handler
 func main() {
@@ -90,13 +89,6 @@ func initialize() { // Client Mode Prereq Check
 	migrate.Run()
 
 	logic.SetJWTSecret()
-
-	var authProvider = auth.InitializeAuthProvider()
-	if authProvider != "" {
-		logger.Log(0, "OAuth provider,", authProvider+",", "initialized")
-	} else {
-		logger.Log(0, "no OAuth provider found or not configured, continuing without OAuth")
-	}
 
 	err = serverctl.SetDefaults()
 	if err != nil {

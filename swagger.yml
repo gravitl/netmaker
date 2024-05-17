@@ -61,6 +61,9 @@ definitions:
             endpointip:
                 type: string
                 x-go-name: EndpointIP
+            endpointipv6:
+                type: string
+                x-go-name: EndpointIPv6
             firewallinuse:
                 type: string
                 x-go-name: FirewallInUse
@@ -374,6 +377,8 @@ definitions:
                 x-go-name: EgressRanges
             node_addr:
                 $ref: '#/definitions/IPNet'
+            node_addr6:
+                $ref: '#/definitions/IPNet'
         type: object
         x-go-package: github.com/gravitl/netmaker/models
     EnrollmentKey:
@@ -522,6 +527,9 @@ definitions:
             endpointip:
                 type: string
                 x-go-name: EndpointIP
+            endpointipv6:
+                type: string
+                x-go-name: EndpointIPv6
             firewallinuse:
                 type: string
                 x-go-name: FirewallInUse
@@ -1464,7 +1472,7 @@ info:
 
         API calls must be authenticated via a header of the format -H “Authorization: Bearer <YOUR_SECRET_KEY>” There are two methods to obtain YOUR_SECRET_KEY: 1. Using the masterkey. By default, this value is “secret key,” but you should change this on your instance and keep it secure. This value can be set via env var at startup or in a config file (config/environments/< env >.yaml). See the [Netmaker](https://docs.netmaker.org/index.html) documentation for more details. 2. Using a JWT received for a node. This can be retrieved by calling the /api/nodes/<network>/authenticate endpoint, as documented below.
     title: Netmaker
-    version: 0.24.0
+    version: 0.24.1
 paths:
     /api/dns:
         get:

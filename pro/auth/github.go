@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
+	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -58,6 +60,10 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 	var content, err = getGithubUserInfo(rState, rCode)
 	if err != nil {
 		logger.Log(1, "error when getting user info from github:", err.Error())
+		if strings.Contains(err.Error(), "invalid oauth state") {
+			handleOauthNotValid(w)
+			return
+		}
 		handleOauthNotConfigured(w)
 		return
 	}
@@ -96,7 +102,7 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserNotAllowed(w)
 		return
 	}
-	var newPass, fetchErr = FetchPassValue("")
+	var newPass, fetchErr = auth.FetchPassValue("")
 	if fetchErr != nil {
 		return
 	}
@@ -121,7 +127,7 @@ func getGithubUserInfo(state string, code string) (*OAuthUser, error) {
 	if (!isValid || state != oauth_state_string) && !isStateCached(state) {
 		return nil, fmt.Errorf("invalid oauth state")
 	}
-	var token, err = auth_provider.Exchange(context.Background(), code)
+	var token, err = auth_provider.Exchange(context.Background(), code, oauth2.SetAuthURLParam("prompt", "login"))
 	if err != nil {
 		return nil, fmt.Errorf("code exchange failed: %s", err.Error())
 	}

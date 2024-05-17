@@ -6,38 +6,39 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
+	"strings"
 
+	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
+	"golang.org/x/oauth2/microsoft"
 )
 
-var google_functions = map[string]interface{}{
-	init_provider:   initGoogle,
-	get_user_info:   getGoogleUserInfo,
-	handle_callback: handleGoogleCallback,
-	handle_login:    handleGoogleLogin,
-	verify_user:     verifyGoogleUser,
+var azure_ad_functions = map[string]interface{}{
+	init_provider:   initAzureAD,
+	get_user_info:   getAzureUserInfo,
+	handle_callback: handleAzureCallback,
+	handle_login:    handleAzureLogin,
+	verify_user:     verifyAzureUser,
 }
 
-// == handle google authentication here ==
+// == handle azure ad authentication here ==
 
-func initGoogle(redirectURL string, clientID string, clientSecret string) {
+func initAzureAD(redirectURL string, clientID string, clientSecret string) {
 	auth_provider = &oauth2.Config{
 		RedirectURL:  redirectURL,
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
-		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
-		Endpoint:     google.Endpoint,
+		Scopes:       []string{"User.Read"},
+		Endpoint:     microsoft.AzureADEndpoint(servercfg.GetAzureTenant()),
 	}
 }
 
-func handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
+func handleAzureLogin(w http.ResponseWriter, r *http.Request) {
 	var oauth_state_string = logic.RandomString(user_signin_length)
 	if auth_provider == nil {
 		handleOauthNotConfigured(w)
@@ -53,30 +54,33 @@ func handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
-func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
+func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 
 	var rState, rCode = getStateAndCode(r)
-
-	var content, err = getGoogleUserInfo(rState, rCode)
+	var content, err = getAzureUserInfo(rState, rCode)
 	if err != nil {
-		logger.Log(1, "error when getting user info from google:", err.Error())
+		logger.Log(1, "error when getting user info from azure:", err.Error())
+		if strings.Contains(err.Error(), "invalid oauth state") {
+			handleOauthNotValid(w)
+			return
+		}
 		handleOauthNotConfigured(w)
 		return
 	}
-	if !isEmailAllowed(content.Email) {
+	if !isEmailAllowed(content.UserPrincipalName) {
 		handleOauthUserNotAllowedToSignUp(w)
 		return
 	}
 	// check if user approval is already pending
-	if logic.IsPendingUser(content.Email) {
+	if logic.IsPendingUser(content.UserPrincipalName) {
 		handleOauthUserSignUpApprovalPending(w)
 		return
 	}
-	_, err = logic.GetUser(content.Email)
+	_, err = logic.GetUser(content.UserPrincipalName)
 	if err != nil {
 		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
 			err = logic.InsertPendingUser(&models.User{
-				UserName: content.Email,
+				UserName: content.UserPrincipalName,
 			})
 			if err != nil {
 				handleSomethingWentWrong(w)
@@ -89,9 +93,8 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	user, err := logic.GetUser(content.Email)
+	user, err := logic.GetUser(content.UserPrincipalName)
 	if err != nil {
-		logger.Log(0, "error fetching user: ", err.Error())
 		handleOauthUserNotFound(w)
 		return
 	}
@@ -99,13 +102,13 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserNotAllowed(w)
 		return
 	}
-	var newPass, fetchErr = FetchPassValue("")
+	var newPass, fetchErr = auth.FetchPassValue("")
 	if fetchErr != nil {
 		return
 	}
 	// send a netmaker jwt token
 	var authRequest = models.UserAuthParams{
-		UserName: content.Email,
+		UserName: content.UserPrincipalName,
 		Password: newPass,
 	}
 
@@ -115,16 +118,16 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Log(1, "completed google OAuth sigin in for", content.Email)
-	http.Redirect(w, r, fmt.Sprintf("%s/login?login=%s&user=%s", servercfg.GetFrontendURL(), jwt, content.Email), http.StatusPermanentRedirect)
+	logger.Log(1, "completed azure OAuth sigin in for", content.UserPrincipalName)
+	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+content.UserPrincipalName, http.StatusPermanentRedirect)
 }
 
-func getGoogleUserInfo(state string, code string) (*OAuthUser, error) {
+func getAzureUserInfo(state string, code string) (*OAuthUser, error) {
 	oauth_state_string, isValid := logic.IsStateValid(state)
 	if (!isValid || state != oauth_state_string) && !isStateCached(state) {
 		return nil, fmt.Errorf("invalid oauth state")
 	}
-	var token, err = auth_provider.Exchange(context.Background(), code)
+	var token, err = auth_provider.Exchange(context.Background(), code, oauth2.SetAuthURLParam("prompt", "login"))
 	if err != nil {
 		return nil, fmt.Errorf("code exchange failed: %s", err.Error())
 	}
@@ -133,10 +136,12 @@ func getGoogleUserInfo(state string, code string) (*OAuthUser, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert token to json: %s", err.Error())
 	}
-	client := &http.Client{
-		Timeout: time.Second * 30,
+	var httpReq, reqErr = http.NewRequest("GET", "https://graph.microsoft.com/v1.0/me", nil)
+	if reqErr != nil {
+		return nil, fmt.Errorf("failed to create request to GitHub")
 	}
-	response, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
+	httpReq.Header.Set("Authorization", "Bearer "+token.AccessToken)
+	response, err := http.DefaultClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed getting user info: %s", err.Error())
 	}
@@ -153,6 +158,6 @@ func getGoogleUserInfo(state string, code string) (*OAuthUser, error) {
 	return userInfo, nil
 }
 
-func verifyGoogleUser(token *oauth2.Token) bool {
+func verifyAzureUser(token *oauth2.Token) bool {
 	return token.Valid()
 }

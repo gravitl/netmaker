@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"golang.org/x/exp/slog"
 )
 
 // ApiNode is a stripped down Node DTO that exposes only required fields to external systems
@@ -44,6 +45,7 @@ type ApiNode struct {
 	IsInternetGateway bool                `json:"isinternetgateway" yaml:"isinternetgateway"`
 	InetNodeReq       InetNodeReq         `json:"inet_node_req" yaml:"inet_node_req"`
 	InternetGwID      string              `json:"internetgw_node_id" yaml:"internetgw_node_id"`
+	AdditionalRagIps  []string            `json:"additional_rag_ips" yaml:"additional_rag_ips"`
 }
 
 // ApiNode.ConvertToServerNode - converts an api node to a server node
@@ -109,6 +111,14 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.LastPeerUpdate = time.Unix(a.LastPeerUpdate, 0)
 	convertedNode.ExpirationDateTime = time.Unix(a.ExpirationDateTime, 0)
 	convertedNode.Metadata = a.Metadata
+	for _, ip := range a.AdditionalRagIps {
+		ragIp := net.ParseIP(ip)
+		if ragIp == nil {
+			slog.Error("error parsing additional rag ip", "error", err, "ip", ip)
+			return nil
+		}
+		convertedNode.AdditionalRagIps = append(convertedNode.AdditionalRagIps, ragIp)
+	}
 	return &convertedNode
 }
 
@@ -163,6 +173,10 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.FailOverPeers = nm.FailOverPeers
 	apiNode.FailedOverBy = nm.FailedOverBy
 	apiNode.Metadata = nm.Metadata
+	apiNode.AdditionalRagIps = []string{}
+	for _, ip := range nm.AdditionalRagIps {
+		apiNode.AdditionalRagIps = append(apiNode.AdditionalRagIps, ip.String())
+	}
 	return &apiNode
 }
 

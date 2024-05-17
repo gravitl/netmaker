@@ -3,7 +3,6 @@ package auth
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -59,12 +58,12 @@ func SessionHandler(conn *websocket.Conn) {
 		logger.Log(0, "Failed to process sso request -", err.Error())
 		return
 	}
+	defer netcache.Del(stateStr)
 	// Wait for the user to finish his auth flow...
-	timeout := make(chan bool, 1)
+	timeout := make(chan bool, 2)
 	answer := make(chan netcache.CValue, 1)
 	defer close(answer)
 	defer close(timeout)
-
 	if len(registerMessage.User) > 0 { // handle basic auth
 		logger.Log(0, "user registration attempted with host:", registerMessage.RegisterHost.Name, "user:", registerMessage.User)
 
@@ -111,6 +110,10 @@ func SessionHandler(conn *websocket.Conn) {
 		}
 	} else { // handle SSO / OAuth
 		if auth_provider == nil {
+			err = conn.WriteMessage(messageType, []byte("Oauth not configured"))
+			if err != nil {
+				logger.Log(0, "error during message writing:", err.Error())
+			}
 			err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
 				logger.Log(0, "error during message writing:", err.Error())
@@ -118,7 +121,7 @@ func SessionHandler(conn *websocket.Conn) {
 			return
 		}
 		logger.Log(0, "user registration attempted with host:", registerMessage.RegisterHost.Name, "via SSO")
-		redirectUrl = fmt.Sprintf("https://%s/api/oauth/register/%s", servercfg.GetAPIConnString(), stateStr)
+		redirectUrl := fmt.Sprintf("https://%s/api/oauth/register/%s", servercfg.GetAPIConnString(), stateStr)
 		err = conn.WriteMessage(messageType, []byte(redirectUrl))
 		if err != nil {
 			logger.Log(0, "error during message writing:", err.Error())
@@ -127,20 +130,28 @@ func SessionHandler(conn *websocket.Conn) {
 
 	go func() {
 		for {
+			msgType, _, err := conn.ReadMessage()
+			if err != nil || msgType == websocket.CloseMessage {
+				netcache.Del(stateStr)
+				return
+			}
+		}
+	}()
+
+	go func() {
+		for {
 			cachedReq, err := netcache.Get(stateStr)
 			if err != nil {
-				if strings.Contains(err.Error(), "expired") {
-					logger.Log(1, "timeout occurred while waiting for SSO registration")
-					timeout <- true
-					break
-				}
-				continue
+				logger.Log(0, "oauth state has been deleted ", err.Error())
+				timeout <- true
+				break
+
 			} else if len(cachedReq.User) > 0 {
 				logger.Log(0, "host SSO process completed for user", cachedReq.User)
 				answer <- *cachedReq
 				break
 			}
-			time.Sleep(500) // try it 2 times per second to see if auth is completed
+			time.Sleep(time.Second)
 		}
 	}()
 
@@ -217,13 +228,8 @@ func SessionHandler(conn *websocket.Conn) {
 		}
 		go CheckNetRegAndHostUpdate(netsToAdd[:], &result.Host, uuid.Nil)
 	case <-timeout: // the read from req.answerCh has timed out
-		if err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")); err != nil {
-			logger.Log(0, "error during timeout message writing:", err.Error())
-		}
-	}
-	// The entry is not needed anymore, but we will let the producer to close it to avoid panic cases
-	if err = netcache.Del(stateStr); err != nil {
-		logger.Log(0, "failed to remove node SSO cache entry", err.Error())
+		logger.Log(0, "timeout signal recv,exiting oauth socket conn")
+		break
 	}
 	// Cleanly close the connection by sending a close message and then
 	// waiting (with timeout) for the server to close the connection.
