@@ -159,12 +159,12 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("peer not found"), "badrequest"))
 		return
 	}
-	if node.IsRelayed || node.IsFailOver {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node is relayed or acting as failover"), "badrequest"))
+	if node.IsIngressGateway {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node is acting as remote access gw"), "badrequest"))
 		return
 	}
-	if peerNode.IsRelayed || peerNode.IsFailOver {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("peer node is relayed or acting as failover"), "badrequest"))
+	if node.IsRelayed || node.IsFailOver {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node is relayed or acting as failover"), "badrequest"))
 		return
 	}
 	if node.IsRelay {

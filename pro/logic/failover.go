@@ -11,9 +11,7 @@ import (
 )
 
 func SetFailOverCtx(failOverNode, victimNode, peerNode models.Node) error {
-	if victimNode.IsIngressGateway || peerNode.IsIngressGateway || victimNode.IsInternetGateway || peerNode.IsInternetGateway {
-		return nil
-	}
+
 	if peerNode.FailOverPeers == nil {
 		peerNode.FailOverPeers = make(map[string]struct{})
 	}
