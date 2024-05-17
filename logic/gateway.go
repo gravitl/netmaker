@@ -170,6 +170,7 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 		}
 	}
 	node.SetLastModified()
+	node.Metadata = ingress.Metadata
 	if node.Metadata == "" {
 		node.Metadata = "This host can be used for remote access"
 	}
