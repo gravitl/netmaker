@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -102,16 +101,16 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	for _, nodeID := range host.Nodes {
-		node, err := logic.GetNodeByID(nodeID)
-		if err != nil {
-			slog.Error("failed to get node:", "id", node.ID, "error", err)
-			continue
-		}
-		if node.FailedOverBy != uuid.Nil {
-			go logic.ResetFailedOverPeer(&node)
-		}
-	}
+	// for _, nodeID := range host.Nodes {
+	// 	node, err := logic.GetNodeByID(nodeID)
+	// 	if err != nil {
+	// 		slog.Error("failed to get node:", "id", node.ID, "error", err)
+	// 		continue
+	// 	}
+	// 	if node.FailedOverBy != uuid.Nil {
+	// 		go logic.ResetFailedOverPeer(&node)
+	// 	}
+	// }
 	allNodes, err := logic.GetAllNodes()
 	if err != nil {
 		logger.Log(0, "failed to get nodes: ", hostID)
