@@ -25,6 +25,8 @@ const (
 	DELETED_NODES_TABLE_NAME = "deletednodes"
 	// USERS_TABLE_NAME - users table
 	USERS_TABLE_NAME = "users"
+	// USER_PERMISSIONS_TABLE_NAME - user permissions table
+	USER_PERMISSIONS_TABLE_NAME = "user_permissions"
 	// CERTS_TABLE_NAME - certificates table
 	CERTS_TABLE_NAME = "certs"
 	// DNS_TABLE_NAME - dns table
@@ -146,6 +148,7 @@ func createTables() {
 	CreateTable(ENROLLMENT_KEYS_TABLE_NAME)
 	CreateTable(HOST_ACTIONS_TABLE_NAME)
 	CreateTable(PENDING_USERS_TABLE_NAME)
+	CreateTable(USER_PERMISSIONS_TABLE_NAME)
 }
 
 func CreateTable(tableName string) error {
