@@ -35,7 +35,7 @@ spec:
         volumeMounts:
         - mountPath: /etc/netclient
           name: etc-netclient
-        - mountPath: /var/log/netclient.log
+        - mountPath: /var/log
           name: log-netclient
         securityContext:
           privileged: true
@@ -44,7 +44,6 @@ spec:
           path: /etc/netclient
           type: DirectoryOrCreate
         name: etc-netclient
-      - hostPath:
-          path: /var/log/netclient.log
-          type: FileOrCreate
+      - emptyDir:
+          medium: Memory
         name: log-netclient
