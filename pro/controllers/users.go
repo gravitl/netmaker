@@ -214,6 +214,10 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				continue
 			}
+			network, err := logic.GetNetwork(node.Network)
+			if err != nil {
+				slog.Error("failed to get node network", "error", err)
+			}
 
 			if _, ok := user.RemoteGwIDs[node.ID.String()]; (!user.IsAdmin && !user.IsSuperAdmin) && ok {
 				gws := userGws[node.Network]
@@ -229,6 +233,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 					GwListenPort:      logic.GetPeerListenPort(host),
 					Metadata:          node.Metadata,
 					AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
+					NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
 				})
 				userGws[node.Network] = gws
 				delete(user.RemoteGwIDs, node.ID.String())
@@ -246,6 +251,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 					GwListenPort:      logic.GetPeerListenPort(host),
 					Metadata:          node.Metadata,
 					AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
+					NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
 				})
 				userGws[node.Network] = gws
 				processedAdminNodeIds[node.ID.String()] = struct{}{}
@@ -270,6 +276,10 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				continue
 			}
+			network, err := logic.GetNetwork(node.Network)
+			if err != nil {
+				slog.Error("failed to get node network", "error", err)
+			}
 			gws := userGws[node.Network]
 
 			gws = append(gws, models.UserRemoteGws{
@@ -281,6 +291,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 				GwListenPort:      logic.GetPeerListenPort(host),
 				Metadata:          node.Metadata,
 				AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
+				NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
 			})
 			userGws[node.Network] = gws
 		}
@@ -299,6 +310,10 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 					slog.Error("failed to fetch host", "error", err)
 					continue
 				}
+				network, err := logic.GetNetwork(node.Network)
+				if err != nil {
+					slog.Error("failed to get node network", "error", err)
+				}
 				gws := userGws[node.Network]
 
 				gws = append(gws, models.UserRemoteGws{
@@ -310,6 +325,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 					GwListenPort:      logic.GetPeerListenPort(host),
 					Metadata:          node.Metadata,
 					AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
+					NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
 				})
 				userGws[node.Network] = gws
 			}

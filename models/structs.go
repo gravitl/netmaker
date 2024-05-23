@@ -75,6 +75,7 @@ type UserRemoteGws struct {
 	GwListenPort      int       `json:"gw_listen_port"`
 	Metadata          string    `json:"metadata"`
 	AllowedEndpoints  []string  `json:"allowed_endpoints"`
+	NetworkAddresses  []string  `json:"network_addresses"`
 }
 
 // UserRemoteGwsReq - struct to hold user remote acccess gws req
