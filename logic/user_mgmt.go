@@ -40,7 +40,7 @@ var NetworkUserPermissionTemplate = models.UserRolePermissionTemplate{
 	},
 }
 
-func init() {
+func UserRolesInit() {
 	d, _ := json.Marshal(SuperAdminPermissionTemplate)
 	database.Insert(SuperAdminPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
 	d, _ = json.Marshal(AdminPermissionTemplate)
