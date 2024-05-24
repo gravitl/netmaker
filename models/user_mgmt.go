@@ -1,15 +1,23 @@
 package models
 
+import (
+	"time"
+
+	jwt "github.com/golang-jwt/jwt/v4"
+)
+
 type NetworkID string
 type RsrcID string
 type UserRole string
 
 const (
-	HostRsrc           RsrcID = "host"
-	RelayRsrc          RsrcID = "relay"
-	RemoteAccessGwRsrc RsrcID = "remote_access_gw"
-	InetGwRsrc         RsrcID = "inet_gw"
-	EgressGwRsrc       RsrcID = "egress"
+	HostRsrcID           RsrcID = "all_host"
+	RelayRsrcID          RsrcID = "all_relay"
+	RemoteAccessGwRsrcID RsrcID = "all_remote_access_gw"
+	InetGwRsrcID         RsrcID = "all_inet_gw"
+	EgressGwRsrcID       RsrcID = "all_egress"
+	NetworkRsrcID        RsrcID = "all_network"
+	EnrollmentKeysRsrcID RsrcID = "all_enrollment_key"
 )
 
 // Pre-Defined User Roles
@@ -25,7 +33,7 @@ func (r UserRole) String() string {
 	return string(r)
 }
 
-type NetworkRsrcPermissions struct {
+type RsrcPermissions struct {
 	Create bool `json:"create"`
 	Read   bool `json:"read"`
 	Update bool `json:"update"`
@@ -33,19 +41,55 @@ type NetworkRsrcPermissions struct {
 }
 
 type NetworkAccessControls struct {
-	NetworkID                  string                            `json:"network_id"`
-	FullAccess                 bool                              `json:"full_access"`
-	NetworkRsrcPermissionsList map[RsrcID]NetworkRsrcPermissions `json:"network_permissions_list"`
+	NetworkID                  string                     `json:"network_id"`
+	FullAccess                 bool                       `json:"full_access"`
+	NetworkRsrcPermissionsList map[RsrcID]RsrcPermissions `json:"network_permissions_list"`
 }
 
 type DashboardAccessControls struct {
 	FullAccess          bool                                `json:"full_access"`
 	DenyDashboardAccess bool                                `json:"deny_dashboard_access"`
 	NetworkLevelAccess  map[NetworkID]NetworkAccessControls `json:"network_access_controls"`
+	GlobalLevelAccess   map[RsrcID]RsrcPermissions          `json:"global_level_access"`
 }
 
-type UserPermissionTemplate struct {
+type UserRolePermissionTemplate struct {
 	ID            UserRole                `json:"id"`
 	Default       bool                    `json:"default"`
 	DashBoardAcls DashboardAccessControls `json:"dashboard_access_controls"`
+}
+
+// User struct - struct for Users
+type User struct {
+	UserName           string                     `json:"username" bson:"username" validate:"min=3,max=40,in_charset|email"`
+	Password           string                     `json:"password" bson:"password" validate:"required,min=5"`
+	IsAdmin            bool                       `json:"isadmin" bson:"isadmin"`
+	IsSuperAdmin       bool                       `json:"issuperadmin"`
+	RemoteGwIDs        map[string]struct{}        `json:"remote_gw_ids"`
+	GroupID            string                     `json:"group_id"`
+	PermissionTemplate UserRolePermissionTemplate `json:"role_permission_template"`
+	LastLoginTime      time.Time                  `json:"last_login_time"`
+}
+
+// ReturnUser - return user struct
+type ReturnUser struct {
+	UserName      string              `json:"username"`
+	IsAdmin       bool                `json:"isadmin"`
+	IsSuperAdmin  bool                `json:"issuperadmin"`
+	RemoteGwIDs   map[string]struct{} `json:"remote_gw_ids"`
+	LastLoginTime time.Time           `json:"last_login_time"`
+}
+
+// UserAuthParams - user auth params struct
+type UserAuthParams struct {
+	UserName string `json:"username"`
+	Password string `json:"password"`
+}
+
+// UserClaims - user claims struct
+type UserClaims struct {
+	IsAdmin      bool
+	IsSuperAdmin bool
+	UserName     string
+	jwt.RegisteredClaims
 }

@@ -37,6 +37,32 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users_pending/user/{username}", logic.SecurityCheck(true, http.HandlerFunc(deletePendingUser))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/users_pending/user/{username}", logic.SecurityCheck(true, http.HandlerFunc(approvePendingUser))).Methods(http.MethodPost)
 
+	// User Mgmt handlers
+	r.HandleFunc("/api/v1/users/roles", logic.SecurityCheck(true, http.HandlerFunc(getUserRoles))).Methods(http.MethodGet)
+
+}
+
+// swagger:route GET /api/v1/users/roles user getUserRoles
+//
+// Get user role permission templates.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: userBodyResponse
+func getUserRoles(w http.ResponseWriter, r *http.Request) {
+	roles, err := logic.ListRoles()
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
+			Code:    http.StatusInternalServerError,
+			Message: err.Error(),
+		})
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, roles, "successfully fetched user roles permission templates")
 }
 
 // swagger:route POST /api/users/adm/authenticate authenticate authenticateUser
