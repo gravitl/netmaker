@@ -151,6 +151,7 @@ func getGoogleUserInfo(state string, code string) (*OAuthUser, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed reading response body: %s", err.Error())
 	}
+	logger.Log(0, fmt.Sprintf("---------------> USERINFO: %v", string(contents)))
 	var userInfo = &OAuthUser{}
 	if err = json.Unmarshal(contents, userInfo); err != nil {
 		return nil, fmt.Errorf("failed parsing email from response data: %s", err.Error())
