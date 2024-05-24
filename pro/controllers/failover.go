@@ -187,6 +187,22 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to create failover: %v", err), "internal"))
 		return
 	}
+	//relayed is not a single peer in host's peer list,  it's in the relay peer info. So there is no failover me triggered for relayed.
+	//if peerNode is relay, setup the failover flag for each relayed
+	if peerNode.IsRelay {
+		for _, id := range peerNode.RelayedNodes {
+			rNode, err := logic.GetNodeByID(id)
+			if err != nil {
+				slog.Error("failed to load relayed by id", "Eror", id)
+				continue
+			}
+			err = proLogic.SetFailOverCtx(failOverNode, node, rNode)
+			if err != nil {
+				slog.Error("failed to create failover", "id", node.ID.String(),
+					"network", node.Network, "on relayed", id, "error", err)
+			}
+		}
+	}
 	slog.Info("[auto-relay] created relay on node", "node", node.ID.String(), "network", node.Network)
 	sendPeerUpdate = true
 
