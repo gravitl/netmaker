@@ -120,12 +120,93 @@ func DeleteRole(rid models.UserRole) error {
 	}
 	for _, user := range users {
 		if user.GroupID != "" {
-			// TODO - get permission template  of the group
+			ug, err := GetUserGroup(user.GroupID)
+			if err == nil && ug.PermissionTemplate.ID == rid {
+				err = errors.New("role cannot be deleted as active user groups are using this role")
+				return err
+			}
 			continue
 		}
 		if user.PermissionTemplate.ID == rid {
-			errors.New("active roles cannot be deleted.switch existing users to a new role before deleting")
+			err = errors.New("active roles cannot be deleted.switch existing users to a new role before deleting")
+			return err
 		}
 	}
 	return database.DeleteRecord(database.USER_PERMISSIONS_TABLE_NAME, rid.String())
+}
+
+// CreateUserGroup - creates new user group
+func CreateUserGroup(g models.UserGroup) error {
+	// check if role already exists
+	_, err := database.FetchRecord(database.USER_GROUPS_TABLE_NAME, g.ID)
+	if err == nil {
+		return errors.New("group already exists")
+	}
+	d, err := json.Marshal(g)
+	if err != nil {
+		return err
+	}
+	return database.Insert(g.ID, string(d), database.USER_GROUPS_TABLE_NAME)
+}
+
+// GetUserGroup - fetches user group
+func GetUserGroup(gid string) (models.UserGroup, error) {
+	// check if role already exists
+	d, err := database.FetchRecord(database.USER_GROUPS_TABLE_NAME, gid)
+	if err == nil {
+		return models.UserGroup{}, err
+	}
+	var ug models.UserGroup
+	err = json.Unmarshal([]byte(d), &ug)
+	if err != nil {
+		return ug, err
+	}
+	return ug, nil
+}
+
+// ListUserGroups - lists user groups
+func ListUserGroups() ([]models.UserGroup, error) {
+	data, err := database.FetchRecords(database.USER_GROUPS_TABLE_NAME)
+	if err != nil {
+		return []models.UserGroup{}, err
+	}
+	userGroups := []models.UserGroup{}
+	for _, dataI := range data {
+		userGroup := models.UserGroup{}
+		err := json.Unmarshal([]byte(dataI), &userGroup)
+		if err != nil {
+			continue
+		}
+		userGroups = append(userGroups, userGroup)
+	}
+	return userGroups, nil
+}
+
+// UpdateUserGroup - updates new user group
+func UpdateUserGroup(g models.UserGroup) error {
+	// check if group exists
+	_, err := database.FetchRecord(database.USER_GROUPS_TABLE_NAME, g.ID)
+	if err != nil {
+		return err
+	}
+	d, err := json.Marshal(g)
+	if err != nil {
+		return err
+	}
+	return database.Insert(g.ID, string(d), database.USER_GROUPS_TABLE_NAME)
+}
+
+// DeleteUserGroup - deletes user group
+func DeleteUserGroup(gid string) error {
+	users, err := GetUsersDB()
+	if err != nil {
+		return err
+	}
+	for _, user := range users {
+		if user.GroupID == gid {
+			err = errors.New("role cannot be deleted as active user groups are using this role")
+			return err
+		}
+	}
+	return database.DeleteRecord(database.USER_GROUPS_TABLE_NAME, gid)
 }

@@ -59,6 +59,12 @@ type UserRolePermissionTemplate struct {
 	DashBoardAcls DashboardAccessControls `json:"dashboard_access_controls"`
 }
 
+type UserGroup struct {
+	ID                 string                     `json:"id"`
+	PermissionTemplate UserRolePermissionTemplate `json:"role_permission_template"`
+	MetaData           string                     `json:"meta_data"`
+}
+
 // User struct - struct for Users
 type User struct {
 	UserName           string                     `json:"username" bson:"username" validate:"min=3,max=40,in_charset|email"`
