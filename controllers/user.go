@@ -37,12 +37,16 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users_pending/user/{username}", logic.SecurityCheck(true, http.HandlerFunc(deletePendingUser))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/users_pending/user/{username}", logic.SecurityCheck(true, http.HandlerFunc(approvePendingUser))).Methods(http.MethodPost)
 
-	// User Mgmt handlers
-	r.HandleFunc("/api/v1/users/roles", logic.SecurityCheck(true, http.HandlerFunc(getUserRoles))).Methods(http.MethodGet)
+	// User Role handlers
+	r.HandleFunc("/api/v1/users/roles", logic.SecurityCheck(true, http.HandlerFunc(listRoles))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/role", logic.SecurityCheck(true, http.HandlerFunc(createRole))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/users/role", logic.SecurityCheck(true, http.HandlerFunc(updateRole))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/users/role", logic.SecurityCheck(true, http.HandlerFunc(deleteRole))).Methods(http.MethodDelete)
 
+	// User Group Handlers
 }
 
-// swagger:route GET /api/v1/users/roles user getUserRoles
+// swagger:route GET /api/v1/users/roles user listRoles
 //
 // Get user role permission templates.
 //
@@ -53,7 +57,7 @@ func userHandlers(r *mux.Router) {
 //
 //			Responses:
 //				200: userBodyResponse
-func getUserRoles(w http.ResponseWriter, r *http.Request) {
+func listRoles(w http.ResponseWriter, r *http.Request) {
 	roles, err := logic.ListRoles()
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
@@ -63,6 +67,89 @@ func getUserRoles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.ReturnSuccessResponseWithJson(w, r, roles, "successfully fetched user roles permission templates")
+}
+
+// swagger:route POST /api/v1/users/role user createRole
+//
+// Create user role permission template.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: userBodyResponse
+func createRole(w http.ResponseWriter, r *http.Request) {
+	var userRole models.UserRolePermissionTemplate
+	err := json.NewDecoder(r.Body).Decode(&userRole)
+	if err != nil {
+		slog.Error("error decoding request body", "error",
+			err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	err = logic.CreateRole(userRole)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, userRole, "created user role")
+}
+
+// swagger:route PUT /api/v1/users/role user updateRole
+//
+// Update user role permission template.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: userBodyResponse
+func updateRole(w http.ResponseWriter, r *http.Request) {
+	var userRole models.UserRolePermissionTemplate
+	err := json.NewDecoder(r.Body).Decode(&userRole)
+	if err != nil {
+		slog.Error("error decoding request body", "error",
+			err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	err = logic.UpdateRole(userRole)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, userRole, "updated user role")
+}
+
+// swagger:route DELETE /api/v1/users/role user deleteRole
+//
+// Delete user role permission template.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: userBodyResponse
+func deleteRole(w http.ResponseWriter, r *http.Request) {
+	var userRole models.UserRolePermissionTemplate
+	var params = mux.Vars(r)
+	rid := params["role_id"]
+	if rid == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
+		return
+	}
+	err := logic.DeleteRole(models.UserRole(rid))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, userRole, "created user role")
 }
 
 // swagger:route POST /api/users/adm/authenticate authenticate authenticateUser
