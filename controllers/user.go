@@ -50,6 +50,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/user/group", logic.SecurityCheck(true, http.HandlerFunc(createUserGroup))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/user/group", logic.SecurityCheck(true, http.HandlerFunc(updateUserGroup))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/user/group", logic.SecurityCheck(true, http.HandlerFunc(deleteUserGroup))).Methods(http.MethodDelete)
+
 }
 
 // swagger:route GET /api/v1/user/groups user listUserGroups

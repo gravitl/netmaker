@@ -73,6 +73,9 @@ func ListRoles() ([]models.UserRolePermissionTemplate, error) {
 // CreateRole - inserts new role into DB
 func CreateRole(r models.UserRolePermissionTemplate) error {
 	// check if role already exists
+	if r.ID.String() == "" {
+		return errors.New("role id cannot be empty")
+	}
 	_, err := database.FetchRecord(database.USER_PERMISSIONS_TABLE_NAME, r.ID.String())
 	if err == nil {
 		return errors.New("role already exists")
@@ -101,6 +104,9 @@ func GetRole(roleID string) (models.UserRolePermissionTemplate, error) {
 
 // UpdateRole - updates role template
 func UpdateRole(r models.UserRolePermissionTemplate) error {
+	if r.ID.String() == "" {
+		return errors.New("role id cannot be empty")
+	}
 	_, err := database.FetchRecord(database.USER_PERMISSIONS_TABLE_NAME, r.ID.String())
 	if err != nil {
 		return err
@@ -114,6 +120,9 @@ func UpdateRole(r models.UserRolePermissionTemplate) error {
 
 // DeleteRole - deletes user role
 func DeleteRole(rid models.UserRole) error {
+	if rid.String() == "" {
+		return errors.New("role id cannot be empty")
+	}
 	users, err := GetUsersDB()
 	if err != nil {
 		return err
@@ -138,6 +147,9 @@ func DeleteRole(rid models.UserRole) error {
 // CreateUserGroup - creates new user group
 func CreateUserGroup(g models.UserGroup) error {
 	// check if role already exists
+	if g.ID == "" {
+		return errors.New("group id cannot be empty")
+	}
 	_, err := database.FetchRecord(database.USER_GROUPS_TABLE_NAME, g.ID)
 	if err == nil {
 		return errors.New("group already exists")
@@ -151,7 +163,6 @@ func CreateUserGroup(g models.UserGroup) error {
 
 // GetUserGroup - fetches user group
 func GetUserGroup(gid string) (models.UserGroup, error) {
-	// check if role already exists
 	d, err := database.FetchRecord(database.USER_GROUPS_TABLE_NAME, gid)
 	if err == nil {
 		return models.UserGroup{}, err
@@ -185,6 +196,9 @@ func ListUserGroups() ([]models.UserGroup, error) {
 // UpdateUserGroup - updates new user group
 func UpdateUserGroup(g models.UserGroup) error {
 	// check if group exists
+	if g.ID == "" {
+		return errors.New("group id cannot be empty")
+	}
 	_, err := database.FetchRecord(database.USER_GROUPS_TABLE_NAME, g.ID)
 	if err != nil {
 		return err
