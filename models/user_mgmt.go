@@ -18,6 +18,7 @@ const (
 	EgressGwRsrcID       RsrcID = "all_egress"
 	NetworkRsrcID        RsrcID = "all_network"
 	EnrollmentKeysRsrcID RsrcID = "all_enrollment_key"
+	UserRsrcID           RsrcID = "all_user"
 )
 
 // Pre-Defined User Roles
