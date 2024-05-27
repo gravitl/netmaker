@@ -34,7 +34,7 @@ func initGoogle(redirectURL string, clientID string, clientSecret string) {
 		RedirectURL:  redirectURL,
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
-		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/admin.directory.group.readonly"},
+		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/groups"},
 		Endpoint:     google.Endpoint,
 	}
 }
