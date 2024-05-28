@@ -569,7 +569,7 @@ func (n *Node) Legacy(h *Host, s *ServerConfig, net *Network) *LegacyNode {
 	//l.FailoverNode = n.FailoverNode
 	//l.IngressGatewayRange = n.IngressGatewayRange
 	//l.IngressGatewayRange6 = n.IngressGatewayRange6
-	l.IsStatic = formatBool(h.IsStatic)
+	l.IsStatic = formatBool(h.IsStaticPort)
 	l.UDPHolePunch = formatBool(true)
 	l.DNSOn = formatBool(n.DNSOn)
 	l.Action = n.Action

@@ -249,9 +249,10 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
 				peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
 				hostPeerUpdate.HostNetworkInfo[peerHost.PublicKey.String()] = models.HostNetworkInfo{
-					Interfaces: peerHost.Interfaces,
-					ListenPort: peerHost.ListenPort,
-					IsStatic:   peerHost.IsStatic,
+					Interfaces:       peerHost.Interfaces,
+					ListenPort:       peerHost.ListenPort,
+					IsStaticPort:     peerHost.IsStaticPort,
+					IsStaticEndpoint: peerHost.IsStaticEndpoint,
 				}
 				nodePeer = peerConfig
 			} else {
@@ -260,9 +261,10 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].AllowedIPs = peerAllowedIPs
 				hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].Remove = false
 				hostPeerUpdate.HostNetworkInfo[peerHost.PublicKey.String()] = models.HostNetworkInfo{
-					Interfaces: peerHost.Interfaces,
-					ListenPort: peerHost.ListenPort,
-					IsStatic:   peerHost.IsStatic,
+					Interfaces:       peerHost.Interfaces,
+					ListenPort:       peerHost.ListenPort,
+					IsStaticPort:     peerHost.IsStaticPort,
+					IsStaticEndpoint: peerHost.IsStaticEndpoint,
 				}
 				nodePeer = hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]]
 			}

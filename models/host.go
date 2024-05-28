@@ -66,7 +66,8 @@ type Host struct {
 	EndpointIPv6        net.IP           `json:"endpointipv6"            yaml:"endpointipv6"`
 	IsDocker            bool             `json:"isdocker"                yaml:"isdocker"`
 	IsK8S               bool             `json:"isk8s"                   yaml:"isk8s"`
-	IsStatic            bool             `json:"isstatic"                yaml:"isstatic"`
+	IsStaticPort        bool             `json:"isstaticport"            yaml:"isstaticport"`
+	IsStaticEndpoint    bool             `json:"isstaticendpoint"        yaml:"isstaticendpoint"`
 	IsDefault           bool             `json:"isdefault"               yaml:"isdefault"`
 	NatType             string           `json:"nat_type,omitempty"      yaml:"nat_type,omitempty"`
 	TurnEndpoint        *netip.AddrPort  `json:"turn_endpoint,omitempty" yaml:"turn_endpoint,omitempty"`

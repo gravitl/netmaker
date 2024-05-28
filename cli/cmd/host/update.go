@@ -12,15 +12,16 @@ import (
 )
 
 var (
-	apiHostFilePath string
-	endpoint        string
-	endpoint6       string
-	name            string
-	listenPort      int
-	mtu             int
-	isStatic        bool
-	isDefault       bool
-	keepAlive       int
+	apiHostFilePath  string
+	endpoint         string
+	endpoint6        string
+	name             string
+	listenPort       int
+	mtu              int
+	isStaticPort     bool
+	isStaticEndpoint bool
+	isDefault        bool
+	keepAlive        int
 )
 
 var hostUpdateCmd = &cobra.Command{
@@ -45,7 +46,8 @@ var hostUpdateCmd = &cobra.Command{
 			apiHost.Name = name
 			apiHost.ListenPort = listenPort
 			apiHost.MTU = mtu
-			apiHost.IsStatic = isStatic
+			apiHost.IsStaticPort = isStaticPort
+			apiHost.IsStaticEndpoint = isStaticEndpoint
 			apiHost.IsDefault = isDefault
 			apiHost.PersistentKeepalive = keepAlive
 		}
@@ -61,7 +63,8 @@ func init() {
 	hostUpdateCmd.Flags().IntVar(&listenPort, "listen_port", 0, "Listen port of the host")
 	hostUpdateCmd.Flags().IntVar(&mtu, "mtu", 0, "Host MTU size")
 	hostUpdateCmd.Flags().IntVar(&keepAlive, "keep_alive", 0, "Interval (seconds) in which packets are sent to keep connections open with peers")
-	hostUpdateCmd.Flags().BoolVar(&isStatic, "static", false, "Make Host Static ?")
+	hostUpdateCmd.Flags().BoolVar(&isStaticPort, "static_port", false, "Make Host Static Port?")
+	hostUpdateCmd.Flags().BoolVar(&isStaticEndpoint, "static_endpoint", false, "Make Host Static Endpoint?")
 	hostUpdateCmd.Flags().BoolVar(&isDefault, "default", false, "Make Host Default ?")
 	rootCmd.AddCommand(hostUpdateCmd)
 }

@@ -42,9 +42,10 @@ type HostInfoMap map[string]HostNetworkInfo
 
 // HostNetworkInfo - holds info related to host networking (used for client side peer calculations)
 type HostNetworkInfo struct {
-	Interfaces []Iface `json:"interfaces" yaml:"interfaces"`
-	ListenPort int     `json:"listen_port" yaml:"listen_port"`
-	IsStatic   bool    `json:"is_static"`
+	Interfaces       []Iface `json:"interfaces" yaml:"interfaces"`
+	ListenPort       int     `json:"listen_port" yaml:"listen_port"`
+	IsStaticPort     bool    `json:"is_static_port"`
+	IsStaticEndpoint bool    `json:"is_static_endpoint"`
 }
 
 // PeerMap - peer map for ids and addresses in metrics
