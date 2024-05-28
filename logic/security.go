@@ -24,15 +24,18 @@ func networkPermissionsCheck(username string, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	if user.PermissionTemplate.ID == models.SuperAdminRole {
+	if user.PermissionTemplate.DashBoardAcls.FullAccess {
 		return nil
 	}
 	// get info from header to determine the target rsrc
 	targetRsrc := r.Header.Get("TARGET_RSRC")
 	targetRsrcID := r.Header.Get("TARGET_RSRC_ID")
 	netID := r.Header.Get("NET_ID")
-	if targetRsrc == "" || targetRsrcID == "" {
-		return errors.New("target rsrc or rsrc id is missing")
+	if targetRsrc == "" {
+		return errors.New("target rsrc is missing")
+	}
+	if netID == "" {
+		return errors.New("network id is missing")
 	}
 	if r.Method == "" {
 		r.Method = http.MethodGet
@@ -54,6 +57,9 @@ func networkPermissionsCheck(username string, r *http.Request) error {
 		return checkPermissionScopeWithReqMethod(allRsrcsTypePermissionScope, r.Method)
 
 	}
+	if targetRsrcID == "" {
+		return errors.New("target rsrc is missing")
+	}
 	if scope, ok := rsrcPermissionScope[models.RsrcID(targetRsrcID)]; ok {
 		return checkPermissionScopeWithReqMethod(scope, r.Method)
 	}
@@ -65,13 +71,13 @@ func globalPermissionsCheck(username string, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	if user.PermissionTemplate.ID == models.SuperAdminRole {
+	if user.PermissionTemplate.DashBoardAcls.FullAccess {
 		return nil
 	}
 	targetRsrc := r.Header.Get("TARGET_RSRC")
 	targetRsrcID := r.Header.Get("TARGET_RSRC_ID")
-	if targetRsrc == "" || targetRsrcID == "" {
-		return errors.New("target rsrc or rsrc id is missing")
+	if targetRsrc == "" {
+		return errors.New("target rsrc is missing")
 	}
 	if r.Method == "" {
 		r.Method = http.MethodGet
@@ -86,6 +92,9 @@ func globalPermissionsCheck(username string, r *http.Request) error {
 	if allRsrcsTypePermissionScope, ok := rsrcPermissionScope[models.RsrcID(fmt.Sprintf("all_%s", targetRsrc))]; ok {
 		return checkPermissionScopeWithReqMethod(allRsrcsTypePermissionScope, r.Method)
 
+	}
+	if targetRsrcID == "" {
+		return errors.New("target rsrc id is missing")
 	}
 	if scope, ok := rsrcPermissionScope[models.RsrcID(targetRsrcID)]; ok {
 		return checkPermissionScopeWithReqMethod(scope, r.Method)
