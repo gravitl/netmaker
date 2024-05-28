@@ -19,13 +19,17 @@ const (
 	Unauthorized_Err = models.Error(Unauthorized_Msg)
 )
 
-func networkPermissionsCheck(user models.User, r *http.Request) error {
+func networkPermissionsCheck(username string, r *http.Request) error {
 	// get info from header to determine the target rsrc
 	targetRsrc := r.Header.Get("TARGET_RSRC")
 	targetRsrcID := r.Header.Get("TARGET_RSRC_ID")
 	netID := r.Header.Get("NET_ID")
 	if targetRsrc == "" || targetRsrcID == "" {
 		return errors.New("target rsrc or rsrc id is missing")
+	}
+	user, err := GetUser(username)
+	if err != nil {
+		return err
 	}
 	if r.Method == "" {
 		r.Method = http.MethodGet
@@ -53,11 +57,15 @@ func networkPermissionsCheck(user models.User, r *http.Request) error {
 	return errors.New("access denied")
 }
 
-func globalPermissionsCheck(user models.User, r *http.Request) error {
+func globalPermissionsCheck(username string, r *http.Request) error {
 	targetRsrc := r.Header.Get("TARGET_RSRC")
 	targetRsrcID := r.Header.Get("TARGET_RSRC_ID")
 	if targetRsrc == "" || targetRsrcID == "" {
 		return errors.New("target rsrc or rsrc id is missing")
+	}
+	user, err := GetUser(username)
+	if err != nil {
+		return err
 	}
 	if r.Method == "" {
 		r.Method = http.MethodGet
@@ -101,6 +109,7 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		r.Header.Set("ismaster", "no")
 		bearerToken := r.Header.Get("Authorization")
+		isGlobalAccesss := r.Header.Get("IS_GLOBAL_ACCESS") == "yes"
 		username, err := UserPermissions(reqAdmin, bearerToken)
 		if err != nil {
 			ReturnErrorResponse(w, r, FormatError(err, err.Error()))
@@ -109,6 +118,12 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 		// detect masteradmin
 		if username == MasterUser {
 			r.Header.Set("ismaster", "yes")
+		} else {
+			if isGlobalAccesss {
+				globalPermissionsCheck(username, r)
+			} else {
+				networkPermissionsCheck(username, r)
+			}
 		}
 		r.Header.Set("user", username)
 		next.ServeHTTP(w, r)
