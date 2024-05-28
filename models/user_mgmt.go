@@ -7,18 +7,31 @@ import (
 )
 
 type NetworkID string
+type RsrcType string
 type RsrcID string
 type UserRole string
 
 const (
-	HostRsrcID           RsrcID = "all_host"
-	RelayRsrcID          RsrcID = "all_relay"
-	RemoteAccessGwRsrcID RsrcID = "all_remote_access_gw"
-	InetGwRsrcID         RsrcID = "all_inet_gw"
-	EgressGwRsrcID       RsrcID = "all_egress"
-	NetworkRsrcID        RsrcID = "all_network"
-	EnrollmentKeysRsrcID RsrcID = "all_enrollment_key"
-	UserRsrcID           RsrcID = "all_user"
+	HostRsrc           RsrcType = "host"
+	RelayRsrc          RsrcType = "relay"
+	RemoteAccessGwRsrc RsrcType = "remote_access_gw"
+	InetGwRsrc         RsrcType = "inet_gw"
+	EgressGwRsrc       RsrcType = "egress"
+	NetworkRsrc        RsrcType = "networks"
+	EnrollmentKeysRsrc RsrcType = "enrollment_key"
+	UserRsrc           RsrcType = "user"
+	AclRsrc            RsrcType = "acl"
+)
+
+const (
+	AllHostRsrcID           RsrcID = "all_host"
+	AllRelayRsrcID          RsrcID = "all_relay"
+	AllRemoteAccessGwRsrcID RsrcID = "all_remote_access_gw"
+	AllInetGwRsrcID         RsrcID = "all_inet_gw"
+	AllEgressGwRsrcID       RsrcID = "all_egress"
+	AllNetworkRsrcID        RsrcID = "all_network"
+	AllEnrollmentKeysRsrcID RsrcID = "all_enrollment_key"
+	AllUserRsrcID           RsrcID = "all_user"
 )
 
 // Pre-Defined User Roles
@@ -34,7 +47,7 @@ func (r UserRole) String() string {
 	return string(r)
 }
 
-type RsrcPermissions struct {
+type RsrcPermissionScope struct {
 	Create bool `json:"create"`
 	Read   bool `json:"read"`
 	Update bool `json:"update"`
@@ -42,16 +55,16 @@ type RsrcPermissions struct {
 }
 
 type NetworkAccessControls struct {
-	NetworkID                  string                     `json:"network_id"`
-	FullAccess                 bool                       `json:"full_access"`
-	NetworkRsrcPermissionsList map[RsrcID]RsrcPermissions `json:"network_permissions_list"`
+	NetworkID                   string                                      `json:"network_id"`
+	FullAccess                  bool                                        `json:"full_access"`
+	NetworkRsrcPermissionsScope map[RsrcType]map[RsrcID]RsrcPermissionScope `json:"network_permissions_list"`
 }
 
 type DashboardAccessControls struct {
-	FullAccess          bool                                `json:"full_access"`
-	DenyDashboardAccess bool                                `json:"deny_dashboard_access"`
-	NetworkLevelAccess  map[NetworkID]NetworkAccessControls `json:"network_access_controls"`
-	GlobalLevelAccess   map[RsrcID]RsrcPermissions          `json:"global_level_access"`
+	FullAccess          bool                                        `json:"full_access"`
+	DenyDashboardAccess bool                                        `json:"deny_dashboard_access"`
+	NetworkLevelAccess  map[NetworkID]NetworkAccessControls         `json:"network_access_controls"`
+	GlobalLevelAccess   map[RsrcType]map[RsrcID]RsrcPermissionScope `json:"global_level_access"`
 }
 
 type UserRolePermissionTemplate struct {

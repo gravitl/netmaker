@@ -40,7 +40,6 @@ func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context) {
 	defer wg.Done()
 
 	r := mux.NewRouter()
-
 	// Currently allowed dev origin is all. Should change in prod
 	// should consider analyzing the allowed methods further
 	headersOk := handlers.AllowedHeaders([]string{"Access-Control-Allow-Origin", "X-Requested-With", "Content-Type", "authorization", "From-Ui"})

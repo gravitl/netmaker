@@ -1,6 +1,8 @@
 package logic
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -16,6 +18,82 @@ const (
 	Unauthorized_Msg = "unauthorized"
 	Unauthorized_Err = models.Error(Unauthorized_Msg)
 )
+
+func networkPermissionsCheck(user models.User, r *http.Request) error {
+	// get info from header to determine the target rsrc
+	targetRsrc := r.Header.Get("TARGET_RSRC")
+	targetRsrcID := r.Header.Get("TARGET_RSRC_ID")
+	netID := r.Header.Get("NET_ID")
+	if targetRsrc == "" || targetRsrcID == "" {
+		return errors.New("target rsrc or rsrc id is missing")
+	}
+	if r.Method == "" {
+		r.Method = http.MethodGet
+	}
+	// check if user has scope for target resource
+	// TODO - differentitate between global scope and network scope apis
+	networkPermissionScope, ok := user.PermissionTemplate.DashBoardAcls.NetworkLevelAccess[models.NetworkID(netID)]
+	if !ok {
+		return errors.New("access denied")
+	}
+	if networkPermissionScope.FullAccess {
+		return nil
+	}
+	rsrcPermissionScope, ok := networkPermissionScope.NetworkRsrcPermissionsScope[models.RsrcType(targetRsrc)]
+	if !ok {
+		return fmt.Errorf("access denied to %s rsrc", targetRsrc)
+	}
+	if allRsrcsTypePermissionScope, ok := rsrcPermissionScope[models.RsrcID(fmt.Sprintf("all_%s", targetRsrc))]; ok {
+		return checkPermissionScopeWithReqMethod(allRsrcsTypePermissionScope, r.Method)
+
+	}
+	if scope, ok := rsrcPermissionScope[models.RsrcID(targetRsrcID)]; ok {
+		return checkPermissionScopeWithReqMethod(scope, r.Method)
+	}
+	return errors.New("access denied")
+}
+
+func globalPermissionsCheck(user models.User, r *http.Request) error {
+	targetRsrc := r.Header.Get("TARGET_RSRC")
+	targetRsrcID := r.Header.Get("TARGET_RSRC_ID")
+	if targetRsrc == "" || targetRsrcID == "" {
+		return errors.New("target rsrc or rsrc id is missing")
+	}
+	if r.Method == "" {
+		r.Method = http.MethodGet
+	}
+	if user.PermissionTemplate.DashBoardAcls.FullAccess {
+		return nil
+	}
+	rsrcPermissionScope, ok := user.PermissionTemplate.DashBoardAcls.GlobalLevelAccess[models.RsrcType(targetRsrc)]
+	if !ok {
+		return fmt.Errorf("access denied to %s rsrc", targetRsrc)
+	}
+	if allRsrcsTypePermissionScope, ok := rsrcPermissionScope[models.RsrcID(fmt.Sprintf("all_%s", targetRsrc))]; ok {
+		return checkPermissionScopeWithReqMethod(allRsrcsTypePermissionScope, r.Method)
+
+	}
+	if scope, ok := rsrcPermissionScope[models.RsrcID(targetRsrcID)]; ok {
+		return checkPermissionScopeWithReqMethod(scope, r.Method)
+	}
+	return errors.New("access denied")
+}
+
+func checkPermissionScopeWithReqMethod(scope models.RsrcPermissionScope, reqmethod string) error {
+	if reqmethod == http.MethodGet && scope.Read {
+		return nil
+	}
+	if (reqmethod == http.MethodPatch || reqmethod == http.MethodPut) && scope.Update {
+		return nil
+	}
+	if reqmethod == http.MethodDelete && scope.Delete {
+		return nil
+	}
+	if reqmethod == http.MethodPost && scope.Create {
+		return nil
+	}
+	return errors.New("operation not permitted")
+}
 
 // SecurityCheck - Check if user has appropriate permissions
 func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {

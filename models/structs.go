@@ -345,3 +345,8 @@ const (
 type GetClientConfReqDto struct {
 	PreferredIp string `json:"preferred_ip"`
 }
+
+type RsrcURLInfo struct {
+	Method string
+	Path   string
+}
