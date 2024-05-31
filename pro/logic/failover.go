@@ -5,6 +5,7 @@ import (
 	"net"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"golang.org/x/exp/slog"
@@ -143,6 +144,16 @@ func GetFailOverPeerIps(peer, node *models.Node) []net.IPNet {
 					if rNode.IsEgressGateway {
 						allowedips = append(allowedips, logic.GetEgressIPs(&rNode)...)
 					}
+				}
+			}
+			// handle ingress gateway peers
+			if failOverpeer.IsIngressGateway {
+				extPeers, _, _, err := logic.GetExtPeers(&failOverpeer, node)
+				if err != nil {
+					logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
+				}
+				for _, extPeer := range extPeers {
+					allowedips = append(allowedips, extPeer.AllowedIPs...)
 				}
 			}
 		}
