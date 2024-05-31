@@ -140,6 +140,9 @@ func GetFailOverPeerIps(peer, node *models.Node) []net.IPNet {
 						}
 						allowedips = append(allowedips, allowed)
 					}
+					if rNode.IsEgressGateway {
+						allowedips = append(allowedips, logic.GetEgressIPs(&rNode)...)
+					}
 				}
 			}
 		}
