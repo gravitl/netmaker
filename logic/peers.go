@@ -181,7 +181,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				})
 			}
 			if peer.IsIngressGateway {
-				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, getExtpeersExtraRoutes(peer.Network)...)
+				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, getExtpeersExtraRoutes(node, peer.Network)...)
 			}
 			_, isFailOverPeer := node.FailOverPeers[peer.ID.String()]
 			if servercfg.IsPro {
