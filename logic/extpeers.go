@@ -71,7 +71,7 @@ func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 	}
 	extclients := GetGwExtclients(client.IngressGatewayID, client.Network)
 	for _, extclient := range extclients {
-		if extclient.ClientID == client.ClientID {
+		if extclient.ClientID != client.ClientID {
 			continue
 		}
 		result = append(result, extclient.ExtraAllowedIPs...)
