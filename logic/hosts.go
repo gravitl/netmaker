@@ -396,20 +396,13 @@ func DissasociateNodeFromHost(n *models.Node, h *models.Host) error {
 	if len(h.Nodes) == 0 {
 		return fmt.Errorf("no nodes present in given host")
 	}
-	index := -1
+	nList := []string{}
 	for i := range h.Nodes {
-		if h.Nodes[i] == n.ID.String() {
-			index = i
-			break
+		if h.Nodes[i] != n.ID.String() {
+			nList = append(nList, h.Nodes[i])
 		}
 	}
-	if index < 0 {
-		if len(h.Nodes) == 0 {
-			return fmt.Errorf("node %s, not found in host, %s", n.ID.String(), h.ID.String())
-		}
-	} else {
-		h.Nodes = RemoveStringSlice(h.Nodes, index)
-	}
+	h.Nodes = nList
 	go func() {
 		if servercfg.IsPro {
 			if clients, err := GetNetworkExtClients(n.Network); err != nil {
@@ -434,7 +427,7 @@ func DisassociateAllNodesFromHost(hostID string) error {
 	for _, nodeID := range host.Nodes {
 		node, err := GetNodeByID(nodeID)
 		if err != nil {
-			logger.Log(0, "failed to get host node", err.Error())
+			logger.Log(0, "failed to get host node, node id:", nodeID, err.Error())
 			continue
 		}
 		if err := DeleteNode(&node, true); err != nil {
