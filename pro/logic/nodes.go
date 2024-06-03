@@ -107,9 +107,13 @@ func UnsetInternetGw(node *models.Node) {
 
 func SetDefaultGwForRelayedUpdate(relayed, relay models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
 	if relay.InternetGwID != "" {
+		relayedHost, err := logic.GetHost(relayed.HostID.String())
+		if err != nil {
+			return peerUpdate
+		}
 		peerUpdate.ChangeDefaultGw = true
 		peerUpdate.DefaultGwIp = relay.Address.IP
-		if peerUpdate.DefaultGwIp == nil {
+		if peerUpdate.DefaultGwIp == nil || relayedHost.EndpointIP == nil {
 			peerUpdate.DefaultGwIp = relay.Address6.IP
 		}
 
@@ -124,9 +128,14 @@ func SetDefaultGw(node models.Node, peerUpdate models.HostPeerUpdate) models.Hos
 		if err != nil {
 			return peerUpdate
 		}
+		host, err := logic.GetHost(node.HostID.String())
+		if err != nil {
+			return peerUpdate
+		}
+
 		peerUpdate.ChangeDefaultGw = true
 		peerUpdate.DefaultGwIp = inetNode.Address.IP
-		if peerUpdate.DefaultGwIp == nil {
+		if peerUpdate.DefaultGwIp == nil || host.EndpointIP == nil {
 			peerUpdate.DefaultGwIp = inetNode.Address6.IP
 		}
 	}
@@ -155,7 +164,6 @@ func GetAllowedIpForInetNodeClient(node, peer *models.Node) []net.IPNet {
 	if peer.Address.IP != nil {
 		_, ipnet, _ := net.ParseCIDR(IPv4Network)
 		allowedips = append(allowedips, *ipnet)
-		return allowedips
 	}
 
 	if peer.Address6.IP != nil {
