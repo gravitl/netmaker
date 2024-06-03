@@ -5,6 +5,7 @@ import (
 	"net"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"golang.org/x/exp/slog"
@@ -123,7 +124,38 @@ func GetFailOverPeerIps(peer, node *models.Node) []net.IPNet {
 			if failOverpeer.IsEgressGateway {
 				allowedips = append(allowedips, logic.GetEgressIPs(&failOverpeer)...)
 			}
-
+			if failOverpeer.IsRelay {
+				for _, id := range failOverpeer.RelayedNodes {
+					rNode, _ := logic.GetNodeByID(id)
+					if rNode.Address.IP != nil {
+						allowed := net.IPNet{
+							IP:   rNode.Address.IP,
+							Mask: net.CIDRMask(32, 32),
+						}
+						allowedips = append(allowedips, allowed)
+					}
+					if rNode.Address6.IP != nil {
+						allowed := net.IPNet{
+							IP:   rNode.Address6.IP,
+							Mask: net.CIDRMask(128, 128),
+						}
+						allowedips = append(allowedips, allowed)
+					}
+					if rNode.IsEgressGateway {
+						allowedips = append(allowedips, logic.GetEgressIPs(&rNode)...)
+					}
+				}
+			}
+			// handle ingress gateway peers
+			if failOverpeer.IsIngressGateway {
+				extPeers, _, _, err := logic.GetExtPeers(&failOverpeer, node)
+				if err != nil {
+					logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
+				}
+				for _, extPeer := range extPeers {
+					allowedips = append(allowedips, extPeer.AllowedIPs...)
+				}
+			}
 		}
 	}
 	return allowedips
