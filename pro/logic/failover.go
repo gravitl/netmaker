@@ -170,10 +170,10 @@ func CreateFailOver(node models.Node) error {
 		return err
 	}
 	if host.OS != models.OS_Types.Linux {
-		return err
+		return errors.New("only linux nodes are allowed to be set as failover")
 	}
 	if node.IsRelayed {
-		return err
+		return errors.New("relayed node cannot be set as failover")
 	}
 	node.IsFailOver = true
 	err = logic.UpsertNode(&node)
