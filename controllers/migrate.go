@@ -151,7 +151,7 @@ func convertLegacyHostNode(legacy models.LegacyNode) (models.Host, models.Node) 
 	host.IsDocker = models.ParseBool(legacy.IsDocker)
 	host.IsK8S = models.ParseBool(legacy.IsK8S)
 	host.IsStaticPort = models.ParseBool(legacy.IsStatic)
-	host.IsStaticEndpoint = models.ParseBool(legacy.IsStatic)
+	host.IsStatic = models.ParseBool(legacy.IsStatic)
 	host.PersistentKeepalive = time.Duration(legacy.PersistentKeepalive) * time.Second
 	if host.PersistentKeepalive == 0 {
 		host.PersistentKeepalive = models.DefaultPersistentKeepAlive
