@@ -303,16 +303,16 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 			slog.Error("failed to remove host credentials from EMQX", "id", currHost.ID, "error", err)
 		}
 	}
-	if err = logic.RemoveHost(currHost, forceDelete); err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to delete a host:", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
 	if err = mq.HostUpdate(&models.HostUpdate{
 		Action: models.DeleteHost,
 		Host:   *currHost,
 	}); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to send delete host update: ", currHost.ID.String(), err.Error())
+	}
+	if err = logic.RemoveHost(currHost, forceDelete); err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to delete a host:", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
 	}
 
 	apiHostData := currHost.ConvertNMHostToAPI()

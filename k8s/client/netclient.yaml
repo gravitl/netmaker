@@ -28,13 +28,15 @@ spec:
       #           - "<node label value>"
       containers:
       - name: netclient
-        image: gravitl/netclient:v0.24.1
+        image: gravitl/netclient:v0.24.2
         env:
         - name: TOKEN
           value: "TOKEN_VALUE"
         volumeMounts:
         - mountPath: /etc/netclient
           name: etc-netclient
+        - mountPath: /var/log
+          name: log-netclient
         securityContext:
           privileged: true
       volumes:
@@ -42,3 +44,6 @@ spec:
           path: /etc/netclient
           type: DirectoryOrCreate
         name: etc-netclient
+      - emptyDir:
+          medium: Memory
+        name: log-netclient
