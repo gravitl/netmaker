@@ -266,6 +266,7 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 	currHost.Debug = newHost.Debug
 	currHost.Verbosity = newHost.Verbosity
 	currHost.Version = newHost.Version
+	currHost.IsStaticPort = newHost.IsStaticPort
 	currHost.IsStatic = newHost.IsStatic
 	currHost.MTU = newHost.MTU
 	currHost.Name = newHost.Name
