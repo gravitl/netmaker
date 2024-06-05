@@ -3,6 +3,7 @@ package logic
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
@@ -10,35 +11,30 @@ import (
 
 // Pre-Define Permission Templates for default Roles
 var SuperAdminPermissionTemplate = models.UserRolePermissionTemplate{
-	ID:      models.SuperAdminRole,
-	Default: true,
-	DashBoardAcls: models.DashboardAccessControls{
-		FullAccess: true,
-	},
+	ID:         models.SuperAdminRole,
+	Default:    true,
+	FullAccess: true,
 }
 var AdminPermissionTemplate = models.UserRolePermissionTemplate{
-	ID:      models.AdminRole,
-	Default: true,
-	DashBoardAcls: models.DashboardAccessControls{
-		FullAccess: true,
-	},
+	ID:         models.AdminRole,
+	Default:    true,
+	FullAccess: true,
 }
 
 var NetworkAdminPermissionTemplate = models.UserRolePermissionTemplate{
-	ID:      models.NetworkAdmin,
-	Default: true,
-	DashBoardAcls: models.DashboardAccessControls{
-		NetworkLevelAccess: make(map[models.NetworkID]models.NetworkAccessControls),
-	},
+	ID:                 models.NetworkAdmin,
+	Default:            true,
+	IsNetworkRole:      true,
+	FullAccess:         true,
+	NetworkLevelAccess: make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope),
 }
 
 var NetworkUserPermissionTemplate = models.UserRolePermissionTemplate{
-	ID:      models.NetworkUser,
-	Default: true,
-	DashBoardAcls: models.DashboardAccessControls{
-		DenyDashboardAccess: true,
-		NetworkLevelAccess:  make(map[models.NetworkID]models.NetworkAccessControls),
-	},
+	ID:                  models.NetworkUser,
+	Default:             true,
+	FullAccess:          false,
+	DenyDashboardAccess: true,
+	NetworkLevelAccess:  make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope),
 }
 
 func UserRolesInit() {
@@ -128,17 +124,23 @@ func DeleteRole(rid models.UserRole) error {
 		return err
 	}
 	for _, user := range users {
-		if user.GroupID != "" {
-			ug, err := GetUserGroup(user.GroupID)
-			if err == nil && ug.PermissionTemplate.ID == rid {
-				err = errors.New("role cannot be deleted as active user groups are using this role")
-				return err
-			}
-			continue
-		}
-		if user.PermissionTemplate.ID == rid {
+		// for groupID := range user.UserGroups {
+		// 	ug, err := GetUserGroup(groupID.String())
+		// 	if err == nil && ug.N.ID == rid {
+		// 		err = errors.New("role cannot be deleted as active user groups are using this role")
+		// 		return err
+		// 	}
+		// 	continue
+		// }
+		if user.PlatformRoleID == rid {
 			err = errors.New("active roles cannot be deleted.switch existing users to a new role before deleting")
 			return err
+		}
+		for _, networkRole := range user.NetworkRoles {
+			if networkRole == rid {
+				err = errors.New("active roles cannot be deleted.switch existing users to a new role before deleting")
+				return err
+			}
 		}
 	}
 	return database.DeleteRecord(database.USER_PERMISSIONS_TABLE_NAME, rid.String())
@@ -217,10 +219,27 @@ func DeleteUserGroup(gid string) error {
 		return err
 	}
 	for _, user := range users {
-		if user.GroupID == gid {
-			err = errors.New("role cannot be deleted as active user groups are using this role")
-			return err
-		}
+		fmt.Println("TODO: ", user)
+		// if user.GroupID == gid {
+		// 	err = errors.New("role cannot be deleted as active user groups are using this role")
+		// 	return err
+		// }
 	}
 	return database.DeleteRecord(database.USER_GROUPS_TABLE_NAME, gid)
+}
+
+func HasNetworkRsrcScope(permissionTemplate models.UserRolePermissionTemplate, netid string, rsrcType models.RsrcType, rsrcID models.RsrcID, op string) bool {
+	if permissionTemplate.FullAccess {
+		return true
+	}
+
+	rsrcScope, ok := permissionTemplate.NetworkLevelAccess[rsrcType]
+	if !ok {
+		return false
+	}
+	_, ok = rsrcScope[rsrcID]
+	if !ok {
+		return false
+	}
+	return true
 }
