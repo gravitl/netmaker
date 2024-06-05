@@ -3,7 +3,6 @@ package logic
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
@@ -124,14 +123,18 @@ func DeleteRole(rid models.UserRole) error {
 		return err
 	}
 	for _, user := range users {
-		// for groupID := range user.UserGroups {
-		// 	ug, err := GetUserGroup(groupID.String())
-		// 	if err == nil && ug.N.ID == rid {
-		// 		err = errors.New("role cannot be deleted as active user groups are using this role")
-		// 		return err
-		// 	}
-		// 	continue
-		// }
+		if user.UserGroup != "" {
+			ug, err := GetUserGroup(user.UserGroup)
+			if err == nil {
+				for _, networkRole := range ug.NetworkRoles {
+					if networkRole == rid {
+						err = errors.New("role cannot be deleted as active user groups are using this role")
+						return err
+					}
+				}
+			}
+		}
+
 		if user.PlatformRoleID == rid {
 			err = errors.New("active roles cannot be deleted.switch existing users to a new role before deleting")
 			return err
@@ -164,8 +167,8 @@ func CreateUserGroup(g models.UserGroup) error {
 }
 
 // GetUserGroup - fetches user group
-func GetUserGroup(gid string) (models.UserGroup, error) {
-	d, err := database.FetchRecord(database.USER_GROUPS_TABLE_NAME, gid)
+func GetUserGroup(gid models.UserGroupID) (models.UserGroup, error) {
+	d, err := database.FetchRecord(database.USER_GROUPS_TABLE_NAME, gid.String())
 	if err == nil {
 		return models.UserGroup{}, err
 	}
@@ -213,19 +216,18 @@ func UpdateUserGroup(g models.UserGroup) error {
 }
 
 // DeleteUserGroup - deletes user group
-func DeleteUserGroup(gid string) error {
+func DeleteUserGroup(gid models.UserGroupID) error {
 	users, err := GetUsersDB()
 	if err != nil {
 		return err
 	}
 	for _, user := range users {
-		fmt.Println("TODO: ", user)
-		// if user.GroupID == gid {
-		// 	err = errors.New("role cannot be deleted as active user groups are using this role")
-		// 	return err
-		// }
+		if user.UserGroup == gid {
+			err = errors.New("role cannot be deleted as active user groups are using this role")
+			return err
+		}
 	}
-	return database.DeleteRecord(database.USER_GROUPS_TABLE_NAME, gid)
+	return database.DeleteRecord(database.USER_GROUPS_TABLE_NAME, gid.String())
 }
 
 func HasNetworkRsrcScope(permissionTemplate models.UserRolePermissionTemplate, netid string, rsrcType models.RsrcType, rsrcID models.RsrcID, op string) bool {
@@ -238,8 +240,5 @@ func HasNetworkRsrcScope(permissionTemplate models.UserRolePermissionTemplate, n
 		return false
 	}
 	_, ok = rsrcScope[rsrcID]
-	if !ok {
-		return false
-	}
-	return true
+	return ok
 }
