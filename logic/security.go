@@ -19,13 +19,20 @@ const (
 	Unauthorized_Err = models.Error(Unauthorized_Msg)
 )
 
+func GetSubjectsFromURL(URL string) (rsrcType models.RsrcType, rsrcID models.RsrcID) {
+	urlSplit := strings.Split(URL, "/")
+	rsrcType = models.RsrcType(urlSplit[1])
+	if len(urlSplit) > 1 {
+		rsrcID = models.RsrcID(urlSplit[2])
+	}
+	return
+}
+
 func networkPermissionsCheck(username string, r *http.Request) error {
+	// at this point global checks should be completed
 	user, err := GetUser(username)
 	if err != nil {
 		return err
-	}
-	if user.PermissionTemplate.DashBoardAcls.FullAccess {
-		return nil
 	}
 	// get info from header to determine the target rsrc
 	targetRsrc := r.Header.Get("TARGET_RSRC")
@@ -42,14 +49,14 @@ func networkPermissionsCheck(username string, r *http.Request) error {
 	}
 	// check if user has scope for target resource
 	// TODO - differentitate between global scope and network scope apis
-	networkPermissionScope, ok := user.PermissionTemplate.DashBoardAcls.NetworkLevelAccess[models.NetworkID(netID)]
-	if !ok {
+	networkPermissionScope, err := GetRole(user.NetworkRoles[models.NetworkID(netID)].String())
+	if err != nil {
 		return errors.New("access denied")
 	}
 	if networkPermissionScope.FullAccess {
 		return nil
 	}
-	rsrcPermissionScope, ok := networkPermissionScope.NetworkRsrcPermissionsScope[models.RsrcType(targetRsrc)]
+	rsrcPermissionScope, ok := networkPermissionScope.NetworkLevelAccess[models.RsrcType(targetRsrc)]
 	if !ok {
 		return fmt.Errorf("access denied to %s rsrc", targetRsrc)
 	}
@@ -71,7 +78,11 @@ func globalPermissionsCheck(username string, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	if user.PermissionTemplate.DashBoardAcls.FullAccess {
+	userRole, err := GetRole(user.PlatformRoleID.String())
+	if err != nil {
+		return errors.New("access denied")
+	}
+	if userRole.FullAccess {
 		return nil
 	}
 	targetRsrc := r.Header.Get("TARGET_RSRC")
@@ -82,10 +93,7 @@ func globalPermissionsCheck(username string, r *http.Request) error {
 	if r.Method == "" {
 		r.Method = http.MethodGet
 	}
-	if user.PermissionTemplate.DashBoardAcls.FullAccess {
-		return nil
-	}
-	rsrcPermissionScope, ok := user.PermissionTemplate.DashBoardAcls.GlobalLevelAccess[models.RsrcType(targetRsrc)]
+	rsrcPermissionScope, ok := userRole.GlobalLevelAccess[models.RsrcType(targetRsrc)]
 	if !ok {
 		return fmt.Errorf("access denied to %s rsrc", targetRsrc)
 	}
