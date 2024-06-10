@@ -16,7 +16,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/txn2/txeh v1.5.5
 	golang.org/x/crypto v0.23.0
-	golang.org/x/net v0.22.0 // indirect
+	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/oauth2 v0.20.0
 	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/text v0.15.0 // indirect
@@ -32,7 +32,7 @@ require (
 
 require (
 	github.com/coreos/go-oidc/v3 v3.9.0
-	github.com/gorilla/websocket v1.5.1
+	github.com/gorilla/websocket v1.5.2
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 )
 
