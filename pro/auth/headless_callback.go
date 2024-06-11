@@ -52,6 +52,10 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !isEmailAllowed(userClaims.Email) {
+		handleOauthUserNotAllowedToSignUp(w)
+		return
+	}
 	// check if user approval is already pending
 	if logic.IsPendingUser(userClaims.getUserName()) {
 		handleOauthUserSignUpApprovalPending(w)
