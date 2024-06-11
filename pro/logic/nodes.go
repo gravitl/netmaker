@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"golang.org/x/exp/slog"
@@ -29,6 +30,7 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 	if inetNode.IsRelayed {
 		return fmt.Errorf("node %s is being relayed", inetHost.Name)
 	}
+
 	for _, clientNodeID := range req.InetNodeClientIDs {
 		clientNode, err := logic.GetNodeByID(clientNodeID)
 		if err != nil {
@@ -52,6 +54,9 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 			if clientNode.InternetGwID != "" {
 				return fmt.Errorf("node %s is already using a internet gateway", clientHost.Name)
 			}
+		}
+		if clientNode.FailedOverBy != uuid.Nil {
+			ResetFailedOverPeer(&clientNode)
 		}
 
 		if clientNode.IsRelayed {
@@ -107,9 +112,13 @@ func UnsetInternetGw(node *models.Node) {
 
 func SetDefaultGwForRelayedUpdate(relayed, relay models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
 	if relay.InternetGwID != "" {
+		relayedHost, err := logic.GetHost(relayed.HostID.String())
+		if err != nil {
+			return peerUpdate
+		}
 		peerUpdate.ChangeDefaultGw = true
 		peerUpdate.DefaultGwIp = relay.Address.IP
-		if peerUpdate.DefaultGwIp == nil {
+		if peerUpdate.DefaultGwIp == nil || relayedHost.EndpointIP == nil {
 			peerUpdate.DefaultGwIp = relay.Address6.IP
 		}
 
@@ -124,9 +133,14 @@ func SetDefaultGw(node models.Node, peerUpdate models.HostPeerUpdate) models.Hos
 		if err != nil {
 			return peerUpdate
 		}
+		host, err := logic.GetHost(node.HostID.String())
+		if err != nil {
+			return peerUpdate
+		}
+
 		peerUpdate.ChangeDefaultGw = true
 		peerUpdate.DefaultGwIp = inetNode.Address.IP
-		if peerUpdate.DefaultGwIp == nil {
+		if peerUpdate.DefaultGwIp == nil || host.EndpointIP == nil {
 			peerUpdate.DefaultGwIp = inetNode.Address6.IP
 		}
 	}
@@ -155,7 +169,6 @@ func GetAllowedIpForInetNodeClient(node, peer *models.Node) []net.IPNet {
 	if peer.Address.IP != nil {
 		_, ipnet, _ := net.ParseCIDR(IPv4Network)
 		allowedips = append(allowedips, *ipnet)
-		return allowedips
 	}
 
 	if peer.Address6.IP != nil {

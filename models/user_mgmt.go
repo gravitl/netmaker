@@ -12,27 +12,37 @@ type RsrcID string
 type UserRole string
 type UserGroupID string
 
+func (r RsrcType) String() string {
+	return string(r)
+}
+
 const (
 	HostRsrc           RsrcType = "hosts"
 	RelayRsrc          RsrcType = "relays"
 	RemoteAccessGwRsrc RsrcType = "remote_access_gw"
+	ExtClientsRsrc     RsrcType = "extclients"
 	InetGwRsrc         RsrcType = "inet_gw"
 	EgressGwRsrc       RsrcType = "egress"
 	NetworkRsrc        RsrcType = "networks"
 	EnrollmentKeysRsrc RsrcType = "enrollment_key"
 	UserRsrc           RsrcType = "users"
 	AclRsrc            RsrcType = "acl"
+	DnsRsrc            RsrcType = "dns"
+	FailOverRsrc       RsrcType = "fail_over"
 )
 
 const (
 	AllHostRsrcID           RsrcID = "all_host"
 	AllRelayRsrcID          RsrcID = "all_relay"
 	AllRemoteAccessGwRsrcID RsrcID = "all_remote_access_gw"
+	AllExtClientsRsrc       RsrcID = "all_extclients"
 	AllInetGwRsrcID         RsrcID = "all_inet_gw"
 	AllEgressGwRsrcID       RsrcID = "all_egress"
 	AllNetworkRsrcID        RsrcID = "all_network"
 	AllEnrollmentKeysRsrcID RsrcID = "all_enrollment_key"
 	AllUserRsrcID           RsrcID = "all_user"
+	AllDnsRsrcID            RsrcID = "all_dns"
+	AllFailOverRsrc         RsrcID = "all_fail_over"
 )
 
 // Pre-Defined User Roles

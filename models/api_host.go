@@ -15,6 +15,7 @@ type ApiHost struct {
 	Name                string     `json:"name"`
 	OS                  string     `json:"os"`
 	Debug               bool       `json:"debug"`
+	IsStaticPort        bool       `json:"isstaticport"`
 	IsStatic            bool       `json:"isstatic"`
 	ListenPort          int        `json:"listenport"`
 	WgPublicListenPort  int        `json:"wg_public_listen_port" yaml:"wg_public_listen_port"`
@@ -61,6 +62,7 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 		}
 	}
 	a.DefaultInterface = h.DefaultInterface
+	a.IsStaticPort = h.IsStaticPort
 	a.IsStatic = h.IsStatic
 	a.ListenPort = h.ListenPort
 	a.MTU = h.MTU
@@ -104,6 +106,7 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.DefaultInterface = currentHost.DefaultInterface
 	h.IsDocker = currentHost.IsDocker
 	h.IsK8S = currentHost.IsK8S
+	h.IsStaticPort = a.IsStaticPort
 	h.IsStatic = a.IsStatic
 	h.ListenPort = a.ListenPort
 	h.MTU = a.MTU

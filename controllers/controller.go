@@ -17,7 +17,9 @@ import (
 )
 
 // HttpMiddlewares - middleware functions for REST interactions
-var HttpMiddlewares []mux.MiddlewareFunc
+var HttpMiddlewares = []mux.MiddlewareFunc{
+	userMiddleWare,
+}
 
 // HttpHandlers - handler functions for REST interactions
 var HttpHandlers = []interface{}{
