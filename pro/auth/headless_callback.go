@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gravitl/netmaker/auth"
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/pro/netcache"
@@ -51,6 +52,10 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !isEmailAllowed(userClaims.Email) {
+		handleOauthUserNotAllowedToSignUp(w)
+		return
+	}
 	// check if user approval is already pending
 	if logic.IsPendingUser(userClaims.getUserName()) {
 		handleOauthUserSignUpApprovalPending(w)
@@ -58,10 +63,20 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := logic.GetUser(userClaims.getUserName())
 	if err != nil {
-		response := returnErrTemplate("", "user not found", state, reqKeyIf)
-		w.WriteHeader(http.StatusForbidden)
-		w.Write(response)
-		return
+		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
+			err = logic.InsertPendingUser(&models.User{
+				UserName: userClaims.getUserName(),
+			})
+			if err != nil {
+				handleSomethingWentWrong(w)
+				return
+			}
+			handleFirstTimeOauthUserSignUp(w)
+			return
+		} else {
+			handleSomethingWentWrong(w)
+			return
+		}
 	}
 	newPass, fetchErr := auth.FetchPassValue("")
 	if fetchErr != nil {
