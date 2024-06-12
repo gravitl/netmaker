@@ -91,9 +91,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		if err != nil {
 			continue
 		}
-		if host.ID.String() == "968622e3-43ed-4ed2-9c6b-cec89546e0b3" {
-			logger.Log(0, "-------> FOR NETWORK: ", node.Network)
-		}
 
 		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE {
 			continue
@@ -348,9 +345,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					Ranges:     egressrange,
 				},
 			}
-		}
-		if host.ID.String() == "968622e3-43ed-4ed2-9c6b-cec89546e0b3" {
-			logger.Log(0, "Peer Data after: ", node.Network, " Data ", fmt.Sprintf("%+v", hostPeerUpdate.Peers))
 		}
 
 	}
