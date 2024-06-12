@@ -490,6 +490,10 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			// make host remote access gateway
 			logic.CreateIngressGateway(network.NetID, newNode.ID.String(), models.IngressRequest{})
 		}
+		// send peer updates
+		if err = mq.PublishPeerUpdate(false); err != nil {
+			logger.Log(1, "failed to publish peer update for default hosts after network is added")
+		}
 	}()
 
 	logger.Log(1, r.Header.Get("user"), "created network", network.NetID)
