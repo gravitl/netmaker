@@ -264,6 +264,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				peerAllowedIPs = append(peerAllowedIPs, peerConfig.AllowedIPs...)
 				hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].AllowedIPs = peerAllowedIPs
 				hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].Remove = false
+				hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].Endpoint = peerConfig.Endpoint
 				hostPeerUpdate.HostNetworkInfo[peerHost.PublicKey.String()] = models.HostNetworkInfo{
 					Interfaces:   peerHost.Interfaces,
 					ListenPort:   peerHost.ListenPort,
