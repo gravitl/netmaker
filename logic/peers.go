@@ -397,7 +397,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 // GetPeerListenPort - given a host, retrieve it's appropriate listening port
 func GetPeerListenPort(host *models.Host) int {
 	peerPort := host.ListenPort
-	if host.WgPublicListenPort != 0 {
+	if !host.IsStaticPort && host.WgPublicListenPort != 0 {
 		peerPort = host.WgPublicListenPort
 	}
 	return peerPort
