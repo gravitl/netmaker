@@ -491,10 +491,8 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			logic.CreateIngressGateway(network.NetID, newNode.ID.String(), models.IngressRequest{})
 		}
 		// send peer updates
-		if servercfg.IsMessageQueueBackend() {
-			if err = mq.PublishPeerUpdate(false); err != nil {
-				logger.Log(1, "failed to publish peer update for default hosts after network is added")
-			}
+		if err = mq.PublishPeerUpdate(false); err != nil {
+			logger.Log(1, "failed to publish peer update for default hosts after network is added")
 		}
 	}()
 
