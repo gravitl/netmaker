@@ -1,19 +1,16 @@
 # Netmaker v0.24.2
 
 ## Whats New ✨
-- Users Can define Multiple Endpoints On The Remote Access Gateway To Choose From While Establishing a Connection.
-- OAUTH Code Moved From CE To Pro.
-- nm-quick.sh Enhancement To Install The Latest Docker To Enable Support Of the Latest Distros.
-- IPv6 Enhancements.
+- Improved Funtionality of static host with separate settings for port and endpoint ip
+- Network Info and Metadata info added to Remote-Access-Client
 
 ## What's Fixed/Improved 🛠
-
-- Egress Enhancement In Multiple Networks
-- Fix armv5-v7 Upgrade Download Link
-- Fix Windows Interface Issue In Multiple Networks
-- SSO network join Improvements.
-- Remove Egress Routes After Egress Gateway Removed
-- Remote Access Gateway Connection Handling Improvements.
+- Improved FailOver Functionality
+- Local Peer Routing in Dual-Stack Environment
+- Stale Node Issue On Multinet When Deleting Host
+- IPv6 Internet Gateways Improvements
+- Handled New Oauth User SignUp via Remote-Access-Client
+- PeerUpdate Improvements around default host and multi-nets
 
 ## Known Issues 🐞
 
