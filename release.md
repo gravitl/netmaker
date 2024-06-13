@@ -7,7 +7,7 @@
 ## What's Fixed/Improved 🛠
 - Improved FailOver Functionality
 - Local Peer Routing In Dual-Stack Environment
-- Stale Node Issue On Multinet When Deleting Host
+- Stale Node Issue On Multinet When With `netclient uninstall`
 - IPv6 Internet Gateways Improvements
 - Handled New Oauth User SignUp via Remote-Access-Client
 - PeerUpdate Improvements Around Default Host and Multi-nets
@@ -15,4 +15,4 @@
 ## Known Issues 🐞
 
 - Erratic Traffic Data In Metrics.
-- Stale peer on interface, when forced removed from multiple networks at once.
+- Stale peer on the interface, when forced removed from multiple networks at once.
