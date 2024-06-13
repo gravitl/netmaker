@@ -14,6 +14,5 @@
 
 ## Known Issues 🐞
 
-- Erratic Traffic Data In Metrics
-- `netclient server leave` Leaves a Stale Node Record In At Least One Network When Part Of Multiple Networks, But Can Be Deleted From The UI.
-- IPv6 internet traffic does not route to the InetGw in Dual Stack Network
+- Erratic Traffic Data In Metrics.
+- Stale peer on interface, when forced removed from multiple networks at once.
