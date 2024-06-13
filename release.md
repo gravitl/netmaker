@@ -1,7 +1,7 @@
 # Netmaker v0.24.2
 
 ## Whats New ✨
-- Improved Funtionality of static host with separate settings for port and endpoint ip
+- Static host Funtionality with separate settings for port and endpoint ip
 - Network Info and Metadata info added to Remote-Access-Client
 
 ## What's Fixed/Improved 🛠
