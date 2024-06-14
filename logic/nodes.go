@@ -626,6 +626,42 @@ func ValidateParams(nodeid, netid string) (models.Node, error) {
 	return node, nil
 }
 
+func ValidateEgressRange(gateway models.EgressGatewayRequest) error {
+	network, err := GetNetworkSettings(gateway.NetID)
+	if err != nil {
+		slog.Error("error getting network with netid", "error", gateway.NetID, err.Error)
+		return errors.New("error getting network with netid:  " + gateway.NetID + " " + err.Error())
+	}
+	_, ipv4Net, _ := net.ParseCIDR(network.AddressRange)
+	_, ipv6Net, _ := net.ParseCIDR(network.AddressRange6)
+
+	for _, v := range gateway.Ranges {
+
+		_, cidr, _ := net.ParseCIDR(v)
+		if ipv4Net != nil {
+
+			if ContainsCIDR(ipv4Net, cidr) || ContainsCIDR(cidr, ipv4Net) {
+				slog.Error("egress range should not be the same as or contained in the netmaker network address", "error", cidr.String(), ipv4Net.String())
+				return errors.New("egress range should not be the same as or contained in the netmaker network address" + cidr.String() + " " + ipv4Net.String())
+			}
+		}
+		if ipv6Net != nil {
+			if ContainsCIDR(ipv6Net, cidr) || ContainsCIDR(cidr, ipv6Net) {
+				slog.Error("egress range should not be the same as or contained in the netmaker network address", "error", cidr.String(), ipv6Net.String())
+				return errors.New("egress range should not be the same as or contained in the netmaker network address" + cidr.String() + " " + ipv6Net.String())
+			}
+		}
+	}
+
+	return nil
+}
+
+func ContainsCIDR(net1, net2 *net.IPNet) bool {
+	net1Size, _ := net1.Mask.Size()
+	net2Size, _ := net2.Mask.Size()
+	return net1Size <= net2Size && net1.Contains(net2.IP)
+}
+
 // GetAllFailOvers - gets all the nodes that are failovers
 func GetAllFailOvers() ([]models.Node, error) {
 	nodes, err := GetAllNodes()
