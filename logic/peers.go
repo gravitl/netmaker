@@ -91,6 +91,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		if err != nil {
 			continue
 		}
+
 		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE {
 			continue
 		}
@@ -260,6 +261,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				peerAllowedIPs = append(peerAllowedIPs, peerConfig.AllowedIPs...)
 				hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].AllowedIPs = peerAllowedIPs
 				hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].Remove = false
+				hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].Endpoint = peerConfig.Endpoint
 				hostPeerUpdate.HostNetworkInfo[peerHost.PublicKey.String()] = models.HostNetworkInfo{
 					Interfaces:   peerHost.Interfaces,
 					ListenPort:   peerHost.ListenPort,
@@ -344,6 +346,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				},
 			}
 		}
+
 	}
 	// == post peer calculations ==
 	// indicate removal if no allowed IPs were calculated
@@ -394,7 +397,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 // GetPeerListenPort - given a host, retrieve it's appropriate listening port
 func GetPeerListenPort(host *models.Host) int {
 	peerPort := host.ListenPort
-	if host.WgPublicListenPort != 0 {
+	if !host.IsStaticPort && host.WgPublicListenPort != 0 {
 		peerPort = host.WgPublicListenPort
 	}
 	return peerPort
