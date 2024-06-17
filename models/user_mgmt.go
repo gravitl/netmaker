@@ -88,15 +88,15 @@ type UserGroup struct {
 
 // User struct - struct for Users
 type User struct {
-	UserName       string                 `json:"username" bson:"username" validate:"min=3,max=40,in_charset|email"`
-	Password       string                 `json:"password" bson:"password" validate:"required,min=5"`
-	IsAdmin        bool                   `json:"isadmin" bson:"isadmin"`
-	IsSuperAdmin   bool                   `json:"issuperadmin"`
-	RemoteGwIDs    map[string]struct{}    `json:"remote_gw_ids"`
-	UserGroup      UserGroupID            `json:"user_groups"`
-	PlatformRoleID UserRole               `json:"platform_role_id"`
-	NetworkRoles   map[NetworkID]UserRole `json:"network_roles"`
-	LastLoginTime  time.Time              `json:"last_login_time"`
+	UserName       string                   `json:"username" bson:"username" validate:"min=3,max=40,in_charset|email"`
+	Password       string                   `json:"password" bson:"password" validate:"required,min=5"`
+	IsAdmin        bool                     `json:"isadmin" bson:"isadmin"`
+	IsSuperAdmin   bool                     `json:"issuperadmin"`
+	RemoteGwIDs    map[string]struct{}      `json:"remote_gw_ids"`
+	UserGroups     map[UserGroupID]struct{} `json:"user_groups"`
+	PlatformRoleID UserRole                 `json:"platform_role_id"`
+	NetworkRoles   map[NetworkID]UserRole   `json:"network_roles"`
+	LastLoginTime  time.Time                `json:"last_login_time"`
 }
 
 // ReturnUser - return user struct

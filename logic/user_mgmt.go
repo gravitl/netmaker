@@ -123,8 +123,8 @@ func DeleteRole(rid models.UserRole) error {
 		return err
 	}
 	for _, user := range users {
-		if user.UserGroup != "" {
-			ug, err := GetUserGroup(user.UserGroup)
+		for userG := range user.UserGroups {
+			ug, err := GetUserGroup(userG)
 			if err == nil {
 				for _, networkRole := range ug.NetworkRoles {
 					if networkRole == rid {
@@ -222,10 +222,8 @@ func DeleteUserGroup(gid models.UserGroupID) error {
 		return err
 	}
 	for _, user := range users {
-		if user.UserGroup == gid {
-			err = errors.New("role cannot be deleted as active user groups are using this role")
-			return err
-		}
+		delete(user.UserGroups, gid)
+		UpsertUser(user)
 	}
 	return database.DeleteRecord(database.USER_GROUPS_TABLE_NAME, gid.String())
 }
