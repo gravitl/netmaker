@@ -93,7 +93,7 @@ type User struct {
 	IsAdmin        bool                     `json:"isadmin" bson:"isadmin"`
 	IsSuperAdmin   bool                     `json:"issuperadmin"`
 	RemoteGwIDs    map[string]struct{}      `json:"remote_gw_ids"`
-	UserGroups     map[UserGroupID]struct{} `json:"user_groups"`
+	UserGroups     map[UserGroupID]struct{} `json:"user_group_ids"`
 	PlatformRoleID UserRole                 `json:"platform_role_id"`
 	NetworkRoles   map[NetworkID]UserRole   `json:"network_roles"`
 	LastLoginTime  time.Time                `json:"last_login_time"`
@@ -105,7 +105,7 @@ type ReturnUser struct {
 	IsAdmin        bool                     `json:"isadmin"`
 	IsSuperAdmin   bool                     `json:"issuperadmin"`
 	RemoteGwIDs    map[string]struct{}      `json:"remote_gw_ids"`
-	UserGroups     map[UserGroupID]struct{} `json:"user_groups"`
+	UserGroups     map[UserGroupID]struct{} `json:"user_group_ids"`
 	PlatformRoleID string                   `json:"platform_role_id"`
 	NetworkRoles   map[NetworkID]UserRole   `json:"network_roles"`
 	LastLoginTime  time.Time                `json:"last_login_time"`
