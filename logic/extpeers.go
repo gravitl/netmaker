@@ -376,7 +376,7 @@ func ToggleExtClientConnectivity(client *models.ExtClient, enable bool) (models.
 	return newClient, nil
 }
 
-func getExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, []models.EgressNetworkRoutes, error) {
+func GetExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, []models.EgressNetworkRoutes, error) {
 	var peers []wgtypes.PeerConfig
 	var idsAndAddr []models.IDandAddr
 	var egressRoutes []models.EgressNetworkRoutes
@@ -431,7 +431,7 @@ func getExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandA
 				allowedips = append(allowedips, *cidr)
 			}
 		}
-		egressRoutes = append(egressRoutes, getExtPeerEgressRoute(extPeer)...)
+		egressRoutes = append(egressRoutes, getExtPeerEgressRoute(*node, extPeer)...)
 		primaryAddr := extPeer.Address
 		if primaryAddr == "" {
 			primaryAddr = extPeer.Address6
@@ -453,23 +453,18 @@ func getExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandA
 
 }
 
-func getExtPeerEgressRoute(extPeer models.ExtClient) (egressRoutes []models.EgressNetworkRoutes) {
-	if extPeer.Address != "" {
-		egressRoutes = append(egressRoutes, models.EgressNetworkRoutes{
-			NodeAddr:     extPeer.AddressIPNet4(),
-			EgressRanges: extPeer.ExtraAllowedIPs,
-		})
-	}
-	if extPeer.Address6 != "" {
-		egressRoutes = append(egressRoutes, models.EgressNetworkRoutes{
-			NodeAddr:     extPeer.AddressIPNet6(),
-			EgressRanges: extPeer.ExtraAllowedIPs,
-		})
-	}
+func getExtPeerEgressRoute(node models.Node, extPeer models.ExtClient) (egressRoutes []models.EgressNetworkRoutes) {
+	egressRoutes = append(egressRoutes, models.EgressNetworkRoutes{
+		EgressGwAddr:  extPeer.AddressIPNet4(),
+		EgressGwAddr6: extPeer.AddressIPNet6(),
+		NodeAddr:      node.Address,
+		NodeAddr6:     node.Address6,
+		EgressRanges:  extPeer.ExtraAllowedIPs,
+	})
 	return
 }
 
-func getExtpeersExtraRoutes(network string) (egressRoutes []models.EgressNetworkRoutes) {
+func getExtpeersExtraRoutes(node models.Node, network string) (egressRoutes []models.EgressNetworkRoutes) {
 	extPeers, err := GetNetworkExtClients(network)
 	if err != nil {
 		return
@@ -478,7 +473,7 @@ func getExtpeersExtraRoutes(network string) (egressRoutes []models.EgressNetwork
 		if len(extPeer.ExtraAllowedIPs) == 0 {
 			continue
 		}
-		egressRoutes = append(egressRoutes, getExtPeerEgressRoute(extPeer)...)
+		egressRoutes = append(egressRoutes, getExtPeerEgressRoute(node, extPeer)...)
 	}
 	return
 }

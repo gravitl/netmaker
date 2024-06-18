@@ -201,20 +201,7 @@ func signalPeer(signal models.Signal) {
 		slog.Error("failed to signal, peer host not found", "error", err)
 		return
 	}
-	peerNode, err := logic.GetNodeByID(signal.ToNodeID)
-	if err != nil {
-		slog.Error("failed to signal, node not found", "error", err)
-		return
-	}
-	node, err := logic.GetNodeByID(signal.FromNodeID)
-	if err != nil {
-		slog.Error("failed to signal, peer node not found", "error", err)
-		return
-	}
-	if peerNode.IsIngressGateway || node.IsIngressGateway || peerNode.IsInternetGateway || node.IsInternetGateway {
-		signal.Action = ""
-		return
-	}
+
 	err = HostUpdate(&models.HostUpdate{
 		Action: models.SignalHost,
 		Host:   *peerHost,

@@ -159,12 +159,24 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("peer not found"), "badrequest"))
 		return
 	}
-	if node.IsRelayed || node.IsFailOver {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node is relayed or acting as failover"), "badrequest"))
+	if node.IsFailOver {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node is acting as failover"), "badrequest"))
 		return
 	}
-	if peerNode.IsRelayed || peerNode.IsFailOver {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("peer node is relayed or acting as failover"), "badrequest"))
+	if node.IsRelayed && node.RelayedBy == peerNode.ID.String() {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node is relayed by peer node"), "badrequest"))
+		return
+	}
+	if node.IsRelay && peerNode.RelayedBy == node.ID.String() {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node acting as relay for the peer node"), "badrequest"))
+		return
+	}
+	if node.IsInternetGateway && peerNode.InternetGwID == node.ID.String() {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node acting as internet gw for the peer node"), "badrequest"))
+		return
+	}
+	if node.InternetGwID != "" && node.InternetGwID == peerNode.ID.String() {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node using a internet gw by the peer node"), "badrequest"))
 		return
 	}
 

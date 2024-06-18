@@ -91,6 +91,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		if err != nil {
 			continue
 		}
+
 		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE {
 			continue
 		}
@@ -181,7 +182,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				})
 			}
 			if peer.IsIngressGateway {
-				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, getExtpeersExtraRoutes(peer.Network)...)
+				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, getExtpeersExtraRoutes(node, peer.Network)...)
 			}
 			_, isFailOverPeer := node.FailOverPeers[peer.ID.String()]
 			if servercfg.IsPro {
@@ -249,9 +250,10 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
 				peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
 				hostPeerUpdate.HostNetworkInfo[peerHost.PublicKey.String()] = models.HostNetworkInfo{
-					Interfaces: peerHost.Interfaces,
-					ListenPort: peerHost.ListenPort,
-					IsStatic:   peerHost.IsStatic,
+					Interfaces:   peerHost.Interfaces,
+					ListenPort:   peerHost.ListenPort,
+					IsStaticPort: peerHost.IsStaticPort,
+					IsStatic:     peerHost.IsStatic,
 				}
 				nodePeer = peerConfig
 			} else {
@@ -259,10 +261,12 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				peerAllowedIPs = append(peerAllowedIPs, peerConfig.AllowedIPs...)
 				hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].AllowedIPs = peerAllowedIPs
 				hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].Remove = false
+				hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]].Endpoint = peerConfig.Endpoint
 				hostPeerUpdate.HostNetworkInfo[peerHost.PublicKey.String()] = models.HostNetworkInfo{
-					Interfaces: peerHost.Interfaces,
-					ListenPort: peerHost.ListenPort,
-					IsStatic:   peerHost.IsStatic,
+					Interfaces:   peerHost.Interfaces,
+					ListenPort:   peerHost.ListenPort,
+					IsStaticPort: peerHost.IsStaticPort,
+					IsStatic:     peerHost.IsStatic,
 				}
 				nodePeer = hostPeerUpdate.Peers[peerIndexMap[peerHost.PublicKey.String()]]
 			}
@@ -283,7 +287,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		var extPeerIDAndAddrs []models.IDandAddr
 		var egressRoutes []models.EgressNetworkRoutes
 		if node.IsIngressGateway {
-			extPeers, extPeerIDAndAddrs, egressRoutes, err = getExtPeers(&node, &node)
+			extPeers, extPeerIDAndAddrs, egressRoutes, err = GetExtPeers(&node, &node)
 			if err == nil {
 				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, egressRoutes...)
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, extPeers...)
@@ -342,6 +346,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				},
 			}
 		}
+
 	}
 	// == post peer calculations ==
 	// indicate removal if no allowed IPs were calculated
@@ -392,7 +397,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 // GetPeerListenPort - given a host, retrieve it's appropriate listening port
 func GetPeerListenPort(host *models.Host) int {
 	peerPort := host.ListenPort
-	if host.WgPublicListenPort != 0 {
+	if !host.IsStaticPort && host.WgPublicListenPort != 0 {
 		peerPort = host.WgPublicListenPort
 	}
 	return peerPort
@@ -415,7 +420,7 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 
 	// handle ingress gateway peers
 	if peer.IsIngressGateway {
-		extPeers, _, _, err := getExtPeers(peer, node)
+		extPeers, _, _, err := GetExtPeers(peer, node)
 		if err != nil {
 			logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 		}

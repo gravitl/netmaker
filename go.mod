@@ -57,7 +57,7 @@ require (
 	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/hashicorp/go-version v1.6.0
+	github.com/hashicorp/go-version v1.7.0
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
