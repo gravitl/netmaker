@@ -143,11 +143,15 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 			r.Header.Set("ismaster", "yes")
 		} else {
 			if isGlobalAccesss {
-				globalPermissionsCheck(username, r)
+				err = globalPermissionsCheck(username, r)
 			} else {
-				networkPermissionsCheck(username, r)
+				err = networkPermissionsCheck(username, r)
 			}
 		}
+		w.Header().Set("TARGET_RSRC", r.Header.Get("TARGET_RSRC"))
+		w.Header().Set("TARGET_RSRC_ID", r.Header.Get("TARGET_RSRC_ID"))
+		w.Header().Set("NET_ID", r.Header.Get("NET_ID"))
+		w.Header().Set("ACCESS_RESP", err.Error())
 		r.Header.Set("user", username)
 		next.ServeHTTP(w, r)
 	}
