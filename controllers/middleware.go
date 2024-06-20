@@ -56,10 +56,6 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if r.Header.Get("TARGET_RSRC_ID") == "" {
 			r.Header.Set("IS_GLOBAL_ACCESS", "yes")
 		}
-		w.Header().Set("TARGET_RSRC", r.Header.Get("TARGET_RSRC"))
-		w.Header().Set("TARGET_RSRC_ID", r.Header.Get("TARGET_RSRC_ID"))
-		w.Header().Set("RSRC_TYPE", r.Header.Get("RSRC_TYPE"))
-		w.Header().Set("IS_GLOBAL_ACCESS", r.Header.Get("IS_GLOBAL_ACCESS"))
 		handler.ServeHTTP(w, r)
 	})
 }
