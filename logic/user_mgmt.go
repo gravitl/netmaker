@@ -32,8 +32,14 @@ var NetworkUserPermissionTemplate = models.UserRolePermissionTemplate{
 	ID:                  models.NetworkUser,
 	Default:             true,
 	FullAccess:          false,
-	DenyDashboardAccess: true,
-	NetworkLevelAccess:  make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope),
+	DenyDashboardAccess: false,
+	NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
+		models.RemoteAccessGwRsrc: {
+			models.AllRemoteAccessGwRsrcID: models.RsrcPermissionScope{
+				Read: true,
+			},
+		},
+	},
 }
 
 func UserRolesInit() {

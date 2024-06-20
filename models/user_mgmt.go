@@ -63,11 +63,10 @@ func (g UserGroupID) String() string {
 }
 
 type RsrcPermissionScope struct {
-	Create    bool `json:"create"`
-	Read      bool `json:"read"`
-	Update    bool `json:"update"`
-	Delete    bool `json:"delete"`
-	VPNAccess bool `json:"vpn_access"`
+	Create bool `json:"create"`
+	Read   bool `json:"read"`
+	Update bool `json:"update"`
+	Delete bool `json:"delete"`
 }
 
 type UserRolePermissionTemplate struct {

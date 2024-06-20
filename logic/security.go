@@ -148,10 +148,7 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 				err = networkPermissionsCheck(username, r)
 			}
 		}
-		w.Header().Set("TARGET_RSRC", r.Header.Get("TARGET_RSRC"))
-		w.Header().Set("TARGET_RSRC_ID", r.Header.Get("TARGET_RSRC_ID"))
-		w.Header().Set("NET_ID", r.Header.Get("NET_ID"))
-		w.Header().Set("ACCESS_RESP", err.Error())
+		w.Header().Set("ACCESS_PERM", err.Error())
 		r.Header.Set("user", username)
 		next.ServeHTTP(w, r)
 	}

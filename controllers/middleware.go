@@ -12,7 +12,7 @@ func userMiddleWare(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var params = mux.Vars(r)
 		r.Header.Set("NET_ID", params["network"])
-		if strings.Contains(r.URL.Path, "host") || strings.Contains(r.URL.Path, "node") {
+		if strings.Contains(r.URL.Path, "hosts") || strings.Contains(r.URL.Path, "nodes") {
 			r.Header.Set("TARGET_RSRC", models.HostRsrc.String())
 			r.Header.Set("RSRC_TYPE", models.HostRsrc.String())
 		}
@@ -56,8 +56,10 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if r.Header.Get("TARGET_RSRC_ID") == "" {
 			r.Header.Set("IS_GLOBAL_ACCESS", "yes")
 		}
-		// pro
-
+		w.Header().Set("TARGET_RSRC", r.Header.Get("TARGET_RSRC"))
+		w.Header().Set("TARGET_RSRC_ID", r.Header.Get("TARGET_RSRC_ID"))
+		w.Header().Set("RSRC_TYPE", r.Header.Get("RSRC_TYPE"))
+		w.Header().Set("IS_GLOBAL_ACCESS", r.Header.Get("IS_GLOBAL_ACCESS"))
 		handler.ServeHTTP(w, r)
 	})
 }
