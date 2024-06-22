@@ -37,7 +37,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users_pending/user/{username}", logic.SecurityCheck(true, http.HandlerFunc(deletePendingUser))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/users_pending/user/{username}", logic.SecurityCheck(true, http.HandlerFunc(approvePendingUser))).Methods(http.MethodPost)
 
-	// User Role handlers
+	// User Role Handlers
 	r.HandleFunc("/api/v1/user/roles", logic.SecurityCheck(true, http.HandlerFunc(listRoles))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/user/role", logic.SecurityCheck(true, http.HandlerFunc(getRole))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/user/role", logic.SecurityCheck(true, http.HandlerFunc(createRole))).Methods(http.MethodPost)
@@ -259,6 +259,11 @@ func createRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if userRole.NetworkID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "only network roles are allowed to be created"))
+		return
+	}
+	userRole.GlobalLevelAccess = make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope)
 	err = logic.CreateRole(userRole)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))

@@ -14,6 +14,7 @@ var SuperAdminPermissionTemplate = models.UserRolePermissionTemplate{
 	Default:    true,
 	FullAccess: true,
 }
+
 var AdminPermissionTemplate = models.UserRolePermissionTemplate{
 	ID:         models.AdminRole,
 	Default:    true,
@@ -23,7 +24,7 @@ var AdminPermissionTemplate = models.UserRolePermissionTemplate{
 var NetworkAdminPermissionTemplate = models.UserRolePermissionTemplate{
 	ID:                 models.NetworkAdmin,
 	Default:            true,
-	IsNetworkRole:      true,
+	NetworkID:          "netmaker",
 	FullAccess:         true,
 	NetworkLevelAccess: make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope),
 }
@@ -32,11 +33,20 @@ var NetworkUserPermissionTemplate = models.UserRolePermissionTemplate{
 	ID:                  models.NetworkUser,
 	Default:             true,
 	FullAccess:          false,
+	NetworkID:           "netmaker",
 	DenyDashboardAccess: false,
 	NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
 		models.RemoteAccessGwRsrc: {
 			models.AllRemoteAccessGwRsrcID: models.RsrcPermissionScope{
 				Read: true,
+			},
+		},
+		models.ExtClientsRsrc: {
+			models.AllExtClientsRsrcID: models.RsrcPermissionScope{
+				Read:   true,
+				Create: true,
+				Update: true,
+				Delete: true,
 			},
 		},
 	},

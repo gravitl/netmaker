@@ -35,14 +35,15 @@ const (
 	AllHostRsrcID           RsrcID = "all_host"
 	AllRelayRsrcID          RsrcID = "all_relay"
 	AllRemoteAccessGwRsrcID RsrcID = "all_remote_access_gw"
-	AllExtClientsRsrc       RsrcID = "all_extclients"
+	AllExtClientsRsrcID     RsrcID = "all_extclients"
 	AllInetGwRsrcID         RsrcID = "all_inet_gw"
 	AllEgressGwRsrcID       RsrcID = "all_egress"
 	AllNetworkRsrcID        RsrcID = "all_network"
 	AllEnrollmentKeysRsrcID RsrcID = "all_enrollment_key"
 	AllUserRsrcID           RsrcID = "all_user"
 	AllDnsRsrcID            RsrcID = "all_dns"
-	AllFailOverRsrc         RsrcID = "all_fail_over"
+	AllFailOverRsrcID       RsrcID = "all_fail_over"
+	AllAclsRsrcID           RsrcID = "all_acls"
 )
 
 // Pre-Defined User Roles
@@ -74,7 +75,7 @@ type UserRolePermissionTemplate struct {
 	Default             bool                                        `json:"default"`
 	DenyDashboardAccess bool                                        `json:"deny_dashboard_access"`
 	FullAccess          bool                                        `json:"full_access"`
-	IsNetworkRole       bool                                        `json:"network_role"`
+	NetworkID           string                                      `json:"network_id"`
 	NetworkLevelAccess  map[RsrcType]map[RsrcID]RsrcPermissionScope `json:"network_level_access"`
 	GlobalLevelAccess   map[RsrcType]map[RsrcID]RsrcPermissionScope `json:"global_level_access"`
 }
