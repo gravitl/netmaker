@@ -51,6 +51,7 @@ const (
 const (
 	SuperAdminRole UserRole = "super_admin"
 	AdminRole      UserRole = "admin"
+	ServiceUser    UserRole = "user"
 	NetworkAdmin   UserRole = "network_admin"
 	NetworkUser    UserRole = "network_user"
 )

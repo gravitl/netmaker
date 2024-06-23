@@ -21,6 +21,12 @@ var AdminPermissionTemplate = models.UserRolePermissionTemplate{
 	FullAccess: true,
 }
 
+var ServiceUserPermissionTemplate = models.UserRolePermissionTemplate{
+	ID:         models.ServiceUser,
+	Default:    true,
+	FullAccess: false,
+}
+
 var NetworkAdminPermissionTemplate = models.UserRolePermissionTemplate{
 	ID:                 models.NetworkAdmin,
 	Default:            true,

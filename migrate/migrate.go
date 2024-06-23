@@ -311,3 +311,22 @@ func MigrateEmqx() {
 	}
 
 }
+
+func SyncUsers() {
+	users, err := logic.GetUsersDB()
+	if err == nil {
+		for _, user := range users {
+			if user.IsSuperAdmin {
+				user.PlatformRoleID = models.SuperAdminRole
+				logic.UpsertUser(user)
+			} else if user.IsAdmin {
+				user.PlatformRoleID = models.AdminRole
+				logic.UpsertUser(user)
+			} else {
+				user.PlatformRoleID = models.ServiceUser
+				logic.UpsertUser(user)
+			}
+
+		}
+	}
+}
