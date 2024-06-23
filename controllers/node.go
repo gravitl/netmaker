@@ -302,7 +302,8 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 //
 // Not quite sure if this is necessary. Probably necessary based on front end but may want to review after iteration 1 if it's being used or not
 func getAllNodes(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "application/json")
+	logger.Log(0, "SECURITY CHECK - 5")
 	var nodes []models.Node
 	nodes, err := logic.GetAllNodes()
 	if err != nil {

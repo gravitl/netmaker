@@ -157,6 +157,7 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 		w.Header().Set("IS_GLOBAL_ACCESS", r.Header.Get("IS_GLOBAL_ACCESS"))
 		w.Header().Set("ACCESS_PERM", err.Error())
 		r.Header.Set("user", username)
+		logger.Log(0, "SECURITY CHECK - 3")
 		next.ServeHTTP(w, r)
 	}
 }
