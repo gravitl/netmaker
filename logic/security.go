@@ -133,7 +133,7 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 		r.Header.Set("ismaster", "no")
 		bearerToken := r.Header.Get("Authorization")
 		isGlobalAccesss := r.Header.Get("IS_GLOBAL_ACCESS") == "yes"
-		username, err := UserPermissions(reqAdmin, bearerToken)
+		username, err := GetUserNameFromToken(bearerToken)
 		if err != nil {
 			ReturnErrorResponse(w, r, FormatError(err, err.Error()))
 			return

@@ -87,6 +87,32 @@ func VerifyJWT(bearerToken string) (username string, issuperadmin, isadmin bool,
 	return VerifyUserToken(token)
 }
 
+func GetUserNameFromToken(tokenString string) (username string, err error) {
+	claims := &models.UserClaims{}
+
+	if tokenString == servercfg.GetMasterKey() && servercfg.GetMasterKey() != "" {
+		return MasterUser, nil
+	}
+
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		return jwtSecretKey, nil
+	})
+
+	if token != nil && token.Valid {
+		var user *models.User
+		// check that user exists
+		user, err = GetUser(claims.UserName)
+		if err != nil {
+			return "", err
+		}
+		if user.UserName != "" {
+			return user.UserName, nil
+		}
+		err = errors.New("user does not exist")
+	}
+	return "", err
+}
+
 // VerifyUserToken func will used to Verify the JWT Token while using APIS
 func VerifyUserToken(tokenString string) (username string, issuperadmin, isadmin bool, err error) {
 	claims := &models.UserClaims{}
