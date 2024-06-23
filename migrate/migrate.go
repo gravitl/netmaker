@@ -24,6 +24,7 @@ func Run() {
 	updateHosts()
 	updateNodes()
 	updateAcls()
+	syncUsers()
 
 }
 
@@ -312,7 +313,7 @@ func MigrateEmqx() {
 
 }
 
-func SyncUsers() {
+func syncUsers() {
 	users, err := logic.GetUsersDB()
 	if err == nil {
 		for _, user := range users {
