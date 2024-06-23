@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 )
@@ -131,13 +130,11 @@ func checkPermissionScopeWithReqMethod(scope models.RsrcPermissionScope, reqmeth
 func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		logger.Log(0, "SECURITY CHECK - 1")
 		r.Header.Set("ismaster", "no")
 		bearerToken := r.Header.Get("Authorization")
 		isGlobalAccesss := r.Header.Get("IS_GLOBAL_ACCESS") == "yes"
 		username, err := UserPermissions(reqAdmin, bearerToken)
 		if err != nil {
-			logger.Log(0, "SECURITY CHECK - 2", err.Error())
 			ReturnErrorResponse(w, r, FormatError(err, err.Error()))
 			return
 		}
@@ -155,9 +152,10 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 		w.Header().Set("TARGET_RSRC_ID", r.Header.Get("TARGET_RSRC_ID"))
 		w.Header().Set("RSRC_TYPE", r.Header.Get("RSRC_TYPE"))
 		w.Header().Set("IS_GLOBAL_ACCESS", r.Header.Get("IS_GLOBAL_ACCESS"))
-		w.Header().Set("ACCESS_PERM", err.Error())
+		if err != nil {
+			w.Header().Set("ACCESS_PERM", err.Error())
+		}
 		r.Header.Set("user", username)
-		logger.Log(0, "SECURITY CHECK - 3")
 		next.ServeHTTP(w, r)
 	}
 }
