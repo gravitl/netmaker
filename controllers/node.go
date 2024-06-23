@@ -302,23 +302,15 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 //
 // Not quite sure if this is necessary. Probably necessary based on front end but may want to review after iteration 1 if it's being used or not
 func getAllNodes(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	user, err := logic.GetUser(r.Header.Get("user"))
-	if err != nil && r.Header.Get("ismasterkey") != "yes" {
-		logger.Log(0, r.Header.Get("user"),
-			"error fetching user info: ", err.Error())
+	w.Header().Add("Content-Type", "application/json")
+	var nodes []models.Node
+	nodes, err := logic.GetAllNodes()
+	if err != nil {
+		logger.Log(0, "error fetching all nodes info: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	var nodes []models.Node
-	if user.IsAdmin || r.Header.Get("ismasterkey") == "yes" {
-		nodes, err = logic.GetAllNodes()
-		if err != nil {
-			logger.Log(0, "error fetching all nodes info: ", err.Error())
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-	}
+
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	logger.Log(3, r.Header.Get("user"), "fetched all nodes they have access to")
