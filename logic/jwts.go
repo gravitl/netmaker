@@ -87,9 +87,16 @@ func VerifyJWT(bearerToken string) (username string, issuperadmin, isadmin bool,
 	return VerifyUserToken(token)
 }
 
-func GetUserNameFromToken(tokenString string) (username string, err error) {
+func GetUserNameFromToken(authtoken string) (username string, err error) {
 	claims := &models.UserClaims{}
+	var tokenSplit = strings.Split(authtoken, " ")
+	var tokenString = ""
 
+	if len(tokenSplit) < 2 {
+		return "", Unauthorized_Err
+	} else {
+		tokenString = tokenSplit[1]
+	}
 	if tokenString == servercfg.GetMasterKey() && servercfg.GetMasterKey() != "" {
 		return MasterUser, nil
 	}
