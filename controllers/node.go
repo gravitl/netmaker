@@ -414,7 +414,6 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	gateway.NetID = params["network"]
-	gateway.NodeID = params["nodeid"]
 	err = logic.ValidateEgressRange(gateway)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error validating egress range: ", err.Error())
@@ -461,6 +460,15 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	netid := params["network"]
 	node, err := logic.ValidateParams(nodeid, netid)
 	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	var gateway models.EgressGatewayRequest
+	gateway.NetID = params["network"]
+	gateway.Ranges = node.EgressGatewayRanges
+	err = logic.ValidateEgressRange(gateway)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "error validating egress range: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}

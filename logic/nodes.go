@@ -19,6 +19,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/validation"
+	"github.com/seancfoley/ipaddress-go/ipaddr"
 	"golang.org/x/exp/slog"
 )
 
@@ -632,23 +633,20 @@ func ValidateEgressRange(gateway models.EgressGatewayRequest) error {
 		slog.Error("error getting network with netid", "error", gateway.NetID, err.Error)
 		return errors.New("error getting network with netid:  " + gateway.NetID + " " + err.Error())
 	}
-	_, ipv4Net, _ := net.ParseCIDR(network.AddressRange)
-	_, ipv6Net, _ := net.ParseCIDR(network.AddressRange6)
+	ipv4Net := network.AddressRange
+	ipv6Net := network.AddressRange6
 
 	for _, v := range gateway.Ranges {
-
-		_, cidr, _ := net.ParseCIDR(v)
-		if ipv4Net != nil {
-
-			if ContainsCIDR(ipv4Net, cidr) || ContainsCIDR(cidr, ipv4Net) {
-				slog.Error("egress range should not be the same as or contained in the netmaker network address", "error", cidr.String(), ipv4Net.String())
-				return errors.New("egress range should not be the same as or contained in the netmaker network address" + cidr.String() + " " + ipv4Net.String())
+		if ipv4Net != "" {
+			if ContainsCIDR(ipv4Net, v) {
+				slog.Error("egress range should not be the same as or contained in the netmaker network address", "error", v, ipv4Net)
+				return errors.New("egress range should not be the same as or contained in the netmaker network address" + v + " " + ipv4Net)
 			}
 		}
-		if ipv6Net != nil {
-			if ContainsCIDR(ipv6Net, cidr) || ContainsCIDR(cidr, ipv6Net) {
-				slog.Error("egress range should not be the same as or contained in the netmaker network address", "error", cidr.String(), ipv6Net.String())
-				return errors.New("egress range should not be the same as or contained in the netmaker network address" + cidr.String() + " " + ipv6Net.String())
+		if ipv6Net != "" {
+			if ContainsCIDR(ipv6Net, v) {
+				slog.Error("egress range should not be the same as or contained in the netmaker network address", "error", v, ipv6Net)
+				return errors.New("egress range should not be the same as or contained in the netmaker network address" + v + " " + ipv6Net)
 			}
 		}
 	}
@@ -656,10 +654,10 @@ func ValidateEgressRange(gateway models.EgressGatewayRequest) error {
 	return nil
 }
 
-func ContainsCIDR(net1, net2 *net.IPNet) bool {
-	net1Size, _ := net1.Mask.Size()
-	net2Size, _ := net2.Mask.Size()
-	return net1Size <= net2Size && net1.Contains(net2.IP)
+func ContainsCIDR(net1, net2 string) bool {
+	one, two := ipaddr.NewIPAddressString(net1),
+		ipaddr.NewIPAddressString(net2)
+	return one.Contains(two) || two.Contains(one)
 }
 
 // GetAllFailOvers - gets all the nodes that are failovers
