@@ -30,7 +30,7 @@ var ServiceUserPermissionTemplate = models.UserRolePermissionTemplate{
 var NetworkAdminPermissionTemplate = models.UserRolePermissionTemplate{
 	ID:                 models.NetworkAdmin,
 	Default:            true,
-	NetworkID:          "netmaker",
+	NetworkID:          "*",
 	FullAccess:         true,
 	NetworkLevelAccess: make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope),
 }
@@ -39,7 +39,7 @@ var NetworkUserPermissionTemplate = models.UserRolePermissionTemplate{
 	ID:                  models.NetworkUser,
 	Default:             true,
 	FullAccess:          false,
-	NetworkID:           "netmaker",
+	NetworkID:           "*",
 	DenyDashboardAccess: false,
 	NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
 		models.RemoteAccessGwRsrc: {
@@ -63,6 +63,8 @@ func UserRolesInit() {
 	database.Insert(SuperAdminPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
 	d, _ = json.Marshal(AdminPermissionTemplate)
 	database.Insert(AdminPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
+	d, _ = json.Marshal(ServiceUserPermissionTemplate)
+	database.Insert(ServiceUserPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
 	d, _ = json.Marshal(NetworkAdminPermissionTemplate)
 	database.Insert(NetworkAdminPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
 	d, _ = json.Marshal(NetworkUserPermissionTemplate)
@@ -105,9 +107,9 @@ func CreateRole(r models.UserRolePermissionTemplate) error {
 }
 
 // GetRole - fetches role template by id
-func GetRole(roleID string) (models.UserRolePermissionTemplate, error) {
+func GetRole(roleID models.UserRole) (models.UserRolePermissionTemplate, error) {
 	// check if role already exists
-	data, err := database.FetchRecord(database.USER_PERMISSIONS_TABLE_NAME, roleID)
+	data, err := database.FetchRecord(database.USER_PERMISSIONS_TABLE_NAME, roleID.String())
 	if err != nil {
 		return models.UserRolePermissionTemplate{}, errors.New("role already exists")
 	}
@@ -161,10 +163,12 @@ func DeleteRole(rid models.UserRole) error {
 			err = errors.New("active roles cannot be deleted.switch existing users to a new role before deleting")
 			return err
 		}
-		for _, networkRole := range user.NetworkRoles {
-			if networkRole == rid {
-				err = errors.New("active roles cannot be deleted.switch existing users to a new role before deleting")
-				return err
+		for _, networkRoles := range user.NetworkRoles {
+			for networkRole := range networkRoles {
+				if networkRole == rid {
+					err = errors.New("active roles cannot be deleted.switch existing users to a new role before deleting")
+					return err
+				}
 			}
 		}
 	}

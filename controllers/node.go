@@ -280,7 +280,44 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-
+	username := r.Header.Get("user")
+	user, err := logic.GetUser(username)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	networkRoles := user.NetworkRoles[models.NetworkID(networkName)]
+	for networkRoleID := range networkRoles {
+		userPermTemplate, err := logic.GetRole(networkRoleID)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+		if !userPermTemplate.FullAccess {
+			filteredNodes := []models.Node{}
+			if rsrcPerms, ok := userPermTemplate.NetworkLevelAccess[models.RemoteAccessGwRsrc]; ok {
+				if _, ok := rsrcPerms[models.AllRemoteAccessGwRsrcID]; ok {
+					for _, node := range nodes {
+						if node.IsIngressGateway {
+							filteredNodes = append(filteredNodes, node)
+						}
+					}
+				} else {
+					for gwID, scope := range rsrcPerms {
+						if scope.Read {
+							gwNode, err := logic.GetNodeByID(gwID.String())
+							if err == nil && gwNode.IsIngressGateway {
+								filteredNodes = append(filteredNodes, gwNode)
+							}
+						}
+					}
+				}
+			}
+			nodes = filteredNodes
+		} else {
+			break
+		}
+	}
 	// returns all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	logger.Log(2, r.Header.Get("user"), "fetched nodes on network", networkName)

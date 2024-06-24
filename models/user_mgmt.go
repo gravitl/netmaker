@@ -16,6 +16,10 @@ func (r RsrcType) String() string {
 	return string(r)
 }
 
+func (rid RsrcID) String() string {
+	return string(rid)
+}
+
 const (
 	HostRsrc           RsrcType = "hosts"
 	RelayRsrc          RsrcType = "relays"
@@ -65,10 +69,11 @@ func (g UserGroupID) String() string {
 }
 
 type RsrcPermissionScope struct {
-	Create bool `json:"create"`
-	Read   bool `json:"read"`
-	Update bool `json:"update"`
-	Delete bool `json:"delete"`
+	Create    bool `json:"create"`
+	Read      bool `json:"read"`
+	Update    bool `json:"update"`
+	Delete    bool `json:"delete"`
+	VPNaccess bool `json:"vpn_access"`
 }
 
 type UserRolePermissionTemplate struct {
@@ -89,15 +94,15 @@ type UserGroup struct {
 
 // User struct - struct for Users
 type User struct {
-	UserName       string                   `json:"username" bson:"username" validate:"min=3,max=40,in_charset|email"`
-	Password       string                   `json:"password" bson:"password" validate:"required,min=5"`
-	IsAdmin        bool                     `json:"isadmin" bson:"isadmin"`
-	IsSuperAdmin   bool                     `json:"issuperadmin"`
-	RemoteGwIDs    map[string]struct{}      `json:"remote_gw_ids"`
-	UserGroups     map[UserGroupID]struct{} `json:"user_group_ids"`
-	PlatformRoleID UserRole                 `json:"platform_role_id"`
-	NetworkRoles   map[NetworkID]UserRole   `json:"network_roles"`
-	LastLoginTime  time.Time                `json:"last_login_time"`
+	UserName       string                              `json:"username" bson:"username" validate:"min=3,max=40,in_charset|email"`
+	Password       string                              `json:"password" bson:"password" validate:"required,min=5"`
+	IsAdmin        bool                                `json:"isadmin" bson:"isadmin"`
+	IsSuperAdmin   bool                                `json:"issuperadmin"`
+	RemoteGwIDs    map[string]struct{}                 `json:"remote_gw_ids"`
+	UserGroups     map[UserGroupID]struct{}            `json:"user_group_ids"`
+	PlatformRoleID UserRole                            `json:"platform_role_id"`
+	NetworkRoles   map[NetworkID]map[UserRole]struct{} `json:"network_roles"`
+	LastLoginTime  time.Time                           `json:"last_login_time"`
 }
 
 // ReturnUser - return user struct

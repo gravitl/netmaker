@@ -327,7 +327,10 @@ func syncUsers() {
 				user.PlatformRoleID = models.ServiceUser
 				logic.UpsertUser(user)
 			}
+			if len(user.RemoteGwIDs) > 0 {
+				// define user roles for network
 
+			}
 		}
 	}
 }

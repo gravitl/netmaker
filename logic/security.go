@@ -49,27 +49,37 @@ func networkPermissionsCheck(username string, r *http.Request) error {
 	}
 	// check if user has scope for target resource
 	// TODO - differentitate between global scope and network scope apis
-	networkPermissionScope, err := GetRole(user.NetworkRoles[models.NetworkID(netID)].String())
-	if err != nil {
-		return errors.New("access denied")
-	}
-	if networkPermissionScope.FullAccess {
-		return nil
-	}
-	rsrcPermissionScope, ok := networkPermissionScope.NetworkLevelAccess[models.RsrcType(targetRsrc)]
-	if !ok {
-		return fmt.Errorf("access denied to %s rsrc", targetRsrc)
-	}
-	if allRsrcsTypePermissionScope, ok := rsrcPermissionScope[models.RsrcID(fmt.Sprintf("all_%s", targetRsrc))]; ok {
-		return checkPermissionScopeWithReqMethod(allRsrcsTypePermissionScope, r.Method)
+	netRoles := user.NetworkRoles[models.NetworkID(netID)]
+	for netRoleID := range netRoles {
+		networkPermissionScope, err := GetRole(netRoleID)
+		if err != nil {
+			continue
+		}
+		if networkPermissionScope.FullAccess {
+			return nil
+		}
+		rsrcPermissionScope, ok := networkPermissionScope.NetworkLevelAccess[models.RsrcType(targetRsrc)]
+		if !ok {
+			continue
+		}
+		if allRsrcsTypePermissionScope, ok := rsrcPermissionScope[models.RsrcID(fmt.Sprintf("all_%s", targetRsrc))]; ok {
+			err = checkPermissionScopeWithReqMethod(allRsrcsTypePermissionScope, r.Method)
+			if err == nil {
+				return nil
+			}
 
+		}
+		if targetRsrcID == "" {
+			continue
+		}
+		if scope, ok := rsrcPermissionScope[models.RsrcID(targetRsrcID)]; ok {
+			err = checkPermissionScopeWithReqMethod(scope, r.Method)
+			if err == nil {
+				return nil
+			}
+		}
 	}
-	if targetRsrcID == "" {
-		return errors.New("target rsrc is missing")
-	}
-	if scope, ok := rsrcPermissionScope[models.RsrcID(targetRsrcID)]; ok {
-		return checkPermissionScopeWithReqMethod(scope, r.Method)
-	}
+
 	return errors.New("access denied")
 }
 
@@ -78,7 +88,7 @@ func globalPermissionsCheck(username string, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	userRole, err := GetRole(user.PlatformRoleID.String())
+	userRole, err := GetRole(user.PlatformRoleID)
 	if err != nil {
 		return errors.New("access denied")
 	}
