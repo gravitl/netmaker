@@ -30,7 +30,7 @@ var ServiceUserPermissionTemplate = models.UserRolePermissionTemplate{
 var NetworkAdminPermissionTemplate = models.UserRolePermissionTemplate{
 	ID:                 models.NetworkAdmin,
 	Default:            true,
-	NetworkID:          "*",
+	NetworkID:          "netmaker",
 	FullAccess:         true,
 	NetworkLevelAccess: make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope),
 }
@@ -39,7 +39,7 @@ var NetworkUserPermissionTemplate = models.UserRolePermissionTemplate{
 	ID:                  models.NetworkUser,
 	Default:             true,
 	FullAccess:          false,
-	NetworkID:           "*",
+	NetworkID:           "netmaker",
 	DenyDashboardAccess: false,
 	NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
 		models.RemoteAccessGwRsrc: {
@@ -49,10 +49,11 @@ var NetworkUserPermissionTemplate = models.UserRolePermissionTemplate{
 		},
 		models.ExtClientsRsrc: {
 			models.AllExtClientsRsrcID: models.RsrcPermissionScope{
-				Read:   true,
-				Create: true,
-				Update: true,
-				Delete: true,
+				Read:      true,
+				Create:    true,
+				Update:    true,
+				Delete:    true,
+				VPNaccess: true,
 			},
 		},
 	},
@@ -146,16 +147,23 @@ func DeleteRole(rid models.UserRole) error {
 	if err != nil {
 		return err
 	}
+	role, err := GetRole(rid)
+	if err != nil {
+		return err
+	}
 	for _, user := range users {
 		for userG := range user.UserGroups {
 			ug, err := GetUserGroup(userG)
 			if err == nil {
-				for _, networkRole := range ug.NetworkRoles {
-					if networkRole == rid {
-						err = errors.New("role cannot be deleted as active user groups are using this role")
-						return err
+				if role.NetworkID != "" {
+					for _, networkRoles := range ug.NetworkRoles {
+						if _, ok := networkRoles[rid]; ok {
+							err = errors.New("role cannot be deleted as active user groups are using this role")
+							return err
+						}
 					}
 				}
+
 			}
 		}
 
@@ -164,12 +172,11 @@ func DeleteRole(rid models.UserRole) error {
 			return err
 		}
 		for _, networkRoles := range user.NetworkRoles {
-			for networkRole := range networkRoles {
-				if networkRole == rid {
-					err = errors.New("active roles cannot be deleted.switch existing users to a new role before deleting")
-					return err
-				}
+			if _, ok := networkRoles[rid]; ok {
+				err = errors.New("active roles cannot be deleted.switch existing users to a new role before deleting")
+				return err
 			}
+
 		}
 	}
 	return database.DeleteRecord(database.USER_PERMISSIONS_TABLE_NAME, rid.String())

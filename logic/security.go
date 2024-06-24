@@ -51,35 +51,55 @@ func networkPermissionsCheck(username string, r *http.Request) error {
 	// TODO - differentitate between global scope and network scope apis
 	netRoles := user.NetworkRoles[models.NetworkID(netID)]
 	for netRoleID := range netRoles {
-		networkPermissionScope, err := GetRole(netRoleID)
-		if err != nil {
-			continue
-		}
-		if networkPermissionScope.FullAccess {
+		err = checkNetworkAccessPermissions(netRoleID, r.Method, targetRsrc, targetRsrcID)
+		if err == nil {
 			return nil
 		}
-		rsrcPermissionScope, ok := networkPermissionScope.NetworkLevelAccess[models.RsrcType(targetRsrc)]
-		if !ok {
-			continue
-		}
-		if allRsrcsTypePermissionScope, ok := rsrcPermissionScope[models.RsrcID(fmt.Sprintf("all_%s", targetRsrc))]; ok {
-			err = checkPermissionScopeWithReqMethod(allRsrcsTypePermissionScope, r.Method)
-			if err == nil {
-				return nil
-			}
-
-		}
-		if targetRsrcID == "" {
-			continue
-		}
-		if scope, ok := rsrcPermissionScope[models.RsrcID(targetRsrcID)]; ok {
-			err = checkPermissionScopeWithReqMethod(scope, r.Method)
-			if err == nil {
-				return nil
+	}
+	for groupID := range user.UserGroups {
+		userG, err := GetUserGroup(groupID)
+		if err == nil {
+			netRoles := userG.NetworkRoles[models.NetworkID(netID)]
+			for netRoleID := range netRoles {
+				err = checkNetworkAccessPermissions(netRoleID, r.Method, targetRsrc, targetRsrcID)
+				if err == nil {
+					return nil
+				}
 			}
 		}
 	}
 
+	return errors.New("access denied")
+}
+
+func checkNetworkAccessPermissions(netRoleID models.UserRole, reqScope, targetRsrc, targetRsrcID string) error {
+	networkPermissionScope, err := GetRole(netRoleID)
+	if err != nil {
+		return err
+	}
+	if networkPermissionScope.FullAccess {
+		return nil
+	}
+	rsrcPermissionScope, ok := networkPermissionScope.NetworkLevelAccess[models.RsrcType(targetRsrc)]
+	if !ok {
+		return errors.New("access denied")
+	}
+	if allRsrcsTypePermissionScope, ok := rsrcPermissionScope[models.RsrcID(fmt.Sprintf("all_%s", targetRsrc))]; ok {
+		err = checkPermissionScopeWithReqMethod(allRsrcsTypePermissionScope, reqScope)
+		if err == nil {
+			return nil
+		}
+
+	}
+	if targetRsrcID == "" {
+		return errors.New("target rsrc id is empty")
+	}
+	if scope, ok := rsrcPermissionScope[models.RsrcID(targetRsrcID)]; ok {
+		err = checkPermissionScopeWithReqMethod(scope, reqScope)
+		if err == nil {
+			return nil
+		}
+	}
 	return errors.New("access denied")
 }
 

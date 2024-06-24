@@ -642,6 +642,20 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	uniqueGroupsPlatformRole := make(map[models.UserRole]struct{})
+	for groupID := range user.UserGroups {
+		userG, err := logic.GetUserGroup(groupID)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+		uniqueGroupsPlatformRole[userG.PlatformRole] = struct{}{}
+	}
+	if len(uniqueGroupsPlatformRole) > 1 {
+		err = errors.New("only groups with same platform role can be assigned to an user")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	if !caller.IsSuperAdmin && user.IsAdmin {
 		err = errors.New("only superadmin can create admin users")
 		slog.Error("error creating new user: ", "user", user.UserName, "error", err)

@@ -87,9 +87,10 @@ type UserRolePermissionTemplate struct {
 }
 
 type UserGroup struct {
-	ID           string                 `json:"id"`
-	NetworkRoles map[NetworkID]UserRole `json:"network_roles"`
-	MetaData     string                 `json:"meta_data"`
+	ID           string                              `json:"id"`
+	PlatformRole UserRole                            `json:"platform_role"`
+	NetworkRoles map[NetworkID]map[UserRole]struct{} `json:"network_roles"`
+	MetaData     string                              `json:"meta_data"`
 }
 
 // User struct - struct for Users
