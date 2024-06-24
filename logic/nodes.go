@@ -19,6 +19,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/validation"
+	"github.com/seancfoley/ipaddress-go/ipaddr"
 	"golang.org/x/exp/slog"
 )
 
@@ -624,6 +625,39 @@ func ValidateParams(nodeid, netid string) (models.Node, error) {
 		return node, fmt.Errorf("network url param does not match node network")
 	}
 	return node, nil
+}
+
+func ValidateEgressRange(gateway models.EgressGatewayRequest) error {
+	network, err := GetNetworkSettings(gateway.NetID)
+	if err != nil {
+		slog.Error("error getting network with netid", "error", gateway.NetID, err.Error)
+		return errors.New("error getting network with netid:  " + gateway.NetID + " " + err.Error())
+	}
+	ipv4Net := network.AddressRange
+	ipv6Net := network.AddressRange6
+
+	for _, v := range gateway.Ranges {
+		if ipv4Net != "" {
+			if ContainsCIDR(ipv4Net, v) {
+				slog.Error("egress range should not be the same as or contained in the netmaker network address", "error", v, ipv4Net)
+				return errors.New("egress range should not be the same as or contained in the netmaker network address" + v + " " + ipv4Net)
+			}
+		}
+		if ipv6Net != "" {
+			if ContainsCIDR(ipv6Net, v) {
+				slog.Error("egress range should not be the same as or contained in the netmaker network address", "error", v, ipv6Net)
+				return errors.New("egress range should not be the same as or contained in the netmaker network address" + v + " " + ipv6Net)
+			}
+		}
+	}
+
+	return nil
+}
+
+func ContainsCIDR(net1, net2 string) bool {
+	one, two := ipaddr.NewIPAddressString(net1),
+		ipaddr.NewIPAddressString(net2)
+	return one.Contains(two) || two.Contains(one)
 }
 
 // GetAllFailOvers - gets all the nodes that are failovers
