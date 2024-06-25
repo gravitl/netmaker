@@ -29,7 +29,7 @@ func PublishPeerUpdate(replacePeers bool) error {
 		host := host
 		go func(host models.Host) {
 			hostUpdate := models.HostUpdate{
-				Action: models.JoinPull,
+				Action: models.SignalPull,
 				Host:   host,
 			}
 			if err = HostUpdate(&hostUpdate); err != nil {

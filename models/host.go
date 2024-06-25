@@ -116,8 +116,8 @@ const (
 	UpdateKeys HostMqAction = "UPDATE_KEYS"
 	// RequestPull - request a pull from a host
 	RequestPull HostMqAction = "REQ_PULL"
-	// JoinPull - request a pull from a host without restart
-	JoinPull HostMqAction = "JOIN_PULL"
+	// SignalPull - request a pull from a host without restart
+	SignalPull HostMqAction = "SIGNAL_PULL"
 	// UpdateMetrics - updates metrics data
 	UpdateMetrics HostMqAction = "UPDATE_METRICS"
 )
