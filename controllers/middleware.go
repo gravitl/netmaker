@@ -60,6 +60,7 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		}
 		if netID, ok := params["networkname"]; ok {
 			r.Header.Set("TARGET_RSRC_ID", netID)
+			r.Header.Set("NET_ID", params["networkname"])
 		}
 		if userID, ok := params["username"]; ok {
 			r.Header.Set("TARGET_RSRC_ID", userID)
