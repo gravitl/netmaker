@@ -314,6 +314,35 @@ func MigrateEmqx() {
 }
 
 func syncUsers() {
+	// create default network user roles for existing networks
+	networks, _ := logic.GetNetworks()
+	nodes, err := logic.GetAllNodes()
+	if err == nil {
+		for _, netI := range networks {
+			networkNodes := logic.GetNetworkNodesMemory(nodes, netI.NetID)
+			for _, networkNodeI := range networkNodes {
+				if networkNodeI.IsIngressGateway {
+					h, err := logic.GetHost(networkNodeI.HostID.String())
+					if err == nil {
+						logic.CreateRole(models.UserRolePermissionTemplate{
+							ID:                  models.UserRole(fmt.Sprintf("net-%s-user-gw-%s", netI.NetID, h.Name)),
+							DenyDashboardAccess: true,
+							NetworkID:           netI.NetID,
+							NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
+								models.RemoteAccessGwRsrc: {
+									models.RsrcID(networkNodeI.ID.String()): models.RsrcPermissionScope{
+										VPNaccess: true,
+									},
+								},
+							},
+						})
+					}
+
+				}
+			}
+		}
+	}
+
 	users, err := logic.GetUsersDB()
 	if err == nil {
 		for _, user := range users {
@@ -329,7 +358,29 @@ func syncUsers() {
 			}
 			if len(user.RemoteGwIDs) > 0 {
 				// define user roles for network
-
+				// assign relevant network role to user
+				for remoteGwID := range user.RemoteGwIDs {
+					gwNode, err := logic.GetNodeByID(remoteGwID)
+					if err != nil {
+						continue
+					}
+					h, err := logic.GetHost(gwNode.HostID.String())
+					if err != nil {
+						continue
+					}
+					r, err := logic.GetRole(models.UserRole(fmt.Sprintf("net-%s-user-gw-%s", gwNode.Network, h.Name)))
+					if err != nil {
+						continue
+					}
+					if netRoles, ok := user.NetworkRoles[models.NetworkID(gwNode.Network)]; ok {
+						netRoles[r.ID] = struct{}{}
+					} else {
+						user.NetworkRoles[models.NetworkID(gwNode.Network)] = map[models.UserRole]struct{}{
+							r.ID: {},
+						}
+					}
+				}
+				logic.UpsertUser(user)
 			}
 		}
 	}

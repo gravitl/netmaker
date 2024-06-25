@@ -369,8 +369,13 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 			logic.ReturnErrorResponse(response, request, logic.FormatError(err, "unauthorized"))
 			return
 		}
-		if !(user.IsAdmin || user.IsSuperAdmin) {
-			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("only admins can access dashboard"), "unauthorized"))
+		role, err := logic.GetRole(user.PlatformRoleID)
+		if err != nil {
+			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
+			return
+		}
+		if role.DenyDashboardAccess {
+			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
 			return
 		}
 	}
