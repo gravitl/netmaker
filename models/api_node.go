@@ -36,7 +36,7 @@ type ApiNode struct {
 	Server                  string   `json:"server"`
 	Connected               bool     `json:"connected"`
 	PendingDelete           bool     `json:"pendingdelete"`
-	Metadata                string   `json:"metadata" validate:"max=256"`
+	Metadata                string   `json:"metadata"`
 	// == PRO ==
 	DefaultACL        string              `json:"defaultacl,omitempty" validate:"checkyesornoorunset"`
 	IsFailOver        bool                `json:"is_fail_over"`
