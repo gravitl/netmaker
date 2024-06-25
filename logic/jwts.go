@@ -104,6 +104,9 @@ func GetUserNameFromToken(authtoken string) (username string, err error) {
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		return jwtSecretKey, nil
 	})
+	if err != nil {
+		return "", Unauthorized_Err
+	}
 
 	if token != nil && token.Valid {
 		var user *models.User
@@ -116,6 +119,8 @@ func GetUserNameFromToken(authtoken string) (username string, err error) {
 			return user.UserName, nil
 		}
 		err = errors.New("user does not exist")
+	} else {
+		err = Unauthorized_Err
 	}
 	return "", err
 }
