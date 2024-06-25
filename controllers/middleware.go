@@ -64,7 +64,9 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if userID, ok := params["username"]; ok {
 			r.Header.Set("TARGET_RSRC_ID", userID)
 		}
-		if r.Header.Get("TARGET_RSRC_ID") == "" || r.Header.Get("TARGET_RSRC") == models.EnrollmentKeysRsrc.String() {
+		if r.Header.Get("TARGET_RSRC_ID") == "" ||
+			r.Header.Get("TARGET_RSRC") == models.EnrollmentKeysRsrc.String() ||
+			r.Header.Get("TARGET_RSRC") == models.UserRsrc.String() {
 			r.Header.Set("IS_GLOBAL_ACCESS", "yes")
 		}
 		handler.ServeHTTP(w, r)
