@@ -631,10 +631,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if len(newData.Metadata) > 255 {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("metadata cannot be longer than 255 characters"), "badrequest"))
-		return
-	}
 	if !servercfg.IsPro {
 		newData.AdditionalRagIps = []string{}
 	}
