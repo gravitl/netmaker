@@ -123,7 +123,7 @@ func ValidateRelay(relay models.RelayRequest, update bool) error {
 		if relayedNode.IsInternetGateway {
 			return errors.New("cannot relay an internet gateway (" + relayedNodeID + ")")
 		}
-		if relayedNode.InternetGwID != "" {
+		if relayedNode.InternetGwID != "" && relayedNode.InternetGwID != relay.NodeID {
 			return errors.New("cannot relay an internet client (" + relayedNodeID + ")")
 		}
 		if relayedNode.IsFailOver {
