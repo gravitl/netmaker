@@ -59,7 +59,7 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 			ResetFailedOverPeer(&clientNode)
 		}
 
-		if clientNode.IsRelayed {
+		if clientNode.IsRelayed && clientNode.RelayedBy != inetNode.ID.String() {
 			return fmt.Errorf("node %s is being relayed", clientHost.Name)
 		}
 
