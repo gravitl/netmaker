@@ -24,19 +24,17 @@ func PublishPeerUpdate(replacePeers bool) error {
 		logger.Log(1, "err getting all hosts", err.Error())
 		return err
 	}
-
+	allNodes, err := logic.GetAllNodes()
+	if err != nil {
+		return err
+	}
 	for _, host := range hosts {
 		host := host
 		go func(host models.Host) {
-			hostUpdate := models.HostUpdate{
-				Action: models.SignalPull,
-				Host:   host,
-			}
-			if err = HostUpdate(&hostUpdate); err != nil {
-				slog.Warn("failed to send host pull request", "host", host.ID.String(), "error", err)
+			if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers); err != nil {
+				logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 			}
 		}(host)
-
 	}
 	return err
 }
