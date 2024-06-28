@@ -99,7 +99,7 @@ type User struct {
 	Password       string                              `json:"password" bson:"password" validate:"required,min=5"`
 	IsAdmin        bool                                `json:"isadmin" bson:"isadmin"`
 	IsSuperAdmin   bool                                `json:"issuperadmin"`
-	RemoteGwIDs    map[string]struct{}                 `json:"remote_gw_ids"`
+	RemoteGwIDs    map[string]struct{}                 `json:"remote_gw_ids"` // deprecated
 	UserGroups     map[UserGroupID]struct{}            `json:"user_group_ids"`
 	PlatformRoleID UserRole                            `json:"platform_role_id"`
 	NetworkRoles   map[NetworkID]map[UserRole]struct{} `json:"network_roles"`
@@ -111,7 +111,7 @@ type ReturnUser struct {
 	UserName       string                   `json:"username"`
 	IsAdmin        bool                     `json:"isadmin"`
 	IsSuperAdmin   bool                     `json:"issuperadmin"`
-	RemoteGwIDs    map[string]struct{}      `json:"remote_gw_ids"`
+	RemoteGwIDs    map[string]struct{}      `json:"remote_gw_ids"` // deprecated
 	UserGroups     map[UserGroupID]struct{} `json:"user_group_ids"`
 	PlatformRoleID string                   `json:"platform_role_id"`
 	NetworkRoles   map[NetworkID]UserRole   `json:"network_roles"`

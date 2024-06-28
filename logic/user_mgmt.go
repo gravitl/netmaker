@@ -3,6 +3,7 @@ package logic
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
@@ -90,6 +91,32 @@ func ListRoles() ([]models.UserRolePermissionTemplate, error) {
 	return userRoles, nil
 }
 
+func ValidateCreateRoleReq(userRole models.UserRolePermissionTemplate) error {
+	// check if role exists with this id
+	_, err := GetRole(userRole.ID)
+	if err == nil {
+		return fmt.Errorf("role with id `%s` exists already", userRole.ID.String())
+	}
+	if userRole.NetworkID == "" {
+		return errors.New("only network roles are allowed to be created")
+	}
+	return nil
+}
+
+func ValidateUpdateRoleReq(userRole models.UserRolePermissionTemplate) error {
+	roleInDB, err := GetRole(userRole.ID)
+	if err != nil {
+		return err
+	}
+	if roleInDB.NetworkID != userRole.NetworkID {
+		return errors.New("network id mismatch")
+	}
+	if roleInDB.Default {
+		return errors.New("cannot update default role")
+	}
+	return nil
+}
+
 // CreateRole - inserts new role into DB
 func CreateRole(r models.UserRolePermissionTemplate) error {
 	// check if role already exists
@@ -150,6 +177,9 @@ func DeleteRole(rid models.UserRole) error {
 	role, err := GetRole(rid)
 	if err != nil {
 		return err
+	}
+	if role.Default {
+		return errors.New("cannot delete default role")
 	}
 	for _, user := range users {
 		for userG := range user.UserGroups {
