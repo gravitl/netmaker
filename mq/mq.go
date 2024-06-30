@@ -58,7 +58,7 @@ func SetupMQTT(fatal bool) {
 				logger.Log(0, err.Error())
 			}
 			// create a default deny ACL to all topics for all users
-			if err := emqx.CreateDefaultDenyRule(); err != nil {
+			if err := emqx.CreateDefaultAllowRule(); err != nil {
 				log.Fatal(err)
 			}
 		} else {

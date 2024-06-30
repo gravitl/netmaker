@@ -89,7 +89,7 @@ func (e *EmqxCloud) CreateEmqxDefaultAuthenticator() error { return nil } // ign
 
 func (e *EmqxCloud) CreateEmqxDefaultAuthorizer() error { return nil } // ignore
 
-func (e *EmqxCloud) CreateDefaultDenyRule() error {
+func (e *EmqxCloud) CreateDefaultAllowRule() error {
 	return nil
 }
 
