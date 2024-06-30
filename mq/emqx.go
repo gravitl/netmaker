@@ -11,9 +11,6 @@ type Emqx interface {
 	CreateEmqxDefaultAuthenticator() error
 	CreateEmqxDefaultAuthorizer() error
 	CreateDefaultAllowRule() error
-	CreateHostACL(hostID, serverName string) error
-	AppendNodeUpdateACL(hostID, nodeNetwork, nodeID, serverName string) error
-	GetUserACL(username string) (*aclObject, error)
 	DeleteEmqxUser(username string) error
 }
 
