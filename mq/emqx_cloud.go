@@ -89,20 +89,9 @@ func (e *EmqxCloud) CreateEmqxDefaultAuthenticator() error { return nil } // ign
 
 func (e *EmqxCloud) CreateEmqxDefaultAuthorizer() error { return nil } // ignore
 
-func (e *EmqxCloud) CreateDefaultDenyRule() error {
+func (e *EmqxCloud) CreateDefaultAllowRule() error {
 	return nil
 }
-
-func (e *EmqxCloud) CreateHostACL(hostID, serverName string) error {
-	return nil
-}
-
-func (e *EmqxCloud) AppendNodeUpdateACL(hostID, nodeNetwork, nodeID, serverName string) error {
-	return nil
-
-}
-
-func (e *EmqxCloud) GetUserACL(username string) (*aclObject, error) { return nil, nil } // ununsed on cloud since it doesn't overwrite acls list
 
 func (e *EmqxCloud) DeleteEmqxUser(username string) error {
 

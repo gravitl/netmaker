@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"sync"
 
 	"github.com/gravitl/netmaker/servercfg"
 )
@@ -246,45 +245,14 @@ func (e *EmqxOnPrem) CreateEmqxDefaultAuthorizer() error {
 	return nil
 }
 
-// GetUserACL - returns ACL rules by username
-func (e *EmqxOnPrem) GetUserACL(username string) (*aclObject, error) {
-	token, err := getEmqxAuthToken()
-	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequest(http.MethodGet, servercfg.GetEmqxRestEndpoint()+"/api/v5/authorization/sources/built_in_database/username/"+username, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Add("content-type", "application/json")
-	req.Header.Add("authorization", "Bearer "+token)
-	resp, err := (&http.Client{}).Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	response, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("error fetching ACL rules %v", string(response))
-	}
-	body := new(aclObject)
-	if err := json.Unmarshal(response, body); err != nil {
-		return nil, err
-	}
-	return body, nil
-}
-
-// CreateDefaultDenyRule - creates a rule to deny access to all topics for all users by default
+// CreateDefaultAllowRule - creates a rule to deny access to all topics for all users by default
 // to allow user access to topics use the `mq.CreateUserAccessRule` function
-func (e *EmqxOnPrem) CreateDefaultDenyRule() error {
+func (e *EmqxOnPrem) CreateDefaultAllowRule() error {
 	token, err := getEmqxAuthToken()
 	if err != nil {
 		return err
 	}
-	payload, err := json.Marshal(&aclObject{Rules: []aclRule{{Topic: "#", Permission: "deny", Action: "all"}}})
+	payload, err := json.Marshal(&aclObject{Rules: []aclRule{{Topic: "#", Permission: "allow", Action: "all"}}})
 	if err != nil {
 		return err
 	}
@@ -305,124 +273,6 @@ func (e *EmqxOnPrem) CreateDefaultDenyRule() error {
 			return err
 		}
 		return fmt.Errorf("error creating default ACL rules %v", string(msg))
-	}
-	return nil
-}
-
-// CreateHostACL - create host ACL rules
-func (e *EmqxOnPrem) CreateHostACL(hostID, serverName string) error {
-	token, err := getEmqxAuthToken()
-	if err != nil {
-		return err
-	}
-	payload, err := json.Marshal(&aclObject{
-		Username: hostID,
-		Rules: []aclRule{
-			{
-				Topic:      fmt.Sprintf("peers/host/%s/%s", hostID, serverName),
-				Permission: "allow",
-				Action:     "all",
-			},
-			{
-				Topic:      fmt.Sprintf("host/update/%s/%s", hostID, serverName),
-				Permission: "allow",
-				Action:     "all",
-			},
-			{
-				Topic:      fmt.Sprintf("host/serverupdate/%s/%s", serverName, hostID),
-				Permission: "allow",
-				Action:     "all",
-			},
-		},
-	})
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequest(http.MethodPut, servercfg.GetEmqxRestEndpoint()+"/api/v5/authorization/sources/built_in_database/username/"+hostID, bytes.NewReader(payload))
-	if err != nil {
-		return err
-	}
-	req.Header.Add("content-type", "application/json")
-	req.Header.Add("authorization", "Bearer "+token)
-	resp, err := (&http.Client{}).Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusNoContent {
-		msg, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return err
-		}
-		return fmt.Errorf("error adding ACL Rules for user %s Error: %v", hostID, string(msg))
-	}
-	return nil
-}
-
-// a lock required for preventing simultaneous updates to the same ACL object leading to overwriting each other
-// might occur when multiple nodes belonging to the same host are created at the same time
-var nodeAclMux sync.Mutex
-
-// AppendNodeUpdateACL - adds ACL rule for subscribing to node updates for a node ID
-func (e *EmqxOnPrem) AppendNodeUpdateACL(hostID, nodeNetwork, nodeID, serverName string) error {
-	nodeAclMux.Lock()
-	defer nodeAclMux.Unlock()
-	token, err := getEmqxAuthToken()
-	if err != nil {
-		return err
-	}
-	aclObject, err := emqx.GetUserACL(hostID)
-	if err != nil {
-		return err
-	}
-	aclObject.Rules = append(aclObject.Rules, []aclRule{
-		{
-			Topic:      fmt.Sprintf("node/update/%s/%s", nodeNetwork, nodeID),
-			Permission: "allow",
-			Action:     "subscribe",
-		},
-		{
-			Topic:      fmt.Sprintf("ping/%s/%s", serverName, nodeID),
-			Permission: "allow",
-			Action:     "all",
-		},
-		{
-			Topic:      fmt.Sprintf("update/%s/%s", serverName, nodeID),
-			Permission: "allow",
-			Action:     "all",
-		},
-		{
-			Topic:      fmt.Sprintf("signal/%s/%s", serverName, nodeID),
-			Permission: "allow",
-			Action:     "all",
-		},
-		{
-			Topic:      fmt.Sprintf("metrics/%s/%s", serverName, nodeID),
-			Permission: "allow",
-			Action:     "all",
-		},
-	}...)
-	payload, err := json.Marshal(aclObject)
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequest(http.MethodPut, servercfg.GetEmqxRestEndpoint()+"/api/v5/authorization/sources/built_in_database/username/"+hostID, bytes.NewReader(payload))
-	if err != nil {
-		return err
-	}
-	req.Header.Add("content-type", "application/json")
-	req.Header.Add("authorization", "Bearer "+token)
-	resp, err := (&http.Client{}).Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusNoContent {
-		msg, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return err
-		}
-		return fmt.Errorf("error adding ACL Rules for user %s Error: %v", hostID, string(msg))
 	}
 	return nil
 }

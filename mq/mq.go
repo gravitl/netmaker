@@ -34,8 +34,8 @@ func setMqOptions(user, password string, opts *mqtt.ClientOptions) {
 	opts.SetAutoReconnect(true)
 	opts.SetConnectRetry(true)
 	opts.SetCleanSession(true)
-	opts.SetConnectRetryInterval(time.Second * 4)
-	opts.SetKeepAlive(time.Minute)
+	opts.SetConnectRetryInterval(time.Second * 3)
+	opts.SetKeepAlive(time.Second * 5)
 	opts.SetCleanSession(true)
 	opts.SetWriteTimeout(time.Minute)
 }
@@ -58,7 +58,7 @@ func SetupMQTT(fatal bool) {
 				logger.Log(0, err.Error())
 			}
 			// create a default deny ACL to all topics for all users
-			if err := emqx.CreateDefaultDenyRule(); err != nil {
+			if err := emqx.CreateDefaultAllowRule(); err != nil {
 				log.Fatal(err)
 			}
 		} else {
@@ -96,9 +96,9 @@ func SetupMQTT(fatal bool) {
 	})
 	opts.SetConnectionLostHandler(func(c mqtt.Client, e error) {
 		slog.Warn("detected broker connection lost", "err", e.Error())
-		c.Disconnect(250)
-		slog.Info("re-initiating MQ connection")
-		SetupMQTT(false)
+		// c.Disconnect(250)
+		// slog.Info("re-initiating MQ connection")
+		// SetupMQTT(false)
 
 	})
 	mqclient = mqtt.NewClient(opts)
@@ -142,6 +142,11 @@ func Keepalive(ctx context.Context) {
 
 // IsConnected - function for determining if the mqclient is connected or not
 func IsConnected() bool {
+	return mqclient != nil && mqclient.IsConnected()
+}
+
+// IsConnectionOpen - function for determining if the mqclient is connected or not
+func IsConnectionOpen() bool {
 	return mqclient != nil && mqclient.IsConnectionOpen()
 }
 

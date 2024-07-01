@@ -315,10 +315,6 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 				logger.Log(0, "failed to create host credentials for EMQX: ", err.Error())
 				return
 			}
-			if err := mq.GetEmqxHandler().CreateHostACL(newHost.ID.String(), servercfg.GetServerInfo().Server); err != nil {
-				logger.Log(0, "failed to add host ACL rules to EMQX: ", err.Error())
-				return
-			}
 		}
 		if err = logic.CreateHost(&newHost); err != nil {
 			logger.Log(

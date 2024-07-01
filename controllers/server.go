@@ -117,6 +117,7 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 	type status struct {
 		DB               bool      `json:"db_connected"`
 		Broker           bool      `json:"broker_connected"`
+		IsBrokerConnOpen bool      `json:"is_broker_conn_open"`
 		LicenseError     string    `json:"license_error"`
 		IsPro            bool      `json:"is_pro"`
 		TrialEndDate     time.Time `json:"trial_end_date"`
@@ -141,6 +142,7 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 	currentServerStatus := status{
 		DB:               database.IsConnected(),
 		Broker:           mq.IsConnected(),
+		IsBrokerConnOpen: mq.IsConnectionOpen(),
 		LicenseError:     licenseErr,
 		IsPro:            servercfg.IsPro,
 		TrialEndDate:     trialEndDate,
