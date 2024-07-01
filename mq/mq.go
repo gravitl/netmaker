@@ -142,6 +142,11 @@ func Keepalive(ctx context.Context) {
 
 // IsConnected - function for determining if the mqclient is connected or not
 func IsConnected() bool {
+	return mqclient != nil && mqclient.IsConnected()
+}
+
+// IsConnectionOpen - function for determining if the mqclient is connected or not
+func IsConnectionOpen() bool {
 	return mqclient != nil && mqclient.IsConnectionOpen()
 }
 
