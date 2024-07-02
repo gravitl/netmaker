@@ -218,7 +218,7 @@ func CreateUserGroup(g models.UserGroup) error {
 	if g.ID == "" {
 		return errors.New("group id cannot be empty")
 	}
-	_, err := database.FetchRecord(database.USER_GROUPS_TABLE_NAME, g.ID)
+	_, err := database.FetchRecord(database.USER_GROUPS_TABLE_NAME, g.ID.String())
 	if err == nil {
 		return errors.New("group already exists")
 	}
@@ -226,7 +226,7 @@ func CreateUserGroup(g models.UserGroup) error {
 	if err != nil {
 		return err
 	}
-	return database.Insert(g.ID, string(d), database.USER_GROUPS_TABLE_NAME)
+	return database.Insert(g.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
 }
 
 // GetUserGroup - fetches user group
@@ -267,7 +267,7 @@ func UpdateUserGroup(g models.UserGroup) error {
 	if g.ID == "" {
 		return errors.New("group id cannot be empty")
 	}
-	_, err := database.FetchRecord(database.USER_GROUPS_TABLE_NAME, g.ID)
+	_, err := database.FetchRecord(database.USER_GROUPS_TABLE_NAME, g.ID.String())
 	if err != nil {
 		return err
 	}
@@ -275,7 +275,7 @@ func UpdateUserGroup(g models.UserGroup) error {
 	if err != nil {
 		return err
 	}
-	return database.Insert(g.ID, string(d), database.USER_GROUPS_TABLE_NAME)
+	return database.Insert(g.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
 }
 
 // DeleteUserGroup - deletes user group

@@ -87,7 +87,7 @@ type UserRolePermissionTemplate struct {
 }
 
 type UserGroup struct {
-	ID           string                              `json:"id"`
+	ID           UserGroupID                         `json:"id"`
 	PlatformRole UserRole                            `json:"platform_role"`
 	NetworkRoles map[NetworkID]map[UserRole]struct{} `json:"network_roles"`
 	MetaData     string                              `json:"meta_data"`
@@ -130,4 +130,16 @@ type UserClaims struct {
 	IsSuperAdmin bool
 	UserName     string
 	jwt.RegisteredClaims
+}
+
+type InviteUsersReq struct {
+	UserEmails []string `json:"user_emails"`
+	Groups     []UserGroupID
+}
+
+// UserInvite - model for user invite
+type UserInvite struct {
+	Email      string        `json:"email"`
+	Groups     []UserGroupID `json:"groups"`
+	InviteCode string        `json:"invite_code"`
 }

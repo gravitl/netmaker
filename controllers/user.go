@@ -51,6 +51,14 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users/group", logic.SecurityCheck(true, http.HandlerFunc(updateUserGroup))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/users/group", logic.SecurityCheck(true, http.HandlerFunc(deleteUserGroup))).Methods(http.MethodDelete)
 
+	// User Invite Handlers
+	r.HandleFunc("/api/v1/users/invite", userInviteVerify).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/invite-signup", userInviteSignUp).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/users/invite", logic.SecurityCheck(true, http.HandlerFunc(inviteUsers))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/users/invites", logic.SecurityCheck(true, http.HandlerFunc(listUserInvites))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/invite", logic.SecurityCheck(true, http.HandlerFunc(deleteUserInvite))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/users/invites", logic.SecurityCheck(true, http.HandlerFunc(deleteAllUserInvites))).Methods(http.MethodDelete)
+
 }
 
 // swagger:route GET /api/v1/user/groups user listUserGroups
@@ -1024,11 +1032,203 @@ func deletePendingUser(w http.ResponseWriter, r *http.Request) {
 //				200: userBodyResponse
 func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
 	// set header.
-	w.Header().Set("Content-Type", "application/json")
 	err := database.DeleteAllRecords(database.PENDING_USERS_TABLE_NAME)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to delete all pending users "+err.Error()), "internal"))
 		return
 	}
 	logic.ReturnSuccessResponse(w, r, "cleared all pending users")
+}
+
+// swagger:route POST /api/v1/users/invite-signup user userInviteSignUp
+//
+// user signup via invite.
+//
+//	Schemes: https
+//
+//	Responses:
+//		200: ReturnSuccessResponse
+func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
+	var params = mux.Vars(r)
+	email := params["email"]
+	code := params["code"]
+	in, err := logic.GetUserInvite(email)
+	if err != nil {
+		logger.Log(0, "failed to fetch users: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if code != in.InviteCode {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid invite code"), "badrequest"))
+		return
+	}
+	// check if user already exists
+	_, err = logic.GetUser(email)
+	if err == nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user already exists"), "badrequest"))
+		return
+	}
+	var user models.User
+	err = json.NewDecoder(r.Body).Decode(&user)
+	if err != nil {
+		logger.Log(0, user.UserName, "error decoding request body: ",
+			err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if user.UserName != email {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username not matching with invite"), "badrequest"))
+		return
+	}
+	if user.Password == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("password cannot be empty"), "badrequest"))
+		return
+	}
+	for _, inviteGroupID := range in.Groups {
+		userG, err := logic.GetUserGroup(inviteGroupID)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("error fetching group id "+inviteGroupID.String()), "badrequest"))
+			return
+		}
+		user.PlatformRoleID = userG.PlatformRole
+		user.UserGroups[inviteGroupID] = struct{}{}
+	}
+	user.NetworkRoles = make(map[models.NetworkID]map[models.UserRole]struct{})
+	user.IsSuperAdmin = false
+	err = logic.CreateUser(&user)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	// delete invite
+	logic.DeleteUserInvite(email)
+	logic.DeletePendingUser(email)
+	logic.ReturnSuccessResponse(w, r, "created user successfully "+email)
+}
+
+// swagger:route GET /api/v1/users/invite user userInviteVerify
+//
+// verfies user invite.
+//
+//	Schemes: https
+//
+//	Responses:
+//		200: ReturnSuccessResponse
+func userInviteVerify(w http.ResponseWriter, r *http.Request) {
+	var params = mux.Vars(r)
+	email := params["email"]
+	code := params["code"]
+	err := logic.ValidateAndApproveUserInvite(email, code)
+	if err != nil {
+		logger.Log(0, "failed to fetch users: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	logic.ReturnSuccessResponse(w, r, "invite is valid")
+}
+
+// swagger:route POST /api/v1/users/invite user inviteUsers
+//
+// invite users.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: userBodyResponse
+func inviteUsers(w http.ResponseWriter, r *http.Request) {
+	var inviteReq models.InviteUsersReq
+	err := json.NewDecoder(r.Body).Decode(&inviteReq)
+	if err != nil {
+		slog.Error("error decoding request body", "error",
+			err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	for _, inviteeEmail := range inviteReq.UserEmails {
+		// check if user with email exists, then ignore
+		_, err := logic.GetUser(inviteeEmail)
+		if err == nil {
+			// user exists already, so ignore
+			continue
+		}
+		invite := models.UserInvite{
+			Email:      inviteeEmail,
+			Groups:     inviteReq.Groups,
+			InviteCode: logic.RandomString(8),
+		}
+		err = logic.InsertUserInvite(invite)
+		if err != nil {
+			slog.Error("failed to insert invite for user", "email", invite.Email, "error", err)
+		}
+		// notify user with magic link
+		go logic.SendInviteEmail(invite)
+	}
+
+}
+
+// swagger:route GET /api/v1/users/invites user listUserInvites
+//
+// lists all pending invited users.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: ReturnSuccessResponseWithJson
+func listUserInvites(w http.ResponseWriter, r *http.Request) {
+	usersInvites, err := logic.ListUserInvites()
+	if err != nil {
+		logger.Log(0, "failed to fetch users: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, usersInvites, "fetched pending user invites")
+}
+
+// swagger:route DELETE /api/v1/users/invite user deleteUserInvite
+//
+// delete pending invite.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: ReturnSuccessResponse
+func deleteUserInvite(w http.ResponseWriter, r *http.Request) {
+	var params = mux.Vars(r)
+	username := params["invitee_email"]
+	err := logic.DeleteUserInvite(username)
+	if err != nil {
+		logger.Log(0, "failed to delete user invite: ", username, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	logic.ReturnSuccessResponse(w, r, "deleted user invite")
+}
+
+// swagger:route DELETE /api/v1/users/invites user deleteAllUserInvites
+//
+// deletes all pending invites.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: ReturnSuccessResponse
+func deleteAllUserInvites(w http.ResponseWriter, r *http.Request) {
+	err := database.DeleteAllRecords(database.USER_INVITES_TABLE_NAME)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to delete all pending user invites "+err.Error()), "internal"))
+		return
+	}
+	logic.ReturnSuccessResponse(w, r, "cleared all pending user invites")
 }

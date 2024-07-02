@@ -241,6 +241,21 @@ func GetPublicBrokerEndpoint() string {
 	}
 }
 
+func GetSmtpHost() string {
+	return os.Getenv("SMTP_HOST")
+}
+
+func GetSmtpPort() int {
+	port, _ := strconv.Atoi(os.Getenv("SMTP_PORT"))
+	return port
+}
+func GetSenderEmail() string {
+	return os.Getenv("SENDER_EMAIL")
+}
+func GetSenderEmailPassWord() string {
+	return os.Getenv("SENDER_PASSWORD")
+}
+
 // GetOwnerEmail - gets the owner email (saas)
 func GetOwnerEmail() string {
 	return os.Getenv("SAAS_OWNER_EMAIL")
@@ -471,7 +486,7 @@ func GetPublicIP() (string, error) {
 			break
 		}
 	}
-	if err == nil && endpoint == "" {
+	if endpoint == "" {
 		err = errors.New("public address not found")
 	}
 	return endpoint, err

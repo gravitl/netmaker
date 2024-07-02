@@ -119,3 +119,50 @@ func ListPendingUsers() ([]models.ReturnUser, error) {
 	}
 	return pendingUsers, nil
 }
+
+func InsertUserInvite(invite models.UserInvite) error {
+	data, err := json.Marshal(invite)
+	if err != nil {
+		return err
+	}
+	return database.Insert(invite.Email, string(data), database.USER_INVITES_TABLE_NAME)
+}
+
+func GetUserInvite(email string) (in models.UserInvite, err error) {
+	d, err := database.FetchRecord(database.USER_INVITES_TABLE_NAME, email)
+	if err != nil {
+		return
+	}
+	err = json.Unmarshal([]byte(d), &in)
+	return
+}
+
+func ListUserInvites() ([]models.UserInvite, error) {
+	invites := []models.UserInvite{}
+	records, err := database.FetchRecords(database.USER_INVITES_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return invites, err
+	}
+	for _, record := range records {
+		in := models.UserInvite{}
+		err = json.Unmarshal([]byte(record), &in)
+		if err == nil {
+			invites = append(invites, in)
+		}
+	}
+	return invites, nil
+}
+
+func DeleteUserInvite(email string) error {
+	return database.DeleteRecord(database.USER_INVITES_TABLE_NAME, email)
+}
+func ValidateAndApproveUserInvite(email, code string) error {
+	in, err := GetUserInvite(email)
+	if err != nil {
+		return err
+	}
+	if code != in.InviteCode {
+		return errors.New("invalid code")
+	}
+	return nil
+}

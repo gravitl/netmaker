@@ -65,6 +65,8 @@ const (
 	HOST_ACTIONS_TABLE_NAME = "hostactions"
 	// PENDING_USERS_TABLE_NAME - table name for pending users
 	PENDING_USERS_TABLE_NAME = "pending_users"
+	// USER_INVITES - table for user invites
+	USER_INVITES_TABLE_NAME = "user_invites"
 	// == ERROR CONSTS ==
 	// NO_RECORD - no singular result found
 	NO_RECORD = "no result found"
