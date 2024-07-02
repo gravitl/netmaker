@@ -71,23 +71,47 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserNotAllowedToSignUp(w)
 		return
 	}
+	var inviteExists bool
+	// check if invite exists for User
+	_, err = logic.GetUserInvite(content.UserPrincipalName)
+	if err == nil {
+		inviteExists = true
+	}
 	// check if user approval is already pending
-	if logic.IsPendingUser(content.UserPrincipalName) {
+	if !inviteExists && logic.IsPendingUser(content.UserPrincipalName) {
 		handleOauthUserSignUpApprovalPending(w)
 		return
 	}
+
 	_, err = logic.GetUser(content.UserPrincipalName)
 	if err != nil {
 		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
-			err = logic.InsertPendingUser(&models.User{
-				UserName: content.UserPrincipalName,
-			})
-			if err != nil {
-				handleSomethingWentWrong(w)
+			if inviteExists {
+				// create user
+				var newPass, fetchErr = auth.FetchPassValue("")
+				if fetchErr != nil {
+					logic.ReturnErrorResponse(w, r, logic.FormatError(fetchErr, "internal"))
+					return
+				}
+				if err = logic.CreateUser(&models.User{
+					UserName: content.UserPrincipalName,
+					Password: newPass,
+				}); err != nil {
+					handleSomethingWentWrong(w)
+					return
+				}
+				logic.DeletePendingUser(content.UserPrincipalName)
+			} else {
+				err = logic.InsertPendingUser(&models.User{
+					UserName: content.UserPrincipalName,
+				})
+				if err != nil {
+					handleSomethingWentWrong(w)
+					return
+				}
+				handleFirstTimeOauthUserSignUp(w)
 				return
 			}
-			handleFirstTimeOauthUserSignUp(w)
-			return
 		} else {
 			handleSomethingWentWrong(w)
 			return

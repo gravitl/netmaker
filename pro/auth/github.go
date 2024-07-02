@@ -71,23 +71,46 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserNotAllowedToSignUp(w)
 		return
 	}
+	var inviteExists bool
+	// check if invite exists for User
+	_, err = logic.GetUserInvite(content.Login)
+	if err == nil {
+		inviteExists = true
+	}
 	// check if user approval is already pending
-	if logic.IsPendingUser(content.Login) {
+	if !inviteExists && logic.IsPendingUser(content.Login) {
 		handleOauthUserSignUpApprovalPending(w)
 		return
 	}
 	_, err = logic.GetUser(content.Login)
 	if err != nil {
 		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
-			err = logic.InsertPendingUser(&models.User{
-				UserName: content.Login,
-			})
-			if err != nil {
-				handleSomethingWentWrong(w)
+			if inviteExists {
+				// create user
+				var newPass, fetchErr = auth.FetchPassValue("")
+				if fetchErr != nil {
+					logic.ReturnErrorResponse(w, r, logic.FormatError(fetchErr, "internal"))
+					return
+				}
+				if err = logic.CreateUser(&models.User{
+					UserName: content.Login,
+					Password: newPass,
+				}); err != nil {
+					handleSomethingWentWrong(w)
+					return
+				}
+				logic.DeletePendingUser(content.Login)
+			} else {
+				err = logic.InsertPendingUser(&models.User{
+					UserName: content.Login,
+				})
+				if err != nil {
+					handleSomethingWentWrong(w)
+					return
+				}
+				handleFirstTimeOauthUserSignUp(w)
 				return
 			}
-			handleFirstTimeOauthUserSignUp(w)
-			return
 		} else {
 			handleSomethingWentWrong(w)
 			return
