@@ -91,7 +91,7 @@ func GetServerConfig() config.ServerConfig {
 	}
 	cfg.JwtValidityDuration = GetJwtValidityDuration()
 	cfg.RacAutoDisable = GetRacAutoDisable()
-
+	cfg.MetricInterval = GetMetricInterval()
 	return cfg
 }
 
