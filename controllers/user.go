@@ -700,6 +700,8 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	logic.DeleteUserInvite(user.UserName)
+	logic.DeletePendingUser(user.UserName)
 	slog.Info("user was created", "username", user.UserName)
 	json.NewEncoder(w).Encode(logic.ToReturnUser(user))
 }
@@ -1144,6 +1146,21 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("error decoding request body", "error",
 			err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	//validate Req
+	uniqueGroupsPlatformRole := make(map[models.UserRole]struct{})
+	for _, groupID := range inviteReq.Groups {
+		userG, err := logic.GetUserGroup(groupID)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+		uniqueGroupsPlatformRole[userG.PlatformRole] = struct{}{}
+	}
+	if len(uniqueGroupsPlatformRole) > 1 {
+		err = errors.New("only groups with same platform role can be assigned to an user")
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
