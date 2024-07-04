@@ -135,6 +135,7 @@ func GetServerInfo() models.ServerConfig {
 	}
 	cfg.Version = GetVersion()
 	cfg.IsPro = IsPro
+	cfg.MetricInterval = GetMetricInterval()
 	return cfg
 }
 
@@ -584,6 +585,16 @@ func GetMqUserName() string {
 		password = config.Config.Server.MQUserName
 	}
 	return password
+}
+
+// GetMetricInterval - get the publish metric interval
+func GetMetricInterval() string {
+	//default 15 minutes
+	mi := "15"
+	if os.Getenv("metric_interval") != "" {
+		mi = os.Getenv("metric_interval")
+	}
+	return mi
 }
 
 // GetEmqxRestEndpoint - returns the REST API Endpoint of EMQX
