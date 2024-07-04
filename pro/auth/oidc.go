@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -86,7 +87,7 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	var inviteExists bool
 	// check if invite exists for User
-	_, err = logic.GetUserInvite(content.Login)
+	in, err := logic.GetUserInvite(content.Login)
 	if err == nil {
 		inviteExists = true
 	}
@@ -105,10 +106,20 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(fetchErr, "internal"))
 					return
 				}
-				if err = logic.CreateUser(&models.User{
+				user := &models.User{
 					UserName: content.Email,
 					Password: newPass,
-				}); err != nil {
+				}
+				for _, inviteGroupID := range in.Groups {
+					userG, err := logic.GetUserGroup(inviteGroupID)
+					if err != nil {
+						logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("error fetching group id "+inviteGroupID.String()), "badrequest"))
+						return
+					}
+					user.PlatformRoleID = userG.PlatformRole
+					user.UserGroups[inviteGroupID] = struct{}{}
+				}
+				if err = logic.CreateUser(user); err != nil {
 					handleSomethingWentWrong(w)
 					return
 				}

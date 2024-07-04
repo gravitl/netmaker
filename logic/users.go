@@ -128,6 +128,8 @@ func InsertUserInvite(invite models.UserInvite) error {
 	return database.Insert(invite.Email, string(data), database.USER_INVITES_TABLE_NAME)
 }
 
+func ImportGroupsFromInvite() {}
+
 func GetUserInvite(email string) (in models.UserInvite, err error) {
 	d, err := database.FetchRecord(database.USER_INVITES_TABLE_NAME, email)
 	if err != nil {

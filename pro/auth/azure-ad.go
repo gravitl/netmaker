@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -73,7 +74,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	var inviteExists bool
 	// check if invite exists for User
-	_, err = logic.GetUserInvite(content.UserPrincipalName)
+	in, err := logic.GetUserInvite(content.UserPrincipalName)
 	if err == nil {
 		inviteExists = true
 	}
@@ -93,10 +94,20 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(fetchErr, "internal"))
 					return
 				}
-				if err = logic.CreateUser(&models.User{
+				user := &models.User{
 					UserName: content.UserPrincipalName,
 					Password: newPass,
-				}); err != nil {
+				}
+				for _, inviteGroupID := range in.Groups {
+					userG, err := logic.GetUserGroup(inviteGroupID)
+					if err != nil {
+						logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("error fetching group id "+inviteGroupID.String()), "badrequest"))
+						return
+					}
+					user.PlatformRoleID = userG.PlatformRole
+					user.UserGroups[inviteGroupID] = struct{}{}
+				}
+				if err = logic.CreateUser(user); err != nil {
 					handleSomethingWentWrong(w)
 					return
 				}

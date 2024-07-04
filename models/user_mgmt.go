@@ -108,14 +108,14 @@ type User struct {
 
 // ReturnUser - return user struct
 type ReturnUser struct {
-	UserName       string                   `json:"username"`
-	IsAdmin        bool                     `json:"isadmin"`
-	IsSuperAdmin   bool                     `json:"issuperadmin"`
-	RemoteGwIDs    map[string]struct{}      `json:"remote_gw_ids"` // deprecated
-	UserGroups     map[UserGroupID]struct{} `json:"user_group_ids"`
-	PlatformRoleID string                   `json:"platform_role_id"`
-	NetworkRoles   map[NetworkID]UserRole   `json:"network_roles"`
-	LastLoginTime  time.Time                `json:"last_login_time"`
+	UserName       string                              `json:"username"`
+	IsAdmin        bool                                `json:"isadmin"`
+	IsSuperAdmin   bool                                `json:"issuperadmin"`
+	RemoteGwIDs    map[string]struct{}                 `json:"remote_gw_ids"` // deprecated
+	UserGroups     map[UserGroupID]struct{}            `json:"user_group_ids"`
+	PlatformRoleID UserRole                            `json:"platform_role_id"`
+	NetworkRoles   map[NetworkID]map[UserRole]struct{} `json:"network_roles"`
+	LastLoginTime  time.Time                           `json:"last_login_time"`
 }
 
 // UserAuthParams - user auth params struct
