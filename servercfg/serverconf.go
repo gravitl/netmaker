@@ -591,8 +591,8 @@ func GetMqUserName() string {
 func GetMetricInterval() string {
 	//default 15 minutes
 	mi := "15"
-	if os.Getenv("metric_interval") != "" {
-		mi = os.Getenv("metric_interval")
+	if os.Getenv("PUBLISH_METRIC_INTERVAL") != "" {
+		mi = os.Getenv("PUBLISH_METRIC_INTERVAL")
 	}
 	return mi
 }
