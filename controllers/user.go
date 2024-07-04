@@ -652,7 +652,12 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	caller, err := logic.GetUser(r.Header.Get("user"))
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	callerUserRole, err := logic.GetRole(caller.PlatformRoleID)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	var user models.User
@@ -677,23 +682,34 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if !caller.IsSuperAdmin && user.IsAdmin {
-		err = errors.New("only superadmin can create admin users")
+	userRole, err := logic.GetRole(user.PlatformRoleID)
+	if err != nil {
+		err = errors.New("error fetching role " + user.PlatformRoleID.String() + " " + err.Error())
 		slog.Error("error creating new user: ", "user", user.UserName, "error", err)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if user.IsSuperAdmin {
+	if userRole.ID == models.SuperAdminRole {
 		err = errors.New("additional superadmins cannot be created")
 		slog.Error("error creating new user: ", "user", user.UserName, "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
+
+	if callerUserRole.ID != models.SuperAdminRole && user.IsAdmin {
+		err = errors.New("only superadmin can create admin users")
+		slog.Error("error creating new user: ", "user", user.UserName, "error", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+		return
+	}
+
 	if !servercfg.IsPro && !user.IsAdmin {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("non-admins users can only be created on Pro version"), "forbidden"))
 		return
 	}
-
+	if userRole.ID == models.AdminRole {
+		user.IsAdmin = true
+	}
 	err = logic.CreateUser(&user)
 	if err != nil {
 		slog.Error("error creating new user: ", "user", user.UserName, "error", err.Error())
