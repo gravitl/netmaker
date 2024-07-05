@@ -133,6 +133,11 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	err = logic.ValidateCreateGroupReq(userGroup)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	err = logic.CreateUserGroup(userGroup)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -158,6 +163,11 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("error decoding request body", "error",
 			err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	err = logic.ValidateUpdateGroupReq(userGroup)
+	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -1180,6 +1190,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+
 	for _, inviteeEmail := range inviteReq.UserEmails {
 		// check if user with email exists, then ignore
 		_, err := logic.GetUser(inviteeEmail)

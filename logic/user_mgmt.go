@@ -212,6 +212,37 @@ func DeleteRole(rid models.UserRole) error {
 	return database.DeleteRecord(database.USER_PERMISSIONS_TABLE_NAME, rid.String())
 }
 
+func ValidateCreateGroupReq(g models.UserGroup) error {
+	// check platform role is valid
+	_, err := GetRole(g.PlatformRole)
+	if err != nil {
+		err = fmt.Errorf("invalid platform role")
+		return err
+	}
+	// check if network roles are valid
+
+	return nil
+}
+func ValidateUpdateGroupReq(g models.UserGroup) error {
+	// check platform role is valid
+	_, err := GetRole(g.PlatformRole)
+	if err != nil {
+		err = fmt.Errorf("invalid platform role")
+		return err
+	}
+	for networkID := range g.NetworkRoles {
+		userRolesMap := g.NetworkRoles[networkID]
+		for roleID := range userRolesMap {
+			_, err := GetRole(roleID)
+			if err != nil {
+				err = fmt.Errorf("invalid network role")
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // CreateUserGroup - creates new user group
 func CreateUserGroup(g models.UserGroup) error {
 	// check if role already exists
