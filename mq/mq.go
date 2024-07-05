@@ -34,8 +34,8 @@ func setMqOptions(user, password string, opts *mqtt.ClientOptions) {
 	opts.SetAutoReconnect(true)
 	opts.SetConnectRetry(true)
 	opts.SetCleanSession(true)
-	opts.SetConnectRetryInterval(time.Second * 3)
-	opts.SetKeepAlive(time.Second * 5)
+	opts.SetConnectRetryInterval(time.Second * 4)
+	opts.SetKeepAlive(time.Minute)
 	opts.SetCleanSession(true)
 	opts.SetWriteTimeout(time.Minute)
 }
@@ -96,9 +96,9 @@ func SetupMQTT(fatal bool) {
 	})
 	opts.SetConnectionLostHandler(func(c mqtt.Client, e error) {
 		slog.Warn("detected broker connection lost", "err", e.Error())
-		// c.Disconnect(250)
-		// slog.Info("re-initiating MQ connection")
-		// SetupMQTT(false)
+		c.Disconnect(250)
+		slog.Info("re-initiating MQ connection")
+		SetupMQTT(false)
 
 	})
 	mqclient = mqtt.NewClient(opts)
