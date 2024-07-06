@@ -3,9 +3,11 @@ package logic
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sort"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 )
 
@@ -163,6 +165,7 @@ func ValidateAndApproveUserInvite(email, code string) error {
 	if err != nil {
 		return err
 	}
+	logger.Log(0, "CODE: ", code, fmt.Sprintf("%d", len(code)), " DB-CODE: ", in.InviteCode, fmt.Sprintf("%d", len(in.InviteCode)))
 	if code != in.InviteCode {
 		return errors.New("invalid code")
 	}
