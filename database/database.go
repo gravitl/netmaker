@@ -151,6 +151,7 @@ func createTables() {
 	CreateTable(HOST_ACTIONS_TABLE_NAME)
 	CreateTable(PENDING_USERS_TABLE_NAME)
 	CreateTable(USER_PERMISSIONS_TABLE_NAME)
+	CreateTable(USER_INVITES_TABLE_NAME)
 }
 
 func CreateTable(tableName string) error {
