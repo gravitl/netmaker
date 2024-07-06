@@ -32,7 +32,7 @@ func SendInviteEmail(invite models.UserInvite) error {
 
 	// Set E-Mail body. You can set plain text or html with text/html
 	u, err := url.Parse(fmt.Sprintf("https://api.%s/api/v1/users/invite?email=%s&code=%s",
-		servercfg.GetServer(), invite.Email, invite.InviteCode))
+		servercfg.GetServer(), url.QueryEscape(invite.Email), url.QueryEscape(invite.InviteCode)))
 	if err != nil {
 		return err
 	}

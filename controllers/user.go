@@ -1144,9 +1144,8 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 //	Responses:
 //		200: ReturnSuccessResponse
 func userInviteVerify(w http.ResponseWriter, r *http.Request) {
-	params, _ := url.ParseQuery(r.URL.String())
-	email := params.Get("email")
-	code := params.Get("code")
+	email, _ := url.QueryUnescape(r.URL.Query().Get("email"))
+	code, _ := url.QueryUnescape(r.URL.Query().Get("code"))
 	logger.Log(0, "EMAIL", email, "CODE", code)
 	err := logic.ValidateAndApproveUserInvite(email, code)
 	if err != nil {
