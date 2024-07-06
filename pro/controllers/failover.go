@@ -50,7 +50,7 @@ func getfailOver(w http.ResponseWriter, r *http.Request) {
 
 	failOverNode, exists := proLogic.FailOverExists(node.Network)
 	if !exists {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "notfound"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failover node not found"), "notfound"))
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
