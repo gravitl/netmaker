@@ -3,6 +3,7 @@ package logic
 import (
 	"crypto/tls"
 	"fmt"
+	"net/url"
 
 	gomail "gopkg.in/mail.v2"
 
@@ -30,8 +31,12 @@ func SendInviteEmail(invite models.UserInvite) error {
 	m.SetHeader("Subject", "Netmaker Invite")
 
 	// Set E-Mail body. You can set plain text or html with text/html
-	m.SetBody("text/html", "Click Here to Signup! <a>"+fmt.Sprintf("https://api.%s/api/v1/users/invite?email=%s&code=%v",
+	u, err := url.Parse(fmt.Sprintf("https://api.%s/api/v1/users/invite?email=%s&code=%s",
 		servercfg.GetServer(), invite.Email, invite.InviteCode))
+	if err != nil {
+		return err
+	}
+	m.SetBody("text/html", "Click Here to Signup! <a>"+u.String())
 
 	// Settings for SMTP server
 	d := gomail.NewDialer(smtpHost, smtpPort, senderEmail, senderPassword)
