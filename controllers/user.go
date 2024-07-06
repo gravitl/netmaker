@@ -1208,7 +1208,12 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			slog.Error("failed to insert invite for user", "email", invite.Email, "error", err)
 		}
 		// notify user with magic link
-		go logic.SendInviteEmail(invite)
+		go func(invite models.UserInvite) {
+			err = logic.SendInviteEmail(invite)
+			if err != nil {
+				slog.Error("failed to send email invite", "user", invite.Email, "error", err)
+			}
+		}(invite)
 	}
 
 }
