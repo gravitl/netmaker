@@ -786,22 +786,22 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !ismaster && !selfUpdate {
-		if caller.IsAdmin && user.IsSuperAdmin {
+		if caller.PlatformRoleID == models.AdminRole && user.PlatformRoleID == models.SuperAdminRole {
 			slog.Error("non-superadmin user", "caller", caller.UserName, "attempted to update superadmin user", username)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update superadmin user"), "forbidden"))
 			return
 		}
-		if !caller.IsAdmin && !caller.IsSuperAdmin {
+		if caller.PlatformRoleID != models.AdminRole && caller.PlatformRoleID != models.SuperAdminRole {
 			slog.Error("operation not allowed", "caller", caller.UserName, "attempted to update user", username)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update superadmin user"), "forbidden"))
 			return
 		}
-		if caller.IsAdmin && user.IsAdmin {
+		if caller.PlatformRoleID == models.AdminRole && user.PlatformRoleID == models.AdminRole {
 			slog.Error("admin user cannot update another admin", "caller", caller.UserName, "attempted to update admin user", username)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("admin user cannot update another admin"), "forbidden"))
 			return
 		}
-		if caller.IsAdmin && userchange.IsAdmin {
+		if caller.PlatformRoleID == models.AdminRole && userchange.PlatformRoleID == models.AdminRole {
 			err = errors.New("admin user cannot update role of an another user to admin")
 			slog.Error("failed to update user", "caller", caller.UserName, "attempted to update user", username, "error", err)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
@@ -810,7 +810,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 
 	}
 	if !ismaster && selfUpdate {
-		if user.IsAdmin != userchange.IsAdmin || user.IsSuperAdmin != userchange.IsSuperAdmin {
+		if user.PlatformRoleID != userchange.PlatformRoleID {
 			slog.Error("user cannot change his own role", "caller", caller.UserName, "attempted to update user role", username)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user not allowed to self assign role"), "forbidden"))
 			return
@@ -818,7 +818,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if ismaster {
-		if !user.IsSuperAdmin && userchange.IsSuperAdmin {
+		if user.PlatformRoleID != models.SuperAdminRole && userchange.PlatformRoleID == models.SuperAdminRole {
 			slog.Error("operation not allowed", "caller", logic.MasterUser, "attempted to update user role to superadmin", username)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("attempted to update user role to superadmin"), "forbidden"))
 			return
@@ -863,6 +863,12 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 	}
+	callerUserRole, err := logic.GetRole(caller.PlatformRoleID)
+	if err != nil {
+		slog.Error("failed to get role ", "role", callerUserRole.ID, "error", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 	username := params["username"]
 	user, err := logic.GetUser(username)
 	if err != nil {
@@ -871,14 +877,20 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if user.IsSuperAdmin {
+	userRole, err := logic.GetRole(user.PlatformRoleID)
+	if err != nil {
+		slog.Error("failed to get role ", "role", userRole.ID, "error", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	if userRole.ID == models.SuperAdminRole {
 		slog.Error(
 			"failed to delete user: ", "user", username, "error", "superadmin cannot be deleted")
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("superadmin cannot be deleted"), "internal"))
 		return
 	}
-	if !caller.IsSuperAdmin {
-		if caller.IsAdmin && user.IsAdmin {
+	if callerUserRole.ID != models.SuperAdminRole {
+		if callerUserRole.ID == models.AdminRole && userRole.ID == models.AdminRole {
 			slog.Error(
 				"failed to delete user: ", "user", username, "error", "admin cannot delete another admin user, including oneself")
 			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("admin cannot delete another admin user, including oneself"), "internal"))

@@ -235,7 +235,7 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 
 		user.Password = userchange.Password
 	}
-	user.IsAdmin = userchange.IsAdmin
+	user.PlatformRoleID = userchange.PlatformRoleID
 
 	err := ValidateUser(user)
 	if err != nil {
@@ -259,12 +259,17 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 // ValidateUser - validates a user model
 func ValidateUser(user *models.User) error {
 
+	// check if role is valid
+	_, err := GetRole(user.PlatformRoleID)
+	if err != nil {
+		return err
+	}
 	v := validator.New()
 	_ = v.RegisterValidation("in_charset", func(fl validator.FieldLevel) bool {
 		isgood := user.NameInCharSet()
 		return isgood
 	})
-	err := v.Struct(user)
+	err = v.Struct(user)
 
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
