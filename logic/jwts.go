@@ -53,12 +53,11 @@ func CreateJWT(uuid string, macAddress string, network string) (response string,
 }
 
 // CreateUserJWT - creates a user jwt token
-func CreateUserJWT(username string, issuperadmin, isadmin bool) (response string, err error) {
+func CreateUserJWT(username string, role models.UserRole) (response string, err error) {
 	expirationTime := time.Now().Add(servercfg.GetServerConfig().JwtValidityDuration)
 	claims := &models.UserClaims{
-		UserName:     username,
-		IsSuperAdmin: issuperadmin,
-		IsAdmin:      isadmin,
+		UserName: username,
+		Role:     role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "Netmaker",
 			Subject:   fmt.Sprintf("user|%s", username),
@@ -145,7 +144,8 @@ func VerifyUserToken(tokenString string) (username string, issuperadmin, isadmin
 			return "", false, false, err
 		}
 		if user.UserName != "" {
-			return user.UserName, user.IsSuperAdmin, user.IsAdmin, nil
+			return user.UserName, user.PlatformRoleID == models.SuperAdminRole,
+				user.PlatformRoleID == models.AdminRole, nil
 		}
 		err = errors.New("user does not exist")
 	}

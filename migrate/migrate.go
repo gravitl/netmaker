@@ -44,8 +44,7 @@ func assignSuperAdmin() {
 		if err != nil {
 			log.Fatal("error getting user", "user", owner, "error", err.Error())
 		}
-		user.IsSuperAdmin = true
-		user.IsAdmin = false
+		user.PlatformRoleID = models.SuperAdminRole
 		err = logic.UpsertUser(*user)
 		if err != nil {
 			log.Fatal(
@@ -65,8 +64,7 @@ func assignSuperAdmin() {
 				slog.Error("error getting user", "user", u.UserName, "error", err.Error())
 				continue
 			}
-			user.IsSuperAdmin = true
-			user.IsAdmin = false
+			user.PlatformRoleID = models.SuperAdminRole
 			err = logic.UpsertUser(*user)
 			if err != nil {
 				slog.Error(

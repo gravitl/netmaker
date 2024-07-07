@@ -41,10 +41,12 @@ func GetReturnUser(username string) (models.ReturnUser, error) {
 // ToReturnUser - gets a user as a return user
 func ToReturnUser(user models.User) models.ReturnUser {
 	return models.ReturnUser{
-		UserName:     user.UserName,
-		IsSuperAdmin: user.IsSuperAdmin,
-		IsAdmin:      user.IsAdmin,
-		RemoteGwIDs:  user.RemoteGwIDs,
+		UserName:       user.UserName,
+		PlatformRoleID: user.PlatformRoleID,
+		UserGroups:     user.UserGroups,
+		NetworkRoles:   user.NetworkRoles,
+		RemoteGwIDs:    user.RemoteGwIDs,
+		LastLoginTime:  user.LastLoginTime,
 	}
 }
 

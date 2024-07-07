@@ -114,7 +114,7 @@ func CreateUser(user *models.User) error {
 	// set password to encrypted password
 	user.Password = string(hash)
 
-	tokenString, _ := CreateUserJWT(user.UserName, user.IsSuperAdmin, user.IsAdmin)
+	tokenString, _ := CreateUserJWT(user.UserName, user.PlatformRoleID)
 	if tokenString == "" {
 		logger.Log(0, "failed to generate token", err.Error())
 		return err
@@ -147,8 +147,6 @@ func CreateSuperAdmin(u *models.User) error {
 		return errors.New("superadmin user already exists")
 	}
 	u.PlatformRoleID = models.SuperAdminRole
-	u.IsSuperAdmin = true
-	u.IsAdmin = false
 	return CreateUser(u)
 }
 
@@ -177,7 +175,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 	}
 
 	// Create a new JWT for the node
-	tokenString, err := CreateUserJWT(authRequest.UserName, result.IsSuperAdmin, result.IsAdmin)
+	tokenString, err := CreateUserJWT(authRequest.UserName, result.PlatformRoleID)
 	if err != nil {
 		slog.Error("error creating jwt", "error", err)
 		return "", err

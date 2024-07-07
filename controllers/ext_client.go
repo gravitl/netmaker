@@ -403,7 +403,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		userName = caller.UserName
-		if _, ok := caller.RemoteGwIDs[nodeid]; (!caller.IsAdmin && !caller.IsSuperAdmin) && !ok {
+		if _, ok := caller.RemoteGwIDs[nodeid]; (caller.PlatformRoleID != models.AdminRole && caller.PlatformRoleID != models.SuperAdminRole) && !ok {
 			err = errors.New("permission denied")
 			slog.Error("failed to create extclient", "error", err)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))

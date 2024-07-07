@@ -108,9 +108,6 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 					user.PlatformRoleID = userG.PlatformRole
 					user.UserGroups[inviteGroupID] = struct{}{}
 				}
-				if user.PlatformRoleID == models.AdminRole {
-					user.IsAdmin = true
-				}
 				if err = logic.CreateUser(user); err != nil {
 					handleSomethingWentWrong(w)
 					return
@@ -139,7 +136,12 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserNotFound(w)
 		return
 	}
-	if !(user.IsSuperAdmin || user.IsAdmin) {
+	userRole, err := logic.GetRole(user.PlatformRoleID)
+	if err != nil {
+		handleSomethingWentWrong(w)
+		return
+	}
+	if userRole.DenyDashboardAccess {
 		handleOauthUserNotAllowed(w)
 		return
 	}

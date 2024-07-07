@@ -55,7 +55,7 @@ func attachUserToRemoteAccessGw(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
 		return
 	}
-	if user.IsAdmin || user.IsSuperAdmin {
+	if user.PlatformRoleID == models.AdminRole || user.PlatformRoleID == models.SuperAdminRole {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("superadmins/admins have access to all gateways"), "badrequest"))
 		return
 	}
@@ -219,7 +219,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 				slog.Error("failed to get node network", "error", err)
 			}
 
-			if _, ok := user.RemoteGwIDs[node.ID.String()]; (!user.IsAdmin && !user.IsSuperAdmin) && ok {
+			if _, ok := user.RemoteGwIDs[node.ID.String()]; (user.PlatformRoleID != models.AdminRole && user.PlatformRoleID != models.SuperAdminRole) && ok {
 				gws := userGws[node.Network]
 				extClient.AllowedIPs = logic.GetExtclientAllowedIPs(extClient)
 				gws = append(gws, models.UserRemoteGws{
@@ -260,7 +260,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// add remaining gw nodes to resp
-	if !user.IsAdmin && !user.IsSuperAdmin {
+	if user.PlatformRoleID != models.AdminRole && user.PlatformRoleID != models.SuperAdminRole {
 		for gwID := range user.RemoteGwIDs {
 			node, err := logic.GetNodeByID(gwID)
 			if err != nil {

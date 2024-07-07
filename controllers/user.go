@@ -619,7 +619,7 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if !u.IsAdmin {
+	if u.PlatformRoleID != models.AdminRole {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only admins can be promoted to superadmin role"), "forbidden"))
 		return
 	}
@@ -628,16 +628,14 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u.IsSuperAdmin = true
-	u.IsAdmin = false
+	u.PlatformRoleID = models.SuperAdminRole
 	err = logic.UpsertUser(*u)
 	if err != nil {
 		slog.Error("error updating user to superadmin: ", "user", u.UserName, "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	caller.IsSuperAdmin = false
-	caller.IsAdmin = true
+	caller.PlatformRoleID = models.AdminRole
 	err = logic.UpsertUser(*caller)
 	if err != nil {
 		slog.Error("error demoting user to admin: ", "user", caller.UserName, "error", err.Error())
@@ -662,11 +660,6 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 func createUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	caller, err := logic.GetUser(r.Header.Get("user"))
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	callerUserRole, err := logic.GetRole(caller.PlatformRoleID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -707,19 +700,16 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if callerUserRole.ID != models.SuperAdminRole && user.IsAdmin {
+	if caller.PlatformRoleID != models.SuperAdminRole && user.PlatformRoleID == models.AdminRole {
 		err = errors.New("only superadmin can create admin users")
 		slog.Error("error creating new user: ", "user", user.UserName, "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
 
-	if !servercfg.IsPro && !user.IsAdmin {
+	if !servercfg.IsPro && user.PlatformRoleID != models.AdminRole {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("non-admins users can only be created on Pro version"), "forbidden"))
 		return
-	}
-	if userRole.ID == models.AdminRole {
-		user.IsAdmin = true
 	}
 	err = logic.CreateUser(&user)
 	if err != nil {
@@ -1133,9 +1123,6 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 		}
 		user.PlatformRoleID = userG.PlatformRole
 		user.UserGroups[inviteGroupID] = struct{}{}
-	}
-	if user.PlatformRoleID == models.AdminRole {
-		user.IsAdmin = true
 	}
 	user.NetworkRoles = make(map[models.NetworkID]map[models.UserRole]struct{})
 	user.IsSuperAdmin = false

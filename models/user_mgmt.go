@@ -126,9 +126,8 @@ type UserAuthParams struct {
 
 // UserClaims - user claims struct
 type UserClaims struct {
-	IsAdmin      bool
-	IsSuperAdmin bool
-	UserName     string
+	Role     UserRole
+	UserName string
 	jwt.RegisteredClaims
 }
 
