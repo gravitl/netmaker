@@ -1112,6 +1112,7 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("password cannot be empty"), "badrequest"))
 		return
 	}
+
 	for _, inviteGroupID := range in.Groups {
 		userG, err := logic.GetUserGroup(inviteGroupID)
 		if err != nil {
@@ -1120,6 +1121,9 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 		}
 		user.PlatformRoleID = userG.PlatformRole
 		user.UserGroups[inviteGroupID] = struct{}{}
+	}
+	if user.PlatformRoleID == models.AdminRole {
+		user.IsAdmin = true
 	}
 	user.NetworkRoles = make(map[models.NetworkID]map[models.UserRole]struct{})
 	user.IsSuperAdmin = false

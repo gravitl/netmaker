@@ -107,6 +107,9 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 					user.PlatformRoleID = userG.PlatformRole
 					user.UserGroups[inviteGroupID] = struct{}{}
 				}
+				if user.PlatformRoleID == models.AdminRole {
+					user.IsAdmin = true
+				}
 				if err = logic.CreateUser(user); err != nil {
 					handleSomethingWentWrong(w)
 					return
