@@ -1078,9 +1078,8 @@ func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
 //	Responses:
 //		200: ReturnSuccessResponse
 func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
-	var params = mux.Vars(r)
-	email := params["email"]
-	code := params["code"]
+	email, _ := url.QueryUnescape(r.URL.Query().Get("email"))
+	code, _ := url.QueryUnescape(r.URL.Query().Get("code"))
 	in, err := logic.GetUserInvite(email)
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
