@@ -20,11 +20,11 @@ import (
 // Run - runs all migrations
 func Run() {
 	updateEnrollmentKeys()
+	syncUsers()
 	assignSuperAdmin()
 	updateHosts()
 	updateNodes()
 	updateAcls()
-	syncUsers()
 
 }
 
@@ -344,6 +344,9 @@ func syncUsers() {
 	users, err := logic.GetUsersDB()
 	if err == nil {
 		for _, user := range users {
+			if user.PlatformRoleID.String() != "" {
+				continue
+			}
 			if user.IsSuperAdmin {
 				user.PlatformRoleID = models.SuperAdminRole
 				logic.UpsertUser(user)

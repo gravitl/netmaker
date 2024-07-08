@@ -66,7 +66,7 @@ func prepareUserRequest(t *testing.T, userForBody models.User, userNameForParam 
 func haveOnlyOneUser(t *testing.T, user models.User) {
 	deleteAllUsers(t)
 	var err error
-	if user.IsSuperAdmin {
+	if user.PlatformRoleID == models.SuperAdminRole {
 		err = logic.CreateSuperAdmin(&user)
 	} else {
 		err = logic.CreateUser(&user)
@@ -104,7 +104,7 @@ func TestHasSuperAdmin(t *testing.T) {
 		assert.False(t, found)
 	})
 	t.Run("superadmin user", func(t *testing.T) {
-		var user = models.User{UserName: "superadmin", Password: "password", IsSuperAdmin: true}
+		var user = models.User{UserName: "superadmin", Password: "password", PlatformRoleID: models.SuperAdminRole}
 		err := logic.CreateUser(&user)
 		assert.Nil(t, err)
 		found, err := logic.HasSuperAdmin()
@@ -112,7 +112,7 @@ func TestHasSuperAdmin(t *testing.T) {
 		assert.True(t, found)
 	})
 	t.Run("multiple superadmins", func(t *testing.T) {
-		var user = models.User{UserName: "superadmin1", Password: "password", IsSuperAdmin: true}
+		var user = models.User{UserName: "superadmin1", Password: "password", PlatformRoleID: models.SuperAdminRole}
 		err := logic.CreateUser(&user)
 		assert.Nil(t, err)
 		found, err := logic.HasSuperAdmin()
@@ -123,7 +123,7 @@ func TestHasSuperAdmin(t *testing.T) {
 
 func TestCreateUser(t *testing.T) {
 	deleteAllUsers(t)
-	user := models.User{UserName: "admin", Password: "password", IsAdmin: true}
+	user := models.User{UserName: "admin", Password: "password", PlatformRoleID: models.AdminRole}
 	t.Run("NoUser", func(t *testing.T) {
 		err := logic.CreateUser(&user)
 		assert.Nil(t, err)
@@ -160,7 +160,7 @@ func TestDeleteUser(t *testing.T) {
 		assert.False(t, deleted)
 	})
 	t.Run("Existing User", func(t *testing.T) {
-		user := models.User{UserName: "admin", Password: "password", IsAdmin: true}
+		user := models.User{UserName: "admin", Password: "password", PlatformRoleID: models.AdminRole}
 		if err := logic.CreateUser(&user); err != nil {
 			t.Fatal(err)
 		}
@@ -220,7 +220,7 @@ func TestValidateUser(t *testing.T) {
 func TestGetUser(t *testing.T) {
 	deleteAllUsers(t)
 
-	user := models.User{UserName: "admin", Password: "password", IsAdmin: true}
+	user := models.User{UserName: "admin", Password: "password", PlatformRoleID: models.AdminRole}
 
 	t.Run("NonExistantUser", func(t *testing.T) {
 		admin, err := logic.GetUser("admin")
@@ -240,8 +240,8 @@ func TestGetUser(t *testing.T) {
 func TestGetUsers(t *testing.T) {
 	deleteAllUsers(t)
 
-	adminUser := models.User{UserName: "admin", Password: "password", IsAdmin: true}
-	user := models.User{UserName: "admin", Password: "password", IsAdmin: false}
+	adminUser := models.User{UserName: "admin", Password: "password", PlatformRoleID: models.AdminRole}
+	user := models.User{UserName: "admin", Password: "password", PlatformRoleID: models.AdminRole}
 
 	t.Run("NonExistantUser", func(t *testing.T) {
 		admin, err := logic.GetUsers()
@@ -268,7 +268,7 @@ func TestGetUsers(t *testing.T) {
 				assert.Equal(t, true, u.IsAdmin)
 			} else {
 				assert.Equal(t, user.UserName, u.UserName)
-				assert.Equal(t, user.IsAdmin, u.IsAdmin)
+				assert.Equal(t, user.PlatformRoleID, u.PlatformRoleID)
 			}
 		}
 	})
@@ -277,8 +277,8 @@ func TestGetUsers(t *testing.T) {
 
 func TestUpdateUser(t *testing.T) {
 	deleteAllUsers(t)
-	user := models.User{UserName: "admin", Password: "password", IsAdmin: true}
-	newuser := models.User{UserName: "hello", Password: "world", IsAdmin: true}
+	user := models.User{UserName: "admin", Password: "password", PlatformRoleID: models.AdminRole}
+	newuser := models.User{UserName: "hello", Password: "world", PlatformRoleID: models.AdminRole}
 	t.Run("NonExistantUser", func(t *testing.T) {
 		admin, err := logic.UpdateUser(&newuser, &user)
 		assert.EqualError(t, err, "could not find any records")
@@ -321,7 +321,7 @@ func TestUpdateUser(t *testing.T) {
 
 func TestVerifyAuthRequest(t *testing.T) {
 	deleteAllUsers(t)
-	user := models.User{UserName: "admin", Password: "password", IsSuperAdmin: false, IsAdmin: true}
+	user := models.User{UserName: "admin", Password: "password", PlatformRoleID: models.AdminRole}
 	var authRequest models.UserAuthParams
 	t.Run("EmptyUserName", func(t *testing.T) {
 		authRequest.UserName = ""
@@ -345,7 +345,7 @@ func TestVerifyAuthRequest(t *testing.T) {
 		assert.EqualError(t, err, "incorrect credentials")
 	})
 	t.Run("Non-Admin", func(t *testing.T) {
-		user.IsAdmin = false
+		user.PlatformRoleID = models.ServiceUser
 		user.Password = "somepass"
 		user.UserName = "nonadmin"
 		if err := logic.CreateUser(&user); err != nil {

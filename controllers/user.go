@@ -607,7 +607,7 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 	}
-	if !caller.IsSuperAdmin {
+	if caller.PlatformRoleID != models.SuperAdminRole {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only superadmin can assign the superadmin role to another user"), "forbidden"))
 		return
 	}
@@ -1125,7 +1125,6 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 		user.UserGroups[inviteGroupID] = struct{}{}
 	}
 	user.NetworkRoles = make(map[models.NetworkID]map[models.UserRole]struct{})
-	user.IsSuperAdmin = false
 	err = logic.CreateUser(&user)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
