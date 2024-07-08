@@ -1124,6 +1124,9 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 		user.PlatformRoleID = userG.PlatformRole
 		user.UserGroups[inviteGroupID] = struct{}{}
 	}
+	if user.PlatformRoleID == "" {
+		user.PlatformRoleID = models.ServiceUser
+	}
 	user.NetworkRoles = make(map[models.NetworkID]map[models.UserRole]struct{})
 	err = logic.CreateUser(&user)
 	if err != nil {

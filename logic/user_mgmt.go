@@ -139,7 +139,7 @@ func GetRole(roleID models.UserRole) (models.UserRolePermissionTemplate, error) 
 	// check if role already exists
 	data, err := database.FetchRecord(database.USER_PERMISSIONS_TABLE_NAME, roleID.String())
 	if err != nil {
-		return models.UserRolePermissionTemplate{}, errors.New("role already exists")
+		return models.UserRolePermissionTemplate{}, err
 	}
 	ur := models.UserRolePermissionTemplate{}
 	err = json.Unmarshal([]byte(data), &ur)

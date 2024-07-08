@@ -107,6 +107,9 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 					user.PlatformRoleID = userG.PlatformRole
 					user.UserGroups[inviteGroupID] = struct{}{}
 				}
+				if user.PlatformRoleID == "" {
+					user.PlatformRoleID = models.ServiceUser
+				}
 				if err = logic.CreateUser(user); err != nil {
 					handleSomethingWentWrong(w)
 					return
