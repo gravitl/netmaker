@@ -1,13 +1,10 @@
-package logic
+package email
 
 import (
 	"crypto/tls"
-	"fmt"
-	"net/url"
 
 	gomail "gopkg.in/mail.v2"
 
-	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -18,25 +15,35 @@ var (
 	senderPassword = servercfg.GetSenderEmailPassWord()
 )
 
-func SendInviteEmail(invite models.UserInvite) error {
+type Email interface {
+	GetBody(info Notification) string
+	GetSubject(info Notification) string
+}
+
+// Notification - struct for notification details
+type Notification struct {
+	RecipientMail string
+	RecipientName string
+	ProductName   string
+}
+
+func (n Notification) NewEmailSender(e Email) *gomail.Message {
 	m := gomail.NewMessage()
 
 	// Set E-Mail sender
 	m.SetHeader("From", senderEmail)
 
 	// Set E-Mail receivers
-	m.SetHeader("To", invite.Email)
-
+	m.SetHeader("To", n.RecipientMail)
 	// Set E-Mail subject
-	m.SetHeader("Subject", "Netmaker Invite")
-
+	m.SetHeader("Subject", e.GetSubject(n))
 	// Set E-Mail body. You can set plain text or html with text/html
-	u, err := url.Parse(fmt.Sprintf("https://api.%s/api/v1/users/invite?email=%s&code=%s",
-		servercfg.GetServer(), url.QueryEscape(invite.Email), url.QueryEscape(invite.InviteCode)))
-	if err != nil {
-		return err
-	}
-	m.SetBody("text/html", "Click Here to Signup! <a>"+u.String())
+	m.SetBody("text/html", e.GetBody(n))
+
+	return m
+}
+
+func Send(m *gomail.Message) error {
 
 	// Settings for SMTP server
 	d := gomail.NewDialer(smtpHost, smtpPort, senderEmail, senderPassword)

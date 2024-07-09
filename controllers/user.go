@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/email"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -1214,7 +1215,21 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		}
 		// notify user with magic link
 		go func(invite models.UserInvite) {
-			err = logic.SendInviteEmail(invite)
+			// Set E-Mail body. You can set plain text or html with text/html
+			u, err := url.Parse(fmt.Sprintf("https://api.%s/api/v1/users/invite?email=%s&code=%s",
+				servercfg.GetServer(), url.QueryEscape(invite.Email), url.QueryEscape(invite.InviteCode)))
+			if err != nil {
+				slog.Error("failed to parse to invite url", "error", err)
+				return
+			}
+			e := email.UserInvitedMail{
+				BodyBuilder: &email.EmailBodyBuilderWithH1HeadlineAndImage{},
+				InviteURL:   u.String(),
+			}
+			n := email.Notification{
+				RecipientMail: invite.Email,
+			}
+			err = email.Send(n.NewEmailSender(e))
 			if err != nil {
 				slog.Error("failed to send email invite", "user", invite.Email, "error", err)
 			}
