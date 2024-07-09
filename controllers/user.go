@@ -1151,14 +1151,13 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 func userInviteVerify(w http.ResponseWriter, r *http.Request) {
 	email, _ := url.QueryUnescape(r.URL.Query().Get("email"))
 	code, _ := url.QueryUnescape(r.URL.Query().Get("code"))
-	logger.Log(0, "EMAIL", email, "CODE", code)
 	err := logic.ValidateAndApproveUserInvite(email, code)
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.ReturnSuccessResponse(w, r, "invite is valid")
+	http.Redirect(w, r, url.QueryEscape(fmt.Sprintf("%s/invite-signup?email=%s&code=%s", servercfg.GetFrontendURL(), email, code)), http.StatusPermanentRedirect)
 }
 
 // swagger:route POST /api/v1/users/invite user inviteUsers

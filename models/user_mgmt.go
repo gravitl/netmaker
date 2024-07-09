@@ -20,6 +20,21 @@ func (rid RsrcID) String() string {
 	return string(rid)
 }
 
+var RsrcTypeMap = map[RsrcType]struct{}{
+	HostRsrc:           {},
+	RelayRsrc:          {},
+	RemoteAccessGwRsrc: {},
+	ExtClientsRsrc:     {},
+	InetGwRsrc:         {},
+	EgressGwRsrc:       {},
+	NetworkRsrc:        {},
+	EnrollmentKeysRsrc: {},
+	UserRsrc:           {},
+	AclRsrc:            {},
+	DnsRsrc:            {},
+	FailOverRsrc:       {},
+}
+
 const (
 	HostRsrc           RsrcType = "hosts"
 	RelayRsrc          RsrcType = "relays"

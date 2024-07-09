@@ -113,7 +113,12 @@ func CreateUser(user *models.User) error {
 	}
 	// set password to encrypted password
 	user.Password = string(hash)
-
+	if len(user.NetworkRoles) == 0 {
+		user.NetworkRoles = make(map[models.NetworkID]map[models.UserRole]struct{})
+	}
+	if len(user.UserGroups) == 0 {
+		user.UserGroups = make(map[models.UserGroupID]struct{})
+	}
 	tokenString, _ := CreateUserJWT(user.UserName, user.PlatformRoleID)
 	if tokenString == "" {
 		logger.Log(0, "failed to generate token", err.Error())

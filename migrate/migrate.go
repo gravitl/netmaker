@@ -347,16 +347,21 @@ func syncUsers() {
 			if user.PlatformRoleID.String() != "" {
 				continue
 			}
+			if len(user.NetworkRoles) == 0 {
+				user.NetworkRoles = make(map[models.NetworkID]map[models.UserRole]struct{})
+			}
+			if len(user.UserGroups) == 0 {
+				user.UserGroups = make(map[models.UserGroupID]struct{})
+			}
 			if user.IsSuperAdmin {
 				user.PlatformRoleID = models.SuperAdminRole
-				logic.UpsertUser(user)
+
 			} else if user.IsAdmin {
 				user.PlatformRoleID = models.AdminRole
-				logic.UpsertUser(user)
 			} else {
 				user.PlatformRoleID = models.ServiceUser
-				logic.UpsertUser(user)
 			}
+			logic.UpsertUser(user)
 			if len(user.RemoteGwIDs) > 0 {
 				// define user roles for network
 				// assign relevant network role to user

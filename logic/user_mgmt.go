@@ -104,6 +104,13 @@ func ValidateCreateRoleReq(userRole models.UserRolePermissionTemplate) error {
 	if err == nil {
 		return fmt.Errorf("role with id `%s` exists already", userRole.ID.String())
 	}
+	if len(userRole.NetworkLevelAccess) > 0 {
+		for rsrcType := range userRole.NetworkLevelAccess {
+			if _, ok := models.RsrcTypeMap[rsrcType]; !ok {
+				return errors.New("invalid rsrc type " + rsrcType.String())
+			}
+		}
+	}
 	if userRole.NetworkID == "" {
 		return errors.New("only network roles are allowed to be created")
 	}
@@ -120,6 +127,13 @@ func ValidateUpdateRoleReq(userRole models.UserRolePermissionTemplate) error {
 	}
 	if roleInDB.Default {
 		return errors.New("cannot update default role")
+	}
+	if len(userRole.NetworkLevelAccess) > 0 {
+		for rsrcType := range userRole.NetworkLevelAccess {
+			if _, ok := models.RsrcTypeMap[rsrcType]; !ok {
+				return errors.New("invalid rsrc type " + rsrcType.String())
+			}
+		}
 	}
 	return nil
 }
