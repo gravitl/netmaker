@@ -1157,7 +1157,7 @@ func userInviteVerify(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	http.Redirect(w, r, url.QueryEscape(fmt.Sprintf("%s/invite-signup?email=%s&code=%s", servercfg.GetFrontendURL(), email, code)), http.StatusPermanentRedirect)
+	http.Redirect(w, r, fmt.Sprintf("%s/login?email=%s&code=%s", servercfg.GetFrontendURL(), email, code), http.StatusPermanentRedirect)
 }
 
 // swagger:route POST /api/v1/users/invite user inviteUsers
