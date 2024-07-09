@@ -114,6 +114,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 					handleSomethingWentWrong(w)
 					return
 				}
+				logic.DeleteUserInvite(user.UserName)
 				logic.DeletePendingUser(content.UserPrincipalName)
 			} else {
 				err = logic.InsertPendingUser(&models.User{

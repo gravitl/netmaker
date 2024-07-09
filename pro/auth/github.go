@@ -114,6 +114,7 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 					handleSomethingWentWrong(w)
 					return
 				}
+				logic.DeleteUserInvite(user.UserName)
 				logic.DeletePendingUser(content.Login)
 			} else {
 				err = logic.InsertPendingUser(&models.User{

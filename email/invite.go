@@ -12,7 +12,7 @@ type UserInvitedMail struct {
 
 // GetSubject - gets the subject of the email
 func (UserInvitedMail) GetSubject(info Notification) string {
-	return "Netmaker SaaS: Invitation Pending Acceptance"
+	return "Netmaker: Pending Invitation"
 }
 
 // GetBody - gets the body of the email

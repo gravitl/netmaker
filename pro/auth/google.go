@@ -115,6 +115,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 					handleSomethingWentWrong(w)
 					return
 				}
+				logic.DeleteUserInvite(user.UserName)
 				logic.DeletePendingUser(content.Email)
 			} else {
 				err = logic.InsertPendingUser(&models.User{
