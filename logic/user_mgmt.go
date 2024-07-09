@@ -23,7 +23,14 @@ var AdminPermissionTemplate = models.UserRolePermissionTemplate{
 }
 
 var ServiceUserPermissionTemplate = models.UserRolePermissionTemplate{
-	ID:         models.ServiceUser,
+	ID:                  models.ServiceUser,
+	Default:             true,
+	FullAccess:          false,
+	DenyDashboardAccess: true,
+}
+
+var PlatformUserUserPermissionTemplate = models.UserRolePermissionTemplate{
+	ID:         models.PlatformUser,
 	Default:    true,
 	FullAccess: false,
 }
