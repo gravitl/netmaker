@@ -1,5 +1,5 @@
 #first stage - builder
-FROM gravitl/go-builder as builder
+FROM gravitl/go-builder AS builder
 ARG tags 
 WORKDIR /app
 COPY . .

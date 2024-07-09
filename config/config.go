@@ -94,6 +94,7 @@ type ServerConfig struct {
 	CacheEnabled               string        `yaml:"caching_enabled"`
 	EndpointDetection          bool          `json:"endpoint_detection"`
 	AllowedEmailDomains        string        `yaml:"allowed_email_domains"`
+	MetricInterval             string        `yaml:"metric_interval"`
 }
 
 // SQLConfig - Generic SQL Config
