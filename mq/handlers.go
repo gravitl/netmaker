@@ -113,12 +113,6 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 				slog.Error("failed to send new node to host", "name", hostUpdate.Host.Name, "id", currentHost.ID, "error", err)
 				return
 			} else {
-				if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
-					if err = emqx.AppendNodeUpdateACL(hu.Host.ID.String(), hu.Node.Network, hu.Node.ID.String(), servercfg.GetServer()); err != nil {
-						slog.Error("failed to add ACLs for EMQX node", "error", err)
-						return
-					}
-				}
 				nodes, err := logic.GetAllNodes()
 				if err != nil {
 					return
