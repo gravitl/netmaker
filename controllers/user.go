@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 
@@ -1157,7 +1158,17 @@ func userInviteVerify(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	http.Redirect(w, r, fmt.Sprintf("%s/login?email=%s&code=%s", servercfg.GetFrontendURL(), email, code), http.StatusTemporaryRedirect)
+	queryParams := url.Values{}
+	queryParams.Add("email", email)
+	queryParams.Add("code", code)
+	u := fmt.Sprintf("%s/login?%s", servercfg.GetFrontendURL(), queryParams.Encode())
+
+	// and redirect to the URL you built.
+	req, err := http.NewRequest(http.MethodGet, u, nil)
+	if err != nil {
+		log.Fatalf("Failed to create request object: %v\n", err)
+	}
+	http.Redirect(w, req, u, http.StatusPermanentRedirect)
 }
 
 // swagger:route POST /api/v1/users/invite user inviteUsers
