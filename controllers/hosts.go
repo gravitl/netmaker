@@ -233,7 +233,8 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
+	var sendPeerUpdate bool
+	var replacePeers bool
 	var hostUpdate models.HostUpdate
 	err = json.NewDecoder(r.Body).Decode(&hostUpdate)
 	if err != nil {
@@ -244,22 +245,32 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	slog.Info("recieved host update", "name", hostUpdate.Host.Name, "id", hostUpdate.Host.ID)
 	switch hostUpdate.Action {
 	case models.CheckIn:
-		_ = mq.HandleHostCheckin(&hostUpdate.Host, currentHost)
+		sendPeerUpdate = mq.HandleHostCheckin(&hostUpdate.Host, currentHost)
 
 	case models.UpdateHost:
-
-		_ = logic.UpdateHostFromClient(&hostUpdate.Host, currentHost)
+		if hostUpdate.Host.PublicKey != currentHost.PublicKey {
+			//remove old peer entry
+			replacePeers = true
+		}
+		sendPeerUpdate = logic.UpdateHostFromClient(&hostUpdate.Host, currentHost)
 		err := logic.UpsertHost(currentHost)
 		if err != nil {
 			slog.Error("failed to update host", "id", currentHost.ID, "error", err)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
+
 	case models.UpdateMetrics:
 		mq.UpdateMetricsFallBack(hostUpdate.Node.ID.String(), hostUpdate.NewMetrics)
 	}
-	logic.ReturnSuccessResponse(w, r, "updated host data")
 
+	if sendPeerUpdate {
+		err := mq.PublishPeerUpdate(replacePeers)
+		if err != nil {
+			slog.Error("failed to publish peer update", "error", err)
+		}
+	}
+	logic.ReturnSuccessResponse(w, r, "updated host data")
 }
 
 // swagger:route DELETE /api/hosts/{hostid} hosts deleteHost
