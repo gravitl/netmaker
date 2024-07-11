@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 
@@ -1158,17 +1157,7 @@ func userInviteVerify(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	queryParams := url.Values{}
-	queryParams.Add("email", email)
-	queryParams.Add("code", code)
-	u := fmt.Sprintf("%s/login?%s", servercfg.GetFrontendURL(), queryParams.Encode())
-
-	// and redirect to the URL you built.
-	req, err := http.NewRequest(http.MethodGet, u, nil)
-	if err != nil {
-		log.Fatalf("Failed to create request object: %v\n", err)
-	}
-	http.Redirect(w, req, u, http.StatusPermanentRedirect)
+	logic.ReturnSuccessResponse(w, r, "invite is valid")
 }
 
 // swagger:route POST /api/v1/users/invite user inviteUsers
@@ -1226,8 +1215,8 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		// notify user with magic link
 		go func(invite models.UserInvite) {
 			// Set E-Mail body. You can set plain text or html with text/html
-			u, err := url.Parse(fmt.Sprintf("https://api.%s/api/v1/users/invite?email=%s&code=%s",
-				servercfg.GetServer(), url.QueryEscape(invite.Email), url.QueryEscape(invite.InviteCode)))
+			u, err := url.Parse(fmt.Sprintf("%s/invite?email=%s&code=%s",
+				servercfg.GetFrontendURL(), url.QueryEscape(invite.Email), url.QueryEscape(invite.InviteCode)))
 			if err != nil {
 				slog.Error("failed to parse to invite url", "error", err)
 				return

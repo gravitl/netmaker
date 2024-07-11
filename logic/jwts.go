@@ -117,6 +117,9 @@ func GetUserNameFromToken(authtoken string) (username string, err error) {
 		if user.UserName != "" {
 			return user.UserName, nil
 		}
+		if user.PlatformRoleID != claims.Role {
+			return "", Unauthorized_Err
+		}
 		err = errors.New("user does not exist")
 	} else {
 		err = Unauthorized_Err
