@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1227,7 +1228,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			n := email.Notification{
 				RecipientMail: invite.Email,
 			}
-			err = email.Send(n.NewEmailSender(e))
+			err = email.GetClient().SendEmail(context.Background(), n, e)
 			if err != nil {
 				slog.Error("failed to send email invite", "user", invite.Email, "error", err)
 			}

@@ -242,18 +242,56 @@ func GetPublicBrokerEndpoint() string {
 }
 
 func GetSmtpHost() string {
-	return os.Getenv("SMTP_HOST")
+	v := ""
+	if fromEnv := os.Getenv("SMTP_HOST"); fromEnv != "" {
+		v = fromEnv
+	} else if fromCfg := config.Config.Server.SmtpHost; fromCfg != "" {
+		v = fromCfg
+	}
+	return v
 }
 
 func GetSmtpPort() int {
-	port, _ := strconv.Atoi(os.Getenv("SMTP_PORT"))
-	return port
+	v := 587
+	if fromEnv := os.Getenv("SMTP_PORT"); fromEnv != "" {
+		port, err := strconv.Atoi(fromEnv)
+		if err == nil {
+			v = port
+		}
+	} else if fromCfg := config.Config.Server.SmtpPort; fromCfg != 0 {
+		v = fromCfg
+	}
+	return v
 }
+
 func GetSenderEmail() string {
-	return os.Getenv("SENDER_EMAIL")
+	v := ""
+	if fromEnv := os.Getenv("EMAIL_SENDER_ADDR"); fromEnv != "" {
+		v = fromEnv
+	} else if fromCfg := config.Config.Server.EmailSenderAddr; fromCfg != "" {
+		v = fromCfg
+	}
+	return v
 }
-func GetSenderEmailPassWord() string {
-	return os.Getenv("SENDER_PASSWORD")
+
+func GetEmaiSenderAuth() string {
+	v := ""
+	if fromEnv := os.Getenv("EMAIL_SENDER_AUTH"); fromEnv != "" {
+		v = fromEnv
+	} else if fromCfg := config.Config.Server.EmailSenderAddr; fromCfg != "" {
+		v = fromCfg
+	}
+	return v
+}
+
+func EmailSenderType() string {
+	s := ""
+	if fromEnv := os.Getenv("EMAIL_SENDER_TYPE"); fromEnv != "" {
+		s = fromEnv
+	} else if fromCfg := config.Config.Server.EmailSenderType; fromCfg != "" {
+		s = fromCfg
+	}
+	return s
 }
 
 // GetOwnerEmail - gets the owner email (saas)
