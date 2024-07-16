@@ -98,8 +98,8 @@ func listUserGroups(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //				200: userBodyResponse
 func getUserGroup(w http.ResponseWriter, r *http.Request) {
-	var params = mux.Vars(r)
-	gid := params["group_id"]
+
+	gid, _ := url.QueryUnescape(r.URL.Query().Get("group_id"))
 	if gid == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("group id is required"), "badrequest"))
 		return
@@ -193,8 +193,8 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //				200: userBodyResponse
 func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
-	var params = mux.Vars(r)
-	gid := params["group_id"]
+
+	gid, _ := url.QueryUnescape(r.URL.Query().Get("group_id"))
 	if gid == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
@@ -242,8 +242,7 @@ func listRoles(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //				200: userBodyResponse
 func getRole(w http.ResponseWriter, r *http.Request) {
-	var params = mux.Vars(r)
-	rid := params["role_id"]
+	rid, _ := url.QueryUnescape(r.URL.Query().Get("role_id"))
 	if rid == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
@@ -340,8 +339,8 @@ func updateRole(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //				200: userBodyResponse
 func deleteRole(w http.ResponseWriter, r *http.Request) {
-	var params = mux.Vars(r)
-	rid := params["role_id"]
+
+	rid, _ := url.QueryUnescape(r.URL.Query().Get("role_id"))
 	if rid == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
