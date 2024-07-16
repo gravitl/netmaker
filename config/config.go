@@ -99,6 +99,7 @@ type ServerConfig struct {
 	EmailSenderType            string        `json:"email_sender_type"`
 	SmtpHost                   string        `json:"smtp_host"`
 	SmtpPort                   int           `json:"smtp_port"`
+	MetricInterval             string        `yaml:"metric_interval"`
 }
 
 // SQLConfig - Generic SQL Config

@@ -91,7 +91,7 @@ func GetServerConfig() config.ServerConfig {
 	}
 	cfg.JwtValidityDuration = GetJwtValidityDuration()
 	cfg.RacAutoDisable = GetRacAutoDisable()
-
+	cfg.MetricInterval = GetMetricInterval()
 	return cfg
 }
 
@@ -135,6 +135,7 @@ func GetServerInfo() models.ServerConfig {
 	}
 	cfg.Version = GetVersion()
 	cfg.IsPro = IsPro
+	cfg.MetricInterval = GetMetricInterval()
 	return cfg
 }
 
@@ -637,6 +638,16 @@ func GetMqUserName() string {
 		password = config.Config.Server.MQUserName
 	}
 	return password
+}
+
+// GetMetricInterval - get the publish metric interval
+func GetMetricInterval() string {
+	//default 15 minutes
+	mi := "15"
+	if os.Getenv("PUBLISH_METRIC_INTERVAL") != "" {
+		mi = os.Getenv("PUBLISH_METRIC_INTERVAL")
+	}
+	return mi
 }
 
 // GetEmqxRestEndpoint - returns the REST API Endpoint of EMQX

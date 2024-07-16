@@ -386,6 +386,17 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+
+	var gateway models.EgressGatewayRequest
+	gateway.NetID = params["network"]
+	gateway.Ranges = customExtClient.ExtraAllowedIPs
+	err := logic.ValidateEgressRange(gateway)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "error validating egress range: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
 	node, err := logic.GetNodeByID(nodeid)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
@@ -530,6 +541,17 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
+	var gateway models.EgressGatewayRequest
+	gateway.NetID = params["network"]
+	gateway.Ranges = update.ExtraAllowedIPs
+	err = logic.ValidateEgressRange(gateway)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "error validating egress range: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
 	var changedID = update.ClientID != oldExtClient.ClientID
 
 	if !reflect.DeepEqual(update.DeniedACLs, oldExtClient.DeniedACLs) {

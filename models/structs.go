@@ -240,19 +240,20 @@ type NodeJoinResponse struct {
 
 // ServerConfig - struct for dealing with the server information for a netclient
 type ServerConfig struct {
-	CoreDNSAddr string `yaml:"corednsaddr"`
-	API         string `yaml:"api"`
-	APIPort     string `yaml:"apiport"`
-	DNSMode     string `yaml:"dnsmode"`
-	Version     string `yaml:"version"`
-	MQPort      string `yaml:"mqport"`
-	MQUserName  string `yaml:"mq_username"`
-	MQPassword  string `yaml:"mq_password"`
-	BrokerType  string `yaml:"broker_type"`
-	Server      string `yaml:"server"`
-	Broker      string `yaml:"broker"`
-	IsPro       bool   `yaml:"isee" json:"Is_EE"`
-	TrafficKey  []byte `yaml:"traffickey"`
+	CoreDNSAddr    string `yaml:"corednsaddr"`
+	API            string `yaml:"api"`
+	APIPort        string `yaml:"apiport"`
+	DNSMode        string `yaml:"dnsmode"`
+	Version        string `yaml:"version"`
+	MQPort         string `yaml:"mqport"`
+	MQUserName     string `yaml:"mq_username"`
+	MQPassword     string `yaml:"mq_password"`
+	BrokerType     string `yaml:"broker_type"`
+	Server         string `yaml:"server"`
+	Broker         string `yaml:"broker"`
+	IsPro          bool   `yaml:"isee" json:"Is_EE"`
+	TrafficKey     []byte `yaml:"traffickey"`
+	MetricInterval string `yaml:"metric_interval"`
 }
 
 // User.NameInCharset - returns if name is in charset below or not

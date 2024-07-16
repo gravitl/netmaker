@@ -164,10 +164,6 @@ func SessionHandler(conn *websocket.Conn) {
 					logger.Log(0, "failed to create host credentials for EMQX: ", err.Error())
 					return
 				}
-				if err := mq.GetEmqxHandler().CreateHostACL(result.Host.ID.String(), servercfg.GetServerInfo().Server); err != nil {
-					logger.Log(0, "failed to add host ACL rules to EMQX: ", err.Error())
-					return
-				}
 			}
 			logic.CheckHostPorts(&result.Host)
 			if err := logic.CreateHost(&result.Host); err != nil {

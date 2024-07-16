@@ -35,7 +35,6 @@ func PublishPeerUpdate(replacePeers bool) error {
 				logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
 			}
 		}(host)
-
 	}
 	return err
 }
@@ -217,30 +216,14 @@ func sendPeers() {
 	if err != nil && len(hosts) > 0 {
 		logger.Log(1, "error retrieving networks for keepalive", err.Error())
 	}
-	nodes, err := logic.GetAllNodes()
-	if err != nil {
-		return
-	}
-	var force bool
+
 	peer_force_send++
 	if peer_force_send == 5 {
 		servercfg.SetHost()
-		force = true
 		peer_force_send = 0
 		err := logic.TimerCheckpoint() // run telemetry & log dumps if 24 hours has passed..
 		if err != nil {
 			logger.Log(3, "error occurred on timer,", err.Error())
-		}
-
-		//collectServerMetrics(networks[:])
-	}
-	if force {
-		for _, host := range hosts {
-			host := host
-			logger.Log(2, "sending scheduled peer update (5 min)")
-			if err = PublishSingleHostPeerUpdate(&host, nodes, nil, nil, false); err != nil {
-				logger.Log(1, "error publishing peer updates for host: ", host.ID.String(), " Err: ", err.Error())
-			}
 		}
 	}
 }
