@@ -681,6 +681,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		uniqueGroupsPlatformRole[userG.PlatformRole] = struct{}{}
+		user.PlatformRoleID = userG.PlatformRole
 	}
 	if len(uniqueGroupsPlatformRole) > 1 {
 		err = errors.New("only groups with same platform role can be assigned to an user")

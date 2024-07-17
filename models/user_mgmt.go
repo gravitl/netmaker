@@ -113,9 +113,9 @@ type UserGroup struct {
 type User struct {
 	UserName       string                              `json:"username" bson:"username" validate:"min=3,max=40,in_charset|email"`
 	Password       string                              `json:"password" bson:"password" validate:"required,min=5"`
-	IsAdmin        bool                                `json:"isadmin" bson:"isadmin"`
-	IsSuperAdmin   bool                                `json:"issuperadmin"`
-	RemoteGwIDs    map[string]struct{}                 `json:"remote_gw_ids"` // deprecated
+	IsAdmin        bool                                `json:"isadmin" bson:"isadmin"` // deprecated
+	IsSuperAdmin   bool                                `json:"issuperadmin"`           // deprecated
+	RemoteGwIDs    map[string]struct{}                 `json:"remote_gw_ids"`          // deprecated
 	UserGroups     map[UserGroupID]struct{}            `json:"user_group_ids"`
 	PlatformRoleID UserRole                            `json:"platform_role_id"`
 	NetworkRoles   map[NetworkID]map[UserRole]struct{} `json:"network_roles"`

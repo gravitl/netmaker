@@ -83,7 +83,7 @@ func UserRolesInit() {
 // ListRoles - lists user roles permission templates
 func ListRoles() ([]models.UserRolePermissionTemplate, error) {
 	data, err := database.FetchRecords(database.USER_PERMISSIONS_TABLE_NAME)
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return []models.UserRolePermissionTemplate{}, err
 	}
 	userRoles := []models.UserRolePermissionTemplate{}
@@ -284,7 +284,7 @@ func CreateUserGroup(g models.UserGroup) error {
 // GetUserGroup - fetches user group
 func GetUserGroup(gid models.UserGroupID) (models.UserGroup, error) {
 	d, err := database.FetchRecord(database.USER_GROUPS_TABLE_NAME, gid.String())
-	if err == nil {
+	if err != nil {
 		return models.UserGroup{}, err
 	}
 	var ug models.UserGroup
@@ -298,7 +298,7 @@ func GetUserGroup(gid models.UserGroupID) (models.UserGroup, error) {
 // ListUserGroups - lists user groups
 func ListUserGroups() ([]models.UserGroup, error) {
 	data, err := database.FetchRecords(database.USER_GROUPS_TABLE_NAME)
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return []models.UserGroup{}, err
 	}
 	userGroups := []models.UserGroup{}
