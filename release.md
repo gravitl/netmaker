@@ -1,18 +1,21 @@
 # Netmaker v0.24.3
 
 ## Whats New ✨
-- Static Host Functionality With Separate Settings For Port and endpoint IP
-- Network Info And Metadata Info Added To Remote-Access-Client
+- Validation checks for egress routes
+- Network Change Detection System
+- Removed Creation of ACLs for EMQX
 
 ## What's Fixed/Improved 🛠
-- Improved FailOver Functionality
-- Local Peer Routing In Dual-Stack Environment
-- Stale Node Issue On Multinet With `netclient uninstall`
-- IPv6 Internet Gateways Improvements
-- Handled New Oauth User SignUp via Remote-Access-Client
-- PeerUpdate Improvements Around Default Host and Multi-nets
+- Removed RAG metadata length restriction
+- Scalability Improvements
+- Optimised Traffic Flow Over MQ
+- Improved Validation Checks For Internet Gws
 
 ## Known Issues 🐞
 
 - Erratic Traffic Data In Metrics.
-- Stale peer on the interface, when forced removed from multiple networks at once.
+- Adding Custom Private/Public Key For Remote Access Gw Clients Doesn't Get Propagated To Other Peers.
+- IPv6 Dns Entries Are Not Working.
+- Stale peer On The Interface, When Forced Removed From Multiple Networks At Once.
+- Can Still Ping Domain Name Even When DNS Toggle Is Switched Off.
+
