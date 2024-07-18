@@ -11,6 +11,7 @@ import (
 func userMiddleWare(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var params = mux.Vars(r)
+		r.Header.Set("IS_GLOBAL_ACCESS", "no")
 		r.Header.Set("NET_ID", params["network"])
 		if strings.Contains(r.URL.Path, "hosts") || strings.Contains(r.URL.Path, "nodes") {
 			r.Header.Set("TARGET_RSRC", models.HostRsrc.String())
@@ -46,6 +47,9 @@ func userMiddleWare(handler http.Handler) http.Handler {
 			r.Header.Set("TARGET_RSRC", models.EnrollmentKeysRsrc.String())
 			r.Header.Set("RSRC_TYPE", models.EnrollmentKeysRsrc.String())
 		}
+		if strings.Contains(r.URL.Path, "metrics") {
+			r.Header.Set("RSRC_TYPE", models.MetricRsrc.String())
+		}
 		if keyID, ok := params["keyID"]; ok {
 			r.Header.Set("TARGET_RSRC_ID", keyID)
 		}
@@ -68,9 +72,9 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if userID, ok := params["username"]; ok {
 			r.Header.Set("TARGET_RSRC_ID", userID)
 		}
-		if r.Header.Get("TARGET_RSRC_ID") == "" ||
+		if r.Header.Get("NET_ID") == "" && (r.Header.Get("TARGET_RSRC_ID") == "" ||
 			r.Header.Get("TARGET_RSRC") == models.EnrollmentKeysRsrc.String() ||
-			r.Header.Get("TARGET_RSRC") == models.UserRsrc.String() {
+			r.Header.Get("TARGET_RSRC") == models.UserRsrc.String()) {
 			r.Header.Set("IS_GLOBAL_ACCESS", "yes")
 		}
 		handler.ServeHTTP(w, r)

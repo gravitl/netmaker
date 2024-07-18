@@ -34,6 +34,13 @@ func networkPermissionsCheck(username string, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	userRole, err := GetRole(user.PlatformRoleID)
+	if err != nil {
+		return errors.New("access denied")
+	}
+	if userRole.FullAccess {
+		return nil
+	}
 	// get info from header to determine the target rsrc
 	targetRsrc := r.Header.Get("TARGET_RSRC")
 	targetRsrcID := r.Header.Get("TARGET_RSRC_ID")
@@ -46,6 +53,9 @@ func networkPermissionsCheck(username string, r *http.Request) error {
 	}
 	if r.Method == "" {
 		r.Method = http.MethodGet
+	}
+	if targetRsrc == models.MetricRsrc.String() {
+		return nil
 	}
 	// check if user has scope for target resource
 	// TODO - differentitate between global scope and network scope apis
@@ -123,6 +133,12 @@ func globalPermissionsCheck(username string, r *http.Request) error {
 	if r.Method == "" {
 		r.Method = http.MethodGet
 	}
+	if targetRsrc == models.MetricRsrc.String() {
+		return nil
+	}
+	if targetRsrc == models.UserRsrc.String() && username == targetRsrcID && (r.Method != http.MethodDelete) {
+		return nil
+	}
 	rsrcPermissionScope, ok := userRole.GlobalLevelAccess[models.RsrcType(targetRsrc)]
 	if !ok {
 		return fmt.Errorf("access denied to %s rsrc", targetRsrc)
@@ -161,8 +177,8 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		r.Header.Set("ismaster", "no")
-		bearerToken := r.Header.Get("Authorization")
 		isGlobalAccesss := r.Header.Get("IS_GLOBAL_ACCESS") == "yes"
+		bearerToken := r.Header.Get("Authorization")
 		username, err := GetUserNameFromToken(bearerToken)
 		if err != nil {
 			ReturnErrorResponse(w, r, FormatError(err, err.Error()))

@@ -48,6 +48,7 @@ const (
 	AclRsrc            RsrcType = "acl"
 	DnsRsrc            RsrcType = "dns"
 	FailOverRsrc       RsrcType = "fail_over"
+	MetricRsrc         RsrcType = "metrics"
 )
 
 const (
@@ -90,6 +91,7 @@ type RsrcPermissionScope struct {
 	Update    bool `json:"update"`
 	Delete    bool `json:"delete"`
 	VPNaccess bool `json:"vpn_access"`
+	SelfOnly  bool `json:"self_only"`
 }
 
 type UserRolePermissionTemplate struct {

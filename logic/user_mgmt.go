@@ -235,21 +235,37 @@ func DeleteRole(rid models.UserRole) error {
 
 func ValidateCreateGroupReq(g models.UserGroup) error {
 	// check platform role is valid
-	_, err := GetRole(g.PlatformRole)
+	role, err := GetRole(g.PlatformRole)
 	if err != nil {
 		err = fmt.Errorf("invalid platform role")
 		return err
 	}
+	if role.NetworkID != "" {
+		return errors.New("network role cannot be used as platform role")
+	}
 	// check if network roles are valid
-
+	for _, roleMap := range g.NetworkRoles {
+		for roleID := range roleMap {
+			role, err := GetRole(roleID)
+			if err != nil {
+				return fmt.Errorf("invalid network role %s", roleID)
+			}
+			if role.NetworkID == "" {
+				return errors.New("platform role cannot be used as network role")
+			}
+		}
+	}
 	return nil
 }
 func ValidateUpdateGroupReq(g models.UserGroup) error {
 	// check platform role is valid
-	_, err := GetRole(g.PlatformRole)
+	role, err := GetRole(g.PlatformRole)
 	if err != nil {
 		err = fmt.Errorf("invalid platform role")
 		return err
+	}
+	if role.NetworkID != "" {
+		return errors.New("network role cannot be used as platform role")
 	}
 	for networkID := range g.NetworkRoles {
 		userRolesMap := g.NetworkRoles[networkID]
@@ -258,6 +274,9 @@ func ValidateUpdateGroupReq(g models.UserGroup) error {
 			if err != nil {
 				err = fmt.Errorf("invalid network role")
 				return err
+			}
+			if role.NetworkID == "" {
+				return errors.New("platform role cannot be used as network role")
 			}
 		}
 	}
