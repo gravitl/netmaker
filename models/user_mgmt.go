@@ -159,4 +159,5 @@ type UserInvite struct {
 	Email      string        `json:"email"`
 	Groups     []UserGroupID `json:"groups"`
 	InviteCode string        `json:"invite_code"`
+	InviteURL  string        `json:"invite_url"`
 }

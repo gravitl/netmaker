@@ -1209,6 +1209,13 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			Groups:     inviteReq.Groups,
 			InviteCode: logic.RandomString(8),
 		}
+		u, err := url.Parse(fmt.Sprintf("%s/invite?email=%s&code=%s",
+			servercfg.GetFrontendURL(), url.QueryEscape(invite.Email), url.QueryEscape(invite.InviteCode)))
+		if err != nil {
+			slog.Error("failed to parse to invite url", "error", err)
+			return
+		}
+		invite.InviteURL = u.String()
 		err = logic.InsertUserInvite(invite)
 		if err != nil {
 			slog.Error("failed to insert invite for user", "email", invite.Email, "error", err)
@@ -1216,15 +1223,10 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		// notify user with magic link
 		go func(invite models.UserInvite) {
 			// Set E-Mail body. You can set plain text or html with text/html
-			u, err := url.Parse(fmt.Sprintf("%s/invite?email=%s&code=%s",
-				servercfg.GetFrontendURL(), url.QueryEscape(invite.Email), url.QueryEscape(invite.InviteCode)))
-			if err != nil {
-				slog.Error("failed to parse to invite url", "error", err)
-				return
-			}
+
 			e := email.UserInvitedMail{
 				BodyBuilder: &email.EmailBodyBuilderWithH1HeadlineAndImage{},
-				InviteURL:   u.String(),
+				InviteURL:   invite.InviteURL,
 			}
 			n := email.Notification{
 				RecipientMail: invite.Email,
