@@ -239,7 +239,8 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 		user.Password = userchange.Password
 	}
 	user.PlatformRoleID = userchange.PlatformRoleID
-
+	user.UserGroups = userchange.UserGroups
+	user.NetworkRoles = userchange.NetworkRoles
 	err := ValidateUser(user)
 	if err != nil {
 		return &models.User{}, err

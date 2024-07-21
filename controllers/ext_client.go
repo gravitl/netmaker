@@ -133,14 +133,6 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if !logic.IsUserAllowedAccessToExtClient(r.Header.Get("user"), client) {
-		// check if user has access to extclient
-		slog.Error("failed to get extclient", "network", network, "clientID",
-			clientid, "error", errors.New("access is denied"))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("access is denied"), "forbidden"))
-		return
-
-	}
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(client)
@@ -169,12 +161,6 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, r.Header.Get("user"), fmt.Sprintf("failed to get extclient for [%s] on network [%s]: %v",
 			clientid, networkid, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	if !logic.IsUserAllowedAccessToExtClient(r.Header.Get("user"), client) {
-		slog.Error("failed to get extclient", "network", networkid, "clientID",
-			clientid, "error", errors.New("access is denied"))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("access is denied"), "forbidden"))
 		return
 	}
 
@@ -414,12 +400,6 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		userName = caller.UserName
-		if _, ok := caller.RemoteGwIDs[nodeid]; (caller.PlatformRoleID != models.AdminRole && caller.PlatformRoleID != models.SuperAdminRole) && !ok {
-			err = errors.New("permission denied")
-			slog.Error("failed to create extclient", "error", err)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
-			return
-		}
 		// check if user has a config already for remote access client
 		extclients, err := logic.GetNetworkExtClients(node.Network)
 		if err != nil {
@@ -515,20 +495,11 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	clientid := params["clientid"]
-	network := params["network"]
 	oldExtClient, err := logic.GetExtClientByName(clientid)
 	if err != nil {
 		slog.Error("failed to retrieve extclient", "user", r.Header.Get("user"), "id", clientid, "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
-	}
-	if !logic.IsUserAllowedAccessToExtClient(r.Header.Get("user"), oldExtClient) {
-		// check if user has access to extclient
-		slog.Error("failed to get extclient", "network", network, "clientID",
-			clientid, "error", errors.New("access is denied"))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("access is denied"), "forbidden"))
-		return
-
 	}
 	if oldExtClient.ClientID == update.ClientID {
 		if err := validateCustomExtClient(&update, false); err != nil {
@@ -637,12 +608,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if !logic.IsUserAllowedAccessToExtClient(r.Header.Get("user"), extclient) {
-		slog.Error("user not allowed to delete", "network", network, "clientID",
-			clientid, "error", errors.New("access is denied"))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("access is denied"), "forbidden"))
-		return
-	}
+
 	ingressnode, err := logic.GetNodeByID(extclient.IngressGatewayID)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),

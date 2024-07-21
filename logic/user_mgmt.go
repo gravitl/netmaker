@@ -374,3 +374,81 @@ func HasNetworkRsrcScope(permissionTemplate models.UserRolePermissionTemplate, n
 	_, ok = rsrcScope[rsrcID]
 	return ok
 }
+func GetUserRAGNodes(user models.User) (gws map[string]models.Node) {
+	gws = make(map[string]models.Node)
+	userGwAccessScope := GetUserNetworkRolesWithRemoteVPNAccess(user)
+	_, allNetAccess := userGwAccessScope["*"]
+	nodes, err := GetAllNodes()
+	if err != nil {
+		return
+	}
+	for _, node := range nodes {
+		if node.IsIngressGateway && !node.PendingDelete {
+			if allNetAccess {
+				gws[node.ID.String()] = node
+			} else {
+				gwRsrcMap := userGwAccessScope[models.NetworkID(node.Network)]
+				scope, ok := gwRsrcMap[models.AllRemoteAccessGwRsrcID]
+				if !ok {
+					if _, ok := gwRsrcMap[models.RsrcID(node.ID.String())]; !ok {
+						continue
+					}
+				}
+				if scope.VPNaccess {
+					gws[node.ID.String()] = node
+				}
+
+			}
+		}
+	}
+	return
+}
+
+// GetUserNetworkRoles - get user network roles
+func GetUserNetworkRolesWithRemoteVPNAccess(user models.User) (gwAccess map[models.NetworkID]map[models.RsrcID]models.RsrcPermissionScope) {
+	gwAccess = make(map[models.NetworkID]map[models.RsrcID]models.RsrcPermissionScope)
+	platformRole, err := GetRole(user.PlatformRoleID)
+	if err != nil {
+		return
+	}
+	if platformRole.FullAccess {
+		gwAccess[models.NetworkID("*")] = make(map[models.RsrcID]models.RsrcPermissionScope)
+		return
+	}
+	for netID, roleMap := range user.NetworkRoles {
+		for roleID := range roleMap {
+			role, err := GetRole(roleID)
+			if err == nil {
+				if role.FullAccess {
+					gwAccess[netID] = map[models.RsrcID]models.RsrcPermissionScope{
+						models.AllRemoteAccessGwRsrcID: {
+							Create:    true,
+							Read:      true,
+							VPNaccess: true,
+							Delete:    true,
+						},
+					}
+					break
+				}
+				if rsrcsMap, ok := role.NetworkLevelAccess[models.RemoteAccessGwRsrc]; ok {
+					if permissions, ok := rsrcsMap[models.AllRemoteAccessGwRsrcID]; ok && permissions.VPNaccess {
+						if len(gwAccess[netID]) == 0 {
+							gwAccess[netID] = make(map[models.RsrcID]models.RsrcPermissionScope)
+						}
+						gwAccess[netID][models.AllRemoteAccessGwRsrcID] = permissions
+						break
+					} else {
+						for gwID, scope := range rsrcsMap {
+							if scope.VPNaccess {
+								gwAccess[netID][gwID] = scope
+							}
+						}
+					}
+
+				}
+
+			}
+		}
+	}
+	return
+}

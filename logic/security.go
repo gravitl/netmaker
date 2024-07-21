@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 )
@@ -34,6 +35,7 @@ func networkPermissionsCheck(username string, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	logger.Log(0, "NET MIDDL----> 1")
 	userRole, err := GetRole(user.PlatformRoleID)
 	if err != nil {
 		return errors.New("access denied")
@@ -41,6 +43,7 @@ func networkPermissionsCheck(username string, r *http.Request) error {
 	if userRole.FullAccess {
 		return nil
 	}
+	logger.Log(0, "NET MIDDL----> 2")
 	// get info from header to determine the target rsrc
 	targetRsrc := r.Header.Get("TARGET_RSRC")
 	targetRsrcID := r.Header.Get("TARGET_RSRC_ID")
@@ -61,7 +64,7 @@ func networkPermissionsCheck(username string, r *http.Request) error {
 	// TODO - differentitate between global scope and network scope apis
 	netRoles := user.NetworkRoles[models.NetworkID(netID)]
 	for netRoleID := range netRoles {
-		err = checkNetworkAccessPermissions(netRoleID, r.Method, targetRsrc, targetRsrcID)
+		err = checkNetworkAccessPermissions(netRoleID, username, r.Method, targetRsrc, targetRsrcID)
 		if err == nil {
 			return nil
 		}
@@ -71,7 +74,7 @@ func networkPermissionsCheck(username string, r *http.Request) error {
 		if err == nil {
 			netRoles := userG.NetworkRoles[models.NetworkID(netID)]
 			for netRoleID := range netRoles {
-				err = checkNetworkAccessPermissions(netRoleID, r.Method, targetRsrc, targetRsrcID)
+				err = checkNetworkAccessPermissions(netRoleID, username, r.Method, targetRsrc, targetRsrcID)
 				if err == nil {
 					return nil
 				}
@@ -82,11 +85,12 @@ func networkPermissionsCheck(username string, r *http.Request) error {
 	return errors.New("access denied")
 }
 
-func checkNetworkAccessPermissions(netRoleID models.UserRole, reqScope, targetRsrc, targetRsrcID string) error {
+func checkNetworkAccessPermissions(netRoleID models.UserRole, username, reqScope, targetRsrc, targetRsrcID string) error {
 	networkPermissionScope, err := GetRole(netRoleID)
 	if err != nil {
 		return err
 	}
+	logger.Log(0, "NET MIDDL----> 3", string(netRoleID))
 	if networkPermissionScope.FullAccess {
 		return nil
 	}
@@ -94,13 +98,25 @@ func checkNetworkAccessPermissions(netRoleID models.UserRole, reqScope, targetRs
 	if !ok {
 		return errors.New("access denied")
 	}
+	logger.Log(0, "NET MIDDL----> 4", string(netRoleID))
 	if allRsrcsTypePermissionScope, ok := rsrcPermissionScope[models.RsrcID(fmt.Sprintf("all_%s", targetRsrc))]; ok {
+		// handle extclient apis here
+		if models.RsrcType(targetRsrc) == models.ExtClientsRsrc && allRsrcsTypePermissionScope.SelfOnly && targetRsrcID != "" {
+			extclient, err := GetExtClient(targetRsrcID, networkPermissionScope.NetworkID)
+			if err != nil {
+				return err
+			}
+			if !IsUserAllowedAccessToExtClient(username, extclient) {
+				return errors.New("access denied")
+			}
+		}
 		err = checkPermissionScopeWithReqMethod(allRsrcsTypePermissionScope, reqScope)
 		if err == nil {
 			return nil
 		}
 
 	}
+	logger.Log(0, "NET MIDDL----> 5", string(netRoleID))
 	if targetRsrcID == "" {
 		return errors.New("target rsrc id is empty")
 	}
@@ -110,6 +126,7 @@ func checkNetworkAccessPermissions(netRoleID models.UserRole, reqScope, targetRs
 			return nil
 		}
 	}
+	logger.Log(0, "NET MIDDL----> 6", string(netRoleID))
 	return errors.New("access denied")
 }
 

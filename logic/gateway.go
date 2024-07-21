@@ -264,10 +264,8 @@ func IsUserAllowedAccessToExtClient(username string, client models.ExtClient) bo
 	if err != nil {
 		return false
 	}
-	if user.PlatformRoleID != models.AdminRole && user.PlatformRoleID != models.SuperAdminRole {
-		if user.UserName != client.OwnerID {
-			return false
-		}
+	if user.UserName != client.OwnerID {
+		return false
 	}
 	return true
 }
