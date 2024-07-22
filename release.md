@@ -1,4 +1,4 @@
-# Netmaker v0.24.4
+# Netmaker v0.25.0
 
 ## Whats New ✨
 - Validation Checks For Egress Routes
