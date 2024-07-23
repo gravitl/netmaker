@@ -323,13 +323,13 @@ func syncUsers() {
 					h, err := logic.GetHost(networkNodeI.HostID.String())
 					if err == nil {
 						logic.CreateRole(models.UserRolePermissionTemplate{
-							ID:                  models.UserRole(fmt.Sprintf("net-%s-user-gw-%s", netI.NetID, h.Name)),
-							DenyDashboardAccess: true,
-							NetworkID:           netI.NetID,
+							ID:        models.UserRole(fmt.Sprintf("net-%s-rag-%s", netI.NetID, h.Name)),
+							NetworkID: netI.NetID,
 							NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
 								models.RemoteAccessGwRsrc: {
 									models.RsrcID(networkNodeI.ID.String()): models.RsrcPermissionScope{
 										VPNaccess: true,
+										SelfOnly:  true,
 									},
 								},
 							},
@@ -374,7 +374,7 @@ func syncUsers() {
 					if err != nil {
 						continue
 					}
-					r, err := logic.GetRole(models.UserRole(fmt.Sprintf("net-%s-user-gw-%s", gwNode.Network, h.Name)))
+					r, err := logic.GetRole(models.UserRole(fmt.Sprintf("net-%s-rag-%s", gwNode.Network, h.Name)))
 					if err != nil {
 						continue
 					}

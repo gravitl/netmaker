@@ -62,6 +62,7 @@ var NetworkUserPermissionTemplate = models.UserRolePermissionTemplate{
 				Update:    true,
 				Delete:    true,
 				VPNaccess: true,
+				SelfOnly:  true,
 			},
 		},
 	},
