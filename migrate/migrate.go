@@ -328,6 +328,15 @@ func syncUsers() {
 							NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
 								models.RemoteAccessGwRsrc: {
 									models.RsrcID(networkNodeI.ID.String()): models.RsrcPermissionScope{
+										Read: true,
+									},
+								},
+								models.ExtClientsRsrc: {
+									models.AllExtClientsRsrcID: models.RsrcPermissionScope{
+										Read:      true,
+										Create:    true,
+										Update:    true,
+										Delete:    true,
 										VPNaccess: true,
 										SelfOnly:  true,
 									},

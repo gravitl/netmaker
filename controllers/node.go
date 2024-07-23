@@ -565,6 +565,33 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	host, err := logic.GetHost(node.HostID.String())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	// create network role for this gateway
+	logic.CreateRole(models.UserRolePermissionTemplate{
+		ID:        models.UserRole(fmt.Sprintf("net-%s-rag-%s", node.Network, host.Name)),
+		NetworkID: node.Network,
+		NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
+			models.RemoteAccessGwRsrc: {
+				models.RsrcID(node.ID.String()): models.RsrcPermissionScope{
+					Read: true,
+				},
+			},
+			models.ExtClientsRsrc: {
+				models.AllExtClientsRsrcID: models.RsrcPermissionScope{
+					Read:      true,
+					Create:    true,
+					Update:    true,
+					Delete:    true,
+					VPNaccess: true,
+					SelfOnly:  true,
+				},
+			},
+		},
+	})
 
 	apiNode := node.ConvertToAPINode()
 	logger.Log(1, r.Header.Get("user"), "created ingress gateway on node", nodeid, "on network", netid)
@@ -606,14 +633,20 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-
+	host, err := logic.GetHost(node.HostID.String())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 	if servercfg.IsPro {
 		go func() {
 			users, err := logic.GetUsersDB()
 			if err == nil {
 				for _, user := range users {
-					if _, ok := user.RemoteGwIDs[nodeid]; ok {
-						delete(user.RemoteGwIDs, nodeid)
+					// delete role from user
+					if netRoles, ok := user.NetworkRoles[models.NetworkID(node.Network)]; ok {
+						delete(netRoles, models.UserRole(fmt.Sprintf("net-%s-rag-%s", node.Network, host.Name)))
+						user.NetworkRoles[models.NetworkID(node.Network)] = netRoles
 						err = logic.UpsertUser(user)
 						if err != nil {
 							slog.Error("failed to get user", "user", user.UserName, "error", err)
@@ -623,6 +656,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 			} else {
 				slog.Error("failed to get users", "error", err)
 			}
+			logic.DeleteRole(models.UserRole(fmt.Sprintf("net-%s-rag-%s", node.Network, host.Name)))
 		}()
 	}
 
