@@ -74,6 +74,8 @@ func UserRolesInit() {
 	database.Insert(AdminPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
 	d, _ = json.Marshal(ServiceUserPermissionTemplate)
 	database.Insert(ServiceUserPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
+	d, _ = json.Marshal(PlatformUserUserPermissionTemplate)
+	database.Insert(PlatformUserUserPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
 	d, _ = json.Marshal(NetworkAdminPermissionTemplate)
 	database.Insert(NetworkAdminPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
 	d, _ = json.Marshal(NetworkUserPermissionTemplate)
