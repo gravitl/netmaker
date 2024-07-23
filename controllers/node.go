@@ -286,24 +286,40 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	networkRoles := user.NetworkRoles[models.NetworkID(networkName)]
-	for networkRoleID := range networkRoles {
-		userPermTemplate, err := logic.GetRole(networkRoleID)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-		if !userPermTemplate.FullAccess {
-			filteredNodes := []models.Node{}
+	userPlatformRole, err := logic.GetRole(user.PlatformRoleID)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	filteredNodes := []models.Node{}
+	if !userPlatformRole.FullAccess {
+		nodesMap := make(map[string]struct{})
+		networkRoles := user.NetworkRoles[models.NetworkID(networkName)]
+		for networkRoleID := range networkRoles {
+			userPermTemplate, err := logic.GetRole(networkRoleID)
+			if err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				return
+			}
+			if userPermTemplate.FullAccess {
+				break
+			}
 			if rsrcPerms, ok := userPermTemplate.NetworkLevelAccess[models.RemoteAccessGwRsrc]; ok {
 				if _, ok := rsrcPerms[models.AllRemoteAccessGwRsrcID]; ok {
 					for _, node := range nodes {
+						if _, ok := nodesMap[node.ID.String()]; ok {
+							continue
+						}
 						if node.IsIngressGateway {
+							nodesMap[node.ID.String()] = struct{}{}
 							filteredNodes = append(filteredNodes, node)
 						}
 					}
 				} else {
 					for gwID, scope := range rsrcPerms {
+						if _, ok := nodesMap[gwID.String()]; ok {
+							continue
+						}
 						if scope.Read {
 							gwNode, err := logic.GetNodeByID(gwID.String())
 							if err == nil && gwNode.IsIngressGateway {
@@ -313,11 +329,13 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 			}
-			nodes = filteredNodes
-		} else {
-			break
+
 		}
 	}
+	if len(filteredNodes) > 0 {
+		nodes = filteredNodes
+	}
+
 	// returns all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	logger.Log(2, r.Header.Get("user"), "fetched nodes on network", networkName)

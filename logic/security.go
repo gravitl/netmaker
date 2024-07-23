@@ -60,6 +60,7 @@ func networkPermissionsCheck(username string, r *http.Request) error {
 	if targetRsrc == models.MetricRsrc.String() {
 		return nil
 	}
+
 	// check if user has scope for target resource
 	// TODO - differentitate between global scope and network scope apis
 	netRoles := user.NetworkRoles[models.NetworkID(netID)]
@@ -95,6 +96,9 @@ func checkNetworkAccessPermissions(netRoleID models.UserRole, username, reqScope
 		return nil
 	}
 	rsrcPermissionScope, ok := networkPermissionScope.NetworkLevelAccess[models.RsrcType(targetRsrc)]
+	if targetRsrc == models.HostRsrc.String() && !ok {
+		rsrcPermissionScope, ok = networkPermissionScope.NetworkLevelAccess[models.RemoteAccessGwRsrc]
+	}
 	if !ok {
 		return errors.New("access denied")
 	}
@@ -115,6 +119,14 @@ func checkNetworkAccessPermissions(netRoleID models.UserRole, username, reqScope
 			return nil
 		}
 
+	}
+	if targetRsrc == models.HostRsrc.String() {
+		if allRsrcsTypePermissionScope, ok := rsrcPermissionScope[models.RsrcID(fmt.Sprintf("all_%s", models.RemoteAccessGwRsrc))]; ok {
+			err = checkPermissionScopeWithReqMethod(allRsrcsTypePermissionScope, reqScope)
+			if err == nil {
+				return nil
+			}
+		}
 	}
 	logger.Log(0, "NET MIDDL----> 5", string(netRoleID))
 	if targetRsrcID == "" {

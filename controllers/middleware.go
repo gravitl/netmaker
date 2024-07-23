@@ -49,6 +49,7 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		}
 		if strings.Contains(r.URL.Path, "metrics") {
 			r.Header.Set("RSRC_TYPE", models.MetricRsrc.String())
+			r.Header.Set("TARGET_RSRC", models.MetricRsrc.String())
 		}
 		if keyID, ok := params["keyID"]; ok {
 			r.Header.Set("TARGET_RSRC_ID", keyID)
