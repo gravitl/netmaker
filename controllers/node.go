@@ -572,22 +572,22 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	}
 	// create network role for this gateway
 	logic.CreateRole(models.UserRolePermissionTemplate{
-		ID:        models.UserRole(fmt.Sprintf("net-%s-rag-%s", node.Network, host.Name)),
+		ID:        models.GetRAGRoleName(node.Network, host.Name),
 		NetworkID: node.Network,
 		NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
 			models.RemoteAccessGwRsrc: {
 				models.RsrcID(node.ID.String()): models.RsrcPermissionScope{
-					Read: true,
+					Read:      true,
+					VPNaccess: true,
 				},
 			},
 			models.ExtClientsRsrc: {
 				models.AllExtClientsRsrcID: models.RsrcPermissionScope{
-					Read:      true,
-					Create:    true,
-					Update:    true,
-					Delete:    true,
-					VPNaccess: true,
-					SelfOnly:  true,
+					Read:     true,
+					Create:   true,
+					Update:   true,
+					Delete:   true,
+					SelfOnly: true,
 				},
 			},
 		},
@@ -645,7 +645,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 				for _, user := range users {
 					// delete role from user
 					if netRoles, ok := user.NetworkRoles[models.NetworkID(node.Network)]; ok {
-						delete(netRoles, models.UserRole(fmt.Sprintf("net-%s-rag-%s", node.Network, host.Name)))
+						delete(netRoles, models.GetRAGRoleName(node.Network, host.Name))
 						user.NetworkRoles[models.NetworkID(node.Network)] = netRoles
 						err = logic.UpsertUser(user)
 						if err != nil {
@@ -656,7 +656,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 			} else {
 				slog.Error("failed to get users", "error", err)
 			}
-			logic.DeleteRole(models.UserRole(fmt.Sprintf("net-%s-rag-%s", node.Network, host.Name)))
+			logic.DeleteRole(models.GetRAGRoleName(node.Network, host.Name))
 		}()
 	}
 

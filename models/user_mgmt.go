@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"time"
 
 	jwt "github.com/golang-jwt/jwt/v4"
@@ -18,6 +19,10 @@ func (r RsrcType) String() string {
 
 func (rid RsrcID) String() string {
 	return string(rid)
+}
+
+func GetRAGRoleName(netID, hostName string) UserRole {
+	return UserRole(fmt.Sprintf("netID-%s-rag-%s", netID, hostName))
 }
 
 var RsrcTypeMap = map[RsrcType]struct{}{

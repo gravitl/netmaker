@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 )
 
@@ -52,17 +53,17 @@ var NetworkUserPermissionTemplate = models.UserRolePermissionTemplate{
 	NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
 		models.RemoteAccessGwRsrc: {
 			models.AllRemoteAccessGwRsrcID: models.RsrcPermissionScope{
-				Read: true,
+				Read:      true,
+				VPNaccess: true,
 			},
 		},
 		models.ExtClientsRsrc: {
 			models.AllExtClientsRsrcID: models.RsrcPermissionScope{
-				Read:      true,
-				Create:    true,
-				Update:    true,
-				Delete:    true,
-				VPNaccess: true,
-				SelfOnly:  true,
+				Read:     true,
+				Create:   true,
+				Update:   true,
+				Delete:   true,
+				SelfOnly: true,
 			},
 		},
 	},
@@ -378,13 +379,16 @@ func HasNetworkRsrcScope(permissionTemplate models.UserRolePermissionTemplate, n
 	return ok
 }
 func GetUserRAGNodes(user models.User) (gws map[string]models.Node) {
+	logger.Log(0, "------------> 7. getUserRemoteAccessGwsV1")
 	gws = make(map[string]models.Node)
 	userGwAccessScope := GetUserNetworkRolesWithRemoteVPNAccess(user)
+	logger.Log(0, fmt.Sprintf("User Gw Access Scope: %+v", userGwAccessScope))
 	_, allNetAccess := userGwAccessScope["*"]
 	nodes, err := GetAllNodes()
 	if err != nil {
 		return
 	}
+	logger.Log(0, "------------> 8. getUserRemoteAccessGwsV1")
 	for _, node := range nodes {
 		if node.IsIngressGateway && !node.PendingDelete {
 			if allNetAccess {
@@ -393,7 +397,7 @@ func GetUserRAGNodes(user models.User) (gws map[string]models.Node) {
 				gwRsrcMap := userGwAccessScope[models.NetworkID(node.Network)]
 				scope, ok := gwRsrcMap[models.AllRemoteAccessGwRsrcID]
 				if !ok {
-					if _, ok := gwRsrcMap[models.RsrcID(node.ID.String())]; !ok {
+					if scope, ok = gwRsrcMap[models.RsrcID(node.ID.String())]; !ok {
 						continue
 					}
 				}
@@ -404,12 +408,14 @@ func GetUserRAGNodes(user models.User) (gws map[string]models.Node) {
 			}
 		}
 	}
+	logger.Log(0, "------------> 9. getUserRemoteAccessGwsV1")
 	return
 }
 
 // GetUserNetworkRoles - get user network roles
 func GetUserNetworkRolesWithRemoteVPNAccess(user models.User) (gwAccess map[models.NetworkID]map[models.RsrcID]models.RsrcPermissionScope) {
 	gwAccess = make(map[models.NetworkID]map[models.RsrcID]models.RsrcPermissionScope)
+	logger.Log(0, "------------> 7.1 getUserRemoteAccessGwsV1")
 	platformRole, err := GetRole(user.PlatformRoleID)
 	if err != nil {
 		return
@@ -418,6 +424,7 @@ func GetUserNetworkRolesWithRemoteVPNAccess(user models.User) (gwAccess map[mode
 		gwAccess[models.NetworkID("*")] = make(map[models.RsrcID]models.RsrcPermissionScope)
 		return
 	}
+	logger.Log(0, "------------> 7.2 getUserRemoteAccessGwsV1")
 	for netID, roleMap := range user.NetworkRoles {
 		for roleID := range roleMap {
 			role, err := GetRole(roleID)
@@ -427,8 +434,15 @@ func GetUserNetworkRolesWithRemoteVPNAccess(user models.User) (gwAccess map[mode
 						models.AllRemoteAccessGwRsrcID: {
 							Create:    true,
 							Read:      true,
+							Update:    true,
 							VPNaccess: true,
 							Delete:    true,
+						},
+						models.AllExtClientsRsrcID: {
+							Create: true,
+							Read:   true,
+							Update: true,
+							Delete: true,
 						},
 					}
 					break
@@ -443,6 +457,9 @@ func GetUserNetworkRolesWithRemoteVPNAccess(user models.User) (gwAccess map[mode
 					} else {
 						for gwID, scope := range rsrcsMap {
 							if scope.VPNaccess {
+								if len(gwAccess[netID]) == 0 {
+									gwAccess[netID] = make(map[models.RsrcID]models.RsrcPermissionScope)
+								}
 								gwAccess[netID][gwID] = scope
 							}
 						}
@@ -453,5 +470,6 @@ func GetUserNetworkRolesWithRemoteVPNAccess(user models.User) (gwAccess map[mode
 			}
 		}
 	}
+	logger.Log(0, "------------> 7.3 getUserRemoteAccessGwsV1")
 	return
 }

@@ -54,7 +54,7 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if keyID, ok := params["keyID"]; ok {
 			r.Header.Set("TARGET_RSRC_ID", keyID)
 		}
-		if nodeID, ok := params["nodeid"]; ok {
+		if nodeID, ok := params["nodeid"]; ok && r.Header.Get("TARGET_RSRC") != models.ExtClientsRsrc.String() {
 			r.Header.Set("TARGET_RSRC_ID", nodeID)
 		}
 		if hostID, ok := params["hostid"]; ok {

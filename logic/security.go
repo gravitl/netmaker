@@ -206,10 +206,12 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		r.Header.Set("ismaster", "no")
+		logger.Log(0, "next", r.URL.String())
 		isGlobalAccesss := r.Header.Get("IS_GLOBAL_ACCESS") == "yes"
 		bearerToken := r.Header.Get("Authorization")
 		username, err := GetUserNameFromToken(bearerToken)
 		if err != nil {
+			logger.Log(0, "next 1", r.URL.String(), err.Error())
 			ReturnErrorResponse(w, r, FormatError(err, err.Error()))
 			return
 		}
@@ -276,6 +278,7 @@ func ContinueIfUserMatch(next http.Handler) http.HandlerFunc {
 		var params = mux.Vars(r)
 		var requestedUser = params["username"]
 		if requestedUser != r.Header.Get("user") {
+			logger.Log(0, "next 2", r.URL.String(), errorResponse.Message)
 			ReturnErrorResponse(w, r, errorResponse)
 			return
 		}
