@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -78,11 +77,11 @@ func publish(host *models.Host, dest string, msg []byte) error {
 	if encryptErr != nil {
 		return encryptErr
 	}
-	if mqclient == nil || !mqclient.IsConnectionOpen() {
+	if mqclient == nil || !mqclient.IsConnected() {
 		return errors.New("cannot publish ... mqclient not connected")
 	}
 
-	if token := mqclient.Publish(dest, 0, true, encrypted); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
+	if token := mqclient.Publish(dest, 0, true, encrypted); token.Wait() && token.Error() != nil {
 		var err error
 		if token.Error() == nil {
 			err = errors.New("connection timeout")

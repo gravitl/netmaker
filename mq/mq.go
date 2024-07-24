@@ -34,8 +34,8 @@ func setMqOptions(user, password string, opts *mqtt.ClientOptions) {
 	opts.SetAutoReconnect(true)
 	opts.SetConnectRetry(true)
 	opts.SetCleanSession(true)
-	opts.SetConnectRetryInterval(time.Second * 4)
-	opts.SetKeepAlive(time.Minute)
+	opts.SetConnectRetryInterval(time.Second * 1)
+	opts.SetKeepAlive(time.Second * 10)
 	opts.SetCleanSession(true)
 	opts.SetWriteTimeout(time.Minute)
 }
@@ -75,19 +75,15 @@ func SetupMQTT(fatal bool) {
 	opts.SetOnConnectHandler(func(client mqtt.Client) {
 		serverName := servercfg.GetServer()
 		if token := client.Subscribe(fmt.Sprintf("update/%s/#", serverName), 0, mqtt.MessageHandler(UpdateNode)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
-			client.Disconnect(240)
 			logger.Log(0, "node update subscription failed")
 		}
 		if token := client.Subscribe(fmt.Sprintf("host/serverupdate/%s/#", serverName), 0, mqtt.MessageHandler(UpdateHost)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
-			client.Disconnect(240)
 			logger.Log(0, "host update subscription failed")
 		}
 		if token := client.Subscribe(fmt.Sprintf("signal/%s/#", serverName), 0, mqtt.MessageHandler(ClientPeerUpdate)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
-			client.Disconnect(240)
 			logger.Log(0, "node client subscription failed")
 		}
 		if token := client.Subscribe(fmt.Sprintf("metrics/%s/#", serverName), 0, mqtt.MessageHandler(UpdateMetrics)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
-			client.Disconnect(240)
 			logger.Log(0, "node metrics subscription failed")
 		}
 
@@ -96,15 +92,15 @@ func SetupMQTT(fatal bool) {
 	})
 	opts.SetConnectionLostHandler(func(c mqtt.Client, e error) {
 		slog.Warn("detected broker connection lost", "err", e.Error())
-		c.Disconnect(250)
+		//c.Disconnect(250)
 		slog.Info("re-initiating MQ connection")
-		SetupMQTT(false)
+		//SetupMQTT(false)
 
 	})
 	mqclient = mqtt.NewClient(opts)
 	tperiod := time.Now().Add(10 * time.Second)
 	for {
-		if token := mqclient.Connect(); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
+		if token := mqclient.Connect(); token.Wait() && token.Error() != nil {
 			logger.Log(2, "unable to connect to broker, retrying ...")
 			if time.Now().After(tperiod) {
 				if token.Error() == nil {

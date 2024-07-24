@@ -206,7 +206,9 @@ func (e *EmqxOnPrem) CreateEmqxDefaultAuthenticator() error {
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf("error creating default EMQX authenticator %v", string(msg))
+		if !strings.ContainsAny(string(msg), "ALREADY_EXISTS") {
+			return fmt.Errorf("error creating default EMQX authenticator %v", string(msg))
+		}
 	}
 	return nil
 }
@@ -240,7 +242,9 @@ func (e *EmqxOnPrem) CreateEmqxDefaultAuthorizer() error {
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf("error creating default EMQX ACL authorization mechanism %v", string(msg))
+		if !strings.ContainsAny(string(msg), "duplicated_authz_source_type") {
+			return fmt.Errorf("error creating default EMQX ACL authorization mechanism %v", string(msg))
+		}
 	}
 	return nil
 }

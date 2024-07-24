@@ -194,7 +194,7 @@ func PushMetricsToExporter(metrics models.Metrics) error {
 	if err != nil {
 		return errors.New("failed to marshal metrics: " + err.Error())
 	}
-	if mqclient == nil || !mqclient.IsConnectionOpen() {
+	if mqclient == nil || !mqclient.IsConnected() {
 		return errors.New("cannot publish ... mqclient not connected")
 	}
 	if token := mqclient.Publish("metrics_exporter", 0, true, data); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {

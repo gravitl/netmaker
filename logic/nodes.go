@@ -535,7 +535,7 @@ func createNode(node *models.Node) error {
 
 	if node.Address.IP == nil {
 		if parentNetwork.IsIPv4 == "yes" {
-			if node.Address.IP, err = UniqueAddress(node.Network, false); err != nil {
+			if node.Address.IP, err = GetUniqueAddress(node.Network); err != nil {
 				return err
 			}
 			_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange)
@@ -549,7 +549,7 @@ func createNode(node *models.Node) error {
 	}
 	if node.Address6.IP == nil {
 		if parentNetwork.IsIPv6 == "yes" {
-			if node.Address6.IP, err = UniqueAddress6(node.Network, false); err != nil {
+			if node.Address6.IP, err = GetUniqueAddress6(node.Network); err != nil {
 				return err
 			}
 			_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange6)

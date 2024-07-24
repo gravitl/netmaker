@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slices"
 )
 
@@ -29,6 +31,10 @@ var EnrollmentErrors = struct {
 	FailedToTokenize:   fmt.Errorf("failed to tokenize"),
 	FailedToDeTokenize: fmt.Errorf("failed to detokenize"),
 }
+var (
+	enrollmentkeyCacheMutex = &sync.RWMutex{}
+	enrollmentkeyCacheMap   = make(map[string]*models.EnrollmentKey)
+)
 
 // CreateEnrollmentKey - creates a new enrollment key in db
 func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string, unlimited bool, relay uuid.UUID) (*models.EnrollmentKey, error) {
@@ -138,13 +144,25 @@ func GetEnrollmentKey(value string) (*models.EnrollmentKey, error) {
 	return nil, EnrollmentErrors.NoKeyFound
 }
 
+func deleteEnrollmentkeyFromCache(key string) {
+	enrollmentkeyCacheMutex.Lock()
+	delete(enrollmentkeyCacheMap, key)
+	enrollmentkeyCacheMutex.Unlock()
+}
+
 // DeleteEnrollmentKey - delete's a given enrollment key by value
 func DeleteEnrollmentKey(value string) error {
 	_, err := GetEnrollmentKey(value)
 	if err != nil {
 		return err
 	}
-	return database.DeleteRecord(database.ENROLLMENT_KEYS_TABLE_NAME, value)
+	err = database.DeleteRecord(database.ENROLLMENT_KEYS_TABLE_NAME, value)
+	if err == nil {
+		if servercfg.CacheEnabled() {
+			deleteEnrollmentkeyFromCache(value)
+		}
+	}
+	return err
 }
 
 // TryToUseEnrollmentKey - checks first if key can be decremented
@@ -230,7 +248,13 @@ func upsertEnrollmentKey(k *models.EnrollmentKey) error {
 	if err != nil {
 		return err
 	}
-	return database.Insert(k.Value, string(data), database.ENROLLMENT_KEYS_TABLE_NAME)
+	err = database.Insert(k.Value, string(data), database.ENROLLMENT_KEYS_TABLE_NAME)
+	if err == nil {
+		if servercfg.CacheEnabled() {
+			storeEnrollmentkeyInCache(k.Value, k)
+		}
+	}
+	return nil
 }
 
 func getUniqueEnrollmentID() (string, error) {
@@ -245,7 +269,23 @@ func getUniqueEnrollmentID() (string, error) {
 	return newID, nil
 }
 
+func getEnrollmentkeysFromCache() map[string]*models.EnrollmentKey {
+	return enrollmentkeyCacheMap
+}
+
+func storeEnrollmentkeyInCache(key string, enrollmentkey *models.EnrollmentKey) {
+	enrollmentkeyCacheMutex.Lock()
+	enrollmentkeyCacheMap[key] = enrollmentkey
+	enrollmentkeyCacheMutex.Unlock()
+}
+
 func getEnrollmentKeysMap() (map[string]*models.EnrollmentKey, error) {
+	if servercfg.CacheEnabled() {
+		keys := getEnrollmentkeysFromCache()
+		if len(keys) != 0 {
+			return keys, nil
+		}
+	}
 	records, err := database.FetchRecords(database.ENROLLMENT_KEYS_TABLE_NAME)
 	if err != nil {
 		if !database.IsEmptyRecord(err) {
@@ -263,6 +303,9 @@ func getEnrollmentKeysMap() (map[string]*models.EnrollmentKey, error) {
 				continue
 			}
 			currentKeys[k] = &currentKey
+			if servercfg.CacheEnabled() {
+				storeEnrollmentkeyInCache(currentKey.Value, &currentKey)
+			}
 		}
 	}
 	return currentKeys, nil
