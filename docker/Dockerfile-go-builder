@@ -1,4 +1,4 @@
-FROM golang:1.19.6-alpine3.17 
+FROM golang:1.22.5-alpine3.20 
 ARG version 
 RUN apk add build-base
 WORKDIR /app
