@@ -1083,7 +1083,7 @@ func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
 //		200: ReturnSuccessResponse
 func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 	email, _ := url.QueryUnescape(r.URL.Query().Get("email"))
-	code, _ := url.QueryUnescape(r.URL.Query().Get("code"))
+	code, _ := url.QueryUnescape(r.URL.Query().Get("invite_code"))
 	in, err := logic.GetUserInvite(email)
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
@@ -1151,7 +1151,7 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 //		200: ReturnSuccessResponse
 func userInviteVerify(w http.ResponseWriter, r *http.Request) {
 	email, _ := url.QueryUnescape(r.URL.Query().Get("email"))
-	code, _ := url.QueryUnescape(r.URL.Query().Get("code"))
+	code, _ := url.QueryUnescape(r.URL.Query().Get("invite_code"))
 	err := logic.ValidateAndApproveUserInvite(email, code)
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
@@ -1209,7 +1209,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			Groups:     inviteReq.Groups,
 			InviteCode: logic.RandomString(8),
 		}
-		u, err := url.Parse(fmt.Sprintf("%s/invite?email=%s&code=%s",
+		u, err := url.Parse(fmt.Sprintf("%s/invite?email=%s&invite_code=%s",
 			servercfg.GetFrontendURL(), url.QueryEscape(invite.Email), url.QueryEscape(invite.InviteCode)))
 		if err != nil {
 			slog.Error("failed to parse to invite url", "error", err)

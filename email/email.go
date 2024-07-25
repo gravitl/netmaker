@@ -8,10 +8,27 @@ import (
 
 type EmailSenderType string
 
+var client EmailSender
+
 const (
 	Smtp   EmailSenderType = "smtp"
 	Resend EmailSenderType = "resend"
 )
+
+func init() {
+	switch EmailSenderType(servercfg.EmailSenderType()) {
+	case Smtp:
+		client = &SmtpSender{
+			SmtpHost:    servercfg.GetSmtpHost(),
+			SmtpPort:    servercfg.GetSmtpPort(),
+			SenderEmail: servercfg.GetSenderEmail(),
+			SenderPass:  servercfg.GetEmaiSenderAuth(),
+		}
+	case Resend:
+		client = NewResendEmailSenderFromConfig()
+	}
+	client = GetClient()
+}
 
 // EmailSender - an interface for sending emails based on notifications and mail templates
 type EmailSender interface {
@@ -32,16 +49,5 @@ type Notification struct {
 }
 
 func GetClient() (e EmailSender) {
-	switch EmailSenderType(servercfg.EmailSenderType()) {
-	case Smtp:
-		e = &SmtpSender{
-			SmtpHost:    servercfg.GetSmtpHost(),
-			SmtpPort:    servercfg.GetSmtpPort(),
-			SenderEmail: servercfg.GetSenderEmail(),
-			SenderPass:  servercfg.GetEmaiSenderAuth(),
-		}
-	case Resend:
-		e = NewResendEmailSenderFromConfig()
-	}
-	return
+	return client
 }
