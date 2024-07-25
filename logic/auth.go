@@ -119,8 +119,8 @@ func CreateUser(user *models.User) error {
 	if len(user.UserGroups) == 0 {
 		user.UserGroups = make(map[models.UserGroupID]struct{})
 	}
-	tokenString, _ := CreateUserJWT(user.UserName, user.PlatformRoleID)
-	if tokenString == "" {
+	_, err = CreateUserJWT(user.UserName, user.PlatformRoleID)
+	if err != nil {
 		logger.Log(0, "failed to generate token", err.Error())
 		return err
 	}

@@ -165,6 +165,9 @@ func globalPermissionsCheck(username string, r *http.Request) error {
 	if targetRsrc == models.MetricRsrc.String() {
 		return nil
 	}
+	if targetRsrc == models.HostRsrc.String() && r.Method == http.MethodGet && targetRsrcID == "" {
+		return nil
+	}
 	if targetRsrc == models.UserRsrc.String() && username == targetRsrcID && (r.Method != http.MethodDelete) {
 		return nil
 	}
@@ -229,6 +232,7 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 		w.Header().Set("TARGET_RSRC_ID", r.Header.Get("TARGET_RSRC_ID"))
 		w.Header().Set("RSRC_TYPE", r.Header.Get("RSRC_TYPE"))
 		w.Header().Set("IS_GLOBAL_ACCESS", r.Header.Get("IS_GLOBAL_ACCESS"))
+		w.Header().Set("Access-Control-Allow-Origin", "*")
 		if err != nil {
 			w.Header().Set("ACCESS_PERM", err.Error())
 			ReturnErrorResponse(w, r, FormatError(err, "forbidden"))

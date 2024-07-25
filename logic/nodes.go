@@ -674,3 +674,55 @@ func GetAllFailOvers() ([]models.Node, error) {
 	}
 	return igs, nil
 }
+
+func GetFilteredNodesByUserAccess(user models.User, nodes []models.Node) (filteredNodes []models.Node) {
+
+	nodesMap := make(map[string]struct{})
+	allNetworkRoles := []models.UserRole{}
+	for _, netRoles := range user.NetworkRoles {
+		for netRoleI := range netRoles {
+			allNetworkRoles = append(allNetworkRoles, netRoleI)
+		}
+	}
+	for _, networkRoleID := range allNetworkRoles {
+		userPermTemplate, err := GetRole(networkRoleID)
+		if err != nil {
+			return
+		}
+		networkNodes := GetNetworkNodesMemory(nodes, userPermTemplate.NetworkID)
+		if userPermTemplate.FullAccess {
+			for _, node := range networkNodes {
+				nodesMap[node.ID.String()] = struct{}{}
+			}
+			filteredNodes = append(filteredNodes, networkNodes...)
+			continue
+		}
+		if rsrcPerms, ok := userPermTemplate.NetworkLevelAccess[models.RemoteAccessGwRsrc]; ok {
+			if _, ok := rsrcPerms[models.AllRemoteAccessGwRsrcID]; ok {
+				for _, node := range networkNodes {
+					if _, ok := nodesMap[node.ID.String()]; ok {
+						continue
+					}
+					if node.IsIngressGateway {
+						nodesMap[node.ID.String()] = struct{}{}
+						filteredNodes = append(filteredNodes, node)
+					}
+				}
+			} else {
+				for gwID, scope := range rsrcPerms {
+					if _, ok := nodesMap[gwID.String()]; ok {
+						continue
+					}
+					if scope.Read {
+						gwNode, err := GetNodeByID(gwID.String())
+						if err == nil && gwNode.IsIngressGateway {
+							filteredNodes = append(filteredNodes, gwNode)
+						}
+					}
+				}
+			}
+		}
+
+	}
+	return
+}

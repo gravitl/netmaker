@@ -365,6 +365,18 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	username := r.Header.Get("user")
+	user, err := logic.GetUser(username)
+	if err != nil {
+		return
+	}
+	userPlatformRole, err := logic.GetRole(user.PlatformRoleID)
+	if err != nil {
+		return
+	}
+	if !userPlatformRole.FullAccess {
+		nodes = logic.GetFilteredNodesByUserAccess(*user, nodes)
+	}
 
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])

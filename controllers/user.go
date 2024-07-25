@@ -1124,6 +1124,7 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		user.PlatformRoleID = userG.PlatformRole
+		user.UserGroups = make(map[models.UserGroupID]struct{})
 		user.UserGroups[inviteGroupID] = struct{}{}
 	}
 	if user.PlatformRoleID == "" {
@@ -1138,6 +1139,7 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 	// delete invite
 	logic.DeleteUserInvite(email)
 	logic.DeletePendingUser(email)
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	logic.ReturnSuccessResponse(w, r, "created user successfully "+email)
 }
 
@@ -1273,11 +1275,10 @@ func listUserInvites(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //				200: ReturnSuccessResponse
 func deleteUserInvite(w http.ResponseWriter, r *http.Request) {
-	var params = mux.Vars(r)
-	username := params["invitee_email"]
-	err := logic.DeleteUserInvite(username)
+	email, _ := url.QueryUnescape(r.URL.Query().Get("invitee_email"))
+	err := logic.DeleteUserInvite(email)
 	if err != nil {
-		logger.Log(0, "failed to delete user invite: ", username, err.Error())
+		logger.Log(0, "failed to delete user invite: ", email, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}

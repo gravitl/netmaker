@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 )
 
@@ -78,6 +79,7 @@ func userMiddleWare(handler http.Handler) http.Handler {
 			r.Header.Get("TARGET_RSRC") == models.UserRsrc.String()) {
 			r.Header.Set("IS_GLOBAL_ACCESS", "yes")
 		}
+		logger.Log(0, "URL ------> ", r.URL.String())
 		handler.ServeHTTP(w, r)
 	})
 }

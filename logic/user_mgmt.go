@@ -36,39 +36,6 @@ var PlatformUserUserPermissionTemplate = models.UserRolePermissionTemplate{
 	FullAccess: false,
 }
 
-var NetworkAdminPermissionTemplate = models.UserRolePermissionTemplate{
-	ID:                 models.NetworkAdmin,
-	Default:            true,
-	NetworkID:          "netmaker",
-	FullAccess:         true,
-	NetworkLevelAccess: make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope),
-}
-
-var NetworkUserPermissionTemplate = models.UserRolePermissionTemplate{
-	ID:                  models.NetworkUser,
-	Default:             true,
-	FullAccess:          false,
-	NetworkID:           "netmaker",
-	DenyDashboardAccess: false,
-	NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
-		models.RemoteAccessGwRsrc: {
-			models.AllRemoteAccessGwRsrcID: models.RsrcPermissionScope{
-				Read:      true,
-				VPNaccess: true,
-			},
-		},
-		models.ExtClientsRsrc: {
-			models.AllExtClientsRsrcID: models.RsrcPermissionScope{
-				Read:     true,
-				Create:   true,
-				Update:   true,
-				Delete:   true,
-				SelfOnly: true,
-			},
-		},
-	},
-}
-
 func UserRolesInit() {
 	d, _ := json.Marshal(SuperAdminPermissionTemplate)
 	database.Insert(SuperAdminPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
@@ -78,10 +45,74 @@ func UserRolesInit() {
 	database.Insert(ServiceUserPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
 	d, _ = json.Marshal(PlatformUserUserPermissionTemplate)
 	database.Insert(PlatformUserUserPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
-	d, _ = json.Marshal(NetworkAdminPermissionTemplate)
+
+}
+
+func CreateDefaultNetworkRoles(netID string) {
+	var NetworkAdminPermissionTemplate = models.UserRolePermissionTemplate{
+		ID:                 models.UserRole(fmt.Sprintf("%s_%s", netID, models.NetworkAdmin)),
+		Default:            false,
+		NetworkID:          netID,
+		FullAccess:         true,
+		NetworkLevelAccess: make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope),
+	}
+
+	var NetworkUserPermissionTemplate = models.UserRolePermissionTemplate{
+		ID:                  models.UserRole(fmt.Sprintf("%s_%s", netID, models.NetworkUser)),
+		Default:             false,
+		FullAccess:          false,
+		NetworkID:           netID,
+		DenyDashboardAccess: false,
+		NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
+			models.RemoteAccessGwRsrc: {
+				models.AllRemoteAccessGwRsrcID: models.RsrcPermissionScope{
+					Read:      true,
+					VPNaccess: true,
+				},
+			},
+			models.ExtClientsRsrc: {
+				models.AllExtClientsRsrcID: models.RsrcPermissionScope{
+					Read:     true,
+					Create:   true,
+					Update:   true,
+					Delete:   true,
+					SelfOnly: true,
+				},
+			},
+		},
+	}
+	d, _ := json.Marshal(NetworkAdminPermissionTemplate)
 	database.Insert(NetworkAdminPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
 	d, _ = json.Marshal(NetworkUserPermissionTemplate)
 	database.Insert(NetworkUserPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
+}
+
+func DeleteNetworkRoles(netID string) {
+	users, err := GetUsersDB()
+	if err != nil {
+		return
+	}
+	for _, user := range users {
+		if _, ok := user.NetworkRoles[models.NetworkID(netID)]; ok {
+			delete(user.NetworkRoles, models.NetworkID(netID))
+			UpsertUser(user)
+		}
+
+	}
+	userGs, _ := ListUserGroups()
+	for _, userGI := range userGs {
+		if _, ok := userGI.NetworkRoles[models.NetworkID(netID)]; ok {
+			delete(userGI.NetworkRoles, models.NetworkID(netID))
+			UpdateUserGroup(userGI)
+		}
+	}
+
+	roles, _ := ListRoles()
+	for _, role := range roles {
+		if role.NetworkID == netID {
+			DeleteRole(role.ID)
+		}
+	}
 }
 
 // ListRoles - lists user roles permission templates
@@ -274,12 +305,12 @@ func ValidateUpdateGroupReq(g models.UserGroup) error {
 	for networkID := range g.NetworkRoles {
 		userRolesMap := g.NetworkRoles[networkID]
 		for roleID := range userRolesMap {
-			_, err := GetRole(roleID)
+			netRole, err := GetRole(roleID)
 			if err != nil {
 				err = fmt.Errorf("invalid network role")
 				return err
 			}
-			if role.NetworkID == "" {
+			if netRole.NetworkID == "" {
 				return errors.New("platform role cannot be used as network role")
 			}
 		}

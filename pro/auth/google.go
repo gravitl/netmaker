@@ -46,7 +46,7 @@ func handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
 		handleOauthNotConfigured(w)
 		return
 	}
-
+	logger.Log(0, "Setting OAuth State ", oauth_state_string)
 	if err := logic.SetState(oauth_state_string); err != nil {
 		handleOauthNotConfigured(w)
 		return
@@ -59,7 +59,7 @@ func handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
 func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 
 	var rState, rCode = getStateAndCode(r)
-
+	logger.Log(0, "Fetched OAuth State ", rState)
 	var content, err = getGoogleUserInfo(rState, rCode)
 	if err != nil {
 		logger.Log(1, "error when getting user info from google:", err.Error())
@@ -70,26 +70,31 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthNotConfigured(w)
 		return
 	}
+	logger.Log(0, "CALLBACK ----> 1")
 	if !isEmailAllowed(content.Email) {
 		handleOauthUserNotAllowedToSignUp(w)
 		return
 	}
+	logger.Log(0, "CALLBACK ----> 2")
 	var inviteExists bool
 	// check if invite exists for User
 	in, err := logic.GetUserInvite(content.Email)
 	if err == nil {
 		inviteExists = true
 	}
+	logger.Log(0, fmt.Sprintf("CALLBACK ----> 3  %v", inviteExists))
 	// check if user approval is already pending
 	if !inviteExists && logic.IsPendingUser(content.Email) {
 		handleOauthUserSignUpApprovalPending(w)
 		return
 	}
+	logger.Log(0, "CALLBACK ----> 4")
 	_, err = logic.GetUser(content.Email)
 	if err != nil {
 		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
 			if inviteExists {
 				// create user
+				logger.Log(0, "CALLBACK ----> 4.0")
 				var newPass, fetchErr = auth.FetchPassValue("")
 				if fetchErr != nil {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(fetchErr, "internal"))
@@ -99,6 +104,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 					UserName: content.Email,
 					Password: newPass,
 				}
+				logger.Log(0, "CALLBACK ----> 4.1")
 				for _, inviteGroupID := range in.Groups {
 					userG, err := logic.GetUserGroup(inviteGroupID)
 					if err != nil {
@@ -106,8 +112,10 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 						return
 					}
 					user.PlatformRoleID = userG.PlatformRole
+					user.UserGroups = make(map[models.UserGroupID]struct{})
 					user.UserGroups[inviteGroupID] = struct{}{}
 				}
+				logger.Log(0, "CALLBACK ----> 5")
 				if user.PlatformRoleID == "" {
 					user.PlatformRoleID = models.ServiceUser
 				}
@@ -134,6 +142,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	logger.Log(0, "CALLBACK ----> 6")
 	user, err := logic.GetUser(content.Email)
 	if err != nil {
 		logger.Log(0, "error fetching user: ", err.Error())
