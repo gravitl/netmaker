@@ -10,7 +10,7 @@
 //
 //	Schemes: https
 //	BasePath: /
-//	Version: 0.24.3
+//	Version: 0.25.0
 //	Host: api.demo.netmaker.io
 //
 //	Consumes:
