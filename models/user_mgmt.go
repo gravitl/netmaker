@@ -109,6 +109,11 @@ type UserRolePermissionTemplate struct {
 	GlobalLevelAccess   map[RsrcType]map[RsrcID]RsrcPermissionScope `json:"global_level_access"`
 }
 
+type CreateGroupReq struct {
+	Group   UserGroup `json:"user_group"`
+	Members []string  `json:"members"`
+}
+
 type UserGroup struct {
 	ID           UserGroupID                         `json:"id"`
 	PlatformRole UserRole                            `json:"platform_role"`

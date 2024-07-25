@@ -128,25 +128,36 @@ func getUserGroup(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //				200: userBodyResponse
 func createUserGroup(w http.ResponseWriter, r *http.Request) {
-	var userGroup models.UserGroup
-	err := json.NewDecoder(r.Body).Decode(&userGroup)
+	var userGroupReq models.CreateGroupReq
+	err := json.NewDecoder(r.Body).Decode(&userGroupReq.Group)
 	if err != nil {
 		slog.Error("error decoding request body", "error",
 			err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = logic.ValidateCreateGroupReq(userGroup)
+	err = logic.ValidateCreateGroupReq(userGroupReq.Group)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = logic.CreateUserGroup(userGroup)
+	err = logic.CreateUserGroup(userGroupReq.Group)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "created user group")
+	for _, userID := range userGroupReq.Members {
+		user, err := logic.GetUser(userID)
+		if err != nil {
+			continue
+		}
+		if len(user.UserGroups) == 0 {
+			user.UserGroups = make(map[models.UserGroupID]struct{})
+		}
+		user.UserGroups[userGroupReq.Group.ID] = struct{}{}
+		logic.UpsertUser(*user)
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, userGroupReq.Group, "created user group")
 }
 
 // swagger:route PUT /api/v1/user/group user updateUserGroup
