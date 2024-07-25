@@ -9,6 +9,7 @@ import (
 
 	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"golang.org/x/exp/slog"
 )
@@ -19,7 +20,7 @@ var (
 )
 
 const (
-	ipCap = 10000
+	ipCap = 5000
 )
 
 type IpHeap []net.IP
@@ -193,6 +194,7 @@ func ClearIpPool() {
 
 // SetIpPool - set available ip pool for network
 func SetIpPool() error {
+	logger.Log(0, "start loading ip pool")
 	if ipPool == nil {
 		ipPool = map[string]PoolMap{}
 	}
@@ -215,6 +217,7 @@ func SetIpPool() error {
 		delete(ipPool, netName)
 		ipPool[netName] = pMap
 	}
+	logger.Log(0, "loading ip pool done")
 	return nil
 }
 
