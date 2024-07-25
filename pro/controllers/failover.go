@@ -43,7 +43,7 @@ func getfailOver(w http.ResponseWriter, r *http.Request) {
 	// confirm host exists
 	node, err := logic.GetNodeByID(nodeid)
 	if err != nil {
-		slog.Error("failed to get node:", "error", err.Error())
+		slog.Error("failed to get node:", "node", nodeid, "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}

@@ -18,6 +18,10 @@ var (
 	ipPoolMutex = &sync.RWMutex{}
 )
 
+const (
+	ipCap = 10000
+)
+
 type IpHeap []net.IP
 
 type PoolMap struct {
@@ -230,7 +234,11 @@ func getAvailableIpV4Pool(network *models.Network) *IpHeap {
 	net4 := iplib.Net4FromStr(network.AddressRange)
 	newAddrs := net4.FirstAddress()
 
+	i := 0
 	for {
+		if i >= ipCap {
+			break
+		}
 		if IsIPUnique(network.NetID, newAddrs.String(), database.NODES_TABLE_NAME, false) &&
 			IsIPUnique(network.NetID, newAddrs.String(), database.EXT_CLIENT_TABLE_NAME, false) {
 			heap.Push(ipv4List, newAddrs)
@@ -242,6 +250,7 @@ func getAvailableIpV4Pool(network *models.Network) *IpHeap {
 		if err != nil {
 			break
 		}
+		i++
 	}
 
 	return ipv4List
@@ -266,7 +275,11 @@ func getAvailableIpV6Pool(network *models.Network) *IpHeap {
 		return ipv6List
 	}
 
+	i := 0
 	for {
+		if i >= ipCap {
+			break
+		}
 		if IsIPUnique(network.NetID, newAddrs.String(), database.NODES_TABLE_NAME, true) &&
 			IsIPUnique(network.NetID, newAddrs.String(), database.EXT_CLIENT_TABLE_NAME, true) {
 			heap.Push(ipv6List, newAddrs)
@@ -277,6 +290,7 @@ func getAvailableIpV6Pool(network *models.Network) *IpHeap {
 		if err != nil {
 			break
 		}
+		i++
 	}
 
 	return ipv6List
