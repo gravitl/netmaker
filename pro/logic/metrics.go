@@ -41,7 +41,7 @@ func deleteNetworkFromCache(key string) {
 }
 
 func LoadNodeMetricsToCache() error {
-	point1 := time.Now()
+	slog.Info("loading metrics to cache")
 	if metricsCacheMap == nil {
 		metricsCacheMap = map[string]models.Metrics{}
 	}
@@ -62,8 +62,7 @@ func LoadNodeMetricsToCache() error {
 		}
 	}
 
-	point3 := time.Now()
-	slog.Error("load node metrics done", "Debug", point3.Unix()-point1.Unix(), len(metricsCacheMap))
+	slog.Info("metrics loading done")
 	return nil
 }
 
