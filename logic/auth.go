@@ -20,8 +20,16 @@ const (
 	auth_key = "netmaker_auth"
 )
 
+var (
+	superUser = models.User{}
+)
+
 // HasSuperAdmin - checks if server has an superadmin/owner
 func HasSuperAdmin() (bool, error) {
+
+	if superUser.IsSuperAdmin {
+		return true, nil
+	}
 
 	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
 	if err != nil {
@@ -38,6 +46,7 @@ func HasSuperAdmin() (bool, error) {
 			continue
 		}
 		if user.IsSuperAdmin {
+			superUser = user
 			return true, nil
 		}
 	}

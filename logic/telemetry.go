@@ -13,8 +13,11 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-// flags to keep for telemetry
-var isFreeTier bool
+var (
+	// flags to keep for telemetry
+	isFreeTier      bool
+	telServerRecord = models.Telemetry{}
+)
 
 // posthog_pub_key - Key for sending data to PostHog
 const posthog_pub_key = "phc_1vEXhPOA1P7HP5jP2dVU9xDTUqXHAelmtravyZ1vvES"
@@ -152,6 +155,9 @@ func getClientCount(nodes []models.Node) clientCount {
 
 // FetchTelemetryRecord - get the existing UUID and Timestamp from the DB
 func FetchTelemetryRecord() (models.Telemetry, error) {
+	if telServerRecord.TrafficKeyPub != nil {
+		return telServerRecord, nil
+	}
 	var rawData string
 	var telObj models.Telemetry
 	var err error
@@ -160,6 +166,9 @@ func FetchTelemetryRecord() (models.Telemetry, error) {
 		return telObj, err
 	}
 	err = json.Unmarshal([]byte(rawData), &telObj)
+	if err == nil {
+		telServerRecord = telObj
+	}
 	return telObj, err
 }
 
