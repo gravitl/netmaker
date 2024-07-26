@@ -24,6 +24,10 @@ var (
 	superUser = models.User{}
 )
 
+func ClearSuperUserCache() {
+	superUser = models.User{}
+}
+
 // HasSuperAdmin - checks if server has an superadmin/owner
 func HasSuperAdmin() (bool, error) {
 
