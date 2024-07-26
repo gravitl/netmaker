@@ -34,6 +34,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceUsers, http.HandlerFunc(createUser)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, http.HandlerFunc(deleteUser))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUser)))).Methods(http.MethodGet)
+	//r.HandleFunc("/api/v1/users/{username}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserV1)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users", logic.SecurityCheck(true, http.HandlerFunc(getUsers))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users_pending", logic.SecurityCheck(true, http.HandlerFunc(getPendingUsers))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users_pending", logic.SecurityCheck(true, http.HandlerFunc(deleteAllPendingUsers))).Methods(http.MethodDelete)
@@ -42,7 +43,7 @@ func userHandlers(r *mux.Router) {
 
 	// User Role Handlers
 	r.HandleFunc("/api/v1/users/roles", logic.SecurityCheck(true, http.HandlerFunc(listRoles))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/role", logic.SecurityCheck(true, http.HandlerFunc(getRole))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/role", getRole).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/role", logic.SecurityCheck(true, http.HandlerFunc(createRole))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/role", logic.SecurityCheck(true, http.HandlerFunc(updateRole))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/users/role", logic.SecurityCheck(true, http.HandlerFunc(deleteRole))).Methods(http.MethodDelete)
@@ -129,7 +130,7 @@ func getUserGroup(w http.ResponseWriter, r *http.Request) {
 //				200: userBodyResponse
 func createUserGroup(w http.ResponseWriter, r *http.Request) {
 	var userGroupReq models.CreateGroupReq
-	err := json.NewDecoder(r.Body).Decode(&userGroupReq.Group)
+	err := json.NewDecoder(r.Body).Decode(&userGroupReq)
 	if err != nil {
 		slog.Error("error decoding request body", "error",
 			err.Error())
@@ -534,6 +535,42 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(2, r.Header.Get("user"), "fetched user", usernameFetched)
 	json.NewEncoder(w).Encode(user)
+}
+
+// swagger:route GET /api/v1/users/{username} user getUser
+//
+// Get an individual user with role info.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: userBodyResponse
+func getUserV1(w http.ResponseWriter, r *http.Request) {
+	// set header.
+	w.Header().Set("Content-Type", "application/json")
+
+	var params = mux.Vars(r)
+	usernameFetched := params["username"]
+	user, err := logic.GetReturnUser(usernameFetched)
+	if err != nil {
+		logger.Log(0, usernameFetched, "failed to fetch user: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	userRoleTemplate, err := logic.GetRole(user.PlatformRoleID)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	resp := models.ReturnUserWithRolesAndGroups{
+		ReturnUser:   user,
+		PlatformRole: userRoleTemplate,
+	}
+	logger.Log(2, r.Header.Get("user"), "fetched user", usernameFetched)
+	logic.ReturnSuccessResponseWithJson(w, r, resp, "fetched user with role info")
 }
 
 // swagger:route GET /api/users user getUsers

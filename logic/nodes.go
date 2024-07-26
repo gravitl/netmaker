@@ -679,15 +679,31 @@ func GetFilteredNodesByUserAccess(user models.User, nodes []models.Node) (filter
 
 	nodesMap := make(map[string]struct{})
 	allNetworkRoles := []models.UserRole{}
-	for _, netRoles := range user.NetworkRoles {
-		for netRoleI := range netRoles {
-			allNetworkRoles = append(allNetworkRoles, netRoleI)
+	if len(user.NetworkRoles) > 0 {
+		for _, netRoles := range user.NetworkRoles {
+			for netRoleI := range netRoles {
+				allNetworkRoles = append(allNetworkRoles, netRoleI)
+			}
+		}
+	}
+	if len(user.UserGroups) > 0 {
+		for userGID := range user.UserGroups {
+			userG, err := GetUserGroup(userGID)
+			if err == nil {
+				if len(userG.NetworkRoles) > 0 {
+					for _, netRoles := range userG.NetworkRoles {
+						for netRoleI := range netRoles {
+							allNetworkRoles = append(allNetworkRoles, netRoleI)
+						}
+					}
+				}
+			}
 		}
 	}
 	for _, networkRoleID := range allNetworkRoles {
 		userPermTemplate, err := GetRole(networkRoleID)
 		if err != nil {
-			return
+			continue
 		}
 		networkNodes := GetNetworkNodesMemory(nodes, userPermTemplate.NetworkID)
 		if userPermTemplate.FullAccess {

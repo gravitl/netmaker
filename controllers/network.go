@@ -54,6 +54,46 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	username := r.Header.Get("user")
+	user, err := logic.GetUser(username)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	platformRole, err := logic.GetRole(user.PlatformRoleID)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	if !platformRole.FullAccess {
+		allNetworkRoles := make(map[models.NetworkID]struct{})
+		if len(user.NetworkRoles) > 0 {
+			for netID := range user.NetworkRoles {
+				allNetworkRoles[netID] = struct{}{}
+
+			}
+		}
+		if len(user.UserGroups) > 0 {
+			for userGID := range user.UserGroups {
+				userG, err := logic.GetUserGroup(userGID)
+				if err == nil {
+					if len(userG.NetworkRoles) > 0 {
+						for netID := range userG.NetworkRoles {
+							allNetworkRoles[netID] = struct{}{}
+
+						}
+					}
+				}
+			}
+		}
+		filteredNetworks := []models.Network{}
+		for _, networkI := range allnetworks {
+			if _, ok := allNetworkRoles[models.NetworkID(networkI.NetID)]; ok {
+				filteredNetworks = append(filteredNetworks, networkI)
+			}
+		}
+		allnetworks = filteredNetworks
+	}
 
 	logger.Log(2, r.Header.Get("user"), "fetched networks.")
 	logic.SortNetworks(allnetworks[:])

@@ -134,6 +134,11 @@ type User struct {
 	LastLoginTime  time.Time                           `json:"last_login_time"`
 }
 
+type ReturnUserWithRolesAndGroups struct {
+	ReturnUser
+	PlatformRole UserRolePermissionTemplate
+}
+
 // ReturnUser - return user struct
 type ReturnUser struct {
 	UserName       string                              `json:"username"`

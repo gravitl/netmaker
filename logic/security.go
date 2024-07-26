@@ -165,7 +165,7 @@ func globalPermissionsCheck(username string, r *http.Request) error {
 	if targetRsrc == models.MetricRsrc.String() {
 		return nil
 	}
-	if targetRsrc == models.HostRsrc.String() && r.Method == http.MethodGet && targetRsrcID == "" {
+	if (targetRsrc == models.HostRsrc.String() || targetRsrc == models.NetworkRsrc.String()) && r.Method == http.MethodGet && targetRsrcID == "" {
 		return nil
 	}
 	if targetRsrc == models.UserRsrc.String() && username == targetRsrcID && (r.Method != http.MethodDelete) {
