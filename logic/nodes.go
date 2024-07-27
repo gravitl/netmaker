@@ -112,16 +112,19 @@ func GetNetworkNodesMemory(allNodes []models.Node, network string) []models.Node
 // UpdateNodeCheckin - updates the checkin time of a node
 func UpdateNodeCheckin(node *models.Node) error {
 	node.SetLastCheckIn()
+	//If cache enabled, only Update the Check-in TS in cache
+	if servercfg.CacheEnabled() {
+		storeNodeInCache(*node)
+		return nil
+	}
 	data, err := json.Marshal(node)
 	if err != nil {
 		return err
 	}
+
 	err = database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
 	if err != nil {
 		return err
-	}
-	if servercfg.CacheEnabled() {
-		storeNodeInCache(*node)
 	}
 	return nil
 }
