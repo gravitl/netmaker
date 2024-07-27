@@ -15,13 +15,14 @@ import (
 )
 
 type ServerStatus struct {
-	DB               bool      `json:"db_connected"`
-	Broker           bool      `json:"broker_connected"`
-	IsBrokerConnOpen bool      `json:"is_broker_conn_open"`
-	LicenseError     string    `json:"license_error"`
-	IsPro            bool      `json:"is_pro"`
-	TrialEndDate     time.Time `json:"trial_end_date"`
-	IsOnTrialLicense bool      `json:"is_on_trial_license"`
+	DB               bool            `json:"db_connected"`
+	Broker           bool            `json:"broker_connected"`
+	IsBrokerConnOpen bool            `json:"is_broker_conn_open"`
+	LicenseError     string          `json:"license_error"`
+	IsPro            bool            `json:"is_pro"`
+	TrialEndDate     time.Time       `json:"trial_end_date"`
+	IsOnTrialLicense bool            `json:"is_on_trial_license"`
+	Failover         map[string]bool `json:"is_failover_existed"`
 }
 
 // PublishPeerUpdate --- determines and publishes a peer update to all the hosts
@@ -162,6 +163,16 @@ func ServerStatusUpdate() error {
 			isOnTrial = true
 		}
 	}
+	failoverExisted := map[string]bool{}
+	if servercfg.IsPro {
+		networks, err := logic.GetNetworks()
+		if err == nil && len(networks) > 0 {
+			for _, v := range networks {
+				_, b := logic.FailOverExists(v.NetID)
+				failoverExisted[v.NetID] = b
+			}
+		}
+	}
 	currentServerStatus := ServerStatus{
 		DB:               database.IsConnected(),
 		Broker:           IsConnected(),
@@ -170,6 +181,7 @@ func ServerStatusUpdate() error {
 		IsPro:            servercfg.IsPro,
 		TrialEndDate:     trialEndDate,
 		IsOnTrialLicense: isOnTrial,
+		Failover:         failoverExisted,
 	}
 
 	data, err := json.Marshal(currentServerStatus)
