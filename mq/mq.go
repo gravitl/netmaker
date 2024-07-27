@@ -14,7 +14,7 @@ import (
 )
 
 // KEEPALIVE_TIMEOUT - time in seconds for timeout
-const KEEPALIVE_TIMEOUT = 60 //timeout in seconds
+const KEEPALIVE_TIMEOUT = 30 //timeout in seconds
 // MQ_DISCONNECT - disconnects MQ
 const MQ_DISCONNECT = 250
 
@@ -131,6 +131,7 @@ func Keepalive(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-time.After(time.Second * KEEPALIVE_TIMEOUT):
+			ServerStatusUpdate()
 			sendPeers()
 		}
 	}
