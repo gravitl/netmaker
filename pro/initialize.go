@@ -103,6 +103,7 @@ func InitPro() {
 	logic.UpdateProNodeACLs = proLogic.UpdateProNodeACLs
 	logic.GetMetrics = proLogic.GetMetrics
 	logic.UpdateMetrics = proLogic.UpdateMetrics
+	logic.WriteMetricsCacheToDB = proLogic.WriteMetricsCacheToDB
 	logic.DeleteMetrics = proLogic.DeleteMetrics
 	logic.GetRelays = proLogic.GetRelays
 	logic.GetAllowedIpsForRelayed = proLogic.GetAllowedIpsForRelayed
