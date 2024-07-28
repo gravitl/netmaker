@@ -18,7 +18,7 @@ const oauthStateInvalid = `<!DOCTYPE html><html>
 
 const userNotAllowed = `<!DOCTYPE html><html>
 <body>
-<h3>Only administrators can access the Dashboard. Please contact your administrator to elevate your account.</h3>
+<h3>Your account does not have access to the dashboard. Please contact your administrator for more information about your account.</h3>
 <p>Non-Admins can access the netmaker networks using <a href="https://docs.netmaker.io/pro/rac.html" target="_blank" rel="noopener">RemoteAccessClient.</a></p>
 </body>
 </html>
