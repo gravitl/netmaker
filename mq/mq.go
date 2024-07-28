@@ -131,6 +131,9 @@ func Keepalive(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-time.After(time.Second * KEEPALIVE_TIMEOUT):
+			if mqclient == nil {
+				SetupMQTT(false)
+			}
 			ServerStatusUpdate()
 			sendPeers()
 		}

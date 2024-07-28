@@ -25,6 +25,8 @@ type ServerStatus struct {
 	Failover         map[string]bool `json:"is_failover_existed"`
 }
 
+var serverStatusCache = ServerStatus{}
+
 // PublishPeerUpdate --- determines and publishes a peer update to all the hosts
 func PublishPeerUpdate(replacePeers bool) error {
 	if !servercfg.IsMessageQueueBackend() {
@@ -184,22 +186,61 @@ func ServerStatusUpdate() error {
 		Failover:         failoverExisted,
 	}
 
-	data, err := json.Marshal(currentServerStatus)
-	if err != nil {
-		slog.Error("error marshalling server status update ", err.Error())
-		return err
-	}
+	if isServerStatusChanged(serverStatusCache, currentServerStatus) {
 
-	if mqclient == nil || !mqclient.IsConnected() {
-		return errors.New("cannot publish ... mqclient not connected")
-	}
+		data, err := json.Marshal(currentServerStatus)
+		if err != nil {
+			slog.Error("error marshalling server status update ", err.Error())
+			return err
+		}
 
-	if token := mqclient.Publish("server/status", 0, true, data); token.Wait() && token.Error() != nil {
-		slog.Error("could not publish server status", "error", token.Error().Error())
-		return token.Error()
+		if mqclient == nil || !mqclient.IsConnected() {
+			return errors.New("cannot publish ... mqclient not connected")
+		}
+
+		if token := mqclient.Publish("server/status", 0, true, data); token.Wait() && token.Error() != nil {
+			slog.Error("could not publish server status", "error", token.Error().Error())
+			return token.Error()
+		}
+		serverStatusCache = currentServerStatus
 	}
 
 	return nil
+}
+
+func isServerStatusChanged(serverStatusCache, currentServerStatus ServerStatus) bool {
+	if serverStatusCache.DB != currentServerStatus.DB {
+		return true
+	}
+	if serverStatusCache.Broker != currentServerStatus.Broker {
+		return true
+	}
+	if serverStatusCache.IsBrokerConnOpen != currentServerStatus.IsBrokerConnOpen {
+		return true
+	}
+	if serverStatusCache.LicenseError != currentServerStatus.LicenseError {
+		return true
+	}
+	if serverStatusCache.IsPro != currentServerStatus.IsPro {
+		return true
+	}
+	if !serverStatusCache.TrialEndDate.Equal(currentServerStatus.TrialEndDate) {
+		return true
+	}
+	if serverStatusCache.IsOnTrialLicense != currentServerStatus.IsOnTrialLicense {
+		return true
+	}
+	if len(serverStatusCache.Failover) != len(currentServerStatus.Failover) {
+		return true
+	}
+
+	for k, v := range serverStatusCache.Failover {
+		if v1, ok := currentServerStatus.Failover[k]; !ok || (ok && v != v1) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // HostUpdate -- publishes a host update to clients
