@@ -2,6 +2,7 @@ package controller
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -76,7 +77,13 @@ func userMiddleWare(handler http.Handler) http.Handler {
 
 		if userID, ok := params["username"]; ok {
 			r.Header.Set("TARGET_RSRC_ID", userID)
+		} else {
+			username, _ := url.QueryUnescape(r.URL.Query().Get("username"))
+			if username != "" {
+				r.Header.Set("TARGET_RSRC_ID", username)
+			}
 		}
+
 		if r.Header.Get("NET_ID") == "" && (r.Header.Get("TARGET_RSRC_ID") == "" ||
 			r.Header.Get("TARGET_RSRC") == models.EnrollmentKeysRsrc.String() ||
 			r.Header.Get("TARGET_RSRC") == models.UserRsrc.String()) {
