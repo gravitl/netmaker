@@ -93,6 +93,7 @@ func SetupMQTT(fatal bool) {
 	opts.SetConnectionLostHandler(func(c mqtt.Client, e error) {
 		slog.Warn("detected broker connection lost", "err", e.Error())
 		//c.Disconnect(250)
+		mqclient = nil
 		slog.Info("re-initiating MQ connection")
 		//SetupMQTT(false)
 
@@ -134,7 +135,7 @@ func Keepalive(ctx context.Context) {
 			if mqclient == nil {
 				SetupMQTT(false)
 			}
-			ServerStatusUpdate()
+			serverStatusUpdate()
 			sendPeers()
 		}
 	}

@@ -319,7 +319,7 @@ func updateNetworkACLv2(w http.ResponseWriter, r *http.Request) {
 		}
 		for hostId, clients := range assocClientsToDisconnectPerHost {
 			if host, ok := hostsMap[hostId]; ok {
-				if err = mq.PublishSingleHostPeerUpdate(&host, allNodes, nil, clients, false); err != nil {
+				if err = mq.PublishSingleHostPeerUpdate(&host, allNodes, nil, clients, false, nil); err != nil {
 					slog.Error("failed to publish peer update to ingress after ACL update on network", "network", netname, "host", hostId)
 				}
 			}

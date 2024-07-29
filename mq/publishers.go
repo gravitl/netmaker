@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
@@ -27,6 +28,8 @@ type ServerStatus struct {
 
 var serverStatusCache = ServerStatus{}
 
+const batchSize = 20
+
 // PublishPeerUpdate --- determines and publishes a peer update to all the hosts
 func PublishPeerUpdate(replacePeers bool) error {
 	if !servercfg.IsMessageQueueBackend() {
@@ -42,14 +45,59 @@ func PublishPeerUpdate(replacePeers bool) error {
 	if err != nil {
 		return err
 	}
-	for _, host := range hosts {
-		host := host
-		go func(host models.Host) {
-			if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers); err != nil {
-				logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+
+	var wg sync.WaitGroup
+	hostLen := len(hosts)
+	batch := batchSize
+	div := hostLen / batch
+	mod := hostLen % batch
+
+	if div == 0 {
+		wg.Add(hostLen)
+		for i := 0; i < hostLen; i++ {
+			host := hosts[i]
+			go func(host models.Host) {
+				if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, &wg); err != nil {
+					logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+				}
+			}(host)
+		}
+		wg.Wait()
+	} else {
+		for i := 0; i < div*batch; i += batch {
+			wg.Add(batch)
+			for j := 0; j < batch; j++ {
+				host := hosts[i+j]
+				go func(host models.Host) {
+					if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, &wg); err != nil {
+						logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+					}
+				}(host)
 			}
-		}(host)
+			wg.Wait()
+		}
+		if mod != 0 {
+			wg.Add(hostLen - (div * batch))
+			for k := div * batch; k < hostLen; k++ {
+				host := hosts[k]
+				go func(host models.Host) {
+					if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, &wg); err != nil {
+						logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+					}
+				}(host)
+			}
+			wg.Wait()
+		}
 	}
+
+	// for _, host := range hosts {
+	// 	host := host
+	// 	go func(host models.Host) {
+	// 		if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, nil); err != nil {
+	// 			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+	// 		}
+	// 	}(host)
+	// }
 	return err
 }
 
@@ -69,12 +117,56 @@ func PublishDeletedNodePeerUpdate(delNode *models.Node) error {
 	if err != nil {
 		return err
 	}
-	for _, host := range hosts {
-		host := host
-		if err = PublishSingleHostPeerUpdate(&host, allNodes, delNode, nil, false); err != nil {
-			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+
+	var wg sync.WaitGroup
+	hostLen := len(hosts)
+	batch := batchSize
+	div := hostLen / batch
+	mod := hostLen % batch
+
+	if div == 0 {
+		wg.Add(hostLen)
+		for i := 0; i < hostLen; i++ {
+			host := hosts[i]
+			go func(host models.Host) {
+				if err = PublishSingleHostPeerUpdate(&host, allNodes, delNode, nil, false, &wg); err != nil {
+					logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+				}
+			}(host)
+		}
+		wg.Wait()
+	} else {
+		for i := 0; i < div*batch; i += batch {
+			wg.Add(batch)
+			for j := 0; j < batch; j++ {
+				host := hosts[i+j]
+				go func(host models.Host) {
+					if err = PublishSingleHostPeerUpdate(&host, allNodes, delNode, nil, false, &wg); err != nil {
+						logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+					}
+				}(host)
+			}
+			wg.Wait()
+		}
+		if mod != 0 {
+			wg.Add(hostLen - (div * batch))
+			for k := div * batch; k < hostLen; k++ {
+				host := hosts[k]
+				go func(host models.Host) {
+					if err = PublishSingleHostPeerUpdate(&host, allNodes, delNode, nil, false, &wg); err != nil {
+						logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+					}
+				}(host)
+			}
+			wg.Wait()
 		}
 	}
+	// for _, host := range hosts {
+	// 	host := host
+	// 	if err = PublishSingleHostPeerUpdate(&host, allNodes, delNode, nil, false, nil); err != nil {
+	// 		logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+	// 	}
+	// }
 	return err
 }
 
@@ -94,20 +186,73 @@ func PublishDeletedClientPeerUpdate(delClient *models.ExtClient) error {
 	if err != nil {
 		return err
 	}
-	for _, host := range hosts {
-		host := host
-		if host.OS != models.OS_Types.IoT {
-			if err = PublishSingleHostPeerUpdate(&host, nodes, nil, []models.ExtClient{*delClient}, false); err != nil {
-				logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+
+	var wg sync.WaitGroup
+	hostLen := len(hosts)
+	batch := batchSize
+	div := hostLen / batch
+	mod := hostLen % batch
+
+	if div == 0 {
+		wg.Add(hostLen)
+		for i := 0; i < hostLen; i++ {
+			host := hosts[i]
+			go func(host models.Host) {
+				if host.OS != models.OS_Types.IoT {
+					if err = PublishSingleHostPeerUpdate(&host, nodes, nil, []models.ExtClient{*delClient}, false, &wg); err != nil {
+						logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+					}
+				}
+			}(host)
+		}
+		wg.Wait()
+	} else {
+		for i := 0; i < div*batch; i += batch {
+			wg.Add(batch)
+			for j := 0; j < batch; j++ {
+				host := hosts[i+j]
+				go func(host models.Host) {
+					if host.OS != models.OS_Types.IoT {
+						if err = PublishSingleHostPeerUpdate(&host, nodes, nil, []models.ExtClient{*delClient}, false, &wg); err != nil {
+							logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+						}
+					}
+				}(host)
 			}
+			wg.Wait()
+		}
+		if mod != 0 {
+			wg.Add(hostLen - (div * batch))
+			for k := div * batch; k < hostLen; k++ {
+				host := hosts[k]
+				go func(host models.Host) {
+					if host.OS != models.OS_Types.IoT {
+						if err = PublishSingleHostPeerUpdate(&host, nodes, nil, []models.ExtClient{*delClient}, false, &wg); err != nil {
+							logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+						}
+					}
+				}(host)
+			}
+			wg.Wait()
 		}
 	}
+
+	// for _, host := range hosts {
+	// 	host := host
+	// 	if host.OS != models.OS_Types.IoT {
+	// 		if err = PublishSingleHostPeerUpdate(&host, nodes, nil, []models.ExtClient{*delClient}, false, nil); err != nil {
+	// 			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+	// 		}
+	// 	}
+	// }
 	return err
 }
 
 // PublishSingleHostPeerUpdate --- determines and publishes a peer update to one host
-func PublishSingleHostPeerUpdate(host *models.Host, allNodes []models.Node, deletedNode *models.Node, deletedClients []models.ExtClient, replacePeers bool) error {
-
+func PublishSingleHostPeerUpdate(host *models.Host, allNodes []models.Node, deletedNode *models.Node, deletedClients []models.ExtClient, replacePeers bool, wg *sync.WaitGroup) error {
+	if wg != nil {
+		defer wg.Done()
+	}
 	peerUpdate, err := logic.GetPeerUpdateForHost("", host, allNodes, deletedNode, deletedClients)
 	if err != nil {
 		return err
@@ -148,7 +293,7 @@ func NodeUpdate(node *models.Node) error {
 	return nil
 }
 
-func ServerStatusUpdate() error {
+func serverStatusUpdate() error {
 
 	licenseErr := ""
 	if servercfg.ErrLicenseValidation != nil {
