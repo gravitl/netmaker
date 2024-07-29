@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/microsoft"
@@ -99,7 +100,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 					Password: newPass,
 				}
 				for _, inviteGroupID := range in.Groups {
-					userG, err := logic.GetUserGroup(inviteGroupID)
+					userG, err := proLogic.GetUserGroup(inviteGroupID)
 					if err != nil {
 						logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("error fetching group id "+inviteGroupID.String()), "badrequest"))
 						return

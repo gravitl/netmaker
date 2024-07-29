@@ -119,6 +119,11 @@ func InitPro() {
 	logic.GetAllowedIpForInetNodeClient = proLogic.GetAllowedIpForInetNodeClient
 	mq.UpdateMetrics = proLogic.MQUpdateMetrics
 	mq.UpdateMetricsFallBack = proLogic.MQUpdateMetricsFallBack
+	logic.GetFilteredNodesByUserAccess = proLogic.GetFilteredNodesByUserAccess
+	logic.CreateRole = proLogic.CreateRole
+	logic.NetworkPermissionsCheck = proLogic.NetworkPermissionsCheck
+	logic.GlobalPermissionsCheck = proLogic.GlobalPermissionsCheck
+	logic.DeleteNetworkRoles = proLogic.DeleteNetworkRoles
 }
 
 func retrieveProLogo() string {
