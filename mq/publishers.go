@@ -343,9 +343,15 @@ func serverStatusUpdate() error {
 			return errors.New("cannot publish ... mqclient not connected")
 		}
 
-		if token := mqclient.Publish("server/status", 0, true, data); token.Wait() && token.Error() != nil {
-			slog.Error("could not publish server status", "error", token.Error().Error())
-			return token.Error()
+		if token := mqclient.Publish("server/status", 0, true, data); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
+			var err error
+			if token.Error() == nil {
+				err = errors.New("connection timeout")
+			} else {
+				slog.Error("could not publish server status", "error", token.Error().Error())
+				err = token.Error()
+			}
+			return err
 		}
 		serverStatusCache = currentServerStatus
 	}

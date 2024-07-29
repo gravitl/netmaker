@@ -93,7 +93,6 @@ func SetupMQTT(fatal bool) {
 	opts.SetConnectionLostHandler(func(c mqtt.Client, e error) {
 		slog.Warn("detected broker connection lost", "err", e.Error())
 		//c.Disconnect(250)
-		mqclient = nil
 		slog.Info("re-initiating MQ connection")
 		//SetupMQTT(false)
 
@@ -101,7 +100,7 @@ func SetupMQTT(fatal bool) {
 	mqclient = mqtt.NewClient(opts)
 	tperiod := time.Now().Add(10 * time.Second)
 	for {
-		if token := mqclient.Connect(); token.Wait() && token.Error() != nil {
+		if token := mqclient.Connect(); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
 			logger.Log(2, "unable to connect to broker, retrying ...")
 			if time.Now().After(tperiod) {
 				if token.Error() == nil {

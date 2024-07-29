@@ -385,7 +385,6 @@ func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (
 		if err == nil {
 			if servercfg.CacheEnabled() {
 				storeNetworkInCache(newNetwork.NetID, *newNetwork)
-				deleteNetworkFromCache(currentNetwork.NetID)
 			}
 		}
 		return hasrangeupdate4, hasrangeupdate6, hasholepunchupdate, err

@@ -39,7 +39,6 @@ func main() {
 	initialize()                       // initial db and acls
 	logic.SetIpPool()
 	defer logic.ClearIpPool()
-	defer logic.WriteMetricsCacheToDB()
 	setGarbageCollection()
 	setVerbosity()
 	if servercfg.DeployedByOperator() && !servercfg.IsPro {

@@ -39,7 +39,7 @@ func initSqliteDB() error {
 	}
 	// == "connect" the database ==
 	var dbOpenErr error
-	SqliteDB, dbOpenErr = sql.Open("sqlite3", dbFilePath+"?_journal_mode=WAL&_synchronous=NORMAL&_cache_size=500000")
+	SqliteDB, dbOpenErr = sql.Open("sqlite3", dbFilePath)
 	if dbOpenErr != nil {
 		return dbOpenErr
 	}

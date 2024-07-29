@@ -66,21 +66,6 @@ func LoadNodeMetricsToCache() error {
 	return nil
 }
 
-func WriteMetricsCacheToDB() error {
-
-	for k, v := range metricsCacheMap {
-		data, err := json.Marshal(v)
-		if err != nil {
-			continue
-		}
-		err = database.Insert(k, string(data), database.METRICS_TABLE_NAME)
-		if err != nil {
-			continue
-		}
-	}
-	return nil
-}
-
 // GetMetrics - gets the metrics
 func GetMetrics(nodeid string) (*models.Metrics, error) {
 	var metrics models.Metrics
@@ -108,11 +93,6 @@ func GetMetrics(nodeid string) (*models.Metrics, error) {
 
 // UpdateMetrics - updates the metrics of a given client
 func UpdateMetrics(nodeid string, metrics *models.Metrics) error {
-	//if cache is enabled, only save the metric data to cache
-	if servercfg.CacheEnabled() {
-		storeMetricsInCache(nodeid, *metrics)
-		return nil
-	}
 	data, err := json.Marshal(metrics)
 	if err != nil {
 		return err
@@ -120,6 +100,9 @@ func UpdateMetrics(nodeid string, metrics *models.Metrics) error {
 	err = database.Insert(nodeid, string(data), database.METRICS_TABLE_NAME)
 	if err != nil {
 		return err
+	}
+	if servercfg.CacheEnabled() {
+		storeMetricsInCache(nodeid, *metrics)
 	}
 	return nil
 }

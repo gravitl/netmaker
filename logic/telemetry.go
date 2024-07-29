@@ -128,6 +128,9 @@ func setTelemetryTimestamp(telRecord *models.Telemetry) error {
 		return err
 	}
 	err = database.Insert(database.SERVER_UUID_RECORD_KEY, string(jsonObj), database.SERVER_UUID_TABLE_NAME)
+	if err == nil {
+		telServerRecord = serverTelData
+	}
 	return err
 }
 

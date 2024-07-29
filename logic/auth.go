@@ -129,7 +129,7 @@ func CreateUser(user *models.User) error {
 
 	tokenString, _ := CreateUserJWT(user.UserName, user.IsSuperAdmin, user.IsAdmin)
 	if tokenString == "" {
-		logger.Log(0, "failed to generate token", err.Error())
+		logger.Log(0, "failed to generate token")
 		return err
 	}
 
@@ -216,6 +216,9 @@ func UpsertUser(user models.User) error {
 	if err = database.Insert(user.UserName, string(data), database.USERS_TABLE_NAME); err != nil {
 		slog.Error("error inserting user", "user", user.UserName, "error", err.Error())
 		return err
+	}
+	if user.IsSuperAdmin {
+		superUser = user
 	}
 	return nil
 }

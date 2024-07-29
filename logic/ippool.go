@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	ipPool      map[string]PoolMap
+	ipPool      = make(map[string]PoolMap)
 	ipPoolMutex = &sync.RWMutex{}
 )
 
