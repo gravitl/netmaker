@@ -9,20 +9,8 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"golang.org/x/exp/slog"
 )
-
-// Pre-Define Permission Templates for default Roles
-var SuperAdminPermissionTemplate = models.UserRolePermissionTemplate{
-	ID:         models.SuperAdminRole,
-	Default:    true,
-	FullAccess: true,
-}
-
-var AdminPermissionTemplate = models.UserRolePermissionTemplate{
-	ID:         models.AdminRole,
-	Default:    true,
-	FullAccess: true,
-}
 
 var ServiceUserPermissionTemplate = models.UserRolePermissionTemplate{
 	ID:                  models.ServiceUser,
@@ -38,11 +26,7 @@ var PlatformUserUserPermissionTemplate = models.UserRolePermissionTemplate{
 }
 
 func UserRolesInit() {
-	d, _ := json.Marshal(SuperAdminPermissionTemplate)
-	database.Insert(SuperAdminPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
-	d, _ = json.Marshal(AdminPermissionTemplate)
-	database.Insert(AdminPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
-	d, _ = json.Marshal(ServiceUserPermissionTemplate)
+	d, _ := json.Marshal(ServiceUserPermissionTemplate)
 	database.Insert(ServiceUserPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
 	d, _ = json.Marshal(PlatformUserUserPermissionTemplate)
 	database.Insert(PlatformUserUserPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
@@ -557,4 +541,80 @@ func GetFilteredNodesByUserAccess(user models.User, nodes []models.Node) (filter
 
 	}
 	return
+}
+
+func FilterNetworksByRole(allnetworks []models.Network, user models.User) []models.Network {
+	platformRole, err := logic.GetRole(user.PlatformRoleID)
+	if err != nil {
+		return []models.Network{}
+	}
+	if !platformRole.FullAccess {
+		allNetworkRoles := make(map[models.NetworkID]struct{})
+		if len(user.NetworkRoles) > 0 {
+			for netID := range user.NetworkRoles {
+				allNetworkRoles[netID] = struct{}{}
+
+			}
+		}
+		if len(user.UserGroups) > 0 {
+			for userGID := range user.UserGroups {
+				userG, err := GetUserGroup(userGID)
+				if err == nil {
+					if len(userG.NetworkRoles) > 0 {
+						for netID := range userG.NetworkRoles {
+							allNetworkRoles[netID] = struct{}{}
+
+						}
+					}
+				}
+			}
+		}
+		filteredNetworks := []models.Network{}
+		for _, networkI := range allnetworks {
+			if _, ok := allNetworkRoles[models.NetworkID(networkI.NetID)]; ok {
+				filteredNetworks = append(filteredNetworks, networkI)
+			}
+		}
+		allnetworks = filteredNetworks
+	}
+	return allnetworks
+}
+
+func IsGroupsValid(groups map[models.UserGroupID]struct{}) error {
+	uniqueGroupsPlatformRole := make(map[models.UserRole]struct{})
+	for groupID := range groups {
+		userG, err := GetUserGroup(groupID)
+		if err != nil {
+			return err
+		}
+		uniqueGroupsPlatformRole[userG.PlatformRole] = struct{}{}
+	}
+	if len(uniqueGroupsPlatformRole) > 1 {
+
+		return errors.New("only groups with same platform role can be assigned to an user")
+	}
+	return nil
+}
+
+func RemoveNetworkRoleFromUsers(host models.Host, node models.Node) {
+	users, err := logic.GetUsersDB()
+	if err == nil {
+		for _, user := range users {
+			// delete role from user
+			if netRoles, ok := user.NetworkRoles[models.NetworkID(node.Network)]; ok {
+				delete(netRoles, models.GetRAGRoleName(node.Network, host.Name))
+				user.NetworkRoles[models.NetworkID(node.Network)] = netRoles
+				err = logic.UpsertUser(user)
+				if err != nil {
+					slog.Error("failed to get user", "user", user.UserName, "error", err)
+				}
+			}
+		}
+	} else {
+		slog.Error("failed to get users", "error", err)
+	}
+	err = DeleteRole(models.GetRAGRoleName(node.Network, host.Name))
+	if err != nil {
+		slog.Error("failed to delete role: ", models.GetRAGRoleName(node.Network, host.Name), err)
+	}
 }

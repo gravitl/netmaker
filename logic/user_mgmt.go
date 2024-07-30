@@ -2,11 +2,23 @@ package logic
 
 import (
 	"encoding/json"
-	"errors"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
 )
+
+// Pre-Define Permission Templates for default Roles
+var SuperAdminPermissionTemplate = models.UserRolePermissionTemplate{
+	ID:         models.SuperAdminRole,
+	Default:    true,
+	FullAccess: true,
+}
+
+var AdminPermissionTemplate = models.UserRolePermissionTemplate{
+	ID:         models.AdminRole,
+	Default:    true,
+	FullAccess: true,
+}
 
 var GetFilteredNodesByUserAccess = func(user models.User, nodes []models.Node) (filteredNodes []models.Node) {
 	return
@@ -15,7 +27,19 @@ var GetFilteredNodesByUserAccess = func(user models.User, nodes []models.Node) (
 var CreateRole = func(r models.UserRolePermissionTemplate) error {
 	return nil
 }
+
+var FilterNetworksByRole = func(allnetworks []models.Network, user models.User) []models.Network {
+	return allnetworks
+}
+
+var IsGroupsValid = func(groups map[models.UserGroupID]struct{}) error {
+	return nil
+}
+var RemoveNetworkRoleFromUsers = func(host models.Host, node models.Node) {}
+
+var InitialiseRoles = func() {}
 var DeleteNetworkRoles = func(netID string) {}
+var CreateDefaultNetworkRoles = func(netID string) {}
 
 // GetRole - fetches role template by id
 func GetRole(roleID models.UserRole) (models.UserRolePermissionTemplate, error) {
@@ -32,18 +56,10 @@ func GetRole(roleID models.UserRole) (models.UserRolePermissionTemplate, error) 
 	return ur, nil
 }
 
-func IsGroupsValid(groups map[models.UserGroupID]struct{}) error {
-	uniqueGroupsPlatformRole := make(map[models.UserRole]struct{})
-	for groupID := range groups {
-		userG, err := logic.GetUserGroup(groupID)
-		if err != nil {
-			return err
-		}
-		uniqueGroupsPlatformRole[userG.PlatformRole] = struct{}{}
-	}
-	if len(uniqueGroupsPlatformRole) > 1 {
+func UserRolesInit() {
+	d, _ := json.Marshal(SuperAdminPermissionTemplate)
+	database.Insert(SuperAdminPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
+	d, _ = json.Marshal(AdminPermissionTemplate)
+	database.Insert(AdminPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
 
-		return errors.New("only groups with same platform role can be assigned to an user")
-	}
-	return nil
 }
