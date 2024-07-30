@@ -13,17 +13,6 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-type ServerStatus struct {
-	DB               bool            `json:"db_connected"`
-	Broker           bool            `json:"broker_connected"`
-	IsBrokerConnOpen bool            `json:"is_broker_conn_open"`
-	LicenseError     string          `json:"license_error"`
-	IsPro            bool            `json:"is_pro"`
-	TrialEndDate     time.Time       `json:"trial_end_date"`
-	IsOnTrialLicense bool            `json:"is_on_trial_license"`
-	Failover         map[string]bool `json:"is_failover_existed"`
-}
-
 // PublishPeerUpdate --- determines and publishes a peer update to all the hosts
 func PublishPeerUpdate(replacePeers bool) error {
 	if !servercfg.IsMessageQueueBackend() {
@@ -39,7 +28,6 @@ func PublishPeerUpdate(replacePeers bool) error {
 	if err != nil {
 		return err
 	}
-
 	for _, host := range hosts {
 		host := host
 		go func(host models.Host) {
@@ -67,7 +55,6 @@ func PublishDeletedNodePeerUpdate(delNode *models.Node) error {
 	if err != nil {
 		return err
 	}
-
 	for _, host := range hosts {
 		host := host
 		if err = PublishSingleHostPeerUpdate(&host, allNodes, delNode, nil, false); err != nil {
@@ -93,7 +80,6 @@ func PublishDeletedClientPeerUpdate(delClient *models.ExtClient) error {
 	if err != nil {
 		return err
 	}
-
 	for _, host := range hosts {
 		host := host
 		if host.OS != models.OS_Types.IoT {
