@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -25,8 +24,6 @@ type ServerStatus struct {
 	IsOnTrialLicense bool            `json:"is_on_trial_license"`
 	Failover         map[string]bool `json:"is_failover_existed"`
 }
-
-var serverStatusCache = ServerStatus{}
 
 const batchSize = 50
 
@@ -291,107 +288,6 @@ func NodeUpdate(node *models.Node) error {
 	}
 
 	return nil
-}
-
-func serverStatusUpdate() error {
-
-	licenseErr := ""
-	if servercfg.ErrLicenseValidation != nil {
-		licenseErr = servercfg.ErrLicenseValidation.Error()
-	}
-	var trialEndDate time.Time
-	var err error
-	isOnTrial := false
-	if servercfg.IsPro && (servercfg.GetLicenseKey() == "" || servercfg.GetNetmakerTenantID() == "") {
-		trialEndDate, err = logic.GetTrialEndDate()
-		if err != nil {
-			slog.Error("failed to get trial end date", "error", err)
-		} else {
-			isOnTrial = true
-		}
-	}
-	failoverExisted := map[string]bool{}
-	if servercfg.IsPro {
-		networks, err := logic.GetNetworks()
-		if err == nil && len(networks) > 0 {
-			for _, v := range networks {
-				_, b := logic.FailOverExists(v.NetID)
-				failoverExisted[v.NetID] = b
-			}
-		}
-	}
-	currentServerStatus := ServerStatus{
-		DB:               database.IsConnected(),
-		Broker:           IsConnected(),
-		IsBrokerConnOpen: IsConnectionOpen(),
-		LicenseError:     licenseErr,
-		IsPro:            servercfg.IsPro,
-		TrialEndDate:     trialEndDate,
-		IsOnTrialLicense: isOnTrial,
-		Failover:         failoverExisted,
-	}
-
-	if isServerStatusChanged(serverStatusCache, currentServerStatus) {
-
-		data, err := json.Marshal(currentServerStatus)
-		if err != nil {
-			slog.Error("error marshalling server status update ", err.Error())
-			return err
-		}
-
-		if mqclient == nil || !mqclient.IsConnectionOpen() {
-			return errors.New("cannot publish ... mqclient not connected")
-		}
-
-		if token := mqclient.Publish("server/status", 0, true, data); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
-			var err error
-			if token.Error() == nil {
-				err = errors.New("connection timeout")
-			} else {
-				slog.Error("could not publish server status", "error", token.Error().Error())
-				err = token.Error()
-			}
-			return err
-		}
-		serverStatusCache = currentServerStatus
-	}
-
-	return nil
-}
-
-func isServerStatusChanged(serverStatusCache, currentServerStatus ServerStatus) bool {
-	if serverStatusCache.DB != currentServerStatus.DB {
-		return true
-	}
-	if serverStatusCache.Broker != currentServerStatus.Broker {
-		return true
-	}
-	if serverStatusCache.IsBrokerConnOpen != currentServerStatus.IsBrokerConnOpen {
-		return true
-	}
-	if serverStatusCache.LicenseError != currentServerStatus.LicenseError {
-		return true
-	}
-	if serverStatusCache.IsPro != currentServerStatus.IsPro {
-		return true
-	}
-	if !serverStatusCache.TrialEndDate.Equal(currentServerStatus.TrialEndDate) {
-		return true
-	}
-	if serverStatusCache.IsOnTrialLicense != currentServerStatus.IsOnTrialLicense {
-		return true
-	}
-	if len(serverStatusCache.Failover) != len(currentServerStatus.Failover) {
-		return true
-	}
-
-	for k, v := range serverStatusCache.Failover {
-		if v1, ok := currentServerStatus.Failover[k]; !ok || (ok && v != v1) {
-			return true
-		}
-	}
-
-	return false
 }
 
 // HostUpdate -- publishes a host update to clients

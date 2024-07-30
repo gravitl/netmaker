@@ -131,7 +131,6 @@ func Keepalive(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-time.After(time.Second * KEEPALIVE_TIMEOUT):
-			serverStatusUpdate()
 			sendPeers()
 		}
 	}
