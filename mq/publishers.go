@@ -28,7 +28,7 @@ type ServerStatus struct {
 
 var serverStatusCache = ServerStatus{}
 
-const batchSize = 20
+const batchSize = 50
 
 // PublishPeerUpdate --- determines and publishes a peer update to all the hosts
 func PublishPeerUpdate(replacePeers bool) error {

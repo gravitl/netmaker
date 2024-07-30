@@ -92,9 +92,9 @@ func SetupMQTT(fatal bool) {
 	})
 	opts.SetConnectionLostHandler(func(c mqtt.Client, e error) {
 		slog.Warn("detected broker connection lost", "err", e.Error())
-		//c.Disconnect(250)
+		c.Disconnect(250)
 		slog.Info("re-initiating MQ connection")
-		//SetupMQTT(false)
+		SetupMQTT(false)
 
 	})
 	mqclient = mqtt.NewClient(opts)
@@ -131,9 +131,6 @@ func Keepalive(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-time.After(time.Second * KEEPALIVE_TIMEOUT):
-			if mqclient == nil || !mqclient.IsConnectionOpen() {
-				SetupMQTT(false)
-			}
 			serverStatusUpdate()
 			sendPeers()
 		}
