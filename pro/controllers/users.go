@@ -9,7 +9,6 @@ import (
 	"net/url"
 
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -1148,7 +1147,7 @@ func approvePendingUser(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, user := range users {
 		if user.UserName == username {
-			var newPass, fetchErr = auth.FetchPassValue("")
+			var newPass, fetchErr = logic.FetchPassValue("")
 			if fetchErr != nil {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(fetchErr, "internal"))
 				return

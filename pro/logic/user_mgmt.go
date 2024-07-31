@@ -26,7 +26,11 @@ var PlatformUserUserPermissionTemplate = models.UserRolePermissionTemplate{
 }
 
 func UserRolesInit() {
-	d, _ := json.Marshal(ServiceUserPermissionTemplate)
+	d, _ := json.Marshal(logic.SuperAdminPermissionTemplate)
+	database.Insert(logic.SuperAdminPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
+	d, _ = json.Marshal(logic.AdminPermissionTemplate)
+	database.Insert(logic.AdminPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
+	d, _ = json.Marshal(ServiceUserPermissionTemplate)
 	database.Insert(ServiceUserPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
 	d, _ = json.Marshal(PlatformUserUserPermissionTemplate)
 	database.Insert(PlatformUserUserPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
