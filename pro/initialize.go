@@ -22,7 +22,6 @@ import (
 func InitPro() {
 	servercfg.IsPro = true
 	models.SetLogo(retrieveProLogo())
-	proLogic.UserRolesInit()
 	controller.HttpMiddlewares = append(
 		controller.HttpMiddlewares,
 		proControllers.OnlyServerAPIWhenUnlicensedMiddleware,
@@ -129,6 +128,7 @@ func InitPro() {
 	logic.FilterNetworksByRole = proLogic.FilterNetworksByRole
 	logic.IsGroupsValid = proLogic.IsGroupsValid
 	logic.RemoveNetworkRoleFromUsers = proLogic.RemoveNetworkRoleFromUsers
+	logic.InitialiseRoles = proLogic.UserRolesInit
 }
 
 func retrieveProLogo() string {

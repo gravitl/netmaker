@@ -37,7 +37,7 @@ var IsGroupsValid = func(groups map[models.UserGroupID]struct{}) error {
 }
 var RemoveNetworkRoleFromUsers = func(host models.Host, node models.Node) {}
 
-var InitialiseRoles = func() {}
+var InitialiseRoles = userRolesInit
 var DeleteNetworkRoles = func(netID string) {}
 var CreateDefaultNetworkRoles = func(netID string) {}
 
@@ -56,7 +56,7 @@ func GetRole(roleID models.UserRole) (models.UserRolePermissionTemplate, error) 
 	return ur, nil
 }
 
-func UserRolesInit() {
+func userRolesInit() {
 	d, _ := json.Marshal(SuperAdminPermissionTemplate)
 	database.Insert(SuperAdminPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
 	d, _ = json.Marshal(AdminPermissionTemplate)

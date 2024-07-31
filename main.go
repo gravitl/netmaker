@@ -89,7 +89,7 @@ func initialize() { // Client Mode Prereq Check
 	migrate.Run()
 
 	logic.SetJWTSecret()
-	logic.UserRolesInit()
+	logic.InitialiseRoles()
 	err = serverctl.SetDefaults()
 	if err != nil {
 		logger.FatalLog("error setting defaults: ", err.Error())
