@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -96,7 +95,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 			if inviteExists {
 				// create user
 				logger.Log(0, "CALLBACK ----> 4.0")
-				var newPass, fetchErr = auth.FetchPassValue("")
+				var newPass, fetchErr = logic.FetchPassValue("")
 				if fetchErr != nil {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(fetchErr, "internal"))
 					return
@@ -159,7 +158,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserNotAllowed(w)
 		return
 	}
-	var newPass, fetchErr = auth.FetchPassValue("")
+	var newPass, fetchErr = logic.FetchPassValue("")
 	if fetchErr != nil {
 		return
 	}

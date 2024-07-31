@@ -422,6 +422,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("non-admins users can only be created on Pro version"), "forbidden"))
 		return
 	}
+
 	err = logic.CreateUser(&user)
 	if err != nil {
 		slog.Error("error creating new user: ", "user", user.UserName, "error", err.Error())
@@ -526,7 +527,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if auth.IsOauthUser(user) == nil && userchange.Password != "" {
+	if logic.IsOauthUser(user) == nil && userchange.Password != "" {
 		err := fmt.Errorf("cannot update user's password for an oauth user %s", username)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return

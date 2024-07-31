@@ -356,6 +356,10 @@ func syncUsers() {
 			if user.PlatformRoleID.String() != "" {
 				continue
 			}
+			user.AuthType = models.BasicAuth
+			if logic.IsOauthUser(&user) == nil {
+				user.AuthType = models.OAuth
+			}
 			if len(user.NetworkRoles) == 0 {
 				user.NetworkRoles = make(map[models.NetworkID]map[models.UserRole]struct{})
 			}

@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -89,7 +88,7 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
 			if inviteExists {
 				// create user
-				var newPass, fetchErr = auth.FetchPassValue("")
+				var newPass, fetchErr = logic.FetchPassValue("")
 				if fetchErr != nil {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(fetchErr, "internal"))
 					return
@@ -147,7 +146,7 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserNotAllowed(w)
 		return
 	}
-	var newPass, fetchErr = auth.FetchPassValue("")
+	var newPass, fetchErr = logic.FetchPassValue("")
 	if fetchErr != nil {
 		return
 	}

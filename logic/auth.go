@@ -93,18 +93,54 @@ func GetUsers() ([]models.ReturnUser, error) {
 	return users, err
 }
 
+// IsOauthUser - returns
+func IsOauthUser(user *models.User) error {
+	var currentValue, err = FetchPassValue("")
+	if err != nil {
+		return err
+	}
+	var bCryptErr = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentValue))
+	return bCryptErr
+}
+
+func FetchPassValue(newValue string) (string, error) {
+
+	type valueHolder struct {
+		Value string `json:"value" bson:"value"`
+	}
+	newValueHolder := valueHolder{}
+	var currentValue, err = FetchAuthSecret()
+	if err != nil {
+		return "", err
+	}
+	var unmarshErr = json.Unmarshal([]byte(currentValue), &newValueHolder)
+	if unmarshErr != nil {
+		return "", unmarshErr
+	}
+
+	var b64CurrentValue, b64Err = base64.StdEncoding.DecodeString(newValueHolder.Value)
+	if b64Err != nil {
+		logger.Log(0, "could not decode pass")
+		return "", nil
+	}
+	return string(b64CurrentValue), nil
+}
+
 // CreateUser - creates a user
 func CreateUser(user *models.User) error {
 	// check if user exists
 	if _, err := GetUser(user.UserName); err == nil {
 		return errors.New("user exists")
 	}
+	user.AuthType = models.BasicAuth
+	if IsOauthUser(user) == nil {
+		user.AuthType = models.OAuth
+	}
 	var err = ValidateUser(user)
 	if err != nil {
 		logger.Log(0, "failed to validate user", err.Error())
 		return err
 	}
-
 	// encrypt that password so we never see it again
 	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), 5)
 	if err != nil {
