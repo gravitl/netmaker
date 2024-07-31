@@ -96,7 +96,7 @@ func DeleteNetworkRoles(netID string) {
 		}
 	}
 
-	roles, _ := ListRoles()
+	roles, _ := ListNetworkRoles()
 	for _, role := range roles {
 		if role.NetworkID == netID {
 			DeleteRole(role.ID)
@@ -104,8 +104,8 @@ func DeleteNetworkRoles(netID string) {
 	}
 }
 
-// ListRoles - lists user roles permission templates
-func ListRoles() ([]models.UserRolePermissionTemplate, error) {
+// ListNetworkRoles - lists user network roles permission templates
+func ListNetworkRoles() ([]models.UserRolePermissionTemplate, error) {
 	data, err := database.FetchRecords(database.USER_PERMISSIONS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return []models.UserRolePermissionTemplate{}, err
@@ -115,6 +115,30 @@ func ListRoles() ([]models.UserRolePermissionTemplate, error) {
 		userRole := models.UserRolePermissionTemplate{}
 		err := json.Unmarshal([]byte(dataI), &userRole)
 		if err != nil {
+			continue
+		}
+		if userRole.NetworkID == "" {
+			continue
+		}
+		userRoles = append(userRoles, userRole)
+	}
+	return userRoles, nil
+}
+
+// ListPlatformRoles - lists user platform roles permission templates
+func ListPlatformRoles() ([]models.UserRolePermissionTemplate, error) {
+	data, err := database.FetchRecords(database.USER_PERMISSIONS_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return []models.UserRolePermissionTemplate{}, err
+	}
+	userRoles := []models.UserRolePermissionTemplate{}
+	for _, dataI := range data {
+		userRole := models.UserRolePermissionTemplate{}
+		err := json.Unmarshal([]byte(dataI), &userRole)
+		if err != nil {
+			continue
+		}
+		if userRole.NetworkID != "" {
 			continue
 		}
 		userRoles = append(userRoles, userRole)

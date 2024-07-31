@@ -452,7 +452,14 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //				200: userBodyResponse
 func listRoles(w http.ResponseWriter, r *http.Request) {
-	roles, err := proLogic.ListRoles()
+	platform, _ := url.QueryUnescape(r.URL.Query().Get("platform"))
+	var roles []models.UserRolePermissionTemplate
+	var err error
+	if platform == "true" {
+		roles, err = proLogic.ListPlatformRoles()
+	} else {
+		roles, err = proLogic.ListNetworkRoles()
+	}
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
 			Code:    http.StatusInternalServerError,
@@ -460,6 +467,7 @@ func listRoles(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+
 	logic.ReturnSuccessResponseWithJson(w, r, roles, "successfully fetched user roles permission templates")
 }
 
