@@ -104,19 +104,12 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for _, inviteGroupID := range in.Groups {
-		_, err := proLogic.GetUserGroup(inviteGroupID)
-		if err != nil {
-			continue
-		}
-		user.UserGroups = make(map[models.UserGroupID]struct{})
-		user.UserGroups[inviteGroupID] = struct{}{}
-	}
-	user.PlatformRoleID = models.UserRole(in.PlatformRoleID)
+	user.UserGroups = in.UserGroups
+	user.PlatformRoleID = models.UserRoleID(in.PlatformRoleID)
 	if user.PlatformRoleID == "" {
 		user.PlatformRoleID = models.ServiceUser
 	}
-	user.NetworkRoles = make(map[models.NetworkID]map[models.UserRole]struct{})
+	user.NetworkRoles = in.NetworkRoles
 	err = logic.CreateUser(&user)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -170,13 +163,15 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	//validate Req
-	for _, groupID := range inviteReq.Groups {
-		_, err := proLogic.GetUserGroup(groupID)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-			return
-		}
-
+	err = proLogic.IsGroupsValid(inviteReq.UserGroups)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	err = proLogic.IsNetworkRolesValid(inviteReq.NetworkRoles)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
 	}
 
 	for _, inviteeEmail := range inviteReq.UserEmails {
@@ -187,9 +182,10 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		invite := models.UserInvite{
-			Email:      inviteeEmail,
-			Groups:     inviteReq.Groups,
-			InviteCode: logic.RandomString(8),
+			Email:        inviteeEmail,
+			UserGroups:   inviteReq.UserGroups,
+			NetworkRoles: inviteReq.NetworkRoles,
+			InviteCode:   logic.RandomString(8),
 		}
 		u, err := url.Parse(fmt.Sprintf("%s/invite?email=%s&invite_code=%s",
 			servercfg.GetFrontendURL(), url.QueryEscape(invite.Email), url.QueryEscape(invite.InviteCode)))
@@ -488,7 +484,7 @@ func getRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
 	}
-	role, err := logic.GetRole(models.UserRole(rid))
+	role, err := logic.GetRole(models.UserRoleID(rid))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
 			Code:    http.StatusInternalServerError,
@@ -586,7 +582,7 @@ func deleteRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
 	}
-	err := proLogic.DeleteRole(models.UserRole(rid))
+	err := proLogic.DeleteRole(models.UserRoleID(rid))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return

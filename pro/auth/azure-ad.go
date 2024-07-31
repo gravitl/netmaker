@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -89,29 +88,12 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
 			if inviteExists {
 				// create user
-				var newPass, fetchErr = logic.FetchPassValue("")
-				if fetchErr != nil {
-					logic.ReturnErrorResponse(w, r, logic.FormatError(fetchErr, "internal"))
+				user, err := proLogic.PrepareOauthUserFromInvite(in)
+				if err != nil {
+					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 					return
 				}
-				user := &models.User{
-					UserName: content.UserPrincipalName,
-					Password: newPass,
-				}
-				for _, inviteGroupID := range in.Groups {
-					_, err := proLogic.GetUserGroup(inviteGroupID)
-					if err != nil {
-						logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("error fetching group id "+inviteGroupID.String()), "badrequest"))
-						return
-					}
-
-					user.UserGroups[inviteGroupID] = struct{}{}
-				}
-				user.PlatformRoleID = models.UserRole(in.PlatformRoleID)
-				if user.PlatformRoleID == "" {
-					user.PlatformRoleID = models.ServiceUser
-				}
-				if err = logic.CreateUser(user); err != nil {
+				if err = logic.CreateUser(&user); err != nil {
 					handleSomethingWentWrong(w)
 					return
 				}

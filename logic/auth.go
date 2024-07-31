@@ -132,6 +132,13 @@ func CreateUser(user *models.User) error {
 	if _, err := GetUser(user.UserName); err == nil {
 		return errors.New("user exists")
 	}
+	SetUserDefaults(user)
+	if err := IsGroupsValid(user.UserGroups); err != nil {
+		return errors.New("invalid groups: " + err.Error())
+	}
+	if err := IsNetworkRolesValid(user.NetworkRoles); err != nil {
+		return errors.New("invalid network roles: " + err.Error())
+	}
 	user.AuthType = models.BasicAuth
 	if IsOauthUser(user) == nil {
 		user.AuthType = models.OAuth
@@ -149,19 +156,12 @@ func CreateUser(user *models.User) error {
 	}
 	// set password to encrypted password
 	user.Password = string(hash)
-	if len(user.NetworkRoles) == 0 {
-		user.NetworkRoles = make(map[models.NetworkID]map[models.UserRole]struct{})
-	}
-	if len(user.UserGroups) == 0 {
-		user.UserGroups = make(map[models.UserGroupID]struct{})
-	}
+
 	_, err = CreateUserJWT(user.UserName, user.PlatformRoleID)
 	if err != nil {
 		logger.Log(0, "failed to generate token", err.Error())
 		return err
 	}
-
-	SetUserDefaults(user)
 
 	// connect db
 	data, err := json.Marshal(user)

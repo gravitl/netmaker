@@ -585,7 +585,7 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	// create network role for this gateway
 	logic.CreateRole(models.UserRolePermissionTemplate{
 		ID:        models.GetRAGRoleName(node.Network, host.Name),
-		NetworkID: node.Network,
+		NetworkID: models.NetworkID(node.Network),
 		NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
 			models.RemoteAccessGwRsrc: {
 				models.RsrcID(node.ID.String()): models.RsrcPermissionScope{

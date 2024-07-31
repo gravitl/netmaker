@@ -35,6 +35,9 @@ var FilterNetworksByRole = func(allnetworks []models.Network, user models.User) 
 var IsGroupsValid = func(groups map[models.UserGroupID]struct{}) error {
 	return nil
 }
+var IsNetworkRolesValid = func(networkRoles map[models.NetworkID]map[models.UserRoleID]struct{}) error {
+	return nil
+}
 var RemoveNetworkRoleFromUsers = func(host models.Host, node models.Node) {}
 
 var InitialiseRoles = userRolesInit
@@ -42,7 +45,7 @@ var DeleteNetworkRoles = func(netID string) {}
 var CreateDefaultNetworkRoles = func(netID string) {}
 
 // GetRole - fetches role template by id
-func GetRole(roleID models.UserRole) (models.UserRolePermissionTemplate, error) {
+func GetRole(roleID models.UserRoleID) (models.UserRolePermissionTemplate, error) {
 	// check if role already exists
 	data, err := database.FetchRecord(database.USER_PERMISSIONS_TABLE_NAME, roleID.String())
 	if err != nil {

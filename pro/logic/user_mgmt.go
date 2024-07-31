@@ -25,6 +25,37 @@ var PlatformUserUserPermissionTemplate = models.UserRolePermissionTemplate{
 	FullAccess: false,
 }
 
+var NetworkAdminAllPermissionTemplate = models.UserRolePermissionTemplate{
+	ID:         models.UserRoleID(fmt.Sprintf("global_%s", models.NetworkAdmin)),
+	Default:    true,
+	FullAccess: true,
+	NetworkID:  models.AllNetworks,
+}
+
+var NetworkUserAllPermissionTemplate = models.UserRolePermissionTemplate{
+	ID:         models.UserRoleID(fmt.Sprintf("global_%s", models.NetworkUser)),
+	Default:    true,
+	FullAccess: false,
+	NetworkID:  models.AllNetworks,
+	NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
+		models.RemoteAccessGwRsrc: {
+			models.AllRemoteAccessGwRsrcID: models.RsrcPermissionScope{
+				Read:      true,
+				VPNaccess: true,
+			},
+		},
+		models.ExtClientsRsrc: {
+			models.AllExtClientsRsrcID: models.RsrcPermissionScope{
+				Read:     true,
+				Create:   true,
+				Update:   true,
+				Delete:   true,
+				SelfOnly: true,
+			},
+		},
+	},
+}
+
 func UserRolesInit() {
 	d, _ := json.Marshal(logic.SuperAdminPermissionTemplate)
 	database.Insert(logic.SuperAdminPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
@@ -34,23 +65,27 @@ func UserRolesInit() {
 	database.Insert(ServiceUserPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
 	d, _ = json.Marshal(PlatformUserUserPermissionTemplate)
 	database.Insert(PlatformUserUserPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
+	d, _ = json.Marshal(NetworkAdminAllPermissionTemplate)
+	database.Insert(NetworkAdminAllPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
+	d, _ = json.Marshal(NetworkUserAllPermissionTemplate)
+	database.Insert(NetworkUserAllPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
 
 }
 
 func CreateDefaultNetworkRoles(netID string) {
 	var NetworkAdminPermissionTemplate = models.UserRolePermissionTemplate{
-		ID:                 models.UserRole(fmt.Sprintf("%s_%s", netID, models.NetworkAdmin)),
+		ID:                 models.UserRoleID(fmt.Sprintf("%s_%s", netID, models.NetworkAdmin)),
 		Default:            false,
-		NetworkID:          netID,
+		NetworkID:          models.NetworkID(netID),
 		FullAccess:         true,
 		NetworkLevelAccess: make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope),
 	}
 
 	var NetworkUserPermissionTemplate = models.UserRolePermissionTemplate{
-		ID:                  models.UserRole(fmt.Sprintf("%s_%s", netID, models.NetworkUser)),
+		ID:                  models.UserRoleID(fmt.Sprintf("%s_%s", netID, models.NetworkUser)),
 		Default:             false,
 		FullAccess:          false,
-		NetworkID:           netID,
+		NetworkID:           models.NetworkID(netID),
 		DenyDashboardAccess: false,
 		NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
 			models.RemoteAccessGwRsrc: {
@@ -98,7 +133,7 @@ func DeleteNetworkRoles(netID string) {
 
 	roles, _ := ListNetworkRoles()
 	for _, role := range roles {
-		if role.NetworkID == netID {
+		if role.NetworkID.String() == netID {
 			DeleteRole(role.ID)
 		}
 	}
@@ -220,7 +255,7 @@ func UpdateRole(r models.UserRolePermissionTemplate) error {
 }
 
 // DeleteRole - deletes user role
-func DeleteRole(rid models.UserRole) error {
+func DeleteRole(rid models.UserRoleID) error {
 	if rid.String() == "" {
 		return errors.New("role id cannot be empty")
 	}
@@ -490,7 +525,7 @@ func GetUserNetworkRolesWithRemoteVPNAccess(user models.User) (gwAccess map[mode
 func GetFilteredNodesByUserAccess(user models.User, nodes []models.Node) (filteredNodes []models.Node) {
 
 	nodesMap := make(map[string]struct{})
-	allNetworkRoles := []models.UserRole{}
+	allNetworkRoles := []models.UserRoleID{}
 	if len(user.NetworkRoles) > 0 {
 		for _, netRoles := range user.NetworkRoles {
 			for netRoleI := range netRoles {
@@ -517,7 +552,7 @@ func GetFilteredNodesByUserAccess(user models.User, nodes []models.Node) (filter
 		if err != nil {
 			continue
 		}
-		networkNodes := logic.GetNetworkNodesMemory(nodes, userPermTemplate.NetworkID)
+		networkNodes := logic.GetNetworkNodesMemory(nodes, userPermTemplate.NetworkID.String())
 		if userPermTemplate.FullAccess {
 			for _, node := range networkNodes {
 				nodesMap[node.ID.String()] = struct{}{}
@@ -603,6 +638,25 @@ func IsGroupsValid(groups map[models.UserGroupID]struct{}) error {
 	return nil
 }
 
+func IsNetworkRolesValid(networkRoles map[models.NetworkID]map[models.UserRoleID]struct{}) error {
+	for netID, netRoles := range networkRoles {
+		_, err := logic.GetNetwork(netID.String())
+		if err != nil {
+			return fmt.Errorf("failed to fetch network %s ", netID)
+		}
+		for netRoleID := range netRoles {
+			role, err := logic.GetRole(netRoleID)
+			if err != nil {
+				return fmt.Errorf("failed to fetch role %s ", netRoleID)
+			}
+			if role.NetworkID == "" {
+				return fmt.Errorf("cannot use platform as network role %s", netRoleID)
+			}
+		}
+	}
+	return nil
+}
+
 func RemoveNetworkRoleFromUsers(host models.Host, node models.Node) {
 	users, err := logic.GetUsersDB()
 	if err == nil {
@@ -624,4 +678,23 @@ func RemoveNetworkRoleFromUsers(host models.Host, node models.Node) {
 	if err != nil {
 		slog.Error("failed to delete role: ", models.GetRAGRoleName(node.Network, host.Name), err)
 	}
+}
+
+// PrepareOauthUserFromInvite - init oauth user before create
+func PrepareOauthUserFromInvite(in models.UserInvite) (models.User, error) {
+	var newPass, fetchErr = logic.FetchPassValue("")
+	if fetchErr != nil {
+		return models.User{}, fetchErr
+	}
+	user := models.User{
+		UserName: in.Email,
+		Password: newPass,
+	}
+	user.UserGroups = in.UserGroups
+	user.NetworkRoles = in.NetworkRoles
+	user.PlatformRoleID = models.UserRoleID(in.PlatformRoleID)
+	if user.PlatformRoleID == "" {
+		user.PlatformRoleID = models.ServiceUser
+	}
+	return user, nil
 }

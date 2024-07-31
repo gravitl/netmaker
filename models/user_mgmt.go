@@ -10,7 +10,7 @@ import (
 type NetworkID string
 type RsrcType string
 type RsrcID string
-type UserRole string
+type UserRoleID string
 type UserGroupID string
 type AuthType string
 
@@ -27,8 +27,8 @@ func (rid RsrcID) String() string {
 	return string(rid)
 }
 
-func GetRAGRoleName(netID, hostName string) UserRole {
-	return UserRole(fmt.Sprintf("netID-%s-rag-%s", netID, hostName))
+func GetRAGRoleName(netID, hostName string) UserRoleID {
+	return UserRoleID(fmt.Sprintf("netID-%s-rag-%s", netID, hostName))
 }
 
 var RsrcTypeMap = map[RsrcType]struct{}{
@@ -46,6 +46,7 @@ var RsrcTypeMap = map[RsrcType]struct{}{
 	FailOverRsrc:       {},
 }
 
+const AllNetworks NetworkID = "all_networks"
 const (
 	HostRsrc           RsrcType = "hosts"
 	RelayRsrc          RsrcType = "relays"
@@ -80,20 +81,24 @@ const (
 // Pre-Defined User Roles
 
 const (
-	SuperAdminRole UserRole = "super_admin"
-	AdminRole      UserRole = "admin"
-	ServiceUser    UserRole = "service_user"
-	PlatformUser   UserRole = "platform_user"
-	NetworkAdmin   UserRole = "network_admin"
-	NetworkUser    UserRole = "network_user"
+	SuperAdminRole UserRoleID = "super_admin"
+	AdminRole      UserRoleID = "admin"
+	ServiceUser    UserRoleID = "service_user"
+	PlatformUser   UserRoleID = "platform_user"
+	NetworkAdmin   UserRoleID = "network_admin"
+	NetworkUser    UserRoleID = "network_user"
 )
 
-func (r UserRole) String() string {
+func (r UserRoleID) String() string {
 	return string(r)
 }
 
 func (g UserGroupID) String() string {
 	return string(g)
+}
+
+func (n NetworkID) String() string {
+	return string(n)
 }
 
 type RsrcPermissionScope struct {
@@ -106,11 +111,11 @@ type RsrcPermissionScope struct {
 }
 
 type UserRolePermissionTemplate struct {
-	ID                  UserRole                                    `json:"id"`
+	ID                  UserRoleID                                  `json:"id"`
 	Default             bool                                        `json:"default"`
 	DenyDashboardAccess bool                                        `json:"deny_dashboard_access"`
 	FullAccess          bool                                        `json:"full_access"`
-	NetworkID           string                                      `json:"network_id"`
+	NetworkID           NetworkID                                   `json:"network_id"`
 	NetworkLevelAccess  map[RsrcType]map[RsrcID]RsrcPermissionScope `json:"network_level_access"`
 	GlobalLevelAccess   map[RsrcType]map[RsrcID]RsrcPermissionScope `json:"global_level_access"`
 }
@@ -121,23 +126,23 @@ type CreateGroupReq struct {
 }
 
 type UserGroup struct {
-	ID           UserGroupID                         `json:"id"`
-	NetworkRoles map[NetworkID]map[UserRole]struct{} `json:"network_roles"`
-	MetaData     string                              `json:"meta_data"`
+	ID           UserGroupID                           `json:"id"`
+	NetworkRoles map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
+	MetaData     string                                `json:"meta_data"`
 }
 
 // User struct - struct for Users
 type User struct {
-	UserName       string                              `json:"username" bson:"username" validate:"min=3,max=40,in_charset|email"`
-	Password       string                              `json:"password" bson:"password" validate:"required,min=5"`
-	IsAdmin        bool                                `json:"isadmin" bson:"isadmin"` // deprecated
-	IsSuperAdmin   bool                                `json:"issuperadmin"`           // deprecated
-	RemoteGwIDs    map[string]struct{}                 `json:"remote_gw_ids"`          // deprecated
-	AuthType       AuthType                            `json:"auth_type"`
-	UserGroups     map[UserGroupID]struct{}            `json:"user_group_ids"`
-	PlatformRoleID UserRole                            `json:"platform_role_id"`
-	NetworkRoles   map[NetworkID]map[UserRole]struct{} `json:"network_roles"`
-	LastLoginTime  time.Time                           `json:"last_login_time"`
+	UserName       string                                `json:"username" bson:"username" validate:"min=3,max=40,in_charset|email"`
+	Password       string                                `json:"password" bson:"password" validate:"required,min=5"`
+	IsAdmin        bool                                  `json:"isadmin" bson:"isadmin"` // deprecated
+	IsSuperAdmin   bool                                  `json:"issuperadmin"`           // deprecated
+	RemoteGwIDs    map[string]struct{}                   `json:"remote_gw_ids"`          // deprecated
+	AuthType       AuthType                              `json:"auth_type"`
+	UserGroups     map[UserGroupID]struct{}              `json:"user_group_ids"`
+	PlatformRoleID UserRoleID                            `json:"platform_role_id"`
+	NetworkRoles   map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
+	LastLoginTime  time.Time                             `json:"last_login_time"`
 }
 
 type ReturnUserWithRolesAndGroups struct {
@@ -147,15 +152,15 @@ type ReturnUserWithRolesAndGroups struct {
 
 // ReturnUser - return user struct
 type ReturnUser struct {
-	UserName       string                              `json:"username"`
-	IsAdmin        bool                                `json:"isadmin"`
-	IsSuperAdmin   bool                                `json:"issuperadmin"`
-	AuthType       AuthType                            `json:"auth_type"`
-	RemoteGwIDs    map[string]struct{}                 `json:"remote_gw_ids"` // deprecated
-	UserGroups     map[UserGroupID]struct{}            `json:"user_group_ids"`
-	PlatformRoleID UserRole                            `json:"platform_role_id"`
-	NetworkRoles   map[NetworkID]map[UserRole]struct{} `json:"network_roles"`
-	LastLoginTime  time.Time                           `json:"last_login_time"`
+	UserName       string                                `json:"username"`
+	IsAdmin        bool                                  `json:"isadmin"`
+	IsSuperAdmin   bool                                  `json:"issuperadmin"`
+	AuthType       AuthType                              `json:"auth_type"`
+	RemoteGwIDs    map[string]struct{}                   `json:"remote_gw_ids"` // deprecated
+	UserGroups     map[UserGroupID]struct{}              `json:"user_group_ids"`
+	PlatformRoleID UserRoleID                            `json:"platform_role_id"`
+	NetworkRoles   map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
+	LastLoginTime  time.Time                             `json:"last_login_time"`
 }
 
 // UserAuthParams - user auth params struct
@@ -166,22 +171,24 @@ type UserAuthParams struct {
 
 // UserClaims - user claims struct
 type UserClaims struct {
-	Role     UserRole
+	Role     UserRoleID
 	UserName string
 	jwt.RegisteredClaims
 }
 
 type InviteUsersReq struct {
-	UserEmails     []string `json:"user_emails"`
-	PlatformRoleID string   `json:"platform_role_id"`
-	Groups         []UserGroupID
+	UserEmails     []string                              `json:"user_emails"`
+	PlatformRoleID string                                `json:"platform_role_id"`
+	UserGroups     map[UserGroupID]struct{}              `json:"user_group_ids"`
+	NetworkRoles   map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
 }
 
 // UserInvite - model for user invite
 type UserInvite struct {
-	Email          string        `json:"email"`
-	PlatformRoleID string        `json:"platform_role_id"`
-	Groups         []UserGroupID `json:"groups"`
-	InviteCode     string        `json:"invite_code"`
-	InviteURL      string        `json:"invite_url"`
+	Email          string                                `json:"email"`
+	PlatformRoleID string                                `json:"platform_role_id"`
+	UserGroups     map[UserGroupID]struct{}              `json:"user_group_ids"`
+	NetworkRoles   map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
+	InviteCode     string                                `json:"invite_code"`
+	InviteURL      string                                `json:"invite_url"`
 }

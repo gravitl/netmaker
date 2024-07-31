@@ -324,7 +324,7 @@ func syncUsers() {
 					if err == nil {
 						logic.CreateRole(models.UserRolePermissionTemplate{
 							ID:        models.GetRAGRoleName(networkNodeI.Network, h.Name),
-							NetworkID: netI.NetID,
+							NetworkID: models.NetworkID(netI.NetID),
 							NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
 								models.RemoteAccessGwRsrc: {
 									models.RsrcID(networkNodeI.ID.String()): models.RsrcPermissionScope{
@@ -361,7 +361,7 @@ func syncUsers() {
 				user.AuthType = models.OAuth
 			}
 			if len(user.NetworkRoles) == 0 {
-				user.NetworkRoles = make(map[models.NetworkID]map[models.UserRole]struct{})
+				user.NetworkRoles = make(map[models.NetworkID]map[models.UserRoleID]struct{})
 			}
 			if len(user.UserGroups) == 0 {
 				user.UserGroups = make(map[models.UserGroupID]struct{})
@@ -394,7 +394,7 @@ func syncUsers() {
 					if netRoles, ok := user.NetworkRoles[models.NetworkID(gwNode.Network)]; ok {
 						netRoles[r.ID] = struct{}{}
 					} else {
-						user.NetworkRoles[models.NetworkID(gwNode.Network)] = map[models.UserRole]struct{}{
+						user.NetworkRoles[models.NetworkID(gwNode.Network)] = map[models.UserRoleID]struct{}{
 							r.ID: {},
 						}
 					}

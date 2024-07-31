@@ -393,10 +393,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if err = logic.IsGroupsValid(user.UserGroups); err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
+
 	if user.PlatformRoleID == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("platform role is missing"), "badrequest"))
 		return

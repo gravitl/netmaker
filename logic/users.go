@@ -55,6 +55,12 @@ func SetUserDefaults(user *models.User) {
 	if user.RemoteGwIDs == nil {
 		user.RemoteGwIDs = make(map[string]struct{})
 	}
+	if len(user.NetworkRoles) == 0 {
+		user.NetworkRoles = make(map[models.NetworkID]map[models.UserRoleID]struct{})
+	}
+	if len(user.UserGroups) == 0 {
+		user.UserGroups = make(map[models.UserGroupID]struct{})
+	}
 }
 
 // SortUsers - Sorts slice of Users by username

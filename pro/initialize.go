@@ -127,6 +127,7 @@ func InitPro() {
 	logic.CreateDefaultNetworkRoles = proLogic.CreateDefaultNetworkRoles
 	logic.FilterNetworksByRole = proLogic.FilterNetworksByRole
 	logic.IsGroupsValid = proLogic.IsGroupsValid
+	logic.IsNetworkRolesValid = proLogic.IsNetworkRolesValid
 	logic.RemoveNetworkRoleFromUsers = proLogic.RemoveNetworkRoleFromUsers
 	logic.InitialiseRoles = proLogic.UserRolesInit
 }
