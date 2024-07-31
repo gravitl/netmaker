@@ -111,14 +111,14 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 					Password: newPass,
 				}
 				for _, inviteGroupID := range in.Groups {
-					userG, err := proLogic.GetUserGroup(inviteGroupID)
+					_, err := proLogic.GetUserGroup(inviteGroupID)
 					if err != nil {
 						logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("error fetching group id "+inviteGroupID.String()), "badrequest"))
 						return
 					}
-					user.PlatformRoleID = userG.PlatformRole
 					user.UserGroups[inviteGroupID] = struct{}{}
 				}
+				user.PlatformRoleID = models.UserRole(in.PlatformRoleID)
 				if user.PlatformRoleID == "" {
 					user.PlatformRoleID = models.ServiceUser
 				}

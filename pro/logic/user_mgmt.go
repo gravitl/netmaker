@@ -243,15 +243,7 @@ func DeleteRole(rid models.UserRole) error {
 }
 
 func ValidateCreateGroupReq(g models.UserGroup) error {
-	// check platform role is valid
-	role, err := logic.GetRole(g.PlatformRole)
-	if err != nil {
-		err = fmt.Errorf("invalid platform role")
-		return err
-	}
-	if role.NetworkID != "" {
-		return errors.New("network role cannot be used as platform role")
-	}
+
 	// check if network roles are valid
 	for _, roleMap := range g.NetworkRoles {
 		for roleID := range roleMap {
@@ -267,15 +259,7 @@ func ValidateCreateGroupReq(g models.UserGroup) error {
 	return nil
 }
 func ValidateUpdateGroupReq(g models.UserGroup) error {
-	// check platform role is valid
-	role, err := logic.GetRole(g.PlatformRole)
-	if err != nil {
-		err = fmt.Errorf("invalid platform role")
-		return err
-	}
-	if role.NetworkID != "" {
-		return errors.New("network role cannot be used as platform role")
-	}
+
 	for networkID := range g.NetworkRoles {
 		userRolesMap := g.NetworkRoles[networkID]
 		for roleID := range userRolesMap {
@@ -585,17 +569,12 @@ func FilterNetworksByRole(allnetworks []models.Network, user models.User) []mode
 }
 
 func IsGroupsValid(groups map[models.UserGroupID]struct{}) error {
-	uniqueGroupsPlatformRole := make(map[models.UserRole]struct{})
+
 	for groupID := range groups {
-		userG, err := GetUserGroup(groupID)
+		_, err := GetUserGroup(groupID)
 		if err != nil {
 			return err
 		}
-		uniqueGroupsPlatformRole[userG.PlatformRole] = struct{}{}
-	}
-	if len(uniqueGroupsPlatformRole) > 1 {
-
-		return errors.New("only groups with same platform role can be assigned to an user")
 	}
 	return nil
 }

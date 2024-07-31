@@ -105,15 +105,14 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, inviteGroupID := range in.Groups {
-		userG, err := proLogic.GetUserGroup(inviteGroupID)
+		_, err := proLogic.GetUserGroup(inviteGroupID)
 		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("error fetching group id "+inviteGroupID.String()), "badrequest"))
-			return
+			continue
 		}
-		user.PlatformRoleID = userG.PlatformRole
 		user.UserGroups = make(map[models.UserGroupID]struct{})
 		user.UserGroups[inviteGroupID] = struct{}{}
 	}
+	user.PlatformRoleID = models.UserRole(in.PlatformRoleID)
 	if user.PlatformRoleID == "" {
 		user.PlatformRoleID = models.ServiceUser
 	}
@@ -171,19 +170,13 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	//validate Req
-	uniqueGroupsPlatformRole := make(map[models.UserRole]struct{})
 	for _, groupID := range inviteReq.Groups {
-		userG, err := proLogic.GetUserGroup(groupID)
+		_, err := proLogic.GetUserGroup(groupID)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
-		uniqueGroupsPlatformRole[userG.PlatformRole] = struct{}{}
-	}
-	if len(uniqueGroupsPlatformRole) > 1 {
-		err = errors.New("only groups with same platform role can be assigned to an user")
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
+
 	}
 
 	for _, inviteeEmail := range inviteReq.UserEmails {

@@ -397,6 +397,10 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if user.PlatformRoleID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("platform role is missing"), "badrequest"))
+		return
+	}
 	userRole, err := logic.GetRole(user.PlatformRoleID)
 	if err != nil {
 		err = errors.New("error fetching role " + user.PlatformRoleID.String() + " " + err.Error())

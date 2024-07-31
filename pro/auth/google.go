@@ -106,16 +106,16 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 				}
 				logger.Log(0, "CALLBACK ----> 4.1")
 				for _, inviteGroupID := range in.Groups {
-					userG, err := proLogic.GetUserGroup(inviteGroupID)
+					_, err := proLogic.GetUserGroup(inviteGroupID)
 					if err != nil {
 						logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("error fetching group id "+inviteGroupID.String()), "badrequest"))
 						return
 					}
-					user.PlatformRoleID = userG.PlatformRole
 					user.UserGroups = make(map[models.UserGroupID]struct{})
 					user.UserGroups[inviteGroupID] = struct{}{}
 				}
 				logger.Log(0, "CALLBACK ----> 5")
+				user.PlatformRoleID = models.UserRole(in.PlatformRoleID)
 				if user.PlatformRoleID == "" {
 					user.PlatformRoleID = models.ServiceUser
 				}
