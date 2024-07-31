@@ -143,7 +143,7 @@ type User struct {
 
 type ReturnUserWithRolesAndGroups struct {
 	ReturnUser
-	PlatformRole UserRolePermissionTemplate
+	PlatformRole UserRolePermissionTemplate `json:"platform_role"`
 }
 
 // ReturnUser - return user struct
