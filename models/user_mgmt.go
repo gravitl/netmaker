@@ -12,6 +12,12 @@ type RsrcType string
 type RsrcID string
 type UserRole string
 type UserGroupID string
+type AuthType string
+
+var (
+	BasicAuth AuthType = "basic_auth"
+	OAuth     AuthType = "oauth"
+)
 
 func (r RsrcType) String() string {
 	return string(r)
@@ -128,6 +134,7 @@ type User struct {
 	IsAdmin        bool                                `json:"isadmin" bson:"isadmin"` // deprecated
 	IsSuperAdmin   bool                                `json:"issuperadmin"`           // deprecated
 	RemoteGwIDs    map[string]struct{}                 `json:"remote_gw_ids"`          // deprecated
+	AuthType       AuthType                            `json:"auth_type"`
 	UserGroups     map[UserGroupID]struct{}            `json:"user_group_ids"`
 	PlatformRoleID UserRole                            `json:"platform_role_id"`
 	NetworkRoles   map[NetworkID]map[UserRole]struct{} `json:"network_roles"`
@@ -144,6 +151,7 @@ type ReturnUser struct {
 	UserName       string                              `json:"username"`
 	IsAdmin        bool                                `json:"isadmin"`
 	IsSuperAdmin   bool                                `json:"issuperadmin"`
+	AuthType       AuthType                            `json:"auth_type"`
 	RemoteGwIDs    map[string]struct{}                 `json:"remote_gw_ids"` // deprecated
 	UserGroups     map[UserGroupID]struct{}            `json:"user_group_ids"`
 	PlatformRoleID UserRole                            `json:"platform_role_id"`

@@ -22,6 +22,7 @@ import (
 func InitPro() {
 	servercfg.IsPro = true
 	models.SetLogo(retrieveProLogo())
+	proLogic.UserRolesInit()
 	controller.HttpMiddlewares = append(
 		controller.HttpMiddlewares,
 		proControllers.OnlyServerAPIWhenUnlicensedMiddleware,
@@ -119,6 +120,15 @@ func InitPro() {
 	logic.GetAllowedIpForInetNodeClient = proLogic.GetAllowedIpForInetNodeClient
 	mq.UpdateMetrics = proLogic.MQUpdateMetrics
 	mq.UpdateMetricsFallBack = proLogic.MQUpdateMetricsFallBack
+	logic.GetFilteredNodesByUserAccess = proLogic.GetFilteredNodesByUserAccess
+	logic.CreateRole = proLogic.CreateRole
+	logic.NetworkPermissionsCheck = proLogic.NetworkPermissionsCheck
+	logic.GlobalPermissionsCheck = proLogic.GlobalPermissionsCheck
+	logic.DeleteNetworkRoles = proLogic.DeleteNetworkRoles
+	logic.CreateDefaultNetworkRoles = proLogic.CreateDefaultNetworkRoles
+	logic.FilterNetworksByRole = proLogic.FilterNetworksByRole
+	logic.IsGroupsValid = proLogic.IsGroupsValid
+	logic.RemoveNetworkRoleFromUsers = proLogic.RemoveNetworkRoleFromUsers
 }
 
 func retrieveProLogo() string {
