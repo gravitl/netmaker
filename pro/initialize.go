@@ -124,7 +124,7 @@ func InitPro() {
 	logic.NetworkPermissionsCheck = proLogic.NetworkPermissionsCheck
 	logic.GlobalPermissionsCheck = proLogic.GlobalPermissionsCheck
 	logic.DeleteNetworkRoles = proLogic.DeleteNetworkRoles
-	logic.CreateDefaultNetworkRoles = proLogic.CreateDefaultNetworkRoles
+	logic.CreateDefaultNetworkRolesAndGroups = proLogic.CreateDefaultNetworkRolesAndGroups
 	logic.FilterNetworksByRole = proLogic.FilterNetworksByRole
 	logic.IsGroupsValid = proLogic.IsGroupsValid
 	logic.IsNetworkRolesValid = proLogic.IsNetworkRolesValid

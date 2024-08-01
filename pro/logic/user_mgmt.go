@@ -72,20 +72,20 @@ func UserRolesInit() {
 
 }
 
-func CreateDefaultNetworkRoles(netID string) {
+func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 	var NetworkAdminPermissionTemplate = models.UserRolePermissionTemplate{
-		ID:                 models.UserRoleID(fmt.Sprintf("%s_%s", netID, models.NetworkAdmin)),
+		ID:                 models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkAdmin)),
 		Default:            false,
-		NetworkID:          models.NetworkID(netID),
+		NetworkID:          netID,
 		FullAccess:         true,
 		NetworkLevelAccess: make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope),
 	}
 
 	var NetworkUserPermissionTemplate = models.UserRolePermissionTemplate{
-		ID:                  models.UserRoleID(fmt.Sprintf("%s_%s", netID, models.NetworkUser)),
+		ID:                  models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkUser)),
 		Default:             false,
 		FullAccess:          false,
-		NetworkID:           models.NetworkID(netID),
+		NetworkID:           netID,
 		DenyDashboardAccess: false,
 		NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
 			models.RemoteAccessGwRsrc: {
@@ -109,6 +109,30 @@ func CreateDefaultNetworkRoles(netID string) {
 	database.Insert(NetworkAdminPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
 	d, _ = json.Marshal(NetworkUserPermissionTemplate)
 	database.Insert(NetworkUserPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
+
+	// create default network groups
+	var NetworkAdminGroup = models.UserGroup{
+		ID: models.UserGroupID(fmt.Sprintf("%s-%s-grp", netID, models.NetworkAdmin)),
+		NetworkRoles: map[models.NetworkID]map[models.UserRoleID]struct{}{
+			netID: {
+				models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkAdmin)): {},
+			},
+		},
+		MetaData: "The network role was automatically created by Netmaker.",
+	}
+	var NetworkUserGroup = models.UserGroup{
+		ID: models.UserGroupID(fmt.Sprintf("%s-%s-grp", netID, models.NetworkUser)),
+		NetworkRoles: map[models.NetworkID]map[models.UserRoleID]struct{}{
+			netID: {
+				models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkUser)): {},
+			},
+		},
+		MetaData: "The network role was automatically created by Netmaker.",
+	}
+	d, _ = json.Marshal(NetworkAdminGroup)
+	database.Insert(NetworkAdminGroup.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
+	d, _ = json.Marshal(NetworkUserGroup)
+	database.Insert(NetworkUserGroup.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
 }
 
 func DeleteNetworkRoles(netID string) {

@@ -174,6 +174,12 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// check platform role
+	_, err = logic.GetRole(models.UserRoleID(inviteReq.PlatformRoleID))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	for _, inviteeEmail := range inviteReq.UserEmails {
 		// check if user with email exists, then ignore
 		_, err := logic.GetUser(inviteeEmail)
@@ -182,10 +188,11 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		invite := models.UserInvite{
-			Email:        inviteeEmail,
-			UserGroups:   inviteReq.UserGroups,
-			NetworkRoles: inviteReq.NetworkRoles,
-			InviteCode:   logic.RandomString(8),
+			Email:          inviteeEmail,
+			PlatformRoleID: inviteReq.PlatformRoleID,
+			UserGroups:     inviteReq.UserGroups,
+			NetworkRoles:   inviteReq.NetworkRoles,
+			InviteCode:     logic.RandomString(8),
 		}
 		u, err := url.Parse(fmt.Sprintf("%s/invite?email=%s&invite_code=%s",
 			servercfg.GetFrontendURL(), url.QueryEscape(invite.Email), url.QueryEscape(invite.InviteCode)))

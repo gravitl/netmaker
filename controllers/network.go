@@ -473,7 +473,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	logic.CreateDefaultNetworkRoles(network.NetID)
+	logic.CreateDefaultNetworkRolesAndGroups(models.NetworkID(network.NetID))
 	go func() {
 		defaultHosts := logic.GetDefaultHosts()
 		for i := range defaultHosts {

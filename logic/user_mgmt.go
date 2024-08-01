@@ -42,7 +42,7 @@ var RemoveNetworkRoleFromUsers = func(host models.Host, node models.Node) {}
 
 var InitialiseRoles = userRolesInit
 var DeleteNetworkRoles = func(netID string) {}
-var CreateDefaultNetworkRoles = func(netID string) {}
+var CreateDefaultNetworkRolesAndGroups = func(netID models.NetworkID) {}
 
 // GetRole - fetches role template by id
 func GetRole(roleID models.UserRoleID) (models.UserRolePermissionTemplate, error) {
