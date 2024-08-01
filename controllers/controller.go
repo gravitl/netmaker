@@ -43,9 +43,19 @@ func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context) {
 
 	// Currently allowed dev origin is all. Should change in prod
 	// should consider analyzing the allowed methods further
-	headersOk := handlers.AllowedHeaders([]string{"Access-Control-Allow-Origin", "X-Requested-With", "Content-Type", "authorization", "From-Ui"})
+	headersOk := handlers.AllowedHeaders(
+		[]string{
+			"Access-Control-Allow-Origin",
+			"X-Requested-With",
+			"Content-Type",
+			"authorization",
+			"From-Ui",
+		},
+	)
 	originsOk := handlers.AllowedOrigins(strings.Split(servercfg.GetAllowedOrigin(), ","))
-	methodsOk := handlers.AllowedMethods([]string{http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete})
+	methodsOk := handlers.AllowedMethods(
+		[]string{http.MethodGet, http.MethodPut, http.MethodPost, http.MethodDelete},
+	)
 
 	for _, middleware := range HttpMiddlewares {
 		r.Use(middleware)
@@ -55,9 +65,14 @@ func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context) {
 		handler.(func(*mux.Router))(r)
 	}
 
+	r.PathPrefix("/docs/").Handler(http.StripPrefix("/docs/", http.FileServer(http.Dir("./docs"))))
+
 	port := servercfg.GetAPIPort()
 
-	srv := &http.Server{Addr: ":" + port, Handler: handlers.CORS(originsOk, headersOk, methodsOk)(r)}
+	srv := &http.Server{
+		Addr:    ":" + port,
+		Handler: handlers.CORS(originsOk, headersOk, methodsOk)(r),
+	}
 	go func() {
 		err := srv.ListenAndServe()
 		if err != nil {

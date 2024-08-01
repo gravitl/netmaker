@@ -1,0 +1,167 @@
+definitions:
+  models.ApiNode:
+    properties:
+      additional_rag_ips:
+        items:
+          type: string
+        type: array
+      address:
+        type: string
+      address6:
+        type: string
+      allowedips:
+        items:
+          type: string
+        type: array
+      connected:
+        type: boolean
+      defaultacl:
+        description: == PRO ==
+        type: string
+      dnson:
+        type: boolean
+      egressgatewaynatenabled:
+        type: boolean
+      egressgatewayranges:
+        items:
+          type: string
+        type: array
+      expdatetime:
+        type: integer
+      fail_over_peers:
+        additionalProperties:
+          type: object
+        type: object
+      failed_over_by:
+        type: string
+      hostid:
+        minLength: 5
+        type: string
+      id:
+        minLength: 5
+        type: string
+      inet_node_req:
+        $ref: '#/definitions/models.InetNodeReq'
+      ingressdns:
+        type: string
+      internetgw_node_id:
+        type: string
+      is_fail_over:
+        type: boolean
+      isegressgateway:
+        type: boolean
+      isingressgateway:
+        type: boolean
+      isinternetgateway:
+        type: boolean
+      isrelay:
+        type: boolean
+      isrelayed:
+        type: boolean
+      lastcheckin:
+        type: integer
+      lastmodified:
+        type: integer
+      lastpeerupdate:
+        type: integer
+      localaddress:
+        type: string
+      metadata:
+        type: string
+      network:
+        type: string
+      networkrange:
+        type: string
+      networkrange6:
+        type: string
+      pendingdelete:
+        type: boolean
+      relayedby:
+        type: string
+      relaynodes:
+        items:
+          type: string
+        type: array
+      server:
+        type: string
+    required:
+    - hostid
+    - id
+    type: object
+  models.AuthParams:
+    properties:
+      id:
+        type: string
+      macaddress:
+        type: string
+      password:
+        type: string
+    type: object
+  models.ErrorResponse:
+    properties:
+      code:
+        type: integer
+      message:
+        type: string
+    type: object
+  models.InetNodeReq:
+    properties:
+      inet_node_client_ids:
+        items:
+          type: string
+        type: array
+    type: object
+  models.SuccessResponse:
+    properties:
+      code:
+        type: integer
+      message:
+        type: string
+      response: {}
+    type: object
+info:
+  contact: {}
+  description: NetMaker API Docs
+  title: NetMaker
+  version: 0.24.3
+paths:
+  /api/nodes:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.ApiNode'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Get all nodes across all networks
+      tags:
+      - Nodes
+  /api/nodes/adm/{network}/authenticate:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Authentication parameters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.AuthParams'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Authenticate to make further API calls related to a network
+      tags:
+      - Auth
+swagger: "2.0"

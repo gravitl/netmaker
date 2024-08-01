@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+
+<head>
+    <title>NetMaker API Reference</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+</head>
+
+<body>
+    <style>
+        :root {
+            --scalar-custom-header-height: 50px;
+        }
+
+        .custom-header {
+            height: var(--scalar-custom-header-height);
+            background-color: var(--scalar-background-1);
+            box-shadow: inset 0 -1px 0 var(--scalar-border-color);
+            color: var(--scalar-color-1);
+            font-size: var(--scalar-font-size-2);
+            padding: 0 18px;
+            position: sticky;
+            justify-content: space-between;
+            top: 0;
+            z-index: 100;
+        }
+
+        a {
+            text-decoration: none;
+
+        }
+
+        .custom-header,
+        .custom-header nav {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .custom-header a:hover {
+            color: var(--scalar-color-2);
+        }
+    </style>
+
+    <header class="custom-header scalar-app">
+        <p>NetMaker API Docs</p>
+        <nav>
+            <a href="https://github.com/gravitl/netmaker">GitHub</a>
+            <a href="https://x.com/netmaker_io">Twitter</a>
+            <a href="https://discord.gg/zRb9Vfhk8A">Discord</a>
+        </nav>
+    </header>
+    <script id="api-reference" data-url="/docs/swagger.yaml"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+</body>
+
+</html>
