@@ -576,7 +576,13 @@ func GetFilteredNodesByUserAccess(user models.User, nodes []models.Node) (filter
 		if err != nil {
 			continue
 		}
-		networkNodes := logic.GetNetworkNodesMemory(nodes, userPermTemplate.NetworkID.String())
+		var networkNodes []models.Node
+		if userPermTemplate.NetworkID == models.AllNetworks {
+			networkNodes = nodes
+		} else {
+			networkNodes = logic.GetNetworkNodesMemory(nodes, userPermTemplate.NetworkID.String())
+		}
+
 		if userPermTemplate.FullAccess {
 			for _, node := range networkNodes {
 				nodesMap[node.ID.String()] = struct{}{}

@@ -33,6 +33,9 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if strings.Contains(r.URL.Path, "ingress") {
 			r.Header.Set("TARGET_RSRC", models.RemoteAccessGwRsrc.String())
 		}
+		if strings.Contains(r.URL.Path, "createrelay") || strings.Contains(r.URL.Path, "deleterelay") {
+			r.Header.Set("TARGET_RSRC", models.RelayRsrc.String())
+		}
 		if strings.Contains(r.URL.Path, "gateway") {
 			r.Header.Set("TARGET_RSRC", models.EgressGwRsrc.String())
 		}

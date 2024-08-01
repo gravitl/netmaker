@@ -47,7 +47,7 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 	// check for global network role
 	if netRoles, ok := user.NetworkRoles[models.AllNetworks]; ok {
 		for netRoleID := range netRoles {
-			err = checkNetworkAccessPermissions(netRoleID, username, r.Method, targetRsrc, targetRsrcID)
+			err = checkNetworkAccessPermissions(netRoleID, username, r.Method, targetRsrc, targetRsrcID, netID)
 			if err == nil {
 				return nil
 			}
@@ -55,7 +55,7 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 	}
 	netRoles := user.NetworkRoles[models.NetworkID(netID)]
 	for netRoleID := range netRoles {
-		err = checkNetworkAccessPermissions(netRoleID, username, r.Method, targetRsrc, targetRsrcID)
+		err = checkNetworkAccessPermissions(netRoleID, username, r.Method, targetRsrc, targetRsrcID, netID)
 		if err == nil {
 			return nil
 		}
@@ -65,7 +65,7 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 		if err == nil {
 			netRoles := userG.NetworkRoles[models.NetworkID(netID)]
 			for netRoleID := range netRoles {
-				err = checkNetworkAccessPermissions(netRoleID, username, r.Method, targetRsrc, targetRsrcID)
+				err = checkNetworkAccessPermissions(netRoleID, username, r.Method, targetRsrc, targetRsrcID, netID)
 				if err == nil {
 					return nil
 				}
@@ -76,7 +76,7 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 	return errors.New("access denied")
 }
 
-func checkNetworkAccessPermissions(netRoleID models.UserRoleID, username, reqScope, targetRsrc, targetRsrcID string) error {
+func checkNetworkAccessPermissions(netRoleID models.UserRoleID, username, reqScope, targetRsrc, targetRsrcID, netID string) error {
 	networkPermissionScope, err := logic.GetRole(netRoleID)
 	if err != nil {
 		return err
@@ -96,7 +96,7 @@ func checkNetworkAccessPermissions(netRoleID models.UserRoleID, username, reqSco
 	if allRsrcsTypePermissionScope, ok := rsrcPermissionScope[models.RsrcID(fmt.Sprintf("all_%s", targetRsrc))]; ok {
 		// handle extclient apis here
 		if models.RsrcType(targetRsrc) == models.ExtClientsRsrc && allRsrcsTypePermissionScope.SelfOnly && targetRsrcID != "" {
-			extclient, err := logic.GetExtClient(targetRsrcID, networkPermissionScope.NetworkID.String())
+			extclient, err := logic.GetExtClient(targetRsrcID, netID)
 			if err != nil {
 				return err
 			}
