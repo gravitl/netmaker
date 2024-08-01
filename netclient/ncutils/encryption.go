@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"golang.org/x/crypto/nacl/box"
+	"golang.org/x/exp/slog"
 )
 
 const (
@@ -28,8 +29,10 @@ func BoxEncrypt(message []byte, recipientPubKey *[32]byte, senderPrivateKey *[32
 func BoxDecrypt(encrypted []byte, senderPublicKey *[32]byte, recipientPrivateKey *[32]byte) ([]byte, error) {
 	var decryptNonce [24]byte
 	copy(decryptNonce[:], encrypted[:24])
-	decrypted, ok := box.Open(nil, encrypted[24:], &decryptNonce, senderPublicKey, recipientPrivateKey)
+	out := []byte{}
+	decrypted, ok := box.Open(out, encrypted[24:], &decryptNonce, senderPublicKey, recipientPrivateKey)
 	if !ok {
+		slog.Debug("could not decrypt message", "out", out)
 		return nil, fmt.Errorf("could not decrypt message, %v", encrypted)
 	}
 	return decrypted, nil
