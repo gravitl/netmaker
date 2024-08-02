@@ -65,7 +65,7 @@ func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context) {
 		handler.(func(*mux.Router))(r)
 	}
 
-	r.PathPrefix("/docs/").Handler(http.StripPrefix("/docs/", http.FileServer(http.Dir("./docs"))))
+	r.PathPrefix("/docs").Handler(http.StripPrefix("/docs", http.FileServer(http.Dir("./docs"))))
 
 	port := servercfg.GetAPIPort()
 
