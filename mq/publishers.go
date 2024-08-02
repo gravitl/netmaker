@@ -210,12 +210,6 @@ func PushMetricsToExporter(metrics models.Metrics) error {
 
 // sendPeers - retrieve networks, send peer ports to all peers
 func sendPeers() {
-
-	// hosts, err := logic.GetAllHosts()
-	// if err != nil && len(hosts) > 0 {
-	// 	logger.Log(1, "error retrieving networks for keepalive", err.Error())
-	// }
-
 	peer_force_send++
 	if peer_force_send == 5 {
 		servercfg.SetHost()

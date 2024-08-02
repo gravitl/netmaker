@@ -63,6 +63,7 @@ func getEmqxAuthToken() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	defer resp.Body.Close()
 	msg, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err

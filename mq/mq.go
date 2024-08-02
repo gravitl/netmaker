@@ -36,7 +36,6 @@ func setMqOptions(user, password string, opts *mqtt.ClientOptions) {
 	opts.SetCleanSession(true)
 	opts.SetConnectRetryInterval(time.Second * 1)
 	opts.SetKeepAlive(time.Second * 10)
-	opts.SetCleanSession(true)
 	opts.SetWriteTimeout(time.Minute)
 }
 
@@ -131,6 +130,9 @@ func Keepalive(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-time.After(time.Second * KEEPALIVE_TIMEOUT):
+			if mqclient == nil || !mqclient.IsConnectionOpen() {
+				SetupMQTT(false)
+			}
 			sendPeers()
 		}
 	}
