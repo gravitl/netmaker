@@ -81,12 +81,12 @@ const (
 // Pre-Defined User Roles
 
 const (
-	SuperAdminRole UserRoleID = "super_admin"
+	SuperAdminRole UserRoleID = "super-admin"
 	AdminRole      UserRoleID = "admin"
-	ServiceUser    UserRoleID = "service_user"
-	PlatformUser   UserRoleID = "platform_user"
-	NetworkAdmin   UserRoleID = "network_admin"
-	NetworkUser    UserRoleID = "network_user"
+	ServiceUser    UserRoleID = "service-user"
+	PlatformUser   UserRoleID = "platform-user"
+	NetworkAdmin   UserRoleID = "network-admin"
+	NetworkUser    UserRoleID = "network-user"
 )
 
 func (r UserRoleID) String() string {

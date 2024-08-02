@@ -26,14 +26,14 @@ var PlatformUserUserPermissionTemplate = models.UserRolePermissionTemplate{
 }
 
 var NetworkAdminAllPermissionTemplate = models.UserRolePermissionTemplate{
-	ID:         models.UserRoleID(fmt.Sprintf("global_%s", models.NetworkAdmin)),
+	ID:         models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkAdmin)),
 	Default:    true,
 	FullAccess: true,
 	NetworkID:  models.AllNetworks,
 }
 
 var NetworkUserAllPermissionTemplate = models.UserRolePermissionTemplate{
-	ID:         models.UserRoleID(fmt.Sprintf("global_%s", models.NetworkUser)),
+	ID:         models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkUser)),
 	Default:    true,
 	FullAccess: false,
 	NetworkID:  models.AllNetworks,
