@@ -496,6 +496,9 @@ func GetUserNetworkRolesWithRemoteVPNAccess(user models.User) (gwAccess map[mode
 		gwAccess[models.NetworkID("*")] = make(map[models.RsrcID]models.RsrcPermissionScope)
 		return
 	}
+	if _, ok := user.NetworkRoles[models.AllNetworks]; ok {
+		gwAccess[models.NetworkID("*")] = make(map[models.RsrcID]models.RsrcPermissionScope)
+	}
 	logger.Log(0, "------------> 7.2 getUserRemoteAccessGwsV1")
 	for netID, roleMap := range user.NetworkRoles {
 		for roleID := range roleMap {
@@ -557,11 +560,17 @@ func GetFilteredNodesByUserAccess(user models.User, nodes []models.Node) (filter
 			}
 		}
 	}
+	if _, ok := user.NetworkRoles[models.AllNetworks]; ok {
+		return nodes
+	}
 	if len(user.UserGroups) > 0 {
 		for userGID := range user.UserGroups {
 			userG, err := GetUserGroup(userGID)
 			if err == nil {
 				if len(userG.NetworkRoles) > 0 {
+					if _, ok := userG.NetworkRoles[models.AllNetworks]; ok {
+						return nodes
+					}
 					for _, netRoles := range userG.NetworkRoles {
 						for netRoleI := range netRoles {
 							allNetworkRoles = append(allNetworkRoles, netRoleI)
@@ -576,13 +585,7 @@ func GetFilteredNodesByUserAccess(user models.User, nodes []models.Node) (filter
 		if err != nil {
 			continue
 		}
-		var networkNodes []models.Node
-		if userPermTemplate.NetworkID == models.AllNetworks {
-			networkNodes = nodes
-		} else {
-			networkNodes = logic.GetNetworkNodesMemory(nodes, userPermTemplate.NetworkID.String())
-		}
-
+		networkNodes := logic.GetNetworkNodesMemory(nodes, userPermTemplate.NetworkID.String())
 		if userPermTemplate.FullAccess {
 			for _, node := range networkNodes {
 				nodesMap[node.ID.String()] = struct{}{}
@@ -629,6 +632,9 @@ func FilterNetworksByRole(allnetworks []models.Network, user models.User) []mode
 		allNetworkRoles := make(map[models.NetworkID]struct{})
 		if len(user.NetworkRoles) > 0 {
 			for netID := range user.NetworkRoles {
+				if netID == models.AllNetworks {
+					return allnetworks
+				}
 				allNetworkRoles[netID] = struct{}{}
 
 			}
@@ -639,6 +645,9 @@ func FilterNetworksByRole(allnetworks []models.Network, user models.User) []mode
 				if err == nil {
 					if len(userG.NetworkRoles) > 0 {
 						for netID := range userG.NetworkRoles {
+							if netID == models.AllNetworks {
+								return allnetworks
+							}
 							allNetworkRoles[netID] = struct{}{}
 
 						}
