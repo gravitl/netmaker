@@ -205,7 +205,7 @@ func ListPlatformRoles() ([]models.UserRolePermissionTemplate, error) {
 	return userRoles, nil
 }
 
-func ValidateCreateRoleReq(userRole models.UserRolePermissionTemplate) error {
+func ValidateCreateRoleReq(userRole *models.UserRolePermissionTemplate) error {
 	// check if role exists with this id
 	_, err := logic.GetRole(userRole.ID)
 	if err == nil {
@@ -216,6 +216,29 @@ func ValidateCreateRoleReq(userRole models.UserRolePermissionTemplate) error {
 			if _, ok := models.RsrcTypeMap[rsrcType]; !ok {
 				return errors.New("invalid rsrc type " + rsrcType.String())
 			}
+			if rsrcType == models.RemoteAccessGwRsrc {
+				userRsrcPermissions := userRole.NetworkLevelAccess[models.RemoteAccessGwRsrc]
+				var vpnAccess bool
+				for _, scope := range userRsrcPermissions {
+					if scope.VPNaccess {
+						vpnAccess = true
+						break
+					}
+				}
+				if vpnAccess {
+					userRole.NetworkLevelAccess[models.ExtClientsRsrc] = map[models.RsrcID]models.RsrcPermissionScope{
+						models.AllExtClientsRsrcID: {
+							Read:     true,
+							Create:   true,
+							Update:   true,
+							Delete:   true,
+							SelfOnly: true,
+						},
+					}
+
+				}
+
+			}
 		}
 	}
 	if userRole.NetworkID == "" {
@@ -224,7 +247,7 @@ func ValidateCreateRoleReq(userRole models.UserRolePermissionTemplate) error {
 	return nil
 }
 
-func ValidateUpdateRoleReq(userRole models.UserRolePermissionTemplate) error {
+func ValidateUpdateRoleReq(userRole *models.UserRolePermissionTemplate) error {
 	roleInDB, err := logic.GetRole(userRole.ID)
 	if err != nil {
 		return err
@@ -239,6 +262,29 @@ func ValidateUpdateRoleReq(userRole models.UserRolePermissionTemplate) error {
 		for rsrcType := range userRole.NetworkLevelAccess {
 			if _, ok := models.RsrcTypeMap[rsrcType]; !ok {
 				return errors.New("invalid rsrc type " + rsrcType.String())
+			}
+			if rsrcType == models.RemoteAccessGwRsrc {
+				userRsrcPermissions := userRole.NetworkLevelAccess[models.RemoteAccessGwRsrc]
+				var vpnAccess bool
+				for _, scope := range userRsrcPermissions {
+					if scope.VPNaccess {
+						vpnAccess = true
+						break
+					}
+				}
+				if vpnAccess {
+					userRole.NetworkLevelAccess[models.ExtClientsRsrc] = map[models.RsrcID]models.RsrcPermissionScope{
+						models.AllExtClientsRsrcID: {
+							Read:     true,
+							Create:   true,
+							Update:   true,
+							Delete:   true,
+							SelfOnly: true,
+						},
+					}
+
+				}
+
 			}
 		}
 	}

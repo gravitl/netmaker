@@ -524,7 +524,7 @@ func createRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = proLogic.ValidateCreateRoleReq(userRole)
+	err = proLogic.ValidateCreateRoleReq(&userRole)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -559,7 +559,7 @@ func updateRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = proLogic.ValidateUpdateRoleReq(userRole)
+	err = proLogic.ValidateUpdateRoleReq(&userRole)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
