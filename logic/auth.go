@@ -274,6 +274,12 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 
 		user.Password = userchange.Password
 	}
+	if err := IsGroupsValid(userchange.UserGroups); err != nil {
+		return userchange, errors.New("invalid groups: " + err.Error())
+	}
+	if err := IsNetworkRolesValid(userchange.NetworkRoles); err != nil {
+		return userchange, errors.New("invalid network roles: " + err.Error())
+	}
 	user.PlatformRoleID = userchange.PlatformRoleID
 	user.UserGroups = userchange.UserGroups
 	user.NetworkRoles = userchange.NetworkRoles
