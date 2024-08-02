@@ -679,10 +679,15 @@ func IsGroupsValid(groups map[models.UserGroupID]struct{}) error {
 
 func IsNetworkRolesValid(networkRoles map[models.NetworkID]map[models.UserRoleID]struct{}) error {
 	for netID, netRoles := range networkRoles {
+
 		if netID != models.AllNetworks {
 			_, err := logic.GetNetwork(netID.String())
 			if err != nil {
 				return fmt.Errorf("failed to fetch network %s ", netID)
+			}
+			if len(netRoles) == 0 {
+				delete(networkRoles, netID)
+				continue
 			}
 		}
 		for netRoleID := range netRoles {
