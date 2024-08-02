@@ -75,7 +75,7 @@ func UserRolesInit() {
 func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 	var NetworkAdminPermissionTemplate = models.UserRolePermissionTemplate{
 		ID:                 models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkAdmin)),
-		Default:            false,
+		Default:            true,
 		NetworkID:          netID,
 		FullAccess:         true,
 		NetworkLevelAccess: make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope),
@@ -83,7 +83,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 
 	var NetworkUserPermissionTemplate = models.UserRolePermissionTemplate{
 		ID:                  models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkUser)),
-		Default:             false,
+		Default:             true,
 		FullAccess:          false,
 		NetworkID:           netID,
 		DenyDashboardAccess: false,
@@ -670,9 +670,11 @@ func IsGroupsValid(groups map[models.UserGroupID]struct{}) error {
 
 func IsNetworkRolesValid(networkRoles map[models.NetworkID]map[models.UserRoleID]struct{}) error {
 	for netID, netRoles := range networkRoles {
-		_, err := logic.GetNetwork(netID.String())
-		if err != nil {
-			return fmt.Errorf("failed to fetch network %s ", netID)
+		if netID != models.AllNetworks {
+			_, err := logic.GetNetwork(netID.String())
+			if err != nil {
+				return fmt.Errorf("failed to fetch network %s ", netID)
+			}
 		}
 		for netRoleID := range netRoles {
 			role, err := logic.GetRole(netRoleID)
