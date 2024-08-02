@@ -345,11 +345,13 @@ func DeleteRole(rid models.UserRoleID) error {
 			ug, err := GetUserGroup(userG)
 			if err == nil {
 				if role.NetworkID != "" {
-					for _, networkRoles := range ug.NetworkRoles {
+					for netID, networkRoles := range ug.NetworkRoles {
 						if _, ok := networkRoles[rid]; ok {
-							err = errors.New("role cannot be deleted as active user groups are using this role")
-							return err
+							delete(networkRoles, rid)
+							ug.NetworkRoles[netID] = networkRoles
+							UpdateUserGroup(ug)
 						}
+
 					}
 				}
 
@@ -360,10 +362,11 @@ func DeleteRole(rid models.UserRoleID) error {
 			err = errors.New("active roles cannot be deleted.switch existing users to a new role before deleting")
 			return err
 		}
-		for _, networkRoles := range user.NetworkRoles {
+		for netID, networkRoles := range user.NetworkRoles {
 			if _, ok := networkRoles[rid]; ok {
-				err = errors.New("active roles cannot be deleted.switch existing users to a new role before deleting")
-				return err
+				delete(networkRoles, rid)
+				user.NetworkRoles[netID] = networkRoles
+				logic.UpsertUser(user)
 			}
 
 		}
