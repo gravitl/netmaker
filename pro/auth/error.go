@@ -1,60 +1,114 @@
 package auth
 
-import "net/http"
+import (
+	"fmt"
+	"net/http"
 
-// == define error HTML here ==
-const oauthNotConfigured = `<!DOCTYPE html><html>
+	"github.com/gravitl/netmaker/servercfg"
+)
+
+var htmlBaseTemplate = `<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+	<meta http-equiv="X-UA-Compatible" content="ie=edge">
+	<title>Netmaker :: SSO</title>
+	<script type="text/javascript">
+	function redirect()
+    {
+    	window.location.href="` + servercfg.GetFrontendURL() + `";
+    }
+	</script>
+	<style>
+		html,
+		body {
+			margin: 0px;
+			padding: 0px;
+		}
+
+		body {
+			height: 100vh;
+			overflow: hidden;
+			display: flex;
+			flex-flow: column nowrap;
+			justify-content: center;
+			align-items: center;
+		}
+
+		#logo {
+			width: 150px;
+		}
+
+		h3 {
+			margin-bottom: 3rem;
+			color: rgb(25, 135, 84);
+			font-size: xx-large;
+		}
+
+		h4 {
+			margin-bottom: 0px;
+		}
+
+		p {
+			margin-top: 0px;
+			margin-bottom: 0px;
+		}
+		.back-to-login-btn {
+			background: #5E5DF0;
+			border-radius: 999px;
+			box-shadow: #5E5DF0 0 10px 20px -10px;
+			box-sizing: border-box;
+			color: #FFFFFF;
+			cursor: pointer;
+			font-family: Inter,Helvetica,"Apple Color Emoji","Segoe UI Emoji",NotoColorEmoji,"Noto Color Emoji","Segoe UI Symbol","Android Emoji",EmojiSymbols,-apple-system,system-ui,"Segoe UI",Roboto,"Helvetica Neue","Noto Sans",sans-serif;
+			font-size: 16px;
+			font-weight: 700;
+			line-height: 24px;
+			opacity: 1;
+			outline: 0 solid transparent;
+			padding: 8px 18px;
+			user-select: none;
+			-webkit-user-select: none;
+			touch-action: manipulation;
+			width: fit-content;
+			word-break: break-word;
+			border: 0;
+			margin: 20px;
+		  }
+	</style>
+</head>
+
 <body>
-<h3>Your Netmaker server does not have OAuth configured.</h3>
-<p>Please visit the docs <a href="https://docs.netmaker.org/oauth.html" target="_blank" rel="noopener">here</a> to learn how to.</p>
+	<img
+		src="https://raw.githubusercontent.com/gravitl/netmaker-docs/master/images/netmaker-github/netmaker-teal.png"
+		alt="netmaker logo"
+		id="logo"
+	>
+	%s
+	<button class="back-to-login-btn" onClick="redirect()" role="button">Back To Login</button>
+	
 </body>
 </html>`
 
-const oauthStateInvalid = `<!DOCTYPE html><html>
-<body>
-<h3>Invalid OAuth Session. Please re-try again.</h3>
-</body>
-</html>`
+var oauthNotConfigured = fmt.Sprintf(htmlBaseTemplate, `<h2>Your Netmaker server does not have OAuth configured.</h2>
+<p>Please visit the docs <a href="https://docs.netmaker.org/oauth.html" target="_blank" rel="noopener">here</a> to learn how to.</p>`)
 
-const userNotAllowed = `<!DOCTYPE html><html>
-<body>
-<h3>Your account does not have access to the dashboard. Please contact your administrator for more information about your account.</h3>
-<p>Non-Admins can access the netmaker networks using <a href="https://docs.netmaker.io/pro/rac.html" target="_blank" rel="noopener">RemoteAccessClient.</a></p>
-</body>
-</html>
-`
+var oauthStateInvalid = fmt.Sprintf(htmlBaseTemplate, `<h2>Invalid OAuth Session. Please re-try again.</h2>`)
 
-const userFirstTimeSignUp = `<!DOCTYPE html><html>
-<body>
-<h3>Thank you for signing up. Please contact your administrator for access.</h3>
-</body>
-</html>
-`
+var userNotAllowed = fmt.Sprintf(htmlBaseTemplate, `h2>Your account does not have access to the dashboard. Please contact your administrator for more information about your account.</h2>
+<p>Non-Admins can access the netmaker networks using <a href="https://docs.netmaker.io/pro/rac.html" target="_blank" rel="noopener">RemoteAccessClient.</a></p>`)
 
-const userSignUpApprovalPending = `<!DOCTYPE html><html>
-<body>
-<h3>Your account is yet to be approved. Please contact your administrator for access.</h3>
-</body>
-</html>
-`
+var userFirstTimeSignUp = fmt.Sprintf(htmlBaseTemplate, `<h2>Thank you for signing up. Please contact your administrator for access.</h2>`)
 
-const userNotFound = `<!DOCTYPE html><html>
-<body>
-<h3>User Not Found.</h3>
-</body>
-</html>`
+var userSignUpApprovalPending = fmt.Sprintf(htmlBaseTemplate, `<h2>Your account is yet to be approved. Please contact your administrator for access.</h2>`)
 
-const somethingwentwrong = `<!DOCTYPE html><html>
-<body>
-<h3>Something went wrong. Contact Admin.</h3>
-</body>
-</html>`
+var userNotFound = fmt.Sprintf(htmlBaseTemplate, `<h2>User Not Found.</h2>`)
 
-const notallowedtosignup = `<!DOCTYPE html><html>
-<body>
-<h3>Your email is not allowed. Please contact your administrator.</h3>
-</body>
-</html>`
+var somethingwentwrong = fmt.Sprintf(htmlBaseTemplate, `<h2>Something went wrong. Contact Admin.</h2>`)
+
+var notallowedtosignup = fmt.Sprintf(htmlBaseTemplate, `<h2>Your email is not allowed. Please contact your administrator.</h2>`)
 
 func handleOauthUserNotFound(response http.ResponseWriter) {
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
