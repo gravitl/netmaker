@@ -32,15 +32,14 @@ func PublishPeerUpdate(replacePeers bool) error {
 		return err
 	}
 
-	var wg sync.WaitGroup
-	hostLen := len(hosts)
 	if batch == 0 {
 		batch = servercfg.GetPeerUpdateBatchSize()
 	}
-	div := hostLen / batch
-	mod := hostLen % batch
+	batchHost := BatchItems(hosts, batch)
 
-	if div == 0 {
+	var wg sync.WaitGroup
+	for _, v := range batchHost {
+		hostLen := len(v)
 		wg.Add(hostLen)
 		for i := 0; i < hostLen; i++ {
 			host := hosts[i]
@@ -51,41 +50,8 @@ func PublishPeerUpdate(replacePeers bool) error {
 			}(host)
 		}
 		wg.Wait()
-	} else {
-		for i := 0; i < div*batch; i += batch {
-			wg.Add(batch)
-			for j := 0; j < batch; j++ {
-				host := hosts[i+j]
-				go func(host models.Host) {
-					if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, &wg); err != nil {
-						logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
-					}
-				}(host)
-			}
-			wg.Wait()
-		}
-		if mod != 0 {
-			wg.Add(hostLen - (div * batch))
-			for k := div * batch; k < hostLen; k++ {
-				host := hosts[k]
-				go func(host models.Host) {
-					if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, &wg); err != nil {
-						logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
-					}
-				}(host)
-			}
-			wg.Wait()
-		}
 	}
 
-	// for _, host := range hosts {
-	// 	host := host
-	// 	go func(host models.Host) {
-	// 		if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers); err != nil {
-	// 			logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
-	// 		}
-	// 	}(host)
-	// }
 	return err
 }
 
