@@ -33,7 +33,7 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 		username, err := GetUserNameFromToken(bearerToken)
 		if err != nil {
 			logger.Log(0, "next 1", r.URL.String(), err.Error())
-			ReturnErrorResponse(w, r, FormatError(err, err.Error()))
+			ReturnErrorResponse(w, r, FormatError(err, "unauthorized"))
 			return
 		}
 		// detect masteradmin
