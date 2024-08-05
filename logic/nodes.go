@@ -301,6 +301,13 @@ func DeleteNodeByID(node *models.Node) error {
 	if err = DeleteMetrics(node.ID.String()); err != nil {
 		logger.Log(1, "unable to remove metrics from DB for node", node.ID.String(), err.Error())
 	}
+	//recycle ip address
+	if node.Address.IP != nil {
+		ReleaseV4IpForNetwork(node.Network, node.Address.IP)
+	}
+	if node.Address6.IP != nil {
+		ReleaseV6IpForNetwork(node.Network, node.Address6.IP)
+	}
 	return nil
 }
 

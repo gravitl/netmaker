@@ -135,8 +135,6 @@ func ManageZombies(ctx context.Context, peerUpdate chan *models.Node) {
 					}
 				}
 			}
-			//reset the ip pool
-			SetIpPool()
 		}
 	}
 }
