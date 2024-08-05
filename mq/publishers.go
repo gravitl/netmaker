@@ -14,7 +14,7 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-const batchSize = 20
+var batch int
 
 // PublishPeerUpdate --- determines and publishes a peer update to all the hosts
 func PublishPeerUpdate(replacePeers bool) error {
@@ -34,7 +34,9 @@ func PublishPeerUpdate(replacePeers bool) error {
 
 	var wg sync.WaitGroup
 	hostLen := len(hosts)
-	batch := batchSize
+	if batch == 0 {
+		batch = servercfg.GetPeerUpdateBatchSize()
+	}
 	div := hostLen / batch
 	mod := hostLen % batch
 
