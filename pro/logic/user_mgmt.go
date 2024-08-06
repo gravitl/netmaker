@@ -509,7 +509,7 @@ func GetUserRAGNodes(user models.User) (gws map[string]models.Node) {
 	if err != nil {
 		return
 	}
-	logger.Log(0, "------------> 8. getUserRemoteAccessGwsV1")
+	logger.Log(0, fmt.Sprintf("------------> 8. getUserRemoteAccessGwsV1 %+v", allNetAccess))
 	for _, node := range nodes {
 		if node.IsIngressGateway && !node.PendingDelete {
 			if allNetAccess {
@@ -549,6 +549,59 @@ func GetUserNetworkRolesWithRemoteVPNAccess(user models.User) (gwAccess map[mode
 		gwAccess[models.NetworkID("*")] = make(map[models.RsrcID]models.RsrcPermissionScope)
 	}
 	logger.Log(0, "------------> 7.2 getUserRemoteAccessGwsV1")
+	if len(user.UserGroups) > 0 {
+		for gID := range user.UserGroups {
+			userG, err := GetUserGroup(gID)
+			if err != nil {
+				continue
+			}
+			for netID, roleMap := range userG.NetworkRoles {
+				for roleID := range roleMap {
+					role, err := logic.GetRole(roleID)
+					if err == nil {
+						if role.FullAccess {
+							gwAccess[netID] = map[models.RsrcID]models.RsrcPermissionScope{
+								models.AllRemoteAccessGwRsrcID: {
+									Create:    true,
+									Read:      true,
+									Update:    true,
+									VPNaccess: true,
+									Delete:    true,
+								},
+								models.AllExtClientsRsrcID: {
+									Create: true,
+									Read:   true,
+									Update: true,
+									Delete: true,
+								},
+							}
+							break
+						}
+						if rsrcsMap, ok := role.NetworkLevelAccess[models.RemoteAccessGwRsrc]; ok {
+							if permissions, ok := rsrcsMap[models.AllRemoteAccessGwRsrcID]; ok && permissions.VPNaccess {
+								if len(gwAccess[netID]) == 0 {
+									gwAccess[netID] = make(map[models.RsrcID]models.RsrcPermissionScope)
+								}
+								gwAccess[netID][models.AllRemoteAccessGwRsrcID] = permissions
+								break
+							} else {
+								for gwID, scope := range rsrcsMap {
+									if scope.VPNaccess {
+										if len(gwAccess[netID]) == 0 {
+											gwAccess[netID] = make(map[models.RsrcID]models.RsrcPermissionScope)
+										}
+										gwAccess[netID][gwID] = scope
+									}
+								}
+							}
+
+						}
+
+					}
+				}
+			}
+		}
+	}
 	for netID, roleMap := range user.NetworkRoles {
 		for roleID := range roleMap {
 			role, err := logic.GetRole(roleID)
@@ -594,6 +647,7 @@ func GetUserNetworkRolesWithRemoteVPNAccess(user models.User) (gwAccess map[mode
 			}
 		}
 	}
+
 	logger.Log(0, "------------> 7.3 getUserRemoteAccessGwsV1")
 	return
 }
