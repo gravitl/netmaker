@@ -12,7 +12,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          repository: gravitl/netmaker
+          repository: lmnzx/netmaker
           ref: master
 
       - name: Setup Go
@@ -26,11 +26,11 @@ jobs:
       - name: Generating Docs
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
-          swag init --md docs/ --outputTypes yaml
+          swag i --md docs/ --parseDependency  --parseInternal --ot yaml  --parseDepth 1
 
       - name: Update Repo
         run: |
-          git config --local user.name "GitHub Actions"
-          git config --local user.email "actions@github.com"
+          git config --local user.name "Sayan Mallick"
+          git config --local user.email "snyxmk@gmail.com"
           git add docs/
           git diff --quiet && git diff --staged --quiet || (git commit -m "Update documentation $(date)" && git push origin master)
