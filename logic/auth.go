@@ -139,10 +139,7 @@ func CreateUser(user *models.User) error {
 	if err := IsNetworkRolesValid(user.NetworkRoles); err != nil {
 		return errors.New("invalid network roles: " + err.Error())
 	}
-	user.AuthType = models.BasicAuth
-	if IsOauthUser(user) == nil {
-		user.AuthType = models.OAuth
-	}
+
 	var err = ValidateUser(user)
 	if err != nil {
 		logger.Log(0, "failed to validate user", err.Error())
@@ -156,7 +153,10 @@ func CreateUser(user *models.User) error {
 	}
 	// set password to encrypted password
 	user.Password = string(hash)
-
+	user.AuthType = models.BasicAuth
+	if IsOauthUser(user) == nil {
+		user.AuthType = models.OAuth
+	}
 	_, err = CreateUserJWT(user.UserName, user.PlatformRoleID)
 	if err != nil {
 		logger.Log(0, "failed to generate token", err.Error())

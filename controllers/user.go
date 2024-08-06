@@ -90,6 +90,15 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 			return
 		}
 	}
+	user, err := logic.GetUser(authRequest.UserName)
+	if err != nil {
+		logic.ReturnErrorResponse(response, request, logic.FormatError(err, "unauthorized"))
+		return
+	}
+	if logic.IsOauthUser(user) == nil {
+		logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("user is registered via SSO"), "badrequest"))
+		return
+	}
 	username := authRequest.UserName
 	jwt, err := logic.VerifyAuthRequest(authRequest)
 	if err != nil {
