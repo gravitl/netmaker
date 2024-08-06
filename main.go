@@ -29,6 +29,16 @@ import (
 
 var version = "v0.24.3"
 
+//	@title			NetMaker
+//	@version		0.24.3
+//	@description	NetMaker API Docs
+//
+//	@tag.name	APIUsage
+//	@tag.description.markdown
+//
+//	@tag.name	Authentication
+//	@tag.description.markdown
+//
 // Start DB Connection and start API Request Handler
 func main() {
 	absoluteConfigPath := flag.String("c", "", "absolute path to configuration file")
@@ -135,7 +145,10 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 	}
 
 	if !servercfg.IsRestBackend() && !servercfg.IsMessageQueueBackend() {
-		logger.Log(0, "No Server Mode selected, so nothing is being served! Set Rest mode (REST_BACKEND) or MessageQueue (MESSAGEQUEUE_BACKEND) to 'true'.")
+		logger.Log(
+			0,
+			"No Server Mode selected, so nothing is being served! Set Rest mode (REST_BACKEND) or MessageQueue (MESSAGEQUEUE_BACKEND) to 'true'.",
+		)
 	}
 
 	wg.Add(1)
@@ -167,10 +180,21 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 			node.Action = models.NODE_DELETE
 			node.PendingDelete = true
 			if err := mq.NodeUpdate(node); err != nil {
-				logger.Log(0, "failed to send peer update for deleted node: ", node.ID.String(), err.Error())
+				logger.Log(
+					0,
+					"failed to send peer update for deleted node: ",
+					node.ID.String(),
+					err.Error(),
+				)
 			}
 			if err := logic.DeleteNode(node, true); err != nil {
-				slog.Error("error deleting expired node", "nodeid", node.ID.String(), "error", err.Error())
+				slog.Error(
+					"error deleting expired node",
+					"nodeid",
+					node.ID.String(),
+					"error",
+					err.Error(),
+				)
 			}
 			go mq.PublishDeletedNodePeerUpdate(node)
 		}
@@ -189,7 +213,12 @@ func setVerbosity() {
 		}
 		return a
 	}
-	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{AddSource: true, ReplaceAttr: replace, Level: logLevel}))
+	logger := slog.New(
+		slog.NewJSONHandler(
+			os.Stderr,
+			&slog.HandlerOptions{AddSource: true, ReplaceAttr: replace, Level: logLevel},
+		),
+	)
 	slog.SetDefault(logger)
 	switch verbose {
 	case 4:

@@ -21,30 +21,35 @@ var hostIDHeader = "host-id"
 
 func nodeHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/nodes", Authorize(false, false, "user", http.HandlerFunc(getAllNodes))).Methods(http.MethodGet)
-	r.HandleFunc("/api/nodes/{network}", Authorize(false, true, "network", http.HandlerFunc(getNetworkNodes))).Methods(http.MethodGet)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}", Authorize(true, true, "node", http.HandlerFunc(getNode))).Methods(http.MethodGet)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}", logic.SecurityCheck(true, http.HandlerFunc(updateNode))).Methods(http.MethodPut)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}", Authorize(true, true, "node", http.HandlerFunc(deleteNode))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/creategateway", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceEgress, http.HandlerFunc(createEgressGateway)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/deletegateway", logic.SecurityCheck(true, http.HandlerFunc(deleteEgressGateway))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceIngress, http.HandlerFunc(createIngressGateway)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", logic.SecurityCheck(true, http.HandlerFunc(deleteIngressGateway))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/nodes", Authorize(false, false, "user", http.HandlerFunc(getAllNodes))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/nodes/{network}", Authorize(false, true, "network", http.HandlerFunc(getNetworkNodes))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}", Authorize(true, true, "node", http.HandlerFunc(getNode))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}", logic.SecurityCheck(true, http.HandlerFunc(updateNode))).
+		Methods(http.MethodPut)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}", Authorize(true, true, "node", http.HandlerFunc(deleteNode))).
+		Methods(http.MethodDelete)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/creategateway", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceEgress, http.HandlerFunc(createEgressGateway)))).
+		Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/deletegateway", logic.SecurityCheck(true, http.HandlerFunc(deleteEgressGateway))).
+		Methods(http.MethodDelete)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceIngress, http.HandlerFunc(createIngressGateway)))).
+		Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", logic.SecurityCheck(true, http.HandlerFunc(deleteIngressGateway))).
+		Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/nodes/migrate", migrate).Methods(http.MethodPost)
 }
 
-// swagger:route POST /api/nodes/adm/{network}/authenticate authenticate authenticate
-//
-// Authenticate to make further API calls related to a network.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: successResponse
+// @Summary     Authenticate to make further API calls related to a network
+// @Router      /api/nodes/adm/{network}/authenticate [post]
+// @Tags        Auth
+// @Accept      json
+// @Param       body body models.AuthParams true "Authentication parameters"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     500 {object} models.ErrorResponse
 func authenticate(response http.ResponseWriter, request *http.Request) {
 
 	var authRequest models.AuthParams
@@ -149,7 +154,11 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 // even if it's technically ok
 // This is kind of a poor man's RBAC. There's probably a better/smarter way.
 // TODO: Consider better RBAC implementations
-func Authorize(hostAllowed, networkCheck bool, authNetwork string, next http.Handler) http.HandlerFunc {
+func Authorize(
+	hostAllowed, networkCheck bool,
+	authNetwork string,
+	next http.Handler,
+) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse = models.ErrorResponse{
 			Code: http.StatusForbidden, Message: logic.Forbidden_Msg,
@@ -258,17 +267,11 @@ func Authorize(hostAllowed, networkCheck bool, authNetwork string, next http.Han
 	}
 }
 
-// swagger:route GET /api/nodes/{network} nodes getNetworkNodes
-//
-// Gets all nodes associated with network including pending nodes.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: nodeSliceResponse
+// @Summary     Gets all nodes associated with network including pending nodes.
+// @Router      /api/nodes/adm/{network} [get]
+// @Securitydefinitions.oauth2.application OAuth2Application
+// @Tags        Nodes
+// @Failure     500 {object} models.ErrorResponse
 func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -288,18 +291,12 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(apiNodes)
 }
 
-// swagger:route GET /api/nodes nodes getAllNodes
-//
-// Get all nodes across all networks.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: nodeSliceResponse
-//
+// @Summary     Get all nodes across all networks
+// @Router      /api/nodes [get]
+// @Tags        Nodes
+// @Securitydefinitions.oauth2.application OAuth2Application
+// @Success     200 {array} models.ApiNode
+// @Failure     500 {object} models.ErrorResponse
 // Not quite sure if this is necessary. Probably necessary based on front end but may want to review after iteration 1 if it's being used or not
 func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -359,15 +356,29 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 	}
 	allNodes, err := logic.GetAllNodes()
 	if err != nil {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("error fetching wg peers config for host [ %s ]: %v", host.ID.String(), err))
+		logger.Log(
+			0,
+			r.Header.Get("user"),
+			fmt.Sprintf(
+				"error fetching wg peers config for host [ %s ]: %v",
+				host.ID.String(),
+				err,
+			),
+		)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	hostPeerUpdate, err := logic.GetPeerUpdateForHost(node.Network, host, allNodes, nil, nil)
 	if err != nil && !database.IsEmptyRecord(err) {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("error fetching wg peers config for host [ %s ]: %v", host.ID.String(), err))
+		logger.Log(
+			0,
+			r.Header.Get("user"),
+			fmt.Sprintf(
+				"error fetching wg peers config for host [ %s ]: %v",
+				host.ID.String(),
+				err,
+			),
+		)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
@@ -431,7 +442,14 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	}
 
 	apiNode := node.ConvertToAPINode()
-	logger.Log(1, r.Header.Get("user"), "created egress gateway on node", gateway.NodeID, "on network", gateway.NetID)
+	logger.Log(
+		1,
+		r.Header.Get("user"),
+		"created egress gateway on node",
+		gateway.NodeID,
+		"on network",
+		gateway.NetID,
+	)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
 	go func() {
@@ -474,7 +492,14 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 	}
 
 	apiNode := node.ConvertToAPINode()
-	logger.Log(1, r.Header.Get("user"), "deleted egress gateway on node", nodeid, "on network", netid)
+	logger.Log(
+		1,
+		r.Header.Get("user"),
+		"deleted egress gateway on node",
+		nodeid,
+		"on network",
+		netid,
+	)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
 	go func() {
@@ -520,7 +545,14 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	}
 
 	apiNode := node.ConvertToAPINode()
-	logger.Log(1, r.Header.Get("user"), "created ingress gateway on node", nodeid, "on network", netid)
+	logger.Log(
+		1,
+		r.Header.Get("user"),
+		"created ingress gateway on node",
+		nodeid,
+		"on network",
+		netid,
+	)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
 	go func() {
@@ -596,7 +628,13 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 					slog.Error("publishSingleHostUpdate", "host", host.Name, "error", err)
 				}
 				if err := mq.NodeUpdate(&node); err != nil {
-					slog.Error("error publishing node update to node", "node", node.ID, "error", err)
+					slog.Error(
+						"error publishing node update to node",
+						"node",
+						node.ID,
+						"error",
+						err,
+					)
 				}
 				if servercfg.IsDNSMode() {
 					logic.SetDNS()
@@ -642,7 +680,11 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 	newNode := newData.ConvertToServerNode(&currentNode)
 	if newNode == nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("error converting node"), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(fmt.Errorf("error converting node"), "badrequest"),
+		)
 		return
 	}
 	if newNode.IsInternetGateway != currentNode.IsInternetGateway {
@@ -686,7 +728,14 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	apiNode := newNode.ConvertToAPINode()
-	logger.Log(1, r.Header.Get("user"), "updated node", currentNode.ID.String(), "on network", currentNode.Network)
+	logger.Log(
+		1,
+		r.Header.Get("user"),
+		"updated node",
+		currentNode.ID.String(),
+		"on network",
+		currentNode.Network,
+	)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
 	go func(aclUpdate, relayupdate bool, newNode *models.Node) {
@@ -735,7 +784,11 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	}
 	purge := forceDelete || fromNode
 	if err := logic.DeleteNode(&node, purge); err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(fmt.Errorf("failed to delete node"), "internal"),
+		)
 		return
 	}
 

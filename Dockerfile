@@ -14,5 +14,6 @@ WORKDIR /root/
 RUN mkdir -p /etc/netclient/config
 COPY --from=builder /app/netmaker .
 COPY --from=builder /app/config config
+COPY --from=builder /app/docs docs
 EXPOSE 8081
 ENTRYPOINT ["./netmaker"]
