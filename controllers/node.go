@@ -267,17 +267,11 @@ func Authorize(
 	}
 }
 
-// swagger:route GET /api/nodes/{network} nodes getNetworkNodes
-//
-// Gets all nodes associated with network including pending nodes.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: nodeSliceResponse
+// @Summary     Gets all nodes associated with network including pending nodes.
+// @Router      /api/nodes/adm/{network} [get]
+// @Securitydefinitions.oauth2.application OAuth2Application
+// @Tags        Nodes
+// @Failure     500 {object} models.ErrorResponse
 func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)

@@ -141,6 +141,16 @@ paths:
       summary: Get all nodes across all networks
       tags:
       - Nodes
+  /api/nodes/adm/{network}:
+    get:
+      responses:
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Gets all nodes associated with network including pending nodes.
+      tags:
+      - Nodes
   /api/nodes/adm/{network}/authenticate:
     post:
       consumes:
