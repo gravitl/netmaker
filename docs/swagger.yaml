@@ -382,6 +382,30 @@ paths:
       summary: Create a new DNS entry
       tags:
       - DNS
+  /api/dns/adm/{network}/custom:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Network identifier
+        in: path
+        name: network
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.DNSEntry'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Gets custom DNS entries associated with a network
+      tags:
+      - DNS
   /api/dns/adm/pushdns:
     post:
       consumes:
