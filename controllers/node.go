@@ -271,6 +271,7 @@ func Authorize(
 // @Router      /api/nodes/adm/{network} [get]
 // @Securitydefinitions.oauth2.application OAuth2Application
 // @Tags        Nodes
+// @Success     200 {array} models.Node
 // @Failure     500 {object} models.ErrorResponse
 func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
