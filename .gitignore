@@ -26,3 +26,4 @@ netmaker.exe
 netmaker.code-workspace
 dist/
 nmctl
+docs/docs.go
