@@ -33,6 +33,12 @@ var version = "v0.24.3"
 //	@version		0.24.3
 //	@description	NetMaker API Docs
 //
+//	@tag.name	APIUsage
+//	@tag.description.markdown
+//
+//	@tag.name	Authentication
+//	@tag.description.markdown
+//
 // Start DB Connection and start API Request Handler
 func main() {
 	absoluteConfigPath := flag.String("c", "", "absolute path to configuration file")

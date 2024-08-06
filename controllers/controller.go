@@ -33,9 +33,9 @@ var HttpHandlers = []interface{}{
 	hostHandlers,
 	enrollmentKeyHandlers,
 	legacyHandlers,
+	docsHandler,
 }
 
-// HandleRESTRequests - handles the rest requests
 func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context) {
 	defer wg.Done()
 
@@ -64,8 +64,6 @@ func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context) {
 	for _, handler := range HttpHandlers {
 		handler.(func(*mux.Router))(r)
 	}
-
-	r.PathPrefix("/docs").Handler(http.StripPrefix("/docs", http.FileServer(http.Dir("./docs"))))
 
 	port := servercfg.GetAPIPort()
 

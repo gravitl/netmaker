@@ -43,7 +43,6 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/nodes/migrate", migrate).Methods(http.MethodPost)
 }
 
-// Authenticate godoc
 // @Summary     Authenticate to make further API calls related to a network
 // @Router      /api/nodes/adm/{network}/authenticate [post]
 // @Tags        Auth
@@ -298,7 +297,6 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(apiNodes)
 }
 
-// GetAllNodes  godoc
 // @Summary     Get all nodes across all networks
 // @Router      /api/nodes [get]
 // @Tags        Nodes
