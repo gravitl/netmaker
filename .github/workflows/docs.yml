@@ -19,10 +19,15 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+
+      - name: Install Swag
+        run: go install github.com/swaggo/swag/cmd/swag@latest
+
       - name: Generating Docs
-        run:
-          go install github.com/swaggo/swag/cmd/swag@latest
-          swag i --md docs/ --ot yaml
+        run: |
+          export PATH=$PATH:$(go env GOPATH)/bin
+          swag init --md docs/ --outputTypes yaml
+
       - name: Update Repo
         run: 
           git config --local user.name actions-user
