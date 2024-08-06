@@ -29,11 +29,8 @@ jobs:
           swag init --md docs/ --outputTypes yaml
 
       - name: Update Repo
-        run: 
-          git config --local user.name actions-user
+        run: |
+          git config --local user.name "GitHub Actions"
           git config --local user.email "actions@github.com"
-          if ! git diff --exit-code; then
-              git add docs/
-              git commit -am "GH Action Files added $(date)"
-              git push -f origin main
-          fi
+          git add docs/
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update documentation $(date)" && git push origin master)
