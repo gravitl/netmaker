@@ -586,6 +586,7 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	logic.CreateRole(models.UserRolePermissionTemplate{
 		ID:        models.GetRAGRoleName(node.Network, host.Name),
 		NetworkID: models.NetworkID(node.Network),
+		Default:   true,
 		NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
 			models.RemoteAccessGwRsrc: {
 				models.RsrcID(node.ID.String()): models.RsrcPermissionScope{
@@ -651,7 +652,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go logic.RemoveNetworkRoleFromUsers(*host, node)
+	go logic.DeleteRole(models.GetRAGRoleName(node.Network, host.Name), true)
 
 	apiNode := node.ConvertToAPINode()
 	logger.Log(1, r.Header.Get("user"), "deleted ingress gateway", nodeid)

@@ -591,7 +591,7 @@ func deleteRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
 	}
-	err := proLogic.DeleteRole(models.UserRoleID(rid))
+	err := proLogic.DeleteRole(models.UserRoleID(rid), false)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return

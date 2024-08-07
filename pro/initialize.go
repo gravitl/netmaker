@@ -121,6 +121,7 @@ func InitPro() {
 	mq.UpdateMetricsFallBack = proLogic.MQUpdateMetricsFallBack
 	logic.GetFilteredNodesByUserAccess = proLogic.GetFilteredNodesByUserAccess
 	logic.CreateRole = proLogic.CreateRole
+	logic.DeleteRole = proLogic.DeleteRole
 	logic.NetworkPermissionsCheck = proLogic.NetworkPermissionsCheck
 	logic.GlobalPermissionsCheck = proLogic.GlobalPermissionsCheck
 	logic.DeleteNetworkRoles = proLogic.DeleteNetworkRoles
@@ -128,7 +129,6 @@ func InitPro() {
 	logic.FilterNetworksByRole = proLogic.FilterNetworksByRole
 	logic.IsGroupsValid = proLogic.IsGroupsValid
 	logic.IsNetworkRolesValid = proLogic.IsNetworkRolesValid
-	logic.RemoveNetworkRoleFromUsers = proLogic.RemoveNetworkRoleFromUsers
 	logic.InitialiseRoles = proLogic.UserRolesInit
 }
 

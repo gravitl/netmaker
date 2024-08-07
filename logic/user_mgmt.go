@@ -28,6 +28,10 @@ var CreateRole = func(r models.UserRolePermissionTemplate) error {
 	return nil
 }
 
+var DeleteRole = func(r models.UserRoleID, force bool) error {
+	return nil
+}
+
 var FilterNetworksByRole = func(allnetworks []models.Network, user models.User) []models.Network {
 	return allnetworks
 }
@@ -38,7 +42,6 @@ var IsGroupsValid = func(groups map[models.UserGroupID]struct{}) error {
 var IsNetworkRolesValid = func(networkRoles map[models.NetworkID]map[models.UserRoleID]struct{}) error {
 	return nil
 }
-var RemoveNetworkRoleFromUsers = func(host models.Host, node models.Node) {}
 
 var InitialiseRoles = userRolesInit
 var DeleteNetworkRoles = func(netID string) {}

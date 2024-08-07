@@ -9,7 +9,6 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
-	"golang.org/x/exp/slog"
 )
 
 var ServiceUserPermissionTemplate = models.UserRolePermissionTemplate{
@@ -158,7 +157,7 @@ func DeleteNetworkRoles(netID string) {
 	roles, _ := ListNetworkRoles()
 	for _, role := range roles {
 		if role.NetworkID.String() == netID {
-			DeleteRole(role.ID)
+			DeleteRole(role.ID, true)
 		}
 	}
 }
@@ -325,7 +324,7 @@ func UpdateRole(r models.UserRolePermissionTemplate) error {
 }
 
 // DeleteRole - deletes user role
-func DeleteRole(rid models.UserRoleID) error {
+func DeleteRole(rid models.UserRoleID, force bool) error {
 	if rid.String() == "" {
 		return errors.New("role id cannot be empty")
 	}
@@ -337,7 +336,7 @@ func DeleteRole(rid models.UserRoleID) error {
 	if err != nil {
 		return err
 	}
-	if role.Default {
+	if !force && role.Default {
 		return errors.New("cannot delete default role")
 	}
 	for _, user := range users {
@@ -804,29 +803,6 @@ func IsNetworkRolesValid(networkRoles map[models.NetworkID]map[models.UserRoleID
 		}
 	}
 	return nil
-}
-
-func RemoveNetworkRoleFromUsers(host models.Host, node models.Node) {
-	users, err := logic.GetUsersDB()
-	if err == nil {
-		for _, user := range users {
-			// delete role from user
-			if netRoles, ok := user.NetworkRoles[models.NetworkID(node.Network)]; ok {
-				delete(netRoles, models.GetRAGRoleName(node.Network, host.Name))
-				user.NetworkRoles[models.NetworkID(node.Network)] = netRoles
-				err = logic.UpsertUser(user)
-				if err != nil {
-					slog.Error("failed to get user", "user", user.UserName, "error", err)
-				}
-			}
-		}
-	} else {
-		slog.Error("failed to get users", "error", err)
-	}
-	err = DeleteRole(models.GetRAGRoleName(node.Network, host.Name))
-	if err != nil {
-		slog.Error("failed to delete role: ", models.GetRAGRoleName(node.Network, host.Name), err)
-	}
 }
 
 // PrepareOauthUserFromInvite - init oauth user before create
