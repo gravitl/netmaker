@@ -392,8 +392,8 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errtype))
 		return
 	}
-	//delete network from ip pool
-	go logic.RemoveNetworkFromIpPool(network)
+	//delete network from allocated ip map
+	go logic.RemoveNetworkFromAllocatedIpMap(network)
 
 	logger.Log(1, r.Header.Get("user"), "deleted network", network)
 	w.WriteHeader(http.StatusOK)
@@ -470,8 +470,8 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//add new network to ip pool
-	go logic.AddNetworkToIpPool(network.NetID)
+	//add new network to allocated ip map
+	go logic.AddNetworkToAllocatedIpMap(network.NetID)
 
 	go func() {
 		defaultHosts := logic.GetDefaultHosts()

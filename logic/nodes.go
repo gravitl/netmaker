@@ -303,10 +303,10 @@ func DeleteNodeByID(node *models.Node) error {
 	}
 	//recycle ip address
 	if node.Address.IP != nil {
-		ReleaseV4IpForNetwork(node.Network, node.Address.IP)
+		RemoveIpFromAllocatedIpMap(node.Network, node.Address.IP.String())
 	}
 	if node.Address6.IP != nil {
-		ReleaseV6IpForNetwork(node.Network, node.Address6.IP)
+		RemoveIpFromAllocatedIpMap(node.Network, node.Address6.IP.String())
 	}
 	return nil
 }
@@ -543,7 +543,7 @@ func createNode(node *models.Node) error {
 
 	if node.Address.IP == nil {
 		if parentNetwork.IsIPv4 == "yes" {
-			if node.Address.IP, err = GetUniqueAddress(node.Network); err != nil {
+			if node.Address.IP, err = UniqueAddress(node.Network, false); err != nil {
 				return err
 			}
 			_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange)
@@ -557,7 +557,7 @@ func createNode(node *models.Node) error {
 	}
 	if node.Address6.IP == nil {
 		if parentNetwork.IsIPv6 == "yes" {
-			if node.Address6.IP, err = GetUniqueAddress6(node.Network); err != nil {
+			if node.Address6.IP, err = UniqueAddress6(node.Network, false); err != nil {
 				return err
 			}
 			_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange6)
@@ -592,6 +592,14 @@ func createNode(node *models.Node) error {
 	}
 	if servercfg.CacheEnabled() {
 		storeNodeInCache(*node)
+	}
+	if _, ok := allocatedIpMap[node.Network]; ok {
+		if node.Address.IP != nil {
+			AddIpToAllocatedIpMap(node.Network, node.Address.IP)
+		}
+		if node.Address6.IP != nil {
+			AddIpToAllocatedIpMap(node.Network, node.Address6.IP)
+		}
 	}
 	_, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), defaultACLVal)
 	if err != nil {
