@@ -102,18 +102,12 @@ func getUsage(w http.ResponseWriter, _ *http.Request) {
 	})
 }
 
-// swagger:route GET /api/server/status server getStatus
-//
-// Get the server configuration.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: serverConfigResponse
+// @Summary     Get the server status.
+// @Router      /api/server/status [get]
+// @Tags        Server
+// @Security    oauth2
 func getStatus(w http.ResponseWriter, r *http.Request) {
+	// @Success     200 {object} status
 	type status struct {
 		DB               bool      `json:"db_connected"`
 		Broker           bool      `json:"broker_connected"`
@@ -131,7 +125,8 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 	var trialEndDate time.Time
 	var err error
 	isOnTrial := false
-	if servercfg.IsPro && (servercfg.GetLicenseKey() == "" || servercfg.GetNetmakerTenantID() == "") {
+	if servercfg.IsPro &&
+		(servercfg.GetLicenseKey() == "" || servercfg.GetNetmakerTenantID() == "") {
 		trialEndDate, err = logic.GetTrialEndDate()
 		if err != nil {
 			slog.Error("failed to get trial end date", "error", err)
@@ -177,17 +172,11 @@ func allowUsers(next http.Handler) http.HandlerFunc {
 	}
 }
 
-// swagger:route GET /api/server/getserverinfo server getServerInfo
-//
-// Get the server configuration.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: serverConfigResponse
+// @Summary     Get the server information.
+// @Router      /api/server/getserverinfo [get]
+// @Tags        Server
+// @Security    oauth2
+// @Success     200 {object} models.ServerConfig
 func getServerInfo(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
@@ -198,17 +187,11 @@ func getServerInfo(w http.ResponseWriter, r *http.Request) {
 	// w.WriteHeader(http.StatusOK)
 }
 
-// swagger:route GET /api/server/getconfig server getConfig
-//
-// Get the server configuration.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: serverConfigResponse
+// @Summary     Get the server configuration.
+// @Router      /api/server/getconfig [get]
+// @Tags        Server
+// @Security    oauth2
+// @Success     200 {object} config.ServerConfig
 func getConfig(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")

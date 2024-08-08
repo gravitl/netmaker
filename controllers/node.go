@@ -325,17 +325,12 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(apiNodes)
 }
 
-// swagger:route GET /api/nodes/{network}/{nodeid} nodes getNode
-//
-// Get an individual node.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: nodeResponse
+// @Summary     Get an individual node.
+// @Router      /api/nodes/{network}/{nodeid} [get]
+// @Tags        Nodes
+// @Security    oauth2
+// @Success     200 {object} models.NodeGet
+// @Failure     500 {object} models.ErrorResponse
 func getNode(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -400,17 +395,12 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 
 // == EGRESS ==
 
-// swagger:route POST /api/nodes/{network}/{nodeid}/creategateway nodes createEgressGateway
-//
-// Create an egress gateway.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: nodeResponse
+// @Summary     Create an egress gateway.
+// @Router      /api/nodes/{network}/{nodeid}/creategateway [post]
+// @Tags        Nodes
+// @Security    oauth2
+// @Success     200 {object} models.ApiNode
+// @Failure     500 {object} models.ErrorResponse
 func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	var gateway models.EgressGatewayRequest
 	var params = mux.Vars(r)
@@ -461,17 +451,12 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
-// swagger:route DELETE /api/nodes/{network}/{nodeid}/deletegateway nodes deleteEgressGateway
-//
-// Delete an egress gateway.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: nodeResponse
+// @Summary     Delete an egress gateway.
+// @Router      /api/nodes/{network}/{nodeid}/deletegateway [delete]
+// @Tags        Nodes
+// @Security    oauth2
+// @Success     200 {object} models.ApiNode
+// @Failure     500 {object} models.ErrorResponse
 func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -513,17 +498,12 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 
 // == INGRESS ==
 
-// swagger:route POST /api/nodes/{network}/{nodeid}/createingress nodes createIngressGateway
-//
-// Create an ingress gateway.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: nodeResponse
+// @Summary     Create an ingress gateway.
+// @Router      /api/nodes/{network}/{nodeid}/createingress [post]
+// @Tags        Nodes
+// @Security    oauth2
+// @Success     200 {object} models.ApiNode
+// @Failure     500 {object} models.ErrorResponse
 func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
@@ -563,17 +543,12 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
-// swagger:route DELETE /api/nodes/{network}/{nodeid}/deleteingress nodes deleteIngressGateway
-//
-// Delete an ingress gateway.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: nodeResponse
+// @Summary     Delete an ingress gateway.
+// @Router      /api/nodes/{network}/{nodeid}/deleteingress [delete]
+// @Tags        Nodes
+// @Security    oauth2
+// @Success     200 {object} models.ApiNode
+// @Failure     500 {object} models.ErrorResponse
 func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -645,17 +620,12 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// swagger:route PUT /api/nodes/{network}/{nodeid} nodes updateNode
-//
-// Update an individual node.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: nodeResponse
+// @Summary     Update an individual node.
+// @Router      /api/nodes/{network}/{nodeid} [put]
+// @Tags        Nodes
+// @Security    oauth2
+// @Success     200 {object} models.ApiNode
+// @Failure     500 {object} models.ErrorResponse
 func updateNode(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -754,17 +724,12 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}(aclUpdate, relayUpdate, newNode)
 }
 
-// swagger:route DELETE /api/nodes/{network}/{nodeid} nodes deleteNode
-//
-// Delete an individual node.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: nodeResponse
+// @Summary     Delete an individual node.
+// @Router      /api/nodes/{network}/{nodeid} [delete]
+// @Tags        Nodes
+// @Security    oauth2
+// @Success     200 {string} string "Node deleted."
+// @Failure     500 {object} models.ErrorResponse
 func deleteNode(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
