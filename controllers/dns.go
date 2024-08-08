@@ -77,7 +77,7 @@ func getAllDNS(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     Gets custom DNS entries associated with a network
-// @Router      /api/dns/adm/{network} [get]
+// @Router      /api/dns/adm/{network}/custom [get]
 // @Tags        DNS
 // @Accept      json
 // @Param       network path string true "Network identifier"
