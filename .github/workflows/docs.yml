@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - 'master'
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to run the workflow against'
+        required: true
+        default: 'master'
 
 jobs:
   generate-docs:
@@ -12,8 +18,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          repository: lmnzx/netmaker
-          ref: master
+          repository: gravitl/netmaker
+          ref: ${{ github.event.inputs.branch || 'master' }}
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -30,12 +36,17 @@ jobs:
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
+        env:
+          CURRENT_DATE: $(date +"%Y-%m-%d")
         with:
           token: ${{ secrets.PR_TOKEN }}
-          commit-message: Update documentation $(date)
-          title: Update Swagger documentation
+          commit-message: "Update documentation ${{ env.CURRENT_DATE }}"
+          title: "Update Swagger documentation ${{ env.CURRENT_DATE }}"
           body: |
             This PR updates the swagger.yml file with the latest documentation changes.
-          branch: update-swagger-docs
-          base: master
+            
+            Updated on: ${{ env.CURRENT_DATE }}
+          branch: update-swagger-docs-${{ github.event.inputs.branch || 'master' }}
+          base: ${{ github.event.inputs.branch || 'master' }}
           delete-branch: true
+
