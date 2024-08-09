@@ -36,7 +36,7 @@ jobs:
         env:
           CURRENT_DATE: $(date +"%Y-%m-%d")
         with:
-          token: ${{ secrets.PR_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "Update documentation ${{ env.CURRENT_DATE }}"
           title: "Update Swagger documentation ${{ env.CURRENT_DATE }}"
           body: |
