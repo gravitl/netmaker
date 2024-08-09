@@ -1,9 +1,6 @@
 name: Generate Documentation
 
 on: 
-  push:
-    branches:
-      - 'master'
   workflow_dispatch:
     inputs:
       branch:
