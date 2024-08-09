@@ -597,6 +597,19 @@ func GetMetricInterval() string {
 	return mi
 }
 
+// GetPeerUpdateBatchSize - get the batch size for peer update
+func GetPeerUpdateBatchSize() int {
+	//default 50
+	batchSize := 50
+	if os.Getenv("PEER_UPDATE_BATCH_SIZE") != "" {
+		b, e := strconv.Atoi(os.Getenv("PEER_UPDATE_BATCH_SIZE"))
+		if e == nil && b > 0 && b < 1000 {
+			batchSize = b
+		}
+	}
+	return batchSize
+}
+
 // GetEmqxRestEndpoint - returns the REST API Endpoint of EMQX
 func GetEmqxRestEndpoint() string {
 	return os.Getenv("EMQX_REST_ENDPOINT")
