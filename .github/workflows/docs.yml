@@ -26,11 +26,16 @@ jobs:
       - name: Generating Docs
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
-          swag i --md docs/ --parseDependency  --parseInternal --ot yaml  --parseDepth 1
+          swag i --md docs/ --parseDependency  --parseInternal --outputTypes yaml  --parseDepth 1 --output .
 
-      - name: Update Repo
-        run: |
-          git config --local user.name "Sayan Mallick"
-          git config --local user.email "snyxmk@gmail.com"
-          git add docs/
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Update documentation $(date)" && git push origin master)
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.PR_TOKEN }}
+          commit-message: Update documentation $(date)
+          title: Update Swagger documentation
+          body: |
+            This PR updates the swagger.yml file with the latest documentation changes.
+          branch: update-swagger-docs
+          base: master
+          delete-branch: true

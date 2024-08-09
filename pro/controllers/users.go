@@ -17,27 +17,30 @@ import (
 )
 
 func UserHandlers(r *mux.Router) {
-	r.HandleFunc("/api/users/{username}/remote_access_gw/{remote_access_gateway_id}", logic.SecurityCheck(true, http.HandlerFunc(attachUserToRemoteAccessGw))).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/{username}/remote_access_gw/{remote_access_gateway_id}", logic.SecurityCheck(true, http.HandlerFunc(removeUserFromRemoteAccessGW))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/users/{username}/remote_access_gw", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserRemoteAccessGws)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/users/ingress/{ingress_id}", logic.SecurityCheck(true, http.HandlerFunc(ingressGatewayUsers))).Methods(http.MethodGet)
+	r.HandleFunc("/api/users/{username}/remote_access_gw/{remote_access_gateway_id}", logic.SecurityCheck(true, http.HandlerFunc(attachUserToRemoteAccessGw))).
+		Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}/remote_access_gw/{remote_access_gateway_id}", logic.SecurityCheck(true, http.HandlerFunc(removeUserFromRemoteAccessGW))).
+		Methods(http.MethodDelete)
+	r.HandleFunc("/api/users/{username}/remote_access_gw", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserRemoteAccessGws)))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/users/ingress/{ingress_id}", logic.SecurityCheck(true, http.HandlerFunc(ingressGatewayUsers))).
+		Methods(http.MethodGet)
 	r.HandleFunc("/api/oauth/login", auth.HandleAuthLogin).Methods(http.MethodGet)
 	r.HandleFunc("/api/oauth/callback", auth.HandleAuthCallback).Methods(http.MethodGet)
 	r.HandleFunc("/api/oauth/headless", auth.HandleHeadlessSSO)
 	r.HandleFunc("/api/oauth/register/{regKey}", auth.RegisterHostSSO).Methods(http.MethodGet)
 }
 
-// swagger:route POST /api/users/{username}/remote_access_gw user attachUserToRemoteAccessGateway
-//
-// Attach User to a remote access gateway.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: userBodyResponse
+// @Summary     Attach user to a remote access gateway
+// @Router      /api/users/{username}/remote_access_gw/{remote_access_gateway_id} [post]
+// @Tags        PRO
+// @Accept      json
+// @Produce     json
+// @Param       username path string true "Username"
+// @Param       remote_access_gateway_id path string true "Remote Access Gateway ID"
+// @Success     200 {object} models.ReturnUser
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
 func attachUserToRemoteAccessGw(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -46,27 +49,59 @@ func attachUserToRemoteAccessGw(w http.ResponseWriter, r *http.Request) {
 	username := params["username"]
 	remoteGwID := params["remote_access_gateway_id"]
 	if username == "" || remoteGwID == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("required params `username` and `remote_access_gateway_id`"), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				errors.New("required params `username` and `remote_access_gateway_id`"),
+				"badrequest",
+			),
+		)
 		return
 	}
 	user, err := logic.GetUser(username)
 	if err != nil {
 		slog.Error("failed to fetch user: ", "username", username, "error", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				fmt.Errorf("failed to fetch user %s, error: %v", username, err),
+				"badrequest",
+			),
+		)
 		return
 	}
 	if user.IsAdmin || user.IsSuperAdmin {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("superadmins/admins have access to all gateways"), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				errors.New("superadmins/admins have access to all gateways"),
+				"badrequest",
+			),
+		)
 		return
 	}
 	node, err := logic.GetNodeByID(remoteGwID)
 	if err != nil {
 		slog.Error("failed to fetch gateway node", "nodeID", remoteGwID, "error", err)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch remote access gateway node, error: %v", err), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				fmt.Errorf("failed to fetch remote access gateway node, error: %v", err),
+				"badrequest",
+			),
+		)
 		return
 	}
 	if !node.IsIngressGateway {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("node is not a remote access gateway"), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(fmt.Errorf("node is not a remote access gateway"), "badrequest"),
+		)
 		return
 	}
 	if user.RemoteGwIDs == nil {
@@ -76,24 +111,30 @@ func attachUserToRemoteAccessGw(w http.ResponseWriter, r *http.Request) {
 	err = logic.UpsertUser(*user)
 	if err != nil {
 		slog.Error("failed to update user's gateways", "user", username, "error", err)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch remote access gateway node,error: %v", err), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				fmt.Errorf("failed to fetch remote access gateway node,error: %v", err),
+				"badrequest",
+			),
+		)
 		return
 	}
 
 	json.NewEncoder(w).Encode(logic.ToReturnUser(*user))
 }
 
-// swagger:route DELETE /api/users/{username}/remote_access_gw user removeUserFromRemoteAccessGW
-//
-// Delete User from a remote access gateway.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: userBodyResponse
+// @Summary     Remove user from a remote access gateway
+// @Router      /api/users/{username}/remote_access_gw/{remote_access_gateway_id} [delete]
+// @Tags        PRO
+// @Accept      json
+// @Produce     json
+// @Param       username path string true "Username"
+// @Param       remote_access_gateway_id path string true "Remote Access Gateway ID"
+// @Success     200 {object} models.ReturnUser
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
 func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -102,13 +143,27 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 	username := params["username"]
 	remoteGwID := params["remote_access_gateway_id"]
 	if username == "" || remoteGwID == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("required params `username` and `remote_access_gateway_id`"), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				errors.New("required params `username` and `remote_access_gateway_id`"),
+				"badrequest",
+			),
+		)
 		return
 	}
 	user, err := logic.GetUser(username)
 	if err != nil {
 		logger.Log(0, username, "failed to fetch user: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				fmt.Errorf("failed to fetch user %s, error: %v", username, err),
+				"badrequest",
+			),
+		)
 		return
 	}
 	delete(user.RemoteGwIDs, remoteGwID)
@@ -139,23 +194,30 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 	err = logic.UpsertUser(*user)
 	if err != nil {
 		slog.Error("failed to update user gateways", "user", username, "error", err)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to fetch remote access gaetway node "+err.Error()), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				errors.New("failed to fetch remote access gaetway node "+err.Error()),
+				"badrequest",
+			),
+		)
 		return
 	}
 	json.NewEncoder(w).Encode(logic.ToReturnUser(*user))
 }
 
-// swagger:route GET "/api/users/{username}/remote_access_gw" nodes getUserRemoteAccessGws
-//
-// Get an individual node.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: nodeResponse
+// @Summary     Get user's remote access gateways
+// @Router      /api/users/{username}/remote_access_gw [get]
+// @Tags        PRO
+// @Accept      json
+// @Produce     json
+// @Param       username path string true "Username"
+// @Param       remote_access_clientid query string false "Remote Access Client ID"
+// @Param       from_mobile query boolean false "Request from mobile"
+// @Success     200 {array} models.UserRemoteGws
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
 func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -163,7 +225,11 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	username := params["username"]
 	if username == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("required params username"), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("required params username"), "badrequest"),
+		)
 		return
 	}
 	remoteAccessClientID := r.URL.Query().Get("remote_access_clientid")
@@ -178,7 +244,11 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 	}
 	reqFromMobile := r.URL.Query().Get("from_mobile") == "true"
 	if req.RemoteAccessClientID == "" && remoteAccessClientID == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("remote access client id cannot be empty"), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("remote access client id cannot be empty"), "badrequest"),
+		)
 		return
 	}
 	if req.RemoteAccessClientID == "" {
@@ -188,7 +258,14 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 	user, err := logic.GetUser(username)
 	if err != nil {
 		logger.Log(0, username, "failed to fetch user: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				fmt.Errorf("failed to fetch user %s, error: %v", username, err),
+				"badrequest",
+			),
+		)
 		return
 	}
 	allextClients, err := logic.GetAllExtClients()
@@ -199,7 +276,8 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 
 	processedAdminNodeIds := make(map[string]struct{})
 	for _, extClient := range allextClients {
-		if extClient.RemoteAccessClientID == req.RemoteAccessClientID && extClient.OwnerID == username {
+		if extClient.RemoteAccessClientID == req.RemoteAccessClientID &&
+			extClient.OwnerID == username {
 			node, err := logic.GetNodeByID(extClient.IngressGatewayID)
 			if err != nil {
 				continue
@@ -219,7 +297,8 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 				slog.Error("failed to get node network", "error", err)
 			}
 
-			if _, ok := user.RemoteGwIDs[node.ID.String()]; (!user.IsAdmin && !user.IsSuperAdmin) && ok {
+			if _, ok := user.RemoteGwIDs[node.ID.String()]; (!user.IsAdmin && !user.IsSuperAdmin) &&
+				ok {
 				gws := userGws[node.Network]
 				extClient.AllowedIPs = logic.GetExtclientAllowedIPs(extClient)
 				gws = append(gws, models.UserRemoteGws{
@@ -345,17 +424,15 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(userGws)
 }
 
-// swagger:route GET /api/nodes/{network}/{nodeid}/ingress/users users ingressGatewayUsers
-//
-// Lists all the users attached to an ingress gateway.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: nodeResponse
+// @Summary     List users attached to an ingress gateway
+// @Router      /api/nodes/{network}/{nodeid}/ingress/users [get]
+// @Tags        PRO
+// @Accept      json
+// @Produce     json
+// @Param       ingress_id path string true "Ingress Gateway ID"
+// @Success     200 {array} models.IngressGwUsers
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
 func ingressGatewayUsers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -368,8 +445,17 @@ func ingressGatewayUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	gwUsers, err := logic.GetIngressGwUsers(node)
 	if err != nil {
-		slog.Error("failed to get users on ingress gateway", "nodeid", ingressID, "network", node.Network, "user", r.Header.Get("user"),
-			"error", err)
+		slog.Error(
+			"failed to get users on ingress gateway",
+			"nodeid",
+			ingressID,
+			"network",
+			node.Network,
+			"user",
+			r.Header.Get("user"),
+			"error",
+			err,
+		)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}

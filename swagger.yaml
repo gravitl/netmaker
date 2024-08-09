@@ -1,3 +1,4 @@
+basePath: /
 definitions:
   acls.ACL:
     additionalProperties:
@@ -406,6 +407,57 @@ definitions:
       message:
         type: string
     type: object
+  models.ExtClient:
+    properties:
+      address:
+        type: string
+      address6:
+        type: string
+      allowed_ips:
+        items:
+          type: string
+        type: array
+      clientid:
+        type: string
+      deniednodeacls:
+        additionalProperties:
+          type: object
+        type: object
+      dns:
+        type: string
+      enabled:
+        type: boolean
+      extraallowedips:
+        items:
+          type: string
+        type: array
+      ingressgatewayendpoint:
+        type: string
+      ingressgatewayid:
+        type: string
+      lastmodified:
+        type: integer
+      network:
+        type: string
+      ownerid:
+        type: string
+      postdown:
+        type: string
+      postup:
+        type: string
+      privatekey:
+        type: string
+      publickey:
+        type: string
+      remote_access_client_id:
+        description: unique ID (MAC address) of RAC machine
+        type: string
+    type: object
+  models.FailOverMeReq:
+    properties:
+      node_id:
+        type: string
+    type: object
   models.FwUpdate:
     properties:
       egress_info:
@@ -622,6 +674,17 @@ definitions:
           type: string
         type: array
     type: object
+  models.IngressGwUsers:
+    properties:
+      network:
+        type: string
+      node_id:
+        type: string
+      users:
+        items:
+          $ref: '#/definitions/models.ReturnUser'
+        type: array
+    type: object
   models.KeyType:
     enum:
     - 0
@@ -832,6 +895,32 @@ definitions:
       server_config:
         $ref: '#/definitions/models.ServerConfig'
     type: object
+  models.RelayRequest:
+    properties:
+      netid:
+        type: string
+      nodeid:
+        type: string
+      relayaddrs:
+        items:
+          type: string
+        type: array
+    type: object
+  models.ReturnUser:
+    properties:
+      isadmin:
+        type: boolean
+      issuperadmin:
+        type: boolean
+      last_login_time:
+        type: string
+      remote_gw_ids:
+        additionalProperties:
+          type: object
+        type: object
+      username:
+        type: string
+    type: object
   models.ServerConfig:
     properties:
       Is_EE:
@@ -935,6 +1024,35 @@ definitions:
       username:
         type: string
     type: object
+  models.UserRemoteGws:
+    properties:
+      allowed_endpoints:
+        items:
+          type: string
+        type: array
+      connected:
+        type: boolean
+      gw_client:
+        $ref: '#/definitions/models.ExtClient'
+      gw_listen_port:
+        type: integer
+      gw_name:
+        type: string
+      gw_peer_public_key:
+        type: string
+      is_internet_gateway:
+        type: boolean
+      metadata:
+        type: string
+      network:
+        type: string
+      network_addresses:
+        items:
+          type: string
+        type: array
+      remote_access_gw_id:
+        type: string
+    type: object
   net.IPNet:
     properties:
       ip:
@@ -972,8 +1090,24 @@ definitions:
     - 1000000000
     - 60000000000
     - 3600000000000
+    - -9223372036854775808
+    - 9223372036854775807
+    - 1
+    - 1000
+    - 1000000
+    - 1000000000
+    - 60000000000
+    - 3600000000000
     type: integer
     x-enum-varnames:
+    - minDuration
+    - maxDuration
+    - Nanosecond
+    - Microsecond
+    - Millisecond
+    - Second
+    - Minute
+    - Hour
     - minDuration
     - maxDuration
     - Nanosecond
@@ -1035,6 +1169,7 @@ definitions:
           if the peer already exists as part of the interface.
         type: boolean
     type: object
+host: api.demo.netmaker.io
 info:
   contact: {}
   description: NetMaker API Docs
@@ -1227,6 +1362,159 @@ paths:
       summary: Deletes all EMQX hosts
       tags:
       - Hosts
+  /api/extclients:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ExtClient'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth2: []
+      summary: A separate function to get all extclients, not just extclients for
+        a particular network.
+      tags:
+      - ExtClients
+  /api/extclients/{network}:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ExtClient'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth2: []
+      summary: Get all extclients associated with network.
+      tags:
+      - ExtClients
+  /api/extclients/{network}/{clientid}:
+    delete:
+      responses:
+        "200":
+          description: OK
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth2: []
+      summary: Delete an individual extclient.
+      tags:
+      - ExtClients
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ExtClient'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth2: []
+      summary: Get an individual extclient.
+      tags:
+      - ExtClients
+    put:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ExtClient'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth2: []
+      summary: Update an individual extclient.
+      tags:
+      - ExtClients
+  /api/extclients/{network}/{clientid}/{type}:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ExtClient'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth2: []
+      summary: Get an individual extclient.
+      tags:
+      - ExtClients
+  /api/extclients/{network}/{nodeid}:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth2: []
+      summary: Create an individual extclient. Must have valid key and be unique.
+      tags:
+      - ExtClients
+  /api/getip:
+    get:
+      responses:
+        "200":
+          description: The public IP address.
+          schema:
+            type: string
+        "400":
+          description: Invalid IP address or no IP found.
+          schema:
+            type: string
+      security:
+      - oauth2: []
+      summary: Get the current public IP address.
+      tags:
+      - IP Service
   /api/hosts:
     get:
       responses:
@@ -1775,6 +2063,45 @@ paths:
       summary: Create an ingress gateway.
       tags:
       - Nodes
+  /api/nodes/{network}/{nodeid}/createrelay:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: Node ID
+        in: path
+        name: nodeid
+        required: true
+        type: string
+      - description: Relay request parameters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.RelayRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ApiNode'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Create a relay
+      tags:
+      - PRO
   /api/nodes/{network}/{nodeid}/deletegateway:
     delete:
       responses:
@@ -1807,6 +2134,170 @@ paths:
       summary: Delete an ingress gateway.
       tags:
       - Nodes
+  /api/nodes/{network}/{nodeid}/deleterelay:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: Node ID
+        in: path
+        name: nodeid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ApiNode'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Remove a relay
+      tags:
+      - PRO
+  /api/nodes/{network}/{nodeid}/inet_gw:
+    delete:
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: Node ID
+        in: path
+        name: nodeid
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Node'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Delete an internet gateway
+      tags:
+      - InternetGateway
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: Node ID
+        in: path
+        name: nodeid
+        required: true
+        type: string
+      - description: Internet gateway request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.InetNodeReq'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Node'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Create an internet gateway
+      tags:
+      - PRO
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: Node ID
+        in: path
+        name: nodeid
+        required: true
+        type: string
+      - description: Internet gateway request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.InetNodeReq'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Node'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Update an internet gateway
+      tags:
+      - PRO
+  /api/nodes/{network}/{nodeid}/ingress/users:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Ingress Gateway ID
+        in: path
+        name: ingress_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.IngressGwUsers'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: List users attached to an ingress gateway
+      tags:
+      - PRO
   /api/nodes/adm/{network}:
     get:
       responses:
@@ -1999,6 +2490,109 @@ paths:
       summary: Update a user
       tags:
       - Users
+  /api/users/{username}/remote_access_gw:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Username
+        in: path
+        name: username
+        required: true
+        type: string
+      - description: Remote Access Client ID
+        in: query
+        name: remote_access_clientid
+        type: string
+      - description: Request from mobile
+        in: query
+        name: from_mobile
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.UserRemoteGws'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Get user's remote access gateways
+      tags:
+      - PRO
+  /api/users/{username}/remote_access_gw/{remote_access_gateway_id}:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: Username
+        in: path
+        name: username
+        required: true
+        type: string
+      - description: Remote Access Gateway ID
+        in: path
+        name: remote_access_gateway_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ReturnUser'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Remove user from a remote access gateway
+      tags:
+      - PRO
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Username
+        in: path
+        name: username
+        required: true
+        type: string
+      - description: Remote Access Gateway ID
+        in: path
+        name: remote_access_gateway_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ReturnUser'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Attach user to a remote access gateway
+      tags:
+      - PRO
   /api/users/adm/authenticate:
     post:
       consumes:
@@ -2361,6 +2955,144 @@ paths:
       summary: Handles a Netclient registration with server and add nodes accordingly.
       tags:
       - EnrollmentKeys
+  /api/v1/legacy/nodes:
+    delete:
+      responses:
+        "200":
+          description: Wiped all legacy nodes.
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth2: []
+      summary: Delete all legacy nodes from DB.
+      tags:
+      - Nodes
+  /api/v1/node/{network}/failover/reset:
+    post:
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Reset failover for a network
+      tags:
+      - PRO
+  /api/v1/node/{nodeid}/failover:
+    delete:
+      parameters:
+      - description: Node ID
+        in: path
+        name: nodeid
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Node'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Delete failover node
+      tags:
+      - PRO
+    get:
+      parameters:
+      - description: Node ID
+        in: path
+        name: nodeid
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Node'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Get failover node
+      tags:
+      - PRO
+    post:
+      parameters:
+      - description: Node ID
+        in: path
+        name: nodeid
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Node'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Create failover node
+      tags:
+      - PRO
+  /api/v1/node/{nodeid}/failover_me:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Node ID
+        in: path
+        name: nodeid
+        required: true
+        type: string
+      - description: Failover request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.FailOverMeReq'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Failover me
+      tags:
+      - PRO
   /meshclient/files/{filename}:
     get:
       responses:
@@ -2383,3 +3115,6 @@ tags:
 - description: |
     API calls must be authenticated via a header of the format -H “Authorization: Bearer <YOUR_SECRET_KEY>” There are two methods to obtain YOUR_SECRET_KEY: 1. Using the masterkey. By default, this value is “secret key,” but you should change this on your instance and keep it secure. This value can be set via env var at startup or in a config file (config/environments/< env >.yaml). See the [Netmaker](https://docs.netmaker.org/index.html) documentation for more details. 2. Using a JWT received for a node. This can be retrieved by calling the /api/nodes/{_network_}/authenticate endpoint, as documented below.
   name: Authentication
+- description: |
+    Check out our [Pricing](https://www.netmaker.io/pricing). And Feel Free to [Contact Us](https://www.netmaker.io/contact) if you have any questions or need some clarifications.
+  name: Pricing

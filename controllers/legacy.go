@@ -9,20 +9,16 @@ import (
 )
 
 func legacyHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/legacy/nodes", logic.SecurityCheck(true, http.HandlerFunc(wipeLegacyNodes))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/legacy/nodes", logic.SecurityCheck(true, http.HandlerFunc(wipeLegacyNodes))).
+		Methods(http.MethodDelete)
 }
 
-// swagger:route DELETE /api/v1/legacy/nodes nodes wipeLegacyNodes
-//
-// Delete all legacy nodes from DB.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: successResponse
+// @Summary     Delete all legacy nodes from DB.
+// @Router      /api/v1/legacy/nodes [delete]
+// @Tags        Nodes
+// @Security    oauth2
+// @Success     200 {string} string "Wiped all legacy nodes."
+// @Failure     400 {object} models.ErrorResponse
 func wipeLegacyNodes(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")

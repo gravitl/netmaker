@@ -52,18 +52,12 @@ func checkIngressExists(nodeID string) bool {
 	return node.IsIngressGateway
 }
 
-// swagger:route GET /api/extclients/{network} ext_client getNetworkExtClients
-//
-// Get all extclients associated with network.
-// Gets all extclients associated with network, including pending extclients.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: extClientSliceResponse
+// @Summary     Get all extclients associated with network.
+// @Router      /api/extclients/{network} [get]
+// @Tags        ExtClients
+// @Security    oauth2
+// @Success     200 {object} models.ExtClient
+// @Failure     500 {object} models.ErrorResponse
 func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -84,18 +78,12 @@ func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(extclients)
 }
 
-// swagger:route GET /api/extclients ext_client getAllExtClients
-//
-// A separate function to get all extclients, not just extclients for a particular network.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: extClientSliceResponse
-//
+// @Summary     A separate function to get all extclients, not just extclients for a particular network.
+// @Router      /api/extclients [get]
+// @Tags        ExtClients
+// @Security    oauth2
+// @Success     200 {object} models.ExtClient
+// @Failure     500 {object} models.ErrorResponse
 // Not quite sure if this is necessary. Probably necessary based on front end but may
 // want to review after iteration 1 if it's being used or not
 func getAllExtClients(w http.ResponseWriter, r *http.Request) {
@@ -114,17 +102,13 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(clients)
 }
 
-// swagger:route GET /api/extclients/{network}/{clientid} ext_client getExtClient
-//
-// Get an individual extclient.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: extClientResponse
+// @Summary     Get an individual extclient.
+// @Router      /api/extclients/{network}/{clientid} [get]
+// @Tags        ExtClients
+// @Security    oauth2
+// @Success     200 {object} models.ExtClient
+// @Failure     500 {object} models.ErrorResponse
+// @Failure     403 {object} models.ErrorResponse
 func getExtClient(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -161,17 +145,13 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(client)
 }
 
-// swagger:route GET /api/extclients/{network}/{clientid}/{type} ext_client getExtClientConf
-//
-// Get an individual extclient.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: extClientResponse
+// @Summary     Get an individual extclient.
+// @Router      /api/extclients/{network}/{clientid}/{type} [get]
+// @Tags        ExtClients
+// @Security    oauth2
+// @Success     200 {object} models.ExtClient
+// @Failure     500 {object} models.ErrorResponse
+// @Failure     403 {object} models.ErrorResponse
 func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -407,16 +387,14 @@ Endpoint = %s
 	json.NewEncoder(w).Encode(client)
 }
 
-// swagger:route POST /api/extclients/{network}/{nodeid} ext_client createExtClient
-//
-// Create an individual extclient.  Must have valid key and be unique.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//			Responses:
-//			200:  okResponse
+// @Summary     Create an individual extclient. Must have valid key and be unique.
+// @Router      /api/extclients/{network}/{nodeid} [post]
+// @Tags        ExtClients
+// @Security    oauth2
+// @Success     200 {string} string "OK"
+// @Failure     500 {object} models.ErrorResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     403 {object} models.ErrorResponse
 func createExtClient(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -565,17 +543,14 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
-// swagger:route PUT /api/extclients/{network}/{clientid} ext_client updateExtClient
-//
-// Update an individual extclient.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: extClientResponse
+// @Summary     Update an individual extclient.
+// @Router      /api/extclients/{network}/{clientid} [put]
+// @Tags        ExtClients
+// @Security    oauth2
+// @Success     200 {object} models.ExtClient
+// @Failure     500 {object} models.ErrorResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     403 {object} models.ErrorResponse
 func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -737,17 +712,13 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// swagger:route DELETE /api/extclients/{network}/{clientid} ext_client deleteExtClient
-//
-// Delete an individual extclient.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: successResponse
+// @Summary     Delete an individual extclient.
+// @Router      /api/extclients/{network}/{clientid} [delete]
+// @Tags        ExtClients
+// @Security    oauth2
+// @Success     200
+// @Failure     500 {object} models.ErrorResponse
+// @Failure     403 {object} models.ErrorResponse
 func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
