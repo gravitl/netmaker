@@ -43,6 +43,7 @@ func ToReturnUser(user models.User) models.ReturnUser {
 	return models.ReturnUser{
 		UserName:       user.UserName,
 		PlatformRoleID: user.PlatformRoleID,
+		AuthType:       user.AuthType,
 		UserGroups:     user.UserGroups,
 		NetworkRoles:   user.NetworkRoles,
 		RemoteGwIDs:    user.RemoteGwIDs,
