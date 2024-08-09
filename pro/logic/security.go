@@ -163,7 +163,7 @@ func GlobalPermissionsCheck(username string, r *http.Request) error {
 	}
 	rsrcPermissionScope, ok := userRole.GlobalLevelAccess[models.RsrcType(targetRsrc)]
 	if !ok {
-		return fmt.Errorf("access denied to %s rsrc", targetRsrc)
+		return fmt.Errorf("access denied to %s", targetRsrc)
 	}
 	if allRsrcsTypePermissionScope, ok := rsrcPermissionScope[models.RsrcID(fmt.Sprintf("all_%s", targetRsrc))]; ok {
 		return checkPermissionScopeWithReqMethod(allRsrcsTypePermissionScope, r.Method)
