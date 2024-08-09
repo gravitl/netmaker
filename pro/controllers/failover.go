@@ -19,24 +19,25 @@ import (
 
 // FailOverHandlers - handlers for FailOver
 func FailOverHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/node/{nodeid}/failover", http.HandlerFunc(getfailOver)).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/node/{nodeid}/failover", logic.SecurityCheck(true, http.HandlerFunc(createfailOver))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/node/{nodeid}/failover", logic.SecurityCheck(true, http.HandlerFunc(deletefailOver))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/node/{network}/failover/reset", logic.SecurityCheck(true, http.HandlerFunc(resetFailOver))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/node/{nodeid}/failover_me", controller.Authorize(true, false, "host", http.HandlerFunc(failOverME))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/node/{nodeid}/failover", http.HandlerFunc(getfailOver)).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/node/{nodeid}/failover", logic.SecurityCheck(true, http.HandlerFunc(createfailOver))).
+		Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/node/{nodeid}/failover", logic.SecurityCheck(true, http.HandlerFunc(deletefailOver))).
+		Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/node/{network}/failover/reset", logic.SecurityCheck(true, http.HandlerFunc(resetFailOver))).
+		Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/node/{nodeid}/failover_me", controller.Authorize(true, false, "host", http.HandlerFunc(failOverME))).
+		Methods(http.MethodPost)
 }
 
-// swagger:route GET /api/v1/node/failover node getfailOver
-//
-// get failover node.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: nodeResponse
+// @Summary     Get failover node
+// @Router      /api/v1/node/{nodeid}/failover [get]
+// @Tags        PRO
+// @Param       nodeid path string true "Node ID"
+// @Success     200 {object} models.Node
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     404 {object} models.ErrorResponse
 func getfailOver(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
@@ -50,24 +51,24 @@ func getfailOver(w http.ResponseWriter, r *http.Request) {
 
 	failOverNode, exists := proLogic.FailOverExists(node.Network)
 	if !exists {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failover node not found"), "notfound"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("failover node not found"), "notfound"),
+		)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	logic.ReturnSuccessResponseWithJson(w, r, failOverNode, "get failover node successfully")
 }
 
-// swagger:route POST /api/v1/node/failover node createfailOver
-//
-// Create a relay.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: nodeResponse
+// @Summary     Create failover node
+// @Router      /api/v1/node/{nodeid}/failover [post]
+// @Tags        PRO
+// @Param       nodeid path string true "Node ID"
+// @Success     200 {object} models.Node
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
 func createfailOver(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
@@ -88,6 +89,12 @@ func createfailOver(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, node, "created failover successfully")
 }
 
+// @Summary     Reset failover for a network
+// @Router      /api/v1/node/{network}/failover/reset [post]
+// @Tags        PRO
+// @Param       network path string true "Network ID"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     500 {object} models.ErrorResponse
 func resetFailOver(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	net := params["network"]
@@ -108,17 +115,13 @@ func resetFailOver(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, "failover has been reset successfully")
 }
 
-// swagger:route DELETE /api/v1/node/failover node deletefailOver
-//
-// Create a relay.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: nodeResponse
+// @Summary     Delete failover node
+// @Router      /api/v1/node/{nodeid}/failover [delete]
+// @Tags        PRO
+// @Param       nodeid path string true "Node ID"
+// @Success     200 {object} models.Node
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
 func deletefailOver(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
@@ -145,17 +148,15 @@ func deletefailOver(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, node, "deleted failover successfully")
 }
 
-// swagger:route POST /api/node/{nodeid}/failOverME node failOver_me
-//
-// Create a relay.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: nodeResponse
+// @Summary     Failover me
+// @Router      /api/v1/node/{nodeid}/failover_me [post]
+// @Tags        PRO
+// @Param       nodeid path string true "Node ID"
+// @Accept      json
+// @Param       body body models.FailOverMeReq true "Failover request"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
 func failOverME(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
@@ -174,7 +175,14 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 
 	failOverNode, exists := proLogic.FailOverExists(node.Network)
 	if !exists {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("req-from: %s, failover node doesn't exist in the network", host.Name), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				fmt.Errorf("req-from: %s, failover node doesn't exist in the network", host.Name),
+				"badrequest",
+			),
+		)
 		return
 	}
 	var failOverReq models.FailOverMeReq
@@ -188,27 +196,57 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 	peerNode, err := logic.GetNodeByID(failOverReq.NodeID)
 	if err != nil {
 		slog.Error("peer not found: ", "nodeid", failOverReq.NodeID, "error", err)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("peer not found"), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("peer not found"), "badrequest"),
+		)
 		return
 	}
 	if node.IsFailOver {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node is acting as failover"), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("node is acting as failover"), "badrequest"),
+		)
 		return
 	}
 	if node.IsRelayed && node.RelayedBy == peerNode.ID.String() {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node is relayed by peer node"), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("node is relayed by peer node"), "badrequest"),
+		)
 		return
 	}
 	if node.IsRelay && peerNode.RelayedBy == node.ID.String() {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node acting as relay for the peer node"), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("node acting as relay for the peer node"), "badrequest"),
+		)
 		return
 	}
 	if node.IsInternetGateway && peerNode.InternetGwID == node.ID.String() {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node acting as internet gw for the peer node"), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				errors.New("node acting as internet gw for the peer node"),
+				"badrequest",
+			),
+		)
 		return
 	}
 	if node.InternetGwID != "" && node.InternetGwID == peerNode.ID.String() {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node using a internet gw by the peer node"), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				errors.New("node using a internet gw by the peer node"),
+				"badrequest",
+			),
+		)
 		return
 	}
 
@@ -216,10 +254,20 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("failed to create failover", "id", node.ID.String(),
 			"network", node.Network, "error", err)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to create failover: %v", err), "internal"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(fmt.Errorf("failed to create failover: %v", err), "internal"),
+		)
 		return
 	}
-	slog.Info("[auto-relay] created relay on node", "node", node.ID.String(), "network", node.Network)
+	slog.Info(
+		"[auto-relay] created relay on node",
+		"node",
+		node.ID.String(),
+		"network",
+		node.Network,
+	)
 	sendPeerUpdate = true
 
 	if sendPeerUpdate {

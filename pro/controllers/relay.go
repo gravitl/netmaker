@@ -19,22 +19,25 @@ import (
 // RelayHandlers - handle Pro Relays
 func RelayHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/createrelay", controller.Authorize(false, true, "user", http.HandlerFunc(createRelay))).Methods(http.MethodPost)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleterelay", controller.Authorize(false, true, "user", http.HandlerFunc(deleteRelay))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/host/{hostid}/failoverme", controller.Authorize(true, false, "host", http.HandlerFunc(failOverME))).Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/createrelay", controller.Authorize(false, true, "user", http.HandlerFunc(createRelay))).
+		Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleterelay", controller.Authorize(false, true, "user", http.HandlerFunc(deleteRelay))).
+		Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/host/{hostid}/failoverme", controller.Authorize(true, false, "host", http.HandlerFunc(failOverME))).
+		Methods(http.MethodPost)
 }
 
-// swagger:route POST /api/nodes/{network}/{nodeid}/createrelay nodes createRelay
-//
-// Create a relay.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: nodeResponse
+// @Summary     Create a relay
+// @Router      /api/nodes/{network}/{nodeid}/createrelay [post]
+// @Tags        PRO
+// @Accept      json
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Param       nodeid path string true "Node ID"
+// @Param       body body models.RelayRequest true "Relay request parameters"
+// @Success     200 {object} models.ApiNode
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
 func createRelay(w http.ResponseWriter, r *http.Request) {
 	var relayRequest models.RelayRequest
 	var params = mux.Vars(r)
@@ -49,8 +52,16 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 	relayRequest.NodeID = params["nodeid"]
 	_, relayNode, err := proLogic.CreateRelay(relayRequest)
 	if err != nil {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("failed to create relay on node [%s] on network [%s]: %v", relayRequest.NodeID, relayRequest.NetID, err))
+		logger.Log(
+			0,
+			r.Header.Get("user"),
+			fmt.Sprintf(
+				"failed to create relay on node [%s] on network [%s]: %v",
+				relayRequest.NodeID,
+				relayRequest.NetID,
+				err,
+			),
+		)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
@@ -64,23 +75,29 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	go mq.PublishPeerUpdate(false)
-	logger.Log(1, r.Header.Get("user"), "created relay on node", relayRequest.NodeID, "on network", relayRequest.NetID)
+	logger.Log(
+		1,
+		r.Header.Get("user"),
+		"created relay on node",
+		relayRequest.NodeID,
+		"on network",
+		relayRequest.NetID,
+	)
 	apiNode := relayNode.ConvertToAPINode()
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
 }
 
-// swagger:route DELETE /api/nodes/{network}/{nodeid}/deleterelay nodes deleteRelay
-//
-// Remove a relay.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: nodeResponse
+// @Summary     Remove a relay
+// @Router      /api/nodes/{network}/{nodeid}/deleterelay [delete]
+// @Tags        PRO
+// @Accept      json
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Param       nodeid path string true "Node ID"
+// @Success     200 {object} models.ApiNode
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
 func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -97,7 +114,15 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 		for _, relayedNode := range updateNodes {
 			err = mq.NodeUpdate(&relayedNode)
 			if err != nil {
-				logger.Log(1, "relayed node update ", relayedNode.ID.String(), "on network", relayedNode.Network, ": ", err.Error())
+				logger.Log(
+					1,
+					"relayed node update ",
+					relayedNode.ID.String(),
+					"on network",
+					relayedNode.Network,
+					": ",
+					err.Error(),
+				)
 
 			}
 			h, err := logic.GetHost(relayedNode.HostID.String())
@@ -109,14 +134,27 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 					}
 					node.IsRelay = true // for iot update to recognise that it has to delete relay peer
 					if err = mq.PublishSingleHostPeerUpdate(h, nodes, &node, nil, false); err != nil {
-						logger.Log(1, "failed to publish peer update to host", h.ID.String(), ": ", err.Error())
+						logger.Log(
+							1,
+							"failed to publish peer update to host",
+							h.ID.String(),
+							": ",
+							err.Error(),
+						)
 					}
 				}
 			}
 		}
 		mq.PublishPeerUpdate(false)
 	}()
-	logger.Log(1, r.Header.Get("user"), "deleted relay on node", node.ID.String(), "on network", node.Network)
+	logger.Log(
+		1,
+		r.Header.Get("user"),
+		"deleted relay on node",
+		node.ID.String(),
+		"on network",
+		node.Network,
+	)
 	apiNode := node.ConvertToAPINode()
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)

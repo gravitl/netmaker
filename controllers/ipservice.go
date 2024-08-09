@@ -15,17 +15,12 @@ func ipHandlers(r *mux.Router) {
 	r.HandleFunc("/api/getip", http.HandlerFunc(getPublicIP)).Methods(http.MethodGet)
 }
 
-// swagger:route GET /api/getip ipservice getPublicIP
-//
-// Get the current public IP address.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: byteArrayResponse
+// @Summary     Get the current public IP address.
+// @Router      /api/getip [get]
+// @Tags        IP Service
+// @Security    oauth2
+// @Success     200 {string} string "The public IP address."
+// @Failure     400 {string} string "Invalid IP address or no IP found."
 func getPublicIP(w http.ResponseWriter, r *http.Request) {
 	r.Header.Set("Connection", "close")
 	ip, err := parseIP(r)
