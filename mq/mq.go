@@ -34,9 +34,9 @@ func setMqOptions(user, password string, opts *mqtt.ClientOptions) {
 	opts.SetAutoReconnect(true)
 	opts.SetConnectRetry(true)
 	opts.SetCleanSession(true)
-	opts.SetConnectRetryInterval(time.Second * 4)
-	opts.SetKeepAlive(time.Minute)
-	opts.SetCleanSession(true)
+	opts.SetConnectRetryInterval(time.Second * 1)
+	opts.SetKeepAlive(time.Second * 10)
+	opts.SetOrderMatters(false)
 	opts.SetWriteTimeout(time.Minute)
 }
 
@@ -75,19 +75,15 @@ func SetupMQTT(fatal bool) {
 	opts.SetOnConnectHandler(func(client mqtt.Client) {
 		serverName := servercfg.GetServer()
 		if token := client.Subscribe(fmt.Sprintf("update/%s/#", serverName), 0, mqtt.MessageHandler(UpdateNode)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
-			client.Disconnect(240)
 			logger.Log(0, "node update subscription failed")
 		}
 		if token := client.Subscribe(fmt.Sprintf("host/serverupdate/%s/#", serverName), 0, mqtt.MessageHandler(UpdateHost)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
-			client.Disconnect(240)
 			logger.Log(0, "host update subscription failed")
 		}
 		if token := client.Subscribe(fmt.Sprintf("signal/%s/#", serverName), 0, mqtt.MessageHandler(ClientPeerUpdate)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
-			client.Disconnect(240)
 			logger.Log(0, "node client subscription failed")
 		}
 		if token := client.Subscribe(fmt.Sprintf("metrics/%s/#", serverName), 0, mqtt.MessageHandler(UpdateMetrics)); token.WaitTimeout(MQ_TIMEOUT*time.Second) && token.Error() != nil {
-			client.Disconnect(240)
 			logger.Log(0, "node metrics subscription failed")
 		}
 

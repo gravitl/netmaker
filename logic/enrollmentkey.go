@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slices"
 )
 
@@ -29,6 +31,10 @@ var EnrollmentErrors = struct {
 	FailedToTokenize:   fmt.Errorf("failed to tokenize"),
 	FailedToDeTokenize: fmt.Errorf("failed to detokenize"),
 }
+var (
+	enrollmentkeyCacheMutex = &sync.RWMutex{}
+	enrollmentkeyCacheMap   = make(map[string]models.EnrollmentKey)
+)
 
 // CreateEnrollmentKey - creates a new enrollment key in db
 func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string, unlimited bool, relay uuid.UUID) (*models.EnrollmentKey, error) {
@@ -104,21 +110,21 @@ func UpdateEnrollmentKey(keyId string, relayId uuid.UUID) (*models.EnrollmentKey
 
 	key.Relay = relayId
 
-	if err = upsertEnrollmentKey(key); err != nil {
+	if err = upsertEnrollmentKey(&key); err != nil {
 		return nil, err
 	}
 
-	return key, nil
+	return &key, nil
 }
 
 // GetAllEnrollmentKeys - fetches all enrollment keys from DB
 // TODO drop double pointer
-func GetAllEnrollmentKeys() ([]*models.EnrollmentKey, error) {
+func GetAllEnrollmentKeys() ([]models.EnrollmentKey, error) {
 	currentKeys, err := getEnrollmentKeysMap()
 	if err != nil {
 		return nil, err
 	}
-	var currentKeysList = []*models.EnrollmentKey{}
+	var currentKeysList = []models.EnrollmentKey{}
 	for k := range currentKeys {
 		currentKeysList = append(currentKeysList, currentKeys[k])
 	}
@@ -127,15 +133,21 @@ func GetAllEnrollmentKeys() ([]*models.EnrollmentKey, error) {
 
 // GetEnrollmentKey - fetches a single enrollment key
 // returns nil and error if not found
-func GetEnrollmentKey(value string) (*models.EnrollmentKey, error) {
+func GetEnrollmentKey(value string) (key models.EnrollmentKey, err error) {
 	currentKeys, err := getEnrollmentKeysMap()
 	if err != nil {
-		return nil, err
+		return key, err
 	}
 	if key, ok := currentKeys[value]; ok {
 		return key, nil
 	}
-	return nil, EnrollmentErrors.NoKeyFound
+	return key, EnrollmentErrors.NoKeyFound
+}
+
+func deleteEnrollmentkeyFromCache(key string) {
+	enrollmentkeyCacheMutex.Lock()
+	delete(enrollmentkeyCacheMap, key)
+	enrollmentkeyCacheMutex.Unlock()
 }
 
 // DeleteEnrollmentKey - delete's a given enrollment key by value
@@ -144,7 +156,13 @@ func DeleteEnrollmentKey(value string) error {
 	if err != nil {
 		return err
 	}
-	return database.DeleteRecord(database.ENROLLMENT_KEYS_TABLE_NAME, value)
+	err = database.DeleteRecord(database.ENROLLMENT_KEYS_TABLE_NAME, value)
+	if err == nil {
+		if servercfg.CacheEnabled() {
+			deleteEnrollmentkeyFromCache(value)
+		}
+	}
+	return err
 }
 
 // TryToUseEnrollmentKey - checks first if key can be decremented
@@ -200,7 +218,7 @@ func DeTokenize(b64Token string) (*models.EnrollmentKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	return k, nil
+	return &k, nil
 }
 
 // == private ==
@@ -215,11 +233,11 @@ func decrementEnrollmentKey(value string) (*models.EnrollmentKey, error) {
 		return nil, EnrollmentErrors.NoUsesRemaining
 	}
 	k.UsesRemaining = k.UsesRemaining - 1
-	if err = upsertEnrollmentKey(k); err != nil {
+	if err = upsertEnrollmentKey(&k); err != nil {
 		return nil, err
 	}
 
-	return k, nil
+	return &k, nil
 }
 
 func upsertEnrollmentKey(k *models.EnrollmentKey) error {
@@ -230,7 +248,13 @@ func upsertEnrollmentKey(k *models.EnrollmentKey) error {
 	if err != nil {
 		return err
 	}
-	return database.Insert(k.Value, string(data), database.ENROLLMENT_KEYS_TABLE_NAME)
+	err = database.Insert(k.Value, string(data), database.ENROLLMENT_KEYS_TABLE_NAME)
+	if err == nil {
+		if servercfg.CacheEnabled() {
+			storeEnrollmentkeyInCache(k.Value, *k)
+		}
+	}
+	return nil
 }
 
 func getUniqueEnrollmentID() (string, error) {
@@ -245,7 +269,23 @@ func getUniqueEnrollmentID() (string, error) {
 	return newID, nil
 }
 
-func getEnrollmentKeysMap() (map[string]*models.EnrollmentKey, error) {
+func getEnrollmentkeysFromCache() map[string]models.EnrollmentKey {
+	return enrollmentkeyCacheMap
+}
+
+func storeEnrollmentkeyInCache(key string, enrollmentkey models.EnrollmentKey) {
+	enrollmentkeyCacheMutex.Lock()
+	enrollmentkeyCacheMap[key] = enrollmentkey
+	enrollmentkeyCacheMutex.Unlock()
+}
+
+func getEnrollmentKeysMap() (map[string]models.EnrollmentKey, error) {
+	if servercfg.CacheEnabled() {
+		keys := getEnrollmentkeysFromCache()
+		if len(keys) != 0 {
+			return keys, nil
+		}
+	}
 	records, err := database.FetchRecords(database.ENROLLMENT_KEYS_TABLE_NAME)
 	if err != nil {
 		if !database.IsEmptyRecord(err) {
@@ -255,14 +295,17 @@ func getEnrollmentKeysMap() (map[string]*models.EnrollmentKey, error) {
 	if records == nil {
 		records = make(map[string]string)
 	}
-	currentKeys := make(map[string]*models.EnrollmentKey, 0)
+	currentKeys := make(map[string]models.EnrollmentKey, 0)
 	if len(records) > 0 {
 		for k := range records {
 			var currentKey models.EnrollmentKey
 			if err = json.Unmarshal([]byte(records[k]), &currentKey); err != nil {
 				continue
 			}
-			currentKeys[k] = &currentKey
+			currentKeys[k] = currentKey
+			if servercfg.CacheEnabled() {
+				storeEnrollmentkeyInCache(currentKey.Value, currentKey)
+			}
 		}
 	}
 	return currentKeys, nil

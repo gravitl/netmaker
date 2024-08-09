@@ -137,6 +137,7 @@ func TestCreateUser(t *testing.T) {
 
 func TestCreateSuperAdmin(t *testing.T) {
 	deleteAllUsers(t)
+	logic.ClearSuperUserCache()
 	var user models.User
 	t.Run("NoSuperAdmin", func(t *testing.T) {
 		user.UserName = "admin"
