@@ -31,19 +31,20 @@ jobs:
           export PATH=$PATH:$(go env GOPATH)/bin
           swag i --md docs/ --parseDependency  --parseInternal --outputTypes yaml  --parseDepth 1 --output .
 
+      - name: Get current timestamp
+        id: timestamp
+        run: echo "timestamp=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
+
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
-        env:
-          CURRENT_DATE: $(date +"%Y-%m-%d")
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "Update documentation ${{ env.CURRENT_DATE }}"
-          title: "Update Swagger documentation ${{ env.CURRENT_DATE }}"
+          commit-message: "Update documentation ${{ steps.timestamp.outputs.timestamp }}"
+          title: "Update Swagger documentation ${{ steps.timestamp.outputs.timestamp }}"
           body: |
             This PR updates the swagger.yml file with the latest documentation changes.
             
-            Updated on: ${{ env.CURRENT_DATE }}
-          branch: update-swagger-docs-${{ github.event.inputs.branch || 'master' }}
-          base: ${{ github.event.inputs.branch || 'master' }}
+            Updated on: ${{ steps.timestamp.outputs.timestamp }}
+          branch: update-swagger-docs-${{ github.event.inputs.branch }}
+          base: ${{ github.event.inputs.branch }}
           delete-branch: true
-
