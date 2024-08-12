@@ -773,7 +773,7 @@ func IsGroupsValid(groups map[models.UserGroupID]struct{}) error {
 	for groupID := range groups {
 		_, err := GetUserGroup(groupID)
 		if err != nil {
-			return err
+			return fmt.Errorf("user group `%s` not found", groupID)
 		}
 	}
 	return nil
@@ -786,10 +786,6 @@ func IsNetworkRolesValid(networkRoles map[models.NetworkID]map[models.UserRoleID
 			_, err := logic.GetNetwork(netID.String())
 			if err != nil {
 				return fmt.Errorf("failed to fetch network %s ", netID)
-			}
-			if len(netRoles) == 0 {
-				delete(networkRoles, netID)
-				continue
 			}
 		}
 		for netRoleID := range netRoles {
