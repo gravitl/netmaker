@@ -90,7 +90,7 @@ func DeleteExtClient(network string, clientid string) error {
 	if err != nil {
 		return err
 	}
-	if extClient, ok := getExtClientFromCache(key); ok {
+	if extClient, err := GetExtClient(clientid, network); err == nil {
 		//recycle ip address
 		if extClient.Address != "" {
 			RemoveIpFromAllocatedIpMap(network, extClient.Address)

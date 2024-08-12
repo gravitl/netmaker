@@ -26,10 +26,6 @@ var (
 	allocatedIpMap    = make(map[string]map[string]net.IP)
 )
 
-const (
-	ipAddrCap = 5000
-)
-
 // SetAllocatedIpMap - set allocated ip map for networks
 func SetAllocatedIpMap() error {
 	logger.Log(0, "start setting up allocated ip map")
@@ -315,15 +311,7 @@ func UniqueAddress(networkName string, reverse bool) (net.IP, error) {
 	}
 
 	ipAllocated := allocatedIpMap[networkName]
-	i := 0
 	for {
-		if i >= ipAddrCap {
-			break
-		}
-		// if IsIPUnique(networkName, newAddrs.String(), database.NODES_TABLE_NAME, false) &&
-		// 	IsIPUnique(networkName, newAddrs.String(), database.EXT_CLIENT_TABLE_NAME, false) {
-		// 	return newAddrs, nil
-		// }
 		if _, ok := ipAllocated[newAddrs.String()]; !ok {
 			return newAddrs, nil
 		}
@@ -335,7 +323,6 @@ func UniqueAddress(networkName string, reverse bool) (net.IP, error) {
 		if err != nil {
 			break
 		}
-		i++
 	}
 
 	return add, errors.New("ERROR: No unique addresses available. Check network subnet")
@@ -413,15 +400,7 @@ func UniqueAddress6(networkName string, reverse bool) (net.IP, error) {
 	}
 
 	ipAllocated := allocatedIpMap[networkName]
-	i := 0
 	for {
-		if i >= ipAddrCap {
-			break
-		}
-		// if IsIPUnique(networkName, newAddrs.String(), database.NODES_TABLE_NAME, true) &&
-		// 	IsIPUnique(networkName, newAddrs.String(), database.EXT_CLIENT_TABLE_NAME, true) {
-		// 	return newAddrs, nil
-		// }
 		if _, ok := ipAllocated[newAddrs.String()]; !ok {
 			return newAddrs, nil
 		}
@@ -433,7 +412,6 @@ func UniqueAddress6(networkName string, reverse bool) (net.IP, error) {
 		if err != nil {
 			break
 		}
-		i++
 	}
 
 	return add, errors.New("ERROR: No unique IPv6 addresses available. Check network subnet")
