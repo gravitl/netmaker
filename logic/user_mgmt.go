@@ -43,6 +43,8 @@ var IsNetworkRolesValid = func(networkRoles map[models.NetworkID]map[models.User
 	return nil
 }
 
+var UpdateRole = func(r models.UserRolePermissionTemplate) error { return nil }
+
 var InitialiseRoles = userRolesInit
 var DeleteNetworkRoles = func(netID string) {}
 var CreateDefaultNetworkRolesAndGroups = func(netID models.NetworkID) {}

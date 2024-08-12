@@ -180,7 +180,8 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	}
 	// create network role for this gateway
 	CreateRole(models.UserRolePermissionTemplate{
-		ID:        models.GetRAGRoleName(node.Network, host.Name),
+		ID:        models.GetRAGRoleID(node.Network, host.ID.String()),
+		UiName:    models.GetRAGRoleName(node.Network, host.Name),
 		NetworkID: models.NetworkID(node.Network),
 		Default:   true,
 		NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
@@ -258,7 +259,7 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 	if err != nil {
 		return models.Node{}, removedClients, err
 	}
-	go DeleteRole(models.GetRAGRoleName(node.Network, host.Name), true)
+	go DeleteRole(models.GetRAGRoleID(node.Network, host.ID.String()), true)
 	err = SetNetworkNodesLastModified(node.Network)
 	return node, removedClients, err
 }

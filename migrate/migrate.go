@@ -323,7 +323,8 @@ func syncUsers() {
 					h, err := logic.GetHost(networkNodeI.HostID.String())
 					if err == nil {
 						logic.CreateRole(models.UserRolePermissionTemplate{
-							ID:        models.GetRAGRoleName(networkNodeI.Network, h.Name),
+							ID:        models.GetRAGRoleID(networkNodeI.Network, h.ID.String()),
+							UiName:    models.GetRAGRoleName(networkNodeI.Network, h.Name),
 							NetworkID: models.NetworkID(netI.NetID),
 							NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
 								models.RemoteAccessGwRsrc: {
@@ -387,7 +388,7 @@ func syncUsers() {
 					if err != nil {
 						continue
 					}
-					r, err := logic.GetRole(models.GetRAGRoleName(gwNode.Network, h.Name))
+					r, err := logic.GetRole(models.GetRAGRoleID(gwNode.Network, h.ID.String()))
 					if err != nil {
 						continue
 					}

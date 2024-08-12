@@ -121,6 +121,7 @@ func InitPro() {
 	mq.UpdateMetricsFallBack = proLogic.MQUpdateMetricsFallBack
 	logic.GetFilteredNodesByUserAccess = proLogic.GetFilteredNodesByUserAccess
 	logic.CreateRole = proLogic.CreateRole
+	logic.UpdateRole = proLogic.UpdateRole
 	logic.DeleteRole = proLogic.DeleteRole
 	logic.NetworkPermissionsCheck = proLogic.NetworkPermissionsCheck
 	logic.GlobalPermissionsCheck = proLogic.GlobalPermissionsCheck

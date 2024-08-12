@@ -27,8 +27,12 @@ func (rid RsrcID) String() string {
 	return string(rid)
 }
 
-func GetRAGRoleName(netID, hostName string) UserRoleID {
-	return UserRoleID(fmt.Sprintf("netID-%s-rag-%s", netID, hostName))
+func GetRAGRoleName(netID, hostName string) string {
+	return fmt.Sprintf("netID-%s-rag-%s", netID, hostName)
+}
+
+func GetRAGRoleID(netID, hostID string) UserRoleID {
+	return UserRoleID(fmt.Sprintf("netID-%s-rag-%s", netID, hostID))
 }
 
 var RsrcTypeMap = map[RsrcType]struct{}{
@@ -112,6 +116,7 @@ type RsrcPermissionScope struct {
 
 type UserRolePermissionTemplate struct {
 	ID                  UserRoleID                                  `json:"id"`
+	UiName              string                                      `json:"ui_name"`
 	Default             bool                                        `json:"default"`
 	DenyDashboardAccess bool                                        `json:"deny_dashboard_access"`
 	FullAccess          bool                                        `json:"full_access"`

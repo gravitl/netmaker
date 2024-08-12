@@ -197,7 +197,7 @@ func DeleteNode(node *models.Node, purge bool) error {
 		}
 		host, err := GetHost(node.HostID.String())
 		if err == nil {
-			go DeleteRole(models.GetRAGRoleName(node.Network, host.Name), true)
+			go DeleteRole(models.GetRAGRoleID(node.Network, host.ID.String()), true)
 		}
 	}
 	if node.IsRelayed {

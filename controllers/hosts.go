@@ -219,6 +219,20 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newHost := newHostData.ConvertAPIHostToNMHost(currHost)
+
+	if newHost.Name != currHost.Name {
+		// update any rag role ids
+		for _, nodeID := range newHost.Nodes {
+			node, err := logic.GetNodeByID(nodeID)
+			if err == nil && node.IsIngressGateway {
+				role, err := logic.GetRole(models.GetRAGRoleID(node.Network, currHost.ID.String()))
+				if err == nil {
+					role.UiName = models.GetRAGRoleName(node.Network, newHost.Name)
+					logic.UpdateRole(role)
+				}
+			}
+		}
+	}
 	logic.UpdateHost(newHost, currHost) // update the in memory struct values
 	if err = logic.UpsertHost(newHost); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update a host:", err.Error())
