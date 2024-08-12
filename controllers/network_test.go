@@ -186,8 +186,6 @@ func TestIpv6Network(t *testing.T) {
 	deleteAllNetworks()
 	createNet()
 	createNetDualStack()
-	logic.SetIpPool()
-	defer logic.ClearIpPool()
 	network, err := logic.GetNetwork("skynet6")
 	t.Run("Test Network Create IPv6", func(t *testing.T) {
 		assert.Nil(t, err)
@@ -205,7 +203,6 @@ func TestIpv6Network(t *testing.T) {
 func deleteAllNetworks() {
 	deleteAllNodes()
 	database.DeleteAllRecords(database.NETWORKS_TABLE_NAME)
-	logic.ClearIpPool()
 }
 
 func createNet() {
