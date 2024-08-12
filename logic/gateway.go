@@ -178,6 +178,29 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	if err != nil {
 		return models.Node{}, err
 	}
+	// create network role for this gateway
+	CreateRole(models.UserRolePermissionTemplate{
+		ID:        models.GetRAGRoleName(node.Network, host.Name),
+		NetworkID: models.NetworkID(node.Network),
+		Default:   true,
+		NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
+			models.RemoteAccessGwRsrc: {
+				models.RsrcID(node.ID.String()): models.RsrcPermissionScope{
+					Read:      true,
+					VPNaccess: true,
+				},
+			},
+			models.ExtClientsRsrc: {
+				models.AllExtClientsRsrcID: models.RsrcPermissionScope{
+					Read:     true,
+					Create:   true,
+					Update:   true,
+					Delete:   true,
+					SelfOnly: true,
+				},
+			},
+		},
+	})
 	err = SetNetworkNodesLastModified(netid)
 	return node, err
 }
@@ -231,6 +254,11 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 	if err != nil {
 		return models.Node{}, removedClients, err
 	}
+	host, err := GetHost(node.HostID.String())
+	if err != nil {
+		return models.Node{}, removedClients, err
+	}
+	go DeleteRole(models.GetRAGRoleName(node.Network, host.Name), true)
 	err = SetNetworkNodesLastModified(node.Network)
 	return node, removedClients, err
 }

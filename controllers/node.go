@@ -577,34 +577,6 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	host, err := logic.GetHost(node.HostID.String())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	// create network role for this gateway
-	logic.CreateRole(models.UserRolePermissionTemplate{
-		ID:        models.GetRAGRoleName(node.Network, host.Name),
-		NetworkID: models.NetworkID(node.Network),
-		Default:   true,
-		NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
-			models.RemoteAccessGwRsrc: {
-				models.RsrcID(node.ID.String()): models.RsrcPermissionScope{
-					Read:      true,
-					VPNaccess: true,
-				},
-			},
-			models.ExtClientsRsrc: {
-				models.AllExtClientsRsrcID: models.RsrcPermissionScope{
-					Read:     true,
-					Create:   true,
-					Update:   true,
-					Delete:   true,
-					SelfOnly: true,
-				},
-			},
-		},
-	})
 
 	apiNode := node.ConvertToAPINode()
 	logger.Log(1, r.Header.Get("user"), "created ingress gateway on node", nodeid, "on network", netid)
@@ -646,13 +618,6 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	host, err := logic.GetHost(node.HostID.String())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-
-	go logic.DeleteRole(models.GetRAGRoleName(node.Network, host.Name), true)
 
 	apiNode := node.ConvertToAPINode()
 	logger.Log(1, r.Header.Get("user"), "deleted ingress gateway", nodeid)
