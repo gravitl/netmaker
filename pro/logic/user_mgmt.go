@@ -146,6 +146,8 @@ func DeleteNetworkRoles(netID string) {
 		}
 
 	}
+	database.DeleteRecord(database.USER_GROUPS_TABLE_NAME, fmt.Sprintf("%s-%s-grp", netID, models.NetworkUser))
+	database.DeleteRecord(database.USER_GROUPS_TABLE_NAME, fmt.Sprintf("%s-%s-grp", netID, models.NetworkAdmin))
 	userGs, _ := ListUserGroups()
 	for _, userGI := range userGs {
 		if _, ok := userGI.NetworkRoles[models.NetworkID(netID)]; ok {
@@ -157,7 +159,7 @@ func DeleteNetworkRoles(netID string) {
 	roles, _ := ListNetworkRoles()
 	for _, role := range roles {
 		if role.NetworkID.String() == netID {
-			DeleteRole(role.ID, true)
+			database.DeleteRecord(database.USER_PERMISSIONS_TABLE_NAME, role.ID.String())
 		}
 	}
 }
@@ -361,13 +363,15 @@ func DeleteRole(rid models.UserRoleID, force bool) error {
 			err = errors.New("active roles cannot be deleted.switch existing users to a new role before deleting")
 			return err
 		}
-		for netID, networkRoles := range user.NetworkRoles {
-			if _, ok := networkRoles[rid]; ok {
-				delete(networkRoles, rid)
-				user.NetworkRoles[netID] = networkRoles
-				logic.UpsertUser(user)
-			}
+		if role.NetworkID != "" {
+			for netID, networkRoles := range user.NetworkRoles {
+				if _, ok := networkRoles[rid]; ok {
+					delete(networkRoles, rid)
+					user.NetworkRoles[netID] = networkRoles
+					logic.UpsertUser(user)
+				}
 
+			}
 		}
 	}
 	return database.DeleteRecord(database.USER_PERMISSIONS_TABLE_NAME, rid.String())
