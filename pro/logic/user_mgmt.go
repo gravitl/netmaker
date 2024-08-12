@@ -139,15 +139,28 @@ func DeleteNetworkRoles(netID string) {
 	if err != nil {
 		return
 	}
+	defaultUserGrp := fmt.Sprintf("%s-%s-grp", netID, models.NetworkUser)
+	defaultAdminGrp := fmt.Sprintf("%s-%s-grp", netID, models.NetworkAdmin)
 	for _, user := range users {
+		var upsert bool
 		if _, ok := user.NetworkRoles[models.NetworkID(netID)]; ok {
 			delete(user.NetworkRoles, models.NetworkID(netID))
+			upsert = true
+		}
+		if _, ok := user.UserGroups[models.UserGroupID(defaultUserGrp)]; ok {
+			delete(user.UserGroups, models.UserGroupID(defaultUserGrp))
+			upsert = true
+		}
+		if _, ok := user.UserGroups[models.UserGroupID(defaultAdminGrp)]; ok {
+			delete(user.UserGroups, models.UserGroupID(defaultAdminGrp))
+			upsert = true
+		}
+		if upsert {
 			logic.UpsertUser(user)
 		}
-
 	}
-	database.DeleteRecord(database.USER_GROUPS_TABLE_NAME, fmt.Sprintf("%s-%s-grp", netID, models.NetworkUser))
-	database.DeleteRecord(database.USER_GROUPS_TABLE_NAME, fmt.Sprintf("%s-%s-grp", netID, models.NetworkAdmin))
+	database.DeleteRecord(database.USER_GROUPS_TABLE_NAME, defaultUserGrp)
+	database.DeleteRecord(database.USER_GROUPS_TABLE_NAME, defaultAdminGrp)
 	userGs, _ := ListUserGroups()
 	for _, userGI := range userGs {
 		if _, ok := userGI.NetworkRoles[models.NetworkID(netID)]; ok {

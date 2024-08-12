@@ -529,20 +529,23 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			return
 
 		}
-		// user cannot update his own roles and groups
-		if len(user.NetworkRoles) != len(userchange.NetworkRoles) || !reflect.DeepEqual(user.NetworkRoles, userchange.NetworkRoles) {
-			err = errors.New("user cannot update self update their network roles")
-			slog.Error("failed to update user", "caller", caller.UserName, "attempted to update user", username, "error", err)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
-			return
+		if servercfg.IsPro {
+			// user cannot update his own roles and groups
+			if len(user.NetworkRoles) != len(userchange.NetworkRoles) || !reflect.DeepEqual(user.NetworkRoles, userchange.NetworkRoles) {
+				err = errors.New("user cannot update self update their network roles")
+				slog.Error("failed to update user", "caller", caller.UserName, "attempted to update user", username, "error", err)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+				return
+			}
+			// user cannot update his own roles and groups
+			if len(user.UserGroups) != len(userchange.UserGroups) || !reflect.DeepEqual(user.UserGroups, userchange.UserGroups) {
+				err = errors.New("user cannot update self update their groups")
+				slog.Error("failed to update user", "caller", caller.UserName, "attempted to update user", username, "error", err)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+				return
+			}
 		}
-		// user cannot update his own roles and groups
-		if len(user.UserGroups) != len(userchange.UserGroups) || !reflect.DeepEqual(user.UserGroups, userchange.UserGroups) {
-			err = errors.New("user cannot update self update their groups")
-			slog.Error("failed to update user", "caller", caller.UserName, "attempted to update user", username, "error", err)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
-			return
-		}
+
 	}
 	if ismaster {
 		if user.PlatformRoleID != models.SuperAdminRole && userchange.PlatformRoleID == models.SuperAdminRole {
