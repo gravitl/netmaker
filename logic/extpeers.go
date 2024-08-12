@@ -86,18 +86,20 @@ func DeleteExtClient(network string, clientid string) error {
 	if err != nil {
 		return err
 	}
+	extClient, err := GetExtClient(clientid, network)
+	if err != nil {
+		return err
+	}
 	err = database.DeleteRecord(database.EXT_CLIENT_TABLE_NAME, key)
 	if err != nil {
 		return err
 	}
-	if extClient, err := GetExtClient(clientid, network); err == nil {
-		//recycle ip address
-		if extClient.Address != "" {
-			RemoveIpFromAllocatedIpMap(network, extClient.Address)
-		}
-		if extClient.Address6 != "" {
-			RemoveIpFromAllocatedIpMap(network, extClient.Address6)
-		}
+	//recycle ip address
+	if extClient.Address != "" {
+		RemoveIpFromAllocatedIpMap(network, extClient.Address)
+	}
+	if extClient.Address6 != "" {
+		RemoveIpFromAllocatedIpMap(network, extClient.Address6)
 	}
 	if servercfg.CacheEnabled() {
 		deleteExtClientFromCache(key)
