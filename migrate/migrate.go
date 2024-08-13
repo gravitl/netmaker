@@ -20,8 +20,8 @@ import (
 // Run - runs all migrations
 func Run() {
 	updateEnrollmentKeys()
-	syncUsers()
 	assignSuperAdmin()
+	syncUsers()
 	updateHosts()
 	updateNodes()
 	updateAcls()
@@ -354,6 +354,7 @@ func syncUsers() {
 	users, err := logic.GetUsersDB()
 	if err == nil {
 		for _, user := range users {
+			user := user
 			if user.PlatformRoleID.String() != "" {
 				continue
 			}
