@@ -388,7 +388,7 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 
 // == EGRESS ==
 
-// @Summary     Create an egress gateway.
+// @Summary     Create an egress gateway
 // @Router      /api/nodes/{network}/{nodeid}/creategateway [post]
 // @Tags        Nodes
 // @Security    oauth2

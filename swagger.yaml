@@ -2042,7 +2042,7 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
       security:
       - oauth2: []
-      summary: Create an egress gateway.
+      summary: Create an egress gateway
       tags:
       - Nodes
   /api/nodes/{network}/{nodeid}/createingress:

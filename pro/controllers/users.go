@@ -424,7 +424,7 @@ func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(userGws)
 }
 
-// @Summary     List users attached to an ingress gateway
+// @Summary     List users attached to an remote access gateway
 // @Router      /api/nodes/{network}/{nodeid}/ingress/users [get]
 // @Tags        PRO
 // @Accept      json
