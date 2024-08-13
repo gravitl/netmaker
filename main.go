@@ -39,7 +39,6 @@ var version = "v0.25.0"
 //	@tag.name	    Pricing
 //	@tag.description.markdown
 //  @host      api.demo.netmaker.io
-//  @BasePath  /
 
 // Start DB Connection and start API Request Handler
 func main() {

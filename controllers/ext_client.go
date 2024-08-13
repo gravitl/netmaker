@@ -52,9 +52,9 @@ func checkIngressExists(nodeID string) bool {
 	return node.IsIngressGateway
 }
 
-// @Summary     Get all extclients associated with network.
+// @Summary     Get all remote access client associated with network
 // @Router      /api/extclients/{network} [get]
-// @Tags        ExtClients
+// @Tags        Remote Access Client
 // @Security    oauth2
 // @Success     200 {object} models.ExtClient
 // @Failure     500 {object} models.ErrorResponse
@@ -78,9 +78,9 @@ func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(extclients)
 }
 
-// @Summary     A separate function to get all extclients, not just extclients for a particular network.
+// @Summary     Fetches All Remote Access Clients across all networks
 // @Router      /api/extclients [get]
-// @Tags        ExtClients
+// @Tags        Remote Access Client
 // @Security    oauth2
 // @Success     200 {object} models.ExtClient
 // @Failure     500 {object} models.ErrorResponse
@@ -102,9 +102,9 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(clients)
 }
 
-// @Summary     Get an individual extclient.
+// @Summary     Get an individual remote access client
 // @Router      /api/extclients/{network}/{clientid} [get]
-// @Tags        ExtClients
+// @Tags        Remote Access Client
 // @Security    oauth2
 // @Success     200 {object} models.ExtClient
 // @Failure     500 {object} models.ErrorResponse
@@ -145,9 +145,9 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(client)
 }
 
-// @Summary     Get an individual extclient.
+// @Summary     Get an individual remote access client
 // @Router      /api/extclients/{network}/{clientid}/{type} [get]
-// @Tags        ExtClients
+// @Tags        Remote Access Client
 // @Security    oauth2
 // @Success     200 {object} models.ExtClient
 // @Failure     500 {object} models.ErrorResponse
@@ -387,9 +387,9 @@ Endpoint = %s
 	json.NewEncoder(w).Encode(client)
 }
 
-// @Summary     Create an individual extclient. Must have valid key and be unique.
+// @Summary     Create an individual remote access client
 // @Router      /api/extclients/{network}/{nodeid} [post]
-// @Tags        ExtClients
+// @Tags        Remote Access Client
 // @Security    oauth2
 // @Success     200 {string} string "OK"
 // @Failure     500 {object} models.ErrorResponse
@@ -543,9 +543,9 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
-// @Summary     Update an individual extclient.
+// @Summary     Update an individual remote access client
 // @Router      /api/extclients/{network}/{clientid} [put]
-// @Tags        ExtClients
+// @Tags        Remote Access Client
 // @Security    oauth2
 // @Success     200 {object} models.ExtClient
 // @Failure     500 {object} models.ErrorResponse
@@ -712,9 +712,9 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// @Summary     Delete an individual extclient.
+// @Summary     Delete an individual remote access client
 // @Router      /api/extclients/{network}/{clientid} [delete]
-// @Tags        ExtClients
+// @Tags        Remote Access Client
 // @Security    oauth2
 // @Success     200
 // @Failure     500 {object} models.ErrorResponse

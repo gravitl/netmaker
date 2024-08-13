@@ -1,4 +1,3 @@
-basePath: /
 definitions:
   acls.ACL:
     additionalProperties:
@@ -1375,10 +1374,9 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
       security:
       - oauth2: []
-      summary: A separate function to get all extclients, not just extclients for
-        a particular network.
+      summary: Fetches All Remote Access Clients across all networks
       tags:
-      - ExtClients
+      - Remote Access Client
   /api/extclients/{network}:
     get:
       responses:
@@ -1392,9 +1390,9 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
       security:
       - oauth2: []
-      summary: Get all extclients associated with network.
+      summary: Get all remote access client associated with network
       tags:
-      - ExtClients
+      - Remote Access Client
   /api/extclients/{network}/{clientid}:
     delete:
       responses:
@@ -1410,9 +1408,9 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
       security:
       - oauth2: []
-      summary: Delete an individual extclient.
+      summary: Delete an individual remote access client
       tags:
-      - ExtClients
+      - Remote Access Client
     get:
       responses:
         "200":
@@ -1429,9 +1427,9 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
       security:
       - oauth2: []
-      summary: Get an individual extclient.
+      summary: Get an individual remote access client
       tags:
-      - ExtClients
+      - Remote Access Client
     put:
       responses:
         "200":
@@ -1452,9 +1450,9 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
       security:
       - oauth2: []
-      summary: Update an individual extclient.
+      summary: Update an individual remote access client
       tags:
-      - ExtClients
+      - Remote Access Client
   /api/extclients/{network}/{clientid}/{type}:
     get:
       responses:
@@ -1472,9 +1470,9 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
       security:
       - oauth2: []
-      summary: Get an individual extclient.
+      summary: Get an individual remote access client
       tags:
-      - ExtClients
+      - Remote Access Client
   /api/extclients/{network}/{nodeid}:
     post:
       responses:
@@ -1496,9 +1494,9 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
       security:
       - oauth2: []
-      summary: Create an individual extclient. Must have valid key and be unique.
+      summary: Create an individual remote access client
       tags:
-      - ExtClients
+      - Remote Access Client
   /api/getip:
     get:
       responses:
@@ -1636,7 +1634,7 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
       security:
       - oauth: []
-      summary: Given a network, a host is removed from the network
+      summary: To Remove Host from Network
       tags:
       - Hosts
     post:
@@ -1662,7 +1660,7 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
       security:
       - oauth: []
-      summary: Given a network, a host is added to the network
+      summary: To Add Host To Network
       tags:
       - Hosts
   /api/hosts/{hostid}/sync:
@@ -1737,7 +1735,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/models.ErrorResponse'
-      summary: Authenticate to make further API calls related to a host
+      summary: To Fetch Auth Token for a Host
       tags:
       - Auth
   /api/hosts/keys:
@@ -1875,7 +1873,7 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
       security:
       - oauth: []
-      summary: Update pro settings for a network
+      summary: Update network settings
       tags:
       - Networks
   /api/networks/{networkname}/acls:
@@ -1998,7 +1996,7 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
       security:
       - oauth2: []
-      summary: Delete an individual node.
+      summary: Delete an individual node
       tags:
       - Nodes
     get:
@@ -2013,7 +2011,7 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
       security:
       - oauth2: []
-      summary: Get an individual node.
+      summary: Get an individual node
       tags:
       - Nodes
     put:
@@ -2028,7 +2026,7 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
       security:
       - oauth2: []
-      summary: Update an individual node.
+      summary: Update an individual node
       tags:
       - Nodes
   /api/nodes/{network}/{nodeid}/creategateway:
@@ -2060,7 +2058,7 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
       security:
       - oauth2: []
-      summary: Create an ingress gateway.
+      summary: Create an remote access gateway
       tags:
       - Nodes
   /api/nodes/{network}/{nodeid}/createrelay:
@@ -2115,7 +2113,7 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
       security:
       - oauth2: []
-      summary: Delete an egress gateway.
+      summary: Delete an egress gateway
       tags:
       - Nodes
   /api/nodes/{network}/{nodeid}/deleteingress:
@@ -2131,7 +2129,7 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
       security:
       - oauth2: []
-      summary: Delete an ingress gateway.
+      summary: Delete an remote access gateway
       tags:
       - Nodes
   /api/nodes/{network}/{nodeid}/deleterelay:
@@ -2195,7 +2193,7 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
       summary: Delete an internet gateway
       tags:
-      - InternetGateway
+      - PRO
     post:
       consumes:
       - application/json
@@ -2311,32 +2309,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/models.ErrorResponse'
-      summary: Gets all nodes associated with network including pending nodes.
+      summary: Gets all nodes associated with network including pending nodes
       tags:
       - Nodes
-  /api/nodes/adm/{network}/authenticate:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Authentication parameters
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/models.AuthParams'
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.SuccessResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      summary: Authenticate to make further API calls related to a network
-      tags:
-      - Auth
   /api/server/getconfig:
     get:
       responses:
@@ -2346,7 +2321,7 @@ paths:
             $ref: '#/definitions/config.ServerConfig'
       security:
       - oauth2: []
-      summary: Get the server configuration.
+      summary: Get the server configuration
       tags:
       - Server
   /api/server/getserverinfo:
@@ -2358,7 +2333,7 @@ paths:
             $ref: '#/definitions/models.ServerConfig'
       security:
       - oauth2: []
-      summary: Get the server information.
+      summary: Get the server information
       tags:
       - Server
   /api/server/status:
@@ -2366,7 +2341,7 @@ paths:
       responses: {}
       security:
       - oauth2: []
-      summary: Get the server status.
+      summary: Get the server status
       tags:
       - Server
   /api/users:
@@ -2770,7 +2745,7 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
       security:
       - oauth: []
-      summary: Lists all EnrollmentKeys for admins.
+      summary: Lists all EnrollmentKeys for admins
       tags:
       - EnrollmentKeys
     post:
@@ -2796,7 +2771,8 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
       security:
       - oauth: []
-      summary: Creates an EnrollmentKey for hosts to use on Netmaker server.
+      summary: Creates an EnrollmentKey for hosts to register with server and join
+        networks
       tags:
       - EnrollmentKeys
   /api/v1/enrollment-keys/{keyid}:
@@ -2816,7 +2792,7 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
       security:
       - oauth: []
-      summary: Deletes an EnrollmentKey from Netmaker server.
+      summary: Deletes an EnrollmentKey from Netmaker server
       tags:
       - EnrollmentKeys
     put:
@@ -2847,8 +2823,8 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
       security:
       - oauth: []
-      summary: Updates an EnrollmentKey for hosts to use on Netmaker server. Updates
-        only the relay to use.
+      summary: Updates an EnrollmentKey. Updates are only limited to the relay to
+        use
       tags:
       - EnrollmentKeys
   /api/v1/fallback/host/{hostid}:
@@ -2952,7 +2928,7 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
       security:
       - oauth: []
-      summary: Handles a Netclient registration with server and add nodes accordingly.
+      summary: Handles a Netclient registration with server and add nodes accordingly
       tags:
       - EnrollmentKeys
   /api/v1/legacy/nodes:
@@ -3113,7 +3089,16 @@ tags:
     Most actions that can be performed via API can be performed via UI. We recommend managing your networks using the official netmaker-ui project. However, Netmaker can also be run without the UI, and all functions can be achieved via API calls. If your use case requires using Netmaker without the UI or you need to do some troubleshooting/advanced configuration, using the API directly may help.
   name: APIUsage
 - description: |
-    API calls must be authenticated via a header of the format -H “Authorization: Bearer <YOUR_SECRET_KEY>” There are two methods to obtain YOUR_SECRET_KEY: 1. Using the masterkey. By default, this value is “secret key,” but you should change this on your instance and keep it secure. This value can be set via env var at startup or in a config file (config/environments/< env >.yaml). See the [Netmaker](https://docs.netmaker.org/index.html) documentation for more details. 2. Using a JWT received for a node. This can be retrieved by calling the /api/nodes/{_network_}/authenticate endpoint, as documented below.
+    API calls are primarily authenticated using a user authentication token. This token should be included in the header as follows:
+
+    -H "Authorization: Bearer <YOUR_AUTH_TOKEN>"
+
+    To obtain YOUR_AUTH_TOKEN:
+    Call the api/users/adm/authenticate endpoint (see documentation below for details).
+
+    Note: While a MasterKey exists (configurable via env var or config file), it should be considered a backup option, used only when server access is lost. By default, this key is "secret key," but it's crucial to change this and keep it secure in your instance.
+
+    For more information on configuration and security best practices, refer to the [Netmaker documentation](https://docs.netmaker.org/index.html).
   name: Authentication
 - description: |
     Check out our [Pricing](https://www.netmaker.io/pricing). And Feel Free to [Contact Us](https://www.netmaker.io/contact) if you have any questions or need some clarifications.

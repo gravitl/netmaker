@@ -102,7 +102,7 @@ func getUsage(w http.ResponseWriter, _ *http.Request) {
 	})
 }
 
-// @Summary     Get the server status.
+// @Summary     Get the server status
 // @Router      /api/server/status [get]
 // @Tags        Server
 // @Security    oauth2
@@ -172,7 +172,7 @@ func allowUsers(next http.Handler) http.HandlerFunc {
 	}
 }
 
-// @Summary     Get the server information.
+// @Summary     Get the server information
 // @Router      /api/server/getserverinfo [get]
 // @Tags        Server
 // @Security    oauth2
@@ -187,7 +187,7 @@ func getServerInfo(w http.ResponseWriter, r *http.Request) {
 	// w.WriteHeader(http.StatusOK)
 }
 
-// @Summary     Get the server configuration.
+// @Summary     Get the server configuration
 // @Router      /api/server/getconfig [get]
 // @Tags        Server
 // @Security    oauth2

@@ -356,7 +356,7 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(apiHostData)
 }
 
-// @Summary     Given a network, a host is added to the network
+// @Summary     To Add Host To Network
 // @Router      /api/hosts/{hostid}/networks/{network} [post]
 // @Tags        Hosts
 // @Security    oauth
@@ -424,7 +424,7 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// @Summary     Given a network, a host is removed from the network
+// @Summary     To Remove Host from Network
 // @Router      /api/hosts/{hostid}/networks/{network} [delete]
 // @Tags        Hosts
 // @Security    oauth
@@ -560,7 +560,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// @Summary     Authenticate to make further API calls related to a host
+// @Summary     To Fetch Auth Token for a Host
 // @Router      /api/hosts/adm/authenticate [post]
 // @Tags        Auth
 // @Accept      json

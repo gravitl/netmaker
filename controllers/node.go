@@ -43,13 +43,6 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/nodes/migrate", migrate).Methods(http.MethodPost)
 }
 
-// @Summary     Authenticate to make further API calls related to a network
-// @Router      /api/nodes/adm/{network}/authenticate [post]
-// @Tags        Auth
-// @Accept      json
-// @Param       body body models.AuthParams true "Authentication parameters"
-// @Success     200 {object} models.SuccessResponse
-// @Failure     500 {object} models.ErrorResponse
 func authenticate(response http.ResponseWriter, request *http.Request) {
 
 	var authRequest models.AuthParams
@@ -267,7 +260,7 @@ func Authorize(
 	}
 }
 
-// @Summary     Gets all nodes associated with network including pending nodes.
+// @Summary     Gets all nodes associated with network including pending nodes
 // @Router      /api/nodes/adm/{network} [get]
 // @Securitydefinitions.oauth2.application OAuth2Application
 // @Tags        Nodes
@@ -325,7 +318,7 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(apiNodes)
 }
 
-// @Summary     Get an individual node.
+// @Summary     Get an individual node
 // @Router      /api/nodes/{network}/{nodeid} [get]
 // @Tags        Nodes
 // @Security    oauth2
@@ -451,7 +444,7 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
-// @Summary     Delete an egress gateway.
+// @Summary     Delete an egress gateway
 // @Router      /api/nodes/{network}/{nodeid}/deletegateway [delete]
 // @Tags        Nodes
 // @Security    oauth2
@@ -498,7 +491,7 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 
 // == INGRESS ==
 
-// @Summary     Create an ingress gateway.
+// @Summary     Create an remote access gateway
 // @Router      /api/nodes/{network}/{nodeid}/createingress [post]
 // @Tags        Nodes
 // @Security    oauth2
@@ -543,7 +536,7 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
-// @Summary     Delete an ingress gateway.
+// @Summary     Delete an remote access gateway
 // @Router      /api/nodes/{network}/{nodeid}/deleteingress [delete]
 // @Tags        Nodes
 // @Security    oauth2
@@ -620,7 +613,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// @Summary     Update an individual node.
+// @Summary     Update an individual node
 // @Router      /api/nodes/{network}/{nodeid} [put]
 // @Tags        Nodes
 // @Security    oauth2
@@ -724,7 +717,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}(aclUpdate, relayUpdate, newNode)
 }
 
-// @Summary     Delete an individual node.
+// @Summary     Delete an individual node
 // @Router      /api/nodes/{network}/{nodeid} [delete]
 // @Tags        Nodes
 // @Security    oauth2

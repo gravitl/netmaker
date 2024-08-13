@@ -165,7 +165,7 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     Delete an internet gateway
 // @Router      /api/nodes/{network}/{nodeid}/inet_gw [delete]
-// @Tags        InternetGateway
+// @Tags        PRO
 // @Param       network path string true "Network ID"
 // @Param       nodeid path string true "Node ID"
 // @Success     200 {object} models.Node

@@ -32,7 +32,7 @@ func enrollmentKeyHandlers(r *mux.Router) {
 		Methods(http.MethodPut)
 }
 
-// @Summary     Lists all EnrollmentKeys for admins.
+// @Summary     Lists all EnrollmentKeys for admins
 // @Router      /api/v1/enrollment-keys [get]
 // @Tags        EnrollmentKeys
 // @Security    oauth
@@ -62,7 +62,7 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(ret)
 }
 
-// @Summary     Deletes an EnrollmentKey from Netmaker server.
+// @Summary     Deletes an EnrollmentKey from Netmaker server
 // @Router      /api/v1/enrollment-keys/{keyid} [delete]
 // @Tags        EnrollmentKeys
 // @Security    oauth
@@ -82,7 +82,7 @@ func deleteEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// @Summary     Creates an EnrollmentKey for hosts to use on Netmaker server.
+// @Summary     Creates an EnrollmentKey for hosts to register with server and join networks
 // @Router      /api/v1/enrollment-keys [post]
 // @Tags        EnrollmentKeys
 // @Security    oauth
@@ -175,7 +175,7 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(newEnrollmentKey)
 }
 
-// @Summary     Updates an EnrollmentKey for hosts to use on Netmaker server. Updates only the relay to use.
+// @Summary     Updates an EnrollmentKey. Updates are only limited to the relay to use
 // @Router      /api/v1/enrollment-keys/{keyid} [put]
 // @Tags        EnrollmentKeys
 // @Security    oauth
@@ -224,7 +224,7 @@ func updateEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(newEnrollmentKey)
 }
 
-// @Summary     Handles a Netclient registration with server and add nodes accordingly.
+// @Summary     Handles a Netclient registration with server and add nodes accordingly
 // @Router      /api/v1/host/register/{token} [post]
 // @Tags        EnrollmentKeys
 // @Security    oauth

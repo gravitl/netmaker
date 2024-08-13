@@ -528,7 +528,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(network)
 }
 
-// @Summary     Update pro settings for a network
+// @Summary     Update network settings
 // @Router      /api/networks/{networkname} [put]
 // @Tags        Networks
 // @Security    oauth
