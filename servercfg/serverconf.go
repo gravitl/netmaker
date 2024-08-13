@@ -597,6 +597,15 @@ func GetMetricInterval() string {
 	return mi
 }
 
+// GetBatchPeerUpdate - if batch peer update
+func GetBatchPeerUpdate() bool {
+	enabled := false
+	if os.Getenv("PEER_UPDATE_BATCH") != "" {
+		enabled = os.Getenv("PEER_UPDATE_BATCH") == "true"
+	}
+	return enabled
+}
+
 // GetPeerUpdateBatchSize - get the batch size for peer update
 func GetPeerUpdateBatchSize() int {
 	//default 50
