@@ -37,7 +37,7 @@ func HasSuperAdmin() (bool, error) {
 		if err != nil {
 			continue
 		}
-		if user.PlatformRoleID == models.SuperAdminRole {
+		if user.PlatformRoleID == models.SuperAdminRole || user.IsSuperAdmin {
 			return true, nil
 		}
 	}
