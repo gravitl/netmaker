@@ -357,6 +357,9 @@ func syncUsers() {
 	if err == nil {
 		for _, user := range users {
 			user := user
+			if user.PlatformRoleID.String() != "" {
+				continue
+			}
 			user.AuthType = models.BasicAuth
 			if logic.IsOauthUser(&user) == nil {
 				user.AuthType = models.OAuth
