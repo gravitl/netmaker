@@ -313,39 +313,41 @@ func MigrateEmqx() {
 
 func syncUsers() {
 	// create default network user roles for existing networks
-	networks, _ := logic.GetNetworks()
-	nodes, err := logic.GetAllNodes()
-	if err == nil {
-		for _, netI := range networks {
-			networkNodes := logic.GetNetworkNodesMemory(nodes, netI.NetID)
-			for _, networkNodeI := range networkNodes {
-				if networkNodeI.IsIngressGateway {
-					h, err := logic.GetHost(networkNodeI.HostID.String())
-					if err == nil {
-						logic.CreateRole(models.UserRolePermissionTemplate{
-							ID:        models.GetRAGRoleID(networkNodeI.Network, h.ID.String()),
-							UiName:    models.GetRAGRoleName(networkNodeI.Network, h.Name),
-							NetworkID: models.NetworkID(netI.NetID),
-							NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
-								models.RemoteAccessGwRsrc: {
-									models.RsrcID(networkNodeI.ID.String()): models.RsrcPermissionScope{
-										Read:      true,
-										VPNaccess: true,
+	if servercfg.IsPro {
+		networks, _ := logic.GetNetworks()
+		nodes, err := logic.GetAllNodes()
+		if err == nil {
+			for _, netI := range networks {
+				networkNodes := logic.GetNetworkNodesMemory(nodes, netI.NetID)
+				for _, networkNodeI := range networkNodes {
+					if networkNodeI.IsIngressGateway {
+						h, err := logic.GetHost(networkNodeI.HostID.String())
+						if err == nil {
+							logic.CreateRole(models.UserRolePermissionTemplate{
+								ID:        models.GetRAGRoleID(networkNodeI.Network, h.ID.String()),
+								UiName:    models.GetRAGRoleName(networkNodeI.Network, h.Name),
+								NetworkID: models.NetworkID(netI.NetID),
+								NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
+									models.RemoteAccessGwRsrc: {
+										models.RsrcID(networkNodeI.ID.String()): models.RsrcPermissionScope{
+											Read:      true,
+											VPNaccess: true,
+										},
+									},
+									models.ExtClientsRsrc: {
+										models.AllExtClientsRsrcID: models.RsrcPermissionScope{
+											Read:     true,
+											Create:   true,
+											Update:   true,
+											Delete:   true,
+											SelfOnly: true,
+										},
 									},
 								},
-								models.ExtClientsRsrc: {
-									models.AllExtClientsRsrcID: models.RsrcPermissionScope{
-										Read:     true,
-										Create:   true,
-										Update:   true,
-										Delete:   true,
-										SelfOnly: true,
-									},
-								},
-							},
-						})
-					}
+							})
+						}
 
+					}
 				}
 			}
 		}
@@ -355,9 +357,6 @@ func syncUsers() {
 	if err == nil {
 		for _, user := range users {
 			user := user
-			if user.PlatformRoleID.String() != "" {
-				continue
-			}
 			user.AuthType = models.BasicAuth
 			if logic.IsOauthUser(&user) == nil {
 				user.AuthType = models.OAuth
@@ -375,6 +374,9 @@ func syncUsers() {
 				user.PlatformRoleID = models.AdminRole
 			} else {
 				user.PlatformRoleID = models.ServiceUser
+			}
+			if !servercfg.IsPro && !user.IsSuperAdmin {
+				user.PlatformRoleID = models.AdminRole
 			}
 			logic.UpsertUser(user)
 			if len(user.RemoteGwIDs) > 0 {
