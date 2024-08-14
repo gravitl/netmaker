@@ -599,7 +599,7 @@ func GetMetricInterval() string {
 
 // GetBatchPeerUpdate - if batch peer update
 func GetBatchPeerUpdate() bool {
-	enabled := false
+	enabled := true
 	if os.Getenv("PEER_UPDATE_BATCH") != "" {
 		enabled = os.Getenv("PEER_UPDATE_BATCH") == "true"
 	}
