@@ -375,9 +375,6 @@ func syncUsers() {
 			} else {
 				user.PlatformRoleID = models.ServiceUser
 			}
-			if !servercfg.IsPro && !user.IsSuperAdmin {
-				user.PlatformRoleID = models.AdminRole
-			}
 			logic.UpsertUser(user)
 			if len(user.RemoteGwIDs) > 0 {
 				// define user roles for network
