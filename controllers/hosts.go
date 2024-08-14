@@ -94,6 +94,7 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 			for _, node := range filteredNodes {
 				if host, ok := currentHostsMap[node.HostID.String()]; ok {
 					currentHosts = append(currentHosts, host)
+					delete(currentHostsMap, host.ID.String())
 				}
 			}
 
