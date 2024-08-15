@@ -65,6 +65,7 @@ func assignSuperAdmin() {
 				continue
 			}
 			user.PlatformRoleID = models.SuperAdminRole
+			user.IsSuperAdmin = true
 			err = logic.UpsertUser(*user)
 			if err != nil {
 				slog.Error(
@@ -357,6 +358,14 @@ func syncUsers() {
 	if err == nil {
 		for _, user := range users {
 			user := user
+			if user.PlatformRoleID == models.AdminRole && !user.IsAdmin {
+				user.IsAdmin = true
+				logic.UpsertUser(user)
+			}
+			if user.PlatformRoleID == models.SuperAdminRole && !user.IsSuperAdmin {
+				user.IsSuperAdmin = true
+				logic.UpsertUser(user)
+			}
 			if user.PlatformRoleID.String() != "" {
 				continue
 			}
