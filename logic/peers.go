@@ -436,7 +436,7 @@ func GetEgressIPs(peer *models.Node) []net.IPNet {
 
 	peerHost, err := GetHost(peer.HostID.String())
 	if err != nil {
-		logger.Log(0, "error retrieving host for peer", peer.ID.String(), err.Error())
+		logger.Log(0, "error retrieving host for peer", peer.ID.String(), "host id", peer.HostID.String(), err.Error())
 	}
 
 	// check for internet gateway

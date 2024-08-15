@@ -93,7 +93,7 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 		errorResponse.Code = http.StatusBadRequest
 		errorResponse.Message = err.Error()
 		logger.Log(0, request.Header.Get("user"),
-			"error retrieving host: ", err.Error())
+			"error retrieving host: ", result.HostID.String(), err.Error())
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}

@@ -49,12 +49,12 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 	ret := []*models.EnrollmentKey{}
 	for _, key := range keys {
 		key := key
-		if err = logic.Tokenize(key, servercfg.GetAPIHost()); err != nil {
+		if err = logic.Tokenize(&key, servercfg.GetAPIHost()); err != nil {
 			logger.Log(0, r.Header.Get("user"), "failed to get token values for keys:", err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		ret = append(ret, key)
+		ret = append(ret, &key)
 	}
 	// return JSON/API formatted keys
 	logger.Log(2, r.Header.Get("user"), "fetched enrollment keys")

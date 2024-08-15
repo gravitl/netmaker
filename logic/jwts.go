@@ -31,7 +31,7 @@ func SetJWTSecret() {
 
 // CreateJWT func will used to create the JWT while signing in and signing out
 func CreateJWT(uuid string, macAddress string, network string) (response string, err error) {
-	expirationTime := time.Now().Add(5 * time.Minute)
+	expirationTime := time.Now().Add(15 * time.Minute)
 	claims := &models.Claims{
 		ID:         uuid,
 		Network:    network,
