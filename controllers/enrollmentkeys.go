@@ -32,17 +32,12 @@ func enrollmentKeyHandlers(r *mux.Router) {
 		Methods(http.MethodPut)
 }
 
-// swagger:route GET /api/v1/enrollment-keys enrollmentKeys getEnrollmentKeys
-//
-// Lists all EnrollmentKeys for admins.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: EnrollmentKeys
+// @Summary     Lists all EnrollmentKeys for admins
+// @Router      /api/v1/enrollment-keys [get]
+// @Tags        EnrollmentKeys
+// @Security    oauth
+// @Success     200 {array} models.EnrollmentKey
+// @Failure     500 {object} models.ErrorResponse
 func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 	keys, err := logic.GetAllEnrollmentKeys()
 	if err != nil {
@@ -67,17 +62,13 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(ret)
 }
 
-// swagger:route DELETE /api/v1/enrollment-keys/{keyid} enrollmentKeys deleteEnrollmentKey
-//
-// Deletes an EnrollmentKey from Netmaker server.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: okResponse
+// @Summary     Deletes an EnrollmentKey from Netmaker server
+// @Router      /api/v1/enrollment-keys/{keyid} [delete]
+// @Tags        EnrollmentKeys
+// @Security    oauth
+// @Param       keyid path string true "Enrollment Key ID"
+// @Success     200
+// @Failure     500 {object} models.ErrorResponse
 func deleteEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	keyID := params["keyID"]
@@ -91,17 +82,14 @@ func deleteEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// swagger:route POST /api/v1/enrollment-keys enrollmentKeys createEnrollmentKey
-//
-// Creates an EnrollmentKey for hosts to use on Netmaker server.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: EnrollmentKey
+// @Summary     Creates an EnrollmentKey for hosts to register with server and join networks
+// @Router      /api/v1/enrollment-keys [post]
+// @Tags        EnrollmentKeys
+// @Security    oauth
+// @Param       body body models.APIEnrollmentKey true "Enrollment Key parameters"
+// @Success     200 {object} models.EnrollmentKey
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
 func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 	var enrollmentKeyBody models.APIEnrollmentKey
 
@@ -121,7 +109,14 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error validating request body: ",
 			err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("validation error: name length must be between 3 and 32: %w", err), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				fmt.Errorf("validation error: name length must be between 3 and 32: %w", err),
+				"badrequest",
+			),
+		)
 		return
 	}
 
@@ -180,17 +175,15 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(newEnrollmentKey)
 }
 
-// swagger:route PUT /api/v1/enrollment-keys/{keyid} enrollmentKeys updateEnrollmentKey
-//
-// Updates an EnrollmentKey for hosts to use on Netmaker server. Updates only the relay to use.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: EnrollmentKey
+// @Summary     Updates an EnrollmentKey. Updates are only limited to the relay to use
+// @Router      /api/v1/enrollment-keys/{keyid} [put]
+// @Tags        EnrollmentKeys
+// @Security    oauth
+// @Param       keyid path string true "Enrollment Key ID"
+// @Param       body body models.APIEnrollmentKey true "Enrollment Key parameters"
+// @Success     200 {object} models.EnrollmentKey
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
 func updateEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 	var enrollmentKeyBody models.APIEnrollmentKey
 	params := mux.Vars(r)
@@ -231,17 +224,15 @@ func updateEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(newEnrollmentKey)
 }
 
-// swagger:route POST /api/v1/enrollment-keys/{token} enrollmentKeys handleHostRegister
-//
-// Handles a Netclient registration with server and add nodes accordingly.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: RegisterResponse
+// @Summary     Handles a Netclient registration with server and add nodes accordingly
+// @Router      /api/v1/host/register/{token} [post]
+// @Tags        EnrollmentKeys
+// @Security    oauth
+// @Param       token path string true "Enrollment Key Token"
+// @Param       body body models.Host true "Host registration parameters"
+// @Success     200 {object} models.RegisterResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
 func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	token := params["token"]

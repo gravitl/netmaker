@@ -22,28 +22,32 @@ import (
 )
 
 func networkHandlers(r *mux.Router) {
-	r.HandleFunc("/api/networks", logic.SecurityCheck(true, http.HandlerFunc(getNetworks))).Methods(http.MethodGet)
-	r.HandleFunc("/api/networks", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceNetworks, http.HandlerFunc(createNetwork)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(true, http.HandlerFunc(getNetwork))).Methods(http.MethodGet)
-	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(true, http.HandlerFunc(deleteNetwork))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(true, http.HandlerFunc(updateNetwork))).Methods(http.MethodPut)
+	r.HandleFunc("/api/networks", logic.SecurityCheck(true, http.HandlerFunc(getNetworks))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/networks", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceNetworks, http.HandlerFunc(createNetwork)))).
+		Methods(http.MethodPost)
+	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(true, http.HandlerFunc(getNetwork))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(true, http.HandlerFunc(deleteNetwork))).
+		Methods(http.MethodDelete)
+	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(true, http.HandlerFunc(updateNetwork))).
+		Methods(http.MethodPut)
 	// ACLs
-	r.HandleFunc("/api/networks/{networkname}/acls", logic.SecurityCheck(true, http.HandlerFunc(updateNetworkACL))).Methods(http.MethodPut)
-	r.HandleFunc("/api/networks/{networkname}/acls/v2", logic.SecurityCheck(true, http.HandlerFunc(updateNetworkACLv2))).Methods(http.MethodPut)
-	r.HandleFunc("/api/networks/{networkname}/acls", logic.SecurityCheck(true, http.HandlerFunc(getNetworkACL))).Methods(http.MethodGet)
+	r.HandleFunc("/api/networks/{networkname}/acls", logic.SecurityCheck(true, http.HandlerFunc(updateNetworkACL))).
+		Methods(http.MethodPut)
+	r.HandleFunc("/api/networks/{networkname}/acls/v2", logic.SecurityCheck(true, http.HandlerFunc(updateNetworkACLv2))).
+		Methods(http.MethodPut)
+	r.HandleFunc("/api/networks/{networkname}/acls", logic.SecurityCheck(true, http.HandlerFunc(getNetworkACL))).
+		Methods(http.MethodGet)
 }
 
-// swagger:route GET /api/networks networks getNetworks
-//
-// Lists all networks.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: getNetworksSliceResponse
+// @Summary     Lists all networks
+// @Router      /api/networks [get]
+// @Tags        Networks
+// @Security    oauth
+// @Produce     json
+// @Success     200 {object} models.Network
+// @Failure     500 {object} models.ErrorResponse
 func getNetworks(w http.ResponseWriter, r *http.Request) {
 
 	var err error
@@ -61,17 +65,14 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(allnetworks)
 }
 
-// swagger:route GET /api/networks/{networkname} networks getNetwork
-//
-// Get a network.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: networkBodyResponse
+// @Summary     Get a network
+// @Router      /api/networks/{networkname} [get]
+// @Tags        Networks
+// @Security    oauth
+// @Param       networkname path string true "Network name"
+// @Produce     json
+// @Success     200 {object} models.Network
+// @Failure     500 {object} models.ErrorResponse
 func getNetwork(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -90,17 +91,16 @@ func getNetwork(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(network)
 }
 
-// swagger:route PUT /api/networks/{networkname}/acls networks updateNetworkACL
-//
-// Update a network ACL (Access Control List).
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: aclContainerResponse
+// @Summary     Update a network ACL (Access Control List)
+// @Router      /api/networks/{networkname}/acls [put]
+// @Tags        Networks
+// @Security    oauth
+// @Param       networkname path string true "Network name"
+// @Param       body body acls.ACLContainer true "ACL container"
+// @Produce     json
+// @Success     200 {object} acls.ACLContainer
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
 func updateNetworkACL(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -140,17 +140,16 @@ func updateNetworkACL(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(newNetACL)
 }
 
-// swagger:route PUT /api/networks/{networkname}/acls/v2 networks updateNetworkACL
-//
-// Update a network ACL (Access Control List).
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: aclContainerResponse
+// @Summary     Update a network ACL (Access Control List)
+// @Router      /api/networks/{networkname}/acls/v2 [put]
+// @Tags        Networks
+// @Security    oauth
+// @Param       networkname path string true "Network name"
+// @Param       body body acls.ACLContainer true "ACL container"
+// @Produce     json
+// @Success     200 {object} acls.ACLContainer
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
 func updateNetworkACLv2(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -279,13 +278,25 @@ func updateNetworkACLv2(w http.ResponseWriter, r *http.Request) {
 			client := client
 			err := logic.DeleteExtClient(client.Network, client.ClientID)
 			if err != nil {
-				slog.Error("failed to delete client during update", "client", client.ClientID, "error", err.Error())
+				slog.Error(
+					"failed to delete client during update",
+					"client",
+					client.ClientID,
+					"error",
+					err.Error(),
+				)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 				return
 			}
 			err = logic.SaveExtClient(&client)
 			if err != nil {
-				slog.Error("failed to save client during update", "client", client.ClientID, "error", err.Error())
+				slog.Error(
+					"failed to save client during update",
+					"client",
+					client.ClientID,
+					"error",
+					err.Error(),
+				)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 				return
 			}
@@ -310,7 +321,11 @@ func updateNetworkACLv2(w http.ResponseWriter, r *http.Request) {
 		// update ingress gateways of associated clients
 		hosts, err := logic.GetAllHosts()
 		if err != nil {
-			slog.Error("failed to fetch hosts after network ACL update. skipping publish extclients ACL", "network", netname)
+			slog.Error(
+				"failed to fetch hosts after network ACL update. skipping publish extclients ACL",
+				"network",
+				netname,
+			)
 			return
 		}
 		hostsMap := make(map[uuid.UUID]models.Host)
@@ -320,7 +335,13 @@ func updateNetworkACLv2(w http.ResponseWriter, r *http.Request) {
 		for hostId, clients := range assocClientsToDisconnectPerHost {
 			if host, ok := hostsMap[hostId]; ok {
 				if err = mq.PublishSingleHostPeerUpdate(&host, allNodes, nil, clients, false); err != nil {
-					slog.Error("failed to publish peer update to ingress after ACL update on network", "network", netname, "host", hostId)
+					slog.Error(
+						"failed to publish peer update to ingress after ACL update on network",
+						"network",
+						netname,
+						"host",
+						hostId,
+					)
 				}
 			}
 		}
@@ -330,17 +351,14 @@ func updateNetworkACLv2(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(networkACLChange)
 }
 
-// swagger:route GET /api/networks/{networkname}/acls networks getNetworkACL
-//
-// Get a network ACL (Access Control List).
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: aclContainerResponse
+// @Summary     Get a network ACL (Access Control List)
+// @Router      /api/networks/{networkname}/acls [get]
+// @Tags        Networks
+// @Security    oauth
+// @Param       networkname path string true "Network name"
+// @Produce     json
+// @Success     200 {object} acls.ACLContainer
+// @Failure     500 {object} models.ErrorResponse
 func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
@@ -364,17 +382,15 @@ func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(networkACL)
 }
 
-// swagger:route DELETE /api/networks/{networkname} networks deleteNetwork
-//
-// Delete a network.  Will not delete if there are any nodes that belong to the network.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: successResponse
+// @Summary     Delete a network
+// @Router      /api/networks/{networkname} [delete]
+// @Tags        Networks
+// @Security    oauth
+// @Param       networkname path string true "Network name"
+// @Produce     json
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     403 {object} models.ErrorResponse
 func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
@@ -398,17 +414,14 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode("success")
 }
 
-// swagger:route POST /api/networks networks createNetwork
-//
-// Create a network.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: networkBodyResponse
+// @Summary     Create a network
+// @Router      /api/networks [post]
+// @Tags        Networks
+// @Security    oauth
+// @Param       body body models.Network true "Network details"
+// @Produce     json
+// @Success     200 {object} models.Network
+// @Failure     400 {object} models.ErrorResponse
 func createNetwork(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -473,7 +486,14 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			currHost := &defaultHosts[i]
 			newNode, err := logic.UpdateHostNetwork(currHost, network.NetID, true)
 			if err != nil {
-				logger.Log(0, r.Header.Get("user"), "failed to add host to network:", currHost.ID.String(), network.NetID, err.Error())
+				logger.Log(
+					0,
+					r.Header.Get("user"),
+					"failed to add host to network:",
+					currHost.ID.String(),
+					network.NetID,
+					err.Error(),
+				)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 				return
 			}
@@ -483,7 +503,14 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 				Host:   *currHost,
 				Node:   *newNode,
 			}); err != nil {
-				logger.Log(0, r.Header.Get("user"), "failed to add host to network:", currHost.ID.String(), network.NetID, err.Error())
+				logger.Log(
+					0,
+					r.Header.Get("user"),
+					"failed to add host to network:",
+					currHost.ID.String(),
+					network.NetID,
+					err.Error(),
+				)
 			}
 			// make  host failover
 			logic.CreateFailOver(*newNode)
@@ -501,17 +528,15 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(network)
 }
 
-// swagger:route PUT /api/networks/{networkname} networks updateNetwork
-//
-// Update pro settings for a network.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: networkBodyResponse
+// @Summary     Update network settings
+// @Router      /api/networks/{networkname} [put]
+// @Tags        Networks
+// @Security    oauth
+// @Param       networkname path string true "Network name"
+// @Param       body body models.Network true "Network details"
+// @Produce     json
+// @Success     200 {object} models.Network
+// @Failure     400 {object} models.ErrorResponse
 func updateNetwork(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
