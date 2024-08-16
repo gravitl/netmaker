@@ -707,9 +707,13 @@ func GetFilteredNodesByUserAccess(user models.User, nodes []models.Node) (filter
 		networkNodes := logic.GetNetworkNodesMemory(nodes, userPermTemplate.NetworkID.String())
 		if userPermTemplate.FullAccess {
 			for _, node := range networkNodes {
+				if _, ok := nodesMap[node.ID.String()]; ok {
+					continue
+				}
 				nodesMap[node.ID.String()] = struct{}{}
+				filteredNodes = append(filteredNodes, node)
 			}
-			filteredNodes = append(filteredNodes, networkNodes...)
+
 			continue
 		}
 		if rsrcPerms, ok := userPermTemplate.NetworkLevelAccess[models.RemoteAccessGwRsrc]; ok {
