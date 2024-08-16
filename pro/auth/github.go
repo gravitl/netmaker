@@ -67,10 +67,7 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthNotConfigured(w)
 		return
 	}
-	if !isEmailAllowed(content.Login) {
-		handleOauthUserNotAllowedToSignUp(w)
-		return
-	}
+
 	var inviteExists bool
 	// check if invite exists for User
 	in, err := logic.GetUserInvite(content.Login)
@@ -99,6 +96,10 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 				logic.DeleteUserInvite(user.UserName)
 				logic.DeletePendingUser(content.Login)
 			} else {
+				if !isEmailAllowed(content.Login) {
+					handleOauthUserNotAllowedToSignUp(w)
+					return
+				}
 				err = logic.InsertPendingUser(&models.User{
 					UserName: content.Login,
 				})

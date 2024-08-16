@@ -80,10 +80,7 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthNotConfigured(w)
 		return
 	}
-	if !isEmailAllowed(content.Email) {
-		handleOauthUserNotAllowedToSignUp(w)
-		return
-	}
+
 	var inviteExists bool
 	// check if invite exists for User
 	in, err := logic.GetUserInvite(content.Login)
@@ -112,6 +109,10 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 				logic.DeleteUserInvite(user.UserName)
 				logic.DeletePendingUser(content.Email)
 			} else {
+				if !isEmailAllowed(content.Email) {
+					handleOauthUserNotAllowedToSignUp(w)
+					return
+				}
 				err = logic.InsertPendingUser(&models.User{
 					UserName: content.Email,
 				})

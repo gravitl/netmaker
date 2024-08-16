@@ -1237,8 +1237,9 @@ func approvePendingUser(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if err = logic.CreateUser(&models.User{
-				UserName: user.UserName,
-				Password: newPass,
+				UserName:       user.UserName,
+				Password:       newPass,
+				PlatformRoleID: models.ServiceUser,
 			}); err != nil {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to create user: %s", err), "internal"))
 				return

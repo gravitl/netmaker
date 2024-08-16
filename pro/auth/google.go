@@ -70,10 +70,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Log(0, "CALLBACK ----> 1")
-	if !isEmailAllowed(content.Email) {
-		handleOauthUserNotAllowedToSignUp(w)
-		return
-	}
+
 	logger.Log(0, "CALLBACK ----> 2")
 	var inviteExists bool
 	// check if invite exists for User
@@ -107,6 +104,10 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 				logic.DeleteUserInvite(user.UserName)
 				logic.DeletePendingUser(content.Email)
 			} else {
+				if !isEmailAllowed(content.Email) {
+					handleOauthUserNotAllowedToSignUp(w)
+					return
+				}
 				err = logic.InsertPendingUser(&models.User{
 					UserName: content.Email,
 				})

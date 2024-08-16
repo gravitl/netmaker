@@ -67,10 +67,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthNotConfigured(w)
 		return
 	}
-	if !isEmailAllowed(content.UserPrincipalName) {
-		handleOauthUserNotAllowedToSignUp(w)
-		return
-	}
+
 	var inviteExists bool
 	// check if invite exists for User
 	in, err := logic.GetUserInvite(content.UserPrincipalName)
@@ -100,6 +97,10 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 				logic.DeleteUserInvite(user.UserName)
 				logic.DeletePendingUser(content.UserPrincipalName)
 			} else {
+				if !isEmailAllowed(content.UserPrincipalName) {
+					handleOauthUserNotAllowedToSignUp(w)
+					return
+				}
 				err = logic.InsertPendingUser(&models.User{
 					UserName: content.UserPrincipalName,
 				})
