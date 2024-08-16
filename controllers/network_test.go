@@ -46,8 +46,8 @@ func TestCreateNetwork(t *testing.T) {
 	deleteAllNetworks()
 
 	var network models.Network
-	network.NetID = "skynet"
-	network.AddressRange = "10.0.0.1/24"
+	network.NetID = "skynet1"
+	network.AddressRange = "10.10.0.1/24"
 	// if tests break - check here (removed displayname)
 	//network.DisplayName = "mynetwork"
 

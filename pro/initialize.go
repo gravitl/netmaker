@@ -88,7 +88,7 @@ func InitPro() {
 		} else {
 			slog.Error("no OAuth provider found or not configured, continuing without OAuth")
 		}
-
+		proLogic.LoadNodeMetricsToCache()
 	})
 	logic.ResetFailOver = proLogic.ResetFailOver
 	logic.ResetFailedOverPeer = proLogic.ResetFailedOverPeer

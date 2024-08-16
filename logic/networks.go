@@ -15,13 +15,123 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/validation"
+	"golang.org/x/exp/slog"
 )
+
+var (
+	networkCacheMutex = &sync.RWMutex{}
+	networkCacheMap   = make(map[string]models.Network)
+	allocatedIpMap    = make(map[string]map[string]net.IP)
+)
+
+// SetAllocatedIpMap - set allocated ip map for networks
+func SetAllocatedIpMap() error {
+	logger.Log(0, "start setting up allocated ip map")
+	if allocatedIpMap == nil {
+		allocatedIpMap = map[string]map[string]net.IP{}
+	}
+
+	currentNetworks, err := GetNetworks()
+	if err != nil {
+		return err
+	}
+
+	for _, v := range currentNetworks {
+		pMap := map[string]net.IP{}
+		netName := v.NetID
+
+		nodes, err := GetNetworkNodes(netName)
+		if err != nil {
+			slog.Error("could not load node for network", netName, "error", err.Error())
+			continue
+		}
+
+		for _, n := range nodes {
+
+			if n.Address.IP != nil {
+				pMap[n.Address.IP.String()] = n.Address.IP
+			}
+			if n.Address6.IP != nil {
+				pMap[n.Address6.IP.String()] = n.Address6.IP
+			}
+		}
+
+		allocatedIpMap[netName] = pMap
+	}
+	logger.Log(0, "setting up allocated ip map done")
+	return nil
+}
+
+// ClearAllocatedIpMap - set allocatedIpMap to nil
+func ClearAllocatedIpMap() {
+	allocatedIpMap = nil
+}
+
+func AddIpToAllocatedIpMap(networkName string, ip net.IP) {
+	networkCacheMutex.Lock()
+	allocatedIpMap[networkName][ip.String()] = ip
+	networkCacheMutex.Unlock()
+}
+
+func RemoveIpFromAllocatedIpMap(networkName string, ip string) {
+	networkCacheMutex.Lock()
+	delete(allocatedIpMap[networkName], ip)
+	networkCacheMutex.Unlock()
+}
+
+// AddNetworkToAllocatedIpMap - add network to allocated ip map when network is added
+func AddNetworkToAllocatedIpMap(networkName string) {
+	networkCacheMutex.Lock()
+	allocatedIpMap[networkName] = map[string]net.IP{}
+	networkCacheMutex.Unlock()
+}
+
+// RemoveNetworkFromAllocatedIpMap - remove network from allocated ip map when network is deleted
+func RemoveNetworkFromAllocatedIpMap(networkName string) {
+	networkCacheMutex.Lock()
+	delete(allocatedIpMap, networkName)
+	networkCacheMutex.Unlock()
+}
+
+func getNetworksFromCache() (networks []models.Network) {
+	networkCacheMutex.RLock()
+	for _, network := range networkCacheMap {
+		networks = append(networks, network)
+	}
+	networkCacheMutex.RUnlock()
+	return
+}
+
+func deleteNetworkFromCache(key string) {
+	networkCacheMutex.Lock()
+	delete(networkCacheMap, key)
+	networkCacheMutex.Unlock()
+}
+
+func getNetworkFromCache(key string) (network models.Network, ok bool) {
+	networkCacheMutex.RLock()
+	network, ok = networkCacheMap[key]
+	networkCacheMutex.RUnlock()
+	return
+}
+
+func storeNetworkInCache(key string, network models.Network) {
+	networkCacheMutex.Lock()
+	networkCacheMap[key] = network
+	networkCacheMutex.Unlock()
+}
 
 // GetNetworks - returns all networks from database
 func GetNetworks() ([]models.Network, error) {
 	var networks []models.Network
-
+	if servercfg.CacheEnabled() {
+		networks := getNetworksFromCache()
+		if len(networks) != 0 {
+			return networks, nil
+		}
+	}
 	collection, err := database.FetchRecords(database.NETWORKS_TABLE_NAME)
 	if err != nil {
 		return networks, err
@@ -34,6 +144,9 @@ func GetNetworks() ([]models.Network, error) {
 		}
 		// add network our array
 		networks = append(networks, network)
+		if servercfg.CacheEnabled() {
+			storeNetworkInCache(network.NetID, network)
+		}
 	}
 
 	return networks, err
@@ -49,7 +162,14 @@ func DeleteNetwork(network string) error {
 	nodeCount, err := GetNetworkNonServerNodeCount(network)
 	if nodeCount == 0 || database.IsEmptyRecord(err) {
 		// delete server nodes first then db records
-		return database.DeleteRecord(database.NETWORKS_TABLE_NAME, network)
+		err = database.DeleteRecord(database.NETWORKS_TABLE_NAME, network)
+		if err != nil {
+			return err
+		}
+		if servercfg.CacheEnabled() {
+			deleteNetworkFromCache(network)
+		}
+		return nil
 	}
 	return errors.New("node check failed. All nodes must be deleted before deleting network")
 }
@@ -93,6 +213,9 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 	if err = database.Insert(network.NetID, string(data), database.NETWORKS_TABLE_NAME); err != nil {
 		return models.Network{}, err
 	}
+	if servercfg.CacheEnabled() {
+		storeNetworkInCache(network.NetID, network)
+	}
 
 	return network, nil
 }
@@ -128,6 +251,11 @@ func intersect(n1, n2 *net.IPNet) bool {
 func GetParentNetwork(networkname string) (models.Network, error) {
 
 	var network models.Network
+	if servercfg.CacheEnabled() {
+		if network, ok := getNetworkFromCache(networkname); ok {
+			return network, nil
+		}
+	}
 	networkData, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, networkname)
 	if err != nil {
 		return network, err
@@ -142,6 +270,11 @@ func GetParentNetwork(networkname string) (models.Network, error) {
 func GetNetworkSettings(networkname string) (models.Network, error) {
 
 	var network models.Network
+	if servercfg.CacheEnabled() {
+		if network, ok := getNetworkFromCache(networkname); ok {
+			return network, nil
+		}
+	}
 	networkData, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, networkname)
 	if err != nil {
 		return network, err
@@ -177,9 +310,9 @@ func UniqueAddress(networkName string, reverse bool) (net.IP, error) {
 		newAddrs = net4.LastAddress()
 	}
 
+	ipAllocated := allocatedIpMap[networkName]
 	for {
-		if IsIPUnique(networkName, newAddrs.String(), database.NODES_TABLE_NAME, false) &&
-			IsIPUnique(networkName, newAddrs.String(), database.EXT_CLIENT_TABLE_NAME, false) {
+		if _, ok := ipAllocated[newAddrs.String()]; !ok {
 			return newAddrs, nil
 		}
 		if reverse {
@@ -266,9 +399,9 @@ func UniqueAddress6(networkName string, reverse bool) (net.IP, error) {
 		return add, err
 	}
 
+	ipAllocated := allocatedIpMap[networkName]
 	for {
-		if IsIPUnique(networkName, newAddrs.String(), database.NODES_TABLE_NAME, true) &&
-			IsIPUnique(networkName, newAddrs.String(), database.EXT_CLIENT_TABLE_NAME, true) {
+		if _, ok := ipAllocated[newAddrs.String()]; !ok {
 			return newAddrs, nil
 		}
 		if reverse {
@@ -320,6 +453,11 @@ func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (
 		}
 		newNetwork.SetNetworkLastModified()
 		err = database.Insert(newNetwork.NetID, string(data), database.NETWORKS_TABLE_NAME)
+		if err == nil {
+			if servercfg.CacheEnabled() {
+				storeNetworkInCache(newNetwork.NetID, *newNetwork)
+			}
+		}
 		return hasrangeupdate4, hasrangeupdate6, hasholepunchupdate, err
 	}
 	// copy values
@@ -330,6 +468,11 @@ func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (
 func GetNetwork(networkname string) (models.Network, error) {
 
 	var network models.Network
+	if servercfg.CacheEnabled() {
+		if network, ok := getNetworkFromCache(networkname); ok {
+			return network, nil
+		}
+	}
 	networkData, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, networkname)
 	if err != nil {
 		return network, err
@@ -394,6 +537,9 @@ func SaveNetwork(network *models.Network) error {
 	if err := database.Insert(network.NetID, string(data), database.NETWORKS_TABLE_NAME); err != nil {
 		return err
 	}
+	if servercfg.CacheEnabled() {
+		storeNetworkInCache(network.NetID, *network)
+	}
 	return nil
 }
 
@@ -402,6 +548,11 @@ func NetworkExists(name string) (bool, error) {
 
 	var network string
 	var err error
+	if servercfg.CacheEnabled() {
+		if _, ok := getNetworkFromCache(name); ok {
+			return ok, nil
+		}
+	}
 	if network, err = database.FetchRecord(database.NETWORKS_TABLE_NAME, name); err != nil {
 		return false, err
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"golang.org/x/exp/slog"
 )
 
 func decryptMsgWithHost(host *models.Host, msg []byte) ([]byte, error) {
@@ -87,6 +88,7 @@ func publish(host *models.Host, dest string, msg []byte) error {
 		if token.Error() == nil {
 			err = errors.New("connection timeout")
 		} else {
+			slog.Error("publish to mq error", "error", token.Error().Error())
 			err = token.Error()
 		}
 		return err

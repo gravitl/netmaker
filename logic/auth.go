@@ -20,8 +20,20 @@ const (
 	auth_key = "netmaker_auth"
 )
 
+var (
+	superUser = models.User{}
+)
+
+func ClearSuperUserCache() {
+	superUser = models.User{}
+}
+
 // HasSuperAdmin - checks if server has an superadmin/owner
 func HasSuperAdmin() (bool, error) {
+
+	if superUser.IsSuperAdmin {
+		return true, nil
+	}
 
 	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
 	if err != nil {
@@ -243,6 +255,9 @@ func UpsertUser(user models.User) error {
 	if err = database.Insert(user.UserName, string(data), database.USERS_TABLE_NAME); err != nil {
 		slog.Error("error inserting user", "user", user.UserName, "error", err.Error())
 		return err
+	}
+	if user.IsSuperAdmin {
+		superUser = user
 	}
 	return nil
 }
