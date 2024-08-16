@@ -698,13 +698,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 					slog.Error("Failed to get nodes", "error", err)
 					return
 				}
-				go mq.PublishSingleHostPeerUpdate(
-					ingressHost,
-					nodes,
-					nil,
-					[]models.ExtClient{oldExtClient},
-					false,
-				)
+				go mq.PublishSingleHostPeerUpdate(ingressHost, nodes, nil, []models.ExtClient{oldExtClient}, false, nil)
 			}
 		}
 
