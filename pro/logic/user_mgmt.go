@@ -516,7 +516,6 @@ func HasNetworkRsrcScope(permissionTemplate models.UserRolePermissionTemplate, n
 	return ok
 }
 func GetUserRAGNodes(user models.User) (gws map[string]models.Node) {
-	logger.Log(0, "------------> 7. getUserRemoteAccessGwsV1")
 	gws = make(map[string]models.Node)
 	userGwAccessScope := GetUserNetworkRolesWithRemoteVPNAccess(user)
 	logger.Log(0, fmt.Sprintf("User Gw Access Scope: %+v", userGwAccessScope))
@@ -525,7 +524,6 @@ func GetUserRAGNodes(user models.User) (gws map[string]models.Node) {
 	if err != nil {
 		return
 	}
-	logger.Log(0, fmt.Sprintf("------------> 8. getUserRemoteAccessGwsV1 %+v", allNetAccess))
 	for _, node := range nodes {
 		if node.IsIngressGateway && !node.PendingDelete {
 			if allNetAccess {
@@ -545,14 +543,12 @@ func GetUserRAGNodes(user models.User) (gws map[string]models.Node) {
 			}
 		}
 	}
-	logger.Log(0, "------------> 9. getUserRemoteAccessGwsV1")
 	return
 }
 
 // GetUserNetworkRoles - get user network roles
 func GetUserNetworkRolesWithRemoteVPNAccess(user models.User) (gwAccess map[models.NetworkID]map[models.RsrcID]models.RsrcPermissionScope) {
 	gwAccess = make(map[models.NetworkID]map[models.RsrcID]models.RsrcPermissionScope)
-	logger.Log(0, "------------> 7.1 getUserRemoteAccessGwsV1")
 	platformRole, err := logic.GetRole(user.PlatformRoleID)
 	if err != nil {
 		return
@@ -564,7 +560,6 @@ func GetUserNetworkRolesWithRemoteVPNAccess(user models.User) (gwAccess map[mode
 	if _, ok := user.NetworkRoles[models.AllNetworks]; ok {
 		gwAccess[models.NetworkID("*")] = make(map[models.RsrcID]models.RsrcPermissionScope)
 	}
-	logger.Log(0, "------------> 7.2 getUserRemoteAccessGwsV1")
 	if len(user.UserGroups) > 0 {
 		for gID := range user.UserGroups {
 			userG, err := GetUserGroup(gID)
@@ -664,18 +659,18 @@ func GetUserNetworkRolesWithRemoteVPNAccess(user models.User) (gwAccess map[mode
 		}
 	}
 
-	logger.Log(0, "------------> 7.3 getUserRemoteAccessGwsV1")
 	return
 }
 
 func GetFilteredNodesByUserAccess(user models.User, nodes []models.Node) (filteredNodes []models.Node) {
 
 	nodesMap := make(map[string]struct{})
-	allNetworkRoles := []models.UserRoleID{}
+	allNetworkRoles := make(map[models.UserRoleID]struct{})
+
 	if len(user.NetworkRoles) > 0 {
 		for _, netRoles := range user.NetworkRoles {
 			for netRoleI := range netRoles {
-				allNetworkRoles = append(allNetworkRoles, netRoleI)
+				allNetworkRoles[netRoleI] = struct{}{}
 			}
 		}
 	}
@@ -692,14 +687,14 @@ func GetFilteredNodesByUserAccess(user models.User, nodes []models.Node) (filter
 					}
 					for _, netRoles := range userG.NetworkRoles {
 						for netRoleI := range netRoles {
-							allNetworkRoles = append(allNetworkRoles, netRoleI)
+							allNetworkRoles[netRoleI] = struct{}{}
 						}
 					}
 				}
 			}
 		}
 	}
-	for _, networkRoleID := range allNetworkRoles {
+	for networkRoleID := range allNetworkRoles {
 		userPermTemplate, err := logic.GetRole(networkRoleID)
 		if err != nil {
 			continue
@@ -735,6 +730,7 @@ func GetFilteredNodesByUserAccess(user models.User, nodes []models.Node) (filter
 					if scope.Read {
 						gwNode, err := logic.GetNodeByID(gwID.String())
 						if err == nil && gwNode.IsIngressGateway {
+							nodesMap[gwNode.ID.String()] = struct{}{}
 							filteredNodes = append(filteredNodes, gwNode)
 						}
 					}
