@@ -231,6 +231,7 @@ save_config() { (
 	fi
 	if [ -n "$NETMAKER_BASE_DOMAIN" ]; then
 		save_config_item NM_DOMAIN "$NETMAKER_BASE_DOMAIN"
+		save_config_item FRONTEND_URL "dashboard.$NETMAKER_BASE_DOMAIN"
 	fi
 	save_config_item UI_IMAGE_TAG "$IMAGE_TAG"
 	# version-specific entries
