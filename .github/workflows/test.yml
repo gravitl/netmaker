@@ -63,12 +63,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.19
       - name: run static checks
-        run: |
-          sudo apt update
-          go install honnef.co/go/tools/cmd/staticcheck@latest
-          { ~/go/bin/staticcheck  -tags=ee ./... ; }
+        uses: dominikh/staticcheck-action@v1.2.0
+        with:
+          version: "2024.1.1"
+      # - name: Setup Go
+      #   uses: actions/setup-go@v5
+      #   with:
+      #     go-version: 1.19
+      # - name: run static checks
+      #   run: |
+      #     sudo apt update
+      #     go install honnef.co/go/tools/cmd/staticcheck@latest
+      #     { ~/go/bin/staticcheck  -tags=ee ./... ; }
