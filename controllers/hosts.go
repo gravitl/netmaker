@@ -79,7 +79,7 @@ func upgradeHost(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {array} models.ApiHost
 // @Failure     500 {object} models.ErrorResponse
 func getHosts(w http.ResponseWriter, r *http.Request) {
-
+	w.Header().Set("Content-Type", "application/json")
 	currentHosts := []models.Host{}
 	username := r.Header.Get("user")
 	user, err := logic.GetUser(username)
@@ -90,7 +90,7 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-
+	respHostsMap := make(map[string]struct{})
 	if !userPlatformRole.FullAccess {
 		nodes, err := logic.GetAllNodes()
 		if err != nil {
@@ -107,9 +107,12 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			for _, node := range filteredNodes {
+				if _, ok := respHostsMap[node.HostID.String()]; ok {
+					continue
+				}
 				if host, ok := currentHostsMap[node.HostID.String()]; ok {
 					currentHosts = append(currentHosts, host)
-					delete(currentHostsMap, host.ID.String())
+					respHostsMap[host.ID.String()] = struct{}{}
 				}
 			}
 
