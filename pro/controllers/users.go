@@ -467,11 +467,17 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
 	}
-	err := proLogic.DeleteUserGroup(models.UserGroupID(gid))
+	userG, err := proLogic.GetUserGroup(models.UserGroupID(gid))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
+		return
+	}
+	err = proLogic.DeleteUserGroup(models.UserGroupID(gid))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userG.NetworkRoles, make(map[models.NetworkID]map[models.UserRoleID]struct{}))
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user group")
 }
 
@@ -603,11 +609,17 @@ func deleteRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
 	}
-	err := proLogic.DeleteRole(models.UserRoleID(rid), false)
+	role, err := logic.GetRole(models.UserRoleID(rid))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
+		return
+	}
+	err = proLogic.DeleteRole(models.UserRoleID(rid), false)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	go proLogic.UpdatesUserGwAccessOnRoleUpdates(role.NetworkLevelAccess, make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope), role.NetworkID.String())
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user role")
 }
 

@@ -354,8 +354,19 @@ func DeleteRole(rid models.UserRoleID, force bool) error {
 	if err != nil {
 		return err
 	}
-	if !force && role.Default {
-		return errors.New("cannot delete default role")
+	if role.NetworkID == "" {
+		return errors.New("cannot delete platform role")
+	}
+	// allow deletion of default network roles if network doesn't exist
+	if role.NetworkID == models.AllNetworks {
+		return errors.New("cannot delete default network role")
+	}
+	// check if network exists
+	exists, _ := logic.NetworkExists(role.NetworkID.String())
+	if role.Default {
+		if exists && !force {
+			return errors.New("cannot delete default role")
+		}
 	}
 	for _, user := range users {
 		for userG := range user.UserGroups {
@@ -390,6 +401,7 @@ func DeleteRole(rid models.UserRoleID, force bool) error {
 			}
 		}
 	}
+
 	return database.DeleteRecord(database.USER_PERMISSIONS_TABLE_NAME, rid.String())
 }
 
