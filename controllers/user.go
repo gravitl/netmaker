@@ -5,11 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
+	"reflect"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/gravitl/netmaker/auth"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -28,24 +29,12 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/adm/transfersuperadmin/{username}", logic.SecurityCheck(true, http.HandlerFunc(transferSuperAdmin))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, http.HandlerFunc(updateUser))).
-		Methods(http.MethodPut)
-	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceUsers, http.HandlerFunc(createUser)))).
-		Methods(http.MethodPost)
-	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, http.HandlerFunc(deleteUser))).
-		Methods(http.MethodDelete)
-	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUser)))).
-		Methods(http.MethodGet)
-	r.HandleFunc("/api/users", logic.SecurityCheck(true, http.HandlerFunc(getUsers))).
-		Methods(http.MethodGet)
-	r.HandleFunc("/api/users_pending", logic.SecurityCheck(true, http.HandlerFunc(getPendingUsers))).
-		Methods(http.MethodGet)
-	r.HandleFunc("/api/users_pending", logic.SecurityCheck(true, http.HandlerFunc(deleteAllPendingUsers))).
-		Methods(http.MethodDelete)
-	r.HandleFunc("/api/users_pending/user/{username}", logic.SecurityCheck(true, http.HandlerFunc(deletePendingUser))).
-		Methods(http.MethodDelete)
-	r.HandleFunc("/api/users_pending/user/{username}", logic.SecurityCheck(true, http.HandlerFunc(approvePendingUser))).
-		Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, http.HandlerFunc(updateUser))).Methods(http.MethodPut)
+	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceUsers, http.HandlerFunc(createUser)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, http.HandlerFunc(deleteUser))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUser)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserV1)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/users", logic.SecurityCheck(true, http.HandlerFunc(getUsers))).Methods(http.MethodGet)
 
 }
 
@@ -94,14 +83,24 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 			logic.ReturnErrorResponse(response, request, logic.FormatError(err, "unauthorized"))
 			return
 		}
-		if !(user.IsAdmin || user.IsSuperAdmin) {
-			logic.ReturnErrorResponse(
-				response,
-				request,
-				logic.FormatError(errors.New("only admins can access dashboard"), "unauthorized"),
-			)
+		role, err := logic.GetRole(user.PlatformRoleID)
+		if err != nil {
+			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
 			return
 		}
+		if role.DenyDashboardAccess {
+			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
+			return
+		}
+	}
+	user, err := logic.GetUser(authRequest.UserName)
+	if err != nil {
+		logic.ReturnErrorResponse(response, request, logic.FormatError(err, "unauthorized"))
+		return
+	}
+	if logic.IsOauthUser(user) == nil {
+		logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("user is registered via SSO"), "badrequest"))
+		return
 	}
 	username := authRequest.UserName
 	jwt, err := logic.VerifyAuthRequest(authRequest)
@@ -224,11 +223,55 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(user)
 }
 
-// @Summary     Get all users
-// @Router      /api/users [get]
-// @Tags        Users
-// @Success     200 {array} models.User
-// @Failure     500 {object} models.ErrorResponse
+// swagger:route GET /api/v1/users user getUserV1
+//
+// Get an individual user with role info.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: ReturnUserWithRolesAndGroups
+func getUserV1(w http.ResponseWriter, r *http.Request) {
+	// set header.
+	w.Header().Set("Content-Type", "application/json")
+	usernameFetched, _ := url.QueryUnescape(r.URL.Query().Get("username"))
+	if usernameFetched == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), "badrequest"))
+		return
+	}
+	user, err := logic.GetReturnUser(usernameFetched)
+	if err != nil {
+		logger.Log(0, usernameFetched, "failed to fetch user: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	userRoleTemplate, err := logic.GetRole(user.PlatformRoleID)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	resp := models.ReturnUserWithRolesAndGroups{
+		ReturnUser:   user,
+		PlatformRole: userRoleTemplate,
+	}
+	logger.Log(2, r.Header.Get("user"), "fetched user", usernameFetched)
+	logic.ReturnSuccessResponseWithJson(w, r, resp, "fetched user with role info")
+}
+
+// swagger:route GET /api/users user getUsers
+//
+// Get all users.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: userBodyResponse
 func getUsers(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -297,15 +340,8 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 	}
-	if !caller.IsSuperAdmin {
-		logic.ReturnErrorResponse(
-			w,
-			r,
-			logic.FormatError(
-				errors.New("only superadmin can assign the superadmin role to another user"),
-				"forbidden",
-			),
-		)
+	if caller.PlatformRoleID != models.SuperAdminRole {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only superadmin can assign the superadmin role to another user"), "forbidden"))
 		return
 	}
 	var params = mux.Vars(r)
@@ -316,15 +352,8 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if !u.IsAdmin {
-		logic.ReturnErrorResponse(
-			w,
-			r,
-			logic.FormatError(
-				errors.New("only admins can be promoted to superadmin role"),
-				"forbidden",
-			),
-		)
+	if u.PlatformRoleID != models.AdminRole {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only admins can be promoted to superadmin role"), "forbidden"))
 		return
 	}
 	if !servercfg.IsBasicAuthEnabled() {
@@ -336,16 +365,14 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u.IsSuperAdmin = true
-	u.IsAdmin = false
+	u.PlatformRoleID = models.SuperAdminRole
 	err = logic.UpsertUser(*u)
 	if err != nil {
 		slog.Error("error updating user to superadmin: ", "user", u.UserName, "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	caller.IsSuperAdmin = false
-	caller.IsAdmin = true
+	caller.PlatformRoleID = models.AdminRole
 	err = logic.UpsertUser(*caller)
 	if err != nil {
 		slog.Error("error demoting user to admin: ", "user", caller.UserName, "error", err.Error())
@@ -369,7 +396,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	caller, err := logic.GetUser(r.Header.Get("user"))
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	var user models.User
@@ -380,27 +407,34 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if !caller.IsSuperAdmin && user.IsAdmin {
-		err = errors.New("only superadmin can create admin users")
-		slog.Error("error creating new user: ", "user", user.UserName, "error", err)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+
+	if user.PlatformRoleID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("platform role is missing"), "badrequest"))
 		return
 	}
-	if user.IsSuperAdmin {
+	userRole, err := logic.GetRole(user.PlatformRoleID)
+	if err != nil {
+		err = errors.New("error fetching role " + user.PlatformRoleID.String() + " " + err.Error())
+		slog.Error("error creating new user: ", "user", user.UserName, "error", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if userRole.ID == models.SuperAdminRole {
 		err = errors.New("additional superadmins cannot be created")
 		slog.Error("error creating new user: ", "user", user.UserName, "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
-	if !servercfg.IsPro && !user.IsAdmin {
-		logic.ReturnErrorResponse(
-			w,
-			r,
-			logic.FormatError(
-				errors.New("non-admins users can only be created on Pro version"),
-				"forbidden",
-			),
-		)
+
+	if caller.PlatformRoleID != models.SuperAdminRole && user.PlatformRoleID == models.AdminRole {
+		err = errors.New("only superadmin can create admin users")
+		slog.Error("error creating new user: ", "user", user.UserName, "error", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+		return
+	}
+
+	if !servercfg.IsPro && user.PlatformRoleID != models.AdminRole {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("non-admins users can only be created on Pro version"), "forbidden"))
 		return
 	}
 
@@ -410,6 +444,8 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	logic.DeleteUserInvite(user.UserName)
+	logic.DeletePendingUser(user.UserName)
 	slog.Info("user was created", "username", user.UserName)
 	json.NewEncoder(w).Encode(logic.ToReturnUser(user))
 }
@@ -472,55 +508,22 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !ismaster && !selfUpdate {
-		if caller.IsAdmin && user.IsSuperAdmin {
-			slog.Error(
-				"non-superadmin user",
-				"caller",
-				caller.UserName,
-				"attempted to update superadmin user",
-				username,
-			)
-			logic.ReturnErrorResponse(
-				w,
-				r,
-				logic.FormatError(errors.New("cannot update superadmin user"), "forbidden"),
-			)
+		if caller.PlatformRoleID == models.AdminRole && user.PlatformRoleID == models.SuperAdminRole {
+			slog.Error("non-superadmin user", "caller", caller.UserName, "attempted to update superadmin user", username)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update superadmin user"), "forbidden"))
 			return
 		}
-		if !caller.IsAdmin && !caller.IsSuperAdmin {
-			slog.Error(
-				"operation not allowed",
-				"caller",
-				caller.UserName,
-				"attempted to update user",
-				username,
-			)
-			logic.ReturnErrorResponse(
-				w,
-				r,
-				logic.FormatError(errors.New("cannot update superadmin user"), "forbidden"),
-			)
+		if caller.PlatformRoleID != models.AdminRole && caller.PlatformRoleID != models.SuperAdminRole {
+			slog.Error("operation not allowed", "caller", caller.UserName, "attempted to update user", username)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update superadmin user"), "forbidden"))
 			return
 		}
-		if caller.IsAdmin && user.IsAdmin {
-			slog.Error(
-				"admin user cannot update another admin",
-				"caller",
-				caller.UserName,
-				"attempted to update admin user",
-				username,
-			)
-			logic.ReturnErrorResponse(
-				w,
-				r,
-				logic.FormatError(
-					errors.New("admin user cannot update another admin"),
-					"forbidden",
-				),
-			)
+		if caller.PlatformRoleID == models.AdminRole && user.PlatformRoleID == models.AdminRole {
+			slog.Error("admin user cannot update another admin", "caller", caller.UserName, "attempted to update admin user", username)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("admin user cannot update another admin"), "forbidden"))
 			return
 		}
-		if caller.IsAdmin && userchange.IsAdmin {
+		if caller.PlatformRoleID == models.AdminRole && userchange.PlatformRoleID == models.AdminRole {
 			err = errors.New("admin user cannot update role of an another user to admin")
 			slog.Error(
 				"failed to update user",
@@ -537,45 +540,39 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 
 	}
 	if !ismaster && selfUpdate {
-		if user.IsAdmin != userchange.IsAdmin || user.IsSuperAdmin != userchange.IsSuperAdmin {
-			slog.Error(
-				"user cannot change his own role",
-				"caller",
-				caller.UserName,
-				"attempted to update user role",
-				username,
-			)
-			logic.ReturnErrorResponse(
-				w,
-				r,
-				logic.FormatError(errors.New("user not allowed to self assign role"), "forbidden"),
-			)
+		if user.PlatformRoleID != userchange.PlatformRoleID {
+			slog.Error("user cannot change his own role", "caller", caller.UserName, "attempted to update user role", username)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user not allowed to self assign role"), "forbidden"))
 			return
 
 		}
+		if servercfg.IsPro {
+			// user cannot update his own roles and groups
+			if len(user.NetworkRoles) != len(userchange.NetworkRoles) || !reflect.DeepEqual(user.NetworkRoles, userchange.NetworkRoles) {
+				err = errors.New("user cannot update self update their network roles")
+				slog.Error("failed to update user", "caller", caller.UserName, "attempted to update user", username, "error", err)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+				return
+			}
+			// user cannot update his own roles and groups
+			if len(user.UserGroups) != len(userchange.UserGroups) || !reflect.DeepEqual(user.UserGroups, userchange.UserGroups) {
+				err = errors.New("user cannot update self update their groups")
+				slog.Error("failed to update user", "caller", caller.UserName, "attempted to update user", username, "error", err)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+				return
+			}
+		}
+
 	}
 	if ismaster {
-		if !user.IsSuperAdmin && userchange.IsSuperAdmin {
-			slog.Error(
-				"operation not allowed",
-				"caller",
-				logic.MasterUser,
-				"attempted to update user role to superadmin",
-				username,
-			)
-			logic.ReturnErrorResponse(
-				w,
-				r,
-				logic.FormatError(
-					errors.New("attempted to update user role to superadmin"),
-					"forbidden",
-				),
-			)
+		if user.PlatformRoleID != models.SuperAdminRole && userchange.PlatformRoleID == models.SuperAdminRole {
+			slog.Error("operation not allowed", "caller", logic.MasterUser, "attempted to update user role to superadmin", username)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("attempted to update user role to superadmin"), "forbidden"))
 			return
 		}
 	}
 
-	if auth.IsOauthUser(user) == nil && userchange.Password != "" {
+	if logic.IsOauthUser(user) == nil && userchange.Password != "" {
 		err := fmt.Errorf("cannot update user's password for an oauth user %s", username)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
@@ -608,6 +605,12 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 	}
+	callerUserRole, err := logic.GetRole(caller.PlatformRoleID)
+	if err != nil {
+		slog.Error("failed to get role ", "role", callerUserRole.ID, "error", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 	username := params["username"]
 	user, err := logic.GetUser(username)
 	if err != nil {
@@ -616,7 +619,13 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if user.IsSuperAdmin {
+	userRole, err := logic.GetRole(user.PlatformRoleID)
+	if err != nil {
+		slog.Error("failed to get role ", "role", userRole.ID, "error", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	if userRole.ID == models.SuperAdminRole {
 		slog.Error(
 			"failed to delete user: ", "user", username, "error", "superadmin cannot be deleted")
 		logic.ReturnErrorResponse(
@@ -626,8 +635,8 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if !caller.IsSuperAdmin {
-		if caller.IsAdmin && user.IsAdmin {
+	if callerUserRole.ID != models.SuperAdminRole {
+		if callerUserRole.ID == models.AdminRole && userRole.ID == models.AdminRole {
 			slog.Error(
 				"failed to delete user: ",
 				"user",
@@ -667,10 +676,14 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, extclient := range extclients {
 			if extclient.OwnerID == user.UserName {
-				err = logic.DeleteExtClient(extclient.Network, extclient.ClientID)
+				err = logic.DeleteExtClientAndCleanup(extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
-						"id", extclient.ClientID, "owner", user.UserName, "error", err)
+						"id", extclient.ClientID, "owner", username, "error", err)
+				} else {
+					if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+						slog.Error("error setting ext peers: " + err.Error())
+					}
 				}
 			}
 		}
@@ -696,140 +709,4 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// Start handling the session
 	go auth.SessionHandler(conn)
-}
-
-// @Summary     Get all pending users
-// @Router      /api/users_pending [get]
-// @Tags        Users
-// @Success     200 {array} models.User
-// @Failure     500 {object} models.ErrorResponse
-func getPendingUsers(w http.ResponseWriter, r *http.Request) {
-	// set header.
-	w.Header().Set("Content-Type", "application/json")
-
-	users, err := logic.ListPendingUsers()
-	if err != nil {
-		logger.Log(0, "failed to fetch users: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-
-	logic.SortUsers(users[:])
-	logger.Log(2, r.Header.Get("user"), "fetched pending users")
-	json.NewEncoder(w).Encode(users)
-}
-
-// @Summary     Approve a pending user
-// @Router      /api/users_pending/user/{username} [post]
-// @Tags        Users
-// @Param       username path string true "Username of the pending user to approve"
-// @Success     200 {string} string
-// @Failure     500 {object} models.ErrorResponse
-func approvePendingUser(w http.ResponseWriter, r *http.Request) {
-	// set header.
-	w.Header().Set("Content-Type", "application/json")
-	var params = mux.Vars(r)
-	username := params["username"]
-	users, err := logic.ListPendingUsers()
-
-	if err != nil {
-		logger.Log(0, "failed to fetch users: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	for _, user := range users {
-		if user.UserName == username {
-			var newPass, fetchErr = auth.FetchPassValue("")
-			if fetchErr != nil {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(fetchErr, "internal"))
-				return
-			}
-			if err = logic.CreateUser(&models.User{
-				UserName: user.UserName,
-				Password: newPass,
-			}); err != nil {
-				logic.ReturnErrorResponse(
-					w,
-					r,
-					logic.FormatError(fmt.Errorf("failed to create user: %s", err), "internal"),
-				)
-				return
-			}
-			err = logic.DeletePendingUser(username)
-			if err != nil {
-				logic.ReturnErrorResponse(
-					w,
-					r,
-					logic.FormatError(
-						fmt.Errorf("failed to delete pending user: %s", err),
-						"internal",
-					),
-				)
-				return
-			}
-			break
-		}
-	}
-	logic.ReturnSuccessResponse(w, r, "approved "+username)
-}
-
-// @Summary     Delete a pending user
-// @Router      /api/users_pending/user/{username} [delete]
-// @Tags        Users
-// @Param       username path string true "Username of the pending user to delete"
-// @Success     200 {string} string
-// @Failure     500 {object} models.ErrorResponse
-func deletePendingUser(w http.ResponseWriter, r *http.Request) {
-	// set header.
-	w.Header().Set("Content-Type", "application/json")
-	var params = mux.Vars(r)
-	username := params["username"]
-	users, err := logic.ListPendingUsers()
-
-	if err != nil {
-		logger.Log(0, "failed to fetch users: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	for _, user := range users {
-		if user.UserName == username {
-			err = logic.DeletePendingUser(username)
-			if err != nil {
-				logic.ReturnErrorResponse(
-					w,
-					r,
-					logic.FormatError(
-						fmt.Errorf("failed to delete pending user: %s", err),
-						"internal",
-					),
-				)
-				return
-			}
-			break
-		}
-	}
-	logic.ReturnSuccessResponse(w, r, "deleted pending "+username)
-}
-
-// @Summary     Delete all pending users
-// @Router      /api/users_pending [delete]
-// @Tags        Users
-// @Success     200 {string} string
-// @Failure     500 {object} models.ErrorResponse
-func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
-	// set header.
-	w.Header().Set("Content-Type", "application/json")
-	err := database.DeleteAllRecords(database.PENDING_USERS_TABLE_NAME)
-	if err != nil {
-		logic.ReturnErrorResponse(
-			w,
-			r,
-			logic.FormatError(
-				errors.New("failed to delete all pending users "+err.Error()),
-				"internal",
-			),
-		)
-		return
-	}
-	logic.ReturnSuccessResponse(w, r, "cleared all pending users")
 }

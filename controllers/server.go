@@ -38,10 +38,10 @@ func serverHandlers(r *mux.Router) {
 	).Methods(http.MethodPost)
 	r.HandleFunc("/api/server/getconfig", allowUsers(http.HandlerFunc(getConfig))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/server/getserverinfo", Authorize(true, false, "node", http.HandlerFunc(getServerInfo))).
+	r.HandleFunc("/api/server/getserverinfo", logic.SecurityCheck(true, http.HandlerFunc(getServerInfo))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/server/status", getStatus).Methods(http.MethodGet)
-	r.HandleFunc("/api/server/usage", Authorize(true, false, "user", http.HandlerFunc(getUsage))).
+	r.HandleFunc("/api/server/usage", logic.SecurityCheck(false, http.HandlerFunc(getUsage))).
 		Methods(http.MethodGet)
 }
 

@@ -79,12 +79,53 @@ func upgradeHost(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {array} models.ApiHost
 // @Failure     500 {object} models.ErrorResponse
 func getHosts(w http.ResponseWriter, r *http.Request) {
-	currentHosts, err := logic.GetAllHosts()
+	w.Header().Set("Content-Type", "application/json")
+	currentHosts := []models.Host{}
+	username := r.Header.Get("user")
+	user, err := logic.GetUser(username)
 	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to fetch hosts: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	userPlatformRole, err := logic.GetRole(user.PlatformRoleID)
+	if err != nil {
+		return
+	}
+	respHostsMap := make(map[string]struct{})
+	if !userPlatformRole.FullAccess {
+		nodes, err := logic.GetAllNodes()
+		if err != nil {
+			logger.Log(0, "error fetching all nodes info: ", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+		filteredNodes := logic.GetFilteredNodesByUserAccess(*user, nodes)
+		if len(filteredNodes) > 0 {
+			currentHostsMap, err := logic.GetHostsMap()
+			if err != nil {
+				logger.Log(0, r.Header.Get("user"), "failed to fetch hosts: ", err.Error())
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				return
+			}
+			for _, node := range filteredNodes {
+				if _, ok := respHostsMap[node.HostID.String()]; ok {
+					continue
+				}
+				if host, ok := currentHostsMap[node.HostID.String()]; ok {
+					currentHosts = append(currentHosts, host)
+					respHostsMap[host.ID.String()] = struct{}{}
+				}
+			}
+
+		}
+	} else {
+		currentHosts, err = logic.GetAllHosts()
+		if err != nil {
+			logger.Log(0, r.Header.Get("user"), "failed to fetch hosts: ", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+	}
+
 	apiHosts := logic.GetAllHostsAPI(currentHosts[:])
 	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
 	logic.SortApiHosts(apiHosts[:])
@@ -194,6 +235,19 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 
 	newHost := newHostData.ConvertAPIHostToNMHost(currHost)
 
+	if newHost.Name != currHost.Name {
+		// update any rag role ids
+		for _, nodeID := range newHost.Nodes {
+			node, err := logic.GetNodeByID(nodeID)
+			if err == nil && node.IsIngressGateway {
+				role, err := logic.GetRole(models.GetRAGRoleID(node.Network, currHost.ID.String()))
+				if err == nil {
+					role.UiName = models.GetRAGRoleName(node.Network, newHost.Name)
+					logic.UpdateRole(role)
+				}
+			}
+		}
+	}
 	logic.UpdateHost(newHost, currHost) // update the in memory struct values
 	if err = logic.UpsertHost(newHost); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update a host:", err.Error())

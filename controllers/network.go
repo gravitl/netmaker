@@ -58,7 +58,13 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-
+	username := r.Header.Get("user")
+	user, err := logic.GetUser(username)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	allnetworks = logic.FilterNetworksByRole(allnetworks, *user)
 	logger.Log(2, r.Header.Get("user"), "fetched networks.")
 	logic.SortNetworks(allnetworks[:])
 	w.WriteHeader(http.StatusOK)
@@ -402,6 +408,7 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errtype))
 		return
 	}
+	go logic.DeleteNetworkRoles(network)
 	//delete network from allocated ip map
 	go logic.RemoveNetworkFromAllocatedIpMap(network)
 
@@ -476,6 +483,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	logic.CreateDefaultNetworkRolesAndGroups(models.NetworkID(network.NetID))
 
 	//add new network to allocated ip map
 	go logic.AddNetworkToAllocatedIpMap(network.NetID)

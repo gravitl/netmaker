@@ -21,24 +21,15 @@ var hostIDHeader = "host-id"
 
 func nodeHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/nodes", Authorize(false, false, "user", http.HandlerFunc(getAllNodes))).
-		Methods(http.MethodGet)
-	r.HandleFunc("/api/nodes/{network}", Authorize(false, true, "network", http.HandlerFunc(getNetworkNodes))).
-		Methods(http.MethodGet)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}", Authorize(true, true, "node", http.HandlerFunc(getNode))).
-		Methods(http.MethodGet)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}", logic.SecurityCheck(true, http.HandlerFunc(updateNode))).
-		Methods(http.MethodPut)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}", Authorize(true, true, "node", http.HandlerFunc(deleteNode))).
-		Methods(http.MethodDelete)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/creategateway", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceEgress, http.HandlerFunc(createEgressGateway)))).
-		Methods(http.MethodPost)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/deletegateway", logic.SecurityCheck(true, http.HandlerFunc(deleteEgressGateway))).
-		Methods(http.MethodDelete)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceIngress, http.HandlerFunc(createIngressGateway)))).
-		Methods(http.MethodPost)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", logic.SecurityCheck(true, http.HandlerFunc(deleteIngressGateway))).
-		Methods(http.MethodDelete)
+	r.HandleFunc("/api/nodes", logic.SecurityCheck(true, http.HandlerFunc(getAllNodes))).Methods(http.MethodGet)
+	r.HandleFunc("/api/nodes/{network}", logic.SecurityCheck(true, http.HandlerFunc(getNetworkNodes))).Methods(http.MethodGet)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}", Authorize(true, true, "node", http.HandlerFunc(getNode))).Methods(http.MethodGet)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}", logic.SecurityCheck(true, http.HandlerFunc(updateNode))).Methods(http.MethodPut)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}", Authorize(true, true, "node", http.HandlerFunc(deleteNode))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/creategateway", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceEgress, http.HandlerFunc(createEgressGateway)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/deletegateway", logic.SecurityCheck(true, http.HandlerFunc(deleteEgressGateway))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceIngress, http.HandlerFunc(createIngressGateway)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", logic.SecurityCheck(true, http.HandlerFunc(deleteIngressGateway))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/nodes/migrate", migrate).Methods(http.MethodPost)
 }
@@ -277,6 +268,61 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	username := r.Header.Get("user")
+	user, err := logic.GetUser(username)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	userPlatformRole, err := logic.GetRole(user.PlatformRoleID)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	filteredNodes := []models.Node{}
+	if !userPlatformRole.FullAccess {
+		nodesMap := make(map[string]struct{})
+		networkRoles := user.NetworkRoles[models.NetworkID(networkName)]
+		for networkRoleID := range networkRoles {
+			userPermTemplate, err := logic.GetRole(networkRoleID)
+			if err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				return
+			}
+			if userPermTemplate.FullAccess {
+				break
+			}
+			if rsrcPerms, ok := userPermTemplate.NetworkLevelAccess[models.RemoteAccessGwRsrc]; ok {
+				if _, ok := rsrcPerms[models.AllRemoteAccessGwRsrcID]; ok {
+					for _, node := range nodes {
+						if _, ok := nodesMap[node.ID.String()]; ok {
+							continue
+						}
+						if node.IsIngressGateway {
+							nodesMap[node.ID.String()] = struct{}{}
+							filteredNodes = append(filteredNodes, node)
+						}
+					}
+				} else {
+					for gwID, scope := range rsrcPerms {
+						if _, ok := nodesMap[gwID.String()]; ok {
+							continue
+						}
+						if scope.Read {
+							gwNode, err := logic.GetNodeByID(gwID.String())
+							if err == nil && gwNode.IsIngressGateway {
+								filteredNodes = append(filteredNodes, gwNode)
+							}
+						}
+					}
+				}
+			}
+
+		}
+	}
+	if len(filteredNodes) > 0 {
+		nodes = filteredNodes
+	}
 
 	// returns all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
@@ -294,22 +340,26 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 // Not quite sure if this is necessary. Probably necessary based on front end but may want to review after iteration 1 if it's being used or not
 func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	user, err := logic.GetUser(r.Header.Get("user"))
-	if err != nil && r.Header.Get("ismasterkey") != "yes" {
-		logger.Log(0, r.Header.Get("user"),
-			"error fetching user info: ", err.Error())
+	var nodes []models.Node
+	nodes, err := logic.GetAllNodes()
+	if err != nil {
+		logger.Log(0, "error fetching all nodes info: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	var nodes []models.Node
-	if user.IsAdmin || r.Header.Get("ismasterkey") == "yes" {
-		nodes, err = logic.GetAllNodes()
-		if err != nil {
-			logger.Log(0, "error fetching all nodes info: ", err.Error())
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
+	username := r.Header.Get("user")
+	user, err := logic.GetUser(username)
+	if err != nil {
+		return
 	}
+	userPlatformRole, err := logic.GetRole(user.PlatformRoleID)
+	if err != nil {
+		return
+	}
+	if !userPlatformRole.FullAccess {
+		nodes = logic.GetFilteredNodesByUserAccess(*user, nodes)
+	}
+
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	logger.Log(3, r.Header.Get("user"), "fetched all nodes they have access to")
@@ -559,25 +609,6 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 				nodeid, netid, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
-	}
-
-	if servercfg.IsPro {
-		go func() {
-			users, err := logic.GetUsersDB()
-			if err == nil {
-				for _, user := range users {
-					if _, ok := user.RemoteGwIDs[nodeid]; ok {
-						delete(user.RemoteGwIDs, nodeid)
-						err = logic.UpsertUser(user)
-						if err != nil {
-							slog.Error("failed to get user", "user", user.UserName, "error", err)
-						}
-					}
-				}
-			} else {
-				slog.Error("failed to get users", "error", err)
-			}
-		}()
 	}
 
 	apiNode := node.ConvertToAPINode()

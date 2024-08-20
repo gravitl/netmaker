@@ -23,39 +23,6 @@ type AuthParams struct {
 	Password   string `json:"password"`
 }
 
-// User struct - struct for Users
-type User struct {
-	UserName      string              `json:"username" bson:"username" validate:"min=3,max=40,in_charset|email"`
-	Password      string              `json:"password" bson:"password" validate:"required,min=5"`
-	IsAdmin       bool                `json:"isadmin" bson:"isadmin"`
-	IsSuperAdmin  bool                `json:"issuperadmin"`
-	RemoteGwIDs   map[string]struct{} `json:"remote_gw_ids"`
-	LastLoginTime time.Time           `json:"last_login_time"`
-}
-
-// ReturnUser - return user struct
-type ReturnUser struct {
-	UserName      string              `json:"username"`
-	IsAdmin       bool                `json:"isadmin"`
-	IsSuperAdmin  bool                `json:"issuperadmin"`
-	RemoteGwIDs   map[string]struct{} `json:"remote_gw_ids"`
-	LastLoginTime time.Time           `json:"last_login_time"`
-}
-
-// UserAuthParams - user auth params struct
-type UserAuthParams struct {
-	UserName string `json:"username"`
-	Password string `json:"password"`
-}
-
-// UserClaims - user claims struct
-type UserClaims struct {
-	IsAdmin      bool
-	IsSuperAdmin bool
-	UserName     string
-	jwt.RegisteredClaims
-}
-
 // IngressGwUsers - struct to hold users on a ingress gw
 type IngressGwUsers struct {
 	NodeID  string       `json:"node_id"`
@@ -380,4 +347,9 @@ const (
 
 type GetClientConfReqDto struct {
 	PreferredIp string `json:"preferred_ip"`
+}
+
+type RsrcURLInfo struct {
+	Method string
+	Path   string
 }

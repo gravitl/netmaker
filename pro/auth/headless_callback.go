@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -78,7 +77,7 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	newPass, fetchErr := auth.FetchPassValue("")
+	newPass, fetchErr := logic.FetchPassValue("")
 	if fetchErr != nil {
 		return
 	}

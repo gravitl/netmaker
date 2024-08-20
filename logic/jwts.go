@@ -53,12 +53,11 @@ func CreateJWT(uuid string, macAddress string, network string) (response string,
 }
 
 // CreateUserJWT - creates a user jwt token
-func CreateUserJWT(username string, issuperadmin, isadmin bool) (response string, err error) {
+func CreateUserJWT(username string, role models.UserRoleID) (response string, err error) {
 	expirationTime := time.Now().Add(servercfg.GetServerConfig().JwtValidityDuration)
 	claims := &models.UserClaims{
-		UserName:     username,
-		IsSuperAdmin: issuperadmin,
-		IsAdmin:      isadmin,
+		UserName: username,
+		Role:     role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "Netmaker",
 			Subject:   fmt.Sprintf("user|%s", username),
@@ -87,6 +86,47 @@ func VerifyJWT(bearerToken string) (username string, issuperadmin, isadmin bool,
 	return VerifyUserToken(token)
 }
 
+func GetUserNameFromToken(authtoken string) (username string, err error) {
+	claims := &models.UserClaims{}
+	var tokenSplit = strings.Split(authtoken, " ")
+	var tokenString = ""
+
+	if len(tokenSplit) < 2 {
+		return "", Unauthorized_Err
+	} else {
+		tokenString = tokenSplit[1]
+	}
+	if tokenString == servercfg.GetMasterKey() && servercfg.GetMasterKey() != "" {
+		return MasterUser, nil
+	}
+
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		return jwtSecretKey, nil
+	})
+	if err != nil {
+		return "", Unauthorized_Err
+	}
+
+	if token != nil && token.Valid {
+		var user *models.User
+		// check that user exists
+		user, err = GetUser(claims.UserName)
+		if err != nil {
+			return "", err
+		}
+		if user.UserName != "" {
+			return user.UserName, nil
+		}
+		if user.PlatformRoleID != claims.Role {
+			return "", Unauthorized_Err
+		}
+		err = errors.New("user does not exist")
+	} else {
+		err = Unauthorized_Err
+	}
+	return "", err
+}
+
 // VerifyUserToken func will used to Verify the JWT Token while using APIS
 func VerifyUserToken(tokenString string) (username string, issuperadmin, isadmin bool, err error) {
 	claims := &models.UserClaims{}
@@ -107,7 +147,8 @@ func VerifyUserToken(tokenString string) (username string, issuperadmin, isadmin
 			return "", false, false, err
 		}
 		if user.UserName != "" {
-			return user.UserName, user.IsSuperAdmin, user.IsAdmin, nil
+			return user.UserName, user.PlatformRoleID == models.SuperAdminRole,
+				user.PlatformRoleID == models.AdminRole, nil
 		}
 		err = errors.New("user does not exist")
 	}

@@ -17,7 +17,9 @@ import (
 )
 
 // HttpMiddlewares - middleware functions for REST interactions
-var HttpMiddlewares []mux.MiddlewareFunc
+var HttpMiddlewares = []mux.MiddlewareFunc{
+	userMiddleWare,
+}
 
 // HttpHandlers - handler functions for REST interactions
 var HttpHandlers = []interface{}{
@@ -39,7 +41,6 @@ func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context) {
 	defer wg.Done()
 
 	r := mux.NewRouter()
-
 	// Currently allowed dev origin is all. Should change in prod
 	// should consider analyzing the allowed methods further
 	headersOk := handlers.AllowedHeaders(

@@ -49,8 +49,7 @@ func HasSuperAdmin() (bool, error) {
 		if err != nil {
 			continue
 		}
-		if user.IsSuperAdmin {
-			superUser = user
+		if user.PlatformRoleID == models.SuperAdminRole || user.IsSuperAdmin {
 			return true, nil
 		}
 	}
@@ -106,18 +105,58 @@ func GetUsers() ([]models.ReturnUser, error) {
 	return users, err
 }
 
+// IsOauthUser - returns
+func IsOauthUser(user *models.User) error {
+	var currentValue, err = FetchPassValue("")
+	if err != nil {
+		return err
+	}
+	var bCryptErr = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(currentValue))
+	return bCryptErr
+}
+
+func FetchPassValue(newValue string) (string, error) {
+
+	type valueHolder struct {
+		Value string `json:"value" bson:"value"`
+	}
+	newValueHolder := valueHolder{}
+	var currentValue, err = FetchAuthSecret()
+	if err != nil {
+		return "", err
+	}
+	var unmarshErr = json.Unmarshal([]byte(currentValue), &newValueHolder)
+	if unmarshErr != nil {
+		return "", unmarshErr
+	}
+
+	var b64CurrentValue, b64Err = base64.StdEncoding.DecodeString(newValueHolder.Value)
+	if b64Err != nil {
+		logger.Log(0, "could not decode pass")
+		return "", nil
+	}
+	return string(b64CurrentValue), nil
+}
+
 // CreateUser - creates a user
 func CreateUser(user *models.User) error {
 	// check if user exists
 	if _, err := GetUser(user.UserName); err == nil {
 		return errors.New("user exists")
 	}
+	SetUserDefaults(user)
+	if err := IsGroupsValid(user.UserGroups); err != nil {
+		return errors.New("invalid groups: " + err.Error())
+	}
+	if err := IsNetworkRolesValid(user.NetworkRoles); err != nil {
+		return errors.New("invalid network roles: " + err.Error())
+	}
+
 	var err = ValidateUser(user)
 	if err != nil {
 		logger.Log(0, "failed to validate user", err.Error())
 		return err
 	}
-
 	// encrypt that password so we never see it again
 	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), 5)
 	if err != nil {
@@ -126,14 +165,15 @@ func CreateUser(user *models.User) error {
 	}
 	// set password to encrypted password
 	user.Password = string(hash)
-
-	tokenString, _ := CreateUserJWT(user.UserName, user.IsSuperAdmin, user.IsAdmin)
-	if tokenString == "" {
-		logger.Log(0, "failed to generate token")
+	user.AuthType = models.BasicAuth
+	if IsOauthUser(user) == nil {
+		user.AuthType = models.OAuth
+	}
+	_, err = CreateUserJWT(user.UserName, user.PlatformRoleID)
+	if err != nil {
+		logger.Log(0, "failed to generate token", err.Error())
 		return err
 	}
-
-	SetUserDefaults(user)
 
 	// connect db
 	data, err := json.Marshal(user)
@@ -159,8 +199,7 @@ func CreateSuperAdmin(u *models.User) error {
 	if hassuperadmin {
 		return errors.New("superadmin user already exists")
 	}
-	u.IsSuperAdmin = true
-	u.IsAdmin = false
+	u.PlatformRoleID = models.SuperAdminRole
 	return CreateUser(u)
 }
 
@@ -189,7 +228,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 	}
 
 	// Create a new JWT for the node
-	tokenString, err := CreateUserJWT(authRequest.UserName, result.IsSuperAdmin, result.IsAdmin)
+	tokenString, err := CreateUserJWT(authRequest.UserName, result.PlatformRoleID)
 	if err != nil {
 		slog.Error("error creating jwt", "error", err)
 		return "", err
@@ -250,8 +289,17 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 
 		user.Password = userchange.Password
 	}
-	user.IsAdmin = userchange.IsAdmin
-
+	if err := IsGroupsValid(userchange.UserGroups); err != nil {
+		return userchange, errors.New("invalid groups: " + err.Error())
+	}
+	if err := IsNetworkRolesValid(userchange.NetworkRoles); err != nil {
+		return userchange, errors.New("invalid network roles: " + err.Error())
+	}
+	// Reset Gw Access for service users
+	go UpdateUserGwAccess(*user, *userchange)
+	user.PlatformRoleID = userchange.PlatformRoleID
+	user.UserGroups = userchange.UserGroups
+	user.NetworkRoles = userchange.NetworkRoles
 	err := ValidateUser(user)
 	if err != nil {
 		return &models.User{}, err
@@ -274,12 +322,17 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 // ValidateUser - validates a user model
 func ValidateUser(user *models.User) error {
 
+	// check if role is valid
+	_, err := GetRole(user.PlatformRoleID)
+	if err != nil {
+		return err
+	}
 	v := validator.New()
 	_ = v.RegisterValidation("in_charset", func(fl validator.FieldLevel) bool {
 		isgood := user.NameInCharSet()
 		return isgood
 	})
-	err := v.Struct(user)
+	err = v.Struct(user)
 
 	if err != nil {
 		for _, e := range err.(validator.ValidationErrors) {
