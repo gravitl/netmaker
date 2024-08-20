@@ -174,6 +174,10 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("super admin cannot be invited"), "badrequest"))
 		return
 	}
+	if inviteReq.PlatformRoleID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("platform role id cannot be empty"), "badrequest"))
+		return
+	}
 	if (inviteReq.PlatformRoleID == models.AdminRole.String() ||
 		inviteReq.PlatformRoleID == models.SuperAdminRole.String()) && caller.PlatformRoleID != models.SuperAdminRole {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only superadmin can invite admin users"), "forbidden"))
