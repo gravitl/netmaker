@@ -129,6 +129,22 @@ func ListPendingUsers() ([]models.ReturnUser, error) {
 	return pendingUsers, nil
 }
 
+func GetUserMap() (map[string]models.User, error) {
+	userMap := make(map[string]models.User)
+	records, err := database.FetchRecords(database.USERS_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return userMap, err
+	}
+	for _, record := range records {
+		u := models.User{}
+		err = json.Unmarshal([]byte(record), &u)
+		if err == nil {
+			userMap[u.UserName] = u
+		}
+	}
+	return userMap, nil
+}
+
 func InsertUserInvite(invite models.UserInvite) error {
 	data, err := json.Marshal(invite)
 	if err != nil {

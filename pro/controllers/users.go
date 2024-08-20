@@ -174,6 +174,10 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("super admin cannot be invited"), "badrequest"))
 		return
 	}
+	if inviteReq.PlatformRoleID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("platform role id cannot be empty"), "badrequest"))
+		return
+	}
 	if (inviteReq.PlatformRoleID == models.AdminRole.String() ||
 		inviteReq.PlatformRoleID == models.SuperAdminRole.String()) && caller.PlatformRoleID != models.SuperAdminRole {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only superadmin can invite admin users"), "forbidden"))
@@ -429,6 +433,12 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	// fetch curr group
+	currUserG, err := proLogic.GetUserGroup(userGroup.ID)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	err = proLogic.ValidateUpdateGroupReq(userGroup)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -439,6 +449,8 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	// reset configs for service user
+	go proLogic.UpdatesUserGwAccessOnGrpUpdates(currUserG.NetworkRoles, userGroup.NetworkRoles)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")
 }
 
@@ -453,6 +465,13 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 //
 //			Responses:
 //				200: userBodyResponse
+//
+// @Summary     Delete user group.
+// @Router      /api/v1/user/group [delete]
+// @Tags        Users
+// @Param       group_id param string true "group id required to delete the role"
+// @Success     200 {string} string
+// @Failure     500 {object} models.ErrorResponse
 func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 
 	gid, _ := url.QueryUnescape(r.URL.Query().Get("group_id"))
@@ -460,25 +479,26 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
 	}
-	err := proLogic.DeleteUserGroup(models.UserGroupID(gid))
+	userG, err := proLogic.GetUserGroup(models.UserGroupID(gid))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
+		return
+	}
+	err = proLogic.DeleteUserGroup(models.UserGroupID(gid))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userG.NetworkRoles, make(map[models.NetworkID]map[models.UserRoleID]struct{}))
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user group")
 }
 
-// swagger:route GET /api/v1/user/roles user listRoles
-//
-// lists all user roles.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: userBodyResponse
+// @Summary     lists all user roles.
+// @Router      /api/v1/user/roles [get]
+// @Tags        Users
+// @Param       role_id param string true "roleid required to get the role details"
+// @Success     200 {object}  []models.UserRolePermissionTemplate
+// @Failure     500 {object} models.ErrorResponse
 func listRoles(w http.ResponseWriter, r *http.Request) {
 	platform, _ := url.QueryUnescape(r.URL.Query().Get("platform"))
 	var roles []models.UserRolePermissionTemplate
@@ -499,17 +519,12 @@ func listRoles(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, roles, "successfully fetched user roles permission templates")
 }
 
-// swagger:route GET /api/v1/user/role user getRole
-//
-// Get user role permission templates.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: userBodyResponse
+// @Summary     Get user role permission template.
+// @Router      /api/v1/user/role [get]
+// @Tags        Users
+// @Param       role_id param string true "roleid required to get the role details"
+// @Success     200 {object} models.UserRolePermissionTemplate
+// @Failure     500 {object} models.ErrorResponse
 func getRole(w http.ResponseWriter, r *http.Request) {
 	rid, _ := url.QueryUnescape(r.URL.Query().Get("role_id"))
 	if rid == "" {
@@ -527,17 +542,12 @@ func getRole(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, role, "successfully fetched user role permission templates")
 }
 
-// swagger:route POST /api/v1/user/role user createRole
-//
-// Create user role permission template.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: userBodyResponse
+// @Summary     Create user role permission template.
+// @Router      /api/v1/user/role [post]
+// @Tags        Users
+// @Param       body models.UserRolePermissionTemplate true "user role template"
+// @Success     200 {object}  models.UserRolePermissionTemplate
+// @Failure     500 {object} models.ErrorResponse
 func createRole(w http.ResponseWriter, r *http.Request) {
 	var userRole models.UserRolePermissionTemplate
 	err := json.NewDecoder(r.Body).Decode(&userRole)
@@ -562,23 +572,23 @@ func createRole(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, userRole, "created user role")
 }
 
-// swagger:route PUT /api/v1/user/role user updateRole
-//
-// Update user role permission template.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: userBodyResponse
+// @Summary     Update user role permission template.
+// @Router      /api/v1/user/role [put]
+// @Tags        Users
+// @Param       body models.UserRolePermissionTemplate true "user role template"
+// @Success     200 {object} userBodyResponse
+// @Failure     500 {object} models.ErrorResponse
 func updateRole(w http.ResponseWriter, r *http.Request) {
 	var userRole models.UserRolePermissionTemplate
 	err := json.NewDecoder(r.Body).Decode(&userRole)
 	if err != nil {
 		slog.Error("error decoding request body", "error",
 			err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	currRole, err := logic.GetRole(userRole.ID)
+	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -593,20 +603,17 @@ func updateRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	// reset configs for service user
+	go proLogic.UpdatesUserGwAccessOnRoleUpdates(currRole.NetworkLevelAccess, userRole.NetworkLevelAccess, string(userRole.NetworkID))
 	logic.ReturnSuccessResponseWithJson(w, r, userRole, "updated user role")
 }
 
-// swagger:route DELETE /api/v1/user/role user deleteRole
-//
-// Delete user role permission template.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: userBodyResponse
+// @Summary     Delete user role permission template.
+// @Router      /api/v1/user/role [delete]
+// @Tags        Users
+// @Param       role_id param string true "roleid required to delete the role"
+// @Success     200 {string} string
+// @Failure     500 {object} models.ErrorResponse
 func deleteRole(w http.ResponseWriter, r *http.Request) {
 
 	rid, _ := url.QueryUnescape(r.URL.Query().Get("role_id"))
@@ -614,12 +621,18 @@ func deleteRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
 	}
-	err := proLogic.DeleteRole(models.UserRoleID(rid), false)
+	role, err := logic.GetRole(models.UserRoleID(rid))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
+		return
+	}
+	err = proLogic.DeleteRole(models.UserRoleID(rid), false)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.ReturnSuccessResponseWithJson(w, r, nil, "created user role")
+	go proLogic.UpdatesUserGwAccessOnRoleUpdates(role.NetworkLevelAccess, make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope), role.NetworkID.String())
+	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user role")
 }
 
 // @Summary     Attach user to a remote access gateway
@@ -791,6 +804,12 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(logic.ToReturnUser(*user))
 }
 
+// @Summary     Get Users Remote Access Gw.
+// @Router      /api/users/{username}/remote_access_gw [get]
+// @Tags        Users
+// @Param       username path string true "Username to fetch all the gateways with access"
+// @Success     200 {object} map[string][]models.UserRemoteGws
+// @Failure     500 {object} models.ErrorResponse
 func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -913,222 +932,6 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		userGws[node.Network] = gws
 	}
 
-	if reqFromMobile {
-		// send resp in array format
-		userGwsArr := []models.UserRemoteGws{}
-		for _, userGwI := range userGws {
-			userGwsArr = append(userGwsArr, userGwI...)
-		}
-		logic.ReturnSuccessResponseWithJson(w, r, userGwsArr, "fetched gateways for user"+username)
-		return
-	}
-	slog.Debug("returned user gws", "user", username, "gws", userGws)
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(userGws)
-}
-
-// swagger:route GET "/api/users/{username}/remote_access_gw" nodes getUserRemoteAccessGws
-//
-// Get an individual node.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: nodeResponse
-func getUserRemoteAccessGws(w http.ResponseWriter, r *http.Request) {
-	// set header.
-	w.Header().Set("Content-Type", "application/json")
-
-	var params = mux.Vars(r)
-	username := params["username"]
-	if username == "" {
-		logic.ReturnErrorResponse(
-			w,
-			r,
-			logic.FormatError(errors.New("required params username"), "badrequest"),
-		)
-		return
-	}
-	remoteAccessClientID := r.URL.Query().Get("remote_access_clientid")
-	var req models.UserRemoteGwsReq
-	if remoteAccessClientID == "" {
-		err := json.NewDecoder(r.Body).Decode(&req)
-		if err != nil {
-			slog.Error("error decoding request body: ", "error", err)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-			return
-		}
-	}
-	reqFromMobile := r.URL.Query().Get("from_mobile") == "true"
-	if req.RemoteAccessClientID == "" && remoteAccessClientID == "" {
-		logic.ReturnErrorResponse(
-			w,
-			r,
-			logic.FormatError(errors.New("remote access client id cannot be empty"), "badrequest"),
-		)
-		return
-	}
-	if req.RemoteAccessClientID == "" {
-		req.RemoteAccessClientID = remoteAccessClientID
-	}
-	userGws := make(map[string][]models.UserRemoteGws)
-	user, err := logic.GetUser(username)
-	if err != nil {
-		logger.Log(0, username, "failed to fetch user: ", err.Error())
-		logic.ReturnErrorResponse(
-			w,
-			r,
-			logic.FormatError(
-				fmt.Errorf("failed to fetch user %s, error: %v", username, err),
-				"badrequest",
-			),
-		)
-		return
-	}
-	allextClients, err := logic.GetAllExtClients()
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-
-	processedAdminNodeIds := make(map[string]struct{})
-	for _, extClient := range allextClients {
-		if extClient.RemoteAccessClientID == req.RemoteAccessClientID &&
-			extClient.OwnerID == username {
-			node, err := logic.GetNodeByID(extClient.IngressGatewayID)
-			if err != nil {
-				continue
-			}
-			if node.PendingDelete {
-				continue
-			}
-			if !node.IsIngressGateway {
-				continue
-			}
-			host, err := logic.GetHost(node.HostID.String())
-			if err != nil {
-				continue
-			}
-			network, err := logic.GetNetwork(node.Network)
-			if err != nil {
-				slog.Error("failed to get node network", "error", err)
-			}
-
-			if _, ok := user.RemoteGwIDs[node.ID.String()]; (user.PlatformRoleID != models.AdminRole && user.PlatformRoleID != models.SuperAdminRole) && ok {
-				gws := userGws[node.Network]
-				extClient.AllowedIPs = logic.GetExtclientAllowedIPs(extClient)
-				gws = append(gws, models.UserRemoteGws{
-					GwID:              node.ID.String(),
-					GWName:            host.Name,
-					Network:           node.Network,
-					GwClient:          extClient,
-					Connected:         true,
-					IsInternetGateway: node.IsInternetGateway,
-					GwPeerPublicKey:   host.PublicKey.String(),
-					GwListenPort:      logic.GetPeerListenPort(host),
-					Metadata:          node.Metadata,
-					AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
-					NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
-				})
-				userGws[node.Network] = gws
-				delete(user.RemoteGwIDs, node.ID.String())
-			} else {
-				gws := userGws[node.Network]
-				extClient.AllowedIPs = logic.GetExtclientAllowedIPs(extClient)
-				gws = append(gws, models.UserRemoteGws{
-					GwID:              node.ID.String(),
-					GWName:            host.Name,
-					Network:           node.Network,
-					GwClient:          extClient,
-					Connected:         true,
-					IsInternetGateway: node.IsInternetGateway,
-					GwPeerPublicKey:   host.PublicKey.String(),
-					GwListenPort:      logic.GetPeerListenPort(host),
-					Metadata:          node.Metadata,
-					AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
-					NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
-				})
-				userGws[node.Network] = gws
-				processedAdminNodeIds[node.ID.String()] = struct{}{}
-			}
-		}
-	}
-
-	// add remaining gw nodes to resp
-	if user.PlatformRoleID != models.AdminRole && user.PlatformRoleID != models.SuperAdminRole {
-		for gwID := range user.RemoteGwIDs {
-			node, err := logic.GetNodeByID(gwID)
-			if err != nil {
-				continue
-			}
-			if !node.IsIngressGateway {
-				continue
-			}
-			if node.PendingDelete {
-				continue
-			}
-			host, err := logic.GetHost(node.HostID.String())
-			if err != nil {
-				continue
-			}
-			network, err := logic.GetNetwork(node.Network)
-			if err != nil {
-				slog.Error("failed to get node network", "error", err)
-			}
-			gws := userGws[node.Network]
-
-			gws = append(gws, models.UserRemoteGws{
-				GwID:              node.ID.String(),
-				GWName:            host.Name,
-				Network:           node.Network,
-				IsInternetGateway: node.IsInternetGateway,
-				GwPeerPublicKey:   host.PublicKey.String(),
-				GwListenPort:      logic.GetPeerListenPort(host),
-				Metadata:          node.Metadata,
-				AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
-				NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
-			})
-			userGws[node.Network] = gws
-		}
-	} else {
-		allNodes, err := logic.GetAllNodes()
-		if err != nil {
-			slog.Error("failed to fetch all nodes", "error", err)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-		for _, node := range allNodes {
-			_, ok := processedAdminNodeIds[node.ID.String()]
-			if node.IsIngressGateway && !node.PendingDelete && !ok {
-				host, err := logic.GetHost(node.HostID.String())
-				if err != nil {
-					slog.Error("failed to fetch host", "error", err)
-					continue
-				}
-				network, err := logic.GetNetwork(node.Network)
-				if err != nil {
-					slog.Error("failed to get node network", "error", err)
-				}
-				gws := userGws[node.Network]
-
-				gws = append(gws, models.UserRemoteGws{
-					GwID:              node.ID.String(),
-					GWName:            host.Name,
-					Network:           node.Network,
-					IsInternetGateway: node.IsInternetGateway,
-					GwPeerPublicKey:   host.PublicKey.String(),
-					GwListenPort:      logic.GetPeerListenPort(host),
-					Metadata:          node.Metadata,
-					AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
-					NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
-				})
-				userGws[node.Network] = gws
-			}
-		}
-	}
 	if reqFromMobile {
 		// send resp in array format
 		userGwsArr := []models.UserRemoteGws{}

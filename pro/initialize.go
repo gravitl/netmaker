@@ -131,6 +131,7 @@ func InitPro() {
 	logic.IsGroupsValid = proLogic.IsGroupsValid
 	logic.IsNetworkRolesValid = proLogic.IsNetworkRolesValid
 	logic.InitialiseRoles = proLogic.UserRolesInit
+	logic.UpdateUserGwAccess = proLogic.UpdateUserGwAccess
 }
 
 func retrieveProLogo() string {

@@ -43,6 +43,8 @@ var IsNetworkRolesValid = func(networkRoles map[models.NetworkID]map[models.User
 	return nil
 }
 
+var UpdateUserGwAccess = func(currentUser, changeUser models.User) {}
+
 var UpdateRole = func(r models.UserRolePermissionTemplate) error { return nil }
 
 var InitialiseRoles = userRolesInit
