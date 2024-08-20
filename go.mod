@@ -16,7 +16,7 @@ require (
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/stretchr/testify v1.9.0
 	github.com/txn2/txeh v1.5.5
-	golang.org/x/crypto v0.23.0
+	golang.org/x/crypto v0.25.0
 	golang.org/x/net v0.27.0 // indirect
 	golang.org/x/oauth2 v0.22.0
 	golang.org/x/sys v0.23.0 // indirect
