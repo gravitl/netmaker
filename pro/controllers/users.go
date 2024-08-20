@@ -219,7 +219,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		}
 		if servercfg.DeployedByOperator() {
 			u, err = url.Parse(fmt.Sprintf("%s/invite?tenant_id=%s&email=%s&invite_code=%s",
-				proLogic.GetAccountsHost(), url.QueryEscape(servercfg.GetNetmakerTenantID()), url.QueryEscape(invite.Email), url.QueryEscape(invite.InviteCode)))
+				proLogic.GetAccountsUIHost(), url.QueryEscape(servercfg.GetNetmakerTenantID()), url.QueryEscape(invite.Email), url.QueryEscape(invite.InviteCode)))
 			if err != nil {
 				slog.Error("failed to parse to invite url", "error", err)
 				return

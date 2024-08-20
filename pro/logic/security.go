@@ -21,6 +21,16 @@ const (
 	accountsHostProduction = "https://api.accounts.netmaker.io"
 )
 
+// constants for accounts UI hosts
+const (
+	// accountsUIHostDevelopment is the accounts UI host for development environment
+	accountsUIHostDevelopment = "https://account.dev.netmaker.io"
+	// accountsUIHostStaging is the accounts UI host for staging environment
+	accountsUIHostStaging = "https://account.staging.netmaker.io"
+	// accountsUIHostProduction is the accounts UI host for production environment
+	accountsUIHostProduction = "https://account.netmaker.io"
+)
+
 func NetworkPermissionsCheck(username string, r *http.Request) error {
 	// at this point global checks should be completed
 	user, err := logic.GetUser(username)
@@ -213,5 +223,16 @@ func GetAccountsHost() string {
 		return accountsHostStaging
 	default:
 		return accountsHostProduction
+	}
+}
+
+func GetAccountsUIHost() string {
+	switch servercfg.GetEnvironment() {
+	case "dev":
+		return accountsUIHostDevelopment
+	case "staging":
+		return accountsUIHostStaging
+	default:
+		return accountsUIHostProduction
 	}
 }
