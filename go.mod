@@ -28,7 +28,7 @@ require (
 require (
 	filippo.io/edwards25519 v1.1.0
 	github.com/c-robinson/iplib v1.0.8
-	github.com/posthog/posthog-go v1.2.18
+	github.com/posthog/posthog-go v0.0.0-20211028072449-93c17c49e2b0
 )
 
 require (
@@ -66,5 +66,6 @@ require (
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
 	golang.org/x/sync v0.7.0 // indirect
 )
