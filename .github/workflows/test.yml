@@ -70,5 +70,5 @@ jobs:
       - name: run static checks
         run: |
           sudo apt update
-          go install honnef.co/go/tools/cmd/staticcheck@latest
+          go install honnef.co/go/tools/cmd/staticcheck@v0.4.7
           { ~/go/bin/staticcheck  -tags=ee ./... ; }

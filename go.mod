@@ -3,7 +3,7 @@ module github.com/gravitl/netmaker
 go 1.19
 
 require (
-	github.com/eclipse/paho.mqtt.golang v1.4.3
+	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/go-playground/validator/v10 v10.22.0
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/google/uuid v1.6.0
@@ -16,11 +16,11 @@ require (
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/stretchr/testify v1.9.0
 	github.com/txn2/txeh v1.5.5
-	golang.org/x/crypto v0.23.0
-	golang.org/x/net v0.22.0 // indirect
-	golang.org/x/oauth2 v0.21.0
-	golang.org/x/sys v0.21.0 // indirect
-	golang.org/x/text v0.16.0 // indirect
+	golang.org/x/crypto v0.26.0
+	golang.org/x/net v0.27.0 // indirect
+	golang.org/x/oauth2 v0.22.0
+	golang.org/x/sys v0.23.0 // indirect
+	golang.org/x/text v0.17.0 // indirect
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20221104135756-97bc4ad4a1cb
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -28,7 +28,7 @@ require (
 require (
 	filippo.io/edwards25519 v1.1.0
 	github.com/c-robinson/iplib v1.0.8
-	github.com/posthog/posthog-go v0.0.0-20211028072449-93c17c49e2b0
+	github.com/posthog/posthog-go v1.2.18
 )
 
 require (
@@ -66,6 +66,5 @@ require (
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
-	golang.org/x/sync v0.7.0 // indirect
+	golang.org/x/sync v0.8.0 // indirect
 )
