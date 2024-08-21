@@ -2,16 +2,17 @@ package controllers
 
 import (
 	"encoding/json"
+	"math/rand"
 	"net/http"
-
-	proLogic "github.com/gravitl/netmaker/pro/logic"
-	"golang.org/x/exp/slog"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	proLogic "github.com/gravitl/netmaker/pro/logic"
+	"golang.org/x/exp/slog"
 )
 
 // MetricHandlers - How we handle Pro Metrics
@@ -64,11 +65,33 @@ func getNetworkNodesMetrics(w http.ResponseWriter, r *http.Request) {
 
 	for i := range networkNodes {
 		id := networkNodes[i].ID
-		metrics, err := proLogic.GetMetrics(id.String())
-		if err != nil {
-			logger.Log(1, r.Header.Get("user"), "failed to append metrics of node", id.String(), "during network metrics fetch", err.Error())
-			continue
+		// metrics, err := proLogic.GetMetrics(id.String())
+		// if err != nil {
+		// 	logger.Log(1, r.Header.Get("user"), "failed to append metrics of node", id.String(), "during network metrics fetch", err.Error())
+		// 	continue
+		// }
+		host, _ := logic.GetHost(networkNodes[i].HostID.String())
+		metrics := &models.Metrics{
+			Network:      networkNodes[i].Network,
+			NodeID:       id.String(),
+			NodeName:     host.Name,
+			Connectivity: make(map[string]models.Metric),
 		}
+		for _, node := range networkNodes {
+			if node.ID == id {
+				continue
+			}
+			m := models.Metric{}
+			m.Connected = true
+			m.ActualUptime = time.Duration(time.Hour * time.Duration(rand.Intn(50)))
+			m.Latency = int64(rand.Intn(10))
+			m.PercentUp = float64(rand.Intn(100-90+1) + 90)
+			m.TotalSent = int64(rand.Intn(10000))
+			m.TotalReceived = int64(rand.Intn(10000))
+			m.Uptime = int64(rand.Intn(10000))
+			metrics.Connectivity[node.ID.String()] = m
+		}
+
 		networkMetrics.Nodes[id.String()] = *metrics
 	}
 

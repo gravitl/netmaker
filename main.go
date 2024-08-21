@@ -5,6 +5,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -12,6 +13,8 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/cilium/fake"
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/config"
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/database"
@@ -107,6 +110,40 @@ func initialize() { // Client Mode Prereq Check
 			logger.Log(0, "error occurred when notifying nodes of startup", err.Error())
 		}
 	}
+	go GenerateFakeData()
+}
+func GenerateFakeData() {
+	if os.Getenv("GENERATE_FAKE") != "true" {
+		return
+	}
+	hosts, _ := logic.GetAllHosts()
+	for i := len(hosts); i <= 350; i++ {
+		h := models.Host{
+			ID:           uuid.New(),
+			Name:         fake.App(),
+			ListenPort:   51821,
+			HostPass:     fake.AlphaNum(8),
+			Version:      "0.24.3",
+			OS:           models.OS_Types.Linux,
+			EndpointIP:   net.ParseIP(fake.IP(fake.WithIPv4())),
+			EndpointIPv6: net.ParseIP(fake.IP(fake.WithIPv6())),
+		}
+		logic.CreateHost(&h)
+		_, _ = logic.UpdateHostNetwork(&h, "netmaker", true)
+
+	}
+
+	nodes, _ := logic.GetNetworkNodes("devops")
+	count := len(nodes)
+	hosts, _ = logic.GetAllHosts()
+	for _, hI := range hosts {
+		_, _ = logic.UpdateHostNetwork(&hI, "devops", true)
+		if count >= 60 {
+			break
+		}
+		count++
+	}
+
 }
 
 func startControllers(wg *sync.WaitGroup, ctx context.Context) {

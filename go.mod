@@ -38,6 +38,7 @@ require (
 )
 
 require (
+	github.com/cilium/fake v0.6.1
 	github.com/go-jose/go-jose/v3 v3.0.3
 	github.com/guumaster/tablewriter v0.0.10
 	github.com/matryer/is v1.4.1
@@ -49,6 +50,7 @@ require (
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/seancfoley/bintree v1.3.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
