@@ -16,24 +16,19 @@ const (
 )
 
 func init() {
-	switch EmailSenderType(servercfg.EmailSenderType()) {
-	case Smtp:
-		smtpSender := &SmtpSender{
-			SmtpHost:    servercfg.GetSmtpHost(),
-			SmtpPort:    servercfg.GetSmtpPort(),
-			SenderEmail: servercfg.GetSenderEmail(),
-			SendUser:    servercfg.GetSenderUser(),
-			SenderPass:  servercfg.GetEmaiSenderAuth(),
-		}
-		if smtpSender.SendUser == "" {
-			smtpSender.SendUser = smtpSender.SenderEmail
-		}
-		client = smtpSender
 
-	case Resend:
-		client = NewResendEmailSenderFromConfig()
+	smtpSender := &SmtpSender{
+		SmtpHost:    servercfg.GetSmtpHost(),
+		SmtpPort:    servercfg.GetSmtpPort(),
+		SenderEmail: servercfg.GetSenderEmail(),
+		SendUser:    servercfg.GetSenderUser(),
+		SenderPass:  servercfg.GetEmaiSenderPassword(),
 	}
-	client = GetClient()
+	if smtpSender.SendUser == "" {
+		smtpSender.SendUser = smtpSender.SenderEmail
+	}
+	client = smtpSender
+
 }
 
 // EmailSender - an interface for sending emails based on notifications and mail templates
