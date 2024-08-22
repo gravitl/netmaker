@@ -95,8 +95,8 @@ type ServerConfig struct {
 	EndpointDetection          bool          `json:"endpoint_detection"`
 	AllowedEmailDomains        string        `yaml:"allowed_email_domains"`
 	EmailSenderAddr            string        `json:"email_sender_addr"`
-	EmailSenderAuth            string        `json:"email_sender_auth"`
-	EmailSenderType            string        `json:"email_sender_type"`
+	EmailSenderUser            string        `json:"email_sender_user"`
+	EmailSenderPassword        string        `json:"email_sender_password"`
 	SmtpHost                   string        `json:"smtp_host"`
 	SmtpPort                   int           `json:"smtp_port"`
 	MetricInterval             string        `yaml:"metric_interval"`
