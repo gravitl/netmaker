@@ -165,24 +165,27 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	callerUserName := r.Header.Get("user")
-	caller, err := logic.GetUser(callerUserName)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "notfound"))
-		return
+	if r.Header.Get("ismaster") != "yes" {
+		caller, err := logic.GetUser(callerUserName)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "notfound"))
+			return
+		}
+		if inviteReq.PlatformRoleID == models.SuperAdminRole.String() {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("super admin cannot be invited"), "badrequest"))
+			return
+		}
+		if inviteReq.PlatformRoleID == "" {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("platform role id cannot be empty"), "badrequest"))
+			return
+		}
+		if (inviteReq.PlatformRoleID == models.AdminRole.String() ||
+			inviteReq.PlatformRoleID == models.SuperAdminRole.String()) && caller.PlatformRoleID != models.SuperAdminRole {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only superadmin can invite admin users"), "forbidden"))
+			return
+		}
 	}
-	if inviteReq.PlatformRoleID == models.SuperAdminRole.String() {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("super admin cannot be invited"), "badrequest"))
-		return
-	}
-	if inviteReq.PlatformRoleID == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("platform role id cannot be empty"), "badrequest"))
-		return
-	}
-	if (inviteReq.PlatformRoleID == models.AdminRole.String() ||
-		inviteReq.PlatformRoleID == models.SuperAdminRole.String()) && caller.PlatformRoleID != models.SuperAdminRole {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only superadmin can invite admin users"), "forbidden"))
-		return
-	}
+
 	//validate Req
 	err = proLogic.IsGroupsValid(inviteReq.UserGroups)
 	if err != nil {

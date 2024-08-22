@@ -58,13 +58,16 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	username := r.Header.Get("user")
-	user, err := logic.GetUser(username)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
+	if r.Header.Get("ismaster") != "yes" {
+		username := r.Header.Get("user")
+		user, err := logic.GetUser(username)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+		allnetworks = logic.FilterNetworksByRole(allnetworks, *user)
 	}
-	allnetworks = logic.FilterNetworksByRole(allnetworks, *user)
+
 	logger.Log(2, r.Header.Get("user"), "fetched networks.")
 	logic.SortNetworks(allnetworks[:])
 	w.WriteHeader(http.StatusOK)
