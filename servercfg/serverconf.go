@@ -279,30 +279,20 @@ func GetSenderUser() string {
 	v := ""
 	if fromEnv := os.Getenv("EMAIL_SENDER_USER"); fromEnv != "" {
 		v = fromEnv
-	} else if fromCfg := config.Config.Server.EmailSenderAddr; fromCfg != "" {
+	} else if fromCfg := config.Config.Server.EmailSenderUser; fromCfg != "" {
 		v = fromCfg
 	}
 	return v
 }
 
-func GetEmaiSenderAuth() string {
+func GetEmaiSenderPassword() string {
 	v := ""
 	if fromEnv := os.Getenv("EMAIL_SENDER_PASSWORD"); fromEnv != "" {
 		v = fromEnv
-	} else if fromCfg := config.Config.Server.EmailSenderAddr; fromCfg != "" {
+	} else if fromCfg := config.Config.Server.EmailSenderPassword; fromCfg != "" {
 		v = fromCfg
 	}
 	return v
-}
-
-func EmailSenderType() string {
-	s := ""
-	if fromEnv := os.Getenv("EMAIL_SENDER_TYPE"); fromEnv != "" {
-		s = fromEnv
-	} else if fromCfg := config.Config.Server.EmailSenderType; fromCfg != "" {
-		s = fromCfg
-	}
-	return s
 }
 
 // GetOwnerEmail - gets the owner email (saas)
