@@ -18,12 +18,18 @@ const (
 func init() {
 	switch EmailSenderType(servercfg.EmailSenderType()) {
 	case Smtp:
-		client = &SmtpSender{
+		smtpSender := &SmtpSender{
 			SmtpHost:    servercfg.GetSmtpHost(),
 			SmtpPort:    servercfg.GetSmtpPort(),
 			SenderEmail: servercfg.GetSenderEmail(),
+			SendUser:    servercfg.GetSenderUser(),
 			SenderPass:  servercfg.GetEmaiSenderAuth(),
 		}
+		if smtpSender.SendUser == "" {
+			smtpSender.SendUser = smtpSender.SenderEmail
+		}
+		client = smtpSender
+
 	case Resend:
 		client = NewResendEmailSenderFromConfig()
 	}

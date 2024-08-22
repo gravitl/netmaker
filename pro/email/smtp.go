@@ -11,6 +11,7 @@ type SmtpSender struct {
 	SmtpHost    string
 	SmtpPort    int
 	SenderEmail string
+	SendUser    string
 	SenderPass  string
 }
 
@@ -27,7 +28,7 @@ func (s *SmtpSender) SendEmail(ctx context.Context, n Notification, e Mail) erro
 	// Set E-Mail body. You can set plain text or html with text/html
 	m.SetBody("text/html", e.GetBody(n))
 	// Settings for SMTP server
-	d := gomail.NewDialer(s.SmtpHost, s.SmtpPort, s.SenderEmail, s.SenderPass)
+	d := gomail.NewDialer(s.SmtpHost, s.SmtpPort, s.SendUser, s.SenderPass)
 
 	// This is only needed when SSL/TLS certificate is not valid on server.
 	// In production this should be set to false.
