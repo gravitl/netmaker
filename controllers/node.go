@@ -268,56 +268,59 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	username := r.Header.Get("user")
-	user, err := logic.GetUser(username)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	userPlatformRole, err := logic.GetRole(user.PlatformRoleID)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
 	filteredNodes := []models.Node{}
-	if !userPlatformRole.FullAccess {
-		nodesMap := make(map[string]struct{})
-		networkRoles := user.NetworkRoles[models.NetworkID(networkName)]
-		for networkRoleID := range networkRoles {
-			userPermTemplate, err := logic.GetRole(networkRoleID)
-			if err != nil {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-				return
-			}
-			if userPermTemplate.FullAccess {
-				break
-			}
-			if rsrcPerms, ok := userPermTemplate.NetworkLevelAccess[models.RemoteAccessGwRsrc]; ok {
-				if _, ok := rsrcPerms[models.AllRemoteAccessGwRsrcID]; ok {
-					for _, node := range nodes {
-						if _, ok := nodesMap[node.ID.String()]; ok {
-							continue
+	if r.Header.Get("ismaster") != "yes" {
+		username := r.Header.Get("user")
+		user, err := logic.GetUser(username)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+		userPlatformRole, err := logic.GetRole(user.PlatformRoleID)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+
+		if !userPlatformRole.FullAccess {
+			nodesMap := make(map[string]struct{})
+			networkRoles := user.NetworkRoles[models.NetworkID(networkName)]
+			for networkRoleID := range networkRoles {
+				userPermTemplate, err := logic.GetRole(networkRoleID)
+				if err != nil {
+					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+					return
+				}
+				if userPermTemplate.FullAccess {
+					break
+				}
+				if rsrcPerms, ok := userPermTemplate.NetworkLevelAccess[models.RemoteAccessGwRsrc]; ok {
+					if _, ok := rsrcPerms[models.AllRemoteAccessGwRsrcID]; ok {
+						for _, node := range nodes {
+							if _, ok := nodesMap[node.ID.String()]; ok {
+								continue
+							}
+							if node.IsIngressGateway {
+								nodesMap[node.ID.String()] = struct{}{}
+								filteredNodes = append(filteredNodes, node)
+							}
 						}
-						if node.IsIngressGateway {
-							nodesMap[node.ID.String()] = struct{}{}
-							filteredNodes = append(filteredNodes, node)
-						}
-					}
-				} else {
-					for gwID, scope := range rsrcPerms {
-						if _, ok := nodesMap[gwID.String()]; ok {
-							continue
-						}
-						if scope.Read {
-							gwNode, err := logic.GetNodeByID(gwID.String())
-							if err == nil && gwNode.IsIngressGateway {
-								filteredNodes = append(filteredNodes, gwNode)
+					} else {
+						for gwID, scope := range rsrcPerms {
+							if _, ok := nodesMap[gwID.String()]; ok {
+								continue
+							}
+							if scope.Read {
+								gwNode, err := logic.GetNodeByID(gwID.String())
+								if err == nil && gwNode.IsIngressGateway {
+									filteredNodes = append(filteredNodes, gwNode)
+								}
 							}
 						}
 					}
 				}
-			}
 
+			}
 		}
 	}
 	if len(filteredNodes) > 0 {
@@ -348,18 +351,19 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	username := r.Header.Get("user")
-	user, err := logic.GetUser(username)
-	if err != nil {
-		return
+	if r.Header.Get("ismaster") == "no" {
+		user, err := logic.GetUser(username)
+		if err != nil {
+			return
+		}
+		userPlatformRole, err := logic.GetRole(user.PlatformRoleID)
+		if err != nil {
+			return
+		}
+		if !userPlatformRole.FullAccess {
+			nodes = logic.GetFilteredNodesByUserAccess(*user, nodes)
+		}
 	}
-	userPlatformRole, err := logic.GetRole(user.PlatformRoleID)
-	if err != nil {
-		return
-	}
-	if !userPlatformRole.FullAccess {
-		nodes = logic.GetFilteredNodesByUserAccess(*user, nodes)
-	}
-
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	logger.Log(3, r.Header.Get("user"), "fetched all nodes they have access to")

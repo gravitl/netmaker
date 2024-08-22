@@ -81,48 +81,58 @@ func upgradeHost(w http.ResponseWriter, r *http.Request) {
 func getHosts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	currentHosts := []models.Host{}
-	username := r.Header.Get("user")
-	user, err := logic.GetUser(username)
-	if err != nil {
-		return
-	}
-	userPlatformRole, err := logic.GetRole(user.PlatformRoleID)
-	if err != nil {
-		return
-	}
-	respHostsMap := make(map[string]struct{})
-	if !userPlatformRole.FullAccess {
-		nodes, err := logic.GetAllNodes()
-		if err != nil {
-			logger.Log(0, "error fetching all nodes info: ", err.Error())
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-		filteredNodes := logic.GetFilteredNodesByUserAccess(*user, nodes)
-		if len(filteredNodes) > 0 {
-			currentHostsMap, err := logic.GetHostsMap()
-			if err != nil {
-				logger.Log(0, r.Header.Get("user"), "failed to fetch hosts: ", err.Error())
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-				return
-			}
-			for _, node := range filteredNodes {
-				if _, ok := respHostsMap[node.HostID.String()]; ok {
-					continue
-				}
-				if host, ok := currentHostsMap[node.HostID.String()]; ok {
-					currentHosts = append(currentHosts, host)
-					respHostsMap[host.ID.String()] = struct{}{}
-				}
-			}
-
-		}
-	} else {
+	var err error
+	if r.Header.Get("ismaster") == "yes" {
 		currentHosts, err = logic.GetAllHosts()
 		if err != nil {
 			logger.Log(0, r.Header.Get("user"), "failed to fetch hosts: ", err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
+		}
+	} else {
+		username := r.Header.Get("user")
+		user, err := logic.GetUser(username)
+		if err != nil {
+			return
+		}
+		userPlatformRole, err := logic.GetRole(user.PlatformRoleID)
+		if err != nil {
+			return
+		}
+		respHostsMap := make(map[string]struct{})
+		if !userPlatformRole.FullAccess {
+			nodes, err := logic.GetAllNodes()
+			if err != nil {
+				logger.Log(0, "error fetching all nodes info: ", err.Error())
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				return
+			}
+			filteredNodes := logic.GetFilteredNodesByUserAccess(*user, nodes)
+			if len(filteredNodes) > 0 {
+				currentHostsMap, err := logic.GetHostsMap()
+				if err != nil {
+					logger.Log(0, r.Header.Get("user"), "failed to fetch hosts: ", err.Error())
+					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+					return
+				}
+				for _, node := range filteredNodes {
+					if _, ok := respHostsMap[node.HostID.String()]; ok {
+						continue
+					}
+					if host, ok := currentHostsMap[node.HostID.String()]; ok {
+						currentHosts = append(currentHosts, host)
+						respHostsMap[host.ID.String()] = struct{}{}
+					}
+				}
+
+			}
+		} else {
+			currentHosts, err = logic.GetAllHosts()
+			if err != nil {
+				logger.Log(0, r.Header.Get("user"), "failed to fetch hosts: ", err.Error())
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				return
+			}
 		}
 	}
 
