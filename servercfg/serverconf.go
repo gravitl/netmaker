@@ -275,9 +275,19 @@ func GetSenderEmail() string {
 	return v
 }
 
+func GetSenderUser() string {
+	v := ""
+	if fromEnv := os.Getenv("EMAIL_SENDER_USER"); fromEnv != "" {
+		v = fromEnv
+	} else if fromCfg := config.Config.Server.EmailSenderAddr; fromCfg != "" {
+		v = fromCfg
+	}
+	return v
+}
+
 func GetEmaiSenderAuth() string {
 	v := ""
-	if fromEnv := os.Getenv("EMAIL_SENDER_AUTH"); fromEnv != "" {
+	if fromEnv := os.Getenv("EMAIL_SENDER_PASSWORD"); fromEnv != "" {
 		v = fromEnv
 	} else if fromCfg := config.Config.Server.EmailSenderAddr; fromCfg != "" {
 		v = fromCfg
