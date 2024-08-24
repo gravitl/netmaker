@@ -21,7 +21,6 @@ var userRoleCmd = &cobra.Command{
 // List Roles
 var (
 	platformRoles bool
-	roleID        string
 )
 var userRoleListCmd = &cobra.Command{
 	Use:   "list",
@@ -64,12 +63,12 @@ var userRoleCreateCmd = &cobra.Command{
 }
 
 var userRoleDeleteCmd = &cobra.Command{
-	Use:   "delete",
-	Args:  cobra.NoArgs,
+	Use:   "delete [roleID]",
+	Args:  cobra.ExactArgs(1),
 	Short: "delete user role",
 	Long:  `delete user role`,
 	Run: func(cmd *cobra.Command, args []string) {
-		resp := functions.DeleteUserRole(roleID)
+		resp := functions.DeleteUserRole(args[0])
 		if resp != nil {
 			fmt.Println(resp.Message)
 		}
@@ -77,12 +76,12 @@ var userRoleDeleteCmd = &cobra.Command{
 }
 
 var userRoleGetCmd = &cobra.Command{
-	Use:   "get",
-	Args:  cobra.NoArgs,
+	Use:   "get [roleID]",
+	Args:  cobra.ExactArgs(1),
 	Short: "get user role",
 	Long:  `get user role`,
 	Run: func(cmd *cobra.Command, args []string) {
-		d := functions.GetUserRole(roleID)
+		d := functions.GetUserRole(args[0])
 		switch commons.OutputFormat {
 		case commons.JsonOutput:
 			functions.PrettyPrint(d)
@@ -115,12 +114,8 @@ func init() {
 	userRoleCmd.AddCommand(userRoleCreateCmd)
 
 	// delete role cmd
-	userRoleDeleteCmd.Flags().StringVar(&roleID, "role-id", "", "user role ID")
-	userRoleDeleteCmd.MarkFlagRequired("role-id")
 	userRoleCmd.AddCommand(userRoleDeleteCmd)
 
 	// Get Role
-	userRoleGetCmd.Flags().StringVar(&roleID, "role-id", "", "user role ID")
-	userRoleGetCmd.MarkFlagRequired("role-id")
 	userRoleCmd.AddCommand(userRoleGetCmd)
 }

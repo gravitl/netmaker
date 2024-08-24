@@ -18,10 +18,6 @@ var userGroupCmd = &cobra.Command{
 	Long:  `Manage User Groups`,
 }
 
-// List Roles
-var (
-	groupID string
-)
 var userGroupListCmd = &cobra.Command{
 	Use:   "list",
 	Args:  cobra.NoArgs,
@@ -65,12 +61,12 @@ var userGroupCreateCmd = &cobra.Command{
 }
 
 var userGroupDeleteCmd = &cobra.Command{
-	Use:   "delete",
-	Args:  cobra.NoArgs,
+	Use:   "delete [groupID]",
+	Args:  cobra.ExactArgs(1),
 	Short: "delete user group",
 	Long:  `delete user group`,
 	Run: func(cmd *cobra.Command, args []string) {
-		resp := functions.DeleteUserGrp(groupID)
+		resp := functions.DeleteUserGrp(args[0])
 		if resp != nil {
 			fmt.Println(resp.Message)
 		}
@@ -78,12 +74,12 @@ var userGroupDeleteCmd = &cobra.Command{
 }
 
 var userGroupGetCmd = &cobra.Command{
-	Use:   "get",
-	Args:  cobra.NoArgs,
+	Use:   "get [groupID]",
+	Args:  cobra.ExactArgs(1),
 	Short: "get user group",
 	Long:  `get user group`,
 	Run: func(cmd *cobra.Command, args []string) {
-		data := functions.GetUserGrp(groupID)
+		data := functions.GetUserGrp(args[0])
 		switch commons.OutputFormat {
 		case commons.JsonOutput:
 			functions.PrettyPrint(data)
@@ -115,12 +111,8 @@ func init() {
 	userGroupCmd.AddCommand(userGroupCreateCmd)
 
 	// delete role cmd
-	userGroupDeleteCmd.Flags().StringVar(&groupID, "group-id", "", "user role ID")
-	userGroupDeleteCmd.MarkFlagRequired("role-id")
 	userGroupCmd.AddCommand(userGroupDeleteCmd)
 
 	// Get Role
-	userGroupGetCmd.Flags().StringVar(&groupID, "group-id", "", "user role ID")
-	userGroupGetCmd.MarkFlagRequired("group-id")
 	userGroupCmd.AddCommand(userGroupGetCmd)
 }
