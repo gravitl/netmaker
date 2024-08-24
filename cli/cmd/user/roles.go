@@ -22,8 +22,9 @@ var userRoleCmd = &cobra.Command{
 // List Roles
 var (
 	platformRoles bool
+	roleID        string
 )
-var userroleListCmd = &cobra.Command{
+var userRoleListCmd = &cobra.Command{
 	Use:   "list",
 	Args:  cobra.NoArgs,
 	Short: "List all user roles",
@@ -60,14 +61,53 @@ var userRoleCreateCmd = &cobra.Command{
 	Short: "create user role",
 	Long:  `create user role`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("CLI doesn't support creation of roles currently")
+		fmt.Println("CLI doesn't support creation of roles currently. Visit the dashboard to create one or refer to our api documentation https://docs.v2.netmaker.io/reference")
+	},
+}
+
+var userRoleDeleteCmd = &cobra.Command{
+	Use:   "delete",
+	Args:  cobra.NoArgs,
+	Short: "delete user role",
+	Long:  `delete user role`,
+	Run: func(cmd *cobra.Command, args []string) {
+		resp := functions.DeleteUserRole(roleID)
+		if resp != nil {
+			fmt.Println(resp.Message)
+		}
+	},
+}
+
+var userRoleGetCmd = &cobra.Command{
+	Use:   "get",
+	Args:  cobra.NoArgs,
+	Short: "get user role",
+	Long:  `get user role`,
+	Run: func(cmd *cobra.Command, args []string) {
+		resp := functions.GetUserRole(roleID)
+		if resp != nil {
+			fmt.Println(resp.Message)
+		}
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(userRoleCmd)
-	userroleListCmd.Flags().BoolVar(&platformRoles, "platform-roles", true,
+	// list roles cmd
+	userRoleListCmd.Flags().BoolVar(&platformRoles, "platform-roles", true,
 		"set to false to list network roles. By default it will only list platform roles")
-	userRoleCmd.AddCommand(userroleListCmd)
-	userRoleCmd.AddCommand(userCreateCmd)
+	userRoleCmd.AddCommand(userRoleListCmd)
+
+	// create roles cmd
+	userRoleCmd.AddCommand(userRoleCreateCmd)
+
+	// delete role cmd
+	userRoleDeleteCmd.Flags().StringVar(&roleID, "role-id", "", "user role ID")
+	userRoleDeleteCmd.MarkFlagRequired("role-id")
+	userRoleCmd.AddCommand(userRoleDeleteCmd)
+
+	// Get Role
+	userRoleGetCmd.Flags().StringVar(&roleID, "role-id", "", "user role ID")
+	userRoleGetCmd.MarkFlagRequired("role-id")
+	userRoleCmd.AddCommand(userRoleGetCmd)
 }
