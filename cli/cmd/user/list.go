@@ -2,7 +2,6 @@ package user
 
 import (
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/gravitl/netmaker/cli/cmd/commons"
@@ -29,7 +28,7 @@ var userListCmd = &cobra.Command{
 				for gID := range d.UserGroups {
 					g = append(g, gID.String())
 				}
-				table.Append([]string{d.UserName, d.PlatformRoleID.String(), strconv.FormatBool(d.IsAdmin), strings.Join(g, ",")})
+				table.Append([]string{d.UserName, d.PlatformRoleID.String(), strings.Join(g, ",")})
 			}
 			table.Render()
 		}

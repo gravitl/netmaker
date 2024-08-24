@@ -46,7 +46,7 @@ func init() {
 		"Platform Role of the user; run `nmctl roles list` to see available user roles")
 	userCreateCmd.MarkFlagRequired("name")
 	userCreateCmd.MarkFlagRequired("password")
-	userCreateCmd.PersistentFlags().StringToStringVarP(&networkRoles, "network-roles", "n", make(map[string]string),
+	userCreateCmd.PersistentFlags().StringToStringVarP(&networkRoles, "network-roles", "n", nil,
 		"Mapping of networkID and list of roles user will be part of (comma separated)")
 	userCreateCmd.Flags().BoolVar(&admin, "admin", false, "Make the user an admin ? (deprecated v0.25.0 onwards)")
 	userCreateCmd.Flags().StringArrayVarP(&groups, "groups", "g", nil, "List of user groups the user will be part of (comma separated)")

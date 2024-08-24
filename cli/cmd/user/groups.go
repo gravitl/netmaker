@@ -7,7 +7,6 @@ import (
 
 	"github.com/gravitl/netmaker/cli/cmd/commons"
 	"github.com/gravitl/netmaker/cli/functions"
-	"github.com/gravitl/netmaker/models"
 	"github.com/guumaster/tablewriter"
 	"github.com/spf13/cobra"
 )
@@ -30,7 +29,6 @@ var userGroupListCmd = &cobra.Command{
 	Long:  `List all user groups`,
 	Run: func(cmd *cobra.Command, args []string) {
 		data := functions.ListUserGrps()
-		userGrps := data.Response.([]models.UserGroup)
 		switch commons.OutputFormat {
 		case commons.JsonOutput:
 			functions.PrettyPrint(data)
@@ -38,7 +36,7 @@ var userGroupListCmd = &cobra.Command{
 			table := tablewriter.NewWriter(os.Stdout)
 			h := []string{"ID", "MetaData", "Network Roles"}
 			table.SetHeader(h)
-			for _, d := range userGrps {
+			for _, d := range data {
 
 				roleInfoStr := ""
 				for netID, netRoleMap := range d.NetworkRoles {
@@ -85,9 +83,25 @@ var userGroupGetCmd = &cobra.Command{
 	Short: "get user group",
 	Long:  `get user group`,
 	Run: func(cmd *cobra.Command, args []string) {
-		resp := functions.GetUserGrp(groupID)
-		if resp != nil {
-			fmt.Println(resp.Message)
+		data := functions.GetUserGrp(groupID)
+		switch commons.OutputFormat {
+		case commons.JsonOutput:
+			functions.PrettyPrint(data)
+		default:
+			table := tablewriter.NewWriter(os.Stdout)
+			h := []string{"ID", "MetaData", "Network Roles"}
+			table.SetHeader(h)
+			roleInfoStr := ""
+			for netID, netRoleMap := range data.NetworkRoles {
+				roleList := []string{}
+				for roleID := range netRoleMap {
+					roleList = append(roleList, roleID.String())
+				}
+				roleInfoStr += fmt.Sprintf("[%s]: %s", netID, strings.Join(roleList, ","))
+			}
+			e := []string{data.ID.String(), data.MetaData, roleInfoStr}
+			table.Append(e)
+			table.Render()
 		}
 	},
 }

@@ -7,7 +7,6 @@ import (
 
 	"github.com/gravitl/netmaker/cli/cmd/commons"
 	"github.com/gravitl/netmaker/cli/functions"
-	"github.com/gravitl/netmaker/models"
 	"github.com/guumaster/tablewriter"
 	"github.com/spf13/cobra"
 )
@@ -31,7 +30,6 @@ var userRoleListCmd = &cobra.Command{
 	Long:  `List all user roles`,
 	Run: func(cmd *cobra.Command, args []string) {
 		data := functions.ListUserRoles()
-		userRoles := data.Response.([]models.UserRolePermissionTemplate)
 		switch commons.OutputFormat {
 		case commons.JsonOutput:
 			functions.PrettyPrint(data)
@@ -43,7 +41,7 @@ var userRoleListCmd = &cobra.Command{
 				h = append(h, "Network")
 			}
 			table.SetHeader(h)
-			for _, d := range userRoles {
+			for _, d := range data {
 				e := []string{d.ID.String(), strconv.FormatBool(d.Default), strconv.FormatBool(d.DenyDashboardAccess), strconv.FormatBool(d.FullAccess)}
 				if !platformRoles {
 					e = append(e, d.NetworkID.String())
@@ -84,9 +82,24 @@ var userRoleGetCmd = &cobra.Command{
 	Short: "get user role",
 	Long:  `get user role`,
 	Run: func(cmd *cobra.Command, args []string) {
-		resp := functions.GetUserRole(roleID)
-		if resp != nil {
-			fmt.Println(resp.Message)
+		d := functions.GetUserRole(roleID)
+		switch commons.OutputFormat {
+		case commons.JsonOutput:
+			functions.PrettyPrint(d)
+		default:
+			table := tablewriter.NewWriter(os.Stdout)
+			h := []string{"ID", "Default Role", "Dashboard Access", "Full Access"}
+
+			if d.NetworkID != "" {
+				h = append(h, "Network")
+			}
+			table.SetHeader(h)
+			e := []string{d.ID.String(), strconv.FormatBool(d.Default), strconv.FormatBool(!d.DenyDashboardAccess), strconv.FormatBool(d.FullAccess)}
+			if !platformRoles {
+				e = append(e, d.NetworkID.String())
+			}
+			table.Append(e)
+			table.Render()
 		}
 	},
 }
