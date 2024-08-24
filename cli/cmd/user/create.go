@@ -19,7 +19,7 @@ var userCreateCmd = &cobra.Command{
 			netRolesMap := make(map[models.NetworkID]map[models.UserRoleID]struct{})
 			for netID, netRoles := range networkRoles {
 				roleMap := make(map[models.UserRoleID]struct{})
-				for _, roleID := range strings.Split(netRoles, ",") {
+				for _, roleID := range strings.Split(netRoles, " ") {
 					roleMap[models.UserRoleID(roleID)] = struct{}{}
 				}
 				netRolesMap[models.NetworkID(netID)] = roleMap
