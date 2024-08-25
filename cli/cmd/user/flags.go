@@ -5,7 +5,6 @@ var (
 	password     string
 	platformID   string
 	admin        bool
-	networks     string
 	networkRoles map[string]string
 	groups       []string
 )
