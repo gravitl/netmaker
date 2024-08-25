@@ -42,7 +42,7 @@ func init() {
 
 	userCreateCmd.Flags().StringVar(&username, "name", "", "Name of the user")
 	userCreateCmd.Flags().StringVar(&password, "password", "", "Password of the user")
-	userCreateCmd.Flags().StringVarP(&platformID, "platform-id", "r", models.ServiceUser.String(),
+	userCreateCmd.Flags().StringVarP(&platformID, "platform-role", "r", models.ServiceUser.String(),
 		"Platform Role of the user; run `nmctl roles list` to see available user roles")
 	userCreateCmd.MarkFlagRequired("name")
 	userCreateCmd.MarkFlagRequired("password")

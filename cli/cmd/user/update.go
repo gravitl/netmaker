@@ -41,10 +41,13 @@ var userUpdateCmd = &cobra.Command{
 }
 
 func init() {
-	userUpdateCmd.Flags().BoolVar(&admin, "admin", false, "Make the user an admin ?")
-	userUpdateCmd.Flags().StringVar(&networks, "networks", "", "List of networks the user will access to (comma separated)")
-	userUpdateCmd.Flags().StringVarP(&platformID, "platform-id", "r", "",
+
+	userUpdateCmd.Flags().StringVar(&password, "password", "", "Password of the user")
+	userUpdateCmd.Flags().StringVarP(&platformID, "platform-role", "r", "",
 		"Platform Role of the user; run `nmctl roles list` to see available user roles")
+	userUpdateCmd.PersistentFlags().StringToStringVarP(&networkRoles, "network-roles", "n", nil,
+		"Mapping of networkID and list of roles user will be part of (comma separated)")
+	userUpdateCmd.Flags().BoolVar(&admin, "admin", false, "Make the user an admin ? (deprecated v0.25.0 onwards)")
 	userUpdateCmd.Flags().StringArrayVarP(&groups, "groups", "g", nil, "List of user groups the user will be part of (comma separated)")
 	rootCmd.AddCommand(userUpdateCmd)
 }

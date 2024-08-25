@@ -297,7 +297,9 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 	}
 	// Reset Gw Access for service users
 	go UpdateUserGwAccess(*user, *userchange)
-	user.PlatformRoleID = userchange.PlatformRoleID
+	if userchange.PlatformRoleID != "" {
+		user.PlatformRoleID = userchange.PlatformRoleID
+	}
 	user.UserGroups = userchange.UserGroups
 	user.NetworkRoles = userchange.NetworkRoles
 	err := ValidateUser(user)
@@ -325,7 +327,7 @@ func ValidateUser(user *models.User) error {
 	// check if role is valid
 	_, err := GetRole(user.PlatformRoleID)
 	if err != nil {
-		return err
+		return errors.New("failed to fetch platform role " + user.PlatformRoleID.String())
 	}
 	v := validator.New()
 	_ = v.RegisterValidation("in_charset", func(fl validator.FieldLevel) bool {
