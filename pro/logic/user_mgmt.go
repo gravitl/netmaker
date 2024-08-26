@@ -533,7 +533,7 @@ func HasNetworkRsrcScope(permissionTemplate models.UserRolePermissionTemplate, n
 func GetUserRAGNodes(user models.User) (gws map[string]models.Node) {
 	gws = make(map[string]models.Node)
 	userGwAccessScope := GetUserNetworkRolesWithRemoteVPNAccess(user)
-	logger.Log(0, fmt.Sprintf("User Gw Access Scope: %+v", userGwAccessScope))
+	logger.Log(3, fmt.Sprintf("User Gw Access Scope: %+v", userGwAccessScope))
 	_, allNetAccess := userGwAccessScope["*"]
 	nodes, err := logic.GetAllNodes()
 	if err != nil {
