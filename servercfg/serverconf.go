@@ -809,3 +809,8 @@ func GetAllowedEmailDomains() string {
 	}
 	return allowedDomains
 }
+
+// GetNmBaseDomain - fetches nm base domain
+func GetNmBaseDomain() string {
+	return os.Getenv("NM_DOMAIN")
+}

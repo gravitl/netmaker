@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -218,8 +219,12 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			NetworkRoles:   inviteReq.NetworkRoles,
 			InviteCode:     logic.RandomString(8),
 		}
+		frontendURL := strings.TrimSuffix(servercfg.GetFrontendURL(), "/")
+		if frontendURL == "" {
+			frontendURL = fmt.Sprintf("https://dashboard.%s", servercfg.GetNmBaseDomain())
+		}
 		u, err := url.Parse(fmt.Sprintf("%s/invite?email=%s&invite_code=%s",
-			servercfg.GetFrontendURL(), url.QueryEscape(invite.Email), url.QueryEscape(invite.InviteCode)))
+			frontendURL, url.QueryEscape(invite.Email), url.QueryEscape(invite.InviteCode)))
 		if err != nil {
 			slog.Error("failed to parse to invite url", "error", err)
 			return
