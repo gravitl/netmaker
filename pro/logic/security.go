@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 )
@@ -16,7 +15,6 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	logger.Log(0, "NET MIDDL----> 1")
 	userRole, err := logic.GetRole(user.PlatformRoleID)
 	if err != nil {
 		return errors.New("access denied")
@@ -24,7 +22,6 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 	if userRole.FullAccess {
 		return nil
 	}
-	logger.Log(0, "NET MIDDL----> 2")
 	// get info from header to determine the target rsrc
 	targetRsrc := r.Header.Get("TARGET_RSRC")
 	targetRsrcID := r.Header.Get("TARGET_RSRC_ID")
@@ -81,7 +78,6 @@ func checkNetworkAccessPermissions(netRoleID models.UserRoleID, username, reqSco
 	if err != nil {
 		return err
 	}
-	logger.Log(0, "NET MIDDL----> 3", string(netRoleID))
 	if networkPermissionScope.FullAccess {
 		return nil
 	}
@@ -92,7 +88,6 @@ func checkNetworkAccessPermissions(netRoleID models.UserRoleID, username, reqSco
 	if !ok {
 		return errors.New("access denied")
 	}
-	logger.Log(0, "NET MIDDL----> 4", string(netRoleID))
 	if allRsrcsTypePermissionScope, ok := rsrcPermissionScope[models.RsrcID(fmt.Sprintf("all_%s", targetRsrc))]; ok {
 		// handle extclient apis here
 		if models.RsrcType(targetRsrc) == models.ExtClientsRsrc && allRsrcsTypePermissionScope.SelfOnly && targetRsrcID != "" {
@@ -118,7 +113,6 @@ func checkNetworkAccessPermissions(netRoleID models.UserRoleID, username, reqSco
 			}
 		}
 	}
-	logger.Log(0, "NET MIDDL----> 5", string(netRoleID))
 	if targetRsrcID == "" {
 		return errors.New("target rsrc id is empty")
 	}
@@ -128,7 +122,6 @@ func checkNetworkAccessPermissions(netRoleID models.UserRoleID, username, reqSco
 			return nil
 		}
 	}
-	logger.Log(0, "NET MIDDL----> 6", string(netRoleID))
 	return errors.New("access denied")
 }
 

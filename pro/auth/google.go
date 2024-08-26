@@ -69,22 +69,17 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthNotConfigured(w)
 		return
 	}
-	logger.Log(0, "CALLBACK ----> 1")
-
-	logger.Log(0, "CALLBACK ----> 2")
 	var inviteExists bool
 	// check if invite exists for User
 	in, err := logic.GetUserInvite(content.Email)
 	if err == nil {
 		inviteExists = true
 	}
-	logger.Log(0, fmt.Sprintf("CALLBACK ----> 3  %v", inviteExists))
 	// check if user approval is already pending
 	if !inviteExists && logic.IsPendingUser(content.Email) {
 		handleOauthUserSignUpApprovalPending(w)
 		return
 	}
-	logger.Log(0, "CALLBACK ----> 4")
 	_, err = logic.GetUser(content.Email)
 	if err != nil {
 		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
@@ -95,7 +90,6 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 					return
 				}
-				logger.Log(0, "CALLBACK ----> 4.0")
 
 				if err = logic.CreateUser(&user); err != nil {
 					handleSomethingWentWrong(w)
@@ -124,7 +118,6 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	logger.Log(0, "CALLBACK ----> 6")
 	user, err := logic.GetUser(content.Email)
 	if err != nil {
 		logger.Log(0, "error fetching user: ", err.Error())
@@ -186,7 +179,6 @@ func getGoogleUserInfo(state string, code string) (*OAuthUser, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed reading response body: %s", err.Error())
 	}
-	logger.Log(0, fmt.Sprintf("---------------> USERINFO: %v, token: %s", string(contents), token.AccessToken))
 	var userInfo = &OAuthUser{}
 	if err = json.Unmarshal(contents, userInfo); err != nil {
 		return nil, fmt.Errorf("failed parsing email from response data: %s", err.Error())
