@@ -19,6 +19,12 @@ func userMiddleWare(handler http.Handler) http.Handler {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
+		if r.Method == http.MethodPost && route == "/api/extclients/{network}/{nodeid}" {
+			node, err := logic.GetNodeByID(params["nodeid"])
+			if err == nil {
+				params["network"] = node.Network
+			}
+		}
 		r.Header.Set("IS_GLOBAL_ACCESS", "no")
 		r.Header.Set("TARGET_RSRC", "")
 		r.Header.Set("RSRC_TYPE", "")
