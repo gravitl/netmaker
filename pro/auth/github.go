@@ -67,10 +67,9 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthNotConfigured(w)
 		return
 	}
-
 	var inviteExists bool
 	// check if invite exists for User
-	in, err := logic.GetUserInvite(content.Login)
+	in, err := logic.GetUserInvite(content.Email)
 	if err == nil {
 		inviteExists = true
 	}
@@ -89,11 +88,12 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 					return
 				}
+				user.UserName = content.Login // overrides email with github id
 				if err = logic.CreateUser(&user); err != nil {
 					handleSomethingWentWrong(w)
 					return
 				}
-				logic.DeleteUserInvite(user.UserName)
+				logic.DeleteUserInvite(content.Email)
 				logic.DeletePendingUser(content.Login)
 			} else {
 				if !isEmailAllowed(content.Login) {
