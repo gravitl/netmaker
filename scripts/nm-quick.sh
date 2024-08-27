@@ -901,6 +901,7 @@ main (){
 		exit 0
 		;;
 	p)
+		echo "installing pro version..."
 		INSTALL_TYPE="pro"
 		COLLECT_PRO_VARS="true"
 		;;
