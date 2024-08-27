@@ -30,7 +30,6 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/oauth/register/{regKey}", proAuth.RegisterHostSSO).Methods(http.MethodGet)
 
 	// User Role Handlers
-	r.HandleFunc("/api/v1/users/roles", logic.SecurityCheck(true, http.HandlerFunc(listRoles))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/role", logic.SecurityCheck(true, http.HandlerFunc(getRole))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/role", logic.SecurityCheck(true, http.HandlerFunc(createRole))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/role", logic.SecurityCheck(true, http.HandlerFunc(updateRole))).Methods(http.MethodPut)
@@ -499,12 +498,12 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 // @Param       role_id param string true "roleid required to get the role details"
 // @Success     200 {object}  []models.UserRolePermissionTemplate
 // @Failure     500 {object} models.ErrorResponse
-func listRoles(w http.ResponseWriter, r *http.Request) {
+func ListRoles(w http.ResponseWriter, r *http.Request) {
 	platform, _ := url.QueryUnescape(r.URL.Query().Get("platform"))
 	var roles []models.UserRolePermissionTemplate
 	var err error
 	if platform == "true" {
-		roles, err = proLogic.ListPlatformRoles()
+		roles, err = logic.ListPlatformRoles()
 	} else {
 		roles, err = proLogic.ListNetworkRoles()
 	}
