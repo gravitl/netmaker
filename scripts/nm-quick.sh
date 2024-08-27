@@ -889,6 +889,9 @@ main (){
 		downgrade
 		exit 0
 		;;
+	p)
+		INSTALL_TYPE="pro"
+		;;
 	v)
 		usage
 		exit 0
