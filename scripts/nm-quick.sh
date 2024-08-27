@@ -25,6 +25,7 @@ usage() {
 	echo "nm-quick.sh v$NM_QUICK_VERSION"
 	echo "usage: ./nm-quick.sh [-c]"
 	echo " -c  if specified, will install netmaker community version"
+	echo " -p  if specified, will install netmaker pro version"
 	echo " -u  if specified, will upgrade netmaker to pro version"
 	echo " -d if specified, will downgrade netmaker to community version"
 	exit 1
