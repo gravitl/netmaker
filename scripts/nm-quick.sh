@@ -19,6 +19,7 @@ unset BUILD_TAG
 unset IMAGE_TAG
 unset NETMAKER_BASE_DOMAIN
 unset UPGRADE_FLAG
+unset COLLECT_PRO_VARS
 # usage - displays usage instructions
 usage() {
 	echo "nm-quick.sh v$NM_QUICK_VERSION"
@@ -568,7 +569,17 @@ set_install_vars() {
 	EMAIL="$GET_EMAIL"
 
 	wait_seconds 1
-
+	if [ "$COLLECT_PRO_VARS" = "true" ]; then
+		unset LICENSE_KEY
+		while [ -z "$LICENSE_KEY" ]; do
+			read -p "License Key: " LICENSE_KEY
+		done
+		unset TENANT_ID
+		while [ -z ${TENANT_ID} ]; do
+			read -p "Tenant ID: " TENANT_ID
+		done
+	fi
+	wait_seconds 1
 	unset GET_MQ_USERNAME
 	unset GET_MQ_PASSWORD
 	unset CONFIRM_MQ_PASSWORD
@@ -891,6 +902,7 @@ main (){
 		;;
 	p)
 		INSTALL_TYPE="pro"
+		COLLECT_PRO_VARS="true
 		;;
 	v)
 		usage
