@@ -268,10 +268,6 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 	if _, err := GetUser(user.UserName); err != nil {
 		return &models.User{}, err
 	}
-	err := ValidateUser(userchange)
-	if err != nil {
-		return &models.User{}, err
-	}
 
 	queryUser := user.UserName
 	if userchange.UserName != "" && user.UserName != userchange.UserName {
@@ -309,7 +305,7 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 	}
 	user.UserGroups = userchange.UserGroups
 	user.NetworkRoles = userchange.NetworkRoles
-	err = ValidateUser(user)
+	err := ValidateUser(user)
 	if err != nil {
 		return &models.User{}, err
 	}
