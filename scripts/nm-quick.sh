@@ -902,7 +902,7 @@ main (){
 		;;
 	p)
 		INSTALL_TYPE="pro"
-		COLLECT_PRO_VARS="true
+		COLLECT_PRO_VARS="true"
 		;;
 	v)
 		usage
