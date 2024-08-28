@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/websocket"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -234,6 +235,17 @@ func getStateAndCode(r *http.Request) (string, string) {
 	}
 
 	return state, code
+}
+
+func getUserEmailFromClaims(token string) string {
+	accessToken, _ := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
+		return []byte(""), nil
+	})
+	if accessToken == nil {
+		return ""
+	}
+	claims, _ := accessToken.Claims.(jwt.MapClaims)
+	return claims["email"].(string)
 }
 
 func (user *OAuthUser) getUserName() string {

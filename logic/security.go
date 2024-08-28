@@ -32,7 +32,6 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 		bearerToken := r.Header.Get("Authorization")
 		username, err := GetUserNameFromToken(bearerToken)
 		if err != nil {
-			logger.Log(0, "next 1", r.URL.String(), err.Error())
 			ReturnErrorResponse(w, r, FormatError(err, "unauthorized"))
 			return
 		}
@@ -103,7 +102,6 @@ func ContinueIfUserMatch(next http.Handler) http.HandlerFunc {
 			requestedUser, _ = url.QueryUnescape(r.URL.Query().Get("username"))
 		}
 		if requestedUser != r.Header.Get("user") {
-			logger.Log(0, "next 2", r.URL.String(), errorResponse.Message)
 			ReturnErrorResponse(w, r, errorResponse)
 			return
 		}

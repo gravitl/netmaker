@@ -33,7 +33,7 @@ func initGithub(redirectURL string, clientID string, clientSecret string) {
 		RedirectURL:  redirectURL,
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
-		Scopes:       []string{},
+		Scopes:       []string{"read:user", "user:email"},
 		Endpoint:     github.Endpoint,
 	}
 }
@@ -186,6 +186,9 @@ func getGithubUserInfo(state string, code string) (*OAuthUser, error) {
 		return nil, fmt.Errorf("failed parsing email from response data: %s", err.Error())
 	}
 	userInfo.AccessToken = string(data)
+	if userInfo.Email == "" {
+		userInfo.Email = getUserEmailFromClaims(token.AccessToken)
+	}
 	return userInfo, nil
 }
 
