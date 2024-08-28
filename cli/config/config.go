@@ -86,7 +86,7 @@ func GetCurrentContext() (name string, ctx Context) {
 			return
 		}
 	}
-	log.Fatalf("No current context set, do so via `netmaker context use <name>`")
+	log.Fatalf("No current context set, do so via `nmctl context use <name>`")
 	return
 }
 

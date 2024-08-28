@@ -10,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/pro/netcache"
+	"github.com/gravitl/netmaker/models"
 )
 
 var (
@@ -73,7 +74,7 @@ func HandleHostSSOCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserNotFound(w)
 		return
 	}
-	if !user.IsAdmin && !user.IsSuperAdmin {
+	if user.PlatformRoleID != models.AdminRole && user.PlatformRoleID != models.SuperAdminRole {
 		response := returnErrTemplate(userClaims.getUserName(), "only admin users can register using SSO", state, reqKeyIf)
 		w.WriteHeader(http.StatusForbidden)
 		w.Write(response)

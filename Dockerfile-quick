@@ -1,5 +1,5 @@
 #first stage - builder
-FROM alpine:3.20.0
+FROM alpine:3.20.2
 ARG version 
 WORKDIR /app
 COPY ./netmaker /root/netmaker

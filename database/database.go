@@ -25,6 +25,8 @@ const (
 	DELETED_NODES_TABLE_NAME = "deletednodes"
 	// USERS_TABLE_NAME - users table
 	USERS_TABLE_NAME = "users"
+	// USER_PERMISSIONS_TABLE_NAME - user permissions table
+	USER_PERMISSIONS_TABLE_NAME = "user_permissions"
 	// CERTS_TABLE_NAME - certificates table
 	CERTS_TABLE_NAME = "certs"
 	// DNS_TABLE_NAME - dns table
@@ -63,6 +65,8 @@ const (
 	HOST_ACTIONS_TABLE_NAME = "hostactions"
 	// PENDING_USERS_TABLE_NAME - table name for pending users
 	PENDING_USERS_TABLE_NAME = "pending_users"
+	// USER_INVITES - table for user invites
+	USER_INVITES_TABLE_NAME = "user_invites"
 	// == ERROR CONSTS ==
 	// NO_RECORD - no singular result found
 	NO_RECORD = "no result found"
@@ -146,6 +150,8 @@ func createTables() {
 	CreateTable(ENROLLMENT_KEYS_TABLE_NAME)
 	CreateTable(HOST_ACTIONS_TABLE_NAME)
 	CreateTable(PENDING_USERS_TABLE_NAME)
+	CreateTable(USER_PERMISSIONS_TABLE_NAME)
+	CreateTable(USER_INVITES_TABLE_NAME)
 }
 
 func CreateTable(tableName string) error {

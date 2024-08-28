@@ -1,9 +1,10 @@
 package user
 
 var (
-	username string
-	password string
-	admin    bool
-	networks string
-	groups   string
+	username     string
+	password     string
+	platformID   string
+	admin        bool
+	networkRoles map[string]string
+	groups       []string
 )

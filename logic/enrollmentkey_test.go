@@ -68,7 +68,7 @@ func TestDelete_EnrollmentKey(t *testing.T) {
 		err := DeleteEnrollmentKey(newKey.Value)
 		assert.Nil(t, err)
 		oldKey, err := GetEnrollmentKey(newKey.Value)
-		assert.Nil(t, oldKey)
+		assert.Equal(t, oldKey, models.EnrollmentKey{})
 		assert.NotNil(t, err)
 		assert.Equal(t, err, EnrollmentErrors.NoKeyFound)
 	})

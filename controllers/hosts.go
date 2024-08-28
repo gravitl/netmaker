@@ -19,23 +19,43 @@ import (
 )
 
 func hostHandlers(r *mux.Router) {
-	r.HandleFunc("/api/hosts", logic.SecurityCheck(true, http.HandlerFunc(getHosts))).Methods(http.MethodGet)
-	r.HandleFunc("/api/hosts/keys", logic.SecurityCheck(true, http.HandlerFunc(updateAllKeys))).Methods(http.MethodPut)
-	r.HandleFunc("/api/hosts/{hostid}/keys", logic.SecurityCheck(true, http.HandlerFunc(updateKeys))).Methods(http.MethodPut)
-	r.HandleFunc("/api/hosts/{hostid}/sync", logic.SecurityCheck(true, http.HandlerFunc(syncHost))).Methods(http.MethodPost)
-	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(updateHost))).Methods(http.MethodPut)
-	r.HandleFunc("/api/hosts/{hostid}", Authorize(true, false, "all", http.HandlerFunc(deleteHost))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/hosts/{hostid}/upgrade", logic.SecurityCheck(true, http.HandlerFunc(upgradeHost))).Methods(http.MethodPut)
-	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", logic.SecurityCheck(true, http.HandlerFunc(addHostToNetwork))).Methods(http.MethodPost)
-	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", logic.SecurityCheck(true, http.HandlerFunc(deleteHostFromNetwork))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/hosts", logic.SecurityCheck(true, http.HandlerFunc(getHosts))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/hosts/keys", logic.SecurityCheck(true, http.HandlerFunc(updateAllKeys))).
+		Methods(http.MethodPut)
+	r.HandleFunc("/api/hosts/{hostid}/keys", logic.SecurityCheck(true, http.HandlerFunc(updateKeys))).
+		Methods(http.MethodPut)
+	r.HandleFunc("/api/hosts/{hostid}/sync", logic.SecurityCheck(true, http.HandlerFunc(syncHost))).
+		Methods(http.MethodPost)
+	r.HandleFunc("/api/hosts/{hostid}", logic.SecurityCheck(true, http.HandlerFunc(updateHost))).
+		Methods(http.MethodPut)
+	r.HandleFunc("/api/hosts/{hostid}", Authorize(true, false, "all", http.HandlerFunc(deleteHost))).
+		Methods(http.MethodDelete)
+	r.HandleFunc("/api/hosts/{hostid}/upgrade", logic.SecurityCheck(true, http.HandlerFunc(upgradeHost))).
+		Methods(http.MethodPut)
+	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", logic.SecurityCheck(true, http.HandlerFunc(addHostToNetwork))).
+		Methods(http.MethodPost)
+	r.HandleFunc("/api/hosts/{hostid}/networks/{network}", logic.SecurityCheck(true, http.HandlerFunc(deleteHostFromNetwork))).
+		Methods(http.MethodDelete)
 	r.HandleFunc("/api/hosts/adm/authenticate", authenticateHost).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/host", Authorize(true, false, "host", http.HandlerFunc(pull))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/host/{hostid}/signalpeer", Authorize(true, false, "host", http.HandlerFunc(signalPeer))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/fallback/host/{hostid}", Authorize(true, false, "host", http.HandlerFunc(hostUpdateFallback))).Methods(http.MethodPut)
-	r.HandleFunc("/api/emqx/hosts", logic.SecurityCheck(true, http.HandlerFunc(delEmqxHosts))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/host", Authorize(true, false, "host", http.HandlerFunc(pull))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/host/{hostid}/signalpeer", Authorize(true, false, "host", http.HandlerFunc(signalPeer))).
+		Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/fallback/host/{hostid}", Authorize(true, false, "host", http.HandlerFunc(hostUpdateFallback))).
+		Methods(http.MethodPut)
+	r.HandleFunc("/api/emqx/hosts", logic.SecurityCheck(true, http.HandlerFunc(delEmqxHosts))).
+		Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/auth-register/host", socketHandler)
 }
 
+// @Summary     Upgrade a host
+// @Router      /api/hosts/{hostid}/upgrade [put]
+// @Tags        Hosts
+// @Security    oauth
+// @Param       hostid path string true "Host ID"
+// @Success     200 {string} string "passed message to upgrade host"
+// @Failure     500 {object} models.ErrorResponse
 // upgrade host is a handler to send upgrade message to a host
 func upgradeHost(w http.ResponseWriter, r *http.Request) {
 	host, err := logic.GetHost(mux.Vars(r)["hostid"])
@@ -52,24 +72,70 @@ func upgradeHost(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, "passed message to upgrade host")
 }
 
-// swagger:route GET /api/hosts hosts getHosts
-//
-// Lists all hosts.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: apiHostSliceResponse
+// @Summary     List all hosts
+// @Router      /api/hosts [get]
+// @Tags        Hosts
+// @Security    oauth
+// @Success     200 {array} models.ApiHost
+// @Failure     500 {object} models.ErrorResponse
 func getHosts(w http.ResponseWriter, r *http.Request) {
-	currentHosts, err := logic.GetAllHosts()
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to fetch hosts: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
+	w.Header().Set("Content-Type", "application/json")
+	currentHosts := []models.Host{}
+	var err error
+	if r.Header.Get("ismaster") == "yes" {
+		currentHosts, err = logic.GetAllHosts()
+		if err != nil {
+			logger.Log(0, r.Header.Get("user"), "failed to fetch hosts: ", err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+	} else {
+		username := r.Header.Get("user")
+		user, err := logic.GetUser(username)
+		if err != nil {
+			return
+		}
+		userPlatformRole, err := logic.GetRole(user.PlatformRoleID)
+		if err != nil {
+			return
+		}
+		respHostsMap := make(map[string]struct{})
+		if !userPlatformRole.FullAccess {
+			nodes, err := logic.GetAllNodes()
+			if err != nil {
+				logger.Log(0, "error fetching all nodes info: ", err.Error())
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				return
+			}
+			filteredNodes := logic.GetFilteredNodesByUserAccess(*user, nodes)
+			if len(filteredNodes) > 0 {
+				currentHostsMap, err := logic.GetHostsMap()
+				if err != nil {
+					logger.Log(0, r.Header.Get("user"), "failed to fetch hosts: ", err.Error())
+					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+					return
+				}
+				for _, node := range filteredNodes {
+					if _, ok := respHostsMap[node.HostID.String()]; ok {
+						continue
+					}
+					if host, ok := currentHostsMap[node.HostID.String()]; ok {
+						currentHosts = append(currentHosts, host)
+						respHostsMap[host.ID.String()] = struct{}{}
+					}
+				}
+
+			}
+		} else {
+			currentHosts, err = logic.GetAllHosts()
+			if err != nil {
+				logger.Log(0, r.Header.Get("user"), "failed to fetch hosts: ", err.Error())
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				return
+			}
+		}
 	}
+
 	apiHosts := logic.GetAllHostsAPI(currentHosts[:])
 	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
 	logic.SortApiHosts(apiHosts[:])
@@ -77,23 +143,22 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(apiHosts)
 }
 
-// swagger:route GET /api/v1/host hosts pullHost
-//
-// Used by clients for "pull" command
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: hostPull
+// @Summary     Used by clients for "pull" command
+// @Router      /api/v1/host [get]
+// @Tags        Hosts
+// @Security    oauth
+// @Success     200 {object} models.HostPull
+// @Failure     500 {object} models.ErrorResponse
 func pull(w http.ResponseWriter, r *http.Request) {
 
 	hostID := r.Header.Get(hostIDHeader) // return JSON/API formatted keys
 	if len(hostID) == 0 {
 		logger.Log(0, "no host authorized to pull")
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("no host authorized to pull"), "internal"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(fmt.Errorf("no host authorized to pull"), "internal"),
+		)
 		return
 	}
 	host, err := logic.GetHost(hostID)
@@ -153,17 +218,14 @@ func pull(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(&response)
 }
 
-// swagger:route PUT /api/hosts/{hostid} hosts updateHost
-//
-// Updates a Netclient host on Netmaker server.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: apiHostResponse
+// @Summary     Updates a Netclient host on Netmaker server
+// @Router      /api/hosts/{hostid} [put]
+// @Tags        Hosts
+// @Security    oauth
+// @Param       hostid path string true "Host ID"
+// @Param       body body models.ApiHost true "New host data"
+// @Success     200 {object} models.ApiHost
+// @Failure     500 {object} models.ErrorResponse
 func updateHost(w http.ResponseWriter, r *http.Request) {
 	var newHostData models.ApiHost
 	err := json.NewDecoder(r.Body).Decode(&newHostData)
@@ -183,6 +245,19 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 
 	newHost := newHostData.ConvertAPIHostToNMHost(currHost)
 
+	if newHost.Name != currHost.Name {
+		// update any rag role ids
+		for _, nodeID := range newHost.Nodes {
+			node, err := logic.GetNodeByID(nodeID)
+			if err == nil && node.IsIngressGateway {
+				role, err := logic.GetRole(models.GetRAGRoleID(node.Network, currHost.ID.String()))
+				if err == nil {
+					role.UiName = models.GetRAGRoleName(node.Network, newHost.Name)
+					logic.UpdateRole(role)
+				}
+			}
+		}
+	}
 	logic.UpdateHost(newHost, currHost) // update the in memory struct values
 	if err = logic.UpsertHost(newHost); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update a host:", err.Error())
@@ -194,7 +269,13 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 		Action: models.UpdateHost,
 		Host:   *newHost,
 	}); err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to send host update: ", currHost.ID.String(), err.Error())
+		logger.Log(
+			0,
+			r.Header.Get("user"),
+			"failed to send host update: ",
+			currHost.ID.String(),
+			err.Error(),
+		)
 	}
 	go func() {
 		if err := mq.PublishPeerUpdate(false); err != nil {
@@ -213,17 +294,14 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(apiHostData)
 }
 
-// swagger:route PUT /api/v1/fallback/host/{hostid} hosts hostUpdateFallback
-//
-// Updates a Netclient host on Netmaker server.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: apiHostResponse
+// @Summary     Updates a Netclient host on Netmaker server
+// @Router      /api/v1/fallback/host/{hostid} [put]
+// @Tags        Hosts
+// @Security    oauth
+// @Param       hostid path string true "Host ID"
+// @Param       body body models.HostUpdate true "Host update data"
+// @Success     200 {string} string "updated host data"
+// @Failure     500 {object} models.ErrorResponse
 func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	hostid := params["hostid"]
@@ -273,17 +351,14 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, "updated host data")
 }
 
-// swagger:route DELETE /api/hosts/{hostid} hosts deleteHost
-//
-// Deletes a Netclient host from Netmaker server.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: apiHostResponse
+// @Summary     Deletes a Netclient host from Netmaker server
+// @Router      /api/hosts/{hostid} [delete]
+// @Tags        Hosts
+// @Security    oauth
+// @Param       hostid path string true "Host ID"
+// @Param       force query bool false "Force delete"
+// @Success     200 {object} models.ApiHost
+// @Failure     500 {object} models.ErrorResponse
 func deleteHost(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	hostid := params["hostid"]
@@ -312,14 +387,26 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 		// delete EMQX credentials for host
 		if err := mq.GetEmqxHandler().DeleteEmqxUser(currHost.ID.String()); err != nil {
-			slog.Error("failed to remove host credentials from EMQX", "id", currHost.ID, "error", err)
+			slog.Error(
+				"failed to remove host credentials from EMQX",
+				"id",
+				currHost.ID,
+				"error",
+				err,
+			)
 		}
 	}
 	if err = mq.HostUpdate(&models.HostUpdate{
 		Action: models.DeleteHost,
 		Host:   *currHost,
 	}); err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to send delete host update: ", currHost.ID.String(), err.Error())
+		logger.Log(
+			0,
+			r.Header.Get("user"),
+			"failed to send delete host update: ",
+			currHost.ID.String(),
+			err.Error(),
+		)
 	}
 	if err = logic.RemoveHost(currHost, forceDelete); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to delete a host:", err.Error())
@@ -333,23 +420,25 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(apiHostData)
 }
 
-// swagger:route POST /api/hosts/{hostid}/networks/{network} hosts addHostToNetwork
-//
-// Given a network, a host is added to the network.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//			Responses:
-//				200: okResponse
+// @Summary     To Add Host To Network
+// @Router      /api/hosts/{hostid}/networks/{network} [post]
+// @Tags        Hosts
+// @Security    oauth
+// @Param       hostid path string true "Host ID"
+// @Param       network path string true "Network name"
+// @Success     200 {string} string "OK"
+// @Failure     500 {object} models.ErrorResponse
 func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
 	hostid := params["hostid"]
 	network := params["network"]
 	if hostid == "" || network == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("hostid or network cannot be empty"), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("hostid or network cannot be empty"), "badrequest"),
+		)
 		return
 	}
 	// confirm host exists
@@ -362,7 +451,14 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 
 	newNode, err := logic.UpdateHostNetwork(currHost, network, true)
 	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to add host to network:", hostid, network, err.Error())
+		logger.Log(
+			0,
+			r.Header.Get("user"),
+			"failed to add host to network:",
+			hostid,
+			network,
+			err.Error(),
+		)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
@@ -384,21 +480,23 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 			logic.SetDNS()
 		}
 	}()
-	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("added host %s to network %s", currHost.Name, network))
+	logger.Log(
+		2,
+		r.Header.Get("user"),
+		fmt.Sprintf("added host %s to network %s", currHost.Name, network),
+	)
 	w.WriteHeader(http.StatusOK)
 }
 
-// swagger:route DELETE /api/hosts/{hostid}/networks/{network} hosts deleteHostFromNetwork
-//
-// Given a network, a host is removed from the network.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: okResponse
+// @Summary     To Remove Host from Network
+// @Router      /api/hosts/{hostid}/networks/{network} [delete]
+// @Tags        Hosts
+// @Security    oauth
+// @Param       hostid path string true "Host ID"
+// @Param       network path string true "Network name"
+// @Param       force query bool false "Force delete"
+// @Success     200 {string} string "OK"
+// @Failure     500 {object} models.ErrorResponse
 func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
@@ -406,7 +504,11 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	network := params["network"]
 	forceDelete := r.URL.Query().Get("force") == "true"
 	if hostid == "" || network == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("hostid or network cannot be empty"), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("hostid or network cannot be empty"), "badrequest"),
+		)
 		return
 	}
 	// confirm host exists
@@ -416,14 +518,29 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 			// check if there is any daemon nodes that needs to be deleted
 			node, err := logic.GetNodeByHostRef(hostid, network)
 			if err != nil {
-				slog.Error("couldn't get node for host", "hostid", hostid, "network", network, "error", err)
+				slog.Error(
+					"couldn't get node for host",
+					"hostid",
+					hostid,
+					"network",
+					network,
+					"error",
+					err,
+				)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 				return
 			}
 			if err = logic.DeleteNodeByID(&node); err != nil {
 				slog.Error("failed to force delete daemon node",
 					"nodeid", node.ID.String(), "hostid", hostid, "network", network, "error", err)
-				logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to force delete daemon node: "+err.Error()), "internal"))
+				logic.ReturnErrorResponse(
+					w,
+					r,
+					logic.FormatError(
+						fmt.Errorf("failed to force delete daemon node: "+err.Error()),
+						"internal",
+					),
+				)
 				return
 			}
 			logic.ReturnSuccessResponse(w, r, "force deleted daemon node successfully")
@@ -441,20 +558,42 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 			// force cleanup the node
 			node, err := logic.GetNodeByHostRef(hostid, network)
 			if err != nil {
-				slog.Error("couldn't get node for host", "hostid", hostid, "network", network, "error", err)
+				slog.Error(
+					"couldn't get node for host",
+					"hostid",
+					hostid,
+					"network",
+					network,
+					"error",
+					err,
+				)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 				return
 			}
 			if err = logic.DeleteNodeByID(&node); err != nil {
 				slog.Error("failed to force delete daemon node",
 					"nodeid", node.ID.String(), "hostid", hostid, "network", network, "error", err)
-				logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to force delete daemon node: "+err.Error()), "internal"))
+				logic.ReturnErrorResponse(
+					w,
+					r,
+					logic.FormatError(
+						fmt.Errorf("failed to force delete daemon node: "+err.Error()),
+						"internal",
+					),
+				)
 				return
 			}
 			logic.ReturnSuccessResponse(w, r, "force deleted daemon node successfully")
 			return
 		}
-		logger.Log(0, r.Header.Get("user"), "failed to remove host from network:", hostid, network, err.Error())
+		logger.Log(
+			0,
+			r.Header.Get("user"),
+			"failed to remove host from network:",
+			hostid,
+			network,
+			err.Error(),
+		)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
@@ -464,7 +603,11 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(1, "deleting node", node.ID.String(), "from host", currHost.Name)
 	if err := logic.DeleteNode(node, forceDelete); err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to delete node"), "internal"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(fmt.Errorf("failed to delete node"), "internal"),
+		)
 		return
 	}
 	go func() {
@@ -473,21 +616,23 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 			logic.SetDNS()
 		}
 	}()
-	logger.Log(2, r.Header.Get("user"), fmt.Sprintf("removed host %s from network %s", currHost.Name, network))
+	logger.Log(
+		2,
+		r.Header.Get("user"),
+		fmt.Sprintf("removed host %s from network %s", currHost.Name, network),
+	)
 	w.WriteHeader(http.StatusOK)
 }
 
-// swagger:route POST /api/hosts/adm/authenticate authenticate authenticateHost
-//
-// Host based authentication for making further API calls.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: successResponse
+// @Summary     To Fetch Auth Token for a Host
+// @Router      /api/hosts/adm/authenticate [post]
+// @Tags        Auth
+// @Accept      json
+// @Param       body body models.AuthParams true "Authentication parameters"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     401 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
 func authenticateHost(response http.ResponseWriter, request *http.Request) {
 	var authRequest models.AuthParams
 	var errorResponse = models.ErrorResponse{
@@ -523,7 +668,7 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 		errorResponse.Code = http.StatusBadRequest
 		errorResponse.Message = err.Error()
 		logger.Log(0, request.Header.Get("user"),
-			"error retrieving host: ", err.Error())
+			"error retrieving host: ", authRequest.ID, err.Error())
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
@@ -579,17 +724,14 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 	response.Write(successJSONResponse)
 }
 
-// swagger:route POST /api/hosts/{hostid}/signalpeer hosts signalPeer
-//
-// send signal to peer.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: signal
+// @Summary     Send signal to peer
+// @Router      /api/v1/host/{hostid}/signalpeer [post]
+// @Tags        Hosts
+// @Security    oauth
+// @Param       hostid path string true "Host ID"
+// @Param       body body models.Signal true "Signal data"
+// @Success     200 {object} models.Signal
+// @Failure     400 {object} models.ErrorResponse
 func signalPeer(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	hostid := params["hostid"]
@@ -617,7 +759,11 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 	signal.IsPro = servercfg.IsPro
 	peerHost, err := logic.GetHost(signal.ToHostID)
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to signal, peer not found"), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("failed to signal, peer not found"), "badrequest"),
+		)
 		return
 	}
 	err = mq.HostUpdate(&models.HostUpdate{
@@ -626,7 +772,14 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 		Signal: signal,
 	})
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to publish signal to peer: "+err.Error()), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				errors.New("failed to publish signal to peer: "+err.Error()),
+				"badrequest",
+			),
+		)
 		return
 	}
 
@@ -634,17 +787,12 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(signal)
 }
 
-// swagger:route POST /api/hosts/keys hosts updateAllKeys
-//
-// Update keys for a network.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: networkBodyResponse
+// @Summary     Update keys for all hosts
+// @Router      /api/hosts/keys [put]
+// @Tags        Hosts
+// @Security    oauth
+// @Success     200 {string} string "OK"
+// @Failure     400 {object} models.ErrorResponse
 func updateAllKeys(w http.ResponseWriter, r *http.Request) {
 	var errorResponse = models.ErrorResponse{}
 	w.Header().Set("Content-Type", "application/json")
@@ -664,7 +812,12 @@ func updateAllKeys(w http.ResponseWriter, r *http.Request) {
 			hostUpdate.Host = host
 			logger.Log(2, "updating host", host.ID.String(), " for a key update")
 			if err = mq.HostUpdate(&hostUpdate); err != nil {
-				logger.Log(0, "failed to send update to node during a network wide key update", host.ID.String(), err.Error())
+				logger.Log(
+					0,
+					"failed to send update to node during a network wide key update",
+					host.ID.String(),
+					err.Error(),
+				)
 			}
 		}
 	}()
@@ -672,17 +825,13 @@ func updateAllKeys(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// swagger:route POST /api/hosts/{hostid}keys hosts updateKeys
-//
-// Update keys for a network.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: networkBodyResponse
+// @Summary     Update keys for a host
+// @Router      /api/hosts/{hostid}/keys [put]
+// @Tags        Hosts
+// @Security    oauth
+// @Param       hostid path string true "Host ID"
+// @Success     200 {string} string "OK"
+// @Failure     400 {object} models.ErrorResponse
 func updateKeys(w http.ResponseWriter, r *http.Request) {
 	var errorResponse = models.ErrorResponse{}
 	w.Header().Set("Content-Type", "application/json")
@@ -711,17 +860,13 @@ func updateKeys(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// swagger:route POST /api/hosts/{hostid}/sync hosts synchost
-//
-// Requests a host to pull.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: networkBodyResponse
+// @Summary     Requests a host to pull
+// @Router      /api/hosts/{hostid}/sync [post]
+// @Tags        Hosts
+// @Security    oauth
+// @Param       hostid path string true "Host ID"
+// @Success     200 {string} string "OK"
+// @Failure     400 {object} models.ErrorResponse
 func syncHost(w http.ResponseWriter, r *http.Request) {
 	hostId := mux.Vars(r)["hostid"]
 
@@ -751,17 +896,12 @@ func syncHost(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// swagger:route DELETE /api/emqx/hosts hosts delEmqxHosts
-//
-// Lists all hosts.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: apiHostResponse
+// @Summary     Deletes all EMQX hosts
+// @Router      /api/emqx/hosts [delete]
+// @Tags        Hosts
+// @Security    oauth
+// @Success     200 {string} string "deleted hosts data on emqx"
+// @Failure     500 {object} models.ErrorResponse
 func delEmqxHosts(w http.ResponseWriter, r *http.Request) {
 	currentHosts, err := logic.GetAllHosts()
 	if err != nil {
@@ -777,7 +917,13 @@ func delEmqxHosts(w http.ResponseWriter, r *http.Request) {
 	}
 	err = mq.GetEmqxHandler().DeleteEmqxUser(servercfg.GetMqUserName())
 	if err != nil {
-		slog.Error("failed to remove server credentials from EMQX", "user", servercfg.GetMqUserName(), "error", err)
+		slog.Error(
+			"failed to remove server credentials from EMQX",
+			"user",
+			servercfg.GetMqUserName(),
+			"error",
+			err,
+		)
 	}
 	logic.ReturnSuccessResponse(w, r, "deleted hosts data on emqx")
 }

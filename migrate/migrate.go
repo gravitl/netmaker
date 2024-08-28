@@ -21,6 +21,7 @@ import (
 func Run() {
 	updateEnrollmentKeys()
 	assignSuperAdmin()
+	syncUsers()
 	updateHosts()
 	updateNodes()
 	updateAcls()
@@ -43,8 +44,7 @@ func assignSuperAdmin() {
 		if err != nil {
 			log.Fatal("error getting user", "user", owner, "error", err.Error())
 		}
-		user.IsSuperAdmin = true
-		user.IsAdmin = false
+		user.PlatformRoleID = models.SuperAdminRole
 		err = logic.UpsertUser(*user)
 		if err != nil {
 			log.Fatal(
@@ -64,8 +64,8 @@ func assignSuperAdmin() {
 				slog.Error("error getting user", "user", u.UserName, "error", err.Error())
 				continue
 			}
+			user.PlatformRoleID = models.SuperAdminRole
 			user.IsSuperAdmin = true
-			user.IsAdmin = false
 			err = logic.UpsertUser(*user)
 			if err != nil {
 				slog.Error(
@@ -310,4 +310,110 @@ func MigrateEmqx() {
 		logger.Log(2, "failed to migrate emqx: ", "kickout-error", err.Error())
 	}
 
+}
+
+func syncUsers() {
+	// create default network user roles for existing networks
+	if servercfg.IsPro {
+		networks, _ := logic.GetNetworks()
+		nodes, err := logic.GetAllNodes()
+		if err == nil {
+			for _, netI := range networks {
+				networkNodes := logic.GetNetworkNodesMemory(nodes, netI.NetID)
+				for _, networkNodeI := range networkNodes {
+					if networkNodeI.IsIngressGateway {
+						h, err := logic.GetHost(networkNodeI.HostID.String())
+						if err == nil {
+							logic.CreateRole(models.UserRolePermissionTemplate{
+								ID:        models.GetRAGRoleID(networkNodeI.Network, h.ID.String()),
+								UiName:    models.GetRAGRoleName(networkNodeI.Network, h.Name),
+								NetworkID: models.NetworkID(netI.NetID),
+								NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
+									models.RemoteAccessGwRsrc: {
+										models.RsrcID(networkNodeI.ID.String()): models.RsrcPermissionScope{
+											Read:      true,
+											VPNaccess: true,
+										},
+									},
+									models.ExtClientsRsrc: {
+										models.AllExtClientsRsrcID: models.RsrcPermissionScope{
+											Read:     true,
+											Create:   true,
+											Update:   true,
+											Delete:   true,
+											SelfOnly: true,
+										},
+									},
+								},
+							})
+						}
+
+					}
+				}
+			}
+		}
+	}
+
+	users, err := logic.GetUsersDB()
+	if err == nil {
+		for _, user := range users {
+			user := user
+			if user.PlatformRoleID == models.AdminRole && !user.IsAdmin {
+				user.IsAdmin = true
+				logic.UpsertUser(user)
+			}
+			if user.PlatformRoleID == models.SuperAdminRole && !user.IsSuperAdmin {
+				user.IsSuperAdmin = true
+				logic.UpsertUser(user)
+			}
+			if user.PlatformRoleID.String() != "" {
+				continue
+			}
+			user.AuthType = models.BasicAuth
+			if logic.IsOauthUser(&user) == nil {
+				user.AuthType = models.OAuth
+			}
+			if len(user.NetworkRoles) == 0 {
+				user.NetworkRoles = make(map[models.NetworkID]map[models.UserRoleID]struct{})
+			}
+			if len(user.UserGroups) == 0 {
+				user.UserGroups = make(map[models.UserGroupID]struct{})
+			}
+			if user.IsSuperAdmin {
+				user.PlatformRoleID = models.SuperAdminRole
+
+			} else if user.IsAdmin {
+				user.PlatformRoleID = models.AdminRole
+			} else {
+				user.PlatformRoleID = models.ServiceUser
+			}
+			logic.UpsertUser(user)
+			if len(user.RemoteGwIDs) > 0 {
+				// define user roles for network
+				// assign relevant network role to user
+				for remoteGwID := range user.RemoteGwIDs {
+					gwNode, err := logic.GetNodeByID(remoteGwID)
+					if err != nil {
+						continue
+					}
+					h, err := logic.GetHost(gwNode.HostID.String())
+					if err != nil {
+						continue
+					}
+					r, err := logic.GetRole(models.GetRAGRoleID(gwNode.Network, h.ID.String()))
+					if err != nil {
+						continue
+					}
+					if netRoles, ok := user.NetworkRoles[models.NetworkID(gwNode.Network)]; ok {
+						netRoles[r.ID] = struct{}{}
+					} else {
+						user.NetworkRoles[models.NetworkID(gwNode.Network)] = map[models.UserRoleID]struct{}{
+							r.ID: {},
+						}
+					}
+				}
+				logic.UpsertUser(user)
+			}
+		}
+	}
 }

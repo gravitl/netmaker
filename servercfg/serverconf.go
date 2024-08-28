@@ -242,6 +242,59 @@ func GetPublicBrokerEndpoint() string {
 	}
 }
 
+func GetSmtpHost() string {
+	v := ""
+	if fromEnv := os.Getenv("SMTP_HOST"); fromEnv != "" {
+		v = fromEnv
+	} else if fromCfg := config.Config.Server.SmtpHost; fromCfg != "" {
+		v = fromCfg
+	}
+	return v
+}
+
+func GetSmtpPort() int {
+	v := 587
+	if fromEnv := os.Getenv("SMTP_PORT"); fromEnv != "" {
+		port, err := strconv.Atoi(fromEnv)
+		if err == nil {
+			v = port
+		}
+	} else if fromCfg := config.Config.Server.SmtpPort; fromCfg != 0 {
+		v = fromCfg
+	}
+	return v
+}
+
+func GetSenderEmail() string {
+	v := ""
+	if fromEnv := os.Getenv("EMAIL_SENDER_ADDR"); fromEnv != "" {
+		v = fromEnv
+	} else if fromCfg := config.Config.Server.EmailSenderAddr; fromCfg != "" {
+		v = fromCfg
+	}
+	return v
+}
+
+func GetSenderUser() string {
+	v := ""
+	if fromEnv := os.Getenv("EMAIL_SENDER_USER"); fromEnv != "" {
+		v = fromEnv
+	} else if fromCfg := config.Config.Server.EmailSenderUser; fromCfg != "" {
+		v = fromCfg
+	}
+	return v
+}
+
+func GetEmaiSenderPassword() string {
+	v := ""
+	if fromEnv := os.Getenv("EMAIL_SENDER_PASSWORD"); fromEnv != "" {
+		v = fromEnv
+	} else if fromCfg := config.Config.Server.EmailSenderPassword; fromCfg != "" {
+		v = fromCfg
+	}
+	return v
+}
+
 // GetOwnerEmail - gets the owner email (saas)
 func GetOwnerEmail() string {
 	return os.Getenv("SAAS_OWNER_EMAIL")
@@ -472,7 +525,7 @@ func GetPublicIP() (string, error) {
 			break
 		}
 	}
-	if err == nil && endpoint == "" {
+	if endpoint == "" {
 		err = errors.New("public address not found")
 	}
 	return endpoint, err
@@ -595,6 +648,28 @@ func GetMetricInterval() string {
 		mi = os.Getenv("PUBLISH_METRIC_INTERVAL")
 	}
 	return mi
+}
+
+// GetBatchPeerUpdate - if batch peer update
+func GetBatchPeerUpdate() bool {
+	enabled := true
+	if os.Getenv("PEER_UPDATE_BATCH") != "" {
+		enabled = os.Getenv("PEER_UPDATE_BATCH") == "true"
+	}
+	return enabled
+}
+
+// GetPeerUpdateBatchSize - get the batch size for peer update
+func GetPeerUpdateBatchSize() int {
+	//default 50
+	batchSize := 50
+	if os.Getenv("PEER_UPDATE_BATCH_SIZE") != "" {
+		b, e := strconv.Atoi(os.Getenv("PEER_UPDATE_BATCH_SIZE"))
+		if e == nil && b > 0 && b < 1000 {
+			batchSize = b
+		}
+	}
+	return batchSize
 }
 
 // GetEmqxRestEndpoint - returns the REST API Endpoint of EMQX
@@ -733,4 +808,9 @@ func GetAllowedEmailDomains() string {
 		allowedDomains = config.Config.Server.AllowedEmailDomains
 	}
 	return allowedDomains
+}
+
+// GetNmBaseDomain - fetches nm base domain
+func GetNmBaseDomain() string {
+	return os.Getenv("NM_DOMAIN")
 }

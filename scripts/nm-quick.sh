@@ -129,7 +129,7 @@ setup_netclient() {
 
 	echo "waiting for netclient to become available"
 	local found=false
-	local file=/etc/netclient/nodes.yml
+	local file=/etc/netclient/nodes.json
 	for ((a = 1; a <= 90; a++)); do
 		if [ -f "$file" ]; then
 			found=true
@@ -147,13 +147,13 @@ setup_netclient() {
 # configure_netclient - configures server's netclient as a default host and an ingress gateway
 configure_netclient() {
 	sleep 2
-	NODE_ID=$(sudo cat /etc/netclient/nodes.yml | yq -r .netmaker.commonnode.id)
+	NODE_ID=$(sudo cat /etc/netclient/nodes.json | jq -r .netmaker.id)
 	if [ "$NODE_ID" = "" ] || [ "$NODE_ID" = "null" ]; then
 		echo "Error obtaining NODE_ID for the new network"
 		exit 1
 	fi
 	echo "register complete. New node ID: $NODE_ID"
-	HOST_ID=$(sudo cat /etc/netclient/netclient.yml | yq -r .host.id)
+	HOST_ID=$(sudo cat /etc/netclient/netclient.json | jq -r .id)
 	if [ "$HOST_ID" = "" ] || [ "$HOST_ID" = "null" ]; then
 		echo "Error obtaining HOST_ID for the new network"
 		exit 1
@@ -231,6 +231,7 @@ save_config() { (
 	fi
 	if [ -n "$NETMAKER_BASE_DOMAIN" ]; then
 		save_config_item NM_DOMAIN "$NETMAKER_BASE_DOMAIN"
+		save_config_item FRONTEND_URL "https://dashboard.$NETMAKER_BASE_DOMAIN"
 	fi
 	save_config_item UI_IMAGE_TAG "$IMAGE_TAG"
 	# version-specific entries
@@ -252,7 +253,8 @@ save_config() { (
 		"INSTALL_TYPE" "NODE_ID" "DNS_MODE" "NETCLIENT_AUTO_UPDATE" "API_PORT"
 		"CORS_ALLOWED_ORIGIN" "DISPLAY_KEYS" "DATABASE" "SERVER_BROKER_ENDPOINT" "VERBOSITY"
 		"DEBUG_MODE"  "REST_BACKEND" "DISABLE_REMOTE_IP_CHECK" "TELEMETRY" "ALLOWED_EMAIL_DOMAINS" "AUTH_PROVIDER" "CLIENT_ID" "CLIENT_SECRET"
-		"FRONTEND_URL" "AZURE_TENANT" "OIDC_ISSUER" "EXPORTER_API_PORT" "JWT_VALIDITY_DURATION" "RAC_AUTO_DISABLE" "CACHING_ENABLED" "ENDPOINT_DETECTION")
+		"FRONTEND_URL" "AZURE_TENANT" "OIDC_ISSUER" "EXPORTER_API_PORT" "JWT_VALIDITY_DURATION" "RAC_AUTO_DISABLE" "CACHING_ENABLED" "ENDPOINT_DETECTION"
+		"SMTP_HOST" "SMTP_PORT" "EMAIL_SENDER_ADDR" "EMAIL_SENDER_USER" "EMAIL_SENDER_PASSWORD")
 	for name in "${toCopy[@]}"; do
 		save_config_item $name "${!name}"
 	done

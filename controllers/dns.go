@@ -16,25 +16,29 @@ import (
 
 func dnsHandlers(r *mux.Router) {
 
-	r.HandleFunc("/api/dns", logic.SecurityCheck(true, http.HandlerFunc(getAllDNS))).Methods(http.MethodGet)
-	r.HandleFunc("/api/dns/adm/{network}/nodes", logic.SecurityCheck(true, http.HandlerFunc(getNodeDNS))).Methods(http.MethodGet)
-	r.HandleFunc("/api/dns/adm/{network}/custom", logic.SecurityCheck(true, http.HandlerFunc(getCustomDNS))).Methods(http.MethodGet)
-	r.HandleFunc("/api/dns/adm/{network}", logic.SecurityCheck(true, http.HandlerFunc(getDNS))).Methods(http.MethodGet)
-	r.HandleFunc("/api/dns/{network}", logic.SecurityCheck(true, http.HandlerFunc(createDNS))).Methods(http.MethodPost)
-	r.HandleFunc("/api/dns/adm/pushdns", logic.SecurityCheck(true, http.HandlerFunc(pushDNS))).Methods(http.MethodPost)
-	r.HandleFunc("/api/dns/{network}/{domain}", logic.SecurityCheck(true, http.HandlerFunc(deleteDNS))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/dns", logic.SecurityCheck(true, http.HandlerFunc(getAllDNS))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/dns/adm/{network}/nodes", logic.SecurityCheck(true, http.HandlerFunc(getNodeDNS))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/dns/adm/{network}/custom", logic.SecurityCheck(true, http.HandlerFunc(getCustomDNS))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/dns/adm/{network}", logic.SecurityCheck(true, http.HandlerFunc(getDNS))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/dns/{network}", logic.SecurityCheck(true, http.HandlerFunc(createDNS))).
+		Methods(http.MethodPost)
+	r.HandleFunc("/api/dns/adm/pushdns", logic.SecurityCheck(true, http.HandlerFunc(pushDNS))).
+		Methods(http.MethodPost)
+	r.HandleFunc("/api/dns/{network}/{domain}", logic.SecurityCheck(true, http.HandlerFunc(deleteDNS))).
+		Methods(http.MethodDelete)
 }
 
-// swagger:route GET /api/dns/adm/{network}/nodes dns getNodeDNS
-//
-// Gets node DNS entries associated with a network.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//			Responses:
-//			200: dnsResponse
+// @Summary     Gets node DNS entries associated with a network
+// @Router      /api/dns/{network} [get]
+// @Tags        DNS
+// @Accept      json
+// @Param       network path string true "Network identifier"
+// @Success     200 {array} models.DNSEntry
+// @Failure     500 {object} models.ErrorResponse
 func getNodeDNS(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -53,17 +57,12 @@ func getNodeDNS(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(dns)
 }
 
-// swagger:route GET /api/dns dns getAllDNS
-//
-// Gets all DNS entries.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//	  		200: dnsResponse
+// @Summary     Get all DNS entries
+// @Router      /api/dns [get]
+// @Tags        DNS
+// @Accept      json
+// @Success     200 {array} models.DNSEntry
+// @Failure     500 {object} models.ErrorResponse
 func getAllDNS(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	dns, err := logic.GetAllDNS()
@@ -77,17 +76,13 @@ func getAllDNS(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(dns)
 }
 
-// swagger:route GET /api/dns/adm/{network}/custom dns getCustomDNS
-//
-// Gets custom DNS entries associated with a network.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//	  		200: dnsResponse
+// @Summary     Gets custom DNS entries associated with a network
+// @Router      /api/dns/adm/{network}/custom [get]
+// @Tags        DNS
+// @Accept      json
+// @Param       network path string true "Network identifier"
+// @Success     200 {array} models.DNSEntry
+// @Failure     500 {object} models.ErrorResponse
 func getCustomDNS(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -97,8 +92,15 @@ func getCustomDNS(w http.ResponseWriter, r *http.Request) {
 	network := params["network"]
 	dns, err := logic.GetCustomDNS(network)
 	if err != nil {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("failed to get custom DNS entries for network [%s]: %v", network, err.Error()))
+		logger.Log(
+			0,
+			r.Header.Get("user"),
+			fmt.Sprintf(
+				"failed to get custom DNS entries for network [%s]: %v",
+				network,
+				err.Error(),
+			),
+		)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
@@ -106,17 +108,13 @@ func getCustomDNS(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(dns)
 }
 
-// swagger:route GET /api/dns/adm/{network} dns getDNS
-//
-// Gets all DNS entries associated with the network.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//	  		200: dnsResponse
+// @Summary     Get all DNS entries associated with the network
+// @Router      /api/dns/adm/{network} [get]
+// @Tags        DNS
+// @Accept      json
+// @Param       network path string true "Network identifier"
+// @Success     200 {array} models.DNSEntry
+// @Failure     500 {object} models.ErrorResponse
 func getDNS(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -135,17 +133,15 @@ func getDNS(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(dns)
 }
 
-// swagger:route POST /api/dns/{network} dns createDNS
-//
-// Create a DNS entry.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//	  		200: dnsResponse
+// @Summary     Create a new DNS entry
+// @Router      /api/dns/adm/{network} [post]
+// @Tags        DNS
+// @Accept      json
+// @Param       network path string true "Network identifier"
+// @Param       body body models.DNSEntry true "DNS entry details"
+// @Success     200 {object} models.DNSEntry
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
 func createDNS(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -187,18 +183,14 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(entry)
 }
 
-// swagger:route DELETE /api/dns/{network}/{domain} dns deleteDNS
-//
-// Delete a DNS entry.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: stringJSONResponse
-//				*: stringJSONResponse
+// @Summary     Delete a DNS entry
+// @Router      /api/dns/{network}/{domain} [delete]
+// @Tags        DNS
+// @Accept      json
+// @Param       network path string true "Network identifier"
+// @Param       domain path string true "Domain Name"
+// @Success     200 {array} models.DNSEntry
+// @Failure     500 {object} models.ErrorResponse
 func deleteDNS(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
@@ -243,23 +235,22 @@ func GetDNSEntry(domain string, network string) (models.DNSEntry, error) {
 	return entry, err
 }
 
-// swagger:route POST /api/dns/adm/pushdns dns pushDNS
-//
-// Push DNS entries to nameserver.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//			200: dnsResponse
-//				*: dnsResponse
+// @Summary     Push DNS entries to nameserver
+// @Router      /api/dns/adm/pushdns [post]
+// @Tags        DNS
+// @Accept      json
+// @Success     200 {string} string "DNS Pushed to CoreDNS"
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
 func pushDNS(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
 	if !servercfg.IsDNSMode() {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("DNS Mode is set to off"), "badrequest"))
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("DNS Mode is set to off"), "badrequest"),
+		)
 		return
 	}
 	err := logic.SetDNS()
