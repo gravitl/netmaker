@@ -33,7 +33,7 @@ func initAzureAD(redirectURL string, clientID string, clientSecret string) {
 		RedirectURL:  redirectURL,
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
-		Scopes:       []string{"User.Read"},
+		Scopes:       []string{"User.Read", "email", "profile", "openid"},
 		Endpoint:     microsoft.AzureADEndpoint(servercfg.GetAzureTenant()),
 	}
 }
@@ -67,10 +67,9 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthNotConfigured(w)
 		return
 	}
-
 	var inviteExists bool
 	// check if invite exists for User
-	in, err := logic.GetUserInvite(content.UserPrincipalName)
+	in, err := logic.GetUserInvite(content.Email)
 	if err == nil {
 		inviteExists = true
 	}
@@ -90,11 +89,12 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 					return
 				}
+				user.UserName = content.UserPrincipalName // override username with azure id
 				if err = logic.CreateUser(&user); err != nil {
 					handleSomethingWentWrong(w)
 					return
 				}
-				logic.DeleteUserInvite(user.UserName)
+				logic.DeleteUserInvite(content.Email)
 				logic.DeletePendingUser(content.UserPrincipalName)
 			} else {
 				if !isEmailAllowed(content.UserPrincipalName) {
@@ -166,8 +166,9 @@ func getAzureUserInfo(state string, code string) (*OAuthUser, error) {
 	}
 	var httpReq, reqErr = http.NewRequest("GET", "https://graph.microsoft.com/v1.0/me", nil)
 	if reqErr != nil {
-		return nil, fmt.Errorf("failed to create request to GitHub")
+		return nil, fmt.Errorf("failed to create request to microsoft")
 	}
+
 	httpReq.Header.Set("Authorization", "Bearer "+token.AccessToken)
 	response, err := http.DefaultClient.Do(httpReq)
 	if err != nil {
@@ -183,6 +184,9 @@ func getAzureUserInfo(state string, code string) (*OAuthUser, error) {
 		return nil, fmt.Errorf("failed parsing email from response data: %s", err.Error())
 	}
 	userInfo.AccessToken = string(data)
+	if userInfo.Email == "" {
+		userInfo.Email = getUserEmailFromClaims(token.AccessToken)
+	}
 	return userInfo, nil
 }
 
