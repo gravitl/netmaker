@@ -1,15 +1,14 @@
 # Netmaker v0.25.0
 
 ## Whats New ✨
-- Validation Checks For Egress Routes
-- Network Change Detection System
-- Removed Creation Of ACLs For EMQX
+- Advanced User Mgmt with Network Roles and Groups
+- User Invitation via Email and Magic Links
 
 ## What's Fixed/Improved 🛠
-- Removed RAG Metadata Length Restriction
+
 - Scalability Improvements
 - Optimised Traffic Flow Over MQ
-- Improved Validation Checks For Internet GWS
+- Improved Peer Updates with Batching
 
 ## Known Issues 🐞
 
