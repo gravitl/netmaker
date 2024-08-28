@@ -1,7 +1,7 @@
 # Netmaker v0.25.0
 
 ## Whats New ✨
-- Advanced User Mgmt with Network Roles and Groups
+- Advanced User Management with Network Roles and Groups
 - User Invitation via Email and Magic Links
 
 ## What's Fixed/Improved 🛠
@@ -17,5 +17,5 @@
 - IPv6 DNS Entries Are Not Working.
 - Stale Peer On The Interface, When Forced Removed From Multiple Networks At Once.
 - Can Still Ping Domain Name Even When DNS Toggle Is Switched Off.
-- WireGuard DNS issue on most flavors of Ubuntu 24.04 and some other newer Linux distributions. The issue is affecting the Remote Access Client (RAC) and the plain WireGuard external clients. Workaround can be found here https://help.netmaker.io/en/articles/9612016-extclient-rac-dns-issue-on-ubuntu-24-04.
+- WireGuard DNS issue on most flavours of Ubuntu 24.04 and some other newer Linux distributions. The issue is affecting the Remote Access Client (RAC) and the plain WireGuard external clients. Workaround can be found here https://help.netmaker.io/en/articles/9612016-extclient-rac-dns-issue-on-ubuntu-24-04.
 
