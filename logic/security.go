@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 )
@@ -27,7 +26,6 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		r.Header.Set("ismaster", "no")
-		logger.Log(0, "next", r.URL.String())
 		isGlobalAccesss := r.Header.Get("IS_GLOBAL_ACCESS") == "yes"
 		bearerToken := r.Header.Get("Authorization")
 		username, err := GetUserNameFromToken(bearerToken)
