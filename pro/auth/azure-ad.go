@@ -69,7 +69,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	var inviteExists bool
 	// check if invite exists for User
-	in, err := logic.GetUserInvite(content.UserPrincipalName)
+	in, err := logic.GetUserInvite(content.Email)
 	if err == nil {
 		inviteExists = true
 	}
@@ -89,11 +89,12 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 					return
 				}
+				user.UserName = content.UserPrincipalName // override username with azure id
 				if err = logic.CreateUser(&user); err != nil {
 					handleSomethingWentWrong(w)
 					return
 				}
-				logic.DeleteUserInvite(user.UserName)
+				logic.DeleteUserInvite(content.Email)
 				logic.DeletePendingUser(content.UserPrincipalName)
 			} else {
 				if !isEmailAllowed(content.UserPrincipalName) {
