@@ -849,7 +849,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userGwNodes := proLogic.GetUserRAGNodes(*user)
-	logger.Log(0, fmt.Sprintf("1. User Gw Nodes: %+v", userGwNodes))
+	logger.Log(1, fmt.Sprintf("1. User Gw Nodes: %+v", userGwNodes))
 	for _, extClient := range allextClients {
 		node, ok := userGwNodes[extClient.IngressGatewayID]
 		if !ok {
@@ -885,7 +885,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			delete(userGwNodes, node.ID.String())
 		}
 	}
-	logger.Log(0, fmt.Sprintf("2. User Gw Nodes: %+v", userGwNodes))
+	logger.Log(1, fmt.Sprintf("2. User Gw Nodes: %+v", userGwNodes))
 	// add remaining gw nodes to resp
 	for gwID := range userGwNodes {
 		node, err := logic.GetNodeByID(gwID)
