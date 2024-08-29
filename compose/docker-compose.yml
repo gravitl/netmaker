@@ -79,6 +79,8 @@ services:
       - ./wait.sh:/mosquitto/config/wait.sh
       - mosquitto_logs:/mosquitto/log
       - mosquitto_data:/mosquitto/data
+    ports:
+      - "1883:1883"
 volumes:
   caddy_data: { } # runtime data for caddy
   caddy_conf: { } # configuration file for Caddy
