@@ -8,11 +8,11 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gravitl/netmaker/auth"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
@@ -33,7 +33,7 @@ func initGithub(redirectURL string, clientID string, clientSecret string) {
 		RedirectURL:  redirectURL,
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
-		Scopes:       []string{},
+		Scopes:       []string{"read:user", "user:email"},
 		Endpoint:     github.Endpoint,
 	}
 }
@@ -67,27 +67,49 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthNotConfigured(w)
 		return
 	}
-	if !isEmailAllowed(content.Login) {
-		handleOauthUserNotAllowedToSignUp(w)
-		return
+	var inviteExists bool
+	// check if invite exists for User
+	in, err := logic.GetUserInvite(content.Email)
+	if err == nil {
+		inviteExists = true
 	}
 	// check if user approval is already pending
-	if logic.IsPendingUser(content.Login) {
+	if !inviteExists && logic.IsPendingUser(content.Login) {
 		handleOauthUserSignUpApprovalPending(w)
 		return
 	}
 	_, err = logic.GetUser(content.Login)
 	if err != nil {
 		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
-			err = logic.InsertPendingUser(&models.User{
-				UserName: content.Login,
-			})
-			if err != nil {
-				handleSomethingWentWrong(w)
+			if inviteExists {
+				// create user
+				user, err := proLogic.PrepareOauthUserFromInvite(in)
+				if err != nil {
+					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+					return
+				}
+				user.UserName = content.Login // overrides email with github id
+				if err = logic.CreateUser(&user); err != nil {
+					handleSomethingWentWrong(w)
+					return
+				}
+				logic.DeleteUserInvite(content.Email)
+				logic.DeletePendingUser(content.Login)
+			} else {
+				if !isEmailAllowed(content.Login) {
+					handleOauthUserNotAllowedToSignUp(w)
+					return
+				}
+				err = logic.InsertPendingUser(&models.User{
+					UserName: content.Login,
+				})
+				if err != nil {
+					handleSomethingWentWrong(w)
+					return
+				}
+				handleFirstTimeOauthUserSignUp(w)
 				return
 			}
-			handleFirstTimeOauthUserSignUp(w)
-			return
 		} else {
 			handleSomethingWentWrong(w)
 			return
@@ -98,11 +120,16 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserNotFound(w)
 		return
 	}
-	if !(user.IsSuperAdmin || user.IsAdmin) {
+	userRole, err := logic.GetRole(user.PlatformRoleID)
+	if err != nil {
+		handleSomethingWentWrong(w)
+		return
+	}
+	if userRole.DenyDashboardAccess {
 		handleOauthUserNotAllowed(w)
 		return
 	}
-	var newPass, fetchErr = auth.FetchPassValue("")
+	var newPass, fetchErr = logic.FetchPassValue("")
 	if fetchErr != nil {
 		return
 	}
@@ -159,6 +186,9 @@ func getGithubUserInfo(state string, code string) (*OAuthUser, error) {
 		return nil, fmt.Errorf("failed parsing email from response data: %s", err.Error())
 	}
 	userInfo.AccessToken = string(data)
+	if userInfo.Email == "" {
+		userInfo.Email = getUserEmailFromClaims(token.AccessToken)
+	}
 	return userInfo, nil
 }
 

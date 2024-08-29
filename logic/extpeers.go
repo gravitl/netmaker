@@ -86,9 +86,20 @@ func DeleteExtClient(network string, clientid string) error {
 	if err != nil {
 		return err
 	}
+	extClient, err := GetExtClient(clientid, network)
+	if err != nil {
+		return err
+	}
 	err = database.DeleteRecord(database.EXT_CLIENT_TABLE_NAME, key)
 	if err != nil {
 		return err
+	}
+	//recycle ip address
+	if extClient.Address != "" {
+		RemoveIpFromAllocatedIpMap(network, extClient.Address)
+	}
+	if extClient.Address6 != "" {
+		RemoveIpFromAllocatedIpMap(network, extClient.Address6)
 	}
 	if servercfg.CacheEnabled() {
 		deleteExtClientFromCache(key)
@@ -286,6 +297,14 @@ func SaveExtClient(extclient *models.ExtClient) error {
 	}
 	if servercfg.CacheEnabled() {
 		storeExtClientInCache(key, *extclient)
+	}
+	if _, ok := allocatedIpMap[extclient.Network]; ok {
+		if extclient.Address != "" {
+			AddIpToAllocatedIpMap(extclient.Network, net.ParseIP(extclient.Address))
+		}
+		if extclient.Address6 != "" {
+			AddIpToAllocatedIpMap(extclient.Network, net.ParseIP(extclient.Address6))
+		}
 	}
 	return SetNetworkNodesLastModified(extclient.Network)
 }

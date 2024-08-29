@@ -34,6 +34,7 @@ func InitPro() {
 		proControllers.FailOverHandlers,
 		proControllers.InetHandlers,
 	)
+	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
 		// == License Handling ==
 		enableLicenseHook := false
@@ -88,7 +89,7 @@ func InitPro() {
 		} else {
 			slog.Error("no OAuth provider found or not configured, continuing without OAuth")
 		}
-
+		proLogic.LoadNodeMetricsToCache()
 	})
 	logic.ResetFailOver = proLogic.ResetFailOver
 	logic.ResetFailedOverPeer = proLogic.ResetFailedOverPeer
@@ -119,6 +120,19 @@ func InitPro() {
 	logic.GetAllowedIpForInetNodeClient = proLogic.GetAllowedIpForInetNodeClient
 	mq.UpdateMetrics = proLogic.MQUpdateMetrics
 	mq.UpdateMetricsFallBack = proLogic.MQUpdateMetricsFallBack
+	logic.GetFilteredNodesByUserAccess = proLogic.GetFilteredNodesByUserAccess
+	logic.CreateRole = proLogic.CreateRole
+	logic.UpdateRole = proLogic.UpdateRole
+	logic.DeleteRole = proLogic.DeleteRole
+	logic.NetworkPermissionsCheck = proLogic.NetworkPermissionsCheck
+	logic.GlobalPermissionsCheck = proLogic.GlobalPermissionsCheck
+	logic.DeleteNetworkRoles = proLogic.DeleteNetworkRoles
+	logic.CreateDefaultNetworkRolesAndGroups = proLogic.CreateDefaultNetworkRolesAndGroups
+	logic.FilterNetworksByRole = proLogic.FilterNetworksByRole
+	logic.IsGroupsValid = proLogic.IsGroupsValid
+	logic.IsNetworkRolesValid = proLogic.IsNetworkRolesValid
+	logic.InitialiseRoles = proLogic.UserRolesInit
+	logic.UpdateUserGwAccess = proLogic.UpdateUserGwAccess
 }
 
 func retrieveProLogo() string {

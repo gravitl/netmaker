@@ -94,6 +94,11 @@ type ServerConfig struct {
 	CacheEnabled               string        `yaml:"caching_enabled"`
 	EndpointDetection          bool          `json:"endpoint_detection"`
 	AllowedEmailDomains        string        `yaml:"allowed_email_domains"`
+	EmailSenderAddr            string        `json:"email_sender_addr"`
+	EmailSenderUser            string        `json:"email_sender_user"`
+	EmailSenderPassword        string        `json:"email_sender_password"`
+	SmtpHost                   string        `json:"smtp_host"`
+	SmtpPort                   int           `json:"smtp_port"`
 	MetricInterval             string        `yaml:"metric_interval"`
 }
 

@@ -116,6 +116,7 @@ func UpdateNodeCheckin(node *models.Node) error {
 	if err != nil {
 		return err
 	}
+
 	err = database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
 	if err != nil {
 		return err
@@ -194,6 +195,10 @@ func DeleteNode(node *models.Node, purge bool) error {
 	if node.IsIngressGateway {
 		if err := DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
 			slog.Error("failed to delete ext clients", "nodeid", node.ID.String(), "error", err.Error())
+		}
+		host, err := GetHost(node.HostID.String())
+		if err == nil {
+			go DeleteRole(models.GetRAGRoleID(node.Network, host.ID.String()), true)
 		}
 	}
 	if node.IsRelayed {
@@ -299,6 +304,13 @@ func DeleteNodeByID(node *models.Node) error {
 	// removeZombie <- node.ID
 	if err = DeleteMetrics(node.ID.String()); err != nil {
 		logger.Log(1, "unable to remove metrics from DB for node", node.ID.String(), err.Error())
+	}
+	//recycle ip address
+	if node.Address.IP != nil {
+		RemoveIpFromAllocatedIpMap(node.Network, node.Address.IP.String())
+	}
+	if node.Address6.IP != nil {
+		RemoveIpFromAllocatedIpMap(node.Network, node.Address6.IP.String())
 	}
 	return nil
 }
@@ -584,6 +596,14 @@ func createNode(node *models.Node) error {
 	}
 	if servercfg.CacheEnabled() {
 		storeNodeInCache(*node)
+	}
+	if _, ok := allocatedIpMap[node.Network]; ok {
+		if node.Address.IP != nil {
+			AddIpToAllocatedIpMap(node.Network, node.Address.IP)
+		}
+		if node.Address6.IP != nil {
+			AddIpToAllocatedIpMap(node.Network, node.Address6.IP)
+		}
 	}
 	_, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), defaultACLVal)
 	if err != nil {

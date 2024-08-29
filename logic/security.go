@@ -2,6 +2,7 @@ package logic
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -17,20 +18,40 @@ const (
 	Unauthorized_Err = models.Error(Unauthorized_Msg)
 )
 
+var NetworkPermissionsCheck = func(username string, r *http.Request) error { return nil }
+var GlobalPermissionsCheck = func(username string, r *http.Request) error { return nil }
+
 // SecurityCheck - Check if user has appropriate permissions
 func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		r.Header.Set("ismaster", "no")
+		isGlobalAccesss := r.Header.Get("IS_GLOBAL_ACCESS") == "yes"
 		bearerToken := r.Header.Get("Authorization")
-		username, err := UserPermissions(reqAdmin, bearerToken)
+		username, err := GetUserNameFromToken(bearerToken)
 		if err != nil {
-			ReturnErrorResponse(w, r, FormatError(err, err.Error()))
+			ReturnErrorResponse(w, r, FormatError(err, "unauthorized"))
 			return
 		}
 		// detect masteradmin
 		if username == MasterUser {
 			r.Header.Set("ismaster", "yes")
+		} else {
+			if isGlobalAccesss {
+				err = GlobalPermissionsCheck(username, r)
+			} else {
+				err = NetworkPermissionsCheck(username, r)
+			}
+		}
+		w.Header().Set("TARGET_RSRC", r.Header.Get("TARGET_RSRC"))
+		w.Header().Set("TARGET_RSRC_ID", r.Header.Get("TARGET_RSRC_ID"))
+		w.Header().Set("RSRC_TYPE", r.Header.Get("RSRC_TYPE"))
+		w.Header().Set("IS_GLOBAL_ACCESS", r.Header.Get("IS_GLOBAL_ACCESS"))
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		if err != nil {
+			w.Header().Set("ACCESS_PERM", err.Error())
+			ReturnErrorResponse(w, r, FormatError(err, "forbidden"))
+			return
 		}
 		r.Header.Set("user", username)
 		next.ServeHTTP(w, r)
@@ -75,6 +96,9 @@ func ContinueIfUserMatch(next http.Handler) http.HandlerFunc {
 		}
 		var params = mux.Vars(r)
 		var requestedUser = params["username"]
+		if requestedUser == "" {
+			requestedUser, _ = url.QueryUnescape(r.URL.Query().Get("username"))
+		}
 		if requestedUser != r.Header.Get("user") {
 			ReturnErrorResponse(w, r, errorResponse)
 			return

@@ -3,12 +3,14 @@ package mq
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"golang.org/x/exp/slog"
 )
 
 func decryptMsgWithHost(host *models.Host, msg []byte) ([]byte, error) {
@@ -42,6 +44,26 @@ func DecryptMsg(node *models.Node, msg []byte) ([]byte, error) {
 	}
 
 	return decryptMsgWithHost(host, msg)
+}
+
+func BatchItems[T any](items []T, batchSize int) [][]T {
+	if batchSize <= 0 {
+		return nil
+	}
+	remainderBatchSize := len(items) % batchSize
+	nBatches := int(math.Ceil(float64(len(items)) / float64(batchSize)))
+	batches := make([][]T, nBatches)
+	for i := range batches {
+		if i == nBatches-1 && remainderBatchSize > 0 {
+			batches[i] = make([]T, remainderBatchSize)
+		} else {
+			batches[i] = make([]T, batchSize)
+		}
+		for j := range batches[i] {
+			batches[i][j] = items[i*batchSize+j]
+		}
+	}
+	return batches
 }
 
 func encryptMsg(host *models.Host, msg []byte) ([]byte, error) {
@@ -87,6 +109,7 @@ func publish(host *models.Host, dest string, msg []byte) error {
 		if token.Error() == nil {
 			err = errors.New("connection timeout")
 		} else {
+			slog.Error("publish to mq error", "error", token.Error().Error())
 			err = token.Error()
 		}
 		return err

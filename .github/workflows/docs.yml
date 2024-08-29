@@ -1,0 +1,50 @@
+name: Generate Documentation
+
+on: 
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to run the workflow against'
+        required: true
+        default: 'master'
+
+jobs:
+  generate-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          repository: gravitl/netmaker
+          ref: ${{ github.event.inputs.branch || 'master' }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install Swag
+        run: go install github.com/swaggo/swag/cmd/swag@latest
+
+      - name: Generating Docs
+        run: |
+          export PATH=$PATH:$(go env GOPATH)/bin
+          swag i --md docs/ --parseDependency  --parseInternal --outputTypes yaml  --parseDepth 1 --output .
+
+      - name: Get current timestamp
+        id: timestamp
+        run: echo "timestamp=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Update documentation ${{ steps.timestamp.outputs.timestamp }}"
+          title: "Update Swagger documentation ${{ steps.timestamp.outputs.timestamp }}"
+          body: |
+            This PR updates the swagger.yml file with the latest documentation changes.
+            
+            Updated on: ${{ steps.timestamp.outputs.timestamp }}
+          branch: update-swagger-docs-${{ github.event.inputs.branch }}
+          base: ${{ github.event.inputs.branch }}
+          delete-branch: true

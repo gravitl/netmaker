@@ -30,7 +30,18 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-var version = "v0.24.3"
+var version = "v0.25.0"
+
+//	@title			NetMaker
+//	@version		0.24.3
+//	@description	NetMaker API Docs
+//	@tag.name	    APIUsage
+//	@tag.description.markdown
+//	@tag.name	    Authentication
+//	@tag.description.markdown
+//	@tag.name	    Pricing
+//	@tag.description.markdown
+//  @host      api.demo.netmaker.io
 
 // Start DB Connection and start API Request Handler
 func main() {
@@ -40,6 +51,8 @@ func main() {
 	servercfg.SetVersion(version)
 	fmt.Println(models.RetrieveLogo()) // print the logo
 	initialize()                       // initial db and acls
+	logic.SetAllocatedIpMap()
+	defer logic.ClearAllocatedIpMap()
 	setGarbageCollection()
 	setVerbosity()
 	if servercfg.DeployedByOperator() && !servercfg.IsPro {
@@ -92,7 +105,7 @@ func initialize() { // Client Mode Prereq Check
 	migrate.Run()
 
 	logic.SetJWTSecret()
-
+	logic.InitialiseRoles()
 	err = serverctl.SetDefaults()
 	if err != nil {
 		logger.FatalLog("error setting defaults: ", err.Error())
@@ -172,7 +185,10 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 	}
 
 	if !servercfg.IsRestBackend() && !servercfg.IsMessageQueueBackend() {
-		logger.Log(0, "No Server Mode selected, so nothing is being served! Set Rest mode (REST_BACKEND) or MessageQueue (MESSAGEQUEUE_BACKEND) to 'true'.")
+		logger.Log(
+			0,
+			"No Server Mode selected, so nothing is being served! Set Rest mode (REST_BACKEND) or MessageQueue (MESSAGEQUEUE_BACKEND) to 'true'.",
+		)
 	}
 
 	wg.Add(1)
@@ -204,10 +220,21 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 			node.Action = models.NODE_DELETE
 			node.PendingDelete = true
 			if err := mq.NodeUpdate(node); err != nil {
-				logger.Log(0, "failed to send peer update for deleted node: ", node.ID.String(), err.Error())
+				logger.Log(
+					0,
+					"failed to send peer update for deleted node: ",
+					node.ID.String(),
+					err.Error(),
+				)
 			}
 			if err := logic.DeleteNode(node, true); err != nil {
-				slog.Error("error deleting expired node", "nodeid", node.ID.String(), "error", err.Error())
+				slog.Error(
+					"error deleting expired node",
+					"nodeid",
+					node.ID.String(),
+					"error",
+					err.Error(),
+				)
 			}
 			go mq.PublishDeletedNodePeerUpdate(node)
 		}
@@ -226,7 +253,12 @@ func setVerbosity() {
 		}
 		return a
 	}
-	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{AddSource: true, ReplaceAttr: replace, Level: logLevel}))
+	logger := slog.New(
+		slog.NewJSONHandler(
+			os.Stderr,
+			&slog.HandlerOptions{AddSource: true, ReplaceAttr: replace, Level: logLevel},
+		),
+	)
 	slog.SetDefault(logger)
 	switch verbose {
 	case 4:
