@@ -531,6 +531,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	var update models.CustomExtClient
 	//var oldExtClient models.ExtClient
 	var sendPeerUpdate bool
+	var replacePeers bool
 	err := json.NewDecoder(r.Body).Decode(&update)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ",
@@ -588,6 +589,11 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	if update.Enabled != oldExtClient.Enabled {
 		sendPeerUpdate = true
 	}
+	if update.PublicKey != oldExtClient.PublicKey {
+		//remove old peer entry
+		sendPeerUpdate = true
+		replacePeers = true
+	}
 	newclient := logic.UpdateExtClient(&oldExtClient, &update)
 	if err := logic.DeleteExtClient(oldExtClient.Network, oldExtClient.ClientID); err != nil {
 		slog.Error(
@@ -630,7 +636,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		if sendPeerUpdate { // need to send a peer update to the ingress node as enablement of one of it's clients has changed
 			ingressNode, err := logic.GetNodeByID(newclient.IngressGatewayID)
 			if err == nil {
-				if err = mq.PublishPeerUpdate(false); err != nil {
+				if err = mq.PublishPeerUpdate(replacePeers); err != nil {
 					logger.Log(
 						1,
 						"error setting ext peers on",
@@ -657,7 +663,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 					slog.Error("Failed to get nodes", "error", err)
 					return
 				}
-				go mq.PublishSingleHostPeerUpdate(ingressHost, nodes, nil, []models.ExtClient{oldExtClient}, false, nil)
+				go mq.PublishSingleHostPeerUpdate(ingressHost, nodes, nil, []models.ExtClient{oldExtClient}, replacePeers, nil)
 			}
 		}
 
