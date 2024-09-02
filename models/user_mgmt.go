@@ -138,17 +138,17 @@ type UserGroup struct {
 
 // User struct - struct for Users
 type User struct {
-	UserName           string                                `json:"username" bson:"username" validate:"min=3,max=40,in_charset|email"`
-	ExternalProviderID string                                `json:"external_provider_id"`
-	Password           string                                `json:"password" bson:"password" validate:"required,min=5"`
-	IsAdmin            bool                                  `json:"isadmin" bson:"isadmin"` // deprecated
-	IsSuperAdmin       bool                                  `json:"issuperadmin"`           // deprecated
-	RemoteGwIDs        map[string]struct{}                   `json:"remote_gw_ids"`          // deprecated
-	AuthType           AuthType                              `json:"auth_type"`
-	UserGroups         map[UserGroupID]struct{}              `json:"user_group_ids"`
-	PlatformRoleID     UserRoleID                            `json:"platform_role_id"`
-	NetworkRoles       map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
-	LastLoginTime      time.Time                             `json:"last_login_time"`
+	UserName                   string                                `json:"username" bson:"username" validate:"min=3,max=40,in_charset|email"`
+	ExternalIdentityProviderID string                                `json:"external_identity_provider_id"`
+	Password                   string                                `json:"password" bson:"password" validate:"required,min=5"`
+	IsAdmin                    bool                                  `json:"isadmin" bson:"isadmin"` // deprecated
+	IsSuperAdmin               bool                                  `json:"issuperadmin"`           // deprecated
+	RemoteGwIDs                map[string]struct{}                   `json:"remote_gw_ids"`          // deprecated
+	AuthType                   AuthType                              `json:"auth_type"`
+	UserGroups                 map[UserGroupID]struct{}              `json:"user_group_ids"`
+	PlatformRoleID             UserRoleID                            `json:"platform_role_id"`
+	NetworkRoles               map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
+	LastLoginTime              time.Time                             `json:"last_login_time"`
 }
 
 type ReturnUserWithRolesAndGroups struct {

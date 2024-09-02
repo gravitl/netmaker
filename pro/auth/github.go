@@ -86,7 +86,7 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		_, err := logic.GetUser(content.Email)
 		if err != nil {
 			user.UserName = content.Email
-			user.ExternalProviderID = content.Login
+			user.ExternalIdentityProviderID = content.Login
 			database.DeleteRecord(database.USERS_TABLE_NAME, content.Login)
 			d, _ := json.Marshal(user)
 			database.Insert(user.UserName, string(d), database.USERS_TABLE_NAME)
@@ -103,7 +103,7 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 					return
 				}
-				user.ExternalProviderID = content.Login
+				user.ExternalIdentityProviderID = content.Login
 				if err = logic.CreateUser(&user); err != nil {
 					handleSomethingWentWrong(w)
 					return

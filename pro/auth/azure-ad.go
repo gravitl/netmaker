@@ -85,7 +85,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		_, err := logic.GetUser(content.Email)
 		if err != nil {
 			user.UserName = content.Email
-			user.ExternalProviderID = content.UserPrincipalName
+			user.ExternalIdentityProviderID = content.UserPrincipalName
 			database.DeleteRecord(database.USERS_TABLE_NAME, content.UserPrincipalName)
 			d, _ := json.Marshal(user)
 			database.Insert(user.UserName, string(d), database.USERS_TABLE_NAME)
@@ -101,7 +101,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 					return
 				}
-				user.ExternalProviderID = content.UserPrincipalName
+				user.ExternalIdentityProviderID = content.UserPrincipalName
 				if err = logic.CreateUser(&user); err != nil {
 					handleSomethingWentWrong(w)
 					return
