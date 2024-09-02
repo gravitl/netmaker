@@ -203,7 +203,7 @@ func getGithubUserInfo(state, code string) (*OAuthUser, error) {
 	userInfo.AccessToken = string(data)
 	if userInfo.Email == "" {
 		// if user's email is not made public, get the info from the github emails api
-		logger.Log(0, "=======> fetching user email from github api")
+		logger.Log(2, "fetching user email from github api")
 		userInfo.Email, err = getGithubEmailsInfo(token.AccessToken)
 		if err != nil {
 			logger.Log(0, "failed to fetch user's email from github: ", err.Error())
