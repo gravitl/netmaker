@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -60,7 +61,7 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 	var content, err = getGithubUserInfo(rState, rCode)
 	if err != nil {
 		logger.Log(1, "error when getting user info from github:", err.Error())
-		if strings.Contains(err.Error(), "invalid oauth state") {
+		if strings.Contains(err.Error(), "invalid oauth state") || strings.Contains(err.Error(), "failed to fetch user email from SSO state") {
 			handleOauthNotValid(w)
 			return
 		}
@@ -74,11 +75,25 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		inviteExists = true
 	}
 	// check if user approval is already pending
-	if !inviteExists && logic.IsPendingUser(content.Login) {
+	if !inviteExists && logic.IsPendingUser(content.Email) {
 		handleOauthUserSignUpApprovalPending(w)
 		return
 	}
-	_, err = logic.GetUser(content.Login)
+	// if user exists with provider ID, convert them into email ID
+	user, err := logic.GetUser(content.Login)
+	if err == nil {
+		// checks if user exists with email
+		_, err := logic.GetUser(content.Email)
+		if err != nil {
+			user.UserName = content.Email
+			user.ExternalProviderID = content.Login
+			database.DeleteRecord(database.USERS_TABLE_NAME, content.Login)
+			d, _ := json.Marshal(user)
+			database.Insert(user.UserName, string(d), database.USERS_TABLE_NAME)
+		}
+
+	}
+	_, err = logic.GetUser(content.Email)
 	if err != nil {
 		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
 			if inviteExists {
@@ -88,20 +103,20 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 					return
 				}
-				user.UserName = content.Login // overrides email with github id
+				user.ExternalProviderID = content.Login
 				if err = logic.CreateUser(&user); err != nil {
 					handleSomethingWentWrong(w)
 					return
 				}
 				logic.DeleteUserInvite(content.Email)
-				logic.DeletePendingUser(content.Login)
+				logic.DeletePendingUser(content.Email)
 			} else {
-				if !isEmailAllowed(content.Login) {
+				if !isEmailAllowed(content.Email) {
 					handleOauthUserNotAllowedToSignUp(w)
 					return
 				}
 				err = logic.InsertPendingUser(&models.User{
-					UserName: content.Login,
+					UserName: content.Email,
 				})
 				if err != nil {
 					handleSomethingWentWrong(w)
@@ -115,7 +130,7 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	user, err := logic.GetUser(content.Login)
+	user, err = logic.GetUser(content.Email)
 	if err != nil {
 		handleOauthUserNotFound(w)
 		return
@@ -135,7 +150,7 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	// send a netmaker jwt token
 	var authRequest = models.UserAuthParams{
-		UserName: content.Login,
+		UserName: content.Email,
 		Password: newPass,
 	}
 
@@ -145,11 +160,11 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Log(1, "completed github OAuth sigin in for", content.Login)
-	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+content.Login, http.StatusPermanentRedirect)
+	logger.Log(1, "completed github OAuth sigin in for", content.Email)
+	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+content.Email, http.StatusPermanentRedirect)
 }
 
-func getGithubUserInfo(state string, code string) (*OAuthUser, error) {
+func getGithubUserInfo(state, code string) (*OAuthUser, error) {
 	oauth_state_string, isValid := logic.IsStateValid(state)
 	if (!isValid || state != oauth_state_string) && !isStateCached(state) {
 		return nil, fmt.Errorf("invalid oauth state")
@@ -187,11 +202,54 @@ func getGithubUserInfo(state string, code string) (*OAuthUser, error) {
 	}
 	userInfo.AccessToken = string(data)
 	if userInfo.Email == "" {
-		userInfo.Email = getUserEmailFromClaims(token.AccessToken)
+		// if user's email is not made public, get the info from the github emails api
+		logger.Log(0, "=======> fetching user email from github api")
+		userInfo.Email, err = getGithubEmailsInfo(token.AccessToken)
+		if err != nil {
+			logger.Log(0, "failed to fetch user's email from github: ", err.Error())
+		}
+	}
+	if userInfo.Email == "" {
+		err = errors.New("failed to fetch user email from SSO state")
+		return userInfo, err
 	}
 	return userInfo, nil
 }
 
 func verifyGithubUser(token *oauth2.Token) bool {
 	return token.Valid()
+}
+
+func getGithubEmailsInfo(accessToken string) (string, error) {
+
+	var httpClient = &http.Client{}
+	var httpReq, reqErr = http.NewRequest("GET", "https://api.github.com/user/emails", nil)
+	if reqErr != nil {
+		return "", fmt.Errorf("failed to create request to GitHub")
+	}
+	httpReq.Header.Add("Accept", "application/vnd.github.v3+json")
+	httpReq.Header.Set("Authorization", "token "+accessToken)
+	response, err := httpClient.Do(httpReq)
+	if err != nil {
+		return "", fmt.Errorf("failed getting user info: %s", err.Error())
+	}
+	defer response.Body.Close()
+	contents, err := io.ReadAll(response.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed reading response body: %s", err.Error())
+	}
+
+	emailsInfo := []interface{}{}
+	err = json.Unmarshal(contents, &emailsInfo)
+	if err != nil {
+		return "", err
+	}
+	for _, info := range emailsInfo {
+		emailInfoMap := info.(map[string]interface{})
+		if emailInfoMap["primary"].(bool) {
+			return emailInfoMap["email"].(string), nil
+		}
+
+	}
+	return "", errors.New("email not found")
 }

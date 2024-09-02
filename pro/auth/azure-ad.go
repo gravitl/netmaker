@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -60,7 +61,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 	var content, err = getAzureUserInfo(rState, rCode)
 	if err != nil {
 		logger.Log(1, "error when getting user info from azure:", err.Error())
-		if strings.Contains(err.Error(), "invalid oauth state") {
+		if strings.Contains(err.Error(), "invalid oauth state") || strings.Contains(err.Error(), "failed to fetch user email from SSO state") {
 			handleOauthNotValid(w)
 			return
 		}
@@ -74,12 +75,23 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		inviteExists = true
 	}
 	// check if user approval is already pending
-	if !inviteExists && logic.IsPendingUser(content.UserPrincipalName) {
+	if !inviteExists && logic.IsPendingUser(content.Email) {
 		handleOauthUserSignUpApprovalPending(w)
 		return
 	}
-
-	_, err = logic.GetUser(content.UserPrincipalName)
+	// if user exists with provider ID, convert them into email ID
+	user, err := logic.GetUser(content.UserPrincipalName)
+	if err == nil {
+		_, err := logic.GetUser(content.Email)
+		if err != nil {
+			user.UserName = content.Email
+			user.ExternalProviderID = content.UserPrincipalName
+			database.DeleteRecord(database.USERS_TABLE_NAME, content.UserPrincipalName)
+			d, _ := json.Marshal(user)
+			database.Insert(user.UserName, string(d), database.USERS_TABLE_NAME)
+		}
+	}
+	_, err = logic.GetUser(content.Email)
 	if err != nil {
 		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
 			if inviteExists {
@@ -89,20 +101,20 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 					return
 				}
-				user.UserName = content.UserPrincipalName // override username with azure id
+				user.ExternalProviderID = content.UserPrincipalName
 				if err = logic.CreateUser(&user); err != nil {
 					handleSomethingWentWrong(w)
 					return
 				}
 				logic.DeleteUserInvite(content.Email)
-				logic.DeletePendingUser(content.UserPrincipalName)
+				logic.DeletePendingUser(content.Email)
 			} else {
-				if !isEmailAllowed(content.UserPrincipalName) {
+				if !isEmailAllowed(content.Email) {
 					handleOauthUserNotAllowedToSignUp(w)
 					return
 				}
 				err = logic.InsertPendingUser(&models.User{
-					UserName: content.UserPrincipalName,
+					UserName: content.Email,
 				})
 				if err != nil {
 					handleSomethingWentWrong(w)
@@ -116,7 +128,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	user, err := logic.GetUser(content.UserPrincipalName)
+	user, err = logic.GetUser(content.Email)
 	if err != nil {
 		handleOauthUserNotFound(w)
 		return
@@ -136,7 +148,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	// send a netmaker jwt token
 	var authRequest = models.UserAuthParams{
-		UserName: content.UserPrincipalName,
+		UserName: content.Email,
 		Password: newPass,
 	}
 
@@ -146,8 +158,8 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Log(1, "completed azure OAuth sigin in for", content.UserPrincipalName)
-	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+content.UserPrincipalName, http.StatusPermanentRedirect)
+	logger.Log(1, "completed azure OAuth sigin in for", content.Email)
+	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+content.Email, http.StatusPermanentRedirect)
 }
 
 func getAzureUserInfo(state string, code string) (*OAuthUser, error) {
@@ -186,6 +198,10 @@ func getAzureUserInfo(state string, code string) (*OAuthUser, error) {
 	userInfo.AccessToken = string(data)
 	if userInfo.Email == "" {
 		userInfo.Email = getUserEmailFromClaims(token.AccessToken)
+	}
+	if userInfo.Email == "" {
+		err = errors.New("failed to fetch user email from SSO state")
+		return userInfo, err
 	}
 	return userInfo, nil
 }
