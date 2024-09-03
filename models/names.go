@@ -235,8 +235,8 @@ var logoString = retrieveLogo()
 
 // GenerateNodeName - generates a random node name
 func GenerateNodeName() string {
-	rand.Seed(time.Now().UnixNano())
-	return SMALL_NAMES[rand.Intn(len(SMALL_NAMES))] + "-" + NAMES[seededRand.Intn(len(NAMES))]
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	return SMALL_NAMES[rng.Intn(len(SMALL_NAMES))] + "-" + NAMES[rng.Intn(len(NAMES))]
 }
 
 // RetrieveLogo - retrieves the ascii art logo for Netmaker
