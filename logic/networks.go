@@ -42,19 +42,35 @@ func SetAllocatedIpMap() error {
 		pMap := map[string]net.IP{}
 		netName := v.NetID
 
+		//nodes
 		nodes, err := GetNetworkNodes(netName)
 		if err != nil {
 			slog.Error("could not load node for network", netName, "error", err.Error())
-			continue
+		} else {
+			for _, n := range nodes {
+
+				if n.Address.IP != nil {
+					pMap[n.Address.IP.String()] = n.Address.IP
+				}
+				if n.Address6.IP != nil {
+					pMap[n.Address6.IP.String()] = n.Address6.IP
+				}
+			}
+
 		}
 
-		for _, n := range nodes {
-
-			if n.Address.IP != nil {
-				pMap[n.Address.IP.String()] = n.Address.IP
-			}
-			if n.Address6.IP != nil {
-				pMap[n.Address6.IP.String()] = n.Address6.IP
+		//extClients
+		extClients, err := GetNetworkExtClients(netName)
+		if err != nil {
+			slog.Error("could not load extClient for network", netName, "error", err.Error())
+		} else {
+			for _, extClient := range extClients {
+				if extClient.Address != "" {
+					pMap[extClient.Address] = net.ParseIP(extClient.Address)
+				}
+				if extClient.Address6 != "" {
+					pMap[extClient.Address6] = net.ParseIP(extClient.Address6)
+				}
 			}
 		}
 
