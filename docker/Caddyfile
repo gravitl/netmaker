@@ -25,6 +25,10 @@ https://api.{$NM_DOMAIN} {
 }
 
 # MQ
-wss://broker.{$NM_DOMAIN} {
-	reverse_proxy ws://mq:8883 # For EMQX websockets use `reverse_proxy ws://mq:8083`
+broker.{$NM_DOMAIN} {
+	@ws {
+			header Connection *Upgrade*
+			header Upgrade websocket
+		}
+	reverse_proxy @ws mq:8883
 }

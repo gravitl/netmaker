@@ -41,7 +41,7 @@ services:
     restart: always
 
   caddy:
-    image: caddy:2.6.2
+    image: caddy:2.8.4
     container_name: caddy
     env_file: ./netmaker.env
     restart: unless-stopped
