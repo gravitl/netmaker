@@ -80,10 +80,9 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthNotConfigured(w)
 		return
 	}
-
 	var inviteExists bool
 	// check if invite exists for User
-	in, err := logic.GetUserInvite(content.Login)
+	in, err := logic.GetUserInvite(content.Email)
 	if err == nil {
 		inviteExists = true
 	}
@@ -102,6 +101,7 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 					return
 				}
+				user.ExternalIdentityProviderID = content.Email
 				if err = logic.CreateUser(&user); err != nil {
 					handleSomethingWentWrong(w)
 					return

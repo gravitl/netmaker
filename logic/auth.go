@@ -278,6 +278,9 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 		user.UserName = userchange.UserName
 	}
 	if userchange.Password != "" {
+		if len(userchange.Password) < 5 {
+			return &models.User{}, errors.New("password requires min 5 characters")
+		}
 		// encrypt that password so we never see it again
 		hash, err := bcrypt.GenerateFromPassword([]byte(userchange.Password), 5)
 
@@ -306,7 +309,6 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 	if err != nil {
 		return &models.User{}, err
 	}
-
 	if err = database.DeleteRecord(database.USERS_TABLE_NAME, queryUser); err != nil {
 		return &models.User{}, err
 	}

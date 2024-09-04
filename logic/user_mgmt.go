@@ -66,6 +66,27 @@ func GetRole(roleID models.UserRoleID) (models.UserRolePermissionTemplate, error
 	return ur, nil
 }
 
+// ListPlatformRoles - lists user platform roles permission templates
+func ListPlatformRoles() ([]models.UserRolePermissionTemplate, error) {
+	data, err := database.FetchRecords(database.USER_PERMISSIONS_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return []models.UserRolePermissionTemplate{}, err
+	}
+	userRoles := []models.UserRolePermissionTemplate{}
+	for _, dataI := range data {
+		userRole := models.UserRolePermissionTemplate{}
+		err := json.Unmarshal([]byte(dataI), &userRole)
+		if err != nil {
+			continue
+		}
+		if userRole.NetworkID != "" {
+			continue
+		}
+		userRoles = append(userRoles, userRole)
+	}
+	return userRoles, nil
+}
+
 func userRolesInit() {
 	d, _ := json.Marshal(SuperAdminPermissionTemplate)
 	database.Insert(SuperAdminPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)

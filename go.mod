@@ -38,11 +38,9 @@ require (
 )
 
 require (
-	github.com/go-jose/go-jose/v3 v3.0.3
 	github.com/guumaster/tablewriter v0.0.10
 	github.com/matryer/is v1.4.1
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/resendlabs/resend-go v1.7.0
 	github.com/spf13/cobra v1.8.1
 	gopkg.in/mail.v2 v2.3.1
 )
@@ -50,6 +48,7 @@ require (
 require (
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.3 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/seancfoley/bintree v1.3.1 // indirect
