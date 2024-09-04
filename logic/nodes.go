@@ -413,7 +413,9 @@ func SetNodeDefaults(node *models.Node) {
 	}
 
 	node.SetLastModified()
-	node.SetLastCheckIn()
+	if node.LastCheckIn.IsZero() {
+		node.SetLastCheckIn()
+	}
 	node.SetDefaultConnected()
 	node.SetExpirationDateTime()
 }
