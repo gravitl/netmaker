@@ -15,7 +15,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: 'go.mod'
       - name: Build
         run: |
          env CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build main.go
@@ -29,7 +29,7 @@ jobs:
       - name: Setup go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: 'go.mod'
       - name: Build
         run: |
           cd cli
@@ -46,7 +46,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: 'go.mod'
       - name: run tests
         run: |
           go vet ./...
@@ -66,7 +66,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: 'go.mod'
       - name: run static checks
         run: |
           sudo apt update
