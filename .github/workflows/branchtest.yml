@@ -2,6 +2,11 @@ name: Deploy and Test Branch
 
 on:
   workflow_dispatch:
+    inputs:
+      branches:
+        description: 'Branch to deploy and test'
+        required: true
+        default: 'develop'
   pull_request:
       types: [opened, synchronize, reopened]
       branches: [develop]
@@ -28,7 +33,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: gravitl/netclient
-          ref: develop
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || 'develop' }}
       - name: check if branch exists
         id: getbranch 
         run: |
@@ -45,6 +50,6 @@ jobs:
     needs: [getbranch, skip-check]
     with:
       netclientbranch: ${{ needs.getbranch.outputs.netclientbranch }}
-      netmakerbranch: ${{ github.head_ref }}
+      netmakerbranch: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.head_ref }}
       tag: ${{ github.run_id }}-${{ github.run_attempt }}
     secrets: inherit          
