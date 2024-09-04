@@ -18,7 +18,7 @@ var htmlBaseTemplate = `<!DOCTYPE html>
 	<script type="text/javascript">
 	function redirect()
     {
-    	window.location.href="` + servercfg.GetFrontendURL() + `";
+    	window.location.href="` + fmt.Sprintf("https://dashboard.%s/login", servercfg.GetNmBaseDomain()) + `";
     }
 	</script>
 	<style>
