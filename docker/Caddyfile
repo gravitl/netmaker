@@ -30,5 +30,5 @@ broker.{$NM_DOMAIN} {
 			header Connection *Upgrade*
 			header Upgrade websocket
 		}
-	reverse_proxy @ws mq:8883
+	reverse_proxy @ws mq:8883   # For EMQX websockets use `reverse_proxy @ws mq:8083`
 }
