@@ -883,7 +883,7 @@ main (){
 	fi
 
 	INSTALL_TYPE="pro"
-	while getopts :cudv flag; do
+	while getopts :cudpv flag; do
 	case "${flag}" in
 	c)
 		INSTALL_TYPE="ce"
