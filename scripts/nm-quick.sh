@@ -747,16 +747,21 @@ setup_mesh() {
 	fi
 
 	echo "Obtaining a netmaker enrollment key..."
-
-	local tokenJson=$(nmctl enrollment_key create --tags netmaker --unlimited --networks netmaker)
-	TOKEN=$(jq -r '.token' <<<${tokenJson})
-	if test -z "$TOKEN"; then
-		echo "Error creating an enrollment key"
-		exit 1
+	local netmakerTag=$(nmctl enrollment_key list | jq '.[] | .tags[0]')
+	if [ "$netmakerTag" = "netmaker" ]; then
+		# key exists already, fetch token
+		TOKEN=$(nmctl enrollment_key list | jq '.[] | select(.tags[0]=="netmaker") | .token')
 	else
-		echo "Enrollment key ready"
+		local tokenJson=$(nmctl enrollment_key create --tags netmaker --unlimited --networks netmaker)
+		TOKEN=$(jq -r '.token' <<<${tokenJson})
+		if test -z "$TOKEN"; then
+			echo "Error creating an enrollment key"
+			exit 1
+		else
+			echo "Enrollment key ready"
+		fi
 	fi
-
+	
 	wait_seconds 3
 
 }
