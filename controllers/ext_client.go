@@ -633,10 +633,15 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		if changedID && servercfg.IsDNSMode() {
 			logic.SetDNS()
 		}
+		if replacePeers {
+			if err := mq.PublishDeletedClientPeerUpdate(&oldExtClient); err != nil {
+				slog.Error("error deleting old ext peers", "error", err.Error())
+			}
+		}
 		if sendPeerUpdate { // need to send a peer update to the ingress node as enablement of one of it's clients has changed
 			ingressNode, err := logic.GetNodeByID(newclient.IngressGatewayID)
 			if err == nil {
-				if err = mq.PublishPeerUpdate(replacePeers); err != nil {
+				if err = mq.PublishPeerUpdate(false); err != nil {
 					logger.Log(
 						1,
 						"error setting ext peers on",
@@ -663,7 +668,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 					slog.Error("Failed to get nodes", "error", err)
 					return
 				}
-				go mq.PublishSingleHostPeerUpdate(ingressHost, nodes, nil, []models.ExtClient{oldExtClient}, replacePeers, nil)
+				go mq.PublishSingleHostPeerUpdate(ingressHost, nodes, nil, []models.ExtClient{oldExtClient}, false, nil)
 			}
 		}
 
