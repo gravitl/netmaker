@@ -77,16 +77,18 @@ type CommonNode struct {
 // Node - a model of a network node
 type Node struct {
 	CommonNode
-	PendingDelete           bool                 `json:"pendingdelete"           bson:"pendingdelete"           yaml:"pendingdelete"`
-	LastModified            time.Time            `json:"lastmodified"            bson:"lastmodified"            yaml:"lastmodified"`
-	LastCheckIn             time.Time            `json:"lastcheckin"             bson:"lastcheckin"             yaml:"lastcheckin"`
-	LastPeerUpdate          time.Time            `json:"lastpeerupdate"          bson:"lastpeerupdate"          yaml:"lastpeerupdate"`
-	ExpirationDateTime      time.Time            `json:"expdatetime"             bson:"expdatetime"             yaml:"expdatetime"`
-	EgressGatewayNatEnabled bool                 `json:"egressgatewaynatenabled" bson:"egressgatewaynatenabled" yaml:"egressgatewaynatenabled"`
-	EgressGatewayRequest    EgressGatewayRequest `json:"egressgatewayrequest"    bson:"egressgatewayrequest"    yaml:"egressgatewayrequest"`
-	IngressGatewayRange     string               `json:"ingressgatewayrange"     bson:"ingressgatewayrange"     yaml:"ingressgatewayrange"`
-	IngressGatewayRange6    string               `json:"ingressgatewayrange6"    bson:"ingressgatewayrange6"    yaml:"ingressgatewayrange6"`
-	Metadata                string               `json:"metadata"`
+	PendingDelete              bool                 `json:"pendingdelete"           bson:"pendingdelete"           yaml:"pendingdelete"`
+	LastModified               time.Time            `json:"lastmodified"            bson:"lastmodified"            yaml:"lastmodified"`
+	LastCheckIn                time.Time            `json:"lastcheckin"             bson:"lastcheckin"             yaml:"lastcheckin"`
+	LastPeerUpdate             time.Time            `json:"lastpeerupdate"          bson:"lastpeerupdate"          yaml:"lastpeerupdate"`
+	ExpirationDateTime         time.Time            `json:"expdatetime"             bson:"expdatetime"             yaml:"expdatetime"`
+	EgressGatewayNatEnabled    bool                 `json:"egressgatewaynatenabled" bson:"egressgatewaynatenabled" yaml:"egressgatewaynatenabled"`
+	EgressGatewayRequest       EgressGatewayRequest `json:"egressgatewayrequest"    bson:"egressgatewayrequest"    yaml:"egressgatewayrequest"`
+	IngressGatewayRange        string               `json:"ingressgatewayrange"     bson:"ingressgatewayrange"     yaml:"ingressgatewayrange"`
+	IngressGatewayRange6       string               `json:"ingressgatewayrange6"    bson:"ingressgatewayrange6"    yaml:"ingressgatewayrange6"`
+	IngressPersistentKeepalive int32                `json:"ingresspersistentkeepalive"     bson:"ingresspersistentkeepalive"     yaml:"ingresspersistentkeepalive"`
+	IngressMTU                 int32                `json:"ingressmtu"     bson:"ingressmtu"     yaml:"ingressmtu"`
+	Metadata                   string               `json:"metadata"`
 	// == PRO ==
 	DefaultACL        string              `json:"defaultacl,omitempty"    bson:"defaultacl,omitempty"    yaml:"defaultacl,omitempty"    validate:"checkyesornoorunset"`
 	OwnerID           string              `json:"ownerid,omitempty"       bson:"ownerid,omitempty"       yaml:"ownerid,omitempty"`

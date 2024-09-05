@@ -163,9 +163,11 @@ type HostRelayRequest struct {
 
 // IngressRequest - ingress request struct
 type IngressRequest struct {
-	ExtclientDNS      string `json:"extclientdns"`
-	IsInternetGateway bool   `json:"is_internet_gw"`
-	Metadata          string `json:"metadata"`
+	ExtclientDNS        string `json:"extclientdns"`
+	IsInternetGateway   bool   `json:"is_internet_gw"`
+	Metadata            string `json:"metadata"`
+	PersistentKeepalive int32  `json:"persistentkeepalive"`
+	MTU                 int32  `json:"mtu"`
 }
 
 // InetNodeReq - exit node request struct
