@@ -880,6 +880,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 				Metadata:          node.Metadata,
 				AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 				NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
+				ExpiryTime:        proLogic.GetExtClientExpiryTime(user),
 			})
 			userGws[node.Network] = gws
 			delete(userGwNodes, node.ID.String())
@@ -918,6 +919,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			Metadata:          node.Metadata,
 			AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 			NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
+			ExpiryTime:        proLogic.GetExtClientExpiryTime(user),
 		})
 		userGws[node.Network] = gws
 	}

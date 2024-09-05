@@ -43,6 +43,7 @@ type UserRemoteGws struct {
 	Metadata          string    `json:"metadata"`
 	AllowedEndpoints  []string  `json:"allowed_endpoints"`
 	NetworkAddresses  []string  `json:"network_addresses"`
+	ExpiryTime        time.Time `json:"expiry_time"`
 }
 
 // UserRemoteGwsReq - struct to hold user remote acccess gws req
