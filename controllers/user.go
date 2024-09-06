@@ -23,6 +23,8 @@ var (
 	upgrader = websocket.Upgrader{}
 )
 
+var ListRoles = listRoles
+
 func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/adm/hassuperadmin", hasSuperAdmin).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/adm/createsuperadmin", createSuperAdmin).Methods(http.MethodPost)
@@ -35,6 +37,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUser)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserV1)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users", logic.SecurityCheck(true, http.HandlerFunc(getUsers))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/roles", logic.SecurityCheck(true, http.HandlerFunc(ListRoles))).Methods(http.MethodGet)
 
 }
 
@@ -407,6 +410,9 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if !servercfg.IsPro {
+		user.PlatformRoleID = models.AdminRole
+	}
 
 	if user.PlatformRoleID == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("platform role is missing"), "badrequest"))
@@ -709,4 +715,25 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// Start handling the session
 	go auth.SessionHandler(conn)
+}
+
+// @Summary     lists all user roles.
+// @Router      /api/v1/user/roles [get]
+// @Tags        Users
+// @Param       role_id param string true "roleid required to get the role details"
+// @Success     200 {object}  []models.UserRolePermissionTemplate
+// @Failure     500 {object} models.ErrorResponse
+func listRoles(w http.ResponseWriter, r *http.Request) {
+	var roles []models.UserRolePermissionTemplate
+	var err error
+	roles, err = logic.ListPlatformRoles()
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
+			Code:    http.StatusInternalServerError,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	logic.ReturnSuccessResponseWithJson(w, r, roles, "successfully fetched user roles permission templates")
 }

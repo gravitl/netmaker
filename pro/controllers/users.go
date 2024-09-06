@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -29,7 +30,6 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/oauth/register/{regKey}", proAuth.RegisterHostSSO).Methods(http.MethodGet)
 
 	// User Role Handlers
-	r.HandleFunc("/api/v1/users/roles", logic.SecurityCheck(true, http.HandlerFunc(listRoles))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/role", logic.SecurityCheck(true, http.HandlerFunc(getRole))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/role", logic.SecurityCheck(true, http.HandlerFunc(createRole))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/role", logic.SecurityCheck(true, http.HandlerFunc(updateRole))).Methods(http.MethodPut)
@@ -218,8 +218,12 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			NetworkRoles:   inviteReq.NetworkRoles,
 			InviteCode:     logic.RandomString(8),
 		}
+		frontendURL := strings.TrimSuffix(servercfg.GetFrontendURL(), "/")
+		if frontendURL == "" {
+			frontendURL = fmt.Sprintf("https://dashboard.%s", servercfg.GetNmBaseDomain())
+		}
 		u, err := url.Parse(fmt.Sprintf("%s/invite?email=%s&invite_code=%s",
-			servercfg.GetFrontendURL(), url.QueryEscape(invite.Email), url.QueryEscape(invite.InviteCode)))
+			frontendURL, url.QueryEscape(invite.Email), url.QueryEscape(invite.InviteCode)))
 		if err != nil {
 			slog.Error("failed to parse to invite url", "error", err)
 			return
@@ -502,12 +506,12 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 // @Param       role_id param string true "roleid required to get the role details"
 // @Success     200 {object}  []models.UserRolePermissionTemplate
 // @Failure     500 {object} models.ErrorResponse
-func listRoles(w http.ResponseWriter, r *http.Request) {
+func ListRoles(w http.ResponseWriter, r *http.Request) {
 	platform, _ := url.QueryUnescape(r.URL.Query().Get("platform"))
 	var roles []models.UserRolePermissionTemplate
 	var err error
 	if platform == "true" {
-		roles, err = proLogic.ListPlatformRoles()
+		roles, err = logic.ListPlatformRoles()
 	} else {
 		roles, err = proLogic.ListNetworkRoles()
 	}
@@ -816,21 +820,18 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
-	logger.Log(0, "------------> 1. getUserRemoteAccessGwsV1")
 	var params = mux.Vars(r)
 	username := params["username"]
 	if username == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("required params username"), "badrequest"))
 		return
 	}
-	logger.Log(0, "------------> 2. getUserRemoteAccessGwsV1")
 	user, err := logic.GetUser(username)
 	if err != nil {
 		logger.Log(0, username, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
 		return
 	}
-	logger.Log(0, "------------> 3. getUserRemoteAccessGwsV1")
 	remoteAccessClientID := r.URL.Query().Get("remote_access_clientid")
 	var req models.UserRemoteGwsReq
 	if remoteAccessClientID == "" {
@@ -841,7 +842,6 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	logger.Log(0, "------------> 4. getUserRemoteAccessGwsV1")
 	reqFromMobile := r.URL.Query().Get("from_mobile") == "true"
 	if req.RemoteAccessClientID == "" && remoteAccessClientID == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("remote access client id cannot be empty"), "badrequest"))
@@ -851,15 +851,12 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		req.RemoteAccessClientID = remoteAccessClientID
 	}
 	userGws := make(map[string][]models.UserRemoteGws)
-	logger.Log(0, "------------> 5. getUserRemoteAccessGwsV1")
 	allextClients, err := logic.GetAllExtClients()
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logger.Log(0, "------------> 6. getUserRemoteAccessGwsV1")
 	userGwNodes := proLogic.GetUserRAGNodes(*user)
-	logger.Log(0, fmt.Sprintf("1. User Gw Nodes: %+v", userGwNodes))
 	for _, extClient := range allextClients {
 		node, ok := userGwNodes[extClient.IngressGatewayID]
 		if !ok {
@@ -895,10 +892,8 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			delete(userGwNodes, node.ID.String())
 		}
 	}
-	logger.Log(0, fmt.Sprintf("2. User Gw Nodes: %+v", userGwNodes))
 	// add remaining gw nodes to resp
 	for gwID := range userGwNodes {
-		logger.Log(0, "RAG ---> 1")
 		node, err := logic.GetNodeByID(gwID)
 		if err != nil {
 			continue
@@ -909,7 +904,6 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		if node.PendingDelete {
 			continue
 		}
-		logger.Log(0, "RAG ---> 2")
 		host, err := logic.GetHost(node.HostID.String())
 		if err != nil {
 			continue
@@ -918,7 +912,6 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			slog.Error("failed to get node network", "error", err)
 		}
-		logger.Log(0, "RAG ---> 3")
 		gws := userGws[node.Network]
 
 		gws = append(gws, models.UserRemoteGws{

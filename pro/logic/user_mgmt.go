@@ -201,27 +201,6 @@ func ListNetworkRoles() ([]models.UserRolePermissionTemplate, error) {
 	return userRoles, nil
 }
 
-// ListPlatformRoles - lists user platform roles permission templates
-func ListPlatformRoles() ([]models.UserRolePermissionTemplate, error) {
-	data, err := database.FetchRecords(database.USER_PERMISSIONS_TABLE_NAME)
-	if err != nil && !database.IsEmptyRecord(err) {
-		return []models.UserRolePermissionTemplate{}, err
-	}
-	userRoles := []models.UserRolePermissionTemplate{}
-	for _, dataI := range data {
-		userRole := models.UserRolePermissionTemplate{}
-		err := json.Unmarshal([]byte(dataI), &userRole)
-		if err != nil {
-			continue
-		}
-		if userRole.NetworkID != "" {
-			continue
-		}
-		userRoles = append(userRoles, userRole)
-	}
-	return userRoles, nil
-}
-
 func ValidateCreateRoleReq(userRole *models.UserRolePermissionTemplate) error {
 	// check if role exists with this id
 	_, err := logic.GetRole(userRole.ID)
@@ -532,7 +511,7 @@ func HasNetworkRsrcScope(permissionTemplate models.UserRolePermissionTemplate, n
 func GetUserRAGNodes(user models.User) (gws map[string]models.Node) {
 	gws = make(map[string]models.Node)
 	userGwAccessScope := GetUserNetworkRolesWithRemoteVPNAccess(user)
-	logger.Log(0, fmt.Sprintf("User Gw Access Scope: %+v", userGwAccessScope))
+	logger.Log(3, fmt.Sprintf("User Gw Access Scope: %+v", userGwAccessScope))
 	_, allNetAccess := userGwAccessScope["*"]
 	nodes, err := logic.GetAllNodes()
 	if err != nil {

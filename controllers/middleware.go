@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 )
@@ -18,6 +17,12 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
+		}
+		if r.Method == http.MethodPost && route == "/api/extclients/{network}/{nodeid}" {
+			node, err := logic.GetNodeByID(params["nodeid"])
+			if err == nil {
+				params["network"] = node.Network
+			}
 		}
 		r.Header.Set("IS_GLOBAL_ACCESS", "no")
 		r.Header.Set("TARGET_RSRC", "")
@@ -99,7 +104,6 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		}
 
 		r.Header.Set("RSRC_TYPE", r.Header.Get("TARGET_RSRC"))
-		logger.Log(0, "URL ------> ", route)
 		handler.ServeHTTP(w, r)
 	})
 }
