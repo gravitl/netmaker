@@ -238,7 +238,7 @@ save_config() { (
 	save_config_item UI_IMAGE_TAG "$IMAGE_TAG"
 	# version-specific entries
 	if [ "$INSTALL_TYPE" = "pro" ]; then
-		save_config_item NETMAKER_TENANT_ID "$TENANT_ID"
+		save_config_item NETMAKER_TENANT_ID "$NETMAKER_TENANT_ID"
 		save_config_item LICENSE_KEY "$LICENSE_KEY"
 		if [ "$UPGRADE_FLAG" = "yes" ];then
 			save_config_item METRICS_EXPORTER "on"
@@ -575,9 +575,9 @@ set_install_vars() {
 		while [ -z "$LICENSE_KEY" ]; do
 			read -p "License Key: " LICENSE_KEY
 		done
-		unset TENANT_ID
-		while [ -z ${TENANT_ID} ]; do
-			read -p "Tenant ID: " TENANT_ID
+		unset NETMAKER_TENANT_ID
+		while [ -z ${NETMAKER_TENANT_ID} ]; do
+			read -p "Tenant ID: " NETMAKER_TENANT_ID
 		done
 	fi
 	wait_seconds 1
@@ -830,9 +830,9 @@ upgrade() {
 	while [ -z "$LICENSE_KEY" ]; do
 		read -p "License Key: " LICENSE_KEY
 	done
-	unset TENANT_ID
-	while [ -z ${TENANT_ID} ]; do
-		read -p "Tenant ID: " TENANT_ID
+	unset NETMAKER_TENANT_ID
+	while [ -z ${NETMAKER_TENANT_ID} ]; do
+		read -p "Tenant ID: " NETMAKER_TENANT_ID
 	done
 	save_config
 	# start docker and rebuild containers / networks
