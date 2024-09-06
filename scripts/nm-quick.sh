@@ -750,7 +750,7 @@ setup_mesh() {
 	local netmakerTag=$(nmctl enrollment_key list | jq '.[] | .tags[0]' | tr -d '"')
 	if [ ${netmakerTag} = "netmaker" ]; then
 		# key exists already, fetch token
-		TOKEN=$(nmctl enrollment_key list | jq '.[] | select(.tags[0]=="netmaker") | .token')
+		TOKEN=$(nmctl enrollment_key list | jq '.[] | select(.tags[0]=="netmaker") | .token' | tr -d '"')
 	else
 		local tokenJson=$(nmctl enrollment_key create --tags netmaker --unlimited --networks netmaker)
 		TOKEN=$(jq -r '.token' <<<${tokenJson})
