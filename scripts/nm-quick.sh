@@ -741,14 +741,14 @@ setup_mesh() {
 		echo "Creating netmaker network (10.101.0.0/16)"
 
 		# TODO causes "Error Status: 400 Response: {"Code":400,"Message":"could not find any records"}"
-		nmctl network create --name netmaker --ipv4_addr 10.101.0.0/16
+		nmctl network create --name netmaker --ipv4_addr 100.172.188.0/24
 
 		wait_seconds 5
 	fi
 
 	echo "Obtaining a netmaker enrollment key..."
-	local netmakerTag=$(nmctl enrollment_key list | jq '.[] | .tags[0]')
-	if [ "$netmakerTag" = "netmaker" ]; then
+	local netmakerTag=$(nmctl enrollment_key list | jq '.[] | .tags[0]' | tr -d '"')
+	if [ ${netmakerTag} = "netmaker" ]; then
 		# key exists already, fetch token
 		TOKEN=$(nmctl enrollment_key list | jq '.[] | select(.tags[0]=="netmaker") | .token')
 	else
