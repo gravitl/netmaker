@@ -47,7 +47,10 @@ func racAutoDisableHook() error {
 			continue
 		}
 		for _, client := range clients {
-			if (client.OwnerID == user.UserName) && !user.IsAdmin && !user.IsSuperAdmin && client.Enabled {
+			if (client.OwnerID == user.UserName) &&
+				user.PlatformRoleID != models.SuperAdminRole &&
+				user.PlatformRoleID != models.AdminRole &&
+				client.Enabled {
 				slog.Info(fmt.Sprintf("disabling ext client %s for user %s due to RAC autodisabling", client.ClientID, client.OwnerID))
 				if err := disableExtClient(&client); err != nil {
 					slog.Error("error disabling ext client in RAC autodisable hook", "error", err)
