@@ -3,7 +3,7 @@ name: Deploy and Test Branch
 on:
   workflow_dispatch:
     inputs:
-      branches:
+      branch:
         description: 'Branch to deploy and test'
         required: true
         default: 'develop'
@@ -37,6 +37,11 @@ jobs:
       - name: check if branch exists
         id: getbranch 
         run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BRANCH="${{ github.event.inputs.branch }}"
+          else
+            BRANCH="${{ github.head_ref }}"
+          fi
           if git show-ref ${{ github.head_ref}}; then
             echo branch exists
             echo "netclientbranch=${{ github.head_ref }}" >> $GITHUB_OUTPUT
