@@ -1034,3 +1034,18 @@ func UpdateUserGwAccess(currentUser, changeUser models.User) {
 	}
 
 }
+
+func IsUserAllowedAccessToNetwork(user models.User, networkID models.NetworkID) bool {
+	for userGID := range user.UserGroups {
+		userG, err := GetUserGroup(userGID)
+		if err == nil {
+			if _, ok := userG.NetworkRoles[networkID]; ok {
+				return true
+			}
+		}
+	}
+	if _, ok := user.NetworkRoles[networkID]; ok {
+		return true
+	}
+	return false
+}

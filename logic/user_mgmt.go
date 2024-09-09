@@ -24,6 +24,10 @@ var GetFilteredNodesByUserAccess = func(user models.User, nodes []models.Node) (
 	return
 }
 
+var IsUserAllowedAccessToNetwork = func(user models.User, networkID models.NetworkID) bool {
+	return false
+}
+
 var CreateRole = func(r models.UserRolePermissionTemplate) error {
 	return nil
 }

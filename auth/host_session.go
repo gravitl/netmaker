@@ -85,24 +85,29 @@ func SessionHandler(conn *websocket.Conn) {
 			return
 		}
 		req.Pass = req.Host.ID.String()
-		// user, err := logic.GetUser(req.User)
-		// if err != nil {
-		// 	logger.Log(0, "failed to get user", req.User, "from database")
-		// 	err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-		// 	if err != nil {
-		// 		logger.Log(0, "error during message writing:", err.Error())
-		// 	}
-		// 	return
-		// }
-		// if !user.IsAdmin && !user.IsSuperAdmin {
-		// 	logger.Log(0, "user", req.User, "is neither an admin or superadmin. denying registeration")
-		// 	conn.WriteMessage(messageType, []byte("cannot register with a non-admin or non-superadmin"))
-		// 	err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-		// 	if err != nil {
-		// 		logger.Log(0, "error during message writing:", err.Error())
-		// 	}
-		// 	return
-		// }
+		user, err := logic.GetUser(req.User)
+		if err != nil {
+			logger.Log(0, "failed to get user", req.User, "from database")
+			logic.InsertPendingUser(&models.User{
+				UserName: req.User,
+			})
+			conn.WriteMessage(messageType, []byte("waiting for admin approval"))
+			err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			if err != nil {
+				logger.Log(0, "error during message writing:", err.Error())
+			}
+			return
+		}
+		if user.PlatformRoleID != models.AdminRole && user.PlatformRoleID != models.SuperAdminRole {
+			// check if user has access to network
+			if !logic.IsUserAllowedAccessToNetwork(*user, models.NetworkID(registerMessage.Network)) {
+				err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+				if err != nil {
+					logger.Log(0, "error during message writing:", err.Error())
+				}
+				return
+			}
+		}
 
 		if err = netcache.Set(stateStr, req); err != nil { // give the user's host access in the DB
 			logger.Log(0, "machine failed to complete join on network,", registerMessage.Network, "-", err.Error())
