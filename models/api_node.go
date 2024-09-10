@@ -74,6 +74,8 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.IngressGatewayRange6 = currentNode.IngressGatewayRange6
 	convertedNode.DNSOn = a.DNSOn
 	convertedNode.IngressDNS = a.IngressDns
+	convertedNode.IngressPersistentKeepalive = a.IngressPersistentKeepalive
+	convertedNode.IngressMTU = a.IngressMTU
 	convertedNode.IsInternetGateway = a.IsInternetGateway
 	convertedNode.EgressGatewayRequest = currentNode.EgressGatewayRequest
 	convertedNode.EgressGatewayNatEnabled = currentNode.EgressGatewayNatEnabled
