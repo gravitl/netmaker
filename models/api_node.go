@@ -10,33 +10,35 @@ import (
 
 // ApiNode is a stripped down Node DTO that exposes only required fields to external systems
 type ApiNode struct {
-	ID                      string   `json:"id,omitempty" validate:"required,min=5,id_unique"`
-	HostID                  string   `json:"hostid,omitempty" validate:"required,min=5,id_unique"`
-	Address                 string   `json:"address" validate:"omitempty,cidrv4"`
-	Address6                string   `json:"address6" validate:"omitempty,cidrv6"`
-	LocalAddress            string   `json:"localaddress" validate:"omitempty,cidr"`
-	AllowedIPs              []string `json:"allowedips"`
-	LastModified            int64    `json:"lastmodified"`
-	ExpirationDateTime      int64    `json:"expdatetime"`
-	LastCheckIn             int64    `json:"lastcheckin"`
-	LastPeerUpdate          int64    `json:"lastpeerupdate"`
-	Network                 string   `json:"network"`
-	NetworkRange            string   `json:"networkrange"`
-	NetworkRange6           string   `json:"networkrange6"`
-	IsRelayed               bool     `json:"isrelayed"`
-	IsRelay                 bool     `json:"isrelay"`
-	RelayedBy               string   `json:"relayedby" bson:"relayedby" yaml:"relayedby"`
-	RelayedNodes            []string `json:"relaynodes" yaml:"relayedNodes"`
-	IsEgressGateway         bool     `json:"isegressgateway"`
-	IsIngressGateway        bool     `json:"isingressgateway"`
-	EgressGatewayRanges     []string `json:"egressgatewayranges"`
-	EgressGatewayNatEnabled bool     `json:"egressgatewaynatenabled"`
-	DNSOn                   bool     `json:"dnson"`
-	IngressDns              string   `json:"ingressdns"`
-	Server                  string   `json:"server"`
-	Connected               bool     `json:"connected"`
-	PendingDelete           bool     `json:"pendingdelete"`
-	Metadata                string   `json:"metadata"`
+	ID                         string   `json:"id,omitempty" validate:"required,min=5,id_unique"`
+	HostID                     string   `json:"hostid,omitempty" validate:"required,min=5,id_unique"`
+	Address                    string   `json:"address" validate:"omitempty,cidrv4"`
+	Address6                   string   `json:"address6" validate:"omitempty,cidrv6"`
+	LocalAddress               string   `json:"localaddress" validate:"omitempty,cidr"`
+	AllowedIPs                 []string `json:"allowedips"`
+	LastModified               int64    `json:"lastmodified"`
+	ExpirationDateTime         int64    `json:"expdatetime"`
+	LastCheckIn                int64    `json:"lastcheckin"`
+	LastPeerUpdate             int64    `json:"lastpeerupdate"`
+	Network                    string   `json:"network"`
+	NetworkRange               string   `json:"networkrange"`
+	NetworkRange6              string   `json:"networkrange6"`
+	IsRelayed                  bool     `json:"isrelayed"`
+	IsRelay                    bool     `json:"isrelay"`
+	RelayedBy                  string   `json:"relayedby" bson:"relayedby" yaml:"relayedby"`
+	RelayedNodes               []string `json:"relaynodes" yaml:"relayedNodes"`
+	IsEgressGateway            bool     `json:"isegressgateway"`
+	IsIngressGateway           bool     `json:"isingressgateway"`
+	EgressGatewayRanges        []string `json:"egressgatewayranges"`
+	EgressGatewayNatEnabled    bool     `json:"egressgatewaynatenabled"`
+	DNSOn                      bool     `json:"dnson"`
+	IngressDns                 string   `json:"ingressdns"`
+	IngressPersistentKeepalive int32    `json:"ingresspersistentkeepalive"`
+	IngressMTU                 int32    `json:"ingressmtu"`
+	Server                     string   `json:"server"`
+	Connected                  bool     `json:"connected"`
+	PendingDelete              bool     `json:"pendingdelete"`
+	Metadata                   string   `json:"metadata"`
 	// == PRO ==
 	DefaultACL        string              `json:"defaultacl,omitempty" validate:"checkyesornoorunset"`
 	IsFailOver        bool                `json:"is_fail_over"`
@@ -162,6 +164,8 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.EgressGatewayNatEnabled = nm.EgressGatewayNatEnabled
 	apiNode.DNSOn = nm.DNSOn
 	apiNode.IngressDns = nm.IngressDNS
+	apiNode.IngressPersistentKeepalive = nm.IngressPersistentKeepalive
+	apiNode.IngressMTU = nm.IngressMTU
 	apiNode.Server = nm.Server
 	apiNode.Connected = nm.Connected
 	apiNode.PendingDelete = nm.PendingDelete
