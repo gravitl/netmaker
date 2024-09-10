@@ -28,33 +28,40 @@ jobs:
     if: ${{ needs.skip-check.outputs.skip != 'true' }}
     outputs:
       netclientbranch: ${{ steps.getbranch.outputs.netclientbranch }}
+      netmakerbranch: ${{ steps.getbranch.outputs.netmakerbranch }}
     steps:
-      - name: checkout
+      - name: Determine branches
+        id: determine_branches
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "NETMAKER_BRANCH=${{ github.event.inputs.branch }}" >> $GITHUB_ENV
+            echo "NETCLIENT_BRANCH=${{ github.event.inputs.branch }}" >> $GITHUB_ENV
+          else
+            echo "NETMAKER_BRANCH=${{ github.head_ref }}" >> $GITHUB_ENV
+            echo "NETCLIENT_BRANCH=develop" >> $GITHUB_ENV
+          fi
+      - name: Checkout netclient repository
         uses: actions/checkout@v4
         with:
           repository: gravitl/netclient
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || 'develop' }}
-      - name: check if branch exists
+          fetch-depth: 0
+      - name: Check if netclient branch exists and set output
         id: getbranch 
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            BRANCH="${{ github.event.inputs.branch }}"
+          if git ls-remote --heads origin ${{ env.NETCLIENT_BRANCH }} | grep -q ${{ env.NETCLIENT_BRANCH }}; then
+            echo "netclient branch ${{ env.NETCLIENT_BRANCH }} exists"
+            echo "netclientbranch=${{ env.NETCLIENT_BRANCH }}" >> $GITHUB_OUTPUT
           else
-            BRANCH="${{ github.head_ref }}"
-          fi
-          if git show-ref ${{ github.head_ref}}; then
-            echo branch exists
-            echo "netclientbranch=${{ github.head_ref }}" >> $GITHUB_OUTPUT
-          else
-            echo branch does not exist
+            echo "netclient branch ${{ env.NETCLIENT_BRANCH }} does not exist, using develop"
             echo "netclientbranch=develop" >> $GITHUB_OUTPUT
           fi
+          echo "netmakerbranch=${{ env.NETMAKER_BRANCH }}" >> $GITHUB_OUTPUT
 
   branchtest:
     uses: gravitl/devops/.github/workflows/testdeploybranch.yml@master
     needs: [getbranch, skip-check]
     with:
       netclientbranch: ${{ needs.getbranch.outputs.netclientbranch }}
-      netmakerbranch: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || github.head_ref }}
+      netmakerbranch: ${{ needs.getbranch.outputs.netmakerbranch }}
       tag: ${{ github.run_id }}-${{ github.run_attempt }}
-    secrets: inherit          
+    secrets: inherit
