@@ -206,6 +206,10 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, inviteeEmail := range inviteReq.UserEmails {
 		// check if user with email exists, then ignore
+		if !email.IsValid(inviteeEmail) {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid email "+inviteeEmail), "badrequest"))
+			return
+		}
 		_, err := logic.GetUser(inviteeEmail)
 		if err == nil {
 			// user exists already, so ignore
