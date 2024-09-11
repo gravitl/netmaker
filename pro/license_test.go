@@ -4,11 +4,13 @@
 package pro
 
 import (
-	"github.com/gravitl/netmaker/config"
 	"testing"
+
+	"github.com/gravitl/netmaker/config"
+	proLogic "github.com/gravitl/netmaker/pro/logic"
 )
 
-func Test_getAccountsHost(t *testing.T) {
+func Test_GetAccountsHost(t *testing.T) {
 	tests := []struct {
 		name string
 		envK string
@@ -69,8 +71,8 @@ func Test_getAccountsHost(t *testing.T) {
 			if tt.envK != "" {
 				t.Setenv(tt.envK, tt.envV)
 			}
-			if got := getAccountsHost(); got != tt.want {
-				t.Errorf("getAccountsHost() = %v, want %v", got, tt.want)
+			if got := proLogic.GetAccountsHost(); got != tt.want {
+				t.Errorf("GetAccountsHost() = %v, want %v", got, tt.want)
 			}
 		})
 	}

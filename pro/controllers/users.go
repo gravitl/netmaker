@@ -206,6 +206,10 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, inviteeEmail := range inviteReq.UserEmails {
 		// check if user with email exists, then ignore
+		if !email.IsValid(inviteeEmail) {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid email "+inviteeEmail), "badrequest"))
+			return
+		}
 		_, err := logic.GetUser(inviteeEmail)
 		if err == nil {
 			// user exists already, so ignore
@@ -227,6 +231,14 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			slog.Error("failed to parse to invite url", "error", err)
 			return
+		}
+		if servercfg.DeployedByOperator() {
+			u, err = url.Parse(fmt.Sprintf("%s/invite?tenant_id=%s&email=%s&invite_code=%s",
+				proLogic.GetAccountsUIHost(), url.QueryEscape(servercfg.GetNetmakerTenantID()), url.QueryEscape(invite.Email), url.QueryEscape(invite.InviteCode)))
+			if err != nil {
+				slog.Error("failed to parse to invite url", "error", err)
+				return
+			}
 		}
 		invite.InviteURL = u.String()
 		err = logic.InsertUserInvite(invite)
