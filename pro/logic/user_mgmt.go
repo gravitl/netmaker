@@ -380,7 +380,6 @@ func DeleteRole(rid models.UserRoleID, force bool) error {
 			}
 		}
 	}
-
 	return database.DeleteRecord(database.USER_PERMISSIONS_TABLE_NAME, rid.String())
 }
 

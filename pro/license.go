@@ -20,6 +20,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -206,7 +207,7 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, bool
 
 	req, err := http.NewRequest(
 		http.MethodPost,
-		getAccountsHost()+"/api/v1/license/validate",
+		proLogic.GetAccountsHost()+"/api/v1/license/validate",
 		bytes.NewReader(requestBody),
 	)
 	if err != nil {
@@ -253,17 +254,6 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, bool
 
 	// at this point the error is irreversible, return it
 	return nil, false, err
-}
-
-func getAccountsHost() string {
-	switch servercfg.GetEnvironment() {
-	case "dev":
-		return accountsHostDevelopment
-	case "staging":
-		return accountsHostStaging
-	default:
-		return accountsHostProduction
-	}
 }
 
 func cacheResponse(response []byte) error {
