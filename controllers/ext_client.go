@@ -537,6 +537,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	var update models.CustomExtClient
 	//var oldExtClient models.ExtClient
 	var sendPeerUpdate bool
+	var replacePeers bool
 	err := json.NewDecoder(r.Body).Decode(&update)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ",
@@ -594,6 +595,11 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	if update.Enabled != oldExtClient.Enabled {
 		sendPeerUpdate = true
 	}
+	if update.PublicKey != oldExtClient.PublicKey {
+		//remove old peer entry
+		sendPeerUpdate = true
+		replacePeers = true
+	}
 	newclient := logic.UpdateExtClient(&oldExtClient, &update)
 	if err := logic.DeleteExtClient(oldExtClient.Network, oldExtClient.ClientID); err != nil {
 		slog.Error(
@@ -632,6 +638,11 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		if changedID && servercfg.IsDNSMode() {
 			logic.SetDNS()
+		}
+		if replacePeers {
+			if err := mq.PublishDeletedClientPeerUpdate(&oldExtClient); err != nil {
+				slog.Error("error deleting old ext peers", "error", err.Error())
+			}
 		}
 		if sendPeerUpdate { // need to send a peer update to the ingress node as enablement of one of it's clients has changed
 			ingressNode, err := logic.GetNodeByID(newclient.IngressGatewayID)
