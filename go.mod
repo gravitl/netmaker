@@ -28,7 +28,7 @@ require (
 require (
 	filippo.io/edwards25519 v1.1.0
 	github.com/c-robinson/iplib v1.0.8
-	github.com/posthog/posthog-go v0.0.0-20211028072449-93c17c49e2b0
+	github.com/posthog/posthog-go v1.2.21
 )
 
 require (
@@ -53,7 +53,6 @@ require (
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/seancfoley/bintree v1.3.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 )
 
