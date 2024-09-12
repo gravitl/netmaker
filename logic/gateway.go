@@ -164,6 +164,14 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	node.IngressGatewayRange = network.AddressRange
 	node.IngressGatewayRange6 = network.AddressRange6
 	node.IngressDNS = ingress.ExtclientDNS
+	node.IngressPersistentKeepalive = 20
+	if ingress.PersistentKeepalive != 0 {
+		node.IngressPersistentKeepalive = ingress.PersistentKeepalive
+	}
+	node.IngressMTU = 1420
+	if ingress.MTU != 0 {
+		node.IngressMTU = ingress.MTU
+	}
 	if servercfg.IsPro {
 		if _, exists := FailOverExists(node.Network); exists {
 			ResetFailedOverPeer(&node)

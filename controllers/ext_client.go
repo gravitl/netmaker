@@ -244,6 +244,9 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	if network.DefaultKeepalive != 0 {
 		keepalive = "PersistentKeepalive = " + strconv.Itoa(int(network.DefaultKeepalive))
 	}
+	if gwnode.IngressPersistentKeepalive != 0 {
+		keepalive = "PersistentKeepalive = " + strconv.Itoa(int(gwnode.IngressPersistentKeepalive))
+	}
 
 	gwendpoint := ""
 	if preferredIp == "" {
@@ -288,6 +291,9 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	defaultMTU := 1420
 	if host.MTU != 0 {
 		defaultMTU = host.MTU
+	}
+	if gwnode.IngressMTU != 0 {
+		defaultMTU = int(gwnode.IngressMTU)
 	}
 
 	postUp := strings.Builder{}
