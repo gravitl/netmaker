@@ -7,6 +7,27 @@ import (
 
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
+)
+
+// constants for accounts api hosts
+const (
+	// accountsHostDevelopment is the accounts api host for development environment
+	accountsHostDevelopment = "https://api.dev.accounts.netmaker.io"
+	// accountsHostStaging is the accounts api host for staging environment
+	accountsHostStaging = "https://api.staging.accounts.netmaker.io"
+	// accountsHostProduction is the accounts api host for production environment
+	accountsHostProduction = "https://api.accounts.netmaker.io"
+)
+
+// constants for accounts UI hosts
+const (
+	// accountsUIHostDevelopment is the accounts UI host for development environment
+	accountsUIHostDevelopment = "https://account.dev.netmaker.io"
+	// accountsUIHostStaging is the accounts UI host for staging environment
+	accountsUIHostStaging = "https://account.staging.netmaker.io"
+	// accountsUIHostProduction is the accounts UI host for production environment
+	accountsUIHostProduction = "https://account.netmaker.io"
 )
 
 func NetworkPermissionsCheck(username string, r *http.Request) error {
@@ -185,4 +206,26 @@ func checkPermissionScopeWithReqMethod(scope models.RsrcPermissionScope, reqmeth
 		return nil
 	}
 	return errors.New("operation not permitted")
+}
+
+func GetAccountsHost() string {
+	switch servercfg.GetEnvironment() {
+	case "dev":
+		return accountsHostDevelopment
+	case "staging":
+		return accountsHostStaging
+	default:
+		return accountsHostProduction
+	}
+}
+
+func GetAccountsUIHost() string {
+	switch servercfg.GetEnvironment() {
+	case "dev":
+		return accountsUIHostDevelopment
+	case "staging":
+		return accountsUIHostStaging
+	default:
+		return accountsUIHostProduction
+	}
 }
