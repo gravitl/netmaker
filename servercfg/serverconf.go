@@ -92,6 +92,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.JwtValidityDuration = GetJwtValidityDuration()
 	cfg.RacAutoDisable = GetRacAutoDisable()
 	cfg.MetricInterval = GetMetricInterval()
+	cfg.ManageDNS = GetManageDNS()
 	return cfg
 }
 
@@ -136,6 +137,7 @@ func GetServerInfo() models.ServerConfig {
 	cfg.Version = GetVersion()
 	cfg.IsPro = IsPro
 	cfg.MetricInterval = GetMetricInterval()
+	cfg.ManageDNS = GetManageDNS()
 	return cfg
 }
 
@@ -648,6 +650,15 @@ func GetMetricInterval() string {
 		mi = os.Getenv("PUBLISH_METRIC_INTERVAL")
 	}
 	return mi
+}
+
+// GetManageDNS - if manage DNS enabled or not
+func GetManageDNS() bool {
+	enabled := true
+	if os.Getenv("MANAGE_DNS") != "" {
+		enabled = os.Getenv("MANAGE_DNS") == "true"
+	}
+	return enabled
 }
 
 // GetBatchPeerUpdate - if batch peer update
