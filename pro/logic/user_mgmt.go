@@ -508,6 +508,31 @@ func HasNetworkRsrcScope(permissionTemplate models.UserRolePermissionTemplate, n
 	_, ok = rsrcScope[rsrcID]
 	return ok
 }
+
+func DoesUserHaveAccessToRAGNode(user models.User, node models.Node) bool {
+	userGwAccessScope := GetUserNetworkRolesWithRemoteVPNAccess(user)
+	logger.Log(3, fmt.Sprintf("User Gw Access Scope: %+v", userGwAccessScope))
+	_, allNetAccess := userGwAccessScope["*"]
+	if node.IsIngressGateway && !node.PendingDelete {
+		if allNetAccess {
+			return true
+		} else {
+			gwRsrcMap := userGwAccessScope[models.NetworkID(node.Network)]
+			scope, ok := gwRsrcMap[models.AllRemoteAccessGwRsrcID]
+			if !ok {
+				if scope, ok = gwRsrcMap[models.RsrcID(node.ID.String())]; !ok {
+					return false
+				}
+			}
+			if scope.VPNaccess {
+				return true
+			}
+
+		}
+	}
+	return false
+}
+
 func GetUserRAGNodes(user models.User) (gws map[string]models.Node) {
 	gws = make(map[string]models.Node)
 	userGwAccessScope := GetUserNetworkRolesWithRemoteVPNAccess(user)
