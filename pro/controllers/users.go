@@ -262,6 +262,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			}
 		}(invite)
 	}
+	logic.ReturnSuccessResponse(w, r, "triggered user invites")
 
 }
 
