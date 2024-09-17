@@ -60,7 +60,7 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}/remote_access_gw", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserRemoteAccessGwsV1)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/{username}/remote_access_gw/networks", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserRemoteAccessNetworks)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/{username}/remote_access_gw/network/{network}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserRemoteAccessNetworkGateways)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/{username}/remote_access_gw/{remote_access_gateway_id}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserRemoteAccessNetworkGateways)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/{username}/remote_access_gw/{remote_access_gateway_id}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getRemoteAccessGatewayConf)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/ingress/{ingress_id}", logic.SecurityCheck(true, http.HandlerFunc(ingressGatewayUsers))).Methods(http.MethodGet)
 
 }
@@ -842,6 +842,7 @@ func getUserRemoteAccessNetworks(w http.ResponseWriter, r *http.Request) {
 	}
 	userGws := make(map[string][]models.UserRemoteGws)
 	networks := []models.Network{}
+	networkMap := make(map[string]struct{})
 	userGwNodes := proLogic.GetUserRAGNodes(*user)
 	for _, node := range userGwNodes {
 		network, err := logic.GetNetwork(node.Network)
@@ -849,6 +850,10 @@ func getUserRemoteAccessNetworks(w http.ResponseWriter, r *http.Request) {
 			slog.Error("failed to get node network", "error", err)
 			continue
 		}
+		if _, ok := networkMap[network.NetID]; ok {
+			continue
+		}
+		networkMap[network.NetID] = struct{}{}
 		networks = append(networks, network)
 	}
 
@@ -964,6 +969,9 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, extClient := range allextClients {
+		if extClient.Network != network.NetID || extClient.IngressGatewayID != node.ID.String() {
+			continue
+		}
 		if extClient.RemoteAccessClientID == req.RemoteAccessClientID && extClient.OwnerID == username {
 			userConf = extClient
 			userConf.AllowedIPs = logic.GetExtclientAllowedIPs(extClient)
