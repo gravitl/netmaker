@@ -28,6 +28,7 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		r.Header.Set("TARGET_RSRC", "")
 		r.Header.Set("RSRC_TYPE", "")
 		r.Header.Set("TARGET_RSRC_ID", "")
+		r.Header.Set("RAC", "")
 		r.Header.Set("NET_ID", params["network"])
 		if strings.Contains(route, "hosts") || strings.Contains(route, "nodes") {
 			r.Header.Set("TARGET_RSRC", models.HostRsrc.String())
@@ -36,6 +37,9 @@ func userMiddleWare(handler http.Handler) http.Handler {
 			r.Header.Set("TARGET_RSRC", models.DnsRsrc.String())
 		}
 		if strings.Contains(route, "users") {
+			if strings.Contains(route, "remote_access_gw") {
+				r.Header.Set("RAC", "true")
+			}
 			r.Header.Set("TARGET_RSRC", models.UserRsrc.String())
 		}
 		if strings.Contains(route, "ingress") {

@@ -59,7 +59,7 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}/remote_access_gw/{remote_access_gateway_id}", logic.SecurityCheck(true, http.HandlerFunc(attachUserToRemoteAccessGw))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/remote_access_gw/{remote_access_gateway_id}", logic.SecurityCheck(true, http.HandlerFunc(removeUserFromRemoteAccessGW))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/users/{username}/remote_access_gw", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserRemoteAccessGwsV1)))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/{username}/remote_access_gw/networks", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserRemoteAccessNetworks)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/{username}/remote_access_gw_network", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserRemoteAccessNetworks)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/{username}/remote_access_gw/network/{network}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserRemoteAccessNetworkGateways)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/{username}/remote_access_gw/{remote_access_gateway_id}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getRemoteAccessGatewayConf)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/ingress/{ingress_id}", logic.SecurityCheck(true, http.HandlerFunc(ingressGatewayUsers))).Methods(http.MethodGet)
@@ -949,6 +949,11 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
 		return
 	}
+	userGwNodes := proLogic.GetUserRAGNodes(*user)
+	if _, ok := userGwNodes[remoteGwID]; !ok {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("access denied"), "forbidden"))
+		return
+	}
 	node, err := logic.GetNodeByID(remoteGwID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch gw node %s, error: %v", remoteGwID, err), "badrequest"))
@@ -998,7 +1003,11 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		listenPort := logic.GetPeerListenPort(host)
-		userConf.IngressGatewayEndpoint = fmt.Sprintf("%s:%d", host.EndpointIP.String(), listenPort)
+		if host.EndpointIP.To4() == nil {
+			userConf.IngressGatewayEndpoint = fmt.Sprintf("[%s]:%d", host.EndpointIPv6.String(), listenPort)
+		} else {
+			userConf.IngressGatewayEndpoint = fmt.Sprintf("%s:%d", host.EndpointIP.String(), listenPort)
+		}
 		userConf.Enabled = true
 		parentNetwork, err := logic.GetNetwork(node.Network)
 		if err == nil { // check if parent network default ACL is enabled (yes) or not (no)
