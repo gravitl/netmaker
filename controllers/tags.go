@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logger"
@@ -44,20 +45,44 @@ func getAllTags(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {array} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
 func createTag(w http.ResponseWriter, r *http.Request) {
-	var tag models.Tag
-	err := json.NewDecoder(r.Body).Decode(&tag)
+	var req models.CreateTagReq
+	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		logger.Log(0, "error decoding request body: ",
 			err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	user, err := logic.GetUser(r.Header.Get("user"))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	go func() {
+		for _, hostID := range req.TaggedHosts {
+			h, err := logic.GetHost(hostID)
+			if err != nil {
+				continue
+			}
+			if h.Tags == nil {
+				h.Tags = make(map[models.TagID]struct{})
+			}
+			h.Tags[req.ID] = struct{}{}
+			logic.UpsertHost(h)
+		}
+	}()
+
+	tag := models.Tag{
+		ID:        req.ID,
+		CreatedBy: user.UserName,
+		CreatedAt: time.Now(),
+	}
 	err = logic.InsertTag(tag)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	logic.ReturnSuccessResponseWithJson(w, r, tag, "created tag successfully")
+	logic.ReturnSuccessResponseWithJson(w, r, req, "created tag successfully")
 }
 
 // @Summary     Update Tag
@@ -72,6 +97,11 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, "error decoding request body: ",
 			err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	_, err = logic.GetTag(updateTag.ID)
+	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}

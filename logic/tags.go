@@ -9,8 +9,8 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
-func GetTag(tagID string) (models.Tag, error) {
-	data, err := database.FetchRecord(database.TAG_TABLE_NAME, tagID)
+func GetTag(tagID models.TagID) (models.Tag, error) {
+	data, err := database.FetchRecord(database.TAG_TABLE_NAME, tagID.String())
 	if err != nil && !database.IsEmptyRecord(err) {
 		return models.Tag{}, err
 	}
@@ -76,15 +76,17 @@ func ListTags() ([]models.Tag, error) {
 
 func UpdateTag(req models.UpdateTagReq) {
 	tagHostsMap := GetHostsWithTag(req.ID)
-	for _, hostI := range req.TaggedHosts {
-		hostI := hostI
-
+	for _, hostID := range req.TaggedHosts {
+		hostI, err := GetHost(hostID)
+		if err != nil {
+			continue
+		}
 		if _, ok := tagHostsMap[hostI.ID.String()]; !ok {
 			if hostI.Tags == nil {
 				hostI.Tags = make(map[models.TagID]struct{})
 			}
 			hostI.Tags[req.ID] = struct{}{}
-			UpsertHost(&hostI)
+			UpsertHost(hostI)
 		} else {
 			delete(tagHostsMap, hostI.ID.String())
 		}

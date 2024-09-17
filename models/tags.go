@@ -14,6 +14,11 @@ type Tag struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type CreateTagReq struct {
+	ID          TagID    `json:"id"`
+	TaggedHosts []string `json:"tagged_hosts"`
+}
+
 type TagListResp struct {
 	Tag
 	UsedByCnt   int    `json:"used_by_count"`
@@ -22,5 +27,5 @@ type TagListResp struct {
 
 type UpdateTagReq struct {
 	Tag
-	TaggedHosts []Host `json:"tagged_hosts"`
+	TaggedHosts []string `json:"tagged_hosts"`
 }
