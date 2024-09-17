@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -1099,6 +1100,9 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			}
 
 			gws := userGws[node.Network]
+			if net.ParseIP(extClient.IngressGatewayEndpoint).To16() != nil {
+				extClient.IngressGatewayEndpoint = fmt.Sprintf("[%s]", extClient.IngressGatewayEndpoint)
+			}
 			extClient.AllowedIPs = logic.GetExtclientAllowedIPs(extClient)
 			gws = append(gws, models.UserRemoteGws{
 				GwID:              node.ID.String(),
@@ -1212,11 +1216,15 @@ func getAllowedRagEndpoints(ragNode *models.Node, ragHost *models.Host) []string
 		endpoints = append(endpoints, ragHost.EndpointIP.String())
 	}
 	if len(ragHost.EndpointIPv6) > 0 {
-		endpoints = append(endpoints, ragHost.EndpointIPv6.String())
+		endpoints = append(endpoints, fmt.Sprintf("[%s]", ragHost.EndpointIPv6.String()))
 	}
 	if servercfg.IsPro {
 		for _, ip := range ragNode.AdditionalRagIps {
-			endpoints = append(endpoints, ip.String())
+			if ip.To16() != nil {
+				endpoints = append(endpoints, fmt.Sprintf("[%s]", ip.String()))
+			} else {
+				endpoints = append(endpoints, ip.String())
+			}
 		}
 	}
 	return endpoints
