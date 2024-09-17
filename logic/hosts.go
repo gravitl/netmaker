@@ -572,3 +572,35 @@ func SortApiHosts(unsortedHosts []models.ApiHost) {
 		return unsortedHosts[i].ID < unsortedHosts[j].ID
 	})
 }
+
+func GetTagMapWithHosts() (tagHostMap map[models.TagID][]models.Host) {
+	tagHostMap = make(map[models.TagID][]models.Host)
+	hosts, _ := GetAllHosts()
+	for _, hostI := range hosts {
+		if hostI.Tags == nil {
+			continue
+		}
+		for hostTagID := range hostI.Tags {
+			if _, ok := tagHostMap[hostTagID]; ok {
+				tagHostMap[hostTagID] = append(tagHostMap[hostTagID], hostI)
+			} else {
+				tagHostMap[hostTagID] = []models.Host{hostI}
+			}
+		}
+	}
+	return
+}
+
+func GetHostsWithTag(tagID models.TagID) map[string]models.Host {
+	hMap := make(map[string]models.Host)
+	hosts, _ := GetAllHosts()
+	for _, hostI := range hosts {
+		if hostI.Tags == nil {
+			continue
+		}
+		if _, ok := hostI.Tags[tagID]; ok {
+			hMap[hostI.ID.String()] = hostI
+		}
+	}
+	return hMap
+}
