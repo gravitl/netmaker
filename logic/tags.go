@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"sync"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
 )
+
+var tagMutex = &sync.RWMutex{}
 
 func GetTag(tagID models.TagID) (models.Tag, error) {
 	data, err := database.FetchRecord(database.TAG_TABLE_NAME, tagID.String())
@@ -39,6 +42,8 @@ func DeleteTag(tagID string) error {
 }
 
 func ListTagsWithHosts() ([]models.TagListResp, error) {
+	tagMutex.RLock()
+	defer tagMutex.RUnlock()
 	tags, err := ListTags()
 	if err != nil {
 		return []models.TagListResp{}, err
@@ -75,6 +80,8 @@ func ListTags() ([]models.Tag, error) {
 }
 
 func UpdateTag(req models.UpdateTagReq) {
+	tagMutex.Lock()
+	defer tagMutex.Unlock()
 	tagHostsMap := GetHostsWithTag(req.ID)
 	for _, hostID := range req.TaggedHosts {
 		hostI, err := GetHost(hostID)
