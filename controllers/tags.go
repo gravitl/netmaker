@@ -2,7 +2,9 @@ package controller
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -18,6 +20,8 @@ func tagHandlers(r *mux.Router) {
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/tags", logic.SecurityCheck(true, http.HandlerFunc(updateTag))).
 		Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/tags", logic.SecurityCheck(true, http.HandlerFunc(deleteTag))).
+		Methods(http.MethodDelete)
 
 }
 
@@ -107,4 +111,24 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 	}
 	go logic.UpdateTag(updateTag)
 	logic.ReturnSuccessResponse(w, r, "updating tags")
+}
+
+// @Summary     Delete Tag
+// @Router      /api/v1/tags [delete]
+// @Tags        TAG
+// @Accept      json
+// @Success     200 {array} models.SuccessResponse
+// @Failure     500 {object} models.ErrorResponse
+func deleteTag(w http.ResponseWriter, r *http.Request) {
+	tagID, _ := url.QueryUnescape(r.URL.Query().Get("tag_id"))
+	if tagID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
+		return
+	}
+	err := logic.DeleteTag(models.TagID(tagID))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	logic.ReturnSuccessResponse(w, r, "deleted tag "+tagID)
 }

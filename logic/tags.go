@@ -12,6 +12,7 @@ import (
 
 var tagMutex = &sync.RWMutex{}
 
+// GetTag - fetches tag info
 func GetTag(tagID models.TagID) (models.Tag, error) {
 	data, err := database.FetchRecord(database.TAG_TABLE_NAME, tagID.String())
 	if err != nil && !database.IsEmptyRecord(err) {
@@ -25,6 +26,7 @@ func GetTag(tagID models.TagID) (models.Tag, error) {
 	return tag, nil
 }
 
+// InsertTag - creates new tag
 func InsertTag(tag models.Tag) error {
 	_, err := database.FetchRecord(database.TAG_TABLE_NAME, tag.ID.String())
 	if err == nil {
@@ -37,10 +39,24 @@ func InsertTag(tag models.Tag) error {
 	return database.Insert(tag.ID.String(), string(d), database.TAG_TABLE_NAME)
 }
 
-func DeleteTag(tagID string) error {
-	return database.DeleteRecord(database.TAG_TABLE_NAME, tagID)
+// DeleteTag - delete tag, will also untag hosts
+func DeleteTag(tagID models.TagID) error {
+	// cleanUp tags on hosts
+	hosts, err := GetAllHosts()
+	if err != nil {
+		return err
+	}
+	for _, hostI := range hosts {
+		hostI := hostI
+		if _, ok := hostI.Tags[tagID]; ok {
+			delete(hostI.Tags, tagID)
+			UpsertHost(&hostI)
+		}
+	}
+	return database.DeleteRecord(database.TAG_TABLE_NAME, tagID.String())
 }
 
+// ListTagsWithHosts - lists all tags with tagged hosts
 func ListTagsWithHosts() ([]models.TagListResp, error) {
 	tagMutex.RLock()
 	defer tagMutex.RUnlock()
@@ -61,6 +77,7 @@ func ListTagsWithHosts() ([]models.TagListResp, error) {
 	return resp, nil
 }
 
+// ListTags - lists all tags from DB
 func ListTags() ([]models.Tag, error) {
 
 	data, err := database.FetchRecords(database.TAG_TABLE_NAME)
@@ -79,6 +96,7 @@ func ListTags() ([]models.Tag, error) {
 	return tags, nil
 }
 
+// UpdateTag - updates and syncs hosts with tag update
 func UpdateTag(req models.UpdateTagReq) {
 	tagMutex.Lock()
 	defer tagMutex.Unlock()
