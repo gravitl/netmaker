@@ -156,6 +156,7 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		newTime,
 		enrollmentKeyBody.Networks,
 		enrollmentKeyBody.Tags,
+		enrollmentKeyBody.Groups,
 		enrollmentKeyBody.Unlimited,
 		relayId,
 	)
@@ -206,7 +207,7 @@ func updateEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	newEnrollmentKey, err := logic.UpdateEnrollmentKey(keyId, relayId)
+	newEnrollmentKey, err := logic.UpdateEnrollmentKey(keyId, relayId, enrollmentKeyBody.Groups)
 	if err != nil {
 		slog.Error("failed to update enrollment key", "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -307,6 +308,10 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+		newHost.Tags = make(map[models.TagID]struct{})
+		for _, tagI := range enrollmentKey.Groups {
+			newHost.Tags[tagI] = struct{}{}
+		}
 		if err = logic.CreateHost(&newHost); err != nil {
 			logger.Log(
 				0,
@@ -337,6 +342,10 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		logic.UpdateHostFromClient(&newHost, currHost)
+		currHost.Tags = make(map[models.TagID]struct{})
+		for _, tagI := range enrollmentKey.Groups {
+			currHost.Tags[tagI] = struct{}{}
+		}
 		err = logic.UpsertHost(currHost)
 		if err != nil {
 			slog.Error("failed to update host", "id", currHost.ID, "error", err)
