@@ -27,5 +27,6 @@ type TagListResp struct {
 
 type UpdateTagReq struct {
 	Tag
+	NewID       TagID    `json:"new_id"`
 	TaggedHosts []string `json:"tagged_hosts"`
 }

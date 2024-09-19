@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -104,10 +105,19 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	_, err = logic.GetTag(updateTag.ID)
+	tag, err := logic.GetTag(updateTag.ID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
+	}
+	updateTag.NewID = models.TagID(strings.TrimSpace(updateTag.NewID.String()))
+	if updateTag.NewID.String() != "" {
+		tag.ID = updateTag.NewID
+		err = logic.InsertTag(tag)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
 	}
 	go logic.UpdateTag(updateTag)
 	logic.ReturnSuccessResponse(w, r, "updating tags")

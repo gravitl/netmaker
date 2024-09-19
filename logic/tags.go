@@ -121,6 +121,18 @@ func UpdateTag(req models.UpdateTagReq) {
 		delete(deletedTaggedHost.Tags, req.ID)
 		UpsertHost(&deletedTaggedHost)
 	}
+	go func(req models.UpdateTagReq) {
+		if req.NewID != "" {
+			tagHostsMap = GetHostsWithTag(req.ID)
+			for _, hostI := range tagHostsMap {
+				hostI := hostI
+				delete(hostI.Tags, req.ID)
+				hostI.Tags[req.NewID] = struct{}{}
+				UpsertHost(&hostI)
+			}
+		}
+	}(req)
+
 }
 
 // SortTagEntrys - Sorts slice of Tag entries by their id
