@@ -36,10 +36,10 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if strings.Contains(route, "dns") {
 			r.Header.Set("TARGET_RSRC", models.DnsRsrc.String())
 		}
+		if strings.Contains(route, "rac") {
+			r.Header.Set("RAC", "true")
+		}
 		if strings.Contains(route, "users") {
-			if strings.Contains(route, "remote_access_gw") {
-				r.Header.Set("RAC", "true")
-			}
 			r.Header.Set("TARGET_RSRC", models.UserRsrc.String())
 		}
 		if strings.Contains(route, "ingress") {
