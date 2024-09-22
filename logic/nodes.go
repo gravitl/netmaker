@@ -420,6 +420,9 @@ func SetNodeDefaults(node *models.Node, resetConnected bool) {
 		node.SetDefaultConnected()
 	}
 	node.SetExpirationDateTime()
+	if node.Tags == nil {
+		node.Tags = make(map[models.TagID]struct{})
+	}
 }
 
 // GetRecordKey - get record key
