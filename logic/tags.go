@@ -15,7 +15,7 @@ var tagMutex = &sync.RWMutex{}
 // GetTag - fetches tag info
 func GetTag(tagID models.TagID) (models.Tag, error) {
 	data, err := database.FetchRecord(database.TAG_TABLE_NAME, tagID.String())
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil {
 		return models.Tag{}, err
 	}
 	tag := models.Tag{}
@@ -137,11 +137,21 @@ func UpdateTag(req models.UpdateTagReq, newID models.TagID) {
 			if node.Tags == nil {
 				node.Tags = make(map[models.TagID]struct{})
 			}
-			node.Tags[req.ID] = struct{}{}
+			if newID != "" {
+				node.Tags[newID] = struct{}{}
+			} else {
+				node.Tags[req.ID] = struct{}{}
+			}
 			UpsertNode(&node)
 		} else {
+			if newID != "" {
+				delete(node.Tags, req.ID)
+				node.Tags[newID] = struct{}{}
+				UpsertNode(&node)
+			}
 			delete(tagNodesMap, node.ID.String())
 		}
+
 	}
 	for _, deletedTaggedNode := range tagNodesMap {
 		deletedTaggedHost := deletedTaggedNode
