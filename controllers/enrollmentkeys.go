@@ -308,10 +308,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		newHost.Tags = make(map[models.TagID]struct{})
-		for _, tagI := range enrollmentKey.Groups {
-			newHost.Tags[tagI] = struct{}{}
-		}
+
 		if err = logic.CreateHost(&newHost); err != nil {
 			logger.Log(
 				0,
@@ -342,10 +339,6 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		logic.UpdateHostFromClient(&newHost, currHost)
-		currHost.Tags = make(map[models.TagID]struct{})
-		for _, tagI := range enrollmentKey.Groups {
-			currHost.Tags[tagI] = struct{}{}
-		}
 		err = logic.UpsertHost(currHost)
 		if err != nil {
 			slog.Error("failed to update host", "id", currHost.ID, "error", err)
@@ -364,5 +357,5 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&response)
 	// notify host of changes, peer and node updates
-	go auth.CheckNetRegAndHostUpdate(enrollmentKey.Networks, &newHost, enrollmentKey.Relay)
+	go auth.CheckNetRegAndHostUpdate(enrollmentKey.Networks, &newHost, enrollmentKey.Relay, enrollmentKey.Groups)
 }

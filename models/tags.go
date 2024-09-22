@@ -26,17 +26,23 @@ type Tag struct {
 type CreateTagReq struct {
 	TagName     string    `json:"tag_name"`
 	Network     NetworkID `json:"network"`
-	TaggedHosts []string  `json:"tagged_hosts"`
+	TaggedNodes []string  `json:"tagged_nodes"`
 }
 
 type TagListResp struct {
 	Tag
 	UsedByCnt   int    `json:"used_by_count"`
-	TaggedHosts []Host `json:"tagged_hosts"`
+	TaggedNodes []Node `json:"tagged_nodes"`
+}
+
+type TagListRespNodes struct {
+	Tag
+	UsedByCnt   int    `json:"used_by_count"`
+	TaggedNodes []Node `json:"tagged_nodes"`
 }
 
 type UpdateTagReq struct {
 	Tag
 	NewName     string   `json:"new_name"`
-	TaggedHosts []string `json:"tagged_hosts"`
+	TaggedNodes []string `json:"tagged_nodes"`
 }
