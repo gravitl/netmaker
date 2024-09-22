@@ -143,6 +143,8 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
+		// delete old Tag entry
+		logic.DeleteTag(updateTag.ID)
 	}
 	go logic.UpdateTag(updateTag, newID)
 	logic.ReturnSuccessResponse(w, r, "updating tags")
