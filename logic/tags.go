@@ -97,7 +97,7 @@ func ListTags() ([]models.Tag, error) {
 }
 
 // UpdateTag - updates and syncs hosts with tag update
-func UpdateTag(req models.UpdateTagReq) {
+func UpdateTag(req models.UpdateTagReq, newID models.TagID) {
 	tagMutex.Lock()
 	defer tagMutex.Unlock()
 	tagHostsMap := GetHostsWithTag(req.ID)
@@ -122,12 +122,12 @@ func UpdateTag(req models.UpdateTagReq) {
 		UpsertHost(&deletedTaggedHost)
 	}
 	go func(req models.UpdateTagReq) {
-		if req.NewID != "" {
+		if newID != "" {
 			tagHostsMap = GetHostsWithTag(req.ID)
 			for _, hostI := range tagHostsMap {
 				hostI := hostI
 				delete(hostI.Tags, req.ID)
-				hostI.Tags[req.NewID] = struct{}{}
+				hostI.Tags[newID] = struct{}{}
 				UpsertHost(&hostI)
 			}
 		}

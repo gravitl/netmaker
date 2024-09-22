@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type TagID string
 
@@ -8,15 +11,22 @@ func (id TagID) String() string {
 	return string(id)
 }
 
+func (t Tag) GetIDFromName() string {
+	return fmt.Sprintf("%s.%s", t.Network, t.TagName)
+}
+
 type Tag struct {
 	ID        TagID     `json:"id"`
+	TagName   string    `json:"tag_name"`
+	Network   NetworkID `json:"network"`
 	CreatedBy string    `json:"created_by"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
 type CreateTagReq struct {
-	ID          TagID    `json:"id"`
-	TaggedHosts []string `json:"tagged_hosts"`
+	TagName     string    `json:"tag_name"`
+	Network     NetworkID `json:"network"`
+	TaggedHosts []string  `json:"tagged_hosts"`
 }
 
 type TagListResp struct {
@@ -27,6 +37,6 @@ type TagListResp struct {
 
 type UpdateTagReq struct {
 	Tag
-	NewID       TagID    `json:"new_id"`
+	NewName     string   `json:"new_name"`
 	TaggedHosts []string `json:"tagged_hosts"`
 }

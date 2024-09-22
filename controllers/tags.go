@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -63,6 +64,25 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	// check if tag network exists
+	_, err = logic.GetNetwork(req.Network.String())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to get network details for "+req.Network.String()), "badrequest"))
+		return
+	}
+	// check if tag exists
+	tag := models.Tag{
+		ID:        models.TagID(fmt.Sprintf("%s.%s", req.Network, req.TagName)),
+		TagName:   req.TagName,
+		Network:   req.Network,
+		CreatedBy: user.UserName,
+		CreatedAt: time.Now(),
+	}
+	err = logic.InsertTag(tag)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	go func() {
 		for _, hostID := range req.TaggedHosts {
 			h, err := logic.GetHost(hostID)
@@ -72,21 +92,11 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 			if h.Tags == nil {
 				h.Tags = make(map[models.TagID]struct{})
 			}
-			h.Tags[req.ID] = struct{}{}
+			h.Tags[tag.ID] = struct{}{}
 			logic.UpsertHost(h)
 		}
 	}()
 
-	tag := models.Tag{
-		ID:        req.ID,
-		CreatedBy: user.UserName,
-		CreatedAt: time.Now(),
-	}
-	err = logic.InsertTag(tag)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
 	logic.ReturnSuccessResponseWithJson(w, r, req, "created tag successfully")
 }
 
@@ -105,21 +115,25 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+
 	tag, err := logic.GetTag(updateTag.ID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	updateTag.NewID = models.TagID(strings.TrimSpace(updateTag.NewID.String()))
-	if updateTag.NewID.String() != "" {
-		tag.ID = updateTag.NewID
+	updateTag.NewName = strings.TrimSpace(updateTag.NewName)
+	var newID models.TagID
+	if updateTag.NewName != "" {
+		newID = models.TagID(fmt.Sprintf("%s.%s", tag.Network, updateTag.NewName))
+		tag.ID = newID
+		tag.TagName = updateTag.NewName
 		err = logic.InsertTag(tag)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
 	}
-	go logic.UpdateTag(updateTag)
+	go logic.UpdateTag(updateTag, newID)
 	logic.ReturnSuccessResponse(w, r, "updating tags")
 }
 
