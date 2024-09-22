@@ -42,35 +42,39 @@ func InsertTag(tag models.Tag) error {
 // DeleteTag - delete tag, will also untag hosts
 func DeleteTag(tagID models.TagID) error {
 	// cleanUp tags on hosts
-	hosts, err := GetAllHosts()
+	tag, err := GetTag(tagID)
 	if err != nil {
 		return err
 	}
-	for _, hostI := range hosts {
-		hostI := hostI
-		if _, ok := hostI.Tags[tagID]; ok {
-			delete(hostI.Tags, tagID)
-			UpsertHost(&hostI)
+	nodes, err := GetNetworkNodes(tag.Network.String())
+	if err != nil {
+		return err
+	}
+	for _, nodeI := range nodes {
+		nodeI := nodeI
+		if _, ok := nodeI.Tags[tagID]; ok {
+			delete(nodeI.Tags, tagID)
+			UpsertNode(&nodeI)
 		}
 	}
 	return database.DeleteRecord(database.TAG_TABLE_NAME, tagID.String())
 }
 
 // ListTagsWithHosts - lists all tags with tagged hosts
-func ListTagsWithHosts() ([]models.TagListResp, error) {
+func ListTagsWithNodes(netID models.NetworkID) ([]models.TagListResp, error) {
 	tagMutex.RLock()
 	defer tagMutex.RUnlock()
-	tags, err := ListTags()
+	tags, err := ListNetworkTags(netID)
 	if err != nil {
 		return []models.TagListResp{}, err
 	}
-	tagsHostMap := GetTagMapWithHosts()
+	tagsNodeMap := GetTagMapWithNodes(netID)
 	resp := []models.TagListResp{}
 	for _, tagI := range tags {
 		tagRespI := models.TagListResp{
 			Tag:         tagI,
-			UsedByCnt:   len(tagsHostMap[tagI.ID]),
-			TaggedHosts: tagsHostMap[tagI.ID],
+			UsedByCnt:   len(tagsNodeMap[tagI.ID]),
+			TaggedNodes: tagsNodeMap[tagI.ID],
 		}
 		resp = append(resp, tagRespI)
 	}
@@ -96,39 +100,62 @@ func ListTags() ([]models.Tag, error) {
 	return tags, nil
 }
 
+// ListTags - lists all tags from DB
+func ListNetworkTags(netID models.NetworkID) ([]models.Tag, error) {
+
+	data, err := database.FetchRecords(database.TAG_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return []models.Tag{}, err
+	}
+	tags := []models.Tag{}
+	for _, dataI := range data {
+		tag := models.Tag{}
+		err := json.Unmarshal([]byte(dataI), &tag)
+		if err != nil {
+			continue
+		}
+		if tag.Network == netID {
+			tags = append(tags, tag)
+		}
+
+	}
+	return tags, nil
+}
+
 // UpdateTag - updates and syncs hosts with tag update
 func UpdateTag(req models.UpdateTagReq, newID models.TagID) {
 	tagMutex.Lock()
 	defer tagMutex.Unlock()
-	tagHostsMap := GetHostsWithTag(req.ID)
-	for _, hostID := range req.TaggedHosts {
-		hostI, err := GetHost(hostID)
+	tagNodesMap := GetNodesWithTag(req.ID)
+	for _, nodeID := range req.TaggedNodes {
+		node, err := GetNodeByID(nodeID)
 		if err != nil {
 			continue
 		}
-		if _, ok := tagHostsMap[hostI.ID.String()]; !ok {
-			if hostI.Tags == nil {
-				hostI.Tags = make(map[models.TagID]struct{})
+
+		if _, ok := tagNodesMap[node.ID.String()]; !ok {
+			if node.Tags == nil {
+				node.Tags = make(map[models.TagID]struct{})
 			}
-			hostI.Tags[req.ID] = struct{}{}
-			UpsertHost(hostI)
+			node.Tags[req.ID] = struct{}{}
+			UpsertNode(&node)
 		} else {
-			delete(tagHostsMap, hostI.ID.String())
+			delete(tagNodesMap, node.ID.String())
 		}
 	}
-	for _, deletedTaggedHost := range tagHostsMap {
-		deletedTaggedHost := deletedTaggedHost
+	for _, deletedTaggedNode := range tagNodesMap {
+		deletedTaggedHost := deletedTaggedNode
 		delete(deletedTaggedHost.Tags, req.ID)
-		UpsertHost(&deletedTaggedHost)
+		UpsertNode(&deletedTaggedHost)
 	}
 	go func(req models.UpdateTagReq) {
 		if newID != "" {
-			tagHostsMap = GetHostsWithTag(req.ID)
-			for _, hostI := range tagHostsMap {
-				hostI := hostI
-				delete(hostI.Tags, req.ID)
-				hostI.Tags[newID] = struct{}{}
-				UpsertHost(&hostI)
+			tagNodesMap = GetNodesWithTag(req.ID)
+			for _, nodeI := range tagNodesMap {
+				nodeI := nodeI
+				delete(nodeI.Tags, req.ID)
+				nodeI.Tags[newID] = struct{}{}
+				UpsertNode(&nodeI)
 			}
 		}
 	}(req)

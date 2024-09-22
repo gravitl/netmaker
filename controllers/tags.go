@@ -16,7 +16,7 @@ import (
 )
 
 func tagHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/tags", logic.SecurityCheck(true, http.HandlerFunc(getAllTags))).
+	r.HandleFunc("/api/v1/tags", logic.SecurityCheck(true, http.HandlerFunc(getTags))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/tags", logic.SecurityCheck(true, http.HandlerFunc(createTag))).
 		Methods(http.MethodPost)
@@ -27,21 +27,32 @@ func tagHandlers(r *mux.Router) {
 
 }
 
-// @Summary     Get all Tag entries
+// @Summary     List Tags in a network
 // @Router      /api/v1/tags [get]
 // @Tags        TAG
 // @Accept      json
 // @Success     200 {array} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
-func getAllTags(w http.ResponseWriter, r *http.Request) {
-	tags, err := logic.ListTagsWithHosts()
+func getTags(w http.ResponseWriter, r *http.Request) {
+	netID, _ := url.QueryUnescape(r.URL.Query().Get("network"))
+	if netID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network id param is missing"), "badrequest"))
+		return
+	}
+	// check if network exists
+	_, err := logic.GetNetwork(netID)
 	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to get all DNS entries: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	tags, err := logic.ListTagsWithNodes(models.NetworkID(netID))
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to get all network tag entries: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	logic.SortTagEntrys(tags[:])
-	logic.ReturnSuccessResponseWithJson(w, r, tags, "fetched all tags")
+	logic.ReturnSuccessResponseWithJson(w, r, tags, "fetched all tags in the network "+netID)
 }
 
 // @Summary     Create Tag
@@ -84,16 +95,16 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	go func() {
-		for _, hostID := range req.TaggedHosts {
-			h, err := logic.GetHost(hostID)
+		for _, nodeID := range req.TaggedNodes {
+			node, err := logic.GetNodeByID(nodeID)
 			if err != nil {
 				continue
 			}
-			if h.Tags == nil {
-				h.Tags = make(map[models.TagID]struct{})
+			if node.Tags == nil {
+				node.Tags = make(map[models.TagID]struct{})
 			}
-			h.Tags[tag.ID] = struct{}{}
-			logic.UpsertHost(h)
+			node.Tags[tag.ID] = struct{}{}
+			logic.UpsertNode(&node)
 		}
 	}()
 

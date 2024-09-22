@@ -698,3 +698,40 @@ func GetAllFailOvers() ([]models.Node, error) {
 	}
 	return igs, nil
 }
+
+func GetTagMapWithNodes(netID models.NetworkID) (tagNodesMap map[models.TagID][]models.Node) {
+	tagNodesMap = make(map[models.TagID][]models.Node)
+	nodes, _ := GetNetworkNodes(netID.String())
+	for _, nodeI := range nodes {
+		if nodeI.Tags == nil {
+			continue
+		}
+		for nodeTagID := range nodeI.Tags {
+			if _, ok := tagNodesMap[nodeTagID]; ok {
+				tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
+			} else {
+				tagNodesMap[nodeTagID] = []models.Node{nodeI}
+			}
+		}
+	}
+	return
+}
+
+func GetNodesWithTag(tagID models.TagID) map[string]models.Node {
+
+	nMap := make(map[string]models.Node)
+	tag, err := GetTag(tagID)
+	if err != nil {
+		return nMap
+	}
+	nodes, _ := GetNetworkNodes(tag.Network.String())
+	for _, nodeI := range nodes {
+		if nodeI.Tags == nil {
+			continue
+		}
+		if _, ok := nodeI.Tags[tagID]; ok {
+			nMap[nodeI.ID.String()] = nodeI
+		}
+	}
+	return nMap
+}
