@@ -47,6 +47,8 @@ const (
 	GENERATED_TABLE_NAME = "generated"
 	// NODE_ACLS_TABLE_NAME - stores the node ACL rules
 	NODE_ACLS_TABLE_NAME = "nodeacls"
+	// ACLS_TABLE_NAME - table for acls v2
+	ACLS_TABLE_NAME = "acls"
 	// SSO_STATE_CACHE - holds sso session information for OAuth2 sign-ins
 	SSO_STATE_CACHE = "ssostatecache"
 	// METRICS_TABLE_NAME - stores network metrics

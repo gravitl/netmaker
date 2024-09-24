@@ -1,7 +1,8 @@
 package models
 
-type SrcType string
-type DstType string
+import (
+	"github.com/google/uuid"
+)
 
 // AllowedTrafficDirection - allowed direction of traffic
 type AllowedTrafficDirection int
@@ -13,15 +14,20 @@ const (
 	TrafficDirectionBi
 )
 
-const (
-	SrcUser SrcType = "user"
-	SrcHost SrcType = "host"
+type AclPolicyType string
 
-	DstHost DstType = "host"
+const (
+	UserPolicy   AclPolicyType = "user-policy"
+	DevicePolicy AclPolicyType = "device-policy"
 )
 
 type Acl struct {
-	Src              SrcType                 `json:"src_type"`
-	Dst              DstType                 `json:"dst_type"`
+	ID               uuid.UUID               `json:"id"`
+	Name             string                  `json:"name"`
+	NetworkID        NetworkID               `json:"network_id"`
+	RuleType         AclPolicyType           `json:"policy_type"`
+	Src              []string                `json:"src_type"`
+	Dst              []string                `json:"dst_type"`
 	AllowedDirection AllowedTrafficDirection `json:"allowed_traffic_direction"`
+	Enabled          bool                    `json:"enabled"`
 }
