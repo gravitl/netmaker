@@ -1,6 +1,8 @@
 package models
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 )
 
@@ -30,4 +32,6 @@ type Acl struct {
 	Dst              []string                `json:"dst_type"`
 	AllowedDirection AllowedTrafficDirection `json:"allowed_traffic_direction"`
 	Enabled          bool                    `json:"enabled"`
+	CreatedBy        string                  `json:"created_by"`
+	CreatedAt        time.Time               `json:"created_at"`
 }
