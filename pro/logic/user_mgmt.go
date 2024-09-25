@@ -789,6 +789,16 @@ func IsGroupsValid(groups map[models.UserGroupID]struct{}) error {
 	return nil
 }
 
+func IsGroupValid(groupID models.UserGroupID) error {
+
+	_, err := GetUserGroup(groupID)
+	if err != nil {
+		return fmt.Errorf("user group `%s` not found", groupID)
+	}
+
+	return nil
+}
+
 func IsNetworkRolesValid(networkRoles map[models.NetworkID]map[models.UserRoleID]struct{}) error {
 	for netID, netRoles := range networkRoles {
 

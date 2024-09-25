@@ -26,8 +26,11 @@ const (
 type AclGroupType string
 
 const (
-	UserAcl      AclGroupType = "user"
-	UserGroupAcl AclGroupType = "user-group"
+	UserAclID                AclGroupType = "user"
+	UserGroupAclID           AclGroupType = "user-group"
+	DeviceAclID              AclGroupType = "tag"
+	NetmakerIPAclID          AclGroupType = "ip"
+	NetmakerSubNetRangeAClID AclGroupType = "ipset"
 )
 
 func (g AclGroupType) String() string {

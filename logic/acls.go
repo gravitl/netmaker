@@ -42,40 +42,59 @@ func IsAclPolicyValid(acl models.Acl) bool {
 			if len(userTagLi) < 2 {
 				break
 			}
-			if userTagLi[0] != models.UserAcl.String() &&
-				userTagLi[0] != models.UserGroupAcl.String() {
+			if userTagLi[0] != models.UserAclID.String() &&
+				userTagLi[0] != models.UserGroupAclID.String() {
 				break
 			}
+			// check if user group is valid
+			if userTagLi[0] == models.UserAclID.String() {
+				_, err := GetUser(userTagLi[1])
+				if err != nil {
+					break
+				}
+			} else if userTagLi[0] == models.UserGroupAclID.String() {
+				err := IsGroupValid(models.UserGroupID(userTagLi[1]))
+				if err != nil {
+					break
+				}
+			}
+
 		}
 		for _, dstI := range acl.Dst {
 			dstILi := strings.Split(dstI, ":")
 			if len(dstILi) < 2 {
 				break
 			}
-			if dstILi[0] == models.UserAcl.String() ||
-				dstILi[0] == models.UserGroupAcl.String() {
+			if dstILi[0] == models.UserAclID.String() ||
+				dstILi[0] == models.UserGroupAclID.String() {
+				break
+			}
+			if dstILi[0] != models.DeviceAclID.String() {
+				break
+			}
+			// check if tag is valid
+			_, err := GetTag(models.TagID(dstILi[1]))
+			if err != nil {
 				break
 			}
 		}
 		isValid = true
 	case models.DevicePolicy:
 		for _, srcI := range acl.Src {
-			userTagLi := strings.Split(srcI, ":")
-			if len(userTagLi) < 2 {
+			deviceTagLi := strings.Split(srcI, ":")
+			if len(deviceTagLi) < 2 {
 				break
 			}
-			if userTagLi[0] == models.UserAcl.String() ||
-				userTagLi[0] == models.UserGroupAcl.String() {
+			if deviceTagLi[0] != models.DeviceAclID.String() {
 				break
 			}
 		}
 		for _, dstI := range acl.Dst {
-			dstILi := strings.Split(dstI, ":")
-			if len(dstILi) < 2 {
+			deviceTagLi := strings.Split(dstI, ":")
+			if len(deviceTagLi) < 2 {
 				break
 			}
-			if dstILi[0] == models.UserAcl.String() ||
-				dstILi[0] == models.UserGroupAcl.String() {
+			if deviceTagLi[0] != models.DeviceAclID.String() {
 				break
 			}
 		}

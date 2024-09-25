@@ -39,6 +39,9 @@ var FilterNetworksByRole = func(allnetworks []models.Network, user models.User) 
 var IsGroupsValid = func(groups map[models.UserGroupID]struct{}) error {
 	return nil
 }
+var IsGroupValid = func(groupID models.UserGroupID) error {
+	return nil
+}
 var IsNetworkRolesValid = func(networkRoles map[models.NetworkID]map[models.UserRoleID]struct{}) error {
 	return nil
 }
