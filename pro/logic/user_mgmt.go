@@ -508,6 +508,23 @@ func HasNetworkRsrcScope(permissionTemplate models.UserRolePermissionTemplate, n
 	_, ok = rsrcScope[rsrcID]
 	return ok
 }
+
+func GetUserRAGNodesV1(user models.User) (gws map[string]models.Node) {
+	gws = make(map[string]models.Node)
+
+	tagNodesMap := logic.GetTagMapWithNodes()
+	accessPolices := logic.ListUserPolicies(user)
+	for _, policyI := range accessPolices {
+		for _, dstI := range policyI.Dst {
+			if nodes, ok := tagNodesMap[models.TagID(dstI.Value)]; ok {
+				for _, node := range nodes {
+					gws[node.ID.String()] = node
+				}
+			}
+		}
+	}
+	return
+}
 func GetUserRAGNodes(user models.User) (gws map[string]models.Node) {
 	gws = make(map[string]models.Node)
 	userGwAccessScope := GetUserNetworkRolesWithRemoteVPNAccess(user)

@@ -861,7 +861,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	userGwNodes := proLogic.GetUserRAGNodes(*user)
+	userGwNodes := proLogic.GetUserRAGNodesV1(*user)
 	for _, extClient := range allextClients {
 		node, ok := userGwNodes[extClient.IngressGatewayID]
 		if !ok {

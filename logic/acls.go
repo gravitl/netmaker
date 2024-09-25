@@ -143,6 +143,57 @@ func GetDefaultPolicy(netID models.NetworkID, ruleType models.AclPolicyType) (mo
 	return models.Acl{}, errors.New("default rule not found")
 }
 
+func ListUserPolicies(u models.User) []models.Acl {
+	data, err := database.FetchRecords(database.TAG_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return []models.Acl{}
+	}
+	acls := []models.Acl{}
+	for _, dataI := range data {
+		acl := models.Acl{}
+		err := json.Unmarshal([]byte(dataI), &acl)
+		if err != nil {
+			continue
+		}
+
+		if acl.RuleType == models.UserPolicy {
+			srcMap := convAclTagToValueMap(acl.Src)
+			if _, ok := srcMap[u.UserName]; ok {
+				acls = append(acls, acl)
+			} else {
+				// check for user groups
+				for gID := range u.UserGroups {
+					if _, ok := srcMap[gID.String()]; ok {
+						acls = append(acls, acl)
+						break
+					}
+				}
+			}
+
+		}
+	}
+	return acls
+}
+
+func ListUserPoliciesByNetwork(netID models.NetworkID) []models.Acl {
+	data, err := database.FetchRecords(database.TAG_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return []models.Acl{}
+	}
+	acls := []models.Acl{}
+	for _, dataI := range data {
+		acl := models.Acl{}
+		err := json.Unmarshal([]byte(dataI), &acl)
+		if err != nil {
+			continue
+		}
+		if acl.NetworkID == netID && acl.RuleType == models.UserPolicy {
+			acls = append(acls, acl)
+		}
+	}
+	return acls
+}
+
 // listDevicePolicies - lists all device policies in a network
 func listDevicePolicies(netID models.NetworkID) []models.Acl {
 	data, err := database.FetchRecords(database.TAG_TABLE_NAME)
