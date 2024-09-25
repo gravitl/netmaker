@@ -85,6 +85,7 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 	acl.ID = uuid.New()
 	acl.CreatedBy = user.UserName
 	acl.CreatedAt = time.Now().UTC()
+	acl.Default = false
 	// validate create acl policy
 	if !logic.IsAclPolicyValid(acl) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid policy"), "badrequest"))
