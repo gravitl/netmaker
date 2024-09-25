@@ -23,6 +23,17 @@ const (
 	DevicePolicy AclPolicyType = "device-policy"
 )
 
+type AclGroupType string
+
+const (
+	UserAcl      AclGroupType = "user"
+	UserGroupAcl AclGroupType = "user-group"
+)
+
+func (g AclGroupType) String() string {
+	return string(g)
+}
+
 type Acl struct {
 	ID               uuid.UUID               `json:"id"`
 	Name             string                  `json:"name"`

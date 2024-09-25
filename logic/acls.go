@@ -3,6 +3,7 @@ package logic
 import (
 	"encoding/json"
 	"sort"
+	"strings"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
@@ -28,6 +29,59 @@ func GetAcl(aID string) (models.Acl, error) {
 		return a, err
 	}
 	return a, nil
+}
+
+func IsAclPolicyValid(acl models.Acl) bool {
+	//check if src and dst are valid
+	isValid := false
+	switch acl.RuleType {
+	case models.UserPolicy:
+		// src list should only contain users
+		for _, srcI := range acl.Src {
+			userTagLi := strings.Split(srcI, ":")
+			if len(userTagLi) < 2 {
+				break
+			}
+			if userTagLi[0] != models.UserAcl.String() &&
+				userTagLi[0] != models.UserGroupAcl.String() {
+				break
+			}
+		}
+		for _, dstI := range acl.Dst {
+			dstILi := strings.Split(dstI, ":")
+			if len(dstILi) < 2 {
+				break
+			}
+			if dstILi[0] == models.UserAcl.String() ||
+				dstILi[0] == models.UserGroupAcl.String() {
+				break
+			}
+		}
+		isValid = true
+	case models.DevicePolicy:
+		for _, srcI := range acl.Src {
+			userTagLi := strings.Split(srcI, ":")
+			if len(userTagLi) < 2 {
+				break
+			}
+			if userTagLi[0] == models.UserAcl.String() ||
+				userTagLi[0] == models.UserGroupAcl.String() {
+				break
+			}
+		}
+		for _, dstI := range acl.Dst {
+			dstILi := strings.Split(dstI, ":")
+			if len(dstILi) < 2 {
+				break
+			}
+			if dstILi[0] == models.UserAcl.String() ||
+				dstILi[0] == models.UserGroupAcl.String() {
+				break
+			}
+		}
+		isValid = true
+	}
+	return isValid
 }
 
 // UpdateAcl - updates allowed fields on acls and commits to DB
