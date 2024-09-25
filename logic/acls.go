@@ -4,10 +4,74 @@ import (
 	"encoding/json"
 	"errors"
 	"sort"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
 )
+
+// CreateDefaultAclNetworkPolicies - create default acl network policies
+func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
+	defaultDeviceAcl := models.Acl{
+		ID:        uuid.New(),
+		Default:   true,
+		Name:      "all-nodes",
+		NetworkID: netID,
+		RuleType:  models.DevicePolicy,
+		Src: []models.AclPolicyTag{
+			{
+				ID:    models.DeviceAclID,
+				Value: "*",
+			}},
+		Dst: []models.AclPolicyTag{
+			{
+				ID:    models.DeviceAclID,
+				Value: "*",
+			}},
+		AllowedDirection: models.TrafficDirectionBi,
+		Enabled:          true,
+		CreatedBy:        "auto",
+		CreatedAt:        time.Now().UTC(),
+	}
+	InsertAcl(defaultDeviceAcl)
+	defaultUserAcl := models.Acl{
+		ID:        uuid.New(),
+		Default:   true,
+		Name:      "all-users",
+		NetworkID: netID,
+		RuleType:  models.UserPolicy,
+		Src: []models.AclPolicyTag{
+			{
+				ID:    models.UserAclID,
+				Value: "*",
+			},
+			{
+				ID:    models.UserGroupAclID,
+				Value: "*",
+			},
+		},
+		Dst: []models.AclPolicyTag{{
+			ID:    models.DeviceAclID,
+			Value: "*",
+		}},
+		AllowedDirection: models.TrafficDirectionUni,
+		Enabled:          true,
+		CreatedBy:        "auto",
+		CreatedAt:        time.Now().UTC(),
+	}
+	InsertAcl(defaultUserAcl)
+}
+
+// DeleteDefaultNetworkPolicies - deletes all default network acl policies
+func DeleteDefaultNetworkPolicies(netId models.NetworkID) {
+	acls, _ := ListAcls(netId)
+	for _, acl := range acls {
+		if acl.NetworkID == netId && acl.Default {
+			DeleteAcl(acl)
+		}
+	}
+}
 
 // InsertAcl - creates acl policy
 func InsertAcl(a models.Acl) error {
@@ -18,6 +82,7 @@ func InsertAcl(a models.Acl) error {
 	return database.Insert(a.ID.String(), string(d), database.ACLS_TABLE_NAME)
 }
 
+// GetAcl - gets acl info by id
 func GetAcl(aID string) (models.Acl, error) {
 	a := models.Acl{}
 	d, err := database.FetchRecord(database.ACLS_TABLE_NAME, aID)
@@ -31,6 +96,7 @@ func GetAcl(aID string) (models.Acl, error) {
 	return a, nil
 }
 
+// IsAclPolicyValid - validates if acl policy is valid
 func IsAclPolicyValid(acl models.Acl) bool {
 	//check if src and dst are valid
 	isValid := false
@@ -133,6 +199,7 @@ func DeleteAcl(a models.Acl) error {
 	return database.DeleteRecord(database.ACLS_TABLE_NAME, a.ID.String())
 }
 
+// GetDefaultPolicy - fetches default policy in the network by ruleType
 func GetDefaultPolicy(netID models.NetworkID, ruleType models.AclPolicyType) (models.Acl, error) {
 	acls, _ := ListAcls(netID)
 	for _, acl := range acls {
@@ -143,6 +210,7 @@ func GetDefaultPolicy(netID models.NetworkID, ruleType models.AclPolicyType) (mo
 	return models.Acl{}, errors.New("default rule not found")
 }
 
+// ListUserPolicies - lists all acl policies enforced on an user
 func ListUserPolicies(u models.User) []models.Acl {
 	data, err := database.FetchRecords(database.TAG_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
@@ -175,6 +243,7 @@ func ListUserPolicies(u models.User) []models.Acl {
 	return acls
 }
 
+// ListUserPoliciesByNetwork - lists all acl user policies in a network
 func ListUserPoliciesByNetwork(netID models.NetworkID) []models.Acl {
 	data, err := database.FetchRecords(database.TAG_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
@@ -242,6 +311,7 @@ func convAclTagToValueMap(acltags []models.AclPolicyTag) map[string]struct{} {
 	return aclValueMap
 }
 
+// IsNodeAllowedToCommunicate - check node is allowed to communicate with the peer
 func IsNodeAllowedToCommunicate(node, peer models.Node) bool {
 	// check default policy if all allowed return true
 	defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
