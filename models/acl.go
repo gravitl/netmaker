@@ -23,6 +23,11 @@ const (
 	DevicePolicy AclPolicyType = "device-policy"
 )
 
+type AclPolicyTag struct {
+	ID    AclGroupType `json:"id"`
+	Value string       `json:"value"`
+}
+
 type AclGroupType string
 
 const (
@@ -39,11 +44,12 @@ func (g AclGroupType) String() string {
 
 type Acl struct {
 	ID               uuid.UUID               `json:"id"`
+	Default          bool                    `json:"default"`
 	Name             string                  `json:"name"`
 	NetworkID        NetworkID               `json:"network_id"`
 	RuleType         AclPolicyType           `json:"policy_type"`
-	Src              []string                `json:"src_type"`
-	Dst              []string                `json:"dst_type"`
+	Src              []AclPolicyTag          `json:"src_type"`
+	Dst              []AclPolicyTag          `json:"dst_type"`
 	AllowedDirection AllowedTrafficDirection `json:"allowed_traffic_direction"`
 	Enabled          bool                    `json:"enabled"`
 	CreatedBy        string                  `json:"created_by"`
