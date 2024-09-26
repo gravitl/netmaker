@@ -97,3 +97,8 @@ func (network *Network) GetNetworkNetworkCIDR6() *net.IPNet {
 	_, netCidr, _ := net.ParseCIDR(network.AddressRange6)
 	return netCidr
 }
+
+type NetworkStatResp struct {
+	Network
+	Hosts int `json:"hosts"`
+}
