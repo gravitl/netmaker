@@ -16,6 +16,8 @@ import (
 func aclHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/acls", logic.SecurityCheck(true, http.HandlerFunc(getAcls))).
 		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/acls/policy_types", logic.SecurityCheck(true, http.HandlerFunc(getAclPolicyTypes))).
+		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/acls", logic.SecurityCheck(true, http.HandlerFunc(createAcl))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/acls", logic.SecurityCheck(true, http.HandlerFunc(updateAcl))).
@@ -23,6 +25,16 @@ func aclHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/acls", logic.SecurityCheck(true, http.HandlerFunc(deleteAcl))).
 		Methods(http.MethodDelete)
 
+}
+
+// @Summary     List Acl Policy types
+// @Router      /api/v1/acls/policy_types [get]
+// @Tags        ACL
+// @Accept      json
+// @Success     200 {array} models.SuccessResponse
+// @Failure     500 {object} models.ErrorResponse
+func getAclPolicyTypes(w http.ResponseWriter, r *http.Request) {
+	logic.ReturnSuccessResponseWithJson(w, r, nil, "fetched all acls in the network ")
 }
 
 // @Summary     List Acls in a network
@@ -78,12 +90,17 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	// check if acl exists
+
 	acl := req
 	acl.GetID(req.NetworkID, req.Name)
 	acl.CreatedBy = user.UserName
 	acl.CreatedAt = time.Now().UTC()
 	acl.Default = false
+	if acl.RuleType == models.DevicePolicy {
+		acl.AllowedDirection = models.TrafficDirectionBi
+	} else {
+		acl.AllowedDirection = models.TrafficDirectionUni
+	}
 	// validate create acl policy
 	if !logic.IsAclPolicyValid(acl) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid policy"), "badrequest"))
@@ -91,11 +108,15 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 	}
 	err = logic.InsertAcl(acl)
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-
-	logic.ReturnSuccessResponseWithJson(w, r, req, "created acl successfully")
+	acl, err = logic.GetAcl(acl.ID)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, acl, "created acl successfully")
 }
 
 // @Summary     Update Acl
@@ -114,9 +135,13 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	acl, err := logic.GetAcl(updateAcl.Acl.ID)
+	acl, err := logic.GetAcl(updateAcl.ID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if acl.Default {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update default policy"), "badrequest"))
 		return
 	}
 	if !logic.IsAclPolicyValid(updateAcl.Acl) {
@@ -129,14 +154,14 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 	}
 	if updateAcl.NewName != "" {
 		//check if policy exists with same name
-		id := models.FormatAclID(updateAcl.Acl.NetworkID, updateAcl.NewName)
+		id := models.FormatAclID(updateAcl.NetworkID, updateAcl.NewName)
 		_, err := logic.GetAcl(id)
-		if err != nil {
+		if err == nil {
 			logic.ReturnErrorResponse(w, r,
 				logic.FormatError(errors.New("policy already exists with name "+updateAcl.NewName), "badrequest"))
 			return
 		}
-		updateAcl.Acl.ID = id
+		updateAcl.ID = id
 		updateAcl.Acl.Name = updateAcl.NewName
 	}
 	err = logic.UpdateAcl(updateAcl.Acl, acl)
@@ -164,9 +189,14 @@ func deleteAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if acl.Default {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	err = logic.DeleteAcl(acl)
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r,
+			logic.FormatError(errors.New("cannot delete default policy"), "internal"))
 		return
 	}
 	logic.ReturnSuccessResponse(w, r, "deleted acl "+acl.Name)

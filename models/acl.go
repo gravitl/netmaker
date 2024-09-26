@@ -56,8 +56,13 @@ func (g AclGroupType) String() string {
 }
 
 type UpdateAclRequest struct {
-	Acl     Acl
+	Acl
 	NewName string `json:"new_name"`
+}
+
+type AclPolicy struct {
+	TypeID        AclPolicyType
+	PrefixTagUser AclGroupType
 }
 
 type Acl struct {

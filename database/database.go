@@ -157,6 +157,7 @@ func createTables() {
 	CreateTable(USER_PERMISSIONS_TABLE_NAME)
 	CreateTable(USER_INVITES_TABLE_NAME)
 	CreateTable(TAG_TABLE_NAME)
+	CreateTable(ACLS_TABLE_NAME)
 }
 
 func CreateTable(tableName string) error {

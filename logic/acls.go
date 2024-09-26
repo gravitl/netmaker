@@ -83,6 +83,11 @@ func ValidateCreateAclReq(req models.Acl) error {
 	if req.Name == "" {
 		return errors.New("name is required")
 	}
+	req.GetID(req.NetworkID, req.Name)
+	_, err = GetAcl(req.ID)
+	if err == nil {
+		return errors.New("acl exists already with name " + req.Name)
+	}
 	return nil
 }
 
@@ -193,14 +198,12 @@ func IsAclPolicyValid(acl models.Acl) bool {
 
 // UpdateAcl - updates allowed fields on acls and commits to DB
 func UpdateAcl(newAcl, acl models.Acl) error {
-
 	acl.Name = newAcl.Name
 	acl.Src = newAcl.Src
 	acl.Dst = newAcl.Dst
-	acl.AllowedDirection = newAcl.AllowedDirection
 	acl.Enabled = newAcl.Enabled
 	if acl.ID != newAcl.ID {
-		database.DeleteRecord(acl.ID.String(), database.ACLS_TABLE_NAME)
+		database.DeleteRecord(database.ACLS_TABLE_NAME, acl.ID.String())
 		acl.ID = newAcl.ID
 	}
 	d, err := json.Marshal(acl)
