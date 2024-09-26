@@ -3,10 +3,10 @@ package logic
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sort"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
 )
@@ -14,9 +14,9 @@ import (
 // CreateDefaultAclNetworkPolicies - create default acl network policies
 func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 	defaultDeviceAcl := models.Acl{
-		ID:        uuid.New(),
-		Default:   true,
+		ID:        models.AclID(fmt.Sprintf("%s.%s", netID, "all-nodes")),
 		Name:      "all-nodes",
+		Default:   true,
 		NetworkID: netID,
 		RuleType:  models.DevicePolicy,
 		Src: []models.AclPolicyTag{
@@ -36,7 +36,7 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 	}
 	InsertAcl(defaultDeviceAcl)
 	defaultUserAcl := models.Acl{
-		ID:        uuid.New(),
+		ID:        models.AclID(fmt.Sprintf("%s.%s", netID, "all-users")),
 		Default:   true,
 		Name:      "all-users",
 		NetworkID: netID,
@@ -73,6 +73,19 @@ func DeleteDefaultNetworkPolicies(netId models.NetworkID) {
 	}
 }
 
+// ValidateCreateAclReq - validates create req for acl
+func ValidateCreateAclReq(req models.Acl) error {
+	// check if acl network exists
+	_, err := GetNetwork(req.NetworkID.String())
+	if err != nil {
+		return errors.New("failed to get network details for " + req.NetworkID.String())
+	}
+	if req.Name == "" {
+		return errors.New("name is required")
+	}
+	return nil
+}
+
 // InsertAcl - creates acl policy
 func InsertAcl(a models.Acl) error {
 	d, err := json.Marshal(a)
@@ -83,9 +96,9 @@ func InsertAcl(a models.Acl) error {
 }
 
 // GetAcl - gets acl info by id
-func GetAcl(aID string) (models.Acl, error) {
+func GetAcl(aID models.AclID) (models.Acl, error) {
 	a := models.Acl{}
-	d, err := database.FetchRecord(database.ACLS_TABLE_NAME, aID)
+	d, err := database.FetchRecord(database.ACLS_TABLE_NAME, aID.String())
 	if err != nil {
 		return a, err
 	}
@@ -180,13 +193,16 @@ func IsAclPolicyValid(acl models.Acl) bool {
 
 // UpdateAcl - updates allowed fields on acls and commits to DB
 func UpdateAcl(newAcl, acl models.Acl) error {
-	if newAcl.Name != "" {
-		acl.Name = newAcl.Name
-	}
+
+	acl.Name = newAcl.Name
 	acl.Src = newAcl.Src
 	acl.Dst = newAcl.Dst
 	acl.AllowedDirection = newAcl.AllowedDirection
 	acl.Enabled = newAcl.Enabled
+	if acl.ID != newAcl.ID {
+		database.DeleteRecord(acl.ID.String(), database.ACLS_TABLE_NAME)
+		acl.ID = newAcl.ID
+	}
 	d, err := json.Marshal(acl)
 	if err != nil {
 		return err
@@ -212,7 +228,7 @@ func GetDefaultPolicy(netID models.NetworkID, ruleType models.AclPolicyType) (mo
 
 // ListUserPolicies - lists all acl policies enforced on an user
 func ListUserPolicies(u models.User) []models.Acl {
-	data, err := database.FetchRecords(database.TAG_TABLE_NAME)
+	data, err := database.FetchRecords(database.ACLS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return []models.Acl{}
 	}
@@ -245,7 +261,7 @@ func ListUserPolicies(u models.User) []models.Acl {
 
 // ListUserPoliciesByNetwork - lists all acl user policies in a network
 func ListUserPoliciesByNetwork(netID models.NetworkID) []models.Acl {
-	data, err := database.FetchRecords(database.TAG_TABLE_NAME)
+	data, err := database.FetchRecords(database.ACLS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return []models.Acl{}
 	}
@@ -265,7 +281,7 @@ func ListUserPoliciesByNetwork(netID models.NetworkID) []models.Acl {
 
 // listDevicePolicies - lists all device policies in a network
 func listDevicePolicies(netID models.NetworkID) []models.Acl {
-	data, err := database.FetchRecords(database.TAG_TABLE_NAME)
+	data, err := database.FetchRecords(database.ACLS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return []models.Acl{}
 	}
@@ -285,7 +301,7 @@ func listDevicePolicies(netID models.NetworkID) []models.Acl {
 
 // ListAcls - lists all acl policies
 func ListAcls(netID models.NetworkID) ([]models.Acl, error) {
-	data, err := database.FetchRecords(database.TAG_TABLE_NAME)
+	data, err := database.FetchRecords(database.ACLS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return []models.Acl{}, err
 	}

@@ -1,10 +1,23 @@
 package models
 
 import (
+	"fmt"
 	"time"
-
-	"github.com/google/uuid"
 )
+
+type AclID string
+
+func (aID AclID) String() string {
+	return string(aID)
+}
+
+func (a *Acl) GetID(netID NetworkID, name string) {
+	a.ID = AclID(fmt.Sprintf("%s.%s", netID.String(), name))
+}
+
+func FormatAclID(netID NetworkID, name string) AclID {
+	return AclID(fmt.Sprintf("%s.%s", netID.String(), name))
+}
 
 // AllowedTrafficDirection - allowed direction of traffic
 type AllowedTrafficDirection int
@@ -42,8 +55,13 @@ func (g AclGroupType) String() string {
 	return string(g)
 }
 
+type UpdateAclRequest struct {
+	Acl     Acl
+	NewName string `json:"new_name"`
+}
+
 type Acl struct {
-	ID               uuid.UUID               `json:"id"`
+	ID               AclID                   `json:"id"`
 	Default          bool                    `json:"default"`
 	Name             string                  `json:"name"`
 	NetworkID        NetworkID               `json:"network_id"`

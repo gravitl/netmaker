@@ -320,6 +320,7 @@ func syncUsers() {
 		if err == nil {
 			for _, netI := range networks {
 				logic.CreateDefaultNetworkRolesAndGroups(models.NetworkID(netI.NetID))
+				logic.CreateDefaultAclNetworkPolicies(models.NetworkID(netI.NetID))
 				networkNodes := logic.GetNetworkNodesMemory(nodes, netI.NetID)
 				for _, networkNodeI := range networkNodes {
 					if networkNodeI.IsIngressGateway {

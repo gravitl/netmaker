@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -74,15 +73,14 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	// check if acl network exists
-	_, err = logic.GetNetwork(req.NetworkID.String())
+	err = logic.ValidateCreateAclReq(req)
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to get network details for "+req.NetworkID.String()), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	// check if acl exists
 	acl := req
-	acl.ID = uuid.New()
+	acl.GetID(req.NetworkID, req.Name)
 	acl.CreatedBy = user.UserName
 	acl.CreatedAt = time.Now().UTC()
 	acl.Default = false
@@ -107,7 +105,7 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {array} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
 func updateAcl(w http.ResponseWriter, r *http.Request) {
-	var updateAcl models.Acl
+	var updateAcl models.UpdateAclRequest
 	err := json.NewDecoder(r.Body).Decode(&updateAcl)
 	if err != nil {
 		logger.Log(0, "error decoding request body: ",
@@ -116,21 +114,37 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	acl, err := logic.GetAcl(updateAcl.ID.String())
+	acl, err := logic.GetAcl(updateAcl.Acl.ID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if !logic.IsAclPolicyValid(updateAcl) {
+	if !logic.IsAclPolicyValid(updateAcl.Acl) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid policy"), "badrequest"))
 		return
 	}
-	err = logic.UpdateAcl(updateAcl, acl)
+	if updateAcl.Acl.NetworkID != acl.NetworkID {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid policy, network id mismatch"), "badrequest"))
+		return
+	}
+	if updateAcl.NewName != "" {
+		//check if policy exists with same name
+		id := models.FormatAclID(updateAcl.Acl.NetworkID, updateAcl.NewName)
+		_, err := logic.GetAcl(id)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r,
+				logic.FormatError(errors.New("policy already exists with name "+updateAcl.NewName), "badrequest"))
+			return
+		}
+		updateAcl.Acl.ID = id
+		updateAcl.Acl.Name = updateAcl.NewName
+	}
+	err = logic.UpdateAcl(updateAcl.Acl, acl)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	logic.ReturnSuccessResponse(w, r, "updated acl "+updateAcl.Name)
+	logic.ReturnSuccessResponse(w, r, "updated acl "+acl.Name)
 }
 
 // @Summary     Delete Acl
@@ -145,7 +159,7 @@ func deleteAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("acl id is required"), "badrequest"))
 		return
 	}
-	acl, err := logic.GetAcl(aclID)
+	acl, err := logic.GetAcl(models.AclID(aclID))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
