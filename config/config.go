@@ -101,6 +101,7 @@ type ServerConfig struct {
 	SmtpPort                   int           `json:"smtp_port"`
 	MetricInterval             string        `yaml:"metric_interval"`
 	ManageDNS                  bool          `yaml:"manage_dns"`
+	DefaultDomain              string        `yaml:"default_domain"`
 }
 
 // SQLConfig - Generic SQL Config
