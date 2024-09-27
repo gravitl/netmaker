@@ -488,12 +488,12 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 
 	gid, _ := url.QueryUnescape(r.URL.Query().Get("group_id"))
 	if gid == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("group id is required"), "badrequest"))
 		return
 	}
 	userG, err := proLogic.GetUserGroup(models.UserGroupID(gid))
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to fetch group details"), "badrequest"))
 		return
 	}
 	err = proLogic.DeleteUserGroup(models.UserGroupID(gid))
