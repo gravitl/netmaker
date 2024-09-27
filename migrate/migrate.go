@@ -21,11 +21,11 @@ import (
 func Run() {
 	updateEnrollmentKeys()
 	assignSuperAdmin()
+	removeOldUserGrps()
 	syncUsers()
 	updateHosts()
 	updateNodes()
 	updateAcls()
-
 }
 
 func assignSuperAdmin() {
@@ -121,6 +121,24 @@ func updateEnrollmentKeys() {
 			continue
 		}
 
+	}
+}
+
+func removeOldUserGrps() {
+	rows, err := database.FetchRecords(database.USER_GROUPS_TABLE_NAME)
+	if err != nil {
+		return
+	}
+	for key, row := range rows {
+		userG := models.UserGroup{}
+		err = json.Unmarshal([]byte(row), &userG)
+		if err == nil {
+			if userG.ID == "" {
+				database.DeleteRecord(database.USER_GROUPS_TABLE_NAME, key)
+			}
+		} else {
+			database.DeleteRecord(database.USER_GROUPS_TABLE_NAME, key)
+		}
 	}
 }
 
