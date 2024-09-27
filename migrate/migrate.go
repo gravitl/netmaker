@@ -131,12 +131,8 @@ func removeOldUserGrps() {
 	}
 	for key, row := range rows {
 		userG := models.UserGroup{}
-		err = json.Unmarshal([]byte(row), &userG)
-		if err == nil {
-			if userG.ID == "" {
-				database.DeleteRecord(database.USER_GROUPS_TABLE_NAME, key)
-			}
-		} else {
+		_ = json.Unmarshal([]byte(row), &userG)
+		if userG.ID == "" {
 			database.DeleteRecord(database.USER_GROUPS_TABLE_NAME, key)
 		}
 	}
