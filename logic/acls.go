@@ -415,11 +415,13 @@ func UpdateDeviceTag(OldID, newID models.TagID, netID models.NetworkID) {
 
 func RemoveDeviceTagFromAclPolicies(tagID models.TagID, netID models.NetworkID) error {
 	acls := listDevicePolicies(netID)
+	update := false
 	for _, acl := range acls {
 		for i, srcTagI := range acl.Src {
 			if srcTagI.ID == models.DeviceAclID {
 				if tagID.String() == srcTagI.Value {
 					acl.Src = append(acl.Src[:i], acl.Src[i+1:]...)
+					update = true
 				}
 			}
 		}
@@ -427,8 +429,12 @@ func RemoveDeviceTagFromAclPolicies(tagID models.TagID, netID models.NetworkID) 
 			if dstTagI.ID == models.DeviceAclID {
 				if tagID.String() == dstTagI.Value {
 					acl.Dst = append(acl.Dst[:i], acl.Dst[i+1:]...)
+					update = true
 				}
 			}
+		}
+		if update {
+			UpsertAcl(acl)
 		}
 	}
 	return nil
