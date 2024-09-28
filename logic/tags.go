@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"sort"
-	"strings"
 	"sync"
 
 	"github.com/gravitl/netmaker/database"
@@ -192,11 +192,12 @@ func CheckIDSyntax(id string) error {
 	if len(id) < 3 {
 		return errors.New("name should have min 3 characters")
 	}
-	if HasSymbol(id) {
-		return errors.New("symbols are not allowed")
+	reg, err := regexp.Compile("^[a-zA-Z-]+$")
+	if err != nil {
+		return err
 	}
-	if strings.Contains(id, ".") {
-		return errors.New("dots not allowed")
+	if !reg.MatchString(id) {
+		return errors.New("invalid name. allowed characters are [a-zA-Z-]")
 	}
 	return nil
 }
