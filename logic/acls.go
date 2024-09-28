@@ -198,14 +198,25 @@ func IsAclPolicyValid(acl models.Acl) bool {
 
 // UpdateAcl - updates allowed fields on acls and commits to DB
 func UpdateAcl(newAcl, acl models.Acl) error {
-	acl.Name = newAcl.Name
-	acl.Src = newAcl.Src
-	acl.Dst = newAcl.Dst
+	if !acl.Default {
+		acl.Name = newAcl.Name
+		acl.Src = newAcl.Src
+		acl.Dst = newAcl.Dst
+	}
 	acl.Enabled = newAcl.Enabled
 	if acl.ID != newAcl.ID {
 		database.DeleteRecord(database.ACLS_TABLE_NAME, acl.ID.String())
 		acl.ID = newAcl.ID
 	}
+	d, err := json.Marshal(acl)
+	if err != nil {
+		return err
+	}
+	return database.Insert(acl.ID.String(), string(d), database.ACLS_TABLE_NAME)
+}
+
+// UpsertAcl - upserts acl
+func UpsertAcl(acl models.Acl) error {
 	d, err := json.Marshal(acl)
 	if err != nil {
 		return err
@@ -325,7 +336,7 @@ func ListAcls(netID models.NetworkID) ([]models.Acl, error) {
 func convAclTagToValueMap(acltags []models.AclPolicyTag) map[string]struct{} {
 	aclValueMap := make(map[string]struct{})
 	for _, aclTagI := range acltags {
-		aclValueMap[aclTagI.ID.String()] = struct{}{}
+		aclValueMap[aclTagI.Value] = struct{}{}
 	}
 	return aclValueMap
 }
@@ -344,6 +355,10 @@ func IsNodeAllowedToCommunicate(node, peer models.Node) bool {
 	for _, policy := range policies {
 		srcMap := convAclTagToValueMap(policy.Src)
 		dstMap := convAclTagToValueMap(policy.Dst)
+		fmt.Printf("\n======> SRCMAP: %+v\n", srcMap)
+		fmt.Printf("\n======> DSTMAP: %+v\n", dstMap)
+		fmt.Printf("\n======> node Tags: %+v\n", node.Tags)
+		fmt.Printf("\n======> peer Tags: %+v\n", peer.Tags)
 		for tagID := range peer.Tags {
 			if _, ok := dstMap[tagID.String()]; ok {
 				for tagID := range node.Tags {
@@ -369,4 +384,52 @@ func SortAclEntrys(acls []models.Acl) {
 	sort.Slice(acls, func(i, j int) bool {
 		return acls[i].Name < acls[j].Name
 	})
+}
+
+// UpdateDeviceTag - updates device tag on acl policies
+func UpdateDeviceTag(OldID, newID models.TagID, netID models.NetworkID) {
+	acls := listDevicePolicies(netID)
+	update := false
+	for _, acl := range acls {
+		for i, srcTagI := range acl.Src {
+			if srcTagI.ID == models.DeviceAclID {
+				if OldID.String() == srcTagI.Value {
+					acl.Src[i].Value = newID.String()
+					update = true
+				}
+			}
+		}
+		for i, dstTagI := range acl.Dst {
+			if dstTagI.ID == models.DeviceAclID {
+				if OldID.String() == dstTagI.Value {
+					acl.Dst[i].Value = newID.String()
+					update = true
+				}
+			}
+		}
+		if update {
+			UpsertAcl(acl)
+		}
+	}
+}
+
+func RemoveDeviceTagFromAclPolicies(tagID models.TagID, netID models.NetworkID) error {
+	acls := listDevicePolicies(netID)
+	for _, acl := range acls {
+		for i, srcTagI := range acl.Src {
+			if srcTagI.ID == models.DeviceAclID {
+				if tagID.String() == srcTagI.Value {
+					acl.Src = append(acl.Src[:i], acl.Src[i+1:]...)
+				}
+			}
+		}
+		for i, dstTagI := range acl.Dst {
+			if dstTagI.ID == models.DeviceAclID {
+				if tagID.String() == dstTagI.Value {
+					acl.Dst = append(acl.Dst[:i], acl.Dst[i+1:]...)
+				}
+			}
+		}
+	}
+	return nil
 }

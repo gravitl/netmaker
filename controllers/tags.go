@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 )
 
 func tagHandlers(r *mux.Router) {
@@ -107,7 +108,7 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 			logic.UpsertNode(&node)
 		}
 	}()
-
+	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, req, "created tag successfully")
 }
 
@@ -146,7 +147,11 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 		// delete old Tag entry
 		logic.DeleteTag(updateTag.ID)
 	}
-	go logic.UpdateTag(updateTag, newID)
+	go func() {
+		logic.UpdateTag(updateTag, newID)
+		logic.UpdateDeviceTag(updateTag.ID, newID, tag.Network)
+		mq.PublishPeerUpdate(false)
+	}()
 	logic.ReturnSuccessResponse(w, r, "updating tags")
 }
 
@@ -162,10 +167,20 @@ func deleteTag(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
 	}
-	err := logic.DeleteTag(models.TagID(tagID))
+	tag, err := logic.GetTag(models.TagID(tagID))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	err = logic.DeleteTag(models.TagID(tagID))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	go func() {
+		logic.RemoveDeviceTagFromAclPolicies(tag.ID, tag.Network)
+		mq.PublishPeerUpdate(false)
+	}()
 	logic.ReturnSuccessResponse(w, r, "deleted tag "+tagID)
 }

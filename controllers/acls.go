@@ -35,7 +35,20 @@ func aclHandlers(r *mux.Router) {
 // @Success     200 {array} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
 func getAclPolicyTypes(w http.ResponseWriter, r *http.Request) {
-	logic.ReturnSuccessResponseWithJson(w, r, nil, "fetched all acls in the network ")
+	nodeID, _ := url.QueryUnescape(r.URL.Query().Get("node"))
+	peerID, _ := url.QueryUnescape(r.URL.Query().Get("peer"))
+	node, err := logic.GetNodeByID(nodeID)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	peer, err := logic.GetNodeByID(peerID)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	allowed := logic.IsNodeAllowedToCommunicate(node, peer)
+	logic.ReturnSuccessResponseWithJson(w, r, allowed, "fetched all acls in the network ")
 }
 
 // @Summary     List Acls in a network
@@ -142,10 +155,6 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if acl.Default {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update default policy"), "badrequest"))
-		return
-	}
 	if !logic.IsAclPolicyValid(updateAcl.Acl) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid policy"), "badrequest"))
 		return
@@ -154,7 +163,7 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid policy, network id mismatch"), "badrequest"))
 		return
 	}
-	if updateAcl.NewName != "" {
+	if !acl.Default && updateAcl.NewName != "" {
 		//check if policy exists with same name
 		id := models.FormatAclID(updateAcl.NetworkID, updateAcl.NewName)
 		_, err := logic.GetAcl(id)

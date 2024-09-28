@@ -61,6 +61,8 @@ func DeleteTag(tagID models.TagID) error {
 			UpsertNode(&nodeI)
 		}
 	}
+	// remove tag used on acl policy
+	go RemoveDeviceTagFromAclPolicies(tagID, tag.Network)
 	return database.DeleteRecord(database.TAG_TABLE_NAME, tagID.String())
 }
 
