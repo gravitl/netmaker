@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
@@ -73,6 +74,22 @@ func DeleteDefaultNetworkPolicies(netId models.NetworkID) {
 	}
 }
 
+func checkIDSyntax(id string) error {
+	if id == "" {
+		return errors.New("name is required")
+	}
+	if len(id) < 3 {
+		return errors.New("name should have min 3 characters")
+	}
+	if HasSymbol(id) {
+		return errors.New("symbols are not allowed")
+	}
+	if strings.Contains(id, ".") {
+		return errors.New("dot not allowed")
+	}
+	return nil
+}
+
 // ValidateCreateAclReq - validates create req for acl
 func ValidateCreateAclReq(req models.Acl) error {
 	// check if acl network exists
@@ -80,8 +97,9 @@ func ValidateCreateAclReq(req models.Acl) error {
 	if err != nil {
 		return errors.New("failed to get network details for " + req.NetworkID.String())
 	}
-	if req.Name == "" {
-		return errors.New("name is required")
+	err = checkIDSyntax(req.Name)
+	if err != nil {
+		return err
 	}
 	req.GetID(req.NetworkID, req.Name)
 	_, err = GetAcl(req.ID)
@@ -413,6 +431,7 @@ func UpdateDeviceTag(OldID, newID models.TagID, netID models.NetworkID) {
 	}
 }
 
+// RemoveDeviceTagFromAclPolicies - remove device tag from acl policies
 func RemoveDeviceTagFromAclPolicies(tagID models.TagID, netID models.NetworkID) error {
 	acls := listDevicePolicies(netID)
 	update := false

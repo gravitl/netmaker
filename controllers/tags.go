@@ -149,7 +149,9 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 	}
 	go func() {
 		logic.UpdateTag(updateTag, newID)
-		logic.UpdateDeviceTag(updateTag.ID, newID, tag.Network)
+		if updateTag.NewName != "" {
+			logic.UpdateDeviceTag(updateTag.ID, newID, tag.Network)
+		}
 		mq.PublishPeerUpdate(false)
 	}()
 	logic.ReturnSuccessResponse(w, r, "updating tags")

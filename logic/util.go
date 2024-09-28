@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/database"
@@ -146,6 +147,16 @@ func IsSlicesEqual(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// HasSymbol - checks if string has symbols
+func HasSymbol(str string) bool {
+	for _, letter := range str {
+		if unicode.IsSymbol(letter) {
+			return true
+		}
+	}
+	return false
 }
 
 // == private ==
