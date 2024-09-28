@@ -2,8 +2,10 @@ package logic
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/gravitl/netmaker/database"
@@ -177,4 +179,20 @@ func SortTagEntrys(tags []models.TagListResp) {
 	sort.Slice(tags, func(i, j int) bool {
 		return tags[i].ID < tags[j].ID
 	})
+}
+
+func CheckIDSyntax(id string) error {
+	if id == "" {
+		return errors.New("name is required")
+	}
+	if len(id) < 3 {
+		return errors.New("name should have min 3 characters")
+	}
+	if HasSymbol(id) {
+		return errors.New("symbols are not allowed")
+	}
+	if strings.Contains(id, ".") {
+		return errors.New("dots not allowed")
+	}
+	return nil
 }
