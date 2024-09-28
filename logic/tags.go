@@ -44,7 +44,7 @@ func InsertTag(tag models.Tag) error {
 }
 
 // DeleteTag - delete tag, will also untag hosts
-func DeleteTag(tagID models.TagID) error {
+func DeleteTag(tagID models.TagID, removeFromPolicy bool) error {
 	tagMutex.Lock()
 	defer tagMutex.Unlock()
 	// cleanUp tags on hosts
@@ -63,8 +63,10 @@ func DeleteTag(tagID models.TagID) error {
 			UpsertNode(&nodeI)
 		}
 	}
-	// remove tag used on acl policy
-	go RemoveDeviceTagFromAclPolicies(tagID, tag.Network)
+	if removeFromPolicy {
+		// remove tag used on acl policy
+		go RemoveDeviceTagFromAclPolicies(tagID, tag.Network)
+	}
 	return database.DeleteRecord(database.TAG_TABLE_NAME, tagID.String())
 }
 

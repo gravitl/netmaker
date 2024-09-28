@@ -162,7 +162,7 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// delete old Tag entry
-		logic.DeleteTag(updateTag.ID)
+		logic.DeleteTag(updateTag.ID, false)
 	}
 	go func() {
 		logic.UpdateTag(updateTag, newID)
@@ -191,7 +191,7 @@ func deleteTag(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = logic.DeleteTag(models.TagID(tagID))
+	err = logic.DeleteTag(models.TagID(tagID), true)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return

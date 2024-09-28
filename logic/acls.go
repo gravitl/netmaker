@@ -13,54 +13,62 @@ import (
 
 // CreateDefaultAclNetworkPolicies - create default acl network policies
 func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
-	defaultDeviceAcl := models.Acl{
-		ID:        models.AclID(fmt.Sprintf("%s.%s", netID, "all-nodes")),
-		Name:      "all-nodes",
-		Default:   true,
-		NetworkID: netID,
-		RuleType:  models.DevicePolicy,
-		Src: []models.AclPolicyTag{
-			{
+	if netID.String() == "" {
+		return
+	}
+	if !IsAclExists(models.AclID(fmt.Sprintf("%s.%s", netID, "all-nodes"))) {
+		defaultDeviceAcl := models.Acl{
+			ID:        models.AclID(fmt.Sprintf("%s.%s", netID, "all-nodes")),
+			Name:      "all-nodes",
+			Default:   true,
+			NetworkID: netID,
+			RuleType:  models.DevicePolicy,
+			Src: []models.AclPolicyTag{
+				{
+					ID:    models.DeviceAclID,
+					Value: "*",
+				}},
+			Dst: []models.AclPolicyTag{
+				{
+					ID:    models.DeviceAclID,
+					Value: "*",
+				}},
+			AllowedDirection: models.TrafficDirectionBi,
+			Enabled:          true,
+			CreatedBy:        "auto",
+			CreatedAt:        time.Now().UTC(),
+		}
+		InsertAcl(defaultDeviceAcl)
+	}
+	if !IsAclExists(models.AclID(fmt.Sprintf("%s.%s", netID, "all-users"))) {
+		defaultUserAcl := models.Acl{
+			ID:        models.AclID(fmt.Sprintf("%s.%s", netID, "all-users")),
+			Default:   true,
+			Name:      "all-users",
+			NetworkID: netID,
+			RuleType:  models.UserPolicy,
+			Src: []models.AclPolicyTag{
+				{
+					ID:    models.UserAclID,
+					Value: "*",
+				},
+				{
+					ID:    models.UserGroupAclID,
+					Value: "*",
+				},
+			},
+			Dst: []models.AclPolicyTag{{
 				ID:    models.DeviceAclID,
 				Value: "*",
 			}},
-		Dst: []models.AclPolicyTag{
-			{
-				ID:    models.DeviceAclID,
-				Value: "*",
-			}},
-		AllowedDirection: models.TrafficDirectionBi,
-		Enabled:          true,
-		CreatedBy:        "auto",
-		CreatedAt:        time.Now().UTC(),
+			AllowedDirection: models.TrafficDirectionUni,
+			Enabled:          true,
+			CreatedBy:        "auto",
+			CreatedAt:        time.Now().UTC(),
+		}
+		InsertAcl(defaultUserAcl)
 	}
-	InsertAcl(defaultDeviceAcl)
-	defaultUserAcl := models.Acl{
-		ID:        models.AclID(fmt.Sprintf("%s.%s", netID, "all-users")),
-		Default:   true,
-		Name:      "all-users",
-		NetworkID: netID,
-		RuleType:  models.UserPolicy,
-		Src: []models.AclPolicyTag{
-			{
-				ID:    models.UserAclID,
-				Value: "*",
-			},
-			{
-				ID:    models.UserGroupAclID,
-				Value: "*",
-			},
-		},
-		Dst: []models.AclPolicyTag{{
-			ID:    models.DeviceAclID,
-			Value: "*",
-		}},
-		AllowedDirection: models.TrafficDirectionUni,
-		Enabled:          true,
-		CreatedBy:        "auto",
-		CreatedAt:        time.Now().UTC(),
-	}
-	InsertAcl(defaultUserAcl)
+
 }
 
 // DeleteDefaultNetworkPolicies - deletes all default network acl policies
@@ -115,32 +123,41 @@ func GetAcl(aID models.AclID) (models.Acl, error) {
 	return a, nil
 }
 
+// IsAclExists - checks if acl exists
+func IsAclExists(aclID models.AclID) bool {
+	_, err := GetAcl(aclID)
+	return err == nil
+}
+
 // IsAclPolicyValid - validates if acl policy is valid
 func IsAclPolicyValid(acl models.Acl) bool {
 	//check if src and dst are valid
-	isValid := false
+
 	switch acl.RuleType {
 	case models.UserPolicy:
 		// src list should only contain users
 		for _, srcI := range acl.Src {
 
 			if srcI.ID == "" || srcI.Value == "" {
-				break
+				return false
 			}
 			if srcI.ID != models.UserAclID &&
 				srcI.ID != models.UserGroupAclID {
-				break
+				return false
 			}
 			// check if user group is valid
 			if srcI.ID == models.UserAclID {
 				_, err := GetUser(srcI.Value)
 				if err != nil {
-					break
+					return false
 				}
 			} else if srcI.ID == models.UserGroupAclID {
+				if srcI.Value == "*" {
+					continue
+				}
 				err := IsGroupValid(models.UserGroupID(srcI.Value))
 				if err != nil {
-					break
+					return false
 				}
 			}
 
@@ -148,53 +165,60 @@ func IsAclPolicyValid(acl models.Acl) bool {
 		for _, dstI := range acl.Dst {
 
 			if dstI.ID == "" || dstI.Value == "" {
-				break
+				return false
 			}
 			if dstI.ID == models.UserAclID ||
 				dstI.ID == models.UserGroupAclID {
-				break
+				return false
 			}
 			if dstI.ID != models.DeviceAclID {
-				break
+				return false
+			}
+			if dstI.Value == "*" {
+				continue
 			}
 			// check if tag is valid
 			_, err := GetTag(models.TagID(dstI.Value))
 			if err != nil {
-				break
+				return false
 			}
 		}
-		isValid = true
 	case models.DevicePolicy:
 		for _, srcI := range acl.Src {
 			if srcI.ID == "" || srcI.Value == "" {
-				break
+				return false
 			}
 			if srcI.ID != models.DeviceAclID {
-				break
+				return false
+			}
+			if srcI.Value == "*" {
+				continue
 			}
 			// check if tag is valid
 			_, err := GetTag(models.TagID(srcI.Value))
 			if err != nil {
-				break
+				return false
 			}
 		}
 		for _, dstI := range acl.Dst {
 
 			if dstI.ID == "" || dstI.Value == "" {
-				break
+				return false
 			}
 			if dstI.ID != models.DeviceAclID {
-				break
+				return false
+			}
+			if dstI.Value == "*" {
+				continue
 			}
 			// check if tag is valid
 			_, err := GetTag(models.TagID(dstI.Value))
 			if err != nil {
-				break
+				return false
 			}
 		}
-		isValid = true
 	}
-	return isValid
+	return true
 }
 
 // UpdateAcl - updates allowed fields on acls and commits to DB
