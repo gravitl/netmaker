@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
@@ -74,22 +73,6 @@ func DeleteDefaultNetworkPolicies(netId models.NetworkID) {
 	}
 }
 
-func checkIDSyntax(id string) error {
-	if id == "" {
-		return errors.New("name is required")
-	}
-	if len(id) < 3 {
-		return errors.New("name should have min 3 characters")
-	}
-	if HasSymbol(id) {
-		return errors.New("symbols are not allowed")
-	}
-	if strings.Contains(id, ".") {
-		return errors.New("dot not allowed")
-	}
-	return nil
-}
-
 // ValidateCreateAclReq - validates create req for acl
 func ValidateCreateAclReq(req models.Acl) error {
 	// check if acl network exists
@@ -97,7 +80,7 @@ func ValidateCreateAclReq(req models.Acl) error {
 	if err != nil {
 		return errors.New("failed to get network details for " + req.NetworkID.String())
 	}
-	err = checkIDSyntax(req.Name)
+	err = CheckIDSyntax(req.Name)
 	if err != nil {
 		return err
 	}

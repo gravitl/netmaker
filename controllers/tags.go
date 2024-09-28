@@ -90,6 +90,17 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 		CreatedBy: user.UserName,
 		CreatedAt: time.Now(),
 	}
+	_, err = logic.GetTag(tag.ID)
+	if err == nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("tag with id %s exists already", tag.TagName), "badrequest"))
+		return
+	}
+	// validate name
+	err = logic.CheckIDSyntax(tag.TagName)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	err = logic.InsertTag(tag)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -136,6 +147,12 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 	updateTag.NewName = strings.TrimSpace(updateTag.NewName)
 	var newID models.TagID
 	if updateTag.NewName != "" {
+		// validate name
+		err = logic.CheckIDSyntax(updateTag.NewName)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
 		newID = models.TagID(fmt.Sprintf("%s.%s", tag.Network, updateTag.NewName))
 		tag.ID = newID
 		tag.TagName = updateTag.NewName
