@@ -30,6 +30,8 @@ func GetTag(tagID models.TagID) (models.Tag, error) {
 
 // InsertTag - creates new tag
 func InsertTag(tag models.Tag) error {
+	tagMutex.Lock()
+	defer tagMutex.Unlock()
 	_, err := database.FetchRecord(database.TAG_TABLE_NAME, tag.ID.String())
 	if err == nil {
 		return fmt.Errorf("tag `%s` exists already", tag.ID)
@@ -43,6 +45,8 @@ func InsertTag(tag models.Tag) error {
 
 // DeleteTag - delete tag, will also untag hosts
 func DeleteTag(tagID models.TagID) error {
+	tagMutex.Lock()
+	defer tagMutex.Unlock()
 	// cleanUp tags on hosts
 	tag, err := GetTag(tagID)
 	if err != nil {
@@ -64,8 +68,6 @@ func DeleteTag(tagID models.TagID) error {
 
 // ListTagsWithHosts - lists all tags with tagged hosts
 func ListTagsWithNodes(netID models.NetworkID) ([]models.TagListResp, error) {
-	tagMutex.RLock()
-	defer tagMutex.RUnlock()
 	tags, err := ListNetworkTags(netID)
 	if err != nil {
 		return []models.TagListResp{}, err
@@ -85,7 +87,8 @@ func ListTagsWithNodes(netID models.NetworkID) ([]models.TagListResp, error) {
 
 // ListTags - lists all tags from DB
 func ListTags() ([]models.Tag, error) {
-
+	tagMutex.RLock()
+	defer tagMutex.RUnlock()
 	data, err := database.FetchRecords(database.TAG_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return []models.Tag{}, err
@@ -104,7 +107,8 @@ func ListTags() ([]models.Tag, error) {
 
 // ListTags - lists all tags from DB
 func ListNetworkTags(netID models.NetworkID) ([]models.Tag, error) {
-
+	tagMutex.RLock()
+	defer tagMutex.RUnlock()
 	data, err := database.FetchRecords(database.TAG_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return []models.Tag{}, err
