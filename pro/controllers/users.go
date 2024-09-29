@@ -71,8 +71,8 @@ func UserHandlers(r *mux.Router) {
 //	Responses:
 //		200: ReturnSuccessResponse
 func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
-	email, _ := url.QueryUnescape(r.URL.Query().Get("email"))
-	code, _ := url.QueryUnescape(r.URL.Query().Get("invite_code"))
+	email := r.URL.Query().Get("email")
+	code := r.URL.Query().Get("invite_code")
 	in, err := logic.GetUserInvite(email)
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
@@ -133,8 +133,8 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 //	Responses:
 //		200: ReturnSuccessResponse
 func userInviteVerify(w http.ResponseWriter, r *http.Request) {
-	email, _ := url.QueryUnescape(r.URL.Query().Get("email"))
-	code, _ := url.QueryUnescape(r.URL.Query().Get("invite_code"))
+	email := r.URL.Query().Get("email")
+	code := r.URL.Query().Get("invite_code")
 	err := logic.ValidateAndApproveUserInvite(email, code)
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
@@ -299,7 +299,7 @@ func listUserInvites(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //				200: ReturnSuccessResponse
 func deleteUserInvite(w http.ResponseWriter, r *http.Request) {
-	email, _ := url.QueryUnescape(r.URL.Query().Get("invitee_email"))
+	email := r.URL.Query().Get("invitee_email")
 	err := logic.DeleteUserInvite(email)
 	if err != nil {
 		logger.Log(0, "failed to delete user invite: ", email, err.Error())
@@ -365,7 +365,7 @@ func listUserGroups(w http.ResponseWriter, r *http.Request) {
 //				200: userBodyResponse
 func getUserGroup(w http.ResponseWriter, r *http.Request) {
 
-	gid, _ := url.QueryUnescape(r.URL.Query().Get("group_id"))
+	gid := r.URL.Query().Get("group_id")
 	if gid == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("group id is required"), "badrequest"))
 		return
@@ -486,14 +486,14 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 // @Failure     500 {object} models.ErrorResponse
 func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 
-	gid, _ := url.QueryUnescape(r.URL.Query().Get("group_id"))
+	gid := r.URL.Query().Get("group_id")
 	if gid == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("group id is required"), "badrequest"))
 		return
 	}
 	userG, err := proLogic.GetUserGroup(models.UserGroupID(gid))
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to fetch group details"), "badrequest"))
 		return
 	}
 	err = proLogic.DeleteUserGroup(models.UserGroupID(gid))
@@ -512,7 +512,7 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object}  []models.UserRolePermissionTemplate
 // @Failure     500 {object} models.ErrorResponse
 func ListRoles(w http.ResponseWriter, r *http.Request) {
-	platform, _ := url.QueryUnescape(r.URL.Query().Get("platform"))
+	platform := r.URL.Query().Get("platform")
 	var roles []models.UserRolePermissionTemplate
 	var err error
 	if platform == "true" {
@@ -538,7 +538,7 @@ func ListRoles(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} models.UserRolePermissionTemplate
 // @Failure     500 {object} models.ErrorResponse
 func getRole(w http.ResponseWriter, r *http.Request) {
-	rid, _ := url.QueryUnescape(r.URL.Query().Get("role_id"))
+	rid := r.URL.Query().Get("role_id")
 	if rid == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
@@ -628,7 +628,7 @@ func updateRole(w http.ResponseWriter, r *http.Request) {
 // @Failure     500 {object} models.ErrorResponse
 func deleteRole(w http.ResponseWriter, r *http.Request) {
 
-	rid, _ := url.QueryUnescape(r.URL.Query().Get("role_id"))
+	rid := r.URL.Query().Get("role_id")
 	if rid == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
