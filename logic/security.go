@@ -2,7 +2,6 @@ package logic
 
 import (
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -97,7 +96,7 @@ func ContinueIfUserMatch(next http.Handler) http.HandlerFunc {
 		var params = mux.Vars(r)
 		var requestedUser = params["username"]
 		if requestedUser == "" {
-			requestedUser, _ = url.QueryUnescape(r.URL.Query().Get("username"))
+			requestedUser = r.URL.Query().Get("username")
 		}
 		if requestedUser != r.Header.Get("user") {
 			ReturnErrorResponse(w, r, errorResponse)
