@@ -78,3 +78,9 @@ type Acl struct {
 	CreatedBy        string                  `json:"created_by"`
 	CreatedAt        time.Time               `json:"created_at"`
 }
+
+type AclPolicyTypes struct {
+	RuleTypes     []AclPolicyType `json:"policy_types"`
+	SrcGroupTypes []AclGroupType  `json:"src_grp_types"`
+	DstGroupTypes []AclGroupType  `json:"dst_grp_types"`
+}

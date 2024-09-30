@@ -17,7 +17,7 @@ import (
 func aclHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/acls", logic.SecurityCheck(true, http.HandlerFunc(getAcls))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/acls/policy_types", logic.SecurityCheck(true, http.HandlerFunc(getAclPolicyTypes))).
+	r.HandleFunc("/api/v1/acls/policy_types", logic.SecurityCheck(true, http.HandlerFunc(aclPolicyTypes))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/acls", logic.SecurityCheck(true, http.HandlerFunc(createAcl))).
 		Methods(http.MethodPost)
@@ -25,6 +25,8 @@ func aclHandlers(r *mux.Router) {
 		Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/acls", logic.SecurityCheck(true, http.HandlerFunc(deleteAcl))).
 		Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/acls/debug", logic.SecurityCheck(true, http.HandlerFunc(aclDebug))).
+		Methods(http.MethodGet)
 
 }
 
@@ -34,7 +36,27 @@ func aclHandlers(r *mux.Router) {
 // @Accept      json
 // @Success     200 {array} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
-func getAclPolicyTypes(w http.ResponseWriter, r *http.Request) {
+func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
+	resp := models.AclPolicyTypes{
+		RuleTypes: []models.AclPolicyType{
+			models.DevicePolicy,
+			models.UserPolicy,
+		},
+		SrcGroupTypes: []models.AclGroupType{
+			models.UserAclID,
+			models.UserGroupAclID,
+			models.DeviceAclID,
+		},
+		DstGroupTypes: []models.AclGroupType{
+			models.DeviceAclID,
+			// models.NetmakerIPAclID,
+			// models.NetmakerSubNetRangeAClID,
+		},
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, resp, "fetched acls types")
+}
+
+func aclDebug(w http.ResponseWriter, r *http.Request) {
 	nodeID, _ := url.QueryUnescape(r.URL.Query().Get("node"))
 	peerID, _ := url.QueryUnescape(r.URL.Query().Get("peer"))
 	node, err := logic.GetNodeByID(nodeID)
