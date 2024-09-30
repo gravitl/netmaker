@@ -738,9 +738,9 @@ setup_mesh() {
 
 	# add a network if none present
 	if [ "$networkCount" -lt 1 ]; then
-		echo "Creating netmaker network (100.172.0.0/16)"
+		echo "Creating netmaker network (100.64.0.0/16)"
 		# TODO causes "Error Status: 400 Response: {"Code":400,"Message":"could not find any records"}"
-		nmctl network create --name netmaker --ipv4_addr 100.172.0.0/16
+		nmctl network create --name netmaker --ipv4_addr 100.64.0.0/16
 
 		wait_seconds 5
 	fi
