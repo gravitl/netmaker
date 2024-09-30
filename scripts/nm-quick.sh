@@ -19,11 +19,13 @@ unset BUILD_TAG
 unset IMAGE_TAG
 unset NETMAKER_BASE_DOMAIN
 unset UPGRADE_FLAG
+unset COLLECT_PRO_VARS
 # usage - displays usage instructions
 usage() {
 	echo "nm-quick.sh v$NM_QUICK_VERSION"
 	echo "usage: ./nm-quick.sh [-c]"
 	echo " -c  if specified, will install netmaker community version"
+	echo " -p  if specified, will install netmaker pro version"
 	echo " -u  if specified, will upgrade netmaker to pro version"
 	echo " -d if specified, will downgrade netmaker to community version"
 	exit 1
@@ -236,7 +238,7 @@ save_config() { (
 	save_config_item UI_IMAGE_TAG "$IMAGE_TAG"
 	# version-specific entries
 	if [ "$INSTALL_TYPE" = "pro" ]; then
-		save_config_item NETMAKER_TENANT_ID "$TENANT_ID"
+		save_config_item NETMAKER_TENANT_ID "$NETMAKER_TENANT_ID"
 		save_config_item LICENSE_KEY "$LICENSE_KEY"
 		if [ "$UPGRADE_FLAG" = "yes" ];then
 			save_config_item METRICS_EXPORTER "on"
@@ -249,7 +251,7 @@ save_config() { (
 		save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG"
 	fi
 	# copy entries from the previous config
-	local toCopy=("SERVER_HOST" "MASTER_KEY" "MQ_USERNAME" "MQ_PASSWORD"
+	local toCopy=("SERVER_HOST" "MASTER_KEY" "MQ_USERNAME" "MQ_PASSWORD" "LICENSE_KEY" "NETMAKER_TENANT_ID"
 		"INSTALL_TYPE" "NODE_ID" "DNS_MODE" "NETCLIENT_AUTO_UPDATE" "API_PORT"
 		"CORS_ALLOWED_ORIGIN" "DISPLAY_KEYS" "DATABASE" "SERVER_BROKER_ENDPOINT" "VERBOSITY"
 		"DEBUG_MODE"  "REST_BACKEND" "DISABLE_REMOTE_IP_CHECK" "TELEMETRY" "ALLOWED_EMAIL_DOMAINS" "AUTH_PROVIDER" "CLIENT_ID" "CLIENT_SECRET"
@@ -568,7 +570,17 @@ set_install_vars() {
 	EMAIL="$GET_EMAIL"
 
 	wait_seconds 1
-
+	if [ "$COLLECT_PRO_VARS" = "true" ]; then
+		unset LICENSE_KEY
+		while [ -z "$LICENSE_KEY" ]; do
+			read -p "License Key: " LICENSE_KEY
+		done
+		unset NETMAKER_TENANT_ID
+		while [ -z ${NETMAKER_TENANT_ID} ]; do
+			read -p "Tenant ID: " NETMAKER_TENANT_ID
+		done
+	fi
+	wait_seconds 1
 	unset GET_MQ_USERNAME
 	unset GET_MQ_PASSWORD
 	unset CONFIRM_MQ_PASSWORD
@@ -726,25 +738,29 @@ setup_mesh() {
 
 	# add a network if none present
 	if [ "$networkCount" -lt 1 ]; then
-		echo "Creating netmaker network (10.101.0.0/16)"
-
+		echo "Creating netmaker network (100.64.0.0/16)"
 		# TODO causes "Error Status: 400 Response: {"Code":400,"Message":"could not find any records"}"
-		nmctl network create --name netmaker --ipv4_addr 10.101.0.0/16
+		nmctl network create --name netmaker --ipv4_addr 100.64.0.0/16
 
 		wait_seconds 5
 	fi
 
 	echo "Obtaining a netmaker enrollment key..."
-
-	local tokenJson=$(nmctl enrollment_key create --tags netmaker --unlimited --networks netmaker)
-	TOKEN=$(jq -r '.token' <<<${tokenJson})
-	if test -z "$TOKEN"; then
-		echo "Error creating an enrollment key"
-		exit 1
+	local netmakerTag=$(nmctl enrollment_key list | jq -r '.[] | .tags[0]')
+	if [[ ${netmakerTag} = "netmaker" ]]; then
+		# key exists already, fetch token
+		TOKEN=$(nmctl enrollment_key list | jq -r '.[] | select(.tags[0]=="netmaker") | .token')
 	else
-		echo "Enrollment key ready"
+		local tokenJson=$(nmctl enrollment_key create --tags netmaker --unlimited --networks netmaker)
+		TOKEN=$(jq -r '.token' <<<${tokenJson})
+		if test -z "$TOKEN"; then
+			echo "Error creating an enrollment key"
+			exit 1
+		else
+			echo "Enrollment key ready"
+		fi
 	fi
-
+	
 	wait_seconds 3
 
 }
@@ -813,9 +829,9 @@ upgrade() {
 	while [ -z "$LICENSE_KEY" ]; do
 		read -p "License Key: " LICENSE_KEY
 	done
-	unset TENANT_ID
-	while [ -z ${TENANT_ID} ]; do
-		read -p "Tenant ID: " TENANT_ID
+	unset NETMAKER_TENANT_ID
+	while [ -z ${NETMAKER_TENANT_ID} ]; do
+		read -p "Tenant ID: " NETMAKER_TENANT_ID
 	done
 	save_config
 	# start docker and rebuild containers / networks
@@ -871,7 +887,7 @@ main (){
 	fi
 
 	INSTALL_TYPE="pro"
-	while getopts :cudv flag; do
+	while getopts :cudpv flag; do
 	case "${flag}" in
 	c)
 		INSTALL_TYPE="ce"
@@ -888,6 +904,11 @@ main (){
 		INSTALL_TYPE="ce"
 		downgrade
 		exit 0
+		;;
+	p)
+		echo "installing pro version..."
+		INSTALL_TYPE="pro"
+		COLLECT_PRO_VARS="true"
 		;;
 	v)
 		usage
