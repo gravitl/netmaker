@@ -3,6 +3,8 @@ name: Deploy and Test Branch
 on:
   pull_request_review:
     types: [submitted]
+  pull_request:
+    types: [opened, synchronize, reopened]
   pull_request_target:
     types: [opened, synchronize, reopened]
   workflow_dispatch:
@@ -15,14 +17,16 @@ on:
 jobs:
   check-pr-approval:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request_review' || github.event_name == 'pull_request_target'
+    if: github.event_name == 'pull_request_review' || github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
     outputs:
       approved: ${{ steps.check.outputs.approved }}
     steps:
-      - name: Check if PR is approved
+      - name: Check if PR is approved or author is a contributor
         id: check
         run: |
-          if [[ "${{ github.event.review.state }}" == "approved" ]] || [[ "${{ github.event_name }}" == "pull_request_target" && "${{ github.event.pull_request.state }}" == "open" ]]; then
+          if [[ "${{ github.event.review.state }}" == "approved" ]] || \
+             [[ "${{ github.event_name }}" == "pull_request_target" && "${{ github.event.pull_request.state }}" == "open" ]] || \
+             [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.author_association }}" =~ ^(OWNER|MEMBER|COLLABORATOR)$ ]]; then
             echo "approved=true" >> $GITHUB_OUTPUT
           else
             echo "approved=false" >> $GITHUB_OUTPUT
@@ -55,7 +59,7 @@ jobs:
             echo "NETMAKER_BRANCH=${{ github.event.inputs.branch }}" >> $GITHUB_ENV
             echo "NETCLIENT_BRANCH=${{ github.event.inputs.branch }}" >> $GITHUB_ENV
           else
-            echo "NETMAKER_BRANCH=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
+            echo "NETMAKER_BRANCH=${{ github.event.pull_request.head.ref || github.head_ref }}" >> $GITHUB_ENV
             echo "NETCLIENT_BRANCH=develop" >> $GITHUB_ENV
           fi
 
