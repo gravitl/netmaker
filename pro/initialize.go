@@ -33,6 +33,7 @@ func InitPro() {
 		proControllers.UserHandlers,
 		proControllers.FailOverHandlers,
 		proControllers.InetHandlers,
+		proControllers.RacHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
