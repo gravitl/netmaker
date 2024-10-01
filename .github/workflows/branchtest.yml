@@ -3,8 +3,6 @@ name: Deploy and Test Branch
 on:
   pull_request_review:
     types: [submitted]
-  pull_request:
-    types: [opened, synchronize, reopened]
   pull_request_target:
     types: [opened, synchronize, reopened]
   workflow_dispatch:
@@ -17,7 +15,7 @@ on:
 jobs:
   check-pr-approval:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request_review' || github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+    if: github.event_name != 'workflow_dispatch'
     outputs:
       approved: ${{ steps.check.outputs.approved }}
     steps:
@@ -25,8 +23,7 @@ jobs:
         id: check
         run: |
           if [[ "${{ github.event.review.state }}" == "approved" ]] || \
-             [[ "${{ github.event_name }}" == "pull_request_target" && "${{ github.event.pull_request.state }}" == "open" ]] || \
-             [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.author_association }}" =~ ^(OWNER|MEMBER|COLLABORATOR)$ ]]; then
+             [[ "${{ github.event_name }}" == "pull_request_target" && "${{ github.event.pull_request.author_association }}" =~ ^(OWNER|MEMBER|COLLABORATOR)$ ]]; then
             echo "approved=true" >> $GITHUB_OUTPUT
           else
             echo "approved=false" >> $GITHUB_OUTPUT
