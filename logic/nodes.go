@@ -393,7 +393,7 @@ func GetNetworkByNode(node *models.Node) (models.Network, error) {
 }
 
 // SetNodeDefaults - sets the defaults of a node to avoid empty fields
-func SetNodeDefaults(node *models.Node) {
+func SetNodeDefaults(node *models.Node, resetConnected bool) {
 
 	parentNetwork, _ := GetNetworkByNode(node)
 	_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange)
@@ -413,8 +413,12 @@ func SetNodeDefaults(node *models.Node) {
 	}
 
 	node.SetLastModified()
-	node.SetLastCheckIn()
-	node.SetDefaultConnected()
+	if node.LastCheckIn.IsZero() {
+		node.SetLastCheckIn()
+	}
+	if resetConnected {
+		node.SetDefaultConnected()
+	}
 	node.SetExpirationDateTime()
 }
 
@@ -461,7 +465,7 @@ func GetDeletedNodeByID(uuid string) (models.Node, error) {
 		return models.Node{}, err
 	}
 
-	SetNodeDefaults(&node)
+	SetNodeDefaults(&node, true)
 
 	return node, nil
 }
@@ -531,7 +535,7 @@ func createNode(node *models.Node) error {
 		}
 	}
 
-	SetNodeDefaults(node)
+	SetNodeDefaults(node, true)
 
 	defaultACLVal := acls.Allowed
 	parentNetwork, err := GetNetwork(node.Network)
