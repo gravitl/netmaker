@@ -528,3 +528,16 @@ func GetExtclientAllowedIPs(client models.ExtClient) (allowedIPs []string) {
 	}
 	return
 }
+
+func GetStaticNodesByGw(gwNode models.Node) (staticNode []models.Node) {
+	extClients, err := GetAllExtClients()
+	if err != nil {
+		return
+	}
+	for _, extI := range extClients {
+		if extI.IngressGatewayID == gwNode.ID.String() {
+			staticNode = append(staticNode, models.Node{})
+		}
+	}
+	return
+}
