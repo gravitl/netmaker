@@ -170,6 +170,8 @@ configure_netclient() {
 	#setup failOver
 	sleep 5
 	curl --location --request POST "https://api.${NETMAKER_BASE_DOMAIN}/api/v1/node/${NODE_ID}/failover" --header "Authorization: Bearer ${MASTER_KEY}"
+	sleep 2
+	curl --location --request POST "https://api.${NETMAKER_BASE_DOMAIN}/api/v1/node/internet-access-vpn/${NODE_ID}/failover" -data '{}' --header "Authorization: Bearer ${MASTER_KEY}"
 	set -e
 }
 
@@ -741,12 +743,16 @@ setup_mesh() {
 		echo "Creating netmaker network (100.64.0.0/16)"
 		# TODO causes "Error Status: 400 Response: {"Code":400,"Message":"could not find any records"}"
 		nmctl network create --name netmaker --ipv4_addr 100.64.0.0/16
+		# create network for internet access vpn
+		if [ "$INSTALL_TYPE" = "pro" ]; then
+			nmctl network create --name internet-access-vpn --ipv4_addr 100.65.0.0/16
+		fi
 
 		wait_seconds 5
 	fi
 
 	echo "Obtaining a netmaker enrollment key..."
-	local netmakerTag=$(nmctl enrollment_key list | jq -r '.[] | .tags[0]')
+	local netmakerTag=$(nmctl enrollment_key list | jq -r '.[] | .tags[0]' | grep -w "netmaker")
 	if [[ ${netmakerTag} = "netmaker" ]]; then
 		# key exists already, fetch token
 		TOKEN=$(nmctl enrollment_key list | jq -r '.[] | select(.tags[0]=="netmaker") | .token')
@@ -760,6 +766,24 @@ setup_mesh() {
 			echo "Enrollment key ready"
 		fi
 	fi
+
+	# if [ "$INSTALL_TYPE" = "pro" ]; then
+	# 	local inetTag=$(nmctl enrollment_key list | jq -r '.[] | .tags[0]' | grep -w "internet-access-vpn")
+	# 	if [[ ${inetTag} = "internet-access-vpn" ]]; then
+	# 		# key exists already, fetch token
+	# 		InetTOKEN=$(nmctl enrollment_key list | jq -r '.[] | select(.tags[0]=="internet-access-vpn") | .token')
+	# 	else
+	# 		local tokenJson=$(nmctl enrollment_key create --tags internet-access-vpn --unlimited --networks internet-access-vpn)
+	# 		InetTOKEN=$(jq -r '.token' <<<${tokenJson})
+	# 		if test -z "$InetTOKEN"; then
+	# 			echo "Error creating an enrollment key"
+	# 			exit 1
+	# 		else
+	# 			echo "Enrollment key ready"
+	# 		fi
+	# 	fi
+
+	# fi
 	
 	wait_seconds 3
 
