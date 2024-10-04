@@ -171,7 +171,15 @@ configure_netclient() {
 	sleep 5
 	curl --location --request POST "https://api.${NETMAKER_BASE_DOMAIN}/api/v1/node/${NODE_ID}/failover" --header "Authorization: Bearer ${MASTER_KEY}"
 	sleep 2
-	curl --location --request POST "https://api.${NETMAKER_BASE_DOMAIN}/api/v1/node/internet-access-vpn/${NODE_ID}/failover" -data '{}' --header "Authorization: Bearer ${MASTER_KEY}"
+	# create network for internet access vpn
+	if [ "$INSTALL_TYPE" = "pro" ]; then
+		echo "creating internet-access-vpn network"
+		nmctl network create --name internet-access-vpn --ipv4_addr 100.65.0.0/16
+		sleep 5
+		INET_NODE_ID=$(sudo cat /etc/netclient/nodes.json | jq -r .internet-access-vpn.id)
+		curl --location --request POST "https://api.${NETMAKER_BASE_DOMAIN}/api/v1/node/internet-access-vpn/${INET_NODE_ID}/inet_gw" -data '{}' --header "Authorization: Bearer ${MASTER_KEY}"
+	fi
+	
 	set -e
 }
 
@@ -743,10 +751,6 @@ setup_mesh() {
 		echo "Creating netmaker network (100.64.0.0/16)"
 		# TODO causes "Error Status: 400 Response: {"Code":400,"Message":"could not find any records"}"
 		nmctl network create --name netmaker --ipv4_addr 100.64.0.0/16
-		# create network for internet access vpn
-		if [ "$INSTALL_TYPE" = "pro" ]; then
-			nmctl network create --name internet-access-vpn --ipv4_addr 100.65.0.0/16
-		fi
 
 		wait_seconds 5
 	fi
