@@ -177,7 +177,7 @@ configure_netclient() {
 		nmctl network create --name internet-access-vpn --ipv4_addr 100.65.0.0/16
 		sleep 5
 		INET_NODE_ID=$(sudo cat /etc/netclient/nodes.json | jq -r .internet-access-vpn.id)
-		curl --location --request POST "https://api.${NETMAKER_BASE_DOMAIN}/api/v1/nodes/internet-access-vpn/${INET_NODE_ID}/inet_gw" -data '{}' --header "Authorization: Bearer ${MASTER_KEY}"
+		curl --location --request POST "https://api.${NETMAKER_BASE_DOMAIN}/api/v1/nodes/internet-access-vpn/${INET_NODE_ID}/inet_gw" --data '{}' --header "Authorization: Bearer ${MASTER_KEY}"
 	fi
 	
 	set -e
