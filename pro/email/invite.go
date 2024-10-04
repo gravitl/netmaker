@@ -13,54 +13,31 @@ type UserInvitedMail struct {
 
 // GetSubject - gets the subject of the email
 func (UserInvitedMail) GetSubject(info Notification) string {
-	return "You're invited to join Netmaker"
+	return "Access Your Secure Network with Netmaker"
 }
 
 // GetBody - gets the body of the email
 func (invite UserInvitedMail) GetBody(info Notification) string {
-	if servercfg.DeployedByOperator() {
-		return invite.BodyBuilder.
-			WithParagraph("Hi there,").
-			WithParagraph("<br>").
-			WithParagraph("Great news! Your colleague has invited you to join their Netmaker SaaS Tenant.").
-			WithParagraph("Click the button to accept your invitation:").
-			WithParagraph("<br>").
-			WithParagraph(fmt.Sprintf("<a class=\"x-button\" href=\"%s\">Accept Invitation</a>", invite.InviteURL)).
-			WithParagraph("<br>").
-			WithParagraph("Why you'll love Netmaker:").
-			WithParagraph("<ul>").
-			WithParagraph("<li>Blazing-fast connections with our WireGuard®-powered mesh VPN</li>").
-			WithParagraph("<li>Seamless multi-cloud and hybrid-cloud networking</li>").
-			WithParagraph("<li>Automated Kubernetes networking across any infrastructure</li>").
-			WithParagraph("<li>Enterprise-grade security with simple management</li>").
-			WithParagraph("</ul>").
-			WithParagraph("Got questions? Our team is here to help you every step of the way.").
-			WithParagraph("<br>").
-			WithParagraph("Welcome aboard,").
-			WithParagraph("<h2>The Netmaker Team</h2>").
-			WithParagraph("P.S. Curious to learn more before accepting? Check out our quick start tutorial at <a href=\"https://netmaker.io/tutorials\">netmaker.io/tutorials</a>").
-			Build()
-	}
-
+	downloadLink := "https://www.netmaker.io/download"
+	racDocsLink := "https://docs.v2.netmaker.io/guide/netmaker-professional/netmaker-remote-access-client-rac"
+	supportEmail := "support@netmaker.io"
 	return invite.BodyBuilder.
-		WithParagraph("Hi there,").
-		WithParagraph("<br>").
-		WithParagraph("Great news! Your colleague has invited you to join their Netmaker network.").
-		WithParagraph("Click the button to accept your invitation:").
-		WithParagraph("<br>").
-		WithParagraph(fmt.Sprintf("<a class=\"x-button\" href=\"%s\">Accept Invitation</a>", invite.InviteURL)).
-		WithParagraph("<br>").
-		WithParagraph("Why you'll love Netmaker:").
-		WithParagraph("<ul>").
-		WithParagraph("<li>Blazing-fast connections with our WireGuard®-powered mesh VPN</li>").
-		WithParagraph("<li>Seamless multi-cloud and hybrid-cloud networking</li>").
-		WithParagraph("<li>Automated Kubernetes networking across any infrastructure</li>").
-		WithParagraph("<li>Enterprise-grade security with simple management</li>").
-		WithParagraph("</ul>").
-		WithParagraph("Got questions? Our team is here to help you every step of the way.").
-		WithParagraph("<br>").
-		WithParagraph("Welcome aboard,").
-		WithParagraph("<h2>The Netmaker Team</h2>").
-		WithParagraph("P.S. Curious to learn more before accepting? Check out our quick start tutorial at <a href=\"https://netmaker.io/tutorials\">netmaker.io/tutorials</a>").
+		WithParagraph("Hi,").
+		WithParagraph("You've been invited to access a secure network via Netmaker's Remote Access Client (RAC). Follow these simple steps to get connected:").
+		WithHtml("<ol>").
+		WithHtml("<li>Accept Invite - Click the button to accept your invitation.</li>").
+		WithHtml("<br>").
+		WithHtml(fmt.Sprintf("<a style=\"background:#5E5DF0; border-radius:999px; box-shadow:#5E5DF0 0 10px 20px -10px; box-sizing:border-box; color:#FFFFFF !important; cursor:pointer; font-family:Helvetica; font-size:16px; font-weight:700; line-height:24px; opacity:1; outline:0 solid transparent; padding:8px 18px; user-select:none; -webkit-user-select:none; touch-action:manipulation; width:fit-content; word-break:break-word; border:0; margin:20px 20px 20px 0px; text-decoration:none;\" href=\"%s\">Accept Invite</a>", invite.InviteURL)).
+		WithHtml("<br><br>").
+		WithHtml(fmt.Sprintf("<li>Download the Remote Access Client (RAC). Visit our download page to get the RAC for your device: <a href=\"%s\">%s</a>.</li>", downloadLink, downloadLink)).
+		WithHtml("<br>").
+		WithHtml("<li>Choose the appropriate version for your operating system.</li>").
+		WithHtml("</ol>").
+		WithParagraph(fmt.Sprintf("Important: Your Tenant ID is %s. You may need this for troubleshooting or support requests.", servercfg.GetNetmakerTenantID())).
+		WithParagraph(fmt.Sprintf("For detailed setup instructions and troubleshooting, please visit our RAC user guide: <a href=\"%s\">%s</a>.", racDocsLink, racDocsLink)).
+		WithParagraph(fmt.Sprintf("If you have any questions or need assistance, don't hesitate to contact our support team at <a href=\"mailto:%s\">%s</a>.", supportEmail, supportEmail)).
+		WithParagraph("Welcome aboard, and enjoy your secure connection!").
+		WithParagraph("Best regards,").
+		WithParagraph("The Netmaker Team").
 		Build()
 }
