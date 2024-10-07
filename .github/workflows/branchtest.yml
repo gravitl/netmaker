@@ -1,38 +1,19 @@
 name: Deploy and Test Branch
 
 on:
-  pull_request_review:
-    types: [submitted]
-  pull_request_target:
-    types: [opened, synchronize, reopened]
   workflow_dispatch:
     inputs:
       branch:
         description: 'Branch to deploy and test'
         required: true
         default: 'develop'
+  pull_request:
+      types: [opened, synchronize, reopened]
+      branches: [develop]
 
 jobs:
-  check-pr-approval:
-    runs-on: ubuntu-latest
-    if: github.event_name != 'workflow_dispatch'
-    outputs:
-      approved: ${{ steps.check.outputs.approved }}
-    steps:
-      - name: Check if PR is approved or author is a contributor
-        id: check
-        run: |
-          if [[ "${{ github.event.review.state }}" == "approved" ]] || \
-             [[ "${{ github.event_name }}" == "pull_request_target" && "${{ github.event.pull_request.author_association }}" =~ ^(OWNER|MEMBER|COLLABORATOR)$ ]]; then
-            echo "approved=true" >> $GITHUB_OUTPUT
-          else
-            echo "approved=false" >> $GITHUB_OUTPUT
-          fi
-
   skip-check:
     runs-on: ubuntu-latest
-    needs: [check-pr-approval]
-    if: github.event_name == 'workflow_dispatch' || needs.check-pr-approval.outputs.approved == 'true'
     outputs:
       skip: ${{ steps.skip.outputs.skip }}
     steps:
@@ -43,8 +24,8 @@ jobs:
   
   getbranch:
     runs-on: ubuntu-latest
-    needs: [skip-check, check-pr-approval]
-    if: (needs.skip-check.outputs.skip != 'true') && (github.event_name == 'workflow_dispatch' || needs.check-pr-approval.outputs.approved == 'true')
+    needs: skip-check
+    if: ${{ needs.skip-check.outputs.skip != 'true' }}
     outputs:
       netclientbranch: ${{ steps.getbranch.outputs.netclientbranch }}
       netmakerbranch: ${{ steps.getbranch.outputs.netmakerbranch }}
@@ -56,16 +37,14 @@ jobs:
             echo "NETMAKER_BRANCH=${{ github.event.inputs.branch }}" >> $GITHUB_ENV
             echo "NETCLIENT_BRANCH=${{ github.event.inputs.branch }}" >> $GITHUB_ENV
           else
-            echo "NETMAKER_BRANCH=${{ github.event.pull_request.head.ref || github.head_ref }}" >> $GITHUB_ENV
+            echo "NETMAKER_BRANCH=${{ github.head_ref }}" >> $GITHUB_ENV
             echo "NETCLIENT_BRANCH=develop" >> $GITHUB_ENV
           fi
-
       - name: Checkout netclient repository
         uses: actions/checkout@v4
         with:
           repository: gravitl/netclient
           fetch-depth: 0
-
       - name: Check if netclient branch exists and set output
         id: getbranch 
         run: |
@@ -80,8 +59,7 @@ jobs:
 
   branchtest:
     uses: gravitl/devops/.github/workflows/testdeploybranch.yml@master
-    needs: [getbranch, skip-check, check-pr-approval]
-    if: (needs.skip-check.outputs.skip != 'true') && (github.event_name == 'workflow_dispatch' || needs.check-pr-approval.outputs.approved == 'true')
+    needs: [getbranch, skip-check]
     with:
       netclientbranch: ${{ needs.getbranch.outputs.netclientbranch }}
       netmakerbranch: ${{ needs.getbranch.outputs.netmakerbranch }}
