@@ -135,11 +135,6 @@ setup_netclient() {
 	for ((a = 1; a <= 90; a++)); do
 		if [ -f "$file" ]; then
 			found=true
-			# check if registered two nodes are present
-			l=$(jq length /etc/netclient/nodes.json)
-			if [ $l -ge 2 ];then
-				break
-			fi
 		fi
 		sleep 1
 	done
@@ -177,9 +172,7 @@ configure_netclient() {
 	sleep 2
 	# create network for internet access vpn
 	if [ "$INSTALL_TYPE" = "pro" ]; then
-		echo "HEREEE: ############"
-		cat /etc/netclient/nodes.json
-		INET_NODE_ID=$(sudo cat /etc/netclient/nodes.json | jq -r .internet-access-vpn.id)
+		INET_NODE_ID=$(sudo cat /etc/netclient/nodes.json | jq -r '."internet-access-vpn".id')
 		nmctl node create_remote_access_gateway internet-access-vpn $INET_NODE_ID
 		out=$(nmctl node list -o json | jq -r '.[] | select(.id=="$INET_NODE_ID") | .ingressdns = "8.8.8.8"')
 		curl --location --request PUT "https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/internet-access-vpn/${INET_NODE_ID}" --data ${out} --header "Authorization: Bearer ${MASTER_KEY}"
