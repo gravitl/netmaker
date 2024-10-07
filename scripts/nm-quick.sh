@@ -127,7 +127,7 @@ setup_netclient() {
 	./netclient install
 	echo "Register token: $TOKEN"
 	sleep 2
-	netclient register -t $TOKEN
+	netclient join -t $TOKEN
 
 	echo "waiting for netclient to become available"
 	local found=false
@@ -135,13 +135,17 @@ setup_netclient() {
 	for ((a = 1; a <= 90; a++)); do
 		if [ -f "$file" ]; then
 			found=true
-			break
+			# check if registered two nodes are present
+			l=$(jq length /etc/netclient/nodes.json)
+			if [ $l -ge 2 ];then
+				break
+			fi
 		fi
 		sleep 1
 	done
 
 	if [ "$found" = false ]; then
-		echo "Error - $file not present"
+		echo "Error - $file state not matching"
 		exit 1
 	fi
 }
@@ -173,6 +177,8 @@ configure_netclient() {
 	sleep 2
 	# create network for internet access vpn
 	if [ "$INSTALL_TYPE" = "pro" ]; then
+		echo "HEREEE: ############"
+		cat /etc/netclient/nodes.json
 		INET_NODE_ID=$(sudo cat /etc/netclient/nodes.json | jq -r .internet-access-vpn.id)
 		nmctl node create_remote_access_gateway internet-access-vpn $INET_NODE_ID
 		out=$(nmctl node list -o json | jq -r '.[] | select(.id=="$INET_NODE_ID") | .ingressdns = "8.8.8.8"')
@@ -753,9 +759,6 @@ setup_mesh() {
 		echo "Creating netmaker network (100.64.0.0/16)"
 		# TODO causes "Error Status: 400 Response: {"Code":400,"Message":"could not find any records"}"
 		nmctl network create --name netmaker --ipv4_addr 100.64.0.0/16
-
-		
-		wait_seconds 5
 	fi
 	# create enrollment key for netmaker network
 	local netmakerTag=$(nmctl enrollment_key list | jq -r '.[] | .tags[0]' | grep -w "netmaker")
@@ -769,7 +772,6 @@ setup_mesh() {
 			echo "Creating internet-access-vpn network (100.65.0.0/16)"
 			# TODO causes "Error Status: 400 Response: {"Code":400,"Message":"could not find any records"}"
 			nmctl network create --name internet-access-vpn --ipv4_addr 100.65.0.0/16
-			wait_seconds 5
 		fi
 
 		# create enrollment key for internet-access-vpn network
