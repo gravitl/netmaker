@@ -135,6 +135,7 @@ setup_netclient() {
 	for ((a = 1; a <= 90; a++)); do
 		if [ -f "$file" ]; then
 			found=true
+			break
 		fi
 		sleep 1
 	done
