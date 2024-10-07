@@ -743,9 +743,11 @@ test_connection() {
 setup_mesh() {
 
 	wait_seconds 5
-	netmakerNet=$(nmctl network list -o json | jq -r '.[] | .netid' | grep -w "netmaker")
-	inetNet=$(nmctl network list -o json | jq -r '.[] | .netid' | grep -w "internet-access-vpn")
-
+	networks=$(nmctl network list -o json)
+	if [[ ${networks} != "null" ]]; then
+		netmakerNet=$(nmctl network list -o json | jq -r '.[] | .netid' | grep -w "netmaker")
+		inetNet=$(nmctl network list -o json | jq -r '.[] | .netid' | grep -w "internet-access-vpn")
+	fi
 	# create netmaker network
 	if [[ ${netmakerNet} = "" ]]; then
 		echo "Creating netmaker network (100.64.0.0/16)"
