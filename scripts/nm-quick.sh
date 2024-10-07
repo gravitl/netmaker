@@ -176,7 +176,7 @@ configure_netclient() {
 		INET_NODE_ID=$(sudo cat /etc/netclient/nodes.json | jq -r '."internet-access-vpn".id')
 		nmctl node create_remote_access_gateway internet-access-vpn $INET_NODE_ID
 		out=$(nmctl node list -o json | jq -r '.[] | select(.id=='\"$INET_NODE_ID\"') | .ingressdns = "8.8.8.8"')
-		curl --location --request PUT "https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/internet-access-vpn/${INET_NODE_ID}" --data ${out} --header "Authorization: Bearer ${MASTER_KEY}"
+		curl --location --request PUT "https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/internet-access-vpn/${INET_NODE_ID}" --data "$out" --header "Authorization: Bearer ${MASTER_KEY}"
 		curl --location --request POST "https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/internet-access-vpn/${INET_NODE_ID}/inet_gw" --data '{}' --header "Authorization: Bearer ${MASTER_KEY}"
 	fi
 	
