@@ -779,7 +779,7 @@ setup_mesh() {
 		fi
 
 		# create enrollment key for both networks
-		local netInetTag=$(nnmctl enrollment_key list | jq -r '.[] | .tags[0]' | grep -w "netmaker-inet")
+		local netInetTag=$(nmctl enrollment_key list | jq -r '.[] | .tags[0]' | grep -w "netmaker-inet")
 		if [[ ${netInetTag} = "" ]]; then
 			nmctl enrollment_key create --tags netmaker-inet --unlimited --networks netmaker,internet-access-vpn
 		fi
