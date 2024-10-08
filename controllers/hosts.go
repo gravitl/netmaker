@@ -216,6 +216,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 
 	hu := hostactions.GetAction(hostID)
 	if hu != nil {
+		response.Action = models.SignalHost
 		response.Signal = hu.Signal
 	}
 

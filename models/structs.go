@@ -227,6 +227,7 @@ type HostPull struct {
 	DefaultGwIp       net.IP                `json:"default_gw_ip"`
 	IsInternetGw      bool                  `json:"is_inet_gw"`
 	EndpointDetection bool                  `json:"endpoint_detection"`
+	Action            HostMqAction          `json:"action"`
 	Signal            Signal                `json:"signal"`
 }
 
