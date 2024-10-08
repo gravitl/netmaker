@@ -176,11 +176,9 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		}
 		if node.FailedOverBy != uuid.Nil {
 			logic.ResetFailedOverPeer(&node)
-			go func() {
-				if err := mq.PublishPeerUpdate(false); err != nil {
-					logger.Log(0, "fail to publish peer update: ", err.Error())
-				}
-			}()
+			if err := mq.PublishPeerUpdate(true); err != nil {
+				logger.Log(0, "fail to publish peer update: ", err.Error())
+			}
 		}
 	}
 	allNodes, err := logic.GetAllNodes()
