@@ -168,6 +168,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sendPeerUpdate := false
 	for _, nodeID := range host.Nodes {
 		node, err := logic.GetNodeByID(nodeID)
 		if err != nil {
@@ -176,9 +177,12 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		}
 		if node.FailedOverBy != uuid.Nil {
 			logic.ResetFailedOverPeer(&node)
-			if err := mq.PublishPeerUpdate(true); err != nil {
-				logger.Log(0, "fail to publish peer update: ", err.Error())
-			}
+			sendPeerUpdate = true
+		}
+	}
+	if sendPeerUpdate {
+		if err := mq.PublishPeerUpdate(true); err != nil {
+			logger.Log(0, "fail to publish peer update: ", err.Error())
 		}
 	}
 	allNodes, err := logic.GetAllNodes()
