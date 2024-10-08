@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/logic/hostactions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
@@ -213,6 +214,11 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		EndpointDetection: servercfg.IsEndpointDetectionEnabled(),
 	}
 
+	hu := hostactions.GetAction(hostID)
+	if hu != nil {
+		response.Signal = hu.Signal
+	}
+
 	logger.Log(1, hostID, "completed a pull")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&response)
@@ -340,6 +346,17 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 
 	case models.UpdateMetrics:
 		mq.UpdateMetricsFallBack(hostUpdate.Node.ID.String(), hostUpdate.NewMetrics)
+	case models.SignalHost:
+		peerHost, err := logic.GetHost(hostUpdate.Signal.ToHostID)
+		if err != nil {
+			slog.Error("failed to signal, peer host not found", "error", err)
+			return
+		}
+		hostactions.AddAction(models.HostUpdate{
+			Action: models.SignalHost,
+			Host:   *peerHost,
+			Signal: hostUpdate.Signal,
+		})
 	}
 
 	if sendPeerUpdate {
