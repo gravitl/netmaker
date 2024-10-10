@@ -131,9 +131,6 @@ func Keepalive(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-time.After(time.Second * KEEPALIVE_TIMEOUT):
-			if servercfg.GetManageDNS() {
-				sendDNSSync()
-			}
 			sendPeers()
 		}
 	}

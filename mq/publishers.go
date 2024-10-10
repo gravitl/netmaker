@@ -16,12 +16,15 @@ import (
 
 var batchSize = servercfg.GetPeerUpdateBatchSize()
 var batchUpdate = servercfg.GetBatchPeerUpdate()
-var manageDNSCache = map[string]int{}
 
 // PublishPeerUpdate --- determines and publishes a peer update to all the hosts
 func PublishPeerUpdate(replacePeers bool) error {
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
+	}
+
+	if servercfg.GetManageDNS() {
+		sendDNSSync()
 	}
 
 	hosts, err := logic.GetAllHosts()
@@ -258,13 +261,10 @@ func sendDNSSync() error {
 		for _, v := range networks {
 			k, err := logic.GetDNS(v.NetID)
 			if err == nil && len(k) > 0 {
-				if manageDNSCache[v.NetID] != len(k) {
-					err = PushSyncDNS(k)
-					if err != nil {
-						slog.Warn("error publishing dns entry data for network ", v.NetID, err.Error())
-						continue
-					}
-					manageDNSCache[v.NetID] = len(k)
+				err = PushSyncDNS(k)
+				if err != nil {
+					slog.Warn("error publishing dns entry data for network ", v.NetID, err.Error())
+					continue
 				}
 				continue
 			}
