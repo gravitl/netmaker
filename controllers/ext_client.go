@@ -287,6 +287,22 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	} else if gwnode.IngressDNS != "" {
 		defaultDNS = "DNS = " + gwnode.IngressDNS
 	}
+	if servercfg.GetManageDNS() {
+		if gwnode.Address6.IP != nil {
+			if defaultDNS == "" {
+				defaultDNS = "DNS = " + gwnode.Address6.IP.String()
+			} else {
+				defaultDNS = defaultDNS + ", " + gwnode.Address6.IP.String()
+			}
+		}
+		if gwnode.Address.IP != nil {
+			if defaultDNS == "" {
+				defaultDNS = "DNS = " + gwnode.Address.IP.String()
+			} else {
+				defaultDNS = defaultDNS + ", " + gwnode.Address.IP.String()
+			}
+		}
+	}
 
 	defaultMTU := 1420
 	if host.MTU != 0 {

@@ -5,13 +5,14 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gravitl/netmaker/config"
-
 	"github.com/gravitl/netmaker/models"
+	"golang.org/x/exp/slog"
 )
 
 // EmqxBrokerType denotes the broker type for EMQX MQTT
@@ -92,6 +93,8 @@ func GetServerConfig() config.ServerConfig {
 	cfg.JwtValidityDuration = GetJwtValidityDuration()
 	cfg.RacAutoDisable = GetRacAutoDisable()
 	cfg.MetricInterval = GetMetricInterval()
+	cfg.ManageDNS = GetManageDNS()
+	cfg.DefaultDomain = GetDefaultDomain()
 	return cfg
 }
 
@@ -136,6 +139,8 @@ func GetServerInfo() models.ServerConfig {
 	cfg.Version = GetVersion()
 	cfg.IsPro = IsPro
 	cfg.MetricInterval = GetMetricInterval()
+	cfg.ManageDNS = GetManageDNS()
+	cfg.DefaultDomain = GetDefaultDomain()
 	return cfg
 }
 
@@ -648,6 +653,37 @@ func GetMetricInterval() string {
 		mi = os.Getenv("PUBLISH_METRIC_INTERVAL")
 	}
 	return mi
+}
+
+// GetManageDNS - if manage DNS enabled or not
+func GetManageDNS() bool {
+	enabled := true
+	if os.Getenv("MANAGE_DNS") != "" {
+		enabled = os.Getenv("MANAGE_DNS") == "true"
+	}
+	return enabled
+}
+
+// GetDefaultDomain - get the default domain
+func GetDefaultDomain() string {
+	//default netmaker.hosted
+	domain := "netmaker.hosted"
+	if os.Getenv("DEFAULT_DOMAIN") != "" {
+		if validateDomain(os.Getenv("DEFAULT_DOMAIN")) {
+			domain = os.Getenv("DEFAULT_DOMAIN")
+		} else {
+			slog.Warn("invalid value, set to default domain: netmaker.hosted", "warn", os.Getenv("DEFAULT_DOMAIN"))
+		}
+	}
+	return domain
+}
+
+func validateDomain(domain string) bool {
+	domainPattern := `[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}(\.[a-zA-Z0-9][a-zA-Z0-9_-]{0,62})*(\.[a-zA-Z][a-zA-Z0-9]{0,10}){1}`
+
+	exp := regexp.MustCompile("^" + domainPattern + "$")
+
+	return exp.MatchString(domain)
 }
 
 // GetBatchPeerUpdate - if batch peer update
