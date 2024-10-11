@@ -264,11 +264,8 @@ func sendDNSSync() error {
 				err = PushSyncDNS(k)
 				if err != nil {
 					slog.Warn("error publishing dns entry data for network ", v.NetID, err.Error())
-					continue
 				}
-				continue
 			}
-			slog.Warn("error getting DNS entries for network ", v.NetID, err.Error())
 		}
 		return nil
 	}
