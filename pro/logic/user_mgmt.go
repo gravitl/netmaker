@@ -687,7 +687,9 @@ func GetFilteredNodesByUserAccess(user models.User, nodes []models.Node) (filter
 
 	nodesMap := make(map[string]struct{})
 	allNetworkRoles := make(map[models.UserRoleID]struct{})
-
+	defer func() {
+		logic.AddStaticNodestoList(nodes)
+	}()
 	if len(user.NetworkRoles) > 0 {
 		for _, netRoles := range user.NetworkRoles {
 			for netRoleI := range netRoles {

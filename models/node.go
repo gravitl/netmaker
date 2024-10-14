@@ -98,7 +98,10 @@ type Node struct {
 	IsInternetGateway bool                `json:"isinternetgateway"                                      yaml:"isinternetgateway"`
 	InetNodeReq       InetNodeReq         `json:"inet_node_req"                                          yaml:"inet_node_req"`
 	InternetGwID      string              `json:"internetgw_node_id"                                     yaml:"internetgw_node_id"`
-	AdditionalRagIps  []net.IP            `json:"additional_rag_ips"                                     yaml:"additional_rag_ips"                                     swaggertype:"array,number"`
+	AdditionalRagIps  []net.IP            `json:"additional_rag_ips" yaml:"additional_rag_ips"                                     swaggertype:"array,number"`
+	IsStatic          bool                `json:"is_static"`
+	IsUserNode        bool                `json:"is_user_node"`
+	StaticNode        ExtClient           `json:"static_node"`
 }
 
 // LegacyNode - legacy struct for node model

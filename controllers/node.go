@@ -362,6 +362,8 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 		}
 		if !userPlatformRole.FullAccess {
 			nodes = logic.GetFilteredNodesByUserAccess(*user, nodes)
+		} else {
+			nodes = logic.AddStaticNodestoList(nodes)
 		}
 	}
 	// return all the nodes in JSON/API format
