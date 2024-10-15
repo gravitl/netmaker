@@ -48,6 +48,9 @@ type ApiNode struct {
 	InetNodeReq       InetNodeReq         `json:"inet_node_req" yaml:"inet_node_req"`
 	InternetGwID      string              `json:"internetgw_node_id" yaml:"internetgw_node_id"`
 	AdditionalRagIps  []string            `json:"additional_rag_ips" yaml:"additional_rag_ips"`
+	IsStatic          bool                `json:"is_static"`
+	IsUserNode        bool                `json:"is_user_node"`
+	StaticNode        ExtClient           `json:"static_node"`
 }
 
 // ApiNode.ConvertToServerNode - converts an api node to a server node
@@ -183,6 +186,9 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	for _, ip := range nm.AdditionalRagIps {
 		apiNode.AdditionalRagIps = append(apiNode.AdditionalRagIps, ip.String())
 	}
+	apiNode.IsStatic = nm.IsStatic
+	apiNode.IsUserNode = nm.IsUserNode
+	apiNode.StaticNode = nm.StaticNode
 	return &apiNode
 }
 

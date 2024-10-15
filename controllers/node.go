@@ -326,6 +326,7 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	if len(filteredNodes) > 0 {
 		nodes = filteredNodes
 	}
+	nodes = logic.AddStaticNodestoList(nodes)
 
 	// returns all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
@@ -362,10 +363,10 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 		}
 		if !userPlatformRole.FullAccess {
 			nodes = logic.GetFilteredNodesByUserAccess(*user, nodes)
-		} else {
-			nodes = logic.AddStaticNodestoList(nodes)
 		}
+
 	}
+	nodes = logic.AddStaticNodestoList(nodes)
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	logger.Log(3, r.Header.Get("user"), "fetched all nodes they have access to")
