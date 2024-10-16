@@ -857,7 +857,7 @@ upgrade() {
 	echo "-----------------------------------------------------"
 	echo "Provide Details for pro installation:"
 	echo "    1. Log into https://app.netmaker.io"
-	echo "    2. follow instructions to get a license at: https://docs.netmaker.io/pro/pro-setup.html"
+	echo "    2. follow instructions to get a license at: https://docs.netmaker.io/docs/server-installation/netmaker-professional-setup"
 	echo "    3. Retrieve License and Tenant ID"
 	echo "-----------------------------------------------------"
 	unset LICENSE_KEY
