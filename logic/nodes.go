@@ -710,11 +710,7 @@ func GetTagMapWithNodes(netID models.NetworkID) (tagNodesMap map[models.TagID][]
 			continue
 		}
 		for nodeTagID := range nodeI.Tags {
-			if _, ok := tagNodesMap[nodeTagID]; ok {
-				tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
-			} else {
-				tagNodesMap[nodeTagID] = []models.Node{nodeI}
-			}
+			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
 		}
 	}
 	return
