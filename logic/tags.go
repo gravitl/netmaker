@@ -7,9 +7,11 @@ import (
 	"regexp"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
+	"golang.org/x/exp/slog"
 )
 
 var tagMutex = &sync.RWMutex{}
@@ -200,4 +202,24 @@ func CheckIDSyntax(id string) error {
 		return errors.New("invalid name. allowed characters are [a-zA-Z-]")
 	}
 	return nil
+}
+
+func CreateDefaultTags(netID models.NetworkID) {
+	// create tag for remote access gws in the network
+	tag := models.Tag{
+		ID:        models.TagID(fmt.Sprintf("%s.%s", netID.String(), "remote-access-gws")),
+		TagName:   "remote-access-gws",
+		Network:   netID,
+		CreatedBy: "auto",
+		CreatedAt: time.Now(),
+	}
+	_, err := GetTag(tag.ID)
+	if err == nil {
+		return
+	}
+	err = InsertTag(tag)
+	if err != nil {
+		slog.Error("failed to create remote access gw tag", "error", err.Error())
+		return
+	}
 }
