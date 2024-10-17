@@ -7,6 +7,10 @@ import (
 
 type TagID string
 
+const (
+	RemoteAccessTagName = "remote-access-gws"
+)
+
 func (id TagID) String() string {
 	return string(id)
 }
