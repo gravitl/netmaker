@@ -59,7 +59,7 @@ func (invite UserInvitedMail) GetBody(info Notification) string {
 	return content.
 		WithHtml("</ul>").
 		WithParagraph(fmt.Sprintf("If you have any questions or need assistance, please contact our support team at <a href=\"mailto:%s\">%s</a>.", supportEmail, supportEmail)).
-		WithParagraph("Best regards,").
+		WithParagraph("Best Regards,").
 		WithParagraph("The Netmaker Team").
 		Build()
 }
