@@ -528,3 +528,40 @@ func GetExtclientAllowedIPs(client models.ExtClient) (allowedIPs []string) {
 	}
 	return
 }
+
+func GetStaticNodesByNetwork(network models.NetworkID) (staticNode []models.Node) {
+	extClients, err := GetAllExtClients()
+	if err != nil {
+		return
+	}
+	for _, extI := range extClients {
+		if extI.Network == network.String() {
+			n := models.Node{
+				IsStatic:   true,
+				StaticNode: extI,
+				IsUserNode: extI.RemoteAccessClientID != "",
+			}
+			staticNode = append(staticNode, n)
+		}
+	}
+
+	return
+}
+
+func GetStaticNodesByGw(gwNode models.Node) (staticNode []models.Node) {
+	extClients, err := GetAllExtClients()
+	if err != nil {
+		return
+	}
+	for _, extI := range extClients {
+		if extI.IngressGatewayID == gwNode.ID.String() {
+			n := models.Node{
+				IsStatic:   true,
+				StaticNode: extI,
+				IsUserNode: extI.RemoteAccessClientID != "",
+			}
+			staticNode = append(staticNode, n)
+		}
+	}
+	return
+}
