@@ -26,6 +26,7 @@ func Run() {
 	updateHosts()
 	updateNodes()
 	updateAcls()
+	createDefaultTags()
 }
 
 func assignSuperAdmin() {
@@ -431,5 +432,15 @@ func syncUsers() {
 				logic.UpsertUser(user)
 			}
 		}
+	}
+}
+
+func createDefaultTags() {
+	networks, err := logic.GetNetworks()
+	if err != nil {
+		return
+	}
+	for _, network := range networks {
+		logic.CreateDefaultTags(models.NetworkID(network.NetID))
 	}
 }
