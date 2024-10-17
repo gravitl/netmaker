@@ -80,7 +80,7 @@ func ListTagsWithNodes(netID models.NetworkID) ([]models.TagListResp, error) {
 		tagRespI := models.TagListResp{
 			Tag:         tagI,
 			UsedByCnt:   len(tagsNodeMap[tagI.ID]),
-			TaggedNodes: tagsNodeMap[tagI.ID],
+			TaggedNodes: GetAllNodesAPI(tagsNodeMap[tagI.ID]),
 		}
 		resp = append(resp, tagRespI)
 	}
@@ -134,46 +134,91 @@ func ListNetworkTags(netID models.NetworkID) ([]models.Tag, error) {
 func UpdateTag(req models.UpdateTagReq, newID models.TagID) {
 	tagMutex.Lock()
 	defer tagMutex.Unlock()
+	var err error
 	tagNodesMap := GetNodesWithTag(req.ID)
-	for _, nodeID := range req.TaggedNodes {
-		node, err := GetNodeByID(nodeID)
-		if err != nil {
-			continue
+	for _, apiNode := range req.TaggedNodes {
+		node := models.Node{}
+		if apiNode.IsStatic {
+			if apiNode.StaticNode.RemoteAccessClientID != "" {
+				continue
+			}
+			extclient, err := GetExtClient(apiNode.StaticNode.ClientID, apiNode.StaticNode.Network)
+			if err != nil {
+				continue
+			}
+			node.IsStatic = true
+			node.StaticNode = extclient
+		} else {
+			node, err = GetNodeByID(apiNode.ID)
+			if err != nil {
+				continue
+			}
 		}
 
 		if _, ok := tagNodesMap[node.ID.String()]; !ok {
+			if node.StaticNode.Tags == nil {
+				node.StaticNode.Tags = make(map[models.TagID]struct{})
+			}
 			if node.Tags == nil {
 				node.Tags = make(map[models.TagID]struct{})
 			}
 			if newID != "" {
 				node.Tags[newID] = struct{}{}
+				node.StaticNode.Tags[newID] = struct{}{}
 			} else {
 				node.Tags[req.ID] = struct{}{}
+				node.StaticNode.Tags[req.ID] = struct{}{}
 			}
-			UpsertNode(&node)
+			if node.IsStatic {
+				SaveExtClient(&node.StaticNode)
+			} else {
+				UpsertNode(&node)
+			}
 		} else {
 			if newID != "" {
 				delete(node.Tags, req.ID)
+				delete(node.StaticNode.Tags, req.ID)
+				node.StaticNode.Tags[newID] = struct{}{}
 				node.Tags[newID] = struct{}{}
-				UpsertNode(&node)
+				if node.IsStatic {
+					SaveExtClient(&node.StaticNode)
+				} else {
+					UpsertNode(&node)
+				}
 			}
 			delete(tagNodesMap, node.ID.String())
 		}
 
 	}
 	for _, deletedTaggedNode := range tagNodesMap {
-		deletedTaggedHost := deletedTaggedNode
-		delete(deletedTaggedHost.Tags, req.ID)
-		UpsertNode(&deletedTaggedHost)
+		delete(deletedTaggedNode.Tags, req.ID)
+		delete(deletedTaggedNode.StaticNode.Tags, req.ID)
+		if deletedTaggedNode.IsStatic {
+			SaveExtClient(&deletedTaggedNode.StaticNode)
+		} else {
+			UpsertNode(&deletedTaggedNode)
+		}
 	}
 	go func(req models.UpdateTagReq) {
 		if newID != "" {
 			tagNodesMap = GetNodesWithTag(req.ID)
 			for _, nodeI := range tagNodesMap {
 				nodeI := nodeI
+				if nodeI.StaticNode.Tags == nil {
+					nodeI.StaticNode.Tags = make(map[models.TagID]struct{})
+				}
+				if nodeI.Tags == nil {
+					nodeI.Tags = make(map[models.TagID]struct{})
+				}
 				delete(nodeI.Tags, req.ID)
+				delete(nodeI.StaticNode.Tags, req.ID)
 				nodeI.Tags[newID] = struct{}{}
-				UpsertNode(&nodeI)
+				nodeI.StaticNode.Tags[newID] = struct{}{}
+				if nodeI.IsStatic {
+					SaveExtClient(&nodeI.StaticNode)
+				} else {
+					UpsertNode(&nodeI)
+				}
 			}
 		}
 	}(req)
