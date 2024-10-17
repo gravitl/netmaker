@@ -118,7 +118,7 @@ var ssoErrCallbackTemplate = template.Must(
 		<h4>Error reason: {.Verb}</h4>
 		<em>Your Netmaker server may not have SSO configured properly.</em>
 		<em>
-			Please visit the <a href="https://docs.netmaker.org/oauth.html" target="_blank" rel="noopener">docs</a> for more information.
+			Please visit the <a href="https://docs.netmaker.io/docs/server-installation/integrating-oauth" target="_blank" rel="noopener">docs</a> for more information.
 		</em>
 		<p>
 			If you feel this is a mistake, please contact your network administrator.
