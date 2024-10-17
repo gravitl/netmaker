@@ -65,6 +65,14 @@ func DeleteTag(tagID models.TagID) error {
 			UpsertNode(&nodeI)
 		}
 	}
+
+	extclients, _ := GetNetworkExtClients(tag.Network.String())
+	for _, extclient := range extclients {
+		if _, ok := extclient.Tags[tagID]; ok {
+			delete(extclient.Tags, tagID)
+			SaveExtClient(&extclient)
+		}
+	}
 	return database.DeleteRecord(database.TAG_TABLE_NAME, tagID.String())
 }
 
@@ -138,6 +146,7 @@ func UpdateTag(req models.UpdateTagReq, newID models.TagID) {
 	tagNodesMap := GetNodesWithTag(req.ID)
 	for _, apiNode := range req.TaggedNodes {
 		node := models.Node{}
+		var nodeID string
 		if apiNode.IsStatic {
 			if apiNode.StaticNode.RemoteAccessClientID != "" {
 				continue
@@ -147,15 +156,17 @@ func UpdateTag(req models.UpdateTagReq, newID models.TagID) {
 				continue
 			}
 			node.IsStatic = true
+			nodeID = extclient.ClientID
 			node.StaticNode = extclient
 		} else {
 			node, err = GetNodeByID(apiNode.ID)
 			if err != nil {
 				continue
 			}
+			nodeID = node.ID.String()
 		}
 
-		if _, ok := tagNodesMap[node.ID.String()]; !ok {
+		if _, ok := tagNodesMap[nodeID]; !ok {
 			if node.StaticNode.Tags == nil {
 				node.StaticNode.Tags = make(map[models.TagID]struct{})
 			}
@@ -186,7 +197,7 @@ func UpdateTag(req models.UpdateTagReq, newID models.TagID) {
 					UpsertNode(&node)
 				}
 			}
-			delete(tagNodesMap, node.ID.String())
+			delete(tagNodesMap, nodeID)
 		}
 
 	}
