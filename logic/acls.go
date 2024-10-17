@@ -281,15 +281,13 @@ func DeleteAcl(a models.Acl) error {
 	return database.DeleteRecord(database.ACLS_TABLE_NAME, a.ID.String())
 }
 
-// GetDefaultPolicy - fetches default policy in the network by ruleType
-func GetDefaultPolicy(netID models.NetworkID, ruleType models.AclPolicyType) (models.Acl, error) {
-	acls, _ := ListAcls(netID)
-	for _, acl := range acls {
-		if acl.Default && acl.RuleType == ruleType {
-			return acl, nil
-		}
+// GetDefaultNodesPolicy - fetches default policy in the network by ruleType
+func GetDefaultNodesPolicy(netID models.NetworkID, ruleType models.AclPolicyType) (models.Acl, error) {
+	acl, err := GetAcl(models.AclID(fmt.Sprintf("%s.%s", netID, "all-nodes")))
+	if err != nil {
+		return models.Acl{}, errors.New("default rule not found")
 	}
-	return models.Acl{}, errors.New("default rule not found")
+	return acl, nil
 }
 
 // ListUserPolicies - lists all acl policies enforced on an user
@@ -396,7 +394,7 @@ func convAclTagToValueMap(acltags []models.AclPolicyTag) map[string]struct{} {
 // IsNodeAllowedToCommunicate - check node is allowed to communicate with the peer
 func IsNodeAllowedToCommunicate(node, peer models.Node) bool {
 	// check default policy if all allowed return true
-	defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+	defaultPolicy, err := GetDefaultNodesPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 	if err == nil {
 		if defaultPolicy.Enabled {
 			return true
@@ -405,21 +403,53 @@ func IsNodeAllowedToCommunicate(node, peer models.Node) bool {
 	// list device policies
 	policies := listDevicePolicies(models.NetworkID(peer.Network))
 	for _, policy := range policies {
+		if !policy.Enabled {
+			continue
+		}
 		srcMap := convAclTagToValueMap(policy.Src)
 		dstMap := convAclTagToValueMap(policy.Dst)
 		fmt.Printf("\n======> SRCMAP: %+v\n", srcMap)
 		fmt.Printf("\n======> DSTMAP: %+v\n", dstMap)
 		fmt.Printf("\n======> node Tags: %+v\n", node.Tags)
 		fmt.Printf("\n======> peer Tags: %+v\n", peer.Tags)
-		for tagID := range peer.Tags {
+		for tagID := range node.Tags {
 			if _, ok := dstMap[tagID.String()]; ok {
-				for tagID := range node.Tags {
+				if _, ok := srcMap["*"]; ok {
+					return true
+				}
+				for tagID := range peer.Tags {
 					if _, ok := srcMap[tagID.String()]; ok {
 						return true
 					}
 				}
 			}
 			if _, ok := srcMap[tagID.String()]; ok {
+				if _, ok := dstMap["*"]; ok {
+					return true
+				}
+				for tagID := range peer.Tags {
+					if _, ok := dstMap[tagID.String()]; ok {
+						return true
+					}
+				}
+			}
+		}
+		for tagID := range peer.Tags {
+			if _, ok := dstMap[tagID.String()]; ok {
+				if _, ok := srcMap["*"]; ok {
+					return true
+				}
+				for tagID := range node.Tags {
+
+					if _, ok := srcMap[tagID.String()]; ok {
+						return true
+					}
+				}
+			}
+			if _, ok := srcMap[tagID.String()]; ok {
+				if _, ok := dstMap["*"]; ok {
+					return true
+				}
 				for tagID := range node.Tags {
 					if _, ok := dstMap[tagID.String()]; ok {
 						return true

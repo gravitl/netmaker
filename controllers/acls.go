@@ -224,7 +224,7 @@ func deleteAcl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if acl.Default {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot delete default policy"), "badrequest"))
 		return
 	}
 	err = logic.DeleteAcl(acl)
