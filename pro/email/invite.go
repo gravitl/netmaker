@@ -33,7 +33,7 @@ func (invite UserInvitedMail) GetBody(info Notification) string {
 		WithParagraph("Hi,").
 		WithParagraph("You've been invited to access a secure network via Netmaker's Remote Access Client (RAC). Follow these simple steps to get connected:").
 		WithHtml("<ol>").
-		WithHtml(fmt.Sprintf("<li>Click to <a href=\"%s\">Accept Your Invitation</a> and setup your account.</li>", invite.InviteURL)).
+		WithHtml(fmt.Sprintf("<li>Click <a href=\"%s\">here</a> to accept your invitation and setup your account.</li>", invite.InviteURL)).
 		WithHtml("<br>").
 		WithHtml(fmt.Sprintf("<li><a href=\"%s\">Download the Remote Access Client (RAC)</a>.</li>", downloadLink))
 
