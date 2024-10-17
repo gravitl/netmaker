@@ -50,6 +50,9 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 	if targetRsrc == "" {
 		return errors.New("target rsrc is missing")
 	}
+	if r.Header.Get("RAC") == "true" && r.Method == http.MethodGet {
+		return nil
+	}
 	if netID == "" {
 		return errors.New("network id is missing")
 	}

@@ -369,7 +369,7 @@ set_install_vars() {
 		echo "-----------------------------------------------------"
 		echo "Provide Details for Pro installation:"
 		echo "    1. Log into https://app.netmaker.io"
-		echo "    2. follow instructions to get a license at: https://docs.netmaker.io/ee/ee-setup.html"
+		echo "    2. follow instructions to get a license at: https://docs.netmaker.io/docs/server-installation/netmaker-professional-setup"
 		echo "    3. Retrieve License and Tenant ID"
 		echo "    4. note email address"
 		echo "-----------------------------------------------------"

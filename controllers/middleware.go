@@ -2,7 +2,6 @@ package controller
 
 import (
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -28,12 +27,16 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		r.Header.Set("TARGET_RSRC", "")
 		r.Header.Set("RSRC_TYPE", "")
 		r.Header.Set("TARGET_RSRC_ID", "")
+		r.Header.Set("RAC", "")
 		r.Header.Set("NET_ID", params["network"])
 		if strings.Contains(route, "hosts") || strings.Contains(route, "nodes") {
 			r.Header.Set("TARGET_RSRC", models.HostRsrc.String())
 		}
 		if strings.Contains(route, "dns") {
 			r.Header.Set("TARGET_RSRC", models.DnsRsrc.String())
+		}
+		if strings.Contains(route, "rac") {
+			r.Header.Set("RAC", "true")
 		}
 		if strings.Contains(route, "users") {
 			r.Header.Set("TARGET_RSRC", models.UserRsrc.String())
@@ -92,7 +95,7 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if userID, ok := params["username"]; ok {
 			r.Header.Set("TARGET_RSRC_ID", userID)
 		} else {
-			username, _ := url.QueryUnescape(r.URL.Query().Get("username"))
+			username := r.URL.Query().Get("username")
 			if username != "" {
 				r.Header.Set("TARGET_RSRC_ID", username)
 			}

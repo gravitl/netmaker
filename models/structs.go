@@ -45,6 +45,16 @@ type UserRemoteGws struct {
 	NetworkAddresses  []string  `json:"network_addresses"`
 }
 
+// UserRAGs - struct for user access gws
+type UserRAGs struct {
+	GwID              string `json:"remote_access_gw_id"`
+	GWName            string `json:"gw_name"`
+	Network           string `json:"network"`
+	Connected         bool   `json:"connected"`
+	IsInternetGateway bool   `json:"is_internet_gateway"`
+	Metadata          string `json:"metadata"`
+}
+
 // UserRemoteGwsReq - struct to hold user remote acccess gws req
 type UserRemoteGwsReq struct {
 	RemoteAccessClientID string `json:"remote_access_clientid"`

@@ -75,6 +75,9 @@ func UserRolesInit() {
 }
 
 func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
+	if netID.String() == "" {
+		return
+	}
 	var NetworkAdminPermissionTemplate = models.UserRolePermissionTemplate{
 		ID:                 models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkAdmin)),
 		Default:            true,
@@ -120,7 +123,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 				models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkAdmin)): {},
 			},
 		},
-		MetaData: "The network role was automatically created by Netmaker.",
+		MetaData: "The network group was automatically created by Netmaker.",
 	}
 	var NetworkUserGroup = models.UserGroup{
 		ID: models.UserGroupID(fmt.Sprintf("%s-%s-grp", netID, models.NetworkUser)),
@@ -129,7 +132,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 				models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkUser)): {},
 			},
 		},
-		MetaData: "The network role was automatically created by Netmaker.",
+		MetaData: "The network group was automatically created by Netmaker.",
 	}
 	d, _ = json.Marshal(NetworkAdminGroup)
 	database.Insert(NetworkAdminGroup.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
@@ -508,6 +511,31 @@ func HasNetworkRsrcScope(permissionTemplate models.UserRolePermissionTemplate, n
 	_, ok = rsrcScope[rsrcID]
 	return ok
 }
+
+func DoesUserHaveAccessToRAGNode(user models.User, node models.Node) bool {
+	userGwAccessScope := GetUserNetworkRolesWithRemoteVPNAccess(user)
+	logger.Log(3, fmt.Sprintf("User Gw Access Scope: %+v", userGwAccessScope))
+	_, allNetAccess := userGwAccessScope["*"]
+	if node.IsIngressGateway && !node.PendingDelete {
+		if allNetAccess {
+			return true
+		} else {
+			gwRsrcMap := userGwAccessScope[models.NetworkID(node.Network)]
+			scope, ok := gwRsrcMap[models.AllRemoteAccessGwRsrcID]
+			if !ok {
+				if scope, ok = gwRsrcMap[models.RsrcID(node.ID.String())]; !ok {
+					return false
+				}
+			}
+			if scope.VPNaccess {
+				return true
+			}
+
+		}
+	}
+	return false
+}
+
 func GetUserRAGNodes(user models.User) (gws map[string]models.Node) {
 	gws = make(map[string]models.Node)
 	userGwAccessScope := GetUserNetworkRolesWithRemoteVPNAccess(user)

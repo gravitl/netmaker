@@ -56,7 +56,7 @@ var userGroupCreateCmd = &cobra.Command{
 	Short: "create user group",
 	Long:  `create user group`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("CLI doesn't support creation of groups currently. Visit the dashboard to create one or refer to our api documentation https://docs.v2.netmaker.io/reference")
+		fmt.Println("CLI doesn't support creation of groups currently. Visit the dashboard to create one or refer to our api documentation https://docs.netmaker.io/api")
 	},
 }
 
