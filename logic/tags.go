@@ -174,26 +174,32 @@ func UpdateTag(req models.UpdateTagReq, newID models.TagID) {
 				node.Tags = make(map[models.TagID]struct{})
 			}
 			if newID != "" {
-				node.Tags[newID] = struct{}{}
-				node.StaticNode.Tags[newID] = struct{}{}
+				if node.IsStatic {
+					node.StaticNode.Tags[newID] = struct{}{}
+					SaveExtClient(&node.StaticNode)
+				} else {
+					node.Tags[newID] = struct{}{}
+					UpsertNode(&node)
+				}
+
 			} else {
-				node.Tags[req.ID] = struct{}{}
-				node.StaticNode.Tags[req.ID] = struct{}{}
-			}
-			if node.IsStatic {
-				SaveExtClient(&node.StaticNode)
-			} else {
-				UpsertNode(&node)
+				if node.IsStatic {
+					node.StaticNode.Tags[req.ID] = struct{}{}
+					SaveExtClient(&node.StaticNode)
+				} else {
+					node.Tags[req.ID] = struct{}{}
+					UpsertNode(&node)
+				}
 			}
 		} else {
 			if newID != "" {
 				delete(node.Tags, req.ID)
 				delete(node.StaticNode.Tags, req.ID)
-				node.StaticNode.Tags[newID] = struct{}{}
-				node.Tags[newID] = struct{}{}
 				if node.IsStatic {
+					node.StaticNode.Tags[newID] = struct{}{}
 					SaveExtClient(&node.StaticNode)
 				} else {
+					node.Tags[newID] = struct{}{}
 					UpsertNode(&node)
 				}
 			}
