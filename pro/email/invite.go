@@ -53,7 +53,7 @@ func (invite UserInvitedMail) GetBody(info Notification) string {
 			WithHtml(fmt.Sprintf("<li>Your Tenant ID: %s</li>", servercfg.GetNetmakerTenantID()))
 	} else {
 		content = content.
-			WithHtml(fmt.Sprintf("<li>Your Netmaker Domain: %s</li>", servercfg.GetFrontendURL()))
+			WithHtml(fmt.Sprintf("<li>Your Netmaker Domain: %s</li>", fmt.Sprintf("api.%s", servercfg.GetNmBaseDomain())))
 	}
 
 	return content.
