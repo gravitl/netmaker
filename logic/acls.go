@@ -88,7 +88,7 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 					Value: "*",
 				},
 			},
-			AllowedDirection: models.TrafficDirectionUni,
+			AllowedDirection: models.TrafficDirectionBi,
 			Enabled:          true,
 			CreatedBy:        "auto",
 			CreatedAt:        time.Now().UTC(),
