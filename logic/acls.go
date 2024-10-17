@@ -69,6 +69,33 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 		InsertAcl(defaultUserAcl)
 	}
 
+	if !IsAclExists(models.AclID(fmt.Sprintf("%s.%s", netID, "all-remote-access-gws"))) {
+		defaultUserAcl := models.Acl{
+			ID:        models.AclID(fmt.Sprintf("%s.%s", netID, "all-remote-access-gws")),
+			Default:   true,
+			Name:      "all-remote-access-gws",
+			NetworkID: netID,
+			RuleType:  models.DevicePolicy,
+			Src: []models.AclPolicyTag{
+				{
+					ID:    models.DeviceAclID,
+					Value: fmt.Sprintf("%s.%s", netID, "remote-access-gws"),
+				},
+			},
+			Dst: []models.AclPolicyTag{
+				{
+					ID:    models.DeviceAclID,
+					Value: "*",
+				},
+			},
+			AllowedDirection: models.TrafficDirectionUni,
+			Enabled:          true,
+			CreatedBy:        "auto",
+			CreatedAt:        time.Now().UTC(),
+		}
+		InsertAcl(defaultUserAcl)
+	}
+
 }
 
 // DeleteDefaultNetworkPolicies - deletes all default network acl policies
