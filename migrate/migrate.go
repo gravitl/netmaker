@@ -21,6 +21,7 @@ import (
 func Run() {
 	updateEnrollmentKeys()
 	assignSuperAdmin()
+	createDefaultTags()
 	removeOldUserGrps()
 	syncUsers()
 	updateHosts()
@@ -166,6 +167,16 @@ func updateNodes() {
 		return
 	}
 	for _, node := range nodes {
+		node := node
+		if node.IsIngressGateway {
+			tagID := models.TagID(fmt.Sprintf("%s.%s", node.Network,
+				models.RemoteAccessTagName))
+			if _, ok := node.Tags[tagID]; !ok {
+				node.Tags[tagID] = struct{}{}
+				logic.UpsertNode(&node)
+			}
+
+		}
 		if node.IsEgressGateway {
 			egressRanges, update := removeInterGw(node.EgressGatewayRanges)
 			if update {
@@ -430,5 +441,15 @@ func syncUsers() {
 				logic.UpsertUser(user)
 			}
 		}
+	}
+}
+
+func createDefaultTags() {
+	networks, err := logic.GetNetworks()
+	if err != nil {
+		return
+	}
+	for _, network := range networks {
+		logic.CreateDefaultTags(models.NetworkID(network.NetID))
 	}
 }

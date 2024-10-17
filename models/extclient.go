@@ -19,6 +19,7 @@ type ExtClient struct {
 	DeniedACLs             map[string]struct{} `json:"deniednodeacls" bson:"acls,omitempty"`
 	RemoteAccessClientID   string              `json:"remote_access_client_id"` // unique ID (MAC address) of RAC machine
 	PostUp                 string              `json:"postup" bson:"postup"`
+	Tags                   map[TagID]struct{}  `json:"tags"`
 	PostDown               string              `json:"postdown" bson:"postdown"`
 }
 

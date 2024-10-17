@@ -378,6 +378,20 @@ func GetAllNodes() ([]models.Node, error) {
 	return nodes, nil
 }
 
+func AddStaticNodestoList(nodes []models.Node) []models.Node {
+	netMap := make(map[string]struct{})
+	for _, node := range nodes {
+		if _, ok := netMap[node.Network]; ok {
+			continue
+		}
+		if node.IsIngressGateway {
+			nodes = append(nodes, GetStaticNodesByNetwork(models.NetworkID(node.Network))...)
+			netMap[node.Network] = struct{}{}
+		}
+	}
+	return nodes
+}
+
 // GetNetworkByNode - gets the network model from a node
 func GetNetworkByNode(node *models.Node) (models.Network, error) {
 
@@ -420,6 +434,9 @@ func SetNodeDefaults(node *models.Node, resetConnected bool) {
 		node.SetDefaultConnected()
 	}
 	node.SetExpirationDateTime()
+	if node.Tags == nil {
+		node.Tags = make(map[models.TagID]struct{})
+	}
 }
 
 // GetRecordKey - get record key
@@ -697,4 +714,37 @@ func GetAllFailOvers() ([]models.Node, error) {
 		}
 	}
 	return igs, nil
+}
+
+func GetTagMapWithNodes(netID models.NetworkID) (tagNodesMap map[models.TagID][]models.Node) {
+	tagNodesMap = make(map[models.TagID][]models.Node)
+	nodes, _ := GetNetworkNodes(netID.String())
+	for _, nodeI := range nodes {
+		if nodeI.Tags == nil {
+			continue
+		}
+		for nodeTagID := range nodeI.Tags {
+			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
+		}
+	}
+	return
+}
+
+func GetNodesWithTag(tagID models.TagID) map[string]models.Node {
+
+	nMap := make(map[string]models.Node)
+	tag, err := GetTag(tagID)
+	if err != nil {
+		return nMap
+	}
+	nodes, _ := GetNetworkNodes(tag.Network.String())
+	for _, nodeI := range nodes {
+		if nodeI.Tags == nil {
+			continue
+		}
+		if _, ok := nodeI.Tags[tagID]; ok {
+			nMap[nodeI.ID.String()] = nodeI
+		}
+	}
+	return nMap
 }
