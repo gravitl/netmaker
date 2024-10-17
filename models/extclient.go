@@ -19,8 +19,8 @@ type ExtClient struct {
 	DeniedACLs             map[string]struct{} `json:"deniednodeacls" bson:"acls,omitempty"`
 	RemoteAccessClientID   string              `json:"remote_access_client_id"` // unique ID (MAC address) of RAC machine
 	PostUp                 string              `json:"postup" bson:"postup"`
-	Tags                   map[TagID]struct{}  `json:"tags"`
 	PostDown               string              `json:"postdown" bson:"postdown"`
+	Tags                   map[TagID]struct{}  `json:"tags"`
 }
 
 // CustomExtClient - struct for CustomExtClient params
@@ -34,4 +34,5 @@ type CustomExtClient struct {
 	RemoteAccessClientID string              `json:"remote_access_client_id"` // unique ID (MAC address) of RAC machine
 	PostUp               string              `json:"postup" bson:"postup" validate:"max=1024"`
 	PostDown             string              `json:"postdown" bson:"postdown" validate:"max=1024"`
+	Tags                 map[TagID]struct{}  `json:"tags"`
 }
