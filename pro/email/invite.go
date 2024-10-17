@@ -43,20 +43,16 @@ func (invite UserInvitedMail) GetBody(info Notification) string {
 			WithHtml(fmt.Sprintf("<li>Access the <a href=\"%s\">Netmaker Dashboard</a> - use it to manage your network settings and view network status.</li>", dashboardURL))
 	}
 
-	content = content.
-		WithHtml("</ol>").
-		WithParagraph("Important Information:").
-		WithHtml("<ul>")
-
-	if servercfg.DeployedByOperator() {
-		content = content.
-			WithHtml(fmt.Sprintf("<li>Your Tenant ID: %s</li>", servercfg.GetNetmakerTenantID()))
-	} else {
-		content = content.
-			WithHtml(fmt.Sprintf("<li>Your Netmaker Domain: %s</li>", fmt.Sprintf("api.%s", servercfg.GetNmBaseDomain())))
+	connectionID := servercfg.GetNetmakerTenantID()
+	if !servercfg.DeployedByOperator() {
+		connectionID = fmt.Sprintf("api.%s", servercfg.GetNmBaseDomain())
 	}
 
 	return content.
+		WithHtml("</ol>").
+		WithParagraph("Important Information:").
+		WithHtml("<ul>").
+		WithHtml(fmt.Sprintf("<li>When connecting through RAC, please enter your server connection ID: %s.</li>", connectionID)).
 		WithHtml("</ul>").
 		WithParagraph(fmt.Sprintf("If you have any questions or need assistance, please contact our support team at <a href=\"mailto:%s\">%s</a>.", supportEmail, supportEmail)).
 		WithParagraph("Best Regards,").
