@@ -323,6 +323,37 @@ func ListUserPolicies(u models.User) []models.Acl {
 	return acls
 }
 
+// listPoliciesOfUser - lists all user acl policies applied to user in an network
+func listPoliciesOfUser(user models.User, netID models.NetworkID) []models.Acl {
+	data, err := database.FetchRecords(database.ACLS_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return []models.Acl{}
+	}
+	acls := []models.Acl{}
+	for _, dataI := range data {
+		acl := models.Acl{}
+		err := json.Unmarshal([]byte(dataI), &acl)
+		if err != nil {
+			continue
+		}
+		if acl.NetworkID == netID && acl.RuleType == models.UserPolicy {
+			srcMap := convAclTagToValueMap(acl.Src)
+			if _, ok := srcMap[user.UserName]; ok {
+				acls = append(acls, acl)
+				continue
+			}
+			for userG := range user.UserGroups {
+				if _, ok := srcMap[userG.String()]; ok {
+					acls = append(acls, acl)
+					continue
+				}
+			}
+
+		}
+	}
+	return acls
+}
+
 // listUserPoliciesByNetwork - lists all acl user policies in a network
 func listUserPoliciesByNetwork(netID models.NetworkID) []models.Acl {
 	data, err := database.FetchRecords(database.ACLS_TABLE_NAME)
@@ -391,8 +422,25 @@ func convAclTagToValueMap(acltags []models.AclPolicyTag) map[string]struct{} {
 	return aclValueMap
 }
 
+// IsUserAllowedToCommunicate - check if user is allowed to communicate with peer
 func IsUserAllowedToCommunicate(userName string, peer models.Node) bool {
-	listUserPoliciesByNetwork(models.NetworkID(peer.Network))
+	user, err := GetUser(userName)
+	if err != nil {
+		return false
+	}
+	policies := listPoliciesOfUser(*user, models.NetworkID(peer.Network))
+	for _, policy := range policies {
+		if !policy.Enabled {
+			continue
+		}
+		dstMap := convAclTagToValueMap(policy.Dst)
+		for tagID := range peer.Tags {
+			if _, ok := dstMap[tagID.String()]; ok {
+				return true
+			}
+		}
+
+	}
 	return true
 }
 
