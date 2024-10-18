@@ -329,6 +329,7 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 	// replace any \r\n with \n in postup and postdown from HTTP request
 	new.PostUp = strings.Replace(update.PostUp, "\r\n", "\n", -1)
 	new.PostDown = strings.Replace(update.PostDown, "\r\n", "\n", -1)
+	new.Tags = update.Tags
 	return new
 }
 

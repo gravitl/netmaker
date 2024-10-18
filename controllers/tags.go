@@ -107,8 +107,19 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	go func() {
-		for _, nodeID := range req.TaggedNodes {
-			node, err := logic.GetNodeByID(nodeID)
+		for _, node := range req.TaggedNodes {
+			if node.IsStatic {
+				extclient, err := logic.GetExtClient(node.StaticNode.ClientID, node.StaticNode.Network)
+				if err == nil && extclient.RemoteAccessClientID == "" {
+					if extclient.Tags == nil {
+						extclient.Tags = make(map[models.TagID]struct{})
+					}
+					extclient.Tags[tag.ID] = struct{}{}
+					logic.SaveExtClient(&extclient)
+				}
+				continue
+			}
+			node, err := logic.GetNodeByID(node.ID)
 			if err != nil {
 				continue
 			}
