@@ -778,10 +778,13 @@ func AddStaticNodesWithTag(tag models.Tag, nMap map[string]models.Node) map[stri
 		if extclient.RemoteAccessClientID != "" {
 			continue
 		}
-		nMap[extclient.ClientID] = models.Node{
-			IsStatic:   true,
-			StaticNode: extclient,
+		if _, ok := extclient.Tags[tag.ID]; ok {
+			nMap[extclient.ClientID] = models.Node{
+				IsStatic:   true,
+				StaticNode: extclient,
+			}
 		}
+
 	}
 	return nMap
 }
