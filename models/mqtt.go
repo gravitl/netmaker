@@ -24,6 +24,7 @@ type HostPeerUpdate struct {
 	FwUpdate          FwUpdate              `json:"fw_update"`
 	ReplacePeers      bool                  `json:"replace_peers"`
 	EndpointDetection bool                  `json:"endpoint_detection"`
+	ManageDNS         bool                  `yaml:"manage_dns"`
 }
 
 // IngressInfo - struct for ingress info
