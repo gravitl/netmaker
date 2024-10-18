@@ -150,6 +150,7 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 
 	var entry models.DNSEntry
 	var params = mux.Vars(r)
+	netID := params["network"]
 
 	_ = json.NewDecoder(r.Body).Decode(&entry)
 	entry.Network = params["network"]
@@ -179,6 +180,10 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if servercfg.GetManageDNS() {
+		mq.SendDNSSyncByNetwork(netID)
+	}
+
 	logger.Log(1, "new DNS record added:", entry.Name)
 	logger.Log(2, r.Header.Get("user"),
 		fmt.Sprintf("DNS entry is set: %+v", entry))
@@ -200,6 +205,7 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 
 	// get params
 	var params = mux.Vars(r)
+	netID := params["network"]
 	entrytext := params["domain"] + "." + params["network"]
 	err := logic.DeleteDNS(params["domain"], params["network"])
 
@@ -217,6 +223,10 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
+	}
+
+	if servercfg.GetManageDNS() {
+		mq.SendDNSSyncByNetwork(netID)
 	}
 
 	json.NewEncoder(w).Encode(entrytext + " deleted.")

@@ -254,6 +254,19 @@ func sendPeers() {
 	}
 }
 
+func SendDNSSyncByNetwork(network string) error {
+
+	k, err := logic.GetDNS(network)
+	if err == nil && len(k) > 0 {
+		err = PushSyncDNS(k)
+		if err != nil {
+			slog.Warn("error publishing dns entry data for network ", network, err.Error())
+		}
+	}
+
+	return err
+}
+
 func sendDNSSync() error {
 
 	networks, err := logic.GetNetworks()
