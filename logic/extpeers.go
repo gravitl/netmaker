@@ -329,6 +329,7 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 	// replace any \r\n with \n in postup and postdown from HTTP request
 	new.PostUp = strings.Replace(update.PostUp, "\r\n", "\n", -1)
 	new.PostDown = strings.Replace(update.PostDown, "\r\n", "\n", -1)
+	new.Tags = update.Tags
 	return new
 }
 
@@ -412,6 +413,16 @@ func GetExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandA
 		if !IsClientNodeAllowed(&extPeer, peer.ID.String()) {
 			continue
 		}
+		if extPeer.RemoteAccessClientID == "" {
+			if !IsNodeAllowedToCommunicate(extPeer.ConvertToStaticNode(), *peer) {
+				continue
+			}
+		} else {
+			if !IsUserAllowedToCommunicate(extPeer.OwnerID, *peer) {
+				continue
+			}
+		}
+
 		pubkey, err := wgtypes.ParseKey(extPeer.PublicKey)
 		if err != nil {
 			logger.Log(1, "error parsing ext pub key:", err.Error())

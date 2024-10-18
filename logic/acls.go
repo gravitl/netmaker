@@ -323,8 +323,8 @@ func ListUserPolicies(u models.User) []models.Acl {
 	return acls
 }
 
-// ListUserPoliciesByNetwork - lists all acl user policies in a network
-func ListUserPoliciesByNetwork(netID models.NetworkID) []models.Acl {
+// listUserPoliciesByNetwork - lists all acl user policies in a network
+func listUserPoliciesByNetwork(netID models.NetworkID) []models.Acl {
 	data, err := database.FetchRecords(database.ACLS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return []models.Acl{}
@@ -389,6 +389,11 @@ func convAclTagToValueMap(acltags []models.AclPolicyTag) map[string]struct{} {
 		aclValueMap[aclTagI.Value] = struct{}{}
 	}
 	return aclValueMap
+}
+
+func IsUserAllowedToCommunicate(userName string, peer models.Node) bool {
+	listUserPoliciesByNetwork(models.NetworkID(peer.Network))
+	return true
 }
 
 // IsNodeAllowedToCommunicate - check node is allowed to communicate with the peer

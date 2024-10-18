@@ -741,11 +741,31 @@ func GetTagMapWithNodesByNetwork(netID models.NetworkID) (tagNodesMap map[models
 			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
 		}
 	}
-	return
+	return AddTagMapWithStaticNodes(netID, tagNodesMap)
+}
+
+func AddTagMapWithStaticNodes(netID models.NetworkID,
+	tagNodesMap map[models.TagID][]models.Node) map[models.TagID][]models.Node {
+	extclients, err := GetNetworkExtClients(netID.String())
+	if err != nil {
+		return tagNodesMap
+	}
+	for _, extclient := range extclients {
+		if extclient.Tags == nil || extclient.RemoteAccessClientID != "" {
+			continue
+		}
+		for tagID := range extclient.Tags {
+			tagNodesMap[tagID] = append(tagNodesMap[tagID], models.Node{
+				IsStatic:   true,
+				StaticNode: extclient,
+			})
+		}
+
+	}
+	return tagNodesMap
 }
 
 func GetNodesWithTag(tagID models.TagID) map[string]models.Node {
-
 	nMap := make(map[string]models.Node)
 	tag, err := GetTag(tagID)
 	if err != nil {
@@ -758,6 +778,45 @@ func GetNodesWithTag(tagID models.TagID) map[string]models.Node {
 		}
 		if _, ok := nodeI.Tags[tagID]; ok {
 			nMap[nodeI.ID.String()] = nodeI
+		}
+	}
+	return AddStaticNodesWithTag(tag, nMap)
+}
+
+func AddStaticNodesWithTag(tag models.Tag, nMap map[string]models.Node) map[string]models.Node {
+	extclients, err := GetNetworkExtClients(tag.Network.String())
+	if err != nil {
+		return nMap
+	}
+	for _, extclient := range extclients {
+		if extclient.RemoteAccessClientID != "" {
+			continue
+		}
+		if _, ok := extclient.Tags[tag.ID]; ok {
+			nMap[extclient.ClientID] = models.Node{
+				IsStatic:   true,
+				StaticNode: extclient,
+			}
+		}
+
+	}
+	return nMap
+}
+
+func GetStaticNodeWithTag(tagID models.TagID) map[string]models.Node {
+	nMap := make(map[string]models.Node)
+	tag, err := GetTag(tagID)
+	if err != nil {
+		return nMap
+	}
+	extclients, err := GetNetworkExtClients(tag.Network.String())
+	if err != nil {
+		return nMap
+	}
+	for _, extclient := range extclients {
+		nMap[extclient.ClientID] = models.Node{
+			IsStatic:   true,
+			StaticNode: extclient,
 		}
 	}
 	return nMap

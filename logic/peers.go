@@ -426,6 +426,7 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 			logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 		}
 		for _, extPeer := range extPeers {
+
 			allowedips = append(allowedips, extPeer.AllowedIPs...)
 		}
 	}
