@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"reflect"
 
 	"github.com/gorilla/mux"
@@ -240,7 +239,7 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 func getUserV1(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
-	usernameFetched, _ := url.QueryUnescape(r.URL.Query().Get("username"))
+	usernameFetched := r.URL.Query().Get("username")
 	if usernameFetched == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), "badrequest"))
 		return

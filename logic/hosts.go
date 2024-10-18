@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/exp/slog"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -254,14 +255,31 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 		currHost.WgPublicListenPort = newHost.WgPublicListenPort
 		sendPeerUpdate = true
 	}
+	isEndpointChanged := false
 	if currHost.EndpointIP.String() != newHost.EndpointIP.String() {
 		currHost.EndpointIP = newHost.EndpointIP
 		sendPeerUpdate = true
+		isEndpointChanged = true
 	}
 	if currHost.EndpointIPv6.String() != newHost.EndpointIPv6.String() {
 		currHost.EndpointIPv6 = newHost.EndpointIPv6
 		sendPeerUpdate = true
+		isEndpointChanged = true
 	}
+
+	if isEndpointChanged {
+		for _, nodeID := range currHost.Nodes {
+			node, err := GetNodeByID(nodeID)
+			if err != nil {
+				slog.Error("failed to get node:", "id", node.ID, "error", err)
+				continue
+			}
+			if node.FailedOverBy != uuid.Nil {
+				ResetFailedOverPeer(&node)
+			}
+		}
+	}
+
 	currHost.DaemonInstalled = newHost.DaemonInstalled
 	currHost.Debug = newHost.Debug
 	currHost.Verbosity = newHost.Verbosity

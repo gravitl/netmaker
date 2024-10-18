@@ -21,11 +21,11 @@ import (
 func Run() {
 	updateEnrollmentKeys()
 	assignSuperAdmin()
+	removeOldUserGrps()
 	syncUsers()
 	updateHosts()
 	updateNodes()
 	updateAcls()
-
 }
 
 func assignSuperAdmin() {
@@ -121,6 +121,20 @@ func updateEnrollmentKeys() {
 			continue
 		}
 
+	}
+}
+
+func removeOldUserGrps() {
+	rows, err := database.FetchRecords(database.USER_GROUPS_TABLE_NAME)
+	if err != nil {
+		return
+	}
+	for key, row := range rows {
+		userG := models.UserGroup{}
+		_ = json.Unmarshal([]byte(row), &userG)
+		if userG.ID == "" {
+			database.DeleteRecord(database.USER_GROUPS_TABLE_NAME, key)
+		}
 	}
 }
 
@@ -319,6 +333,7 @@ func syncUsers() {
 		nodes, err := logic.GetAllNodes()
 		if err == nil {
 			for _, netI := range networks {
+				logic.CreateDefaultNetworkRolesAndGroups(models.NetworkID(netI.NetID))
 				networkNodes := logic.GetNetworkNodesMemory(nodes, netI.NetID)
 				for _, networkNodeI := range networkNodes {
 					if networkNodeI.IsIngressGateway {
