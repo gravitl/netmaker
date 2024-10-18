@@ -413,6 +413,16 @@ func GetExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandA
 		if !IsClientNodeAllowed(&extPeer, peer.ID.String()) {
 			continue
 		}
+		if extPeer.RemoteAccessClientID == "" {
+			if !IsNodeAllowedToCommunicate(extPeer.ConvertToStaticNode(), *peer) {
+				continue
+			}
+		} else {
+			if !IsUserAllowedToCommunicate(extPeer.OwnerID, *peer) {
+				continue
+			}
+		}
+
 		pubkey, err := wgtypes.ParseKey(extPeer.PublicKey)
 		if err != nil {
 			logger.Log(1, "error parsing ext pub key:", err.Error())

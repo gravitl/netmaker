@@ -36,3 +36,14 @@ type CustomExtClient struct {
 	PostDown             string              `json:"postdown" bson:"postdown" validate:"max=1024"`
 	Tags                 map[TagID]struct{}  `json:"tags"`
 }
+
+func (ext *ExtClient) ConvertToStaticNode() Node {
+
+	return Node{
+		CommonNode: CommonNode{
+			Network: ext.Network,
+		},
+		IsStatic:   true,
+		StaticNode: *ext,
+	}
+}
