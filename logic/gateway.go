@@ -2,6 +2,7 @@ package logic
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
@@ -182,6 +183,7 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	if node.Metadata == "" {
 		node.Metadata = "This host can be used for remote access"
 	}
+	node.Tags[models.TagID(fmt.Sprintf("%s.%s", netid, models.RemoteAccessTagName))] = struct{}{}
 	err = UpsertNode(&node)
 	if err != nil {
 		return models.Node{}, err
@@ -257,6 +259,7 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 	if !servercfg.IsPro {
 		node.IsInternetGateway = false
 	}
+	delete(node.Tags, models.TagID(fmt.Sprintf("%s.%s", node.Network, models.RemoteAccessTagName)))
 	node.IngressGatewayRange = ""
 	node.Metadata = ""
 	err = UpsertNode(&node)

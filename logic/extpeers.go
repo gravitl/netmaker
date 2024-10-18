@@ -329,6 +329,7 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 	// replace any \r\n with \n in postup and postdown from HTTP request
 	new.PostUp = strings.Replace(update.PostUp, "\r\n", "\n", -1)
 	new.PostDown = strings.Replace(update.PostDown, "\r\n", "\n", -1)
+	new.Tags = update.Tags
 	return new
 }
 
@@ -524,6 +525,43 @@ func GetExtclientAllowedIPs(client models.ExtClient) (allowedIPs []string) {
 		}
 		if egressGatewayRanges, err := GetEgressRangesOnNetwork(&client); err == nil {
 			allowedIPs = append(allowedIPs, egressGatewayRanges...)
+		}
+	}
+	return
+}
+
+func GetStaticNodesByNetwork(network models.NetworkID) (staticNode []models.Node) {
+	extClients, err := GetAllExtClients()
+	if err != nil {
+		return
+	}
+	for _, extI := range extClients {
+		if extI.Network == network.String() {
+			n := models.Node{
+				IsStatic:   true,
+				StaticNode: extI,
+				IsUserNode: extI.RemoteAccessClientID != "",
+			}
+			staticNode = append(staticNode, n)
+		}
+	}
+
+	return
+}
+
+func GetStaticNodesByGw(gwNode models.Node) (staticNode []models.Node) {
+	extClients, err := GetAllExtClients()
+	if err != nil {
+		return
+	}
+	for _, extI := range extClients {
+		if extI.IngressGatewayID == gwNode.ID.String() {
+			n := models.Node{
+				IsStatic:   true,
+				StaticNode: extI,
+				IsUserNode: extI.RemoteAccessClientID != "",
+			}
+			staticNode = append(staticNode, n)
 		}
 	}
 	return

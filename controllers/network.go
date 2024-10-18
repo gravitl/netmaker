@@ -530,8 +530,9 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	logic.CreateDefaultNetworkRolesAndGroups(models.NetworkID(network.NetID))
 
+	logic.CreateDefaultNetworkRolesAndGroups(models.NetworkID(network.NetID))
+	logic.CreateDefaultTags(models.NetworkID(network.NetID))
 	//add new network to allocated ip map
 	go logic.AddNetworkToAllocatedIpMap(network.NetID)
 
