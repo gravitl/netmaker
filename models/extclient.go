@@ -43,6 +43,7 @@ func (ext *ExtClient) ConvertToStaticNode() Node {
 		CommonNode: CommonNode{
 			Network: ext.Network,
 		},
+		Tags:       ext.Tags,
 		IsStatic:   true,
 		StaticNode: *ext,
 	}
