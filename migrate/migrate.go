@@ -21,7 +21,7 @@ import (
 func Run() {
 	updateEnrollmentKeys()
 	assignSuperAdmin()
-	createDefaultTags()
+	createDefaultTagsAndPolicies()
 	removeOldUserGrps()
 	syncUsers()
 	updateHosts()
@@ -459,7 +459,7 @@ func syncUsers() {
 	}
 }
 
-func createDefaultTags() {
+func createDefaultTagsAndPolicies() {
 	networks, err := logic.GetNetworks()
 	if err != nil {
 		return

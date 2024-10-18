@@ -56,6 +56,10 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 					ID:    models.UserGroupAclID,
 					Value: "*",
 				},
+				{
+					ID:    models.UserRoleAclID,
+					Value: "*",
+				},
 			},
 			Dst: []models.AclPolicyTag{{
 				ID:    models.DeviceAclID,
@@ -95,7 +99,7 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 		}
 		InsertAcl(defaultUserAcl)
 	}
-
+	CreateDefaultUserPolicies(netID)
 }
 
 // DeleteDefaultNetworkPolicies - deletes all default network acl policies
@@ -169,7 +173,7 @@ func IsAclPolicyValid(acl models.Acl) bool {
 				return false
 			}
 			if srcI.ID != models.UserAclID &&
-				srcI.ID != models.UserGroupAclID {
+				srcI.ID != models.UserGroupAclID && srcI.ID != models.UserRoleAclID {
 				return false
 			}
 			// check if user group is valid
@@ -178,6 +182,15 @@ func IsAclPolicyValid(acl models.Acl) bool {
 				if err != nil {
 					return false
 				}
+			} else if srcI.ID == models.UserRoleAclID {
+				if srcI.Value == "*" {
+					continue
+				}
+				_, err := GetRole(models.UserRoleID(srcI.Value))
+				if err != nil {
+					return false
+				}
+
 			} else if srcI.ID == models.UserGroupAclID {
 				if srcI.Value == "*" {
 					continue
@@ -281,9 +294,13 @@ func DeleteAcl(a models.Acl) error {
 	return database.DeleteRecord(database.ACLS_TABLE_NAME, a.ID.String())
 }
 
-// GetDefaultNodesPolicy - fetches default policy in the network by ruleType
-func GetDefaultNodesPolicy(netID models.NetworkID, ruleType models.AclPolicyType) (models.Acl, error) {
-	acl, err := GetAcl(models.AclID(fmt.Sprintf("%s.%s", netID, "all-nodes")))
+// GetDefaultPolicy - fetches default policy in the network by ruleType
+func GetDefaultPolicy(netID models.NetworkID, ruleType models.AclPolicyType) (models.Acl, error) {
+	aclID := "all-users"
+	if ruleType == models.DevicePolicy {
+		aclID = "all-nodes"
+	}
+	acl, err := GetAcl(models.AclID(fmt.Sprintf("%s.%s", netID, aclID)))
 	if err != nil {
 		return models.Acl{}, errors.New("default rule not found")
 	}
@@ -447,7 +464,7 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) bool {
 // IsNodeAllowedToCommunicate - check node is allowed to communicate with the peer
 func IsNodeAllowedToCommunicate(node, peer models.Node) bool {
 	// check default policy if all allowed return true
-	defaultPolicy, err := GetDefaultNodesPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+	defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 	if err == nil {
 		if defaultPolicy.Enabled {
 			return true

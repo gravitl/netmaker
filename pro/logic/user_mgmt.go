@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -138,6 +139,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 	database.Insert(NetworkAdminGroup.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
 	d, _ = json.Marshal(NetworkUserGroup)
 	database.Insert(NetworkUserGroup.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
+
 }
 
 func DeleteNetworkRoles(netID string) {
@@ -514,14 +516,25 @@ func HasNetworkRsrcScope(permissionTemplate models.UserRolePermissionTemplate, n
 
 func GetUserRAGNodesV1(user models.User) (gws map[string]models.Node) {
 	gws = make(map[string]models.Node)
-
 	tagNodesMap := logic.GetTagMapWithNodes()
 	accessPolices := logic.ListUserPolicies(user)
 	for _, policyI := range accessPolices {
 		for _, dstI := range policyI.Dst {
+			if dstI.Value == "*" {
+				nodes, _ := logic.GetAllNodes()
+				for _, node := range nodes {
+					if node.IsIngressGateway {
+						gws[node.ID.String()] = node
+					}
+				}
+				return
+			}
 			if nodes, ok := tagNodesMap[models.TagID(dstI.Value)]; ok {
 				for _, node := range nodes {
-					gws[node.ID.String()] = node
+					if node.IsIngressGateway {
+						gws[node.ID.String()] = node
+					}
+
 				}
 			}
 		}
@@ -1090,4 +1103,108 @@ func UpdateUserGwAccess(currentUser, changeUser models.User) {
 		logic.SetDNS()
 	}
 
+}
+
+func CreateDefaultUserPolicies(netID models.NetworkID) {
+	if netID.String() == "" {
+		return
+	}
+	if !logic.IsAclExists(models.AclID(fmt.Sprintf("%s.%s", netID, models.NetworkAdmin))) {
+		defaultUserAcl := models.Acl{
+			ID:        models.AclID(fmt.Sprintf("%s.%s", netID, models.NetworkAdmin)),
+			Name:      models.NetworkAdmin.String(),
+			Default:   true,
+			NetworkID: netID,
+			RuleType:  models.UserPolicy,
+			Src: []models.AclPolicyTag{
+				{
+					ID:    models.UserRoleAclID,
+					Value: fmt.Sprintf("%s-%s", netID, models.NetworkAdmin),
+				}},
+			Dst: []models.AclPolicyTag{
+				{
+					ID:    models.DeviceAclID,
+					Value: "*",
+				}},
+			AllowedDirection: models.TrafficDirectionUni,
+			Enabled:          true,
+			CreatedBy:        "auto",
+			CreatedAt:        time.Now().UTC(),
+		}
+		logic.InsertAcl(defaultUserAcl)
+	}
+	if !logic.IsAclExists(models.AclID(fmt.Sprintf("%s.%s", netID, models.NetworkUser))) {
+		defaultUserAcl := models.Acl{
+			ID:        models.AclID(fmt.Sprintf("%s.%s", netID, models.NetworkUser)),
+			Name:      models.NetworkUser.String(),
+			Default:   true,
+			NetworkID: netID,
+			RuleType:  models.UserPolicy,
+			Src: []models.AclPolicyTag{
+				{
+					ID:    models.UserRoleAclID,
+					Value: fmt.Sprintf("%s-%s", netID, models.NetworkUser),
+				}},
+			Dst: []models.AclPolicyTag{
+				{
+					ID:    models.DeviceAclID,
+					Value: "*",
+				}},
+			AllowedDirection: models.TrafficDirectionUni,
+			Enabled:          true,
+			CreatedBy:        "auto",
+			CreatedAt:        time.Now().UTC(),
+		}
+		logic.InsertAcl(defaultUserAcl)
+	}
+
+	if !logic.IsAclExists(models.AclID(fmt.Sprintf("%s.%s-grp", netID, models.NetworkAdmin))) {
+		defaultUserAcl := models.Acl{
+			ID:        models.AclID(fmt.Sprintf("%s.%s-grp", netID, models.NetworkAdmin)),
+			Name:      fmt.Sprintf("%s-grp", models.NetworkAdmin),
+			Default:   true,
+			NetworkID: netID,
+			RuleType:  models.UserPolicy,
+			Src: []models.AclPolicyTag{
+				{
+					ID:    models.UserGroupAclID,
+					Value: fmt.Sprintf("%s-%s-grp", netID, models.NetworkAdmin),
+				}},
+			Dst: []models.AclPolicyTag{
+				{
+					ID:    models.DeviceAclID,
+					Value: "*",
+				}},
+			AllowedDirection: models.TrafficDirectionUni,
+			Enabled:          true,
+			CreatedBy:        "auto",
+			CreatedAt:        time.Now().UTC(),
+		}
+		logic.InsertAcl(defaultUserAcl)
+	}
+
+	if !logic.IsAclExists(models.AclID(fmt.Sprintf("%s.%s-grp", netID, models.NetworkUser))) {
+		defaultUserAcl := models.Acl{
+			ID:        models.AclID(fmt.Sprintf("%s.%s-grp", netID, models.NetworkUser)),
+			Name:      fmt.Sprintf("%s-grp", models.NetworkUser),
+			Default:   true,
+			NetworkID: netID,
+			RuleType:  models.UserPolicy,
+			Src: []models.AclPolicyTag{
+				{
+					ID:    models.UserGroupAclID,
+					Value: fmt.Sprintf("%s-%s-grp", netID, models.NetworkUser),
+				}},
+			Dst: []models.AclPolicyTag{
+				{
+					ID:    models.DeviceAclID,
+					Value: "*",
+				}},
+			AllowedDirection: models.TrafficDirectionUni,
+			Enabled:          true,
+			CreatedBy:        "auto",
+			CreatedAt:        time.Now().UTC(),
+		}
+		logic.InsertAcl(defaultUserAcl)
+	}
 }

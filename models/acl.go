@@ -46,6 +46,7 @@ type AclGroupType string
 const (
 	UserAclID                AclGroupType = "user"
 	UserGroupAclID           AclGroupType = "user-group"
+	UserRoleAclID            AclGroupType = "user-role"
 	DeviceAclID              AclGroupType = "tag"
 	NetmakerIPAclID          AclGroupType = "ip"
 	NetmakerSubNetRangeAClID AclGroupType = "ipset"
