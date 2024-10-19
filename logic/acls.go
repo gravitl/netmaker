@@ -172,6 +172,9 @@ func IsAclPolicyValid(acl models.Acl) bool {
 			if srcI.ID == "" || srcI.Value == "" {
 				return false
 			}
+			if srcI.Value == "*" {
+				continue
+			}
 			if srcI.ID != models.UserAclID &&
 				srcI.ID != models.UserGroupAclID && srcI.ID != models.UserRoleAclID {
 				return false
@@ -183,18 +186,13 @@ func IsAclPolicyValid(acl models.Acl) bool {
 					return false
 				}
 			} else if srcI.ID == models.UserRoleAclID {
-				if srcI.Value == "*" {
-					continue
-				}
+
 				_, err := GetRole(models.UserRoleID(srcI.Value))
 				if err != nil {
 					return false
 				}
 
 			} else if srcI.ID == models.UserGroupAclID {
-				if srcI.Value == "*" {
-					continue
-				}
 				err := IsGroupValid(models.UserGroupID(srcI.Value))
 				if err != nil {
 					return false
@@ -208,7 +206,7 @@ func IsAclPolicyValid(acl models.Acl) bool {
 				return false
 			}
 			if dstI.ID == models.UserAclID ||
-				dstI.ID == models.UserGroupAclID {
+				dstI.ID == models.UserGroupAclID || dstI.ID == models.UserRoleAclID {
 				return false
 			}
 			if dstI.ID != models.DeviceAclID {
@@ -359,6 +357,12 @@ func listPoliciesOfUser(user models.User, netID models.NetworkID) []models.Acl {
 				acls = append(acls, acl)
 				continue
 			}
+			for netRole := range user.NetworkRoles {
+				if _, ok := srcMap[netRole.String()]; ok {
+					acls = append(acls, acl)
+					continue
+				}
+			}
 			for userG := range user.UserGroups {
 				if _, ok := srcMap[userG.String()]; ok {
 					acls = append(acls, acl)
@@ -458,7 +462,7 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) bool {
 		}
 
 	}
-	return true
+	return false
 }
 
 // IsNodeAllowedToCommunicate - check node is allowed to communicate with the peer
