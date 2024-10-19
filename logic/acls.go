@@ -83,7 +83,7 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 			Src: []models.AclPolicyTag{
 				{
 					ID:    models.DeviceAclID,
-					Value: fmt.Sprintf("%s.%s", netID, "remote-access-gws"),
+					Value: fmt.Sprintf("%s.%s", netID, models.RemoteAccessTagName),
 				},
 			},
 			Dst: []models.AclPolicyTag{
@@ -203,10 +203,6 @@ func IsAclPolicyValid(acl models.Acl) bool {
 		for _, dstI := range acl.Dst {
 
 			if dstI.ID == "" || dstI.Value == "" {
-				return false
-			}
-			if dstI.ID == models.UserAclID ||
-				dstI.ID == models.UserGroupAclID || dstI.ID == models.UserRoleAclID {
 				return false
 			}
 			if dstI.ID != models.DeviceAclID {

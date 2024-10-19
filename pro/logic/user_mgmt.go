@@ -956,7 +956,7 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 			Dst: []models.AclPolicyTag{
 				{
 					ID:    models.DeviceAclID,
-					Value: fmt.Sprintf("%s.%s", netID, "remote-access-gws"),
+					Value: fmt.Sprintf("%s.%s", netID, models.RemoteAccessTagName),
 				},
 			},
 			AllowedDirection: models.TrafficDirectionUni,
@@ -981,7 +981,7 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 			Dst: []models.AclPolicyTag{
 				{
 					ID:    models.DeviceAclID,
-					Value: fmt.Sprintf("%s.%s", netID, "remote-access-gws"),
+					Value: fmt.Sprintf("%s.%s", netID, models.RemoteAccessTagName),
 				}},
 			AllowedDirection: models.TrafficDirectionUni,
 			Enabled:          true,
@@ -1006,7 +1006,7 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 			Dst: []models.AclPolicyTag{
 				{
 					ID:    models.DeviceAclID,
-					Value: fmt.Sprintf("%s.%s", netID, "remote-access-gws"),
+					Value: fmt.Sprintf("%s.%s", netID, models.RemoteAccessTagName),
 				}},
 			AllowedDirection: models.TrafficDirectionUni,
 			Enabled:          true,
@@ -1031,7 +1031,7 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 			Dst: []models.AclPolicyTag{
 				{
 					ID:    models.DeviceAclID,
-					Value: fmt.Sprintf("%s.%s", netID, "remote-access-gws"),
+					Value: fmt.Sprintf("%s.%s", netID, models.RemoteAccessTagName),
 				}},
 			AllowedDirection: models.TrafficDirectionUni,
 			Enabled:          true,
