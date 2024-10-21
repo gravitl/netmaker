@@ -396,20 +396,29 @@ func ToggleExtClientConnectivity(client *models.ExtClient, enable bool) (models.
 	return newClient, nil
 }
 
-func GetExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, []models.EgressNetworkRoutes, error) {
+func GetExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, []models.EgressNetworkRoutes, []net.IP, error) {
 	var peers []wgtypes.PeerConfig
 	var idsAndAddr []models.IDandAddr
 	var egressRoutes []models.EgressNetworkRoutes
+	var extUserIps []net.IP
 	extPeers, err := GetNetworkExtClients(node.Network)
 	if err != nil {
-		return peers, idsAndAddr, egressRoutes, err
+		return peers, idsAndAddr, egressRoutes, extUserIps, err
 	}
 	host, err := GetHost(node.HostID.String())
 	if err != nil {
-		return peers, idsAndAddr, egressRoutes, err
+		return peers, idsAndAddr, egressRoutes, extUserIps, err
 	}
 	for _, extPeer := range extPeers {
 		extPeer := extPeer
+		if extPeer.RemoteAccessClientID != "" {
+			if extPeer.AddressIPNet4().IP != nil {
+				extUserIps = append(extUserIps, extPeer.AddressIPNet4().IP)
+			}
+			if extPeer.AddressIPNet6().IP != nil {
+				extUserIps = append(extUserIps, extPeer.AddressIPNet6().IP)
+			}
+		}
 		if !IsClientNodeAllowed(&extPeer, peer.ID.String()) {
 			continue
 		}
@@ -479,7 +488,7 @@ func GetExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandA
 			IsExtClient: true,
 		})
 	}
-	return peers, idsAndAddr, egressRoutes, nil
+	return peers, idsAndAddr, egressRoutes, extUserIps, nil
 
 }
 

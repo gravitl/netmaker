@@ -74,7 +74,8 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		ServerVersion: servercfg.GetVersion(),
 		ServerAddrs:   []models.ServerAddr{},
 		FwUpdate: models.FwUpdate{
-			EgressInfo: make(map[string]models.EgressInfo),
+			EgressInfo:  make(map[string]models.EgressInfo),
+			IngressInfo: make(map[string]models.IngressInfo),
 		},
 		PeerIDs:           make(models.PeerMap, 0),
 		Peers:             []wgtypes.PeerConfig{},
@@ -287,9 +288,13 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		var extPeers []wgtypes.PeerConfig
 		var extPeerIDAndAddrs []models.IDandAddr
 		var egressRoutes []models.EgressNetworkRoutes
+		var extUserIps []net.IP
 		if node.IsIngressGateway {
-			extPeers, extPeerIDAndAddrs, egressRoutes, err = GetExtPeers(&node, &node)
+			extPeers, extPeerIDAndAddrs, egressRoutes, extUserIps, err = GetExtPeers(&node, &node)
 			if err == nil {
+				hostPeerUpdate.FwUpdate.IngressInfo[node.ID.String()] = models.IngressInfo{
+					UserIps: extUserIps,
+				}
 				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, egressRoutes...)
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, extPeers...)
 				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
@@ -421,7 +426,7 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 
 	// handle ingress gateway peers
 	if peer.IsIngressGateway {
-		extPeers, _, _, err := GetExtPeers(peer, node)
+		extPeers, _, _, _, err := GetExtPeers(peer, node)
 		if err != nil {
 			logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 		}

@@ -148,7 +148,7 @@ func GetFailOverPeerIps(peer, node *models.Node) []net.IPNet {
 			}
 			// handle ingress gateway peers
 			if failOverpeer.IsIngressGateway {
-				extPeers, _, _, err := logic.GetExtPeers(&failOverpeer, node)
+				extPeers, _, _, _, err := logic.GetExtPeers(&failOverpeer, node)
 				if err != nil {
 					logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 				}
