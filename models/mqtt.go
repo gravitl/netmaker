@@ -28,7 +28,8 @@ type HostPeerUpdate struct {
 
 // IngressInfo - struct for ingress info
 type IngressInfo struct {
-	UserIps []net.IP
+	IngressID string   `json:"ingress_id"`
+	UserIps   []net.IP `json:"user_ips"`
 }
 
 // EgressInfo - struct for egress info
