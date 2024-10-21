@@ -385,7 +385,7 @@ func AddStaticNodestoList(nodes []models.Node) []models.Node {
 			continue
 		}
 		if node.IsIngressGateway {
-			nodes = append(nodes, GetStaticNodesByNetwork(models.NetworkID(node.Network))...)
+			nodes = append(nodes, GetStaticNodesByNetwork(models.NetworkID(node.Network), false)...)
 			netMap[node.Network] = struct{}{}
 		}
 	}

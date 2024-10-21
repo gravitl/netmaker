@@ -26,10 +26,17 @@ type HostPeerUpdate struct {
 	EndpointDetection bool                  `json:"endpoint_detection"`
 }
 
+type FwRule struct {
+	SrcIp net.IP
+	DstIP net.IP
+	Allow bool
+}
+
 // IngressInfo - struct for ingress info
 type IngressInfo struct {
 	IngressID string   `json:"ingress_id"`
 	UserIps   []net.IP `json:"user_ips"`
+	Rules     []FwRule `json:"rules"`
 }
 
 // EgressInfo - struct for egress info

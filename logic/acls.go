@@ -470,6 +470,12 @@ func IsNodeAllowedToCommunicate(node, peer models.Node) bool {
 			return true
 		}
 	}
+	if node.IsStatic {
+		node = node.StaticNode.ConvertToStaticNode()
+	}
+	if peer.IsStatic {
+		peer = peer.StaticNode.ConvertToStaticNode()
+	}
 	// list device policies
 	policies := listDevicePolicies(models.NetworkID(peer.Network))
 	for _, policy := range policies {
