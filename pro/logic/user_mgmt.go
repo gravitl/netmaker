@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
@@ -138,6 +138,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 	database.Insert(NetworkAdminGroup.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
 	d, _ = json.Marshal(NetworkUserGroup)
 	database.Insert(NetworkUserGroup.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
+
 }
 
 func DeleteNetworkRoles(netID string) {
@@ -514,188 +515,32 @@ func HasNetworkRsrcScope(permissionTemplate models.UserRolePermissionTemplate, n
 
 func GetUserRAGNodesV1(user models.User) (gws map[string]models.Node) {
 	gws = make(map[string]models.Node)
-
-	tagNodesMap := logic.GetTagMapWithNodes()
-	accessPolices := logic.ListUserPolicies(user)
-	for _, policyI := range accessPolices {
-		for _, dstI := range policyI.Dst {
-			if nodes, ok := tagNodesMap[models.TagID(dstI.Value)]; ok {
-				for _, node := range nodes {
-					gws[node.ID.String()] = node
-				}
-			}
-		}
-	}
-	return
-}
-func DoesUserHaveAccessToRAGNode(user models.User, node models.Node) bool {
-	userGwAccessScope := GetUserNetworkRolesWithRemoteVPNAccess(user)
-	logger.Log(3, fmt.Sprintf("User Gw Access Scope: %+v", userGwAccessScope))
-	_, allNetAccess := userGwAccessScope["*"]
-	if node.IsIngressGateway && !node.PendingDelete {
-		if allNetAccess {
-			return true
-		} else {
-			gwRsrcMap := userGwAccessScope[models.NetworkID(node.Network)]
-			scope, ok := gwRsrcMap[models.AllRemoteAccessGwRsrcID]
-			if !ok {
-				if scope, ok = gwRsrcMap[models.RsrcID(node.ID.String())]; !ok {
-					return false
-				}
-			}
-			if scope.VPNaccess {
-				return true
-			}
-
-		}
-	}
-	return false
-}
-
-func GetUserRAGNodes(user models.User) (gws map[string]models.Node) {
-	gws = make(map[string]models.Node)
-	userGwAccessScope := GetUserNetworkRolesWithRemoteVPNAccess(user)
-	logger.Log(3, fmt.Sprintf("User Gw Access Scope: %+v", userGwAccessScope))
-	_, allNetAccess := userGwAccessScope["*"]
 	nodes, err := logic.GetAllNodes()
 	if err != nil {
 		return
 	}
-	for _, node := range nodes {
-		if node.IsIngressGateway && !node.PendingDelete {
-			if allNetAccess {
-				gws[node.ID.String()] = node
-			} else {
-				gwRsrcMap := userGwAccessScope[models.NetworkID(node.Network)]
-				scope, ok := gwRsrcMap[models.AllRemoteAccessGwRsrcID]
-				if !ok {
-					if scope, ok = gwRsrcMap[models.RsrcID(node.ID.String())]; !ok {
-						continue
+	tagNodesMap := logic.GetTagMapWithNodes()
+	accessPolices := logic.ListUserPolicies(user)
+	for _, policyI := range accessPolices {
+		for _, dstI := range policyI.Dst {
+			if dstI.Value == "*" {
+				networkNodes := logic.GetNetworkNodesMemory(nodes, policyI.NetworkID.String())
+				for _, node := range networkNodes {
+					if node.IsIngressGateway {
+						gws[node.ID.String()] = node
 					}
 				}
-				if scope.VPNaccess {
-					gws[node.ID.String()] = node
-				}
-
 			}
-		}
-	}
-	return
-}
-
-// GetUserNetworkRoles - get user network roles
-func GetUserNetworkRolesWithRemoteVPNAccess(user models.User) (gwAccess map[models.NetworkID]map[models.RsrcID]models.RsrcPermissionScope) {
-	gwAccess = make(map[models.NetworkID]map[models.RsrcID]models.RsrcPermissionScope)
-	platformRole, err := logic.GetRole(user.PlatformRoleID)
-	if err != nil {
-		return
-	}
-	if platformRole.FullAccess {
-		gwAccess[models.NetworkID("*")] = make(map[models.RsrcID]models.RsrcPermissionScope)
-		return
-	}
-	if _, ok := user.NetworkRoles[models.AllNetworks]; ok {
-		gwAccess[models.NetworkID("*")] = make(map[models.RsrcID]models.RsrcPermissionScope)
-	}
-	if len(user.UserGroups) > 0 {
-		for gID := range user.UserGroups {
-			userG, err := GetUserGroup(gID)
-			if err != nil {
-				continue
-			}
-			for netID, roleMap := range userG.NetworkRoles {
-				for roleID := range roleMap {
-					role, err := logic.GetRole(roleID)
-					if err == nil {
-						if role.FullAccess {
-							gwAccess[netID] = map[models.RsrcID]models.RsrcPermissionScope{
-								models.AllRemoteAccessGwRsrcID: {
-									Create:    true,
-									Read:      true,
-									Update:    true,
-									VPNaccess: true,
-									Delete:    true,
-								},
-								models.AllExtClientsRsrcID: {
-									Create: true,
-									Read:   true,
-									Update: true,
-									Delete: true,
-								},
-							}
-							break
-						}
-						if rsrcsMap, ok := role.NetworkLevelAccess[models.RemoteAccessGwRsrc]; ok {
-							if permissions, ok := rsrcsMap[models.AllRemoteAccessGwRsrcID]; ok && permissions.VPNaccess {
-								if len(gwAccess[netID]) == 0 {
-									gwAccess[netID] = make(map[models.RsrcID]models.RsrcPermissionScope)
-								}
-								gwAccess[netID][models.AllRemoteAccessGwRsrcID] = permissions
-								break
-							} else {
-								for gwID, scope := range rsrcsMap {
-									if scope.VPNaccess {
-										if len(gwAccess[netID]) == 0 {
-											gwAccess[netID] = make(map[models.RsrcID]models.RsrcPermissionScope)
-										}
-										gwAccess[netID][gwID] = scope
-									}
-								}
-							}
-
-						}
-
+			if nodes, ok := tagNodesMap[models.TagID(dstI.Value)]; ok {
+				for _, node := range nodes {
+					if node.IsIngressGateway {
+						gws[node.ID.String()] = node
 					}
+
 				}
 			}
 		}
 	}
-	for netID, roleMap := range user.NetworkRoles {
-		for roleID := range roleMap {
-			role, err := logic.GetRole(roleID)
-			if err == nil {
-				if role.FullAccess {
-					gwAccess[netID] = map[models.RsrcID]models.RsrcPermissionScope{
-						models.AllRemoteAccessGwRsrcID: {
-							Create:    true,
-							Read:      true,
-							Update:    true,
-							VPNaccess: true,
-							Delete:    true,
-						},
-						models.AllExtClientsRsrcID: {
-							Create: true,
-							Read:   true,
-							Update: true,
-							Delete: true,
-						},
-					}
-					break
-				}
-				if rsrcsMap, ok := role.NetworkLevelAccess[models.RemoteAccessGwRsrc]; ok {
-					if permissions, ok := rsrcsMap[models.AllRemoteAccessGwRsrcID]; ok && permissions.VPNaccess {
-						if len(gwAccess[netID]) == 0 {
-							gwAccess[netID] = make(map[models.RsrcID]models.RsrcPermissionScope)
-						}
-						gwAccess[netID][models.AllRemoteAccessGwRsrcID] = permissions
-						break
-					} else {
-						for gwID, scope := range rsrcsMap {
-							if scope.VPNaccess {
-								if len(gwAccess[netID]) == 0 {
-									gwAccess[netID] = make(map[models.RsrcID]models.RsrcPermissionScope)
-								}
-								gwAccess[netID][gwID] = scope
-							}
-						}
-					}
-
-				}
-
-			}
-		}
-	}
-
 	return
 }
 
@@ -1090,4 +935,109 @@ func UpdateUserGwAccess(currentUser, changeUser models.User) {
 		logic.SetDNS()
 	}
 
+}
+
+func CreateDefaultUserPolicies(netID models.NetworkID) {
+	if netID.String() == "" {
+		return
+	}
+	if !logic.IsAclExists(models.AclID(fmt.Sprintf("%s.%s", netID, models.NetworkAdmin))) {
+		defaultUserAcl := models.Acl{
+			ID:        models.AclID(fmt.Sprintf("%s.%s", netID, models.NetworkAdmin)),
+			Name:      models.NetworkAdmin.String(),
+			Default:   true,
+			NetworkID: netID,
+			RuleType:  models.UserPolicy,
+			Src: []models.AclPolicyTag{
+				{
+					ID:    models.UserRoleAclID,
+					Value: fmt.Sprintf("%s-%s", netID, models.NetworkAdmin),
+				}},
+			Dst: []models.AclPolicyTag{
+				{
+					ID:    models.DeviceAclID,
+					Value: fmt.Sprintf("%s.%s", netID, models.RemoteAccessTagName),
+				},
+			},
+			AllowedDirection: models.TrafficDirectionUni,
+			Enabled:          true,
+			CreatedBy:        "auto",
+			CreatedAt:        time.Now().UTC(),
+		}
+		logic.InsertAcl(defaultUserAcl)
+	}
+	if !logic.IsAclExists(models.AclID(fmt.Sprintf("%s.%s", netID, models.NetworkUser))) {
+		defaultUserAcl := models.Acl{
+			ID:        models.AclID(fmt.Sprintf("%s.%s", netID, models.NetworkUser)),
+			Name:      models.NetworkUser.String(),
+			Default:   true,
+			NetworkID: netID,
+			RuleType:  models.UserPolicy,
+			Src: []models.AclPolicyTag{
+				{
+					ID:    models.UserRoleAclID,
+					Value: fmt.Sprintf("%s-%s", netID, models.NetworkUser),
+				}},
+			Dst: []models.AclPolicyTag{
+				{
+					ID:    models.DeviceAclID,
+					Value: fmt.Sprintf("%s.%s", netID, models.RemoteAccessTagName),
+				}},
+			AllowedDirection: models.TrafficDirectionUni,
+			Enabled:          true,
+			CreatedBy:        "auto",
+			CreatedAt:        time.Now().UTC(),
+		}
+		logic.InsertAcl(defaultUserAcl)
+	}
+
+	if !logic.IsAclExists(models.AclID(fmt.Sprintf("%s.%s-grp", netID, models.NetworkAdmin))) {
+		defaultUserAcl := models.Acl{
+			ID:        models.AclID(fmt.Sprintf("%s.%s-grp", netID, models.NetworkAdmin)),
+			Name:      fmt.Sprintf("%s-grp", models.NetworkAdmin),
+			Default:   true,
+			NetworkID: netID,
+			RuleType:  models.UserPolicy,
+			Src: []models.AclPolicyTag{
+				{
+					ID:    models.UserGroupAclID,
+					Value: fmt.Sprintf("%s-%s-grp", netID, models.NetworkAdmin),
+				}},
+			Dst: []models.AclPolicyTag{
+				{
+					ID:    models.DeviceAclID,
+					Value: fmt.Sprintf("%s.%s", netID, models.RemoteAccessTagName),
+				}},
+			AllowedDirection: models.TrafficDirectionUni,
+			Enabled:          true,
+			CreatedBy:        "auto",
+			CreatedAt:        time.Now().UTC(),
+		}
+		logic.InsertAcl(defaultUserAcl)
+	}
+
+	if !logic.IsAclExists(models.AclID(fmt.Sprintf("%s.%s-grp", netID, models.NetworkUser))) {
+		defaultUserAcl := models.Acl{
+			ID:        models.AclID(fmt.Sprintf("%s.%s-grp", netID, models.NetworkUser)),
+			Name:      fmt.Sprintf("%s-grp", models.NetworkUser),
+			Default:   true,
+			NetworkID: netID,
+			RuleType:  models.UserPolicy,
+			Src: []models.AclPolicyTag{
+				{
+					ID:    models.UserGroupAclID,
+					Value: fmt.Sprintf("%s-%s-grp", netID, models.NetworkUser),
+				}},
+			Dst: []models.AclPolicyTag{
+				{
+					ID:    models.DeviceAclID,
+					Value: fmt.Sprintf("%s.%s", netID, models.RemoteAccessTagName),
+				}},
+			AllowedDirection: models.TrafficDirectionUni,
+			Enabled:          true,
+			CreatedBy:        "auto",
+			CreatedAt:        time.Now().UTC(),
+		}
+		logic.InsertAcl(defaultUserAcl)
+	}
 }

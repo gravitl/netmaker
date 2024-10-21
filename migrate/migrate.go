@@ -21,7 +21,7 @@ import (
 func Run() {
 	updateEnrollmentKeys()
 	assignSuperAdmin()
-	createDefaultTags()
+	createDefaultTagsAndPolicies()
 	removeOldUserGrps()
 	syncUsers()
 	updateHosts()
@@ -171,6 +171,9 @@ func updateNodes() {
 		if node.IsIngressGateway {
 			tagID := models.TagID(fmt.Sprintf("%s.%s", node.Network,
 				models.RemoteAccessTagName))
+			if node.Tags == nil {
+				node.Tags = make(map[models.TagID]struct{})
+			}
 			if _, ok := node.Tags[tagID]; !ok {
 				node.Tags[tagID] = struct{}{}
 				logic.UpsertNode(&node)
@@ -184,6 +187,18 @@ func updateNodes() {
 				node.EgressGatewayRanges = egressRanges
 				logic.UpsertNode(&node)
 			}
+		}
+	}
+	extclients, _ := logic.GetAllExtClients()
+	for _, extclient := range extclients {
+		tagID := models.TagID(fmt.Sprintf("%s.%s", extclient.Network,
+			models.RemoteAccessTagName))
+		if extclient.Tags == nil {
+			extclient.Tags = make(map[models.TagID]struct{})
+		}
+		if _, ok := extclient.Tags[tagID]; !ok {
+			extclient.Tags[tagID] = struct{}{}
+			logic.SaveExtClient(&extclient)
 		}
 	}
 }
@@ -444,7 +459,7 @@ func syncUsers() {
 	}
 }
 
-func createDefaultTags() {
+func createDefaultTagsAndPolicies() {
 	networks, err := logic.GetNetworks()
 	if err != nil {
 		return

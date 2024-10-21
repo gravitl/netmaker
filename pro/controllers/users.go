@@ -834,7 +834,7 @@ func getUserRemoteAccessNetworks(w http.ResponseWriter, r *http.Request) {
 	userGws := make(map[string][]models.UserRemoteGws)
 	networks := []models.Network{}
 	networkMap := make(map[string]struct{})
-	userGwNodes := proLogic.GetUserRAGNodes(*user)
+	userGwNodes := proLogic.GetUserRAGNodesV1(*user)
 	for _, node := range userGwNodes {
 		network, err := logic.GetNetwork(node.Network)
 		if err != nil {
@@ -876,7 +876,7 @@ func getUserRemoteAccessNetworkGateways(w http.ResponseWriter, r *http.Request) 
 	}
 	userGws := []models.UserRAGs{}
 
-	userGwNodes := proLogic.GetUserRAGNodes(*user)
+	userGwNodes := proLogic.GetUserRAGNodesV1(*user)
 	for _, node := range userGwNodes {
 		if node.Network != network {
 			continue
@@ -931,7 +931,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userGwNodes := proLogic.GetUserRAGNodes(*user)
+	userGwNodes := proLogic.GetUserRAGNodesV1(*user)
 	if _, ok := userGwNodes[remoteGwID]; !ok {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("access denied"), "forbidden"))
 		return
@@ -995,6 +995,9 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		if err == nil { // check if parent network default ACL is enabled (yes) or not (no)
 			userConf.Enabled = parentNetwork.DefaultACL == "yes"
 		}
+		userConf.Tags = make(map[models.TagID]struct{})
+		userConf.Tags[models.TagID(fmt.Sprintf("%s.%s", userConf.Network,
+			models.RemoteAccessTagName))] = struct{}{}
 		if err = logic.CreateExtClient(&userConf); err != nil {
 			slog.Error(
 				"failed to create extclient",

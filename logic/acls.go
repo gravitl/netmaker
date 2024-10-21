@@ -56,6 +56,10 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 					ID:    models.UserGroupAclID,
 					Value: "*",
 				},
+				{
+					ID:    models.UserRoleAclID,
+					Value: "*",
+				},
 			},
 			Dst: []models.AclPolicyTag{{
 				ID:    models.DeviceAclID,
@@ -79,7 +83,7 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 			Src: []models.AclPolicyTag{
 				{
 					ID:    models.DeviceAclID,
-					Value: fmt.Sprintf("%s.%s", netID, "remote-access-gws"),
+					Value: fmt.Sprintf("%s.%s", netID, models.RemoteAccessTagName),
 				},
 			},
 			Dst: []models.AclPolicyTag{
@@ -95,7 +99,7 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 		}
 		InsertAcl(defaultUserAcl)
 	}
-
+	CreateDefaultUserPolicies(netID)
 }
 
 // DeleteDefaultNetworkPolicies - deletes all default network acl policies
@@ -168,8 +172,11 @@ func IsAclPolicyValid(acl models.Acl) bool {
 			if srcI.ID == "" || srcI.Value == "" {
 				return false
 			}
+			if srcI.Value == "*" {
+				continue
+			}
 			if srcI.ID != models.UserAclID &&
-				srcI.ID != models.UserGroupAclID {
+				srcI.ID != models.UserGroupAclID && srcI.ID != models.UserRoleAclID {
 				return false
 			}
 			// check if user group is valid
@@ -178,10 +185,14 @@ func IsAclPolicyValid(acl models.Acl) bool {
 				if err != nil {
 					return false
 				}
-			} else if srcI.ID == models.UserGroupAclID {
-				if srcI.Value == "*" {
-					continue
+			} else if srcI.ID == models.UserRoleAclID {
+
+				_, err := GetRole(models.UserRoleID(srcI.Value))
+				if err != nil {
+					return false
 				}
+
+			} else if srcI.ID == models.UserGroupAclID {
 				err := IsGroupValid(models.UserGroupID(srcI.Value))
 				if err != nil {
 					return false
@@ -192,10 +203,6 @@ func IsAclPolicyValid(acl models.Acl) bool {
 		for _, dstI := range acl.Dst {
 
 			if dstI.ID == "" || dstI.Value == "" {
-				return false
-			}
-			if dstI.ID == models.UserAclID ||
-				dstI.ID == models.UserGroupAclID {
 				return false
 			}
 			if dstI.ID != models.DeviceAclID {
@@ -281,9 +288,13 @@ func DeleteAcl(a models.Acl) error {
 	return database.DeleteRecord(database.ACLS_TABLE_NAME, a.ID.String())
 }
 
-// GetDefaultNodesPolicy - fetches default policy in the network by ruleType
-func GetDefaultNodesPolicy(netID models.NetworkID, ruleType models.AclPolicyType) (models.Acl, error) {
-	acl, err := GetAcl(models.AclID(fmt.Sprintf("%s.%s", netID, "all-nodes")))
+// GetDefaultPolicy - fetches default policy in the network by ruleType
+func GetDefaultPolicy(netID models.NetworkID, ruleType models.AclPolicyType) (models.Acl, error) {
+	aclID := "all-users"
+	if ruleType == models.DevicePolicy {
+		aclID = "all-nodes"
+	}
+	acl, err := GetAcl(models.AclID(fmt.Sprintf("%s.%s", netID, aclID)))
 	if err != nil {
 		return models.Acl{}, errors.New("default rule not found")
 	}
@@ -315,6 +326,43 @@ func ListUserPolicies(u models.User) []models.Acl {
 						acls = append(acls, acl)
 						break
 					}
+				}
+			}
+
+		}
+	}
+	return acls
+}
+
+// listPoliciesOfUser - lists all user acl policies applied to user in an network
+func listPoliciesOfUser(user models.User, netID models.NetworkID) []models.Acl {
+	data, err := database.FetchRecords(database.ACLS_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return []models.Acl{}
+	}
+	acls := []models.Acl{}
+	for _, dataI := range data {
+		acl := models.Acl{}
+		err := json.Unmarshal([]byte(dataI), &acl)
+		if err != nil {
+			continue
+		}
+		if acl.NetworkID == netID && acl.RuleType == models.UserPolicy {
+			srcMap := convAclTagToValueMap(acl.Src)
+			if _, ok := srcMap[user.UserName]; ok {
+				acls = append(acls, acl)
+				continue
+			}
+			for netRole := range user.NetworkRoles {
+				if _, ok := srcMap[netRole.String()]; ok {
+					acls = append(acls, acl)
+					continue
+				}
+			}
+			for userG := range user.UserGroups {
+				if _, ok := srcMap[userG.String()]; ok {
+					acls = append(acls, acl)
+					continue
 				}
 			}
 
@@ -391,15 +439,32 @@ func convAclTagToValueMap(acltags []models.AclPolicyTag) map[string]struct{} {
 	return aclValueMap
 }
 
+// IsUserAllowedToCommunicate - check if user is allowed to communicate with peer
 func IsUserAllowedToCommunicate(userName string, peer models.Node) bool {
-	listUserPoliciesByNetwork(models.NetworkID(peer.Network))
-	return true
+	user, err := GetUser(userName)
+	if err != nil {
+		return false
+	}
+	policies := listPoliciesOfUser(*user, models.NetworkID(peer.Network))
+	for _, policy := range policies {
+		if !policy.Enabled {
+			continue
+		}
+		dstMap := convAclTagToValueMap(policy.Dst)
+		for tagID := range peer.Tags {
+			if _, ok := dstMap[tagID.String()]; ok {
+				return true
+			}
+		}
+
+	}
+	return false
 }
 
 // IsNodeAllowedToCommunicate - check node is allowed to communicate with the peer
 func IsNodeAllowedToCommunicate(node, peer models.Node) bool {
 	// check default policy if all allowed return true
-	defaultPolicy, err := GetDefaultNodesPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+	defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 	if err == nil {
 		if defaultPolicy.Enabled {
 			return true
