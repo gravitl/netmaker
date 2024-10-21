@@ -402,6 +402,19 @@ func ToggleExtClientConnectivity(client *models.ExtClient, enable bool) (models.
 	return newClient, nil
 }
 
+func GetStaticNodeIps(node models.Node) (ips []net.IP) {
+	extclients := GetStaticNodesByNetwork(models.NetworkID(node.Network), false)
+	for _, extclient := range extclients {
+		if extclient.StaticNode.Address != "" {
+			ips = append(ips, extclient.StaticNode.AddressIPNet4().IP)
+		}
+		if extclient.StaticNode.Address6 != "" {
+			ips = append(ips, extclient.StaticNode.AddressIPNet6().IP)
+		}
+	}
+	return
+}
+
 func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 	// fetch user access to static clients via policies
 	extclients := GetStaticNodesByNetwork(models.NetworkID(node.Network), true)
@@ -413,12 +426,14 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 					rules = append(rules, models.FwRule{
 						SrcIp: userNodeI.StaticNode.AddressIPNet4().IP,
 						DstIP: extclient.StaticNode.AddressIPNet4().IP,
+						Allow: true,
 					})
 				}
 				if userNodeI.StaticNode.Address6 != "" {
 					rules = append(rules, models.FwRule{
 						SrcIp: userNodeI.StaticNode.AddressIPNet6().IP,
 						DstIP: extclient.StaticNode.AddressIPNet6().IP,
+						Allow: true,
 					})
 				}
 			}

@@ -294,9 +294,10 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			extPeers, extPeerIDAndAddrs, egressRoutes, extUserIps, err = GetExtPeers(&node, &node)
 			if err == nil {
 				hostPeerUpdate.FwUpdate.IngressInfo[node.ID.String()] = models.IngressInfo{
-					IngressID: node.ID.String(),
-					UserIps:   extUserIps,
-					Rules:     GetFwRulesOnIngressGateway(node),
+					IngressID:     node.ID.String(),
+					UserIps:       extUserIps,
+					Rules:         GetFwRulesOnIngressGateway(node),
+					StaticNodeIps: GetStaticNodeIps(node),
 				}
 				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, egressRoutes...)
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, extPeers...)

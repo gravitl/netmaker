@@ -34,9 +34,10 @@ type FwRule struct {
 
 // IngressInfo - struct for ingress info
 type IngressInfo struct {
-	IngressID string   `json:"ingress_id"`
-	UserIps   []net.IP `json:"user_ips"`
-	Rules     []FwRule `json:"rules"`
+	IngressID     string   `json:"ingress_id"`
+	UserIps       []net.IP `json:"user_ips"`
+	StaticNodeIps []net.IP `json:"static_node_ips"`
+	Rules         []FwRule `json:"rules"`
 }
 
 // EgressInfo - struct for egress info
