@@ -445,6 +445,9 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) bool {
 	if err != nil {
 		return false
 	}
+	if peer.IsStatic {
+		peer = peer.StaticNode.ConvertToStaticNode()
+	}
 	policies := listPoliciesOfUser(*user, models.NetworkID(peer.Network))
 	for _, policy := range policies {
 		if !policy.Enabled {

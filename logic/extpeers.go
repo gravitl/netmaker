@@ -428,11 +428,21 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 						DstIP: extclient.StaticNode.AddressIPNet4().IP,
 						Allow: true,
 					})
+					rules = append(rules, models.FwRule{
+						SrcIp: extclient.StaticNode.AddressIPNet4().IP,
+						DstIP: userNodeI.StaticNode.AddressIPNet4().IP,
+						Allow: true,
+					})
 				}
 				if userNodeI.StaticNode.Address6 != "" {
 					rules = append(rules, models.FwRule{
 						SrcIp: userNodeI.StaticNode.AddressIPNet6().IP,
 						DstIP: extclient.StaticNode.AddressIPNet6().IP,
+						Allow: true,
+					})
+					rules = append(rules, models.FwRule{
+						SrcIp: extclient.StaticNode.AddressIPNet6().IP,
+						DstIP: userNodeI.StaticNode.AddressIPNet6().IP,
 						Allow: true,
 					})
 				}
@@ -442,17 +452,22 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 
 	for _, extclientI := range extclients {
 		for _, extclient := range extclients {
+			if extclient.StaticNode.ClientID == extclientI.StaticNode.ClientID {
+				continue
+			}
 			if IsNodeAllowedToCommunicate(extclientI, extclient) {
 				if extclientI.StaticNode.Address != "" {
 					rules = append(rules, models.FwRule{
 						SrcIp: extclientI.StaticNode.AddressIPNet4().IP,
 						DstIP: extclient.StaticNode.AddressIPNet4().IP,
+						Allow: true,
 					})
 				}
 				if extclientI.StaticNode.Address6 != "" {
 					rules = append(rules, models.FwRule{
 						SrcIp: extclientI.StaticNode.AddressIPNet6().IP,
 						DstIP: extclient.StaticNode.AddressIPNet6().IP,
+						Allow: true,
 					})
 				}
 			}
