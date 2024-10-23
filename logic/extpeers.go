@@ -417,6 +417,7 @@ func GetStaticNodeIps(node models.Node) (ips []net.IP) {
 
 func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 	// fetch user access to static clients via policies
+
 	nodes, _ := GetNetworkNodes(node.Network)
 	nodes = append(nodes, GetStaticNodesByNetwork(models.NetworkID(node.Network), true)...)
 	userNodes := GetStaticUserNodesByNetwork(models.NetworkID(node.Network))
@@ -521,18 +522,18 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 	return
 }
 
-func GetExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, []models.EgressNetworkRoutes, []net.IP, error) {
+func GetExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, []models.EgressNetworkRoutes, error) {
 	var peers []wgtypes.PeerConfig
 	var idsAndAddr []models.IDandAddr
 	var egressRoutes []models.EgressNetworkRoutes
 	var extUserIps []net.IP
 	extPeers, err := GetNetworkExtClients(node.Network)
 	if err != nil {
-		return peers, idsAndAddr, egressRoutes, extUserIps, err
+		return peers, idsAndAddr, egressRoutes, err
 	}
 	host, err := GetHost(node.HostID.String())
 	if err != nil {
-		return peers, idsAndAddr, egressRoutes, extUserIps, err
+		return peers, idsAndAddr, egressRoutes, err
 	}
 	for _, extPeer := range extPeers {
 		extPeer := extPeer
@@ -613,7 +614,7 @@ func GetExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandA
 			IsExtClient: true,
 		})
 	}
-	return peers, idsAndAddr, egressRoutes, extUserIps, nil
+	return peers, idsAndAddr, egressRoutes, nil
 
 }
 

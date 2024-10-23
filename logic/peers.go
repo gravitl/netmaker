@@ -288,19 +288,23 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		var extPeers []wgtypes.PeerConfig
 		var extPeerIDAndAddrs []models.IDandAddr
 		var egressRoutes []models.EgressNetworkRoutes
-		var extUserIps []net.IP
 		if node.IsIngressGateway {
 			hostPeerUpdate.FwUpdate.IsIngressGw = true
-			extPeers, extPeerIDAndAddrs, egressRoutes, extUserIps, err = GetExtPeers(&node, &node)
+			extPeers, extPeerIDAndAddrs, egressRoutes, err = GetExtPeers(&node, &node)
 			if err == nil {
-				hostPeerUpdate.FwUpdate.IngressInfo[node.ID.String()] = models.IngressInfo{
-					IngressID:     node.ID.String(),
-					UserIps:       extUserIps,
-					Network:       node.NetworkRange,
-					Network6:      node.NetworkRange6,
-					Rules:         GetFwRulesOnIngressGateway(node),
-					StaticNodeIps: GetStaticNodeIps(node),
+				defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
+				defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+				ingFwUpdate := models.IngressInfo{
+					IngressID: node.ID.String(),
+					Network:   node.NetworkRange,
+					Network6:  node.NetworkRange6,
+					AllowAll:  defaultDevicePolicy.Enabled && defaultUserPolicy.Default,
 				}
+				if !ingFwUpdate.AllowAll {
+					ingFwUpdate.StaticNodeIps = GetStaticNodeIps(node)
+					ingFwUpdate.Rules = GetFwRulesOnIngressGateway(node)
+				}
+				hostPeerUpdate.FwUpdate.IngressInfo[node.ID.String()] = ingFwUpdate
 				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, egressRoutes...)
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, extPeers...)
 				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
@@ -432,7 +436,7 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 
 	// handle ingress gateway peers
 	if peer.IsIngressGateway {
-		extPeers, _, _, _, err := GetExtPeers(peer, node)
+		extPeers, _, _, err := GetExtPeers(peer, node)
 		if err != nil {
 			logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 		}

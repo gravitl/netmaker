@@ -457,6 +457,9 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) bool {
 			continue
 		}
 		dstMap := convAclTagToValueMap(policy.Dst)
+		if _, ok := dstMap["*"]; ok {
+			return true
+		}
 		for tagID := range peer.Tags {
 			if _, ok := dstMap[tagID.String()]; ok {
 				return true
