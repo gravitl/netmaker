@@ -751,6 +751,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 				logger.Log(0, "error during node ACL update for node", newNode.ID.String())
 			}
 		}
+		mq.PublishPeerUpdate(false)
 		if servercfg.IsDNSMode() {
 			logic.SetDNS()
 		}
