@@ -294,17 +294,17 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			if err == nil {
 				defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 				defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
-				ingFwUpdate := models.IngressInfo{
-					IngressID: node.ID.String(),
-					Network:   node.NetworkRange,
-					Network6:  node.NetworkRange6,
-					AllowAll:  defaultDevicePolicy.Enabled && defaultUserPolicy.Default,
+				if defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled {
+					ingFwUpdate := models.IngressInfo{
+						IngressID:     node.ID.String(),
+						Network:       node.NetworkRange,
+						Network6:      node.NetworkRange6,
+						AllowAll:      defaultDevicePolicy.Enabled && defaultUserPolicy.Default,
+						StaticNodeIps: GetStaticNodeIps(node),
+						Rules:         GetFwRulesOnIngressGateway(node),
+					}
+					hostPeerUpdate.FwUpdate.IngressInfo[node.ID.String()] = ingFwUpdate
 				}
-				if !ingFwUpdate.AllowAll {
-					ingFwUpdate.StaticNodeIps = GetStaticNodeIps(node)
-					ingFwUpdate.Rules = GetFwRulesOnIngressGateway(node)
-				}
-				hostPeerUpdate.FwUpdate.IngressInfo[node.ID.String()] = ingFwUpdate
 				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, egressRoutes...)
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, extPeers...)
 				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {

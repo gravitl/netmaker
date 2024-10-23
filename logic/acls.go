@@ -441,6 +441,10 @@ func convAclTagToValueMap(acltags []models.AclPolicyTag) map[string]struct{} {
 
 // IsUserAllowedToCommunicate - check if user is allowed to communicate with peer
 func IsUserAllowedToCommunicate(userName string, peer models.Node) bool {
+	acl, _ := GetDefaultPolicy(models.NetworkID(peer.Network), models.UserPolicy)
+	if acl.Enabled {
+		return true
+	}
 	user, err := GetUser(userName)
 	if err != nil {
 		return false
