@@ -294,7 +294,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			if err == nil {
 				defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 				defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
-				if defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled {
+				if !defaultDevicePolicy.Enabled || !defaultUserPolicy.Enabled {
 					ingFwUpdate := models.IngressInfo{
 						IngressID:     node.ID.String(),
 						Network:       node.NetworkRange,
