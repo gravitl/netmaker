@@ -459,11 +459,6 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 							DstIP: peer.Address.IP,
 							Allow: true,
 						})
-						// rules = append(rules, models.FwRule{
-						// 	SrcIp: peer.Address.IP,
-						// 	DstIP: userNodeI.StaticNode.AddressIPNet4().IP,
-						// 	Allow: true,
-						// })
 					}
 					if userNodeI.StaticNode.Address6 != "" {
 						rules = append(rules, models.FwRule{
@@ -471,11 +466,6 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 							DstIP: peer.Address6.IP,
 							Allow: true,
 						})
-						// rules = append(rules, models.FwRule{
-						// 	SrcIp: peer.Address6.IP,
-						// 	DstIP: userNodeI.StaticNode.AddressIPNet6().IP,
-						// 	Allow: true,
-						// })
 					}
 				}
 
@@ -483,39 +473,47 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 		}
 	}
 
-	for _, extclientI := range nodes {
-		if !extclientI.IsStatic || extclientI.IsUserNode {
+	for _, nodeI := range nodes {
+		if !nodeI.IsStatic || nodeI.IsUserNode {
 			continue
 		}
-		for _, extclient := range nodes {
-			if extclient.StaticNode.ClientID == extclientI.StaticNode.ClientID || extclient.IsUserNode {
+		for _, peer := range nodes {
+			if peer.StaticNode.ClientID == nodeI.StaticNode.ClientID || peer.IsUserNode {
 				continue
 			}
-			if IsNodeAllowedToCommunicate(extclientI, extclient) {
-				if extclientI.StaticNode.Address != "" {
-					rules = append(rules, models.FwRule{
-						SrcIp: extclientI.StaticNode.AddressIPNet4().IP,
-						DstIP: extclient.StaticNode.AddressIPNet4().IP,
-						Allow: true,
-					})
-					// rules = append(rules, models.FwRule{
-					// 	SrcIp: extclient.StaticNode.AddressIPNet4().IP,
-					// 	DstIP: extclientI.StaticNode.AddressIPNet4().IP,
-					// 	Allow: true,
-					// })
+			if IsNodeAllowedToCommunicate(nodeI, peer) {
+				if peer.IsStatic {
+					if nodeI.StaticNode.Address != "" {
+						rules = append(rules, models.FwRule{
+							SrcIp: nodeI.StaticNode.AddressIPNet4().IP,
+							DstIP: peer.StaticNode.AddressIPNet4().IP,
+							Allow: true,
+						})
+					}
+					if nodeI.StaticNode.Address6 != "" {
+						rules = append(rules, models.FwRule{
+							SrcIp: nodeI.StaticNode.AddressIPNet6().IP,
+							DstIP: peer.StaticNode.AddressIPNet6().IP,
+							Allow: true,
+						})
+					}
+				} else {
+					if nodeI.StaticNode.Address != "" {
+						rules = append(rules, models.FwRule{
+							SrcIp: nodeI.StaticNode.AddressIPNet4().IP,
+							DstIP: peer.Address.IP,
+							Allow: true,
+						})
+					}
+					if nodeI.StaticNode.Address6 != "" {
+						rules = append(rules, models.FwRule{
+							SrcIp: nodeI.StaticNode.AddressIPNet6().IP,
+							DstIP: peer.Address6.IP,
+							Allow: true,
+						})
+					}
 				}
-				if extclientI.StaticNode.Address6 != "" {
-					rules = append(rules, models.FwRule{
-						SrcIp: extclientI.StaticNode.AddressIPNet6().IP,
-						DstIP: extclient.StaticNode.AddressIPNet6().IP,
-						Allow: true,
-					})
-					// rules = append(rules, models.FwRule{
-					// 	SrcIp: extclient.StaticNode.AddressIPNet6().IP,
-					// 	DstIP: extclientI.StaticNode.AddressIPNet6().IP,
-					// 	Allow: true,
-					// })
-				}
+
 			}
 		}
 	}
