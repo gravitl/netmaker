@@ -8,6 +8,7 @@ import (
 
 	"golang.org/x/exp/slog"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -120,6 +121,33 @@ func updateEnrollmentKeys() {
 			logger.Log(0, "migration: inserting enrollment key: "+err.Error())
 			continue
 		}
+
+	}
+
+	existingKeys, err := logic.GetAllEnrollmentKeys()
+	if err != nil {
+		return
+	}
+	// check if any tags are duplicate
+	existingTags := make(map[string]struct{})
+	for _, existingKey := range existingKeys {
+		for _, t := range existingKey.Tags {
+			existingTags[t] = struct{}{}
+		}
+	}
+	networks, _ := logic.GetNetworks()
+	for _, network := range networks {
+		if _, ok := existingTags[network.NetID]; ok {
+			continue
+		}
+		_, _ = logic.CreateEnrollmentKey(
+			0,
+			time.Time{},
+			[]string{network.NetID},
+			[]string{network.NetID},
+			true,
+			uuid.Nil,
+		)
 
 	}
 }

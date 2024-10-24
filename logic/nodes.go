@@ -378,6 +378,20 @@ func GetAllNodes() ([]models.Node, error) {
 	return nodes, nil
 }
 
+func AddStaticNodestoList(nodes []models.Node) []models.Node {
+	netMap := make(map[string]struct{})
+	for _, node := range nodes {
+		if _, ok := netMap[node.Network]; ok {
+			continue
+		}
+		if node.IsIngressGateway {
+			nodes = append(nodes, GetStaticNodesByNetwork(models.NetworkID(node.Network))...)
+			netMap[node.Network] = struct{}{}
+		}
+	}
+	return nodes
+}
+
 // GetNetworkByNode - gets the network model from a node
 func GetNetworkByNode(node *models.Node) (models.Network, error) {
 

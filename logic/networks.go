@@ -8,9 +8,11 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/c-robinson/iplib"
 	validator "github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
@@ -232,6 +234,15 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 	if servercfg.CacheEnabled() {
 		storeNetworkInCache(network.NetID, network)
 	}
+
+	_, _ = CreateEnrollmentKey(
+		0,
+		time.Time{},
+		[]string{network.NetID},
+		[]string{network.NetID},
+		true,
+		uuid.Nil,
+	)
 
 	return network, nil
 }

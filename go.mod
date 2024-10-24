@@ -38,6 +38,7 @@ require (
 )
 
 require (
+	github.com/goombaio/namegenerator v0.0.0-20181006234301-989e774b106e
 	github.com/guumaster/tablewriter v0.0.10
 	github.com/matryer/is v1.4.1
 	github.com/olekukonko/tablewriter v0.0.5

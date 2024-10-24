@@ -752,7 +752,7 @@ func validateCustomExtClient(customExtClient *models.CustomExtClient, checkID bo
 	//validate clientid
 	if customExtClient.ClientID != "" {
 		if err := isValid(customExtClient.ClientID, checkID); err != nil {
-			return fmt.Errorf("client validatation: %v", err)
+			return fmt.Errorf("client validation: %v", err)
 		}
 	}
 	//extclient.ClientID = customExtClient.ClientID
