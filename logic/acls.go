@@ -441,9 +441,16 @@ func convAclTagToValueMap(acltags []models.AclPolicyTag) map[string]struct{} {
 
 // IsUserAllowedToCommunicate - check if user is allowed to communicate with peer
 func IsUserAllowedToCommunicate(userName string, peer models.Node) bool {
+	acl, _ := GetDefaultPolicy(models.NetworkID(peer.Network), models.UserPolicy)
+	if acl.Enabled {
+		return true
+	}
 	user, err := GetUser(userName)
 	if err != nil {
 		return false
+	}
+	if peer.IsStatic {
+		peer = peer.StaticNode.ConvertToStaticNode()
 	}
 	policies := listPoliciesOfUser(*user, models.NetworkID(peer.Network))
 	for _, policy := range policies {
@@ -451,6 +458,9 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) bool {
 			continue
 		}
 		dstMap := convAclTagToValueMap(policy.Dst)
+		if _, ok := dstMap["*"]; ok {
+			return true
+		}
 		for tagID := range peer.Tags {
 			if _, ok := dstMap[tagID.String()]; ok {
 				return true
@@ -469,6 +479,12 @@ func IsNodeAllowedToCommunicate(node, peer models.Node) bool {
 		if defaultPolicy.Enabled {
 			return true
 		}
+	}
+	if node.IsStatic {
+		node = node.StaticNode.ConvertToStaticNode()
+	}
+	if peer.IsStatic {
+		peer = peer.StaticNode.ConvertToStaticNode()
 	}
 	// list device policies
 	policies := listDevicePolicies(models.NetworkID(peer.Network))

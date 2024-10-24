@@ -451,6 +451,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	}
 	logic.DeleteUserInvite(user.UserName)
 	logic.DeletePendingUser(user.UserName)
+	go mq.PublishPeerUpdate(false)
 	slog.Info("user was created", "username", user.UserName)
 	json.NewEncoder(w).Encode(logic.ToReturnUser(user))
 }
@@ -590,6 +591,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	go mq.PublishPeerUpdate(false)
 	logger.Log(1, username, "was updated")
 	json.NewEncoder(w).Encode(logic.ToReturnUser(*user))
 }
@@ -692,6 +694,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+		mq.PublishPeerUpdate(false)
 		if servercfg.IsDNSMode() {
 			logic.SetDNS()
 		}

@@ -136,6 +136,12 @@ func DeleteExtClientAndCleanup(extClient models.ExtClient) error {
 	return nil
 }
 
+//TODO - enforce extclient-to-extclient on ingress gw
+/* 1. fetch all non-user static nodes
+a. check against each user node, if allowed add rule
+
+*/
+
 // GetNetworkExtClients - gets the ext clients of given network
 func GetNetworkExtClients(network string) ([]models.ExtClient, error) {
 	var extclients []models.ExtClient
@@ -396,6 +402,124 @@ func ToggleExtClientConnectivity(client *models.ExtClient, enable bool) (models.
 	return newClient, nil
 }
 
+func GetStaticNodeIps(node models.Node) (ips []net.IP) {
+	extclients := GetStaticNodesByNetwork(models.NetworkID(node.Network), false)
+	for _, extclient := range extclients {
+		if extclient.StaticNode.Address != "" {
+			ips = append(ips, extclient.StaticNode.AddressIPNet4().IP)
+		}
+		if extclient.StaticNode.Address6 != "" {
+			ips = append(ips, extclient.StaticNode.AddressIPNet6().IP)
+		}
+	}
+	return
+}
+
+func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
+	// fetch user access to static clients via policies
+
+	nodes, _ := GetNetworkNodes(node.Network)
+	nodes = append(nodes, GetStaticNodesByNetwork(models.NetworkID(node.Network), true)...)
+	userNodes := GetStaticUserNodesByNetwork(models.NetworkID(node.Network))
+	for _, userNodeI := range userNodes {
+		for _, peer := range nodes {
+			if peer.IsUserNode {
+				continue
+			}
+			if IsUserAllowedToCommunicate(userNodeI.StaticNode.OwnerID, peer) {
+				if peer.IsStatic {
+					if userNodeI.StaticNode.Address != "" {
+						rules = append(rules, models.FwRule{
+							SrcIp: userNodeI.StaticNode.AddressIPNet4().IP,
+							DstIP: peer.StaticNode.AddressIPNet4().IP,
+							Allow: true,
+						})
+						rules = append(rules, models.FwRule{
+							SrcIp: peer.StaticNode.AddressIPNet4().IP,
+							DstIP: userNodeI.StaticNode.AddressIPNet4().IP,
+							Allow: true,
+						})
+					}
+					if userNodeI.StaticNode.Address6 != "" {
+						rules = append(rules, models.FwRule{
+							SrcIp: userNodeI.StaticNode.AddressIPNet6().IP,
+							DstIP: peer.StaticNode.AddressIPNet6().IP,
+							Allow: true,
+						})
+						rules = append(rules, models.FwRule{
+							SrcIp: peer.StaticNode.AddressIPNet6().IP,
+							DstIP: userNodeI.StaticNode.AddressIPNet6().IP,
+							Allow: true,
+						})
+					}
+				} else {
+					if userNodeI.StaticNode.Address != "" {
+						rules = append(rules, models.FwRule{
+							SrcIp: userNodeI.StaticNode.AddressIPNet4().IP,
+							DstIP: peer.Address.IP,
+							Allow: true,
+						})
+					}
+					if userNodeI.StaticNode.Address6 != "" {
+						rules = append(rules, models.FwRule{
+							SrcIp: userNodeI.StaticNode.AddressIPNet6().IP,
+							DstIP: peer.Address6.IP,
+							Allow: true,
+						})
+					}
+				}
+
+			}
+		}
+	}
+
+	for _, nodeI := range nodes {
+		if !nodeI.IsStatic || nodeI.IsUserNode {
+			continue
+		}
+		for _, peer := range nodes {
+			if peer.StaticNode.ClientID == nodeI.StaticNode.ClientID || peer.IsUserNode {
+				continue
+			}
+			if IsNodeAllowedToCommunicate(nodeI, peer) {
+				if peer.IsStatic {
+					if nodeI.StaticNode.Address != "" {
+						rules = append(rules, models.FwRule{
+							SrcIp: nodeI.StaticNode.AddressIPNet4().IP,
+							DstIP: peer.StaticNode.AddressIPNet4().IP,
+							Allow: true,
+						})
+					}
+					if nodeI.StaticNode.Address6 != "" {
+						rules = append(rules, models.FwRule{
+							SrcIp: nodeI.StaticNode.AddressIPNet6().IP,
+							DstIP: peer.StaticNode.AddressIPNet6().IP,
+							Allow: true,
+						})
+					}
+				} else {
+					if nodeI.StaticNode.Address != "" {
+						rules = append(rules, models.FwRule{
+							SrcIp: nodeI.StaticNode.AddressIPNet4().IP,
+							DstIP: peer.Address.IP,
+							Allow: true,
+						})
+					}
+					if nodeI.StaticNode.Address6 != "" {
+						rules = append(rules, models.FwRule{
+							SrcIp: nodeI.StaticNode.AddressIPNet6().IP,
+							DstIP: peer.Address6.IP,
+							Allow: true,
+						})
+					}
+				}
+
+			}
+		}
+	}
+	return
+}
+
 func GetExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, []models.EgressNetworkRoutes, error) {
 	var peers []wgtypes.PeerConfig
 	var idsAndAddr []models.IDandAddr
@@ -503,6 +627,9 @@ func getExtpeersExtraRoutes(node models.Node, network string) (egressRoutes []mo
 		if len(extPeer.ExtraAllowedIPs) == 0 {
 			continue
 		}
+		if !IsNodeAllowedToCommunicate(extPeer.ConvertToStaticNode(), node) {
+			continue
+		}
 		egressRoutes = append(egressRoutes, getExtPeerEgressRoute(node, extPeer)...)
 	}
 	return
@@ -540,13 +667,37 @@ func GetExtclientAllowedIPs(client models.ExtClient) (allowedIPs []string) {
 	return
 }
 
-func GetStaticNodesByNetwork(network models.NetworkID) (staticNode []models.Node) {
+func GetStaticUserNodesByNetwork(network models.NetworkID) (staticNode []models.Node) {
 	extClients, err := GetAllExtClients()
 	if err != nil {
 		return
 	}
 	for _, extI := range extClients {
 		if extI.Network == network.String() {
+			if extI.RemoteAccessClientID != "" {
+				n := models.Node{
+					IsStatic:   true,
+					StaticNode: extI,
+					IsUserNode: extI.RemoteAccessClientID != "",
+				}
+				staticNode = append(staticNode, n)
+			}
+		}
+	}
+
+	return
+}
+
+func GetStaticNodesByNetwork(network models.NetworkID, onlyWg bool) (staticNode []models.Node) {
+	extClients, err := GetAllExtClients()
+	if err != nil {
+		return
+	}
+	for _, extI := range extClients {
+		if extI.Network == network.String() {
+			if onlyWg && extI.RemoteAccessClientID != "" {
+				continue
+			}
 			n := models.Node{
 				IsStatic:   true,
 				StaticNode: extI,
