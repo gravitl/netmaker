@@ -130,7 +130,13 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	logic.ReturnSuccessResponseWithJson(w, r, req, "created tag successfully")
+	var res models.TagListRespNodes = models.TagListRespNodes{
+		Tag:         tag,
+		UsedByCnt:   len(req.TaggedNodes),
+		TaggedNodes: req.TaggedNodes,
+	}
+
+	logic.ReturnSuccessResponseWithJson(w, r, res, "created tag successfully")
 }
 
 // @Summary     Update Tag
@@ -175,7 +181,14 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 		logic.DeleteTag(updateTag.ID)
 	}
 	go logic.UpdateTag(updateTag, newID)
-	logic.ReturnSuccessResponse(w, r, "updating tags")
+
+	var res models.TagListRespNodes = models.TagListRespNodes{
+		Tag:         tag,
+		UsedByCnt:   len(updateTag.TaggedNodes),
+		TaggedNodes: updateTag.TaggedNodes,
+	}
+
+	logic.ReturnSuccessResponseWithJson(w, r, res, "updated tags")
 }
 
 // @Summary     Delete Tag
