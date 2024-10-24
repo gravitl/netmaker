@@ -156,6 +156,7 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		newTime,
 		enrollmentKeyBody.Networks,
 		enrollmentKeyBody.Tags,
+		enrollmentKeyBody.Groups,
 		enrollmentKeyBody.Unlimited,
 		relayId,
 	)
@@ -206,7 +207,7 @@ func updateEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	newEnrollmentKey, err := logic.UpdateEnrollmentKey(keyId, relayId)
+	newEnrollmentKey, err := logic.UpdateEnrollmentKey(keyId, relayId, enrollmentKeyBody.Groups)
 	if err != nil {
 		slog.Error("failed to update enrollment key", "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -307,6 +308,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+
 		if err = logic.CreateHost(&newHost); err != nil {
 			logger.Log(
 				0,
@@ -355,5 +357,5 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&response)
 	// notify host of changes, peer and node updates
-	go auth.CheckNetRegAndHostUpdate(enrollmentKey.Networks, &newHost, enrollmentKey.Relay)
+	go auth.CheckNetRegAndHostUpdate(enrollmentKey.Networks, &newHost, enrollmentKey.Relay, enrollmentKey.Groups)
 }

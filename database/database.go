@@ -67,6 +67,8 @@ const (
 	PENDING_USERS_TABLE_NAME = "pending_users"
 	// USER_INVITES - table for user invites
 	USER_INVITES_TABLE_NAME = "user_invites"
+	// TAG_TABLE_NAME - table for tags
+	TAG_TABLE_NAME = "tags"
 	// == ERROR CONSTS ==
 	// NO_RECORD - no singular result found
 	NO_RECORD = "no result found"
@@ -152,6 +154,7 @@ func createTables() {
 	CreateTable(PENDING_USERS_TABLE_NAME)
 	CreateTable(USER_PERMISSIONS_TABLE_NAME)
 	CreateTable(USER_INVITES_TABLE_NAME)
+	CreateTable(TAG_TABLE_NAME)
 }
 
 func CreateTable(tableName string) error {

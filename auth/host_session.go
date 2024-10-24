@@ -222,7 +222,7 @@ func SessionHandler(conn *websocket.Conn) {
 		if err = conn.WriteMessage(messageType, reponseData); err != nil {
 			logger.Log(0, "error during message writing:", err.Error())
 		}
-		go CheckNetRegAndHostUpdate(netsToAdd[:], &result.Host, uuid.Nil)
+		go CheckNetRegAndHostUpdate(netsToAdd[:], &result.Host, uuid.Nil, []models.TagID{})
 	case <-timeout: // the read from req.answerCh has timed out
 		logger.Log(0, "timeout signal recv,exiting oauth socket conn")
 		break
@@ -236,7 +236,7 @@ func SessionHandler(conn *websocket.Conn) {
 }
 
 // CheckNetRegAndHostUpdate - run through networks and send a host update
-func CheckNetRegAndHostUpdate(networks []string, h *models.Host, relayNodeId uuid.UUID) {
+func CheckNetRegAndHostUpdate(networks []string, h *models.Host, relayNodeId uuid.UUID, tags []models.TagID) {
 	// publish host update through MQ
 	for i := range networks {
 		network := networks[i]
@@ -246,6 +246,14 @@ func CheckNetRegAndHostUpdate(networks []string, h *models.Host, relayNodeId uui
 				logger.Log(0, "failed to add host to network:", h.ID.String(), h.Name, network, err.Error())
 				continue
 			}
+			if len(tags) > 0 {
+				newNode.Tags = make(map[models.TagID]struct{})
+				for _, tagI := range tags {
+					newNode.Tags[tagI] = struct{}{}
+				}
+				logic.UpsertNode(newNode)
+			}
+
 			if relayNodeId != uuid.Nil && !newNode.IsRelayed {
 				// check if relay node exists and acting as relay
 				relaynode, err := logic.GetNodeByID(relayNodeId.String())
