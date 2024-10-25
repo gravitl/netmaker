@@ -530,6 +530,9 @@ func GetUserRAGNodesV1(user models.User) (gws map[string]models.Node) {
 	tagNodesMap := logic.GetTagMapWithNodes()
 	accessPolices := logic.ListUserPolicies(user)
 	for _, policyI := range accessPolices {
+		if !policyI.Enabled {
+			continue
+		}
 		for _, dstI := range policyI.Dst {
 			if dstI.Value == "*" {
 				networkNodes := logic.GetNetworkNodesMemory(nodes, policyI.NetworkID.String())
