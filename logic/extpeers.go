@@ -403,8 +403,17 @@ func ToggleExtClientConnectivity(client *models.ExtClient, enable bool) (models.
 }
 
 func GetStaticNodeIps(node models.Node) (ips []net.IP) {
+	defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
+	defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+
 	extclients := GetStaticNodesByNetwork(models.NetworkID(node.Network), false)
 	for _, extclient := range extclients {
+		if extclient.IsUserNode && defaultUserPolicy.Enabled {
+			continue
+		}
+		if !extclient.IsUserNode && defaultDevicePolicy.Enabled {
+			continue
+		}
 		if extclient.StaticNode.Address != "" {
 			ips = append(ips, extclient.StaticNode.AddressIPNet4().IP)
 		}
@@ -417,62 +426,67 @@ func GetStaticNodeIps(node models.Node) (ips []net.IP) {
 
 func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 	// fetch user access to static clients via policies
-
+	defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
+	defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 	nodes, _ := GetNetworkNodes(node.Network)
 	nodes = append(nodes, GetStaticNodesByNetwork(models.NetworkID(node.Network), true)...)
-	userNodes := GetStaticUserNodesByNetwork(models.NetworkID(node.Network))
-	for _, userNodeI := range userNodes {
-		for _, peer := range nodes {
-			if peer.IsUserNode {
-				continue
-			}
-			if IsUserAllowedToCommunicate(userNodeI.StaticNode.OwnerID, peer) {
-				if peer.IsStatic {
-					if userNodeI.StaticNode.Address != "" {
-						rules = append(rules, models.FwRule{
-							SrcIp: userNodeI.StaticNode.AddressIPNet4().IP,
-							DstIP: peer.StaticNode.AddressIPNet4().IP,
-							Allow: true,
-						})
-						rules = append(rules, models.FwRule{
-							SrcIp: peer.StaticNode.AddressIPNet4().IP,
-							DstIP: userNodeI.StaticNode.AddressIPNet4().IP,
-							Allow: true,
-						})
-					}
-					if userNodeI.StaticNode.Address6 != "" {
-						rules = append(rules, models.FwRule{
-							SrcIp: userNodeI.StaticNode.AddressIPNet6().IP,
-							DstIP: peer.StaticNode.AddressIPNet6().IP,
-							Allow: true,
-						})
-						rules = append(rules, models.FwRule{
-							SrcIp: peer.StaticNode.AddressIPNet6().IP,
-							DstIP: userNodeI.StaticNode.AddressIPNet6().IP,
-							Allow: true,
-						})
-					}
-				} else {
-					if userNodeI.StaticNode.Address != "" {
-						rules = append(rules, models.FwRule{
-							SrcIp: userNodeI.StaticNode.AddressIPNet4().IP,
-							DstIP: peer.Address.IP,
-							Allow: true,
-						})
-					}
-					if userNodeI.StaticNode.Address6 != "" {
-						rules = append(rules, models.FwRule{
-							SrcIp: userNodeI.StaticNode.AddressIPNet6().IP,
-							DstIP: peer.Address6.IP,
-							Allow: true,
-						})
-					}
+	if !defaultUserPolicy.Enabled {
+		userNodes := GetStaticUserNodesByNetwork(models.NetworkID(node.Network))
+		for _, userNodeI := range userNodes {
+			for _, peer := range nodes {
+				if peer.IsUserNode {
+					continue
 				}
+				if IsUserAllowedToCommunicate(userNodeI.StaticNode.OwnerID, peer) {
+					if peer.IsStatic {
+						if userNodeI.StaticNode.Address != "" {
+							rules = append(rules, models.FwRule{
+								SrcIp: userNodeI.StaticNode.AddressIPNet4().IP,
+								DstIP: peer.StaticNode.AddressIPNet4().IP,
+								Allow: true,
+							})
+							rules = append(rules, models.FwRule{
+								SrcIp: peer.StaticNode.AddressIPNet4().IP,
+								DstIP: userNodeI.StaticNode.AddressIPNet4().IP,
+								Allow: true,
+							})
+						}
+						if userNodeI.StaticNode.Address6 != "" {
+							rules = append(rules, models.FwRule{
+								SrcIp: userNodeI.StaticNode.AddressIPNet6().IP,
+								DstIP: peer.StaticNode.AddressIPNet6().IP,
+								Allow: true,
+							})
+							rules = append(rules, models.FwRule{
+								SrcIp: peer.StaticNode.AddressIPNet6().IP,
+								DstIP: userNodeI.StaticNode.AddressIPNet6().IP,
+								Allow: true,
+							})
+						}
+					} else {
+						if userNodeI.StaticNode.Address != "" {
+							rules = append(rules, models.FwRule{
+								SrcIp: userNodeI.StaticNode.AddressIPNet4().IP,
+								DstIP: peer.Address.IP,
+								Allow: true,
+							})
+						}
+						if userNodeI.StaticNode.Address6 != "" {
+							rules = append(rules, models.FwRule{
+								SrcIp: userNodeI.StaticNode.AddressIPNet6().IP,
+								DstIP: peer.Address6.IP,
+								Allow: true,
+							})
+						}
+					}
 
+				}
 			}
 		}
 	}
-
+	if defaultDevicePolicy.Enabled {
+		return
+	}
 	for _, nodeI := range nodes {
 		if !nodeI.IsStatic || nodeI.IsUserNode {
 			continue
