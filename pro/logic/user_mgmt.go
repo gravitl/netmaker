@@ -1100,55 +1100,55 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 	if netID.String() == "" {
 		return
 	}
-	if !logic.IsAclExists(models.AclID(fmt.Sprintf("%s.%s", netID, models.NetworkAdmin))) {
-		defaultUserAcl := models.Acl{
-			ID:        models.AclID(fmt.Sprintf("%s.%s", netID, models.NetworkAdmin)),
-			Name:      models.NetworkAdmin.String(),
-			Default:   true,
-			NetworkID: netID,
-			RuleType:  models.UserPolicy,
-			Src: []models.AclPolicyTag{
-				{
-					ID:    models.UserRoleAclID,
-					Value: fmt.Sprintf("%s-%s", netID, models.NetworkAdmin),
-				}},
-			Dst: []models.AclPolicyTag{
-				{
-					ID:    models.DeviceAclID,
-					Value: fmt.Sprintf("%s.%s", netID, models.RemoteAccessTagName),
-				},
-			},
-			AllowedDirection: models.TrafficDirectionUni,
-			Enabled:          true,
-			CreatedBy:        "auto",
-			CreatedAt:        time.Now().UTC(),
-		}
-		logic.InsertAcl(defaultUserAcl)
-	}
-	if !logic.IsAclExists(models.AclID(fmt.Sprintf("%s.%s", netID, models.NetworkUser))) {
-		defaultUserAcl := models.Acl{
-			ID:        models.AclID(fmt.Sprintf("%s.%s", netID, models.NetworkUser)),
-			Name:      models.NetworkUser.String(),
-			Default:   true,
-			NetworkID: netID,
-			RuleType:  models.UserPolicy,
-			Src: []models.AclPolicyTag{
-				{
-					ID:    models.UserRoleAclID,
-					Value: fmt.Sprintf("%s-%s", netID, models.NetworkUser),
-				}},
-			Dst: []models.AclPolicyTag{
-				{
-					ID:    models.DeviceAclID,
-					Value: fmt.Sprintf("%s.%s", netID, models.RemoteAccessTagName),
-				}},
-			AllowedDirection: models.TrafficDirectionUni,
-			Enabled:          true,
-			CreatedBy:        "auto",
-			CreatedAt:        time.Now().UTC(),
-		}
-		logic.InsertAcl(defaultUserAcl)
-	}
+	// if !logic.IsAclExists(models.AclID(fmt.Sprintf("%s.%s", netID, models.NetworkAdmin))) {
+	// 	defaultUserAcl := models.Acl{
+	// 		ID:        models.AclID(fmt.Sprintf("%s.%s", netID, models.NetworkAdmin)),
+	// 		Name:      models.NetworkAdmin.String(),
+	// 		Default:   true,
+	// 		NetworkID: netID,
+	// 		RuleType:  models.UserPolicy,
+	// 		Src: []models.AclPolicyTag{
+	// 			{
+	// 				ID:    models.UserRoleAclID,
+	// 				Value: fmt.Sprintf("%s-%s", netID, models.NetworkAdmin),
+	// 			}},
+	// 		Dst: []models.AclPolicyTag{
+	// 			{
+	// 				ID:    models.DeviceAclID,
+	// 				Value: fmt.Sprintf("%s.%s", netID, models.RemoteAccessTagName),
+	// 			},
+	// 		},
+	// 		AllowedDirection: models.TrafficDirectionUni,
+	// 		Enabled:          true,
+	// 		CreatedBy:        "auto",
+	// 		CreatedAt:        time.Now().UTC(),
+	// 	}
+	// 	logic.InsertAcl(defaultUserAcl)
+	// }
+	// if !logic.IsAclExists(models.AclID(fmt.Sprintf("%s.%s", netID, models.NetworkUser))) {
+	// 	defaultUserAcl := models.Acl{
+	// 		ID:        models.AclID(fmt.Sprintf("%s.%s", netID, models.NetworkUser)),
+	// 		Name:      models.NetworkUser.String(),
+	// 		Default:   true,
+	// 		NetworkID: netID,
+	// 		RuleType:  models.UserPolicy,
+	// 		Src: []models.AclPolicyTag{
+	// 			{
+	// 				ID:    models.UserRoleAclID,
+	// 				Value: fmt.Sprintf("%s-%s", netID, models.NetworkUser),
+	// 			}},
+	// 		Dst: []models.AclPolicyTag{
+	// 			{
+	// 				ID:    models.DeviceAclID,
+	// 				Value: fmt.Sprintf("%s.%s", netID, models.RemoteAccessTagName),
+	// 			}},
+	// 		AllowedDirection: models.TrafficDirectionUni,
+	// 		Enabled:          true,
+	// 		CreatedBy:        "auto",
+	// 		CreatedAt:        time.Now().UTC(),
+	// 	}
+	// 	logic.InsertAcl(defaultUserAcl)
+	// }
 
 	if !logic.IsAclExists(models.AclID(fmt.Sprintf("%s.%s-grp", netID, models.NetworkAdmin))) {
 		defaultUserAcl := models.Acl{
