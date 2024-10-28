@@ -363,30 +363,11 @@ func syncUsers() {
 				networkNodes := logic.GetNetworkNodesMemory(nodes, netI.NetID)
 				for _, networkNodeI := range networkNodes {
 					if networkNodeI.IsIngressGateway {
-						h, err := logic.GetHost(networkNodeI.HostID.String())
+
+						_, err := logic.GetHost(networkNodeI.HostID.String())
 						if err == nil {
-							logic.CreateRole(models.UserRolePermissionTemplate{
-								ID:        models.GetRAGRoleID(networkNodeI.Network, h.ID.String()),
-								UiName:    models.GetRAGRoleName(networkNodeI.Network, h.Name),
-								NetworkID: models.NetworkID(netI.NetID),
-								NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
-									models.RemoteAccessGwRsrc: {
-										models.RsrcID(networkNodeI.ID.String()): models.RsrcPermissionScope{
-											Read:      true,
-											VPNaccess: true,
-										},
-									},
-									models.ExtClientsRsrc: {
-										models.AllExtClientsRsrcID: models.RsrcPermissionScope{
-											Read:     true,
-											Create:   true,
-											Update:   true,
-											Delete:   true,
-											SelfOnly: true,
-										},
-									},
-								},
-							})
+							// TODO: MIGRATE
+
 						}
 
 					}
@@ -414,9 +395,6 @@ func syncUsers() {
 			if logic.IsOauthUser(&user) == nil {
 				user.AuthType = models.OAuth
 			}
-			if len(user.NetworkRoles) == 0 {
-				user.NetworkRoles = make(map[models.NetworkID]map[models.UserRoleID]struct{})
-			}
 			if len(user.UserGroups) == 0 {
 				user.UserGroups = make(map[models.UserGroupID]struct{})
 			}
@@ -437,21 +415,12 @@ func syncUsers() {
 					if err != nil {
 						continue
 					}
-					h, err := logic.GetHost(gwNode.HostID.String())
+
+					_, err = logic.GetHost(gwNode.HostID.String())
 					if err != nil {
 						continue
 					}
-					r, err := logic.GetRole(models.GetRAGRoleID(gwNode.Network, h.ID.String()))
-					if err != nil {
-						continue
-					}
-					if netRoles, ok := user.NetworkRoles[models.NetworkID(gwNode.Network)]; ok {
-						netRoles[r.ID] = struct{}{}
-					} else {
-						user.NetworkRoles[models.NetworkID(gwNode.Network)] = map[models.UserRoleID]struct{}{
-							r.ID: {},
-						}
-					}
+
 				}
 				logic.UpsertUser(user)
 			}

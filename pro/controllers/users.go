@@ -111,7 +111,6 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 	if user.PlatformRoleID == "" {
 		user.PlatformRoleID = models.ServiceUser
 	}
-	user.NetworkRoles = in.NetworkRoles
 	err = logic.CreateUser(&user)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -516,8 +515,6 @@ func ListRoles(w http.ResponseWriter, r *http.Request) {
 	var err error
 	if platform == "true" {
 		roles, err = logic.ListPlatformRoles()
-	} else {
-		roles, err = proLogic.ListNetworkRoles()
 	}
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
@@ -598,11 +595,7 @@ func updateRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	currRole, err := logic.GetRole(userRole.ID)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
+
 	err = proLogic.ValidateUpdateRoleReq(&userRole)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -615,7 +608,8 @@ func updateRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// reset configs for service user
-	go proLogic.UpdatesUserGwAccessOnRoleUpdates(currRole.NetworkLevelAccess, userRole.NetworkLevelAccess, string(userRole.NetworkID))
+	// TODO: MIGRATE
+	//go proLogic.UpdatesUserGwAccessOnRoleUpdates(currRole.NetworkLevelAccess, userRole.NetworkLevelAccess, string(userRole.NetworkID))
 	logic.ReturnSuccessResponseWithJson(w, r, userRole, "updated user role")
 }
 
@@ -632,7 +626,7 @@ func deleteRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
 	}
-	role, err := logic.GetRole(models.UserRoleID(rid))
+	_, err := logic.GetRole(models.UserRoleID(rid))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
@@ -642,7 +636,8 @@ func deleteRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	go proLogic.UpdatesUserGwAccessOnRoleUpdates(role.NetworkLevelAccess, make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope), role.NetworkID.String())
+	// TODO: MIGRATE
+	//go proLogic.UpdatesUserGwAccessOnRoleUpdates(role.NetworkLevelAccess, make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope), role.NetworkID.String())
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user role")
 }
 
@@ -834,7 +829,7 @@ func getUserRemoteAccessNetworks(w http.ResponseWriter, r *http.Request) {
 	userGws := make(map[string][]models.UserRemoteGws)
 	networks := []models.Network{}
 	networkMap := make(map[string]struct{})
-	userGwNodes := proLogic.GetUserRAGNodes(*user)
+	userGwNodes := proLogic.GetUserRAGNodesV1(*user)
 	for _, node := range userGwNodes {
 		network, err := logic.GetNetwork(node.Network)
 		if err != nil {
@@ -876,7 +871,7 @@ func getUserRemoteAccessNetworkGateways(w http.ResponseWriter, r *http.Request) 
 	}
 	userGws := []models.UserRAGs{}
 
-	userGwNodes := proLogic.GetUserRAGNodes(*user)
+	userGwNodes := proLogic.GetUserRAGNodesV1(*user)
 	for _, node := range userGwNodes {
 		if node.Network != network {
 			continue
@@ -931,7 +926,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userGwNodes := proLogic.GetUserRAGNodes(*user)
+	userGwNodes := proLogic.GetUserRAGNodesV1(*user)
 	if _, ok := userGwNodes[remoteGwID]; !ok {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("access denied"), "forbidden"))
 		return
@@ -1075,7 +1070,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	userGwNodes := proLogic.GetUserRAGNodes(*user)
+	userGwNodes := proLogic.GetUserRAGNodesV1(*user)
 	for _, extClient := range allextClients {
 		node, ok := userGwNodes[extClient.IngressGatewayID]
 		if !ok {

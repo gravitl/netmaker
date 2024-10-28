@@ -42,9 +42,6 @@ var userRoleListCmd = &cobra.Command{
 			table.SetHeader(h)
 			for _, d := range data {
 				e := []string{d.ID.String(), strconv.FormatBool(d.Default), strconv.FormatBool(d.DenyDashboardAccess), strconv.FormatBool(d.FullAccess)}
-				if !platformRoles {
-					e = append(e, d.NetworkID.String())
-				}
 				table.Append(e)
 			}
 			table.Render()
@@ -88,15 +85,8 @@ var userRoleGetCmd = &cobra.Command{
 		default:
 			table := tablewriter.NewWriter(os.Stdout)
 			h := []string{"ID", "Default Role", "Dashboard Access", "Full Access"}
-
-			if d.NetworkID != "" {
-				h = append(h, "Network")
-			}
 			table.SetHeader(h)
 			e := []string{d.ID.String(), strconv.FormatBool(d.Default), strconv.FormatBool(!d.DenyDashboardAccess), strconv.FormatBool(d.FullAccess)}
-			if !platformRoles {
-				e = append(e, d.NetworkID.String())
-			}
 			table.Append(e)
 			table.Render()
 		}

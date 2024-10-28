@@ -148,9 +148,6 @@ func CreateUser(user *models.User) error {
 	if err := IsGroupsValid(user.UserGroups); err != nil {
 		return errors.New("invalid groups: " + err.Error())
 	}
-	if err := IsNetworkRolesValid(user.NetworkRoles); err != nil {
-		return errors.New("invalid network roles: " + err.Error())
-	}
 
 	var err = ValidateUser(user)
 	if err != nil {
@@ -295,16 +292,11 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 	if err := IsGroupsValid(userchange.UserGroups); err != nil {
 		return userchange, errors.New("invalid groups: " + err.Error())
 	}
-	if err := IsNetworkRolesValid(userchange.NetworkRoles); err != nil {
-		return userchange, errors.New("invalid network roles: " + err.Error())
-	}
-	// Reset Gw Access for service users
-	go UpdateUserGwAccess(*user, *userchange)
+
 	if userchange.PlatformRoleID != "" {
 		user.PlatformRoleID = userchange.PlatformRoleID
 	}
 	user.UserGroups = userchange.UserGroups
-	user.NetworkRoles = userchange.NetworkRoles
 	err := ValidateUser(user)
 	if err != nil {
 		return &models.User{}, err

@@ -1,8 +1,6 @@
 package user
 
 import (
-	"strings"
-
 	"github.com/gravitl/netmaker/cli/functions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/spf13/cobra"
@@ -15,17 +13,7 @@ var userCreateCmd = &cobra.Command{
 	Long:  `Create a new user`,
 	Run: func(cmd *cobra.Command, args []string) {
 		user := &models.User{UserName: username, Password: password, PlatformRoleID: models.UserRoleID(platformID)}
-		if len(networkRoles) > 0 {
-			netRolesMap := make(map[models.NetworkID]map[models.UserRoleID]struct{})
-			for netID, netRoles := range networkRoles {
-				roleMap := make(map[models.UserRoleID]struct{})
-				for _, roleID := range strings.Split(netRoles, " ") {
-					roleMap[models.UserRoleID(roleID)] = struct{}{}
-				}
-				netRolesMap[models.NetworkID(netID)] = roleMap
-			}
-			user.NetworkRoles = netRolesMap
-		}
+
 		if len(groups) > 0 {
 			grMap := make(map[models.UserGroupID]struct{})
 			for _, groupID := range groups {

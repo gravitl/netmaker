@@ -188,30 +188,7 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	if err != nil {
 		return models.Node{}, err
 	}
-	// create network role for this gateway
-	CreateRole(models.UserRolePermissionTemplate{
-		ID:        models.GetRAGRoleID(node.Network, host.ID.String()),
-		UiName:    models.GetRAGRoleName(node.Network, host.Name),
-		NetworkID: models.NetworkID(node.Network),
-		Default:   true,
-		NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
-			models.RemoteAccessGwRsrc: {
-				models.RsrcID(node.ID.String()): models.RsrcPermissionScope{
-					Read:      true,
-					VPNaccess: true,
-				},
-			},
-			models.ExtClientsRsrc: {
-				models.AllExtClientsRsrcID: models.RsrcPermissionScope{
-					Read:     true,
-					Create:   true,
-					Update:   true,
-					Delete:   true,
-					SelfOnly: true,
-				},
-			},
-		},
-	})
+
 	err = SetNetworkNodesLastModified(netid)
 	return node, err
 }

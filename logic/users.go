@@ -45,7 +45,6 @@ func ToReturnUser(user models.User) models.ReturnUser {
 		PlatformRoleID: user.PlatformRoleID,
 		AuthType:       user.AuthType,
 		UserGroups:     user.UserGroups,
-		NetworkRoles:   user.NetworkRoles,
 		RemoteGwIDs:    user.RemoteGwIDs,
 		LastLoginTime:  user.LastLoginTime,
 	}
@@ -55,9 +54,6 @@ func ToReturnUser(user models.User) models.ReturnUser {
 func SetUserDefaults(user *models.User) {
 	if user.RemoteGwIDs == nil {
 		user.RemoteGwIDs = make(map[string]struct{})
-	}
-	if len(user.NetworkRoles) == 0 {
-		user.NetworkRoles = make(map[models.NetworkID]map[models.UserRoleID]struct{})
 	}
 	if len(user.UserGroups) == 0 {
 		user.UserGroups = make(map[models.UserGroupID]struct{})

@@ -46,8 +46,6 @@ var IsNetworkRolesValid = func(networkRoles map[models.NetworkID]map[models.User
 	return nil
 }
 
-var UpdateUserGwAccess = func(currentUser, changeUser models.User) {}
-
 var UpdateRole = func(r models.UserRolePermissionTemplate) error { return nil }
 
 var InitialiseRoles = userRolesInit
@@ -81,9 +79,6 @@ func ListPlatformRoles() ([]models.UserRolePermissionTemplate, error) {
 		userRole := models.UserRolePermissionTemplate{}
 		err := json.Unmarshal([]byte(dataI), &userRole)
 		if err != nil {
-			continue
-		}
-		if userRole.NetworkID != "" {
 			continue
 		}
 		userRoles = append(userRoles, userRole)

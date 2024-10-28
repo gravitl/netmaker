@@ -354,12 +354,13 @@ func listPoliciesOfUser(user models.User, netID models.NetworkID) []models.Acl {
 				acls = append(acls, acl)
 				continue
 			}
-			for netRole := range user.NetworkRoles {
-				if _, ok := srcMap[netRole.String()]; ok {
-					acls = append(acls, acl)
-					continue
-				}
-			}
+			// TODO: MIGRATE
+			// for netRole := range user.NetworkRoles {
+			// 	if _, ok := srcMap[netRole.String()]; ok {
+			// 		acls = append(acls, acl)
+			// 		continue
+			// 	}
+			// }
 			for userG := range user.UserGroups {
 				if _, ok := srcMap[userG.String()]; ok {
 					acls = append(acls, acl)

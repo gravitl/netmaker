@@ -283,44 +283,45 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if !userPlatformRole.FullAccess {
-			nodesMap := make(map[string]struct{})
-			networkRoles := user.NetworkRoles[models.NetworkID(networkName)]
-			for networkRoleID := range networkRoles {
-				userPermTemplate, err := logic.GetRole(networkRoleID)
-				if err != nil {
-					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-					return
-				}
-				if userPermTemplate.FullAccess {
-					break
-				}
-				if rsrcPerms, ok := userPermTemplate.NetworkLevelAccess[models.RemoteAccessGwRsrc]; ok {
-					if _, ok := rsrcPerms[models.AllRemoteAccessGwRsrcID]; ok {
-						for _, node := range nodes {
-							if _, ok := nodesMap[node.ID.String()]; ok {
-								continue
-							}
-							if node.IsIngressGateway {
-								nodesMap[node.ID.String()] = struct{}{}
-								filteredNodes = append(filteredNodes, node)
-							}
-						}
-					} else {
-						for gwID, scope := range rsrcPerms {
-							if _, ok := nodesMap[gwID.String()]; ok {
-								continue
-							}
-							if scope.Read {
-								gwNode, err := logic.GetNodeByID(gwID.String())
-								if err == nil && gwNode.IsIngressGateway {
-									filteredNodes = append(filteredNodes, gwNode)
-								}
-							}
-						}
-					}
-				}
+			// TODO: Migrate
+			//nodesMap := make(map[string]struct{})
+			// networkRoles := userPlatformRole.NetworkRoles[models.NetworkID(networkName)]
+			// for networkRoleID := range networkRoles {
+			// 	userPermTemplate, err := logic.GetRole(networkRoleID)
+			// 	if err != nil {
+			// 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			// 		return
+			// 	}
+			// 	if userPermTemplate.FullAccess {
+			// 		break
+			// 	}
+			// 	if rsrcPerms, ok := userPermTemplate.NetworkLevelAccess[models.RemoteAccessGwRsrc]; ok {
+			// 		if _, ok := rsrcPerms[models.AllRemoteAccessGwRsrcID]; ok {
+			// 			for _, node := range nodes {
+			// 				if _, ok := nodesMap[node.ID.String()]; ok {
+			// 					continue
+			// 				}
+			// 				if node.IsIngressGateway {
+			// 					nodesMap[node.ID.String()] = struct{}{}
+			// 					filteredNodes = append(filteredNodes, node)
+			// 				}
+			// 			}
+			// 		} else {
+			// 			for gwID, scope := range rsrcPerms {
+			// 				if _, ok := nodesMap[gwID.String()]; ok {
+			// 					continue
+			// 				}
+			// 				if scope.Read {
+			// 					gwNode, err := logic.GetNodeByID(gwID.String())
+			// 					if err == nil && gwNode.IsIngressGateway {
+			// 						filteredNodes = append(filteredNodes, gwNode)
+			// 					}
+			// 				}
+			// 			}
+			// 		}
+			// 	}
 
-			}
+			// }
 		}
 	}
 	if len(filteredNodes) > 0 {

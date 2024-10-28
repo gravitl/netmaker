@@ -66,21 +66,7 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 	// check if user has scope for target resource
 	// TODO - differentitate between global scope and network scope apis
 	// check for global network role
-	if netRoles, ok := user.NetworkRoles[models.AllNetworks]; ok {
-		for netRoleID := range netRoles {
-			err = checkNetworkAccessPermissions(netRoleID, username, r.Method, targetRsrc, targetRsrcID, netID)
-			if err == nil {
-				return nil
-			}
-		}
-	}
-	netRoles := user.NetworkRoles[models.NetworkID(netID)]
-	for netRoleID := range netRoles {
-		err = checkNetworkAccessPermissions(netRoleID, username, r.Method, targetRsrc, targetRsrcID, netID)
-		if err == nil {
-			return nil
-		}
-	}
+
 	for groupID := range user.UserGroups {
 		userG, err := GetUserGroup(groupID)
 		if err == nil {

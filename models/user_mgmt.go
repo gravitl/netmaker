@@ -120,7 +120,6 @@ type UserRolePermissionTemplate struct {
 	Default             bool                                        `json:"default"`
 	DenyDashboardAccess bool                                        `json:"deny_dashboard_access"`
 	FullAccess          bool                                        `json:"full_access"`
-	NetworkID           NetworkID                                   `json:"network_id"`
 	NetworkLevelAccess  map[RsrcType]map[RsrcID]RsrcPermissionScope `json:"network_level_access"`
 	GlobalLevelAccess   map[RsrcType]map[RsrcID]RsrcPermissionScope `json:"global_level_access"`
 }
@@ -131,9 +130,11 @@ type CreateGroupReq struct {
 }
 
 type UserGroup struct {
-	ID           UserGroupID                           `json:"id"`
-	NetworkRoles map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
-	MetaData     string                                `json:"meta_data"`
+	ID             UserGroupID                           `json:"id"`
+	PlatformRoleID UserRoleID                            `json:"platform_role_id"`
+	NetworkRoles   map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
+	RoleOnNetworks map[UserRoleID]map[NetworkID]struct{} `json:"role_on_networks"`
+	MetaData       string                                `json:"meta_data"`
 }
 
 // User struct - struct for Users
