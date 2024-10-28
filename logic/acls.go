@@ -441,6 +441,9 @@ func convAclTagToValueMap(acltags []models.AclPolicyTag) map[string]struct{} {
 
 // IsUserAllowedToCommunicate - check if user is allowed to communicate with peer
 func IsUserAllowedToCommunicate(userName string, peer models.Node) bool {
+	if peer.IsStatic {
+		peer = peer.StaticNode.ConvertToStaticNode()
+	}
 	acl, _ := GetDefaultPolicy(models.NetworkID(peer.Network), models.UserPolicy)
 	if acl.Enabled {
 		return true
@@ -449,9 +452,7 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) bool {
 	if err != nil {
 		return false
 	}
-	if peer.IsStatic {
-		peer = peer.StaticNode.ConvertToStaticNode()
-	}
+
 	policies := listPoliciesOfUser(*user, models.NetworkID(peer.Network))
 	for _, policy := range policies {
 		if !policy.Enabled {
@@ -473,6 +474,12 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) bool {
 
 // IsNodeAllowedToCommunicate - check node is allowed to communicate with the peer
 func IsNodeAllowedToCommunicate(node, peer models.Node) bool {
+	if node.IsStatic {
+		node = node.StaticNode.ConvertToStaticNode()
+	}
+	if peer.IsStatic {
+		peer = peer.StaticNode.ConvertToStaticNode()
+	}
 	// check default policy if all allowed return true
 	defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 	if err == nil {
@@ -480,12 +487,7 @@ func IsNodeAllowedToCommunicate(node, peer models.Node) bool {
 			return true
 		}
 	}
-	if node.IsStatic {
-		node = node.StaticNode.ConvertToStaticNode()
-	}
-	if peer.IsStatic {
-		peer = peer.StaticNode.ConvertToStaticNode()
-	}
+
 	// list device policies
 	policies := listDevicePolicies(models.NetworkID(peer.Network))
 	for _, policy := range policies {
@@ -494,10 +496,10 @@ func IsNodeAllowedToCommunicate(node, peer models.Node) bool {
 		}
 		srcMap := convAclTagToValueMap(policy.Src)
 		dstMap := convAclTagToValueMap(policy.Dst)
-		fmt.Printf("\n======> SRCMAP: %+v\n", srcMap)
-		fmt.Printf("\n======> DSTMAP: %+v\n", dstMap)
-		fmt.Printf("\n======> node Tags: %+v\n", node.Tags)
-		fmt.Printf("\n======> peer Tags: %+v\n", peer.Tags)
+		// fmt.Printf("\n======> SRCMAP: %+v\n", srcMap)
+		// fmt.Printf("\n======> DSTMAP: %+v\n", dstMap)
+		// fmt.Printf("\n======> node Tags: %+v\n", node.Tags)
+		// fmt.Printf("\n======> peer Tags: %+v\n", peer.Tags)
 		for tagID := range node.Tags {
 			if _, ok := dstMap[tagID.String()]; ok {
 				if _, ok := srcMap["*"]; ok {
