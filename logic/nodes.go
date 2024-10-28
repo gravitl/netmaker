@@ -196,10 +196,6 @@ func DeleteNode(node *models.Node, purge bool) error {
 		if err := DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
 			slog.Error("failed to delete ext clients", "nodeid", node.ID.String(), "error", err.Error())
 		}
-		host, err := GetHost(node.HostID.String())
-		if err == nil {
-			go DeleteRole(models.GetRAGRoleID(node.Network, host.ID.String()), true)
-		}
 	}
 	if node.IsRelayed {
 		// cleanup node from relayednodes on relay node

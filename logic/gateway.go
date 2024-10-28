@@ -242,11 +242,7 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 	if err != nil {
 		return models.Node{}, removedClients, err
 	}
-	host, err := GetHost(node.HostID.String())
-	if err != nil {
-		return models.Node{}, removedClients, err
-	}
-	go DeleteRole(models.GetRAGRoleID(node.Network, host.ID.String()), true)
+
 	err = SetNetworkNodesLastModified(node.Network)
 	return node, removedClients, err
 }
