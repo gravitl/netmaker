@@ -294,7 +294,7 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 			if err == nil && node.IsIngressGateway {
 				role, err := GetRole(models.GetRAGRoleID(node.Network, currHost.ID.String()))
 				if err == nil {
-					role.UiName = models.GetRAGRoleName(node.Network, newHost.Name)
+					role.Name = models.GetRAGRoleName(node.Network, newHost.Name)
 					UpdateRole(role)
 				}
 			}

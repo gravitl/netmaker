@@ -30,6 +30,8 @@ var PlatformUserUserPermissionTemplate = models.UserRolePermissionTemplate{
 
 var NetworkAdminAllPermissionTemplate = models.UserRolePermissionTemplate{
 	ID:         models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkAdmin)),
+	Name:       "Network Admins",
+	MetaData:   "Users with this role can manage all your networks configuration including adding and removing devices.",
 	Default:    true,
 	FullAccess: true,
 	NetworkID:  models.AllNetworks,
@@ -37,6 +39,8 @@ var NetworkAdminAllPermissionTemplate = models.UserRolePermissionTemplate{
 
 var NetworkUserAllPermissionTemplate = models.UserRolePermissionTemplate{
 	ID:         models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkUser)),
+	Name:       "Network Users",
+	MetaData:   "Users with this role Cannot access the admin console, but can connect to nodes in your networks via RAC.",
 	Default:    true,
 	FullAccess: false,
 	NetworkID:  models.AllNetworks,
@@ -75,12 +79,44 @@ func UserRolesInit() {
 
 }
 
+func UserGroupsInit() {
+	// create default network groups
+	var NetworkGlobalAdminGroup = models.UserGroup{
+		ID:       models.UserGroupID(fmt.Sprintf("global-%s-grp", models.NetworkAdmin)),
+		Default:  true,
+		Name:     "Network Admin Group",
+		MetaData: "Users in this group can manage all your networks configuration including adding and removing devices.",
+		NetworkRoles: map[models.NetworkID]map[models.UserRoleID]struct{}{
+			models.NetworkID("*"): {
+				models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkAdmin)): {},
+			},
+		},
+	}
+	var NetworkGlobalUserGroup = models.UserGroup{
+		ID:      models.UserGroupID(fmt.Sprintf("global-%s-grp", models.NetworkUser)),
+		Name:    "Network User Group",
+		Default: true,
+		NetworkRoles: map[models.NetworkID]map[models.UserRoleID]struct{}{
+			models.NetworkID("*"): {
+				models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkUser)): {},
+			},
+		},
+		MetaData: "Users in this group cannot access the admin console, but can connect to nodes in your networks via RAC.",
+	}
+	d, _ := json.Marshal(NetworkGlobalAdminGroup)
+	database.Insert(NetworkGlobalAdminGroup.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
+	d, _ = json.Marshal(NetworkGlobalUserGroup)
+	database.Insert(NetworkGlobalUserGroup.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
+}
+
 func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 	if netID.String() == "" {
 		return
 	}
 	var NetworkAdminPermissionTemplate = models.UserRolePermissionTemplate{
 		ID:                 models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkAdmin)),
+		Name:               fmt.Sprintf("%s Admin", netID),
+		MetaData:           fmt.Sprintf("Users with this role can manage your network `%s` configuration including adding and removing devices.", netID),
 		Default:            true,
 		NetworkID:          netID,
 		FullAccess:         true,
@@ -89,6 +125,8 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 
 	var NetworkUserPermissionTemplate = models.UserRolePermissionTemplate{
 		ID:                  models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkUser)),
+		Name:                fmt.Sprintf("%s User", netID),
+		MetaData:            fmt.Sprintf("Users Cannot access the admin console, but can connect to nodes in your network `%s` via RAC.", netID),
 		Default:             true,
 		FullAccess:          false,
 		NetworkID:           netID,
@@ -118,22 +156,24 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 
 	// create default network groups
 	var NetworkAdminGroup = models.UserGroup{
-		ID: models.UserGroupID(fmt.Sprintf("%s-%s-grp", netID, models.NetworkAdmin)),
+		ID:   models.UserGroupID(fmt.Sprintf("%s-%s-grp", netID, models.NetworkAdmin)),
+		Name: fmt.Sprintf("%s Admin Group", netID),
 		NetworkRoles: map[models.NetworkID]map[models.UserRoleID]struct{}{
 			netID: {
 				models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkAdmin)): {},
 			},
 		},
-		MetaData: "The network group was automatically created by Netmaker.",
+		MetaData: fmt.Sprintf("User in this group can manage your network `%s` configuration including adding and removing devices.", netID),
 	}
 	var NetworkUserGroup = models.UserGroup{
-		ID: models.UserGroupID(fmt.Sprintf("%s-%s-grp", netID, models.NetworkUser)),
+		ID:   models.UserGroupID(fmt.Sprintf("%s-%s-grp", netID, models.NetworkUser)),
+		Name: fmt.Sprintf("%s User Group", netID),
 		NetworkRoles: map[models.NetworkID]map[models.UserRoleID]struct{}{
 			netID: {
 				models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkUser)): {},
 			},
 		},
-		MetaData: "The network group was automatically created by Netmaker.",
+		MetaData: fmt.Sprintf("Users in this group cannot access the admin console, but can connect to nodes in your network `%s` via RAC.", netID),
 	}
 	d, _ = json.Marshal(NetworkAdminGroup)
 	database.Insert(NetworkAdminGroup.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)

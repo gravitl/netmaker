@@ -136,6 +136,8 @@ func InitPro() {
 	logic.InitialiseRoles = proLogic.UserRolesInit
 	logic.UpdateUserGwAccess = proLogic.UpdateUserGwAccess
 	logic.CreateDefaultUserPolicies = proLogic.CreateDefaultUserPolicies
+	logic.MigrateUserRoleAndGroups = proLogic.MigrateUserRoleAndGroups
+	logic.IntialiseGroups = proLogic.UserGroupsInit
 }
 
 func retrieveProLogo() string {
