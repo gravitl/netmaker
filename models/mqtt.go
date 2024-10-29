@@ -34,14 +34,14 @@ type FwRule struct {
 
 // IngressInfo - struct for ingress info
 type IngressInfo struct {
-	IngressID     string      `json:"ingress_id"`
-	Network       net.IPNet   `json:"network"`
-	Network6      net.IPNet   `json:"network6"`
-	StaticNodeIps []net.IP    `json:"static_node_ips"`
-	Rules         []FwRule    `json:"rules"`
-	AllowAll      bool        `json:"allow_all"`
-	EgressRanges  []net.IPNet `json:"egress_ranges"`
-	EgressRanges6 []net.IPNet `json:"egress_ranges6"`
+	IngressID     string    `json:"ingress_id"`
+	Network       net.IPNet `json:"network"`
+	Network6      net.IPNet `json:"network6"`
+	StaticNodeIps []net.IP  `json:"static_node_ips"`
+	Rules         []FwRule  `json:"rules"`
+	AllowAll      bool      `json:"allow_all"`
+	EgressRanges  []string  `json:"egress_ranges"`
+	EgressRanges6 []string  `json:"egress_ranges6"`
 }
 
 // EgressInfo - struct for egress info

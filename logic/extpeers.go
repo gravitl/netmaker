@@ -688,7 +688,7 @@ func getExtPeerEgressRoute(node models.Node, extPeer models.ExtClient) (egressRo
 	return
 }
 
-func getExtpeerEgressRanges(node models.Node) (ranges, ranges6 []net.IPNet) {
+func getExtpeerEgressRanges(node models.Node) (ranges, ranges6 []string) {
 	extPeers, err := GetNetworkExtClients(node.Network)
 	if err != nil {
 		return
@@ -704,9 +704,9 @@ func getExtpeerEgressRanges(node models.Node) (ranges, ranges6 []net.IPNet) {
 			_, ipnet, err := net.ParseCIDR(allowedRange)
 			if err == nil {
 				if ipnet.IP.To4() != nil {
-					ranges = append(ranges, *ipnet)
+					ranges = append(ranges, allowedRange)
 				} else {
-					ranges6 = append(ranges6, *ipnet)
+					ranges6 = append(ranges6, allowedRange)
 				}
 
 			}
