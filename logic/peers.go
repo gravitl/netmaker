@@ -183,7 +183,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				})
 			}
 			if peer.IsIngressGateway {
-				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, getExtpeersExtraRoutes(node, peer.Network)...)
+				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, getExtpeersExtraRoutes(node)...)
 			}
 			_, isFailOverPeer := node.FailOverPeers[peer.ID.String()]
 			if servercfg.IsPro {
@@ -301,6 +301,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 						Network6:      node.NetworkRange6,
 						AllowAll:      defaultDevicePolicy.Enabled && defaultUserPolicy.Default,
 						StaticNodeIps: GetStaticNodeIps(node),
+						EgressRanges:  getExtpeerEgressRanges(node),
 						Rules:         GetFwRulesOnIngressGateway(node),
 					}
 					hostPeerUpdate.FwUpdate.IngressInfo[node.ID.String()] = ingFwUpdate
