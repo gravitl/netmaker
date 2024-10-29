@@ -1,23 +1,8 @@
 package models
 
 import (
-	"fmt"
 	"time"
 )
-
-type AclID string
-
-func (aID AclID) String() string {
-	return string(aID)
-}
-
-func (a *Acl) GetID(netID NetworkID, name string) {
-	a.ID = AclID(fmt.Sprintf("%s.%s", netID.String(), name))
-}
-
-func FormatAclID(netID NetworkID, name string) AclID {
-	return AclID(fmt.Sprintf("%s.%s", netID.String(), name))
-}
 
 // AllowedTrafficDirection - allowed direction of traffic
 type AllowedTrafficDirection int
@@ -44,9 +29,8 @@ type AclPolicyTag struct {
 type AclGroupType string
 
 const (
-	UserAclID      AclGroupType = "user"
-	UserGroupAclID AclGroupType = "user-group"
-	//UserRoleAclID            AclGroupType = "user-role"
+	UserAclID                AclGroupType = "user"
+	UserGroupAclID           AclGroupType = "user-group"
 	DeviceAclID              AclGroupType = "tag"
 	NetmakerIPAclID          AclGroupType = "ip"
 	NetmakerSubNetRangeAClID AclGroupType = "ipset"
@@ -67,8 +51,9 @@ type AclPolicy struct {
 }
 
 type Acl struct {
-	ID               AclID                   `json:"id"`
+	ID               string                  `json:"id"`
 	Default          bool                    `json:"default"`
+	MetaData         string                  `json:"meta_data"`
 	Name             string                  `json:"name"`
 	NetworkID        NetworkID               `json:"network_id"`
 	RuleType         AclPolicyType           `json:"policy_type"`

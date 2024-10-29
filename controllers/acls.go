@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -44,7 +45,6 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 		},
 		SrcGroupTypes: []models.AclGroupType{
 			models.UserAclID,
-			//models.UserRoleAclID,
 			models.UserGroupAclID,
 			models.DeviceAclID,
 		},
@@ -129,7 +129,7 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 	}
 
 	acl := req
-	acl.GetID(req.NetworkID, req.Name)
+	acl.ID = uuid.New().String()
 	acl.CreatedBy = user.UserName
 	acl.CreatedAt = time.Now().UTC()
 	acl.Default = false
@@ -188,14 +188,6 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 	}
 	if !acl.Default && updateAcl.NewName != "" {
 		//check if policy exists with same name
-		id := models.FormatAclID(updateAcl.NetworkID, updateAcl.NewName)
-		_, err := logic.GetAcl(id)
-		if err == nil {
-			logic.ReturnErrorResponse(w, r,
-				logic.FormatError(errors.New("policy already exists with name "+updateAcl.NewName), "badrequest"))
-			return
-		}
-		updateAcl.ID = id
 		updateAcl.Acl.Name = updateAcl.NewName
 	}
 	err = logic.UpdateAcl(updateAcl.Acl, acl)
@@ -219,7 +211,7 @@ func deleteAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("acl id is required"), "badrequest"))
 		return
 	}
-	acl, err := logic.GetAcl(models.AclID(aclID))
+	acl, err := logic.GetAcl(aclID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
