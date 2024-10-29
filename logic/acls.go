@@ -56,10 +56,6 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 					ID:    models.UserGroupAclID,
 					Value: "*",
 				},
-				// {
-				// 	ID:    models.UserRoleAclID,
-				// 	Value: "*",
-				// },
 			},
 			Dst: []models.AclPolicyTag{{
 				ID:    models.DeviceAclID,
@@ -175,9 +171,7 @@ func IsAclPolicyValid(acl models.Acl) bool {
 			if srcI.Value == "*" {
 				continue
 			}
-			if srcI.ID != models.UserAclID {
-				// &&	srcI.ID != models.UserGroupAclID && srcI.ID != models.UserRoleAclID
-
+			if srcI.ID != models.UserAclID && srcI.ID != models.UserGroupAclID {
 				return false
 			}
 			// check if user group is valid
@@ -186,12 +180,6 @@ func IsAclPolicyValid(acl models.Acl) bool {
 				if err != nil {
 					return false
 				}
-				// } else if srcI.ID == models.UserRoleAclID {
-
-				// 	_, err := GetRole(models.UserRoleID(srcI.Value))
-				// 	if err != nil {
-				// 		return false
-				// 	}
 
 			} else if srcI.ID == models.UserGroupAclID {
 				err := IsGroupValid(models.UserGroupID(srcI.Value))

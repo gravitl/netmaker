@@ -44,7 +44,6 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 		},
 		SrcGroupTypes: []models.AclGroupType{
 			models.UserAclID,
-			//models.UserRoleAclID,
 			models.UserGroupAclID,
 			models.DeviceAclID,
 		},
