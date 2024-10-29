@@ -301,9 +301,9 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 						Network6:      node.NetworkRange6,
 						AllowAll:      defaultDevicePolicy.Enabled && defaultUserPolicy.Default,
 						StaticNodeIps: GetStaticNodeIps(node),
-						EgressRanges:  getExtpeerEgressRanges(node),
 						Rules:         GetFwRulesOnIngressGateway(node),
 					}
+					ingFwUpdate.EgressRanges, ingFwUpdate.EgressRanges6 = getExtpeerEgressRanges(node)
 					hostPeerUpdate.FwUpdate.IngressInfo[node.ID.String()] = ingFwUpdate
 				}
 				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, egressRoutes...)

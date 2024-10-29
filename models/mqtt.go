@@ -41,6 +41,7 @@ type IngressInfo struct {
 	Rules         []FwRule    `json:"rules"`
 	AllowAll      bool        `json:"allow_all"`
 	EgressRanges  []net.IPNet `json:"egress_ranges"`
+	EgressRanges6 []net.IPNet `json:"egress_ranges6"`
 }
 
 // EgressInfo - struct for egress info
