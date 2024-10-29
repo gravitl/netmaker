@@ -23,6 +23,10 @@ func PublishPeerUpdate(replacePeers bool) error {
 		return nil
 	}
 
+	if servercfg.GetManageDNS() {
+		sendDNSSync()
+	}
+
 	hosts, err := logic.GetAllHosts()
 	if err != nil {
 		logger.Log(1, "err getting all hosts", err.Error())
@@ -248,4 +252,56 @@ func sendPeers() {
 			logger.Log(3, "error occurred on timer,", err.Error())
 		}
 	}
+}
+
+func SendDNSSyncByNetwork(network string) error {
+
+	k, err := logic.GetDNS(network)
+	if err == nil && len(k) > 0 {
+		err = PushSyncDNS(k)
+		if err != nil {
+			slog.Warn("error publishing dns entry data for network ", network, err.Error())
+		}
+	}
+
+	return err
+}
+
+func sendDNSSync() error {
+
+	networks, err := logic.GetNetworks()
+	if err == nil && len(networks) > 0 {
+		for _, v := range networks {
+			k, err := logic.GetDNS(v.NetID)
+			if err == nil && len(k) > 0 {
+				err = PushSyncDNS(k)
+				if err != nil {
+					slog.Warn("error publishing dns entry data for network ", v.NetID, err.Error())
+				}
+			}
+		}
+		return nil
+	}
+	return err
+}
+
+func PushSyncDNS(dnsEntries []models.DNSEntry) error {
+	logger.Log(2, "----> Pushing Sync DNS")
+	data, err := json.Marshal(dnsEntries)
+	if err != nil {
+		return errors.New("failed to marshal DNS entries: " + err.Error())
+	}
+	if mqclient == nil || !mqclient.IsConnectionOpen() {
+		return errors.New("cannot publish ... mqclient not connected")
+	}
+	if token := mqclient.Publish(fmt.Sprintf("host/dns/sync/%s", dnsEntries[0].Network), 0, true, data); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
+		var err error
+		if token.Error() == nil {
+			err = errors.New("connection timeout")
+		} else {
+			err = token.Error()
+		}
+		return err
+	}
+	return nil
 }

@@ -266,6 +266,8 @@ type ServerConfig struct {
 	IsPro          bool   `yaml:"isee" json:"Is_EE"`
 	TrafficKey     []byte `yaml:"traffickey"`
 	MetricInterval string `yaml:"metric_interval"`
+	ManageDNS      bool   `yaml:"manage_dns"`
+	DefaultDomain  string `yaml:"default_domain"`
 }
 
 // User.NameInCharset - returns if name is in charset below or not

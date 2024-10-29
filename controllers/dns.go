@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -24,6 +25,8 @@ func dnsHandlers(r *mux.Router) {
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/dns/adm/{network}", logic.SecurityCheck(true, http.HandlerFunc(getDNS))).
 		Methods(http.MethodGet)
+	r.HandleFunc("/api/dns/adm/{network}/sync", logic.SecurityCheck(true, http.HandlerFunc(syncDNS))).
+		Methods(http.MethodPost)
 	r.HandleFunc("/api/dns/{network}", logic.SecurityCheck(true, http.HandlerFunc(createDNS))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/dns/adm/pushdns", logic.SecurityCheck(true, http.HandlerFunc(pushDNS))).
@@ -147,6 +150,7 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 
 	var entry models.DNSEntry
 	var params = mux.Vars(r)
+	netID := params["network"]
 
 	_ = json.NewDecoder(r.Body).Decode(&entry)
 	entry.Network = params["network"]
@@ -176,6 +180,10 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if servercfg.GetManageDNS() {
+		mq.SendDNSSyncByNetwork(netID)
+	}
+
 	logger.Log(1, "new DNS record added:", entry.Name)
 	logger.Log(2, r.Header.Get("user"),
 		fmt.Sprintf("DNS entry is set: %+v", entry))
@@ -197,6 +205,7 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 
 	// get params
 	var params = mux.Vars(r)
+	netID := params["network"]
 	entrytext := params["domain"] + "." + params["network"]
 	err := logic.DeleteDNS(params["domain"], params["network"])
 
@@ -214,6 +223,10 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
+	}
+
+	if servercfg.GetManageDNS() {
+		mq.SendDNSSyncByNetwork(netID)
 	}
 
 	json.NewEncoder(w).Encode(entrytext + " deleted.")
@@ -263,4 +276,39 @@ func pushDNS(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(1, r.Header.Get("user"), "pushed DNS updates to nameserver")
 	json.NewEncoder(w).Encode("DNS Pushed to CoreDNS")
+}
+
+// @Summary     Sync DNS entries for a given network
+// @Router      /api/dns/adm/{network}/sync [post]
+// @Tags        DNS
+// @Accept      json
+// @Success     200 {string} string "DNS Sync completed successfully"
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func syncDNS(w http.ResponseWriter, r *http.Request) {
+	// Set header
+	w.Header().Set("Content-Type", "application/json")
+	if !servercfg.GetManageDNS() {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("manage DNS is set to false"), "badrequest"),
+		)
+		return
+	}
+	var params = mux.Vars(r)
+	netID := params["network"]
+	k, err := logic.GetDNS(netID)
+	if err == nil && len(k) > 0 {
+		err = mq.PushSyncDNS(k)
+	}
+
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("Failed to Sync DNS entries to network %s: %v", netID, err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	logger.Log(1, r.Header.Get("user"), "DNS Sync complelted successfully")
+	json.NewEncoder(w).Encode("DNS Sync completed successfully")
 }
