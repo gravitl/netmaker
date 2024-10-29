@@ -1153,7 +1153,12 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 				{
 					ID:    models.UserGroupAclID,
 					Value: fmt.Sprintf("%s-%s-grp", netID, models.NetworkAdmin),
-				}},
+				},
+				{
+					ID:    models.UserGroupAclID,
+					Value: "global-network-admin-grp",
+				},
+			},
 			Dst: []models.AclPolicyTag{
 				{
 					ID:    models.DeviceAclID,
@@ -1179,7 +1184,13 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 				{
 					ID:    models.UserGroupAclID,
 					Value: fmt.Sprintf("%s-%s-grp", netID, models.NetworkUser),
-				}},
+				},
+				{
+					ID:    models.UserGroupAclID,
+					Value: "global-network-user-grp",
+				},
+			},
+
 			Dst: []models.AclPolicyTag{
 				{
 					ID:    models.DeviceAclID,
@@ -1192,4 +1203,5 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 		}
 		logic.InsertAcl(defaultUserAcl)
 	}
+
 }
