@@ -1141,10 +1141,11 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 		return
 	}
 
-	if !logic.IsAclExists(models.AclID(fmt.Sprintf("%s.%s-grp", netID, models.NetworkAdmin))) {
+	if !logic.IsAclExists(fmt.Sprintf("%s.%s-grp", netID, models.NetworkAdmin)) {
 		defaultUserAcl := models.Acl{
-			ID:        models.AclID(fmt.Sprintf("%s.%s-grp", netID, models.NetworkAdmin)),
-			Name:      fmt.Sprintf("%s-grp", models.NetworkAdmin),
+			ID:        fmt.Sprintf("%s.%s-grp", netID, models.NetworkAdmin),
+			Name:      "Network Admin",
+			MetaData:  "This Policy allows all network admins to communicate with all remote access gateways",
 			Default:   true,
 			NetworkID: netID,
 			RuleType:  models.UserPolicy,
@@ -1166,10 +1167,11 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 		logic.InsertAcl(defaultUserAcl)
 	}
 
-	if !logic.IsAclExists(models.AclID(fmt.Sprintf("%s.%s-grp", netID, models.NetworkUser))) {
+	if !logic.IsAclExists(fmt.Sprintf("%s.%s-grp", netID, models.NetworkUser)) {
 		defaultUserAcl := models.Acl{
-			ID:        models.AclID(fmt.Sprintf("%s.%s-grp", netID, models.NetworkUser)),
-			Name:      fmt.Sprintf("%s-grp", models.NetworkUser),
+			ID:        fmt.Sprintf("%s.%s-grp", netID, models.NetworkUser),
+			Name:      "Network User",
+			MetaData:  "This Policy allows all network users to communicate with all remote access gateways",
 			Default:   true,
 			NetworkID: netID,
 			RuleType:  models.UserPolicy,

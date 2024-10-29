@@ -16,10 +16,11 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 	if netID.String() == "" {
 		return
 	}
-	if !IsAclExists(models.AclID(fmt.Sprintf("%s.%s", netID, "all-nodes"))) {
+	if !IsAclExists(fmt.Sprintf("%s.%s", netID, "all-nodes")) {
 		defaultDeviceAcl := models.Acl{
-			ID:        models.AclID(fmt.Sprintf("%s.%s", netID, "all-nodes")),
-			Name:      "all-nodes",
+			ID:        fmt.Sprintf("%s.%s", netID, "all-nodes"),
+			Name:      "All Nodes",
+			MetaData:  "This Policy allows all nodes in the network to communicate with each other",
 			Default:   true,
 			NetworkID: netID,
 			RuleType:  models.DevicePolicy,
@@ -40,11 +41,12 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 		}
 		InsertAcl(defaultDeviceAcl)
 	}
-	if !IsAclExists(models.AclID(fmt.Sprintf("%s.%s", netID, "all-users"))) {
+	if !IsAclExists(fmt.Sprintf("%s.%s", netID, "all-users")) {
 		defaultUserAcl := models.Acl{
-			ID:        models.AclID(fmt.Sprintf("%s.%s", netID, "all-users")),
+			ID:        fmt.Sprintf("%s.%s", netID, "all-users"),
 			Default:   true,
-			Name:      "all-users",
+			Name:      "All Users",
+			MetaData:  "This policy gives access to everything in the network for an user",
 			NetworkID: netID,
 			RuleType:  models.UserPolicy,
 			Src: []models.AclPolicyTag{
@@ -69,11 +71,11 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 		InsertAcl(defaultUserAcl)
 	}
 
-	if !IsAclExists(models.AclID(fmt.Sprintf("%s.%s", netID, "all-remote-access-gws"))) {
+	if !IsAclExists(fmt.Sprintf("%s.%s", netID, "all-remote-access-gws")) {
 		defaultUserAcl := models.Acl{
-			ID:        models.AclID(fmt.Sprintf("%s.%s", netID, "all-remote-access-gws")),
+			ID:        fmt.Sprintf("%s.%s", netID, "all-remote-access-gws"),
 			Default:   true,
-			Name:      "all-remote-access-gws",
+			Name:      "All Remote Access Gateways",
 			NetworkID: netID,
 			RuleType:  models.DevicePolicy,
 			Src: []models.AclPolicyTag{
@@ -115,15 +117,10 @@ func ValidateCreateAclReq(req models.Acl) error {
 	if err != nil {
 		return errors.New("failed to get network details for " + req.NetworkID.String())
 	}
-	err = CheckIDSyntax(req.Name)
-	if err != nil {
-		return err
-	}
-	req.GetID(req.NetworkID, req.Name)
-	_, err = GetAcl(req.ID)
-	if err == nil {
-		return errors.New("acl exists already with name " + req.Name)
-	}
+	// err = CheckIDSyntax(req.Name)
+	// if err != nil {
+	// 	return err
+	// }
 	return nil
 }
 
@@ -133,13 +130,13 @@ func InsertAcl(a models.Acl) error {
 	if err != nil {
 		return err
 	}
-	return database.Insert(a.ID.String(), string(d), database.ACLS_TABLE_NAME)
+	return database.Insert(a.ID, string(d), database.ACLS_TABLE_NAME)
 }
 
 // GetAcl - gets acl info by id
-func GetAcl(aID models.AclID) (models.Acl, error) {
+func GetAcl(aID string) (models.Acl, error) {
 	a := models.Acl{}
-	d, err := database.FetchRecord(database.ACLS_TABLE_NAME, aID.String())
+	d, err := database.FetchRecord(database.ACLS_TABLE_NAME, aID)
 	if err != nil {
 		return a, err
 	}
@@ -151,7 +148,7 @@ func GetAcl(aID models.AclID) (models.Acl, error) {
 }
 
 // IsAclExists - checks if acl exists
-func IsAclExists(aclID models.AclID) bool {
+func IsAclExists(aclID string) bool {
 	_, err := GetAcl(aclID)
 	return err == nil
 }
@@ -252,15 +249,11 @@ func UpdateAcl(newAcl, acl models.Acl) error {
 		acl.Dst = newAcl.Dst
 	}
 	acl.Enabled = newAcl.Enabled
-	if acl.ID != newAcl.ID {
-		database.DeleteRecord(database.ACLS_TABLE_NAME, acl.ID.String())
-		acl.ID = newAcl.ID
-	}
 	d, err := json.Marshal(acl)
 	if err != nil {
 		return err
 	}
-	return database.Insert(acl.ID.String(), string(d), database.ACLS_TABLE_NAME)
+	return database.Insert(acl.ID, string(d), database.ACLS_TABLE_NAME)
 }
 
 // UpsertAcl - upserts acl
@@ -269,12 +262,12 @@ func UpsertAcl(acl models.Acl) error {
 	if err != nil {
 		return err
 	}
-	return database.Insert(acl.ID.String(), string(d), database.ACLS_TABLE_NAME)
+	return database.Insert(acl.ID, string(d), database.ACLS_TABLE_NAME)
 }
 
 // DeleteAcl - deletes acl policy
 func DeleteAcl(a models.Acl) error {
-	return database.DeleteRecord(database.ACLS_TABLE_NAME, a.ID.String())
+	return database.DeleteRecord(database.ACLS_TABLE_NAME, a.ID)
 }
 
 // GetDefaultPolicy - fetches default policy in the network by ruleType
@@ -283,7 +276,7 @@ func GetDefaultPolicy(netID models.NetworkID, ruleType models.AclPolicyType) (mo
 	if ruleType == models.DevicePolicy {
 		aclID = "all-nodes"
 	}
-	acl, err := GetAcl(models.AclID(fmt.Sprintf("%s.%s", netID, aclID)))
+	acl, err := GetAcl(fmt.Sprintf("%s.%s", netID, aclID))
 	if err != nil {
 		return models.Acl{}, errors.New("default rule not found")
 	}
