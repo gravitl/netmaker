@@ -62,7 +62,7 @@ func SetClientDefaultACLs(ec *models.ExtClient) error {
 		slog.Error("failed to get network acls", "error", err)
 		return err
 	}
-	networkAcls[acls.AclID(ec.ClientID)] = acls.ACL{}
+	networkAcls[acls.AclID(ec.ClientID)] = make(acls.ACL)
 	for i := range networkNodes {
 		currNode := networkNodes[i]
 		if network.DefaultACL == "no" || currNode.DefaultACL == "no" {
