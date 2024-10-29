@@ -81,7 +81,7 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {array} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
 func getAcls(w http.ResponseWriter, r *http.Request) {
-	netID, _ := url.QueryUnescape(r.URL.Query().Get("network"))
+	netID := r.URL.Query().Get("network")
 	if netID == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network id param is missing"), "badrequest"))
 		return

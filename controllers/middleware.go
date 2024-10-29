@@ -29,6 +29,9 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		r.Header.Set("TARGET_RSRC_ID", "")
 		r.Header.Set("RAC", "")
 		r.Header.Set("NET_ID", params["network"])
+		if r.URL.Query().Get("network") != "" {
+			r.Header.Set("NET_ID", r.URL.Query().Get("network"))
+		}
 		if strings.Contains(route, "hosts") || strings.Contains(route, "nodes") {
 			r.Header.Set("TARGET_RSRC", models.HostRsrc.String())
 		}
@@ -105,7 +108,6 @@ func userMiddleWare(handler http.Handler) http.Handler {
 			r.Header.Get("TARGET_RSRC") == models.UserRsrc.String()) {
 			r.Header.Set("IS_GLOBAL_ACCESS", "yes")
 		}
-
 		r.Header.Set("RSRC_TYPE", r.Header.Get("TARGET_RSRC"))
 		handler.ServeHTTP(w, r)
 	})

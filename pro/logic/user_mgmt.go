@@ -85,7 +85,7 @@ func UserGroupsInit() {
 		ID:       models.UserGroupID(fmt.Sprintf("global-%s-grp", models.NetworkAdmin)),
 		Default:  true,
 		Name:     "Network Admin Group",
-		MetaData: "Users in this group can manage all your networks configuration including adding and removing devices.",
+		MetaData: "Users in this group can manage all your networks configuration.",
 		NetworkRoles: map[models.NetworkID]map[models.UserRoleID]struct{}{
 			models.NetworkID("*"): {
 				models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkAdmin)): {},
@@ -116,7 +116,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 	var NetworkAdminPermissionTemplate = models.UserRolePermissionTemplate{
 		ID:                 models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkAdmin)),
 		Name:               fmt.Sprintf("%s Admin", netID),
-		MetaData:           fmt.Sprintf("Users with this role can manage your network `%s` configuration including adding and removing devices.", netID),
+		MetaData:           fmt.Sprintf("Users with this role can manage your network `%s` configuration.", netID),
 		Default:            true,
 		NetworkID:          netID,
 		FullAccess:         true,
