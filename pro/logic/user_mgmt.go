@@ -87,7 +87,7 @@ func UserGroupsInit() {
 		Name:     "Network Admin Group",
 		MetaData: "Users in this group can manage all your networks configuration.",
 		NetworkRoles: map[models.NetworkID]map[models.UserRoleID]struct{}{
-			models.NetworkID("*"): {
+			models.AllNetworks: {
 				models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkAdmin)): {},
 			},
 		},
