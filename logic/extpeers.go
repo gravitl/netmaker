@@ -707,7 +707,7 @@ func getExtpeerEgressRanges(node models.Node) (ranges []net.IPNet) {
 			}
 		}
 	}
-
+	return
 }
 
 func getExtpeersExtraRoutes(node models.Node) (egressRoutes []models.EgressNetworkRoutes) {
