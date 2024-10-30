@@ -358,26 +358,6 @@ func listPoliciesOfUser(user models.User, netID models.NetworkID) []models.Acl {
 	return acls
 }
 
-// listUserPoliciesByNetwork - lists all acl user policies in a network
-func listUserPoliciesByNetwork(netID models.NetworkID) []models.Acl {
-	data, err := database.FetchRecords(database.ACLS_TABLE_NAME)
-	if err != nil && !database.IsEmptyRecord(err) {
-		return []models.Acl{}
-	}
-	acls := []models.Acl{}
-	for _, dataI := range data {
-		acl := models.Acl{}
-		err := json.Unmarshal([]byte(dataI), &acl)
-		if err != nil {
-			continue
-		}
-		if acl.NetworkID == netID && acl.RuleType == models.UserPolicy {
-			acls = append(acls, acl)
-		}
-	}
-	return acls
-}
-
 // listDevicePolicies - lists all device policies in a network
 func listDevicePolicies(netID models.NetworkID) []models.Acl {
 	data, err := database.FetchRecords(database.ACLS_TABLE_NAME)
