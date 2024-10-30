@@ -97,7 +97,7 @@ func UserGroupsInit() {
 		Name:    "All Networks User Group",
 		Default: true,
 		NetworkRoles: map[models.NetworkID]map[models.UserRoleID]struct{}{
-			models.NetworkID("*"): {
+			models.NetworkID(models.AllNetworks): {
 				models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkUser)): {},
 			},
 		},
@@ -1156,7 +1156,7 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 				},
 				{
 					ID:    models.UserGroupAclID,
-					Value: "global-network-admin-grp",
+					Value: fmt.Sprintf("global-%s-grp", models.NetworkAdmin),
 				},
 			},
 			Dst: []models.AclPolicyTag{
@@ -1187,7 +1187,7 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 				},
 				{
 					ID:    models.UserGroupAclID,
-					Value: "global-network-user-grp",
+					Value: fmt.Sprintf("global-%s-grp", models.NetworkUser),
 				},
 			},
 
@@ -1204,4 +1204,29 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 		logic.InsertAcl(defaultUserAcl)
 	}
 
+}
+
+func GetUserGroupsInNetwork(netID models.NetworkID) (networkGrps map[models.UserGroupID]models.UserGroup) {
+	groups, _ := ListUserGroups()
+	networkGrps = make(map[models.UserGroupID]models.UserGroup)
+	for _, grp := range groups {
+		if _, ok := grp.NetworkRoles[models.AllNetworks]; ok {
+			networkGrps[grp.ID] = grp
+			continue
+		}
+		if _, ok := grp.NetworkRoles[netID]; ok {
+			networkGrps[grp.ID] = grp
+		}
+	}
+	return
+}
+
+func AddGlobalNetRolesToAdmins(u *models.User) {
+	if u.PlatformRoleID != models.SuperAdminRole && u.PlatformRoleID != models.AdminRole {
+		return
+	}
+	if u.UserGroups == nil {
+		u.UserGroups = make(map[models.UserGroupID]struct{})
+	}
+	u.UserGroups[models.UserGroupID(fmt.Sprintf("global-%s-grp", models.NetworkAdmin))] = struct{}{}
 }

@@ -398,6 +398,8 @@ func syncUsers() {
 	if err == nil {
 		for _, user := range users {
 			user := user
+			logic.AddGlobalNetRolesToAdmins(&user)
+			logic.UpsertUser(user)
 			if user.PlatformRoleID == models.AdminRole && !user.IsAdmin {
 				user.IsAdmin = true
 				logic.UpsertUser(user)

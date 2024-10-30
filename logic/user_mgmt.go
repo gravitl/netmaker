@@ -59,6 +59,8 @@ var IntialiseGroups = func() {}
 var DeleteNetworkRoles = func(netID string) {}
 var CreateDefaultNetworkRolesAndGroups = func(netID models.NetworkID) {}
 var CreateDefaultUserPolicies = func(netID models.NetworkID) {}
+var GetUserGroupsInNetwork = func(netID models.NetworkID) (networkGrps map[models.UserGroupID]models.UserGroup) { return }
+var AddGlobalNetRolesToAdmins = func(u *models.User) {}
 
 // GetRole - fetches role template by id
 func GetRole(roleID models.UserRoleID) (models.UserRolePermissionTemplate, error) {

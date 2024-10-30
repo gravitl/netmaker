@@ -138,6 +138,7 @@ func InitPro() {
 	logic.CreateDefaultUserPolicies = proLogic.CreateDefaultUserPolicies
 	logic.MigrateUserRoleAndGroups = proLogic.MigrateUserRoleAndGroups
 	logic.IntialiseGroups = proLogic.UserGroupsInit
+	logic.AddGlobalNetRolesToAdmins = proLogic.AddGlobalNetRolesToAdmins
 }
 
 func retrieveProLogo() string {

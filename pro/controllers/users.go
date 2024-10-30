@@ -496,6 +496,10 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to fetch group details"), "badrequest"))
 		return
 	}
+	if userG.Default {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot delete default user group"), "badrequest"))
+		return
+	}
 	err = proLogic.DeleteUserGroup(models.UserGroupID(gid))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))

@@ -28,7 +28,6 @@ func aclHandlers(r *mux.Router) {
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/acls/debug", logic.SecurityCheck(true, http.HandlerFunc(aclDebug))).
 		Methods(http.MethodGet)
-
 }
 
 // @Summary     List Acl Policy types

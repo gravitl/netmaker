@@ -62,6 +62,7 @@ func SetUserDefaults(user *models.User) {
 	if len(user.UserGroups) == 0 {
 		user.UserGroups = make(map[models.UserGroupID]struct{})
 	}
+	AddGlobalNetRolesToAdmins(user)
 }
 
 // SortUsers - Sorts slice of Users by username

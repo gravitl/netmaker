@@ -183,6 +183,11 @@ func IsAclPolicyValid(acl models.Acl) bool {
 				if err != nil {
 					return false
 				}
+				// check if group belongs to this network
+				netGrps := GetUserGroupsInNetwork(acl.NetworkID)
+				if _, ok := netGrps[models.UserGroupID(srcI.Value)]; !ok {
+					return false
+				}
 			}
 
 		}
