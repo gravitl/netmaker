@@ -498,7 +498,10 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 						if !defaultUserPolicy.Enabled {
 							rules = append(rules, models.FwRule{
 								SrcIP: userNodeI.StaticNode.AddressIPNet4(),
-								DstIP: peer.Address,
+								DstIP: net.IPNet{
+									IP:   peer.Address.IP,
+									Mask: net.CIDRMask(32, 32),
+								},
 								Allow: true,
 							})
 						}
@@ -507,7 +510,10 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 					if userNodeI.StaticNode.Address6 != "" {
 						rules = append(rules, models.FwRule{
 							SrcIP: userNodeI.StaticNode.AddressIPNet6(),
-							DstIP: peer.Address6,
+							DstIP: net.IPNet{
+								IP:   peer.Address6.IP,
+								Mask: net.CIDRMask(128, 128),
+							},
 							Allow: true,
 						})
 					}
@@ -571,14 +577,20 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 					if nodeI.StaticNode.Address != "" {
 						rules = append(rules, models.FwRule{
 							SrcIP: nodeI.StaticNode.AddressIPNet4(),
-							DstIP: peer.Address,
+							DstIP: net.IPNet{
+								IP:   peer.Address.IP,
+								Mask: net.CIDRMask(32, 32),
+							},
 							Allow: true,
 						})
 					}
 					if nodeI.StaticNode.Address6 != "" {
 						rules = append(rules, models.FwRule{
 							SrcIP: nodeI.StaticNode.AddressIPNet6(),
-							DstIP: peer.Address6,
+							DstIP: net.IPNet{
+								IP:   peer.Address6.IP,
+								Mask: net.CIDRMask(128, 128),
+							},
 							Allow: true,
 						})
 					}
