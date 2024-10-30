@@ -835,7 +835,7 @@ func getUserRemoteAccessNetworks(w http.ResponseWriter, r *http.Request) {
 	userGws := make(map[string][]models.UserRemoteGws)
 	networks := []models.Network{}
 	networkMap := make(map[string]struct{})
-	userGwNodes := proLogic.GetUserRAGNodesV1(*user)
+	userGwNodes := proLogic.GetUserRAGNodes(*user)
 	for _, node := range userGwNodes {
 		network, err := logic.GetNetwork(node.Network)
 		if err != nil {
@@ -877,7 +877,7 @@ func getUserRemoteAccessNetworkGateways(w http.ResponseWriter, r *http.Request) 
 	}
 	userGws := []models.UserRAGs{}
 
-	userGwNodes := proLogic.GetUserRAGNodesV1(*user)
+	userGwNodes := proLogic.GetUserRAGNodes(*user)
 	for _, node := range userGwNodes {
 		if node.Network != network {
 			continue
@@ -932,7 +932,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userGwNodes := proLogic.GetUserRAGNodesV1(*user)
+	userGwNodes := proLogic.GetUserRAGNodes(*user)
 	if _, ok := userGwNodes[remoteGwID]; !ok {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("access denied"), "forbidden"))
 		return
@@ -1076,7 +1076,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	userGwNodes := proLogic.GetUserRAGNodesV1(*user)
+	userGwNodes := proLogic.GetUserRAGNodes(*user)
 	for _, extClient := range allextClients {
 		node, ok := userGwNodes[extClient.IngressGatewayID]
 		if !ok {
