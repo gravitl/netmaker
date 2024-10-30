@@ -149,6 +149,7 @@ func updateEnrollmentKeys() {
 			[]models.TagID{},
 			true,
 			uuid.Nil,
+			true,
 		)
 
 	}

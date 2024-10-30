@@ -37,7 +37,7 @@ var (
 )
 
 // CreateEnrollmentKey - creates a new enrollment key in db
-func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string, groups []models.TagID, unlimited bool, relay uuid.UUID) (*models.EnrollmentKey, error) {
+func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string, groups []models.TagID, unlimited bool, relay uuid.UUID, defaultKey bool) (*models.EnrollmentKey, error) {
 	newKeyID, err := getUniqueEnrollmentID()
 	if err != nil {
 		return nil, err
@@ -152,10 +152,13 @@ func deleteEnrollmentkeyFromCache(key string) {
 }
 
 // DeleteEnrollmentKey - delete's a given enrollment key by value
-func DeleteEnrollmentKey(value string) error {
-	_, err := GetEnrollmentKey(value)
+func DeleteEnrollmentKey(value string, force bool) error {
+	key, err := GetEnrollmentKey(value)
 	if err != nil {
 		return err
+	}
+	if key.Default && !force {
+		return errors.New("cannot delete default network key")
 	}
 	err = database.DeleteRecord(database.ENROLLMENT_KEYS_TABLE_NAME, value)
 	if err == nil {
@@ -310,4 +313,24 @@ func getEnrollmentKeysMap() (map[string]models.EnrollmentKey, error) {
 		}
 	}
 	return currentKeys, nil
+}
+
+func RemoveTagFromEnrollmentKeys(deletedTagID models.TagID) {
+	keys, _ := GetAllEnrollmentKeys()
+	for _, key := range keys {
+		newTags := []models.TagID{}
+		update := false
+		for _, tagID := range key.Groups {
+			if tagID == deletedTagID {
+				update = true
+				continue
+			}
+			newTags = append(newTags, tagID)
+		}
+		if update {
+			key.Groups = newTags
+			upsertEnrollmentKey(&key)
+		}
+
+	}
 }

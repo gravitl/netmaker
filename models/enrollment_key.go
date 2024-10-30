@@ -53,6 +53,7 @@ type EnrollmentKey struct {
 	Type          KeyType   `json:"type"`
 	Relay         uuid.UUID `json:"relay"`
 	Groups        []TagID   `json:"groups"`
+	Default       bool      `json:"default"`
 }
 
 // APIEnrollmentKey - used to create enrollment keys via API

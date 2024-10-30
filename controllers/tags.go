@@ -224,6 +224,7 @@ func deleteTag(w http.ResponseWriter, r *http.Request) {
 
 	go func() {
 		logic.RemoveDeviceTagFromAclPolicies(tag.ID, tag.Network)
+		logic.RemoveTagFromEnrollmentKeys(tag.ID)
 		mq.PublishPeerUpdate(false)
 	}()
 	logic.ReturnSuccessResponse(w, r, "deleted tag "+tagID)

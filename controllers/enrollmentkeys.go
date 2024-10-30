@@ -72,7 +72,7 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 func deleteEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	keyID := params["keyID"]
-	err := logic.DeleteEnrollmentKey(keyID)
+	err := logic.DeleteEnrollmentKey(keyID, false)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to remove enrollment key: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -159,6 +159,7 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		enrollmentKeyBody.Groups,
 		enrollmentKeyBody.Unlimited,
 		relayId,
+		false,
 	)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to create enrollment key:", err.Error())
