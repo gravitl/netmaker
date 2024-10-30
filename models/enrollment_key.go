@@ -52,6 +52,7 @@ type EnrollmentKey struct {
 	Token         string    `json:"token,omitempty"` // B64 value of EnrollmentToken
 	Type          KeyType   `json:"type"`
 	Relay         uuid.UUID `json:"relay"`
+	Groups        []TagID   `json:"groups"`
 }
 
 // APIEnrollmentKey - used to create enrollment keys via API
@@ -63,6 +64,7 @@ type APIEnrollmentKey struct {
 	Tags          []string `json:"tags" validate:"required,dive,min=3,max=32"`
 	Type          KeyType  `json:"type"`
 	Relay         string   `json:"relay"`
+	Groups        []TagID  `json:"groups"`
 }
 
 // RegisterResponse - the response to a successful enrollment register

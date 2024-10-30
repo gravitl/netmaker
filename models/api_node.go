@@ -48,6 +48,10 @@ type ApiNode struct {
 	InetNodeReq       InetNodeReq         `json:"inet_node_req" yaml:"inet_node_req"`
 	InternetGwID      string              `json:"internetgw_node_id" yaml:"internetgw_node_id"`
 	AdditionalRagIps  []string            `json:"additional_rag_ips" yaml:"additional_rag_ips"`
+	Tags              map[TagID]struct{}  `json:"tags" yaml:"tags"`
+	IsStatic          bool                `json:"is_static"`
+	IsUserNode        bool                `json:"is_user_node"`
+	StaticNode        ExtClient           `json:"static_node"`
 }
 
 // ApiNode.ConvertToServerNode - converts an api node to a server node
@@ -123,6 +127,7 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 		}
 		convertedNode.AdditionalRagIps = append(convertedNode.AdditionalRagIps, ragIp)
 	}
+	convertedNode.Tags = a.Tags
 	return &convertedNode
 }
 
@@ -180,9 +185,13 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.FailedOverBy = nm.FailedOverBy
 	apiNode.Metadata = nm.Metadata
 	apiNode.AdditionalRagIps = []string{}
+	apiNode.Tags = nm.Tags
 	for _, ip := range nm.AdditionalRagIps {
 		apiNode.AdditionalRagIps = append(apiNode.AdditionalRagIps, ip.String())
 	}
+	apiNode.IsStatic = nm.IsStatic
+	apiNode.IsUserNode = nm.IsUserNode
+	apiNode.StaticNode = nm.StaticNode
 	return &apiNode
 }
 
