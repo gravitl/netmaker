@@ -146,6 +146,7 @@ func updateEnrollmentKeys() {
 			time.Time{},
 			[]string{network.NetID},
 			[]string{network.NetID},
+			[]models.TagID{},
 			true,
 			uuid.Nil,
 		)

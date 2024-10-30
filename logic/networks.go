@@ -240,6 +240,7 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 		time.Time{},
 		[]string{network.NetID},
 		[]string{network.NetID},
+		[]models.TagID{},
 		true,
 		uuid.Nil,
 	)
