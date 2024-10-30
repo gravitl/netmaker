@@ -1,4 +1,4 @@
-# Netmaker v0.25.0
+# Netmaker v0.26.0
 
 ## Whats New ✨
 - Advanced User Management with Network Roles and Groups
