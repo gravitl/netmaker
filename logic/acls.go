@@ -487,6 +487,11 @@ func IsNodeAllowedToCommunicate(node, peer models.Node) bool {
 		// fmt.Printf("\n======> DSTMAP: %+v\n", dstMap)
 		// fmt.Printf("\n======> node Tags: %+v\n", node.Tags)
 		// fmt.Printf("\n======> peer Tags: %+v\n", peer.Tags)
+		if _, ok := srcMap["*"]; ok {
+			if _, ok := dstMap["*"]; ok {
+				return true
+			}
+		}
 		for tagID := range node.Tags {
 			if _, ok := dstMap[tagID.String()]; ok {
 				if _, ok := srcMap["*"]; ok {
