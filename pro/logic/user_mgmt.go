@@ -560,7 +560,7 @@ func GetUserRAGNodesV1(user models.User) (gws map[string]models.Node) {
 	if err != nil {
 		return
 	}
-	if user.IsAdmin || user.IsSuperAdmin {
+	if user.PlatformRoleID == models.AdminRole || user.PlatformRoleID == models.SuperAdminRole {
 		for _, node := range nodes {
 			if node.IsIngressGateway {
 				gws[node.ID.String()] = node
