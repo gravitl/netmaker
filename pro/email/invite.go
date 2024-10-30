@@ -2,65 +2,60 @@ package email
 
 import (
 	"fmt"
+	"github.com/gravitl/netmaker/models"
+	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
 // UserInvitedMail - mail for users that are invited to a tenant
 type UserInvitedMail struct {
-	BodyBuilder EmailBodyBuilder
-	InviteURL   string
+	BodyBuilder    EmailBodyBuilder
+	InviteURL      string
+	PlatformRoleID string
 }
 
 // GetSubject - gets the subject of the email
 func (UserInvitedMail) GetSubject(info Notification) string {
-	return "You're invited to join Netmaker"
+	return "Connect to Your Secure Network Using Netmaker"
 }
 
 // GetBody - gets the body of the email
 func (invite UserInvitedMail) GetBody(info Notification) string {
+	downloadLink := "https://www.netmaker.io/download"
+	supportEmail := "support@netmaker.io"
+
+	dashboardURL := fmt.Sprintf("https://dashboard.%s", servercfg.GetNmBaseDomain())
 	if servercfg.DeployedByOperator() {
-		return invite.BodyBuilder.
-			WithParagraph("Hi there,").
-			WithParagraph("<br>").
-			WithParagraph("Great news! Your colleague has invited you to join their Netmaker SaaS Tenant.").
-			WithParagraph("Click the button to accept your invitation:").
-			WithParagraph("<br>").
-			WithParagraph(fmt.Sprintf("<a class=\"x-button\" href=\"%s\">Accept Invitation</a>", invite.InviteURL)).
-			WithParagraph("<br>").
-			WithParagraph("Why you'll love Netmaker:").
-			WithParagraph("<ul>").
-			WithParagraph("<li>Blazing-fast connections with our WireGuard®-powered mesh VPN</li>").
-			WithParagraph("<li>Seamless multi-cloud and hybrid-cloud networking</li>").
-			WithParagraph("<li>Automated Kubernetes networking across any infrastructure</li>").
-			WithParagraph("<li>Enterprise-grade security with simple management</li>").
-			WithParagraph("</ul>").
-			WithParagraph("Got questions? Our team is here to help you every step of the way.").
-			WithParagraph("<br>").
-			WithParagraph("Welcome aboard,").
-			WithParagraph("<h2>The Netmaker Team</h2>").
-			WithParagraph("P.S. Curious to learn more before accepting? Check out our quick start tutorial at <a href=\"https://netmaker.io/tutorials\">netmaker.io/tutorials</a>").
-			Build()
+		dashboardURL = fmt.Sprintf("%s/dashboard?tenant_id=%s", proLogic.GetAccountsUIHost(), servercfg.GetNetmakerTenantID())
 	}
 
-	return invite.BodyBuilder.
-		WithParagraph("Hi there,").
-		WithParagraph("<br>").
-		WithParagraph("Great news! Your colleague has invited you to join their Netmaker network.").
-		WithParagraph("Click the button to accept your invitation:").
-		WithParagraph("<br>").
-		WithParagraph(fmt.Sprintf("<a class=\"x-button\" href=\"%s\">Accept Invitation</a>", invite.InviteURL)).
-		WithParagraph("<br>").
-		WithParagraph("Why you'll love Netmaker:").
-		WithParagraph("<ul>").
-		WithParagraph("<li>Blazing-fast connections with our WireGuard®-powered mesh VPN</li>").
-		WithParagraph("<li>Seamless multi-cloud and hybrid-cloud networking</li>").
-		WithParagraph("<li>Automated Kubernetes networking across any infrastructure</li>").
-		WithParagraph("<li>Enterprise-grade security with simple management</li>").
-		WithParagraph("</ul>").
-		WithParagraph("Got questions? Our team is here to help you every step of the way.").
-		WithParagraph("<br>").
-		WithParagraph("Welcome aboard,").
-		WithParagraph("<h2>The Netmaker Team</h2>").
-		WithParagraph("P.S. Curious to learn more before accepting? Check out our quick start tutorial at <a href=\"https://netmaker.io/tutorials\">netmaker.io/tutorials</a>").
+	content := invite.BodyBuilder.
+		WithParagraph("Hi,").
+		WithParagraph("You've been invited to access a secure network via Netmaker's Remote Access Client (RAC). Follow these simple steps to get connected:").
+		WithHtml("<ol>").
+		WithHtml(fmt.Sprintf("<li>Click <a href=\"%s\">here</a> to accept your invitation and setup your account.</li>", invite.InviteURL)).
+		WithHtml("<br>").
+		WithHtml(fmt.Sprintf("<li><a href=\"%s\">Download the Remote Access Client (RAC)</a>.</li>", downloadLink))
+
+	if invite.PlatformRoleID == models.AdminRole.String() || invite.PlatformRoleID == models.PlatformUser.String() {
+		content = content.
+			WithHtml("<br>").
+			WithHtml(fmt.Sprintf("<li>Access the <a href=\"%s\">Netmaker Dashboard</a> - use it to manage your network settings and view network status.</li>", dashboardURL))
+	}
+
+	connectionID := servercfg.GetNetmakerTenantID()
+	if !servercfg.DeployedByOperator() {
+		connectionID = fmt.Sprintf("api.%s", servercfg.GetNmBaseDomain())
+	}
+
+	return content.
+		WithHtml("</ol>").
+		WithParagraph("Important Information:").
+		WithHtml("<ul>").
+		WithHtml(fmt.Sprintf("<li>When connecting through RAC, please enter your server connection ID: %s.</li>", connectionID)).
+		WithHtml("</ul>").
+		WithParagraph(fmt.Sprintf("If you have any questions or need assistance, please contact our support team at <a href=\"mailto:%s\">%s</a>.", supportEmail, supportEmail)).
+		WithParagraph("Best Regards,").
+		WithParagraph("The Netmaker Team").
 		Build()
 }

@@ -180,8 +180,9 @@ type UserAuthParams struct {
 
 // UserClaims - user claims struct
 type UserClaims struct {
-	Role     UserRoleID
-	UserName string
+	Role           UserRoleID
+	UserName       string
+	RacAutoDisable bool
 	jwt.RegisteredClaims
 }
 

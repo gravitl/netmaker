@@ -250,8 +250,9 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			// Set E-Mail body. You can set plain text or html with text/html
 
 			e := email.UserInvitedMail{
-				BodyBuilder: &email.EmailBodyBuilderWithH1HeadlineAndImage{},
-				InviteURL:   invite.InviteURL,
+				BodyBuilder:    &email.EmailBodyBuilderWithH1HeadlineAndImage{},
+				InviteURL:      invite.InviteURL,
+				PlatformRoleID: invite.PlatformRoleID,
 			}
 			n := email.Notification{
 				RecipientMail: invite.Email,

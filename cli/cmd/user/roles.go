@@ -58,7 +58,7 @@ var userRoleCreateCmd = &cobra.Command{
 	Short: "create user role",
 	Long:  `create user role`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("CLI doesn't support creation of roles currently. Visit the dashboard to create one or refer to our api documentation https://docs.v2.netmaker.io/reference")
+		fmt.Println("CLI doesn't support creation of roles currently. Visit the dashboard to create one or refer to our api documentation https://docs.netmaker.io/api")
 	},
 }
 
