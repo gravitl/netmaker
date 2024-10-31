@@ -54,6 +54,10 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 					ID:    models.UserAclID,
 					Value: "*",
 				},
+				{
+					ID:    models.UserGroupAclID,
+					Value: "*",
+				},
 			},
 			Dst: []models.AclPolicyTag{{
 				ID:    models.DeviceAclID,
@@ -281,27 +285,6 @@ func GetDefaultPolicy(netID models.NetworkID, ruleType models.AclPolicyType) (mo
 	if err != nil {
 		return models.Acl{}, errors.New("default rule not found")
 	}
-	if acl.Enabled {
-		return acl, nil
-	}
-	// check if there are any custom all policies
-	policies, _ := ListAcls(netID)
-	for _, policy := range policies {
-		if !policy.Enabled {
-			continue
-		}
-		if policy.RuleType == ruleType {
-			dstMap := convAclTagToValueMap(policy.Dst)
-			srcMap := convAclTagToValueMap(policy.Dst)
-			if _, ok := srcMap["*"]; ok {
-				if _, ok := dstMap["*"]; ok {
-					return policy, nil
-				}
-			}
-		}
-
-	}
-
 	return acl, nil
 }
 
@@ -484,6 +467,11 @@ func IsNodeAllowedToCommunicate(node, peer models.Node) bool {
 		// fmt.Printf("\n======> DSTMAP: %+v\n", dstMap)
 		// fmt.Printf("\n======> node Tags: %+v\n", node.Tags)
 		// fmt.Printf("\n======> peer Tags: %+v\n", peer.Tags)
+		if _, ok := srcMap["*"]; ok {
+			if _, ok := dstMap["*"]; ok {
+				return true
+			}
+		}
 		for tagID := range node.Tags {
 			if _, ok := dstMap[tagID.String()]; ok {
 				if _, ok := srcMap["*"]; ok {
