@@ -398,7 +398,6 @@ func syncUsers() {
 	if err == nil {
 		for _, user := range users {
 			user := user
-			logic.AddGlobalNetRolesToAdmins(user)
 			if user.PlatformRoleID == models.AdminRole && !user.IsAdmin {
 				user.IsAdmin = true
 				logic.UpsertUser(user)
@@ -409,6 +408,7 @@ func syncUsers() {
 			}
 			if user.PlatformRoleID.String() != "" {
 				logic.MigrateUserRoleAndGroups(user)
+				logic.AddGlobalNetRolesToAdmins(user)
 				continue
 			}
 			user.AuthType = models.BasicAuth
@@ -430,6 +430,7 @@ func syncUsers() {
 				user.PlatformRoleID = models.ServiceUser
 			}
 			logic.UpsertUser(user)
+			logic.AddGlobalNetRolesToAdmins(user)
 			logic.MigrateUserRoleAndGroups(user)
 		}
 	}
