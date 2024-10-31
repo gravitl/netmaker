@@ -28,7 +28,6 @@ func MigrateUserRoleAndGroups(user models.User) {
 				continue
 			}
 			user.UserGroups[g.ID] = struct{}{}
-
 		}
 	}
 	if len(user.NetworkRoles) > 0 {
@@ -44,9 +43,7 @@ func MigrateUserRoleAndGroups(user models.User) {
 				continue
 			}
 			user.UserGroups[g.ID] = struct{}{}
-			if err != nil {
-				continue
-			}
+			user.NetworkRoles = make(map[models.NetworkID]map[models.UserRoleID]struct{})
 		}
 
 	}

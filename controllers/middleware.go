@@ -60,6 +60,9 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if strings.Contains(route, "acls") {
 			r.Header.Set("TARGET_RSRC", models.AclRsrc.String())
 		}
+		if strings.Contains(route, "tags") {
+			r.Header.Set("TARGET_RSRC", models.TagRsrc.String())
+		}
 		if strings.Contains(route, "extclients") {
 			r.Header.Set("TARGET_RSRC", models.ExtClientsRsrc.String())
 		}

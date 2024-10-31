@@ -186,7 +186,7 @@ func CreateUser(user *models.User) error {
 		logger.Log(0, "failed to insert user", err.Error())
 		return err
 	}
-
+	AddGlobalNetRolesToAdmins(*user)
 	return nil
 }
 

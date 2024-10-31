@@ -62,6 +62,7 @@ const (
 	EnrollmentKeysRsrc RsrcType = "enrollment_key"
 	UserRsrc           RsrcType = "users"
 	AclRsrc            RsrcType = "acl"
+	TagRsrc            RsrcType = "tag"
 	DnsRsrc            RsrcType = "dns"
 	FailOverRsrc       RsrcType = "fail_over"
 	MetricRsrc         RsrcType = "metrics"
