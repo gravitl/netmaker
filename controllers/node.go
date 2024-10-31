@@ -590,6 +590,7 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 		if err := mq.NodeUpdate(&node); err != nil {
 			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 		}
+		mq.PublishPeerUpdate(false)
 	}()
 }
 
@@ -634,6 +635,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 				if err := mq.PublishSingleHostPeerUpdate(host, allNodes, nil, removedClients[:], false, nil); err != nil {
 					slog.Error("publishSingleHostUpdate", "host", host.Name, "error", err)
 				}
+				mq.PublishPeerUpdate(false)
 				if err := mq.NodeUpdate(&node); err != nil {
 					slog.Error(
 						"error publishing node update to node",
@@ -749,6 +751,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 				logger.Log(0, "error during node ACL update for node", newNode.ID.String())
 			}
 		}
+		mq.PublishPeerUpdate(false)
 		if servercfg.IsDNSMode() {
 			logic.SetDNS()
 		}

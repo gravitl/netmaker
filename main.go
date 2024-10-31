@@ -103,6 +103,7 @@ func initialize() { // Client Mode Prereq Check
 
 	logic.SetJWTSecret()
 	logic.InitialiseRoles()
+	logic.IntialiseGroups()
 	err = serverctl.SetDefaults()
 	if err != nil {
 		logger.FatalLog("error setting defaults: ", err.Error())

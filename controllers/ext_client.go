@@ -468,13 +468,14 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	extclient.OwnerID = userName
 	extclient.RemoteAccessClientID = customExtClient.RemoteAccessClientID
 	extclient.IngressGatewayID = nodeid
-
+	extclient.Network = node.Network
+	extclient.Tags = make(map[models.TagID]struct{})
+	extclient.Tags[models.TagID(fmt.Sprintf("%s.%s", extclient.Network,
+		models.RemoteAccessTagName))] = struct{}{}
 	// set extclient dns to ingressdns if extclient dns is not explicitly set
 	if (extclient.DNS == "") && (node.IngressDNS != "") {
 		extclient.DNS = node.IngressDNS
 	}
-
-	extclient.Network = node.Network
 	host, err := logic.GetHost(node.HostID.String())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),

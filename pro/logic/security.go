@@ -82,8 +82,17 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 		}
 	}
 	for groupID := range user.UserGroups {
+
 		userG, err := GetUserGroup(groupID)
 		if err == nil {
+			if netRoles, ok := userG.NetworkRoles[models.AllNetworks]; ok {
+				for netRoleID := range netRoles {
+					err = checkNetworkAccessPermissions(netRoleID, username, r.Method, targetRsrc, targetRsrcID, netID)
+					if err == nil {
+						return nil
+					}
+				}
+			}
 			netRoles := userG.NetworkRoles[models.NetworkID(netID)]
 			for netRoleID := range netRoles {
 				err = checkNetworkAccessPermissions(netRoleID, username, r.Method, targetRsrc, targetRsrcID, netID)

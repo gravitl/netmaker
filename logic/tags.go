@@ -46,7 +46,7 @@ func InsertTag(tag models.Tag) error {
 }
 
 // DeleteTag - delete tag, will also untag hosts
-func DeleteTag(tagID models.TagID) error {
+func DeleteTag(tagID models.TagID, removeFromPolicy bool) error {
 	tagMutex.Lock()
 	defer tagMutex.Unlock()
 	// cleanUp tags on hosts
@@ -65,7 +65,10 @@ func DeleteTag(tagID models.TagID) error {
 			UpsertNode(&nodeI)
 		}
 	}
-
+	if removeFromPolicy {
+		// remove tag used on acl policy
+		go RemoveDeviceTagFromAclPolicies(tagID, tag.Network)
+	}
 	extclients, _ := GetNetworkExtClients(tag.Network.String())
 	for _, extclient := range extclients {
 		if _, ok := extclient.Tags[tagID]; ok {
@@ -82,7 +85,7 @@ func ListTagsWithNodes(netID models.NetworkID) ([]models.TagListResp, error) {
 	if err != nil {
 		return []models.TagListResp{}, err
 	}
-	tagsNodeMap := GetTagMapWithNodes(netID)
+	tagsNodeMap := GetTagMapWithNodesByNetwork(netID)
 	resp := []models.TagListResp{}
 	for _, tagI := range tags {
 		tagRespI := models.TagListResp{

@@ -287,19 +287,7 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 	currHost.IsStaticPort = newHost.IsStaticPort
 	currHost.IsStatic = newHost.IsStatic
 	currHost.MTU = newHost.MTU
-	if newHost.Name != currHost.Name {
-		// update any rag role ids
-		for _, nodeID := range newHost.Nodes {
-			node, err := GetNodeByID(nodeID)
-			if err == nil && node.IsIngressGateway {
-				role, err := GetRole(models.GetRAGRoleID(node.Network, currHost.ID.String()))
-				if err == nil {
-					role.UiName = models.GetRAGRoleName(node.Network, newHost.Name)
-					UpdateRole(role)
-				}
-			}
-		}
-	}
+
 	currHost.Name = newHost.Name
 	if len(newHost.NatType) > 0 && newHost.NatType != currHost.NatType {
 		currHost.NatType = newHost.NatType

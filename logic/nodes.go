@@ -196,10 +196,6 @@ func DeleteNode(node *models.Node, purge bool) error {
 		if err := DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
 			slog.Error("failed to delete ext clients", "nodeid", node.ID.String(), "error", err.Error())
 		}
-		host, err := GetHost(node.HostID.String())
-		if err == nil {
-			go DeleteRole(models.GetRAGRoleID(node.Network, host.ID.String()), true)
-		}
 	}
 	if node.IsRelayed {
 		// cleanup node from relayednodes on relay node
@@ -385,7 +381,7 @@ func AddStaticNodestoList(nodes []models.Node) []models.Node {
 			continue
 		}
 		if node.IsIngressGateway {
-			nodes = append(nodes, GetStaticNodesByNetwork(models.NetworkID(node.Network))...)
+			nodes = append(nodes, GetStaticNodesByNetwork(models.NetworkID(node.Network), false)...)
 			netMap[node.Network] = struct{}{}
 		}
 	}
@@ -716,7 +712,21 @@ func GetAllFailOvers() ([]models.Node, error) {
 	return igs, nil
 }
 
-func GetTagMapWithNodes(netID models.NetworkID) (tagNodesMap map[models.TagID][]models.Node) {
+func GetTagMapWithNodes() (tagNodesMap map[models.TagID][]models.Node) {
+	tagNodesMap = make(map[models.TagID][]models.Node)
+	nodes, _ := GetAllNodes()
+	for _, nodeI := range nodes {
+		if nodeI.Tags == nil {
+			continue
+		}
+		for nodeTagID := range nodeI.Tags {
+			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
+		}
+	}
+	return
+}
+
+func GetTagMapWithNodesByNetwork(netID models.NetworkID) (tagNodesMap map[models.TagID][]models.Node) {
 	tagNodesMap = make(map[models.TagID][]models.Node)
 	nodes, _ := GetNetworkNodes(netID.String())
 	for _, nodeI := range nodes {

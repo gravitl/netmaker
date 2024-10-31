@@ -22,7 +22,7 @@ import (
 func Run() {
 	updateEnrollmentKeys()
 	assignSuperAdmin()
-	createDefaultTags()
+	createDefaultTagsAndPolicies()
 	removeOldUserGrps()
 	syncUsers()
 	updateHosts()
@@ -149,6 +149,7 @@ func updateEnrollmentKeys() {
 			[]models.TagID{},
 			true,
 			uuid.Nil,
+			true,
 		)
 
 	}
@@ -207,7 +208,10 @@ func updateNodes() {
 				node.Tags[tagID] = struct{}{}
 				logic.UpsertNode(&node)
 			}
-
+			host, err := logic.GetHost(node.HostID.String())
+			if err == nil {
+				go logic.DeleteRole(models.GetRAGRoleID(node.Network, host.ID.String()), true)
+			}
 		}
 		if node.IsEgressGateway {
 			egressRanges, update := removeInterGw(node.EgressGatewayRanges)
@@ -385,42 +389,8 @@ func syncUsers() {
 	// create default network user roles for existing networks
 	if servercfg.IsPro {
 		networks, _ := logic.GetNetworks()
-		nodes, err := logic.GetAllNodes()
-		if err == nil {
-			for _, netI := range networks {
-				logic.CreateDefaultNetworkRolesAndGroups(models.NetworkID(netI.NetID))
-				networkNodes := logic.GetNetworkNodesMemory(nodes, netI.NetID)
-				for _, networkNodeI := range networkNodes {
-					if networkNodeI.IsIngressGateway {
-						h, err := logic.GetHost(networkNodeI.HostID.String())
-						if err == nil {
-							logic.CreateRole(models.UserRolePermissionTemplate{
-								ID:        models.GetRAGRoleID(networkNodeI.Network, h.ID.String()),
-								UiName:    models.GetRAGRoleName(networkNodeI.Network, h.Name),
-								NetworkID: models.NetworkID(netI.NetID),
-								NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
-									models.RemoteAccessGwRsrc: {
-										models.RsrcID(networkNodeI.ID.String()): models.RsrcPermissionScope{
-											Read:      true,
-											VPNaccess: true,
-										},
-									},
-									models.ExtClientsRsrc: {
-										models.AllExtClientsRsrcID: models.RsrcPermissionScope{
-											Read:     true,
-											Create:   true,
-											Update:   true,
-											Delete:   true,
-											SelfOnly: true,
-										},
-									},
-								},
-							})
-						}
-
-					}
-				}
-			}
+		for _, netI := range networks {
+			logic.CreateDefaultNetworkRolesAndGroups(models.NetworkID(netI.NetID))
 		}
 	}
 
@@ -437,6 +407,8 @@ func syncUsers() {
 				logic.UpsertUser(user)
 			}
 			if user.PlatformRoleID.String() != "" {
+				logic.MigrateUserRoleAndGroups(user)
+				logic.AddGlobalNetRolesToAdmins(user)
 				continue
 			}
 			user.AuthType = models.BasicAuth
@@ -458,42 +430,20 @@ func syncUsers() {
 				user.PlatformRoleID = models.ServiceUser
 			}
 			logic.UpsertUser(user)
-			if len(user.RemoteGwIDs) > 0 {
-				// define user roles for network
-				// assign relevant network role to user
-				for remoteGwID := range user.RemoteGwIDs {
-					gwNode, err := logic.GetNodeByID(remoteGwID)
-					if err != nil {
-						continue
-					}
-					h, err := logic.GetHost(gwNode.HostID.String())
-					if err != nil {
-						continue
-					}
-					r, err := logic.GetRole(models.GetRAGRoleID(gwNode.Network, h.ID.String()))
-					if err != nil {
-						continue
-					}
-					if netRoles, ok := user.NetworkRoles[models.NetworkID(gwNode.Network)]; ok {
-						netRoles[r.ID] = struct{}{}
-					} else {
-						user.NetworkRoles[models.NetworkID(gwNode.Network)] = map[models.UserRoleID]struct{}{
-							r.ID: {},
-						}
-					}
-				}
-				logic.UpsertUser(user)
-			}
+			logic.AddGlobalNetRolesToAdmins(user)
+			logic.MigrateUserRoleAndGroups(user)
 		}
 	}
+
 }
 
-func createDefaultTags() {
+func createDefaultTagsAndPolicies() {
 	networks, err := logic.GetNetworks()
 	if err != nil {
 		return
 	}
 	for _, network := range networks {
 		logic.CreateDefaultTags(models.NetworkID(network.NetID))
+		logic.CreateDefaultAclNetworkPolicies(models.NetworkID(network.NetID))
 	}
 }

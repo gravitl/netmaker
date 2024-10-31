@@ -177,6 +177,17 @@ func DeleteNetwork(network string) error {
 	if err != nil {
 		logger.Log(1, "failed to remove the node acls during network delete for network,", network)
 	}
+	// Delete default network enrollment key
+	keys, _ := GetAllEnrollmentKeys()
+	for _, key := range keys {
+		if key.Tags[0] == network {
+			if key.Default {
+				DeleteEnrollmentKey(key.Value, true)
+				break
+			}
+
+		}
+	}
 	nodeCount, err := GetNetworkNonServerNodeCount(network)
 	if nodeCount == 0 || database.IsEmptyRecord(err) {
 		// delete server nodes first then db records
@@ -243,6 +254,7 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 		[]models.TagID{},
 		true,
 		uuid.Nil,
+		true,
 	)
 
 	return network, nil

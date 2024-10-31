@@ -131,9 +131,15 @@ func InitPro() {
 	logic.CreateDefaultNetworkRolesAndGroups = proLogic.CreateDefaultNetworkRolesAndGroups
 	logic.FilterNetworksByRole = proLogic.FilterNetworksByRole
 	logic.IsGroupsValid = proLogic.IsGroupsValid
+	logic.IsGroupValid = proLogic.IsGroupValid
 	logic.IsNetworkRolesValid = proLogic.IsNetworkRolesValid
 	logic.InitialiseRoles = proLogic.UserRolesInit
 	logic.UpdateUserGwAccess = proLogic.UpdateUserGwAccess
+	logic.CreateDefaultUserPolicies = proLogic.CreateDefaultUserPolicies
+	logic.MigrateUserRoleAndGroups = proLogic.MigrateUserRoleAndGroups
+	logic.IntialiseGroups = proLogic.UserGroupsInit
+	logic.AddGlobalNetRolesToAdmins = proLogic.AddGlobalNetRolesToAdmins
+	logic.GetUserGroupsInNetwork = proLogic.GetUserGroupsInNetwork
 }
 
 func retrieveProLogo() string {
