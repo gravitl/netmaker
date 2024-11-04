@@ -640,12 +640,17 @@ func GetUserNetworkRolesWithRemoteVPNAccess(user models.User) (gwAccess map[mode
 	}
 	if _, ok := user.NetworkRoles[models.AllNetworks]; ok {
 		gwAccess[models.NetworkID("*")] = make(map[models.RsrcID]models.RsrcPermissionScope)
+		return
 	}
 	if len(user.UserGroups) > 0 {
 		for gID := range user.UserGroups {
 			userG, err := GetUserGroup(gID)
 			if err != nil {
 				continue
+			}
+			if _, ok := userG.NetworkRoles[models.AllNetworks]; ok {
+				gwAccess[models.NetworkID("*")] = make(map[models.RsrcID]models.RsrcPermissionScope)
+				return
 			}
 			for netID, roleMap := range userG.NetworkRoles {
 				for roleID := range roleMap {

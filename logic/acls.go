@@ -292,7 +292,7 @@ func GetDefaultPolicy(netID models.NetworkID, ruleType models.AclPolicyType) (mo
 		}
 		if policy.RuleType == ruleType {
 			dstMap := convAclTagToValueMap(policy.Dst)
-			srcMap := convAclTagToValueMap(policy.Dst)
+			srcMap := convAclTagToValueMap(policy.Src)
 			if _, ok := srcMap["*"]; ok {
 				if _, ok := dstMap["*"]; ok {
 					return policy, nil
