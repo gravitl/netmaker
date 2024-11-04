@@ -3,6 +3,7 @@ package nodeacls
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"sync"
 
 	"github.com/gravitl/netmaker/logic/acls"
@@ -67,5 +68,5 @@ func FetchAllACLs(networkID NetworkID) (acls.ACLContainer, error) {
 	if err != nil {
 		return nil, err
 	}
-	return currentNetworkACL, nil
+	return maps.Clone(currentNetworkACL), nil
 }
