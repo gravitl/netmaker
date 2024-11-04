@@ -268,7 +268,6 @@ type ServerConfig struct {
 	MetricInterval string `yaml:"metric_interval"`
 	ManageDNS      bool   `yaml:"manage_dns"`
 	DefaultDomain  string `yaml:"default_domain"`
-	StunStatus     bool   `yaml:"stun_status"`
 }
 
 // User.NameInCharset - returns if name is in charset below or not
