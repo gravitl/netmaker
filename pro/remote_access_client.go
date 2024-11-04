@@ -43,6 +43,10 @@ func racAutoDisableHook() error {
 	currentTime := time.Now()
 	validityDuration := servercfg.GetJwtValidityDuration()
 	for _, user := range users {
+		if user.PlatformRoleID == models.AdminRole ||
+			user.PlatformRoleID == models.SuperAdminRole {
+			continue
+		}
 		if !currentTime.After(user.LastLoginTime.Add(validityDuration)) {
 			continue
 		}
@@ -51,8 +55,6 @@ func racAutoDisableHook() error {
 				continue
 			}
 			if (client.OwnerID == user.UserName) &&
-				user.PlatformRoleID != models.SuperAdminRole &&
-				user.PlatformRoleID != models.AdminRole &&
 				client.Enabled {
 				slog.Info(fmt.Sprintf("disabling ext client %s for user %s due to RAC autodisabling", client.ClientID, client.OwnerID))
 				if err := disableExtClient(&client); err != nil {
