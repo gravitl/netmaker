@@ -47,6 +47,9 @@ func racAutoDisableHook() error {
 			continue
 		}
 		for _, client := range clients {
+			if client.RemoteAccessClientID == "" {
+				continue
+			}
 			if (client.OwnerID == user.UserName) &&
 				user.PlatformRoleID != models.SuperAdminRole &&
 				user.PlatformRoleID != models.AdminRole &&
