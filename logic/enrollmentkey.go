@@ -52,6 +52,7 @@ func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string
 		Type:          models.Undefined,
 		Relay:         relay,
 		Groups:        groups,
+		Default:       defaultKey,
 	}
 	if uses > 0 {
 		k.UsesRemaining = uses
