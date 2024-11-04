@@ -423,9 +423,8 @@ func SetNodeDefaults(node *models.Node, resetConnected bool) {
 	}
 
 	node.SetLastModified()
-	if node.LastCheckIn.IsZero() {
-		node.SetLastCheckIn()
-	}
+	node.SetLastCheckIn()
+
 	if resetConnected {
 		node.SetDefaultConnected()
 	}
