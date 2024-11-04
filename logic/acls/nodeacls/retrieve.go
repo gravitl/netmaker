@@ -21,9 +21,8 @@ func AreNodesAllowed(networkID NetworkID, node1, node2 NodeID) bool {
 	}
 	var allowed bool
 	acls.AclMutex.Lock()
-	currNetAclCopy := maps.Clone(currentNetworkACL)
-	currNetworkACLNode1 := currNetAclCopy[acls.AclID(node1)]
-	currNetworkACLNode2 := currNetAclCopy[acls.AclID(node2)]
+	currNetworkACLNode1 := currentNetworkACL[acls.AclID(node1)]
+	currNetworkACLNode2 := currentNetworkACL[acls.AclID(node2)]
 	acls.AclMutex.Unlock()
 	allowed = currNetworkACLNode1.IsAllowed(acls.AclID(node2)) && currNetworkACLNode2.IsAllowed(acls.AclID(node1))
 	return allowed
@@ -69,5 +68,5 @@ func FetchAllACLs(networkID NetworkID) (acls.ACLContainer, error) {
 	if err != nil {
 		return nil, err
 	}
-	return currentNetworkACL, nil
+	return maps.Clone(currentNetworkACL), nil
 }
