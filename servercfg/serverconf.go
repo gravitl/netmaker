@@ -95,6 +95,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.MetricInterval = GetMetricInterval()
 	cfg.ManageDNS = GetManageDNS()
 	cfg.DefaultDomain = GetDefaultDomain()
+	cfg.StunStatus = GetSTUNStatus()
 	return cfg
 }
 
@@ -141,6 +142,7 @@ func GetServerInfo() models.ServerConfig {
 	cfg.MetricInterval = GetMetricInterval()
 	cfg.ManageDNS = GetManageDNS()
 	cfg.DefaultDomain = GetDefaultDomain()
+	cfg.StunStatus = GetSTUNStatus()
 	return cfg
 }
 
@@ -844,6 +846,14 @@ func GetAllowedEmailDomains() string {
 		allowedDomains = config.Config.Server.AllowedEmailDomains
 	}
 	return allowedDomains
+}
+
+func GetSTUNStatus() bool {
+	s := true
+	if os.Getenv("STUN_STATUS") != "" {
+		s = os.Getenv("STUN_STATUS") == "true"
+	}
+	return s
 }
 
 // GetNmBaseDomain - fetches nm base domain
