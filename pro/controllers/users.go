@@ -451,6 +451,10 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if currUserG.Default {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update default user group"), "badrequest"))
+		return
+	}
 	err = proLogic.ValidateUpdateGroupReq(userGroup)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -461,6 +465,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+
 	// reset configs for service user
 	go proLogic.UpdatesUserGwAccessOnGrpUpdates(currUserG.NetworkRoles, userGroup.NetworkRoles)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")
