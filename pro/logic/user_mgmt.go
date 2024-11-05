@@ -31,7 +31,7 @@ var PlatformUserUserPermissionTemplate = models.UserRolePermissionTemplate{
 var NetworkAdminAllPermissionTemplate = models.UserRolePermissionTemplate{
 	ID:         models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkAdmin)),
 	Name:       "Network Admins",
-	MetaData:   "Can manage all your networks configuration including adding and removing devices.",
+	MetaData:   "can manage configuration of all networks",
 	Default:    true,
 	FullAccess: true,
 	NetworkID:  models.AllNetworks,
@@ -40,7 +40,7 @@ var NetworkAdminAllPermissionTemplate = models.UserRolePermissionTemplate{
 var NetworkUserAllPermissionTemplate = models.UserRolePermissionTemplate{
 	ID:         models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkUser)),
 	Name:       "Network Users",
-	MetaData:   "Cannot access the admin console, but can connect to nodes in your networks via Remote Access Client.",
+	MetaData:   "cannot access the admin console, but can connect to nodes in your networks via Remote Access Client.",
 	Default:    true,
 	FullAccess: false,
 	NetworkID:  models.AllNetworks,
@@ -85,7 +85,7 @@ func UserGroupsInit() {
 		ID:       models.UserGroupID(fmt.Sprintf("global-%s-grp", models.NetworkAdmin)),
 		Default:  true,
 		Name:     "All Networks Admin Group",
-		MetaData: "Can manage all your networks configuration.",
+		MetaData: "can manage configuration of all networks",
 		NetworkRoles: map[models.NetworkID]map[models.UserRoleID]struct{}{
 			models.AllNetworks: {
 				models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkAdmin)): {},
@@ -101,7 +101,7 @@ func UserGroupsInit() {
 				models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkUser)): {},
 			},
 		},
-		MetaData: "Cannot access the admin console, but can connect to nodes in your networks via Remote Access Client.",
+		MetaData: "cannot access the admin console, but can connect to nodes in your networks via Remote Access Client.",
 	}
 	d, _ := json.Marshal(NetworkGlobalAdminGroup)
 	database.Insert(NetworkGlobalAdminGroup.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
@@ -116,7 +116,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 	var NetworkAdminPermissionTemplate = models.UserRolePermissionTemplate{
 		ID:                 models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkAdmin)),
 		Name:               fmt.Sprintf("%s Admin", netID),
-		MetaData:           fmt.Sprintf("Can manage your network `%s` configuration.", netID),
+		MetaData:           fmt.Sprintf("can manage your network `%s` configuration.", netID),
 		Default:            true,
 		NetworkID:          netID,
 		FullAccess:         true,
@@ -126,7 +126,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 	var NetworkUserPermissionTemplate = models.UserRolePermissionTemplate{
 		ID:                  models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkUser)),
 		Name:                fmt.Sprintf("%s User", netID),
-		MetaData:            fmt.Sprintf("Cannot access the admin console, but can connect to nodes in your network `%s` via Remote Access Client.", netID),
+		MetaData:            fmt.Sprintf("cannot access the admin console, but can connect to nodes in your network `%s` via Remote Access Client.", netID),
 		Default:             true,
 		FullAccess:          false,
 		NetworkID:           netID,
@@ -163,7 +163,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 				models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkAdmin)): {},
 			},
 		},
-		MetaData: fmt.Sprintf("Can manage your network `%s` configuration including adding and removing devices.", netID),
+		MetaData: fmt.Sprintf("can manage your network `%s` configuration including adding and removing devices.", netID),
 	}
 	var NetworkUserGroup = models.UserGroup{
 		ID:   models.UserGroupID(fmt.Sprintf("%s-%s-grp", netID, models.NetworkUser)),
@@ -173,7 +173,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 				models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkUser)): {},
 			},
 		},
-		MetaData: fmt.Sprintf("Cannot access the admin console, but can connect to nodes in your network `%s` via Remote Access Client.", netID),
+		MetaData: fmt.Sprintf("cannot access the admin console, but can connect to nodes in your network `%s` via Remote Access Client.", netID),
 	}
 	d, _ = json.Marshal(NetworkAdminGroup)
 	database.Insert(NetworkAdminGroup.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
@@ -445,7 +445,6 @@ func ValidateCreateGroupReq(g models.UserGroup) error {
 	return nil
 }
 func ValidateUpdateGroupReq(g models.UserGroup) error {
-
 	for networkID := range g.NetworkRoles {
 		userRolesMap := g.NetworkRoles[networkID]
 		for roleID := range userRolesMap {
