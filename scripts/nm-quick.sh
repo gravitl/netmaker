@@ -593,52 +593,11 @@ set_install_vars() {
 		done
 	fi
 	wait_seconds 1
-	unset GET_MQ_USERNAME
-	unset GET_MQ_PASSWORD
-	unset CONFIRM_MQ_PASSWORD
-	echo "Enter Credentials For MQ..."
-	
-	read -p "MQ Username (click 'enter' to use 'netmaker'): " GET_MQ_USERNAME
-	if [ -z "$GET_MQ_USERNAME" ]; then
-		echo "using default username for mq"
-		MQ_USERNAME="netmaker"
-	else
-		MQ_USERNAME="$GET_MQ_USERNAME"
-	fi
-
-	if test -z "$MQ_PASSWORD"; then
-		MQ_PASSWORD=$(
+	MQ_USERNAME="netmaker"
+	MQ_PASSWORD=$(
 			tr -dc A-Za-z0-9 </dev/urandom | head -c 30
 			echo ''
 		)
-	fi
-
-
-	select domain_option in "Auto Generated / Config Password" "Input Your Own Password"; do
-		case $REPLY in
-		1)
-			echo "using random password for mq"
-			break
-			;;
-		2)
-			while true; do
-				echo "Enter your Password For MQ: "
-				read -s GET_MQ_PASSWORD
-				echo "Enter your password again to confirm: "
-				read -s CONFIRM_MQ_PASSWORD
-				if [ ${GET_MQ_PASSWORD} != ${CONFIRM_MQ_PASSWORD} ]; then
-					echo "wrong password entered, try again..."
-					continue
-				fi
-				MQ_PASSWORD="$GET_MQ_PASSWORD"
-				echo "MQ Password Saved Successfully!!"
-				break
-			done
-			break
-			;;
-		*) echo "invalid option $REPLY" ;;
-		esac
-	done
 	
 
 	wait_seconds 2
