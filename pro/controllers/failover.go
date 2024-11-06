@@ -203,6 +203,14 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	if peerNode.IsFailOver {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("peer is acting as failover"), "badrequest"),
+		)
+		return
+	}
 	if node.IsFailOver {
 		logic.ReturnErrorResponse(
 			w,
