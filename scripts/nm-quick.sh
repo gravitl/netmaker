@@ -921,7 +921,7 @@ main (){
 		source "$CONFIG_PATH"
 	fi
 
-	INSTALL_TYPE="pro"
+	INSTALL_TYPE="ce"
 	while getopts :cudpv flag; do
 	case "${flag}" in
 	c)
