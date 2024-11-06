@@ -2,6 +2,7 @@ package acls
 
 import (
 	"encoding/json"
+	"maps"
 	"sync"
 
 	"github.com/gravitl/netmaker/database"
@@ -133,7 +134,7 @@ func fetchACLContainer(containerID ContainerID) (ACLContainer, error) {
 	defer AclMutex.RUnlock()
 	if servercfg.CacheEnabled() {
 		if aclContainer, ok := fetchAclContainerFromCache(containerID); ok {
-			return aclContainer, nil
+			return maps.Clone(aclContainer), nil
 		}
 	}
 	aclJson, err := fetchACLContainerJson(ContainerID(containerID))
@@ -147,7 +148,7 @@ func fetchACLContainer(containerID ContainerID) (ACLContainer, error) {
 	if servercfg.CacheEnabled() {
 		storeAclContainerInCache(containerID, currentNetworkACL)
 	}
-	return currentNetworkACL, nil
+	return maps.Clone(currentNetworkACL), nil
 }
 
 // fetchACLContainerJson - fetch the current ACL of given container except in json string
