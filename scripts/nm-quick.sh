@@ -167,12 +167,12 @@ configure_netclient() {
 	nmctl host update $HOST_ID --default
 	sleep 5
 	nmctl node create_remote_access_gateway netmaker $NODE_ID
-	#setup failOver
-	sleep 5
-	curl --location --request POST "https://api.${NETMAKER_BASE_DOMAIN}/api/v1/node/${NODE_ID}/failover" --header "Authorization: Bearer ${MASTER_KEY}"
+	
 	sleep 2
 	# create network for internet access vpn
 	if [ "$INSTALL_TYPE" = "pro" ]; then
+	    #setup failOver
+		curl --location --request POST "https://api.${NETMAKER_BASE_DOMAIN}/api/v1/node/${NODE_ID}/failover" --header "Authorization: Bearer ${MASTER_KEY}"
 		INET_NODE_ID=$(sudo cat /etc/netclient/nodes.json | jq -r '."internet-access-vpn".id')
 		nmctl node create_remote_access_gateway internet-access-vpn $INET_NODE_ID
 		out=$(nmctl node list -o json | jq -r '.[] | select(.id=='\"$INET_NODE_ID\"') | .ingressdns = "8.8.8.8"')
@@ -181,7 +181,6 @@ configure_netclient() {
 		curl --location --request PUT "https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/internet-access-vpn/${INET_NODE_ID}" --data "$out" --header "Authorization: Bearer ${MASTER_KEY}"
 		curl --location --request POST "https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/internet-access-vpn/${INET_NODE_ID}/inet_gw" --data '{}' --header "Authorization: Bearer ${MASTER_KEY}"
 	fi
-	
 	set -e
 }
 
@@ -593,52 +592,11 @@ set_install_vars() {
 		done
 	fi
 	wait_seconds 1
-	unset GET_MQ_USERNAME
-	unset GET_MQ_PASSWORD
-	unset CONFIRM_MQ_PASSWORD
-	echo "Enter Credentials For MQ..."
-	
-	read -p "MQ Username (click 'enter' to use 'netmaker'): " GET_MQ_USERNAME
-	if [ -z "$GET_MQ_USERNAME" ]; then
-		echo "using default username for mq"
-		MQ_USERNAME="netmaker"
-	else
-		MQ_USERNAME="$GET_MQ_USERNAME"
-	fi
-
-	if test -z "$MQ_PASSWORD"; then
-		MQ_PASSWORD=$(
+	MQ_USERNAME="netmaker"
+	MQ_PASSWORD=$(
 			tr -dc A-Za-z0-9 </dev/urandom | head -c 30
 			echo ''
 		)
-	fi
-
-
-	select domain_option in "Auto Generated / Config Password" "Input Your Own Password"; do
-		case $REPLY in
-		1)
-			echo "using random password for mq"
-			break
-			;;
-		2)
-			while true; do
-				echo "Enter your Password For MQ: "
-				read -s GET_MQ_PASSWORD
-				echo "Enter your password again to confirm: "
-				read -s CONFIRM_MQ_PASSWORD
-				if [ ${GET_MQ_PASSWORD} != ${CONFIRM_MQ_PASSWORD} ]; then
-					echo "wrong password entered, try again..."
-					continue
-				fi
-				MQ_PASSWORD="$GET_MQ_PASSWORD"
-				echo "MQ Password Saved Successfully!!"
-				break
-			done
-			break
-			;;
-		*) echo "invalid option $REPLY" ;;
-		esac
-	done
 	
 
 	wait_seconds 2
@@ -921,7 +879,7 @@ main (){
 		source "$CONFIG_PATH"
 	fi
 
-	INSTALL_TYPE="pro"
+	INSTALL_TYPE="ce"
 	while getopts :cudpv flag; do
 	case "${flag}" in
 	c)

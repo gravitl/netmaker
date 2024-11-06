@@ -38,12 +38,12 @@ func InitPro() {
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
 		// == License Handling ==
-		enableLicenseHook := false
-		licenseKeyValue := servercfg.GetLicenseKey()
-		netmakerTenantID := servercfg.GetNetmakerTenantID()
-		if licenseKeyValue != "" && netmakerTenantID != "" {
-			enableLicenseHook = true
-		}
+		enableLicenseHook := true
+		// licenseKeyValue := servercfg.GetLicenseKey()
+		// netmakerTenantID := servercfg.GetNetmakerTenantID()
+		// if licenseKeyValue != "" && netmakerTenantID != "" {
+		// 	enableLicenseHook = true
+		// }
 		if !enableLicenseHook {
 			err := initTrial()
 			if err != nil {
