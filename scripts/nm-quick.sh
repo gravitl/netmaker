@@ -167,12 +167,12 @@ configure_netclient() {
 	nmctl host update $HOST_ID --default
 	sleep 5
 	nmctl node create_remote_access_gateway netmaker $NODE_ID
-	#setup failOver
-	sleep 5
-	curl --location --request POST "https://api.${NETMAKER_BASE_DOMAIN}/api/v1/node/${NODE_ID}/failover" --header "Authorization: Bearer ${MASTER_KEY}"
+	
 	sleep 2
 	# create network for internet access vpn
 	if [ "$INSTALL_TYPE" = "pro" ]; then
+	    #setup failOver
+		curl --location --request POST "https://api.${NETMAKER_BASE_DOMAIN}/api/v1/node/${NODE_ID}/failover" --header "Authorization: Bearer ${MASTER_KEY}"
 		INET_NODE_ID=$(sudo cat /etc/netclient/nodes.json | jq -r '."internet-access-vpn".id')
 		nmctl node create_remote_access_gateway internet-access-vpn $INET_NODE_ID
 		out=$(nmctl node list -o json | jq -r '.[] | select(.id=='\"$INET_NODE_ID\"') | .ingressdns = "8.8.8.8"')
@@ -181,7 +181,6 @@ configure_netclient() {
 		curl --location --request PUT "https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/internet-access-vpn/${INET_NODE_ID}" --data "$out" --header "Authorization: Bearer ${MASTER_KEY}"
 		curl --location --request POST "https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/internet-access-vpn/${INET_NODE_ID}/inet_gw" --data '{}' --header "Authorization: Bearer ${MASTER_KEY}"
 	fi
-	
 	set -e
 }
 
