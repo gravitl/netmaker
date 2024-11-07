@@ -5,10 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
+)
+
+var (
+	aclv1CacheMutex = &sync.RWMutex{}
+	aclv1CacheMap   = make(map[string]models.Acl)
 )
 
 // CreateDefaultAclNetworkPolicies - create default acl network policies
