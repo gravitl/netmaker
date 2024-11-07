@@ -458,6 +458,7 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) bool {
 
 // IsNodeAllowedToCommunicate - check node is allowed to communicate with the peer
 func IsNodeAllowedToCommunicate(node, peer models.Node) bool {
+	return true
 	if node.IsStatic {
 		node = node.StaticNode.ConvertToStaticNode()
 	}
