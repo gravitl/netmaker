@@ -392,18 +392,19 @@ func listAcls() (acls []models.Acl) {
 
 // ListUserPolicies - lists all acl policies enforced on an user
 func ListUserPolicies(u models.User) []models.Acl {
-	acls := listAcls()
-	for _, acl := range acls {
+	allAcls := listAcls()
+	userAcls := []models.Acl{}
+	for _, acl := range allAcls {
 
 		if acl.RuleType == models.UserPolicy {
 			srcMap := convAclTagToValueMap(acl.Src)
 			if _, ok := srcMap[u.UserName]; ok {
-				acls = append(acls, acl)
+				userAcls = append(userAcls, acl)
 			} else {
 				// check for user groups
 				for gID := range u.UserGroups {
 					if _, ok := srcMap[gID.String()]; ok {
-						acls = append(acls, acl)
+						userAcls = append(userAcls, acl)
 						break
 					}
 				}
@@ -411,59 +412,61 @@ func ListUserPolicies(u models.User) []models.Acl {
 
 		}
 	}
-	return acls
+	return userAcls
 }
 
 // listPoliciesOfUser - lists all user acl policies applied to user in an network
 func listPoliciesOfUser(user models.User, netID models.NetworkID) []models.Acl {
-
-	acls := listAcls()
-	for _, acl := range acls {
+	allAcls := listAcls()
+	userAcls := []models.Acl{}
+	for _, acl := range allAcls {
 		if acl.NetworkID == netID && acl.RuleType == models.UserPolicy {
 			srcMap := convAclTagToValueMap(acl.Src)
 			if _, ok := srcMap[user.UserName]; ok {
-				acls = append(acls, acl)
+				userAcls = append(userAcls, acl)
 				continue
 			}
 			for netRole := range user.NetworkRoles {
 				if _, ok := srcMap[netRole.String()]; ok {
-					acls = append(acls, acl)
+					userAcls = append(userAcls, acl)
 					continue
 				}
 			}
 			for userG := range user.UserGroups {
 				if _, ok := srcMap[userG.String()]; ok {
-					acls = append(acls, acl)
+					userAcls = append(userAcls, acl)
 					continue
 				}
 			}
 
 		}
 	}
-	return acls
+	return userAcls
 }
 
 // listDevicePolicies - lists all device policies in a network
 func listDevicePolicies(netID models.NetworkID) []models.Acl {
-	acls := listAcls()
-	for _, acl := range acls {
+	allAcls := listAcls()
+	deviceAcls := []models.Acl{}
+	for _, acl := range allAcls {
 		if acl.NetworkID == netID && acl.RuleType == models.DevicePolicy {
-			acls = append(acls, acl)
+			deviceAcls = append(deviceAcls, acl)
 		}
 	}
-	return acls
+	return deviceAcls
 }
 
 // ListAcls - lists all acl policies
 func ListAcls(netID models.NetworkID) ([]models.Acl, error) {
 
-	acls := listAcls()
-	for _, acl := range acls {
+	allAcls := listAcls()
+	netAcls := []models.Acl{}
+	for _, acl := range allAcls {
 		if acl.NetworkID == netID {
-			acls = append(acls, acl)
+			netAcls = append(netAcls, acl)
 		}
 	}
-	return acls, nil
+	return netAcls, nil
 }
 
 func convAclTagToValueMap(acltags []models.AclPolicyTag) map[string]struct{} {
