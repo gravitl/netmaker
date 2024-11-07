@@ -75,7 +75,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 		return models.Node{}, errors.New(host.OS + " is unsupported for egress gateways")
 	}
 	if host.FirewallInUse == models.FIREWALL_NONE {
-		return models.Node{}, errors.New("firewall is not supported for egress gateways. please install iptables or nftables on the device in order to use this feature")
+		return models.Node{}, errors.New("please install iptables or nftables on the device")
 	}
 	for i := len(gateway.Ranges) - 1; i >= 0; i-- {
 		// check if internet gateway IPv4
