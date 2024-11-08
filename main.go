@@ -51,9 +51,6 @@ func main() {
 	logic.SetAllocatedIpMap()
 	defer logic.ClearAllocatedIpMap()
 	setGarbageCollection()
-	// Start profiling
-	// profFile := logic.StartCPUProfiling()
-	// defer logic.StopCPUProfiling(profFile)
 	setVerbosity()
 	if servercfg.DeployedByOperator() && !servercfg.IsPro {
 		logic.SetFreeTierLimits()

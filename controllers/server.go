@@ -46,7 +46,7 @@ func serverHandlers(r *mux.Router) {
 	r.HandleFunc("/api/server/status", getStatus).Methods(http.MethodGet)
 	r.HandleFunc("/api/server/usage", logic.SecurityCheck(false, http.HandlerFunc(getUsage))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/server/cpu_profile", cpuProfile).
+	r.HandleFunc("/api/server/cpu_profile", logic.SecurityCheck(false, http.HandlerFunc(cpuProfile))).
 		Methods(http.MethodPost)
 }
 
