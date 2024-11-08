@@ -1,18 +1,18 @@
 # Netmaker v0.26.0
 
 ## Whats New ✨
-- Advanced User Management with Network Roles and Groups
-- User Invitation via Email and Magic Links
+- New ACLs and Tag Management System
+- Managed DNS system (Linux)
+- Simplified User Mgmt with default Roles and Groups
+- New Add a Node Flow for netclient and static wireguard files
 
 ## What's Fixed/Improved 🛠
-
-- Scalability Improvements
-- Optimised Traffic Flow Over MQ
-- Improved Peer Updates with Batching
+- Metrics Data
+- FailOver Stability Fixes
+- Scalability Fixes
 
 ## Known Issues 🐞
 
-- Erratic Traffic Data In Metrics.
 - Adding Custom Private/Public Key For Remote Access Gw Clients Doesn't Get Propagated To Other Peers.
 - IPv6 DNS Entries Are Not Working.
 - Stale Peer On The Interface, When Forced Removed From Multiple Networks At Once.
