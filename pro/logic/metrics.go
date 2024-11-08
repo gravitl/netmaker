@@ -2,7 +2,6 @@ package logic
 
 import (
 	"encoding/json"
-	"math"
 	"sync"
 	"time"
 
@@ -209,15 +208,17 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) {
 		currMetric.TotalTime += oldMetric.TotalTime
 		currMetric.Uptime += oldMetric.Uptime // get the total uptime for this connection
 
-		if currMetric.TotalReceived < oldMetric.TotalReceived {
+		totalRecv := currMetric.TotalReceived
+		totalSent := currMetric.TotalSent
+		if currMetric.TotalReceived < oldMetric.TotalReceived && currMetric.TotalReceived < oldMetric.LastTotalReceived {
 			currMetric.TotalReceived += oldMetric.TotalReceived
 		} else {
-			currMetric.TotalReceived += int64(math.Abs(float64(currMetric.TotalReceived) - float64(oldMetric.TotalReceived)))
+			currMetric.TotalReceived = currMetric.TotalReceived - oldMetric.LastTotalReceived + oldMetric.TotalReceived
 		}
-		if currMetric.TotalSent < oldMetric.TotalSent {
+		if currMetric.TotalSent < oldMetric.TotalSent && currMetric.TotalSent < oldMetric.LastTotalSent {
 			currMetric.TotalSent += oldMetric.TotalSent
 		} else {
-			currMetric.TotalSent += int64(math.Abs(float64(currMetric.TotalSent) - float64(oldMetric.TotalSent)))
+			currMetric.TotalSent = currMetric.TotalSent - oldMetric.LastTotalSent + oldMetric.TotalSent
 		}
 
 		if currMetric.Uptime == 0 || currMetric.TotalTime == 0 {
@@ -228,6 +229,8 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) {
 		totalUpMinutes := currMetric.Uptime * ncutils.CheckInInterval
 		currMetric.ActualUptime = time.Duration(totalUpMinutes) * time.Minute
 		delete(oldMetrics.Connectivity, k) // remove from old data
+		currMetric.LastTotalReceived = totalRecv
+		currMetric.LastTotalSent = totalSent
 		newMetrics.Connectivity[k] = currMetric
 
 	}

@@ -250,8 +250,9 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			// Set E-Mail body. You can set plain text or html with text/html
 
 			e := email.UserInvitedMail{
-				BodyBuilder: &email.EmailBodyBuilderWithH1HeadlineAndImage{},
-				InviteURL:   invite.InviteURL,
+				BodyBuilder:    &email.EmailBodyBuilderWithH1HeadlineAndImage{},
+				InviteURL:      invite.InviteURL,
+				PlatformRoleID: invite.PlatformRoleID,
 			}
 			n := email.Notification{
 				RecipientMail: invite.Email,
@@ -263,7 +264,6 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		}(invite)
 	}
 	logic.ReturnSuccessResponse(w, r, "triggered user invites")
-
 }
 
 // swagger:route GET /api/v1/users/invites user listUserInvites
@@ -451,6 +451,10 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if currUserG.Default {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot update default user group"), "badrequest"))
+		return
+	}
 	err = proLogic.ValidateUpdateGroupReq(userGroup)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -461,6 +465,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+
 	// reset configs for service user
 	go proLogic.UpdatesUserGwAccessOnGrpUpdates(currUserG.NetworkRoles, userGroup.NetworkRoles)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")
@@ -494,6 +499,10 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 	userG, err := proLogic.GetUserGroup(models.UserGroupID(gid))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to fetch group details"), "badrequest"))
+		return
+	}
+	if userG.Default {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot delete default user group"), "badrequest"))
 		return
 	}
 	err = proLogic.DeleteUserGroup(models.UserGroupID(gid))
@@ -816,6 +825,221 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(logic.ToReturnUser(*user))
 }
 
+// @Summary     Get Users Remote Access Gw Networks.
+// @Router      /api/users/{username}/remote_access_gw [get]
+// @Tags        Users
+// @Param       username path string true "Username to fetch all the gateways with access"
+// @Success     200 {object} map[string][]models.UserRemoteGws
+// @Failure     500 {object} models.ErrorResponse
+func getUserRemoteAccessNetworks(w http.ResponseWriter, r *http.Request) {
+	// set header.
+	w.Header().Set("Content-Type", "application/json")
+	username := r.Header.Get("user")
+	user, err := logic.GetUser(username)
+	if err != nil {
+		logger.Log(0, username, "failed to fetch user: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
+		return
+	}
+	userGws := make(map[string][]models.UserRemoteGws)
+	networks := []models.Network{}
+	networkMap := make(map[string]struct{})
+	userGwNodes := proLogic.GetUserRAGNodes(*user)
+	for _, node := range userGwNodes {
+		network, err := logic.GetNetwork(node.Network)
+		if err != nil {
+			slog.Error("failed to get node network", "error", err)
+			continue
+		}
+		if _, ok := networkMap[network.NetID]; ok {
+			continue
+		}
+		networkMap[network.NetID] = struct{}{}
+		networks = append(networks, network)
+	}
+
+	slog.Debug("returned user gws", "user", username, "gws", userGws)
+	logic.ReturnSuccessResponseWithJson(w, r, networks, "fetched user accessible networks")
+}
+
+// @Summary     Get Users Remote Access Gw Networks.
+// @Router      /api/users/{username}/remote_access_gw [get]
+// @Tags        Users
+// @Param       username path string true "Username to fetch all the gateways with access"
+// @Success     200 {object} map[string][]models.UserRemoteGws
+// @Failure     500 {object} models.ErrorResponse
+func getUserRemoteAccessNetworkGateways(w http.ResponseWriter, r *http.Request) {
+	// set header.
+	w.Header().Set("Content-Type", "application/json")
+	var params = mux.Vars(r)
+	username := r.Header.Get("user")
+	user, err := logic.GetUser(username)
+	if err != nil {
+		logger.Log(0, username, "failed to fetch user: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
+		return
+	}
+	network := params["network"]
+	if network == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("required params network"), "badrequest"))
+		return
+	}
+	userGws := []models.UserRAGs{}
+
+	userGwNodes := proLogic.GetUserRAGNodes(*user)
+	for _, node := range userGwNodes {
+		if node.Network != network {
+			continue
+		}
+
+		host, err := logic.GetHost(node.HostID.String())
+		if err != nil {
+			continue
+		}
+
+		userGws = append(userGws, models.UserRAGs{
+			GwID:              node.ID.String(),
+			GWName:            host.Name,
+			Network:           node.Network,
+			IsInternetGateway: node.IsInternetGateway,
+			Metadata:          node.Metadata,
+		})
+
+	}
+
+	slog.Debug("returned user gws", "user", username, "gws", userGws)
+	logic.ReturnSuccessResponseWithJson(w, r, userGws, "fetched user accessible gateways in network "+network)
+}
+
+// @Summary     Get Users Remote Access Gw Networks.
+// @Router      /api/users/{username}/remote_access_gw [get]
+// @Tags        Users
+// @Param       username path string true "Username to fetch all the gateways with access"
+// @Success     200 {object} map[string][]models.UserRemoteGws
+// @Failure     500 {object} models.ErrorResponse
+func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
+	// set header.
+	w.Header().Set("Content-Type", "application/json")
+	var params = mux.Vars(r)
+	username := r.Header.Get("user")
+	user, err := logic.GetUser(username)
+	if err != nil {
+		logger.Log(0, username, "failed to fetch user: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
+		return
+	}
+	remoteGwID := params["access_point_id"]
+	if remoteGwID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("required params access_point_id"), "badrequest"))
+		return
+	}
+	var req models.UserRemoteGwsReq
+	err = json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		slog.Error("error decoding request body: ", "error", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	userGwNodes := proLogic.GetUserRAGNodes(*user)
+	if _, ok := userGwNodes[remoteGwID]; !ok {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("access denied"), "forbidden"))
+		return
+	}
+	node, err := logic.GetNodeByID(remoteGwID)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch gw node %s, error: %v", remoteGwID, err), "badrequest"))
+		return
+	}
+	host, err := logic.GetHost(node.HostID.String())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch gw host %s, error: %v", remoteGwID, err), "badrequest"))
+		return
+	}
+	network, err := logic.GetNetwork(node.Network)
+	if err != nil {
+		slog.Error("failed to get node network", "error", err)
+	}
+	var userConf models.ExtClient
+	allextClients, err := logic.GetAllExtClients()
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	for _, extClient := range allextClients {
+		if extClient.Network != network.NetID || extClient.IngressGatewayID != node.ID.String() {
+			continue
+		}
+		if extClient.RemoteAccessClientID == req.RemoteAccessClientID && extClient.OwnerID == username {
+			userConf = extClient
+			userConf.AllowedIPs = logic.GetExtclientAllowedIPs(extClient)
+		}
+	}
+	if userConf.ClientID == "" {
+		// create a new conf
+		userConf.OwnerID = user.UserName
+		userConf.RemoteAccessClientID = req.RemoteAccessClientID
+		userConf.IngressGatewayID = node.ID.String()
+
+		// set extclient dns to ingressdns if extclient dns is not explicitly set
+		if (userConf.DNS == "") && (node.IngressDNS != "") {
+			userConf.DNS = node.IngressDNS
+		}
+
+		userConf.Network = node.Network
+		host, err := logic.GetHost(node.HostID.String())
+		if err != nil {
+			logger.Log(0, r.Header.Get("user"),
+				fmt.Sprintf("failed to get ingress gateway host for node [%s] info: %v", node.ID, err))
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+		listenPort := logic.GetPeerListenPort(host)
+		if host.EndpointIP.To4() == nil {
+			userConf.IngressGatewayEndpoint = fmt.Sprintf("[%s]:%d", host.EndpointIPv6.String(), listenPort)
+		} else {
+			userConf.IngressGatewayEndpoint = fmt.Sprintf("%s:%d", host.EndpointIP.String(), listenPort)
+		}
+		userConf.Enabled = true
+		parentNetwork, err := logic.GetNetwork(node.Network)
+		if err == nil { // check if parent network default ACL is enabled (yes) or not (no)
+			userConf.Enabled = parentNetwork.DefaultACL == "yes"
+		}
+		userConf.Tags = make(map[models.TagID]struct{})
+		userConf.Tags[models.TagID(fmt.Sprintf("%s.%s", userConf.Network,
+			models.RemoteAccessTagName))] = struct{}{}
+		if err = logic.CreateExtClient(&userConf); err != nil {
+			slog.Error(
+				"failed to create extclient",
+				"user",
+				r.Header.Get("user"),
+				"network",
+				node.Network,
+				"error",
+				err,
+			)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+	}
+	userGw := models.UserRemoteGws{
+		GwID:              node.ID.String(),
+		GWName:            host.Name,
+		Network:           node.Network,
+		GwClient:          userConf,
+		Connected:         true,
+		IsInternetGateway: node.IsInternetGateway,
+		GwPeerPublicKey:   host.PublicKey.String(),
+		GwListenPort:      logic.GetPeerListenPort(host),
+		Metadata:          node.Metadata,
+		AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
+		NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
+	}
+
+	slog.Debug("returned user gw config", "user", user.UserName, "gws", userGw)
+	logic.ReturnSuccessResponseWithJson(w, r, userGw, "fetched user config to gw "+remoteGwID)
+}
+
 // @Summary     Get Users Remote Access Gw.
 // @Router      /api/users/{username}/remote_access_gw [get]
 // @Tags        Users
@@ -876,6 +1100,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			network, err := logic.GetNetwork(node.Network)
 			if err != nil {
 				slog.Error("failed to get node network", "error", err)
+				continue
 			}
 
 			gws := userGws[node.Network]

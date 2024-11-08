@@ -196,10 +196,6 @@ func DeleteNode(node *models.Node, purge bool) error {
 		if err := DeleteGatewayExtClients(node.ID.String(), node.Network); err != nil {
 			slog.Error("failed to delete ext clients", "nodeid", node.ID.String(), "error", err.Error())
 		}
-		host, err := GetHost(node.HostID.String())
-		if err == nil {
-			go DeleteRole(models.GetRAGRoleID(node.Network, host.ID.String()), true)
-		}
 	}
 	if node.IsRelayed {
 		// cleanup node from relayednodes on relay node
@@ -378,6 +374,20 @@ func GetAllNodes() ([]models.Node, error) {
 	return nodes, nil
 }
 
+func AddStaticNodestoList(nodes []models.Node) []models.Node {
+	netMap := make(map[string]struct{})
+	for _, node := range nodes {
+		if _, ok := netMap[node.Network]; ok {
+			continue
+		}
+		if node.IsIngressGateway {
+			nodes = append(nodes, GetStaticNodesByNetwork(models.NetworkID(node.Network), false)...)
+			netMap[node.Network] = struct{}{}
+		}
+	}
+	return nodes
+}
+
 // GetNetworkByNode - gets the network model from a node
 func GetNetworkByNode(node *models.Node) (models.Network, error) {
 
@@ -393,7 +403,7 @@ func GetNetworkByNode(node *models.Node) (models.Network, error) {
 }
 
 // SetNodeDefaults - sets the defaults of a node to avoid empty fields
-func SetNodeDefaults(node *models.Node) {
+func SetNodeDefaults(node *models.Node, resetConnected bool) {
 
 	parentNetwork, _ := GetNetworkByNode(node)
 	_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange)
@@ -414,8 +424,14 @@ func SetNodeDefaults(node *models.Node) {
 
 	node.SetLastModified()
 	node.SetLastCheckIn()
-	node.SetDefaultConnected()
+
+	if resetConnected {
+		node.SetDefaultConnected()
+	}
 	node.SetExpirationDateTime()
+	if node.Tags == nil {
+		node.Tags = make(map[models.TagID]struct{})
+	}
 }
 
 // GetRecordKey - get record key
@@ -461,7 +477,7 @@ func GetDeletedNodeByID(uuid string) (models.Node, error) {
 		return models.Node{}, err
 	}
 
-	SetNodeDefaults(&node)
+	SetNodeDefaults(&node, true)
 
 	return node, nil
 }
@@ -531,7 +547,7 @@ func createNode(node *models.Node) error {
 		}
 	}
 
-	SetNodeDefaults(node)
+	SetNodeDefaults(node, true)
 
 	defaultACLVal := acls.Allowed
 	parentNetwork, err := GetNetwork(node.Network)
@@ -693,4 +709,110 @@ func GetAllFailOvers() ([]models.Node, error) {
 		}
 	}
 	return igs, nil
+}
+
+func GetTagMapWithNodes() (tagNodesMap map[models.TagID][]models.Node) {
+	tagNodesMap = make(map[models.TagID][]models.Node)
+	nodes, _ := GetAllNodes()
+	for _, nodeI := range nodes {
+		if nodeI.Tags == nil {
+			continue
+		}
+		for nodeTagID := range nodeI.Tags {
+			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
+		}
+	}
+	return
+}
+
+func GetTagMapWithNodesByNetwork(netID models.NetworkID) (tagNodesMap map[models.TagID][]models.Node) {
+	tagNodesMap = make(map[models.TagID][]models.Node)
+	nodes, _ := GetNetworkNodes(netID.String())
+	for _, nodeI := range nodes {
+		if nodeI.Tags == nil {
+			continue
+		}
+		for nodeTagID := range nodeI.Tags {
+			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
+		}
+	}
+	return AddTagMapWithStaticNodes(netID, tagNodesMap)
+}
+
+func AddTagMapWithStaticNodes(netID models.NetworkID,
+	tagNodesMap map[models.TagID][]models.Node) map[models.TagID][]models.Node {
+	extclients, err := GetNetworkExtClients(netID.String())
+	if err != nil {
+		return tagNodesMap
+	}
+	for _, extclient := range extclients {
+		if extclient.Tags == nil || extclient.RemoteAccessClientID != "" {
+			continue
+		}
+		for tagID := range extclient.Tags {
+			tagNodesMap[tagID] = append(tagNodesMap[tagID], models.Node{
+				IsStatic:   true,
+				StaticNode: extclient,
+			})
+		}
+
+	}
+	return tagNodesMap
+}
+
+func GetNodesWithTag(tagID models.TagID) map[string]models.Node {
+	nMap := make(map[string]models.Node)
+	tag, err := GetTag(tagID)
+	if err != nil {
+		return nMap
+	}
+	nodes, _ := GetNetworkNodes(tag.Network.String())
+	for _, nodeI := range nodes {
+		if nodeI.Tags == nil {
+			continue
+		}
+		if _, ok := nodeI.Tags[tagID]; ok {
+			nMap[nodeI.ID.String()] = nodeI
+		}
+	}
+	return AddStaticNodesWithTag(tag, nMap)
+}
+
+func AddStaticNodesWithTag(tag models.Tag, nMap map[string]models.Node) map[string]models.Node {
+	extclients, err := GetNetworkExtClients(tag.Network.String())
+	if err != nil {
+		return nMap
+	}
+	for _, extclient := range extclients {
+		if extclient.RemoteAccessClientID != "" {
+			continue
+		}
+		if _, ok := extclient.Tags[tag.ID]; ok {
+			nMap[extclient.ClientID] = models.Node{
+				IsStatic:   true,
+				StaticNode: extclient,
+			}
+		}
+
+	}
+	return nMap
+}
+
+func GetStaticNodeWithTag(tagID models.TagID) map[string]models.Node {
+	nMap := make(map[string]models.Node)
+	tag, err := GetTag(tagID)
+	if err != nil {
+		return nMap
+	}
+	extclients, err := GetNetworkExtClients(tag.Network.String())
+	if err != nil {
+		return nMap
+	}
+	for _, extclient := range extclients {
+		nMap[extclient.ClientID] = models.Node{
+			IsStatic:   true,
+			StaticNode: extclient,
+		}
+	}
+	return nMap
 }

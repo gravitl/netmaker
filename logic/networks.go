@@ -8,9 +8,11 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/c-robinson/iplib"
 	validator "github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
@@ -175,6 +177,17 @@ func DeleteNetwork(network string) error {
 	if err != nil {
 		logger.Log(1, "failed to remove the node acls during network delete for network,", network)
 	}
+	// Delete default network enrollment key
+	keys, _ := GetAllEnrollmentKeys()
+	for _, key := range keys {
+		if key.Tags[0] == network {
+			if key.Default {
+				DeleteEnrollmentKey(key.Value, true)
+				break
+			}
+
+		}
+	}
 	nodeCount, err := GetNetworkNonServerNodeCount(network)
 	if nodeCount == 0 || database.IsEmptyRecord(err) {
 		// delete server nodes first then db records
@@ -232,6 +245,17 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 	if servercfg.CacheEnabled() {
 		storeNetworkInCache(network.NetID, network)
 	}
+
+	_, _ = CreateEnrollmentKey(
+		0,
+		time.Time{},
+		[]string{network.NetID},
+		[]string{network.NetID},
+		[]models.TagID{},
+		true,
+		uuid.Nil,
+		true,
+	)
 
 	return network, nil
 }

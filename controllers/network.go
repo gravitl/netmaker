@@ -24,6 +24,8 @@ import (
 func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks", logic.SecurityCheck(true, http.HandlerFunc(getNetworks))).
 		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/networks/stats", logic.SecurityCheck(true, http.HandlerFunc(getNetworksStats))).
+		Methods(http.MethodGet)
 	r.HandleFunc("/api/networks", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceNetworks, http.HandlerFunc(createNetwork)))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/networks/{networkname}", logic.SecurityCheck(true, http.HandlerFunc(getNetwork))).
@@ -72,6 +74,48 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	logic.SortNetworks(allnetworks[:])
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(allnetworks)
+}
+
+// @Summary     Lists all networks with stats
+// @Router      /api/v1/networks/stats [get]
+// @Tags        Networks
+// @Security    oauth
+// @Produce     json
+// @Success     200 {object} models.SuccessResponse
+// @Failure     500 {object} models.ErrorResponse
+func getNetworksStats(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	allnetworks, err := logic.GetNetworks()
+	if err != nil && !database.IsEmptyRecord(err) {
+		slog.Error("failed to fetch networks", "error", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	if r.Header.Get("ismaster") != "yes" {
+		username := r.Header.Get("user")
+		user, err := logic.GetUser(username)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+		allnetworks = logic.FilterNetworksByRole(allnetworks, *user)
+	}
+	allNodes, err := logic.GetAllNodes()
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	netstats := []models.NetworkStatResp{}
+	logic.SortNetworks(allnetworks[:])
+	for _, network := range allnetworks {
+		netstats = append(netstats, models.NetworkStatResp{
+			Network: network,
+			Hosts:   len(logic.GetNetworkNodesMemory(allNodes, network.NetID)),
+		})
+	}
+	logger.Log(2, r.Header.Get("user"), "fetched networks.")
+	logic.ReturnSuccessResponseWithJson(w, r, netstats, "fetched networks with stats")
 }
 
 // @Summary     Get a network
@@ -412,6 +456,7 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	go logic.DeleteNetworkRoles(network)
+	go logic.DeleteDefaultNetworkPolicies(models.NetworkID(network))
 	//delete network from allocated ip map
 	go logic.RemoveNetworkFromAllocatedIpMap(network)
 
@@ -487,7 +532,8 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.CreateDefaultNetworkRolesAndGroups(models.NetworkID(network.NetID))
-
+	logic.CreateDefaultAclNetworkPolicies(models.NetworkID(network.NetID))
+	logic.CreateDefaultTags(models.NetworkID(network.NetID))
 	//add new network to allocated ip map
 	go logic.AddNetworkToAllocatedIpMap(network.NetID)
 

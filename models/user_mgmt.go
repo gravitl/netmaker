@@ -62,6 +62,7 @@ const (
 	EnrollmentKeysRsrc RsrcType = "enrollment_key"
 	UserRsrc           RsrcType = "users"
 	AclRsrc            RsrcType = "acl"
+	TagRsrc            RsrcType = "tag"
 	DnsRsrc            RsrcType = "dns"
 	FailOverRsrc       RsrcType = "fail_over"
 	MetricRsrc         RsrcType = "metrics"
@@ -116,8 +117,9 @@ type RsrcPermissionScope struct {
 
 type UserRolePermissionTemplate struct {
 	ID                  UserRoleID                                  `json:"id"`
-	UiName              string                                      `json:"ui_name"`
+	Name                string                                      `json:"name"`
 	Default             bool                                        `json:"default"`
+	MetaData            string                                      `json:"meta_data"`
 	DenyDashboardAccess bool                                        `json:"deny_dashboard_access"`
 	FullAccess          bool                                        `json:"full_access"`
 	NetworkID           NetworkID                                   `json:"network_id"`
@@ -132,6 +134,8 @@ type CreateGroupReq struct {
 
 type UserGroup struct {
 	ID           UserGroupID                           `json:"id"`
+	Default      bool                                  `json:"default"`
+	Name         string                                `json:"name"`
 	NetworkRoles map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
 	MetaData     string                                `json:"meta_data"`
 }
@@ -177,8 +181,9 @@ type UserAuthParams struct {
 
 // UserClaims - user claims struct
 type UserClaims struct {
-	Role     UserRoleID
-	UserName string
+	Role           UserRoleID
+	UserName       string
+	RacAutoDisable bool
 	jwt.RegisteredClaims
 }
 

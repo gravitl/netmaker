@@ -93,12 +93,12 @@ var htmlBaseTemplate = `<!DOCTYPE html>
 </html>`
 
 var oauthNotConfigured = fmt.Sprintf(htmlBaseTemplate, `<h2>Your Netmaker server does not have OAuth configured.</h2>
-<p>Please visit the docs <a href="https://docs.netmaker.org/oauth.html" target="_blank" rel="noopener">here</a> to learn how to.</p>`)
+<p>Please visit the docs <a href="https://docs.netmaker.io/docs/server-installation/integrating-oauth" target="_blank" rel="noopener">here</a> to learn how to.</p>`)
 
 var oauthStateInvalid = fmt.Sprintf(htmlBaseTemplate, `<h2>Invalid OAuth Session. Please re-try again.</h2>`)
 
 var userNotAllowed = fmt.Sprintf(htmlBaseTemplate, `<h2>Your account does not have access to the dashboard. Please contact your administrator for more information about your account.</h2>
-<p>Non-Admins can access the netmaker networks using <a href="https://docs.netmaker.io/pro/rac.html" target="_blank" rel="noopener">RemoteAccessClient.</a></p>`)
+<p>Non-Admins can access the netmaker networks using <a href="https://docs.netmaker.io/docs/remote-access-client-rac#downloadinstallation" target="_blank" rel="noopener">our Remote Access Client.</a></p>`)
 
 var userFirstTimeSignUp = fmt.Sprintf(htmlBaseTemplate, `<h2>Thank you for signing up. Please contact your administrator for access.</h2>`)
 

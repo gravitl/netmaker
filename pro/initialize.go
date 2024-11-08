@@ -33,16 +33,17 @@ func InitPro() {
 		proControllers.UserHandlers,
 		proControllers.FailOverHandlers,
 		proControllers.InetHandlers,
+		proControllers.RacHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
 		// == License Handling ==
-		enableLicenseHook := false
-		licenseKeyValue := servercfg.GetLicenseKey()
-		netmakerTenantID := servercfg.GetNetmakerTenantID()
-		if licenseKeyValue != "" && netmakerTenantID != "" {
-			enableLicenseHook = true
-		}
+		enableLicenseHook := true
+		// licenseKeyValue := servercfg.GetLicenseKey()
+		// netmakerTenantID := servercfg.GetNetmakerTenantID()
+		// if licenseKeyValue != "" && netmakerTenantID != "" {
+		// 	enableLicenseHook = true
+		// }
 		if !enableLicenseHook {
 			err := initTrial()
 			if err != nil {
@@ -130,9 +131,15 @@ func InitPro() {
 	logic.CreateDefaultNetworkRolesAndGroups = proLogic.CreateDefaultNetworkRolesAndGroups
 	logic.FilterNetworksByRole = proLogic.FilterNetworksByRole
 	logic.IsGroupsValid = proLogic.IsGroupsValid
+	logic.IsGroupValid = proLogic.IsGroupValid
 	logic.IsNetworkRolesValid = proLogic.IsNetworkRolesValid
 	logic.InitialiseRoles = proLogic.UserRolesInit
 	logic.UpdateUserGwAccess = proLogic.UpdateUserGwAccess
+	logic.CreateDefaultUserPolicies = proLogic.CreateDefaultUserPolicies
+	logic.MigrateUserRoleAndGroups = proLogic.MigrateUserRoleAndGroups
+	logic.IntialiseGroups = proLogic.UserGroupsInit
+	logic.AddGlobalNetRolesToAdmins = proLogic.AddGlobalNetRolesToAdmins
+	logic.GetUserGroupsInNetwork = proLogic.GetUserGroupsInNetwork
 }
 
 func retrieveProLogo() string {

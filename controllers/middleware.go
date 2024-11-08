@@ -27,12 +27,19 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		r.Header.Set("TARGET_RSRC", "")
 		r.Header.Set("RSRC_TYPE", "")
 		r.Header.Set("TARGET_RSRC_ID", "")
+		r.Header.Set("RAC", "")
 		r.Header.Set("NET_ID", params["network"])
+		if r.URL.Query().Get("network") != "" {
+			r.Header.Set("NET_ID", r.URL.Query().Get("network"))
+		}
 		if strings.Contains(route, "hosts") || strings.Contains(route, "nodes") {
 			r.Header.Set("TARGET_RSRC", models.HostRsrc.String())
 		}
 		if strings.Contains(route, "dns") {
 			r.Header.Set("TARGET_RSRC", models.DnsRsrc.String())
+		}
+		if strings.Contains(route, "rac") {
+			r.Header.Set("RAC", "true")
 		}
 		if strings.Contains(route, "users") {
 			r.Header.Set("TARGET_RSRC", models.UserRsrc.String())
@@ -52,6 +59,9 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		}
 		if strings.Contains(route, "acls") {
 			r.Header.Set("TARGET_RSRC", models.AclRsrc.String())
+		}
+		if strings.Contains(route, "tags") {
+			r.Header.Set("TARGET_RSRC", models.TagRsrc.String())
 		}
 		if strings.Contains(route, "extclients") {
 			r.Header.Set("TARGET_RSRC", models.ExtClientsRsrc.String())
@@ -101,7 +111,6 @@ func userMiddleWare(handler http.Handler) http.Handler {
 			r.Header.Get("TARGET_RSRC") == models.UserRsrc.String()) {
 			r.Header.Set("IS_GLOBAL_ACCESS", "yes")
 		}
-
 		r.Header.Set("RSRC_TYPE", r.Header.Get("TARGET_RSRC"))
 		handler.ServeHTTP(w, r)
 	})

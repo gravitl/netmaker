@@ -7,10 +7,6 @@ on:
         description: 'Docker tag to use (default: latest)'
         required: false
         default: 'latest'
-  push:
-    branches:
-      - 'develop'
-
 jobs:
   go-builder:
     runs-on: ubuntu-latest

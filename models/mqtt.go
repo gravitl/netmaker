@@ -24,12 +24,25 @@ type HostPeerUpdate struct {
 	FwUpdate          FwUpdate              `json:"fw_update"`
 	ReplacePeers      bool                  `json:"replace_peers"`
 	EndpointDetection bool                  `json:"endpoint_detection"`
+	ManageDNS         bool                  `yaml:"manage_dns"`
+}
+
+type FwRule struct {
+	SrcIP net.IPNet
+	DstIP net.IPNet
+	Allow bool
 }
 
 // IngressInfo - struct for ingress info
 type IngressInfo struct {
-	ExtPeers     map[string]ExtClientInfo `json:"ext_peers" yaml:"ext_peers"`
-	EgressRanges []string                 `json:"egress_ranges" yaml:"egress_ranges"`
+	IngressID     string      `json:"ingress_id"`
+	Network       net.IPNet   `json:"network"`
+	Network6      net.IPNet   `json:"network6"`
+	StaticNodeIps []net.IP    `json:"static_node_ips"`
+	Rules         []FwRule    `json:"rules"`
+	AllowAll      bool        `json:"allow_all"`
+	EgressRanges  []net.IPNet `json:"egress_ranges"`
+	EgressRanges6 []net.IPNet `json:"egress_ranges6"`
 }
 
 // EgressInfo - struct for egress info
@@ -77,8 +90,10 @@ type KeyUpdate struct {
 
 // FwUpdate - struct for firewall updates
 type FwUpdate struct {
-	IsEgressGw bool                  `json:"is_egress_gw"`
-	EgressInfo map[string]EgressInfo `json:"egress_info"`
+	IsEgressGw  bool                   `json:"is_egress_gw"`
+	IsIngressGw bool                   `json:"is_ingress_gw"`
+	EgressInfo  map[string]EgressInfo  `json:"egress_info"`
+	IngressInfo map[string]IngressInfo `json:"ingress_info"`
 }
 
 // FailOverMeReq - struct for failover req

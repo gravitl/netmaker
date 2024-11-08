@@ -244,6 +244,9 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	if network.DefaultKeepalive != 0 {
 		keepalive = "PersistentKeepalive = " + strconv.Itoa(int(network.DefaultKeepalive))
 	}
+	if gwnode.IngressPersistentKeepalive != 0 {
+		keepalive = "PersistentKeepalive = " + strconv.Itoa(int(gwnode.IngressPersistentKeepalive))
+	}
 
 	gwendpoint := ""
 	if preferredIp == "" {
@@ -284,10 +287,29 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	} else if gwnode.IngressDNS != "" {
 		defaultDNS = "DNS = " + gwnode.IngressDNS
 	}
+	// if servercfg.GetManageDNS() {
+	// 	if gwnode.Address6.IP != nil {
+	// 		if defaultDNS == "" {
+	// 			defaultDNS = "DNS = " + gwnode.Address6.IP.String()
+	// 		} else {
+	// 			defaultDNS = defaultDNS + ", " + gwnode.Address6.IP.String()
+	// 		}
+	// 	}
+	// 	if gwnode.Address.IP != nil {
+	// 		if defaultDNS == "" {
+	// 			defaultDNS = "DNS = " + gwnode.Address.IP.String()
+	// 		} else {
+	// 			defaultDNS = defaultDNS + ", " + gwnode.Address.IP.String()
+	// 		}
+	// 	}
+	// }
 
 	defaultMTU := 1420
 	if host.MTU != 0 {
 		defaultMTU = host.MTU
+	}
+	if gwnode.IngressMTU != 0 {
+		defaultMTU = int(gwnode.IngressMTU)
 	}
 
 	postUp := strings.Builder{}
@@ -446,13 +468,14 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	extclient.OwnerID = userName
 	extclient.RemoteAccessClientID = customExtClient.RemoteAccessClientID
 	extclient.IngressGatewayID = nodeid
-
+	extclient.Network = node.Network
+	extclient.Tags = make(map[models.TagID]struct{})
+	extclient.Tags[models.TagID(fmt.Sprintf("%s.%s", extclient.Network,
+		models.RemoteAccessTagName))] = struct{}{}
 	// set extclient dns to ingressdns if extclient dns is not explicitly set
 	if (extclient.DNS == "") && (node.IngressDNS != "") {
 		extclient.DNS = node.IngressDNS
 	}
-
-	extclient.Network = node.Network
 	host, err := logic.GetHost(node.HostID.String())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
@@ -531,6 +554,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	var update models.CustomExtClient
 	//var oldExtClient models.ExtClient
 	var sendPeerUpdate bool
+	var replacePeers bool
 	err := json.NewDecoder(r.Body).Decode(&update)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ",
@@ -588,6 +612,11 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	if update.Enabled != oldExtClient.Enabled {
 		sendPeerUpdate = true
 	}
+	if update.PublicKey != oldExtClient.PublicKey {
+		//remove old peer entry
+		sendPeerUpdate = true
+		replacePeers = true
+	}
 	newclient := logic.UpdateExtClient(&oldExtClient, &update)
 	if err := logic.DeleteExtClient(oldExtClient.Network, oldExtClient.ClientID); err != nil {
 		slog.Error(
@@ -626,6 +655,11 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		if changedID && servercfg.IsDNSMode() {
 			logic.SetDNS()
+		}
+		if replacePeers {
+			if err := mq.PublishDeletedClientPeerUpdate(&oldExtClient); err != nil {
+				slog.Error("error deleting old ext peers", "error", err.Error())
+			}
 		}
 		if sendPeerUpdate { // need to send a peer update to the ingress node as enablement of one of it's clients has changed
 			ingressNode, err := logic.GetNodeByID(newclient.IngressGatewayID)
@@ -735,7 +769,7 @@ func validateCustomExtClient(customExtClient *models.CustomExtClient, checkID bo
 	//validate clientid
 	if customExtClient.ClientID != "" {
 		if err := isValid(customExtClient.ClientID, checkID); err != nil {
-			return fmt.Errorf("client validatation: %v", err)
+			return fmt.Errorf("client validation: %v", err)
 		}
 	}
 	//extclient.ClientID = customExtClient.ClientID
