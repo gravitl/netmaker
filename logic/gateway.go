@@ -180,6 +180,9 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	if node.Metadata == "" {
 		node.Metadata = "This host can be used for remote access"
 	}
+	if node.Tags == nil {
+		node.Tags = make(map[models.TagID]struct{})
+	}
 	node.Tags[models.TagID(fmt.Sprintf("%s.%s", netid, models.RemoteAccessTagName))] = struct{}{}
 	err = UpsertNode(&node)
 	if err != nil {

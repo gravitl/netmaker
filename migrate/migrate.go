@@ -198,6 +198,10 @@ func updateNodes() {
 	}
 	for _, node := range nodes {
 		node := node
+		if node.Tags == nil {
+			node.Tags = make(map[models.TagID]struct{})
+			logic.UpsertNode(&node)
+		}
 		if node.IsIngressGateway {
 			tagID := models.TagID(fmt.Sprintf("%s.%s", node.Network,
 				models.RemoteAccessTagName))
