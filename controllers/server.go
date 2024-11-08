@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"strings"
 	"syscall"
 	"time"
@@ -16,6 +17,8 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
 )
+
+var cpuProfileLog *os.File
 
 func serverHandlers(r *mux.Router) {
 	// r.HandleFunc("/api/server/addnetwork/{network}", securityCheckServer(true, http.HandlerFunc(addNetwork))).Methods(http.MethodPost)
@@ -43,6 +46,21 @@ func serverHandlers(r *mux.Router) {
 	r.HandleFunc("/api/server/status", getStatus).Methods(http.MethodGet)
 	r.HandleFunc("/api/server/usage", logic.SecurityCheck(false, http.HandlerFunc(getUsage))).
 		Methods(http.MethodGet)
+	r.HandleFunc("/api/server/cpu_profile", logic.SecurityCheck(false, http.HandlerFunc(cpuProfile))).
+		Methods(http.MethodPost)
+}
+
+func cpuProfile(w http.ResponseWriter, r *http.Request) {
+	start := r.URL.Query().Get("action") == "start"
+	if start {
+		os.Remove("/root/data/cpu.prof")
+		cpuProfileLog = logic.StartCPUProfiling()
+	} else {
+		if cpuProfileLog != nil {
+			logic.StopCPUProfiling(cpuProfileLog)
+			cpuProfileLog = nil
+		}
+	}
 }
 
 func getUsage(w http.ResponseWriter, _ *http.Request) {

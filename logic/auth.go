@@ -305,6 +305,7 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 	}
 	user.UserGroups = userchange.UserGroups
 	user.NetworkRoles = userchange.NetworkRoles
+	AddGlobalNetRolesToAdmins(*user)
 	err := ValidateUser(user)
 	if err != nil {
 		return &models.User{}, err
