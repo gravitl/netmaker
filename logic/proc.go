@@ -1,18 +1,19 @@
 package logic
 
 import (
-	"log"
 	"os"
 	"runtime/pprof"
+
+	"github.com/gravitl/netmaker/logger"
 )
 
 func StartCPUProfiling() *os.File {
 	f, err := os.OpenFile("/root/data/cpu.prof", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0755)
 	if err != nil {
-		log.Fatal("could not create CPU profile: ", err)
+		logger.Log(0, "could not create CPU profile: ", err.Error())
 	}
 	if err := pprof.StartCPUProfile(f); err != nil {
-		log.Fatal("could not start CPU profile: ", err)
+		logger.Log(0, "could not start CPU profile: ", err.Error())
 	}
 	return f
 }
