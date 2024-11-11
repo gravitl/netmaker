@@ -60,6 +60,36 @@ var NetworkUserAllPermissionTemplate = models.UserRolePermissionTemplate{
 				SelfOnly: true,
 			},
 		},
+		models.DnsRsrc: {
+			models.AllDnsRsrcID: models.RsrcPermissionScope{
+				Read: true,
+			},
+		},
+		models.AclRsrc: {
+			models.AllAclsRsrcID: models.RsrcPermissionScope{
+				Read: true,
+			},
+		},
+		models.EgressGwRsrc: {
+			models.AllEgressGwRsrcID: models.RsrcPermissionScope{
+				Read: true,
+			},
+		},
+		models.InetGwRsrc: {
+			models.AllInetGwRsrcID: models.RsrcPermissionScope{
+				Read: true,
+			},
+		},
+		models.RelayRsrc: {
+			models.AllRelayRsrcID: models.RsrcPermissionScope{
+				Read: true,
+			},
+		},
+		models.TagRsrc: {
+			models.AllTagsRsrcID: models.RsrcPermissionScope{
+				Read: true,
+			},
+		},
 	},
 }
 
@@ -145,6 +175,36 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 					Update:   true,
 					Delete:   true,
 					SelfOnly: true,
+				},
+			},
+			models.DnsRsrc: {
+				models.AllDnsRsrcID: models.RsrcPermissionScope{
+					Read: true,
+				},
+			},
+			models.AclRsrc: {
+				models.AllAclsRsrcID: models.RsrcPermissionScope{
+					Read: true,
+				},
+			},
+			models.EgressGwRsrc: {
+				models.AllEgressGwRsrcID: models.RsrcPermissionScope{
+					Read: true,
+				},
+			},
+			models.InetGwRsrc: {
+				models.AllInetGwRsrcID: models.RsrcPermissionScope{
+					Read: true,
+				},
+			},
+			models.RelayRsrc: {
+				models.AllRelayRsrcID: models.RsrcPermissionScope{
+					Read: true,
+				},
+			},
+			models.TagRsrc: {
+				models.AllTagsRsrcID: models.RsrcPermissionScope{
+					Read: true,
 				},
 			},
 		},

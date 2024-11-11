@@ -802,6 +802,7 @@ func GetStaticNodesByNetwork(network models.NetworkID, onlyWg bool) (staticNode 
 	if err != nil {
 		return
 	}
+	SortExtClient(extClients[:])
 	for _, extI := range extClients {
 		if extI.Network == network.String() {
 			if onlyWg && extI.RemoteAccessClientID != "" {
