@@ -72,6 +72,17 @@ func storeNodeInCache(node models.Node) {
 	nodesCacheMap[node.ID.String()] = node
 	nodeCacheMutex.Unlock()
 }
+func loadNodesIntoNetworkCache(nMap map[string]models.Node) {
+	nodeNetworkCacheMutex.Lock()
+	for _, v := range nMap {
+		network := v.Network
+		if nodesNetworkCacheMap[network] == nil {
+			nodesNetworkCacheMap[network] = make(map[string]models.Node)
+		}
+		nodesNetworkCacheMap[network][v.ID.String()] = v
+	}
+	nodeNetworkCacheMutex.Unlock()
+}
 
 func loadNodesIntoCache(nMap map[string]models.Node) {
 	nodeCacheMutex.Lock()
@@ -81,6 +92,7 @@ func loadNodesIntoCache(nMap map[string]models.Node) {
 func ClearNodeCache() {
 	nodeCacheMutex.Lock()
 	nodesCacheMap = make(map[string]models.Node)
+	nodesNetworkCacheMap = make(map[string]map[string]models.Node)
 	nodeCacheMutex.Unlock()
 }
 
@@ -95,9 +107,10 @@ const (
 
 // GetNetworkNodes - gets the nodes of a network
 func GetNetworkNodes(network string) ([]models.Node, error) {
-	nodeNetworkCacheMutex.Lock()
-	defer nodeNetworkCacheMutex.Unlock()
+
 	if networkNodes, ok := nodesNetworkCacheMap[network]; ok {
+		nodeNetworkCacheMutex.Lock()
+		defer nodeNetworkCacheMutex.Unlock()
 		return slices.Collect(maps.Values(networkNodes)), nil
 	}
 	allnodes, err := GetAllNodes()
@@ -122,9 +135,10 @@ func GetHostNodes(host *models.Host) []models.Node {
 
 // GetNetworkNodesMemory - gets all nodes belonging to a network from list in memory
 func GetNetworkNodesMemory(allNodes []models.Node, network string) []models.Node {
-	nodeNetworkCacheMutex.Lock()
-	defer nodeNetworkCacheMutex.Unlock()
+
 	if networkNodes, ok := nodesNetworkCacheMap[network]; ok {
+		nodeNetworkCacheMutex.Lock()
+		defer nodeNetworkCacheMutex.Unlock()
 		return slices.Collect(maps.Values(networkNodes))
 	}
 	var nodes = []models.Node{}
@@ -382,6 +396,7 @@ func GetAllNodes() ([]models.Node, error) {
 	nodesMap := make(map[string]models.Node)
 	if servercfg.CacheEnabled() {
 		defer loadNodesIntoCache(nodesMap)
+		defer loadNodesIntoNetworkCache(nodesMap)
 	}
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil {
