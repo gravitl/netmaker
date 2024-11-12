@@ -227,6 +227,16 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			} else if host.EndpointIPv6 != nil && peerHost.EndpointIPv6 != nil {
 				peerEndpoint = peerHost.EndpointIPv6
 			}
+			if host.EndpointIP == nil && peerEndpoint == nil {
+				if peerHost.EndpointIP != nil {
+					peerEndpoint = peerHost.EndpointIP
+				}
+			}
+			if host.EndpointIPv6 == nil && peerEndpoint == nil {
+				if peerHost.EndpointIPv6 != nil {
+					peerEndpoint = peerHost.EndpointIPv6
+				}
+			}
 
 			peerConfig.Endpoint = &net.UDPAddr{
 				IP:   peerEndpoint,

@@ -17,7 +17,7 @@ import (
 
 var (
 	metricsCacheMutex = &sync.RWMutex{}
-	metricsCacheMap   map[string]models.Metrics
+	metricsCacheMap   = make(map[string]models.Metrics)
 )
 
 func getMetricsFromCache(key string) (metrics models.Metrics, ok bool) {
