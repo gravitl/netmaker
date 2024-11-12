@@ -140,26 +140,26 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 	if servercfg.ErrLicenseValidation != nil {
 		licenseErr = servercfg.ErrLicenseValidation.Error()
 	}
-	var trialEndDate time.Time
-	var err error
-	isOnTrial := false
-	if servercfg.IsPro &&
-		(servercfg.GetLicenseKey() == "" || servercfg.GetNetmakerTenantID() == "") {
-		trialEndDate, err = logic.GetTrialEndDate()
-		if err != nil {
-			slog.Error("failed to get trial end date", "error", err)
-		} else {
-			isOnTrial = true
-		}
-	}
+	//var trialEndDate time.Time
+	//var err error
+	// isOnTrial := false
+	// if servercfg.IsPro &&
+	// 	(servercfg.GetLicenseKey() == "" || servercfg.GetNetmakerTenantID() == "") {
+	// 	trialEndDate, err = logic.GetTrialEndDate()
+	// 	if err != nil {
+	// 		slog.Error("failed to get trial end date", "error", err)
+	// 	} else {
+	// 		isOnTrial = true
+	// 	}
+	// }
 	currentServerStatus := status{
 		DB:               database.IsConnected(),
 		Broker:           mq.IsConnected(),
 		IsBrokerConnOpen: mq.IsConnectionOpen(),
 		LicenseError:     licenseErr,
 		IsPro:            servercfg.IsPro,
-		TrialEndDate:     trialEndDate,
-		IsOnTrialLicense: isOnTrial,
+		//TrialEndDate:     trialEndDate,
+		//IsOnTrialLicense: isOnTrial,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
