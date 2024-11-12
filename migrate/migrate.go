@@ -226,18 +226,6 @@ func updateNodes() {
 			}
 		}
 	}
-	extclients, _ := logic.GetAllExtClients()
-	for _, extclient := range extclients {
-		tagID := models.TagID(fmt.Sprintf("%s.%s", extclient.Network,
-			models.RemoteAccessTagName))
-		if extclient.Tags == nil {
-			extclient.Tags = make(map[models.TagID]struct{})
-		}
-		if _, ok := extclient.Tags[tagID]; !ok {
-			extclient.Tags[tagID] = struct{}{}
-			logic.SaveExtClient(&extclient)
-		}
-	}
 }
 
 func removeInterGw(egressRanges []string) ([]string, bool) {
