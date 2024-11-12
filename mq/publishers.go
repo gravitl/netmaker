@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"runtime"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -19,6 +21,15 @@ var batchUpdate = servercfg.GetBatchPeerUpdate()
 
 // PublishPeerUpdate --- determines and publishes a peer update to all the hosts
 func PublishPeerUpdate(replacePeers bool) error {
+	slog.Error("entering PublishPeerUpdate", "Debug")
+	pc, file, no, ok := runtime.Caller(1)
+	if ok {
+		slog.Error("called from ", file, no)
+	}
+	details := runtime.FuncForPC(pc)
+	if ok && details != nil {
+		slog.Error("called from ", details.Name())
+	}
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
@@ -43,7 +54,11 @@ func PublishPeerUpdate(replacePeers bool) error {
 			host := host
 			go func(host models.Host) {
 				if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, nil); err != nil {
-					logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+					id := host.Name
+					if host.ID != uuid.Nil {
+						id = host.ID.String()
+					}
+					slog.Error("failed to publish peer update to host", id, ": ", err)
 				}
 			}(host)
 		}
@@ -60,12 +75,17 @@ func PublishPeerUpdate(replacePeers bool) error {
 			host := hosts[i]
 			go func(host models.Host) {
 				if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, &wg); err != nil {
-					logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+					id := host.Name
+					if host.ID != uuid.Nil {
+						id = host.ID.String()
+					}
+					slog.Error("failed to publish peer update to host", id, ": ", err)
 				}
 			}(host)
 		}
 		wg.Wait()
 	}
+	slog.Error("leaving PublishPeerUpdate", "Debug")
 	return nil
 }
 
