@@ -155,6 +155,20 @@ func updateEnrollmentKeys() {
 	}
 }
 
+func updateNetworks() {
+	nets, err := logic.GetNetworks()
+	if err != nil {
+		return
+	}
+	for _, netI := range nets {
+		netI := netI
+		if netI.ID == uuid.Nil {
+			netI.ID = uuid.New()
+			logic.UpsertNetwork(&netI)
+		}
+	}
+}
+
 func removeOldUserGrps() {
 	rows, err := database.FetchRecords(database.USER_GROUPS_TABLE_NAME)
 	if err != nil {

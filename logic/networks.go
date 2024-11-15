@@ -122,22 +122,22 @@ func getNetworksFromCache() (networks []models.Network) {
 	return
 }
 
-func deleteNetworkFromCache(key string) {
+func deleteNetworkFromCache(key uuid.UUID) {
 	networkCacheMutex.Lock()
-	delete(networkCacheMap, key)
+	delete(networkCacheMap, key.String())
 	networkCacheMutex.Unlock()
 }
 
-func getNetworkFromCache(key string) (network models.Network, ok bool) {
+func getNetworkFromCache(key uuid.UUID) (network models.Network, ok bool) {
 	networkCacheMutex.RLock()
-	network, ok = networkCacheMap[key]
+	network, ok = networkCacheMap[key.String()]
 	networkCacheMutex.RUnlock()
 	return
 }
 
-func storeNetworkInCache(key string, network models.Network) {
+func storeNetworkInCache(key uuid.UUID, network models.Network) {
 	networkCacheMutex.Lock()
-	networkCacheMap[key] = network
+	networkCacheMap[key.String()] = network
 	networkCacheMutex.Unlock()
 }
 
@@ -163,7 +163,7 @@ func GetNetworks() ([]models.Network, error) {
 		// add network our array
 		networks = append(networks, network)
 		if servercfg.CacheEnabled() {
-			storeNetworkInCache(network.NetID, network)
+			storeNetworkInCache(network.ID, network)
 		}
 	}
 
@@ -205,7 +205,7 @@ func DeleteNetwork(network string) error {
 
 // CreateNetwork - creates a network in database
 func CreateNetwork(network models.Network) (models.Network, error) {
-
+	network.ID = uuid.New()
 	if network.AddressRange != "" {
 		normalizedRange, err := NormalizeCIDR(network.AddressRange)
 		if err != nil {
@@ -487,11 +487,12 @@ func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (
 		hasrangeupdate4 := newNetwork.AddressRange != currentNetwork.AddressRange
 		hasrangeupdate6 := newNetwork.AddressRange6 != currentNetwork.AddressRange6
 		hasholepunchupdate := newNetwork.DefaultUDPHolePunch != currentNetwork.DefaultUDPHolePunch
+		newNetwork.SetNetworkLastModified()
 		data, err := json.Marshal(newNetwork)
 		if err != nil {
 			return false, false, false, err
 		}
-		newNetwork.SetNetworkLastModified()
+
 		err = database.Insert(newNetwork.NetID, string(data), database.NETWORKS_TABLE_NAME)
 		if err == nil {
 			if servercfg.CacheEnabled() {
@@ -502,6 +503,21 @@ func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (
 	}
 	// copy values
 	return false, false, false, errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
+}
+
+func UpsertNetwork(net *models.Network) error {
+	net.SetNetworkLastModified()
+	data, err := json.Marshal(net)
+	if err != nil {
+		return err
+	}
+
+	err = database.Insert(net.NetID, string(data), database.NETWORKS_TABLE_NAME)
+	if err == nil {
+		if servercfg.CacheEnabled() {
+			storeNetworkInCache(net.ID.String(), *net)
+		}
+	}
 }
 
 // GetNetwork - gets a network from database
