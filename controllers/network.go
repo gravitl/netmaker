@@ -488,7 +488,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(network.NetID) > 32 {
+	if len(network.Name) > 32 {
 		err := errors.New("network name shouldn't exceed 32 characters")
 		logger.Log(0, r.Header.Get("user"), "failed to create network: ",
 			err.Error())

@@ -162,8 +162,8 @@ func updateNetworks() {
 	}
 	for _, netI := range nets {
 		netI := netI
-		if netI.ID == uuid.Nil {
-			netI.ID = uuid.New()
+		if netI.Name == "" {
+			netI.Name = netI.NetID
 			logic.UpsertNetwork(&netI)
 		}
 	}

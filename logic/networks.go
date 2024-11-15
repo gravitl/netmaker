@@ -122,22 +122,22 @@ func getNetworksFromCache() (networks []models.Network) {
 	return
 }
 
-func deleteNetworkFromCache(key uuid.UUID) {
+func deleteNetworkFromCache(key string) {
 	networkCacheMutex.Lock()
-	delete(networkCacheMap, key.String())
+	delete(networkCacheMap, key)
 	networkCacheMutex.Unlock()
 }
 
-func getNetworkFromCache(key uuid.UUID) (network models.Network, ok bool) {
+func getNetworkFromCache(key string) (network models.Network, ok bool) {
 	networkCacheMutex.RLock()
-	network, ok = networkCacheMap[key.String()]
+	network, ok = networkCacheMap[key]
 	networkCacheMutex.RUnlock()
 	return
 }
 
-func storeNetworkInCache(key uuid.UUID, network models.Network) {
+func storeNetworkInCache(key string, network models.Network) {
 	networkCacheMutex.Lock()
-	networkCacheMap[key.String()] = network
+	networkCacheMap[key] = network
 	networkCacheMutex.Unlock()
 }
 
@@ -163,7 +163,7 @@ func GetNetworks() ([]models.Network, error) {
 		// add network our array
 		networks = append(networks, network)
 		if servercfg.CacheEnabled() {
-			storeNetworkInCache(network.ID, network)
+			storeNetworkInCache(network.NetID, network)
 		}
 	}
 
@@ -205,7 +205,7 @@ func DeleteNetwork(network string) error {
 
 // CreateNetwork - creates a network in database
 func CreateNetwork(network models.Network) (models.Network, error) {
-	network.ID = uuid.New()
+	network.NetID = uuid.New().String()
 	if network.AddressRange != "" {
 		normalizedRange, err := NormalizeCIDR(network.AddressRange)
 		if err != nil {
@@ -515,9 +515,10 @@ func UpsertNetwork(net *models.Network) error {
 	err = database.Insert(net.NetID, string(data), database.NETWORKS_TABLE_NAME)
 	if err == nil {
 		if servercfg.CacheEnabled() {
-			storeNetworkInCache(net.ID.String(), *net)
+			storeNetworkInCache(net.NetID, *net)
 		}
 	}
+	return nil
 }
 
 // GetNetwork - gets a network from database
