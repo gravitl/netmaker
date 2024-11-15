@@ -132,11 +132,6 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 	acl.CreatedBy = user.UserName
 	acl.CreatedAt = time.Now().UTC()
 	acl.Default = false
-	if acl.RuleType == models.DevicePolicy {
-		acl.AllowedDirection = models.TrafficDirectionBi
-	} else {
-		acl.AllowedDirection = models.TrafficDirectionUni
-	}
 	// validate create acl policy
 	if !logic.IsAclPolicyValid(acl) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid policy"), "badrequest"))

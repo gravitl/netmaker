@@ -201,7 +201,10 @@ func IsAclExists(aclID string) bool {
 // IsAclPolicyValid - validates if acl policy is valid
 func IsAclPolicyValid(acl models.Acl) bool {
 	//check if src and dst are valid
-
+	if acl.AllowedDirection != models.TrafficDirectionBi &&
+		acl.AllowedDirection != models.TrafficDirectionUni {
+		return false
+	}
 	switch acl.RuleType {
 	case models.UserPolicy:
 		// src list should only contain users
