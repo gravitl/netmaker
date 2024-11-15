@@ -216,6 +216,11 @@ func deleteTag(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	// check if active policy is using the tag
+	if logic.CheckIfTagAsActivePolicy(tag.ID, tag.Network) {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("tag is currently in use by an active policy"), "badrequest"))
+		return
+	}
 	err = logic.DeleteTag(models.TagID(tagID), true)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
