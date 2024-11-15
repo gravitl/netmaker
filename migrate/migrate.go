@@ -20,6 +20,7 @@ import (
 
 // Run - runs all migrations
 func Run() {
+	updateNetworks()
 	updateEnrollmentKeys()
 	assignSuperAdmin()
 	createDefaultTagsAndPolicies()
