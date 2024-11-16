@@ -52,6 +52,73 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 			// models.NetmakerIPAclID,
 			// models.NetmakerSubNetRangeAClID,
 		},
+		ProtocolTypes: []models.ProtocolType{
+			{
+				Name: "HTTP",
+				AllowedProtocols: []models.Protocol{
+					models.TCP,
+				},
+				PortRange: "80",
+			},
+			{
+				Name: "HTTPS",
+				AllowedProtocols: []models.Protocol{
+					models.TCP,
+				},
+				PortRange: "443",
+			},
+			{
+				Name: "MySQL",
+				AllowedProtocols: []models.Protocol{
+					models.TCP,
+				},
+				PortRange: "3306",
+			},
+			{
+				Name: "DNS TCP",
+				AllowedProtocols: []models.Protocol{
+					models.TCP,
+				},
+				PortRange: "53",
+			},
+			{
+				Name: "DNS UDP",
+				AllowedProtocols: []models.Protocol{
+					models.UDP,
+				},
+				PortRange: "53",
+			},
+			{
+				Name: "All TCP",
+				AllowedProtocols: []models.Protocol{
+					models.TCP,
+				},
+				PortRange: "All ports",
+			},
+			{
+				Name: "All UDP",
+				AllowedProtocols: []models.Protocol{
+					models.UDP,
+				},
+				PortRange: "All ports",
+			},
+			{
+				Name: "ICMP",
+				AllowedProtocols: []models.Protocol{
+					models.ICMP,
+				},
+				PortRange: "",
+			},
+			{
+				Name: "Custom",
+				AllowedProtocols: []models.Protocol{
+					models.UDP,
+					models.TCP,
+				},
+				PortRange:        "All ports",
+				AllowPortSetting: true,
+			},
+		},
 	}
 	logic.ReturnSuccessResponseWithJson(w, r, resp, "fetched acls types")
 }

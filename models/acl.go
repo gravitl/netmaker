@@ -1,6 +1,7 @@
 package models
 
 import (
+	"net"
 	"time"
 )
 
@@ -12,6 +13,16 @@ const (
 	TrafficDirectionUni AllowedTrafficDirection = iota
 	// TrafficDirectionBi implies traffic is allowed both direction (src <--> dst )
 	TrafficDirectionBi
+)
+
+// Protocol - allowed protocol
+type Protocol int
+
+const (
+	ALL Protocol = iota
+	UDP
+	TCP
+	ICMP
 )
 
 type AclPolicyType string
@@ -51,14 +62,16 @@ type AclPolicy struct {
 }
 
 type Acl struct {
-	ID               string                  `json:"id"`
-	Default          bool                    `json:"default"`
-	MetaData         string                  `json:"meta_data"`
-	Name             string                  `json:"name"`
-	NetworkID        NetworkID               `json:"network_id"`
-	RuleType         AclPolicyType           `json:"policy_type"`
-	Src              []AclPolicyTag          `json:"src_type"`
-	Dst              []AclPolicyTag          `json:"dst_type"`
+	ID               string         `json:"id"`
+	Default          bool           `json:"default"`
+	MetaData         string         `json:"meta_data"`
+	Name             string         `json:"name"`
+	NetworkID        NetworkID      `json:"network_id"`
+	RuleType         AclPolicyType  `json:"policy_type"`
+	Src              []AclPolicyTag `json:"src_type"`
+	Dst              []AclPolicyTag `json:"dst_type"`
+	Proto            []Protocol     // tcp, udp, etc.
+	Port             []int
 	AllowedDirection AllowedTrafficDirection `json:"allowed_traffic_direction"`
 	Enabled          bool                    `json:"enabled"`
 	CreatedBy        string                  `json:"created_by"`
@@ -66,7 +79,24 @@ type Acl struct {
 }
 
 type AclPolicyTypes struct {
+	ProtocolTypes []ProtocolType
 	RuleTypes     []AclPolicyType `json:"policy_types"`
 	SrcGroupTypes []AclGroupType  `json:"src_grp_types"`
 	DstGroupTypes []AclGroupType  `json:"dst_grp_types"`
+}
+
+type ProtocolType struct {
+	Name             string     `json:"name"`
+	AllowedProtocols []Protocol `json:"allowed_protocols"`
+	PortRange        string     `json:"port_range"`
+	AllowPortSetting bool       `json:"allow_port_setting"`
+}
+
+type AclRule struct {
+	SrcIP     net.IPNet
+	DstIP     net.IPNet
+	Proto     Protocol // tcp, udp, etc.
+	Port      []int
+	Direction AllowedTrafficDirection // inbound or outbound
+	Allowed   bool
 }
