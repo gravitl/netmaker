@@ -346,14 +346,20 @@ func GetDefaultPolicy(netID models.NetworkID, ruleType models.AclPolicyType) (mo
 		return acl, nil
 	}
 	// check if there are any custom all policies
+	srcMap := make(map[string]struct{})
+	dstMap := make(map[string]struct{})
+	defer func() {
+		srcMap = nil
+		dstMap = nil
+	}()
 	policies, _ := ListAcls(netID)
 	for _, policy := range policies {
 		if !policy.Enabled {
 			continue
 		}
 		if policy.RuleType == ruleType {
-			dstMap := convAclTagToValueMap(policy.Dst)
-			srcMap := convAclTagToValueMap(policy.Src)
+			dstMap = convAclTagToValueMap(policy.Dst)
+			srcMap = convAclTagToValueMap(policy.Src)
 			if _, ok := srcMap["*"]; ok {
 				if _, ok := dstMap["*"]; ok {
 					return policy, nil
@@ -528,12 +534,18 @@ func IsNodeAllowedToCommunicate(node, peer models.Node) bool {
 
 	// list device policies
 	policies := listDevicePolicies(models.NetworkID(peer.Network))
+	srcMap := make(map[string]struct{})
+	dstMap := make(map[string]struct{})
+	defer func() {
+		srcMap = nil
+		dstMap = nil
+	}()
 	for _, policy := range policies {
 		if !policy.Enabled {
 			continue
 		}
-		srcMap := convAclTagToValueMap(policy.Src)
-		dstMap := convAclTagToValueMap(policy.Dst)
+		srcMap = convAclTagToValueMap(policy.Src)
+		dstMap = convAclTagToValueMap(policy.Dst)
 		// fmt.Printf("\n======> SRCMAP: %+v\n", srcMap)
 		// fmt.Printf("\n======> DSTMAP: %+v\n", dstMap)
 		// fmt.Printf("\n======> node Tags: %+v\n", node.Tags)
