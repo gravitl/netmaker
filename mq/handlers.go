@@ -106,6 +106,10 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	switch hostUpdate.Action {
 	case models.CheckIn:
 		sendPeerUpdate = HandleHostCheckin(&hostUpdate.Host, currentHost)
+		if sendPeerUpdate {
+			slog.Error("sendPeerUpdate from UpdateHost.CheckIn", "Debug", sendPeerUpdate, &hostUpdate.Host.Name, &hostUpdate.Host.ID)
+		}
+
 	case models.Acknowledgement:
 		hu := hostactions.GetAction(currentHost.ID.String())
 		if hu != nil {
@@ -129,6 +133,9 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 			replacePeers = true
 		}
 		sendPeerUpdate = logic.UpdateHostFromClient(&hostUpdate.Host, currentHost)
+		if sendPeerUpdate {
+			slog.Error("sendPeerUpdate from UpdateHost.UpdateHost", "Debug", sendPeerUpdate, &hostUpdate.Host.Name, &hostUpdate.Host.ID)
+		}
 		err := logic.UpsertHost(currentHost)
 		if err != nil {
 			slog.Error("failed to update host", "id", currentHost.ID, "error", err)

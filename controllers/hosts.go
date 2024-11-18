@@ -319,6 +319,9 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	switch hostUpdate.Action {
 	case models.CheckIn:
 		sendPeerUpdate = mq.HandleHostCheckin(&hostUpdate.Host, currentHost)
+		if sendPeerUpdate {
+			slog.Error("sendPeerUpdate from CheckIn", "Debug", sendPeerUpdate, &hostUpdate.Host.Name, &hostUpdate.Host.ID)
+		}
 
 	case models.UpdateHost:
 		if hostUpdate.Host.PublicKey != currentHost.PublicKey {
@@ -326,6 +329,9 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			replacePeers = true
 		}
 		sendPeerUpdate = logic.UpdateHostFromClient(&hostUpdate.Host, currentHost)
+		if sendPeerUpdate {
+			slog.Error("sendPeerUpdate from UpdateHost", "Debug", sendPeerUpdate, &hostUpdate.Host.Name, &hostUpdate.Host.ID)
+		}
 		err := logic.UpsertHost(currentHost)
 		if err != nil {
 			slog.Error("failed to update host", "id", currentHost.ID, "error", err)
