@@ -25,6 +25,9 @@ func CreateNodeACL(networkID NetworkID, nodeID NodeID, defaultVal byte) (acls.AC
 	acls.AclMutex.Lock()
 	var newNodeACL = make(acls.ACL)
 	for existingNodeID := range currentNetworkACL {
+		if currentNetworkACL[existingNodeID] == nil {
+			currentNetworkACL[existingNodeID] = make(acls.ACL)
+		}
 		currentNetworkACL[existingNodeID][acls.AclID(nodeID)] = defaultVal // set the old nodes to default value for new node
 		newNodeACL[existingNodeID] = defaultVal                            // set the old nodes in new node ACL to default value
 	}

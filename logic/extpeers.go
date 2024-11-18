@@ -2,6 +2,7 @@ package logic
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"reflect"
@@ -9,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/goombaio/namegenerator"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls"
@@ -281,11 +283,39 @@ func CreateExtClient(extclient *models.ExtClient) error {
 	}
 
 	if extclient.ClientID == "" {
-		extclient.ClientID = models.GenerateNodeName()
+		extclient.ClientID, err = GenerateNodeName(extclient.Network)
+		if err != nil {
+			return err
+		}
 	}
 
 	extclient.LastModified = time.Now().Unix()
 	return SaveExtClient(extclient)
+}
+
+// GenerateNodeName - generates a random node name
+func GenerateNodeName(network string) (string, error) {
+	seed := time.Now().UTC().UnixNano()
+	nameGenerator := namegenerator.NewNameGenerator(seed)
+	var name string
+	cnt := 0
+	for {
+		if cnt > 10 {
+			return "", errors.New("couldn't generate random name, try again")
+		}
+		cnt += 1
+		name = nameGenerator.Generate()
+		if len(name) > 15 {
+			continue
+		}
+		_, err := GetExtClient(name, network)
+		if err == nil {
+			// config exists with same name
+			continue
+		}
+		break
+	}
+	return name, nil
 }
 
 // SaveExtClient - saves an ext client to database
