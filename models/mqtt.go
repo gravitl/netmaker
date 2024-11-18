@@ -90,11 +90,11 @@ type KeyUpdate struct {
 
 // FwUpdate - struct for firewall updates
 type FwUpdate struct {
-	IsEgressGw  bool                   `json:"is_egress_gw"`
-	IsIngressGw bool                   `json:"is_ingress_gw"`
-	EgressInfo  map[string]EgressInfo  `json:"egress_info"`
-	IngressInfo map[string]IngressInfo `json:"ingress_info"`
-	AclRules    map[string]AclRule     `json:"acl_rules"`
+	IsEgressGw  bool                            `json:"is_egress_gw"`
+	IsIngressGw bool                            `json:"is_ingress_gw"`
+	EgressInfo  map[string]EgressInfo           `json:"egress_info"`
+	IngressInfo map[string]IngressInfo          `json:"ingress_info"`
+	AclRules    map[string]map[string][]AclRule `json:"acl_rules"`
 }
 
 // FailOverMeReq - struct for failover req

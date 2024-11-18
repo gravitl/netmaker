@@ -654,10 +654,10 @@ func RemoveDeviceTagFromAclPolicies(tagID models.TagID, netID models.NetworkID) 
 
 func GetAclRulesForNode(node *models.Node) (rules map[string][]models.AclRule) {
 	defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+	rules = make(map[string][]models.AclRule)
 	if err == nil && defaultPolicy.Enabled {
-
 		return map[string][]models.AclRule{
-			defaultPolicy.ID: []models.AclRule{
+			defaultPolicy.ID: {
 				{
 					SrcIP:     node.NetworkRange,
 					SrcIP6:    node.NetworkRange6,
@@ -668,6 +668,7 @@ func GetAclRulesForNode(node *models.Node) (rules map[string][]models.AclRule) {
 			},
 		}
 	}
+
 	taggedNodes := GetTagMapWithNodesByNetwork(models.NetworkID(node.Network))
 	acls := listDevicePolicies(models.NetworkID(node.Network))
 	//allowedNodeUniqueMap := make(map[string]struct{})
@@ -678,35 +679,40 @@ func GetAclRulesForNode(node *models.Node) (rules map[string][]models.AclRule) {
 			}
 			srcTags := convAclTagToValueMap(acl.Src)
 			dstTags := convAclTagToValueMap(acl.Dst)
-
+			aclRules := []models.AclRule{}
 			if acl.AllowedDirection == models.TrafficDirectionBi {
 				var existsInSrcTag bool
 				var existsInDstTag bool
 				// if contains all resources, return entire cidr
 				if _, ok := srcTags["*"]; ok {
-					return []models.AclRule{
-						{
-							SrcIP:     node.NetworkRange,
-							SrcIP6:    node.NetworkRange6,
-							Proto:     []models.Protocol{models.ALL},
-							Port:      acl.Port,
-							Direction: acl.AllowedDirection,
-							Allowed:   true,
+					return map[string][]models.AclRule{
+						acl.ID: {
+							{
+								SrcIP:     node.NetworkRange,
+								SrcIP6:    node.NetworkRange6,
+								Proto:     []models.Protocol{models.ALL},
+								Port:      acl.Port,
+								Direction: acl.AllowedDirection,
+								Allowed:   true,
+							},
 						},
 					}
 				}
 				if _, ok := dstTags["*"]; ok {
-					return []models.AclRule{
-						{
-							SrcIP:     node.NetworkRange,
-							SrcIP6:    node.NetworkRange6,
-							Proto:     []models.Protocol{models.ALL},
-							Port:      acl.Port,
-							Direction: acl.AllowedDirection,
-							Allowed:   true,
+					return map[string][]models.AclRule{
+						acl.ID: {
+							{
+								SrcIP:     node.NetworkRange,
+								SrcIP6:    node.NetworkRange6,
+								Proto:     []models.Protocol{models.ALL},
+								Port:      acl.Port,
+								Direction: acl.AllowedDirection,
+								Allowed:   true,
+							},
 						},
 					}
 				}
+
 				if _, ok := srcTags[nodeTag.String()]; ok {
 					existsInSrcTag = true
 				}
@@ -722,7 +728,7 @@ func GetAclRulesForNode(node *models.Node) (rules map[string][]models.AclRule) {
 						// Get peers in the tags and add allowed rules
 						nodes := taggedNodes[models.TagID(dst)]
 						for _, node := range nodes {
-							rules = append(rules, models.AclRule{
+							aclRules = append(aclRules, models.AclRule{
 								SrcIP:     node.Address,
 								SrcIP6:    node.Address6,
 								Proto:     acl.Proto,
@@ -743,7 +749,7 @@ func GetAclRulesForNode(node *models.Node) (rules map[string][]models.AclRule) {
 						// Get peers in the tags and add allowed rules
 						nodes := taggedNodes[models.TagID(src)]
 						for _, node := range nodes {
-							rules = append(rules, models.AclRule{
+							aclRules = append(aclRules, models.AclRule{
 								SrcIP:     node.Address,
 								SrcIP6:    node.Address6,
 								Proto:     acl.Proto,
@@ -757,7 +763,7 @@ func GetAclRulesForNode(node *models.Node) (rules map[string][]models.AclRule) {
 				if existsInDstTag && existsInSrcTag {
 					nodes := taggedNodes[nodeTag]
 					for _, node := range nodes {
-						rules = append(rules, models.AclRule{
+						aclRules = append(aclRules, models.AclRule{
 							SrcIP:     node.Address,
 							SrcIP6:    node.Address6,
 							Proto:     acl.Proto,
@@ -777,7 +783,7 @@ func GetAclRulesForNode(node *models.Node) (rules map[string][]models.AclRule) {
 						// Get peers in the tags and add allowed rules
 						nodes := taggedNodes[models.TagID(src)]
 						for _, node := range nodes {
-							rules = append(rules, models.AclRule{
+							aclRules = append(aclRules, models.AclRule{
 								SrcIP:     node.Address,
 								SrcIP6:    node.Address6,
 								Proto:     acl.Proto,
@@ -789,9 +795,10 @@ func GetAclRulesForNode(node *models.Node) (rules map[string][]models.AclRule) {
 					}
 				}
 			}
-
+			if len(aclRules) > 0 {
+				rules[acl.ID] = aclRules
+			}
 		}
 	}
-
 	return
 }
