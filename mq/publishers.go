@@ -19,16 +19,16 @@ import (
 var batchSize = servercfg.GetPeerUpdateBatchSize()
 var batchUpdate = servercfg.GetBatchPeerUpdate()
 
-//var peerUpdateTS = time.Now().Unix()
+var peerUpdateTS = time.Now().Unix()
 
 // PublishPeerUpdate --- determines and publishes a peer update to all the hosts
 func PublishPeerUpdate(replacePeers bool) error {
 	slog.Error("entering PublishPeerUpdate", "Debug")
 	t1 := time.Now().Unix()
-	//if time.Now().Unix()-peerUpdateTS < 60 {
-	//	return nil
-	//}
-	//peerUpdateTS = time.Now().Unix()
+	if time.Now().Unix()-peerUpdateTS < 60 {
+		return nil
+	}
+	peerUpdateTS = time.Now().Unix()
 
 	pc, file, no, ok := runtime.Caller(1)
 	if ok {
