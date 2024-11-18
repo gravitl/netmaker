@@ -94,8 +94,8 @@ type ProtocolType struct {
 
 type AclRule struct {
 	SrcIP     net.IPNet
-	DstIP     net.IPNet
-	Proto     Protocol // tcp, udp, etc.
+	SrcIP6    net.IPNet
+	Proto     []Protocol // tcp, udp, etc.
 	Port      []int
 	Direction AllowedTrafficDirection // inbound or outbound
 	Allowed   bool

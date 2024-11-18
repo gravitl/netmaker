@@ -651,3 +651,147 @@ func RemoveDeviceTagFromAclPolicies(tagID models.TagID, netID models.NetworkID) 
 	}
 	return nil
 }
+
+func GetAclRulesForNode(node *models.Node) (rules map[string][]models.AclRule) {
+	defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+	if err == nil && defaultPolicy.Enabled {
+
+		return map[string][]models.AclRule{
+			defaultPolicy.ID: []models.AclRule{
+				{
+					SrcIP:     node.NetworkRange,
+					SrcIP6:    node.NetworkRange6,
+					Proto:     []models.Protocol{models.ALL},
+					Direction: models.TrafficDirectionBi,
+					Allowed:   true,
+				},
+			},
+		}
+	}
+	taggedNodes := GetTagMapWithNodesByNetwork(models.NetworkID(node.Network))
+	acls := listDevicePolicies(models.NetworkID(node.Network))
+	//allowedNodeUniqueMap := make(map[string]struct{})
+	for nodeTag := range node.Tags {
+		for _, acl := range acls {
+			if acl.Default || !acl.Enabled {
+				continue
+			}
+			srcTags := convAclTagToValueMap(acl.Src)
+			dstTags := convAclTagToValueMap(acl.Dst)
+
+			if acl.AllowedDirection == models.TrafficDirectionBi {
+				var existsInSrcTag bool
+				var existsInDstTag bool
+				// if contains all resources, return entire cidr
+				if _, ok := srcTags["*"]; ok {
+					return []models.AclRule{
+						{
+							SrcIP:     node.NetworkRange,
+							SrcIP6:    node.NetworkRange6,
+							Proto:     []models.Protocol{models.ALL},
+							Port:      acl.Port,
+							Direction: acl.AllowedDirection,
+							Allowed:   true,
+						},
+					}
+				}
+				if _, ok := dstTags["*"]; ok {
+					return []models.AclRule{
+						{
+							SrcIP:     node.NetworkRange,
+							SrcIP6:    node.NetworkRange6,
+							Proto:     []models.Protocol{models.ALL},
+							Port:      acl.Port,
+							Direction: acl.AllowedDirection,
+							Allowed:   true,
+						},
+					}
+				}
+				if _, ok := srcTags[nodeTag.String()]; ok {
+					existsInSrcTag = true
+				}
+				if _, ok := dstTags[nodeTag.String()]; ok {
+					existsInDstTag = true
+				}
+				if existsInSrcTag {
+					// get all dst tags
+					for dst := range dstTags {
+						if dst == nodeTag.String() {
+							continue
+						}
+						// Get peers in the tags and add allowed rules
+						nodes := taggedNodes[models.TagID(dst)]
+						for _, node := range nodes {
+							rules = append(rules, models.AclRule{
+								SrcIP:     node.Address,
+								SrcIP6:    node.Address6,
+								Proto:     acl.Proto,
+								Port:      acl.Port,
+								Direction: acl.AllowedDirection,
+								Allowed:   true,
+							})
+						}
+					}
+
+				}
+				if existsInDstTag {
+					// get all src tags
+					for src := range srcTags {
+						if src == nodeTag.String() {
+							continue
+						}
+						// Get peers in the tags and add allowed rules
+						nodes := taggedNodes[models.TagID(src)]
+						for _, node := range nodes {
+							rules = append(rules, models.AclRule{
+								SrcIP:     node.Address,
+								SrcIP6:    node.Address6,
+								Proto:     acl.Proto,
+								Port:      acl.Port,
+								Direction: acl.AllowedDirection,
+								Allowed:   true,
+							})
+						}
+					}
+				}
+				if existsInDstTag && existsInSrcTag {
+					nodes := taggedNodes[nodeTag]
+					for _, node := range nodes {
+						rules = append(rules, models.AclRule{
+							SrcIP:     node.Address,
+							SrcIP6:    node.Address6,
+							Proto:     acl.Proto,
+							Port:      acl.Port,
+							Direction: acl.AllowedDirection,
+							Allowed:   true,
+						})
+					}
+				}
+			} else {
+				if _, ok := dstTags[nodeTag.String()]; ok {
+					// get all src tags
+					for src := range srcTags {
+						if src == nodeTag.String() {
+							continue
+						}
+						// Get peers in the tags and add allowed rules
+						nodes := taggedNodes[models.TagID(src)]
+						for _, node := range nodes {
+							rules = append(rules, models.AclRule{
+								SrcIP:     node.Address,
+								SrcIP6:    node.Address6,
+								Proto:     acl.Proto,
+								Port:      acl.Port,
+								Direction: acl.AllowedDirection,
+								Allowed:   true,
+							})
+						}
+					}
+				}
+			}
+
+		}
+	}
+
+	return
+}
