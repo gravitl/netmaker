@@ -517,18 +517,20 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) bool {
 }
 
 // IsNodeAllowedToCommunicate - check node is allowed to communicate with the peer
-func IsNodeAllowedToCommunicate(node, peer models.Node) bool {
+func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool) bool {
 	if node.IsStatic {
 		node = node.StaticNode.ConvertToStaticNode()
 	}
 	if peer.IsStatic {
 		peer = peer.StaticNode.ConvertToStaticNode()
 	}
-	// check default policy if all allowed return true
-	defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
-	if err == nil {
-		if defaultPolicy.Enabled {
-			return true
+	if checkDefaultPolicy {
+		// check default policy if all allowed return true
+		defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+		if err == nil {
+			if defaultPolicy.Enabled {
+				return true
+			}
 		}
 	}
 

@@ -96,6 +96,8 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE {
 			continue
 		}
+		// check default policy if all allowed return true
+		defaultPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 		if host.OS == models.OS_Types.IoT {
 			hostPeerUpdate.NodeAddrs = append(hostPeerUpdate.NodeAddrs, node.PrimaryAddressIPNet())
 			if node.IsRelayed {
@@ -259,7 +261,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				!peer.PendingDelete &&
 				peer.Connected &&
 				nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) &&
-				IsNodeAllowedToCommunicate(node, peer) &&
+				(defaultPolicy.Enabled || IsNodeAllowedToCommunicate(node, peer, false)) &&
 				(deletedNode == nil || (deletedNode != nil && peer.ID.String() != deletedNode.ID.String())) {
 				peerConfig.AllowedIPs = allowedips // only append allowed IPs if valid connection
 			}
