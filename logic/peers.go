@@ -76,7 +76,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		FwUpdate: models.FwUpdate{
 			EgressInfo:  make(map[string]models.EgressInfo),
 			IngressInfo: make(map[string]models.IngressInfo),
-			AclRules:    make(map[string]map[string][]models.AclRule),
+			AclRules:    make(map[string]models.AclRule),
 		},
 		PeerIDs:           make(models.PeerMap, 0),
 		Peers:             []wgtypes.PeerConfig{},
@@ -155,7 +155,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		if !hostPeerUpdate.IsInternetGw {
 			hostPeerUpdate.IsInternetGw = IsInternetGw(node)
 		}
-		hostPeerUpdate.FwUpdate.AclRules[node.Network] = GetAclRulesForNode(&node)
+		hostPeerUpdate.FwUpdate.AclRules = GetAclRulesForNode(&node)
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
 		for _, peer := range currentPeers {
 			peer := peer

@@ -67,27 +67,27 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 				},
 				PortRange: "443",
 			},
-			{
-				Name: "MySQL",
-				AllowedProtocols: []models.Protocol{
-					models.TCP,
-				},
-				PortRange: "3306",
-			},
-			{
-				Name: "DNS TCP",
-				AllowedProtocols: []models.Protocol{
-					models.TCP,
-				},
-				PortRange: "53",
-			},
-			{
-				Name: "DNS UDP",
-				AllowedProtocols: []models.Protocol{
-					models.UDP,
-				},
-				PortRange: "53",
-			},
+			// {
+			// 	Name: "MySQL",
+			// 	AllowedProtocols: []models.Protocol{
+			// 		models.TCP,
+			// 	},
+			// 	PortRange: "3306",
+			// },
+			// {
+			// 	Name: "DNS TCP",
+			// 	AllowedProtocols: []models.Protocol{
+			// 		models.TCP,
+			// 	},
+			// 	PortRange: "53",
+			// },
+			// {
+			// 	Name: "DNS UDP",
+			// 	AllowedProtocols: []models.Protocol{
+			// 		models.UDP,
+			// 	},
+			// 	PortRange: "53",
+			// },
 			{
 				Name: "All TCP",
 				AllowedProtocols: []models.Protocol{

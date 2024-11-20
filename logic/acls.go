@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"sort"
 	"sync"
 	"time"
@@ -652,19 +653,17 @@ func RemoveDeviceTagFromAclPolicies(tagID models.TagID, netID models.NetworkID) 
 	return nil
 }
 
-func GetAclRulesForNode(node *models.Node) (rules map[string][]models.AclRule) {
+func GetAclRulesForNode(node *models.Node) (rules map[string]models.AclRule) {
 	defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
-	rules = make(map[string][]models.AclRule)
+	rules = make(map[string]models.AclRule)
 	if err == nil && defaultPolicy.Enabled {
-		return map[string][]models.AclRule{
+		return map[string]models.AclRule{
 			defaultPolicy.ID: {
-				{
-					SrcIP:     node.NetworkRange,
-					SrcIP6:    node.NetworkRange6,
-					Proto:     []models.Protocol{models.ALL},
-					Direction: models.TrafficDirectionBi,
-					Allowed:   true,
-				},
+				IPList:    []net.IPNet{node.NetworkRange},
+				IP6List:   []net.IPNet{node.NetworkRange6},
+				Proto:     []models.Protocol{models.ALL},
+				Direction: models.TrafficDirectionBi,
+				Allowed:   true,
 			},
 		}
 	}
@@ -679,36 +678,37 @@ func GetAclRulesForNode(node *models.Node) (rules map[string][]models.AclRule) {
 			}
 			srcTags := convAclTagToValueMap(acl.Src)
 			dstTags := convAclTagToValueMap(acl.Dst)
-			aclRules := []models.AclRule{}
+			aclRule := models.AclRule{
+				Proto:     acl.Proto,
+				Port:      acl.Port,
+				Direction: acl.AllowedDirection,
+				Allowed:   true,
+			}
 			if acl.AllowedDirection == models.TrafficDirectionBi {
 				var existsInSrcTag bool
 				var existsInDstTag bool
 				// if contains all resources, return entire cidr
 				if _, ok := srcTags["*"]; ok {
-					return map[string][]models.AclRule{
+					return map[string]models.AclRule{
 						acl.ID: {
-							{
-								SrcIP:     node.NetworkRange,
-								SrcIP6:    node.NetworkRange6,
-								Proto:     []models.Protocol{models.ALL},
-								Port:      acl.Port,
-								Direction: acl.AllowedDirection,
-								Allowed:   true,
-							},
+							IPList:    []net.IPNet{node.NetworkRange},
+							IP6List:   []net.IPNet{node.NetworkRange6},
+							Proto:     []models.Protocol{models.ALL},
+							Port:      acl.Port,
+							Direction: acl.AllowedDirection,
+							Allowed:   true,
 						},
 					}
 				}
 				if _, ok := dstTags["*"]; ok {
-					return map[string][]models.AclRule{
+					return map[string]models.AclRule{
 						acl.ID: {
-							{
-								SrcIP:     node.NetworkRange,
-								SrcIP6:    node.NetworkRange6,
-								Proto:     []models.Protocol{models.ALL},
-								Port:      acl.Port,
-								Direction: acl.AllowedDirection,
-								Allowed:   true,
-							},
+							IPList:    []net.IPNet{node.NetworkRange},
+							IP6List:   []net.IPNet{node.NetworkRange6},
+							Proto:     []models.Protocol{models.ALL},
+							Port:      acl.Port,
+							Direction: acl.AllowedDirection,
+							Allowed:   true,
 						},
 					}
 				}
@@ -719,6 +719,7 @@ func GetAclRulesForNode(node *models.Node) (rules map[string][]models.AclRule) {
 				if _, ok := dstTags[nodeTag.String()]; ok {
 					existsInDstTag = true
 				}
+
 				if existsInSrcTag {
 					// get all dst tags
 					for dst := range dstTags {
@@ -728,17 +729,14 @@ func GetAclRulesForNode(node *models.Node) (rules map[string][]models.AclRule) {
 						// Get peers in the tags and add allowed rules
 						nodes := taggedNodes[models.TagID(dst)]
 						for _, node := range nodes {
-							aclRules = append(aclRules, models.AclRule{
-								SrcIP:     node.Address,
-								SrcIP6:    node.Address6,
-								Proto:     acl.Proto,
-								Port:      acl.Port,
-								Direction: acl.AllowedDirection,
-								Allowed:   true,
-							})
+							if node.Address.IP != nil {
+								aclRule.IPList = append(aclRule.IPList, node.AddressIPNet4())
+							}
+							if node.Address6.IP != nil {
+								aclRule.IP6List = append(aclRule.IP6List, node.AddressIPNet6())
+							}
 						}
 					}
-
 				}
 				if existsInDstTag {
 					// get all src tags
@@ -749,28 +747,24 @@ func GetAclRulesForNode(node *models.Node) (rules map[string][]models.AclRule) {
 						// Get peers in the tags and add allowed rules
 						nodes := taggedNodes[models.TagID(src)]
 						for _, node := range nodes {
-							aclRules = append(aclRules, models.AclRule{
-								SrcIP:     node.Address,
-								SrcIP6:    node.Address6,
-								Proto:     acl.Proto,
-								Port:      acl.Port,
-								Direction: acl.AllowedDirection,
-								Allowed:   true,
-							})
+							if node.Address.IP != nil {
+								aclRule.IPList = append(aclRule.IPList, node.AddressIPNet4())
+							}
+							if node.Address6.IP != nil {
+								aclRule.IP6List = append(aclRule.IP6List, node.AddressIPNet6())
+							}
 						}
 					}
 				}
 				if existsInDstTag && existsInSrcTag {
 					nodes := taggedNodes[nodeTag]
 					for _, node := range nodes {
-						aclRules = append(aclRules, models.AclRule{
-							SrcIP:     node.Address,
-							SrcIP6:    node.Address6,
-							Proto:     acl.Proto,
-							Port:      acl.Port,
-							Direction: acl.AllowedDirection,
-							Allowed:   true,
-						})
+						if node.Address.IP != nil {
+							aclRule.IPList = append(aclRule.IPList, node.AddressIPNet4())
+						}
+						if node.Address6.IP != nil {
+							aclRule.IP6List = append(aclRule.IP6List, node.AddressIPNet6())
+						}
 					}
 				}
 			} else {
@@ -783,20 +777,18 @@ func GetAclRulesForNode(node *models.Node) (rules map[string][]models.AclRule) {
 						// Get peers in the tags and add allowed rules
 						nodes := taggedNodes[models.TagID(src)]
 						for _, node := range nodes {
-							aclRules = append(aclRules, models.AclRule{
-								SrcIP:     node.Address,
-								SrcIP6:    node.Address6,
-								Proto:     acl.Proto,
-								Port:      acl.Port,
-								Direction: acl.AllowedDirection,
-								Allowed:   true,
-							})
+							if node.Address.IP != nil {
+								aclRule.IPList = append(aclRule.IPList, node.AddressIPNet4())
+							}
+							if node.Address6.IP != nil {
+								aclRule.IP6List = append(aclRule.IP6List, node.AddressIPNet6())
+							}
 						}
 					}
 				}
 			}
-			if len(aclRules) > 0 {
-				rules[acl.ID] = aclRules
+			if len(aclRule.IPList) > 0 || len(aclRule.IP6List) > 0 {
+				rules[acl.ID] = aclRule
 			}
 		}
 	}

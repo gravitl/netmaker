@@ -16,13 +16,13 @@ const (
 )
 
 // Protocol - allowed protocol
-type Protocol int
+type Protocol string
 
 const (
-	ALL Protocol = iota
-	UDP
-	TCP
-	ICMP
+	ALL  Protocol = "all"
+	UDP  Protocol = "udp"
+	TCP  Protocol = "tcp"
+	ICMP Protocol = "icmp"
 )
 
 type AclPolicyType string
@@ -93,8 +93,8 @@ type ProtocolType struct {
 }
 
 type AclRule struct {
-	SrcIP     net.IPNet
-	SrcIP6    net.IPNet
+	IPList    []net.IPNet
+	IP6List   []net.IPNet
 	Proto     []Protocol // tcp, udp, etc.
 	Port      []int
 	Direction AllowedTrafficDirection // inbound or outbound
