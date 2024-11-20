@@ -659,11 +659,11 @@ func GetAclRulesForNode(node *models.Node) (rules map[string]models.AclRule) {
 	if err == nil && defaultPolicy.Enabled {
 		return map[string]models.AclRule{
 			defaultPolicy.ID: {
-				IPList:    []net.IPNet{node.NetworkRange},
-				IP6List:   []net.IPNet{node.NetworkRange6},
-				Proto:     []models.Protocol{models.ALL},
-				Direction: models.TrafficDirectionBi,
-				Allowed:   true,
+				IPList:           []net.IPNet{node.NetworkRange},
+				IP6List:          []net.IPNet{node.NetworkRange6},
+				AllowedProtocols: []models.Protocol{models.ALL},
+				Direction:        models.TrafficDirectionBi,
+				Allowed:          true,
 			},
 		}
 	}
@@ -679,10 +679,11 @@ func GetAclRulesForNode(node *models.Node) (rules map[string]models.AclRule) {
 			srcTags := convAclTagToValueMap(acl.Src)
 			dstTags := convAclTagToValueMap(acl.Dst)
 			aclRule := models.AclRule{
-				Proto:     acl.Proto,
-				Port:      acl.Port,
-				Direction: acl.AllowedDirection,
-				Allowed:   true,
+				ID:               acl.ID,
+				AllowedProtocols: acl.Proto,
+				AllowedPorts:     acl.Port,
+				Direction:        acl.AllowedDirection,
+				Allowed:          true,
 			}
 			if acl.AllowedDirection == models.TrafficDirectionBi {
 				var existsInSrcTag bool
@@ -691,24 +692,24 @@ func GetAclRulesForNode(node *models.Node) (rules map[string]models.AclRule) {
 				if _, ok := srcTags["*"]; ok {
 					return map[string]models.AclRule{
 						acl.ID: {
-							IPList:    []net.IPNet{node.NetworkRange},
-							IP6List:   []net.IPNet{node.NetworkRange6},
-							Proto:     []models.Protocol{models.ALL},
-							Port:      acl.Port,
-							Direction: acl.AllowedDirection,
-							Allowed:   true,
+							IPList:           []net.IPNet{node.NetworkRange},
+							IP6List:          []net.IPNet{node.NetworkRange6},
+							AllowedProtocols: []models.Protocol{models.ALL},
+							AllowedPorts:     acl.Port,
+							Direction:        acl.AllowedDirection,
+							Allowed:          true,
 						},
 					}
 				}
 				if _, ok := dstTags["*"]; ok {
 					return map[string]models.AclRule{
 						acl.ID: {
-							IPList:    []net.IPNet{node.NetworkRange},
-							IP6List:   []net.IPNet{node.NetworkRange6},
-							Proto:     []models.Protocol{models.ALL},
-							Port:      acl.Port,
-							Direction: acl.AllowedDirection,
-							Allowed:   true,
+							IPList:           []net.IPNet{node.NetworkRange},
+							IP6List:          []net.IPNet{node.NetworkRange6},
+							AllowedProtocols: []models.Protocol{models.ALL},
+							AllowedPorts:     acl.Port,
+							Direction:        acl.AllowedDirection,
+							Allowed:          true,
 						},
 					}
 				}
