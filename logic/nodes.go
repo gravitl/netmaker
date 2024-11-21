@@ -388,6 +388,14 @@ func AddStaticNodestoList(nodes []models.Node) []models.Node {
 	return nodes
 }
 
+func AddStatusToNodes(nodes []models.Node) (nodesWithStatus []models.Node) {
+	for _, node := range nodes {
+		GetNodeStatus(&node)
+		nodesWithStatus = append(nodesWithStatus, node)
+	}
+	return
+}
+
 // GetNetworkByNode - gets the network model from a node
 func GetNetworkByNode(node *models.Node) (models.Network, error) {
 
