@@ -16,9 +16,6 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-var batchSize = servercfg.GetPeerUpdateBatchSize()
-var batchUpdate = servercfg.GetBatchPeerUpdate()
-
 var running bool
 
 // PublishPeerUpdate --- determines and publishes a peer update to all the hosts
@@ -56,44 +53,18 @@ func PublishPeerUpdate(replacePeers bool) error {
 		return err
 	}
 
-	//if batch peer update disabled
-	if !batchUpdate {
-		for _, host := range hosts {
-			host := host
-			go func(host models.Host) {
-				if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, nil); err != nil {
-					id := host.Name
-					if host.ID != uuid.Nil {
-						id = host.ID.String()
-					}
-					slog.Error("failed to publish peer update to host", id, ": ", err)
+	for _, host := range hosts {
+		host := host
+		time.Sleep(1 * time.Millisecond)
+		go func(host models.Host) {
+			if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, nil); err != nil {
+				id := host.Name
+				if host.ID != uuid.Nil {
+					id = host.ID.String()
 				}
-			}(host)
-		}
-		running = false
-		slog.Error("leaving PublishPeerUpdate, time cost: ", "Debug", time.Now().Unix()-t1)
-		return nil
-	}
-
-	//if batch peer update enabled
-	batchHost := BatchItems(hosts, batchSize)
-	var wg sync.WaitGroup
-	for _, v := range batchHost {
-		hostLen := len(v)
-		wg.Add(hostLen)
-		for i := 0; i < hostLen; i++ {
-			host := hosts[i]
-			go func(host models.Host) {
-				if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, &wg); err != nil {
-					id := host.Name
-					if host.ID != uuid.Nil {
-						id = host.ID.String()
-					}
-					slog.Error("failed to publish peer update to host", id, ": ", err)
-				}
-			}(host)
-		}
-		wg.Wait()
+				slog.Error("failed to publish peer update to host", id, ": ", err)
+			}
+		}(host)
 	}
 	running = false
 	slog.Error("leaving PublishPeerUpdate, time cost: ", "Debug", time.Now().Unix()-t1)
