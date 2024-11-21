@@ -8,14 +8,42 @@ import (
 )
 
 func GetNodeStatus(node *models.Node) {
-	// On CE check only last check-in time
 	if time.Since(node.LastCheckIn) > models.LastCheckInThreshold {
 		node.Status = models.OfflineSt
+		return
+	}
+	if node.IsStatic {
+		if !node.StaticNode.Enabled {
+			node.Status = models.OfflineSt
+			return
+		}
+		// check extclient connection from metrics
+		ingressMetrics, err := GetMetrics(node.StaticNode.IngressGatewayID)
+		if err != nil || ingressMetrics == nil || ingressMetrics.Connectivity == nil {
+			node.Status = models.UnKnown
+			return
+		}
+		if metric, ok := ingressMetrics.Connectivity[node.StaticNode.ClientID]; ok {
+			if metric.Connected {
+				node.Status = models.OnlineSt
+				return
+			} else {
+				node.Status = models.OfflineSt
+				return
+			}
+		}
+		node.Status = models.UnKnown
 		return
 	}
 	metrics, err := logic.GetMetrics(node.ID.String())
 	if err != nil {
 		return
+	}
+	if metrics == nil || metrics.Connectivity == nil {
+		if time.Since(node.LastCheckIn) < models.LastCheckInThreshold {
+			node.Status = models.OnlineSt
+			return
+		}
 	}
 	peerNotConnectedCnt := 0
 	for peerID, metric := range metrics.Connectivity {

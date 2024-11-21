@@ -140,6 +140,7 @@ func InitPro() {
 	logic.IntialiseGroups = proLogic.UserGroupsInit
 	logic.AddGlobalNetRolesToAdmins = proLogic.AddGlobalNetRolesToAdmins
 	logic.GetUserGroupsInNetwork = proLogic.GetUserGroupsInNetwork
+	logic.GetNodeStatus = proLogic.GetNodeStatus
 }
 
 func retrieveProLogo() string {
