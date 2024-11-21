@@ -261,7 +261,7 @@ func (e *EmqxOnPrem) CreateDefaultAllowRule() error {
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest(http.MethodPost, servercfg.GetEmqxRestEndpoint()+"/api/v5/authorization/sources/built_in_database/all", bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, servercfg.GetEmqxRestEndpoint()+"/api/v5/authorization/sources/built_in_database/rules/all", bytes.NewReader(payload))
 	if err != nil {
 		return err
 	}

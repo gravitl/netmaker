@@ -60,7 +60,6 @@ func PublishPeerUpdate(replacePeers bool) error {
 	if !batchUpdate {
 		for _, host := range hosts {
 			host := host
-			time.Sleep(30 * time.Millisecond)
 			go func(host models.Host) {
 				if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, nil); err != nil {
 					id := host.Name
@@ -84,7 +83,6 @@ func PublishPeerUpdate(replacePeers bool) error {
 		wg.Add(hostLen)
 		for i := 0; i < hostLen; i++ {
 			host := hosts[i]
-			//time.Sleep(1 * time.Millisecond)
 			go func(host models.Host) {
 				if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, &wg); err != nil {
 					id := host.Name
