@@ -34,8 +34,9 @@ func setMqOptions(user, password string, opts *mqtt.ClientOptions) {
 	opts.SetAutoReconnect(true)
 	opts.SetConnectRetry(true)
 	opts.SetCleanSession(true)
-	opts.SetConnectRetryInterval(time.Second * 1)
-	opts.SetKeepAlive(time.Second * 10)
+	opts.SetConnectRetryInterval(time.Second * 3)
+	opts.SetKeepAlive(120 * time.Second)
+	opts.SetPingTimeout(30 * time.Second)
 	opts.SetOrderMatters(false)
 	opts.SetWriteTimeout(time.Minute)
 }
