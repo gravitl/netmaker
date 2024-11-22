@@ -62,16 +62,16 @@ type AclPolicy struct {
 }
 
 type Acl struct {
-	ID               string         `json:"id"`
-	Default          bool           `json:"default"`
-	MetaData         string         `json:"meta_data"`
-	Name             string         `json:"name"`
-	NetworkID        NetworkID      `json:"network_id"`
-	RuleType         AclPolicyType  `json:"policy_type"`
-	Src              []AclPolicyTag `json:"src_type"`
-	Dst              []AclPolicyTag `json:"dst_type"`
-	Proto            []Protocol     // tcp, udp, etc.
-	Port             []int
+	ID               string                  `json:"id"`
+	Default          bool                    `json:"default"`
+	MetaData         string                  `json:"meta_data"`
+	Name             string                  `json:"name"`
+	NetworkID        NetworkID               `json:"network_id"`
+	RuleType         AclPolicyType           `json:"policy_type"`
+	Src              []AclPolicyTag          `json:"src_type"`
+	Dst              []AclPolicyTag          `json:"dst_type"`
+	Proto            []Protocol              `json:"protocol"` // tcp, udp, etc.
+	Port             []int                   `json:"ports"`
 	AllowedDirection AllowedTrafficDirection `json:"allowed_traffic_direction"`
 	Enabled          bool                    `json:"enabled"`
 	CreatedBy        string                  `json:"created_by"`
