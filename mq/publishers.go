@@ -55,7 +55,7 @@ func PublishPeerUpdate(replacePeers bool) error {
 
 	for _, host := range hosts {
 		host := host
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 		go func(host models.Host) {
 			if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, nil); err != nil {
 				id := host.Name
