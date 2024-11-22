@@ -1,8 +1,14 @@
 package mq
 
 import (
+	"bytes"
+	"compress/gzip"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"strings"
 	"time"
@@ -66,40 +72,49 @@ func BatchItems[T any](items []T, batchSize int) [][]T {
 	return batches
 }
 
-func encryptMsg(host *models.Host, msg []byte) ([]byte, error) {
-	if host.OS == models.OS_Types.IoT {
-		return msg, nil
+func compressPayload(data []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	zw := gzip.NewWriter(&buf)
+	if _, err := zw.Write(data); err != nil {
+		return nil, err
 	}
-
-	// fetch server public key to be certain hasn't changed in transit
-	trafficKey, trafficErr := logic.RetrievePrivateTrafficKey()
-	if trafficErr != nil {
-		return nil, trafficErr
-	}
-
-	serverPrivKey, err := ncutils.ConvertBytesToKey(trafficKey)
+	zw.Close()
+	return buf.Bytes(), nil
+}
+func encryptAESGCM(key, plaintext []byte) ([]byte, error) {
+	// Create AES block cipher
+	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
 
-	nodePubKey, err := ncutils.ConvertBytesToKey(host.TrafficKeyPublic)
+	// Create GCM (Galois/Counter Mode) cipher
+	aesGCM, err := cipher.NewGCM(block)
 	if err != nil {
 		return nil, err
 	}
 
-	if strings.Contains(host.Version, "0.10.0") {
-		return ncutils.BoxEncrypt(msg, nodePubKey, serverPrivKey)
+	// Create a random nonce
+	nonce := make([]byte, aesGCM.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, err
 	}
 
-	return ncutils.Chunk(msg, nodePubKey, serverPrivKey)
+	// Encrypt the data
+	ciphertext := aesGCM.Seal(nonce, nonce, plaintext, nil)
+	return ciphertext, nil
 }
 
 func publish(host *models.Host, dest string, msg []byte) error {
-
-	encrypted, encryptErr := encryptMsg(host, msg)
+	zipped, err := compressPayload(msg)
+	if err != nil {
+		return err
+	}
+	encrypted, encryptErr := encryptAESGCM(host.TrafficKeyPublic[0:32], zipped)
 	if encryptErr != nil {
 		return encryptErr
 	}
+
 	if mqclient == nil || !mqclient.IsConnectionOpen() {
 		return errors.New("cannot publish ... mqclient not connected")
 	}

@@ -31,3 +31,15 @@ func ConvertBytesToKey(data []byte) (*[32]byte, error) {
 	}
 	return result, err
 }
+
+// ConvertBytesToKey - util to convert bytes to a key to use elsewhere
+func ConvertBytesToKey1(data []byte) ([]byte, error) {
+	var buffer = bytes.NewBuffer(data)
+	var dec = gob.NewDecoder(buffer)
+	var result = []byte{}
+	var err = dec.Decode(result)
+	if err != nil {
+		return nil, err
+	}
+	return result, err
+}
