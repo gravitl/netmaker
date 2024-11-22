@@ -300,6 +300,9 @@ func UpdateAcl(newAcl, acl models.Acl) error {
 		acl.Name = newAcl.Name
 		acl.Src = newAcl.Src
 		acl.Dst = newAcl.Dst
+		acl.AllowedDirection = newAcl.AllowedDirection
+		acl.Port = newAcl.Port
+		acl.Proto = newAcl.Proto
 	}
 	acl.Enabled = newAcl.Enabled
 	d, err := json.Marshal(acl)
