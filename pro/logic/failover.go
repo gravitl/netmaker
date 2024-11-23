@@ -3,6 +3,7 @@ package logic
 import (
 	"errors"
 	"net"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/logger"
@@ -11,8 +12,11 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-func SetFailOverCtx(failOverNode, victimNode, peerNode models.Node) error {
+var failOverCtxMutex = &sync.RWMutex{}
 
+func SetFailOverCtx(failOverNode, victimNode, peerNode models.Node) error {
+	failOverCtxMutex.Lock()
+	defer failOverCtxMutex.Unlock()
 	if peerNode.FailOverPeers == nil {
 		peerNode.FailOverPeers = make(map[string]struct{})
 	}
