@@ -16,13 +16,13 @@ const (
 )
 
 // Protocol - allowed protocol
-type Protocol int
+type Protocol string
 
 const (
-	ALL Protocol = iota
-	UDP
-	TCP
-	ICMP
+	ALL  Protocol = "all"
+	UDP  Protocol = "udp"
+	TCP  Protocol = "tcp"
+	ICMP Protocol = "icmp"
 )
 
 type AclPolicyType string
