@@ -239,6 +239,13 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					peerEndpoint = peerHost.EndpointIPv6
 				}
 			}
+			if node.IsRelay && peer.RelayedBy == node.ID.String() && !peer.IsStatic {
+				// don't set endpoint on relayed peer
+				peerEndpoint = nil
+			}
+			if isFailOverPeer && peer.FailedOverBy == node.ID && !peer.IsStatic {
+				peerEndpoint = nil
+			}
 
 			peerConfig.Endpoint = &net.UDPAddr{
 				IP:   peerEndpoint,

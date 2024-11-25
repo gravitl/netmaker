@@ -301,6 +301,9 @@ func UpdateAcl(newAcl, acl models.Acl) error {
 		acl.Name = newAcl.Name
 		acl.Src = newAcl.Src
 		acl.Dst = newAcl.Dst
+		acl.AllowedDirection = newAcl.AllowedDirection
+		acl.Port = newAcl.Port
+		acl.Proto = newAcl.Proto
 	}
 	acl.Enabled = newAcl.Enabled
 	d, err := json.Marshal(acl)
@@ -625,6 +628,25 @@ func UpdateDeviceTag(OldID, newID models.TagID, netID models.NetworkID) {
 	}
 }
 
+func CheckIfTagAsActivePolicy(tagID models.TagID, netID models.NetworkID) bool {
+	acls := listDevicePolicies(netID)
+	for _, acl := range acls {
+		for _, srcTagI := range acl.Src {
+			if srcTagI.ID == models.DeviceAclID {
+				if tagID.String() == srcTagI.Value {
+					return true
+				}
+			}
+		}
+		for _, dstTagI := range acl.Dst {
+			if dstTagI.ID == models.DeviceAclID {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // RemoveDeviceTagFromAclPolicies - remove device tag from acl policies
 func RemoveDeviceTagFromAclPolicies(tagID models.TagID, netID models.NetworkID) error {
 	acls := listDevicePolicies(netID)
@@ -793,5 +815,5 @@ func GetAclRulesForNode(node *models.Node) (rules map[string]models.AclRule) {
 			}
 		}
 	}
-	return
+	return rules
 }
