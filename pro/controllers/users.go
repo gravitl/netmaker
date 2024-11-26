@@ -1006,8 +1006,8 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 			userConf.Enabled = parentNetwork.DefaultACL == "yes"
 		}
 		userConf.Tags = make(map[models.TagID]struct{})
-		userConf.Tags[models.TagID(fmt.Sprintf("%s.%s", userConf.Network,
-			models.RemoteAccessTagName))] = struct{}{}
+		// userConf.Tags[models.TagID(fmt.Sprintf("%s.%s", userConf.Network,
+		// 	models.RemoteAccessTagName))] = struct{}{}
 		if err = logic.CreateExtClient(&userConf); err != nil {
 			slog.Error(
 				"failed to create extclient",

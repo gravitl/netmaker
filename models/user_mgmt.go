@@ -80,7 +80,8 @@ const (
 	AllUserRsrcID           RsrcID = "all_user"
 	AllDnsRsrcID            RsrcID = "all_dns"
 	AllFailOverRsrcID       RsrcID = "all_fail_over"
-	AllAclsRsrcID           RsrcID = "all_acls"
+	AllAclsRsrcID           RsrcID = "all_acl"
+	AllTagsRsrcID           RsrcID = "all_tag"
 )
 
 // Pre-Defined User Roles
