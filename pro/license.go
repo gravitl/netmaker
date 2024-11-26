@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gravitl/netmaker/utils"
 	"io"
 	"net/http"
 	"time"
@@ -205,55 +206,81 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, bool
 		return nil, false, err
 	}
 
-	req, err := http.NewRequest(
-		http.MethodPost,
-		proLogic.GetAccountsHost()+"/api/v1/license/validate",
-		bytes.NewReader(requestBody),
-	)
-	if err != nil {
-		return nil, false, err
+	var validateResponse *http.Response
+	var validationResponse []byte
+	var timedOut bool
+
+	validationRetries := utils.RetryStrategy{
+		WaitTime:         time.Second * 5,
+		WaitTimeIncrease: time.Second * 2,
+		MaxTries:         5,
+		Wait: func(duration time.Duration) {
+			time.Sleep(duration)
+		},
+		Try: func() error {
+			req, err := http.NewRequest(
+				http.MethodPost,
+				proLogic.GetAccountsHost()+"/api/v1/license/validate",
+				bytes.NewReader(requestBody),
+			)
+			if err != nil {
+				return err
+			}
+			req.Header.Add("Content-Type", "application/json")
+			req.Header.Add("Accept", "application/json")
+			client := &http.Client{}
+
+			validateResponse, err = client.Do(req)
+			if err != nil {
+				slog.Warn(fmt.Sprintf("error while validating license key: %v", err))
+				return err
+			}
+
+			if validateResponse.StatusCode == http.StatusServiceUnavailable ||
+				validateResponse.StatusCode == http.StatusGatewayTimeout ||
+				validateResponse.StatusCode == http.StatusBadGateway {
+				timedOut = true
+				return errors.New("failed to reach netmaker api")
+			}
+
+			return nil
+		},
+		OnMaxTries: func() {
+			slog.Warn("proceeding with cached response, Netmaker API may be down")
+			validationResponse, err = getCachedResponse()
+			timedOut = false
+		},
+		OnSuccess: func() {
+			defer validateResponse.Body.Close()
+
+			// if we received a 200, cache the response locally
+			if validateResponse.StatusCode == http.StatusOK {
+				validationResponse, err = io.ReadAll(validateResponse.Body)
+				if err != nil {
+					slog.Warn("failed to parse response", "error", err)
+					validationResponse = nil
+					timedOut = false
+					return
+				}
+
+				if err := cacheResponse(validationResponse); err != nil {
+					slog.Warn("failed to cache response", "error", err)
+				}
+			} else {
+				// at this point the backend returned some undesired state
+
+				// inform failure via logs
+				body, _ := io.ReadAll(validateResponse.Body)
+				err = fmt.Errorf("could not validate license with validation backend (status={%d}, body={%s})",
+					validateResponse.StatusCode, string(body))
+				slog.Warn(err.Error())
+			}
+		},
 	}
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("Accept", "application/json")
-	client := &http.Client{}
-	validateResponse, err := client.Do(req)
-	if err != nil { // check cache
-		slog.Warn("proceeding with cached response, Netmaker API may be down")
-		cachedResp, err := getCachedResponse()
-		return cachedResp, false, err
-	}
-	defer validateResponse.Body.Close()
-	code := validateResponse.StatusCode
 
-	// if we received a 200, cache the response locally
-	if code == http.StatusOK {
-		body, err := io.ReadAll(validateResponse.Body)
-		if err != nil {
-			slog.Warn("failed to parse response", "error", err)
-			return nil, false, err
-		}
-		if err := cacheResponse(body); err != nil {
-			slog.Warn("failed to cache response", "error", err)
-		}
-		return body, false, nil
-	}
+	validationRetries.DoStrategy()
 
-	// at this point the backend returned some undesired state
-
-	// inform failure via logs
-	body, _ := io.ReadAll(validateResponse.Body)
-	err = fmt.Errorf("could not validate license with validation backend (status={%d}, body={%s})",
-		validateResponse.StatusCode, string(body))
-	slog.Warn(err.Error())
-
-	// try to use cache if we had a temporary error
-	if code == http.StatusServiceUnavailable || code == http.StatusGatewayTimeout || code == http.StatusBadGateway {
-		slog.Warn("Netmaker API may be down, will retry later...", "code", code)
-		return nil, true, nil
-	}
-
-	// at this point the error is irreversible, return it
-	return nil, false, err
+	return validationResponse, timedOut, err
 }
 
 func cacheResponse(response []byte) error {
