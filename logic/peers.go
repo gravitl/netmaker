@@ -155,6 +155,16 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		if !hostPeerUpdate.IsInternetGw {
 			hostPeerUpdate.IsInternetGw = IsInternetGw(node)
 		}
+		defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
+		defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+		if !defaultDevicePolicy.Enabled || !defaultUserPolicy.Enabled {
+			if node.NetworkRange.IP != nil {
+				hostPeerUpdate.FwUpdate.Networks = append(hostPeerUpdate.FwUpdate.Networks, node.NetworkRange)
+			}
+			if node.NetworkRange6.IP != nil {
+				hostPeerUpdate.FwUpdate.Networks = append(hostPeerUpdate.FwUpdate.Networks, node.NetworkRange6)
+			}
+		}
 		hostPeerUpdate.FwUpdate.AclRules = GetAclRulesForNode(&node)
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
 		for _, peer := range currentPeers {
@@ -311,8 +321,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			hostPeerUpdate.FwUpdate.IsIngressGw = true
 			extPeers, extPeerIDAndAddrs, egressRoutes, err = GetExtPeers(&node, &node)
 			if err == nil {
-				defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
-				defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 				if !defaultDevicePolicy.Enabled || !defaultUserPolicy.Enabled {
 					ingFwUpdate := models.IngressInfo{
 						IngressID:     node.ID.String(),
