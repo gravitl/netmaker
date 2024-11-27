@@ -18,11 +18,6 @@ var (
 	aclCacheMap   = make(map[string]models.Acl)
 )
 
-func init() {
-	// load acls into cache
-	_ = listAcls()
-}
-
 // CreateDefaultAclNetworkPolicies - create default acl network policies
 func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 	if netID.String() == "" {
@@ -177,6 +172,9 @@ func InsertAcl(a models.Acl) error {
 func GetAcl(aID string) (models.Acl, error) {
 	a := models.Acl{}
 	if servercfg.CacheEnabled() {
+		if len(aclCacheMap) == 0 {
+			_ = listAcls()
+		}
 		var ok bool
 		a, ok = getAclFromCache(aID)
 		if ok {
