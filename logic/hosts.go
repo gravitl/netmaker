@@ -243,30 +243,25 @@ func UpdateHost(newHost, currentHost *models.Host) {
 // UpdateHostFromClient - used for updating host on server with update recieved from client
 func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) {
 	if newHost.PublicKey != currHost.PublicKey {
-		slog.Error("PublicKey changed:", "Debug")
 		currHost.PublicKey = newHost.PublicKey
 		sendPeerUpdate = true
 	}
 	if newHost.ListenPort != 0 && currHost.ListenPort != newHost.ListenPort {
-		slog.Error("ListenPort changed:", "Debug", currHost.ListenPort, newHost.ListenPort)
 		currHost.ListenPort = newHost.ListenPort
 		sendPeerUpdate = true
 	}
 	if newHost.WgPublicListenPort != 0 &&
 		currHost.WgPublicListenPort != newHost.WgPublicListenPort {
-		slog.Error("WgPublicListenPort changed:", "Debug", currHost.WgPublicListenPort, newHost.WgPublicListenPort)
 		currHost.WgPublicListenPort = newHost.WgPublicListenPort
 		sendPeerUpdate = true
 	}
 	isEndpointChanged := false
 	if currHost.EndpointIP.String() != newHost.EndpointIP.String() {
-		slog.Error("EndpointIP changed:", "Debug", currHost.EndpointIP, newHost.EndpointIP)
 		currHost.EndpointIP = newHost.EndpointIP
 		sendPeerUpdate = true
 		isEndpointChanged = true
 	}
 	if currHost.EndpointIPv6.String() != newHost.EndpointIPv6.String() {
-		slog.Error("EndpointIPv6 changed:", "Debug", currHost.EndpointIPv6, newHost.EndpointIPv6)
 		currHost.EndpointIPv6 = newHost.EndpointIPv6
 		sendPeerUpdate = true
 		isEndpointChanged = true
@@ -295,7 +290,6 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 
 	currHost.Name = newHost.Name
 	if len(newHost.NatType) > 0 && newHost.NatType != currHost.NatType {
-		slog.Error("NatType changed:", "Debug", currHost.NatType, newHost.NatType)
 		currHost.NatType = newHost.NatType
 		sendPeerUpdate = true
 	}

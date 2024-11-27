@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"runtime"
 	"sync"
 	"time"
 
@@ -20,21 +19,11 @@ var running bool
 
 // PublishPeerUpdate --- determines and publishes a peer update to all the hosts
 func PublishPeerUpdate(replacePeers bool) error {
-	slog.Error("entering PublishPeerUpdate", "Debug")
 	if running {
 		return nil
 	}
 	running = true
-	t1 := time.Now().Unix()
 
-	pc, file, no, ok := runtime.Caller(1)
-	if ok {
-		slog.Error("called from ", file, no)
-	}
-	details := runtime.FuncForPC(pc)
-	if ok && details != nil {
-		slog.Error("called from ", details.Name())
-	}
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
@@ -67,7 +56,6 @@ func PublishPeerUpdate(replacePeers bool) error {
 		}(host)
 	}
 	running = false
-	slog.Error("leaving PublishPeerUpdate, time cost: ", "Debug", time.Now().Unix()-t1)
 	return nil
 }
 
