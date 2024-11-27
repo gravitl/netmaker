@@ -23,6 +23,7 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 	if netID.String() == "" {
 		return
 	}
+	_, _ = ListAcls(netID)
 	if !IsAclExists(fmt.Sprintf("%s.%s", netID, "all-nodes")) {
 		defaultDeviceAcl := models.Acl{
 			ID:        fmt.Sprintf("%s.%s", netID, "all-nodes"),
