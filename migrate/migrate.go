@@ -21,6 +21,7 @@ import (
 // Run - runs all migrations
 func Run() {
 	_, _ = logic.GetAllNodes()
+	_, _ = logic.GetAllHosts()
 	updateEnrollmentKeys()
 	assignSuperAdmin()
 	createDefaultTagsAndPolicies()
