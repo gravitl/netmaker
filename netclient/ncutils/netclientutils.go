@@ -6,7 +6,7 @@ import (
 )
 
 // DEFAULT_GC_PERCENT - garbage collection percent
-const DEFAULT_GC_PERCENT = 10
+const DEFAULT_GC_PERCENT = 100
 
 // == OS PATH FUNCTIONS ==
 
