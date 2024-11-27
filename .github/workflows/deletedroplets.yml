@@ -37,7 +37,7 @@ jobs:
       - name: delete droplets
         if: success() || failure()
         run: |
-          sleep 1m
+          sleep 30m
           response=$(curl -X DELETE \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $DIGITALOCEAN_TOKEN" \
@@ -109,7 +109,7 @@ jobs:
       - name: delete droplets
         if: success() || failure()
         run: |
-          sleep 1m
+          sleep 30m
           response=$(curl -X DELETE \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $DIGITALOCEAN_TOKEN" \
