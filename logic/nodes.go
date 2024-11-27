@@ -445,6 +445,9 @@ func GetRecordKey(id string, network string) (string, error) {
 
 func GetNodeByID(uuid string) (models.Node, error) {
 	if servercfg.CacheEnabled() {
+		if len(getNodesFromCache()) == 0 {
+			_, _ = GetAllNodes()
+		}
 		if node, ok := getNodeFromCache(uuid); ok {
 			return node, nil
 		}
