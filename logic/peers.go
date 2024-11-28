@@ -158,14 +158,16 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		}
 		defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 		defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
-		if !defaultDevicePolicy.Enabled || !defaultUserPolicy.Enabled {
-			if node.NetworkRange.IP != nil {
-				hostPeerUpdate.FwUpdate.Networks = append(hostPeerUpdate.FwUpdate.Networks, node.NetworkRange)
-			}
-			if node.NetworkRange6.IP != nil {
-				hostPeerUpdate.FwUpdate.Networks = append(hostPeerUpdate.FwUpdate.Networks, node.NetworkRange6)
-			}
+		if node.NetworkRange.IP != nil {
+			hostPeerUpdate.FwUpdate.Networks = append(hostPeerUpdate.FwUpdate.Networks, node.NetworkRange)
 		}
+		if node.NetworkRange6.IP != nil {
+			hostPeerUpdate.FwUpdate.Networks = append(hostPeerUpdate.FwUpdate.Networks, node.NetworkRange6)
+		}
+		if host.Name == "Test-Server" {
+			fmt.Println("##### DEF POL ", defaultDevicePolicy.Enabled, defaultUserPolicy.Enabled)
+		}
+
 		if !defaultDevicePolicy.Enabled || !defaultUserPolicy.Enabled {
 			hostPeerUpdate.FwUpdate.AllowAll = false
 		}
