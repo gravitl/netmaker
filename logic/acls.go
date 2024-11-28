@@ -384,12 +384,10 @@ func listAcls() (acls []models.Acl) {
 	if err != nil && !database.IsEmptyRecord(err) {
 		return []models.Acl{}
 	}
-	fmt.Println("===> ACL Db DATA: ", data)
 	for _, dataI := range data {
 		acl := models.Acl{}
 		err := json.Unmarshal([]byte(dataI), &acl)
 		if err != nil {
-			fmt.Println("======> UNMARSHAL ERROR ACLS ", err)
 			continue
 		}
 		acls = append(acls, acl)
