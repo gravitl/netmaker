@@ -70,8 +70,8 @@ type Acl struct {
 	RuleType         AclPolicyType           `json:"policy_type"`
 	Src              []AclPolicyTag          `json:"src_type"`
 	Dst              []AclPolicyTag          `json:"dst_type"`
-	Proto            []Protocol              `json:"protocol"` // tcp, udp, etc.
-	Port             []int                   `json:"ports"`
+	Proto            Protocol                `json:"protocol"` // tcp, udp, etc.
+	Port             []string                `json:"ports"`
 	AllowedDirection AllowedTrafficDirection `json:"allowed_traffic_direction"`
 	Enabled          bool                    `json:"enabled"`
 	CreatedBy        string                  `json:"created_by"`
@@ -96,8 +96,8 @@ type AclRule struct {
 	ID               string                  `json:"id"`
 	IPList           []net.IPNet             `json:"ip_list"`
 	IP6List          []net.IPNet             `json:"ip6_list"`
-	AllowedProtocols []Protocol              `json:"allowed_protocols"` // tcp, udp, etc.
-	AllowedPorts     []int                   `json:"allowed_ports"`
+	AllowedProtocols Protocol                `json:"allowed_protocols"` // tcp, udp, etc.
+	AllowedPorts     []string                `json:"allowed_ports"`
 	Direction        AllowedTrafficDirection `json:"direction"` // single or two-way
 	Allowed          bool
 }

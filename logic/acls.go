@@ -684,7 +684,7 @@ func GetAclRulesForNode(node *models.Node) (rules map[string]models.AclRule) {
 			defaultPolicy.ID: {
 				IPList:           []net.IPNet{node.NetworkRange},
 				IP6List:          []net.IPNet{node.NetworkRange6},
-				AllowedProtocols: []models.Protocol{models.ALL},
+				AllowedProtocols: models.ALL,
 				Direction:        models.TrafficDirectionBi,
 				Allowed:          true,
 			},
@@ -717,7 +717,7 @@ func GetAclRulesForNode(node *models.Node) (rules map[string]models.AclRule) {
 						acl.ID: {
 							IPList:           []net.IPNet{node.NetworkRange},
 							IP6List:          []net.IPNet{node.NetworkRange6},
-							AllowedProtocols: []models.Protocol{models.ALL},
+							AllowedProtocols: models.ALL,
 							AllowedPorts:     acl.Port,
 							Direction:        acl.AllowedDirection,
 							Allowed:          true,
@@ -729,7 +729,7 @@ func GetAclRulesForNode(node *models.Node) (rules map[string]models.AclRule) {
 						acl.ID: {
 							IPList:           []net.IPNet{node.NetworkRange},
 							IP6List:          []net.IPNet{node.NetworkRange6},
-							AllowedProtocols: []models.Protocol{models.ALL},
+							AllowedProtocols: models.ALL,
 							AllowedPorts:     acl.Port,
 							Direction:        acl.AllowedDirection,
 							Allowed:          true,
