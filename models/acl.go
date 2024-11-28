@@ -25,6 +25,10 @@ const (
 	ICMP Protocol = "icmp"
 )
 
+func (p Protocol) String() string {
+	return string(p)
+}
+
 type AclPolicyType string
 
 const (

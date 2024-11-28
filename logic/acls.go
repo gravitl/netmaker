@@ -19,6 +19,36 @@ var (
 	aclCacheMap   = make(map[string]models.Acl)
 )
 
+func MigrateDefaulAclPolicies(netID models.NetworkID) {
+	if netID.String() == "" {
+		return
+	}
+	acl, err := GetAcl(fmt.Sprintf("%s.%s", netID, "all-nodes"))
+	if err == nil {
+		if acl.Proto.String() == "" {
+			acl.Proto = models.ALL
+			acl.Port = []string{}
+			UpsertAcl(acl)
+		}
+	}
+	acl, err = GetAcl(fmt.Sprintf("%s.%s", netID, "all-users"))
+	if err == nil {
+		if acl.Proto.String() == "" {
+			acl.Proto = models.ALL
+			acl.Port = []string{}
+			UpsertAcl(acl)
+		}
+	}
+	acl, err = GetAcl(fmt.Sprintf("%s.%s", netID, "all-remote-access-gws"))
+	if err == nil {
+		if acl.Proto.String() == "" {
+			acl.Proto = models.ALL
+			acl.Port = []string{}
+			UpsertAcl(acl)
+		}
+	}
+}
+
 // CreateDefaultAclNetworkPolicies - create default acl network policies
 func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 	if netID.String() == "" {
@@ -32,6 +62,8 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 			MetaData:  "This Policy allows all nodes in the network to communicate with each other",
 			Default:   true,
 			NetworkID: netID,
+			Proto:     models.ALL,
+			Port:      []string{},
 			RuleType:  models.DevicePolicy,
 			Src: []models.AclPolicyTag{
 				{
@@ -57,6 +89,8 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 			Name:      "All Users",
 			MetaData:  "This policy gives access to everything in the network for an user",
 			NetworkID: netID,
+			Proto:     models.ALL,
+			Port:      []string{},
 			RuleType:  models.UserPolicy,
 			Src: []models.AclPolicyTag{
 				{
@@ -82,6 +116,8 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 			Default:   true,
 			Name:      "All Remote Access Gateways",
 			NetworkID: netID,
+			Proto:     models.ALL,
+			Port:      []string{},
 			RuleType:  models.DevicePolicy,
 			Src: []models.AclPolicyTag{
 				{

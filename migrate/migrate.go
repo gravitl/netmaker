@@ -439,5 +439,6 @@ func createDefaultTagsAndPolicies() {
 	for _, network := range networks {
 		logic.CreateDefaultTags(models.NetworkID(network.NetID))
 		logic.CreateDefaultAclNetworkPolicies(models.NetworkID(network.NetID))
+		logic.MigrateDefaulAclPolicies(models.NetworkID(network.NetID))
 	}
 }
