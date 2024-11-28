@@ -74,6 +74,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		ServerVersion: servercfg.GetVersion(),
 		ServerAddrs:   []models.ServerAddr{},
 		FwUpdate: models.FwUpdate{
+			AllowAll:    true,
 			EgressInfo:  make(map[string]models.EgressInfo),
 			IngressInfo: make(map[string]models.IngressInfo),
 			AclRules:    make(map[string]models.AclRule),
@@ -164,6 +165,9 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			if node.NetworkRange6.IP != nil {
 				hostPeerUpdate.FwUpdate.Networks = append(hostPeerUpdate.FwUpdate.Networks, node.NetworkRange6)
 			}
+		}
+		if !defaultDevicePolicy.Enabled || !defaultUserPolicy.Enabled {
+			hostPeerUpdate.FwUpdate.AllowAll = false
 		}
 		hostPeerUpdate.FwUpdate.AclRules = GetAclRulesForNode(&node)
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
