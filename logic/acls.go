@@ -24,6 +24,7 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 	if netID.String() == "" {
 		return
 	}
+	_, _ = ListAcls(netID)
 	if !IsAclExists(fmt.Sprintf("%s.%s", netID, "all-nodes")) {
 		defaultDeviceAcl := models.Acl{
 			ID:        fmt.Sprintf("%s.%s", netID, "all-nodes"),
@@ -173,9 +174,6 @@ func InsertAcl(a models.Acl) error {
 func GetAcl(aID string) (models.Acl, error) {
 	a := models.Acl{}
 	if servercfg.CacheEnabled() {
-		if len(aclCacheMap) == 0 {
-			_ = listAcls()
-		}
 		var ok bool
 		a, ok = getAclFromCache(aID)
 		if ok {
