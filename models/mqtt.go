@@ -25,6 +25,7 @@ type HostPeerUpdate struct {
 	ReplacePeers      bool                  `json:"replace_peers"`
 	EndpointDetection bool                  `json:"endpoint_detection"`
 	ManageDNS         bool                  `yaml:"manage_dns"`
+	Stun              bool                  `yaml:"stun"`
 }
 
 type FwRule struct {
