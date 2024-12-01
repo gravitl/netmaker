@@ -25,6 +25,17 @@ const (
 	ICMP Protocol = "icmp"
 )
 
+type ServiceType string
+
+const (
+	Http        = "HTTP"
+	Https       = "HTTPS"
+	AllTCP      = "All TCP"
+	AllUDP      = "All UDP"
+	ICMPService = "ICMP"
+	Custom      = "Custom"
+)
+
 func (p Protocol) String() string {
 	return string(p)
 }
@@ -75,6 +86,7 @@ type Acl struct {
 	Src              []AclPolicyTag          `json:"src_type"`
 	Dst              []AclPolicyTag          `json:"dst_type"`
 	Proto            Protocol                `json:"protocol"` // tcp, udp, etc.
+	ServiceType      string                  `json:"type"`
 	Port             []string                `json:"ports"`
 	AllowedDirection AllowedTrafficDirection `json:"allowed_traffic_direction"`
 	Enabled          bool                    `json:"enabled"`

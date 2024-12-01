@@ -54,14 +54,14 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 		},
 		ProtocolTypes: []models.ProtocolType{
 			{
-				Name: "HTTP",
+				Name: models.Http,
 				AllowedProtocols: []models.Protocol{
 					models.TCP,
 				},
 				PortRange: "80",
 			},
 			{
-				Name: "HTTPS",
+				Name: models.Https,
 				AllowedProtocols: []models.Protocol{
 					models.TCP,
 				},
@@ -89,28 +89,28 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 			// 	PortRange: "53",
 			// },
 			{
-				Name: "All TCP",
+				Name: models.AllTCP,
 				AllowedProtocols: []models.Protocol{
 					models.TCP,
 				},
 				PortRange: "All ports",
 			},
 			{
-				Name: "All UDP",
+				Name: models.AllUDP,
 				AllowedProtocols: []models.Protocol{
 					models.UDP,
 				},
 				PortRange: "All ports",
 			},
 			{
-				Name: "ICMP",
+				Name: models.ICMPService,
 				AllowedProtocols: []models.Protocol{
 					models.ICMP,
 				},
 				PortRange: "",
 			},
 			{
-				Name: "Custom",
+				Name: models.Custom,
 				AllowedProtocols: []models.Protocol{
 					models.UDP,
 					models.TCP,

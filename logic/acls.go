@@ -25,16 +25,18 @@ func MigrateDefaulAclPolicies(netID models.NetworkID) {
 	}
 	acl, err := GetAcl(fmt.Sprintf("%s.%s", netID, "all-nodes"))
 	if err == nil {
-		if acl.Proto.String() == "" {
-			acl.Proto = models.ALL
-			acl.Port = []string{}
-			UpsertAcl(acl)
-		}
+		//if acl.Proto.String() == "" {
+		acl.Proto = models.ALL
+		acl.ServiceType = models.Custom
+		acl.Port = []string{}
+		UpsertAcl(acl)
+		//}
 	}
 	acl, err = GetAcl(fmt.Sprintf("%s.%s", netID, "all-users"))
 	if err == nil {
 		if acl.Proto.String() == "" {
 			acl.Proto = models.ALL
+			acl.ServiceType = models.Custom
 			acl.Port = []string{}
 			UpsertAcl(acl)
 		}
@@ -43,6 +45,7 @@ func MigrateDefaulAclPolicies(netID models.NetworkID) {
 	if err == nil {
 		if acl.Proto.String() == "" {
 			acl.Proto = models.ALL
+			acl.ServiceType = models.Custom
 			acl.Port = []string{}
 			UpsertAcl(acl)
 		}
@@ -341,6 +344,7 @@ func UpdateAcl(newAcl, acl models.Acl) error {
 		acl.AllowedDirection = newAcl.AllowedDirection
 		acl.Port = newAcl.Port
 		acl.Proto = newAcl.Proto
+		acl.ServiceType = newAcl.ServiceType
 	}
 	acl.Enabled = newAcl.Enabled
 	d, err := json.Marshal(acl)
