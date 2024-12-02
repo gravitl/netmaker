@@ -326,6 +326,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			replacePeers = true
 		}
 		sendPeerUpdate = logic.UpdateHostFromClient(&hostUpdate.Host, currentHost)
+		currentHost.TrafficKeyPublic = hostUpdate.Host.TrafficKeyPublic
 		err := logic.UpsertHost(currentHost)
 		if err != nil {
 			slog.Error("failed to update host", "id", currentHost.ID, "error", err)
