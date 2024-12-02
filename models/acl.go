@@ -109,11 +109,11 @@ type ProtocolType struct {
 }
 
 type AclRule struct {
-	ID               string                  `json:"id"`
-	IPList           []net.IPNet             `json:"ip_list"`
-	IP6List          []net.IPNet             `json:"ip6_list"`
-	AllowedProtocols Protocol                `json:"allowed_protocols"` // tcp, udp, etc.
-	AllowedPorts     []string                `json:"allowed_ports"`
-	Direction        AllowedTrafficDirection `json:"direction"` // single or two-way
-	Allowed          bool
+	ID              string                  `json:"id"`
+	IPList          []net.IPNet             `json:"ip_list"`
+	IP6List         []net.IPNet             `json:"ip6_list"`
+	AllowedProtocol Protocol                `json:"allowed_protocols"` // tcp, udp, etc.
+	AllowedPorts    []string                `json:"allowed_ports"`
+	Direction       AllowedTrafficDirection `json:"direction"` // single or two-way
+	Allowed         bool
 }
