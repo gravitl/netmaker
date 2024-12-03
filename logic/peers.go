@@ -164,14 +164,15 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		if node.NetworkRange6.IP != nil {
 			hostPeerUpdate.FwUpdate.Networks = append(hostPeerUpdate.FwUpdate.Networks, node.NetworkRange6)
 		}
-		if host.Name == "Test-Server" {
-			fmt.Println("##### DEF POL ", defaultDevicePolicy.Enabled, defaultUserPolicy.Enabled)
-		}
 
 		if !defaultDevicePolicy.Enabled || !defaultUserPolicy.Enabled {
 			hostPeerUpdate.FwUpdate.AllowAll = false
 		}
 		hostPeerUpdate.FwUpdate.AclRules = GetAclRulesForNode(&node)
+		if host.Name == "Test-Server" {
+			fmt.Println("##### DEF POL ", defaultDevicePolicy.Enabled, defaultUserPolicy.Enabled)
+			fmt.Printf("ACL Rules: %+v\n", hostPeerUpdate.FwUpdate.AclRules)
+		}
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
 		for _, peer := range currentPeers {
 			peer := peer
@@ -273,11 +274,12 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				peerConfig.Endpoint.Port = peerHost.ListenPort
 			}
 			allowedips := GetAllowedIPs(&node, &peer, nil)
+			allowedToComm, _ := IsNodeAllowedToCommunicate(node, peer)
 			if peer.Action != models.NODE_DELETE &&
 				!peer.PendingDelete &&
 				peer.Connected &&
 				nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) &&
-				IsNodeAllowedToCommunicate(node, peer) &&
+				allowedToComm &&
 				(deletedNode == nil || (deletedNode != nil && peer.ID.String() != deletedNode.ID.String())) {
 				peerConfig.AllowedIPs = allowedips // only append allowed IPs if valid connection
 			}
