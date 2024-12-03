@@ -7,26 +7,29 @@ import (
 	"sync"
 
 	"github.com/gravitl/netmaker/logic/acls"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 var NodesAllowedACLMutex = &sync.Mutex{}
 
 // AreNodesAllowed - checks if nodes are allowed to communicate in their network ACL
 func AreNodesAllowed(networkID NetworkID, node1, node2 NodeID) bool {
-	return true
-	// NodesAllowedACLMutex.Lock()
-	// defer NodesAllowedACLMutex.Unlock()
-	// var currentNetworkACL, err = FetchAllACLs(networkID)
-	// if err != nil {
-	// 	return false
-	// }
-	// var allowed bool
-	// acls.AclMutex.Lock()
-	// currNetworkACLNode1 := currentNetworkACL[acls.AclID(node1)]
-	// currNetworkACLNode2 := currentNetworkACL[acls.AclID(node2)]
-	// acls.AclMutex.Unlock()
-	// allowed = currNetworkACLNode1.IsAllowed(acls.AclID(node2)) && currNetworkACLNode2.IsAllowed(acls.AclID(node1))
-	// return allowed
+	if !servercfg.IsOldAclEnabled() {
+		return true
+	}
+	NodesAllowedACLMutex.Lock()
+	defer NodesAllowedACLMutex.Unlock()
+	var currentNetworkACL, err = FetchAllACLs(networkID)
+	if err != nil {
+		return false
+	}
+	var allowed bool
+	acls.AclMutex.Lock()
+	currNetworkACLNode1 := currentNetworkACL[acls.AclID(node1)]
+	currNetworkACLNode2 := currentNetworkACL[acls.AclID(node2)]
+	acls.AclMutex.Unlock()
+	allowed = currNetworkACLNode1.IsAllowed(acls.AclID(node2)) && currNetworkACLNode2.IsAllowed(acls.AclID(node1))
+	return allowed
 }
 
 // FetchNodeACL - fetches a specific node's ACL in a given network

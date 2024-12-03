@@ -664,6 +664,14 @@ func GetManageDNS() bool {
 	return enabled
 }
 
+func IsOldAclEnabled() bool {
+	enabled := true
+	if os.Getenv("OLD_ACL_SUPPORT") != "" {
+		enabled = os.Getenv("OLD_ACL_SUPPORT") == "true"
+	}
+	return enabled
+}
+
 // GetDefaultDomain - get the default domain
 func GetDefaultDomain() string {
 	//default netmaker.hosted
