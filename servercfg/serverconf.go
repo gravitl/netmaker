@@ -76,7 +76,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.Database = GetDB()
 	cfg.Platform = GetPlatform()
 	cfg.Version = GetVersion()
-	cfg.PublicIp, _ = GetPublicIP()
+	cfg.PublicIp = GetServerHostIP()
 
 	// == auth config ==
 	var authInfo = GetAuthProviderInfo()
@@ -175,6 +175,11 @@ func SetVersion(v string) {
 // GetVersion - version of netmaker
 func GetVersion() string {
 	return Version
+}
+
+// GetServerHostIP - fetches server IP
+func GetServerHostIP() string {
+	return os.Getenv("SERVER_HOST")
 }
 
 // GetDB - gets the database type
