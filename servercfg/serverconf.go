@@ -76,6 +76,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.Database = GetDB()
 	cfg.Platform = GetPlatform()
 	cfg.Version = GetVersion()
+	cfg.PublicIp, _ = GetPublicIP()
 
 	// == auth config ==
 	var authInfo = GetAuthProviderInfo()
