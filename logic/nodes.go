@@ -179,6 +179,16 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 			}
 			if servercfg.CacheEnabled() {
 				storeNodeInCache(*newNode)
+				if _, ok := allocatedIpMap[newNode.Network]; ok {
+					if newNode.Address.IP != nil && !newNode.Address.IP.Equal(currentNode.Address.IP) {
+						AddIpToAllocatedIpMap(newNode.Network, newNode.Address.IP)
+						RemoveIpFromAllocatedIpMap(currentNode.Network, currentNode.Address.IP.String())
+					}
+					if newNode.Address6.IP != nil && !newNode.Address6.IP.Equal(currentNode.Address6.IP) {
+						AddIpToAllocatedIpMap(newNode.Network, newNode.Address6.IP)
+						RemoveIpFromAllocatedIpMap(currentNode.Network, currentNode.Address6.IP.String())
+					}
+				}
 			}
 			return nil
 		}
@@ -669,6 +679,26 @@ func ValidateParams(nodeid, netid string) (models.Node, error) {
 		return node, fmt.Errorf("network url param does not match node network")
 	}
 	return node, nil
+}
+
+func ValidateNodeIp(currentNode *models.Node, newNode *models.ApiNode) error {
+
+	if currentNode.Address.IP != nil && currentNode.Address.String() != newNode.Address {
+		newIp, _, _ := net.ParseCIDR(newNode.Address)
+		ipAllocated := allocatedIpMap[currentNode.Network]
+		if _, ok := ipAllocated[newIp.String()]; ok {
+			return errors.New("ip specified is already allocated:  " + newNode.Address)
+		}
+	}
+	if currentNode.Address6.IP != nil && currentNode.Address6.String() != newNode.Address6 {
+		newIp, _, _ := net.ParseCIDR(newNode.Address6)
+		ipAllocated := allocatedIpMap[currentNode.Network]
+		if _, ok := ipAllocated[newIp.String()]; ok {
+			return errors.New("ip specified is already allocated:  " + newNode.Address6)
+		}
+	}
+
+	return nil
 }
 
 func ValidateEgressRange(gateway models.EgressGatewayRequest) error {

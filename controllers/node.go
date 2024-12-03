@@ -680,6 +680,11 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	err = logic.ValidateNodeIp(&currentNode, &newData)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	if !servercfg.IsPro {
 		newData.AdditionalRagIps = []string{}
 	}
