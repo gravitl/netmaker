@@ -144,8 +144,6 @@ func publish(host *models.Host, dest string, msg []byte) error {
 		slog.Warn("error checking version less than", "error", err)
 		return err
 	}
-	slog.Error("host.Version: ", "Debug", host.Version)
-	slog.Error("host.Version less than v0.30.0: ", "Debug", vlt)
 	if vlt {
 		encrypted, encryptErr = encryptMsg(host, msg)
 		if encryptErr != nil {
