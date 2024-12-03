@@ -102,6 +102,7 @@ type ServerConfig struct {
 	MetricInterval             string        `yaml:"metric_interval"`
 	ManageDNS                  bool          `yaml:"manage_dns"`
 	DefaultDomain              string        `yaml:"default_domain"`
+	PublicIp                   string        `yaml:"public_ip"`
 }
 
 // SQLConfig - Generic SQL Config
