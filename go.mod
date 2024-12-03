@@ -3,6 +3,7 @@ module github.com/gravitl/netmaker
 go 1.23
 
 require (
+	github.com/blang/semver v3.5.1+incompatible
 	github.com/eclipse/paho.mqtt.golang v1.4.3
 	github.com/go-playground/validator/v10 v10.23.0
 	github.com/golang-jwt/jwt/v4 v4.5.1

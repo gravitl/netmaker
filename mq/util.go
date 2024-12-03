@@ -12,7 +12,9 @@ import (
 	"math"
 	"strings"
 	"time"
+	"unicode"
 
+	"github.com/blang/semver"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
@@ -105,14 +107,59 @@ func encryptAESGCM(key, plaintext []byte) ([]byte, error) {
 	return ciphertext, nil
 }
 
-func publish(host *models.Host, dest string, msg []byte) error {
-	zipped, err := compressPayload(msg)
+func encryptMsg(host *models.Host, msg []byte) ([]byte, error) {
+	if host.OS == models.OS_Types.IoT {
+		return msg, nil
+	}
+
+	// fetch server public key to be certain hasn't changed in transit
+	trafficKey, trafficErr := logic.RetrievePrivateTrafficKey()
+	if trafficErr != nil {
+		return nil, trafficErr
+	}
+
+	serverPrivKey, err := ncutils.ConvertBytesToKey(trafficKey)
 	if err != nil {
+		return nil, err
+	}
+
+	nodePubKey, err := ncutils.ConvertBytesToKey(host.TrafficKeyPublic)
+	if err != nil {
+		return nil, err
+	}
+
+	if strings.Contains(host.Version, "0.10.0") {
+		return ncutils.BoxEncrypt(msg, nodePubKey, serverPrivKey)
+	}
+
+	return ncutils.Chunk(msg, nodePubKey, serverPrivKey)
+}
+
+func publish(host *models.Host, dest string, msg []byte) error {
+
+	var encrypted []byte
+	var encryptErr error
+	vlt, err := versionLessThan(host.Version, "v0.30.0")
+	if err != nil {
+		slog.Warn("error checking version less than", "error", err)
 		return err
 	}
-	encrypted, encryptErr := encryptAESGCM(host.TrafficKeyPublic[0:32], zipped)
-	if encryptErr != nil {
-		return encryptErr
+	slog.Error("host.Version: ", "Debug", host.Version)
+	slog.Error("host.Version less than v0.30.0: ", "Debug", vlt)
+	if vlt {
+		encrypted, encryptErr = encryptMsg(host, msg)
+		if encryptErr != nil {
+			return encryptErr
+		}
+	} else {
+		zipped, err := compressPayload(msg)
+		if err != nil {
+			return err
+		}
+		encrypted, encryptErr = encryptAESGCM(host.TrafficKeyPublic[0:32], zipped)
+		if encryptErr != nil {
+			return encryptErr
+		}
 	}
 
 	if mqclient == nil || !mqclient.IsConnectionOpen() {
@@ -141,4 +188,30 @@ func GetID(topic string) (string, error) {
 	}
 	//the last part of the topic will be the node.ID
 	return parts[count-1], nil
+}
+
+// versionLessThan checks if v1 < v2 semantically
+// dev is the latest version
+func versionLessThan(v1, v2 string) (bool, error) {
+	if v1 == "dev" {
+		return false, nil
+	}
+	if v2 == "dev" {
+		return true, nil
+	}
+	semVer1 := strings.TrimFunc(v1, func(r rune) bool {
+		return !unicode.IsNumber(r)
+	})
+	semVer2 := strings.TrimFunc(v2, func(r rune) bool {
+		return !unicode.IsNumber(r)
+	})
+	sv1, err := semver.Parse(semVer1)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse semver1 (%s): %w", semVer1, err)
+	}
+	sv2, err := semver.Parse(semVer2)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse semver2 (%s): %w", semVer2, err)
+	}
+	return sv1.LT(sv2), nil
 }
