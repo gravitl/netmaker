@@ -490,6 +490,13 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	if err == nil { // check if parent network default ACL is enabled (yes) or not (no)
 		extclient.Enabled = parentNetwork.DefaultACL == "yes"
 	}
+	extclient.Os = customExtClient.Os
+	extclient.DeviceName = customExtClient.DeviceName
+	if customExtClient.IsAlreadyConnectedToInetGw {
+		slog.Warn("RAC/Client is already connected to internet gateway. this may mask their real IP address", "client IP", customExtClient.PublicEndpoint)
+	}
+	extclient.PublicEndpoint = customExtClient.PublicEndpoint
+	extclient.Country = customExtClient.Country
 
 	if err = logic.CreateExtClient(&extclient); err != nil {
 		slog.Error(
