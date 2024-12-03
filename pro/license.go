@@ -213,7 +213,7 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, bool
 	validationRetries := utils.RetryStrategy{
 		WaitTime:         time.Second * 5,
 		WaitTimeIncrease: time.Second * 2,
-		MaxTries:         5,
+		MaxTries:         15,
 		Wait: func(duration time.Duration) {
 			time.Sleep(duration)
 		},
