@@ -15,14 +15,8 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-var running bool
-
 // PublishPeerUpdate --- determines and publishes a peer update to all the hosts
 func PublishPeerUpdate(replacePeers bool) error {
-	if running {
-		return nil
-	}
-	running = true
 
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
@@ -55,7 +49,7 @@ func PublishPeerUpdate(replacePeers bool) error {
 			}
 		}(host)
 	}
-	running = false
+
 	return nil
 }
 
