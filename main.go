@@ -100,6 +100,15 @@ func initialize() { // Client Mode Prereq Check
 		logger.FatalLog("Error connecting to database: ", err.Error())
 	}
 	logger.Log(0, "database successfully connected")
+
+	//initialize cache
+	_, _ = logic.GetNetworks()
+	_, _ = logic.GetAllNodes()
+	_, _ = logic.GetAllHosts()
+	_, _ = logic.GetAllExtClients()
+	_ = logic.ListAcls()
+	_, _ = logic.GetAllEnrollmentKeys()
+
 	migrate.Run()
 
 	logic.SetJWTSecret()
