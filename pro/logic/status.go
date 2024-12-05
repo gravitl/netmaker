@@ -3,7 +3,6 @@ package logic
 import (
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 )
@@ -62,25 +61,25 @@ func GetNodeStatus(node *models.Node) {
 
 	*/
 
-	failoverNode, exists := FailOverExists(node.Network)
-	if exists && failoverNode.FailedOverBy != uuid.Nil {
-		// check connectivity to failover Node
-		if metric, ok := metrics.Connectivity[failoverNode.ID.String()]; ok {
-			if time.Since(failoverNode.LastCheckIn) < models.LastCheckInThreshold {
-				if metric.Connected {
-					node.Status = models.OnlineSt
-					return
-				} else {
-					checkPeerConnectivity(node, metrics)
-					return
-				}
-			}
-		} else {
-			node.Status = models.OnlineSt
-			return
-		}
+	// failoverNode, exists := FailOverExists(node.Network)
+	// if exists && failoverNode.FailedOverBy != uuid.Nil {
+	// 	// check connectivity to failover Node
+	// 	if metric, ok := metrics.Connectivity[failoverNode.ID.String()]; ok {
+	// 		if time.Since(failoverNode.LastCheckIn) < models.LastCheckInThreshold {
+	// 			if metric.Connected {
+	// 				node.Status = models.OnlineSt
+	// 				return
+	// 			} else {
+	// 				checkPeerConnectivity(node, metrics)
+	// 				return
+	// 			}
+	// 		}
+	// 	} else {
+	// 		node.Status = models.OnlineSt
+	// 		return
+	// 	}
 
-	}
+	// }
 	checkPeerConnectivity(node, metrics)
 
 }
