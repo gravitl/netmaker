@@ -759,7 +759,6 @@ func GetAclRulesForNode(node *models.Node) (rules map[string]models.AclRule) {
 	defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 	rules = make(map[string]models.AclRule)
 	if err == nil && defaultPolicy.Enabled {
-		return
 		return map[string]models.AclRule{
 			defaultPolicy.ID: {
 				IPList:          []net.IPNet{node.NetworkRange},
