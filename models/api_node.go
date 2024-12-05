@@ -52,6 +52,7 @@ type ApiNode struct {
 	IsStatic          bool                `json:"is_static"`
 	IsUserNode        bool                `json:"is_user_node"`
 	StaticNode        ExtClient           `json:"static_node"`
+	Status            NodeStatus          `json:"status"`
 }
 
 // ApiNode.ConvertToServerNode - converts an api node to a server node
@@ -192,6 +193,7 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.IsStatic = nm.IsStatic
 	apiNode.IsUserNode = nm.IsUserNode
 	apiNode.StaticNode = nm.StaticNode
+	apiNode.Status = nm.Status
 	return &apiNode
 }
 
