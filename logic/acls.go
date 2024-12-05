@@ -23,6 +23,7 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 	if netID.String() == "" {
 		return
 	}
+	_, _ = ListAclsByNetwork(netID)
 	if !IsAclExists(fmt.Sprintf("%s.%s", netID, "all-nodes")) {
 		defaultDeviceAcl := models.Acl{
 			ID:        fmt.Sprintf("%s.%s", netID, "all-nodes"),
@@ -105,7 +106,7 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 
 // DeleteDefaultNetworkPolicies - deletes all default network acl policies
 func DeleteDefaultNetworkPolicies(netId models.NetworkID) {
-	acls, _ := ListAcls(netId)
+	acls, _ := ListAclsByNetwork(netId)
 	for _, acl := range acls {
 		if acl.NetworkID == netId && acl.Default {
 			DeleteAcl(acl)
@@ -346,7 +347,7 @@ func GetDefaultPolicy(netID models.NetworkID, ruleType models.AclPolicyType) (mo
 		return acl, nil
 	}
 	// check if there are any custom all policies
-	policies, _ := ListAcls(netID)
+	policies, _ := ListAclsByNetwork(netID)
 	for _, policy := range policies {
 		if !policy.Enabled {
 			continue
@@ -366,7 +367,7 @@ func GetDefaultPolicy(netID models.NetworkID, ruleType models.AclPolicyType) (mo
 	return acl, nil
 }
 
-func listAcls() (acls []models.Acl) {
+func ListAcls() (acls []models.Acl) {
 	if servercfg.CacheEnabled() && len(aclCacheMap) > 0 {
 		return listAclFromCache()
 	}
@@ -392,7 +393,7 @@ func listAcls() (acls []models.Acl) {
 
 // ListUserPolicies - lists all acl policies enforced on an user
 func ListUserPolicies(u models.User) []models.Acl {
-	allAcls := listAcls()
+	allAcls := ListAcls()
 	userAcls := []models.Acl{}
 	for _, acl := range allAcls {
 
@@ -417,7 +418,7 @@ func ListUserPolicies(u models.User) []models.Acl {
 
 // listPoliciesOfUser - lists all user acl policies applied to user in an network
 func listPoliciesOfUser(user models.User, netID models.NetworkID) []models.Acl {
-	allAcls := listAcls()
+	allAcls := ListAcls()
 	userAcls := []models.Acl{}
 	for _, acl := range allAcls {
 		if acl.NetworkID == netID && acl.RuleType == models.UserPolicy {
@@ -446,7 +447,7 @@ func listPoliciesOfUser(user models.User, netID models.NetworkID) []models.Acl {
 
 // listDevicePolicies - lists all device policies in a network
 func listDevicePolicies(netID models.NetworkID) []models.Acl {
-	allAcls := listAcls()
+	allAcls := ListAcls()
 	deviceAcls := []models.Acl{}
 	for _, acl := range allAcls {
 		if acl.NetworkID == netID && acl.RuleType == models.DevicePolicy {
@@ -457,9 +458,9 @@ func listDevicePolicies(netID models.NetworkID) []models.Acl {
 }
 
 // ListAcls - lists all acl policies
-func ListAcls(netID models.NetworkID) ([]models.Acl, error) {
+func ListAclsByNetwork(netID models.NetworkID) ([]models.Acl, error) {
 
-	allAcls := listAcls()
+	allAcls := ListAcls()
 	netAcls := []models.Acl{}
 	for _, acl := range allAcls {
 		if acl.NetworkID == netID {
@@ -619,6 +620,25 @@ func UpdateDeviceTag(OldID, newID models.TagID, netID models.NetworkID) {
 			UpsertAcl(acl)
 		}
 	}
+}
+
+func CheckIfTagAsActivePolicy(tagID models.TagID, netID models.NetworkID) bool {
+	acls := listDevicePolicies(netID)
+	for _, acl := range acls {
+		for _, srcTagI := range acl.Src {
+			if srcTagI.ID == models.DeviceAclID {
+				if tagID.String() == srcTagI.Value {
+					return true
+				}
+			}
+		}
+		for _, dstTagI := range acl.Dst {
+			if dstTagI.ID == models.DeviceAclID {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // RemoveDeviceTagFromAclPolicies - remove device tag from acl policies

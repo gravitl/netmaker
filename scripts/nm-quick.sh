@@ -127,7 +127,7 @@ setup_netclient() {
 	./netclient install
 	echo "Register token: $TOKEN"
 	sleep 2
-	netclient join -t $TOKEN
+	netclient join -t $TOKEN --static-port -p 443
 
 	echo "waiting for netclient to become available"
 	local found=false
@@ -251,10 +251,8 @@ save_config() { (
 	if [ "$INSTALL_TYPE" = "pro" ]; then
 		save_config_item NETMAKER_TENANT_ID "$NETMAKER_TENANT_ID"
 		save_config_item LICENSE_KEY "$LICENSE_KEY"
-		if [ "$UPGRADE_FLAG" = "yes" ];then
-			save_config_item METRICS_EXPORTER "on"
-			save_config_item PROMETHEUS "on"
-		fi
+		save_config_item METRICS_EXPORTER "on"
+		save_config_item PROMETHEUS "on"
 		save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG-ee"
 	else
 		save_config_item METRICS_EXPORTER "off"
@@ -559,7 +557,7 @@ set_install_vars() {
 	echo "                api.$NETMAKER_BASE_DOMAIN"
 	echo "             broker.$NETMAKER_BASE_DOMAIN"
 
-	if [ "$UPGRADE_FLAG" = "yes" ]; then
+	if [ "$INSTALL_TYPE" = "pro" ]; then
 		echo "         prometheus.$NETMAKER_BASE_DOMAIN"
 		echo "  netmaker-exporter.$NETMAKER_BASE_DOMAIN"
 		echo "            grafana.$NETMAKER_BASE_DOMAIN"
@@ -632,13 +630,12 @@ install_netmaker() {
 	if [ "$INSTALL_TYPE" = "pro" ]; then
 		local COMPOSE_OVERRIDE_URL="$BASE_URL/compose/docker-compose.pro.yml"
 		local CADDY_URL="$BASE_URL/docker/Caddyfile-pro"
-	fi
-	wget -qO "$SCRIPT_DIR"/docker-compose.yml $COMPOSE_URL
-	if [ "$UPGRADE_FLAG" = "yes" ]; then
 		wget -qO "$SCRIPT_DIR"/docker-compose.override.yml $COMPOSE_OVERRIDE_URL
 	elif [ -a "$SCRIPT_DIR"/docker-compose.override.yml ]; then
 		rm -f "$SCRIPT_DIR"/docker-compose.override.yml
 	fi
+	wget -qO "$SCRIPT_DIR"/docker-compose.yml $COMPOSE_URL
+
 	wget -qO "$SCRIPT_DIR"/Caddyfile "$CADDY_URL"
 	wget -qO "$SCRIPT_DIR"/netmaker.default.env "$BASE_URL/scripts/netmaker.default.env"
 	wget -qO "$SCRIPT_DIR"/mosquitto.conf "$BASE_URL/docker/mosquitto.conf"
