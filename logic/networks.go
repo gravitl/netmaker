@@ -23,6 +23,7 @@ import (
 )
 
 var (
+	networkMutex      = &sync.RWMutex{}
 	networkCacheMutex = &sync.RWMutex{}
 	networkCacheMap   = make(map[string]models.Network)
 	allocatedIpMap    = make(map[string]map[string]net.IP)
@@ -205,6 +206,8 @@ func DeleteNetwork(network string) error {
 
 // CreateNetwork - creates a network in database
 func CreateNetwork(network models.Network) (models.Network, error) {
+	networkMutex.Lock()
+	defer networkMutex.Unlock()
 	network.NetID = fmt.Sprintf("%d", time.Now().Unix())
 	if network.AddressRange != "" {
 		normalizedRange, err := NormalizeCIDR(network.AddressRange)
