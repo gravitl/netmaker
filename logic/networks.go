@@ -205,7 +205,7 @@ func DeleteNetwork(network string) error {
 
 // CreateNetwork - creates a network in database
 func CreateNetwork(network models.Network) (models.Network, error) {
-	network.NetID = uuid.New().String()
+	network.NetID = fmt.Sprintf("%d", time.Now().Unix())
 	if network.AddressRange != "" {
 		normalizedRange, err := NormalizeCIDR(network.AddressRange)
 		if err != nil {
