@@ -599,6 +599,15 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 								AllowedPorts:    policy.Port,
 								Allow:           true,
 							})
+							if policy.AllowedDirection == models.TrafficDirectionBi {
+								rules = append(rules, models.FwRule{
+									SrcIP:           peer.StaticNode.AddressIPNet4(),
+									DstIP:           nodeI.StaticNode.AddressIPNet4(),
+									AllowedProtocol: policy.Proto,
+									AllowedPorts:    policy.Port,
+									Allow:           true,
+								})
+							}
 						}
 
 					}
@@ -611,6 +620,15 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 								AllowedPorts:    policy.Port,
 								Allow:           true,
 							})
+							if policy.AllowedDirection == models.TrafficDirectionBi {
+								rules = append(rules, models.FwRule{
+									SrcIP:           peer.StaticNode.AddressIPNet6(),
+									DstIP:           nodeI.StaticNode.AddressIPNet6(),
+									AllowedProtocol: policy.Proto,
+									AllowedPorts:    policy.Port,
+									Allow:           true,
+								})
+							}
 						}
 					}
 					if len(peer.StaticNode.ExtraAllowedIPs) > 0 {
@@ -649,6 +667,18 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 								AllowedPorts:    policy.Port,
 								Allow:           true,
 							})
+							if policy.AllowedDirection == models.TrafficDirectionBi {
+								rules = append(rules, models.FwRule{
+									SrcIP: net.IPNet{
+										IP:   peer.Address.IP,
+										Mask: net.CIDRMask(32, 32),
+									},
+									DstIP:           nodeI.StaticNode.AddressIPNet4(),
+									AllowedProtocol: policy.Proto,
+									AllowedPorts:    policy.Port,
+									Allow:           true,
+								})
+							}
 						}
 					}
 					if nodeI.StaticNode.Address6 != "" {
@@ -663,6 +693,18 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 								AllowedPorts:    policy.Port,
 								Allow:           true,
 							})
+							if policy.AllowedDirection == models.TrafficDirectionBi {
+								rules = append(rules, models.FwRule{
+									SrcIP: net.IPNet{
+										IP:   peer.Address6.IP,
+										Mask: net.CIDRMask(128, 128),
+									},
+									DstIP:           nodeI.StaticNode.AddressIPNet6(),
+									AllowedProtocol: policy.Proto,
+									AllowedPorts:    policy.Port,
+									Allow:           true,
+								})
+							}
 						}
 					}
 				}

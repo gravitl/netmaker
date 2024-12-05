@@ -565,6 +565,13 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []mode
 
 // IsNodeAllowedToCommunicate - check node is allowed to communicate with the peer
 func IsNodeAllowedToCommunicate(node, peer models.Node) (bool, []models.Acl) {
+	if node.ID.String() == "6901219b-9bee-412a-aa2a-4911c8387a6d" &&
+		peer.IsStatic && peer.StaticNode.ClientID == "cool-sky" {
+		fmt.Println("\n\n=========================================\n\n")
+		defer fmt.Println("\n\n=========================================\n\n")
+		fmt.Printf("=====> NODE: %s, Peer: %s", node.ID.String(), peer.ID.String())
+	}
+
 	if node.IsStatic {
 		node = node.StaticNode.ConvertToStaticNode()
 	}
@@ -587,10 +594,13 @@ func IsNodeAllowedToCommunicate(node, peer models.Node) (bool, []models.Acl) {
 		}
 		srcMap := convAclTagToValueMap(policy.Src)
 		dstMap := convAclTagToValueMap(policy.Dst)
-		// fmt.Printf("\n======> SRCMAP: %+v\n", srcMap)
-		// fmt.Printf("\n======> DSTMAP: %+v\n", dstMap)
-		// fmt.Printf("\n======> node Tags: %+v\n", node.Tags)
-		// fmt.Printf("\n======> peer Tags: %+v\n", peer.Tags)
+		if node.ID.String() == "6901219b-9bee-412a-aa2a-4911c8387a6d" &&
+			peer.IsStatic && peer.StaticNode.ClientID == "cool-sky" {
+			fmt.Printf("\n======> SRCMAP: %+v\n", srcMap)
+			fmt.Printf("\n======> DSTMAP: %+v\n", dstMap)
+			fmt.Printf("\n======> node Tags: %+v\n", node.Tags)
+			fmt.Printf("\n======> peer Tags: %+v\n", peer.Tags)
+		}
 		for tagID := range node.Tags {
 			allowed := false
 			if _, ok := dstMap[tagID.String()]; ok {
@@ -668,6 +678,10 @@ func IsNodeAllowedToCommunicate(node, peer models.Node) (bool, []models.Acl) {
 			}
 		}
 	}
+	if node.ID.String() == "6901219b-9bee-412a-aa2a-4911c8387a6d" &&
+		peer.IsStatic && peer.StaticNode.ClientID == "cool-sky" {
+		fmt.Printf("====> ALLOWED POLICIES: %+v", allowedPolicies)
+	}
 	if len(allowedPolicies) > 0 {
 		return true, allowedPolicies
 	}
@@ -720,7 +734,9 @@ func CheckIfTagAsActivePolicy(tagID models.TagID, netID models.NetworkID) bool {
 		}
 		for _, dstTagI := range acl.Dst {
 			if dstTagI.ID == models.DeviceAclID {
-				return true
+				if tagID.String() == dstTagI.Value {
+					return true
+				}
 			}
 		}
 	}
@@ -838,6 +854,12 @@ func GetAclRulesForNode(node *models.Node) (rules map[string]models.AclRule) {
 							if node.Address6.IP != nil {
 								aclRule.IP6List = append(aclRule.IP6List, node.AddressIPNet6())
 							}
+							if node.IsStatic && node.StaticNode.Address != "" {
+								aclRule.IPList = append(aclRule.IPList, node.StaticNode.AddressIPNet4())
+							}
+							if node.IsStatic && node.StaticNode.Address6 != "" {
+								aclRule.IP6List = append(aclRule.IP6List, node.StaticNode.AddressIPNet6())
+							}
 						}
 					}
 				}
@@ -856,6 +878,12 @@ func GetAclRulesForNode(node *models.Node) (rules map[string]models.AclRule) {
 							if node.Address6.IP != nil {
 								aclRule.IP6List = append(aclRule.IP6List, node.AddressIPNet6())
 							}
+							if node.IsStatic && node.StaticNode.Address != "" {
+								aclRule.IPList = append(aclRule.IPList, node.StaticNode.AddressIPNet4())
+							}
+							if node.IsStatic && node.StaticNode.Address6 != "" {
+								aclRule.IP6List = append(aclRule.IP6List, node.StaticNode.AddressIPNet6())
+							}
 						}
 					}
 				}
@@ -867,6 +895,12 @@ func GetAclRulesForNode(node *models.Node) (rules map[string]models.AclRule) {
 						}
 						if node.Address6.IP != nil {
 							aclRule.IP6List = append(aclRule.IP6List, node.AddressIPNet6())
+						}
+						if node.IsStatic && node.StaticNode.Address != "" {
+							aclRule.IPList = append(aclRule.IPList, node.StaticNode.AddressIPNet4())
+						}
+						if node.IsStatic && node.StaticNode.Address6 != "" {
+							aclRule.IP6List = append(aclRule.IP6List, node.StaticNode.AddressIPNet6())
 						}
 					}
 				}
@@ -885,6 +919,12 @@ func GetAclRulesForNode(node *models.Node) (rules map[string]models.AclRule) {
 							}
 							if node.Address6.IP != nil {
 								aclRule.IP6List = append(aclRule.IP6List, node.AddressIPNet6())
+							}
+							if node.IsStatic && node.StaticNode.Address != "" {
+								aclRule.IPList = append(aclRule.IPList, node.StaticNode.AddressIPNet4())
+							}
+							if node.IsStatic && node.StaticNode.Address6 != "" {
+								aclRule.IP6List = append(aclRule.IP6List, node.StaticNode.AddressIPNet6())
 							}
 						}
 					}
