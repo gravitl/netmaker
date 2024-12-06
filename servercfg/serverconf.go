@@ -94,6 +94,8 @@ func GetServerConfig() config.ServerConfig {
 	cfg.RacAutoDisable = GetRacAutoDisable()
 	cfg.MetricInterval = GetMetricInterval()
 	cfg.ManageDNS = GetManageDNS()
+	cfg.Stun = IsStunEnabled()
+	cfg.StunServers = GetStunServers()
 	cfg.DefaultDomain = GetDefaultDomain()
 	return cfg
 }
@@ -140,6 +142,8 @@ func GetServerInfo() models.ServerConfig {
 	cfg.IsPro = IsPro
 	cfg.MetricInterval = GetMetricInterval()
 	cfg.ManageDNS = GetManageDNS()
+	cfg.Stun = IsStunEnabled()
+	cfg.StunServers = GetStunServers()
 	cfg.DefaultDomain = GetDefaultDomain()
 	return cfg
 }
@@ -789,6 +793,19 @@ func IsEndpointDetectionEnabled() bool {
 		enabled = os.Getenv("ENDPOINT_DETECTION") == "true"
 	}
 	return enabled
+}
+
+// IsStunEnabled - returns true if STUN set to on
+func IsStunEnabled() bool {
+	var enabled = true
+	if os.Getenv("STUN") != "" {
+		enabled = os.Getenv("STUN") == "true"
+	}
+	return enabled
+}
+
+func GetStunServers() string {
+	return os.Getenv("STUN_SERVERS")
 }
 
 // GetEnvironment returns the environment the server is running in (e.g. dev, staging, prod...)

@@ -428,6 +428,8 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 	}
 
 	hostPeerUpdate.ManageDNS = servercfg.GetManageDNS()
+	hostPeerUpdate.Stun = servercfg.IsStunEnabled()
+	hostPeerUpdate.StunServers = servercfg.GetStunServers()
 	return hostPeerUpdate, nil
 }
 
