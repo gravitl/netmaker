@@ -214,7 +214,7 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	go mq.PublishPeerUpdate(false)
+	go mq.PublishPeerUpdate(true)
 	logic.ReturnSuccessResponseWithJson(w, r, acl, "created acl successfully")
 }
 
@@ -256,7 +256,7 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	go mq.PublishPeerUpdate(false)
+	go mq.PublishPeerUpdate(true)
 	logic.ReturnSuccessResponse(w, r, "updated acl "+acl.Name)
 }
 
@@ -287,6 +287,6 @@ func deleteAcl(w http.ResponseWriter, r *http.Request) {
 			logic.FormatError(errors.New("cannot delete default policy"), "internal"))
 		return
 	}
-	go mq.PublishPeerUpdate(false)
+	go mq.PublishPeerUpdate(true)
 	logic.ReturnSuccessResponse(w, r, "deleted acl "+acl.Name)
 }
