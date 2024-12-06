@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -14,11 +15,9 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-var batchSize = servercfg.GetPeerUpdateBatchSize()
-var batchUpdate = servercfg.GetBatchPeerUpdate()
-
 // PublishPeerUpdate --- determines and publishes a peer update to all the hosts
 func PublishPeerUpdate(replacePeers bool) error {
+
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
@@ -37,35 +36,20 @@ func PublishPeerUpdate(replacePeers bool) error {
 		return err
 	}
 
-	//if batch peer update disabled
-	if !batchUpdate {
-		for _, host := range hosts {
-			host := host
-			go func(host models.Host) {
-				if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, nil); err != nil {
-					logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
+	for _, host := range hosts {
+		host := host
+		time.Sleep(5 * time.Millisecond)
+		go func(host models.Host) {
+			if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, nil); err != nil {
+				id := host.Name
+				if host.ID != uuid.Nil {
+					id = host.ID.String()
 				}
-			}(host)
-		}
-		return nil
+				slog.Error("failed to publish peer update to host", id, ": ", err)
+			}
+		}(host)
 	}
 
-	//if batch peer update enabled
-	batchHost := BatchItems(hosts, batchSize)
-	var wg sync.WaitGroup
-	for _, v := range batchHost {
-		hostLen := len(v)
-		wg.Add(hostLen)
-		for i := 0; i < hostLen; i++ {
-			host := hosts[i]
-			go func(host models.Host) {
-				if err = PublishSingleHostPeerUpdate(&host, allNodes, nil, nil, replacePeers, &wg); err != nil {
-					logger.Log(1, "failed to publish peer update to host", host.ID.String(), ": ", err.Error())
-				}
-			}(host)
-		}
-		wg.Wait()
-	}
 	return nil
 }
 

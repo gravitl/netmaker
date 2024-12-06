@@ -1,12 +1,20 @@
 package mq
 
 import (
+	"bytes"
+	"compress/gzip"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"strings"
 	"time"
+	"unicode"
 
+	"github.com/blang/semver"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
@@ -66,6 +74,39 @@ func BatchItems[T any](items []T, batchSize int) [][]T {
 	return batches
 }
 
+func compressPayload(data []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	zw := gzip.NewWriter(&buf)
+	if _, err := zw.Write(data); err != nil {
+		return nil, err
+	}
+	zw.Close()
+	return buf.Bytes(), nil
+}
+func encryptAESGCM(key, plaintext []byte) ([]byte, error) {
+	// Create AES block cipher
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create GCM (Galois/Counter Mode) cipher
+	aesGCM, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a random nonce
+	nonce := make([]byte, aesGCM.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, err
+	}
+
+	// Encrypt the data
+	ciphertext := aesGCM.Seal(nonce, nonce, plaintext, nil)
+	return ciphertext, nil
+}
+
 func encryptMsg(host *models.Host, msg []byte) ([]byte, error) {
 	if host.OS == models.OS_Types.IoT {
 		return msg, nil
@@ -96,10 +137,29 @@ func encryptMsg(host *models.Host, msg []byte) ([]byte, error) {
 
 func publish(host *models.Host, dest string, msg []byte) error {
 
-	encrypted, encryptErr := encryptMsg(host, msg)
-	if encryptErr != nil {
-		return encryptErr
+	var encrypted []byte
+	var encryptErr error
+	vlt, err := versionLessThan(host.Version, "v0.30.0")
+	if err != nil {
+		slog.Warn("error checking version less than", "error", err)
+		return err
 	}
+	if vlt {
+		encrypted, encryptErr = encryptMsg(host, msg)
+		if encryptErr != nil {
+			return encryptErr
+		}
+	} else {
+		zipped, err := compressPayload(msg)
+		if err != nil {
+			return err
+		}
+		encrypted, encryptErr = encryptAESGCM(host.TrafficKeyPublic[0:32], zipped)
+		if encryptErr != nil {
+			return encryptErr
+		}
+	}
+
 	if mqclient == nil || !mqclient.IsConnectionOpen() {
 		return errors.New("cannot publish ... mqclient not connected")
 	}
@@ -126,4 +186,30 @@ func GetID(topic string) (string, error) {
 	}
 	//the last part of the topic will be the node.ID
 	return parts[count-1], nil
+}
+
+// versionLessThan checks if v1 < v2 semantically
+// dev is the latest version
+func versionLessThan(v1, v2 string) (bool, error) {
+	if v1 == "dev" {
+		return false, nil
+	}
+	if v2 == "dev" {
+		return true, nil
+	}
+	semVer1 := strings.TrimFunc(v1, func(r rune) bool {
+		return !unicode.IsNumber(r)
+	})
+	semVer2 := strings.TrimFunc(v2, func(r rune) bool {
+		return !unicode.IsNumber(r)
+	})
+	sv1, err := semver.Parse(semVer1)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse semver1 (%s): %w", semVer1, err)
+	}
+	sv2, err := semver.Parse(semVer2)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse semver2 (%s): %w", semVer2, err)
+	}
+	return sv1.LT(sv2), nil
 }

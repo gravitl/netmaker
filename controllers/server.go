@@ -48,6 +48,8 @@ func serverHandlers(r *mux.Router) {
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/server/cpu_profile", logic.SecurityCheck(false, http.HandlerFunc(cpuProfile))).
 		Methods(http.MethodPost)
+	r.HandleFunc("/api/server/mem_profile", logic.SecurityCheck(false, http.HandlerFunc(memProfile))).
+		Methods(http.MethodPost)
 }
 
 func cpuProfile(w http.ResponseWriter, r *http.Request) {
@@ -61,6 +63,10 @@ func cpuProfile(w http.ResponseWriter, r *http.Request) {
 			cpuProfileLog = nil
 		}
 	}
+}
+func memProfile(w http.ResponseWriter, r *http.Request) {
+	os.Remove("/root/data/mem.prof")
+	logic.StartMemProfiling()
 }
 
 func getUsage(w http.ResponseWriter, _ *http.Request) {

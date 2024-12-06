@@ -3,7 +3,10 @@
 
 package main
 
-import "github.com/gravitl/netmaker/pro"
+import (
+	"github.com/gravitl/netmaker/pro"
+	_ "go.uber.org/automaxprocs"
+)
 
 func init() {
 	pro.InitPro()

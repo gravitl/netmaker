@@ -24,6 +24,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
+	_ "go.uber.org/automaxprocs"
 	"golang.org/x/exp/slog"
 )
 

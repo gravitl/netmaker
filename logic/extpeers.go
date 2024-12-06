@@ -564,7 +564,7 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 			if peer.StaticNode.ClientID == nodeI.StaticNode.ClientID || peer.IsUserNode {
 				continue
 			}
-			if IsNodeAllowedToCommunicate(nodeI, peer) {
+			if IsNodeAllowedToCommunicate(nodeI, peer, true) {
 				if peer.IsStatic {
 					if nodeI.StaticNode.Address != "" {
 						rules = append(rules, models.FwRule{
@@ -650,7 +650,7 @@ func GetExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandA
 			continue
 		}
 		if extPeer.RemoteAccessClientID == "" {
-			if !IsNodeAllowedToCommunicate(extPeer.ConvertToStaticNode(), *peer) {
+			if !IsNodeAllowedToCommunicate(extPeer.ConvertToStaticNode(), *peer, true) {
 				continue
 			}
 		} else {
@@ -739,7 +739,7 @@ func getExtpeerEgressRanges(node models.Node) (ranges, ranges6 []net.IPNet) {
 		if len(extPeer.ExtraAllowedIPs) == 0 {
 			continue
 		}
-		if !IsNodeAllowedToCommunicate(extPeer.ConvertToStaticNode(), node) {
+		if !IsNodeAllowedToCommunicate(extPeer.ConvertToStaticNode(), node, true) {
 			continue
 		}
 		for _, allowedRange := range extPeer.ExtraAllowedIPs {
@@ -766,7 +766,7 @@ func getExtpeersExtraRoutes(node models.Node) (egressRoutes []models.EgressNetwo
 		if len(extPeer.ExtraAllowedIPs) == 0 {
 			continue
 		}
-		if !IsNodeAllowedToCommunicate(extPeer.ConvertToStaticNode(), node) {
+		if !IsNodeAllowedToCommunicate(extPeer.ConvertToStaticNode(), node, true) {
 			continue
 		}
 		egressRoutes = append(egressRoutes, getExtPeerEgressRoute(node, extPeer)...)

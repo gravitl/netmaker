@@ -3,7 +3,7 @@ version: "3.4"
 services:
   mq:
     container_name: mq
-    image: emqx/emqx:5.0.9
+    image: emqx/emqx:5.8.2
     env_file: ./netmaker.env
     restart: unless-stopped
     environment:
@@ -20,6 +20,7 @@ services:
       - emqx_data:/opt/emqx/data
       - emqx_etc:/opt/emqx/etc
       - emqx_logs:/opt/emqx/log
+      - ./emqx.conf:/opt/emqx/data/configs/cluster.hocon
 volumes:
   emqx_data: { } # storage for emqx data
   emqx_etc: { }  # storage for emqx etc

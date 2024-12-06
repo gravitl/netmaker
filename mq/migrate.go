@@ -88,7 +88,15 @@ func SendPullSYN() error {
 			Host:   host,
 		}
 		msg, _ := json.Marshal(hostUpdate)
-		encrypted, encryptErr := encryptMsg(&host, msg)
+		zipped, err := compressPayload(msg)
+		if err != nil {
+			return err
+		}
+		encrypted, encryptErr := encryptAESGCM(host.TrafficKeyPublic[0:32], zipped)
+		if encryptErr != nil {
+			return encryptErr
+		}
+
 		if encryptErr != nil {
 			continue
 		}
