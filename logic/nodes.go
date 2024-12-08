@@ -790,6 +790,27 @@ func AddTagMapWithStaticNodes(netID models.NetworkID,
 	return tagNodesMap
 }
 
+func AddTagMapWithStaticNodesWithUsers(netID models.NetworkID,
+	tagNodesMap map[models.TagID][]models.Node) map[models.TagID][]models.Node {
+	extclients, err := GetNetworkExtClients(netID.String())
+	if err != nil {
+		return tagNodesMap
+	}
+	for _, extclient := range extclients {
+		if extclient.Tags == nil {
+			continue
+		}
+		for tagID := range extclient.Tags {
+			tagNodesMap[tagID] = append(tagNodesMap[tagID], models.Node{
+				IsStatic:   true,
+				StaticNode: extclient,
+			})
+		}
+
+	}
+	return tagNodesMap
+}
+
 func GetNodesWithTag(tagID models.TagID) map[string]models.Node {
 	nMap := make(map[string]models.Node)
 	tag, err := GetTag(tagID)
