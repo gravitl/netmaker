@@ -772,18 +772,18 @@ func RemoveDeviceTagFromAclPolicies(tagID models.TagID, netID models.NetworkID) 
 }
 
 func GetAclRulesForNode(node *models.Node) (rules map[string]models.AclRule) {
-	defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+
 	rules = make(map[string]models.AclRule)
+	defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 	if err == nil && defaultPolicy.Enabled {
-		return map[string]models.AclRule{
-			defaultPolicy.ID: {
-				IPList:          []net.IPNet{node.NetworkRange},
-				IP6List:         []net.IPNet{node.NetworkRange6},
-				AllowedProtocol: models.ALL,
-				Direction:       models.TrafficDirectionBi,
-				Allowed:         true,
-			},
+		rules[defaultPolicy.ID] = models.AclRule{
+			IPList:          []net.IPNet{node.NetworkRange},
+			IP6List:         []net.IPNet{node.NetworkRange6},
+			AllowedProtocol: models.ALL,
+			Direction:       models.TrafficDirectionBi,
+			Allowed:         true,
 		}
+		return
 	}
 
 	taggedNodes := GetTagMapWithNodesByNetwork(models.NetworkID(node.Network))
