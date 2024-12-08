@@ -169,7 +169,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			hostPeerUpdate.FwUpdate.AllowAll = false
 		}
 		hostPeerUpdate.FwUpdate.AclRules = GetAclRulesForNode(&node)
-		if host.Name == "Test-Server" {
+		if host.Name == "lon-1" {
 			fmt.Println("##### DEF POL ", defaultDevicePolicy.Enabled, defaultUserPolicy.Enabled)
 			fmt.Printf("ACL Rules: %+v\n", hostPeerUpdate.FwUpdate.AclRules)
 		}

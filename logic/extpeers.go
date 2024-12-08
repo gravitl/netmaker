@@ -737,15 +737,15 @@ func GetExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandA
 		if !IsClientNodeAllowed(&extPeer, peer.ID.String()) {
 			continue
 		}
-		if extPeer.RemoteAccessClientID == "" {
-			if ok, _ := IsNodeAllowedToCommunicate(extPeer.ConvertToStaticNode(), *peer); !ok {
-				continue
-			}
-		} else {
-			if ok, _ := IsUserAllowedToCommunicate(extPeer.OwnerID, *peer); !ok {
-				continue
-			}
-		}
+		// if extPeer.RemoteAccessClientID == "" {
+		// 	if ok, _ := IsNodeAllowedToCommunicate(extPeer.ConvertToStaticNode(), *peer); !ok {
+		// 		continue
+		// 	}
+		// } else {
+		// 	if ok, _ := IsUserAllowedToCommunicate(extPeer.OwnerID, *peer); !ok {
+		// 		continue
+		// 	}
+		// }
 
 		pubkey, err := wgtypes.ParseKey(extPeer.PublicKey)
 		if err != nil {
