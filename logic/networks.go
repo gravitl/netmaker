@@ -473,7 +473,7 @@ func IsNetworkNameUnique(network *models.Network) (bool, error) {
 
 	for i := 0; i < len(dbs); i++ {
 
-		if network.NetID == dbs[i].NetID {
+		if network.Name == dbs[i].Name {
 			isunique = false
 		}
 	}
@@ -545,7 +545,6 @@ func GetNetwork(networkname string) (models.Network, error) {
 
 // NetIDInNetworkCharSet - checks if a netid of a network uses valid characters
 func NetIDInNetworkCharSet(network *models.Network) bool {
-
 	charset := "abcdefghijklmnopqrstuvwxyz1234567890-_"
 
 	for _, char := range network.NetID {
@@ -559,15 +558,7 @@ func NetIDInNetworkCharSet(network *models.Network) bool {
 // Validate - validates fields of an network struct
 func ValidateNetwork(network *models.Network, isUpdate bool) error {
 	v := validator.New()
-	_ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
-		inCharSet := NetIDInNetworkCharSet(network)
-		if isUpdate {
-			return inCharSet
-		}
-		isFieldUnique, _ := IsNetworkNameUnique(network)
-		return isFieldUnique && inCharSet
-	})
-	//
+
 	_ = v.RegisterValidation("checkyesorno", func(fl validator.FieldLevel) bool {
 		return validation.CheckYesOrNo(fl)
 	})
