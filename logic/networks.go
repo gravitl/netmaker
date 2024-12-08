@@ -23,6 +23,7 @@ import (
 )
 
 var (
+	networkMutex      = &sync.RWMutex{}
 	networkCacheMutex = &sync.RWMutex{}
 	networkCacheMap   = make(map[string]models.Network)
 	allocatedIpMap    = make(map[string]map[string]net.IP)
@@ -205,7 +206,9 @@ func DeleteNetwork(network string) error {
 
 // CreateNetwork - creates a network in database
 func CreateNetwork(network models.Network) (models.Network, error) {
-
+	networkMutex.Lock()
+	defer networkMutex.Unlock()
+	network.NetID = fmt.Sprintf("%d", time.Now().Unix())
 	if network.AddressRange != "" {
 		normalizedRange, err := NormalizeCIDR(network.AddressRange)
 		if err != nil {
@@ -470,7 +473,7 @@ func IsNetworkNameUnique(network *models.Network) (bool, error) {
 
 	for i := 0; i < len(dbs); i++ {
 
-		if network.NetID == dbs[i].NetID {
+		if network.Name == dbs[i].Name {
 			isunique = false
 		}
 	}
@@ -487,11 +490,12 @@ func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (
 		hasrangeupdate4 := newNetwork.AddressRange != currentNetwork.AddressRange
 		hasrangeupdate6 := newNetwork.AddressRange6 != currentNetwork.AddressRange6
 		hasholepunchupdate := newNetwork.DefaultUDPHolePunch != currentNetwork.DefaultUDPHolePunch
+		newNetwork.SetNetworkLastModified()
 		data, err := json.Marshal(newNetwork)
 		if err != nil {
 			return false, false, false, err
 		}
-		newNetwork.SetNetworkLastModified()
+
 		err = database.Insert(newNetwork.NetID, string(data), database.NETWORKS_TABLE_NAME)
 		if err == nil {
 			if servercfg.CacheEnabled() {
@@ -502,6 +506,22 @@ func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (
 	}
 	// copy values
 	return false, false, false, errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
+}
+
+func UpsertNetwork(net *models.Network) error {
+	net.SetNetworkLastModified()
+	data, err := json.Marshal(net)
+	if err != nil {
+		return err
+	}
+
+	err = database.Insert(net.NetID, string(data), database.NETWORKS_TABLE_NAME)
+	if err == nil {
+		if servercfg.CacheEnabled() {
+			storeNetworkInCache(net.NetID, *net)
+		}
+	}
+	return nil
 }
 
 // GetNetwork - gets a network from database
@@ -525,7 +545,6 @@ func GetNetwork(networkname string) (models.Network, error) {
 
 // NetIDInNetworkCharSet - checks if a netid of a network uses valid characters
 func NetIDInNetworkCharSet(network *models.Network) bool {
-
 	charset := "abcdefghijklmnopqrstuvwxyz1234567890-_"
 
 	for _, char := range network.NetID {
@@ -539,15 +558,7 @@ func NetIDInNetworkCharSet(network *models.Network) bool {
 // Validate - validates fields of an network struct
 func ValidateNetwork(network *models.Network, isUpdate bool) error {
 	v := validator.New()
-	_ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
-		inCharSet := NetIDInNetworkCharSet(network)
-		if isUpdate {
-			return inCharSet
-		}
-		isFieldUnique, _ := IsNetworkNameUnique(network)
-		return isFieldUnique && inCharSet
-	})
-	//
+
 	_ = v.RegisterValidation("checkyesorno", func(fl validator.FieldLevel) bool {
 		return validation.CheckYesOrNo(fl)
 	})
