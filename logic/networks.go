@@ -558,7 +558,11 @@ func NetIDInNetworkCharSet(network *models.Network) bool {
 // Validate - validates fields of an network struct
 func ValidateNetwork(network *models.Network, isUpdate bool) error {
 	v := validator.New()
-
+	isFieldUnique, _ := IsNetworkNameUnique(network)
+	if !isFieldUnique {
+		return errors.New("duplicate network name")
+	}
+	//
 	_ = v.RegisterValidation("checkyesorno", func(fl validator.FieldLevel) bool {
 		return validation.CheckYesOrNo(fl)
 	})
