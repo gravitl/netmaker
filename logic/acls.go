@@ -785,7 +785,7 @@ func getUserAclRulesForNode(targetnode *models.Node,
 	rules map[string]models.AclRule) map[string]models.AclRule {
 	userNodes := GetStaticUserNodesByNetwork(models.NetworkID(targetnode.Network))
 	userGrpMap := GetUserGrpMap()
-	allowedUsers := make(map[string]models.Acl)
+	allowedUsers := make(map[string][]models.Acl)
 	acls := listUserPolicies(models.NetworkID(targetnode.Network))
 	for nodeTag := range targetnode.Tags {
 		for _, acl := range acls {
@@ -797,12 +797,12 @@ func getUserAclRulesForNode(targetnode *models.Node,
 				// get all src tags
 				for _, srcAcl := range acl.Src {
 					if srcAcl.ID == models.UserAclID {
-						allowedUsers[srcAcl.Value] = acl
+						allowedUsers[srcAcl.Value] = append(allowedUsers[srcAcl.Value], acl)
 					} else if srcAcl.ID == models.UserGroupAclID {
 						// fetch all users in the group
 						if usersMap, ok := userGrpMap[models.UserGroupID(srcAcl.Value)]; ok {
 							for userName := range usersMap {
-								allowedUsers[userName] = acl
+								allowedUsers[userName] = append(allowedUsers[userName], acl)
 							}
 						}
 					}
@@ -815,34 +815,37 @@ func getUserAclRulesForNode(targetnode *models.Node,
 		if !userNode.StaticNode.Enabled {
 			continue
 		}
-		acl, ok := allowedUsers[userNode.StaticNode.OwnerID]
+		acls, ok := allowedUsers[userNode.StaticNode.OwnerID]
 		if !ok {
 			continue
 		}
-		if !acl.Enabled {
-			continue
-		}
+		for _, acl := range acls {
 
-		r := models.AclRule{
-			ID:              acl.ID,
-			AllowedProtocol: acl.Proto,
-			AllowedPorts:    acl.Port,
-			Direction:       acl.AllowedDirection,
-			Allowed:         true,
-		}
-		// Get peers in the tags and add allowed rules
-		if userNode.StaticNode.Address != "" {
-			r.IPList = append(r.IPList, userNode.StaticNode.AddressIPNet4())
-		}
-		if userNode.StaticNode.Address6 != "" {
-			r.IP6List = append(r.IP6List, userNode.StaticNode.AddressIPNet6())
-		}
-		if aclRule, ok := rules[acl.ID]; ok {
-			aclRule.IPList = append(aclRule.IPList, r.IPList...)
-			aclRule.IP6List = append(aclRule.IP6List, r.IP6List...)
-			rules[acl.ID] = aclRule
-		} else {
-			rules[acl.ID] = r
+			if !acl.Enabled {
+				continue
+			}
+
+			r := models.AclRule{
+				ID:              acl.ID,
+				AllowedProtocol: acl.Proto,
+				AllowedPorts:    acl.Port,
+				Direction:       acl.AllowedDirection,
+				Allowed:         true,
+			}
+			// Get peers in the tags and add allowed rules
+			if userNode.StaticNode.Address != "" {
+				r.IPList = append(r.IPList, userNode.StaticNode.AddressIPNet4())
+			}
+			if userNode.StaticNode.Address6 != "" {
+				r.IP6List = append(r.IP6List, userNode.StaticNode.AddressIPNet6())
+			}
+			if aclRule, ok := rules[acl.ID]; ok {
+				aclRule.IPList = append(aclRule.IPList, r.IPList...)
+				aclRule.IP6List = append(aclRule.IP6List, r.IP6List...)
+				rules[acl.ID] = aclRule
+			} else {
+				rules[acl.ID] = r
+			}
 		}
 	}
 	return rules
