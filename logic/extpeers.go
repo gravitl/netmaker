@@ -459,6 +459,7 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 	defer func() {
 		logger.Log(0, fmt.Sprintf("node.ID: %s, Rules: %+v\n", node.ID, rules))
 	}()
+
 	defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 	defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 	nodes, _ := GetNetworkNodes(node.Network)
@@ -490,9 +491,7 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 									AllowedPorts:    policy.Port,
 									Allow:           true,
 								})
-
 							}
-
 						}
 
 					}

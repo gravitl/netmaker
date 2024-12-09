@@ -850,10 +850,19 @@ func getUserAclRulesForNode(targetnode *models.Node,
 
 func GetAclRulesForNode(targetnode *models.Node) (rules map[string]models.AclRule) {
 	defer func() {
-		rules = getUserAclRulesForNode(targetnode, rules)
+		if !targetnode.IsIngressGateway {
+			rules = getUserAclRulesForNode(targetnode, rules)
+		}
+
 	}()
 	rules = make(map[string]models.AclRule)
-	taggedNodes := GetTagMapWithNodesByNetwork(models.NetworkID(targetnode.Network))
+	var taggedNodes map[models.TagID][]models.Node
+	if targetnode.IsIngressGateway {
+		taggedNodes = GetTagMapWithNodesByNetwork(models.NetworkID(targetnode.Network), false)
+	} else {
+		taggedNodes = GetTagMapWithNodesByNetwork(models.NetworkID(targetnode.Network), true)
+	}
+
 	acls := listDevicePolicies(models.NetworkID(targetnode.Network))
 	for nodeTag := range targetnode.Tags {
 		for _, acl := range acls {

@@ -755,7 +755,7 @@ func GetTagMapWithNodes() (tagNodesMap map[models.TagID][]models.Node) {
 	return
 }
 
-func GetTagMapWithNodesByNetwork(netID models.NetworkID) (tagNodesMap map[models.TagID][]models.Node) {
+func GetTagMapWithNodesByNetwork(netID models.NetworkID, withStaticNodes bool) (tagNodesMap map[models.TagID][]models.Node) {
 	tagNodesMap = make(map[models.TagID][]models.Node)
 	nodes, _ := GetNetworkNodes(netID.String())
 	for _, nodeI := range nodes {
@@ -765,6 +765,9 @@ func GetTagMapWithNodesByNetwork(netID models.NetworkID) (tagNodesMap map[models
 		for nodeTagID := range nodeI.Tags {
 			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
 		}
+	}
+	if !withStaticNodes {
+		return
 	}
 	return AddTagMapWithStaticNodes(netID, tagNodesMap)
 }
