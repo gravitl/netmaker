@@ -253,7 +253,7 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 		0,
 		time.Time{},
 		[]string{network.NetID},
-		[]string{network.NetID},
+		[]string{network.Name},
 		[]models.TagID{},
 		true,
 		uuid.Nil,
