@@ -139,14 +139,14 @@ func updateEnrollmentKeys() {
 	}
 	networks, _ := logic.GetNetworks()
 	for _, network := range networks {
-		if _, ok := existingTags[network.NetID]; ok {
+		if _, ok := existingTags[network.Name]; ok {
 			continue
 		}
 		_, _ = logic.CreateEnrollmentKey(
 			0,
 			time.Time{},
 			[]string{network.NetID},
-			[]string{network.NetID},
+			[]string{network.Name},
 			[]models.TagID{},
 			true,
 			uuid.Nil,
