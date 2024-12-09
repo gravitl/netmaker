@@ -613,7 +613,7 @@ func IsNodeAllowedToCommunicate(node, peer models.Node) (bool, []models.Acl) {
 		}
 		for tagID := range node.Tags {
 			allowed := false
-			if _, ok := dstMap[tagID.String()]; ok {
+			if _, ok := dstMap[tagID.String()]; policy.AllowedDirection == models.TrafficDirectionBi && ok {
 				if _, ok := srcMap["*"]; ok {
 					allowed = true
 					allowedPolicies = append(allowedPolicies, policy)
@@ -669,7 +669,7 @@ func IsNodeAllowedToCommunicate(node, peer models.Node) (bool, []models.Acl) {
 				break
 			}
 
-			if _, ok := srcMap[tagID.String()]; ok {
+			if _, ok := srcMap[tagID.String()]; policy.AllowedDirection == models.TrafficDirectionBi && ok {
 				if _, ok := dstMap["*"]; ok {
 					allowed = true
 					allowedPolicies = append(allowedPolicies, policy)
