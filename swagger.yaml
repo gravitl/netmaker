@@ -74,7 +74,8 @@ definitions:
       ingressesLimit:
         type: integer
       jwtValidityDuration:
-        $ref: '#/definitions/time.Duration'
+        format: int64
+        type: integer
       licenseValue:
         type: string
       machinesLimit:
@@ -108,6 +109,8 @@ definitions:
       platform:
         type: string
       publicIPService:
+        type: string
+      publicIp:
         type: string
       racAutoDisable:
         type: boolean
@@ -179,6 +182,41 @@ definitions:
     required:
     - tags
     type: object
+  models.AclRule:
+    properties:
+      allowed:
+        type: boolean
+      allowed_ports:
+        items:
+          type: string
+        type: array
+      allowed_protocols:
+        allOf:
+        - $ref: '#/definitions/models.Protocol'
+        description: tcp, udp, etc.
+      direction:
+        allOf:
+        - $ref: '#/definitions/models.AllowedTrafficDirection'
+        description: single or two-way
+      id:
+        type: string
+      ip_list:
+        items:
+          $ref: '#/definitions/net.IPNet'
+        type: array
+      ip6_list:
+        items:
+          $ref: '#/definitions/net.IPNet'
+        type: array
+    type: object
+  models.AllowedTrafficDirection:
+    enum:
+    - 0
+    - 1
+    type: integer
+    x-enum-varnames:
+    - TrafficDirectionUni
+    - TrafficDirectionBi
   models.ApiHost:
     properties:
       autoupdate:
@@ -307,6 +345,7 @@ definitions:
       isrelayed:
         type: boolean
       lastcheckin:
+        format: int64
         type: integer
       lastmodified:
         type: integer
@@ -334,6 +373,8 @@ definitions:
         type: string
       static_node:
         $ref: '#/definitions/models.ExtClient'
+      status:
+        $ref: '#/definitions/models.NodeStatus'
       tags:
         additionalProperties:
           type: object
@@ -515,13 +556,27 @@ definitions:
     properties:
       allow:
         type: boolean
-      dstIP:
+      allowed_ports:
+        items:
+          type: string
+        type: array
+      allowed_protocols:
+        allOf:
+        - $ref: '#/definitions/models.Protocol'
+        description: tcp, udp, etc.
+      dst_ip:
         $ref: '#/definitions/net.IPNet'
-      srcIP:
+      src_ip:
         $ref: '#/definitions/net.IPNet'
     type: object
   models.FwUpdate:
     properties:
+      acl_rules:
+        additionalProperties:
+          $ref: '#/definitions/models.AclRule'
+        type: object
+      allow_all:
+        type: boolean
       egress_info:
         additionalProperties:
           $ref: '#/definitions/models.EgressInfo'
@@ -534,6 +589,10 @@ definitions:
         type: boolean
       is_ingress_gw:
         type: boolean
+      networks:
+        items:
+          $ref: '#/definitions/net.IPNet'
+        type: array
     type: object
   models.Host:
     properties:
@@ -596,7 +655,8 @@ definitions:
       os:
         type: string
       persistentkeepalive:
-        $ref: '#/definitions/time.Duration'
+        format: int64
+        type: integer
       publickey:
         items:
           type: integer
@@ -797,7 +857,8 @@ definitions:
   models.Metric:
     properties:
       actualuptime:
-        $ref: '#/definitions/time.Duration'
+        format: int64
+        type: integer
       connected:
         type: boolean
       lasttotalreceived:
@@ -967,6 +1028,8 @@ definitions:
         type: integer
       networkrange6:
         type: number
+      node_status:
+        $ref: '#/definitions/models.NodeStatus'
       ownerid:
         type: string
       pendingdelete:
@@ -1005,10 +1068,36 @@ definitions:
       serverconfig:
         $ref: '#/definitions/models.ServerConfig'
     type: object
+  models.NodeStatus:
+    enum:
+    - online
+    - offline
+    - warning
+    - error
+    - unknown
+    type: string
+    x-enum-varnames:
+    - OnlineSt
+    - OfflineSt
+    - WarningSt
+    - ErrorSt
+    - UnKnown
   models.PeerMap:
     additionalProperties:
       $ref: '#/definitions/models.IDandAddr'
     type: object
+  models.Protocol:
+    enum:
+    - all
+    - udp
+    - tcp
+    - icmp
+    type: string
+    x-enum-varnames:
+    - ALL
+    - UDP
+    - TCP
+    - ICMP
   models.RegisterResponse:
     properties:
       requested_host:
@@ -1313,8 +1402,6 @@ definitions:
     - 1000000000
     - 60000000000
     - 3600000000000
-    - -9223372036854775808
-    - 9223372036854775807
     - 1
     - 1000
     - 1000000
@@ -1331,8 +1418,6 @@ definitions:
     - Second
     - Minute
     - Hour
-    - minDuration
-    - maxDuration
     - Nanosecond
     - Microsecond
     - Millisecond

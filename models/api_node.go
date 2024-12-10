@@ -18,7 +18,7 @@ type ApiNode struct {
 	AllowedIPs                 []string `json:"allowedips"`
 	LastModified               int64    `json:"lastmodified"`
 	ExpirationDateTime         int64    `json:"expdatetime"`
-	LastCheckIn                int64    `json:"lastcheckin"`
+	LastCheckIn                int64    `json:"lastcheckin" swaggertype:"primitive,integer" format:"int64"`
 	LastPeerUpdate             int64    `json:"lastpeerupdate"`
 	Network                    string   `json:"network"`
 	NetworkRange               string   `json:"networkrange"`

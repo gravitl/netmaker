@@ -22,7 +22,7 @@ type Metric struct {
 	LastTotalReceived int64         `json:"lasttotalreceived" bson:"lasttotalreceived" yaml:"lasttotalreceived"`
 	TotalSent         int64         `json:"totalsent" bson:"totalsent" yaml:"totalsent"`
 	LastTotalSent     int64         `json:"lasttotalsent" bson:"lasttotalsent" yaml:"lasttotalsent"`
-	ActualUptime      time.Duration `json:"actualuptime" bson:"actualuptime" yaml:"actualuptime"`
+	ActualUptime      time.Duration `json:"actualuptime" swaggertype:"primitive,integer" format:"int64" bson:"actualuptime" yaml:"actualuptime"`
 	PercentUp         float64       `json:"percentup" bson:"percentup" yaml:"percentup"`
 	Connected         bool          `json:"connected" bson:"connected" yaml:"connected"`
 }
