@@ -1,4 +1,4 @@
-# Netmaker v0.26.0
+# Netmaker v0.30.0
 
 ## Whats New ✨
 - New ACLs and Tag Management System
