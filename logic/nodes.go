@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -24,8 +26,10 @@ import (
 )
 
 var (
-	nodeCacheMutex = &sync.RWMutex{}
-	nodesCacheMap  = make(map[string]models.Node)
+	nodeCacheMutex        = &sync.RWMutex{}
+	nodeNetworkCacheMutex = &sync.RWMutex{}
+	nodesCacheMap         = make(map[string]models.Node)
+	nodesNetworkCacheMap  = make(map[string]map[string]models.Node)
 )
 
 func getNodeFromCache(nodeID string) (node models.Node, ok bool) {
@@ -48,11 +52,36 @@ func deleteNodeFromCache(nodeID string) {
 	delete(nodesCacheMap, nodeID)
 	nodeCacheMutex.Unlock()
 }
+func deleteNodeFromNetworkCache(nodeID string, network string) {
+	nodeNetworkCacheMutex.Lock()
+	delete(nodesNetworkCacheMap[network], nodeID)
+	nodeNetworkCacheMutex.Unlock()
+}
+
+func storeNodeInNetworkCache(node models.Node, network string) {
+	nodeNetworkCacheMutex.Lock()
+	if nodesNetworkCacheMap[network] == nil {
+		nodesNetworkCacheMap[network] = make(map[string]models.Node)
+	}
+	nodesNetworkCacheMap[network][node.ID.String()] = node
+	nodeNetworkCacheMutex.Unlock()
+}
 
 func storeNodeInCache(node models.Node) {
 	nodeCacheMutex.Lock()
 	nodesCacheMap[node.ID.String()] = node
 	nodeCacheMutex.Unlock()
+}
+func loadNodesIntoNetworkCache(nMap map[string]models.Node) {
+	nodeNetworkCacheMutex.Lock()
+	for _, v := range nMap {
+		network := v.Network
+		if nodesNetworkCacheMap[network] == nil {
+			nodesNetworkCacheMap[network] = make(map[string]models.Node)
+		}
+		nodesNetworkCacheMap[network][v.ID.String()] = v
+	}
+	nodeNetworkCacheMutex.Unlock()
 }
 
 func loadNodesIntoCache(nMap map[string]models.Node) {
@@ -63,6 +92,7 @@ func loadNodesIntoCache(nMap map[string]models.Node) {
 func ClearNodeCache() {
 	nodeCacheMutex.Lock()
 	nodesCacheMap = make(map[string]models.Node)
+	nodesNetworkCacheMap = make(map[string]map[string]models.Node)
 	nodeCacheMutex.Unlock()
 }
 
@@ -77,6 +107,12 @@ const (
 
 // GetNetworkNodes - gets the nodes of a network
 func GetNetworkNodes(network string) ([]models.Node, error) {
+
+	if networkNodes, ok := nodesNetworkCacheMap[network]; ok {
+		nodeNetworkCacheMutex.Lock()
+		defer nodeNetworkCacheMutex.Unlock()
+		return slices.Collect(maps.Values(networkNodes)), nil
+	}
 	allnodes, err := GetAllNodes()
 	if err != nil {
 		return []models.Node{}, err
@@ -99,6 +135,12 @@ func GetHostNodes(host *models.Host) []models.Node {
 
 // GetNetworkNodesMemory - gets all nodes belonging to a network from list in memory
 func GetNetworkNodesMemory(allNodes []models.Node, network string) []models.Node {
+
+	if networkNodes, ok := nodesNetworkCacheMap[network]; ok {
+		nodeNetworkCacheMutex.Lock()
+		defer nodeNetworkCacheMutex.Unlock()
+		return slices.Collect(maps.Values(networkNodes))
+	}
 	var nodes = []models.Node{}
 	for i := range allNodes {
 		node := allNodes[i]
@@ -123,6 +165,7 @@ func UpdateNodeCheckin(node *models.Node) error {
 	}
 	if servercfg.CacheEnabled() {
 		storeNodeInCache(*node)
+		storeNodeInNetworkCache(*node, node.Network)
 	}
 	return nil
 }
@@ -140,6 +183,7 @@ func UpsertNode(newNode *models.Node) error {
 	}
 	if servercfg.CacheEnabled() {
 		storeNodeInCache(*newNode)
+		storeNodeInNetworkCache(*newNode, newNode.Network)
 	}
 	return nil
 }
@@ -179,6 +223,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 			}
 			if servercfg.CacheEnabled() {
 				storeNodeInCache(*newNode)
+				storeNodeInNetworkCache(*newNode, newNode.Network)
 				if _, ok := allocatedIpMap[newNode.Network]; ok {
 					if newNode.Address.IP != nil && !newNode.Address.IP.Equal(currentNode.Address.IP) {
 						AddIpToAllocatedIpMap(newNode.Network, newNode.Address.IP)
@@ -298,6 +343,7 @@ func DeleteNodeByID(node *models.Node) error {
 	}
 	if servercfg.CacheEnabled() {
 		deleteNodeFromCache(node.ID.String())
+		deleteNodeFromNetworkCache(node.ID.String(), node.Network)
 	}
 	if servercfg.IsDNSMode() {
 		SetDNS()
@@ -360,6 +406,7 @@ func GetAllNodes() ([]models.Node, error) {
 	nodesMap := make(map[string]models.Node)
 	if servercfg.CacheEnabled() {
 		defer loadNodesIntoCache(nodesMap)
+		defer loadNodesIntoNetworkCache(nodesMap)
 	}
 	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
 	if err != nil {
@@ -477,6 +524,7 @@ func GetNodeByID(uuid string) (models.Node, error) {
 	}
 	if servercfg.CacheEnabled() {
 		storeNodeInCache(node)
+		storeNodeInNetworkCache(node, node.Network)
 	}
 	return node, nil
 }
@@ -630,6 +678,7 @@ func createNode(node *models.Node) error {
 	}
 	if servercfg.CacheEnabled() {
 		storeNodeInCache(*node)
+		storeNodeInNetworkCache(*node, node.Network)
 	}
 	if _, ok := allocatedIpMap[node.Network]; ok {
 		if node.Address.IP != nil {

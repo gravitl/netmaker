@@ -69,7 +69,7 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	allowed := logic.IsNodeAllowedToCommunicate(node, peer)
+	allowed := logic.IsNodeAllowedToCommunicate(node, peer, true)
 	logic.ReturnSuccessResponseWithJson(w, r, allowed, "fetched all acls in the network ")
 }
 
