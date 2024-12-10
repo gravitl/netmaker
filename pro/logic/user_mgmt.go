@@ -143,9 +143,13 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 	if netID.String() == "" {
 		return
 	}
+	network, err := logic.GetNetwork(netID.String())
+	if err != nil {
+		return
+	}
 	var NetworkAdminPermissionTemplate = models.UserRolePermissionTemplate{
 		ID:                 models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkAdmin)),
-		Name:               fmt.Sprintf("%s Admin", netID),
+		Name:               fmt.Sprintf("%s Admin", network.Name),
 		MetaData:           fmt.Sprintf("can manage your network `%s` configuration.", netID),
 		Default:            true,
 		NetworkID:          netID,
@@ -155,7 +159,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 
 	var NetworkUserPermissionTemplate = models.UserRolePermissionTemplate{
 		ID:                  models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkUser)),
-		Name:                fmt.Sprintf("%s User", netID),
+		Name:                fmt.Sprintf("%s User", network.Name),
 		MetaData:            fmt.Sprintf("cannot access the admin console, but can connect to nodes in your network `%s` via Remote Access Client.", netID),
 		Default:             true,
 		FullAccess:          false,
@@ -217,7 +221,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 	// create default network groups
 	var NetworkAdminGroup = models.UserGroup{
 		ID:   models.UserGroupID(fmt.Sprintf("%s-%s-grp", netID, models.NetworkAdmin)),
-		Name: fmt.Sprintf("%s Admin Group", netID),
+		Name: fmt.Sprintf("%s Admin Group", network.Name),
 		NetworkRoles: map[models.NetworkID]map[models.UserRoleID]struct{}{
 			netID: {
 				models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkAdmin)): {},
@@ -227,7 +231,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 	}
 	var NetworkUserGroup = models.UserGroup{
 		ID:   models.UserGroupID(fmt.Sprintf("%s-%s-grp", netID, models.NetworkUser)),
-		Name: fmt.Sprintf("%s User Group", netID),
+		Name: fmt.Sprintf("%s User Group", network.Name),
 		NetworkRoles: map[models.NetworkID]map[models.UserRoleID]struct{}{
 			netID: {
 				models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkUser)): {},

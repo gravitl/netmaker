@@ -20,6 +20,7 @@ import (
 
 // Run - runs all migrations
 func Run() {
+	updateNetworks()
 	updateEnrollmentKeys()
 	assignSuperAdmin()
 	createDefaultTagsAndPolicies()
@@ -138,20 +139,34 @@ func updateEnrollmentKeys() {
 	}
 	networks, _ := logic.GetNetworks()
 	for _, network := range networks {
-		if _, ok := existingTags[network.NetID]; ok {
+		if _, ok := existingTags[network.Name]; ok {
 			continue
 		}
 		_, _ = logic.CreateEnrollmentKey(
 			0,
 			time.Time{},
 			[]string{network.NetID},
-			[]string{network.NetID},
+			[]string{network.Name},
 			[]models.TagID{},
 			true,
 			uuid.Nil,
 			true,
 		)
 
+	}
+}
+
+func updateNetworks() {
+	nets, err := logic.GetNetworks()
+	if err != nil {
+		return
+	}
+	for _, netI := range nets {
+		netI := netI
+		if netI.Name == "" {
+			netI.Name = netI.NetID
+			logic.UpsertNetwork(&netI)
+		}
 	}
 }
 
