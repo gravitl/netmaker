@@ -439,5 +439,5 @@ func createDefaultTagsAndPolicies() {
 		logic.CreateDefaultAclNetworkPolicies(models.NetworkID(network.NetID))
 
 	}
-	logic.MigrateDefaulAclPolicies(models.NetworkID(network.NetID))
+	logic.MigrateAclPolicies()
 }
