@@ -54,6 +54,14 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 		},
 		ProtocolTypes: []models.ProtocolType{
 			{
+				Name: models.Any,
+				AllowedProtocols: []models.Protocol{
+					models.ALL,
+				},
+				PortRange:        "All ports",
+				AllowPortSetting: false,
+			},
+			{
 				Name: models.Http,
 				AllowedProtocols: []models.Protocol{
 					models.TCP,

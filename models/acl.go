@@ -34,6 +34,7 @@ const (
 	AllUDP      = "All UDP"
 	ICMPService = "ICMP"
 	Custom      = "Custom"
+	Any         = "Any"
 )
 
 func (p Protocol) String() string {
