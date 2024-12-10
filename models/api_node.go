@@ -16,10 +16,10 @@ type ApiNode struct {
 	Address6                   string   `json:"address6" validate:"omitempty,cidrv6"`
 	LocalAddress               string   `json:"localaddress" validate:"omitempty,cidr"`
 	AllowedIPs                 []string `json:"allowedips"`
-	LastModified               int64    `json:"lastmodified"`
-	ExpirationDateTime         int64    `json:"expdatetime"`
+	LastModified               int64    `json:"lastmodified" swaggertype:"primitive,integer" format:"int64"`
+	ExpirationDateTime         int64    `json:"expdatetime" swaggertype:"primitive,integer" format:"int64"`
 	LastCheckIn                int64    `json:"lastcheckin" swaggertype:"primitive,integer" format:"int64"`
-	LastPeerUpdate             int64    `json:"lastpeerupdate"`
+	LastPeerUpdate             int64    `json:"lastpeerupdate" swaggertype:"primitive,integer" format:"int64"`
 	Network                    string   `json:"network"`
 	NetworkRange               string   `json:"networkrange"`
 	NetworkRange6              string   `json:"networkrange6"`

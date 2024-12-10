@@ -58,7 +58,7 @@ type EnrollmentKey struct {
 
 // APIEnrollmentKey - used to create enrollment keys via API
 type APIEnrollmentKey struct {
-	Expiration    int64    `json:"expiration"`
+	Expiration    int64    `json:"expiration" swaggertype:"primitive,integer" format:"int64"`
 	UsesRemaining int      `json:"uses_remaining"`
 	Networks      []string `json:"networks"`
 	Unlimited     bool     `json:"unlimited"`

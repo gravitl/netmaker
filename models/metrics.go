@@ -15,13 +15,13 @@ type Metrics struct {
 // Metric - holds a metric for data between nodes
 type Metric struct {
 	NodeName          string        `json:"node_name" bson:"node_name" yaml:"node_name"`
-	Uptime            int64         `json:"uptime" bson:"uptime" yaml:"uptime"`
-	TotalTime         int64         `json:"totaltime" bson:"totaltime" yaml:"totaltime"`
-	Latency           int64         `json:"latency" bson:"latency" yaml:"latency"`
-	TotalReceived     int64         `json:"totalreceived" bson:"totalreceived" yaml:"totalreceived"`
-	LastTotalReceived int64         `json:"lasttotalreceived" bson:"lasttotalreceived" yaml:"lasttotalreceived"`
-	TotalSent         int64         `json:"totalsent" bson:"totalsent" yaml:"totalsent"`
-	LastTotalSent     int64         `json:"lasttotalsent" bson:"lasttotalsent" yaml:"lasttotalsent"`
+	Uptime            int64         `json:"uptime" bson:"uptime" yaml:"uptime" swaggertype:"primitive,integer" format:"int64"`
+	TotalTime         int64         `json:"totaltime" bson:"totaltime" yaml:"totaltime" swaggertype:"primitive,integer" format:"int64"`
+	Latency           int64         `json:"latency" bson:"latency" yaml:"latency" swaggertype:"primitive,integer" format:"int64"`
+	TotalReceived     int64         `json:"totalreceived" bson:"totalreceived" yaml:"totalreceived" swaggertype:"primitive,integer" format:"int64"`
+	LastTotalReceived int64         `json:"lasttotalreceived" bson:"lasttotalreceived" yaml:"lasttotalreceived" swaggertype:"primitive,integer" format:"int64"`
+	TotalSent         int64         `json:"totalsent" bson:"totalsent" yaml:"totalsent" swaggertype:"primitive,integer" format:"int64"`
+	LastTotalSent     int64         `json:"lasttotalsent" bson:"lasttotalsent" yaml:"lasttotalsent" swaggertype:"primitive,integer" format:"int64"`
 	ActualUptime      time.Duration `json:"actualuptime" swaggertype:"primitive,integer" format:"int64" bson:"actualuptime" yaml:"actualuptime"`
 	PercentUp         float64       `json:"percentup" bson:"percentup" yaml:"percentup"`
 	Connected         bool          `json:"connected" bson:"connected" yaml:"connected"`
