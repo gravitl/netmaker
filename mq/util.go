@@ -1,8 +1,14 @@
 package mq
 
 import (
+	"bytes"
+	"compress/gzip"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"strings"
 	"time"
@@ -66,6 +72,39 @@ func BatchItems[T any](items []T, batchSize int) [][]T {
 	return batches
 }
 
+func compressPayload(data []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	zw := gzip.NewWriter(&buf)
+	if _, err := zw.Write(data); err != nil {
+		return nil, err
+	}
+	zw.Close()
+	return buf.Bytes(), nil
+}
+func encryptAESGCM(key, plaintext []byte) ([]byte, error) {
+	// Create AES block cipher
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create GCM (Galois/Counter Mode) cipher
+	aesGCM, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a random nonce
+	nonce := make([]byte, aesGCM.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, err
+	}
+
+	// Encrypt the data
+	ciphertext := aesGCM.Seal(nonce, nonce, plaintext, nil)
+	return ciphertext, nil
+}
+
 func encryptMsg(host *models.Host, msg []byte) ([]byte, error) {
 	if host.OS == models.OS_Types.IoT {
 		return msg, nil
@@ -96,10 +135,29 @@ func encryptMsg(host *models.Host, msg []byte) ([]byte, error) {
 
 func publish(host *models.Host, dest string, msg []byte) error {
 
-	encrypted, encryptErr := encryptMsg(host, msg)
-	if encryptErr != nil {
-		return encryptErr
+	var encrypted []byte
+	var encryptErr error
+	vlt, err := logic.VersionLessThan(host.Version, "v0.30.0")
+	if err != nil {
+		slog.Warn("error checking version less than", "error", err)
+		return err
 	}
+	if vlt {
+		encrypted, encryptErr = encryptMsg(host, msg)
+		if encryptErr != nil {
+			return encryptErr
+		}
+	} else {
+		zipped, err := compressPayload(msg)
+		if err != nil {
+			return err
+		}
+		encrypted, encryptErr = encryptAESGCM(host.TrafficKeyPublic[0:32], zipped)
+		if encryptErr != nil {
+			return encryptErr
+		}
+	}
+
 	if mqclient == nil || !mqclient.IsConnectionOpen() {
 		return errors.New("cannot publish ... mqclient not connected")
 	}
