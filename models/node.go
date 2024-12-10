@@ -215,6 +215,19 @@ func (node *Node) PrimaryAddress() string {
 	return node.Address6.IP.String()
 }
 
+func (node *Node) AddressIPNet4() net.IPNet {
+	return net.IPNet{
+		IP:   node.Address.IP,
+		Mask: net.CIDRMask(32, 32),
+	}
+}
+func (node *Node) AddressIPNet6() net.IPNet {
+	return net.IPNet{
+		IP:   node.Address6.IP,
+		Mask: net.CIDRMask(128, 128),
+	}
+}
+
 // ExtClient.PrimaryAddress - returns ipv4 IPNet format
 func (extPeer *ExtClient) AddressIPNet4() net.IPNet {
 	return net.IPNet{

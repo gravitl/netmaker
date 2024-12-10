@@ -133,7 +133,8 @@ func checkPeerStatus(node *models.Node, defaultAclPolicy bool) {
 		if err != nil {
 			continue
 		}
-		if !defaultAclPolicy && !logic.IsNodeAllowedToCommunicate(*node, peer, false) {
+		allowed, _ := logic.IsNodeAllowedToCommunicate(*node, peer, false)
+		if !defaultAclPolicy && !allowed {
 			continue
 		}
 
@@ -167,7 +168,8 @@ func checkPeerConnectivity(node *models.Node, metrics *models.Metrics, defaultAc
 		if err != nil {
 			continue
 		}
-		if !defaultAclPolicy && !logic.IsNodeAllowedToCommunicate(*node, peer, false) {
+		allowed, _ := logic.IsNodeAllowedToCommunicate(*node, peer, false)
+		if !defaultAclPolicy && !allowed {
 			continue
 		}
 

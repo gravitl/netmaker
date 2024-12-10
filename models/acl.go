@@ -1,6 +1,7 @@
 package models
 
 import (
+	"net"
 	"time"
 )
 
@@ -13,6 +14,31 @@ const (
 	// TrafficDirectionBi implies traffic is allowed both direction (src <--> dst )
 	TrafficDirectionBi
 )
+
+// Protocol - allowed protocol
+type Protocol string
+
+const (
+	ALL  Protocol = "all"
+	UDP  Protocol = "udp"
+	TCP  Protocol = "tcp"
+	ICMP Protocol = "icmp"
+)
+
+type ServiceType string
+
+const (
+	Http        = "HTTP"
+	Https       = "HTTPS"
+	AllTCP      = "All TCP"
+	AllUDP      = "All UDP"
+	ICMPService = "ICMP"
+	Custom      = "Custom"
+)
+
+func (p Protocol) String() string {
+	return string(p)
+}
 
 type AclPolicyType string
 
@@ -59,6 +85,9 @@ type Acl struct {
 	RuleType         AclPolicyType           `json:"policy_type"`
 	Src              []AclPolicyTag          `json:"src_type"`
 	Dst              []AclPolicyTag          `json:"dst_type"`
+	Proto            Protocol                `json:"protocol"` // tcp, udp, etc.
+	ServiceType      string                  `json:"type"`
+	Port             []string                `json:"ports"`
 	AllowedDirection AllowedTrafficDirection `json:"allowed_traffic_direction"`
 	Enabled          bool                    `json:"enabled"`
 	CreatedBy        string                  `json:"created_by"`
@@ -66,7 +95,25 @@ type Acl struct {
 }
 
 type AclPolicyTypes struct {
+	ProtocolTypes []ProtocolType
 	RuleTypes     []AclPolicyType `json:"policy_types"`
 	SrcGroupTypes []AclGroupType  `json:"src_grp_types"`
 	DstGroupTypes []AclGroupType  `json:"dst_grp_types"`
+}
+
+type ProtocolType struct {
+	Name             string     `json:"name"`
+	AllowedProtocols []Protocol `json:"allowed_protocols"`
+	PortRange        string     `json:"port_range"`
+	AllowPortSetting bool       `json:"allow_port_setting"`
+}
+
+type AclRule struct {
+	ID              string                  `json:"id"`
+	IPList          []net.IPNet             `json:"ip_list"`
+	IP6List         []net.IPNet             `json:"ip6_list"`
+	AllowedProtocol Protocol                `json:"allowed_protocols"` // tcp, udp, etc.
+	AllowedPorts    []string                `json:"allowed_ports"`
+	Direction       AllowedTrafficDirection `json:"direction"` // single or two-way
+	Allowed         bool
 }
