@@ -7,7 +7,25 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
-func GetNodeStatus(node *models.Node) {
+func getNodeStatusOld(node *models.Node) {
+	// On CE check only last check-in time
+	if node.IsStatic {
+		if !node.StaticNode.Enabled {
+			node.Status = models.OfflineSt
+			return
+		}
+		node.Status = models.OnlineSt
+		return
+	}
+	if time.Since(node.LastCheckIn) > time.Minute*10 {
+		node.Status = models.OfflineSt
+		return
+	}
+	node.Status = models.OnlineSt
+}
+
+func GetNodeStatus(node *models.Node, defaultEnabledPolicy bool) {
+
 	if time.Since(node.LastCheckIn) > models.LastCheckInThreshold {
 		node.Status = models.OfflineSt
 		return
@@ -33,6 +51,20 @@ func GetNodeStatus(node *models.Node) {
 			}
 		}
 		node.Status = models.UnKnown
+		return
+	}
+	host, err := logic.GetHost(node.HostID.String())
+	if err != nil {
+		node.Status = models.UnKnown
+		return
+	}
+	vlt, err := logic.VersionLessThan(host.Version, "v0.30.0")
+	if err != nil {
+		node.Status = models.UnKnown
+		return
+	}
+	if vlt {
+		getNodeStatusOld(node)
 		return
 	}
 	metrics, err := logic.GetMetrics(node.ID.String())
@@ -80,11 +112,11 @@ func GetNodeStatus(node *models.Node) {
 	// 	}
 
 	// }
-	checkPeerConnectivity(node, metrics)
+	checkPeerConnectivity(node, metrics, defaultEnabledPolicy)
 
 }
 
-func checkPeerStatus(node *models.Node) {
+func checkPeerStatus(node *models.Node, defaultAclPolicy bool) {
 	peerNotConnectedCnt := 0
 	metrics, err := logic.GetMetrics(node.ID.String())
 	if err != nil {
@@ -101,7 +133,7 @@ func checkPeerStatus(node *models.Node) {
 		if err != nil {
 			continue
 		}
-		if !logic.IsNodeAllowedToCommunicate(*node, peer) {
+		if !defaultAclPolicy && !logic.IsNodeAllowedToCommunicate(*node, peer, false) {
 			continue
 		}
 
@@ -128,14 +160,14 @@ func checkPeerStatus(node *models.Node) {
 	node.Status = models.WarningSt
 }
 
-func checkPeerConnectivity(node *models.Node, metrics *models.Metrics) {
+func checkPeerConnectivity(node *models.Node, metrics *models.Metrics, defaultAclPolicy bool) {
 	peerNotConnectedCnt := 0
 	for peerID, metric := range metrics.Connectivity {
 		peer, err := logic.GetNodeByID(peerID)
 		if err != nil {
 			continue
 		}
-		if !logic.IsNodeAllowedToCommunicate(*node, peer) {
+		if !defaultAclPolicy && !logic.IsNodeAllowedToCommunicate(*node, peer, false) {
 			continue
 		}
 
@@ -146,7 +178,7 @@ func checkPeerConnectivity(node *models.Node, metrics *models.Metrics) {
 			continue
 		}
 		// check if peer is in error state
-		checkPeerStatus(&peer)
+		checkPeerStatus(&peer, defaultAclPolicy)
 		if peer.Status == models.ErrorSt {
 			continue
 		}

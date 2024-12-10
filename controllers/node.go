@@ -326,6 +326,7 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	if len(filteredNodes) > 0 {
 		nodes = filteredNodes
 	}
+
 	nodes = logic.AddStaticNodestoList(nodes)
 	nodes = logic.AddStatusToNodes(nodes)
 	// returns all the nodes in JSON/API format

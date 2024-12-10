@@ -446,8 +446,14 @@ func AddStaticNodestoList(nodes []models.Node) []models.Node {
 }
 
 func AddStatusToNodes(nodes []models.Node) (nodesWithStatus []models.Node) {
+	aclDefaultPolicyStatusMap := make(map[string]bool)
 	for _, node := range nodes {
-		GetNodeStatus(&node)
+		if _, ok := aclDefaultPolicyStatusMap[node.Network]; !ok {
+			// check default policy if all allowed return true
+			defaultPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+			aclDefaultPolicyStatusMap[node.Network] = defaultPolicy.Enabled
+		}
+		GetNodeStatus(&node, aclDefaultPolicyStatusMap[node.Network])
 		nodesWithStatus = append(nodesWithStatus, node)
 	}
 	return
