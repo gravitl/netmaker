@@ -18,37 +18,17 @@ var (
 	aclCacheMap   = make(map[string]models.Acl)
 )
 
-func MigrateDefaulAclPolicies(netID models.NetworkID) {
-	if netID.String() == "" {
-		return
+func MigrateAclPolicies() {
+	acls := ListAcls()
+	for _, acl := range acls {
+		if acl.Proto.String() == "" {
+			acl.Proto = models.ALL
+			acl.ServiceType = models.Custom
+			acl.Port = []string{}
+			UpsertAcl(acl)
+		}
 	}
-	acl, err := GetAcl(fmt.Sprintf("%s.%s", netID, "all-nodes"))
-	if err == nil {
-		//if acl.Proto.String() == "" {
-		acl.Proto = models.ALL
-		acl.ServiceType = models.Custom
-		acl.Port = []string{}
-		UpsertAcl(acl)
-		//}
-	}
-	acl, err = GetAcl(fmt.Sprintf("%s.%s", netID, "all-users"))
-	if err == nil {
-		//if acl.Proto.String() == "" {
-		acl.Proto = models.ALL
-		acl.ServiceType = models.Custom
-		acl.Port = []string{}
-		UpsertAcl(acl)
-		//}
-	}
-	acl, err = GetAcl(fmt.Sprintf("%s.%s", netID, "all-remote-access-gws"))
-	if err == nil {
-		//if acl.Proto.String() == "" {
-		acl.Proto = models.ALL
-		acl.ServiceType = models.Custom
-		acl.Port = []string{}
-		UpsertAcl(acl)
-		//}
-	}
+
 }
 
 // CreateDefaultAclNetworkPolicies - create default acl network policies
