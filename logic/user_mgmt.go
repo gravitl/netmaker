@@ -98,6 +98,25 @@ func ListPlatformRoles() ([]models.UserRolePermissionTemplate, error) {
 	return userRoles, nil
 }
 
+func GetUserGrpMap() map[models.UserGroupID]map[string]struct{} {
+	grpUsersMap := make(map[models.UserGroupID]map[string]struct{})
+	users, _ := GetUsersDB()
+	for _, user := range users {
+		for gID := range user.UserGroups {
+			if grpUsers, ok := grpUsersMap[gID]; ok {
+				grpUsers[user.UserName] = struct{}{}
+				grpUsersMap[gID] = grpUsers
+			} else {
+				grpUsersMap[gID] = make(map[string]struct{})
+				grpUsersMap[gID][user.UserName] = struct{}{}
+			}
+		}
+
+	}
+
+	return grpUsersMap
+}
+
 func userRolesInit() {
 	d, _ := json.Marshal(SuperAdminPermissionTemplate)
 	database.Insert(SuperAdminPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
