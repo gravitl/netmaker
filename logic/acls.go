@@ -347,14 +347,20 @@ func GetDefaultPolicy(netID models.NetworkID, ruleType models.AclPolicyType) (mo
 		return acl, nil
 	}
 	// check if there are any custom all policies
+	srcMap := make(map[string]struct{})
+	dstMap := make(map[string]struct{})
+	defer func() {
+		srcMap = nil
+		dstMap = nil
+	}()
 	policies, _ := ListAclsByNetwork(netID)
 	for _, policy := range policies {
 		if !policy.Enabled {
 			continue
 		}
 		if policy.RuleType == ruleType {
-			dstMap := convAclTagToValueMap(policy.Dst)
-			srcMap := convAclTagToValueMap(policy.Src)
+			dstMap = convAclTagToValueMap(policy.Dst)
+			srcMap = convAclTagToValueMap(policy.Src)
 			if _, ok := srcMap["*"]; ok {
 				if _, ok := dstMap["*"]; ok {
 					return policy, nil
@@ -512,29 +518,37 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) bool {
 }
 
 // IsNodeAllowedToCommunicate - check node is allowed to communicate with the peer
-func IsNodeAllowedToCommunicate(node, peer models.Node) bool {
+func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool) bool {
 	if node.IsStatic {
 		node = node.StaticNode.ConvertToStaticNode()
 	}
 	if peer.IsStatic {
 		peer = peer.StaticNode.ConvertToStaticNode()
 	}
-	// check default policy if all allowed return true
-	defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
-	if err == nil {
-		if defaultPolicy.Enabled {
-			return true
+	if checkDefaultPolicy {
+		// check default policy if all allowed return true
+		defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+		if err == nil {
+			if defaultPolicy.Enabled {
+				return true
+			}
 		}
 	}
 
 	// list device policies
 	policies := listDevicePolicies(models.NetworkID(peer.Network))
+	srcMap := make(map[string]struct{})
+	dstMap := make(map[string]struct{})
+	defer func() {
+		srcMap = nil
+		dstMap = nil
+	}()
 	for _, policy := range policies {
 		if !policy.Enabled {
 			continue
 		}
-		srcMap := convAclTagToValueMap(policy.Src)
-		dstMap := convAclTagToValueMap(policy.Dst)
+		srcMap = convAclTagToValueMap(policy.Src)
+		dstMap = convAclTagToValueMap(policy.Dst)
 		// fmt.Printf("\n======> SRCMAP: %+v\n", srcMap)
 		// fmt.Printf("\n======> DSTMAP: %+v\n", dstMap)
 		// fmt.Printf("\n======> node Tags: %+v\n", node.Tags)
