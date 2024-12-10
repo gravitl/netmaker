@@ -88,15 +88,32 @@ func SendPullSYN() error {
 			Host:   host,
 		}
 		msg, _ := json.Marshal(hostUpdate)
-		zipped, err := compressPayload(msg)
+		var encrypted []byte
+		var encryptErr error
+		vlt, err := logic.VersionLessThan(host.Version, "v0.30.0")
 		if err != nil {
-			return err
-		}
-		encrypted, encryptErr := encryptAESGCM(host.TrafficKeyPublic[0:32], zipped)
-
-		if encryptErr != nil {
+			slog.Warn("error checking version less than", "warn", err)
 			continue
 		}
+		if vlt {
+			encrypted, encryptErr = encryptMsg(&host, msg)
+			if encryptErr != nil {
+				slog.Warn("error encrypt with encryptMsg", "warn", encryptErr)
+				continue
+			}
+		} else {
+			zipped, err := compressPayload(msg)
+			if err != nil {
+				slog.Warn("error compressing message", "warn", err)
+				continue
+			}
+			encrypted, encryptErr = encryptAESGCM(host.TrafficKeyPublic[0:32], zipped)
+			if encryptErr != nil {
+				slog.Warn("error encrypt with encryptMsg", "warn", encryptErr)
+				continue
+			}
+		}
+
 		logger.Log(0, "sending pull syn to", host.Name)
 		mqclient.Publish(fmt.Sprintf("host/update/%s/%s", hostUpdate.Host.ID.String(), servercfg.GetServer()), 0, true, encrypted)
 	}
