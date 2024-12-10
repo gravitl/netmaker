@@ -23,7 +23,7 @@ func MigrateAclPolicies() {
 	for _, acl := range acls {
 		if acl.Proto.String() == "" {
 			acl.Proto = models.ALL
-			acl.ServiceType = models.Custom
+			acl.ServiceType = models.Any
 			acl.Port = []string{}
 			UpsertAcl(acl)
 		}
