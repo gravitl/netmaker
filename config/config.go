@@ -104,6 +104,7 @@ type ServerConfig struct {
 	Stun                       bool          `yaml:"stun"`
 	StunServers                string        `yaml:"stun_servers"`
 	DefaultDomain              string        `yaml:"default_domain"`
+	PublicIp                   string        `yaml:"public_ip"`
 }
 
 // SQLConfig - Generic SQL Config

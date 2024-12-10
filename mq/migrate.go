@@ -93,9 +93,6 @@ func SendPullSYN() error {
 			return err
 		}
 		encrypted, encryptErr := encryptAESGCM(host.TrafficKeyPublic[0:32], zipped)
-		if encryptErr != nil {
-			return encryptErr
-		}
 
 		if encryptErr != nil {
 			continue
