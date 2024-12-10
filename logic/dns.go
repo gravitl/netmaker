@@ -188,7 +188,7 @@ func GetAllDNS() ([]models.DNSEntry, error) {
 		return []models.DNSEntry{}, err
 	}
 	for _, net := range networks {
-		netdns, err := GetDNS(net.NetID)
+		netdns, err := GetDNS(net.Name)
 		if err != nil {
 			return []models.DNSEntry{}, nil
 		}

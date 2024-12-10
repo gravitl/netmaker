@@ -524,16 +524,34 @@ func UpsertNetwork(net *models.Network) error {
 	return nil
 }
 
+func GetNetworkByName(name string) (network models.Network, err error) {
+	networksData, err := database.FetchRecords(database.NETWORKS_TABLE_NAME)
+	if err != nil {
+		return network, err
+	}
+	for _, networkData := range networksData {
+
+		if err = json.Unmarshal([]byte(networkData), &network); err != nil {
+			return models.Network{}, err
+		}
+		if network.Name == name {
+			return network, nil
+		}
+
+	}
+	return network, errors.New("network not found")
+}
+
 // GetNetwork - gets a network from database
-func GetNetwork(networkname string) (models.Network, error) {
+func GetNetwork(networkID string) (models.Network, error) {
 
 	var network models.Network
 	if servercfg.CacheEnabled() {
-		if network, ok := getNetworkFromCache(networkname); ok {
+		if network, ok := getNetworkFromCache(networkID); ok {
 			return network, nil
 		}
 	}
-	networkData, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, networkname)
+	networkData, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, networkID)
 	if err != nil {
 		return network, err
 	}

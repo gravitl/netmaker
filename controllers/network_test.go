@@ -46,10 +46,8 @@ func TestCreateNetwork(t *testing.T) {
 	deleteAllNetworks()
 
 	var network models.Network
-	network.NetID = "skynet1"
+	network.Name = "skynet1"
 	network.AddressRange = "10.10.0.1/24"
-	// if tests break - check here (removed displayname)
-	//network.DisplayName = "mynetwork"
 
 	_, err := logic.CreateNetwork(network)
 	assert.Nil(t, err)
@@ -115,7 +113,7 @@ func TestValidateNetwork(t *testing.T) {
 		{
 			testname: "InvalidAddress",
 			network: models.Network{
-				NetID:        "skynet",
+				Name:         "skynet",
 				AddressRange: "10.0.0.256",
 			},
 			errMessage: "Field validation for 'AddressRange' failed on the 'cidrv4' tag",
@@ -123,29 +121,15 @@ func TestValidateNetwork(t *testing.T) {
 		{
 			testname: "InvalidAddress6",
 			network: models.Network{
-				NetID:         "skynet1",
+				Name:          "skynet1",
 				AddressRange6: "2607::ffff/130",
 			},
 			errMessage: "Field validation for 'AddressRange6' failed on the 'cidrv6' tag",
 		},
 		{
-			testname: "InvalidNetID",
-			network: models.Network{
-				NetID: "with spaces",
-			},
-			errMessage: "Field validation for 'NetID' failed on the 'netid_valid' tag",
-		},
-		{
-			testname: "NetIDTooLong",
-			network: models.Network{
-				NetID: "LongNetIDNameForMaxCharactersTest",
-			},
-			errMessage: "Field validation for 'NetID' failed on the 'max' tag",
-		},
-		{
 			testname: "ListenPortTooLow",
 			network: models.Network{
-				NetID:             "skynet",
+				Name:              "skynet",
 				DefaultListenPort: 1023,
 			},
 			errMessage: "Field validation for 'DefaultListenPort' failed on the 'min' tag",
@@ -153,7 +137,7 @@ func TestValidateNetwork(t *testing.T) {
 		{
 			testname: "ListenPortTooHigh",
 			network: models.Network{
-				NetID:             "skynet",
+				Name:              "skynet",
 				DefaultListenPort: 65536,
 			},
 			errMessage: "Field validation for 'DefaultListenPort' failed on the 'max' tag",
@@ -161,7 +145,7 @@ func TestValidateNetwork(t *testing.T) {
 		{
 			testname: "KeepAliveTooBig",
 			network: models.Network{
-				NetID:            "skynet",
+				Name:             "skynet",
 				DefaultKeepalive: 1010,
 			},
 			errMessage: "Field validation for 'DefaultKeepalive' failed on the 'max' tag",
@@ -207,9 +191,9 @@ func deleteAllNetworks() {
 
 func createNet() {
 	var network models.Network
-	network.NetID = "skynet"
+	network.Name = "skynet"
 	network.AddressRange = "10.0.0.1/24"
-	_, err := logic.GetNetwork("skynet")
+	_, err := logic.GetNetworkByName("skynet")
 	if err != nil {
 		logic.CreateNetwork(network)
 	}
