@@ -1,6 +1,7 @@
 definitions:
   acls.ACL:
     additionalProperties:
+      format: int32
       type: integer
     type: object
   acls.ACLContainer:
@@ -1389,6 +1390,7 @@ definitions:
       mask:
         description: network mask
         items:
+          format: int32
           type: integer
         type: array
     type: object
@@ -1425,6 +1427,7 @@ definitions:
           for this peer, if not nil.
 
           A non-nil value of 0 will clear the persistent keepalive interval.
+        format: int64
         type: integer
       presharedKey:
         description: |-
