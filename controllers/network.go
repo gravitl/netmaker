@@ -613,7 +613,11 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
+	if payload.Name != netOld1.Name {
+		if servercfg.GetManageDNS() {
+			mq.SendDNSSyncByNetwork(payload.NetID)
+		}
+	}
 	slog.Info("updated network", "network", payload.NetID, "user", r.Header.Get("user"))
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(payload)
