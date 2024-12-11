@@ -11,6 +11,19 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+type NodeStatus string
+
+const (
+	OnlineSt  NodeStatus = "online"
+	OfflineSt NodeStatus = "offline"
+	WarningSt NodeStatus = "warning"
+	ErrorSt   NodeStatus = "error"
+	UnKnown   NodeStatus = "unknown"
+)
+
+// LastCheckInThreshold - if node's checkin more than this threshold,then node is declared as offline
+const LastCheckInThreshold = time.Minute * 10
+
 const (
 	// NODE_SERVER_NAME - the default server name
 	NODE_SERVER_NAME = "netmaker"
@@ -103,6 +116,7 @@ type Node struct {
 	IsStatic          bool                `json:"is_static"`
 	IsUserNode        bool                `json:"is_user_node"`
 	StaticNode        ExtClient           `json:"static_node"`
+	Status            NodeStatus          `json:"node_status"`
 }
 
 // LegacyNode - legacy struct for node model
@@ -199,6 +213,19 @@ func (node *Node) PrimaryAddress() string {
 		return node.Address.IP.String()
 	}
 	return node.Address6.IP.String()
+}
+
+func (node *Node) AddressIPNet4() net.IPNet {
+	return net.IPNet{
+		IP:   node.Address.IP,
+		Mask: net.CIDRMask(32, 32),
+	}
+}
+func (node *Node) AddressIPNet6() net.IPNet {
+	return net.IPNet{
+		IP:   node.Address6.IP,
+		Mask: net.CIDRMask(128, 128),
+	}
 }
 
 // ExtClient.PrimaryAddress - returns ipv4 IPNet format

@@ -89,7 +89,7 @@ func ListTagsWithNodes(netID models.NetworkID) ([]models.TagListResp, error) {
 	if err != nil {
 		return []models.TagListResp{}, err
 	}
-	tagsNodeMap := GetTagMapWithNodesByNetwork(netID)
+	tagsNodeMap := GetTagMapWithNodesByNetwork(netID, true)
 	resp := []models.TagListResp{}
 	for _, tagI := range tags {
 		tagI.NetworkName = network.Name

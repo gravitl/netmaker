@@ -52,6 +52,81 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 			// models.NetmakerIPAclID,
 			// models.NetmakerSubNetRangeAClID,
 		},
+		ProtocolTypes: []models.ProtocolType{
+			{
+				Name: models.Any,
+				AllowedProtocols: []models.Protocol{
+					models.ALL,
+				},
+				PortRange:        "All ports",
+				AllowPortSetting: false,
+			},
+			{
+				Name: models.Http,
+				AllowedProtocols: []models.Protocol{
+					models.TCP,
+				},
+				PortRange: "80",
+			},
+			{
+				Name: models.Https,
+				AllowedProtocols: []models.Protocol{
+					models.TCP,
+				},
+				PortRange: "443",
+			},
+			// {
+			// 	Name: "MySQL",
+			// 	AllowedProtocols: []models.Protocol{
+			// 		models.TCP,
+			// 	},
+			// 	PortRange: "3306",
+			// },
+			// {
+			// 	Name: "DNS TCP",
+			// 	AllowedProtocols: []models.Protocol{
+			// 		models.TCP,
+			// 	},
+			// 	PortRange: "53",
+			// },
+			// {
+			// 	Name: "DNS UDP",
+			// 	AllowedProtocols: []models.Protocol{
+			// 		models.UDP,
+			// 	},
+			// 	PortRange: "53",
+			// },
+			{
+				Name: models.AllTCP,
+				AllowedProtocols: []models.Protocol{
+					models.TCP,
+				},
+				PortRange: "All ports",
+			},
+			{
+				Name: models.AllUDP,
+				AllowedProtocols: []models.Protocol{
+					models.UDP,
+				},
+				PortRange: "All ports",
+			},
+			{
+				Name: models.ICMPService,
+				AllowedProtocols: []models.Protocol{
+					models.ICMP,
+				},
+				PortRange: "",
+			},
+			{
+				Name: models.Custom,
+				AllowedProtocols: []models.Protocol{
+					models.UDP,
+					models.TCP,
+				},
+				PortRange:        "All ports",
+				AllowPortSetting: true,
+			},
+		},
 	}
 	logic.ReturnSuccessResponseWithJson(w, r, resp, "fetched acls types")
 }
@@ -69,7 +144,7 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	allowed := logic.IsNodeAllowedToCommunicate(node, peer)
+	allowed, _ := logic.IsNodeAllowedToCommunicate(node, peer, true)
 	logic.ReturnSuccessResponseWithJson(w, r, allowed, "fetched all acls in the network ")
 }
 
@@ -132,11 +207,6 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 	acl.CreatedBy = user.UserName
 	acl.CreatedAt = time.Now().UTC()
 	acl.Default = false
-	if acl.RuleType == models.DevicePolicy {
-		acl.AllowedDirection = models.TrafficDirectionBi
-	} else {
-		acl.AllowedDirection = models.TrafficDirectionUni
-	}
 	// validate create acl policy
 	if !logic.IsAclPolicyValid(acl) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid policy"), "badrequest"))
@@ -152,7 +222,7 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	go mq.PublishPeerUpdate(false)
+	go mq.PublishPeerUpdate(true)
 	logic.ReturnSuccessResponseWithJson(w, r, acl, "created acl successfully")
 }
 
@@ -194,7 +264,7 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	go mq.PublishPeerUpdate(false)
+	go mq.PublishPeerUpdate(true)
 	logic.ReturnSuccessResponse(w, r, "updated acl "+acl.Name)
 }
 
@@ -225,6 +295,6 @@ func deleteAcl(w http.ResponseWriter, r *http.Request) {
 			logic.FormatError(errors.New("cannot delete default policy"), "internal"))
 		return
 	}
-	go mq.PublishPeerUpdate(false)
+	go mq.PublishPeerUpdate(true)
 	logic.ReturnSuccessResponse(w, r, "deleted acl "+acl.Name)
 }

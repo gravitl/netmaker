@@ -486,7 +486,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 // @Summary     Delete user group.
 // @Router      /api/v1/user/group [delete]
 // @Tags        Users
-// @Param       group_id param string true "group id required to delete the role"
+// @Param       group_id query string true "group id required to delete the role"
 // @Success     200 {string} string
 // @Failure     500 {object} models.ErrorResponse
 func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
@@ -517,7 +517,7 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 // @Summary     lists all user roles.
 // @Router      /api/v1/user/roles [get]
 // @Tags        Users
-// @Param       role_id param string true "roleid required to get the role details"
+// @Param       role_id query string true "roleid required to get the role details"
 // @Success     200 {object}  []models.UserRolePermissionTemplate
 // @Failure     500 {object} models.ErrorResponse
 func ListRoles(w http.ResponseWriter, r *http.Request) {
@@ -543,7 +543,7 @@ func ListRoles(w http.ResponseWriter, r *http.Request) {
 // @Summary     Get user role permission template.
 // @Router      /api/v1/user/role [get]
 // @Tags        Users
-// @Param       role_id param string true "roleid required to get the role details"
+// @Param       role_id query string true "roleid required to get the role details"
 // @Success     200 {object} models.UserRolePermissionTemplate
 // @Failure     500 {object} models.ErrorResponse
 func getRole(w http.ResponseWriter, r *http.Request) {
@@ -566,7 +566,7 @@ func getRole(w http.ResponseWriter, r *http.Request) {
 // @Summary     Create user role permission template.
 // @Router      /api/v1/user/role [post]
 // @Tags        Users
-// @Param       body models.UserRolePermissionTemplate true "user role template"
+// @Param       body body models.UserRolePermissionTemplate true "user role template"
 // @Success     200 {object}  models.UserRolePermissionTemplate
 // @Failure     500 {object} models.ErrorResponse
 func createRole(w http.ResponseWriter, r *http.Request) {
@@ -596,8 +596,8 @@ func createRole(w http.ResponseWriter, r *http.Request) {
 // @Summary     Update user role permission template.
 // @Router      /api/v1/user/role [put]
 // @Tags        Users
-// @Param       body models.UserRolePermissionTemplate true "user role template"
-// @Success     200 {object} userBodyResponse
+// @Param       body body models.UserRolePermissionTemplate true "user role template"
+// @Success     200 {object} models.UserRolePermissionTemplate
 // @Failure     500 {object} models.ErrorResponse
 func updateRole(w http.ResponseWriter, r *http.Request) {
 	var userRole models.UserRolePermissionTemplate
@@ -632,7 +632,7 @@ func updateRole(w http.ResponseWriter, r *http.Request) {
 // @Summary     Delete user role permission template.
 // @Router      /api/v1/user/role [delete]
 // @Tags        Users
-// @Param       role_id param string true "roleid required to delete the role"
+// @Param       role_id query string true "roleid required to delete the role"
 // @Success     200 {string} string
 // @Failure     500 {object} models.ErrorResponse
 func deleteRole(w http.ResponseWriter, r *http.Request) {

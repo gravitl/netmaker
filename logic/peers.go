@@ -74,8 +74,10 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		ServerVersion: servercfg.GetVersion(),
 		ServerAddrs:   []models.ServerAddr{},
 		FwUpdate: models.FwUpdate{
+			AllowAll:    true,
 			EgressInfo:  make(map[string]models.EgressInfo),
 			IngressInfo: make(map[string]models.IngressInfo),
+			AclRules:    make(map[string]models.AclRule),
 		},
 		PeerIDs:           make(models.PeerMap, 0),
 		Peers:             []wgtypes.PeerConfig{},
@@ -154,6 +156,19 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		if !hostPeerUpdate.IsInternetGw {
 			hostPeerUpdate.IsInternetGw = IsInternetGw(node)
 		}
+		defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
+		defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+		if node.NetworkRange.IP != nil {
+			hostPeerUpdate.FwUpdate.Networks = append(hostPeerUpdate.FwUpdate.Networks, node.NetworkRange)
+		}
+		if node.NetworkRange6.IP != nil {
+			hostPeerUpdate.FwUpdate.Networks = append(hostPeerUpdate.FwUpdate.Networks, node.NetworkRange6)
+		}
+
+		if !defaultDevicePolicy.Enabled || !defaultUserPolicy.Enabled {
+			hostPeerUpdate.FwUpdate.AllowAll = false
+		}
+		hostPeerUpdate.FwUpdate.AclRules = GetAclRulesForNode(&node)
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
 		for _, peer := range currentPeers {
 			peer := peer
@@ -255,11 +270,12 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				peerConfig.Endpoint.Port = peerHost.ListenPort
 			}
 			allowedips := GetAllowedIPs(&node, &peer, nil)
+			allowedToComm, _ := IsNodeAllowedToCommunicate(node, peer, false)
 			if peer.Action != models.NODE_DELETE &&
 				!peer.PendingDelete &&
 				peer.Connected &&
 				nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) &&
-				IsNodeAllowedToCommunicate(node, peer) &&
+				(defaultDevicePolicy.Enabled || allowedToComm) &&
 				(deletedNode == nil || (deletedNode != nil && peer.ID.String() != deletedNode.ID.String())) {
 				peerConfig.AllowedIPs = allowedips // only append allowed IPs if valid connection
 			}
@@ -309,8 +325,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			hostPeerUpdate.FwUpdate.IsIngressGw = true
 			extPeers, extPeerIDAndAddrs, egressRoutes, err = GetExtPeers(&node, &node)
 			if err == nil {
-				defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
-				defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 				if !defaultDevicePolicy.Enabled || !defaultUserPolicy.Enabled {
 					ingFwUpdate := models.IngressInfo{
 						IngressID:     node.ID.String(),
