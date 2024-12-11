@@ -617,6 +617,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		if servercfg.GetManageDNS() {
 			mq.SendDNSSyncByNetwork(payload.NetID)
 		}
+		logic.CreateDefaultNetworkRolesAndGroups(models.NetworkID(payload.NetID))
 	}
 	slog.Info("updated network", "network", payload.NetID, "user", r.Header.Get("user"))
 	w.WriteHeader(http.StatusOK)
