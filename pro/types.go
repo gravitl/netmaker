@@ -18,7 +18,7 @@ var errValidation = errors.New(license_validation_err_msg)
 // LicenseKey - the license key struct representation with associated data
 type LicenseKey struct {
 	LicenseValue   string `json:"license_value"` // actual (public) key and the unique value for the key
-	Expiration     int64  `json:"expiration"`
+	Expiration     int64  `json:"expiration" swaggertype:"primitive,integer" format:"int64"`
 	UsageServers   int    `json:"limit_servers"`
 	UsageUsers     int    `json:"limit_users"`
 	UsageClients   int    `json:"limit_clients"`

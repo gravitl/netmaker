@@ -1,0 +1,2 @@
+// Replace all time.Duration with int64
+replace time.Duration int64

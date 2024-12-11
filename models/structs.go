@@ -196,7 +196,7 @@ type ServerUpdateData struct {
 // also contains assymetrical encryption pub/priv keys for any server traffic
 type Telemetry struct {
 	UUID           string `json:"uuid" bson:"uuid"`
-	LastSend       int64  `json:"lastsend" bson:"lastsend"`
+	LastSend       int64  `json:"lastsend" bson:"lastsend" swaggertype:"primitive,integer" format:"int64"`
 	TrafficKeyPriv []byte `json:"traffickeypriv" bson:"traffickeypriv"`
 	TrafficKeyPub  []byte `json:"traffickeypub" bson:"traffickeypub"`
 }

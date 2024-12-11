@@ -13,7 +13,7 @@ type ExtClient struct {
 	AllowedIPs             []string            `json:"allowed_ips"`
 	IngressGatewayID       string              `json:"ingressgatewayid" bson:"ingressgatewayid"`
 	IngressGatewayEndpoint string              `json:"ingressgatewayendpoint" bson:"ingressgatewayendpoint"`
-	LastModified           int64               `json:"lastmodified" bson:"lastmodified"`
+	LastModified           int64               `json:"lastmodified" bson:"lastmodified" swaggertype:"primitive,integer" format:"int64"`
 	Enabled                bool                `json:"enabled" bson:"enabled"`
 	OwnerID                string              `json:"ownerid" bson:"ownerid"`
 	DeniedACLs             map[string]struct{} `json:"deniednodeacls" bson:"acls,omitempty"`
