@@ -257,7 +257,7 @@ func CheckNetRegAndHostUpdate(networks []string, h *models.Host, relayNodeId uui
 			if relayNodeId != uuid.Nil && !newNode.IsRelayed {
 				// check if relay node exists and acting as relay
 				relaynode, err := logic.GetNodeByID(relayNodeId.String())
-				if err == nil && relaynode.IsRelay {
+				if err == nil && relaynode.IsRelay && relaynode.Network == newNode.Network {
 					slog.Info(fmt.Sprintf("adding relayed node %s to relay %s on network %s", newNode.ID.String(), relayNodeId.String(), network))
 					newNode.IsRelayed = true
 					newNode.RelayedBy = relayNodeId.String()
@@ -271,7 +271,7 @@ func CheckNetRegAndHostUpdate(networks []string, h *models.Host, relayNodeId uui
 						slog.Error("failed to update node", "nodeid", relayNodeId.String())
 					}
 				} else {
-					slog.Error("failed to relay node. maybe specified relay node is actually not a relay?", "err", err)
+					slog.Error("failed to relay node. maybe specified relay node is actually not a relay? Or the relayed node is not in the same network with relay?", "err", err)
 				}
 			}
 			logger.Log(1, "added new node", newNode.ID.String(), "to host", h.Name)
