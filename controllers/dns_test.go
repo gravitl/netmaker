@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"testing"
@@ -440,6 +441,7 @@ func createHost() {
 func deleteAllDNS(t *testing.T) {
 	dns, err := logic.GetAllDNS()
 	assert.Nil(t, err)
+	fmt.Println("=====> DNS RECORDS ", dns)
 	for _, record := range dns {
 		err := logic.DeleteDNS(record.Name, record.Network)
 		assert.Nil(t, err)

@@ -49,7 +49,7 @@ func getNodeDNS(w http.ResponseWriter, r *http.Request) {
 	var dns []models.DNSEntry
 	var params = mux.Vars(r)
 	network := params["network"]
-	dns, err := logic.GetNodeDNS(network)
+	dns, err := logic.GetNodeDNS(models.NetworkID(network))
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get node DNS entries for network [%s]: %v", network, err))
@@ -125,7 +125,7 @@ func getDNS(w http.ResponseWriter, r *http.Request) {
 	var dns []models.DNSEntry
 	var params = mux.Vars(r)
 	network := params["network"]
-	dns, err := logic.GetDNS(network)
+	dns, err := logic.GetDNS(models.NetworkID(network))
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get all DNS entries for network [%s]: %v", network, err.Error()))
@@ -298,7 +298,7 @@ func syncDNS(w http.ResponseWriter, r *http.Request) {
 	}
 	var params = mux.Vars(r)
 	netID := params["network"]
-	k, err := logic.GetDNS(netID)
+	k, err := logic.GetDNS(models.NetworkID(netID))
 	if err == nil && len(k) > 0 {
 		err = mq.PushSyncDNS(k)
 	}

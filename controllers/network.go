@@ -488,14 +488,6 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(network.NetID) > 32 {
-		err := errors.New("network name shouldn't exceed 32 characters")
-		logger.Log(0, r.Header.Get("user"), "failed to create network: ",
-			err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-
 	if network.AddressRange == "" && network.AddressRange6 == "" {
 		err := errors.New("IPv4 or IPv6 CIDR required")
 		logger.Log(0, r.Header.Get("user"), "failed to create network: ",
@@ -614,15 +606,19 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	// partial update
-	netOld2 := netOld1
-	_, _, _, err = logic.UpdateNetwork(&netOld1, &netOld2)
+
+	_, _, _, err = logic.UpdateNetwork(&netOld1, &payload)
 	if err != nil {
 		slog.Info("failed to update network", "user", r.Header.Get("user"), "err", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
+	if payload.Name != netOld1.Name {
+		if servercfg.GetManageDNS() {
+			mq.SendDNSSyncByNetwork(payload.NetID)
+		}
+		logic.CreateDefaultNetworkRolesAndGroups(models.NetworkID(payload.NetID))
+	}
 	slog.Info("updated network", "network", payload.NetID, "user", r.Header.Get("user"))
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(payload)

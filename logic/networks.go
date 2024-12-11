@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -23,6 +24,7 @@ import (
 )
 
 var (
+	networkMutex      = &sync.RWMutex{}
 	networkCacheMutex = &sync.RWMutex{}
 	networkCacheMap   = make(map[string]models.Network)
 	allocatedIpMap    = make(map[string]map[string]net.IP)
@@ -205,7 +207,9 @@ func DeleteNetwork(network string) error {
 
 // CreateNetwork - creates a network in database
 func CreateNetwork(network models.Network) (models.Network, error) {
-
+	networkMutex.Lock()
+	defer networkMutex.Unlock()
+	network.NetID = fmt.Sprintf("%d", time.Now().Unix())
 	if network.AddressRange != "" {
 		normalizedRange, err := NormalizeCIDR(network.AddressRange)
 		if err != nil {
@@ -227,7 +231,7 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 	network.SetDefaults()
 	network.SetNodesLastModified()
 	network.SetNetworkLastModified()
-
+	network.Name = strings.ReplaceAll(network.Name, " ", "-")
 	err := ValidateNetwork(&network, false)
 	if err != nil {
 		//logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -250,7 +254,7 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 		0,
 		time.Time{},
 		[]string{network.NetID},
-		[]string{network.NetID},
+		[]string{network.Name},
 		[]models.TagID{},
 		true,
 		uuid.Nil,
@@ -470,7 +474,7 @@ func IsNetworkNameUnique(network *models.Network) (bool, error) {
 
 	for i := 0; i < len(dbs); i++ {
 
-		if network.NetID == dbs[i].NetID {
+		if network.Name == dbs[i].Name {
 			isunique = false
 		}
 	}
@@ -480,6 +484,7 @@ func IsNetworkNameUnique(network *models.Network) (bool, error) {
 
 // UpdateNetwork - updates a network with another network's fields
 func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (bool, bool, bool, error) {
+	newNetwork.Name = strings.ReplaceAll(newNetwork.Name, " ", "-")
 	if err := ValidateNetwork(newNetwork, true); err != nil {
 		return false, false, false, err
 	}
@@ -487,11 +492,12 @@ func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (
 		hasrangeupdate4 := newNetwork.AddressRange != currentNetwork.AddressRange
 		hasrangeupdate6 := newNetwork.AddressRange6 != currentNetwork.AddressRange6
 		hasholepunchupdate := newNetwork.DefaultUDPHolePunch != currentNetwork.DefaultUDPHolePunch
+		newNetwork.SetNetworkLastModified()
 		data, err := json.Marshal(newNetwork)
 		if err != nil {
 			return false, false, false, err
 		}
-		newNetwork.SetNetworkLastModified()
+
 		err = database.Insert(newNetwork.NetID, string(data), database.NETWORKS_TABLE_NAME)
 		if err == nil {
 			if servercfg.CacheEnabled() {
@@ -504,16 +510,50 @@ func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (
 	return false, false, false, errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
 }
 
+func UpsertNetwork(net *models.Network) error {
+	net.SetNetworkLastModified()
+	data, err := json.Marshal(net)
+	if err != nil {
+		return err
+	}
+
+	err = database.Insert(net.NetID, string(data), database.NETWORKS_TABLE_NAME)
+	if err == nil {
+		if servercfg.CacheEnabled() {
+			storeNetworkInCache(net.NetID, *net)
+		}
+	}
+	return nil
+}
+
+func GetNetworkByName(name string) (network models.Network, err error) {
+	networksData, err := database.FetchRecords(database.NETWORKS_TABLE_NAME)
+	if err != nil {
+		return network, err
+	}
+	for _, networkData := range networksData {
+
+		if err = json.Unmarshal([]byte(networkData), &network); err != nil {
+			return models.Network{}, err
+		}
+		if network.Name == name {
+			return network, nil
+		}
+
+	}
+	return network, errors.New("network not found")
+}
+
 // GetNetwork - gets a network from database
-func GetNetwork(networkname string) (models.Network, error) {
+func GetNetwork(networkID string) (models.Network, error) {
 
 	var network models.Network
 	if servercfg.CacheEnabled() {
-		if network, ok := getNetworkFromCache(networkname); ok {
+		if network, ok := getNetworkFromCache(networkID); ok {
 			return network, nil
 		}
 	}
-	networkData, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, networkname)
+	networkData, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, networkID)
 	if err != nil {
 		return network, err
 	}
@@ -523,31 +563,22 @@ func GetNetwork(networkname string) (models.Network, error) {
 	return network, nil
 }
 
-// NetIDInNetworkCharSet - checks if a netid of a network uses valid characters
-func NetIDInNetworkCharSet(network *models.Network) bool {
-
-	charset := "abcdefghijklmnopqrstuvwxyz1234567890-_"
-
-	for _, char := range network.NetID {
-		if !strings.Contains(charset, string(char)) {
-			return false
-		}
-	}
-	return true
+// IsNetworkNameValid - checks if a netid of a network uses valid characters
+func IsNetworkNameValid(network *models.Network) bool {
+	re := regexp.MustCompile(`^[A-Za-z0-9-]+$`)
+	return re.MatchString(network.Name)
 }
 
 // Validate - validates fields of an network struct
 func ValidateNetwork(network *models.Network, isUpdate bool) error {
 	v := validator.New()
-	_ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
-		inCharSet := NetIDInNetworkCharSet(network)
-		if isUpdate {
-			return inCharSet
-		}
-		isFieldUnique, _ := IsNetworkNameUnique(network)
-		return isFieldUnique && inCharSet
-	})
-	//
+	isFieldUnique, _ := IsNetworkNameUnique(network)
+	if !isFieldUnique {
+		return errors.New("duplicate network name")
+	}
+	if !IsNetworkNameValid(network) {
+		return errors.New("invalid input. Only uppercase letters (A-Z), lowercase letters (a-z), numbers (0-9), and the minus sign (-) are allowed")
+	}
 	_ = v.RegisterValidation("checkyesorno", func(fl validator.FieldLevel) bool {
 		return validation.CheckYesOrNo(fl)
 	})
@@ -559,13 +590,6 @@ func ValidateNetwork(network *models.Network, isUpdate bool) error {
 	}
 
 	return err
-}
-
-// ParseNetwork - parses a network into a model
-func ParseNetwork(value string) (models.Network, error) {
-	var network models.Network
-	err := json.Unmarshal([]byte(value), &network)
-	return network, err
 }
 
 // SaveNetwork - save network struct to database
