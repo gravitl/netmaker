@@ -1406,42 +1406,6 @@ definitions:
     type: object
   netip.AddrPort:
     type: object
-  time.Duration:
-    enum:
-    - -9223372036854775808
-    - 9223372036854775807
-    - 1
-    - 1000
-    - 1000000
-    - 1000000000
-    - 60000000000
-    - 3600000000000
-    - -9223372036854775808
-    - 9223372036854775807
-    - 1
-    - 1000
-    - 1000000
-    - 1000000000
-    - 60000000000
-    - 3600000000000
-    type: integer
-    x-enum-varnames:
-    - minDuration
-    - maxDuration
-    - Nanosecond
-    - Microsecond
-    - Millisecond
-    - Second
-    - Minute
-    - Hour
-    - minDuration
-    - maxDuration
-    - Nanosecond
-    - Microsecond
-    - Millisecond
-    - Second
-    - Minute
-    - Hour
   wgtypes.PeerConfig:
     properties:
       allowedIPs:
@@ -1456,13 +1420,12 @@ definitions:
         - $ref: '#/definitions/net.UDPAddr'
         description: Endpoint specifies the endpoint of this peer entry, if not nil.
       persistentKeepaliveInterval:
-        allOf:
-        - $ref: '#/definitions/time.Duration'
         description: |-
           PersistentKeepaliveInterval specifies the persistent keepalive interval
           for this peer, if not nil.
 
           A non-nil value of 0 will clear the persistent keepalive interval.
+        type: integer
       presharedKey:
         description: |-
           PresharedKey specifies a peer's preshared key configuration, if not nil.
