@@ -325,6 +325,10 @@ func UpdateAcl(newAcl, acl models.Acl) error {
 		acl.Proto = newAcl.Proto
 		acl.ServiceType = newAcl.ServiceType
 	}
+	if newAcl.ServiceType == models.Any {
+		acl.Port = []string{}
+		acl.Proto = models.ALL
+	}
 	acl.Enabled = newAcl.Enabled
 	d, err := json.Marshal(acl)
 	if err != nil {
