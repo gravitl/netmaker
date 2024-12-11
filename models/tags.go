@@ -20,11 +20,12 @@ func (t Tag) GetIDFromName() string {
 }
 
 type Tag struct {
-	ID        TagID     `json:"id"`
-	TagName   string    `json:"tag_name"`
-	Network   NetworkID `json:"network"`
-	CreatedBy string    `json:"created_by"`
-	CreatedAt time.Time `json:"created_at"`
+	ID          TagID     `json:"id"`
+	TagName     string    `json:"tag_name"`
+	Network     NetworkID `json:"network"`
+	NetworkName string    `json:"network_name"`
+	CreatedBy   string    `json:"created_by"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 type CreateTagReq struct {

@@ -256,7 +256,7 @@ func sendPeers() {
 
 func SendDNSSyncByNetwork(network string) error {
 
-	k, err := logic.GetDNS(network)
+	k, err := logic.GetDNS(models.NetworkID(network))
 	if err == nil && len(k) > 0 {
 		err = PushSyncDNS(k)
 		if err != nil {
@@ -272,7 +272,7 @@ func sendDNSSync() error {
 	networks, err := logic.GetNetworks()
 	if err == nil && len(networks) > 0 {
 		for _, v := range networks {
-			k, err := logic.GetDNS(v.NetID)
+			k, err := logic.GetDNS(models.NetworkID(v.NetID))
 			if err == nil && len(k) > 0 {
 				err = PushSyncDNS(k)
 				if err != nil {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -230,7 +231,7 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 	network.SetDefaults()
 	network.SetNodesLastModified()
 	network.SetNetworkLastModified()
-
+	network.Name = strings.ReplaceAll(network.Name, " ", "-")
 	err := ValidateNetwork(&network, false)
 	if err != nil {
 		//logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -483,6 +484,7 @@ func IsNetworkNameUnique(network *models.Network) (bool, error) {
 
 // UpdateNetwork - updates a network with another network's fields
 func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (bool, bool, bool, error) {
+	newNetwork.Name = strings.ReplaceAll(newNetwork.Name, " ", "-")
 	if err := ValidateNetwork(newNetwork, true); err != nil {
 		return false, false, false, err
 	}
@@ -561,16 +563,10 @@ func GetNetwork(networkID string) (models.Network, error) {
 	return network, nil
 }
 
-// NetIDInNetworkCharSet - checks if a netid of a network uses valid characters
-func NetIDInNetworkCharSet(network *models.Network) bool {
-	charset := "abcdefghijklmnopqrstuvwxyz1234567890-_"
-
-	for _, char := range network.NetID {
-		if !strings.Contains(charset, string(char)) {
-			return false
-		}
-	}
-	return true
+// IsNetworkNameValid - checks if a netid of a network uses valid characters
+func IsNetworkNameValid(network *models.Network) bool {
+	re := regexp.MustCompile(`^[A-Za-z0-9-]+$`)
+	return re.MatchString(network.Name)
 }
 
 // Validate - validates fields of an network struct
@@ -580,7 +576,9 @@ func ValidateNetwork(network *models.Network, isUpdate bool) error {
 	if !isFieldUnique {
 		return errors.New("duplicate network name")
 	}
-	//
+	if !IsNetworkNameValid(network) {
+		return errors.New("invalid input. Only uppercase letters (A-Z), lowercase letters (a-z), numbers (0-9), and the minus sign (-) are allowed")
+	}
 	_ = v.RegisterValidation("checkyesorno", func(fl validator.FieldLevel) bool {
 		return validation.CheckYesOrNo(fl)
 	})
@@ -592,13 +590,6 @@ func ValidateNetwork(network *models.Network, isUpdate bool) error {
 	}
 
 	return err
-}
-
-// ParseNetwork - parses a network into a model
-func ParseNetwork(value string) (models.Network, error) {
-	var network models.Network
-	err := json.Unmarshal([]byte(value), &network)
-	return network, err
 }
 
 // SaveNetwork - save network struct to database

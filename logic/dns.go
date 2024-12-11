@@ -28,7 +28,7 @@ func SetDNS() error {
 
 	for _, net := range networks {
 		corefilestring = corefilestring + net.NetID + " "
-		dns, err := GetDNS(net.NetID)
+		dns, err := GetDNS(models.NetworkID(net.NetID))
 		if err != nil && !database.IsEmptyRecord(err) {
 			return err
 		}
@@ -58,13 +58,13 @@ func SetDNS() error {
 }
 
 // GetDNS - gets the DNS of a current network
-func GetDNS(network string) ([]models.DNSEntry, error) {
+func GetDNS(networkID models.NetworkID) ([]models.DNSEntry, error) {
 
-	dns, err := GetNodeDNS(network)
+	dns, err := GetNodeDNS(networkID)
 	if err != nil && !database.IsEmptyRecord(err) {
 		return dns, err
 	}
-	customdns, err := GetCustomDNS(network)
+	customdns, err := GetCustomDNS(networkID.String())
 	if err != nil && !database.IsEmptyRecord(err) {
 		return dns, err
 	}
@@ -96,17 +96,20 @@ func GetExtclientDNS() []models.DNSEntry {
 }
 
 // GetNodeDNS - gets the DNS of a network node
-func GetNodeDNS(network string) ([]models.DNSEntry, error) {
+func GetNodeDNS(networkID models.NetworkID) ([]models.DNSEntry, error) {
 
 	var dns []models.DNSEntry
-
-	nodes, err := GetNetworkNodes(network)
+	net, err := GetNetwork(networkID.String())
+	if err != nil {
+		return []models.DNSEntry{}, err
+	}
+	nodes, err := GetNetworkNodes(networkID.String())
 	if err != nil {
 		return dns, err
 	}
 
 	for _, node := range nodes {
-		if node.Network != network {
+		if node.Network != networkID.String() {
 			continue
 		}
 		host, err := GetHost(node.HostID.String())
@@ -114,8 +117,8 @@ func GetNodeDNS(network string) ([]models.DNSEntry, error) {
 			continue
 		}
 		var entry = models.DNSEntry{}
-		entry.Name = fmt.Sprintf("%s.%s", host.Name, network)
-		entry.Network = network
+		entry.Name = fmt.Sprintf("%s.%s", host.Name, net.Name)
+		entry.Network = net.NetID
 		if node.Address.IP != nil {
 			entry.Address = node.Address.IP.String()
 		}
@@ -188,7 +191,7 @@ func GetAllDNS() ([]models.DNSEntry, error) {
 		return []models.DNSEntry{}, err
 	}
 	for _, net := range networks {
-		netdns, err := GetDNS(net.Name)
+		netdns, err := GetDNS(models.NetworkID(net.NetID))
 		if err != nil {
 			return []models.DNSEntry{}, nil
 		}
@@ -202,7 +205,7 @@ func GetDNSEntryNum(domain string, network string) (int, error) {
 
 	num := 0
 
-	entries, err := GetDNS(network)
+	entries, err := GetDNS(models.NetworkID(network))
 	if err != nil {
 		return 0, err
 	}
