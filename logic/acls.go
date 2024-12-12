@@ -325,6 +325,10 @@ func UpdateAcl(newAcl, acl models.Acl) error {
 		acl.Proto = newAcl.Proto
 		acl.ServiceType = newAcl.ServiceType
 	}
+	if newAcl.ServiceType == models.Any {
+		acl.Port = []string{}
+		acl.Proto = models.ALL
+	}
 	acl.Enabled = newAcl.Enabled
 	d, err := json.Marshal(acl)
 	if err != nil {
@@ -844,6 +848,7 @@ func GetAclRulesForNode(targetnode *models.Node) (rules map[string]models.AclRul
 	}
 
 	acls := listDevicePolicies(models.NetworkID(targetnode.Network))
+	targetnode.Tags["*"] = struct{}{}
 	for nodeTag := range targetnode.Tags {
 		for _, acl := range acls {
 			if !acl.Enabled {
@@ -944,7 +949,8 @@ func GetAclRulesForNode(targetnode *models.Node) (rules map[string]models.AclRul
 					}
 				}
 			} else {
-				if _, ok := dstTags[nodeTag.String()]; ok {
+				_, all := dstTags["*"]
+				if _, ok := dstTags[nodeTag.String()]; ok || all {
 					// get all src tags
 					for src := range srcTags {
 						if src == nodeTag.String() {
