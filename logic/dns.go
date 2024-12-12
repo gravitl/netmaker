@@ -2,6 +2,7 @@ package logic
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -11,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 	"github.com/txn2/txeh"
 )
 
@@ -107,7 +109,7 @@ func GetNodeDNS(networkID models.NetworkID) ([]models.DNSEntry, error) {
 	if err != nil {
 		return dns, err
 	}
-
+	defaultDomain := servercfg.GetDefaultDomain()
 	for _, node := range nodes {
 		if node.Network != networkID.String() {
 			continue
@@ -117,7 +119,7 @@ func GetNodeDNS(networkID models.NetworkID) ([]models.DNSEntry, error) {
 			continue
 		}
 		var entry = models.DNSEntry{}
-		entry.Name = fmt.Sprintf("%s.%s", host.Name, net.Name)
+		entry.Name = fmt.Sprintf("%s.%s.%s", host.Name, net.Name, defaultDomain)
 		entry.Network = net.NetID
 		if node.Address.IP != nil {
 			entry.Address = node.Address.IP.String()
@@ -227,9 +229,17 @@ func SortDNSEntrys(unsortedDNSEntrys []models.DNSEntry) {
 	})
 }
 
+// IsNetworkNameValid - checks if a netid of a network uses valid characters
+func IsDNSEntryValid(d string) bool {
+	re := regexp.MustCompile(`^[A-Za-z0-9-.]+$`)
+	return re.MatchString(d)
+}
+
 // ValidateDNSCreate - checks if an entry is valid
 func ValidateDNSCreate(entry models.DNSEntry) error {
-
+	if !IsDNSEntryValid(entry.Name) {
+		return errors.New("invalid input. Only uppercase letters (A-Z), lowercase letters (a-z), numbers (0-9), minus sign (-) and dots (.) are allowed")
+	}
 	v := validator.New()
 
 	_ = v.RegisterValidation("whitespace", func(f1 validator.FieldLevel) bool {
