@@ -165,7 +165,7 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 	}
 	// check if default domain is appended if not append
 	if !strings.HasSuffix(entry.Name, servercfg.GetDefaultDomain()) {
-		entry.Name += servercfg.GetDefaultDomain()
+		entry.Name += "." + servercfg.GetDefaultDomain()
 	}
 	entry, err = logic.CreateDNS(entry)
 	if err != nil {
