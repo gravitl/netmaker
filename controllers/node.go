@@ -430,6 +430,8 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	net, _ := logic.GetNetwork(node.Network)
+	node.NetworkName = net.Name
 	server := servercfg.GetServerInfo()
 	response := models.NodeGet{
 		Node:         node,

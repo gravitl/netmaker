@@ -68,7 +68,7 @@ type CommonNode struct {
 	ID                  uuid.UUID `json:"id"                  yaml:"id"`
 	HostID              uuid.UUID `json:"hostid"              yaml:"hostid"`
 	Network             string    `json:"network"             yaml:"network"`
-	NetworkName         string    `json:"network_name"             yaml:"network_name"`
+	NetworkName         string    `json:"network_name"        yaml:"network_name"`
 	NetworkRange        net.IPNet `json:"networkrange"        yaml:"networkrange"        swaggertype:"primitive,integer"`
 	NetworkRange6       net.IPNet `json:"networkrange6"       yaml:"networkrange6"       swaggertype:"primitive,number"`
 	Server              string    `json:"server"              yaml:"server"`
