@@ -207,6 +207,10 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 	acl.CreatedBy = user.UserName
 	acl.CreatedAt = time.Now().UTC()
 	acl.Default = false
+	if acl.ServiceType == models.Any {
+		acl.Port = []string{}
+		acl.Proto = models.ALL
+	}
 	// validate create acl policy
 	if !logic.IsAclPolicyValid(acl) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid policy"), "badrequest"))

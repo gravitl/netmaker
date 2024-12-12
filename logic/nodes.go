@@ -829,6 +829,7 @@ func GetTagMapWithNodesByNetwork(netID models.NetworkID, withStaticNodes bool) (
 			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
 		}
 	}
+	tagNodesMap["*"] = nodes
 	if !withStaticNodes {
 		return
 	}
@@ -847,6 +848,10 @@ func AddTagMapWithStaticNodes(netID models.NetworkID,
 		}
 		for tagID := range extclient.Tags {
 			tagNodesMap[tagID] = append(tagNodesMap[tagID], models.Node{
+				IsStatic:   true,
+				StaticNode: extclient,
+			})
+			tagNodesMap["*"] = append(tagNodesMap["*"], models.Node{
 				IsStatic:   true,
 				StaticNode: extclient,
 			})
