@@ -137,10 +137,10 @@ type LegacyNode struct {
 	IsHub                   string               `json:"ishub"                   bson:"ishub"                   yaml:"ishub"                   validate:"checkyesorno"`
 	AccessKey               string               `json:"accesskey"               bson:"accesskey"               yaml:"accesskey"`
 	Interface               string               `json:"interface"               bson:"interface"               yaml:"interface"`
-	LastModified            int64                `json:"lastmodified"            bson:"lastmodified"            yaml:"lastmodified"`
-	ExpirationDateTime      int64                `json:"expdatetime"             bson:"expdatetime"             yaml:"expdatetime"`
-	LastPeerUpdate          int64                `json:"lastpeerupdate"          bson:"lastpeerupdate"          yaml:"lastpeerupdate"`
-	LastCheckIn             int64                `json:"lastcheckin"             bson:"lastcheckin"             yaml:"lastcheckin"`
+	LastModified            int64                `json:"lastmodified"            bson:"lastmodified"            yaml:"lastmodified" swaggertype:"primitive,integer" format:"int64"`
+	ExpirationDateTime      int64                `json:"expdatetime"             bson:"expdatetime"             yaml:"expdatetime" swaggertype:"primitive,integer" format:"int64"`
+	LastPeerUpdate          int64                `json:"lastpeerupdate"          bson:"lastpeerupdate"          yaml:"lastpeerupdate" swaggertype:"primitive,integer" format:"int64"`
+	LastCheckIn             int64                `json:"lastcheckin"             bson:"lastcheckin"             yaml:"lastcheckin" swaggertype:"primitive,integer" format:"int64"`
 	MacAddress              string               `json:"macaddress"              bson:"macaddress"              yaml:"macaddress"`
 	Password                string               `json:"password"                bson:"password"                yaml:"password"                validate:"required,min=6"`
 	Network                 string               `json:"network"                 bson:"network"                 yaml:"network"                 validate:"network_exists"`
