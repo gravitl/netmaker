@@ -158,17 +158,20 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		}
 		defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 		defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
-		if node.NetworkRange.IP != nil {
-			hostPeerUpdate.FwUpdate.Networks = append(hostPeerUpdate.FwUpdate.Networks, node.NetworkRange)
-		}
-		if node.NetworkRange6.IP != nil {
-			hostPeerUpdate.FwUpdate.Networks = append(hostPeerUpdate.FwUpdate.Networks, node.NetworkRange6)
+
+		if defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled {
+			if node.NetworkRange.IP != nil {
+				hostPeerUpdate.FwUpdate.AllowedNetworks = append(hostPeerUpdate.FwUpdate.AllowedNetworks, node.NetworkRange)
+			}
+			if node.NetworkRange6.IP != nil {
+				hostPeerUpdate.FwUpdate.AllowedNetworks = append(hostPeerUpdate.FwUpdate.AllowedNetworks, node.NetworkRange6)
+			}
+
+		} else {
+			hostPeerUpdate.FwUpdate.AllowAll = false
+			hostPeerUpdate.FwUpdate.AclRules = GetAclRulesForNode(&node)
 		}
 
-		if !defaultDevicePolicy.Enabled || !defaultUserPolicy.Enabled {
-			hostPeerUpdate.FwUpdate.AllowAll = false
-		}
-		hostPeerUpdate.FwUpdate.AclRules = GetAclRulesForNode(&node)
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
 		for _, peer := range currentPeers {
 			peer := peer
