@@ -150,7 +150,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 	var NetworkAdminPermissionTemplate = models.UserRolePermissionTemplate{
 		ID:                 models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkAdmin)),
 		Name:               fmt.Sprintf("%s Admin", network.Name),
-		MetaData:           fmt.Sprintf("can manage your network `%s` configuration.", netID),
+		MetaData:           fmt.Sprintf("can manage your network `%s` configuration.", network.Name),
 		Default:            true,
 		NetworkID:          netID,
 		FullAccess:         true,
@@ -160,7 +160,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 	var NetworkUserPermissionTemplate = models.UserRolePermissionTemplate{
 		ID:                  models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkUser)),
 		Name:                fmt.Sprintf("%s User", network.Name),
-		MetaData:            fmt.Sprintf("cannot access the admin console, but can connect to nodes in your network `%s` via Remote Access Client.", netID),
+		MetaData:            fmt.Sprintf("cannot access the admin console, but can connect to nodes in your network `%s` via Remote Access Client.", network.Name),
 		Default:             true,
 		FullAccess:          false,
 		NetworkID:           netID,
@@ -227,7 +227,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 				models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkAdmin)): {},
 			},
 		},
-		MetaData: fmt.Sprintf("can manage your network `%s` configuration including adding and removing devices.", netID),
+		MetaData: fmt.Sprintf("can manage your network `%s` configuration including adding and removing devices.", network.Name),
 	}
 	var NetworkUserGroup = models.UserGroup{
 		ID:   models.UserGroupID(fmt.Sprintf("%s-%s-grp", netID, models.NetworkUser)),
@@ -237,7 +237,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 				models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkUser)): {},
 			},
 		},
-		MetaData: fmt.Sprintf("cannot access the admin console, but can connect to nodes in your network `%s` via Remote Access Client.", netID),
+		MetaData: fmt.Sprintf("cannot access the admin console, but can connect to nodes in your network `%s` via Remote Access Client.", network.Name),
 	}
 	d, _ = json.Marshal(NetworkAdminGroup)
 	database.Insert(NetworkAdminGroup.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
