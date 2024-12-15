@@ -85,6 +85,24 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		HostNetworkInfo:   models.HostInfoMap{},
 		EndpointDetection: servercfg.IsEndpointDetectionEnabled(),
 	}
+	defer func() {
+		if !hostPeerUpdate.FwUpdate.AllowAll {
+			aclRule := models.AclRule{
+				ID:              "allowed-network-rules",
+				AllowedProtocol: models.ALL,
+				Direction:       models.TrafficDirectionBi,
+				Allowed:         true,
+			}
+			for _, allowedNet := range hostPeerUpdate.FwUpdate.AllowedNetworks {
+				if allowedNet.IP.To4() != nil {
+					aclRule.IPList = append(aclRule.IPList, allowedNet)
+				} else {
+					aclRule.IP6List = append(aclRule.IP6List, allowedNet)
+				}
+			}
+			hostPeerUpdate.FwUpdate.AclRules["allowed-network-rules"] = aclRule
+		}
+	}()
 
 	slog.Debug("peer update for host", "hostId", host.ID.String())
 	peerIndexMap := make(map[string]int)
