@@ -94,13 +94,13 @@ type KeyUpdate struct {
 
 // FwUpdate - struct for firewall updates
 type FwUpdate struct {
-	AllowAll    bool                   `json:"allow_all"`
-	Networks    []net.IPNet            `json:"networks"`
-	IsEgressGw  bool                   `json:"is_egress_gw"`
-	IsIngressGw bool                   `json:"is_ingress_gw"`
-	EgressInfo  map[string]EgressInfo  `json:"egress_info"`
-	IngressInfo map[string]IngressInfo `json:"ingress_info"`
-	AclRules    map[string]AclRule     `json:"acl_rules"`
+	AllowAll        bool                   `json:"allow_all"`
+	AllowedNetworks []net.IPNet            `json:"networks"`
+	IsEgressGw      bool                   `json:"is_egress_gw"`
+	IsIngressGw     bool                   `json:"is_ingress_gw"`
+	EgressInfo      map[string]EgressInfo  `json:"egress_info"`
+	IngressInfo     map[string]IngressInfo `json:"ingress_info"`
+	AclRules        map[string]AclRule     `json:"acl_rules"`
 }
 
 // FailOverMeReq - struct for failover req
