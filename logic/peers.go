@@ -85,6 +85,24 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		HostNetworkInfo:   models.HostInfoMap{},
 		EndpointDetection: servercfg.IsEndpointDetectionEnabled(),
 	}
+	defer func() {
+		if !hostPeerUpdate.FwUpdate.AllowAll {
+			aclRule := models.AclRule{
+				ID:              "allowed-network-rules",
+				AllowedProtocol: models.ALL,
+				Direction:       models.TrafficDirectionBi,
+				Allowed:         true,
+			}
+			for _, allowedNet := range hostPeerUpdate.FwUpdate.AllowedNetworks {
+				if allowedNet.IP.To4() != nil {
+					aclRule.IPList = append(aclRule.IPList, allowedNet)
+				} else {
+					aclRule.IP6List = append(aclRule.IP6List, allowedNet)
+				}
+			}
+			hostPeerUpdate.FwUpdate.AclRules["allowed-network-rules"] = aclRule
+		}
+	}()
 
 	slog.Debug("peer update for host", "hostId", host.ID.String())
 	peerIndexMap := make(map[string]int)
@@ -158,17 +176,20 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		}
 		defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 		defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
-		if node.NetworkRange.IP != nil {
-			hostPeerUpdate.FwUpdate.Networks = append(hostPeerUpdate.FwUpdate.Networks, node.NetworkRange)
-		}
-		if node.NetworkRange6.IP != nil {
-			hostPeerUpdate.FwUpdate.Networks = append(hostPeerUpdate.FwUpdate.Networks, node.NetworkRange6)
+
+		if defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled {
+			if node.NetworkRange.IP != nil {
+				hostPeerUpdate.FwUpdate.AllowedNetworks = append(hostPeerUpdate.FwUpdate.AllowedNetworks, node.NetworkRange)
+			}
+			if node.NetworkRange6.IP != nil {
+				hostPeerUpdate.FwUpdate.AllowedNetworks = append(hostPeerUpdate.FwUpdate.AllowedNetworks, node.NetworkRange6)
+			}
+
+		} else {
+			hostPeerUpdate.FwUpdate.AllowAll = false
+			hostPeerUpdate.FwUpdate.AclRules = GetAclRulesForNode(&node)
 		}
 
-		if !defaultDevicePolicy.Enabled || !defaultUserPolicy.Enabled {
-			hostPeerUpdate.FwUpdate.AllowAll = false
-		}
-		hostPeerUpdate.FwUpdate.AclRules = GetAclRulesForNode(&node)
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
 		for _, peer := range currentPeers {
 			peer := peer
