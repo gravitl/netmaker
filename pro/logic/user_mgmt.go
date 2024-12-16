@@ -40,7 +40,7 @@ var NetworkAdminAllPermissionTemplate = models.UserRolePermissionTemplate{
 var NetworkUserAllPermissionTemplate = models.UserRolePermissionTemplate{
 	ID:         models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkUser)),
 	Name:       "Network Users",
-	MetaData:   "cannot access the admin console, but can connect to nodes in your networks via Remote Access Client.",
+	MetaData:   "Can connect to nodes in your networks via Remote Access Client.",
 	Default:    true,
 	FullAccess: false,
 	NetworkID:  models.AllNetworks,
@@ -131,7 +131,7 @@ func UserGroupsInit() {
 				models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkUser)): {},
 			},
 		},
-		MetaData: "cannot access the admin console, but can connect to nodes in your networks via Remote Access Client.",
+		MetaData: "Provides read-only dashboard access to platform users and allows connection to network nodes via the Remote Access Client.",
 	}
 	d, _ := json.Marshal(NetworkGlobalAdminGroup)
 	database.Insert(NetworkGlobalAdminGroup.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
@@ -156,7 +156,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 	var NetworkUserPermissionTemplate = models.UserRolePermissionTemplate{
 		ID:                  models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkUser)),
 		Name:                fmt.Sprintf("%s User", netID),
-		MetaData:            fmt.Sprintf("cannot access the admin console, but can connect to nodes in your network `%s` via Remote Access Client.", netID),
+		MetaData:            fmt.Sprintf("Can connect to nodes in your network `%s` via Remote Access Client.", netID),
 		Default:             true,
 		FullAccess:          false,
 		NetworkID:           netID,
@@ -233,7 +233,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 				models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkUser)): {},
 			},
 		},
-		MetaData: fmt.Sprintf("cannot access the admin console, but can connect to nodes in your network `%s` via Remote Access Client.", netID),
+		MetaData: fmt.Sprintf("Can connect to nodes in your network `%s` via Remote Access Client. Platform users will have read-only access to the the dashboard.", netID),
 	}
 	d, _ = json.Marshal(NetworkAdminGroup)
 	database.Insert(NetworkAdminGroup.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
