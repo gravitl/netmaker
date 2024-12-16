@@ -291,7 +291,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				peerConfig.Endpoint.Port = peerHost.ListenPort
 			}
 			allowedips := GetAllowedIPs(&node, &peer, nil)
-			allowedToComm, _ := IsNodeAllowedToCommunicate(node, peer, false)
+			allowedToComm := IsPeerAllowed(node, peer, false)
 			if peer.Action != models.NODE_DELETE &&
 				!peer.PendingDelete &&
 				peer.Connected &&

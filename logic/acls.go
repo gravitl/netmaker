@@ -563,6 +563,86 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []mode
 	return false, []models.Acl{}
 }
 
+// IsPeerAllowed - checks if peer needs to be added to the interface
+func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
+	if node.IsStatic {
+		node = node.StaticNode.ConvertToStaticNode()
+	}
+	if peer.IsStatic {
+		peer = peer.StaticNode.ConvertToStaticNode()
+	}
+	if checkDefaultPolicy {
+		// check default policy if all allowed return true
+		defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+		if err == nil {
+			if defaultPolicy.Enabled {
+				return true
+			}
+		}
+	}
+	// list device policies
+	policies := listDevicePolicies(models.NetworkID(peer.Network))
+	srcMap := make(map[string]struct{})
+	dstMap := make(map[string]struct{})
+	defer func() {
+		srcMap = nil
+		dstMap = nil
+	}()
+	for _, policy := range policies {
+		if !policy.Enabled {
+			continue
+		}
+		srcMap = convAclTagToValueMap(policy.Src)
+		dstMap = convAclTagToValueMap(policy.Dst)
+		for tagID := range node.Tags {
+			if _, ok := dstMap[tagID.String()]; ok {
+				if _, ok := srcMap["*"]; ok {
+					return true
+				}
+				for tagID := range peer.Tags {
+					if _, ok := srcMap[tagID.String()]; ok {
+						return true
+					}
+				}
+			}
+			if _, ok := srcMap[tagID.String()]; ok {
+				if _, ok := dstMap["*"]; ok {
+					return true
+				}
+				for tagID := range peer.Tags {
+					if _, ok := dstMap[tagID.String()]; ok {
+						return true
+					}
+				}
+			}
+		}
+		for tagID := range peer.Tags {
+			if _, ok := dstMap[tagID.String()]; ok {
+				if _, ok := srcMap["*"]; ok {
+					return true
+				}
+				for tagID := range node.Tags {
+
+					if _, ok := srcMap[tagID.String()]; ok {
+						return true
+					}
+				}
+			}
+			if _, ok := srcMap[tagID.String()]; ok {
+				if _, ok := dstMap["*"]; ok {
+					return true
+				}
+				for tagID := range node.Tags {
+					if _, ok := dstMap[tagID.String()]; ok {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
 // IsNodeAllowedToCommunicate - check node is allowed to communicate with the peer
 func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool) (bool, []models.Acl) {
 	if node.IsStatic {
