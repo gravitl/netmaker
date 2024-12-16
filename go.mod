@@ -18,7 +18,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/txn2/txeh v1.5.5
 	go.uber.org/automaxprocs v1.6.0
-	golang.org/x/crypto v0.30.0
+	golang.org/x/crypto v0.31.0
 	golang.org/x/net v0.27.0 // indirect
 	golang.org/x/oauth2 v0.24.0
 	golang.org/x/sys v0.28.0 // indirect
