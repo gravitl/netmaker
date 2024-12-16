@@ -737,7 +737,7 @@ func GetExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandA
 			continue
 		}
 		if extPeer.RemoteAccessClientID == "" {
-			if ok, _ := IsNodeAllowedToCommunicate(extPeer.ConvertToStaticNode(), *peer, true); !ok {
+			if ok := IsPeerAllowed(extPeer.ConvertToStaticNode(), *peer, true); !ok {
 				continue
 			}
 		} else {
