@@ -89,7 +89,7 @@ type ServerConfig struct {
 	EgressesLimit              int           `yaml:"egresses_limit"`
 	DeployedByOperator         bool          `yaml:"deployed_by_operator"`
 	Environment                string        `yaml:"environment"`
-	JwtValidityDuration        time.Duration `yaml:"jwt_validity_duration"`
+	JwtValidityDuration        time.Duration `yaml:"jwt_validity_duration" swaggertype:"primitive,integer" format:"int64"`
 	RacAutoDisable             bool          `yaml:"rac_auto_disable"`
 	CacheEnabled               string        `yaml:"caching_enabled"`
 	EndpointDetection          bool          `json:"endpoint_detection"`
@@ -101,7 +101,10 @@ type ServerConfig struct {
 	SmtpPort                   int           `json:"smtp_port"`
 	MetricInterval             string        `yaml:"metric_interval"`
 	ManageDNS                  bool          `yaml:"manage_dns"`
+	Stun                       bool          `yaml:"stun"`
+	StunServers                string        `yaml:"stun_servers"`
 	DefaultDomain              string        `yaml:"default_domain"`
+	PublicIp                   string        `yaml:"public_ip"`
 }
 
 // SQLConfig - Generic SQL Config

@@ -391,7 +391,7 @@ func TestValidateDNSCreate(t *testing.T) {
 		entry := models.DNSEntry{Address: "10.0.0.2", Network: "skynet"}
 		err := logic.ValidateDNSCreate(entry)
 		assert.NotNil(t, err)
-		assert.Contains(t, err.Error(), "Field validation for 'Name' failed on the 'required' tag")
+		assert.Contains(t, err.Error(), "invalid input")
 	})
 	t.Run("NameTooLong", func(t *testing.T) {
 		name := ""
@@ -414,13 +414,13 @@ func TestValidateDNSCreate(t *testing.T) {
 		entry := models.DNSEntry{Address: "10.10.10.5", Name: "white space", Network: "skynet"}
 		err := logic.ValidateDNSCreate(entry)
 		assert.NotNil(t, err)
-		assert.Contains(t, err.Error(), "Field validation for 'Name' failed on the 'whitespace' tag")
+		assert.Contains(t, err.Error(), "invalid input")
 	})
 	t.Run("AllSpaces", func(t *testing.T) {
 		entry := models.DNSEntry{Address: "10.10.10.5", Name: "     ", Network: "skynet"}
 		err := logic.ValidateDNSCreate(entry)
 		assert.NotNil(t, err)
-		assert.Contains(t, err.Error(), "Field validation for 'Name' failed on the 'whitespace' tag")
+		assert.Contains(t, err.Error(), "invalid input")
 	})
 
 }

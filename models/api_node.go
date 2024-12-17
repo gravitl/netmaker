@@ -16,10 +16,10 @@ type ApiNode struct {
 	Address6                   string   `json:"address6" validate:"omitempty,cidrv6"`
 	LocalAddress               string   `json:"localaddress" validate:"omitempty,cidr"`
 	AllowedIPs                 []string `json:"allowedips"`
-	LastModified               int64    `json:"lastmodified"`
-	ExpirationDateTime         int64    `json:"expdatetime"`
-	LastCheckIn                int64    `json:"lastcheckin"`
-	LastPeerUpdate             int64    `json:"lastpeerupdate"`
+	LastModified               int64    `json:"lastmodified" swaggertype:"primitive,integer" format:"int64"`
+	ExpirationDateTime         int64    `json:"expdatetime" swaggertype:"primitive,integer" format:"int64"`
+	LastCheckIn                int64    `json:"lastcheckin" swaggertype:"primitive,integer" format:"int64"`
+	LastPeerUpdate             int64    `json:"lastpeerupdate" swaggertype:"primitive,integer" format:"int64"`
 	Network                    string   `json:"network"`
 	NetworkRange               string   `json:"networkrange"`
 	NetworkRange6              string   `json:"networkrange6"`
@@ -52,6 +52,7 @@ type ApiNode struct {
 	IsStatic          bool                `json:"is_static"`
 	IsUserNode        bool                `json:"is_user_node"`
 	StaticNode        ExtClient           `json:"static_node"`
+	Status            NodeStatus          `json:"status"`
 }
 
 // ApiNode.ConvertToServerNode - converts an api node to a server node
@@ -192,6 +193,7 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.IsStatic = nm.IsStatic
 	apiNode.IsUserNode = nm.IsUserNode
 	apiNode.StaticNode = nm.StaticNode
+	apiNode.Status = nm.Status
 	return &apiNode
 }
 

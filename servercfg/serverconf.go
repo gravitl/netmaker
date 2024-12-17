@@ -76,6 +76,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.Database = GetDB()
 	cfg.Platform = GetPlatform()
 	cfg.Version = GetVersion()
+	cfg.PublicIp = GetServerHostIP()
 
 	// == auth config ==
 	var authInfo = GetAuthProviderInfo()
@@ -94,6 +95,8 @@ func GetServerConfig() config.ServerConfig {
 	cfg.RacAutoDisable = GetRacAutoDisable()
 	cfg.MetricInterval = GetMetricInterval()
 	cfg.ManageDNS = GetManageDNS()
+	cfg.Stun = IsStunEnabled()
+	cfg.StunServers = GetStunServers()
 	cfg.DefaultDomain = GetDefaultDomain()
 	return cfg
 }
@@ -140,6 +143,8 @@ func GetServerInfo() models.ServerConfig {
 	cfg.IsPro = IsPro
 	cfg.MetricInterval = GetMetricInterval()
 	cfg.ManageDNS = GetManageDNS()
+	cfg.Stun = IsStunEnabled()
+	cfg.StunServers = GetStunServers()
 	cfg.DefaultDomain = GetDefaultDomain()
 	return cfg
 }
@@ -174,6 +179,11 @@ func SetVersion(v string) {
 // GetVersion - version of netmaker
 func GetVersion() string {
 	return Version
+}
+
+// GetServerHostIP - fetches server IP
+func GetServerHostIP() string {
+	return os.Getenv("SERVER_HOST")
 }
 
 // GetDB - gets the database type
@@ -664,6 +674,14 @@ func GetManageDNS() bool {
 	return enabled
 }
 
+func IsOldAclEnabled() bool {
+	enabled := true
+	if os.Getenv("OLD_ACL_SUPPORT") != "" {
+		enabled = os.Getenv("OLD_ACL_SUPPORT") == "true"
+	}
+	return enabled
+}
+
 // GetDefaultDomain - get the default domain
 func GetDefaultDomain() string {
 	//default netmaker.hosted
@@ -684,28 +702,6 @@ func validateDomain(domain string) bool {
 	exp := regexp.MustCompile("^" + domainPattern + "$")
 
 	return exp.MatchString(domain)
-}
-
-// GetBatchPeerUpdate - if batch peer update
-func GetBatchPeerUpdate() bool {
-	enabled := true
-	if os.Getenv("PEER_UPDATE_BATCH") != "" {
-		enabled = os.Getenv("PEER_UPDATE_BATCH") == "true"
-	}
-	return enabled
-}
-
-// GetPeerUpdateBatchSize - get the batch size for peer update
-func GetPeerUpdateBatchSize() int {
-	//default 50
-	batchSize := 50
-	if os.Getenv("PEER_UPDATE_BATCH_SIZE") != "" {
-		b, e := strconv.Atoi(os.Getenv("PEER_UPDATE_BATCH_SIZE"))
-		if e == nil && b > 0 && b < 1000 {
-			batchSize = b
-		}
-	}
-	return batchSize
 }
 
 // GetEmqxRestEndpoint - returns the REST API Endpoint of EMQX
@@ -803,6 +799,19 @@ func IsEndpointDetectionEnabled() bool {
 		enabled = os.Getenv("ENDPOINT_DETECTION") == "true"
 	}
 	return enabled
+}
+
+// IsStunEnabled - returns true if STUN set to on
+func IsStunEnabled() bool {
+	var enabled = true
+	if os.Getenv("STUN") != "" {
+		enabled = os.Getenv("STUN") == "true"
+	}
+	return enabled
+}
+
+func GetStunServers() string {
+	return os.Getenv("STUN_SERVERS")
 }
 
 // GetEnvironment returns the environment the server is running in (e.g. dev, staging, prod...)

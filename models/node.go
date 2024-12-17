@@ -11,6 +11,19 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+type NodeStatus string
+
+const (
+	OnlineSt  NodeStatus = "online"
+	OfflineSt NodeStatus = "offline"
+	WarningSt NodeStatus = "warning"
+	ErrorSt   NodeStatus = "error"
+	UnKnown   NodeStatus = "unknown"
+)
+
+// LastCheckInThreshold - if node's checkin more than this threshold,then node is declared as offline
+const LastCheckInThreshold = time.Minute * 10
+
 const (
 	// NODE_SERVER_NAME - the default server name
 	NODE_SERVER_NAME = "netmaker"
@@ -103,6 +116,7 @@ type Node struct {
 	IsStatic          bool                `json:"is_static"`
 	IsUserNode        bool                `json:"is_user_node"`
 	StaticNode        ExtClient           `json:"static_node"`
+	Status            NodeStatus          `json:"node_status"`
 }
 
 // LegacyNode - legacy struct for node model
@@ -123,10 +137,10 @@ type LegacyNode struct {
 	IsHub                   string               `json:"ishub"                   bson:"ishub"                   yaml:"ishub"                   validate:"checkyesorno"`
 	AccessKey               string               `json:"accesskey"               bson:"accesskey"               yaml:"accesskey"`
 	Interface               string               `json:"interface"               bson:"interface"               yaml:"interface"`
-	LastModified            int64                `json:"lastmodified"            bson:"lastmodified"            yaml:"lastmodified"`
-	ExpirationDateTime      int64                `json:"expdatetime"             bson:"expdatetime"             yaml:"expdatetime"`
-	LastPeerUpdate          int64                `json:"lastpeerupdate"          bson:"lastpeerupdate"          yaml:"lastpeerupdate"`
-	LastCheckIn             int64                `json:"lastcheckin"             bson:"lastcheckin"             yaml:"lastcheckin"`
+	LastModified            int64                `json:"lastmodified"            bson:"lastmodified"            yaml:"lastmodified" swaggertype:"primitive,integer" format:"int64"`
+	ExpirationDateTime      int64                `json:"expdatetime"             bson:"expdatetime"             yaml:"expdatetime" swaggertype:"primitive,integer" format:"int64"`
+	LastPeerUpdate          int64                `json:"lastpeerupdate"          bson:"lastpeerupdate"          yaml:"lastpeerupdate" swaggertype:"primitive,integer" format:"int64"`
+	LastCheckIn             int64                `json:"lastcheckin"             bson:"lastcheckin"             yaml:"lastcheckin" swaggertype:"primitive,integer" format:"int64"`
 	MacAddress              string               `json:"macaddress"              bson:"macaddress"              yaml:"macaddress"`
 	Password                string               `json:"password"                bson:"password"                yaml:"password"                validate:"required,min=6"`
 	Network                 string               `json:"network"                 bson:"network"                 yaml:"network"                 validate:"network_exists"`
@@ -199,6 +213,19 @@ func (node *Node) PrimaryAddress() string {
 		return node.Address.IP.String()
 	}
 	return node.Address6.IP.String()
+}
+
+func (node *Node) AddressIPNet4() net.IPNet {
+	return net.IPNet{
+		IP:   node.Address.IP,
+		Mask: net.CIDRMask(32, 32),
+	}
+}
+func (node *Node) AddressIPNet6() net.IPNet {
+	return net.IPNet{
+		IP:   node.Address6.IP,
+		Mask: net.CIDRMask(128, 128),
+	}
 }
 
 // ExtClient.PrimaryAddress - returns ipv4 IPNet format

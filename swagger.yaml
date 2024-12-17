@@ -1,6 +1,7 @@
 definitions:
   acls.ACL:
     additionalProperties:
+      format: int32
       type: integer
     type: object
   acls.ACLContainer:
@@ -41,6 +42,8 @@ definitions:
         type: string
       database:
         type: string
+      defaultDomain:
+        type: string
       deployedByOperator:
         type: boolean
       disableRemoteIPCheck:
@@ -53,6 +56,12 @@ definitions:
         type: string
       egressesLimit:
         type: integer
+      email_sender_addr:
+        type: string
+      email_sender_password:
+        type: string
+      email_sender_user:
+        type: string
       emqxRestEndpoint:
         type: string
       endpoint_detection:
@@ -66,11 +75,14 @@ definitions:
       ingressesLimit:
         type: integer
       jwtValidityDuration:
-        $ref: '#/definitions/time.Duration'
+        format: int64
+        type: integer
       licenseValue:
         type: string
       machinesLimit:
         type: integer
+      manageDNS:
+        type: boolean
       masterKey:
         type: string
       messageQueueBackend:
@@ -99,6 +111,8 @@ definitions:
         type: string
       publicIPService:
         type: string
+      publicIp:
+        type: string
       racAutoDisable:
         type: boolean
       restBackend:
@@ -107,12 +121,20 @@ definitions:
         type: string
       serverBrokerEndpoint:
         type: string
+      smtp_host:
+        type: string
+      smtp_port:
+        type: integer
       sqlconn:
         type: string
+      stun:
+        type: boolean
       stunList:
         type: string
       stunPort:
         type: integer
+      stunServers:
+        type: string
       telemetry:
         type: string
       turnApiServer:
@@ -137,7 +159,12 @@ definitions:
   models.APIEnrollmentKey:
     properties:
       expiration:
+        format: int64
         type: integer
+      groups:
+        items:
+          type: string
+        type: array
       networks:
         items:
           type: string
@@ -157,6 +184,41 @@ definitions:
     required:
     - tags
     type: object
+  models.AclRule:
+    properties:
+      allowed:
+        type: boolean
+      allowed_ports:
+        items:
+          type: string
+        type: array
+      allowed_protocols:
+        allOf:
+        - $ref: '#/definitions/models.Protocol'
+        description: tcp, udp, etc.
+      direction:
+        allOf:
+        - $ref: '#/definitions/models.AllowedTrafficDirection'
+        description: single or two-way
+      id:
+        type: string
+      ip_list:
+        items:
+          $ref: '#/definitions/net.IPNet'
+        type: array
+      ip6_list:
+        items:
+          $ref: '#/definitions/net.IPNet'
+        type: array
+    type: object
+  models.AllowedTrafficDirection:
+    enum:
+    - 0
+    - 1
+    type: integer
+    x-enum-varnames:
+    - TrafficDirectionUni
+    - TrafficDirectionBi
   models.ApiHost:
     properties:
       autoupdate:
@@ -245,6 +307,7 @@ definitions:
           type: string
         type: array
       expdatetime:
+        format: int64
         type: integer
       fail_over_peers:
         additionalProperties:
@@ -262,9 +325,17 @@ definitions:
         $ref: '#/definitions/models.InetNodeReq'
       ingressdns:
         type: string
+      ingressmtu:
+        type: integer
+      ingresspersistentkeepalive:
+        type: integer
       internetgw_node_id:
         type: string
       is_fail_over:
+        type: boolean
+      is_static:
+        type: boolean
+      is_user_node:
         type: boolean
       isegressgateway:
         type: boolean
@@ -277,10 +348,13 @@ definitions:
       isrelayed:
         type: boolean
       lastcheckin:
+        format: int64
         type: integer
       lastmodified:
+        format: int64
         type: integer
       lastpeerupdate:
+        format: int64
         type: integer
       localaddress:
         type: string
@@ -302,6 +376,14 @@ definitions:
         type: array
       server:
         type: string
+      static_node:
+        $ref: '#/definitions/models.ExtClient'
+      status:
+        $ref: '#/definitions/models.NodeStatus'
+      tags:
+        additionalProperties:
+          type: object
+        type: object
     required:
     - hostid
     - id
@@ -375,8 +457,14 @@ definitions:
     type: object
   models.EnrollmentKey:
     properties:
+      default:
+        type: boolean
       expiration:
         type: string
+      groups:
+        items:
+          type: string
+        type: array
       networks:
         items:
           type: string
@@ -418,10 +506,14 @@ definitions:
         type: array
       clientid:
         type: string
+      country:
+        type: string
       deniednodeacls:
         additionalProperties:
           type: object
         type: object
+      device_name:
+        type: string
       dns:
         type: string
       enabled:
@@ -435,8 +527,11 @@ definitions:
       ingressgatewayid:
         type: string
       lastmodified:
+        format: int64
         type: integer
       network:
+        type: string
+      os:
         type: string
       ownerid:
         type: string
@@ -446,25 +541,64 @@ definitions:
         type: string
       privatekey:
         type: string
+      public_endpoint:
+        type: string
       publickey:
         type: string
       remote_access_client_id:
         description: unique ID (MAC address) of RAC machine
         type: string
+      tags:
+        additionalProperties:
+          type: object
+        type: object
     type: object
   models.FailOverMeReq:
     properties:
       node_id:
         type: string
     type: object
+  models.FwRule:
+    properties:
+      allow:
+        type: boolean
+      allowed_ports:
+        items:
+          type: string
+        type: array
+      allowed_protocols:
+        allOf:
+        - $ref: '#/definitions/models.Protocol'
+        description: tcp, udp, etc.
+      dst_ip:
+        $ref: '#/definitions/net.IPNet'
+      src_ip:
+        $ref: '#/definitions/net.IPNet'
+    type: object
   models.FwUpdate:
     properties:
+      acl_rules:
+        additionalProperties:
+          $ref: '#/definitions/models.AclRule'
+        type: object
+      allow_all:
+        type: boolean
       egress_info:
         additionalProperties:
           $ref: '#/definitions/models.EgressInfo'
         type: object
+      ingress_info:
+        additionalProperties:
+          $ref: '#/definitions/models.IngressInfo'
+        type: object
       is_egress_gw:
         type: boolean
+      is_ingress_gw:
+        type: boolean
+      networks:
+        items:
+          $ref: '#/definitions/net.IPNet'
+        type: array
     type: object
   models.Host:
     properties:
@@ -527,7 +661,8 @@ definitions:
       os:
         type: string
       persistentkeepalive:
-        $ref: '#/definitions/time.Duration'
+        format: int64
+        type: integer
       publickey:
         items:
           type: integer
@@ -684,6 +819,35 @@ definitions:
           $ref: '#/definitions/models.ReturnUser'
         type: array
     type: object
+  models.IngressInfo:
+    properties:
+      allow_all:
+        type: boolean
+      egress_ranges:
+        items:
+          $ref: '#/definitions/net.IPNet'
+        type: array
+      egress_ranges6:
+        items:
+          $ref: '#/definitions/net.IPNet'
+        type: array
+      ingress_id:
+        type: string
+      network:
+        $ref: '#/definitions/net.IPNet'
+      network6:
+        $ref: '#/definitions/net.IPNet'
+      rules:
+        items:
+          $ref: '#/definitions/models.FwRule'
+        type: array
+      static_node_ips:
+        items:
+          items:
+            type: integer
+          type: array
+        type: array
+    type: object
   models.KeyType:
     enum:
     - 0
@@ -699,22 +863,34 @@ definitions:
   models.Metric:
     properties:
       actualuptime:
-        $ref: '#/definitions/time.Duration'
+        format: int64
+        type: integer
       connected:
         type: boolean
+      lasttotalreceived:
+        format: int64
+        type: integer
+      lasttotalsent:
+        format: int64
+        type: integer
       latency:
+        format: int64
         type: integer
       node_name:
         type: string
       percentup:
         type: number
       totalreceived:
+        format: int64
         type: integer
       totalsent:
+        format: int64
         type: integer
       totaltime:
+        format: int64
         type: integer
       uptime:
+        format: int64
         type: integer
     type: object
   models.Metrics:
@@ -766,14 +942,22 @@ definitions:
         minLength: 1
         type: string
       networklastmodified:
+        format: int64
         type: integer
       nodelimit:
         type: integer
       nodeslastmodified:
+        format: int64
         type: integer
     required:
     - netid
     type: object
+  models.NetworkID:
+    enum:
+    - all_networks
+    type: string
+    x-enum-varnames:
+    - AllNetworks
   models.Node:
     properties:
       action:
@@ -821,9 +1005,17 @@ definitions:
         type: string
       ingressgatewayrange6:
         type: string
+      ingressmtu:
+        type: integer
+      ingresspersistentkeepalive:
+        type: integer
       internetgw_node_id:
         type: string
       is_fail_over:
+        type: boolean
+      is_static:
+        type: boolean
+      is_user_node:
         type: boolean
       isegressgateway:
         type: boolean
@@ -851,6 +1043,8 @@ definitions:
         type: integer
       networkrange6:
         type: number
+      node_status:
+        $ref: '#/definitions/models.NodeStatus'
       ownerid:
         type: string
       pendingdelete:
@@ -863,6 +1057,12 @@ definitions:
         type: array
       server:
         type: string
+      static_node:
+        $ref: '#/definitions/models.ExtClient'
+      tags:
+        additionalProperties:
+          type: object
+        type: object
     type: object
   models.NodeGet:
     properties:
@@ -883,10 +1083,36 @@ definitions:
       serverconfig:
         $ref: '#/definitions/models.ServerConfig'
     type: object
+  models.NodeStatus:
+    enum:
+    - online
+    - offline
+    - warning
+    - error
+    - unknown
+    type: string
+    x-enum-varnames:
+    - OnlineSt
+    - OfflineSt
+    - WarningSt
+    - ErrorSt
+    - UnKnown
   models.PeerMap:
     additionalProperties:
       $ref: '#/definitions/models.IDandAddr'
     type: object
+  models.Protocol:
+    enum:
+    - all
+    - udp
+    - tcp
+    - icmp
+    type: string
+    x-enum-varnames:
+    - ALL
+    - UDP
+    - TCP
+    - ICMP
   models.RegisterResponse:
     properties:
       requested_host:
@@ -907,18 +1133,48 @@ definitions:
     type: object
   models.ReturnUser:
     properties:
+      auth_type:
+        type: string
       isadmin:
         type: boolean
       issuperadmin:
         type: boolean
       last_login_time:
         type: string
+      network_roles:
+        additionalProperties:
+          additionalProperties:
+            type: object
+          type: object
+        type: object
+      platform_role_id:
+        $ref: '#/definitions/models.UserRoleID'
       remote_gw_ids:
+        additionalProperties:
+          type: object
+        description: deprecated
+        type: object
+      user_group_ids:
         additionalProperties:
           type: object
         type: object
       username:
         type: string
+    type: object
+  models.RsrcPermissionScope:
+    properties:
+      create:
+        type: boolean
+      delete:
+        type: boolean
+      read:
+        type: boolean
+      self_only:
+        type: boolean
+      update:
+        type: boolean
+      vpn_access:
+        type: boolean
     type: object
   models.ServerConfig:
     properties:
@@ -934,8 +1190,12 @@ definitions:
         type: string
       coreDNSAddr:
         type: string
+      defaultDomain:
+        type: string
       dnsmode:
         type: string
+      manageDNS:
+        type: boolean
       metricInterval:
         type: string
       mqpassword:
@@ -945,6 +1205,10 @@ definitions:
       mquserName:
         type: string
       server:
+        type: string
+      stun:
+        type: boolean
+      stunServers:
         type: string
       trafficKey:
         items:
@@ -996,16 +1260,35 @@ definitions:
     type: object
   models.User:
     properties:
+      auth_type:
+        type: string
+      external_identity_provider_id:
+        type: string
       isadmin:
+        description: deprecated
         type: boolean
       issuperadmin:
+        description: deprecated
         type: boolean
       last_login_time:
         type: string
+      network_roles:
+        additionalProperties:
+          additionalProperties:
+            type: object
+          type: object
+        type: object
       password:
         minLength: 5
         type: string
+      platform_role_id:
+        $ref: '#/definitions/models.UserRoleID'
       remote_gw_ids:
+        additionalProperties:
+          type: object
+        description: deprecated
+        type: object
+      user_group_ids:
         additionalProperties:
           type: object
         type: object
@@ -1052,6 +1335,51 @@ definitions:
       remote_access_gw_id:
         type: string
     type: object
+  models.UserRoleID:
+    enum:
+    - super-admin
+    - admin
+    - service-user
+    - platform-user
+    - network-admin
+    - network-user
+    type: string
+    x-enum-varnames:
+    - SuperAdminRole
+    - AdminRole
+    - ServiceUser
+    - PlatformUser
+    - NetworkAdmin
+    - NetworkUser
+  models.UserRolePermissionTemplate:
+    properties:
+      default:
+        type: boolean
+      deny_dashboard_access:
+        type: boolean
+      full_access:
+        type: boolean
+      global_level_access:
+        additionalProperties:
+          additionalProperties:
+            $ref: '#/definitions/models.RsrcPermissionScope'
+          type: object
+        type: object
+      id:
+        $ref: '#/definitions/models.UserRoleID'
+      meta_data:
+        type: string
+      name:
+        type: string
+      network_id:
+        $ref: '#/definitions/models.NetworkID'
+      network_level_access:
+        additionalProperties:
+          additionalProperties:
+            $ref: '#/definitions/models.RsrcPermissionScope'
+          type: object
+        type: object
+    type: object
   net.IPNet:
     properties:
       ip:
@@ -1062,6 +1390,7 @@ definitions:
       mask:
         description: network mask
         items:
+          format: int32
           type: integer
         type: array
     type: object
@@ -1079,42 +1408,6 @@ definitions:
     type: object
   netip.AddrPort:
     type: object
-  time.Duration:
-    enum:
-    - -9223372036854775808
-    - 9223372036854775807
-    - 1
-    - 1000
-    - 1000000
-    - 1000000000
-    - 60000000000
-    - 3600000000000
-    - -9223372036854775808
-    - 9223372036854775807
-    - 1
-    - 1000
-    - 1000000
-    - 1000000000
-    - 60000000000
-    - 3600000000000
-    type: integer
-    x-enum-varnames:
-    - minDuration
-    - maxDuration
-    - Nanosecond
-    - Microsecond
-    - Millisecond
-    - Second
-    - Minute
-    - Hour
-    - minDuration
-    - maxDuration
-    - Nanosecond
-    - Microsecond
-    - Millisecond
-    - Second
-    - Minute
-    - Hour
   wgtypes.PeerConfig:
     properties:
       allowedIPs:
@@ -1129,13 +1422,13 @@ definitions:
         - $ref: '#/definitions/net.UDPAddr'
         description: Endpoint specifies the endpoint of this peer entry, if not nil.
       persistentKeepaliveInterval:
-        allOf:
-        - $ref: '#/definitions/time.Duration'
         description: |-
           PersistentKeepaliveInterval specifies the persistent keepalive interval
           for this peer, if not nil.
 
           A non-nil value of 0 will clear the persistent keepalive interval.
+        format: int64
+        type: integer
       presharedKey:
         description: |-
           PresharedKey specifies a peer's preshared key configuration, if not nil.
@@ -1173,7 +1466,7 @@ info:
   contact: {}
   description: NetMaker API Docs
   title: NetMaker
-  version: 0.24.3
+  version: 0.30.0
 paths:
   /api/dns:
     get:
@@ -1323,6 +1616,26 @@ paths:
           schema:
             $ref: '#/definitions/models.ErrorResponse'
       summary: Gets custom DNS entries associated with a network
+      tags:
+      - DNS
+  /api/dns/adm/{network}/sync:
+    post:
+      consumes:
+      - application/json
+      responses:
+        "200":
+          description: DNS Sync completed successfully
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Sync DNS entries for a given network
       tags:
       - DNS
   /api/dns/adm/pushdns:
@@ -2293,7 +2606,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/models.ErrorResponse'
-      summary: List users attached to an ingress gateway
+      summary: List users attached to an remote access gateway
       tags:
       - PRO
   /api/nodes/adm/{network}:
@@ -2344,22 +2657,6 @@ paths:
       summary: Get the server status
       tags:
       - Server
-  /api/users:
-    get:
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/models.User'
-            type: array
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      summary: Get all users
-      tags:
-      - Users
   /api/users/{username}:
     delete:
       parameters:
@@ -2467,42 +2764,28 @@ paths:
       - Users
   /api/users/{username}/remote_access_gw:
     get:
-      consumes:
-      - application/json
       parameters:
-      - description: Username
+      - description: Username to fetch all the gateways with access
         in: path
         name: username
         required: true
         type: string
-      - description: Remote Access Client ID
-        in: query
-        name: remote_access_clientid
-        type: string
-      - description: Request from mobile
-        in: query
-        name: from_mobile
-        type: boolean
-      produces:
-      - application/json
       responses:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/models.UserRemoteGws'
-            type: array
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
+            additionalProperties:
+              items:
+                $ref: '#/definitions/models.UserRemoteGws'
+              type: array
+            type: object
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/models.ErrorResponse'
-      summary: Get user's remote access gateways
+      summary: Get Users Remote Access Gw.
       tags:
-      - PRO
+      - Users
   /api/users/{username}/remote_access_gw/{remote_access_gateway_id}:
     delete:
       consumes:
@@ -2730,6 +3013,93 @@ paths:
       summary: Approve a pending user
       tags:
       - Users
+  /api/v1/acls:
+    delete:
+      consumes:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.SuccessResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Delete Acl
+      tags:
+      - ACL
+    get:
+      consumes:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.SuccessResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: List Acls in a network
+      tags:
+      - ACL
+    post:
+      consumes:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.SuccessResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Create Acl
+      tags:
+      - ACL
+    put:
+      consumes:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.SuccessResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Update Acl
+      tags:
+      - ACL
+  /api/v1/acls/policy_types:
+    get:
+      consumes:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.SuccessResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: List Acl Policy types
+      tags:
+      - ACL
   /api/v1/enrollment-keys:
     get:
       responses:
@@ -2947,6 +3317,24 @@ paths:
       summary: Delete all legacy nodes from DB.
       tags:
       - Nodes
+  /api/v1/networks/stats:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth: []
+      summary: Lists all networks with stats
+      tags:
+      - Networks
   /api/v1/node/{network}/failover/reset:
     post:
       parameters:
@@ -3069,6 +3457,196 @@ paths:
       summary: Failover me
       tags:
       - PRO
+  /api/v1/tags:
+    delete:
+      consumes:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.SuccessResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Delete Tag
+      tags:
+      - TAG
+    get:
+      consumes:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.SuccessResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: List Tags in a network
+      tags:
+      - TAG
+    post:
+      consumes:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.SuccessResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Create Tag
+      tags:
+      - TAG
+    put:
+      consumes:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.SuccessResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Update Tag
+      tags:
+      - TAG
+  /api/v1/user/group:
+    delete:
+      parameters:
+      - description: group id required to delete the role
+        in: query
+        name: group_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Delete user group.
+      tags:
+      - Users
+  /api/v1/user/role:
+    delete:
+      parameters:
+      - description: roleid required to delete the role
+        in: query
+        name: role_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Delete user role permission template.
+      tags:
+      - Users
+    get:
+      parameters:
+      - description: roleid required to get the role details
+        in: query
+        name: role_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.UserRolePermissionTemplate'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Get user role permission template.
+      tags:
+      - Users
+    post:
+      parameters:
+      - description: user role template
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserRolePermissionTemplate'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.UserRolePermissionTemplate'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Create user role permission template.
+      tags:
+      - Users
+    put:
+      parameters:
+      - description: user role template
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserRolePermissionTemplate'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.UserRolePermissionTemplate'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Update user role permission template.
+      tags:
+      - Users
+  /api/v1/user/roles:
+    get:
+      parameters:
+      - description: roleid required to get the role details
+        in: query
+        name: role_id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.UserRolePermissionTemplate'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: lists all user roles.
+      tags:
+      - Users
   /meshclient/files/{filename}:
     get:
       responses:

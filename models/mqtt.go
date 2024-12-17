@@ -25,12 +25,16 @@ type HostPeerUpdate struct {
 	ReplacePeers      bool                  `json:"replace_peers"`
 	EndpointDetection bool                  `json:"endpoint_detection"`
 	ManageDNS         bool                  `yaml:"manage_dns"`
+	Stun              bool                  `yaml:"stun"`
+	StunServers       string                `yaml:"stun_servers"`
 }
 
 type FwRule struct {
-	SrcIP net.IPNet
-	DstIP net.IPNet
-	Allow bool
+	SrcIP           net.IPNet `json:"src_ip"`
+	DstIP           net.IPNet `json:"dst_ip"`
+	AllowedProtocol Protocol  `json:"allowed_protocols"` // tcp, udp, etc.
+	AllowedPorts    []string  `json:"allowed_ports"`
+	Allow           bool      `json:"allow"`
 }
 
 // IngressInfo - struct for ingress info
@@ -90,10 +94,13 @@ type KeyUpdate struct {
 
 // FwUpdate - struct for firewall updates
 type FwUpdate struct {
-	IsEgressGw  bool                   `json:"is_egress_gw"`
-	IsIngressGw bool                   `json:"is_ingress_gw"`
-	EgressInfo  map[string]EgressInfo  `json:"egress_info"`
-	IngressInfo map[string]IngressInfo `json:"ingress_info"`
+	AllowAll        bool                   `json:"allow_all"`
+	AllowedNetworks []net.IPNet            `json:"networks"`
+	IsEgressGw      bool                   `json:"is_egress_gw"`
+	IsIngressGw     bool                   `json:"is_ingress_gw"`
+	EgressInfo      map[string]EgressInfo  `json:"egress_info"`
+	IngressInfo     map[string]IngressInfo `json:"ingress_info"`
+	AclRules        map[string]AclRule     `json:"acl_rules"`
 }
 
 // FailOverMeReq - struct for failover req

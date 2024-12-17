@@ -20,8 +20,6 @@ import (
 
 // Run - runs all migrations
 func Run() {
-	_, _ = logic.GetAllNodes()
-	_, _ = logic.GetAllHosts()
 	updateEnrollmentKeys()
 	assignSuperAdmin()
 	createDefaultTagsAndPolicies()
@@ -439,5 +437,7 @@ func createDefaultTagsAndPolicies() {
 	for _, network := range networks {
 		logic.CreateDefaultTags(models.NetworkID(network.NetID))
 		logic.CreateDefaultAclNetworkPolicies(models.NetworkID(network.NetID))
+
 	}
+	logic.MigrateAclPolicies()
 }

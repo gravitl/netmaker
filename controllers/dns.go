@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -162,7 +163,10 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
+	// check if default domain is appended if not append
+	if !strings.HasSuffix(entry.Name, servercfg.GetDefaultDomain()) {
+		entry.Name += "." + servercfg.GetDefaultDomain()
+	}
 	entry, err = logic.CreateDNS(entry)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),

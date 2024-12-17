@@ -326,8 +326,9 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	if len(filteredNodes) > 0 {
 		nodes = filteredNodes
 	}
-	nodes = logic.AddStaticNodestoList(nodes)
 
+	nodes = logic.AddStaticNodestoList(nodes)
+	nodes = logic.AddStatusToNodes(nodes)
 	// returns all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	logger.Log(2, r.Header.Get("user"), "fetched nodes on network", networkName)
@@ -367,6 +368,7 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 
 	}
 	nodes = logic.AddStaticNodestoList(nodes)
+	nodes = logic.AddStatusToNodes(nodes)
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	logger.Log(3, r.Header.Get("user"), "fetched all nodes they have access to")
@@ -676,6 +678,11 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	err = json.NewDecoder(r.Body).Decode(&newData)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	err = logic.ValidateNodeIp(&currentNode, &newData)
+	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
