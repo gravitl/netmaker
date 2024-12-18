@@ -685,7 +685,7 @@ func IsOldAclEnabled() bool {
 // GetDefaultDomain - get the default domain
 func GetDefaultDomain() string {
 	//default netmaker.hosted
-	domain := "netmaker.hosted"
+	domain := "hosted.nm"
 	if os.Getenv("DEFAULT_DOMAIN") != "" {
 		if validateDomain(os.Getenv("DEFAULT_DOMAIN")) {
 			domain = os.Getenv("DEFAULT_DOMAIN")
