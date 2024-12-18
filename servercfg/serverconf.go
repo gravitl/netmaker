@@ -12,7 +12,6 @@ import (
 
 	"github.com/gravitl/netmaker/config"
 	"github.com/gravitl/netmaker/models"
-	"golang.org/x/exp/slog"
 )
 
 // EmqxBrokerType denotes the broker type for EMQX MQTT
@@ -684,13 +683,11 @@ func IsOldAclEnabled() bool {
 
 // GetDefaultDomain - get the default domain
 func GetDefaultDomain() string {
-	//default netmaker.hosted
-	domain := "hosted.nm"
+	//default hosted.nm
+	var domain string
 	if os.Getenv("DEFAULT_DOMAIN") != "" {
 		if validateDomain(os.Getenv("DEFAULT_DOMAIN")) {
 			domain = os.Getenv("DEFAULT_DOMAIN")
-		} else {
-			slog.Warn("invalid value, set to default domain: netmaker.hosted", "warn", os.Getenv("DEFAULT_DOMAIN"))
 		}
 	}
 	return domain
