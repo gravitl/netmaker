@@ -116,7 +116,11 @@ func GetNodeDNS(network string) ([]models.DNSEntry, error) {
 			continue
 		}
 		var entry = models.DNSEntry{}
-		entry.Name = fmt.Sprintf("%s.%s.%s", host.Name, network, defaultDomain)
+		if defaultDomain == "" {
+			entry.Name = fmt.Sprintf("%s.%s", host.Name, network)
+		} else {
+			entry.Name = fmt.Sprintf("%s.%s.%s", host.Name, network, defaultDomain)
+		}
 		entry.Network = network
 		if node.Address.IP != nil {
 			entry.Address = node.Address.IP.String()
