@@ -39,14 +39,15 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 	_, _ = ListAclsByNetwork(netID)
 	if !IsAclExists(fmt.Sprintf("%s.%s", netID, "all-nodes")) {
 		defaultDeviceAcl := models.Acl{
-			ID:        fmt.Sprintf("%s.%s", netID, "all-nodes"),
-			Name:      "All Nodes",
-			MetaData:  "This Policy allows all nodes in the network to communicate with each other",
-			Default:   true,
-			NetworkID: netID,
-			Proto:     models.ALL,
-			Port:      []string{},
-			RuleType:  models.DevicePolicy,
+			ID:          fmt.Sprintf("%s.%s", netID, "all-nodes"),
+			Name:        "All Nodes",
+			MetaData:    "This Policy allows all nodes in the network to communicate with each other",
+			Default:     true,
+			NetworkID:   netID,
+			Proto:       models.ALL,
+			ServiceType: models.Any,
+			Port:        []string{},
+			RuleType:    models.DevicePolicy,
 			Src: []models.AclPolicyTag{
 				{
 					ID:    models.DeviceAclID,
@@ -66,14 +67,15 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 	}
 	if !IsAclExists(fmt.Sprintf("%s.%s", netID, "all-users")) {
 		defaultUserAcl := models.Acl{
-			ID:        fmt.Sprintf("%s.%s", netID, "all-users"),
-			Default:   true,
-			Name:      "All Users",
-			MetaData:  "This policy gives access to everything in the network for an user",
-			NetworkID: netID,
-			Proto:     models.ALL,
-			Port:      []string{},
-			RuleType:  models.UserPolicy,
+			ID:          fmt.Sprintf("%s.%s", netID, "all-users"),
+			Default:     true,
+			Name:        "All Users",
+			MetaData:    "This policy gives access to everything in the network for an user",
+			NetworkID:   netID,
+			Proto:       models.ALL,
+			ServiceType: models.Any,
+			Port:        []string{},
+			RuleType:    models.UserPolicy,
 			Src: []models.AclPolicyTag{
 				{
 					ID:    models.UserAclID,
@@ -94,13 +96,14 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 
 	if !IsAclExists(fmt.Sprintf("%s.%s", netID, "all-remote-access-gws")) {
 		defaultUserAcl := models.Acl{
-			ID:        fmt.Sprintf("%s.%s", netID, "all-remote-access-gws"),
-			Default:   true,
-			Name:      "All Remote Access Gateways",
-			NetworkID: netID,
-			Proto:     models.ALL,
-			Port:      []string{},
-			RuleType:  models.DevicePolicy,
+			ID:          fmt.Sprintf("%s.%s", netID, "all-remote-access-gws"),
+			Default:     true,
+			Name:        "All Remote Access Gateways",
+			NetworkID:   netID,
+			Proto:       models.ALL,
+			ServiceType: models.Any,
+			Port:        []string{},
+			RuleType:    models.DevicePolicy,
 			Src: []models.AclPolicyTag{
 				{
 					ID:    models.DeviceAclID,
