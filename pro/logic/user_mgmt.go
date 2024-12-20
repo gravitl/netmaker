@@ -1213,6 +1213,7 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 			Default:     true,
 			ServiceType: models.Any,
 			NetworkID:   netID,
+			Proto:       models.ALL,
 			RuleType:    models.UserPolicy,
 			Src: []models.AclPolicyTag{
 				{
@@ -1245,6 +1246,7 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 			Default:     true,
 			ServiceType: models.Any,
 			NetworkID:   netID,
+			Proto:       models.ALL,
 			RuleType:    models.UserPolicy,
 			Src: []models.AclPolicyTag{
 				{
