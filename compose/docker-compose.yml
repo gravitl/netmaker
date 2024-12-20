@@ -54,6 +54,9 @@ services:
     ports:
       - "$SERVER_HOST:80:80"
       - "$SERVER_HOST:443:443"
+    #uncomment to enable IPv6 communication
+     # - "$SERVER_HOST6:80:80"
+     # - "$SERVER_HOST6:443:443"
 
   coredns:
     #network_mode: host

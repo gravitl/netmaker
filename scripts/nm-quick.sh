@@ -260,7 +260,7 @@ save_config() { (
 		save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG"
 	fi
 	# copy entries from the previous config
-	local toCopy=("SERVER_HOST" "MASTER_KEY" "MQ_USERNAME" "MQ_PASSWORD" "LICENSE_KEY" "NETMAKER_TENANT_ID"
+	local toCopy=("SERVER_HOST" "SERVER_HOST6" "MASTER_KEY" "MQ_USERNAME" "MQ_PASSWORD" "LICENSE_KEY" "NETMAKER_TENANT_ID"
 		"INSTALL_TYPE" "NODE_ID" "DNS_MODE" "NETCLIENT_AUTO_UPDATE" "API_PORT"
 		"CORS_ALLOWED_ORIGIN" "DISPLAY_KEYS" "DATABASE" "SERVER_BROKER_ENDPOINT" "VERBOSITY"
 		"DEBUG_MODE"  "REST_BACKEND" "DISABLE_REMOTE_IP_CHECK" "TELEMETRY" "ALLOWED_EMAIL_DOMAINS" "AUTH_PROVIDER" "CLIENT_ID" "CLIENT_SECRET"
@@ -509,14 +509,16 @@ set -e
 # set_install_vars - sets the variables that will be used throughout installation
 set_install_vars() {
 
-	IP_ADDR=$(dig -4 myip.opendns.com @resolver1.opendns.com +short)
-	if [ "$IP_ADDR" = "" ]; then
-		IP_ADDR=$(curl -s ifconfig.me)
-	fi
+	IP_ADDR=$(curl -s -4 ifconfig.me)
+	IP6_ADDR=$(curl -s -6 ifconfig.me)
 	if [ "$NETMAKER_BASE_DOMAIN" = "" ]; then
 		NETMAKER_BASE_DOMAIN=nm.$(echo $IP_ADDR | tr . -).nip.io
 	fi
 	SERVER_HOST=$IP_ADDR
+	SERVER_HOST6=$IP6_ADDR
+	if [ "$IP_ADDR" = "" ]; then
+		SERVER_HOST=$IP6_ADDR
+	fi
 	if test -z "$MASTER_KEY"; then
 		MASTER_KEY=$(
 			tr -dc A-Za-z0-9 </dev/urandom | head -c 30
