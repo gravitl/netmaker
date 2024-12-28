@@ -137,7 +137,7 @@ setup_netclient() {
 			found=true
 			break
 		fi
-		sleep 1
+		sleep 3
 	done
 
 	if [ "$found" = false ]; then
