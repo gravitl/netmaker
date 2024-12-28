@@ -509,8 +509,8 @@ set -e
 # set_install_vars - sets the variables that will be used throughout installation
 set_install_vars() {
 
-	IP_ADDR=$(curl -s -4 ifconfig.me)
-	IP6_ADDR=$(curl -s -6 ifconfig.me)
+	IP_ADDR=$(curl -s -4 ifconfig.me || echo "")
+    IP6_ADDR=$(curl -s -6 ifconfig.me || echo "")
 	if [ "$NETMAKER_BASE_DOMAIN" = "" ]; then
 		NETMAKER_BASE_DOMAIN=nm.$(echo $IP_ADDR | tr . -).nip.io
 	fi
