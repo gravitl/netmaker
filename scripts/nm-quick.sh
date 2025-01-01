@@ -127,7 +127,7 @@ setup_netclient() {
 	./netclient install
 	echo "Register token: $TOKEN"
 	sleep 2
-	netclient join -t $TOKEN --static-port -p 443
+	netclient join -t $TOKEN
 
 	echo "waiting for netclient to become available"
 	local found=false
