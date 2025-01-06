@@ -168,9 +168,12 @@ func checkPeerConnectivity(node *models.Node, metrics *models.Metrics, defaultAc
 		if err != nil {
 			continue
 		}
-		allowed, _ := logic.IsNodeAllowedToCommunicate(*node, peer, false)
-		if !defaultAclPolicy && !allowed {
-			continue
+
+		if !defaultAclPolicy {
+			allowed, _ := logic.IsNodeAllowedToCommunicate(*node, peer, false)
+			if !allowed {
+				continue
+			}
 		}
 
 		if time.Since(peer.LastCheckIn) > models.LastCheckInThreshold {
@@ -181,7 +184,7 @@ func checkPeerConnectivity(node *models.Node, metrics *models.Metrics, defaultAc
 		}
 		// check if peer is in error state
 		checkPeerStatus(&peer, defaultAclPolicy)
-		if peer.Status == models.ErrorSt {
+		if peer.Status == models.ErrorSt || peer.Status == models.WarningSt {
 			continue
 		}
 		peerNotConnectedCnt++
