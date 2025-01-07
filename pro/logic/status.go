@@ -5,6 +5,7 @@ import (
 
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 func getNodeStatusOld(node *models.Node) {
@@ -28,6 +29,10 @@ func GetNodeStatus(node *models.Node, defaultEnabledPolicy bool) {
 
 	if time.Since(node.LastCheckIn) > models.LastCheckInThreshold {
 		node.Status = models.OfflineSt
+		return
+	}
+	if time.Since(node.LastCheckIn) < servercfg.GetMetricIntervalInMinutes() {
+		node.Status = models.OnlineSt
 		return
 	}
 	if node.IsStatic {
