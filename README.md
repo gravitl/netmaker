@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="https://github.com/gravitl/netmaker/releases">
-    <img src="https://img.shields.io/badge/Version-0.25.0-informational?style=flat-square" />
+    <img src="https://img.shields.io/badge/Version-0.30.0-informational?style=flat-square" />
   </a>
   <a href="https://hub.docker.com/r/gravitl/netmaker/tags">
     <img src="https://img.shields.io/docker/pulls/gravitl/netmaker?label=downloads" />
@@ -51,24 +51,26 @@
 
 If you're looking for a managed service, you can get started with just few clicks, visit [netmaker.io](https://account.netmaker.io) to create your netmaker server.  
 
-# Self-Hosted Quick Start  
+# Self-Hosted Open Source Quick Start  
 
-These are the instructions for deploying a Netmaker server on your own cloud VM as quickly as possible. For more detailed instructions, visit the [Install Docs](https://docs.netmaker.io/install.html).  
+These are the instructions for deploying a Netmaker server on your own cloud VM as quickly as possible. For more detailed instructions, visit the [Install Docs](https://docs.netmaker.io/docs/server-installation/quick-install#quick-install-script).  
 
 1. Get a cloud VM with Ubuntu 22.04 and a public IP.
 2. Open ports 443, 80, 3479, 8089 and 51821-51830/udp on the VM firewall and in cloud security settings.
 3. (recommended) Prepare DNS - Set a wildcard subdomain in your DNS settings for Netmaker, e.g. *.netmaker.example.com, which points to your VM's public IP.
-4. Run the script: 
+4. Run the script to setup open source version of Netmaker: 
 
-`sudo wget -qO /root/nm-quick.sh https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh && sudo chmod +x /root/nm-quick.sh && sudo /root/nm-quick.sh`  
+`sudo wget -qO /root/nm-quick.sh https://raw.githubusercontent.com/gravitl/netmaker/master/scripts/nm-quick.sh && sudo chmod +x /root/nm-quick.sh && sudo /root/nm-quick.sh`
 
-This script by default installs PRO version with 14-day trial, check out these instructions for post trial period https://docs.netmaker.io/install.html#after-trial-period-ends. It also gives you the option to use your own domain (recommended) or an auto-generated domain. 
+**<pre>To Install Self-Hosted PRO Version - https://docs.netmaker.io/docs/server-installation/netmaker-professional-setup</pre>** 
+
+
 
 <p float="left" align="middle">
 <img src="https://raw.githubusercontent.com/gravitl/netmaker-docs/master/images/netmaker-github/readme.gif" />
 </p>
 
-After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting-started-with-netmaker-a-wireguard-virtual-networking-platform-3d563fbd87f0) and [Getting Started](https://docs.netmaker.io/getting-started.html) guides to learn more about configuring networks. Or, check out some of our other [Tutorials](https://www.netmaker.io/blog) for different use cases, including Kubernetes.
+After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting-started-with-netmaker-a-wireguard-virtual-networking-platform-3d563fbd87f0) and [Getting Started](https://docs.netmaker.io/docs/getting-started) guides to learn more about configuring networks. Or, check out some of our other [Tutorials](https://www.netmaker.io/blog) for different use cases, including Kubernetes.
 
 # Get Support
 

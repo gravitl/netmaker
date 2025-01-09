@@ -167,6 +167,8 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+
+	sendPeerUpdate := false
 	for _, nodeID := range host.Nodes {
 		node, err := logic.GetNodeByID(nodeID)
 		if err != nil {
@@ -174,7 +176,13 @@ func pull(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		if node.FailedOverBy != uuid.Nil {
-			go logic.ResetFailedOverPeer(&node)
+			logic.ResetFailedOverPeer(&node)
+			sendPeerUpdate = true
+		}
+	}
+	if sendPeerUpdate {
+		if err := mq.PublishPeerUpdate(true); err != nil {
+			logger.Log(0, "fail to publish peer update: ", err.Error())
 		}
 	}
 	allNodes, err := logic.GetAllNodes()
@@ -245,19 +253,6 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 
 	newHost := newHostData.ConvertAPIHostToNMHost(currHost)
 
-	if newHost.Name != currHost.Name {
-		// update any rag role ids
-		for _, nodeID := range newHost.Nodes {
-			node, err := logic.GetNodeByID(nodeID)
-			if err == nil && node.IsIngressGateway {
-				role, err := logic.GetRole(models.GetRAGRoleID(node.Network, currHost.ID.String()))
-				if err == nil {
-					role.UiName = models.GetRAGRoleName(node.Network, newHost.Name)
-					logic.UpdateRole(role)
-				}
-			}
-		}
-	}
 	logic.UpdateHost(newHost, currHost) // update the in memory struct values
 	if err = logic.UpsertHost(newHost); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update a host:", err.Error())

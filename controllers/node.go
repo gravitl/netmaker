@@ -327,6 +327,8 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 		nodes = filteredNodes
 	}
 
+	nodes = logic.AddStaticNodestoList(nodes)
+	nodes = logic.AddStatusToNodes(nodes)
 	// returns all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	logger.Log(2, r.Header.Get("user"), "fetched nodes on network", networkName)
@@ -363,7 +365,10 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 		if !userPlatformRole.FullAccess {
 			nodes = logic.GetFilteredNodesByUserAccess(*user, nodes)
 		}
+
 	}
+	nodes = logic.AddStaticNodestoList(nodes)
+	nodes = logic.AddStatusToNodes(nodes)
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	logger.Log(3, r.Header.Get("user"), "fetched all nodes they have access to")
@@ -587,6 +592,7 @@ func createIngressGateway(w http.ResponseWriter, r *http.Request) {
 		if err := mq.NodeUpdate(&node); err != nil {
 			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 		}
+		mq.PublishPeerUpdate(false)
 	}()
 }
 
@@ -631,6 +637,7 @@ func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
 				if err := mq.PublishSingleHostPeerUpdate(host, allNodes, nil, removedClients[:], false, nil); err != nil {
 					slog.Error("publishSingleHostUpdate", "host", host.Name, "error", err)
 				}
+				mq.PublishPeerUpdate(false)
 				if err := mq.NodeUpdate(&node); err != nil {
 					slog.Error(
 						"error publishing node update to node",
@@ -671,6 +678,11 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	err = json.NewDecoder(r.Body).Decode(&newData)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	err = logic.ValidateNodeIp(&currentNode, &newData)
+	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -746,6 +758,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 				logger.Log(0, "error during node ACL update for node", newNode.ID.String())
 			}
 		}
+		mq.PublishPeerUpdate(false)
 		if servercfg.IsDNSMode() {
 			logic.SetDNS()
 		}

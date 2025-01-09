@@ -19,11 +19,13 @@ unset BUILD_TAG
 unset IMAGE_TAG
 unset NETMAKER_BASE_DOMAIN
 unset UPGRADE_FLAG
+unset COLLECT_PRO_VARS
 # usage - displays usage instructions
 usage() {
 	echo "nm-quick.sh v$NM_QUICK_VERSION"
 	echo "usage: ./nm-quick.sh [-c]"
 	echo " -c  if specified, will install netmaker community version"
+	echo " -p  if specified, will install netmaker pro version"
 	echo " -u  if specified, will upgrade netmaker to pro version"
 	echo " -d if specified, will downgrade netmaker to community version"
 	exit 1
@@ -125,7 +127,7 @@ setup_netclient() {
 	./netclient install
 	echo "Register token: $TOKEN"
 	sleep 2
-	netclient register -t $TOKEN
+	netclient join -t $TOKEN
 
 	echo "waiting for netclient to become available"
 	local found=false
@@ -135,11 +137,11 @@ setup_netclient() {
 			found=true
 			break
 		fi
-		sleep 1
+		sleep 3
 	done
 
 	if [ "$found" = false ]; then
-		echo "Error - $file not present"
+		echo "Error - $file state not matching"
 		exit 1
 	fi
 }
@@ -165,9 +167,20 @@ configure_netclient() {
 	nmctl host update $HOST_ID --default
 	sleep 5
 	nmctl node create_remote_access_gateway netmaker $NODE_ID
-	#setup failOver
-	sleep 5
-	curl --location --request POST "https://api.${NETMAKER_BASE_DOMAIN}/api/v1/node/${NODE_ID}/failover" --header "Authorization: Bearer ${MASTER_KEY}"
+	
+	sleep 2
+	# create network for internet access vpn
+	if [ "$INSTALL_TYPE" = "pro" ]; then
+	    #setup failOver
+		curl --location --request POST "https://api.${NETMAKER_BASE_DOMAIN}/api/v1/node/${NODE_ID}/failover" --header "Authorization: Bearer ${MASTER_KEY}"
+		INET_NODE_ID=$(sudo cat /etc/netclient/nodes.json | jq -r '."internet-access-vpn".id')
+		nmctl node create_remote_access_gateway internet-access-vpn $INET_NODE_ID
+		out=$(nmctl node list -o json | jq -r '.[] | select(.id=='\"$INET_NODE_ID\"') | .ingressdns = "8.8.8.8"')
+		curl --location --request PUT "https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/internet-access-vpn/${INET_NODE_ID}" --data "$out" --header "Authorization: Bearer ${MASTER_KEY}"
+		out=$(nmctl node list -o json | jq -r '.[] | select(.id=='\"$INET_NODE_ID\"') | .metadata = "This host can be used for secure internet access"')
+		curl --location --request PUT "https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/internet-access-vpn/${INET_NODE_ID}" --data "$out" --header "Authorization: Bearer ${MASTER_KEY}"
+		curl --location --request POST "https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/internet-access-vpn/${INET_NODE_ID}/inet_gw" --data '{}' --header "Authorization: Bearer ${MASTER_KEY}"
+	fi
 	set -e
 }
 
@@ -236,12 +249,10 @@ save_config() { (
 	save_config_item UI_IMAGE_TAG "$IMAGE_TAG"
 	# version-specific entries
 	if [ "$INSTALL_TYPE" = "pro" ]; then
-		save_config_item NETMAKER_TENANT_ID "$TENANT_ID"
+		save_config_item NETMAKER_TENANT_ID "$NETMAKER_TENANT_ID"
 		save_config_item LICENSE_KEY "$LICENSE_KEY"
-		if [ "$UPGRADE_FLAG" = "yes" ];then
-			save_config_item METRICS_EXPORTER "on"
-			save_config_item PROMETHEUS "on"
-		fi
+		save_config_item METRICS_EXPORTER "on"
+		save_config_item PROMETHEUS "on"
 		save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG-ee"
 	else
 		save_config_item METRICS_EXPORTER "off"
@@ -249,7 +260,7 @@ save_config() { (
 		save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG"
 	fi
 	# copy entries from the previous config
-	local toCopy=("SERVER_HOST" "MASTER_KEY" "MQ_USERNAME" "MQ_PASSWORD"
+	local toCopy=("SERVER_HOST" "SERVER_HOST6" "MASTER_KEY" "MQ_USERNAME" "MQ_PASSWORD" "LICENSE_KEY" "NETMAKER_TENANT_ID"
 		"INSTALL_TYPE" "NODE_ID" "DNS_MODE" "NETCLIENT_AUTO_UPDATE" "API_PORT"
 		"CORS_ALLOWED_ORIGIN" "DISPLAY_KEYS" "DATABASE" "SERVER_BROKER_ENDPOINT" "VERBOSITY"
 		"DEBUG_MODE"  "REST_BACKEND" "DISABLE_REMOTE_IP_CHECK" "TELEMETRY" "ALLOWED_EMAIL_DOMAINS" "AUTH_PROVIDER" "CLIENT_ID" "CLIENT_SECRET"
@@ -498,14 +509,16 @@ set -e
 # set_install_vars - sets the variables that will be used throughout installation
 set_install_vars() {
 
-	IP_ADDR=$(dig -4 myip.opendns.com @resolver1.opendns.com +short)
-	if [ "$IP_ADDR" = "" ]; then
-		IP_ADDR=$(curl -s ifconfig.me)
-	fi
+	IP_ADDR=$(curl -s -4 ifconfig.me || echo "")
+    IP6_ADDR=$(curl -s -6 ifconfig.me || echo "")
 	if [ "$NETMAKER_BASE_DOMAIN" = "" ]; then
 		NETMAKER_BASE_DOMAIN=nm.$(echo $IP_ADDR | tr . -).nip.io
 	fi
 	SERVER_HOST=$IP_ADDR
+	SERVER_HOST6=$IP6_ADDR
+	if [ "$IP_ADDR" = "" ]; then
+		SERVER_HOST=$IP6_ADDR
+	fi
 	if test -z "$MASTER_KEY"; then
 		MASTER_KEY=$(
 			tr -dc A-Za-z0-9 </dev/urandom | head -c 30
@@ -546,7 +559,7 @@ set_install_vars() {
 	echo "                api.$NETMAKER_BASE_DOMAIN"
 	echo "             broker.$NETMAKER_BASE_DOMAIN"
 
-	if [ "$UPGRADE_FLAG" = "yes" ]; then
+	if [ "$INSTALL_TYPE" = "pro" ]; then
 		echo "         prometheus.$NETMAKER_BASE_DOMAIN"
 		echo "  netmaker-exporter.$NETMAKER_BASE_DOMAIN"
 		echo "            grafana.$NETMAKER_BASE_DOMAIN"
@@ -568,53 +581,22 @@ set_install_vars() {
 	EMAIL="$GET_EMAIL"
 
 	wait_seconds 1
-
-	unset GET_MQ_USERNAME
-	unset GET_MQ_PASSWORD
-	unset CONFIRM_MQ_PASSWORD
-	echo "Enter Credentials For MQ..."
-	
-	read -p "MQ Username (click 'enter' to use 'netmaker'): " GET_MQ_USERNAME
-	if [ -z "$GET_MQ_USERNAME" ]; then
-		echo "using default username for mq"
-		MQ_USERNAME="netmaker"
-	else
-		MQ_USERNAME="$GET_MQ_USERNAME"
+	if [ "$COLLECT_PRO_VARS" = "true" ]; then
+		unset LICENSE_KEY
+		while [ -z "$LICENSE_KEY" ]; do
+			read -p "License Key: " LICENSE_KEY
+		done
+		unset NETMAKER_TENANT_ID
+		while [ -z ${NETMAKER_TENANT_ID} ]; do
+			read -p "Tenant ID: " NETMAKER_TENANT_ID
+		done
 	fi
-
-	if test -z "$MQ_PASSWORD"; then
-		MQ_PASSWORD=$(
+	wait_seconds 1
+	MQ_USERNAME="netmaker"
+	MQ_PASSWORD=$(
 			tr -dc A-Za-z0-9 </dev/urandom | head -c 30
 			echo ''
 		)
-	fi
-
-
-	select domain_option in "Auto Generated / Config Password" "Input Your Own Password"; do
-		case $REPLY in
-		1)
-			echo "using random password for mq"
-			break
-			;;
-		2)
-			while true; do
-				echo "Enter your Password For MQ: "
-				read -s GET_MQ_PASSWORD
-				echo "Enter your password again to confirm: "
-				read -s CONFIRM_MQ_PASSWORD
-				if [ ${GET_MQ_PASSWORD} != ${CONFIRM_MQ_PASSWORD} ]; then
-					echo "wrong password entered, try again..."
-					continue
-				fi
-				MQ_PASSWORD="$GET_MQ_PASSWORD"
-				echo "MQ Password Saved Successfully!!"
-				break
-			done
-			break
-			;;
-		*) echo "invalid option $REPLY" ;;
-		esac
-	done
 	
 
 	wait_seconds 2
@@ -650,13 +632,12 @@ install_netmaker() {
 	if [ "$INSTALL_TYPE" = "pro" ]; then
 		local COMPOSE_OVERRIDE_URL="$BASE_URL/compose/docker-compose.pro.yml"
 		local CADDY_URL="$BASE_URL/docker/Caddyfile-pro"
-	fi
-	wget -qO "$SCRIPT_DIR"/docker-compose.yml $COMPOSE_URL
-	if [ "$UPGRADE_FLAG" = "yes" ]; then
 		wget -qO "$SCRIPT_DIR"/docker-compose.override.yml $COMPOSE_OVERRIDE_URL
 	elif [ -a "$SCRIPT_DIR"/docker-compose.override.yml ]; then
 		rm -f "$SCRIPT_DIR"/docker-compose.override.yml
 	fi
+	wget -qO "$SCRIPT_DIR"/docker-compose.yml $COMPOSE_URL
+
 	wget -qO "$SCRIPT_DIR"/Caddyfile "$CADDY_URL"
 	wget -qO "$SCRIPT_DIR"/netmaker.default.env "$BASE_URL/scripts/netmaker.default.env"
 	wget -qO "$SCRIPT_DIR"/mosquitto.conf "$BASE_URL/docker/mosquitto.conf"
@@ -721,30 +702,57 @@ test_connection() {
 setup_mesh() {
 
 	wait_seconds 5
-
-	local networkCount=$(nmctl network list -o json | jq '. | length')
-
-	# add a network if none present
-	if [ "$networkCount" -lt 1 ]; then
-		echo "Creating netmaker network (10.101.0.0/16)"
-
+	networks=$(nmctl network list -o json)
+	if [[ ${networks} != "null" ]]; then
+		netmakerNet=$(nmctl network list -o json | jq -r '.[] | .netid' | grep -w "netmaker")
+		inetNet=$(nmctl network list -o json | jq -r '.[] | .netid' | grep -w "internet-access-vpn")
+	fi
+	# create netmaker network
+	if [[ ${netmakerNet} = "" ]]; then
+		echo "Creating netmaker network (100.64.0.0/16)"
 		# TODO causes "Error Status: 400 Response: {"Code":400,"Message":"could not find any records"}"
-		nmctl network create --name netmaker --ipv4_addr 10.101.0.0/16
-
-		wait_seconds 5
+		nmctl network create --name netmaker --ipv4_addr 100.64.0.0/16
+	fi
+	# create enrollment key for netmaker network
+	local netmakerTag=$(nmctl enrollment_key list | jq -r '.[] | .tags[0]' | grep -w "netmaker")
+	if [[ ${netmakerTag} = "" ]]; then
+		nmctl enrollment_key create --tags netmaker --unlimited --networks netmaker
 	fi
 
-	echo "Obtaining a netmaker enrollment key..."
+	# create internet-access-vpn
+	if [ "$INSTALL_TYPE" = "pro" ]; then
+		if [[ ${inetNet} = "" ]]; then
+			echo "Creating internet-access-vpn network (100.65.0.0/16)"
+			# TODO causes "Error Status: 400 Response: {"Code":400,"Message":"could not find any records"}"
+			nmctl network create --name internet-access-vpn --ipv4_addr 100.65.0.0/16
+		fi
 
-	local tokenJson=$(nmctl enrollment_key create --tags netmaker --unlimited --networks netmaker)
-	TOKEN=$(jq -r '.token' <<<${tokenJson})
-	if test -z "$TOKEN"; then
-		echo "Error creating an enrollment key"
-		exit 1
+		# create enrollment key for internet-access-vpn network
+		local inetTag=$(nmctl enrollment_key list | jq -r '.[] | .tags[0]' | grep -w "internet-access-vpn")
+		if [[ ${inetTag} = "" ]]; then
+			nmctl enrollment_key create --tags internet-access-vpn --unlimited --networks internet-access-vpn
+		fi
+
+		# create enrollment key for both networks
+		local netInetTag=$(nmctl enrollment_key list | jq -r '.[] | .tags[0]' | grep -w "netmaker-inet")
+		if [[ ${netInetTag} = "" ]]; then
+			nmctl enrollment_key create --tags netmaker-inet --unlimited --networks netmaker,internet-access-vpn
+		fi
+	fi
+
+	if [ "$INSTALL_TYPE" = "pro" ]; then
+		# create enrollment key for both setup networks
+		echo "Obtaining enrollment key..."
+		# key exists already, fetch token
+		TOKEN=$(nmctl enrollment_key list | jq -r '.[] | select(.tags[0]=="netmaker-inet") | .token')
+		
 	else
-		echo "Enrollment key ready"
-	fi
 
+		echo "Obtaining enrollment key..."
+		# key exists already, fetch token
+		TOKEN=$(nmctl enrollment_key list | jq -r '.[] | select(.tags[0]=="netmaker") | .token')
+	fi
+	
 	wait_seconds 3
 
 }
@@ -806,16 +814,16 @@ upgrade() {
 	echo "-----------------------------------------------------"
 	echo "Provide Details for pro installation:"
 	echo "    1. Log into https://app.netmaker.io"
-	echo "    2. follow instructions to get a license at: https://docs.netmaker.io/pro/pro-setup.html"
+	echo "    2. follow instructions to get a license at: https://docs.netmaker.io/docs/server-installation/netmaker-professional-setup"
 	echo "    3. Retrieve License and Tenant ID"
 	echo "-----------------------------------------------------"
 	unset LICENSE_KEY
 	while [ -z "$LICENSE_KEY" ]; do
 		read -p "License Key: " LICENSE_KEY
 	done
-	unset TENANT_ID
-	while [ -z ${TENANT_ID} ]; do
-		read -p "Tenant ID: " TENANT_ID
+	unset NETMAKER_TENANT_ID
+	while [ -z ${NETMAKER_TENANT_ID} ]; do
+		read -p "Tenant ID: " NETMAKER_TENANT_ID
 	done
 	save_config
 	# start docker and rebuild containers / networks
@@ -870,8 +878,8 @@ main (){
 		source "$CONFIG_PATH"
 	fi
 
-	INSTALL_TYPE="pro"
-	while getopts :cudv flag; do
+	INSTALL_TYPE="ce"
+	while getopts :cudpv flag; do
 	case "${flag}" in
 	c)
 		INSTALL_TYPE="ce"
@@ -888,6 +896,11 @@ main (){
 		INSTALL_TYPE="ce"
 		downgrade
 		exit 0
+		;;
+	p)
+		echo "installing pro version..."
+		INSTALL_TYPE="pro"
+		COLLECT_PRO_VARS="true"
 		;;
 	v)
 		usage

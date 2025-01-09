@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"reflect"
 
 	"github.com/gorilla/mux"
@@ -240,7 +239,7 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 func getUserV1(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
-	usernameFetched, _ := url.QueryUnescape(r.URL.Query().Get("username"))
+	usernameFetched := r.URL.Query().Get("username")
 	if usernameFetched == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), "badrequest"))
 		return
@@ -452,6 +451,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	}
 	logic.DeleteUserInvite(user.UserName)
 	logic.DeletePendingUser(user.UserName)
+	go mq.PublishPeerUpdate(false)
 	slog.Info("user was created", "username", user.UserName)
 	json.NewEncoder(w).Encode(logic.ToReturnUser(user))
 }
@@ -591,6 +591,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	go mq.PublishPeerUpdate(false)
 	logger.Log(1, username, "was updated")
 	json.NewEncoder(w).Encode(logic.ToReturnUser(*user))
 }
@@ -693,6 +694,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+		mq.PublishPeerUpdate(false)
 		if servercfg.IsDNSMode() {
 			logic.SetDNS()
 		}
@@ -720,7 +722,7 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 // @Summary     lists all user roles.
 // @Router      /api/v1/user/roles [get]
 // @Tags        Users
-// @Param       role_id param string true "roleid required to get the role details"
+// @Param       role_id query string true "roleid required to get the role details"
 // @Success     200 {object}  []models.UserRolePermissionTemplate
 // @Failure     500 {object} models.ErrorResponse
 func listRoles(w http.ResponseWriter, r *http.Request) {

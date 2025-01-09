@@ -3,15 +3,20 @@ package nodeacls
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"sync"
 
 	"github.com/gravitl/netmaker/logic/acls"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 var NodesAllowedACLMutex = &sync.Mutex{}
 
 // AreNodesAllowed - checks if nodes are allowed to communicate in their network ACL
 func AreNodesAllowed(networkID NetworkID, node1, node2 NodeID) bool {
+	if !servercfg.IsOldAclEnabled() {
+		return true
+	}
 	NodesAllowedACLMutex.Lock()
 	defer NodesAllowedACLMutex.Unlock()
 	var currentNetworkACL, err = FetchAllACLs(networkID)
@@ -67,5 +72,5 @@ func FetchAllACLs(networkID NetworkID) (acls.ACLContainer, error) {
 	if err != nil {
 		return nil, err
 	}
-	return currentNetworkACL, nil
+	return maps.Clone(currentNetworkACL), nil
 }

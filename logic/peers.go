@@ -74,7 +74,10 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		ServerVersion: servercfg.GetVersion(),
 		ServerAddrs:   []models.ServerAddr{},
 		FwUpdate: models.FwUpdate{
-			EgressInfo: make(map[string]models.EgressInfo),
+			AllowAll:    true,
+			EgressInfo:  make(map[string]models.EgressInfo),
+			IngressInfo: make(map[string]models.IngressInfo),
+			AclRules:    make(map[string]models.AclRule),
 		},
 		PeerIDs:           make(models.PeerMap, 0),
 		Peers:             []wgtypes.PeerConfig{},
@@ -82,6 +85,24 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		HostNetworkInfo:   models.HostInfoMap{},
 		EndpointDetection: servercfg.IsEndpointDetectionEnabled(),
 	}
+	defer func() {
+		if !hostPeerUpdate.FwUpdate.AllowAll {
+			aclRule := models.AclRule{
+				ID:              "allowed-network-rules",
+				AllowedProtocol: models.ALL,
+				Direction:       models.TrafficDirectionBi,
+				Allowed:         true,
+			}
+			for _, allowedNet := range hostPeerUpdate.FwUpdate.AllowedNetworks {
+				if allowedNet.IP.To4() != nil {
+					aclRule.IPList = append(aclRule.IPList, allowedNet)
+				} else {
+					aclRule.IP6List = append(aclRule.IP6List, allowedNet)
+				}
+			}
+			hostPeerUpdate.FwUpdate.AclRules["allowed-network-rules"] = aclRule
+		}
+	}()
 
 	slog.Debug("peer update for host", "hostId", host.ID.String())
 	peerIndexMap := make(map[string]int)
@@ -153,6 +174,22 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		if !hostPeerUpdate.IsInternetGw {
 			hostPeerUpdate.IsInternetGw = IsInternetGw(node)
 		}
+		defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
+		defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+
+		if defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled {
+			if node.NetworkRange.IP != nil {
+				hostPeerUpdate.FwUpdate.AllowedNetworks = append(hostPeerUpdate.FwUpdate.AllowedNetworks, node.NetworkRange)
+			}
+			if node.NetworkRange6.IP != nil {
+				hostPeerUpdate.FwUpdate.AllowedNetworks = append(hostPeerUpdate.FwUpdate.AllowedNetworks, node.NetworkRange6)
+			}
+
+		} else {
+			hostPeerUpdate.FwUpdate.AllowAll = false
+			hostPeerUpdate.FwUpdate.AclRules = GetAclRulesForNode(&node)
+		}
+
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
 		for _, peer := range currentPeers {
 			peer := peer
@@ -182,7 +219,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				})
 			}
 			if peer.IsIngressGateway {
-				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, getExtpeersExtraRoutes(node, peer.Network)...)
+				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, getExtpeersExtraRoutes(node)...)
 			}
 			_, isFailOverPeer := node.FailOverPeers[peer.ID.String()]
 			if servercfg.IsPro {
@@ -226,6 +263,23 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			} else if host.EndpointIPv6 != nil && peerHost.EndpointIPv6 != nil {
 				peerEndpoint = peerHost.EndpointIPv6
 			}
+			if host.EndpointIP == nil && peerEndpoint == nil {
+				if peerHost.EndpointIP != nil {
+					peerEndpoint = peerHost.EndpointIP
+				}
+			}
+			if host.EndpointIPv6 == nil && peerEndpoint == nil {
+				if peerHost.EndpointIPv6 != nil {
+					peerEndpoint = peerHost.EndpointIPv6
+				}
+			}
+			if node.IsRelay && peer.RelayedBy == node.ID.String() && !peer.IsStatic {
+				// don't set endpoint on relayed peer
+				peerEndpoint = nil
+			}
+			if isFailOverPeer && peer.FailedOverBy == node.ID && !peer.IsStatic {
+				peerEndpoint = nil
+			}
 
 			peerConfig.Endpoint = &net.UDPAddr{
 				IP:   peerEndpoint,
@@ -237,10 +291,12 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				peerConfig.Endpoint.Port = peerHost.ListenPort
 			}
 			allowedips := GetAllowedIPs(&node, &peer, nil)
+			allowedToComm := IsPeerAllowed(node, peer, false)
 			if peer.Action != models.NODE_DELETE &&
 				!peer.PendingDelete &&
 				peer.Connected &&
 				nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) &&
+				(defaultDevicePolicy.Enabled || allowedToComm) &&
 				(deletedNode == nil || (deletedNode != nil && peer.ID.String() != deletedNode.ID.String())) {
 				peerConfig.AllowedIPs = allowedips // only append allowed IPs if valid connection
 			}
@@ -287,8 +343,21 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		var extPeerIDAndAddrs []models.IDandAddr
 		var egressRoutes []models.EgressNetworkRoutes
 		if node.IsIngressGateway {
+			hostPeerUpdate.FwUpdate.IsIngressGw = true
 			extPeers, extPeerIDAndAddrs, egressRoutes, err = GetExtPeers(&node, &node)
 			if err == nil {
+				if !defaultDevicePolicy.Enabled || !defaultUserPolicy.Enabled {
+					ingFwUpdate := models.IngressInfo{
+						IngressID:     node.ID.String(),
+						Network:       node.NetworkRange,
+						Network6:      node.NetworkRange6,
+						AllowAll:      defaultDevicePolicy.Enabled && defaultUserPolicy.Default,
+						StaticNodeIps: GetStaticNodeIps(node),
+						Rules:         GetFwRulesOnIngressGateway(node),
+					}
+					ingFwUpdate.EgressRanges, ingFwUpdate.EgressRanges6 = getExtpeerEgressRanges(node)
+					hostPeerUpdate.FwUpdate.IngressInfo[node.ID.String()] = ingFwUpdate
+				}
 				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, egressRoutes...)
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, extPeers...)
 				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
@@ -391,6 +460,9 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		}
 	}
 
+	hostPeerUpdate.ManageDNS = servercfg.GetManageDNS()
+	hostPeerUpdate.Stun = servercfg.IsStunEnabled()
+	hostPeerUpdate.StunServers = servercfg.GetStunServers()
 	return hostPeerUpdate, nil
 }
 
@@ -425,6 +497,7 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 			logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 		}
 		for _, extPeer := range extPeers {
+
 			allowedips = append(allowedips, extPeer.AllowedIPs...)
 		}
 	}

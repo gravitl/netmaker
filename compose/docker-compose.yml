@@ -12,7 +12,7 @@ services:
       - sqldata:/root/data
     environment:
       # config-dependant vars
-      - STUN_LIST=stun1.netmaker.io:3478,stun2.netmaker.io:3478,stun1.l.google.com:19302,stun2.l.google.com:19302
+      - STUN_SERVERS=stun1.l.google.com:19302,stun2.l.google.com:19302,stun3.l.google.com:19302,stun4.l.google.com:19302
       # The domain/host IP indicating the mq broker address
       - BROKER_ENDPOINT=wss://broker.${NM_DOMAIN} # For EMQX broker use `BROKER_ENDPOINT=wss://broker.${NM_DOMAIN}/mqtt`
       # For EMQX broker (uncomment the two lines below)
@@ -41,7 +41,7 @@ services:
     restart: always
 
   caddy:
-    image: caddy:2.6.2
+    image: caddy:2.8.4
     container_name: caddy
     env_file: ./netmaker.env
     restart: unless-stopped
@@ -52,8 +52,11 @@ services:
       - caddy_data:/data
       - caddy_conf:/config
     ports:
-      - "80:80"
-      - "443:443"
+      - "$SERVER_HOST:80:80/tcp"
+      - "$SERVER_HOST:443:443/tcp"
+    #uncomment to enable IPv6 communication
+     # - "$SERVER_HOST6:80:80/tcp"
+     # - "$SERVER_HOST6:443:443/tcp"
 
   coredns:
     #network_mode: host

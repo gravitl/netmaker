@@ -47,6 +47,8 @@ const (
 	GENERATED_TABLE_NAME = "generated"
 	// NODE_ACLS_TABLE_NAME - stores the node ACL rules
 	NODE_ACLS_TABLE_NAME = "nodeacls"
+	// ACLS_TABLE_NAME - table for acls v2
+	ACLS_TABLE_NAME = "acls"
 	// SSO_STATE_CACHE - holds sso session information for OAuth2 sign-ins
 	SSO_STATE_CACHE = "ssostatecache"
 	// METRICS_TABLE_NAME - stores network metrics
@@ -67,6 +69,8 @@ const (
 	PENDING_USERS_TABLE_NAME = "pending_users"
 	// USER_INVITES - table for user invites
 	USER_INVITES_TABLE_NAME = "user_invites"
+	// TAG_TABLE_NAME - table for tags
+	TAG_TABLE_NAME = "tags"
 	// == ERROR CONSTS ==
 	// NO_RECORD - no singular result found
 	NO_RECORD = "no result found"
@@ -152,6 +156,8 @@ func createTables() {
 	CreateTable(PENDING_USERS_TABLE_NAME)
 	CreateTable(USER_PERMISSIONS_TABLE_NAME)
 	CreateTable(USER_INVITES_TABLE_NAME)
+	CreateTable(TAG_TABLE_NAME)
+	CreateTable(ACLS_TABLE_NAME)
 }
 
 func CreateTable(tableName string) error {

@@ -12,7 +12,7 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: get logs
-        uses: dawidd6/action-download-artifact@v6
+        uses: dawidd6/action-download-artifact@v7
         with:
           run_id: ${{ github.event.workflow_run.id}}
           if_no_artifact_found: warn
@@ -37,13 +37,28 @@ jobs:
       - name: delete droplets
         if: success() || failure()
         run: |
-          sleep 15m
-          curl -X DELETE \
+          sleep 30m
+          response=$(curl -X DELETE \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $DIGITALOCEAN_TOKEN" \
-            "https://api.digitalocean.com/v2/droplets?tag_name=$TAG"
+            -w "\n%{http_code}" \
+            "https://api.digitalocean.com/v2/droplets?tag_name=$TAG")
+          
+          status_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          
+          echo "Response body: $body"
+          echo "Status code: $status_code"
+          
+          if [ "$status_code" -eq 204 ]; then
+            echo "Droplets deleted successfully"
+          else
+            echo "Failed to delete droplets. Status code: $status_code"
+            exit 1
+          fi
+          sleep 1m
         env:
-          DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          DIGITALOCEAN_TOKEN: ${{ secrets.DO_TEST_TOKEN }}
           TAG: ${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
       - name: mark server as available
         if: success() || failure()
@@ -60,7 +75,7 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'failure' }}
     steps:
       - name: get logs
-        uses: dawidd6/action-download-artifact@v6
+        uses: dawidd6/action-download-artifact@v7
         with:
           run_id: ${{ github.event.workflow_run.id}}
           if_no_artifact_found: warn
@@ -94,13 +109,28 @@ jobs:
       - name: delete droplets
         if: success() || failure()
         run: |
-          sleep 3h
-          curl -X DELETE \
+          sleep 30m
+          response=$(curl -X DELETE \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $DIGITALOCEAN_TOKEN" \
-            "https://api.digitalocean.com/v2/droplets?tag_name=$TAG"
+            -w "\n%{http_code}" \
+            "https://api.digitalocean.com/v2/droplets?tag_name=$TAG")
+          
+          status_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          
+          echo "Response body: $body"
+          echo "Status code: $status_code"
+          
+          if [ "$status_code" -eq 204 ]; then
+            echo "Droplets deleted successfully"
+          else
+            echo "Failed to delete droplets. Status code: $status_code"
+            exit 1
+          fi
+          sleep 1m
         env:
-          DIGITALOCEAN_TOKEN: ${{ secrets.DIGITALOCEAN_TOKEN }}
+          DIGITALOCEAN_TOKEN: ${{ secrets.DO_TEST_TOKEN }}
           TAG: ${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
       - name: mark server as available
         if: success() || failure()

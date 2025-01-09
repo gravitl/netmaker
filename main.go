@@ -27,13 +27,14 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
+	_ "go.uber.org/automaxprocs"
 	"golang.org/x/exp/slog"
 )
 
-var version = "v0.25.0"
+var version = "v0.30.0"
 
 //	@title			NetMaker
-//	@version		0.24.3
+//	@version		0.30.0
 //	@description	NetMaker API Docs
 //	@tag.name	    APIUsage
 //	@tag.description.markdown
@@ -102,10 +103,20 @@ func initialize() { // Client Mode Prereq Check
 		logger.FatalLog("Error connecting to database: ", err.Error())
 	}
 	logger.Log(0, "database successfully connected")
+
+	//initialize cache
+	_, _ = logic.GetNetworks()
+	_, _ = logic.GetAllNodes()
+	_, _ = logic.GetAllHosts()
+	_, _ = logic.GetAllExtClients()
+	_ = logic.ListAcls()
+	_, _ = logic.GetAllEnrollmentKeys()
+
 	migrate.Run()
 
 	logic.SetJWTSecret()
 	logic.InitialiseRoles()
+	logic.IntialiseGroups()
 	err = serverctl.SetDefaults()
 	if err != nil {
 		logger.FatalLog("error setting defaults: ", err.Error())

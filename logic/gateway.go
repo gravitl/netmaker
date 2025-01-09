@@ -2,6 +2,7 @@ package logic
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
@@ -74,7 +75,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 		return models.Node{}, errors.New(host.OS + " is unsupported for egress gateways")
 	}
 	if host.FirewallInUse == models.FIREWALL_NONE {
-		return models.Node{}, errors.New("firewall is not supported for egress gateways. please install iptables or nftables on the device in order to use this feature")
+		return models.Node{}, errors.New("please install iptables or nftables on the device")
 	}
 	for i := len(gateway.Ranges) - 1; i >= 0; i-- {
 		// check if internet gateway IPv4
@@ -149,9 +150,6 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	if host.OS != "linux" {
 		return models.Node{}, errors.New("ingress can only be created on linux based node")
 	}
-	if host.FirewallInUse == models.FIREWALL_NONE {
-		return models.Node{}, errors.New("firewall is not supported for ingress gateways")
-	}
 
 	network, err := GetParentNetwork(netid)
 	if err != nil {
@@ -164,6 +162,14 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	node.IngressGatewayRange = network.AddressRange
 	node.IngressGatewayRange6 = network.AddressRange6
 	node.IngressDNS = ingress.ExtclientDNS
+	node.IngressPersistentKeepalive = 20
+	if ingress.PersistentKeepalive != 0 {
+		node.IngressPersistentKeepalive = ingress.PersistentKeepalive
+	}
+	node.IngressMTU = 1420
+	if ingress.MTU != 0 {
+		node.IngressMTU = ingress.MTU
+	}
 	if servercfg.IsPro {
 		if _, exists := FailOverExists(node.Network); exists {
 			ResetFailedOverPeer(&node)
@@ -174,34 +180,14 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	if node.Metadata == "" {
 		node.Metadata = "This host can be used for remote access"
 	}
+	if node.Tags == nil {
+		node.Tags = make(map[models.TagID]struct{})
+	}
+	node.Tags[models.TagID(fmt.Sprintf("%s.%s", netid, models.RemoteAccessTagName))] = struct{}{}
 	err = UpsertNode(&node)
 	if err != nil {
 		return models.Node{}, err
 	}
-	// create network role for this gateway
-	CreateRole(models.UserRolePermissionTemplate{
-		ID:        models.GetRAGRoleID(node.Network, host.ID.String()),
-		UiName:    models.GetRAGRoleName(node.Network, host.Name),
-		NetworkID: models.NetworkID(node.Network),
-		Default:   true,
-		NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
-			models.RemoteAccessGwRsrc: {
-				models.RsrcID(node.ID.String()): models.RsrcPermissionScope{
-					Read:      true,
-					VPNaccess: true,
-				},
-			},
-			models.ExtClientsRsrc: {
-				models.AllExtClientsRsrcID: models.RsrcPermissionScope{
-					Read:     true,
-					Create:   true,
-					Update:   true,
-					Delete:   true,
-					SelfOnly: true,
-				},
-			},
-		},
-	})
 	err = SetNetworkNodesLastModified(netid)
 	return node, err
 }
@@ -249,17 +235,14 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 	if !servercfg.IsPro {
 		node.IsInternetGateway = false
 	}
+	delete(node.Tags, models.TagID(fmt.Sprintf("%s.%s", node.Network, models.RemoteAccessTagName)))
 	node.IngressGatewayRange = ""
 	node.Metadata = ""
 	err = UpsertNode(&node)
 	if err != nil {
 		return models.Node{}, removedClients, err
 	}
-	host, err := GetHost(node.HostID.String())
-	if err != nil {
-		return models.Node{}, removedClients, err
-	}
-	go DeleteRole(models.GetRAGRoleID(node.Network, host.ID.String()), true)
+
 	err = SetNetworkNodesLastModified(node.Network)
 	return node, removedClients, err
 }

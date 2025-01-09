@@ -10,33 +10,35 @@ import (
 
 // ApiNode is a stripped down Node DTO that exposes only required fields to external systems
 type ApiNode struct {
-	ID                      string   `json:"id,omitempty" validate:"required,min=5,id_unique"`
-	HostID                  string   `json:"hostid,omitempty" validate:"required,min=5,id_unique"`
-	Address                 string   `json:"address" validate:"omitempty,cidrv4"`
-	Address6                string   `json:"address6" validate:"omitempty,cidrv6"`
-	LocalAddress            string   `json:"localaddress" validate:"omitempty,cidr"`
-	AllowedIPs              []string `json:"allowedips"`
-	LastModified            int64    `json:"lastmodified"`
-	ExpirationDateTime      int64    `json:"expdatetime"`
-	LastCheckIn             int64    `json:"lastcheckin"`
-	LastPeerUpdate          int64    `json:"lastpeerupdate"`
-	Network                 string   `json:"network"`
-	NetworkRange            string   `json:"networkrange"`
-	NetworkRange6           string   `json:"networkrange6"`
-	IsRelayed               bool     `json:"isrelayed"`
-	IsRelay                 bool     `json:"isrelay"`
-	RelayedBy               string   `json:"relayedby" bson:"relayedby" yaml:"relayedby"`
-	RelayedNodes            []string `json:"relaynodes" yaml:"relayedNodes"`
-	IsEgressGateway         bool     `json:"isegressgateway"`
-	IsIngressGateway        bool     `json:"isingressgateway"`
-	EgressGatewayRanges     []string `json:"egressgatewayranges"`
-	EgressGatewayNatEnabled bool     `json:"egressgatewaynatenabled"`
-	DNSOn                   bool     `json:"dnson"`
-	IngressDns              string   `json:"ingressdns"`
-	Server                  string   `json:"server"`
-	Connected               bool     `json:"connected"`
-	PendingDelete           bool     `json:"pendingdelete"`
-	Metadata                string   `json:"metadata"`
+	ID                         string   `json:"id,omitempty" validate:"required,min=5,id_unique"`
+	HostID                     string   `json:"hostid,omitempty" validate:"required,min=5,id_unique"`
+	Address                    string   `json:"address" validate:"omitempty,cidrv4"`
+	Address6                   string   `json:"address6" validate:"omitempty,cidrv6"`
+	LocalAddress               string   `json:"localaddress" validate:"omitempty,cidr"`
+	AllowedIPs                 []string `json:"allowedips"`
+	LastModified               int64    `json:"lastmodified" swaggertype:"primitive,integer" format:"int64"`
+	ExpirationDateTime         int64    `json:"expdatetime" swaggertype:"primitive,integer" format:"int64"`
+	LastCheckIn                int64    `json:"lastcheckin" swaggertype:"primitive,integer" format:"int64"`
+	LastPeerUpdate             int64    `json:"lastpeerupdate" swaggertype:"primitive,integer" format:"int64"`
+	Network                    string   `json:"network"`
+	NetworkRange               string   `json:"networkrange"`
+	NetworkRange6              string   `json:"networkrange6"`
+	IsRelayed                  bool     `json:"isrelayed"`
+	IsRelay                    bool     `json:"isrelay"`
+	RelayedBy                  string   `json:"relayedby" bson:"relayedby" yaml:"relayedby"`
+	RelayedNodes               []string `json:"relaynodes" yaml:"relayedNodes"`
+	IsEgressGateway            bool     `json:"isegressgateway"`
+	IsIngressGateway           bool     `json:"isingressgateway"`
+	EgressGatewayRanges        []string `json:"egressgatewayranges"`
+	EgressGatewayNatEnabled    bool     `json:"egressgatewaynatenabled"`
+	DNSOn                      bool     `json:"dnson"`
+	IngressDns                 string   `json:"ingressdns"`
+	IngressPersistentKeepalive int32    `json:"ingresspersistentkeepalive"`
+	IngressMTU                 int32    `json:"ingressmtu"`
+	Server                     string   `json:"server"`
+	Connected                  bool     `json:"connected"`
+	PendingDelete              bool     `json:"pendingdelete"`
+	Metadata                   string   `json:"metadata"`
 	// == PRO ==
 	DefaultACL        string              `json:"defaultacl,omitempty" validate:"checkyesornoorunset"`
 	IsFailOver        bool                `json:"is_fail_over"`
@@ -46,6 +48,11 @@ type ApiNode struct {
 	InetNodeReq       InetNodeReq         `json:"inet_node_req" yaml:"inet_node_req"`
 	InternetGwID      string              `json:"internetgw_node_id" yaml:"internetgw_node_id"`
 	AdditionalRagIps  []string            `json:"additional_rag_ips" yaml:"additional_rag_ips"`
+	Tags              map[TagID]struct{}  `json:"tags" yaml:"tags"`
+	IsStatic          bool                `json:"is_static"`
+	IsUserNode        bool                `json:"is_user_node"`
+	StaticNode        ExtClient           `json:"static_node"`
+	Status            NodeStatus          `json:"status"`
 }
 
 // ApiNode.ConvertToServerNode - converts an api node to a server node
@@ -72,6 +79,8 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.IngressGatewayRange6 = currentNode.IngressGatewayRange6
 	convertedNode.DNSOn = a.DNSOn
 	convertedNode.IngressDNS = a.IngressDns
+	convertedNode.IngressPersistentKeepalive = a.IngressPersistentKeepalive
+	convertedNode.IngressMTU = a.IngressMTU
 	convertedNode.IsInternetGateway = a.IsInternetGateway
 	convertedNode.EgressGatewayRequest = currentNode.EgressGatewayRequest
 	convertedNode.EgressGatewayNatEnabled = currentNode.EgressGatewayNatEnabled
@@ -119,6 +128,7 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 		}
 		convertedNode.AdditionalRagIps = append(convertedNode.AdditionalRagIps, ragIp)
 	}
+	convertedNode.Tags = a.Tags
 	return &convertedNode
 }
 
@@ -162,6 +172,8 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.EgressGatewayNatEnabled = nm.EgressGatewayNatEnabled
 	apiNode.DNSOn = nm.DNSOn
 	apiNode.IngressDns = nm.IngressDNS
+	apiNode.IngressPersistentKeepalive = nm.IngressPersistentKeepalive
+	apiNode.IngressMTU = nm.IngressMTU
 	apiNode.Server = nm.Server
 	apiNode.Connected = nm.Connected
 	apiNode.PendingDelete = nm.PendingDelete
@@ -174,9 +186,14 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.FailedOverBy = nm.FailedOverBy
 	apiNode.Metadata = nm.Metadata
 	apiNode.AdditionalRagIps = []string{}
+	apiNode.Tags = nm.Tags
 	for _, ip := range nm.AdditionalRagIps {
 		apiNode.AdditionalRagIps = append(apiNode.AdditionalRagIps, ip.String())
 	}
+	apiNode.IsStatic = nm.IsStatic
+	apiNode.IsUserNode = nm.IsUserNode
+	apiNode.StaticNode = nm.StaticNode
+	apiNode.Status = nm.Status
 	return &apiNode
 }
 

@@ -32,7 +32,7 @@ var (
 			slog.Error("failed to get network acls", "error", err)
 			return err
 		}
-		networkAcls[acls.AclID(ec.ClientID)] = acls.ACL{}
+		networkAcls[acls.AclID(ec.ClientID)] = make(acls.ACL)
 		for objId := range networkAcls {
 			networkAcls[objId][acls.AclID(ec.ClientID)] = acls.Allowed
 			networkAcls[acls.AclID(ec.ClientID)][objId] = acls.Allowed

@@ -6,11 +6,14 @@ import (
 	"encoding/base32"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net"
 	"os"
 	"strings"
 	"time"
+	"unicode"
 
+	"github.com/blang/semver"
 	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -148,4 +151,28 @@ func IsSlicesEqual(a, b []string) bool {
 	return true
 }
 
-// == private ==
+// VersionLessThan checks if v1 < v2 semantically
+// dev is the latest version
+func VersionLessThan(v1, v2 string) (bool, error) {
+	if v1 == "dev" {
+		return false, nil
+	}
+	if v2 == "dev" {
+		return true, nil
+	}
+	semVer1 := strings.TrimFunc(v1, func(r rune) bool {
+		return !unicode.IsNumber(r)
+	})
+	semVer2 := strings.TrimFunc(v2, func(r rune) bool {
+		return !unicode.IsNumber(r)
+	})
+	sv1, err := semver.Parse(semVer1)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse semver1 (%s): %w", semVer1, err)
+	}
+	sv2, err := semver.Parse(semVer2)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse semver2 (%s): %w", semVer2, err)
+	}
+	return sv1.LT(sv2), nil
+}

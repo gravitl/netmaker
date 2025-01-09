@@ -62,6 +62,7 @@ const (
 	EnrollmentKeysRsrc RsrcType = "enrollment_key"
 	UserRsrc           RsrcType = "users"
 	AclRsrc            RsrcType = "acl"
+	TagRsrc            RsrcType = "tag"
 	DnsRsrc            RsrcType = "dns"
 	FailOverRsrc       RsrcType = "fail_over"
 	MetricRsrc         RsrcType = "metrics"
@@ -79,7 +80,8 @@ const (
 	AllUserRsrcID           RsrcID = "all_user"
 	AllDnsRsrcID            RsrcID = "all_dns"
 	AllFailOverRsrcID       RsrcID = "all_fail_over"
-	AllAclsRsrcID           RsrcID = "all_acls"
+	AllAclsRsrcID           RsrcID = "all_acl"
+	AllTagsRsrcID           RsrcID = "all_tag"
 )
 
 // Pre-Defined User Roles
@@ -116,8 +118,9 @@ type RsrcPermissionScope struct {
 
 type UserRolePermissionTemplate struct {
 	ID                  UserRoleID                                  `json:"id"`
-	UiName              string                                      `json:"ui_name"`
+	Name                string                                      `json:"name"`
 	Default             bool                                        `json:"default"`
+	MetaData            string                                      `json:"meta_data"`
 	DenyDashboardAccess bool                                        `json:"deny_dashboard_access"`
 	FullAccess          bool                                        `json:"full_access"`
 	NetworkID           NetworkID                                   `json:"network_id"`
@@ -132,22 +135,25 @@ type CreateGroupReq struct {
 
 type UserGroup struct {
 	ID           UserGroupID                           `json:"id"`
+	Default      bool                                  `json:"default"`
+	Name         string                                `json:"name"`
 	NetworkRoles map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
 	MetaData     string                                `json:"meta_data"`
 }
 
 // User struct - struct for Users
 type User struct {
-	UserName       string                                `json:"username" bson:"username" validate:"min=3,max=40,in_charset|email"`
-	Password       string                                `json:"password" bson:"password" validate:"required,min=5"`
-	IsAdmin        bool                                  `json:"isadmin" bson:"isadmin"` // deprecated
-	IsSuperAdmin   bool                                  `json:"issuperadmin"`           // deprecated
-	RemoteGwIDs    map[string]struct{}                   `json:"remote_gw_ids"`          // deprecated
-	AuthType       AuthType                              `json:"auth_type"`
-	UserGroups     map[UserGroupID]struct{}              `json:"user_group_ids"`
-	PlatformRoleID UserRoleID                            `json:"platform_role_id"`
-	NetworkRoles   map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
-	LastLoginTime  time.Time                             `json:"last_login_time"`
+	UserName                   string                                `json:"username" bson:"username" validate:"min=3,in_charset|email"`
+	ExternalIdentityProviderID string                                `json:"external_identity_provider_id"`
+	Password                   string                                `json:"password" bson:"password" validate:"required,min=5"`
+	IsAdmin                    bool                                  `json:"isadmin" bson:"isadmin"` // deprecated
+	IsSuperAdmin               bool                                  `json:"issuperadmin"`           // deprecated
+	RemoteGwIDs                map[string]struct{}                   `json:"remote_gw_ids"`          // deprecated
+	AuthType                   AuthType                              `json:"auth_type"`
+	UserGroups                 map[UserGroupID]struct{}              `json:"user_group_ids"`
+	PlatformRoleID             UserRoleID                            `json:"platform_role_id"`
+	NetworkRoles               map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
+	LastLoginTime              time.Time                             `json:"last_login_time"`
 }
 
 type ReturnUserWithRolesAndGroups struct {
@@ -176,8 +182,9 @@ type UserAuthParams struct {
 
 // UserClaims - user claims struct
 type UserClaims struct {
-	Role     UserRoleID
-	UserName string
+	Role           UserRoleID
+	UserName       string
+	RacAutoDisable bool
 	jwt.RegisteredClaims
 }
 

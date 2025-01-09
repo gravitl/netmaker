@@ -45,6 +45,16 @@ type UserRemoteGws struct {
 	NetworkAddresses  []string  `json:"network_addresses"`
 }
 
+// UserRAGs - struct for user access gws
+type UserRAGs struct {
+	GwID              string `json:"remote_access_gw_id"`
+	GWName            string `json:"gw_name"`
+	Network           string `json:"network"`
+	Connected         bool   `json:"connected"`
+	IsInternetGateway bool   `json:"is_internet_gateway"`
+	Metadata          string `json:"metadata"`
+}
+
 // UserRemoteGwsReq - struct to hold user remote acccess gws req
 type UserRemoteGwsReq struct {
 	RemoteAccessClientID string `json:"remote_access_clientid"`
@@ -163,9 +173,11 @@ type HostRelayRequest struct {
 
 // IngressRequest - ingress request struct
 type IngressRequest struct {
-	ExtclientDNS      string `json:"extclientdns"`
-	IsInternetGateway bool   `json:"is_internet_gw"`
-	Metadata          string `json:"metadata"`
+	ExtclientDNS        string `json:"extclientdns"`
+	IsInternetGateway   bool   `json:"is_internet_gw"`
+	Metadata            string `json:"metadata"`
+	PersistentKeepalive int32  `json:"persistentkeepalive"`
+	MTU                 int32  `json:"mtu"`
 }
 
 // InetNodeReq - exit node request struct
@@ -184,7 +196,7 @@ type ServerUpdateData struct {
 // also contains assymetrical encryption pub/priv keys for any server traffic
 type Telemetry struct {
 	UUID           string `json:"uuid" bson:"uuid"`
-	LastSend       int64  `json:"lastsend" bson:"lastsend"`
+	LastSend       int64  `json:"lastsend" bson:"lastsend" swaggertype:"primitive,integer" format:"int64"`
 	TrafficKeyPriv []byte `json:"traffickeypriv" bson:"traffickeypriv"`
 	TrafficKeyPub  []byte `json:"traffickeypub" bson:"traffickeypub"`
 }
@@ -254,6 +266,10 @@ type ServerConfig struct {
 	IsPro          bool   `yaml:"isee" json:"Is_EE"`
 	TrafficKey     []byte `yaml:"traffickey"`
 	MetricInterval string `yaml:"metric_interval"`
+	ManageDNS      bool   `yaml:"manage_dns"`
+	Stun           bool   `yaml:"stun"`
+	StunServers    string `yaml:"stun_servers"`
+	DefaultDomain  string `yaml:"default_domain"`
 }
 
 // User.NameInCharset - returns if name is in charset below or not
