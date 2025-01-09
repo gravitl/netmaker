@@ -167,8 +167,12 @@ configure_netclient() {
 	nmctl host update $HOST_ID --default
 	sleep 5
 	nmctl node create_remote_access_gateway netmaker $NODE_ID
-	
 	sleep 2
+	# set failover
+	if [ "$INSTALL_TYPE" = "pro" ]; then
+	    #setup failOver
+		curl --location --request POST "https://api.${NETMAKER_BASE_DOMAIN}/api/v1/node/${NODE_ID}/failover" --header "Authorization: Bearer ${MASTER_KEY}"
+	fi
 	set -e
 }
 
