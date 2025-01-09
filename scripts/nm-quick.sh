@@ -169,18 +169,6 @@ configure_netclient() {
 	nmctl node create_remote_access_gateway netmaker $NODE_ID
 	
 	sleep 2
-	# create network for internet access vpn
-	if [ "$INSTALL_TYPE" = "pro" ]; then
-	    #setup failOver
-		curl --location --request POST "https://api.${NETMAKER_BASE_DOMAIN}/api/v1/node/${NODE_ID}/failover" --header "Authorization: Bearer ${MASTER_KEY}"
-		INET_NODE_ID=$(sudo cat /etc/netclient/nodes.json | jq -r '."internet-access-vpn".id')
-		nmctl node create_remote_access_gateway internet-access-vpn $INET_NODE_ID
-		out=$(nmctl node list -o json | jq -r '.[] | select(.id=='\"$INET_NODE_ID\"') | .ingressdns = "8.8.8.8"')
-		curl --location --request PUT "https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/internet-access-vpn/${INET_NODE_ID}" --data "$out" --header "Authorization: Bearer ${MASTER_KEY}"
-		out=$(nmctl node list -o json | jq -r '.[] | select(.id=='\"$INET_NODE_ID\"') | .metadata = "This host can be used for secure internet access"')
-		curl --location --request PUT "https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/internet-access-vpn/${INET_NODE_ID}" --data "$out" --header "Authorization: Bearer ${MASTER_KEY}"
-		curl --location --request POST "https://api.${NETMAKER_BASE_DOMAIN}/api/nodes/internet-access-vpn/${INET_NODE_ID}/inet_gw" --data '{}' --header "Authorization: Bearer ${MASTER_KEY}"
-	fi
 	set -e
 }
 
@@ -705,7 +693,6 @@ setup_mesh() {
 	networks=$(nmctl network list -o json)
 	if [[ ${networks} != "null" ]]; then
 		netmakerNet=$(nmctl network list -o json | jq -r '.[] | .netid' | grep -w "netmaker")
-		inetNet=$(nmctl network list -o json | jq -r '.[] | .netid' | grep -w "internet-access-vpn")
 	fi
 	# create netmaker network
 	if [[ ${netmakerNet} = "" ]]; then
@@ -718,43 +705,10 @@ setup_mesh() {
 	if [[ ${netmakerTag} = "" ]]; then
 		nmctl enrollment_key create --tags netmaker --unlimited --networks netmaker
 	fi
-
-	# create internet-access-vpn
-	if [ "$INSTALL_TYPE" = "pro" ]; then
-		if [[ ${inetNet} = "" ]]; then
-			echo "Creating internet-access-vpn network (100.65.0.0/16)"
-			# TODO causes "Error Status: 400 Response: {"Code":400,"Message":"could not find any records"}"
-			nmctl network create --name internet-access-vpn --ipv4_addr 100.65.0.0/16
-		fi
-
-		# create enrollment key for internet-access-vpn network
-		local inetTag=$(nmctl enrollment_key list | jq -r '.[] | .tags[0]' | grep -w "internet-access-vpn")
-		if [[ ${inetTag} = "" ]]; then
-			nmctl enrollment_key create --tags internet-access-vpn --unlimited --networks internet-access-vpn
-		fi
-
-		# create enrollment key for both networks
-		local netInetTag=$(nmctl enrollment_key list | jq -r '.[] | .tags[0]' | grep -w "netmaker-inet")
-		if [[ ${netInetTag} = "" ]]; then
-			nmctl enrollment_key create --tags netmaker-inet --unlimited --networks netmaker,internet-access-vpn
-		fi
-	fi
-
-	if [ "$INSTALL_TYPE" = "pro" ]; then
-		# create enrollment key for both setup networks
-		echo "Obtaining enrollment key..."
-		# key exists already, fetch token
-		TOKEN=$(nmctl enrollment_key list | jq -r '.[] | select(.tags[0]=="netmaker-inet") | .token')
-		
-	else
-
-		echo "Obtaining enrollment key..."
-		# key exists already, fetch token
-		TOKEN=$(nmctl enrollment_key list | jq -r '.[] | select(.tags[0]=="netmaker") | .token')
-	fi
-	
+	echo "Obtaining enrollment key..."
+	# key exists already, fetch token
+	TOKEN=$(nmctl enrollment_key list | jq -r '.[] | select(.tags[0]=="netmaker") | .token')
 	wait_seconds 3
-
 }
 
 # print_success - prints a success message upon completion
