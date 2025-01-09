@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"flag"
 	"fmt"
 	"net"
@@ -12,6 +13,7 @@ import (
 	"runtime/debug"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/cilium/fake"
 	"github.com/google/uuid"
@@ -28,6 +30,7 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
 	_ "go.uber.org/automaxprocs"
+	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/exp/slog"
 )
 
@@ -140,32 +143,57 @@ func GenerateFakeData() {
 	if os.Getenv("GENERATE_FAKE") != "true" {
 		return
 	}
+	var network models.Network
+	network.NetID = "mock"
+	network.AddressRange = "10.0.0.0/8"
+
+	network.IsIPv4 = "yes"
+	logic.CreateNetwork(network)
+	//add new network to allocated ip map
+	go logic.AddNetworkToAllocatedIpMap(network.NetID)
+	pub, _, err := box.GenerateKey(rand.Reader)
+	if err != nil {
+		logger.FatalLog("error generating traffic keys", err.Error())
+	}
+	bytes, err := ncutils.ConvertKeyToBytes(pub)
+	if err != nil {
+		logger.FatalLog("error generating traffic keys", err.Error())
+	}
 	hosts, _ := logic.GetAllHosts()
-	for i := len(hosts); i <= 350; i++ {
+	for i := len(hosts); i <= 600; i++ {
 		h := models.Host{
-			ID:           uuid.New(),
-			Name:         fake.App(),
-			ListenPort:   51821,
-			HostPass:     fake.AlphaNum(8),
-			Version:      "0.24.3",
-			OS:           models.OS_Types.Linux,
-			EndpointIP:   net.ParseIP(fake.IP(fake.WithIPv4())),
-			EndpointIPv6: net.ParseIP(fake.IP(fake.WithIPv6())),
+			ID:               uuid.New(),
+			Name:             fake.App(),
+			ListenPort:       51821,
+			HostPass:         fake.AlphaNum(8),
+			Version:          version,
+			OS:               models.OS_Types.Linux,
+			EndpointIP:       net.ParseIP(fake.IP(fake.WithIPv4())),
+			EndpointIPv6:     net.ParseIP(fake.IP(fake.WithIPv6())),
+			TrafficKeyPublic: bytes,
 		}
 		logic.CreateHost(&h)
-		_, _ = logic.UpdateHostNetwork(&h, "netmaker", true)
+		_, _ = logic.UpdateHostNetwork(&h, network.NetID, true)
+		time.Sleep(time.Millisecond * 600)
 
 	}
-
-	nodes, _ := logic.GetNetworkNodes("devops")
+	var network2 models.Network
+	network2.NetID = "devops"
+	network2.AddressRange = "100.24.0.0/16"
+	network2.IsIPv4 = "yes"
+	logic.CreateNetwork(network2)
+	//add new network to allocated ip map
+	go logic.AddNetworkToAllocatedIpMap(network.NetID)
+	nodes, _ := logic.GetNetworkNodes(network2.NetID)
 	count := len(nodes)
 	hosts, _ = logic.GetAllHosts()
 	for _, hI := range hosts {
-		_, _ = logic.UpdateHostNetwork(&hI, "devops", true)
-		if count >= 60 {
+		_, _ = logic.UpdateHostNetwork(&hI, network2.NetID, true)
+		if count >= 200 {
 			break
 		}
 		count++
+		time.Sleep(time.Millisecond * 600)
 	}
 
 }
