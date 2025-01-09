@@ -655,6 +655,21 @@ func GetMqUserName() string {
 }
 
 // GetMetricInterval - get the publish metric interval
+func GetMetricIntervalInMinutes() time.Duration {
+	//default 15 minutes
+	mi := "15"
+	if os.Getenv("PUBLISH_METRIC_INTERVAL") != "" {
+		mi = os.Getenv("PUBLISH_METRIC_INTERVAL")
+	}
+	interval, err := strconv.Atoi(mi)
+	if err != nil {
+		interval = 15
+	}
+
+	return time.Duration(interval) * time.Minute
+}
+
+// GetMetricInterval - get the publish metric interval
 func GetMetricInterval() string {
 	//default 15 minutes
 	mi := "15"
