@@ -5,7 +5,6 @@ import (
 
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/servercfg"
 )
 
 func getNodeStatusOld(node *models.Node) {
@@ -27,14 +26,6 @@ func getNodeStatusOld(node *models.Node) {
 
 func GetNodeStatus(node *models.Node, defaultEnabledPolicy bool) {
 
-	if time.Since(node.LastCheckIn) > models.LastCheckInThreshold {
-		node.Status = models.OfflineSt
-		return
-	}
-	if time.Since(node.LastCheckIn) < servercfg.GetMetricIntervalInMinutes() {
-		node.Status = models.OnlineSt
-		return
-	}
 	if node.IsStatic {
 		if !node.StaticNode.Enabled {
 			node.Status = models.OfflineSt
@@ -56,6 +47,10 @@ func GetNodeStatus(node *models.Node, defaultEnabledPolicy bool) {
 			}
 		}
 		node.Status = models.UnKnown
+		return
+	}
+	if time.Since(node.LastCheckIn) > models.LastCheckInThreshold {
+		node.Status = models.OfflineSt
 		return
 	}
 	host, err := logic.GetHost(node.HostID.String())
@@ -195,13 +190,16 @@ func checkPeerConnectivity(node *models.Node, metrics *models.Metrics, defaultAc
 		peerNotConnectedCnt++
 
 	}
-	if peerNotConnectedCnt == 0 {
-		node.Status = models.OnlineSt
+	if peerNotConnectedCnt > len(metrics.Connectivity)/2 {
+		node.Status = models.WarningSt
 		return
 	}
+
 	if peerNotConnectedCnt == len(metrics.Connectivity) {
 		node.Status = models.ErrorSt
 		return
 	}
-	node.Status = models.WarningSt
+
+	node.Status = models.OnlineSt
+
 }
