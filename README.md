@@ -49,14 +49,14 @@
 
 # Try Netmaker SaaS  
 
-If you're looking for a managed service, you can get started with just few clicks, visit [netmaker.io](https://account.netmaker.io) to create your netmaker server.  
+If you're looking for a managed service, you can get started with just a few clicks, visit [netmaker.io](https://account.netmaker.io) to create your netmaker server.  
 
 # Self-Hosted Open Source Quick Start  
 
-These are the instructions for deploying a Netmaker server on your own cloud VM as quickly as possible. For more detailed instructions, visit the [Install Docs](https://docs.netmaker.io/docs/server-installation/quick-install#quick-install-script).  
+These are the instructions for deploying a Netmaker server on your cloud VM as quickly as possible. For more detailed instructions, visit the [Install Docs](https://docs.netmaker.io/docs/server-installation/quick-install#quick-install-script).  
 
-1. Get a cloud VM with Ubuntu 22.04 and a public IP.
-2. Open ports 443, 80, 3479, 8089 and 51821-51830/udp on the VM firewall and in cloud security settings.
+1. Get a cloud VM with Ubuntu 24.04 and a public IP.
+2. Allow inbound traffic on port 443 TCP and UDP to the VM firewall in cloud security settings, and for simplicity, allow outbound on All TCP and All UDP.
 3. (recommended) Prepare DNS - Set a wildcard subdomain in your DNS settings for Netmaker, e.g. *.netmaker.example.com, which points to your VM's public IP.
 4. Run the script to setup open source version of Netmaker: 
 
@@ -82,11 +82,11 @@ After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting
 
 # Why Netmaker + WireGuard?
 
-- Netmaker automates virtual networks between data centers, clouds, and edge devices, so you don't have to.
+- Netmaker automates virtual networks between data centres, clouds, and edge devices, so you don't have to.
 
 - Kernel WireGuard offers maximum speed, performance, and security. 
 
-- Netmaker is built to scale from the small business to the enterprise. 
+- Netmaker is built to scale from small businesses to enterprises. 
 
 - Netmaker with WireGuard can be highly customized for peer-to-peer, site-to-site, Kubernetes, and more.
 
