@@ -25,6 +25,8 @@ func hostHandlers(r *mux.Router) {
 		Methods(http.MethodPut)
 	r.HandleFunc("/api/hosts/sync", logic.SecurityCheck(true, http.HandlerFunc(syncHosts))).
 		Methods(http.MethodPost)
+	r.HandleFunc("/api/hosts/upgrade", logic.SecurityCheck(true, http.HandlerFunc(upgradeHosts))).
+		Methods(http.MethodPost)
 	r.HandleFunc("/api/hosts/{hostid}/keys", logic.SecurityCheck(true, http.HandlerFunc(updateKeys))).
 		Methods(http.MethodPut)
 	r.HandleFunc("/api/hosts/{hostid}/sync", logic.SecurityCheck(true, http.HandlerFunc(syncHost))).
@@ -49,6 +51,44 @@ func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/emqx/hosts", logic.SecurityCheck(true, http.HandlerFunc(delEmqxHosts))).
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/auth-register/host", socketHandler)
+}
+
+// @Summary     Requests all the hosts to upgrade their version
+// @Router      /api/hosts/upgrade [post]
+// @Tags        Hosts
+// @Security    oauth
+// @Success     200 {string} string "upgrade all hosts request received"
+func upgradeHosts(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	user := r.Header.Get("user")
+
+	go func() {
+		slog.Info("requesting all hosts to upgrade", "user", user)
+
+		hosts, err := logic.GetAllHosts()
+		if err != nil {
+			slog.Error("failed to retrieve all hosts", "user", user, "error", err)
+			return
+		}
+
+		for _, host := range hosts {
+			go func(host models.Host) {
+				hostUpdate := models.HostUpdate{
+					Action: models.Upgrade,
+					Host:   host,
+				}
+				if err = mq.HostUpdate(&hostUpdate); err != nil {
+					slog.Error("failed to request host to upgrade", "user", user, "host", host.ID.String(), "error", err)
+				} else {
+					slog.Info("host upgrade requested", "user", user, "host", host.ID.String())
+				}
+			}(host)
+		}
+	}()
+
+	slog.Info("upgrade all hosts request received", "user", user)
+	logic.ReturnSuccessResponse(w, r, "upgrade all hosts request received")
 }
 
 // @Summary     Upgrade a host
