@@ -23,6 +23,8 @@ func hostHandlers(r *mux.Router) {
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/hosts/keys", logic.SecurityCheck(true, http.HandlerFunc(updateAllKeys))).
 		Methods(http.MethodPut)
+	r.HandleFunc("/api/hosts/sync", logic.SecurityCheck(true, http.HandlerFunc(syncHosts))).
+		Methods(http.MethodPost)
 	r.HandleFunc("/api/hosts/{hostid}/keys", logic.SecurityCheck(true, http.HandlerFunc(updateKeys))).
 		Methods(http.MethodPut)
 	r.HandleFunc("/api/hosts/{hostid}/sync", logic.SecurityCheck(true, http.HandlerFunc(syncHost))).
@@ -855,6 +857,44 @@ func updateKeys(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// @Summary     Requests all the hosts to pull
+// @Router      /api/hosts/sync [post]
+// @Tags        Hosts
+// @Security    oauth
+// @Success     200 {string} string "sync all hosts request received"
+func syncHosts(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	user := r.Header.Get("user")
+
+	go func() {
+		slog.Info("requesting all hosts to sync", "user", user)
+
+		hosts, err := logic.GetAllHosts()
+		if err != nil {
+			slog.Error("failed to retrieve all hosts", "user", user, "error", err)
+			return
+		}
+
+		for _, host := range hosts {
+			go func(host models.Host) {
+				hostUpdate := models.HostUpdate{
+					Action: models.RequestPull,
+					Host:   host,
+				}
+				if err = mq.HostUpdate(&hostUpdate); err != nil {
+					slog.Error("failed to request host to sync", "user", user, "host", host.ID.String(), "error", err)
+				} else {
+					slog.Info("host sync requested", "user", user, "host", host.ID.String())
+				}
+			}(host)
+		}
+	}()
+
+	slog.Info("sync all hosts request received", "user", user)
+	logic.ReturnSuccessResponse(w, r, "sync all hosts request received")
+}
+
 // @Summary     Requests a host to pull
 // @Router      /api/hosts/{hostid}/sync [post]
 // @Tags        Hosts
@@ -887,7 +927,7 @@ func syncHost(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	slog.Info("requested host pull", "user", r.Header.Get("user"), "host", host.ID)
+	slog.Info("requested host pull", "user", r.Header.Get("user"), "host", host.ID.String())
 	w.WriteHeader(http.StatusOK)
 }
 
