@@ -57,9 +57,16 @@ func hostHandlers(r *mux.Router) {
 // @Router      /api/hosts/upgrade [post]
 // @Tags        Hosts
 // @Security    oauth
+// @Param       force query bool false "Force upgrade"
 // @Success     200 {string} string "upgrade all hosts request received"
 func upgradeHosts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+
+	action := models.Upgrade
+
+	if r.URL.Query().Get("force") == "true" {
+		action = models.ForceUpgrade
+	}
 
 	user := r.Header.Get("user")
 
@@ -75,7 +82,7 @@ func upgradeHosts(w http.ResponseWriter, r *http.Request) {
 		for _, host := range hosts {
 			go func(host models.Host) {
 				hostUpdate := models.HostUpdate{
-					Action: models.Upgrade,
+					Action: action,
 					Host:   host,
 				}
 				if err = mq.HostUpdate(&hostUpdate); err != nil {
@@ -96,6 +103,7 @@ func upgradeHosts(w http.ResponseWriter, r *http.Request) {
 // @Tags        Hosts
 // @Security    oauth
 // @Param       hostid path string true "Host ID"
+// @Param       force query bool false "Force upgrade"
 // @Success     200 {string} string "passed message to upgrade host"
 // @Failure     500 {object} models.ErrorResponse
 // upgrade host is a handler to send upgrade message to a host
@@ -106,7 +114,14 @@ func upgradeHost(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "notfound"))
 		return
 	}
-	if err := mq.HostUpdate(&models.HostUpdate{Action: models.Upgrade, Host: *host}); err != nil {
+
+	action := models.Upgrade
+
+	if r.URL.Query().Get("force") == "true" {
+		action = models.ForceUpgrade
+	}
+
+	if err := mq.HostUpdate(&models.HostUpdate{Action: action, Host: *host}); err != nil {
 		slog.Error("failed to upgrade host", "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
