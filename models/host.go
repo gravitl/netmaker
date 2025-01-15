@@ -120,6 +120,8 @@ const (
 	SignalPull HostMqAction = "SIGNAL_PULL"
 	// UpdateMetrics - updates metrics data
 	UpdateMetrics HostMqAction = "UPDATE_METRICS"
+	// PeerConnFailOverAck - peer connection failover ack
+	PeerConnFailOverAck HostMqAction = "PEER_FAILOVER_ACK"
 )
 
 // SignalAction - turn peer signal action

@@ -2,10 +2,12 @@ package logic
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -186,4 +188,15 @@ func CreateFailOver(node models.Node) error {
 		return err
 	}
 	return nil
+}
+
+// DoesFailoverAckExists - checks if ack with this id exists
+func DoesFailoverAckExists(id string) bool {
+	_, err := database.FetchRecord(database.PEER_ACK_TABLE, id)
+	return err == nil
+}
+
+// RegisterFailOverAck - registers failover ack signal
+func RegisterFailOverAck(nodeid, peerid string) error {
+	return database.Insert(fmt.Sprintf("%s-%s", nodeid, peerid), "true", database.PEER_ACK_TABLE)
 }

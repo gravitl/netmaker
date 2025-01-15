@@ -29,6 +29,9 @@ func FailOverHandlers(r *mux.Router) {
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/node/{nodeid}/failover_me", controller.Authorize(true, false, "host", http.HandlerFunc(failOverME))).
 		Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/node/{nodeid}/register_ack/peer/{peerid}",
+		controller.Authorize(true, false, "host", http.HandlerFunc(registerFailoverAck))).
+		Methods(http.MethodPost)
 }
 
 // @Summary     Get failover node
@@ -267,6 +270,157 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = proLogic.SetFailOverCtx(failOverNode, node, peerNode)
+	if err != nil {
+		slog.Error("failed to create failover", "id", node.ID.String(),
+			"network", node.Network, "error", err)
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(fmt.Errorf("failed to create failover: %v", err), "internal"),
+		)
+		return
+	}
+	slog.Info(
+		"[auto-relay] created relay on node",
+		"node",
+		node.ID.String(),
+		"network",
+		node.Network,
+	)
+	sendPeerUpdate = true
+
+	if sendPeerUpdate {
+		go mq.PublishPeerUpdate(false)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	logic.ReturnSuccessResponse(w, r, "relayed successfully")
+}
+
+// @Summary     Register Failover Ack
+// @Router      /api/v1/node/{nodeid}/register_ack/peer/{peerid} [post]
+// @Tags        PRO
+// @Param       nodeid path string true "Node ID"
+// @Param       peerid path string true "Peer ID"
+// @Accept      json
+// @Param       body body models.FailOverMeReq true "Failover request"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func registerFailoverAck(w http.ResponseWriter, r *http.Request) {
+	var params = mux.Vars(r)
+	nodeid := params["nodeid"]
+	peerid := params["peerid"]
+
+	// confirm node exists
+	node, err := logic.GetNodeByID(nodeid)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to get node:", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	failOverNode, exists := proLogic.FailOverExists(node.Network)
+	if !exists {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				fmt.Errorf("failover node doesn't exist in the network %s", node.Network),
+				"badrequest",
+			),
+		)
+		return
+	}
+	// confirm peer exists
+	peer, err := logic.GetNodeByID(peerid)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to get node:", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	var sendPeerUpdate bool
+	if peer.IsFailOver {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("peer is acting as failover"), "badrequest"),
+		)
+		return
+	}
+	if node.IsFailOver {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("node is acting as failover"), "badrequest"),
+		)
+		return
+	}
+	if peer.IsFailOver {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("peer is acting as failover"), "badrequest"),
+		)
+		return
+	}
+	if node.IsRelayed && node.RelayedBy == peer.ID.String() {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("node is relayed by peer node"), "badrequest"),
+		)
+		return
+	}
+	if node.IsRelay && peer.RelayedBy == node.ID.String() {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("node acting as relay for the peer node"), "badrequest"),
+		)
+		return
+	}
+	if node.IsInternetGateway && peer.InternetGwID == node.ID.String() {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				errors.New("node acting as internet gw for the peer node"),
+				"badrequest",
+			),
+		)
+		return
+	}
+	if node.InternetGwID != "" && node.InternetGwID == peer.ID.String() {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				errors.New("node using a internet gw by the peer node"),
+				"badrequest",
+			),
+		)
+		return
+	}
+	// set failover ack
+	err = proLogic.RegisterFailOverAck(nodeid, peerid)
+	if err != nil {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				err,
+				"internal",
+			),
+		)
+	}
+	// check if both ack-exists
+	ack1exists := proLogic.DoesFailoverAckExists(fmt.Sprintln("%s_%s", nodeid, peerid))
+	ack2exists := proLogic.DoesFailoverAckExists(fmt.Sprintln("%s_%s", peerid, nodeid))
+	if !ack1exists || !ack2exists {
+		return
+	}
+	err = proLogic.SetFailOverCtx(failOverNode, node, peer)
 	if err != nil {
 		slog.Error("failed to create failover", "id", node.ID.String(),
 			"network", node.Network, "error", err)

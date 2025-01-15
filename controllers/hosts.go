@@ -335,6 +335,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 
 	case models.UpdateMetrics:
 		mq.UpdateMetricsFallBack(hostUpdate.Node.ID.String(), hostUpdate.NewMetrics)
+
 	}
 
 	if sendPeerUpdate {
