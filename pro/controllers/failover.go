@@ -415,8 +415,8 @@ func registerFailoverAck(w http.ResponseWriter, r *http.Request) {
 		)
 	}
 	// check if both ack-exists
-	ack1exists := proLogic.DoesFailoverAckExists(fmt.Sprintln("%s_%s", nodeid, peerid))
-	ack2exists := proLogic.DoesFailoverAckExists(fmt.Sprintln("%s_%s", peerid, nodeid))
+	ack1exists := proLogic.DoesFailoverAckExists(fmt.Sprintf("%s_%s", nodeid, peerid))
+	ack2exists := proLogic.DoesFailoverAckExists(fmt.Sprintf("%s_%s", peerid, nodeid))
 	if !ack1exists || !ack2exists {
 		return
 	}
