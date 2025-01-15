@@ -14,11 +14,12 @@ import (
 type NodeStatus string
 
 const (
-	OnlineSt  NodeStatus = "online"
-	OfflineSt NodeStatus = "offline"
-	WarningSt NodeStatus = "warning"
-	ErrorSt   NodeStatus = "error"
-	UnKnown   NodeStatus = "unknown"
+	OnlineSt     NodeStatus = "online"
+	OfflineSt    NodeStatus = "offline"
+	WarningSt    NodeStatus = "warning"
+	ErrorSt      NodeStatus = "error"
+	UnKnown      NodeStatus = "unknown"
+	RestrictedSt NodeStatus = "restricted"
 )
 
 // LastCheckInThreshold - if node's checkin more than this threshold,then node is declared as offline
