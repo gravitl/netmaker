@@ -209,7 +209,7 @@ wait_seconds() { (
 ); }
 
 # Function to check if any public IP is bound to the network interfaces
-has_public_ip() {
+has_public_ip_on_interface() {
     for interface in $(ip -o link show | awk -F': ' '{print $2}'); do
         # Get the IP address of the interface
         ip=$(ip -o -f inet addr show $interface | awk '{print $4}' | cut -d'/' -f1)
