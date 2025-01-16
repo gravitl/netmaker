@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
@@ -15,6 +16,13 @@ import (
 )
 
 var failOverCtxMutex = &sync.RWMutex{}
+
+func AddFailOverHook() {
+	logic.HookManagerCh <- models.HookDetails{
+		Hook:     FailOverCleanUpHook,
+		Interval: time.Minute * 5,
+	}
+}
 
 func SetFailOverCtx(failOverNode, victimNode, peerNode models.Node) error {
 	failOverCtxMutex.Lock()
@@ -192,11 +200,42 @@ func CreateFailOver(node models.Node) error {
 
 // DoesFailoverAckExists - checks if ack with this id exists
 func DoesFailoverAckExists(id string) bool {
+	failOverCtxMutex.Lock()
+	defer failOverCtxMutex.Unlock()
 	_, err := database.FetchRecord(database.PEER_ACK_TABLE, id)
 	return err == nil
 }
 
 // RegisterFailOverAck - registers failover ack signal
 func RegisterFailOverAck(nodeid, peerid string) error {
-	return database.Insert(fmt.Sprintf("%s-%s", nodeid, peerid), "true", database.PEER_ACK_TABLE)
+	failOverCtxMutex.Lock()
+	defer failOverCtxMutex.Unlock()
+	return database.Insert(fmt.Sprintf("%s-%s", nodeid, peerid), time.Now().String(), database.PEER_ACK_TABLE)
+}
+
+// DeRegisterFailOverAck - removes the peer and node acks from DB
+func DeRegisterFailOverAck(nodeid, peerid string) {
+	failOverCtxMutex.Lock()
+	defer failOverCtxMutex.Unlock()
+	database.DeleteRecord(fmt.Sprintf("%s-%s", nodeid, peerid), database.PEER_ACK_TABLE)
+	database.DeleteRecord(fmt.Sprintf("%s-%s", peerid, nodeid), database.PEER_ACK_TABLE)
+}
+
+func FailOverCleanUpHook() error {
+	failOverCtxMutex.Lock()
+	defer failOverCtxMutex.Unlock()
+	data, err := database.FetchRecords(database.PEER_ACK_TABLE)
+	if err != nil {
+		return err
+	}
+	for key, value := range data {
+		parsedTime, err := time.Parse("2006-01-02 15:04:05", value)
+		if err != nil {
+			continue
+		}
+		if time.Since(parsedTime) > time.Minute*5 {
+			database.DeleteRecord(key, database.PEER_ACK_TABLE)
+		}
+	}
+	return nil
 }

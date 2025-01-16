@@ -83,6 +83,7 @@ func InitPro() {
 		if servercfg.GetServerConfig().RacAutoDisable {
 			AddRacHooks()
 		}
+		proLogic.AddFailOverHook()
 
 		var authProvider = auth.InitializeAuthProvider()
 		if authProvider != "" {

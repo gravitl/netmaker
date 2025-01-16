@@ -441,7 +441,11 @@ func registerFailoverAck(w http.ResponseWriter, r *http.Request) {
 	sendPeerUpdate = true
 
 	if sendPeerUpdate {
-		go mq.PublishPeerUpdate(false)
+		go func() {
+			mq.PublishPeerUpdate(false)
+			// delete ACK
+			proLogic.DeRegisterFailOverAck(nodeid, peerid)
+		}()
 	}
 
 	w.Header().Set("Content-Type", "application/json")
