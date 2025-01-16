@@ -210,18 +210,28 @@ wait_seconds() { (
 
 # Function to check if any public IP is bound to the network interfaces
 has_public_ip_on_interface() {
+       # Iterate over all interfaces
     for interface in $(ip -o link show | awk -F': ' '{print $2}'); do
-        # Get the IP address of the interface
-        ip1=$(ip -o -f inet addr show $interface | awk '{print $4}' | cut -d'/' -f1)
-        
-        if [[ -n $ip1 ]]; then
-            # Use a service to check if the IP is public
-			if [[ "$ip1" == "$SERVER_HOST" ]]; then
-    			return 0
-			fi
+        # Skip loopback and virtual interfaces
+        if [[ "$interface" == "lo" || "$interface" == "docker"* || "$interface" == "br-"* ]]; then
+            continue
         fi
+
+        # Get all IPv4 addresses for the interface
+        ip_list=$(ip -o -f inet addr show "$interface" | awk '{print $4}' | cut -d'/' -f1)
+
+        # Check each IP
+        for ip in $ip_list; do
+            echo "Checking interface $interface with IP $ip against SERVER_HOST $SERVER_HOST"
+
+            # Normalize IPs (if needed)
+            if [[ "$ip" == "$SERVER_HOST" ]]; then
+                return 0
+            fi
+        done
     done
-    return 1  # No public IP found
+
+    return 1
 }
 
 # confirm - get user input to confirm that they want to perform the next step
@@ -648,6 +658,7 @@ install_netmaker() {
 	if has_public_ip_on_interface; then
     	echo "public IP $SERVER_HOST is bound to the network interfaces."
 	else
+		echo "public IP is not bound to network interfaces"
     	yq e "(.services.*.ports[] | select(. == \"$SERVER_HOST:80:80/tcp\")) = \"80:80/tcp\"" -i "$SCRIPT_DIR"/docker-compose.yml
 		yq e "(.services.*.ports[] | select(. == \"$SERVER_HOST:443:443/tcp\")) = \"443:443/tcp\"" -i "$SCRIPT_DIR"/docker-compose.yml
 	fi
