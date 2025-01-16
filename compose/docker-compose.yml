@@ -52,11 +52,8 @@ services:
       - caddy_data:/data
       - caddy_conf:/config
     ports:
-      - "$SERVER_HOST:80:80/tcp"
-      - "$SERVER_HOST:443:443/tcp"
-    #uncomment to enable IPv6 communication
-     # - "$SERVER_HOST6:80:80/tcp"
-     # - "$SERVER_HOST6:443:443/tcp"
+      - "80:80"
+      - "443:443"
 
   coredns:
     #network_mode: host
