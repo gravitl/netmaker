@@ -143,6 +143,8 @@ func deletefailOver(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	// delete network failover from cache
+	proLogic.DeleteFailOverFromCache(node.Network)
 	go func() {
 		proLogic.ResetFailOver(&node)
 		mq.PublishPeerUpdate(false)

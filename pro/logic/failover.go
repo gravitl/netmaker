@@ -15,6 +15,8 @@ import (
 	"golang.org/x/exp/slog"
 )
 
+var failOverCache = make(map[string]string)
+var failOverCacheMutex = &sync.RWMutex{}
 var failOverCtxMutex = &sync.RWMutex{}
 
 func AddFailOverHook() {
@@ -49,31 +51,35 @@ func SetFailOverCtx(failOverNode, victimNode, peerNode models.Node) error {
 	return nil
 }
 
-// GetFailOverNode - gets the host acting as failOver
-func GetFailOverNode(network string, allNodes []models.Node) (models.Node, error) {
-	nodes := logic.GetNetworkNodesMemory(allNodes, network)
-	for _, node := range nodes {
-		if node.IsFailOver {
-			return node, nil
-		}
-	}
-	return models.Node{}, errors.New("auto relay not found")
-}
-
 // FailOverExists - checks if failOver exists already in the network
 func FailOverExists(network string) (failOverNode models.Node, exists bool) {
-	nodes, err := logic.GetNetworkNodes(network)
-	if err != nil {
-		return
-	}
-	for _, node := range nodes {
-		if node.IsFailOver {
-			exists = true
-			failOverNode = node
-			return
+	return GetFailOverFromCache(network)
+}
+
+func GetFailOverFromCache(network string) (node models.Node, exixts bool) {
+	failOverCacheMutex.RLock()
+	defer failOverCacheMutex.RUnlock()
+	if nodeid, ok := failOverCache[network]; ok {
+		failOverNode, err := logic.GetNodeByID(nodeid)
+		if err != nil {
+			delete(failOverCache, network)
+			return models.Node{}, false
 		}
+		return failOverNode, true
 	}
 	return
+}
+
+func DeleteFailOverFromCache(network string) {
+	failOverCacheMutex.Lock()
+	defer failOverCacheMutex.Unlock()
+	delete(failOverCache, network)
+}
+
+func StoreFailoverInCache(network, nodeId string) {
+	failOverCacheMutex.Lock()
+	defer failOverCacheMutex.Unlock()
+	failOverCache[network] = nodeId
 }
 
 // ResetFailedOverPeer - removes failed over node from network peers
@@ -195,6 +201,7 @@ func CreateFailOver(node models.Node) error {
 		slog.Error("failed to upsert node", "node", node.ID.String(), "error", err)
 		return err
 	}
+	StoreFailoverInCache(node.Network, node.ID.String())
 	return nil
 }
 
