@@ -259,7 +259,7 @@ func CheckIDSyntax(id string) error {
 	if len(id) < 3 {
 		return errors.New("name should have min 3 characters")
 	}
-	reg, err := regexp.Compile("^[a-zA-Z-]+$")
+	reg, err := regexp.Compile("^[a-zA-Z0-9- ]+$")
 	if err != nil {
 		return err
 	}
