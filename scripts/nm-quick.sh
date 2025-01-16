@@ -208,6 +208,22 @@ wait_seconds() { (
 	done
 ); }
 
+# Function to check if any public IP is bound to the network interfaces
+has_public_ip() {
+    for interface in $(ip -o link show | awk -F': ' '{print $2}'); do
+        # Get the IP address of the interface
+        ip=$(ip -o -f inet addr show $interface | awk '{print $4}' | cut -d'/' -f1)
+        
+        if [[ -n $ip ]]; then
+            # Use a service to check if the IP is public
+			if [[ "$ip1" == "$ip2" ]]; then
+    			return 0
+			fi
+        fi
+    done
+    return 1  # No public IP found
+}
+
 # confirm - get user input to confirm that they want to perform the next step
 confirm() { (
 	while true; do
@@ -628,7 +644,13 @@ install_netmaker() {
 		rm -f "$SCRIPT_DIR"/docker-compose.override.yml
 	fi
 	wget -qO "$SCRIPT_DIR"/docker-compose.yml $COMPOSE_URL
-
+	# check if machine has public IP bound to it
+	if has_public_ip_on_interface; then
+    	echo "public IP $SERVER_HOST is bound to the network interfaces."
+	else
+    	yq e "(.services.*.ports[] | select(. == \"$SERVER_HOST:80:80/tcp\")) = \"80:80/tcp\"" -i "$SCRIPT_DIR"/docker-compose.yml
+		yq e "(.services.*.ports[] | select(. == \"$SERVER_HOST:443:443/tcp\")) = \"443:443/tcp\"" -i "$SCRIPT_DIR"/docker-compose.yml
+	fi
 	wget -qO "$SCRIPT_DIR"/Caddyfile "$CADDY_URL"
 	wget -qO "$SCRIPT_DIR"/netmaker.default.env "$BASE_URL/scripts/netmaker.default.env"
 	wget -qO "$SCRIPT_DIR"/mosquitto.conf "$BASE_URL/docker/mosquitto.conf"
