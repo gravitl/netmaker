@@ -400,6 +400,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
+	network := params["network"]
 
 	ingressExists := checkIngressExists(nodeid)
 	if !ingressExists {
@@ -413,7 +414,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if err := validateCustomExtClient(&customExtClient, true); err != nil {
+	if err := validateCustomExtClient(&customExtClient, true, network); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -570,6 +571,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	clientid := params["clientid"]
+	network := params["network"]
 	oldExtClient, err := logic.GetExtClientByName(clientid)
 	if err != nil {
 		slog.Error(
@@ -585,12 +587,12 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if oldExtClient.ClientID == update.ClientID {
-		if err := validateCustomExtClient(&update, false); err != nil {
+		if err := validateCustomExtClient(&update, false, ""); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
 	} else {
-		if err := validateCustomExtClient(&update, true); err != nil {
+		if err := validateCustomExtClient(&update, true, network); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
@@ -767,7 +769,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 }
 
 // validateCustomExtClient	Validates the extclient object
-func validateCustomExtClient(customExtClient *models.CustomExtClient, checkID bool) error {
+func validateCustomExtClient(customExtClient *models.CustomExtClient, checkID bool, network string) error {
 	v := validator.New()
 	err := v.Struct(customExtClient)
 	if err != nil {
@@ -775,7 +777,7 @@ func validateCustomExtClient(customExtClient *models.CustomExtClient, checkID bo
 	}
 	//validate clientid
 	if customExtClient.ClientID != "" {
-		if err := isValid(customExtClient.ClientID, checkID); err != nil {
+		if err := isValid(customExtClient.ClientID, checkID, network); err != nil {
 			return fmt.Errorf("client validation: %v", err)
 		}
 	}
@@ -806,12 +808,12 @@ func validateCustomExtClient(customExtClient *models.CustomExtClient, checkID bo
 }
 
 // isValid	Checks if the clientid is valid
-func isValid(clientid string, checkID bool) error {
+func isValid(clientid string, checkID bool, network string) error {
 	if !validName(clientid) {
 		return errInvalidExtClientID
 	}
-	if checkID {
-		extclients, err := logic.GetAllExtClients()
+	if checkID && network != "" {
+		extclients, err := logic.GetNetworkExtClients(network)
 		if err != nil {
 			return fmt.Errorf("extclients isValid: %v", err)
 		}
