@@ -212,11 +212,11 @@ wait_seconds() { (
 has_public_ip_on_interface() {
     for interface in $(ip -o link show | awk -F': ' '{print $2}'); do
         # Get the IP address of the interface
-        ip=$(ip -o -f inet addr show $interface | awk '{print $4}' | cut -d'/' -f1)
+        ip1=$(ip -o -f inet addr show $interface | awk '{print $4}' | cut -d'/' -f1)
         
-        if [[ -n $ip ]]; then
+        if [[ -n $ip1 ]]; then
             # Use a service to check if the IP is public
-			if [[ "$ip1" == "$ip2" ]]; then
+			if [[ "$ip1" == "$SERVER_HOST" ]]; then
     			return 0
 			fi
         fi
