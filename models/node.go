@@ -19,7 +19,7 @@ const (
 	WarningSt    NodeStatus = "warning"
 	ErrorSt      NodeStatus = "error"
 	UnKnown      NodeStatus = "unknown"
-	RestrictedSt NodeStatus = "restricted"
+	Disconnected NodeStatus = "disconnected"
 )
 
 // LastCheckInThreshold - if node's checkin more than this threshold,then node is declared as offline

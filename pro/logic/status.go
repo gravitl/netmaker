@@ -17,6 +17,10 @@ func getNodeStatusOld(node *models.Node) {
 		node.Status = models.OnlineSt
 		return
 	}
+	if !node.Connected {
+		node.Status = models.Disconnected
+		return
+	}
 	if time.Since(node.LastCheckIn) > time.Minute*10 {
 		node.Status = models.OfflineSt
 		return
@@ -39,7 +43,7 @@ func GetNodeStatus(node *models.Node, defaultEnabledPolicy bool) {
 		if !defaultEnabledPolicy {
 			allowed, _ := logic.IsNodeAllowedToCommunicate(*node, ingNode, false)
 			if !allowed {
-				node.Status = models.RestrictedSt
+				node.Status = models.OnlineSt
 				return
 			}
 		}
@@ -61,6 +65,10 @@ func GetNodeStatus(node *models.Node, defaultEnabledPolicy bool) {
 		}
 
 		node.Status = models.UnKnown
+		return
+	}
+	if !node.Connected {
+		node.Status = models.Disconnected
 		return
 	}
 	if time.Since(node.LastCheckIn) > models.LastCheckInThreshold {
@@ -184,7 +192,6 @@ func checkPeerStatus(node *models.Node, defaultAclPolicy bool) {
 
 func checkPeerConnectivity(node *models.Node, metrics *models.Metrics, defaultAclPolicy bool) {
 	peerNotConnectedCnt := 0
-	peerNotAllowed := 0
 	for peerID, metric := range metrics.Connectivity {
 		peer, err := logic.GetNodeByID(peerID)
 		if err != nil {
@@ -194,7 +201,6 @@ func checkPeerConnectivity(node *models.Node, metrics *models.Metrics, defaultAc
 		if !defaultAclPolicy {
 			allowed, _ := logic.IsNodeAllowedToCommunicate(*node, peer, false)
 			if !allowed {
-				peerNotAllowed++
 				continue
 			}
 		}
@@ -213,10 +219,7 @@ func checkPeerConnectivity(node *models.Node, metrics *models.Metrics, defaultAc
 		peerNotConnectedCnt++
 
 	}
-	if peerNotAllowed == len(metrics.Connectivity) {
-		node.Status = models.RestrictedSt
-		return
-	}
+
 	if peerNotConnectedCnt > len(metrics.Connectivity)/2 {
 		node.Status = models.WarningSt
 		return
