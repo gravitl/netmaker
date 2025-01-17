@@ -141,6 +141,7 @@ func GetServerInfo() models.ServerConfig {
 	cfg.Version = GetVersion()
 	cfg.IsPro = IsPro
 	cfg.MetricInterval = GetMetricInterval()
+	cfg.MetricsPort = GetMetricsPort()
 	cfg.ManageDNS = GetManageDNS()
 	cfg.Stun = IsStunEnabled()
 	cfg.StunServers = GetStunServers()
@@ -652,6 +653,19 @@ func GetMqUserName() string {
 		password = config.Config.Server.MQUserName
 	}
 	return password
+}
+
+// GetMetricsPort - get metrics port
+func GetMetricsPort() int {
+	p := 51821
+	if os.Getenv("METRICS_PORT") != "" {
+		pStr := os.Getenv("METRICS_PORT")
+		pInt, err := strconv.Atoi(pStr)
+		if err == nil {
+			p = pInt
+		}
+	}
+	return p
 }
 
 // GetMetricInterval - get the publish metric interval

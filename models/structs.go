@@ -266,6 +266,7 @@ type ServerConfig struct {
 	IsPro          bool   `yaml:"isee" json:"Is_EE"`
 	TrafficKey     []byte `yaml:"traffickey"`
 	MetricInterval string `yaml:"metric_interval"`
+	MetricsPort    int    `yaml:"metrics_port"`
 	ManageDNS      bool   `yaml:"manage_dns"`
 	Stun           bool   `yaml:"stun"`
 	StunServers    string `yaml:"stun_servers"`
