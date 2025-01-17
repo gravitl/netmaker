@@ -267,7 +267,7 @@ func IsAclPolicyValid(acl models.Acl) bool {
 			if dstI.ID == "" || dstI.Value == "" {
 				return false
 			}
-			if dstI.ID != models.DeviceAclID {
+			if dstI.ID != models.DeviceAclID && dstI.ID != models.DeviceID {
 				return false
 			}
 			if dstI.Value == "*" {
@@ -284,7 +284,7 @@ func IsAclPolicyValid(acl models.Acl) bool {
 			if srcI.ID == "" || srcI.Value == "" {
 				return false
 			}
-			if srcI.ID != models.DeviceAclID {
+			if srcI.ID != models.DeviceAclID && srcI.ID != models.DeviceID {
 				return false
 			}
 			if srcI.Value == "*" {
@@ -301,7 +301,7 @@ func IsAclPolicyValid(acl models.Acl) bool {
 			if dstI.ID == "" || dstI.Value == "" {
 				return false
 			}
-			if dstI.ID != models.DeviceAclID {
+			if dstI.ID != models.DeviceAclID && dstI.ID != models.DeviceID {
 				return false
 			}
 			if dstI.Value == "*" {
