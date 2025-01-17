@@ -56,7 +56,7 @@ If you're looking for a managed service, you can get started with just a few cli
 These are the instructions for deploying a Netmaker server on your cloud VM as quickly as possible. For more detailed instructions, visit the [Install Docs](https://docs.netmaker.io/docs/server-installation/quick-install#quick-install-script).  
 
 1. Get a cloud VM with Ubuntu 24.04 and a static public IP.
-2. Allow inbound traffic on port 443 TCP and UDP to the VM firewall in cloud security settings, and for simplicity, allow outbound on All TCP and All UDP.
+2. Allow inbound traffic on port 443,51821 TCP and UDP to the VM firewall in cloud security settings, and for simplicity, allow outbound on All TCP and All UDP.
 3. (recommended) Prepare DNS - Set a wildcard subdomain in your DNS settings for Netmaker, e.g. *.netmaker.example.com, which points to your VM's public IP.
 4. Run the script to setup open source version of Netmaker: 
 
