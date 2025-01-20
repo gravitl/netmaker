@@ -50,12 +50,12 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 			RuleType:    models.DevicePolicy,
 			Src: []models.AclPolicyTag{
 				{
-					ID:    models.DeviceAclID,
+					ID:    models.NodeTagID,
 					Value: "*",
 				}},
 			Dst: []models.AclPolicyTag{
 				{
-					ID:    models.DeviceAclID,
+					ID:    models.NodeTagID,
 					Value: "*",
 				}},
 			AllowedDirection: models.TrafficDirectionBi,
@@ -83,7 +83,7 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 				},
 			},
 			Dst: []models.AclPolicyTag{{
-				ID:    models.DeviceAclID,
+				ID:    models.NodeTagID,
 				Value: "*",
 			}},
 			AllowedDirection: models.TrafficDirectionUni,
@@ -106,13 +106,13 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 			RuleType:    models.DevicePolicy,
 			Src: []models.AclPolicyTag{
 				{
-					ID:    models.DeviceAclID,
+					ID:    models.NodeTagID,
 					Value: fmt.Sprintf("%s.%s", netID, models.RemoteAccessTagName),
 				},
 			},
 			Dst: []models.AclPolicyTag{
 				{
-					ID:    models.DeviceAclID,
+					ID:    models.NodeTagID,
 					Value: "*",
 				},
 			},
@@ -267,7 +267,7 @@ func IsAclPolicyValid(acl models.Acl) bool {
 			if dstI.ID == "" || dstI.Value == "" {
 				return false
 			}
-			if dstI.ID != models.DeviceAclID && dstI.ID != models.DeviceID {
+			if dstI.ID != models.NodeTagID && dstI.ID != models.NodeID {
 				return false
 			}
 			if dstI.Value == "*" {
@@ -284,7 +284,7 @@ func IsAclPolicyValid(acl models.Acl) bool {
 			if srcI.ID == "" || srcI.Value == "" {
 				return false
 			}
-			if srcI.ID != models.DeviceAclID && srcI.ID != models.DeviceID {
+			if srcI.ID != models.NodeTagID && srcI.ID != models.NodeID {
 				return false
 			}
 			if srcI.Value == "*" {
@@ -301,7 +301,7 @@ func IsAclPolicyValid(acl models.Acl) bool {
 			if dstI.ID == "" || dstI.Value == "" {
 				return false
 			}
-			if dstI.ID != models.DeviceAclID && dstI.ID != models.DeviceID {
+			if dstI.ID != models.NodeTagID && dstI.ID != models.NodeID {
 				return false
 			}
 			if dstI.Value == "*" {
@@ -597,48 +597,63 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 		}
 		srcMap = convAclTagToValueMap(policy.Src)
 		dstMap = convAclTagToValueMap(policy.Dst)
-		for tagID := range node.Tags {
-			if _, ok := dstMap[tagID.String()]; ok {
-				if _, ok := srcMap["*"]; ok {
-					return true
-				}
-				for tagID := range peer.Tags {
-					if _, ok := srcMap[tagID.String()]; ok {
-						return true
-					}
-				}
+		if checkTagGroupPolicy(srcMap, dstMap, node, peer) {
+			return true
+		}
+
+	}
+	return false
+}
+
+func checkTagGroupPolicy(srcMap, dstMap map[string]struct{}, node, peer models.Node) bool {
+	// check for node ID
+	if _, ok := srcMap[node.ID.String()]; ok {
+		return true
+	}
+	if _, ok := dstMap[node.ID.String()]; ok {
+		return true
+	}
+	for tagID := range node.Tags {
+		if _, ok := dstMap[tagID.String()]; ok {
+			if _, ok := srcMap["*"]; ok {
+				return true
 			}
-			if _, ok := srcMap[tagID.String()]; ok {
-				if _, ok := dstMap["*"]; ok {
+			for tagID := range peer.Tags {
+				if _, ok := srcMap[tagID.String()]; ok {
 					return true
-				}
-				for tagID := range peer.Tags {
-					if _, ok := dstMap[tagID.String()]; ok {
-						return true
-					}
 				}
 			}
 		}
-		for tagID := range peer.Tags {
-			if _, ok := dstMap[tagID.String()]; ok {
-				if _, ok := srcMap["*"]; ok {
+		if _, ok := srcMap[tagID.String()]; ok {
+			if _, ok := dstMap["*"]; ok {
+				return true
+			}
+			for tagID := range peer.Tags {
+				if _, ok := dstMap[tagID.String()]; ok {
 					return true
-				}
-				for tagID := range node.Tags {
-
-					if _, ok := srcMap[tagID.String()]; ok {
-						return true
-					}
 				}
 			}
-			if _, ok := srcMap[tagID.String()]; ok {
-				if _, ok := dstMap["*"]; ok {
+		}
+	}
+	for tagID := range peer.Tags {
+		if _, ok := dstMap[tagID.String()]; ok {
+			if _, ok := srcMap["*"]; ok {
+				return true
+			}
+			for tagID := range node.Tags {
+
+				if _, ok := srcMap[tagID.String()]; ok {
 					return true
 				}
-				for tagID := range node.Tags {
-					if _, ok := dstMap[tagID.String()]; ok {
-						return true
-					}
+			}
+		}
+		if _, ok := srcMap[tagID.String()]; ok {
+			if _, ok := dstMap["*"]; ok {
+				return true
+			}
+			for tagID := range node.Tags {
+				if _, ok := dstMap[tagID.String()]; ok {
+					return true
 				}
 			}
 		}
@@ -678,6 +693,16 @@ func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool)
 		}
 		srcMap = convAclTagToValueMap(policy.Src)
 		dstMap = convAclTagToValueMap(policy.Dst)
+		if policy.AllowedDirection == models.TrafficDirectionBi {
+			if _, ok := srcMap[node.ID.String()]; ok {
+				allowedPolicies = append(allowedPolicies, policy)
+				break
+			}
+		}
+		if _, ok := dstMap[node.ID.String()]; ok {
+			allowedPolicies = append(allowedPolicies, policy)
+			break
+		}
 		for tagID := range node.Tags {
 			allowed := false
 			if _, ok := dstMap[tagID.String()]; policy.AllowedDirection == models.TrafficDirectionBi && ok {
@@ -715,6 +740,7 @@ func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool)
 				break
 			}
 		}
+
 		for tagID := range peer.Tags {
 			allowed := false
 			if _, ok := dstMap[tagID.String()]; ok {
@@ -775,7 +801,7 @@ func UpdateDeviceTag(OldID, newID models.TagID, netID models.NetworkID) {
 	update := false
 	for _, acl := range acls {
 		for i, srcTagI := range acl.Src {
-			if srcTagI.ID == models.DeviceAclID {
+			if srcTagI.ID == models.NodeTagID {
 				if OldID.String() == srcTagI.Value {
 					acl.Src[i].Value = newID.String()
 					update = true
@@ -783,7 +809,7 @@ func UpdateDeviceTag(OldID, newID models.TagID, netID models.NetworkID) {
 			}
 		}
 		for i, dstTagI := range acl.Dst {
-			if dstTagI.ID == models.DeviceAclID {
+			if dstTagI.ID == models.NodeTagID {
 				if OldID.String() == dstTagI.Value {
 					acl.Dst[i].Value = newID.String()
 					update = true
@@ -800,14 +826,14 @@ func CheckIfTagAsActivePolicy(tagID models.TagID, netID models.NetworkID) bool {
 	acls := listDevicePolicies(netID)
 	for _, acl := range acls {
 		for _, srcTagI := range acl.Src {
-			if srcTagI.ID == models.DeviceAclID {
+			if srcTagI.ID == models.NodeTagID {
 				if tagID.String() == srcTagI.Value {
 					return true
 				}
 			}
 		}
 		for _, dstTagI := range acl.Dst {
-			if dstTagI.ID == models.DeviceAclID {
+			if dstTagI.ID == models.NodeTagID {
 				if tagID.String() == dstTagI.Value {
 					return true
 				}
@@ -823,7 +849,7 @@ func RemoveDeviceTagFromAclPolicies(tagID models.TagID, netID models.NetworkID) 
 	update := false
 	for _, acl := range acls {
 		for i, srcTagI := range acl.Src {
-			if srcTagI.ID == models.DeviceAclID {
+			if srcTagI.ID == models.NodeTagID {
 				if tagID.String() == srcTagI.Value {
 					acl.Src = append(acl.Src[:i], acl.Src[i+1:]...)
 					update = true
@@ -831,7 +857,7 @@ func RemoveDeviceTagFromAclPolicies(tagID models.TagID, netID models.NetworkID) 
 			}
 		}
 		for i, dstTagI := range acl.Dst {
-			if dstTagI.ID == models.DeviceAclID {
+			if dstTagI.ID == models.NodeTagID {
 				if tagID.String() == dstTagI.Value {
 					acl.Dst = append(acl.Dst[:i], acl.Dst[i+1:]...)
 					update = true

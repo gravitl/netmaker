@@ -45,12 +45,12 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 		SrcGroupTypes: []models.AclGroupType{
 			models.UserAclID,
 			models.UserGroupAclID,
-			models.DeviceAclID,
-			models.DeviceID,
+			models.NodeTagID,
+			models.NodeID,
 		},
 		DstGroupTypes: []models.AclGroupType{
-			models.DeviceAclID,
-			models.DeviceID,
+			models.NodeTagID,
+			models.NodeID,
 			// models.NetmakerIPAclID,
 			// models.NetmakerSubNetRangeAClID,
 		},
