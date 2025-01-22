@@ -50,8 +50,8 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	req.RelayRequest.NetID = params["network"]
-	req.RelayRequest.NodeID = params["nodeid"]
+	req.RelayRequest.NetID = netid
+	req.RelayRequest.NodeID = nodeid
 	_, relayNode, err := logic.CreateRelay(req.RelayRequest)
 	if err != nil {
 		logger.Log(
@@ -76,8 +76,6 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 
 		}
 	}
-	node.IsGw = true
-	logic.UpsertNode(&node)
 	logger.Log(
 		1,
 		r.Header.Get("user"),

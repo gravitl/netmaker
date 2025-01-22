@@ -47,6 +47,7 @@ func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) 
 		return returnnodes, models.Node{}, err
 	}
 	node.IsRelay = true
+	node.IsGw = true
 	node.RelayedNodes = relay.RelayedNodes
 	node.SetLastModified()
 	err = UpsertNode(&node)

@@ -156,6 +156,7 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 		return models.Node{}, err
 	}
 	node.IsIngressGateway = true
+	node.IsGw = true
 	if !servercfg.IsPro {
 		node.IsInternetGateway = ingress.IsInternetGateway
 	}
