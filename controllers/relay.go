@@ -1,4 +1,4 @@
-package controllers
+package controller
 
 import (
 	"encoding/json"
@@ -6,22 +6,17 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	proLogic "github.com/gravitl/netmaker/pro/logic"
 
 	"github.com/gorilla/mux"
-	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 )
 
-// RelayHandlers - handle Pro Relays
-func RelayHandlers(r *mux.Router) {
-
+func relayHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createrelay", logic.SecurityCheck(true, http.HandlerFunc(createRelay))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleterelay", logic.SecurityCheck(true, http.HandlerFunc(deleteRelay))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/host/{hostid}/failoverme", controller.Authorize(true, false, "host", http.HandlerFunc(failOverME))).Methods(http.MethodPost)
 }
 
 // @Summary     Create a relay
@@ -47,7 +42,7 @@ func createRelay(w http.ResponseWriter, r *http.Request) {
 	}
 	relayRequest.NetID = params["network"]
 	relayRequest.NodeID = params["nodeid"]
-	_, relayNode, err := proLogic.CreateRelay(relayRequest)
+	_, relayNode, err := logic.CreateRelay(relayRequest)
 	if err != nil {
 		logger.Log(
 			0,
@@ -100,7 +95,7 @@ func deleteRelay(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
 	netid := params["network"]
-	updateNodes, node, err := proLogic.DeleteRelay(netid, nodeid)
+	updateNodes, node, err := logic.DeleteRelay(netid, nodeid)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
