@@ -98,6 +98,8 @@ type HostMqAction string
 const (
 	// Upgrade - const to request host to update it's client
 	Upgrade HostMqAction = "UPGRADE"
+	// ForceUpgrade - const for forcing a host to upgrade its client binary
+	ForceUpgrade HostMqAction = "FORCE_UPGRADE"
 	// SignalHost - const for host signal action
 	SignalHost HostMqAction = "SIGNAL_HOST"
 	// UpdateHost - constant for host update action

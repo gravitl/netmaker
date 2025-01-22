@@ -37,7 +37,7 @@ type ServerConfig struct {
 	APIConnString              string        `yaml:"apiconn"`
 	APIHost                    string        `yaml:"apihost"`
 	APIPort                    string        `yaml:"apiport"`
-	Broker                     string        `yam:"broker"`
+	Broker                     string        `yaml:"broker"`
 	ServerBrokerEndpoint       string        `yaml:"serverbrokerendpoint"`
 	BrokerType                 string        `yaml:"brokertype"`
 	EmqxRestEndpoint           string        `yaml:"emqxrestendpoint"`
