@@ -664,7 +664,7 @@ func GetMetricsPort() int {
 	if os.Getenv("METRICS_PORT") != "" {
 		pStr := os.Getenv("METRICS_PORT")
 		pInt, err := strconv.Atoi(pStr)
-		if err == nil {
+		if err == nil && pInt != 0 {
 			p = pInt
 		}
 	}
