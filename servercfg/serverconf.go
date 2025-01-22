@@ -14,6 +14,8 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
+var ServerInfo = GetServerInfo()
+
 // EmqxBrokerType denotes the broker type for EMQX MQTT
 const EmqxBrokerType = "emqx"
 
@@ -146,6 +148,7 @@ func GetServerInfo() models.ServerConfig {
 	cfg.Stun = IsStunEnabled()
 	cfg.StunServers = GetStunServers()
 	cfg.DefaultDomain = GetDefaultDomain()
+	cfg.EndpointDetection = IsEndpointDetectionEnabled()
 	return cfg
 }
 
