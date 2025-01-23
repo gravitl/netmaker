@@ -40,7 +40,7 @@ func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) 
 		return returnnodes, models.Node{}, err
 	}
 	if host.OS != "linux" {
-		return returnnodes, models.Node{}, fmt.Errorf("only linux machines can be relay nodes")
+		return returnnodes, models.Node{}, fmt.Errorf("only linux machines can be gateway nodes")
 	}
 	err = ValidateRelay(relay, false)
 	if err != nil {
