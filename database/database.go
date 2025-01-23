@@ -71,6 +71,8 @@ const (
 	USER_INVITES_TABLE_NAME = "user_invites"
 	// TAG_TABLE_NAME - table for tags
 	TAG_TABLE_NAME = "tags"
+	// PEER_ACK_TABLE - table for failover peer ack
+	PEER_ACK_TABLE = "peer_ack"
 	// == ERROR CONSTS ==
 	// NO_RECORD - no singular result found
 	NO_RECORD = "no result found"
@@ -158,6 +160,7 @@ func createTables() {
 	CreateTable(USER_INVITES_TABLE_NAME)
 	CreateTable(TAG_TABLE_NAME)
 	CreateTable(ACLS_TABLE_NAME)
+	CreateTable(PEER_ACK_TABLE)
 }
 
 func CreateTable(tableName string) error {

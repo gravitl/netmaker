@@ -17,6 +17,10 @@ func getNodeStatusOld(node *models.Node) {
 		node.Status = models.OnlineSt
 		return
 	}
+	if !node.Connected {
+		node.Status = models.Disconnected
+		return
+	}
 	if time.Since(node.LastCheckIn) > time.Minute*10 {
 		node.Status = models.OfflineSt
 		return
@@ -31,12 +35,25 @@ func GetNodeStatus(node *models.Node, defaultEnabledPolicy bool) {
 			node.Status = models.OfflineSt
 			return
 		}
+		ingNode, err := logic.GetNodeByID(node.StaticNode.IngressGatewayID)
+		if err != nil {
+			node.Status = models.OfflineSt
+			return
+		}
+		if !defaultEnabledPolicy {
+			allowed, _ := logic.IsNodeAllowedToCommunicate(*node, ingNode, false)
+			if !allowed {
+				node.Status = models.OnlineSt
+				return
+			}
+		}
 		// check extclient connection from metrics
 		ingressMetrics, err := GetMetrics(node.StaticNode.IngressGatewayID)
 		if err != nil || ingressMetrics == nil || ingressMetrics.Connectivity == nil {
 			node.Status = models.UnKnown
 			return
 		}
+
 		if metric, ok := ingressMetrics.Connectivity[node.StaticNode.ClientID]; ok {
 			if metric.Connected {
 				node.Status = models.OnlineSt
@@ -46,7 +63,12 @@ func GetNodeStatus(node *models.Node, defaultEnabledPolicy bool) {
 				return
 			}
 		}
+
 		node.Status = models.UnKnown
+		return
+	}
+	if !node.Connected {
+		node.Status = models.Disconnected
 		return
 	}
 	if time.Since(node.LastCheckIn) > models.LastCheckInThreshold {
@@ -197,6 +219,7 @@ func checkPeerConnectivity(node *models.Node, metrics *models.Metrics, defaultAc
 		peerNotConnectedCnt++
 
 	}
+
 	if peerNotConnectedCnt > len(metrics.Connectivity)/2 {
 		node.Status = models.WarningSt
 		return
