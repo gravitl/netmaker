@@ -128,7 +128,13 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 	updateNodes, node, err := logic.DeleteRelay(netid, nodeid)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	node, err = logic.GetNodeByID(node.ID.String())
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to get node", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	node.IsGw = false
