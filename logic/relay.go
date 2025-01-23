@@ -9,7 +9,6 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/servercfg"
 )
 
 // GetRelays - gets all the nodes that are relays
@@ -142,7 +141,7 @@ func updateRelayNodes(relay string, oldNodes []string, newNodes []string) []mode
 
 func RelayUpdates(currentNode, newNode *models.Node) bool {
 	relayUpdates := false
-	if servercfg.IsPro && newNode.IsRelay {
+	if newNode.IsRelay {
 		if len(newNode.RelayedNodes) != len(currentNode.RelayedNodes) {
 			relayUpdates = true
 		} else {
