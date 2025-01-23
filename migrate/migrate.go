@@ -28,6 +28,7 @@ func Run() {
 	updateHosts()
 	updateNodes()
 	updateAcls()
+	migrateToGws()
 }
 
 func assignSuperAdmin() {
@@ -440,4 +441,19 @@ func createDefaultTagsAndPolicies() {
 
 	}
 	logic.MigrateAclPolicies()
+}
+
+func migrateToGws() {
+	nodes, err := logic.GetAllNodes()
+	if err != nil {
+		return
+	}
+	for _, node := range nodes {
+		if node.IsIngressGateway || node.IsRelay {
+			node.IsGw = true
+			node.IsIngressGateway = true
+			node.IsRelay = true
+			logic.UpsertNode(&node)
+		}
+	}
 }

@@ -24,6 +24,7 @@ var HttpMiddlewares = []mux.MiddlewareFunc{
 // HttpHandlers - handler functions for REST interactions
 var HttpHandlers = []interface{}{
 	nodeHandlers,
+	gwHandlers,
 	userHandlers,
 	networkHandlers,
 	dnsHandlers,

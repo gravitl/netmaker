@@ -28,8 +28,8 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}/{nodeid}", Authorize(true, true, "node", http.HandlerFunc(deleteNode))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/creategateway", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceEgress, http.HandlerFunc(createEgressGateway)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deletegateway", logic.SecurityCheck(true, http.HandlerFunc(deleteEgressGateway))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceIngress, http.HandlerFunc(createIngressGateway)))).Methods(http.MethodPost)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", logic.SecurityCheck(true, http.HandlerFunc(deleteIngressGateway))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceIngress, http.HandlerFunc(createGateway)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", logic.SecurityCheck(true, http.HandlerFunc(deleteGateway))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/nodes/migrate", migrate).Methods(http.MethodPost)
 }
@@ -546,113 +546,6 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 		}
 		mq.PublishPeerUpdate(false)
 	}()
-}
-
-// == INGRESS ==
-
-// @Summary     Create an remote access gateway
-// @Router      /api/nodes/{network}/{nodeid}/createingress [post]
-// @Tags        Nodes
-// @Security    oauth2
-// @Success     200 {object} models.ApiNode
-// @Failure     500 {object} models.ErrorResponse
-func createIngressGateway(w http.ResponseWriter, r *http.Request) {
-	var params = mux.Vars(r)
-	w.Header().Set("Content-Type", "application/json")
-	nodeid := params["nodeid"]
-	netid := params["network"]
-	node, err := logic.ValidateParams(nodeid, netid)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	var request models.IngressRequest
-	json.NewDecoder(r.Body).Decode(&request)
-	node, err = logic.CreateIngressGateway(netid, nodeid, request)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("failed to create ingress gateway on node [%s] on network [%s]: %v",
-				nodeid, netid, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-
-	apiNode := node.ConvertToAPINode()
-	logger.Log(
-		1,
-		r.Header.Get("user"),
-		"created ingress gateway on node",
-		nodeid,
-		"on network",
-		netid,
-	)
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(apiNode)
-	go func() {
-		if err := mq.NodeUpdate(&node); err != nil {
-			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
-		}
-		mq.PublishPeerUpdate(false)
-	}()
-}
-
-// @Summary     Delete an remote access gateway
-// @Router      /api/nodes/{network}/{nodeid}/deleteingress [delete]
-// @Tags        Nodes
-// @Security    oauth2
-// @Success     200 {object} models.ApiNode
-// @Failure     500 {object} models.ErrorResponse
-func deleteIngressGateway(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	var params = mux.Vars(r)
-	nodeid := params["nodeid"]
-	netid := params["network"]
-	node, err := logic.ValidateParams(nodeid, netid)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	node, removedClients, err := logic.DeleteIngressGateway(nodeid)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("failed to delete ingress gateway on node [%s] on network [%s]: %v",
-				nodeid, netid, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-
-	apiNode := node.ConvertToAPINode()
-	logger.Log(1, r.Header.Get("user"), "deleted ingress gateway", nodeid)
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(apiNode)
-
-	if len(removedClients) > 0 {
-		host, err := logic.GetHost(node.HostID.String())
-		if err == nil {
-			allNodes, err := logic.GetAllNodes()
-			if err != nil {
-				return
-			}
-			go func() {
-				if err := mq.PublishSingleHostPeerUpdate(host, allNodes, nil, removedClients[:], false, nil); err != nil {
-					slog.Error("publishSingleHostUpdate", "host", host.Name, "error", err)
-				}
-				mq.PublishPeerUpdate(false)
-				if err := mq.NodeUpdate(&node); err != nil {
-					slog.Error(
-						"error publishing node update to node",
-						"node",
-						node.ID,
-						"error",
-						err,
-					)
-				}
-				if servercfg.IsDNSMode() {
-					logic.SetDNS()
-				}
-			}()
-		}
-	}
 }
 
 // @Summary     Update an individual node

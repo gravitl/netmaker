@@ -84,6 +84,9 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 			}()
 		}
 	}
+	if node.IsGw && node.IngressDNS == "" {
+		node.IngressDNS = "1.1.1.1"
+	}
 	err = logic.UpsertNode(&node)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
