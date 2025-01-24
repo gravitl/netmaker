@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -182,11 +181,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if sendPeerUpdate {
-		reset := true
-		if os.Getenv("RESET_PEER_UPDATE") != "" {
-			reset = os.Getenv("RESET_PEER_UPDATE") == "true"
-		}
-		if err := mq.PublishPeerUpdate(reset); err != nil {
+		if err := mq.PublishPeerUpdate(false); err != nil {
 			logger.Log(0, "fail to publish peer update: ", err.Error())
 		}
 	}
