@@ -79,11 +79,11 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			IngressInfo: make(map[string]models.IngressInfo),
 			AclRules:    make(map[string]models.AclRule),
 		},
-		PeerIDs:           make(models.PeerMap, 0),
-		Peers:             []wgtypes.PeerConfig{},
-		NodePeers:         []wgtypes.PeerConfig{},
-		HostNetworkInfo:   models.HostInfoMap{},
-		EndpointDetection: servercfg.IsEndpointDetectionEnabled(),
+		PeerIDs:         make(models.PeerMap, 0),
+		Peers:           []wgtypes.PeerConfig{},
+		NodePeers:       []wgtypes.PeerConfig{},
+		HostNetworkInfo: models.HostInfoMap{},
+		ServerConfig:    servercfg.ServerInfo,
 	}
 	defer func() {
 		if !hostPeerUpdate.FwUpdate.AllowAll {
@@ -459,10 +459,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			}
 		}
 	}
-
-	hostPeerUpdate.ManageDNS = servercfg.GetManageDNS()
-	hostPeerUpdate.Stun = servercfg.IsStunEnabled()
-	hostPeerUpdate.StunServers = servercfg.GetStunServers()
 	return hostPeerUpdate, nil
 }
 
