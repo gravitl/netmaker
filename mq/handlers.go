@@ -2,7 +2,6 @@ package mq
 
 import (
 	"encoding/json"
-	"fmt"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
@@ -281,10 +280,6 @@ func HandleHostCheckin(h, currentHost *models.Host) bool {
 		(h.ListenPort != 0 && h.ListenPort != currentHost.ListenPort) ||
 		(h.WgPublicListenPort != 0 && h.WgPublicListenPort != currentHost.WgPublicListenPort) || (!h.EndpointIPv6.Equal(currentHost.EndpointIPv6))
 	if ifaceDelta { // only save if something changes
-		fmt.Println("\n=========> IFACE DELTA =============>\n")
-		fmt.Printf("===>Curr:  %+v\n", currentHost)
-		fmt.Printf("===>NEW:  %+v\n", h)
-		fmt.Println("\n=========>===========================>\n")
 
 		currentHost.EndpointIP = h.EndpointIP
 		currentHost.EndpointIPv6 = h.EndpointIPv6
