@@ -17,7 +17,6 @@ import (
 
 // PublishPeerUpdate --- determines and publishes a peer update to all the hosts
 func PublishPeerUpdate(replacePeers bool) error {
-
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
