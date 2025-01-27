@@ -58,7 +58,7 @@ const (
 	UserAclID                AclGroupType = "user"
 	UserGroupAclID           AclGroupType = "user-group"
 	NodeTagID                AclGroupType = "tag"
-	NodeID                   AclGroupType = "node_id"
+	NodeID                   AclGroupType = "device"
 	NetmakerIPAclID          AclGroupType = "ip"
 	NetmakerSubNetRangeAClID AclGroupType = "ipset"
 )

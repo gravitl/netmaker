@@ -290,11 +290,19 @@ func IsAclPolicyValid(acl models.Acl) bool {
 			if srcI.Value == "*" {
 				continue
 			}
-			// check if tag is valid
-			_, err := GetTag(models.TagID(srcI.Value))
-			if err != nil {
-				return false
+			if srcI.ID == models.NodeTagID {
+				// check if tag is valid
+				_, err := GetTag(models.TagID(srcI.Value))
+				if err != nil {
+					return false
+				}
+			} else {
+				_, err := GetNodeByID(srcI.Value)
+				if err != nil {
+					return false
+				}
 			}
+
 		}
 		for _, dstI := range acl.Dst {
 
@@ -307,10 +315,17 @@ func IsAclPolicyValid(acl models.Acl) bool {
 			if dstI.Value == "*" {
 				continue
 			}
-			// check if tag is valid
-			_, err := GetTag(models.TagID(dstI.Value))
-			if err != nil {
-				return false
+			if dstI.ID == models.NodeTagID {
+				// check if tag is valid
+				_, err := GetTag(models.TagID(dstI.Value))
+				if err != nil {
+					return false
+				}
+			} else {
+				_, err := GetNodeByID(dstI.Value)
+				if err != nil {
+					return false
+				}
 			}
 		}
 	}
