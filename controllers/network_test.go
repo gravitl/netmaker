@@ -75,11 +75,16 @@ func TestDeleteNetwork(t *testing.T) {
 	t.Run("NetworkwithNodes", func(t *testing.T) {
 	})
 	t.Run("DeleteExistingNetwork", func(t *testing.T) {
-		err := logic.DeleteNetwork("skynet")
+		err := logic.DeleteNetwork("skynet", false)
 		assert.Nil(t, err)
 	})
 	t.Run("NonExistentNetwork", func(t *testing.T) {
-		err := logic.DeleteNetwork("skynet")
+		err := logic.DeleteNetwork("skynet", false)
+		assert.Nil(t, err)
+	})
+	createNetv1("test")
+	t.Run("ForceDeleteNetwork", func(t *testing.T) {
+		err := logic.DeleteNetwork("test", true)
 		assert.Nil(t, err)
 	})
 }
@@ -210,6 +215,15 @@ func createNet() {
 	network.NetID = "skynet"
 	network.AddressRange = "10.0.0.1/24"
 	_, err := logic.GetNetwork("skynet")
+	if err != nil {
+		logic.CreateNetwork(network)
+	}
+}
+func createNetv1(netId string) {
+	var network models.Network
+	network.NetID = netId
+	network.AddressRange = "100.0.0.1/24"
+	_, err := logic.GetNetwork(netId)
 	if err != nil {
 		logic.CreateNetwork(network)
 	}
