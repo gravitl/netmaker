@@ -441,10 +441,10 @@ func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
-
+	force := r.URL.Query().Get("force") == "true"
 	var params = mux.Vars(r)
 	network := params["networkname"]
-	err := logic.DeleteNetwork(network)
+	err := logic.DeleteNetwork(network, force)
 	if err != nil {
 		errtype := "badrequest"
 		if strings.Contains(err.Error(), "Node check failed") {

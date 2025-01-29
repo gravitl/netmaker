@@ -102,8 +102,12 @@ func RemoveIpFromAllocatedIpMap(networkName string, ip string) {
 // AddNetworkToAllocatedIpMap - add network to allocated ip map when network is added
 func AddNetworkToAllocatedIpMap(networkName string) {
 	networkCacheMutex.Lock()
+	defer networkCacheMutex.Unlock()
+	if _, ok := allocatedIpMap[networkName]; !ok {
+		return
+	}
 	allocatedIpMap[networkName] = map[string]net.IP{}
-	networkCacheMutex.Unlock()
+
 }
 
 // RemoveNetworkFromAllocatedIpMap - remove network from allocated ip map when network is deleted
@@ -171,12 +175,43 @@ func GetNetworks() ([]models.Network, error) {
 }
 
 // DeleteNetwork - deletes a network
-func DeleteNetwork(network string) error {
-	// remove ACL for network
-	err := nodeacls.DeleteACLContainer(nodeacls.NetworkID(network))
-	if err != nil {
-		logger.Log(1, "failed to remove the node acls during network delete for network,", network)
+func DeleteNetwork(network string, force bool) error {
+	if !force {
+		nodeCount, err := GetNetworkNonServerNodeCount(network)
+		if nodeCount == 0 || database.IsEmptyRecord(err) {
+			// delete server nodes first then db records
+			err = database.DeleteRecord(database.NETWORKS_TABLE_NAME, network)
+			if err != nil {
+				return err
+			}
+			if servercfg.CacheEnabled() {
+				deleteNetworkFromCache(network)
+			}
+			return nil
+		} else {
+			return errors.New("node check failed. All nodes must be deleted before deleting network")
+		}
 	}
+	// Remove All Nodes
+	go func() {
+		nodes, err := GetNetworkNodes(network)
+		if err == nil {
+			for _, node := range nodes {
+				node := node
+				host, err := GetHost(node.HostID.String())
+				if err != nil {
+					continue
+				}
+				DissasociateNodeFromHost(&node, host)
+			}
+		}
+		// remove ACL for network
+		err = nodeacls.DeleteACLContainer(nodeacls.NetworkID(network))
+		if err != nil {
+			logger.Log(1, "failed to remove the node acls during network delete for network,", network)
+		}
+	}()
+
 	// Delete default network enrollment key
 	keys, _ := GetAllEnrollmentKeys()
 	for _, key := range keys {
@@ -188,19 +223,8 @@ func DeleteNetwork(network string) error {
 
 		}
 	}
-	nodeCount, err := GetNetworkNonServerNodeCount(network)
-	if nodeCount == 0 || database.IsEmptyRecord(err) {
-		// delete server nodes first then db records
-		err = database.DeleteRecord(database.NETWORKS_TABLE_NAME, network)
-		if err != nil {
-			return err
-		}
-		if servercfg.CacheEnabled() {
-			deleteNetworkFromCache(network)
-		}
-		return nil
-	}
-	return errors.New("node check failed. All nodes must be deleted before deleting network")
+
+	return nil
 }
 
 // CreateNetwork - creates a network in database
