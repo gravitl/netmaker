@@ -434,6 +434,7 @@ func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 // @Tags        Networks
 // @Security    oauth
 // @Param       networkname path string true "Network name"
+// @Param       force query bool false "Force Delete"
 // @Produce     json
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
