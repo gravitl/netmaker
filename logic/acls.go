@@ -273,10 +273,17 @@ func IsAclPolicyValid(acl models.Acl) bool {
 			if dstI.Value == "*" {
 				continue
 			}
-			// check if tag is valid
-			_, err := GetTag(models.TagID(dstI.Value))
-			if err != nil {
-				return false
+			if dstI.ID == models.NodeTagID {
+				// check if tag is valid
+				_, err := GetTag(models.TagID(dstI.Value))
+				if err != nil {
+					return false
+				}
+			} else {
+				_, err := GetNodeByID(dstI.Value)
+				if err != nil {
+					return false
+				}
 			}
 		}
 	case models.DevicePolicy:
