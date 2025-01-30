@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"strings"
@@ -90,6 +91,30 @@ func StringSliceContains(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+func SetVerbosity(logLevel int) {
+	var level slog.Level
+	switch logLevel {
+
+	case 0:
+		level = slog.LevelInfo
+	case 1:
+		level = slog.LevelError
+	case 2:
+		level = slog.LevelWarn
+	case 3:
+		level = slog.LevelDebug
+
+	default:
+		level = slog.LevelInfo
+	}
+	// Create the logger with the chosen level
+	handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: level,
+	})
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
+
 }
 
 // NormalizeCIDR - returns the first address of CIDR

@@ -252,24 +252,26 @@ type NodeJoinResponse struct {
 
 // ServerConfig - struct for dealing with the server information for a netclient
 type ServerConfig struct {
-	CoreDNSAddr    string `yaml:"corednsaddr"`
-	API            string `yaml:"api"`
-	APIPort        string `yaml:"apiport"`
-	DNSMode        string `yaml:"dnsmode"`
-	Version        string `yaml:"version"`
-	MQPort         string `yaml:"mqport"`
-	MQUserName     string `yaml:"mq_username"`
-	MQPassword     string `yaml:"mq_password"`
-	BrokerType     string `yaml:"broker_type"`
-	Server         string `yaml:"server"`
-	Broker         string `yaml:"broker"`
-	IsPro          bool   `yaml:"isee" json:"Is_EE"`
-	TrafficKey     []byte `yaml:"traffickey"`
-	MetricInterval string `yaml:"metric_interval"`
-	ManageDNS      bool   `yaml:"manage_dns"`
-	Stun           bool   `yaml:"stun"`
-	StunServers    string `yaml:"stun_servers"`
-	DefaultDomain  string `yaml:"default_domain"`
+	CoreDNSAddr       string `yaml:"corednsaddr"`
+	API               string `yaml:"api"`
+	APIPort           string `yaml:"apiport"`
+	DNSMode           string `yaml:"dnsmode"`
+	Version           string `yaml:"version"`
+	MQPort            string `yaml:"mqport"`
+	MQUserName        string `yaml:"mq_username"`
+	MQPassword        string `yaml:"mq_password"`
+	BrokerType        string `yaml:"broker_type"`
+	Server            string `yaml:"server"`
+	Broker            string `yaml:"broker"`
+	IsPro             bool   `yaml:"isee" json:"Is_EE"`
+	TrafficKey        []byte `yaml:"traffickey"`
+	MetricInterval    string `yaml:"metric_interval"`
+	MetricsPort       int    `yaml:"metrics_port"`
+	ManageDNS         bool   `yaml:"manage_dns"`
+	Stun              bool   `yaml:"stun"`
+	StunServers       string `yaml:"stun_servers"`
+	EndpointDetection bool   `yaml:"endpoint_detection"`
+	DefaultDomain     string `yaml:"default_domain"`
 }
 
 // User.NameInCharset - returns if name is in charset below or not
