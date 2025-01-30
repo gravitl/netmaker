@@ -29,7 +29,6 @@ func InitPro() {
 	controller.HttpHandlers = append(
 		controller.HttpHandlers,
 		proControllers.MetricHandlers,
-		proControllers.RelayHandlers,
 		proControllers.UserHandlers,
 		proControllers.FailOverHandlers,
 		proControllers.InetHandlers,
@@ -106,13 +105,6 @@ func InitPro() {
 	logic.GetMetrics = proLogic.GetMetrics
 	logic.UpdateMetrics = proLogic.UpdateMetrics
 	logic.DeleteMetrics = proLogic.DeleteMetrics
-	logic.GetRelays = proLogic.GetRelays
-	logic.GetAllowedIpsForRelayed = proLogic.GetAllowedIpsForRelayed
-	logic.RelayedAllowedIPs = proLogic.RelayedAllowedIPs
-	logic.UpdateRelayed = proLogic.UpdateRelayed
-	logic.SetRelayedNodes = proLogic.SetRelayedNodes
-	logic.RelayUpdates = proLogic.RelayUpdates
-	logic.ValidateRelay = proLogic.ValidateRelay
 	logic.GetTrialEndDate = getTrialEndDate
 	logic.SetDefaultGw = proLogic.SetDefaultGw
 	logic.SetDefaultGwForRelayedUpdate = proLogic.SetDefaultGwForRelayedUpdate
