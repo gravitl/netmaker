@@ -555,6 +555,7 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []mode
 	if peer.IsStatic {
 		peer = peer.StaticNode.ConvertToStaticNode()
 	}
+	peer.Tags[models.TagID(peer.ID.String())] = struct{}{}
 	acl, _ := GetDefaultPolicy(models.NetworkID(peer.Network), models.UserPolicy)
 	if acl.Enabled {
 		return true, []models.Acl{acl}
@@ -600,6 +601,8 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 	if peer.IsStatic {
 		peer = peer.StaticNode.ConvertToStaticNode()
 	}
+	node.Tags[models.TagID(node.ID.String())] = struct{}{}
+	peer.Tags[models.TagID(peer.ID.String())] = struct{}{}
 	if checkDefaultPolicy {
 		// check default policy if all allowed return true
 		defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
@@ -700,6 +703,8 @@ func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool)
 	if peer.IsStatic {
 		peer = peer.StaticNode.ConvertToStaticNode()
 	}
+	node.Tags[models.TagID(node.ID.String())] = struct{}{}
+	peer.Tags[models.TagID(peer.ID.String())] = struct{}{}
 	if checkDefaultPolicy {
 		// check default policy if all allowed return true
 		defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
@@ -976,10 +981,12 @@ func getUserAclRulesForNode(targetnode *models.Node,
 	return rules
 }
 
-func GetAclRulesForNode(targetnode *models.Node) (rules map[string]models.AclRule) {
+func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRule) {
+	targetnode := *targetnodeI
+	targetnode.Tags[models.TagID(targetnode.ID.String())] = struct{}{}
 	defer func() {
 		if !targetnode.IsIngressGateway {
-			rules = getUserAclRulesForNode(targetnode, rules)
+			rules = getUserAclRulesForNode(&targetnode, rules)
 		}
 
 	}()
