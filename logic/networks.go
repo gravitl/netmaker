@@ -102,12 +102,8 @@ func RemoveIpFromAllocatedIpMap(networkName string, ip string) {
 // AddNetworkToAllocatedIpMap - add network to allocated ip map when network is added
 func AddNetworkToAllocatedIpMap(networkName string) {
 	networkCacheMutex.Lock()
-	defer networkCacheMutex.Unlock()
-	if _, ok := allocatedIpMap[networkName]; !ok {
-		return
-	}
-	allocatedIpMap[networkName] = map[string]net.IP{}
-
+	allocatedIpMap[networkName] = make(map[string]net.IP)
+	networkCacheMutex.Unlock()
 }
 
 // RemoveNetworkFromAllocatedIpMap - remove network from allocated ip map when network is deleted
@@ -209,6 +205,14 @@ func DeleteNetwork(network string, force bool) error {
 		err = nodeacls.DeleteACLContainer(nodeacls.NetworkID(network))
 		if err != nil {
 			logger.Log(1, "failed to remove the node acls during network delete for network,", network)
+		}
+		// delete server nodes first then db records
+		err = database.DeleteRecord(database.NETWORKS_TABLE_NAME, network)
+		if err != nil {
+			return
+		}
+		if servercfg.CacheEnabled() {
+			deleteNetworkFromCache(network)
 		}
 	}()
 
