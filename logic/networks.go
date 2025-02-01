@@ -172,22 +172,20 @@ func GetNetworks() ([]models.Network, error) {
 
 // DeleteNetwork - deletes a network
 func DeleteNetwork(network string, force bool) error {
-	if !force {
-		nodeCount, err := GetNetworkNonServerNodeCount(network)
-		if nodeCount == 0 || database.IsEmptyRecord(err) {
-			// delete server nodes first then db records
-			err = database.DeleteRecord(database.NETWORKS_TABLE_NAME, network)
-			if err != nil {
-				return err
-			}
-			if servercfg.CacheEnabled() {
-				deleteNetworkFromCache(network)
-			}
-			return nil
-		} else {
-			return errors.New("node check failed. All nodes must be deleted before deleting network")
+
+	nodeCount, err := GetNetworkNonServerNodeCount(network)
+	if nodeCount == 0 || database.IsEmptyRecord(err) {
+		// delete server nodes first then db records
+		err = database.DeleteRecord(database.NETWORKS_TABLE_NAME, network)
+		if err != nil {
+			return err
 		}
+		if servercfg.CacheEnabled() {
+			deleteNetworkFromCache(network)
+		}
+		return nil
 	}
+
 	// Remove All Nodes
 	go func() {
 		nodes, err := GetNetworkNodes(network)
