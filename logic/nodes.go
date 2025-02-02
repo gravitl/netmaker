@@ -239,7 +239,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 		}
 	}
 
-	return fmt.Errorf("failed to update node " + currentNode.ID.String() + ", cannot change ID.")
+	return fmt.Errorf("failed to update node %s, cannot change ID", currentNode.ID.String())
 }
 
 // DeleteNode - marks node for deletion (and adds to zombie list) if called by UI or deletes node if called by node

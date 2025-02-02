@@ -42,9 +42,10 @@ func (network *Network) SetNetworkLastModified() {
 }
 
 // Network.SetDefaults - sets default values for a network struct
-func (network *Network) SetDefaults() {
+func (network *Network) SetDefaults() (upsert bool) {
 	if network.DefaultUDPHolePunch == "" {
 		network.DefaultUDPHolePunch = "no"
+		upsert = true
 	}
 	if network.DefaultInterface == "" {
 		if len(network.NetID) < 33 {
@@ -52,35 +53,45 @@ func (network *Network) SetDefaults() {
 		} else {
 			network.DefaultInterface = network.NetID
 		}
+		upsert = true
 	}
 	if network.DefaultListenPort == 0 {
 		network.DefaultListenPort = 51821
+		upsert = true
 	}
 	if network.NodeLimit == 0 {
 		network.NodeLimit = 999999999
+		upsert = true
 	}
 	if network.DefaultKeepalive == 0 {
 		network.DefaultKeepalive = 20
+		upsert = true
 	}
 	if network.AllowManualSignUp == "" {
 		network.AllowManualSignUp = "no"
+		upsert = true
 	}
 
 	if network.IsIPv4 == "" {
 		network.IsIPv4 = "yes"
+		upsert = true
 	}
 
 	if network.IsIPv6 == "" {
 		network.IsIPv6 = "no"
+		upsert = true
 	}
 
 	if network.DefaultMTU == 0 {
 		network.DefaultMTU = 1280
+		upsert = true
 	}
 
 	if network.DefaultACL == "" {
 		network.DefaultACL = "yes"
+		upsert = true
 	}
+	return
 }
 
 func (network *Network) GetNetworkNetworkCIDR4() *net.IPNet {
