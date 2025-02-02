@@ -594,7 +594,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 					w,
 					r,
 					logic.FormatError(
-						fmt.Errorf("failed to force delete daemon node: "+err.Error()),
+						fmt.Errorf("failed to force delete daemon node: %s", err.Error()),
 						"internal",
 					),
 				)
@@ -634,7 +634,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 					w,
 					r,
 					logic.FormatError(
-						fmt.Errorf("failed to force delete daemon node: "+err.Error()),
+						fmt.Errorf("failed to force delete daemon node: %s", err.Error()),
 						"internal",
 					),
 				)

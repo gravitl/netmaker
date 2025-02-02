@@ -446,7 +446,14 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	network := params["networkname"]
 	doneCh := make(chan struct{}, 1)
-	err := logic.DeleteNetwork(network, force, doneCh)
+	networkNodes, err := logic.GetNetworkNodes(network)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to get network nodes [%s]: %v", network, err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	err = logic.DeleteNetwork(network, force, doneCh)
 	if err != nil {
 		errtype := "badrequest"
 		if strings.Contains(err.Error(), "Node check failed") {
@@ -464,6 +471,18 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		<-doneCh
 		mq.PublishPeerUpdate(true)
+		// send node update to clean up locally
+		for _, node := range networkNodes {
+			node := node
+			node.PendingDelete = true
+			node.Action = models.NODE_DELETE
+			if err := mq.NodeUpdate(&node); err != nil {
+				slog.Error("error publishing node update to node", "node", node.ID, "error", err)
+			}
+		}
+		if servercfg.IsDNSMode() {
+			logic.SetDNS()
+		}
 	}()
 	logger.Log(1, r.Header.Get("user"), "deleted network", network)
 	w.WriteHeader(http.StatusOK)
