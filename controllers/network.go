@@ -445,7 +445,8 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	force := r.URL.Query().Get("force") == "true"
 	var params = mux.Vars(r)
 	network := params["networkname"]
-	err := logic.DeleteNetwork(network, force)
+	doneCh := make(chan struct{}, 1)
+	err := logic.DeleteNetwork(network, force, doneCh)
 	if err != nil {
 		errtype := "badrequest"
 		if strings.Contains(err.Error(), "Node check failed") {
@@ -460,7 +461,10 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	go logic.DeleteDefaultNetworkPolicies(models.NetworkID(network))
 	//delete network from allocated ip map
 	go logic.RemoveNetworkFromAllocatedIpMap(network)
-
+	go func() {
+		<-doneCh
+		mq.PublishPeerUpdate(true)
+	}()
 	logger.Log(1, r.Header.Get("user"), "deleted network", network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode("success")

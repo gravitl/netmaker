@@ -171,7 +171,7 @@ func GetNetworks() ([]models.Network, error) {
 }
 
 // DeleteNetwork - deletes a network
-func DeleteNetwork(network string, force bool) error {
+func DeleteNetwork(network string, force bool, done chan struct{}) error {
 
 	nodeCount, err := GetNetworkNonServerNodeCount(network)
 	if nodeCount == 0 || database.IsEmptyRecord(err) {
@@ -212,6 +212,8 @@ func DeleteNetwork(network string, force bool) error {
 		if servercfg.CacheEnabled() {
 			deleteNetworkFromCache(network)
 		}
+		done <- struct{}{}
+		close(done)
 	}()
 
 	// Delete default network enrollment key
