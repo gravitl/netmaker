@@ -280,9 +280,12 @@ func IsAclPolicyValid(acl models.Acl) bool {
 					return false
 				}
 			} else {
-				_, err := GetNodeByID(dstI.Value)
-				if err != nil {
-					return false
+				_, nodeErr := GetNodeByID(dstI.Value)
+				if nodeErr != nil {
+					_, staticNodeErr := GetExtClient(dstI.Value, acl.NetworkID.String())
+					if staticNodeErr != nil {
+						return false
+					}
 				}
 			}
 		}
@@ -329,9 +332,12 @@ func IsAclPolicyValid(acl models.Acl) bool {
 					return false
 				}
 			} else {
-				_, err := GetNodeByID(dstI.Value)
-				if err != nil {
-					return false
+				_, nodeErr := GetNodeByID(dstI.Value)
+				if nodeErr != nil {
+					_, staticNodeErr := GetExtClient(dstI.Value, acl.NetworkID.String())
+					if staticNodeErr != nil {
+						return false
+					}
 				}
 			}
 		}
