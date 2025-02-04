@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"fmt"
+	"log/slog"
 	"runtime"
 	"time"
 )
@@ -48,7 +48,7 @@ func TraceCaller() {
 	// Skip 1 frame to get the caller of this function
 	pc, file, line, ok := runtime.Caller(2)
 	if !ok {
-		fmt.Println("Unable to get caller information")
+		slog.Debug("Unable to get caller information")
 		return
 	}
 
@@ -56,6 +56,6 @@ func TraceCaller() {
 	funcName := runtime.FuncForPC(pc).Name()
 
 	// Print trace details
-	fmt.Printf("Called from function: %s\n", funcName)
-	fmt.Printf("File: %s, Line: %d\n", file, line)
+	slog.Debug("Called from function: %s\n", "func-name", funcName)
+	slog.Debug("File: %s, Line: %d\n", "file", file, "line-no", line)
 }
