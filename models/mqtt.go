@@ -29,8 +29,8 @@ type HostPeerUpdate struct {
 
 type OldPeerUpdateFields struct {
 	NodePeers         []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
-	OldPeers          []wgtypes.PeerConfig
-	EndpointDetection bool `json:"endpoint_detection"`
+	OldPeers          []wgtypes.PeerConfig `json:"Peers"`
+	EndpointDetection bool                 `json:"endpoint_detection"`
 }
 
 type FwRule struct {
