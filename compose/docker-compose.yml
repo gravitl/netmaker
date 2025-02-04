@@ -52,8 +52,8 @@ services:
       - caddy_data:/data
       - caddy_conf:/config
     ports:
-      - "80:80"
-      - "443:443"
+      - "80:80/tcp"
+      - "443:443/tcp"
 
   coredns:
     #network_mode: host
