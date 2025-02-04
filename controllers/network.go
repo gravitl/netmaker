@@ -608,15 +608,15 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	netOld1, err := logic.GetNetwork(payload.NetID)
+	netOld, err := logic.GetNetwork(payload.NetID)
 	if err != nil {
 		slog.Info("error fetching network", "user", r.Header.Get("user"), "err", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	// partial update
-	netOld2 := netOld1
-	_, _, _, err = logic.UpdateNetwork(&netOld1, &netOld2)
+	netNew := netOld
+	netNew.DefaultACL = payload.DefaultACL
+	_, _, _, err = logic.UpdateNetwork(&netOld, &netNew)
 	if err != nil {
 		slog.Info("failed to update network", "user", r.Header.Get("user"), "err", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))

@@ -187,7 +187,14 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 
 		} else {
 			hostPeerUpdate.FwUpdate.AllowAll = false
-			hostPeerUpdate.FwUpdate.AclRules = GetAclRulesForNode(&node)
+			rules := GetAclRulesForNode(&node)
+			if len(hostPeerUpdate.FwUpdate.AclRules) == 0 {
+				hostPeerUpdate.FwUpdate.AclRules = rules
+			} else {
+				for aclID, rule := range rules {
+					hostPeerUpdate.FwUpdate.AclRules[aclID] = rule
+				}
+			}
 		}
 
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
