@@ -113,6 +113,11 @@ func PublishSingleHostPeerUpdate(host *models.Host, allNodes []models.Node, dele
 	if err != nil {
 		return err
 	}
+	peerUpdate.OldPeerUpdateFields = models.OldPeerUpdateFields{
+		NodePeers:         peerUpdate.NodePeers,
+		OldPeers:          peerUpdate.Peers,
+		EndpointDetection: peerUpdate.ServerConfig.EndpointDetection,
+	}
 	peerUpdate.ReplacePeers = replacePeers
 	data, err := json.Marshal(&peerUpdate)
 	if err != nil {

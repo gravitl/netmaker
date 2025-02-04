@@ -17,13 +17,20 @@ type HostPeerUpdate struct {
 	ServerVersion   string                `json:"serverversion"`
 	ServerAddrs     []ServerAddr          `json:"serveraddrs"`
 	NodePeers       []wgtypes.PeerConfig  `json:"node_peers"`
-	Peers           []wgtypes.PeerConfig  `json:"peers"`
+	Peers           []wgtypes.PeerConfig  `json:"host_peers"`
 	PeerIDs         PeerMap               `json:"peerids"`
 	HostNetworkInfo HostInfoMap           `json:"host_network_info,omitempty"`
 	EgressRoutes    []EgressNetworkRoutes `json:"egress_network_routes"`
 	FwUpdate        FwUpdate              `json:"fw_update"`
 	ReplacePeers    bool                  `json:"replace_peers"`
 	ServerConfig
+	OldPeerUpdateFields
+}
+
+type OldPeerUpdateFields struct {
+	NodePeers         []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
+	OldPeers          []wgtypes.PeerConfig
+	EndpointDetection bool `json:"endpoint_detection"`
 }
 
 type FwRule struct {
