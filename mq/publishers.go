@@ -17,7 +17,6 @@ import (
 
 // PublishPeerUpdate --- determines and publishes a peer update to all the hosts
 func PublishPeerUpdate(replacePeers bool) error {
-
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}
@@ -113,6 +112,11 @@ func PublishSingleHostPeerUpdate(host *models.Host, allNodes []models.Node, dele
 	peerUpdate, err := logic.GetPeerUpdateForHost("", host, allNodes, deletedNode, deletedClients)
 	if err != nil {
 		return err
+	}
+	peerUpdate.OldPeerUpdateFields = models.OldPeerUpdateFields{
+		NodePeers:         peerUpdate.NodePeers,
+		OldPeers:          peerUpdate.Peers,
+		EndpointDetection: peerUpdate.ServerConfig.EndpointDetection,
 	}
 	peerUpdate.ReplacePeers = replacePeers
 	data, err := json.Marshal(&peerUpdate)

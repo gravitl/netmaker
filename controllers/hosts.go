@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -239,11 +238,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if sendPeerUpdate {
-		reset := true
-		if os.Getenv("RESET_PEER_UPDATE") != "" {
-			reset = os.Getenv("RESET_PEER_UPDATE") == "true"
-		}
-		if err := mq.PublishPeerUpdate(reset); err != nil {
+		if err := mq.PublishPeerUpdate(false); err != nil {
 			logger.Log(0, "fail to publish peer update: ", err.Error())
 		}
 	}
@@ -373,11 +368,11 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	var hostUpdate models.HostUpdate
 	err = json.NewDecoder(r.Body).Decode(&hostUpdate)
 	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to update a host:", err.Error())
+		slog.Error("failed to update a host:", "user", r.Header.Get("user"), "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	slog.Info("recieved host update", "name", hostUpdate.Host.Name, "id", hostUpdate.Host.ID)
+	slog.Info("recieved host update", "name", hostUpdate.Host.Name, "id", hostUpdate.Host.ID, "action", hostUpdate.Action)
 	switch hostUpdate.Action {
 	case models.CheckIn:
 		sendPeerUpdate = mq.HandleHostCheckin(&hostUpdate.Host, currentHost)
@@ -594,7 +589,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 					w,
 					r,
 					logic.FormatError(
-						fmt.Errorf("failed to force delete daemon node: "+err.Error()),
+						fmt.Errorf("failed to force delete daemon node: %s", err.Error()),
 						"internal",
 					),
 				)
@@ -634,7 +629,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 					w,
 					r,
 					logic.FormatError(
-						fmt.Errorf("failed to force delete daemon node: "+err.Error()),
+						fmt.Errorf("failed to force delete daemon node: %s", err.Error()),
 						"internal",
 					),
 				)

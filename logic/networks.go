@@ -102,7 +102,7 @@ func RemoveIpFromAllocatedIpMap(networkName string, ip string) {
 // AddNetworkToAllocatedIpMap - add network to allocated ip map when network is added
 func AddNetworkToAllocatedIpMap(networkName string) {
 	networkCacheMutex.Lock()
-	allocatedIpMap[networkName] = map[string]net.IP{}
+	allocatedIpMap[networkName] = make(map[string]net.IP)
 	networkCacheMutex.Unlock()
 }
 
@@ -171,23 +171,8 @@ func GetNetworks() ([]models.Network, error) {
 }
 
 // DeleteNetwork - deletes a network
-func DeleteNetwork(network string) error {
-	// remove ACL for network
-	err := nodeacls.DeleteACLContainer(nodeacls.NetworkID(network))
-	if err != nil {
-		logger.Log(1, "failed to remove the node acls during network delete for network,", network)
-	}
-	// Delete default network enrollment key
-	keys, _ := GetAllEnrollmentKeys()
-	for _, key := range keys {
-		if key.Tags[0] == network {
-			if key.Default {
-				DeleteEnrollmentKey(key.Value, true)
-				break
-			}
+func DeleteNetwork(network string, force bool, done chan struct{}) error {
 
-		}
-	}
 	nodeCount, err := GetNetworkNonServerNodeCount(network)
 	if nodeCount == 0 || database.IsEmptyRecord(err) {
 		// delete server nodes first then db records
@@ -200,7 +185,50 @@ func DeleteNetwork(network string) error {
 		}
 		return nil
 	}
-	return errors.New("node check failed. All nodes must be deleted before deleting network")
+
+	// Remove All Nodes
+	go func() {
+		nodes, err := GetNetworkNodes(network)
+		if err == nil {
+			for _, node := range nodes {
+				node := node
+				host, err := GetHost(node.HostID.String())
+				if err != nil {
+					continue
+				}
+				DissasociateNodeFromHost(&node, host)
+			}
+		}
+		// remove ACL for network
+		err = nodeacls.DeleteACLContainer(nodeacls.NetworkID(network))
+		if err != nil {
+			logger.Log(1, "failed to remove the node acls during network delete for network,", network)
+		}
+		// delete server nodes first then db records
+		err = database.DeleteRecord(database.NETWORKS_TABLE_NAME, network)
+		if err != nil {
+			return
+		}
+		if servercfg.CacheEnabled() {
+			deleteNetworkFromCache(network)
+		}
+		done <- struct{}{}
+		close(done)
+	}()
+
+	// Delete default network enrollment key
+	keys, _ := GetAllEnrollmentKeys()
+	for _, key := range keys {
+		if key.Tags[0] == network {
+			if key.Default {
+				DeleteEnrollmentKey(key.Value, true)
+				break
+			}
+
+		}
+	}
+
+	return nil
 }
 
 // CreateNetwork - creates a network in database
