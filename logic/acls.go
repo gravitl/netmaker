@@ -307,9 +307,12 @@ func IsAclPolicyValid(acl models.Acl) bool {
 					return false
 				}
 			} else {
-				_, err := GetNodeByID(srcI.Value)
-				if err != nil {
-					return false
+				_, nodeErr := GetNodeByID(srcI.Value)
+				if nodeErr != nil {
+					_, staticNodeErr := GetExtClient(srcI.Value, acl.NetworkID.String())
+					if staticNodeErr != nil {
+						return false
+					}
 				}
 			}
 
