@@ -30,6 +30,14 @@ func GetTag(tagID models.TagID) (models.Tag, error) {
 	return tag, nil
 }
 
+func UpsertTag(tag models.Tag) error {
+	d, err := json.Marshal(tag)
+	if err != nil {
+		return err
+	}
+	return database.Insert(tag.ID.String(), string(d), database.TAG_TABLE_NAME)
+}
+
 // InsertTag - creates new tag
 func InsertTag(tag models.Tag) error {
 	tagMutex.Lock()

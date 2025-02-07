@@ -185,7 +185,7 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 	}
 	if updateTag.ColorCode != "" && updateTag.ColorCode != tag.ColorCode {
 		tag.ColorCode = updateTag.ColorCode
-		err = logic.InsertTag(tag)
+		err = logic.UpsertTag(tag)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
