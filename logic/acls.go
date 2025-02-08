@@ -642,6 +642,87 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 	}
 	return false
 }
+func checkIfAttachedStaticNodesOnPeerAreAllowed(node, peer models.Node) bool {
+	if !peer.IsGw {
+		return false
+	}
+	// list device policies
+	policies := listDevicePolicies(models.NetworkID(peer.Network))
+	srcMap := make(map[string]struct{})
+	dstMap := make(map[string]struct{})
+	defer func() {
+		srcMap = nil
+		dstMap = nil
+	}()
+	for _, policy := range policies {
+		if !policy.Enabled {
+			continue
+		}
+		srcMap = convAclTagToValueMap(policy.Src)
+		dstMap = convAclTagToValueMap(policy.Dst)
+		// check the static nodes
+		staticNodes := GetStaticNodesByGw(peer)
+		for _, staticNode := range staticNodes {
+			if _, ok := srcMap[node.ID.String()]; ok {
+				if _, ok = dstMap[staticNode.ID.String()]; ok {
+					return true
+				}
+
+			}
+			if _, ok := dstMap[node.ID.String()]; ok {
+				if _, ok = srcMap[staticNode.ID.String()]; ok {
+					return true
+				}
+			}
+			for tagID := range node.Tags {
+				if _, ok := dstMap[tagID.String()]; ok {
+					if _, ok := srcMap["*"]; ok {
+						return true
+					}
+					for tagID := range staticNode.Tags {
+						if _, ok := srcMap[tagID.String()]; ok {
+							return true
+						}
+					}
+				}
+				if _, ok := srcMap[tagID.String()]; ok {
+					if _, ok := dstMap["*"]; ok {
+						return true
+					}
+					for tagID := range staticNode.Tags {
+						if _, ok := dstMap[tagID.String()]; ok {
+							return true
+						}
+					}
+				}
+			}
+			for tagID := range staticNode.Tags {
+				if _, ok := dstMap[tagID.String()]; ok {
+					if _, ok := srcMap["*"]; ok {
+						return true
+					}
+					for tagID := range node.Tags {
+
+						if _, ok := srcMap[tagID.String()]; ok {
+							return true
+						}
+					}
+				}
+				if _, ok := srcMap[tagID.String()]; ok {
+					if _, ok := dstMap["*"]; ok {
+						return true
+					}
+					for tagID := range node.Tags {
+						if _, ok := dstMap[tagID.String()]; ok {
+							return true
+						}
+					}
+				}
+			}
+		}
+	}
+	return false
+}
 
 func checkTagGroupPolicy(srcMap, dstMap map[string]struct{}, node, peer models.Node) bool {
 	// check for node ID
