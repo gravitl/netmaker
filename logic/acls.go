@@ -656,6 +656,7 @@ func checkTagGroupPolicy(srcMap, dstMap map[string]struct{}, node, peer models.N
 			return true
 		}
 	}
+
 	for tagID := range node.Tags {
 		if _, ok := dstMap[tagID.String()]; ok {
 			if _, ok := srcMap["*"]; ok {
@@ -988,6 +989,36 @@ func getUserAclRulesForNode(targetnode *models.Node,
 		}
 	}
 	return rules
+}
+
+func checkIfAnyPolicyisUniDirectional(targetNode models.Node) bool {
+	targetNode.Tags[models.TagID(targetNode.ID.String())] = struct{}{}
+	acls := listDevicePolicies(models.NetworkID(targetNode.Network))
+	for _, acl := range acls {
+		if !acl.Enabled {
+			continue
+		}
+		if acl.AllowedDirection == models.TrafficDirectionBi {
+			continue
+		}
+		srcTags := convAclTagToValueMap(acl.Src)
+		dstTags := convAclTagToValueMap(acl.Dst)
+		for nodeTag := range targetNode.Tags {
+			if _, ok := srcTags[nodeTag.String()]; ok {
+				return true
+			}
+			if _, ok := srcTags[targetNode.ID.String()]; ok {
+				return true
+			}
+			if _, ok := dstTags[nodeTag.String()]; ok {
+				return true
+			}
+			if _, ok := dstTags[targetNode.ID.String()]; ok {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRule) {
