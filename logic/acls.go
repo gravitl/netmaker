@@ -604,14 +604,21 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []mode
 
 // IsPeerAllowed - checks if peer needs to be added to the interface
 func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
+	var nodeId, peerId string
 	if node.IsStatic {
+		nodeId = node.StaticNode.ClientID
 		node = node.StaticNode.ConvertToStaticNode()
+	} else {
+		nodeId = node.ID.String()
 	}
 	if peer.IsStatic {
+		peerId = peer.StaticNode.ClientID
 		peer = peer.StaticNode.ConvertToStaticNode()
+	} else {
+		peerId = peer.ID.String()
 	}
-	node.Tags[models.TagID(node.ID.String())] = struct{}{}
-	peer.Tags[models.TagID(peer.ID.String())] = struct{}{}
+	node.Tags[models.TagID(nodeId)] = struct{}{}
+	peer.Tags[models.TagID(peerId)] = struct{}{}
 	if checkDefaultPolicy {
 		// check default policy if all allowed return true
 		defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
@@ -707,14 +714,21 @@ func checkTagGroupPolicy(srcMap, dstMap map[string]struct{}, node, peer models.N
 
 // IsNodeAllowedToCommunicate - check node is allowed to communicate with the peer
 func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool) (bool, []models.Acl) {
+	var nodeId, peerId string
 	if node.IsStatic {
+		nodeId = node.StaticNode.ClientID
 		node = node.StaticNode.ConvertToStaticNode()
+	} else {
+		nodeId = node.ID.String()
 	}
 	if peer.IsStatic {
+		peerId = peer.StaticNode.ClientID
 		peer = peer.StaticNode.ConvertToStaticNode()
+	} else {
+		peerId = peer.ID.String()
 	}
-	node.Tags[models.TagID(node.ID.String())] = struct{}{}
-	peer.Tags[models.TagID(peer.ID.String())] = struct{}{}
+	node.Tags[models.TagID(nodeId)] = struct{}{}
+	peer.Tags[models.TagID(peerId)] = struct{}{}
 	if checkDefaultPolicy {
 		// check default policy if all allowed return true
 		defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
