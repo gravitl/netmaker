@@ -198,16 +198,21 @@ func listAclFromCache() (acls []models.Acl) {
 
 func storeAclInCache(a models.Acl) {
 	aclCacheMutex.Lock()
-	defer aclCacheMutex.Unlock()
+	defer func() {
+		aclCacheMutex.Unlock()
+		go loadNetworkAclsIntoCache()
+	}()
 	aclCacheMap[a.ID] = a
-	go loadNetworkAclsIntoCache()
+
 }
 
 func removeAclFromCache(a models.Acl) {
 	aclCacheMutex.Lock()
-	defer aclCacheMutex.Unlock()
+	defer func() {
+		aclCacheMutex.Unlock()
+		go loadNetworkAclsIntoCache()
+	}()
 	delete(aclCacheMap, a.ID)
-	go loadNetworkAclsIntoCache()
 }
 
 func getAclFromCache(aID string) (a models.Acl, ok bool) {
