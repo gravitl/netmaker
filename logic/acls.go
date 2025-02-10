@@ -412,10 +412,6 @@ func DeleteAcl(a models.Acl) error {
 
 // GetDefaultPolicy - fetches default policy in the network by ruleType
 func GetDefaultPolicy(netID models.NetworkID, ruleType models.AclPolicyType) (models.Acl, error) {
-	defaultPolicy := getDefaultPolicyFromNetCache(netID, ruleType)
-	if defaultPolicy.ID != "" {
-		return defaultPolicy, nil
-	}
 	aclID := "all-users"
 	if ruleType == models.DevicePolicy {
 		aclID = "all-nodes"
@@ -546,14 +542,16 @@ func getDefaultPolicyFromNetCache(netID models.NetworkID, ruleType models.AclPol
 
 func listPolicesFromNetCache(netID models.NetworkID, ruleType models.AclPolicyType) []models.Acl {
 	aclNetCacheMutex.RLock()
-	defer aclNetCacheMutex.RUnlock()
 	if aclNetInfo, ok := aclNetworkCacheMap[netID]; ok {
 		if ruleType == models.DevicePolicy {
+			aclNetCacheMutex.RUnlock()
 			return aclNetInfo.DevicePolices
 		} else {
+			aclNetCacheMutex.RUnlock()
 			return aclNetInfo.UserPolicies
 		}
 	}
+	aclNetCacheMutex.RUnlock()
 	if ruleType == models.DevicePolicy {
 		return listDevicePolicies(netID)
 	}
