@@ -7,7 +7,7 @@ import (
 )
 
 type HostPeerInfo struct {
-	NetworkPeerIDs map[NetworkID]PeerMap
+	NetworkPeerIDs map[NetworkID]PeerMap `json:"network_peers"`
 }
 
 // HostPeerUpdate - struct for host peer updates
