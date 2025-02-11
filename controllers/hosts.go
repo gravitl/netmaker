@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -48,6 +49,8 @@ func hostHandlers(r *mux.Router) {
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/fallback/host/{hostid}", Authorize(true, false, "host", http.HandlerFunc(hostUpdateFallback))).
 		Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/host/{host_id}/peer_info", Authorize(true, false, "host", http.HandlerFunc(getHostPeerInfo))).
+		Methods(http.MethodGet)
 	r.HandleFunc("/api/emqx/hosts", logic.SecurityCheck(true, http.HandlerFunc(delEmqxHosts))).
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/auth-register/host", socketHandler)
@@ -943,6 +946,7 @@ func syncHosts(w http.ResponseWriter, r *http.Request) {
 					slog.Info("host sync requested", "user", user, "host", host.ID.String())
 				}
 			}(host)
+			time.Sleep(time.Millisecond * 100)
 		}
 	}()
 
@@ -1016,4 +1020,34 @@ func delEmqxHosts(w http.ResponseWriter, r *http.Request) {
 		)
 	}
 	logic.ReturnSuccessResponse(w, r, "deleted hosts data on emqx")
+}
+
+// @Summary     Fetches host peerinfo
+// @Router      /api/hosts/{hostid}/peer_info [get]
+// @Tags        Hosts
+// @Security    oauth
+// @Param       hostid path string true "Host ID"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     500 {object} models.ErrorResponse
+func getHostPeerInfo(w http.ResponseWriter, r *http.Request) {
+	hostId := mux.Vars(r)["hostid"]
+	var errorResponse = models.ErrorResponse{}
+
+	host, err := logic.GetHost(hostId)
+	if err != nil {
+		slog.Error("failed to retrieve host", "error", err)
+		errorResponse.Code = http.StatusBadRequest
+		errorResponse.Message = err.Error()
+		logic.ReturnErrorResponse(w, r, errorResponse)
+		return
+	}
+	peerInfo, err := logic.GetHostPeerInfo(host)
+	if err != nil {
+		slog.Error("failed to retrieve host peerinfo", "error", err)
+		errorResponse.Code = http.StatusBadRequest
+		errorResponse.Message = err.Error()
+		logic.ReturnErrorResponse(w, r, errorResponse)
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, peerInfo, "fetched host peer info")
 }

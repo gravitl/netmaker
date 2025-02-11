@@ -40,9 +40,7 @@ func getNodeFromCache(nodeID string) (node models.Node, ok bool) {
 }
 func getNodesFromCache() (nodes []models.Node) {
 	nodeCacheMutex.RLock()
-	for _, node := range nodesCacheMap {
-		nodes = append(nodes, node)
-	}
+	nodes = slices.Collect(maps.Values(nodesCacheMap))
 	nodeCacheMutex.RUnlock()
 	return
 }
@@ -141,7 +139,7 @@ func GetNetworkNodesMemory(allNodes []models.Node, network string) []models.Node
 		defer nodeNetworkCacheMutex.Unlock()
 		return slices.Collect(maps.Values(networkNodes))
 	}
-	var nodes = []models.Node{}
+	var nodes = make([]models.Node, 0, len(allNodes))
 	for i := range allNodes {
 		node := allNodes[i]
 		if node.Network == network {
