@@ -19,7 +19,7 @@ import (
 
 // FailOverHandlers - handlers for FailOver
 func FailOverHandlers(r *mux.Router) {
-	r.HandleFunc("/api/v1/node/{nodeid}/failover", http.HandlerFunc(getfailOver)).
+	r.HandleFunc("/api/v1/node/{nodeid}/failover", controller.Authorize(true, false, "host", http.HandlerFunc(getfailOver))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/node/{nodeid}/failover", logic.SecurityCheck(true, http.HandlerFunc(createfailOver))).
 		Methods(http.MethodPost)
@@ -44,7 +44,6 @@ func getfailOver(w http.ResponseWriter, r *http.Request) {
 	// confirm host exists
 	node, err := logic.GetNodeByID(nodeid)
 	if err != nil {
-		slog.Error("failed to get node:", "node", nodeid, "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -140,6 +139,7 @@ func deletefailOver(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	proLogic.RemoveFailOverFromCache(node.Network)
 	go func() {
 		proLogic.ResetFailOver(&node)
 		mq.PublishPeerUpdate(false)
