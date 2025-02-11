@@ -527,7 +527,7 @@ func listPoliciesOfUser(user models.User, netID models.NetworkID) []models.Acl {
 	return userAcls
 }
 
-func getDefaultPolicyFromNetCache(netID models.NetworkID, ruleType models.AclPolicyType) models.Acl {
+func GetDefaultPolicyFromNetCache(netID models.NetworkID, ruleType models.AclPolicyType) models.Acl {
 	aclNetCacheMutex.RLock()
 	defer aclNetCacheMutex.RUnlock()
 	if aclNetInfo, ok := aclNetworkCacheMap[netID]; ok {
