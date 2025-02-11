@@ -6,6 +6,10 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+type HostPeerInfo struct {
+	NetworkPeerIDs map[NetworkID]PeerMap
+}
+
 // HostPeerUpdate - struct for host peer updates
 type HostPeerUpdate struct {
 	Host            Host                  `json:"host"`
