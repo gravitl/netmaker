@@ -49,7 +49,7 @@ func hostHandlers(r *mux.Router) {
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/fallback/host/{hostid}", Authorize(true, false, "host", http.HandlerFunc(hostUpdateFallback))).
 		Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/host/{host_id}/peer_info", Authorize(true, false, "host", http.HandlerFunc(getHostPeerInfo))).
+	r.HandleFunc("/api/v1/host/{hostid}/peer_info", Authorize(true, false, "host", http.HandlerFunc(getHostPeerInfo))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/emqx/hosts", logic.SecurityCheck(true, http.HandlerFunc(delEmqxHosts))).
 		Methods(http.MethodDelete)
@@ -1023,7 +1023,7 @@ func delEmqxHosts(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     Fetches host peerinfo
-// @Router      /api/hosts/{hostid}/peer_info [get]
+// @Router      /api/host/{hostid}/peer_info [get]
 // @Tags        Hosts
 // @Security    oauth
 // @Param       hostid path string true "Host ID"
