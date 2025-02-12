@@ -1027,7 +1027,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		GWName:            host.Name,
 		Network:           node.Network,
 		GwClient:          userConf,
-		Connected:         true,
+		Connected:         userConf.Enabled,
 		IsInternetGateway: node.IsInternetGateway,
 		GwPeerPublicKey:   host.PublicKey.String(),
 		GwListenPort:      logic.GetPeerListenPort(host),
@@ -1102,6 +1102,10 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 				slog.Error("failed to get node network", "error", err)
 				continue
 			}
+			nodesWithStatus := logic.AddStatusToNodes([]models.Node{node})
+			if len(nodesWithStatus) > 0 {
+				node = nodesWithStatus[0]
+			}
 
 			gws := userGws[node.Network]
 			extClient.AllowedIPs = logic.GetExtclientAllowedIPs(extClient)
@@ -1110,13 +1114,14 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 				GWName:            host.Name,
 				Network:           node.Network,
 				GwClient:          extClient,
-				Connected:         true,
+				Connected:         extClient.Enabled,
 				IsInternetGateway: node.IsInternetGateway,
 				GwPeerPublicKey:   host.PublicKey.String(),
 				GwListenPort:      logic.GetPeerListenPort(host),
 				Metadata:          node.Metadata,
 				AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 				NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
+				Status:            node.Status,
 			})
 			userGws[node.Network] = gws
 			delete(userGwNodes, node.ID.String())
@@ -1138,6 +1143,10 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			continue
 		}
+		nodesWithStatus := logic.AddStatusToNodes([]models.Node{node})
+		if len(nodesWithStatus) > 0 {
+			node = nodesWithStatus[0]
+		}
 		network, err := logic.GetNetwork(node.Network)
 		if err != nil {
 			slog.Error("failed to get node network", "error", err)
@@ -1154,6 +1163,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			Metadata:          node.Metadata,
 			AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 			NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
+			Status:            node.Status,
 		})
 		userGws[node.Network] = gws
 	}
