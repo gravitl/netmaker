@@ -335,3 +335,40 @@ func RemoveTagFromEnrollmentKeys(deletedTagID models.TagID) {
 
 	}
 }
+
+func UnlinkNetworkFromEnrollmentKeys(network string, delete bool) error {
+	keys, err := GetAllEnrollmentKeys()
+	if err != nil {
+		return fmt.Errorf("failed to retrieve keys: %w", err)
+	}
+
+	var errs []error
+	for _, key := range keys {
+		newNetworks := []string{}
+		update := false
+		for _, net := range key.Networks {
+			if net == network {
+				update = true
+				continue
+			}
+			newNetworks = append(newNetworks, net)
+		}
+		if update && len(newNetworks) == 0 && delete {
+			if err := DeleteEnrollmentKey(key.Value, false); err != nil {
+				errs = append(errs, fmt.Errorf("failed to delete key %s: %w", key.Value, err))
+			}
+			continue
+		}
+		if update {
+			key.Networks = newNetworks
+			if err := upsertEnrollmentKey(&key); err != nil {
+				errs = append(errs, fmt.Errorf("failed to update key %s: %w", key.Value, err))
+			}
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("errors unlinking network from keys: %v", errs)
+	}
+	return nil
+}
