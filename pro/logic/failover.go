@@ -47,6 +47,12 @@ func SetFailOverCtx(failOverNode, victimNode, peerNode models.Node) error {
 	if victimNode.FailOverPeers == nil {
 		victimNode.FailOverPeers = make(map[string]struct{})
 	}
+	_, peerHasFailovered := peerNode.FailOverPeers[victimNode.ID.String()]
+	_, victimHasFailovered := victimNode.FailOverPeers[peerNode.ID.String()]
+	if peerHasFailovered && victimHasFailovered &&
+		victimNode.FailedOverBy == failOverNode.ID && peerNode.FailedOverBy == failOverNode.ID {
+		return errors.New("failover ctx is already set")
+	}
 	peerNode.FailOverPeers[victimNode.ID.String()] = struct{}{}
 	victimNode.FailOverPeers[peerNode.ID.String()] = struct{}{}
 	victimNode.FailedOverBy = failOverNode.ID
