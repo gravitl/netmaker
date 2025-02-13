@@ -32,7 +32,3 @@ broker.{$NM_DOMAIN} {
 		}
 	reverse_proxy @ws mq:8883   # For EMQX websockets use `reverse_proxy @ws mq:8083`
 }
-
-https://stun.{$NM_DOMAIN} {
-	reverse_proxy stun:3478
-}
