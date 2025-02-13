@@ -38,6 +38,24 @@ func InitFailOverCache() {
 		}
 	}
 }
+
+func CheckFailOverCtx(failOverNode, victimNode, peerNode models.Node) error {
+	failOverCtxMutex.RLock()
+	defer failOverCtxMutex.RUnlock()
+	if peerNode.FailOverPeers == nil {
+		return nil
+	}
+	if victimNode.FailOverPeers == nil {
+		return nil
+	}
+	_, peerHasFailovered := peerNode.FailOverPeers[victimNode.ID.String()]
+	_, victimHasFailovered := victimNode.FailOverPeers[peerNode.ID.String()]
+	if peerHasFailovered && victimHasFailovered &&
+		victimNode.FailedOverBy == failOverNode.ID && peerNode.FailedOverBy == failOverNode.ID {
+		return errors.New("failover ctx is already set")
+	}
+	return nil
+}
 func SetFailOverCtx(failOverNode, victimNode, peerNode models.Node) error {
 	failOverCtxMutex.Lock()
 	defer failOverCtxMutex.Unlock()
@@ -57,9 +75,6 @@ func SetFailOverCtx(failOverNode, victimNode, peerNode models.Node) error {
 	victimNode.FailOverPeers[peerNode.ID.String()] = struct{}{}
 	victimNode.FailedOverBy = failOverNode.ID
 	peerNode.FailedOverBy = failOverNode.ID
-	if err := logic.UpsertNode(&failOverNode); err != nil {
-		return err
-	}
 	if err := logic.UpsertNode(&victimNode); err != nil {
 		return err
 	}
