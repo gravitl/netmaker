@@ -270,7 +270,7 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 
 	err = proLogic.SetFailOverCtx(failOverNode, node, peerNode)
 	if err != nil {
-		slog.Error("failed to create failover", "id", node.ID.String(),
+		slog.Debug("failed to create failover", "id", node.ID.String(),
 			"network", node.Network, "error", err)
 		logic.ReturnErrorResponse(
 			w,
@@ -415,12 +415,11 @@ func checkfailOverCtx(w http.ResponseWriter, r *http.Request) {
 
 	err = proLogic.CheckFailOverCtx(failOverNode, node, peerNode)
 	if err != nil {
-		slog.Error("failed to create failover", "id", node.ID.String(),
-			"network", node.Network, "error", err)
+		slog.Error("failover ctx cannot be set ", "error", err)
 		logic.ReturnErrorResponse(
 			w,
 			r,
-			logic.FormatError(fmt.Errorf("failed to create failover: %v", err), "internal"),
+			logic.FormatError(fmt.Errorf("failover ctx cannot be set: %v", err), "internal"),
 		)
 		return
 	}
