@@ -297,7 +297,7 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     Failover me
-// @Router      /api/v1/node/{nodeid}/failover_check [post]
+// @Router      /api/v1/node/{nodeid}/failover_check [get]
 // @Tags        PRO
 // @Param       nodeid path string true "Node ID"
 // @Accept      json
