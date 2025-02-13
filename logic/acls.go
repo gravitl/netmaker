@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"sort"
 	"sync"
 	"time"
@@ -568,6 +569,8 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []mode
 
 // IsPeerAllowed - checks if peer needs to be added to the interface
 func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
+	peerTags := maps.Clone(peer.Tags)
+	nodeTags := maps.Clone(node.Tags)
 	if node.IsStatic {
 		node = node.StaticNode.ConvertToStaticNode()
 	}
@@ -597,12 +600,12 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 		}
 		srcMap = convAclTagToValueMap(policy.Src)
 		dstMap = convAclTagToValueMap(policy.Dst)
-		for tagID := range node.Tags {
+		for tagID := range nodeTags {
 			if _, ok := dstMap[tagID.String()]; ok {
 				if _, ok := srcMap["*"]; ok {
 					return true
 				}
-				for tagID := range peer.Tags {
+				for tagID := range peerTags {
 					if _, ok := srcMap[tagID.String()]; ok {
 						return true
 					}
@@ -612,19 +615,20 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 				if _, ok := dstMap["*"]; ok {
 					return true
 				}
-				for tagID := range peer.Tags {
+				for tagID := range peerTags {
 					if _, ok := dstMap[tagID.String()]; ok {
 						return true
 					}
 				}
 			}
 		}
-		for tagID := range peer.Tags {
+
+		for tagID := range peerTags {
 			if _, ok := dstMap[tagID.String()]; ok {
 				if _, ok := srcMap["*"]; ok {
 					return true
 				}
-				for tagID := range node.Tags {
+				for tagID := range nodeTags {
 
 					if _, ok := srcMap[tagID.String()]; ok {
 						return true
@@ -635,7 +639,7 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 				if _, ok := dstMap["*"]; ok {
 					return true
 				}
-				for tagID := range node.Tags {
+				for tagID := range nodeTags {
 					if _, ok := dstMap[tagID.String()]; ok {
 						return true
 					}
