@@ -14,10 +14,8 @@ import (
 )
 
 var (
-	aclCacheMutex      = &sync.RWMutex{}
-	aclCacheMap        = make(map[string]models.Acl)
-	aclNetCacheMutex   = &sync.RWMutex{}
-	aclNetworkCacheMap = make(map[models.NetworkID]AclNetInfo)
+	aclCacheMutex = &sync.RWMutex{}
+	aclCacheMap   = make(map[string]models.Acl)
 )
 
 type AclNetInfo struct {
@@ -38,34 +36,6 @@ func MigrateAclPolicies() {
 		}
 	}
 
-}
-
-func loadNetworkAclsIntoCache() {
-	aclNetCacheMutex.Lock()
-	defer aclNetCacheMutex.Unlock()
-	aclNetworkCacheMap = make(map[models.NetworkID]AclNetInfo)
-	acls := ListAcls()
-	for _, acl := range acls {
-		aclNetInfo := aclNetworkCacheMap[acl.NetworkID]
-		if acl.RuleType == models.DevicePolicy {
-			aclNetInfo.DevicePolices = append(aclNetInfo.DevicePolices, acl)
-		} else {
-			aclNetInfo.UserPolicies = append(aclNetInfo.UserPolicies, acl)
-		}
-		aclNetworkCacheMap[acl.NetworkID] = aclNetInfo
-	}
-	for netID, aclNetInfo := range aclNetworkCacheMap {
-		defaultDevicePolicy, err := GetDefaultPolicy(models.NetworkID(netID), models.DevicePolicy)
-		if err == nil {
-			aclNetInfo.DefaultDevicePolicy = defaultDevicePolicy
-			aclNetworkCacheMap[netID] = aclNetInfo
-		}
-		defaultUserPolicy, err := GetDefaultPolicy(models.NetworkID(netID), models.UserPolicy)
-		if err == nil {
-			aclNetInfo.DefaultUserPolicy = defaultUserPolicy
-			aclNetworkCacheMap[netID] = aclNetInfo
-		}
-	}
 }
 
 // CreateDefaultAclNetworkPolicies - create default acl network policies
@@ -198,20 +168,14 @@ func listAclFromCache() (acls []models.Acl) {
 
 func storeAclInCache(a models.Acl) {
 	aclCacheMutex.Lock()
-	defer func() {
-		aclCacheMutex.Unlock()
-		go loadNetworkAclsIntoCache()
-	}()
+	defer aclCacheMutex.Unlock()
 	aclCacheMap[a.ID] = a
 
 }
 
 func removeAclFromCache(a models.Acl) {
 	aclCacheMutex.Lock()
-	defer func() {
-		aclCacheMutex.Unlock()
-		go loadNetworkAclsIntoCache()
-	}()
+	defer aclCacheMutex.Unlock()
 	delete(aclCacheMap, a.ID)
 }
 
@@ -527,37 +491,6 @@ func listPoliciesOfUser(user models.User, netID models.NetworkID) []models.Acl {
 	return userAcls
 }
 
-func GetDefaultPolicyFromNetCache(netID models.NetworkID, ruleType models.AclPolicyType) models.Acl {
-	aclNetCacheMutex.RLock()
-	defer aclNetCacheMutex.RUnlock()
-	if aclNetInfo, ok := aclNetworkCacheMap[netID]; ok {
-		if ruleType == models.DevicePolicy {
-			return aclNetInfo.DefaultDevicePolicy
-		} else {
-			return aclNetInfo.DefaultUserPolicy
-		}
-	}
-	return models.Acl{}
-}
-
-func listPolicesFromNetCache(netID models.NetworkID, ruleType models.AclPolicyType) []models.Acl {
-	aclNetCacheMutex.RLock()
-	if aclNetInfo, ok := aclNetworkCacheMap[netID]; ok {
-		if ruleType == models.DevicePolicy {
-			aclNetCacheMutex.RUnlock()
-			return aclNetInfo.DevicePolices
-		} else {
-			aclNetCacheMutex.RUnlock()
-			return aclNetInfo.UserPolicies
-		}
-	}
-	aclNetCacheMutex.RUnlock()
-	if ruleType == models.DevicePolicy {
-		return listDevicePolicies(netID)
-	}
-	return listUserPolicies(netID)
-}
-
 // listDevicePolicies - lists all device policies in a network
 func listDevicePolicies(netID models.NetworkID) []models.Acl {
 	allAcls := ListAcls()
@@ -660,7 +593,7 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 
 	}
 	// list device policies
-	policies := listPolicesFromNetCache(models.NetworkID(node.Network), models.DevicePolicy)
+	policies := listDevicePolicies(models.NetworkID(node.Network))
 	srcMap := make(map[string]struct{})
 	dstMap := make(map[string]struct{})
 	defer func() {

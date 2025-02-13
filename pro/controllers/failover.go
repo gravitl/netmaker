@@ -205,6 +205,12 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	peerHost, err := logic.GetHost(peerNode.HostID.String())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	fmt.Println("#### RECV FAILOVER REQ FROM: 1", "from-host", host.Name, "node-id", node.ID.String(), "to-host", peerHost.Name, "peer-id", peerNode.ID)
 	if peerNode.IsFailOver {
 		logic.ReturnErrorResponse(
 			w,
@@ -267,7 +273,7 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-
+	fmt.Println("#### RECV FAILOVER REQ FROM: 2", "from-host", host.Name, "node-id", node.ID.String(), "to-host", peerHost.Name, "peer-id", peerNode.ID)
 	err = proLogic.SetFailOverCtx(failOverNode, node, peerNode)
 	if err != nil {
 		slog.Debug("failed to create failover", "id", node.ID.String(),
@@ -279,6 +285,7 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	fmt.Println("#### RECV FAILOVER REQ FROM: 3", "from-host", host.Name, "node-id", node.ID.String(), "to-host", peerHost.Name, "peer-id", peerNode.ID)
 	slog.Info(
 		"[auto-relay] created relay on node",
 		"node",

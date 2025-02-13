@@ -235,7 +235,8 @@ func pull(w http.ResponseWriter, r *http.Request) {
 			slog.Error("failed to get node:", "id", node.ID, "error", err)
 			continue
 		}
-		if node.FailedOverBy != uuid.Nil {
+		if node.FailedOverBy != uuid.Nil && r.URL.Query().Get("reset_failovered") == "true" {
+			fmt.Println("#### RESETTTING FAILED OVERED PEER: ", host.Name)
 			logic.ResetFailedOverPeer(&node)
 			sendPeerUpdate = true
 		}
