@@ -359,6 +359,7 @@ func DeleteUser(user string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	go RemoveUserFromAclPolicy(user)
 
 	return true, nil
 }

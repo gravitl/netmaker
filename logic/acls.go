@@ -654,6 +654,36 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 	}
 	return false
 }
+
+func RemoveUserFromAclPolicy(userName string) {
+	acls := ListAcls()
+	for _, acl := range acls {
+		delete := false
+		update := false
+		if acl.RuleType == models.UserPolicy {
+			for i, srcI := range acl.Src {
+				if srcI.ID == models.UserAclID && srcI.Value == userName {
+					if len(acl.Src) == 1 {
+						// delete policy
+						delete = true
+						break
+					} else {
+						acl.Src = append(acl.Src[:i], acl.Src[i+1:]...)
+						update = true
+					}
+				}
+			}
+			if delete {
+				DeleteAcl(acl)
+				continue
+			}
+			if update {
+				UpsertAcl(acl)
+			}
+		}
+	}
+}
+
 func RemoveNodeFromAclPolicy(node models.Node) {
 	var nodeID string
 	if node.IsStatic {
