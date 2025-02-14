@@ -419,11 +419,9 @@ func getNetworkNodeStatus(w http.ResponseWriter, r *http.Request) {
 	nodes = logic.AddStaticNodestoList(nodes)
 	nodes = logic.AddStatusToNodes(nodes, false)
 	// return all the nodes in JSON/API format
-	apiNodes := logic.GetAllNodesAPI(nodes[:])
+	apiNodesStatusMap := logic.GetNodesStatusAPI(nodes[:])
 	logger.Log(3, r.Header.Get("user"), "fetched all nodes they have access to")
-	logic.SortApiNodes(apiNodes[:])
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(apiNodes)
+	logic.ReturnSuccessResponseWithJson(w, r, apiNodesStatusMap, "fetched nodes with metric status")
 }
 
 // @Summary     Get an individual node

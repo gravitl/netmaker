@@ -579,6 +579,16 @@ func GetAllNodesAPI(nodes []models.Node) []models.ApiNode {
 	return apiNodes[:]
 }
 
+// GetNodesStatusAPI - gets nodes status
+func GetNodesStatusAPI(nodes []models.Node) map[string]models.ApiNodeStatus {
+	apiStatusNodesMap := make(map[string]models.ApiNodeStatus)
+	for i := range nodes {
+		newApiNode := nodes[i].ConvertToStatusNode()
+		apiStatusNodesMap[newApiNode.ID] = *newApiNode
+	}
+	return apiStatusNodesMap
+}
+
 // DeleteExpiredNodes - goroutine which deletes nodes which are expired
 func DeleteExpiredNodes(ctx context.Context, peerUpdate chan *models.Node) {
 	// Delete Expired Nodes Every Hour
