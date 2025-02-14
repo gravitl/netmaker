@@ -267,7 +267,6 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-
 	err = proLogic.SetFailOverCtx(failOverNode, node, peerNode)
 	if err != nil {
 		slog.Debug("failed to create failover", "id", node.ID.String(),
@@ -296,7 +295,7 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, "relayed successfully")
 }
 
-// @Summary     Failover me
+// @Summary     checkfailOverCtx
 // @Router      /api/v1/node/{nodeid}/failover_check [get]
 // @Tags        PRO
 // @Param       nodeid path string true "Node ID"
