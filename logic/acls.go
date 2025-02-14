@@ -654,6 +654,78 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 	}
 	return false
 }
+func RemoveNodeFromAclPolicy(node models.Node) {
+	var nodeID string
+	if node.IsStatic {
+		nodeID = node.StaticNode.ClientID
+	} else {
+		nodeID = node.ID.String()
+	}
+	acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
+	for _, acl := range acls {
+		delete := false
+		update := false
+		if acl.RuleType == models.DevicePolicy {
+			for i, srcI := range acl.Src {
+				if srcI.ID == models.NodeID && srcI.Value == nodeID {
+					if len(acl.Src) == 1 {
+						// delete policy
+						delete = true
+						break
+					} else {
+						acl.Src = append(acl.Src[:i], acl.Src[i+1:]...)
+						update = true
+					}
+				}
+			}
+			if delete {
+				DeleteAcl(acl)
+				continue
+			}
+			for i, dstI := range acl.Dst {
+				if dstI.ID == models.NodeID && dstI.Value == nodeID {
+					if len(acl.Dst) == 1 {
+						// delete policy
+						delete = true
+						break
+					} else {
+						acl.Dst = append(acl.Dst[:i], acl.Dst[i+1:]...)
+						update = true
+					}
+				}
+			}
+			if delete {
+				DeleteAcl(acl)
+				continue
+			}
+			if update {
+				UpsertAcl(acl)
+			}
+
+		}
+		if acl.RuleType == models.UserPolicy {
+			for i, dstI := range acl.Dst {
+				if dstI.ID == models.NodeID && dstI.Value == nodeID {
+					if len(acl.Dst) == 1 {
+						// delete policy
+						delete = true
+						break
+					} else {
+						acl.Dst = append(acl.Dst[:i], acl.Dst[i+1:]...)
+						update = true
+					}
+				}
+			}
+			if delete {
+				DeleteAcl(acl)
+				continue
+			}
+			if update {
+				UpsertAcl(acl)
+			}
+		}
+	}
+}
 
 func checkTagGroupPolicy(srcMap, dstMap map[string]struct{}, node, peer models.Node,
 	nodeTags, peerTags map[models.TagID]struct{}) bool {

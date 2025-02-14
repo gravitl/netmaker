@@ -312,6 +312,7 @@ func DeleteNode(node *models.Node, purge bool) error {
 	if err := DissasociateNodeFromHost(node, host); err != nil {
 		return err
 	}
+	go RemoveNodeFromAclPolicy(*node)
 
 	return nil
 }

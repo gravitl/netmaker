@@ -134,6 +134,7 @@ func DeleteExtClientAndCleanup(extClient models.ExtClient) error {
 		slog.Error("DeleteExtClientAndCleanup-update network acls:", "Error", err.Error())
 		return err
 	}
+	go RemoveNodeFromAclPolicy(extClient.ConvertToStaticNode())
 
 	return nil
 }
