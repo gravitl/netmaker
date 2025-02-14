@@ -236,7 +236,6 @@ func pull(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		if node.FailedOverBy != uuid.Nil && r.URL.Query().Get("reset_failovered") == "true" {
-			fmt.Println("#### RESETTTING FAILED OVERED PEER: ", host.Name)
 			logic.ResetFailedOverPeer(&node)
 			sendPeerUpdate = true
 		}

@@ -275,7 +275,6 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 				continue
 			}
 			if node.FailedOverBy != uuid.Nil {
-				fmt.Println("ENDPOIINT CHANGED RESETTING FAILEDDOVERED: ", currHost.Name)
 				ResetFailedOverPeer(&node)
 			}
 		}
