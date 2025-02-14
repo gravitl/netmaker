@@ -456,17 +456,12 @@ func GetStaticNodeIps(node models.Node) (ips []net.IP) {
 
 func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 	// fetch user access to static clients via policies
-	defer func() {
-		logger.Log(0, fmt.Sprintf("node.ID: %s, Rules: %+v\n", node.ID, rules))
-	}()
 
 	defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 	defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 	nodes, _ := GetNetworkNodes(node.Network)
 	nodes = append(nodes, GetStaticNodesByNetwork(models.NetworkID(node.Network), true)...)
-	//fmt.Printf("=====> NODES: %+v \n\n", nodes)
 	userNodes := GetStaticUserNodesByNetwork(models.NetworkID(node.Network))
-	//fmt.Printf("=====> USER NODES %+v \n\n", userNodes)
 	for _, userNodeI := range userNodes {
 		for _, peer := range nodes {
 			if peer.IsUserNode {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"sort"
 	"sync"
 	"time"
@@ -163,6 +164,7 @@ func storeAclInCache(a models.Acl) {
 	aclCacheMutex.Lock()
 	defer aclCacheMutex.Unlock()
 	aclCacheMap[a.ID] = a
+
 }
 
 func removeAclFromCache(a models.Acl) {
@@ -605,6 +607,8 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []mode
 // IsPeerAllowed - checks if peer needs to be added to the interface
 func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 	var nodeId, peerId string
+	peerTags := maps.Clone(peer.Tags)
+	nodeTags := maps.Clone(node.Tags)
 	if node.IsStatic {
 		nodeId = node.StaticNode.ClientID
 		node = node.StaticNode.ConvertToStaticNode()
@@ -617,8 +621,8 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 	} else {
 		peerId = peer.ID.String()
 	}
-	node.Tags[models.TagID(nodeId)] = struct{}{}
-	peer.Tags[models.TagID(peerId)] = struct{}{}
+	nodeTags[models.TagID(nodeId)] = struct{}{}
+	peerTags[models.TagID(peerId)] = struct{}{}
 	if checkDefaultPolicy {
 		// check default policy if all allowed return true
 		defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
@@ -627,6 +631,7 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 				return true
 			}
 		}
+
 	}
 	// list device policies
 	policies := listDevicePolicies(models.NetworkID(peer.Network))
@@ -642,7 +647,7 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 		}
 		srcMap = convAclTagToValueMap(policy.Src)
 		dstMap = convAclTagToValueMap(policy.Dst)
-		if checkTagGroupPolicy(srcMap, dstMap, node, peer) {
+		if checkTagGroupPolicy(srcMap, dstMap, node, peer, nodeTags, peerTags) {
 			return true
 		}
 
@@ -650,7 +655,8 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 	return false
 }
 
-func checkTagGroupPolicy(srcMap, dstMap map[string]struct{}, node, peer models.Node) bool {
+func checkTagGroupPolicy(srcMap, dstMap map[string]struct{}, node, peer models.Node,
+	nodeTags, peerTags map[models.TagID]struct{}) bool {
 	// check for node ID
 	if _, ok := srcMap[node.ID.String()]; ok {
 		if _, ok = dstMap[peer.ID.String()]; ok {
@@ -664,12 +670,12 @@ func checkTagGroupPolicy(srcMap, dstMap map[string]struct{}, node, peer models.N
 		}
 	}
 
-	for tagID := range node.Tags {
+	for tagID := range nodeTags {
 		if _, ok := dstMap[tagID.String()]; ok {
 			if _, ok := srcMap["*"]; ok {
 				return true
 			}
-			for tagID := range peer.Tags {
+			for tagID := range peerTags {
 				if _, ok := srcMap[tagID.String()]; ok {
 					return true
 				}
@@ -679,19 +685,19 @@ func checkTagGroupPolicy(srcMap, dstMap map[string]struct{}, node, peer models.N
 			if _, ok := dstMap["*"]; ok {
 				return true
 			}
-			for tagID := range peer.Tags {
+			for tagID := range peerTags {
 				if _, ok := dstMap[tagID.String()]; ok {
 					return true
 				}
 			}
 		}
 	}
-	for tagID := range peer.Tags {
+	for tagID := range peerTags {
 		if _, ok := dstMap[tagID.String()]; ok {
 			if _, ok := srcMap["*"]; ok {
 				return true
 			}
-			for tagID := range node.Tags {
+			for tagID := range nodeTags {
 
 				if _, ok := srcMap[tagID.String()]; ok {
 					return true
@@ -702,7 +708,7 @@ func checkTagGroupPolicy(srcMap, dstMap map[string]struct{}, node, peer models.N
 			if _, ok := dstMap["*"]; ok {
 				return true
 			}
-			for tagID := range node.Tags {
+			for tagID := range nodeTags {
 				if _, ok := dstMap[tagID.String()]; ok {
 					return true
 				}
