@@ -205,11 +205,6 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	peerHost, err := logic.GetHost(peerNode.HostID.String())
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
 	if peerNode.IsFailOver {
 		logic.ReturnErrorResponse(
 			w,
