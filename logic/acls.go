@@ -19,13 +19,6 @@ var (
 	aclCacheMap   = make(map[string]models.Acl)
 )
 
-type AclNetInfo struct {
-	DevicePolices       []models.Acl
-	UserPolicies        []models.Acl
-	DefaultDevicePolicy models.Acl
-	DefaultUserPolicy   models.Acl
-}
-
 func MigrateAclPolicies() {
 	acls := ListAcls()
 	for _, acl := range acls {
@@ -596,7 +589,7 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 
 	}
 	// list device policies
-	policies := listDevicePolicies(models.NetworkID(node.Network))
+	policies := listDevicePolicies(models.NetworkID(peer.Network))
 	srcMap := make(map[string]struct{})
 	dstMap := make(map[string]struct{})
 	defer func() {

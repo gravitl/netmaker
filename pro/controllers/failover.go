@@ -300,7 +300,7 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, "relayed successfully")
 }
 
-// @Summary     Failover me
+// @Summary     checkfailOverCtx
 // @Router      /api/v1/node/{nodeid}/failover_check [get]
 // @Tags        PRO
 // @Param       nodeid path string true "Node ID"
