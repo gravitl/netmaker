@@ -5,7 +5,7 @@ go 1.23
 require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/eclipse/paho.mqtt.golang v1.4.3
-	github.com/go-playground/validator/v10 v10.24.0
+	github.com/go-playground/validator/v10 v10.25.0
 	github.com/golang-jwt/jwt/v4 v4.5.1
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/handlers v1.5.2
