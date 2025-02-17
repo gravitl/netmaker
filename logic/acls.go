@@ -607,8 +607,6 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []mode
 // IsPeerAllowed - checks if peer needs to be added to the interface
 func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 	var nodeId, peerId string
-	peerTags := maps.Clone(peer.Tags)
-	nodeTags := maps.Clone(node.Tags)
 	if node.IsStatic {
 		nodeId = node.StaticNode.ClientID
 		node = node.StaticNode.ConvertToStaticNode()
@@ -621,6 +619,8 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 	} else {
 		peerId = peer.ID.String()
 	}
+	peerTags := maps.Clone(peer.Tags)
+	nodeTags := maps.Clone(node.Tags)
 	nodeTags[models.TagID(nodeId)] = struct{}{}
 	peerTags[models.TagID(peerId)] = struct{}{}
 	if checkDefaultPolicy {
@@ -837,6 +837,8 @@ func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool)
 	}
 	node.Tags[models.TagID(nodeId)] = struct{}{}
 	peer.Tags[models.TagID(peerId)] = struct{}{}
+	peerTags := maps.Clone(peer.Tags)
+	nodeTags := maps.Clone(node.Tags)
 	if checkDefaultPolicy {
 		// check default policy if all allowed return true
 		defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
@@ -871,7 +873,7 @@ func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool)
 			allowedPolicies = append(allowedPolicies, policy)
 			break
 		}
-		for tagID := range node.Tags {
+		for tagID := range nodeTags {
 			allowed := false
 			if _, ok := dstMap[tagID.String()]; policy.AllowedDirection == models.TrafficDirectionBi && ok {
 				if _, ok := srcMap["*"]; ok {
@@ -879,7 +881,7 @@ func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool)
 					allowedPolicies = append(allowedPolicies, policy)
 					break
 				}
-				for tagID := range peer.Tags {
+				for tagID := range peerTags {
 					if _, ok := srcMap[tagID.String()]; ok {
 						allowed = true
 						break
@@ -896,7 +898,7 @@ func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool)
 					allowedPolicies = append(allowedPolicies, policy)
 					break
 				}
-				for tagID := range peer.Tags {
+				for tagID := range peerTags {
 					if _, ok := dstMap[tagID.String()]; ok {
 						allowed = true
 						break
@@ -908,8 +910,7 @@ func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool)
 				break
 			}
 		}
-
-		for tagID := range peer.Tags {
+		for tagID := range peerTags {
 			allowed := false
 			if _, ok := dstMap[tagID.String()]; ok {
 				if _, ok := srcMap["*"]; ok {
@@ -917,7 +918,7 @@ func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool)
 					allowedPolicies = append(allowedPolicies, policy)
 					break
 				}
-				for tagID := range node.Tags {
+				for tagID := range nodeTags {
 
 					if _, ok := srcMap[tagID.String()]; ok {
 						allowed = true
@@ -936,7 +937,7 @@ func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool)
 					allowedPolicies = append(allowedPolicies, policy)
 					break
 				}
-				for tagID := range node.Tags {
+				for tagID := range nodeTags {
 					if _, ok := dstMap[tagID.String()]; ok {
 						allowed = true
 						break
