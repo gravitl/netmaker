@@ -222,6 +222,83 @@ func IsAclExists(aclID string) bool {
 	_, err := GetAcl(aclID)
 	return err == nil
 }
+func GetEgressRanges(netID models.NetworkID) ([]string, map[string]struct{}, error) {
+
+	var result []string
+	resultMap := make(map[string]struct{})
+	networkNodes, err := GetNetworkNodes(netID.String())
+	if err != nil {
+		return []string{}, nil, err
+	}
+	for _, currentNode := range networkNodes {
+		if currentNode.Network != netID.String() {
+			continue
+		}
+		if currentNode.IsEgressGateway { // add the egress gateway range(s) to the result
+			if len(currentNode.EgressGatewayRanges) > 0 {
+				result = append(result, currentNode.EgressGatewayRanges...)
+				for _, egressRangeI := range currentNode.EgressGatewayRanges {
+					resultMap[egressRangeI] = struct{}{}
+				}
+			}
+		}
+	}
+	extclients, _ := GetNetworkExtClients(netID.String())
+	for _, extclient := range extclients {
+		if len(extclient.ExtraAllowedIPs) > 0 {
+			result = append(result, extclient.ExtraAllowedIPs...)
+			for _, extraAllowedIP := range extclient.ExtraAllowedIPs {
+				resultMap[extraAllowedIP] = struct{}{}
+			}
+		}
+	}
+	return result, resultMap, nil
+}
+
+func checkIfAclTagisValid(t models.AclPolicyTag, netID models.NetworkID) bool {
+	switch t.ID {
+	case models.NodeTagID:
+		// check if tag is valid
+		_, err := GetTag(models.TagID(t.Value))
+		if err != nil {
+			return false
+		}
+	case models.NodeID:
+		_, nodeErr := GetNodeByID(t.Value)
+		if nodeErr != nil {
+			_, staticNodeErr := GetExtClient(t.Value, netID.String())
+			if staticNodeErr != nil {
+				return false
+			}
+		}
+	case models.EgressRange:
+		_, rangesMap, err := GetEgressRanges(netID)
+		if err != nil {
+			return false
+		}
+		if _, ok := rangesMap[t.Value]; !ok {
+			return false
+		}
+	case models.UserAclID:
+		_, err := GetUser(t.Value)
+		if err != nil {
+			return false
+		}
+	case models.UserGroupAclID:
+		err := IsGroupValid(models.UserGroupID(t.Value))
+		if err != nil {
+			return false
+		}
+		// check if group belongs to this network
+		netGrps := GetUserGroupsInNetwork(netID)
+		if _, ok := netGrps[models.UserGroupID(t.Value)]; !ok {
+			return false
+		}
+	default:
+		return false
+	}
+	return true
+}
 
 // IsAclPolicyValid - validates if acl policy is valid
 func IsAclPolicyValid(acl models.Acl) bool {
@@ -235,115 +312,43 @@ func IsAclPolicyValid(acl models.Acl) bool {
 		// src list should only contain users
 		for _, srcI := range acl.Src {
 
-			if srcI.ID == "" || srcI.Value == "" {
-				return false
-			}
 			if srcI.Value == "*" {
 				continue
 			}
-			if srcI.ID != models.UserAclID && srcI.ID != models.UserGroupAclID {
+			// check if user group is valid
+			if !checkIfAclTagisValid(srcI, acl.NetworkID) {
 				return false
 			}
-			// check if user group is valid
-			if srcI.ID == models.UserAclID {
-				_, err := GetUser(srcI.Value)
-				if err != nil {
-					return false
-				}
-
-			} else if srcI.ID == models.UserGroupAclID {
-				err := IsGroupValid(models.UserGroupID(srcI.Value))
-				if err != nil {
-					return false
-				}
-				// check if group belongs to this network
-				netGrps := GetUserGroupsInNetwork(acl.NetworkID)
-				if _, ok := netGrps[models.UserGroupID(srcI.Value)]; !ok {
-					return false
-				}
-			}
-
 		}
 		for _, dstI := range acl.Dst {
 
-			if dstI.ID == "" || dstI.Value == "" {
-				return false
-			}
-			if dstI.ID != models.NodeTagID && dstI.ID != models.NodeID {
-				return false
-			}
 			if dstI.Value == "*" {
 				continue
 			}
-			if dstI.ID == models.NodeTagID {
-				// check if tag is valid
-				_, err := GetTag(models.TagID(dstI.Value))
-				if err != nil {
-					return false
-				}
-			} else {
-				_, nodeErr := GetNodeByID(dstI.Value)
-				if nodeErr != nil {
-					_, staticNodeErr := GetExtClient(dstI.Value, acl.NetworkID.String())
-					if staticNodeErr != nil {
-						return false
-					}
-				}
+
+			// check if user group is valid
+			if !checkIfAclTagisValid(dstI, acl.NetworkID) {
+				return false
 			}
 		}
 	case models.DevicePolicy:
 		for _, srcI := range acl.Src {
-			if srcI.ID == "" || srcI.Value == "" {
-				return false
-			}
-			if srcI.ID != models.NodeTagID && srcI.ID != models.NodeID {
-				return false
-			}
 			if srcI.Value == "*" {
 				continue
 			}
-			if srcI.ID == models.NodeTagID {
-				// check if tag is valid
-				_, err := GetTag(models.TagID(srcI.Value))
-				if err != nil {
-					return false
-				}
-			} else {
-				_, nodeErr := GetNodeByID(srcI.Value)
-				if nodeErr != nil {
-					_, staticNodeErr := GetExtClient(srcI.Value, acl.NetworkID.String())
-					if staticNodeErr != nil {
-						return false
-					}
-				}
+			// check if user group is valid
+			if !checkIfAclTagisValid(srcI, acl.NetworkID) {
+				return false
 			}
-
 		}
 		for _, dstI := range acl.Dst {
 
-			if dstI.ID == "" || dstI.Value == "" {
-				return false
-			}
-			if dstI.ID != models.NodeTagID && dstI.ID != models.NodeID {
-				return false
-			}
 			if dstI.Value == "*" {
 				continue
 			}
-			if dstI.ID == models.NodeTagID {
-				// check if tag is valid
-				_, err := GetTag(models.TagID(dstI.Value))
-				if err != nil {
-					return false
-				}
-			} else {
-				_, nodeErr := GetNodeByID(dstI.Value)
-				if nodeErr != nil {
-					_, staticNodeErr := GetExtClient(dstI.Value, acl.NetworkID.String())
-					if staticNodeErr != nil {
-						return false
-					}
-				}
+			// check if user group is valid
+			if !checkIfAclTagisValid(dstI, acl.NetworkID) {
+				return false
 			}
 		}
 	}
