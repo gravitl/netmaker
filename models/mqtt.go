@@ -65,6 +65,7 @@ type EgressInfo struct {
 	Network6      net.IPNet            `json:"network6" yaml:"network6"`
 	EgressGwAddr6 net.IPNet            `json:"egress_gw_addr6" yaml:"egress_gw_addr6"`
 	EgressGWCfg   EgressGatewayRequest `json:"egress_gateway_cfg" yaml:"egress_gateway_cfg"`
+	EgressFwRules map[string]FwRule    `json:"egress_fw_rules"`
 }
 
 // EgressNetworkRoutes - struct for egress network routes for adding routes to peer's interface

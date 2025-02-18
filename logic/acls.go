@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net"
 	"sort"
 	"sync"
 	"time"
@@ -1057,12 +1058,21 @@ func getUserAclRulesForNode(targetnode *models.Node,
 			continue
 		}
 		dstTags := convAclTagToValueMap(acl.Dst)
-		for nodeTag := range targetnode.Tags {
-			if _, ok := dstTags[nodeTag.String()]; !ok {
-				if _, ok = dstTags[targetnode.ID.String()]; !ok {
-					continue
+		_, all := dstTags["*"]
+		addUsers := false
+		if !all {
+			for nodeTag := range targetnode.Tags {
+				if _, ok := dstTags[nodeTag.String()]; !ok {
+					if _, ok = dstTags[targetnode.ID.String()]; !ok {
+						break
+					}
 				}
 			}
+		} else {
+			addUsers = true
+		}
+
+		if addUsers {
 			// get all src tags
 			for _, srcAcl := range acl.Src {
 				if srcAcl.ID == models.UserAclID {
@@ -1077,6 +1087,7 @@ func getUserAclRulesForNode(targetnode *models.Node,
 				}
 			}
 		}
+
 	}
 
 	for _, userNode := range userNodes {
@@ -1092,7 +1103,8 @@ func getUserAclRulesForNode(targetnode *models.Node,
 			if !acl.Enabled {
 				continue
 			}
-
+			dstTags := convAclTagToValueMap(acl.Dst)
+			_, all := dstTags["*"]
 			r := models.AclRule{
 				ID:              acl.ID,
 				AllowedProtocol: acl.Proto,
@@ -1106,6 +1118,17 @@ func getUserAclRulesForNode(targetnode *models.Node,
 			}
 			if userNode.StaticNode.Address6 != "" {
 				r.IP6List = append(r.IP6List, userNode.StaticNode.AddressIPNet6())
+			}
+			if targetnode.IsEgressGateway && len(targetnode.EgressGatewayRanges) > 0 {
+				for _, egressRangeI := range targetnode.EgressGatewayRanges {
+					if _, ok := dstTags[egressRangeI]; ok || all {
+						_, egressCidr, err := net.ParseCIDR(egressRangeI)
+						if err == nil {
+							r.EgressRanges = append(r.EgressRanges, *egressCidr)
+						}
+					}
+				}
+
 			}
 			if aclRule, ok := rules[acl.ID]; ok {
 				aclRule.IPList = append(aclRule.IPList, r.IPList...)
@@ -1333,6 +1356,21 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 							}
 						}
 					}
+				}
+			}
+
+		}
+		if targetnode.IsEgressGateway && len(targetnode.EgressGatewayRanges) > 0 {
+			for _, egressRangeI := range targetnode.EgressGatewayRanges {
+				_, egressCidr, err := net.ParseCIDR(egressRangeI)
+				if err != nil {
+					continue
+				}
+				_, all := dstTags["*"]
+				if _, ok := dstTags[egressRangeI]; ok || all {
+					// get all src tags
+					aclRule.EgressRanges = append(aclRule.EgressRanges, *egressCidr)
+
 				}
 			}
 
