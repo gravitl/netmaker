@@ -106,6 +106,7 @@ func DeleteExtClient(network string, clientid string) error {
 	if servercfg.CacheEnabled() {
 		deleteExtClientFromCache(key)
 	}
+	go RemoveNodeFromAclPolicy(extClient.ConvertToStaticNode())
 	return nil
 }
 
@@ -134,7 +135,6 @@ func DeleteExtClientAndCleanup(extClient models.ExtClient) error {
 		slog.Error("DeleteExtClientAndCleanup-update network acls:", "Error", err.Error())
 		return err
 	}
-	go RemoveNodeFromAclPolicy(extClient.ConvertToStaticNode())
 
 	return nil
 }
