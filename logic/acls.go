@@ -890,20 +890,33 @@ func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool)
 		}
 		srcMap = convAclTagToValueMap(policy.Src)
 		dstMap = convAclTagToValueMap(policy.Dst)
+		_, srcAll := srcMap["*"]
+		_, dstAll := dstMap["*"]
 		if policy.AllowedDirection == models.TrafficDirectionBi {
-			if _, ok := srcMap[node.ID.String()]; ok {
-				allowedPolicies = append(allowedPolicies, policy)
-				break
+			if _, ok := srcMap[nodeId]; ok || srcAll {
+				if _, ok := dstMap[peerId]; ok || dstAll {
+					allowedPolicies = append(allowedPolicies, policy)
+					continue
+				}
+
+			}
+			if _, ok := dstMap[nodeId]; ok || dstAll {
+				if _, ok := srcMap[peerId]; ok || srcAll {
+					allowedPolicies = append(allowedPolicies, policy)
+					continue
+				}
 			}
 		}
-		if _, ok := dstMap[node.ID.String()]; ok {
-			allowedPolicies = append(allowedPolicies, policy)
-			break
+		if _, ok := dstMap[nodeId]; ok || dstAll {
+			if _, ok := srcMap[peerId]; ok || srcAll {
+				allowedPolicies = append(allowedPolicies, policy)
+				continue
+			}
 		}
 		for tagID := range nodeTags {
 			allowed := false
 			if _, ok := dstMap[tagID.String()]; policy.AllowedDirection == models.TrafficDirectionBi && ok {
-				if _, ok := srcMap["*"]; ok {
+				if srcAll {
 					allowed = true
 					allowedPolicies = append(allowedPolicies, policy)
 					break
@@ -920,7 +933,7 @@ func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool)
 				break
 			}
 			if _, ok := srcMap[tagID.String()]; ok {
-				if _, ok := dstMap["*"]; ok {
+				if dstAll {
 					allowed = true
 					allowedPolicies = append(allowedPolicies, policy)
 					break
@@ -940,7 +953,7 @@ func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool)
 		for tagID := range peerTags {
 			allowed := false
 			if _, ok := dstMap[tagID.String()]; ok {
-				if _, ok := srcMap["*"]; ok {
+				if srcAll {
 					allowed = true
 					allowedPolicies = append(allowedPolicies, policy)
 					break
@@ -959,7 +972,7 @@ func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool)
 			}
 
 			if _, ok := srcMap[tagID.String()]; policy.AllowedDirection == models.TrafficDirectionBi && ok {
-				if _, ok := dstMap["*"]; ok {
+				if dstAll {
 					allowed = true
 					allowedPolicies = append(allowedPolicies, policy)
 					break
