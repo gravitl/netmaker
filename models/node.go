@@ -14,11 +14,12 @@ import (
 type NodeStatus string
 
 const (
-	OnlineSt  NodeStatus = "online"
-	OfflineSt NodeStatus = "offline"
-	WarningSt NodeStatus = "warning"
-	ErrorSt   NodeStatus = "error"
-	UnKnown   NodeStatus = "unknown"
+	OnlineSt     NodeStatus = "online"
+	OfflineSt    NodeStatus = "offline"
+	WarningSt    NodeStatus = "warning"
+	ErrorSt      NodeStatus = "error"
+	UnKnown      NodeStatus = "unknown"
+	Disconnected NodeStatus = "disconnected"
 )
 
 // LastCheckInThreshold - if node's checkin more than this threshold,then node is declared as offline
@@ -77,11 +78,12 @@ type CommonNode struct {
 	Action              string    `json:"action"              yaml:"action"`
 	LocalAddress        net.IPNet `json:"localaddress"        yaml:"localaddress"`
 	IsEgressGateway     bool      `json:"isegressgateway"     yaml:"isegressgateway"`
-	EgressGatewayRanges []string  `json:"egressgatewayranges" yaml:"egressgatewayranges"                                 bson:"egressgatewayranges"`
+	EgressGatewayRanges []string  `json:"egressgatewayranges" yaml:"egressgatewayranges"`
 	IsIngressGateway    bool      `json:"isingressgateway"    yaml:"isingressgateway"`
-	IsRelayed           bool      `json:"isrelayed"           yaml:"isrelayed"                                           bson:"isrelayed"`
-	RelayedBy           string    `json:"relayedby"           yaml:"relayedby"                                           bson:"relayedby"`
-	IsRelay             bool      `json:"isrelay"             yaml:"isrelay"                                             bson:"isrelay"`
+	IsRelayed           bool      `json:"isrelayed"           yaml:"isrelayed"`
+	RelayedBy           string    `json:"relayedby"           yaml:"relayedby"`
+	IsRelay             bool      `json:"isrelay"             yaml:"isrelay"`
+	IsGw                bool      `json:"is_gw"             yaml:"is_gw"`
 	RelayedNodes        []string  `json:"relaynodes"          yaml:"relayedNodes"`
 	IngressDNS          string    `json:"ingressdns"          yaml:"ingressdns"`
 	DNSOn               bool      `json:"dnson"               yaml:"dnson"`

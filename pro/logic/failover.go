@@ -13,7 +13,49 @@ import (
 )
 
 var failOverCtxMutex = &sync.RWMutex{}
+var failOverCacheMutex = &sync.RWMutex{}
+var failOverCache = make(map[models.NetworkID]string)
 
+func InitFailOverCache() {
+	failOverCacheMutex.Lock()
+	defer failOverCacheMutex.Unlock()
+	networks, err := logic.GetNetworks()
+	if err != nil {
+		return
+	}
+	allNodes, err := logic.GetAllNodes()
+	if err != nil {
+		return
+	}
+
+	for _, network := range networks {
+		networkNodes := logic.GetNetworkNodesMemory(allNodes, network.NetID)
+		for _, node := range networkNodes {
+			if node.IsFailOver {
+				failOverCache[models.NetworkID(network.NetID)] = node.ID.String()
+				break
+			}
+		}
+	}
+}
+
+func CheckFailOverCtx(failOverNode, victimNode, peerNode models.Node) error {
+	failOverCtxMutex.RLock()
+	defer failOverCtxMutex.RUnlock()
+	if peerNode.FailOverPeers == nil {
+		return nil
+	}
+	if victimNode.FailOverPeers == nil {
+		return nil
+	}
+	_, peerHasFailovered := peerNode.FailOverPeers[victimNode.ID.String()]
+	_, victimHasFailovered := victimNode.FailOverPeers[peerNode.ID.String()]
+	if peerHasFailovered && victimHasFailovered &&
+		victimNode.FailedOverBy == failOverNode.ID && peerNode.FailedOverBy == failOverNode.ID {
+		return errors.New("failover ctx is already set")
+	}
+	return nil
+}
 func SetFailOverCtx(failOverNode, victimNode, peerNode models.Node) error {
 	failOverCtxMutex.Lock()
 	defer failOverCtxMutex.Unlock()
@@ -23,13 +65,16 @@ func SetFailOverCtx(failOverNode, victimNode, peerNode models.Node) error {
 	if victimNode.FailOverPeers == nil {
 		victimNode.FailOverPeers = make(map[string]struct{})
 	}
+	_, peerHasFailovered := peerNode.FailOverPeers[victimNode.ID.String()]
+	_, victimHasFailovered := victimNode.FailOverPeers[peerNode.ID.String()]
+	if peerHasFailovered && victimHasFailovered &&
+		victimNode.FailedOverBy == failOverNode.ID && peerNode.FailedOverBy == failOverNode.ID {
+		return errors.New("failover ctx is already set")
+	}
 	peerNode.FailOverPeers[victimNode.ID.String()] = struct{}{}
 	victimNode.FailOverPeers[peerNode.ID.String()] = struct{}{}
 	victimNode.FailedOverBy = failOverNode.ID
 	peerNode.FailedOverBy = failOverNode.ID
-	if err := logic.UpsertNode(&failOverNode); err != nil {
-		return err
-	}
 	if err := logic.UpsertNode(&victimNode); err != nil {
 		return err
 	}
@@ -50,17 +95,26 @@ func GetFailOverNode(network string, allNodes []models.Node) (models.Node, error
 	return models.Node{}, errors.New("auto relay not found")
 }
 
+func RemoveFailOverFromCache(network string) {
+	failOverCacheMutex.Lock()
+	defer failOverCacheMutex.Unlock()
+	delete(failOverCache, models.NetworkID(network))
+}
+
+func SetFailOverInCache(node models.Node) {
+	failOverCacheMutex.Lock()
+	defer failOverCacheMutex.Unlock()
+	failOverCache[models.NetworkID(node.Network)] = node.ID.String()
+}
+
 // FailOverExists - checks if failOver exists already in the network
 func FailOverExists(network string) (failOverNode models.Node, exists bool) {
-	nodes, err := logic.GetNetworkNodes(network)
-	if err != nil {
-		return
-	}
-	for _, node := range nodes {
-		if node.IsFailOver {
-			exists = true
-			failOverNode = node
-			return
+	failOverCacheMutex.RLock()
+	defer failOverCacheMutex.RUnlock()
+	if nodeID, ok := failOverCache[models.NetworkID(network)]; ok {
+		failOverNode, err := logic.GetNodeByID(nodeID)
+		if err == nil {
+			return failOverNode, true
 		}
 	}
 	return
@@ -185,5 +239,6 @@ func CreateFailOver(node models.Node) error {
 		slog.Error("failed to upsert node", "node", node.ID.String(), "error", err)
 		return err
 	}
+	SetFailOverInCache(node)
 	return nil
 }

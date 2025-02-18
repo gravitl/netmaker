@@ -434,6 +434,7 @@ func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 // @Tags        Networks
 // @Security    oauth
 // @Param       networkname path string true "Network name"
+// @Param       force query bool false "Force Delete"
 // @Produce     json
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
@@ -441,10 +442,18 @@ func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
-
+	force := r.URL.Query().Get("force") == "true"
 	var params = mux.Vars(r)
 	network := params["networkname"]
-	err := logic.DeleteNetwork(network)
+	doneCh := make(chan struct{}, 1)
+	networkNodes, err := logic.GetNetworkNodes(network)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to get network nodes [%s]: %v", network, err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	err = logic.DeleteNetwork(network, force, doneCh)
 	if err != nil {
 		errtype := "badrequest"
 		if strings.Contains(err.Error(), "Node check failed") {
@@ -459,7 +468,22 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	go logic.DeleteDefaultNetworkPolicies(models.NetworkID(network))
 	//delete network from allocated ip map
 	go logic.RemoveNetworkFromAllocatedIpMap(network)
-
+	go func() {
+		<-doneCh
+		mq.PublishPeerUpdate(true)
+		// send node update to clean up locally
+		for _, node := range networkNodes {
+			node := node
+			node.PendingDelete = true
+			node.Action = models.NODE_DELETE
+			if err := mq.NodeUpdate(&node); err != nil {
+				slog.Error("error publishing node update to node", "node", node.ID, "error", err)
+			}
+		}
+		if servercfg.IsDNSMode() {
+			logic.SetDNS()
+		}
+	}()
 	logger.Log(1, r.Header.Get("user"), "deleted network", network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode("success")

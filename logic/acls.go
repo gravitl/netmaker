@@ -165,6 +165,7 @@ func storeAclInCache(a models.Acl) {
 	aclCacheMutex.Lock()
 	defer aclCacheMutex.Unlock()
 	aclCacheMap[a.ID] = a
+
 }
 
 func removeAclFromCache(a models.Acl) {
@@ -588,6 +589,7 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 				return true
 			}
 		}
+
 	}
 	// list device policies
 	policies := listDevicePolicies(models.NetworkID(peer.Network))
