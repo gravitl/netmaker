@@ -449,18 +449,12 @@ func getNetworkEgressRoutes(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	nodes, err := logic.GetNetworkNodes(netname)
+	nodeEgressRoutes, _, err := logic.GetEgressRanges(models.NetworkID(netname))
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	egressRoutes := []string{}
-	for _, node := range nodes {
-		if node.IsEgressGateway {
-			egressRoutes = append(egressRoutes, node.EgressGatewayRanges...)
-		}
-	}
-	logic.ReturnSuccessResponseWithJson(w, r, egressRoutes, "fetched network egress routes")
+	logic.ReturnSuccessResponseWithJson(w, r, nodeEgressRoutes, "fetched network egress routes")
 }
 
 // @Summary     Delete a network

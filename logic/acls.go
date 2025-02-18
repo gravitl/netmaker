@@ -223,13 +223,13 @@ func IsAclExists(aclID string) bool {
 	_, err := GetAcl(aclID)
 	return err == nil
 }
-func GetEgressRanges(netID models.NetworkID) ([]string, map[string]struct{}, error) {
+func GetEgressRanges(netID models.NetworkID) (map[string][]string, map[string]struct{}, error) {
 
-	var result []string
 	resultMap := make(map[string]struct{})
+	nodeEgressMap := make(map[string][]string)
 	networkNodes, err := GetNetworkNodes(netID.String())
 	if err != nil {
-		return []string{}, nil, err
+		return nil, nil, err
 	}
 	for _, currentNode := range networkNodes {
 		if currentNode.Network != netID.String() {
@@ -237,7 +237,7 @@ func GetEgressRanges(netID models.NetworkID) ([]string, map[string]struct{}, err
 		}
 		if currentNode.IsEgressGateway { // add the egress gateway range(s) to the result
 			if len(currentNode.EgressGatewayRanges) > 0 {
-				result = append(result, currentNode.EgressGatewayRanges...)
+				nodeEgressMap[currentNode.ID.String()] = currentNode.EgressGatewayRanges
 				for _, egressRangeI := range currentNode.EgressGatewayRanges {
 					resultMap[egressRangeI] = struct{}{}
 				}
@@ -247,24 +247,30 @@ func GetEgressRanges(netID models.NetworkID) ([]string, map[string]struct{}, err
 	extclients, _ := GetNetworkExtClients(netID.String())
 	for _, extclient := range extclients {
 		if len(extclient.ExtraAllowedIPs) > 0 {
-			result = append(result, extclient.ExtraAllowedIPs...)
+			nodeEgressMap[extclient.ClientID] = extclient.ExtraAllowedIPs
 			for _, extraAllowedIP := range extclient.ExtraAllowedIPs {
 				resultMap[extraAllowedIP] = struct{}{}
 			}
 		}
 	}
-	return result, resultMap, nil
+	return nodeEgressMap, resultMap, nil
 }
 
-func checkIfAclTagisValid(t models.AclPolicyTag, netID models.NetworkID) bool {
+func checkIfAclTagisValid(t models.AclPolicyTag, netID models.NetworkID, policyType models.AclPolicyType, isSrc bool) bool {
 	switch t.ID {
 	case models.NodeTagID:
+		if policyType == models.UserPolicy && isSrc {
+			return false
+		}
 		// check if tag is valid
 		_, err := GetTag(models.TagID(t.Value))
 		if err != nil {
 			return false
 		}
 	case models.NodeID:
+		if policyType == models.UserPolicy && isSrc {
+			return false
+		}
 		_, nodeErr := GetNodeByID(t.Value)
 		if nodeErr != nil {
 			_, staticNodeErr := GetExtClient(t.Value, netID.String())
@@ -273,6 +279,9 @@ func checkIfAclTagisValid(t models.AclPolicyTag, netID models.NetworkID) bool {
 			}
 		}
 	case models.EgressRange:
+		if isSrc {
+			return false
+		}
 		_, rangesMap, err := GetEgressRanges(netID)
 		if err != nil {
 			return false
@@ -281,11 +290,23 @@ func checkIfAclTagisValid(t models.AclPolicyTag, netID models.NetworkID) bool {
 			return false
 		}
 	case models.UserAclID:
+		if policyType == models.DevicePolicy {
+			return false
+		}
+		if !isSrc {
+			return false
+		}
 		_, err := GetUser(t.Value)
 		if err != nil {
 			return false
 		}
 	case models.UserGroupAclID:
+		if policyType == models.DevicePolicy {
+			return false
+		}
+		if !isSrc {
+			return false
+		}
 		err := IsGroupValid(models.UserGroupID(t.Value))
 		if err != nil {
 			return false
@@ -317,7 +338,7 @@ func IsAclPolicyValid(acl models.Acl) bool {
 				continue
 			}
 			// check if user group is valid
-			if !checkIfAclTagisValid(srcI, acl.NetworkID) {
+			if !checkIfAclTagisValid(srcI, acl.NetworkID, acl.RuleType, true) {
 				return false
 			}
 		}
@@ -328,7 +349,7 @@ func IsAclPolicyValid(acl models.Acl) bool {
 			}
 
 			// check if user group is valid
-			if !checkIfAclTagisValid(dstI, acl.NetworkID) {
+			if !checkIfAclTagisValid(dstI, acl.NetworkID, acl.RuleType, false) {
 				return false
 			}
 		}
@@ -338,7 +359,7 @@ func IsAclPolicyValid(acl models.Acl) bool {
 				continue
 			}
 			// check if user group is valid
-			if !checkIfAclTagisValid(srcI, acl.NetworkID) {
+			if !checkIfAclTagisValid(srcI, acl.NetworkID, acl.RuleType, true) {
 				return false
 			}
 		}
@@ -348,7 +369,7 @@ func IsAclPolicyValid(acl models.Acl) bool {
 				continue
 			}
 			// check if user group is valid
-			if !checkIfAclTagisValid(dstI, acl.NetworkID) {
+			if !checkIfAclTagisValid(dstI, acl.NetworkID, acl.RuleType, false) {
 				return false
 			}
 		}
