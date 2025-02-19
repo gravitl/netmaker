@@ -17,7 +17,6 @@ import (
 var (
 	aclCacheMutex = &sync.RWMutex{}
 	aclCacheMap   = make(map[string]models.Acl)
-	aclTagsMutex  = &sync.RWMutex{}
 )
 
 func MigrateAclPolicies() {
@@ -576,10 +575,12 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 	if peer.IsStatic {
 		peer = peer.StaticNode.ConvertToStaticNode()
 	}
-	aclTagsMutex.RLock()
-	peerTags := maps.Clone(peer.Tags)
+	node.Mutex.Lock()
 	nodeTags := maps.Clone(node.Tags)
-	aclTagsMutex.RUnlock()
+	node.Mutex.Unlock()
+	peer.Mutex.Lock()
+	peerTags := maps.Clone(peer.Tags)
+	peer.Mutex.Unlock()
 	if checkDefaultPolicy {
 		// check default policy if all allowed return true
 		defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
@@ -661,10 +662,12 @@ func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool)
 	if peer.IsStatic {
 		peer = peer.StaticNode.ConvertToStaticNode()
 	}
-	aclTagsMutex.RLock()
-	peerTags := maps.Clone(peer.Tags)
+	node.Mutex.Lock()
 	nodeTags := maps.Clone(node.Tags)
-	aclTagsMutex.RUnlock()
+	node.Mutex.Unlock()
+	peer.Mutex.Lock()
+	peerTags := maps.Clone(peer.Tags)
+	peer.Mutex.Unlock()
 	if checkDefaultPolicy {
 		// check default policy if all allowed return true
 		defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
