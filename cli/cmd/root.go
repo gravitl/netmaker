@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/gravitl/netmaker/cli/cmd/gateway"
 	"os"
 
 	"github.com/gravitl/netmaker/cli/cmd/acl"
@@ -55,4 +56,5 @@ func init() {
 	rootCmd.AddCommand(host.GetRoot())
 	rootCmd.AddCommand(enrollment_key.GetRoot())
 	rootCmd.AddCommand(failover.GetRoot())
+	rootCmd.AddCommand(gateway.GetRoot())
 }
