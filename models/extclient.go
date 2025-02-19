@@ -1,5 +1,7 @@
 package models
 
+import "sync"
+
 // ExtClient - struct for external clients
 type ExtClient struct {
 	ClientID               string              `json:"clientid" bson:"clientid"`
@@ -55,5 +57,6 @@ func (ext *ExtClient) ConvertToStaticNode() Node {
 		Tags:       ext.Tags,
 		IsStatic:   true,
 		StaticNode: *ext,
+		Mutex:      &sync.RWMutex{},
 	}
 }

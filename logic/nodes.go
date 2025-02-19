@@ -820,11 +820,16 @@ func GetTagMapWithNodes() (tagNodesMap map[models.TagID][]models.Node) {
 		if nodeI.Tags == nil {
 			continue
 		}
-		nodeI.Mutex.RLock()
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.RLock()
+		}
 		for nodeTagID := range nodeI.Tags {
 			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
 		}
-		nodeI.Mutex.RUnlock()
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.RUnlock()
+		}
+
 	}
 	return
 }
@@ -836,11 +841,15 @@ func GetTagMapWithNodesByNetwork(netID models.NetworkID, withStaticNodes bool) (
 		if nodeI.Tags == nil {
 			continue
 		}
-		nodeI.Mutex.RLock()
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.RLock()
+		}
 		for nodeTagID := range nodeI.Tags {
 			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
 		}
-		nodeI.Mutex.RUnlock()
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.RUnlock()
+		}
 	}
 	tagNodesMap["*"] = nodes
 	if !withStaticNodes {
