@@ -371,7 +371,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	var hostUpdate models.HostUpdate
 	err = json.NewDecoder(r.Body).Decode(&hostUpdate)
 	if err != nil {
-		slog.Error("failed to update a host:", "user", r.Header.Get("user"), "error", err.Error())
+		slog.Error("failed to update a host:", "user", r.Header.Get("user"), "error", err.Error(), "host", currentHost.Name)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
