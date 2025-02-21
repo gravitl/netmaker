@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -117,6 +118,7 @@ type Node struct {
 	IsUserNode        bool                `json:"is_user_node"`
 	StaticNode        ExtClient           `json:"static_node"`
 	Status            NodeStatus          `json:"node_status"`
+	Mutex             *sync.RWMutex       `json:"-"`
 }
 
 // LegacyNode - legacy struct for node model
