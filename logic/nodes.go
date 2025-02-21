@@ -842,13 +842,13 @@ func GetTagMapWithNodesByNetwork(netID models.NetworkID, withStaticNodes bool) (
 			continue
 		}
 		if nodeI.Mutex != nil {
-			nodeI.Mutex.RLock()
+			nodeI.Mutex.Lock()
 		}
 		for nodeTagID := range nodeI.Tags {
 			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
 		}
 		if nodeI.Mutex != nil {
-			nodeI.Mutex.RUnlock()
+			nodeI.Mutex.Unlock()
 		}
 	}
 	tagNodesMap["*"] = nodes
