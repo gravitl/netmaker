@@ -443,7 +443,7 @@ func AddStaticNodestoList(nodes []models.Node) []models.Node {
 	return nodes
 }
 
-func AddStatusToNodes(nodes []models.Node) (nodesWithStatus []models.Node) {
+func AddStatusToNodes(nodes []models.Node, statusCall bool) (nodesWithStatus []models.Node) {
 	aclDefaultPolicyStatusMap := make(map[string]bool)
 	for _, node := range nodes {
 		if _, ok := aclDefaultPolicyStatusMap[node.Network]; !ok {
@@ -451,7 +451,12 @@ func AddStatusToNodes(nodes []models.Node) (nodesWithStatus []models.Node) {
 			defaultPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 			aclDefaultPolicyStatusMap[node.Network] = defaultPolicy.Enabled
 		}
-		GetNodeStatus(&node, aclDefaultPolicyStatusMap[node.Network])
+		if statusCall {
+			GetNodeStatus(&node, aclDefaultPolicyStatusMap[node.Network])
+		} else {
+			GetNodeCheckInStatus(&node, true)
+		}
+
 		nodesWithStatus = append(nodesWithStatus, node)
 	}
 	return
@@ -570,6 +575,16 @@ func GetAllNodesAPI(nodes []models.Node) []models.ApiNode {
 		apiNodes = append(apiNodes, *newApiNode)
 	}
 	return apiNodes[:]
+}
+
+// GetNodesStatusAPI - gets nodes status
+func GetNodesStatusAPI(nodes []models.Node) map[string]models.ApiNodeStatus {
+	apiStatusNodesMap := make(map[string]models.ApiNodeStatus)
+	for i := range nodes {
+		newApiNode := nodes[i].ConvertToStatusNode()
+		apiStatusNodesMap[newApiNode.ID] = *newApiNode
+	}
+	return apiStatusNodesMap
 }
 
 // DeleteExpiredNodes - goroutine which deletes nodes which are expired

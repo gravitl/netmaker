@@ -1102,7 +1102,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 				slog.Error("failed to get node network", "error", err)
 				continue
 			}
-			nodesWithStatus := logic.AddStatusToNodes([]models.Node{node})
+			nodesWithStatus := logic.AddStatusToNodes([]models.Node{node}, false)
 			if len(nodesWithStatus) > 0 {
 				node = nodesWithStatus[0]
 			}
@@ -1143,7 +1143,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			continue
 		}
-		nodesWithStatus := logic.AddStatusToNodes([]models.Node{node})
+		nodesWithStatus := logic.AddStatusToNodes([]models.Node{node}, false)
 		if len(nodesWithStatus) > 0 {
 			node = nodesWithStatus[0]
 		}

@@ -8,6 +8,13 @@ import (
 	"golang.org/x/exp/slog"
 )
 
+type ApiNodeStatus struct {
+	ID         string     `json:"id"`
+	IsStatic   bool       `json:"is_static"`
+	IsUserNode bool       `json:"is_user_node"`
+	Status     NodeStatus `json:"status"`
+}
+
 // ApiNode is a stripped down Node DTO that exposes only required fields to external systems
 type ApiNode struct {
 	ID                         string   `json:"id,omitempty" validate:"required,min=5,id_unique"`
@@ -130,6 +137,19 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	}
 	convertedNode.Tags = a.Tags
 	return &convertedNode
+}
+
+func (nm *Node) ConvertToStatusNode() *ApiNodeStatus {
+	apiNode := ApiNodeStatus{}
+	if nm.IsStatic {
+		apiNode.ID = nm.StaticNode.ClientID
+	} else {
+		apiNode.ID = nm.ID.String()
+	}
+	apiNode.IsStatic = nm.IsStatic
+	apiNode.IsUserNode = nm.IsUserNode
+	apiNode.Status = nm.Status
+	return &apiNode
 }
 
 // Node.ConvertToAPINode - converts a node to an API node
