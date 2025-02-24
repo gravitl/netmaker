@@ -258,6 +258,15 @@ func getUserV1(w http.ResponseWriter, r *http.Request) {
 	resp := models.ReturnUserWithRolesAndGroups{
 		ReturnUser:   user,
 		PlatformRole: userRoleTemplate,
+		UserGroups:   map[models.UserGroupID]models.UserGroup{},
+	}
+	for gId := range user.UserGroups {
+		grp, err := logic.GetUserGroup(gId)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+		resp.UserGroups[gId] = grp
 	}
 	logger.Log(2, r.Header.Get("user"), "fetched user", usernameFetched)
 	logic.ReturnSuccessResponseWithJson(w, r, resp, "fetched user with role info")
