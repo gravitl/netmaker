@@ -35,12 +35,18 @@ var (
 func getNodeFromCache(nodeID string) (node models.Node, ok bool) {
 	nodeCacheMutex.RLock()
 	node, ok = nodesCacheMap[nodeID]
+	if node.Mutex == nil {
+		node.Mutex = &sync.Mutex{}
+	}
 	nodeCacheMutex.RUnlock()
 	return
 }
 func getNodesFromCache() (nodes []models.Node) {
 	nodeCacheMutex.RLock()
 	for _, node := range nodesCacheMap {
+		if node.Mutex == nil {
+			node.Mutex = &sync.Mutex{}
+		}
 		nodes = append(nodes, node)
 	}
 	nodeCacheMutex.RUnlock()
@@ -425,6 +431,9 @@ func GetAllNodes() ([]models.Node, error) {
 		}
 		// add node to our array
 		nodes = append(nodes, node)
+		if node.Mutex == nil {
+			node.Mutex = &sync.Mutex{}
+		}
 		nodesMap[node.ID.String()] = node
 	}
 
@@ -811,9 +820,16 @@ func GetTagMapWithNodes() (tagNodesMap map[models.TagID][]models.Node) {
 		if nodeI.Tags == nil {
 			continue
 		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Lock()
+		}
 		for nodeTagID := range nodeI.Tags {
 			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
 		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Unlock()
+		}
+
 	}
 	return
 }
@@ -825,8 +841,14 @@ func GetTagMapWithNodesByNetwork(netID models.NetworkID, withStaticNodes bool) (
 		if nodeI.Tags == nil {
 			continue
 		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Lock()
+		}
 		for nodeTagID := range nodeI.Tags {
 			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
+		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Unlock()
 		}
 	}
 	tagNodesMap["*"] = nodes
