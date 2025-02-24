@@ -216,8 +216,9 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 
 	// create default network groups
 	var NetworkAdminGroup = models.UserGroup{
-		ID:   models.UserGroupID(fmt.Sprintf("%s-%s-grp", netID, models.NetworkAdmin)),
-		Name: fmt.Sprintf("%s Admin Group", netID),
+		ID:      models.UserGroupID(fmt.Sprintf("%s-%s-grp", netID, models.NetworkAdmin)),
+		Name:    fmt.Sprintf("%s Admin Group", netID),
+		Default: true,
 		NetworkRoles: map[models.NetworkID]map[models.UserRoleID]struct{}{
 			netID: {
 				models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkAdmin)): {},
@@ -226,8 +227,9 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 		MetaData: fmt.Sprintf("can manage your network `%s` configuration including adding and removing devices.", netID),
 	}
 	var NetworkUserGroup = models.UserGroup{
-		ID:   models.UserGroupID(fmt.Sprintf("%s-%s-grp", netID, models.NetworkUser)),
-		Name: fmt.Sprintf("%s User Group", netID),
+		ID:      models.UserGroupID(fmt.Sprintf("%s-%s-grp", netID, models.NetworkUser)),
+		Name:    fmt.Sprintf("%s User Group", netID),
+		Default: true,
 		NetworkRoles: map[models.NetworkID]map[models.UserRoleID]struct{}{
 			netID: {
 				models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkUser)): {},
