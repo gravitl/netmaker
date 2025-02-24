@@ -513,7 +513,7 @@ func GetPublicIP() (string, error) {
 	endpoint := ""
 	var err error
 
-	iplist := []string{"https://ifconfig.me", "https://api.ipify.org", "https://ipinfo.io/ip"}
+	iplist := []string{"https://ifconfig.me/ip", "https://api.ipify.org", "https://ipinfo.io/ip"}
 	publicIpService := os.Getenv("PUBLIC_IP_SERVICE")
 	if publicIpService != "" {
 		// prepend the user-specified service so it's checked first
