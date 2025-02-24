@@ -45,10 +45,12 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 		SrcGroupTypes: []models.AclGroupType{
 			models.UserAclID,
 			models.UserGroupAclID,
-			models.DeviceAclID,
+			models.NodeTagID,
+			models.NodeID,
 		},
 		DstGroupTypes: []models.AclGroupType{
-			models.DeviceAclID,
+			models.NodeTagID,
+			models.NodeID,
 			// models.NetmakerIPAclID,
 			// models.NetmakerSubNetRangeAClID,
 		},
@@ -116,6 +118,13 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 					models.ICMP,
 				},
 				PortRange: "",
+			},
+			{
+				Name: models.SSH,
+				AllowedProtocols: []models.Protocol{
+					models.TCP,
+				},
+				PortRange: "22",
 			},
 			{
 				Name: models.Custom,

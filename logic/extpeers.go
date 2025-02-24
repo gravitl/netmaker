@@ -106,6 +106,7 @@ func DeleteExtClient(network string, clientid string) error {
 	if servercfg.CacheEnabled() {
 		deleteExtClientFromCache(key)
 	}
+	go RemoveNodeFromAclPolicy(extClient.ConvertToStaticNode())
 	return nil
 }
 
