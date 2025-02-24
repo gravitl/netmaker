@@ -118,7 +118,7 @@ type Node struct {
 	IsUserNode        bool                `json:"is_user_node"`
 	StaticNode        ExtClient           `json:"static_node"`
 	Status            NodeStatus          `json:"node_status"`
-	Mutex             *sync.RWMutex       `json:"-"`
+	Mutex             *sync.Mutex         `json:"-"`
 }
 
 // LegacyNode - legacy struct for node model

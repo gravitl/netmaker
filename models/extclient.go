@@ -57,6 +57,6 @@ func (ext *ExtClient) ConvertToStaticNode() Node {
 		Tags:       ext.Tags,
 		IsStatic:   true,
 		StaticNode: *ext,
-		Mutex:      &sync.RWMutex{},
+		Mutex:      &sync.Mutex{},
 	}
 }
