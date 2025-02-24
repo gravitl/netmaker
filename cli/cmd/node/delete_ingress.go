@@ -10,7 +10,7 @@ var nodeDeleteIngressCmd = &cobra.Command{
 	Args:       cobra.ExactArgs(2),
 	Short:      "Delete Remote Access Gateway role from a Node",
 	Long:       `Delete Remote Access Gateway role from a Node`,
-	Deprecated: "in favour of the `gateway` subcommand.",
+	Deprecated: "in favour of the `gateway` subcommand, in Netmaker v0.90.0.",
 	Aliases:    []string{"delete_rag"},
 	Run: func(cmd *cobra.Command, args []string) {
 		functions.PrettyPrint(functions.DeleteIngress(args[0], args[1]))

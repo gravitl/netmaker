@@ -10,7 +10,7 @@ var hostDeleteRelayCmd = &cobra.Command{
 	Args:       cobra.ExactArgs(2),
 	Short:      "Delete Relay from a node",
 	Long:       `Delete Relay from a node`,
-	Deprecated: "in favour of the `gateway` subcommand.",
+	Deprecated: "in favour of the `gateway` subcommand, in Netmaker v0.90.0.",
 	Run: func(cmd *cobra.Command, args []string) {
 		functions.PrettyPrint(functions.DeleteRelay(args[0], args[1]))
 	},
