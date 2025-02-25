@@ -28,6 +28,9 @@ var (
 func getAllExtClientsFromCache() (extClients []models.ExtClient) {
 	extClientCacheMutex.RLock()
 	for _, extclient := range extClientCacheMap {
+		if extclient.Mutex == nil {
+			extclient.Mutex = &sync.Mutex{}
+		}
 		extClients = append(extClients, extclient)
 	}
 	extClientCacheMutex.RUnlock()
@@ -43,12 +46,18 @@ func deleteExtClientFromCache(key string) {
 func getExtClientFromCache(key string) (extclient models.ExtClient, ok bool) {
 	extClientCacheMutex.RLock()
 	extclient, ok = extClientCacheMap[key]
+	if extclient.Mutex == nil {
+		extclient.Mutex = &sync.Mutex{}
+	}
 	extClientCacheMutex.RUnlock()
 	return
 }
 
 func storeExtClientInCache(key string, extclient models.ExtClient) {
 	extClientCacheMutex.Lock()
+	if extclient.Mutex == nil {
+		extclient.Mutex = &sync.Mutex{}
+	}
 	extClientCacheMap[key] = extclient
 	extClientCacheMutex.Unlock()
 }

@@ -27,6 +27,7 @@ type ExtClient struct {
 	DeviceName             string              `json:"device_name"`
 	PublicEndpoint         string              `json:"public_endpoint"`
 	Country                string              `json:"country"`
+	Mutex                  *sync.Mutex         `json:"-"`
 }
 
 // CustomExtClient - struct for CustomExtClient params
@@ -57,6 +58,6 @@ func (ext *ExtClient) ConvertToStaticNode() Node {
 		Tags:       ext.Tags,
 		IsStatic:   true,
 		StaticNode: *ext,
-		Mutex:      &sync.Mutex{},
+		Mutex:      ext.Mutex,
 	}
 }
