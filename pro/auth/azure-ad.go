@@ -199,6 +199,10 @@ func getAzureUserInfo(state string, code string) (*OAuthUser, error) {
 	if userInfo.Email == "" {
 		userInfo.Email = getUserEmailFromClaims(token.AccessToken)
 	}
+	if userInfo.Email == "" && userInfo.UserPrincipalName != "" {
+		userInfo.Email = userInfo.UserPrincipalName
+
+	}
 	if userInfo.Email == "" {
 		err = errors.New("failed to fetch user email from SSO state")
 		return userInfo, err

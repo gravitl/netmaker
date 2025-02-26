@@ -245,6 +245,12 @@ func getUserEmailFromClaims(token string) string {
 		return ""
 	}
 	claims, _ := accessToken.Claims.(jwt.MapClaims)
+	if claims == nil {
+		return ""
+	}
+	if claims["email"] == nil {
+		return ""
+	}
 	return claims["email"].(string)
 }
 
