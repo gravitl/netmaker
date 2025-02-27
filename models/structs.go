@@ -32,17 +32,20 @@ type IngressGwUsers struct {
 
 // UserRemoteGws - struct to hold user's remote gws
 type UserRemoteGws struct {
-	GwID              string    `json:"remote_access_gw_id"`
-	GWName            string    `json:"gw_name"`
-	Network           string    `json:"network"`
-	Connected         bool      `json:"connected"`
-	IsInternetGateway bool      `json:"is_internet_gateway"`
-	GwClient          ExtClient `json:"gw_client"`
-	GwPeerPublicKey   string    `json:"gw_peer_public_key"`
-	GwListenPort      int       `json:"gw_listen_port"`
-	Metadata          string    `json:"metadata"`
-	AllowedEndpoints  []string  `json:"allowed_endpoints"`
-	NetworkAddresses  []string  `json:"network_addresses"`
+	GwID              string     `json:"remote_access_gw_id"`
+	GWName            string     `json:"gw_name"`
+	Network           string     `json:"network"`
+	Connected         bool       `json:"connected"`
+	IsInternetGateway bool       `json:"is_internet_gateway"`
+	GwClient          ExtClient  `json:"gw_client"`
+	GwPeerPublicKey   string     `json:"gw_peer_public_key"`
+	GwListenPort      int        `json:"gw_listen_port"`
+	Metadata          string     `json:"metadata"`
+	AllowedEndpoints  []string   `json:"allowed_endpoints"`
+	NetworkAddresses  []string   `json:"network_addresses"`
+	DnsAddress        string     `json:"dns_address"`
+	Addresses         string     `json:"addresses"`
+	Status            NodeStatus `json:"status"`
 }
 
 // UserRAGs - struct for user access gws
