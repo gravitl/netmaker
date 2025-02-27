@@ -738,6 +738,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		logic.UpdateRelayed(&currentNode, newNode)
 	}
 
+	logic.GetNodeStatus(newNode, false)
 	apiNode := newNode.ConvertToAPINode()
 	logger.Log(
 		1,
