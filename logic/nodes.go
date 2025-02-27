@@ -35,12 +35,18 @@ var (
 func getNodeFromCache(nodeID string) (node models.Node, ok bool) {
 	nodeCacheMutex.RLock()
 	node, ok = nodesCacheMap[nodeID]
+	if node.Mutex == nil {
+		node.Mutex = &sync.Mutex{}
+	}
 	nodeCacheMutex.RUnlock()
 	return
 }
 func getNodesFromCache() (nodes []models.Node) {
 	nodeCacheMutex.RLock()
 	for _, node := range nodesCacheMap {
+		if node.Mutex == nil {
+			node.Mutex = &sync.Mutex{}
+		}
 		nodes = append(nodes, node)
 	}
 	nodeCacheMutex.RUnlock()
@@ -425,6 +431,9 @@ func GetAllNodes() ([]models.Node, error) {
 		}
 		// add node to our array
 		nodes = append(nodes, node)
+		if node.Mutex == nil {
+			node.Mutex = &sync.Mutex{}
+		}
 		nodesMap[node.ID.String()] = node
 	}
 
@@ -811,9 +820,16 @@ func GetTagMapWithNodes() (tagNodesMap map[models.TagID][]models.Node) {
 		if nodeI.Tags == nil {
 			continue
 		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Lock()
+		}
 		for nodeTagID := range nodeI.Tags {
 			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
 		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Unlock()
+		}
+
 	}
 	return
 }
@@ -825,8 +841,14 @@ func GetTagMapWithNodesByNetwork(netID models.NetworkID, withStaticNodes bool) (
 		if nodeI.Tags == nil {
 			continue
 		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Lock()
+		}
 		for nodeTagID := range nodeI.Tags {
 			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
+		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Unlock()
 		}
 	}
 	tagNodesMap["*"] = nodes
@@ -846,17 +868,16 @@ func AddTagMapWithStaticNodes(netID models.NetworkID,
 		if extclient.Tags == nil || extclient.RemoteAccessClientID != "" {
 			continue
 		}
-		for tagID := range extclient.Tags {
-			tagNodesMap[tagID] = append(tagNodesMap[tagID], models.Node{
-				IsStatic:   true,
-				StaticNode: extclient,
-			})
-			tagNodesMap["*"] = append(tagNodesMap["*"], models.Node{
-				IsStatic:   true,
-				StaticNode: extclient,
-			})
+		if extclient.Mutex != nil {
+			extclient.Mutex.Lock()
 		}
-
+		for tagID := range extclient.Tags {
+			tagNodesMap[tagID] = append(tagNodesMap[tagID], extclient.ConvertToStaticNode())
+			tagNodesMap["*"] = append(tagNodesMap["*"], extclient.ConvertToStaticNode())
+		}
+		if extclient.Mutex != nil {
+			extclient.Mutex.Unlock()
+		}
 	}
 	return tagNodesMap
 }
@@ -871,11 +892,14 @@ func AddTagMapWithStaticNodesWithUsers(netID models.NetworkID,
 		if extclient.Tags == nil {
 			continue
 		}
+		if extclient.Mutex != nil {
+			extclient.Mutex.Lock()
+		}
 		for tagID := range extclient.Tags {
-			tagNodesMap[tagID] = append(tagNodesMap[tagID], models.Node{
-				IsStatic:   true,
-				StaticNode: extclient,
-			})
+			tagNodesMap[tagID] = append(tagNodesMap[tagID], extclient.ConvertToStaticNode())
+		}
+		if extclient.Mutex != nil {
+			extclient.Mutex.Unlock()
 		}
 
 	}
@@ -893,8 +917,14 @@ func GetNodesWithTag(tagID models.TagID) map[string]models.Node {
 		if nodeI.Tags == nil {
 			continue
 		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Lock()
+		}
 		if _, ok := nodeI.Tags[tagID]; ok {
 			nMap[nodeI.ID.String()] = nodeI
+		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Unlock()
 		}
 	}
 	return AddStaticNodesWithTag(tag, nMap)
@@ -909,13 +939,15 @@ func AddStaticNodesWithTag(tag models.Tag, nMap map[string]models.Node) map[stri
 		if extclient.RemoteAccessClientID != "" {
 			continue
 		}
-		if _, ok := extclient.Tags[tag.ID]; ok {
-			nMap[extclient.ClientID] = models.Node{
-				IsStatic:   true,
-				StaticNode: extclient,
-			}
+		if extclient.Mutex != nil {
+			extclient.Mutex.Lock()
 		}
-
+		if _, ok := extclient.Tags[tag.ID]; ok {
+			nMap[extclient.ClientID] = extclient.ConvertToStaticNode()
+		}
+		if extclient.Mutex != nil {
+			extclient.Mutex.Unlock()
+		}
 	}
 	return nMap
 }
@@ -931,10 +963,7 @@ func GetStaticNodeWithTag(tagID models.TagID) map[string]models.Node {
 		return nMap
 	}
 	for _, extclient := range extclients {
-		nMap[extclient.ClientID] = models.Node{
-			IsStatic:   true,
-			StaticNode: extclient,
-		}
+		nMap[extclient.ClientID] = extclient.ConvertToStaticNode()
 	}
 	return nMap
 }

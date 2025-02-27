@@ -17,7 +17,6 @@ import (
 var (
 	aclCacheMutex = &sync.RWMutex{}
 	aclCacheMap   = make(map[string]models.Acl)
-	aclTagsMutex  = &sync.RWMutex{}
 )
 
 func MigrateAclPolicies() {
@@ -576,10 +575,22 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 	if peer.IsStatic {
 		peer = peer.StaticNode.ConvertToStaticNode()
 	}
-	aclTagsMutex.RLock()
-	peerTags := maps.Clone(peer.Tags)
-	nodeTags := maps.Clone(node.Tags)
-	aclTagsMutex.RUnlock()
+	var nodeTags, peerTags map[models.TagID]struct{}
+	if node.Mutex != nil {
+		node.Mutex.Lock()
+		nodeTags = maps.Clone(node.Tags)
+		node.Mutex.Unlock()
+	} else {
+		nodeTags = node.Tags
+	}
+	if peer.Mutex != nil {
+		peer.Mutex.Lock()
+		peerTags = maps.Clone(peer.Tags)
+		peer.Mutex.Unlock()
+	} else {
+		peerTags = peer.Tags
+	}
+
 	if checkDefaultPolicy {
 		// check default policy if all allowed return true
 		defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
@@ -661,10 +672,21 @@ func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool)
 	if peer.IsStatic {
 		peer = peer.StaticNode.ConvertToStaticNode()
 	}
-	aclTagsMutex.RLock()
-	peerTags := maps.Clone(peer.Tags)
-	nodeTags := maps.Clone(node.Tags)
-	aclTagsMutex.RUnlock()
+	var nodeTags, peerTags map[models.TagID]struct{}
+	if node.Mutex != nil {
+		node.Mutex.Lock()
+		nodeTags = maps.Clone(node.Tags)
+		node.Mutex.Unlock()
+	} else {
+		nodeTags = node.Tags
+	}
+	if peer.Mutex != nil {
+		peer.Mutex.Lock()
+		peerTags = maps.Clone(peer.Tags)
+		peer.Mutex.Unlock()
+	} else {
+		peerTags = peer.Tags
+	}
 	if checkDefaultPolicy {
 		// check default policy if all allowed return true
 		defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
@@ -862,7 +884,15 @@ func getUserAclRulesForNode(targetnode *models.Node,
 	userGrpMap := GetUserGrpMap()
 	allowedUsers := make(map[string][]models.Acl)
 	acls := listUserPolicies(models.NetworkID(targetnode.Network))
-	for nodeTag := range targetnode.Tags {
+	var targetNodeTags = make(map[models.TagID]struct{})
+	if targetnode.Mutex != nil {
+		targetnode.Mutex.Lock()
+		targetNodeTags = maps.Clone(targetnode.Tags)
+		targetnode.Mutex.Unlock()
+	} else {
+		targetNodeTags = maps.Clone(targetnode.Tags)
+	}
+	for nodeTag := range targetNodeTags {
 		for _, acl := range acls {
 			if !acl.Enabled {
 				continue
@@ -886,6 +916,7 @@ func getUserAclRulesForNode(targetnode *models.Node,
 			}
 		}
 	}
+
 	for _, userNode := range userNodes {
 		if !userNode.StaticNode.Enabled {
 			continue
@@ -942,8 +973,17 @@ func GetAclRulesForNode(targetnode *models.Node) (rules map[string]models.AclRul
 	}
 
 	acls := listDevicePolicies(models.NetworkID(targetnode.Network))
-	targetnode.Tags["*"] = struct{}{}
-	for nodeTag := range targetnode.Tags {
+
+	var targetNodeTags = make(map[models.TagID]struct{})
+	if targetnode.Mutex != nil {
+		targetnode.Mutex.Lock()
+		targetNodeTags = maps.Clone(targetnode.Tags)
+		targetnode.Mutex.Unlock()
+	} else {
+		targetNodeTags = maps.Clone(targetnode.Tags)
+	}
+	targetNodeTags["*"] = struct{}{}
+	for nodeTag := range targetNodeTags {
 		for _, acl := range acls {
 			if !acl.Enabled {
 				continue
