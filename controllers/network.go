@@ -458,7 +458,9 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	go logic.DeleteNetworkRoles(network)
 	go logic.DeleteDefaultNetworkPolicies(models.NetworkID(network))
 	//delete network from allocated ip map
-	go logic.RemoveNetworkFromAllocatedIpMap(network)
+	if servercfg.CacheEnabled() {
+		go logic.RemoveNetworkFromAllocatedIpMap(network)
+	}
 
 	logger.Log(1, r.Header.Get("user"), "deleted network", network)
 	w.WriteHeader(http.StatusOK)
@@ -534,7 +536,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	logic.CreateDefaultNetworkRolesAndGroups(models.NetworkID(network.NetID))
 	logic.CreateDefaultAclNetworkPolicies(models.NetworkID(network.NetID))
 	logic.CreateDefaultTags(models.NetworkID(network.NetID))
-	//add new network to allocated ip map
+
 	go logic.AddNetworkToAllocatedIpMap(network.NetID)
 
 	go func() {

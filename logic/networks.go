@@ -30,6 +30,9 @@ var (
 
 // SetAllocatedIpMap - set allocated ip map for networks
 func SetAllocatedIpMap() error {
+	if !servercfg.CacheEnabled() {
+		return nil
+	}
 	logger.Log(0, "start setting up allocated ip map")
 	if allocatedIpMap == nil {
 		allocatedIpMap = map[string]map[string]net.IP{}
@@ -84,16 +87,25 @@ func SetAllocatedIpMap() error {
 
 // ClearAllocatedIpMap - set allocatedIpMap to nil
 func ClearAllocatedIpMap() {
+	if !servercfg.CacheEnabled() {
+		return
+	}
 	allocatedIpMap = nil
 }
 
 func AddIpToAllocatedIpMap(networkName string, ip net.IP) {
+	if !servercfg.CacheEnabled() {
+		return
+	}
 	networkCacheMutex.Lock()
 	allocatedIpMap[networkName][ip.String()] = ip
 	networkCacheMutex.Unlock()
 }
 
 func RemoveIpFromAllocatedIpMap(networkName string, ip string) {
+	if !servercfg.CacheEnabled() {
+		return
+	}
 	networkCacheMutex.Lock()
 	delete(allocatedIpMap[networkName], ip)
 	networkCacheMutex.Unlock()
@@ -101,6 +113,10 @@ func RemoveIpFromAllocatedIpMap(networkName string, ip string) {
 
 // AddNetworkToAllocatedIpMap - add network to allocated ip map when network is added
 func AddNetworkToAllocatedIpMap(networkName string) {
+	//add new network to allocated ip map
+	if !servercfg.CacheEnabled() {
+		return
+	}
 	networkCacheMutex.Lock()
 	allocatedIpMap[networkName] = map[string]net.IP{}
 	networkCacheMutex.Unlock()
@@ -108,6 +124,9 @@ func AddNetworkToAllocatedIpMap(networkName string) {
 
 // RemoveNetworkFromAllocatedIpMap - remove network from allocated ip map when network is deleted
 func RemoveNetworkFromAllocatedIpMap(networkName string) {
+	if !servercfg.CacheEnabled() {
+		return
+	}
 	networkCacheMutex.Lock()
 	delete(allocatedIpMap, networkName)
 	networkCacheMutex.Unlock()
@@ -326,7 +345,7 @@ func GetNetworkSettings(networkname string) (models.Network, error) {
 }
 
 // UniqueAddress - get a unique ipv4 address
-func UniqueAddress(networkName string, reverse bool) (net.IP, error) {
+func UniqueAddressCache(networkName string, reverse bool) (net.IP, error) {
 	add := net.IP{}
 	var network models.Network
 	network, err := GetParentNetwork(networkName)
@@ -353,6 +372,49 @@ func UniqueAddress(networkName string, reverse bool) (net.IP, error) {
 	ipAllocated := allocatedIpMap[networkName]
 	for {
 		if _, ok := ipAllocated[newAddrs.String()]; !ok {
+			return newAddrs, nil
+		}
+		if reverse {
+			newAddrs, err = net4.PreviousIP(newAddrs)
+		} else {
+			newAddrs, err = net4.NextIP(newAddrs)
+		}
+		if err != nil {
+			break
+		}
+	}
+
+	return add, errors.New("ERROR: No unique addresses available. Check network subnet")
+}
+
+// UniqueAddress - get a unique ipv4 address
+func UniqueAddressDB(networkName string, reverse bool) (net.IP, error) {
+	add := net.IP{}
+	var network models.Network
+	network, err := GetParentNetwork(networkName)
+	if err != nil {
+		logger.Log(0, "UniqueAddressServer encountered  an error")
+		return add, err
+	}
+
+	if network.IsIPv4 == "no" {
+		return add, fmt.Errorf("IPv4 not active on network " + networkName)
+	}
+	//ensure AddressRange is valid
+	if _, _, err := net.ParseCIDR(network.AddressRange); err != nil {
+		logger.Log(0, "UniqueAddress encountered  an error")
+		return add, err
+	}
+	net4 := iplib.Net4FromStr(network.AddressRange)
+	newAddrs := net4.FirstAddress()
+
+	if reverse {
+		newAddrs = net4.LastAddress()
+	}
+
+	for {
+		if IsIPUnique(networkName, newAddrs.String(), database.NODES_TABLE_NAME, false) &&
+			IsIPUnique(networkName, newAddrs.String(), database.EXT_CLIENT_TABLE_NAME, false) {
 			return newAddrs, nil
 		}
 		if reverse {
@@ -411,9 +473,67 @@ func IsIPUnique(network string, ip string, tableName string, isIpv6 bool) bool {
 
 	return isunique
 }
+func UniqueAddress(networkName string, reverse bool) (net.IP, error) {
+	if servercfg.CacheEnabled() {
+		return UniqueAddressCache(networkName, reverse)
+	}
+	return UniqueAddressDB(networkName, reverse)
+}
 
-// UniqueAddress6 - see if ipv6 address is unique
 func UniqueAddress6(networkName string, reverse bool) (net.IP, error) {
+	if servercfg.CacheEnabled() {
+		return UniqueAddress6Cache(networkName, reverse)
+	}
+	return UniqueAddress6DB(networkName, reverse)
+}
+
+// UniqueAddress6DB - see if ipv6 address is unique
+func UniqueAddress6DB(networkName string, reverse bool) (net.IP, error) {
+	add := net.IP{}
+	var network models.Network
+	network, err := GetParentNetwork(networkName)
+	if err != nil {
+		fmt.Println("Network Not Found")
+		return add, err
+	}
+	if network.IsIPv6 == "no" {
+		return add, fmt.Errorf("IPv6 not active on network " + networkName)
+	}
+
+	//ensure AddressRange is valid
+	if _, _, err := net.ParseCIDR(network.AddressRange6); err != nil {
+		return add, err
+	}
+	net6 := iplib.Net6FromStr(network.AddressRange6)
+
+	newAddrs, err := net6.NextIP(net6.FirstAddress())
+	if reverse {
+		newAddrs, err = net6.PreviousIP(net6.LastAddress())
+	}
+	if err != nil {
+		return add, err
+	}
+
+	for {
+		if IsIPUnique(networkName, newAddrs.String(), database.NODES_TABLE_NAME, true) &&
+			IsIPUnique(networkName, newAddrs.String(), database.EXT_CLIENT_TABLE_NAME, true) {
+			return newAddrs, nil
+		}
+		if reverse {
+			newAddrs, err = net6.PreviousIP(newAddrs)
+		} else {
+			newAddrs, err = net6.NextIP(newAddrs)
+		}
+		if err != nil {
+			break
+		}
+	}
+
+	return add, errors.New("ERROR: No unique IPv6 addresses available. Check network subnet")
+}
+
+// UniqueAddress6Cache - see if ipv6 address is unique using cache
+func UniqueAddress6Cache(networkName string, reverse bool) (net.IP, error) {
 	add := net.IP{}
 	var network models.Network
 	network, err := GetParentNetwork(networkName)

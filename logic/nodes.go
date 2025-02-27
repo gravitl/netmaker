@@ -364,12 +364,15 @@ func DeleteNodeByID(node *models.Node) error {
 		logger.Log(1, "unable to remove metrics from DB for node", node.ID.String(), err.Error())
 	}
 	//recycle ip address
-	if node.Address.IP != nil {
-		RemoveIpFromAllocatedIpMap(node.Network, node.Address.IP.String())
+	if servercfg.CacheEnabled() {
+		if node.Address.IP != nil {
+			RemoveIpFromAllocatedIpMap(node.Network, node.Address.IP.String())
+		}
+		if node.Address6.IP != nil {
+			RemoveIpFromAllocatedIpMap(node.Network, node.Address6.IP.String())
+		}
 	}
-	if node.Address6.IP != nil {
-		RemoveIpFromAllocatedIpMap(node.Network, node.Address6.IP.String())
-	}
+
 	return nil
 }
 
@@ -694,15 +697,16 @@ func createNode(node *models.Node) error {
 	if servercfg.CacheEnabled() {
 		storeNodeInCache(*node)
 		storeNodeInNetworkCache(*node, node.Network)
-	}
-	if _, ok := allocatedIpMap[node.Network]; ok {
-		if node.Address.IP != nil {
-			AddIpToAllocatedIpMap(node.Network, node.Address.IP)
+		if _, ok := allocatedIpMap[node.Network]; ok {
+			if node.Address.IP != nil {
+				AddIpToAllocatedIpMap(node.Network, node.Address.IP)
+			}
+			if node.Address6.IP != nil {
+				AddIpToAllocatedIpMap(node.Network, node.Address6.IP)
+			}
 		}
-		if node.Address6.IP != nil {
-			AddIpToAllocatedIpMap(node.Network, node.Address6.IP)
-		}
 	}
+
 	_, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), defaultACLVal)
 	if err != nil {
 		logger.Log(1, "failed to create node ACL for node,", node.ID.String(), "err:", err.Error())
@@ -748,16 +752,14 @@ func ValidateParams(nodeid, netid string) (models.Node, error) {
 func ValidateNodeIp(currentNode *models.Node, newNode *models.ApiNode) error {
 
 	if currentNode.Address.IP != nil && currentNode.Address.String() != newNode.Address {
-		newIp, _, _ := net.ParseCIDR(newNode.Address)
-		ipAllocated := allocatedIpMap[currentNode.Network]
-		if _, ok := ipAllocated[newIp.String()]; ok {
+		if !IsIPUnique(newNode.Network, newNode.Address, database.NODES_TABLE_NAME, false) ||
+			!IsIPUnique(newNode.Network, newNode.Address, database.EXT_CLIENT_TABLE_NAME, false) {
 			return errors.New("ip specified is already allocated:  " + newNode.Address)
 		}
 	}
 	if currentNode.Address6.IP != nil && currentNode.Address6.String() != newNode.Address6 {
-		newIp, _, _ := net.ParseCIDR(newNode.Address6)
-		ipAllocated := allocatedIpMap[currentNode.Network]
-		if _, ok := ipAllocated[newIp.String()]; ok {
+		if !IsIPUnique(newNode.Network, newNode.Address6, database.NODES_TABLE_NAME, false) ||
+			!IsIPUnique(newNode.Network, newNode.Address6, database.EXT_CLIENT_TABLE_NAME, false) {
 			return errors.New("ip specified is already allocated:  " + newNode.Address6)
 		}
 	}
