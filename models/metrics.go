@@ -48,6 +48,7 @@ type HostNetworkInfo struct {
 	ListenPort   int     `json:"listen_port" yaml:"listen_port"`
 	IsStaticPort bool    `json:"is_static_port"`
 	IsStatic     bool    `json:"is_static"`
+	Version      string  `json:"version"`
 }
 
 // PeerMap - peer map for ids and addresses in metrics

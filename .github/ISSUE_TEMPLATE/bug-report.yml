@@ -2,7 +2,7 @@ name: Bug Report
 description: File a bug report
 title: "[Bug]: "
 labels: ["bug", "triage"]
-assignees: ["ok-john", "0xdcarns", "afeiszli",  "mattkasun"]
+assignees: ["abhishek9686","VishalDalwadi","Aceix","dentadlp"]
 body:
   - type: markdown
     attributes:

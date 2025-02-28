@@ -1,6 +1,10 @@
 package utils
 
-import "time"
+import (
+	"log/slog"
+	"runtime"
+	"time"
+)
 
 // RetryStrategy specifies a strategy to retry an operation after waiting a while,
 // with hooks for successful and unsuccessful (>=max) tries.
@@ -38,4 +42,20 @@ func (rs RetryStrategy) DoStrategy() {
 		rs.OnSuccess()
 		return
 	}
+}
+
+func TraceCaller() {
+	// Skip 1 frame to get the caller of this function
+	pc, file, line, ok := runtime.Caller(2)
+	if !ok {
+		slog.Debug("Unable to get caller information")
+		return
+	}
+
+	// Get function name from the program counter (pc)
+	funcName := runtime.FuncForPC(pc).Name()
+
+	// Print trace details
+	slog.Debug("Called from function: %s\n", "func-name", funcName)
+	slog.Debug("File: %s, Line: %d\n", "file", file, "line-no", line)
 }

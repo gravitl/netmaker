@@ -37,7 +37,7 @@ type ServerConfig struct {
 	APIConnString              string        `yaml:"apiconn"`
 	APIHost                    string        `yaml:"apihost"`
 	APIPort                    string        `yaml:"apiport"`
-	Broker                     string        `yam:"broker"`
+	Broker                     string        `yaml:"broker"`
 	ServerBrokerEndpoint       string        `yaml:"serverbrokerendpoint"`
 	BrokerType                 string        `yaml:"brokertype"`
 	EmqxRestEndpoint           string        `yaml:"emqxrestendpoint"`
@@ -92,14 +92,15 @@ type ServerConfig struct {
 	JwtValidityDuration        time.Duration `yaml:"jwt_validity_duration" swaggertype:"primitive,integer" format:"int64"`
 	RacAutoDisable             bool          `yaml:"rac_auto_disable"`
 	CacheEnabled               string        `yaml:"caching_enabled"`
-	EndpointDetection          bool          `json:"endpoint_detection"`
+	EndpointDetection          bool          `yaml:"endpoint_detection"`
 	AllowedEmailDomains        string        `yaml:"allowed_email_domains"`
-	EmailSenderAddr            string        `json:"email_sender_addr"`
-	EmailSenderUser            string        `json:"email_sender_user"`
-	EmailSenderPassword        string        `json:"email_sender_password"`
-	SmtpHost                   string        `json:"smtp_host"`
-	SmtpPort                   int           `json:"smtp_port"`
+	EmailSenderAddr            string        `yaml:"email_sender_addr"`
+	EmailSenderUser            string        `yaml:"email_sender_user"`
+	EmailSenderPassword        string        `yaml:"email_sender_password"`
+	SmtpHost                   string        `yaml:"smtp_host"`
+	SmtpPort                   int           `yaml:"smtp_port"`
 	MetricInterval             string        `yaml:"metric_interval"`
+	MetricsPort                int           `yaml:"metrics_port"`
 	ManageDNS                  bool          `yaml:"manage_dns"`
 	Stun                       bool          `yaml:"stun"`
 	StunServers                string        `yaml:"stun_servers"`

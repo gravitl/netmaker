@@ -147,7 +147,7 @@ func GetNetworkNodesMemory(allNodes []models.Node, network string) []models.Node
 		defer nodeNetworkCacheMutex.Unlock()
 		return slices.Collect(maps.Values(networkNodes))
 	}
-	var nodes = []models.Node{}
+	var nodes = make([]models.Node, 0, len(allNodes))
 	for i := range allNodes {
 		node := allNodes[i]
 		if node.Network == network {
@@ -245,7 +245,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 		}
 	}
 
-	return fmt.Errorf("failed to update node " + currentNode.ID.String() + ", cannot change ID.")
+	return fmt.Errorf("failed to update node %s, cannot change ID", currentNode.ID.String())
 }
 
 // DeleteNode - marks node for deletion (and adds to zombie list) if called by UI or deletes node if called by node
