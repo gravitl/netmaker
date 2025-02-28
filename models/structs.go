@@ -43,6 +43,8 @@ type UserRemoteGws struct {
 	Metadata          string    `json:"metadata"`
 	AllowedEndpoints  []string  `json:"allowed_endpoints"`
 	NetworkAddresses  []string  `json:"network_addresses"`
+	DnsAddress        string    `json:"dns_address"`
+	Addresses         string    `json:"addresses"`
 }
 
 // UserRAGs - struct for user access gws

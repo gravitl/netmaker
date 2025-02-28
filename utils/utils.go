@@ -1,6 +1,9 @@
 package utils
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // RetryStrategy specifies a strategy to retry an operation after waiting a while,
 // with hooks for successful and unsuccessful (>=max) tries.
@@ -38,4 +41,19 @@ func (rs RetryStrategy) DoStrategy() {
 		rs.OnSuccess()
 		return
 	}
+}
+
+// NonemptyStringToCsv takes a bunch of strings, filters out empty ones and returns a csv version of the string
+func NonemptyStringToCsv(strs ...string) string {
+	var sb strings.Builder
+	for _, str := range strs {
+		trimmedStr := strings.TrimSpace(str)
+		if trimmedStr != "" && trimmedStr != "<nil>" {
+			if sb.Len() > 0 {
+				sb.WriteString(", ")
+			}
+			sb.WriteString(str)
+		}
+	}
+	return sb.String()
 }
