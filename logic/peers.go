@@ -270,7 +270,11 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				}
 			}
 		}
-
+		networkSettings, err := GetNetwork(node.Network)
+		if err != nil {
+			continue
+		}
+		hostPeerUpdate.NameServers = append(hostPeerUpdate.NameServers, networkSettings.NameServers...)
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
 		for _, peer := range currentPeers {
 			peer := peer

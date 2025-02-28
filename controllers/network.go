@@ -648,7 +648,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
+	go mq.PublishPeerUpdate(false)
 	slog.Info("updated network", "network", payload.NetID, "user", r.Header.Get("user"))
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(payload)

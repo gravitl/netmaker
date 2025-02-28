@@ -27,6 +27,7 @@ type HostPeerUpdate struct {
 	EgressRoutes    []EgressNetworkRoutes `json:"egress_network_routes"`
 	FwUpdate        FwUpdate              `json:"fw_update"`
 	ReplacePeers    bool                  `json:"replace_peers"`
+	NameServers     []string              `json:"name_servers"`
 	ServerConfig
 	OldPeerUpdateFields
 }
