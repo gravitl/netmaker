@@ -640,6 +640,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	netNew := netOld
+	netNew.NameServers = payload.NameServers
 	netNew.DefaultACL = payload.DefaultACL
 	_, _, _, err = logic.UpdateNetwork(&netOld, &netNew)
 	if err != nil {
