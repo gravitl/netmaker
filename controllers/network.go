@@ -458,9 +458,7 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	go logic.DeleteNetworkRoles(network)
 	go logic.DeleteDefaultNetworkPolicies(models.NetworkID(network))
 	//delete network from allocated ip map
-	if servercfg.CacheEnabled() {
-		go logic.RemoveNetworkFromAllocatedIpMap(network)
-	}
+	go logic.RemoveNetworkFromAllocatedIpMap(network)
 
 	logger.Log(1, r.Header.Get("user"), "deleted network", network)
 	w.WriteHeader(http.StatusOK)
