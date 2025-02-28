@@ -105,14 +105,14 @@ func DeleteExtClient(network string, clientid string) error {
 	if err != nil {
 		return err
 	}
-	//recycle ip address
-	if extClient.Address != "" {
-		RemoveIpFromAllocatedIpMap(network, extClient.Address)
-	}
-	if extClient.Address6 != "" {
-		RemoveIpFromAllocatedIpMap(network, extClient.Address6)
-	}
 	if servercfg.CacheEnabled() {
+		// recycle ip address
+		if extClient.Address != "" {
+			RemoveIpFromAllocatedIpMap(network, extClient.Address)
+		}
+		if extClient.Address6 != "" {
+			RemoveIpFromAllocatedIpMap(network, extClient.Address6)
+		}
 		deleteExtClientFromCache(key)
 	}
 	return nil
@@ -342,15 +342,16 @@ func SaveExtClient(extclient *models.ExtClient) error {
 	}
 	if servercfg.CacheEnabled() {
 		storeExtClientInCache(key, *extclient)
-	}
-	if _, ok := allocatedIpMap[extclient.Network]; ok {
-		if extclient.Address != "" {
-			AddIpToAllocatedIpMap(extclient.Network, net.ParseIP(extclient.Address))
+		if _, ok := allocatedIpMap[extclient.Network]; ok {
+			if extclient.Address != "" {
+				AddIpToAllocatedIpMap(extclient.Network, net.ParseIP(extclient.Address))
+			}
+			if extclient.Address6 != "" {
+				AddIpToAllocatedIpMap(extclient.Network, net.ParseIP(extclient.Address6))
+			}
 		}
-		if extclient.Address6 != "" {
-			AddIpToAllocatedIpMap(extclient.Network, net.ParseIP(extclient.Address6))
-		}
 	}
+
 	return SetNetworkNodesLastModified(extclient.Network)
 }
 
