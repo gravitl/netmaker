@@ -558,7 +558,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	logic.CreateDefaultNetworkRolesAndGroups(models.NetworkID(network.NetID))
 	logic.CreateDefaultAclNetworkPolicies(models.NetworkID(network.NetID))
 	logic.CreateDefaultTags(models.NetworkID(network.NetID))
-	//add new network to allocated ip map
+
 	go logic.AddNetworkToAllocatedIpMap(network.NetID)
 
 	go func() {

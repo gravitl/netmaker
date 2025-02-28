@@ -35,12 +35,20 @@ var (
 func getNodeFromCache(nodeID string) (node models.Node, ok bool) {
 	nodeCacheMutex.RLock()
 	node, ok = nodesCacheMap[nodeID]
+	if node.Mutex == nil {
+		node.Mutex = &sync.Mutex{}
+	}
 	nodeCacheMutex.RUnlock()
 	return
 }
 func getNodesFromCache() (nodes []models.Node) {
 	nodeCacheMutex.RLock()
-	nodes = slices.Collect(maps.Values(nodesCacheMap))
+	for _, node := range nodesCacheMap {
+		if node.Mutex == nil {
+			node.Mutex = &sync.Mutex{}
+		}
+		nodes = append(nodes, node)
+	}
 	nodeCacheMutex.RUnlock()
 	return
 }
@@ -356,12 +364,15 @@ func DeleteNodeByID(node *models.Node) error {
 		logger.Log(1, "unable to remove metrics from DB for node", node.ID.String(), err.Error())
 	}
 	//recycle ip address
-	if node.Address.IP != nil {
-		RemoveIpFromAllocatedIpMap(node.Network, node.Address.IP.String())
+	if servercfg.CacheEnabled() {
+		if node.Address.IP != nil {
+			RemoveIpFromAllocatedIpMap(node.Network, node.Address.IP.String())
+		}
+		if node.Address6.IP != nil {
+			RemoveIpFromAllocatedIpMap(node.Network, node.Address6.IP.String())
+		}
 	}
-	if node.Address6.IP != nil {
-		RemoveIpFromAllocatedIpMap(node.Network, node.Address6.IP.String())
-	}
+
 	return nil
 }
 
@@ -423,6 +434,9 @@ func GetAllNodes() ([]models.Node, error) {
 		}
 		// add node to our array
 		nodes = append(nodes, node)
+		if node.Mutex == nil {
+			node.Mutex = &sync.Mutex{}
+		}
 		nodesMap[node.ID.String()] = node
 	}
 
@@ -683,15 +697,16 @@ func createNode(node *models.Node) error {
 	if servercfg.CacheEnabled() {
 		storeNodeInCache(*node)
 		storeNodeInNetworkCache(*node, node.Network)
-	}
-	if _, ok := allocatedIpMap[node.Network]; ok {
-		if node.Address.IP != nil {
-			AddIpToAllocatedIpMap(node.Network, node.Address.IP)
+		if _, ok := allocatedIpMap[node.Network]; ok {
+			if node.Address.IP != nil {
+				AddIpToAllocatedIpMap(node.Network, node.Address.IP)
+			}
+			if node.Address6.IP != nil {
+				AddIpToAllocatedIpMap(node.Network, node.Address6.IP)
+			}
 		}
-		if node.Address6.IP != nil {
-			AddIpToAllocatedIpMap(node.Network, node.Address6.IP)
-		}
 	}
+
 	_, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), defaultACLVal)
 	if err != nil {
 		logger.Log(1, "failed to create node ACL for node,", node.ID.String(), "err:", err.Error())
@@ -737,16 +752,14 @@ func ValidateParams(nodeid, netid string) (models.Node, error) {
 func ValidateNodeIp(currentNode *models.Node, newNode *models.ApiNode) error {
 
 	if currentNode.Address.IP != nil && currentNode.Address.String() != newNode.Address {
-		newIp, _, _ := net.ParseCIDR(newNode.Address)
-		ipAllocated := allocatedIpMap[currentNode.Network]
-		if _, ok := ipAllocated[newIp.String()]; ok {
+		if !IsIPUnique(newNode.Network, newNode.Address, database.NODES_TABLE_NAME, false) ||
+			!IsIPUnique(newNode.Network, newNode.Address, database.EXT_CLIENT_TABLE_NAME, false) {
 			return errors.New("ip specified is already allocated:  " + newNode.Address)
 		}
 	}
 	if currentNode.Address6.IP != nil && currentNode.Address6.String() != newNode.Address6 {
-		newIp, _, _ := net.ParseCIDR(newNode.Address6)
-		ipAllocated := allocatedIpMap[currentNode.Network]
-		if _, ok := ipAllocated[newIp.String()]; ok {
+		if !IsIPUnique(newNode.Network, newNode.Address6, database.NODES_TABLE_NAME, false) ||
+			!IsIPUnique(newNode.Network, newNode.Address6, database.EXT_CLIENT_TABLE_NAME, false) {
 			return errors.New("ip specified is already allocated:  " + newNode.Address6)
 		}
 	}
@@ -809,9 +822,16 @@ func GetTagMapWithNodes() (tagNodesMap map[models.TagID][]models.Node) {
 		if nodeI.Tags == nil {
 			continue
 		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Lock()
+		}
 		for nodeTagID := range nodeI.Tags {
 			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
 		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Unlock()
+		}
+
 	}
 	return
 }
@@ -823,8 +843,14 @@ func GetTagMapWithNodesByNetwork(netID models.NetworkID, withStaticNodes bool) (
 		if nodeI.Tags == nil {
 			continue
 		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Lock()
+		}
 		for nodeTagID := range nodeI.Tags {
 			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
+		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Unlock()
 		}
 	}
 	tagNodesMap["*"] = nodes
@@ -844,17 +870,16 @@ func AddTagMapWithStaticNodes(netID models.NetworkID,
 		if extclient.Tags == nil || extclient.RemoteAccessClientID != "" {
 			continue
 		}
-		for tagID := range extclient.Tags {
-			tagNodesMap[tagID] = append(tagNodesMap[tagID], models.Node{
-				IsStatic:   true,
-				StaticNode: extclient,
-			})
-			tagNodesMap["*"] = append(tagNodesMap["*"], models.Node{
-				IsStatic:   true,
-				StaticNode: extclient,
-			})
+		if extclient.Mutex != nil {
+			extclient.Mutex.Lock()
 		}
-
+		for tagID := range extclient.Tags {
+			tagNodesMap[tagID] = append(tagNodesMap[tagID], extclient.ConvertToStaticNode())
+			tagNodesMap["*"] = append(tagNodesMap["*"], extclient.ConvertToStaticNode())
+		}
+		if extclient.Mutex != nil {
+			extclient.Mutex.Unlock()
+		}
 	}
 	return tagNodesMap
 }
@@ -869,11 +894,14 @@ func AddTagMapWithStaticNodesWithUsers(netID models.NetworkID,
 		if extclient.Tags == nil {
 			continue
 		}
+		if extclient.Mutex != nil {
+			extclient.Mutex.Lock()
+		}
 		for tagID := range extclient.Tags {
-			tagNodesMap[tagID] = append(tagNodesMap[tagID], models.Node{
-				IsStatic:   true,
-				StaticNode: extclient,
-			})
+			tagNodesMap[tagID] = append(tagNodesMap[tagID], extclient.ConvertToStaticNode())
+		}
+		if extclient.Mutex != nil {
+			extclient.Mutex.Unlock()
 		}
 
 	}
@@ -891,8 +919,14 @@ func GetNodesWithTag(tagID models.TagID) map[string]models.Node {
 		if nodeI.Tags == nil {
 			continue
 		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Lock()
+		}
 		if _, ok := nodeI.Tags[tagID]; ok {
 			nMap[nodeI.ID.String()] = nodeI
+		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Unlock()
 		}
 	}
 	return AddStaticNodesWithTag(tag, nMap)
@@ -907,13 +941,15 @@ func AddStaticNodesWithTag(tag models.Tag, nMap map[string]models.Node) map[stri
 		if extclient.RemoteAccessClientID != "" {
 			continue
 		}
-		if _, ok := extclient.Tags[tag.ID]; ok {
-			nMap[extclient.ClientID] = models.Node{
-				IsStatic:   true,
-				StaticNode: extclient,
-			}
+		if extclient.Mutex != nil {
+			extclient.Mutex.Lock()
 		}
-
+		if _, ok := extclient.Tags[tag.ID]; ok {
+			nMap[extclient.ClientID] = extclient.ConvertToStaticNode()
+		}
+		if extclient.Mutex != nil {
+			extclient.Mutex.Unlock()
+		}
 	}
 	return nMap
 }
@@ -929,10 +965,7 @@ func GetStaticNodeWithTag(tagID models.TagID) map[string]models.Node {
 		return nMap
 	}
 	for _, extclient := range extclients {
-		nMap[extclient.ClientID] = models.Node{
-			IsStatic:   true,
-			StaticNode: extclient,
-		}
+		nMap[extclient.ClientID] = extclient.ConvertToStaticNode()
 	}
 	return nMap
 }
