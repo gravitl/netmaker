@@ -151,12 +151,18 @@ type ExtPeersResponse struct {
 	KeepAlive       int32  `json:"persistentkeepalive" bson:"persistentkeepalive"`
 }
 
+type EgressRangeMetric struct {
+	Network     net.IPNet `json:"network"`
+	RouteMetric net.IPNet `json:"route_metric"`
+}
+
 // EgressGatewayRequest - egress gateway request
 type EgressGatewayRequest struct {
-	NodeID     string   `json:"nodeid" bson:"nodeid"`
-	NetID      string   `json:"netid" bson:"netid"`
-	NatEnabled string   `json:"natenabled" bson:"natenabled"`
-	Ranges     []string `json:"ranges" bson:"ranges"`
+	NodeID           string              `json:"nodeid" bson:"nodeid"`
+	NetID            string              `json:"netid" bson:"netid"`
+	NatEnabled       string              `json:"natenabled" bson:"natenabled"`
+	Ranges           []string            `json:"ranges" bson:"ranges"`
+	RangesWithMetric []EgressRangeMetric `json:"ranges_with_metric"`
 }
 
 // RelayRequest - relay request struct
