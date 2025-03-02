@@ -152,8 +152,8 @@ type ExtPeersResponse struct {
 }
 
 type EgressRangeMetric struct {
-	Network     net.IPNet `json:"network"`
-	RouteMetric net.IPNet `json:"route_metric"`
+	Network     string `json:"network"`
+	RouteMetric uint32 `json:"route_metric"` // preffered range 1-999
 }
 
 // EgressGatewayRequest - egress gateway request
