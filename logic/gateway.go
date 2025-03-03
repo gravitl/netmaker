@@ -104,6 +104,16 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	node.IsEgressGateway = true
 	node.EgressGatewayRanges = gateway.Ranges
 	node.EgressGatewayNatEnabled = models.ParseBool(gateway.NatEnabled)
+	rangesWithMetric := []string{}
+	for i, rangeI := range gateway.RangesWithMetric {
+		rangesWithMetric = append(rangesWithMetric, rangeI.Network)
+		if rangeI.RouteMetric <= 0 || rangeI.RouteMetric > 999 {
+			gateway.RangesWithMetric[i].RouteMetric = 256
+		}
+	}
+	if !IsSlicesEqual(node.EgressGatewayRanges, rangesWithMetric) {
+		return models.Node{}, errors.New("invalid ranges")
+	}
 	node.EgressGatewayRequest = gateway // store entire request for use when preserving the egress gateway
 	node.SetLastModified()
 	if err = UpsertNode(&node); err != nil {
