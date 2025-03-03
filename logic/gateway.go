@@ -3,6 +3,8 @@ package logic
 import (
 	"errors"
 	"fmt"
+	"slices"
+	"sort"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
@@ -99,6 +101,28 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 		gateway.Ranges[i] = normalized
 
 	}
+	rangesWithMetric := []string{}
+	for i := len(gateway.RangesWithMetric) - 1; i >= 0; i-- {
+		if gateway.RangesWithMetric[i].Network == "0.0.0.0/0" || gateway.RangesWithMetric[i].Network == "::/0" {
+			// remove inet range
+			gateway.RangesWithMetric = append(gateway.RangesWithMetric[:i], gateway.RangesWithMetric[i+1:]...)
+			continue
+		}
+		normalized, err := NormalizeCIDR(gateway.RangesWithMetric[i].Network)
+		if err != nil {
+			return models.Node{}, err
+		}
+		gateway.RangesWithMetric[i].Network = normalized
+		rangesWithMetric = append(rangesWithMetric, gateway.RangesWithMetric[i].Network)
+		if gateway.RangesWithMetric[i].RouteMetric <= 0 || gateway.RangesWithMetric[i].RouteMetric > 999 {
+			gateway.RangesWithMetric[i].RouteMetric = 256
+		}
+	}
+	sort.Strings(gateway.Ranges)
+	sort.Strings(rangesWithMetric)
+	if !slices.Equal(gateway.Ranges, rangesWithMetric) {
+		return models.Node{}, errors.New("invalid ranges")
+	}
 	if gateway.NatEnabled == "" {
 		gateway.NatEnabled = "yes"
 	}
@@ -112,26 +136,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	node.IsEgressGateway = true
 	node.EgressGatewayRanges = gateway.Ranges
 	node.EgressGatewayNatEnabled = models.ParseBool(gateway.NatEnabled)
-	rangesWithMetric := []string{}
-	for i := len(gateway.RangesWithMetric) - 1; i >= 0; i-- {
-		if gateway.RangesWithMetric[i].Network == "0.0.0.0/0" || gateway.RangesWithMetric[i].Network == "::/0" {
-			// remove inet range
-			gateway.RangesWithMetric = append(gateway.RangesWithMetric[:i], gateway.RangesWithMetric[i+1:]...)
-			continue
-		}
-		normalized, err := NormalizeCIDR(gateway.Ranges[i])
-		if err != nil {
-			return models.Node{}, err
-		}
-		gateway.RangesWithMetric[i].Network = normalized
-		rangesWithMetric = append(rangesWithMetric, gateway.RangesWithMetric[i].Network)
-		if gateway.RangesWithMetric[i].RouteMetric <= 0 || gateway.RangesWithMetric[i].RouteMetric > 999 {
-			gateway.RangesWithMetric[i].RouteMetric = 256
-		}
-	}
-	if !IsSlicesEqual(node.EgressGatewayRanges, rangesWithMetric) {
-		return models.Node{}, errors.New("invalid ranges")
-	}
+
 	node.EgressGatewayRequest = gateway // store entire request for use when preserving the egress gateway
 	node.SetLastModified()
 	if err = UpsertNode(&node); err != nil {
