@@ -797,10 +797,13 @@ func validateCustomExtClient(customExtClient *models.CustomExtClient, checkID bo
 	}
 	//validate DNS
 	if customExtClient.DNS != "" {
-		if ip := net.ParseIP(customExtClient.DNS); ip == nil {
-			return errInvalidExtClientDNS
+		ips := strings.Split(customExtClient.DNS, ",")
+		for _, ip := range ips {
+			trimmedIp := strings.TrimSpace(ip)
+			if ip := net.ParseIP(trimmedIp); ip == nil {
+				return errInvalidExtClientDNS
+			}
 		}
-		//extclient.DNS = customExtClient.DNS
 	}
 	return nil
 }
