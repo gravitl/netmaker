@@ -685,12 +685,10 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 			if peer.StaticNode.ClientID == nodeI.StaticNode.ClientID || peer.IsUserNode {
 				continue
 			}
-			// if nodeI.StaticNode.IngressGatewayID != node.ID.String() && !peer.IsGw {
-			// 	continue
-			// }
-			// if peer.IsStatic && peer.StaticNode.IngressGatewayID !=node.ID.String(){
+			if nodeI.StaticNode.IngressGatewayID != node.ID.String() && peer.ID.String() != node.ID.String() {
+				continue
+			}
 
-			// }
 			if ok, allowedPolicies := IsNodeAllowedToCommunicateV1(nodeI.StaticNode.ConvertToStaticNode(), peer, true); ok {
 				rules = append(rules, getFwRulesForNodeAndPeerOnGw(nodeI.StaticNode.ConvertToStaticNode(), peer, allowedPolicies)...)
 			}
