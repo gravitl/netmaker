@@ -94,6 +94,7 @@ func GetServerConfig() config.ServerConfig {
 	}
 	cfg.JwtValidityDuration = GetJwtValidityDuration()
 	cfg.RacAutoDisable = GetRacAutoDisable()
+	cfg.RacAllowMultipleNetworks = GetRacAllowMultipleNetworks()
 	cfg.MetricInterval = GetMetricInterval()
 	cfg.ManageDNS = GetManageDNS()
 	cfg.Stun = IsStunEnabled()
@@ -118,6 +119,11 @@ func GetJwtValidityDuration() time.Duration {
 // GetRacAutoDisable - returns whether the feature to autodisable RAC is enabled
 func GetRacAutoDisable() bool {
 	return os.Getenv("RAC_AUTO_DISABLE") == "true"
+}
+
+// GetRacAllowMultipleNetworks - returns whether the feature to allow simultaneous network connections via RAC is enabled
+func GetRacAllowMultipleNetworks() bool {
+	return os.Getenv("RAC_ALLOW_MULTIPLE_NETWORKS") == "true"
 }
 
 // GetServerInfo - gets the server config into memory from file or env

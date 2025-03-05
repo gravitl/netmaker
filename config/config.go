@@ -91,6 +91,7 @@ type ServerConfig struct {
 	Environment                string        `yaml:"environment"`
 	JwtValidityDuration        time.Duration `yaml:"jwt_validity_duration" swaggertype:"primitive,integer" format:"int64"`
 	RacAutoDisable             bool          `yaml:"rac_auto_disable"`
+	RacAllowMultipleNetworks   bool          `yaml:"rac_allow_multiple_networks"`
 	CacheEnabled               string        `yaml:"caching_enabled"`
 	EndpointDetection          bool          `yaml:"endpoint_detection"`
 	AllowedEmailDomains        string        `yaml:"allowed_email_domains"`
