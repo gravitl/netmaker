@@ -21,6 +21,10 @@ var linuxHost models.Host
 func TestCreateEgressGateway(t *testing.T) {
 	var gateway models.EgressGatewayRequest
 	gateway.Ranges = []string{"10.100.100.0/24"}
+	gateway.RangesWithMetric = append(gateway.RangesWithMetric, models.EgressRangeMetric{
+		Network:     "10.100.100.0/24",
+		RouteMetric: 256,
+	})
 	gateway.NetID = "skynet"
 	deleteAllNetworks()
 	createNet()
