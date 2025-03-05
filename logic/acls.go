@@ -915,7 +915,7 @@ func IsNodeAllowedToCommunicateV1(node, peer models.Node, checkDefaultPolicy boo
 
 			for tagID := range nodeTags {
 
-				if _, ok := dstMap[tagID.String()]; ok {
+				if _, ok := dstMap[tagID.String()]; ok || dstAll {
 					if srcAll {
 						allowed = true
 						break
@@ -931,7 +931,7 @@ func IsNodeAllowedToCommunicateV1(node, peer models.Node, checkDefaultPolicy boo
 					allowedPolicies = append(allowedPolicies, policy)
 					break
 				}
-				if _, ok := srcMap[tagID.String()]; ok {
+				if _, ok := srcMap[tagID.String()]; ok || srcAll {
 					if dstAll {
 						allowed = true
 						break
@@ -953,7 +953,7 @@ func IsNodeAllowedToCommunicateV1(node, peer models.Node, checkDefaultPolicy boo
 			}
 		}
 		for tagID := range peerTags {
-			if _, ok := dstMap[tagID.String()]; ok {
+			if _, ok := dstMap[tagID.String()]; ok || dstAll {
 				if srcAll {
 					allowed = true
 					break
@@ -1051,7 +1051,7 @@ func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool)
 		}
 		for tagID := range nodeTags {
 			allowed := false
-			if _, ok := dstMap[tagID.String()]; policy.AllowedDirection == models.TrafficDirectionBi && ok {
+			if _, ok := dstMap[tagID.String()]; policy.AllowedDirection == models.TrafficDirectionBi && ok || dstAll {
 				if srcAll {
 					allowed = true
 					allowedPolicies = append(allowedPolicies, policy)
@@ -1068,7 +1068,7 @@ func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool)
 				allowedPolicies = append(allowedPolicies, policy)
 				break
 			}
-			if _, ok := srcMap[tagID.String()]; ok {
+			if _, ok := srcMap[tagID.String()]; ok || srcAll {
 				if dstAll {
 					allowed = true
 					allowedPolicies = append(allowedPolicies, policy)
@@ -1088,7 +1088,7 @@ func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool)
 		}
 		for tagID := range peerTags {
 			allowed := false
-			if _, ok := dstMap[tagID.String()]; ok {
+			if _, ok := dstMap[tagID.String()]; ok || dstAll {
 				if srcAll {
 					allowed = true
 					allowedPolicies = append(allowedPolicies, policy)
@@ -1096,7 +1096,7 @@ func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool)
 				}
 				for tagID := range nodeTags {
 
-					if _, ok := srcMap[tagID.String()]; ok {
+					if _, ok := srcMap[tagID.String()]; ok || srcAll {
 						allowed = true
 						break
 					}
@@ -1107,7 +1107,7 @@ func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool)
 				break
 			}
 
-			if _, ok := srcMap[tagID.String()]; policy.AllowedDirection == models.TrafficDirectionBi && ok {
+			if _, ok := srcMap[tagID.String()]; policy.AllowedDirection == models.TrafficDirectionBi && ok || srcAll {
 				if dstAll {
 					allowed = true
 					allowedPolicies = append(allowedPolicies, policy)
@@ -1346,6 +1346,8 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 		}
 		srcTags := convAclTagToValueMap(acl.Src)
 		dstTags := convAclTagToValueMap(acl.Dst)
+		_, srcAll := srcTags["*"]
+		_, dstAll := dstTags["*"]
 		aclRule := models.AclRule{
 			ID:              acl.ID,
 			AllowedProtocol: acl.Proto,
@@ -1358,16 +1360,16 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 				var existsInSrcTag bool
 				var existsInDstTag bool
 
-				if _, ok := srcTags[nodeTag.String()]; ok {
+				if _, ok := srcTags[nodeTag.String()]; ok || srcAll {
 					existsInSrcTag = true
 				}
-				if _, ok := srcTags[targetnode.ID.String()]; ok {
+				if _, ok := srcTags[targetnode.ID.String()]; ok || srcAll {
 					existsInSrcTag = true
 				}
-				if _, ok := dstTags[nodeTag.String()]; ok {
+				if _, ok := dstTags[nodeTag.String()]; ok || dstAll {
 					existsInDstTag = true
 				}
-				if _, ok := dstTags[targetnode.ID.String()]; ok {
+				if _, ok := dstTags[targetnode.ID.String()]; ok || dstAll {
 					existsInDstTag = true
 				}
 
@@ -1388,6 +1390,9 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 
 						for _, node := range nodes {
 							if node.ID == targetnode.ID {
+								continue
+							}
+							if node.IsStatic && node.StaticNode.IngressGatewayID == targetnode.ID.String() {
 								continue
 							}
 							if node.Address.IP != nil {
@@ -1421,6 +1426,9 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 						}
 						for _, node := range nodes {
 							if node.ID == targetnode.ID {
+								continue
+							}
+							if node.IsStatic && node.StaticNode.IngressGatewayID == targetnode.ID.String() {
 								continue
 							}
 							if node.Address.IP != nil {
@@ -1462,6 +1470,9 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 						if node.ID == targetnode.ID {
 							continue
 						}
+						if node.IsStatic && node.StaticNode.IngressGatewayID == targetnode.ID.String() {
+							continue
+						}
 						if node.Address.IP != nil {
 							aclRule.IPList = append(aclRule.IPList, node.AddressIPNet4())
 						}
@@ -1488,6 +1499,9 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 						nodes := taggedNodes[models.TagID(src)]
 						for _, node := range nodes {
 							if node.ID == targetnode.ID {
+								continue
+							}
+							if node.IsStatic && node.StaticNode.IngressGatewayID == targetnode.ID.String() {
 								continue
 							}
 							if node.Address.IP != nil {

@@ -458,6 +458,7 @@ func GetStaticNodeIps(node models.Node) (ips []net.IP) {
 func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []models.Acl) (rules []models.FwRule) {
 
 	for _, policy := range allowedPolicies {
+		// if static peer dst rule not for ingress node -> skip
 		rules = append(rules, models.FwRule{
 			SrcIP: net.IPNet{
 				IP:   node.Address.IP,
@@ -677,13 +678,19 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 		if !nodeI.IsStatic || nodeI.IsUserNode {
 			continue
 		}
-		if nodeI.StaticNode.IngressGatewayID != node.ID.String() {
-			continue
-		}
+		// if nodeI.StaticNode.IngressGatewayID != node.ID.String() {
+		// 	continue
+		// }
 		for _, peer := range nodes {
 			if peer.StaticNode.ClientID == nodeI.StaticNode.ClientID || peer.IsUserNode {
 				continue
 			}
+			// if nodeI.StaticNode.IngressGatewayID != node.ID.String() && !peer.IsGw {
+			// 	continue
+			// }
+			// if peer.IsStatic && peer.StaticNode.IngressGatewayID !=node.ID.String(){
+
+			// }
 			if ok, allowedPolicies := IsNodeAllowedToCommunicateV1(nodeI.StaticNode.ConvertToStaticNode(), peer, true); ok {
 				rules = append(rules, getFwRulesForNodeAndPeerOnGw(nodeI.StaticNode.ConvertToStaticNode(), peer, allowedPolicies)...)
 			}
