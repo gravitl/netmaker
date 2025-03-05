@@ -17,6 +17,17 @@ var extClientConfigCmd = &cobra.Command{
 	},
 }
 
+var extClientHAConfigCmd = &cobra.Command{
+	Use:   "auto_config [NETWORK NAME]",
+	Args:  cobra.ExactArgs(1),
+	Short: "Get an External Client Configuration",
+	Long:  `Get an External Client Configuration`,
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println(functions.GetExtClientHAConfig(args[0]))
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(extClientConfigCmd)
+	rootCmd.AddCommand(extClientHAConfigCmd)
 }
