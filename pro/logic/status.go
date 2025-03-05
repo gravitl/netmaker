@@ -41,7 +41,7 @@ func GetNodeStatus(node *models.Node, defaultEnabledPolicy bool) {
 			return
 		}
 		if !defaultEnabledPolicy {
-			allowed, _ := logic.IsNodeAllowedToCommunicate(*node, ingNode, false)
+			allowed, _ := logic.IsNodeAllowedToCommunicateV1(*node, ingNode, false)
 			if !allowed {
 				node.Status = models.OnlineSt
 				return
@@ -161,7 +161,7 @@ func checkPeerStatus(node *models.Node, defaultAclPolicy bool) {
 		}
 
 		if !defaultAclPolicy {
-			allowed, _ := logic.IsNodeAllowedToCommunicate(*node, peer, false)
+			allowed, _ := logic.IsNodeAllowedToCommunicateV1(*node, peer, false)
 			if !allowed {
 				continue
 			}
@@ -199,7 +199,7 @@ func checkPeerConnectivity(node *models.Node, metrics *models.Metrics, defaultAc
 		}
 
 		if !defaultAclPolicy {
-			allowed, _ := logic.IsNodeAllowedToCommunicate(*node, peer, false)
+			allowed, _ := logic.IsNodeAllowedToCommunicateV1(*node, peer, false)
 			if !allowed {
 				continue
 			}

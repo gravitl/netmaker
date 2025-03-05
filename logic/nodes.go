@@ -312,6 +312,7 @@ func DeleteNode(node *models.Node, purge bool) error {
 	if err := DissasociateNodeFromHost(node, host); err != nil {
 		return err
 	}
+	go RemoveNodeFromAclPolicy(*node)
 
 	return nil
 }
@@ -835,6 +836,9 @@ func GetTagMapWithNodesByNetwork(netID models.NetworkID, withStaticNodes bool) (
 	tagNodesMap = make(map[models.TagID][]models.Node)
 	nodes, _ := GetNetworkNodes(netID.String())
 	for _, nodeI := range nodes {
+		tagNodesMap[models.TagID(nodeI.ID.String())] = []models.Node{
+			nodeI,
+		}
 		if nodeI.Tags == nil {
 			continue
 		}
@@ -856,9 +860,19 @@ func AddTagMapWithStaticNodes(netID models.NetworkID,
 		return tagNodesMap
 	}
 	for _, extclient := range extclients {
-		if extclient.Tags == nil || extclient.RemoteAccessClientID != "" {
+		if extclient.RemoteAccessClientID != "" {
 			continue
 		}
+		tagNodesMap[models.TagID(extclient.ClientID)] = []models.Node{
+			{
+				IsStatic:   true,
+				StaticNode: extclient,
+			},
+		}
+		if extclient.Tags == nil {
+			continue
+		}
+
 		for tagID := range extclient.Tags {
 			tagNodesMap[tagID] = append(tagNodesMap[tagID], models.Node{
 				IsStatic:   true,
@@ -881,6 +895,12 @@ func AddTagMapWithStaticNodesWithUsers(netID models.NetworkID,
 		return tagNodesMap
 	}
 	for _, extclient := range extclients {
+		tagNodesMap[models.TagID(extclient.ClientID)] = []models.Node{
+			{
+				IsStatic:   true,
+				StaticNode: extclient,
+			},
+		}
 		if extclient.Tags == nil {
 			continue
 		}
