@@ -472,7 +472,8 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					IP:   node.Address6.IP,
 					Mask: getCIDRMaskFromAddr(node.Address6.IP.String()),
 				},
-				EgressGWCfg: node.EgressGatewayRequest,
+				EgressGWCfg:   node.EgressGatewayRequest,
+				EgressFwRules: make(map[string]models.FwRule),
 			}
 
 		}

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"net"
 	"sort"
 	"sync"
 	"time"
@@ -1340,7 +1339,6 @@ func getUserAclRulesForNode(targetnode *models.Node,
 			if !acl.Enabled {
 				continue
 			}
-
 			r := models.AclRule{
 				ID:              acl.ID,
 				AllowedProtocol: acl.Proto,
@@ -1424,7 +1422,16 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 		targetNodeTags = maps.Clone(targetnode.Tags)
 	}
 	targetNodeTags["*"] = struct{}{}
-
+	/*
+		 if target node is egress gateway
+			if acl policy has egress route and it is present in target node egress ranges
+			fetches all the nodes in that policy and add rules
+	*/
+	if targetnode.IsEgressGateway {
+		for _, rangeI := range targetnode.EgressGatewayRanges {
+			targetNodeTags[models.TagID(rangeI)] = struct{}{}
+		}
+	}
 	for _, acl := range acls {
 		if !acl.Enabled {
 			continue
@@ -1607,24 +1614,18 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 			}
 
 		}
-		if targetnode.IsEgressGateway && len(targetnode.EgressGatewayRanges) > 0 {
-			for _, egressRangeI := range targetnode.EgressGatewayRanges {
-				_, egressCidr, err := net.ParseCIDR(egressRangeI)
-				if err != nil {
-					continue
-				}
-				_, all := dstTags["*"]
-				if _, ok := dstTags[egressRangeI]; ok || all {
-					// get all src tags
-					aclRule.EgressRanges = append(aclRule.EgressRanges, *egressCidr)
 
-				}
-			}
-
-		}
 		if len(aclRule.IPList) > 0 || len(aclRule.IP6List) > 0 {
 			rules[acl.ID] = aclRule
 		}
 	}
 	return rules
+}
+
+func GetFwRulesForEgressGw(node models.Node) (rules map[string]models.FwRule) {
+	if !node.IsEgressGateway {
+		return
+	}
+	rules = make(map[string]models.FwRule)
+	return
 }
