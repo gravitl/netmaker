@@ -1268,12 +1268,21 @@ func getUserAclRulesForNode(targetnode *models.Node,
 			continue
 		}
 		dstTags := convAclTagToValueMap(acl.Dst)
-		for nodeTag := range targetNodeTags {
-			if _, ok := dstTags[nodeTag.String()]; !ok {
-				if _, ok = dstTags[targetnode.ID.String()]; !ok {
-					continue
+		_, all := dstTags["*"]
+		addUsers := false
+		if !all {
+			for nodeTag := range targetNodeTags {
+				if _, ok := dstTags[nodeTag.String()]; !ok {
+					if _, ok = dstTags[targetnode.ID.String()]; !ok {
+						break
+					}
 				}
 			}
+		} else {
+			addUsers = true
+		}
+
+		if addUsers {
 			// get all src tags
 			for _, srcAcl := range acl.Src {
 				if srcAcl.ID == models.UserAclID {
@@ -1288,6 +1297,7 @@ func getUserAclRulesForNode(targetnode *models.Node,
 				}
 			}
 		}
+
 	}
 
 	for _, userNode := range userNodes {
