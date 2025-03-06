@@ -225,6 +225,16 @@ func updateNodes() {
 				node.EgressGatewayRanges = egressRanges
 				logic.UpsertNode(&node)
 			}
+			if len(node.EgressGatewayRequest.Ranges) > 0 && len(node.EgressGatewayRequest.RangesWithMetric) == 0 {
+				for _, egressRangeI := range node.EgressGatewayRequest.Ranges {
+					node.EgressGatewayRequest.RangesWithMetric = append(node.EgressGatewayRequest.RangesWithMetric, models.EgressRangeMetric{
+						Network:     egressRangeI,
+						RouteMetric: 256,
+					})
+				}
+				logic.UpsertNode(&node)
+			}
+
 		}
 	}
 }

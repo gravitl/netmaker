@@ -269,7 +269,11 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				}
 			}
 		}
-
+		networkSettings, err := GetNetwork(node.Network)
+		if err != nil {
+			continue
+		}
+		hostPeerUpdate.NameServers = append(hostPeerUpdate.NameServers, networkSettings.NameServers...)
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
 		for _, peer := range currentPeers {
 			peer := peer
@@ -291,11 +295,12 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			}
 			if peer.IsEgressGateway {
 				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, models.EgressNetworkRoutes{
-					EgressGwAddr:  peer.Address,
-					EgressGwAddr6: peer.Address6,
-					NodeAddr:      node.Address,
-					NodeAddr6:     node.Address6,
-					EgressRanges:  peer.EgressGatewayRanges,
+					EgressGwAddr:           peer.Address,
+					EgressGwAddr6:          peer.Address6,
+					NodeAddr:               node.Address,
+					NodeAddr6:              node.Address6,
+					EgressRanges:           peer.EgressGatewayRanges,
+					EgressRangesWithMetric: peer.EgressGatewayRequest.RangesWithMetric,
 				})
 			}
 			if peer.IsIngressGateway {
