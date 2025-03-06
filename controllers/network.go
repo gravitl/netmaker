@@ -587,7 +587,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	logic.CreateDefaultNetworkRolesAndGroups(models.NetworkID(network.NetID))
 	logic.CreateDefaultAclNetworkPolicies(models.NetworkID(network.NetID))
 	logic.CreateDefaultTags(models.NetworkID(network.NetID))
-	//add new network to allocated ip map
+
 	go logic.AddNetworkToAllocatedIpMap(network.NetID)
 
 	go func() {
@@ -668,6 +668,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	netNew := netOld
+	netNew.NameServers = payload.NameServers
 	netNew.DefaultACL = payload.DefaultACL
 	_, _, _, err = logic.UpdateNetwork(&netOld, &netNew)
 	if err != nil {
@@ -675,7 +676,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
+	go mq.PublishPeerUpdate(false)
 	slog.Info("updated network", "network", payload.NetID, "user", r.Header.Get("user"))
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(payload)

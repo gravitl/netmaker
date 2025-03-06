@@ -27,6 +27,11 @@ func GetExtClientConfig(networkName, clientID string) string {
 	return get(fmt.Sprintf("/api/extclients/%s/%s/file", networkName, clientID))
 }
 
+// GetExtClientConfig - auto fetch a client config
+func GetExtClientHAConfig(networkName string) string {
+	return get(fmt.Sprintf("/api/v1/client_conf/%s", networkName))
+}
+
 // CreateExtClient - create an external client
 func CreateExtClient(networkName, nodeID string, extClient models.CustomExtClient) {
 	request[any](http.MethodPost, fmt.Sprintf("/api/extclients/%s/%s", networkName, nodeID), extClient)
