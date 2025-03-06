@@ -455,9 +455,139 @@ func GetStaticNodeIps(node models.Node) (ips []net.IP) {
 	return
 }
 
+func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []models.Acl) (rules []models.FwRule) {
+
+	for _, policy := range allowedPolicies {
+		// if static peer dst rule not for ingress node -> skip
+		if node.Address.IP != nil {
+			rules = append(rules, models.FwRule{
+				SrcIP: net.IPNet{
+					IP:   node.Address.IP,
+					Mask: net.CIDRMask(32, 32),
+				},
+				DstIP: net.IPNet{
+					IP:   peer.Address.IP,
+					Mask: net.CIDRMask(32, 32),
+				},
+				AllowedProtocol: policy.Proto,
+				AllowedPorts:    policy.Port,
+				Allow:           true,
+			})
+		}
+
+		if node.Address6.IP != nil {
+			rules = append(rules, models.FwRule{
+				SrcIP: net.IPNet{
+					IP:   node.Address6.IP,
+					Mask: net.CIDRMask(128, 128),
+				},
+				DstIP: net.IPNet{
+					IP:   peer.Address6.IP,
+					Mask: net.CIDRMask(128, 128),
+				},
+				AllowedProtocol: policy.Proto,
+				AllowedPorts:    policy.Port,
+				Allow:           true,
+			})
+		}
+		if policy.AllowedDirection == models.TrafficDirectionBi {
+			if node.Address.IP != nil {
+				rules = append(rules, models.FwRule{
+					SrcIP: net.IPNet{
+						IP:   peer.Address.IP,
+						Mask: net.CIDRMask(32, 32),
+					},
+					DstIP: net.IPNet{
+						IP:   node.Address.IP,
+						Mask: net.CIDRMask(32, 32),
+					},
+					AllowedProtocol: policy.Proto,
+					AllowedPorts:    policy.Port,
+					Allow:           true,
+				})
+			}
+
+			if node.Address6.IP != nil {
+				rules = append(rules, models.FwRule{
+					SrcIP: net.IPNet{
+						IP:   peer.Address6.IP,
+						Mask: net.CIDRMask(128, 128),
+					},
+					DstIP: net.IPNet{
+						IP:   node.Address6.IP,
+						Mask: net.CIDRMask(128, 128),
+					},
+					AllowedProtocol: policy.Proto,
+					AllowedPorts:    policy.Port,
+					Allow:           true,
+				})
+			}
+		}
+		if len(node.StaticNode.ExtraAllowedIPs) > 0 {
+			for _, additionalAllowedIPNet := range node.StaticNode.ExtraAllowedIPs {
+				_, ipNet, err := net.ParseCIDR(additionalAllowedIPNet)
+				if err != nil {
+					continue
+				}
+				if ipNet.IP.To4() != nil && peer.Address.IP != nil {
+					rules = append(rules, models.FwRule{
+						SrcIP: net.IPNet{
+							IP:   peer.Address.IP,
+							Mask: net.CIDRMask(32, 32),
+						},
+						DstIP: *ipNet,
+						Allow: true,
+					})
+				} else if peer.Address6.IP != nil {
+					rules = append(rules, models.FwRule{
+						SrcIP: net.IPNet{
+							IP:   peer.Address6.IP,
+							Mask: net.CIDRMask(128, 128),
+						},
+						DstIP: *ipNet,
+						Allow: true,
+					})
+				}
+
+			}
+
+		}
+		if len(peer.StaticNode.ExtraAllowedIPs) > 0 {
+			for _, additionalAllowedIPNet := range peer.StaticNode.ExtraAllowedIPs {
+				_, ipNet, err := net.ParseCIDR(additionalAllowedIPNet)
+				if err != nil {
+					continue
+				}
+				if ipNet.IP.To4() != nil && node.Address.IP != nil {
+					rules = append(rules, models.FwRule{
+						SrcIP: net.IPNet{
+							IP:   node.Address.IP,
+							Mask: net.CIDRMask(32, 32),
+						},
+						DstIP: *ipNet,
+						Allow: true,
+					})
+				} else if node.Address6.IP != nil {
+					rules = append(rules, models.FwRule{
+						SrcIP: net.IPNet{
+							IP:   node.Address6.IP,
+							Mask: net.CIDRMask(128, 128),
+						},
+						DstIP: *ipNet,
+						Allow: true,
+					})
+				}
+
+			}
+
+		}
+	}
+
+	return
+}
+
 func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 	// fetch user access to static clients via policies
-
 	defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 	defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 	nodes, _ := GetNetworkNodes(node.Network)
@@ -584,131 +714,26 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 		if !nodeI.IsStatic || nodeI.IsUserNode {
 			continue
 		}
+		// if nodeI.StaticNode.IngressGatewayID != node.ID.String() {
+		// 	continue
+		// }
 		for _, peer := range nodes {
 			if peer.StaticNode.ClientID == nodeI.StaticNode.ClientID || peer.IsUserNode {
 				continue
 			}
-			if ok, allowedPolicies := IsNodeAllowedToCommunicate(nodeI, peer, true); ok {
-				if peer.IsStatic {
-					if nodeI.StaticNode.Address != "" {
-						for _, policy := range allowedPolicies {
-							rules = append(rules, models.FwRule{
-								SrcIP:           nodeI.StaticNode.AddressIPNet4(),
-								DstIP:           peer.StaticNode.AddressIPNet4(),
-								AllowedProtocol: policy.Proto,
-								AllowedPorts:    policy.Port,
-								Allow:           true,
-							})
-							if policy.AllowedDirection == models.TrafficDirectionBi {
-								rules = append(rules, models.FwRule{
-									SrcIP:           peer.StaticNode.AddressIPNet4(),
-									DstIP:           nodeI.StaticNode.AddressIPNet4(),
-									AllowedProtocol: policy.Proto,
-									AllowedPorts:    policy.Port,
-									Allow:           true,
-								})
-							}
-						}
-
-					}
-					if nodeI.StaticNode.Address6 != "" {
-						for _, policy := range allowedPolicies {
-							rules = append(rules, models.FwRule{
-								SrcIP:           nodeI.StaticNode.AddressIPNet6(),
-								DstIP:           peer.StaticNode.AddressIPNet6(),
-								AllowedProtocol: policy.Proto,
-								AllowedPorts:    policy.Port,
-								Allow:           true,
-							})
-							if policy.AllowedDirection == models.TrafficDirectionBi {
-								rules = append(rules, models.FwRule{
-									SrcIP:           peer.StaticNode.AddressIPNet6(),
-									DstIP:           nodeI.StaticNode.AddressIPNet6(),
-									AllowedProtocol: policy.Proto,
-									AllowedPorts:    policy.Port,
-									Allow:           true,
-								})
-							}
-						}
-					}
-					if len(peer.StaticNode.ExtraAllowedIPs) > 0 {
-						for _, additionalAllowedIPNet := range peer.StaticNode.ExtraAllowedIPs {
-							_, ipNet, err := net.ParseCIDR(additionalAllowedIPNet)
-							if err != nil {
-								continue
-							}
-							if ipNet.IP.To4() != nil {
-								rules = append(rules, models.FwRule{
-									SrcIP: nodeI.StaticNode.AddressIPNet4(),
-									DstIP: *ipNet,
-									Allow: true,
-								})
-							} else {
-								rules = append(rules, models.FwRule{
-									SrcIP: nodeI.StaticNode.AddressIPNet6(),
-									DstIP: *ipNet,
-									Allow: true,
-								})
-							}
-
-						}
-
-					}
-				} else {
-					if nodeI.StaticNode.Address != "" {
-						for _, policy := range allowedPolicies {
-							rules = append(rules, models.FwRule{
-								SrcIP: nodeI.StaticNode.AddressIPNet4(),
-								DstIP: net.IPNet{
-									IP:   peer.Address.IP,
-									Mask: net.CIDRMask(32, 32),
-								},
-								AllowedProtocol: policy.Proto,
-								AllowedPorts:    policy.Port,
-								Allow:           true,
-							})
-							if policy.AllowedDirection == models.TrafficDirectionBi {
-								rules = append(rules, models.FwRule{
-									SrcIP: net.IPNet{
-										IP:   peer.Address.IP,
-										Mask: net.CIDRMask(32, 32),
-									},
-									DstIP:           nodeI.StaticNode.AddressIPNet4(),
-									AllowedProtocol: policy.Proto,
-									AllowedPorts:    policy.Port,
-									Allow:           true,
-								})
-							}
-						}
-					}
-					if nodeI.StaticNode.Address6 != "" {
-						for _, policy := range allowedPolicies {
-							rules = append(rules, models.FwRule{
-								SrcIP: nodeI.StaticNode.AddressIPNet6(),
-								DstIP: net.IPNet{
-									IP:   peer.Address6.IP,
-									Mask: net.CIDRMask(128, 128),
-								},
-								AllowedProtocol: policy.Proto,
-								AllowedPorts:    policy.Port,
-								Allow:           true,
-							})
-							if policy.AllowedDirection == models.TrafficDirectionBi {
-								rules = append(rules, models.FwRule{
-									SrcIP: net.IPNet{
-										IP:   peer.Address6.IP,
-										Mask: net.CIDRMask(128, 128),
-									},
-									DstIP:           nodeI.StaticNode.AddressIPNet6(),
-									AllowedProtocol: policy.Proto,
-									AllowedPorts:    policy.Port,
-									Allow:           true,
-								})
-							}
-						}
-					}
-				}
-
+			if nodeI.StaticNode.IngressGatewayID != node.ID.String() &&
+				((!peer.IsStatic && peer.ID.String() != node.ID.String()) ||
+					(peer.IsStatic && peer.StaticNode.IngressGatewayID != node.ID.String())) {
+				continue
+			}
+			if peer.IsStatic {
+				peer = peer.StaticNode.ConvertToStaticNode()
+			}
+			if ok, allowedPolicies := IsNodeAllowedToCommunicateV1(nodeI.StaticNode.ConvertToStaticNode(), peer, true); ok {
+				rules = append(rules, getFwRulesForNodeAndPeerOnGw(nodeI.StaticNode.ConvertToStaticNode(), peer, allowedPolicies)...)
+			}
+			if ok, allowedPolicies := IsNodeAllowedToCommunicateV1(peer, nodeI.StaticNode.ConvertToStaticNode(), true); ok {
+				rules = append(rules, getFwRulesForNodeAndPeerOnGw(peer, nodeI.StaticNode.ConvertToStaticNode(), allowedPolicies)...)
 			}
 		}
 	}
@@ -729,11 +754,13 @@ func GetExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandA
 	}
 	for _, extPeer := range extPeers {
 		extPeer := extPeer
+		fmt.Println("=====> checking EXT peer: ", extPeer.ClientID)
 		if !IsClientNodeAllowed(&extPeer, peer.ID.String()) {
 			continue
 		}
 		if extPeer.RemoteAccessClientID == "" {
 			if ok := IsPeerAllowed(extPeer.ConvertToStaticNode(), *peer, true); !ok {
+				fmt.Println("=====>1 checking EXT peer: ", extPeer.ClientID)
 				continue
 			}
 		} else {
@@ -822,7 +849,7 @@ func getExtpeerEgressRanges(node models.Node) (ranges, ranges6 []net.IPNet) {
 		if len(extPeer.ExtraAllowedIPs) == 0 {
 			continue
 		}
-		if ok, _ := IsNodeAllowedToCommunicate(extPeer.ConvertToStaticNode(), node, true); !ok {
+		if ok, _ := IsNodeAllowedToCommunicateV1(extPeer.ConvertToStaticNode(), node, true); !ok {
 			continue
 		}
 		for _, allowedRange := range extPeer.ExtraAllowedIPs {
@@ -849,7 +876,7 @@ func getExtpeersExtraRoutes(node models.Node) (egressRoutes []models.EgressNetwo
 		if len(extPeer.ExtraAllowedIPs) == 0 {
 			continue
 		}
-		if ok, _ := IsNodeAllowedToCommunicate(extPeer.ConvertToStaticNode(), node, true); !ok {
+		if ok, _ := IsNodeAllowedToCommunicateV1(extPeer.ConvertToStaticNode(), node, true); !ok {
 			continue
 		}
 		egressRoutes = append(egressRoutes, getExtPeerEgressRoute(node, extPeer)...)

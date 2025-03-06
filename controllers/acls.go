@@ -144,18 +144,49 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 func aclDebug(w http.ResponseWriter, r *http.Request) {
 	nodeID, _ := url.QueryUnescape(r.URL.Query().Get("node"))
 	peerID, _ := url.QueryUnescape(r.URL.Query().Get("peer"))
+	peerIsStatic, _ := url.QueryUnescape(r.URL.Query().Get("peer_is_static"))
 	node, err := logic.GetNodeByID(nodeID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	peer, err := logic.GetNodeByID(peerID)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
+	var peer models.Node
+	if peerIsStatic == "true" {
+		extclient, err := logic.GetExtClient(peerID, node.Network)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+		peer = extclient.ConvertToStaticNode()
+
+	} else {
+		peer, err = logic.GetNodeByID(peerID)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
 	}
-	allowed, _ := logic.IsNodeAllowedToCommunicate(node, peer, true)
-	logic.ReturnSuccessResponseWithJson(w, r, allowed, "fetched all acls in the network ")
+	type resp struct {
+		IsNodeAllowed bool
+		IsPeerAllowed bool
+		Policies      []models.Acl
+		IngressRules  []models.FwRule
+	}
+
+	allowed, ps := logic.IsNodeAllowedToCommunicateV1(node, peer, true)
+	isallowed := logic.IsPeerAllowed(node, peer, true)
+	re := resp{
+		IsNodeAllowed: allowed,
+		IsPeerAllowed: isallowed,
+		Policies:      ps,
+	}
+	if peerIsStatic == "true" {
+		ingress, err := logic.GetNodeByID(peer.StaticNode.IngressGatewayID)
+		if err == nil {
+			re.IngressRules = logic.GetFwRulesOnIngressGateway(ingress)
+		}
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, re, "fetched all acls in the network ")
 }
 
 // @Summary     List Acls in a network
