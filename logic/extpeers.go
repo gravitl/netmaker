@@ -459,27 +459,14 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 
 	for _, policy := range allowedPolicies {
 		// if static peer dst rule not for ingress node -> skip
-		rules = append(rules, models.FwRule{
-			SrcIP: net.IPNet{
-				IP:   node.Address.IP,
-				Mask: net.CIDRMask(32, 32),
-			},
-			DstIP: net.IPNet{
-				IP:   peer.Address.IP,
-				Mask: net.CIDRMask(32, 32),
-			},
-			AllowedProtocol: policy.Proto,
-			AllowedPorts:    policy.Port,
-			Allow:           true,
-		})
-		if policy.AllowedDirection == models.TrafficDirectionBi {
+		if node.Address.IP != nil {
 			rules = append(rules, models.FwRule{
 				SrcIP: net.IPNet{
-					IP:   peer.Address.IP,
+					IP:   node.Address.IP,
 					Mask: net.CIDRMask(32, 32),
 				},
 				DstIP: net.IPNet{
-					IP:   node.Address.IP,
+					IP:   peer.Address.IP,
 					Mask: net.CIDRMask(32, 32),
 				},
 				AllowedProtocol: policy.Proto,
@@ -487,13 +474,62 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 				Allow:           true,
 			})
 		}
+
+		if node.Address6.IP != nil {
+			rules = append(rules, models.FwRule{
+				SrcIP: net.IPNet{
+					IP:   node.Address6.IP,
+					Mask: net.CIDRMask(128, 128),
+				},
+				DstIP: net.IPNet{
+					IP:   peer.Address6.IP,
+					Mask: net.CIDRMask(128, 128),
+				},
+				AllowedProtocol: policy.Proto,
+				AllowedPorts:    policy.Port,
+				Allow:           true,
+			})
+		}
+		if policy.AllowedDirection == models.TrafficDirectionBi {
+			if node.Address.IP != nil {
+				rules = append(rules, models.FwRule{
+					SrcIP: net.IPNet{
+						IP:   peer.Address.IP,
+						Mask: net.CIDRMask(32, 32),
+					},
+					DstIP: net.IPNet{
+						IP:   node.Address.IP,
+						Mask: net.CIDRMask(32, 32),
+					},
+					AllowedProtocol: policy.Proto,
+					AllowedPorts:    policy.Port,
+					Allow:           true,
+				})
+			}
+
+			if node.Address6.IP != nil {
+				rules = append(rules, models.FwRule{
+					SrcIP: net.IPNet{
+						IP:   peer.Address6.IP,
+						Mask: net.CIDRMask(128, 128),
+					},
+					DstIP: net.IPNet{
+						IP:   node.Address6.IP,
+						Mask: net.CIDRMask(128, 128),
+					},
+					AllowedProtocol: policy.Proto,
+					AllowedPorts:    policy.Port,
+					Allow:           true,
+				})
+			}
+		}
 		if len(node.StaticNode.ExtraAllowedIPs) > 0 {
 			for _, additionalAllowedIPNet := range node.StaticNode.ExtraAllowedIPs {
 				_, ipNet, err := net.ParseCIDR(additionalAllowedIPNet)
 				if err != nil {
 					continue
 				}
-				if ipNet.IP.To4() != nil {
+				if ipNet.IP.To4() != nil && peer.Address.IP != nil {
 					rules = append(rules, models.FwRule{
 						SrcIP: net.IPNet{
 							IP:   peer.Address.IP,
@@ -502,11 +538,11 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 						DstIP: *ipNet,
 						Allow: true,
 					})
-				} else {
+				} else if peer.Address6.IP != nil {
 					rules = append(rules, models.FwRule{
 						SrcIP: net.IPNet{
-							IP:   peer.Address.IP,
-							Mask: net.CIDRMask(32, 32),
+							IP:   peer.Address6.IP,
+							Mask: net.CIDRMask(128, 128),
 						},
 						DstIP: *ipNet,
 						Allow: true,
@@ -522,7 +558,7 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 				if err != nil {
 					continue
 				}
-				if ipNet.IP.To4() != nil {
+				if ipNet.IP.To4() != nil && node.Address.IP != nil {
 					rules = append(rules, models.FwRule{
 						SrcIP: net.IPNet{
 							IP:   node.Address.IP,
@@ -531,11 +567,11 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 						DstIP: *ipNet,
 						Allow: true,
 					})
-				} else {
+				} else if node.Address6.IP != nil {
 					rules = append(rules, models.FwRule{
 						SrcIP: net.IPNet{
-							IP:   node.Address.IP,
-							Mask: net.CIDRMask(32, 32),
+							IP:   node.Address6.IP,
+							Mask: net.CIDRMask(128, 128),
 						},
 						DstIP: *ipNet,
 						Allow: true,
