@@ -1366,7 +1366,16 @@ func getUserAclRulesForNode(targetnode *models.Node,
 }
 
 func checkIfAnyPolicyisUniDirectional(targetNode models.Node) bool {
-	targetNode.Tags[models.TagID(targetNode.ID.String())] = struct{}{}
+	var targetNodeTags = make(map[models.TagID]struct{})
+	if targetNode.Mutex != nil {
+		targetNode.Mutex.Lock()
+		targetNodeTags = maps.Clone(targetNode.Tags)
+		targetNode.Mutex.Unlock()
+	} else {
+		targetNodeTags = maps.Clone(targetNode.Tags)
+	}
+	targetNodeTags[models.TagID(targetNode.ID.String())] = struct{}{}
+	targetNodeTags["*"] = struct{}{}
 	acls := listDevicePolicies(models.NetworkID(targetNode.Network))
 	for _, acl := range acls {
 		if !acl.Enabled {
@@ -1377,7 +1386,7 @@ func checkIfAnyPolicyisUniDirectional(targetNode models.Node) bool {
 		}
 		srcTags := convAclTagToValueMap(acl.Src)
 		dstTags := convAclTagToValueMap(acl.Dst)
-		for nodeTag := range targetNode.Tags {
+		for nodeTag := range targetNodeTags {
 			if _, ok := srcTags[nodeTag.String()]; ok {
 				return true
 			}
@@ -1397,7 +1406,6 @@ func checkIfAnyPolicyisUniDirectional(targetNode models.Node) bool {
 
 func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRule) {
 	targetnode := *targetnodeI
-	targetnode.Tags[models.TagID(targetnode.ID.String())] = struct{}{}
 	defer func() {
 		if !targetnode.IsIngressGateway {
 			rules = getUserAclRulesForNode(&targetnode, rules)
@@ -1421,6 +1429,7 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 	} else {
 		targetNodeTags = maps.Clone(targetnode.Tags)
 	}
+	targetNodeTags[models.TagID(targetnode.ID.String())] = struct{}{}
 	targetNodeTags["*"] = struct{}{}
 	/*
 		 if target node is egress gateway
@@ -1620,12 +1629,4 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 		}
 	}
 	return rules
-}
-
-func GetFwRulesForEgressGw(node models.Node) (rules map[string]models.FwRule) {
-	if !node.IsEgressGateway {
-		return
-	}
-	rules = make(map[string]models.FwRule)
-	return
 }

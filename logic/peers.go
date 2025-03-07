@@ -258,6 +258,11 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			if node.NetworkRange6.IP != nil {
 				hostPeerUpdate.FwUpdate.AllowedNetworks = append(hostPeerUpdate.FwUpdate.AllowedNetworks, node.NetworkRange6)
 			}
+			if node.IsEgressGateway {
+				// get egress ranges
+				hostPeerUpdate.FwUpdate.EgressNetworks = append(hostPeerUpdate.FwUpdate.EgressNetworks, node.EgressGatewayRanges...)
+
+			}
 		} else {
 			hostPeerUpdate.FwUpdate.AllowAll = false
 			rules := GetAclRulesForNode(&node)
