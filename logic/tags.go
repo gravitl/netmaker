@@ -280,8 +280,8 @@ func CheckIDSyntax(id string) error {
 func CreateDefaultTags(netID models.NetworkID) {
 	// create tag for remote access gws in the network
 	tag := models.Tag{
-		ID:        models.TagID(fmt.Sprintf("%s.%s", netID.String(), models.RemoteAccessTagName)),
-		TagName:   models.RemoteAccessTagName,
+		ID:        models.TagID(fmt.Sprintf("%s.%s", netID.String(), models.GwTagName)),
+		TagName:   models.GwTagName,
 		Network:   netID,
 		CreatedBy: "auto",
 		CreatedAt: time.Now(),

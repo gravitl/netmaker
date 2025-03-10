@@ -8,7 +8,8 @@ import (
 type TagID string
 
 const (
-	RemoteAccessTagName = "remote-access-gws"
+	OldRemoteAccessTagName = "remote-access-gws"
+	GwTagName              = "gateways"
 )
 
 func (id TagID) String() string {
