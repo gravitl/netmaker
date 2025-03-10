@@ -25,14 +25,13 @@ const (
 	ICMP Protocol = "icmp"
 )
 
-type ServiceType string
-
 const (
 	Http        = "HTTP"
 	Https       = "HTTPS"
 	AllTCP      = "All TCP"
 	AllUDP      = "All UDP"
 	ICMPService = "ICMP"
+	SSH         = "SSH"
 	Custom      = "Custom"
 	Any         = "Any"
 )
@@ -58,7 +57,9 @@ type AclGroupType string
 const (
 	UserAclID                AclGroupType = "user"
 	UserGroupAclID           AclGroupType = "user-group"
-	DeviceAclID              AclGroupType = "tag"
+	NodeTagID                AclGroupType = "tag"
+	NodeID                   AclGroupType = "device"
+	EgressRange              AclGroupType = "egress-range"
 	NetmakerIPAclID          AclGroupType = "ip"
 	NetmakerSubNetRangeAClID AclGroupType = "ipset"
 )

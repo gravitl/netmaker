@@ -1229,8 +1229,8 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 			},
 			Dst: []models.AclPolicyTag{
 				{
-					ID:    models.DeviceAclID,
-					Value: fmt.Sprintf("%s.%s", netID, models.RemoteAccessTagName),
+					ID:    models.NodeTagID,
+					Value: fmt.Sprintf("%s.%s", netID, models.GwTagName),
 				}},
 			AllowedDirection: models.TrafficDirectionUni,
 			Enabled:          true,
@@ -1263,8 +1263,8 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 
 			Dst: []models.AclPolicyTag{
 				{
-					ID:    models.DeviceAclID,
-					Value: fmt.Sprintf("%s.%s", netID, models.RemoteAccessTagName),
+					ID:    models.NodeTagID,
+					Value: fmt.Sprintf("%s.%s", netID, models.GwTagName),
 				}},
 			AllowedDirection: models.TrafficDirectionUni,
 			Enabled:          true,

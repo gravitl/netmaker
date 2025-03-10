@@ -30,6 +30,14 @@ func GetTag(tagID models.TagID) (models.Tag, error) {
 	return tag, nil
 }
 
+func UpsertTag(tag models.Tag) error {
+	d, err := json.Marshal(tag)
+	if err != nil {
+		return err
+	}
+	return database.Insert(tag.ID.String(), string(d), database.TAG_TABLE_NAME)
+}
+
 // InsertTag - creates new tag
 func InsertTag(tag models.Tag) error {
 	tagMutex.Lock()
@@ -272,8 +280,8 @@ func CheckIDSyntax(id string) error {
 func CreateDefaultTags(netID models.NetworkID) {
 	// create tag for remote access gws in the network
 	tag := models.Tag{
-		ID:        models.TagID(fmt.Sprintf("%s.%s", netID.String(), models.RemoteAccessTagName)),
-		TagName:   models.RemoteAccessTagName,
+		ID:        models.TagID(fmt.Sprintf("%s.%s", netID.String(), models.GwTagName)),
+		TagName:   models.GwTagName,
 		Network:   netID,
 		CreatedBy: "auto",
 		CreatedAt: time.Now(),
