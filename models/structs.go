@@ -32,17 +32,18 @@ type IngressGwUsers struct {
 
 // UserRemoteGws - struct to hold user's remote gws
 type UserRemoteGws struct {
-	GwID              string    `json:"remote_access_gw_id"`
-	GWName            string    `json:"gw_name"`
-	Network           string    `json:"network"`
-	Connected         bool      `json:"connected"`
-	IsInternetGateway bool      `json:"is_internet_gateway"`
-	GwClient          ExtClient `json:"gw_client"`
-	GwPeerPublicKey   string    `json:"gw_peer_public_key"`
-	GwListenPort      int       `json:"gw_listen_port"`
-	Metadata          string    `json:"metadata"`
-	AllowedEndpoints  []string  `json:"allowed_endpoints"`
-	NetworkAddresses  []string  `json:"network_addresses"`
+	GwID              string     `json:"remote_access_gw_id"`
+	GWName            string     `json:"gw_name"`
+	Network           string     `json:"network"`
+	Connected         bool       `json:"connected"`
+	IsInternetGateway bool       `json:"is_internet_gateway"`
+	GwClient          ExtClient  `json:"gw_client"`
+	GwPeerPublicKey   string     `json:"gw_peer_public_key"`
+	GwListenPort      int        `json:"gw_listen_port"`
+	Metadata          string     `json:"metadata"`
+	AllowedEndpoints  []string   `json:"allowed_endpoints"`
+	NetworkAddresses  []string   `json:"network_addresses"`
+	Status            NodeStatus `json:"status"`
 }
 
 // UserRAGs - struct for user access gws
@@ -150,12 +151,18 @@ type ExtPeersResponse struct {
 	KeepAlive       int32  `json:"persistentkeepalive" bson:"persistentkeepalive"`
 }
 
+type EgressRangeMetric struct {
+	Network     string `json:"network"`
+	RouteMetric uint32 `json:"route_metric"` // preffered range 1-999
+}
+
 // EgressGatewayRequest - egress gateway request
 type EgressGatewayRequest struct {
-	NodeID     string   `json:"nodeid" bson:"nodeid"`
-	NetID      string   `json:"netid" bson:"netid"`
-	NatEnabled string   `json:"natenabled" bson:"natenabled"`
-	Ranges     []string `json:"ranges" bson:"ranges"`
+	NodeID           string              `json:"nodeid" bson:"nodeid"`
+	NetID            string              `json:"netid" bson:"netid"`
+	NatEnabled       string              `json:"natenabled" bson:"natenabled"`
+	Ranges           []string            `json:"ranges" bson:"ranges"`
+	RangesWithMetric []EgressRangeMetric `json:"ranges_with_metric"`
 }
 
 // RelayRequest - relay request struct
@@ -252,24 +259,26 @@ type NodeJoinResponse struct {
 
 // ServerConfig - struct for dealing with the server information for a netclient
 type ServerConfig struct {
-	CoreDNSAddr    string `yaml:"corednsaddr"`
-	API            string `yaml:"api"`
-	APIPort        string `yaml:"apiport"`
-	DNSMode        string `yaml:"dnsmode"`
-	Version        string `yaml:"version"`
-	MQPort         string `yaml:"mqport"`
-	MQUserName     string `yaml:"mq_username"`
-	MQPassword     string `yaml:"mq_password"`
-	BrokerType     string `yaml:"broker_type"`
-	Server         string `yaml:"server"`
-	Broker         string `yaml:"broker"`
-	IsPro          bool   `yaml:"isee" json:"Is_EE"`
-	TrafficKey     []byte `yaml:"traffickey"`
-	MetricInterval string `yaml:"metric_interval"`
-	ManageDNS      bool   `yaml:"manage_dns"`
-	Stun           bool   `yaml:"stun"`
-	StunServers    string `yaml:"stun_servers"`
-	DefaultDomain  string `yaml:"default_domain"`
+	CoreDNSAddr       string `yaml:"corednsaddr"`
+	API               string `yaml:"api"`
+	APIPort           string `yaml:"apiport"`
+	DNSMode           string `yaml:"dnsmode"`
+	Version           string `yaml:"version"`
+	MQPort            string `yaml:"mqport"`
+	MQUserName        string `yaml:"mq_username"`
+	MQPassword        string `yaml:"mq_password"`
+	BrokerType        string `yaml:"broker_type"`
+	Server            string `yaml:"server"`
+	Broker            string `yaml:"broker"`
+	IsPro             bool   `yaml:"isee" json:"Is_EE"`
+	TrafficKey        []byte `yaml:"traffickey"`
+	MetricInterval    string `yaml:"metric_interval"`
+	MetricsPort       int    `yaml:"metrics_port"`
+	ManageDNS         bool   `yaml:"manage_dns"`
+	Stun              bool   `yaml:"stun"`
+	StunServers       string `yaml:"stun_servers"`
+	EndpointDetection bool   `yaml:"endpoint_detection"`
+	DefaultDomain     string `yaml:"default_domain"`
 }
 
 // User.NameInCharset - returns if name is in charset below or not

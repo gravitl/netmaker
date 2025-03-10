@@ -29,7 +29,6 @@ func InitPro() {
 	controller.HttpHandlers = append(
 		controller.HttpHandlers,
 		proControllers.MetricHandlers,
-		proControllers.RelayHandlers,
 		proControllers.UserHandlers,
 		proControllers.FailOverHandlers,
 		proControllers.InetHandlers,
@@ -91,6 +90,7 @@ func InitPro() {
 			slog.Error("no OAuth provider found or not configured, continuing without OAuth")
 		}
 		proLogic.LoadNodeMetricsToCache()
+		proLogic.InitFailOverCache()
 	})
 	logic.ResetFailOver = proLogic.ResetFailOver
 	logic.ResetFailedOverPeer = proLogic.ResetFailedOverPeer
@@ -106,13 +106,6 @@ func InitPro() {
 	logic.GetMetrics = proLogic.GetMetrics
 	logic.UpdateMetrics = proLogic.UpdateMetrics
 	logic.DeleteMetrics = proLogic.DeleteMetrics
-	logic.GetRelays = proLogic.GetRelays
-	logic.GetAllowedIpsForRelayed = proLogic.GetAllowedIpsForRelayed
-	logic.RelayedAllowedIPs = proLogic.RelayedAllowedIPs
-	logic.UpdateRelayed = proLogic.UpdateRelayed
-	logic.SetRelayedNodes = proLogic.SetRelayedNodes
-	logic.RelayUpdates = proLogic.RelayUpdates
-	logic.ValidateRelay = proLogic.ValidateRelay
 	logic.GetTrialEndDate = getTrialEndDate
 	logic.SetDefaultGw = proLogic.SetDefaultGw
 	logic.SetDefaultGwForRelayedUpdate = proLogic.SetDefaultGwForRelayedUpdate
@@ -140,6 +133,7 @@ func InitPro() {
 	logic.IntialiseGroups = proLogic.UserGroupsInit
 	logic.AddGlobalNetRolesToAdmins = proLogic.AddGlobalNetRolesToAdmins
 	logic.GetUserGroupsInNetwork = proLogic.GetUserGroupsInNetwork
+	logic.GetUserGroup = proLogic.GetUserGroup
 	logic.GetNodeStatus = proLogic.GetNodeStatus
 }
 

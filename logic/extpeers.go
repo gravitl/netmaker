@@ -28,6 +28,9 @@ var (
 func getAllExtClientsFromCache() (extClients []models.ExtClient) {
 	extClientCacheMutex.RLock()
 	for _, extclient := range extClientCacheMap {
+		if extclient.Mutex == nil {
+			extclient.Mutex = &sync.Mutex{}
+		}
 		extClients = append(extClients, extclient)
 	}
 	extClientCacheMutex.RUnlock()
@@ -43,12 +46,18 @@ func deleteExtClientFromCache(key string) {
 func getExtClientFromCache(key string) (extclient models.ExtClient, ok bool) {
 	extClientCacheMutex.RLock()
 	extclient, ok = extClientCacheMap[key]
+	if extclient.Mutex == nil {
+		extclient.Mutex = &sync.Mutex{}
+	}
 	extClientCacheMutex.RUnlock()
 	return
 }
 
 func storeExtClientInCache(key string, extclient models.ExtClient) {
 	extClientCacheMutex.Lock()
+	if extclient.Mutex == nil {
+		extclient.Mutex = &sync.Mutex{}
+	}
 	extClientCacheMap[key] = extclient
 	extClientCacheMutex.Unlock()
 }
@@ -96,14 +105,14 @@ func DeleteExtClient(network string, clientid string) error {
 	if err != nil {
 		return err
 	}
-	//recycle ip address
-	if extClient.Address != "" {
-		RemoveIpFromAllocatedIpMap(network, extClient.Address)
-	}
-	if extClient.Address6 != "" {
-		RemoveIpFromAllocatedIpMap(network, extClient.Address6)
-	}
 	if servercfg.CacheEnabled() {
+		// recycle ip address
+		if extClient.Address != "" {
+			RemoveIpFromAllocatedIpMap(network, extClient.Address)
+		}
+		if extClient.Address6 != "" {
+			RemoveIpFromAllocatedIpMap(network, extClient.Address6)
+		}
 		deleteExtClientFromCache(key)
 	}
 	return nil
@@ -333,15 +342,16 @@ func SaveExtClient(extclient *models.ExtClient) error {
 	}
 	if servercfg.CacheEnabled() {
 		storeExtClientInCache(key, *extclient)
-	}
-	if _, ok := allocatedIpMap[extclient.Network]; ok {
-		if extclient.Address != "" {
-			AddIpToAllocatedIpMap(extclient.Network, net.ParseIP(extclient.Address))
+		if _, ok := allocatedIpMap[extclient.Network]; ok {
+			if extclient.Address != "" {
+				AddIpToAllocatedIpMap(extclient.Network, net.ParseIP(extclient.Address))
+			}
+			if extclient.Address6 != "" {
+				AddIpToAllocatedIpMap(extclient.Network, net.ParseIP(extclient.Address6))
+			}
 		}
-		if extclient.Address6 != "" {
-			AddIpToAllocatedIpMap(extclient.Network, net.ParseIP(extclient.Address6))
-		}
 	}
+
 	return SetNetworkNodesLastModified(extclient.Network)
 }
 
@@ -456,17 +466,12 @@ func GetStaticNodeIps(node models.Node) (ips []net.IP) {
 
 func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 	// fetch user access to static clients via policies
-	defer func() {
-		logger.Log(0, fmt.Sprintf("node.ID: %s, Rules: %+v\n", node.ID, rules))
-	}()
 
 	defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 	defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 	nodes, _ := GetNetworkNodes(node.Network)
 	nodes = append(nodes, GetStaticNodesByNetwork(models.NetworkID(node.Network), true)...)
-	//fmt.Printf("=====> NODES: %+v \n\n", nodes)
 	userNodes := GetStaticUserNodesByNetwork(models.NetworkID(node.Network))
-	//fmt.Printf("=====> USER NODES %+v \n\n", userNodes)
 	for _, userNodeI := range userNodes {
 		for _, peer := range nodes {
 			if peer.IsUserNode {

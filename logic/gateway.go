@@ -3,6 +3,8 @@ package logic
 import (
 	"errors"
 	"fmt"
+	"slices"
+	"sort"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
@@ -77,6 +79,14 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	if host.FirewallInUse == models.FIREWALL_NONE {
 		return models.Node{}, errors.New("please install iptables or nftables on the device")
 	}
+	if len(gateway.RangesWithMetric) == 0 && len(gateway.Ranges) > 0 {
+		for _, rangeI := range gateway.Ranges {
+			gateway.RangesWithMetric = append(gateway.RangesWithMetric, models.EgressRangeMetric{
+				Network:     rangeI,
+				RouteMetric: 256,
+			})
+		}
+	}
 	for i := len(gateway.Ranges) - 1; i >= 0; i-- {
 		// check if internet gateway IPv4
 		if gateway.Ranges[i] == "0.0.0.0/0" || gateway.Ranges[i] == "::/0" {
@@ -91,6 +101,28 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 		gateway.Ranges[i] = normalized
 
 	}
+	rangesWithMetric := []string{}
+	for i := len(gateway.RangesWithMetric) - 1; i >= 0; i-- {
+		if gateway.RangesWithMetric[i].Network == "0.0.0.0/0" || gateway.RangesWithMetric[i].Network == "::/0" {
+			// remove inet range
+			gateway.RangesWithMetric = append(gateway.RangesWithMetric[:i], gateway.RangesWithMetric[i+1:]...)
+			continue
+		}
+		normalized, err := NormalizeCIDR(gateway.RangesWithMetric[i].Network)
+		if err != nil {
+			return models.Node{}, err
+		}
+		gateway.RangesWithMetric[i].Network = normalized
+		rangesWithMetric = append(rangesWithMetric, gateway.RangesWithMetric[i].Network)
+		if gateway.RangesWithMetric[i].RouteMetric <= 0 || gateway.RangesWithMetric[i].RouteMetric > 999 {
+			gateway.RangesWithMetric[i].RouteMetric = 256
+		}
+	}
+	sort.Strings(gateway.Ranges)
+	sort.Strings(rangesWithMetric)
+	if !slices.Equal(gateway.Ranges, rangesWithMetric) {
+		return models.Node{}, errors.New("invalid ranges")
+	}
 	if gateway.NatEnabled == "" {
 		gateway.NatEnabled = "yes"
 	}
@@ -104,6 +136,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	node.IsEgressGateway = true
 	node.EgressGatewayRanges = gateway.Ranges
 	node.EgressGatewayNatEnabled = models.ParseBool(gateway.NatEnabled)
+
 	node.EgressGatewayRequest = gateway // store entire request for use when preserving the egress gateway
 	node.SetLastModified()
 	if err = UpsertNode(&node); err != nil {
@@ -141,14 +174,14 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 		return models.Node{}, err
 	}
 	if node.IsRelayed {
-		return models.Node{}, errors.New("ingress cannot be created on a relayed node")
+		return models.Node{}, errors.New("gateway cannot be created on a relayed node")
 	}
 	host, err := GetHost(node.HostID.String())
 	if err != nil {
 		return models.Node{}, err
 	}
 	if host.OS != "linux" {
-		return models.Node{}, errors.New("ingress can only be created on linux based node")
+		return models.Node{}, errors.New("gateway can only be created on linux based node")
 	}
 
 	network, err := GetParentNetwork(netid)
@@ -156,12 +189,16 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 		return models.Node{}, err
 	}
 	node.IsIngressGateway = true
+	node.IsGw = true
 	if !servercfg.IsPro {
 		node.IsInternetGateway = ingress.IsInternetGateway
 	}
 	node.IngressGatewayRange = network.AddressRange
 	node.IngressGatewayRange6 = network.AddressRange6
 	node.IngressDNS = ingress.ExtclientDNS
+	if node.IsInternetGateway && node.IngressDNS == "" {
+		node.IngressDNS = "1.1.1.1"
+	}
 	node.IngressPersistentKeepalive = 20
 	if ingress.PersistentKeepalive != 0 {
 		node.IngressPersistentKeepalive = ingress.PersistentKeepalive

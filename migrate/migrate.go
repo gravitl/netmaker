@@ -28,6 +28,7 @@ func Run() {
 	updateHosts()
 	updateNodes()
 	updateAcls()
+	migrateToGws()
 }
 
 func assignSuperAdmin() {
@@ -224,6 +225,16 @@ func updateNodes() {
 				node.EgressGatewayRanges = egressRanges
 				logic.UpsertNode(&node)
 			}
+			if len(node.EgressGatewayRequest.Ranges) > 0 && len(node.EgressGatewayRequest.RangesWithMetric) == 0 {
+				for _, egressRangeI := range node.EgressGatewayRequest.Ranges {
+					node.EgressGatewayRequest.RangesWithMetric = append(node.EgressGatewayRequest.RangesWithMetric, models.EgressRangeMetric{
+						Network:     egressRangeI,
+						RouteMetric: 256,
+					})
+				}
+				logic.UpsertNode(&node)
+			}
+
 		}
 	}
 }
@@ -440,4 +451,19 @@ func createDefaultTagsAndPolicies() {
 
 	}
 	logic.MigrateAclPolicies()
+}
+
+func migrateToGws() {
+	nodes, err := logic.GetAllNodes()
+	if err != nil {
+		return
+	}
+	for _, node := range nodes {
+		if node.IsIngressGateway || node.IsRelay {
+			node.IsGw = true
+			node.IsIngressGateway = true
+			node.IsRelay = true
+			logic.UpsertNode(&node)
+		}
+	}
 }

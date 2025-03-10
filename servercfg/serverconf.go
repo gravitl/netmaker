@@ -14,6 +14,8 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
+var ServerInfo = GetServerInfo()
+
 // EmqxBrokerType denotes the broker type for EMQX MQTT
 const EmqxBrokerType = "emqx"
 
@@ -141,10 +143,12 @@ func GetServerInfo() models.ServerConfig {
 	cfg.Version = GetVersion()
 	cfg.IsPro = IsPro
 	cfg.MetricInterval = GetMetricInterval()
+	cfg.MetricsPort = GetMetricsPort()
 	cfg.ManageDNS = GetManageDNS()
 	cfg.Stun = IsStunEnabled()
 	cfg.StunServers = GetStunServers()
 	cfg.DefaultDomain = GetDefaultDomain()
+	cfg.EndpointDetection = IsEndpointDetectionEnabled()
 	return cfg
 }
 
@@ -509,7 +513,7 @@ func GetPublicIP() (string, error) {
 	endpoint := ""
 	var err error
 
-	iplist := []string{"https://ifconfig.me", "https://api.ipify.org", "https://ipinfo.io/ip"}
+	iplist := []string{"https://ifconfig.me/ip", "https://api.ipify.org", "https://ipinfo.io/ip"}
 	publicIpService := os.Getenv("PUBLIC_IP_SERVICE")
 	if publicIpService != "" {
 		// prepend the user-specified service so it's checked first
@@ -652,6 +656,34 @@ func GetMqUserName() string {
 		password = config.Config.Server.MQUserName
 	}
 	return password
+}
+
+// GetMetricsPort - get metrics port
+func GetMetricsPort() int {
+	p := 51821
+	if os.Getenv("METRICS_PORT") != "" {
+		pStr := os.Getenv("METRICS_PORT")
+		pInt, err := strconv.Atoi(pStr)
+		if err == nil && pInt != 0 {
+			p = pInt
+		}
+	}
+	return p
+}
+
+// GetMetricInterval - get the publish metric interval
+func GetMetricIntervalInMinutes() time.Duration {
+	//default 15 minutes
+	mi := "15"
+	if os.Getenv("PUBLISH_METRIC_INTERVAL") != "" {
+		mi = os.Getenv("PUBLISH_METRIC_INTERVAL")
+	}
+	interval, err := strconv.Atoi(mi)
+	if err != nil {
+		interval = 15
+	}
+
+	return time.Duration(interval) * time.Minute
 }
 
 // GetMetricInterval - get the publish metric interval

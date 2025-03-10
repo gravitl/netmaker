@@ -59,32 +59,8 @@ func setNetworkDefaults() error {
 		return err
 	}
 	for _, network := range networks {
-		update := false
-		newNet := network
-		if strings.Contains(network.NetID, ".") {
-			newNet.NetID = strings.ReplaceAll(network.NetID, ".", "")
-			newNet.DefaultInterface = strings.ReplaceAll(network.DefaultInterface, ".", "")
-			update = true
-		}
-		if strings.ContainsAny(network.NetID, "ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
-			newNet.NetID = strings.ToLower(network.NetID)
-			newNet.DefaultInterface = strings.ToLower(network.DefaultInterface)
-			update = true
-		}
-		if update {
-			newNet.SetDefaults()
-			if err := logic.SaveNetwork(&newNet); err != nil {
-				logger.Log(0, "error saving networks during initial update:", err.Error())
-			}
-			if err := logic.DeleteNetwork(network.NetID); err != nil {
-				logger.Log(0, "error deleting old network:", err.Error())
-			}
-		} else {
-			network.SetDefaults()
-			_, _, _, err = logic.UpdateNetwork(&network, &network)
-			if err != nil {
-				logger.Log(0, "could not set defaults on network", network.NetID)
-			}
+		if network.SetDefaults() {
+			logic.SaveNetwork(&network)
 		}
 	}
 	return nil

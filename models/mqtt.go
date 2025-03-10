@@ -6,27 +6,36 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
+type HostPeerInfo struct {
+	NetworkPeerIDs map[NetworkID]PeerMap `json:"network_peers"`
+}
+
 // HostPeerUpdate - struct for host peer updates
 type HostPeerUpdate struct {
-	Host              Host                 `json:"host" bson:"host" yaml:"host"`
-	ChangeDefaultGw   bool                 `json:"change_default_gw"`
-	DefaultGwIp       net.IP               `json:"default_gw_ip"`
-	IsInternetGw      bool                 `json:"is_inet_gw"`
-	NodeAddrs         []net.IPNet          `json:"nodes_addrs" yaml:"nodes_addrs"`
-	Server            string               `json:"server" bson:"server" yaml:"server"`
-	ServerVersion     string               `json:"serverversion" bson:"serverversion" yaml:"serverversion"`
-	ServerAddrs       []ServerAddr         `json:"serveraddrs" bson:"serveraddrs" yaml:"serveraddrs"`
+	Host            Host                  `json:"host"`
+	ChangeDefaultGw bool                  `json:"change_default_gw"`
+	DefaultGwIp     net.IP                `json:"default_gw_ip"`
+	IsInternetGw    bool                  `json:"is_inet_gw"`
+	NodeAddrs       []net.IPNet           `json:"nodes_addrs"`
+	Server          string                `json:"server"`
+	ServerVersion   string                `json:"serverversion"`
+	ServerAddrs     []ServerAddr          `json:"serveraddrs"`
+	NodePeers       []wgtypes.PeerConfig  `json:"node_peers"`
+	Peers           []wgtypes.PeerConfig  `json:"host_peers"`
+	PeerIDs         PeerMap               `json:"peerids"`
+	HostNetworkInfo HostInfoMap           `json:"host_network_info,omitempty"`
+	EgressRoutes    []EgressNetworkRoutes `json:"egress_network_routes"`
+	FwUpdate        FwUpdate              `json:"fw_update"`
+	ReplacePeers    bool                  `json:"replace_peers"`
+	NameServers     []string              `json:"name_servers"`
+	ServerConfig
+	OldPeerUpdateFields
+}
+
+type OldPeerUpdateFields struct {
 	NodePeers         []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
-	Peers             []wgtypes.PeerConfig
-	PeerIDs           PeerMap               `json:"peerids" bson:"peerids" yaml:"peerids"`
-	HostNetworkInfo   HostInfoMap           `json:"host_network_info,omitempty" bson:"host_network_info,omitempty" yaml:"host_network_info,omitempty"`
-	EgressRoutes      []EgressNetworkRoutes `json:"egress_network_routes"`
-	FwUpdate          FwUpdate              `json:"fw_update"`
-	ReplacePeers      bool                  `json:"replace_peers"`
-	EndpointDetection bool                  `json:"endpoint_detection"`
-	ManageDNS         bool                  `yaml:"manage_dns"`
-	Stun              bool                  `yaml:"stun"`
-	StunServers       string                `yaml:"stun_servers"`
+	OldPeers          []wgtypes.PeerConfig `json:"Peers"`
+	EndpointDetection bool                 `json:"endpoint_detection"`
 }
 
 type FwRule struct {
@@ -61,11 +70,12 @@ type EgressInfo struct {
 
 // EgressNetworkRoutes - struct for egress network routes for adding routes to peer's interface
 type EgressNetworkRoutes struct {
-	EgressGwAddr  net.IPNet `json:"egress_gw_addr" yaml:"egress_gw_addr"`
-	EgressGwAddr6 net.IPNet `json:"egress_gw_addr6" yaml:"egress_gw_addr6"`
-	NodeAddr      net.IPNet `json:"node_addr"`
-	NodeAddr6     net.IPNet `json:"node_addr6"`
-	EgressRanges  []string  `json:"egress_ranges"`
+	EgressGwAddr           net.IPNet           `json:"egress_gw_addr" yaml:"egress_gw_addr"`
+	EgressGwAddr6          net.IPNet           `json:"egress_gw_addr6" yaml:"egress_gw_addr6"`
+	NodeAddr               net.IPNet           `json:"node_addr"`
+	NodeAddr6              net.IPNet           `json:"node_addr6"`
+	EgressRanges           []string            `json:"egress_ranges"`
+	EgressRangesWithMetric []EgressRangeMetric `json:"egress_ranges_metric"`
 }
 
 // PeerRouteInfo - struct for peer info for an ext. client
