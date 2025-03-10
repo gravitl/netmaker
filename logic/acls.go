@@ -95,11 +95,11 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 		InsertAcl(defaultUserAcl)
 	}
 
-	if !IsAclExists(fmt.Sprintf("%s.%s", netID, "all-remote-access-gws")) {
+	if !IsAclExists(fmt.Sprintf("%s.%s", netID, "all-gateways")) {
 		defaultUserAcl := models.Acl{
-			ID:          fmt.Sprintf("%s.%s", netID, "all-remote-access-gws"),
+			ID:          fmt.Sprintf("%s.%s", netID, "all-gateways"),
 			Default:     true,
-			Name:        "All Remote Access Gateways",
+			Name:        "All Gateways",
 			NetworkID:   netID,
 			Proto:       models.ALL,
 			ServiceType: models.Any,
@@ -108,7 +108,7 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 			Src: []models.AclPolicyTag{
 				{
 					ID:    models.NodeTagID,
-					Value: fmt.Sprintf("%s.%s", netID, models.RemoteAccessTagName),
+					Value: fmt.Sprintf("%s.%s", netID, models.GwTagName),
 				},
 			},
 			Dst: []models.AclPolicyTag{
