@@ -181,6 +181,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 	slog.Debug("peer update for host", "hostId", host.ID.String())
 	peerIndexMap := make(map[string]int)
 	for _, nodeID := range host.Nodes {
+		networkAllowAll := true
 		nodeID := nodeID
 		node, err := GetNodeByID(nodeID)
 		if err != nil {
@@ -258,12 +259,8 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			if node.NetworkRange6.IP != nil {
 				hostPeerUpdate.FwUpdate.AllowedNetworks = append(hostPeerUpdate.FwUpdate.AllowedNetworks, node.NetworkRange6)
 			}
-			if node.IsEgressGateway {
-				// get egress ranges
-				hostPeerUpdate.FwUpdate.EgressNetworks = append(hostPeerUpdate.FwUpdate.EgressNetworks, node.EgressGatewayRanges...)
-
-			}
 		} else {
+			networkAllowAll = false
 			hostPeerUpdate.FwUpdate.AllowAll = false
 			rules := GetAclRulesForNode(&node)
 			if len(hostPeerUpdate.FwUpdate.AclRules) == 0 {
@@ -478,10 +475,47 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					Mask: getCIDRMaskFromAddr(node.Address6.IP.String()),
 				},
 				EgressGWCfg:   node.EgressGatewayRequest,
-				EgressFwRules: make(map[string]models.FwRule),
+				EgressFwRules: make(map[string]models.AclRule),
 			}
 
 		}
+		if node.IsEgressGateway {
+			if networkAllowAll {
+				// get egress ranges
+				for _, egressRangeI := range node.EgressGatewayRanges {
+					ip, cidr, err := net.ParseCIDR(egressRangeI)
+					if err != nil {
+						continue
+					}
+					egressInfo := hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()]
+					if egressInfo.EgressFwRules == nil {
+						egressInfo.EgressFwRules = make(map[string]models.AclRule)
+					}
+					if ip.To4() != nil && node.NetworkRange.IP != nil {
+
+						egressInfo.EgressFwRules[egressRangeI] = models.AclRule{
+							IPList:  []net.IPNet{node.NetworkRange},
+							Dst:     *cidr,
+							Allowed: true,
+						}
+					} else if ip.To16() != nil {
+						egressInfo.EgressFwRules[egressRangeI] = models.AclRule{
+							IP6List: []net.IPNet{node.NetworkRange6},
+							Dst6:    *cidr,
+							Allowed: true,
+						}
+					}
+				}
+			} else {
+				egressInfo := hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()]
+				if egressInfo.EgressFwRules == nil {
+					egressInfo.EgressFwRules = make(map[string]models.AclRule)
+				}
+				egressInfo.EgressFwRules = GetEgressRulesForNode(node)
+			}
+
+		}
+
 		if IsInternetGw(node) {
 			hostPeerUpdate.FwUpdate.IsEgressGw = true
 			egressrange := []string{"0.0.0.0/0"}
