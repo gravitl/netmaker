@@ -563,10 +563,23 @@ func convAclTagToValueMap(acltags []models.AclPolicyTag) map[string]struct{} {
 
 // IsUserAllowedToCommunicate - check if user is allowed to communicate with peer
 func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []models.Acl) {
+	var peerId string
 	if peer.IsStatic {
+		peerId = peer.StaticNode.ClientID
 		peer = peer.StaticNode.ConvertToStaticNode()
+	} else {
+		peerId = peer.ID.String()
 	}
-	peer.Tags[models.TagID(peer.ID.String())] = struct{}{}
+
+	var peerTags map[models.TagID]struct{}
+	if peer.Mutex != nil {
+		peer.Mutex.Lock()
+		peerTags = maps.Clone(peer.Tags)
+		peer.Mutex.Unlock()
+	} else {
+		peerTags = peer.Tags
+	}
+	peerTags[models.TagID(peerId)] = struct{}{}
 	acl, _ := GetDefaultPolicy(models.NetworkID(peer.Network), models.UserPolicy)
 	if acl.Enabled {
 		return true, []models.Acl{acl}
@@ -590,7 +603,7 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []mode
 			allowedPolicies = append(allowedPolicies, policy)
 			continue
 		}
-		for tagID := range peer.Tags {
+		for tagID := range peerTags {
 			if _, ok := dstMap[tagID.String()]; ok {
 				allowedPolicies = append(allowedPolicies, policy)
 				break
