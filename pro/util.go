@@ -5,6 +5,7 @@ package pro
 
 import (
 	"encoding/base64"
+	"github.com/gravitl/netmaker/models"
 
 	"github.com/gravitl/netmaker/logic"
 )
@@ -26,7 +27,7 @@ func base64decode(input string) []byte {
 
 func getCurrentServerUsage() (limits Usage) {
 	limits.SetDefaults()
-	hosts, hErr := logic.GetAllHosts()
+	hosts, hErr := logic.GetAllHostsWithStatus(models.OnlineSt)
 	if hErr == nil {
 		limits.Hosts = len(hosts)
 	}
