@@ -1390,6 +1390,7 @@ func getUserAclRulesForNode(targetnode *models.Node,
 	} else {
 		targetNodeTags = maps.Clone(targetnode.Tags)
 	}
+	targetNodeTags[models.TagID(targetnode.ID.String())] = struct{}{}
 	for _, acl := range acls {
 		if !acl.Enabled {
 			continue
@@ -1399,10 +1400,9 @@ func getUserAclRulesForNode(targetnode *models.Node,
 		addUsers := false
 		if !all {
 			for nodeTag := range targetNodeTags {
-				if _, ok := dstTags[nodeTag.String()]; !ok {
-					if _, ok = dstTags[targetnode.ID.String()]; !ok {
-						break
-					}
+				if _, ok := dstTags[nodeTag.String()]; ok {
+					addUsers = true
+					break
 				}
 			}
 		} else {

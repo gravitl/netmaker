@@ -934,16 +934,11 @@ func GetStaticUserNodesByNetwork(network models.NetworkID) (staticNode []models.
 	for _, extI := range extClients {
 		if extI.Network == network.String() {
 			if extI.RemoteAccessClientID != "" {
-				n := models.Node{
-					IsStatic:   true,
-					StaticNode: extI,
-					IsUserNode: extI.RemoteAccessClientID != "",
-				}
+				n := extI.ConvertToStaticNode()
 				staticNode = append(staticNode, n)
 			}
 		}
 	}
-
 	return
 }
 
