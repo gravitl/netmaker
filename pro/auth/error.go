@@ -110,6 +110,9 @@ var somethingwentwrong = fmt.Sprintf(htmlBaseTemplate, `<h2>Something went wrong
 
 var notallowedtosignup = fmt.Sprintf(htmlBaseTemplate, `<h2>Your email is not allowed. Please contact your administrator.</h2>`)
 
+var authTypeMismatch = fmt.Sprintf(htmlBaseTemplate, `<h2>It looks like you already have an account with us using Basic Authentication.</h2>
+<p>To continue, please log in with your existing credentials or reset your password if needed.</p>`)
+
 func handleOauthUserNotFound(response http.ResponseWriter) {
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	response.WriteHeader(http.StatusNotFound)
@@ -156,4 +159,10 @@ func handleSomethingWentWrong(response http.ResponseWriter) {
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	response.WriteHeader(http.StatusInternalServerError)
 	response.Write([]byte(somethingwentwrong))
+}
+
+func handleAuthTypeMismatch(response http.ResponseWriter) {
+	response.Header().Set("Content-Type", "text/html; charset=utf-8")
+	response.WriteHeader(http.StatusBadRequest)
+	response.Write([]byte(authTypeMismatch))
 }
