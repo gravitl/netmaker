@@ -53,7 +53,6 @@ type IngressInfo struct {
 	Network6      net.IPNet   `json:"network6"`
 	StaticNodeIps []net.IP    `json:"static_node_ips"`
 	Rules         []FwRule    `json:"rules"`
-	AllowAll      bool        `json:"allow_all"`
 	EgressRanges  []net.IPNet `json:"egress_ranges"`
 	EgressRanges6 []net.IPNet `json:"egress_ranges6"`
 }
@@ -107,7 +106,6 @@ type KeyUpdate struct {
 type FwUpdate struct {
 	AllowAll        bool                   `json:"allow_all"`
 	AllowedNetworks []net.IPNet            `json:"networks"`
-	EgressNetworks  []string               `json:"egress_networks"`
 	IsEgressGw      bool                   `json:"is_egress_gw"`
 	IsIngressGw     bool                   `json:"is_ingress_gw"`
 	EgressInfo      map[string]EgressInfo  `json:"egress_info"`
