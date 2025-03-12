@@ -1792,13 +1792,7 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 				if _, ok := srcTags[nodeTag.String()]; ok || srcAll {
 					existsInSrcTag = true
 				}
-				if _, ok := srcTags[targetnode.ID.String()]; ok || srcAll {
-					existsInSrcTag = true
-				}
 				if _, ok := dstTags[nodeTag.String()]; ok || dstAll {
-					existsInDstTag = true
-				}
-				if _, ok := dstTags[targetnode.ID.String()]; ok || dstAll {
 					existsInDstTag = true
 				}
 
@@ -1854,9 +1848,6 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 							if node.ID == targetnode.ID {
 								continue
 							}
-							if node.IsStatic && node.StaticNode.IngressGatewayID == targetnode.ID.String() {
-								continue
-							}
 							if node.Address.IP != nil {
 								aclRule.IPList = append(aclRule.IPList, node.AddressIPNet4())
 							}
@@ -1894,9 +1885,6 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 					}
 					for _, node := range nodes {
 						if node.ID == targetnode.ID {
-							continue
-						}
-						if node.IsStatic && node.StaticNode.IngressGatewayID == targetnode.ID.String() {
 							continue
 						}
 						if node.Address.IP != nil {

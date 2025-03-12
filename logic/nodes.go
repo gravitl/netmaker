@@ -906,6 +906,9 @@ func AddTagMapWithStaticNodes(netID models.NetworkID,
 			extclient.Mutex.Lock()
 		}
 		for tagID := range extclient.Tags {
+			if tagID == models.TagID(extclient.ClientID) {
+				continue
+			}
 			tagNodesMap[tagID] = append(tagNodesMap[tagID], extclient.ConvertToStaticNode())
 			tagNodesMap["*"] = append(tagNodesMap["*"], extclient.ConvertToStaticNode())
 		}
