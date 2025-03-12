@@ -94,7 +94,7 @@ func GetServerConfig() config.ServerConfig {
 	}
 	cfg.JwtValidityDuration = GetJwtValidityDuration()
 	cfg.RacAutoDisable = GetRacAutoDisable()
-	cfg.RacAllowMultipleNetworks = GetRacAllowMultipleNetworks()
+	cfg.RacRestrictToSingleNetwork = GetRacRestrictToSingleNetwork()
 	cfg.MetricInterval = GetMetricInterval()
 	cfg.ManageDNS = GetManageDNS()
 	cfg.Stun = IsStunEnabled()
@@ -121,9 +121,9 @@ func GetRacAutoDisable() bool {
 	return os.Getenv("RAC_AUTO_DISABLE") == "true"
 }
 
-// GetRacAllowMultipleNetworks - returns whether the feature to allow simultaneous network connections via RAC is enabled
-func GetRacAllowMultipleNetworks() bool {
-	return os.Getenv("RAC_ALLOW_MULTIPLE_NETWORKS") == "true"
+// GetRacRestrictToSingleNetwork - returns whether the feature to allow simultaneous network connections via RAC is enabled
+func GetRacRestrictToSingleNetwork() bool {
+	return os.Getenv("RAC_RESTRICT_TO_SINGLE_NETWORK") == "true"
 }
 
 // GetServerInfo - gets the server config into memory from file or env
