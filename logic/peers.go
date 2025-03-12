@@ -372,7 +372,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			}
 
 			if uselocal {
-				peerConfig.Endpoint.IP = peer.LocalAddress.IP
 				peerConfig.Endpoint.Port = peerHost.ListenPort
 			}
 			var allowedToComm bool
