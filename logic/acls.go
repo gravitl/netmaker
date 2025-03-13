@@ -1309,10 +1309,9 @@ func getEgressUserRulesForNode(targetnode *models.Node,
 		addUsers := false
 		if !all {
 			for nodeTag := range targetNodeTags {
-				if _, ok := dstTags[nodeTag.String()]; !ok {
-					if _, ok = dstTags[targetnode.ID.String()]; !ok {
-						break
-					}
+				if _, ok := dstTags[nodeTag.String()]; ok {
+					addUsers = true
+					break
 				}
 			}
 		} else {
@@ -1363,6 +1362,18 @@ func getEgressUserRulesForNode(targetnode *models.Node,
 			}
 			if userNode.StaticNode.Address6 != "" {
 				r.IP6List = append(r.IP6List, userNode.StaticNode.AddressIPNet6())
+			}
+			for _, dstI := range acl.Dst {
+				if dstI.ID == models.EgressRange {
+					ip, cidr, err := net.ParseCIDR(dstI.Value)
+					if err == nil {
+						if ip.To4() != nil {
+							r.Dst = *cidr
+						} else {
+							r.Dst6 = *cidr
+						}
+					}
+				}
 			}
 			if aclRule, ok := rules[acl.ID]; ok {
 				aclRule.IPList = append(aclRule.IPList, r.IPList...)
