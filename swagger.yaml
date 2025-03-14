@@ -1,7 +1,6 @@
 definitions:
   acls.ACL:
     additionalProperties:
-      format: int32
       type: integer
     type: object
   acls.ACLContainer:
@@ -56,15 +55,15 @@ definitions:
         type: string
       egressesLimit:
         type: integer
-      email_sender_addr:
+      emailSenderAddr:
         type: string
-      email_sender_password:
+      emailSenderPassword:
         type: string
-      email_sender_user:
+      emailSenderUser:
         type: string
       emqxRestEndpoint:
         type: string
-      endpoint_detection:
+      endpointDetection:
         type: boolean
       environment:
         type: string
@@ -91,6 +90,8 @@ definitions:
         type: string
       metricsExporter:
         type: string
+      metricsPort:
+        type: integer
       mqpassword:
         type: string
       mquserName:
@@ -121,9 +122,9 @@ definitions:
         type: string
       serverBrokerEndpoint:
         type: string
-      smtp_host:
+      smtpHost:
         type: string
-      smtp_port:
+      smtpPort:
         type: integer
       sqlconn:
         type: string
@@ -687,6 +688,7 @@ definitions:
   models.HostMqAction:
     enum:
     - UPGRADE
+    - FORCE_UPGRADE
     - SIGNAL_HOST
     - UPDATE_HOST
     - DELETE_HOST
@@ -701,6 +703,7 @@ definitions:
     type: string
     x-enum-varnames:
     - Upgrade
+    - ForceUpgrade
     - SignalHost
     - UpdateHost
     - DeleteHost
@@ -724,6 +727,8 @@ definitions:
         type: boolean
       listen_port:
         type: integer
+      version:
+        type: string
     type: object
   models.HostPull:
     properties:
@@ -1013,6 +1018,8 @@ definitions:
         type: string
       is_fail_over:
         type: boolean
+      is_gw:
+        type: boolean
       is_static:
         type: boolean
       is_user_node:
@@ -1090,6 +1097,7 @@ definitions:
     - warning
     - error
     - unknown
+    - disconnected
     type: string
     x-enum-varnames:
     - OnlineSt
@@ -1097,6 +1105,7 @@ definitions:
     - WarningSt
     - ErrorSt
     - UnKnown
+    - Disconnected
   models.PeerMap:
     additionalProperties:
       $ref: '#/definitions/models.IDandAddr'
@@ -1119,17 +1128,6 @@ definitions:
         $ref: '#/definitions/models.Host'
       server_config:
         $ref: '#/definitions/models.ServerConfig'
-    type: object
-  models.RelayRequest:
-    properties:
-      netid:
-        type: string
-      nodeid:
-        type: string
-      relayaddrs:
-        items:
-          type: string
-        type: array
     type: object
   models.ReturnUser:
     properties:
@@ -1194,10 +1192,14 @@ definitions:
         type: string
       dnsmode:
         type: string
+      endpointDetection:
+        type: boolean
       manageDNS:
         type: boolean
       metricInterval:
         type: string
+      metricsPort:
+        type: integer
       mqpassword:
         type: string
       mqport:
@@ -1293,7 +1295,6 @@ definitions:
           type: object
         type: object
       username:
-        maxLength: 40
         minLength: 3
         type: string
     required:
@@ -1390,7 +1391,6 @@ definitions:
       mask:
         description: network mask
         items:
-          format: int32
           type: integer
         type: array
     type: object
@@ -1427,7 +1427,6 @@ definitions:
           for this peer, if not nil.
 
           A non-nil value of 0 will clear the persistent keepalive interval.
-        format: int64
         type: integer
       presharedKey:
         description: |-
@@ -1826,6 +1825,28 @@ paths:
       summary: Get the current public IP address.
       tags:
       - IP Service
+  /api/host/{hostid}/peer_info:
+    get:
+      parameters:
+      - description: Host ID
+        in: path
+        name: hostid
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth: []
+      summary: Fetches host peerinfo
+      tags:
+      - Hosts
   /api/hosts:
     get:
       responses:
@@ -2006,6 +2027,10 @@ paths:
         name: hostid
         required: true
         type: string
+      - description: Force upgrade
+        in: query
+        name: force
+        type: boolean
       responses:
         "200":
           description: passed message to upgrade host
@@ -2067,6 +2092,35 @@ paths:
       summary: Update keys for all hosts
       tags:
       - Hosts
+  /api/hosts/sync:
+    post:
+      responses:
+        "200":
+          description: sync all hosts request received
+          schema:
+            type: string
+      security:
+      - oauth: []
+      summary: Requests all the hosts to pull
+      tags:
+      - Hosts
+  /api/hosts/upgrade:
+    post:
+      parameters:
+      - description: Force upgrade
+        in: query
+        name: force
+        type: boolean
+      responses:
+        "200":
+          description: upgrade all hosts request received
+          schema:
+            type: string
+      security:
+      - oauth: []
+      summary: Requests all the hosts to upgrade their version
+      tags:
+      - Hosts
   /api/networks:
     get:
       produces:
@@ -2117,6 +2171,10 @@ paths:
         name: networkname
         required: true
         type: string
+      - description: Force Delete
+        in: query
+        name: force
+        type: boolean
       produces:
       - application/json
       responses:
@@ -2358,61 +2416,6 @@ paths:
       summary: Create an egress gateway
       tags:
       - Nodes
-  /api/nodes/{network}/{nodeid}/createingress:
-    post:
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.ApiNode'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - oauth2: []
-      summary: Create an remote access gateway
-      tags:
-      - Nodes
-  /api/nodes/{network}/{nodeid}/createrelay:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Network ID
-        in: path
-        name: network
-        required: true
-        type: string
-      - description: Node ID
-        in: path
-        name: nodeid
-        required: true
-        type: string
-      - description: Relay request parameters
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/models.RelayRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.ApiNode'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      summary: Create a relay
-      tags:
-      - PRO
   /api/nodes/{network}/{nodeid}/deletegateway:
     delete:
       responses:
@@ -2429,7 +2432,7 @@ paths:
       summary: Delete an egress gateway
       tags:
       - Nodes
-  /api/nodes/{network}/{nodeid}/deleteingress:
+  /api/nodes/{network}/{nodeid}/gateway:
     delete:
       responses:
         "200":
@@ -2442,42 +2445,24 @@ paths:
             $ref: '#/definitions/models.ErrorResponse'
       security:
       - oauth2: []
-      summary: Delete an remote access gateway
+      summary: Delete a gateway
       tags:
       - Nodes
-  /api/nodes/{network}/{nodeid}/deleterelay:
-    delete:
-      consumes:
-      - application/json
-      parameters:
-      - description: Network ID
-        in: path
-        name: network
-        required: true
-        type: string
-      - description: Node ID
-        in: path
-        name: nodeid
-        required: true
-        type: string
-      produces:
-      - application/json
+    post:
       responses:
         "200":
           description: OK
           schema:
             $ref: '#/definitions/models.ApiNode'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/models.ErrorResponse'
-      summary: Remove a relay
+      security:
+      - oauth2: []
+      summary: Create a gateway
       tags:
-      - PRO
+      - Nodes
   /api/nodes/{network}/{nodeid}/inet_gw:
     delete:
       parameters:
@@ -3423,6 +3408,38 @@ paths:
           schema:
             $ref: '#/definitions/models.ErrorResponse'
       summary: Create failover node
+      tags:
+      - PRO
+  /api/v1/node/{nodeid}/failover_check:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Node ID
+        in: path
+        name: nodeid
+        required: true
+        type: string
+      - description: Failover request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.FailOverMeReq'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: checkfailOverCtx
       tags:
       - PRO
   /api/v1/node/{nodeid}/failover_me:
