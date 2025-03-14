@@ -31,7 +31,7 @@ func getCurrentServerUsage() (limits Usage) {
 	if hErr == nil {
 		limits.Hosts = len(hosts)
 	}
-	clients, cErr := logic.GetAllExtClients()
+	clients, cErr := logic.GetAllExtClientsWithStatus(models.OnlineSt)
 	if cErr == nil {
 		limits.Clients = len(clients)
 	}
