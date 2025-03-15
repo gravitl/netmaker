@@ -1368,12 +1368,14 @@ func getEgressUserRulesForNode(targetnode *models.Node,
 					ip, cidr, err := net.ParseCIDR(dstI.Value)
 					if err == nil {
 						if ip.To4() != nil {
-							r.Dst = *cidr
+							r.Dst = append(r.Dst, *cidr)
 						} else {
-							r.Dst6 = *cidr
+							r.Dst6 = append(r.Dst6, *cidr)
 						}
+
 					}
 				}
+
 			}
 			if aclRule, ok := rules[acl.ID]; ok {
 				aclRule.IPList = append(aclRule.IPList, r.IPList...)
@@ -1801,20 +1803,20 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 					continue
 				}
 				if ip.To4() != nil {
-					aclRule.Dst = *cidr
+					aclRule.Dst = append(aclRule.Dst, *cidr)
 				} else {
-					aclRule.Dst6 = *cidr
+					aclRule.Dst6 = append(aclRule.Dst6, *cidr)
 				}
 
 			} else {
-				aclRule.Dst = net.IPNet{
+				aclRule.Dst = append(aclRule.Dst, net.IPNet{
 					IP:   net.IPv4zero,        // 0.0.0.0
 					Mask: net.CIDRMask(0, 32), // /0 means match all IPv4
-				}
-				aclRule.Dst6 = net.IPNet{
+				})
+				aclRule.Dst6 = append(aclRule.Dst6, net.IPNet{
 					IP:   net.IPv6zero,         // ::
 					Mask: net.CIDRMask(0, 128), // /0 means match all IPv6
-				}
+				})
 			}
 			if acl.AllowedDirection == models.TrafficDirectionBi {
 				var existsInSrcTag bool

@@ -117,7 +117,7 @@ type AclRule struct {
 	AllowedProtocol Protocol                `json:"allowed_protocols"` // tcp, udp, etc.
 	AllowedPorts    []string                `json:"allowed_ports"`
 	Direction       AllowedTrafficDirection `json:"direction"` // single or two-way
-	Dst             net.IPNet               `json:"dst"`
-	Dst6            net.IPNet               `json:"dst6"`
+	Dst             []net.IPNet             `json:"dst"`
+	Dst6            []net.IPNet             `json:"dst6"`
 	Allowed         bool
 }
