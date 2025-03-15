@@ -191,60 +191,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE {
 			continue
 		}
-		if host.OS == models.OS_Types.IoT {
-			hostPeerUpdate.NodeAddrs = append(hostPeerUpdate.NodeAddrs, node.PrimaryAddressIPNet())
-			if node.IsRelayed {
-				relayNode, err := GetNodeByID(node.RelayedBy)
-				if err != nil {
-					continue
-				}
-				relayHost, err := GetHost(relayNode.HostID.String())
-				if err != nil {
-					continue
-				}
-				relayPeer := wgtypes.PeerConfig{
-					PublicKey:                   relayHost.PublicKey,
-					PersistentKeepaliveInterval: &relayHost.PersistentKeepalive,
-					ReplaceAllowedIPs:           true,
-					AllowedIPs:                  GetAllowedIPs(&node, &relayNode, nil),
-				}
-				uselocal := false
-				if host.EndpointIP.String() == relayHost.EndpointIP.String() {
-					// peer is on same network
-					// set to localaddress
-					uselocal = true
-					if node.LocalAddress.IP == nil {
-						// use public endpint
-						uselocal = false
-					}
-					if node.LocalAddress.String() == relayNode.LocalAddress.String() {
-						uselocal = false
-					}
-				}
-				relayPeer.Endpoint = &net.UDPAddr{
-					IP:   relayHost.EndpointIP,
-					Port: GetPeerListenPort(relayHost),
-				}
-
-				if uselocal {
-					relayPeer.Endpoint.IP = relayNode.LocalAddress.IP
-					relayPeer.Endpoint.Port = relayHost.ListenPort
-				}
-
-				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, relayPeer)
-			} else if deletedNode != nil && deletedNode.IsRelay {
-				relayHost, err := GetHost(deletedNode.HostID.String())
-				if err != nil {
-					continue
-				}
-				relayPeer := wgtypes.PeerConfig{
-					PublicKey: relayHost.PublicKey,
-					Remove:    true,
-				}
-				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, relayPeer)
-			}
-			continue
-		}
 		hostPeerUpdate = SetDefaultGw(node, hostPeerUpdate)
 		if !hostPeerUpdate.IsInternetGw {
 			hostPeerUpdate.IsInternetGw = IsInternetGw(node)
