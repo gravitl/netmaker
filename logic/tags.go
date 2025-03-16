@@ -278,7 +278,7 @@ func CheckIDSyntax(id string) error {
 }
 
 func CreateDefaultTags(netID models.NetworkID) {
-	// create tag for remote access gws in the network
+	// create tag for gws in the network
 	tag := models.Tag{
 		ID:        models.TagID(fmt.Sprintf("%s.%s", netID.String(), models.GwTagName)),
 		TagName:   models.GwTagName,
@@ -292,7 +292,7 @@ func CreateDefaultTags(netID models.NetworkID) {
 	}
 	err = InsertTag(tag)
 	if err != nil {
-		slog.Error("failed to create remote access gw tag", "error", err.Error())
+		slog.Error("failed to create gw tag", "error", err.Error())
 		return
 	}
 }
