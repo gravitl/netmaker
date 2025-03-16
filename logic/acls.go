@@ -282,13 +282,13 @@ func checkIfAclTagisValid(t models.AclPolicyTag, netID models.NetworkID, policyT
 		if isSrc {
 			return false
 		}
-		_, rangesMap, err := GetEgressRanges(netID)
-		if err != nil {
-			return false
-		}
-		if _, ok := rangesMap[t.Value]; !ok {
-			return false
-		}
+		// _, rangesMap, err := GetEgressRanges(netID)
+		// if err != nil {
+		// 	return false
+		// }
+		// if _, ok := rangesMap[t.Value]; !ok {
+		// 	return false
+		// }
 	case models.UserAclID:
 		if policyType == models.DevicePolicy {
 			return false
