@@ -150,12 +150,42 @@ func ValidateEgressGateway(gateway models.EgressGatewayRequest) error {
 	return nil
 }
 
+func cleanUpEgressRangesFromAclPolicies(node models.Node) {
+	if len(node.EgressGatewayRanges) == 0 {
+		return
+	}
+	acls, err := ListAclsByNetwork(models.NetworkID(node.Network))
+	if err != nil {
+		return
+	}
+	egressMap := make(map[string]struct{})
+	for _, egressI := range node.EgressGatewayRanges {
+		egressMap[egressI] = struct{}{}
+	}
+	for _, acl := range acls {
+		upsert := false
+		for i := len(acl.Dst) - 1; i >= 0; i-- {
+			if acl.Dst[i].ID == models.EgressRange {
+				if _, ok := egressMap[acl.Dst[i].Value]; ok {
+					acl.Dst = append(acl.Dst[:i], acl.Dst[i+1:]...)
+					upsert = true
+				}
+			}
+		}
+		if upsert {
+			UpsertAcl(acl)
+		}
+	}
+}
+
 // DeleteEgressGateway - deletes egress from node
 func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 	node, err := GetNodeByID(nodeid)
 	if err != nil {
 		return models.Node{}, err
 	}
+	// cleanUp egress ranges from acl policies
+	cleanUpEgressRangesFromAclPolicies(node)
 	node.IsEgressGateway = false
 	node.EgressGatewayRanges = []string{}
 	node.EgressGatewayRequest = models.EgressGatewayRequest{} // remove preserved request as the egress gateway is gone

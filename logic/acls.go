@@ -715,8 +715,8 @@ func RemoveUserFromAclPolicy(userName string) {
 		delete := false
 		update := false
 		if acl.RuleType == models.UserPolicy {
-			for i, srcI := range acl.Src {
-				if srcI.ID == models.UserAclID && srcI.Value == userName {
+			for i := len(acl.Src) - 1; i >= 0; i-- {
+				if acl.Src[i].ID == models.UserAclID && acl.Src[i].Value == userName {
 					if len(acl.Src) == 1 {
 						// delete policy
 						delete = true
@@ -750,8 +750,8 @@ func RemoveNodeFromAclPolicy(node models.Node) {
 		delete := false
 		update := false
 		if acl.RuleType == models.DevicePolicy {
-			for i, srcI := range acl.Src {
-				if srcI.ID == models.NodeID && srcI.Value == nodeID {
+			for i := len(acl.Src) - 1; i >= 0; i-- {
+				if acl.Src[i].ID == models.NodeID && acl.Src[i].Value == nodeID {
 					if len(acl.Src) == 1 {
 						// delete policy
 						delete = true
@@ -766,8 +766,8 @@ func RemoveNodeFromAclPolicy(node models.Node) {
 				DeleteAcl(acl)
 				continue
 			}
-			for i, dstI := range acl.Dst {
-				if dstI.ID == models.NodeID && dstI.Value == nodeID {
+			for i := len(acl.Dst) - 1; i >= 0; i-- {
+				if acl.Dst[i].ID == models.NodeID && acl.Dst[i].Value == nodeID {
 					if len(acl.Dst) == 1 {
 						// delete policy
 						delete = true
@@ -788,8 +788,8 @@ func RemoveNodeFromAclPolicy(node models.Node) {
 
 		}
 		if acl.RuleType == models.UserPolicy {
-			for i, dstI := range acl.Dst {
-				if dstI.ID == models.NodeID && dstI.Value == nodeID {
+			for i := len(acl.Dst) - 1; i >= 0; i-- {
+				if acl.Dst[i].ID == models.NodeID && acl.Dst[i].Value == nodeID {
 					if len(acl.Dst) == 1 {
 						// delete policy
 						delete = true
@@ -1266,17 +1266,17 @@ func RemoveDeviceTagFromAclPolicies(tagID models.TagID, netID models.NetworkID) 
 	acls := listDevicePolicies(netID)
 	update := false
 	for _, acl := range acls {
-		for i, srcTagI := range acl.Src {
-			if srcTagI.ID == models.NodeTagID {
-				if tagID.String() == srcTagI.Value {
+		for i := len(acl.Src) - 1; i >= 0; i-- {
+			if acl.Src[i].ID == models.NodeTagID {
+				if tagID.String() == acl.Src[i].Value {
 					acl.Src = append(acl.Src[:i], acl.Src[i+1:]...)
 					update = true
 				}
 			}
 		}
-		for i, dstTagI := range acl.Dst {
-			if dstTagI.ID == models.NodeTagID {
-				if tagID.String() == dstTagI.Value {
+		for i := len(acl.Dst) - 1; i >= 0; i-- {
+			if acl.Dst[i].ID == models.NodeTagID {
+				if tagID.String() == acl.Dst[i].Value {
 					acl.Dst = append(acl.Dst[:i], acl.Dst[i+1:]...)
 					update = true
 				}
