@@ -119,10 +119,9 @@ func GetAllHostsWithStatus(status models.NodeStatus) ([]models.Host, error) {
 		if len(host.Nodes) == 0 {
 			continue
 		}
-
-		nodes := AddStatusToNodes(GetHostNodes(&host))
-
+		nodes := GetHostNodes(&host)
 		for _, node := range nodes {
+			getNodeStatus(&node, false)
 			if node.Status == status {
 				validHosts = append(validHosts, host)
 				break
