@@ -426,10 +426,10 @@ func GetAllExtClientsWithStatus(status models.NodeStatus) ([]models.ExtClient, e
 
 	var validExtClients []models.ExtClient
 	for _, extClient := range extClients {
-		nodes := []models.Node{extClient.ConvertToStaticNode()}
-		AddStatusToNodes(nodes)
+		node := extClient.ConvertToStaticNode()
+		getNodeStatus(&node, false)
 
-		if nodes[0].Status == status {
+		if node.Status == status {
 			validExtClients = append(validExtClients, extClient)
 		}
 	}
