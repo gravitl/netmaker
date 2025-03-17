@@ -1,6 +1,7 @@
 module github.com/gravitl/netmaker
 
 go 1.23
+toolchain go1.24.1
 
 require (
 	github.com/blang/semver v3.5.1+incompatible
@@ -18,11 +19,11 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/txn2/txeh v1.5.5
 	go.uber.org/automaxprocs v1.6.0
-	golang.org/x/crypto v0.32.0
-	golang.org/x/net v0.34.0 // indirect
-	golang.org/x/oauth2 v0.24.0
-	golang.org/x/sys v0.29.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/crypto v0.36.0
+	golang.org/x/net v0.37.0 // indirect
+	golang.org/x/oauth2 v0.28.0
+	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/text v0.23.0 // indirect
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20221104135756-97bc4ad4a1cb
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -34,7 +35,7 @@ require (
 )
 
 require (
-	github.com/coreos/go-oidc/v3 v3.9.0
+	github.com/coreos/go-oidc/v3 v3.13.0
 	github.com/gorilla/websocket v1.5.3
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 )
@@ -51,7 +52,7 @@ require (
 require (
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
-	github.com/go-jose/go-jose/v3 v3.0.3 // indirect
+	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
@@ -69,5 +70,5 @@ require (
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	golang.org/x/sync v0.10.0 // indirect
+	golang.org/x/sync v0.12.0 // indirect
 )
