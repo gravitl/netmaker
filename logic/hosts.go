@@ -119,6 +119,7 @@ func GetAllHostsWithStatus(status models.NodeStatus) ([]models.Host, error) {
 		if len(host.Nodes) == 0 {
 			continue
 		}
+
 		nodes := GetHostNodes(&host)
 		for _, node := range nodes {
 			getNodeStatus(&node, false)
