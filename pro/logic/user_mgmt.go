@@ -810,7 +810,7 @@ func GetUserNetworkRolesWithRemoteVPNAccess(user models.User) (gwAccess map[mode
 }
 
 func GetFilteredNodesByUserAccess(user models.User, nodes []models.Node) (filteredNodes []models.Node) {
-
+	return filteredNodes
 	nodesMap := make(map[string]struct{})
 	allNetworkRoles := make(map[models.UserRoleID]struct{})
 	defer func() {
