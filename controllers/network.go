@@ -41,6 +41,7 @@ func networkHandlers(r *mux.Router) {
 		Methods(http.MethodPut)
 	r.HandleFunc("/api/networks/{networkname}/acls", logic.SecurityCheck(true, http.HandlerFunc(getNetworkACL))).
 		Methods(http.MethodGet)
+	r.HandleFunc("/api/networks/{networkname}/egress_routes", logic.SecurityCheck(true, http.HandlerFunc(getNetworkEgressRoutes)))
 }
 
 // @Summary     Lists all networks
@@ -427,6 +428,33 @@ func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 	logger.Log(2, r.Header.Get("user"), "fetched acl for network", netname)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(networkACL)
+}
+
+// @Summary     Get a network Egress routes
+// @Router      /api/networks/{networkname}/egress_routes [get]
+// @Tags        Networks
+// @Security    oauth
+// @Param       networkname path string true "Network name"
+// @Produce     json
+// @Success     200 {object} acls.SuccessResponse
+// @Failure     500 {object} models.ErrorResponse
+func getNetworkEgressRoutes(w http.ResponseWriter, r *http.Request) {
+	var params = mux.Vars(r)
+	netname := params["networkname"]
+	// check if network exists
+	_, err := logic.GetNetwork(netname)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to fetch ACLs for network [%s]: %v", netname, err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	nodeEgressRoutes, _, err := logic.GetEgressRanges(models.NetworkID(netname))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, nodeEgressRoutes, "fetched network egress routes")
 }
 
 // @Summary     Delete a network

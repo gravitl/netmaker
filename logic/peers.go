@@ -181,6 +181,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 	slog.Debug("peer update for host", "hostId", host.ID.String())
 	peerIndexMap := make(map[string]int)
 	for _, nodeID := range host.Nodes {
+		networkAllowAll := true
 		nodeID := nodeID
 		node, err := GetNodeByID(nodeID)
 		if err != nil {
@@ -188,60 +189,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		}
 
 		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE {
-			continue
-		}
-		if host.OS == models.OS_Types.IoT {
-			hostPeerUpdate.NodeAddrs = append(hostPeerUpdate.NodeAddrs, node.PrimaryAddressIPNet())
-			if node.IsRelayed {
-				relayNode, err := GetNodeByID(node.RelayedBy)
-				if err != nil {
-					continue
-				}
-				relayHost, err := GetHost(relayNode.HostID.String())
-				if err != nil {
-					continue
-				}
-				relayPeer := wgtypes.PeerConfig{
-					PublicKey:                   relayHost.PublicKey,
-					PersistentKeepaliveInterval: &relayHost.PersistentKeepalive,
-					ReplaceAllowedIPs:           true,
-					AllowedIPs:                  GetAllowedIPs(&node, &relayNode, nil),
-				}
-				uselocal := false
-				if host.EndpointIP.String() == relayHost.EndpointIP.String() {
-					// peer is on same network
-					// set to localaddress
-					uselocal = true
-					if node.LocalAddress.IP == nil {
-						// use public endpint
-						uselocal = false
-					}
-					if node.LocalAddress.String() == relayNode.LocalAddress.String() {
-						uselocal = false
-					}
-				}
-				relayPeer.Endpoint = &net.UDPAddr{
-					IP:   relayHost.EndpointIP,
-					Port: GetPeerListenPort(relayHost),
-				}
-
-				if uselocal {
-					relayPeer.Endpoint.IP = relayNode.LocalAddress.IP
-					relayPeer.Endpoint.Port = relayHost.ListenPort
-				}
-
-				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, relayPeer)
-			} else if deletedNode != nil && deletedNode.IsRelay {
-				relayHost, err := GetHost(deletedNode.HostID.String())
-				if err != nil {
-					continue
-				}
-				relayPeer := wgtypes.PeerConfig{
-					PublicKey: relayHost.PublicKey,
-					Remove:    true,
-				}
-				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, relayPeer)
-			}
 			continue
 		}
 		hostPeerUpdate = SetDefaultGw(node, hostPeerUpdate)
@@ -259,6 +206,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				hostPeerUpdate.FwUpdate.AllowedNetworks = append(hostPeerUpdate.FwUpdate.AllowedNetworks, node.NetworkRange6)
 			}
 		} else {
+			networkAllowAll = false
 			hostPeerUpdate.FwUpdate.AllowAll = false
 			rules := GetAclRulesForNode(&node)
 			if len(hostPeerUpdate.FwUpdate.AclRules) == 0 {
@@ -370,7 +318,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			}
 
 			if uselocal {
-				peerConfig.Endpoint.IP = peer.LocalAddress.IP
 				peerConfig.Endpoint.Port = peerHost.ListenPort
 			}
 			var allowedToComm bool
@@ -438,7 +385,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 						IngressID:     node.ID.String(),
 						Network:       node.NetworkRange,
 						Network6:      node.NetworkRange6,
-						AllowAll:      defaultDevicePolicy.Enabled && defaultUserPolicy.Default,
 						StaticNodeIps: GetStaticNodeIps(node),
 						Rules:         GetFwRulesOnIngressGateway(node),
 					}
@@ -472,10 +418,23 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					IP:   node.Address6.IP,
 					Mask: getCIDRMaskFromAddr(node.Address6.IP.String()),
 				},
-				EgressGWCfg: node.EgressGatewayRequest,
+				EgressGWCfg:   node.EgressGatewayRequest,
+				EgressFwRules: make(map[string]models.AclRule),
 			}
 
 		}
+		if node.IsEgressGateway {
+			if !networkAllowAll {
+				egressInfo := hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()]
+				if egressInfo.EgressFwRules == nil {
+					egressInfo.EgressFwRules = make(map[string]models.AclRule)
+				}
+				egressInfo.EgressFwRules = GetEgressRulesForNode(node)
+				hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()] = egressInfo
+			}
+
+		}
+
 		if IsInternetGw(node) {
 			hostPeerUpdate.FwUpdate.IsEgressGw = true
 			egressrange := []string{"0.0.0.0/0"}
