@@ -3,6 +3,7 @@ package utils
 import (
 	"log/slog"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -58,4 +59,19 @@ func TraceCaller() {
 	// Print trace details
 	slog.Debug("Called from function: %s\n", "func-name", funcName)
 	slog.Debug("File: %s, Line: %d\n", "file", file, "line-no", line)
+}
+
+// NoEmptyStringToCsv takes a bunch of strings, filters out empty ones and returns a csv version of the string
+func NoEmptyStringToCsv(strs ...string) string {
+	var sb strings.Builder
+	for _, str := range strs {
+		trimmedStr := strings.TrimSpace(str)
+		if trimmedStr != "" && trimmedStr != "<nil>" {
+			if sb.Len() > 0 {
+				sb.WriteString(", ")
+			}
+			sb.WriteString(str)
+		}
+	}
+	return sb.String()
 }
