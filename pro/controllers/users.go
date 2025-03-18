@@ -19,6 +19,7 @@ import (
 	"github.com/gravitl/netmaker/pro/email"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/utils"
 	"golang.org/x/exp/slog"
 )
 
@@ -1034,6 +1035,8 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		Metadata:          node.Metadata,
 		AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 		NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
+		DnsAddress:        node.IngressDNS,
+		Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
 	}
 
 	slog.Debug("returned user gw config", "user", user.UserName, "gws", userGw)
@@ -1125,6 +1128,8 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 				AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 				NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
 				Status:            node.Status,
+				DnsAddress:        node.IngressDNS,
+				Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
 			})
 			userGws[node.Network] = gws
 			delete(userGwNodes, node.ID.String())
@@ -1167,6 +1172,8 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 			NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
 			Status:            node.Status,
+			DnsAddress:        node.IngressDNS,
+			Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
 		})
 		userGws[node.Network] = gws
 	}
