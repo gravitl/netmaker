@@ -425,7 +425,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		}
 		if node.IsEgressGateway {
 			if !networkAllowAll {
-				fmt.Println("======>1 HEREEEEE")
 				egressInfo := hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()]
 				if egressInfo.EgressFwRules == nil {
 					egressInfo.EgressFwRules = make(map[string]models.AclRule)

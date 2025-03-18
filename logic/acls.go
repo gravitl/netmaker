@@ -1777,7 +1777,6 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 	for _, rangeI := range targetnode.EgressGatewayRanges {
 		targetNodeTags[models.TagID(rangeI)] = struct{}{}
 	}
-	fmt.Println("TAGETR NODE TAGS: ", targetNodeTags)
 	for _, acl := range acls {
 		if !acl.Enabled {
 			continue
@@ -1786,10 +1785,7 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 		dstTags := convAclTagToValueMap(acl.Dst)
 		_, srcAll := srcTags["*"]
 		_, dstAll := dstTags["*"]
-		fmt.Println("====> SRC TAGS: ", srcTags)
-		fmt.Println("====> DST TAGS: ", dstTags)
 		for nodeTag := range targetNodeTags {
-			fmt.Println("====> CHECKINg NODE TAG: ", nodeTag)
 			aclRule := models.AclRule{
 				ID:              acl.ID,
 				AllowedProtocol: acl.Proto,
@@ -1935,19 +1931,15 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 					}
 				}
 			} else {
-				fmt.Println("====> HEREEEEEE 4 ", nodeTag)
 				_, all := dstTags["*"]
 				if _, ok := dstTags[nodeTag.String()]; ok || all {
 					// get all src tags
-					fmt.Println("====> HEREEEEEE 5 ", nodeTag, srcTags)
 					for src := range srcTags {
 						if src == nodeTag.String() {
 							continue
 						}
-						fmt.Println("===> checking SRC: 1", src)
 						// Get peers in the tags and add allowed rules
 						nodes := taggedNodes[models.TagID(src)]
-						fmt.Println("===> checking SRC: 2 ", src, nodes)
 						for _, node := range nodes {
 							if node.ID == targetnode.ID {
 								continue
@@ -1965,7 +1957,6 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 								aclRule.IP6List = append(aclRule.IP6List, node.StaticNode.AddressIPNet6())
 							}
 						}
-						fmt.Printf("ACL: RUELS: %+v\n", aclRule)
 					}
 				}
 			}

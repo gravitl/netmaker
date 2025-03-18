@@ -779,13 +779,11 @@ func GetExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandA
 	}
 	for _, extPeer := range extPeers {
 		extPeer := extPeer
-		fmt.Println("=====> checking EXT peer: ", extPeer.ClientID)
 		if !IsClientNodeAllowed(&extPeer, peer.ID.String()) {
 			continue
 		}
 		if extPeer.RemoteAccessClientID == "" {
 			if ok := IsPeerAllowed(extPeer.ConvertToStaticNode(), *peer, true); !ok {
-				fmt.Println("=====>1 checking EXT peer: ", extPeer.ClientID)
 				continue
 			}
 		} else {
