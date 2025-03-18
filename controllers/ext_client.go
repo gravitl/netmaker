@@ -475,7 +475,18 @@ func getExtClientHAConf(w http.ResponseWriter, r *http.Request) {
 	// 	models.RemoteAccessTagName))] = struct{}{}
 	// set extclient dns to ingressdns if extclient dns is not explicitly set
 	if (extclient.DNS == "") && (gwnode.IngressDNS != "") {
-		extclient.DNS = gwnode.IngressDNS
+		network, _ := logic.GetNetwork(gwnode.Network)
+		dns := gwnode.IngressDNS
+		if len(network.NameServers) > 0 {
+			if dns == "" {
+				dns = strings.Join(network.NameServers, ",")
+			} else {
+				dns += "," + strings.Join(network.NameServers, ",")
+			}
+
+		}
+		extclient.DNS = dns
+
 	}
 
 	listenPort := logic.GetPeerListenPort(host)
