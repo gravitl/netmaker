@@ -248,8 +248,8 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					EgressGwAddr6:          peer.Address6,
 					NodeAddr:               node.Address,
 					NodeAddr6:              node.Address6,
-					EgressRanges:           peer.EgressGatewayRanges,
-					EgressRangesWithMetric: peer.EgressGatewayRequest.RangesWithMetric,
+					EgressRanges:           filterConflictingEgressRoutes(node, peer),
+					EgressRangesWithMetric: filterConflictingEgressRoutesWithMetric(node, peer),
 				})
 			}
 			if peer.IsIngressGateway {
@@ -518,6 +518,42 @@ func GetPeerListenPort(host *models.Host) int {
 	return peerPort
 }
 
+func filterConflictingEgressRoutes(node, peer models.Node) []string {
+	egressIPs := peer.EgressGatewayRanges
+	if node.IsEgressGateway {
+		// filter conflicting addrs
+		nodeEgressMap := make(map[string]struct{})
+		for _, rangeI := range node.EgressGatewayRanges {
+			nodeEgressMap[rangeI] = struct{}{}
+		}
+		for i := len(egressIPs) - 1; i >= 0; i-- {
+			if _, ok := nodeEgressMap[egressIPs[i]]; ok {
+				egressIPs = append(egressIPs[:i], egressIPs[i+1:]...)
+			}
+		}
+	}
+
+	return egressIPs
+}
+
+func filterConflictingEgressRoutesWithMetric(node, peer models.Node) []models.EgressRangeMetric {
+	egressIPs := peer.EgressGatewayRequest.RangesWithMetric
+	if node.IsEgressGateway {
+		// filter conflicting addrs
+		nodeEgressMap := make(map[string]struct{})
+		for _, rangeI := range node.EgressGatewayRanges {
+			nodeEgressMap[rangeI] = struct{}{}
+		}
+		for i := len(egressIPs) - 1; i >= 0; i-- {
+			if _, ok := nodeEgressMap[egressIPs[i].Network]; ok {
+				egressIPs = append(egressIPs[:i], egressIPs[i+1:]...)
+			}
+		}
+	}
+
+	return egressIPs
+}
+
 // GetAllowedIPs - calculates the wireguard allowedip field for a peer of a node based on the peer and node settings
 func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet {
 	var allowedips []net.IPNet
@@ -606,6 +642,18 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 	if peer.IsEgressGateway {
 		// hasGateway = true
 		egressIPs := GetEgressIPs(peer)
+		if node.IsEgressGateway {
+			// filter conflicting addrs
+			nodeEgressMap := make(map[string]struct{})
+			for _, rangeI := range node.EgressGatewayRanges {
+				nodeEgressMap[rangeI] = struct{}{}
+			}
+			for i := len(egressIPs) - 1; i >= 0; i-- {
+				if _, ok := nodeEgressMap[egressIPs[i].String()]; ok {
+					egressIPs = append(egressIPs[:i], egressIPs[i+1:]...)
+				}
+			}
+		}
 		allowedips = append(allowedips, egressIPs...)
 	}
 	if peer.IsRelay {
