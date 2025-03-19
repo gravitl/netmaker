@@ -854,6 +854,7 @@ func GetExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandA
 
 func getExtPeerEgressRoute(node models.Node, extPeer models.ExtClient) (egressRoutes []models.EgressNetworkRoutes) {
 	egressRoutes = append(egressRoutes, models.EgressNetworkRoutes{
+		PeerKey:       extPeer.PublicKey,
 		EgressGwAddr:  extPeer.AddressIPNet4(),
 		EgressGwAddr6: extPeer.AddressIPNet6(),
 		NodeAddr:      node.Address,
