@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/netip"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
@@ -248,6 +249,16 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					relayNode, err := GetNodeByID(peer.RelayedBy)
 					if err == nil {
 						relayHost, err := GetHost(relayNode.HostID.String())
+						if err == nil {
+							peerKey = relayHost.PublicKey.String()
+						}
+					}
+				}
+				if peer.FailedOverBy != uuid.Nil {
+					// get relay host
+					failOverNode, err := GetNodeByID(peer.FailedOverBy.String())
+					if err == nil {
+						relayHost, err := GetHost(failOverNode.HostID.String())
 						if err == nil {
 							peerKey = relayHost.PublicKey.String()
 						}
