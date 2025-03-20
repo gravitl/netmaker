@@ -8,6 +8,10 @@ import (
 	"time"
 )
 
+type ctxKey string
+
+const dbCtxKey ctxKey = "db"
+
 var db *gorm.DB
 
 var ErrDBNotFound = errors.New("no db instance in context")
@@ -51,7 +55,7 @@ func InitializeDB(models ...interface{}) error {
 // To extract the db connection use the FromContext
 // function.
 func WithContext(ctx context.Context) context.Context {
-	return context.WithValue(ctx, "db", db)
+	return context.WithValue(ctx, dbCtxKey, db)
 }
 
 // Middleware to auto-inject the db connection instance
@@ -70,7 +74,7 @@ func Middleware(next http.Handler) http.Handler {
 //
 // The function panics, if a connection does not exist.
 func FromContext(ctx context.Context) *gorm.DB {
-	db, ok := ctx.Value("db").(*gorm.DB)
+	db, ok := ctx.Value(dbCtxKey).(*gorm.DB)
 	if !ok {
 		panic(ErrDBNotFound)
 	}
@@ -86,10 +90,10 @@ func FromContext(ctx context.Context) *gorm.DB {
 // Ensure InitializeDB has been called before using
 // this function.
 func BeginTx(ctx context.Context) context.Context {
-	dbInCtx, ok := ctx.Value("db").(*gorm.DB)
+	dbInCtx, ok := ctx.Value(dbCtxKey).(*gorm.DB)
 	if !ok {
-		return context.WithValue(ctx, "db", db.Begin())
+		return context.WithValue(ctx, dbCtxKey, db.Begin())
 	}
 
-	return context.WithValue(ctx, "db", dbInCtx.Begin())
+	return context.WithValue(ctx, dbCtxKey, dbInCtx.Begin())
 }
