@@ -67,7 +67,7 @@ These are the instructions for deploying a Netmaker server on your cloud VM as q
 
 
 <p float="left" align="middle">
-<img src="https://raw.githubusercontent.com/gravitl/netmaker-docs/master/images/netmaker-github/readme.gif" />
+<img src="https://s6.gifyu.com/images/bzwcI.gif" />
 </p>
 
 After installing Netmaker, check out the [Walkthrough](https://itnext.io/getting-started-with-netmaker-a-wireguard-virtual-networking-platform-3d563fbd87f0) and [Getting Started](https://docs.netmaker.io/docs/getting-started) guides to learn more about configuring networks. Or, check out some of our other [Tutorials](https://www.netmaker.io/blog) for different use cases, including Kubernetes.
