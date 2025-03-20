@@ -184,7 +184,7 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 		return models.Node{}, errors.New("gateway can only be created on linux based node")
 	}
 
-	network, err := GetParentNetwork(netid)
+	network, err := GetNetwork(netid)
 	if err != nil {
 		return models.Node{}, err
 	}

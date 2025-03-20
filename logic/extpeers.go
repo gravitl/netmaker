@@ -915,7 +915,7 @@ func GetExtclientAllowedIPs(client models.ExtClient) (allowedIPs []string) {
 		return
 	}
 
-	network, err := GetParentNetwork(client.Network)
+	network, err := GetNetwork(client.Network)
 	if err != nil {
 		logger.Log(1, "Could not retrieve Ingress Gateway Network", client.Network)
 		return

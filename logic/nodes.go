@@ -197,7 +197,7 @@ func UpsertNode(newNode *models.Node) error {
 // UpdateNode - takes a node and updates another node with it's values
 func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	if newNode.Address.IP.String() != currentNode.Address.IP.String() {
-		if network, err := GetParentNetwork(newNode.Network); err == nil {
+		if network, err := GetNetwork(newNode.Network); err == nil {
 			if !IsAddressInCIDR(newNode.Address.IP, network.AddressRange) {
 				return fmt.Errorf("invalid address provided; out of network range for node %s", newNode.ID)
 			}
@@ -394,7 +394,7 @@ func ValidateNode(node *models.Node, isUpdate bool) error {
 		return isFieldUnique
 	})
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
-		_, err := GetNetworkByNode(node)
+		_, err := GetNetwork(node.Network)
 		return err == nil
 	})
 	_ = v.RegisterValidation("checkyesornoorunset", func(f1 validator.FieldLevel) bool {
@@ -477,24 +477,10 @@ func AddStatusToNodes(nodes []models.Node, statusCall bool) (nodesWithStatus []m
 	return
 }
 
-// GetNetworkByNode - gets the network model from a node
-func GetNetworkByNode(node *models.Node) (models.Network, error) {
-
-	var network = models.Network{}
-	networkData, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, node.Network)
-	if err != nil {
-		return network, err
-	}
-	if err = json.Unmarshal([]byte(networkData), &network); err != nil {
-		return models.Network{}, err
-	}
-	return network, nil
-}
-
 // SetNodeDefaults - sets the defaults of a node to avoid empty fields
 func SetNodeDefaults(node *models.Node, resetConnected bool) {
 
-	parentNetwork, _ := GetNetworkByNode(node)
+	parentNetwork, _ := GetNetwork(node.Network)
 	_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange)
 	if err == nil {
 		node.NetworkRange = *cidr
@@ -784,7 +770,7 @@ func ValidateNodeIp(currentNode *models.Node, newNode *models.ApiNode) error {
 }
 
 func ValidateEgressRange(gateway models.EgressGatewayRequest) error {
-	network, err := GetNetworkSettings(gateway.NetID)
+	network, err := GetNetwork(gateway.NetID)
 	if err != nil {
 		slog.Error("error getting network with netid", "error", gateway.NetID, err.Error)
 		return errors.New("error getting network with netid:  " + gateway.NetID + " " + err.Error())
