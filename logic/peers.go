@@ -244,7 +244,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			}
 			if peer.IsEgressGateway {
 				peerKey := peerHost.PublicKey.String()
-				if peer.FailedOverBy != uuid.Nil {
+				if peer.FailedOverBy != uuid.Nil && peer.FailedOverBy.String() != node.ID.String() {
 					// get relay host
 					failOverNode, err := GetNodeByID(peer.FailedOverBy.String())
 					if err == nil {
@@ -254,7 +254,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 						}
 					}
 				}
-				if peer.IsRelayed {
+				if peer.IsRelayed && node.IsRelay && peer.RelayedBy != node.ID.String() {
 					// get relay host
 					relayNode, err := GetNodeByID(peer.RelayedBy)
 					if err == nil {
