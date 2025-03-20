@@ -242,8 +242,19 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				ReplaceAllowedIPs:           true,
 			}
 			if peer.IsEgressGateway {
+				peerKey := peerHost.PublicKey.String()
+				if peer.IsRelayed {
+					// get relay host
+					relayNode, err := GetNodeByID(peer.RelayedBy)
+					if err == nil {
+						relayHost, err := GetHost(relayNode.HostID.String())
+						if err == nil {
+							peerKey = relayHost.PublicKey.String()
+						}
+					}
+				}
 				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, models.EgressNetworkRoutes{
-					PeerKey:                peerHost.PublicKey.String(),
+					PeerKey:                peerKey,
 					EgressGwAddr:           peer.Address,
 					EgressGwAddr6:          peer.Address6,
 					NodeAddr:               node.Address,
