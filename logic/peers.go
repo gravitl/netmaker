@@ -254,7 +254,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 						}
 					}
 				}
-				if peer.IsRelayed && node.IsRelay && peer.RelayedBy != node.ID.String() {
+				if peer.IsRelayed && (peer.RelayedBy != node.ID.String()) {
 					// get relay host
 					relayNode, err := GetNodeByID(peer.RelayedBy)
 					if err == nil {
