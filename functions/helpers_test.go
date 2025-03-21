@@ -3,6 +3,8 @@ package functions
 import (
 	"context"
 	"encoding/json"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 	"os"
 	"testing"
 
@@ -25,6 +27,9 @@ var (
 func TestMain(m *testing.M) {
 	database.InitializeDatabase()
 	defer database.CloseDB()
+
+	_ = db.InitializeDB(schema.ListModels()...)
+
 	logic.CreateSuperAdmin(&models.User{
 		UserName:       "superadmin",
 		Password:       "password",
@@ -43,18 +48,23 @@ func TestMain(m *testing.M) {
 }
 
 func TestNetworkExists(t *testing.T) {
-	database.DeleteRecord(database.NETWORKS_TABLE_NAME, testNetwork.NetID)
+	_network := &schema.Network{
+		ID: testNetwork.NetID,
+	}
+	_ = _network.Delete(db.WithContext(context.TODO()))
+
 	exists, err := logic.NetworkExists(testNetwork.NetID)
-	assert.NotNil(t, err)
+	assert.Nil(t, err)
 	assert.False(t, exists)
 
 	err = logic.SaveNetwork(testNetwork)
 	assert.Nil(t, err)
+
 	exists, err = logic.NetworkExists(testNetwork.NetID)
 	assert.Nil(t, err)
 	assert.True(t, exists)
 
-	err = database.DeleteRecord(database.NETWORKS_TABLE_NAME, testNetwork.NetID)
+	err = _network.Delete(db.WithContext(context.TODO()))
 	assert.Nil(t, err)
 }
 

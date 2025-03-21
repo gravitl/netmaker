@@ -2,6 +2,8 @@ package controller
 
 import (
 	"context"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 	"os"
 	"testing"
 
@@ -25,6 +27,9 @@ var netHost models.Host
 func TestMain(m *testing.M) {
 	database.InitializeDatabase()
 	defer database.CloseDB()
+
+	_ = db.InitializeDB(schema.ListModels()...)
+
 	logic.CreateSuperAdmin(&models.User{
 		UserName:       "admin",
 		Password:       "password",
@@ -64,7 +69,7 @@ func TestGetNetwork(t *testing.T) {
 	})
 	t.Run("GetNonExistantNetwork", func(t *testing.T) {
 		network, err := logic.GetNetwork("doesnotexist")
-		assert.EqualError(t, err, "no result found")
+		assert.EqualError(t, err, "record not found")
 		assert.Equal(t, "", network.NetID)
 	})
 }
@@ -210,7 +215,12 @@ func TestIpv6Network(t *testing.T) {
 
 func deleteAllNetworks() {
 	deleteAllNodes()
-	database.DeleteAllRecords(database.NETWORKS_TABLE_NAME)
+
+	_networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	for _, _network := range _networks {
+		_ = _network.Delete(db.WithContext(context.TODO()))
+	}
+
 }
 
 func createNet() {
