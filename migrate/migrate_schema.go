@@ -2,10 +2,13 @@ package migrate
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gravitl/netmaker/converters"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"gorm.io/gorm"
@@ -77,7 +80,10 @@ func migrate() error {
 		defer database.CloseDB()
 
 		// migrate.
-		// TODO: add migration code.
+		err = migrateNetworksTable(dbctx)
+		if err != nil {
+			return err
+		}
 
 		// mark migration job completed.
 		err = migrationJob.Create(dbctx)
@@ -179,5 +185,35 @@ func pgArchiveOldData() error {
 			return err
 		}
 	}
+	return nil
+}
+
+func migrateNetworksTable(dbctx context.Context) error {
+	networksMap, err := database.FetchRecords(database.NETWORKS_TABLE_NAME)
+	if err != nil {
+		return err
+	}
+
+	var networks []models.Network
+
+	for _, networkStr := range networksMap {
+		var network models.Network
+		err = json.Unmarshal([]byte(networkStr), &network)
+		if err != nil {
+			return err
+		}
+
+		networks = append(networks, network)
+	}
+
+	_networks := converters.ToSchemaNetworks(networks)
+
+	for _, _network := range _networks {
+		err = _network.Create(dbctx)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
