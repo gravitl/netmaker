@@ -2,11 +2,13 @@
 package logic
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base32"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 	"log/slog"
 	"net"
 	"os"
@@ -16,7 +18,6 @@ import (
 
 	"github.com/blang/semver"
 	"github.com/c-robinson/iplib"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 )
 
@@ -52,24 +53,12 @@ func IsAddressInCIDR(address net.IP, cidr string) bool {
 }
 
 // SetNetworkNodesLastModified - sets the network nodes last modified
-func SetNetworkNodesLastModified(networkName string) error {
-
-	timestamp := time.Now().Unix()
-
-	network, err := GetParentNetwork(networkName)
-	if err != nil {
-		return err
+func SetNetworkNodesLastModified(netID string) error {
+	_network := &schema.Network{
+		ID:                netID,
+		NodesLastModified: time.Now().Unix(),
 	}
-	network.NodesLastModified = timestamp
-	data, err := json.Marshal(&network)
-	if err != nil {
-		return err
-	}
-	err = database.Insert(networkName, string(data), database.NETWORKS_TABLE_NAME)
-	if err != nil {
-		return err
-	}
-	return nil
+	return _network.UpdateNodesLastModified(db.WithContext(context.TODO()))
 }
 
 // RandomString - returns a random string in a charset

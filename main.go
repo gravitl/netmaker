@@ -5,6 +5,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -99,6 +101,12 @@ func initialize() { // Client Mode Prereq Check
 	if err = database.InitializeDatabase(); err != nil {
 		logger.FatalLog("Error connecting to database: ", err.Error())
 	}
+
+	err = db.InitializeDB(schema.ListModels()...)
+	if err != nil {
+		logger.FatalLog("Error connecting to database: ", err.Error())
+	}
+
 	logger.Log(0, "database successfully connected")
 
 	//initialize cache
