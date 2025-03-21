@@ -6,23 +6,23 @@ import (
 )
 
 type Network struct {
-	ID                  string   `gorm:"id;primaryKey"`
-	IsIPv4              string   `gorm:"is_ipv4;default:'yes'"`
-	IsIPv6              string   `gorm:"is_ipv6;default:'no'"`
-	AddressRange        string   `gorm:"address_range"`
-	AddressRange6       string   `gorm:"address_range6"`
-	NodeLimit           int32    `gorm:"node_limit;default:999999999"`
-	AllowManualSignUp   string   `gorm:"allow_manual_sign_up;default:'no'"`
-	DefaultInterface    string   `gorm:"default_interface"`
-	DefaultPostDown     string   `gorm:"default_post_down"`
-	DefaultUDPHolePunch string   `gorm:"default_udp_hole_punch;default:'no'"`
-	DefaultACL          string   `gorm:"default_acl;default:'yes'"`
-	DefaultListenPort   int32    `gorm:"default_listen_port;default:51821"`
-	DefaultKeepalive    int32    `gorm:"default_keepalive;default:20"`
-	DefaultMTU          int32    `gorm:"default_mtu;default:1280"`
-	NameServers         []string `gorm:"name_servers;serializer:json"`
-	NodesLastModified   int64    `gorm:"nodes_last_modified"`
-	NetworkLastModified int64    `gorm:"network_last_modified"`
+	ID                  string `gorm:"id;primaryKey"`
+	IsIPv4              string `gorm:"default:'yes'"`
+	IsIPv6              string `gorm:"default:'no'"`
+	AddressRange        string
+	AddressRange6       string
+	NodeLimit           int32  `gorm:"default:999999999"`
+	AllowManualSignUp   string `gorm:"default:'no'"`
+	DefaultInterface    string
+	DefaultPostDown     string
+	DefaultUDPHolePunch string   `gorm:"default:'no'"`
+	DefaultACL          string   `gorm:"default:'yes'"`
+	DefaultListenPort   int32    `gorm:"default:51821"`
+	DefaultKeepalive    int32    `gorm:"default:20"`
+	DefaultMTU          int32    `gorm:"default:1280"`
+	NameServers         []string `gorm:"serializer:json"`
+	NodesLastModified   int64
+	NetworkLastModified int64
 }
 
 func (n *Network) TableName() string {

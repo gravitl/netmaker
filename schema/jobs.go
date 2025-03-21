@@ -16,8 +16,8 @@ import (
 // that it is easier to prevent a task from
 // being executed again.
 type Job struct {
-	ID        string    `gorm:"id;primaryKey"`
-	CreatedAt time.Time `gorm:"created_at"`
+	ID        string `gorm:"primaryKey"`
+	CreatedAt time.Time
 }
 
 // TableName returns the name of the jobs table.
