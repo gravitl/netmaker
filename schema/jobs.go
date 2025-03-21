@@ -16,7 +16,7 @@ import (
 // that it is easier to prevent a task from
 // being executed again.
 type Job struct {
-	ID        string    `gorm:"id;primary_key"`
+	ID        string    `gorm:"id;primaryKey"`
 	CreatedAt time.Time `gorm:"created_at"`
 }
 

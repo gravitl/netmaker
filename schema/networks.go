@@ -6,7 +6,7 @@ import (
 )
 
 type Network struct {
-	ID                  string   `gorm:"id;primary_key"`
+	ID                  string   `gorm:"id;primaryKey"`
 	IsIPv4              string   `gorm:"is_ipv4;default:'yes'"`
 	IsIPv6              string   `gorm:"is_ipv6;default:'no'"`
 	AddressRange        string   `gorm:"address_range"`
