@@ -424,7 +424,7 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 			ID:          uuid.New().String(),
 			Name:        fmt.Sprintf("%s group", userGroupReq.Group.Name),
 			MetaData:    "This Policy allows user group to communicate with all gateways",
-			Default:     true,
+			Default:     false,
 			ServiceType: models.Any,
 			NetworkID:   models.NetworkID(network.NetID),
 			Proto:       models.ALL,

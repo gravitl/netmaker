@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/netip"
 
-	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
@@ -242,9 +241,10 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				PersistentKeepaliveInterval: &peerHost.PersistentKeepalive,
 				ReplaceAllowedIPs:           true,
 			}
+			_, isFailOverPeer := node.FailOverPeers[peer.ID.String()]
 			if peer.IsEgressGateway {
 				peerKey := peerHost.PublicKey.String()
-				if peer.FailedOverBy != uuid.Nil && peer.FailedOverBy.String() != node.ID.String() {
+				if isFailOverPeer && peer.FailedOverBy.String() != node.ID.String() {
 					// get relay host
 					failOverNode, err := GetNodeByID(peer.FailedOverBy.String())
 					if err == nil {
@@ -278,7 +278,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			if peer.IsIngressGateway {
 				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, getExtpeersExtraRoutes(node)...)
 			}
-			_, isFailOverPeer := node.FailOverPeers[peer.ID.String()]
+
 			if (node.IsRelayed && node.RelayedBy != peer.ID.String()) ||
 				(peer.IsRelayed && peer.RelayedBy != node.ID.String()) || isFailOverPeer {
 				// if node is relayed and peer is not the relay, set remove to true
