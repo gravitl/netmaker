@@ -273,6 +273,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					NodeAddr6:              node.Address6,
 					EgressRanges:           filterConflictingEgressRoutes(node, peer),
 					EgressRangesWithMetric: filterConflictingEgressRoutesWithMetric(node, peer),
+					Network:                peer.Network,
 				})
 			}
 			if peer.IsIngressGateway {

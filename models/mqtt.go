@@ -77,6 +77,7 @@ type EgressNetworkRoutes struct {
 	NodeAddr6              net.IPNet           `json:"node_addr6"`
 	EgressRanges           []string            `json:"egress_ranges"`
 	EgressRangesWithMetric []EgressRangeMetric `json:"egress_ranges_metric"`
+	Network                string              `json:"network"`
 }
 
 // PeerRouteInfo - struct for peer info for an ext. client
