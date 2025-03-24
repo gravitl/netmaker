@@ -171,16 +171,11 @@ func removeOldUserGrps() {
 }
 
 func updateHosts() {
-	rows, err := database.FetchRecords(database.HOSTS_TABLE_NAME)
+	hosts, err := logic.GetAllHosts()
 	if err != nil {
 		logger.Log(0, "failed to fetch database records for hosts")
 	}
-	for _, row := range rows {
-		var host models.Host
-		if err := json.Unmarshal([]byte(row), &host); err != nil {
-			logger.Log(0, "failed to unmarshal database row to host", "row", row)
-			continue
-		}
+	for _, host := range hosts {
 		if host.PersistentKeepalive == 0 {
 			host.PersistentKeepalive = models.DefaultPersistentKeepAlive
 			if err := logic.UpsertHost(&host); err != nil {
