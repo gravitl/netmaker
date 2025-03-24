@@ -80,7 +80,10 @@ func migrate() error {
 		defer database.CloseDB()
 
 		// migrate.
-		err = migrateNetworksTable(dbctx)
+		err = errors.Join(
+			migrateNetworksTable(dbctx),
+			migrateHostsTable(dbctx),
+		)
 		if err != nil {
 			return err
 		}
@@ -210,6 +213,36 @@ func migrateNetworksTable(dbctx context.Context) error {
 
 	for _, _network := range _networks {
 		err = _network.Create(dbctx)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func migrateHostsTable(dbctx context.Context) error {
+	hostsMap, err := database.FetchRecords(database.HOSTS_TABLE_NAME)
+	if err != nil {
+		return err
+	}
+
+	var hosts []models.Host
+
+	for _, hostStr := range hostsMap {
+		var host models.Host
+		err = json.Unmarshal([]byte(hostStr), &host)
+		if err != nil {
+			return err
+		}
+
+		hosts = append(hosts, host)
+	}
+
+	_hosts := converters.ToSchemaHosts(hosts)
+
+	for _, _host := range _hosts {
+		err = _host.Create(dbctx)
 		if err != nil {
 			return err
 		}

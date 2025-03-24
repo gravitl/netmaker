@@ -58,6 +58,15 @@ func ToSchemaHost(host models.Host) schema.Host {
 	}
 }
 
+func ToSchemaHosts(hosts []models.Host) []schema.Host {
+	var schemaHosts []schema.Host
+	for _, host := range hosts {
+		schemaHosts = append(schemaHosts, ToSchemaHost(host))
+	}
+
+	return schemaHosts
+}
+
 func ToModelHost(host schema.Host) models.Host {
 	var publicKey wgtypes.Key
 	if host.PublicKey != "" {
