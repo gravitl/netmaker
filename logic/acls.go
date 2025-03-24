@@ -1490,7 +1490,7 @@ func checkIfAnyPolicyisUniDirectional(targetNode models.Node) bool {
 	}
 	targetNodeTags[models.TagID(targetNode.ID.String())] = struct{}{}
 	targetNodeTags["*"] = struct{}{}
-	acls := listDevicePolicies(models.NetworkID(targetNode.Network))
+	acls, _ := ListAclsByNetwork(models.NetworkID(targetNode.Network))
 	for _, acl := range acls {
 		if !acl.Enabled {
 			continue
