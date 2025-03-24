@@ -494,7 +494,8 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 	go logic.UnlinkNetworkAndTagsFromEnrollmentKeys(network, true)
 	go logic.DeleteNetworkRoles(network)
-	go logic.DeleteDefaultNetworkPolicies(models.NetworkID(network))
+	go logic.DeleteAllNetworkTags(models.NetworkID(network))
+	go logic.DeleteNetworkPolicies(models.NetworkID(network))
 	//delete network from allocated ip map
 	go logic.RemoveNetworkFromAllocatedIpMap(network)
 	go func() {

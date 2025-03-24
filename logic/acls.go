@@ -128,11 +128,11 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 	CreateDefaultUserPolicies(netID)
 }
 
-// DeleteDefaultNetworkPolicies - deletes all default network acl policies
-func DeleteDefaultNetworkPolicies(netId models.NetworkID) {
+// DeleteNetworkPolicies - deletes all default network acl policies
+func DeleteNetworkPolicies(netId models.NetworkID) {
 	acls, _ := ListAclsByNetwork(netId)
 	for _, acl := range acls {
-		if acl.NetworkID == netId && acl.Default {
+		if acl.NetworkID == netId {
 			DeleteAcl(acl)
 		}
 	}

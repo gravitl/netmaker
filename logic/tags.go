@@ -105,6 +105,12 @@ func ListTagsWithNodes(netID models.NetworkID) ([]models.TagListResp, error) {
 	}
 	return resp, nil
 }
+func DeleteAllNetworkTags(networkID models.NetworkID) {
+	tags, _ := ListNetworkTags(networkID)
+	for _, tagI := range tags {
+		DeleteTag(tagI.ID, false)
+	}
+}
 
 // ListTags - lists all tags from DB
 func ListTags() ([]models.Tag, error) {
