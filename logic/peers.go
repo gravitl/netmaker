@@ -543,7 +543,7 @@ func GetPeerListenPort(host *models.Host) int {
 }
 
 func filterConflictingEgressRoutes(node, peer models.Node) []string {
-	egressIPs := peer.EgressGatewayRanges
+	egressIPs := slices.Clone(peer.EgressGatewayRanges)
 	if node.IsEgressGateway {
 		// filter conflicting addrs
 		nodeEgressMap := make(map[string]struct{})
@@ -561,7 +561,7 @@ func filterConflictingEgressRoutes(node, peer models.Node) []string {
 }
 
 func filterConflictingEgressRoutesWithMetric(node, peer models.Node) []models.EgressRangeMetric {
-	egressIPs := peer.EgressGatewayRequest.RangesWithMetric
+	egressIPs := slices.Clone(peer.EgressGatewayRequest.RangesWithMetric)
 	if node.IsEgressGateway {
 		// filter conflicting addrs
 		nodeEgressMap := make(map[string]struct{})
