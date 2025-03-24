@@ -1504,12 +1504,15 @@ func checkIfAnyPolicyisUniDirectional(targetNode models.Node) bool {
 		srcTags := convAclTagToValueMap(acl.Src)
 		dstTags := convAclTagToValueMap(acl.Dst)
 		for nodeTag := range targetNodeTags {
-			if _, ok := srcTags[nodeTag.String()]; ok {
-				return true
+			if acl.RuleType == models.DevicePolicy {
+				if _, ok := srcTags[nodeTag.String()]; ok {
+					return true
+				}
+				if _, ok := srcTags[targetNode.ID.String()]; ok {
+					return true
+				}
 			}
-			if _, ok := srcTags[targetNode.ID.String()]; ok {
-				return true
-			}
+
 			if _, ok := dstTags[nodeTag.String()]; ok {
 				return true
 			}
