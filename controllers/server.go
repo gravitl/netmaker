@@ -1,7 +1,10 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 	"net/http"
 	"os"
 	"strings"
@@ -82,10 +85,7 @@ func getUsage(w http.ResponseWriter, _ *http.Request) {
 		FailOvers        int `json:"fail_overs"`
 	}
 	var serverUsage usage
-	hosts, err := logic.GetAllHosts()
-	if err == nil {
-		serverUsage.Hosts = len(hosts)
-	}
+	serverUsage.Hosts, _ = (&schema.Host{}).Count(db.WithContext(context.TODO()))
 	clients, err := logic.GetAllExtClients()
 	if err == nil {
 		serverUsage.Clients = len(clients)

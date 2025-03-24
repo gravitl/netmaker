@@ -1,10 +1,13 @@
 package logic
 
 import (
+	"context"
 	"crypto/md5"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gravitl/netmaker/converters"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 	"sort"
 	"sync"
 
@@ -85,22 +88,21 @@ func GetAllHosts() ([]models.Host, error) {
 			return currHosts, nil
 		}
 	}
-	records, err := database.FetchRecords(database.HOSTS_TABLE_NAME)
-	if err != nil && !database.IsEmptyRecord(err) {
+
+	_hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
+	if err != nil {
 		return nil, err
 	}
+
 	currHostsMap := make(map[string]models.Host)
 	if servercfg.CacheEnabled() {
 		defer loadHostsIntoCache(currHostsMap)
 	}
-	for k := range records {
-		var h models.Host
-		err = json.Unmarshal([]byte(records[k]), &h)
-		if err != nil {
-			return nil, err
-		}
-		currHosts = append(currHosts, h)
-		currHostsMap[h.ID.String()] = h
+
+	for _, _host := range _hosts {
+		host := converters.ToModelHost(_host)
+		currHosts = append(currHosts, host)
+		currHostsMap[host.ID.String()] = host
 	}
 
 	return currHosts, nil
@@ -124,47 +126,47 @@ func GetHostsMap() (map[string]models.Host, error) {
 			return hostsMap, nil
 		}
 	}
-	records, err := database.FetchRecords(database.HOSTS_TABLE_NAME)
-	if err != nil && !database.IsEmptyRecord(err) {
-		return nil, err
-	}
-	currHostMap := make(map[string]models.Host)
-	if servercfg.CacheEnabled() {
-		defer loadHostsIntoCache(currHostMap)
-	}
-	for k := range records {
-		var h models.Host
-		err = json.Unmarshal([]byte(records[k]), &h)
-		if err != nil {
-			return nil, err
-		}
-		currHostMap[h.ID.String()] = h
-	}
 
-	return currHostMap, nil
-}
-
-// GetHost - gets a host from db given id
-func GetHost(hostid string) (*models.Host, error) {
-	if servercfg.CacheEnabled() {
-		if host, ok := getHostFromCache(hostid); ok {
-			return &host, nil
-		}
-	}
-	record, err := database.FetchRecord(database.HOSTS_TABLE_NAME, hostid)
+	_hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return nil, err
 	}
 
-	var h models.Host
-	if err = json.Unmarshal([]byte(record), &h); err != nil {
-		return nil, err
-	}
+	currHostsMap := make(map[string]models.Host)
 	if servercfg.CacheEnabled() {
-		storeHostInCache(h)
+		defer loadHostsIntoCache(currHostsMap)
 	}
 
-	return &h, nil
+	for _, _host := range _hosts {
+		host := converters.ToModelHost(_host)
+		currHostsMap[host.ID.String()] = host
+	}
+
+	return currHostsMap, nil
+}
+
+// GetHost - gets a host from db given id
+func GetHost(hostID string) (*models.Host, error) {
+	if servercfg.CacheEnabled() {
+		if host, ok := getHostFromCache(hostID); ok {
+			return &host, nil
+		}
+	}
+
+	_host := &schema.Host{
+		ID: hostID,
+	}
+	err := _host.Get(db.WithContext(context.TODO()))
+	if err != nil {
+		return nil, err
+	}
+
+	host := converters.ToModelHost(*_host)
+	if servercfg.CacheEnabled() {
+		storeHostInCache(host)
+	}
+
+	return &host, nil
 }
 
 // GetHostByPubKey - gets a host from db given pubkey
@@ -298,19 +300,16 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 }
 
 // UpsertHost - upserts into DB a given host model, does not check for existence*
-func UpsertHost(h *models.Host) error {
-	data, err := json.Marshal(h)
+func UpsertHost(host *models.Host) error {
+	_host := converters.ToSchemaHost(*host)
+	err := _host.Upsert(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
-	}
-	err = database.Insert(h.ID.String(), string(data), database.HOSTS_TABLE_NAME)
-	if err != nil {
-		return err
-	}
-	if servercfg.CacheEnabled() {
-		storeHostInCache(*h)
 	}
 
+	if servercfg.CacheEnabled() {
+		storeHostInCache(*host)
+	}
 	return nil
 }
 
@@ -326,32 +325,23 @@ func RemoveHost(h *models.Host, forceDelete bool) error {
 		}
 	}
 
-	err := database.DeleteRecord(database.HOSTS_TABLE_NAME, h.ID.String())
+	host := &schema.Host{
+		ID: h.ID.String(),
+	}
+	err := host.Delete(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
 	if servercfg.CacheEnabled() {
 		deleteHostFromCache(h.ID.String())
 	}
+
 	go func() {
 		if servercfg.IsDNSMode() {
 			SetDNS()
 		}
 	}()
 
-	return nil
-}
-
-// RemoveHostByID - removes a given host by id from server
-func RemoveHostByID(hostID string) error {
-
-	err := database.DeleteRecord(database.HOSTS_TABLE_NAME, hostID)
-	if err != nil {
-		return err
-	}
-	if servercfg.CacheEnabled() {
-		deleteHostFromCache(hostID)
-	}
 	return nil
 }
 
