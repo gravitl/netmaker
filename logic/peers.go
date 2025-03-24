@@ -241,20 +241,45 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				PersistentKeepaliveInterval: &peerHost.PersistentKeepalive,
 				ReplaceAllowedIPs:           true,
 			}
+			_, isFailOverPeer := node.FailOverPeers[peer.ID.String()]
 			if peer.IsEgressGateway {
+				peerKey := peerHost.PublicKey.String()
+				if isFailOverPeer && peer.FailedOverBy.String() != node.ID.String() {
+					// get relay host
+					failOverNode, err := GetNodeByID(peer.FailedOverBy.String())
+					if err == nil {
+						relayHost, err := GetHost(failOverNode.HostID.String())
+						if err == nil {
+							peerKey = relayHost.PublicKey.String()
+						}
+					}
+				}
+				if peer.IsRelayed && (peer.RelayedBy != node.ID.String()) {
+					// get relay host
+					relayNode, err := GetNodeByID(peer.RelayedBy)
+					if err == nil {
+						relayHost, err := GetHost(relayNode.HostID.String())
+						if err == nil {
+							peerKey = relayHost.PublicKey.String()
+						}
+					}
+				}
+
 				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, models.EgressNetworkRoutes{
+					PeerKey:                peerKey,
 					EgressGwAddr:           peer.Address,
 					EgressGwAddr6:          peer.Address6,
 					NodeAddr:               node.Address,
 					NodeAddr6:              node.Address6,
-					EgressRanges:           peer.EgressGatewayRanges,
-					EgressRangesWithMetric: peer.EgressGatewayRequest.RangesWithMetric,
+					EgressRanges:           filterConflictingEgressRoutes(node, peer),
+					EgressRangesWithMetric: filterConflictingEgressRoutesWithMetric(node, peer),
+					Network:                peer.Network,
 				})
 			}
 			if peer.IsIngressGateway {
 				hostPeerUpdate.EgressRoutes = append(hostPeerUpdate.EgressRoutes, getExtpeersExtraRoutes(node)...)
 			}
-			_, isFailOverPeer := node.FailOverPeers[peer.ID.String()]
+
 			if (node.IsRelayed && node.RelayedBy != peer.ID.String()) ||
 				(peer.IsRelayed && peer.RelayedBy != node.ID.String()) || isFailOverPeer {
 				// if node is relayed and peer is not the relay, set remove to true
@@ -517,6 +542,42 @@ func GetPeerListenPort(host *models.Host) int {
 	return peerPort
 }
 
+func filterConflictingEgressRoutes(node, peer models.Node) []string {
+	egressIPs := slices.Clone(peer.EgressGatewayRanges)
+	if node.IsEgressGateway {
+		// filter conflicting addrs
+		nodeEgressMap := make(map[string]struct{})
+		for _, rangeI := range node.EgressGatewayRanges {
+			nodeEgressMap[rangeI] = struct{}{}
+		}
+		for i := len(egressIPs) - 1; i >= 0; i-- {
+			if _, ok := nodeEgressMap[egressIPs[i]]; ok {
+				egressIPs = append(egressIPs[:i], egressIPs[i+1:]...)
+			}
+		}
+	}
+
+	return egressIPs
+}
+
+func filterConflictingEgressRoutesWithMetric(node, peer models.Node) []models.EgressRangeMetric {
+	egressIPs := slices.Clone(peer.EgressGatewayRequest.RangesWithMetric)
+	if node.IsEgressGateway {
+		// filter conflicting addrs
+		nodeEgressMap := make(map[string]struct{})
+		for _, rangeI := range node.EgressGatewayRanges {
+			nodeEgressMap[rangeI] = struct{}{}
+		}
+		for i := len(egressIPs) - 1; i >= 0; i-- {
+			if _, ok := nodeEgressMap[egressIPs[i].Network]; ok {
+				egressIPs = append(egressIPs[:i], egressIPs[i+1:]...)
+			}
+		}
+	}
+
+	return egressIPs
+}
+
 // GetAllowedIPs - calculates the wireguard allowedip field for a peer of a node based on the peer and node settings
 func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet {
 	var allowedips []net.IPNet
@@ -605,6 +666,18 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 	if peer.IsEgressGateway {
 		// hasGateway = true
 		egressIPs := GetEgressIPs(peer)
+		if node.IsEgressGateway {
+			// filter conflicting addrs
+			nodeEgressMap := make(map[string]struct{})
+			for _, rangeI := range node.EgressGatewayRanges {
+				nodeEgressMap[rangeI] = struct{}{}
+			}
+			for i := len(egressIPs) - 1; i >= 0; i-- {
+				if _, ok := nodeEgressMap[egressIPs[i].String()]; ok {
+					egressIPs = append(egressIPs[:i], egressIPs[i+1:]...)
+				}
+			}
+		}
 		allowedips = append(allowedips, egressIPs...)
 	}
 	if peer.IsRelay {
