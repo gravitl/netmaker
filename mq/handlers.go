@@ -157,11 +157,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 			}
 		}(*currentHost)
 
-		if err := logic.DisassociateAllNodesFromHost(currentHost.ID.String()); err != nil {
-			slog.Error("failed to delete all nodes of host", "id", currentHost.ID, "error", err)
-			return
-		}
-		if err := logic.RemoveHostByID(currentHost.ID.String()); err != nil {
+		if err := logic.RemoveHost(currentHost, true); err != nil {
 			slog.Error("failed to delete host", "id", currentHost.ID, "error", err)
 			return
 		}
