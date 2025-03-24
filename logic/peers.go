@@ -175,6 +175,12 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				}
 			}
 			hostPeerUpdate.FwUpdate.AclRules["allowed-network-rules"] = aclRule
+			hostPeerUpdate.FwUpdate.EgressInfo["allowed-network-rules"] = models.EgressInfo{
+				EgressID: "allowed-network-rules",
+				EgressFwRules: map[string]models.AclRule{
+					"allowed-network-rules": aclRule,
+				},
+			}
 		}
 	}()
 

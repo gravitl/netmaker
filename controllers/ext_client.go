@@ -288,6 +288,16 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	} else if gwnode.IngressDNS != "" {
 		defaultDNS = "DNS = " + gwnode.IngressDNS
 	}
+	if client.DNS == "" {
+		if len(network.NameServers) > 0 {
+			if defaultDNS == "" {
+				defaultDNS = "DNS = " + strings.Join(network.NameServers, ",")
+			} else {
+				defaultDNS += "," + strings.Join(network.NameServers, ",")
+			}
+
+		}
+	}
 	// if servercfg.GetManageDNS() {
 	// 	if gwnode.Address6.IP != nil {
 	// 		if defaultDNS == "" {
@@ -731,7 +741,17 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	// 	models.RemoteAccessTagName))] = struct{}{}
 	// set extclient dns to ingressdns if extclient dns is not explicitly set
 	if (extclient.DNS == "") && (node.IngressDNS != "") {
-		extclient.DNS = node.IngressDNS
+		network, _ := logic.GetNetwork(node.Network)
+		dns := node.IngressDNS
+		if len(network.NameServers) > 0 {
+			if dns == "" {
+				dns = strings.Join(network.NameServers, ",")
+			} else {
+				dns += "," + strings.Join(network.NameServers, ",")
+			}
+
+		}
+		extclient.DNS = dns
 	}
 	host, err := logic.GetHost(node.HostID.String())
 	if err != nil {
