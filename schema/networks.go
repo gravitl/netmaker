@@ -31,35 +31,35 @@ func (n *Network) TableName() string {
 }
 
 func (n *Network) Create(ctx context.Context) error {
-	return db.FromContext(ctx).Table(n.TableName()).Create(n).Error
+	return db.FromContext(ctx).Model(&Network{}).Create(n).Error
 }
 
 func (n *Network) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Table(n.TableName()).Where("id = ?", n.ID).First(n).Error
+	return db.FromContext(ctx).Model(&Network{}).Where("id = ?", n.ID).First(n).Error
 }
 
 func (n *Network) ListAll(ctx context.Context) ([]Network, error) {
 	var networks []Network
-	err := db.FromContext(ctx).Table(n.TableName()).Find(&networks).Error
+	err := db.FromContext(ctx).Model(&Network{}).Find(&networks).Error
 	return networks, err
 }
 
 func (n *Network) Count(ctx context.Context) (int, error) {
 	var count int64
-	err := db.FromContext(ctx).Table(n.TableName()).Count(&count).Error
+	err := db.FromContext(ctx).Model(&Network{}).Count(&count).Error
 	return int(count), err
 }
 
 func (n *Network) Update(ctx context.Context) error {
-	return db.FromContext(ctx).Table(n.TableName()).Where("id = ?", n.ID).Updates(n).Error
+	return db.FromContext(ctx).Model(&Network{}).Where("id = ?", n.ID).Updates(n).Error
 }
 
 func (n *Network) UpdateNodesLastModified(ctx context.Context) error {
-	return db.FromContext(ctx).Table(n.TableName()).
+	return db.FromContext(ctx).Model(&Network{}).
 		Where("id = ?", n.ID).
 		Update("nodes_last_modified", n.NodesLastModified).Error
 }
 
 func (n *Network) Delete(ctx context.Context) error {
-	return db.FromContext(ctx).Table(n.TableName()).Where("id = ?", n.ID).Delete(n).Error
+	return db.FromContext(ctx).Model(&Network{}).Where("id = ?", n.ID).Delete(n).Error
 }
