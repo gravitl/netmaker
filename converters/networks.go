@@ -3,6 +3,7 @@ package converters
 import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"time"
 )
 
 func ToSchemaNetwork(network models.Network) schema.Network {
@@ -22,8 +23,8 @@ func ToSchemaNetwork(network models.Network) schema.Network {
 		DefaultKeepalive:    network.DefaultKeepalive,
 		DefaultMTU:          network.DefaultMTU,
 		NameServers:         network.NameServers,
-		NodesLastModified:   network.NodesLastModified,
-		NetworkLastModified: network.NetworkLastModified,
+		NodesLastModified:   time.Unix(network.NodesLastModified, 0),
+		NetworkLastModified: time.Unix(network.NetworkLastModified, 0),
 	}
 }
 
@@ -41,8 +42,8 @@ func ToModelNetwork(network schema.Network) models.Network {
 		AddressRange:        network.AddressRange,
 		AddressRange6:       network.AddressRange6,
 		NetID:               network.ID,
-		NodesLastModified:   network.NodesLastModified,
-		NetworkLastModified: network.NetworkLastModified,
+		NodesLastModified:   network.NodesLastModified.Unix(),
+		NetworkLastModified: network.NetworkLastModified.Unix(),
 		DefaultInterface:    network.DefaultInterface,
 		DefaultListenPort:   network.DefaultListenPort,
 		NodeLimit:           network.NodeLimit,

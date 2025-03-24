@@ -3,6 +3,7 @@ package schema
 import (
 	"context"
 	"github.com/gravitl/netmaker/db"
+	"time"
 )
 
 type Network struct {
@@ -21,8 +22,8 @@ type Network struct {
 	DefaultKeepalive    int32    `gorm:"default:20"`
 	DefaultMTU          int32    `gorm:"default:1280"`
 	NameServers         []string `gorm:"serializer:json"`
-	NodesLastModified   int64
-	NetworkLastModified int64
+	NodesLastModified   time.Time
+	NetworkLastModified time.Time
 }
 
 func (n *Network) TableName() string {

@@ -56,7 +56,7 @@ func IsAddressInCIDR(address net.IP, cidr string) bool {
 func SetNetworkNodesLastModified(netID string) error {
 	_network := &schema.Network{
 		ID:                netID,
-		NodesLastModified: time.Now().Unix(),
+		NodesLastModified: time.Now(),
 	}
 	return _network.UpdateNodesLastModified(db.WithContext(context.TODO()))
 }
