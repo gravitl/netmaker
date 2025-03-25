@@ -675,6 +675,12 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 	} else {
 		peerTags = peer.Tags
 	}
+	if nodeTags == nil {
+		nodeTags = make(map[models.TagID]struct{})
+	}
+	if peerTags == nil {
+		peerTags = make(map[models.TagID]struct{})
+	}
 	nodeTags[models.TagID(nodeId)] = struct{}{}
 	peerTags[models.TagID(peerId)] = struct{}{}
 	if checkDefaultPolicy {
@@ -920,6 +926,12 @@ func IsNodeAllowedToCommunicateV1(node, peer models.Node, checkDefaultPolicy boo
 	} else {
 		peerTags = peer.Tags
 	}
+	if nodeTags == nil {
+		nodeTags = make(map[models.TagID]struct{})
+	}
+	if peerTags == nil {
+		peerTags = make(map[models.TagID]struct{})
+	}
 	nodeTags[models.TagID(nodeId)] = struct{}{}
 	peerTags[models.TagID(peerId)] = struct{}{}
 	if checkDefaultPolicy {
@@ -1072,6 +1084,12 @@ func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool)
 		peer.Mutex.Unlock()
 	} else {
 		peerTags = peer.Tags
+	}
+	if nodeTags == nil {
+		nodeTags = make(map[models.TagID]struct{})
+	}
+	if peerTags == nil {
+		peerTags = make(map[models.TagID]struct{})
 	}
 	nodeTags[models.TagID(nodeId)] = struct{}{}
 	peerTags[models.TagID(peerId)] = struct{}{}
@@ -1403,6 +1421,9 @@ func getUserAclRulesForNode(targetnode *models.Node,
 	} else {
 		targetNodeTags = maps.Clone(targetnode.Tags)
 	}
+	if targetNodeTags == nil {
+		targetNodeTags = make(map[models.TagID]struct{})
+	}
 	targetNodeTags[models.TagID(targetnode.ID.String())] = struct{}{}
 	for _, acl := range acls {
 		if !acl.Enabled {
@@ -1488,6 +1509,9 @@ func checkIfAnyPolicyisUniDirectional(targetNode models.Node) bool {
 	} else {
 		targetNodeTags = maps.Clone(targetNode.Tags)
 	}
+	if targetNodeTags == nil {
+		targetNodeTags = make(map[models.TagID]struct{})
+	}
 	targetNodeTags[models.TagID(targetNode.ID.String())] = struct{}{}
 	targetNodeTags["*"] = struct{}{}
 	acls, _ := ListAclsByNetwork(models.NetworkID(targetNode.Network))
@@ -1547,6 +1571,9 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 		targetnode.Mutex.Unlock()
 	} else {
 		targetNodeTags = maps.Clone(targetnode.Tags)
+	}
+	if targetNodeTags == nil {
+		targetNodeTags = make(map[models.TagID]struct{})
 	}
 	targetNodeTags[models.TagID(targetnode.ID.String())] = struct{}{}
 	targetNodeTags["*"] = struct{}{}
