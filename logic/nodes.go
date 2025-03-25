@@ -512,7 +512,7 @@ func SetNodeDefaults(node *models.Node, resetConnected bool) {
 	}
 
 	node.SetLastModified()
-	node.SetLastCheckIn()
+	//node.SetLastCheckIn()
 
 	if resetConnected {
 		node.SetDefaultConnected()
