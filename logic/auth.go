@@ -145,6 +145,24 @@ func RevokeAccessToken(a models.AccessToken) error {
 	}
 	return nil
 }
+func RevokeAllUserTokens(username string) {
+	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
+	if err != nil {
+		return
+	}
+
+	for key, value := range collection {
+
+		var a models.AccessToken
+		err = json.Unmarshal([]byte(value), &a)
+		if err != nil {
+			continue // get users
+		}
+		if a.UserName == username {
+			database.DeleteRecord(database.ACCESS_TOKENS_TABLE_NAME, key)
+		}
+	}
+}
 
 func ListAccessTokens(username string) (tokens []models.AccessToken) {
 	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
@@ -404,7 +422,7 @@ func DeleteUser(user string) (bool, error) {
 		return false, err
 	}
 	go RemoveUserFromAclPolicy(user)
-
+	go RevokeAllUserTokens(user)
 	return true, nil
 }
 
