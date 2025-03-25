@@ -25,6 +25,8 @@ const (
 	DELETED_NODES_TABLE_NAME = "deletednodes"
 	// USERS_TABLE_NAME - users table
 	USERS_TABLE_NAME = "users"
+	// ACCESS_TOKENS_TABLE_NAME - access tokens table
+	ACCESS_TOKENS_TABLE_NAME = "access_tokens"
 	// USER_PERMISSIONS_TABLE_NAME - user permissions table
 	USER_PERMISSIONS_TABLE_NAME = "user_permissions"
 	// CERTS_TABLE_NAME - certificates table
@@ -140,6 +142,7 @@ func createTables() {
 	CreateTable(CERTS_TABLE_NAME)
 	CreateTable(DELETED_NODES_TABLE_NAME)
 	CreateTable(USERS_TABLE_NAME)
+	CreateTable(ACCESS_TOKENS_TABLE_NAME)
 	CreateTable(DNS_TABLE_NAME)
 	CreateTable(EXT_CLIENT_TABLE_NAME)
 	CreateTable(PEERS_TABLE_NAME)

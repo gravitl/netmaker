@@ -37,7 +37,119 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserV1)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users", logic.SecurityCheck(true, http.HandlerFunc(getUsers))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/roles", logic.SecurityCheck(true, http.HandlerFunc(ListRoles))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/{username}/access_token", logic.SecurityCheck(true, http.HandlerFunc(createUserAccessToken))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/users/{username}/access_token", logic.SecurityCheck(true, http.HandlerFunc(getUserAccessTokens))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/{username}/access_token", logic.SecurityCheck(true, http.HandlerFunc(deleteUserAccessTokens))).Methods(http.MethodDelete)
+}
 
+// @Summary     Authenticate a user to retrieve an authorization token
+// @Router      /api/v1/users/{username}/access_token [post]
+// @Tags        Auth
+// @Accept      json
+// @Param       body body models.UserAuthParams true "Authentication parameters"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     401 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
+
+	// Auth request consists of Mac Address and Password (from node that is authorizing
+	// in case of Master, auth is ignored and mac is set to "mastermac"
+	var req models.AccessToken
+
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		logger.Log(0, "error decoding request body: ",
+			err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	user, err := logic.GetUser(req.UserName)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+		return
+	}
+	if logic.IsOauthUser(user) == nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user is registered via SSO"), "badrequest"))
+		return
+	}
+	jwt, err := logic.CreateUserJWTWithExpiry(user.UserName, user.PlatformRoleID, req.ExpiresAt)
+
+	if jwt == "" {
+		// very unlikely that err is !nil and no jwt returned, but handle it anyways.
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("error creating access token "+err.Error()), "internal"),
+		)
+		return
+	}
+	err = logic.CreateAccessToken(req)
+	if err != nil {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("error creating access token "+err.Error()), "internal"),
+		)
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, models.SuccessfulUserLoginResponse{
+		AuthToken: jwt,
+		UserName:  req.UserName,
+	}, "api access token has generated for user "+req.UserName)
+}
+
+// @Summary     Authenticate a user to retrieve an authorization token
+// @Router      /api/v1/users/{username}/access_token [post]
+// @Tags        Auth
+// @Accept      json
+// @Param       body body models.UserAuthParams true "Authentication parameters"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     401 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func getUserAccessTokens(w http.ResponseWriter, r *http.Request) {
+	var params = mux.Vars(r)
+	username := params["username"]
+	_, err := logic.GetUser(username)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+		return
+	}
+
+	logic.ReturnSuccessResponseWithJson(w, r, logic.ListAccessTokens(username), "fetched api access tokens for user "+username)
+}
+
+// @Summary     Authenticate a user to retrieve an authorization token
+// @Router      /api/v1/users/{username}/access_token [post]
+// @Tags        Auth
+// @Accept      json
+// @Param       body body models.UserAuthParams true "Authentication parameters"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     401 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
+	var req models.AccessToken
+
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		logger.Log(0, "error decoding request body: ",
+			err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	err = logic.RevokeAccessToken(req)
+	if err != nil {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("error creating access token "+err.Error()), "internal"),
+		)
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, nil, "revoked access token "+req.Name)
 }
 
 // @Summary     Authenticate a user to retrieve an authorization token
