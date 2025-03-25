@@ -1,21 +1,20 @@
-# Netmaker v0.30.0
+# Netmaker v0.90.0
 
 ## Whats New ✨
-- Advanced ACL Rules - port, protocol and traffic direction
-- Reduced Firewall Requirements To One Single Port (443 udp/tcp)
-- Option to Turn off STUN or specify custom stun servers
-- Improved Connectivity Status Indicator with real-time troubleshooting help.
+- ACL Rules for Egress Ranges
+- High Availability for Egress Routes
+- Remote Access Gateways and Relays have been merged together into  "Gateways" and are now available on CE.
+- Enchanced Graph Page
+- Ability to Define Additional Nameservers in your network
 
 ## What's Fixed/Improved 🛠
 - Metrics Data
-- Optimised MQ message size
-- FailOver Stability Fixes
-- Scalability Fixes
-- Duplicate Node IP check on update
+- IPv6 DNS Entries Are Not Working.
+- FailOver connection improvements.
+- Optimized Failover peer signaling.
+- Improved Connectivity Status Indicator with real-time troubleshooting help.
 
 ## Known Issues 🐞
 
-- IPv6 DNS Entries Are Not Working.
-- Stale Peer On The Interface, When Forced Removed From Multiple Networks At Once.
-- WireGuard DNS issue on most flavours of Ubuntu 24.04 and some other newer Linux distributions. The issue is affecting the Remote Access Client (RAC) and the plain WireGuard external clients. Workaround can be found here https://help.netmaker.io/en/articles/9612016-extclient-rac-dns-issue-on-ubuntu-24-04.
+- WireGuard DNS issue on Ubuntu 24.04 and some other newer Linux distributions. The issue is affecting the Remote Access Client (RAC) and the plain WireGuard external clients. Workaround can be found here https://help.netmaker.io/en/articles/9612016-extclient-rac-dns-issue-on-ubuntu-24-04.
 
