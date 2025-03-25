@@ -26,10 +26,6 @@ type Network struct {
 	NetworkLastModified time.Time
 }
 
-func (n *Network) TableName() string {
-	return "networks"
-}
-
 func (n *Network) Create(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Network{}).Create(n).Error
 }

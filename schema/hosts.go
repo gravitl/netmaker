@@ -41,10 +41,6 @@ type Host struct {
 	TrafficKeyPublic    string
 }
 
-func (h *Host) TableName() string {
-	return "hosts"
-}
-
 func (h *Host) Create(ctx context.Context) error {
 	return db.FromContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if h.DefaultInterface != "" {
