@@ -1466,7 +1466,7 @@ info:
   contact: {}
   description: NetMaker API Docs
   title: NetMaker
-  version: 0.30.0
+  version: 0.90.0
 paths:
   /api/dns:
     get:
