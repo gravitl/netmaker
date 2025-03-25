@@ -320,6 +320,7 @@ func DeleteNode(node *models.Node, purge bool) error {
 	if err := DissasociateNodeFromHost(node, host); err != nil {
 		return err
 	}
+	go RemoveNodeFromAclPolicy(*node)
 
 	return nil
 }
@@ -457,7 +458,7 @@ func AddStaticNodestoList(nodes []models.Node) []models.Node {
 	return nodes
 }
 
-func AddStatusToNodes(nodes []models.Node) (nodesWithStatus []models.Node) {
+func AddStatusToNodes(nodes []models.Node, statusCall bool) (nodesWithStatus []models.Node) {
 	aclDefaultPolicyStatusMap := make(map[string]bool)
 	for _, node := range nodes {
 		if _, ok := aclDefaultPolicyStatusMap[node.Network]; !ok {
@@ -465,7 +466,12 @@ func AddStatusToNodes(nodes []models.Node) (nodesWithStatus []models.Node) {
 			defaultPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 			aclDefaultPolicyStatusMap[node.Network] = defaultPolicy.Enabled
 		}
-		GetNodeStatus(&node, aclDefaultPolicyStatusMap[node.Network])
+		if statusCall {
+			GetNodeStatus(&node, aclDefaultPolicyStatusMap[node.Network])
+		} else {
+			GetNodeCheckInStatus(&node, true)
+		}
+
 		nodesWithStatus = append(nodesWithStatus, node)
 	}
 	return
@@ -584,6 +590,16 @@ func GetAllNodesAPI(nodes []models.Node) []models.ApiNode {
 		apiNodes = append(apiNodes, *newApiNode)
 	}
 	return apiNodes[:]
+}
+
+// GetNodesStatusAPI - gets nodes status
+func GetNodesStatusAPI(nodes []models.Node) map[string]models.ApiNodeStatus {
+	apiStatusNodesMap := make(map[string]models.ApiNodeStatus)
+	for i := range nodes {
+		newApiNode := nodes[i].ConvertToStatusNode()
+		apiStatusNodesMap[newApiNode.ID] = *newApiNode
+	}
+	return apiStatusNodesMap
 }
 
 // DeleteExpiredNodes - goroutine which deletes nodes which are expired
@@ -840,6 +856,9 @@ func GetTagMapWithNodesByNetwork(netID models.NetworkID, withStaticNodes bool) (
 	tagNodesMap = make(map[models.TagID][]models.Node)
 	nodes, _ := GetNetworkNodes(netID.String())
 	for _, nodeI := range nodes {
+		tagNodesMap[models.TagID(nodeI.ID.String())] = []models.Node{
+			nodeI,
+		}
 		if nodeI.Tags == nil {
 			continue
 		}
@@ -847,6 +866,9 @@ func GetTagMapWithNodesByNetwork(netID models.NetworkID, withStaticNodes bool) (
 			nodeI.Mutex.Lock()
 		}
 		for nodeTagID := range nodeI.Tags {
+			if nodeTagID == models.TagID(nodeI.ID.String()) {
+				continue
+			}
 			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
 		}
 		if nodeI.Mutex != nil {
@@ -867,13 +889,26 @@ func AddTagMapWithStaticNodes(netID models.NetworkID,
 		return tagNodesMap
 	}
 	for _, extclient := range extclients {
-		if extclient.Tags == nil || extclient.RemoteAccessClientID != "" {
+		if extclient.RemoteAccessClientID != "" {
 			continue
 		}
+		tagNodesMap[models.TagID(extclient.ClientID)] = []models.Node{
+			{
+				IsStatic:   true,
+				StaticNode: extclient,
+			},
+		}
+		if extclient.Tags == nil {
+			continue
+		}
+
 		if extclient.Mutex != nil {
 			extclient.Mutex.Lock()
 		}
 		for tagID := range extclient.Tags {
+			if tagID == models.TagID(extclient.ClientID) {
+				continue
+			}
 			tagNodesMap[tagID] = append(tagNodesMap[tagID], extclient.ConvertToStaticNode())
 			tagNodesMap["*"] = append(tagNodesMap["*"], extclient.ConvertToStaticNode())
 		}
@@ -891,6 +926,12 @@ func AddTagMapWithStaticNodesWithUsers(netID models.NetworkID,
 		return tagNodesMap
 	}
 	for _, extclient := range extclients {
+		tagNodesMap[models.TagID(extclient.ClientID)] = []models.Node{
+			{
+				IsStatic:   true,
+				StaticNode: extclient,
+			},
+		}
 		if extclient.Tags == nil {
 			continue
 		}

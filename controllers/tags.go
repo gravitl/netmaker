@@ -88,6 +88,7 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 		TagName:   req.TagName,
 		Network:   req.Network,
 		CreatedBy: user.UserName,
+		ColorCode: req.ColorCode,
 		CreatedAt: time.Now(),
 	}
 	_, err = logic.GetTag(tag.ID)
@@ -181,6 +182,14 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 		}
 		// delete old Tag entry
 		logic.DeleteTag(updateTag.ID, false)
+	}
+	if updateTag.ColorCode != "" && updateTag.ColorCode != tag.ColorCode {
+		tag.ColorCode = updateTag.ColorCode
+		err = logic.UpsertTag(tag)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
 	}
 	go func() {
 		logic.UpdateTag(updateTag, newID)

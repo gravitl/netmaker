@@ -53,11 +53,14 @@ func (ext *ExtClient) ConvertToStaticNode() Node {
 
 	return Node{
 		CommonNode: CommonNode{
-			Network: ext.Network,
+			Network:  ext.Network,
+			Address:  ext.AddressIPNet4(),
+			Address6: ext.AddressIPNet6(),
 		},
 		Tags:       ext.Tags,
 		IsStatic:   true,
 		StaticNode: *ext,
+		IsUserNode: ext.RemoteAccessClientID != "",
 		Mutex:      ext.Mutex,
 	}
 }

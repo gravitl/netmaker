@@ -79,9 +79,18 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserSignUpApprovalPending(w)
 		return
 	}
-	// if user exists with provider ID, convert them into email ID
+
 	user, err := logic.GetUser(content.UserPrincipalName)
 	if err == nil {
+		// if user exists, then ensure user's auth type is
+		// oauth before proceeding.
+		if user.AuthType == models.BasicAuth {
+			logger.Log(0, "invalid auth type: basic_auth")
+			handleAuthTypeMismatch(w)
+			return
+		}
+
+		// if user exists with provider ID, convert them into email ID
 		_, err := logic.GetUser(content.Email)
 		if err != nil {
 			user.UserName = content.Email
@@ -91,7 +100,8 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 			database.Insert(user.UserName, string(d), database.USERS_TABLE_NAME)
 		}
 	}
-	_, err = logic.GetUser(content.Email)
+
+	user, err = logic.GetUser(content.Email)
 	if err != nil {
 		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
 			if inviteExists {
@@ -127,7 +137,16 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 			handleSomethingWentWrong(w)
 			return
 		}
+	} else {
+		// if user exists, then ensure user's auth type is
+		// oauth before proceeding.
+		if user.AuthType == models.BasicAuth {
+			logger.Log(0, "invalid auth type: basic_auth")
+			handleAuthTypeMismatch(w)
+			return
+		}
 	}
+
 	user, err = logic.GetUser(content.Email)
 	if err != nil {
 		handleOauthUserNotFound(w)

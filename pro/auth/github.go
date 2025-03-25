@@ -82,6 +82,14 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 	// if user exists with provider ID, convert them into email ID
 	user, err := logic.GetUser(content.Login)
 	if err == nil {
+		// if user exists, then ensure user's auth type is
+		// oauth before proceeding.
+		if user.AuthType == models.BasicAuth {
+			logger.Log(0, "invalid auth type: basic_auth")
+			handleAuthTypeMismatch(w)
+			return
+		}
+
 		// checks if user exists with email
 		_, err := logic.GetUser(content.Email)
 		if err != nil {

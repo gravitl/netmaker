@@ -3,6 +3,8 @@ package logic
 import (
 	"errors"
 	"fmt"
+	"slices"
+	"sort"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
@@ -77,6 +79,14 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	if host.FirewallInUse == models.FIREWALL_NONE {
 		return models.Node{}, errors.New("please install iptables or nftables on the device")
 	}
+	if len(gateway.RangesWithMetric) == 0 && len(gateway.Ranges) > 0 {
+		for _, rangeI := range gateway.Ranges {
+			gateway.RangesWithMetric = append(gateway.RangesWithMetric, models.EgressRangeMetric{
+				Network:     rangeI,
+				RouteMetric: 256,
+			})
+		}
+	}
 	for i := len(gateway.Ranges) - 1; i >= 0; i-- {
 		// check if internet gateway IPv4
 		if gateway.Ranges[i] == "0.0.0.0/0" || gateway.Ranges[i] == "::/0" {
@@ -91,6 +101,28 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 		gateway.Ranges[i] = normalized
 
 	}
+	rangesWithMetric := []string{}
+	for i := len(gateway.RangesWithMetric) - 1; i >= 0; i-- {
+		if gateway.RangesWithMetric[i].Network == "0.0.0.0/0" || gateway.RangesWithMetric[i].Network == "::/0" {
+			// remove inet range
+			gateway.RangesWithMetric = append(gateway.RangesWithMetric[:i], gateway.RangesWithMetric[i+1:]...)
+			continue
+		}
+		normalized, err := NormalizeCIDR(gateway.RangesWithMetric[i].Network)
+		if err != nil {
+			return models.Node{}, err
+		}
+		gateway.RangesWithMetric[i].Network = normalized
+		rangesWithMetric = append(rangesWithMetric, gateway.RangesWithMetric[i].Network)
+		if gateway.RangesWithMetric[i].RouteMetric <= 0 || gateway.RangesWithMetric[i].RouteMetric > 999 {
+			gateway.RangesWithMetric[i].RouteMetric = 256
+		}
+	}
+	sort.Strings(gateway.Ranges)
+	sort.Strings(rangesWithMetric)
+	if !slices.Equal(gateway.Ranges, rangesWithMetric) {
+		return models.Node{}, errors.New("invalid ranges")
+	}
 	if gateway.NatEnabled == "" {
 		gateway.NatEnabled = "yes"
 	}
@@ -104,6 +136,7 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	node.IsEgressGateway = true
 	node.EgressGatewayRanges = gateway.Ranges
 	node.EgressGatewayNatEnabled = models.ParseBool(gateway.NatEnabled)
+
 	node.EgressGatewayRequest = gateway // store entire request for use when preserving the egress gateway
 	node.SetLastModified()
 	if err = UpsertNode(&node); err != nil {
@@ -187,7 +220,7 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	if node.Tags == nil {
 		node.Tags = make(map[models.TagID]struct{})
 	}
-	node.Tags[models.TagID(fmt.Sprintf("%s.%s", netid, models.RemoteAccessTagName))] = struct{}{}
+	node.Tags[models.TagID(fmt.Sprintf("%s.%s", netid, models.GwTagName))] = struct{}{}
 	err = UpsertNode(&node)
 	if err != nil {
 		return models.Node{}, err
@@ -239,7 +272,7 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 	if !servercfg.IsPro {
 		node.IsInternetGateway = false
 	}
-	delete(node.Tags, models.TagID(fmt.Sprintf("%s.%s", node.Network, models.RemoteAccessTagName)))
+	delete(node.Tags, models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName)))
 	node.IngressGatewayRange = ""
 	node.Metadata = ""
 	err = UpsertNode(&node)
