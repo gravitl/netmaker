@@ -417,6 +417,27 @@ func GetAllExtClients() ([]models.ExtClient, error) {
 	return clients, nil
 }
 
+// GetAllExtClientsWithStatus - returns all external clients with
+// given status.
+func GetAllExtClientsWithStatus(status models.NodeStatus) ([]models.ExtClient, error) {
+	extClients, err := GetAllExtClients()
+	if err != nil {
+		return nil, err
+	}
+
+	var validExtClients []models.ExtClient
+	for _, extClient := range extClients {
+		node := extClient.ConvertToStaticNode()
+		getNodeStatus(&node, false)
+
+		if node.Status == status {
+			validExtClients = append(validExtClients, extClient)
+		}
+	}
+
+	return validExtClients, nil
+}
+
 // ToggleExtClientConnectivity - enables or disables an ext client
 func ToggleExtClientConnectivity(client *models.ExtClient, enable bool) (models.ExtClient, error) {
 	update := models.CustomExtClient{

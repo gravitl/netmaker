@@ -82,11 +82,11 @@ func getUsage(w http.ResponseWriter, _ *http.Request) {
 		FailOvers        int `json:"fail_overs"`
 	}
 	var serverUsage usage
-	hosts, err := logic.GetAllHosts()
+	hosts, err := logic.GetAllHostsWithStatus(models.OnlineSt)
 	if err == nil {
 		serverUsage.Hosts = len(hosts)
 	}
-	clients, err := logic.GetAllExtClients()
+	clients, err := logic.GetAllExtClientsWithStatus(models.OnlineSt)
 	if err == nil {
 		serverUsage.Clients = len(clients)
 	}

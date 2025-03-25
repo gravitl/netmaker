@@ -106,6 +106,33 @@ func GetAllHosts() ([]models.Host, error) {
 	return currHosts, nil
 }
 
+// GetAllHostsWithStatus - returns all hosts with at least one
+// node with given status.
+func GetAllHostsWithStatus(status models.NodeStatus) ([]models.Host, error) {
+	hosts, err := GetAllHosts()
+	if err != nil {
+		return nil, err
+	}
+
+	var validHosts []models.Host
+	for _, host := range hosts {
+		if len(host.Nodes) == 0 {
+			continue
+		}
+
+		nodes := GetHostNodes(&host)
+		for _, node := range nodes {
+			getNodeStatus(&node, false)
+			if node.Status == status {
+				validHosts = append(validHosts, host)
+				break
+			}
+		}
+	}
+
+	return validHosts, nil
+}
+
 // GetAllHostsAPI - get's all the hosts in an API usable format
 func GetAllHostsAPI(hosts []models.Host) []models.ApiHost {
 	apiHosts := []models.ApiHost{}
