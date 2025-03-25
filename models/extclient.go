@@ -50,7 +50,9 @@ type CustomExtClient struct {
 }
 
 func (ext *ExtClient) ConvertToStaticNode() Node {
-
+	if ext.Tags == nil {
+		ext.Tags = make(map[TagID]struct{})
+	}
 	return Node{
 		CommonNode: CommonNode{
 			Network: ext.Network,
