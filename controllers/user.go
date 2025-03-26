@@ -37,9 +37,9 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserV1)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users", logic.SecurityCheck(true, http.HandlerFunc(getUsers))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/roles", logic.SecurityCheck(true, http.HandlerFunc(ListRoles))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/{username}/access_token", logic.SecurityCheck(true, http.HandlerFunc(createUserAccessToken))).Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/users/{username}/access_token", logic.SecurityCheck(true, http.HandlerFunc(getUserAccessTokens))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/users/{username}/access_token", logic.SecurityCheck(true, http.HandlerFunc(deleteUserAccessTokens))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(createUserAccessToken))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(getUserAccessTokens))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(deleteUserAccessTokens))).Methods(http.MethodDelete)
 }
 
 // @Summary     Authenticate a user to retrieve an authorization token
@@ -62,6 +62,14 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, "error decoding request body: ",
 			err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if req.Name == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("name is required"), "badrequest"))
+		return
+	}
+	if req.UserName == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), "badrequest"))
 		return
 	}
 
@@ -110,8 +118,11 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func getUserAccessTokens(w http.ResponseWriter, r *http.Request) {
-	var params = mux.Vars(r)
-	username := params["username"]
+	username := r.URL.Query().Get("username")
+	if username == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), "badrequest"))
+		return
+	}
 	_, err := logic.GetUser(username)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
@@ -131,25 +142,22 @@ func getUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
-	var req models.AccessToken
-
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		logger.Log(0, "error decoding request body: ",
-			err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("id is required"), "badrequest"))
 		return
 	}
-	err = logic.RevokeAccessToken(req)
+
+	err := logic.RevokeAccessToken(models.AccessToken{ID: id})
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
 			r,
-			logic.FormatError(errors.New("error creating access token "+err.Error()), "internal"),
+			logic.FormatError(errors.New("error deleting access token "+err.Error()), "internal"),
 		)
 		return
 	}
-	logic.ReturnSuccessResponseWithJson(w, r, nil, "revoked access token "+req.Name)
+	logic.ReturnSuccessResponseWithJson(w, r, nil, "revoked access token")
 }
 
 // @Summary     Authenticate a user to retrieve an authorization token

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
 
@@ -139,7 +140,7 @@ func FetchPassValue(newValue string) (string, error) {
 }
 
 func RevokeAccessToken(a models.AccessToken) error {
-	err := database.DeleteRecord(database.ACCESS_TOKENS_TABLE_NAME, a.GetDBKey())
+	err := database.DeleteRecord(database.ACCESS_TOKENS_TABLE_NAME, a.ID)
 	if err != nil {
 		return err
 	}
@@ -164,8 +165,17 @@ func RevokeAllUserTokens(username string) {
 	}
 }
 
+func GetAccessToken(k string) (a models.AccessToken, err error) {
+	value, err := database.FetchRecord(k, database.ACCESS_TOKENS_TABLE_NAME)
+	if err != nil {
+		return
+	}
+	err = json.Unmarshal([]byte(value), &a)
+	return
+}
+
 func ListAccessTokens(username string) (tokens []models.AccessToken) {
-	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
+	collection, err := database.FetchRecords(database.ACCESS_TOKENS_TABLE_NAME)
 	if err != nil {
 		return
 	}
@@ -186,13 +196,13 @@ func ListAccessTokens(username string) (tokens []models.AccessToken) {
 }
 
 func CreateAccessToken(a models.AccessToken) error {
-	// connect db
+	a.ID = uuid.New().String()
 	data, err := json.Marshal(a)
 	if err != nil {
 		logger.Log(0, "failed to marshal", err.Error())
 		return err
 	}
-	err = database.Insert(a.GetDBKey(), string(data), database.ACCESS_TOKENS_TABLE_NAME)
+	err = database.Insert(a.ID, string(data), database.ACCESS_TOKENS_TABLE_NAME)
 	if err != nil {
 		logger.Log(0, "failed to insert user", err.Error())
 		return err
