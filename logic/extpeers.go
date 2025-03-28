@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -463,7 +464,18 @@ func ToggleExtClientConnectivity(client *models.ExtClient, enable bool) (models.
 	return newClient, nil
 }
 
+// Sort a slice of net.IP addresses
+func sortIPs(ips []net.IP) {
+	sort.Slice(ips, func(i, j int) bool {
+		ip1, ip2 := ips[i].To16(), ips[j].To16()
+		return string(ip1) < string(ip2) // Compare as byte slices
+	})
+}
+
 func GetStaticNodeIps(node models.Node) (ips []net.IP) {
+	defer func() {
+		sortIPs(ips)
+	}()
 	defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 	defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 
@@ -487,7 +499,14 @@ func GetStaticNodeIps(node models.Node) (ips []net.IP) {
 
 func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 	// fetch user access to static clients via policies
-
+	defer func() {
+		sort.Slice(rules, func(i, j int) bool {
+			if !rules[i].SrcIP.IP.Equal(rules[j].SrcIP.IP) {
+				return string(rules[i].SrcIP.IP.To16()) < string(rules[j].SrcIP.IP.To16())
+			}
+			return string(rules[i].DstIP.IP.To16()) < string(rules[j].DstIP.IP.To16())
+		})
+	}()
 	defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 	defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 	nodes, _ := GetNetworkNodes(node.Network)
