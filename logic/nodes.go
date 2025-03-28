@@ -701,12 +701,11 @@ func createNode(node *models.Node) error {
 		return err
 	}
 	CheckZombies(node)
-
+	node.SetLastCheckIn()
 	nodebytes, err := json.Marshal(&node)
 	if err != nil {
 		return err
 	}
-	node.SetLastCheckIn()
 	err = database.Insert(node.ID.String(), string(nodebytes), database.NODES_TABLE_NAME)
 	if err != nil {
 		return err
