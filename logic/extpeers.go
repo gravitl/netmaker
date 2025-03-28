@@ -874,14 +874,21 @@ func GetExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandA
 }
 
 func getExtPeerEgressRoute(node models.Node, extPeer models.ExtClient) (egressRoutes []models.EgressNetworkRoutes) {
-	egressRoutes = append(egressRoutes, models.EgressNetworkRoutes{
+	r := models.EgressNetworkRoutes{
 		PeerKey:       extPeer.PublicKey,
 		EgressGwAddr:  extPeer.AddressIPNet4(),
 		EgressGwAddr6: extPeer.AddressIPNet6(),
 		NodeAddr:      node.Address,
 		NodeAddr6:     node.Address6,
 		EgressRanges:  extPeer.ExtraAllowedIPs,
-	})
+	}
+	for _, extraAllowedIP := range extPeer.ExtraAllowedIPs {
+		r.EgressRangesWithMetric = append(r.EgressRangesWithMetric, models.EgressRangeMetric{
+			Network:     extraAllowedIP,
+			RouteMetric: 256,
+		})
+	}
+	egressRoutes = append(egressRoutes, r)
 	return
 }
 
