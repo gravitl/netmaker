@@ -685,7 +685,7 @@ func createNode(node *models.Node) error {
 		return err
 	}
 	CheckZombies(node)
-
+	node.SetLastCheckIn()
 	nodebytes, err := json.Marshal(&node)
 	if err != nil {
 		return err
