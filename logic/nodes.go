@@ -706,6 +706,7 @@ func createNode(node *models.Node) error {
 	if err != nil {
 		return err
 	}
+	node.SetLastCheckIn()
 	err = database.Insert(node.ID.String(), string(nodebytes), database.NODES_TABLE_NAME)
 	if err != nil {
 		return err
