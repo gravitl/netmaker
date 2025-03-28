@@ -1602,24 +1602,6 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 	}
 	return rules
 }
-func UniqueIPNetList(ipnets []net.IPNet) []net.IPNet {
-	uniqueMap := make(map[string]net.IPNet)
-
-	for _, ipnet := range ipnets {
-		key := ipnet.String() // Uses CIDR notation as a unique key
-		if _, exists := uniqueMap[key]; !exists {
-			uniqueMap[key] = ipnet
-		}
-	}
-
-	// Convert map back to slice
-	uniqueList := make([]net.IPNet, 0, len(uniqueMap))
-	for _, ipnet := range uniqueMap {
-		uniqueList = append(uniqueList, ipnet)
-	}
-
-	return uniqueList
-}
 
 func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclRule) {
 	rules = make(map[string]models.AclRule)
