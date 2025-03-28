@@ -31,6 +31,7 @@ func nodeHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createingress", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceIngress, http.HandlerFunc(createGateway)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleteingress", logic.SecurityCheck(true, http.HandlerFunc(deleteGateway))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/nodes/adm/{network}/authenticate", authenticate).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/nodes/{network}/status", logic.SecurityCheck(true, http.HandlerFunc(getNetworkNodeStatus))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/nodes/migrate", migrate).Methods(http.MethodPost)
 }
 
@@ -328,7 +329,7 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	}
 
 	nodes = logic.AddStaticNodestoList(nodes)
-	nodes = logic.AddStatusToNodes(nodes)
+	nodes = logic.AddStatusToNodes(nodes, false)
 	// returns all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	logger.Log(2, r.Header.Get("user"), "fetched nodes on network", networkName)
@@ -368,13 +369,59 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 
 	}
 	nodes = logic.AddStaticNodestoList(nodes)
-	nodes = logic.AddStatusToNodes(nodes)
+	nodes = logic.AddStatusToNodes(nodes, false)
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	logger.Log(3, r.Header.Get("user"), "fetched all nodes they have access to")
 	logic.SortApiNodes(apiNodes[:])
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNodes)
+}
+
+// @Summary     Get all nodes status on the network
+// @Router      /api/v1/nodes/{network}/status [get]
+// @Tags        Nodes
+// @Securitydefinitions.oauth2.application OAuth2Application
+// @Success     200 {array} models.ApiNode
+// @Failure     500 {object} models.ErrorResponse
+// Not quite sure if this is necessary. Probably necessary based on front end but may want to review after iteration 1 if it's being used or not
+func getNetworkNodeStatus(w http.ResponseWriter, r *http.Request) {
+	var params = mux.Vars(r)
+	netID := params["network"]
+	// validate network
+	_, err := logic.GetNetwork(netID)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to get network %v", err), "badrequest"))
+		return
+	}
+	var nodes []models.Node
+	nodes, err = logic.GetNetworkNodes(netID)
+	if err != nil {
+		logger.Log(0, "error fetching all nodes info: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	username := r.Header.Get("user")
+	if r.Header.Get("ismaster") == "no" {
+		user, err := logic.GetUser(username)
+		if err != nil {
+			return
+		}
+		userPlatformRole, err := logic.GetRole(user.PlatformRoleID)
+		if err != nil {
+			return
+		}
+		if !userPlatformRole.FullAccess {
+			nodes = logic.GetFilteredNodesByUserAccess(*user, nodes)
+		}
+
+	}
+	nodes = logic.AddStaticNodestoList(nodes)
+	nodes = logic.AddStatusToNodes(nodes, false)
+	// return all the nodes in JSON/API format
+	apiNodesStatusMap := logic.GetNodesStatusAPI(nodes[:])
+	logger.Log(3, r.Header.Get("user"), "fetched all nodes they have access to")
+	logic.ReturnSuccessResponseWithJson(w, r, apiNodesStatusMap, "fetched nodes with metric status")
 }
 
 // @Summary     Get an individual node
@@ -630,6 +677,8 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	if relayUpdate {
 		logic.UpdateRelayed(&currentNode, newNode)
 	}
+
+	logic.GetNodeStatus(newNode, false)
 
 	apiNode := newNode.ConvertToAPINode()
 	logger.Log(

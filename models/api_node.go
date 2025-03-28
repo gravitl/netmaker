@@ -8,37 +8,45 @@ import (
 	"golang.org/x/exp/slog"
 )
 
+type ApiNodeStatus struct {
+	ID         string     `json:"id"`
+	IsStatic   bool       `json:"is_static"`
+	IsUserNode bool       `json:"is_user_node"`
+	Status     NodeStatus `json:"status"`
+}
+
 // ApiNode is a stripped down Node DTO that exposes only required fields to external systems
 type ApiNode struct {
-	ID                         string   `json:"id,omitempty" validate:"required,min=5,id_unique"`
-	HostID                     string   `json:"hostid,omitempty" validate:"required,min=5,id_unique"`
-	Address                    string   `json:"address" validate:"omitempty,cidrv4"`
-	Address6                   string   `json:"address6" validate:"omitempty,cidrv6"`
-	LocalAddress               string   `json:"localaddress" validate:"omitempty,cidr"`
-	AllowedIPs                 []string `json:"allowedips"`
-	LastModified               int64    `json:"lastmodified" swaggertype:"primitive,integer" format:"int64"`
-	ExpirationDateTime         int64    `json:"expdatetime" swaggertype:"primitive,integer" format:"int64"`
-	LastCheckIn                int64    `json:"lastcheckin" swaggertype:"primitive,integer" format:"int64"`
-	LastPeerUpdate             int64    `json:"lastpeerupdate" swaggertype:"primitive,integer" format:"int64"`
-	Network                    string   `json:"network"`
-	NetworkRange               string   `json:"networkrange"`
-	NetworkRange6              string   `json:"networkrange6"`
-	IsRelayed                  bool     `json:"isrelayed"`
-	IsRelay                    bool     `json:"isrelay"`
-	RelayedBy                  string   `json:"relayedby" bson:"relayedby" yaml:"relayedby"`
-	RelayedNodes               []string `json:"relaynodes" yaml:"relayedNodes"`
-	IsEgressGateway            bool     `json:"isegressgateway"`
-	IsIngressGateway           bool     `json:"isingressgateway"`
-	EgressGatewayRanges        []string `json:"egressgatewayranges"`
-	EgressGatewayNatEnabled    bool     `json:"egressgatewaynatenabled"`
-	DNSOn                      bool     `json:"dnson"`
-	IngressDns                 string   `json:"ingressdns"`
-	IngressPersistentKeepalive int32    `json:"ingresspersistentkeepalive"`
-	IngressMTU                 int32    `json:"ingressmtu"`
-	Server                     string   `json:"server"`
-	Connected                  bool     `json:"connected"`
-	PendingDelete              bool     `json:"pendingdelete"`
-	Metadata                   string   `json:"metadata"`
+	ID                            string              `json:"id,omitempty" validate:"required,min=5,id_unique"`
+	HostID                        string              `json:"hostid,omitempty" validate:"required,min=5,id_unique"`
+	Address                       string              `json:"address" validate:"omitempty,cidrv4"`
+	Address6                      string              `json:"address6" validate:"omitempty,cidrv6"`
+	LocalAddress                  string              `json:"localaddress" validate:"omitempty,cidr"`
+	AllowedIPs                    []string            `json:"allowedips"`
+	LastModified                  int64               `json:"lastmodified" swaggertype:"primitive,integer" format:"int64"`
+	ExpirationDateTime            int64               `json:"expdatetime" swaggertype:"primitive,integer" format:"int64"`
+	LastCheckIn                   int64               `json:"lastcheckin" swaggertype:"primitive,integer" format:"int64"`
+	LastPeerUpdate                int64               `json:"lastpeerupdate" swaggertype:"primitive,integer" format:"int64"`
+	Network                       string              `json:"network"`
+	NetworkRange                  string              `json:"networkrange"`
+	NetworkRange6                 string              `json:"networkrange6"`
+	IsRelayed                     bool                `json:"isrelayed"`
+	IsRelay                       bool                `json:"isrelay"`
+	RelayedBy                     string              `json:"relayedby" bson:"relayedby" yaml:"relayedby"`
+	RelayedNodes                  []string            `json:"relaynodes" yaml:"relayedNodes"`
+	IsEgressGateway               bool                `json:"isegressgateway"`
+	IsIngressGateway              bool                `json:"isingressgateway"`
+	EgressGatewayRanges           []string            `json:"egressgatewayranges"`
+	EgressGatewayNatEnabled       bool                `json:"egressgatewaynatenabled"`
+	EgressGatewayRangesWithMetric []EgressRangeMetric `json:"egressgatewayranges_with_metric"`
+	DNSOn                         bool                `json:"dnson"`
+	IngressDns                    string              `json:"ingressdns"`
+	IngressPersistentKeepalive    int32               `json:"ingresspersistentkeepalive"`
+	IngressMTU                    int32               `json:"ingressmtu"`
+	Server                        string              `json:"server"`
+	Connected                     bool                `json:"connected"`
+	PendingDelete                 bool                `json:"pendingdelete"`
+	Metadata                      string              `json:"metadata"`
 	// == PRO ==
 	DefaultACL        string              `json:"defaultacl,omitempty" validate:"checkyesornoorunset"`
 	IsFailOver        bool                `json:"is_fail_over"`
@@ -132,6 +140,19 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	return &convertedNode
 }
 
+func (nm *Node) ConvertToStatusNode() *ApiNodeStatus {
+	apiNode := ApiNodeStatus{}
+	if nm.IsStatic {
+		apiNode.ID = nm.StaticNode.ClientID
+	} else {
+		apiNode.ID = nm.ID.String()
+	}
+	apiNode.IsStatic = nm.IsStatic
+	apiNode.IsUserNode = nm.IsUserNode
+	apiNode.Status = nm.Status
+	return &apiNode
+}
+
 // Node.ConvertToAPINode - converts a node to an API node
 func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode := ApiNode{}
@@ -169,6 +190,7 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.IsEgressGateway = nm.IsEgressGateway
 	apiNode.IsIngressGateway = nm.IsIngressGateway
 	apiNode.EgressGatewayRanges = nm.EgressGatewayRanges
+	apiNode.EgressGatewayRangesWithMetric = nm.EgressGatewayRequest.RangesWithMetric
 	apiNode.EgressGatewayNatEnabled = nm.EgressGatewayNatEnabled
 	apiNode.DNSOn = nm.DNSOn
 	apiNode.IngressDns = nm.IngressDNS

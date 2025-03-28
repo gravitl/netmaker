@@ -204,15 +204,6 @@ func updateNodes() {
 			logic.UpsertNode(&node)
 		}
 		if node.IsIngressGateway {
-			tagID := models.TagID(fmt.Sprintf("%s.%s", node.Network,
-				models.RemoteAccessTagName))
-			if node.Tags == nil {
-				node.Tags = make(map[models.TagID]struct{})
-			}
-			if _, ok := node.Tags[tagID]; !ok {
-				node.Tags[tagID] = struct{}{}
-				logic.UpsertNode(&node)
-			}
 			host, err := logic.GetHost(node.HostID.String())
 			if err == nil {
 				go logic.DeleteRole(models.GetRAGRoleID(node.Network, host.ID.String()), true)
@@ -225,6 +216,16 @@ func updateNodes() {
 				node.EgressGatewayRanges = egressRanges
 				logic.UpsertNode(&node)
 			}
+			if len(node.EgressGatewayRequest.Ranges) > 0 && len(node.EgressGatewayRequest.RangesWithMetric) == 0 {
+				for _, egressRangeI := range node.EgressGatewayRequest.Ranges {
+					node.EgressGatewayRequest.RangesWithMetric = append(node.EgressGatewayRequest.RangesWithMetric, models.EgressRangeMetric{
+						Network:     egressRangeI,
+						RouteMetric: 256,
+					})
+				}
+				logic.UpsertNode(&node)
+			}
+
 		}
 	}
 	extclients, _ := logic.GetAllExtClients()
@@ -445,7 +446,8 @@ func createDefaultTagsAndPolicies() {
 	for _, network := range networks {
 		logic.CreateDefaultTags(models.NetworkID(network.NetID))
 		logic.CreateDefaultAclNetworkPolicies(models.NetworkID(network.NetID))
-
+		// delete old remote access gws policy
+		logic.DeleteAcl(models.Acl{ID: fmt.Sprintf("%s.%s", network.NetID, "all-remote-access-gws")})
 	}
 	logic.MigrateAclPolicies()
 }
@@ -460,7 +462,37 @@ func migrateToGws() {
 			node.IsGw = true
 			node.IsIngressGateway = true
 			node.IsRelay = true
+			if node.Tags == nil {
+				node.Tags = make(map[models.TagID]struct{})
+			}
+			node.Tags[models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName))] = struct{}{}
+			delete(node.Tags, models.TagID(fmt.Sprintf("%s.%s", node.Network, models.OldRemoteAccessTagName)))
 			logic.UpsertNode(&node)
 		}
+	}
+	acls := logic.ListAcls()
+	for _, acl := range acls {
+		upsert := false
+		for i, srcI := range acl.Src {
+			if srcI.ID == models.NodeTagID && srcI.Value == fmt.Sprintf("%s.%s", acl.NetworkID.String(), models.OldRemoteAccessTagName) {
+				srcI.Value = fmt.Sprintf("%s.%s", acl.NetworkID.String(), models.GwTagName)
+				acl.Src[i] = srcI
+				upsert = true
+			}
+		}
+		for i, dstI := range acl.Dst {
+			if dstI.ID == models.NodeTagID && dstI.Value == fmt.Sprintf("%s.%s", acl.NetworkID.String(), models.OldRemoteAccessTagName) {
+				dstI.Value = fmt.Sprintf("%s.%s", acl.NetworkID.String(), models.GwTagName)
+				acl.Dst[i] = dstI
+				upsert = true
+			}
+		}
+		if upsert {
+			logic.UpsertAcl(acl)
+		}
+	}
+	nets, _ := logic.GetNetworks()
+	for _, netI := range nets {
+		logic.DeleteTag(models.TagID(fmt.Sprintf("%s.%s", netI.NetID, models.OldRemoteAccessTagName)), true)
 	}
 }

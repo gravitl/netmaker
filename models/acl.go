@@ -25,14 +25,13 @@ const (
 	ICMP Protocol = "icmp"
 )
 
-type ServiceType string
-
 const (
 	Http        = "HTTP"
 	Https       = "HTTPS"
 	AllTCP      = "All TCP"
 	AllUDP      = "All UDP"
 	ICMPService = "ICMP"
+	SSH         = "SSH"
 	Custom      = "Custom"
 	Any         = "Any"
 )
@@ -58,7 +57,9 @@ type AclGroupType string
 const (
 	UserAclID                AclGroupType = "user"
 	UserGroupAclID           AclGroupType = "user-group"
-	DeviceAclID              AclGroupType = "tag"
+	NodeTagID                AclGroupType = "tag"
+	NodeID                   AclGroupType = "device"
+	EgressRange              AclGroupType = "egress-range"
 	NetmakerIPAclID          AclGroupType = "ip"
 	NetmakerSubNetRangeAClID AclGroupType = "ipset"
 )
@@ -116,5 +117,7 @@ type AclRule struct {
 	AllowedProtocol Protocol                `json:"allowed_protocols"` // tcp, udp, etc.
 	AllowedPorts    []string                `json:"allowed_ports"`
 	Direction       AllowedTrafficDirection `json:"direction"` // single or two-way
+	Dst             []net.IPNet             `json:"dst"`
+	Dst6            []net.IPNet             `json:"dst6"`
 	Allowed         bool
 }

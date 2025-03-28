@@ -8,7 +8,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -19,6 +21,7 @@ import (
 	"github.com/gravitl/netmaker/pro/email"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/utils"
 	"golang.org/x/exp/slog"
 )
 
@@ -411,6 +414,44 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	networks, err := logic.GetNetworks()
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	for _, network := range networks {
+		acl := models.Acl{
+			ID:          uuid.New().String(),
+			Name:        fmt.Sprintf("%s group", userGroupReq.Group.Name),
+			MetaData:    "This Policy allows user group to communicate with all gateways",
+			Default:     false,
+			ServiceType: models.Any,
+			NetworkID:   models.NetworkID(network.NetID),
+			Proto:       models.ALL,
+			RuleType:    models.UserPolicy,
+			Src: []models.AclPolicyTag{
+				{
+					ID:    models.UserGroupAclID,
+					Value: userGroupReq.Group.ID.String(),
+				},
+			},
+			Dst: []models.AclPolicyTag{
+				{
+					ID:    models.NodeTagID,
+					Value: fmt.Sprintf("%s.%s", models.NetworkID(network.NetID), models.GwTagName),
+				}},
+			AllowedDirection: models.TrafficDirectionUni,
+			Enabled:          true,
+			CreatedBy:        "auto",
+			CreatedAt:        time.Now().UTC(),
+		}
+		err = logic.InsertAcl(acl)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+	}
+
 	for _, userID := range userGroupReq.Members {
 		user, err := logic.GetUser(userID)
 		if err != nil {
@@ -1034,6 +1075,8 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		Metadata:          node.Metadata,
 		AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 		NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
+		DnsAddress:        node.IngressDNS,
+		Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
 	}
 
 	slog.Debug("returned user gw config", "user", user.UserName, "gws", userGw)
@@ -1102,6 +1145,10 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 				slog.Error("failed to get node network", "error", err)
 				continue
 			}
+			nodesWithStatus := logic.AddStatusToNodes([]models.Node{node}, false)
+			if len(nodesWithStatus) > 0 {
+				node = nodesWithStatus[0]
+			}
 
 			gws := userGws[node.Network]
 			if extClient.DNS == "" {
@@ -1120,6 +1167,9 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 				Metadata:          node.Metadata,
 				AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 				NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
+				Status:            node.Status,
+				DnsAddress:        node.IngressDNS,
+				Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
 			})
 			userGws[node.Network] = gws
 			delete(userGwNodes, node.ID.String())
@@ -1141,6 +1191,10 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			continue
 		}
+		nodesWithStatus := logic.AddStatusToNodes([]models.Node{node}, false)
+		if len(nodesWithStatus) > 0 {
+			node = nodesWithStatus[0]
+		}
 		network, err := logic.GetNetwork(node.Network)
 		if err != nil {
 			slog.Error("failed to get node network", "error", err)
@@ -1157,6 +1211,9 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			Metadata:          node.Metadata,
 			AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 			NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
+			Status:            node.Status,
+			DnsAddress:        node.IngressDNS,
+			Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
 		})
 		userGws[node.Network] = gws
 	}

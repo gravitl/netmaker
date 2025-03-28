@@ -27,6 +27,7 @@ type HostPeerUpdate struct {
 	EgressRoutes    []EgressNetworkRoutes `json:"egress_network_routes"`
 	FwUpdate        FwUpdate              `json:"fw_update"`
 	ReplacePeers    bool                  `json:"replace_peers"`
+	NameServers     []string              `json:"name_servers"`
 	ServerConfig
 	OldPeerUpdateFields
 }
@@ -52,7 +53,6 @@ type IngressInfo struct {
 	Network6      net.IPNet   `json:"network6"`
 	StaticNodeIps []net.IP    `json:"static_node_ips"`
 	Rules         []FwRule    `json:"rules"`
-	AllowAll      bool        `json:"allow_all"`
 	EgressRanges  []net.IPNet `json:"egress_ranges"`
 	EgressRanges6 []net.IPNet `json:"egress_ranges6"`
 }
@@ -65,15 +65,19 @@ type EgressInfo struct {
 	Network6      net.IPNet            `json:"network6" yaml:"network6"`
 	EgressGwAddr6 net.IPNet            `json:"egress_gw_addr6" yaml:"egress_gw_addr6"`
 	EgressGWCfg   EgressGatewayRequest `json:"egress_gateway_cfg" yaml:"egress_gateway_cfg"`
+	EgressFwRules map[string]AclRule   `json:"egress_fw_rules"`
 }
 
 // EgressNetworkRoutes - struct for egress network routes for adding routes to peer's interface
 type EgressNetworkRoutes struct {
-	EgressGwAddr  net.IPNet `json:"egress_gw_addr" yaml:"egress_gw_addr"`
-	EgressGwAddr6 net.IPNet `json:"egress_gw_addr6" yaml:"egress_gw_addr6"`
-	NodeAddr      net.IPNet `json:"node_addr"`
-	NodeAddr6     net.IPNet `json:"node_addr6"`
-	EgressRanges  []string  `json:"egress_ranges"`
+	PeerKey                string              `json:"peer_key"`
+	EgressGwAddr           net.IPNet           `json:"egress_gw_addr" yaml:"egress_gw_addr"`
+	EgressGwAddr6          net.IPNet           `json:"egress_gw_addr6" yaml:"egress_gw_addr6"`
+	NodeAddr               net.IPNet           `json:"node_addr"`
+	NodeAddr6              net.IPNet           `json:"node_addr6"`
+	EgressRanges           []string            `json:"egress_ranges"`
+	EgressRangesWithMetric []EgressRangeMetric `json:"egress_ranges_metric"`
+	Network                string              `json:"network"`
 }
 
 // PeerRouteInfo - struct for peer info for an ext. client

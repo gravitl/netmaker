@@ -2,6 +2,7 @@ package email
 
 import (
 	"fmt"
+
 	"github.com/gravitl/netmaker/models"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/servercfg"
@@ -31,11 +32,11 @@ func (invite UserInvitedMail) GetBody(info Notification) string {
 
 	content := invite.BodyBuilder.
 		WithParagraph("Hi,").
-		WithParagraph("You've been invited to access a secure network via Netmaker's Remote Access Client (RAC). Follow these simple steps to get connected:").
+		WithParagraph("You've been invited to access a secure network via Netmaker Desktop App. Follow these simple steps to get connected:").
 		WithHtml("<ol>").
 		WithHtml(fmt.Sprintf("<li>Click <a href=\"%s\">here</a> to accept your invitation and setup your account.</li>", invite.InviteURL)).
 		WithHtml("<br>").
-		WithHtml(fmt.Sprintf("<li><a href=\"%s\">Download the Remote Access Client (RAC)</a>.</li>", downloadLink))
+		WithHtml(fmt.Sprintf("<li><a href=\"%s\">Download the Netmaker Desktop App</a>.</li>", downloadLink))
 
 	if invite.PlatformRoleID == models.AdminRole.String() || invite.PlatformRoleID == models.PlatformUser.String() {
 		content = content.
