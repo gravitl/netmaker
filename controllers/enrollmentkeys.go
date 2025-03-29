@@ -160,6 +160,7 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		enrollmentKeyBody.Unlimited,
 		relayId,
 		false,
+		enrollmentKeyBody.AutoEgress,
 	)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to create enrollment key:", err.Error())

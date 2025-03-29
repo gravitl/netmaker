@@ -302,6 +302,7 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 		true,
 		uuid.Nil,
 		true,
+		false,
 	)
 
 	return network, nil

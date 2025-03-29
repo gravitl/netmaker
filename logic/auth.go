@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
 
@@ -136,6 +137,77 @@ func FetchPassValue(newValue string) (string, error) {
 		return "", nil
 	}
 	return string(b64CurrentValue), nil
+}
+
+func RevokeAccessToken(a models.AccessToken) error {
+	err := database.DeleteRecord(database.ACCESS_TOKENS_TABLE_NAME, a.ID)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func RevokeAllUserTokens(username string) {
+	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
+	if err != nil {
+		return
+	}
+
+	for key, value := range collection {
+
+		var a models.AccessToken
+		err = json.Unmarshal([]byte(value), &a)
+		if err != nil {
+			continue // get users
+		}
+		if a.UserName == username {
+			database.DeleteRecord(database.ACCESS_TOKENS_TABLE_NAME, key)
+		}
+	}
+}
+
+func GetAccessToken(k string) (a models.AccessToken, err error) {
+	value, err := database.FetchRecord(k, database.ACCESS_TOKENS_TABLE_NAME)
+	if err != nil {
+		return
+	}
+	err = json.Unmarshal([]byte(value), &a)
+	return
+}
+
+func ListAccessTokens(username string) (tokens []models.AccessToken) {
+	collection, err := database.FetchRecords(database.ACCESS_TOKENS_TABLE_NAME)
+	if err != nil {
+		return
+	}
+
+	for _, value := range collection {
+
+		var a models.AccessToken
+		err = json.Unmarshal([]byte(value), &a)
+		if err != nil {
+			continue // get users
+		}
+		if a.UserName == username {
+			tokens = append(tokens, a)
+		}
+
+	}
+	return
+}
+
+func CreateAccessToken(a models.AccessToken) error {
+	a.ID = uuid.New().String()
+	data, err := json.Marshal(a)
+	if err != nil {
+		logger.Log(0, "failed to marshal", err.Error())
+		return err
+	}
+	err = database.Insert(a.ID, string(data), database.ACCESS_TOKENS_TABLE_NAME)
+	if err != nil {
+		logger.Log(0, "failed to insert user", err.Error())
+		return err
+	}
+	return nil
 }
 
 // CreateUser - creates a user
@@ -360,7 +432,7 @@ func DeleteUser(user string) (bool, error) {
 		return false, err
 	}
 	go RemoveUserFromAclPolicy(user)
-
+	go RevokeAllUserTokens(user)
 	return true, nil
 }
 

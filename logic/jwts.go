@@ -53,6 +53,29 @@ func CreateJWT(uuid string, macAddress string, network string) (response string,
 }
 
 // CreateUserJWT - creates a user jwt token
+func CreateUserJWTWithExpiry(username string, role models.UserRoleID, d time.Time) (response string, err error) {
+	claims := &models.UserClaims{
+		UserName:       username,
+		Role:           role,
+		Api:            servercfg.ServerInfo.APIHost,
+		RacAutoDisable: servercfg.GetRacAutoDisable() && (role != models.SuperAdminRole && role != models.AdminRole),
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    "Netmaker",
+			Subject:   fmt.Sprintf("user|%s", username),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(d),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString(jwtSecretKey)
+	if err == nil {
+		return tokenString, nil
+	}
+	return "", err
+}
+
+// CreateUserJWT - creates a user jwt token
 func CreateUserJWT(username string, role models.UserRoleID) (response string, err error) {
 	expirationTime := time.Now().Add(servercfg.GetServerConfig().JwtValidityDuration)
 	claims := &models.UserClaims{

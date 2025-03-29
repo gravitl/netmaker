@@ -14,35 +14,35 @@ func TestCreateEnrollmentKey(t *testing.T) {
 	database.InitializeDatabase()
 	defer database.CloseDB()
 	t.Run("Can_Not_Create_Key", func(t *testing.T) {
-		newKey, err := CreateEnrollmentKey(0, time.Time{}, nil, nil, nil, false, uuid.Nil, false)
+		newKey, err := CreateEnrollmentKey(0, time.Time{}, nil, nil, nil, false, uuid.Nil, false, false)
 		assert.Nil(t, newKey)
 		assert.NotNil(t, err)
 		assert.ErrorIs(t, err, models.ErrInvalidEnrollmentKey)
 	})
 	t.Run("Can_Create_Key_Uses", func(t *testing.T) {
-		newKey, err := CreateEnrollmentKey(1, time.Time{}, nil, nil, nil, false, uuid.Nil, false)
+		newKey, err := CreateEnrollmentKey(1, time.Time{}, nil, nil, nil, false, uuid.Nil, false, false)
 		assert.Nil(t, err)
 		assert.Equal(t, 1, newKey.UsesRemaining)
 		assert.True(t, newKey.IsValid())
 	})
 	t.Run("Can_Create_Key_Time", func(t *testing.T) {
-		newKey, err := CreateEnrollmentKey(0, time.Now().Add(time.Minute), nil, nil, nil, false, uuid.Nil, false)
+		newKey, err := CreateEnrollmentKey(0, time.Now().Add(time.Minute), nil, nil, nil, false, uuid.Nil, false, false)
 		assert.Nil(t, err)
 		assert.True(t, newKey.IsValid())
 	})
 	t.Run("Can_Create_Key_Unlimited", func(t *testing.T) {
-		newKey, err := CreateEnrollmentKey(0, time.Time{}, nil, nil, nil, true, uuid.Nil, false)
+		newKey, err := CreateEnrollmentKey(0, time.Time{}, nil, nil, nil, true, uuid.Nil, false, false)
 		assert.Nil(t, err)
 		assert.True(t, newKey.IsValid())
 	})
 	t.Run("Can_Create_Key_WithNetworks", func(t *testing.T) {
-		newKey, err := CreateEnrollmentKey(0, time.Time{}, []string{"mynet", "skynet"}, nil, nil, true, uuid.Nil, false)
+		newKey, err := CreateEnrollmentKey(0, time.Time{}, []string{"mynet", "skynet"}, nil, nil, true, uuid.Nil, false, false)
 		assert.Nil(t, err)
 		assert.True(t, newKey.IsValid())
 		assert.True(t, len(newKey.Networks) == 2)
 	})
 	t.Run("Can_Create_Key_WithTags", func(t *testing.T) {
-		newKey, err := CreateEnrollmentKey(0, time.Time{}, nil, []string{"tag1", "tag2"}, nil, true, uuid.Nil, false)
+		newKey, err := CreateEnrollmentKey(0, time.Time{}, nil, []string{"tag1", "tag2"}, nil, true, uuid.Nil, false, false)
 		assert.Nil(t, err)
 		assert.True(t, newKey.IsValid())
 		assert.True(t, len(newKey.Tags) == 2)
@@ -62,7 +62,7 @@ func TestCreateEnrollmentKey(t *testing.T) {
 func TestDelete_EnrollmentKey(t *testing.T) {
 	database.InitializeDatabase()
 	defer database.CloseDB()
-	newKey, _ := CreateEnrollmentKey(0, time.Time{}, []string{"mynet", "skynet"}, nil, nil, true, uuid.Nil, false)
+	newKey, _ := CreateEnrollmentKey(0, time.Time{}, []string{"mynet", "skynet"}, nil, nil, true, uuid.Nil, false, false)
 	t.Run("Can_Delete_Key", func(t *testing.T) {
 		assert.True(t, newKey.IsValid())
 		err := DeleteEnrollmentKey(newKey.Value, false)
@@ -83,7 +83,7 @@ func TestDelete_EnrollmentKey(t *testing.T) {
 func TestDecrement_EnrollmentKey(t *testing.T) {
 	database.InitializeDatabase()
 	defer database.CloseDB()
-	newKey, _ := CreateEnrollmentKey(1, time.Time{}, nil, nil, nil, false, uuid.Nil, false)
+	newKey, _ := CreateEnrollmentKey(1, time.Time{}, nil, nil, nil, false, uuid.Nil, false, false)
 	t.Run("Check_initial_uses", func(t *testing.T) {
 		assert.True(t, newKey.IsValid())
 		assert.Equal(t, newKey.UsesRemaining, 1)
@@ -107,9 +107,9 @@ func TestDecrement_EnrollmentKey(t *testing.T) {
 func TestUsability_EnrollmentKey(t *testing.T) {
 	database.InitializeDatabase()
 	defer database.CloseDB()
-	key1, _ := CreateEnrollmentKey(1, time.Time{}, nil, nil, nil, false, uuid.Nil, false)
-	key2, _ := CreateEnrollmentKey(0, time.Now().Add(time.Minute<<4), nil, nil, nil, false, uuid.Nil, false)
-	key3, _ := CreateEnrollmentKey(0, time.Time{}, nil, nil, nil, true, uuid.Nil, false)
+	key1, _ := CreateEnrollmentKey(1, time.Time{}, nil, nil, nil, false, uuid.Nil, false, false)
+	key2, _ := CreateEnrollmentKey(0, time.Now().Add(time.Minute<<4), nil, nil, nil, false, uuid.Nil, false, false)
+	key3, _ := CreateEnrollmentKey(0, time.Time{}, nil, nil, nil, true, uuid.Nil, false, false)
 	t.Run("Check if valid use key can be used", func(t *testing.T) {
 		assert.Equal(t, key1.UsesRemaining, 1)
 		ok := TryToUseEnrollmentKey(key1)
@@ -145,7 +145,7 @@ func removeAllEnrollments() {
 func TestTokenize_EnrollmentKeys(t *testing.T) {
 	database.InitializeDatabase()
 	defer database.CloseDB()
-	newKey, _ := CreateEnrollmentKey(0, time.Time{}, []string{"mynet", "skynet"}, nil, nil, true, uuid.Nil, false)
+	newKey, _ := CreateEnrollmentKey(0, time.Time{}, []string{"mynet", "skynet"}, nil, nil, true, uuid.Nil, false, false)
 	const defaultValue = "MwE5MwE5MwE5MwE5MwE5MwE5MwE5MwE5"
 	const b64value = "eyJzZXJ2ZXIiOiJhcGkubXlzZXJ2ZXIuY29tIiwidmFsdWUiOiJNd0U1TXdFNU13RTVNd0U1TXdFNU13RTVNd0U1TXdFNSJ9"
 	const serverAddr = "api.myserver.com"
@@ -178,7 +178,7 @@ func TestTokenize_EnrollmentKeys(t *testing.T) {
 func TestDeTokenize_EnrollmentKeys(t *testing.T) {
 	database.InitializeDatabase()
 	defer database.CloseDB()
-	newKey, _ := CreateEnrollmentKey(0, time.Time{}, []string{"mynet", "skynet"}, nil, nil, true, uuid.Nil, false)
+	newKey, _ := CreateEnrollmentKey(0, time.Time{}, []string{"mynet", "skynet"}, nil, nil, true, uuid.Nil, false, false)
 	const b64Value = "eyJzZXJ2ZXIiOiJhcGkubXlzZXJ2ZXIuY29tIiwidmFsdWUiOiJNd0U1TXdFNU13RTVNd0U1TXdFNU13RTVNd0U1TXdFNSJ9"
 	const serverAddr = "api.myserver.com"
 

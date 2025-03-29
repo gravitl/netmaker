@@ -137,6 +137,7 @@ func GetServerInfo() models.ServerConfig {
 		cfg.MQUserName = GetMqUserName()
 		cfg.MQPassword = GetMqPassword()
 	}
+	cfg.APIHost = GetAPIHost()
 	cfg.API = GetAPIConnString()
 	cfg.CoreDNSAddr = GetCoreDNSAddr()
 	cfg.APIPort = GetAPIPort()

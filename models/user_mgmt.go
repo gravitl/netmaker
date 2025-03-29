@@ -185,6 +185,7 @@ type UserAuthParams struct {
 type UserClaims struct {
 	Role           UserRoleID
 	UserName       string
+	Api            string
 	RacAutoDisable bool
 	jwt.RegisteredClaims
 }
