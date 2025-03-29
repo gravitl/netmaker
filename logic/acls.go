@@ -255,6 +255,44 @@ func GetEgressRanges(netID models.NetworkID) (map[string][]string, map[string]st
 	}
 	return nodeEgressMap, resultMap, nil
 }
+func sortRouteMetricByAscending(items []models.EgressRangeMetric) []models.EgressRangeMetric {
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].RouteMetric < items[j].RouteMetric
+	})
+	return items
+}
+
+func GetEgressRangesWithMetric(netID models.NetworkID) map[string][]models.EgressRangeMetric {
+
+	egressMap := make(map[string][]models.EgressRangeMetric)
+	networkNodes, err := GetNetworkNodes(netID.String())
+	if err != nil {
+		return nil
+	}
+	for _, currentNode := range networkNodes {
+		if currentNode.Network != netID.String() {
+			continue
+		}
+		if currentNode.IsEgressGateway { // add the egress gateway range(s) to the result
+			if len(currentNode.EgressGatewayRequest.RangesWithMetric) > 0 {
+				for _, egressRangeI := range currentNode.EgressGatewayRequest.RangesWithMetric {
+					if value, ok := egressMap[egressRangeI.Network]; ok {
+						value = append(value, egressRangeI)
+						egressMap[egressRangeI.Network] = value
+					} else {
+						egressMap[egressRangeI.Network] = []models.EgressRangeMetric{
+							egressRangeI,
+						}
+					}
+				}
+			}
+		}
+	}
+	for key, value := range egressMap {
+		egressMap[key] = sortRouteMetricByAscending(value)
+	}
+	return egressMap
+}
 
 func checkIfAclTagisValid(t models.AclPolicyTag, netID models.NetworkID, policyType models.AclPolicyType, isSrc bool) bool {
 	switch t.ID {

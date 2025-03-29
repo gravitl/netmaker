@@ -222,7 +222,7 @@ func SessionHandler(conn *websocket.Conn) {
 		if err = conn.WriteMessage(messageType, reponseData); err != nil {
 			logger.Log(0, "error during message writing:", err.Error())
 		}
-		go CheckNetRegAndHostUpdate(netsToAdd[:], &result.Host, uuid.Nil, []models.TagID{})
+		go CheckNetRegAndHostUpdate(netsToAdd[:], &result.Host, uuid.Nil, []models.TagID{}, false)
 	case <-timeout: // the read from req.answerCh has timed out
 		logger.Log(0, "timeout signal recv,exiting oauth socket conn")
 		break
@@ -236,7 +236,7 @@ func SessionHandler(conn *websocket.Conn) {
 }
 
 // CheckNetRegAndHostUpdate - run through networks and send a host update
-func CheckNetRegAndHostUpdate(networks []string, h *models.Host, relayNodeId uuid.UUID, tags []models.TagID) {
+func CheckNetRegAndHostUpdate(networks []string, h *models.Host, relayNodeId uuid.UUID, tags []models.TagID, autoEgress bool) {
 	// publish host update through MQ
 	for i := range networks {
 		network := networks[i]
@@ -273,6 +273,32 @@ func CheckNetRegAndHostUpdate(networks []string, h *models.Host, relayNodeId uui
 				} else {
 					slog.Error("failed to relay node. maybe specified relay node is actually not a relay? Or the relayed node is not in the same network with relay?", "err", err)
 				}
+			}
+			if autoEgress {
+				currRangesWithMetric := logic.GetEgressRangesWithMetric(models.NetworkID(newNode.Network))
+				ranges := []string{}
+				rangesWithMetric := []models.EgressRangeMetric{}
+				for _, iface := range h.Interfaces {
+					addr, err := logic.NormalizeCIDR(iface.Address.String())
+					if err == nil {
+						ranges = append(ranges, addr)
+					}
+					rangeWithMetric := models.EgressRangeMetric{
+						Network: addr,
+					}
+					if currRangeMetric, ok := currRangesWithMetric[addr]; ok {
+						lastMetricValue := currRangeMetric[len(currRangeMetric)-1]
+						rangeWithMetric.RouteMetric = lastMetricValue.RouteMetric + 10
+					}
+					rangesWithMetric = append(rangesWithMetric, rangeWithMetric)
+				}
+				logic.CreateEgressGateway(models.EgressGatewayRequest{
+					NodeID:           newNode.ID.String(),
+					NetID:            newNode.Network,
+					NatEnabled:       "yes",
+					Ranges:           ranges,
+					RangesWithMetric: rangesWithMetric,
+				})
 			}
 			logger.Log(1, "added new node", newNode.ID.String(), "to host", h.Name)
 			hostactions.AddAction(models.HostUpdate{

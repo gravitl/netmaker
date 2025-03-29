@@ -359,5 +359,6 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&response)
 	// notify host of changes, peer and node updates
-	go auth.CheckNetRegAndHostUpdate(enrollmentKey.Networks, &newHost, enrollmentKey.Relay, enrollmentKey.Groups)
+	go auth.CheckNetRegAndHostUpdate(enrollmentKey.Networks, &newHost,
+		enrollmentKey.Relay, enrollmentKey.Groups, enrollmentKey.AutoEgress)
 }
