@@ -1022,176 +1022,6 @@ func IsNodeAllowedToCommunicateV1(node, peer models.Node, checkDefaultPolicy boo
 	return false, allowedPolicies
 }
 
-// IsNodeAllowedToCommunicate - check node is allowed to communicate with the peer
-func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool) (bool, []models.Acl) {
-	var nodeId, peerId string
-	if node.IsStatic {
-		nodeId = node.StaticNode.ClientID
-		node = node.StaticNode.ConvertToStaticNode()
-	} else {
-		nodeId = node.ID.String()
-	}
-	if peer.IsStatic {
-		peerId = peer.StaticNode.ClientID
-		peer = peer.StaticNode.ConvertToStaticNode()
-	} else {
-		peerId = peer.ID.String()
-	}
-
-	var nodeTags, peerTags map[models.TagID]struct{}
-	if node.Mutex != nil {
-		node.Mutex.Lock()
-		nodeTags = maps.Clone(node.Tags)
-		node.Mutex.Unlock()
-	} else {
-		nodeTags = node.Tags
-	}
-	if peer.Mutex != nil {
-		peer.Mutex.Lock()
-		peerTags = maps.Clone(peer.Tags)
-		peer.Mutex.Unlock()
-	} else {
-		peerTags = peer.Tags
-	}
-	if nodeTags == nil {
-		nodeTags = make(map[models.TagID]struct{})
-	}
-	if peerTags == nil {
-		peerTags = make(map[models.TagID]struct{})
-	}
-	nodeTags[models.TagID(nodeId)] = struct{}{}
-	peerTags[models.TagID(peerId)] = struct{}{}
-	if checkDefaultPolicy {
-		// check default policy if all allowed return true
-		defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
-		if err == nil {
-			if defaultPolicy.Enabled {
-				return true, []models.Acl{defaultPolicy}
-			}
-		}
-	}
-	allowedPolicies := []models.Acl{}
-	// list device policies
-	policies := listDevicePolicies(models.NetworkID(peer.Network))
-	srcMap := make(map[string]struct{})
-	dstMap := make(map[string]struct{})
-	defer func() {
-		srcMap = nil
-		dstMap = nil
-	}()
-	for _, policy := range policies {
-		if !policy.Enabled {
-			continue
-		}
-		srcMap = convAclTagToValueMap(policy.Src)
-		dstMap = convAclTagToValueMap(policy.Dst)
-		_, srcAll := srcMap["*"]
-		_, dstAll := dstMap["*"]
-		if policy.AllowedDirection == models.TrafficDirectionBi {
-			if _, ok := srcMap[nodeId]; ok || srcAll {
-				if _, ok := dstMap[peerId]; ok || dstAll {
-					allowedPolicies = append(allowedPolicies, policy)
-					continue
-				}
-
-			}
-			if _, ok := dstMap[nodeId]; ok || dstAll {
-				if _, ok := srcMap[peerId]; ok || srcAll {
-					allowedPolicies = append(allowedPolicies, policy)
-					continue
-				}
-			}
-		}
-		if _, ok := dstMap[nodeId]; ok || dstAll {
-			if _, ok := srcMap[peerId]; ok || srcAll {
-				allowedPolicies = append(allowedPolicies, policy)
-				continue
-			}
-		}
-		for tagID := range nodeTags {
-			allowed := false
-			if _, ok := dstMap[tagID.String()]; policy.AllowedDirection == models.TrafficDirectionBi && ok || dstAll {
-				if srcAll {
-					allowed = true
-					allowedPolicies = append(allowedPolicies, policy)
-					break
-				}
-				for tagID := range peerTags {
-					if _, ok := srcMap[tagID.String()]; ok {
-						allowed = true
-						break
-					}
-				}
-			}
-			if allowed {
-				allowedPolicies = append(allowedPolicies, policy)
-				break
-			}
-			if _, ok := srcMap[tagID.String()]; ok || srcAll {
-				if dstAll {
-					allowed = true
-					allowedPolicies = append(allowedPolicies, policy)
-					break
-				}
-				for tagID := range peerTags {
-					if _, ok := dstMap[tagID.String()]; ok {
-						allowed = true
-						break
-					}
-				}
-			}
-			if allowed {
-				allowedPolicies = append(allowedPolicies, policy)
-				break
-			}
-		}
-		for tagID := range peerTags {
-			allowed := false
-			if _, ok := dstMap[tagID.String()]; ok || dstAll {
-				if srcAll {
-					allowed = true
-					allowedPolicies = append(allowedPolicies, policy)
-					break
-				}
-				for tagID := range nodeTags {
-
-					if _, ok := srcMap[tagID.String()]; ok || srcAll {
-						allowed = true
-						break
-					}
-				}
-			}
-			if allowed {
-				allowedPolicies = append(allowedPolicies, policy)
-				break
-			}
-
-			if _, ok := srcMap[tagID.String()]; policy.AllowedDirection == models.TrafficDirectionBi && ok || srcAll {
-				if dstAll {
-					allowed = true
-					allowedPolicies = append(allowedPolicies, policy)
-					break
-				}
-				for tagID := range nodeTags {
-					if _, ok := dstMap[tagID.String()]; ok {
-						allowed = true
-						break
-					}
-				}
-			}
-			if allowed {
-				allowedPolicies = append(allowedPolicies, policy)
-				break
-			}
-		}
-	}
-
-	if len(allowedPolicies) > 0 {
-		return true, allowedPolicies
-	}
-	return false, allowedPolicies
-}
-
 // SortTagEntrys - Sorts slice of Tag entries by their id
 func SortAclEntrys(acls []models.Acl) {
 	sort.Slice(acls, func(i, j int) bool {
@@ -1459,8 +1289,12 @@ func getUserAclRulesForNode(targetnode *models.Node,
 			if aclRule, ok := rules[acl.ID]; ok {
 				aclRule.IPList = append(aclRule.IPList, r.IPList...)
 				aclRule.IP6List = append(aclRule.IP6List, r.IP6List...)
+				aclRule.IPList = UniqueIPNetList(aclRule.IPList)
+				aclRule.IP6List = UniqueIPNetList(aclRule.IP6List)
 				rules[acl.ID] = aclRule
 			} else {
+				r.IPList = UniqueIPNetList(r.IPList)
+				r.IP6List = UniqueIPNetList(r.IP6List)
 				rules[acl.ID] = r
 			}
 		}
@@ -1736,24 +1570,6 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 	}
 	return rules
 }
-func UniqueIPNetList(ipnets []net.IPNet) []net.IPNet {
-	uniqueMap := make(map[string]net.IPNet)
-
-	for _, ipnet := range ipnets {
-		key := ipnet.String() // Uses CIDR notation as a unique key
-		if _, exists := uniqueMap[key]; !exists {
-			uniqueMap[key] = ipnet
-		}
-	}
-
-	// Convert map back to slice
-	uniqueList := make([]net.IPNet, 0, len(uniqueMap))
-	for _, ipnet := range uniqueMap {
-		uniqueList = append(uniqueList, ipnet)
-	}
-
-	return uniqueList
-}
 
 func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclRule) {
 	rules = make(map[string]models.AclRule)
@@ -1968,4 +1784,45 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 
 	}
 	return
+}
+
+// Compare two IPs and return true if ip1 < ip2
+func lessIP(ip1, ip2 net.IP) bool {
+	ip1 = ip1.To16() // Ensure IPv4 is converted to IPv6-mapped format
+	ip2 = ip2.To16()
+	return string(ip1) < string(ip2)
+}
+
+// Sort by IP first, then by prefix length
+func sortIPNets(ipNets []net.IPNet) {
+	sort.Slice(ipNets, func(i, j int) bool {
+		ip1, ip2 := ipNets[i].IP, ipNets[j].IP
+		mask1, _ := ipNets[i].Mask.Size()
+		mask2, _ := ipNets[j].Mask.Size()
+
+		// Compare IPs first
+		if ip1.Equal(ip2) {
+			return mask1 < mask2 // If same IP, sort by subnet mask size
+		}
+		return lessIP(ip1, ip2)
+	})
+}
+
+func UniqueIPNetList(ipnets []net.IPNet) []net.IPNet {
+	uniqueMap := make(map[string]net.IPNet)
+
+	for _, ipnet := range ipnets {
+		key := ipnet.String() // Uses CIDR notation as a unique key
+		if _, exists := uniqueMap[key]; !exists {
+			uniqueMap[key] = ipnet
+		}
+	}
+
+	// Convert map back to slice
+	uniqueList := make([]net.IPNet, 0, len(uniqueMap))
+	for _, ipnet := range uniqueMap {
+		uniqueList = append(uniqueList, ipnet)
+	}
+	sortIPNets(uniqueList)
+	return uniqueList
 }

@@ -229,6 +229,13 @@ func updateNodes() {
 
 		}
 	}
+	extclients, _ := logic.GetAllExtClients()
+	for _, extclient := range extclients {
+		if extclient.Tags == nil {
+			extclient.Tags = make(map[models.TagID]struct{})
+			logic.SaveExtClient(&extclient)
+		}
+	}
 }
 
 func removeInterGw(egressRanges []string) ([]string, bool) {
