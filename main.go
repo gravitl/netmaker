@@ -126,11 +126,6 @@ func initialize() { // Client Mode Prereq Check
 		}
 	}
 
-	if servercfg.IsMessageQueueBackend() {
-		if err = mq.ServerStartNotify(); err != nil {
-			logger.Log(0, "error occurred when notifying nodes of startup", err.Error())
-		}
-	}
 }
 
 func startControllers(wg *sync.WaitGroup, ctx context.Context) {
