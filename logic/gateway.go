@@ -3,8 +3,6 @@ package logic
 import (
 	"errors"
 	"fmt"
-	"slices"
-	"sort"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
@@ -46,124 +44,6 @@ func GetAllIngresses() ([]models.Node, error) {
 		}
 	}
 	return ingresses, nil
-}
-
-// GetAllEgresses - gets all the nodes that are egresses
-func GetAllEgresses() ([]models.Node, error) {
-	nodes, err := GetAllNodes()
-	if err != nil {
-		return nil, err
-	}
-	egresses := make([]models.Node, 0)
-	for _, node := range nodes {
-		if node.IsEgressGateway {
-			egresses = append(egresses, node)
-		}
-	}
-	return egresses, nil
-}
-
-// CreateEgressGateway - creates an egress gateway
-func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, error) {
-	node, err := GetNodeByID(gateway.NodeID)
-	if err != nil {
-		return models.Node{}, err
-	}
-	host, err := GetHost(node.HostID.String())
-	if err != nil {
-		return models.Node{}, err
-	}
-	if host.OS != "linux" { // support for other OS to be added
-		return models.Node{}, errors.New(host.OS + " is unsupported for egress gateways")
-	}
-	if host.FirewallInUse == models.FIREWALL_NONE {
-		return models.Node{}, errors.New("please install iptables or nftables on the device")
-	}
-	if len(gateway.RangesWithMetric) == 0 && len(gateway.Ranges) > 0 {
-		for _, rangeI := range gateway.Ranges {
-			gateway.RangesWithMetric = append(gateway.RangesWithMetric, models.EgressRangeMetric{
-				Network:     rangeI,
-				RouteMetric: 256,
-			})
-		}
-	}
-	for i := len(gateway.Ranges) - 1; i >= 0; i-- {
-		// check if internet gateway IPv4
-		if gateway.Ranges[i] == "0.0.0.0/0" || gateway.Ranges[i] == "::/0" {
-			// remove inet range
-			gateway.Ranges = append(gateway.Ranges[:i], gateway.Ranges[i+1:]...)
-			continue
-		}
-		normalized, err := NormalizeCIDR(gateway.Ranges[i])
-		if err != nil {
-			return models.Node{}, err
-		}
-		gateway.Ranges[i] = normalized
-
-	}
-	rangesWithMetric := []string{}
-	for i := len(gateway.RangesWithMetric) - 1; i >= 0; i-- {
-		if gateway.RangesWithMetric[i].Network == "0.0.0.0/0" || gateway.RangesWithMetric[i].Network == "::/0" {
-			// remove inet range
-			gateway.RangesWithMetric = append(gateway.RangesWithMetric[:i], gateway.RangesWithMetric[i+1:]...)
-			continue
-		}
-		normalized, err := NormalizeCIDR(gateway.RangesWithMetric[i].Network)
-		if err != nil {
-			return models.Node{}, err
-		}
-		gateway.RangesWithMetric[i].Network = normalized
-		rangesWithMetric = append(rangesWithMetric, gateway.RangesWithMetric[i].Network)
-		if gateway.RangesWithMetric[i].RouteMetric <= 0 || gateway.RangesWithMetric[i].RouteMetric > 999 {
-			gateway.RangesWithMetric[i].RouteMetric = 256
-		}
-	}
-	sort.Strings(gateway.Ranges)
-	sort.Strings(rangesWithMetric)
-	if !slices.Equal(gateway.Ranges, rangesWithMetric) {
-		return models.Node{}, errors.New("invalid ranges")
-	}
-	if gateway.NatEnabled == "" {
-		gateway.NatEnabled = "yes"
-	}
-	err = ValidateEgressGateway(gateway)
-	if err != nil {
-		return models.Node{}, err
-	}
-	if gateway.Ranges == nil {
-		gateway.Ranges = make([]string, 0)
-	}
-	node.IsEgressGateway = true
-	node.EgressGatewayRanges = gateway.Ranges
-	node.EgressGatewayNatEnabled = models.ParseBool(gateway.NatEnabled)
-
-	node.EgressGatewayRequest = gateway // store entire request for use when preserving the egress gateway
-	node.SetLastModified()
-	if err = UpsertNode(&node); err != nil {
-		return models.Node{}, err
-	}
-	return node, nil
-}
-
-// ValidateEgressGateway - validates the egress gateway model
-func ValidateEgressGateway(gateway models.EgressGatewayRequest) error {
-	return nil
-}
-
-// DeleteEgressGateway - deletes egress from node
-func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
-	node, err := GetNodeByID(nodeid)
-	if err != nil {
-		return models.Node{}, err
-	}
-	node.IsEgressGateway = false
-	node.EgressGatewayRanges = []string{}
-	node.EgressGatewayRequest = models.EgressGatewayRequest{} // remove preserved request as the egress gateway is gone
-	node.SetLastModified()
-	if err = UpsertNode(&node); err != nil {
-		return models.Node{}, err
-	}
-	return node, nil
 }
 
 // CreateIngressGateway - creates an ingress gateway

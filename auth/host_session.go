@@ -275,30 +275,7 @@ func CheckNetRegAndHostUpdate(networks []string, h *models.Host, relayNodeId uui
 				}
 			}
 			if autoEgress {
-				currRangesWithMetric := logic.GetEgressRangesWithMetric(models.NetworkID(newNode.Network))
-				ranges := []string{}
-				rangesWithMetric := []models.EgressRangeMetric{}
-				for _, iface := range h.Interfaces {
-					addr, err := logic.NormalizeCIDR(iface.Address.String())
-					if err == nil {
-						ranges = append(ranges, addr)
-					}
-					rangeWithMetric := models.EgressRangeMetric{
-						Network: addr,
-					}
-					if currRangeMetric, ok := currRangesWithMetric[addr]; ok {
-						lastMetricValue := currRangeMetric[len(currRangeMetric)-1]
-						rangeWithMetric.RouteMetric = lastMetricValue.RouteMetric + 10
-					}
-					rangesWithMetric = append(rangesWithMetric, rangeWithMetric)
-				}
-				logic.CreateEgressGateway(models.EgressGatewayRequest{
-					NodeID:           newNode.ID.String(),
-					NetID:            newNode.Network,
-					NatEnabled:       "yes",
-					Ranges:           ranges,
-					RangesWithMetric: rangesWithMetric,
-				})
+				logic.AutoConfigureEgress(h, newNode)
 			}
 			logger.Log(1, "added new node", newNode.ID.String(), "to host", h.Name)
 			hostactions.AddAction(models.HostUpdate{

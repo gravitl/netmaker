@@ -60,9 +60,10 @@ type NodeCheckin struct {
 
 // Iface struct for local interfaces of a node
 type Iface struct {
-	Name          string    `json:"name"`
-	Address       net.IPNet `json:"address"`
-	AddressString string    `json:"addressString"`
+	Name           string    `json:"name"`
+	Address        net.IPNet `json:"address"`
+	AddressString  string    `json:"addressString"`
+	VirtualNATAddr net.IPNet `json:"virtual_nat_addr"`
 }
 
 // CommonNode - represents a commonn node data elements shared by netmaker and netclient

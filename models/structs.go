@@ -154,8 +154,9 @@ type ExtPeersResponse struct {
 }
 
 type EgressRangeMetric struct {
-	Network     string `json:"network"`
-	RouteMetric uint32 `json:"route_metric"` // preffered range 1-999
+	Network           string `json:"network"`
+	RouteMetric       uint32 `json:"route_metric"` // preferred range 1-999
+	VirtualNATNetwork string `json:"virtual_nat_network"`
 }
 
 // EgressGatewayRequest - egress gateway request
@@ -236,9 +237,6 @@ type HostPull struct {
 	DefaultGwIp       net.IP                `json:"default_gw_ip"`
 	IsInternetGw      bool                  `json:"is_inet_gw"`
 	EndpointDetection bool                  `json:"endpoint_detection"`
-}
-
-type DefaultGwInfo struct {
 }
 
 // NodeGet - struct for a single node get response
