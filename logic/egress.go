@@ -14,7 +14,6 @@ func AutoConfigureEgress(h *models.Host, node *models.Node) {
 	currRangesWithMetric := GetEgressRangesWithMetric(models.NetworkID(node.Network))
 	ranges := []string{}
 	rangesWithMetric := []models.EgressRangeMetric{}
-	assignVirtualNATs(h, node)
 	for _, iface := range h.Interfaces {
 		addr, err := NormalizeCIDR(iface.Address.String())
 		if err == nil {
@@ -49,10 +48,17 @@ func isConflicting(cidr *net.IPNet, existing []net.IPNet) bool {
 	return false
 }
 
-// assignVirtualNATs assigns a unique virtual NAT subnet for each interface CIDR
-func assignVirtualNATs(h *models.Host, node *models.Node) error {
+// AssignVirtualNATs assigns a unique virtual NAT subnet for each interface CIDR
+func AssignVirtualNATs(h *models.Host) error {
 	existingNets := []net.IPNet{}
-	existingNets = append(existingNets, node.NetworkRange, node.Address6)
+	for _, nodeID := range h.Nodes {
+		node, err := GetNodeByID(nodeID)
+		if err == nil {
+			existingNets = append(existingNets, node.NetworkRange, node.Address6)
+		}
+
+	}
+
 	for _, iface := range h.Interfaces {
 		existingNets = append(existingNets, iface.Address)
 	}
@@ -64,10 +70,10 @@ func assignVirtualNATs(h *models.Host, node *models.Node) error {
 
 		var newSubnet string
 		if iface.Address.IP.To4() != nil { // IPv4 case
-			newSubnet = fmt.Sprintf("10.200.%d.0/%d", ipv4Index, ones)
+			newSubnet = fmt.Sprintf("100.64.%d.0/%d", ipv4Index, ones)
 			ipv4Index++
 		} else { // IPv6 case
-			newSubnet = fmt.Sprintf("fd00:200:%x::/%d", ipv6Index, ones)
+			newSubnet = fmt.Sprintf("fd00:64:%d::/%d", ipv6Index, ones)
 			ipv6Index++
 		}
 
@@ -81,7 +87,7 @@ func assignVirtualNATs(h *models.Host, node *models.Node) error {
 			return fmt.Errorf("could not find non-conflicting subnet for %s", iface.Address.String())
 		}
 	}
-	return UpsertHost(h)
+	return nil
 }
 
 func GetEgressRanges(netID models.NetworkID) (map[string][]string, map[string]struct{}, error) {

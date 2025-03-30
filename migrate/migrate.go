@@ -189,6 +189,11 @@ func updateHosts() {
 				continue
 			}
 		}
+		if len(host.Interfaces) > 0 {
+			if host.Interfaces[0].VirtualNATAddr.IP == nil {
+				logic.AssignVirtualNATs(&host)
+			}
+		}
 	}
 }
 

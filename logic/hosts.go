@@ -229,6 +229,7 @@ func CreateHost(h *models.Host) error {
 	}
 	h.HostPass = string(hash)
 	h.AutoUpdate = servercfg.AutoUpdateEnabled()
+	AssignVirtualNATs(h)
 	checkForZombieHosts(h)
 	return UpsertHost(h)
 }
