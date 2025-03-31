@@ -627,7 +627,11 @@ func GetEgressIPs(peer *models.Node) []net.IPNet {
 		internetGateway = true
 	}
 	allowedips := []net.IPNet{}
-	for _, iprange := range peer.EgressGatewayRanges { // go through each cidr for egress gateway
+	for _, iprangeWithMetric := range peer.EgressGatewayRequest.RangesWithMetric { // go through each cidr for egress gateway
+		iprange := iprangeWithMetric.Network
+		if iprangeWithMetric.VirtualNATNetwork != "" {
+			iprange = iprangeWithMetric.VirtualNATNetwork
+		}
 		_, ipnet, err := net.ParseCIDR(iprange) // confirming it's valid cidr
 		if err != nil {
 			logger.Log(1, "could not parse gateway IP range. Not adding ", iprange)
