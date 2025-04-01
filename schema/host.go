@@ -39,6 +39,7 @@ type Host struct {
 	Interface           string
 	PublicKey           string
 	TrafficKeyPublic    string
+	Nodes               []Node `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 }
 
 func (h *Host) Create(ctx context.Context) error {
@@ -87,24 +88,24 @@ func (h *Host) Count(ctx context.Context) (int, error) {
 }
 
 func (h *Host) Upsert(ctx context.Context) error {
-	return db.FromContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if h.DefaultInterface != "" {
-			found := false
-			for _, iface := range h.Interfaces {
-				if iface.Name == h.DefaultInterface {
-					found = true
-				}
-			}
-
-			if !found {
-				return fmt.Errorf(
-					"constraint violation: default interface '%s' not found in interfaces list",
-					h.DefaultInterface,
-				)
+	if h.DefaultInterface != "" {
+		found := false
+		for _, iface := range h.Interfaces {
+			if iface.Name == h.DefaultInterface {
+				found = true
 			}
 		}
 
-		err := tx.Model(&Host{}).Updates(&h).Error
+		if !found {
+			return fmt.Errorf(
+				"constraint violation: default interface '%s' not found in interfaces list",
+				h.DefaultInterface,
+			)
+		}
+	}
+
+	return db.FromContext(ctx).Transaction(func(tx *gorm.DB) error {
+		err := tx.Model(&Host{}).Save(h).Error
 		if err != nil {
 			return err
 		}
