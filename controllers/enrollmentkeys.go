@@ -209,7 +209,7 @@ func updateEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	newEnrollmentKey, err := logic.UpdateEnrollmentKey(keyId, relayId, enrollmentKeyBody.Groups)
+	newEnrollmentKey, err := logic.UpdateEnrollmentKey(keyId, relayId, enrollmentKeyBody.Groups, enrollmentKeyBody.AutoEgress)
 	if err != nil {
 		slog.Error("failed to update enrollment key", "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))

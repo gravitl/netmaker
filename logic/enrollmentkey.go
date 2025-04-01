@@ -93,7 +93,7 @@ func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string
 }
 
 // UpdateEnrollmentKey - updates an existing enrollment key's associated relay
-func UpdateEnrollmentKey(keyId string, relayId uuid.UUID, groups []models.TagID) (*models.EnrollmentKey, error) {
+func UpdateEnrollmentKey(keyId string, relayId uuid.UUID, groups []models.TagID, autoEgress bool) (*models.EnrollmentKey, error) {
 	key, err := GetEnrollmentKey(keyId)
 	if err != nil {
 		return nil, err

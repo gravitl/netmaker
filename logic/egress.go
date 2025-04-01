@@ -15,6 +15,9 @@ func AutoConfigureEgress(h *models.Host, node *models.Node) {
 	ranges := []string{}
 	rangesWithMetric := []models.EgressRangeMetric{}
 	for _, iface := range h.Interfaces {
+		if !iface.Address.IP.IsPrivate() || iface.Name == h.DefaultInterface {
+			continue
+		}
 		addr, err := NormalizeCIDR(iface.Address.String())
 		if err == nil {
 			ranges = append(ranges, addr)
@@ -65,12 +68,15 @@ func AssignVirtualNATs(h *models.Host) error {
 	ipv4Index := 1
 	ipv6Index := 1
 	for i, iface := range h.Interfaces {
+		if !iface.Address.IP.IsPrivate() || iface.Name == h.DefaultInterface {
+			continue
+		}
 		// Preserve the original subnet mask
 		ones, _ := iface.Address.Mask.Size()
 
 		var newSubnet string
 		if iface.Address.IP.To4() != nil { // IPv4 case
-			newSubnet = fmt.Sprintf("100.64.%d.0/%d", ipv4Index, ones)
+			newSubnet = fmt.Sprintf("10.64.%d.0/%d", ipv4Index, ones)
 			ipv4Index++
 		} else { // IPv6 case
 			newSubnet = fmt.Sprintf("fd00:64:%d::/%d", ipv6Index, ones)
