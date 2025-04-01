@@ -114,6 +114,7 @@ func UpdateEnrollmentKey(keyId string, relayId uuid.UUID, groups []models.TagID,
 
 	key.Relay = relayId
 	key.Groups = groups
+	key.AutoEgress = autoEgress
 	if err = upsertEnrollmentKey(&key); err != nil {
 		return nil, err
 	}
