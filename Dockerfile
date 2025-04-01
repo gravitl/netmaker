@@ -11,7 +11,7 @@ FROM alpine:3.21.2
 # add a c lib
 # set the working directory
 WORKDIR /root/
-RUN apk update && apk upgrade
+RUN apk upgrade --no-cache
 RUN apk add --no-cache sqlite
 RUN mkdir -p /etc/netclient/config
 COPY --from=builder /app/netmaker .

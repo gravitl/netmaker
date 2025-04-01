@@ -6,7 +6,7 @@ COPY ./netmaker /root/netmaker
 ENV GO111MODULE=auto
 
 # add a c lib
-RUN apk add gcompat iptables wireguard-tools
+RUN apk add --no-cache gcompat iptables wireguard-tools
 # set the working directory
 WORKDIR /root/
 RUN mkdir -p /etc/netclient/config
