@@ -325,10 +325,10 @@ func RemoveHost(h *models.Host, forceDelete bool) error {
 		}
 	}
 
-	host := &schema.Host{
+	_host := &schema.Host{
 		ID: h.ID.String(),
 	}
-	err := host.Delete(db.WithContext(context.TODO()))
+	err := _host.Delete(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}

@@ -37,31 +37,31 @@ func ToSchemaNetworks(networks []models.Network) []schema.Network {
 	return schemaNetworks
 }
 
-func ToModelNetwork(network schema.Network) models.Network {
+func ToModelNetwork(_network schema.Network) models.Network {
 	return models.Network{
-		AddressRange:        network.AddressRange,
-		AddressRange6:       network.AddressRange6,
-		NetID:               network.ID,
-		NodesLastModified:   network.NodesLastModified.Unix(),
-		NetworkLastModified: network.NetworkLastModified.Unix(),
-		DefaultInterface:    network.DefaultInterface,
-		DefaultListenPort:   network.DefaultListenPort,
-		NodeLimit:           network.NodeLimit,
-		DefaultPostDown:     network.DefaultPostDown,
-		DefaultKeepalive:    network.DefaultKeepalive,
-		AllowManualSignUp:   network.AllowManualSignUp,
-		IsIPv4:              network.IsIPv4,
-		IsIPv6:              network.IsIPv6,
-		DefaultUDPHolePunch: network.DefaultUDPHolePunch,
-		DefaultMTU:          network.DefaultMTU,
-		DefaultACL:          network.DefaultACL,
-		NameServers:         network.NameServers,
+		AddressRange:        _network.AddressRange,
+		AddressRange6:       _network.AddressRange6,
+		NetID:               _network.ID,
+		NodesLastModified:   _network.NodesLastModified.Unix(),
+		NetworkLastModified: _network.NetworkLastModified.Unix(),
+		DefaultInterface:    _network.DefaultInterface,
+		DefaultListenPort:   _network.DefaultListenPort,
+		NodeLimit:           _network.NodeLimit,
+		DefaultPostDown:     _network.DefaultPostDown,
+		DefaultKeepalive:    _network.DefaultKeepalive,
+		AllowManualSignUp:   _network.AllowManualSignUp,
+		IsIPv4:              _network.IsIPv4,
+		IsIPv6:              _network.IsIPv6,
+		DefaultUDPHolePunch: _network.DefaultUDPHolePunch,
+		DefaultMTU:          _network.DefaultMTU,
+		DefaultACL:          _network.DefaultACL,
+		NameServers:         _network.NameServers,
 	}
 }
 
-func ToModelNetworks(networks []schema.Network) []models.Network {
+func ToModelNetworks(_networks []schema.Network) []models.Network {
 	var modelNetworks []models.Network
-	for _, network := range networks {
+	for _, network := range _networks {
 		modelNetworks = append(modelNetworks, ToModelNetwork(network))
 	}
 
