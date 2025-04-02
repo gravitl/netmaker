@@ -1,9 +1,11 @@
 package schema
 
+import "gorm.io/datatypes"
+
 type EgressGatewayNodeConfig struct {
 	ID         string `gorm:"primaryKey"`
 	NatEnabled bool
-	Ranges     []RangeWithMetric `gorm:"serializer:json"`
+	Ranges     datatypes.JSONSlice[RangeWithMetric]
 }
 
 type RangeWithMetric struct {

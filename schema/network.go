@@ -3,6 +3,7 @@ package schema
 import (
 	"context"
 	"github.com/gravitl/netmaker/db"
+	"gorm.io/datatypes"
 	"time"
 )
 
@@ -16,12 +17,12 @@ type Network struct {
 	AllowManualSignUp   string `gorm:"default:'no'"`
 	DefaultInterface    string
 	DefaultPostDown     string
-	DefaultUDPHolePunch string   `gorm:"default:'no'"`
-	DefaultACL          string   `gorm:"default:'yes'"`
-	DefaultListenPort   int32    `gorm:"default:51821"`
-	DefaultKeepalive    int32    `gorm:"default:20"`
-	DefaultMTU          int32    `gorm:"default:1280"`
-	NameServers         []string `gorm:"serializer:json"`
+	DefaultUDPHolePunch string `gorm:"default:'no'"`
+	DefaultACL          string `gorm:"default:'yes'"`
+	DefaultListenPort   int32  `gorm:"default:51821"`
+	DefaultKeepalive    int32  `gorm:"default:20"`
+	DefaultMTU          int32  `gorm:"default:1280"`
+	NameServers         datatypes.JSONSlice[string]
 	NodesLastModified   time.Time
 	NetworkLastModified time.Time
 }
