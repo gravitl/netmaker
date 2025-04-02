@@ -20,6 +20,7 @@ func TestMain(m *testing.M) {
 	defer database.CloseDB()
 
 	_ = db.InitializeDB(schema.ListModels()...)
+	defer db.CloseDB()
 
 	peerUpdate := make(chan *models.Node)
 	go ManageZombies(context.Background(), peerUpdate)

@@ -97,3 +97,24 @@ func BeginTx(ctx context.Context) context.Context {
 
 	return context.WithValue(ctx, dbCtxKey, dbInCtx.Begin())
 }
+
+// CloseDB close a connection to the database
+// (if one exists). It panics if any error
+// occurs.
+func CloseDB() {
+	if db == nil {
+		return
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		panic(err)
+	}
+
+	err = sqlDB.Close()
+	if err != nil {
+		panic(err)
+	}
+
+	db = nil
+}

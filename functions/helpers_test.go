@@ -29,6 +29,7 @@ func TestMain(m *testing.M) {
 	defer database.CloseDB()
 
 	_ = db.InitializeDB(schema.ListModels()...)
+	defer db.CloseDB()
 
 	logic.CreateSuperAdmin(&models.User{
 		UserName:       "superadmin",

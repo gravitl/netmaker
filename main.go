@@ -59,6 +59,7 @@ func main() {
 		logic.SetFreeTierLimits()
 	}
 	defer database.CloseDB()
+	defer db.CloseDB()
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
 	defer stop()
 	var waitGroup sync.WaitGroup

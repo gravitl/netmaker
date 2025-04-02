@@ -36,6 +36,7 @@ func ToSQLSchema() error {
 	if err != nil {
 		return err
 	}
+	defer db.CloseDB()
 
 	// migrate, if not done already.
 	err = migrate()
