@@ -190,7 +190,6 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	}
 	node.IsIngressGateway = true
 	node.IsGw = true
-	node.IsRelay = true
 	if !servercfg.IsPro {
 		node.IsInternetGateway = ingress.IsInternetGateway
 	}

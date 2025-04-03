@@ -627,6 +627,10 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			logic.CreateFailOver(*newNode)
 			// make host remote access gateway
 			logic.CreateIngressGateway(network.NetID, newNode.ID.String(), models.IngressRequest{})
+			logic.CreateRelay(models.RelayRequest{
+				NodeID: newNode.ID.String(),
+				NetID:  network.NetID,
+			})
 		}
 		// send peer updates
 		if err = mq.PublishPeerUpdate(false); err != nil {
