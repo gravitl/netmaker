@@ -31,6 +31,7 @@ type ApiHost struct {
 	NatType             string     `json:"nat_type"              yaml:"nat_type"`
 	PersistentKeepalive int        `json:"persistentkeepalive"   yaml:"persistentkeepalive"`
 	AutoUpdate          bool       `json:"autoupdate"              yaml:"autoupdate"`
+	ExternalServices    []string   `json:"external_services"`
 }
 
 // ApiIface - the interface struct for API usage
@@ -78,6 +79,7 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 	a.NatType = h.NatType
 	a.PersistentKeepalive = int(h.PersistentKeepalive.Seconds())
 	a.AutoUpdate = h.AutoUpdate
+	a.ExternalServices = h.ExternalServices
 	return &a
 }
 
@@ -123,5 +125,6 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.TurnEndpoint = currentHost.TurnEndpoint
 	h.PersistentKeepalive = time.Duration(a.PersistentKeepalive) * time.Second
 	h.AutoUpdate = a.AutoUpdate
+	h.ExternalServices = a.ExternalServices
 	return &h
 }

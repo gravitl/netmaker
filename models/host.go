@@ -72,6 +72,7 @@ type Host struct {
 	NatType             string           `json:"nat_type,omitempty"      yaml:"nat_type,omitempty"`
 	TurnEndpoint        *netip.AddrPort  `json:"turn_endpoint,omitempty" yaml:"turn_endpoint,omitempty"`
 	PersistentKeepalive time.Duration    `json:"persistentkeepalive" swaggertype:"primitive,integer" format:"int64" yaml:"persistentkeepalive"`
+	ExternalServices    []string         `json:"external_services"`
 }
 
 // FormatBool converts a boolean to a [yes|no] string
