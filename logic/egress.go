@@ -3,6 +3,7 @@ package logic
 import (
 	"errors"
 	"fmt"
+	"math/big"
 	"net"
 	"slices"
 	"sort"
@@ -25,6 +26,7 @@ func AutoConfigureEgress(h *models.Host, node *models.Node) {
 		rangeWithMetric := models.EgressRangeMetric{
 			Network:           addr,
 			VirtualNATNetwork: iface.VirtualNATAddr.String(),
+			RouteMetric:       256,
 		}
 		if currRangeMetric, ok := currRangesWithMetric[addr]; ok {
 			lastMetricValue := currRangeMetric[len(currRangeMetric)-1]
@@ -39,6 +41,121 @@ func AutoConfigureEgress(h *models.Host, node *models.Node) {
 		Ranges:           ranges,
 		RangesWithMetric: rangesWithMetric,
 	})
+}
+
+func MapExternalServicesToHostNodes(h *models.Host) {
+	ranges := []string{}
+	rangesWithMetric := []models.EgressRangeMetric{}
+	for _, nodeID := range h.Nodes {
+		node, err := GetNodeByID(nodeID)
+		if err != nil {
+			continue
+		}
+		for i, egressServiceIPs := range h.EgressServices {
+			for j, egressIPNat := range egressServiceIPs {
+				currRangesWithMetric := GetEgressRangesWithMetric(models.NetworkID(node.Network))
+
+				addr := egressIPNat.EgressIP.String()
+				ranges = append(ranges, addr)
+				for _, iface := range h.Interfaces {
+					if !iface.Address.IP.IsPrivate() || iface.Name == h.DefaultInterface {
+						continue
+					}
+					ifaceAddr, err := NormalizeCIDRV1(iface.Address.String())
+					if err != nil {
+						continue
+					}
+					if !ifaceAddr.Contains(egressIPNat.EgressIP) {
+						continue
+					}
+					egressNATIP, err := netmapTranslate(egressIPNat.EgressIP, ifaceAddr.String(), iface.VirtualNATAddr.String())
+					if err != nil {
+						continue
+					}
+					egressIPNat.NATIP = egressNATIP
+					egressServiceIPs[j] = egressIPNat
+					rangeWithMetric := models.EgressRangeMetric{
+						Network:           addr,
+						VirtualNATNetwork: egressNATIP.String(),
+						RouteMetric:       256,
+					}
+					if currRangeMetric, ok := currRangesWithMetric[addr]; ok {
+						lastMetricValue := currRangeMetric[len(currRangeMetric)-1]
+						rangeWithMetric.RouteMetric = lastMetricValue.RouteMetric + 10
+					}
+					rangesWithMetric = append(rangesWithMetric, rangeWithMetric)
+				}
+				h.EgressServices[i] = egressServiceIPs
+
+			}
+
+		}
+		if !node.IsEgressGateway {
+			CreateEgressGateway(models.EgressGatewayRequest{
+				NodeID:           node.ID.String(),
+				NetID:            node.Network,
+				NatEnabled:       "yes",
+				Ranges:           ranges,
+				RangesWithMetric: rangesWithMetric,
+			})
+		} else {
+			node.EgressGatewayRequest.Ranges = append(node.EgressGatewayRequest.Ranges, ranges...)
+			node.EgressGatewayRequest.RangesWithMetric = append(node.EgressGatewayRequest.RangesWithMetric, rangesWithMetric...)
+			node.EgressGatewayRanges = append(node.EgressGatewayRanges, ranges...)
+			UpsertNode(&node)
+		}
+
+	}
+	UpsertHost(h)
+}
+
+// netmapTranslate translates an IP address from one subnet to another
+func netmapTranslate(ip net.IP, srcCIDR, dstCIDR string) (net.IP, error) {
+	_, srcNet, err := net.ParseCIDR(srcCIDR)
+	if err != nil {
+		return nil, fmt.Errorf("invalid source CIDR: %w", err)
+	}
+
+	_, dstNet, err := net.ParseCIDR(dstCIDR)
+	if err != nil {
+		return nil, fmt.Errorf("invalid destination CIDR: %w", err)
+	}
+
+	// Ensure IP belongs to the source subnet
+	if !srcNet.Contains(ip) {
+		return nil, fmt.Errorf("IP %s not in source CIDR %s", ip, srcCIDR)
+	}
+
+	// Convert IPs to big.Int
+	ipInt := ipToBigInt(ip)
+	srcBase := ipToBigInt(srcNet.IP)
+	dstBase := ipToBigInt(dstNet.IP)
+
+	// Compute offset and apply it to the destination base
+	offset := new(big.Int).Sub(ipInt, srcBase)
+	translatedIP := new(big.Int).Add(dstBase, offset)
+
+	return bigIntToIP(translatedIP, ip), nil
+}
+
+// ipToBigInt converts an IP address to a big integer
+func ipToBigInt(ip net.IP) *big.Int {
+	return new(big.Int).SetBytes(ip.To16()) // Always use IPv6 representation
+}
+
+// bigIntToIP correctly converts a big integer back to an IP address
+func bigIntToIP(bi *big.Int, originalIP net.IP) net.IP {
+	ipBytes := bi.Bytes()
+
+	// Ensure correct length (IPv4 = 4 bytes, IPv6 = 16 bytes)
+	if len(originalIP) == net.IPv4len && len(ipBytes) > 4 {
+		ipBytes = ipBytes[len(ipBytes)-4:] // Extract last 4 bytes for IPv4
+	} else if len(ipBytes) < len(originalIP) {
+		padding := make([]byte, len(originalIP)-len(ipBytes))
+		ipBytes = append(padding, ipBytes...)
+	}
+
+	return net.IP(ipBytes)
 }
 
 // isConflicting checks if a given CIDR conflicts with existing subnets

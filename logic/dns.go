@@ -326,3 +326,17 @@ func CreateDNS(entry models.DNSEntry) (models.DNSEntry, error) {
 	err = database.Insert(k, string(data), database.DNS_TABLE_NAME)
 	return entry, err
 }
+func GetAdditionalNameservers() (ns []string) {
+	hosts, err := GetAllHosts()
+	if err != nil {
+		return
+	}
+	for _, host := range hosts {
+		if ips, ok := host.EgressServices["DNS"]; ok {
+			for _, ip := range ips {
+				ns = append(ns, ip.NATIP.String())
+			}
+		}
+	}
+	return
+}

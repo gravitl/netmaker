@@ -8,30 +8,30 @@ import (
 
 // ApiHost - the host struct for API usage
 type ApiHost struct {
-	ID                  string              `json:"id"`
-	Verbosity           int                 `json:"verbosity"`
-	FirewallInUse       string              `json:"firewallinuse"`
-	Version             string              `json:"version"`
-	Name                string              `json:"name"`
-	OS                  string              `json:"os"`
-	Debug               bool                `json:"debug"`
-	IsStaticPort        bool                `json:"isstaticport"`
-	IsStatic            bool                `json:"isstatic"`
-	ListenPort          int                 `json:"listenport"`
-	WgPublicListenPort  int                 `json:"wg_public_listen_port" yaml:"wg_public_listen_port"`
-	MTU                 int                 `json:"mtu"                   yaml:"mtu"`
-	Interfaces          []ApiIface          `json:"interfaces"            yaml:"interfaces"`
-	DefaultInterface    string              `json:"defaultinterface"      yaml:"defautlinterface"`
-	EndpointIP          string              `json:"endpointip"            yaml:"endpointip"`
-	EndpointIPv6        string              `json:"endpointipv6"            yaml:"endpointipv6"`
-	PublicKey           string              `json:"publickey"`
-	MacAddress          string              `json:"macaddress"`
-	Nodes               []string            `json:"nodes"`
-	IsDefault           bool                `json:"isdefault"             yaml:"isdefault"`
-	NatType             string              `json:"nat_type"              yaml:"nat_type"`
-	PersistentKeepalive int                 `json:"persistentkeepalive"   yaml:"persistentkeepalive"`
-	AutoUpdate          bool                `json:"autoupdate"              yaml:"autoupdate"`
-	EgressServices      map[string][]net.IP `json:"egress_services"`
+	ID                  string                   `json:"id"`
+	Verbosity           int                      `json:"verbosity"`
+	FirewallInUse       string                   `json:"firewallinuse"`
+	Version             string                   `json:"version"`
+	Name                string                   `json:"name"`
+	OS                  string                   `json:"os"`
+	Debug               bool                     `json:"debug"`
+	IsStaticPort        bool                     `json:"isstaticport"`
+	IsStatic            bool                     `json:"isstatic"`
+	ListenPort          int                      `json:"listenport"`
+	WgPublicListenPort  int                      `json:"wg_public_listen_port" yaml:"wg_public_listen_port"`
+	MTU                 int                      `json:"mtu"                   yaml:"mtu"`
+	Interfaces          []ApiIface               `json:"interfaces"            yaml:"interfaces"`
+	DefaultInterface    string                   `json:"defaultinterface"      yaml:"defautlinterface"`
+	EndpointIP          string                   `json:"endpointip"            yaml:"endpointip"`
+	EndpointIPv6        string                   `json:"endpointipv6"            yaml:"endpointipv6"`
+	PublicKey           string                   `json:"publickey"`
+	MacAddress          string                   `json:"macaddress"`
+	Nodes               []string                 `json:"nodes"`
+	IsDefault           bool                     `json:"isdefault"             yaml:"isdefault"`
+	NatType             string                   `json:"nat_type"              yaml:"nat_type"`
+	PersistentKeepalive int                      `json:"persistentkeepalive"   yaml:"persistentkeepalive"`
+	AutoUpdate          bool                     `json:"autoupdate"              yaml:"autoupdate"`
+	EgressServices      map[string][]EgressIPNat `json:"egress_services"`
 }
 
 // ApiIface - the interface struct for API usage

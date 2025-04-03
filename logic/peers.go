@@ -159,6 +159,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		HostNetworkInfo: models.HostInfoMap{},
 		ServerConfig:    servercfg.ServerInfo,
 	}
+	hostPeerUpdate.NameServers = append(hostPeerUpdate.NameServers, GetAdditionalNameservers()...)
 	defer func() {
 		if !hostPeerUpdate.FwUpdate.AllowAll {
 			aclRule := models.AclRule{

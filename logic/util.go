@@ -133,6 +133,22 @@ func NormalizeCIDR(address string) (string, error) {
 	return IPNet.String(), nil
 }
 
+// NormalizeCIDR - returns the first address of CIDR
+func NormalizeCIDRV1(address string) (net.IPNet, error) {
+	ip, IPNet, err := net.ParseCIDR(address)
+	if err != nil {
+		return net.IPNet{}, err
+	}
+	if ip.To4() == nil {
+		net6 := iplib.Net6FromStr(IPNet.String())
+		IPNet.IP = net6.FirstAddress()
+	} else {
+		net4 := iplib.Net4FromStr(IPNet.String())
+		IPNet.IP = net4.NetworkAddress()
+	}
+	return *IPNet, nil
+}
+
 // StringDifference - returns the elements in `a` that aren't in `b`.
 func StringDifference(a, b []string) []string {
 	mb := make(map[string]struct{}, len(b))
