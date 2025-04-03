@@ -41,38 +41,38 @@ const (
 
 // Host - represents a host on the network
 type Host struct {
-	ID                  uuid.UUID        `json:"id"                      yaml:"id"`
-	Verbosity           int              `json:"verbosity"               yaml:"verbosity"`
-	FirewallInUse       string           `json:"firewallinuse"           yaml:"firewallinuse"`
-	Version             string           `json:"version"                 yaml:"version"`
-	IPForwarding        bool             `json:"ipforwarding"            yaml:"ipforwarding"`
-	DaemonInstalled     bool             `json:"daemoninstalled"         yaml:"daemoninstalled"`
-	AutoUpdate          bool             `json:"autoupdate"              yaml:"autoupdate"`
-	HostPass            string           `json:"hostpass"                yaml:"hostpass"`
-	Name                string           `json:"name"                    yaml:"name"`
-	OS                  string           `json:"os"                      yaml:"os"`
-	Interface           string           `json:"interface"               yaml:"interface"`
-	Debug               bool             `json:"debug"                   yaml:"debug"`
-	ListenPort          int              `json:"listenport"              yaml:"listenport"`
-	WgPublicListenPort  int              `json:"wg_public_listen_port"   yaml:"wg_public_listen_port"`
-	MTU                 int              `json:"mtu"                     yaml:"mtu"`
-	PublicKey           wgtypes.Key      `json:"publickey"               yaml:"publickey"`
-	MacAddress          net.HardwareAddr `json:"macaddress"              yaml:"macaddress"`
-	TrafficKeyPublic    []byte           `json:"traffickeypublic"        yaml:"traffickeypublic"`
-	Nodes               []string         `json:"nodes"                   yaml:"nodes"`
-	Interfaces          []Iface          `json:"interfaces"              yaml:"interfaces"`
-	DefaultInterface    string           `json:"defaultinterface"        yaml:"defaultinterface"`
-	EndpointIP          net.IP           `json:"endpointip"              yaml:"endpointip"`
-	EndpointIPv6        net.IP           `json:"endpointipv6"            yaml:"endpointipv6"`
-	IsDocker            bool             `json:"isdocker"                yaml:"isdocker"`
-	IsK8S               bool             `json:"isk8s"                   yaml:"isk8s"`
-	IsStaticPort        bool             `json:"isstaticport"            yaml:"isstaticport"`
-	IsStatic            bool             `json:"isstatic"        yaml:"isstatic"`
-	IsDefault           bool             `json:"isdefault"               yaml:"isdefault"`
-	NatType             string           `json:"nat_type,omitempty"      yaml:"nat_type,omitempty"`
-	TurnEndpoint        *netip.AddrPort  `json:"turn_endpoint,omitempty" yaml:"turn_endpoint,omitempty"`
-	PersistentKeepalive time.Duration    `json:"persistentkeepalive" swaggertype:"primitive,integer" format:"int64" yaml:"persistentkeepalive"`
-	ExternalServices    []string         `json:"external_services"`
+	ID                  uuid.UUID           `json:"id"                      yaml:"id"`
+	Verbosity           int                 `json:"verbosity"               yaml:"verbosity"`
+	FirewallInUse       string              `json:"firewallinuse"           yaml:"firewallinuse"`
+	Version             string              `json:"version"                 yaml:"version"`
+	IPForwarding        bool                `json:"ipforwarding"            yaml:"ipforwarding"`
+	DaemonInstalled     bool                `json:"daemoninstalled"         yaml:"daemoninstalled"`
+	AutoUpdate          bool                `json:"autoupdate"              yaml:"autoupdate"`
+	HostPass            string              `json:"hostpass"                yaml:"hostpass"`
+	Name                string              `json:"name"                    yaml:"name"`
+	OS                  string              `json:"os"                      yaml:"os"`
+	Interface           string              `json:"interface"               yaml:"interface"`
+	Debug               bool                `json:"debug"                   yaml:"debug"`
+	ListenPort          int                 `json:"listenport"              yaml:"listenport"`
+	WgPublicListenPort  int                 `json:"wg_public_listen_port"   yaml:"wg_public_listen_port"`
+	MTU                 int                 `json:"mtu"                     yaml:"mtu"`
+	PublicKey           wgtypes.Key         `json:"publickey"               yaml:"publickey"`
+	MacAddress          net.HardwareAddr    `json:"macaddress"              yaml:"macaddress"`
+	TrafficKeyPublic    []byte              `json:"traffickeypublic"        yaml:"traffickeypublic"`
+	Nodes               []string            `json:"nodes"                   yaml:"nodes"`
+	Interfaces          []Iface             `json:"interfaces"              yaml:"interfaces"`
+	DefaultInterface    string              `json:"defaultinterface"        yaml:"defaultinterface"`
+	EndpointIP          net.IP              `json:"endpointip"              yaml:"endpointip"`
+	EndpointIPv6        net.IP              `json:"endpointipv6"            yaml:"endpointipv6"`
+	IsDocker            bool                `json:"isdocker"                yaml:"isdocker"`
+	IsK8S               bool                `json:"isk8s"                   yaml:"isk8s"`
+	IsStaticPort        bool                `json:"isstaticport"            yaml:"isstaticport"`
+	IsStatic            bool                `json:"isstatic"        yaml:"isstatic"`
+	IsDefault           bool                `json:"isdefault"               yaml:"isdefault"`
+	NatType             string              `json:"nat_type,omitempty"      yaml:"nat_type,omitempty"`
+	TurnEndpoint        *netip.AddrPort     `json:"turn_endpoint,omitempty" yaml:"turn_endpoint,omitempty"`
+	PersistentKeepalive time.Duration       `json:"persistentkeepalive" swaggertype:"primitive,integer" format:"int64" yaml:"persistentkeepalive"`
+	EgressServices      map[string][]string `json:"egress_services"`
 }
 
 // FormatBool converts a boolean to a [yes|no] string
