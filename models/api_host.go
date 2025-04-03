@@ -31,7 +31,7 @@ type ApiHost struct {
 	NatType             string              `json:"nat_type"              yaml:"nat_type"`
 	PersistentKeepalive int                 `json:"persistentkeepalive"   yaml:"persistentkeepalive"`
 	AutoUpdate          bool                `json:"autoupdate"              yaml:"autoupdate"`
-	EgressServices      map[string][]string `json:"egress_services"`
+	EgressServices      map[string][]net.IP `json:"egress_services"`
 }
 
 // ApiIface - the interface struct for API usage
