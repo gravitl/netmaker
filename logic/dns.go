@@ -335,6 +335,7 @@ func GetAdditionalNameservers() (ns []string) {
 		if ips, ok := host.EgressServices["DNS"]; ok {
 			for _, ip := range ips {
 				ns = append(ns, ip.NATIP.String())
+				ns = append(ns, ip.EgressIP.String())
 			}
 		}
 	}

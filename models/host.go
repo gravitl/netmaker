@@ -76,8 +76,9 @@ type Host struct {
 }
 
 type EgressIPNat struct {
-	EgressIP net.IP
-	NATIP    net.IP
+	EgressIP net.IP `json:"egress_ip"`
+	NATIP    net.IP `json:"egress_nat_ip"`
+	Discover bool   `json:"discover"`
 }
 
 // FormatBool converts a boolean to a [yes|no] string

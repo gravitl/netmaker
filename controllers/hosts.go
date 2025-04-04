@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"reflect"
 	"time"
 
 	"github.com/google/uuid"
@@ -270,6 +271,10 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, r.Header.Get("user"), "failed to update a host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
+	}
+	if !reflect.DeepEqual(currHost.EgressServices, newHost.EgressServices) {
+		// update egress range on nodes
+		logic.MapExternalServicesToHostNodes(newHost)
 	}
 	// publish host update through MQ
 	if err := mq.HostUpdate(&models.HostUpdate{

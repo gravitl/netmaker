@@ -3,6 +3,7 @@ package logic
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"net"
 	"slices"
@@ -43,6 +44,17 @@ func AutoConfigureEgress(h *models.Host, node *models.Node) {
 	})
 }
 
+func ToIPNet(ipaddr net.IP) *net.IPNet {
+	addrIpNet := net.IPNet{
+		IP:   ipaddr,
+		Mask: net.CIDRMask(32, 32),
+	}
+	if addrIpNet.IP.To4() == nil {
+		addrIpNet.Mask = net.CIDRMask(128, 128)
+	}
+	return &addrIpNet
+}
+
 func MapExternalServicesToHostNodes(h *models.Host) {
 	ranges := []string{}
 	rangesWithMetric := []models.EgressRangeMetric{}
@@ -52,11 +64,13 @@ func MapExternalServicesToHostNodes(h *models.Host) {
 			continue
 		}
 		for i, egressServiceIPs := range h.EgressServices {
-			for j, egressIPNat := range egressServiceIPs {
+			if len(egressServiceIPs) == 0 {
+				continue
+			}
+			for j, egressServiceIP := range egressServiceIPs {
 				currRangesWithMetric := GetEgressRangesWithMetric(models.NetworkID(node.Network))
-
-				addr := egressIPNat.EgressIP.String()
-				ranges = append(ranges, addr)
+				addr := ToIPNet(egressServiceIP.EgressIP)
+				ranges = append(ranges, addr.String())
 				for _, iface := range h.Interfaces {
 					if !iface.Address.IP.IsPrivate() || iface.Name == h.DefaultInterface {
 						continue
@@ -65,21 +79,21 @@ func MapExternalServicesToHostNodes(h *models.Host) {
 					if err != nil {
 						continue
 					}
-					if !ifaceAddr.Contains(egressIPNat.EgressIP) {
+					if !ifaceAddr.Contains(egressServiceIP.EgressIP) {
 						continue
 					}
-					egressNATIP, err := netmapTranslate(egressIPNat.EgressIP, ifaceAddr.String(), iface.VirtualNATAddr.String())
+					egressNATIP, err := netmapTranslate(egressServiceIP.EgressIP, ifaceAddr.String(), iface.VirtualNATAddr.String())
 					if err != nil {
 						continue
 					}
-					egressIPNat.NATIP = egressNATIP
-					egressServiceIPs[j] = egressIPNat
+					egressServiceIP.NATIP = egressNATIP
+					egressServiceIPs[j] = egressServiceIP
 					rangeWithMetric := models.EgressRangeMetric{
-						Network:           addr,
-						VirtualNATNetwork: egressNATIP.String(),
+						Network:           addr.String(),
+						VirtualNATNetwork: ToIPNet(egressServiceIP.NATIP).String(),
 						RouteMetric:       256,
 					}
-					if currRangeMetric, ok := currRangesWithMetric[addr]; ok {
+					if currRangeMetric, ok := currRangesWithMetric[addr.String()]; ok {
 						lastMetricValue := currRangeMetric[len(currRangeMetric)-1]
 						rangeWithMetric.RouteMetric = lastMetricValue.RouteMetric + 10
 					}
@@ -91,13 +105,17 @@ func MapExternalServicesToHostNodes(h *models.Host) {
 
 		}
 		if !node.IsEgressGateway {
-			CreateEgressGateway(models.EgressGatewayRequest{
+			fmt.Printf("Configuring EGRESS GW: Ranges: %+v, RANGE METRIC: %+v\n", ranges, rangesWithMetric)
+			_, err := CreateEgressGateway(models.EgressGatewayRequest{
 				NodeID:           node.ID.String(),
 				NetID:            node.Network,
 				NatEnabled:       "yes",
 				Ranges:           ranges,
 				RangesWithMetric: rangesWithMetric,
 			})
+			if err != nil {
+				slog.Error("failed to create egress node for external services ", "err", err.Error())
+			}
 		} else {
 			node.EgressGatewayRequest.Ranges = append(node.EgressGatewayRequest.Ranges, ranges...)
 			node.EgressGatewayRequest.RangesWithMetric = append(node.EgressGatewayRequest.RangesWithMetric, rangesWithMetric...)
