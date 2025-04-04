@@ -285,7 +285,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	key, keyErr := logic.RetrievePublicTrafficKey()
 	if keyErr != nil {
 		logger.Log(0, "error retrieving key:", keyErr.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(keyErr, "internal"))
 		return
 	}
 	// use the token
