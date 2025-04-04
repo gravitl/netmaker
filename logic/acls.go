@@ -223,38 +223,6 @@ func IsAclExists(aclID string) bool {
 	_, err := GetAcl(aclID)
 	return err == nil
 }
-func GetEgressRanges(netID models.NetworkID) (map[string][]string, map[string]struct{}, error) {
-
-	resultMap := make(map[string]struct{})
-	nodeEgressMap := make(map[string][]string)
-	networkNodes, err := GetNetworkNodes(netID.String())
-	if err != nil {
-		return nil, nil, err
-	}
-	for _, currentNode := range networkNodes {
-		if currentNode.Network != netID.String() {
-			continue
-		}
-		if currentNode.IsEgressGateway { // add the egress gateway range(s) to the result
-			if len(currentNode.EgressGatewayRanges) > 0 {
-				nodeEgressMap[currentNode.ID.String()] = currentNode.EgressGatewayRanges
-				for _, egressRangeI := range currentNode.EgressGatewayRanges {
-					resultMap[egressRangeI] = struct{}{}
-				}
-			}
-		}
-	}
-	extclients, _ := GetNetworkExtClients(netID.String())
-	for _, extclient := range extclients {
-		if len(extclient.ExtraAllowedIPs) > 0 {
-			nodeEgressMap[extclient.ClientID] = extclient.ExtraAllowedIPs
-			for _, extraAllowedIP := range extclient.ExtraAllowedIPs {
-				resultMap[extraAllowedIP] = struct{}{}
-			}
-		}
-	}
-	return nodeEgressMap, resultMap, nil
-}
 
 func checkIfAclTagisValid(t models.AclPolicyTag, netID models.NetworkID, policyType models.AclPolicyType, isSrc bool) bool {
 	switch t.ID {

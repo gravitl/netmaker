@@ -38,7 +38,7 @@ var (
 )
 
 // CreateEnrollmentKey - creates a new enrollment key in db
-func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string, groups []models.TagID, unlimited bool, relay uuid.UUID, defaultKey bool) (*models.EnrollmentKey, error) {
+func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string, groups []models.TagID, unlimited bool, relay uuid.UUID, defaultKey, autoEgress bool) (*models.EnrollmentKey, error) {
 	newKeyID, err := getUniqueEnrollmentID()
 	if err != nil {
 		return nil, err
@@ -54,6 +54,7 @@ func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string
 		Relay:         relay,
 		Groups:        groups,
 		Default:       defaultKey,
+		AutoEgress:    autoEgress,
 	}
 	if uses > 0 {
 		k.UsesRemaining = uses
@@ -92,7 +93,7 @@ func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string
 }
 
 // UpdateEnrollmentKey - updates an existing enrollment key's associated relay
-func UpdateEnrollmentKey(keyId string, relayId uuid.UUID, groups []models.TagID) (*models.EnrollmentKey, error) {
+func UpdateEnrollmentKey(keyId string, relayId uuid.UUID, groups []models.TagID, autoEgress bool) (*models.EnrollmentKey, error) {
 	key, err := GetEnrollmentKey(keyId)
 	if err != nil {
 		return nil, err
@@ -113,6 +114,7 @@ func UpdateEnrollmentKey(keyId string, relayId uuid.UUID, groups []models.TagID)
 
 	key.Relay = relayId
 	key.Groups = groups
+	key.AutoEgress = autoEgress
 	if err = upsertEnrollmentKey(&key); err != nil {
 		return nil, err
 	}

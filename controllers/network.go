@@ -436,7 +436,7 @@ func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Param       networkname path string true "Network name"
 // @Produce     json
-// @Success     200 {object} acls.SuccessResponse
+// @Success     200 {object} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
 func getNetworkEgressRoutes(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)

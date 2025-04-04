@@ -151,6 +151,7 @@ func updateEnrollmentKeys() {
 			true,
 			uuid.Nil,
 			true,
+			false,
 		)
 
 	}
@@ -186,6 +187,11 @@ func updateHosts() {
 			if err := logic.UpsertHost(&host); err != nil {
 				logger.Log(0, "failed to upsert host", host.ID.String())
 				continue
+			}
+		}
+		if len(host.Interfaces) > 0 {
+			if host.Interfaces[0].VirtualNATAddr.IP == nil {
+				logic.AssignVirtualNATs(&host)
 			}
 		}
 	}

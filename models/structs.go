@@ -154,8 +154,9 @@ type ExtPeersResponse struct {
 }
 
 type EgressRangeMetric struct {
-	Network     string `json:"network"`
-	RouteMetric uint32 `json:"route_metric"` // preffered range 1-999
+	Network           string `json:"network"`
+	RouteMetric       uint32 `json:"route_metric"` // preferred range 1-999
+	VirtualNATNetwork string `json:"virtual_nat_network"`
 }
 
 // EgressGatewayRequest - egress gateway request
@@ -238,9 +239,6 @@ type HostPull struct {
 	EndpointDetection bool                  `json:"endpoint_detection"`
 }
 
-type DefaultGwInfo struct {
-}
-
 // NodeGet - struct for a single node get response
 type NodeGet struct {
 	Node         Node                 `json:"node" bson:"node" yaml:"node"`
@@ -263,6 +261,7 @@ type NodeJoinResponse struct {
 type ServerConfig struct {
 	CoreDNSAddr       string `yaml:"corednsaddr"`
 	API               string `yaml:"api"`
+	APIHost           string `yaml:"apihost"`
 	APIPort           string `yaml:"apiport"`
 	DNSMode           string `yaml:"dnsmode"`
 	Version           string `yaml:"version"`

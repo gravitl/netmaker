@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"sort"
 	"sync"
 
@@ -229,6 +230,7 @@ func CreateHost(h *models.Host) error {
 	}
 	h.HostPass = string(hash)
 	h.AutoUpdate = servercfg.AutoUpdateEnabled()
+	AssignVirtualNATs(h)
 	checkForZombieHosts(h)
 	return UpsertHost(h)
 }
@@ -292,6 +294,12 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 		currHost.EndpointIPv6 = newHost.EndpointIPv6
 		sendPeerUpdate = true
 		isEndpointChanged = true
+	}
+	if !reflect.DeepEqual(currHost.EgressServices, newHost.EgressServices) {
+		currHost.EgressServices = newHost.EgressServices
+		// update egress range on nodes
+		MapExternalServicesToHostNodes(currHost)
+		sendPeerUpdate = true
 	}
 
 	if isEndpointChanged {
