@@ -73,6 +73,7 @@ type Host struct {
 	TurnEndpoint        *netip.AddrPort          `json:"turn_endpoint,omitempty" yaml:"turn_endpoint,omitempty"`
 	PersistentKeepalive time.Duration            `json:"persistentkeepalive" swaggertype:"primitive,integer" format:"int64" yaml:"persistentkeepalive"`
 	EgressServices      map[string][]EgressIPNat `json:"egress_services"`
+	NameServers         []string                 `json:"name_servers" yaml:"name_servers"`
 }
 
 type EgressIPNat struct {

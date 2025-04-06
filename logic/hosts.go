@@ -270,7 +270,7 @@ func UpdateHost(newHost, currentHost *models.Host) {
 }
 
 // UpdateHostFromClient - used for updating host on server with update recieved from client
-func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) {
+func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate, sendHostUpdate bool) {
 	if newHost.PublicKey != currHost.PublicKey {
 		currHost.PublicKey = newHost.PublicKey
 		sendPeerUpdate = true
@@ -300,6 +300,7 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 		// update egress range on nodes
 		MapExternalServicesToHostNodes(currHost)
 		sendPeerUpdate = true
+		sendHostUpdate = true
 	}
 
 	if isEndpointChanged {

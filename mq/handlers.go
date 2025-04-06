@@ -128,7 +128,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 			//remove old peer entry
 			replacePeers = true
 		}
-		sendPeerUpdate = logic.UpdateHostFromClient(&hostUpdate.Host, currentHost)
+		sendPeerUpdate, _ = logic.UpdateHostFromClient(&hostUpdate.Host, currentHost)
 		err := logic.UpsertHost(currentHost)
 		if err != nil {
 			slog.Error("failed to update host", "id", currentHost.ID, "error", err)
