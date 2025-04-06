@@ -78,7 +78,6 @@ type Host struct {
 type EgressIPNat struct {
 	EgressIP net.IP `json:"egress_ip"`
 	NATIP    net.IP `json:"egress_nat_ip"`
-	Discover bool   `json:"discover"`
 }
 
 // FormatBool converts a boolean to a [yes|no] string
@@ -129,6 +128,8 @@ const (
 	SignalPull HostMqAction = "SIGNAL_PULL"
 	// UpdateMetrics - updates metrics data
 	UpdateMetrics HostMqAction = "UPDATE_METRICS"
+	// DiscoverEgressServices - action to trigger discover egress ips
+	DiscoverEgressIps HostMqAction = "DISCOVER_EGRESS_SERVICE"
 )
 
 // SignalAction - turn peer signal action

@@ -272,10 +272,7 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	if !reflect.DeepEqual(currHost.EgressServices, newHost.EgressServices) {
-		// update egress range on nodes
-		logic.MapExternalServicesToHostNodes(newHost)
-	}
+
 	// publish host update through MQ
 	if err := mq.HostUpdate(&models.HostUpdate{
 		Action: models.UpdateHost,
@@ -288,6 +285,23 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 			currHost.ID.String(),
 			err.Error(),
 		)
+	}
+	if !reflect.DeepEqual(newHost.EgressServices, currHost.EgressServices) {
+		// update egress range on nodes
+		logic.MapExternalServicesToHostNodes(newHost)
+		// publish host update through MQ
+		if err := mq.HostUpdate(&models.HostUpdate{
+			Action: models.DiscoverEgressIps,
+			Host:   *newHost,
+		}); err != nil {
+			logger.Log(
+				0,
+				r.Header.Get("user"),
+				"failed to send host update: ",
+				currHost.ID.String(),
+				err.Error(),
+			)
+		}
 	}
 	go func() {
 		if err := mq.PublishPeerUpdate(false); err != nil {
