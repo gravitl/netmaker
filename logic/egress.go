@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"math/big"
 	"net"
 	"slices"
@@ -56,14 +57,28 @@ func ToIPNet(ipaddr net.IP) *net.IPNet {
 }
 
 func MapExternalServicesToHostNodes(h *models.Host) {
+	if h.EgressServices == nil {
+		return
+	}
 	ranges := []string{}
 	rangesWithMetric := []models.EgressRangeMetric{}
+	// fetch namservers for internal dns
+	hostEgressServices := maps.Clone(h.EgressServices)
+	for _, nsI := range h.NameServers {
+		nsIP := net.ParseIP(nsI)
+		if nsIP.IsPrivate() {
+			hostEgressServices["DNS"] = append(hostEgressServices["DNS"], models.EgressIPNat{
+				EgressIP: nsIP,
+			})
+		}
+	}
+
 	for _, nodeID := range h.Nodes {
 		node, err := GetNodeByID(nodeID)
 		if err != nil {
 			continue
 		}
-		for i, egressServiceIPs := range h.EgressServices {
+		for i, egressServiceIPs := range hostEgressServices {
 			if len(egressServiceIPs) == 0 {
 				continue
 			}
