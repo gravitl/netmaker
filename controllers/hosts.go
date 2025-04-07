@@ -54,7 +54,7 @@ func hostHandlers(r *mux.Router) {
 	r.HandleFunc("/api/emqx/hosts", logic.SecurityCheck(true, http.HandlerFunc(delEmqxHosts))).
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/auth-register/host", socketHandler)
-	r.HandleFunc("/api/v1/hosts/{hostid}/external_service_connector", logic.SecurityCheck(true, http.HandlerFunc(addExternalConnector))).
+	r.HandleFunc("/api/v1/host/{hostid}/external_service_connector", logic.SecurityCheck(true, http.HandlerFunc(addExternalConnector))).
 		Methods(http.MethodPost)
 }
 
