@@ -230,7 +230,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		ChangeDefaultGw:   hPU.ChangeDefaultGw,
 		DefaultGwIp:       hPU.DefaultGwIp,
 		IsInternetGw:      hPU.IsInternetGw,
-		EndpointDetection: servercfg.IsEndpointDetectionEnabled(),
+		EndpointDetection: logic.IsEndpointDetectionEnabled(),
 	}
 
 	logger.Log(1, hostID, "completed a pull")

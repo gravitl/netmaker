@@ -82,7 +82,6 @@ func GetServerConfig() config.ServerConfig {
 	cfg.ClientID = authInfo[1]
 	cfg.ClientSecret = authInfo[2]
 	cfg.FrontendURL = GetFrontendURL()
-	cfg.AzureTenant = GetAzureTenant()
 	cfg.Telemetry = Telemetry()
 	cfg.Server = GetServer()
 	cfg.Verbosity = GetVerbosity()
@@ -98,8 +97,6 @@ func GetServerConfig() config.ServerConfig {
 	cfg.Stun = IsStunEnabled()
 	cfg.StunServers = GetStunServers()
 	cfg.DefaultDomain = GetDefaultDomain()
-	cfg.LicenseValue = GetLicenseKey()
-	cfg.NetmakerTenantID = GetNetmakerTenantID()
 	return cfg
 }
 

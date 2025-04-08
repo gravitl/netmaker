@@ -134,7 +134,7 @@ func convertLegacyHostNode(legacy models.LegacyNode) (models.Host, models.Node) 
 	host := models.Host{}
 	host.ID = uuid.New()
 	host.IPForwarding = models.ParseBool(legacy.IPForwarding)
-	host.AutoUpdate = servercfg.AutoUpdateEnabled()
+	host.AutoUpdate = logic.AutoUpdateEnabled()
 	host.Interface = "netmaker"
 	host.ListenPort = int(legacy.ListenPort)
 	if host.ListenPort == 0 {

@@ -47,7 +47,7 @@ var (
 )
 
 func getCurrentAuthFunctions() map[string]interface{} {
-	var authInfo = servercfg.GetAuthProviderInfo()
+	var authInfo = logic.GetAuthProviderInfo()
 	var authProvider = authInfo[0]
 	switch authProvider {
 	case google_provider_name:
@@ -74,7 +74,7 @@ func InitializeAuthProvider() string {
 	if err != nil {
 		logger.FatalLog("failed to set auth_secret", err.Error())
 	}
-	var authInfo = servercfg.GetAuthProviderInfo()
+	var authInfo = logic.GetAuthProviderInfo()
 	var serverConn = servercfg.GetAPIHost()
 	if strings.Contains(serverConn, "localhost") || strings.Contains(serverConn, "127.0.0.1") {
 		serverConn = "http://" + serverConn
@@ -275,7 +275,7 @@ func isStateCached(state string) bool {
 
 // isEmailAllowed - checks if email is allowed to signup
 func isEmailAllowed(email string) bool {
-	allowedDomains := servercfg.GetAllowedEmailDomains()
+	allowedDomains := logic.GetAllowedEmailDomains()
 	domains := strings.Split(allowedDomains, ",")
 	if len(domains) == 1 && domains[0] == "*" {
 		return true

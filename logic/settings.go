@@ -2,6 +2,11 @@ package logic
 
 import (
 	"encoding/json"
+	"os"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gravitl/netmaker/config"
 	"github.com/gravitl/netmaker/database"
@@ -9,7 +14,6 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-var ServerInfo = GetServerInfo()
 var serverSettingsDBKey = "server_cfg"
 
 func GetServerSettings() (s models.ServerSettings) {
@@ -30,7 +34,6 @@ func UpsertServerSettings(s models.ServerSettings) error {
 	if err != nil {
 		return err
 	}
-	setServerInfo()
 	return nil
 }
 
@@ -39,11 +42,11 @@ func ValidateNewSettings(req models.ServerSettings) bool {
 }
 
 func ConvertServerCfgToSettings(c config.ServerConfig) (s models.ServerSettings) {
-	s.NetclientAutoUpdate = c.NetclientAutoUpdate
+	s.NetclientAutoUpdate = c.NetclientAutoUpdate != "disabled"
 	s.AllowedEmailDomains = c.AllowedEmailDomains
 	s.AuthProvider = c.AuthProvider
 	s.AzureTenant = c.AzureTenant
-	s.BasicAuth = c.BasicAuth
+	s.BasicAuth = c.BasicAuth == "yes"
 	s.ClientID = c.ClientID
 	s.ClientSecret = c.ClientSecret
 	s.OIDCIssuer = c.OIDCIssuer
@@ -63,48 +66,78 @@ func ConvertServerCfgToSettings(c config.ServerConfig) (s models.ServerSettings)
 	s.ManageDNS = c.ManageDNS
 	s.MetricInterval = c.MetricInterval
 	s.MetricsPort = c.MetricsPort
-	s.NetclientAutoUpdate = c.NetclientAutoUpdate
+	s.NetclientAutoUpdate = c.NetclientAutoUpdate != "disabled"
 	s.Telemetry = c.Telemetry
 	s.RacAutoDisable = c.RacAutoDisable
 	s.RacRestrictToSingleNetwork = c.RacRestrictToSingleNetwork
+	s.DefaultDomain = c.DefaultDomain
 	return
 }
 
-func MergeServerSettingsToServerConfig(s *config.ServerConfig) {
-	c := GetServerSettings()
+// GetServerConfig - gets the server config into memory from file or env
+func GetServerConfig() config.ServerConfig {
+	var cfg config.ServerConfig
+	cfg.APIConnString = servercfg.GetAPIConnString()
+	cfg.CoreDNSAddr = servercfg.GetCoreDNSAddr()
+	cfg.APIHost = servercfg.GetAPIHost()
+	cfg.APIPort = servercfg.GetAPIPort()
+	cfg.MasterKey = "(hidden)"
+	cfg.DNSKey = "(hidden)"
+	cfg.AllowedOrigin = servercfg.GetAllowedOrigin()
+	cfg.RestBackend = "off"
+	cfg.NodeID = servercfg.GetNodeID()
+	cfg.BrokerType = servercfg.GetBrokerType()
+	cfg.EmqxRestEndpoint = servercfg.GetEmqxRestEndpoint()
+	if AutoUpdateEnabled() {
+		cfg.NetclientAutoUpdate = "enabled"
+	} else {
+		cfg.NetclientAutoUpdate = "disabled"
+	}
+	if servercfg.IsRestBackend() {
+		cfg.RestBackend = "on"
+	}
+	cfg.DNSMode = "off"
+	if servercfg.IsDNSMode() {
+		cfg.DNSMode = "on"
+	}
+	cfg.DisplayKeys = "off"
+	if servercfg.IsDisplayKeys() {
+		cfg.DisplayKeys = "on"
+	}
+	cfg.DisableRemoteIPCheck = "off"
+	if servercfg.DisableRemoteIPCheck() {
+		cfg.DisableRemoteIPCheck = "on"
+	}
+	cfg.Database = servercfg.GetDB()
+	cfg.Platform = servercfg.GetPlatform()
+	cfg.Version = servercfg.GetVersion()
+	cfg.PublicIp = servercfg.GetServerHostIP()
 
-	s.NetclientAutoUpdate = c.NetclientAutoUpdate
-	s.AllowedEmailDomains = c.AllowedEmailDomains
-	s.AuthProvider = c.AuthProvider
-	s.AzureTenant = c.AzureTenant
-	s.BasicAuth = c.BasicAuth
-	s.ClientID = c.ClientID
-	s.ClientSecret = c.ClientSecret
-	s.OIDCIssuer = c.OIDCIssuer
-	s.EmailSenderAddr = c.EmailSenderAddr
-	s.EmailSenderPassword = c.EmailSenderPassword
-	s.EmailSenderUser = c.EmailSenderUser
-	s.EndpointDetection = c.EndpointDetection
-	s.SmtpHost = c.SmtpHost
-	s.SmtpPort = c.SmtpPort
-	s.Stun = c.Stun
-	s.StunServers = c.StunServers
-	s.FrontendURL = c.FrontendURL
-	s.JwtValidityDuration = c.JwtValidityDuration
-	s.AllowedEmailDomains = c.AllowedEmailDomains
-	s.LicenseValue = c.LicenseValue
-	s.NetmakerTenantID = c.NetmakerTenantID
-	s.ManageDNS = c.ManageDNS
-	s.MetricInterval = c.MetricInterval
-	s.MetricsPort = c.MetricsPort
-	s.NetclientAutoUpdate = c.NetclientAutoUpdate
-	s.Telemetry = c.Telemetry
-	s.RacAutoDisable = c.RacAutoDisable
-	s.RacRestrictToSingleNetwork = c.RacRestrictToSingleNetwork
-}
-
-func setServerInfo() {
-	ServerInfo = GetServerInfo()
+	// == auth config ==
+	var authInfo = GetAuthProviderInfo()
+	cfg.AuthProvider = authInfo[0]
+	cfg.ClientID = authInfo[1]
+	cfg.ClientSecret = authInfo[2]
+	cfg.FrontendURL = servercfg.GetFrontendURL()
+	cfg.AzureTenant = GetAzureTenant()
+	cfg.Telemetry = Telemetry()
+	cfg.Server = servercfg.GetServer()
+	cfg.Verbosity = GetVerbosity()
+	cfg.IsPro = "no"
+	if servercfg.IsPro {
+		cfg.IsPro = "yes"
+	}
+	cfg.JwtValidityDuration = GetJwtValidityDuration()
+	cfg.RacAutoDisable = GetRacAutoDisable()
+	cfg.RacRestrictToSingleNetwork = GetRacRestrictToSingleNetwork()
+	cfg.MetricInterval = GetMetricInterval()
+	cfg.ManageDNS = GetManageDNS()
+	cfg.Stun = IsStunEnabled()
+	cfg.StunServers = GetStunServers()
+	cfg.DefaultDomain = GetDefaultDomain()
+	cfg.LicenseValue = GetLicenseKey()
+	cfg.NetmakerTenantID = GetNetmakerTenantID()
+	return cfg
 }
 
 // GetServerInfo - gets the server config into memory from file or env
@@ -135,7 +168,164 @@ func GetServerInfo() models.ServerConfig {
 	cfg.ManageDNS = serverSettings.ManageDNS
 	cfg.Stun = serverSettings.Stun
 	cfg.StunServers = serverSettings.StunServers
-	cfg.DefaultDomain = servercfg.GetDefaultDomain()
+	cfg.DefaultDomain = serverSettings.DefaultDomain
 	cfg.EndpointDetection = serverSettings.EndpointDetection
 	return cfg
+}
+
+// GetDefaultDomain - get the default domain
+func GetDefaultDomain() string {
+	return GetServerSettings().DefaultDomain
+}
+
+func ValidateDomain(domain string) bool {
+	domainPattern := `[a-zA-Z0-9][a-zA-Z0-9_-]{0,62}(\.[a-zA-Z0-9][a-zA-Z0-9_-]{0,62})*(\.[a-zA-Z][a-zA-Z0-9]{0,10}){1}`
+
+	exp := regexp.MustCompile("^" + domainPattern + "$")
+
+	return exp.MatchString(domain)
+}
+
+// Telemetry - checks if telemetry data should be sent
+func Telemetry() string {
+	return GetServerSettings().Telemetry
+}
+
+// GetJwtValidityDuration - returns the JWT validity duration in seconds
+func GetJwtValidityDuration() time.Duration {
+	return GetServerConfig().JwtValidityDuration
+}
+
+// GetRacAutoDisable - returns whether the feature to autodisable RAC is enabled
+func GetRacAutoDisable() bool {
+	return GetServerSettings().RacAutoDisable
+}
+
+// GetRacRestrictToSingleNetwork - returns whether the feature to allow simultaneous network connections via RAC is enabled
+func GetRacRestrictToSingleNetwork() bool {
+	return GetServerSettings().RacRestrictToSingleNetwork
+}
+
+func GetSmtpHost() string {
+	return GetServerSettings().SmtpHost
+}
+
+func GetSmtpPort() int {
+	return GetServerSettings().SmtpPort
+}
+
+func GetSenderEmail() string {
+	return GetServerSettings().EmailSenderAddr
+}
+
+func GetSenderUser() string {
+	return GetServerSettings().EmailSenderUser
+}
+
+func GetEmaiSenderPassword() string {
+	return GetServerSettings().EmailSenderPassword
+}
+
+// AutoUpdateEnabled returns a boolean indicating whether netclient auto update is enabled or disabled
+// default is enabled
+func AutoUpdateEnabled() bool {
+	return GetServerSettings().NetclientAutoUpdate
+}
+
+// GetAuthProviderInfo = gets the oauth provider info
+func GetAuthProviderInfo() (pi []string) {
+	var authProvider = ""
+
+	defer func() {
+		if authProvider == "oidc" {
+			if GetServerSettings().OIDCIssuer != "" {
+				pi = append(pi, GetServerSettings().OIDCIssuer)
+			} else {
+				pi = []string{"", "", ""}
+			}
+		}
+	}()
+
+	if GetServerSettings().AuthProvider != "" && GetServerSettings().ClientID != "" && GetServerSettings().ClientSecret != "" {
+		authProvider = strings.ToLower(GetServerSettings().AuthProvider)
+		if authProvider == "google" || authProvider == "azure-ad" || authProvider == "github" || authProvider == "oidc" {
+			return []string{authProvider, GetServerSettings().ClientID, GetServerSettings().ClientSecret}
+		} else {
+			authProvider = ""
+		}
+	}
+	return []string{"", "", ""}
+}
+
+// GetAzureTenant - retrieve the azure tenant ID from env variable or config file
+func GetAzureTenant() string {
+	return GetServerSettings().AzureTenant
+}
+
+// GetMetricsPort - get metrics port
+func GetMetricsPort() int {
+	return GetServerSettings().MetricsPort
+}
+
+// GetMetricInterval - get the publish metric interval
+func GetMetricIntervalInMinutes() time.Duration {
+	//default 15 minutes
+	mi := "15"
+	if os.Getenv("PUBLISH_METRIC_INTERVAL") != "" {
+		mi = os.Getenv("PUBLISH_METRIC_INTERVAL")
+	}
+	interval, err := strconv.Atoi(mi)
+	if err != nil {
+		interval = 15
+	}
+
+	return time.Duration(interval) * time.Minute
+}
+
+// GetMetricInterval - get the publish metric interval
+func GetMetricInterval() string {
+	return GetServerSettings().MetricInterval
+}
+
+// GetManageDNS - if manage DNS enabled or not
+func GetManageDNS() bool {
+	return GetServerSettings().ManageDNS
+}
+
+// IsBasicAuthEnabled - checks if basic auth has been configured to be turned off
+func IsBasicAuthEnabled() bool {
+	return GetServerSettings().BasicAuth
+}
+
+// GetLicenseKey - retrieves pro license value from env or conf files
+func GetLicenseKey() string {
+	return GetServerSettings().LicenseValue
+}
+
+// GetNetmakerTenantID - get's the associated, Netmaker, tenant ID to verify ownership
+func GetNetmakerTenantID() string {
+	return GetServerSettings().NetmakerTenantID
+}
+
+// IsEndpointDetectionEnabled - returns true if endpoint detection enabled
+func IsEndpointDetectionEnabled() bool {
+	return GetServerSettings().EndpointDetection
+}
+
+// IsStunEnabled - returns true if STUN set to on
+func IsStunEnabled() bool {
+	return GetServerSettings().Stun
+}
+
+func GetStunServers() string {
+	return GetServerSettings().StunServers
+}
+
+// GetAllowedEmailDomains - gets the allowed email domains for oauth signup
+func GetAllowedEmailDomains() string {
+	return GetServerSettings().AllowedEmailDomains
+}
+
+func GetVerbosity() int32 {
+	return GetServerSettings().Verbosity
 }

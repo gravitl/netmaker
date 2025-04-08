@@ -9,10 +9,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gravitl/netmaker/utils"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/gravitl/netmaker/utils"
 
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/exp/slog"
@@ -58,8 +59,8 @@ func ValidateLicense() (err error) {
 		servercfg.ErrLicenseValidation = err
 	}()
 
-	licenseKeyValue := servercfg.GetLicenseKey()
-	netmakerTenantID := servercfg.GetNetmakerTenantID()
+	licenseKeyValue := logic.GetServerSettings().LicenseValue
+	netmakerTenantID := logic.GetServerSettings().NetmakerTenantID
 	slog.Info("proceeding with Netmaker license validation...")
 	if len(licenseKeyValue) == 0 {
 		err = errors.New("empty license-key (LICENSE_KEY environment variable)")

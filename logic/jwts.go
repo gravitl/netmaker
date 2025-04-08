@@ -54,11 +54,11 @@ func CreateJWT(uuid string, macAddress string, network string) (response string,
 
 // CreateUserJWT - creates a user jwt token
 func CreateUserJWT(username string, role models.UserRoleID) (response string, err error) {
-	expirationTime := time.Now().Add(servercfg.GetServerConfig().JwtValidityDuration)
+	expirationTime := time.Now().Add(GetJwtValidityDuration())
 	claims := &models.UserClaims{
 		UserName:       username,
 		Role:           role,
-		RacAutoDisable: servercfg.GetRacAutoDisable() && (role != models.SuperAdminRole && role != models.AdminRole),
+		RacAutoDisable: GetRacAutoDisable() && (role != models.SuperAdminRole && role != models.AdminRole),
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "Netmaker",
 			Subject:   fmt.Sprintf("user|%s", username),

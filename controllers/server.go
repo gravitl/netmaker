@@ -228,7 +228,7 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 
 	// get params
 
-	scfg := servercfg.GetServerConfig()
+	scfg := logic.GetServerConfig()
 	scfg.IsPro = "no"
 	if servercfg.IsPro {
 		scfg.IsPro = "yes"

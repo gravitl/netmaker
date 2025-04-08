@@ -3,7 +3,7 @@ package models
 import "time"
 
 type ServerSettings struct {
-	NetclientAutoUpdate        string        `json:"netclientautoupdate"`
+	NetclientAutoUpdate        bool          `json:"netclientautoupdate"`
 	Verbosity                  int32         `json:"verbosity"`
 	AuthProvider               string        `json:"authprovider"`
 	OIDCIssuer                 string        `json:"oidcissuer"`
@@ -12,7 +12,7 @@ type ServerSettings struct {
 	FrontendURL                string        `json:"frontend_url"`
 	AzureTenant                string        `json:"azure_tenant"`
 	Telemetry                  string        `json:"telemetry"`
-	BasicAuth                  string        `json:"basic_auth"`
+	BasicAuth                  bool          `json:"basic_auth"`
 	LicenseValue               string        `json:"license_value"`
 	NetmakerTenantID           string        `json:"netmaker_tenant_id"`
 	StunPort                   int           `json:"stun_port"`
@@ -29,6 +29,7 @@ type ServerSettings struct {
 	MetricInterval             string        `json:"metric_interval"`
 	MetricsPort                int           `json:"metrics_port"`
 	ManageDNS                  bool          `json:"manage_dns"`
+	DefaultDomain              string        `json:"default_domain"`
 	Stun                       bool          `json:"stun"`
 	StunServers                string        `json:"stun_servers"`
 }

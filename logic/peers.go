@@ -157,7 +157,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		Peers:           []wgtypes.PeerConfig{},
 		NodePeers:       []wgtypes.PeerConfig{},
 		HostNetworkInfo: models.HostInfoMap{},
-		ServerConfig:    ServerInfo,
+		ServerConfig:    GetServerInfo(),
 	}
 	defer func() {
 		if !hostPeerUpdate.FwUpdate.AllowAll {
