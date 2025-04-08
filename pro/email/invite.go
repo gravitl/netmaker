@@ -3,7 +3,6 @@ package email
 import (
 	"fmt"
 
-	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/servercfg"
@@ -28,7 +27,7 @@ func (invite UserInvitedMail) GetBody(info Notification) string {
 
 	dashboardURL := fmt.Sprintf("https://dashboard.%s", servercfg.GetNmBaseDomain())
 	if servercfg.DeployedByOperator() {
-		dashboardURL = fmt.Sprintf("%s/dashboard?tenant_id=%s", proLogic.GetAccountsUIHost(), logic.GetNetmakerTenantID())
+		dashboardURL = fmt.Sprintf("%s/dashboard?tenant_id=%s", proLogic.GetAccountsUIHost(), servercfg.GetNetmakerTenantID())
 	}
 
 	content := invite.BodyBuilder.
@@ -45,7 +44,7 @@ func (invite UserInvitedMail) GetBody(info Notification) string {
 			WithHtml(fmt.Sprintf("<li>Access the <a href=\"%s\">Netmaker Dashboard</a> - use it to manage your network settings and view network status.</li>", dashboardURL))
 	}
 
-	connectionID := logic.GetNetmakerTenantID()
+	connectionID := servercfg.GetNetmakerTenantID()
 	if !servercfg.DeployedByOperator() {
 		connectionID = fmt.Sprintf("api.%s", servercfg.GetNmBaseDomain())
 	}

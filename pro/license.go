@@ -59,8 +59,8 @@ func ValidateLicense() (err error) {
 		servercfg.ErrLicenseValidation = err
 	}()
 
-	licenseKeyValue := logic.GetServerSettings().LicenseValue
-	netmakerTenantID := logic.GetServerSettings().NetmakerTenantID
+	licenseKeyValue := servercfg.GetLicenseKey()
+	netmakerTenantID := servercfg.GetNetmakerTenantID()
 	slog.Info("proceeding with Netmaker license validation...")
 	if len(licenseKeyValue) == 0 {
 		err = errors.New("empty license-key (LICENSE_KEY environment variable)")

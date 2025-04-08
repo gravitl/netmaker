@@ -16,7 +16,7 @@ const (
 	Resend EmailSenderType = "resend"
 )
 
-func init() {
+func Init() {
 
 	smtpSender := &SmtpSender{
 		SmtpHost:    logic.GetSmtpHost(),

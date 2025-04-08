@@ -41,36 +41,36 @@ func ValidateNewSettings(req models.ServerSettings) bool {
 	return true
 }
 
-func ConvertServerCfgToSettings(c config.ServerConfig) (s models.ServerSettings) {
-	s.NetclientAutoUpdate = c.NetclientAutoUpdate != "disabled"
-	s.AllowedEmailDomains = c.AllowedEmailDomains
-	s.AuthProvider = c.AuthProvider
-	s.AzureTenant = c.AzureTenant
-	s.BasicAuth = c.BasicAuth == "yes"
-	s.ClientID = c.ClientID
-	s.ClientSecret = c.ClientSecret
-	s.OIDCIssuer = c.OIDCIssuer
-	s.EmailSenderAddr = c.EmailSenderAddr
-	s.EmailSenderPassword = c.EmailSenderPassword
-	s.EmailSenderUser = c.EmailSenderUser
-	s.EndpointDetection = c.EndpointDetection
-	s.SmtpHost = c.SmtpHost
-	s.SmtpPort = c.SmtpPort
-	s.Stun = c.Stun
-	s.StunServers = c.StunServers
-	s.FrontendURL = c.FrontendURL
-	s.JwtValidityDuration = c.JwtValidityDuration
-	s.AllowedEmailDomains = c.AllowedEmailDomains
-	s.LicenseValue = c.LicenseValue
-	s.NetmakerTenantID = c.NetmakerTenantID
-	s.ManageDNS = c.ManageDNS
-	s.MetricInterval = c.MetricInterval
-	s.MetricsPort = c.MetricsPort
-	s.NetclientAutoUpdate = c.NetclientAutoUpdate != "disabled"
-	s.Telemetry = c.Telemetry
-	s.RacAutoDisable = c.RacAutoDisable
-	s.RacRestrictToSingleNetwork = c.RacRestrictToSingleNetwork
-	s.DefaultDomain = c.DefaultDomain
+func GetServerSettingsFromEnv() (s models.ServerSettings) {
+
+	s = models.ServerSettings{
+		NetclientAutoUpdate:        servercfg.AutoUpdateEnabled(),
+		Verbosity:                  servercfg.GetVerbosity(),
+		AuthProvider:               os.Getenv("AUTH_PROVIDER"),
+		OIDCIssuer:                 os.Getenv("OIDC_ISSUER"),
+		ClientID:                   os.Getenv("CLIENT_ID"),
+		ClientSecret:               os.Getenv("CLIENT_SECRET"),
+		AzureTenant:                servercfg.GetAzureTenant(),
+		Telemetry:                  servercfg.Telemetry(),
+		BasicAuth:                  servercfg.IsBasicAuthEnabled(),
+		JwtValidityDuration:        servercfg.GetJwtValidityDuration(),
+		RacAutoDisable:             servercfg.GetRacAutoDisable(),
+		RacRestrictToSingleNetwork: servercfg.GetRacRestrictToSingleNetwork(),
+		EndpointDetection:          servercfg.IsEndpointDetectionEnabled(),
+		AllowedEmailDomains:        servercfg.GetAllowedEmailDomains(),
+		EmailSenderAddr:            servercfg.GetSenderEmail(),
+		EmailSenderUser:            servercfg.GetSenderUser(),
+		EmailSenderPassword:        servercfg.GetEmaiSenderPassword(),
+		SmtpHost:                   servercfg.GetSmtpHost(),
+		SmtpPort:                   servercfg.GetSmtpPort(),
+		MetricInterval:             servercfg.GetMetricInterval(),
+		MetricsPort:                servercfg.GetMetricsPort(),
+		ManageDNS:                  servercfg.GetManageDNS(),
+		DefaultDomain:              servercfg.GetDefaultDomain(),
+		Stun:                       servercfg.IsStunEnabled(),
+		StunServers:                servercfg.GetStunServers(),
+	}
+
 	return
 }
 
@@ -135,8 +135,6 @@ func GetServerConfig() config.ServerConfig {
 	cfg.Stun = IsStunEnabled()
 	cfg.StunServers = GetStunServers()
 	cfg.DefaultDomain = GetDefaultDomain()
-	cfg.LicenseValue = GetLicenseKey()
-	cfg.NetmakerTenantID = GetNetmakerTenantID()
 	return cfg
 }
 
@@ -295,16 +293,6 @@ func GetManageDNS() bool {
 // IsBasicAuthEnabled - checks if basic auth has been configured to be turned off
 func IsBasicAuthEnabled() bool {
 	return GetServerSettings().BasicAuth
-}
-
-// GetLicenseKey - retrieves pro license value from env or conf files
-func GetLicenseKey() string {
-	return GetServerSettings().LicenseValue
-}
-
-// GetNetmakerTenantID - get's the associated, Netmaker, tenant ID to verify ownership
-func GetNetmakerTenantID() string {
-	return GetServerSettings().NetmakerTenantID
 }
 
 // IsEndpointDetectionEnabled - returns true if endpoint detection enabled

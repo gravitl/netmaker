@@ -9,13 +9,9 @@ type ServerSettings struct {
 	OIDCIssuer                 string        `json:"oidcissuer"`
 	ClientID                   string        `json:"client_id"`
 	ClientSecret               string        `json:"client_secret"`
-	FrontendURL                string        `json:"frontend_url"`
 	AzureTenant                string        `json:"azure_tenant"`
 	Telemetry                  string        `json:"telemetry"`
 	BasicAuth                  bool          `json:"basic_auth"`
-	LicenseValue               string        `json:"license_value"`
-	NetmakerTenantID           string        `json:"netmaker_tenant_id"`
-	StunPort                   int           `json:"stun_port"`
 	JwtValidityDuration        time.Duration `json:"jwt_validity_duration" swaggertype:"primitive,integer" format:"int64"`
 	RacAutoDisable             bool          `json:"rac_auto_disable"`
 	RacRestrictToSingleNetwork bool          `json:"rac_restrict_to_single_network"`
