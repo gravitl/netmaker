@@ -4,7 +4,10 @@
 package pro
 
 import (
+	"context"
 	"encoding/base64"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 
 	"github.com/gravitl/netmaker/logic"
 )
@@ -26,10 +29,7 @@ func base64decode(input string) []byte {
 
 func getCurrentServerUsage() (limits Usage) {
 	limits.SetDefaults()
-	hosts, hErr := logic.GetAllHosts()
-	if hErr == nil {
-		limits.Hosts = len(hosts)
-	}
+	limits.Hosts, _ = (&schema.Host{}).Count(db.WithContext(context.TODO()))
 	clients, cErr := logic.GetAllExtClients()
 	if cErr == nil {
 		limits.Clients = len(clients)
@@ -38,10 +38,7 @@ func getCurrentServerUsage() (limits Usage) {
 	if err == nil {
 		limits.Users = len(users)
 	}
-	networks, err := logic.GetNetworks()
-	if err == nil {
-		limits.Networks = len(networks)
-	}
+	limits.Networks, _ = (&schema.Network{}).Count(db.WithContext(context.TODO()))
 	// TODO this part bellow can be optimized to get nodes just once
 	ingresses, err := logic.GetAllIngresses()
 	if err == nil {

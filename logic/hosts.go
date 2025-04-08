@@ -185,11 +185,11 @@ func GetHostByPubKey(hostPubKey string) (*models.Host, error) {
 
 // CreateHost - creates a host if not exist
 func CreateHost(h *models.Host) error {
-	hosts, hErr := GetAllHosts()
+	numHosts, hErr := (&schema.Host{}).Count(db.WithContext(context.TODO()))
 	clients, cErr := GetAllExtClients()
-	if (hErr != nil && !database.IsEmptyRecord(hErr)) ||
+	if hErr != nil ||
 		(cErr != nil && !database.IsEmptyRecord(cErr)) ||
-		len(hosts)+len(clients) >= MachinesLimit {
+		numHosts+len(clients) >= MachinesLimit {
 		return errors.New("free tier limits exceeded on machines")
 	}
 	_, err := GetHost(h.ID.String())

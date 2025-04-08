@@ -94,10 +94,7 @@ func getUsage(w http.ResponseWriter, _ *http.Request) {
 	if err == nil {
 		serverUsage.Users = len(users)
 	}
-	networks, err := logic.GetNetworks()
-	if err == nil {
-		serverUsage.Networks = len(networks)
-	}
+	serverUsage.Networks, _ = (&schema.Network{}).Count(db.WithContext(context.TODO()))
 	// TODO this part bellow can be optimized to get nodes just once
 	ingresses, err := logic.GetAllIngresses()
 	if err == nil {

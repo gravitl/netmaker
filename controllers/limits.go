@@ -1,6 +1,9 @@
 package controller
 
 import (
+	"context"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 	"net/http"
 
 	"github.com/gravitl/netmaker/database"
@@ -42,11 +45,11 @@ func checkFreeTierLimits(limitChoice int, next http.Handler) http.HandlerFunc {
 					return
 				}
 			case limitChoiceMachines:
-				hosts, hErr := logic.GetAllHosts()
+				numHosts, hErr := (&schema.Host{}).Count(db.WithContext(context.TODO()))
 				clients, cErr := logic.GetAllExtClients()
-				if (hErr != nil && !database.IsEmptyRecord(hErr)) ||
+				if hErr != nil ||
 					(cErr != nil && !database.IsEmptyRecord(cErr)) ||
-					len(hosts)+len(clients) >= logic.MachinesLimit {
+					numHosts+len(clients) >= logic.MachinesLimit {
 					errorResponse.Message += "machines"
 					logic.ReturnErrorResponse(w, r, errorResponse)
 					return
