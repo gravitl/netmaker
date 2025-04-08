@@ -5,6 +5,7 @@ func ListModels() []interface{} {
 	return []interface{}{
 		&Network{},
 		&Host{},
+		&Node{},
 		&Job{},
 	}
 }
