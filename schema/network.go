@@ -25,6 +25,7 @@ type Network struct {
 	NameServers         datatypes.JSONSlice[string]
 	NodesLastModified   time.Time
 	NetworkLastModified time.Time
+	Nodes               []Node `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 }
 
 func (n *Network) Create(ctx context.Context) error {
@@ -33,6 +34,20 @@ func (n *Network) Create(ctx context.Context) error {
 
 func (n *Network) Get(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Network{}).Where("id = ?", n.ID).First(n).Error
+}
+
+func (n *Network) GetNodes(ctx context.Context) error {
+	var nodes []Node
+	err := db.FromContext(ctx).Model(&Node{}).
+		Where("network_id = ?", n.ID).
+		Find(&nodes).
+		Error
+	if err != nil {
+		return err
+	}
+
+	n.Nodes = nodes
+	return nil
 }
 
 func (n *Network) ListAll(ctx context.Context) ([]Network, error) {

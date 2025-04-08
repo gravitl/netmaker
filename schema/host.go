@@ -59,6 +59,20 @@ func (h *Host) Get(ctx context.Context) error {
 		Error
 }
 
+func (h *Host) GetNodes(ctx context.Context) error {
+	var nodes []Node
+	err := db.FromContext(ctx).Model(&Node{}).
+		Where("host_id = ?", h.ID).
+		Find(&nodes).
+		Error
+	if err != nil {
+		return err
+	}
+
+	h.Nodes = nodes
+	return nil
+}
+
 func (h *Host) ListAll(ctx context.Context) ([]Host, error) {
 	var hosts []Host
 	err := db.FromContext(ctx).Model(&Host{}).Find(&hosts).Error
