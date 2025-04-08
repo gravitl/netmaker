@@ -11,10 +11,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/config"
-	"github.com/gravitl/netmaker/models"
 )
-
-var ServerInfo = GetServerInfo()
 
 // EmqxBrokerType denotes the broker type for EMQX MQTT
 const EmqxBrokerType = "emqx"
@@ -85,6 +82,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.ClientID = authInfo[1]
 	cfg.ClientSecret = authInfo[2]
 	cfg.FrontendURL = GetFrontendURL()
+	cfg.AzureTenant = GetAzureTenant()
 	cfg.Telemetry = Telemetry()
 	cfg.Server = GetServer()
 	cfg.Verbosity = GetVerbosity()
@@ -100,6 +98,8 @@ func GetServerConfig() config.ServerConfig {
 	cfg.Stun = IsStunEnabled()
 	cfg.StunServers = GetStunServers()
 	cfg.DefaultDomain = GetDefaultDomain()
+	cfg.LicenseValue = GetLicenseKey()
+	cfg.NetmakerTenantID = GetNetmakerTenantID()
 	return cfg
 }
 
@@ -124,38 +124,6 @@ func GetRacAutoDisable() bool {
 // GetRacRestrictToSingleNetwork - returns whether the feature to allow simultaneous network connections via RAC is enabled
 func GetRacRestrictToSingleNetwork() bool {
 	return os.Getenv("RAC_RESTRICT_TO_SINGLE_NETWORK") == "true"
-}
-
-// GetServerInfo - gets the server config into memory from file or env
-func GetServerInfo() models.ServerConfig {
-	var cfg models.ServerConfig
-	cfg.Server = GetServer()
-	if GetBrokerType() == EmqxBrokerType {
-		cfg.MQUserName = "HOST_ID"
-		cfg.MQPassword = "HOST_PASS"
-	} else {
-		cfg.MQUserName = GetMqUserName()
-		cfg.MQPassword = GetMqPassword()
-	}
-	cfg.API = GetAPIConnString()
-	cfg.CoreDNSAddr = GetCoreDNSAddr()
-	cfg.APIPort = GetAPIPort()
-	cfg.DNSMode = "off"
-	cfg.Broker = GetPublicBrokerEndpoint()
-	cfg.BrokerType = GetBrokerType()
-	if IsDNSMode() {
-		cfg.DNSMode = "on"
-	}
-	cfg.Version = GetVersion()
-	cfg.IsPro = IsPro
-	cfg.MetricInterval = GetMetricInterval()
-	cfg.MetricsPort = GetMetricsPort()
-	cfg.ManageDNS = GetManageDNS()
-	cfg.Stun = IsStunEnabled()
-	cfg.StunServers = GetStunServers()
-	cfg.DefaultDomain = GetDefaultDomain()
-	cfg.EndpointDetection = IsEndpointDetectionEnabled()
-	return cfg
 }
 
 // GetFrontendURL - gets the frontend url

@@ -1,0 +1,34 @@
+package models
+
+import "time"
+
+type ServerSettings struct {
+	NetclientAutoUpdate        string        `json:"netclientautoupdate"`
+	Verbosity                  int32         `json:"verbosity"`
+	AuthProvider               string        `json:"authprovider"`
+	OIDCIssuer                 string        `json:"oidcissuer"`
+	ClientID                   string        `json:"client_id"`
+	ClientSecret               string        `json:"client_secret"`
+	FrontendURL                string        `json:"frontend_url"`
+	AzureTenant                string        `json:"azure_tenant"`
+	Telemetry                  string        `json:"telemetry"`
+	BasicAuth                  string        `json:"basic_auth"`
+	LicenseValue               string        `json:"license_value"`
+	NetmakerTenantID           string        `json:"netmaker_tenant_id"`
+	StunPort                   int           `json:"stun_port"`
+	JwtValidityDuration        time.Duration `json:"jwt_validity_duration" swaggertype:"primitive,integer" format:"int64"`
+	RacAutoDisable             bool          `json:"rac_auto_disable"`
+	RacRestrictToSingleNetwork bool          `json:"rac_restrict_to_single_network"`
+	EndpointDetection          bool          `json:"endpoint_detection"`
+	AllowedEmailDomains        string        `json:"allowed_email_domains"`
+	EmailSenderAddr            string        `json:"email_sender_addr"`
+	EmailSenderUser            string        `json:"email_sender_user"`
+	EmailSenderPassword        string        `json:"email_sender_password"`
+	SmtpHost                   string        `json:"smtp_host"`
+	SmtpPort                   int           `json:"smtp_port"`
+	MetricInterval             string        `json:"metric_interval"`
+	MetricsPort                int           `json:"metrics_port"`
+	ManageDNS                  bool          `json:"manage_dns"`
+	Stun                       bool          `json:"stun"`
+	StunServers                string        `json:"stun_servers"`
+}
