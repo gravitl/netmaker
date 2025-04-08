@@ -29,12 +29,12 @@ func ToSchemaNetwork(network models.Network) schema.Network {
 }
 
 func ToSchemaNetworks(networks []models.Network) []schema.Network {
-	var schemaNetworks []schema.Network
+	var _networks []schema.Network
 	for _, network := range networks {
-		schemaNetworks = append(schemaNetworks, ToSchemaNetwork(network))
+		_networks = append(_networks, ToSchemaNetwork(network))
 	}
 
-	return schemaNetworks
+	return _networks
 }
 
 func ToModelNetwork(_network schema.Network) models.Network {
