@@ -4,7 +4,6 @@ package schema
 func ListModels() []interface{} {
 	return []interface{}{
 		&Network{},
-		&Interface{},
 		&Host{},
 		&Job{},
 	}

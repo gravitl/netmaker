@@ -2,8 +2,9 @@ package schema
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"github.com/gravitl/netmaker/db"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"time"
 )
@@ -34,39 +35,25 @@ type Host struct {
 	FirewallInUse       string
 	IPForwarding        bool
 	PersistentKeepalive time.Duration
-	Interfaces          []Interface `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	Interfaces          datatypes.JSONSlice[Interface]
 	DefaultInterface    string
 	Interface           string
 	PublicKey           string
-	TrafficKeyPublic    string
+	TrafficKeyPublic    []byte
 	Nodes               []Node `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 }
 
+type Interface struct {
+	Name    string
+	Address string
+}
+
 func (h *Host) Create(ctx context.Context) error {
-	return db.FromContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if h.DefaultInterface != "" {
-			found := false
-			for _, iface := range h.Interfaces {
-				if iface.Name == h.DefaultInterface {
-					found = true
-				}
-			}
-
-			if !found {
-				return fmt.Errorf(
-					"constraint violation: default interface '%s' not found in interfaces list",
-					h.DefaultInterface,
-				)
-			}
-		}
-
-		return tx.Model(&Host{}).Create(h).Error
-	})
+	return db.FromContext(ctx).Model(&Host{}).Create(h).Error
 }
 
 func (h *Host) Get(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Host{}).
-		Joins("LEFT JOIN interfaces ON interfaces.host_id = hosts.id").
 		Where("hosts.id = ?", h.ID).
 		First(h).
 		Error
@@ -74,10 +61,7 @@ func (h *Host) Get(ctx context.Context) error {
 
 func (h *Host) ListAll(ctx context.Context) ([]Host, error) {
 	var hosts []Host
-	err := db.FromContext(ctx).Model(&Host{}).
-		Joins("LEFT JOIN interfaces ON interfaces.host_id = hosts.id").
-		Find(&hosts).
-		Error
+	err := db.FromContext(ctx).Model(&Host{}).Find(&hosts).Error
 	return hosts, err
 }
 
@@ -88,30 +72,34 @@ func (h *Host) Count(ctx context.Context) (int, error) {
 }
 
 func (h *Host) Upsert(ctx context.Context) error {
-	if h.DefaultInterface != "" {
-		found := false
-		for _, iface := range h.Interfaces {
-			if iface.Name == h.DefaultInterface {
-				found = true
-			}
-		}
-
-		if !found {
-			return fmt.Errorf(
-				"constraint violation: default interface '%s' not found in interfaces list",
-				h.DefaultInterface,
-			)
-		}
-	}
-
-	return db.FromContext(ctx).Transaction(func(tx *gorm.DB) error {
-		err := tx.Model(&Host{}).Save(h).Error
+	var err error
+	ctx = db.BeginTx(ctx)
+	defer func() {
 		if err != nil {
+			db.FromContext(ctx).Rollback()
+		} else {
+			db.FromContext(ctx).Commit()
+		}
+	}()
+
+	err = db.FromContext(ctx).Model(&Host{}).
+		Where("id = ?", h.ID).
+		First(&Host{}).
+		Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = h.Create(ctx)
+			return err
+		} else {
 			return err
 		}
-
-		return tx.Model(&Host{}).Association("Interfaces").Replace(h.Interfaces)
-	})
+	} else {
+		err = db.FromContext(ctx).Model(&Host{}).
+			Where("id = ?", h.ID).
+			Updates(h).
+			Error
+		return err
+	}
 }
 
 func (h *Host) Delete(ctx context.Context) error {

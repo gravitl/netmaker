@@ -13,7 +13,6 @@ func ToSchemaHost(host models.Host) schema.Host {
 	var interfaces []schema.Interface
 	for i := range host.Interfaces {
 		interfaces = append(interfaces, schema.Interface{
-			HostID:  host.ID.String(),
 			Name:    host.Interfaces[i].Name,
 			Address: host.Interfaces[i].Address.String(),
 		})
@@ -22,6 +21,13 @@ func ToSchemaHost(host models.Host) schema.Host {
 	var turnEndpoint string
 	if host.TurnEndpoint != nil {
 		turnEndpoint = host.TurnEndpoint.String()
+	}
+
+	var _nodes []schema.Node
+	for _, nodeID := range host.Nodes {
+		_nodes = append(_nodes, schema.Node{
+			ID: nodeID,
+		})
 	}
 
 	return schema.Host{
@@ -54,17 +60,18 @@ func ToSchemaHost(host models.Host) schema.Host {
 		DefaultInterface:    host.DefaultInterface,
 		Interface:           host.Interface,
 		PublicKey:           host.PublicKey.String(),
-		TrafficKeyPublic:    string(host.TrafficKeyPublic),
+		TrafficKeyPublic:    host.TrafficKeyPublic,
+		Nodes:               _nodes,
 	}
 }
 
 func ToSchemaHosts(hosts []models.Host) []schema.Host {
-	var schemaHosts []schema.Host
+	var _hosts []schema.Host
 	for _, host := range hosts {
-		schemaHosts = append(schemaHosts, ToSchemaHost(host))
+		_hosts = append(_hosts, ToSchemaHost(host))
 	}
 
-	return schemaHosts
+	return _hosts
 }
 
 func ToModelHost(_host schema.Host) models.Host {
@@ -76,6 +83,11 @@ func ToModelHost(_host schema.Host) models.Host {
 	var macAddress net.HardwareAddr
 	if _host.MacAddress != "" {
 		macAddress, _ = net.ParseMAC(_host.MacAddress)
+	}
+
+	var nodes []string
+	for _, node := range _host.Nodes {
+		nodes = append(nodes, node.ID)
 	}
 
 	var interfaces []models.Iface
@@ -102,26 +114,25 @@ func ToModelHost(_host schema.Host) models.Host {
 	}
 
 	return models.Host{
-		ID:                 uuid.MustParse(_host.ID),
-		Verbosity:          _host.Verbosity,
-		FirewallInUse:      _host.FirewallInUse,
-		Version:            _host.Version,
-		IPForwarding:       _host.IPForwarding,
-		DaemonInstalled:    _host.DaemonInstalled,
-		AutoUpdate:         _host.AutoUpdate,
-		HostPass:           _host.Password,
-		Name:               _host.Name,
-		OS:                 _host.OS,
-		Interface:          _host.Interface,
-		Debug:              _host.Debug,
-		ListenPort:         _host.ListenPort,
-		WgPublicListenPort: _host.WgPublicListenPort,
-		MTU:                _host.MTU,
-		PublicKey:          publicKey,
-		MacAddress:         macAddress,
-		TrafficKeyPublic:   []byte(_host.TrafficKeyPublic),
-		// TODO: Set Value.
-		Nodes:               nil,
+		ID:                  uuid.MustParse(_host.ID),
+		Verbosity:           _host.Verbosity,
+		FirewallInUse:       _host.FirewallInUse,
+		Version:             _host.Version,
+		IPForwarding:        _host.IPForwarding,
+		DaemonInstalled:     _host.DaemonInstalled,
+		AutoUpdate:          _host.AutoUpdate,
+		HostPass:            _host.Password,
+		Name:                _host.Name,
+		OS:                  _host.OS,
+		Interface:           _host.Interface,
+		Debug:               _host.Debug,
+		ListenPort:          _host.ListenPort,
+		WgPublicListenPort:  _host.WgPublicListenPort,
+		MTU:                 _host.MTU,
+		PublicKey:           publicKey,
+		MacAddress:          macAddress,
+		TrafficKeyPublic:    _host.TrafficKeyPublic,
+		Nodes:               nodes,
 		Interfaces:          interfaces,
 		DefaultInterface:    _host.DefaultInterface,
 		EndpointIP:          net.ParseIP(_host.EndpointIP),
