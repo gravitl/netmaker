@@ -214,3 +214,47 @@ func (n *Node) Upsert(ctx context.Context) error {
 		return tx.Model(&Node{}).Save(n).Error
 	})
 }
+
+func (n *Node) Delete(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&Node{}).Where("id = ?", n.ID).Delete(n).Error
+}
+
+func (n *Node) ConfigureAsGateway(ctx context.Context) error {
+	// TODO: Implement Method
+	return nil
+}
+
+func (n *Node) RemoveGatewayConfig(ctx context.Context) error {
+	// TODO: Implement Method
+	return nil
+}
+
+func (n *Node) ConfigureAsEgressGateway(ctx context.Context) error {
+	// TODO: Implement Method
+	return nil
+}
+
+func (n *Node) RemoveEgressGatewayConfig(ctx context.Context) error {
+	// TODO: Implement Method
+	return nil
+}
+
+func (n *Node) ConfigureAsFailOver(ctx context.Context) error {
+	// TODO: Implement Method
+	return nil
+}
+
+func (n *Node) RemoveFailOverConfig(ctx context.Context) error {
+	// TODO: Implement Method
+	return nil
+}
+
+func (n *Node) ConfigureAsInternetGateway(ctx context.Context) error {
+	// TODO: Implement Method
+	return nil
+}
+
+func (n *Node) RemoveInternetGatewayConfig(ctx context.Context) error {
+	// TODO: Implement Method
+	return nil
+}
