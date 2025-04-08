@@ -30,7 +30,7 @@ func UpsertServerSettings(s models.ServerSettings) error {
 	if err != nil {
 		return err
 	}
-	err = database.Insert(database.SERVER_SETTINGS, string(data), serverSettingsDBKey)
+	err = database.Insert(serverSettingsDBKey, string(data), database.SERVER_SETTINGS)
 	if err != nil {
 		return err
 	}
@@ -77,6 +77,7 @@ func GetServerSettingsFromEnv() (s models.ServerSettings) {
 // GetServerConfig - gets the server config into memory from file or env
 func GetServerConfig() config.ServerConfig {
 	var cfg config.ServerConfig
+	settings := GetServerSettings()
 	cfg.APIConnString = servercfg.GetAPIConnString()
 	cfg.CoreDNSAddr = servercfg.GetCoreDNSAddr()
 	cfg.APIHost = servercfg.GetAPIHost()
@@ -88,7 +89,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.NodeID = servercfg.GetNodeID()
 	cfg.BrokerType = servercfg.GetBrokerType()
 	cfg.EmqxRestEndpoint = servercfg.GetEmqxRestEndpoint()
-	if AutoUpdateEnabled() {
+	if settings.NetclientAutoUpdate {
 		cfg.NetclientAutoUpdate = "enabled"
 	} else {
 		cfg.NetclientAutoUpdate = "disabled"
@@ -114,27 +115,27 @@ func GetServerConfig() config.ServerConfig {
 	cfg.PublicIp = servercfg.GetServerHostIP()
 
 	// == auth config ==
-	var authInfo = GetAuthProviderInfo()
+	var authInfo = GetAuthProviderInfo(settings)
 	cfg.AuthProvider = authInfo[0]
 	cfg.ClientID = authInfo[1]
 	cfg.ClientSecret = authInfo[2]
 	cfg.FrontendURL = servercfg.GetFrontendURL()
-	cfg.AzureTenant = GetAzureTenant()
-	cfg.Telemetry = Telemetry()
+	cfg.AzureTenant = settings.AzureTenant
+	cfg.Telemetry = settings.Telemetry
 	cfg.Server = servercfg.GetServer()
-	cfg.Verbosity = GetVerbosity()
+	cfg.Verbosity = settings.Verbosity
 	cfg.IsPro = "no"
 	if servercfg.IsPro {
 		cfg.IsPro = "yes"
 	}
-	cfg.JwtValidityDuration = GetJwtValidityDuration()
-	cfg.RacAutoDisable = GetRacAutoDisable()
-	cfg.RacRestrictToSingleNetwork = GetRacRestrictToSingleNetwork()
-	cfg.MetricInterval = GetMetricInterval()
-	cfg.ManageDNS = GetManageDNS()
-	cfg.Stun = IsStunEnabled()
-	cfg.StunServers = GetStunServers()
-	cfg.DefaultDomain = GetDefaultDomain()
+	cfg.JwtValidityDuration = settings.JwtValidityDuration
+	cfg.RacAutoDisable = settings.RacAutoDisable
+	cfg.RacRestrictToSingleNetwork = settings.RacRestrictToSingleNetwork
+	cfg.MetricInterval = settings.MetricInterval
+	cfg.ManageDNS = settings.ManageDNS
+	cfg.Stun = settings.Stun
+	cfg.StunServers = settings.StunServers
+	cfg.DefaultDomain = settings.DefaultDomain
 	return cfg
 }
 
@@ -231,23 +232,23 @@ func AutoUpdateEnabled() bool {
 }
 
 // GetAuthProviderInfo = gets the oauth provider info
-func GetAuthProviderInfo() (pi []string) {
+func GetAuthProviderInfo(settings models.ServerSettings) (pi []string) {
 	var authProvider = ""
 
 	defer func() {
 		if authProvider == "oidc" {
-			if GetServerSettings().OIDCIssuer != "" {
-				pi = append(pi, GetServerSettings().OIDCIssuer)
+			if settings.OIDCIssuer != "" {
+				pi = append(pi, settings.OIDCIssuer)
 			} else {
 				pi = []string{"", "", ""}
 			}
 		}
 	}()
 
-	if GetServerSettings().AuthProvider != "" && GetServerSettings().ClientID != "" && GetServerSettings().ClientSecret != "" {
-		authProvider = strings.ToLower(GetServerSettings().AuthProvider)
+	if settings.AuthProvider != "" && settings.ClientID != "" && settings.ClientSecret != "" {
+		authProvider = strings.ToLower(settings.AuthProvider)
 		if authProvider == "google" || authProvider == "azure-ad" || authProvider == "github" || authProvider == "oidc" {
-			return []string{authProvider, GetServerSettings().ClientID, GetServerSettings().ClientSecret}
+			return []string{authProvider, settings.ClientID, settings.ClientSecret}
 		} else {
 			authProvider = ""
 		}

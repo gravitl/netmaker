@@ -80,7 +80,7 @@ func InitPro() {
 			addTrialLicenseHook()
 		}
 
-		if servercfg.GetServerConfig().RacAutoDisable {
+		if logic.GetRacAutoDisable() {
 			AddRacHooks()
 		}
 

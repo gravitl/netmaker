@@ -2,6 +2,7 @@ package servercfg
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -130,6 +131,9 @@ func GetFrontendURL() string {
 		frontend = os.Getenv("FRONTEND_URL")
 	} else if config.Config.Server.FrontendURL != "" {
 		frontend = config.Config.Server.FrontendURL
+	}
+	if frontend == "" {
+		return fmt.Sprintf("https://dashboard.%s", GetNmBaseDomain())
 	}
 	return frontend
 }

@@ -47,7 +47,7 @@ var (
 )
 
 func getCurrentAuthFunctions() map[string]interface{} {
-	var authInfo = logic.GetAuthProviderInfo()
+	var authInfo = logic.GetAuthProviderInfo(logic.GetServerSettings())
 	var authProvider = authInfo[0]
 	switch authProvider {
 	case google_provider_name:
@@ -74,7 +74,7 @@ func InitializeAuthProvider() string {
 	if err != nil {
 		logger.FatalLog("failed to set auth_secret", err.Error())
 	}
-	var authInfo = logic.GetAuthProviderInfo()
+	var authInfo = logic.GetAuthProviderInfo(logic.GetServerSettings())
 	var serverConn = servercfg.GetAPIHost()
 	if strings.Contains(serverConn, "localhost") || strings.Contains(serverConn, "127.0.0.1") {
 		serverConn = "http://" + serverConn
