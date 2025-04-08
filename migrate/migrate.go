@@ -20,6 +20,7 @@ import (
 
 // Run - runs all migrations
 func Run() {
+	settings()
 	updateEnrollmentKeys()
 	assignSuperAdmin()
 	createDefaultTagsAndPolicies()
@@ -494,5 +495,13 @@ func migrateToGws() {
 	nets, _ := logic.GetNetworks()
 	for _, netI := range nets {
 		logic.DeleteTag(models.TagID(fmt.Sprintf("%s.%s", netI.NetID, models.OldRemoteAccessTagName)), true)
+	}
+}
+
+func settings() {
+	_, err := database.FetchRecords(database.SERVER_SETTINGS)
+	if database.IsEmptyRecord(err) {
+		serverCfg := servercfg.GetServerConfig()
+		logic.UpsertServerSettings(logic.ConvertServerCfgToSettings(serverCfg))
 	}
 }

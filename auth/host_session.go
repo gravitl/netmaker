@@ -207,7 +207,7 @@ func SessionHandler(conn *websocket.Conn) {
 				netsToAdd = append(netsToAdd, newNet)
 			}
 		}
-		server := servercfg.GetServerInfo()
+		server := logic.GetServerInfo()
 		server.TrafficKey = key
 		result.Host.HostPass = ""
 		response := models.RegisterResponse{

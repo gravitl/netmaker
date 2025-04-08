@@ -209,7 +209,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	serverConf := servercfg.GetServerInfo()
+	serverConf := logic.GetServerInfo()
 	key, keyErr := logic.RetrievePublicTrafficKey()
 	if keyErr != nil {
 		logger.Log(0, "error retrieving key:", keyErr.Error())

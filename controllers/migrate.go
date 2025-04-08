@@ -70,7 +70,7 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 				return
 			}
-			server = servercfg.GetServerInfo()
+			server = logic.GetServerInfo()
 			key, keyErr := logic.RetrievePublicTrafficKey()
 			if keyErr != nil {
 				slog.Error("retrieving traffickey", "error", err)
