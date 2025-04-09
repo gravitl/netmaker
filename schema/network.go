@@ -62,6 +62,15 @@ func (n *Network) Count(ctx context.Context) (int, error) {
 	return int(count), err
 }
 
+func (n *Network) CountNodes(ctx context.Context) (int, error) {
+	var count int64
+	err := db.FromContext(ctx).Model(&Node{}).
+		Where("network_id = ?", n.ID).
+		Count(&count).
+		Error
+	return int(count), err
+}
+
 func (n *Network) Update(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Network{}).Where("id = ?", n.ID).Updates(n).Error
 }

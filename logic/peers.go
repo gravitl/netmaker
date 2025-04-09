@@ -64,10 +64,7 @@ func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 	peerInfo := models.HostPeerInfo{
 		NetworkPeerIDs: make(map[models.NetworkID]models.PeerMap),
 	}
-	allNodes, err := GetAllNodes()
-	if err != nil {
-		return peerInfo, err
-	}
+
 	for _, nodeID := range host.Nodes {
 		nodeID := nodeID
 		node, err := GetNodeByID(nodeID)
@@ -81,7 +78,11 @@ func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 		networkPeersInfo := make(models.PeerMap)
 		defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 
-		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
+		currentPeers, err := GetNetworkNodes(node.Network)
+		if err != nil {
+			continue
+		}
+
 		for _, peer := range currentPeers {
 			peer := peer
 			if peer.ID.String() == node.ID.String() {
@@ -222,7 +223,11 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			continue
 		}
 		hostPeerUpdate.NameServers = append(hostPeerUpdate.NameServers, networkSettings.NameServers...)
-		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
+		currentPeers, err := GetNetworkNodes(node.Network)
+		if err != nil {
+			continue
+		}
+
 		for _, peer := range currentPeers {
 			peer := peer
 			if peer.ID.String() == node.ID.String() {

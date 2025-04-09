@@ -23,13 +23,9 @@ func InitFailOverCache() {
 	if err != nil {
 		return
 	}
-	allNodes, err := logic.GetAllNodes()
-	if err != nil {
-		return
-	}
 
 	for _, network := range networks {
-		networkNodes := logic.GetNetworkNodesMemory(allNodes, network.NetID)
+		networkNodes, _ := logic.GetNetworkNodes(network.NetID)
 		for _, node := range networkNodes {
 			if node.IsFailOver {
 				failOverCache[models.NetworkID(network.NetID)] = node.ID.String()
@@ -86,7 +82,7 @@ func SetFailOverCtx(failOverNode, victimNode, peerNode models.Node) error {
 
 // GetFailOverNode - gets the host acting as failOver
 func GetFailOverNode(network string, allNodes []models.Node) (models.Node, error) {
-	nodes := logic.GetNetworkNodesMemory(allNodes, network)
+	nodes, _ := logic.GetNetworkNodes(network)
 	for _, node := range nodes {
 		if node.IsFailOver {
 			return node, nil

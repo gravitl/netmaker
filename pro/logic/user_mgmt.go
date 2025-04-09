@@ -637,7 +637,7 @@ func GetUserRAGNodesV1(user models.User) (gws map[string]models.Node) {
 		}
 		for _, dstI := range policyI.Dst {
 			if dstI.Value == "*" {
-				networkNodes := logic.GetNetworkNodesMemory(nodes, policyI.NetworkID.String())
+				networkNodes, _ := logic.GetNetworkNodes(policyI.NetworkID.String())
 				for _, node := range networkNodes {
 					if node.IsIngressGateway {
 						gws[node.ID.String()] = node

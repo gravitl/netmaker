@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gravitl/netmaker/schema"
 	"net"
 	"net/http"
 	"strings"
@@ -102,21 +103,23 @@ func getNetworksStats(w http.ResponseWriter, r *http.Request) {
 		}
 		allnetworks = logic.FilterNetworksByRole(allnetworks, *user)
 	}
-	allNodes, err := logic.GetAllNodes()
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	netstats := []models.NetworkStatResp{}
+
 	logic.SortNetworks(allnetworks[:])
-	for _, network := range allnetworks {
-		netstats = append(netstats, models.NetworkStatResp{
+
+	networkStats := make([]models.NetworkStatResp, len(allnetworks))
+	for i, network := range allnetworks {
+		_network := &schema.Network{
+			ID: network.NetID,
+		}
+		numNodes, _ := _network.CountNodes(r.Context())
+
+		networkStats[i] = models.NetworkStatResp{
 			Network: network,
-			Hosts:   len(logic.GetNetworkNodesMemory(allNodes, network.NetID)),
-		})
+			Hosts:   numNodes,
+		}
 	}
 	logger.Log(2, r.Header.Get("user"), "fetched networks.")
-	logic.ReturnSuccessResponseWithJson(w, r, netstats, "fetched networks with stats")
+	logic.ReturnSuccessResponseWithJson(w, r, networkStats, "fetched networks with stats")
 }
 
 // @Summary     Get a network
