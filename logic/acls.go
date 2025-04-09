@@ -1334,6 +1334,51 @@ func getUserAclRulesForNode(targetnode *models.Node,
 	return rules
 }
 
+func checkIfAnyActiveEgressPolicy(targetNode models.Node) bool {
+	if !targetNode.IsEgressGateway {
+		return false
+	}
+	var targetNodeTags = make(map[models.TagID]struct{})
+	if targetNode.Mutex != nil {
+		targetNode.Mutex.Lock()
+		targetNodeTags = maps.Clone(targetNode.Tags)
+		targetNode.Mutex.Unlock()
+	} else {
+		targetNodeTags = maps.Clone(targetNode.Tags)
+	}
+	if targetNodeTags == nil {
+		targetNodeTags = make(map[models.TagID]struct{})
+	}
+	targetNodeTags[models.TagID(targetNode.ID.String())] = struct{}{}
+	targetNodeTags["*"] = struct{}{}
+	acls, _ := ListAclsByNetwork(models.NetworkID(targetNode.Network))
+	for _, acl := range acls {
+		if !acl.Enabled {
+			continue
+		}
+		srcTags := convAclTagToValueMap(acl.Src)
+		dstTags := convAclTagToValueMap(acl.Dst)
+		for nodeTag := range targetNodeTags {
+			if acl.RuleType == models.DevicePolicy {
+				if _, ok := srcTags[nodeTag.String()]; ok {
+					return true
+				}
+				if _, ok := srcTags[targetNode.ID.String()]; ok {
+					return true
+				}
+			}
+
+			if _, ok := dstTags[nodeTag.String()]; ok {
+				return true
+			}
+			if _, ok := dstTags[targetNode.ID.String()]; ok {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func checkIfAnyPolicyisUniDirectional(targetNode models.Node) bool {
 	var targetNodeTags = make(map[models.TagID]struct{})
 	if targetNode.Mutex != nil {
@@ -1617,7 +1662,7 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 	/*
 		 if target node is egress gateway
 			if acl policy has egress route and it is present in target node egress ranges
-			fetches all the nodes in that policy and add rules
+			fetch all the nodes in that policy and add rules
 	*/
 
 	for _, rangeI := range targetnode.EgressGatewayRanges {
