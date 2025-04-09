@@ -495,8 +495,7 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	go logic.UnlinkNetworkAndTagsFromEnrollmentKeys(network, true)
 	go logic.DeleteNetworkRoles(network)
 	go logic.DeleteDefaultNetworkPolicies(models.NetworkID(network))
-	//delete network from allocated ip map
-	go logic.RemoveNetworkFromAllocatedIpMap(network)
+
 	go func() {
 		<-doneCh
 		mq.PublishPeerUpdate(true)
@@ -587,8 +586,6 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	logic.CreateDefaultNetworkRolesAndGroups(models.NetworkID(network.NetID))
 	logic.CreateDefaultAclNetworkPolicies(models.NetworkID(network.NetID))
 	logic.CreateDefaultTags(models.NetworkID(network.NetID))
-
-	go logic.AddNetworkToAllocatedIpMap(network.NetID)
 
 	go func() {
 		defaultHosts := logic.GetDefaultHosts()

@@ -51,8 +51,6 @@ func main() {
 	servercfg.SetVersion(version)
 	fmt.Println(models.RetrieveLogo()) // print the logo
 	initialize()                       // initial db and acls
-	logic.SetAllocatedIpMap()
-	defer logic.ClearAllocatedIpMap()
 	setGarbageCollection()
 	setVerbosity()
 	if servercfg.DeployedByOperator() && !servercfg.IsPro {
@@ -111,9 +109,6 @@ func initialize() { // Client Mode Prereq Check
 	logger.Log(0, "database successfully connected")
 
 	//initialize cache
-	_, _ = logic.GetNetworks()
-	_, _ = logic.GetAllNodes()
-	_, _ = logic.GetAllHosts()
 	_, _ = logic.GetAllExtClients()
 	_ = logic.ListAcls()
 	_, _ = logic.GetAllEnrollmentKeys()

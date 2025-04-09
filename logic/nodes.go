@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
+	"github.com/gravitl/netmaker/converters"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
+	"gorm.io/gorm"
 	"net"
-	"slices"
 	"sort"
-	"sync"
 	"time"
 
 	validator "github.com/go-playground/validator/v10"
@@ -25,83 +26,6 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-var (
-	nodeCacheMutex        = &sync.RWMutex{}
-	nodeNetworkCacheMutex = &sync.RWMutex{}
-	nodesCacheMap         = make(map[string]models.Node)
-	nodesNetworkCacheMap  = make(map[string]map[string]models.Node)
-)
-
-func getNodeFromCache(nodeID string) (node models.Node, ok bool) {
-	nodeCacheMutex.RLock()
-	node, ok = nodesCacheMap[nodeID]
-	if node.Mutex == nil {
-		node.Mutex = &sync.Mutex{}
-	}
-	nodeCacheMutex.RUnlock()
-	return
-}
-func getNodesFromCache() (nodes []models.Node) {
-	nodeCacheMutex.RLock()
-	for _, node := range nodesCacheMap {
-		if node.Mutex == nil {
-			node.Mutex = &sync.Mutex{}
-		}
-		nodes = append(nodes, node)
-	}
-	nodeCacheMutex.RUnlock()
-	return
-}
-
-func deleteNodeFromCache(nodeID string) {
-	nodeCacheMutex.Lock()
-	delete(nodesCacheMap, nodeID)
-	nodeCacheMutex.Unlock()
-}
-func deleteNodeFromNetworkCache(nodeID string, network string) {
-	nodeNetworkCacheMutex.Lock()
-	delete(nodesNetworkCacheMap[network], nodeID)
-	nodeNetworkCacheMutex.Unlock()
-}
-
-func storeNodeInNetworkCache(node models.Node, network string) {
-	nodeNetworkCacheMutex.Lock()
-	if nodesNetworkCacheMap[network] == nil {
-		nodesNetworkCacheMap[network] = make(map[string]models.Node)
-	}
-	nodesNetworkCacheMap[network][node.ID.String()] = node
-	nodeNetworkCacheMutex.Unlock()
-}
-
-func storeNodeInCache(node models.Node) {
-	nodeCacheMutex.Lock()
-	nodesCacheMap[node.ID.String()] = node
-	nodeCacheMutex.Unlock()
-}
-func loadNodesIntoNetworkCache(nMap map[string]models.Node) {
-	nodeNetworkCacheMutex.Lock()
-	for _, v := range nMap {
-		network := v.Network
-		if nodesNetworkCacheMap[network] == nil {
-			nodesNetworkCacheMap[network] = make(map[string]models.Node)
-		}
-		nodesNetworkCacheMap[network][v.ID.String()] = v
-	}
-	nodeNetworkCacheMutex.Unlock()
-}
-
-func loadNodesIntoCache(nMap map[string]models.Node) {
-	nodeCacheMutex.Lock()
-	nodesCacheMap = nMap
-	nodeCacheMutex.Unlock()
-}
-func ClearNodeCache() {
-	nodeCacheMutex.Lock()
-	nodesCacheMap = make(map[string]models.Node)
-	nodesNetworkCacheMap = make(map[string]map[string]models.Node)
-	nodeCacheMutex.Unlock()
-}
-
 const (
 	// RELAY_NODE_ERR - error to return if relay node is unfound
 	RELAY_NODE_ERR = "could not find relay for node"
@@ -112,86 +36,33 @@ const (
 )
 
 // GetNetworkNodes - gets the nodes of a network
-func GetNetworkNodes(network string) ([]models.Node, error) {
-
-	if networkNodes, ok := nodesNetworkCacheMap[network]; ok {
-		nodeNetworkCacheMutex.Lock()
-		defer nodeNetworkCacheMutex.Unlock()
-		return slices.Collect(maps.Values(networkNodes)), nil
+func GetNetworkNodes(networkID string) ([]models.Node, error) {
+	_network := &schema.Network{
+		ID: networkID,
 	}
-	allnodes, err := GetAllNodes()
+	err := _network.GetNodes(db.WithContext(context.TODO()))
 	if err != nil {
-		return []models.Node{}, err
+		return nil, err
 	}
 
-	return GetNetworkNodesMemory(allnodes, network), nil
-}
-
-// GetHostNodes - fetches all nodes part of the host
-func GetHostNodes(host *models.Host) []models.Node {
-	nodes := []models.Node{}
-	for _, nodeID := range host.Nodes {
-		node, err := GetNodeByID(nodeID)
-		if err == nil {
-			nodes = append(nodes, node)
-		}
-	}
-	return nodes
-}
-
-// GetNetworkNodesMemory - gets all nodes belonging to a network from list in memory
-func GetNetworkNodesMemory(allNodes []models.Node, network string) []models.Node {
-
-	if networkNodes, ok := nodesNetworkCacheMap[network]; ok {
-		nodeNetworkCacheMutex.Lock()
-		defer nodeNetworkCacheMutex.Unlock()
-		return slices.Collect(maps.Values(networkNodes))
-	}
-	var nodes = make([]models.Node, 0, len(allNodes))
-	for i := range allNodes {
-		node := allNodes[i]
-		if node.Network == network {
-			nodes = append(nodes, node)
-		}
-	}
-	return nodes
+	return converters.ToModelNodes(_network.Nodes), nil
 }
 
 // UpdateNodeCheckin - updates the checkin time of a node
 func UpdateNodeCheckin(node *models.Node) error {
-	node.SetLastCheckIn()
-	data, err := json.Marshal(node)
-	if err != nil {
-		return err
+	_node := &schema.Node{
+		ID:          node.ID.String(),
+		LastCheckIn: time.Now(),
 	}
-
-	err = database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
-	if err != nil {
-		return err
-	}
-	if servercfg.CacheEnabled() {
-		storeNodeInCache(*node)
-		storeNodeInNetworkCache(*node, node.Network)
-	}
-	return nil
+	return _node.UpdateLastCheckIn(db.WithContext(context.TODO()))
 }
 
 // UpsertNode - updates node in the DB
 func UpsertNode(newNode *models.Node) error {
 	newNode.SetLastModified()
-	data, err := json.Marshal(newNode)
-	if err != nil {
-		return err
-	}
-	err = database.Insert(newNode.ID.String(), string(data), database.NODES_TABLE_NAME)
-	if err != nil {
-		return err
-	}
-	if servercfg.CacheEnabled() {
-		storeNodeInCache(*newNode)
-		storeNodeInNetworkCache(*newNode, newNode.Network)
-	}
-	return nil
+
+	_node := converters.ToSchemaNode(*newNode)
+	return _node.Upsert(db.WithContext(context.TODO()))
 }
 
 // UpdateNode - takes a node and updates another node with it's values
@@ -220,29 +91,8 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 		}
 
 		newNode.SetLastModified()
-		if data, err := json.Marshal(newNode); err != nil {
-			return err
-		} else {
-			err = database.Insert(newNode.ID.String(), string(data), database.NODES_TABLE_NAME)
-			if err != nil {
-				return err
-			}
-			if servercfg.CacheEnabled() {
-				storeNodeInCache(*newNode)
-				storeNodeInNetworkCache(*newNode, newNode.Network)
-				if _, ok := allocatedIpMap[newNode.Network]; ok {
-					if newNode.Address.IP != nil && !newNode.Address.IP.Equal(currentNode.Address.IP) {
-						AddIpToAllocatedIpMap(newNode.Network, newNode.Address.IP)
-						RemoveIpFromAllocatedIpMap(currentNode.Network, currentNode.Address.IP.String())
-					}
-					if newNode.Address6.IP != nil && !newNode.Address6.IP.Equal(currentNode.Address6.IP) {
-						AddIpToAllocatedIpMap(newNode.Network, newNode.Address6.IP)
-						RemoveIpFromAllocatedIpMap(currentNode.Network, currentNode.Address6.IP.String())
-					}
-				}
-			}
-			return nil
-		}
+		_node := converters.ToSchemaNode(*newNode)
+		return _node.Update(db.WithContext(context.TODO()))
 	}
 
 	return fmt.Errorf("failed to update node %s, cannot change ID", currentNode.ID.String())
@@ -341,17 +191,14 @@ func GetNodeByHostRef(hostid, network string) (node models.Node, err error) {
 
 // DeleteNodeByID - deletes a node from database
 func DeleteNodeByID(node *models.Node) error {
-	var err error
-	var key = node.ID.String()
-	if err = database.DeleteRecord(database.NODES_TABLE_NAME, key); err != nil {
-		if !database.IsEmptyRecord(err) {
-			return err
-		}
+	_node := &schema.Node{
+		ID: node.ID.String(),
 	}
-	if servercfg.CacheEnabled() {
-		deleteNodeFromCache(node.ID.String())
-		deleteNodeFromNetworkCache(node.ID.String(), node.Network)
+	err := _node.Delete(db.WithContext(context.TODO()))
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
 	}
+
 	if servercfg.IsDNSMode() {
 		SetDNS()
 	}
@@ -364,23 +211,16 @@ func DeleteNodeByID(node *models.Node) error {
 	if err = DeleteMetrics(node.ID.String()); err != nil {
 		logger.Log(1, "unable to remove metrics from DB for node", node.ID.String(), err.Error())
 	}
-	//recycle ip address
-	if servercfg.CacheEnabled() {
-		if node.Address.IP != nil {
-			RemoveIpFromAllocatedIpMap(node.Network, node.Address.IP.String())
-		}
-		if node.Address6.IP != nil {
-			RemoveIpFromAllocatedIpMap(node.Network, node.Address6.IP.String())
-		}
-	}
 
 	return nil
 }
 
 // IsNodeIDUnique - checks if node id is unique
 func IsNodeIDUnique(node *models.Node) (bool, error) {
-	_, err := database.FetchRecord(database.NODES_TABLE_NAME, node.ID.String())
-	return database.IsEmptyRecord(err), err
+	_node := &schema.Node{
+		ID: node.ID.String(),
+	}
+	return _node.Exists(db.WithContext(context.TODO()))
 }
 
 // ValidateNode - validates node values
@@ -406,42 +246,12 @@ func ValidateNode(node *models.Node, isUpdate bool) error {
 
 // GetAllNodes - returns all nodes in the DB
 func GetAllNodes() ([]models.Node, error) {
-	var nodes []models.Node
-	if servercfg.CacheEnabled() {
-		nodes = getNodesFromCache()
-		if len(nodes) != 0 {
-			return nodes, nil
-		}
-	}
-	nodesMap := make(map[string]models.Node)
-	if servercfg.CacheEnabled() {
-		defer loadNodesIntoCache(nodesMap)
-		defer loadNodesIntoNetworkCache(nodesMap)
-	}
-	collection, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	_nodes, err := (&schema.Node{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return []models.Node{}, nil
-		}
-		return []models.Node{}, err
+		return nil, err
 	}
 
-	for _, value := range collection {
-		var node models.Node
-		// ignore legacy nodes in database
-		if err := json.Unmarshal([]byte(value), &node); err != nil {
-			logger.Log(3, "legacy node detected: ", err.Error())
-			continue
-		}
-		// add node to our array
-		nodes = append(nodes, node)
-		if node.Mutex == nil {
-			node.Mutex = &sync.Mutex{}
-		}
-		nodesMap[node.ID.String()] = node
-	}
-
-	return nodes, nil
+	return converters.ToModelNodes(_nodes), nil
 }
 
 func AddStaticNodestoList(nodes []models.Node) []models.Node {
@@ -518,13 +328,11 @@ func GetRecordKey(id string, network string) (string, error) {
 	return id + "###" + network, nil
 }
 
-func GetNodeByID(uuid string) (models.Node, error) {
-	if servercfg.CacheEnabled() {
-		if node, ok := getNodeFromCache(uuid); ok {
-			return node, nil
-		}
+func GetNodeByID(nodeID string) (models.Node, error) {
+	_node := &schema.Node{
+		ID: nodeID,
 	}
-	var record, err = database.FetchRecord(database.NODES_TABLE_NAME, uuid)
+	err := _node.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return models.Node{}, err
 	}
@@ -688,25 +496,10 @@ func createNode(node *models.Node) error {
 	}
 	CheckZombies(node)
 
-	nodebytes, err := json.Marshal(&node)
+	_node := converters.ToSchemaNode(*node)
+	err = _node.Create(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
-	}
-	err = database.Insert(node.ID.String(), string(nodebytes), database.NODES_TABLE_NAME)
-	if err != nil {
-		return err
-	}
-	if servercfg.CacheEnabled() {
-		storeNodeInCache(*node)
-		storeNodeInNetworkCache(*node, node.Network)
-		if _, ok := allocatedIpMap[node.Network]; ok {
-			if node.Address.IP != nil {
-				AddIpToAllocatedIpMap(node.Network, node.Address.IP)
-			}
-			if node.Address6.IP != nil {
-				AddIpToAllocatedIpMap(node.Network, node.Address6.IP)
-			}
-		}
 	}
 
 	_, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), defaultACLVal)

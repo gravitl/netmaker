@@ -22,172 +22,17 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/validation"
-	"golang.org/x/exp/slog"
 )
-
-var (
-	networkCacheMutex = &sync.RWMutex{}
-	networkCacheMap   = make(map[string]models.Network)
-	allocatedIpMap    = make(map[string]map[string]net.IP)
-)
-
-// SetAllocatedIpMap - set allocated ip map for networks
-func SetAllocatedIpMap() error {
-	if !servercfg.CacheEnabled() {
-		return nil
-	}
-	logger.Log(0, "start setting up allocated ip map")
-	if allocatedIpMap == nil {
-		allocatedIpMap = map[string]map[string]net.IP{}
-	}
-
-	currentNetworks, err := GetNetworks()
-	if err != nil {
-		return err
-	}
-
-	for _, v := range currentNetworks {
-		pMap := map[string]net.IP{}
-		netName := v.NetID
-
-		//nodes
-		nodes, err := GetNetworkNodes(netName)
-		if err != nil {
-			slog.Error("could not load node for network", netName, "error", err.Error())
-		} else {
-			for _, n := range nodes {
-
-				if n.Address.IP != nil {
-					pMap[n.Address.IP.String()] = n.Address.IP
-				}
-				if n.Address6.IP != nil {
-					pMap[n.Address6.IP.String()] = n.Address6.IP
-				}
-			}
-
-		}
-
-		//extClients
-		extClients, err := GetNetworkExtClients(netName)
-		if err != nil {
-			slog.Error("could not load extClient for network", netName, "error", err.Error())
-		} else {
-			for _, extClient := range extClients {
-				if extClient.Address != "" {
-					pMap[extClient.Address] = net.ParseIP(extClient.Address)
-				}
-				if extClient.Address6 != "" {
-					pMap[extClient.Address6] = net.ParseIP(extClient.Address6)
-				}
-			}
-		}
-
-		allocatedIpMap[netName] = pMap
-	}
-	logger.Log(0, "setting up allocated ip map done")
-	return nil
-}
-
-// ClearAllocatedIpMap - set allocatedIpMap to nil
-func ClearAllocatedIpMap() {
-	if !servercfg.CacheEnabled() {
-		return
-	}
-	allocatedIpMap = nil
-}
-
-func AddIpToAllocatedIpMap(networkName string, ip net.IP) {
-	if !servercfg.CacheEnabled() {
-		return
-	}
-	networkCacheMutex.Lock()
-	allocatedIpMap[networkName][ip.String()] = ip
-	networkCacheMutex.Unlock()
-}
-
-func RemoveIpFromAllocatedIpMap(networkName string, ip string) {
-	if !servercfg.CacheEnabled() {
-		return
-	}
-	networkCacheMutex.Lock()
-	delete(allocatedIpMap[networkName], ip)
-	networkCacheMutex.Unlock()
-}
-
-// AddNetworkToAllocatedIpMap - add network to allocated ip map when network is added
-func AddNetworkToAllocatedIpMap(networkName string) {
-	//add new network to allocated ip map
-	if !servercfg.CacheEnabled() {
-		return
-	}
-	networkCacheMutex.Lock()
-	allocatedIpMap[networkName] = make(map[string]net.IP)
-	networkCacheMutex.Unlock()
-}
-
-// RemoveNetworkFromAllocatedIpMap - remove network from allocated ip map when network is deleted
-func RemoveNetworkFromAllocatedIpMap(networkName string) {
-	if !servercfg.CacheEnabled() {
-		return
-	}
-	networkCacheMutex.Lock()
-	delete(allocatedIpMap, networkName)
-	networkCacheMutex.Unlock()
-}
-
-func getNetworksFromCache() (networks []models.Network) {
-	networkCacheMutex.RLock()
-	for _, network := range networkCacheMap {
-		networks = append(networks, network)
-	}
-	networkCacheMutex.RUnlock()
-	return
-}
-
-func deleteNetworkFromCache(key string) {
-	networkCacheMutex.Lock()
-	delete(networkCacheMap, key)
-	networkCacheMutex.Unlock()
-}
-
-func getNetworkFromCache(key string) (network models.Network, ok bool) {
-	networkCacheMutex.RLock()
-	network, ok = networkCacheMap[key]
-	networkCacheMutex.RUnlock()
-	return
-}
-
-func storeNetworkInCache(key string, network models.Network) {
-	networkCacheMutex.Lock()
-	networkCacheMap[key] = network
-	networkCacheMutex.Unlock()
-}
 
 // GetNetworks - returns all networks from database
 func GetNetworks() ([]models.Network, error) {
-	if servercfg.CacheEnabled() {
-		networks := getNetworksFromCache()
-		if len(networks) != 0 {
-			return networks, nil
-		}
-	}
-
 	_networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return nil, err
 	}
 
-	networks := converters.ToModelNetworks(_networks)
-
-	for _, network := range networks {
-		if servercfg.CacheEnabled() {
-			storeNetworkInCache(network.NetID, network)
-		}
-	}
-
-	return networks, err
+	return converters.ToModelNetworks(_networks), nil
 }
 
 // DeleteNetwork - deletes a network
@@ -198,15 +43,7 @@ func DeleteNetwork(netID string, force bool, done chan struct{}) error {
 		_network := &schema.Network{
 			ID: netID,
 		}
-		err = _network.Delete(db.WithContext(context.TODO()))
-		if err != nil {
-			return err
-		}
-
-		if servercfg.CacheEnabled() {
-			deleteNetworkFromCache(netID)
-		}
-		return nil
+		return _network.Delete(db.WithContext(context.TODO()))
 	}
 
 	// Remove All Nodes
@@ -237,9 +74,6 @@ func DeleteNetwork(netID string, force bool, done chan struct{}) error {
 			return
 		}
 
-		if servercfg.CacheEnabled() {
-			deleteNetworkFromCache(netID)
-		}
 		done <- struct{}{}
 		close(done)
 	}()
@@ -296,10 +130,6 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 		return models.Network{}, err
 	}
 
-	if servercfg.CacheEnabled() {
-		storeNetworkInCache(network.NetID, network)
-	}
-
 	_, _ = CreateEnrollmentKey(
 		0,
 		time.Time{},
@@ -342,55 +172,12 @@ func intersect(n1, n2 *net.IPNet) bool {
 }
 
 // UniqueAddress - get a unique ipv4 address
-func UniqueAddressCache(networkName string, reverse bool) (net.IP, error) {
-	add := net.IP{}
-	var network models.Network
-	network, err := GetNetwork(networkName)
-	if err != nil {
-		logger.Log(0, "UniqueAddressServer encountered  an error")
-		return add, err
-	}
-
-	if network.IsIPv4 == "no" {
-		return add, fmt.Errorf("IPv4 not active on network " + networkName)
-	}
-	//ensure AddressRange is valid
-	if _, _, err := net.ParseCIDR(network.AddressRange); err != nil {
-		logger.Log(0, "UniqueAddress encountered  an error")
-		return add, err
-	}
-	net4 := iplib.Net4FromStr(network.AddressRange)
-	newAddrs := net4.FirstAddress()
-
-	if reverse {
-		newAddrs = net4.LastAddress()
-	}
-
-	ipAllocated := allocatedIpMap[networkName]
-	for {
-		if _, ok := ipAllocated[newAddrs.String()]; !ok {
-			return newAddrs, nil
-		}
-		if reverse {
-			newAddrs, err = net4.PreviousIP(newAddrs)
-		} else {
-			newAddrs, err = net4.NextIP(newAddrs)
-		}
-		if err != nil {
-			break
-		}
-	}
-
-	return add, errors.New("ERROR: No unique addresses available. Check network subnet")
-}
-
-// UniqueAddress - get a unique ipv4 address
 func UniqueAddressDB(networkName string, reverse bool) (net.IP, error) {
 	add := net.IP{}
 	var network models.Network
 	network, err := GetNetwork(networkName)
 	if err != nil {
-		logger.Log(0, "UniqueAddressServer encountered  an error")
+		logger.Log(0, "UniqueAddressServer encountered an error")
 		return add, err
 	}
 
@@ -429,30 +216,35 @@ func UniqueAddressDB(networkName string, reverse bool) (net.IP, error) {
 
 // IsIPUnique - checks if an IP is unique
 func IsIPUnique(network string, ip string, tableName string, isIpv6 bool) bool {
-
-	isunique := true
 	if tableName == database.NODES_TABLE_NAME {
-		nodes, err := GetNetworkNodes(network)
-		if err != nil {
-			return isunique
-		}
-		for _, node := range nodes {
-			if isIpv6 {
-				if node.Address6.IP.String() == ip && node.Network == network {
-					return false
-				}
-			} else {
-				if node.Address.IP.String() == ip && node.Network == network {
-					return false
-				}
-			}
+		_node := &schema.Node{
+			NetworkID: network,
 		}
 
+		if isIpv6 {
+			_node.Address6 = ip
+			exists, err := _node.ExistsWithNetworkAndIPv6(db.WithContext(context.TODO()))
+			if err != nil {
+				return true
+			}
+
+			// if a node exists, then the ip is not unique.
+			return !exists
+		} else {
+			_node.Address = ip
+			exists, err := _node.ExistsWithNetworkAndIPv4(db.WithContext(context.TODO()))
+			if err != nil {
+				return true
+			}
+
+			// if a node exists, then the ip is not unique.
+			return !exists
+		}
 	} else if tableName == database.EXT_CLIENT_TABLE_NAME {
 
 		extClients, err := GetNetworkExtClients(network)
 		if err != nil {
-			return isunique
+			return true
 		}
 		for _, extClient := range extClients { // filter
 			if isIpv6 {
@@ -468,19 +260,13 @@ func IsIPUnique(network string, ip string, tableName string, isIpv6 bool) bool {
 		}
 	}
 
-	return isunique
+	return true
 }
 func UniqueAddress(networkName string, reverse bool) (net.IP, error) {
-	if servercfg.CacheEnabled() {
-		return UniqueAddressCache(networkName, reverse)
-	}
 	return UniqueAddressDB(networkName, reverse)
 }
 
 func UniqueAddress6(networkName string, reverse bool) (net.IP, error) {
-	if servercfg.CacheEnabled() {
-		return UniqueAddress6Cache(networkName, reverse)
-	}
 	return UniqueAddress6DB(networkName, reverse)
 }
 
@@ -514,51 +300,6 @@ func UniqueAddress6DB(networkName string, reverse bool) (net.IP, error) {
 	for {
 		if IsIPUnique(networkName, newAddrs.String(), database.NODES_TABLE_NAME, true) &&
 			IsIPUnique(networkName, newAddrs.String(), database.EXT_CLIENT_TABLE_NAME, true) {
-			return newAddrs, nil
-		}
-		if reverse {
-			newAddrs, err = net6.PreviousIP(newAddrs)
-		} else {
-			newAddrs, err = net6.NextIP(newAddrs)
-		}
-		if err != nil {
-			break
-		}
-	}
-
-	return add, errors.New("ERROR: No unique IPv6 addresses available. Check network subnet")
-}
-
-// UniqueAddress6Cache - see if ipv6 address is unique using cache
-func UniqueAddress6Cache(networkName string, reverse bool) (net.IP, error) {
-	add := net.IP{}
-	var network models.Network
-	network, err := GetNetwork(networkName)
-	if err != nil {
-		fmt.Println("Network Not Found")
-		return add, err
-	}
-	if network.IsIPv6 == "no" {
-		return add, fmt.Errorf("IPv6 not active on network " + networkName)
-	}
-
-	//ensure AddressRange is valid
-	if _, _, err := net.ParseCIDR(network.AddressRange6); err != nil {
-		return add, err
-	}
-	net6 := iplib.Net6FromStr(network.AddressRange6)
-
-	newAddrs, err := net6.NextIP(net6.FirstAddress())
-	if reverse {
-		newAddrs, err = net6.PreviousIP(net6.LastAddress())
-	}
-	if err != nil {
-		return add, err
-	}
-
-	ipAllocated := allocatedIpMap[networkName]
-	for {
-		if _, ok := ipAllocated[newAddrs.String()]; !ok {
 			return newAddrs, nil
 		}
 		if reverse {
@@ -608,11 +349,6 @@ func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (
 
 		_network := converters.ToSchemaNetwork(*newNetwork)
 		err := _network.Update(db.WithContext(context.TODO()))
-		if err == nil {
-			if servercfg.CacheEnabled() {
-				storeNetworkInCache(newNetwork.NetID, *newNetwork)
-			}
-		}
 		return hasrangeupdate4, hasrangeupdate6, hasholepunchupdate, err
 	}
 	// copy values
@@ -621,12 +357,6 @@ func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (
 
 // GetNetwork - gets a network from database
 func GetNetwork(netID string) (models.Network, error) {
-	if servercfg.CacheEnabled() {
-		if network, ok := getNetworkFromCache(netID); ok {
-			return network, nil
-		}
-	}
-
 	_network := &schema.Network{
 		ID: netID,
 	}
@@ -686,15 +416,7 @@ func ParseNetwork(value string) (models.Network, error) {
 // SaveNetwork - save network struct to database
 func SaveNetwork(network *models.Network) error {
 	_network := converters.ToSchemaNetwork(*network)
-	err := _network.Update(db.WithContext(context.TODO()))
-	if err != nil {
-		return err
-	}
-
-	if servercfg.CacheEnabled() {
-		storeNetworkInCache(network.NetID, *network)
-	}
-	return nil
+	return _network.Update(db.WithContext(context.TODO()))
 }
 
 // NetworkExists - check if network exists
