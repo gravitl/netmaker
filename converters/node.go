@@ -12,15 +12,6 @@ import (
 func ToSchemaNode(node models.Node) schema.Node {
 	var nodeID = node.ID.String()
 
-	var nodeType schema.NodeType
-	if node.IsStatic {
-		nodeType = schema.ExtclientNode
-	} else if node.IsUserNode {
-		nodeType = schema.UserNode
-	} else {
-		nodeType = schema.NetclientNode
-	}
-
 	var networkRange, networkRange6 string
 	if node.NetworkRange.IP == nil {
 		networkRange = node.NetworkRange.String()
@@ -124,7 +115,6 @@ func ToSchemaNode(node models.Node) schema.Node {
 
 	var _node = schema.Node{
 		ID:                 nodeID,
-		NodeType:           nodeType,
 		OwnerID:            node.OwnerID,
 		HostID:             node.HostID.String(),
 		LocalAddress:       node.LocalAddress.String(),
@@ -236,8 +226,8 @@ func ToModelNode(_node schema.Node) models.Node {
 		DefaultACL:         _node.DefaultACL,
 		OwnerID:            _node.OwnerID,
 		Tags:               tags,
-		IsStatic:           _node.NodeType == schema.ExtclientNode,
-		IsUserNode:         _node.NodeType == schema.UserNode,
+		IsStatic:           false,
+		IsUserNode:         false,
 		Status:             models.NodeStatus(_node.Status),
 		Mutex:              &sync.Mutex{},
 	}

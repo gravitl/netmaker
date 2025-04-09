@@ -9,25 +9,8 @@ import (
 	"time"
 )
 
-// NodeType represents an enumeration of different types of Nodes.
-type NodeType string
-
-const (
-	// NetclientNode is a node type representing nodes that
-	// have joined the networks using the Netclient service.
-	NetclientNode NodeType = "netclient"
-	// ExtclientNode is a node type representing nodes that
-	// have joined the networks using a WireGuard config.
-	ExtclientNode NodeType = "extclient"
-	// UserNode is a node type representing users that have
-	// joined the networks using the Netmaker Desktop app or
-	// the Android or iOS apps.
-	UserNode NodeType = "user"
-)
-
 type Node struct {
 	ID            string `gorm:"primaryKey"`
-	NodeType      NodeType
 	OwnerID       string
 	HostID        string
 	LocalAddress  string
