@@ -10,12 +10,12 @@ import (
 )
 
 func ToSchemaHost(host models.Host) schema.Host {
-	var interfaces []schema.Interface
+	interfaces := make([]schema.Interface, len(host.Interfaces))
 	for i := range host.Interfaces {
-		interfaces = append(interfaces, schema.Interface{
+		interfaces[i] = schema.Interface{
 			Name:    host.Interfaces[i].Name,
 			Address: host.Interfaces[i].Address.String(),
-		})
+		}
 	}
 
 	var turnEndpoint string
@@ -23,11 +23,11 @@ func ToSchemaHost(host models.Host) schema.Host {
 		turnEndpoint = host.TurnEndpoint.String()
 	}
 
-	var _nodes []schema.Node
-	for _, nodeID := range host.Nodes {
-		_nodes = append(_nodes, schema.Node{
+	_nodes := make([]schema.Node, len(host.Nodes))
+	for i, nodeID := range host.Nodes {
+		_nodes[i] = schema.Node{
 			ID: nodeID,
-		})
+		}
 	}
 
 	return schema.Host{
@@ -66,9 +66,9 @@ func ToSchemaHost(host models.Host) schema.Host {
 }
 
 func ToSchemaHosts(hosts []models.Host) []schema.Host {
-	var _hosts []schema.Host
-	for _, host := range hosts {
-		_hosts = append(_hosts, ToSchemaHost(host))
+	_hosts := make([]schema.Host, len(hosts))
+	for i, host := range hosts {
+		_hosts[i] = ToSchemaHost(host)
 	}
 
 	return _hosts
@@ -85,12 +85,12 @@ func ToModelHost(_host schema.Host) models.Host {
 		macAddress, _ = net.ParseMAC(_host.MacAddress)
 	}
 
-	var nodes []string
-	for _, node := range _host.Nodes {
-		nodes = append(nodes, node.ID)
+	nodes := make([]string, len(_host.Nodes))
+	for i, node := range _host.Nodes {
+		nodes[i] = node.ID
 	}
 
-	var interfaces []models.Iface
+	interfaces := make([]models.Iface, len(_host.Interfaces))
 	for i := range _host.Interfaces {
 		iface := models.Iface{
 			Name: _host.Interfaces[i].Name,
@@ -104,7 +104,7 @@ func ToModelHost(_host schema.Host) models.Host {
 			}
 		}
 
-		interfaces = append(interfaces, iface)
+		interfaces[i] = iface
 	}
 
 	var turnEndpoint *netip.AddrPort
@@ -146,4 +146,71 @@ func ToModelHost(_host schema.Host) models.Host {
 		TurnEndpoint:        turnEndpoint,
 		PersistentKeepalive: _host.PersistentKeepalive,
 	}
+}
+
+func ToModelHosts(_hosts []schema.Host) []models.Host {
+	hosts := make([]models.Host, len(_hosts))
+	for i, _host := range _hosts {
+		hosts[i] = ToModelHost(_host)
+	}
+
+	return hosts
+}
+
+func ToAPIHost(_host schema.Host) models.ApiHost {
+	interfaces := make([]models.ApiIface, len(_host.Interfaces))
+	for i := range _host.Interfaces {
+		iface := models.ApiIface{
+			Name: _host.Interfaces[i].Name,
+		}
+
+		if _host.Interfaces[i].Address != "" {
+			_, address, _ := net.ParseCIDR(_host.Interfaces[i].Address)
+			if address != nil {
+				iface.AddressString = address.String()
+			}
+		}
+
+		interfaces[i] = iface
+	}
+
+	nodes := make([]string, len(_host.Nodes))
+	for i, node := range _host.Nodes {
+		nodes[i] = node.ID
+	}
+
+	return models.ApiHost{
+		ID:                  _host.ID,
+		Verbosity:           _host.Verbosity,
+		FirewallInUse:       _host.FirewallInUse,
+		Version:             _host.Version,
+		Name:                _host.Name,
+		OS:                  _host.OS,
+		Debug:               _host.Debug,
+		IsStaticPort:        _host.IsStaticPort,
+		IsStatic:            _host.IsStatic,
+		ListenPort:          _host.ListenPort,
+		WgPublicListenPort:  _host.WgPublicListenPort,
+		MTU:                 _host.MTU,
+		Interfaces:          interfaces,
+		DefaultInterface:    _host.DefaultInterface,
+		EndpointIP:          _host.EndpointIP,
+		EndpointIPv6:        _host.EndpointIPv6,
+		PublicKey:           _host.PublicKey,
+		MacAddress:          _host.MacAddress,
+		Nodes:               nodes,
+		IsDefault:           _host.IsDefault,
+		NatType:             _host.NatType,
+		PersistentKeepalive: int(_host.PersistentKeepalive.Seconds()),
+		AutoUpdate:          _host.AutoUpdate,
+	}
+}
+
+func ToAPIHosts(_hosts []schema.Host) []models.ApiHost {
+	hosts := make([]models.ApiHost, len(_hosts))
+	for i, _host := range _hosts {
+		hosts[i] = ToAPIHost(_host)
+	}
+
+	return hosts
 }
