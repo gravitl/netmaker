@@ -144,11 +144,6 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		host, err := logic.GetHost(node.HostID.String())
 		if err == nil {
-			allNodes, err := logic.GetAllNodes()
-			if err != nil {
-				return
-			}
-
 			for _, relayedNode := range updateNodes {
 				err = mq.NodeUpdate(&relayedNode)
 				if err != nil {
@@ -166,19 +161,15 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 				h, err := logic.GetHost(relayedNode.HostID.String())
 				if err == nil {
 					if h.OS == models.OS_Types.IoT {
-						nodes, err := logic.GetAllNodes()
-						if err != nil {
-							return
-						}
 						node.IsRelay = true // for iot update to recognise that it has to delete relay peer
-						if err = mq.PublishSingleHostPeerUpdate(h, nodes, &node, nil, false, nil); err != nil {
+						if err = mq.PublishSingleHostPeerUpdate(h, &node, nil, false, nil); err != nil {
 							logger.Log(1, "failed to publish peer update to host", h.ID.String(), ": ", err.Error())
 						}
 					}
 				}
 			}
 			if len(removedClients) > 0 {
-				if err := mq.PublishSingleHostPeerUpdate(host, allNodes, nil, removedClients[:], false, nil); err != nil {
+				if err := mq.PublishSingleHostPeerUpdate(host, nil, removedClients[:], false, nil); err != nil {
 					slog.Error("publishSingleHostUpdate", "host", host.Name, "error", err)
 				}
 			}

@@ -37,12 +37,15 @@ func GetNetworks() ([]models.Network, error) {
 
 // DeleteNetwork - deletes a network
 func DeleteNetwork(netID string, force bool, done chan struct{}) error {
-	nodeCount, err := GetNetworkNonServerNodeCount(netID)
-	if nodeCount == 0 || database.IsEmptyRecord(err) {
-		// delete server nodes first then db records
-		_network := &schema.Network{
-			ID: netID,
-		}
+	_network := &schema.Network{
+		ID: netID,
+	}
+	nodeCount, err := _network.CountNodes(db.WithContext(context.TODO()))
+	if err != nil {
+		return err
+	}
+
+	if nodeCount == 0 {
 		return _network.Delete(db.WithContext(context.TODO()))
 	}
 
@@ -65,10 +68,6 @@ func DeleteNetwork(netID string, force bool, done chan struct{}) error {
 			logger.Log(1, "failed to remove the node acls during network delete for network,", netID)
 		}
 
-		// delete server nodes first then db records
-		_network := &schema.Network{
-			ID: netID,
-		}
 		err = _network.Delete(db.WithContext(context.TODO()))
 		if err != nil {
 			return
@@ -142,12 +141,6 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 	)
 
 	return network, nil
-}
-
-// GetNetworkNonServerNodeCount - get number of network non server nodes
-func GetNetworkNonServerNodeCount(networkName string) (int, error) {
-	nodes, err := GetNetworkNodes(networkName)
-	return len(nodes), err
 }
 
 func IsNetworkCIDRUnique(cidr4 *net.IPNet, cidr6 *net.IPNet) bool {
