@@ -336,15 +336,8 @@ func GetNodeByID(nodeID string) (models.Node, error) {
 	if err != nil {
 		return models.Node{}, err
 	}
-	var node models.Node
-	if err = json.Unmarshal([]byte(record), &node); err != nil {
-		return models.Node{}, err
-	}
-	if servercfg.CacheEnabled() {
-		storeNodeInCache(node)
-		storeNodeInNetworkCache(node, node.Network)
-	}
-	return node, nil
+
+	return converters.ToModelNode(*_node), nil
 }
 
 // GetDeletedNodeByID - get a deleted node
