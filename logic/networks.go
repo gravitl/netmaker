@@ -82,7 +82,7 @@ func DeleteNetwork(netID string, force bool, done chan struct{}) error {
 	for _, key := range keys {
 		if key.Tags[0] == netID {
 			if key.Default {
-				DeleteEnrollmentKey(key.Value, true)
+				_ = DeleteEnrollmentKey(key.Value, true)
 				break
 			}
 
@@ -327,25 +327,6 @@ func IsNetworkNameUnique(network *models.Network) (bool, error) {
 	}
 
 	return isunique, nil
-}
-
-// UpdateNetwork - updates a network with another network's fields
-func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (bool, bool, bool, error) {
-	if err := ValidateNetwork(newNetwork, true); err != nil {
-		return false, false, false, err
-	}
-	if newNetwork.NetID == currentNetwork.NetID {
-		hasrangeupdate4 := newNetwork.AddressRange != currentNetwork.AddressRange
-		hasrangeupdate6 := newNetwork.AddressRange6 != currentNetwork.AddressRange6
-		hasholepunchupdate := newNetwork.DefaultUDPHolePunch != currentNetwork.DefaultUDPHolePunch
-		newNetwork.SetNetworkLastModified()
-
-		_network := converters.ToSchemaNetwork(*newNetwork)
-		err := _network.Update(db.WithContext(context.TODO()))
-		return hasrangeupdate4, hasrangeupdate6, hasholepunchupdate, err
-	}
-	// copy values
-	return false, false, false, errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
 }
 
 // GetNetwork - gets a network from database

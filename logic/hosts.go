@@ -49,16 +49,6 @@ func GetAllHosts() ([]models.Host, error) {
 	return currHosts, nil
 }
 
-// GetAllHostsAPI - get's all the hosts in an API usable format
-func GetAllHostsAPI(hosts []models.Host) []models.ApiHost {
-	apiHosts := []models.ApiHost{}
-	for i := range hosts {
-		newApiHost := hosts[i].ConvertNMHostToAPI()
-		apiHosts = append(apiHosts, *newApiHost)
-	}
-	return apiHosts[:]
-}
-
 // GetHost - gets a host from db given id
 func GetHost(hostID string) (*models.Host, error) {
 	_host := &schema.Host{
@@ -96,40 +86,6 @@ func CreateHost(h *models.Host) error {
 	h.AutoUpdate = servercfg.AutoUpdateEnabled()
 	checkForZombieHosts(h)
 	return UpsertHost(h)
-}
-
-// UpdateHost - updates host data by field
-func UpdateHost(newHost, currentHost *models.Host) {
-	// unchangeable fields via API here
-	newHost.DaemonInstalled = currentHost.DaemonInstalled
-	newHost.OS = currentHost.OS
-	newHost.IPForwarding = currentHost.IPForwarding
-	newHost.HostPass = currentHost.HostPass
-	newHost.MacAddress = currentHost.MacAddress
-	newHost.Debug = currentHost.Debug
-	newHost.Nodes = currentHost.Nodes
-	newHost.PublicKey = currentHost.PublicKey
-	newHost.TrafficKeyPublic = currentHost.TrafficKeyPublic
-	// changeable fields
-	if len(newHost.Version) == 0 {
-		newHost.Version = currentHost.Version
-	}
-
-	if len(newHost.Name) == 0 {
-		newHost.Name = currentHost.Name
-	}
-
-	if newHost.MTU == 0 {
-		newHost.MTU = currentHost.MTU
-	}
-
-	if newHost.ListenPort == 0 {
-		newHost.ListenPort = currentHost.ListenPort
-	}
-
-	if newHost.PersistentKeepalive == 0 {
-		newHost.PersistentKeepalive = currentHost.PersistentKeepalive
-	}
 }
 
 // UpdateHostFromClient - used for updating host on server with update recieved from client
