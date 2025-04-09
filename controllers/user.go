@@ -58,7 +58,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
 	}
 
-	if !servercfg.IsBasicAuthEnabled() {
+	if !logic.IsBasicAuthEnabled() {
 		logic.ReturnErrorResponse(
 			response,
 			request,
@@ -145,7 +145,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	response.Write(successJSONResponse)
 
 	go func() {
-		if servercfg.IsPro && servercfg.GetRacAutoDisable() {
+		if servercfg.IsPro && logic.GetRacAutoDisable() {
 			// enable all associeated clients for the user
 			clients, err := logic.GetAllExtClients()
 			if err != nil {
@@ -319,7 +319,7 @@ func createSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !servercfg.IsBasicAuthEnabled() {
+	if !logic.IsBasicAuthEnabled() {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -367,7 +367,7 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only admins can be promoted to superadmin role"), "forbidden"))
 		return
 	}
-	if !servercfg.IsBasicAuthEnabled() {
+	if !logic.IsBasicAuthEnabled() {
 		logic.ReturnErrorResponse(
 			w,
 			r,

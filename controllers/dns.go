@@ -164,9 +164,9 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// check if default domain is appended if not append
-	if servercfg.GetDefaultDomain() != "" &&
-		!strings.HasSuffix(entry.Name, servercfg.GetDefaultDomain()) {
-		entry.Name += "." + servercfg.GetDefaultDomain()
+	if logic.GetDefaultDomain() != "" &&
+		!strings.HasSuffix(entry.Name, logic.GetDefaultDomain()) {
+		entry.Name += "." + logic.GetDefaultDomain()
 	}
 	entry, err = logic.CreateDNS(entry)
 	if err != nil {
@@ -185,7 +185,7 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if servercfg.GetManageDNS() {
+	if logic.GetManageDNS() {
 		mq.SendDNSSyncByNetwork(netID)
 	}
 
@@ -230,7 +230,7 @@ func deleteDNS(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if servercfg.GetManageDNS() {
+	if logic.GetManageDNS() {
 		mq.SendDNSSyncByNetwork(netID)
 	}
 
@@ -293,7 +293,7 @@ func pushDNS(w http.ResponseWriter, r *http.Request) {
 func syncDNS(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
-	if !servercfg.GetManageDNS() {
+	if !logic.GetManageDNS() {
 		logic.ReturnErrorResponse(
 			w,
 			r,

@@ -588,8 +588,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	logic.CreateDefaultNetworkRolesAndGroups(models.NetworkID(network.NetID))
 	logic.CreateDefaultAclNetworkPolicies(models.NetworkID(network.NetID))
 	logic.CreateDefaultTags(models.NetworkID(network.NetID))
-
-	go logic.AddNetworkToAllocatedIpMap(network.NetID)
+	logic.AddNetworkToAllocatedIpMap(network.NetID)
 
 	go func() {
 		defaultHosts := logic.GetDefaultHosts()

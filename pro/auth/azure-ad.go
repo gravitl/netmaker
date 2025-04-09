@@ -35,7 +35,7 @@ func initAzureAD(redirectURL string, clientID string, clientSecret string) {
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		Scopes:       []string{"User.Read", "email", "profile", "openid"},
-		Endpoint:     microsoft.AzureADEndpoint(servercfg.GetAzureTenant()),
+		Endpoint:     microsoft.AzureADEndpoint(logic.GetAzureTenant()),
 	}
 }
 

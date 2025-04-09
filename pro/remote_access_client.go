@@ -10,7 +10,6 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
-	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
 
@@ -41,7 +40,7 @@ func racAutoDisableHook() error {
 	}
 
 	currentTime := time.Now()
-	validityDuration := servercfg.GetJwtValidityDuration()
+	validityDuration := logic.GetJwtValidityDuration()
 	for _, user := range users {
 		if user.PlatformRoleID == models.AdminRole ||
 			user.PlatformRoleID == models.SuperAdminRole {
