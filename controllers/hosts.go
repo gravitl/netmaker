@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gravitl/netmaker/converters"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
+	"gorm.io/gorm"
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -76,12 +78,13 @@ func upgradeHosts(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		slog.Info("requesting all hosts to upgrade", "user", user)
 
-		hosts, err := logic.GetAllHosts()
+		_hosts, err := (&schema.Host{}).ListAll(r.Context())
 		if err != nil {
 			slog.Error("failed to retrieve all hosts", "user", user, "error", err)
 			return
 		}
 
+		hosts := converters.ToModelHosts(_hosts)
 		for _, host := range hosts {
 			go func(host models.Host) {
 				hostUpdate := models.HostUpdate{
@@ -111,12 +114,18 @@ func upgradeHosts(w http.ResponseWriter, r *http.Request) {
 // @Failure     500 {object} models.ErrorResponse
 // upgrade host is a handler to send upgrade message to a host
 func upgradeHost(w http.ResponseWriter, r *http.Request) {
-	host, err := logic.GetHost(mux.Vars(r)["hostid"])
+	hostID := mux.Vars(r)["hostid"]
+	_host := &schema.Host{
+		ID: hostID,
+	}
+	err := _host.Get(r.Context())
 	if err != nil {
 		slog.Error("failed to find host", "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "notfound"))
 		return
 	}
+
+	host := converters.ToModelHost(*_host)
 
 	action := models.Upgrade
 
@@ -124,7 +133,7 @@ func upgradeHost(w http.ResponseWriter, r *http.Request) {
 		action = models.ForceUpgrade
 	}
 
-	if err := mq.HostUpdate(&models.HostUpdate{Action: action, Host: *host}); err != nil {
+	if err := mq.HostUpdate(&models.HostUpdate{Action: action, Host: host}); err != nil {
 		slog.Error("failed to upgrade host", "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -141,18 +150,19 @@ func upgradeHost(w http.ResponseWriter, r *http.Request) {
 func getHosts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	currentHosts, err := logic.GetAllHosts()
+	_hosts, err := (&schema.Host{}).ListAll(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to fetch hosts: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
-	apiHosts := logic.GetAllHostsAPI(currentHosts[:])
+	hosts := converters.ToAPIHosts(_hosts)
 	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
-	logic.SortApiHosts(apiHosts[:])
+	logic.SortApiHosts(hosts)
+
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(apiHosts)
+	_ = json.NewEncoder(w).Encode(hosts)
 }
 
 // @Summary     Used by clients for "pull" command
@@ -162,7 +172,6 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} models.HostPull
 // @Failure     500 {object} models.ErrorResponse
 func pull(w http.ResponseWriter, r *http.Request) {
-
 	hostID := r.Header.Get(hostIDHeader) // return JSON/API formatted keys
 	if len(hostID) == 0 {
 		logger.Log(0, "no host authorized to pull")
@@ -173,42 +182,47 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	host, err := logic.GetHost(hostID)
+
+	_host := &schema.Host{
+		ID: hostID,
+	}
+	err := _host.Get(r.Context())
 	if err != nil {
 		logger.Log(0, "no host found during pull", hostID)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
+	err = _host.GetNodes(r.Context())
+	if err != nil {
+		logger.Log(0, "failed to get host's nodes", hostID)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
 	sendPeerUpdate := false
-	for _, nodeID := range host.Nodes {
-		node, err := logic.GetNodeByID(nodeID)
-		if err != nil {
-			slog.Error("failed to get node:", "id", node.ID, "error", err)
-			continue
-		}
-		if node.FailedOverBy != uuid.Nil && r.URL.Query().Get("reset_failovered") == "true" {
-			logic.ResetFailedOverPeer(&node)
+	for _, _node := range _host.Nodes {
+		if _node.FailOverNodeID != nil && r.URL.Query().Get("reset_failovered") == "true" {
+			node := converters.ToModelNode(_node)
+			_ = logic.ResetFailedOverPeer(&node)
 			sendPeerUpdate = true
 		}
 	}
+
 	if sendPeerUpdate {
 		if err := mq.PublishPeerUpdate(false); err != nil {
 			logger.Log(0, "fail to publish peer update: ", err.Error())
 		}
 	}
-	allNodes, err := logic.GetAllNodes()
-	if err != nil {
-		logger.Log(0, "failed to get nodes: ", hostID)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	hPU, err := logic.GetPeerUpdateForHost("", host, allNodes, nil, nil)
+
+	host := converters.ToModelHost(*_host)
+	hPU, err := logic.GetPeerUpdateForHost("", &host, nil, nil)
 	if err != nil {
 		logger.Log(0, "could not pull peers for host", hostID, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+
 	serverConf := servercfg.GetServerInfo()
 	key, keyErr := logic.RetrievePublicTrafficKey()
 	if keyErr != nil {
@@ -219,8 +233,8 @@ func pull(w http.ResponseWriter, r *http.Request) {
 
 	serverConf.TrafficKey = key
 	response := models.HostPull{
-		Host:              *host,
-		Nodes:             logic.GetHostNodes(host),
+		Host:              converters.ToModelHost(*_host),
+		Nodes:             converters.ToModelNodes(_host.Nodes),
 		ServerConfig:      serverConf,
 		Peers:             hPU.Peers,
 		PeerIDs:           hPU.PeerIDs,
@@ -235,7 +249,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 
 	logger.Log(1, hostID, "completed a pull")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(&response)
+	_ = json.NewEncoder(w).Encode(&response)
 }
 
 // @Summary     Updates a Netclient host on Netmaker server
@@ -247,40 +261,66 @@ func pull(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} models.ApiHost
 // @Failure     500 {object} models.ErrorResponse
 func updateHost(w http.ResponseWriter, r *http.Request) {
-	var newHostData models.ApiHost
-	err := json.NewDecoder(r.Body).Decode(&newHostData)
+	hostID := mux.Vars(r)["hostid"]
+
+	var hostChanges models.ApiHost
+	err := json.NewDecoder(r.Body).Decode(&hostChanges)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update a host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
-	// confirm host exists
-	currHost, err := logic.GetHost(newHostData.ID)
+	_host := &schema.Host{
+		ID: hostID,
+	}
+	err = _host.Get(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update a host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
-	newHost := newHostData.ConvertAPIHostToNMHost(currHost)
+	// assign changes to host.
+	var nameChanged bool
+	if len(hostChanges.Name) != 0 {
+		_host.Name = hostChanges.Name
+		nameChanged = true
+	}
 
-	logic.UpdateHost(newHost, currHost) // update the in memory struct values
-	if err = logic.UpsertHost(newHost); err != nil {
+	if len(hostChanges.Version) != 0 {
+		_host.Version = hostChanges.Version
+	}
+
+	if hostChanges.MTU != 0 {
+		_host.MTU = hostChanges.MTU
+	}
+
+	if hostChanges.ListenPort != 0 {
+		_host.ListenPort = hostChanges.ListenPort
+	}
+
+	if hostChanges.PersistentKeepalive != 0 {
+		_host.PersistentKeepalive = time.Duration(hostChanges.PersistentKeepalive) * time.Second
+	}
+
+	err = _host.Upsert(r.Context())
+	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update a host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+
 	// publish host update through MQ
 	if err := mq.HostUpdate(&models.HostUpdate{
 		Action: models.UpdateHost,
-		Host:   *newHost,
+		Host:   converters.ToModelHost(*_host),
 	}); err != nil {
 		logger.Log(
 			0,
 			r.Header.Get("user"),
 			"failed to send host update: ",
-			currHost.ID.String(),
+			hostID,
 			err.Error(),
 		)
 	}
@@ -288,17 +328,17 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 		if err := mq.PublishPeerUpdate(false); err != nil {
 			logger.Log(0, "fail to publish peer update: ", err.Error())
 		}
-		if newHost.Name != currHost.Name {
+		if nameChanged {
 			if servercfg.IsDNSMode() {
 				logic.SetDNS()
 			}
 		}
 	}()
 
-	apiHostData := newHost.ConvertNMHostToAPI()
-	logger.Log(2, r.Header.Get("user"), "updated host", newHost.ID.String())
+	apiHost := converters.ToAPIHost(*_host)
+	logger.Log(2, r.Header.Get("user"), "updated host", hostID)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(apiHostData)
+	_ = json.NewEncoder(w).Encode(apiHost)
 }
 
 // @Summary     Updates a Netclient host on Netmaker server
@@ -310,37 +350,45 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {string} string "updated host data"
 // @Failure     500 {object} models.ErrorResponse
 func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
-	var params = mux.Vars(r)
-	hostid := params["hostid"]
-	currentHost, err := logic.GetHost(hostid)
+	hostID := mux.Vars(r)["hostid"]
+
+	_host := &schema.Host{
+		ID: hostID,
+	}
+	err := _host.Get(r.Context())
 	if err != nil {
-		slog.Error("error getting host", "id", hostid, "error", err)
+		slog.Error("error getting host", "id", hostID, "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+
 	var sendPeerUpdate bool
 	var replacePeers bool
 	var hostUpdate models.HostUpdate
 	err = json.NewDecoder(r.Body).Decode(&hostUpdate)
 	if err != nil {
-		slog.Error("failed to update a host:", "user", r.Header.Get("user"), "error", err.Error(), "host", currentHost.Name)
+		slog.Error("failed to update a host:", "user", r.Header.Get("user"), "error", err.Error(), "host", _host.Name)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	slog.Info("recieved host update", "name", hostUpdate.Host.Name, "id", hostUpdate.Host.ID, "action", hostUpdate.Action)
+	slog.Info("received host update", "name", hostUpdate.Host.Name, "id", hostUpdate.Host.ID, "action", hostUpdate.Action)
+
+	host := converters.ToModelHost(*_host)
 	switch hostUpdate.Action {
 	case models.CheckIn:
-		sendPeerUpdate = mq.HandleHostCheckin(&hostUpdate.Host, currentHost)
+		sendPeerUpdate = mq.HandleHostCheckin(&hostUpdate.Host, &host)
 
 	case models.UpdateHost:
-		if hostUpdate.Host.PublicKey != currentHost.PublicKey {
+		if hostUpdate.Host.PublicKey.String() != _host.PublicKey {
 			//remove old peer entry
 			replacePeers = true
 		}
-		sendPeerUpdate = logic.UpdateHostFromClient(&hostUpdate.Host, currentHost)
-		err := logic.UpsertHost(currentHost)
+		sendPeerUpdate = logic.UpdateHostFromClient(&hostUpdate.Host, &host)
+
+		_host := converters.ToSchemaHost(host)
+		err = _host.Upsert(db.WithContext(r.Context()))
 		if err != nil {
-			slog.Error("failed to update host", "id", currentHost.ID, "error", err)
+			slog.Error("failed to update host", "id", hostID, "error", err)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
@@ -368,63 +416,71 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 // @Failure     500 {object} models.ErrorResponse
 func deleteHost(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
-	hostid := params["hostid"]
+	hostID := params["hostid"]
 	forceDelete := r.URL.Query().Get("force") == "true"
 
 	// confirm host exists
-	currHost, err := logic.GetHost(hostid)
+	_host := &schema.Host{
+		ID: hostID,
+	}
+	err := _host.Get(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to delete a host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	for _, nodeID := range currHost.Nodes {
-		node, err := logic.GetNodeByID(nodeID)
-		if err != nil {
-			slog.Error("failed to get node", "nodeid", nodeID, "error", err)
-			continue
-		}
-		var gwClients []models.ExtClient
-		if node.IsIngressGateway {
-			gwClients = logic.GetGwExtclients(node.ID.String(), node.Network)
-		}
-		go mq.PublishMqUpdatesForDeletedNode(node, false, gwClients)
 
+	err = _host.GetNodes(r.Context())
+	if err != nil {
+		slog.Error("failed to get host nodes", "hostid", hostID, "error", err)
 	}
+
+	for _, _node := range _host.Nodes {
+		var gwClients []models.ExtClient
+		if _node.GatewayNodeConfig != nil {
+			gwClients = logic.GetGwExtclients(_node.ID, _node.NetworkID)
+		}
+
+		go mq.PublishMqUpdatesForDeletedNode(converters.ToModelNode(_node), false, gwClients)
+	}
+
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 		// delete EMQX credentials for host
-		if err := mq.GetEmqxHandler().DeleteEmqxUser(currHost.ID.String()); err != nil {
+		if err := mq.GetEmqxHandler().DeleteEmqxUser(hostID); err != nil {
 			slog.Error(
 				"failed to remove host credentials from EMQX",
 				"id",
-				currHost.ID,
+				hostID,
 				"error",
 				err,
 			)
 		}
 	}
+
 	if err = mq.HostUpdate(&models.HostUpdate{
 		Action: models.DeleteHost,
-		Host:   *currHost,
+		Host:   converters.ToModelHost(*_host),
 	}); err != nil {
 		logger.Log(
 			0,
 			r.Header.Get("user"),
 			"failed to send delete host update: ",
-			currHost.ID.String(),
+			hostID,
 			err.Error(),
 		)
 	}
-	if err = logic.RemoveHost(currHost, forceDelete); err != nil {
+
+	host := converters.ToModelHost(*_host)
+	if err = logic.RemoveHost(&host, forceDelete); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to delete a host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
-	apiHostData := currHost.ConvertNMHostToAPI()
-	logger.Log(2, r.Header.Get("user"), "removed host", currHost.Name)
+	apiHost := converters.ToAPIHost(*_host)
+	logger.Log(2, r.Header.Get("user"), "removed host", _host.Name)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(apiHostData)
+	_ = json.NewEncoder(w).Encode(apiHost)
 }
 
 // @Summary     To Add Host To Network
@@ -436,11 +492,10 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {string} string "OK"
 // @Failure     500 {object} models.ErrorResponse
 func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
-
 	var params = mux.Vars(r)
-	hostid := params["hostid"]
+	hostID := params["hostid"]
 	network := params["network"]
-	if hostid == "" || network == "" {
+	if hostID == "" || network == "" {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -448,29 +503,33 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	// confirm host exists
-	currHost, err := logic.GetHost(hostid)
+
+	_host := &schema.Host{
+		ID: hostID,
+	}
+	err := _host.Get(r.Context())
 	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "failed to find host:", hostid, err.Error())
+		logger.Log(0, r.Header.Get("user"), "failed to find host:", hostID, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
-	newNode, err := logic.UpdateHostNetwork(currHost, network, true)
+	host := converters.ToModelHost(*_host)
+	newNode, err := logic.UpdateHostNetwork(&host, network, true)
 	if err != nil {
 		logger.Log(
 			0,
 			r.Header.Get("user"),
 			"failed to add host to network:",
-			hostid,
+			hostID,
 			network,
 			err.Error(),
 		)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logger.Log(1, "added new node", newNode.ID.String(), "to host", currHost.Name)
-	if currHost.IsDefault {
+	logger.Log(1, "added new node", newNode.ID.String(), "to host", _host.Name)
+	if _host.IsDefault {
 		// make  host failover
 		logic.CreateFailOver(*newNode)
 		// make host remote access gateway
@@ -479,7 +538,7 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		mq.HostUpdate(&models.HostUpdate{
 			Action: models.JoinHostToNetwork,
-			Host:   *currHost,
+			Host:   host,
 			Node:   *newNode,
 		})
 		mq.PublishPeerUpdate(false)
@@ -490,7 +549,7 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 	logger.Log(
 		2,
 		r.Header.Get("user"),
-		fmt.Sprintf("added host %s to network %s", currHost.Name, network),
+		fmt.Sprintf("added host %s to network %s", host.Name, network),
 	)
 	w.WriteHeader(http.StatusOK)
 }
@@ -505,12 +564,11 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {string} string "OK"
 // @Failure     500 {object} models.ErrorResponse
 func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
-
 	var params = mux.Vars(r)
-	hostid := params["hostid"]
+	hostID := params["hostid"]
 	network := params["network"]
 	forceDelete := r.URL.Query().Get("force") == "true"
-	if hostid == "" || network == "" {
+	if hostID == "" || network == "" {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -518,17 +576,20 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	// confirm host exists
-	currHost, err := logic.GetHost(hostid)
+
+	_host := &schema.Host{
+		ID: hostID,
+	}
+	err := _host.Get(r.Context())
 	if err != nil {
-		if database.IsEmptyRecord(err) {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// check if there is any daemon nodes that needs to be deleted
-			node, err := logic.GetNodeByHostRef(hostid, network)
+			node, err := logic.GetNodeByHostRef(hostID, network)
 			if err != nil {
 				slog.Error(
 					"couldn't get node for host",
 					"hostid",
-					hostid,
+					hostID,
 					"network",
 					network,
 					"error",
@@ -539,7 +600,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 			}
 			if err = logic.DeleteNodeByID(&node); err != nil {
 				slog.Error("failed to force delete daemon node",
-					"nodeid", node.ID.String(), "hostid", hostid, "network", network, "error", err)
+					"nodeid", node.ID.String(), "hostid", hostID, "network", network, "error", err)
 				logic.ReturnErrorResponse(
 					w,
 					r,
@@ -559,16 +620,17 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	node, err := logic.UpdateHostNetwork(currHost, network, false)
+	host := converters.ToModelHost(*_host)
+	node, err := logic.UpdateHostNetwork(&host, network, false)
 	if err != nil {
 		if node == nil && forceDelete {
 			// force cleanup the node
-			node, err := logic.GetNodeByHostRef(hostid, network)
+			node, err := logic.GetNodeByHostRef(hostID, network)
 			if err != nil {
 				slog.Error(
 					"couldn't get node for host",
 					"hostid",
-					hostid,
+					hostID,
 					"network",
 					network,
 					"error",
@@ -579,7 +641,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 			}
 			if err = logic.DeleteNodeByID(&node); err != nil {
 				slog.Error("failed to force delete daemon node",
-					"nodeid", node.ID.String(), "hostid", hostid, "network", network, "error", err)
+					"nodeid", node.ID.String(), "hostid", hostID, "network", network, "error", err)
 				logic.ReturnErrorResponse(
 					w,
 					r,
@@ -597,7 +659,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 			0,
 			r.Header.Get("user"),
 			"failed to remove host from network:",
-			hostid,
+			hostID,
 			network,
 			err.Error(),
 		)
@@ -608,7 +670,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	if node.IsIngressGateway {
 		gwClients = logic.GetGwExtclients(node.ID.String(), node.Network)
 	}
-	logger.Log(1, "deleting node", node.ID.String(), "from host", currHost.Name)
+	logger.Log(1, "deleting node", node.ID.String(), "from host", _host.Name)
 	if err := logic.DeleteNode(node, forceDelete); err != nil {
 		logic.ReturnErrorResponse(
 			w,
@@ -626,7 +688,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 	logger.Log(
 		2,
 		r.Header.Get("user"),
-		fmt.Sprintf("removed host %s from network %s", currHost.Name, network),
+		fmt.Sprintf("removed host %s from network %s", _host.Name, network),
 	)
 	w.WriteHeader(http.StatusOK)
 }
@@ -670,7 +732,11 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
-	host, err := logic.GetHost(authRequest.ID)
+
+	_host := &schema.Host{
+		ID: authRequest.ID,
+	}
+	err := _host.Get(request.Context())
 	if err != nil {
 		errorResponse.Code = http.StatusBadRequest
 		errorResponse.Message = err.Error()
@@ -679,7 +745,8 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
-	err = bcrypt.CompareHashAndPassword([]byte(host.HostPass), []byte(authRequest.Password))
+
+	err = bcrypt.CompareHashAndPassword([]byte(_host.Password), []byte(authRequest.Password))
 	if err != nil {
 		errorResponse.Code = http.StatusUnauthorized
 		errorResponse.Message = "unauthorized"
@@ -720,7 +787,7 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 	go func() {
 		// Create EMQX creds
 		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
-			if err := mq.GetEmqxHandler().CreateEmqxUser(host.ID.String(), authRequest.Password); err != nil {
+			if err := mq.GetEmqxHandler().CreateEmqxUser(_host.ID, authRequest.Password); err != nil {
 				slog.Error("failed to create host credentials for EMQX: ", err.Error())
 			}
 		}
@@ -741,14 +808,23 @@ func authenticateHost(response http.ResponseWriter, request *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 func signalPeer(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
-	hostid := params["hostid"]
+	hostID := params["hostid"]
+
 	// confirm host exists
-	_, err := logic.GetHost(hostid)
+	_host := &schema.Host{
+		ID: hostID,
+	}
+	err := _host.Get(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get host:", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		} else {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		}
 		return
 	}
+
 	var signal models.Signal
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewDecoder(r.Body).Decode(&signal)
@@ -764,7 +840,11 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	signal.IsPro = servercfg.IsPro
-	peerHost, err := logic.GetHost(signal.ToHostID)
+
+	_peerHost := &schema.Host{
+		ID: signal.ToHostID,
+	}
+	err = _peerHost.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
@@ -773,9 +853,10 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+
 	err = mq.HostUpdate(&models.HostUpdate{
 		Action: models.SignalHost,
-		Host:   *peerHost,
+		Host:   converters.ToModelHost(*_peerHost),
 		Signal: signal,
 	})
 	if err != nil {
@@ -803,7 +884,8 @@ func signalPeer(w http.ResponseWriter, r *http.Request) {
 func updateAllKeys(w http.ResponseWriter, r *http.Request) {
 	var errorResponse = models.ErrorResponse{}
 	w.Header().Set("Content-Type", "application/json")
-	hosts, err := logic.GetAllHosts()
+
+	_hosts, err := (&schema.Host{}).ListAll(r.Context())
 	if err != nil {
 		errorResponse.Code = http.StatusBadRequest
 		errorResponse.Message = err.Error()
@@ -812,9 +894,12 @@ func updateAllKeys(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, errorResponse)
 		return
 	}
+
 	go func() {
 		hostUpdate := models.HostUpdate{}
 		hostUpdate.Action = models.UpdateKeys
+
+		hosts := converters.ToModelHosts(_hosts)
 		for _, host := range hosts {
 			hostUpdate.Host = host
 			logger.Log(2, "updating host", host.ID.String(), " for a key update")
@@ -843,10 +928,14 @@ func updateKeys(w http.ResponseWriter, r *http.Request) {
 	var errorResponse = models.ErrorResponse{}
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
-	hostid := params["hostid"]
-	host, err := logic.GetHost(hostid)
+	hostID := params["hostid"]
+
+	_host := &schema.Host{
+		ID: hostID,
+	}
+	err := _host.Get(r.Context())
 	if err != nil {
-		logger.Log(0, "failed to retrieve host", hostid, err.Error())
+		logger.Log(0, "failed to retrieve host", hostID, err.Error())
 		errorResponse.Code = http.StatusBadRequest
 		errorResponse.Message = err.Error()
 		logger.Log(0, r.Header.Get("user"),
@@ -854,16 +943,18 @@ func updateKeys(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, errorResponse)
 		return
 	}
+
 	go func() {
 		hostUpdate := models.HostUpdate{
 			Action: models.UpdateKeys,
-			Host:   *host,
+			Host:   converters.ToModelHost(*_host),
 		}
 		if err = mq.HostUpdate(&hostUpdate); err != nil {
-			logger.Log(0, "failed to send host key update", host.ID.String(), err.Error())
+			logger.Log(0, "failed to send host key update", hostID, err.Error())
 		}
 	}()
-	logger.Log(2, r.Header.Get("user"), "updated key on host", host.Name)
+
+	logger.Log(2, r.Header.Get("user"), "updated key on host", _host.Name)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -880,12 +971,13 @@ func syncHosts(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		slog.Info("requesting all hosts to sync", "user", user)
 
-		hosts, err := logic.GetAllHosts()
+		_hosts, err := (&schema.Host{}).ListAll(r.Context())
 		if err != nil {
 			slog.Error("failed to retrieve all hosts", "user", user, "error", err)
 			return
 		}
 
+		hosts := converters.ToModelHosts(_hosts)
 		for _, host := range hosts {
 			go func(host models.Host) {
 				hostUpdate := models.HostUpdate{
@@ -914,12 +1006,15 @@ func syncHosts(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {string} string "OK"
 // @Failure     400 {object} models.ErrorResponse
 func syncHost(w http.ResponseWriter, r *http.Request) {
-	hostId := mux.Vars(r)["hostid"]
+	hostID := mux.Vars(r)["hostid"]
 
 	var errorResponse = models.ErrorResponse{}
 	w.Header().Set("Content-Type", "application/json")
 
-	host, err := logic.GetHost(hostId)
+	_host := &schema.Host{
+		ID: hostID,
+	}
+	err := _host.Get(r.Context())
 	if err != nil {
 		slog.Error("failed to retrieve host", "user", r.Header.Get("user"), "error", err)
 		errorResponse.Code = http.StatusBadRequest
@@ -931,14 +1026,14 @@ func syncHost(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		hostUpdate := models.HostUpdate{
 			Action: models.RequestPull,
-			Host:   *host,
+			Host:   converters.ToModelHost(*_host),
 		}
 		if err = mq.HostUpdate(&hostUpdate); err != nil {
-			slog.Error("failed to send host pull request", "host", host.ID.String(), "error", err)
+			slog.Error("failed to send host pull request", "host", hostID, "error", err)
 		}
 	}()
 
-	slog.Info("requested host pull", "user", r.Header.Get("user"), "host", host.ID.String())
+	slog.Info("requested host pull", "user", r.Header.Get("user"), "host", hostID)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -949,18 +1044,20 @@ func syncHost(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {string} string "deleted hosts data on emqx"
 // @Failure     500 {object} models.ErrorResponse
 func delEmqxHosts(w http.ResponseWriter, r *http.Request) {
-	currentHosts, err := logic.GetAllHosts()
+	_hosts, err := (&schema.Host{}).ListAll(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to fetch hosts: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	for _, host := range currentHosts {
+
+	for _, _host := range _hosts {
 		// delete EMQX credentials for host
-		if err := mq.GetEmqxHandler().DeleteEmqxUser(host.ID.String()); err != nil {
-			slog.Error("failed to remove host credentials from EMQX", "id", host.ID, "error", err)
+		if err := mq.GetEmqxHandler().DeleteEmqxUser(_host.ID); err != nil {
+			slog.Error("failed to remove host credentials from EMQX", "id", _host.ID, "error", err)
 		}
 	}
+
 	err = mq.GetEmqxHandler().DeleteEmqxUser(servercfg.GetMqUserName())
 	if err != nil {
 		slog.Error(
@@ -971,6 +1068,7 @@ func delEmqxHosts(w http.ResponseWriter, r *http.Request) {
 			err,
 		)
 	}
+
 	logic.ReturnSuccessResponse(w, r, "deleted hosts data on emqx")
 }
 
@@ -982,10 +1080,13 @@ func delEmqxHosts(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
 func getHostPeerInfo(w http.ResponseWriter, r *http.Request) {
-	hostId := mux.Vars(r)["hostid"]
+	hostID := mux.Vars(r)["hostid"]
 	var errorResponse = models.ErrorResponse{}
 
-	host, err := logic.GetHost(hostId)
+	_host := &schema.Host{
+		ID: hostID,
+	}
+	err := _host.Get(r.Context())
 	if err != nil {
 		slog.Error("failed to retrieve host", "error", err)
 		errorResponse.Code = http.StatusBadRequest
@@ -993,7 +1094,9 @@ func getHostPeerInfo(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, errorResponse)
 		return
 	}
-	peerInfo, err := logic.GetHostPeerInfo(host)
+
+	host := converters.ToModelHost(*_host)
+	peerInfo, err := logic.GetHostPeerInfo(&host)
 	if err != nil {
 		slog.Error("failed to retrieve host peerinfo", "error", err)
 		errorResponse.Code = http.StatusBadRequest
