@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"reflect"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/gravitl/netmaker/auth"
@@ -82,8 +83,8 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user is registered via SSO"), "badrequest"))
 		return
 	}
-	jwt, err := logic.CreateUserJWTWithExpiry(user.UserName, user.PlatformRoleID, req.ExpiresAt)
-
+	req.ID = uuid.New().String()
+	jwt, err := logic.CreateUserAccessJwtToken(user.UserName, user.PlatformRoleID, req.ExpiresAt, req.ID)
 	if jwt == "" {
 		// very unlikely that err is !nil and no jwt returned, but handle it anyways.
 		logic.ReturnErrorResponse(

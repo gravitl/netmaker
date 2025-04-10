@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
 
@@ -166,7 +165,7 @@ func RevokeAllUserTokens(username string) {
 }
 
 func GetAccessToken(k string) (a models.AccessToken, err error) {
-	value, err := database.FetchRecord(k, database.ACCESS_TOKENS_TABLE_NAME)
+	value, err := database.FetchRecord(database.ACCESS_TOKENS_TABLE_NAME, k)
 	if err != nil {
 		return
 	}
@@ -196,7 +195,7 @@ func ListAccessTokens(username string) (tokens []models.AccessToken) {
 }
 
 func CreateAccessToken(a models.AccessToken) error {
-	a.ID = uuid.New().String()
+
 	data, err := json.Marshal(a)
 	if err != nil {
 		logger.Log(0, "failed to marshal", err.Error())
