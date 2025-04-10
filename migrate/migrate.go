@@ -151,6 +151,7 @@ func updateEnrollmentKeys() {
 			true,
 			uuid.Nil,
 			true,
+			false,
 		)
 
 	}

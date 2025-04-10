@@ -38,7 +38,7 @@ var (
 )
 
 // CreateEnrollmentKey - creates a new enrollment key in db
-func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string, groups []models.TagID, unlimited bool, relay uuid.UUID, defaultKey bool) (*models.EnrollmentKey, error) {
+func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string, groups []models.TagID, unlimited bool, relay uuid.UUID, defaultKey, autoEgress bool) (*models.EnrollmentKey, error) {
 	newKeyID, err := getUniqueEnrollmentID()
 	if err != nil {
 		return nil, err
@@ -54,6 +54,7 @@ func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string
 		Relay:         relay,
 		Groups:        groups,
 		Default:       defaultKey,
+		AutoEgress:    autoEgress,
 	}
 	if uses > 0 {
 		k.UsesRemaining = uses
