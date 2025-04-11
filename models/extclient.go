@@ -35,6 +35,8 @@ type CustomExtClient struct {
 	ClientID                   string              `json:"clientid,omitempty"`
 	PublicKey                  string              `json:"publickey,omitempty"`
 	DNS                        string              `json:"dns,omitempty"`
+	Address                    string              `json:"address"`
+	Address6                   string              `json:"address6"`
 	ExtraAllowedIPs            []string            `json:"extraallowedips,omitempty"`
 	Enabled                    bool                `json:"enabled,omitempty"`
 	DeniedACLs                 map[string]struct{} `json:"deniednodeacls" bson:"acls,omitempty"`

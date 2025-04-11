@@ -413,7 +413,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if err := validateCustomExtClient(&customExtClient, true); err != nil {
+	if err := validateCustomExtClient(&customExtClient, true, params["network"]); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -469,6 +469,8 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	extclient.RemoteAccessClientID = customExtClient.RemoteAccessClientID
 	extclient.IngressGatewayID = nodeid
 	extclient.Network = node.Network
+	extclient.Address = customExtClient.Address
+	extclient.Address6 = customExtClient.Address6
 	extclient.Tags = make(map[models.TagID]struct{})
 	// extclient.Tags[models.TagID(fmt.Sprintf("%s.%s", extclient.Network,
 	// 	models.RemoteAccessTagName))] = struct{}{}
@@ -569,6 +571,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	update.Address = ""
 	clientid := params["clientid"]
 	oldExtClient, err := logic.GetExtClientByName(clientid)
 	if err != nil {
@@ -585,12 +588,12 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if oldExtClient.ClientID == update.ClientID {
-		if err := validateCustomExtClient(&update, false); err != nil {
+		if err := validateCustomExtClient(&update, false, params["network"]); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
 	} else {
-		if err := validateCustomExtClient(&update, true); err != nil {
+		if err := validateCustomExtClient(&update, true, params["network"]); err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
@@ -767,7 +770,7 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 }
 
 // validateCustomExtClient	Validates the extclient object
-func validateCustomExtClient(customExtClient *models.CustomExtClient, checkID bool) error {
+func validateCustomExtClient(customExtClient *models.CustomExtClient, checkID bool, netID string) error {
 	v := validator.New()
 	err := v.Struct(customExtClient)
 	if err != nil {
@@ -801,6 +804,31 @@ func validateCustomExtClient(customExtClient *models.CustomExtClient, checkID bo
 			return errInvalidExtClientDNS
 		}
 		//extclient.DNS = customExtClient.DNS
+	}
+	if customExtClient.Address != "" {
+		ip := net.ParseIP(customExtClient.Address)
+		if ip == nil || ip.To4() == nil {
+			return errInvalidExtClientIP
+		}
+
+		// check if ip is free
+		if !(logic.IsIPUnique(netID, ip.String(), database.NODES_TABLE_NAME, false) &&
+			logic.IsIPUnique(netID, ip.String(), database.EXT_CLIENT_TABLE_NAME, false)) {
+			return errDuplicateExtClientIP
+		}
+	}
+
+	if customExtClient.Address6 != "" {
+		ip := net.ParseIP(customExtClient.Address6)
+		if ip == nil || ip.To4() != nil {
+			return errInvalidExtClientIP
+		}
+
+		// check if ip is free
+		if !(logic.IsIPUnique(netID, ip.String(), database.NODES_TABLE_NAME, true) &&
+			logic.IsIPUnique(netID, ip.String(), database.EXT_CLIENT_TABLE_NAME, true)) {
+			return errDuplicateExtClientIP
+		}
 	}
 	return nil
 }

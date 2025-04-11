@@ -10,6 +10,8 @@ var (
 	errInvalidExtClientID      = errors.New("node name must be alphanumderic and/or dashes and less that 15 chars")
 	errInvalidExtClientExtraIP = errors.New("client extra ip must be a valid cidr")
 	errInvalidExtClientDNS     = errors.New("client dns must be a valid ip address")
+	errInvalidExtClientIP      = errors.New("client address must be a valid ip address")
+	errDuplicateExtClientIP    = errors.New("client address must be unique ip address")
 	errDuplicateExtClientName  = errors.New("duplicate client name")
 )
 
