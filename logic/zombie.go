@@ -77,7 +77,7 @@ func checkForZombieHosts(h *models.Host) {
 func ManageZombies(ctx context.Context, peerUpdate chan *models.Node) {
 	logger.Log(2, "Zombie management started")
 	go InitializeZombies()
-
+	go checkPendingRemovalNodes()
 	// Zombie Nodes Cleanup Four Times a Day
 	ticker := time.NewTicker(time.Hour * ZOMBIE_TIMEOUT)
 
@@ -135,6 +135,15 @@ func ManageZombies(ctx context.Context, peerUpdate chan *models.Node) {
 					}
 				}
 			}
+		}
+	}
+}
+func checkPendingRemovalNodes() {
+	nodes, _ := GetAllNodes()
+	for _, node := range nodes {
+		pendingDelete := node.PendingDelete || node.Action == models.NODE_DELETE
+		if pendingDelete {
+			DeleteNode(&node, true)
 		}
 	}
 }
