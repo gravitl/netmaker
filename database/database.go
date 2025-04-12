@@ -194,17 +194,6 @@ func Insert(key string, value string, tableName string) error {
 	}
 }
 
-// InsertPeer - inserts peer into db
-func InsertPeer(key string, value string) error {
-	dbMutex.Lock()
-	defer dbMutex.Unlock()
-	if key != "" && value != "" && IsJSONString(value) {
-		return getCurrentDB()[INSERT_PEER].(func(string, string) error)(key, value)
-	} else {
-		return errors.New("invalid peer insert " + key + " : " + value)
-	}
-}
-
 // DeleteRecord - deletes a record from db
 func DeleteRecord(tableName string, key string) error {
 	dbMutex.Lock()
