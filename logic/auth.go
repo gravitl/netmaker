@@ -138,77 +138,6 @@ func FetchPassValue(newValue string) (string, error) {
 	return string(b64CurrentValue), nil
 }
 
-func RevokeAccessToken(a models.AccessToken) error {
-	err := database.DeleteRecord(database.ACCESS_TOKENS_TABLE_NAME, a.ID)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-func RevokeAllUserTokens(username string) {
-	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
-	if err != nil {
-		return
-	}
-
-	for key, value := range collection {
-
-		var a models.AccessToken
-		err = json.Unmarshal([]byte(value), &a)
-		if err != nil {
-			continue // get users
-		}
-		if a.UserName == username {
-			database.DeleteRecord(database.ACCESS_TOKENS_TABLE_NAME, key)
-		}
-	}
-}
-
-func GetAccessToken(k string) (a models.AccessToken, err error) {
-	value, err := database.FetchRecord(database.ACCESS_TOKENS_TABLE_NAME, k)
-	if err != nil {
-		return
-	}
-	err = json.Unmarshal([]byte(value), &a)
-	return
-}
-
-func ListAccessTokens(username string) (tokens []models.AccessToken) {
-	collection, err := database.FetchRecords(database.ACCESS_TOKENS_TABLE_NAME)
-	if err != nil {
-		return
-	}
-
-	for _, value := range collection {
-
-		var a models.AccessToken
-		err = json.Unmarshal([]byte(value), &a)
-		if err != nil {
-			continue // get users
-		}
-		if a.UserName == username {
-			tokens = append(tokens, a)
-		}
-
-	}
-	return
-}
-
-func CreateAccessToken(a models.AccessToken) error {
-
-	data, err := json.Marshal(a)
-	if err != nil {
-		logger.Log(0, "failed to marshal", err.Error())
-		return err
-	}
-	err = database.Insert(a.ID, string(data), database.ACCESS_TOKENS_TABLE_NAME)
-	if err != nil {
-		logger.Log(0, "failed to insert user", err.Error())
-		return err
-	}
-	return nil
-}
-
 // CreateUser - creates a user
 func CreateUser(user *models.User) error {
 	// check if user exists
@@ -420,19 +349,18 @@ func ValidateUser(user *models.User) error {
 }
 
 // DeleteUser - deletes a given user
-func DeleteUser(user string) (bool, error) {
+func DeleteUser(user string) error {
 
 	if userRecord, err := database.FetchRecord(database.USERS_TABLE_NAME, user); err != nil || len(userRecord) == 0 {
-		return false, errors.New("user does not exist")
+		return errors.New("user does not exist")
 	}
 
 	err := database.DeleteRecord(database.USERS_TABLE_NAME, user)
 	if err != nil {
-		return false, err
+		return err
 	}
 	go RemoveUserFromAclPolicy(user)
-	go RevokeAllUserTokens(user)
-	return true, nil
+	return (&models.AccessToken{UserName: user}).DeleteAllUserTokens()
 }
 
 func SetAuthSecret(secret string) error {

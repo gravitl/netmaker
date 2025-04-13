@@ -154,12 +154,15 @@ func VerifyUserToken(tokenString string) (username string, issuperadmin, isadmin
 	if claims.TokenType == models.AccessTokenType {
 		jti := claims.ID
 		if jti != "" {
+			a := models.AccessToken{ID: jti}
 			// check if access token is active
-			_, err := GetAccessToken(jti)
+			err := a.Get()
 			if err != nil {
 				err = errors.New("token revoked")
 				return "", false, false, err
 			}
+			a.LastUsed = time.Now()
+			a.Update()
 		}
 	}
 	if token != nil && token.Valid {

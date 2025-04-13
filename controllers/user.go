@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -84,6 +85,8 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.ID = uuid.New().String()
+	req.CreatedBy = r.Header.Get("user")
+	req.CreatedAt = time.Now()
 	jwt, err := logic.CreateUserAccessJwtToken(user.UserName, user.PlatformRoleID, req.ExpiresAt, req.ID)
 	if jwt == "" {
 		// very unlikely that err is !nil and no jwt returned, but handle it anyways.
@@ -94,7 +97,7 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	err = logic.CreateAccessToken(req)
+	err = req.Create()
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
@@ -124,13 +127,7 @@ func getUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), "badrequest"))
 		return
 	}
-	_, err := logic.GetUser(username)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
-		return
-	}
-
-	logic.ReturnSuccessResponseWithJson(w, r, logic.ListAccessTokens(username), "fetched api access tokens for user "+username)
+	logic.ReturnSuccessResponseWithJson(w, r, (&models.AccessToken{}).ListByUser(), "fetched api access tokens for user "+username)
 }
 
 // @Summary     Authenticate a user to retrieve an authorization token
@@ -149,7 +146,7 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := logic.RevokeAccessToken(models.AccessToken{ID: id})
+	err := (&models.AccessToken{ID: id}).Delete()
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
@@ -792,16 +789,11 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	success, err := logic.DeleteUser(username)
+	err = logic.DeleteUser(username)
 	if err != nil {
 		logger.Log(0, username,
 			"failed to delete user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	} else if !success {
-		err := errors.New("delete unsuccessful")
-		logger.Log(0, username, err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	// check and delete extclient with this ownerID

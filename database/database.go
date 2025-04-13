@@ -1,18 +1,12 @@
 package database
 
 import (
-	"crypto/rand"
-	"encoding/json"
 	"errors"
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
-	"golang.org/x/crypto/nacl/box"
 )
 
 const (
@@ -26,7 +20,7 @@ const (
 	// USERS_TABLE_NAME - users table
 	USERS_TABLE_NAME = "users"
 	// ACCESS_TOKENS_TABLE_NAME - access tokens table
-	ACCESS_TOKENS_TABLE_NAME = "access_tokens"
+	ACCESS_TOKENS_TABLE_NAME = "user_access_tokens"
 	// USER_PERMISSIONS_TABLE_NAME - user permissions table
 	USER_PERMISSIONS_TABLE_NAME = "user_permissions"
 	// CERTS_TABLE_NAME - certificates table
@@ -163,7 +157,7 @@ func InitializeDatabase() error {
 		time.Sleep(2 * time.Second)
 	}
 	createTables()
-	return initializeUUID()
+	return nil
 }
 
 func createTables() {
@@ -176,18 +170,11 @@ func CreateTable(tableName string) error {
 	return getCurrentDB()[CREATE_TABLE].(func(string) error)(tableName)
 }
 
-// IsJSONString - checks if valid json
-func IsJSONString(value string) bool {
-	var jsonInt interface{}
-	var nodeInt models.Node
-	return json.Unmarshal([]byte(value), &jsonInt) == nil || json.Unmarshal([]byte(value), &nodeInt) == nil
-}
-
 // Insert - inserts object into db
 func Insert(key string, value string, tableName string) error {
 	dbMutex.Lock()
 	defer dbMutex.Unlock()
-	if key != "" && value != "" && IsJSONString(value) {
+	if key != "" && value != "" {
 		return getCurrentDB()[INSERT].(func(string, string, string) error)(key, value, tableName)
 	} else {
 		return errors.New("invalid insert " + key + " : " + value)
@@ -233,44 +220,6 @@ func FetchRecords(tableName string) (map[string]string, error) {
 	dbMutex.RLock()
 	defer dbMutex.RUnlock()
 	return getCurrentDB()[FETCH_ALL].(func(string) (map[string]string, error))(tableName)
-}
-
-// initializeUUID - create a UUID record for server if none exists
-func initializeUUID() error {
-	records, err := FetchRecords(SERVER_UUID_TABLE_NAME)
-	if err != nil {
-		if !IsEmptyRecord(err) {
-			return err
-		}
-	} else if len(records) > 0 {
-		return nil
-	}
-	// setup encryption keys
-	var trafficPubKey, trafficPrivKey, errT = box.GenerateKey(rand.Reader) // generate traffic keys
-	if errT != nil {
-		return errT
-	}
-	tPriv, err := ncutils.ConvertKeyToBytes(trafficPrivKey)
-	if err != nil {
-		return err
-	}
-
-	tPub, err := ncutils.ConvertKeyToBytes(trafficPubKey)
-	if err != nil {
-		return err
-	}
-
-	telemetry := models.Telemetry{
-		UUID:           uuid.NewString(),
-		TrafficKeyPriv: tPriv,
-		TrafficKeyPub:  tPub,
-	}
-	telJSON, err := json.Marshal(&telemetry)
-	if err != nil {
-		return err
-	}
-
-	return Insert(SERVER_UUID_RECORD_KEY, string(telJSON), SERVER_UUID_TABLE_NAME)
 }
 
 // CloseDB - closes a database gracefully
