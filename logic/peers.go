@@ -204,7 +204,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 		defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 
-		if (defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) || !checkIfAnyPolicyisUniDirectional(node) {
+		if (defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) || (!checkIfAnyPolicyisUniDirectional(node) && !checkIfAnyActiveEgressPolicy(node)) {
 			if node.NetworkRange.IP != nil {
 				hostPeerUpdate.FwUpdate.AllowedNetworks = append(hostPeerUpdate.FwUpdate.AllowedNetworks, node.NetworkRange)
 			}
