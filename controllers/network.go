@@ -436,7 +436,7 @@ func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Param       networkname path string true "Network name"
 // @Produce     json
-// @Success     200 {object} acls.SuccessResponse
+// @Success     200 {object} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
 func getNetworkEgressRoutes(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
@@ -626,6 +626,10 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			logic.CreateFailOver(*newNode)
 			// make host remote access gateway
 			logic.CreateIngressGateway(network.NetID, newNode.ID.String(), models.IngressRequest{})
+			logic.CreateRelay(models.RelayRequest{
+				NodeID: newNode.ID.String(),
+				NetID:  network.NetID,
+			})
 		}
 		// send peer updates
 		if err = mq.PublishPeerUpdate(false); err != nil {

@@ -43,7 +43,7 @@ func rqliteCreateTable(tableName string) error {
 }
 
 func rqliteInsert(key string, value string, tableName string) error {
-	if key != "" && value != "" && IsJSONString(value) {
+	if key != "" && value != "" {
 		_, err := RQliteDatabase.WriteOne("INSERT OR REPLACE INTO " + tableName + " (key, value) VALUES ('" + key + "', '" + value + "')")
 		if err != nil {
 			return err
@@ -54,7 +54,7 @@ func rqliteInsert(key string, value string, tableName string) error {
 }
 
 func rqliteInsertPeer(key string, value string) error {
-	if key != "" && value != "" && IsJSONString(value) {
+	if key != "" && value != "" {
 		_, err := RQliteDatabase.WriteOne("INSERT OR REPLACE INTO " + PEERS_TABLE_NAME + " (key, value) VALUES ('" + key + "', '" + value + "')")
 		if err != nil {
 			return err

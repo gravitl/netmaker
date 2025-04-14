@@ -54,6 +54,7 @@ type EnrollmentKey struct {
 	Relay         uuid.UUID `json:"relay"`
 	Groups        []TagID   `json:"groups"`
 	Default       bool      `json:"default"`
+	AutoEgress    bool      `json:"auto_egress"`
 }
 
 // APIEnrollmentKey - used to create enrollment keys via API
@@ -66,6 +67,7 @@ type APIEnrollmentKey struct {
 	Type          KeyType  `json:"type"`
 	Relay         string   `json:"relay"`
 	Groups        []TagID  `json:"groups"`
+	AutoEgress    bool     `json:"auto_egress"`
 }
 
 // RegisterResponse - the response to a successful enrollment register

@@ -3,6 +3,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -12,9 +14,11 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/config"
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -22,9 +26,11 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
 	_ "go.uber.org/automaxprocs"
+	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/exp/slog"
 )
 
@@ -99,8 +105,13 @@ func initialize() { // Client Mode Prereq Check
 	if err = database.InitializeDatabase(); err != nil {
 		logger.FatalLog("Error connecting to database: ", err.Error())
 	}
+	// initialize sql schema db.
+	err = db.InitializeDB(schema.ListModels()...)
+	if err != nil {
+		logger.FatalLog("Error connecting to v1 database: ", err.Error())
+	}
 	logger.Log(0, "database successfully connected")
-
+	initializeUUID()
 	//initialize cache
 	_, _ = logic.GetNetworks()
 	_, _ = logic.GetAllNodes()
@@ -246,4 +257,42 @@ func setGarbageCollection() {
 	if !gcset {
 		debug.SetGCPercent(ncutils.DEFAULT_GC_PERCENT)
 	}
+}
+
+// initializeUUID - create a UUID record for server if none exists
+func initializeUUID() error {
+	records, err := database.FetchRecords(database.SERVER_UUID_TABLE_NAME)
+	if err != nil {
+		if !database.IsEmptyRecord(err) {
+			return err
+		}
+	} else if len(records) > 0 {
+		return nil
+	}
+	// setup encryption keys
+	var trafficPubKey, trafficPrivKey, errT = box.GenerateKey(rand.Reader) // generate traffic keys
+	if errT != nil {
+		return errT
+	}
+	tPriv, err := ncutils.ConvertKeyToBytes(trafficPrivKey)
+	if err != nil {
+		return err
+	}
+
+	tPub, err := ncutils.ConvertKeyToBytes(trafficPubKey)
+	if err != nil {
+		return err
+	}
+
+	telemetry := models.Telemetry{
+		UUID:           uuid.NewString(),
+		TrafficKeyPriv: tPriv,
+		TrafficKeyPub:  tPub,
+	}
+	telJSON, err := json.Marshal(&telemetry)
+	if err != nil {
+		return err
+	}
+
+	return database.Insert(database.SERVER_UUID_RECORD_KEY, string(telJSON), database.SERVER_UUID_TABLE_NAME)
 }
