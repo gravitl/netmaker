@@ -10,8 +10,8 @@ import (
 // accessTokenTableName - access tokens table
 const accessTokenTableName = "user_access_tokens"
 
-// AccessToken - token used to access netmaker
-type AccessToken struct {
+// UserAccessToken - token used to access netmaker
+type UserAccessToken struct {
 	ID        string    `gorm:"id,primary_key" json:"id"`
 	Name      string    `gorm:"name" json:"name"`
 	UserName  string    `gorm:"user_name" json:"user_name"`
@@ -21,37 +21,40 @@ type AccessToken struct {
 	CreatedAt time.Time `gorm:"created_at" json:"created_at"`
 }
 
-func (a *AccessToken) Table() string {
+func (a *UserAccessToken) Table() string {
 	return accessTokenTableName
 }
 
-func (a *AccessToken) Get() error {
+func (a *UserAccessToken) Get() error {
 	return db.FromContext(context.TODO()).Table(a.Table()).First(&a).Where("id = ?", a.ID).Error
 }
 
-func (a *AccessToken) Update() error {
+func (a *UserAccessToken) Update() error {
 	return db.FromContext(context.TODO()).Table(a.Table()).Where("id = ?", a.ID).Updates(&a).Error
 }
 
-func (a *AccessToken) Create() error {
+func (a *UserAccessToken) Create() error {
 	return db.FromContext(context.TODO()).Table(a.Table()).Create(&a).Error
 }
 
-func (a *AccessToken) List() (ats []AccessToken, err error) {
+func (a *UserAccessToken) List() (ats []UserAccessToken, err error) {
 	err = db.FromContext(context.TODO()).Table(a.Table()).Find(&ats).Error
 	return
 }
 
-func (a *AccessToken) ListByUser() (ats []AccessToken) {
+func (a *UserAccessToken) ListByUser() (ats []UserAccessToken) {
 	db.FromContext(context.TODO()).Table(a.Table()).Where("user_name = ?", a.UserName).Find(&ats)
+	if ats == nil {
+		ats = []UserAccessToken{}
+	}
 	return
 }
 
-func (a *AccessToken) Delete() error {
+func (a *UserAccessToken) Delete() error {
 	return db.FromContext(context.TODO()).Table(a.Table()).Where("id = ?", a.ID).Delete(&a).Error
 }
 
-func (a *AccessToken) DeleteAllUserTokens() error {
+func (a *UserAccessToken) DeleteAllUserTokens() error {
 	return db.FromContext(context.TODO()).Table(a.Table()).Where("user_name = ?", a.UserName).Delete(&a).Error
 
 }

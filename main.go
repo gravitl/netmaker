@@ -18,6 +18,7 @@ import (
 	"github.com/gravitl/netmaker/config"
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -25,6 +26,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
 	_ "go.uber.org/automaxprocs"
@@ -102,6 +104,11 @@ func initialize() { // Client Mode Prereq Check
 
 	if err = database.InitializeDatabase(); err != nil {
 		logger.FatalLog("Error connecting to database: ", err.Error())
+	}
+	// initialize sql schema db.
+	err = db.InitializeDB(schema.ListModels()...)
+	if err != nil {
+		logger.FatalLog("Error connecting to v1 database: ", err.Error())
 	}
 	logger.Log(0, "database successfully connected")
 	initializeUUID()

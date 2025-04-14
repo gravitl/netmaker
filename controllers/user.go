@@ -57,7 +57,7 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 
 	// Auth request consists of Mac Address and Password (from node that is authorizing
 	// in case of Master, auth is ignored and mac is set to "mastermac"
-	var req models.AccessToken
+	var req models.UserAccessToken
 
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
@@ -127,7 +127,7 @@ func getUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), "badrequest"))
 		return
 	}
-	logic.ReturnSuccessResponseWithJson(w, r, (&models.AccessToken{}).ListByUser(), "fetched api access tokens for user "+username)
+	logic.ReturnSuccessResponseWithJson(w, r, (&models.UserAccessToken{UserName: username}).ListByUser(), "fetched api access tokens for user "+username)
 }
 
 // @Summary     Authenticate a user to retrieve an authorization token
@@ -146,7 +146,7 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := (&models.AccessToken{ID: id}).Delete()
+	err := (&models.UserAccessToken{ID: id}).Delete()
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,

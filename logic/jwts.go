@@ -121,6 +121,20 @@ func GetUserNameFromToken(authtoken string) (username string, err error) {
 	if err != nil {
 		return "", Unauthorized_Err
 	}
+	if claims.TokenType == models.AccessTokenType {
+		jti := claims.ID
+		if jti != "" {
+			a := models.UserAccessToken{ID: jti}
+			// check if access token is active
+			err := a.Get()
+			if err != nil {
+				err = errors.New("token revoked")
+				return "", err
+			}
+			a.LastUsed = time.Now()
+			a.Update()
+		}
+	}
 
 	if token != nil && token.Valid {
 		var user *models.User
@@ -154,7 +168,7 @@ func VerifyUserToken(tokenString string) (username string, issuperadmin, isadmin
 	if claims.TokenType == models.AccessTokenType {
 		jti := claims.ID
 		if jti != "" {
-			a := models.AccessToken{ID: jti}
+			a := models.UserAccessToken{ID: jti}
 			// check if access token is active
 			err := a.Get()
 			if err != nil {

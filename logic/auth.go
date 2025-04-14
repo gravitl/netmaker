@@ -360,7 +360,7 @@ func DeleteUser(user string) error {
 		return err
 	}
 	go RemoveUserFromAclPolicy(user)
-	return (&models.AccessToken{UserName: user}).DeleteAllUserTokens()
+	return (&models.UserAccessToken{UserName: user}).DeleteAllUserTokens()
 }
 
 func SetAuthSecret(secret string) error {
