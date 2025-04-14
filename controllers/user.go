@@ -175,8 +175,18 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	var errorResponse = models.ErrorResponse{
 		Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
 	}
-
-	if !logic.IsBasicAuthEnabled() {
+	user, err := logic.GetUser(authRequest.UserName)
+	if err != nil {
+		logger.Log(0, authRequest.UserName, "user validation failed: ",
+			err.Error())
+		logic.ReturnErrorResponse(response, request, logic.FormatError(err, "unauthorized"))
+		return
+	}
+	if logic.IsOauthUser(user) == nil {
+		logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("user is registered via SSO"), "badrequest"))
+		return
+	}
+	if !user.IsSuperAdmin && !logic.IsBasicAuthEnabled() {
 		logic.ReturnErrorResponse(
 			response,
 			request,
@@ -196,13 +206,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	}
 	if val := request.Header.Get("From-Ui"); val == "true" {
 		// request came from UI, if normal user block Login
-		user, err := logic.GetUser(authRequest.UserName)
-		if err != nil {
-			logger.Log(0, authRequest.UserName, "user validation failed: ",
-				err.Error())
-			logic.ReturnErrorResponse(response, request, logic.FormatError(err, "unauthorized"))
-			return
-		}
+
 		role, err := logic.GetRole(user.PlatformRoleID)
 		if err != nil {
 			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
@@ -213,15 +217,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 			return
 		}
 	}
-	user, err := logic.GetUser(authRequest.UserName)
-	if err != nil {
-		logic.ReturnErrorResponse(response, request, logic.FormatError(err, "unauthorized"))
-		return
-	}
-	if logic.IsOauthUser(user) == nil {
-		logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("user is registered via SSO"), "badrequest"))
-		return
-	}
+
 	username := authRequest.UserName
 	jwt, err := logic.VerifyAuthRequest(authRequest)
 	if err != nil {
