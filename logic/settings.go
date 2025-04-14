@@ -38,6 +38,7 @@ func UpsertServerSettings(s models.ServerSettings) error {
 }
 
 func ValidateNewSettings(req models.ServerSettings) bool {
+
 	return true
 }
 
@@ -53,7 +54,7 @@ func GetServerSettingsFromEnv() (s models.ServerSettings) {
 		AzureTenant:                servercfg.GetAzureTenant(),
 		Telemetry:                  servercfg.Telemetry(),
 		BasicAuth:                  servercfg.IsBasicAuthEnabled(),
-		JwtValidityDuration:        servercfg.GetJwtValidityDuration(),
+		JwtValidityDuration:        servercfg.GetJwtValidityDurationFromEnv(),
 		RacAutoDisable:             servercfg.GetRacAutoDisable(),
 		RacRestrictToSingleNetwork: servercfg.GetRacRestrictToSingleNetwork(),
 		EndpointDetection:          servercfg.IsEndpointDetectionEnabled(),
@@ -69,6 +70,9 @@ func GetServerSettingsFromEnv() (s models.ServerSettings) {
 		DefaultDomain:              servercfg.GetDefaultDomain(),
 		Stun:                       servercfg.IsStunEnabled(),
 		StunServers:                servercfg.GetStunServers(),
+		TextSize:                   "16",
+		Theme:                      models.Dark,
+		ReducedMotion:              false,
 	}
 
 	return
@@ -128,7 +132,7 @@ func GetServerConfig() config.ServerConfig {
 	if servercfg.IsPro {
 		cfg.IsPro = "yes"
 	}
-	cfg.JwtValidityDuration = settings.JwtValidityDuration
+	cfg.JwtValidityDuration = time.Duration(settings.JwtValidityDuration) * time.Second
 	cfg.RacAutoDisable = settings.RacAutoDisable
 	cfg.RacRestrictToSingleNetwork = settings.RacRestrictToSingleNetwork
 	cfg.MetricInterval = settings.MetricInterval

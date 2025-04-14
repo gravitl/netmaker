@@ -114,6 +114,18 @@ func GetJwtValidityDuration() time.Duration {
 	return defaultDuration
 }
 
+// GetJwtValidityDuration - returns the JWT validity duration in seconds
+func GetJwtValidityDurationFromEnv() int {
+	var defaultDuration = 43200
+	if os.Getenv("JWT_VALIDITY_DURATION") != "" {
+		t, err := strconv.Atoi(os.Getenv("JWT_VALIDITY_DURATION"))
+		if err == nil {
+			return t
+		}
+	}
+	return defaultDuration
+}
+
 // GetRacAutoDisable - returns whether the feature to autodisable RAC is enabled
 func GetRacAutoDisable() bool {
 	return os.Getenv("RAC_AUTO_DISABLE") == "true"

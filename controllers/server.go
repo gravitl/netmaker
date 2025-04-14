@@ -45,7 +45,7 @@ func serverHandlers(r *mux.Router) {
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/server/settings", allowUsers(http.HandlerFunc(getSettings))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/server/settings", allowUsers(http.HandlerFunc(updateSettings))).
+	r.HandleFunc("/api/server/settings", logic.SecurityCheck(true, http.HandlerFunc(updateSettings))).
 		Methods(http.MethodPut)
 	r.HandleFunc("/api/server/getserverinfo", logic.SecurityCheck(true, http.HandlerFunc(getServerInfo))).
 		Methods(http.MethodGet)

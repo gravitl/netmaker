@@ -59,7 +59,7 @@ func CreateUserAccessJwtToken(username string, role models.UserRoleID, d time.Ti
 		Role:           role,
 		TokenType:      models.AccessTokenType,
 		Api:            servercfg.GetAPIHost(),
-		RacAutoDisable: servercfg.GetRacAutoDisable() && (role != models.SuperAdminRole && role != models.AdminRole),
+		RacAutoDisable: GetRacAutoDisable() && (role != models.SuperAdminRole && role != models.AdminRole),
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "Netmaker",
 			Subject:   fmt.Sprintf("user|%s", username),
@@ -79,12 +79,13 @@ func CreateUserAccessJwtToken(username string, role models.UserRoleID, d time.Ti
 
 // CreateUserJWT - creates a user jwt token
 func CreateUserJWT(username string, role models.UserRoleID) (response string, err error) {
-	expirationTime := time.Now().Add(GetJwtValidityDuration())
+	settings := GetServerSettings()
+	expirationTime := time.Now().Add(time.Duration(settings.JwtValidityDuration) * time.Second)
 	claims := &models.UserClaims{
 		UserName:       username,
 		Role:           role,
 		TokenType:      models.UserIDTokenType,
-		RacAutoDisable: servercfg.GetRacAutoDisable() && (role != models.SuperAdminRole && role != models.AdminRole),
+		RacAutoDisable: settings.RacAutoDisable && (role != models.SuperAdminRole && role != models.AdminRole),
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "Netmaker",
 			Subject:   fmt.Sprintf("user|%s", username),
