@@ -38,7 +38,7 @@ func UpsertServerSettings(s models.ServerSettings) error {
 }
 
 func ValidateNewSettings(req models.ServerSettings) bool {
-
+	// TODO: add checks for different fields
 	return true
 }
 
