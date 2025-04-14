@@ -1,18 +1,12 @@
 package database
 
 import (
-	"crypto/rand"
-	"encoding/json"
 	"errors"
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
-	"golang.org/x/crypto/nacl/box"
 )
 
 const (
@@ -25,6 +19,8 @@ const (
 	DELETED_NODES_TABLE_NAME = "deletednodes"
 	// USERS_TABLE_NAME - users table
 	USERS_TABLE_NAME = "users"
+	// ACCESS_TOKENS_TABLE_NAME - access tokens table
+	ACCESS_TOKENS_TABLE_NAME = "user_access_tokens"
 	// USER_PERMISSIONS_TABLE_NAME - user permissions table
 	USER_PERMISSIONS_TABLE_NAME = "user_permissions"
 	// CERTS_TABLE_NAME - certificates table
@@ -102,6 +98,36 @@ const (
 
 var dbMutex sync.RWMutex
 
+var Tables = []string{
+	NETWORKS_TABLE_NAME,
+	NODES_TABLE_NAME,
+	CERTS_TABLE_NAME,
+	DELETED_NODES_TABLE_NAME,
+	USERS_TABLE_NAME,
+	DNS_TABLE_NAME,
+	EXT_CLIENT_TABLE_NAME,
+	PEERS_TABLE_NAME,
+	SERVERCONF_TABLE_NAME,
+	SERVER_UUID_TABLE_NAME,
+	GENERATED_TABLE_NAME,
+	NODE_ACLS_TABLE_NAME,
+	SSO_STATE_CACHE,
+	METRICS_TABLE_NAME,
+	NETWORK_USER_TABLE_NAME,
+	USER_GROUPS_TABLE_NAME,
+	CACHE_TABLE_NAME,
+	HOSTS_TABLE_NAME,
+	ENROLLMENT_KEYS_TABLE_NAME,
+	HOST_ACTIONS_TABLE_NAME,
+	PENDING_USERS_TABLE_NAME,
+	USER_PERMISSIONS_TABLE_NAME,
+	USER_INVITES_TABLE_NAME,
+	TAG_TABLE_NAME,
+	ACLS_TABLE_NAME,
+	PEER_ACK_TABLE,
+	// ACCESS_TOKENS_TABLE_NAME,
+}
+
 func getCurrentDB() map[string]interface{} {
 	switch servercfg.GetDB() {
 	case "rqlite":
@@ -131,68 +157,27 @@ func InitializeDatabase() error {
 		time.Sleep(2 * time.Second)
 	}
 	createTables()
-	return initializeUUID()
+	return nil
 }
 
 func createTables() {
-	CreateTable(NETWORKS_TABLE_NAME)
-	CreateTable(NODES_TABLE_NAME)
-	CreateTable(CERTS_TABLE_NAME)
-	CreateTable(DELETED_NODES_TABLE_NAME)
-	CreateTable(USERS_TABLE_NAME)
-	CreateTable(DNS_TABLE_NAME)
-	CreateTable(EXT_CLIENT_TABLE_NAME)
-	CreateTable(PEERS_TABLE_NAME)
-	CreateTable(SERVERCONF_TABLE_NAME)
-	CreateTable(SERVER_UUID_TABLE_NAME)
-	CreateTable(GENERATED_TABLE_NAME)
-	CreateTable(NODE_ACLS_TABLE_NAME)
-	CreateTable(SSO_STATE_CACHE)
-	CreateTable(METRICS_TABLE_NAME)
-	CreateTable(NETWORK_USER_TABLE_NAME)
-	CreateTable(USER_GROUPS_TABLE_NAME)
-	CreateTable(CACHE_TABLE_NAME)
-	CreateTable(HOSTS_TABLE_NAME)
-	CreateTable(ENROLLMENT_KEYS_TABLE_NAME)
-	CreateTable(HOST_ACTIONS_TABLE_NAME)
-	CreateTable(PENDING_USERS_TABLE_NAME)
-	CreateTable(USER_PERMISSIONS_TABLE_NAME)
-	CreateTable(USER_INVITES_TABLE_NAME)
-	CreateTable(TAG_TABLE_NAME)
-	CreateTable(ACLS_TABLE_NAME)
-	CreateTable(PEER_ACK_TABLE)
+	for _, table := range Tables {
+		_ = CreateTable(table)
+	}
 }
 
 func CreateTable(tableName string) error {
 	return getCurrentDB()[CREATE_TABLE].(func(string) error)(tableName)
 }
 
-// IsJSONString - checks if valid json
-func IsJSONString(value string) bool {
-	var jsonInt interface{}
-	var nodeInt models.Node
-	return json.Unmarshal([]byte(value), &jsonInt) == nil || json.Unmarshal([]byte(value), &nodeInt) == nil
-}
-
 // Insert - inserts object into db
 func Insert(key string, value string, tableName string) error {
 	dbMutex.Lock()
 	defer dbMutex.Unlock()
-	if key != "" && value != "" && IsJSONString(value) {
+	if key != "" && value != "" {
 		return getCurrentDB()[INSERT].(func(string, string, string) error)(key, value, tableName)
 	} else {
 		return errors.New("invalid insert " + key + " : " + value)
-	}
-}
-
-// InsertPeer - inserts peer into db
-func InsertPeer(key string, value string) error {
-	dbMutex.Lock()
-	defer dbMutex.Unlock()
-	if key != "" && value != "" && IsJSONString(value) {
-		return getCurrentDB()[INSERT_PEER].(func(string, string) error)(key, value)
-	} else {
-		return errors.New("invalid peer insert " + key + " : " + value)
 	}
 }
 
@@ -235,44 +220,6 @@ func FetchRecords(tableName string) (map[string]string, error) {
 	dbMutex.RLock()
 	defer dbMutex.RUnlock()
 	return getCurrentDB()[FETCH_ALL].(func(string) (map[string]string, error))(tableName)
-}
-
-// initializeUUID - create a UUID record for server if none exists
-func initializeUUID() error {
-	records, err := FetchRecords(SERVER_UUID_TABLE_NAME)
-	if err != nil {
-		if !IsEmptyRecord(err) {
-			return err
-		}
-	} else if len(records) > 0 {
-		return nil
-	}
-	// setup encryption keys
-	var trafficPubKey, trafficPrivKey, errT = box.GenerateKey(rand.Reader) // generate traffic keys
-	if errT != nil {
-		return errT
-	}
-	tPriv, err := ncutils.ConvertKeyToBytes(trafficPrivKey)
-	if err != nil {
-		return err
-	}
-
-	tPub, err := ncutils.ConvertKeyToBytes(trafficPubKey)
-	if err != nil {
-		return err
-	}
-
-	telemetry := models.Telemetry{
-		UUID:           uuid.NewString(),
-		TrafficKeyPriv: tPriv,
-		TrafficKeyPub:  tPub,
-	}
-	telJSON, err := json.Marshal(&telemetry)
-	if err != nil {
-		return err
-	}
-
-	return Insert(SERVER_UUID_RECORD_KEY, string(telJSON), SERVER_UUID_TABLE_NAME)
 }
 
 // CloseDB - closes a database gracefully
