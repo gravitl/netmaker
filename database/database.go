@@ -127,7 +127,7 @@ var Tables = []string{
 	TAG_TABLE_NAME,
 	ACLS_TABLE_NAME,
 	PEER_ACK_TABLE,
-	// ACCESS_TOKENS_TABLE_NAME,
+	SERVER_SETTINGS,
 }
 
 func getCurrentDB() map[string]interface{} {
