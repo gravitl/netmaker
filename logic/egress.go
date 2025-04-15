@@ -6,12 +6,12 @@ func ValidateEgressReq(e *models.Egress) bool {
 	if e.Network == "" {
 		return false
 	}
-	if e.Range.IP == nil {
+	if e.Range == "" {
 		return false
 	}
 	if len(e.Nodes) != 0 {
-		for _, nodeID := range e.Nodes {
-			_, err := GetNodeByID(nodeID)
+		for k := range e.Nodes {
+			_, err := GetNodeByID(k)
 			if err != nil {
 				return false
 			}
@@ -19,3 +19,8 @@ func ValidateEgressReq(e *models.Egress) bool {
 	}
 	return true
 }
+
+// func GetEgressFwRules(targetNode *models.Node) (m map[string]models.EgressInfo) {
+// 	eli, _ := (&models.Egress{}).ListByNetwork()
+
+// }

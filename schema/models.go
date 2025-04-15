@@ -7,5 +7,6 @@ func ListModels() []interface{} {
 	return []interface{}{
 		&Job{},
 		&models.UserAccessToken{},
+		&models.Egress{},
 	}
 }
