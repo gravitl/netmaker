@@ -87,6 +87,7 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 		"on network",
 		req.RelayRequest.NetID,
 	)
+	logic.GetNodeStatus(&relayNode, false)
 	apiNode := relayNode.ConvertToAPINode()
 
 	w.WriteHeader(http.StatusOK)
@@ -200,6 +201,7 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 
 	}()
 
+	logic.GetNodeStatus(&node, false)
 	apiNode := node.ConvertToAPINode()
 	logger.Log(1, r.Header.Get("user"), "deleted ingress gateway", nodeid)
 	w.WriteHeader(http.StatusOK)
