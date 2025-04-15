@@ -134,11 +134,12 @@ type CreateGroupReq struct {
 }
 
 type UserGroup struct {
-	ID           UserGroupID                           `json:"id"`
-	Default      bool                                  `json:"default"`
-	Name         string                                `json:"name"`
-	NetworkRoles map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
-	MetaData     string                                `json:"meta_data"`
+	ID                         UserGroupID                           `json:"id"`
+	ExternalIdentityProviderID string                                `json:"external_identity_provider_id"`
+	Default                    bool                                  `json:"default"`
+	Name                       string                                `json:"name"`
+	NetworkRoles               map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
+	MetaData                   string                                `json:"meta_data"`
 }
 
 // User struct - struct for Users
