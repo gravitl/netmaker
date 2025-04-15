@@ -52,11 +52,8 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		CreatedBy:   r.Header.Get("user"),
 		CreatedAt:   time.Now().UTC(),
 	}
-	for _, nodeID := range req.Nodes {
-		e.Nodes[nodeID] = struct{}{}
-	}
-	for _, tagID := range req.Tags {
-		e.Tags[tagID] = struct{}{}
+	for nodeID, metric := range req.Nodes {
+		e.Nodes[nodeID] = metric
 	}
 	if !logic.ValidateEgressReq(&e) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid egress request"), "badrequest"))
@@ -130,11 +127,8 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	}
 	e.Nodes = make(datatypes.JSONMap)
 	e.Tags = make(datatypes.JSONMap)
-	for _, nodeID := range req.Nodes {
-		e.Nodes[nodeID] = struct{}{}
-	}
-	for _, tagID := range req.Tags {
-		e.Tags[tagID] = struct{}{}
+	for nodeID, metric := range req.Nodes {
+		e.Nodes[nodeID] = metric
 	}
 	var updateNat bool
 	if req.Nat != e.Nat {

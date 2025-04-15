@@ -36,7 +36,25 @@ func ValidateEgressReq(e *models.Egress) bool {
 	return true
 }
 
-// func GetEgressFwRules(targetNode *models.Node) (m map[string]models.EgressInfo) {
-// 	eli, _ := (&models.Egress{}).ListByNetwork()
-
-// }
+func GetNodeEgressInfo(targetNode *models.Node) {
+	eli, _ := (&models.Egress{}).ListByNetwork()
+	req := models.EgressGatewayRequest{
+		NodeID: targetNode.ID.String(),
+		NetID:  targetNode.Network,
+	}
+	for _, e := range eli {
+		if metric, ok := e.Nodes[targetNode.ID.String()]; ok {
+			req.Ranges = append(req.Ranges, e.Range)
+			req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
+				Network:     e.Range,
+				Nat:         e.Nat,
+				RouteMetric: metric.(uint32),
+			})
+		}
+	}
+	if len(req.Ranges) > 0 {
+		targetNode.IsEgressGateway = true
+		targetNode.EgressGatewayRanges = req.Ranges
+		targetNode.EgressGatewayRequest = req
+	}
+}

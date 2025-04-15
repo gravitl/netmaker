@@ -11,14 +11,14 @@ import (
 const egressTable = "egresses"
 
 type EgressReq struct {
-	ID          string   `json:"id"`
-	Name        string   `json:"name"`
-	Network     string   `json:"network"`
-	Description string   `json:"description"`
-	Nodes       []string `json:"nodes"`
-	Tags        []string `json:"tags"`
-	Range       string   `json:"range"`
-	Nat         bool     `json:"nat"`
+	ID          string         `json:"id"`
+	Name        string         `json:"name"`
+	Network     string         `json:"network"`
+	Description string         `json:"description"`
+	Nodes       map[string]int `json:"nodes"`
+	Tags        []string       `json:"tags"`
+	Range       string         `json:"range"`
+	Nat         bool           `json:"nat"`
 }
 
 type Egress struct {

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"golang.org/x/exp/slog"
+	"gorm.io/datatypes"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
@@ -29,6 +30,7 @@ func Run() {
 	updateNodes()
 	updateAcls()
 	migrateToGws()
+	migrateToEgressV1()
 }
 
 func assignSuperAdmin() {
@@ -495,5 +497,41 @@ func migrateToGws() {
 	nets, _ := logic.GetNetworks()
 	for _, netI := range nets {
 		logic.DeleteTag(models.TagID(fmt.Sprintf("%s.%s", netI.NetID, models.OldRemoteAccessTagName)), true)
+	}
+}
+
+func migrateToEgressV1() {
+	nodes, _ := logic.GetAllNodes()
+	user, err := logic.GetSuperAdmin()
+	if err != nil {
+		return
+	}
+	for _, node := range nodes {
+		if node.IsEgressGateway {
+			for _, rangeI := range node.EgressGatewayRequest.Ranges {
+				e := models.Egress{
+					ID:          uuid.New().String(),
+					Name:        rangeI,
+					Description: "add description",
+					Network:     node.Network,
+					Nodes: datatypes.JSONMap{
+						node.ID.String(): 256,
+					},
+					Tags:      make(datatypes.JSONMap),
+					Range:     rangeI,
+					Nat:       node.EgressGatewayRequest.NatEnabled == "yes",
+					CreatedBy: user.UserName,
+					CreatedAt: time.Now().UTC(),
+				}
+				err = e.Create()
+				if err == nil {
+					node.IsEgressGateway = false
+					node.EgressGatewayRequest = models.EgressGatewayRequest{}
+					node.EgressGatewayNatEnabled = false
+					node.EgressGatewayRanges = []string{}
+					logic.UpsertNode(&node)
+				}
+			}
+		}
 	}
 }
