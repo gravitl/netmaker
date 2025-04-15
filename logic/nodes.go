@@ -783,16 +783,16 @@ func ValidateNodeIp(currentNode *models.Node, newNode *models.ApiNode) error {
 	return nil
 }
 
-func ValidateEgressRange(gateway models.EgressGatewayRequest) error {
-	network, err := GetNetworkSettings(gateway.NetID)
+func ValidateEgressRange(netID string, ranges []string) error {
+	network, err := GetNetworkSettings(netID)
 	if err != nil {
-		slog.Error("error getting network with netid", "error", gateway.NetID, err.Error)
-		return errors.New("error getting network with netid:  " + gateway.NetID + " " + err.Error())
+		slog.Error("error getting network with netid", "error", netID, err.Error)
+		return errors.New("error getting network with netid:  " + netID + " " + err.Error())
 	}
 	ipv4Net := network.AddressRange
 	ipv6Net := network.AddressRange6
 
-	for _, v := range gateway.Ranges {
+	for _, v := range ranges {
 		if ipv4Net != "" {
 			if ContainsCIDR(ipv4Net, v) {
 				slog.Error("egress range should not be the same as or contained in the netmaker network address", "error", v, ipv4Net)
