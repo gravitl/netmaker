@@ -290,7 +290,7 @@ func CreateDefaultTags(netID models.NetworkID) {
 		TagName:   models.GwTagName,
 		Network:   netID,
 		CreatedBy: "auto",
-		CreatedAt: time.Now(),
+		CreatedAt: time.Now().UTC(),
 	}
 	_, err := GetTag(tag.ID)
 	if err == nil {

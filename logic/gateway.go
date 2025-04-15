@@ -267,7 +267,7 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 		return models.Node{}, removedClients, err
 	}
 	logger.Log(3, "deleting ingress gateway")
-	node.LastModified = time.Now()
+	node.LastModified = time.Now().UTC()
 	node.IsIngressGateway = false
 	if !servercfg.IsPro {
 		node.IsInternetGateway = false

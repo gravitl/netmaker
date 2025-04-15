@@ -235,7 +235,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 	}
 
 	// update last login time
-	result.LastLoginTime = time.Now()
+	result.LastLoginTime = time.Now().UTC()
 	err = UpsertUser(result)
 	if err != nil {
 		slog.Error("error upserting user", "error", err)

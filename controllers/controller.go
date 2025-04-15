@@ -37,6 +37,7 @@ var HttpHandlers = []interface{}{
 	enrollmentKeyHandlers,
 	tagHandlers,
 	aclHandlers,
+	egressHandlers,
 	legacyHandlers,
 }
 

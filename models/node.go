@@ -377,17 +377,17 @@ func (node *LegacyNode) SetIsStaticDefault() {
 
 // Node.SetLastModified - set last modified initial time
 func (node *Node) SetLastModified() {
-	node.LastModified = time.Now()
+	node.LastModified = time.Now().UTC()
 }
 
 // Node.SetLastCheckIn - set checkin time of node
 func (node *Node) SetLastCheckIn() {
-	node.LastCheckIn = time.Now()
+	node.LastCheckIn = time.Now().UTC()
 }
 
 // Node.SetLastPeerUpdate - sets last peer update time
 func (node *Node) SetLastPeerUpdate() {
-	node.LastPeerUpdate = time.Now()
+	node.LastPeerUpdate = time.Now().UTC()
 }
 
 // Node.SetExpirationDateTime - sets node expiry time
