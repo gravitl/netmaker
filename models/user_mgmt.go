@@ -146,6 +146,7 @@ type UserGroup struct {
 type User struct {
 	UserName                   string                                `json:"username" bson:"username" validate:"min=3,in_charset|email"`
 	ExternalIdentityProviderID string                                `json:"external_identity_provider_id"`
+	AccountDisabled            bool                                  `json:"account_disabled"`
 	Password                   string                                `json:"password" bson:"password" validate:"required,min=5"`
 	IsAdmin                    bool                                  `json:"isadmin" bson:"isadmin"` // deprecated
 	IsSuperAdmin               bool                                  `json:"issuperadmin"`           // deprecated

@@ -113,6 +113,8 @@ var notallowedtosignup = fmt.Sprintf(htmlBaseTemplate, `<h2>Your email is not al
 var authTypeMismatch = fmt.Sprintf(htmlBaseTemplate, `<h2>It looks like you already have an account with us using Basic Authentication.</h2>
 <p>To continue, please log in with your existing credentials or reset your password if needed.</p>`)
 
+var userAccountDisabled = fmt.Sprintf(htmlBaseTemplate, `<h2>Your account has been disabled. Please contact your administrator for more information about your account.</h2>`)
+
 func handleOauthUserNotFound(response http.ResponseWriter) {
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	response.WriteHeader(http.StatusNotFound)
@@ -165,4 +167,10 @@ func handleAuthTypeMismatch(response http.ResponseWriter) {
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	response.WriteHeader(http.StatusBadRequest)
 	response.Write([]byte(authTypeMismatch))
+}
+
+func handleUserAccountDisabled(response http.ResponseWriter) {
+	response.Header().Set("Content-Type", "text/html; charset=utf-8")
+	response.WriteHeader(http.StatusUnauthorized)
+	response.Write([]byte(userAccountDisabled))
 }

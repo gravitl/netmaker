@@ -135,6 +135,11 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if user.AccountDisabled {
+		handleUserAccountDisabled(w)
+		return
+	}
+
 	userRole, err := logic.GetRole(user.PlatformRoleID)
 	if err != nil {
 		handleSomethingWentWrong(w)
