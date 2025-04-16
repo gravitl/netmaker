@@ -36,7 +36,7 @@ func NewAzureEntraIDClient() (*Client, error) {
 func (a *Client) GetUsers() ([]idp.User, error) {
 	resp, err := a.client.Users().Get(context.TODO(), &msgraphusers.UsersRequestBuilderGetRequestConfiguration{
 		QueryParameters: &msgraphusers.UsersRequestBuilderGetQueryParameters{
-			Select: []string{"id", "userPrincipalName"},
+			Select: []string{"id", "userPrincipalName", "accountEnabled"},
 		},
 	})
 	if err != nil {
@@ -48,8 +48,9 @@ func (a *Client) GetUsers() ([]idp.User, error) {
 	retval := make([]idp.User, len(users))
 	for i, user := range users {
 		retval[i] = idp.User{
-			ID:       *user.GetId(),
-			Username: *user.GetUserPrincipalName(),
+			ID:              *user.GetId(),
+			Username:        *user.GetUserPrincipalName(),
+			AccountDisabled: !*user.GetAccountEnabled(),
 		}
 	}
 

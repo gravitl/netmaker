@@ -60,17 +60,22 @@ func SyncUsers() error {
 		idpUsersMap[user.ID] = struct{}{}
 	}
 
-	dbUsersMap := make(map[string]struct{})
+	dbUsersMap := make(map[string]models.User)
 	for _, user := range dbUsers {
-		dbUsersMap[user.UserName] = struct{}{}
+		// ignore internal users.
+		if user.ExternalIdentityProviderID != "" {
+			dbUsersMap[user.ExternalIdentityProviderID] = user
+		}
 	}
 
 	for _, user := range idpUsers {
-		if _, ok := dbUsersMap[user.Username]; !ok {
+		dbUser, ok := dbUsersMap[user.ID]
+		if !ok {
 			// create the user only if it doesn't exist.
 			err = logic.CreateUser(&models.User{
 				UserName:                   user.Username,
 				ExternalIdentityProviderID: user.ID,
+				AccountDisabled:            user.AccountDisabled,
 				Password:                   password,
 				AuthType:                   models.OAuth,
 				PlatformRoleID:             models.PlatformUser,
@@ -78,17 +83,23 @@ func SyncUsers() error {
 			if err != nil {
 				return err
 			}
-		}
-	}
-
-	for _, user := range dbUsers {
-		if user.ExternalIdentityProviderID != "" {
-			if _, ok := idpUsersMap[user.ExternalIdentityProviderID]; !ok {
-				// delete the user if it has been deleted on idp.
-				_, err = logic.DeleteUser(user.UserName)
+		} else {
+			if dbUser.AccountDisabled != user.AccountDisabled {
+				dbUser.AccountDisabled = user.AccountDisabled
+				err = logic.UpsertUser(dbUser)
 				if err != nil {
 					return err
 				}
+			}
+		}
+	}
+
+	for _, user := range dbUsersMap {
+		if _, ok := idpUsersMap[user.ExternalIdentityProviderID]; !ok {
+			// delete the user if it has been deleted on idp.
+			_, err = logic.DeleteUser(user.UserName)
+			if err != nil {
+				return err
 			}
 		}
 	}

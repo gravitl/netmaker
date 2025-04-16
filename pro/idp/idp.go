@@ -6,8 +6,9 @@ type Client interface {
 }
 
 type User struct {
-	ID       string
-	Username string
+	ID              string
+	Username        string
+	AccountDisabled bool
 }
 
 type Group struct {
