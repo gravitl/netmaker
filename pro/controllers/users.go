@@ -1402,7 +1402,7 @@ func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
 // @Summary     Sync users and groups from idp.
 // @Router      /api/idp/sync [post]
 // @Tags        IDP
-// @Success     200 {string} string
+// @Success     200 {object} models.SuccessResponse
 func syncIdp(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		err := proAuth.SyncFromIDP()
