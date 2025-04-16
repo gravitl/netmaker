@@ -74,16 +74,35 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), "badrequest"))
 		return
 	}
-
+	caller, err := logic.GetUser(r.Header.Get("user"))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+		return
+	}
 	user, err := logic.GetUser(req.UserName)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
 		return
 	}
-	if logic.IsOauthUser(user) == nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user is registered via SSO"), "badrequest"))
-		return
+	if caller.UserName != user.UserName {
+		if caller.IsAdmin && user.IsSuperAdmin {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+			return
+		}
+		if caller.IsAdmin && user.IsAdmin {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+			return
+		}
+		if !caller.IsAdmin && user.IsAdmin {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+			return
+		}
+		if !caller.IsAdmin && !user.IsAdmin {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+			return
+		}
 	}
+
 	req.ID = uuid.New().String()
 	req.CreatedBy = r.Header.Get("user")
 	req.CreatedAt = time.Now()
@@ -145,8 +164,43 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("id is required"), "badrequest"))
 		return
 	}
-
-	err := (&models.UserAccessToken{ID: id}).Delete()
+	a := models.UserAccessToken{
+		ID: id,
+	}
+	err := a.Get()
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("id is required"), "badrequest"))
+		return
+	}
+	caller, err := logic.GetUser(r.Header.Get("user"))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+		return
+	}
+	user, err := logic.GetUser(a.UserName)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+		return
+	}
+	if caller.UserName != user.UserName {
+		if caller.IsAdmin && user.IsSuperAdmin {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+			return
+		}
+		if caller.IsAdmin && user.IsAdmin {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+			return
+		}
+		if !caller.IsAdmin && user.IsAdmin {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+			return
+		}
+		if !caller.IsAdmin && !user.IsAdmin {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+			return
+		}
+	}
+	err = (&models.UserAccessToken{ID: id}).Delete()
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
