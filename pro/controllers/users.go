@@ -63,6 +63,7 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}/remote_access_gw", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserRemoteAccessGwsV1)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/ingress/{ingress_id}", logic.SecurityCheck(true, http.HandlerFunc(ingressGatewayUsers))).Methods(http.MethodGet)
 
+	r.HandleFunc("/api/idp/sync", logic.SecurityCheck(true, http.HandlerFunc(syncIdp))).Methods(http.MethodPost)
 }
 
 // swagger:route POST /api/v1/users/invite-signup user userInviteSignUp
@@ -1396,4 +1397,21 @@ func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.ReturnSuccessResponse(w, r, "cleared all pending users")
+}
+
+// @Summary     Sync users and groups from idp.
+// @Router      /api/idp/sync [post]
+// @Tags        IDP
+// @Success     200 {string} string
+func syncIdp(w http.ResponseWriter, r *http.Request) {
+	go func() {
+		err := proAuth.SyncFromIDP()
+		if err != nil {
+			logger.Log(0, "failed to sync from idp: ", err.Error())
+		} else {
+			logger.Log(0, "sync from idp complete")
+		}
+	}()
+
+	logic.ReturnSuccessResponse(w, r, "starting sync from idp")
 }
