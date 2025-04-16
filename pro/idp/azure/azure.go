@@ -7,6 +7,7 @@ import (
 	msgraphsdk "github.com/microsoftgraph/msgraph-sdk-go"
 	msgraphgroups "github.com/microsoftgraph/msgraph-sdk-go/groups"
 	msgraphusers "github.com/microsoftgraph/msgraph-sdk-go/users"
+	"os"
 )
 
 type Client struct {
@@ -14,8 +15,13 @@ type Client struct {
 }
 
 func NewAzureEntraIDClient() (*Client, error) {
-	cred, err := azidentity.NewClientSecretCredential("", "", "", nil)
+	tenantID := os.Getenv("AZURE_TENANT")
+	clientID := os.Getenv("CLIENT_ID")
+	clientSecret := os.Getenv("CLIENT_SECRET")
+
+	cred, err := azidentity.NewClientSecretCredential(tenantID, clientID, clientSecret, nil)
 	if err != nil {
+		return nil, err
 	}
 
 	client, err := msgraphsdk.NewGraphServiceClientWithCredentials(cred, nil)
