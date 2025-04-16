@@ -73,11 +73,9 @@ func (a *Client) GetGroups() ([]idp.Group, error) {
 	for i, group := range groups {
 		members := group.GetMembers()
 
-		retvalMembers := make([]idp.User, len(members))
+		retvalMembers := make([]string, len(members))
 		for j, member := range members {
-			retvalMembers[j] = idp.User{
-				ID: *member.GetId(),
-			}
+			retvalMembers[j] = *member.GetId()
 		}
 
 		retval[i] = idp.Group{

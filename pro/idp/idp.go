@@ -13,5 +13,5 @@ type User struct {
 type Group struct {
 	ID      string
 	Name    string
-	Members []User
+	Members []string
 }

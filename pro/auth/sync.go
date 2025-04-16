@@ -147,7 +147,7 @@ func SyncGroups() error {
 
 		groupMembersMap := make(map[string]struct{})
 		for _, member := range group.Members {
-			groupMembersMap[member.ID] = struct{}{}
+			groupMembersMap[member] = struct{}{}
 		}
 
 		for _, user := range dbUsers {
