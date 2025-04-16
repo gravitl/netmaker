@@ -21,7 +21,6 @@ func NewAzureEntraIDClient() (*Client, error) {
 
 	cred, err := azidentity.NewClientSecretCredential(tenantID, clientID, clientSecret, nil)
 	if err != nil {
-		return nil, err
 	}
 
 	client, err := msgraphsdk.NewGraphServiceClientWithCredentials(cred, nil)
