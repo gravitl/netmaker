@@ -55,6 +55,6 @@ func (a *UserAccessToken) Delete() error {
 }
 
 func (a *UserAccessToken) DeleteAllUserTokens() error {
-	return db.FromContext(context.TODO()).Table(a.Table()).Where("user_name = ?", a.UserName).Delete(&a).Error
+	return db.FromContext(context.TODO()).Table(a.Table()).Where("user_name = ? OR created_by = ?", a.UserName, a.UserName).Delete(&a).Error
 
 }
