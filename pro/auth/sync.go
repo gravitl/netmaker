@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/pro/idp"
@@ -45,7 +46,7 @@ func SyncUsers() error {
 	}
 
 	dbUsers, err := logic.GetUsersDB()
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
 
@@ -102,12 +103,12 @@ func SyncGroups() error {
 	}
 
 	dbGroups, err := proLogic.ListUserGroups()
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
 
 	dbUsers, err := logic.GetUsersDB()
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
 
@@ -118,7 +119,7 @@ func SyncGroups() error {
 
 	dbGroupsMap := make(map[string]struct{})
 	for _, group := range dbGroups {
-		dbGroupsMap[group.ID.String()] = struct{}{}
+		dbGroupsMap[group.ExternalIdentityProviderID] = struct{}{}
 	}
 
 	dbUsersMap := make(map[string]models.User)
@@ -142,10 +143,25 @@ func SyncGroups() error {
 			if err != nil {
 				return err
 			}
+		}
 
-			for _, member := range group.Members {
-				dbUsersMap[member.ID].UserGroups[models.UserGroupID(group.Name)] = struct{}{}
-				modifiedUsers[member.ID] = struct{}{}
+		groupMembersMap := make(map[string]struct{})
+		for _, member := range group.Members {
+			groupMembersMap[member.ID] = struct{}{}
+		}
+
+		for _, user := range dbUsers {
+			_, inNetmakerGroup := user.UserGroups[models.UserGroupID(group.Name)]
+			_, inIDPGroup := groupMembersMap[user.ExternalIdentityProviderID]
+
+			if inNetmakerGroup && !inIDPGroup {
+				delete(dbUsersMap[user.ExternalIdentityProviderID].UserGroups, models.UserGroupID(group.Name))
+				modifiedUsers[user.ExternalIdentityProviderID] = struct{}{}
+			}
+
+			if !inNetmakerGroup && inIDPGroup {
+				dbUsersMap[user.ExternalIdentityProviderID].UserGroups[models.UserGroupID(group.Name)] = struct{}{}
+				modifiedUsers[user.ExternalIdentityProviderID] = struct{}{}
 			}
 		}
 	}
