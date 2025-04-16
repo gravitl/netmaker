@@ -197,6 +197,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE {
 			continue
 		}
+		GetNodeEgressInfo(&node)
 		hostPeerUpdate = SetDefaultGw(node, hostPeerUpdate)
 		if !hostPeerUpdate.IsInternetGw {
 			hostPeerUpdate.IsInternetGw = IsInternetGw(node)
@@ -227,7 +228,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		if err != nil {
 			continue
 		}
-		GetNodeEgressInfo(&node)
 		hostPeerUpdate.NameServers = append(hostPeerUpdate.NameServers, networkSettings.NameServers...)
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
 		for _, peer := range currentPeers {

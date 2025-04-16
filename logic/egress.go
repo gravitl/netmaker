@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"encoding/json"
 	"net"
 
 	"github.com/gravitl/netmaker/models"
@@ -37,18 +38,23 @@ func ValidateEgressReq(e *models.Egress) bool {
 }
 
 func GetNodeEgressInfo(targetNode *models.Node) {
-	eli, _ := (&models.Egress{}).ListByNetwork()
+	eli, _ := (&models.Egress{Network: targetNode.Network}).ListByNetwork()
 	req := models.EgressGatewayRequest{
 		NodeID: targetNode.ID.String(),
 		NetID:  targetNode.Network,
 	}
 	for _, e := range eli {
 		if metric, ok := e.Nodes[targetNode.ID.String()]; ok {
+			m64, err := metric.(json.Number).Int64()
+			if err != nil {
+				m64 = 256
+			}
+			m := uint32(m64)
 			req.Ranges = append(req.Ranges, e.Range)
 			req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
 				Network:     e.Range,
 				Nat:         e.Nat,
-				RouteMetric: metric.(uint32),
+				RouteMetric: m,
 			})
 		}
 	}
