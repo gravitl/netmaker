@@ -84,21 +84,14 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
 		return
 	}
-	if caller.UserName != user.UserName {
-		if caller.IsAdmin && user.IsSuperAdmin {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
-			return
-		}
-		if caller.IsAdmin && user.IsAdmin {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
-			return
-		}
-		if !caller.IsAdmin && user.IsAdmin {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
-			return
-		}
-		if !caller.IsAdmin && !user.IsAdmin {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+	if caller.UserName != user.UserName && caller.PlatformRoleID != models.SuperAdminRole {
+		if caller.PlatformRoleID == models.AdminRole {
+			if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not enough permissions to create token for user "+user.UserName), logic.Forbidden_Msg))
+				return
+			}
+		} else {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not enough permissions to create token for user "+user.UserName), logic.Forbidden_Msg))
 			return
 		}
 	}
@@ -182,24 +175,18 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
 		return
 	}
-	if caller.UserName != user.UserName {
-		if caller.IsAdmin && user.IsSuperAdmin {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
-			return
-		}
-		if caller.IsAdmin && user.IsAdmin {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
-			return
-		}
-		if !caller.IsAdmin && user.IsAdmin {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
-			return
-		}
-		if !caller.IsAdmin && !user.IsAdmin {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+	if caller.UserName != user.UserName && caller.PlatformRoleID != models.SuperAdminRole {
+		if caller.PlatformRoleID == models.AdminRole {
+			if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not enough permissions to delete token of user "+user.UserName), logic.Forbidden_Msg))
+				return
+			}
+		} else {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not enough permissions to delete token of user "+user.UserName), logic.Forbidden_Msg))
 			return
 		}
 	}
+
 	err = (&models.UserAccessToken{ID: id}).Delete()
 	if err != nil {
 		logic.ReturnErrorResponse(
