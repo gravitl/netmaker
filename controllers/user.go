@@ -162,7 +162,7 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 	}
 	err := a.Get()
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("id is required"), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("token does not exist"), "badrequest"))
 		return
 	}
 	caller, err := logic.GetUser(r.Header.Get("user"))

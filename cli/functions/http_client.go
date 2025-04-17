@@ -86,6 +86,10 @@ func ssoLogin(endpoint string) string {
 }
 
 func getAuthToken(ctx config.Context, force bool) string {
+	authToken := os.Getenv("NMCTL_ACCESS_TOKEN")
+	if authToken != "" {
+		return authToken
+	}
 	if !force && ctx.AuthToken != "" {
 		return ctx.AuthToken
 	}
@@ -192,7 +196,7 @@ retry:
 	body := new(T)
 	if len(resBodyBytes) > 0 {
 		if err := json.Unmarshal(resBodyBytes, body); err != nil {
-			log.Fatalf("Error unmarshalling JSON: %s", err)
+			log.Fatalf("Error unmarshalling JSON: %s %s", err, string(resBodyBytes))
 		}
 	}
 	return body
