@@ -11,13 +11,8 @@ import (
 	"os"
 )
 
-var idpClient idp.Client
-
-func InitializeIDP() error {
-	if idpClient != nil {
-		return nil
-	}
-
+func SyncFromIDP() error {
+	var idpClient idp.Client
 	var err error
 
 	switch os.Getenv("AUTH_PROVIDER") {
@@ -26,20 +21,19 @@ func InitializeIDP() error {
 	case "azure-ad":
 		idpClient, err = azure.NewAzureEntraIDClient()
 	}
-
-	return err
-}
-
-func SyncFromIDP() error {
-	err := SyncUsers()
 	if err != nil {
 		return err
 	}
 
-	return SyncGroups()
+	err = SyncUsers(idpClient)
+	if err != nil {
+		return err
+	}
+
+	return SyncGroups(idpClient)
 }
 
-func SyncUsers() error {
+func SyncUsers(idpClient idp.Client) error {
 	idpUsers, err := idpClient.GetUsers()
 	if err != nil {
 		return err
@@ -107,7 +101,7 @@ func SyncUsers() error {
 	return nil
 }
 
-func SyncGroups() error {
+func SyncGroups(idpClient idp.Client) error {
 	idpGroups, err := idpClient.GetGroups()
 	if err != nil {
 		return err
