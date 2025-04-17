@@ -89,6 +89,9 @@ func InitPro() {
 		} else {
 			slog.Error("no OAuth provider found or not configured, continuing without OAuth")
 		}
+
+		auth.StartSyncHook()
+
 		proLogic.LoadNodeMetricsToCache()
 		proLogic.InitFailOverCache()
 	})

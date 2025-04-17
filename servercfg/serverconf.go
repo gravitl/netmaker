@@ -642,6 +642,26 @@ func GetAzureTenant() string {
 	return azureTenant
 }
 
+// GetIDPSyncInterval returns the interval at which the netmaker should sync
+// data from IDP.
+func GetIDPSyncInterval() time.Duration {
+	if os.Getenv("IDP_SYNC_INTERVAL") != "" {
+		syncInterval, err := time.ParseDuration(os.Getenv("IDP_SYNC_INTERVAL"))
+		if err != nil {
+			return 24 * time.Hour
+		}
+
+		return syncInterval
+	} else {
+		syncInterval, err := time.ParseDuration(config.Config.Server.IDPSyncInterval)
+		if err != nil {
+			return 24 * time.Hour
+		}
+
+		return syncInterval
+	}
+}
+
 // GetMqPassword - fetches the MQ password
 func GetMqPassword() string {
 	password := ""

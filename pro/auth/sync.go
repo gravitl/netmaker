@@ -2,14 +2,28 @@ package auth
 
 import (
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/pro/idp"
 	"github.com/gravitl/netmaker/pro/idp/azure"
 	"github.com/gravitl/netmaker/pro/idp/google"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
+	"github.com/gravitl/netmaker/servercfg"
 	"os"
+	"time"
 )
+
+func StartSyncHook() {
+	for range time.Tick(servercfg.GetIDPSyncInterval()) {
+		err := SyncFromIDP()
+		if err != nil {
+			logger.Log(0, "failed to sync from idp: ", err.Error())
+		} else {
+			logger.Log(0, "sync from idp complete")
+		}
+	}
+}
 
 func SyncFromIDP() error {
 	var idpClient idp.Client

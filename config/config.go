@@ -63,6 +63,7 @@ type ServerConfig struct {
 	FrontendURL                string        `yaml:"frontendurl"`
 	DisplayKeys                string        `yaml:"displaykeys"`
 	AzureTenant                string        `yaml:"azuretenant"`
+	IDPSyncInterval            string        `yaml:"idp_sync_interval"`
 	Telemetry                  string        `yaml:"telemetry"`
 	HostNetwork                string        `yaml:"hostnetwork"`
 	Server                     string        `yaml:"server"`
