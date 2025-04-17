@@ -751,6 +751,9 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
+	if userchange.PlatformRoleID != user.PlatformRoleID || !logic.CompareMaps(user.UserGroups, userchange.UserGroups) {
+		(&models.UserAccessToken{UserName: user.UserName}).DeleteAllUserTokens()
+	}
 
 	user, err = logic.UpdateUser(&userchange, user)
 	if err != nil {
