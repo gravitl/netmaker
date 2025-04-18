@@ -39,6 +39,29 @@ func ValidateEgressReq(e *models.Egress) bool {
 	return true
 }
 
+func GetInetClientsFromAclPolicies(node *models.Node) (inetClientIDs []string) {
+	acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
+	for _, acl := range acls {
+		dstVal := convAclTagToValueMap(acl.Dst)
+		for _, dstI := range acl.Dst {
+			if _, ok := dstVal[node.ID.String()]; !ok {
+				continue
+			}
+			if dstI.ID == models.EgressRange && dstI.Value == "*" {
+				for _, srcI := range acl.Src {
+					if srcI.ID == models.NodeID {
+						inetClientIDs = append(inetClientIDs, srcI.Value)
+					}
+					if srcI.ID == models.NodeTagID {
+						inetClientIDs = append(inetClientIDs, GetNodeIDsWithTag(models.TagID(srcI.Value))...)
+					}
+				}
+			}
+		}
+	}
+	return
+}
+
 func GetNodeEgressInfo(targetNode *models.Node) {
 	eli, _ := (&models.Egress{Network: targetNode.Network}).ListByNetwork()
 	req := models.EgressGatewayRequest{
@@ -47,6 +70,12 @@ func GetNodeEgressInfo(targetNode *models.Node) {
 	}
 	for _, e := range eli {
 		if metric, ok := e.Nodes[targetNode.ID.String()]; ok {
+			if e.IsInetGw {
+				targetNode.IsInternetGateway = true
+				targetNode.InetNodeReq = models.InetNodeReq{
+					InetNodeClientIDs: GetInetClientsFromAclPolicies(targetNode),
+				}
+			}
 			m64, err := metric.(json.Number).Int64()
 			if err != nil {
 				m64 = 256

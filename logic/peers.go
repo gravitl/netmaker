@@ -198,6 +198,8 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			continue
 		}
 		GetNodeEgressInfo(&node)
+		// set inet Info
+
 		hostPeerUpdate = SetDefaultGw(node, hostPeerUpdate)
 		if !hostPeerUpdate.IsInternetGw {
 			hostPeerUpdate.IsInternetGw = IsInternetGw(node)

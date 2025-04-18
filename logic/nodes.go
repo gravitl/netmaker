@@ -949,6 +949,30 @@ func AddTagMapWithStaticNodesWithUsers(netID models.NetworkID,
 	return tagNodesMap
 }
 
+func GetNodeIDsWithTag(tagID models.TagID) (ids []string) {
+
+	tag, err := GetTag(tagID)
+	if err != nil {
+		return
+	}
+	nodes, _ := GetNetworkNodes(tag.Network.String())
+	for _, nodeI := range nodes {
+		if nodeI.Tags == nil {
+			continue
+		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Lock()
+		}
+		if _, ok := nodeI.Tags[tagID]; ok {
+			ids = append(ids, nodeI.ID.String())
+		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Unlock()
+		}
+	}
+	return
+}
+
 func GetNodesWithTag(tagID models.TagID) map[string]models.Node {
 	nMap := make(map[string]models.Node)
 	tag, err := GetTag(tagID)
