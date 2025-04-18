@@ -533,5 +533,36 @@ func migrateToEgressV1() {
 				}
 			}
 		}
+		if node.IsInternetGateway {
+			e := models.Egress{
+				ID:          uuid.New().String(),
+				Name:        "inet gw",
+				Description: "add description",
+				Network:     node.Network,
+				Nodes: datatypes.JSONMap{
+					node.ID.String(): 256,
+				},
+				Tags:      make(datatypes.JSONMap),
+				Range:     "",
+				IsInetGw:  true,
+				Nat:       node.EgressGatewayRequest.NatEnabled == "yes",
+				CreatedBy: user.UserName,
+				CreatedAt: time.Now().UTC(),
+			}
+			err = e.Create()
+			if err == nil {
+				node.IsEgressGateway = false
+				node.EgressGatewayRequest = models.EgressGatewayRequest{}
+				node.EgressGatewayNatEnabled = false
+				node.EgressGatewayRanges = []string{}
+				node.IsInternetGateway = false
+				node.InetNodeReq = models.InetNodeReq{}
+				logic.UpsertNode(&node)
+			}
+		}
+		if node.InternetGwID != "" {
+			node.InternetGwID = ""
+			logic.UpsertNode(&node)
+		}
 	}
 }
