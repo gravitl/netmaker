@@ -160,7 +160,7 @@ func GenerateFakeData() {
 		logger.FatalLog("error generating traffic keys", err.Error())
 	}
 	hosts, _ := logic.GetAllHosts()
-	for i := len(hosts); i <= 600; i++ {
+	for i := len(hosts); i <= 30; i++ {
 		h := models.Host{
 			ID:               uuid.New(),
 			Name:             fake.App(),
@@ -189,7 +189,7 @@ func GenerateFakeData() {
 	hosts, _ = logic.GetAllHosts()
 	for _, hI := range hosts {
 		_, _ = logic.UpdateHostNetwork(&hI, network2.NetID, true)
-		if count >= 200 {
+		if count >= 30 {
 			break
 		}
 		count++

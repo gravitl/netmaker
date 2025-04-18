@@ -466,11 +466,11 @@ func AddStatusToNodes(nodes []models.Node, statusCall bool) (nodesWithStatus []m
 			defaultPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 			aclDefaultPolicyStatusMap[node.Network] = defaultPolicy.Enabled
 		}
-		if statusCall {
-			GetNodeStatus(&node, aclDefaultPolicyStatusMap[node.Network])
-		} else {
-			GetNodeCheckInStatus(&node, true)
-		}
+		// if statusCall {
+		// 	GetNodeStatus(&node, aclDefaultPolicyStatusMap[node.Network])
+		// } else {
+		GetNodeCheckInStatus(&node, true)
+		// }
 
 		nodesWithStatus = append(nodesWithStatus, node)
 	}

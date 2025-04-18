@@ -9,6 +9,8 @@ import (
 var GetNodeStatus = GetNodeCheckInStatus
 
 func GetNodeCheckInStatus(node *models.Node, t bool) {
+	node.Status = models.OnlineSt
+	return
 	// On CE check only last check-in time
 	if node.IsStatic {
 		if !node.StaticNode.Enabled {
