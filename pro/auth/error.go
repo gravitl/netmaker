@@ -98,7 +98,7 @@ var oauthNotConfigured = fmt.Sprintf(htmlBaseTemplate, `<h2>Your Netmaker server
 var oauthStateInvalid = fmt.Sprintf(htmlBaseTemplate, `<h2>Invalid OAuth Session. Please re-try again.</h2>`)
 
 var userNotAllowed = fmt.Sprintf(htmlBaseTemplate, `<h2>Your account does not have access to the dashboard. Please contact your administrator for more information about your account.</h2>
-<p>Non-Admins can access the netmaker networks using <a href="https://docs.netmaker.io/docs/remote-access-client-rac#downloadinstallation" target="_blank" rel="noopener">our Remote Access Client.</a></p>`)
+<p>Non-Admins can access the netmaker networks using <a href="https://docs.netmaker.io/docs/remote-access-client-rac#downloadinstallation" target="_blank" rel="noopener">our Netmaker Desktop App.</a></p>`)
 
 var userFirstTimeSignUp = fmt.Sprintf(htmlBaseTemplate, `<h2>Thank you for signing up. Please contact your administrator for access.</h2>`)
 
@@ -109,6 +109,9 @@ var userNotFound = fmt.Sprintf(htmlBaseTemplate, `<h2>User Not Found.</h2>`)
 var somethingwentwrong = fmt.Sprintf(htmlBaseTemplate, `<h2>Something went wrong. Contact Admin.</h2>`)
 
 var notallowedtosignup = fmt.Sprintf(htmlBaseTemplate, `<h2>Your email is not allowed. Please contact your administrator.</h2>`)
+
+var authTypeMismatch = fmt.Sprintf(htmlBaseTemplate, `<h2>It looks like you already have an account with us using Basic Authentication.</h2>
+<p>To continue, please log in with your existing credentials or reset your password if needed.</p>`)
 
 func handleOauthUserNotFound(response http.ResponseWriter) {
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -156,4 +159,10 @@ func handleSomethingWentWrong(response http.ResponseWriter) {
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	response.WriteHeader(http.StatusInternalServerError)
 	response.Write([]byte(somethingwentwrong))
+}
+
+func handleAuthTypeMismatch(response http.ResponseWriter) {
+	response.Header().Set("Content-Type", "text/html; charset=utf-8")
+	response.WriteHeader(http.StatusBadRequest)
+	response.Write([]byte(authTypeMismatch))
 }

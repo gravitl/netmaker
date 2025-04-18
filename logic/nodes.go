@@ -320,6 +320,7 @@ func DeleteNode(node *models.Node, purge bool) error {
 	if err := DissasociateNodeFromHost(node, host); err != nil {
 		return err
 	}
+	go RemoveNodeFromAclPolicy(*node)
 
 	return nil
 }
@@ -511,7 +512,7 @@ func SetNodeDefaults(node *models.Node, resetConnected bool) {
 	}
 
 	node.SetLastModified()
-	node.SetLastCheckIn()
+	//node.SetLastCheckIn()
 
 	if resetConnected {
 		node.SetDefaultConnected()
@@ -700,7 +701,7 @@ func createNode(node *models.Node) error {
 		return err
 	}
 	CheckZombies(node)
-
+	node.SetLastCheckIn()
 	nodebytes, err := json.Marshal(&node)
 	if err != nil {
 		return err
@@ -855,6 +856,9 @@ func GetTagMapWithNodesByNetwork(netID models.NetworkID, withStaticNodes bool) (
 	tagNodesMap = make(map[models.TagID][]models.Node)
 	nodes, _ := GetNetworkNodes(netID.String())
 	for _, nodeI := range nodes {
+		tagNodesMap[models.TagID(nodeI.ID.String())] = []models.Node{
+			nodeI,
+		}
 		if nodeI.Tags == nil {
 			continue
 		}
@@ -862,6 +866,9 @@ func GetTagMapWithNodesByNetwork(netID models.NetworkID, withStaticNodes bool) (
 			nodeI.Mutex.Lock()
 		}
 		for nodeTagID := range nodeI.Tags {
+			if nodeTagID == models.TagID(nodeI.ID.String()) {
+				continue
+			}
 			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
 		}
 		if nodeI.Mutex != nil {
@@ -882,13 +889,26 @@ func AddTagMapWithStaticNodes(netID models.NetworkID,
 		return tagNodesMap
 	}
 	for _, extclient := range extclients {
-		if extclient.Tags == nil || extclient.RemoteAccessClientID != "" {
+		if extclient.RemoteAccessClientID != "" {
 			continue
 		}
+		tagNodesMap[models.TagID(extclient.ClientID)] = []models.Node{
+			{
+				IsStatic:   true,
+				StaticNode: extclient,
+			},
+		}
+		if extclient.Tags == nil {
+			continue
+		}
+
 		if extclient.Mutex != nil {
 			extclient.Mutex.Lock()
 		}
 		for tagID := range extclient.Tags {
+			if tagID == models.TagID(extclient.ClientID) {
+				continue
+			}
 			tagNodesMap[tagID] = append(tagNodesMap[tagID], extclient.ConvertToStaticNode())
 			tagNodesMap["*"] = append(tagNodesMap["*"], extclient.ConvertToStaticNode())
 		}
@@ -906,6 +926,12 @@ func AddTagMapWithStaticNodesWithUsers(netID models.NetworkID,
 		return tagNodesMap
 	}
 	for _, extclient := range extclients {
+		tagNodesMap[models.TagID(extclient.ClientID)] = []models.Node{
+			{
+				IsStatic:   true,
+				StaticNode: extclient,
+			},
+		}
 		if extclient.Tags == nil {
 			continue
 		}

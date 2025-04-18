@@ -288,6 +288,16 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	} else if gwnode.IngressDNS != "" {
 		defaultDNS = "DNS = " + gwnode.IngressDNS
 	}
+	if client.DNS == "" {
+		if len(network.NameServers) > 0 {
+			if defaultDNS == "" {
+				defaultDNS = "DNS = " + strings.Join(network.NameServers, ",")
+			} else {
+				defaultDNS += "," + strings.Join(network.NameServers, ",")
+			}
+
+		}
+	}
 	// if servercfg.GetManageDNS() {
 	// 	if gwnode.Address6.IP != nil {
 	// 		if defaultDNS == "" {
@@ -475,7 +485,18 @@ func getExtClientHAConf(w http.ResponseWriter, r *http.Request) {
 	// 	models.RemoteAccessTagName))] = struct{}{}
 	// set extclient dns to ingressdns if extclient dns is not explicitly set
 	if (extclient.DNS == "") && (gwnode.IngressDNS != "") {
-		extclient.DNS = gwnode.IngressDNS
+		network, _ := logic.GetNetwork(gwnode.Network)
+		dns := gwnode.IngressDNS
+		if len(network.NameServers) > 0 {
+			if dns == "" {
+				dns = strings.Join(network.NameServers, ",")
+			} else {
+				dns += "," + strings.Join(network.NameServers, ",")
+			}
+
+		}
+		extclient.DNS = dns
+
 	}
 
 	listenPort := logic.GetPeerListenPort(host)
@@ -720,7 +741,17 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	// 	models.RemoteAccessTagName))] = struct{}{}
 	// set extclient dns to ingressdns if extclient dns is not explicitly set
 	if (extclient.DNS == "") && (node.IngressDNS != "") {
-		extclient.DNS = node.IngressDNS
+		network, _ := logic.GetNetwork(node.Network)
+		dns := node.IngressDNS
+		if len(network.NameServers) > 0 {
+			if dns == "" {
+				dns = strings.Join(network.NameServers, ",")
+			} else {
+				dns += "," + strings.Join(network.NameServers, ",")
+			}
+
+		}
+		extclient.DNS = dns
 	}
 	host, err := logic.GetHost(node.HostID.String())
 	if err != nil {
@@ -1043,10 +1074,13 @@ func validateCustomExtClient(customExtClient *models.CustomExtClient, checkID bo
 	}
 	//validate DNS
 	if customExtClient.DNS != "" {
-		if ip := net.ParseIP(customExtClient.DNS); ip == nil {
-			return errInvalidExtClientDNS
+		ips := strings.Split(customExtClient.DNS, ",")
+		for _, ip := range ips {
+			trimmedIp := strings.TrimSpace(ip)
+			if ip := net.ParseIP(trimmedIp); ip == nil {
+				return errInvalidExtClientDNS
+			}
 		}
-		//extclient.DNS = customExtClient.DNS
 	}
 	return nil
 }

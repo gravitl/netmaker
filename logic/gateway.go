@@ -220,7 +220,7 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	if node.Tags == nil {
 		node.Tags = make(map[models.TagID]struct{})
 	}
-	node.Tags[models.TagID(fmt.Sprintf("%s.%s", netid, models.RemoteAccessTagName))] = struct{}{}
+	node.Tags[models.TagID(fmt.Sprintf("%s.%s", netid, models.GwTagName))] = struct{}{}
 	err = UpsertNode(&node)
 	if err != nil {
 		return models.Node{}, err
@@ -272,7 +272,7 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 	if !servercfg.IsPro {
 		node.IsInternetGateway = false
 	}
-	delete(node.Tags, models.TagID(fmt.Sprintf("%s.%s", node.Network, models.RemoteAccessTagName)))
+	delete(node.Tags, models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName)))
 	node.IngressGatewayRange = ""
 	node.Metadata = ""
 	err = UpsertNode(&node)

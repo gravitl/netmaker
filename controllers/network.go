@@ -41,6 +41,7 @@ func networkHandlers(r *mux.Router) {
 		Methods(http.MethodPut)
 	r.HandleFunc("/api/networks/{networkname}/acls", logic.SecurityCheck(true, http.HandlerFunc(getNetworkACL))).
 		Methods(http.MethodGet)
+	r.HandleFunc("/api/networks/{networkname}/egress_routes", logic.SecurityCheck(true, http.HandlerFunc(getNetworkEgressRoutes)))
 }
 
 // @Summary     Lists all networks
@@ -429,6 +430,33 @@ func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(networkACL)
 }
 
+// @Summary     Get a network Egress routes
+// @Router      /api/networks/{networkname}/egress_routes [get]
+// @Tags        Networks
+// @Security    oauth
+// @Param       networkname path string true "Network name"
+// @Produce     json
+// @Success     200 {object} models.SuccessResponse
+// @Failure     500 {object} models.ErrorResponse
+func getNetworkEgressRoutes(w http.ResponseWriter, r *http.Request) {
+	var params = mux.Vars(r)
+	netname := params["networkname"]
+	// check if network exists
+	_, err := logic.GetNetwork(netname)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"),
+			fmt.Sprintf("failed to fetch ACLs for network [%s]: %v", netname, err))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	nodeEgressRoutes, _, err := logic.GetEgressRanges(models.NetworkID(netname))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, nodeEgressRoutes, "fetched network egress routes")
+}
+
 // @Summary     Delete a network
 // @Router      /api/networks/{networkname} [delete]
 // @Tags        Networks
@@ -466,7 +494,8 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 	go logic.UnlinkNetworkAndTagsFromEnrollmentKeys(network, true)
 	go logic.DeleteNetworkRoles(network)
-	go logic.DeleteDefaultNetworkPolicies(models.NetworkID(network))
+	go logic.DeleteAllNetworkTags(models.NetworkID(network))
+	go logic.DeleteNetworkPolicies(models.NetworkID(network))
 	//delete network from allocated ip map
 	go logic.RemoveNetworkFromAllocatedIpMap(network)
 	go func() {
@@ -598,6 +627,10 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			logic.CreateFailOver(*newNode)
 			// make host remote access gateway
 			logic.CreateIngressGateway(network.NetID, newNode.ID.String(), models.IngressRequest{})
+			logic.CreateRelay(models.RelayRequest{
+				NodeID: newNode.ID.String(),
+				NetID:  network.NetID,
+			})
 		}
 		// send peer updates
 		if err = mq.PublishPeerUpdate(false); err != nil {

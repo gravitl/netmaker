@@ -253,10 +253,10 @@ save_config() { (
 	fi
 	# copy entries from the previous config
 	local toCopy=("SERVER_HOST" "SERVER_HOST6" "MASTER_KEY" "MQ_USERNAME" "MQ_PASSWORD" "LICENSE_KEY" "NETMAKER_TENANT_ID"
-		"INSTALL_TYPE" "NODE_ID" "DNS_MODE" "NETCLIENT_AUTO_UPDATE" "API_PORT"
+		"INSTALL_TYPE" "NODE_ID" "DNS_MODE" "NETCLIENT_AUTO_UPDATE" "API_PORT" "MANAGE_DNS" "DEFAULT_DOMAIN"
 		"CORS_ALLOWED_ORIGIN" "DISPLAY_KEYS" "DATABASE" "SERVER_BROKER_ENDPOINT" "VERBOSITY"
 		"DEBUG_MODE"  "REST_BACKEND" "DISABLE_REMOTE_IP_CHECK" "TELEMETRY" "ALLOWED_EMAIL_DOMAINS" "AUTH_PROVIDER" "CLIENT_ID" "CLIENT_SECRET"
-		"FRONTEND_URL" "AZURE_TENANT" "OIDC_ISSUER" "EXPORTER_API_PORT" "JWT_VALIDITY_DURATION" "RAC_AUTO_DISABLE" "CACHING_ENABLED" "ENDPOINT_DETECTION"
+		"FRONTEND_URL" "AZURE_TENANT" "OIDC_ISSUER" "EXPORTER_API_PORT" "JWT_VALIDITY_DURATION" "RAC_AUTO_DISABLE" "RAC_RESTRICT_TO_SINGLE_NETWORK" "CACHING_ENABLED" "ENDPOINT_DETECTION"
 		"SMTP_HOST" "SMTP_PORT" "EMAIL_SENDER_ADDR" "EMAIL_SENDER_USER" "EMAIL_SENDER_PASSWORD")
 	for name in "${toCopy[@]}"; do
 		save_config_item $name "${!name}"
@@ -501,8 +501,8 @@ set -e
 # set_install_vars - sets the variables that will be used throughout installation
 set_install_vars() {
 
-	IP_ADDR=$(curl -s -4 ifconfig.me || echo "")
-    IP6_ADDR=$(curl -s -6 ifconfig.me || echo "")
+	IP_ADDR=$(curl -s -4 api64.ipify.org || echo "")
+    IP6_ADDR=$(curl -s -6 api64.ipify.org || echo "")
 	if [ "$NETMAKER_BASE_DOMAIN" = "" ]; then
 		NETMAKER_BASE_DOMAIN=nm.$(echo $IP_ADDR | tr . -).nip.io
 	fi

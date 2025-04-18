@@ -80,7 +80,8 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserSignUpApprovalPending(w)
 		return
 	}
-	_, err = logic.GetUser(content.Email)
+
+	user, err := logic.GetUser(content.Email)
 	if err != nil {
 		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
 			if inviteExists {
@@ -117,13 +118,23 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 			handleSomethingWentWrong(w)
 			return
 		}
+	} else {
+		// if user exists, then ensure user's auth type is
+		// oauth before proceeding.
+		if user.AuthType == models.BasicAuth {
+			logger.Log(0, "invalid auth type: basic_auth")
+			handleAuthTypeMismatch(w)
+			return
+		}
 	}
-	user, err := logic.GetUser(content.Email)
+
+	user, err = logic.GetUser(content.Email)
 	if err != nil {
 		logger.Log(0, "error fetching user: ", err.Error())
 		handleOauthUserNotFound(w)
 		return
 	}
+
 	userRole, err := logic.GetRole(user.PlatformRoleID)
 	if err != nil {
 		handleSomethingWentWrong(w)
