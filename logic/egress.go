@@ -62,6 +62,35 @@ func GetInetClientsFromAclPolicies(node *models.Node) (inetClientIDs []string) {
 	return
 }
 
+func IsNodeUsingInternetGw(node *models.Node) {
+	acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
+	for _, acl := range acls {
+		srcVal := convAclTagToValueMap(acl.Src)
+		for _, dstI := range acl.Dst {
+			if dstI.ID == models.EgressRange && dstI.Value == "*" {
+				if _, ok := srcVal[node.ID.String()]; ok {
+					for _, dstI := range acl.Dst {
+						if dstI.ID == models.NodeID {
+							node.InternetGwID = dstI.Value
+							return
+						}
+					}
+				}
+				for tagID := range node.Tags {
+					if _, ok := srcVal[tagID.String()]; ok {
+						for _, dstI := range acl.Dst {
+							if dstI.ID == models.NodeID {
+								node.InternetGwID = dstI.Value
+								return
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 func GetNodeEgressInfo(targetNode *models.Node) {
 	eli, _ := (&models.Egress{Network: targetNode.Network}).ListByNetwork()
 	req := models.EgressGatewayRequest{
