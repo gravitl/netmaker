@@ -15,16 +15,18 @@ func ValidateEgressReq(e *models.Egress) bool {
 	if err != nil {
 		return false
 	}
-	if e.Range == "" {
-		return false
-	}
-	_, _, err = net.ParseCIDR(e.Range)
-	if err != nil {
-		return false
-	}
-	err = ValidateEgressRange(e.Network, []string{e.Range})
-	if err != nil {
-		return false
+	if !e.IsInetGw {
+		if e.Range == "" {
+			return false
+		}
+		_, _, err = net.ParseCIDR(e.Range)
+		if err != nil {
+			return false
+		}
+		err = ValidateEgressRange(e.Network, []string{e.Range})
+		if err != nil {
+			return false
+		}
 	}
 	if len(e.Nodes) != 0 {
 		for k := range e.Nodes {

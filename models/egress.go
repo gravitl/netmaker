@@ -19,6 +19,7 @@ type EgressReq struct {
 	Tags        []string       `json:"tags"`
 	Range       string         `json:"range"`
 	Nat         bool           `json:"nat"`
+	IsInetGw    bool           `json:"is_internet_gateway"`
 }
 
 type Egress struct {
@@ -30,6 +31,7 @@ type Egress struct {
 	Tags        datatypes.JSONMap `gorm:"tags" json:"tags"`
 	Range       string            `gorm:"range" json:"range"`
 	Nat         bool              `gorm:"nat" json:"nat"`
+	IsInetGw    bool              `gorm:"is_internet_gateway"`
 	CreatedBy   string            `gorm:"created_by" json:"created_by"`
 	CreatedAt   time.Time         `gorm:"created_at" json:"created_at"`
 	UpdatedAt   time.Time         `gorm:"updated_at" json:"updated_at"`
@@ -50,6 +52,12 @@ func (e *Egress) Update() error {
 func (e *Egress) UpdateNatStatus() error {
 	return db.FromContext(context.TODO()).Table(e.Table()).Where("id = ?", e.ID).Updates(map[string]any{
 		"nat": e.Nat,
+	}).Error
+}
+
+func (e *Egress) UpdateINetGwStatus() error {
+	return db.FromContext(context.TODO()).Table(e.Table()).Where("id = ?", e.ID).Updates(map[string]any{
+		"is_internet_gateway": e.IsInetGw,
 	}).Error
 }
 

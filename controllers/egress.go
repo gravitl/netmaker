@@ -47,6 +47,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		Description: req.Description,
 		Range:       req.Range,
 		Nat:         req.Nat,
+		IsInetGw:    req.IsInetGw,
 		Nodes:       make(datatypes.JSONMap),
 		Tags:        make(datatypes.JSONMap),
 		CreatedBy:   r.Header.Get("user"),
@@ -131,8 +132,12 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		e.Nodes[nodeID] = metric
 	}
 	var updateNat bool
+	var updateInetGw bool
 	if req.Nat != e.Nat {
 		updateNat = true
+	}
+	if req.IsInetGw != e.IsInetGw {
+		updateInetGw = true
 	}
 	e.Range = req.Range
 	e.Description = req.Description
@@ -154,6 +159,10 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	if updateNat {
 		e.Nat = req.Nat
 		e.UpdateNatStatus()
+	}
+	if updateInetGw {
+		e.IsInetGw = req.IsInetGw
+		e.UpdateINetGwStatus()
 	}
 	logic.ReturnSuccessResponseWithJson(w, r, req, "updated egress resource")
 }
