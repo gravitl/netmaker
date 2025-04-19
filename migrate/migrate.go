@@ -556,6 +556,37 @@ func migrateToEgressV1() {
 				node.EgressGatewayNatEnabled = false
 				node.EgressGatewayRanges = []string{}
 				node.IsInternetGateway = false
+				src := []models.AclPolicyTag{}
+				for _, inetClientID := range node.InetNodeReq.InetNodeClientIDs {
+					_, err := logic.GetNodeByID(inetClientID)
+					if err == nil {
+						src = append(src, models.AclPolicyTag{
+							ID:    models.NodeID,
+							Value: inetClientID,
+						})
+					}
+				}
+				acl := models.Acl{
+					ID:          uuid.New().String(),
+					Name:        "exit node policy",
+					MetaData:    "all traffic on source nodes will pass through the destination node in the policy",
+					Default:     false,
+					ServiceType: models.Any,
+					NetworkID:   models.NetworkID(node.Network),
+					Proto:       models.ALL,
+					RuleType:    models.UserPolicy,
+					Src:         src,
+					Dst: []models.AclPolicyTag{
+						{
+							ID:    models.NodeID,
+							Value: node.ID.String(),
+						}},
+					AllowedDirection: models.TrafficDirectionBi,
+					Enabled:          true,
+					CreatedBy:        "auto",
+					CreatedAt:        time.Now().UTC(),
+				}
+				logic.InsertAcl(acl)
 				node.InetNodeReq = models.InetNodeReq{}
 				logic.UpsertNode(&node)
 			}
