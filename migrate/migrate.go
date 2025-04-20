@@ -580,7 +580,13 @@ func migrateToEgressV1() {
 						{
 							ID:    models.NodeID,
 							Value: node.ID.String(),
-						}},
+						},
+						{
+							ID:    models.EgressRange,
+							Value: "*",
+						},
+					},
+
 					AllowedDirection: models.TrafficDirectionBi,
 					Enabled:          true,
 					CreatedBy:        "auto",
