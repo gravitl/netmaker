@@ -75,6 +75,10 @@ func Middleware(next http.Handler) http.Handler {
 //
 // The function panics, if a connection does not exist.
 func FromContext(ctx context.Context) *gorm.DB {
+	db, ok := ctx.Value(dbCtxKey).(*gorm.DB)
+	if !ok {
+		panic(ErrDBNotFound)
+	}
 
 	return db
 }
