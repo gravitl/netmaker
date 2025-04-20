@@ -17,9 +17,12 @@ import (
 
 /*
 TODO: EGRESS
-allow only selection of egress ranges in a policy
+1. allow only selection of egress ranges in a policy
 ranges should be replaced by egress identifier
 
+2. check logic required for MAC exit node
+
+3.
 
 */
 
