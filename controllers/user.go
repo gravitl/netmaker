@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gravitl/netmaker/schema"
 	"net/http"
 	"reflect"
 	"time"
@@ -57,7 +58,7 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 
 	// Auth request consists of Mac Address and Password (from node that is authorizing
 	// in case of Master, auth is ignored and mac is set to "mastermac"
-	var req models.UserAccessToken
+	var req schema.UserAccessToken
 
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
@@ -97,7 +98,7 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	err = req.Create()
+	err = req.Create(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
@@ -127,7 +128,7 @@ func getUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), "badrequest"))
 		return
 	}
-	logic.ReturnSuccessResponseWithJson(w, r, (&models.UserAccessToken{UserName: username}).ListByUser(), "fetched api access tokens for user "+username)
+	logic.ReturnSuccessResponseWithJson(w, r, (&schema.UserAccessToken{UserName: username}).ListByUser(r.Context()), "fetched api access tokens for user "+username)
 }
 
 // @Summary     Authenticate a user to retrieve an authorization token
@@ -146,7 +147,7 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := (&models.UserAccessToken{ID: id}).Delete()
+	err := (&schema.UserAccessToken{ID: id}).Delete(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
