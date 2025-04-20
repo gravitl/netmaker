@@ -15,6 +15,14 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
+/*
+TODO: EGRESS
+allow only selection of egress ranges in a policy
+ranges should be replaced by egress identifier
+
+
+*/
+
 var (
 	aclCacheMutex = &sync.RWMutex{}
 	aclCacheMap   = make(map[string]models.Acl)
