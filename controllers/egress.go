@@ -69,7 +69,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	logic.ReturnSuccessResponseWithJson(w, r, req, "created egress resource")
+	logic.ReturnSuccessResponseWithJson(w, r, e, "created egress resource")
 }
 
 // @Summary     List Egress Resource
