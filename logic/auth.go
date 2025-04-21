@@ -169,6 +169,7 @@ func CreateUser(user *models.User) error {
 	if IsOauthUser(user) == nil {
 		user.AuthType = models.OAuth
 	}
+	AddGlobalNetRolesToAdmins(user)
 	_, err = CreateUserJWT(user.UserName, user.PlatformRoleID)
 	if err != nil {
 		logger.Log(0, "failed to generate token", err.Error())
@@ -186,7 +187,6 @@ func CreateUser(user *models.User) error {
 		logger.Log(0, "failed to insert user", err.Error())
 		return err
 	}
-	AddGlobalNetRolesToAdmins(user)
 	return nil
 }
 
