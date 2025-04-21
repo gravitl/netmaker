@@ -186,7 +186,7 @@ func CreateUser(user *models.User) error {
 		logger.Log(0, "failed to insert user", err.Error())
 		return err
 	}
-	AddGlobalNetRolesToAdmins(*user)
+	AddGlobalNetRolesToAdmins(user)
 	return nil
 }
 
@@ -305,7 +305,7 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 	}
 	user.UserGroups = userchange.UserGroups
 	user.NetworkRoles = userchange.NetworkRoles
-	AddGlobalNetRolesToAdmins(*user)
+	AddGlobalNetRolesToAdmins(user)
 	err := ValidateUser(user)
 	if err != nil {
 		return &models.User{}, err
