@@ -651,6 +651,9 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 	if peer.IsFailOver && node.FailedOverBy != uuid.Nil && node.FailedOverBy == peer.ID {
 		return true
 	}
+	if node.IsFailOver && peer.FailedOverBy != uuid.Nil && peer.FailedOverBy == node.ID {
+		return true
+	}
 	if node.IsStatic {
 		nodeId = node.StaticNode.ClientID
 		node = node.StaticNode.ConvertToStaticNode()
@@ -903,6 +906,9 @@ func uniquePolicies(items []models.Acl) []models.Acl {
 func IsNodeAllowedToCommunicateV1(node, peer models.Node, checkDefaultPolicy bool) (bool, []models.Acl) {
 	var nodeId, peerId string
 	if peer.IsFailOver && node.FailedOverBy != uuid.Nil && node.FailedOverBy == peer.ID {
+		return true, []models.Acl{}
+	}
+	if node.IsFailOver && peer.FailedOverBy != uuid.Nil && peer.FailedOverBy == node.ID {
 		return true, []models.Acl{}
 	}
 	if node.IsStatic {
