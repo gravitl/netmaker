@@ -11,6 +11,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"gorm.io/datatypes"
 )
 
@@ -69,6 +70,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, e, "created egress resource")
 }
 
@@ -164,6 +166,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		e.IsInetGw = req.IsInetGw
 		e.UpdateINetGwStatus()
 	}
+	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, req, "updated egress resource")
 }
 
@@ -189,5 +192,6 @@ func deleteEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted egress resource")
 }

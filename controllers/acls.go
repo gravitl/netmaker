@@ -150,6 +150,9 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	logic.GetNodeEgressInfo(&node)
+	logic.ReturnSuccessResponseWithJson(w, r, node, "fetched all acls in the network ")
+	return
 	var peer models.Node
 	if peerIsStatic == "true" {
 		extclient, err := logic.GetExtClient(peerID, node.Network)
