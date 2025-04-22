@@ -67,7 +67,7 @@ func SessionHandler(conn *websocket.Conn) {
 	if len(registerMessage.User) > 0 { // handle basic auth
 		logger.Log(0, "user registration attempted with host:", registerMessage.RegisterHost.Name, "user:", registerMessage.User)
 
-		if !servercfg.IsBasicAuthEnabled() {
+		if !logic.IsBasicAuthEnabled() {
 			err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
 				logger.Log(0, "error during message writing:", err.Error())
@@ -207,7 +207,7 @@ func SessionHandler(conn *websocket.Conn) {
 				netsToAdd = append(netsToAdd, newNet)
 			}
 		}
-		server := servercfg.GetServerInfo()
+		server := logic.GetServerInfo()
 		server.TrafficKey = key
 		result.Host.HostPass = ""
 		response := models.RegisterResponse{

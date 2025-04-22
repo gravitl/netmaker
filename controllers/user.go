@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gravitl/netmaker/schema"
 	"net/http"
 	"reflect"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/gravitl/netmaker/auth"
@@ -39,7 +42,123 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserV1)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users", logic.SecurityCheck(true, http.HandlerFunc(getUsers))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/roles", logic.SecurityCheck(true, http.HandlerFunc(ListRoles))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(createUserAccessToken))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(getUserAccessTokens))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(deleteUserAccessTokens))).Methods(http.MethodDelete)
+}
 
+// @Summary     Authenticate a user to retrieve an authorization token
+// @Router      /api/v1/users/{username}/access_token [post]
+// @Tags        Auth
+// @Accept      json
+// @Param       body body models.UserAuthParams true "Authentication parameters"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     401 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
+
+	// Auth request consists of Mac Address and Password (from node that is authorizing
+	// in case of Master, auth is ignored and mac is set to "mastermac"
+	var req schema.UserAccessToken
+
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		logger.Log(0, "error decoding request body: ",
+			err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if req.Name == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("name is required"), "badrequest"))
+		return
+	}
+	if req.UserName == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), "badrequest"))
+		return
+	}
+
+	user, err := logic.GetUser(req.UserName)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+		return
+	}
+	if logic.IsOauthUser(user) == nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user is registered via SSO"), "badrequest"))
+		return
+	}
+	req.ID = uuid.New().String()
+	req.CreatedBy = r.Header.Get("user")
+	req.CreatedAt = time.Now()
+	jwt, err := logic.CreateUserAccessJwtToken(user.UserName, user.PlatformRoleID, req.ExpiresAt, req.ID)
+	if jwt == "" {
+		// very unlikely that err is !nil and no jwt returned, but handle it anyways.
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("error creating access token "+err.Error()), "internal"),
+		)
+		return
+	}
+	err = req.Create(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("error creating access token "+err.Error()), "internal"),
+		)
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, models.SuccessfulUserLoginResponse{
+		AuthToken: jwt,
+		UserName:  req.UserName,
+	}, "api access token has generated for user "+req.UserName)
+}
+
+// @Summary     Authenticate a user to retrieve an authorization token
+// @Router      /api/v1/users/{username}/access_token [post]
+// @Tags        Auth
+// @Accept      json
+// @Param       body body models.UserAuthParams true "Authentication parameters"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     401 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func getUserAccessTokens(w http.ResponseWriter, r *http.Request) {
+	username := r.URL.Query().Get("username")
+	if username == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), "badrequest"))
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, (&schema.UserAccessToken{UserName: username}).ListByUser(r.Context()), "fetched api access tokens for user "+username)
+}
+
+// @Summary     Authenticate a user to retrieve an authorization token
+// @Router      /api/v1/users/{username}/access_token [post]
+// @Tags        Auth
+// @Accept      json
+// @Param       body body models.UserAuthParams true "Authentication parameters"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     401 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("id is required"), "badrequest"))
+		return
+	}
+
+	err := (&schema.UserAccessToken{ID: id}).Delete(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("error deleting access token "+err.Error()), "internal"),
+		)
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, nil, "revoked access token")
 }
 
 // @Summary     Authenticate a user to retrieve an authorization token
@@ -59,16 +178,6 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	var errorResponse = models.ErrorResponse{
 		Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
 	}
-
-	if !servercfg.IsBasicAuthEnabled() {
-		logic.ReturnErrorResponse(
-			response,
-			request,
-			logic.FormatError(fmt.Errorf("basic auth is disabled"), "badrequest"),
-		)
-		return
-	}
-
 	decoder := json.NewDecoder(request.Body)
 	decoderErr := decoder.Decode(&authRequest)
 	defer request.Body.Close()
@@ -78,29 +187,16 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
-	if val := request.Header.Get("From-Ui"); val == "true" {
-		// request came from UI, if normal user block Login
-		user, err := logic.GetUser(authRequest.UserName)
-		if err != nil {
-			logger.Log(0, authRequest.UserName, "user validation failed: ",
-				err.Error())
-			logic.ReturnErrorResponse(response, request, logic.FormatError(err, "unauthorized"))
-			return
-		}
-		role, err := logic.GetRole(user.PlatformRoleID)
-		if err != nil {
-			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
-			return
-		}
-		if role.DenyDashboardAccess {
-			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
-			return
-		}
-	}
-
 	user, err := logic.GetUser(authRequest.UserName)
 	if err != nil {
+		logger.Log(0, authRequest.UserName, "user validation failed: ",
+			err.Error())
 		logic.ReturnErrorResponse(response, request, logic.FormatError(err, "unauthorized"))
+		return
+	}
+
+	if logic.IsOauthUser(user) == nil {
+		logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("user is registered via SSO"), "badrequest"))
 		return
 	}
 
@@ -110,9 +206,27 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	if logic.IsOauthUser(user) == nil {
-		logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("user is registered via SSO"), "badrequest"))
+	if !user.IsSuperAdmin && !logic.IsBasicAuthEnabled() {
+		logic.ReturnErrorResponse(
+			response,
+			request,
+			logic.FormatError(fmt.Errorf("basic auth is disabled"), "badrequest"),
+		)
 		return
+	}
+
+	if val := request.Header.Get("From-Ui"); val == "true" {
+		// request came from UI, if normal user block Login
+
+		role, err := logic.GetRole(user.PlatformRoleID)
+		if err != nil {
+			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
+			return
+		}
+		if role.DenyDashboardAccess {
+			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
+			return
+		}
 	}
 
 	username := authRequest.UserName
@@ -156,7 +270,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	response.Write(successJSONResponse)
 
 	go func() {
-		if servercfg.IsPro && servercfg.GetRacAutoDisable() {
+		if servercfg.IsPro && logic.GetRacAutoDisable() {
 			// enable all associeated clients for the user
 			clients, err := logic.GetAllExtClients()
 			if err != nil {
@@ -389,7 +503,7 @@ func createSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !servercfg.IsBasicAuthEnabled() {
+	if !logic.IsBasicAuthEnabled() {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -437,7 +551,7 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only admins can be promoted to superadmin role"), "forbidden"))
 		return
 	}
-	if !servercfg.IsBasicAuthEnabled() {
+	if !logic.IsBasicAuthEnabled() {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -741,16 +855,11 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	success, err := logic.DeleteUser(username)
+	err = logic.DeleteUser(username)
 	if err != nil {
 		logger.Log(0, username,
 			"failed to delete user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	} else if !success {
-		err := errors.New("delete unsuccessful")
-		logger.Log(0, username, err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	// check and delete extclient with this ownerID

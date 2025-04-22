@@ -1,11 +1,15 @@
 package logic
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 
 	"github.com/go-playground/validator/v10"
 	"golang.org/x/crypto/bcrypt"
@@ -27,6 +31,8 @@ var (
 func ClearSuperUserCache() {
 	superUser = models.User{}
 }
+
+var InitializeAuthProvider = func() string { return "" }
 
 // HasSuperAdmin - checks if server has an superadmin/owner
 func HasSuperAdmin() (bool, error) {
@@ -349,19 +355,18 @@ func ValidateUser(user *models.User) error {
 }
 
 // DeleteUser - deletes a given user
-func DeleteUser(user string) (bool, error) {
+func DeleteUser(user string) error {
 
 	if userRecord, err := database.FetchRecord(database.USERS_TABLE_NAME, user); err != nil || len(userRecord) == 0 {
-		return false, errors.New("user does not exist")
+		return errors.New("user does not exist")
 	}
 
 	err := database.DeleteRecord(database.USERS_TABLE_NAME, user)
 	if err != nil {
-		return false, err
+		return err
 	}
 	go RemoveUserFromAclPolicy(user)
-
-	return true, nil
+	return (&schema.UserAccessToken{UserName: user}).DeleteAllUserTokens(db.WithContext(context.TODO()))
 }
 
 func SetAuthSecret(secret string) error {

@@ -4,7 +4,7 @@ import (
 	"context"
 	"regexp"
 
-	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/logic"
 )
 
 type EmailSenderType string
@@ -16,14 +16,14 @@ const (
 	Resend EmailSenderType = "resend"
 )
 
-func init() {
+func Init() {
 
 	smtpSender := &SmtpSender{
-		SmtpHost:    servercfg.GetSmtpHost(),
-		SmtpPort:    servercfg.GetSmtpPort(),
-		SenderEmail: servercfg.GetSenderEmail(),
-		SendUser:    servercfg.GetSenderUser(),
-		SenderPass:  servercfg.GetEmaiSenderPassword(),
+		SmtpHost:    logic.GetSmtpHost(),
+		SmtpPort:    logic.GetSmtpPort(),
+		SenderEmail: logic.GetSenderEmail(),
+		SendUser:    logic.GetSenderUser(),
+		SenderPass:  logic.GetEmaiSenderPassword(),
 	}
 	if smtpSender.SendUser == "" {
 		smtpSender.SendUser = smtpSender.SenderEmail

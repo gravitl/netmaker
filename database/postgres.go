@@ -59,7 +59,7 @@ func pgCreateTable(tableName string) error {
 }
 
 func pgInsert(key string, value string, tableName string) error {
-	if key != "" && value != "" && IsJSONString(value) {
+	if key != "" && value != "" {
 		insertSQL := "INSERT INTO " + tableName + " (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $3;"
 		statement, err := PGDB.Prepare(insertSQL)
 		if err != nil {
@@ -77,7 +77,7 @@ func pgInsert(key string, value string, tableName string) error {
 }
 
 func pgInsertPeer(key string, value string) error {
-	if key != "" && value != "" && IsJSONString(value) {
+	if key != "" && value != "" {
 		err := pgInsert(key, value, PEERS_TABLE_NAME)
 		if err != nil {
 			return err

@@ -70,7 +70,7 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 				return
 			}
-			server = servercfg.GetServerInfo()
+			server = logic.GetServerInfo()
 			key, keyErr := logic.RetrievePublicTrafficKey()
 			if keyErr != nil {
 				slog.Error("retrieving traffickey", "error", err)
@@ -134,7 +134,7 @@ func convertLegacyHostNode(legacy models.LegacyNode) (models.Host, models.Node) 
 	host := models.Host{}
 	host.ID = uuid.New()
 	host.IPForwarding = models.ParseBool(legacy.IPForwarding)
-	host.AutoUpdate = servercfg.AutoUpdateEnabled()
+	host.AutoUpdate = logic.AutoUpdateEnabled()
 	host.Interface = "netmaker"
 	host.ListenPort = int(legacy.ListenPort)
 	if host.ListenPort == 0 {

@@ -13,6 +13,7 @@ type RsrcID string
 type UserRoleID string
 type UserGroupID string
 type AuthType string
+type TokenType string
 
 var (
 	BasicAuth AuthType = "basic_auth"
@@ -34,6 +35,15 @@ func GetRAGRoleName(netID, hostName string) string {
 func GetRAGRoleID(netID, hostID string) UserRoleID {
 	return UserRoleID(fmt.Sprintf("netID-%s-rag-%s", netID, hostID))
 }
+
+func (t TokenType) String() string {
+	return string(t)
+}
+
+var (
+	UserIDTokenType TokenType = "user_id_token"
+	AccessTokenType TokenType = "access_token"
+)
 
 var RsrcTypeMap = map[RsrcType]struct{}{
 	HostRsrc:           {},
@@ -187,6 +197,8 @@ type UserAuthParams struct {
 type UserClaims struct {
 	Role           UserRoleID
 	UserName       string
+	Api            string
+	TokenType      TokenType
 	RacAutoDisable bool
 	jwt.RegisteredClaims
 }
