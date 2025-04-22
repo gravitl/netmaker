@@ -34,12 +34,18 @@ func UpsertServerSettings(s models.ServerSettings) error {
 	if err != nil {
 		return err
 	}
+	go reInit()
 	return nil
 }
 
 func ValidateNewSettings(req models.ServerSettings) bool {
 	// TODO: add checks for different fields
 	return true
+}
+
+func reInit() {
+	InitializeAuthProvider()
+	EmailInit()
 }
 
 func GetServerSettingsFromEnv() (s models.ServerSettings) {

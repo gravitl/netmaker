@@ -6,9 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
-	"time"
 
 	"github.com/go-playground/validator/v10"
 	"golang.org/x/crypto/bcrypt"
@@ -30,6 +31,8 @@ var (
 func ClearSuperUserCache() {
 	superUser = models.User{}
 }
+
+var InitializeAuthProvider = func() string { return "" }
 
 // HasSuperAdmin - checks if server has an superadmin/owner
 func HasSuperAdmin() (bool, error) {

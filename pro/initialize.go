@@ -137,6 +137,8 @@ func InitPro() {
 	logic.GetUserGroupsInNetwork = proLogic.GetUserGroupsInNetwork
 	logic.GetUserGroup = proLogic.GetUserGroup
 	logic.GetNodeStatus = proLogic.GetNodeStatus
+	logic.InitializeAuthProvider = auth.InitializeAuthProvider
+	logic.EmailInit = email.Init
 }
 
 func retrieveProLogo() string {
