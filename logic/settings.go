@@ -46,6 +46,7 @@ func ValidateNewSettings(req models.ServerSettings) bool {
 func reInit() {
 	InitializeAuthProvider()
 	EmailInit()
+	SetVerbosity(int(GetServerSettings().Verbosity))
 }
 
 func GetServerSettingsFromEnv() (s models.ServerSettings) {
