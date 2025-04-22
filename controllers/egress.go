@@ -41,12 +41,17 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	egressRange, err := logic.NormalizeCIDR(req.Range)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	e := models.Egress{
 		ID:          uuid.New().String(),
 		Name:        req.Name,
 		Network:     req.Network,
 		Description: req.Description,
-		Range:       req.Range,
+		Range:       egressRange,
 		Nat:         req.Nat,
 		IsInetGw:    req.IsInetGw,
 		Nodes:       make(datatypes.JSONMap),
@@ -122,6 +127,11 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	egressRange, err := logic.NormalizeCIDR(req.Range)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	e := models.Egress{ID: req.ID}
 	err = e.Get()
 	if err != nil {
@@ -141,7 +151,8 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	if req.IsInetGw != e.IsInetGw {
 		updateInetGw = true
 	}
-	e.Range = req.Range
+
+	e.Range = egressRange
 	e.Description = req.Description
 	e.Name = req.Name
 	e.UpdatedAt = time.Now().UTC()
