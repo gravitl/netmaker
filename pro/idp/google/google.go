@@ -2,11 +2,13 @@ package google
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/pro/idp"
 	admindir "google.golang.org/api/admin/directory/v1"
 	"google.golang.org/api/impersonate"
 	"google.golang.org/api/option"
-	"os"
 )
 
 type Client struct {
@@ -14,22 +16,31 @@ type Client struct {
 }
 
 func NewGoogleWorkspaceClient() (*Client, error) {
-	targetPrincipal := os.Getenv("GOOGLE_WORKSPACE_SERVICE_ACCOUNT_EMAIL")
-	subject := os.Getenv("GOOGLE_WORKSPACE_ADMIN_EMAIL")
+	settings := logic.GetServerSettings()
+
+	credsJson, err := base64.StdEncoding.DecodeString(settings.GoogleSACredsJson)
+	if err != nil {
+		return nil, err
+	}
+
+	credsJsonMap := make(map[string]interface{})
+	err = json.Unmarshal(credsJson, &credsJsonMap)
+	if err != nil {
+		return nil, err
+	}
 
 	source, err := impersonate.CredentialsTokenSource(
 		context.TODO(),
 		impersonate.CredentialsConfig{
-			TargetPrincipal: targetPrincipal,
+			TargetPrincipal: credsJsonMap["client_email"].(string),
 			Scopes: []string{
 				admindir.AdminDirectoryUserReadonlyScope,
 				admindir.AdminDirectoryGroupReadonlyScope,
 				admindir.AdminDirectoryGroupMemberReadonlyScope,
 			},
-			Subject: subject,
+			Subject: settings.GoogleAdminEmail,
 		},
-		//option.WithCredentialsJSON(nil),
-		option.WithCredentialsFile("credentials.json"),
+		option.WithCredentialsJSON(credsJson),
 	)
 	if err != nil {
 		return nil, err

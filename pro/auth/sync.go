@@ -105,7 +105,7 @@ func SyncUsers(idpClient idp.Client) error {
 	for _, user := range dbUsersMap {
 		if _, ok := idpUsersMap[user.ExternalIdentityProviderID]; !ok {
 			// delete the user if it has been deleted on idp.
-			_, err = logic.DeleteUser(user.UserName)
+			err = logic.DeleteUser(user.UserName)
 			if err != nil {
 				return err
 			}

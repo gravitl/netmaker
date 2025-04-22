@@ -15,6 +15,8 @@ type ServerSettings struct {
 	OIDCIssuer                 string `json:"oidcissuer"`
 	ClientID                   string `json:"client_id"`
 	ClientSecret               string `json:"client_secret"`
+	GoogleAdminEmail           string `json:"google_admin_email"`
+	GoogleSACredsJson          string `json:"google_sa_creds_json"`
 	AzureTenant                string `json:"azure_tenant"`
 	Telemetry                  string `json:"telemetry"`
 	BasicAuth                  bool   `json:"basic_auth"`

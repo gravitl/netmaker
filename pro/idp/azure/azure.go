@@ -3,11 +3,11 @@ package azure
 import (
 	"context"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/pro/idp"
 	msgraphsdk "github.com/microsoftgraph/msgraph-sdk-go"
 	msgraphgroups "github.com/microsoftgraph/msgraph-sdk-go/groups"
 	msgraphusers "github.com/microsoftgraph/msgraph-sdk-go/users"
-	"os"
 )
 
 type Client struct {
@@ -15,11 +15,14 @@ type Client struct {
 }
 
 func NewAzureEntraIDClient() (*Client, error) {
-	tenantID := os.Getenv("AZURE_TENANT")
-	clientID := os.Getenv("CLIENT_ID")
-	clientSecret := os.Getenv("CLIENT_SECRET")
+	settings := logic.GetServerSettings()
 
-	cred, err := azidentity.NewClientSecretCredential(tenantID, clientID, clientSecret, nil)
+	cred, err := azidentity.NewClientSecretCredential(
+		settings.AzureTenant,
+		settings.ClientID,
+		settings.ClientSecret,
+		nil,
+	)
 	if err != nil {
 	}
 
