@@ -41,11 +41,17 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	egressRange, err := logic.NormalizeCIDR(req.Range)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
+	var egressRange string
+	if !req.IsInetGw {
+		egressRange, err = logic.NormalizeCIDR(req.Range)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+	} else {
+		egressRange = "*"
 	}
+
 	e := models.Egress{
 		ID:          uuid.New().String(),
 		Name:        req.Name,
@@ -127,22 +133,24 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	egressRange, err := logic.NormalizeCIDR(req.Range)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
+	var egressRange string
+	if !req.IsInetGw {
+		egressRange, err = logic.NormalizeCIDR(req.Range)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+	} else {
+		egressRange = "*"
 	}
+
 	e := models.Egress{ID: req.ID}
 	err = e.Get()
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	e.Nodes = make(datatypes.JSONMap)
-	e.Tags = make(datatypes.JSONMap)
-	for nodeID, metric := range req.Nodes {
-		e.Nodes[nodeID] = metric
-	}
+
 	var updateNat bool
 	var updateInetGw bool
 	if req.Nat != e.Nat {
@@ -151,7 +159,11 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	if req.IsInetGw != e.IsInetGw {
 		updateInetGw = true
 	}
-
+	e.Nodes = make(datatypes.JSONMap)
+	e.Tags = make(datatypes.JSONMap)
+	for nodeID, metric := range req.Nodes {
+		e.Nodes[nodeID] = metric
+	}
 	e.Range = egressRange
 	e.Description = req.Description
 	e.Name = req.Name

@@ -293,13 +293,22 @@ func checkIfAclTagisValid(t models.AclPolicyTag, netID models.NetworkID, policyT
 		if isSrc {
 			return false
 		}
-		// _, rangesMap, err := GetEgressRanges(netID)
-		// if err != nil {
-		// 	return false
-		// }
-		// if _, ok := rangesMap[t.Value]; !ok {
-		// 	return false
-		// }
+	// _, rangesMap, err := GetEgressRanges(netID)
+	// if err != nil {
+	// 	return false
+	// }
+	// if _, ok := rangesMap[t.Value]; !ok {
+	// 	return false
+	// }
+	case models.EgressID:
+		e := models.Egress{
+			ID: t.Value,
+		}
+		err := e.Get()
+		if err != nil {
+			return false
+		}
+
 	case models.UserAclID:
 		if policyType == models.DevicePolicy {
 			return false
@@ -386,6 +395,20 @@ func IsAclPolicyValid(acl models.Acl) bool {
 		}
 	}
 	return true
+}
+
+func UniqueAclPolicyTags(tags []models.AclPolicyTag) []models.AclPolicyTag {
+	seen := make(map[string]bool)
+	var result []models.AclPolicyTag
+
+	for _, tag := range tags {
+		key := fmt.Sprintf("%v-%s", tag.ID, tag.Value)
+		if !seen[key] {
+			seen[key] = true
+			result = append(result, tag)
+		}
+	}
+	return result
 }
 
 // UpdateAcl - updates allowed fields on acls and commits to DB

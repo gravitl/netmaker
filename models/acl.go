@@ -60,6 +60,7 @@ const (
 	NodeTagID                AclGroupType = "tag"
 	NodeID                   AclGroupType = "device"
 	EgressRange              AclGroupType = "egress-range"
+	EgressID                 AclGroupType = "egress-id"
 	NetmakerIPAclID          AclGroupType = "ip"
 	NetmakerSubNetRangeAClID AclGroupType = "ipset"
 )
@@ -92,7 +93,6 @@ type Acl struct {
 	Port             []string                `json:"ports"`
 	AllowedDirection AllowedTrafficDirection `json:"allowed_traffic_direction"`
 	Enabled          bool                    `json:"enabled"`
-	ReferenceID      string                  `json:"reference_id"`
 	CreatedBy        string                  `json:"created_by"`
 	CreatedAt        time.Time               `json:"created_at"`
 }
