@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
@@ -647,7 +648,7 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []mode
 // IsPeerAllowed - checks if peer needs to be added to the interface
 func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 	var nodeId, peerId string
-	if peer.IsFailOver && node.FailedOverBy == peer.ID {
+	if peer.IsFailOver && node.FailedOverBy != uuid.Nil && node.FailedOverBy == peer.ID {
 		return true
 	}
 	if node.IsStatic {
@@ -901,6 +902,9 @@ func uniquePolicies(items []models.Acl) []models.Acl {
 // IsNodeAllowedToCommunicate - check node is allowed to communicate with the peer // ADD ALLOWED DIRECTION - 0 => node -> peer, 1 => peer-> node,
 func IsNodeAllowedToCommunicateV1(node, peer models.Node, checkDefaultPolicy bool) (bool, []models.Acl) {
 	var nodeId, peerId string
+	if peer.IsFailOver && node.FailedOverBy != uuid.Nil && node.FailedOverBy == peer.ID {
+		return true, []models.Acl{}
+	}
 	if node.IsStatic {
 		nodeId = node.StaticNode.ClientID
 		node = node.StaticNode.ConvertToStaticNode()
