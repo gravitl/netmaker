@@ -647,6 +647,9 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []mode
 // IsPeerAllowed - checks if peer needs to be added to the interface
 func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 	var nodeId, peerId string
+	if peer.IsFailOver && node.FailedOverBy == peer.ID {
+		return true
+	}
 	if node.IsStatic {
 		nodeId = node.StaticNode.ClientID
 		node = node.StaticNode.ConvertToStaticNode()
