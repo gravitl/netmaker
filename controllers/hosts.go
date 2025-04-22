@@ -209,7 +209,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	serverConf := servercfg.GetServerInfo()
+	serverConf := logic.GetServerInfo()
 	key, keyErr := logic.RetrievePublicTrafficKey()
 	if keyErr != nil {
 		logger.Log(0, "error retrieving key:", keyErr.Error())
@@ -230,7 +230,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		ChangeDefaultGw:   hPU.ChangeDefaultGw,
 		DefaultGwIp:       hPU.DefaultGwIp,
 		IsInternetGw:      hPU.IsInternetGw,
-		EndpointDetection: servercfg.IsEndpointDetectionEnabled(),
+		EndpointDetection: logic.IsEndpointDetectionEnabled(),
 	}
 
 	logger.Log(1, hostID, "completed a pull")

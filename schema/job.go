@@ -16,21 +16,16 @@ import (
 // that it is easier to prevent a task from
 // being executed again.
 type Job struct {
-	ID        string    `gorm:"id;primary_key"`
-	CreatedAt time.Time `gorm:"created_at"`
-}
-
-// TableName returns the name of the jobs table.
-func (j *Job) TableName() string {
-	return "jobs"
+	ID        string `gorm:"primaryKey"`
+	CreatedAt time.Time
 }
 
 // Create creates a job record in the jobs table.
 func (j *Job) Create(ctx context.Context) error {
-	return db.FromContext(ctx).Table(j.TableName()).Create(j).Error
+	return db.FromContext(ctx).Model(&Job{}).Create(j).Error
 }
 
 // Get returns a job record with the given Job.ID.
 func (j *Job) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Table(j.TableName()).Where("id = ?", j.ID).First(j).Error
+	return db.FromContext(ctx).Model(&Job{}).Where("id = ?", j.ID).First(j).Error
 }

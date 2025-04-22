@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"github.com/gravitl/netmaker/db"
 	"net/http"
 	"os"
 	"strings"
@@ -18,6 +19,7 @@ import (
 
 // HttpMiddlewares - middleware functions for REST interactions
 var HttpMiddlewares = []mux.MiddlewareFunc{
+	db.Middleware,
 	userMiddleWare,
 }
 

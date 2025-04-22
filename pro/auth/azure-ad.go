@@ -35,7 +35,7 @@ func initAzureAD(redirectURL string, clientID string, clientSecret string) {
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		Scopes:       []string{"User.Read", "email", "profile", "openid"},
-		Endpoint:     microsoft.AzureADEndpoint(servercfg.GetAzureTenant()),
+		Endpoint:     microsoft.AzureADEndpoint(logic.GetAzureTenant()),
 	}
 }
 
@@ -152,6 +152,12 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserNotFound(w)
 		return
 	}
+
+	if user.AccountDisabled {
+		handleUserAccountDisabled(w)
+		return
+	}
+
 	userRole, err := logic.GetRole(user.PlatformRoleID)
 	if err != nil {
 		handleSomethingWentWrong(w)

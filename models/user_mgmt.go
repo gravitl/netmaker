@@ -13,6 +13,7 @@ type RsrcID string
 type UserRoleID string
 type UserGroupID string
 type AuthType string
+type TokenType string
 
 var (
 	BasicAuth AuthType = "basic_auth"
@@ -34,6 +35,15 @@ func GetRAGRoleName(netID, hostName string) string {
 func GetRAGRoleID(netID, hostID string) UserRoleID {
 	return UserRoleID(fmt.Sprintf("netID-%s-rag-%s", netID, hostID))
 }
+
+func (t TokenType) String() string {
+	return string(t)
+}
+
+var (
+	UserIDTokenType TokenType = "user_id_token"
+	AccessTokenType TokenType = "access_token"
+)
 
 var RsrcTypeMap = map[RsrcType]struct{}{
 	HostRsrc:           {},
@@ -134,17 +144,19 @@ type CreateGroupReq struct {
 }
 
 type UserGroup struct {
-	ID           UserGroupID                           `json:"id"`
-	Default      bool                                  `json:"default"`
-	Name         string                                `json:"name"`
-	NetworkRoles map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
-	MetaData     string                                `json:"meta_data"`
+	ID                         UserGroupID                           `json:"id"`
+	ExternalIdentityProviderID string                                `json:"external_identity_provider_id"`
+	Default                    bool                                  `json:"default"`
+	Name                       string                                `json:"name"`
+	NetworkRoles               map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
+	MetaData                   string                                `json:"meta_data"`
 }
 
 // User struct - struct for Users
 type User struct {
 	UserName                   string                                `json:"username" bson:"username" validate:"min=3,in_charset|email"`
 	ExternalIdentityProviderID string                                `json:"external_identity_provider_id"`
+	AccountDisabled            bool                                  `json:"account_disabled"`
 	Password                   string                                `json:"password" bson:"password" validate:"required,min=5"`
 	IsAdmin                    bool                                  `json:"isadmin" bson:"isadmin"` // deprecated
 	IsSuperAdmin               bool                                  `json:"issuperadmin"`           // deprecated
@@ -185,6 +197,8 @@ type UserAuthParams struct {
 type UserClaims struct {
 	Role           UserRoleID
 	UserName       string
+	Api            string
+	TokenType      TokenType
 	RacAutoDisable bool
 	jwt.RegisteredClaims
 }

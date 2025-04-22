@@ -63,6 +63,7 @@ type ServerConfig struct {
 	FrontendURL                string        `yaml:"frontendurl"`
 	DisplayKeys                string        `yaml:"displaykeys"`
 	AzureTenant                string        `yaml:"azuretenant"`
+	IDPSyncInterval            string        `yaml:"idp_sync_interval"`
 	Telemetry                  string        `yaml:"telemetry"`
 	HostNetwork                string        `yaml:"hostnetwork"`
 	Server                     string        `yaml:"server"`
@@ -75,7 +76,6 @@ type ServerConfig struct {
 	NetmakerTenantID           string        `yaml:"netmaker_tenant_id"`
 	IsPro                      string        `yaml:"is_ee" json:"IsEE"`
 	StunPort                   int           `yaml:"stun_port"`
-	StunList                   string        `yaml:"stun_list"`
 	TurnServer                 string        `yaml:"turn_server"`
 	TurnApiServer              string        `yaml:"turn_api_server"`
 	TurnPort                   int           `yaml:"turn_port"`
