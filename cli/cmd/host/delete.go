@@ -8,10 +8,10 @@ import (
 var force bool
 
 var hostDeleteCmd = &cobra.Command{
-	Use:   "delete HostID",
+	Use:   "delete DeviceID/HostID",
 	Args:  cobra.ExactArgs(1),
-	Short: "Delete a host",
-	Long:  `Delete a host`,
+	Short: "Delete a device",
+	Long:  `Delete a device`,
 	Run: func(cmd *cobra.Command, args []string) {
 		functions.PrettyPrint(functions.DeleteHost(args[0], force))
 	},
