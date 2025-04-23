@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
@@ -295,7 +297,7 @@ func checkIfAclTagisValid(t models.AclPolicyTag, netID models.NetworkID, policyT
 		e := schema.Egress{
 			ID: t.Value,
 		}
-		err := e.Get()
+		err := e.Get(db.WithContext(context.TODO()))
 		if err != nil {
 			return false
 		}
@@ -1251,7 +1253,7 @@ func getEgressUserRulesForNode(targetnode *models.Node,
 			for _, dstI := range acl.Dst {
 				if dstI.ID == models.EgressID {
 					e := schema.Egress{ID: dstI.Value}
-					err := e.Get()
+					err := e.Get(db.WithContext(context.TODO()))
 					if err != nil {
 						continue
 					}

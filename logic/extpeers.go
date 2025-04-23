@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/goombaio/namegenerator"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/models"
@@ -631,7 +633,7 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 			if dstI.ID == models.EgressID {
 
 				e := schema.Egress{ID: dstI.Value}
-				err := e.Get()
+				err := e.Get(db.WithContext(context.TODO()))
 				if err != nil {
 					continue
 				}
@@ -720,7 +722,7 @@ func getFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []
 							if dstI.ID == models.EgressID {
 
 								e := schema.Egress{ID: dstI.Value}
-								err := e.Get()
+								err := e.Get(db.WithContext(context.TODO()))
 								if err != nil {
 									continue
 								}

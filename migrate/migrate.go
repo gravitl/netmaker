@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/acls"
@@ -525,7 +527,7 @@ func migrateToEgressV1() {
 					CreatedBy: user.UserName,
 					CreatedAt: time.Now().UTC(),
 				}
-				err = e.Create()
+				err = e.Create(db.WithContext(context.TODO()))
 				if err == nil {
 					node.IsEgressGateway = false
 					node.EgressGatewayRequest = models.EgressGatewayRequest{}
@@ -551,7 +553,7 @@ func migrateToEgressV1() {
 				CreatedBy: user.UserName,
 				CreatedAt: time.Now().UTC(),
 			}
-			err = e.Create()
+			err = e.Create(db.WithContext(context.TODO()))
 			if err == nil {
 				node.IsEgressGateway = false
 				node.EgressGatewayRequest = models.EgressGatewayRequest{}

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -73,7 +75,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid egress request"), "badrequest"))
 		return
 	}
-	err = e.Create()
+	err = e.Create(db.WithContext(context.TODO()))
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
@@ -103,7 +105,7 @@ func listEgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	e := schema.Egress{Network: network}
-	list, err := e.ListByNetwork()
+	list, err := e.ListByNetwork(db.WithContext(context.TODO()))
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
@@ -146,7 +148,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	}
 
 	e := schema.Egress{ID: req.ID}
-	err = e.Get()
+	err = e.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -173,7 +175,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid egress request"), "badrequest"))
 		return
 	}
-	err = e.Update()
+	err = e.Update(db.WithContext(context.TODO()))
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
@@ -184,14 +186,14 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	}
 	if updateNat {
 		e.Nat = req.Nat
-		e.UpdateNatStatus()
+		e.UpdateNatStatus(db.WithContext(context.TODO()))
 	}
 	if updateInetGw {
 		e.IsInetGw = req.IsInetGw
-		e.UpdateINetGwStatus()
+		e.UpdateINetGwStatus(db.WithContext(context.TODO()))
 	}
 	go mq.PublishPeerUpdate(false)
-	logic.ReturnSuccessResponseWithJson(w, r, req, "updated egress resource")
+	logic.ReturnSuccessResponseWithJson(w, r, e, "updated egress resource")
 }
 
 // @Summary     Delete Egress Resource
@@ -211,7 +213,7 @@ func deleteEgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	e := schema.Egress{ID: id}
-	err := e.Delete()
+	err := e.Delete(db.WithContext(context.TODO()))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return

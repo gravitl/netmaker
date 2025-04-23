@@ -1,9 +1,11 @@
 package logic
 
 import (
+	"context"
 	"encoding/json"
 	"net"
 
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 )
@@ -48,7 +50,7 @@ func GetInetClientsFromAclPolicies(node *models.Node) (inetClientIDs []string) {
 				e := schema.Egress{
 					ID: dstI.Value,
 				}
-				err := e.Get()
+				err := e.Get(db.WithContext(context.TODO()))
 				if err != nil {
 					continue
 				}
@@ -76,7 +78,7 @@ func IsNodeUsingInternetGw(node *models.Node) {
 		for _, dstI := range acl.Dst {
 			if dstI.ID == models.EgressID {
 				e := schema.Egress{ID: dstI.Value}
-				err := e.Get()
+				err := e.Get(db.WithContext(context.TODO()))
 				if err != nil {
 					continue
 				}
@@ -102,7 +104,7 @@ func IsNodeUsingInternetGw(node *models.Node) {
 }
 
 func GetNodeEgressInfo(targetNode *models.Node) {
-	eli, _ := (&schema.Egress{Network: targetNode.Network}).ListByNetwork()
+	eli, _ := (&schema.Egress{Network: targetNode.Network}).ListByNetwork(db.WithContext(context.TODO()))
 	req := models.EgressGatewayRequest{
 		NodeID: targetNode.ID.String(),
 		NetID:  targetNode.Network,
