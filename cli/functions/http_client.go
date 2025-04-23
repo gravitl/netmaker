@@ -86,10 +86,6 @@ func ssoLogin(endpoint string) string {
 }
 
 func getAuthToken(ctx config.Context, force bool) string {
-	authToken := os.Getenv("NMCTL_ACCESS_TOKEN")
-	if authToken != "" {
-		return authToken
-	}
 	if !force && ctx.AuthToken != "" {
 		return ctx.AuthToken
 	}
