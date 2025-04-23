@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -510,7 +511,7 @@ func migrateToEgressV1() {
 	for _, node := range nodes {
 		if node.IsEgressGateway {
 			for _, rangeI := range node.EgressGatewayRequest.Ranges {
-				e := models.Egress{
+				e := schema.Egress{
 					ID:          uuid.New().String(),
 					Name:        rangeI,
 					Description: "add description",
@@ -535,7 +536,7 @@ func migrateToEgressV1() {
 			}
 		}
 		if node.IsInternetGateway {
-			e := models.Egress{
+			e := schema.Egress{
 				ID:          uuid.New().String(),
 				Name:        "inet gw",
 				Description: "add description",
