@@ -169,6 +169,7 @@ func CreateUser(user *models.User) error {
 	if IsOauthUser(user) == nil {
 		user.AuthType = models.OAuth
 	}
+	AddGlobalNetRolesToAdmins(user)
 	_, err = CreateUserJWT(user.UserName, user.PlatformRoleID)
 	if err != nil {
 		logger.Log(0, "failed to generate token", err.Error())
@@ -186,7 +187,6 @@ func CreateUser(user *models.User) error {
 		logger.Log(0, "failed to insert user", err.Error())
 		return err
 	}
-	AddGlobalNetRolesToAdmins(*user)
 	return nil
 }
 
@@ -305,7 +305,7 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 	}
 	user.UserGroups = userchange.UserGroups
 	user.NetworkRoles = userchange.NetworkRoles
-	AddGlobalNetRolesToAdmins(*user)
+	AddGlobalNetRolesToAdmins(user)
 	err := ValidateUser(user)
 	if err != nil {
 		return &models.User{}, err
@@ -349,19 +349,18 @@ func ValidateUser(user *models.User) error {
 }
 
 // DeleteUser - deletes a given user
-func DeleteUser(user string) (bool, error) {
+func DeleteUser(user string) error {
 
 	if userRecord, err := database.FetchRecord(database.USERS_TABLE_NAME, user); err != nil || len(userRecord) == 0 {
-		return false, errors.New("user does not exist")
+		return errors.New("user does not exist")
 	}
 
 	err := database.DeleteRecord(database.USERS_TABLE_NAME, user)
 	if err != nil {
-		return false, err
+		return err
 	}
 	go RemoveUserFromAclPolicy(user)
-
-	return true, nil
+	return (&models.UserAccessToken{UserName: user}).DeleteAllUserTokens()
 }
 
 func SetAuthSecret(secret string) error {

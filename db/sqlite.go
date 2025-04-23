@@ -1,11 +1,12 @@
 package db
 
 import (
+	"os"
+	"path/filepath"
+
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"os"
-	"path/filepath"
 )
 
 // sqliteConnector for initializing and
@@ -28,7 +29,7 @@ func (s *sqliteConnector) connect() (*gorm.DB, error) {
 		}
 	}
 
-	dbFilePath := filepath.Join("data", "netmaker_v1.db")
+	dbFilePath := filepath.Join("data", "netmaker.db")
 
 	// ensure netmaker_v1.db exists.
 	_, err = os.Stat(dbFilePath)

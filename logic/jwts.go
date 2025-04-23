@@ -53,11 +53,37 @@ func CreateJWT(uuid string, macAddress string, network string) (response string,
 }
 
 // CreateUserJWT - creates a user jwt token
+func CreateUserAccessJwtToken(username string, role models.UserRoleID, d time.Time, tokenID string) (response string, err error) {
+	claims := &models.UserClaims{
+		UserName:       username,
+		Role:           role,
+		TokenType:      models.AccessTokenType,
+		Api:            servercfg.ServerInfo.APIHost,
+		RacAutoDisable: servercfg.GetRacAutoDisable() && (role != models.SuperAdminRole && role != models.AdminRole),
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    "Netmaker",
+			Subject:   fmt.Sprintf("user|%s", username),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(d),
+			ID:        tokenID,
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString(jwtSecretKey)
+	if err == nil {
+		return tokenString, nil
+	}
+	return "", err
+}
+
+// CreateUserJWT - creates a user jwt token
 func CreateUserJWT(username string, role models.UserRoleID) (response string, err error) {
 	expirationTime := time.Now().Add(servercfg.GetServerConfig().JwtValidityDuration)
 	claims := &models.UserClaims{
 		UserName:       username,
 		Role:           role,
+		TokenType:      models.UserIDTokenType,
 		RacAutoDisable: servercfg.GetRacAutoDisable() && (role != models.SuperAdminRole && role != models.AdminRole),
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "Netmaker",
@@ -73,18 +99,6 @@ func CreateUserJWT(username string, role models.UserRoleID) (response string, er
 		return tokenString, nil
 	}
 	return "", err
-}
-
-// VerifyJWT verifies Auth Header
-func VerifyJWT(bearerToken string) (username string, issuperadmin, isadmin bool, err error) {
-	token := ""
-	tokenSplit := strings.Split(bearerToken, " ")
-	if len(tokenSplit) > 1 {
-		token = tokenSplit[1]
-	} else {
-		return "", false, false, errors.New("invalid auth header")
-	}
-	return VerifyUserToken(token)
 }
 
 func GetUserNameFromToken(authtoken string) (username string, err error) {
@@ -106,6 +120,20 @@ func GetUserNameFromToken(authtoken string) (username string, err error) {
 	})
 	if err != nil {
 		return "", Unauthorized_Err
+	}
+	if claims.TokenType == models.AccessTokenType {
+		jti := claims.ID
+		if jti != "" {
+			a := models.UserAccessToken{ID: jti}
+			// check if access token is active
+			err := a.Get()
+			if err != nil {
+				err = errors.New("token revoked")
+				return "", err
+			}
+			a.LastUsed = time.Now()
+			a.Update()
+		}
 	}
 
 	if token != nil && token.Valid {
@@ -131,15 +159,26 @@ func GetUserNameFromToken(authtoken string) (username string, err error) {
 // VerifyUserToken func will used to Verify the JWT Token while using APIS
 func VerifyUserToken(tokenString string) (username string, issuperadmin, isadmin bool, err error) {
 	claims := &models.UserClaims{}
-
 	if tokenString == servercfg.GetMasterKey() && servercfg.GetMasterKey() != "" {
 		return MasterUser, true, true, nil
 	}
-
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		return jwtSecretKey, nil
 	})
-
+	if claims.TokenType == models.AccessTokenType {
+		jti := claims.ID
+		if jti != "" {
+			a := models.UserAccessToken{ID: jti}
+			// check if access token is active
+			err := a.Get()
+			if err != nil {
+				err = errors.New("token revoked")
+				return "", false, false, err
+			}
+			a.LastUsed = time.Now()
+			a.Update()
+		}
+	}
 	if token != nil && token.Valid {
 		var user *models.User
 		// check that user exists
