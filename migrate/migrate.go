@@ -21,6 +21,7 @@ import (
 
 // Run - runs all migrations
 func Run() {
+	settings()
 	updateEnrollmentKeys()
 	assignSuperAdmin()
 	createDefaultTagsAndPolicies()
@@ -597,5 +598,12 @@ func migrateToEgressV1() {
 			node.InternetGwID = ""
 			logic.UpsertNode(&node)
 		}
+	}
+}
+
+func settings() {
+	_, err := database.FetchRecords(database.SERVER_SETTINGS)
+	if database.IsEmptyRecord(err) {
+		logic.UpsertServerSettings(logic.GetServerSettingsFromEnv())
 	}
 }

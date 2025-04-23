@@ -21,7 +21,7 @@ func PublishPeerUpdate(replacePeers bool) error {
 		return nil
 	}
 
-	if servercfg.GetManageDNS() {
+	if logic.GetManageDNS() {
 		sendDNSSync()
 	}
 

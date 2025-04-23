@@ -1,10 +1,14 @@
 package logic
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 
 	"github.com/golang-jwt/jwt/v4"
 
@@ -58,8 +62,8 @@ func CreateUserAccessJwtToken(username string, role models.UserRoleID, d time.Ti
 		UserName:       username,
 		Role:           role,
 		TokenType:      models.AccessTokenType,
-		Api:            servercfg.ServerInfo.APIHost,
-		RacAutoDisable: servercfg.GetRacAutoDisable() && (role != models.SuperAdminRole && role != models.AdminRole),
+		Api:            servercfg.GetAPIHost(),
+		RacAutoDisable: GetRacAutoDisable() && (role != models.SuperAdminRole && role != models.AdminRole),
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "Netmaker",
 			Subject:   fmt.Sprintf("user|%s", username),
@@ -79,12 +83,13 @@ func CreateUserAccessJwtToken(username string, role models.UserRoleID, d time.Ti
 
 // CreateUserJWT - creates a user jwt token
 func CreateUserJWT(username string, role models.UserRoleID) (response string, err error) {
-	expirationTime := time.Now().Add(servercfg.GetServerConfig().JwtValidityDuration)
+	settings := GetServerSettings()
+	expirationTime := time.Now().Add(time.Duration(settings.JwtValidityDuration) * time.Second)
 	claims := &models.UserClaims{
 		UserName:       username,
 		Role:           role,
 		TokenType:      models.UserIDTokenType,
-		RacAutoDisable: servercfg.GetRacAutoDisable() && (role != models.SuperAdminRole && role != models.AdminRole),
+		RacAutoDisable: settings.RacAutoDisable && (role != models.SuperAdminRole && role != models.AdminRole),
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "Netmaker",
 			Subject:   fmt.Sprintf("user|%s", username),
@@ -124,15 +129,15 @@ func GetUserNameFromToken(authtoken string) (username string, err error) {
 	if claims.TokenType == models.AccessTokenType {
 		jti := claims.ID
 		if jti != "" {
-			a := models.UserAccessToken{ID: jti}
+			a := schema.UserAccessToken{ID: jti}
 			// check if access token is active
-			err := a.Get()
+			err := a.Get(db.WithContext(context.TODO()))
 			if err != nil {
 				err = errors.New("token revoked")
 				return "", err
 			}
 			a.LastUsed = time.Now().UTC()
-			a.Update()
+			a.Update(db.WithContext(context.TODO()))
 		}
 	}
 
@@ -168,15 +173,15 @@ func VerifyUserToken(tokenString string) (username string, issuperadmin, isadmin
 	if claims.TokenType == models.AccessTokenType {
 		jti := claims.ID
 		if jti != "" {
-			a := models.UserAccessToken{ID: jti}
+			a := schema.UserAccessToken{ID: jti}
 			// check if access token is active
-			err := a.Get()
+			err := a.Get(db.WithContext(context.TODO()))
 			if err != nil {
 				err = errors.New("token revoked")
 				return "", false, false, err
 			}
 			a.LastUsed = time.Now().UTC()
-			a.Update()
+			a.Update(db.WithContext(context.TODO()))
 		}
 	}
 	if token != nil && token.Valid {

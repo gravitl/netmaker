@@ -349,7 +349,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// ready the response
-	server := servercfg.GetServerInfo()
+	server := logic.GetServerInfo()
 	server.TrafficKey = key
 	response := models.RegisterResponse{
 		ServerConf:    server,
