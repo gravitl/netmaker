@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -291,7 +292,7 @@ func checkIfAclTagisValid(t models.AclPolicyTag, netID models.NetworkID, policyT
 			}
 		}
 	case models.EgressID:
-		e := models.Egress{
+		e := schema.Egress{
 			ID: t.Value,
 		}
 		err := e.Get()
@@ -1249,7 +1250,7 @@ func getEgressUserRulesForNode(targetnode *models.Node,
 			}
 			for _, dstI := range acl.Dst {
 				if dstI.ID == models.EgressID {
-					e := models.Egress{ID: dstI.Value}
+					e := schema.Egress{ID: dstI.Value}
 					err := e.Get()
 					if err != nil {
 						continue

@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/schema"
 	"gorm.io/datatypes"
 )
 
@@ -52,7 +53,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		egressRange = "*"
 	}
 
-	e := models.Egress{
+	e := schema.Egress{
 		ID:          uuid.New().String(),
 		Name:        req.Name,
 		Network:     req.Network,
@@ -101,7 +102,7 @@ func listEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), "badrequest"))
 		return
 	}
-	e := models.Egress{Network: network}
+	e := schema.Egress{Network: network}
 	list, err := e.ListByNetwork()
 	if err != nil {
 		logic.ReturnErrorResponse(
@@ -144,7 +145,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		egressRange = "*"
 	}
 
-	e := models.Egress{ID: req.ID}
+	e := schema.Egress{ID: req.ID}
 	err = e.Get()
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -209,7 +210,7 @@ func deleteEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("id is required"), "badrequest"))
 		return
 	}
-	e := models.Egress{ID: id}
+	e := schema.Egress{ID: id}
 	err := e.Delete()
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))

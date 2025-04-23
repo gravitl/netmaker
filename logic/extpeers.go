@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -629,7 +630,7 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 		for _, dstI := range policy.Dst {
 			if dstI.ID == models.EgressID {
 
-				e := models.Egress{ID: dstI.Value}
+				e := schema.Egress{ID: dstI.Value}
 				err := e.Get()
 				if err != nil {
 					continue
@@ -718,7 +719,7 @@ func getFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []
 						for _, dstI := range policy.Dst {
 							if dstI.ID == models.EgressID {
 
-								e := models.Egress{ID: dstI.Value}
+								e := schema.Egress{ID: dstI.Value}
 								err := e.Get()
 								if err != nil {
 									continue

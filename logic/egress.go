@@ -5,9 +5,10 @@ import (
 	"net"
 
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 )
 
-func ValidateEgressReq(e *models.Egress) bool {
+func ValidateEgressReq(e *schema.Egress) bool {
 	if e.Network == "" {
 		return false
 	}
@@ -44,7 +45,7 @@ func GetInetClientsFromAclPolicies(node *models.Node) (inetClientIDs []string) {
 	for _, acl := range acls {
 		for _, dstI := range acl.Dst {
 			if dstI.ID == models.EgressID {
-				e := models.Egress{
+				e := schema.Egress{
 					ID: dstI.Value,
 				}
 				err := e.Get()
@@ -74,7 +75,7 @@ func IsNodeUsingInternetGw(node *models.Node) {
 		srcVal := convAclTagToValueMap(acl.Src)
 		for _, dstI := range acl.Dst {
 			if dstI.ID == models.EgressID {
-				e := models.Egress{ID: dstI.Value}
+				e := schema.Egress{ID: dstI.Value}
 				err := e.Get()
 				if err != nil {
 					continue
@@ -101,7 +102,7 @@ func IsNodeUsingInternetGw(node *models.Node) {
 }
 
 func GetNodeEgressInfo(targetNode *models.Node) {
-	eli, _ := (&models.Egress{Network: targetNode.Network}).ListByNetwork()
+	eli, _ := (&schema.Egress{Network: targetNode.Network}).ListByNetwork()
 	req := models.EgressGatewayRequest{
 		NodeID: targetNode.ID.String(),
 		NetID:  targetNode.Network,
