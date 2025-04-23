@@ -289,17 +289,6 @@ func checkIfAclTagisValid(t models.AclPolicyTag, netID models.NetworkID, policyT
 				return false
 			}
 		}
-	case models.EgressRange:
-		if isSrc {
-			return false
-		}
-	// _, rangesMap, err := GetEgressRanges(netID)
-	// if err != nil {
-	// 	return false
-	// }
-	// if _, ok := rangesMap[t.Value]; !ok {
-	// 	return false
-	// }
 	case models.EgressID:
 		e := models.Egress{
 			ID: t.Value,
@@ -1246,16 +1235,34 @@ func getEgressUserRulesForNode(targetnode *models.Node,
 				r.IP6List = append(r.IP6List, userNode.StaticNode.AddressIPNet6())
 			}
 			for _, dstI := range acl.Dst {
-				if dstI.ID == models.EgressRange {
-					ip, cidr, err := net.ParseCIDR(dstI.Value)
-					if err == nil {
-						if ip.To4() != nil {
-							r.Dst = append(r.Dst, *cidr)
-						} else {
-							r.Dst6 = append(r.Dst6, *cidr)
-						}
-
+				if dstI.ID == models.EgressID {
+					e := models.Egress{ID: dstI.Value}
+					err := e.Get()
+					if err != nil {
+						continue
 					}
+					if e.IsInetGw {
+						r.Dst = append(r.Dst, net.IPNet{
+							IP:   net.IPv4zero,
+							Mask: net.CIDRMask(0, 32),
+						})
+						r.Dst6 = append(r.Dst6, net.IPNet{
+							IP:   net.IPv6zero,
+							Mask: net.CIDRMask(0, 128),
+						})
+
+					} else {
+						ip, cidr, err := net.ParseCIDR(e.Range)
+						if err == nil {
+							if ip.To4() != nil {
+								r.Dst = append(r.Dst, *cidr)
+							} else {
+								r.Dst6 = append(r.Dst6, *cidr)
+							}
+
+						}
+					}
+
 				}
 
 			}

@@ -42,12 +42,18 @@ func ValidateEgressReq(e *models.Egress) bool {
 func GetInetClientsFromAclPolicies(node *models.Node) (inetClientIDs []string) {
 	acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
 	for _, acl := range acls {
-		dstVal := convAclTagToValueMap(acl.Dst)
 		for _, dstI := range acl.Dst {
-			if _, ok := dstVal[node.ID.String()]; !ok {
-				continue
-			}
-			if dstI.ID == models.EgressRange && dstI.Value == "*" {
+			if dstI.ID == models.EgressID {
+				e := models.Egress{
+					ID: dstI.Value,
+				}
+				err := e.Get()
+				if err != nil {
+					continue
+				}
+				if _, ok := e.Nodes[node.ID.String()]; !ok {
+					continue
+				}
 				for _, srcI := range acl.Src {
 					if srcI.ID == models.NodeID {
 						inetClientIDs = append(inetClientIDs, srcI.Value)
@@ -67,20 +73,23 @@ func IsNodeUsingInternetGw(node *models.Node) {
 	for _, acl := range acls {
 		srcVal := convAclTagToValueMap(acl.Src)
 		for _, dstI := range acl.Dst {
-			if dstI.ID == models.EgressRange && dstI.Value == "*" {
-				if _, ok := srcVal[node.ID.String()]; ok {
-					for _, dstI := range acl.Dst {
-						if dstI.ID == models.NodeID {
-							node.InternetGwID = dstI.Value
+			if dstI.ID == models.EgressID {
+				e := models.Egress{ID: dstI.Value}
+				err := e.Get()
+				if err != nil {
+					continue
+				}
+				if e.IsInetGw {
+					if _, ok := srcVal[node.ID.String()]; ok {
+						for nodeID := range e.Nodes {
+							node.InternetGwID = nodeID
 							return
 						}
 					}
-				}
-				for tagID := range node.Tags {
-					if _, ok := srcVal[tagID.String()]; ok {
-						for _, dstI := range acl.Dst {
-							if dstI.ID == models.NodeID {
-								node.InternetGwID = dstI.Value
+					for tagID := range node.Tags {
+						if _, ok := srcVal[tagID.String()]; ok {
+							for nodeID := range e.Nodes {
+								node.InternetGwID = nodeID
 								return
 							}
 						}

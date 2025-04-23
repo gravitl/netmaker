@@ -627,7 +627,15 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 
 		// add egress range rules
 		for _, dstI := range policy.Dst {
-			if dstI.ID == models.EgressRange {
+			if dstI.ID == models.EgressID {
+
+				e := models.Egress{ID: dstI.Value}
+				err := e.Get()
+				if err != nil {
+					continue
+				}
+				dstI.Value = e.Range
+
 				ip, cidr, err := net.ParseCIDR(dstI.Value)
 				if err == nil {
 					if ip.To4() != nil {
@@ -708,7 +716,15 @@ func getFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []
 
 						// add egress ranges
 						for _, dstI := range policy.Dst {
-							if dstI.ID == models.EgressRange {
+							if dstI.ID == models.EgressID {
+
+								e := models.Egress{ID: dstI.Value}
+								err := e.Get()
+								if err != nil {
+									continue
+								}
+								dstI.Value = e.Range
+
 								ip, cidr, err := net.ParseCIDR(dstI.Value)
 								if err == nil {
 									if ip.To4() != nil && userNodeI.StaticNode.Address != "" {

@@ -574,16 +574,12 @@ func migrateToEgressV1() {
 					ServiceType: models.Any,
 					NetworkID:   models.NetworkID(node.Network),
 					Proto:       models.ALL,
-					RuleType:    models.UserPolicy,
+					RuleType:    models.DevicePolicy,
 					Src:         src,
 					Dst: []models.AclPolicyTag{
 						{
-							ID:    models.NodeID,
-							Value: node.ID.String(),
-						},
-						{
-							ID:    models.EgressRange,
-							Value: "*",
+							ID:    models.EgressID,
+							Value: e.ID,
 						},
 					},
 
