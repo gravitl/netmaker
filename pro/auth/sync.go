@@ -11,6 +11,7 @@ import (
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/servercfg"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -76,7 +77,22 @@ func SyncUsers(idpClient idp.Client) error {
 		}
 	}
 
+	filters := logic.GetServerSettings().UserFilters
+
 	for _, user := range idpUsers {
+		var found bool
+		for _, filter := range filters {
+			if strings.HasPrefix(user.Username, filter) {
+				found = true
+				break
+			}
+		}
+
+		// if there are filters but none of them match, then skip this user.
+		if !found {
+			continue
+		}
+
 		dbUser, ok := dbUsersMap[user.ID]
 		if !ok {
 			// create the user only if it doesn't exist.
@@ -150,7 +166,22 @@ func SyncGroups(idpClient idp.Client) error {
 
 	modifiedUsers := make(map[string]struct{})
 
+	filters := logic.GetServerSettings().GroupFilters
+
 	for _, group := range idpGroups {
+		var found bool
+		for _, filter := range filters {
+			if strings.HasPrefix(group.Name, filter) {
+				found = true
+				break
+			}
+		}
+
+		// if there are filters but none of them match, then skip this group.
+		if len(filters) > 0 && !found {
+			continue
+		}
+
 		if _, ok := dbGroupsMap[group.ID]; !ok {
 			// create the group only if it doesn't exist.
 			err := proLogic.CreateUserGroup(models.UserGroup{
