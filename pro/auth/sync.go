@@ -27,6 +27,11 @@ func StartSyncHook() {
 }
 
 func SyncFromIDP() error {
+	settings := logic.GetServerSettings()
+	if !settings.SyncEnabled {
+		return nil
+	}
+
 	var idpClient idp.Client
 	var err error
 
