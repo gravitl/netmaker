@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gravitl/netmaker/config"
@@ -15,6 +16,7 @@ import (
 )
 
 var serverSettingsDBKey = "server_cfg"
+var settingsMutex = &sync.RWMutex{}
 
 func GetServerSettings() (s models.ServerSettings) {
 	data, err := database.FetchRecord(database.SERVER_SETTINGS, serverSettingsDBKey)
@@ -26,6 +28,8 @@ func GetServerSettings() (s models.ServerSettings) {
 }
 
 func UpsertServerSettings(s models.ServerSettings) error {
+	// get curr settings
+	currSettings := GetServerSettings()
 	data, err := json.Marshal(s)
 	if err != nil {
 		return err
@@ -34,7 +38,7 @@ func UpsertServerSettings(s models.ServerSettings) error {
 	if err != nil {
 		return err
 	}
-	go reInit()
+	go reInit(currSettings, s)
 	return nil
 }
 
@@ -43,10 +47,21 @@ func ValidateNewSettings(req models.ServerSettings) bool {
 	return true
 }
 
-func reInit() {
+func reInit(curr, new models.ServerSettings) {
+	settingsMutex.Lock()
+	defer settingsMutex.Unlock()
 	InitializeAuthProvider()
 	EmailInit()
 	SetVerbosity(int(GetServerSettings().Verbosity))
+	// check if auto update is changed
+	if curr.NetclientAutoUpdate != new.NetclientAutoUpdate {
+		// update all hosts
+		hosts, _ := GetAllHosts()
+		for _, host := range hosts {
+			host.AutoUpdate = new.NetclientAutoUpdate
+			UpsertHost(&host)
+		}
+	}
 }
 
 func GetServerSettingsFromEnv() (s models.ServerSettings) {
