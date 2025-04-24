@@ -1450,6 +1450,18 @@ func checkIfAnyActiveEgressPolicy(targetNode models.Node) bool {
 		}
 		srcTags := convAclTagToValueMap(acl.Src)
 		dstTags := convAclTagToValueMap(acl.Dst)
+		for _, dst := range acl.Dst {
+			if dst.ID == models.EgressID {
+				e := schema.Egress{ID: dst.Value}
+				err := e.Get(db.WithContext(context.TODO()))
+				if err == nil {
+					for nodeID := range e.Nodes {
+						dstTags[nodeID] = struct{}{}
+					}
+					dstTags[e.Range] = struct{}{}
+				}
+			}
+		}
 		for nodeTag := range targetNodeTags {
 			if acl.RuleType == models.DevicePolicy {
 				if _, ok := srcTags[nodeTag.String()]; ok {
