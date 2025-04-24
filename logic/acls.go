@@ -738,8 +738,20 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 		if !policy.Enabled {
 			continue
 		}
+
 		srcMap = convAclTagToValueMap(policy.Src)
 		dstMap = convAclTagToValueMap(policy.Dst)
+		for _, dst := range policy.Dst {
+			if dst.ID == models.EgressID {
+				e := schema.Egress{ID: dst.Value}
+				err := e.Get(db.WithContext(context.TODO()))
+				if err == nil {
+					for nodeID := range e.Nodes {
+						dstMap[nodeID] = struct{}{}
+					}
+				}
+			}
+		}
 		if checkTagGroupPolicy(srcMap, dstMap, node, peer, nodeTags, peerTags) {
 			return true
 		}
@@ -1001,6 +1013,17 @@ func IsNodeAllowedToCommunicateV1(node, peer models.Node, checkDefaultPolicy boo
 		allowed := false
 		srcMap = convAclTagToValueMap(policy.Src)
 		dstMap = convAclTagToValueMap(policy.Dst)
+		for _, dst := range policy.Dst {
+			if dst.ID == models.EgressID {
+				e := schema.Egress{ID: dst.Value}
+				err := e.Get(db.WithContext(context.TODO()))
+				if err == nil {
+					for nodeID := range e.Nodes {
+						dstMap[nodeID] = struct{}{}
+					}
+				}
+			}
+		}
 		_, srcAll := srcMap["*"]
 		_, dstAll := dstMap["*"]
 		if policy.AllowedDirection == models.TrafficDirectionBi {

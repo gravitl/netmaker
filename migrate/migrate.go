@@ -512,11 +512,15 @@ func migrateToEgressV1() {
 	}
 	for _, node := range nodes {
 		if node.IsEgressGateway {
+			egressHost, err := logic.GetHost(node.HostID.String())
+			if err != nil {
+				continue
+			}
 			for _, rangeI := range node.EgressGatewayRequest.Ranges {
 				e := schema.Egress{
 					ID:          uuid.New().String(),
-					Name:        rangeI,
-					Description: "add description",
+					Name:        fmt.Sprintf("%s egress", egressHost.Name),
+					Description: "",
 					Network:     node.Network,
 					Nodes: datatypes.JSONMap{
 						node.ID.String(): 256,
@@ -536,11 +540,17 @@ func migrateToEgressV1() {
 					logic.UpsertNode(&node)
 				}
 			}
+
 		}
+
 		if node.IsInternetGateway {
+			inetHost, err := logic.GetHost(node.HostID.String())
+			if err != nil {
+				continue
+			}
 			e := schema.Egress{
 				ID:          uuid.New().String(),
-				Name:        "inet gw",
+				Name:        fmt.Sprintf("%s inet gw", inetHost.Name),
 				Description: "add description",
 				Network:     node.Network,
 				Nodes: datatypes.JSONMap{
