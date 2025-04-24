@@ -75,7 +75,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid egress request"), "badrequest"))
 		return
 	}
-	err = e.Create(db.WithContext(context.TODO()))
+	err = e.Create(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
@@ -105,7 +105,7 @@ func listEgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	e := schema.Egress{Network: network}
-	list, err := e.ListByNetwork(db.WithContext(context.TODO()))
+	list, err := e.ListByNetwork(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
@@ -148,7 +148,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	}
 
 	e := schema.Egress{ID: req.ID}
-	err = e.Get(db.WithContext(context.TODO()))
+	err = e.Get(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -213,7 +213,7 @@ func deleteEgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	e := schema.Egress{ID: id}
-	err := e.Delete(db.WithContext(context.TODO()))
+	err := e.Delete(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
