@@ -63,7 +63,8 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}/remote_access_gw", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserRemoteAccessGwsV1)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/ingress/{ingress_id}", logic.SecurityCheck(true, http.HandlerFunc(ingressGatewayUsers))).Methods(http.MethodGet)
 
-	r.HandleFunc("/api/idp/sync", logic.SecurityCheck(true, http.HandlerFunc(syncIdp))).Methods(http.MethodPost)
+	r.HandleFunc("/api/idp/sync", logic.SecurityCheck(true, http.HandlerFunc(syncIDP))).Methods(http.MethodPost)
+	r.HandleFunc("/api/idp", logic.SecurityCheck(true, http.HandlerFunc(removeIDPIntegration))).Methods(http.MethodDelete)
 }
 
 // swagger:route POST /api/v1/users/invite-signup user userInviteSignUp
@@ -1403,7 +1404,7 @@ func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/idp/sync [post]
 // @Tags        IDP
 // @Success     200 {object} models.SuccessResponse
-func syncIdp(w http.ResponseWriter, r *http.Request) {
+func syncIDP(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		err := proAuth.SyncFromIDP()
 		if err != nil {
@@ -1414,4 +1415,58 @@ func syncIdp(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	logic.ReturnSuccessResponse(w, r, "starting sync from idp")
+}
+
+func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
+	superAdmin, err := logic.GetSuperAdmin()
+	if err != nil {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(fmt.Errorf("failed to get superadmin: %v", err), "internal"),
+		)
+		return
+	}
+
+	if superAdmin.AuthType == models.OAuth {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(fmt.Errorf("cannot remove idp integration with superadmin oauth user"), "badrequest"),
+		)
+		return
+	}
+
+	settings := logic.GetServerSettings()
+	settings.AuthProvider = ""
+	settings.OIDCIssuer = ""
+	settings.ClientID = ""
+	settings.ClientSecret = ""
+	settings.SyncEnabled = false
+	settings.GoogleAdminEmail = ""
+	settings.GoogleSACredsJson = ""
+	settings.AzureTenant = ""
+	settings.UserFilters = nil
+	settings.GroupFilters = nil
+
+	err = logic.UpsertServerSettings(settings)
+	if err != nil {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(fmt.Errorf("failed to remove idp integration: %v", err), "internal"),
+		)
+		return
+	}
+
+	go func() {
+		err := proAuth.SyncFromIDP()
+		if err != nil {
+			logger.Log(0, "failed to sync from idp: ", err.Error())
+		} else {
+			logger.Log(0, "sync from idp complete")
+		}
+	}()
+
+	logic.ReturnSuccessResponse(w, r, "removed idp integration successfully")
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/gravitl/netmaker/pro/idp/google"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/servercfg"
-	"os"
 	"strings"
 	"time"
 )
@@ -33,32 +32,43 @@ func SyncFromIDP() error {
 	}
 
 	var idpClient idp.Client
+	var idpUsers []idp.User
+	var idpGroups []idp.Group
 	var err error
 
-	switch os.Getenv("AUTH_PROVIDER") {
+	switch settings.AuthProvider {
 	case "google":
 		idpClient, err = google.NewGoogleWorkspaceClient()
 	case "azure-ad":
 		idpClient, err = azure.NewAzureEntraIDClient()
+	default:
+		return nil
 	}
 	if err != nil {
 		return err
 	}
 
-	err = SyncUsers(idpClient)
+	if settings.AuthProvider != "" {
+		idpUsers, err = idpClient.GetUsers()
+		if err != nil {
+			return err
+		}
+
+		idpGroups, err = idpClient.GetGroups()
+		if err != nil {
+			return err
+		}
+	}
+
+	err = syncUsers(idpUsers)
 	if err != nil {
 		return err
 	}
 
-	return SyncGroups(idpClient)
+	return syncGroups(idpGroups)
 }
 
-func SyncUsers(idpClient idp.Client) error {
-	idpUsers, err := idpClient.GetUsers()
-	if err != nil {
-		return err
-	}
-
+func syncUsers(idpUsers []idp.User) error {
 	dbUsers, err := logic.GetUsersDB()
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
@@ -136,12 +146,7 @@ func SyncUsers(idpClient idp.Client) error {
 	return nil
 }
 
-func SyncGroups(idpClient idp.Client) error {
-	idpGroups, err := idpClient.GetGroups()
-	if err != nil {
-		return err
-	}
-
+func syncGroups(idpGroups []idp.Group) error {
 	dbGroups, err := proLogic.ListUserGroups()
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
