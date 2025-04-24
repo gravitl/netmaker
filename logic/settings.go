@@ -27,7 +27,7 @@ func GetServerSettings() (s models.ServerSettings) {
 	return
 }
 
-func UpsertServerSettings(s models.ServerSettings) error {
+func UpsertServerSettings(s models.ServerSettings, force bool) error {
 	// get curr settings
 	currSettings := GetServerSettings()
 	data, err := json.Marshal(s)
@@ -38,7 +38,7 @@ func UpsertServerSettings(s models.ServerSettings) error {
 	if err != nil {
 		return err
 	}
-	go reInit(currSettings, s)
+	go reInit(currSettings, s, force)
 	return nil
 }
 
@@ -47,21 +47,24 @@ func ValidateNewSettings(req models.ServerSettings) bool {
 	return true
 }
 
-func reInit(curr, new models.ServerSettings) {
+func reInit(curr, new models.ServerSettings, force bool) {
 	settingsMutex.Lock()
 	defer settingsMutex.Unlock()
 	InitializeAuthProvider()
 	EmailInit()
 	SetVerbosity(int(GetServerSettings().Verbosity))
 	// check if auto update is changed
-	if curr.NetclientAutoUpdate != new.NetclientAutoUpdate {
-		// update all hosts
-		hosts, _ := GetAllHosts()
-		for _, host := range hosts {
-			host.AutoUpdate = new.NetclientAutoUpdate
-			UpsertHost(&host)
+	if force {
+		if curr.NetclientAutoUpdate != new.NetclientAutoUpdate {
+			// update all hosts
+			hosts, _ := GetAllHosts()
+			for _, host := range hosts {
+				host.AutoUpdate = new.NetclientAutoUpdate
+				UpsertHost(&host)
+			}
 		}
 	}
+
 }
 
 func GetServerSettingsFromEnv() (s models.ServerSettings) {

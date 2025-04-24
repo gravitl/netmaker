@@ -502,6 +502,6 @@ func migrateToGws() {
 func settings() {
 	_, err := database.FetchRecords(database.SERVER_SETTINGS)
 	if database.IsEmptyRecord(err) {
-		logic.UpsertServerSettings(logic.GetServerSettingsFromEnv())
+		logic.UpsertServerSettings(logic.GetServerSettingsFromEnv(), false)
 	}
 }
