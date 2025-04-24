@@ -293,7 +293,7 @@ func checkIfAclTagisValid(t models.AclPolicyTag, netID models.NetworkID, policyT
 				return false
 			}
 		}
-	case models.EgressID:
+	case models.EgressID, models.EgressRange:
 		e := schema.Egress{
 			ID: t.Value,
 		}
@@ -1215,6 +1215,18 @@ func getEgressUserRulesForNode(targetnode *models.Node,
 			continue
 		}
 		dstTags := convAclTagToValueMap(acl.Dst)
+		for _, dst := range acl.Dst {
+			if dst.ID == models.EgressID {
+				e := schema.Egress{ID: dst.Value}
+				err := e.Get(db.WithContext(context.TODO()))
+				if err == nil {
+					for nodeID := range e.Nodes {
+						dstTags[nodeID] = struct{}{}
+					}
+					dstTags[e.Range] = struct{}{}
+				}
+			}
+		}
 		_, all := dstTags["*"]
 		addUsers := false
 		if !all {
@@ -1754,6 +1766,18 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 		}
 		srcTags := convAclTagToValueMap(acl.Src)
 		dstTags := convAclTagToValueMap(acl.Dst)
+		for _, dst := range acl.Dst {
+			if dst.ID == models.EgressID {
+				e := schema.Egress{ID: dst.Value}
+				err := e.Get(db.WithContext(context.TODO()))
+				if err == nil {
+					for nodeID := range e.Nodes {
+						dstTags[nodeID] = struct{}{}
+					}
+					dstTags[e.Range] = struct{}{}
+				}
+			}
+		}
 		_, srcAll := srcTags["*"]
 		_, dstAll := dstTags["*"]
 		for nodeTag := range targetNodeTags {

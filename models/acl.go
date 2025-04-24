@@ -59,6 +59,7 @@ const (
 	UserGroupAclID           AclGroupType = "user-group"
 	NodeTagID                AclGroupType = "tag"
 	NodeID                   AclGroupType = "device"
+	EgressRange              AclGroupType = "egress-range"
 	EgressID                 AclGroupType = "egress-id"
 	NetmakerIPAclID          AclGroupType = "ip"
 	NetmakerSubNetRangeAClID AclGroupType = "ipset"
