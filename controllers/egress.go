@@ -65,6 +65,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		IsInetGw:    req.IsInetGw,
 		Nodes:       make(datatypes.JSONMap),
 		Tags:        make(datatypes.JSONMap),
+		Status:      true,
 		CreatedBy:   r.Header.Get("user"),
 		CreatedAt:   time.Now().UTC(),
 	}
@@ -156,11 +157,15 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 
 	var updateNat bool
 	var updateInetGw bool
+	var updateStatus bool
 	if req.Nat != e.Nat {
 		updateNat = true
 	}
 	if req.IsInetGw != e.IsInetGw {
 		updateInetGw = true
+	}
+	if req.Status != e.Status {
+		updateStatus = true
 	}
 	e.Nodes = make(datatypes.JSONMap)
 	e.Tags = make(datatypes.JSONMap)
@@ -191,6 +196,10 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	if updateInetGw {
 		e.IsInetGw = req.IsInetGw
 		e.UpdateINetGwStatus(db.WithContext(context.TODO()))
+	}
+	if updateStatus {
+		e.Status = req.Status
+		e.UpdateEgressStatus(db.WithContext(context.TODO()))
 	}
 	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, e, "updated egress resource")

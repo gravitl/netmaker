@@ -9,5 +9,6 @@ type EgressReq struct {
 	Tags        []string       `json:"tags"`
 	Range       string         `json:"range"`
 	Nat         bool           `json:"nat"`
+	Status      bool           `json:"status"`
 	IsInetGw    bool           `json:"is_internet_gateway"`
 }
