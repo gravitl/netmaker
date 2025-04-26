@@ -104,7 +104,7 @@ func syncUsers(idpUsers []idp.User) error {
 		}
 
 		// if there are filters but none of them match, then skip this user.
-		if !found {
+		if len(filters) > 0 && !found {
 			continue
 		}
 
