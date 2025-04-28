@@ -11,7 +11,7 @@ import (
 const egressTable = "egresses"
 
 type Egress struct {
-	ID          string            `gorm:"id,primary_key" json:"id"`
+	ID          string            `gorm:"primaryKey" json:"id"`
 	Name        string            `gorm:"name" json:"name"`
 	Network     string            `gorm:"network" json:"network"`
 	Description string            `gorm:"description" json:"description"`
