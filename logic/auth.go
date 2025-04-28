@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 )
 
 const (
@@ -360,7 +361,7 @@ func DeleteUser(user string) error {
 		return err
 	}
 	go RemoveUserFromAclPolicy(user)
-	return (&models.UserAccessToken{UserName: user}).DeleteAllUserTokens()
+	return (&schema.UserAccessToken{UserName: user}).DeleteAllUserTokens()
 }
 
 func SetAuthSecret(secret string) error {

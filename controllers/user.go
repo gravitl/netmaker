@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
@@ -57,7 +58,7 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 
 	// Auth request consists of Mac Address and Password (from node that is authorizing
 	// in case of Master, auth is ignored and mac is set to "mastermac"
-	var req models.UserAccessToken
+	var req schema.UserAccessToken
 
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
@@ -139,7 +140,7 @@ func getUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), "badrequest"))
 		return
 	}
-	logic.ReturnSuccessResponseWithJson(w, r, (&models.UserAccessToken{UserName: username}).ListByUser(), "fetched api access tokens for user "+username)
+	logic.ReturnSuccessResponseWithJson(w, r, (&schema.UserAccessToken{UserName: username}).ListByUser(), "fetched api access tokens for user "+username)
 }
 
 // @Summary     Authenticate a user to retrieve an authorization token
@@ -157,7 +158,7 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("id is required"), "badrequest"))
 		return
 	}
-	a := models.UserAccessToken{
+	a := schema.UserAccessToken{
 		ID: id,
 	}
 	err := a.Get()
@@ -187,7 +188,7 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	err = (&models.UserAccessToken{ID: id}).Delete()
+	err = (&schema.UserAccessToken{ID: id}).Delete()
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
@@ -753,7 +754,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	logic.AddGlobalNetRolesToAdmins(&userchange)
 	if userchange.PlatformRoleID != user.PlatformRoleID || !logic.CompareMaps(user.UserGroups, userchange.UserGroups) {
-		(&models.UserAccessToken{UserName: user.UserName}).DeleteAllUserTokens()
+		(&schema.UserAccessToken{UserName: user.UserName}).DeleteAllUserTokens()
 	}
 	user, err = logic.UpdateUser(&userchange, user)
 	if err != nil {
