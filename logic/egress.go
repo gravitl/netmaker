@@ -46,7 +46,7 @@ func ValidateEgressReq(e *schema.Egress) bool {
 func GetInetClientsFromAclPolicies(eID string) (inetClientIDs []string) {
 	e := schema.Egress{ID: eID}
 	err := e.Get(db.WithContext(context.TODO()))
-	if err != nil {
+	if err != nil || !e.Status {
 		return
 	}
 	acls, _ := ListAclsByNetwork(models.NetworkID(e.Network))
@@ -83,7 +83,7 @@ func IsNodeUsingInternetGw(node *models.Node) {
 			if dstI.ID == models.EgressID {
 				e := schema.Egress{ID: dstI.Value}
 				err := e.Get(db.WithContext(context.TODO()))
-				if err != nil {
+				if err != nil || !e.Status {
 					continue
 				}
 				if e.IsInetGw {
@@ -114,6 +114,9 @@ func GetNodeEgressInfo(targetNode *models.Node) {
 		NetID:  targetNode.Network,
 	}
 	for _, e := range eli {
+		if !e.Status {
+			continue
+		}
 		if metric, ok := e.Nodes[targetNode.ID.String()]; ok {
 			if e.IsInetGw {
 				targetNode.IsInternetGateway = true
