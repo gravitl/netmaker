@@ -120,6 +120,18 @@ func GetNodeEgressInfo(targetNode *models.Node) {
 				targetNode.InetNodeReq = models.InetNodeReq{
 					InetNodeClientIDs: GetInetClientsFromAclPolicies(e.ID),
 				}
+				req.Ranges = append(req.Ranges, "0.0.0.0/0")
+				req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
+					Network:     "0.0.0.0/0",
+					Nat:         true,
+					RouteMetric: 256,
+				})
+				req.Ranges = append(req.Ranges, "::/0")
+				req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
+					Network:     "::/0",
+					Nat:         true,
+					RouteMetric: 256,
+				})
 			}
 			m64, err := metric.(json.Number).Int64()
 			if err != nil {
