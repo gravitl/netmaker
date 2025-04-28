@@ -10,6 +10,7 @@ import (
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -124,7 +125,7 @@ func GetUserNameFromToken(authtoken string) (username string, err error) {
 	if claims.TokenType == models.AccessTokenType {
 		jti := claims.ID
 		if jti != "" {
-			a := models.UserAccessToken{ID: jti}
+			a := schema.UserAccessToken{ID: jti}
 			// check if access token is active
 			err := a.Get()
 			if err != nil {
@@ -168,7 +169,7 @@ func VerifyUserToken(tokenString string) (username string, issuperadmin, isadmin
 	if claims.TokenType == models.AccessTokenType {
 		jti := claims.ID
 		if jti != "" {
-			a := models.UserAccessToken{ID: jti}
+			a := schema.UserAccessToken{ID: jti}
 			// check if access token is active
 			err := a.Get()
 			if err != nil {
