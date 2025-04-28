@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v4"
 
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -127,13 +129,13 @@ func GetUserNameFromToken(authtoken string) (username string, err error) {
 		if jti != "" {
 			a := schema.UserAccessToken{ID: jti}
 			// check if access token is active
-			err := a.Get()
+			err := a.Get(db.WithContext(context.TODO()))
 			if err != nil {
 				err = errors.New("token revoked")
 				return "", err
 			}
 			a.LastUsed = time.Now()
-			a.Update()
+			a.Update(db.WithContext(context.TODO()))
 		}
 	}
 
@@ -171,13 +173,13 @@ func VerifyUserToken(tokenString string) (username string, issuperadmin, isadmin
 		if jti != "" {
 			a := schema.UserAccessToken{ID: jti}
 			// check if access token is active
-			err := a.Get()
+			err := a.Get(db.WithContext(context.TODO()))
 			if err != nil {
 				err = errors.New("token revoked")
 				return "", false, false, err
 			}
 			a.LastUsed = time.Now()
-			a.Update()
+			a.Update(db.WithContext(context.TODO()))
 		}
 	}
 	if token != nil && token.Valid {
