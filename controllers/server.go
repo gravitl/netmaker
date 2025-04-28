@@ -265,11 +265,32 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid settings"), "badrequest"))
 		return
 	}
-	err := logic.UpsertServerSettings(req, force == "true")
+	err := logic.UpsertServerSettings(req)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to udpate server settings "+err.Error()), "internal"))
 		return
 	}
-	go mq.PublishPeerUpdate(false)
+	go reInit(logic.GetServerSettings(), req, force == "true")
 	logic.ReturnSuccessResponseWithJson(w, r, req, "updated server settings successfully")
+}
+
+func reInit(curr, new models.ServerSettings, force bool) {
+	logic.SettingsMutex.Lock()
+	defer logic.SettingsMutex.Unlock()
+	logic.InitializeAuthProvider()
+	logic.EmailInit()
+	logic.SetVerbosity(int(logic.GetServerSettings().Verbosity))
+	// check if auto update is changed
+	if force {
+		if curr.NetclientAutoUpdate != new.NetclientAutoUpdate {
+			// update all hosts
+			hosts, _ := logic.GetAllHosts()
+			for _, host := range hosts {
+				host.AutoUpdate = new.NetclientAutoUpdate
+				logic.UpsertHost(&host)
+			}
+		}
+	}
+	go mq.PublishPeerUpdate(false)
+
 }
