@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"golang.org/x/exp/slog"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -361,7 +363,7 @@ func DeleteUser(user string) error {
 		return err
 	}
 	go RemoveUserFromAclPolicy(user)
-	return (&schema.UserAccessToken{UserName: user}).DeleteAllUserTokens()
+	return (&schema.UserAccessToken{UserName: user}).DeleteAllUserTokens(db.WithContext(context.TODO()))
 }
 
 func SetAuthSecret(secret string) error {
