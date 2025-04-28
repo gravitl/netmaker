@@ -244,6 +244,8 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} config.ServerSettings
 func getSettings(w http.ResponseWriter, r *http.Request) {
 	scfg := logic.GetServerSettings()
+	scfg.ClientSecret = logic.Mask()
+	scfg.JwtValidityDuration = scfg.JwtValidityDuration / 60
 	logic.ReturnSuccessResponseWithJson(w, r, scfg, "fetched server settings successfully")
 }
 
@@ -264,6 +266,7 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid settings"), "badrequest"))
 		return
 	}
+	req.JwtValidityDuration = req.JwtValidityDuration * 60
 	err := logic.UpsertServerSettings(req, force == "true")
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to udpate server settings "+err.Error()), "internal"))

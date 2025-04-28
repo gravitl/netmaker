@@ -30,6 +30,9 @@ func GetServerSettings() (s models.ServerSettings) {
 func UpsertServerSettings(s models.ServerSettings, force bool) error {
 	// get curr settings
 	currSettings := GetServerSettings()
+	if s.ClientSecret == Mask() {
+		s.ClientSecret = currSettings.ClientSecret
+	}
 	data, err := json.Marshal(s)
 	if err != nil {
 		return err
@@ -346,4 +349,8 @@ func GetAllowedEmailDomains() string {
 
 func GetVerbosity() int32 {
 	return GetServerSettings().Verbosity
+}
+
+func Mask() string {
+	return ("..................")
 }
