@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"net"
 
 	"github.com/gravitl/netmaker/db"
@@ -42,19 +43,17 @@ func ValidateEgressReq(e *schema.Egress) bool {
 	return true
 }
 
-func GetInetClientsFromAclPolicies(node *models.Node) (inetClientIDs []string) {
-	acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
+func GetInetClientsFromAclPolicies(eID string) (inetClientIDs []string) {
+	e := schema.Egress{ID: eID}
+	err := e.Get(db.WithContext(context.TODO()))
+	if err != nil {
+		return
+	}
+	acls, _ := ListAclsByNetwork(models.NetworkID(e.Network))
 	for _, acl := range acls {
 		for _, dstI := range acl.Dst {
 			if dstI.ID == models.EgressID {
-				e := schema.Egress{
-					ID: dstI.Value,
-				}
-				err := e.Get(db.WithContext(context.TODO()))
-				if err != nil {
-					continue
-				}
-				if _, ok := e.Nodes[node.ID.String()]; !ok {
+				if dstI.Value != eID {
 					continue
 				}
 				for _, srcI := range acl.Src {
@@ -72,8 +71,13 @@ func GetInetClientsFromAclPolicies(node *models.Node) (inetClientIDs []string) {
 }
 
 func IsNodeUsingInternetGw(node *models.Node) {
+	nodeTags := maps.Clone(node.Tags)
+	nodeTags[models.TagID(node.ID.String())] = struct{}{}
 	acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
 	for _, acl := range acls {
+		if !acl.Enabled {
+			continue
+		}
 		srcVal := convAclTagToValueMap(acl.Src)
 		for _, dstI := range acl.Dst {
 			if dstI.ID == models.EgressID {
@@ -89,7 +93,7 @@ func IsNodeUsingInternetGw(node *models.Node) {
 							return
 						}
 					}
-					for tagID := range node.Tags {
+					for tagID := range nodeTags {
 						if _, ok := srcVal[tagID.String()]; ok {
 							for nodeID := range e.Nodes {
 								node.InternetGwID = nodeID
@@ -114,7 +118,7 @@ func GetNodeEgressInfo(targetNode *models.Node) {
 			if e.IsInetGw {
 				targetNode.IsInternetGateway = true
 				targetNode.InetNodeReq = models.InetNodeReq{
-					InetNodeClientIDs: GetInetClientsFromAclPolicies(targetNode),
+					InetNodeClientIDs: GetInetClientsFromAclPolicies(e.ID),
 				}
 			}
 			m64, err := metric.(json.Number).Int64()

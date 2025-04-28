@@ -638,13 +638,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if newNode.IsInternetGateway != currentNode.IsInternetGateway {
-		if newNode.IsInternetGateway {
-			logic.SetInternetGw(newNode, models.InetNodeReq{})
-		} else {
-			logic.UnsetInternetGw(newNode)
-		}
-	}
 	relayUpdate := logic.RelayUpdates(&currentNode, newNode)
 	if relayUpdate && newNode.IsRelay {
 		err = logic.ValidateRelay(models.RelayRequest{

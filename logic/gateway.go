@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -8,14 +9,27 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
 // IsInternetGw - checks if node is acting as internet gw
 func IsInternetGw(node models.Node) bool {
-	return node.IsInternetGateway
+	e := schema.Egress{
+		Network: node.Network,
+	}
+	egList, _ := e.ListByNetwork(db.WithContext(context.TODO()))
+	for _, egI := range egList {
+		if egI.IsInetGw {
+			if _, ok := egI.Nodes[node.ID.String()]; ok {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // GetInternetGateways - gets all the nodes that are internet gateways

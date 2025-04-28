@@ -497,7 +497,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				},
 			}
 		}
-
 	}
 	// == post peer calculations ==
 	// indicate removal if no allowed IPs were calculated
