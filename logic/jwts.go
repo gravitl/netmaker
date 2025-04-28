@@ -7,9 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/schema"
-
 	"github.com/golang-jwt/jwt/v4"
 
 	"github.com/gravitl/netmaker/db"

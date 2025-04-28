@@ -8,8 +8,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/gravitl/netmaker/schema"
-
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
@@ -160,17 +158,10 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("id is required"), "badrequest"))
 		return
 	}
-<<<<<<< HEAD
-	a := models.UserAccessToken{
-		ID: id,
-	}
-	err := a.Get()
-=======
 	a := schema.UserAccessToken{
 		ID: id,
 	}
 	err := a.Get(r.Context())
->>>>>>> f2cbdaae35f308347546842903ccc6bbc2ecfe31
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("id is required"), "badrequest"))
 		return
@@ -757,17 +748,10 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
-<<<<<<< HEAD
-	if userchange.PlatformRoleID != user.PlatformRoleID || !logic.CompareMaps(user.UserGroups, userchange.UserGroups) {
-		(&models.UserAccessToken{UserName: user.UserName}).DeleteAllUserTokens()
-	}
-	logic.AddGlobalNetRolesToAdmins(userchange)
-=======
 	logic.AddGlobalNetRolesToAdmins(&userchange)
 	if userchange.PlatformRoleID != user.PlatformRoleID || !logic.CompareMaps(user.UserGroups, userchange.UserGroups) {
 		(&schema.UserAccessToken{UserName: user.UserName}).DeleteAllUserTokens(r.Context())
 	}
->>>>>>> f2cbdaae35f308347546842903ccc6bbc2ecfe31
 	user, err = logic.UpdateUser(&userchange, user)
 	if err != nil {
 		logger.Log(0, username,
