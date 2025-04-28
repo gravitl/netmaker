@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gravitl/netmaker/config"
@@ -15,6 +16,7 @@ import (
 )
 
 var serverSettingsDBKey = "server_cfg"
+var settingsMutex = &sync.RWMutex{}
 
 func GetServerSettings() (s models.ServerSettings) {
 	data, err := database.FetchRecord(database.SERVER_SETTINGS, serverSettingsDBKey)
@@ -25,7 +27,12 @@ func GetServerSettings() (s models.ServerSettings) {
 	return
 }
 
-func UpsertServerSettings(s models.ServerSettings) error {
+func UpsertServerSettings(s models.ServerSettings, force bool) error {
+	// get curr settings
+	currSettings := GetServerSettings()
+	if s.ClientSecret == Mask() {
+		s.ClientSecret = currSettings.ClientSecret
+	}
 	data, err := json.Marshal(s)
 	if err != nil {
 		return err
@@ -34,7 +41,7 @@ func UpsertServerSettings(s models.ServerSettings) error {
 	if err != nil {
 		return err
 	}
-	go reInit()
+	go reInit(currSettings, s, force)
 	return nil
 }
 
@@ -43,10 +50,24 @@ func ValidateNewSettings(req models.ServerSettings) bool {
 	return true
 }
 
-func reInit() {
+func reInit(curr, new models.ServerSettings, force bool) {
+	settingsMutex.Lock()
+	defer settingsMutex.Unlock()
 	InitializeAuthProvider()
 	EmailInit()
 	SetVerbosity(int(GetServerSettings().Verbosity))
+	// check if auto update is changed
+	if force {
+		if curr.NetclientAutoUpdate != new.NetclientAutoUpdate {
+			// update all hosts
+			hosts, _ := GetAllHosts()
+			for _, host := range hosts {
+				host.AutoUpdate = new.NetclientAutoUpdate
+				UpsertHost(&host)
+			}
+		}
+	}
+
 }
 
 func GetServerSettingsFromEnv() (s models.ServerSettings) {
@@ -61,7 +82,7 @@ func GetServerSettingsFromEnv() (s models.ServerSettings) {
 		AzureTenant:                servercfg.GetAzureTenant(),
 		Telemetry:                  servercfg.Telemetry(),
 		BasicAuth:                  servercfg.IsBasicAuthEnabled(),
-		JwtValidityDuration:        servercfg.GetJwtValidityDurationFromEnv(),
+		JwtValidityDuration:        servercfg.GetJwtValidityDurationFromEnv() / 60,
 		RacAutoDisable:             servercfg.GetRacAutoDisable(),
 		RacRestrictToSingleNetwork: servercfg.GetRacRestrictToSingleNetwork(),
 		EndpointDetection:          servercfg.IsEndpointDetectionEnabled(),
@@ -139,7 +160,7 @@ func GetServerConfig() config.ServerConfig {
 	if servercfg.IsPro {
 		cfg.IsPro = "yes"
 	}
-	cfg.JwtValidityDuration = time.Duration(settings.JwtValidityDuration) * time.Second
+	cfg.JwtValidityDuration = time.Duration(settings.JwtValidityDuration) * time.Minute
 	cfg.RacAutoDisable = settings.RacAutoDisable
 	cfg.RacRestrictToSingleNetwork = settings.RacRestrictToSingleNetwork
 	cfg.MetricInterval = settings.MetricInterval
@@ -201,7 +222,7 @@ func Telemetry() string {
 	return GetServerSettings().Telemetry
 }
 
-// GetJwtValidityDuration - returns the JWT validity duration in seconds
+// GetJwtValidityDuration - returns the JWT validity duration in minutes
 func GetJwtValidityDuration() time.Duration {
 	return GetServerConfig().JwtValidityDuration
 }
@@ -328,4 +349,8 @@ func GetAllowedEmailDomains() string {
 
 func GetVerbosity() int32 {
 	return GetServerSettings().Verbosity
+}
+
+func Mask() string {
+	return ("..................")
 }

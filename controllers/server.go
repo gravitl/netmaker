@@ -244,6 +244,7 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} config.ServerSettings
 func getSettings(w http.ResponseWriter, r *http.Request) {
 	scfg := logic.GetServerSettings()
+	scfg.ClientSecret = logic.Mask()
 	logic.ReturnSuccessResponseWithJson(w, r, scfg, "fetched server settings successfully")
 }
 
@@ -254,7 +255,7 @@ func getSettings(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} config.ServerSettings
 func updateSettings(w http.ResponseWriter, r *http.Request) {
 	var req models.ServerSettings
-
+	force := r.URL.Query().Get("force")
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -264,7 +265,7 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid settings"), "badrequest"))
 		return
 	}
-	err := logic.UpsertServerSettings(req)
+	err := logic.UpsertServerSettings(req, force == "true")
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to udpate server settings "+err.Error()), "internal"))
 		return
