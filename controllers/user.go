@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gravitl/netmaker/schema"
 	"net/http"
 	"reflect"
 	"time"
@@ -17,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
@@ -75,16 +75,28 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), "badrequest"))
 		return
 	}
-
+	caller, err := logic.GetUser(r.Header.Get("user"))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+		return
+	}
 	user, err := logic.GetUser(req.UserName)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
 		return
 	}
-	if logic.IsOauthUser(user) == nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user is registered via SSO"), "badrequest"))
-		return
+	if caller.UserName != user.UserName && caller.PlatformRoleID != models.SuperAdminRole {
+		if caller.PlatformRoleID == models.AdminRole {
+			if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not enough permissions to create token for user "+user.UserName), logic.Forbidden_Msg))
+				return
+			}
+		} else {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not enough permissions to create token for user "+user.UserName), logic.Forbidden_Msg))
+			return
+		}
 	}
+
 	req.ID = uuid.New().String()
 	req.CreatedBy = r.Header.Get("user")
 	req.CreatedAt = time.Now()
@@ -146,8 +158,37 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("id is required"), "badrequest"))
 		return
 	}
+	a := schema.UserAccessToken{
+		ID: id,
+	}
+	err := a.Get(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("id is required"), "badrequest"))
+		return
+	}
+	caller, err := logic.GetUser(r.Header.Get("user"))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+		return
+	}
+	user, err := logic.GetUser(a.UserName)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+		return
+	}
+	if caller.UserName != user.UserName && caller.PlatformRoleID != models.SuperAdminRole {
+		if caller.PlatformRoleID == models.AdminRole {
+			if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not enough permissions to delete token of user "+user.UserName), logic.Forbidden_Msg))
+				return
+			}
+		} else {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("not enough permissions to delete token of user "+user.UserName), logic.Forbidden_Msg))
+			return
+		}
+	}
 
-	err := (&schema.UserAccessToken{ID: id}).Delete(r.Context())
+	err = (&schema.UserAccessToken{ID: id}).Delete(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
@@ -707,7 +748,10 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
-
+	logic.AddGlobalNetRolesToAdmins(&userchange)
+	if userchange.PlatformRoleID != user.PlatformRoleID || !logic.CompareMaps(user.UserGroups, userchange.UserGroups) {
+		(&schema.UserAccessToken{UserName: user.UserName}).DeleteAllUserTokens(r.Context())
+	}
 	user, err = logic.UpdateUser(&userchange, user)
 	if err != nil {
 		logger.Log(0, username,
