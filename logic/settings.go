@@ -82,7 +82,7 @@ func GetServerSettingsFromEnv() (s models.ServerSettings) {
 		AzureTenant:                servercfg.GetAzureTenant(),
 		Telemetry:                  servercfg.Telemetry(),
 		BasicAuth:                  servercfg.IsBasicAuthEnabled(),
-		JwtValidityDuration:        servercfg.GetJwtValidityDurationFromEnv(),
+		JwtValidityDuration:        servercfg.GetJwtValidityDurationFromEnv() / 60,
 		RacAutoDisable:             servercfg.GetRacAutoDisable(),
 		RacRestrictToSingleNetwork: servercfg.GetRacRestrictToSingleNetwork(),
 		EndpointDetection:          servercfg.IsEndpointDetectionEnabled(),
@@ -160,7 +160,7 @@ func GetServerConfig() config.ServerConfig {
 	if servercfg.IsPro {
 		cfg.IsPro = "yes"
 	}
-	cfg.JwtValidityDuration = time.Duration(settings.JwtValidityDuration) * time.Second
+	cfg.JwtValidityDuration = time.Duration(settings.JwtValidityDuration) * time.Minute
 	cfg.RacAutoDisable = settings.RacAutoDisable
 	cfg.RacRestrictToSingleNetwork = settings.RacRestrictToSingleNetwork
 	cfg.MetricInterval = settings.MetricInterval
@@ -222,7 +222,7 @@ func Telemetry() string {
 	return GetServerSettings().Telemetry
 }
 
-// GetJwtValidityDuration - returns the JWT validity duration in seconds
+// GetJwtValidityDuration - returns the JWT validity duration in minutes
 func GetJwtValidityDuration() time.Duration {
 	return GetServerConfig().JwtValidityDuration
 }

@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/schema"
 	"strings"
 	"time"
+
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 
 	"github.com/golang-jwt/jwt/v4"
 
@@ -83,7 +84,7 @@ func CreateUserAccessJwtToken(username string, role models.UserRoleID, d time.Ti
 // CreateUserJWT - creates a user jwt token
 func CreateUserJWT(username string, role models.UserRoleID) (response string, err error) {
 	settings := GetServerSettings()
-	expirationTime := time.Now().Add(time.Duration(settings.JwtValidityDuration) * time.Second)
+	expirationTime := time.Now().Add(time.Duration(settings.JwtValidityDuration) * time.Minute)
 	claims := &models.UserClaims{
 		UserName:       username,
 		Role:           role,
