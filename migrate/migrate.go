@@ -528,6 +528,7 @@ func migrateToEgressV1() {
 					Tags:      make(datatypes.JSONMap),
 					Range:     rangeI,
 					Nat:       node.EgressGatewayRequest.NatEnabled == "yes",
+					Status:    true,
 					CreatedBy: user.UserName,
 					CreatedAt: time.Now().UTC(),
 				}
@@ -560,6 +561,7 @@ func migrateToEgressV1() {
 				Range:     "",
 				IsInetGw:  true,
 				Nat:       node.EgressGatewayRequest.NatEnabled == "yes",
+				Status:    true,
 				CreatedBy: user.UserName,
 				CreatedAt: time.Now().UTC(),
 			}
