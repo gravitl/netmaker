@@ -289,6 +289,10 @@ func reInit(curr, new models.ServerSettings, force bool) {
 			for _, host := range hosts {
 				host.AutoUpdate = new.NetclientAutoUpdate
 				logic.UpsertHost(&host)
+				mq.HostUpdate(&models.HostUpdate{
+					Action: models.UpdateHost,
+					Host:   host,
+				})
 			}
 		}
 	}
