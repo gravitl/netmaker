@@ -69,6 +69,8 @@ const (
 	TAG_TABLE_NAME = "tags"
 	// PEER_ACK_TABLE - table for failover peer ack
 	PEER_ACK_TABLE = "peer_ack"
+	// SERVER_SETTINGS - table for server settings
+	SERVER_SETTINGS = "server_settings"
 	// == ERROR CONSTS ==
 	// NO_RECORD - no singular result found
 	NO_RECORD = "no result found"
@@ -125,7 +127,7 @@ var Tables = []string{
 	TAG_TABLE_NAME,
 	ACLS_TABLE_NAME,
 	PEER_ACK_TABLE,
-	// ACCESS_TOKENS_TABLE_NAME,
+	SERVER_SETTINGS,
 }
 
 func getCurrentDB() map[string]interface{} {

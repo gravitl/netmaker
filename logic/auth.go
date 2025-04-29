@@ -31,6 +31,8 @@ func ClearSuperUserCache() {
 	superUser = models.User{}
 }
 
+var InitializeAuthProvider = func() string { return "" }
+
 // HasSuperAdmin - checks if server has an superadmin/owner
 func HasSuperAdmin() (bool, error) {
 

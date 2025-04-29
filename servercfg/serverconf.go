@@ -2,6 +2,7 @@ package servercfg
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -11,10 +12,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/config"
-	"github.com/gravitl/netmaker/models"
 )
-
-var ServerInfo = GetServerInfo()
 
 // EmqxBrokerType denotes the broker type for EMQX MQTT
 const EmqxBrokerType = "emqx"
@@ -116,6 +114,18 @@ func GetJwtValidityDuration() time.Duration {
 	return defaultDuration
 }
 
+// GetJwtValidityDuration - returns the JWT validity duration in seconds
+func GetJwtValidityDurationFromEnv() int {
+	var defaultDuration = 43200
+	if os.Getenv("JWT_VALIDITY_DURATION") != "" {
+		t, err := strconv.Atoi(os.Getenv("JWT_VALIDITY_DURATION"))
+		if err == nil {
+			return t
+		}
+	}
+	return defaultDuration
+}
+
 // GetRacAutoDisable - returns whether the feature to autodisable RAC is enabled
 func GetRacAutoDisable() bool {
 	return os.Getenv("RAC_AUTO_DISABLE") == "true"
@@ -126,39 +136,6 @@ func GetRacRestrictToSingleNetwork() bool {
 	return os.Getenv("RAC_RESTRICT_TO_SINGLE_NETWORK") == "true"
 }
 
-// GetServerInfo - gets the server config into memory from file or env
-func GetServerInfo() models.ServerConfig {
-	var cfg models.ServerConfig
-	cfg.Server = GetServer()
-	if GetBrokerType() == EmqxBrokerType {
-		cfg.MQUserName = "HOST_ID"
-		cfg.MQPassword = "HOST_PASS"
-	} else {
-		cfg.MQUserName = GetMqUserName()
-		cfg.MQPassword = GetMqPassword()
-	}
-	cfg.APIHost = GetAPIHost()
-	cfg.API = GetAPIConnString()
-	cfg.CoreDNSAddr = GetCoreDNSAddr()
-	cfg.APIPort = GetAPIPort()
-	cfg.DNSMode = "off"
-	cfg.Broker = GetPublicBrokerEndpoint()
-	cfg.BrokerType = GetBrokerType()
-	if IsDNSMode() {
-		cfg.DNSMode = "on"
-	}
-	cfg.Version = GetVersion()
-	cfg.IsPro = IsPro
-	cfg.MetricInterval = GetMetricInterval()
-	cfg.MetricsPort = GetMetricsPort()
-	cfg.ManageDNS = GetManageDNS()
-	cfg.Stun = IsStunEnabled()
-	cfg.StunServers = GetStunServers()
-	cfg.DefaultDomain = GetDefaultDomain()
-	cfg.EndpointDetection = IsEndpointDetectionEnabled()
-	return cfg
-}
-
 // GetFrontendURL - gets the frontend url
 func GetFrontendURL() string {
 	var frontend = ""
@@ -166,6 +143,9 @@ func GetFrontendURL() string {
 		frontend = os.Getenv("FRONTEND_URL")
 	} else if config.Config.Server.FrontendURL != "" {
 		frontend = config.Config.Server.FrontendURL
+	}
+	if frontend == "" {
+		return fmt.Sprintf("https://dashboard.%s", GetNmBaseDomain())
 	}
 	return frontend
 }

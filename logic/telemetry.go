@@ -7,6 +7,7 @@ import (
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
+
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/posthog/posthog-go"
@@ -33,7 +34,7 @@ func SetFreeTierForTelemetry(freeTierFlag bool) {
 
 // sendTelemetry - gathers telemetry data and sends to posthog
 func sendTelemetry() error {
-	if servercfg.Telemetry() == "off" {
+	if Telemetry() == "off" {
 		return nil
 	}
 

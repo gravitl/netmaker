@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"golang.org/x/exp/slog"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
@@ -41,6 +43,10 @@ func serverHandlers(r *mux.Router) {
 	).Methods(http.MethodPost)
 	r.HandleFunc("/api/server/getconfig", allowUsers(http.HandlerFunc(getConfig))).
 		Methods(http.MethodGet)
+	r.HandleFunc("/api/server/settings", allowUsers(http.HandlerFunc(getSettings))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/server/settings", logic.SecurityCheck(true, http.HandlerFunc(updateSettings))).
+		Methods(http.MethodPut)
 	r.HandleFunc("/api/server/getserverinfo", logic.SecurityCheck(true, http.HandlerFunc(getServerInfo))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/server/status", getStatus).Methods(http.MethodGet)
@@ -207,7 +213,7 @@ func getServerInfo(w http.ResponseWriter, r *http.Request) {
 
 	// get params
 
-	json.NewEncoder(w).Encode(servercfg.GetServerInfo())
+	json.NewEncoder(w).Encode(logic.GetServerInfo())
 	// w.WriteHeader(http.StatusOK)
 }
 
@@ -222,11 +228,74 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 
 	// get params
 
-	scfg := servercfg.GetServerConfig()
+	scfg := logic.GetServerConfig()
 	scfg.IsPro = "no"
 	if servercfg.IsPro {
 		scfg.IsPro = "yes"
 	}
 	json.NewEncoder(w).Encode(scfg)
 	// w.WriteHeader(http.StatusOK)
+}
+
+// @Summary     Get the server settings
+// @Router      /api/server/settings [get]
+// @Tags        Server
+// @Security    oauth2
+// @Success     200 {object} config.ServerSettings
+func getSettings(w http.ResponseWriter, r *http.Request) {
+	scfg := logic.GetServerSettings()
+	scfg.ClientSecret = logic.Mask()
+	logic.ReturnSuccessResponseWithJson(w, r, scfg, "fetched server settings successfully")
+}
+
+// @Summary     Update the server settings
+// @Router      /api/server/settings [put]
+// @Tags        Server
+// @Security    oauth2
+// @Success     200 {object} config.ServerSettings
+func updateSettings(w http.ResponseWriter, r *http.Request) {
+	var req models.ServerSettings
+	force := r.URL.Query().Get("force")
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if !logic.ValidateNewSettings(req) {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid settings"), "badrequest"))
+		return
+	}
+	currSettings := logic.GetServerSettings()
+	err := logic.UpsertServerSettings(req)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to udpate server settings "+err.Error()), "internal"))
+		return
+	}
+	go reInit(currSettings, req, force == "true")
+	logic.ReturnSuccessResponseWithJson(w, r, req, "updated server settings successfully")
+}
+
+func reInit(curr, new models.ServerSettings, force bool) {
+	logic.SettingsMutex.Lock()
+	defer logic.SettingsMutex.Unlock()
+	logic.InitializeAuthProvider()
+	logic.EmailInit()
+	logic.SetVerbosity(int(logic.GetServerSettings().Verbosity))
+	// check if auto update is changed
+	if force {
+		if curr.NetclientAutoUpdate != new.NetclientAutoUpdate {
+			// update all hosts
+			hosts, _ := logic.GetAllHosts()
+			for _, host := range hosts {
+				host.AutoUpdate = new.NetclientAutoUpdate
+				logic.UpsertHost(&host)
+				mq.HostUpdate(&models.HostUpdate{
+					Action: models.UpdateHost,
+					Host:   host,
+				})
+			}
+		}
+	}
+	go mq.PublishPeerUpdate(false)
+
 }

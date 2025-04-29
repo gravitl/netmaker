@@ -217,16 +217,6 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	var errorResponse = models.ErrorResponse{
 		Code: http.StatusInternalServerError, Message: "W1R3: It's not you it's me.",
 	}
-
-	if !servercfg.IsBasicAuthEnabled() {
-		logic.ReturnErrorResponse(
-			response,
-			request,
-			logic.FormatError(fmt.Errorf("basic auth is disabled"), "badrequest"),
-		)
-		return
-	}
-
 	decoder := json.NewDecoder(request.Body)
 	decoderErr := decoder.Decode(&authRequest)
 	defer request.Body.Close()
@@ -236,15 +226,29 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
+	user, err := logic.GetUser(authRequest.UserName)
+	if err != nil {
+		logger.Log(0, authRequest.UserName, "user validation failed: ",
+			err.Error())
+		logic.ReturnErrorResponse(response, request, logic.FormatError(err, "unauthorized"))
+		return
+	}
+	if logic.IsOauthUser(user) == nil {
+		logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("user is registered via SSO"), "badrequest"))
+		return
+	}
+	if !user.IsSuperAdmin && !logic.IsBasicAuthEnabled() {
+		logic.ReturnErrorResponse(
+			response,
+			request,
+			logic.FormatError(fmt.Errorf("basic auth is disabled"), "badrequest"),
+		)
+		return
+	}
+
 	if val := request.Header.Get("From-Ui"); val == "true" {
 		// request came from UI, if normal user block Login
-		user, err := logic.GetUser(authRequest.UserName)
-		if err != nil {
-			logger.Log(0, authRequest.UserName, "user validation failed: ",
-				err.Error())
-			logic.ReturnErrorResponse(response, request, logic.FormatError(err, "unauthorized"))
-			return
-		}
+
 		role, err := logic.GetRole(user.PlatformRoleID)
 		if err != nil {
 			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
@@ -255,15 +259,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 			return
 		}
 	}
-	user, err := logic.GetUser(authRequest.UserName)
-	if err != nil {
-		logic.ReturnErrorResponse(response, request, logic.FormatError(err, "unauthorized"))
-		return
-	}
-	if logic.IsOauthUser(user) == nil {
-		logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("user is registered via SSO"), "badrequest"))
-		return
-	}
+
 	username := authRequest.UserName
 	jwt, err := logic.VerifyAuthRequest(authRequest)
 	if err != nil {
@@ -305,7 +301,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	response.Write(successJSONResponse)
 
 	go func() {
-		if servercfg.IsPro && servercfg.GetRacAutoDisable() {
+		if servercfg.IsPro && logic.GetRacAutoDisable() {
 			// enable all associeated clients for the user
 			clients, err := logic.GetAllExtClients()
 			if err != nil {
@@ -479,7 +475,7 @@ func createSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !servercfg.IsBasicAuthEnabled() {
+	if !logic.IsBasicAuthEnabled() {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -527,7 +523,7 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only admins can be promoted to superadmin role"), "forbidden"))
 		return
 	}
-	if !servercfg.IsBasicAuthEnabled() {
+	if !logic.IsBasicAuthEnabled() {
 		logic.ReturnErrorResponse(
 			w,
 			r,
