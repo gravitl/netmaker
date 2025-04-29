@@ -9,8 +9,7 @@ import (
 	"github.com/gravitl/netmaker/schema"
 )
 
-func ActivityHandlers(r *mux.Router) {
-
+func EventHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/activity", logic.SecurityCheck(true, http.HandlerFunc(listActivity))).Methods(http.MethodGet)
 }
 

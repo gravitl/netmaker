@@ -34,7 +34,7 @@ func InitPro() {
 		proControllers.FailOverHandlers,
 		proControllers.InetHandlers,
 		proControllers.RacHandlers,
-		proControllers.ActivityHandlers,
+		proControllers.EventHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
@@ -94,6 +94,7 @@ func InitPro() {
 		proLogic.LoadNodeMetricsToCache()
 		proLogic.InitFailOverCache()
 		email.Init()
+		proLogic.EventWatcher()
 	})
 	logic.ResetFailOver = proLogic.ResetFailOver
 	logic.ResetFailedOverPeer = proLogic.ResetFailedOverPeer
@@ -140,6 +141,7 @@ func InitPro() {
 	logic.GetNodeStatus = proLogic.GetNodeStatus
 	logic.InitializeAuthProvider = auth.InitializeAuthProvider
 	logic.EmailInit = email.Init
+	logic.LogEvent = proLogic.LogEvent
 }
 
 func retrieveProLogo() string {

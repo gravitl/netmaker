@@ -7,6 +7,7 @@ import (
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/schema"
 
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
@@ -19,6 +20,8 @@ var (
 	isFreeTier      bool
 	telServerRecord = models.Telemetry{}
 )
+
+var LogEvent = func(a schema.Activity) {}
 
 // posthog_pub_key - Key for sending data to PostHog
 const posthog_pub_key = "phc_1vEXhPOA1P7HP5jP2dVU9xDTUqXHAelmtravyZ1vvES"
