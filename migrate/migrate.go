@@ -540,7 +540,66 @@ func migrateToEgressV1() {
 					node.EgressGatewayNatEnabled = false
 					node.EgressGatewayRanges = []string{}
 					logic.UpsertNode(&node)
+					acl := models.Acl{
+						ID:          uuid.New().String(),
+						Name:        "egress node policy",
+						MetaData:    "",
+						Default:     false,
+						ServiceType: models.Any,
+						NetworkID:   models.NetworkID(node.Network),
+						Proto:       models.ALL,
+						RuleType:    models.DevicePolicy,
+						Src: []models.AclPolicyTag{
+
+							{
+								ID:    models.NodeTagID,
+								Value: "*",
+							},
+						},
+						Dst: []models.AclPolicyTag{
+							{
+								ID:    models.EgressID,
+								Value: e.ID,
+							},
+						},
+
+						AllowedDirection: models.TrafficDirectionUni,
+						Enabled:          true,
+						CreatedBy:        "auto",
+						CreatedAt:        time.Now().UTC(),
+					}
+					logic.InsertAcl(acl)
+					acl = models.Acl{
+						ID:          uuid.New().String(),
+						Name:        "egress node policy",
+						MetaData:    "",
+						Default:     false,
+						ServiceType: models.Any,
+						NetworkID:   models.NetworkID(node.Network),
+						Proto:       models.ALL,
+						RuleType:    models.UserPolicy,
+						Src: []models.AclPolicyTag{
+
+							{
+								ID:    models.UserGroupAclID,
+								Value: "*",
+							},
+						},
+						Dst: []models.AclPolicyTag{
+							{
+								ID:    models.EgressID,
+								Value: e.ID,
+							},
+						},
+
+						AllowedDirection: models.TrafficDirectionUni,
+						Enabled:          true,
+						CreatedBy:        "auto",
+						CreatedAt:        time.Now().UTC(),
+					}
+					logic.InsertAcl(acl)
 				}
+
 			}
 
 		}
@@ -593,6 +652,47 @@ func migrateToEgressV1() {
 					Proto:       models.ALL,
 					RuleType:    models.DevicePolicy,
 					Src:         src,
+					Dst: []models.AclPolicyTag{
+						{
+							ID:    models.EgressID,
+							Value: e.ID,
+						},
+					},
+
+					AllowedDirection: models.TrafficDirectionBi,
+					Enabled:          true,
+					CreatedBy:        "auto",
+					CreatedAt:        time.Now().UTC(),
+				}
+				logic.InsertAcl(acl)
+
+				acl = models.Acl{
+					ID:          uuid.New().String(),
+					Name:        "exit node policy",
+					MetaData:    "all traffic on source nodes will pass through the destination node in the policy",
+					Default:     false,
+					ServiceType: models.Any,
+					NetworkID:   models.NetworkID(node.Network),
+					Proto:       models.ALL,
+					RuleType:    models.UserPolicy,
+					Src: []models.AclPolicyTag{
+						{
+							ID:    models.UserGroupAclID,
+							Value: fmt.Sprintf("%s-%s-grp", node.Network, models.NetworkAdmin),
+						},
+						{
+							ID:    models.UserGroupAclID,
+							Value: fmt.Sprintf("global-%s-grp", models.NetworkAdmin),
+						},
+						{
+							ID:    models.UserGroupAclID,
+							Value: fmt.Sprintf("%s-%s-grp", node.Network, models.NetworkUser),
+						},
+						{
+							ID:    models.UserGroupAclID,
+							Value: fmt.Sprintf("global-%s-grp", models.NetworkUser),
+						},
+					},
 					Dst: []models.AclPolicyTag{
 						{
 							ID:    models.EgressID,
