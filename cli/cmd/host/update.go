@@ -25,10 +25,10 @@ var (
 )
 
 var hostUpdateCmd = &cobra.Command{
-	Use:   "update HostID",
+	Use:   "update DeviceID/HostID",
 	Args:  cobra.ExactArgs(1),
-	Short: "Update a host",
-	Long:  `Update a host`,
+	Short: "Update a device",
+	Long:  `Update a device`,
 	Run: func(cmd *cobra.Command, args []string) {
 		apiHost := &models.ApiHost{}
 		if apiHostFilePath != "" {
@@ -57,14 +57,14 @@ var hostUpdateCmd = &cobra.Command{
 
 func init() {
 	hostUpdateCmd.Flags().StringVar(&apiHostFilePath, "file", "", "Path to host_definition.json")
-	hostUpdateCmd.Flags().StringVar(&endpoint, "endpoint", "", "Endpoint of the Host")
-	hostUpdateCmd.Flags().StringVar(&endpoint6, "endpoint6", "", "IPv6 Endpoint of the Host")
-	hostUpdateCmd.Flags().StringVar(&name, "name", "", "Host name")
-	hostUpdateCmd.Flags().IntVar(&listenPort, "listen_port", 0, "Listen port of the host")
-	hostUpdateCmd.Flags().IntVar(&mtu, "mtu", 0, "Host MTU size")
+	hostUpdateCmd.Flags().StringVar(&endpoint, "endpoint", "", "Endpoint of the Device")
+	hostUpdateCmd.Flags().StringVar(&endpoint6, "endpoint6", "", "IPv6 Endpoint of the Device")
+	hostUpdateCmd.Flags().StringVar(&name, "name", "", "Device name")
+	hostUpdateCmd.Flags().IntVar(&listenPort, "listen_port", 0, "Listen port of the device")
+	hostUpdateCmd.Flags().IntVar(&mtu, "mtu", 0, "Device MTU size")
 	hostUpdateCmd.Flags().IntVar(&keepAlive, "keep_alive", 0, "Interval (seconds) in which packets are sent to keep connections open with peers")
-	hostUpdateCmd.Flags().BoolVar(&isStaticPort, "static_port", false, "Make Host Static Port?")
-	hostUpdateCmd.Flags().BoolVar(&isStatic, "static_endpoint", false, "Make Host Static Endpoint?")
-	hostUpdateCmd.Flags().BoolVar(&isDefault, "default", false, "Make Host Default ?")
+	hostUpdateCmd.Flags().BoolVar(&isStaticPort, "static_port", false, "Make Device Static Port?")
+	hostUpdateCmd.Flags().BoolVar(&isStatic, "static_endpoint", false, "Make Device Static Endpoint?")
+	hostUpdateCmd.Flags().BoolVar(&isDefault, "default", false, "Make Device Default ?")
 	rootCmd.AddCommand(hostUpdateCmd)
 }
