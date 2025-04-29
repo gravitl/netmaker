@@ -73,8 +73,8 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 			server = logic.GetServerInfo()
 			key, keyErr := logic.RetrievePublicTrafficKey()
 			if keyErr != nil {
-				slog.Error("retrieving traffickey", "error", err)
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				slog.Error("retrieving traffickey", "error", keyErr)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(keyErr, "internal"))
 				return
 			}
 			server.TrafficKey = key
