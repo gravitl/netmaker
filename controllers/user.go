@@ -690,12 +690,12 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if caller.PlatformRoleID == models.AdminRole && user.PlatformRoleID == models.AdminRole {
-			slog.Error("admin user cannot update another admin", "caller", caller.UserName, "attempted to update admin user", username)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("admin user cannot update another admin"), "forbidden"))
+			slog.Error("an admin user does not have permissions to update another admin user", "caller", caller.UserName, "attempted to update admin user", username)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("an admin user does not have permissions to update another admin user"), "forbidden"))
 			return
 		}
 		if caller.PlatformRoleID == models.AdminRole && userchange.PlatformRoleID == models.AdminRole {
-			err = errors.New("admin user cannot update role of an another user to admin")
+			err = errors.New("an admin user does not have permissions to assign the admin role to another user")
 			slog.Error(
 				"failed to update user",
 				"caller",
