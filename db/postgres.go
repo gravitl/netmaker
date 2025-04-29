@@ -17,7 +17,7 @@ type postgresConnector struct{}
 func (pg *postgresConnector) connect() (*gorm.DB, error) {
 	pgConf := servercfg.GetSQLConf()
 	dsn := fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s connect_timeout=5",
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s search_path=netmaker_v1 connect_timeout=5",
 		pgConf.Host,
 		pgConf.Port,
 		pgConf.Username,
@@ -35,12 +35,6 @@ func (pg *postgresConnector) connect() (*gorm.DB, error) {
 
 	// ensure netmaker_v1 schema exists.
 	err = db.Exec("CREATE SCHEMA IF NOT EXISTS netmaker_v1").Error
-	if err != nil {
-		return nil, err
-	}
-
-	// set the netmaker_v1 schema as the default schema.
-	err = db.Exec("SET search_path TO netmaker_v1").Error
 	if err != nil {
 		return nil, err
 	}
