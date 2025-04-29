@@ -17,6 +17,7 @@ var (
 	sso       bool
 	tenantId  string
 	saas      bool
+	authToken string
 )
 
 var contextSetCmd = &cobra.Command{
@@ -30,13 +31,14 @@ var contextSetCmd = &cobra.Command{
 			Username:  username,
 			Password:  password,
 			MasterKey: masterKey,
+			AuthToken: authToken,
 			SSO:       sso,
 			TenantId:  tenantId,
 			Saas:      saas,
 		}
 		if !ctx.Saas {
-			if ctx.Username == "" && ctx.MasterKey == "" && !ctx.SSO {
-				log.Fatal("Either username/password or master key is required")
+			if ctx.Username == "" && ctx.MasterKey == "" && !ctx.SSO && ctx.AuthToken == "" {
+				log.Fatal("Either username/password or master key or auth token is required")
 				cmd.Usage()
 			}
 			if ctx.Endpoint == "" {
@@ -49,8 +51,8 @@ var contextSetCmd = &cobra.Command{
 				cmd.Usage()
 			}
 			ctx.Endpoint = fmt.Sprintf(functions.TenantUrlTemplate, tenantId)
-			if ctx.Username == "" && ctx.Password == "" && !ctx.SSO {
-				log.Fatal("Username/password is required for non-SSO SaaS contexts")
+			if ctx.Username == "" && ctx.Password == "" && ctx.AuthToken == "" && !ctx.SSO {
+				log.Fatal("Username/password or authtoken is required for non-SSO SaaS contexts")
 				cmd.Usage()
 			}
 		}
@@ -62,6 +64,7 @@ func init() {
 	contextSetCmd.Flags().StringVar(&endpoint, "endpoint", "", "Endpoint of the API Server")
 	contextSetCmd.Flags().StringVar(&username, "username", "", "Username")
 	contextSetCmd.Flags().StringVar(&password, "password", "", "Password")
+	contextSetCmd.Flags().StringVar(&authToken, "auth_token", "", "Auth Token")
 	contextSetCmd.MarkFlagsRequiredTogether("username", "password")
 	contextSetCmd.Flags().BoolVar(&sso, "sso", false, "Login via Single Sign On (SSO)?")
 	contextSetCmd.Flags().StringVar(&masterKey, "master_key", "", "Master Key")
