@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 	"net"
 	"reflect"
 	"sort"
@@ -14,11 +16,8 @@ import (
 
 	"github.com/goombaio/namegenerator"
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -137,13 +136,6 @@ func DeleteExtClient(network string, clientid string) error {
 		return err
 	}
 	if servercfg.CacheEnabled() {
-		// recycle ip address
-		if extClient.Address != "" {
-			RemoveIpFromAllocatedIpMap(network, extClient.Address)
-		}
-		if extClient.Address6 != "" {
-			RemoveIpFromAllocatedIpMap(network, extClient.Address6)
-		}
 		deleteExtClientFromCache(key)
 	}
 	if extClient.RemoteAccessClientID != "" {
@@ -171,27 +163,31 @@ func DeleteExtClient(network string, clientid string) error {
 
 // DeleteExtClientAndCleanup - deletes an existing ext client and update ACLs
 func DeleteExtClientAndCleanup(extClient models.ExtClient) error {
-
 	//delete extClient record
 	err := DeleteExtClient(extClient.Network, extClient.ClientID)
 	if err != nil {
-		slog.Error("DeleteExtClientAndCleanup-remove extClient record: ", "Error", err.Error())
+		logger.Log(0, fmt.Sprintf("failed to delete extClient (%s): %s", extClient.ClientID, err.Error()))
 		return err
 	}
 
-	//update ACLs
-	var networkAcls acls.ACLContainer
-	networkAcls, err = networkAcls.Get(acls.ContainerID(extClient.Network))
+	_networkACL := &schema.NetworkACL{
+		ID: extClient.Network,
+	}
+	err = _networkACL.Get(db.WithContext(context.TODO()))
 	if err != nil {
-		slog.Error("DeleteExtClientAndCleanup-update network acls: ", "Error", err.Error())
+		logger.Log(0, fmt.Sprintf("failed to get network (%s) acls: %s", _networkACL.ID, err.Error()))
 		return err
 	}
-	for objId := range networkAcls {
-		delete(networkAcls[objId], acls.AclID(extClient.ClientID))
+
+	for peerID := range _networkACL.Access.Data() {
+		delete(_networkACL.Access.Data()[peerID], extClient.ClientID)
 	}
-	delete(networkAcls, acls.AclID(extClient.ClientID))
-	if _, err = networkAcls.Save(acls.ContainerID(extClient.Network)); err != nil {
-		slog.Error("DeleteExtClientAndCleanup-update network acls:", "Error", err.Error())
+
+	delete(_networkACL.Access.Data(), extClient.ClientID)
+
+	err = _networkACL.Update(db.WithContext(context.TODO()))
+	if err != nil {
+		logger.Log(0, fmt.Sprintf("failed to update network (%s) acls: %s", _networkACL.ID, err.Error()))
 		return err
 	}
 
@@ -324,7 +320,7 @@ func CreateExtClient(extclient *models.ExtClient) error {
 	}
 	if extclient.Address == "" {
 		if parentNetwork.IsIPv4 == "yes" {
-			newAddress, err := UniqueAddress(extclient.Network, true)
+			newAddress, err := getAvailableIPv4Addr(extclient.Network, true)
 			if err != nil {
 				return err
 			}
@@ -334,7 +330,7 @@ func CreateExtClient(extclient *models.ExtClient) error {
 
 	if extclient.Address6 == "" {
 		if parentNetwork.IsIPv6 == "yes" {
-			addr6, err := UniqueAddress6(extclient.Network, true)
+			addr6, err := getAvailableIPv6Addr(extclient.Network, true)
 			if err != nil {
 				return err
 			}
@@ -390,17 +386,6 @@ func SaveExtClient(extclient *models.ExtClient) error {
 	}
 	if err = database.Insert(key, string(data), database.EXT_CLIENT_TABLE_NAME); err != nil {
 		return err
-	}
-	if servercfg.CacheEnabled() {
-		storeExtClientInCache(key, *extclient)
-		if _, ok := allocatedIpMap[extclient.Network]; ok {
-			if extclient.Address != "" {
-				AddIpToAllocatedIpMap(extclient.Network, net.ParseIP(extclient.Address))
-			}
-			if extclient.Address6 != "" {
-				AddIpToAllocatedIpMap(extclient.Network, net.ParseIP(extclient.Address6))
-			}
-		}
 	}
 
 	return SetNetworkNodesLastModified(extclient.Network)
@@ -678,7 +663,7 @@ func GetExtclientAllowedIPs(client models.ExtClient) (allowedIPs []string) {
 		return
 	}
 
-	network, err := GetParentNetwork(client.Network)
+	network, err := GetNetwork(client.Network)
 	if err != nil {
 		logger.Log(1, "Could not retrieve Ingress Gateway Network", client.Network)
 		return

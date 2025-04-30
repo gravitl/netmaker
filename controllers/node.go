@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -373,7 +374,11 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
 	logger.Log(3, r.Header.Get("user"), "fetched all nodes they have access to")
-	logic.SortApiNodes(apiNodes[:])
+
+	slices.SortFunc(apiNodes, func(a, b models.ApiNode) int {
+		return strings.Compare(a.ID, b.ID)
+	})
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNodes)
 }

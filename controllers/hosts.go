@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -164,7 +166,11 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 
 	apiHosts := logic.GetAllHostsAPI(currentHosts[:])
 	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
-	logic.SortApiHosts(apiHosts[:])
+
+	slices.SortFunc(apiHosts, func(a, b models.ApiHost) int {
+		return strings.Compare(a.ID, b.ID)
+	})
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiHosts)
 }

@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -56,8 +58,6 @@ func main() {
 	servercfg.SetVersion(version)
 	fmt.Println(models.RetrieveLogo()) // print the logo
 	initialize()                       // initial db and acls
-	logic.SetAllocatedIpMap()
-	defer logic.ClearAllocatedIpMap()
 	setGarbageCollection()
 	setVerbosity()
 	if servercfg.DeployedByOperator() && !servercfg.IsPro {
@@ -65,6 +65,7 @@ func main() {
 	}
 	defer db.CloseDB()
 	defer database.CloseDB()
+	defer db.CloseDB()
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
 	defer stop()
 	var waitGroup sync.WaitGroup
@@ -119,11 +120,7 @@ func initialize() { // Client Mode Prereq Check
 
 	initializeUUID()
 	//initialize cache
-	_, _ = logic.GetNetworks()
-	_, _ = logic.GetAllNodes()
-	_, _ = logic.GetAllHosts()
 	_, _ = logic.GetAllExtClients()
-	_ = logic.ListAcls()
 	_, _ = logic.GetAllEnrollmentKeys()
 
 	migrate.Run()

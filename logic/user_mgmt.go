@@ -62,7 +62,7 @@ var InitialiseRoles = userRolesInit
 var IntialiseGroups = func() {}
 var DeleteNetworkRoles = func(netID string) {}
 var CreateDefaultNetworkRolesAndGroups = func(netID models.NetworkID) {}
-var CreateDefaultUserPolicies = func(netID models.NetworkID) {
+var CreateDefaultUserPolicies = func(networkID string) {
 	if netID.String() == "" {
 		return
 	}

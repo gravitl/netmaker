@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -213,13 +215,17 @@ func getAcls(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	acls, err := logic.ListAclsByNetwork(models.NetworkID(netID))
+	acls, err := logic.ListAclsByNetwork(netID)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get all network acl entries: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.SortAclEntrys(acls[:])
+
+	slices.SortFunc(acls, func(a, b models.Acl) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+
 	logic.ReturnSuccessResponseWithJson(w, r, acls, "fetched all acls in the network "+netID)
 }
 
