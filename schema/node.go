@@ -194,7 +194,7 @@ func (n *Node) ExistsWithNetworkAndIPv4(ctx context.Context) (bool, error) {
 func (n *Node) ExistsWithNetworkAndIPv6(ctx context.Context) (bool, error) {
 	var exists bool
 	err := db.FromContext(ctx).Raw(
-		"SELECT EXISTS (SELECT 1 FROM nodes WHERE network_id = ? AND address6 = ? )",
+		"SELECT EXISTS (SELECT 1 FROM nodes WHERE network_id = ? AND address6 = ?)",
 		n.NetworkID,
 		n.Address6,
 	).Scan(&exists).Error

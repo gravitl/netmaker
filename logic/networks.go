@@ -183,7 +183,7 @@ func intersect(n1, n2 *net.IPNet) bool {
 }
 
 // getAvailableIPv4Addr - get a unique ipv4 address
-func getAvailableIPv4Addr(networkID string, reverse bool) (*net.IP, error) {
+func getAvailableIPv4Addr(networkID string, reverse bool) (*net.IPNet, error) {
 	_network := &schema.Network{
 		ID: networkID,
 	}
@@ -196,28 +196,28 @@ func getAvailableIPv4Addr(networkID string, reverse bool) (*net.IP, error) {
 		return nil, ErrNetworkNotIPv4
 	}
 
-	_, _, err = net.ParseCIDR(_network.AddressRange)
+	_, ipv4Addr, err := net.ParseCIDR(_network.AddressRange)
 	if err != nil {
 		return nil, err
 	}
 
 	net4 := iplib.Net4FromStr(_network.AddressRange)
-	ipv4Addr := net4.FirstAddress()
+	ipv4Addr.IP = net4.FirstAddress()
 
 	if reverse {
-		ipv4Addr = net4.LastAddress()
+		ipv4Addr.IP = net4.LastAddress()
 	}
 
 	for {
 		if nodeWithIPExists(networkID, ipv4Addr.String(), database.NODES_TABLE_NAME, false) &&
 			nodeWithIPExists(networkID, ipv4Addr.String(), database.EXT_CLIENT_TABLE_NAME, false) {
-			return &ipv4Addr, nil
+			return ipv4Addr, nil
 		}
 
 		if reverse {
-			ipv4Addr, err = net4.PreviousIP(ipv4Addr)
+			ipv4Addr.IP, err = net4.PreviousIP(ipv4Addr.IP)
 		} else {
-			ipv4Addr, err = net4.NextIP(ipv4Addr)
+			ipv4Addr.IP, err = net4.NextIP(ipv4Addr.IP)
 		}
 		if err != nil {
 			break
@@ -228,7 +228,7 @@ func getAvailableIPv4Addr(networkID string, reverse bool) (*net.IP, error) {
 }
 
 // getAvailableIPv6Addr - see if ipv6 address is unique
-func getAvailableIPv6Addr(networkID string, reverse bool) (*net.IP, error) {
+func getAvailableIPv6Addr(networkID string, reverse bool) (*net.IPNet, error) {
 	_network := &schema.Network{
 		ID: networkID,
 	}
@@ -241,15 +241,15 @@ func getAvailableIPv6Addr(networkID string, reverse bool) (*net.IP, error) {
 		return nil, ErrNetworkNotIPv6
 	}
 
-	_, _, err = net.ParseCIDR(_network.AddressRange6)
+	_, ipv6Addr, err := net.ParseCIDR(_network.AddressRange6)
 	if err != nil {
 		return nil, err
 	}
 
 	net6 := iplib.Net6FromStr(_network.AddressRange6)
-	ipv6Addr, err := net6.NextIP(net6.FirstAddress())
+	ipv6Addr.IP, err = net6.NextIP(net6.FirstAddress())
 	if reverse {
-		ipv6Addr, err = net6.PreviousIP(net6.LastAddress())
+		ipv6Addr.IP, err = net6.PreviousIP(net6.LastAddress())
 	}
 	if err != nil {
 		return nil, err
@@ -258,13 +258,13 @@ func getAvailableIPv6Addr(networkID string, reverse bool) (*net.IP, error) {
 	for {
 		if nodeWithIPExists(networkID, ipv6Addr.String(), database.NODES_TABLE_NAME, true) &&
 			nodeWithIPExists(networkID, ipv6Addr.String(), database.EXT_CLIENT_TABLE_NAME, true) {
-			return &ipv6Addr, nil
+			return ipv6Addr, nil
 		}
 
 		if reverse {
-			ipv6Addr, err = net6.PreviousIP(ipv6Addr)
+			ipv6Addr.IP, err = net6.PreviousIP(ipv6Addr.IP)
 		} else {
-			ipv6Addr, err = net6.NextIP(ipv6Addr)
+			ipv6Addr.IP, err = net6.NextIP(ipv6Addr.IP)
 		}
 		if err != nil {
 			break

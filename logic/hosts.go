@@ -4,10 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"sort"
-	"sync"
-
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/converters"
 	"github.com/gravitl/netmaker/database"
@@ -18,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
+	"gorm.io/gorm"
 )
 
 var (
@@ -27,53 +24,12 @@ var (
 	ErrInvalidHostID error = errors.New("invalid host id")
 )
 
-var GetHostLocInfo = func(ip, token string) string { return "" }
-
-func getHostsFromCache() (hosts []models.Host) {
-	hostCacheMutex.RLock()
-	for _, host := range hostsCacheMap {
-		hosts = append(hosts, host)
-	}
-	hostCacheMutex.RUnlock()
-	return
-}
-
-func getHostsMapFromCache() (hostsMap map[string]models.Host) {
-	hostCacheMutex.RLock()
-	hostsMap = hostsCacheMap
-	hostCacheMutex.RUnlock()
-	return
-}
-
-func getHostFromCache(hostID string) (host models.Host, ok bool) {
-	hostCacheMutex.RLock()
-	host, ok = hostsCacheMap[hostID]
-	hostCacheMutex.RUnlock()
-	return
-}
-
-func storeHostInCache(h models.Host) {
-	hostCacheMutex.Lock()
-	hostsCacheMap[h.ID.String()] = h
-	hostCacheMutex.Unlock()
-}
-
-func deleteHostFromCache(hostID string) {
-	hostCacheMutex.Lock()
-	delete(hostsCacheMap, hostID)
-	hostCacheMutex.Unlock()
-}
-
-func loadHostsIntoCache(hMap map[string]models.Host) {
-	hostCacheMutex.Lock()
-	hostsCacheMap = hMap
-	hostCacheMutex.Unlock()
-}
-
 const (
 	maxPort = 1<<16 - 1
 	minPort = 1025
 )
+
+var GetHostLocInfo = func(ip, token string) string { return "" }
 
 // GetAllHosts - returns all hosts in flat list or error
 func GetAllHosts() ([]models.Host, error) {
@@ -82,7 +38,25 @@ func GetAllHosts() ([]models.Host, error) {
 		return nil, err
 	}
 
-	return converters.ToModelHosts(_hosts), nil
+	hosts := converters.ToModelHosts(_hosts)
+	for i := range hosts {
+		// TODO: OPTIMIZE MEEEE!!
+		// TODO: remove this and update every
+		// TODO: code expecting nodes to query.
+		_host := &schema.Host{
+			ID: hosts[i].ID.String(),
+		}
+		_hostNodes, _ := _host.GetNodes(db.WithContext(context.TODO()))
+
+		nodes := make([]string, len(_hostNodes))
+		for i, _node := range _hostNodes {
+			nodes[i] = _node.ID
+		}
+
+		hosts[i].Nodes = nodes
+	}
+
+	return hosts, nil
 }
 
 // GetAllHostsWithStatus - returns all hosts with at least one
@@ -133,6 +107,18 @@ func GetHost(hostid string) (*models.Host, error) {
 	}
 
 	host := converters.ToModelHost(*_host)
+
+	// TODO: OPTIMIZE MEEEE!!
+	// TODO: remove this and update every
+	// TODO: code expecting nodes to query.
+	_hostNodes, _ := _host.GetNodes(db.WithContext(context.TODO()))
+
+	nodes := make([]string, len(_hostNodes))
+	for i, _node := range _hostNodes {
+		nodes[i] = _node.ID
+	}
+	host.Nodes = nodes
+
 	return &host, nil
 }
 
@@ -271,17 +257,25 @@ func UpsertHost(h *models.Host) error {
 
 // RemoveHost - removes a given host from server
 func RemoveHost(h *models.Host, forceDelete bool) error {
-	if !forceDelete && len(h.Nodes) > 0 {
+	_host := &schema.Host{
+		ID: h.ID.String(),
+	}
+	nodeCount, err := _host.CountNodes(db.WithContext(context.TODO()))
+	if err != nil {
+		return err
+	}
+
+	if !forceDelete && nodeCount > 0 {
 		return fmt.Errorf("host still has associated nodes")
 	}
 
-	if len(h.Nodes) > 0 {
+	if nodeCount > 0 {
 		if err := DisassociateAllNodesFromHost(h.ID.String()); err != nil {
 			return err
 		}
 	}
 
-	err := RemoveHostByID(h.ID.String())
+	err = RemoveHostByID(h.ID.String())
 	if err != nil {
 		return err
 	}
@@ -304,30 +298,34 @@ func RemoveHostByID(hostID string) error {
 
 // UpdateHostNetwork - adds/deletes host from a network
 func UpdateHostNetwork(h *models.Host, network string, add bool) (*models.Node, error) {
-	for _, nodeID := range h.Nodes {
-		node, err := GetNodeByID(nodeID)
-		if err != nil || node.PendingDelete {
-			continue
-		}
-		if node.Network == network {
+	_node := &schema.Node{
+		HostID:    h.ID.String(),
+		NetworkID: network,
+	}
+	err := _node.GetByHostIDAndNetworkID(db.WithContext(context.TODO()))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			if !add {
-				return &node, nil
+				return nil, errors.New("host not part of the network " + network)
 			} else {
-				return &node, errors.New("host already part of network " + network)
+				newNode := models.Node{}
+				newNode.Server = servercfg.GetServer()
+				newNode.Network = network
+				newNode.HostID = h.ID
+				if err := AssociateNodeToHost(&newNode, h); err != nil {
+					return nil, err
+				}
+				return &newNode, nil
 			}
 		}
-	}
-	if !add {
-		return nil, errors.New("host not part of the network " + network)
+		return nil, err
 	} else {
-		newNode := models.Node{}
-		newNode.Server = servercfg.GetServer()
-		newNode.Network = network
-		newNode.HostID = h.ID
-		if err := AssociateNodeToHost(&newNode, h); err != nil {
-			return nil, err
+		if !add {
+			node := converters.ToModelNode(*_node)
+			return &node, nil
+		} else {
+			return nil, errors.New("host already part of network " + network)
 		}
-		return &newNode, nil
 	}
 }
 
@@ -338,17 +336,7 @@ func AssociateNodeToHost(n *models.Node, h *models.Host) error {
 		return ErrInvalidHostID
 	}
 	n.HostID = h.ID
-	err := createNode(n)
-	if err != nil {
-		return err
-	}
-	currentHost, err := GetHost(h.ID.String())
-	if err != nil {
-		return err
-	}
-	h.HostPass = currentHost.HostPass
-	h.Nodes = append(currentHost.Nodes, n.ID.String())
-	return UpsertHost(h)
+	return createNode(n)
 }
 
 // DissasociateNodeFromHost - deletes a node and removes from host nodes
@@ -360,16 +348,7 @@ func DissasociateNodeFromHost(n *models.Node, h *models.Host) error {
 	if n.HostID != h.ID { // check if node actually belongs to host
 		return fmt.Errorf("node is not associated with host")
 	}
-	if len(h.Nodes) == 0 {
-		return fmt.Errorf("no nodes present in given host")
-	}
-	nList := []string{}
-	for i := range h.Nodes {
-		if h.Nodes[i] != n.ID.String() {
-			nList = append(nList, h.Nodes[i])
-		}
-	}
-	h.Nodes = nList
+
 	go func() {
 		if servercfg.IsPro {
 			if clients, err := GetNetworkExtClients(n.Network); err != nil {
@@ -379,32 +358,31 @@ func DissasociateNodeFromHost(n *models.Node, h *models.Host) error {
 			}
 		}
 	}()
-	if err := DeleteNodeByID(n); err != nil {
-		return err
-	}
-	return UpsertHost(h)
+
+	return DeleteNodeByID(n)
 }
 
 // DisassociateAllNodesFromHost - deletes all nodes of the host
 func DisassociateAllNodesFromHost(hostID string) error {
-	host, err := GetHost(hostID)
+	_host := &schema.Host{
+		ID: hostID,
+	}
+	_hostNodes, err := _host.GetNodes(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
-	for _, nodeID := range host.Nodes {
-		node, err := GetNodeByID(nodeID)
-		if err != nil {
-			logger.Log(0, "failed to get host node, node id:", nodeID, err.Error())
-			continue
-		}
+
+	hostNodes := converters.ToModelNodes(_hostNodes)
+
+	for _, node := range hostNodes {
 		if err := DeleteNode(&node, true); err != nil {
 			logger.Log(0, "failed to delete node", node.ID.String(), err.Error())
 			continue
 		}
-		logger.Log(3, "deleted node", node.ID.String(), "of host", host.ID.String())
+		logger.Log(3, "deleted node", node.ID.String(), "of host", hostID)
 	}
-	host.Nodes = []string{}
-	return UpsertHost(host)
+
+	return nil
 }
 
 // GetDefaultHosts - retrieve all hosts marked as default from DB

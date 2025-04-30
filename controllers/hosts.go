@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gravitl/netmaker/converters"
+	"github.com/gravitl/netmaker/schema"
 	"net/http"
 	"slices"
 	"strings"
@@ -182,7 +184,6 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} models.HostPull
 // @Failure     500 {object} models.ErrorResponse
 func pull(w http.ResponseWriter, r *http.Request) {
-
 	hostID := r.Header.Get(hostIDHeader) // return JSON/API formatted keys
 	if len(hostID) == 0 {
 		logger.Log(0, "no host authorized to pull")
@@ -201,12 +202,18 @@ func pull(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sendPeerUpdate := false
-	for _, nodeID := range host.Nodes {
-		node, err := logic.GetNodeByID(nodeID)
-		if err != nil {
-			slog.Error("failed to get node:", "id", node.ID, "error", err)
-			continue
-		}
+	_host := &schema.Host{
+		ID: hostID,
+	}
+	_hostNodes, err := _host.GetNodes(r.Context())
+	if err != nil {
+		logger.Log(0, "failed to get host nodes: ", hostID)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	hostNodes := converters.ToModelNodes(_hostNodes)
+	for _, node := range hostNodes {
 		if node.FailedOverBy != uuid.Nil && r.URL.Query().Get("reset_failovered") == "true" {
 			logic.ResetFailedOverPeer(&node)
 			sendPeerUpdate = true

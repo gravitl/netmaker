@@ -114,27 +114,20 @@ func (h *Host) CountNodes(ctx context.Context) (int, error) {
 }
 
 func (h *Host) Upsert(ctx context.Context) error {
-	var err error
-	ctx = db.BeginTx(ctx)
-	defer func() {
+	return db.FromContext(ctx).Transaction(func(tx *gorm.DB) error {
+		err := tx.Model(h).First(&Host{
+			ID: h.ID,
+		}).Error
 		if err != nil {
-			db.FromContext(ctx).Rollback()
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return tx.Model(&Host{}).Create(h).Error
+			} else {
+				return err
+			}
 		} else {
-			db.FromContext(ctx).Commit()
+			return tx.Model(h).Updates(h).Error
 		}
-	}()
-
-	err = db.FromContext(ctx).Model(h).First(&Host{}).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			err = h.Create(ctx)
-			return err
-		} else {
-			return err
-		}
-	} else {
-		return db.FromContext(ctx).Model(h).Updates(h).Error
-	}
+	})
 }
 
 func (h *Host) UpdateNodesLastCheckIn(ctx context.Context) error {

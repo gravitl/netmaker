@@ -452,9 +452,12 @@ func createNode(node *models.Node) error {
 	SetNodeDefaults(node, true)
 
 	defaultACLVal := nodeacls.Allowed
-	parentNetwork, err := GetNetwork(node.Network)
+	_network := &schema.Network{
+		ID: node.Network,
+	}
+	err = _network.Get(db.WithContext(context.TODO()))
 	if err == nil {
-		if parentNetwork.DefaultACL != "yes" {
+		if _network.DefaultACL != "yes" {
 			defaultACLVal = nodeacls.NotAllowed
 		}
 	}
@@ -464,37 +467,25 @@ func createNode(node *models.Node) error {
 	}
 
 	if node.Address.IP == nil {
-		if parentNetwork.IsIPv4 == "yes" {
+		if _network.IsIPv4 == "yes" {
 			ipv4, err := getAvailableIPv4Addr(node.Network, false)
 			if err != nil {
 				return err
 			}
 
-			node.Address.IP = *ipv4
-
-			_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange)
-			if err != nil {
-				return err
-			}
-			node.Address.Mask = net.CIDRMask(cidr.Mask.Size())
+			node.Address = *ipv4
 		}
 	} else if !nodeWithIPExists(node.Network, node.Address.String(), database.NODES_TABLE_NAME, false) {
 		return fmt.Errorf("invalid address: ipv4 " + node.Address.String() + " is not unique")
 	}
 	if node.Address6.IP == nil {
-		if parentNetwork.IsIPv6 == "yes" {
+		if _network.IsIPv6 == "yes" {
 			ipv6, err := getAvailableIPv6Addr(node.Network, false)
 			if err != nil {
 				return err
 			}
 
-			node.Address6.IP = *ipv6
-
-			_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange6)
-			if err != nil {
-				return err
-			}
-			node.Address6.Mask = net.CIDRMask(cidr.Mask.Size())
+			node.Address6 = *ipv6
 		}
 	} else if !nodeWithIPExists(node.Network, node.Address6.String(), database.NODES_TABLE_NAME, true) {
 		return fmt.Errorf("invalid address: ipv6 " + node.Address6.String() + " is not unique")
