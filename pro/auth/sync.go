@@ -117,7 +117,7 @@ func syncUsers(idpUsers []idp.User) error {
 				AccountDisabled:            user.AccountDisabled,
 				Password:                   password,
 				AuthType:                   models.OAuth,
-				PlatformRoleID:             models.PlatformUser,
+				PlatformRoleID:             models.ServiceUser,
 			})
 			if err != nil {
 				return err
