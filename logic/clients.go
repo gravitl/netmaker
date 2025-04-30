@@ -1,12 +1,16 @@
 package logic
 
 import (
+	"context"
 	"errors"
+	"fmt"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/logic/nodeacls"
+	"github.com/gravitl/netmaker/schema"
 	"sort"
 
-	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/models"
-	"golang.org/x/exp/slog"
 )
 
 // functions defined here, handle client ACLs, should be set on ee
@@ -26,22 +30,31 @@ var (
 	}
 	SetClientDefaultACLs = func(ec *models.ExtClient) error {
 		// allow all on CE
-		networkAcls := acls.ACLContainer{}
-		networkAcls, err := networkAcls.Get(acls.ContainerID(ec.Network))
+		_networkACL := &schema.NetworkACL{
+			ID: ec.Network,
+		}
+		err := _networkACL.Get(db.WithContext(context.TODO()))
 		if err != nil {
-			slog.Error("failed to get network acls", "error", err)
+			logger.Log(0, fmt.Sprintf("failed to get network (%s) acls: %s", _networkACL.ID, err.Error()))
 			return err
 		}
-		networkAcls[acls.AclID(ec.ClientID)] = make(acls.ACL)
-		for objId := range networkAcls {
-			networkAcls[objId][acls.AclID(ec.ClientID)] = acls.Allowed
-			networkAcls[acls.AclID(ec.ClientID)][objId] = acls.Allowed
+
+		_networkACL.Access.Data()[ec.ClientID] = make(map[string]byte)
+
+		for peerID := range _networkACL.Access.Data() {
+			_networkACL.Access.Data()[peerID][ec.ClientID] = nodeacls.Allowed
+			_networkACL.Access.Data()[ec.ClientID][peerID] = nodeacls.Allowed
 		}
-		delete(networkAcls[acls.AclID(ec.ClientID)], acls.AclID(ec.ClientID))
-		if _, err = networkAcls.Save(acls.ContainerID(ec.Network)); err != nil {
-			slog.Error("failed to update network acls", "error", err)
+
+		// delete self loop.
+		delete(_networkACL.Access.Data()[ec.ClientID], ec.ClientID)
+
+		err = _networkACL.Update(db.WithContext(context.TODO()))
+		if err != nil {
+			logger.Log(0, fmt.Sprintf("failed to update network (%s) acls: %s", _networkACL.ID, err.Error()))
 			return err
 		}
+
 		return nil
 	}
 	SetClientACLs = func(ec *models.ExtClient, newACLs map[string]struct{}) {

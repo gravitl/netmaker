@@ -1,13 +1,10 @@
 package serverctl
 
 import (
-	"strings"
-
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/acls"
-	"github.com/gravitl/netmaker/logic/acls/nodeacls"
+	"github.com/gravitl/netmaker/logic/nodeacls"
 	"golang.org/x/exp/slog"
 )
 
@@ -42,11 +39,10 @@ func setNodeDefaults() error {
 	for i := range nodes {
 		logic.SetNodeDefaults(&nodes[i], false)
 		logic.UpdateNode(&nodes[i], &nodes[i])
-		currentNodeACL, err := nodeacls.FetchNodeACL(nodeacls.NetworkID(nodes[i].Network), nodeacls.NodeID(nodes[i].ID.String()))
-		if (err != nil && (database.IsEmptyRecord(err) || strings.Contains(err.Error(), "no node ACL present"))) || currentNodeACL == nil {
-			if _, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(nodes[i].Network), nodeacls.NodeID(nodes[i].ID.String()), acls.Allowed); err != nil {
-				logger.Log(1, "could not create a default ACL for node", nodes[i].ID.String())
-			}
+
+		err = nodeacls.CreateNodeACL(nodes[i].Network, nodes[i].ID.String(), nodeacls.Allowed)
+		if err != nil {
+			logger.Log(1, "could not create a default ACL for node", nodes[i].ID.String())
 		}
 	}
 	return nil

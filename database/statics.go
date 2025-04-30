@@ -2,6 +2,8 @@ package database
 
 import (
 	"encoding/json"
+	"errors"
+	"gorm.io/gorm"
 	"strings"
 )
 
@@ -55,5 +57,6 @@ func IsEmptyRecord(err error) bool {
 	if err == nil {
 		return false
 	}
-	return strings.Contains(err.Error(), NO_RECORD) || strings.Contains(err.Error(), NO_RECORDS)
+	return strings.Contains(err.Error(), NO_RECORD) || strings.Contains(err.Error(), NO_RECORDS) ||
+		errors.Is(err, gorm.ErrRecordNotFound)
 }

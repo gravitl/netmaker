@@ -3,11 +3,11 @@ package logic
 import (
 	"errors"
 	"fmt"
+	"github.com/gravitl/netmaker/logic/nodeacls"
 	"net"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 )
 
@@ -220,7 +220,7 @@ func GetAllowedIpsForRelayed(relayed, relay *models.Node) (allowedIPs []net.IPNe
 		if peer.ID == relayed.ID || peer.ID == relay.ID {
 			continue
 		}
-		if nodeacls.AreNodesAllowed(nodeacls.NetworkID(relayed.Network), nodeacls.NodeID(relayed.ID.String()), nodeacls.NodeID(peer.ID.String())) {
+		if nodeacls.AreNodesAllowed(relayed.Network, relayed.ID.String(), peer.ID.String()) {
 			allowedIPs = append(allowedIPs, GetAllowedIPs(relayed, &peer, nil)...)
 		}
 	}

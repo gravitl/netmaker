@@ -3,12 +3,12 @@ package logic
 import (
 	"errors"
 	"fmt"
+	"github.com/gravitl/netmaker/logic/nodeacls"
 	"net"
 	"net/netip"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slices"
@@ -79,7 +79,7 @@ func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 			continue
 		}
 		networkPeersInfo := make(models.PeerMap)
-		defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+		defaultDevicePolicy, _ := GetDefaultPolicy(node.Network, models.DevicePolicy)
 
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
 		for _, peer := range currentPeers {
@@ -105,7 +105,7 @@ func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 			if peer.Action != models.NODE_DELETE &&
 				!peer.PendingDelete &&
 				peer.Connected &&
-				nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) &&
+				nodeacls.AreNodesAllowed(node.Network, node.ID.String(), peer.ID.String()) &&
 				(defaultDevicePolicy.Enabled || allowedToComm) {
 
 				networkPeersInfo[peerHost.PublicKey.String()] = models.IDandAddr{
@@ -195,8 +195,8 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		if !hostPeerUpdate.IsInternetGw {
 			hostPeerUpdate.IsInternetGw = IsInternetGw(node)
 		}
-		defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
-		defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+		defaultUserPolicy, _ := GetDefaultPolicy(node.Network, models.UserPolicy)
+		defaultDevicePolicy, _ := GetDefaultPolicy(node.Network, models.DevicePolicy)
 
 		if (defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) || !checkIfAnyPolicyisUniDirectional(node) {
 			if node.NetworkRange.IP != nil {
@@ -329,7 +329,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			if peer.Action != models.NODE_DELETE &&
 				!peer.PendingDelete &&
 				peer.Connected &&
-				nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) &&
+				nodeacls.AreNodesAllowed(node.Network, node.ID.String(), peer.ID.String()) &&
 				(defaultDevicePolicy.Enabled || allowedToComm) &&
 				(deletedNode == nil || (deletedNode != nil && peer.ID.String() != deletedNode.ID.String())) {
 				peerConfig.AllowedIPs = GetAllowedIPs(&node, &peer, nil) // only append allowed IPs if valid connection
