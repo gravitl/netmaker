@@ -47,7 +47,13 @@ func CreateNodeACL(networkID, nodeID string, defaultVal byte) error {
 		_networkACL.Access.Data()[nodeID][peerID] = defaultVal
 	}
 
-	return _networkACL.Update(dbctx)
+	err = _networkACL.Update(dbctx)
+	if err != nil {
+		return err
+	}
+
+	commit = true
+	return nil
 }
 
 // AreNodesAllowed - checks if nodes are allowed to communicate in their network ACL

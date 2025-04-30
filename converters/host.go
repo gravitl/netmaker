@@ -84,8 +84,9 @@ func ToModelHost(_host schema.Host) models.Host {
 		}
 
 		if _host.Interfaces[i].Address != "" {
-			_, address, _ := net.ParseCIDR(_host.Interfaces[i].Address)
-			if address != nil {
+			ip, address, _ := net.ParseCIDR(_host.Interfaces[i].Address)
+			if ip != nil && address != nil {
+				address.IP = ip
 				iface.Address = *address
 				iface.AddressString = address.String()
 			}

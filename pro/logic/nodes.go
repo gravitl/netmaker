@@ -71,7 +71,6 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 			if node.InternetGwID != "" && node.InternetGwID != inetNode.ID.String() {
 				return errors.New("nodes on same host cannot use different internet gateway")
 			}
-
 		}
 	}
 	return nil

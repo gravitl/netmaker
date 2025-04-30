@@ -1,7 +1,9 @@
 package converters
 
 import (
+	"context"
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/datatypes"
@@ -13,20 +15,20 @@ func ToSchemaNode(node models.Node) schema.Node {
 	var nodeID = node.ID.String()
 
 	var networkRange, networkRange6 string
-	if node.NetworkRange.IP == nil {
+	if node.NetworkRange.IP != nil {
 		networkRange = node.NetworkRange.String()
 	}
 
-	if node.NetworkRange6.IP == nil {
+	if node.NetworkRange6.IP != nil {
 		networkRange6 = node.NetworkRange6.String()
 	}
 
 	var address, address6 string
-	if node.Address.IP == nil {
+	if node.Address.IP != nil {
 		address = node.Address.String()
 	}
 
-	if node.Address6.IP == nil {
+	if node.Address6.IP != nil {
 		address6 = node.Address6.String()
 	}
 
@@ -161,24 +163,27 @@ func ToModelNode(_node schema.Node) models.Node {
 
 	var address, address6 net.IPNet
 	if _node.Address != "" {
-		_, _address, _ := net.ParseCIDR(_node.Address)
-		if _address != nil {
+		_ipv4, _address, _ := net.ParseCIDR(_node.Address)
+		if _ipv4 != nil && _address != nil {
 			address = *_address
+			address.IP = _ipv4
 		}
 	}
 
 	if _node.Address6 != "" {
-		_, _address6, _ := net.ParseCIDR(_node.Address6)
-		if _address6 != nil {
+		_ipv6, _address6, _ := net.ParseCIDR(_node.Address6)
+		if _ipv6 != nil && _address6 != nil {
 			address6 = *_address6
+			address6.IP = _ipv6
 		}
 	}
 
 	var localAddress net.IPNet
 	if _node.LocalAddress != "" {
-		_, _localAddress, _ := net.ParseCIDR(_node.LocalAddress)
-		if _localAddress != nil {
+		_ip, _localAddress, _ := net.ParseCIDR(_node.LocalAddress)
+		if _ip != nil && _localAddress != nil {
 			localAddress = *_localAddress
+			localAddress.IP = _ip
 		}
 	}
 
@@ -210,6 +215,9 @@ func ToModelNode(_node schema.Node) models.Node {
 		Metadata:           _node.Metadata,
 		DefaultACL:         _node.DefaultACL,
 		OwnerID:            _node.OwnerID,
+		IsFailOver:         false,
+		FailOverPeers:      nil,
+		FailedOverBy:       uuid.UUID{},
 		Tags:               tags,
 		IsStatic:           false,
 		IsUserNode:         false,
@@ -258,6 +266,24 @@ func ToModelNode(_node schema.Node) models.Node {
 
 		node.EgressGatewayRanges = node.EgressGatewayRequest.Ranges
 		node.EgressGatewayNatEnabled = _node.EgressGatewayNodeConfig.Data().NatEnabled
+	}
+
+	_network := &schema.Network{
+		ID: _node.NetworkID,
+	}
+	err := _network.Get(db.WithContext(context.TODO()))
+	if err == nil && _network.FailOverNodeID != nil {
+		if *_network.FailOverNodeID == _node.ID {
+			node.IsFailOver = true
+		}
+
+		if _node.FailOverPeers != nil {
+			node.FailedOverBy = uuid.MustParse(*_network.FailOverNodeID)
+			node.FailOverPeers = make(map[string]struct{})
+			for peer := range _node.FailOverPeers {
+				node.FailOverPeers[peer] = struct{}{}
+			}
+		}
 	}
 
 	if _node.IsInternetGateway {
