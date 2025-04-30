@@ -1,59 +1,66 @@
 package azure
 
 import (
-	"context"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/pro/idp"
-	msgraphsdk "github.com/microsoftgraph/msgraph-sdk-go"
-	msgraphgroups "github.com/microsoftgraph/msgraph-sdk-go/groups"
-	msgraphusers "github.com/microsoftgraph/msgraph-sdk-go/users"
+	"net/http"
+	"net/url"
 )
 
 type Client struct {
-	client *msgraphsdk.GraphServiceClient
+	clientID     string
+	clientSecret string
+	tenantID     string
 }
 
-func NewAzureEntraIDClient() (*Client, error) {
+func NewAzureEntraIDClient() *Client {
 	settings := logic.GetServerSettings()
 
-	cred, err := azidentity.NewClientSecretCredential(
-		settings.AzureTenant,
-		settings.ClientID,
-		settings.ClientSecret,
-		nil,
-	)
-	if err != nil {
-	}
-
-	client, err := msgraphsdk.NewGraphServiceClientWithCredentials(cred, nil)
-	if err != nil {
-		return nil, err
-	}
-
 	return &Client{
-		client: client,
-	}, nil
+		clientID:     settings.ClientID,
+		clientSecret: settings.ClientSecret,
+		tenantID:     settings.AzureTenant,
+	}
 }
 
 func (a *Client) GetUsers() ([]idp.User, error) {
-	resp, err := a.client.Users().Get(context.TODO(), &msgraphusers.UsersRequestBuilderGetRequestConfiguration{
-		QueryParameters: &msgraphusers.UsersRequestBuilderGetQueryParameters{
-			Select: []string{"id", "userPrincipalName", "accountEnabled"},
-		},
-	})
+	accessToken, err := a.getAccessToken()
 	if err != nil {
 		return nil, err
 	}
 
-	users := resp.GetValue()
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", "https://graph.microsoft.com/v1.0/users?$select=id,userPrincipalName,accountEnabled", nil)
+	if err != nil {
+		return nil, err
+	}
 
-	retval := make([]idp.User, len(users))
-	for i, user := range users {
+	req.Header.Add("Authorization", "Bearer "+accessToken)
+	req.Header.Add("Accept", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	var users getUsersResponse
+	err = json.NewDecoder(resp.Body).Decode(&users)
+	if err != nil {
+		return nil, err
+	}
+
+	retval := make([]idp.User, len(users.Value))
+	for i, user := range users.Value {
 		retval[i] = idp.User{
-			ID:              *user.GetId(),
-			Username:        *user.GetUserPrincipalName(),
-			AccountDisabled: !*user.GetAccountEnabled(),
+			ID:              user.Id,
+			Username:        user.UserPrincipalName,
+			AccountDisabled: user.AccountEnabled,
 		}
 	}
 
@@ -61,33 +68,98 @@ func (a *Client) GetUsers() ([]idp.User, error) {
 }
 
 func (a *Client) GetGroups() ([]idp.Group, error) {
-	resp, err := a.client.Groups().Get(context.TODO(), &msgraphgroups.GroupsRequestBuilderGetRequestConfiguration{
-		QueryParameters: &msgraphgroups.GroupsRequestBuilderGetQueryParameters{
-			Select: []string{"id", "displayName"},
-			Expand: []string{"members"},
-		},
-	})
+	accessToken, err := a.getAccessToken()
 	if err != nil {
 		return nil, err
 	}
 
-	groups := resp.GetValue()
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", "https://graph.microsoft.com/v1.0/groups?$select=id,displayName&$expand=members($select=id)", nil)
+	if err != nil {
+		return nil, err
+	}
 
-	retval := make([]idp.Group, len(groups))
-	for i, group := range groups {
-		members := group.GetMembers()
+	req.Header.Add("Authorization", "Bearer "+accessToken)
+	req.Header.Add("Accept", "application/json")
 
-		retvalMembers := make([]string, len(members))
-		for j, member := range members {
-			retvalMembers[j] = *member.GetId()
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	var groups getGroupsResponse
+	err = json.NewDecoder(resp.Body).Decode(&groups)
+	if err != nil {
+		return nil, err
+	}
+
+	retval := make([]idp.Group, len(groups.Value))
+	for i, group := range groups.Value {
+		retvalMembers := make([]string, len(group.Members))
+		for j, member := range group.Members {
+			retvalMembers[j] = member.Id
 		}
 
 		retval[i] = idp.Group{
-			ID:      *group.GetId(),
-			Name:    *group.GetDisplayName(),
+			ID:      group.Id,
+			Name:    group.DisplayName,
 			Members: retvalMembers,
 		}
 	}
 
 	return retval, nil
+}
+
+func (a *Client) getAccessToken() (string, error) {
+	tokenURL := fmt.Sprintf("https://login.microsoftonline.com/%s/oauth2/v2.0/token", a.tenantID)
+
+	var data = url.Values{}
+	data.Set("grant_type", "client_credentials")
+	data.Set("client_id", a.clientID)
+	data.Set("client_secret", a.clientSecret)
+	data.Set("scope", "https://graph.microsoft.com/.default")
+
+	resp, err := http.PostForm(tokenURL, data)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	var tokenResp map[string]interface{}
+	err = json.NewDecoder(resp.Body).Decode(&tokenResp)
+	if err != nil {
+		return "", err
+	}
+
+	if token, ok := tokenResp["access_token"].(string); ok {
+		return token, nil
+	}
+
+	return "", errors.New("failed to get access token")
+}
+
+type getUsersResponse struct {
+	OdataContext string `json:"@odata.context"`
+	Value        []struct {
+		Id                string `json:"id"`
+		UserPrincipalName string `json:"userPrincipalName"`
+		AccountEnabled    bool   `json:"accountEnabled"`
+	} `json:"value"`
+}
+
+type getGroupsResponse struct {
+	OdataContext string `json:"@odata.context"`
+	Value        []struct {
+		Id          string `json:"id"`
+		DisplayName string `json:"displayName"`
+		Members     []struct {
+			OdataType string `json:"@odata.type"`
+			Id        string `json:"id"`
+		} `json:"members"`
+	} `json:"value"`
 }

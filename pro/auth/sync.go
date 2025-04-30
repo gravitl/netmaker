@@ -39,13 +39,13 @@ func SyncFromIDP() error {
 	switch settings.AuthProvider {
 	case "google":
 		idpClient, err = google.NewGoogleWorkspaceClient()
+		if err != nil {
+			return err
+		}
 	case "azure-ad":
-		idpClient, err = azure.NewAzureEntraIDClient()
+		idpClient = azure.NewAzureEntraIDClient()
 	default:
 		return nil
-	}
-	if err != nil {
-		return err
 	}
 
 	if settings.AuthProvider != "" {
