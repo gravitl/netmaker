@@ -247,6 +247,20 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			slog.Error("failed to insert invite for user", "email", invite.Email, "error", err)
 		}
+		logic.LogEvent(&models.Event{
+			Action: models.Create,
+			Source: models.Subject{
+				ID:   r.Header.Get("user"),
+				Name: r.Header.Get("user"),
+				Type: models.UserSub,
+			},
+			Target: models.Subject{
+				ID:   inviteeEmail,
+				Name: inviteeEmail,
+				Type: models.UserInviteSub,
+			},
+			Origin: models.Dashboard,
+		})
 		// notify user with magic link
 		go func(invite models.UserInvite) {
 			// Set E-Mail body. You can set plain text or html with text/html
@@ -265,6 +279,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			}
 		}(invite)
 	}
+
 	logic.ReturnSuccessResponse(w, r, "triggered user invites")
 }
 
@@ -308,6 +323,20 @@ func deleteUserInvite(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Delete,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		Target: models.Subject{
+			ID:   email,
+			Name: email,
+			Type: models.UserInviteSub,
+		},
+		Origin: models.Dashboard,
+	})
 	logic.ReturnSuccessResponse(w, r, "deleted user invite")
 }
 
@@ -462,6 +491,20 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		user.UserGroups[userGroupReq.Group.ID] = struct{}{}
 		logic.UpsertUser(*user)
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Create,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		Target: models.Subject{
+			ID:   userGroupReq.Group.ID.String(),
+			Name: userGroupReq.Group.Name,
+			Type: models.UserGroupSub,
+		},
+		Origin: models.Dashboard,
+	})
 	logic.ReturnSuccessResponseWithJson(w, r, userGroupReq.Group, "created user group")
 }
 
@@ -505,7 +548,24 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-
+	logic.LogEvent(&models.Event{
+		Action: models.Update,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		Target: models.Subject{
+			ID:   userGroup.ID.String(),
+			Name: userGroup.Name,
+			Type: models.UserGroupSub,
+		},
+		Diff: models.Diff{
+			Old: currUserG,
+			New: userGroup,
+		},
+		Origin: models.Dashboard,
+	})
 	// reset configs for service user
 	go proLogic.UpdatesUserGwAccessOnGrpUpdates(currUserG.NetworkRoles, userGroup.NetworkRoles)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")
@@ -550,6 +610,20 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Delete,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		Target: models.Subject{
+			ID:   userG.ID.String(),
+			Name: userG.Name,
+			Type: models.UserGroupSub,
+		},
+		Origin: models.Dashboard,
+	})
 	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userG.NetworkRoles, make(map[models.NetworkID]map[models.UserRoleID]struct{}))
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user group")
 }
@@ -630,6 +704,20 @@ func createRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Create,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		Target: models.Subject{
+			ID:   userRole.ID.String(),
+			Name: userRole.Name,
+			Type: models.UserRoleSub,
+		},
+		Origin: models.ClientApp,
+	})
 	logic.ReturnSuccessResponseWithJson(w, r, userRole, "created user role")
 }
 
@@ -664,6 +752,24 @@ func updateRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Update,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		Target: models.Subject{
+			ID:   userRole.ID.String(),
+			Name: userRole.Name,
+			Type: models.UserRoleSub,
+		},
+		Diff: models.Diff{
+			Old: currRole,
+			New: userRole,
+		},
+		Origin: models.Dashboard,
+	})
 	// reset configs for service user
 	go proLogic.UpdatesUserGwAccessOnRoleUpdates(currRole.NetworkLevelAccess, userRole.NetworkLevelAccess, string(userRole.NetworkID))
 	logic.ReturnSuccessResponseWithJson(w, r, userRole, "updated user role")
@@ -692,6 +798,20 @@ func deleteRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Delete,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		Target: models.Subject{
+			ID:   role.ID.String(),
+			Name: role.Name,
+			Type: models.UserRoleSub,
+		},
+		Origin: models.Dashboard,
+	})
 	go proLogic.UpdatesUserGwAccessOnRoleUpdates(role.NetworkLevelAccess, make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope), role.NetworkID.String())
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user role")
 }
