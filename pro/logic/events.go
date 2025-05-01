@@ -11,10 +11,10 @@ import (
 	"github.com/gravitl/netmaker/schema"
 )
 
-var EventActivityCh = make(chan models.Activity, 100)
+var EventActivityCh = make(chan models.Event, 100)
 
-func LogEvent(a models.Activity) {
-	EventActivityCh <- a
+func LogEvent(a *models.Event) {
+	EventActivityCh <- *a
 }
 
 func EventWatcher() {

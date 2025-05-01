@@ -20,7 +20,7 @@ var (
 	telServerRecord = models.Telemetry{}
 )
 
-var LogEvent = func(a models.Activity) {}
+var LogEvent = func(a *models.Event) {}
 
 // posthog_pub_key - Key for sending data to PostHog
 const posthog_pub_key = "phc_1vEXhPOA1P7HP5jP2dVU9xDTUqXHAelmtravyZ1vvES"

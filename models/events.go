@@ -3,11 +3,13 @@ package models
 type Action string
 
 const (
-	Create Action = "CREATE"
-	Update Action = "UPDATE"
-	Delete Action = "DELETE"
-	Login  Action = "LOGIN"
-	LogOut Action = "LOGOUT"
+	Create     Action = "CREATE"
+	Update     Action = "UPDATE"
+	Delete     Action = "DELETE"
+	Login      Action = "LOGIN"
+	LogOut     Action = "LOGOUT"
+	Connect    Action = "CONNECT"
+	Disconnect Action = "DISCONNECT"
 )
 
 type SubjectType string
@@ -43,10 +45,16 @@ type Subject struct {
 	Type SubjectType `json:"subject_type"`
 }
 
-type Activity struct {
+type Diff struct {
+	Old interface{}
+	New interface{}
+}
+
+type Event struct {
 	Action    Action
 	Source    Subject
 	Origin    Origin
 	Target    Subject
 	NetworkID NetworkID
+	Diff      Diff
 }

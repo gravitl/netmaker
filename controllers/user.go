@@ -260,7 +260,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 			return
 		}
 		// log user activity
-		logic.LogEvent(models.Activity{
+		logic.LogEvent(&models.Event{
 			Action: models.Login,
 			Source: models.Subject{
 				ID:   user.UserName,
@@ -275,7 +275,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 			Origin: models.Dashboard,
 		})
 	} else {
-		logic.LogEvent(models.Activity{
+		logic.LogEvent(&models.Event{
 			Action: models.Login,
 			Source: models.Subject{
 				ID:   user.UserName,
@@ -645,6 +645,20 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Create,
+		Source: models.Subject{
+			ID:   caller.UserName,
+			Name: caller.UserName,
+			Type: models.UserSub,
+		},
+		Target: models.Subject{
+			ID:   user.UserName,
+			Name: user.UserName,
+			Type: models.UserSub,
+		},
+		Origin: models.Dashboard,
+	})
 	logic.DeleteUserInvite(user.UserName)
 	logic.DeletePendingUser(user.UserName)
 	go mq.PublishPeerUpdate(false)
@@ -783,6 +797,24 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	if userchange.PlatformRoleID != user.PlatformRoleID || !logic.CompareMaps(user.UserGroups, userchange.UserGroups) {
 		(&schema.UserAccessToken{UserName: user.UserName}).DeleteAllUserTokens(r.Context())
 	}
+	e := models.Event{
+		Action: models.Update,
+		Source: models.Subject{
+			ID:   caller.UserName,
+			Name: caller.UserName,
+			Type: models.UserSub,
+		},
+		Target: models.Subject{
+			ID:   user.UserName,
+			Name: user.UserName,
+			Type: models.UserSub,
+		},
+		Diff: models.Diff{
+			Old: user,
+			New: userchange,
+		},
+		Origin: models.Dashboard,
+	}
 	user, err = logic.UpdateUser(&userchange, user)
 	if err != nil {
 		logger.Log(0, username,
@@ -790,6 +822,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	logic.LogEvent(&e)
 	go mq.PublishPeerUpdate(false)
 	logger.Log(1, username, "was updated")
 	json.NewEncoder(w).Encode(logic.ToReturnUser(*user))
@@ -868,6 +901,20 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Delete,
+		Source: models.Subject{
+			ID:   caller.UserName,
+			Name: caller.UserName,
+			Type: models.UserSub,
+		},
+		Target: models.Subject{
+			ID:   user.UserName,
+			Name: user.UserName,
+			Type: models.UserSub,
+		},
+		Origin: models.Dashboard,
+	})
 	// check and delete extclient with this ownerID
 	go func() {
 		extclients, err := logic.GetAllExtClients()
@@ -961,7 +1008,7 @@ func logout(w http.ResponseWriter, r *http.Request) {
 		target = models.ClientAppSub
 	}
 	if target != "" {
-		logic.LogEvent(models.Activity{
+		logic.LogEvent(&models.Event{
 			Action: models.LogOut,
 			Source: models.Subject{
 				ID:   user.UserName,
