@@ -7,6 +7,7 @@ const (
 	Update Action = "UPDATE"
 	Delete Action = "DELETE"
 	Login  Action = "LOGIN"
+	LogOut Action = "LOGOUT"
 )
 
 type SubjectType string

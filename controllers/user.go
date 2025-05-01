@@ -951,22 +951,31 @@ func logout(w http.ResponseWriter, r *http.Request) {
 	userName := r.URL.Query().Get("user_name")
 	user, err := logic.GetUser(userName)
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
-	logic.LogEvent(models.Activity{
-		Action: models.Login,
-		Source: models.Subject{
-			ID:   user.UserName,
-			Name: user.UserName,
-			Type: models.UserSub,
-		},
-		Target: models.Subject{
-			ID:   models.ClientAppSub.String(),
-			Name: models.ClientAppSub.String(),
-			Type: models.ClientAppSub,
-		},
-		Origin: models.ClientApp,
-	})
+	var target models.SubjectType
+	if val := r.Header.Get("From-Ui"); val == "true" {
+		target = models.DashboardSub
+	} else {
+		target = models.ClientAppSub
+	}
+	if target != "" {
+		logic.LogEvent(models.Activity{
+			Action: models.LogOut,
+			Source: models.Subject{
+				ID:   user.UserName,
+				Name: user.UserName,
+				Type: models.UserSub,
+			},
+			Target: models.Subject{
+				ID:   target.String(),
+				Name: target.String(),
+				Type: target,
+			},
+			Origin: models.ClientApp,
+		})
+	}
+
 	logic.ReturnSuccessResponse(w, r, "user logged out")
 }
