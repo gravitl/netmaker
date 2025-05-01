@@ -69,6 +69,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthNotConfigured(w)
 		return
 	}
+
 	var inviteExists bool
 	// check if invite exists for User
 	in, err := logic.GetUserInvite(content.Email)
@@ -159,6 +160,22 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		logger.Log(1, "could not parse jwt for user", authRequest.UserName)
 		return
 	}
+
+	logic.LogEvent(&models.Event{
+		Action: models.Login,
+		Source: models.Subject{
+			ID:   user.UserName,
+			Name: user.UserName,
+			Type: models.UserSub,
+		},
+		Target: models.Subject{
+			ID:   models.DashboardSub.String(),
+			Name: models.DashboardSub.String(),
+			Type: models.DashboardSub,
+			Info: user,
+		},
+		Origin: models.Dashboard,
+	})
 
 	logger.Log(1, "completed google OAuth sigin in for", content.Email)
 	http.Redirect(w, r, fmt.Sprintf("%s/login?login=%s&user=%s", servercfg.GetFrontendURL(), jwt, content.Email), http.StatusPermanentRedirect)

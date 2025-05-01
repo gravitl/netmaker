@@ -65,25 +65,25 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, "error decoding request body: ",
 			err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
 	if req.Name == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("name is required"), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("name is required"), logic.BadReq))
 		return
 	}
 	if req.UserName == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), logic.BadReq))
 		return
 	}
 	caller, err := logic.GetUser(r.Header.Get("user"))
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.UnAuthorized))
 		return
 	}
 	user, err := logic.GetUser(req.UserName)
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.UnAuthorized))
 		return
 	}
 	if caller.UserName != user.UserName && caller.PlatformRoleID != models.SuperAdminRole {
@@ -107,7 +107,7 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(
 			w,
 			r,
-			logic.FormatError(errors.New("error creating access token "+err.Error()), "internal"),
+			logic.FormatError(errors.New("error creating access token "+err.Error()), logic.Internal),
 		)
 		return
 	}
@@ -116,10 +116,25 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(
 			w,
 			r,
-			logic.FormatError(errors.New("error creating access token "+err.Error()), "internal"),
+			logic.FormatError(errors.New("error creating access token "+err.Error()), logic.Internal),
 		)
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Create,
+		Source: models.Subject{
+			ID:   caller.UserName,
+			Name: caller.UserName,
+			Type: models.UserSub,
+		},
+		Target: models.Subject{
+			ID:   req.ID,
+			Name: req.Name,
+			Type: models.UserAccessTokenSub,
+			Info: req,
+		},
+		Origin: models.Dashboard,
+	})
 	logic.ReturnSuccessResponseWithJson(w, r, models.SuccessfulUserLoginResponse{
 		AuthToken: jwt,
 		UserName:  req.UserName,
@@ -198,6 +213,21 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Delete,
+		Source: models.Subject{
+			ID:   caller.UserName,
+			Name: caller.UserName,
+			Type: models.UserSub,
+		},
+		Target: models.Subject{
+			ID:   a.ID,
+			Name: a.Name,
+			Type: models.UserAccessTokenSub,
+			Info: a,
+		},
+		Origin: models.Dashboard,
+	})
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "revoked access token")
 }
 
@@ -1020,7 +1050,7 @@ func logout(w http.ResponseWriter, r *http.Request) {
 				Name: target.String(),
 				Type: target,
 			},
-			Origin: models.ClientApp,
+			Origin: models.Origin(target),
 		})
 	}
 

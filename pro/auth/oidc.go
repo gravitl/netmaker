@@ -167,7 +167,21 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 		logger.Log(1, "could not parse jwt for user", authRequest.UserName, jwtErr.Error())
 		return
 	}
-
+	logic.LogEvent(&models.Event{
+		Action: models.Login,
+		Source: models.Subject{
+			ID:   user.UserName,
+			Name: user.UserName,
+			Type: models.UserSub,
+		},
+		Target: models.Subject{
+			ID:   models.DashboardSub.String(),
+			Name: models.DashboardSub.String(),
+			Type: models.DashboardSub,
+			Info: user,
+		},
+		Origin: models.Dashboard,
+	})
 	logger.Log(1, "completed OIDC OAuth signin in for", content.Email)
 	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+content.Email, http.StatusPermanentRedirect)
 }

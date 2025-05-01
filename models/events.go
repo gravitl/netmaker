@@ -15,15 +15,16 @@ const (
 type SubjectType string
 
 const (
-	UserSub      SubjectType = "USER"
-	DeviceSub    SubjectType = "DEVICE"
-	NodeSub      SubjectType = "NODE"
-	SettingSub   SubjectType = "SETTING"
-	AclSub       SubjectType = "ACLs"
-	EgressSub    SubjectType = "EGRESS"
-	NetworkSub   SubjectType = "NETWORK"
-	DashboardSub SubjectType = "DASHBOARD"
-	ClientAppSub SubjectType = "CLIENT-APP"
+	UserSub            SubjectType = "USER"
+	UserAccessTokenSub SubjectType = "USER_ACCESS_TOKEN"
+	DeviceSub          SubjectType = "DEVICE"
+	NodeSub            SubjectType = "NODE"
+	SettingSub         SubjectType = "SETTING"
+	AclSub             SubjectType = "ACLs"
+	EgressSub          SubjectType = "EGRESS"
+	NetworkSub         SubjectType = "NETWORK"
+	DashboardSub       SubjectType = "DASHBOARD"
+	ClientAppSub       SubjectType = "CLIENT-APP"
 )
 
 func (sub SubjectType) String() string {
@@ -43,6 +44,7 @@ type Subject struct {
 	ID   string      `json:"id"`
 	Name string      `json:"name"`
 	Type SubjectType `json:"subject_type"`
+	Info interface{} `json:"info"`
 }
 
 type Diff struct {
