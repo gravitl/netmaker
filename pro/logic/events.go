@@ -2,24 +2,36 @@ package logic
 
 import (
 	"context"
+	"encoding/json"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 )
 
-var EventActivityCh = make(chan schema.Activity, 100)
+var EventActivityCh = make(chan models.Activity, 100)
 
-func LogEvent(a schema.Activity) {
+func LogEvent(a models.Activity) {
 	EventActivityCh <- a
 }
 
 func EventWatcher() {
 
 	for e := range EventActivityCh {
-		if e.ID == "CLOSE" {
-			return
+		sourceJson, _ := json.Marshal(e.Source)
+		dstJson, _ := json.Marshal(e.Target)
+		a := schema.Activity{
+			ID:        uuid.New().String(),
+			Action:    e.Action,
+			Source:    sourceJson,
+			Target:    dstJson,
+			Origin:    e.Origin,
+			NetworkID: e.NetworkID,
+			TimeStamp: time.Now().UTC(),
 		}
-		e.Create(db.WithContext(context.TODO()))
+		a.Create(db.WithContext(context.TODO()))
 	}
 
 }

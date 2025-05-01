@@ -43,6 +43,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(createUserAccessToken))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(getUserAccessTokens))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(deleteUserAccessTokens))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/user/logout", logic.SecurityCheck(true, http.HandlerFunc(logout))).Methods(http.MethodPost)
 }
 
 // @Summary     Authenticate a user to retrieve an authorization token
@@ -258,6 +259,36 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
 			return
 		}
+		// log user activity
+		logic.LogEvent(models.Activity{
+			Action: models.Login,
+			Source: models.Subject{
+				ID:   user.UserName,
+				Name: user.UserName,
+				Type: models.UserSub,
+			},
+			Target: models.Subject{
+				ID:   models.DashboardSub.String(),
+				Name: models.DashboardSub.String(),
+				Type: models.DashboardSub,
+			},
+			Origin: models.Dashboard,
+		})
+	} else {
+		logic.LogEvent(models.Activity{
+			Action: models.Login,
+			Source: models.Subject{
+				ID:   user.UserName,
+				Name: user.UserName,
+				Type: models.UserSub,
+			},
+			Target: models.Subject{
+				ID:   models.ClientAppSub.String(),
+				Name: models.ClientAppSub.String(),
+				Type: models.ClientAppSub,
+			},
+			Origin: models.ClientApp,
+		})
 	}
 
 	username := authRequest.UserName
@@ -901,4 +932,32 @@ func listRoles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logic.ReturnSuccessResponseWithJson(w, r, roles, "successfully fetched user roles permission templates")
+}
+
+// swagger:route POST /api/v1/user/logout user logout
+//
+// LogOut user.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: userBodyResponse
+func logout(w http.ResponseWriter, r *http.Request) {
+	// set header.
+	w.Header().Set("Content-Type", "application/json")
+
+	users, err := logic.GetUsers()
+
+	if err != nil {
+		logger.Log(0, "failed to fetch users: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	logic.SortUsers(users[:])
+	logger.Log(2, r.Header.Get("user"), "fetched users")
+	json.NewEncoder(w).Encode(users)
 }
