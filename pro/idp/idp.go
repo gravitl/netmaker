@@ -8,6 +8,7 @@ type Client interface {
 type User struct {
 	ID              string
 	Username        string
+	DisplayName     string
 	AccountDisabled bool
 }
 

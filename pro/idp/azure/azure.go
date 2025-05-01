@@ -33,7 +33,7 @@ func (a *Client) GetUsers() ([]idp.User, error) {
 	}
 
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", "https://graph.microsoft.com/v1.0/users?$select=id,userPrincipalName,accountEnabled", nil)
+	req, err := http.NewRequest("GET", "https://graph.microsoft.com/v1.0/users?$select=id,userPrincipalName,displayName,accountEnabled", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -60,6 +60,7 @@ func (a *Client) GetUsers() ([]idp.User, error) {
 		retval[i] = idp.User{
 			ID:              user.Id,
 			Username:        user.UserPrincipalName,
+			DisplayName:     user.DisplayName,
 			AccountDisabled: user.AccountEnabled,
 		}
 	}
@@ -148,6 +149,7 @@ type getUsersResponse struct {
 	Value        []struct {
 		Id                string `json:"id"`
 		UserPrincipalName string `json:"userPrincipalName"`
+		DisplayName       string `json:"displayName"`
 		AccountEnabled    bool   `json:"accountEnabled"`
 	} `json:"value"`
 }

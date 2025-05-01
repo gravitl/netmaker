@@ -63,12 +63,13 @@ func (g *Client) GetUsers() ([]idp.User, error) {
 	var retval []idp.User
 	err := g.service.Users.List().
 		Customer("my_customer").
-		Fields("users(id,primaryEmail,suspended)", "nextPageToken").
+		Fields("users(id,primaryEmail,name,suspended)", "nextPageToken").
 		Pages(context.TODO(), func(users *admindir.Users) error {
 			for _, user := range users.Users {
 				retval = append(retval, idp.User{
 					ID:              user.Id,
 					Username:        user.PrimaryEmail,
+					DisplayName:     user.Name.FullName,
 					AccountDisabled: user.Suspended,
 				})
 			}

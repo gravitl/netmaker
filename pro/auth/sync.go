@@ -114,6 +114,7 @@ func syncUsers(idpUsers []idp.User) error {
 			err = logic.CreateUser(&models.User{
 				UserName:                   user.Username,
 				ExternalIdentityProviderID: user.ID,
+				DisplayName:                user.DisplayName,
 				AccountDisabled:            user.AccountDisabled,
 				Password:                   password,
 				AuthType:                   models.OAuth,
@@ -124,6 +125,7 @@ func syncUsers(idpUsers []idp.User) error {
 			}
 		} else {
 			if dbUser.AccountDisabled != user.AccountDisabled {
+				dbUser.DisplayName = user.DisplayName
 				dbUser.AccountDisabled = user.AccountDisabled
 				err = logic.UpsertUser(dbUser)
 				if err != nil {
