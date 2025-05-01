@@ -6,6 +6,6 @@ func ListModels() []interface{} {
 		&Job{},
 		&Egress{},
 		&UserAccessToken{},
-		&Activity{},
+		&Event{},
 	}
 }

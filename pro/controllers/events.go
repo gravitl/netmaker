@@ -22,7 +22,7 @@ func EventHandlers(r *mux.Router) {
 func listActivity(w http.ResponseWriter, r *http.Request) {
 	netID := r.URL.Query().Get("network_id")
 	var err error
-	netActivity, err := (&schema.Activity{NetworkID: models.NetworkID(netID)}).List(r.Context())
+	netActivity, err := (&schema.Event{NetworkID: models.NetworkID(netID)}).List(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
 			Code:    http.StatusInternalServerError,

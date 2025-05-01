@@ -22,7 +22,7 @@ func EventWatcher() {
 	for e := range EventActivityCh {
 		sourceJson, _ := json.Marshal(e.Source)
 		dstJson, _ := json.Marshal(e.Target)
-		a := schema.Activity{
+		a := schema.Event{
 			ID:        uuid.New().String(),
 			Action:    e.Action,
 			Source:    sourceJson,
