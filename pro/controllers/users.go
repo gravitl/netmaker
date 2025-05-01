@@ -1468,6 +1468,20 @@ func approvePendingUser(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Create,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		Target: models.Subject{
+			ID:   username,
+			Name: username,
+			Type: models.PendingUserSub,
+		},
+		Origin: models.Dashboard,
+	})
 	logic.ReturnSuccessResponse(w, r, "approved "+username)
 }
 
@@ -1499,6 +1513,20 @@ func deletePendingUser(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Delete,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		Target: models.Subject{
+			ID:   username,
+			Name: username,
+			Type: models.PendingUserSub,
+		},
+		Origin: models.Dashboard,
+	})
 	logic.ReturnSuccessResponse(w, r, "deleted pending "+username)
 }
 
@@ -1514,5 +1542,19 @@ func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to delete all pending users "+err.Error()), "internal"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.DeleteAll,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		Target: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.PendingUserSub,
+		},
+		Origin: models.Dashboard,
+	})
 	logic.ReturnSuccessResponse(w, r, "cleared all pending users")
 }
