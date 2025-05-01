@@ -483,9 +483,9 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 	err = logic.DeleteNetwork(network, force, doneCh)
 	if err != nil {
-		errtype := "badrequest"
+		errtype := logic.BadReq
 		if strings.Contains(err.Error(), "Node check failed") {
-			errtype = "forbidden"
+			errtype = logic.Forbidden
 		}
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to delete network [%s]: %v", network, err))

@@ -8,20 +8,30 @@ import (
 	"golang.org/x/exp/slog"
 )
 
+type ApiErrorType string
+
+const (
+	Internal     ApiErrorType = "internal"
+	BadReq       ApiErrorType = "badrequest"
+	NotFound     ApiErrorType = "notfound"
+	UnAuthorized ApiErrorType = "unauthorized"
+	Forbidden    ApiErrorType = "forbidden"
+)
+
 // FormatError - takes ErrorResponse and uses correct code
-func FormatError(err error, errType string) models.ErrorResponse {
+func FormatError(err error, errType ApiErrorType) models.ErrorResponse {
 
 	var status = http.StatusInternalServerError
 	switch errType {
-	case "internal":
+	case Internal:
 		status = http.StatusInternalServerError
-	case "badrequest":
+	case BadReq:
 		status = http.StatusBadRequest
-	case "notfound":
+	case NotFound:
 		status = http.StatusNotFound
-	case "unauthorized":
+	case UnAuthorized:
 		status = http.StatusUnauthorized
-	case "forbidden":
+	case Forbidden:
 		status = http.StatusForbidden
 	default:
 		status = http.StatusInternalServerError

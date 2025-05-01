@@ -2,8 +2,10 @@ package controllers
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -21,8 +23,11 @@ func EventHandlers(r *mux.Router) {
 // @Failure     500 {object} models.ErrorResponse
 func listActivity(w http.ResponseWriter, r *http.Request) {
 	netID := r.URL.Query().Get("network_id")
-	var err error
-	netActivity, err := (&schema.Event{NetworkID: models.NetworkID(netID)}).List(r.Context())
+	// Parse query parameters with defaults
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	pageSize, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
+	ctx := db.WithContext(r.Context())
+	netActivity, err := (&schema.Event{NetworkID: models.NetworkID(netID)}).List(db.SetPagination(ctx, page, pageSize))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
 			Code:    http.StatusInternalServerError,

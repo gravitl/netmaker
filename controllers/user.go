@@ -43,7 +43,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(createUserAccessToken))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(getUserAccessTokens))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(deleteUserAccessTokens))).Methods(http.MethodDelete)
-	r.HandleFunc("/api/v1/user/logout", logic.SecurityCheck(true, http.HandlerFunc(logout))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/user/logout", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(logout)))).Methods(http.MethodPost)
 }
 
 // @Summary     Authenticate a user to retrieve an authorization token
@@ -948,16 +948,25 @@ func listRoles(w http.ResponseWriter, r *http.Request) {
 func logout(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
-
-	users, err := logic.GetUsers()
-
+	userName := r.URL.Query().Get("user_name")
+	user, err := logic.GetUser(userName)
 	if err != nil {
-		logger.Log(0, "failed to fetch users: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
-	logic.SortUsers(users[:])
-	logger.Log(2, r.Header.Get("user"), "fetched users")
-	json.NewEncoder(w).Encode(users)
+	logic.LogEvent(models.Activity{
+		Action: models.Login,
+		Source: models.Subject{
+			ID:   user.UserName,
+			Name: user.UserName,
+			Type: models.UserSub,
+		},
+		Target: models.Subject{
+			ID:   models.ClientAppSub.String(),
+			Name: models.ClientAppSub.String(),
+			Type: models.ClientAppSub,
+		},
+		Origin: models.ClientApp,
+	})
+	logic.ReturnSuccessResponse(w, r, "user logged out")
 }
