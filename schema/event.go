@@ -32,6 +32,6 @@ func (a *Event) Create(ctx context.Context) error {
 }
 
 func (a *Event) List(ctx context.Context) (ats []Event, err error) {
-	err = db.FromContext(ctx).Model(&Event{}).Find(&ats).Error
+	err = db.FromContext(ctx).Model(&Event{}).Order("time_stamp DESC").Find(&ats).Error
 	return
 }
