@@ -16,7 +16,11 @@ import (
 )
 
 var serverSettingsDBKey = "server_cfg"
+<<<<<<< HEAD
 var settingsMutex = &sync.RWMutex{}
+=======
+var SettingsMutex = &sync.RWMutex{}
+>>>>>>> f9bc3a5386dfe0ee2baa626fbdc1c7ef455e78ba
 
 func GetServerSettings() (s models.ServerSettings) {
 	data, err := database.FetchRecord(database.SERVER_SETTINGS, serverSettingsDBKey)
@@ -27,7 +31,11 @@ func GetServerSettings() (s models.ServerSettings) {
 	return
 }
 
+<<<<<<< HEAD
 func UpsertServerSettings(s models.ServerSettings, force bool) error {
+=======
+func UpsertServerSettings(s models.ServerSettings) error {
+>>>>>>> f9bc3a5386dfe0ee2baa626fbdc1c7ef455e78ba
 	// get curr settings
 	currSettings := GetServerSettings()
 	if s.ClientSecret == Mask() {
@@ -41,7 +49,10 @@ func UpsertServerSettings(s models.ServerSettings, force bool) error {
 	if err != nil {
 		return err
 	}
+<<<<<<< HEAD
 	go reInit(currSettings, s, force)
+=======
+>>>>>>> f9bc3a5386dfe0ee2baa626fbdc1c7ef455e78ba
 	return nil
 }
 
@@ -50,6 +61,7 @@ func ValidateNewSettings(req models.ServerSettings) bool {
 	return true
 }
 
+<<<<<<< HEAD
 func reInit(curr, new models.ServerSettings, force bool) {
 	settingsMutex.Lock()
 	defer settingsMutex.Unlock()
@@ -70,6 +82,8 @@ func reInit(curr, new models.ServerSettings, force bool) {
 
 }
 
+=======
+>>>>>>> f9bc3a5386dfe0ee2baa626fbdc1c7ef455e78ba
 func GetServerSettingsFromEnv() (s models.ServerSettings) {
 
 	s = models.ServerSettings{
