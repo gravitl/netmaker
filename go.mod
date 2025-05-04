@@ -48,10 +48,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/spf13/cobra v1.9.1
 	gopkg.in/mail.v2 v2.3.1
-<<<<<<< HEAD
 	gorm.io/datatypes v1.2.5
-=======
->>>>>>> f9bc3a5386dfe0ee2baa626fbdc1c7ef455e78ba
 	gorm.io/driver/postgres v1.5.11
 	gorm.io/driver/sqlite v1.5.7
 	gorm.io/gorm v1.25.12
@@ -60,12 +57,8 @@ require (
 require (
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
-<<<<<<< HEAD
-	github.com/go-jose/go-jose/v3 v3.0.3 // indirect
-	github.com/go-sql-driver/mysql v1.8.1 // indirect
-=======
 	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
->>>>>>> f9bc3a5386dfe0ee2baa626fbdc1c7ef455e78ba
+	github.com/go-sql-driver/mysql v1.8.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
