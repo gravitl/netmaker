@@ -1025,7 +1025,7 @@ func listRoles(w http.ResponseWriter, r *http.Request) {
 func logout(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
-	userName := r.URL.Query().Get("user_name")
+	userName := r.URL.Query().Get("username")
 	user, err := logic.GetUser(userName)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
