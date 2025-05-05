@@ -127,12 +127,14 @@ func DeleteExtClient(network string, clientid string) error {
 				Name: extClient.OwnerID,
 				Type: models.UserSub,
 			},
+			TriggeredBy: extClient.OwnerID,
 			Target: models.Subject{
 				ID:   extClient.Network,
 				Name: extClient.Network,
 				Type: models.NetworkSub,
 			},
-			Origin: models.ClientApp,
+			NetworkID: models.NetworkID(extClient.Network),
+			Origin:    models.ClientApp,
 		})
 	}
 	go RemoveNodeFromAclPolicy(extClient.ConvertToStaticNode())

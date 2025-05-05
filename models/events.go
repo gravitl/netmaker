@@ -3,14 +3,16 @@ package models
 type Action string
 
 const (
-	Create     Action = "CREATE"
-	Update     Action = "UPDATE"
-	Delete     Action = "DELETE"
-	DeleteAll  Action = "DELETE_ALL"
-	Login      Action = "LOGIN"
-	LogOut     Action = "LOGOUT"
-	Connect    Action = "CONNECT"
-	Disconnect Action = "DISCONNECT"
+	Create            Action = "CREATE"
+	Update            Action = "UPDATE"
+	Delete            Action = "DELETE"
+	DeleteAll         Action = "DELETE_ALL"
+	Login             Action = "LOGIN"
+	LogOut            Action = "LOGOUT"
+	Connect           Action = "CONNECT"
+	Disconnect        Action = "DISCONNECT"
+	JoinHostToNet     Action = "JOIN_HOST_TO_NETWORK"
+	RemoveHostFromNet Action = "REMOVE_HOST_FROM_NETWORK"
 )
 
 type SubjectType string
@@ -21,7 +23,8 @@ const (
 	DeviceSub          SubjectType = "DEVICE"
 	NodeSub            SubjectType = "NODE"
 	SettingSub         SubjectType = "SETTING"
-	AclSub             SubjectType = "ACLs"
+	AclSub             SubjectType = "ACL"
+	TagSub             SubjectType = "TAG"
 	UserRoleSub        SubjectType = "USER_ROLE"
 	UserGroupSub       SubjectType = "USER_GROUP"
 	UserInviteSub      SubjectType = "USER_INVITE"
@@ -29,6 +32,7 @@ const (
 	EgressSub          SubjectType = "EGRESS"
 	NetworkSub         SubjectType = "NETWORK"
 	DashboardSub       SubjectType = "DASHBOARD"
+	EnrollmentKeySub   SubjectType = "ENROLLMENT_KEY"
 	ClientAppSub       SubjectType = "CLIENT-APP"
 )
 
@@ -58,10 +62,11 @@ type Diff struct {
 }
 
 type Event struct {
-	Action    Action
-	Source    Subject
-	Origin    Origin
-	Target    Subject
-	NetworkID NetworkID
-	Diff      Diff
+	Action      Action
+	Source      Subject
+	Origin      Origin
+	Target      Subject
+	TriggeredBy string
+	NetworkID   NetworkID
+	Diff        Diff
 }

@@ -174,6 +174,7 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 			Name: user.UserName,
 			Type: models.UserSub,
 		},
+		TriggeredBy: user.UserName,
 		Target: models.Subject{
 			ID:   models.DashboardSub.String(),
 			Name: models.DashboardSub.String(),

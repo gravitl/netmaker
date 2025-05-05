@@ -267,6 +267,22 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Create,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   acl.ID,
+			Name: acl.Name,
+			Type: models.AclSub,
+		},
+		NetworkID: acl.NetworkID,
+		Origin:    models.Dashboard,
+	})
 	go mq.PublishPeerUpdate(true)
 	logic.ReturnSuccessResponseWithJson(w, r, acl, "created acl successfully")
 }
@@ -309,6 +325,26 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Update,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   acl.ID,
+			Name: acl.Name,
+			Type: models.AclSub,
+		},
+		Diff: models.Diff{
+			Old: acl,
+			New: updateAcl.Acl,
+		},
+		NetworkID: acl.NetworkID,
+		Origin:    models.Dashboard,
+	})
 	go mq.PublishPeerUpdate(true)
 	logic.ReturnSuccessResponse(w, r, "updated acl "+acl.Name)
 }
@@ -340,6 +376,22 @@ func deleteAcl(w http.ResponseWriter, r *http.Request) {
 			logic.FormatError(errors.New("cannot delete default policy"), "internal"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Delete,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   acl.ID,
+			Name: acl.Name,
+			Type: models.AclSub,
+		},
+		NetworkID: acl.NetworkID,
+		Origin:    models.Dashboard,
+	})
 	go mq.PublishPeerUpdate(true)
 	logic.ReturnSuccessResponse(w, r, "deleted acl "+acl.Name)
 }

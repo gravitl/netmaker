@@ -492,6 +492,22 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		r.Header.Get("user"),
 		fmt.Sprintf("added host %s to network %s", currHost.Name, network),
 	)
+	logic.LogEvent(&models.Event{
+		Action: models.JoinHostToNet,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   currHost.ID.String(),
+			Name: currHost.Name,
+			Type: models.DeviceSub,
+		},
+		NetworkID: models.NetworkID(network),
+		Origin:    models.Dashboard,
+	})
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -623,6 +639,22 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 			logic.SetDNS()
 		}
 	}()
+	logic.LogEvent(&models.Event{
+		Action: models.RemoveHostFromNet,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   currHost.ID.String(),
+			Name: currHost.Name,
+			Type: models.DeviceSub,
+		},
+		NetworkID: models.NetworkID(network),
+		Origin:    models.Dashboard,
+	})
 	logger.Log(
 		2,
 		r.Header.Get("user"),

@@ -806,12 +806,14 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			Name: userName,
 			Type: models.UserSub,
 		},
+		TriggeredBy: userName,
 		Target: models.Subject{
 			ID:   extclient.Network,
 			Name: extclient.Network,
 			Type: models.NetworkSub,
 		},
-		Origin: models.ClientApp,
+		NetworkID: models.NetworkID(extclient.Network),
+		Origin:    models.ClientApp,
 	})
 	w.WriteHeader(http.StatusOK)
 	go func() {

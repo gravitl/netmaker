@@ -250,10 +250,11 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		logic.LogEvent(&models.Event{
 			Action: models.Create,
 			Source: models.Subject{
-				ID:   r.Header.Get("user"),
-				Name: r.Header.Get("user"),
+				ID:   callerUserName,
+				Name: callerUserName,
 				Type: models.UserSub,
 			},
+			TriggeredBy: callerUserName,
 			Target: models.Subject{
 				ID:   inviteeEmail,
 				Name: inviteeEmail,
@@ -330,6 +331,7 @@ func deleteUserInvite(w http.ResponseWriter, r *http.Request) {
 			Name: r.Header.Get("user"),
 			Type: models.UserSub,
 		},
+		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   email,
 			Name: email,
@@ -498,6 +500,7 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 			Name: r.Header.Get("user"),
 			Type: models.UserSub,
 		},
+		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   userGroupReq.Group.ID.String(),
 			Name: userGroupReq.Group.Name,
@@ -555,6 +558,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 			Name: r.Header.Get("user"),
 			Type: models.UserSub,
 		},
+		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   userGroup.ID.String(),
 			Name: userGroup.Name,
@@ -617,6 +621,7 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 			Name: r.Header.Get("user"),
 			Type: models.UserSub,
 		},
+		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   userG.ID.String(),
 			Name: userG.Name,
@@ -711,6 +716,7 @@ func createRole(w http.ResponseWriter, r *http.Request) {
 			Name: r.Header.Get("user"),
 			Type: models.UserSub,
 		},
+		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   userRole.ID.String(),
 			Name: userRole.Name,
@@ -759,6 +765,7 @@ func updateRole(w http.ResponseWriter, r *http.Request) {
 			Name: r.Header.Get("user"),
 			Type: models.UserSub,
 		},
+		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   userRole.ID.String(),
 			Name: userRole.Name,
@@ -805,6 +812,7 @@ func deleteRole(w http.ResponseWriter, r *http.Request) {
 			Name: r.Header.Get("user"),
 			Type: models.UserSub,
 		},
+		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   role.ID.String(),
 			Name: role.Name,
@@ -1475,6 +1483,7 @@ func approvePendingUser(w http.ResponseWriter, r *http.Request) {
 			Name: r.Header.Get("user"),
 			Type: models.UserSub,
 		},
+		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   username,
 			Name: username,
@@ -1520,6 +1529,7 @@ func deletePendingUser(w http.ResponseWriter, r *http.Request) {
 			Name: r.Header.Get("user"),
 			Type: models.UserSub,
 		},
+		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   username,
 			Name: username,
@@ -1549,6 +1559,7 @@ func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
 			Name: r.Header.Get("user"),
 			Type: models.UserSub,
 		},
+		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),

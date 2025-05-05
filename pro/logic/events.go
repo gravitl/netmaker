@@ -23,13 +23,14 @@ func EventWatcher() {
 		sourceJson, _ := json.Marshal(e.Source)
 		dstJson, _ := json.Marshal(e.Target)
 		a := schema.Event{
-			ID:        uuid.New().String(),
-			Action:    e.Action,
-			Source:    sourceJson,
-			Target:    dstJson,
-			Origin:    e.Origin,
-			NetworkID: e.NetworkID,
-			TimeStamp: time.Now().UTC(),
+			ID:          uuid.New().String(),
+			Action:      e.Action,
+			Source:      sourceJson,
+			Target:      dstJson,
+			Origin:      e.Origin,
+			NetworkID:   e.NetworkID,
+			TriggeredBy: e.TriggeredBy,
+			TimeStamp:   time.Now().UTC(),
 		}
 		a.Create(db.WithContext(context.TODO()))
 	}

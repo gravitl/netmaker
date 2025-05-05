@@ -131,6 +131,22 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 			logic.UpsertNode(&node)
 		}
 	}()
+	logic.LogEvent(&models.Event{
+		Action: models.Create,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   tag.ID.String(),
+			Name: tag.TagName,
+			Type: models.TagSub,
+		},
+		NetworkID: tag.Network,
+		Origin:    models.Dashboard,
+	})
 	go mq.PublishPeerUpdate(false)
 
 	var res models.TagListRespNodes = models.TagListRespNodes{
@@ -162,6 +178,25 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
+	}
+	e := &models.Event{
+		Action: models.Update,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   tag.ID.String(),
+			Name: tag.TagName,
+			Type: models.TagSub,
+		},
+		Diff: models.Diff{
+			Old: tag,
+		},
+		NetworkID: tag.Network,
+		Origin:    models.Dashboard,
 	}
 	updateTag.NewName = strings.TrimSpace(updateTag.NewName)
 	var newID models.TagID
@@ -198,7 +233,8 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 		}
 		mq.PublishPeerUpdate(false)
 	}()
-
+	e.Diff.New = updateTag
+	logic.LogEvent(e)
 	var res models.TagListRespNodes = models.TagListRespNodes{
 		Tag:         tag,
 		UsedByCnt:   len(updateTag.TaggedNodes),
@@ -241,5 +277,21 @@ func deleteTag(w http.ResponseWriter, r *http.Request) {
 		logic.RemoveTagFromEnrollmentKeys(tag.ID)
 		mq.PublishPeerUpdate(false)
 	}()
+	logic.LogEvent(&models.Event{
+		Action: models.Delete,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   tag.ID.String(),
+			Name: tag.TagName,
+			Type: models.TagSub,
+		},
+		NetworkID: tag.Network,
+		Origin:    models.Dashboard,
+	})
 	logic.ReturnSuccessResponse(w, r, "deleted tag "+tagID)
 }

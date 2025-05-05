@@ -127,6 +127,7 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 			Name: caller.UserName,
 			Type: models.UserSub,
 		},
+		TriggeredBy: caller.UserName,
 		Target: models.Subject{
 			ID:   req.ID,
 			Name: req.Name,
@@ -220,6 +221,7 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 			Name: caller.UserName,
 			Type: models.UserSub,
 		},
+		TriggeredBy: caller.UserName,
 		Target: models.Subject{
 			ID:   a.ID,
 			Name: a.Name,
@@ -297,6 +299,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 				Name: user.UserName,
 				Type: models.UserSub,
 			},
+			TriggeredBy: user.UserName,
 			Target: models.Subject{
 				ID:   models.DashboardSub.String(),
 				Name: models.DashboardSub.String(),
@@ -312,6 +315,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 				Name: user.UserName,
 				Type: models.UserSub,
 			},
+			TriggeredBy: user.UserName,
 			Target: models.Subject{
 				ID:   models.ClientAppSub.String(),
 				Name: models.ClientAppSub.String(),
@@ -682,6 +686,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 			Name: caller.UserName,
 			Type: models.UserSub,
 		},
+		TriggeredBy: caller.UserName,
 		Target: models.Subject{
 			ID:   user.UserName,
 			Name: user.UserName,
@@ -834,6 +839,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			Name: caller.UserName,
 			Type: models.UserSub,
 		},
+		TriggeredBy: caller.UserName,
 		Target: models.Subject{
 			ID:   user.UserName,
 			Name: user.UserName,
@@ -938,6 +944,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 			Name: caller.UserName,
 			Type: models.UserSub,
 		},
+		TriggeredBy: caller.UserName,
 		Target: models.Subject{
 			ID:   user.UserName,
 			Name: user.UserName,
@@ -1045,6 +1052,7 @@ func logout(w http.ResponseWriter, r *http.Request) {
 				Name: user.UserName,
 				Type: models.UserSub,
 			},
+			TriggeredBy: user.UserName,
 			Target: models.Subject{
 				ID:   target.String(),
 				Name: target.String(),
