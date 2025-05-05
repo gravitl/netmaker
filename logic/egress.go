@@ -31,6 +31,24 @@ func ValidateEgressReq(e *schema.Egress) bool {
 		if err != nil {
 			return false
 		}
+	} else {
+		if len(e.Nodes) > 1 {
+			return false
+		}
+		req := models.InetNodeReq{}
+		if len(e.Nodes) > 0 {
+			for k := range e.Nodes {
+				inetNode, err := GetNodeByID(k)
+				if err != nil {
+					return false
+				}
+				if ValidateInetGwReq(inetNode, req, false) != nil {
+					return false
+				}
+			}
+
+		}
+
 	}
 	if len(e.Nodes) != 0 {
 		for k := range e.Nodes {
@@ -107,6 +125,52 @@ func IsNodeUsingInternetGw(node *models.Node) {
 	}
 }
 
+func AddEgressInfoToNode(targetNode *models.Node, e schema.Egress) {
+	req := models.EgressGatewayRequest{
+		NodeID: targetNode.ID.String(),
+		NetID:  targetNode.Network,
+	}
+	if metric, ok := e.Nodes[targetNode.ID.String()]; ok {
+		if e.IsInetGw {
+			targetNode.IsInternetGateway = true
+			targetNode.InetNodeReq = models.InetNodeReq{
+				InetNodeClientIDs: GetInetClientsFromAclPolicies(e.ID),
+			}
+			req.Ranges = append(req.Ranges, "0.0.0.0/0")
+			req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
+				Network:     "0.0.0.0/0",
+				Nat:         true,
+				RouteMetric: 256,
+			})
+			req.Ranges = append(req.Ranges, "::/0")
+			req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
+				Network:     "::/0",
+				Nat:         true,
+				RouteMetric: 256,
+			})
+		} else {
+			m64, err := metric.(json.Number).Int64()
+			if err != nil {
+				m64 = 256
+			}
+			m := uint32(m64)
+			req.Ranges = append(req.Ranges, e.Range)
+			req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
+				Network:     e.Range,
+				Nat:         e.Nat,
+				RouteMetric: m,
+			})
+		}
+
+	}
+	if e.Nat {
+		req.NatEnabled = "yes"
+	}
+	targetNode.IsEgressGateway = true
+	targetNode.EgressGatewayRanges = req.Ranges
+	targetNode.EgressGatewayRequest = req
+}
+
 func GetNodeEgressInfo(targetNode *models.Node) {
 	eli, _ := (&schema.Egress{Network: targetNode.Network}).ListByNetwork(db.WithContext(context.TODO()))
 	req := models.EgressGatewayRequest{
@@ -154,4 +218,15 @@ func GetNodeEgressInfo(targetNode *models.Node) {
 		targetNode.EgressGatewayRanges = req.Ranges
 		targetNode.EgressGatewayRequest = req
 	}
+}
+
+func RemoveNodeFromEgress(node models.Node) {
+	egs, _ := (&schema.Egress{}).ListByNetwork(db.WithContext(context.TODO()))
+	for _, egI := range egs {
+		if _, ok := egI.Nodes[node.ID.String()]; ok {
+			delete(egI.Nodes, node.ID.String())
+			egI.Update(db.WithContext(context.TODO()))
+		}
+	}
+
 }

@@ -320,8 +320,9 @@ func DeleteNode(node *models.Node, purge bool) error {
 	if err := DissasociateNodeFromHost(node, host); err != nil {
 		return err
 	}
-	go RemoveNodeFromAclPolicy(*node)
 
+	go RemoveNodeFromAclPolicy(*node)
+	go RemoveNodeFromEgress(*node)
 	return nil
 }
 

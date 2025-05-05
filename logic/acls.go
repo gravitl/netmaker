@@ -271,10 +271,10 @@ func GetEgressRanges(netID models.NetworkID) (map[string][]string, map[string]st
 	return nodeEgressMap, resultMap, nil
 }
 
-func checkIfAclTagisValid(t models.AclPolicyTag, netID models.NetworkID, policyType models.AclPolicyType, isSrc bool) bool {
+func checkIfAclTagisValid(a models.Acl, t models.AclPolicyTag, isSrc bool) bool {
 	switch t.ID {
 	case models.NodeTagID:
-		if policyType == models.UserPolicy && isSrc {
+		if a.RuleType == models.UserPolicy && isSrc {
 			return false
 		}
 		// check if tag is valid
@@ -283,12 +283,12 @@ func checkIfAclTagisValid(t models.AclPolicyTag, netID models.NetworkID, policyT
 			return false
 		}
 	case models.NodeID:
-		if policyType == models.UserPolicy && isSrc {
+		if a.RuleType == models.UserPolicy && isSrc {
 			return false
 		}
 		_, nodeErr := GetNodeByID(t.Value)
 		if nodeErr != nil {
-			_, staticNodeErr := GetExtClient(t.Value, netID.String())
+			_, staticNodeErr := GetExtClient(t.Value, a.NetworkID.String())
 			if staticNodeErr != nil {
 				return false
 			}
@@ -301,9 +301,35 @@ func checkIfAclTagisValid(t models.AclPolicyTag, netID models.NetworkID, policyT
 		if err != nil {
 			return false
 		}
+		if e.IsInetGw {
+			req := models.InetNodeReq{}
+			for _, srcI := range a.Src {
+				if srcI.ID == models.NodeTagID {
+					nodesMap := GetNodesWithTag(models.TagID(srcI.Value))
+					for _, node := range nodesMap {
+						req.InetNodeClientIDs = append(req.InetNodeClientIDs, node.ID.String())
+					}
+				} else if srcI.ID == models.NodeID {
+					req.InetNodeClientIDs = append(req.InetNodeClientIDs, srcI.Value)
+				}
+			}
+			if len(e.Nodes) > 0 {
+				for k := range e.Nodes {
+					inetNode, err := GetNodeByID(k)
+					if err != nil {
+						return false
+					}
+					if ValidateInetGwReq(inetNode, req, false) != nil {
+						return false
+					}
+				}
+
+			}
+
+		}
 
 	case models.UserAclID:
-		if policyType == models.DevicePolicy {
+		if a.RuleType == models.DevicePolicy {
 			return false
 		}
 		if !isSrc {
@@ -314,7 +340,7 @@ func checkIfAclTagisValid(t models.AclPolicyTag, netID models.NetworkID, policyT
 			return false
 		}
 	case models.UserGroupAclID:
-		if policyType == models.DevicePolicy {
+		if a.RuleType == models.DevicePolicy {
 			return false
 		}
 		if !isSrc {
@@ -325,7 +351,7 @@ func checkIfAclTagisValid(t models.AclPolicyTag, netID models.NetworkID, policyT
 			return false
 		}
 		// check if group belongs to this network
-		netGrps := GetUserGroupsInNetwork(netID)
+		netGrps := GetUserGroupsInNetwork(a.NetworkID)
 		if _, ok := netGrps[models.UserGroupID(t.Value)]; !ok {
 			return false
 		}
@@ -351,7 +377,7 @@ func IsAclPolicyValid(acl models.Acl) bool {
 				continue
 			}
 			// check if user group is valid
-			if !checkIfAclTagisValid(srcI, acl.NetworkID, acl.RuleType, true) {
+			if !checkIfAclTagisValid(acl, srcI, true) {
 				return false
 			}
 		}
@@ -362,7 +388,7 @@ func IsAclPolicyValid(acl models.Acl) bool {
 			}
 
 			// check if user group is valid
-			if !checkIfAclTagisValid(dstI, acl.NetworkID, acl.RuleType, false) {
+			if !checkIfAclTagisValid(acl, dstI, false) {
 				return false
 			}
 		}
@@ -372,7 +398,7 @@ func IsAclPolicyValid(acl models.Acl) bool {
 				continue
 			}
 			// check if user group is valid
-			if !checkIfAclTagisValid(srcI, acl.NetworkID, acl.RuleType, true) {
+			if !checkIfAclTagisValid(acl, srcI, true) {
 				return false
 			}
 		}
@@ -382,7 +408,7 @@ func IsAclPolicyValid(acl models.Acl) bool {
 				continue
 			}
 			// check if user group is valid
-			if !checkIfAclTagisValid(dstI, acl.NetworkID, acl.RuleType, false) {
+			if !checkIfAclTagisValid(acl, dstI, false) {
 				return false
 			}
 		}

@@ -57,6 +57,9 @@ var (
 	GetAllowedIpForInetNodeClient = func(node, peer *models.Node) []net.IPNet {
 		return []net.IPNet{}
 	}
+	ValidateInetGwReq = func(inetNode models.Node, req models.InetNodeReq, update bool) error {
+		return nil
+	}
 )
 
 // GetHostPeerInfo - fetches required peer info per network

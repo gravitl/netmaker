@@ -85,6 +85,14 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	// for nodeID := range e.Nodes {
+	// 	node, err := logic.GetNodeByID(nodeID)
+	// 	if err != nil {
+	// 		logic.AddEgressInfoToNode(&node, e)
+	// 		logic.UpsertNode(&node)
+	// 	}
+
+	// }
 	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, e, "created egress resource")
 }
