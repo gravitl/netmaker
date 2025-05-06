@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"maps"
 	"net"
 
@@ -45,6 +46,7 @@ func ValidateEgressReq(e *schema.Egress) bool {
 			// check if node is acting as egress gw already
 			GetNodeEgressInfo(&inetNode)
 			if err := ValidateInetGwReq(inetNode, req, false); err != nil {
+				fmt.Println("====> Failed to Validate Egress: ", err)
 				return false
 			}
 
@@ -55,16 +57,13 @@ func ValidateEgressReq(e *schema.Egress) bool {
 		for k := range e.Nodes {
 			egressNode, err := GetNodeByID(k)
 			if err != nil {
+				fmt.Println("hereee   1")
 				return false
 			}
 			GetNodeEgressInfo(&egressNode)
 			if egressNode.InternetGwID != "" {
+				fmt.Println("hereee   2")
 				return false
-			}
-			if e.IsInetGw {
-				if egressNode.IsInternetGateway {
-					return false
-				}
 			}
 		}
 	}
