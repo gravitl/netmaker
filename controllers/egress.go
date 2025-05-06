@@ -162,7 +162,6 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
 	var updateNat bool
 	var updateInetGw bool
 	var updateStatus bool
@@ -183,6 +182,9 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	e.Range = egressRange
 	e.Description = req.Description
 	e.Name = req.Name
+	e.Nat = req.Nat
+	e.Status = req.Status
+	e.IsInetGw = req.IsInetGw
 	e.UpdatedAt = time.Now().UTC()
 	if !logic.ValidateEgressReq(&e) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid egress request"), "badrequest"))

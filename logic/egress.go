@@ -36,15 +36,16 @@ func ValidateEgressReq(e *schema.Egress) bool {
 			return false
 		}
 		req := models.InetNodeReq{}
-		if len(e.Nodes) > 0 {
-			for k := range e.Nodes {
-				inetNode, err := GetNodeByID(k)
-				if err != nil {
-					return false
-				}
-				if ValidateInetGwReq(inetNode, req, false) != nil {
-					return false
-				}
+
+		for k := range e.Nodes {
+			inetNode, err := GetNodeByID(k)
+			if err != nil {
+				return false
+			}
+			// check if node is acting as egress gw already
+			GetNodeEgressInfo(&inetNode)
+			if err := ValidateInetGwReq(inetNode, req, false); err != nil {
+				return false
 			}
 
 		}
@@ -52,9 +53,18 @@ func ValidateEgressReq(e *schema.Egress) bool {
 	}
 	if len(e.Nodes) != 0 {
 		for k := range e.Nodes {
-			_, err := GetNodeByID(k)
+			egressNode, err := GetNodeByID(k)
 			if err != nil {
 				return false
+			}
+			GetNodeEgressInfo(&egressNode)
+			if egressNode.InternetGwID != "" {
+				return false
+			}
+			if e.IsInetGw {
+				if egressNode.IsInternetGateway {
+					return false
+				}
 			}
 		}
 	}
