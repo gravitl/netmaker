@@ -84,6 +84,9 @@ func GetInetClientsFromAclPolicies(eID string) (inetClientIDs []string) {
 					continue
 				}
 				for _, srcI := range acl.Src {
+					if srcI.Value == "*" {
+						continue
+					}
 					if srcI.ID == models.NodeID {
 						inetClientIDs = append(inetClientIDs, srcI.Value)
 					}
