@@ -201,8 +201,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			continue
 		}
 		GetNodeEgressInfo(&node)
-		// set inet Info
-		IsNodeUsingInternetGw(&node)
 		hostPeerUpdate = SetDefaultGw(node, hostPeerUpdate)
 		if !hostPeerUpdate.IsInternetGw {
 			hostPeerUpdate.IsInternetGw = IsInternetGw(node)
@@ -254,7 +252,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				ReplaceAllowedIPs:           true,
 			}
 			GetNodeEgressInfo(&peer)
-			IsNodeUsingInternetGw(&peer)
 			_, isFailOverPeer := node.FailOverPeers[peer.ID.String()]
 			if peer.IsEgressGateway {
 				peerKey := peerHost.PublicKey.String()

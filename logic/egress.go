@@ -100,7 +100,7 @@ func GetInetClientsFromAclPolicies(eID string) (inetClientIDs []string) {
 	return
 }
 
-func IsNodeUsingInternetGw(node *models.Node) {
+func isNodeUsingInternetGw(node *models.Node) {
 	nodeTags := maps.Clone(node.Tags)
 	nodeTags[models.TagID(node.ID.String())] = struct{}{}
 	acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
@@ -189,6 +189,9 @@ func GetNodeEgressInfo(targetNode *models.Node) {
 		NodeID: targetNode.ID.String(),
 		NetID:  targetNode.Network,
 	}
+	defer func() {
+		isNodeUsingInternetGw(targetNode)
+	}()
 	for _, e := range eli {
 		if !e.Status {
 			continue
