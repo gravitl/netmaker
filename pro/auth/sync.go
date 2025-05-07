@@ -124,7 +124,8 @@ func syncUsers(idpUsers []idp.User) error {
 				return err
 			}
 		} else {
-			if dbUser.AccountDisabled != user.AccountDisabled {
+			if dbUser.AccountDisabled != user.AccountDisabled ||
+				dbUser.DisplayName != user.DisplayName {
 				dbUser.DisplayName = user.DisplayName
 				dbUser.AccountDisabled = user.AccountDisabled
 				err = logic.UpsertUser(dbUser)
