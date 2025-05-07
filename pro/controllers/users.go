@@ -1459,6 +1459,8 @@ func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	proAuth.RemoveAuthProvider()
+
 	go func() {
 		err := proAuth.SyncFromIDP()
 		if err != nil {

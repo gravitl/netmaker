@@ -93,6 +93,11 @@ func InitializeAuthProvider() string {
 	return authInfo[0]
 }
 
+// RemoveAuthProvider remove the auth provider configuration.
+func RemoveAuthProvider() {
+	auth_provider = nil
+}
+
 // HandleAuthCallback - handles oauth callback
 // Note: not included in API reference as part of the OAuth process itself.
 func HandleAuthCallback(w http.ResponseWriter, r *http.Request) {
