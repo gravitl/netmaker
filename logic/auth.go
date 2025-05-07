@@ -305,11 +305,14 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 		return userchange, errors.New("invalid network roles: " + err.Error())
 	}
 
-	if user.ExternalIdentityProviderID != "" &&
-		user.DisplayName != userchange.DisplayName {
-		return userchange, errors.New("display name cannot be updated for external user")
+	if userchange.DisplayName != "" {
+		if user.ExternalIdentityProviderID != "" &&
+			user.DisplayName != userchange.DisplayName {
+			return userchange, errors.New("display name cannot be updated for external user")
+		}
+
+		user.DisplayName = userchange.DisplayName
 	}
-	user.DisplayName = userchange.DisplayName
 
 	// Reset Gw Access for service users
 	go UpdateUserGwAccess(*user, *userchange)
