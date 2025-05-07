@@ -9,19 +9,29 @@ import (
 	"github.com/gravitl/netmaker/pro/idp/azure"
 	"github.com/gravitl/netmaker/pro/idp/google"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
-	"github.com/gravitl/netmaker/servercfg"
 	"strings"
 	"time"
 )
 
+var syncTicker *time.Ticker
+
 func StartSyncHook() {
-	for range time.Tick(servercfg.GetIDPSyncInterval()) {
+	syncTicker = time.NewTicker(logic.GetIDPSyncInterval())
+
+	for range syncTicker.C {
 		err := SyncFromIDP()
 		if err != nil {
 			logger.Log(0, "failed to sync from idp: ", err.Error())
 		} else {
 			logger.Log(0, "sync from idp complete")
 		}
+	}
+}
+
+func ResetSyncHook() {
+	if syncTicker != nil {
+		syncTicker.Stop()
+		go StartSyncHook()
 	}
 }
 

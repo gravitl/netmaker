@@ -271,6 +271,17 @@ func GetAzureTenant() string {
 	return GetServerSettings().AzureTenant
 }
 
+// GetIDPSyncInterval returns the interval at which the netmaker should sync
+// data from IDP.
+func GetIDPSyncInterval() time.Duration {
+	syncInterval, err := time.ParseDuration(GetServerSettings().IDPSyncInterval)
+	if err != nil {
+		return 24 * time.Hour
+	}
+
+	return syncInterval
+}
+
 // GetMetricsPort - get metrics port
 func GetMetricsPort() int {
 	return GetServerSettings().MetricsPort

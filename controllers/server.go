@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/json"
 	"errors"
+	"github.com/gravitl/netmaker/pro/auth"
 	"net/http"
 	"os"
 	"strings"
@@ -264,11 +265,19 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid settings"), "badrequest"))
 		return
 	}
+
+	currSettings := logic.GetServerSettings()
+
 	err := logic.UpsertServerSettings(req)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to udpate server settings "+err.Error()), "internal"))
 		return
 	}
+
+	if currSettings.IDPSyncInterval != req.IDPSyncInterval {
+		auth.ResetSyncHook()
+	}
+
 	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, req, "updated server settings successfully")
 }

@@ -91,7 +91,7 @@ func InitPro() {
 			slog.Error("no OAuth provider found or not configured, continuing without OAuth")
 		}
 
-		auth.StartSyncHook()
+		go auth.StartSyncHook()
 
 		proLogic.LoadNodeMetricsToCache()
 		proLogic.InitFailOverCache()

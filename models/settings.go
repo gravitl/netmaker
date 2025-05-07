@@ -21,6 +21,7 @@ type ServerSettings struct {
 	AzureTenant                string   `json:"azure_tenant"`
 	UserFilters                []string `json:"user_filters"`
 	GroupFilters               []string `json:"group_filters"`
+	IDPSyncInterval            string   `json:"idp_sync_interval"`
 	Telemetry                  string   `json:"telemetry"`
 	BasicAuth                  bool     `json:"basic_auth"`
 	JwtValidityDuration        int      `json:"jwt_validity_duration"`
