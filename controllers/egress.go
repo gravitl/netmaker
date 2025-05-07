@@ -237,6 +237,21 @@ func deleteEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	// delete related acl policies
+	acls := logic.ListAcls()
+	for _, acl := range acls {
+
+		for i := len(acl.Dst) - 1; i >= 0; i-- {
+			if acl.Dst[i].ID == models.EgressID && acl.Dst[i].Value == id {
+				acl.Dst = append(acl.Dst[:i], acl.Dst[i+1:]...)
+			}
+		}
+		if len(acl.Dst) == 0 {
+			logic.DeleteAcl(acl)
+		} else {
+			logic.UpsertAcl(acl)
+		}
+	}
 	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted egress resource")
 }
