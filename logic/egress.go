@@ -116,9 +116,13 @@ func isNodeUsingInternetGw(node *models.Node) {
 				if err != nil || !e.Status {
 					continue
 				}
+
 				if e.IsInetGw {
 					if _, ok := srcVal[node.ID.String()]; ok {
 						for nodeID := range e.Nodes {
+							if nodeID == node.ID.String() {
+								continue
+							}
 							node.InternetGwID = nodeID
 							return
 						}
@@ -126,6 +130,9 @@ func isNodeUsingInternetGw(node *models.Node) {
 					for tagID := range nodeTags {
 						if _, ok := srcVal[tagID.String()]; ok {
 							for nodeID := range e.Nodes {
+								if nodeID == node.ID.String() {
+									continue
+								}
 								node.InternetGwID = nodeID
 								return
 							}
