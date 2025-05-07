@@ -61,7 +61,7 @@ func (a *Client) GetUsers() ([]idp.User, error) {
 			ID:              user.Id,
 			Username:        user.UserPrincipalName,
 			DisplayName:     user.DisplayName,
-			AccountDisabled: user.AccountEnabled,
+			AccountDisabled: !user.AccountEnabled,
 		}
 	}
 
