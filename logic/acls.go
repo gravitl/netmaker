@@ -675,6 +675,17 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []mode
 			continue
 		}
 		dstMap := convAclTagToValueMap(policy.Dst)
+		for _, dst := range policy.Dst {
+			if dst.ID == models.EgressID {
+				e := schema.Egress{ID: dst.Value}
+				err := e.Get(db.WithContext(context.TODO()))
+				if err == nil {
+					for nodeID := range e.Nodes {
+						dstMap[nodeID] = struct{}{}
+					}
+				}
+			}
+		}
 		if _, ok := dstMap["*"]; ok {
 			allowedPolicies = append(allowedPolicies, policy)
 			continue
@@ -1794,9 +1805,15 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 			if acl policy has egress route and it is present in target node egress ranges
 			fetch all the nodes in that policy and add rules
 	*/
-
-	for _, rangeI := range targetnode.EgressGatewayRanges {
-		targetNodeTags[models.TagID(rangeI)] = struct{}{}
+	egs, _ := (&schema.Egress{Network: targetnode.Network}).ListByNetwork(db.WithContext(context.TODO()))
+	if len(egs) == 0 {
+		return
+	}
+	for _, egI := range egs {
+		if _, ok := egI.Nodes[targetnode.ID.String()]; ok {
+			targetNodeTags[models.TagID(egI.Range)] = struct{}{}
+			targetNodeTags[models.TagID(egI.ID)] = struct{}{}
+		}
 	}
 	for _, acl := range acls {
 		if !acl.Enabled {
@@ -1804,28 +1821,17 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 		}
 		srcTags := convAclTagToValueMap(acl.Src)
 		dstTags := convAclTagToValueMap(acl.Dst)
-		for _, dst := range acl.Dst {
-			if dst.ID == models.EgressID {
-				e := schema.Egress{ID: dst.Value}
-				err := e.Get(db.WithContext(context.TODO()))
-				if err == nil {
-					for nodeID := range e.Nodes {
-						dstTags[nodeID] = struct{}{}
-					}
-					dstTags[e.Range] = struct{}{}
-				}
-			}
-		}
 		_, srcAll := srcTags["*"]
 		_, dstAll := dstTags["*"]
+		aclRule := models.AclRule{
+			ID:              acl.ID,
+			AllowedProtocol: acl.Proto,
+			AllowedPorts:    acl.Port,
+			Direction:       acl.AllowedDirection,
+			Allowed:         true,
+		}
 		for nodeTag := range targetNodeTags {
-			aclRule := models.AclRule{
-				ID:              acl.ID,
-				AllowedProtocol: acl.Proto,
-				AllowedPorts:    acl.Port,
-				Direction:       acl.AllowedDirection,
-				Allowed:         true,
-			}
+
 			if nodeTag != "*" {
 				ip, cidr, err := net.ParseCIDR(nodeTag.String())
 				if err != nil {
@@ -1856,6 +1862,15 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 				}
 				if _, ok := dstTags[nodeTag.String()]; ok || dstAll {
 					existsInDstTag = true
+				}
+				if srcAll || dstAll {
+					if targetnode.NetworkRange.IP != nil {
+						aclRule.IPList = append(aclRule.IPList, targetnode.NetworkRange)
+					}
+					if targetnode.NetworkRange6.IP != nil {
+						aclRule.IP6List = append(aclRule.IP6List, targetnode.NetworkRange6)
+					}
+					break
 				}
 
 				if existsInSrcTag && !existsInDstTag {
@@ -1964,8 +1979,16 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 					}
 				}
 			} else {
-				_, all := dstTags["*"]
-				if _, ok := dstTags[nodeTag.String()]; ok || all {
+				if dstAll {
+					if targetnode.NetworkRange.IP != nil {
+						aclRule.IPList = append(aclRule.IPList, targetnode.NetworkRange)
+					}
+					if targetnode.NetworkRange6.IP != nil {
+						aclRule.IP6List = append(aclRule.IP6List, targetnode.NetworkRange6)
+					}
+					break
+				}
+				if _, ok := dstTags[nodeTag.String()]; ok || dstAll {
 					// get all src tags
 					for src := range srcTags {
 						if src == nodeTag.String() {
@@ -1993,12 +2016,12 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 					}
 				}
 			}
-			if len(aclRule.IPList) > 0 || len(aclRule.IP6List) > 0 {
-				aclRule.IPList = UniqueIPNetList(aclRule.IPList)
-				aclRule.IP6List = UniqueIPNetList(aclRule.IP6List)
-				rules[acl.ID] = aclRule
-			}
 
+		}
+		if len(aclRule.IPList) > 0 || len(aclRule.IP6List) > 0 {
+			aclRule.IPList = UniqueIPNetList(aclRule.IPList)
+			aclRule.IP6List = UniqueIPNetList(aclRule.IP6List)
+			rules[acl.ID] = aclRule
 		}
 
 	}
