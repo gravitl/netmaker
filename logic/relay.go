@@ -114,6 +114,7 @@ func ValidateRelay(relay models.RelayRequest, update bool) error {
 		if err != nil {
 			return err
 		}
+		GetNodeEgressInfo(&relayedNode)
 		if relayedNode.IsIngressGateway {
 			return errors.New("cannot relay an ingress gateway (" + relayedNodeID + ")")
 		}
