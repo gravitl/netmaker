@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"fmt"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -37,9 +38,6 @@ func ResetSyncHook() {
 
 func SyncFromIDP() error {
 	settings := logic.GetServerSettings()
-	if !settings.SyncEnabled {
-		return nil
-	}
 
 	var idpClient idp.Client
 	var idpUsers []idp.User
@@ -55,10 +53,12 @@ func SyncFromIDP() error {
 	case "azure-ad":
 		idpClient = azure.NewAzureEntraIDClient()
 	default:
-		return nil
+		if settings.AuthProvider != "" {
+			return fmt.Errorf("invalid auth provider: %s", settings.AuthProvider)
+		}
 	}
 
-	if settings.AuthProvider != "" {
+	if settings.AuthProvider != "" && idpClient != nil {
 		idpUsers, err = idpClient.GetUsers()
 		if err != nil {
 			return err
