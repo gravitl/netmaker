@@ -1811,7 +1811,12 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 	}
 	for _, egI := range egs {
 		if _, ok := egI.Nodes[targetnode.ID.String()]; ok {
-			targetNodeTags[models.TagID(egI.Range)] = struct{}{}
+			if egI.Range == "*" {
+				targetNodeTags[models.TagID("0.0.0.0/0")] = struct{}{}
+				targetNodeTags[models.TagID("::/0")] = struct{}{}
+			} else {
+				targetNodeTags[models.TagID(egI.Range)] = struct{}{}
+			}
 			targetNodeTags[models.TagID(egI.ID)] = struct{}{}
 		}
 	}
