@@ -1820,12 +1820,14 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 			targetNodeTags[models.TagID(egI.ID)] = struct{}{}
 		}
 	}
+	fmt.Println("CHECKING EGRESS TAGS: ", targetNodeTags)
 	for _, acl := range acls {
 		if !acl.Enabled {
 			continue
 		}
 		srcTags := convAclTagToValueMap(acl.Src)
 		dstTags := convAclTagToValueMap(acl.Dst)
+		fmt.Println("ACL POLICY: ", acl.Name, srcTags, dstTags)
 		_, srcAll := srcTags["*"]
 		_, dstAll := dstTags["*"]
 		aclRule := models.AclRule{
@@ -1839,15 +1841,13 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 
 			if nodeTag != "*" {
 				ip, cidr, err := net.ParseCIDR(nodeTag.String())
-				if err != nil {
-					continue
+				if err == nil {
+					if ip.To4() != nil {
+						aclRule.Dst = append(aclRule.Dst, *cidr)
+					} else {
+						aclRule.Dst6 = append(aclRule.Dst6, *cidr)
+					}
 				}
-				if ip.To4() != nil {
-					aclRule.Dst = append(aclRule.Dst, *cidr)
-				} else {
-					aclRule.Dst6 = append(aclRule.Dst6, *cidr)
-				}
-
 			} else {
 				aclRule.Dst = append(aclRule.Dst, net.IPNet{
 					IP:   net.IPv4zero,        // 0.0.0.0
@@ -1861,7 +1861,7 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 			if acl.AllowedDirection == models.TrafficDirectionBi {
 				var existsInSrcTag bool
 				var existsInDstTag bool
-
+				fmt.Println("CHECKING TAG: ", nodeTag.String())
 				if _, ok := srcTags[nodeTag.String()]; ok || srcAll {
 					existsInSrcTag = true
 				}
@@ -1877,7 +1877,7 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 					}
 					break
 				}
-
+				fmt.Println("EXISTS ACL: ", existsInSrcTag, existsInDstTag)
 				if existsInSrcTag && !existsInDstTag {
 					// get all dst tags
 					for dst := range dstTags {
