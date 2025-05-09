@@ -92,14 +92,15 @@ func listActivity(w http.ResponseWriter, r *http.Request) {
 	ctx := db.WithContext(r.Context())
 	var err error
 	var events []schema.Event
+	e := &schema.Event{TriggeredBy: username, NetworkID: models.NetworkID(network)}
 	if username != "" && network != "" {
-		events, err = (&schema.Event{}).ListByUserAndNetwork(db.SetPagination(ctx, page, pageSize))
+		events, err = e.ListByUserAndNetwork(db.SetPagination(ctx, page, pageSize))
 	} else if username != "" && network == "" {
-		events, err = (&schema.Event{}).ListByUser(db.SetPagination(ctx, page, pageSize))
+		events, err = e.ListByUser(db.SetPagination(ctx, page, pageSize))
 	} else if username == "" && network != "" {
-		events, err = (&schema.Event{}).ListByNetwork(db.SetPagination(ctx, page, pageSize))
+		events, err = e.ListByNetwork(db.SetPagination(ctx, page, pageSize))
 	} else {
-		events, err = (&schema.Event{}).List(db.SetPagination(ctx, page, pageSize))
+		events, err = e.List(db.SetPagination(ctx, page, pageSize))
 	}
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
