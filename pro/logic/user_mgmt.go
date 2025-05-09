@@ -592,7 +592,7 @@ func UpdateUserGroup(g models.UserGroup) error {
 // DeleteUserGroup - deletes user group
 func DeleteUserGroup(gid models.UserGroupID) error {
 	users, err := logic.GetUsersDB()
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
 	for _, user := range users {
