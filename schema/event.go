@@ -42,6 +42,12 @@ func (a *Event) ListByUser(ctx context.Context) (ats []Event, err error) {
 	return
 }
 
+func (a *Event) ListByUserAndNetwork(ctx context.Context) (ats []Event, err error) {
+	err = db.FromContext(ctx).Model(&Event{}).Where("network_id = ? AND triggered_by = ?",
+		a.NetworkID, a.TriggeredBy).Order("time_stamp DESC").Find(&ats).Error
+	return
+}
+
 func (a *Event) List(ctx context.Context) (ats []Event, err error) {
 	err = db.FromContext(ctx).Model(&Event{}).Order("time_stamp DESC").Find(&ats).Error
 	return

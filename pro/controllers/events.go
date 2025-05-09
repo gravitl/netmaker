@@ -85,10 +85,22 @@ func listUserActivity(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object}  models.ReturnSuccessResponseWithJson
 // @Failure     500 {object} models.ErrorResponse
 func listActivity(w http.ResponseWriter, r *http.Request) {
+	username := r.URL.Query().Get("username")
+	network := r.URL.Query().Get("network_id")
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	pageSize, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
 	ctx := db.WithContext(r.Context())
-	events, err := (&schema.Event{}).List(db.SetPagination(ctx, page, pageSize))
+	var err error
+	var events []schema.Event
+	if username != "" && network != "" {
+		events, err = (&schema.Event{}).ListByUserAndNetwork(db.SetPagination(ctx, page, pageSize))
+	} else if username != "" && network == "" {
+		events, err = (&schema.Event{}).ListByUser(db.SetPagination(ctx, page, pageSize))
+	} else if username == "" && network != "" {
+		events, err = (&schema.Event{}).ListByNetwork(db.SetPagination(ctx, page, pageSize))
+	} else {
+		events, err = (&schema.Event{}).List(db.SetPagination(ctx, page, pageSize))
+	}
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
 			Code:    http.StatusInternalServerError,
