@@ -57,6 +57,9 @@ var (
 	GetAllowedIpForInetNodeClient = func(node, peer *models.Node) []net.IPNet {
 		return []net.IPNet{}
 	}
+	ValidateInetGwReq = func(inetNode models.Node, req models.InetNodeReq, update bool) error {
+		return nil
+	}
 )
 
 // GetHostPeerInfo - fetches required peer info per network
@@ -197,6 +200,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE {
 			continue
 		}
+		GetNodeEgressInfo(&node)
 		hostPeerUpdate = SetDefaultGw(node, hostPeerUpdate)
 		if !hostPeerUpdate.IsInternetGw {
 			hostPeerUpdate.IsInternetGw = IsInternetGw(node)
@@ -247,8 +251,9 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				PersistentKeepaliveInterval: &peerHost.PersistentKeepalive,
 				ReplaceAllowedIPs:           true,
 			}
+			GetNodeEgressInfo(&peer)
 			_, isFailOverPeer := node.FailOverPeers[peer.ID.String()]
-			if peer.IsEgressGateway {
+			if peer.EgressDetails.IsEgressGateway {
 				peerKey := peerHost.PublicKey.String()
 				if isFailOverPeer && peer.FailedOverBy.String() != node.ID.String() {
 					// get relay host
@@ -435,7 +440,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				logger.Log(1, "error retrieving external clients:", err.Error())
 			}
 		}
-		if node.IsEgressGateway && node.EgressGatewayRequest.NatEnabled == "yes" && len(node.EgressGatewayRequest.Ranges) > 0 {
+		if node.EgressDetails.IsEgressGateway && len(node.EgressDetails.EgressGatewayRequest.Ranges) > 0 {
 			hostPeerUpdate.FwUpdate.IsEgressGw = true
 			hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()] = models.EgressInfo{
 				EgressID: node.ID.String(),
@@ -449,12 +454,12 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					IP:   node.Address6.IP,
 					Mask: getCIDRMaskFromAddr(node.Address6.IP.String()),
 				},
-				EgressGWCfg:   node.EgressGatewayRequest,
+				EgressGWCfg:   node.EgressDetails.EgressGatewayRequest,
 				EgressFwRules: make(map[string]models.AclRule),
 			}
 
 		}
-		if node.IsEgressGateway {
+		if node.EgressDetails.IsEgressGateway {
 			if !networkAllowAll {
 				egressInfo := hostPeerUpdate.FwUpdate.EgressInfo[node.ID.String()]
 				if egressInfo.EgressFwRules == nil {
@@ -492,7 +497,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				},
 			}
 		}
-
 	}
 	// == post peer calculations ==
 	// indicate removal if no allowed IPs were calculated
@@ -549,11 +553,11 @@ func GetPeerListenPort(host *models.Host) int {
 }
 
 func filterConflictingEgressRoutes(node, peer models.Node) []string {
-	egressIPs := slices.Clone(peer.EgressGatewayRanges)
-	if node.IsEgressGateway {
+	egressIPs := slices.Clone(peer.EgressDetails.EgressGatewayRanges)
+	if node.EgressDetails.IsEgressGateway {
 		// filter conflicting addrs
 		nodeEgressMap := make(map[string]struct{})
-		for _, rangeI := range node.EgressGatewayRanges {
+		for _, rangeI := range node.EgressDetails.EgressGatewayRanges {
 			nodeEgressMap[rangeI] = struct{}{}
 		}
 		for i := len(egressIPs) - 1; i >= 0; i-- {
@@ -567,11 +571,11 @@ func filterConflictingEgressRoutes(node, peer models.Node) []string {
 }
 
 func filterConflictingEgressRoutesWithMetric(node, peer models.Node) []models.EgressRangeMetric {
-	egressIPs := slices.Clone(peer.EgressGatewayRequest.RangesWithMetric)
-	if node.IsEgressGateway {
+	egressIPs := slices.Clone(peer.EgressDetails.EgressGatewayRequest.RangesWithMetric)
+	if node.EgressDetails.IsEgressGateway {
 		// filter conflicting addrs
 		nodeEgressMap := make(map[string]struct{})
-		for _, rangeI := range node.EgressGatewayRanges {
+		for _, rangeI := range node.EgressDetails.EgressGatewayRanges {
 			nodeEgressMap[rangeI] = struct{}{}
 		}
 		for i := len(egressIPs) - 1; i >= 0; i-- {
@@ -623,11 +627,11 @@ func GetEgressIPs(peer *models.Node) []net.IPNet {
 
 	// check for internet gateway
 	internetGateway := false
-	if slices.Contains(peer.EgressGatewayRanges, "0.0.0.0/0") || slices.Contains(peer.EgressGatewayRanges, "::/0") {
+	if slices.Contains(peer.EgressDetails.EgressGatewayRanges, "0.0.0.0/0") || slices.Contains(peer.EgressDetails.EgressGatewayRanges, "::/0") {
 		internetGateway = true
 	}
 	allowedips := []net.IPNet{}
-	for _, iprange := range peer.EgressGatewayRanges { // go through each cidr for egress gateway
+	for _, iprange := range peer.EgressDetails.EgressGatewayRanges { // go through each cidr for egress gateway
 		_, ipnet, err := net.ParseCIDR(iprange) // confirming it's valid cidr
 		if err != nil {
 			logger.Log(1, "could not parse gateway IP range. Not adding ", iprange)
@@ -669,13 +673,13 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 		allowedips = append(allowedips, allowed)
 	}
 	// handle egress gateway peers
-	if peer.IsEgressGateway {
+	if peer.EgressDetails.IsEgressGateway {
 		// hasGateway = true
 		egressIPs := GetEgressIPs(peer)
-		if node.IsEgressGateway {
+		if node.EgressDetails.IsEgressGateway {
 			// filter conflicting addrs
 			nodeEgressMap := make(map[string]struct{})
-			for _, rangeI := range node.EgressGatewayRanges {
+			for _, rangeI := range node.EgressDetails.EgressGatewayRanges {
 				nodeEgressMap[rangeI] = struct{}{}
 			}
 			for i := len(egressIPs) - 1; i >= 0; i-- {

@@ -179,7 +179,7 @@ func GetFailOverPeerIps(peer, node *models.Node) []net.IPNet {
 				}
 				allowedips = append(allowedips, allowed)
 			}
-			if failOverpeer.IsEgressGateway {
+			if failOverpeer.EgressDetails.IsEgressGateway {
 				allowedips = append(allowedips, logic.GetEgressIPs(&failOverpeer)...)
 			}
 			if failOverpeer.IsRelay {
@@ -199,7 +199,7 @@ func GetFailOverPeerIps(peer, node *models.Node) []net.IPNet {
 						}
 						allowedips = append(allowedips, allowed)
 					}
-					if rNode.IsEgressGateway {
+					if rNode.EgressDetails.IsEgressGateway {
 						allowedips = append(allowedips, logic.GetEgressIPs(&rNode)...)
 					}
 				}

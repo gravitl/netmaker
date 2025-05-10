@@ -114,6 +114,7 @@ func ValidateRelay(relay models.RelayRequest, update bool) error {
 		if err != nil {
 			return err
 		}
+		GetNodeEgressInfo(&relayedNode)
 		if relayedNode.IsIngressGateway {
 			return errors.New("cannot relay an ingress gateway (" + relayedNodeID + ")")
 		}
@@ -194,7 +195,7 @@ func RelayedAllowedIPs(peer, node *models.Node) []net.IPNet {
 			continue
 		}
 		allowed := getRelayedAddresses(relayedNodeID)
-		if relayedNode.IsEgressGateway {
+		if relayedNode.EgressDetails.IsEgressGateway {
 			allowed = append(allowed, GetEgressIPs(&relayedNode)...)
 		}
 		allowedIPs = append(allowedIPs, allowed...)

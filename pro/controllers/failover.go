@@ -205,6 +205,8 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	logic.GetNodeEgressInfo(&node)
+	logic.GetNodeEgressInfo(&peerNode)
 	if peerNode.IsFailOver {
 		logic.ReturnErrorResponse(
 			w,
@@ -349,6 +351,8 @@ func checkfailOverCtx(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	logic.GetNodeEgressInfo(&node)
+	logic.GetNodeEgressInfo(&peerNode)
 	if peerNode.IsFailOver {
 		logic.ReturnErrorResponse(
 			w,
