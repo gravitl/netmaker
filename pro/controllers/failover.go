@@ -415,6 +415,17 @@ func checkfailOverCtx(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	if ok := logic.IsPeerAllowed(node, peerNode, true); !ok {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				errors.New("peers are not allowed to communicate"),
+				"badrequest",
+			),
+		)
+		return
+	}
 
 	err = proLogic.CheckFailOverCtx(failOverNode, node, peerNode)
 	if err != nil {
