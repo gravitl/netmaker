@@ -185,12 +185,16 @@ func AddEgressInfoToNode(targetNode *models.Node, e schema.Egress) {
 	if e.Nat {
 		req.NatEnabled = "yes"
 	}
-	targetNode.IsEgressGateway = true
-	targetNode.EgressGatewayRanges = req.Ranges
-	targetNode.EgressGatewayRequest = req
+	targetNode.EgressDetails.IsEgressGateway = true
+	targetNode.EgressDetails.EgressGatewayRanges = req.Ranges
+	targetNode.EgressDetails.EgressGatewayRequest = req
 }
 
 func GetNodeEgressInfo(targetNode *models.Node) {
+	if targetNode.Mutex != nil {
+		targetNode.Mutex.Lock()
+		defer targetNode.Mutex.Unlock()
+	}
 	eli, _ := (&schema.Egress{Network: targetNode.Network}).ListByNetwork(db.WithContext(context.TODO()))
 	req := models.EgressGatewayRequest{
 		NodeID: targetNode.ID.String(),
@@ -200,7 +204,7 @@ func GetNodeEgressInfo(targetNode *models.Node) {
 		isNodeUsingInternetGw(targetNode)
 	}()
 	for _, e := range eli {
-		if !e.Status {
+		if !e.Status || e.Network != targetNode.Network {
 			continue
 		}
 		if metric, ok := e.Nodes[targetNode.ID.String()]; ok {
@@ -221,24 +225,28 @@ func GetNodeEgressInfo(targetNode *models.Node) {
 					Nat:         true,
 					RouteMetric: 256,
 				})
+			} else {
+				m64, err := metric.(json.Number).Int64()
+				if err != nil {
+					m64 = 256
+				}
+				m := uint32(m64)
+				req.Ranges = append(req.Ranges, e.Range)
+				req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
+					Network:     e.Range,
+					Nat:         e.Nat,
+					RouteMetric: m,
+				})
 			}
-			m64, err := metric.(json.Number).Int64()
-			if err != nil {
-				m64 = 256
-			}
-			m := uint32(m64)
-			req.Ranges = append(req.Ranges, e.Range)
-			req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
-				Network:     e.Range,
-				Nat:         e.Nat,
-				RouteMetric: m,
-			})
+
 		}
 	}
 	if len(req.Ranges) > 0 {
-		targetNode.IsEgressGateway = true
-		targetNode.EgressGatewayRanges = req.Ranges
-		targetNode.EgressGatewayRequest = req
+		targetNode.EgressDetails.IsEgressGateway = true
+		targetNode.EgressDetails.EgressGatewayRanges = req.Ranges
+		targetNode.EgressDetails.EgressGatewayRequest = req
+		targetHost, _ := GetHost(targetNode.HostID.String())
+		fmt.Println("TARGET NODE: ", targetHost.Name, targetNode.EgressDetails.EgressGatewayRanges, targetNode.EgressDetails.EgressGatewayRequest)
 	}
 }
 

@@ -250,10 +250,10 @@ func GetEgressRanges(netID models.NetworkID) (map[string][]string, map[string]st
 		if currentNode.Network != netID.String() {
 			continue
 		}
-		if currentNode.IsEgressGateway { // add the egress gateway range(s) to the result
-			if len(currentNode.EgressGatewayRanges) > 0 {
-				nodeEgressMap[currentNode.ID.String()] = currentNode.EgressGatewayRanges
-				for _, egressRangeI := range currentNode.EgressGatewayRanges {
+		if currentNode.EgressDetails.IsEgressGateway { // add the egress gateway range(s) to the result
+			if len(currentNode.EgressDetails.EgressGatewayRanges) > 0 {
+				nodeEgressMap[currentNode.ID.String()] = currentNode.EgressDetails.EgressGatewayRanges
+				for _, egressRangeI := range currentNode.EgressDetails.EgressGatewayRanges {
 					resultMap[egressRangeI] = struct{}{}
 				}
 			}
@@ -1244,7 +1244,7 @@ func getEgressUserRulesForNode(targetnode *models.Node,
 	acls := listUserPolicies(models.NetworkID(targetnode.Network))
 	var targetNodeTags = make(map[models.TagID]struct{})
 	targetNodeTags["*"] = struct{}{}
-	for _, rangeI := range targetnode.EgressGatewayRanges {
+	for _, rangeI := range targetnode.EgressDetails.EgressGatewayRanges {
 		targetNodeTags[models.TagID(rangeI)] = struct{}{}
 	}
 	for _, acl := range acls {
@@ -1464,7 +1464,7 @@ func getUserAclRulesForNode(targetnode *models.Node,
 }
 
 func checkIfAnyActiveEgressPolicy(targetNode models.Node) bool {
-	if !targetNode.IsEgressGateway {
+	if !targetNode.EgressDetails.IsEgressGateway {
 		return false
 	}
 	var targetNodeTags = make(map[models.TagID]struct{})

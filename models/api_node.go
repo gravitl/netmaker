@@ -79,10 +79,7 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.PendingDelete = a.PendingDelete
 	convertedNode.FailedOverBy = currentNode.FailedOverBy
 	convertedNode.FailOverPeers = currentNode.FailOverPeers
-	convertedNode.IsEgressGateway = a.IsEgressGateway
 	convertedNode.IsIngressGateway = a.IsIngressGateway
-	// prevents user from changing ranges, must delete and recreate
-	convertedNode.EgressGatewayRanges = currentNode.EgressGatewayRanges
 	convertedNode.IngressGatewayRange = currentNode.IngressGatewayRange
 	convertedNode.IngressGatewayRange6 = currentNode.IngressGatewayRange6
 	convertedNode.DNSOn = a.DNSOn
@@ -90,8 +87,6 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.IngressPersistentKeepalive = a.IngressPersistentKeepalive
 	convertedNode.IngressMTU = a.IngressMTU
 	convertedNode.IsInternetGateway = a.IsInternetGateway
-	convertedNode.EgressGatewayRequest = currentNode.EgressGatewayRequest
-	convertedNode.EgressGatewayNatEnabled = currentNode.EgressGatewayNatEnabled
 	convertedNode.InternetGwID = currentNode.InternetGwID
 	convertedNode.InetNodeReq = currentNode.InetNodeReq
 	convertedNode.RelayedNodes = a.RelayedNodes
@@ -187,11 +182,7 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.IsRelay = nm.IsRelay
 	apiNode.RelayedBy = nm.RelayedBy
 	apiNode.RelayedNodes = nm.RelayedNodes
-	apiNode.IsEgressGateway = nm.IsEgressGateway
 	apiNode.IsIngressGateway = nm.IsIngressGateway
-	apiNode.EgressGatewayRanges = nm.EgressGatewayRanges
-	apiNode.EgressGatewayRangesWithMetric = nm.EgressGatewayRequest.RangesWithMetric
-	apiNode.EgressGatewayNatEnabled = nm.EgressGatewayNatEnabled
 	apiNode.DNSOn = nm.DNSOn
 	apiNode.IngressDns = nm.IngressDNS
 	apiNode.IngressPersistentKeepalive = nm.IngressPersistentKeepalive

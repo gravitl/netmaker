@@ -70,7 +70,7 @@ func GetAllEgresses() ([]models.Node, error) {
 	}
 	egresses := make([]models.Node, 0)
 	for _, node := range nodes {
-		if node.IsEgressGateway {
+		if node.EgressDetails.IsEgressGateway {
 			egresses = append(egresses, node)
 		}
 	}
@@ -147,11 +147,11 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	if gateway.Ranges == nil {
 		gateway.Ranges = make([]string, 0)
 	}
-	node.IsEgressGateway = true
-	node.EgressGatewayRanges = gateway.Ranges
-	node.EgressGatewayNatEnabled = models.ParseBool(gateway.NatEnabled)
+	node.EgressDetails.IsEgressGateway = true
+	node.EgressDetails.EgressGatewayRanges = gateway.Ranges
+	node.EgressDetails.EgressGatewayNatEnabled = models.ParseBool(gateway.NatEnabled)
 
-	node.EgressGatewayRequest = gateway // store entire request for use when preserving the egress gateway
+	node.EgressDetails.EgressGatewayRequest = gateway // store entire request for use when preserving the egress gateway
 	node.SetLastModified()
 	if err = UpsertNode(&node); err != nil {
 		return models.Node{}, err
@@ -170,9 +170,9 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 	if err != nil {
 		return models.Node{}, err
 	}
-	node.IsEgressGateway = false
-	node.EgressGatewayRanges = []string{}
-	node.EgressGatewayRequest = models.EgressGatewayRequest{} // remove preserved request as the egress gateway is gone
+	node.EgressDetails.IsEgressGateway = false
+	node.EgressDetails.EgressGatewayRanges = []string{}
+	node.EgressDetails.EgressGatewayRequest = models.EgressGatewayRequest{} // remove preserved request as the egress gateway is gone
 	node.SetLastModified()
 	if err = UpsertNode(&node); err != nil {
 		return models.Node{}, err
