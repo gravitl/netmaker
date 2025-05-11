@@ -72,8 +72,8 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 	for nodeID, metric := range req.Nodes {
 		e.Nodes[nodeID] = metric
 	}
-	if !logic.ValidateEgressReq(&e) {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid egress request"), "badrequest"))
+	if err := logic.ValidateEgressReq(&e); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	err = e.Create(db.WithContext(r.Context()))
@@ -186,8 +186,8 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	e.Status = req.Status
 	e.IsInetGw = req.IsInetGw
 	e.UpdatedAt = time.Now().UTC()
-	if !logic.ValidateEgressReq(&e) {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid egress request"), "badrequest"))
+	if err := logic.ValidateEgressReq(&e); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	err = e.Update(db.WithContext(context.TODO()))

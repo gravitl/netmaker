@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"net"
@@ -12,42 +13,41 @@ import (
 	"github.com/gravitl/netmaker/schema"
 )
 
-func ValidateEgressReq(e *schema.Egress) bool {
+func ValidateEgressReq(e *schema.Egress) error {
 	if e.Network == "" {
-		return false
+		return errors.New("network id is empty")
 	}
 	_, err := GetNetwork(e.Network)
 	if err != nil {
-		return false
+		return errors.New("failed to get network " + err.Error())
 	}
 	if !e.IsInetGw {
 		if e.Range == "" {
-			return false
+			return errors.New("egress range is empty")
 		}
 		_, _, err = net.ParseCIDR(e.Range)
 		if err != nil {
-			return false
+			return errors.New("invalid egress range " + err.Error())
 		}
 		err = ValidateEgressRange(e.Network, []string{e.Range})
 		if err != nil {
-			return false
+			return errors.New("invalid egress range " + err.Error())
 		}
 	} else {
 		if len(e.Nodes) > 1 {
-			return false
+			return errors.New("can only set one internet routing node")
 		}
 		req := models.InetNodeReq{}
 
 		for k := range e.Nodes {
 			inetNode, err := GetNodeByID(k)
 			if err != nil {
-				return false
+				return errors.New("invalid routing node " + err.Error())
 			}
 			// check if node is acting as egress gw already
 			GetNodeEgressInfo(&inetNode)
 			if err := ValidateInetGwReq(inetNode, req, false); err != nil {
-				fmt.Println("====> Failed to Validate Egress: ", err)
-				return false
+				return errors.New("invalid routing node " + err.Error())
 			}
 
 		}
@@ -55,19 +55,13 @@ func ValidateEgressReq(e *schema.Egress) bool {
 	}
 	if len(e.Nodes) != 0 {
 		for k := range e.Nodes {
-			egressNode, err := GetNodeByID(k)
+			_, err := GetNodeByID(k)
 			if err != nil {
-				fmt.Println("hereee   1")
-				return false
-			}
-			GetNodeEgressInfo(&egressNode)
-			if egressNode.InternetGwID != "" {
-				fmt.Println("hereee   2")
-				return false
+				return errors.New("invalid routing node " + err.Error())
 			}
 		}
 	}
-	return true
+	return nil
 }
 
 func GetInetClientsFromAclPolicies(eID string) (inetClientIDs []string) {
