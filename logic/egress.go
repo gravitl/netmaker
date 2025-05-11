@@ -95,6 +95,13 @@ func GetInetClientsFromAclPolicies(eID string) (inetClientIDs []string) {
 }
 
 func isNodeUsingInternetGw(node *models.Node) {
+	host, err := GetHost(node.HostID.String())
+	if err != nil {
+		return
+	}
+	if host.IsDefault {
+		return
+	}
 	nodeTags := maps.Clone(node.Tags)
 	nodeTags[models.TagID(node.ID.String())] = struct{}{}
 	acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
