@@ -194,6 +194,7 @@ func RelayedAllowedIPs(peer, node *models.Node) []net.IPNet {
 		if err != nil {
 			continue
 		}
+		GetNodeEgressInfo(&relayedNode)
 		allowed := getRelayedAddresses(relayedNodeID)
 		if relayedNode.EgressDetails.IsEgressGateway {
 			allowed = append(allowed, GetEgressIPs(&relayedNode)...)
