@@ -21,6 +21,9 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 	if err != nil {
 		return err
 	}
+	if inetHost.IsDefault {
+		return errors.New("default host cannot be set to use internet gateway")
+	}
 	if inetHost.FirewallInUse == models.FIREWALL_NONE {
 		return errors.New("iptables or nftables needs to be installed")
 	}
