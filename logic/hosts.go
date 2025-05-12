@@ -554,9 +554,15 @@ func CheckHostPorts(h *models.Host) {
 	if err != nil {
 		return
 	}
+	if h.EndpointIP == nil {
+		return
+	}
 	for _, host := range hosts {
 		if host.ID.String() == h.ID.String() {
 			// skip self
+			continue
+		}
+		if host.EndpointIP == nil {
 			continue
 		}
 		if !host.EndpointIP.Equal(h.EndpointIP) {
@@ -566,7 +572,11 @@ func CheckHostPorts(h *models.Host) {
 	}
 	// iterate until port is not found or max iteration is reached
 	for i := 0; portsInUse[h.ListenPort] && i < maxPort-minPort+1; i++ {
-		h.ListenPort++
+		if h.ListenPort == 443 {
+			h.ListenPort = 51821
+		} else {
+			h.ListenPort++
+		}
 		if h.ListenPort > maxPort {
 			h.ListenPort = minPort
 		}
