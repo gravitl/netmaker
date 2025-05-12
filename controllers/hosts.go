@@ -216,7 +216,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(keyErr, "internal"))
 		return
 	}
-
+	_ = logic.CheckHostPorts(host)
 	serverConf.TrafficKey = key
 	response := models.HostPull{
 		Host:              *host,
