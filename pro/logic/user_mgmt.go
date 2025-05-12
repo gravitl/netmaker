@@ -630,7 +630,7 @@ func GetUserRAGNodesV1(user models.User) (gws map[string]models.Node) {
 		}
 	}
 	tagNodesMap := logic.GetTagMapWithNodes()
-	accessPolices := logic.ListUserPolicies(user)
+	accessPolices := ListUserPolicies(user)
 	for _, policyI := range accessPolices {
 		if !policyI.Enabled {
 			continue
@@ -1127,7 +1127,7 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 		return
 	}
 
-	if !logic.IsAclExists(fmt.Sprintf("%s.%s-grp", netID, models.NetworkAdmin)) {
+	if !IsAclExists(fmt.Sprintf("%s.%s-grp", netID, models.NetworkAdmin)) {
 		defaultUserAcl := models.Acl{
 			ID:          fmt.Sprintf("%s.%s-grp", netID, models.NetworkAdmin),
 			Name:        "Network Admin",
@@ -1157,10 +1157,10 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 			CreatedBy:        "auto",
 			CreatedAt:        time.Now().UTC(),
 		}
-		logic.InsertAcl(defaultUserAcl)
+		InsertAcl(defaultUserAcl)
 	}
 
-	if !logic.IsAclExists(fmt.Sprintf("%s.%s-grp", netID, models.NetworkUser)) {
+	if !IsAclExists(fmt.Sprintf("%s.%s-grp", netID, models.NetworkUser)) {
 		defaultUserAcl := models.Acl{
 			ID:          fmt.Sprintf("%s.%s-grp", netID, models.NetworkUser),
 			Name:        "Network User",
@@ -1191,7 +1191,7 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 			CreatedBy:        "auto",
 			CreatedAt:        time.Now().UTC(),
 		}
-		logic.InsertAcl(defaultUserAcl)
+		InsertAcl(defaultUserAcl)
 	}
 
 }

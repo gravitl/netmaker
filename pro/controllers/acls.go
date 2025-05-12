@@ -1,4 +1,4 @@
-package controller
+package controllers
 
 import (
 	"encoding/json"
@@ -13,9 +13,10 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	proLogic "github.com/gravitl/netmaker/pro/logic"
 )
 
-func aclHandlers(r *mux.Router) {
+func AclHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/acls", logic.SecurityCheck(true, http.HandlerFunc(getAcls))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/acls/policy_types", logic.SecurityCheck(true, http.HandlerFunc(aclPolicyTypes))).
@@ -173,8 +174,8 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 		IngressRules  []models.FwRule
 	}
 
-	allowed, ps := logic.IsNodeAllowedToCommunicateV1(node, peer, true)
-	isallowed := logic.IsPeerAllowed(node, peer, true)
+	allowed, ps := proLogic.IsNodeAllowedToCommunicateV1(node, peer, true)
+	isallowed := proLogic.IsPeerAllowed(node, peer, true)
 	re := resp{
 		IsNodeAllowed: allowed,
 		IsPeerAllowed: isallowed,
@@ -207,13 +208,13 @@ func getAcls(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	acls, err := logic.ListAclsByNetwork(models.NetworkID(netID))
+	acls, err := proLogic.ListAclsByNetwork(models.NetworkID(netID))
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get all network acl entries: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.SortAclEntrys(acls[:])
+	proLogic.SortAclEntrys(acls[:])
 	logic.ReturnSuccessResponseWithJson(w, r, acls, "fetched all acls in the network "+netID)
 }
 
@@ -237,7 +238,7 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = logic.ValidateCreateAclReq(req)
+	err = proLogic.ValidateCreateAclReq(req)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -253,16 +254,16 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		acl.Proto = models.ALL
 	}
 	// validate create acl policy
-	if !logic.IsAclPolicyValid(acl) {
+	if !proLogic.IsAclPolicyValid(acl) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid policy"), "badrequest"))
 		return
 	}
-	err = logic.InsertAcl(acl)
+	err = proLogic.InsertAcl(acl)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	acl, err = logic.GetAcl(acl.ID)
+	acl, err = proLogic.GetAcl(acl.ID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -287,12 +288,12 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	acl, err := logic.GetAcl(updateAcl.ID)
+	acl, err := proLogic.GetAcl(updateAcl.ID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if !logic.IsAclPolicyValid(updateAcl.Acl) {
+	if !proLogic.IsAclPolicyValid(updateAcl.Acl) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid policy"), "badrequest"))
 		return
 	}
@@ -304,7 +305,7 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		//check if policy exists with same name
 		updateAcl.Acl.Name = updateAcl.NewName
 	}
-	err = logic.UpdateAcl(updateAcl.Acl, acl)
+	err = proLogic.UpdateAcl(updateAcl.Acl, acl)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -325,7 +326,7 @@ func deleteAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("acl id is required"), "badrequest"))
 		return
 	}
-	acl, err := logic.GetAcl(aclID)
+	acl, err := proLogic.GetAcl(aclID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -334,7 +335,7 @@ func deleteAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot delete default policy"), "badrequest"))
 		return
 	}
-	err = logic.DeleteAcl(acl)
+	err = proLogic.DeleteAcl(acl)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r,
 			logic.FormatError(errors.New("cannot delete default policy"), "internal"))

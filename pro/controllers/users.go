@@ -445,7 +445,7 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 			CreatedBy:        "auto",
 			CreatedAt:        time.Now().UTC(),
 		}
-		err = logic.InsertAcl(acl)
+		err = proLogic.InsertAcl(acl)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return

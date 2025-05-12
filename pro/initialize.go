@@ -34,6 +34,7 @@ func InitPro() {
 		proControllers.FailOverHandlers,
 		proControllers.InetHandlers,
 		proControllers.RacHandlers,
+		proControllers.AclHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
