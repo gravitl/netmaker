@@ -17,6 +17,7 @@ type Event struct {
 	Target      datatypes.JSON   `gorm:"target" json:"target"`
 	NetworkID   models.NetworkID `gorm:"network_id" json:"network_id"`
 	TriggeredBy string           `gorm:"triggered_by" json:"triggered_by"`
+	Diff        datatypes.JSON   `gorm:"diff" json:"diff"`
 	TimeStamp   time.Time        `gorm:"time_stamp" json:"time_stamp"`
 }
 

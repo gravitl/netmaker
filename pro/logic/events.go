@@ -22,6 +22,7 @@ func EventWatcher() {
 	for e := range EventActivityCh {
 		sourceJson, _ := json.Marshal(e.Source)
 		dstJson, _ := json.Marshal(e.Target)
+		diff, _ := json.Marshal(e.Diff)
 		a := schema.Event{
 			ID:          uuid.New().String(),
 			Action:      e.Action,
@@ -30,6 +31,7 @@ func EventWatcher() {
 			Origin:      e.Origin,
 			NetworkID:   e.NetworkID,
 			TriggeredBy: e.TriggeredBy,
+			Diff:        diff,
 			TimeStamp:   time.Now().UTC(),
 		}
 		a.Create(db.WithContext(context.TODO()))
