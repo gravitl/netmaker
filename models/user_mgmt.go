@@ -177,15 +177,17 @@ type ReturnUserWithRolesAndGroups struct {
 
 // ReturnUser - return user struct
 type ReturnUser struct {
-	UserName       string                                `json:"username"`
-	IsAdmin        bool                                  `json:"isadmin"`
-	IsSuperAdmin   bool                                  `json:"issuperadmin"`
-	AuthType       AuthType                              `json:"auth_type"`
-	RemoteGwIDs    map[string]struct{}                   `json:"remote_gw_ids"` // deprecated
-	UserGroups     map[UserGroupID]struct{}              `json:"user_group_ids"`
-	PlatformRoleID UserRoleID                            `json:"platform_role_id"`
-	NetworkRoles   map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
-	LastLoginTime  time.Time                             `json:"last_login_time"`
+	UserName        string                                `json:"username"`
+	DisplayName     string                                `json:"display_name"`
+	AccountDisabled bool                                  `json:"account_disabled"`
+	IsAdmin         bool                                  `json:"isadmin"`
+	IsSuperAdmin    bool                                  `json:"issuperadmin"`
+	AuthType        AuthType                              `json:"auth_type"`
+	RemoteGwIDs     map[string]struct{}                   `json:"remote_gw_ids"` // deprecated
+	UserGroups      map[UserGroupID]struct{}              `json:"user_group_ids"`
+	PlatformRoleID  UserRoleID                            `json:"platform_role_id"`
+	NetworkRoles    map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
+	LastLoginTime   time.Time                             `json:"last_login_time"`
 }
 
 // UserAuthParams - user auth params struct
