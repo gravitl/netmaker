@@ -240,8 +240,10 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	if currSettings.IDPSyncInterval != req.IDPSyncInterval {
-		auth.ResetSyncHook()
+	if user.AccountDisabled {
+		err = errors.New("user account disabled")
+		logic.ReturnErrorResponse(response, request, logic.FormatError(err, "unauthorized"))
+		return
 	}
 
 	if !user.IsSuperAdmin && !logic.IsBasicAuthEnabled() {
