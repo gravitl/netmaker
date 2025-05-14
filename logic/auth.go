@@ -32,8 +32,8 @@ func ClearSuperUserCache() {
 	superUser = models.User{}
 }
 
-var ResetAuthProvider = func() { return }
-var ResetIDPSyncHook = func() { return }
+var ResetAuthProvider = func() {}
+var ResetIDPSyncHook = func() {}
 
 // HasSuperAdmin - checks if server has an superadmin/owner
 func HasSuperAdmin() (bool, error) {
