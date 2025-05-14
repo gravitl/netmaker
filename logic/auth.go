@@ -16,10 +16,8 @@ import (
 	"golang.org/x/exp/slog"
 
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/schema"
 )
 
 const (
@@ -34,7 +32,8 @@ func ClearSuperUserCache() {
 	superUser = models.User{}
 }
 
-var InitializeAuthProvider = func() string { return "" }
+var ResetAuthProvider = func() { return }
+var ResetIDPSyncHook = func() { return }
 
 // HasSuperAdmin - checks if server has an superadmin/owner
 func HasSuperAdmin() (bool, error) {

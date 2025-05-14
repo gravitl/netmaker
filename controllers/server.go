@@ -12,7 +12,6 @@ import (
 	"github.com/gorilla/mux"
 	"golang.org/x/exp/slog"
 
-	"github.com/gravitl/netmaker/pro/auth"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -279,12 +278,10 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 func reInit(curr, new models.ServerSettings, force bool) {
 	logic.SettingsMutex.Lock()
 	defer logic.SettingsMutex.Unlock()
-	logic.InitializeAuthProvider()
+	logic.ResetAuthProvider()
 	logic.EmailInit()
 	logic.SetVerbosity(int(logic.GetServerSettings().Verbosity))
-	if curr.IDPSyncInterval != new.IDPSyncInterval {
-		auth.ResetSyncHook()
-	}
+	logic.ResetIDPSyncHook()
 	// check if auto update is changed
 	if force {
 		if curr.NetclientAutoUpdate != new.NetclientAutoUpdate {

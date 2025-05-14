@@ -29,10 +29,12 @@ func StartSyncHook() {
 	}
 }
 
-func ResetSyncHook() {
+func ResetIDPSyncHook() {
 	if syncTicker != nil {
 		syncTicker.Stop()
-		go StartSyncHook()
+		if logic.IsSyncEnabled() {
+			go StartSyncHook()
+		}
 	}
 }
 

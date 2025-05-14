@@ -272,11 +272,20 @@ func GetAzureTenant() string {
 	return GetServerSettings().AzureTenant
 }
 
+// IsSyncEnabled returns whether auth provider sync is enabled.
+func IsSyncEnabled() bool {
+	return GetServerSettings().SyncEnabled
+}
+
 // GetIDPSyncInterval returns the interval at which the netmaker should sync
 // data from IDP.
 func GetIDPSyncInterval() time.Duration {
 	syncInterval, err := time.ParseDuration(GetServerSettings().IDPSyncInterval)
 	if err != nil {
+		return 24 * time.Hour
+	}
+
+	if syncInterval == 0 {
 		return 24 * time.Hour
 	}
 

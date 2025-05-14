@@ -63,6 +63,17 @@ func getCurrentAuthFunctions() map[string]interface{} {
 	}
 }
 
+// ResetAuthProvider resets the auth provider configuration.
+func ResetAuthProvider() {
+	settings := logic.GetServerSettings()
+
+	if settings.AuthProvider == "" {
+		auth_provider = nil
+	}
+
+	InitializeAuthProvider()
+}
+
 // InitializeAuthProvider - initializes the auth provider if any is present
 func InitializeAuthProvider() string {
 	var functions = getCurrentAuthFunctions()
@@ -91,11 +102,6 @@ func InitializeAuthProvider() string {
 
 	functions[init_provider].(func(string, string, string))(serverConn+"/api/oauth/callback", authInfo[1], authInfo[2])
 	return authInfo[0]
-}
-
-// RemoveAuthProvider remove the auth provider configuration.
-func RemoveAuthProvider() {
-	auth_provider = nil
 }
 
 // HandleAuthCallback - handles oauth callback
