@@ -3,7 +3,6 @@ package controller
 import (
 	"encoding/json"
 	"errors"
-	"github.com/gravitl/netmaker/pro/auth"
 	"net/http"
 	"os"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"github.com/gorilla/mux"
 	"golang.org/x/exp/slog"
 
+	"github.com/gravitl/netmaker/pro/auth"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -245,6 +245,7 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} config.ServerSettings
 func getSettings(w http.ResponseWriter, r *http.Request) {
 	scfg := logic.GetServerSettings()
+	scfg.ClientSecret = logic.Mask()
 	logic.ReturnSuccessResponseWithJson(w, r, scfg, "fetched server settings successfully")
 }
 
@@ -255,7 +256,7 @@ func getSettings(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} config.ServerSettings
 func updateSettings(w http.ResponseWriter, r *http.Request) {
 	var req models.ServerSettings
-
+	force := r.URL.Query().Get("force")
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -265,19 +266,40 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid settings"), "badrequest"))
 		return
 	}
-
 	currSettings := logic.GetServerSettings()
-
 	err := logic.UpsertServerSettings(req)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to udpate server settings "+err.Error()), "internal"))
 		return
 	}
+	go reInit(currSettings, req, force == "true")
+	logic.ReturnSuccessResponseWithJson(w, r, req, "updated server settings successfully")
+}
 
-	if currSettings.IDPSyncInterval != req.IDPSyncInterval {
+func reInit(curr, new models.ServerSettings, force bool) {
+	logic.SettingsMutex.Lock()
+	defer logic.SettingsMutex.Unlock()
+	logic.InitializeAuthProvider()
+	logic.EmailInit()
+	logic.SetVerbosity(int(logic.GetServerSettings().Verbosity))
+	if curr.IDPSyncInterval != new.IDPSyncInterval {
 		auth.ResetSyncHook()
 	}
-
+	// check if auto update is changed
+	if force {
+		if curr.NetclientAutoUpdate != new.NetclientAutoUpdate {
+			// update all hosts
+			hosts, _ := logic.GetAllHosts()
+			for _, host := range hosts {
+				host.AutoUpdate = new.NetclientAutoUpdate
+				logic.UpsertHost(&host)
+				mq.HostUpdate(&models.HostUpdate{
+					Action: models.UpdateHost,
+					Host:   host,
+				})
+			}
+		}
+	}
 	go mq.PublishPeerUpdate(false)
-	logic.ReturnSuccessResponseWithJson(w, r, req, "updated server settings successfully")
+
 }

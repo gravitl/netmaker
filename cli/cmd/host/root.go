@@ -8,9 +8,10 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "host",
-	Short: "Manage hosts",
-	Long:  `Manage hosts`,
+	Use:     "device",
+	Aliases: []string{"host"},
+	Short:   "Manage devices",
+	Long:    `Manage devices`,
 }
 
 // GetRoot returns the root subcommand

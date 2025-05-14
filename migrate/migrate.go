@@ -407,11 +407,12 @@ func syncUsers() {
 			}
 			if user.PlatformRoleID == models.SuperAdminRole && !user.IsSuperAdmin {
 				user.IsSuperAdmin = true
-				logic.UpsertUser(user)
+
 			}
 			if user.PlatformRoleID.String() != "" {
 				logic.MigrateUserRoleAndGroups(user)
-				logic.AddGlobalNetRolesToAdmins(user)
+				logic.AddGlobalNetRolesToAdmins(&user)
+				logic.UpsertUser(user)
 				continue
 			}
 			user.AuthType = models.BasicAuth
@@ -432,9 +433,9 @@ func syncUsers() {
 			} else {
 				user.PlatformRoleID = models.ServiceUser
 			}
-			logic.UpsertUser(user)
-			logic.AddGlobalNetRolesToAdmins(user)
+			logic.AddGlobalNetRolesToAdmins(&user)
 			logic.MigrateUserRoleAndGroups(user)
+			logic.UpsertUser(user)
 		}
 	}
 

@@ -4,15 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/schema"
 	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
 
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -83,7 +83,7 @@ func CreateUserAccessJwtToken(username string, role models.UserRoleID, d time.Ti
 // CreateUserJWT - creates a user jwt token
 func CreateUserJWT(username string, role models.UserRoleID) (response string, err error) {
 	settings := GetServerSettings()
-	expirationTime := time.Now().Add(time.Duration(settings.JwtValidityDuration) * time.Second)
+	expirationTime := time.Now().Add(time.Duration(settings.JwtValidityDuration) * time.Minute)
 	claims := &models.UserClaims{
 		UserName:       username,
 		Role:           role,
@@ -163,9 +163,11 @@ func GetUserNameFromToken(authtoken string) (username string, err error) {
 // VerifyUserToken func will used to Verify the JWT Token while using APIS
 func VerifyUserToken(tokenString string) (username string, issuperadmin, isadmin bool, err error) {
 	claims := &models.UserClaims{}
+
 	if tokenString == servercfg.GetMasterKey() && servercfg.GetMasterKey() != "" {
 		return MasterUser, true, true, nil
 	}
+
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		return jwtSecretKey, nil
 	})
