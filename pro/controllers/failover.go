@@ -393,6 +393,17 @@ func checkfailOverCtx(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	if node.InternetGwID != "" || peerNode.InternetGwID != "" {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				errors.New("node using a internet gw by the peer node"),
+				"badrequest",
+			),
+		)
+		return
+	}
 	if node.IsInternetGateway && peerNode.InternetGwID == node.ID.String() {
 		logic.ReturnErrorResponse(
 			w,
