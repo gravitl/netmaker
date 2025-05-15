@@ -102,7 +102,7 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 					return
 				}
-				user.ExternalIdentityProviderID = content.Email
+				user.ExternalIdentityProviderID = content.ID
 				if err = logic.CreateUser(&user); err != nil {
 					handleSomethingWentWrong(w)
 					return
@@ -115,7 +115,9 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				err = logic.InsertPendingUser(&models.User{
-					UserName: content.Email,
+					UserName:                   content.Email,
+					ExternalIdentityProviderID: content.ID,
+					AuthType:                   models.OAuth,
 				})
 				if err != nil {
 					handleSomethingWentWrong(w)
@@ -214,6 +216,8 @@ func getOIDCUserInfo(state string, code string) (u *OAuthUser, e error) {
 	if err := idToken.Claims(u); err != nil {
 		e = fmt.Errorf("error when claiming OIDCUser: \"%s\"", err.Error())
 	}
+
+	u.ID = idToken.Subject
 
 	return
 }
