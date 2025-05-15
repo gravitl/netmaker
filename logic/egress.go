@@ -99,7 +99,7 @@ func isNodeUsingInternetGw(node *models.Node) {
 	if err != nil {
 		return
 	}
-	if host.IsDefault {
+	if host.IsDefault || node.IsFailOver {
 		return
 	}
 	nodeTags := maps.Clone(node.Tags)
