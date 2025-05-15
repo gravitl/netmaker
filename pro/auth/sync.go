@@ -93,15 +93,12 @@ func syncUsers(idpUsers []idp.User) error {
 
 	idpUsersMap := make(map[string]struct{})
 	for _, user := range idpUsers {
-		idpUsersMap[user.ID] = struct{}{}
+		idpUsersMap[user.Username] = struct{}{}
 	}
 
 	dbUsersMap := make(map[string]models.User)
 	for _, user := range dbUsers {
-		// ignore internal users.
-		if user.ExternalIdentityProviderID != "" {
-			dbUsersMap[user.ExternalIdentityProviderID] = user
-		}
+		dbUsersMap[user.UserName] = user
 	}
 
 	filters := logic.GetServerSettings().UserFilters
@@ -120,7 +117,7 @@ func syncUsers(idpUsers []idp.User) error {
 			continue
 		}
 
-		dbUser, ok := dbUsersMap[user.ID]
+		dbUser, ok := dbUsersMap[user.Username]
 		if !ok {
 			// create the user only if it doesn't exist.
 			err = logic.CreateUser(&models.User{
@@ -135,11 +132,15 @@ func syncUsers(idpUsers []idp.User) error {
 			if err != nil {
 				return err
 			}
-		} else {
+		} else if dbUser.AuthType == models.OAuth {
 			if dbUser.AccountDisabled != user.AccountDisabled ||
-				dbUser.DisplayName != user.DisplayName {
-				dbUser.DisplayName = user.DisplayName
+				dbUser.DisplayName != user.DisplayName ||
+				dbUser.ExternalIdentityProviderID != user.ID {
+
 				dbUser.AccountDisabled = user.AccountDisabled
+				dbUser.DisplayName = user.DisplayName
+				dbUser.ExternalIdentityProviderID = user.ID
+
 				err = logic.UpsertUser(dbUser)
 				if err != nil {
 					return err
@@ -149,7 +150,7 @@ func syncUsers(idpUsers []idp.User) error {
 	}
 
 	for _, user := range dbUsersMap {
-		if _, ok := idpUsersMap[user.ExternalIdentityProviderID]; !ok {
+		if _, ok := idpUsersMap[user.UserName]; !ok {
 			// delete the user if it has been deleted on idp.
 			err = logic.DeleteUser(user.UserName)
 			if err != nil {
@@ -177,9 +178,13 @@ func syncGroups(idpGroups []idp.Group) error {
 		idpGroupsMap[group.ID] = struct{}{}
 	}
 
-	dbGroupsMap := make(map[string]struct{})
+	dbGroupsMap := make(map[string]models.UserGroup)
+	dbGroupsNameMap := make(map[models.UserGroupID]struct{})
 	for _, group := range dbGroups {
-		dbGroupsMap[group.ExternalIdentityProviderID] = struct{}{}
+		dbGroupsNameMap[group.ID] = struct{}{}
+		if group.ExternalIdentityProviderID != "" {
+			dbGroupsMap[group.ExternalIdentityProviderID] = group
+		}
 	}
 
 	dbUsersMap := make(map[string]models.User)
@@ -207,8 +212,14 @@ func syncGroups(idpGroups []idp.Group) error {
 			continue
 		}
 
-		if _, ok := dbGroupsMap[group.ID]; !ok {
+		dbGroup, ok := dbGroupsMap[group.ID]
+		if !ok {
 			// create the group only if it doesn't exist.
+			if _, ok := dbGroupsNameMap[models.UserGroupID(group.Name)]; ok {
+				logger.Log(0, "group with name "+group.Name+" already exists, skipping creation")
+				continue
+			}
+
 			err := proLogic.CreateUserGroup(models.UserGroup{
 				ID:                         models.UserGroupID(group.Name),
 				ExternalIdentityProviderID: group.ID,
@@ -226,16 +237,19 @@ func syncGroups(idpGroups []idp.Group) error {
 		}
 
 		for _, user := range dbUsers {
-			_, inNetmakerGroup := user.UserGroups[models.UserGroupID(group.Name)]
+			// use dbGroup.Name because the group name may have been changed on idp.
+			_, inNetmakerGroup := user.UserGroups[models.UserGroupID(dbGroup.Name)]
 			_, inIDPGroup := groupMembersMap[user.ExternalIdentityProviderID]
 
 			if inNetmakerGroup && !inIDPGroup {
-				delete(dbUsersMap[user.ExternalIdentityProviderID].UserGroups, models.UserGroupID(group.Name))
+				// use dbGroup.Name because the group name may have been changed on idp.
+				delete(dbUsersMap[user.ExternalIdentityProviderID].UserGroups, models.UserGroupID(dbGroup.Name))
 				modifiedUsers[user.ExternalIdentityProviderID] = struct{}{}
 			}
 
 			if !inNetmakerGroup && inIDPGroup {
-				dbUsersMap[user.ExternalIdentityProviderID].UserGroups[models.UserGroupID(group.Name)] = struct{}{}
+				// use dbGroup.Name because the group name may have been changed on idp.
+				dbUsersMap[user.ExternalIdentityProviderID].UserGroups[models.UserGroupID(dbGroup.Name)] = struct{}{}
 				modifiedUsers[user.ExternalIdentityProviderID] = struct{}{}
 			}
 		}
