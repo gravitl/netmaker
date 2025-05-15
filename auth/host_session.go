@@ -165,7 +165,7 @@ func SessionHandler(conn *websocket.Conn) {
 					return
 				}
 			}
-			logic.CheckHostPorts(&result.Host)
+			_ = logic.CheckHostPorts(&result.Host)
 			if err := logic.CreateHost(&result.Host); err != nil {
 				handleHostRegErr(conn, err)
 				return

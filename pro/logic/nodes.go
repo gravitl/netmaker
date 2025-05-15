@@ -36,9 +36,15 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 		if err != nil {
 			return err
 		}
+		if clientNode.IsFailOver {
+			return errors.New("failover node cannot be set to use internet gateway")
+		}
 		clientHost, err := logic.GetHost(clientNode.HostID.String())
 		if err != nil {
 			return err
+		}
+		if clientHost.IsDefault {
+			return errors.New("default host cannot be set to use internet gateway")
 		}
 		if clientHost.OS != models.OS_Types.Linux && clientHost.OS != models.OS_Types.Windows {
 			return errors.New("can only attach linux or windows machine to a internet gateway")

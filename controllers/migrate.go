@@ -208,7 +208,7 @@ func convertLegacyNode(legacy models.LegacyNode, hostID uuid.UUID) models.Node {
 	node.IsRelay = false
 	node.RelayedNodes = []string{}
 	node.DNSOn = models.ParseBool(legacy.DNSOn)
-	node.LastModified = time.Now()
+	node.LastModified = time.Now().UTC()
 	node.ExpirationDateTime = time.Unix(legacy.ExpirationDateTime, 0)
 	node.EgressGatewayNatEnabled = models.ParseBool(legacy.EgressGatewayNatEnabled)
 	node.EgressGatewayRequest = legacy.EgressGatewayRequest

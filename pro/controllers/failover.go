@@ -205,6 +205,8 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	logic.GetNodeEgressInfo(&node)
+	logic.GetNodeEgressInfo(&peerNode)
 	if peerNode.IsFailOver {
 		logic.ReturnErrorResponse(
 			w,
@@ -349,6 +351,8 @@ func checkfailOverCtx(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	logic.GetNodeEgressInfo(&node)
+	logic.GetNodeEgressInfo(&peerNode)
 	if peerNode.IsFailOver {
 		logic.ReturnErrorResponse(
 			w,
@@ -389,6 +393,17 @@ func checkfailOverCtx(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	if node.InternetGwID != "" || peerNode.InternetGwID != "" {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				errors.New("node using a internet gw by the peer node"),
+				"badrequest",
+			),
+		)
+		return
+	}
 	if node.IsInternetGateway && peerNode.InternetGwID == node.ID.String() {
 		logic.ReturnErrorResponse(
 			w,
@@ -406,6 +421,17 @@ func checkfailOverCtx(w http.ResponseWriter, r *http.Request) {
 			r,
 			logic.FormatError(
 				errors.New("node using a internet gw by the peer node"),
+				"badrequest",
+			),
+		)
+		return
+	}
+	if ok := logic.IsPeerAllowed(node, peerNode, true); !ok {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				errors.New("peers are not allowed to communicate"),
 				"badrequest",
 			),
 		)

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
@@ -659,30 +658,13 @@ func GetUserRAGNodesV1(user models.User) (gws map[string]models.Node) {
 
 func GetUserRAGNodes(user models.User) (gws map[string]models.Node) {
 	gws = make(map[string]models.Node)
-	userGwAccessScope := GetUserNetworkRolesWithRemoteVPNAccess(user)
-	logger.Log(3, fmt.Sprintf("User Gw Access Scope: %+v", userGwAccessScope))
-	_, allNetAccess := userGwAccessScope["*"]
 	nodes, err := logic.GetAllNodes()
 	if err != nil {
 		return
 	}
 	for _, node := range nodes {
-		if node.IsIngressGateway && !node.PendingDelete {
-			if allNetAccess {
-				gws[node.ID.String()] = node
-			} else {
-				gwRsrcMap := userGwAccessScope[models.NetworkID(node.Network)]
-				scope, ok := gwRsrcMap[models.AllRemoteAccessGwRsrcID]
-				if !ok {
-					if scope, ok = gwRsrcMap[models.RsrcID(node.ID.String())]; !ok {
-						continue
-					}
-				}
-				if scope.VPNaccess {
-					gws[node.ID.String()] = node
-				}
-
-			}
+		if ok, _ := logic.IsUserAllowedToCommunicate(user.UserName, node); ok {
+			gws[node.ID.String()] = node
 		}
 	}
 	return

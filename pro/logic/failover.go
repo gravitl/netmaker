@@ -165,6 +165,7 @@ func GetFailOverPeerIps(peer, node *models.Node) []net.IPNet {
 	for failOverpeerID := range node.FailOverPeers {
 		failOverpeer, err := logic.GetNodeByID(failOverpeerID)
 		if err == nil && failOverpeer.FailedOverBy == peer.ID {
+			logic.GetNodeEgressInfo(&failOverpeer)
 			if failOverpeer.Address.IP != nil {
 				allowed := net.IPNet{
 					IP:   failOverpeer.Address.IP,
@@ -179,7 +180,7 @@ func GetFailOverPeerIps(peer, node *models.Node) []net.IPNet {
 				}
 				allowedips = append(allowedips, allowed)
 			}
-			if failOverpeer.IsEgressGateway {
+			if failOverpeer.EgressDetails.IsEgressGateway {
 				allowedips = append(allowedips, logic.GetEgressIPs(&failOverpeer)...)
 			}
 			if failOverpeer.IsRelay {
@@ -199,7 +200,7 @@ func GetFailOverPeerIps(peer, node *models.Node) []net.IPNet {
 						}
 						allowedips = append(allowedips, allowed)
 					}
-					if rNode.IsEgressGateway {
+					if rNode.EgressDetails.IsEgressGateway {
 						allowedips = append(allowedips, logic.GetEgressIPs(&rNode)...)
 					}
 				}
