@@ -148,25 +148,58 @@ func isNodeUsingInternetGw(node *models.Node) {
 func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress) bool {
 	nodeTags := maps.Clone(node.Tags)
 	nodeTags[models.TagID(node.ID.String())] = struct{}{}
+	if !e.IsInetGw {
+		nodeTags[models.TagID("*")] = struct{}{}
+	}
+	fmt.Println("=====> CHECKING FOR EGRESS ", e.Name)
 	acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
+	if !e.IsInetGw {
+		defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+		if defaultDevicePolicy.Enabled {
+			fmt.Println("hereee 1")
+			return true
+		}
+	}
 	for _, acl := range acls {
 		if !acl.Enabled {
 			continue
 		}
 		srcVal := convAclTagToValueMap(acl.Src)
+		fmt.Println("ACL SRC: ", acl.Src, acl.Name)
+		if !e.IsInetGw && acl.AllowedDirection == models.TrafficDirectionBi {
+			if _, ok := srcVal["*"]; ok {
+				fmt.Println("hereee 2")
+				return true
+			}
+		}
 		for _, dstI := range acl.Dst {
-			if dstI.ID == models.EgressID {
+
+			if !e.IsInetGw && dstI.ID == models.NodeTagID && dstI.Value == "*" {
+				fmt.Println("hereee 3")
+				return true
+			}
+			if dstI.ID == models.EgressID && dstI.Value == e.ID {
 				e := schema.Egress{ID: dstI.Value}
 				err := e.Get(db.WithContext(context.TODO()))
 				if err != nil || !e.Status {
+					fmt.Println("hereee 4")
 					continue
 				}
-
-				if _, ok := srcVal[node.ID.String()]; ok {
-					return true
+				if node.IsStatic {
+					if _, ok := srcVal[node.StaticNode.ClientID]; ok {
+						fmt.Println("hereee 5")
+						return true
+					}
+				} else {
+					if _, ok := srcVal[node.ID.String()]; ok {
+						fmt.Println("hereee 6")
+						return true
+					}
 				}
+
 				for tagID := range nodeTags {
 					if _, ok := srcVal[tagID.String()]; ok {
+						fmt.Println("hereee 7")
 						return true
 					}
 				}
