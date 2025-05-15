@@ -47,7 +47,7 @@ func ValidateEgressReq(e *schema.Egress) error {
 			// check if node is acting as egress gw already
 			GetNodeEgressInfo(&inetNode)
 			if err := ValidateInetGwReq(inetNode, req, false); err != nil {
-				return errors.New("invalid routing node " + err.Error())
+				return err
 			}
 
 		}

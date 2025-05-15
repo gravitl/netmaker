@@ -254,7 +254,7 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 	}
 	// validate create acl policy
 	if err := logic.IsAclPolicyValid(acl); err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid policy"), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	err = logic.InsertAcl(acl)
