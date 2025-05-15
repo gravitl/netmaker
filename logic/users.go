@@ -115,7 +115,7 @@ func IsPendingUser(username string) bool {
 	return false
 }
 
-func ListPendingUsers() ([]models.ReturnUser, error) {
+func ListPendingReturnUsers() ([]models.ReturnUser, error) {
 	pendingUsers := []models.ReturnUser{}
 	records, err := database.FetchRecords(database.PENDING_USERS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
@@ -123,6 +123,22 @@ func ListPendingUsers() ([]models.ReturnUser, error) {
 	}
 	for _, record := range records {
 		u := models.ReturnUser{}
+		err = json.Unmarshal([]byte(record), &u)
+		if err == nil {
+			pendingUsers = append(pendingUsers, u)
+		}
+	}
+	return pendingUsers, nil
+}
+
+func ListPendingUsers() ([]models.User, error) {
+	var pendingUsers []models.User
+	records, err := database.FetchRecords(database.PENDING_USERS_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return pendingUsers, err
+	}
+	for _, record := range records {
+		var u models.User
 		err = json.Unmarshal([]byte(record), &u)
 		if err == nil {
 			pendingUsers = append(pendingUsers, u)

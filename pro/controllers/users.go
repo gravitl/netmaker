@@ -1298,7 +1298,7 @@ func getPendingUsers(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
 
-	users, err := logic.ListPendingUsers()
+	users, err := logic.ListPendingReturnUsers()
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -1365,7 +1365,7 @@ func deletePendingUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	username := params["username"]
-	users, err := logic.ListPendingUsers()
+	users, err := logic.ListPendingReturnUsers()
 
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
