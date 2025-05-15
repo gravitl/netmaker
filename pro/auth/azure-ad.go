@@ -35,7 +35,7 @@ func initAzureAD(redirectURL string, clientID string, clientSecret string) {
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		Scopes:       []string{"User.Read", "email", "profile", "openid"},
-		Endpoint:     microsoft.AzureADEndpoint(servercfg.GetAzureTenant()),
+		Endpoint:     microsoft.AzureADEndpoint(logic.GetAzureTenant()),
 	}
 }
 
@@ -111,7 +111,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 					return
 				}
-				user.ExternalIdentityProviderID = content.UserPrincipalName
+				user.ExternalIdentityProviderID = content.ID
 				if err = logic.CreateUser(&user); err != nil {
 					handleSomethingWentWrong(w)
 					return
@@ -124,7 +124,9 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				err = logic.InsertPendingUser(&models.User{
-					UserName: content.Email,
+					UserName:                   content.Email,
+					ExternalIdentityProviderID: content.ID,
+					AuthType:                   models.OAuth,
 				})
 				if err != nil {
 					handleSomethingWentWrong(w)
@@ -152,6 +154,12 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserNotFound(w)
 		return
 	}
+
+	if user.AccountDisabled {
+		handleUserAccountDisabled(w)
+		return
+	}
+
 	userRole, err := logic.GetRole(user.PlatformRoleID)
 	if err != nil {
 		handleSomethingWentWrong(w)

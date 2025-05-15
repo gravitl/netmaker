@@ -63,6 +63,8 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}/remote_access_gw", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserRemoteAccessGwsV1)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/ingress/{ingress_id}", logic.SecurityCheck(true, http.HandlerFunc(ingressGatewayUsers))).Methods(http.MethodGet)
 
+	r.HandleFunc("/api/idp/sync", logic.SecurityCheck(true, http.HandlerFunc(syncIDP))).Methods(http.MethodPost)
+	r.HandleFunc("/api/idp", logic.SecurityCheck(true, http.HandlerFunc(removeIDPIntegration))).Methods(http.MethodDelete)
 }
 
 // swagger:route POST /api/v1/users/invite-signup user userInviteSignUp
@@ -501,6 +503,9 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+
+	userGroup.ExternalIdentityProviderID = currUserG.ExternalIdentityProviderID
+
 	err = proLogic.UpdateUserGroup(userGroup)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -1296,7 +1301,7 @@ func getPendingUsers(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
 
-	users, err := logic.ListPendingUsers()
+	users, err := logic.ListPendingReturnUsers()
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -1334,9 +1339,11 @@ func approvePendingUser(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if err = logic.CreateUser(&models.User{
-				UserName:       user.UserName,
-				Password:       newPass,
-				PlatformRoleID: models.ServiceUser,
+				UserName:                   user.UserName,
+				ExternalIdentityProviderID: user.ExternalIdentityProviderID,
+				Password:                   newPass,
+				AuthType:                   user.AuthType,
+				PlatformRoleID:             models.ServiceUser,
 			}); err != nil {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to create user: %s", err), "internal"))
 				return
@@ -1363,7 +1370,7 @@ func deletePendingUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	username := params["username"]
-	users, err := logic.ListPendingUsers()
+	users, err := logic.ListPendingReturnUsers()
 
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
@@ -1396,4 +1403,83 @@ func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.ReturnSuccessResponse(w, r, "cleared all pending users")
+}
+
+// @Summary     Sync users and groups from idp.
+// @Router      /api/idp/sync [post]
+// @Tags        IDP
+// @Success     200 {object} models.SuccessResponse
+func syncIDP(w http.ResponseWriter, r *http.Request) {
+	go func() {
+		err := proAuth.SyncFromIDP()
+		if err != nil {
+			logger.Log(0, "failed to sync from idp: ", err.Error())
+		} else {
+			logger.Log(0, "sync from idp complete")
+		}
+	}()
+
+	logic.ReturnSuccessResponse(w, r, "starting sync from idp")
+}
+
+// @Summary     Remove idp integration.
+// @Router      /api/idp [delete]
+// @Tags        IDP
+// @Success     200 {object} models.SuccessResponse
+// @Failure     500 {object} models.ErrorResponse
+func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
+	superAdmin, err := logic.GetSuperAdmin()
+	if err != nil {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(fmt.Errorf("failed to get superadmin: %v", err), "internal"),
+		)
+		return
+	}
+
+	if superAdmin.AuthType == models.OAuth {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(fmt.Errorf("cannot remove idp integration with superadmin oauth user"), "badrequest"),
+		)
+		return
+	}
+
+	settings := logic.GetServerSettings()
+	settings.AuthProvider = ""
+	settings.OIDCIssuer = ""
+	settings.ClientID = ""
+	settings.ClientSecret = ""
+	settings.SyncEnabled = false
+	settings.GoogleAdminEmail = ""
+	settings.GoogleSACredsJson = ""
+	settings.AzureTenant = ""
+	settings.UserFilters = nil
+	settings.GroupFilters = nil
+
+	err = logic.UpsertServerSettings(settings)
+	if err != nil {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(fmt.Errorf("failed to remove idp integration: %v", err), "internal"),
+		)
+		return
+	}
+
+	proAuth.ResetAuthProvider()
+	proAuth.ResetIDPSyncHook()
+
+	go func() {
+		err := proAuth.SyncFromIDP()
+		if err != nil {
+			logger.Log(0, "failed to sync from idp: ", err.Error())
+		} else {
+			logger.Log(0, "sync from idp complete")
+		}
+	}()
+
+	logic.ReturnSuccessResponse(w, r, "removed idp integration successfully")
 }

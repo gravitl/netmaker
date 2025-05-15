@@ -525,7 +525,7 @@ func ValidateUpdateGroupReq(g models.UserGroup) error {
 
 // CreateUserGroup - creates new user group
 func CreateUserGroup(g models.UserGroup) error {
-	// check if role already exists
+	// check if the group already exists
 	if g.ID == "" {
 		return errors.New("group id cannot be empty")
 	}
@@ -574,7 +574,7 @@ func ListUserGroups() ([]models.UserGroup, error) {
 
 // UpdateUserGroup - updates new user group
 func UpdateUserGroup(g models.UserGroup) error {
-	// check if group exists
+	// check if the group exists
 	if g.ID == "" {
 		return errors.New("group id cannot be empty")
 	}
@@ -592,7 +592,7 @@ func UpdateUserGroup(g models.UserGroup) error {
 // DeleteUserGroup - deletes user group
 func DeleteUserGroup(gid models.UserGroupID) error {
 	users, err := logic.GetUsersDB()
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
 	for _, user := range users {

@@ -54,11 +54,12 @@ func CreateJWT(uuid string, macAddress string, network string) (response string,
 
 // CreateUserJWT - creates a user jwt token
 func CreateUserJWT(username string, role models.UserRoleID) (response string, err error) {
-	expirationTime := time.Now().Add(servercfg.GetServerConfig().JwtValidityDuration)
+	settings := GetServerSettings()
+	expirationTime := time.Now().Add(time.Duration(settings.JwtValidityDuration) * time.Minute)
 	claims := &models.UserClaims{
 		UserName:       username,
 		Role:           role,
-		RacAutoDisable: servercfg.GetRacAutoDisable() && (role != models.SuperAdminRole && role != models.AdminRole),
+		RacAutoDisable: settings.RacAutoDisable && (role != models.SuperAdminRole && role != models.AdminRole),
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "Netmaker",
 			Subject:   fmt.Sprintf("user|%s", username),
@@ -73,18 +74,6 @@ func CreateUserJWT(username string, role models.UserRoleID) (response string, er
 		return tokenString, nil
 	}
 	return "", err
-}
-
-// VerifyJWT verifies Auth Header
-func VerifyJWT(bearerToken string) (username string, issuperadmin, isadmin bool, err error) {
-	token := ""
-	tokenSplit := strings.Split(bearerToken, " ")
-	if len(tokenSplit) > 1 {
-		token = tokenSplit[1]
-	} else {
-		return "", false, false, errors.New("invalid auth header")
-	}
-	return VerifyUserToken(token)
 }
 
 func GetUserNameFromToken(authtoken string) (username string, err error) {
