@@ -263,6 +263,7 @@ type NodeJoinResponse struct {
 type ServerConfig struct {
 	CoreDNSAddr       string `yaml:"corednsaddr"`
 	API               string `yaml:"api"`
+	APIHost           string `yaml:"apihost"`
 	APIPort           string `yaml:"apiport"`
 	DNSMode           string `yaml:"dnsmode"`
 	Version           string `yaml:"version"`
