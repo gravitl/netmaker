@@ -92,6 +92,7 @@ func InitPro() {
 		}
 		proLogic.LoadNodeMetricsToCache()
 		proLogic.InitFailOverCache()
+		auth.StartSyncHook()
 		email.Init()
 	})
 	logic.ResetFailOver = proLogic.ResetFailOver
@@ -137,7 +138,8 @@ func InitPro() {
 	logic.GetUserGroupsInNetwork = proLogic.GetUserGroupsInNetwork
 	logic.GetUserGroup = proLogic.GetUserGroup
 	logic.GetNodeStatus = proLogic.GetNodeStatus
-	logic.InitializeAuthProvider = auth.InitializeAuthProvider
+	logic.ResetAuthProvider = auth.ResetAuthProvider
+	logic.ResetIDPSyncHook = auth.ResetIDPSyncHook
 	logic.EmailInit = email.Init
 }
 

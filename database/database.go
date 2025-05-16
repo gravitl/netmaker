@@ -19,8 +19,6 @@ const (
 	DELETED_NODES_TABLE_NAME = "deletednodes"
 	// USERS_TABLE_NAME - users table
 	USERS_TABLE_NAME = "users"
-	// ACCESS_TOKENS_TABLE_NAME - access tokens table
-	ACCESS_TOKENS_TABLE_NAME = "user_access_tokens"
 	// USER_PERMISSIONS_TABLE_NAME - user permissions table
 	USER_PERMISSIONS_TABLE_NAME = "user_permissions"
 	// CERTS_TABLE_NAME - certificates table

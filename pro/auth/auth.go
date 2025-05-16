@@ -34,6 +34,7 @@ const (
 
 // OAuthUser - generic OAuth strategy user
 type OAuthUser struct {
+	ID                string `json:"id" bson:"id"`
 	Name              string `json:"name" bson:"name"`
 	Email             string `json:"email" bson:"email"`
 	Login             string `json:"login" bson:"login"`
@@ -61,6 +62,17 @@ func getCurrentAuthFunctions() map[string]interface{} {
 	default:
 		return nil
 	}
+}
+
+// ResetAuthProvider resets the auth provider configuration.
+func ResetAuthProvider() {
+	settings := logic.GetServerSettings()
+
+	if settings.AuthProvider == "" {
+		auth_provider = nil
+	}
+
+	InitializeAuthProvider()
 }
 
 // InitializeAuthProvider - initializes the auth provider if any is present
