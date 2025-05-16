@@ -1422,6 +1422,11 @@ func syncIDP(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, "starting sync from idp")
 }
 
+// @Summary     Remove idp integration.
+// @Router      /api/idp [delete]
+// @Tags        IDP
+// @Success     200 {object} models.SuccessResponse
+// @Failure     500 {object} models.ErrorResponse
 func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 	superAdmin, err := logic.GetSuperAdmin()
 	if err != nil {
