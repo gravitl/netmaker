@@ -174,6 +174,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logic.GetNodeEgressInfo(&gwnode)
 	host, err := logic.GetHost(gwnode.HostID.String())
 	if err != nil {
 		logger.Log(
