@@ -293,7 +293,7 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := logic.IsAclPolicyValid(updateAcl.Acl); err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid policy"), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	if updateAcl.Acl.NetworkID != acl.NetworkID {
