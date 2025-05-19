@@ -146,10 +146,16 @@ func syncUsers(idpUsers []idp.User) error {
 					return err
 				}
 			}
+		} else {
+			logger.Log(0, "user with username "+user.Username+" already exists, skipping creation")
+			continue
 		}
 	}
 
 	for _, user := range dbUsersMap {
+		if user.ExternalIdentityProviderID == "" {
+			continue
+		}
 		if _, ok := idpUsersMap[user.UserName]; !ok {
 			// delete the user if it has been deleted on idp.
 			err = logic.DeleteUser(user.UserName)
@@ -179,9 +185,7 @@ func syncGroups(idpGroups []idp.Group) error {
 	}
 
 	dbGroupsMap := make(map[string]models.UserGroup)
-	dbGroupsNameMap := make(map[models.UserGroupID]struct{})
 	for _, group := range dbGroups {
-		dbGroupsNameMap[group.ID] = struct{}{}
 		if group.ExternalIdentityProviderID != "" {
 			dbGroupsMap[group.ExternalIdentityProviderID] = group
 		}
@@ -214,18 +218,17 @@ func syncGroups(idpGroups []idp.Group) error {
 
 		dbGroup, ok := dbGroupsMap[group.ID]
 		if !ok {
-			// create the group only if it doesn't exist.
-			if _, ok := dbGroupsNameMap[models.UserGroupID(group.Name)]; ok {
-				logger.Log(0, "group with name "+group.Name+" already exists, skipping creation")
-				continue
-			}
-
 			err := proLogic.CreateUserGroup(models.UserGroup{
-				ID:                         models.UserGroupID(group.Name),
 				ExternalIdentityProviderID: group.ID,
 				Default:                    false,
 				Name:                       group.Name,
 			})
+			if err != nil {
+				return err
+			}
+		} else {
+			dbGroup.Name = group.Name
+			err = proLogic.UpdateUserGroup(dbGroup)
 			if err != nil {
 				return err
 			}
