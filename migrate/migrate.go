@@ -25,6 +25,7 @@ func Run() {
 	assignSuperAdmin()
 	createDefaultTagsAndPolicies()
 	removeOldUserGrps()
+	syncGroups()
 	syncUsers()
 	updateHosts()
 	updateNodes()
@@ -386,6 +387,10 @@ func MigrateEmqx() {
 		logger.Log(2, "failed to migrate emqx: ", "kickout-error", err.Error())
 	}
 
+}
+
+func syncGroups() {
+	logic.MigrateGroups()
 }
 
 func syncUsers() {
