@@ -219,7 +219,14 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node) {
 			continue
 		}
 		if !DoesNodeHaveAccessToEgress(node, &e) {
-			continue
+			if node.IsRelayed && node.RelayedBy == targetNode.ID.String() {
+				if !DoesNodeHaveAccessToEgress(targetNode, &e) {
+					continue
+				}
+			} else {
+				continue
+			}
+
 		}
 		if metric, ok := e.Nodes[targetNode.ID.String()]; ok {
 			if e.IsInetGw {
