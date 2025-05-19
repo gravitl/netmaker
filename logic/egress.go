@@ -202,10 +202,10 @@ func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress) bool {
 }
 
 func AddEgressInfoToPeerByAccess(node, targetNode *models.Node) {
-	if targetNode.Mutex != nil {
-		targetNode.Mutex.Lock()
-		defer targetNode.Mutex.Unlock()
-	}
+	// if targetNode.Mutex != nil {
+	// 	targetNode.Mutex.Lock()
+	// 	defer targetNode.Mutex.Unlock()
+	// }
 	eli, _ := (&schema.Egress{Network: targetNode.Network}).ListByNetwork(db.WithContext(context.TODO()))
 	req := models.EgressGatewayRequest{
 		NodeID: targetNode.ID.String(),
@@ -263,10 +263,10 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node) {
 }
 
 func GetNodeEgressInfo(targetNode *models.Node) {
-	if targetNode.Mutex != nil {
-		targetNode.Mutex.Lock()
-		defer targetNode.Mutex.Unlock()
-	}
+	// if targetNode.Mutex != nil {
+	// 	targetNode.Mutex.Lock()
+	// 	defer targetNode.Mutex.Unlock()
+	// }
 	eli, _ := (&schema.Egress{Network: targetNode.Network}).ListByNetwork(db.WithContext(context.TODO()))
 	req := models.EgressGatewayRequest{
 		NodeID: targetNode.ID.String(),
