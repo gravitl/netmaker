@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/netip"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
@@ -164,26 +165,18 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 	}
 	defer func() {
 		if !hostPeerUpdate.FwUpdate.AllowAll {
-			aclRule := models.AclRule{
-				ID:              "allowed-network-rules",
-				AllowedProtocol: models.ALL,
-				Direction:       models.TrafficDirectionBi,
-				Allowed:         true,
-			}
-			for _, allowedNet := range hostPeerUpdate.FwUpdate.AllowedNetworks {
-				if allowedNet.IP.To4() != nil {
-					aclRule.IPList = append(aclRule.IPList, allowedNet)
-				} else {
-					aclRule.IP6List = append(aclRule.IP6List, allowedNet)
-				}
-			}
-			hostPeerUpdate.FwUpdate.AclRules["allowed-network-rules"] = aclRule
+
 			hostPeerUpdate.FwUpdate.EgressInfo["allowed-network-rules"] = models.EgressInfo{
-				EgressID: "allowed-network-rules",
-				EgressFwRules: map[string]models.AclRule{
-					"allowed-network-rules": aclRule,
-				},
+				EgressID:      "allowed-network-rules",
+				EgressFwRules: make(map[string]models.AclRule),
 			}
+			fmt.Printf("ALLOWED NETWORK RULES:%s,  %+v\n", host.Name, hostPeerUpdate.FwUpdate.AllowedNetworks)
+			for _, aclRule := range hostPeerUpdate.FwUpdate.AllowedNetworks {
+
+				hostPeerUpdate.FwUpdate.AclRules[aclRule.ID] = aclRule
+				hostPeerUpdate.FwUpdate.EgressInfo["allowed-network-rules"].EgressFwRules[aclRule.ID] = aclRule
+			}
+
 		}
 	}()
 
@@ -192,11 +185,13 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 	for _, nodeID := range host.Nodes {
 		networkAllowAll := true
 		nodeID := nodeID
+		if nodeID == uuid.Nil.String() {
+			continue
+		}
 		node, err := GetNodeByID(nodeID)
 		if err != nil {
 			continue
 		}
-
 		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE {
 			continue
 		}
@@ -208,13 +203,21 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 		defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 
-		if (defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) || (!checkIfAnyPolicyisUniDirectional(node) && !checkIfAnyActiveEgressPolicy(node)) {
-			if node.NetworkRange.IP != nil {
-				hostPeerUpdate.FwUpdate.AllowedNetworks = append(hostPeerUpdate.FwUpdate.AllowedNetworks, node.NetworkRange)
+		if (defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
+			(!checkIfAnyPolicyisUniDirectional(node) && !checkIfAnyActiveEgressPolicy(node)) {
+			aclRule := models.AclRule{
+				ID:              fmt.Sprintf("%s-allowed-network-rules", node.ID.String()),
+				AllowedProtocol: models.ALL,
+				Direction:       models.TrafficDirectionBi,
+				Allowed:         true,
+				IPList:          []net.IPNet{node.NetworkRange},
+				IP6List:         []net.IPNet{node.NetworkRange6},
 			}
-			if node.NetworkRange6.IP != nil {
-				hostPeerUpdate.FwUpdate.AllowedNetworks = append(hostPeerUpdate.FwUpdate.AllowedNetworks, node.NetworkRange6)
+			if !(defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) {
+				aclRule.Dst = []net.IPNet{node.NetworkRange}
+				aclRule.Dst6 = []net.IPNet{node.NetworkRange6}
 			}
+			hostPeerUpdate.FwUpdate.AllowedNetworks = append(hostPeerUpdate.FwUpdate.AllowedNetworks, aclRule)
 		} else {
 			networkAllowAll = false
 			hostPeerUpdate.FwUpdate.AllowAll = false

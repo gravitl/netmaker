@@ -679,7 +679,7 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []mode
 			if dst.ID == models.EgressID {
 				e := schema.Egress{ID: dst.Value}
 				err := e.Get(db.WithContext(context.TODO()))
-				if err == nil {
+				if err == nil && e.Status {
 					for nodeID := range e.Nodes {
 						dstMap[nodeID] = struct{}{}
 					}
@@ -782,7 +782,7 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 			if dst.ID == models.EgressID {
 				e := schema.Egress{ID: dst.Value}
 				err := e.Get(db.WithContext(context.TODO()))
-				if err == nil {
+				if err == nil && e.Status {
 					for nodeID := range e.Nodes {
 						dstMap[nodeID] = struct{}{}
 					}
@@ -1054,7 +1054,7 @@ func IsNodeAllowedToCommunicateV1(node, peer models.Node, checkDefaultPolicy boo
 			if dst.ID == models.EgressID {
 				e := schema.Egress{ID: dst.Value}
 				err := e.Get(db.WithContext(context.TODO()))
-				if err == nil {
+				if err == nil && e.Status {
 					for nodeID := range e.Nodes {
 						dstMap[nodeID] = struct{}{}
 					}
@@ -1256,7 +1256,7 @@ func getEgressUserRulesForNode(targetnode *models.Node,
 			if dst.ID == models.EgressID {
 				e := schema.Egress{ID: dst.Value}
 				err := e.Get(db.WithContext(context.TODO()))
-				if err == nil {
+				if err == nil && e.Status {
 					for nodeID := range e.Nodes {
 						dstTags[nodeID] = struct{}{}
 					}
@@ -1491,7 +1491,7 @@ func checkIfAnyActiveEgressPolicy(targetNode models.Node) bool {
 			if dst.ID == models.EgressID {
 				e := schema.Egress{ID: dst.Value}
 				err := e.Get(db.WithContext(context.TODO()))
-				if err == nil {
+				if err == nil && e.Status {
 					for nodeID := range e.Nodes {
 						dstTags[nodeID] = struct{}{}
 					}
@@ -1500,7 +1500,7 @@ func checkIfAnyActiveEgressPolicy(targetNode models.Node) bool {
 			}
 		}
 		for nodeTag := range targetNodeTags {
-			if acl.RuleType == models.DevicePolicy {
+			if acl.RuleType == models.DevicePolicy && acl.AllowedDirection == models.TrafficDirectionBi {
 				if _, ok := srcTags[nodeTag.String()]; ok {
 					return true
 				}
@@ -1603,6 +1603,17 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 		}
 		srcTags := convAclTagToValueMap(acl.Src)
 		dstTags := convAclTagToValueMap(acl.Dst)
+		for _, dst := range acl.Dst {
+			if dst.ID == models.EgressID {
+				e := schema.Egress{ID: dst.Value}
+				err := e.Get(db.WithContext(context.TODO()))
+				if err == nil && e.Status {
+					for nodeID := range e.Nodes {
+						dstTags[nodeID] = struct{}{}
+					}
+				}
+			}
+		}
 		_, srcAll := srcTags["*"]
 		_, dstAll := dstTags["*"]
 		aclRule := models.AclRule{
@@ -1810,6 +1821,9 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 		return
 	}
 	for _, egI := range egs {
+		if !egI.Status {
+			continue
+		}
 		if _, ok := egI.Nodes[targetnode.ID.String()]; ok {
 			if egI.Range == "*" {
 				targetNodeTags[models.TagID("0.0.0.0/0")] = struct{}{}
@@ -1820,14 +1834,12 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 			targetNodeTags[models.TagID(egI.ID)] = struct{}{}
 		}
 	}
-	fmt.Println("CHECKING EGRESS TAGS: ", targetNodeTags)
 	for _, acl := range acls {
 		if !acl.Enabled {
 			continue
 		}
 		srcTags := convAclTagToValueMap(acl.Src)
 		dstTags := convAclTagToValueMap(acl.Dst)
-		fmt.Println("ACL POLICY: ", acl.Name, srcTags, dstTags)
 		_, srcAll := srcTags["*"]
 		_, dstAll := dstTags["*"]
 		aclRule := models.AclRule{
@@ -1848,20 +1860,10 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 						aclRule.Dst6 = append(aclRule.Dst6, *cidr)
 					}
 				}
-			} else {
-				aclRule.Dst = append(aclRule.Dst, net.IPNet{
-					IP:   net.IPv4zero,        // 0.0.0.0
-					Mask: net.CIDRMask(0, 32), // /0 means match all IPv4
-				})
-				aclRule.Dst6 = append(aclRule.Dst6, net.IPNet{
-					IP:   net.IPv6zero,         // ::
-					Mask: net.CIDRMask(0, 128), // /0 means match all IPv6
-				})
 			}
 			if acl.AllowedDirection == models.TrafficDirectionBi {
 				var existsInSrcTag bool
 				var existsInDstTag bool
-				fmt.Println("CHECKING TAG: ", nodeTag.String())
 				if _, ok := srcTags[nodeTag.String()]; ok || srcAll {
 					existsInSrcTag = true
 				}
@@ -1877,7 +1879,6 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 					}
 					break
 				}
-				fmt.Println("EXISTS ACL: ", existsInSrcTag, existsInDstTag)
 				if existsInSrcTag && !existsInDstTag {
 					// get all dst tags
 					for dst := range dstTags {
