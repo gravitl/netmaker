@@ -146,10 +146,16 @@ func syncUsers(idpUsers []idp.User) error {
 					return err
 				}
 			}
+		} else {
+			logger.Log(0, "user with username "+user.Username+" already exists, skipping creation")
+			continue
 		}
 	}
 
 	for _, user := range dbUsersMap {
+		if user.ExternalIdentityProviderID == "" {
+			continue
+		}
 		if _, ok := idpUsersMap[user.UserName]; !ok {
 			// delete the user if it has been deleted on idp.
 			err = logic.DeleteUser(user.UserName)
