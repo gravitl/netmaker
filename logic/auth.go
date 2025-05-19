@@ -189,7 +189,7 @@ func CreateUser(user *models.User) error {
 		logger.Log(0, "failed to insert user", err.Error())
 		return err
 	}
-	AddGlobalNetRolesToAdmins(*user)
+	AddGlobalNetRolesToAdmins(user)
 	return nil
 }
 
@@ -311,14 +311,48 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 		user.DisplayName = userchange.DisplayName
 	}
 
+	if user.ExternalIdentityProviderID != "" &&
+		userchange.AccountDisabled != user.AccountDisabled {
+		return userchange, errors.New("account status cannot be updated for external user")
+	}
+
 	// Reset Gw Access for service users
 	go UpdateUserGwAccess(*user, *userchange)
 	if userchange.PlatformRoleID != "" {
 		user.PlatformRoleID = userchange.PlatformRoleID
 	}
+
+	for groupID := range userchange.UserGroups {
+		_, ok := user.UserGroups[groupID]
+		if !ok {
+			group, err := GetUserGroup(groupID)
+			if err != nil {
+				return userchange, err
+			}
+
+			if group.ExternalIdentityProviderID != "" {
+				return userchange, errors.New("cannot modify membership of external groups")
+			}
+		}
+	}
+
+	for groupID := range user.UserGroups {
+		_, ok := userchange.UserGroups[groupID]
+		if !ok {
+			group, err := GetUserGroup(groupID)
+			if err != nil {
+				return userchange, err
+			}
+
+			if group.ExternalIdentityProviderID != "" {
+				return userchange, errors.New("cannot modify membership of external groups")
+			}
+		}
+	}
+
 	user.UserGroups = userchange.UserGroups
 	user.NetworkRoles = userchange.NetworkRoles
-	AddGlobalNetRolesToAdmins(*user)
+	AddGlobalNetRolesToAdmins(user)
 	err := ValidateUser(user)
 	if err != nil {
 		return &models.User{}, err

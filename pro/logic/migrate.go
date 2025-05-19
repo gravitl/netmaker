@@ -1,11 +1,44 @@
 package logic
 
 import (
-	"fmt"
+	"github.com/google/uuid"
 
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 )
+
+func MigrateGroups() {
+	groups, err := ListUserGroups()
+	if err != nil {
+		return
+	}
+
+	groupMapping := make(map[models.UserGroupID]models.UserGroupID)
+
+	for _, group := range groups {
+		newGroupID := models.UserGroupID(uuid.NewString())
+		groupMapping[group.ID] = newGroupID
+
+		group.ID = newGroupID
+		UpdateUserGroup(group)
+	}
+
+	users, err := logic.GetUsersDB()
+	if err != nil {
+		return
+	}
+
+	for _, user := range users {
+		userGroups := make(map[models.UserGroupID]struct{})
+		for groupID := range user.UserGroups {
+			newGroupID := groupMapping[groupID]
+			userGroups[newGroupID] = struct{}{}
+		}
+
+		user.UserGroups = userGroups
+		logic.UpsertUser(user)
+	}
+}
 
 func MigrateUserRoleAndGroups(user models.User) {
 	var err error
@@ -22,10 +55,9 @@ func MigrateUserRoleAndGroups(user models.User) {
 			}
 			var g models.UserGroup
 			if user.PlatformRoleID == models.ServiceUser {
-				g, err = GetUserGroup(models.UserGroupID(fmt.Sprintf("%s-%s-grp", gwNode.Network, models.NetworkUser)))
+				g, err = GetDefaultNetworkUserGroup(models.NetworkID(gwNode.Network))
 			} else {
-				g, err = GetUserGroup(models.UserGroupID(fmt.Sprintf("%s-%s-grp",
-					gwNode.Network, models.NetworkAdmin)))
+				g, err = GetDefaultNetworkAdminGroup(models.NetworkID(gwNode.Network))
 			}
 			if err != nil {
 				continue
@@ -47,14 +79,13 @@ func MigrateUserRoleAndGroups(user models.User) {
 			}
 
 			if user.PlatformRoleID == models.ServiceUser {
-				g, err = GetUserGroup(models.UserGroupID(fmt.Sprintf("%s-%s-grp", netID, models.NetworkUser)))
+				g, err = GetDefaultNetworkUserGroup(netID)
 			} else {
-				role := models.NetworkUser
 				if adminAccess {
-					role = models.NetworkAdmin
+					g, err = GetDefaultNetworkAdminGroup(netID)
+				} else {
+					g, err = GetDefaultNetworkUserGroup(netID)
 				}
-				g, err = GetUserGroup(models.UserGroupID(fmt.Sprintf("%s-%s-grp",
-					netID, role)))
 			}
 			if err != nil {
 				continue

@@ -25,6 +25,7 @@ func Run() {
 	assignSuperAdmin()
 	createDefaultTagsAndPolicies()
 	removeOldUserGrps()
+	syncGroups()
 	syncUsers()
 	updateHosts()
 	updateNodes()
@@ -387,6 +388,10 @@ func MigrateEmqx() {
 
 }
 
+func syncGroups() {
+	logic.MigrateGroups()
+}
+
 func syncUsers() {
 	// create default network user roles for existing networks
 	if servercfg.IsPro {
@@ -410,7 +415,7 @@ func syncUsers() {
 			}
 			if user.PlatformRoleID.String() != "" {
 				logic.MigrateUserRoleAndGroups(user)
-				logic.AddGlobalNetRolesToAdmins(user)
+				logic.AddGlobalNetRolesToAdmins(&user)
 				continue
 			}
 			user.AuthType = models.BasicAuth
@@ -432,7 +437,7 @@ func syncUsers() {
 				user.PlatformRoleID = models.ServiceUser
 			}
 			logic.UpsertUser(user)
-			logic.AddGlobalNetRolesToAdmins(user)
+			logic.AddGlobalNetRolesToAdmins(&user)
 			logic.MigrateUserRoleAndGroups(user)
 		}
 	}
