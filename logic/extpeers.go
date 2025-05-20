@@ -119,7 +119,7 @@ func DeleteExtClient(network string, clientid string) error {
 		}
 		deleteExtClientFromCache(key)
 	}
-	if extClient.OwnerID != "" {
+	if extClient.RemoteAccessClientID != "" {
 		LogEvent(&models.Event{
 			Action: models.Disconnect,
 			Source: models.Subject{
@@ -132,6 +132,7 @@ func DeleteExtClient(network string, clientid string) error {
 				ID:   extClient.Network,
 				Name: extClient.Network,
 				Type: models.NetworkSub,
+				Info: extClient,
 			},
 			NetworkID: models.NetworkID(extClient.Network),
 			Origin:    models.ClientApp,

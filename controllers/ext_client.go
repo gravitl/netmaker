@@ -798,23 +798,27 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		"clientid",
 		extclient.ClientID,
 	)
-	// if created by user from client app, log event
-	logic.LogEvent(&models.Event{
-		Action: models.Connect,
-		Source: models.Subject{
-			ID:   userName,
-			Name: userName,
-			Type: models.UserSub,
-		},
-		TriggeredBy: userName,
-		Target: models.Subject{
-			ID:   extclient.Network,
-			Name: extclient.Network,
-			Type: models.NetworkSub,
-		},
-		NetworkID: models.NetworkID(extclient.Network),
-		Origin:    models.ClientApp,
-	})
+	if extclient.RemoteAccessClientID != "" {
+		// if created by user from client app, log event
+		logic.LogEvent(&models.Event{
+			Action: models.Connect,
+			Source: models.Subject{
+				ID:   userName,
+				Name: userName,
+				Type: models.UserSub,
+			},
+			TriggeredBy: userName,
+			Target: models.Subject{
+				ID:   extclient.Network,
+				Name: extclient.Network,
+				Type: models.NetworkSub,
+				Info: extclient,
+			},
+			NetworkID: models.NetworkID(extclient.Network),
+			Origin:    models.ClientApp,
+		})
+	}
+
 	w.WriteHeader(http.StatusOK)
 	go func() {
 		if err := logic.SetClientDefaultACLs(&extclient); err != nil {
