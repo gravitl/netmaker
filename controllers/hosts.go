@@ -294,7 +294,25 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}()
-
+	logic.LogEvent(&models.Event{
+		Action: models.Update,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   currHost.ID.String(),
+			Name: newHost.Name,
+			Type: models.HostSub,
+		},
+		Diff: models.Diff{
+			Old: currHost,
+			New: newHost,
+		},
+		Origin: models.Dashboard,
+	})
 	apiHostData := newHost.ConvertNMHostToAPI()
 	logger.Log(2, r.Header.Get("user"), "updated host", newHost.ID.String())
 	w.WriteHeader(http.StatusOK)
@@ -969,7 +987,21 @@ func syncHost(w http.ResponseWriter, r *http.Request) {
 			slog.Error("failed to send host pull request", "host", host.ID.String(), "error", err)
 		}
 	}()
-
+	logic.LogEvent(&models.Event{
+		Action: models.Sync,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   host.ID.String(),
+			Name: host.Name,
+			Type: models.HostSub,
+		},
+		Origin: models.Dashboard,
+	})
 	slog.Info("requested host pull", "user", r.Header.Get("user"), "host", host.ID.String())
 	w.WriteHeader(http.StatusOK)
 }
