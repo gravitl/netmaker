@@ -32,7 +32,7 @@ require (
 require (
 	filippo.io/edwards25519 v1.1.0
 	github.com/c-robinson/iplib v1.0.8
-	github.com/posthog/posthog-go v1.2.24
+	github.com/posthog/posthog-go v1.5.5
 )
 
 require (
@@ -57,6 +57,7 @@ require (
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
+	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
