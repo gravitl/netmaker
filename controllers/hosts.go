@@ -438,7 +438,21 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-
+	logic.LogEvent(&models.Event{
+		Action: models.Delete,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   currHost.ID.String(),
+			Name: currHost.Name,
+			Type: models.DeviceSub,
+		},
+		Origin: models.Dashboard,
+	})
 	apiHostData := currHost.ConvertNMHostToAPI()
 	logger.Log(2, r.Header.Get("user"), "removed host", currHost.Name)
 	w.WriteHeader(http.StatusOK)
