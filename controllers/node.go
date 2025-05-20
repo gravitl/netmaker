@@ -178,7 +178,7 @@ func Authorize(
 			// check if host instead of user
 			if hostAllowed {
 				// TODO --- should ensure that node is only operating on itself
-				if hostID, _, _, err := logic.VerifyHostToken(authToken); err == nil {
+				if hostID, macAddr, _, err := logic.VerifyHostToken(authToken); err == nil && macAddr != "" {
 					r.Header.Set(hostIDHeader, hostID)
 					// this indicates request is from a node
 					// used for failover - if a getNode comes from node, this will trigger a metrics wipe

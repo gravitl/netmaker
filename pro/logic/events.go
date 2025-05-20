@@ -3,9 +3,9 @@ package logic
 import (
 	"context"
 	"encoding/json"
-	"reflect"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
@@ -23,7 +23,7 @@ func EventWatcher() {
 	for e := range EventActivityCh {
 		if e.Action == models.Update {
 			// check if diff
-			if reflect.DeepEqual(e.Diff.Old, e.Diff.New) {
+			if cmp.Equal(e.Diff.Old, e.Diff.New) {
 				continue
 			}
 		}
