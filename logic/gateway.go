@@ -40,7 +40,7 @@ func GetInternetGateways() ([]models.Node, error) {
 	}
 	igs := make([]models.Node, 0)
 	for _, node := range nodes {
-		if node.IsInternetGateway {
+		if node.EgressDetails.IsInternetGateway {
 			igs = append(igs, node)
 		}
 	}
@@ -205,12 +205,12 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	node.IsIngressGateway = true
 	node.IsGw = true
 	if !servercfg.IsPro {
-		node.IsInternetGateway = ingress.IsInternetGateway
+		node.EgressDetails.IsInternetGateway = ingress.IsInternetGateway
 	}
 	node.IngressGatewayRange = network.AddressRange
 	node.IngressGatewayRange6 = network.AddressRange6
 	node.IngressDNS = ingress.ExtclientDNS
-	if node.IsInternetGateway && node.IngressDNS == "" {
+	if node.EgressDetails.IsInternetGateway && node.IngressDNS == "" {
 		node.IngressDNS = "1.1.1.1"
 	}
 	node.IngressPersistentKeepalive = 20
@@ -284,7 +284,7 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 	node.LastModified = time.Now().UTC()
 	node.IsIngressGateway = false
 	if !servercfg.IsPro {
-		node.IsInternetGateway = false
+		node.EgressDetails.IsInternetGateway = false
 	}
 	delete(node.Tags, models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName)))
 	node.IngressGatewayRange = ""

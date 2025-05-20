@@ -171,6 +171,7 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 		IsPeerAllowed bool
 		Policies      []models.Acl
 		IngressRules  []models.FwRule
+		NodeAllPolicy bool
 	}
 
 	allowed, ps := logic.IsNodeAllowedToCommunicateV1(node, peer, true)

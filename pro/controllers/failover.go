@@ -247,7 +247,7 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if node.IsInternetGateway && peerNode.InternetGwID == node.ID.String() {
+	if node.EgressDetails.IsInternetGateway && peerNode.EgressDetails.InternetGwID == node.ID.String() {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -258,7 +258,7 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if node.InternetGwID != "" && node.InternetGwID == peerNode.ID.String() {
+	if node.EgressDetails.InternetGwID != "" && node.EgressDetails.InternetGwID == peerNode.ID.String() {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -393,7 +393,7 @@ func checkfailOverCtx(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if node.InternetGwID != "" || peerNode.InternetGwID != "" {
+	if node.EgressDetails.InternetGwID != "" || peerNode.EgressDetails.InternetGwID != "" {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -404,7 +404,7 @@ func checkfailOverCtx(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if node.IsInternetGateway && peerNode.InternetGwID == node.ID.String() {
+	if node.EgressDetails.IsInternetGateway && peerNode.EgressDetails.InternetGwID == node.ID.String() {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -415,7 +415,7 @@ func checkfailOverCtx(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if node.InternetGwID != "" && node.InternetGwID == peerNode.ID.String() {
+	if node.EgressDetails.InternetGwID != "" && node.EgressDetails.InternetGwID == peerNode.ID.String() {
 		logic.ReturnErrorResponse(
 			w,
 			r,

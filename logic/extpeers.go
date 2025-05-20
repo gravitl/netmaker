@@ -80,7 +80,7 @@ func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 			continue
 		}
 		GetNodeEgressInfo(&currentNode)
-		if currentNode.IsInternetGateway && client.IngressGatewayID != currentNode.ID.String() {
+		if currentNode.EgressDetails.IsInternetGateway && client.IngressGatewayID != currentNode.ID.String() {
 			continue
 		}
 		if currentNode.EgressDetails.IsEgressGateway { // add the egress gateway range(s) to the result

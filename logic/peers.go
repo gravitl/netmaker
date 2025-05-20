@@ -48,11 +48,11 @@ var (
 	}
 	// UnsetInternetGw
 	UnsetInternetGw = func(node *models.Node) {
-		node.IsInternetGateway = false
+		node.EgressDetails.IsInternetGateway = false
 	}
 	// SetInternetGw
 	SetInternetGw = func(node *models.Node, req models.InetNodeReq) {
-		node.IsInternetGateway = true
+		node.EgressDetails.IsInternetGateway = true
 	}
 	// GetAllowedIpForInetNodeClient
 	GetAllowedIpForInetNodeClient = func(node, peer *models.Node) []net.IPNet {
@@ -170,9 +170,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				EgressID:      "allowed-network-rules",
 				EgressFwRules: make(map[string]models.AclRule),
 			}
-			fmt.Printf("ALLOWED NETWORK RULES:%s,  %+v\n", host.Name, hostPeerUpdate.FwUpdate.AllowedNetworks)
 			for _, aclRule := range hostPeerUpdate.FwUpdate.AllowedNetworks {
-
 				hostPeerUpdate.FwUpdate.AclRules[aclRule.ID] = aclRule
 				hostPeerUpdate.FwUpdate.EgressInfo["allowed-network-rules"].EgressFwRules[aclRule.ID] = aclRule
 			}
@@ -204,7 +202,8 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 
 		if (defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
-			(!checkIfAnyPolicyisUniDirectional(node) && !checkIfAnyActiveEgressPolicy(node)) {
+			(!checkIfAnyPolicyisUniDirectional(node) && !checkIfAnyActiveEgressPolicy(node)) ||
+			checkIfNodeHasAccessToAllResources(&node) {
 			aclRule := models.AclRule{
 				ID:              fmt.Sprintf("%s-allowed-network-rules", node.ID.String()),
 				AllowedProtocol: models.ALL,
@@ -595,13 +594,13 @@ func filterConflictingEgressRoutesWithMetric(node, peer models.Node) []models.Eg
 func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet {
 	var allowedips []net.IPNet
 	allowedips = getNodeAllowedIPs(peer, node)
-	if peer.IsInternetGateway && node.InternetGwID == peer.ID.String() {
+	if peer.EgressDetails.IsInternetGateway && node.EgressDetails.InternetGwID == peer.ID.String() {
 		allowedips = append(allowedips, GetAllowedIpForInetNodeClient(node, peer)...)
 		return allowedips
 	}
 	if node.IsRelayed && node.RelayedBy == peer.ID.String() {
 		allowedips = append(allowedips, GetAllowedIpsForRelayed(node, peer)...)
-		if peer.InternetGwID != "" {
+		if peer.EgressDetails.InternetGwID != "" {
 			return allowedips
 		}
 	}

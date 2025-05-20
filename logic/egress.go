@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"maps"
 	"net"
 
@@ -105,6 +104,7 @@ func isNodeUsingInternetGw(node *models.Node) {
 	nodeTags := maps.Clone(node.Tags)
 	nodeTags[models.TagID(node.ID.String())] = struct{}{}
 	acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
+	var isUsing bool
 	for _, acl := range acls {
 		if !acl.Enabled {
 			continue
@@ -124,7 +124,8 @@ func isNodeUsingInternetGw(node *models.Node) {
 							if nodeID == node.ID.String() {
 								continue
 							}
-							node.InternetGwID = nodeID
+							node.EgressDetails.InternetGwID = nodeID
+							isUsing = true
 							return
 						}
 					}
@@ -134,7 +135,8 @@ func isNodeUsingInternetGw(node *models.Node) {
 								if nodeID == node.ID.String() {
 									continue
 								}
-								node.InternetGwID = nodeID
+								node.EgressDetails.InternetGwID = nodeID
+								isUsing = true
 								return
 							}
 						}
@@ -142,6 +144,9 @@ func isNodeUsingInternetGw(node *models.Node) {
 				}
 			}
 		}
+	}
+	if !isUsing {
+		node.EgressDetails.InternetGwID = ""
 	}
 }
 
@@ -202,17 +207,19 @@ func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress) bool {
 }
 
 func AddEgressInfoToPeerByAccess(node, targetNode *models.Node) {
-	// if targetNode.Mutex != nil {
-	// 	targetNode.Mutex.Lock()
-	// 	defer targetNode.Mutex.Unlock()
-	// }
 	eli, _ := (&schema.Egress{Network: targetNode.Network}).ListByNetwork(db.WithContext(context.TODO()))
 	req := models.EgressGatewayRequest{
 		NodeID: targetNode.ID.String(),
 		NetID:  targetNode.Network,
 	}
 	defer func() {
+		if targetNode.Mutex != nil {
+			targetNode.Mutex.Lock()
+		}
 		isNodeUsingInternetGw(targetNode)
+		if targetNode.Mutex != nil {
+			targetNode.Mutex.Unlock()
+		}
 	}()
 	for _, e := range eli {
 		if !e.Status || e.Network != targetNode.Network {
@@ -230,8 +237,8 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node) {
 		}
 		if metric, ok := e.Nodes[targetNode.ID.String()]; ok {
 			if e.IsInetGw {
-				targetNode.IsInternetGateway = true
-				targetNode.InetNodeReq = models.InetNodeReq{
+				targetNode.EgressDetails.IsInternetGateway = true
+				targetNode.EgressDetails.InetNodeReq = models.InetNodeReq{
 					InetNodeClientIDs: GetInetClientsFromAclPolicies(e.ID),
 				}
 				req.Ranges = append(req.Ranges, "0.0.0.0/0")
@@ -262,25 +269,37 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node) {
 
 		}
 	}
+	if targetNode.Mutex != nil {
+		targetNode.Mutex.Lock()
+	}
 	if len(req.Ranges) > 0 {
+
 		targetNode.EgressDetails.IsEgressGateway = true
 		targetNode.EgressDetails.EgressGatewayRanges = req.Ranges
 		targetNode.EgressDetails.EgressGatewayRequest = req
+
+	} else {
+		targetNode.EgressDetails = models.EgressDetails{}
+	}
+	if targetNode.Mutex != nil {
+		targetNode.Mutex.Unlock()
 	}
 }
 
 func GetNodeEgressInfo(targetNode *models.Node) {
-	// if targetNode.Mutex != nil {
-	// 	targetNode.Mutex.Lock()
-	// 	defer targetNode.Mutex.Unlock()
-	// }
 	eli, _ := (&schema.Egress{Network: targetNode.Network}).ListByNetwork(db.WithContext(context.TODO()))
 	req := models.EgressGatewayRequest{
 		NodeID: targetNode.ID.String(),
 		NetID:  targetNode.Network,
 	}
 	defer func() {
+		if targetNode.Mutex != nil {
+			targetNode.Mutex.Lock()
+		}
 		isNodeUsingInternetGw(targetNode)
+		if targetNode.Mutex != nil {
+			targetNode.Mutex.Unlock()
+		}
 	}()
 	for _, e := range eli {
 		if !e.Status || e.Network != targetNode.Network {
@@ -288,8 +307,8 @@ func GetNodeEgressInfo(targetNode *models.Node) {
 		}
 		if metric, ok := e.Nodes[targetNode.ID.String()]; ok {
 			if e.IsInetGw {
-				targetNode.IsInternetGateway = true
-				targetNode.InetNodeReq = models.InetNodeReq{
+				targetNode.EgressDetails.IsInternetGateway = true
+				targetNode.EgressDetails.InetNodeReq = models.InetNodeReq{
 					InetNodeClientIDs: GetInetClientsFromAclPolicies(e.ID),
 				}
 				req.Ranges = append(req.Ranges, "0.0.0.0/0")
@@ -320,12 +339,18 @@ func GetNodeEgressInfo(targetNode *models.Node) {
 
 		}
 	}
+	if targetNode.Mutex != nil {
+		targetNode.Mutex.Lock()
+	}
 	if len(req.Ranges) > 0 {
 		targetNode.EgressDetails.IsEgressGateway = true
 		targetNode.EgressDetails.EgressGatewayRanges = req.Ranges
 		targetNode.EgressDetails.EgressGatewayRequest = req
-		targetHost, _ := GetHost(targetNode.HostID.String())
-		fmt.Println("TARGET NODE: ", targetHost.Name, targetNode.EgressDetails.EgressGatewayRanges, targetNode.EgressDetails.EgressGatewayRequest)
+	} else {
+		targetNode.EgressDetails = models.EgressDetails{}
+	}
+	if targetNode.Mutex != nil {
+		targetNode.Mutex.Unlock()
 	}
 }
 

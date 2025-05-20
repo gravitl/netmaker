@@ -86,9 +86,9 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.IngressDNS = a.IngressDns
 	convertedNode.IngressPersistentKeepalive = a.IngressPersistentKeepalive
 	convertedNode.IngressMTU = a.IngressMTU
-	convertedNode.IsInternetGateway = a.IsInternetGateway
-	convertedNode.InternetGwID = currentNode.InternetGwID
-	convertedNode.InetNodeReq = currentNode.InetNodeReq
+	convertedNode.EgressDetails.IsInternetGateway = a.IsInternetGateway
+	convertedNode.EgressDetails.InternetGwID = currentNode.EgressDetails.InternetGwID
+	convertedNode.EgressDetails.InetNodeReq = currentNode.EgressDetails.InetNodeReq
 	convertedNode.RelayedNodes = a.RelayedNodes
 	convertedNode.DefaultACL = a.DefaultACL
 	convertedNode.OwnerID = currentNode.OwnerID
@@ -191,9 +191,9 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.Connected = nm.Connected
 	apiNode.PendingDelete = nm.PendingDelete
 	apiNode.DefaultACL = nm.DefaultACL
-	apiNode.IsInternetGateway = nm.IsInternetGateway
-	apiNode.InternetGwID = nm.InternetGwID
-	apiNode.InetNodeReq = nm.InetNodeReq
+	apiNode.IsInternetGateway = nm.EgressDetails.IsInternetGateway
+	apiNode.InternetGwID = nm.EgressDetails.InternetGwID
+	apiNode.InetNodeReq = nm.EgressDetails.InetNodeReq
 	apiNode.IsFailOver = nm.IsFailOver
 	apiNode.FailOverPeers = nm.FailOverPeers
 	apiNode.FailedOverBy = nm.FailedOverBy
