@@ -1502,7 +1502,7 @@ func checkIfAnyPolicyisUniDirectional(targetNode models.Node) bool {
 		if !acl.Enabled {
 			continue
 		}
-		if acl.AllowedDirection == models.TrafficDirectionBi {
+		if acl.AllowedDirection == models.TrafficDirectionBi && acl.Proto == models.ALL && acl.ServiceType == models.Any {
 			continue
 		}
 		if acl.Proto != models.ALL || acl.ServiceType != models.Any {

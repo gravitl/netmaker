@@ -271,7 +271,6 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to udpate server settings "+err.Error()), "internal"))
 		return
 	}
-	go reInit(logic.GetServerSettings(), req, force == "true")
 	logic.LogEvent(&models.Event{
 		Action: models.Update,
 		Source: models.Subject{
@@ -291,6 +290,7 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: models.Dashboard,
 	})
+	go reInit(currSettings, req, force == "true")
 	logic.ReturnSuccessResponseWithJson(w, r, req, "updated server settings successfully")
 }
 
@@ -308,6 +308,10 @@ func reInit(curr, new models.ServerSettings, force bool) {
 			for _, host := range hosts {
 				host.AutoUpdate = new.NetclientAutoUpdate
 				logic.UpsertHost(&host)
+				mq.HostUpdate(&models.HostUpdate{
+					Action: models.UpdateHost,
+					Host:   host,
+				})
 			}
 		}
 	}

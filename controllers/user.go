@@ -180,7 +180,7 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 	}
 	err := a.Get(r.Context())
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("id is required"), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("token does not exist"), "badrequest"))
 		return
 	}
 	caller, err := logic.GetUser(r.Header.Get("user"))
@@ -770,12 +770,12 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if caller.PlatformRoleID == models.AdminRole && user.PlatformRoleID == models.AdminRole {
-			slog.Error("admin user cannot update another admin", "caller", caller.UserName, "attempted to update admin user", username)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("admin user cannot update another admin"), "forbidden"))
+			slog.Error("an admin user does not have permissions to update another admin user", "caller", caller.UserName, "attempted to update admin user", username)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("an admin user does not have permissions to update another admin user"), "forbidden"))
 			return
 		}
 		if caller.PlatformRoleID == models.AdminRole && userchange.PlatformRoleID == models.AdminRole {
-			err = errors.New("admin user cannot update role of an another user to admin")
+			err = errors.New("an admin user does not have permissions to assign the admin role to another user")
 			slog.Error(
 				"failed to update user",
 				"caller",

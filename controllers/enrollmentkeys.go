@@ -340,7 +340,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	key, keyErr := logic.RetrievePublicTrafficKey()
 	if keyErr != nil {
 		logger.Log(0, "error retrieving key:", keyErr.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(keyErr, "internal"))
 		return
 	}
 	// use the token
@@ -356,7 +356,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	if !hostExists {
 		newHost.PersistentKeepalive = models.DefaultPersistentKeepAlive
 		// register host
-		//logic.CheckHostPorts(&newHost)
+		logic.CheckHostPorts(&newHost)
 		// create EMQX credentials and ACLs for host
 		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 			if err := mq.GetEmqxHandler().CreateEmqxUser(newHost.ID.String(), newHost.HostPass); err != nil {

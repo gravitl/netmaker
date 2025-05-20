@@ -1,4 +1,4 @@
-package host
+package access_token
 
 import (
 	"os"
@@ -8,10 +8,9 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:     "device",
-	Aliases: []string{"host"},
-	Short:   "Manage devices",
-	Long:    `Manage devices`,
+	Use:   "access_token",
+	Short: "Manage Netmaker user access tokens",
+	Long:  `Manage a Netmaker user's access tokens. This command allows you to create, delete, and list access tokens for a user.`,
 }
 
 // GetRoot returns the root subcommand
