@@ -305,7 +305,7 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 		Target: models.Subject{
 			ID:   currHost.ID.String(),
 			Name: newHost.Name,
-			Type: models.HostSub,
+			Type: models.DeviceSub,
 		},
 		Diff: models.Diff{
 			Old: currHost,
@@ -998,7 +998,7 @@ func syncHost(w http.ResponseWriter, r *http.Request) {
 		Target: models.Subject{
 			ID:   host.ID.String(),
 			Name: host.Name,
-			Type: models.HostSub,
+			Type: models.DeviceSub,
 		},
 		Origin: models.Dashboard,
 	})

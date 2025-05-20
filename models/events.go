@@ -23,7 +23,6 @@ const (
 	UserAccessTokenSub SubjectType = "USER_ACCESS_TOKEN"
 	DeviceSub          SubjectType = "DEVICE"
 	NodeSub            SubjectType = "NODE"
-	HostSub            SubjectType = "HOST"
 	SettingSub         SubjectType = "SETTING"
 	AclSub             SubjectType = "ACL"
 	TagSub             SubjectType = "TAG"

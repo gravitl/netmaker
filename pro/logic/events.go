@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,6 +21,12 @@ func LogEvent(a *models.Event) {
 func EventWatcher() {
 
 	for e := range EventActivityCh {
+		if e.Action == models.Update {
+			// check if diff
+			if reflect.DeepEqual(e.Diff.Old, e.Diff.New) {
+				continue
+			}
+		}
 		sourceJson, _ := json.Marshal(e.Source)
 		dstJson, _ := json.Marshal(e.Target)
 		diff, _ := json.Marshal(e.Diff)
