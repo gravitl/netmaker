@@ -16,6 +16,10 @@ func MigrateGroups() {
 	groupMapping := make(map[models.UserGroupID]models.UserGroupID)
 
 	for _, group := range groups {
+		if group.Default {
+			continue
+		}
+
 		newGroupID := models.UserGroupID(uuid.NewString())
 		groupMapping[group.ID] = newGroupID
 
@@ -41,7 +45,6 @@ func MigrateGroups() {
 }
 
 func MigrateUserRoleAndGroups(user models.User) {
-	var err error
 	if user.PlatformRoleID == models.AdminRole || user.PlatformRoleID == models.SuperAdminRole {
 		return
 	}
@@ -53,21 +56,21 @@ func MigrateUserRoleAndGroups(user models.User) {
 			if err != nil {
 				continue
 			}
-			var g models.UserGroup
+			var groupID models.UserGroupID
 			if user.PlatformRoleID == models.ServiceUser {
-				g, err = GetDefaultNetworkUserGroup(models.NetworkID(gwNode.Network))
+				groupID = GetDefaultNetworkUserGroupID(models.NetworkID(gwNode.Network))
 			} else {
-				g, err = GetDefaultNetworkAdminGroup(models.NetworkID(gwNode.Network))
+				groupID = GetDefaultNetworkAdminGroupID(models.NetworkID(gwNode.Network))
 			}
 			if err != nil {
 				continue
 			}
-			user.UserGroups[g.ID] = struct{}{}
+			user.UserGroups[groupID] = struct{}{}
 		}
 	}
 	if len(user.NetworkRoles) > 0 {
 		for netID, netRoles := range user.NetworkRoles {
-			var g models.UserGroup
+			var groupID models.UserGroupID
 			adminAccess := false
 			for netRoleID := range netRoles {
 				permTemplate, err := logic.GetRole(netRoleID)
@@ -79,18 +82,15 @@ func MigrateUserRoleAndGroups(user models.User) {
 			}
 
 			if user.PlatformRoleID == models.ServiceUser {
-				g, err = GetDefaultNetworkUserGroup(netID)
+				groupID = GetDefaultNetworkUserGroupID(netID)
 			} else {
 				if adminAccess {
-					g, err = GetDefaultNetworkAdminGroup(netID)
+					groupID = GetDefaultNetworkAdminGroupID(netID)
 				} else {
-					g, err = GetDefaultNetworkUserGroup(netID)
+					groupID = GetDefaultNetworkUserGroupID(netID)
 				}
 			}
-			if err != nil {
-				continue
-			}
-			user.UserGroups[g.ID] = struct{}{}
+			user.UserGroups[groupID] = struct{}{}
 			user.NetworkRoles = make(map[models.NetworkID]map[models.UserRoleID]struct{})
 		}
 
