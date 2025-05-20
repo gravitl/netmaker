@@ -46,14 +46,12 @@ func getTags(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	fmt.Println("hereee 1")
 	tags, err := logic.ListTagsWithNodes(models.NetworkID(netID))
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get all network tag entries: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	fmt.Println("hereee N")
 	logic.SortTagEntrys(tags[:])
 	logic.ReturnSuccessResponseWithJson(w, r, tags, "fetched all tags in the network "+netID)
 }

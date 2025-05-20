@@ -857,9 +857,7 @@ func GetTagMapWithNodes() (tagNodesMap map[models.TagID][]models.Node) {
 func GetTagMapWithNodesByNetwork(netID models.NetworkID, withStaticNodes bool) (tagNodesMap map[models.TagID][]models.Node) {
 	tagNodesMap = make(map[models.TagID][]models.Node)
 	nodes, _ := GetNetworkNodes(netID.String())
-	fmt.Println("hereee 2.1")
 	for _, nodeI := range nodes {
-		fmt.Println("checking node ", nodeI.ID.String())
 		tagNodesMap[models.TagID(nodeI.ID.String())] = []models.Node{
 			nodeI,
 		}
@@ -878,14 +876,11 @@ func GetTagMapWithNodesByNetwork(netID models.NetworkID, withStaticNodes bool) (
 		if nodeI.Mutex != nil {
 			nodeI.Mutex.Unlock()
 		}
-		fmt.Println("checked node ", nodeI.ID.String())
 	}
-	fmt.Println("hereee 2.2")
 	tagNodesMap["*"] = nodes
 	if !withStaticNodes {
 		return
 	}
-	fmt.Println("hereee 2.3")
 	return AddTagMapWithStaticNodes(netID, tagNodesMap)
 }
 

@@ -93,9 +93,7 @@ func ListTagsWithNodes(netID models.NetworkID) ([]models.TagListResp, error) {
 	if err != nil {
 		return []models.TagListResp{}, err
 	}
-	fmt.Println("hereee 2")
 	tagsNodeMap := GetTagMapWithNodesByNetwork(netID, true)
-	fmt.Println("hereee 3")
 	resp := []models.TagListResp{}
 	for _, tagI := range tags {
 		tagRespI := models.TagListResp{
@@ -105,7 +103,6 @@ func ListTagsWithNodes(netID models.NetworkID) ([]models.TagListResp, error) {
 		}
 		resp = append(resp, tagRespI)
 	}
-	fmt.Println("hereee 4")
 	return resp, nil
 }
 func DeleteAllNetworkTags(networkID models.NetworkID) {
