@@ -107,7 +107,7 @@ type KeyUpdate struct {
 // FwUpdate - struct for firewall updates
 type FwUpdate struct {
 	AllowAll        bool                   `json:"allow_all"`
-	AllowedNetworks []net.IPNet            `json:"networks"`
+	AllowedNetworks []AclRule              `json:"networks"`
 	IsEgressGw      bool                   `json:"is_egress_gw"`
 	IsIngressGw     bool                   `json:"is_ingress_gw"`
 	EgressInfo      map[string]EgressInfo  `json:"egress_info"`

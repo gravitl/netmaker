@@ -72,8 +72,8 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 	for nodeID, metric := range req.Nodes {
 		e.Nodes[nodeID] = metric
 	}
-	if !logic.ValidateEgressReq(&e) {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid egress request"), "badrequest"))
+	if err := logic.ValidateEgressReq(&e); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	err = e.Create(db.WithContext(r.Context()))
@@ -101,6 +101,14 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		NetworkID: models.NetworkID(e.Network),
 		Origin:    models.Dashboard,
 	})
+	// for nodeID := range e.Nodes {
+	// 	node, err := logic.GetNodeByID(nodeID)
+	// 	if err != nil {
+	// 		logic.AddEgressInfoToNode(&node, e)
+	// 		logic.UpsertNode(&node)
+	// 	}
+
+	// }
 	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, e, "created egress resource")
 }
@@ -170,7 +178,6 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
 	var updateNat bool
 	var updateInetGw bool
 	var updateStatus bool
@@ -210,9 +217,12 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	e.Range = egressRange
 	e.Description = req.Description
 	e.Name = req.Name
+	e.Nat = req.Nat
+	e.Status = req.Status
+	e.IsInetGw = req.IsInetGw
 	e.UpdatedAt = time.Now().UTC()
-	if !logic.ValidateEgressReq(&e) {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid egress request"), "badrequest"))
+	if err := logic.ValidateEgressReq(&e); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	err = e.Update(db.WithContext(context.TODO()))
@@ -280,6 +290,21 @@ func deleteEgress(w http.ResponseWriter, r *http.Request) {
 		NetworkID: models.NetworkID(e.Network),
 		Origin:    models.Dashboard,
 	})
+	// delete related acl policies
+	acls := logic.ListAcls()
+	for _, acl := range acls {
+
+		for i := len(acl.Dst) - 1; i >= 0; i-- {
+			if acl.Dst[i].ID == models.EgressID && acl.Dst[i].Value == id {
+				acl.Dst = append(acl.Dst[:i], acl.Dst[i+1:]...)
+			}
+		}
+		if len(acl.Dst) == 0 {
+			logic.DeleteAcl(acl)
+		} else {
+			logic.UpsertAcl(acl)
+		}
+	}
 	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted egress resource")
 }

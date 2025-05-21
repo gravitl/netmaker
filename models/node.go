@@ -109,7 +109,7 @@ type Node struct {
 	DefaultACL        string              `json:"defaultacl,omitempty"    bson:"defaultacl,omitempty"    yaml:"defaultacl,omitempty"    validate:"checkyesornoorunset"`
 	OwnerID           string              `json:"ownerid,omitempty"       bson:"ownerid,omitempty"       yaml:"ownerid,omitempty"`
 	IsFailOver        bool                `json:"is_fail_over"                                           yaml:"is_fail_over"`
-	FailOverPeers     map[string]struct{} `json:"fail_over_peers"                                        yaml:"fail_over_peers"`
+	FailOverPeers     map[string]struct{} `json:"fail_over_peers"                                       yaml:"fail_over_peers"`
 	FailedOverBy      uuid.UUID           `json:"failed_over_by"                                         yaml:"failed_over_by"`
 	IsInternetGateway bool                `json:"isinternetgateway"                                      yaml:"isinternetgateway"`
 	InetNodeReq       InetNodeReq         `json:"inet_node_req"                                          yaml:"inet_node_req"`
@@ -121,6 +121,16 @@ type Node struct {
 	StaticNode        ExtClient           `json:"static_node"`
 	Status            NodeStatus          `json:"node_status"`
 	Mutex             *sync.Mutex         `json:"-"`
+	EgressDetails     EgressDetails       `json:"-"`
+}
+type EgressDetails struct {
+	EgressGatewayNatEnabled bool
+	EgressGatewayRequest    EgressGatewayRequest
+	IsEgressGateway         bool
+	EgressGatewayRanges     []string
+	IsInternetGateway       bool        `json:"isinternetgateway"                                      yaml:"isinternetgateway"`
+	InetNodeReq             InetNodeReq `json:"inet_node_req"                                          yaml:"inet_node_req"`
+	InternetGwID            string      `json:"internetgw_node_id"                                     yaml:"internetgw_node_id"`
 }
 
 // LegacyNode - legacy struct for node model
@@ -442,14 +452,8 @@ func (newNode *Node) Fill(
 	if newNode.Network == "" {
 		newNode.Network = currentNode.Network
 	}
-	if newNode.IsEgressGateway != currentNode.IsEgressGateway {
-		newNode.IsEgressGateway = currentNode.IsEgressGateway
-	}
 	if newNode.IsIngressGateway != currentNode.IsIngressGateway {
 		newNode.IsIngressGateway = currentNode.IsIngressGateway
-	}
-	if newNode.EgressGatewayRanges == nil {
-		newNode.EgressGatewayRanges = currentNode.EgressGatewayRanges
 	}
 	if newNode.IngressGatewayRange == "" {
 		newNode.IngressGatewayRange = currentNode.IngressGatewayRange
@@ -567,7 +571,6 @@ func (ln *LegacyNode) ConvertToNewNode() (*Host, *Node) {
 		}
 	}
 	node.Action = ln.Action
-	node.IsEgressGateway = parseBool(ln.IsEgressGateway)
 	node.IsIngressGateway = parseBool(ln.IsIngressGateway)
 	node.DNSOn = parseBool(ln.DNSOn)
 
@@ -601,7 +604,6 @@ func (n *Node) Legacy(h *Host, s *ServerConfig, net *Network) *LegacyNode {
 	//l.IsRelay = formatBool(n.IsRelay)
 	//l.IsDocker = formatBool(n.IsDocker)
 	//l.IsK8S = formatBool(n.IsK8S)
-	l.IsEgressGateway = formatBool(n.IsEgressGateway)
 	l.IsIngressGateway = formatBool(n.IsIngressGateway)
 	//l.EgressGatewayRanges = n.EgressGatewayRanges
 	//l.EgressGatewayNatEnabled = n.EgressGatewayNatEnabled

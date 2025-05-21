@@ -24,7 +24,7 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 	if inetHost.FirewallInUse == models.FIREWALL_NONE {
 		return errors.New("iptables or nftables needs to be installed")
 	}
-	if inetNode.InternetGwID != "" {
+	if inetNode.EgressDetails.InternetGwID != "" {
 		return fmt.Errorf("node %s is using a internet gateway already", inetHost.Name)
 	}
 	if inetNode.IsRelayed {
@@ -36,22 +36,28 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 		if err != nil {
 			return err
 		}
+		if clientNode.IsFailOver {
+			return errors.New("failover node cannot be set to use internet gateway")
+		}
 		clientHost, err := logic.GetHost(clientNode.HostID.String())
 		if err != nil {
 			return err
 		}
+		if clientHost.IsDefault {
+			return errors.New("default host cannot be set to use internet gateway")
+		}
 		if clientHost.OS != models.OS_Types.Linux && clientHost.OS != models.OS_Types.Windows {
 			return errors.New("can only attach linux or windows machine to a internet gateway")
 		}
-		if clientNode.IsInternetGateway {
+		if clientNode.EgressDetails.IsInternetGateway {
 			return fmt.Errorf("node %s acting as internet gateway cannot use another internet gateway", clientHost.Name)
 		}
 		if update {
-			if clientNode.InternetGwID != "" && clientNode.InternetGwID != inetNode.ID.String() {
+			if clientNode.EgressDetails.InternetGwID != "" && clientNode.EgressDetails.InternetGwID != inetNode.ID.String() {
 				return fmt.Errorf("node %s is already using a internet gateway", clientHost.Name)
 			}
 		} else {
-			if clientNode.InternetGwID != "" {
+			if clientNode.EgressDetails.InternetGwID != "" {
 				return fmt.Errorf("node %s is already using a internet gateway", clientHost.Name)
 			}
 		}
@@ -68,7 +74,7 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 			if err != nil {
 				continue
 			}
-			if node.InternetGwID != "" && node.InternetGwID != inetNode.ID.String() {
+			if node.EgressDetails.InternetGwID != "" && node.EgressDetails.InternetGwID != inetNode.ID.String() {
 				return errors.New("nodes on same host cannot use different internet gateway")
 			}
 
@@ -79,14 +85,14 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 
 // SetInternetGw - sets the node as internet gw based on flag bool
 func SetInternetGw(node *models.Node, req models.InetNodeReq) {
-	node.IsInternetGateway = true
-	node.InetNodeReq = req
+	node.EgressDetails.IsInternetGateway = true
+	node.EgressDetails.InetNodeReq = req
 	for _, clientNodeID := range req.InetNodeClientIDs {
 		clientNode, err := logic.GetNodeByID(clientNodeID)
 		if err != nil {
 			continue
 		}
-		clientNode.InternetGwID = node.ID.String()
+		clientNode.EgressDetails.InternetGwID = node.ID.String()
 		logic.UpsertNode(&clientNode)
 	}
 
@@ -99,19 +105,19 @@ func UnsetInternetGw(node *models.Node) {
 		return
 	}
 	for _, clientNode := range nodes {
-		if node.ID.String() == clientNode.InternetGwID {
-			clientNode.InternetGwID = ""
+		if node.ID.String() == clientNode.EgressDetails.InternetGwID {
+			clientNode.EgressDetails.InternetGwID = ""
 			logic.UpsertNode(&clientNode)
 		}
 
 	}
-	node.IsInternetGateway = false
-	node.InetNodeReq = models.InetNodeReq{}
+	node.EgressDetails.IsInternetGateway = false
+	node.EgressDetails.InetNodeReq = models.InetNodeReq{}
 
 }
 
 func SetDefaultGwForRelayedUpdate(relayed, relay models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
-	if relay.InternetGwID != "" {
+	if relay.EgressDetails.InternetGwID != "" {
 		relayedHost, err := logic.GetHost(relayed.HostID.String())
 		if err != nil {
 			return peerUpdate
@@ -127,9 +133,9 @@ func SetDefaultGwForRelayedUpdate(relayed, relay models.Node, peerUpdate models.
 }
 
 func SetDefaultGw(node models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
-	if node.InternetGwID != "" {
+	if node.EgressDetails.InternetGwID != "" {
 
-		inetNode, err := logic.GetNodeByID(node.InternetGwID)
+		inetNode, err := logic.GetNodeByID(node.EgressDetails.InternetGwID)
 		if err != nil {
 			return peerUpdate
 		}

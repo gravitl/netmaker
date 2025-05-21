@@ -74,13 +74,19 @@ func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 	if err != nil {
 		return []string{}, err
 	}
+	// clientNode := client.ConvertToStaticNode()
 	for _, currentNode := range networkNodes {
 		if currentNode.Network != client.Network {
 			continue
 		}
-		if currentNode.IsEgressGateway { // add the egress gateway range(s) to the result
-			if len(currentNode.EgressGatewayRanges) > 0 {
-				result = append(result, currentNode.EgressGatewayRanges...)
+		GetNodeEgressInfo(&currentNode)
+		if currentNode.EgressDetails.IsInternetGateway && client.IngressGatewayID != currentNode.ID.String() {
+			continue
+		}
+		if currentNode.EgressDetails.IsEgressGateway { // add the egress gateway range(s) to the result
+			fmt.Println("EGRESSS EXTCLEINT: ", currentNode.EgressDetails)
+			if len(currentNode.EgressDetails.EgressGatewayRanges) > 0 {
+				result = append(result, currentNode.EgressDetails.EgressGatewayRanges...)
 			}
 		}
 	}
