@@ -1,8 +1,9 @@
-package controllers
+package controller
 
 import (
 	"encoding/json"
 	"errors"
+
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -10,7 +11,6 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
-	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -70,16 +70,16 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	err = proLogic.ValidateInetGwReq(node, request, false)
+	err = logic.ValidateInetGwReq(node, request, false)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	proLogic.SetInternetGw(&node, request)
+	logic.SetInternetGw(&node, request)
 	if servercfg.IsPro {
-		if _, exists := proLogic.FailOverExists(node.Network); exists {
+		if _, exists := logic.FailOverExists(node.Network); exists {
 			go func() {
-				proLogic.ResetFailedOverPeer(&node)
+				logic.ResetFailedOverPeer(&node)
 				mq.PublishPeerUpdate(false)
 			}()
 		}
@@ -140,13 +140,13 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	err = proLogic.ValidateInetGwReq(node, request, true)
+	err = logic.ValidateInetGwReq(node, request, true)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	proLogic.UnsetInternetGw(&node)
-	proLogic.SetInternetGw(&node, request)
+	logic.UnsetInternetGw(&node)
+	logic.SetInternetGw(&node, request)
 	err = logic.UpsertNode(&node)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -185,7 +185,7 @@ func deleteInternetGw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	proLogic.UnsetInternetGw(&node)
+	logic.UnsetInternetGw(&node)
 	err = logic.UpsertNode(&node)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
