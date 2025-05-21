@@ -34,6 +34,7 @@ func InitPro() {
 		proControllers.FailOverHandlers,
 		proControllers.InetHandlers,
 		proControllers.RacHandlers,
+		proControllers.EventHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
@@ -94,6 +95,7 @@ func InitPro() {
 		proLogic.InitFailOverCache()
 		auth.StartSyncHook()
 		email.Init()
+		proLogic.EventWatcher()
 	})
 	logic.ResetFailOver = proLogic.ResetFailOver
 	logic.ResetFailedOverPeer = proLogic.ResetFailedOverPeer
@@ -111,6 +113,7 @@ func InitPro() {
 	logic.DeleteMetrics = proLogic.DeleteMetrics
 	logic.GetTrialEndDate = getTrialEndDate
 	logic.SetDefaultGw = proLogic.SetDefaultGw
+	logic.ValidateInetGwReq = proLogic.ValidateInetGwReq
 	logic.SetDefaultGwForRelayedUpdate = proLogic.SetDefaultGwForRelayedUpdate
 	logic.UnsetInternetGw = proLogic.UnsetInternetGw
 	logic.SetInternetGw = proLogic.SetInternetGw
@@ -142,6 +145,7 @@ func InitPro() {
 	logic.ResetAuthProvider = auth.ResetAuthProvider
 	logic.ResetIDPSyncHook = auth.ResetIDPSyncHook
 	logic.EmailInit = email.Init
+	logic.LogEvent = proLogic.LogEvent
 }
 
 func retrieveProLogo() string {

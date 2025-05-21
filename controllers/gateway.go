@@ -39,6 +39,11 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	host, err := logic.GetHost(node.HostID.String())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	var req models.CreateGwReq
 	err = json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
@@ -89,7 +94,21 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 	)
 	logic.GetNodeStatus(&relayNode, false)
 	apiNode := relayNode.ConvertToAPINode()
-
+	logic.LogEvent(&models.Event{
+		Action: models.Create,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   node.ID.String(),
+			Name: host.Name,
+			Type: models.GatewaySub,
+		},
+		Origin: models.Dashboard,
+	})
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
 	go func() {
@@ -136,6 +155,11 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get node", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	host, err := logic.GetHost(node.HostID.String())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	node.IsGw = false
@@ -200,7 +224,21 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 		}
 
 	}()
-
+	logic.LogEvent(&models.Event{
+		Action: models.Delete,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   node.ID.String(),
+			Name: host.Name,
+			Type: models.GatewaySub,
+		},
+		Origin: models.Dashboard,
+	})
 	logic.GetNodeStatus(&node, false)
 	apiNode := node.ConvertToAPINode()
 	logger.Log(1, r.Header.Get("user"), "deleted ingress gateway", nodeid)

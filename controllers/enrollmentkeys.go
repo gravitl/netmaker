@@ -72,12 +72,32 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 func deleteEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	keyID := params["keyID"]
-	err := logic.DeleteEnrollmentKey(keyID, false)
+	key, err := logic.GetEnrollmentKey(keyID)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	err = logic.DeleteEnrollmentKey(keyID, false)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to remove enrollment key: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Delete,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   keyID,
+			Name: key.Tags[0],
+			Type: models.EnrollmentKeySub,
+		},
+		Origin: models.Dashboard,
+	})
 	logger.Log(2, r.Header.Get("user"), "deleted enrollment key", keyID)
 	w.WriteHeader(http.StatusOK)
 }
@@ -173,6 +193,21 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Create,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   newEnrollmentKey.Value,
+			Name: newEnrollmentKey.Tags[0],
+			Type: models.EnrollmentKeySub,
+		},
+		Origin: models.Dashboard,
+	})
 	logger.Log(2, r.Header.Get("user"), "created enrollment key")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newEnrollmentKey)
@@ -208,6 +243,7 @@ func updateEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	currKey, _ := logic.GetEnrollmentKey(keyId)
 
 	newEnrollmentKey, err := logic.UpdateEnrollmentKey(keyId, relayId, enrollmentKeyBody.Groups)
 	if err != nil {
@@ -221,7 +257,25 @@ func updateEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-
+	logic.LogEvent(&models.Event{
+		Action: models.Update,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   newEnrollmentKey.Value,
+			Name: newEnrollmentKey.Tags[0],
+			Type: models.EnrollmentKeySub,
+		},
+		Diff: models.Diff{
+			Old: currKey,
+			New: newEnrollmentKey,
+		},
+		Origin: models.Dashboard,
+	})
 	slog.Info("updated enrollment key", "id", keyId)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newEnrollmentKey)
@@ -302,7 +356,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	if !hostExists {
 		newHost.PersistentKeepalive = models.DefaultPersistentKeepAlive
 		// register host
-		logic.CheckHostPorts(&newHost)
+		_ = logic.CheckHostPorts(&newHost)
 		// create EMQX credentials and ACLs for host
 		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 			if err := mq.GetEmqxHandler().CreateEmqxUser(newHost.ID.String(), newHost.HostPass); err != nil {
@@ -355,6 +409,25 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		ServerConf:    server,
 		RequestedHost: newHost,
 	}
+	for _, netID := range enrollmentKey.Networks {
+		logic.LogEvent(&models.Event{
+			Action: models.JoinHostToNet,
+			Source: models.Subject{
+				ID:   enrollmentKey.Value,
+				Name: enrollmentKey.Tags[0],
+				Type: models.EnrollmentKeySub,
+			},
+			TriggeredBy: r.Header.Get("user"),
+			Target: models.Subject{
+				ID:   newHost.ID.String(),
+				Name: newHost.Name,
+				Type: models.DeviceSub,
+			},
+			NetworkID: models.NetworkID(netID),
+			Origin:    models.Dashboard,
+		})
+	}
+
 	logger.Log(0, newHost.Name, newHost.ID.String(), "registered with Netmaker")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&response)

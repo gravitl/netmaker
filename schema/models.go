@@ -4,6 +4,8 @@ package schema
 func ListModels() []interface{} {
 	return []interface{}{
 		&Job{},
+		&Egress{},
 		&UserAccessToken{},
+		&Event{},
 	}
 }

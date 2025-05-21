@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -8,14 +9,27 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
 // IsInternetGw - checks if node is acting as internet gw
 func IsInternetGw(node models.Node) bool {
-	return node.IsInternetGateway
+	e := schema.Egress{
+		Network: node.Network,
+	}
+	egList, _ := e.ListByNetwork(db.WithContext(context.TODO()))
+	for _, egI := range egList {
+		if egI.IsInetGw {
+			if _, ok := egI.Nodes[node.ID.String()]; ok {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // GetInternetGateways - gets all the nodes that are internet gateways
@@ -26,7 +40,7 @@ func GetInternetGateways() ([]models.Node, error) {
 	}
 	igs := make([]models.Node, 0)
 	for _, node := range nodes {
-		if node.IsInternetGateway {
+		if node.EgressDetails.IsInternetGateway {
 			igs = append(igs, node)
 		}
 	}
@@ -56,7 +70,7 @@ func GetAllEgresses() ([]models.Node, error) {
 	}
 	egresses := make([]models.Node, 0)
 	for _, node := range nodes {
-		if node.IsEgressGateway {
+		if node.EgressDetails.IsEgressGateway {
 			egresses = append(egresses, node)
 		}
 	}
@@ -133,11 +147,11 @@ func CreateEgressGateway(gateway models.EgressGatewayRequest) (models.Node, erro
 	if gateway.Ranges == nil {
 		gateway.Ranges = make([]string, 0)
 	}
-	node.IsEgressGateway = true
-	node.EgressGatewayRanges = gateway.Ranges
-	node.EgressGatewayNatEnabled = models.ParseBool(gateway.NatEnabled)
+	node.EgressDetails.IsEgressGateway = true
+	node.EgressDetails.EgressGatewayRanges = gateway.Ranges
+	node.EgressDetails.EgressGatewayNatEnabled = models.ParseBool(gateway.NatEnabled)
 
-	node.EgressGatewayRequest = gateway // store entire request for use when preserving the egress gateway
+	node.EgressDetails.EgressGatewayRequest = gateway // store entire request for use when preserving the egress gateway
 	node.SetLastModified()
 	if err = UpsertNode(&node); err != nil {
 		return models.Node{}, err
@@ -156,9 +170,9 @@ func DeleteEgressGateway(network, nodeid string) (models.Node, error) {
 	if err != nil {
 		return models.Node{}, err
 	}
-	node.IsEgressGateway = false
-	node.EgressGatewayRanges = []string{}
-	node.EgressGatewayRequest = models.EgressGatewayRequest{} // remove preserved request as the egress gateway is gone
+	node.EgressDetails.IsEgressGateway = false
+	node.EgressDetails.EgressGatewayRanges = []string{}
+	node.EgressDetails.EgressGatewayRequest = models.EgressGatewayRequest{} // remove preserved request as the egress gateway is gone
 	node.SetLastModified()
 	if err = UpsertNode(&node); err != nil {
 		return models.Node{}, err
@@ -191,12 +205,12 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	node.IsIngressGateway = true
 	node.IsGw = true
 	if !servercfg.IsPro {
-		node.IsInternetGateway = ingress.IsInternetGateway
+		node.EgressDetails.IsInternetGateway = ingress.IsInternetGateway
 	}
 	node.IngressGatewayRange = network.AddressRange
 	node.IngressGatewayRange6 = network.AddressRange6
 	node.IngressDNS = ingress.ExtclientDNS
-	if node.IsInternetGateway && node.IngressDNS == "" {
+	if node.EgressDetails.IsInternetGateway && node.IngressDNS == "" {
 		node.IngressDNS = "1.1.1.1"
 	}
 	node.IngressPersistentKeepalive = 20
@@ -267,10 +281,10 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 		return models.Node{}, removedClients, err
 	}
 	logger.Log(3, "deleting ingress gateway")
-	node.LastModified = time.Now()
+	node.LastModified = time.Now().UTC()
 	node.IsIngressGateway = false
 	if !servercfg.IsPro {
-		node.IsInternetGateway = false
+		node.EgressDetails.IsInternetGateway = false
 	}
 	delete(node.Tags, models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName)))
 	node.IngressGatewayRange = ""
