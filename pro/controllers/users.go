@@ -210,6 +210,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, inviteeEmail := range inviteReq.UserEmails {
+		inviteeEmail = strings.ToLower(inviteeEmail)
 		// check if user with email exists, then ignore
 		if !email.IsValid(inviteeEmail) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid email "+inviteeEmail), "badrequest"))

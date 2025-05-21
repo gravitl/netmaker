@@ -81,7 +81,8 @@ func sendTelemetry() error {
 			Set("pro_trial_end_date", d.ProTrialEndDate.In(time.UTC).Format("2006-01-02")).
 			Set("admin_email", adminEmail).
 			Set("email", adminEmail). // needed for posthog intgration with hubspot. "admin_email" can only be removed if not used in posthog
-			Set("is_saas_tenant", d.IsSaasTenant),
+			Set("is_saas_tenant", d.IsSaasTenant).
+			Set("domain", d.Domain),
 	})
 }
 
@@ -105,6 +106,7 @@ func FetchTelemetryData() telemetryData {
 		data.IsProTrial = true
 	}
 	data.IsSaasTenant = servercfg.DeployedByOperator()
+	data.Domain = servercfg.GetNmBaseDomain()
 	return data
 }
 
@@ -202,6 +204,7 @@ type telemetryData struct {
 	IsProTrial      bool
 	ProTrialEndDate time.Time
 	IsSaasTenant    bool
+	Domain          string
 }
 
 // clientCount - What types of netclients we're tallying
