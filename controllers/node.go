@@ -178,7 +178,7 @@ func Authorize(
 			// check if host instead of user
 			if hostAllowed {
 				// TODO --- should ensure that node is only operating on itself
-				if hostID, _, _, err := logic.VerifyHostToken(authToken); err == nil {
+				if hostID, macAddr, _, err := logic.VerifyHostToken(authToken); err == nil && macAddr != "" {
 					r.Header.Set(hostIDHeader, hostID)
 					// this indicates request is from a node
 					// used for failover - if a getNode comes from node, this will trigger a metrics wipe
@@ -650,7 +650,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	_, err = logic.GetHost(newNode.HostID.String())
+	host, err := logic.GetHost(newNode.HostID.String())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get host for node  [ %s ] info: %v", nodeid, err))
@@ -682,6 +682,25 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		"on network",
 		currentNode.Network,
 	)
+	logic.LogEvent(&models.Event{
+		Action: models.Update,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   newNode.ID.String(),
+			Name: host.Name,
+			Type: models.NodeSub,
+		},
+		Diff: models.Diff{
+			Old: currentNode,
+			New: newNode,
+		},
+		Origin: models.Dashboard,
+	})
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
 	go func(aclUpdate, relayupdate bool, newNode *models.Node) {

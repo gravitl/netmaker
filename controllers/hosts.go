@@ -294,7 +294,25 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}()
-
+	logic.LogEvent(&models.Event{
+		Action: models.Update,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   currHost.ID.String(),
+			Name: newHost.Name,
+			Type: models.DeviceSub,
+		},
+		Diff: models.Diff{
+			Old: currHost,
+			New: newHost,
+		},
+		Origin: models.Dashboard,
+	})
 	apiHostData := newHost.ConvertNMHostToAPI()
 	logger.Log(2, r.Header.Get("user"), "updated host", newHost.ID.String())
 	w.WriteHeader(http.StatusOK)
@@ -420,7 +438,21 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-
+	logic.LogEvent(&models.Event{
+		Action: models.Delete,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   currHost.ID.String(),
+			Name: currHost.Name,
+			Type: models.DeviceSub,
+		},
+		Origin: models.Dashboard,
+	})
 	apiHostData := currHost.ConvertNMHostToAPI()
 	logger.Log(2, r.Header.Get("user"), "removed host", currHost.Name)
 	w.WriteHeader(http.StatusOK)
@@ -492,6 +524,22 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		r.Header.Get("user"),
 		fmt.Sprintf("added host %s to network %s", currHost.Name, network),
 	)
+	logic.LogEvent(&models.Event{
+		Action: models.JoinHostToNet,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   currHost.ID.String(),
+			Name: currHost.Name,
+			Type: models.DeviceSub,
+		},
+		NetworkID: models.NetworkID(network),
+		Origin:    models.Dashboard,
+	})
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -623,6 +671,22 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 			logic.SetDNS()
 		}
 	}()
+	logic.LogEvent(&models.Event{
+		Action: models.RemoveHostFromNet,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   currHost.ID.String(),
+			Name: currHost.Name,
+			Type: models.DeviceSub,
+		},
+		NetworkID: models.NetworkID(network),
+		Origin:    models.Dashboard,
+	})
 	logger.Log(
 		2,
 		r.Header.Get("user"),
@@ -937,7 +1001,21 @@ func syncHost(w http.ResponseWriter, r *http.Request) {
 			slog.Error("failed to send host pull request", "host", host.ID.String(), "error", err)
 		}
 	}()
-
+	logic.LogEvent(&models.Event{
+		Action: models.Sync,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   host.ID.String(),
+			Name: host.Name,
+			Type: models.DeviceSub,
+		},
+		Origin: models.Dashboard,
+	})
 	slog.Info("requested host pull", "user", r.Header.Get("user"), "host", host.ID.String())
 	w.WriteHeader(http.StatusOK)
 }

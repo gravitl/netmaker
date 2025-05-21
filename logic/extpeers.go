@@ -125,6 +125,25 @@ func DeleteExtClient(network string, clientid string) error {
 		}
 		deleteExtClientFromCache(key)
 	}
+	if extClient.RemoteAccessClientID != "" {
+		LogEvent(&models.Event{
+			Action: models.Disconnect,
+			Source: models.Subject{
+				ID:   extClient.OwnerID,
+				Name: extClient.OwnerID,
+				Type: models.UserSub,
+			},
+			TriggeredBy: extClient.OwnerID,
+			Target: models.Subject{
+				ID:   extClient.Network,
+				Name: extClient.Network,
+				Type: models.NetworkSub,
+				Info: extClient,
+			},
+			NetworkID: models.NetworkID(extClient.Network),
+			Origin:    models.ClientApp,
+		})
+	}
 	go RemoveNodeFromAclPolicy(extClient.ConvertToStaticNode())
 	return nil
 }

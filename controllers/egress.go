@@ -85,6 +85,22 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Create,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   e.ID,
+			Name: e.Name,
+			Type: models.EgressSub,
+		},
+		NetworkID: models.NetworkID(e.Network),
+		Origin:    models.Dashboard,
+	})
 	// for nodeID := range e.Nodes {
 	// 	node, err := logic.GetNodeByID(nodeID)
 	// 	if err != nil {
@@ -174,6 +190,25 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	if req.Status != e.Status {
 		updateStatus = true
 	}
+	event := &models.Event{
+		Action: models.Update,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   e.ID,
+			Name: e.Name,
+			Type: models.EgressSub,
+		},
+		Diff: models.Diff{
+			Old: e,
+		},
+		NetworkID: models.NetworkID(e.Network),
+		Origin:    models.Dashboard,
+	}
 	e.Nodes = make(datatypes.JSONMap)
 	e.Tags = make(datatypes.JSONMap)
 	for nodeID, metric := range req.Nodes {
@@ -211,6 +246,8 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		e.Status = req.Status
 		e.UpdateEgressStatus(db.WithContext(context.TODO()))
 	}
+	event.Diff.New = e
+	logic.LogEvent(event)
 	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, e, "updated egress resource")
 }
@@ -237,6 +274,22 @@ func deleteEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Delete,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   e.ID,
+			Name: e.Name,
+			Type: models.EgressSub,
+		},
+		NetworkID: models.NetworkID(e.Network),
+		Origin:    models.Dashboard,
+	})
 	// delete related acl policies
 	acls := logic.ListAcls()
 	for _, acl := range acls {

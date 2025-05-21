@@ -43,6 +43,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(createUserAccessToken))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(getUserAccessTokens))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/access_token", logic.SecurityCheck(true, http.HandlerFunc(deleteUserAccessTokens))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/users/logout", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(logout)))).Methods(http.MethodPost)
 }
 
 // @Summary     Authenticate a user to retrieve an authorization token
@@ -64,25 +65,25 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, "error decoding request body: ",
 			err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
 	if req.Name == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("name is required"), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("name is required"), logic.BadReq))
 		return
 	}
 	if req.UserName == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), logic.BadReq))
 		return
 	}
 	caller, err := logic.GetUser(r.Header.Get("user"))
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.UnAuthorized))
 		return
 	}
 	user, err := logic.GetUser(req.UserName)
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.UnAuthorized))
 		return
 	}
 	if caller.UserName != user.UserName && caller.PlatformRoleID != models.SuperAdminRole {
@@ -106,7 +107,7 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(
 			w,
 			r,
-			logic.FormatError(errors.New("error creating access token "+err.Error()), "internal"),
+			logic.FormatError(errors.New("error creating access token "+err.Error()), logic.Internal),
 		)
 		return
 	}
@@ -115,10 +116,26 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(
 			w,
 			r,
-			logic.FormatError(errors.New("error creating access token "+err.Error()), "internal"),
+			logic.FormatError(errors.New("error creating access token "+err.Error()), logic.Internal),
 		)
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Create,
+		Source: models.Subject{
+			ID:   caller.UserName,
+			Name: caller.UserName,
+			Type: models.UserSub,
+		},
+		TriggeredBy: caller.UserName,
+		Target: models.Subject{
+			ID:   req.ID,
+			Name: req.Name,
+			Type: models.UserAccessTokenSub,
+			Info: req,
+		},
+		Origin: models.Dashboard,
+	})
 	logic.ReturnSuccessResponseWithJson(w, r, models.SuccessfulUserLoginResponse{
 		AuthToken: jwt,
 		UserName:  req.UserName,
@@ -197,6 +214,22 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Delete,
+		Source: models.Subject{
+			ID:   caller.UserName,
+			Name: caller.UserName,
+			Type: models.UserSub,
+		},
+		TriggeredBy: caller.UserName,
+		Target: models.Subject{
+			ID:   a.ID,
+			Name: a.Name,
+			Type: models.UserAccessTokenSub,
+			Info: a,
+		},
+		Origin: models.Dashboard,
+	})
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "revoked access token")
 }
 
@@ -258,6 +291,38 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
 			return
 		}
+		// log user activity
+		logic.LogEvent(&models.Event{
+			Action: models.Login,
+			Source: models.Subject{
+				ID:   user.UserName,
+				Name: user.UserName,
+				Type: models.UserSub,
+			},
+			TriggeredBy: user.UserName,
+			Target: models.Subject{
+				ID:   models.DashboardSub.String(),
+				Name: models.DashboardSub.String(),
+				Type: models.DashboardSub,
+			},
+			Origin: models.Dashboard,
+		})
+	} else {
+		logic.LogEvent(&models.Event{
+			Action: models.Login,
+			Source: models.Subject{
+				ID:   user.UserName,
+				Name: user.UserName,
+				Type: models.UserSub,
+			},
+			TriggeredBy: user.UserName,
+			Target: models.Subject{
+				ID:   models.ClientAppSub.String(),
+				Name: models.ClientAppSub.String(),
+				Type: models.ClientAppSub,
+			},
+			Origin: models.ClientApp,
+		})
 	}
 
 	username := authRequest.UserName
@@ -614,6 +679,21 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Create,
+		Source: models.Subject{
+			ID:   caller.UserName,
+			Name: caller.UserName,
+			Type: models.UserSub,
+		},
+		TriggeredBy: caller.UserName,
+		Target: models.Subject{
+			ID:   user.UserName,
+			Name: user.UserName,
+			Type: models.UserSub,
+		},
+		Origin: models.Dashboard,
+	})
 	logic.DeleteUserInvite(user.UserName)
 	logic.DeletePendingUser(user.UserName)
 	go mq.PublishPeerUpdate(false)
@@ -752,6 +832,25 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	if userchange.PlatformRoleID != user.PlatformRoleID || !logic.CompareMaps(user.UserGroups, userchange.UserGroups) {
 		(&schema.UserAccessToken{UserName: user.UserName}).DeleteAllUserTokens(r.Context())
 	}
+	e := models.Event{
+		Action: models.Update,
+		Source: models.Subject{
+			ID:   caller.UserName,
+			Name: caller.UserName,
+			Type: models.UserSub,
+		},
+		TriggeredBy: caller.UserName,
+		Target: models.Subject{
+			ID:   user.UserName,
+			Name: user.UserName,
+			Type: models.UserSub,
+		},
+		Diff: models.Diff{
+			Old: user,
+			New: userchange,
+		},
+		Origin: models.Dashboard,
+	}
 	user, err = logic.UpdateUser(&userchange, user)
 	if err != nil {
 		logger.Log(0, username,
@@ -759,6 +858,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	logic.LogEvent(&e)
 	go mq.PublishPeerUpdate(false)
 	logger.Log(1, username, "was updated")
 	json.NewEncoder(w).Encode(logic.ToReturnUser(*user))
@@ -837,6 +937,21 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Delete,
+		Source: models.Subject{
+			ID:   caller.UserName,
+			Name: caller.UserName,
+			Type: models.UserSub,
+		},
+		TriggeredBy: caller.UserName,
+		Target: models.Subject{
+			ID:   user.UserName,
+			Name: user.UserName,
+			Type: models.UserSub,
+		},
+		Origin: models.Dashboard,
+	})
 	// check and delete extclient with this ownerID
 	go func() {
 		extclients, err := logic.GetAllExtClients()
@@ -901,4 +1016,51 @@ func listRoles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logic.ReturnSuccessResponseWithJson(w, r, roles, "successfully fetched user roles permission templates")
+}
+
+// swagger:route POST /api/v1/user/logout user logout
+//
+// LogOut user.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: userBodyResponse
+func logout(w http.ResponseWriter, r *http.Request) {
+	// set header.
+	w.Header().Set("Content-Type", "application/json")
+	userName := r.URL.Query().Get("username")
+	user, err := logic.GetUser(userName)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+	var target models.SubjectType
+	if val := r.Header.Get("From-Ui"); val == "true" {
+		target = models.DashboardSub
+	} else {
+		target = models.ClientAppSub
+	}
+	if target != "" {
+		logic.LogEvent(&models.Event{
+			Action: models.LogOut,
+			Source: models.Subject{
+				ID:   user.UserName,
+				Name: user.UserName,
+				Type: models.UserSub,
+			},
+			TriggeredBy: user.UserName,
+			Target: models.Subject{
+				ID:   target.String(),
+				Name: target.String(),
+				Type: target,
+			},
+			Origin: models.Origin(target),
+		})
+	}
+
+	logic.ReturnSuccessResponse(w, r, "user logged out")
 }

@@ -83,6 +83,18 @@ func FromContext(ctx context.Context) *gorm.DB {
 	return db
 }
 
+func SetPagination(ctx context.Context, page, pageSize int) context.Context {
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 10
+	}
+	db := FromContext(ctx)
+	offset := (page - 1) * pageSize
+	return context.WithValue(ctx, dbCtxKey, db.Offset(offset).Limit(pageSize))
+}
+
 // BeginTx returns a context with a new transaction.
 // If the context already has a db connection instance,
 // it uses that instance. Otherwise, it uses the
