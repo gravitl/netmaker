@@ -1,7 +1,9 @@
 package logic
 
 import (
+	"encoding/json"
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/database"
 
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -20,11 +22,30 @@ func MigrateGroups() {
 			continue
 		}
 
-		newGroupID := models.UserGroupID(uuid.NewString())
-		groupMapping[group.ID] = newGroupID
+		_, err := uuid.Parse(string(group.ID))
+		if err == nil {
+			// group id is already an uuid, so no need to update
+			continue
+		}
 
-		group.ID = newGroupID
-		UpdateUserGroup(group)
+		oldGroupID := group.ID
+		group.ID = models.UserGroupID(uuid.NewString())
+		groupMapping[oldGroupID] = group.ID
+
+		groupBytes, err := json.Marshal(group)
+		if err != nil {
+			continue
+		}
+
+		err = database.Insert(group.ID.String(), string(groupBytes), database.USER_GROUPS_TABLE_NAME)
+		if err != nil {
+			continue
+		}
+
+		err = database.DeleteRecord(database.USER_GROUPS_TABLE_NAME, oldGroupID.String())
+		if err != nil {
+			continue
+		}
 	}
 
 	users, err := logic.GetUsersDB()
@@ -35,8 +56,12 @@ func MigrateGroups() {
 	for _, user := range users {
 		userGroups := make(map[models.UserGroupID]struct{})
 		for groupID := range user.UserGroups {
-			newGroupID := groupMapping[groupID]
-			userGroups[newGroupID] = struct{}{}
+			newGroupID, ok := groupMapping[groupID]
+			if !ok {
+				userGroups[groupID] = struct{}{}
+			} else {
+				userGroups[newGroupID] = struct{}{}
+			}
 		}
 
 		user.UserGroups = userGroups
