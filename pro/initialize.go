@@ -93,6 +93,7 @@ func InitPro() {
 		}
 		proLogic.LoadNodeMetricsToCache()
 		proLogic.InitFailOverCache()
+		auth.StartSyncHook()
 		email.Init()
 		proLogic.EventWatcher()
 	})
@@ -135,12 +136,14 @@ func InitPro() {
 	logic.UpdateUserGwAccess = proLogic.UpdateUserGwAccess
 	logic.CreateDefaultUserPolicies = proLogic.CreateDefaultUserPolicies
 	logic.MigrateUserRoleAndGroups = proLogic.MigrateUserRoleAndGroups
+	logic.MigrateGroups = proLogic.MigrateGroups
 	logic.IntialiseGroups = proLogic.UserGroupsInit
 	logic.AddGlobalNetRolesToAdmins = proLogic.AddGlobalNetRolesToAdmins
 	logic.GetUserGroupsInNetwork = proLogic.GetUserGroupsInNetwork
 	logic.GetUserGroup = proLogic.GetUserGroup
 	logic.GetNodeStatus = proLogic.GetNodeStatus
-	logic.InitializeAuthProvider = auth.InitializeAuthProvider
+	logic.ResetAuthProvider = auth.ResetAuthProvider
+	logic.ResetIDPSyncHook = auth.ResetIDPSyncHook
 	logic.EmailInit = email.Init
 	logic.LogEvent = proLogic.LogEvent
 }

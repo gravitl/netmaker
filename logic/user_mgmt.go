@@ -50,6 +50,8 @@ var MigrateUserRoleAndGroups = func(u models.User) {
 
 }
 
+var MigrateGroups = func() {}
+
 var UpdateUserGwAccess = func(currentUser, changeUser models.User) {}
 
 var UpdateRole = func(r models.UserRolePermissionTemplate) error { return nil }

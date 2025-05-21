@@ -297,9 +297,10 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 func reInit(curr, new models.ServerSettings, force bool) {
 	logic.SettingsMutex.Lock()
 	defer logic.SettingsMutex.Unlock()
-	logic.InitializeAuthProvider()
+	logic.ResetAuthProvider()
 	logic.EmailInit()
 	logic.SetVerbosity(int(logic.GetServerSettings().Verbosity))
+	logic.ResetIDPSyncHook()
 	// check if auto update is changed
 	if force {
 		if curr.NetclientAutoUpdate != new.NetclientAutoUpdate {

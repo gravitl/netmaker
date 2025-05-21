@@ -15,7 +15,13 @@ type ServerSettings struct {
 	OIDCIssuer                 string `json:"oidcissuer"`
 	ClientID                   string `json:"client_id"`
 	ClientSecret               string `json:"client_secret"`
+	SyncEnabled                bool     `json:"sync_enabled"`
+	GoogleAdminEmail           string   `json:"google_admin_email"`
+	GoogleSACredsJson          string   `json:"google_sa_creds_json"`
 	AzureTenant                string `json:"azure_tenant"`
+	UserFilters                []string `json:"user_filters"`
+	GroupFilters               []string `json:"group_filters"`
+	IDPSyncInterval            string   `json:"idp_sync_interval"`
 	Telemetry                  string `json:"telemetry"`
 	BasicAuth                  bool   `json:"basic_auth"`
 	JwtValidityDuration        int    `json:"jwt_validity_duration"`

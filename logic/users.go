@@ -41,13 +41,15 @@ func GetReturnUser(username string) (models.ReturnUser, error) {
 // ToReturnUser - gets a user as a return user
 func ToReturnUser(user models.User) models.ReturnUser {
 	return models.ReturnUser{
-		UserName:       user.UserName,
-		PlatformRoleID: user.PlatformRoleID,
-		AuthType:       user.AuthType,
-		UserGroups:     user.UserGroups,
-		NetworkRoles:   user.NetworkRoles,
-		RemoteGwIDs:    user.RemoteGwIDs,
-		LastLoginTime:  user.LastLoginTime,
+		UserName:        user.UserName,
+		DisplayName:     user.DisplayName,
+		AccountDisabled: user.AccountDisabled,
+		AuthType:        user.AuthType,
+		RemoteGwIDs:     user.RemoteGwIDs,
+		UserGroups:      user.UserGroups,
+		PlatformRoleID:  user.PlatformRoleID,
+		NetworkRoles:    user.NetworkRoles,
+		LastLoginTime:   user.LastLoginTime,
 	}
 }
 
@@ -78,7 +80,7 @@ func GetSuperAdmin() (models.ReturnUser, error) {
 		return models.ReturnUser{}, err
 	}
 	for _, user := range users {
-		if user.IsSuperAdmin {
+		if user.IsSuperAdmin || user.PlatformRoleID == models.SuperAdminRole {
 			return user, nil
 		}
 	}
@@ -113,7 +115,7 @@ func IsPendingUser(username string) bool {
 	return false
 }
 
-func ListPendingUsers() ([]models.ReturnUser, error) {
+func ListPendingReturnUsers() ([]models.ReturnUser, error) {
 	pendingUsers := []models.ReturnUser{}
 	records, err := database.FetchRecords(database.PENDING_USERS_TABLE_NAME)
 	if err != nil && !database.IsEmptyRecord(err) {
@@ -121,6 +123,22 @@ func ListPendingUsers() ([]models.ReturnUser, error) {
 	}
 	for _, record := range records {
 		u := models.ReturnUser{}
+		err = json.Unmarshal([]byte(record), &u)
+		if err == nil {
+			pendingUsers = append(pendingUsers, u)
+		}
+	}
+	return pendingUsers, nil
+}
+
+func ListPendingUsers() ([]models.User, error) {
+	var pendingUsers []models.User
+	records, err := database.FetchRecords(database.PENDING_USERS_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return pendingUsers, err
+	}
+	for _, record := range records {
+		var u models.User
 		err = json.Unmarshal([]byte(record), &u)
 		if err == nil {
 			pendingUsers = append(pendingUsers, u)

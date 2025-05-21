@@ -37,6 +37,8 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceUsers, http.HandlerFunc(createUser)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, http.HandlerFunc(deleteUser))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUser)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/users/{username}/enable", logic.SecurityCheck(true, http.HandlerFunc(enableUserAccount))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}/disable", logic.SecurityCheck(true, http.HandlerFunc(disableUserAccount))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserV1)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users", logic.SecurityCheck(true, http.HandlerFunc(getUsers))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/roles", logic.SecurityCheck(true, http.HandlerFunc(ListRoles))).Methods(http.MethodGet)
@@ -270,6 +272,13 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("user is registered via SSO"), "badrequest"))
 		return
 	}
+
+	if user.AccountDisabled {
+		err = errors.New("user account disabled")
+		logic.ReturnErrorResponse(response, request, logic.FormatError(err, "unauthorized"))
+		return
+	}
+
 	if !user.IsSuperAdmin && !logic.IsBasicAuthEnabled() {
 		logic.ReturnErrorResponse(
 			response,
@@ -444,6 +453,65 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Log(2, r.Header.Get("user"), "fetched user", usernameFetched)
 	json.NewEncoder(w).Encode(user)
+}
+
+// @Summary     Enable a user's account
+// @Router      /api/users/{username}/enable [post]
+// @Tags        Users
+// @Param       username path string true "Username of the user to enable"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func enableUserAccount(w http.ResponseWriter, r *http.Request) {
+	username := mux.Vars(r)["username"]
+	user, err := logic.GetUser(username)
+	if err != nil {
+		logger.Log(0, "failed to fetch user: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	user.AccountDisabled = false
+	err = logic.UpsertUser(*user)
+	if err != nil {
+		logger.Log(0, "failed to enable user account: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+	}
+
+	logic.ReturnSuccessResponse(w, r, "user account enabled")
+}
+
+// @Summary     Disable a user's account
+// @Router      /api/users/{username}/disable [post]
+// @Tags        Users
+// @Param       username path string true "Username of the user to disable"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func disableUserAccount(w http.ResponseWriter, r *http.Request) {
+	username := mux.Vars(r)["username"]
+	user, err := logic.GetUser(username)
+	if err != nil {
+		logger.Log(0, "failed to fetch user: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	if user.PlatformRoleID == models.SuperAdminRole {
+		err = errors.New("cannot disable super-admin user account")
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	user.AccountDisabled = true
+	err = logic.UpsertUser(*user)
+	if err != nil {
+		logger.Log(0, "failed to disable user account: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+	}
+
+	logic.ReturnSuccessResponse(w, r, "user account disabled")
 }
 
 // swagger:route GET /api/v1/users user getUserV1

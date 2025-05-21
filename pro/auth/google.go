@@ -105,7 +105,9 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				err = logic.InsertPendingUser(&models.User{
-					UserName: content.Email,
+					UserName:                   content.Email,
+					ExternalIdentityProviderID: content.ID,
+					AuthType:                   models.OAuth,
 				})
 				if err != nil {
 					handleSomethingWentWrong(w)
@@ -133,6 +135,11 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, "error fetching user: ", err.Error())
 		handleOauthUserNotFound(w)
+		return
+	}
+
+	if user.AccountDisabled {
+		handleUserAccountDisabled(w)
 		return
 	}
 

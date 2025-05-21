@@ -163,9 +163,11 @@ func GetUserNameFromToken(authtoken string) (username string, err error) {
 // VerifyUserToken func will used to Verify the JWT Token while using APIS
 func VerifyUserToken(tokenString string) (username string, issuperadmin, isadmin bool, err error) {
 	claims := &models.UserClaims{}
+
 	if tokenString == servercfg.GetMasterKey() && servercfg.GetMasterKey() != "" {
 		return MasterUser, true, true, nil
 	}
+
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		return jwtSecretKey, nil
 	})

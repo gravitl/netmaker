@@ -8,15 +8,16 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
+
 	"github.com/go-playground/validator/v10"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
 
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/schema"
 )
 
 const (
@@ -31,7 +32,8 @@ func ClearSuperUserCache() {
 	superUser = models.User{}
 }
 
-var InitializeAuthProvider = func() string { return "" }
+var ResetAuthProvider = func() {}
+var ResetIDPSyncHook = func() {}
 
 // HasSuperAdmin - checks if server has an superadmin/owner
 func HasSuperAdmin() (bool, error) {
@@ -303,11 +305,55 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 	if err := IsNetworkRolesValid(userchange.NetworkRoles); err != nil {
 		return userchange, errors.New("invalid network roles: " + err.Error())
 	}
+
+	if userchange.DisplayName != "" {
+		if user.ExternalIdentityProviderID != "" &&
+			user.DisplayName != userchange.DisplayName {
+			return userchange, errors.New("display name cannot be updated for external user")
+		}
+
+		user.DisplayName = userchange.DisplayName
+	}
+
+	if user.ExternalIdentityProviderID != "" &&
+		userchange.AccountDisabled != user.AccountDisabled {
+		return userchange, errors.New("account status cannot be updated for external user")
+	}
+
 	// Reset Gw Access for service users
 	go UpdateUserGwAccess(*user, *userchange)
 	if userchange.PlatformRoleID != "" {
 		user.PlatformRoleID = userchange.PlatformRoleID
 	}
+
+	for groupID := range userchange.UserGroups {
+		_, ok := user.UserGroups[groupID]
+		if !ok {
+			group, err := GetUserGroup(groupID)
+			if err != nil {
+				return userchange, err
+			}
+
+			if group.ExternalIdentityProviderID != "" {
+				return userchange, errors.New("cannot modify membership of external groups")
+			}
+		}
+	}
+
+	for groupID := range user.UserGroups {
+		_, ok := userchange.UserGroups[groupID]
+		if !ok {
+			group, err := GetUserGroup(groupID)
+			if err != nil {
+				return userchange, err
+			}
+
+			if group.ExternalIdentityProviderID != "" {
+				return userchange, errors.New("cannot modify membership of external groups")
+			}
+		}
+	}
+
 	user.UserGroups = userchange.UserGroups
 	user.NetworkRoles = userchange.NetworkRoles
 	AddGlobalNetRolesToAdmins(user)
