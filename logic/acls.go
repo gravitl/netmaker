@@ -1894,18 +1894,6 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 		}
 		srcTags := convAclTagToValueMap(acl.Src)
 		dstTags := convAclTagToValueMap(acl.Dst)
-		for _, dst := range acl.Dst {
-			if dst.ID == models.EgressID {
-				e := schema.Egress{ID: dst.Value}
-				err := e.Get(db.WithContext(context.TODO()))
-				if err == nil {
-					for nodeID := range e.Nodes {
-						dstTags[nodeID] = struct{}{}
-					}
-					dstTags[e.Range] = struct{}{}
-				}
-			}
-		}
 		_, srcAll := srcTags["*"]
 		_, dstAll := dstTags["*"]
 		aclRule := models.AclRule{
