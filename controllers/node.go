@@ -516,7 +516,7 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 	}
 	gateway.NetID = params["network"]
 	gateway.NodeID = params["nodeid"]
-	err = logic.ValidateEgressRange(gateway)
+	err = logic.ValidateEgressRange(gateway.NetID, gateway.Ranges)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error validating egress range: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -637,13 +637,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			logic.FormatError(fmt.Errorf("error converting node"), "badrequest"),
 		)
 		return
-	}
-	if newNode.IsInternetGateway != currentNode.IsInternetGateway {
-		if newNode.IsInternetGateway {
-			logic.SetInternetGw(newNode, models.InetNodeReq{})
-		} else {
-			logic.UnsetInternetGw(newNode)
-		}
 	}
 	relayUpdate := logic.RelayUpdates(&currentNode, newNode)
 	if relayUpdate && newNode.IsRelay {

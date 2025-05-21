@@ -89,7 +89,7 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 		Network:   req.Network,
 		CreatedBy: user.UserName,
 		ColorCode: req.ColorCode,
-		CreatedAt: time.Now(),
+		CreatedAt: time.Now().UTC(),
 	}
 	_, err = logic.GetTag(tag.ID)
 	if err == nil {

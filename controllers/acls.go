@@ -51,7 +51,7 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 		DstGroupTypes: []models.AclGroupType{
 			models.NodeTagID,
 			models.NodeID,
-			models.EgressRange,
+			models.EgressID,
 			// models.NetmakerIPAclID,
 			// models.NetmakerSubNetRangeAClID,
 		},
@@ -171,6 +171,7 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 		IsPeerAllowed bool
 		Policies      []models.Acl
 		IngressRules  []models.FwRule
+		NodeAllPolicy bool
 	}
 
 	allowed, ps := logic.IsNodeAllowedToCommunicateV1(node, peer, true)
@@ -253,8 +254,8 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 		acl.Proto = models.ALL
 	}
 	// validate create acl policy
-	if !logic.IsAclPolicyValid(acl) {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid policy"), "badrequest"))
+	if err := logic.IsAclPolicyValid(acl); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	err = logic.InsertAcl(acl)
@@ -292,8 +293,8 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if !logic.IsAclPolicyValid(updateAcl.Acl) {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid policy"), "badrequest"))
+	if err := logic.IsAclPolicyValid(updateAcl.Acl); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	if updateAcl.Acl.NetworkID != acl.NetworkID {

@@ -114,13 +114,14 @@ func ValidateRelay(relay models.RelayRequest, update bool) error {
 		if err != nil {
 			return err
 		}
+		GetNodeEgressInfo(&relayedNode)
 		if relayedNode.IsIngressGateway {
 			return errors.New("cannot relay an ingress gateway (" + relayedNodeID + ")")
 		}
-		if relayedNode.IsInternetGateway {
+		if relayedNode.EgressDetails.IsInternetGateway {
 			return errors.New("cannot relay an internet gateway (" + relayedNodeID + ")")
 		}
-		if relayedNode.InternetGwID != "" && relayedNode.InternetGwID != relay.NodeID {
+		if relayedNode.EgressDetails.InternetGwID != "" && relayedNode.EgressDetails.InternetGwID != relay.NodeID {
 			return errors.New("cannot relay an internet client (" + relayedNodeID + ")")
 		}
 		if relayedNode.IsFailOver {
@@ -193,8 +194,9 @@ func RelayedAllowedIPs(peer, node *models.Node) []net.IPNet {
 		if err != nil {
 			continue
 		}
+		GetNodeEgressInfo(&relayedNode)
 		allowed := getRelayedAddresses(relayedNodeID)
-		if relayedNode.IsEgressGateway {
+		if relayedNode.EgressDetails.IsEgressGateway {
 			allowed = append(allowed, GetEgressIPs(&relayedNode)...)
 		}
 		allowedIPs = append(allowedIPs, allowed...)
@@ -208,7 +210,7 @@ func GetAllowedIpsForRelayed(relayed, relay *models.Node) (allowedIPs []net.IPNe
 		logger.Log(0, "RelayedByRelay called with invalid parameters")
 		return
 	}
-	if relay.InternetGwID != "" {
+	if relay.EgressDetails.InternetGwID != "" {
 		return GetAllowedIpForInetNodeClient(relayed, relay)
 	}
 	peers, err := GetNetworkNodes(relay.Network)

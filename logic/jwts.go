@@ -135,7 +135,7 @@ func GetUserNameFromToken(authtoken string) (username string, err error) {
 				err = errors.New("token revoked")
 				return "", err
 			}
-			a.LastUsed = time.Now()
+			a.LastUsed = time.Now().UTC()
 			a.Update(db.WithContext(context.TODO()))
 		}
 	}
@@ -179,7 +179,7 @@ func VerifyUserToken(tokenString string) (username string, issuperadmin, isadmin
 				err = errors.New("token revoked")
 				return "", false, false, err
 			}
-			a.LastUsed = time.Now()
+			a.LastUsed = time.Now().UTC()
 			a.Update(db.WithContext(context.TODO()))
 		}
 	}
