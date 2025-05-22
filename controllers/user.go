@@ -832,6 +832,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	if userchange.PlatformRoleID != user.PlatformRoleID || !logic.CompareMaps(user.UserGroups, userchange.UserGroups) {
 		(&schema.UserAccessToken{UserName: user.UserName}).DeleteAllUserTokens(r.Context())
 	}
+	oldUser := *user
 	e := models.Event{
 		Action: models.Update,
 		Source: models.Subject{
@@ -846,7 +847,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			Type: models.UserSub,
 		},
 		Diff: models.Diff{
-			Old: user,
+			Old: oldUser,
 			New: userchange,
 		},
 		Origin: models.Dashboard,
