@@ -269,9 +269,14 @@ func deleteEgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	e := schema.Egress{ID: id}
-	err := e.Delete(db.WithContext(r.Context()))
+	err := e.Get(db.WithContext(r.Context()))
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+	err = e.Delete(db.WithContext(r.Context()))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
 	logic.LogEvent(&models.Event{
