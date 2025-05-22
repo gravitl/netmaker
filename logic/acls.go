@@ -1636,7 +1636,6 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 	} else {
 		taggedNodes = GetTagMapWithNodesByNetwork(models.NetworkID(targetnode.Network), true)
 	}
-	fmt.Printf("TAGGED NODES: %+v\n", taggedNodes)
 	acls := listDevicePolicies(models.NetworkID(targetnode.Network))
 	var targetNodeTags = make(map[models.TagID]struct{})
 	if targetnode.Mutex != nil {
