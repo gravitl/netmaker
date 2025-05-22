@@ -363,6 +363,21 @@ func deleteAllUserInvites(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to delete all pending user invites "+err.Error()), "internal"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.DeleteAll,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   "All Invites",
+			Name: "All Invites",
+			Type: models.UserInviteSub,
+		},
+		Origin: models.Dashboard,
+	})
 	logic.ReturnSuccessResponse(w, r, "cleared all pending user invites")
 }
 
