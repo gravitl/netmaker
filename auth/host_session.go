@@ -3,6 +3,8 @@ package auth
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,7 +16,6 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
-	"golang.org/x/exp/slog"
 )
 
 // SessionHandler - called by the HTTP router when user
@@ -242,37 +243,40 @@ func CheckNetRegAndHostUpdate(networks []string, h *models.Host, relayNodeId uui
 		network := networks[i]
 		if ok, _ := logic.NetworkExists(network); ok {
 			newNode, err := logic.UpdateHostNetwork(h, network, true)
-			if err != nil {
+			if err == nil || strings.Contains(err.Error(), "host already part of network") {
+				if len(tags) > 0 {
+					newNode.Tags = make(map[models.TagID]struct{})
+					for _, tagI := range tags {
+						newNode.Tags[tagI] = struct{}{}
+					}
+					logic.UpsertNode(newNode)
+				}
+				if relayNodeId != uuid.Nil && !newNode.IsRelayed {
+					// check if relay node exists and acting as relay
+					relaynode, err := logic.GetNodeByID(relayNodeId.String())
+					if err == nil && relaynode.IsGw && relaynode.Network == newNode.Network {
+						slog.Error(fmt.Sprintf("adding relayed node %s to relay %s on network %s", newNode.ID.String(), relayNodeId.String(), network))
+						newNode.IsRelayed = true
+						newNode.RelayedBy = relayNodeId.String()
+						updatedRelayNode := relaynode
+						updatedRelayNode.RelayedNodes = append(updatedRelayNode.RelayedNodes, newNode.ID.String())
+						logic.UpdateRelayed(&relaynode, &updatedRelayNode)
+						if err := logic.UpsertNode(&updatedRelayNode); err != nil {
+							slog.Error("failed to update node", "nodeid", relayNodeId.String())
+						}
+						if err := logic.UpsertNode(newNode); err != nil {
+							slog.Error("failed to update node", "nodeid", relayNodeId.String())
+						}
+					} else {
+						slog.Error("failed to relay node. maybe specified relay node is actually not a relay? Or the relayed node is not in the same network with relay?", "err", err)
+					}
+				}
+				if strings.Contains(err.Error(), "host already part of network") {
+					continue
+				}
+			} else {
 				logger.Log(0, "failed to add host to network:", h.ID.String(), h.Name, network, err.Error())
 				continue
-			}
-			if len(tags) > 0 {
-				newNode.Tags = make(map[models.TagID]struct{})
-				for _, tagI := range tags {
-					newNode.Tags[tagI] = struct{}{}
-				}
-				logic.UpsertNode(newNode)
-			}
-
-			if relayNodeId != uuid.Nil && !newNode.IsRelayed {
-				// check if relay node exists and acting as relay
-				relaynode, err := logic.GetNodeByID(relayNodeId.String())
-				if err == nil && relaynode.IsRelay && relaynode.Network == newNode.Network {
-					slog.Info(fmt.Sprintf("adding relayed node %s to relay %s on network %s", newNode.ID.String(), relayNodeId.String(), network))
-					newNode.IsRelayed = true
-					newNode.RelayedBy = relayNodeId.String()
-					updatedRelayNode := relaynode
-					updatedRelayNode.RelayedNodes = append(updatedRelayNode.RelayedNodes, newNode.ID.String())
-					logic.UpdateRelayed(&relaynode, &updatedRelayNode)
-					if err := logic.UpsertNode(&updatedRelayNode); err != nil {
-						slog.Error("failed to update node", "nodeid", relayNodeId.String())
-					}
-					if err := logic.UpsertNode(newNode); err != nil {
-						slog.Error("failed to update node", "nodeid", relayNodeId.String())
-					}
-				} else {
-					slog.Error("failed to relay node. maybe specified relay node is actually not a relay? Or the relayed node is not in the same network with relay?", "err", err)
-				}
 			}
 			logger.Log(1, "added new node", newNode.ID.String(), "to host", h.Name)
 			hostactions.AddAction(models.HostUpdate{

@@ -325,14 +325,14 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// need to revise the list of networks from key
 		// based on the ones host currently has
-		networksToAdd := []string{}
-		currentNets := logic.GetHostNetworks(newHost.ID.String())
-		for _, newNet := range enrollmentKey.Networks {
-			if !logic.StringSliceContains(currentNets, newNet) {
-				networksToAdd = append(networksToAdd, newNet)
-			}
-		}
-		enrollmentKey.Networks = networksToAdd
+		// networksToAdd := []string{}
+		// currentNets := logic.GetHostNetworks(newHost.ID.String())
+		// for _, newNet := range enrollmentKey.Networks {
+		// 	if !logic.StringSliceContains(currentNets, newNet) {
+		// 		networksToAdd = append(networksToAdd, newNet)
+		// 	}
+		// }
+		// enrollmentKey.Networks = networksToAdd
 		currHost, err := logic.GetHost(newHost.ID.String())
 		if err != nil {
 			slog.Error("failed registration", "hostID", newHost.ID.String(), "hostName", newHost.Name, "error", err.Error())
