@@ -1,7 +1,9 @@
 package logic
 
 import (
+	"encoding/json"
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/database"
 
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -16,11 +18,34 @@ func MigrateGroups() {
 	groupMapping := make(map[models.UserGroupID]models.UserGroupID)
 
 	for _, group := range groups {
-		newGroupID := models.UserGroupID(uuid.NewString())
-		groupMapping[group.ID] = newGroupID
+		if group.Default {
+			continue
+		}
 
-		group.ID = newGroupID
-		UpdateUserGroup(group)
+		_, err := uuid.Parse(string(group.ID))
+		if err == nil {
+			// group id is already an uuid, so no need to update
+			continue
+		}
+
+		oldGroupID := group.ID
+		group.ID = models.UserGroupID(uuid.NewString())
+		groupMapping[oldGroupID] = group.ID
+
+		groupBytes, err := json.Marshal(group)
+		if err != nil {
+			continue
+		}
+
+		err = database.Insert(group.ID.String(), string(groupBytes), database.USER_GROUPS_TABLE_NAME)
+		if err != nil {
+			continue
+		}
+
+		err = database.DeleteRecord(database.USER_GROUPS_TABLE_NAME, oldGroupID.String())
+		if err != nil {
+			continue
+		}
 	}
 
 	users, err := logic.GetUsersDB()
@@ -31,8 +56,12 @@ func MigrateGroups() {
 	for _, user := range users {
 		userGroups := make(map[models.UserGroupID]struct{})
 		for groupID := range user.UserGroups {
-			newGroupID := groupMapping[groupID]
-			userGroups[newGroupID] = struct{}{}
+			newGroupID, ok := groupMapping[groupID]
+			if !ok {
+				userGroups[groupID] = struct{}{}
+			} else {
+				userGroups[newGroupID] = struct{}{}
+			}
 		}
 
 		user.UserGroups = userGroups
@@ -41,7 +70,6 @@ func MigrateGroups() {
 }
 
 func MigrateUserRoleAndGroups(user models.User) {
-	var err error
 	if user.PlatformRoleID == models.AdminRole || user.PlatformRoleID == models.SuperAdminRole {
 		return
 	}
@@ -53,21 +81,21 @@ func MigrateUserRoleAndGroups(user models.User) {
 			if err != nil {
 				continue
 			}
-			var g models.UserGroup
+			var groupID models.UserGroupID
 			if user.PlatformRoleID == models.ServiceUser {
-				g, err = GetDefaultNetworkUserGroup(models.NetworkID(gwNode.Network))
+				groupID = GetDefaultNetworkUserGroupID(models.NetworkID(gwNode.Network))
 			} else {
-				g, err = GetDefaultNetworkAdminGroup(models.NetworkID(gwNode.Network))
+				groupID = GetDefaultNetworkAdminGroupID(models.NetworkID(gwNode.Network))
 			}
 			if err != nil {
 				continue
 			}
-			user.UserGroups[g.ID] = struct{}{}
+			user.UserGroups[groupID] = struct{}{}
 		}
 	}
 	if len(user.NetworkRoles) > 0 {
 		for netID, netRoles := range user.NetworkRoles {
-			var g models.UserGroup
+			var groupID models.UserGroupID
 			adminAccess := false
 			for netRoleID := range netRoles {
 				permTemplate, err := logic.GetRole(netRoleID)
@@ -79,18 +107,15 @@ func MigrateUserRoleAndGroups(user models.User) {
 			}
 
 			if user.PlatformRoleID == models.ServiceUser {
-				g, err = GetDefaultNetworkUserGroup(netID)
+				groupID = GetDefaultNetworkUserGroupID(netID)
 			} else {
 				if adminAccess {
-					g, err = GetDefaultNetworkAdminGroup(netID)
+					groupID = GetDefaultNetworkAdminGroupID(netID)
 				} else {
-					g, err = GetDefaultNetworkUserGroup(netID)
+					groupID = GetDefaultNetworkUserGroupID(netID)
 				}
 			}
-			if err != nil {
-				continue
-			}
-			user.UserGroups[g.ID] = struct{}{}
+			user.UserGroups[groupID] = struct{}{}
 			user.NetworkRoles = make(map[models.NetworkID]map[models.UserRoleID]struct{})
 		}
 
