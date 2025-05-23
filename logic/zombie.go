@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 const (
@@ -135,6 +136,25 @@ func ManageZombies(ctx context.Context, peerUpdate chan *models.Node) {
 					}
 				}
 			}
+			if servercfg.IsAutoCleanUpEnabled() {
+				nodes, _ := GetAllNodes()
+				for _, node := range nodes {
+					if time.Since(node.LastCheckIn) > time.Minute*ZOMBIE_DELETE_TIME {
+						if err := DeleteNode(&node, true); err != nil {
+							continue
+						}
+						node.PendingDelete = true
+						node.Action = models.NODE_DELETE
+						peerUpdate <- &node
+						host, err := GetHost(node.HostID.String())
+						if err == nil && len(host.Nodes) == 0 {
+							RemoveHostByID(host.ID.String())
+						}
+
+					}
+				}
+			}
+
 		}
 	}
 }

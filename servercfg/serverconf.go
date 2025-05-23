@@ -894,3 +894,7 @@ func GetAllowedEmailDomains() string {
 func GetNmBaseDomain() string {
 	return os.Getenv("NM_DOMAIN")
 }
+
+func IsAutoCleanUpEnabled() bool {
+	return os.Getenv("AUTO_DELETE_OFFLINE_NODES") == "true"
+}
