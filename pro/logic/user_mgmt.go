@@ -1233,7 +1233,10 @@ func AddGlobalNetRolesToAdmins(u *models.User) {
 	if u.PlatformRoleID != models.SuperAdminRole && u.PlatformRoleID != models.AdminRole {
 		return
 	}
-	u.UserGroups = make(map[models.UserGroupID]struct{})
+
+	if len(u.UserGroups) == 0 {
+		u.UserGroups = make(map[models.UserGroupID]struct{})
+	}
 
 	u.UserGroups[globalNetworksAdminGroupID] = struct{}{}
 }
