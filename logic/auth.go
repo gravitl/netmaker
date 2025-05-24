@@ -28,6 +28,9 @@ func ClearSuperUserCache() {
 	superUser = models.User{}
 }
 
+var ResetAuthProvider = func() {}
+var ResetIDPSyncHook = func() {}
+
 // HasSuperAdmin - checks if server has an superadmin/owner
 func HasSuperAdmin() (bool, error) {
 
@@ -186,7 +189,7 @@ func CreateUser(user *models.User) error {
 		logger.Log(0, "failed to insert user", err.Error())
 		return err
 	}
-	AddGlobalNetRolesToAdmins(*user)
+	AddGlobalNetRolesToAdmins(user)
 	return nil
 }
 
@@ -298,14 +301,58 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 	if err := IsNetworkRolesValid(userchange.NetworkRoles); err != nil {
 		return userchange, errors.New("invalid network roles: " + err.Error())
 	}
+
+	if userchange.DisplayName != "" {
+		if user.ExternalIdentityProviderID != "" &&
+			user.DisplayName != userchange.DisplayName {
+			return userchange, errors.New("display name cannot be updated for external user")
+		}
+
+		user.DisplayName = userchange.DisplayName
+	}
+
+	if user.ExternalIdentityProviderID != "" &&
+		userchange.AccountDisabled != user.AccountDisabled {
+		return userchange, errors.New("account status cannot be updated for external user")
+	}
+
 	// Reset Gw Access for service users
 	go UpdateUserGwAccess(*user, *userchange)
 	if userchange.PlatformRoleID != "" {
 		user.PlatformRoleID = userchange.PlatformRoleID
 	}
+
+	for groupID := range userchange.UserGroups {
+		_, ok := user.UserGroups[groupID]
+		if !ok {
+			group, err := GetUserGroup(groupID)
+			if err != nil {
+				return userchange, err
+			}
+
+			if group.ExternalIdentityProviderID != "" {
+				return userchange, errors.New("cannot modify membership of external groups")
+			}
+		}
+	}
+
+	for groupID := range user.UserGroups {
+		_, ok := userchange.UserGroups[groupID]
+		if !ok {
+			group, err := GetUserGroup(groupID)
+			if err != nil {
+				return userchange, err
+			}
+
+			if group.ExternalIdentityProviderID != "" {
+				return userchange, errors.New("cannot modify membership of external groups")
+			}
+		}
+	}
+
 	user.UserGroups = userchange.UserGroups
 	user.NetworkRoles = userchange.NetworkRoles
-	AddGlobalNetRolesToAdmins(*user)
+	AddGlobalNetRolesToAdmins(user)
 	err := ValidateUser(user)
 	if err != nil {
 		return &models.User{}, err
@@ -349,19 +396,18 @@ func ValidateUser(user *models.User) error {
 }
 
 // DeleteUser - deletes a given user
-func DeleteUser(user string) (bool, error) {
+func DeleteUser(user string) error {
 
 	if userRecord, err := database.FetchRecord(database.USERS_TABLE_NAME, user); err != nil || len(userRecord) == 0 {
-		return false, errors.New("user does not exist")
+		return errors.New("user does not exist")
 	}
 
 	err := database.DeleteRecord(database.USERS_TABLE_NAME, user)
 	if err != nil {
-		return false, err
+		return err
 	}
 	go RemoveUserFromAclPolicy(user)
-
-	return true, nil
+	return nil
 }
 
 func SetAuthSecret(secret string) error {

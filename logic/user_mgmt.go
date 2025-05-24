@@ -50,6 +50,8 @@ var MigrateUserRoleAndGroups = func(u models.User) {
 
 }
 
+var MigrateGroups = func() {}
+
 var UpdateUserGwAccess = func(currentUser, changeUser models.User) {}
 
 var UpdateRole = func(r models.UserRolePermissionTemplate) error { return nil }
@@ -61,7 +63,8 @@ var CreateDefaultNetworkRolesAndGroups = func(netID models.NetworkID) {}
 var CreateDefaultUserPolicies = func(netID models.NetworkID) {}
 var GetUserGroupsInNetwork = func(netID models.NetworkID) (networkGrps map[models.UserGroupID]models.UserGroup) { return }
 var GetUserGroup = func(groupId models.UserGroupID) (userGrps models.UserGroup, err error) { return }
-var AddGlobalNetRolesToAdmins = func(u models.User) {}
+var AddGlobalNetRolesToAdmins = func(u *models.User) {}
+var EmailInit = func() {}
 
 // GetRole - fetches role template by id
 func GetRole(roleID models.UserRoleID) (models.UserRolePermissionTemplate, error) {
