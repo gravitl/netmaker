@@ -218,11 +218,11 @@ func syncGroups(idpGroups []idp.Group) error {
 
 		dbGroup, ok := dbGroupsMap[group.ID]
 		if !ok {
-			err := proLogic.CreateUserGroup(models.UserGroup{
-				ExternalIdentityProviderID: group.ID,
-				Default:                    false,
-				Name:                       group.Name,
-			})
+			dbGroup.ExternalIdentityProviderID = group.ID
+			dbGroup.Name = group.Name
+			dbGroup.Default = false
+			dbGroup.NetworkRoles = make(map[models.NetworkID]map[models.UserRoleID]struct{})
+			err := proLogic.CreateUserGroup(&dbGroup)
 			if err != nil {
 				return err
 			}
@@ -241,18 +241,18 @@ func syncGroups(idpGroups []idp.Group) error {
 
 		for _, user := range dbUsers {
 			// use dbGroup.Name because the group name may have been changed on idp.
-			_, inNetmakerGroup := user.UserGroups[models.UserGroupID(dbGroup.Name)]
+			_, inNetmakerGroup := user.UserGroups[dbGroup.ID]
 			_, inIDPGroup := groupMembersMap[user.ExternalIdentityProviderID]
 
 			if inNetmakerGroup && !inIDPGroup {
 				// use dbGroup.Name because the group name may have been changed on idp.
-				delete(dbUsersMap[user.ExternalIdentityProviderID].UserGroups, models.UserGroupID(dbGroup.Name))
+				delete(dbUsersMap[user.ExternalIdentityProviderID].UserGroups, dbGroup.ID)
 				modifiedUsers[user.ExternalIdentityProviderID] = struct{}{}
 			}
 
 			if !inNetmakerGroup && inIDPGroup {
 				// use dbGroup.Name because the group name may have been changed on idp.
-				dbUsersMap[user.ExternalIdentityProviderID].UserGroups[models.UserGroupID(dbGroup.Name)] = struct{}{}
+				dbUsersMap[user.ExternalIdentityProviderID].UserGroups[dbGroup.ID] = struct{}{}
 				modifiedUsers[user.ExternalIdentityProviderID] = struct{}{}
 			}
 		}
