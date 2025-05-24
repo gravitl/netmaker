@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/pro/auth"
 	proControllers "github.com/gravitl/netmaker/pro/controllers"
+	"github.com/gravitl/netmaker/pro/email"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
@@ -33,6 +34,7 @@ func InitPro() {
 		proControllers.FailOverHandlers,
 		proControllers.InetHandlers,
 		proControllers.RacHandlers,
+		proControllers.EventHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
@@ -79,7 +81,7 @@ func InitPro() {
 			addTrialLicenseHook()
 		}
 
-		if servercfg.GetServerConfig().RacAutoDisable {
+		if logic.GetRacAutoDisable() {
 			AddRacHooks()
 		}
 
@@ -91,6 +93,9 @@ func InitPro() {
 		}
 		proLogic.LoadNodeMetricsToCache()
 		proLogic.InitFailOverCache()
+		go auth.StartSyncHook()
+		email.Init()
+		go proLogic.EventWatcher()
 	})
 	logic.ResetFailOver = proLogic.ResetFailOver
 	logic.ResetFailedOverPeer = proLogic.ResetFailedOverPeer
@@ -108,6 +113,7 @@ func InitPro() {
 	logic.DeleteMetrics = proLogic.DeleteMetrics
 	logic.GetTrialEndDate = getTrialEndDate
 	logic.SetDefaultGw = proLogic.SetDefaultGw
+	logic.ValidateInetGwReq = proLogic.ValidateInetGwReq
 	logic.SetDefaultGwForRelayedUpdate = proLogic.SetDefaultGwForRelayedUpdate
 	logic.UnsetInternetGw = proLogic.UnsetInternetGw
 	logic.SetInternetGw = proLogic.SetInternetGw
@@ -130,11 +136,16 @@ func InitPro() {
 	logic.UpdateUserGwAccess = proLogic.UpdateUserGwAccess
 	logic.CreateDefaultUserPolicies = proLogic.CreateDefaultUserPolicies
 	logic.MigrateUserRoleAndGroups = proLogic.MigrateUserRoleAndGroups
+	logic.MigrateGroups = proLogic.MigrateGroups
 	logic.IntialiseGroups = proLogic.UserGroupsInit
 	logic.AddGlobalNetRolesToAdmins = proLogic.AddGlobalNetRolesToAdmins
 	logic.GetUserGroupsInNetwork = proLogic.GetUserGroupsInNetwork
 	logic.GetUserGroup = proLogic.GetUserGroup
 	logic.GetNodeStatus = proLogic.GetNodeStatus
+	logic.ResetAuthProvider = auth.ResetAuthProvider
+	logic.ResetIDPSyncHook = auth.ResetIDPSyncHook
+	logic.EmailInit = email.Init
+	logic.LogEvent = proLogic.LogEvent
 }
 
 func retrieveProLogo() string {

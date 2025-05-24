@@ -174,6 +174,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logic.GetNodeEgressInfo(&gwnode)
 	host, err := logic.GetHost(gwnode.HostID.String())
 	if err != nil {
 		logger.Log(
@@ -261,7 +262,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var newAllowedIPs string
-	if logic.IsInternetGw(gwnode) || gwnode.InternetGwID != "" {
+	if logic.IsInternetGw(gwnode) || gwnode.EgressDetails.InternetGwID != "" {
 		egressrange := "0.0.0.0/0"
 		if gwnode.Address6.IP != nil && client.Address6 != "" {
 			egressrange += "," + "::/0"
@@ -540,7 +541,7 @@ func getExtClientHAConf(w http.ResponseWriter, r *http.Request) {
 		keepalive = "PersistentKeepalive = " + strconv.Itoa(int(gwnode.IngressPersistentKeepalive))
 	}
 	var newAllowedIPs string
-	if logic.IsInternetGw(gwnode) || gwnode.InternetGwID != "" {
+	if logic.IsInternetGw(gwnode) || gwnode.EgressDetails.InternetGwID != "" {
 		egressrange := "0.0.0.0/0"
 		if gwnode.Address6.IP != nil && client.Address6 != "" {
 			egressrange += "," + "::/0"
@@ -688,7 +689,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	var gateway models.EgressGatewayRequest
 	gateway.NetID = params["network"]
 	gateway.Ranges = customExtClient.ExtraAllowedIPs
-	err := logic.ValidateEgressRange(gateway)
+	err := logic.ValidateEgressRange(gateway.NetID, gateway.Ranges)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error validating egress range: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -798,6 +799,27 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		"clientid",
 		extclient.ClientID,
 	)
+	if extclient.RemoteAccessClientID != "" {
+		// if created by user from client app, log event
+		logic.LogEvent(&models.Event{
+			Action: models.Connect,
+			Source: models.Subject{
+				ID:   userName,
+				Name: userName,
+				Type: models.UserSub,
+			},
+			TriggeredBy: userName,
+			Target: models.Subject{
+				ID:   extclient.Network,
+				Name: extclient.Network,
+				Type: models.NetworkSub,
+				Info: extclient,
+			},
+			NetworkID: models.NetworkID(extclient.Network),
+			Origin:    models.ClientApp,
+		})
+	}
+
 	w.WriteHeader(http.StatusOK)
 	go func() {
 		if err := logic.SetClientDefaultACLs(&extclient); err != nil {
@@ -876,7 +898,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	var gateway models.EgressGatewayRequest
 	gateway.NetID = params["network"]
 	gateway.Ranges = update.ExtraAllowedIPs
-	err = logic.ValidateEgressRange(gateway)
+	err = logic.ValidateEgressRange(gateway.NetID, gateway.Ranges)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error validating egress range: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))

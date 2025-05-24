@@ -164,7 +164,7 @@ func UpdateNodeCheckin(node *models.Node) error {
 	if err != nil {
 		return err
 	}
-
+	node.EgressDetails = models.EgressDetails{}
 	err = database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
 	if err != nil {
 		return err
@@ -183,6 +183,7 @@ func UpsertNode(newNode *models.Node) error {
 	if err != nil {
 		return err
 	}
+	newNode.EgressDetails = models.EgressDetails{}
 	err = database.Insert(newNode.ID.String(), string(data), database.NODES_TABLE_NAME)
 	if err != nil {
 		return err
@@ -218,7 +219,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 				return err
 			}
 		}
-
+		newNode.EgressDetails = models.EgressDetails{}
 		newNode.SetLastModified()
 		if data, err := json.Marshal(newNode); err != nil {
 			return err
@@ -280,21 +281,21 @@ func DeleteNode(node *models.Node, purge bool) error {
 		// unset all the relayed nodes
 		SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
 	}
-	if node.InternetGwID != "" {
-		inetNode, err := GetNodeByID(node.InternetGwID)
+	if node.EgressDetails.InternetGwID != "" {
+		inetNode, err := GetNodeByID(node.EgressDetails.InternetGwID)
 		if err == nil {
 			clientNodeIDs := []string{}
-			for _, inetNodeClientID := range inetNode.InetNodeReq.InetNodeClientIDs {
+			for _, inetNodeClientID := range inetNode.EgressDetails.InetNodeReq.InetNodeClientIDs {
 				if inetNodeClientID == node.ID.String() {
 					continue
 				}
 				clientNodeIDs = append(clientNodeIDs, inetNodeClientID)
 			}
-			inetNode.InetNodeReq.InetNodeClientIDs = clientNodeIDs
+			inetNode.EgressDetails.InetNodeReq.InetNodeClientIDs = clientNodeIDs
 			UpsertNode(&inetNode)
 		}
 	}
-	if node.IsInternetGateway {
+	if node.EgressDetails.IsInternetGateway {
 		UnsetInternetGw(node)
 	}
 	if !purge && !alreadyDeleted {
@@ -320,8 +321,9 @@ func DeleteNode(node *models.Node, purge bool) error {
 	if err := DissasociateNodeFromHost(node, host); err != nil {
 		return err
 	}
-	go RemoveNodeFromAclPolicy(*node)
 
+	go RemoveNodeFromAclPolicy(*node)
+	go RemoveNodeFromEgress(*node)
 	return nil
 }
 
@@ -783,16 +785,16 @@ func ValidateNodeIp(currentNode *models.Node, newNode *models.ApiNode) error {
 	return nil
 }
 
-func ValidateEgressRange(gateway models.EgressGatewayRequest) error {
-	network, err := GetNetworkSettings(gateway.NetID)
+func ValidateEgressRange(netID string, ranges []string) error {
+	network, err := GetNetworkSettings(netID)
 	if err != nil {
-		slog.Error("error getting network with netid", "error", gateway.NetID, err.Error)
-		return errors.New("error getting network with netid:  " + gateway.NetID + " " + err.Error())
+		slog.Error("error getting network with netid", "error", netID, err.Error)
+		return errors.New("error getting network with netid:  " + netID + " " + err.Error())
 	}
 	ipv4Net := network.AddressRange
 	ipv6Net := network.AddressRange6
 
-	for _, v := range gateway.Ranges {
+	for _, v := range ranges {
 		if ipv4Net != "" {
 			if ContainsCIDR(ipv4Net, v) {
 				slog.Error("egress range should not be the same as or contained in the netmaker network address", "error", v, ipv4Net)
@@ -947,6 +949,30 @@ func AddTagMapWithStaticNodesWithUsers(netID models.NetworkID,
 
 	}
 	return tagNodesMap
+}
+
+func GetNodeIDsWithTag(tagID models.TagID) (ids []string) {
+
+	tag, err := GetTag(tagID)
+	if err != nil {
+		return
+	}
+	nodes, _ := GetNetworkNodes(tag.Network.String())
+	for _, nodeI := range nodes {
+		if nodeI.Tags == nil {
+			continue
+		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Lock()
+		}
+		if _, ok := nodeI.Tags[tagID]; ok {
+			ids = append(ids, nodeI.ID.String())
+		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Unlock()
+		}
+	}
+	return
 }
 
 func GetNodesWithTag(tagID models.TagID) map[string]models.Node {

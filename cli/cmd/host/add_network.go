@@ -6,10 +6,10 @@ import (
 )
 
 var addHostNetworkCmd = &cobra.Command{
-	Use:   "add_network HostID Network",
+	Use:   "add_network DeviceID/HostID Network",
 	Args:  cobra.ExactArgs(2),
-	Short: "Add a network to a host",
-	Long:  `Add a network to a host`,
+	Short: "Add a device to a network",
+	Long:  `Add a device to a network`,
 	Run: func(cmd *cobra.Command, args []string) {
 		functions.PrettyPrint(functions.AddHostToNetwork(args[0], args[1]))
 	},

@@ -34,6 +34,7 @@ const (
 
 // OAuthUser - generic OAuth strategy user
 type OAuthUser struct {
+	ID                string `json:"id" bson:"id"`
 	Name              string `json:"name" bson:"name"`
 	Email             string `json:"email" bson:"email"`
 	Login             string `json:"login" bson:"login"`
@@ -47,7 +48,7 @@ var (
 )
 
 func getCurrentAuthFunctions() map[string]interface{} {
-	var authInfo = servercfg.GetAuthProviderInfo()
+	var authInfo = logic.GetAuthProviderInfo(logic.GetServerSettings())
 	var authProvider = authInfo[0]
 	switch authProvider {
 	case google_provider_name:
@@ -63,6 +64,17 @@ func getCurrentAuthFunctions() map[string]interface{} {
 	}
 }
 
+// ResetAuthProvider resets the auth provider configuration.
+func ResetAuthProvider() {
+	settings := logic.GetServerSettings()
+
+	if settings.AuthProvider == "" {
+		auth_provider = nil
+	}
+
+	InitializeAuthProvider()
+}
+
 // InitializeAuthProvider - initializes the auth provider if any is present
 func InitializeAuthProvider() string {
 	var functions = getCurrentAuthFunctions()
@@ -74,7 +86,7 @@ func InitializeAuthProvider() string {
 	if err != nil {
 		logger.FatalLog("failed to set auth_secret", err.Error())
 	}
-	var authInfo = servercfg.GetAuthProviderInfo()
+	var authInfo = logic.GetAuthProviderInfo(logic.GetServerSettings())
 	var serverConn = servercfg.GetAPIHost()
 	if strings.Contains(serverConn, "localhost") || strings.Contains(serverConn, "127.0.0.1") {
 		serverConn = "http://" + serverConn
@@ -275,7 +287,7 @@ func isStateCached(state string) bool {
 
 // isEmailAllowed - checks if email is allowed to signup
 func isEmailAllowed(email string) bool {
-	allowedDomains := servercfg.GetAllowedEmailDomains()
+	allowedDomains := logic.GetAllowedEmailDomains()
 	domains := strings.Split(allowedDomains, ",")
 	if len(domains) == 1 && domains[0] == "*" {
 		return true

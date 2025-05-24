@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"github.com/gravitl/netmaker/cli/cmd/gateway"
 	"os"
 
+	"github.com/gravitl/netmaker/cli/cmd/access_token"
 	"github.com/gravitl/netmaker/cli/cmd/acl"
 	"github.com/gravitl/netmaker/cli/cmd/commons"
 	"github.com/gravitl/netmaker/cli/cmd/context"
@@ -11,12 +11,14 @@ import (
 	"github.com/gravitl/netmaker/cli/cmd/enrollment_key"
 	"github.com/gravitl/netmaker/cli/cmd/ext_client"
 	"github.com/gravitl/netmaker/cli/cmd/failover"
+	"github.com/gravitl/netmaker/cli/cmd/gateway"
 	"github.com/gravitl/netmaker/cli/cmd/host"
 	"github.com/gravitl/netmaker/cli/cmd/metrics"
 	"github.com/gravitl/netmaker/cli/cmd/network"
 	"github.com/gravitl/netmaker/cli/cmd/node"
 	"github.com/gravitl/netmaker/cli/cmd/server"
 	"github.com/gravitl/netmaker/cli/cmd/user"
+
 	"github.com/spf13/cobra"
 )
 
@@ -57,4 +59,5 @@ func init() {
 	rootCmd.AddCommand(enrollment_key.GetRoot())
 	rootCmd.AddCommand(failover.GetRoot())
 	rootCmd.AddCommand(gateway.GetRoot())
+	rootCmd.AddCommand(access_token.GetRoot())
 }

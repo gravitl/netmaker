@@ -9,10 +9,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gravitl/netmaker/utils"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/gravitl/netmaker/utils"
 
 	"golang.org/x/crypto/nacl/box"
 	"golang.org/x/exp/slog"
