@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
@@ -660,8 +661,8 @@ func GetUserRAGNodesV1(user models.User) (gws map[string]models.Node) {
 
 		}
 	}
-	tagNodesMap := logic.GetTagMapWithNodes()
-	accessPolices := logic.ListUserPolicies(user)
+	tagNodesMap := GetTagMapWithNodes()
+	accessPolices := ListUserPolicies(user)
 	for _, policyI := range accessPolices {
 		if !policyI.Enabled {
 			continue
@@ -1236,4 +1237,23 @@ func AddGlobalNetRolesToAdmins(u *models.User) {
 	u.UserGroups = make(map[models.UserGroupID]struct{})
 
 	u.UserGroups[globalNetworksAdminGroupID] = struct{}{}
+}
+
+func GetUserGrpMap() map[models.UserGroupID]map[string]struct{} {
+	grpUsersMap := make(map[models.UserGroupID]map[string]struct{})
+	users, _ := logic.GetUsersDB()
+	for _, user := range users {
+		for gID := range user.UserGroups {
+			if grpUsers, ok := grpUsersMap[gID]; ok {
+				grpUsers[user.UserName] = struct{}{}
+				grpUsersMap[gID] = grpUsers
+			} else {
+				grpUsersMap[gID] = make(map[string]struct{})
+				grpUsersMap[gID][user.UserName] = struct{}{}
+			}
+		}
+
+	}
+
+	return grpUsersMap
 }

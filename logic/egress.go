@@ -63,93 +63,6 @@ func ValidateEgressReq(e *schema.Egress) error {
 	return nil
 }
 
-func GetInetClientsFromAclPolicies(eID string) (inetClientIDs []string) {
-	e := schema.Egress{ID: eID}
-	err := e.Get(db.WithContext(context.TODO()))
-	if err != nil || !e.Status {
-		return
-	}
-	acls, _ := ListAclsByNetwork(models.NetworkID(e.Network))
-	for _, acl := range acls {
-		for _, dstI := range acl.Dst {
-			if dstI.ID == models.EgressID {
-				if dstI.Value != eID {
-					continue
-				}
-				for _, srcI := range acl.Src {
-					if srcI.Value == "*" {
-						continue
-					}
-					if srcI.ID == models.NodeID {
-						inetClientIDs = append(inetClientIDs, srcI.Value)
-					}
-					if srcI.ID == models.NodeTagID {
-						inetClientIDs = append(inetClientIDs, GetNodeIDsWithTag(models.TagID(srcI.Value))...)
-					}
-				}
-			}
-		}
-	}
-	return
-}
-
-func isNodeUsingInternetGw(node *models.Node) {
-	host, err := GetHost(node.HostID.String())
-	if err != nil {
-		return
-	}
-	if host.IsDefault || node.IsFailOver {
-		return
-	}
-	nodeTags := maps.Clone(node.Tags)
-	nodeTags[models.TagID(node.ID.String())] = struct{}{}
-	acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
-	var isUsing bool
-	for _, acl := range acls {
-		if !acl.Enabled {
-			continue
-		}
-		srcVal := convAclTagToValueMap(acl.Src)
-		for _, dstI := range acl.Dst {
-			if dstI.ID == models.EgressID {
-				e := schema.Egress{ID: dstI.Value}
-				err := e.Get(db.WithContext(context.TODO()))
-				if err != nil || !e.Status {
-					continue
-				}
-
-				if e.IsInetGw {
-					if _, ok := srcVal[node.ID.String()]; ok {
-						for nodeID := range e.Nodes {
-							if nodeID == node.ID.String() {
-								continue
-							}
-							node.EgressDetails.InternetGwID = nodeID
-							isUsing = true
-							return
-						}
-					}
-					for tagID := range nodeTags {
-						if _, ok := srcVal[tagID.String()]; ok {
-							for nodeID := range e.Nodes {
-								if nodeID == node.ID.String() {
-									continue
-								}
-								node.EgressDetails.InternetGwID = nodeID
-								isUsing = true
-								return
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	if !isUsing {
-		node.EgressDetails.InternetGwID = ""
-	}
-}
-
 func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress) bool {
 	nodeTags := maps.Clone(node.Tags)
 	nodeTags[models.TagID(node.ID.String())] = struct{}{}
@@ -167,7 +80,7 @@ func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress) bool {
 		if !acl.Enabled {
 			continue
 		}
-		srcVal := convAclTagToValueMap(acl.Src)
+		srcVal := ConvAclTagToValueMap(acl.Src)
 		if !e.IsInetGw && acl.AllowedDirection == models.TrafficDirectionBi {
 			if _, ok := srcVal["*"]; ok {
 				return true
@@ -363,4 +276,37 @@ func RemoveNodeFromEgress(node models.Node) {
 		}
 	}
 
+}
+
+func GetEgressRanges(netID models.NetworkID) (map[string][]string, map[string]struct{}, error) {
+
+	resultMap := make(map[string]struct{})
+	nodeEgressMap := make(map[string][]string)
+	networkNodes, err := GetNetworkNodes(netID.String())
+	if err != nil {
+		return nil, nil, err
+	}
+	for _, currentNode := range networkNodes {
+		if currentNode.Network != netID.String() {
+			continue
+		}
+		if currentNode.EgressDetails.IsEgressGateway { // add the egress gateway range(s) to the result
+			if len(currentNode.EgressDetails.EgressGatewayRanges) > 0 {
+				nodeEgressMap[currentNode.ID.String()] = currentNode.EgressDetails.EgressGatewayRanges
+				for _, egressRangeI := range currentNode.EgressDetails.EgressGatewayRanges {
+					resultMap[egressRangeI] = struct{}{}
+				}
+			}
+		}
+	}
+	extclients, _ := GetNetworkExtClients(netID.String())
+	for _, extclient := range extclients {
+		if len(extclient.ExtraAllowedIPs) > 0 {
+			nodeEgressMap[extclient.ClientID] = extclient.ExtraAllowedIPs
+			for _, extraAllowedIP := range extclient.ExtraAllowedIPs {
+				resultMap[extraAllowedIP] = struct{}{}
+			}
+		}
+	}
+	return nodeEgressMap, resultMap, nil
 }

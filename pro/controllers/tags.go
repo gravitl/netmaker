@@ -1,4 +1,4 @@
-package controller
+package controllers
 
 import (
 	"encoding/json"
@@ -14,9 +14,10 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	proLogic "github.com/gravitl/netmaker/pro/logic"
 )
 
-func tagHandlers(r *mux.Router) {
+func TagHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/tags", logic.SecurityCheck(true, http.HandlerFunc(getTags))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/tags", logic.SecurityCheck(true, http.HandlerFunc(createTag))).
@@ -46,13 +47,13 @@ func getTags(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	tags, err := logic.ListTagsWithNodes(models.NetworkID(netID))
+	tags, err := proLogic.ListTagsWithNodes(models.NetworkID(netID))
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to get all network tag entries: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.SortTagEntrys(tags[:])
+	proLogic.SortTagEntrys(tags[:])
 	logic.ReturnSuccessResponseWithJson(w, r, tags, "fetched all tags in the network "+netID)
 }
 
@@ -91,18 +92,18 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 		ColorCode: req.ColorCode,
 		CreatedAt: time.Now().UTC(),
 	}
-	_, err = logic.GetTag(tag.ID)
+	_, err = proLogic.GetTag(tag.ID)
 	if err == nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("tag with id %s exists already", tag.TagName), "badrequest"))
 		return
 	}
 	// validate name
-	err = logic.CheckIDSyntax(tag.TagName)
+	err = proLogic.CheckIDSyntax(tag.TagName)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = logic.InsertTag(tag)
+	err = proLogic.InsertTag(tag)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -174,7 +175,7 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tag, err := logic.GetTag(updateTag.ID)
+	tag, err := proLogic.GetTag(updateTag.ID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -202,7 +203,7 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 	var newID models.TagID
 	if updateTag.NewName != "" {
 		// validate name
-		err = logic.CheckIDSyntax(updateTag.NewName)
+		err = proLogic.CheckIDSyntax(updateTag.NewName)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
@@ -210,26 +211,26 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 		newID = models.TagID(fmt.Sprintf("%s.%s", tag.Network, updateTag.NewName))
 		tag.ID = newID
 		tag.TagName = updateTag.NewName
-		err = logic.InsertTag(tag)
+		err = proLogic.InsertTag(tag)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
 		// delete old Tag entry
-		logic.DeleteTag(updateTag.ID, false)
+		proLogic.DeleteTag(updateTag.ID, false)
 	}
 	if updateTag.ColorCode != "" && updateTag.ColorCode != tag.ColorCode {
 		tag.ColorCode = updateTag.ColorCode
-		err = logic.UpsertTag(tag)
+		err = proLogic.UpsertTag(tag)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
 	}
 	go func() {
-		logic.UpdateTag(updateTag, newID)
+		proLogic.UpdateTag(updateTag, newID)
 		if updateTag.NewName != "" {
-			logic.UpdateDeviceTag(updateTag.ID, newID, tag.Network)
+			proLogic.UpdateDeviceTag(updateTag.ID, newID, tag.Network)
 		}
 		mq.PublishPeerUpdate(false)
 	}()
@@ -256,24 +257,24 @@ func deleteTag(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
 	}
-	tag, err := logic.GetTag(models.TagID(tagID))
+	tag, err := proLogic.GetTag(models.TagID(tagID))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	// check if active policy is using the tag
-	if logic.CheckIfTagAsActivePolicy(tag.ID, tag.Network) {
+	if proLogic.CheckIfTagAsActivePolicy(tag.ID, tag.Network) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("tag is currently in use by an active policy"), "badrequest"))
 		return
 	}
-	err = logic.DeleteTag(models.TagID(tagID), true)
+	err = proLogic.DeleteTag(models.TagID(tagID), true)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
 	go func() {
-		logic.RemoveDeviceTagFromAclPolicies(tag.ID, tag.Network)
+		proLogic.RemoveDeviceTagFromAclPolicies(tag.ID, tag.Network)
 		logic.RemoveTagFromEnrollmentKeys(tag.ID)
 		mq.PublishPeerUpdate(false)
 	}()
