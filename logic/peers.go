@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
@@ -190,9 +191,11 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		if err != nil {
 			continue
 		}
-		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE {
+
+		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE || time.Since(node.LastCheckIn) > time.Hour {
 			continue
 		}
+
 		GetNodeEgressInfo(&node)
 		hostPeerUpdate = SetDefaultGw(node, hostPeerUpdate)
 		if !hostPeerUpdate.IsInternetGw {

@@ -393,7 +393,7 @@ func UpdateHostNetwork(h *models.Host, network string, add bool) (*models.Node, 
 			if !add {
 				return &node, nil
 			} else {
-				return nil, errors.New("host already part of network " + network)
+				return &node, errors.New("host already part of network " + network)
 			}
 		}
 	}

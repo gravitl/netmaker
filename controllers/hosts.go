@@ -96,7 +96,21 @@ func upgradeHosts(w http.ResponseWriter, r *http.Request) {
 			}(host)
 		}
 	}()
-
+	logic.LogEvent(&models.Event{
+		Action: models.UpgradeAll,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   "All Hosts",
+			Name: "All Hosts",
+			Type: models.DeviceSub,
+		},
+		Origin: models.Dashboard,
+	})
 	slog.Info("upgrade all hosts request received", "user", user)
 	logic.ReturnSuccessResponse(w, r, "upgrade all hosts request received")
 }
@@ -892,6 +906,21 @@ func updateAllKeys(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}()
+	logic.LogEvent(&models.Event{
+		Action: models.RefreshAllKeys,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   "All Devices",
+			Name: "All Devices",
+			Type: models.DeviceSub,
+		},
+		Origin: models.Dashboard,
+	})
 	logger.Log(2, r.Header.Get("user"), "updated keys for all hosts")
 	w.WriteHeader(http.StatusOK)
 }
@@ -927,6 +956,21 @@ func updateKeys(w http.ResponseWriter, r *http.Request) {
 			logger.Log(0, "failed to send host key update", host.ID.String(), err.Error())
 		}
 	}()
+	logic.LogEvent(&models.Event{
+		Action: models.RefreshKey,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   host.ID.String(),
+			Name: host.Name,
+			Type: models.DeviceSub,
+		},
+		Origin: models.Dashboard,
+	})
 	logger.Log(2, r.Header.Get("user"), "updated key on host", host.Name)
 	w.WriteHeader(http.StatusOK)
 }
@@ -965,7 +1009,21 @@ func syncHosts(w http.ResponseWriter, r *http.Request) {
 			time.Sleep(time.Millisecond * 100)
 		}
 	}()
-
+	logic.LogEvent(&models.Event{
+		Action: models.SyncAll,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   "All Devices",
+			Name: "All Devices",
+			Type: models.DeviceSub,
+		},
+		Origin: models.Dashboard,
+	})
 	slog.Info("sync all hosts request received", "user", user)
 	logic.ReturnSuccessResponse(w, r, "sync all hosts request received")
 }

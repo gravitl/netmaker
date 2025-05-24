@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 const (
@@ -77,7 +78,7 @@ func checkForZombieHosts(h *models.Host) {
 func ManageZombies(ctx context.Context, peerUpdate chan *models.Node) {
 	logger.Log(2, "Zombie management started")
 	go InitializeZombies()
-	go checkPendingRemovalNodes()
+	go checkPendingRemovalNodes(peerUpdate)
 	// Zombie Nodes Cleanup Four Times a Day
 	ticker := time.NewTicker(time.Hour * ZOMBIE_TIMEOUT)
 
@@ -135,15 +136,53 @@ func ManageZombies(ctx context.Context, peerUpdate chan *models.Node) {
 					}
 				}
 			}
+			if servercfg.IsAutoCleanUpEnabled() {
+				nodes, _ := GetAllNodes()
+				for _, node := range nodes {
+					if time.Since(node.LastCheckIn) > time.Minute*ZOMBIE_DELETE_TIME {
+						if err := DeleteNode(&node, true); err != nil {
+							continue
+						}
+						node.PendingDelete = true
+						node.Action = models.NODE_DELETE
+						peerUpdate <- &node
+						host, err := GetHost(node.HostID.String())
+						if err == nil && len(host.Nodes) == 0 {
+							RemoveHostByID(host.ID.String())
+						}
+
+					}
+				}
+			}
+
 		}
 	}
 }
-func checkPendingRemovalNodes() {
+func checkPendingRemovalNodes(peerUpdate chan *models.Node) {
 	nodes, _ := GetAllNodes()
 	for _, node := range nodes {
+		node := node
 		pendingDelete := node.PendingDelete || node.Action == models.NODE_DELETE
 		if pendingDelete {
 			DeleteNode(&node, true)
+			peerUpdate <- &node
+			continue
+		}
+		if servercfg.IsAutoCleanUpEnabled() {
+			if time.Since(node.LastCheckIn) > time.Minute*ZOMBIE_DELETE_TIME {
+				if err := DeleteNode(&node, true); err != nil {
+					continue
+				}
+				node.PendingDelete = true
+				node.Action = models.NODE_DELETE
+				peerUpdate <- &node
+				host, err := GetHost(node.HostID.String())
+				if err == nil && len(host.Nodes) == 0 {
+					RemoveHostByID(host.ID.String())
+				}
+
+			}
+
 		}
 	}
 }

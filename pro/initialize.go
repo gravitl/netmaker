@@ -95,7 +95,7 @@ func InitPro() {
 		proLogic.InitFailOverCache()
 		auth.StartSyncHook()
 		email.Init()
-		proLogic.EventWatcher()
+		go proLogic.EventWatcher()
 	})
 	logic.ResetFailOver = proLogic.ResetFailOver
 	logic.ResetFailedOverPeer = proLogic.ResetFailedOverPeer
