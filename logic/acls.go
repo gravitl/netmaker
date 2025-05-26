@@ -669,6 +669,9 @@ func ListAclsByNetwork(netID models.NetworkID) ([]models.Acl, error) {
 	allAcls := ListAcls()
 	netAcls := []models.Acl{}
 	for _, acl := range allAcls {
+		if !servercfg.IsPro && acl.RuleType == models.UserPolicy {
+			continue
+		}
 		if acl.NetworkID == netID {
 			netAcls = append(netAcls, acl)
 		}
