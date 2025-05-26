@@ -255,6 +255,7 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []mode
 		peerTags = peer.Tags
 	}
 	peerTags[models.TagID(peerId)] = struct{}{}
+	peerTags[models.TagID("*")] = struct{}{}
 	acl, _ := logic.GetDefaultPolicy(models.NetworkID(peer.Network), models.UserPolicy)
 	if acl.Enabled {
 		return true, []models.Acl{acl}

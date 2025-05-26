@@ -697,12 +697,15 @@ func GetUserRAGNodes(user models.User) (gws map[string]models.Node) {
 	}
 
 	for _, node := range nodes {
+		if !node.IsGw {
+			continue
+		}
 		if user.PlatformRoleID == models.AdminRole || user.PlatformRoleID == models.SuperAdminRole {
 			gws[node.ID.String()] = node
 		} else {
 			// check if user has network role assigned
 			if roles, ok := user.NetworkRoles[models.NetworkID(node.Network)]; ok && len(roles) > 0 {
-				if ok, _ := logic.IsUserAllowedToCommunicate(user.UserName, node); ok {
+				if ok, _ := IsUserAllowedToCommunicate(user.UserName, node); ok {
 					gws[node.ID.String()] = node
 					continue
 				}
@@ -711,7 +714,7 @@ func GetUserRAGNodes(user models.User) (gws map[string]models.Node) {
 				userGrp, err := logic.GetUserGroup(groupID)
 				if err == nil {
 					if roles, ok := userGrp.NetworkRoles[models.NetworkID(node.Network)]; ok && len(roles) > 0 {
-						if ok, _ := logic.IsUserAllowedToCommunicate(user.UserName, node); ok {
+						if ok, _ := IsUserAllowedToCommunicate(user.UserName, node); ok {
 							gws[node.ID.String()] = node
 							break
 						}
