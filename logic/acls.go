@@ -777,6 +777,30 @@ func ListAcls() (acls []models.Acl) {
 		if err != nil {
 			continue
 		}
+		if !servercfg.IsPro {
+			if acl.RuleType == models.UserPolicy {
+				continue
+			}
+			skip := false
+			for _, srcI := range acl.Src {
+				if srcI.ID == models.NodeTagID && acl.ID != fmt.Sprintf("%s.%s", acl.NetworkID.String(), "all-nodes") {
+					skip = true
+					break
+				}
+			}
+			if skip {
+				continue
+			}
+			for _, dstI := range acl.Dst {
+				if dstI.ID == models.NodeTagID && acl.ID != fmt.Sprintf("%s.%s", acl.NetworkID.String(), "all-nodes") {
+					skip = true
+					break
+				}
+			}
+			if skip {
+				continue
+			}
+		}
 		acls = append(acls, acl)
 		if servercfg.CacheEnabled() {
 			storeAclInCache(acl)
@@ -1012,7 +1036,7 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 		InsertAcl(defaultDeviceAcl)
 	}
 
-	if !IsAclExists(fmt.Sprintf("%s.%s", netID, "all-gateways")) {
+	if servercfg.IsPro && !IsAclExists(fmt.Sprintf("%s.%s", netID, "all-gateways")) {
 		defaultUserAcl := models.Acl{
 			ID:          fmt.Sprintf("%s.%s", netID, "all-gateways"),
 			Default:     true,
