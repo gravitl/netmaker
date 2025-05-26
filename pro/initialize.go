@@ -92,7 +92,7 @@ func InitPro() {
 		}
 		proLogic.LoadNodeMetricsToCache()
 		proLogic.InitFailOverCache()
-		auth.StartSyncHook()
+		auth.ResetIDPSyncHook()
 		email.Init()
 	})
 	logic.ResetFailOver = proLogic.ResetFailOver
