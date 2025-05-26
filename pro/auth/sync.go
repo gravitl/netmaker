@@ -11,12 +11,30 @@ import (
 	"github.com/gravitl/netmaker/pro/idp/google"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"strings"
+	"sync"
 	"time"
 )
 
+var hookStopWg sync.WaitGroup
 var syncTicker *time.Ticker
 
-func StartSyncHook() {
+func ResetIDPSyncHook() {
+	if syncTicker != nil {
+		// if the hook is already running, stop it.
+		syncTicker.Stop()
+
+		// wait for the hook to stop.
+		hookStopWg.Add(1)
+		hookStopWg.Wait()
+	}
+
+	if logic.IsSyncEnabled() {
+		// if the hook is enabled, start it again.
+		go runIDPSyncHook()
+	}
+}
+
+func runIDPSyncHook() {
 	syncTicker = time.NewTicker(logic.GetIDPSyncInterval())
 
 	for range syncTicker.C {
@@ -27,15 +45,8 @@ func StartSyncHook() {
 			logger.Log(0, "sync from idp complete")
 		}
 	}
-}
 
-func ResetIDPSyncHook() {
-	if syncTicker != nil {
-		syncTicker.Stop()
-		if logic.IsSyncEnabled() {
-			go StartSyncHook()
-		}
-	}
+	hookStopWg.Done()
 }
 
 func SyncFromIDP() error {
