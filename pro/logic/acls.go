@@ -3,11 +3,9 @@ package logic
 import (
 	"context"
 	"errors"
-	"fmt"
 	"maps"
 	"net"
 	"sort"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
@@ -170,101 +168,6 @@ func IsAclPolicyValid(acl models.Acl) (err error) {
 		}
 	}
 	return nil
-}
-
-// CreateDefaultAclNetworkPolicies - create default acl network policies
-func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
-	if netID.String() == "" {
-		return
-	}
-	_, _ = logic.ListAclsByNetwork(netID)
-	if !logic.IsAclExists(fmt.Sprintf("%s.%s", netID, "all-nodes")) {
-		defaultDeviceAcl := models.Acl{
-			ID:          fmt.Sprintf("%s.%s", netID, "all-nodes"),
-			Name:        "All Nodes",
-			MetaData:    "This Policy allows all nodes in the network to communicate with each other",
-			Default:     true,
-			NetworkID:   netID,
-			Proto:       models.ALL,
-			ServiceType: models.Any,
-			Port:        []string{},
-			RuleType:    models.DevicePolicy,
-			Src: []models.AclPolicyTag{
-				{
-					ID:    models.NodeTagID,
-					Value: "*",
-				}},
-			Dst: []models.AclPolicyTag{
-				{
-					ID:    models.NodeTagID,
-					Value: "*",
-				}},
-			AllowedDirection: models.TrafficDirectionBi,
-			Enabled:          true,
-			CreatedBy:        "auto",
-			CreatedAt:        time.Now().UTC(),
-		}
-		logic.InsertAcl(defaultDeviceAcl)
-	}
-	if !logic.IsAclExists(fmt.Sprintf("%s.%s", netID, "all-users")) {
-		defaultUserAcl := models.Acl{
-			ID:          fmt.Sprintf("%s.%s", netID, "all-users"),
-			Default:     true,
-			Name:        "All Users",
-			MetaData:    "This policy gives access to everything in the network for an user",
-			NetworkID:   netID,
-			Proto:       models.ALL,
-			ServiceType: models.Any,
-			Port:        []string{},
-			RuleType:    models.UserPolicy,
-			Src: []models.AclPolicyTag{
-				{
-					ID:    models.UserAclID,
-					Value: "*",
-				},
-			},
-			Dst: []models.AclPolicyTag{{
-				ID:    models.NodeTagID,
-				Value: "*",
-			}},
-			AllowedDirection: models.TrafficDirectionUni,
-			Enabled:          true,
-			CreatedBy:        "auto",
-			CreatedAt:        time.Now().UTC(),
-		}
-		logic.InsertAcl(defaultUserAcl)
-	}
-
-	if !logic.IsAclExists(fmt.Sprintf("%s.%s", netID, "all-gateways")) {
-		defaultUserAcl := models.Acl{
-			ID:          fmt.Sprintf("%s.%s", netID, "all-gateways"),
-			Default:     true,
-			Name:        "All Gateways",
-			NetworkID:   netID,
-			Proto:       models.ALL,
-			ServiceType: models.Any,
-			Port:        []string{},
-			RuleType:    models.DevicePolicy,
-			Src: []models.AclPolicyTag{
-				{
-					ID:    models.NodeTagID,
-					Value: fmt.Sprintf("%s.%s", netID, models.GwTagName),
-				},
-			},
-			Dst: []models.AclPolicyTag{
-				{
-					ID:    models.NodeTagID,
-					Value: "*",
-				},
-			},
-			AllowedDirection: models.TrafficDirectionBi,
-			Enabled:          true,
-			CreatedBy:        "auto",
-			CreatedAt:        time.Now().UTC(),
-		}
-		logic.InsertAcl(defaultUserAcl)
-	}
-	CreateDefaultUserPolicies(netID)
 }
 
 // ListUserPolicies - lists all acl policies enforced on an user
@@ -481,7 +384,7 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 				}
 			}
 		}
-		if checkTagGroupPolicy(srcMap, dstMap, node, peer, nodeTags, peerTags) {
+		if logic.CheckTagGroupPolicy(srcMap, dstMap, node, peer, nodeTags, peerTags) {
 			return true
 		}
 
@@ -518,71 +421,8 @@ func RemoveUserFromAclPolicy(userName string) {
 	}
 }
 
-func checkTagGroupPolicy(srcMap, dstMap map[string]struct{}, node, peer models.Node,
-	nodeTags, peerTags map[models.TagID]struct{}) bool {
-	// check for node ID
-	if _, ok := srcMap[node.ID.String()]; ok {
-		if _, ok = dstMap[peer.ID.String()]; ok {
-			return true
-		}
-
-	}
-	if _, ok := dstMap[node.ID.String()]; ok {
-		if _, ok = srcMap[peer.ID.String()]; ok {
-			return true
-		}
-	}
-
-	for tagID := range nodeTags {
-		if _, ok := dstMap[tagID.String()]; ok {
-			if _, ok := srcMap["*"]; ok {
-				return true
-			}
-			for tagID := range peerTags {
-				if _, ok := srcMap[tagID.String()]; ok {
-					return true
-				}
-			}
-		}
-		if _, ok := srcMap[tagID.String()]; ok {
-			if _, ok := dstMap["*"]; ok {
-				return true
-			}
-			for tagID := range peerTags {
-				if _, ok := dstMap[tagID.String()]; ok {
-					return true
-				}
-			}
-		}
-	}
-	for tagID := range peerTags {
-		if _, ok := dstMap[tagID.String()]; ok {
-			if _, ok := srcMap["*"]; ok {
-				return true
-			}
-			for tagID := range nodeTags {
-
-				if _, ok := srcMap[tagID.String()]; ok {
-					return true
-				}
-			}
-		}
-		if _, ok := srcMap[tagID.String()]; ok {
-			if _, ok := dstMap["*"]; ok {
-				return true
-			}
-			for tagID := range nodeTags {
-				if _, ok := dstMap[tagID.String()]; ok {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
-
 // IsNodeAllowedToCommunicate - check node is allowed to communicate with the peer // ADD ALLOWED DIRECTION - 0 => node -> peer, 1 => peer-> node,
-func IsNodeAllowedToCommunicateV1(node, peer models.Node, checkDefaultPolicy bool) (bool, []models.Acl) {
+func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool) (bool, []models.Acl) {
 	var nodeId, peerId string
 	if peer.IsFailOver && node.FailedOverBy != uuid.Nil && node.FailedOverBy == peer.ID {
 		return true, []models.Acl{}
@@ -1060,7 +900,7 @@ func getUserAclRulesForNode(targetnode *models.Node,
 	return rules
 }
 
-func checkIfAnyActiveEgressPolicy(targetNode models.Node) bool {
+func CheckIfAnyActiveEgressPolicy(targetNode models.Node) bool {
 	if !targetNode.EgressDetails.IsEgressGateway {
 		return false
 	}
@@ -1117,7 +957,7 @@ func checkIfAnyActiveEgressPolicy(targetNode models.Node) bool {
 	return false
 }
 
-func checkIfAnyPolicyisUniDirectional(targetNode models.Node) bool {
+func CheckIfAnyPolicyisUniDirectional(targetNode models.Node) bool {
 	var targetNodeTags = make(map[models.TagID]struct{})
 	if targetNode.Mutex != nil {
 		targetNode.Mutex.Lock()
@@ -1159,60 +999,6 @@ func checkIfAnyPolicyisUniDirectional(targetNode models.Node) bool {
 			}
 			if _, ok := dstTags[targetNode.ID.String()]; ok {
 				return true
-			}
-		}
-	}
-	return false
-}
-
-func checkIfNodeHasAccessToAllResources(targetnode *models.Node) bool {
-	acls := logic.ListDevicePolicies(models.NetworkID(targetnode.Network))
-	var targetNodeTags = make(map[models.TagID]struct{})
-	if targetnode.Mutex != nil {
-		targetnode.Mutex.Lock()
-		targetNodeTags = maps.Clone(targetnode.Tags)
-		targetnode.Mutex.Unlock()
-	} else {
-		targetNodeTags = maps.Clone(targetnode.Tags)
-	}
-	if targetNodeTags == nil {
-		targetNodeTags = make(map[models.TagID]struct{})
-	}
-	targetNodeTags[models.TagID(targetnode.ID.String())] = struct{}{}
-	targetNodeTags["*"] = struct{}{}
-	for _, acl := range acls {
-		if !acl.Enabled {
-			continue
-		}
-		srcTags := logic.ConvAclTagToValueMap(acl.Src)
-		dstTags := logic.ConvAclTagToValueMap(acl.Dst)
-		_, srcAll := srcTags["*"]
-		_, dstAll := dstTags["*"]
-		for nodeTag := range targetNodeTags {
-
-			var existsInSrcTag bool
-			var existsInDstTag bool
-
-			if _, ok := srcTags[nodeTag.String()]; ok {
-				existsInSrcTag = true
-			}
-			if _, ok := srcTags[targetnode.ID.String()]; ok {
-				existsInSrcTag = true
-			}
-			if _, ok := dstTags[nodeTag.String()]; ok {
-				existsInDstTag = true
-			}
-			if _, ok := dstTags[targetnode.ID.String()]; ok {
-				existsInDstTag = true
-			}
-			if acl.AllowedDirection == models.TrafficDirectionBi {
-				if existsInSrcTag && dstAll || existsInDstTag && srcAll {
-					return true
-				}
-			} else {
-				if existsInDstTag && srcAll {
-					return true
-				}
 			}
 		}
 	}
@@ -1755,7 +1541,7 @@ func GetInetClientsFromAclPolicies(eID string) (inetClientIDs []string) {
 	return
 }
 
-func isNodeUsingInternetGw(node *models.Node) {
+func IsNodeUsingInternetGw(node *models.Node) {
 	host, err := logic.GetHost(node.HostID.String())
 	if err != nil {
 		return

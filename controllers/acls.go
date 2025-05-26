@@ -174,7 +174,7 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 		NodeAllPolicy bool
 	}
 
-	allowed, ps := logic.IsNodeAllowedToCommunicateV1(node, peer, true)
+	allowed, ps := logic.IsNodeAllowedToCommunicate(node, peer, true)
 	isallowed := logic.IsPeerAllowed(node, peer, true)
 	re := resp{
 		IsNodeAllowed: allowed,

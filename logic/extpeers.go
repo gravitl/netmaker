@@ -823,10 +823,10 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 			}
 			var allowedPolicies1 []models.Acl
 			var ok bool
-			if ok, allowedPolicies1 = IsNodeAllowedToCommunicateV1(nodeI.StaticNode.ConvertToStaticNode(), peer, true); ok {
+			if ok, allowedPolicies1 = IsNodeAllowedToCommunicate(nodeI.StaticNode.ConvertToStaticNode(), peer, true); ok {
 				rules = append(rules, getFwRulesForNodeAndPeerOnGw(nodeI.StaticNode.ConvertToStaticNode(), peer, allowedPolicies1)...)
 			}
-			if ok, allowedPolicies2 := IsNodeAllowedToCommunicateV1(peer, nodeI.StaticNode.ConvertToStaticNode(), true); ok {
+			if ok, allowedPolicies2 := IsNodeAllowedToCommunicate(peer, nodeI.StaticNode.ConvertToStaticNode(), true); ok {
 				rules = append(rules,
 					getFwRulesForNodeAndPeerOnGw(peer, nodeI.StaticNode.ConvertToStaticNode(),
 						GetUniquePolicies(allowedPolicies1, allowedPolicies2))...)
@@ -964,7 +964,7 @@ func getExtpeerEgressRanges(node models.Node) (ranges, ranges6 []net.IPNet) {
 		if len(extPeer.ExtraAllowedIPs) == 0 {
 			continue
 		}
-		if ok, _ := IsNodeAllowedToCommunicateV1(extPeer.ConvertToStaticNode(), node, true); !ok {
+		if ok, _ := IsNodeAllowedToCommunicate(extPeer.ConvertToStaticNode(), node, true); !ok {
 			continue
 		}
 		for _, allowedRange := range extPeer.ExtraAllowedIPs {
@@ -991,7 +991,7 @@ func getExtpeersExtraRoutes(node models.Node) (egressRoutes []models.EgressNetwo
 		if len(extPeer.ExtraAllowedIPs) == 0 {
 			continue
 		}
-		if ok, _ := IsNodeAllowedToCommunicateV1(extPeer.ConvertToStaticNode(), node, true); !ok {
+		if ok, _ := IsNodeAllowedToCommunicate(extPeer.ConvertToStaticNode(), node, true); !ok {
 			continue
 		}
 		egressRoutes = append(egressRoutes, getExtPeerEgressRoute(node, extPeer)...)

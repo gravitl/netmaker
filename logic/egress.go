@@ -129,7 +129,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node) {
 		if targetNode.Mutex != nil {
 			targetNode.Mutex.Lock()
 		}
-		isNodeUsingInternetGw(targetNode)
+		IsNodeUsingInternetGw(targetNode)
 		if targetNode.Mutex != nil {
 			targetNode.Mutex.Unlock()
 		}
@@ -209,7 +209,7 @@ func GetNodeEgressInfo(targetNode *models.Node) {
 		if targetNode.Mutex != nil {
 			targetNode.Mutex.Lock()
 		}
-		isNodeUsingInternetGw(targetNode)
+		IsNodeUsingInternetGw(targetNode)
 		if targetNode.Mutex != nil {
 			targetNode.Mutex.Unlock()
 		}

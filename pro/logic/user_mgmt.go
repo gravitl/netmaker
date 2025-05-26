@@ -1142,6 +1142,35 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 		return
 	}
 
+	if !logic.IsAclExists(fmt.Sprintf("%s.%s", netID, "all-users")) {
+		defaultUserAcl := models.Acl{
+			ID:          fmt.Sprintf("%s.%s", netID, "all-users"),
+			Default:     true,
+			Name:        "All Users",
+			MetaData:    "This policy gives access to everything in the network for an user",
+			NetworkID:   netID,
+			Proto:       models.ALL,
+			ServiceType: models.Any,
+			Port:        []string{},
+			RuleType:    models.UserPolicy,
+			Src: []models.AclPolicyTag{
+				{
+					ID:    models.UserAclID,
+					Value: "*",
+				},
+			},
+			Dst: []models.AclPolicyTag{{
+				ID:    models.NodeTagID,
+				Value: "*",
+			}},
+			AllowedDirection: models.TrafficDirectionUni,
+			Enabled:          true,
+			CreatedBy:        "auto",
+			CreatedAt:        time.Now().UTC(),
+		}
+		logic.InsertAcl(defaultUserAcl)
+	}
+
 	if !logic.IsAclExists(fmt.Sprintf("%s.%s-grp", netID, models.NetworkAdmin)) {
 		networkAdminGroupID := GetDefaultNetworkAdminGroupID(netID)
 

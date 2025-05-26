@@ -147,6 +147,21 @@ func InitPro() {
 	logic.ResetIDPSyncHook = auth.ResetIDPSyncHook
 	logic.EmailInit = email.Init
 	logic.LogEvent = proLogic.LogEvent
+	logic.RemoveUserFromAclPolicy = proLogic.RemoveUserFromAclPolicy
+	logic.IsUserAllowedToCommunicate = proLogic.IsUserAllowedToCommunicate
+	logic.DeleteAllNetworkTags = proLogic.DeleteAllNetworkTags
+	logic.CreateDefaultTags = proLogic.CreateDefaultTags
+	logic.IsNodeUsingInternetGw = proLogic.IsNodeUsingInternetGw
+	logic.GetInetClientsFromAclPolicies = proLogic.GetInetClientsFromAclPolicies
+	logic.IsPeerAllowed = proLogic.IsPeerAllowed
+	logic.IsAclPolicyValid = proLogic.IsAclPolicyValid
+	logic.GetEgressRulesForNode = proLogic.GetEgressRulesForNode
+	logic.GetAclRulesForNode = proLogic.GetAclRulesForNode
+	logic.CheckIfAnyActiveEgressPolicy = proLogic.CheckIfAnyActiveEgressPolicy
+	logic.CheckIfAnyPolicyisUniDirectional = proLogic.CheckIfAnyPolicyisUniDirectional
+	logic.MigrateToGws = proLogic.MigrateToGws
+	logic.IsNodeAllowedToCommunicate = proLogic.IsNodeAllowedToCommunicate
+
 }
 
 func retrieveProLogo() string {
