@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -15,38 +16,44 @@ import (
 	"time"
 )
 
-var hookStopWg sync.WaitGroup
-var syncTicker *time.Ticker
+var (
+	cancelSyncHook context.CancelFunc
+	hookStopWg     sync.WaitGroup
+)
 
 func ResetIDPSyncHook() {
-	if syncTicker != nil {
-		// if the hook is already running, stop it.
-		syncTicker.Stop()
-
-		// wait for the hook to stop.
-		hookStopWg.Add(1)
+	if cancelSyncHook != nil {
+		cancelSyncHook()
 		hookStopWg.Wait()
+		cancelSyncHook = nil
 	}
 
 	if logic.IsSyncEnabled() {
-		// if the hook is enabled, start it again.
-		go runIDPSyncHook()
+		ctx, cancel := context.WithCancel(context.Background())
+		cancelSyncHook = cancel
+		hookStopWg.Add(1)
+		go runIDPSyncHook(ctx)
 	}
 }
 
-func runIDPSyncHook() {
-	syncTicker = time.NewTicker(logic.GetIDPSyncInterval())
+func runIDPSyncHook(ctx context.Context) {
+	defer hookStopWg.Done()
+	ticker := time.NewTicker(logic.GetIDPSyncInterval())
+	defer ticker.Stop()
 
-	for range syncTicker.C {
-		err := SyncFromIDP()
-		if err != nil {
-			logger.Log(0, "failed to sync from idp: ", err.Error())
-		} else {
-			logger.Log(0, "sync from idp complete")
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Log(0, "idp sync hook stopped")
+			return
+		case <-ticker.C:
+			if err := SyncFromIDP(); err != nil {
+				logger.Log(0, "failed to sync from idp: ", err.Error())
+			} else {
+				logger.Log(0, "sync from idp complete")
+			}
 		}
 	}
-
-	hookStopWg.Done()
 }
 
 func SyncFromIDP() error {
