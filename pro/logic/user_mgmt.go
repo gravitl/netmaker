@@ -695,9 +695,30 @@ func GetUserRAGNodes(user models.User) (gws map[string]models.Node) {
 	if err != nil {
 		return
 	}
+
 	for _, node := range nodes {
-		if ok, _ := logic.IsUserAllowedToCommunicate(user.UserName, node); ok {
+		if user.PlatformRoleID == models.AdminRole || user.PlatformRoleID == models.SuperAdminRole {
 			gws[node.ID.String()] = node
+		} else {
+			// check if user has network role assigned
+			if roles, ok := user.NetworkRoles[models.NetworkID(node.Network)]; ok && len(roles) > 0 {
+				if ok, _ := logic.IsUserAllowedToCommunicate(user.UserName, node); ok {
+					gws[node.ID.String()] = node
+					continue
+				}
+			}
+			for groupID := range user.UserGroups {
+				userGrp, err := logic.GetUserGroup(groupID)
+				if err == nil {
+					if roles, ok := userGrp.NetworkRoles[models.NetworkID(node.Network)]; ok && len(roles) > 0 {
+						if ok, _ := logic.IsUserAllowedToCommunicate(user.UserName, node); ok {
+							gws[node.ID.String()] = node
+							break
+						}
+					}
+				}
+			}
+
 		}
 	}
 	return
