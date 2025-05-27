@@ -271,7 +271,7 @@ func CheckNetRegAndHostUpdate(networks []string, h *models.Host, relayNodeId uui
 						slog.Error("failed to relay node. maybe specified relay node is actually not a relay? Or the relayed node is not in the same network with relay?", "err", err)
 					}
 				}
-				if strings.Contains(err.Error(), "host already part of network") {
+				if err != nil && strings.Contains(err.Error(), "host already part of network") {
 					continue
 				}
 			} else {
