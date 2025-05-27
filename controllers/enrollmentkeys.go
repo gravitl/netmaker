@@ -402,12 +402,17 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	host, err := logic.GetHost(newHost.ID.String())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 	// ready the response
 	server := logic.GetServerInfo()
 	server.TrafficKey = key
 	response := models.RegisterResponse{
 		ServerConf:    server,
-		RequestedHost: newHost,
+		RequestedHost: *host,
 	}
 	for _, netID := range enrollmentKey.Networks {
 		logic.LogEvent(&models.Event{
@@ -428,9 +433,9 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	logger.Log(0, newHost.Name, newHost.ID.String(), "registered with Netmaker")
+	logger.Log(0, host.Name, host.ID.String(), "registered with Netmaker")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&response)
 	// notify host of changes, peer and node updates
-	go auth.CheckNetRegAndHostUpdate(enrollmentKey.Networks, &newHost, enrollmentKey.Relay, enrollmentKey.Groups)
+	go auth.CheckNetRegAndHostUpdate(enrollmentKey.Networks, host, enrollmentKey.Relay, enrollmentKey.Groups)
 }
