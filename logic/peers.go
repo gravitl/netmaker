@@ -203,7 +203,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		}
 		defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 		defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
-
+		fmt.Println("====> Checking for ", host.Name, CheckIfAnyActiveEgressPolicy(node), CheckIfNodeHasAccessToAllResources(&node))
 		if (defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
 			(!CheckIfAnyPolicyisUniDirectional(node) && !CheckIfAnyActiveEgressPolicy(node)) ||
 			CheckIfNodeHasAccessToAllResources(&node) {
