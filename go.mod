@@ -21,7 +21,7 @@ require (
 	github.com/txn2/txeh v1.5.5
 	go.uber.org/automaxprocs v1.6.0
 	golang.org/x/crypto v0.38.0
-	golang.org/x/net v0.39.0 // indirect
+	golang.org/x/net v0.40.0 // indirect
 	golang.org/x/oauth2 v0.30.0
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
@@ -48,7 +48,7 @@ require (
 	github.com/matryer/is v1.4.1
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/spf13/cobra v1.9.1
-	google.golang.org/api v0.229.0
+	google.golang.org/api v0.234.0
 	gopkg.in/mail.v2 v2.3.1
 	gorm.io/datatypes v1.2.5
 	gorm.io/driver/postgres v1.5.11
@@ -57,9 +57,9 @@ require (
 )
 
 require (
-	cloud.google.com/go/auth v0.16.0 // indirect
+	cloud.google.com/go/auth v0.16.1 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
-	cloud.google.com/go/compute/metadata v0.6.0 // indirect
+	cloud.google.com/go/compute/metadata v0.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
@@ -67,7 +67,7 @@ require (
 	github.com/go-sql-driver/mysql v1.8.1 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.6 // indirect
-	github.com/googleapis/gax-go/v2 v2.14.1 // indirect
+	github.com/googleapis/gax-go/v2 v2.14.2 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
@@ -85,8 +85,8 @@ require (
 	go.opentelemetry.io/otel v1.35.0 // indirect
 	go.opentelemetry.io/otel/metric v1.35.0 // indirect
 	go.opentelemetry.io/otel/trace v1.35.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250414145226-207652e42e2e // indirect
-	google.golang.org/grpc v1.71.1 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250512202823-5a2f75b736a9 // indirect
+	google.golang.org/grpc v1.72.1 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gorm.io/driver/mysql v1.5.6 // indirect
