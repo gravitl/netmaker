@@ -6,7 +6,6 @@ import (
 	"maps"
 	"net"
 
-	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -306,18 +305,18 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []mode
 // IsPeerAllowed - checks if peer needs to be added to the interface
 func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 	var nodeId, peerId string
-	if peer.IsFailOver && node.FailedOverBy != uuid.Nil && node.FailedOverBy == peer.ID {
-		return true
-	}
-	if node.IsFailOver && peer.FailedOverBy != uuid.Nil && peer.FailedOverBy == node.ID {
-		return true
-	}
-	if node.IsGw && peer.IsRelayed && peer.RelayedBy == node.ID.String() {
-		return true
-	}
-	if peer.IsGw && node.IsRelayed && node.RelayedBy == peer.ID.String() {
-		return true
-	}
+	// if peer.IsFailOver && node.FailedOverBy != uuid.Nil && node.FailedOverBy == peer.ID {
+	// 	return true
+	// }
+	// if node.IsFailOver && peer.FailedOverBy != uuid.Nil && peer.FailedOverBy == node.ID {
+	// 	return true
+	// }
+	// if node.IsGw && peer.IsRelayed && peer.RelayedBy == node.ID.String() {
+	// 	return true
+	// }
+	// if peer.IsGw && node.IsRelayed && node.RelayedBy == peer.ID.String() {
+	// 	return true
+	// }
 	if node.IsStatic {
 		nodeId = node.StaticNode.ClientID
 		node = node.StaticNode.ConvertToStaticNode()
@@ -430,12 +429,18 @@ func RemoveUserFromAclPolicy(userName string) {
 // IsNodeAllowedToCommunicate - check node is allowed to communicate with the peer // ADD ALLOWED DIRECTION - 0 => node -> peer, 1 => peer-> node,
 func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool) (bool, []models.Acl) {
 	var nodeId, peerId string
-	if peer.IsFailOver && node.FailedOverBy != uuid.Nil && node.FailedOverBy == peer.ID {
-		return true, []models.Acl{}
-	}
-	if node.IsFailOver && peer.FailedOverBy != uuid.Nil && peer.FailedOverBy == node.ID {
-		return true, []models.Acl{}
-	}
+	// if peer.IsFailOver && node.FailedOverBy != uuid.Nil && node.FailedOverBy == peer.ID {
+	// 	return true, []models.Acl{}
+	// }
+	// if node.IsFailOver && peer.FailedOverBy != uuid.Nil && peer.FailedOverBy == node.ID {
+	// 	return true, []models.Acl{}
+	// }
+	// if node.IsGw && peer.IsRelayed && peer.RelayedBy == node.ID.String() {
+	// 	return true, []models.Acl{}
+	// }
+	// if peer.IsGw && node.IsRelayed && node.RelayedBy == peer.ID.String() {
+	// 	return true, []models.Acl{}
+	// }
 	if node.IsStatic {
 		nodeId = node.StaticNode.ClientID
 		node = node.StaticNode.ConvertToStaticNode()

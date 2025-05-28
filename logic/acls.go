@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
@@ -650,12 +649,12 @@ func MigrateAclPolicies() {
 // IsNodeAllowedToCommunicate - check node is allowed to communicate with the peer // ADD ALLOWED DIRECTION - 0 => node -> peer, 1 => peer-> node,
 func isNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool) (bool, []models.Acl) {
 	var nodeId, peerId string
-	if peer.IsGw && node.RelayedBy == peer.ID.String() {
-		return true, []models.Acl{}
-	}
-	if node.IsFailOver && peer.FailedOverBy != uuid.Nil && peer.FailedOverBy == node.ID {
-		return true, []models.Acl{}
-	}
+	// if node.IsGw && peer.IsRelayed && peer.RelayedBy == node.ID.String() {
+	// 	return true, []models.Acl{}
+	// }
+	// if peer.IsGw && node.IsRelayed && node.RelayedBy == peer.ID.String() {
+	// 	return true, []models.Acl{}
+	// }
 	if node.IsStatic {
 		nodeId = node.StaticNode.ClientID
 		node = node.StaticNode.ConvertToStaticNode()
@@ -1225,7 +1224,7 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 		InsertAcl(defaultDeviceAcl)
 	}
 
-	if servercfg.IsPro && !IsAclExists(fmt.Sprintf("%s.%s", netID, "all-gateways")) {
+	if !IsAclExists(fmt.Sprintf("%s.%s", netID, "all-gateways")) {
 		defaultUserAcl := models.Acl{
 			ID:          fmt.Sprintf("%s.%s", netID, "all-gateways"),
 			Default:     true,
