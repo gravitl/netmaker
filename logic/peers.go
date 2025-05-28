@@ -433,9 +433,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			hostPeerUpdate.FwUpdate.IsIngressGw = true
 			extPeers, extPeerIDAndAddrs, egressRoutes, err = GetExtPeers(&node, &node)
 			if err == nil {
-				if !((defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
-					(!anyUniDirectionPolicy && !anyActiveEgressPolicy) ||
-					nodeHasAccessToAllRsrcs) {
+				if !defaultDevicePolicy.Enabled || !defaultUserPolicy.Enabled {
 					ingFwUpdate := models.IngressInfo{
 						IngressID:     node.ID.String(),
 						Network:       node.NetworkRange,

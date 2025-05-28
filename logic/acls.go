@@ -21,6 +21,8 @@ import (
 // TODO: Write Diff Funcs
 
 var IsNodeAllowedToCommunicate = isNodeAllowedToCommunicate
+var GetStaticNodeIps = func(node models.Node) (ips []net.IP) { return }
+var GetFwRulesOnIngressGateway = func(node models.Node) (rules []models.FwRule) { return }
 var MigrateToGws = func() {
 
 	nodes, err := GetAllNodes()
