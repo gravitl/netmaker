@@ -111,7 +111,7 @@ func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 				!peer.PendingDelete &&
 				peer.Connected &&
 				nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) &&
-				(defaultDevicePolicy.Enabled || allowedToComm) {
+				(allowedToComm) {
 
 				networkPeersInfo[peerHost.PublicKey.String()] = models.IDandAddr{
 					ID:         peer.ID.String(),
@@ -143,6 +143,9 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 	deletedNode *models.Node, deletedClients []models.ExtClient) (models.HostPeerUpdate, error) {
 	if host == nil {
 		return models.HostPeerUpdate{}, errors.New("host is nil")
+	}
+	if host.Name == "nm-server" {
+		fmt.Println("===> CHECKING FOR HOST ", host.Name)
 	}
 
 	// track which nodes are deleted
@@ -203,10 +206,12 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		}
 		defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 		defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
-		fmt.Println("====> Checking for ", host.Name, CheckIfAnyActiveEgressPolicy(node), CheckIfNodeHasAccessToAllResources(&node))
+		anyActiveEgressPolicy := CheckIfAnyActiveEgressPolicy(node)
+		nodeHasAccessToAllRsrcs := CheckIfNodeHasAccessToAllResources(&node)
+		anyUniDirectionPolicy := CheckIfAnyPolicyisUniDirectional(node)
 		if (defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
-			(!CheckIfAnyPolicyisUniDirectional(node) && !CheckIfAnyActiveEgressPolicy(node)) ||
-			CheckIfNodeHasAccessToAllResources(&node) {
+			(!anyUniDirectionPolicy && !anyActiveEgressPolicy) ||
+			nodeHasAccessToAllRsrcs {
 			aclRule := models.AclRule{
 				ID:              fmt.Sprintf("%s-allowed-network-rules", node.ID.String()),
 				AllowedProtocol: models.ALL,
@@ -250,6 +255,9 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			if err != nil {
 				logger.Log(1, "no peer host", peer.HostID.String(), err.Error())
 				continue
+			}
+			if host.Name == "nm-server" {
+				fmt.Println("===> CHECKING FOR PEER ", peerHost.Name)
 			}
 			peerConfig := wgtypes.PeerConfig{
 				PublicKey:                   peerHost.PublicKey,
@@ -366,13 +374,17 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				allowedToComm = true
 			} else {
 				allowedToComm = IsPeerAllowed(node, peer, false)
+				if host.Name == "nm-server" {
+					fmt.Println("===> CHECKING FOR HOST ", peerHost.Name, allowedToComm)
+				}
+
 			}
 			if peer.Action != models.NODE_DELETE &&
 				!peer.PendingDelete &&
 				peer.Connected &&
 				nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) &&
-				(defaultDevicePolicy.Enabled || allowedToComm) &&
-				(deletedNode == nil || (deletedNode != nil && peer.ID.String() != deletedNode.ID.String())) {
+				(allowedToComm) &&
+				(deletedNode == nil || (peer.ID.String() != deletedNode.ID.String())) {
 				peerConfig.AllowedIPs = GetAllowedIPs(&node, &peer, nil) // only append allowed IPs if valid connection
 			}
 
@@ -421,7 +433,9 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			hostPeerUpdate.FwUpdate.IsIngressGw = true
 			extPeers, extPeerIDAndAddrs, egressRoutes, err = GetExtPeers(&node, &node)
 			if err == nil {
-				if !defaultDevicePolicy.Enabled || !defaultUserPolicy.Enabled {
+				if !((defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
+					(!anyUniDirectionPolicy && !anyActiveEgressPolicy) ||
+					nodeHasAccessToAllRsrcs) {
 					ingFwUpdate := models.IngressInfo{
 						IngressID:     node.ID.String(),
 						Network:       node.NetworkRange,

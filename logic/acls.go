@@ -57,6 +57,9 @@ func CheckIfNodeHasAccessToAllResources(targetnode *models.Node) bool {
 	}
 	targetNodeTags[models.TagID(targetnode.ID.String())] = struct{}{}
 	targetNodeTags["*"] = struct{}{}
+	if targetnode.IsGw {
+		targetNodeTags[models.TagID(fmt.Sprintf("%s.%s", targetnode.Network, models.GwTagName))] = struct{}{}
+	}
 	for _, acl := range acls {
 		if !acl.Enabled {
 			continue
@@ -107,6 +110,9 @@ var CheckIfAnyActiveEgressPolicy = func(targetNode models.Node) bool {
 	var targetNodeTags = make(map[models.TagID]struct{})
 	targetNodeTags[models.TagID(targetNode.ID.String())] = struct{}{}
 	targetNodeTags["*"] = struct{}{}
+	if targetNode.IsGw {
+		targetNodeTags[models.TagID(fmt.Sprintf("%s.%s", targetNode.Network, models.GwTagName))] = struct{}{}
+	}
 	acls, _ := ListAclsByNetwork(models.NetworkID(targetNode.Network))
 	for _, acl := range acls {
 		if !acl.Enabled || acl.RuleType != models.DevicePolicy {
@@ -378,6 +384,9 @@ var IsAclPolicyValid = func(acl models.Acl) (err error) {
 			if srcI.Value == "*" {
 				continue
 			}
+			if srcI.ID == models.NodeTagID && srcI.Value == fmt.Sprintf("%s.%s", acl.NetworkID.String(), models.GwTagName) {
+				continue
+			}
 			if err = checkIfAclTagisValid(acl, srcI, true); err != nil {
 				return err
 			}
@@ -385,6 +394,9 @@ var IsAclPolicyValid = func(acl models.Acl) (err error) {
 		for _, dstI := range acl.Dst {
 
 			if dstI.Value == "*" {
+				continue
+			}
+			if dstI.ID == models.NodeTagID && dstI.Value == fmt.Sprintf("%s.%s", acl.NetworkID.String(), models.GwTagName) {
 				continue
 			}
 			if err = checkIfAclTagisValid(acl, dstI, false); err != nil {
@@ -399,10 +411,10 @@ var IsAclPolicyValid = func(acl models.Acl) (err error) {
 
 var IsPeerAllowed = func(node, peer models.Node, checkDefaultPolicy bool) bool {
 	var nodeId, peerId string
-	if peer.IsFailOver && node.FailedOverBy != uuid.Nil && node.FailedOverBy == peer.ID {
+	if node.IsGw && peer.IsRelayed && peer.RelayedBy == node.ID.String() {
 		return true
 	}
-	if node.IsFailOver && peer.FailedOverBy != uuid.Nil && peer.FailedOverBy == node.ID {
+	if peer.IsGw && node.IsRelayed && node.RelayedBy == peer.ID.String() {
 		return true
 	}
 	if node.IsStatic {
@@ -422,6 +434,12 @@ var IsPeerAllowed = func(node, peer models.Node, checkDefaultPolicy bool) bool {
 	nodeTags := make(map[models.TagID]struct{})
 	nodeTags[models.TagID(nodeId)] = struct{}{}
 	peerTags[models.TagID(peerId)] = struct{}{}
+	if peer.IsGw {
+		peerTags[models.TagID(fmt.Sprintf("%s.%s", peer.Network, models.GwTagName))] = struct{}{}
+	}
+	if node.IsGw {
+		nodeTags[models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName))] = struct{}{}
+	}
 	if checkDefaultPolicy {
 		// check default policy if all allowed return true
 		defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
@@ -656,6 +674,12 @@ func isNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool)
 
 	nodeTags[models.TagID(nodeId)] = struct{}{}
 	peerTags[models.TagID(peerId)] = struct{}{}
+	if peer.IsGw {
+		peerTags[models.TagID(fmt.Sprintf("%s.%s", peer.Network, models.GwTagName))] = struct{}{}
+	}
+	if node.IsGw {
+		nodeTags[models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName))] = struct{}{}
+	}
 	if checkDefaultPolicy {
 		// check default policy if all allowed return true
 		defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
@@ -947,7 +971,7 @@ func ListAcls() (acls []models.Acl) {
 			}
 			skip := false
 			for _, srcI := range acl.Src {
-				if srcI.ID == models.NodeTagID && acl.ID != fmt.Sprintf("%s.%s", acl.NetworkID.String(), "all-nodes") {
+				if srcI.ID == models.NodeTagID && (srcI.Value != "*" && srcI.Value != fmt.Sprintf("%s.%s", acl.NetworkID.String(), models.GwTagName)) {
 					skip = true
 					break
 				}
@@ -956,7 +980,8 @@ func ListAcls() (acls []models.Acl) {
 				continue
 			}
 			for _, dstI := range acl.Dst {
-				if dstI.ID == models.NodeTagID && acl.ID != fmt.Sprintf("%s.%s", acl.NetworkID.String(), "all-nodes") {
+
+				if dstI.ID == models.NodeTagID && (dstI.Value != "*" && dstI.Value != fmt.Sprintf("%s.%s", acl.NetworkID.String(), models.GwTagName)) {
 					skip = true
 					break
 				}

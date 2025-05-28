@@ -312,6 +312,12 @@ func IsPeerAllowed(node, peer models.Node, checkDefaultPolicy bool) bool {
 	if node.IsFailOver && peer.FailedOverBy != uuid.Nil && peer.FailedOverBy == node.ID {
 		return true
 	}
+	if node.IsGw && peer.IsRelayed && peer.RelayedBy == node.ID.String() {
+		return true
+	}
+	if peer.IsGw && node.IsRelayed && node.RelayedBy == peer.ID.String() {
+		return true
+	}
 	if node.IsStatic {
 		nodeId = node.StaticNode.ClientID
 		node = node.StaticNode.ConvertToStaticNode()
