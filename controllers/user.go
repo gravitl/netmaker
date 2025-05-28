@@ -759,6 +759,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 			ID:   user.UserName,
 			Name: user.UserName,
 			Type: models.UserSub,
+			Info: user,
 		},
 		Origin: models.Dashboard,
 	})

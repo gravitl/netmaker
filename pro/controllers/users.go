@@ -257,6 +257,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 				ID:   callerUserName,
 				Name: callerUserName,
 				Type: models.UserSub,
+				Info: invite,
 			},
 			TriggeredBy: callerUserName,
 			Target: models.Subject{
