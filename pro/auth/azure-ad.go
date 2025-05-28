@@ -111,7 +111,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 					return
 				}
-				user.ExternalIdentityProviderID = content.ID
+				user.ExternalIdentityProviderID = string(content.ID)
 				if err = logic.CreateUser(&user); err != nil {
 					handleSomethingWentWrong(w)
 					return
@@ -125,7 +125,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 				}
 				err = logic.InsertPendingUser(&models.User{
 					UserName:                   content.Email,
-					ExternalIdentityProviderID: content.ID,
+					ExternalIdentityProviderID: string(content.ID),
 					AuthType:                   models.OAuth,
 				})
 				if err != nil {
@@ -243,7 +243,6 @@ func getAzureUserInfo(state string, code string) (*OAuthUser, error) {
 	}
 	if userInfo.Email == "" && userInfo.UserPrincipalName != "" {
 		userInfo.Email = userInfo.UserPrincipalName
-
 	}
 	if userInfo.Email == "" {
 		err = errors.New("failed to fetch user email from SSO state")
