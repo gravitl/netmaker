@@ -257,6 +257,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 				ID:   callerUserName,
 				Name: callerUserName,
 				Type: models.UserSub,
+				Info: invite,
 			},
 			TriggeredBy: callerUserName,
 			Target: models.Subject{
@@ -458,7 +459,7 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = proLogic.CreateUserGroup(userGroupReq.Group)
+	err = proLogic.CreateUserGroup(&userGroupReq.Group)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return

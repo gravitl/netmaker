@@ -94,7 +94,7 @@ func InitPro() {
 		}
 		proLogic.LoadNodeMetricsToCache()
 		proLogic.InitFailOverCache()
-		go auth.StartSyncHook()
+		auth.ResetIDPSyncHook()
 		email.Init()
 		go proLogic.EventWatcher()
 	})

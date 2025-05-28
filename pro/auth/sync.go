@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -11,29 +12,46 @@ import (
 	"github.com/gravitl/netmaker/pro/idp/google"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"strings"
+	"sync"
 	"time"
 )
 
-var syncTicker *time.Ticker
+var (
+	cancelSyncHook context.CancelFunc
+	hookStopWg     sync.WaitGroup
+)
 
-func StartSyncHook() {
-	syncTicker = time.NewTicker(logic.GetIDPSyncInterval())
+func ResetIDPSyncHook() {
+	if cancelSyncHook != nil {
+		cancelSyncHook()
+		hookStopWg.Wait()
+		cancelSyncHook = nil
+	}
 
-	for range syncTicker.C {
-		err := SyncFromIDP()
-		if err != nil {
-			logger.Log(0, "failed to sync from idp: ", err.Error())
-		} else {
-			logger.Log(0, "sync from idp complete")
-		}
+	if logic.IsSyncEnabled() {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancelSyncHook = cancel
+		hookStopWg.Add(1)
+		go runIDPSyncHook(ctx)
 	}
 }
 
-func ResetIDPSyncHook() {
-	if syncTicker != nil {
-		syncTicker.Stop()
-		if logic.IsSyncEnabled() {
-			go StartSyncHook()
+func runIDPSyncHook(ctx context.Context) {
+	defer hookStopWg.Done()
+	ticker := time.NewTicker(logic.GetIDPSyncInterval())
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Log(0, "idp sync hook stopped")
+			return
+		case <-ticker.C:
+			if err := SyncFromIDP(); err != nil {
+				logger.Log(0, "failed to sync from idp: ", err.Error())
+			} else {
+				logger.Log(0, "sync from idp complete")
+			}
 		}
 	}
 }
@@ -218,11 +236,11 @@ func syncGroups(idpGroups []idp.Group) error {
 
 		dbGroup, ok := dbGroupsMap[group.ID]
 		if !ok {
-			err := proLogic.CreateUserGroup(models.UserGroup{
-				ExternalIdentityProviderID: group.ID,
-				Default:                    false,
-				Name:                       group.Name,
-			})
+			dbGroup.ExternalIdentityProviderID = group.ID
+			dbGroup.Name = group.Name
+			dbGroup.Default = false
+			dbGroup.NetworkRoles = make(map[models.NetworkID]map[models.UserRoleID]struct{})
+			err := proLogic.CreateUserGroup(&dbGroup)
 			if err != nil {
 				return err
 			}
@@ -241,18 +259,18 @@ func syncGroups(idpGroups []idp.Group) error {
 
 		for _, user := range dbUsers {
 			// use dbGroup.Name because the group name may have been changed on idp.
-			_, inNetmakerGroup := user.UserGroups[models.UserGroupID(dbGroup.Name)]
+			_, inNetmakerGroup := user.UserGroups[dbGroup.ID]
 			_, inIDPGroup := groupMembersMap[user.ExternalIdentityProviderID]
 
 			if inNetmakerGroup && !inIDPGroup {
 				// use dbGroup.Name because the group name may have been changed on idp.
-				delete(dbUsersMap[user.ExternalIdentityProviderID].UserGroups, models.UserGroupID(dbGroup.Name))
+				delete(dbUsersMap[user.ExternalIdentityProviderID].UserGroups, dbGroup.ID)
 				modifiedUsers[user.ExternalIdentityProviderID] = struct{}{}
 			}
 
 			if !inNetmakerGroup && inIDPGroup {
 				// use dbGroup.Name because the group name may have been changed on idp.
-				dbUsersMap[user.ExternalIdentityProviderID].UserGroups[models.UserGroupID(dbGroup.Name)] = struct{}{}
+				dbUsersMap[user.ExternalIdentityProviderID].UserGroups[dbGroup.ID] = struct{}{}
 				modifiedUsers[user.ExternalIdentityProviderID] = struct{}{}
 			}
 		}

@@ -531,7 +531,7 @@ func ValidateUpdateGroupReq(g models.UserGroup) error {
 }
 
 // CreateUserGroup - creates new user group
-func CreateUserGroup(g models.UserGroup) error {
+func CreateUserGroup(g *models.UserGroup) error {
 	// default groups are currently created directly in the db.
 	// this check is only to prevent future errors.
 	if g.Default && g.ID == "" {
@@ -1287,7 +1287,10 @@ func AddGlobalNetRolesToAdmins(u *models.User) {
 	if u.PlatformRoleID != models.SuperAdminRole && u.PlatformRoleID != models.AdminRole {
 		return
 	}
-	u.UserGroups = make(map[models.UserGroupID]struct{})
+
+	if len(u.UserGroups) == 0 {
+		u.UserGroups = make(map[models.UserGroupID]struct{})
+	}
 
 	u.UserGroups[globalNetworksAdminGroupID] = struct{}{}
 }
