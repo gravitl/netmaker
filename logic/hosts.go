@@ -228,7 +228,7 @@ func CreateHost(h *models.Host) error {
 		return err
 	}
 	h.HostPass = string(hash)
-	h.AutoUpdate = servercfg.AutoUpdateEnabled()
+	h.AutoUpdate = AutoUpdateEnabled()
 	checkForZombieHosts(h)
 	return UpsertHost(h)
 }

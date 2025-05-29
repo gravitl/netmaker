@@ -33,7 +33,7 @@ func SetFreeTierForTelemetry(freeTierFlag bool) {
 
 // sendTelemetry - gathers telemetry data and sends to posthog
 func sendTelemetry() error {
-	if servercfg.Telemetry() == "off" {
+	if Telemetry() == "off" {
 		return nil
 	}
 

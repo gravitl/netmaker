@@ -4,6 +4,7 @@
 package pro
 
 import (
+	"github.com/gravitl/netmaker/pro/email"
 	"time"
 
 	controller "github.com/gravitl/netmaker/controllers"
@@ -79,7 +80,7 @@ func InitPro() {
 			addTrialLicenseHook()
 		}
 
-		if servercfg.GetServerConfig().RacAutoDisable {
+		if logic.GetRacAutoDisable() {
 			AddRacHooks()
 		}
 
@@ -91,6 +92,8 @@ func InitPro() {
 		}
 		proLogic.LoadNodeMetricsToCache()
 		proLogic.InitFailOverCache()
+		auth.ResetIDPSyncHook()
+		email.Init()
 	})
 	logic.ResetFailOver = proLogic.ResetFailOver
 	logic.ResetFailedOverPeer = proLogic.ResetFailedOverPeer
@@ -130,11 +133,15 @@ func InitPro() {
 	logic.UpdateUserGwAccess = proLogic.UpdateUserGwAccess
 	logic.CreateDefaultUserPolicies = proLogic.CreateDefaultUserPolicies
 	logic.MigrateUserRoleAndGroups = proLogic.MigrateUserRoleAndGroups
+	logic.MigrateToUUIDs = proLogic.MigrateToUUIDs
 	logic.IntialiseGroups = proLogic.UserGroupsInit
 	logic.AddGlobalNetRolesToAdmins = proLogic.AddGlobalNetRolesToAdmins
 	logic.GetUserGroupsInNetwork = proLogic.GetUserGroupsInNetwork
 	logic.GetUserGroup = proLogic.GetUserGroup
 	logic.GetNodeStatus = proLogic.GetNodeStatus
+	logic.ResetAuthProvider = auth.ResetAuthProvider
+	logic.ResetIDPSyncHook = auth.ResetIDPSyncHook
+	logic.EmailInit = email.Init
 }
 
 func retrieveProLogo() string {

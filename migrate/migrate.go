@@ -20,10 +20,12 @@ import (
 
 // Run - runs all migrations
 func Run() {
+	settings()
 	updateEnrollmentKeys()
 	assignSuperAdmin()
 	createDefaultTagsAndPolicies()
 	removeOldUserGrps()
+	migrateToUUIDs()
 	syncUsers()
 	updateHosts()
 	updateNodes()
@@ -386,6 +388,10 @@ func MigrateEmqx() {
 
 }
 
+func migrateToUUIDs() {
+	logic.MigrateToUUIDs()
+}
+
 func syncUsers() {
 	// create default network user roles for existing networks
 	if servercfg.IsPro {
@@ -409,7 +415,7 @@ func syncUsers() {
 			}
 			if user.PlatformRoleID.String() != "" {
 				logic.MigrateUserRoleAndGroups(user)
-				logic.AddGlobalNetRolesToAdmins(user)
+				logic.AddGlobalNetRolesToAdmins(&user)
 				continue
 			}
 			user.AuthType = models.BasicAuth
@@ -431,7 +437,7 @@ func syncUsers() {
 				user.PlatformRoleID = models.ServiceUser
 			}
 			logic.UpsertUser(user)
-			logic.AddGlobalNetRolesToAdmins(user)
+			logic.AddGlobalNetRolesToAdmins(&user)
 			logic.MigrateUserRoleAndGroups(user)
 		}
 	}
@@ -494,5 +500,12 @@ func migrateToGws() {
 	nets, _ := logic.GetNetworks()
 	for _, netI := range nets {
 		logic.DeleteTag(models.TagID(fmt.Sprintf("%s.%s", netI.NetID, models.OldRemoteAccessTagName)), true)
+	}
+}
+
+func settings() {
+	_, err := database.FetchRecords(database.SERVER_SETTINGS)
+	if database.IsEmptyRecord(err) {
+		logic.UpsertServerSettings(logic.GetServerSettingsFromEnv())
 	}
 }
