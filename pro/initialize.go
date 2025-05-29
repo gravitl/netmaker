@@ -136,7 +136,7 @@ func InitPro() {
 	logic.UpdateUserGwAccess = proLogic.UpdateUserGwAccess
 	logic.CreateDefaultUserPolicies = proLogic.CreateDefaultUserPolicies
 	logic.MigrateUserRoleAndGroups = proLogic.MigrateUserRoleAndGroups
-	logic.MigrateGroups = proLogic.MigrateGroups
+	logic.MigrateToUUIDs = proLogic.MigrateToUUIDs
 	logic.IntialiseGroups = proLogic.UserGroupsInit
 	logic.AddGlobalNetRolesToAdmins = proLogic.AddGlobalNetRolesToAdmins
 	logic.GetUserGroupsInNetwork = proLogic.GetUserGroupsInNetwork

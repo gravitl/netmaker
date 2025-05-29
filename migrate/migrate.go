@@ -29,7 +29,7 @@ func Run() {
 	assignSuperAdmin()
 	createDefaultTagsAndPolicies()
 	removeOldUserGrps()
-	syncGroups()
+	migrateToUUIDs()
 	syncUsers()
 	updateHosts()
 	updateNodes()
@@ -394,8 +394,8 @@ func MigrateEmqx() {
 
 }
 
-func syncGroups() {
-	logic.MigrateGroups()
+func migrateToUUIDs() {
+	logic.MigrateToUUIDs()
 }
 
 func syncUsers() {
