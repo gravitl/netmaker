@@ -20,6 +20,8 @@ import (
 func aclHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/acls", logic.SecurityCheck(true, http.HandlerFunc(getAcls))).
 		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/acls/egress", logic.SecurityCheck(true, http.HandlerFunc(getEgressAcls))).
+		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/acls/policy_types", logic.SecurityCheck(true, http.HandlerFunc(aclPolicyTypes))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/acls", logic.SecurityCheck(true, http.HandlerFunc(createAcl))).
