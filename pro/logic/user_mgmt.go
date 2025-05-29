@@ -18,6 +18,8 @@ import (
 var (
 	globalNetworksAdminGroupID = models.UserGroupID(fmt.Sprintf("global-%s-grp", models.NetworkAdmin))
 	globalNetworksUserGroupID  = models.UserGroupID(fmt.Sprintf("global-%s-grp", models.NetworkUser))
+	globalNetworksAdminRoleID  = models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkAdmin))
+	globalNetworksUserRoleID   = models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkUser))
 )
 
 var ServiceUserPermissionTemplate = models.UserRolePermissionTemplate{
@@ -34,7 +36,7 @@ var PlatformUserUserPermissionTemplate = models.UserRolePermissionTemplate{
 }
 
 var NetworkAdminAllPermissionTemplate = models.UserRolePermissionTemplate{
-	ID:         models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkAdmin)),
+	ID:         globalNetworksAdminRoleID,
 	Name:       "Network Admins",
 	MetaData:   "can manage configuration of all networks",
 	Default:    true,
@@ -43,7 +45,7 @@ var NetworkAdminAllPermissionTemplate = models.UserRolePermissionTemplate{
 }
 
 var NetworkUserAllPermissionTemplate = models.UserRolePermissionTemplate{
-	ID:         models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkUser)),
+	ID:         globalNetworksUserRoleID,
 	Name:       "Network Users",
 	MetaData:   "Can connect to nodes in your networks via Netmaker Desktop App.",
 	Default:    true,
@@ -123,7 +125,7 @@ func UserGroupsInit() {
 		MetaData: "can manage configuration of all networks",
 		NetworkRoles: map[models.NetworkID]map[models.UserRoleID]struct{}{
 			models.AllNetworks: {
-				models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkAdmin)): {},
+				globalNetworksAdminRoleID: {},
 			},
 		},
 	}
@@ -133,7 +135,7 @@ func UserGroupsInit() {
 		Default: true,
 		NetworkRoles: map[models.NetworkID]map[models.UserRoleID]struct{}{
 			models.AllNetworks: {
-				models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkUser)): {},
+				globalNetworksUserRoleID: {},
 			},
 		},
 		MetaData: "Provides read-only dashboard access to platform users and allows connection to network nodes via the Netmaker Desktop App.",
@@ -149,7 +151,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 		return
 	}
 	var NetworkAdminPermissionTemplate = models.UserRolePermissionTemplate{
-		ID:                 models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkAdmin)),
+		ID:                 GetDefaultNetworkAdminRoleID(netID),
 		Name:               fmt.Sprintf("%s Admin", netID),
 		MetaData:           fmt.Sprintf("can manage your network `%s` configuration.", netID),
 		Default:            true,
@@ -159,7 +161,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 	}
 
 	var NetworkUserPermissionTemplate = models.UserRolePermissionTemplate{
-		ID:                  models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkUser)),
+		ID:                  GetDefaultNetworkUserRoleID(netID),
 		Name:                fmt.Sprintf("%s User", netID),
 		MetaData:            fmt.Sprintf("Can connect to nodes in your network `%s` via Netmaker Desktop App.", netID),
 		Default:             true,
@@ -226,7 +228,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 		Default: true,
 		NetworkRoles: map[models.NetworkID]map[models.UserRoleID]struct{}{
 			netID: {
-				models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkAdmin)): {},
+				GetDefaultNetworkAdminRoleID(netID): {},
 			},
 		},
 		MetaData: fmt.Sprintf("can manage your network `%s` configuration including adding and removing devices.", netID),
@@ -237,7 +239,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 		Default: true,
 		NetworkRoles: map[models.NetworkID]map[models.UserRoleID]struct{}{
 			netID: {
-				models.UserRoleID(fmt.Sprintf("%s-%s", netID, models.NetworkUser)): {},
+				GetDefaultNetworkUserRoleID(netID): {},
 			},
 		},
 		MetaData: fmt.Sprintf("Can connect to nodes in your network `%s` via Netmaker Desktop App. Platform users will have read-only access to the the dashboard.", netID),
@@ -402,14 +404,32 @@ func ValidateUpdateRoleReq(userRole *models.UserRolePermissionTemplate) error {
 
 // CreateRole - inserts new role into DB
 func CreateRole(r models.UserRolePermissionTemplate) error {
-	// check if role already exists
-	if r.ID.String() == "" {
-		return errors.New("role id cannot be empty")
+	// default roles are currently created directly in the db.
+	// this check is only to prevent future errors.
+	if r.Default && r.ID == "" {
+		return errors.New("role id cannot be empty for default role")
 	}
-	_, err := database.FetchRecord(database.USER_PERMISSIONS_TABLE_NAME, r.ID.String())
-	if err == nil {
-		return errors.New("role already exists")
+
+	if !r.Default {
+		r.ID = models.UserRoleID(uuid.NewString())
 	}
+
+	// check if the role already exists
+	if r.Name == "" {
+		return errors.New("role name cannot be empty")
+	}
+
+	roles, err := ListNetworkRoles()
+	if err != nil {
+		return err
+	}
+
+	for _, role := range roles {
+		if role.Name == r.Name {
+			return errors.New("role already exists")
+		}
+	}
+
 	d, err := json.Marshal(r)
 	if err != nil {
 		return err
@@ -583,6 +603,14 @@ func GetDefaultNetworkAdminGroupID(networkID models.NetworkID) models.UserGroupI
 
 func GetDefaultNetworkUserGroupID(networkID models.NetworkID) models.UserGroupID {
 	return models.UserGroupID(fmt.Sprintf("%s-%s-grp", networkID, models.NetworkUser))
+}
+
+func GetDefaultNetworkAdminRoleID(networkID models.NetworkID) models.UserRoleID {
+	return models.UserRoleID(fmt.Sprintf("%s-%s", networkID, models.NetworkAdmin))
+}
+
+func GetDefaultNetworkUserRoleID(networkID models.NetworkID) models.UserRoleID {
+	return models.UserRoleID(fmt.Sprintf("%s-%s", networkID, models.NetworkUser))
 }
 
 // ListUserGroups - lists user groups
