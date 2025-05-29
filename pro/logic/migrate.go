@@ -9,13 +9,13 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
-func MigrateGroups() {
+func MigrateToUUIDs() {
 	groups, err := ListUserGroups()
 	if err != nil {
 		return
 	}
 
-	groupMapping := make(map[models.UserGroupID]models.UserGroupID)
+	groupsMapping := make(map[models.UserGroupID]models.UserGroupID)
 
 	for _, group := range groups {
 		if group.Default {
@@ -30,7 +30,7 @@ func MigrateGroups() {
 
 		oldGroupID := group.ID
 		group.ID = models.UserGroupID(uuid.NewString())
-		groupMapping[oldGroupID] = group.ID
+		groupsMapping[oldGroupID] = group.ID
 
 		groupBytes, err := json.Marshal(group)
 		if err != nil {
@@ -56,7 +56,7 @@ func MigrateGroups() {
 	for _, user := range users {
 		userGroups := make(map[models.UserGroupID]struct{})
 		for groupID := range user.UserGroups {
-			newGroupID, ok := groupMapping[groupID]
+			newGroupID, ok := groupsMapping[groupID]
 			if !ok {
 				userGroups[groupID] = struct{}{}
 			} else {
@@ -65,7 +65,66 @@ func MigrateGroups() {
 		}
 
 		user.UserGroups = userGroups
-		logic.UpsertUser(user)
+
+		err = logic.UpsertUser(user)
+		if err != nil {
+			continue
+		}
+	}
+
+	for _, acl := range logic.ListAcls() {
+		srcList := make([]models.AclPolicyTag, len(acl.Src))
+		for i, src := range acl.Src {
+			if src.ID == models.UserGroupAclID {
+				newGroupID, ok := groupsMapping[models.UserGroupID(src.Value)]
+				if ok {
+					src.Value = newGroupID.String()
+				}
+			}
+
+			srcList[i] = src
+		}
+
+		dstList := make([]models.AclPolicyTag, len(acl.Dst))
+		for i, dst := range acl.Dst {
+			if dst.ID == models.UserGroupAclID {
+				newGroupID, ok := groupsMapping[models.UserGroupID(dst.Value)]
+				if ok {
+					dst.Value = newGroupID.String()
+				}
+			}
+
+			dstList[i] = dst
+		}
+
+		err = logic.UpsertAcl(acl)
+		if err != nil {
+			continue
+		}
+	}
+
+	invites, err := logic.ListUserInvites()
+	if err != nil {
+		return
+	}
+
+	for _, invite := range invites {
+		userGroups := make(map[models.UserGroupID]struct{})
+		for groupID := range invite.UserGroups {
+			newGroupID, ok := groupsMapping[groupID]
+			if !ok {
+				invite.UserGroups[groupID] = struct{}{}
+			} else {
+				invite.UserGroups[newGroupID] = struct{}{}
+			}
+		}
+
+		invite.UserGroups = userGroups
+
+		err = logic.InsertUserInvite(invite)
+		if err != nil {
+			continue
+		}
 	}
 }
 
