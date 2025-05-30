@@ -428,7 +428,7 @@ func checkIfAclTagisValid(a models.Acl, t models.AclPolicyTag, isSrc bool) (err 
 					if err != nil {
 						return errors.New("invalid node " + t.Value)
 					}
-					if err = ValidateInetGwReq(inetNode, req, false); err != nil {
+					if err = logic.ValidateInetGwReq(inetNode, req, false); err != nil {
 						return err
 					}
 				}

@@ -39,29 +39,6 @@ var (
 	CreateFailOver = func(node models.Node) error {
 		return nil
 	}
-
-	// SetDefaulGw
-	SetDefaultGw = func(node models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
-		return peerUpdate
-	}
-	SetDefaultGwForRelayedUpdate = func(relayed, relay models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
-		return peerUpdate
-	}
-	// UnsetInternetGw
-	UnsetInternetGw = func(node *models.Node) {
-		node.EgressDetails.IsInternetGateway = false
-	}
-	// SetInternetGw
-	SetInternetGw = func(node *models.Node, req models.InetNodeReq) {
-		node.EgressDetails.IsInternetGateway = true
-	}
-	// GetAllowedIpForInetNodeClient
-	GetAllowedIpForInetNodeClient = func(node, peer *models.Node) []net.IPNet {
-		return []net.IPNet{}
-	}
-	ValidateInetGwReq = func(inetNode models.Node, req models.InetNodeReq, update bool) error {
-		return nil
-	}
 )
 
 // GetHostPeerInfo - fetches required peer info per network
@@ -143,9 +120,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 	deletedNode *models.Node, deletedClients []models.ExtClient) (models.HostPeerUpdate, error) {
 	if host == nil {
 		return models.HostPeerUpdate{}, errors.New("host is nil")
-	}
-	if host.Name == "nm-server" {
-		fmt.Println("===> CHECKING FOR HOST ", host.Name)
 	}
 
 	// track which nodes are deleted
@@ -255,9 +229,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			if err != nil {
 				logger.Log(1, "no peer host", peer.HostID.String(), err.Error())
 				continue
-			}
-			if host.Name == "nm-server" {
-				fmt.Println("===> CHECKING FOR PEER ", peerHost.Name)
 			}
 			peerConfig := wgtypes.PeerConfig{
 				PublicKey:                   peerHost.PublicKey,
@@ -374,10 +345,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				allowedToComm = true
 			} else {
 				allowedToComm = IsPeerAllowed(node, peer, false)
-				if host.Name == "nm-server" {
-					fmt.Println("===> CHECKING FOR HOST ", peerHost.Name, allowedToComm)
-				}
-
 			}
 			if peer.Action != models.NODE_DELETE &&
 				!peer.PendingDelete &&

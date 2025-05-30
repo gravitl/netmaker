@@ -868,6 +868,23 @@ func ListAclsByNetwork(netID models.NetworkID) ([]models.Acl, error) {
 	return netAcls, nil
 }
 
+// ListEgressAcls - list egress acl policies
+func ListEgressAcls(eID string) ([]models.Acl, error) {
+	allAcls := ListAcls()
+	egressAcls := []models.Acl{}
+	for _, acl := range allAcls {
+		if !servercfg.IsPro && acl.RuleType == models.UserPolicy {
+			continue
+		}
+		for _, dst := range acl.Dst {
+			if dst.ID == models.EgressID && dst.Value == eID {
+				egressAcls = append(egressAcls, acl)
+			}
+		}
+	}
+	return egressAcls, nil
+}
+
 // ListDevicePolicies - lists all device policies in a network
 func ListDevicePolicies(netID models.NetworkID) []models.Acl {
 	allAcls := ListAcls()
