@@ -350,14 +350,23 @@ func checkIfAclTagisValid(a models.Acl, t models.AclPolicyTag, isSrc bool) (err 
 			req := models.InetNodeReq{}
 			for _, srcI := range a.Src {
 				if srcI.ID == models.NodeID {
-					req.InetNodeClientIDs = append(req.InetNodeClientIDs, srcI.Value)
+					_, nodeErr := GetNodeByID(srcI.Value)
+					if nodeErr != nil {
+						_, staticNodeErr := GetExtClient(srcI.Value, a.NetworkID.String())
+						if staticNodeErr != nil {
+							return errors.New("invalid node " + srcI.Value)
+						}
+					} else {
+						req.InetNodeClientIDs = append(req.InetNodeClientIDs, srcI.Value)
+					}
+
 				}
 			}
 			if len(e.Nodes) > 0 {
 				for k := range e.Nodes {
 					inetNode, err := GetNodeByID(k)
 					if err != nil {
-						return errors.New("invalid node " + t.Value)
+						return errors.New("invalid node " + k)
 					}
 					if err = ValidateInetGwReq(inetNode, req, false); err != nil {
 						return err

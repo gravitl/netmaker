@@ -7,6 +7,7 @@ import (
 	"net"
 	"sort"
 
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -416,10 +417,21 @@ func checkIfAclTagisValid(a models.Acl, t models.AclPolicyTag, isSrc bool) (err 
 				if srcI.ID == models.NodeTagID {
 					nodesMap := GetNodesWithTag(models.TagID(srcI.Value))
 					for _, node := range nodesMap {
-						req.InetNodeClientIDs = append(req.InetNodeClientIDs, node.ID.String())
+						if node.ID != uuid.Nil {
+							req.InetNodeClientIDs = append(req.InetNodeClientIDs, node.ID.String())
+						}
 					}
 				} else if srcI.ID == models.NodeID {
-					req.InetNodeClientIDs = append(req.InetNodeClientIDs, srcI.Value)
+					_, nodeErr := logic.GetNodeByID(srcI.Value)
+					if nodeErr != nil {
+						_, staticNodeErr := logic.GetExtClient(srcI.Value, a.NetworkID.String())
+						if staticNodeErr != nil {
+							return errors.New("invalid node " + srcI.Value)
+						}
+					} else {
+						req.InetNodeClientIDs = append(req.InetNodeClientIDs, srcI.Value)
+					}
+
 				}
 			}
 			if len(e.Nodes) > 0 {
