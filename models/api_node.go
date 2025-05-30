@@ -132,9 +132,7 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 		convertedNode.AdditionalRagIps = append(convertedNode.AdditionalRagIps, ragIp)
 	}
 	convertedNode.Tags = a.Tags
-	if a.IsRelay && a.IsIngressGateway {
-		currentNode.IsGw = true
-	}
+	convertedNode.IsGw = currentNode.IsGw
 	return &convertedNode
 }
 
