@@ -643,14 +643,6 @@ func createNode(node *models.Node) error {
 		return err
 	}
 
-	if !node.DNSOn {
-		if servercfg.IsDNSMode() {
-			node.DNSOn = true
-		} else {
-			node.DNSOn = false
-		}
-	}
-
 	SetNodeDefaults(node, true)
 
 	defaultACLVal := acls.Allowed

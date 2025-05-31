@@ -268,7 +268,9 @@ func GetNodeEgressInfo(targetNode *models.Node) {
 }
 
 func RemoveNodeFromEgress(node models.Node) {
-	egs, _ := (&schema.Egress{}).ListByNetwork(db.WithContext(context.TODO()))
+	egs, _ := (&schema.Egress{
+		Network: node.Network,
+	}).ListByNetwork(db.WithContext(context.TODO()))
 	for _, egI := range egs {
 		if _, ok := egI.Nodes[node.ID.String()]; ok {
 			delete(egI.Nodes, node.ID.String())
