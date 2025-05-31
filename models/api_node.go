@@ -83,7 +83,6 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	//convertedNode.IsIngressGateway = a.IsIngressGateway
 	convertedNode.IngressGatewayRange = currentNode.IngressGatewayRange
 	convertedNode.IngressGatewayRange6 = currentNode.IngressGatewayRange6
-	convertedNode.DNSOn = a.DNSOn
 	convertedNode.IngressDNS = a.IngressDns
 	convertedNode.IngressPersistentKeepalive = a.IngressPersistentKeepalive
 	convertedNode.IngressMTU = a.IngressMTU
@@ -190,7 +189,6 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.RelayedBy = nm.RelayedBy
 	apiNode.RelayedNodes = nm.RelayedNodes
 	apiNode.IsIngressGateway = nm.IsIngressGateway
-	apiNode.DNSOn = nm.DNSOn
 	apiNode.IngressDns = nm.IngressDNS
 	apiNode.IngressPersistentKeepalive = nm.IngressPersistentKeepalive
 	apiNode.IngressMTU = nm.IngressMTU

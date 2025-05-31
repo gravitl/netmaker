@@ -87,7 +87,6 @@ type CommonNode struct {
 	IsGw                bool      `json:"is_gw"             yaml:"is_gw"`
 	RelayedNodes        []string  `json:"relaynodes"          yaml:"relayedNodes"`
 	IngressDNS          string    `json:"ingressdns"          yaml:"ingressdns"`
-	DNSOn               bool      `json:"dnson"               yaml:"dnson"`
 }
 
 // Node - a model of a network node
@@ -572,7 +571,6 @@ func (ln *LegacyNode) ConvertToNewNode() (*Host, *Node) {
 	}
 	node.Action = ln.Action
 	node.IsIngressGateway = parseBool(ln.IsIngressGateway)
-	node.DNSOn = parseBool(ln.DNSOn)
 
 	return &host, &node
 }
@@ -613,7 +611,6 @@ func (n *Node) Legacy(h *Host, s *ServerConfig, net *Network) *LegacyNode {
 	//l.IngressGatewayRange6 = n.IngressGatewayRange6
 	l.IsStatic = formatBool(h.IsStatic)
 	l.UDPHolePunch = formatBool(true)
-	l.DNSOn = formatBool(n.DNSOn)
 	l.Action = n.Action
 	l.IPForwarding = formatBool(h.IPForwarding)
 	l.OS = h.OS
