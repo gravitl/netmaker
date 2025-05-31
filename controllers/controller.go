@@ -3,12 +3,13 @@ package controller
 import (
 	"context"
 	"fmt"
-	"github.com/gravitl/netmaker/db"
 	"net/http"
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/gravitl/netmaker/db"
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -37,7 +38,6 @@ var HttpHandlers = []interface{}{
 	loggerHandlers,
 	hostHandlers,
 	enrollmentKeyHandlers,
-	tagHandlers,
 	aclHandlers,
 	egressHandlers,
 	legacyHandlers,

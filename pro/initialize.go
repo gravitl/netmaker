@@ -35,6 +35,7 @@ func InitPro() {
 		proControllers.InetHandlers,
 		proControllers.RacHandlers,
 		proControllers.EventHandlers,
+		proControllers.TagHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
@@ -112,12 +113,6 @@ func InitPro() {
 	logic.UpdateMetrics = proLogic.UpdateMetrics
 	logic.DeleteMetrics = proLogic.DeleteMetrics
 	logic.GetTrialEndDate = getTrialEndDate
-	logic.SetDefaultGw = proLogic.SetDefaultGw
-	logic.ValidateInetGwReq = proLogic.ValidateInetGwReq
-	logic.SetDefaultGwForRelayedUpdate = proLogic.SetDefaultGwForRelayedUpdate
-	logic.UnsetInternetGw = proLogic.UnsetInternetGw
-	logic.SetInternetGw = proLogic.SetInternetGw
-	logic.GetAllowedIpForInetNodeClient = proLogic.GetAllowedIpForInetNodeClient
 	mq.UpdateMetrics = proLogic.MQUpdateMetrics
 	mq.UpdateMetricsFallBack = proLogic.MQUpdateMetricsFallBack
 	logic.GetFilteredNodesByUserAccess = proLogic.GetFilteredNodesByUserAccess
@@ -146,6 +141,23 @@ func InitPro() {
 	logic.ResetIDPSyncHook = auth.ResetIDPSyncHook
 	logic.EmailInit = email.Init
 	logic.LogEvent = proLogic.LogEvent
+	logic.RemoveUserFromAclPolicy = proLogic.RemoveUserFromAclPolicy
+	logic.IsUserAllowedToCommunicate = proLogic.IsUserAllowedToCommunicate
+	logic.DeleteAllNetworkTags = proLogic.DeleteAllNetworkTags
+	logic.CreateDefaultTags = proLogic.CreateDefaultTags
+	logic.IsNodeUsingInternetGw = proLogic.IsNodeUsingInternetGw
+	logic.GetInetClientsFromAclPolicies = proLogic.GetInetClientsFromAclPolicies
+	logic.IsPeerAllowed = proLogic.IsPeerAllowed
+	logic.IsAclPolicyValid = proLogic.IsAclPolicyValid
+	logic.GetEgressRulesForNode = proLogic.GetEgressRulesForNode
+	logic.GetAclRulesForNode = proLogic.GetAclRulesForNode
+	logic.CheckIfAnyActiveEgressPolicy = proLogic.CheckIfAnyActiveEgressPolicy
+	logic.CheckIfAnyPolicyisUniDirectional = proLogic.CheckIfAnyPolicyisUniDirectional
+	logic.MigrateToGws = proLogic.MigrateToGws
+	logic.IsNodeAllowedToCommunicate = proLogic.IsNodeAllowedToCommunicate
+	logic.GetStaticNodeIps = proLogic.GetStaticNodeIps
+	logic.GetFwRulesOnIngressGateway = proLogic.GetFwRulesOnIngressGateway
+
 }
 
 func retrieveProLogo() string {

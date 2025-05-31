@@ -65,7 +65,6 @@ func TestGetNodeDNS(t *testing.T) {
 			ID:      uuid.New(),
 			Network: "skynet",
 			Address: *ipnet,
-			DNSOn:   true,
 		}
 		createnode := models.Node{
 			CommonNode: tmpCNode,
@@ -82,7 +81,6 @@ func TestGetNodeDNS(t *testing.T) {
 			ID:      uuid.New(),
 			Network: "skynet",
 			Address: *ipnet,
-			DNSOn:   true,
 		}
 		createnode := models.Node{
 			CommonNode: tmpCNode,

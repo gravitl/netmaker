@@ -143,7 +143,6 @@ func createNodeWithParams(network, address string) *models.Node {
 		ID:      uuid.New(),
 		Network: "skynet",
 		Address: *ipnet,
-		DNSOn:   true,
 	}
 	if len(network) > 0 {
 		tmpCNode.Network = network

@@ -9,14 +9,18 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/schema"
 )
 
 func aclHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/acls", logic.SecurityCheck(true, http.HandlerFunc(getAcls))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/acls/egress", logic.SecurityCheck(true, http.HandlerFunc(getEgressAcls))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/acls/policy_types", logic.SecurityCheck(true, http.HandlerFunc(aclPolicyTypes))).
 		Methods(http.MethodGet)
@@ -174,7 +178,7 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 		NodeAllPolicy bool
 	}
 
-	allowed, ps := logic.IsNodeAllowedToCommunicateV1(node, peer, true)
+	allowed, ps := logic.IsNodeAllowedToCommunicate(node, peer, true)
 	isallowed := logic.IsPeerAllowed(node, peer, true)
 	re := resp{
 		IsNodeAllowed: allowed,
@@ -216,6 +220,35 @@ func getAcls(w http.ResponseWriter, r *http.Request) {
 	}
 	logic.SortAclEntrys(acls[:])
 	logic.ReturnSuccessResponseWithJson(w, r, acls, "fetched all acls in the network "+netID)
+}
+
+// @Summary     List Egress Acls in a network
+// @Router      /api/v1/acls [get]
+// @Tags        ACL
+// @Accept      json
+// @Success     200 {array} models.SuccessResponse
+// @Failure     500 {object} models.ErrorResponse
+func getEgressAcls(w http.ResponseWriter, r *http.Request) {
+	eID := r.URL.Query().Get("egress_id")
+	if eID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("egress id param is missing"), "badrequest"))
+		return
+	}
+	e := schema.Egress{ID: eID}
+	// check if network exists
+	err := e.Get(db.WithContext(r.Context()))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	acls, err := logic.ListEgressAcls(eID)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to get all network acl entries: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	logic.SortAclEntrys(acls[:])
+	logic.ReturnSuccessResponseWithJson(w, r, acls, "fetched acls for egress"+e.Name)
 }
 
 // @Summary     Create Acl

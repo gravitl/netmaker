@@ -109,6 +109,8 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: models.Dashboard,
 	})
+	host.IsStaticPort = true
+	logic.UpsertHost(host)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
 	go func() {

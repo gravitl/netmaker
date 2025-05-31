@@ -30,6 +30,8 @@ var (
 	nodeNetworkCacheMutex = &sync.RWMutex{}
 	nodesCacheMap         = make(map[string]models.Node)
 	nodesNetworkCacheMap  = make(map[string]map[string]models.Node)
+	IPv4Network           = "0.0.0.0/0"
+	IPv6Network           = "::/0"
 )
 
 func getNodeFromCache(nodeID string) (node models.Node, ok bool) {
@@ -641,14 +643,6 @@ func createNode(node *models.Node) error {
 		return err
 	}
 
-	if !node.DNSOn {
-		if servercfg.IsDNSMode() {
-			node.DNSOn = true
-		} else {
-			node.DNSOn = false
-		}
-	}
-
 	SetNodeDefaults(node, true)
 
 	defaultACLVal := acls.Allowed
@@ -833,206 +827,156 @@ func GetAllFailOvers() ([]models.Node, error) {
 	return igs, nil
 }
 
-func GetTagMapWithNodes() (tagNodesMap map[models.TagID][]models.Node) {
-	tagNodesMap = make(map[models.TagID][]models.Node)
-	nodes, _ := GetAllNodes()
-	for _, nodeI := range nodes {
-		if nodeI.Tags == nil {
-			continue
-		}
-		if nodeI.Mutex != nil {
-			nodeI.Mutex.Lock()
-		}
-		for nodeTagID := range nodeI.Tags {
-			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
-		}
-		if nodeI.Mutex != nil {
-			nodeI.Mutex.Unlock()
-		}
-
+func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool) error {
+	inetHost, err := GetHost(inetNode.HostID.String())
+	if err != nil {
+		return err
 	}
-	return
-}
+	if inetHost.FirewallInUse == models.FIREWALL_NONE {
+		return errors.New("iptables or nftables needs to be installed")
+	}
+	if inetNode.EgressDetails.InternetGwID != "" {
+		return fmt.Errorf("node %s is using a internet gateway already", inetHost.Name)
+	}
+	if inetNode.IsRelayed {
+		return fmt.Errorf("node %s is being relayed", inetHost.Name)
+	}
 
-func GetTagMapWithNodesByNetwork(netID models.NetworkID, withStaticNodes bool) (tagNodesMap map[models.TagID][]models.Node) {
-	tagNodesMap = make(map[models.TagID][]models.Node)
-	nodes, _ := GetNetworkNodes(netID.String())
-	for _, nodeI := range nodes {
-		tagNodesMap[models.TagID(nodeI.ID.String())] = []models.Node{
-			nodeI,
+	for _, clientNodeID := range req.InetNodeClientIDs {
+		clientNode, err := GetNodeByID(clientNodeID)
+		if err != nil {
+			return err
 		}
-		if nodeI.Tags == nil {
-			continue
+		if clientNode.IsFailOver {
+			return errors.New("failover node cannot be set to use internet gateway")
 		}
-		if nodeI.Mutex != nil {
-			nodeI.Mutex.Lock()
+		clientHost, err := GetHost(clientNode.HostID.String())
+		if err != nil {
+			return err
 		}
-		for nodeTagID := range nodeI.Tags {
-			if nodeTagID == models.TagID(nodeI.ID.String()) {
+		if clientHost.IsDefault {
+			return errors.New("default host cannot be set to use internet gateway")
+		}
+		if clientHost.OS != models.OS_Types.Linux && clientHost.OS != models.OS_Types.Windows {
+			return errors.New("can only attach linux or windows machine to a internet gateway")
+		}
+		if clientNode.EgressDetails.IsInternetGateway {
+			return fmt.Errorf("node %s acting as internet gateway cannot use another internet gateway", clientHost.Name)
+		}
+		if update {
+			if clientNode.EgressDetails.InternetGwID != "" && clientNode.EgressDetails.InternetGwID != inetNode.ID.String() {
+				return fmt.Errorf("node %s is already using a internet gateway", clientHost.Name)
+			}
+		} else {
+			if clientNode.EgressDetails.InternetGwID != "" {
+				return fmt.Errorf("node %s is already using a internet gateway", clientHost.Name)
+			}
+		}
+		if clientNode.FailedOverBy != uuid.Nil {
+			ResetFailedOverPeer(&clientNode)
+		}
+
+		if clientNode.IsRelayed && clientNode.RelayedBy != inetNode.ID.String() {
+			return fmt.Errorf("node %s is being relayed", clientHost.Name)
+		}
+
+		for _, nodeID := range clientHost.Nodes {
+			node, err := GetNodeByID(nodeID)
+			if err != nil {
 				continue
 			}
-			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
-		}
-		if nodeI.Mutex != nil {
-			nodeI.Mutex.Unlock()
-		}
-	}
-	tagNodesMap["*"] = nodes
-	if !withStaticNodes {
-		return
-	}
-	return AddTagMapWithStaticNodes(netID, tagNodesMap)
-}
-
-func AddTagMapWithStaticNodes(netID models.NetworkID,
-	tagNodesMap map[models.TagID][]models.Node) map[models.TagID][]models.Node {
-	extclients, err := GetNetworkExtClients(netID.String())
-	if err != nil {
-		return tagNodesMap
-	}
-	for _, extclient := range extclients {
-		if extclient.RemoteAccessClientID != "" {
-			continue
-		}
-		tagNodesMap[models.TagID(extclient.ClientID)] = []models.Node{
-			{
-				IsStatic:   true,
-				StaticNode: extclient,
-			},
-		}
-		if extclient.Tags == nil {
-			continue
-		}
-
-		if extclient.Mutex != nil {
-			extclient.Mutex.Lock()
-		}
-		for tagID := range extclient.Tags {
-			if tagID == models.TagID(extclient.ClientID) {
-				continue
+			if node.EgressDetails.InternetGwID != "" && node.EgressDetails.InternetGwID != inetNode.ID.String() {
+				return errors.New("nodes on same host cannot use different internet gateway")
 			}
-			tagNodesMap[tagID] = append(tagNodesMap[tagID], extclient.ConvertToStaticNode())
-			tagNodesMap["*"] = append(tagNodesMap["*"], extclient.ConvertToStaticNode())
-		}
-		if extclient.Mutex != nil {
-			extclient.Mutex.Unlock()
+
 		}
 	}
-	return tagNodesMap
+	return nil
 }
 
-func AddTagMapWithStaticNodesWithUsers(netID models.NetworkID,
-	tagNodesMap map[models.TagID][]models.Node) map[models.TagID][]models.Node {
-	extclients, err := GetNetworkExtClients(netID.String())
-	if err != nil {
-		return tagNodesMap
-	}
-	for _, extclient := range extclients {
-		tagNodesMap[models.TagID(extclient.ClientID)] = []models.Node{
-			{
-				IsStatic:   true,
-				StaticNode: extclient,
-			},
-		}
-		if extclient.Tags == nil {
+// SetInternetGw - sets the node as internet gw based on flag bool
+func SetInternetGw(node *models.Node, req models.InetNodeReq) {
+	node.EgressDetails.IsInternetGateway = true
+	node.EgressDetails.InetNodeReq = req
+	for _, clientNodeID := range req.InetNodeClientIDs {
+		clientNode, err := GetNodeByID(clientNodeID)
+		if err != nil {
 			continue
 		}
-		if extclient.Mutex != nil {
-			extclient.Mutex.Lock()
-		}
-		for tagID := range extclient.Tags {
-			tagNodesMap[tagID] = append(tagNodesMap[tagID], extclient.ConvertToStaticNode())
-		}
-		if extclient.Mutex != nil {
-			extclient.Mutex.Unlock()
-		}
-
+		clientNode.EgressDetails.InternetGwID = node.ID.String()
+		UpsertNode(&clientNode)
 	}
-	return tagNodesMap
+
 }
 
-func GetNodeIDsWithTag(tagID models.TagID) (ids []string) {
-
-	tag, err := GetTag(tagID)
+func UnsetInternetGw(node *models.Node) {
+	nodes, err := GetNetworkNodes(node.Network)
 	if err != nil {
+		slog.Error("failed to get network nodes", "network", node.Network, "error", err)
 		return
 	}
-	nodes, _ := GetNetworkNodes(tag.Network.String())
-	for _, nodeI := range nodes {
-		if nodeI.Tags == nil {
-			continue
+	for _, clientNode := range nodes {
+		if node.ID.String() == clientNode.EgressDetails.InternetGwID {
+			clientNode.EgressDetails.InternetGwID = ""
+			UpsertNode(&clientNode)
 		}
-		if nodeI.Mutex != nil {
-			nodeI.Mutex.Lock()
-		}
-		if _, ok := nodeI.Tags[tagID]; ok {
-			ids = append(ids, nodeI.ID.String())
-		}
-		if nodeI.Mutex != nil {
-			nodeI.Mutex.Unlock()
-		}
+
 	}
-	return
+	node.EgressDetails.IsInternetGateway = false
+	node.EgressDetails.InetNodeReq = models.InetNodeReq{}
+
 }
 
-func GetNodesWithTag(tagID models.TagID) map[string]models.Node {
-	nMap := make(map[string]models.Node)
-	tag, err := GetTag(tagID)
-	if err != nil {
-		return nMap
+func SetDefaultGwForRelayedUpdate(relayed, relay models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
+	if relay.EgressDetails.InternetGwID != "" {
+		relayedHost, err := GetHost(relayed.HostID.String())
+		if err != nil {
+			return peerUpdate
+		}
+		peerUpdate.ChangeDefaultGw = true
+		peerUpdate.DefaultGwIp = relay.Address.IP
+		if peerUpdate.DefaultGwIp == nil || relayedHost.EndpointIP == nil {
+			peerUpdate.DefaultGwIp = relay.Address6.IP
+		}
+
 	}
-	nodes, _ := GetNetworkNodes(tag.Network.String())
-	for _, nodeI := range nodes {
-		if nodeI.Tags == nil {
-			continue
-		}
-		if nodeI.Mutex != nil {
-			nodeI.Mutex.Lock()
-		}
-		if _, ok := nodeI.Tags[tagID]; ok {
-			nMap[nodeI.ID.String()] = nodeI
-		}
-		if nodeI.Mutex != nil {
-			nodeI.Mutex.Unlock()
-		}
-	}
-	return AddStaticNodesWithTag(tag, nMap)
+	return peerUpdate
 }
 
-func AddStaticNodesWithTag(tag models.Tag, nMap map[string]models.Node) map[string]models.Node {
-	extclients, err := GetNetworkExtClients(tag.Network.String())
-	if err != nil {
-		return nMap
+func SetDefaultGw(node models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
+	if node.EgressDetails.InternetGwID != "" {
+
+		inetNode, err := GetNodeByID(node.EgressDetails.InternetGwID)
+		if err != nil {
+			return peerUpdate
+		}
+		host, err := GetHost(node.HostID.String())
+		if err != nil {
+			return peerUpdate
+		}
+
+		peerUpdate.ChangeDefaultGw = true
+		peerUpdate.DefaultGwIp = inetNode.Address.IP
+		if peerUpdate.DefaultGwIp == nil || host.EndpointIP == nil {
+			peerUpdate.DefaultGwIp = inetNode.Address6.IP
+		}
 	}
-	for _, extclient := range extclients {
-		if extclient.RemoteAccessClientID != "" {
-			continue
-		}
-		if extclient.Mutex != nil {
-			extclient.Mutex.Lock()
-		}
-		if _, ok := extclient.Tags[tag.ID]; ok {
-			nMap[extclient.ClientID] = extclient.ConvertToStaticNode()
-		}
-		if extclient.Mutex != nil {
-			extclient.Mutex.Unlock()
-		}
-	}
-	return nMap
+	return peerUpdate
 }
 
-func GetStaticNodeWithTag(tagID models.TagID) map[string]models.Node {
-	nMap := make(map[string]models.Node)
-	tag, err := GetTag(tagID)
-	if err != nil {
-		return nMap
+// GetAllowedIpForInetNodeClient - get inet cidr for node using a inet gw
+func GetAllowedIpForInetNodeClient(node, peer *models.Node) []net.IPNet {
+	var allowedips = []net.IPNet{}
+
+	if peer.Address.IP != nil {
+		_, ipnet, _ := net.ParseCIDR(IPv4Network)
+		allowedips = append(allowedips, *ipnet)
 	}
-	extclients, err := GetNetworkExtClients(tag.Network.String())
-	if err != nil {
-		return nMap
+
+	if peer.Address6.IP != nil {
+		_, ipnet, _ := net.ParseCIDR(IPv6Network)
+		allowedips = append(allowedips, *ipnet)
 	}
-	for _, extclient := range extclients {
-		nMap[extclient.ClientID] = extclient.ConvertToStaticNode()
-	}
-	return nMap
+
+	return allowedips
 }

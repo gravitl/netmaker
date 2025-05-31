@@ -2,6 +2,8 @@ package logic
 
 import (
 	"encoding/json"
+	"fmt"
+
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 
@@ -253,4 +255,49 @@ func MigrateUserRoleAndGroups(user models.User) {
 
 	}
 	logic.UpsertUser(user)
+}
+
+func MigrateToGws() {
+	nodes, err := logic.GetAllNodes()
+	if err != nil {
+		return
+	}
+	for _, node := range nodes {
+		if node.IsIngressGateway || node.IsRelay {
+			node.IsGw = true
+			node.IsIngressGateway = true
+			node.IsRelay = true
+			if node.Tags == nil {
+				node.Tags = make(map[models.TagID]struct{})
+			}
+			node.Tags[models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName))] = struct{}{}
+			delete(node.Tags, models.TagID(fmt.Sprintf("%s.%s", node.Network, models.OldRemoteAccessTagName)))
+			logic.UpsertNode(&node)
+		}
+	}
+	acls := logic.ListAcls()
+	for _, acl := range acls {
+		upsert := false
+		for i, srcI := range acl.Src {
+			if srcI.ID == models.NodeTagID && srcI.Value == fmt.Sprintf("%s.%s", acl.NetworkID.String(), models.OldRemoteAccessTagName) {
+				srcI.Value = fmt.Sprintf("%s.%s", acl.NetworkID.String(), models.GwTagName)
+				acl.Src[i] = srcI
+				upsert = true
+			}
+		}
+		for i, dstI := range acl.Dst {
+			if dstI.ID == models.NodeTagID && dstI.Value == fmt.Sprintf("%s.%s", acl.NetworkID.String(), models.OldRemoteAccessTagName) {
+				dstI.Value = fmt.Sprintf("%s.%s", acl.NetworkID.String(), models.GwTagName)
+				acl.Dst[i] = dstI
+				upsert = true
+			}
+		}
+		if upsert {
+			logic.UpsertAcl(acl)
+		}
+	}
+	nets, _ := logic.GetNetworks()
+	for _, netI := range nets {
+		DeleteTag(models.TagID(fmt.Sprintf("%s.%s", netI.NetID, models.OldRemoteAccessTagName)), true)
+	}
 }
