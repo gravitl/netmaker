@@ -621,6 +621,9 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []mode
 	} else {
 		peerTags = peer.Tags
 	}
+	if peerTags == nil {
+		peerTags = make(map[models.TagID]struct{})
+	}
 	peerTags[models.TagID(peerId)] = struct{}{}
 	peerTags[models.TagID("*")] = struct{}{}
 	acl, _ := logic.GetDefaultPolicy(models.NetworkID(peer.Network), models.UserPolicy)
@@ -1875,6 +1878,9 @@ func IsNodeUsingInternetGw(node *models.Node) {
 		return
 	}
 	nodeTags := maps.Clone(node.Tags)
+	if nodeTags == nil {
+		nodeTags = make(map[models.TagID]struct{})
+	}
 	nodeTags[models.TagID(node.ID.String())] = struct{}{}
 	acls, _ := logic.ListAclsByNetwork(models.NetworkID(node.Network))
 	var isUsing bool

@@ -481,6 +481,12 @@ func (newNode *Node) Fill(
 	if newNode.IsFailOver != currentNode.IsFailOver {
 		newNode.IsFailOver = currentNode.IsFailOver
 	}
+	if newNode.Tags == nil {
+		if currentNode.Tags == nil {
+			currentNode.Tags = make(map[TagID]struct{})
+		}
+		newNode.Tags = currentNode.Tags
+	}
 }
 
 // StringWithCharset - returns random string inside defined charset

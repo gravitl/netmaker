@@ -81,7 +81,6 @@ func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 			continue
 		}
 		if currentNode.EgressDetails.IsEgressGateway { // add the egress gateway range(s) to the result
-			fmt.Println("EGRESSS EXTCLEINT: ", currentNode.EgressDetails)
 			if len(currentNode.EgressDetails.EgressGatewayRanges) > 0 {
 				result = append(result, currentNode.EgressDetails.EgressGatewayRanges...)
 			}
