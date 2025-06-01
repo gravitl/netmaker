@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -94,7 +95,30 @@ func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 		result = append(result, extclient.ExtraAllowedIPs...)
 	}
 
-	return result, nil
+	return UniqueIPNetStrList(result), nil
+}
+
+// UniqueIPNetList deduplicates and sorts a list of CIDR strings.
+func UniqueIPNetStrList(ipnets []string) []string {
+	uniqueMap := make(map[string]struct{})
+
+	for _, cidr := range ipnets {
+		_, ipnet, err := net.ParseCIDR(cidr)
+		if err != nil {
+			continue // skip invalid CIDR strings
+		}
+		key := ipnet.String() // normalized CIDR
+		uniqueMap[key] = struct{}{}
+	}
+
+	// Convert map keys to slice
+	uniqueList := make([]string, 0, len(uniqueMap))
+	for cidr := range uniqueMap {
+		uniqueList = append(uniqueList, cidr)
+	}
+
+	sort.Strings(uniqueList)
+	return uniqueList
 }
 
 // DeleteExtClient - deletes an existing ext client
