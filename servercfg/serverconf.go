@@ -685,7 +685,7 @@ func GetMetricInterval() string {
 
 // GetManageDNS - if manage DNS enabled or not
 func GetManageDNS() bool {
-	enabled := false
+	enabled := true
 	if os.Getenv("MANAGE_DNS") != "" {
 		enabled = os.Getenv("MANAGE_DNS") == "true"
 	}

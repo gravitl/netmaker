@@ -31,7 +31,7 @@ type ApiHost struct {
 	NatType             string     `json:"nat_type"              yaml:"nat_type"`
 	PersistentKeepalive int        `json:"persistentkeepalive"   yaml:"persistentkeepalive"`
 	AutoUpdate          bool       `json:"autoupdate"              yaml:"autoupdate"`
-	DNS                 bool       `json:"dns"               yaml:"dns"`
+	DNS                 string     `json:"dns"               yaml:"dns"`
 }
 
 // ApiIface - the interface struct for API usage

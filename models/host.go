@@ -69,7 +69,7 @@ type Host struct {
 	IsStaticPort        bool             `json:"isstaticport"            yaml:"isstaticport"`
 	IsStatic            bool             `json:"isstatic"        yaml:"isstatic"`
 	IsDefault           bool             `json:"isdefault"               yaml:"isdefault"`
-	DNS                 bool             `json:"dns"               yaml:"dns"`
+	DNS                 string           `json:"dns"               yaml:"dns"`
 	NatType             string           `json:"nat_type,omitempty"      yaml:"nat_type,omitempty"`
 	TurnEndpoint        *netip.AddrPort  `json:"turn_endpoint,omitempty" yaml:"turn_endpoint,omitempty"`
 	PersistentKeepalive time.Duration    `json:"persistentkeepalive" swaggertype:"primitive,integer" format:"int64" yaml:"persistentkeepalive"`

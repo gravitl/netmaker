@@ -141,6 +141,9 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		HostNetworkInfo: models.HostInfoMap{},
 		ServerConfig:    GetServerInfo(),
 	}
+	if host.DNS == "off" {
+		hostPeerUpdate.ManageDNS = false
+	}
 	defer func() {
 		if !hostPeerUpdate.FwUpdate.AllowAll {
 

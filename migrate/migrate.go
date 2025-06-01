@@ -196,6 +196,13 @@ func updateHosts() {
 				continue
 			}
 		}
+		if host.DNS == "" {
+			if logic.GetServerSettings().ManageDNS {
+				host.DNS = "on"
+			} else {
+				host.DNS = "off"
+			}
+		}
 	}
 }
 
