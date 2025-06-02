@@ -525,7 +525,7 @@ func migrateToEgressV1() {
 							},
 						},
 
-						AllowedDirection: models.TrafficDirectionUni,
+						AllowedDirection: models.TrafficDirectionBi,
 						Enabled:          true,
 						CreatedBy:        "auto",
 						CreatedAt:        time.Now().UTC(),
@@ -554,7 +554,7 @@ func migrateToEgressV1() {
 							},
 						},
 
-						AllowedDirection: models.TrafficDirectionUni,
+						AllowedDirection: models.TrafficDirectionBi,
 						Enabled:          true,
 						CreatedBy:        "auto",
 						CreatedAt:        time.Now().UTC(),
