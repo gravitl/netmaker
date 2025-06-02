@@ -1273,7 +1273,7 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 			Src: []models.AclPolicyTag{
 				{
 					ID:    models.UserGroupAclID,
-					Value: globalNetworksAdminGroupID.String(),
+					Value: globalNetworksUserGroupID.String(),
 				},
 				{
 					ID:    models.UserGroupAclID,
