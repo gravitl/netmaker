@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"golang.org/x/exp/slog"
 )
@@ -62,7 +63,7 @@ func DeleteTag(tagID models.TagID, removeFromPolicy bool) error {
 	if err != nil {
 		return err
 	}
-	nodes, err := GetNetworkNodes(tag.Network.String())
+	nodes, err := logic.GetNetworkNodes(tag.Network.String())
 	if err != nil {
 		return err
 	}
@@ -70,18 +71,18 @@ func DeleteTag(tagID models.TagID, removeFromPolicy bool) error {
 		nodeI := nodeI
 		if _, ok := nodeI.Tags[tagID]; ok {
 			delete(nodeI.Tags, tagID)
-			UpsertNode(&nodeI)
+			logic.UpsertNode(&nodeI)
 		}
 	}
 	if removeFromPolicy {
 		// remove tag used on acl policy
 		go RemoveDeviceTagFromAclPolicies(tagID, tag.Network)
 	}
-	extclients, _ := GetNetworkExtClients(tag.Network.String())
+	extclients, _ := logic.GetNetworkExtClients(tag.Network.String())
 	for _, extclient := range extclients {
 		if _, ok := extclient.Tags[tagID]; ok {
 			delete(extclient.Tags, tagID)
-			SaveExtClient(&extclient)
+			logic.SaveExtClient(&extclient)
 		}
 	}
 	return database.DeleteRecord(database.TAG_TABLE_NAME, tagID.String())
@@ -99,7 +100,7 @@ func ListTagsWithNodes(netID models.NetworkID) ([]models.TagListResp, error) {
 		tagRespI := models.TagListResp{
 			Tag:         tagI,
 			UsedByCnt:   len(tagsNodeMap[tagI.ID]),
-			TaggedNodes: GetAllNodesAPI(tagsNodeMap[tagI.ID]),
+			TaggedNodes: logic.GetAllNodesAPI(tagsNodeMap[tagI.ID]),
 		}
 		resp = append(resp, tagRespI)
 	}
@@ -168,7 +169,7 @@ func UpdateTag(req models.UpdateTagReq, newID models.TagID) {
 			if apiNode.StaticNode.RemoteAccessClientID != "" {
 				continue
 			}
-			extclient, err := GetExtClient(apiNode.StaticNode.ClientID, apiNode.StaticNode.Network)
+			extclient, err := logic.GetExtClient(apiNode.StaticNode.ClientID, apiNode.StaticNode.Network)
 			if err != nil {
 				continue
 			}
@@ -176,7 +177,7 @@ func UpdateTag(req models.UpdateTagReq, newID models.TagID) {
 			nodeID = extclient.ClientID
 			node.StaticNode = extclient
 		} else {
-			node, err = GetNodeByID(apiNode.ID)
+			node, err = logic.GetNodeByID(apiNode.ID)
 			if err != nil {
 				continue
 			}
@@ -193,19 +194,19 @@ func UpdateTag(req models.UpdateTagReq, newID models.TagID) {
 			if newID != "" {
 				if node.IsStatic {
 					node.StaticNode.Tags[newID] = struct{}{}
-					SaveExtClient(&node.StaticNode)
+					logic.SaveExtClient(&node.StaticNode)
 				} else {
 					node.Tags[newID] = struct{}{}
-					UpsertNode(&node)
+					logic.UpsertNode(&node)
 				}
 
 			} else {
 				if node.IsStatic {
 					node.StaticNode.Tags[req.ID] = struct{}{}
-					SaveExtClient(&node.StaticNode)
+					logic.SaveExtClient(&node.StaticNode)
 				} else {
 					node.Tags[req.ID] = struct{}{}
-					UpsertNode(&node)
+					logic.UpsertNode(&node)
 				}
 			}
 		} else {
@@ -214,10 +215,10 @@ func UpdateTag(req models.UpdateTagReq, newID models.TagID) {
 				delete(node.StaticNode.Tags, req.ID)
 				if node.IsStatic {
 					node.StaticNode.Tags[newID] = struct{}{}
-					SaveExtClient(&node.StaticNode)
+					logic.SaveExtClient(&node.StaticNode)
 				} else {
 					node.Tags[newID] = struct{}{}
-					UpsertNode(&node)
+					logic.UpsertNode(&node)
 				}
 			}
 			delete(tagNodesMap, nodeID)
@@ -228,9 +229,9 @@ func UpdateTag(req models.UpdateTagReq, newID models.TagID) {
 		delete(deletedTaggedNode.Tags, req.ID)
 		delete(deletedTaggedNode.StaticNode.Tags, req.ID)
 		if deletedTaggedNode.IsStatic {
-			SaveExtClient(&deletedTaggedNode.StaticNode)
+			logic.SaveExtClient(&deletedTaggedNode.StaticNode)
 		} else {
-			UpsertNode(&deletedTaggedNode)
+			logic.UpsertNode(&deletedTaggedNode)
 		}
 	}
 	go func(req models.UpdateTagReq) {
@@ -249,9 +250,9 @@ func UpdateTag(req models.UpdateTagReq, newID models.TagID) {
 				nodeI.Tags[newID] = struct{}{}
 				nodeI.StaticNode.Tags[newID] = struct{}{}
 				if nodeI.IsStatic {
-					SaveExtClient(&nodeI.StaticNode)
+					logic.SaveExtClient(&nodeI.StaticNode)
 				} else {
-					UpsertNode(&nodeI)
+					logic.UpsertNode(&nodeI)
 				}
 			}
 		}

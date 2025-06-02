@@ -222,6 +222,10 @@ func GetAllowedIpsForRelayed(relayed, relay *models.Node) (allowedIPs []net.IPNe
 		if peer.ID == relayed.ID || peer.ID == relay.ID {
 			continue
 		}
+		if !IsPeerAllowed(*relayed, peer, true) {
+			continue
+		}
+		GetNodeEgressInfo(&peer)
 		if nodeacls.AreNodesAllowed(nodeacls.NetworkID(relayed.Network), nodeacls.NodeID(relayed.ID.String()), nodeacls.NodeID(peer.ID.String())) {
 			allowedIPs = append(allowedIPs, GetAllowedIPs(relayed, &peer, nil)...)
 		}

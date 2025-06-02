@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
@@ -688,8 +689,8 @@ func GetUserRAGNodesV1(user models.User) (gws map[string]models.Node) {
 
 		}
 	}
-	tagNodesMap := logic.GetTagMapWithNodes()
-	accessPolices := logic.ListUserPolicies(user)
+	tagNodesMap := GetTagMapWithNodes()
+	accessPolices := ListUserPolicies(user)
 	for _, policyI := range accessPolices {
 		if !policyI.Enabled {
 			continue
@@ -722,9 +723,33 @@ func GetUserRAGNodes(user models.User) (gws map[string]models.Node) {
 	if err != nil {
 		return
 	}
+
 	for _, node := range nodes {
-		if ok, _ := logic.IsUserAllowedToCommunicate(user.UserName, node); ok {
+		if !node.IsGw {
+			continue
+		}
+		if user.PlatformRoleID == models.AdminRole || user.PlatformRoleID == models.SuperAdminRole {
 			gws[node.ID.String()] = node
+		} else {
+			// check if user has network role assigned
+			if roles, ok := user.NetworkRoles[models.NetworkID(node.Network)]; ok && len(roles) > 0 {
+				if ok, _ := IsUserAllowedToCommunicate(user.UserName, node); ok {
+					gws[node.ID.String()] = node
+					continue
+				}
+			}
+			for groupID := range user.UserGroups {
+				userGrp, err := logic.GetUserGroup(groupID)
+				if err == nil {
+					if roles, ok := userGrp.NetworkRoles[models.NetworkID(node.Network)]; ok && len(roles) > 0 {
+						if ok, _ := IsUserAllowedToCommunicate(user.UserName, node); ok {
+							gws[node.ID.String()] = node
+							break
+						}
+					}
+				}
+			}
+
 		}
 	}
 	return
@@ -1169,6 +1194,35 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 		return
 	}
 
+	if !logic.IsAclExists(fmt.Sprintf("%s.%s", netID, "all-users")) {
+		defaultUserAcl := models.Acl{
+			ID:          fmt.Sprintf("%s.%s", netID, "all-users"),
+			Default:     true,
+			Name:        "All Users",
+			MetaData:    "This policy gives access to everything in the network for an user",
+			NetworkID:   netID,
+			Proto:       models.ALL,
+			ServiceType: models.Any,
+			Port:        []string{},
+			RuleType:    models.UserPolicy,
+			Src: []models.AclPolicyTag{
+				{
+					ID:    models.UserAclID,
+					Value: "*",
+				},
+			},
+			Dst: []models.AclPolicyTag{{
+				ID:    models.NodeTagID,
+				Value: "*",
+			}},
+			AllowedDirection: models.TrafficDirectionUni,
+			Enabled:          true,
+			CreatedBy:        "auto",
+			CreatedAt:        time.Now().UTC(),
+		}
+		logic.InsertAcl(defaultUserAcl)
+	}
+
 	if !logic.IsAclExists(fmt.Sprintf("%s.%s-grp", netID, models.NetworkAdmin)) {
 		networkAdminGroupID := GetDefaultNetworkAdminGroupID(netID)
 
@@ -1267,4 +1321,23 @@ func AddGlobalNetRolesToAdmins(u *models.User) {
 	}
 
 	u.UserGroups[globalNetworksAdminGroupID] = struct{}{}
+}
+
+func GetUserGrpMap() map[models.UserGroupID]map[string]struct{} {
+	grpUsersMap := make(map[models.UserGroupID]map[string]struct{})
+	users, _ := logic.GetUsersDB()
+	for _, user := range users {
+		for gID := range user.UserGroups {
+			if grpUsers, ok := grpUsersMap[gID]; ok {
+				grpUsers[user.UserName] = struct{}{}
+				grpUsersMap[gID] = grpUsers
+			} else {
+				grpUsersMap[gID] = make(map[string]struct{})
+				grpUsersMap[gID][user.UserName] = struct{}{}
+			}
+		}
+
+	}
+
+	return grpUsersMap
 }
