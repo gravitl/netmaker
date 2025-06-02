@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"github.com/gravitl/netmaker/converters"
 	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/logic/nodeacls"
+	"github.com/gravitl/netmaker/logic/acls"
+	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/schema"
 	"net"
 	"time"
@@ -207,7 +208,7 @@ func DeleteNodeByID(node *models.Node) error {
 	if servercfg.IsDNSMode() {
 		SetDNS()
 	}
-	err = nodeacls.RemoveNodeACL(node.Network, node.ID.String())
+	_, err = nodeacls.RemoveNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()))
 	if err != nil {
 		// ignoring for now, could hit a nil pointer if delete called twice
 		logger.Log(2, "attempted to remove node ACL for node", node.ID.String())
@@ -451,14 +452,14 @@ func createNode(node *models.Node) error {
 
 	SetNodeDefaults(node, true)
 
-	defaultACLVal := nodeacls.Allowed
+	defaultACLVal := acls.Allowed
 	_network := &schema.Network{
 		ID: node.Network,
 	}
 	err = _network.Get(db.WithContext(context.TODO()))
 	if err == nil {
 		if _network.DefaultACL != "yes" {
-			defaultACLVal = nodeacls.NotAllowed
+			defaultACLVal = acls.NotAllowed
 		}
 	}
 
@@ -509,7 +510,7 @@ func createNode(node *models.Node) error {
 		return err
 	}
 
-	err = nodeacls.CreateNodeACL(node.Network, node.ID.String(), defaultACLVal)
+	_, err = nodeacls.CreateNodeACL(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), defaultACLVal)
 	if err != nil {
 		logger.Log(1, "failed to create node ACL for node,", node.ID.String(), "err:", err.Error())
 		return err

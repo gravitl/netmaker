@@ -1,12 +1,9 @@
 package migrate
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/logic/nodeacls"
-	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/logic/acls"
 	"log"
 	"os"
 	"time"
@@ -326,12 +323,13 @@ func updateAcls() {
 
 	// get current acls per network
 	for _, network := range networks {
-		_networkACL := &schema.NetworkACL{
-			ID: network.NetID,
-		}
-		err = _networkACL.Get(db.WithContext(context.TODO()))
+		var networkAcl acls.ACLContainer
+		networkAcl, err := networkAcl.Get(acls.ContainerID(network.NetID))
 		if err != nil {
-			logger.Log(0, fmt.Sprintf("failed to get network (%s) acl during acl migration: %s", network.NetID, err.Error()))
+			if database.IsEmptyRecord(err) {
+				continue
+			}
+			slog.Error(fmt.Sprintf("error during acls migration. error getting acls for network: %s", network.NetID), "error", err)
 			continue
 		}
 
@@ -343,14 +341,14 @@ func updateAcls() {
 			continue
 		}
 
-		clientsMap := make(map[string]struct{})
+		clientsIdMap := make(map[string]struct{})
 		for _, client := range clients {
-			clientsMap[client.ClientID] = struct{}{}
+			clientsIdMap[client.ClientID] = struct{}{}
 		}
 
-		nodesMap := make(map[string]struct{})
-		for nodeID := range _networkACL.Access.Data() {
-			nodesMap[nodeID] = struct{}{}
+		nodeIdsMap := make(map[string]struct{})
+		for nodeId := range networkAcl {
+			nodeIdsMap[string(nodeId)] = struct{}{}
 		}
 		/*
 			initially, networkACL has only node acls so we add client acls to it
@@ -379,27 +377,24 @@ func updateAcls() {
 			}
 		*/
 		for _, client := range clients {
-			_networkACL.Access.Data()[client.ClientID] = make(map[string]byte)
+			networkAcl[acls.AclID(client.ClientID)] = acls.ACL{}
 			// add client values to node acls and create client acls with node values
-			for nodeID := range _networkACL.Access.Data() {
+			for id, nodeAcl := range networkAcl {
 				// skip if not a node
-				if _, ok := nodesMap[nodeID]; !ok {
+				if _, ok := nodeIdsMap[string(id)]; !ok {
 					continue
 				}
-
-				if _networkACL.Access.Data()[nodeID] == nil {
-					logger.Log(0, fmt.Sprintf("bad data: nil acl for node (%s)", nodeID))
+				if nodeAcl == nil {
+					slog.Warn("acls migration bad data: nil node acl", "node", id, "network", network.NetID)
 					continue
 				}
-
-				_networkACL.Access.Data()[nodeID][client.ClientID] = nodeacls.Allowed
-				_networkACL.Access.Data()[client.ClientID][nodeID] = nodeacls.Allowed
-
+				nodeAcl[acls.AclID(client.ClientID)] = acls.Allowed
+				networkAcl[acls.AclID(client.ClientID)][id] = acls.Allowed
 				if client.DeniedACLs == nil {
 					continue
-				} else if _, ok := client.DeniedACLs[nodeID]; ok {
-					_networkACL.Access.Data()[nodeID][client.ClientID] = nodeacls.NotAllowed
-					_networkACL.Access.Data()[client.ClientID][nodeID] = nodeacls.NotAllowed
+				} else if _, ok := client.DeniedACLs[string(id)]; ok {
+					nodeAcl[acls.AclID(client.ClientID)] = acls.NotAllowed
+					networkAcl[acls.AclID(client.ClientID)][id] = acls.NotAllowed
 				}
 			}
 
@@ -409,43 +404,40 @@ func updateAcls() {
 					continue
 				}
 
-				_networkACL.Access.Data()[client.ClientID][c.ClientID] = nodeacls.Allowed
+				networkAcl[acls.AclID(client.ClientID)][acls.AclID(c.ClientID)] = acls.Allowed
 				if client.DeniedACLs == nil {
 					continue
 				} else if _, ok := client.DeniedACLs[c.ClientID]; ok {
-					_networkACL.Access.Data()[client.ClientID][c.ClientID] = nodeacls.NotAllowed
+					networkAcl[acls.AclID(client.ClientID)][acls.AclID(c.ClientID)] = acls.NotAllowed
 				}
 			}
 
 			// delete oneself from its own acl
-			delete(_networkACL.Access.Data()[client.ClientID], client.ClientID)
+			delete(networkAcl[acls.AclID(client.ClientID)], acls.AclID(client.ClientID))
 		}
 
 		// remove non-existent client and node acls
-		for id := range _networkACL.Access.Data() {
-			if _, ok := nodesMap[id]; ok {
+		for objId := range networkAcl {
+			if _, ok := nodeIdsMap[string(objId)]; ok {
 				continue
 			}
-
-			if _, ok := clientsMap[id]; ok {
+			if _, ok := clientsIdMap[string(objId)]; ok {
 				continue
 			}
-
-			// remove all occurrences of id from all acls
-			for peerID := range _networkACL.Access.Data() {
-				delete(_networkACL.Access.Data()[peerID], id)
+			// remove all occurances of objId from all acls
+			for objId2 := range networkAcl {
+				delete(networkAcl[objId2], objId)
 			}
-
-			delete(_networkACL.Access.Data(), id)
+			delete(networkAcl, objId)
 		}
 
-		err = _networkACL.Update(db.WithContext(context.TODO()))
-		if err != nil {
-			logger.Log(0, fmt.Sprintf("failed to migrate acls for network (%s): %s", network.NetID, err.Error()))
+		// save new acls
+		slog.Debug(fmt.Sprintf("(migration) saving new acls for network: %s", network.NetID), "networkAcl", networkAcl)
+		if _, err := networkAcl.Save(acls.ContainerID(network.NetID)); err != nil {
+			slog.Error(fmt.Sprintf("error during acls migration. error saving new acls for network: %s", network.NetID), "error", err)
 			continue
 		}
-
-		logger.Log(1, fmt.Sprintf("acls migration succeeded for network (%s)", network.NetID))
+		slog.Info(fmt.Sprintf("(migration) successfully saved new acls for network: %s", network.NetID))
 	}
 }
 
@@ -531,13 +523,8 @@ func createDefaultTagsAndPolicies() {
 		logic.CreateDefaultTags(models.NetworkID(network.NetID))
 		logic.CreateDefaultNetworkPolicies(network.NetID)
 		// delete old remote access gws policy
-
-		_acl := &schema.NetworkACL{
-			ID: fmt.Sprintf("%s.%s", network.NetID, "all-remote-access-gws"),
-		}
-		_ = _acl.Delete(db.WithContext(context.TODO()))
+		logic.DeleteAcl(models.Acl{ID: fmt.Sprintf("%s.%s", network.NetID, "all-remote-access-gws")})
 	}
-
 	logic.MigrateAclPolicies()
 }
 

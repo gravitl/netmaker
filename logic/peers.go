@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/gravitl/netmaker/logic/nodeacls"
 	"net"
 	"net/netip"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
@@ -89,7 +89,7 @@ func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 			if peer.Action != models.NODE_DELETE &&
 				!peer.PendingDelete &&
 				peer.Connected &&
-				nodeacls.AreNodesAllowed(node.Network, node.ID.String(), peer.ID.String()) &&
+				nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) &&
 				(allowedToComm) {
 
 				networkPeersInfo[peerHost.PublicKey.String()] = models.IDandAddr{
@@ -355,7 +355,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			if peer.Action != models.NODE_DELETE &&
 				!peer.PendingDelete &&
 				peer.Connected &&
-				nodeacls.AreNodesAllowed(node.Network, node.ID.String(), peer.ID.String()) &&
+				nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) &&
 				(allowedToComm) &&
 				(deletedNode == nil || (peer.ID.String() != deletedNode.ID.String())) {
 				peerConfig.AllowedIPs = GetAllowedIPs(&node, &peer, nil) // only append allowed IPs if valid connection

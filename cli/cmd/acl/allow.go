@@ -2,10 +2,10 @@ package acl
 
 import (
 	"fmt"
-	"github.com/gravitl/netmaker/logic/nodeacls"
 	"log"
 
 	"github.com/gravitl/netmaker/cli/functions"
+	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/spf13/cobra"
 )
 
@@ -31,16 +31,16 @@ var aclAllowCmd = &cobra.Command{
 
 		payload := *res
 
-		if _, ok := payload[nodeacls.AclID(fromNodeID)]; !ok {
+		if _, ok := payload[acls.AclID(fromNodeID)]; !ok {
 			log.Fatalf("Node %s does not exist", fromNodeID)
 		}
-		if _, ok := payload[nodeacls.AclID(toNodeID)]; !ok {
+		if _, ok := payload[acls.AclID(toNodeID)]; !ok {
 			log.Fatalf("Node %s does not exist", toNodeID)
 		}
 
 		// update acls
-		payload[nodeacls.AclID(fromNodeID)][nodeacls.AclID(toNodeID)] = nodeacls.Allowed
-		payload[nodeacls.AclID(toNodeID)][nodeacls.AclID(fromNodeID)] = nodeacls.Allowed
+		payload[acls.AclID(fromNodeID)][acls.AclID(toNodeID)] = acls.Allowed
+		payload[acls.AclID(toNodeID)][acls.AclID(fromNodeID)] = acls.Allowed
 
 		functions.UpdateACL(network, &payload)
 		fmt.Println("Success")

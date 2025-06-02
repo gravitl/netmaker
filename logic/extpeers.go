@@ -1,12 +1,10 @@
 package logic
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/logic/acls"
 	"net"
 	"reflect"
 	"sort"
@@ -170,24 +168,19 @@ func DeleteExtClientAndCleanup(extClient models.ExtClient) error {
 		return err
 	}
 
-	_networkACL := &schema.NetworkACL{
-		ID: extClient.Network,
-	}
-	err = _networkACL.Get(db.WithContext(context.TODO()))
+	//update ACLs
+	var networkAcls acls.ACLContainer
+	networkAcls, err = networkAcls.Get(acls.ContainerID(extClient.Network))
 	if err != nil {
-		logger.Log(0, fmt.Sprintf("failed to get network (%s) acls: %s", _networkACL.ID, err.Error()))
+		slog.Error("DeleteExtClientAndCleanup-update network acls: ", "Error", err.Error())
 		return err
 	}
-
-	for peerID := range _networkACL.Access.Data() {
-		delete(_networkACL.Access.Data()[peerID], extClient.ClientID)
+	for objId := range networkAcls {
+		delete(networkAcls[objId], acls.AclID(extClient.ClientID))
 	}
-
-	delete(_networkACL.Access.Data(), extClient.ClientID)
-
-	err = _networkACL.Update(db.WithContext(context.TODO()))
-	if err != nil {
-		logger.Log(0, fmt.Sprintf("failed to update network (%s) acls: %s", _networkACL.ID, err.Error()))
+	delete(networkAcls, acls.AclID(extClient.ClientID))
+	if _, err = networkAcls.Save(acls.ContainerID(extClient.Network)); err != nil {
+		slog.Error("DeleteExtClientAndCleanup-update network acls:", "Error", err.Error())
 		return err
 	}
 

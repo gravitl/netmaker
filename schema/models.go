@@ -6,7 +6,6 @@ func ListModels() []interface{} {
 		&Host{},
 		&Network{},
 		&Node{},
-		&NetworkACL{},
 		&ACL{},
 		&Job{},
 		&Egress{},

@@ -1,11 +1,11 @@
 package acl
 
 import (
-	"github.com/gravitl/netmaker/logic/nodeacls"
 	"os"
 
 	"github.com/gravitl/netmaker/cli/cmd/commons"
 	"github.com/gravitl/netmaker/cli/functions"
+	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/guumaster/tablewriter"
 	"github.com/spf13/cobra"
 )
@@ -16,7 +16,7 @@ var aclListCmd = &cobra.Command{
 	Short: "List all ACLs associated with a network",
 	Long:  `List all ACLs associated with a network`,
 	Run: func(cmd *cobra.Command, args []string) {
-		aclSource := (map[nodeacls.AclID]nodeacls.ACL)(*functions.GetACL(args[0]))
+		aclSource := (map[acls.AclID]acls.ACL)(*functions.GetACL(args[0]))
 		switch commons.OutputFormat {
 		case commons.JsonOutput:
 			functions.PrettyPrint(aclSource)
@@ -24,14 +24,14 @@ var aclListCmd = &cobra.Command{
 			table := tablewriter.NewWriter(os.Stdout)
 			table.SetHeader([]string{"From", "To", "Status"})
 			for id, acl := range aclSource {
-				for k, v := range (map[nodeacls.AclID]byte)(acl) {
+				for k, v := range (map[acls.AclID]byte)(acl) {
 					row := []string{string(id), string(k)}
 					switch v {
-					case nodeacls.NotAllowed:
+					case acls.NotAllowed:
 						row = append(row, "Not Allowed")
-					case nodeacls.NotPresent:
+					case acls.NotPresent:
 						row = append(row, "Not Present")
-					case nodeacls.Allowed:
+					case acls.Allowed:
 						row = append(row, "Allowed")
 					}
 					table.Append(row)

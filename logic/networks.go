@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/gravitl/netmaker/converters"
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/schema"
 	"net"
 	"strings"
@@ -67,10 +68,8 @@ func DeleteNetwork(network string, force bool, done chan struct{}) error {
 			}
 		}
 
-		_networkACL := &schema.NetworkACL{
-			ID: network,
-		}
-		err = _networkACL.Delete(db.WithContext(context.TODO()))
+		// remove ACL for network
+		err = nodeacls.DeleteACLContainer(nodeacls.NetworkID(network))
 		if err != nil {
 			logger.Log(1, "failed to remove the node acls during network delete for network,", network)
 		}
