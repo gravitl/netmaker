@@ -199,6 +199,7 @@ func ListUserInvites() ([]models.UserInvite, error) {
 func DeleteUserInvite(email string) error {
 	return database.DeleteRecord(database.USER_INVITES_TABLE_NAME, email)
 }
+
 func ValidateAndApproveUserInvite(email, code string) error {
 	in, err := GetUserInvite(email)
 	if err != nil {

@@ -50,7 +50,7 @@ var MigrateUserRoleAndGroups = func(u models.User) {
 
 }
 
-var MigrateGroups = func() {}
+var MigrateToUUIDs = func() {}
 
 var UpdateUserGwAccess = func(currentUser, changeUser models.User) {}
 

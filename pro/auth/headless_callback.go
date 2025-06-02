@@ -65,7 +65,7 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
 			err = logic.InsertPendingUser(&models.User{
 				UserName:                   userClaims.getUserName(),
-				ExternalIdentityProviderID: userClaims.ID,
+				ExternalIdentityProviderID: string(userClaims.ID),
 				AuthType:                   models.OAuth,
 			})
 			if err != nil {

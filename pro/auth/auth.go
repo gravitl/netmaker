@@ -1,9 +1,11 @@
 package auth
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,12 +36,38 @@ const (
 
 // OAuthUser - generic OAuth strategy user
 type OAuthUser struct {
-	ID                string `json:"id" bson:"id"`
-	Name              string `json:"name" bson:"name"`
-	Email             string `json:"email" bson:"email"`
-	Login             string `json:"login" bson:"login"`
-	UserPrincipalName string `json:"userPrincipalName" bson:"userPrincipalName"`
-	AccessToken       string `json:"accesstoken" bson:"accesstoken"`
+	ID                StringOrInt `json:"id" bson:"id"`
+	Name              string      `json:"name" bson:"name"`
+	Email             string      `json:"email" bson:"email"`
+	Login             string      `json:"login" bson:"login"`
+	UserPrincipalName string      `json:"userPrincipalName" bson:"userPrincipalName"`
+	AccessToken       string      `json:"accesstoken" bson:"accesstoken"`
+}
+
+// TODO: this is a very poor solution.
+// We should not return the same OAuthUser for different
+// IdPs. They should have the user that their APIs return.
+// But that's a very big change. So, making do with this
+// for now.
+
+type StringOrInt string
+
+func (s *StringOrInt) UnmarshalJSON(data []byte) error {
+	// Try to unmarshal as string directly
+	var strVal string
+	if err := json.Unmarshal(data, &strVal); err == nil {
+		*s = StringOrInt(strVal)
+		return nil
+	}
+
+	// Try to unmarshal as int and convert to string
+	var intVal int
+	if err := json.Unmarshal(data, &intVal); err == nil {
+		*s = StringOrInt(strconv.Itoa(intVal))
+		return nil
+	}
+
+	return fmt.Errorf("cannot unmarshal %s into StringOrInt", string(data))
 }
 
 var (
