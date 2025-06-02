@@ -107,6 +107,10 @@ type RangeWithMetric struct {
 	Metric uint32 `json:"metric"`
 }
 
+func (n *Node) TableName() string {
+	return "nodes_v1"
+}
+
 func (n *Node) Create(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Node{}).Create(n).Error
 }

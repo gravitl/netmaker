@@ -30,6 +30,10 @@ type PolicyGroupTag struct {
 	Tag       string
 }
 
+func (a *ACL) TableName() string {
+	return "acls_v1"
+}
+
 func (a *ACL) Create(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&ACL{}).Create(a).Error
 }

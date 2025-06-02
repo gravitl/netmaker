@@ -20,6 +20,10 @@ type Job struct {
 	CreatedAt time.Time
 }
 
+func (j *Job) TableName() string {
+	return "jobs_v1"
+}
+
 // Create creates a job record in the jobs table.
 func (j *Job) Create(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Job{}).Create(j).Error

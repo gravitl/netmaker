@@ -37,6 +37,10 @@ type Network struct {
 	FailOverNode *Node `gorm:"foreignKey:FailOverNodeID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
 }
 
+func (n *Network) TableName() string {
+	return "networks_v1"
+}
+
 func (n *Network) Create(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Network{}).Create(n).Error
 }

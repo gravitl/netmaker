@@ -48,6 +48,10 @@ type Interface struct {
 	Address string
 }
 
+func (h *Host) TableName() string {
+	return "hosts_v1"
+}
+
 func (h *Host) Create(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Host{}).Create(h).Error
 }

@@ -11,6 +11,10 @@ type NetworkACL struct {
 	Access datatypes.JSONType[map[string]map[string]byte]
 }
 
+func (n *NetworkACL) TableName() string {
+	return "network_acls_v1"
+}
+
 func (n *NetworkACL) Create(ctx context.Context) error {
 	if n.Access.Data() == nil {
 		n.Access = datatypes.NewJSONType(map[string]map[string]byte{})
