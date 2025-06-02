@@ -106,7 +106,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 				}
 				err = logic.InsertPendingUser(&models.User{
 					UserName:                   content.Email,
-					ExternalIdentityProviderID: content.ID,
+					ExternalIdentityProviderID: string(content.ID),
 					AuthType:                   models.OAuth,
 				})
 				if err != nil {
