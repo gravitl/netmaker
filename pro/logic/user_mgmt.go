@@ -738,10 +738,22 @@ func GetUserRAGNodes(user models.User) (gws map[string]models.Node) {
 					continue
 				}
 			}
+			if roles, ok := user.NetworkRoles[models.AllNetworks]; ok && len(roles) > 0 {
+				if ok, _ := IsUserAllowedToCommunicate(user.UserName, node); ok {
+					gws[node.ID.String()] = node
+					continue
+				}
+			}
 			for groupID := range user.UserGroups {
 				userGrp, err := logic.GetUserGroup(groupID)
 				if err == nil {
 					if roles, ok := userGrp.NetworkRoles[models.NetworkID(node.Network)]; ok && len(roles) > 0 {
+						if ok, _ := IsUserAllowedToCommunicate(user.UserName, node); ok {
+							gws[node.ID.String()] = node
+							break
+						}
+					}
+					if roles, ok := userGrp.NetworkRoles[models.AllNetworks]; ok && len(roles) > 0 {
 						if ok, _ := IsUserAllowedToCommunicate(user.UserName, node); ok {
 							gws[node.ID.String()] = node
 							break
