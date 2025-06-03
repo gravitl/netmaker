@@ -67,7 +67,7 @@ func (n *Network) ListAll(ctx context.Context) ([]Network, error) {
 func (n *Network) Exists(ctx context.Context) (bool, error) {
 	var exists bool
 	err := db.FromContext(ctx).Raw(
-		"SELECT EXISTS (SELECT 1 FROM networks WHERE id = ?)",
+		"SELECT EXISTS (SELECT 1 FROM networks_v1 WHERE id = ?)",
 		n.ID,
 	).Scan(&exists).Error
 	return exists, err
@@ -111,10 +111,10 @@ func (n *Network) SetFailOver(ctx context.Context) error {
 func (n *Network) GetFailOver(ctx context.Context) error {
 	return db.FromContext(ctx).
 		Raw(`
-			SELECT f.*
-			FROM nodes f
-			LEFT JOIN networks n ON f.id = n.fail_over_id
-			WHERE n.id = ?
+			SELECT nodes_v1.*
+			FROM nodes_v1
+			LEFT JOIN networks_v1 ON nodes_v1.id = networks_v1.fail_over_id
+			WHERE networks_v1.id = ?
 		`, n.ID).
 		Scan(&n.FailOverNode).
 		Error

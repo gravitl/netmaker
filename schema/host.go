@@ -96,7 +96,7 @@ func (h *Host) ListDefaultHosts(ctx context.Context) ([]Host, error) {
 func (h *Host) Exists(ctx context.Context) (bool, error) {
 	var exists bool
 	err := db.FromContext(ctx).Raw(
-		"SELECT EXISTS (SELECT 1 FROM hosts WHERE id = ?)",
+		"SELECT EXISTS (SELECT 1 FROM hosts_v1 WHERE id = ?)",
 		h.ID,
 	).Scan(&exists).Error
 	return exists, err

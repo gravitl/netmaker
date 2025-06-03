@@ -122,10 +122,10 @@ func (n *Node) Get(ctx context.Context) error {
 func (n *Node) GetHost(ctx context.Context) error {
 	return db.FromContext(ctx).
 		Raw(`
-			SELECT hosts.*
-			FROM hosts
-			JOIN nodes ON hosts.id = nodes.host_id
-			WHERE nodes.id = ?
+			SELECT hosts_v1.*
+			FROM hosts_v1
+			JOIN nodes_v1 ON hosts_v1.id = nodes_v1.host_id
+			WHERE nodes_v1.id = ?
 		`, n.ID).
 		Scan(&n.Host).
 		Error
@@ -134,10 +134,10 @@ func (n *Node) GetHost(ctx context.Context) error {
 func (n *Node) GetNetwork(ctx context.Context) error {
 	return db.FromContext(ctx).
 		Raw(`
-			SELECT networks.*
-			FROM networks
-			JOIN nodes ON networks.id = nodes.network_id
-			WHERE nodes.id = ?
+			SELECT networks_v1.*
+			FROM networks_v1
+			JOIN nodes_v1 ON networks_v1.id = nodes_v1.network_id
+			WHERE nodes_v1.id = ?
 		`, n.ID).
 		Scan(&n.Network).
 		Error
@@ -179,7 +179,7 @@ func (n *Node) ListExpired(ctx context.Context) ([]Node, error) {
 func (n *Node) Exists(ctx context.Context) (bool, error) {
 	var exists bool
 	err := db.FromContext(ctx).Raw(
-		"SELECT EXISTS (SELECT 1 FROM nodes WHERE id = ?)",
+		"SELECT EXISTS (SELECT 1 FROM nodes_v1 WHERE id = ?)",
 		n.ID,
 	).Scan(&exists).Error
 	return exists, err
@@ -188,7 +188,7 @@ func (n *Node) Exists(ctx context.Context) (bool, error) {
 func (n *Node) ExistsWithNetworkAndIPv4(ctx context.Context) (bool, error) {
 	var exists bool
 	err := db.FromContext(ctx).Raw(
-		"SELECT EXISTS (SELECT 1 FROM nodes WHERE network_id = ? AND address = ?)",
+		"SELECT EXISTS (SELECT 1 FROM nodes_v1 WHERE network_id = ? AND address = ?)",
 		n.NetworkID,
 		n.Address,
 	).Scan(&exists).Error
@@ -198,7 +198,7 @@ func (n *Node) ExistsWithNetworkAndIPv4(ctx context.Context) (bool, error) {
 func (n *Node) ExistsWithNetworkAndIPv6(ctx context.Context) (bool, error) {
 	var exists bool
 	err := db.FromContext(ctx).Raw(
-		"SELECT EXISTS (SELECT 1 FROM nodes WHERE network_id = ? AND address6 = ?)",
+		"SELECT EXISTS (SELECT 1 FROM nodes_v1 WHERE network_id = ? AND address6 = ?)",
 		n.NetworkID,
 		n.Address6,
 	).Scan(&exists).Error
@@ -213,9 +213,9 @@ func (n *Node) Count(ctx context.Context) (int, error) {
 
 func (n *Node) CountByOS(ctx context.Context) (map[string]int, error) {
 	rows, err := db.FromContext(ctx).Raw(`
-		SELECT hosts.os, COUNT(nodes.id) as count
-		FROM hosts LEFT JOIN nodes ON hosts.id = nodes.host_id
-		GROUP BY hosts.os
+		SELECT hosts_v1.os, COUNT(nodes_v1.id) as count
+		FROM hosts_v1 LEFT JOIN nodes_v1 ON hosts_v1.id = nodes_v1.host_id
+		GROUP BY hosts_v1.os
 	`).Rows()
 	if err != nil {
 		return nil, err
@@ -264,10 +264,10 @@ func (n *Node) IsEligibleToBeFailOver(ctx context.Context) (bool, error) {
 	err := db.FromContext(ctx).Raw(`
 		SELECT EXISTS (
 			SELECT 1
-			FROM nodes
-			JOIN networks ON nodes.network_id = networks.id
-			JOIN hosts ON nodes.host_id = hosts.id
-			WHERE nodes.id = ? AND nodes.gateway_node_id = ? AND networks.fail_over_id = ? AND hosts.os = ?
+			FROM nodes_v1
+			JOIN networks_v1 ON nodes_v1.network_id = networks_v1.id
+			JOIN hosts_v1 ON nodes_v1.host_id = hosts_v1.id
+			WHERE nodes_v1.id = ? AND nodes_v1.gateway_node_id = ? AND networks_v1.fail_over_id = ? AND hosts_v1.os = ?
 		)`,
 		n.ID,
 		nil,
