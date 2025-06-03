@@ -37,14 +37,15 @@ func ValidateEgressReq(e *schema.Egress) error {
 			return errors.New("can only set one internet routing node")
 		}
 		req := models.InetNodeReq{}
-
+		eli, _ := (&schema.Egress{Network: e.Network}).ListByNetwork(db.WithContext(context.TODO()))
 		for k := range e.Nodes {
 			inetNode, err := GetNodeByID(k)
 			if err != nil {
 				return errors.New("invalid routing node " + err.Error())
 			}
 			// check if node is acting as egress gw already
-			GetNodeEgressInfo(&inetNode)
+
+			GetNodeEgressInfo(&inetNode, eli)
 			if err := ValidateInetGwReq(inetNode, req, false); err != nil {
 				return err
 			}
@@ -119,8 +120,8 @@ func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress) bool {
 	return false
 }
 
-func AddEgressInfoToPeerByAccess(node, targetNode *models.Node) {
-	eli, _ := (&schema.Egress{Network: targetNode.Network}).ListByNetwork(db.WithContext(context.TODO()))
+func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egress) {
+
 	req := models.EgressGatewayRequest{
 		NodeID: targetNode.ID.String(),
 		NetID:  targetNode.Network,
@@ -199,8 +200,8 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node) {
 	}
 }
 
-func GetNodeEgressInfo(targetNode *models.Node) {
-	eli, _ := (&schema.Egress{Network: targetNode.Network}).ListByNetwork(db.WithContext(context.TODO()))
+func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress) {
+
 	req := models.EgressGatewayRequest{
 		NodeID: targetNode.ID.String(),
 		NetID:  targetNode.Network,

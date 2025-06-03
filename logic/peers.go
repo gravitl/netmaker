@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -9,9 +10,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slices"
 	"golang.org/x/exp/slog"
@@ -175,8 +178,8 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE || time.Since(node.LastCheckIn) > time.Hour {
 			continue
 		}
-
-		GetNodeEgressInfo(&node)
+		eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
+		GetNodeEgressInfo(&node, eli)
 		hostPeerUpdate = SetDefaultGw(node, hostPeerUpdate)
 		if !hostPeerUpdate.IsInternetGw {
 			hostPeerUpdate.IsInternetGw = IsInternetGw(node)
@@ -238,7 +241,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				PersistentKeepaliveInterval: &peerHost.PersistentKeepalive,
 				ReplaceAllowedIPs:           true,
 			}
-			AddEgressInfoToPeerByAccess(&node, &peer)
+			AddEgressInfoToPeerByAccess(&node, &peer, eli)
 			_, isFailOverPeer := node.FailOverPeers[peer.ID.String()]
 			if peer.EgressDetails.IsEgressGateway {
 				peerKey := peerHost.PublicKey.String()

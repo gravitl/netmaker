@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,11 +10,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	controller "github.com/gravitl/netmaker/controllers"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
+	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 )
 
@@ -205,8 +208,10 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	logic.GetNodeEgressInfo(&node)
-	logic.GetNodeEgressInfo(&peerNode)
+	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
+	logic.GetNodeEgressInfo(&node, eli)
+	logic.GetNodeEgressInfo(&peerNode, eli)
+	logic.GetNodeEgressInfo(&failOverNode, eli)
 	if peerNode.IsFailOver {
 		logic.ReturnErrorResponse(
 			w,
@@ -244,6 +249,18 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 			w,
 			r,
 			logic.FormatError(errors.New("node acting as relay for the peer node"), "badrequest"),
+		)
+		return
+	}
+	if (node.EgressDetails.InternetGwID != "" && failOverNode.EgressDetails.IsInternetGateway && node.EgressDetails.InternetGwID != failOverNode.ID.String()) ||
+		(peerNode.EgressDetails.InternetGwID != "" && failOverNode.EgressDetails.IsInternetGateway && peerNode.EgressDetails.InternetGwID != failOverNode.ID.String()) {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				errors.New("node using a internet gw by the peer node"),
+				"badrequest",
+			),
 		)
 		return
 	}
@@ -351,9 +368,10 @@ func checkfailOverCtx(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	logic.GetNodeEgressInfo(&node)
-	logic.GetNodeEgressInfo(&peerNode)
-	logic.GetNodeEgressInfo(&failOverNode)
+	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
+	logic.GetNodeEgressInfo(&node, eli)
+	logic.GetNodeEgressInfo(&peerNode, eli)
+	logic.GetNodeEgressInfo(&failOverNode, eli)
 	if peerNode.IsFailOver {
 		logic.ReturnErrorResponse(
 			w,
