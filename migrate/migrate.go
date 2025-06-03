@@ -502,11 +502,6 @@ func migrateToEgressV1() {
 				}
 				err = e.Create(db.WithContext(context.TODO()))
 				if err == nil {
-					node.IsEgressGateway = false
-					node.EgressGatewayRequest = models.EgressGatewayRequest{}
-					node.EgressGatewayNatEnabled = false
-					node.EgressGatewayRanges = []string{}
-					logic.UpsertNode(&node)
 					acl := models.Acl{
 						ID:          uuid.New().String(),
 						Name:        "egress node policy",
@@ -530,7 +525,7 @@ func migrateToEgressV1() {
 							},
 						},
 
-						AllowedDirection: models.TrafficDirectionUni,
+						AllowedDirection: models.TrafficDirectionBi,
 						Enabled:          true,
 						CreatedBy:        "auto",
 						CreatedAt:        time.Now().UTC(),
@@ -548,7 +543,7 @@ func migrateToEgressV1() {
 						Src: []models.AclPolicyTag{
 
 							{
-								ID:    models.UserGroupAclID,
+								ID:    models.UserAclID,
 								Value: "*",
 							},
 						},
@@ -559,7 +554,7 @@ func migrateToEgressV1() {
 							},
 						},
 
-						AllowedDirection: models.TrafficDirectionUni,
+						AllowedDirection: models.TrafficDirectionBi,
 						Enabled:          true,
 						CreatedBy:        "auto",
 						CreatedAt:        time.Now().UTC(),
@@ -568,6 +563,11 @@ func migrateToEgressV1() {
 				}
 
 			}
+			node.IsEgressGateway = false
+			node.EgressGatewayRequest = models.EgressGatewayRequest{}
+			node.EgressGatewayNatEnabled = false
+			node.EgressGatewayRanges = []string{}
+			logic.UpsertNode(&node)
 
 		}
 
@@ -585,9 +585,9 @@ func migrateToEgressV1() {
 					node.ID.String(): 256,
 				},
 				Tags:      make(datatypes.JSONMap),
-				Range:     "",
+				Range:     "*",
 				IsInetGw:  true,
-				Nat:       node.EgressGatewayRequest.NatEnabled == "yes",
+				Nat:       true,
 				Status:    true,
 				CreatedBy: user.UserName,
 				CreatedAt: time.Now().UTC(),
@@ -636,7 +636,7 @@ func migrateToEgressV1() {
 				acl = models.Acl{
 					ID:          uuid.New().String(),
 					Name:        "exit node policy",
-					MetaData:    "all traffic on source nodes will pass through the destination node in the policy",
+					MetaData:    "all traffic will pass through the destination node in the policy",
 					Default:     false,
 					ServiceType: models.Any,
 					NetworkID:   models.NetworkID(node.Network),
@@ -644,20 +644,8 @@ func migrateToEgressV1() {
 					RuleType:    models.UserPolicy,
 					Src: []models.AclPolicyTag{
 						{
-							ID:    models.UserGroupAclID,
-							Value: fmt.Sprintf("%s-%s-grp", node.Network, models.NetworkAdmin),
-						},
-						{
-							ID:    models.UserGroupAclID,
-							Value: fmt.Sprintf("global-%s-grp", models.NetworkAdmin),
-						},
-						{
-							ID:    models.UserGroupAclID,
-							Value: fmt.Sprintf("%s-%s-grp", node.Network, models.NetworkUser),
-						},
-						{
-							ID:    models.UserGroupAclID,
-							Value: fmt.Sprintf("global-%s-grp", models.NetworkUser),
+							ID:    models.UserAclID,
+							Value: "*",
 						},
 					},
 					Dst: []models.AclPolicyTag{
