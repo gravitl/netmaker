@@ -85,6 +85,17 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	if e.IsInetGw {
+		for nodeID := range req.Nodes {
+			node, err := logic.GetNodeByID(nodeID)
+			if err == nil && !node.IsGw {
+				node.IsGw = true
+				node.IsIngressGateway = true
+				node.IsRelay = true
+				logic.UpsertNode(&node)
+			}
+		}
+	}
 	logic.LogEvent(&models.Event{
 		Action: models.Create,
 		Source: models.Subject{
