@@ -1,14 +1,17 @@
 package logic
 
 import (
+	"context"
 	"errors"
 	"net"
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 )
 
@@ -162,10 +165,11 @@ func ResetFailOver(failOverNode *models.Node) error {
 // GetFailOverPeerIps - adds the failedOvered peerIps by the peer
 func GetFailOverPeerIps(peer, node *models.Node) []net.IPNet {
 	allowedips := []net.IPNet{}
+	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
 	for failOverpeerID := range node.FailOverPeers {
 		failOverpeer, err := logic.GetNodeByID(failOverpeerID)
 		if err == nil && failOverpeer.FailedOverBy == peer.ID {
-			logic.GetNodeEgressInfo(&failOverpeer)
+			logic.GetNodeEgressInfo(&failOverpeer, eli)
 			if failOverpeer.Address.IP != nil {
 				allowed := net.IPNet{
 					IP:   failOverpeer.Address.IP,

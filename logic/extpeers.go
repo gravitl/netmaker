@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,9 +14,11 @@ import (
 
 	"github.com/goombaio/namegenerator"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -71,12 +74,13 @@ func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 	if err != nil {
 		return []string{}, err
 	}
+	eli, _ := (&schema.Egress{Network: client.Network}).ListByNetwork(db.WithContext(context.TODO()))
 	// clientNode := client.ConvertToStaticNode()
 	for _, currentNode := range networkNodes {
 		if currentNode.Network != client.Network {
 			continue
 		}
-		GetNodeEgressInfo(&currentNode)
+		GetNodeEgressInfo(&currentNode, eli)
 		if currentNode.EgressDetails.IsInternetGateway && client.IngressGatewayID != currentNode.ID.String() {
 			continue
 		}
