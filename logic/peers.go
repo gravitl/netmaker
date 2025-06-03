@@ -241,7 +241,10 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				PersistentKeepaliveInterval: &peerHost.PersistentKeepalive,
 				ReplaceAllowedIPs:           true,
 			}
-			AddEgressInfoToPeerByAccess(&node, &peer, eli)
+			GetNodeEgressInfo(&peer, eli)
+			if peer.EgressDetails.IsEgressGateway {
+				AddEgressInfoToPeerByAccess(&node, &peer, eli, defaultDevicePolicy.Enabled)
+			}
 			_, isFailOverPeer := node.FailOverPeers[peer.ID.String()]
 			if peer.EgressDetails.IsEgressGateway {
 				peerKey := peerHost.PublicKey.String()

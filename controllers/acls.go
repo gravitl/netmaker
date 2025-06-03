@@ -176,6 +176,7 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 		Policies      []models.Acl
 		IngressRules  []models.FwRule
 		NodeAllPolicy bool
+		EgressNets    map[string]models.Node
 	}
 
 	allowed, ps := logic.IsNodeAllowedToCommunicate(node, peer, true)
@@ -184,6 +185,7 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 		IsNodeAllowed: allowed,
 		IsPeerAllowed: isallowed,
 		Policies:      ps,
+		EgressNets:    logic.GetNetworkEgressInfo(models.NetworkID(node.Network)),
 	}
 	if peerIsStatic == "true" {
 		ingress, err := logic.GetNodeByID(peer.StaticNode.IngressGatewayID)
