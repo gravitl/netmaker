@@ -353,6 +353,7 @@ func checkfailOverCtx(w http.ResponseWriter, r *http.Request) {
 	}
 	logic.GetNodeEgressInfo(&node)
 	logic.GetNodeEgressInfo(&peerNode)
+	logic.GetNodeEgressInfo(&failOverNode)
 	if peerNode.IsFailOver {
 		logic.ReturnErrorResponse(
 			w,
@@ -393,7 +394,8 @@ func checkfailOverCtx(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if node.EgressDetails.InternetGwID != "" || peerNode.EgressDetails.InternetGwID != "" {
+	if (node.EgressDetails.InternetGwID != "" && failOverNode.EgressDetails.IsInternetGateway && node.EgressDetails.InternetGwID != failOverNode.ID.String()) ||
+		(peerNode.EgressDetails.InternetGwID != "" && failOverNode.EgressDetails.IsInternetGateway && peerNode.EgressDetails.InternetGwID != failOverNode.ID.String()) {
 		logic.ReturnErrorResponse(
 			w,
 			r,
