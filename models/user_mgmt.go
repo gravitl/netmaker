@@ -65,6 +65,7 @@ const (
 	HostRsrc           RsrcType = "hosts"
 	RelayRsrc          RsrcType = "relays"
 	RemoteAccessGwRsrc RsrcType = "remote_access_gw"
+	GatewayRsrc        RsrcType = "gateways"
 	ExtClientsRsrc     RsrcType = "extclients"
 	InetGwRsrc         RsrcType = "inet_gw"
 	EgressGwRsrc       RsrcType = "egress"

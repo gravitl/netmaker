@@ -50,8 +50,11 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if strings.Contains(route, "createrelay") || strings.Contains(route, "deleterelay") {
 			r.Header.Set("TARGET_RSRC", models.RelayRsrc.String())
 		}
-
 		if strings.Contains(route, "gateway") {
+			r.Header.Set("TARGET_RSRC", models.GatewayRsrc.String())
+		}
+
+		if strings.Contains(route, "egress") {
 			r.Header.Set("TARGET_RSRC", models.EgressGwRsrc.String())
 		}
 		if strings.Contains(route, "networks") {
