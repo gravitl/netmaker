@@ -1283,7 +1283,7 @@ func getUserAclRulesForNode(targetnode *models.Node,
 	return rules
 }
 
-func CheckIfAnyActiveEgressPolicy(targetNode models.Node) bool {
+func CheckIfAnyActiveEgressPolicy(targetNode models.Node, acls []models.Acl) bool {
 	if !targetNode.EgressDetails.IsEgressGateway {
 		return false
 	}
@@ -1300,7 +1300,6 @@ func CheckIfAnyActiveEgressPolicy(targetNode models.Node) bool {
 	}
 	targetNodeTags[models.TagID(targetNode.ID.String())] = struct{}{}
 	targetNodeTags["*"] = struct{}{}
-	acls, _ := logic.ListAclsByNetwork(models.NetworkID(targetNode.Network))
 	for _, acl := range acls {
 		if !acl.Enabled || acl.RuleType != models.DevicePolicy {
 			continue
@@ -1326,7 +1325,7 @@ func CheckIfAnyActiveEgressPolicy(targetNode models.Node) bool {
 	return false
 }
 
-func CheckIfAnyPolicyisUniDirectional(targetNode models.Node) bool {
+func CheckIfAnyPolicyisUniDirectional(targetNode models.Node, acls []models.Acl) bool {
 	var targetNodeTags = make(map[models.TagID]struct{})
 	if targetNode.Mutex != nil {
 		targetNode.Mutex.Lock()
@@ -1340,7 +1339,6 @@ func CheckIfAnyPolicyisUniDirectional(targetNode models.Node) bool {
 	}
 	targetNodeTags[models.TagID(targetNode.ID.String())] = struct{}{}
 	targetNodeTags["*"] = struct{}{}
-	acls, _ := logic.ListAclsByNetwork(models.NetworkID(targetNode.Network))
 	for _, acl := range acls {
 		if !acl.Enabled {
 			continue

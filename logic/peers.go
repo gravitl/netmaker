@@ -186,9 +186,10 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		}
 		defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 		defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+		acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
 		if (defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
-			(!CheckIfAnyPolicyisUniDirectional(node) && !CheckIfAnyActiveEgressPolicy(node)) ||
-			CheckIfNodeHasAccessToAllResources(&node) {
+			(!CheckIfAnyPolicyisUniDirectional(node, acls) && !CheckIfAnyActiveEgressPolicy(node, acls)) ||
+			CheckIfNodeHasAccessToAllResources(&node, acls) {
 			aclRule := models.AclRule{
 				ID:              fmt.Sprintf("%s-allowed-network-rules", node.ID.String()),
 				AllowedProtocol: models.ALL,
@@ -240,7 +241,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			}
 			GetNodeEgressInfo(&peer, eli)
 			if peer.EgressDetails.IsEgressGateway {
-				AddEgressInfoToPeerByAccess(&node, &peer, eli, defaultDevicePolicy.Enabled)
+				AddEgressInfoToPeerByAccess(&node, &peer, eli, acls, defaultDevicePolicy.Enabled)
 			}
 			_, isFailOverPeer := node.FailOverPeers[peer.ID.String()]
 			if peer.EgressDetails.IsEgressGateway {
