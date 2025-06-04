@@ -186,12 +186,9 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		}
 		defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 		defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
-		anyActiveEgressPolicy := CheckIfAnyActiveEgressPolicy(node)
-		nodeHasAccessToAllRsrcs := CheckIfNodeHasAccessToAllResources(&node)
-		anyUniDirectionPolicy := CheckIfAnyPolicyisUniDirectional(node)
 		if (defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
-			(!anyUniDirectionPolicy && !anyActiveEgressPolicy) ||
-			nodeHasAccessToAllRsrcs {
+			(!CheckIfAnyPolicyisUniDirectional(node) && !CheckIfAnyActiveEgressPolicy(node)) ||
+			CheckIfNodeHasAccessToAllResources(&node) {
 			aclRule := models.AclRule{
 				ID:              fmt.Sprintf("%s-allowed-network-rules", node.ID.String()),
 				AllowedProtocol: models.ALL,

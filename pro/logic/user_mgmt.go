@@ -761,7 +761,6 @@ func GetUserRAGNodes(user models.User) (gws map[string]models.Node) {
 					}
 				}
 			}
-
 		}
 	}
 	return
