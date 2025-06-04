@@ -43,8 +43,7 @@ var MigrateToGws = func() {
 
 }
 
-func CheckIfNodeHasAccessToAllResources(targetnode *models.Node) bool {
-	acls := ListDevicePolicies(models.NetworkID(targetnode.Network))
+func CheckIfNodeHasAccessToAllResources(targetnode *models.Node, acls []models.Acl) bool {
 	var targetNodeTags = make(map[models.TagID]struct{})
 	if targetnode.Mutex != nil {
 		targetnode.Mutex.Lock()
@@ -62,7 +61,7 @@ func CheckIfNodeHasAccessToAllResources(targetnode *models.Node) bool {
 		targetNodeTags[models.TagID(fmt.Sprintf("%s.%s", targetnode.Network, models.GwTagName))] = struct{}{}
 	}
 	for _, acl := range acls {
-		if !acl.Enabled {
+		if !acl.Enabled || acl.RuleType != models.DevicePolicy {
 			continue
 		}
 		srcTags := ConvAclTagToValueMap(acl.Src)
@@ -100,11 +99,11 @@ func CheckIfNodeHasAccessToAllResources(targetnode *models.Node) bool {
 	return false
 }
 
-var CheckIfAnyPolicyisUniDirectional = func(targetNode models.Node) bool {
+var CheckIfAnyPolicyisUniDirectional = func(targetNode models.Node, acls []models.Acl) bool {
 	return false
 }
 
-var CheckIfAnyActiveEgressPolicy = func(targetNode models.Node) bool {
+var CheckIfAnyActiveEgressPolicy = func(targetNode models.Node, acls []models.Acl) bool {
 	if !targetNode.EgressDetails.IsEgressGateway {
 		return false
 	}
@@ -114,7 +113,6 @@ var CheckIfAnyActiveEgressPolicy = func(targetNode models.Node) bool {
 	if targetNode.IsGw {
 		targetNodeTags[models.TagID(fmt.Sprintf("%s.%s", targetNode.Network, models.GwTagName))] = struct{}{}
 	}
-	acls, _ := ListAclsByNetwork(models.NetworkID(targetNode.Network))
 	for _, acl := range acls {
 		if !acl.Enabled || acl.RuleType != models.DevicePolicy {
 			continue

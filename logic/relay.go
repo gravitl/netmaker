@@ -223,7 +223,9 @@ func GetAllowedIpsForRelayed(relayed, relay *models.Node) (allowedIPs []net.IPNe
 		logger.Log(0, "error getting network clients", err.Error())
 		return
 	}
+	acls, _ := ListAclsByNetwork(models.NetworkID(relay.Network))
 	eli, _ := (&schema.Egress{Network: relay.Network}).ListByNetwork(db.WithContext(context.TODO()))
+	defaultPolicy, _ := GetDefaultPolicy(models.NetworkID(relay.Network), models.DevicePolicy)
 	for _, peer := range peers {
 		if peer.ID == relayed.ID || peer.ID == relay.ID {
 			continue
@@ -231,7 +233,7 @@ func GetAllowedIpsForRelayed(relayed, relay *models.Node) (allowedIPs []net.IPNe
 		if !IsPeerAllowed(*relayed, peer, true) {
 			continue
 		}
-		GetNodeEgressInfo(&peer, eli)
+		AddEgressInfoToPeerByAccess(relayed, &peer, eli, acls, defaultPolicy.Enabled)
 		if nodeacls.AreNodesAllowed(nodeacls.NetworkID(relayed.Network), nodeacls.NodeID(relayed.ID.String()), nodeacls.NodeID(peer.ID.String())) {
 			allowedIPs = append(allowedIPs, GetAllowedIPs(relayed, &peer, nil)...)
 		}

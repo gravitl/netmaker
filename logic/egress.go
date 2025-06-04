@@ -64,7 +64,7 @@ func ValidateEgressReq(e *schema.Egress) error {
 	return nil
 }
 
-func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress) bool {
+func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress, acls []models.Acl) bool {
 	nodeTags := maps.Clone(node.Tags)
 	nodeTags[models.TagID(node.ID.String())] = struct{}{}
 	if !e.IsInetGw {
@@ -77,7 +77,6 @@ func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress) bool {
 			return true
 		}
 	}
-	acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
 	for _, acl := range acls {
 		if !acl.Enabled {
 			continue
@@ -121,7 +120,7 @@ func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress) bool {
 	return false
 }
 
-func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egress, isDefaultPolicyActive bool) {
+func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egress, acls []models.Acl, isDefaultPolicyActive bool) {
 
 	req := models.EgressGatewayRequest{
 		NodeID: targetNode.ID.String(),
@@ -136,14 +135,15 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 			targetNode.Mutex.Unlock()
 		}
 	}()
+
 	for _, e := range eli {
 		if !e.Status || e.Network != targetNode.Network {
 			continue
 		}
-		if !isDefaultPolicyActive {
-			if !DoesNodeHaveAccessToEgress(node, &e) {
+		if !isDefaultPolicyActive && !e.IsInetGw {
+			if !DoesNodeHaveAccessToEgress(node, &e, acls) {
 				if node.IsRelayed && node.RelayedBy == targetNode.ID.String() {
-					if !DoesNodeHaveAccessToEgress(targetNode, &e) {
+					if !DoesNodeHaveAccessToEgress(targetNode, &e, acls) {
 						continue
 					}
 				} else {
