@@ -5,7 +5,6 @@ import (
 	"errors"
 	"maps"
 	"net"
-	"sort"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
@@ -25,7 +24,7 @@ ranges should be replaced by egress identifier
 
 */
 
-func getFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []models.FwRule) {
+func GetFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []models.FwRule) {
 	defaultUserPolicy, _ := logic.GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 	userNodes := logic.GetStaticUserNodesByNetwork(models.NetworkID(node.Network))
 	for _, userNodeI := range userNodes {
@@ -108,58 +107,7 @@ func getFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []
 	return
 }
 
-func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
-	// fetch user access to static clients via policies
-	defer func() {
-		sort.Slice(rules, func(i, j int) bool {
-			if !rules[i].SrcIP.IP.Equal(rules[j].SrcIP.IP) {
-				return string(rules[i].SrcIP.IP.To16()) < string(rules[j].SrcIP.IP.To16())
-			}
-			return string(rules[i].DstIP.IP.To16()) < string(rules[j].DstIP.IP.To16())
-		})
-	}()
-	defaultDevicePolicy, _ := logic.GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
-	nodes, _ := logic.GetNetworkNodes(node.Network)
-	nodes = append(nodes, logic.GetStaticNodesByNetwork(models.NetworkID(node.Network), true)...)
-	rules = getFwRulesForUserNodesOnGw(node, nodes)
-	if defaultDevicePolicy.Enabled {
-		return
-	}
-	for _, nodeI := range nodes {
-		if !nodeI.IsStatic || nodeI.IsUserNode {
-			continue
-		}
-		// if nodeI.StaticNode.IngressGatewayID != node.ID.String() {
-		// 	continue
-		// }
-		for _, peer := range nodes {
-			if peer.StaticNode.ClientID == nodeI.StaticNode.ClientID || peer.IsUserNode {
-				continue
-			}
-			if nodeI.StaticNode.IngressGatewayID != node.ID.String() &&
-				((!peer.IsStatic && peer.ID.String() != node.ID.String()) ||
-					(peer.IsStatic && peer.StaticNode.IngressGatewayID != node.ID.String())) {
-				continue
-			}
-			if peer.IsStatic {
-				peer = peer.StaticNode.ConvertToStaticNode()
-			}
-			var allowedPolicies1 []models.Acl
-			var ok bool
-			if ok, allowedPolicies1 = IsNodeAllowedToCommunicate(nodeI.StaticNode.ConvertToStaticNode(), peer, true); ok {
-				rules = append(rules, getFwRulesForNodeAndPeerOnGw(nodeI.StaticNode.ConvertToStaticNode(), peer, allowedPolicies1)...)
-			}
-			if ok, allowedPolicies2 := IsNodeAllowedToCommunicate(peer, nodeI.StaticNode.ConvertToStaticNode(), true); ok {
-				rules = append(rules,
-					getFwRulesForNodeAndPeerOnGw(peer, nodeI.StaticNode.ConvertToStaticNode(),
-						getUniquePolicies(allowedPolicies1, allowedPolicies2))...)
-			}
-		}
-	}
-	return
-}
-
-func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []models.Acl) (rules []models.FwRule) {
+func GetFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []models.Acl) (rules []models.FwRule) {
 
 	for _, policy := range allowedPolicies {
 		// if static peer dst rule not for ingress node -> skip
@@ -333,52 +281,6 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 	}
 
 	return
-}
-
-func getUniquePolicies(policies1, policies2 []models.Acl) []models.Acl {
-	policies1Map := make(map[string]struct{})
-	for _, policy1I := range policies1 {
-		policies1Map[policy1I.ID] = struct{}{}
-	}
-	for i := len(policies2) - 1; i >= 0; i-- {
-		if _, ok := policies1Map[policies2[i].ID]; ok {
-			policies2 = append(policies2[:i], policies2[i+1:]...)
-		}
-	}
-	return policies2
-}
-
-func GetStaticNodeIps(node models.Node) (ips []net.IP) {
-	defer func() {
-		sortIPs(ips)
-	}()
-	defaultUserPolicy, _ := logic.GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
-	defaultDevicePolicy, _ := logic.GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
-
-	extclients := logic.GetStaticNodesByNetwork(models.NetworkID(node.Network), false)
-	for _, extclient := range extclients {
-		if extclient.IsUserNode && defaultUserPolicy.Enabled {
-			continue
-		}
-		if !extclient.IsUserNode && defaultDevicePolicy.Enabled {
-			continue
-		}
-		if extclient.StaticNode.Address != "" {
-			ips = append(ips, extclient.StaticNode.AddressIPNet4().IP)
-		}
-		if extclient.StaticNode.Address6 != "" {
-			ips = append(ips, extclient.StaticNode.AddressIPNet6().IP)
-		}
-	}
-	return
-}
-
-// Sort a slice of net.IP addresses
-func sortIPs(ips []net.IP) {
-	sort.Slice(ips, func(i, j int) bool {
-		ip1, ip2 := ips[i].To16(), ips[j].To16()
-		return string(ip1) < string(ip2) // Compare as byte slices
-	})
 }
 
 func checkIfAclTagisValid(a models.Acl, t models.AclPolicyTag, isSrc bool) (err error) {
