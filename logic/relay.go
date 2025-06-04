@@ -113,12 +113,13 @@ func ValidateRelay(relay models.RelayRequest, update bool) error {
 		return errors.New("node is already acting as a relay")
 	}
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
+	acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
 	for _, relayedNodeID := range relay.RelayedNodes {
 		relayedNode, err := GetNodeByID(relayedNodeID)
 		if err != nil {
 			return err
 		}
-		GetNodeEgressInfo(&relayedNode, eli)
+		GetNodeEgressInfo(&relayedNode, eli, acls)
 		if relayedNode.IsIngressGateway {
 			return errors.New("cannot relay an ingress gateway (" + relayedNodeID + ")")
 		}
@@ -191,6 +192,7 @@ func DeleteRelay(network, nodeid string) ([]models.Node, models.Node, error) {
 func RelayedAllowedIPs(peer, node *models.Node) []net.IPNet {
 	var allowedIPs = []net.IPNet{}
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
+	acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
 	for _, relayedNodeID := range peer.RelayedNodes {
 		if node.ID.String() == relayedNodeID {
 			continue
@@ -199,7 +201,7 @@ func RelayedAllowedIPs(peer, node *models.Node) []net.IPNet {
 		if err != nil {
 			continue
 		}
-		GetNodeEgressInfo(&relayedNode, eli)
+		GetNodeEgressInfo(&relayedNode, eli, acls)
 		allowed := getRelayedAddresses(relayedNodeID)
 		if relayedNode.EgressDetails.IsEgressGateway {
 			allowed = append(allowed, GetEgressIPs(&relayedNode)...)

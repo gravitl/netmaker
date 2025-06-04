@@ -166,10 +166,11 @@ func ResetFailOver(failOverNode *models.Node) error {
 func GetFailOverPeerIps(peer, node *models.Node) []net.IPNet {
 	allowedips := []net.IPNet{}
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
+	acls, _ := logic.ListAclsByNetwork(models.NetworkID(node.Network))
 	for failOverpeerID := range node.FailOverPeers {
 		failOverpeer, err := logic.GetNodeByID(failOverpeerID)
 		if err == nil && failOverpeer.FailedOverBy == peer.ID {
-			logic.GetNodeEgressInfo(&failOverpeer, eli)
+			logic.GetNodeEgressInfo(&failOverpeer, eli, acls)
 			if failOverpeer.Address.IP != nil {
 				allowed := net.IPNet{
 					IP:   failOverpeer.Address.IP,

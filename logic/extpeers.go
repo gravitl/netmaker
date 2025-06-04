@@ -75,12 +75,13 @@ func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 		return []string{}, err
 	}
 	eli, _ := (&schema.Egress{Network: client.Network}).ListByNetwork(db.WithContext(context.TODO()))
+	acls, _ := ListAclsByNetwork(models.NetworkID(client.Network))
 	// clientNode := client.ConvertToStaticNode()
 	for _, currentNode := range networkNodes {
 		if currentNode.Network != client.Network {
 			continue
 		}
-		GetNodeEgressInfo(&currentNode, eli)
+		GetNodeEgressInfo(&currentNode, eli, acls)
 		if currentNode.EgressDetails.IsEgressGateway { // add the egress gateway range(s) to the result
 			if len(currentNode.EgressDetails.EgressGatewayRanges) > 0 {
 				if currentNode.EgressDetails.IsInternetGateway && client.IngressGatewayID != currentNode.ID.String() {

@@ -36,6 +36,7 @@ func ValidateEgressReq(e *schema.Egress) error {
 		if len(e.Nodes) > 1 {
 			return errors.New("can only set one internet routing node")
 		}
+		acls, _ := ListAclsByNetwork(models.NetworkID(e.Network))
 		req := models.InetNodeReq{}
 		eli, _ := (&schema.Egress{Network: e.Network}).ListByNetwork(db.WithContext(context.TODO()))
 		for k := range e.Nodes {
@@ -45,7 +46,7 @@ func ValidateEgressReq(e *schema.Egress) error {
 			}
 			// check if node is acting as egress gw already
 
-			GetNodeEgressInfo(&inetNode, eli)
+			GetNodeEgressInfo(&inetNode, eli, acls)
 			if err := ValidateInetGwReq(inetNode, req, false); err != nil {
 				return err
 			}
@@ -130,7 +131,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 		if targetNode.Mutex != nil {
 			targetNode.Mutex.Lock()
 		}
-		IsNodeUsingInternetGw(targetNode)
+		IsNodeUsingInternetGw(targetNode, acls)
 		if targetNode.Mutex != nil {
 			targetNode.Mutex.Unlock()
 		}
@@ -140,7 +141,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 		if !e.Status || e.Network != targetNode.Network {
 			continue
 		}
-		if !isDefaultPolicyActive && !e.IsInetGw {
+		if !isDefaultPolicyActive || e.IsInetGw {
 			if !DoesNodeHaveAccessToEgress(node, &e, acls) {
 				if node.IsRelayed && node.RelayedBy == targetNode.ID.String() {
 					if !DoesNodeHaveAccessToEgress(targetNode, &e, acls) {
@@ -205,7 +206,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 }
 
 // TODO
-func GetNetworkEgressInfo(network models.NetworkID) (egressNodes map[string]models.Node) {
+func GetNetworkEgressInfo(network models.NetworkID, acls []models.Acl) (egressNodes map[string]models.Node) {
 	eli, _ := (&schema.Egress{Network: network.String()}).ListByNetwork(db.WithContext(context.TODO()))
 	egressNodes = make(map[string]models.Node)
 	var err error
@@ -227,7 +228,7 @@ func GetNetworkEgressInfo(network models.NetworkID) (egressNodes map[string]mode
 				NodeID: targetNode.ID.String(),
 				NetID:  targetNode.Network,
 			}
-			IsNodeUsingInternetGw(&targetNode)
+			IsNodeUsingInternetGw(&targetNode, acls)
 			if e.IsInetGw {
 				targetNode.EgressDetails.IsInternetGateway = true
 				targetNode.EgressDetails.InetNodeReq = models.InetNodeReq{
@@ -280,7 +281,7 @@ func GetNetworkEgressInfo(network models.NetworkID) (egressNodes map[string]mode
 	return
 }
 
-func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress) {
+func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []models.Acl) {
 
 	req := models.EgressGatewayRequest{
 		NodeID: targetNode.ID.String(),
@@ -290,7 +291,7 @@ func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress) {
 		if targetNode.Mutex != nil {
 			targetNode.Mutex.Lock()
 		}
-		IsNodeUsingInternetGw(targetNode)
+		IsNodeUsingInternetGw(targetNode, acls)
 		if targetNode.Mutex != nil {
 			targetNode.Mutex.Unlock()
 		}

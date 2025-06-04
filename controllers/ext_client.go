@@ -178,7 +178,8 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	eli, _ := (&schema.Egress{Network: gwnode.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	logic.GetNodeEgressInfo(&gwnode, eli)
+	acls, _ := logic.ListAclsByNetwork(models.NetworkID(client.Network))
+	logic.GetNodeEgressInfo(&gwnode, eli, acls)
 	host, err := logic.GetHost(gwnode.HostID.String())
 	if err != nil {
 		logger.Log(

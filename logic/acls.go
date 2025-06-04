@@ -846,7 +846,7 @@ var GetInetClientsFromAclPolicies = func(eID string) (inetClientIDs []string) {
 	return
 
 }
-var IsNodeUsingInternetGw = func(node *models.Node) {
+var IsNodeUsingInternetGw = func(node *models.Node, acls []models.Acl) {
 	host, err := GetHost(node.HostID.String())
 	if err != nil {
 		return
@@ -854,7 +854,6 @@ var IsNodeUsingInternetGw = func(node *models.Node) {
 	if host.IsDefault || node.IsFailOver {
 		return
 	}
-	acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
 	var isUsing bool
 	for _, acl := range acls {
 		if !acl.Enabled {

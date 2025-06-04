@@ -1769,7 +1769,7 @@ func GetInetClientsFromAclPolicies(eID string) (inetClientIDs []string) {
 	return
 }
 
-func IsNodeUsingInternetGw(node *models.Node) {
+func IsNodeUsingInternetGw(node *models.Node, acls []models.Acl) {
 	host, err := logic.GetHost(node.HostID.String())
 	if err != nil {
 		return
@@ -1782,7 +1782,6 @@ func IsNodeUsingInternetGw(node *models.Node) {
 		nodeTags = make(map[models.TagID]struct{})
 	}
 	nodeTags[models.TagID(node.ID.String())] = struct{}{}
-	acls, _ := logic.ListAclsByNetwork(models.NetworkID(node.Network))
 	var isUsing bool
 	for _, acl := range acls {
 		if !acl.Enabled {
