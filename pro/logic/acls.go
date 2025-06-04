@@ -1530,7 +1530,7 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 			continue
 		}
 		if _, ok := egI.Nodes[targetnode.ID.String()]; ok {
-			if egI.Range == "*" {
+			if egI.IsInetGw {
 				targetNodeTags[models.TagID("0.0.0.0/0")] = struct{}{}
 				targetNodeTags[models.TagID("::/0")] = struct{}{}
 			} else {

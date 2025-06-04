@@ -215,9 +215,9 @@ func GetAllowedIpsForRelayed(relayed, relay *models.Node) (allowedIPs []net.IPNe
 		logger.Log(0, "RelayedByRelay called with invalid parameters")
 		return
 	}
-	if relay.EgressDetails.InternetGwID != "" {
-		return GetAllowedIpForInetNodeClient(relayed, relay)
-	}
+	// if relay.EgressDetails.InternetGwID != "" {
+	// 	return GetAllowedIpForInetNodeClient(relayed, relay)
+	// }
 	peers, err := GetNetworkNodes(relay.Network)
 	if err != nil {
 		logger.Log(0, "error getting network clients", err.Error())
