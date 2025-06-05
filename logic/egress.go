@@ -23,24 +23,8 @@ func ValidateEgressReq(e *schema.Egress) error {
 	if len(e.Nodes) > 1 {
 		return errors.New("can only set one internet routing node")
 	}
-	acls, _ := ListAclsByNetwork(models.NetworkID(e.Network))
-	req := models.InetNodeReq{}
-	eli, _ := (&schema.Egress{Network: e.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	for k := range e.Nodes {
-		inetNode, err := GetNodeByID(k)
-		if err != nil {
-			return errors.New("invalid routing node " + err.Error())
-		}
-		// check if node is acting as egress gw already
 
-		GetNodeEgressInfo(&inetNode, eli, acls)
-		if err := ValidateInetGwReq(inetNode, req, false); err != nil {
-			return err
-		}
-
-	}
-
-	if len(e.Nodes) != 0 {
+	if len(e.Nodes) > 0 {
 		for k := range e.Nodes {
 			_, err := GetNodeByID(k)
 			if err != nil {
