@@ -12,17 +12,6 @@ import (
 	"github.com/gravitl/netmaker/schema"
 )
 
-/*
-TODO: EGRESS
-1. allow only selection of egress ranges in a policy
-ranges should be replaced by egress identifier
-
-2. check logic required for MAC exit node
-
-3.
-
-*/
-
 func GetFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []models.FwRule) {
 	defaultUserPolicy, _ := logic.GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 	userNodes := logic.GetStaticUserNodesByNetwork(models.NetworkID(node.Network))
