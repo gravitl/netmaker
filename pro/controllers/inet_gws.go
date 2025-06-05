@@ -44,7 +44,7 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if node.EgressDetails.IsInternetGateway {
+	if node.IsInternetGateway {
 		logic.ReturnSuccessResponse(w, r, "node is already acting as internet gateway")
 		return
 	}
@@ -70,7 +70,7 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	err = logic.ValidateInetGwReq(node, request, false)
+	err = proLogic.ValidateInetGwReq(node, request, false)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -132,7 +132,7 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if !node.EgressDetails.IsInternetGateway {
+	if !node.IsInternetGateway {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -140,7 +140,7 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	err = logic.ValidateInetGwReq(node, request, true)
+	err = proLogic.ValidateInetGwReq(node, request, true)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return

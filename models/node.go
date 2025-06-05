@@ -127,9 +127,9 @@ type EgressDetails struct {
 	EgressGatewayRequest    EgressGatewayRequest
 	IsEgressGateway         bool
 	EgressGatewayRanges     []string
-	IsInternetGateway       bool        `json:"isinternetgateway"                                      yaml:"isinternetgateway"`
-	InetNodeReq             InetNodeReq `json:"inet_node_req"                                          yaml:"inet_node_req"`
-	InternetGwID            string      `json:"internetgw_node_id"                                     yaml:"internetgw_node_id"`
+	// IsInternetGateway       bool        `json:"isinternetgateway"                                      yaml:"isinternetgateway"`
+	// InetNodeReq             InetNodeReq `json:"inet_node_req"                                          yaml:"inet_node_req"`
+	// InternetGwID            string      `json:"internetgw_node_id"                                     yaml:"internetgw_node_id"`
 }
 
 // LegacyNode - legacy struct for node model

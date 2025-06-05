@@ -113,6 +113,11 @@ func InitPro() {
 	logic.UpdateMetrics = proLogic.UpdateMetrics
 	logic.DeleteMetrics = proLogic.DeleteMetrics
 	logic.GetTrialEndDate = getTrialEndDate
+	logic.SetDefaultGw = proLogic.SetDefaultGw
+	logic.SetDefaultGwForRelayedUpdate = proLogic.SetDefaultGwForRelayedUpdate
+	logic.UnsetInternetGw = proLogic.UnsetInternetGw
+	logic.SetInternetGw = proLogic.SetInternetGw
+	logic.GetAllowedIpForInetNodeClient = proLogic.GetAllowedIpForInetNodeClient
 	mq.UpdateMetrics = proLogic.MQUpdateMetrics
 	mq.UpdateMetricsFallBack = proLogic.MQUpdateMetricsFallBack
 	logic.GetFilteredNodesByUserAccess = proLogic.GetFilteredNodesByUserAccess
@@ -145,7 +150,6 @@ func InitPro() {
 	logic.IsUserAllowedToCommunicate = proLogic.IsUserAllowedToCommunicate
 	logic.DeleteAllNetworkTags = proLogic.DeleteAllNetworkTags
 	logic.CreateDefaultTags = proLogic.CreateDefaultTags
-	logic.IsNodeUsingInternetGw = proLogic.IsNodeUsingInternetGw
 	logic.GetInetClientsFromAclPolicies = proLogic.GetInetClientsFromAclPolicies
 	logic.IsPeerAllowed = proLogic.IsPeerAllowed
 	logic.IsAclPolicyValid = proLogic.IsAclPolicyValid

@@ -42,6 +42,25 @@ var (
 	CreateFailOver = func(node models.Node) error {
 		return nil
 	}
+	// SetDefaulGw
+	SetDefaultGw = func(node models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
+		return peerUpdate
+	}
+	SetDefaultGwForRelayedUpdate = func(relayed, relay models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
+		return peerUpdate
+	}
+	// UnsetInternetGw
+	UnsetInternetGw = func(node *models.Node) {
+		node.IsInternetGateway = false
+	}
+	// SetInternetGw
+	SetInternetGw = func(node *models.Node, req models.InetNodeReq) {
+		node.IsInternetGateway = true
+	}
+	// GetAllowedIpForInetNodeClient
+	GetAllowedIpForInetNodeClient = func(node, peer *models.Node) []net.IPNet {
+		return []net.IPNet{}
+	}
 )
 
 // GetHostPeerInfo - fetches required peer info per network
@@ -468,6 +487,14 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			if node.Address6.IP != nil {
 				egressrange = append(egressrange, "::/0")
 			}
+			rangeWithMetric := []models.EgressRangeMetric{}
+			for _, rangeI := range egressrange {
+				rangeWithMetric = append(rangeWithMetric, models.EgressRangeMetric{
+					Network:     rangeI,
+					RouteMetric: 256,
+					Nat:         true,
+				})
+			}
 			hostPeerUpdate.FwUpdate.EgressInfo[fmt.Sprintf("%s-%s", node.ID.String(), "inet")] = models.EgressInfo{
 				EgressID: fmt.Sprintf("%s-%s", node.ID.String(), "inet"),
 				Network:  node.PrimaryAddressIPNet(),
@@ -481,10 +508,11 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					Mask: getCIDRMaskFromAddr(node.Address6.IP.String()),
 				},
 				EgressGWCfg: models.EgressGatewayRequest{
-					NodeID:     fmt.Sprintf("%s-%s", node.ID.String(), "inet"),
-					NetID:      node.Network,
-					NatEnabled: "yes",
-					Ranges:     egressrange,
+					NodeID:           fmt.Sprintf("%s-%s", node.ID.String(), "inet"),
+					NetID:            node.Network,
+					NatEnabled:       "yes",
+					Ranges:           egressrange,
+					RangesWithMetric: rangeWithMetric,
 				},
 			}
 		}
@@ -583,15 +611,15 @@ func filterConflictingEgressRoutesWithMetric(node, peer models.Node) []models.Eg
 func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet {
 	var allowedips []net.IPNet
 	allowedips = getNodeAllowedIPs(peer, node)
-	if peer.EgressDetails.IsInternetGateway && node.EgressDetails.InternetGwID == peer.ID.String() {
+	if peer.IsInternetGateway && node.InternetGwID == peer.ID.String() {
 		allowedips = append(allowedips, GetAllowedIpForInetNodeClient(node, peer)...)
 		return allowedips
 	}
 	if node.IsRelayed && node.RelayedBy == peer.ID.String() {
 		allowedips = append(allowedips, GetAllowedIpsForRelayed(node, peer)...)
-		// if peer.EgressDetails.InternetGwID != "" {
-		// 	return allowedips
-		// }
+		if peer.InternetGwID != "" {
+			return allowedips
+		}
 	}
 
 	// handle ingress gateway peers
