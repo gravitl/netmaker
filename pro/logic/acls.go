@@ -928,8 +928,18 @@ func getEgressUserRulesForNode(targetnode *models.Node,
 	acls := listUserPolicies(models.NetworkID(targetnode.Network))
 	var targetNodeTags = make(map[models.TagID]struct{})
 	targetNodeTags["*"] = struct{}{}
-	for _, rangeI := range targetnode.EgressDetails.EgressGatewayRanges {
-		targetNodeTags[models.TagID(rangeI)] = struct{}{}
+	egs, _ := (&schema.Egress{Network: targetnode.Network}).ListByNetwork(db.WithContext(context.TODO()))
+	if len(egs) == 0 {
+		return rules
+	}
+	for _, egI := range egs {
+		if !egI.Status {
+			continue
+		}
+		if _, ok := egI.Nodes[targetnode.ID.String()]; ok {
+			targetNodeTags[models.TagID(egI.Range)] = struct{}{}
+			targetNodeTags[models.TagID(egI.ID)] = struct{}{}
+		}
 	}
 	for _, acl := range acls {
 		if !acl.Enabled {
@@ -1481,9 +1491,7 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 			continue
 		}
 		if _, ok := egI.Nodes[targetnode.ID.String()]; ok {
-
 			targetNodeTags[models.TagID(egI.Range)] = struct{}{}
-
 			targetNodeTags[models.TagID(egI.ID)] = struct{}{}
 		}
 	}
@@ -1545,6 +1553,10 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 							if err == nil {
 								nodes = append(nodes, node)
 							}
+							extclient, err := logic.GetExtClient(dst, targetnode.Network)
+							if err == nil {
+								nodes = append(nodes, extclient.ConvertToStaticNode())
+							}
 						}
 
 						for _, node := range nodes {
@@ -1579,6 +1591,10 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 							if err == nil {
 								nodes = append(nodes, node)
 							}
+							extclient, err := logic.GetExtClient(src, targetnode.Network)
+							if err == nil {
+								nodes = append(nodes, extclient.ConvertToStaticNode())
+							}
 						}
 						for _, node := range nodes {
 							if node.ID == targetnode.ID {
@@ -1609,6 +1625,10 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 						if err == nil {
 							nodes = append(nodes, node)
 						}
+						extclient, err := logic.GetExtClient(srcID, targetnode.Network)
+						if err == nil {
+							nodes = append(nodes, extclient.ConvertToStaticNode())
+						}
 					}
 					for dstID := range dstTags {
 						if dstID == targetnode.ID.String() {
@@ -1617,6 +1637,10 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 						node, err := logic.GetNodeByID(dstID)
 						if err == nil {
 							nodes = append(nodes, node)
+						}
+						extclient, err := logic.GetExtClient(dstID, targetnode.Network)
+						if err == nil {
+							nodes = append(nodes, extclient.ConvertToStaticNode())
 						}
 					}
 					for _, node := range nodes {
