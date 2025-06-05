@@ -608,35 +608,6 @@ func checkIfAclTagisValid(a models.Acl, t models.AclPolicyTag, isSrc bool) (err 
 		if err != nil {
 			return errors.New("invalid egress")
 		}
-		if e.IsInetGw {
-			req := models.InetNodeReq{}
-			for _, srcI := range a.Src {
-				if srcI.ID == models.NodeID {
-					_, nodeErr := GetNodeByID(srcI.Value)
-					if nodeErr != nil {
-						_, staticNodeErr := GetExtClient(srcI.Value, a.NetworkID.String())
-						if staticNodeErr != nil {
-							return errors.New("invalid node " + srcI.Value)
-						}
-					} else {
-						req.InetNodeClientIDs = append(req.InetNodeClientIDs, srcI.Value)
-					}
-
-				}
-			}
-			if len(e.Nodes) > 0 {
-				for k := range e.Nodes {
-					inetNode, err := GetNodeByID(k)
-					if err != nil {
-						return errors.New("invalid node " + k)
-					}
-					if err = ValidateInetGwReq(inetNode, req, false); err != nil {
-						return err
-					}
-				}
-			}
-
-		}
 	default:
 		return errors.New("invalid policy")
 	}
@@ -845,47 +816,6 @@ var GetInetClientsFromAclPolicies = func(eID string) (inetClientIDs []string) {
 	}
 	return
 
-}
-var IsNodeUsingInternetGw = func(node *models.Node, acls []models.Acl) {
-	host, err := GetHost(node.HostID.String())
-	if err != nil {
-		return
-	}
-	if host.IsDefault || node.IsFailOver {
-		return
-	}
-	var isUsing bool
-	for _, acl := range acls {
-		if !acl.Enabled {
-			continue
-		}
-		srcVal := ConvAclTagToValueMap(acl.Src)
-		for _, dstI := range acl.Dst {
-			if dstI.ID == models.EgressID {
-				e := schema.Egress{ID: dstI.Value}
-				err := e.Get(db.WithContext(context.TODO()))
-				if err != nil || !e.Status {
-					continue
-				}
-
-				if e.IsInetGw {
-					if _, ok := srcVal[node.ID.String()]; ok {
-						for nodeID := range e.Nodes {
-							if nodeID == node.ID.String() {
-								continue
-							}
-							node.EgressDetails.InternetGwID = nodeID
-							isUsing = true
-							return
-						}
-					}
-				}
-			}
-		}
-	}
-	if !isUsing {
-		node.EgressDetails.InternetGwID = ""
-	}
 }
 
 var (

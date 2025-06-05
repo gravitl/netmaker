@@ -583,15 +583,15 @@ func filterConflictingEgressRoutesWithMetric(node, peer models.Node) []models.Eg
 func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet {
 	var allowedips []net.IPNet
 	allowedips = getNodeAllowedIPs(peer, node)
-	if peer.EgressDetails.IsInternetGateway && node.EgressDetails.InternetGwID == peer.ID.String() {
+	if peer.IsInternetGateway && node.InternetGwID == peer.ID.String() {
 		allowedips = append(allowedips, GetAllowedIpForInetNodeClient(node, peer)...)
 		return allowedips
 	}
 	if node.IsRelayed && node.RelayedBy == peer.ID.String() {
 		allowedips = append(allowedips, GetAllowedIpsForRelayed(node, peer)...)
-		// if peer.EgressDetails.InternetGwID != "" {
-		// 	return allowedips
-		// }
+		if peer.InternetGwID != "" {
+			return allowedips
+		}
 	}
 
 	// handle ingress gateway peers

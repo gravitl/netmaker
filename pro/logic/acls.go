@@ -6,7 +6,6 @@ import (
 	"maps"
 	"net"
 
-	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -312,43 +311,6 @@ func checkIfAclTagisValid(a models.Acl, t models.AclPolicyTag, isSrc bool) (err 
 		err := e.Get(db.WithContext(context.TODO()))
 		if err != nil {
 			return errors.New("invalid egress")
-		}
-		if e.IsInetGw {
-			req := models.InetNodeReq{}
-			for _, srcI := range a.Src {
-				if srcI.ID == models.NodeTagID {
-					nodesMap := GetNodesWithTag(models.TagID(srcI.Value))
-					for _, node := range nodesMap {
-						if node.ID != uuid.Nil {
-							req.InetNodeClientIDs = append(req.InetNodeClientIDs, node.ID.String())
-						}
-					}
-				} else if srcI.ID == models.NodeID {
-					_, nodeErr := logic.GetNodeByID(srcI.Value)
-					if nodeErr != nil {
-						_, staticNodeErr := logic.GetExtClient(srcI.Value, a.NetworkID.String())
-						if staticNodeErr != nil {
-							return errors.New("invalid node " + srcI.Value)
-						}
-					} else {
-						req.InetNodeClientIDs = append(req.InetNodeClientIDs, srcI.Value)
-					}
-
-				}
-			}
-			if len(e.Nodes) > 0 {
-				for k := range e.Nodes {
-					inetNode, err := logic.GetNodeByID(k)
-					if err != nil {
-						return errors.New("invalid node " + t.Value)
-					}
-					if err = logic.ValidateInetGwReq(inetNode, req, false); err != nil {
-						return err
-					}
-				}
-
-			}
-
 		}
 
 	case models.UserAclID:
@@ -1051,26 +1013,15 @@ func getEgressUserRulesForNode(targetnode *models.Node,
 					if err != nil {
 						continue
 					}
-					if e.IsInetGw {
-						r.Dst = append(r.Dst, net.IPNet{
-							IP:   net.IPv4zero,
-							Mask: net.CIDRMask(0, 32),
-						})
-						r.Dst6 = append(r.Dst6, net.IPNet{
-							IP:   net.IPv6zero,
-							Mask: net.CIDRMask(0, 128),
-						})
 
-					} else {
-						ip, cidr, err := net.ParseCIDR(e.Range)
-						if err == nil {
-							if ip.To4() != nil {
-								r.Dst = append(r.Dst, *cidr)
-							} else {
-								r.Dst6 = append(r.Dst6, *cidr)
-							}
-
+					ip, cidr, err := net.ParseCIDR(e.Range)
+					if err == nil {
+						if ip.To4() != nil {
+							r.Dst = append(r.Dst, *cidr)
+						} else {
+							r.Dst6 = append(r.Dst6, *cidr)
 						}
+
 					}
 
 				}
@@ -1530,12 +1481,9 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 			continue
 		}
 		if _, ok := egI.Nodes[targetnode.ID.String()]; ok {
-			if egI.IsInetGw {
-				targetNodeTags[models.TagID("0.0.0.0/0")] = struct{}{}
-				targetNodeTags[models.TagID("::/0")] = struct{}{}
-			} else {
-				targetNodeTags[models.TagID(egI.Range)] = struct{}{}
-			}
+
+			targetNodeTags[models.TagID(egI.Range)] = struct{}{}
+
 			targetNodeTags[models.TagID(egI.ID)] = struct{}{}
 		}
 	}
@@ -1767,63 +1715,4 @@ func GetInetClientsFromAclPolicies(eID string) (inetClientIDs []string) {
 		}
 	}
 	return
-}
-
-func IsNodeUsingInternetGw(node *models.Node, acls []models.Acl) {
-	host, err := logic.GetHost(node.HostID.String())
-	if err != nil {
-		return
-	}
-	if host.IsDefault || node.IsFailOver {
-		return
-	}
-	nodeTags := maps.Clone(node.Tags)
-	if nodeTags == nil {
-		nodeTags = make(map[models.TagID]struct{})
-	}
-	nodeTags[models.TagID(node.ID.String())] = struct{}{}
-	var isUsing bool
-	for _, acl := range acls {
-		if !acl.Enabled {
-			continue
-		}
-		srcVal := logic.ConvAclTagToValueMap(acl.Src)
-		for _, dstI := range acl.Dst {
-			if dstI.ID == models.EgressID {
-				e := schema.Egress{ID: dstI.Value}
-				err := e.Get(db.WithContext(context.TODO()))
-				if err != nil || !e.Status {
-					continue
-				}
-
-				if e.IsInetGw {
-					if _, ok := srcVal[node.ID.String()]; ok {
-						for nodeID := range e.Nodes {
-							if nodeID == node.ID.String() {
-								continue
-							}
-							node.EgressDetails.InternetGwID = nodeID
-							isUsing = true
-							return
-						}
-					}
-					for tagID := range nodeTags {
-						if _, ok := srcVal[tagID.String()]; ok {
-							for nodeID := range e.Nodes {
-								if nodeID == node.ID.String() {
-									continue
-								}
-								node.EgressDetails.InternetGwID = nodeID
-								isUsing = true
-								return
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-	if !isUsing {
-		node.EgressDetails.InternetGwID = ""
-	}
 }

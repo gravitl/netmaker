@@ -1,7 +1,6 @@
 package logic
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -9,27 +8,14 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
 // IsInternetGw - checks if node is acting as internet gw
 func IsInternetGw(node models.Node) bool {
-	e := schema.Egress{
-		Network: node.Network,
-	}
-	egList, _ := e.ListByNetwork(db.WithContext(context.TODO()))
-	for _, egI := range egList {
-		if egI.IsInetGw {
-			if _, ok := egI.Nodes[node.ID.String()]; ok {
-				return true
-			}
-		}
-	}
-	return false
+	return node.IsInternetGateway
 }
 
 // GetInternetGateways - gets all the nodes that are internet gateways
@@ -40,7 +26,7 @@ func GetInternetGateways() ([]models.Node, error) {
 	}
 	igs := make([]models.Node, 0)
 	for _, node := range nodes {
-		if node.EgressDetails.IsInternetGateway {
+		if node.IsInternetGateway {
 			igs = append(igs, node)
 		}
 	}
@@ -205,12 +191,12 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	node.IsIngressGateway = true
 	node.IsGw = true
 	if !servercfg.IsPro {
-		node.EgressDetails.IsInternetGateway = ingress.IsInternetGateway
+		node.IsInternetGateway = ingress.IsInternetGateway
 	}
 	node.IngressGatewayRange = network.AddressRange
 	node.IngressGatewayRange6 = network.AddressRange6
 	node.IngressDNS = ingress.ExtclientDNS
-	if node.EgressDetails.IsInternetGateway && node.IngressDNS == "" {
+	if node.IsInternetGateway && node.IngressDNS == "" {
 		node.IngressDNS = "1.1.1.1"
 	}
 	node.IngressPersistentKeepalive = 20
@@ -284,7 +270,7 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 	node.LastModified = time.Now().UTC()
 	node.IsIngressGateway = false
 	if !servercfg.IsPro {
-		node.EgressDetails.IsInternetGateway = false
+		node.IsInternetGateway = false
 	}
 	delete(node.Tags, models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName)))
 	node.IngressGatewayRange = ""

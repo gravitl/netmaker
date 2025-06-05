@@ -62,7 +62,6 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		Description: req.Description,
 		Range:       egressRange,
 		Nat:         req.Nat,
-		IsInetGw:    req.IsInetGw,
 		Nodes:       make(datatypes.JSONMap),
 		Tags:        make(datatypes.JSONMap),
 		Status:      true,
@@ -84,23 +83,6 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 			logic.FormatError(errors.New("error creating egress resource"+err.Error()), "internal"),
 		)
 		return
-	}
-	if e.IsInetGw {
-		for nodeID := range req.Nodes {
-			node, err := logic.GetNodeByID(nodeID)
-			if err == nil && !node.IsGw {
-				node.IsGw = true
-				node.IsIngressGateway = true
-				node.IsRelay = true
-				if node.Address.IP != nil {
-					node.IngressDNS = node.Address.IP.String()
-				} else {
-					node.IngressDNS = node.Address6.IP.String()
-				}
-
-				logic.UpsertNode(&node)
-			}
-		}
 	}
 	logic.LogEvent(&models.Event{
 		Action: models.Create,
@@ -196,13 +178,9 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var updateNat bool
-	var updateInetGw bool
 	var updateStatus bool
 	if req.Nat != e.Nat {
 		updateNat = true
-	}
-	if req.IsInetGw != e.IsInetGw {
-		updateInetGw = true
 	}
 	if req.Status != e.Status {
 		updateStatus = true
@@ -236,7 +214,6 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	e.Name = req.Name
 	e.Nat = req.Nat
 	e.Status = req.Status
-	e.IsInetGw = req.IsInetGw
 	e.UpdatedAt = time.Now().UTC()
 	if err := logic.ValidateEgressReq(&e); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -254,10 +231,6 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	if updateNat {
 		e.Nat = req.Nat
 		e.UpdateNatStatus(db.WithContext(context.TODO()))
-	}
-	if updateInetGw {
-		e.IsInetGw = req.IsInetGw
-		e.UpdateINetGwStatus(db.WithContext(context.TODO()))
 	}
 	if updateStatus {
 		e.Status = req.Status

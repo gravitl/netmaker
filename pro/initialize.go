@@ -145,7 +145,6 @@ func InitPro() {
 	logic.IsUserAllowedToCommunicate = proLogic.IsUserAllowedToCommunicate
 	logic.DeleteAllNetworkTags = proLogic.DeleteAllNetworkTags
 	logic.CreateDefaultTags = proLogic.CreateDefaultTags
-	logic.IsNodeUsingInternetGw = proLogic.IsNodeUsingInternetGw
 	logic.GetInetClientsFromAclPolicies = proLogic.GetInetClientsFromAclPolicies
 	logic.IsPeerAllowed = proLogic.IsPeerAllowed
 	logic.IsAclPolicyValid = proLogic.IsAclPolicyValid
