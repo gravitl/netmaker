@@ -468,6 +468,14 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			if node.Address6.IP != nil {
 				egressrange = append(egressrange, "::/0")
 			}
+			rangeWithMetric := []models.EgressRangeMetric{}
+			for _, rangeI := range egressrange {
+				rangeWithMetric = append(rangeWithMetric, models.EgressRangeMetric{
+					Network:     rangeI,
+					RouteMetric: 256,
+					Nat:         true,
+				})
+			}
 			hostPeerUpdate.FwUpdate.EgressInfo[fmt.Sprintf("%s-%s", node.ID.String(), "inet")] = models.EgressInfo{
 				EgressID: fmt.Sprintf("%s-%s", node.ID.String(), "inet"),
 				Network:  node.PrimaryAddressIPNet(),
@@ -481,10 +489,11 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					Mask: getCIDRMaskFromAddr(node.Address6.IP.String()),
 				},
 				EgressGWCfg: models.EgressGatewayRequest{
-					NodeID:     fmt.Sprintf("%s-%s", node.ID.String(), "inet"),
-					NetID:      node.Network,
-					NatEnabled: "yes",
-					Ranges:     egressrange,
+					NodeID:           fmt.Sprintf("%s-%s", node.ID.String(), "inet"),
+					NetID:            node.Network,
+					NatEnabled:       "yes",
+					Ranges:           egressrange,
+					RangesWithMetric: rangeWithMetric,
 				},
 			}
 		}
