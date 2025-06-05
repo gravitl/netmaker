@@ -155,8 +155,8 @@ func InitPro() {
 	logic.CheckIfAnyPolicyisUniDirectional = proLogic.CheckIfAnyPolicyisUniDirectional
 	logic.MigrateToGws = proLogic.MigrateToGws
 	logic.IsNodeAllowedToCommunicate = proLogic.IsNodeAllowedToCommunicate
-	logic.GetStaticNodeIps = proLogic.GetStaticNodeIps
-	logic.GetFwRulesOnIngressGateway = proLogic.GetFwRulesOnIngressGateway
+	logic.GetFwRulesForNodeAndPeerOnGw = proLogic.GetFwRulesForNodeAndPeerOnGw
+	logic.GetFwRulesForUserNodesOnGw = proLogic.GetFwRulesForUserNodesOnGw
 
 }
 

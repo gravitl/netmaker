@@ -209,9 +209,10 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	logic.GetNodeEgressInfo(&node, eli)
-	logic.GetNodeEgressInfo(&peerNode, eli)
-	logic.GetNodeEgressInfo(&failOverNode, eli)
+	acls, _ := logic.ListAclsByNetwork(models.NetworkID(node.Network))
+	logic.GetNodeEgressInfo(&node, eli, acls)
+	logic.GetNodeEgressInfo(&peerNode, eli, acls)
+	logic.GetNodeEgressInfo(&failOverNode, eli, acls)
 	if peerNode.IsFailOver {
 		logic.ReturnErrorResponse(
 			w,
@@ -369,9 +370,10 @@ func checkfailOverCtx(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	logic.GetNodeEgressInfo(&node, eli)
-	logic.GetNodeEgressInfo(&peerNode, eli)
-	logic.GetNodeEgressInfo(&failOverNode, eli)
+	acls, _ := logic.ListAclsByNetwork(models.NetworkID(node.Network))
+	logic.GetNodeEgressInfo(&node, eli, acls)
+	logic.GetNodeEgressInfo(&peerNode, eli, acls)
+	logic.GetNodeEgressInfo(&failOverNode, eli, acls)
 	if peerNode.IsFailOver {
 		logic.ReturnErrorResponse(
 			w,

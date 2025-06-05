@@ -92,6 +92,12 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 				node.IsGw = true
 				node.IsIngressGateway = true
 				node.IsRelay = true
+				if node.Address.IP != nil {
+					node.IngressDNS = node.Address.IP.String()
+				} else {
+					node.IngressDNS = node.Address6.IP.String()
+				}
+
 				logic.UpsertNode(&node)
 			}
 		}

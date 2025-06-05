@@ -178,15 +178,15 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE || time.Since(node.LastCheckIn) > time.Hour {
 			continue
 		}
+		acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
 		eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
-		GetNodeEgressInfo(&node, eli)
+		GetNodeEgressInfo(&node, eli, acls)
 		hostPeerUpdate = SetDefaultGw(node, hostPeerUpdate)
 		if !hostPeerUpdate.IsInternetGw {
 			hostPeerUpdate.IsInternetGw = IsInternetGw(node)
 		}
 		defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 		defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
-		acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
 		if (defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
 			(!CheckIfAnyPolicyisUniDirectional(node, acls) && !CheckIfAnyActiveEgressPolicy(node, acls)) ||
 			CheckIfNodeHasAccessToAllResources(&node, acls) {
@@ -239,7 +239,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				PersistentKeepaliveInterval: &peerHost.PersistentKeepalive,
 				ReplaceAllowedIPs:           true,
 			}
-			GetNodeEgressInfo(&peer, eli)
+			GetNodeEgressInfo(&peer, eli, acls)
 			if peer.EgressDetails.IsEgressGateway {
 				AddEgressInfoToPeerByAccess(&node, &peer, eli, acls, defaultDevicePolicy.Enabled)
 			}
@@ -589,9 +589,9 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 	}
 	if node.IsRelayed && node.RelayedBy == peer.ID.String() {
 		allowedips = append(allowedips, GetAllowedIpsForRelayed(node, peer)...)
-		if peer.EgressDetails.InternetGwID != "" {
-			return allowedips
-		}
+		// if peer.EgressDetails.InternetGwID != "" {
+		// 	return allowedips
+		// }
 	}
 
 	// handle ingress gateway peers

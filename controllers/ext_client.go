@@ -178,7 +178,8 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	eli, _ := (&schema.Egress{Network: gwnode.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	logic.GetNodeEgressInfo(&gwnode, eli)
+	acls, _ := logic.ListAclsByNetwork(models.NetworkID(client.Network))
+	logic.GetNodeEgressInfo(&gwnode, eli, acls)
 	host, err := logic.GetHost(gwnode.HostID.String())
 	if err != nil {
 		logger.Log(
@@ -266,7 +267,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var newAllowedIPs string
-	if logic.IsInternetGw(gwnode) || gwnode.EgressDetails.InternetGwID != "" {
+	if logic.IsInternetGw(gwnode) {
 		egressrange := "0.0.0.0/0"
 		if gwnode.Address6.IP != nil && client.Address6 != "" {
 			egressrange += "," + "::/0"
