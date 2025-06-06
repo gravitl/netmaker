@@ -22,7 +22,7 @@
 
 - Optimized DNS Query Handling: Faster and more efficient internal name resolution.
 
-- Improved Failover Handling: Enhanced stability and signaling for backup peer connections.
+- Improved Failover Handling: Enhanced stability and signaling for NAT traversal peer connections.
 
 - User Egress Policies: More granular control over user-level outbound traffic policies.
 
