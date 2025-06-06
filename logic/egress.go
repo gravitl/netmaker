@@ -84,8 +84,9 @@ func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress, acls []mode
 func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egress, acls []models.Acl, isDefaultPolicyActive bool) {
 
 	req := models.EgressGatewayRequest{
-		NodeID: targetNode.ID.String(),
-		NetID:  targetNode.Network,
+		NodeID:     targetNode.ID.String(),
+		NetID:      targetNode.Network,
+		NatEnabled: "yes",
 	}
 	for _, e := range eli {
 		if !e.Status || e.Network != targetNode.Network {
@@ -138,8 +139,9 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []models.Acl) {
 
 	req := models.EgressGatewayRequest{
-		NodeID: targetNode.ID.String(),
-		NetID:  targetNode.Network,
+		NodeID:     targetNode.ID.String(),
+		NetID:      targetNode.Network,
+		NatEnabled: "yes",
 	}
 	for _, e := range eli {
 		if !e.Status || e.Network != targetNode.Network {

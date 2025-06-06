@@ -207,8 +207,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 		defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 		if (defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
-			(!CheckIfAnyPolicyisUniDirectional(node, acls) && !CheckIfAnyActiveEgressPolicy(node, acls)) ||
-			CheckIfNodeHasAccessToAllResources(&node, acls) {
+			(!CheckIfAnyPolicyisUniDirectional(node, acls) && !CheckIfAnyActiveEgressPolicy(node, acls)) {
 			aclRule := models.AclRule{
 				ID:              fmt.Sprintf("%s-allowed-network-rules", node.ID.String()),
 				AllowedProtocol: models.ALL,
@@ -495,7 +494,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					Nat:         true,
 				})
 			}
-			hostPeerUpdate.FwUpdate.EgressInfo[fmt.Sprintf("%s-%s", node.ID.String(), "inet")] = models.EgressInfo{
+			inetEgressInfo := models.EgressInfo{
 				EgressID: fmt.Sprintf("%s-%s", node.ID.String(), "inet"),
 				Network:  node.PrimaryAddressIPNet(),
 				EgressGwAddr: net.IPNet{
@@ -515,6 +514,10 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					RangesWithMetric: rangeWithMetric,
 				},
 			}
+			if !networkAllowAll {
+				inetEgressInfo.EgressFwRules = GetAclRuleForInetGw(node)
+			}
+			hostPeerUpdate.FwUpdate.EgressInfo[fmt.Sprintf("%s-%s", node.ID.String(), "inet")] = inetEgressInfo
 		}
 	}
 	// == post peer calculations ==

@@ -545,6 +545,9 @@ var GetAclRulesForNode = func(targetnodeI *models.Node) (rules map[string]models
 var GetEgressRulesForNode = func(targetnode models.Node) (rules map[string]models.AclRule) {
 	return
 }
+var GetAclRuleForInetGw = func(targetnode models.Node) (rules map[string]models.AclRule) {
+	return
+}
 
 // Compare two IPs and return true if ip1 < ip2
 func lessIP(ip1, ip2 net.IP) bool {

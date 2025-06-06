@@ -154,6 +154,7 @@ func InitPro() {
 	logic.IsPeerAllowed = proLogic.IsPeerAllowed
 	logic.IsAclPolicyValid = proLogic.IsAclPolicyValid
 	logic.GetEgressRulesForNode = proLogic.GetEgressRulesForNode
+	logic.GetAclRuleForInetGw = proLogic.GetAclRuleForInetGw
 	logic.GetAclRulesForNode = proLogic.GetAclRulesForNode
 	logic.CheckIfAnyActiveEgressPolicy = proLogic.CheckIfAnyActiveEgressPolicy
 	logic.CheckIfAnyPolicyisUniDirectional = proLogic.CheckIfAnyPolicyisUniDirectional
