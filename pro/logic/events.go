@@ -3,11 +3,13 @@ package logic
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 )
@@ -18,8 +20,25 @@ func LogEvent(a *models.Event) {
 	EventActivityCh <- *a
 }
 
-func EventWatcher() {
+func EventRententionHook() error {
+	settings := logic.GetServerSettings()
+	retentionPeriod := settings.AuditLogsRetentionPeriodInDays
+	if retentionPeriod <= 0 {
+		retentionPeriod = 30
+	}
+	err := (&schema.Event{}).DeleteOldEvents(db.WithContext(context.TODO()), retentionPeriod)
+	if err != nil {
+		slog.Warn("failed to delete old events pas retention period", "error", err)
+	}
+	return nil
 
+}
+
+func EventWatcher() {
+	logic.HookManagerCh <- models.HookDetails{
+		Hook:     EventRententionHook,
+		Interval: time.Hour * 24,
+	}
 	for e := range EventActivityCh {
 		if e.Action == models.Update {
 			// check if diff

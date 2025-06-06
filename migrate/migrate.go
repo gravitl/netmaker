@@ -578,4 +578,9 @@ func settings() {
 	if database.IsEmptyRecord(err) {
 		logic.UpsertServerSettings(logic.GetServerSettingsFromEnv())
 	}
+	settings := logic.GetServerSettings()
+	if settings.AuditLogsRetentionPeriodInDays == 0 {
+		settings.AuditLogsRetentionPeriodInDays = 30
+	}
+	logic.UpsertServerSettings(settings)
 }
