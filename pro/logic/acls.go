@@ -1520,15 +1520,15 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 				if _, ok := dstTags[nodeTag.String()]; ok || dstAll {
 					existsInDstTag = true
 				}
-				if srcAll || dstAll {
-					if targetnode.NetworkRange.IP != nil {
-						aclRule.IPList = append(aclRule.IPList, targetnode.NetworkRange)
-					}
-					if targetnode.NetworkRange6.IP != nil {
-						aclRule.IP6List = append(aclRule.IP6List, targetnode.NetworkRange6)
-					}
-					break
-				}
+				// if srcAll || dstAll {
+				// 	if targetnode.NetworkRange.IP != nil {
+				// 		aclRule.IPList = append(aclRule.IPList, targetnode.NetworkRange)
+				// 	}
+				// 	if targetnode.NetworkRange6.IP != nil {
+				// 		aclRule.IP6List = append(aclRule.IP6List, targetnode.NetworkRange6)
+				// 	}
+				// 	break
+				// }
 				if existsInSrcTag && !existsInDstTag {
 					// get all dst tags
 					for dst := range dstTags {
