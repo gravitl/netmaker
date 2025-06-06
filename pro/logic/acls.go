@@ -1153,7 +1153,7 @@ func CheckIfAnyActiveEgressPolicy(targetNode models.Node, acls []models.Acl) boo
 	targetNodeTags[models.TagID(targetNode.ID.String())] = struct{}{}
 	targetNodeTags["*"] = struct{}{}
 	for _, acl := range acls {
-		if !acl.Enabled || acl.RuleType != models.DevicePolicy {
+		if !acl.Enabled {
 			continue
 		}
 		srcTags := logic.ConvAclTagToValueMap(acl.Src)
