@@ -494,7 +494,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					Nat:         true,
 				})
 			}
-			hostPeerUpdate.FwUpdate.EgressInfo[fmt.Sprintf("%s-%s", node.ID.String(), "inet")] = models.EgressInfo{
+			inetEgressInfo := models.EgressInfo{
 				EgressID: fmt.Sprintf("%s-%s", node.ID.String(), "inet"),
 				Network:  node.PrimaryAddressIPNet(),
 				EgressGwAddr: net.IPNet{
@@ -514,6 +514,10 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					RangesWithMetric: rangeWithMetric,
 				},
 			}
+			if !networkAllowAll {
+				inetEgressInfo.EgressFwRules = GetAclRuleForInetGw(node)
+			}
+			hostPeerUpdate.FwUpdate.EgressInfo[fmt.Sprintf("%s-%s", node.ID.String(), "inet")] = inetEgressInfo
 		}
 	}
 	// == post peer calculations ==
