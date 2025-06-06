@@ -10,9 +10,6 @@ import (
 	_ "github.com/mattn/go-sqlite3" // need to blank import this package
 )
 
-// == sqlite ==
-const dbFilename = "netmaker.db"
-
 // SqliteDB is the db object for sqlite database connections
 var SqliteDB *sql.DB
 

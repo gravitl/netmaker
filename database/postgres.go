@@ -4,11 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"github.com/gravitl/netmaker/db"
 	"time"
 
-	"github.com/gravitl/netmaker/servercfg"
 	_ "github.com/lib/pq"
 )
 
@@ -26,14 +24,6 @@ var PG_FUNCTIONS = map[string]interface{}{
 	FETCH_ALL:    pgFetchRecords,
 	CLOSE_DB:     pgCloseDB,
 	isConnected:  pgIsConnected,
-}
-
-func getPGConnString() string {
-	pgconf := servercfg.GetSQLConf()
-	pgConn := fmt.Sprintf("host=%s port=%d user=%s "+
-		"password=%s dbname=%s sslmode=%s connect_timeout=5",
-		pgconf.Host, pgconf.Port, pgconf.Username, pgconf.Password, pgconf.DB, pgconf.SSLMode)
-	return pgConn
 }
 
 func initPGDB() error {

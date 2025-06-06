@@ -2,6 +2,8 @@ package controller
 
 import (
 	"context"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 	"os"
 	"testing"
 
@@ -23,6 +25,9 @@ type NetworkValidationTestCase struct {
 var netHost models.Host
 
 func TestMain(m *testing.M) {
+	db.InitializeDB(schema.ListModels()...)
+	defer db.CloseDB()
+
 	database.InitializeDatabase()
 	defer database.CloseDB()
 	logic.CreateSuperAdmin(&models.User{
