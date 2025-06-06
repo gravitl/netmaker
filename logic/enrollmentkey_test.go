@@ -1,6 +1,8 @@
 package logic
 
 import (
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 	"testing"
 	"time"
 
@@ -11,6 +13,9 @@ import (
 )
 
 func TestCreateEnrollmentKey(t *testing.T) {
+	db.InitializeDB(schema.ListModels()...)
+	defer db.CloseDB()
+
 	database.InitializeDatabase()
 	defer database.CloseDB()
 	t.Run("Can_Not_Create_Key", func(t *testing.T) {
@@ -60,6 +65,9 @@ func TestCreateEnrollmentKey(t *testing.T) {
 }
 
 func TestDelete_EnrollmentKey(t *testing.T) {
+	db.InitializeDB(schema.ListModels()...)
+	defer db.CloseDB()
+
 	database.InitializeDatabase()
 	defer database.CloseDB()
 	newKey, _ := CreateEnrollmentKey(0, time.Time{}, []string{"mynet", "skynet"}, nil, nil, true, uuid.Nil, false, false)
@@ -81,6 +89,9 @@ func TestDelete_EnrollmentKey(t *testing.T) {
 }
 
 func TestDecrement_EnrollmentKey(t *testing.T) {
+	db.InitializeDB(schema.ListModels()...)
+	defer db.CloseDB()
+
 	database.InitializeDatabase()
 	defer database.CloseDB()
 	newKey, _ := CreateEnrollmentKey(1, time.Time{}, nil, nil, nil, false, uuid.Nil, false, false)
@@ -105,6 +116,9 @@ func TestDecrement_EnrollmentKey(t *testing.T) {
 }
 
 func TestUsability_EnrollmentKey(t *testing.T) {
+	db.InitializeDB(schema.ListModels()...)
+	defer db.CloseDB()
+
 	database.InitializeDatabase()
 	defer database.CloseDB()
 	key1, _ := CreateEnrollmentKey(1, time.Time{}, nil, nil, nil, false, uuid.Nil, false, false)
@@ -143,6 +157,9 @@ func removeAllEnrollments() {
 //Test that cheks if it can't tokenize
 
 func TestTokenize_EnrollmentKeys(t *testing.T) {
+	db.InitializeDB(schema.ListModels()...)
+	defer db.CloseDB()
+
 	database.InitializeDatabase()
 	defer database.CloseDB()
 	newKey, _ := CreateEnrollmentKey(0, time.Time{}, []string{"mynet", "skynet"}, nil, nil, true, uuid.Nil, false, false)
@@ -176,6 +193,9 @@ func TestTokenize_EnrollmentKeys(t *testing.T) {
 }
 
 func TestDeTokenize_EnrollmentKeys(t *testing.T) {
+	db.InitializeDB(schema.ListModels()...)
+	defer db.CloseDB()
+
 	database.InitializeDatabase()
 	defer database.CloseDB()
 	newKey, _ := CreateEnrollmentKey(0, time.Time{}, []string{"mynet", "skynet"}, nil, nil, true, uuid.Nil, false, false)
