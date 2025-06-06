@@ -1,9 +1,12 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/gravitl/netmaker/db"
+	"time"
 
 	"github.com/gravitl/netmaker/servercfg"
 	_ "github.com/lib/pq"
@@ -34,15 +37,18 @@ func getPGConnString() string {
 }
 
 func initPGDB() error {
-	connString := getPGConnString()
+	gormDB := db.FromContext(db.WithContext(context.TODO()))
+
 	var dbOpenErr error
-	PGDB, dbOpenErr = sql.Open("postgres", connString)
+	PGDB, dbOpenErr = gormDB.DB()
 	if dbOpenErr != nil {
 		return dbOpenErr
 	}
-	dbOpenErr = PGDB.Ping()
 
-	return dbOpenErr
+	PGDB.SetMaxOpenConns(5)
+	PGDB.SetConnMaxLifetime(time.Hour)
+
+	return PGDB.Ping()
 }
 
 func pgCreateTable(tableName string) error {
@@ -134,7 +140,7 @@ func pgFetchRecords(tableName string) (map[string]string, error) {
 }
 
 func pgCloseDB() {
-	PGDB.Close()
+	//PGDB.Close()
 }
 
 func pgIsConnected() bool {
