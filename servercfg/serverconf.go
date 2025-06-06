@@ -703,7 +703,7 @@ func IsOldAclEnabled() bool {
 // GetDefaultDomain - get the default domain
 func GetDefaultDomain() string {
 	//default hosted.nm
-	var domain string
+	domain := "nm.internal"
 	if os.Getenv("DEFAULT_DOMAIN") != "" {
 		if validateDomain(os.Getenv("DEFAULT_DOMAIN")) {
 			domain = os.Getenv("DEFAULT_DOMAIN")
