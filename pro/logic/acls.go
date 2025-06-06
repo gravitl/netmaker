@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"net"
 
@@ -1455,6 +1456,31 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 	return rules
 }
 
+func GetAclRuleForInetGw(targetnode models.Node) (rules map[string]models.AclRule) {
+	rules = make(map[string]models.AclRule)
+	if targetnode.IsInternetGateway {
+		aclRule := models.AclRule{
+			ID:              fmt.Sprintf("%s-inet-gw-internal-rule", targetnode.ID.String()),
+			AllowedProtocol: models.ALL,
+			AllowedPorts:    []string{},
+			Direction:       models.TrafficDirectionBi,
+			Allowed:         true,
+		}
+		if targetnode.NetworkRange.IP != nil {
+			aclRule.IPList = append(aclRule.IPList, targetnode.NetworkRange)
+			_, allIpv4, _ := net.ParseCIDR(IPv4Network)
+			aclRule.Dst = append(aclRule.Dst, *allIpv4)
+		}
+		if targetnode.NetworkRange6.IP != nil {
+			aclRule.IP6List = append(aclRule.IP6List, targetnode.NetworkRange6)
+			_, allIpv6, _ := net.ParseCIDR(IPv6Network)
+			aclRule.Dst6 = append(aclRule.Dst6, *allIpv6)
+		}
+		rules[aclRule.ID] = aclRule
+	}
+	return
+}
+
 func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclRule) {
 	rules = make(map[string]models.AclRule)
 	defer func() {
@@ -1471,6 +1497,7 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 			if acl policy has egress route and it is present in target node egress ranges
 			fetch all the nodes in that policy and add rules
 	*/
+
 	egs, _ := (&schema.Egress{Network: targetnode.Network}).ListByNetwork(db.WithContext(context.TODO()))
 	if len(egs) == 0 {
 		return
@@ -1520,15 +1547,15 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 				if _, ok := dstTags[nodeTag.String()]; ok || dstAll {
 					existsInDstTag = true
 				}
-				if srcAll || dstAll {
-					if targetnode.NetworkRange.IP != nil {
-						aclRule.IPList = append(aclRule.IPList, targetnode.NetworkRange)
-					}
-					if targetnode.NetworkRange6.IP != nil {
-						aclRule.IP6List = append(aclRule.IP6List, targetnode.NetworkRange6)
-					}
-					break
-				}
+				// if srcAll || dstAll {
+				// 	if targetnode.NetworkRange.IP != nil {
+				// 		aclRule.IPList = append(aclRule.IPList, targetnode.NetworkRange)
+				// 	}
+				// 	if targetnode.NetworkRange6.IP != nil {
+				// 		aclRule.IP6List = append(aclRule.IP6List, targetnode.NetworkRange6)
+				// 	}
+				// 	break
+				// }
 				if existsInSrcTag && !existsInDstTag {
 					// get all dst tags
 					for dst := range dstTags {
@@ -1697,6 +1724,7 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 		}
 
 	}
+
 	return
 }
 
