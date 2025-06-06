@@ -9,6 +9,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 func ValidateEgressReq(e *schema.Egress) error {
@@ -20,8 +21,8 @@ func ValidateEgressReq(e *schema.Egress) error {
 		return errors.New("failed to get network " + err.Error())
 	}
 
-	if len(e.Nodes) > 1 {
-		return errors.New("can only set one internet routing node")
+	if !servercfg.IsPro && len(e.Nodes) > 1 {
+		return errors.New("can only set one routing node on CE")
 	}
 
 	if len(e.Nodes) > 0 {
