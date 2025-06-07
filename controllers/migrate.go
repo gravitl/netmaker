@@ -70,11 +70,11 @@ func migrate(w http.ResponseWriter, r *http.Request) {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 				return
 			}
-			server = servercfg.GetServerInfo()
+			server = logic.GetServerInfo()
 			key, keyErr := logic.RetrievePublicTrafficKey()
 			if keyErr != nil {
-				slog.Error("retrieving traffickey", "error", err)
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+				slog.Error("retrieving traffickey", "error", keyErr)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(keyErr, "internal"))
 				return
 			}
 			server.TrafficKey = key
@@ -134,7 +134,7 @@ func convertLegacyHostNode(legacy models.LegacyNode) (models.Host, models.Node) 
 	host := models.Host{}
 	host.ID = uuid.New()
 	host.IPForwarding = models.ParseBool(legacy.IPForwarding)
-	host.AutoUpdate = servercfg.AutoUpdateEnabled()
+	host.AutoUpdate = logic.AutoUpdateEnabled()
 	host.Interface = "netmaker"
 	host.ListenPort = int(legacy.ListenPort)
 	if host.ListenPort == 0 {
@@ -207,8 +207,7 @@ func convertLegacyNode(legacy models.LegacyNode, hostID uuid.UUID) models.Node {
 	node.IsRelayed = false
 	node.IsRelay = false
 	node.RelayedNodes = []string{}
-	node.DNSOn = models.ParseBool(legacy.DNSOn)
-	node.LastModified = time.Now()
+	node.LastModified = time.Now().UTC()
 	node.ExpirationDateTime = time.Unix(legacy.ExpirationDateTime, 0)
 	node.EgressGatewayNatEnabled = models.ParseBool(legacy.EgressGatewayNatEnabled)
 	node.EgressGatewayRequest = legacy.EgressGatewayRequest

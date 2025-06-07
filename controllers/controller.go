@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gravitl/netmaker/db"
+
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logger"
@@ -18,6 +20,7 @@ import (
 
 // HttpMiddlewares - middleware functions for REST interactions
 var HttpMiddlewares = []mux.MiddlewareFunc{
+	db.Middleware,
 	userMiddleWare,
 }
 
@@ -35,8 +38,8 @@ var HttpHandlers = []interface{}{
 	loggerHandlers,
 	hostHandlers,
 	enrollmentKeyHandlers,
-	tagHandlers,
 	aclHandlers,
+	egressHandlers,
 	legacyHandlers,
 }
 

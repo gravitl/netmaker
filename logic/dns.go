@@ -12,7 +12,6 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/servercfg"
 	"github.com/txn2/txeh"
 )
 
@@ -106,7 +105,7 @@ func GetNodeDNS(network string) ([]models.DNSEntry, error) {
 	if err != nil {
 		return dns, err
 	}
-	defaultDomain := servercfg.GetDefaultDomain()
+	defaultDomain := GetDefaultDomain()
 	for _, node := range nodes {
 		if node.Network != network {
 			continue

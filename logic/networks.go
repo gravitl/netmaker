@@ -302,6 +302,7 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 		true,
 		uuid.Nil,
 		true,
+		false,
 	)
 
 	return network, nil
@@ -521,7 +522,6 @@ func UniqueAddress6DB(networkName string, reverse bool) (net.IP, error) {
 	var network models.Network
 	network, err := GetParentNetwork(networkName)
 	if err != nil {
-		fmt.Println("Network Not Found")
 		return add, err
 	}
 	if network.IsIPv6 == "no" {
@@ -566,7 +566,6 @@ func UniqueAddress6Cache(networkName string, reverse bool) (net.IP, error) {
 	var network models.Network
 	network, err := GetParentNetwork(networkName)
 	if err != nil {
-		fmt.Println("Network Not Found")
 		return add, err
 	}
 	if network.IsIPv6 == "no" {

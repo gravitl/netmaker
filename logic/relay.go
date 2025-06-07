@@ -1,14 +1,17 @@
 package logic
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 )
 
 // GetRelays - gets all the nodes that are relays
@@ -109,11 +112,14 @@ func ValidateRelay(relay models.RelayRequest, update bool) error {
 	if !update && node.IsRelay {
 		return errors.New("node is already acting as a relay")
 	}
+	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
+	acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
 	for _, relayedNodeID := range relay.RelayedNodes {
 		relayedNode, err := GetNodeByID(relayedNodeID)
 		if err != nil {
 			return err
 		}
+		GetNodeEgressInfo(&relayedNode, eli, acls)
 		if relayedNode.IsIngressGateway {
 			return errors.New("cannot relay an ingress gateway (" + relayedNodeID + ")")
 		}
@@ -185,6 +191,8 @@ func DeleteRelay(network, nodeid string) ([]models.Node, models.Node, error) {
 
 func RelayedAllowedIPs(peer, node *models.Node) []net.IPNet {
 	var allowedIPs = []net.IPNet{}
+	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
+	acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
 	for _, relayedNodeID := range peer.RelayedNodes {
 		if node.ID.String() == relayedNodeID {
 			continue
@@ -193,8 +201,9 @@ func RelayedAllowedIPs(peer, node *models.Node) []net.IPNet {
 		if err != nil {
 			continue
 		}
+		GetNodeEgressInfo(&relayedNode, eli, acls)
 		allowed := getRelayedAddresses(relayedNodeID)
-		if relayedNode.IsEgressGateway {
+		if relayedNode.EgressDetails.IsEgressGateway {
 			allowed = append(allowed, GetEgressIPs(&relayedNode)...)
 		}
 		allowedIPs = append(allowedIPs, allowed...)
@@ -216,10 +225,17 @@ func GetAllowedIpsForRelayed(relayed, relay *models.Node) (allowedIPs []net.IPNe
 		logger.Log(0, "error getting network clients", err.Error())
 		return
 	}
+	acls, _ := ListAclsByNetwork(models.NetworkID(relay.Network))
+	eli, _ := (&schema.Egress{Network: relay.Network}).ListByNetwork(db.WithContext(context.TODO()))
+	defaultPolicy, _ := GetDefaultPolicy(models.NetworkID(relay.Network), models.DevicePolicy)
 	for _, peer := range peers {
 		if peer.ID == relayed.ID || peer.ID == relay.ID {
 			continue
 		}
+		if !IsPeerAllowed(*relayed, peer, true) {
+			continue
+		}
+		AddEgressInfoToPeerByAccess(relayed, &peer, eli, acls, defaultPolicy.Enabled)
 		if nodeacls.AreNodesAllowed(nodeacls.NetworkID(relayed.Network), nodeacls.NodeID(relayed.ID.String()), nodeacls.NodeID(peer.ID.String())) {
 			allowedIPs = append(allowedIPs, GetAllowedIPs(relayed, &peer, nil)...)
 		}

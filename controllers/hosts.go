@@ -96,7 +96,21 @@ func upgradeHosts(w http.ResponseWriter, r *http.Request) {
 			}(host)
 		}
 	}()
-
+	logic.LogEvent(&models.Event{
+		Action: models.UpgradeAll,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   "All Hosts",
+			Name: "All Hosts",
+			Type: models.DeviceSub,
+		},
+		Origin: models.Dashboard,
+	})
 	slog.Info("upgrade all hosts request received", "user", user)
 	logic.ReturnSuccessResponse(w, r, "upgrade all hosts request received")
 }
@@ -209,14 +223,14 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	serverConf := servercfg.GetServerInfo()
+	serverConf := logic.GetServerInfo()
 	key, keyErr := logic.RetrievePublicTrafficKey()
 	if keyErr != nil {
 		logger.Log(0, "error retrieving key:", keyErr.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(keyErr, "internal"))
 		return
 	}
-
+	_ = logic.CheckHostPorts(host)
 	serverConf.TrafficKey = key
 	response := models.HostPull{
 		Host:              *host,
@@ -230,7 +244,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		ChangeDefaultGw:   hPU.ChangeDefaultGw,
 		DefaultGwIp:       hPU.DefaultGwIp,
 		IsInternetGw:      hPU.IsInternetGw,
-		EndpointDetection: servercfg.IsEndpointDetectionEnabled(),
+		EndpointDetection: logic.IsEndpointDetectionEnabled(),
 	}
 
 	logger.Log(1, hostID, "completed a pull")
@@ -294,7 +308,25 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}()
-
+	logic.LogEvent(&models.Event{
+		Action: models.Update,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   currHost.ID.String(),
+			Name: newHost.Name,
+			Type: models.DeviceSub,
+		},
+		Diff: models.Diff{
+			Old: currHost,
+			New: newHost,
+		},
+		Origin: models.Dashboard,
+	})
 	apiHostData := newHost.ConvertNMHostToAPI()
 	logger.Log(2, r.Header.Get("user"), "updated host", newHost.ID.String())
 	w.WriteHeader(http.StatusOK)
@@ -420,7 +452,21 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-
+	logic.LogEvent(&models.Event{
+		Action: models.Delete,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   currHost.ID.String(),
+			Name: currHost.Name,
+			Type: models.DeviceSub,
+		},
+		Origin: models.Dashboard,
+	})
 	apiHostData := currHost.ConvertNMHostToAPI()
 	logger.Log(2, r.Header.Get("user"), "removed host", currHost.Name)
 	w.WriteHeader(http.StatusOK)
@@ -492,6 +538,22 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		r.Header.Get("user"),
 		fmt.Sprintf("added host %s to network %s", currHost.Name, network),
 	)
+	logic.LogEvent(&models.Event{
+		Action: models.JoinHostToNet,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   currHost.ID.String(),
+			Name: currHost.Name,
+			Type: models.DeviceSub,
+		},
+		NetworkID: models.NetworkID(network),
+		Origin:    models.Dashboard,
+	})
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -623,6 +685,22 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 			logic.SetDNS()
 		}
 	}()
+	logic.LogEvent(&models.Event{
+		Action: models.RemoveHostFromNet,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   currHost.ID.String(),
+			Name: currHost.Name,
+			Type: models.DeviceSub,
+		},
+		NetworkID: models.NetworkID(network),
+		Origin:    models.Dashboard,
+	})
 	logger.Log(
 		2,
 		r.Header.Get("user"),
@@ -828,6 +906,21 @@ func updateAllKeys(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}()
+	logic.LogEvent(&models.Event{
+		Action: models.RefreshAllKeys,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   "All Devices",
+			Name: "All Devices",
+			Type: models.DeviceSub,
+		},
+		Origin: models.Dashboard,
+	})
 	logger.Log(2, r.Header.Get("user"), "updated keys for all hosts")
 	w.WriteHeader(http.StatusOK)
 }
@@ -863,6 +956,21 @@ func updateKeys(w http.ResponseWriter, r *http.Request) {
 			logger.Log(0, "failed to send host key update", host.ID.String(), err.Error())
 		}
 	}()
+	logic.LogEvent(&models.Event{
+		Action: models.RefreshKey,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   host.ID.String(),
+			Name: host.Name,
+			Type: models.DeviceSub,
+		},
+		Origin: models.Dashboard,
+	})
 	logger.Log(2, r.Header.Get("user"), "updated key on host", host.Name)
 	w.WriteHeader(http.StatusOK)
 }
@@ -901,7 +1009,21 @@ func syncHosts(w http.ResponseWriter, r *http.Request) {
 			time.Sleep(time.Millisecond * 100)
 		}
 	}()
-
+	logic.LogEvent(&models.Event{
+		Action: models.SyncAll,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   "All Devices",
+			Name: "All Devices",
+			Type: models.DeviceSub,
+		},
+		Origin: models.Dashboard,
+	})
 	slog.Info("sync all hosts request received", "user", user)
 	logic.ReturnSuccessResponse(w, r, "sync all hosts request received")
 }
@@ -937,7 +1059,21 @@ func syncHost(w http.ResponseWriter, r *http.Request) {
 			slog.Error("failed to send host pull request", "host", host.ID.String(), "error", err)
 		}
 	}()
-
+	logic.LogEvent(&models.Event{
+		Action: models.Sync,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   host.ID.String(),
+			Name: host.Name,
+			Type: models.DeviceSub,
+		},
+		Origin: models.Dashboard,
+	})
 	slog.Info("requested host pull", "user", r.Header.Get("user"), "host", host.ID.String())
 	w.WriteHeader(http.StatusOK)
 }

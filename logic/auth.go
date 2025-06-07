@@ -1,11 +1,15 @@
 package logic
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 
 	"github.com/go-playground/validator/v10"
 	"golang.org/x/crypto/bcrypt"
@@ -27,6 +31,9 @@ var (
 func ClearSuperUserCache() {
 	superUser = models.User{}
 }
+
+var ResetAuthProvider = func() {}
+var ResetIDPSyncHook = func() {}
 
 // HasSuperAdmin - checks if server has an superadmin/owner
 func HasSuperAdmin() (bool, error) {
@@ -169,6 +176,7 @@ func CreateUser(user *models.User) error {
 	if IsOauthUser(user) == nil {
 		user.AuthType = models.OAuth
 	}
+	AddGlobalNetRolesToAdmins(user)
 	_, err = CreateUserJWT(user.UserName, user.PlatformRoleID)
 	if err != nil {
 		logger.Log(0, "failed to generate token", err.Error())
@@ -186,7 +194,6 @@ func CreateUser(user *models.User) error {
 		logger.Log(0, "failed to insert user", err.Error())
 		return err
 	}
-	AddGlobalNetRolesToAdmins(*user)
 	return nil
 }
 
@@ -235,7 +242,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 	}
 
 	// update last login time
-	result.LastLoginTime = time.Now()
+	result.LastLoginTime = time.Now().UTC()
 	err = UpsertUser(result)
 	if err != nil {
 		slog.Error("error upserting user", "error", err)
@@ -275,6 +282,10 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 		if _, err := GetUser(userchange.UserName); err == nil {
 			return &models.User{}, errors.New("username exists already")
 		}
+		if userchange.UserName == MasterUser {
+			return &models.User{}, errors.New("username not allowed")
+		}
+
 		user.UserName = userchange.UserName
 	}
 	if userchange.Password != "" {
@@ -298,14 +309,58 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 	if err := IsNetworkRolesValid(userchange.NetworkRoles); err != nil {
 		return userchange, errors.New("invalid network roles: " + err.Error())
 	}
+
+	if userchange.DisplayName != "" {
+		if user.ExternalIdentityProviderID != "" &&
+			user.DisplayName != userchange.DisplayName {
+			return userchange, errors.New("display name cannot be updated for external user")
+		}
+
+		user.DisplayName = userchange.DisplayName
+	}
+
+	if user.ExternalIdentityProviderID != "" &&
+		userchange.AccountDisabled != user.AccountDisabled {
+		return userchange, errors.New("account status cannot be updated for external user")
+	}
+
 	// Reset Gw Access for service users
 	go UpdateUserGwAccess(*user, *userchange)
 	if userchange.PlatformRoleID != "" {
 		user.PlatformRoleID = userchange.PlatformRoleID
 	}
+
+	for groupID := range userchange.UserGroups {
+		_, ok := user.UserGroups[groupID]
+		if !ok {
+			group, err := GetUserGroup(groupID)
+			if err != nil {
+				return userchange, err
+			}
+
+			if group.ExternalIdentityProviderID != "" {
+				return userchange, errors.New("cannot modify membership of external groups")
+			}
+		}
+	}
+
+	for groupID := range user.UserGroups {
+		_, ok := userchange.UserGroups[groupID]
+		if !ok {
+			group, err := GetUserGroup(groupID)
+			if err != nil {
+				return userchange, err
+			}
+
+			if group.ExternalIdentityProviderID != "" {
+				return userchange, errors.New("cannot modify membership of external groups")
+			}
+		}
+	}
+
 	user.UserGroups = userchange.UserGroups
 	user.NetworkRoles = userchange.NetworkRoles
-	AddGlobalNetRolesToAdmins(*user)
+	AddGlobalNetRolesToAdmins(user)
 	err := ValidateUser(user)
 	if err != nil {
 		return &models.User{}, err
@@ -349,19 +404,18 @@ func ValidateUser(user *models.User) error {
 }
 
 // DeleteUser - deletes a given user
-func DeleteUser(user string) (bool, error) {
+func DeleteUser(user string) error {
 
 	if userRecord, err := database.FetchRecord(database.USERS_TABLE_NAME, user); err != nil || len(userRecord) == 0 {
-		return false, errors.New("user does not exist")
+		return errors.New("user does not exist")
 	}
 
 	err := database.DeleteRecord(database.USERS_TABLE_NAME, user)
 	if err != nil {
-		return false, err
+		return err
 	}
 	go RemoveUserFromAclPolicy(user)
-
-	return true, nil
+	return (&schema.UserAccessToken{UserName: user}).DeleteAllUserTokens(db.WithContext(context.TODO()))
 }
 
 func SetAuthSecret(secret string) error {

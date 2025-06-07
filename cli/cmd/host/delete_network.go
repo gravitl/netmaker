@@ -6,10 +6,10 @@ import (
 )
 
 var deleteHostNetworkCmd = &cobra.Command{
-	Use:   "delete_network HostID Network",
+	Use:   "delete_network DeviceID/HostID Network",
 	Args:  cobra.ExactArgs(2),
-	Short: "Delete a network from a host",
-	Long:  `Delete a network from a host`,
+	Short: "Remove a device from a network",
+	Long:  `Remove a device from a network`,
 	Run: func(cmd *cobra.Command, args []string) {
 		functions.PrettyPrint(functions.DeleteHostFromNetwork(args[0], args[1]))
 	},

@@ -75,7 +75,6 @@ type ServerConfig struct {
 	NetmakerTenantID           string        `yaml:"netmaker_tenant_id"`
 	IsPro                      string        `yaml:"is_ee" json:"IsEE"`
 	StunPort                   int           `yaml:"stun_port"`
-	StunList                   string        `yaml:"stun_list"`
 	TurnServer                 string        `yaml:"turn_server"`
 	TurnApiServer              string        `yaml:"turn_api_server"`
 	TurnPort                   int           `yaml:"turn_port"`

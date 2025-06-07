@@ -18,100 +18,6 @@ import (
 var nonLinuxHost models.Host
 var linuxHost models.Host
 
-func TestCreateEgressGateway(t *testing.T) {
-	var gateway models.EgressGatewayRequest
-	gateway.Ranges = []string{"10.100.100.0/24"}
-	gateway.RangesWithMetric = append(gateway.RangesWithMetric, models.EgressRangeMetric{
-		Network:     "10.100.100.0/24",
-		RouteMetric: 256,
-	})
-	gateway.NetID = "skynet"
-	deleteAllNetworks()
-	createNet()
-	t.Run("NoNodes", func(t *testing.T) {
-		node, err := logic.CreateEgressGateway(gateway)
-		assert.Equal(t, models.Node{}, node)
-		assert.EqualError(t, err, "could not find any records")
-	})
-	t.Run("Non-linux node", func(t *testing.T) {
-		createnode := createNodeWithParams("", "")
-		createNodeHosts()
-		createnode.HostID = nonLinuxHost.ID
-		err := logic.AssociateNodeToHost(createnode, &nonLinuxHost)
-		assert.Nil(t, err)
-		gateway.NodeID = createnode.ID.String()
-		node, err := logic.CreateEgressGateway(gateway)
-		assert.Equal(t, models.Node{}, node)
-		assert.EqualError(t, err, "windows is unsupported for egress gateways")
-	})
-	t.Run("Success-Nat-Enabled", func(t *testing.T) {
-		deleteAllNodes()
-		testnode := createTestNode()
-		gateway.NodeID = testnode.ID.String()
-		gateway.NatEnabled = "yes"
-
-		node, err := logic.CreateEgressGateway(gateway)
-		t.Log(node.EgressGatewayNatEnabled)
-		assert.Nil(t, err)
-	})
-	t.Run("Success-Nat-Disabled", func(t *testing.T) {
-		deleteAllNodes()
-		testnode := createTestNode()
-		gateway.NodeID = testnode.ID.String()
-		gateway.NatEnabled = "no"
-
-		node, err := logic.CreateEgressGateway(gateway)
-		t.Log(node.EgressGatewayNatEnabled)
-		assert.Nil(t, err)
-	})
-	t.Run("Success", func(t *testing.T) {
-		var gateway models.EgressGatewayRequest
-		gateway.Ranges = []string{"10.100.100.0/24"}
-		gateway.NetID = "skynet"
-		deleteAllNodes()
-		testnode := createTestNode()
-		gateway.NodeID = testnode.ID.String()
-
-		node, err := logic.CreateEgressGateway(gateway)
-		t.Log(node)
-		assert.Nil(t, err)
-		assert.Equal(t, true, node.IsEgressGateway)
-		assert.Equal(t, gateway.Ranges, node.EgressGatewayRanges)
-	})
-
-}
-func TestDeleteEgressGateway(t *testing.T) {
-	var gateway models.EgressGatewayRequest
-	deleteAllNetworks()
-	createNet()
-	testnode := createTestNode()
-	gateway.Ranges = []string{"10.100.100.0/24"}
-	gateway.NetID = "skynet"
-	gateway.NodeID = testnode.ID.String()
-	t.Run("Success", func(t *testing.T) {
-		node, err := logic.CreateEgressGateway(gateway)
-		assert.Nil(t, err)
-		assert.Equal(t, true, node.IsEgressGateway)
-		assert.Equal(t, []string{"10.100.100.0/24"}, node.EgressGatewayRanges)
-		node, err = logic.DeleteEgressGateway(gateway.NetID, gateway.NodeID)
-		assert.Nil(t, err)
-		assert.Equal(t, false, node.IsEgressGateway)
-		assert.Equal(t, []string([]string{}), node.EgressGatewayRanges)
-	})
-	t.Run("NotGateway", func(t *testing.T) {
-		node, err := logic.DeleteEgressGateway(gateway.NetID, gateway.NodeID)
-		assert.Nil(t, err)
-		assert.Equal(t, false, node.IsEgressGateway)
-		assert.Equal(t, []string([]string{}), node.EgressGatewayRanges)
-	})
-	t.Run("BadNode", func(t *testing.T) {
-		node, err := logic.DeleteEgressGateway(gateway.NetID, "01:02:03")
-		assert.EqualError(t, err, "no result found")
-		assert.Equal(t, models.Node{}, node)
-		deleteAllNodes()
-	})
-}
-
 func TestGetNetworkNodes(t *testing.T) {
 	deleteAllNetworks()
 	createNet()
@@ -237,7 +143,6 @@ func createNodeWithParams(network, address string) *models.Node {
 		ID:      uuid.New(),
 		Network: "skynet",
 		Address: *ipnet,
-		DNSOn:   true,
 	}
 	if len(network) > 0 {
 		tmpCNode.Network = network

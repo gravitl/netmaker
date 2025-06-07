@@ -75,7 +75,7 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	proLogic.SetInternetGw(&node, request)
+	logic.SetInternetGw(&node, request)
 	if servercfg.IsPro {
 		if _, exists := proLogic.FailOverExists(node.Network); exists {
 			go func() {
@@ -145,8 +145,8 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	proLogic.UnsetInternetGw(&node)
-	proLogic.SetInternetGw(&node, request)
+	logic.UnsetInternetGw(&node)
+	logic.SetInternetGw(&node, request)
 	err = logic.UpsertNode(&node)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -185,7 +185,7 @@ func deleteInternetGw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	proLogic.UnsetInternetGw(&node)
+	logic.UnsetInternetGw(&node)
 	err = logic.UpsertNode(&node)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))

@@ -8,8 +8,8 @@ import (
 var hostListCmd = &cobra.Command{
 	Use:   "list",
 	Args:  cobra.NoArgs,
-	Short: "List all hosts",
-	Long:  `List all hosts`,
+	Short: "List all devices",
+	Long:  `List all devices`,
 	Run: func(cmd *cobra.Command, args []string) {
 		functions.PrettyPrint(functions.GetHosts())
 	},

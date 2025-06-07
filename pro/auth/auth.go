@@ -1,9 +1,11 @@
 package auth
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,11 +36,38 @@ const (
 
 // OAuthUser - generic OAuth strategy user
 type OAuthUser struct {
-	Name              string `json:"name" bson:"name"`
-	Email             string `json:"email" bson:"email"`
-	Login             string `json:"login" bson:"login"`
-	UserPrincipalName string `json:"userPrincipalName" bson:"userPrincipalName"`
-	AccessToken       string `json:"accesstoken" bson:"accesstoken"`
+	ID                StringOrInt `json:"id" bson:"id"`
+	Name              string      `json:"name" bson:"name"`
+	Email             string      `json:"email" bson:"email"`
+	Login             string      `json:"login" bson:"login"`
+	UserPrincipalName string      `json:"userPrincipalName" bson:"userPrincipalName"`
+	AccessToken       string      `json:"accesstoken" bson:"accesstoken"`
+}
+
+// TODO: this is a very poor solution.
+// We should not return the same OAuthUser for different
+// IdPs. They should have the user that their APIs return.
+// But that's a very big change. So, making do with this
+// for now.
+
+type StringOrInt string
+
+func (s *StringOrInt) UnmarshalJSON(data []byte) error {
+	// Try to unmarshal as string directly
+	var strVal string
+	if err := json.Unmarshal(data, &strVal); err == nil {
+		*s = StringOrInt(strVal)
+		return nil
+	}
+
+	// Try to unmarshal as int and convert to string
+	var intVal int
+	if err := json.Unmarshal(data, &intVal); err == nil {
+		*s = StringOrInt(strconv.Itoa(intVal))
+		return nil
+	}
+
+	return fmt.Errorf("cannot unmarshal %s into StringOrInt", string(data))
 }
 
 var (
@@ -47,7 +76,7 @@ var (
 )
 
 func getCurrentAuthFunctions() map[string]interface{} {
-	var authInfo = servercfg.GetAuthProviderInfo()
+	var authInfo = logic.GetAuthProviderInfo(logic.GetServerSettings())
 	var authProvider = authInfo[0]
 	switch authProvider {
 	case google_provider_name:
@@ -63,6 +92,17 @@ func getCurrentAuthFunctions() map[string]interface{} {
 	}
 }
 
+// ResetAuthProvider resets the auth provider configuration.
+func ResetAuthProvider() {
+	settings := logic.GetServerSettings()
+
+	if settings.AuthProvider == "" {
+		auth_provider = nil
+	}
+
+	InitializeAuthProvider()
+}
+
 // InitializeAuthProvider - initializes the auth provider if any is present
 func InitializeAuthProvider() string {
 	var functions = getCurrentAuthFunctions()
@@ -74,7 +114,7 @@ func InitializeAuthProvider() string {
 	if err != nil {
 		logger.FatalLog("failed to set auth_secret", err.Error())
 	}
-	var authInfo = servercfg.GetAuthProviderInfo()
+	var authInfo = logic.GetAuthProviderInfo(logic.GetServerSettings())
 	var serverConn = servercfg.GetAPIHost()
 	if strings.Contains(serverConn, "localhost") || strings.Contains(serverConn, "127.0.0.1") {
 		serverConn = "http://" + serverConn
@@ -275,7 +315,7 @@ func isStateCached(state string) bool {
 
 // isEmailAllowed - checks if email is allowed to signup
 func isEmailAllowed(email string) bool {
-	allowedDomains := servercfg.GetAllowedEmailDomains()
+	allowedDomains := logic.GetAllowedEmailDomains()
 	domains := strings.Split(allowedDomains, ",")
 	if len(domains) == 1 && domains[0] == "*" {
 		return true

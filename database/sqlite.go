@@ -61,7 +61,7 @@ func sqliteCreateTable(tableName string) error {
 }
 
 func sqliteInsert(key string, value string, tableName string) error {
-	if key != "" && value != "" && IsJSONString(value) {
+	if key != "" && value != "" {
 		insertSQL := "INSERT OR REPLACE INTO " + tableName + " (key, value) VALUES (?, ?)"
 		statement, err := SqliteDB.Prepare(insertSQL)
 		if err != nil {
@@ -78,7 +78,7 @@ func sqliteInsert(key string, value string, tableName string) error {
 }
 
 func sqliteInsertPeer(key string, value string) error {
-	if key != "" && value != "" && IsJSONString(value) {
+	if key != "" && value != "" {
 		err := sqliteInsert(key, value, PEERS_TABLE_NAME)
 		if err != nil {
 			return err
