@@ -282,6 +282,10 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 		if _, err := GetUser(userchange.UserName); err == nil {
 			return &models.User{}, errors.New("username exists already")
 		}
+		if userchange.UserName == MasterUser {
+			return &models.User{}, errors.New("username not allowed")
+		}
+
 		user.UserName = userchange.UserName
 	}
 	if userchange.Password != "" {
