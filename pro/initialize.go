@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/pro/auth"
 	proControllers "github.com/gravitl/netmaker/pro/controllers"
+	"github.com/gravitl/netmaker/pro/email"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
@@ -33,6 +34,8 @@ func InitPro() {
 		proControllers.FailOverHandlers,
 		proControllers.InetHandlers,
 		proControllers.RacHandlers,
+		proControllers.EventHandlers,
+		proControllers.TagHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
@@ -79,7 +82,7 @@ func InitPro() {
 			addTrialLicenseHook()
 		}
 
-		if servercfg.GetServerConfig().RacAutoDisable {
+		if logic.GetRacAutoDisable() {
 			AddRacHooks()
 		}
 
@@ -91,6 +94,9 @@ func InitPro() {
 		}
 		proLogic.LoadNodeMetricsToCache()
 		proLogic.InitFailOverCache()
+		auth.ResetIDPSyncHook()
+		email.Init()
+		go proLogic.EventWatcher()
 	})
 	logic.ResetFailOver = proLogic.ResetFailOver
 	logic.ResetFailedOverPeer = proLogic.ResetFailedOverPeer
@@ -130,11 +136,33 @@ func InitPro() {
 	logic.UpdateUserGwAccess = proLogic.UpdateUserGwAccess
 	logic.CreateDefaultUserPolicies = proLogic.CreateDefaultUserPolicies
 	logic.MigrateUserRoleAndGroups = proLogic.MigrateUserRoleAndGroups
+	logic.MigrateToUUIDs = proLogic.MigrateToUUIDs
 	logic.IntialiseGroups = proLogic.UserGroupsInit
 	logic.AddGlobalNetRolesToAdmins = proLogic.AddGlobalNetRolesToAdmins
 	logic.GetUserGroupsInNetwork = proLogic.GetUserGroupsInNetwork
 	logic.GetUserGroup = proLogic.GetUserGroup
 	logic.GetNodeStatus = proLogic.GetNodeStatus
+	logic.ResetAuthProvider = auth.ResetAuthProvider
+	logic.ResetIDPSyncHook = auth.ResetIDPSyncHook
+	logic.EmailInit = email.Init
+	logic.LogEvent = proLogic.LogEvent
+	logic.RemoveUserFromAclPolicy = proLogic.RemoveUserFromAclPolicy
+	logic.IsUserAllowedToCommunicate = proLogic.IsUserAllowedToCommunicate
+	logic.DeleteAllNetworkTags = proLogic.DeleteAllNetworkTags
+	logic.CreateDefaultTags = proLogic.CreateDefaultTags
+	logic.GetInetClientsFromAclPolicies = proLogic.GetInetClientsFromAclPolicies
+	logic.IsPeerAllowed = proLogic.IsPeerAllowed
+	logic.IsAclPolicyValid = proLogic.IsAclPolicyValid
+	logic.GetEgressRulesForNode = proLogic.GetEgressRulesForNode
+	logic.GetAclRuleForInetGw = proLogic.GetAclRuleForInetGw
+	logic.GetAclRulesForNode = proLogic.GetAclRulesForNode
+	logic.CheckIfAnyActiveEgressPolicy = proLogic.CheckIfAnyActiveEgressPolicy
+	logic.CheckIfAnyPolicyisUniDirectional = proLogic.CheckIfAnyPolicyisUniDirectional
+	logic.MigrateToGws = proLogic.MigrateToGws
+	logic.IsNodeAllowedToCommunicate = proLogic.IsNodeAllowedToCommunicate
+	logic.GetFwRulesForNodeAndPeerOnGw = proLogic.GetFwRulesForNodeAndPeerOnGw
+	logic.GetFwRulesForUserNodesOnGw = proLogic.GetFwRulesForUserNodesOnGw
+
 }
 
 func retrieveProLogo() string {

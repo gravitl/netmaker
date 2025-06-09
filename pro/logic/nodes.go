@@ -11,10 +11,229 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-const (
+var (
 	IPv4Network = "0.0.0.0/0"
 	IPv6Network = "::/0"
 )
+
+// GetNetworkIngresses - gets the gateways of a network
+func GetNetworkIngresses(network string) ([]models.Node, error) {
+	var ingresses []models.Node
+	netNodes, err := logic.GetNetworkNodes(network)
+	if err != nil {
+		return []models.Node{}, err
+	}
+	for i := range netNodes {
+		if netNodes[i].IsIngressGateway {
+			ingresses = append(ingresses, netNodes[i])
+		}
+	}
+	return ingresses, nil
+}
+
+func GetTagMapWithNodes() (tagNodesMap map[models.TagID][]models.Node) {
+	tagNodesMap = make(map[models.TagID][]models.Node)
+	nodes, _ := logic.GetAllNodes()
+	for _, nodeI := range nodes {
+		if nodeI.Tags == nil {
+			continue
+		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Lock()
+		}
+		for nodeTagID := range nodeI.Tags {
+			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
+		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Unlock()
+		}
+
+	}
+	return
+}
+
+func GetTagMapWithNodesByNetwork(netID models.NetworkID, withStaticNodes bool) (tagNodesMap map[models.TagID][]models.Node) {
+	tagNodesMap = make(map[models.TagID][]models.Node)
+	nodes, _ := logic.GetNetworkNodes(netID.String())
+	for _, nodeI := range nodes {
+		tagNodesMap[models.TagID(nodeI.ID.String())] = []models.Node{
+			nodeI,
+		}
+		if nodeI.Tags == nil {
+			continue
+		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Lock()
+		}
+		for nodeTagID := range nodeI.Tags {
+			if nodeTagID == models.TagID(nodeI.ID.String()) {
+				continue
+			}
+			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
+		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Unlock()
+		}
+	}
+	tagNodesMap["*"] = nodes
+	if !withStaticNodes {
+		return
+	}
+	return AddTagMapWithStaticNodes(netID, tagNodesMap)
+}
+
+func AddTagMapWithStaticNodes(netID models.NetworkID,
+	tagNodesMap map[models.TagID][]models.Node) map[models.TagID][]models.Node {
+	extclients, err := logic.GetNetworkExtClients(netID.String())
+	if err != nil {
+		return tagNodesMap
+	}
+	for _, extclient := range extclients {
+		if extclient.RemoteAccessClientID != "" {
+			continue
+		}
+		tagNodesMap[models.TagID(extclient.ClientID)] = []models.Node{
+			{
+				IsStatic:   true,
+				StaticNode: extclient,
+			},
+		}
+		if extclient.Tags == nil {
+			continue
+		}
+
+		if extclient.Mutex != nil {
+			extclient.Mutex.Lock()
+		}
+		for tagID := range extclient.Tags {
+			if tagID == models.TagID(extclient.ClientID) {
+				continue
+			}
+			tagNodesMap[tagID] = append(tagNodesMap[tagID], extclient.ConvertToStaticNode())
+			tagNodesMap["*"] = append(tagNodesMap["*"], extclient.ConvertToStaticNode())
+		}
+		if extclient.Mutex != nil {
+			extclient.Mutex.Unlock()
+		}
+	}
+	return tagNodesMap
+}
+
+func AddTagMapWithStaticNodesWithUsers(netID models.NetworkID,
+	tagNodesMap map[models.TagID][]models.Node) map[models.TagID][]models.Node {
+	extclients, err := logic.GetNetworkExtClients(netID.String())
+	if err != nil {
+		return tagNodesMap
+	}
+	for _, extclient := range extclients {
+		tagNodesMap[models.TagID(extclient.ClientID)] = []models.Node{
+			{
+				IsStatic:   true,
+				StaticNode: extclient,
+			},
+		}
+		if extclient.Tags == nil {
+			continue
+		}
+		if extclient.Mutex != nil {
+			extclient.Mutex.Lock()
+		}
+		for tagID := range extclient.Tags {
+			tagNodesMap[tagID] = append(tagNodesMap[tagID], extclient.ConvertToStaticNode())
+		}
+		if extclient.Mutex != nil {
+			extclient.Mutex.Unlock()
+		}
+
+	}
+	return tagNodesMap
+}
+
+func GetNodeIDsWithTag(tagID models.TagID) (ids []string) {
+
+	tag, err := GetTag(tagID)
+	if err != nil {
+		return
+	}
+	nodes, _ := logic.GetNetworkNodes(tag.Network.String())
+	for _, nodeI := range nodes {
+		if nodeI.Tags == nil {
+			continue
+		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Lock()
+		}
+		if _, ok := nodeI.Tags[tagID]; ok {
+			ids = append(ids, nodeI.ID.String())
+		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Unlock()
+		}
+	}
+	return
+}
+
+func GetNodesWithTag(tagID models.TagID) map[string]models.Node {
+	nMap := make(map[string]models.Node)
+	tag, err := GetTag(tagID)
+	if err != nil {
+		return nMap
+	}
+	nodes, _ := logic.GetNetworkNodes(tag.Network.String())
+	for _, nodeI := range nodes {
+		if nodeI.Tags == nil {
+			continue
+		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Lock()
+		}
+		if _, ok := nodeI.Tags[tagID]; ok {
+			nMap[nodeI.ID.String()] = nodeI
+		}
+		if nodeI.Mutex != nil {
+			nodeI.Mutex.Unlock()
+		}
+	}
+	return AddStaticNodesWithTag(tag, nMap)
+}
+
+func AddStaticNodesWithTag(tag models.Tag, nMap map[string]models.Node) map[string]models.Node {
+	extclients, err := logic.GetNetworkExtClients(tag.Network.String())
+	if err != nil {
+		return nMap
+	}
+	for _, extclient := range extclients {
+		if extclient.RemoteAccessClientID != "" {
+			continue
+		}
+		if extclient.Mutex != nil {
+			extclient.Mutex.Lock()
+		}
+		if _, ok := extclient.Tags[tag.ID]; ok {
+			nMap[extclient.ClientID] = extclient.ConvertToStaticNode()
+		}
+		if extclient.Mutex != nil {
+			extclient.Mutex.Unlock()
+		}
+	}
+	return nMap
+}
+
+func GetStaticNodeWithTag(tagID models.TagID) map[string]models.Node {
+	nMap := make(map[string]models.Node)
+	tag, err := GetTag(tagID)
+	if err != nil {
+		return nMap
+	}
+	extclients, err := logic.GetNetworkExtClients(tag.Network.String())
+	if err != nil {
+		return nMap
+	}
+	for _, extclient := range extclients {
+		nMap[extclient.ClientID] = extclient.ConvertToStaticNode()
+	}
+	return nMap
+}
 
 func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool) error {
 	inetHost, err := logic.GetHost(inetNode.HostID.String())
@@ -36,9 +255,15 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 		if err != nil {
 			return err
 		}
+		if clientNode.IsFailOver {
+			return errors.New("failover node cannot be set to use internet gateway")
+		}
 		clientHost, err := logic.GetHost(clientNode.HostID.String())
 		if err != nil {
 			return err
+		}
+		if clientHost.IsDefault {
+			return errors.New("default host cannot be set to use internet gateway")
 		}
 		if clientHost.OS != models.OS_Types.Linux && clientHost.OS != models.OS_Types.Windows {
 			return errors.New("can only attach linux or windows machine to a internet gateway")
@@ -145,21 +370,6 @@ func SetDefaultGw(node models.Node, peerUpdate models.HostPeerUpdate) models.Hos
 		}
 	}
 	return peerUpdate
-}
-
-// GetNetworkIngresses - gets the gateways of a network
-func GetNetworkIngresses(network string) ([]models.Node, error) {
-	var ingresses []models.Node
-	netNodes, err := logic.GetNetworkNodes(network)
-	if err != nil {
-		return []models.Node{}, err
-	}
-	for i := range netNodes {
-		if netNodes[i].IsIngressGateway {
-			ingresses = append(ingresses, netNodes[i])
-		}
-	}
-	return ingresses, nil
 }
 
 // GetAllowedIpForInetNodeClient - get inet cidr for node using a inet gw

@@ -164,7 +164,7 @@ func UpdateNodeCheckin(node *models.Node) error {
 	if err != nil {
 		return err
 	}
-
+	node.EgressDetails = models.EgressDetails{}
 	err = database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
 	if err != nil {
 		return err
@@ -183,6 +183,7 @@ func UpsertNode(newNode *models.Node) error {
 	if err != nil {
 		return err
 	}
+	newNode.EgressDetails = models.EgressDetails{}
 	err = database.Insert(newNode.ID.String(), string(data), database.NODES_TABLE_NAME)
 	if err != nil {
 		return err
@@ -218,7 +219,7 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 				return err
 			}
 		}
-
+		newNode.EgressDetails = models.EgressDetails{}
 		newNode.SetLastModified()
 		if data, err := json.Marshal(newNode); err != nil {
 			return err
@@ -320,8 +321,9 @@ func DeleteNode(node *models.Node, purge bool) error {
 	if err := DissasociateNodeFromHost(node, host); err != nil {
 		return err
 	}
-	go RemoveNodeFromAclPolicy(*node)
 
+	go RemoveNodeFromAclPolicy(*node)
+	go RemoveNodeFromEgress(*node)
 	return nil
 }
 
@@ -639,14 +641,6 @@ func createNode(node *models.Node) error {
 		return err
 	}
 
-	if !node.DNSOn {
-		if servercfg.IsDNSMode() {
-			node.DNSOn = true
-		} else {
-			node.DNSOn = false
-		}
-	}
-
 	SetNodeDefaults(node, true)
 
 	defaultACLVal := acls.Allowed
@@ -783,16 +777,16 @@ func ValidateNodeIp(currentNode *models.Node, newNode *models.ApiNode) error {
 	return nil
 }
 
-func ValidateEgressRange(gateway models.EgressGatewayRequest) error {
-	network, err := GetNetworkSettings(gateway.NetID)
+func ValidateEgressRange(netID string, ranges []string) error {
+	network, err := GetNetworkSettings(netID)
 	if err != nil {
-		slog.Error("error getting network with netid", "error", gateway.NetID, err.Error)
-		return errors.New("error getting network with netid:  " + gateway.NetID + " " + err.Error())
+		slog.Error("error getting network with netid", "error", netID, err.Error)
+		return errors.New("error getting network with netid:  " + netID + " " + err.Error())
 	}
 	ipv4Net := network.AddressRange
 	ipv6Net := network.AddressRange6
 
-	for _, v := range gateway.Ranges {
+	for _, v := range ranges {
 		if ipv4Net != "" {
 			if ContainsCIDR(ipv4Net, v) {
 				slog.Error("egress range should not be the same as or contained in the netmaker network address", "error", v, ipv4Net)
@@ -829,184 +823,4 @@ func GetAllFailOvers() ([]models.Node, error) {
 		}
 	}
 	return igs, nil
-}
-
-func GetTagMapWithNodes() (tagNodesMap map[models.TagID][]models.Node) {
-	tagNodesMap = make(map[models.TagID][]models.Node)
-	nodes, _ := GetAllNodes()
-	for _, nodeI := range nodes {
-		if nodeI.Tags == nil {
-			continue
-		}
-		if nodeI.Mutex != nil {
-			nodeI.Mutex.Lock()
-		}
-		for nodeTagID := range nodeI.Tags {
-			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
-		}
-		if nodeI.Mutex != nil {
-			nodeI.Mutex.Unlock()
-		}
-
-	}
-	return
-}
-
-func GetTagMapWithNodesByNetwork(netID models.NetworkID, withStaticNodes bool) (tagNodesMap map[models.TagID][]models.Node) {
-	tagNodesMap = make(map[models.TagID][]models.Node)
-	nodes, _ := GetNetworkNodes(netID.String())
-	for _, nodeI := range nodes {
-		tagNodesMap[models.TagID(nodeI.ID.String())] = []models.Node{
-			nodeI,
-		}
-		if nodeI.Tags == nil {
-			continue
-		}
-		if nodeI.Mutex != nil {
-			nodeI.Mutex.Lock()
-		}
-		for nodeTagID := range nodeI.Tags {
-			if nodeTagID == models.TagID(nodeI.ID.String()) {
-				continue
-			}
-			tagNodesMap[nodeTagID] = append(tagNodesMap[nodeTagID], nodeI)
-		}
-		if nodeI.Mutex != nil {
-			nodeI.Mutex.Unlock()
-		}
-	}
-	tagNodesMap["*"] = nodes
-	if !withStaticNodes {
-		return
-	}
-	return AddTagMapWithStaticNodes(netID, tagNodesMap)
-}
-
-func AddTagMapWithStaticNodes(netID models.NetworkID,
-	tagNodesMap map[models.TagID][]models.Node) map[models.TagID][]models.Node {
-	extclients, err := GetNetworkExtClients(netID.String())
-	if err != nil {
-		return tagNodesMap
-	}
-	for _, extclient := range extclients {
-		if extclient.RemoteAccessClientID != "" {
-			continue
-		}
-		tagNodesMap[models.TagID(extclient.ClientID)] = []models.Node{
-			{
-				IsStatic:   true,
-				StaticNode: extclient,
-			},
-		}
-		if extclient.Tags == nil {
-			continue
-		}
-
-		if extclient.Mutex != nil {
-			extclient.Mutex.Lock()
-		}
-		for tagID := range extclient.Tags {
-			if tagID == models.TagID(extclient.ClientID) {
-				continue
-			}
-			tagNodesMap[tagID] = append(tagNodesMap[tagID], extclient.ConvertToStaticNode())
-			tagNodesMap["*"] = append(tagNodesMap["*"], extclient.ConvertToStaticNode())
-		}
-		if extclient.Mutex != nil {
-			extclient.Mutex.Unlock()
-		}
-	}
-	return tagNodesMap
-}
-
-func AddTagMapWithStaticNodesWithUsers(netID models.NetworkID,
-	tagNodesMap map[models.TagID][]models.Node) map[models.TagID][]models.Node {
-	extclients, err := GetNetworkExtClients(netID.String())
-	if err != nil {
-		return tagNodesMap
-	}
-	for _, extclient := range extclients {
-		tagNodesMap[models.TagID(extclient.ClientID)] = []models.Node{
-			{
-				IsStatic:   true,
-				StaticNode: extclient,
-			},
-		}
-		if extclient.Tags == nil {
-			continue
-		}
-		if extclient.Mutex != nil {
-			extclient.Mutex.Lock()
-		}
-		for tagID := range extclient.Tags {
-			tagNodesMap[tagID] = append(tagNodesMap[tagID], extclient.ConvertToStaticNode())
-		}
-		if extclient.Mutex != nil {
-			extclient.Mutex.Unlock()
-		}
-
-	}
-	return tagNodesMap
-}
-
-func GetNodesWithTag(tagID models.TagID) map[string]models.Node {
-	nMap := make(map[string]models.Node)
-	tag, err := GetTag(tagID)
-	if err != nil {
-		return nMap
-	}
-	nodes, _ := GetNetworkNodes(tag.Network.String())
-	for _, nodeI := range nodes {
-		if nodeI.Tags == nil {
-			continue
-		}
-		if nodeI.Mutex != nil {
-			nodeI.Mutex.Lock()
-		}
-		if _, ok := nodeI.Tags[tagID]; ok {
-			nMap[nodeI.ID.String()] = nodeI
-		}
-		if nodeI.Mutex != nil {
-			nodeI.Mutex.Unlock()
-		}
-	}
-	return AddStaticNodesWithTag(tag, nMap)
-}
-
-func AddStaticNodesWithTag(tag models.Tag, nMap map[string]models.Node) map[string]models.Node {
-	extclients, err := GetNetworkExtClients(tag.Network.String())
-	if err != nil {
-		return nMap
-	}
-	for _, extclient := range extclients {
-		if extclient.RemoteAccessClientID != "" {
-			continue
-		}
-		if extclient.Mutex != nil {
-			extclient.Mutex.Lock()
-		}
-		if _, ok := extclient.Tags[tag.ID]; ok {
-			nMap[extclient.ClientID] = extclient.ConvertToStaticNode()
-		}
-		if extclient.Mutex != nil {
-			extclient.Mutex.Unlock()
-		}
-	}
-	return nMap
-}
-
-func GetStaticNodeWithTag(tagID models.TagID) map[string]models.Node {
-	nMap := make(map[string]models.Node)
-	tag, err := GetTag(tagID)
-	if err != nil {
-		return nMap
-	}
-	extclients, err := GetNetworkExtClients(tag.Network.String())
-	if err != nil {
-		return nMap
-	}
-	for _, extclient := range extclients {
-		nMap[extclient.ClientID] = extclient.ConvertToStaticNode()
-	}
-	return nMap
 }

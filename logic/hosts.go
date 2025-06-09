@@ -228,7 +228,13 @@ func CreateHost(h *models.Host) error {
 		return err
 	}
 	h.HostPass = string(hash)
-	h.AutoUpdate = servercfg.AutoUpdateEnabled()
+	h.AutoUpdate = AutoUpdateEnabled()
+
+	if GetServerSettings().ManageDNS {
+		h.DNS = "yes"
+	} else {
+		h.DNS = "no"
+	}
 	checkForZombieHosts(h)
 	return UpsertHost(h)
 }
@@ -393,7 +399,7 @@ func UpdateHostNetwork(h *models.Host, network string, add bool) (*models.Node, 
 			if !add {
 				return &node, nil
 			} else {
-				return nil, errors.New("host already part of network " + network)
+				return &node, errors.New("host already part of network " + network)
 			}
 		}
 	}
@@ -548,15 +554,27 @@ func GetRelatedHosts(hostID string) []models.Host {
 // CheckHostPort checks host endpoints to ensures that hosts on the same server
 // with the same endpoint have different listen ports
 // in the case of 64535 hosts or more with same endpoint, ports will not be changed
-func CheckHostPorts(h *models.Host) {
+func CheckHostPorts(h *models.Host) (changed bool) {
 	portsInUse := make(map[int]bool, 0)
 	hosts, err := GetAllHosts()
 	if err != nil {
 		return
 	}
+	originalPort := h.ListenPort
+	defer func() {
+		if originalPort != h.ListenPort {
+			changed = true
+		}
+	}()
+	if h.EndpointIP == nil {
+		return
+	}
 	for _, host := range hosts {
 		if host.ID.String() == h.ID.String() {
 			// skip self
+			continue
+		}
+		if host.EndpointIP == nil {
 			continue
 		}
 		if !host.EndpointIP.Equal(h.EndpointIP) {
@@ -566,11 +584,16 @@ func CheckHostPorts(h *models.Host) {
 	}
 	// iterate until port is not found or max iteration is reached
 	for i := 0; portsInUse[h.ListenPort] && i < maxPort-minPort+1; i++ {
-		h.ListenPort++
+		if h.ListenPort == 443 {
+			h.ListenPort = 51821
+		} else {
+			h.ListenPort++
+		}
 		if h.ListenPort > maxPort {
 			h.ListenPort = minPort
 		}
 	}
+	return
 }
 
 // HostExists - checks if given host already exists

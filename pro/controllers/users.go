@@ -63,6 +63,8 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}/remote_access_gw", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserRemoteAccessGwsV1)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/ingress/{ingress_id}", logic.SecurityCheck(true, http.HandlerFunc(ingressGatewayUsers))).Methods(http.MethodGet)
 
+	r.HandleFunc("/api/idp/sync", logic.SecurityCheck(true, http.HandlerFunc(syncIDP))).Methods(http.MethodPost)
+	r.HandleFunc("/api/idp", logic.SecurityCheck(true, http.HandlerFunc(removeIDPIntegration))).Methods(http.MethodDelete)
 }
 
 // swagger:route POST /api/v1/users/invite-signup user userInviteSignUp
@@ -208,6 +210,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, inviteeEmail := range inviteReq.UserEmails {
+		inviteeEmail = strings.ToLower(inviteeEmail)
 		// check if user with email exists, then ignore
 		if !email.IsValid(inviteeEmail) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid email "+inviteeEmail), "badrequest"))
@@ -248,6 +251,22 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			slog.Error("failed to insert invite for user", "email", invite.Email, "error", err)
 		}
+		logic.LogEvent(&models.Event{
+			Action: models.Create,
+			Source: models.Subject{
+				ID:   callerUserName,
+				Name: callerUserName,
+				Type: models.UserSub,
+				Info: invite,
+			},
+			TriggeredBy: callerUserName,
+			Target: models.Subject{
+				ID:   inviteeEmail,
+				Name: inviteeEmail,
+				Type: models.UserInviteSub,
+			},
+			Origin: models.Dashboard,
+		})
 		// notify user with magic link
 		go func(invite models.UserInvite) {
 			// Set E-Mail body. You can set plain text or html with text/html
@@ -266,6 +285,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			}
 		}(invite)
 	}
+
 	logic.ReturnSuccessResponse(w, r, "triggered user invites")
 }
 
@@ -309,6 +329,21 @@ func deleteUserInvite(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Delete,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   email,
+			Name: email,
+			Type: models.UserInviteSub,
+		},
+		Origin: models.Dashboard,
+	})
 	logic.ReturnSuccessResponse(w, r, "deleted user invite")
 }
 
@@ -329,6 +364,21 @@ func deleteAllUserInvites(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to delete all pending user invites "+err.Error()), "internal"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.DeleteAll,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   "All Invites",
+			Name: "All Invites",
+			Type: models.UserInviteSub,
+		},
+		Origin: models.Dashboard,
+	})
 	logic.ReturnSuccessResponse(w, r, "cleared all pending user invites")
 }
 
@@ -409,7 +459,7 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = proLogic.CreateUserGroup(userGroupReq.Group)
+	err = proLogic.CreateUserGroup(&userGroupReq.Group)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -463,6 +513,21 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		user.UserGroups[userGroupReq.Group.ID] = struct{}{}
 		logic.UpsertUser(*user)
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Create,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   userGroupReq.Group.ID.String(),
+			Name: userGroupReq.Group.Name,
+			Type: models.UserGroupSub,
+		},
+		Origin: models.Dashboard,
+	})
 	logic.ReturnSuccessResponseWithJson(w, r, userGroupReq.Group, "created user group")
 }
 
@@ -501,12 +566,33 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+
+	userGroup.ExternalIdentityProviderID = currUserG.ExternalIdentityProviderID
+
 	err = proLogic.UpdateUserGroup(userGroup)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-
+	logic.LogEvent(&models.Event{
+		Action: models.Update,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   userGroup.ID.String(),
+			Name: userGroup.Name,
+			Type: models.UserGroupSub,
+		},
+		Diff: models.Diff{
+			Old: currUserG,
+			New: userGroup,
+		},
+		Origin: models.Dashboard,
+	})
 	// reset configs for service user
 	go proLogic.UpdatesUserGwAccessOnGrpUpdates(currUserG.NetworkRoles, userGroup.NetworkRoles)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")
@@ -551,6 +637,21 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Delete,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   userG.ID.String(),
+			Name: userG.Name,
+			Type: models.UserGroupSub,
+		},
+		Origin: models.Dashboard,
+	})
 	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userG.NetworkRoles, make(map[models.NetworkID]map[models.UserRoleID]struct{}))
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user group")
 }
@@ -631,6 +732,21 @@ func createRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Create,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   userRole.ID.String(),
+			Name: userRole.Name,
+			Type: models.UserRoleSub,
+		},
+		Origin: models.ClientApp,
+	})
 	logic.ReturnSuccessResponseWithJson(w, r, userRole, "created user role")
 }
 
@@ -665,6 +781,25 @@ func updateRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Update,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   userRole.ID.String(),
+			Name: userRole.Name,
+			Type: models.UserRoleSub,
+		},
+		Diff: models.Diff{
+			Old: currRole,
+			New: userRole,
+		},
+		Origin: models.Dashboard,
+	})
 	// reset configs for service user
 	go proLogic.UpdatesUserGwAccessOnRoleUpdates(currRole.NetworkLevelAccess, userRole.NetworkLevelAccess, string(userRole.NetworkID))
 	logic.ReturnSuccessResponseWithJson(w, r, userRole, "updated user role")
@@ -693,6 +828,21 @@ func deleteRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Delete,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   role.ID.String(),
+			Name: role.Name,
+			Type: models.UserRoleSub,
+		},
+		Origin: models.Dashboard,
+	})
 	go proLogic.UpdatesUserGwAccessOnRoleUpdates(role.NetworkLevelAccess, make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope), role.NetworkID.String())
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user role")
 }
@@ -1296,7 +1446,7 @@ func getPendingUsers(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
 
-	users, err := logic.ListPendingUsers()
+	users, err := logic.ListPendingReturnUsers()
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -1334,9 +1484,11 @@ func approvePendingUser(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if err = logic.CreateUser(&models.User{
-				UserName:       user.UserName,
-				Password:       newPass,
-				PlatformRoleID: models.ServiceUser,
+				UserName:                   user.UserName,
+				ExternalIdentityProviderID: user.ExternalIdentityProviderID,
+				Password:                   newPass,
+				AuthType:                   user.AuthType,
+				PlatformRoleID:             models.ServiceUser,
 			}); err != nil {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to create user: %s", err), "internal"))
 				return
@@ -1349,6 +1501,21 @@ func approvePendingUser(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Create,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   username,
+			Name: username,
+			Type: models.PendingUserSub,
+		},
+		Origin: models.Dashboard,
+	})
 	logic.ReturnSuccessResponse(w, r, "approved "+username)
 }
 
@@ -1363,7 +1530,7 @@ func deletePendingUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	username := params["username"]
-	users, err := logic.ListPendingUsers()
+	users, err := logic.ListPendingReturnUsers()
 
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
@@ -1380,6 +1547,21 @@ func deletePendingUser(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Delete,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   username,
+			Name: username,
+			Type: models.PendingUserSub,
+		},
+		Origin: models.Dashboard,
+	})
 	logic.ReturnSuccessResponse(w, r, "deleted pending "+username)
 }
 
@@ -1395,5 +1577,99 @@ func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to delete all pending users "+err.Error()), "internal"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.DeleteAll,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.PendingUserSub,
+		},
+		Origin: models.Dashboard,
+	})
 	logic.ReturnSuccessResponse(w, r, "cleared all pending users")
+}
+
+// @Summary     Sync users and groups from idp.
+// @Router      /api/idp/sync [post]
+// @Tags        IDP
+// @Success     200 {object} models.SuccessResponse
+func syncIDP(w http.ResponseWriter, r *http.Request) {
+	go func() {
+		err := proAuth.SyncFromIDP()
+		if err != nil {
+			logger.Log(0, "failed to sync from idp: ", err.Error())
+		} else {
+			logger.Log(0, "sync from idp complete")
+		}
+	}()
+
+	logic.ReturnSuccessResponse(w, r, "starting sync from idp")
+}
+
+// @Summary     Remove idp integration.
+// @Router      /api/idp [delete]
+// @Tags        IDP
+// @Success     200 {object} models.SuccessResponse
+// @Failure     500 {object} models.ErrorResponse
+func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
+	superAdmin, err := logic.GetSuperAdmin()
+	if err != nil {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(fmt.Errorf("failed to get superadmin: %v", err), "internal"),
+		)
+		return
+	}
+
+	if superAdmin.AuthType == models.OAuth {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(fmt.Errorf("cannot remove idp integration with superadmin oauth user"), "badrequest"),
+		)
+		return
+	}
+
+	settings := logic.GetServerSettings()
+	settings.AuthProvider = ""
+	settings.OIDCIssuer = ""
+	settings.ClientID = ""
+	settings.ClientSecret = ""
+	settings.SyncEnabled = false
+	settings.GoogleAdminEmail = ""
+	settings.GoogleSACredsJson = ""
+	settings.AzureTenant = ""
+	settings.UserFilters = nil
+	settings.GroupFilters = nil
+
+	err = logic.UpsertServerSettings(settings)
+	if err != nil {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(fmt.Errorf("failed to remove idp integration: %v", err), "internal"),
+		)
+		return
+	}
+
+	proAuth.ResetAuthProvider()
+	proAuth.ResetIDPSyncHook()
+
+	go func() {
+		err := proAuth.SyncFromIDP()
+		if err != nil {
+			logger.Log(0, "failed to sync from idp: ", err.Error())
+		} else {
+			logger.Log(0, "sync from idp complete")
+		}
+	}()
+
+	logic.ReturnSuccessResponse(w, r, "removed idp integration successfully")
 }

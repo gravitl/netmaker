@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 	"unicode"
@@ -200,4 +201,24 @@ func VersionLessThan(v1, v2 string) (bool, error) {
 		return false, fmt.Errorf("failed to parse semver2 (%s): %w", semVer2, err)
 	}
 	return sv1.LT(sv2), nil
+}
+
+// Compare any two maps with any key and value types
+func CompareMaps[K comparable, V any](a, b map[K]V) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for key, valA := range a {
+		valB, ok := b[key]
+		if !ok {
+			return false
+		}
+
+		if !reflect.DeepEqual(valA, valB) {
+			return false
+		}
+	}
+
+	return true
 }

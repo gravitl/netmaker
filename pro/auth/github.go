@@ -111,7 +111,7 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 					return
 				}
-				user.ExternalIdentityProviderID = content.Login
+				user.ExternalIdentityProviderID = string(content.ID)
 				if err = logic.CreateUser(&user); err != nil {
 					handleSomethingWentWrong(w)
 					return
@@ -124,7 +124,9 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				err = logic.InsertPendingUser(&models.User{
-					UserName: content.Email,
+					UserName:                   content.Email,
+					ExternalIdentityProviderID: string(content.ID),
+					AuthType:                   models.OAuth,
 				})
 				if err != nil {
 					handleSomethingWentWrong(w)
@@ -143,6 +145,12 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserNotFound(w)
 		return
 	}
+
+	if user.AccountDisabled {
+		handleUserAccountDisabled(w)
+		return
+	}
+
 	userRole, err := logic.GetRole(user.PlatformRoleID)
 	if err != nil {
 		handleSomethingWentWrong(w)
@@ -167,7 +175,22 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		logger.Log(1, "could not parse jwt for user", authRequest.UserName)
 		return
 	}
-
+	logic.LogEvent(&models.Event{
+		Action: models.Login,
+		Source: models.Subject{
+			ID:   user.UserName,
+			Name: user.UserName,
+			Type: models.UserSub,
+		},
+		TriggeredBy: user.UserName,
+		Target: models.Subject{
+			ID:   models.DashboardSub.String(),
+			Name: models.DashboardSub.String(),
+			Type: models.DashboardSub,
+			Info: user,
+		},
+		Origin: models.Dashboard,
+	})
 	logger.Log(1, "completed github OAuth sigin in for", content.Email)
 	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+content.Email, http.StatusPermanentRedirect)
 }

@@ -87,7 +87,6 @@ type CommonNode struct {
 	IsGw                bool      `json:"is_gw"             yaml:"is_gw"`
 	RelayedNodes        []string  `json:"relaynodes"          yaml:"relayedNodes"`
 	IngressDNS          string    `json:"ingressdns"          yaml:"ingressdns"`
-	DNSOn               bool      `json:"dnson"               yaml:"dnson"`
 }
 
 // Node - a model of a network node
@@ -109,7 +108,7 @@ type Node struct {
 	DefaultACL        string              `json:"defaultacl,omitempty"    bson:"defaultacl,omitempty"    yaml:"defaultacl,omitempty"    validate:"checkyesornoorunset"`
 	OwnerID           string              `json:"ownerid,omitempty"       bson:"ownerid,omitempty"       yaml:"ownerid,omitempty"`
 	IsFailOver        bool                `json:"is_fail_over"                                           yaml:"is_fail_over"`
-	FailOverPeers     map[string]struct{} `json:"fail_over_peers"                                        yaml:"fail_over_peers"`
+	FailOverPeers     map[string]struct{} `json:"fail_over_peers"                                       yaml:"fail_over_peers"`
 	FailedOverBy      uuid.UUID           `json:"failed_over_by"                                         yaml:"failed_over_by"`
 	IsInternetGateway bool                `json:"isinternetgateway"                                      yaml:"isinternetgateway"`
 	InetNodeReq       InetNodeReq         `json:"inet_node_req"                                          yaml:"inet_node_req"`
@@ -121,6 +120,16 @@ type Node struct {
 	StaticNode        ExtClient           `json:"static_node"`
 	Status            NodeStatus          `json:"node_status"`
 	Mutex             *sync.Mutex         `json:"-"`
+	EgressDetails     EgressDetails       `json:"-"`
+}
+type EgressDetails struct {
+	EgressGatewayNatEnabled bool
+	EgressGatewayRequest    EgressGatewayRequest
+	IsEgressGateway         bool
+	EgressGatewayRanges     []string
+	// IsInternetGateway       bool        `json:"isinternetgateway"                                      yaml:"isinternetgateway"`
+	// InetNodeReq             InetNodeReq `json:"inet_node_req"                                          yaml:"inet_node_req"`
+	// InternetGwID            string      `json:"internetgw_node_id"                                     yaml:"internetgw_node_id"`
 }
 
 // LegacyNode - legacy struct for node model
@@ -377,17 +386,17 @@ func (node *LegacyNode) SetIsStaticDefault() {
 
 // Node.SetLastModified - set last modified initial time
 func (node *Node) SetLastModified() {
-	node.LastModified = time.Now()
+	node.LastModified = time.Now().UTC()
 }
 
 // Node.SetLastCheckIn - set checkin time of node
 func (node *Node) SetLastCheckIn() {
-	node.LastCheckIn = time.Now()
+	node.LastCheckIn = time.Now().UTC()
 }
 
 // Node.SetLastPeerUpdate - sets last peer update time
 func (node *Node) SetLastPeerUpdate() {
-	node.LastPeerUpdate = time.Now()
+	node.LastPeerUpdate = time.Now().UTC()
 }
 
 // Node.SetExpirationDateTime - sets node expiry time
@@ -442,14 +451,8 @@ func (newNode *Node) Fill(
 	if newNode.Network == "" {
 		newNode.Network = currentNode.Network
 	}
-	if newNode.IsEgressGateway != currentNode.IsEgressGateway {
-		newNode.IsEgressGateway = currentNode.IsEgressGateway
-	}
 	if newNode.IsIngressGateway != currentNode.IsIngressGateway {
 		newNode.IsIngressGateway = currentNode.IsIngressGateway
-	}
-	if newNode.EgressGatewayRanges == nil {
-		newNode.EgressGatewayRanges = currentNode.EgressGatewayRanges
 	}
 	if newNode.IngressGatewayRange == "" {
 		newNode.IngressGatewayRange = currentNode.IngressGatewayRange
@@ -477,6 +480,12 @@ func (newNode *Node) Fill(
 	}
 	if newNode.IsFailOver != currentNode.IsFailOver {
 		newNode.IsFailOver = currentNode.IsFailOver
+	}
+	if newNode.Tags == nil {
+		if currentNode.Tags == nil {
+			currentNode.Tags = make(map[TagID]struct{})
+		}
+		newNode.Tags = currentNode.Tags
 	}
 }
 
@@ -567,9 +576,7 @@ func (ln *LegacyNode) ConvertToNewNode() (*Host, *Node) {
 		}
 	}
 	node.Action = ln.Action
-	node.IsEgressGateway = parseBool(ln.IsEgressGateway)
 	node.IsIngressGateway = parseBool(ln.IsIngressGateway)
-	node.DNSOn = parseBool(ln.DNSOn)
 
 	return &host, &node
 }
@@ -601,7 +608,6 @@ func (n *Node) Legacy(h *Host, s *ServerConfig, net *Network) *LegacyNode {
 	//l.IsRelay = formatBool(n.IsRelay)
 	//l.IsDocker = formatBool(n.IsDocker)
 	//l.IsK8S = formatBool(n.IsK8S)
-	l.IsEgressGateway = formatBool(n.IsEgressGateway)
 	l.IsIngressGateway = formatBool(n.IsIngressGateway)
 	//l.EgressGatewayRanges = n.EgressGatewayRanges
 	//l.EgressGatewayNatEnabled = n.EgressGatewayNatEnabled
@@ -611,7 +617,6 @@ func (n *Node) Legacy(h *Host, s *ServerConfig, net *Network) *LegacyNode {
 	//l.IngressGatewayRange6 = n.IngressGatewayRange6
 	l.IsStatic = formatBool(h.IsStatic)
 	l.UDPHolePunch = formatBool(true)
-	l.DNSOn = formatBool(n.DNSOn)
 	l.Action = n.Action
 	l.IPForwarding = formatBool(h.IPForwarding)
 	l.OS = h.OS
