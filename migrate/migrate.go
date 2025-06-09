@@ -202,6 +202,7 @@ func updateHosts() {
 			} else {
 				host.DNS = "no"
 			}
+			logic.UpsertHost(&host)
 		}
 	}
 }
