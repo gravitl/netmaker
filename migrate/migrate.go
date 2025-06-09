@@ -196,11 +196,11 @@ func updateHosts() {
 				continue
 			}
 		}
-		if host.DNS == "" {
+		if host.DNS == "" || (host.DNS != "yes" && host.DNS != "no") {
 			if logic.GetServerSettings().ManageDNS {
-				host.DNS = "on"
+				host.DNS = "yes"
 			} else {
-				host.DNS = "off"
+				host.DNS = "no"
 			}
 		}
 	}
@@ -581,6 +581,9 @@ func settings() {
 	settings := logic.GetServerSettings()
 	if settings.AuditLogsRetentionPeriodInDays == 0 {
 		settings.AuditLogsRetentionPeriodInDays = 30
+	}
+	if settings.DefaultDomain == "" {
+		settings.DefaultDomain = servercfg.GetDefaultDomain()
 	}
 	logic.UpsertServerSettings(settings)
 }
