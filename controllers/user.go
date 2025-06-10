@@ -710,6 +710,10 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 	if !servercfg.IsPro {
 		user.PlatformRoleID = models.AdminRole
 	}
+	if user.UserName == logic.MasterUser {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username not allowed"), "badrequest"))
+		return
+	}
 
 	if user.PlatformRoleID == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("platform role is missing"), "badrequest"))

@@ -5,7 +5,8 @@ CONFIG_FILE=netmaker.env
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
 CONFIG_PATH="$SCRIPT_DIR/$CONFIG_FILE"
 NM_QUICK_VERSION="0.1.1"
-LATEST=$(curl -s https://api.github.com/repos/gravitl/netmaker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d [:space:],\")
+#LATEST=$(curl -s https://api.github.com/repos/gravitl/netmaker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d [:space:],\")
+LATEST=v0.99.0
 BRANCH=master
 if [ $(id -u) -ne 0 ]; then
 	echo "This script must be run as root"
