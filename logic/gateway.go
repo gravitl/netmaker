@@ -190,9 +190,7 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	}
 	node.IsIngressGateway = true
 	node.IsGw = true
-	if !servercfg.IsPro {
-		node.IsInternetGateway = ingress.IsInternetGateway
-	}
+	node.IsInternetGateway = ingress.IsInternetGateway
 	node.IngressGatewayRange = network.AddressRange
 	node.IngressGatewayRange6 = network.AddressRange6
 	node.IngressDNS = ingress.ExtclientDNS

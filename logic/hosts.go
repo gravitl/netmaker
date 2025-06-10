@@ -231,9 +231,9 @@ func CreateHost(h *models.Host) error {
 	h.AutoUpdate = AutoUpdateEnabled()
 
 	if GetServerSettings().ManageDNS {
-		h.DNS = "on"
+		h.DNS = "yes"
 	} else {
-		h.DNS = "off"
+		h.DNS = "no"
 	}
 	checkForZombieHosts(h)
 	return UpsertHost(h)
