@@ -46,10 +46,6 @@ func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress, acls []mode
 		}
 		srcVal := ConvAclTagToValueMap(acl.Src)
 		for _, dstI := range acl.Dst {
-
-			if dstI.ID == models.NodeTagID && dstI.Value == "*" {
-				return true
-			}
 			if dstI.ID == models.EgressID && dstI.Value == e.ID {
 				e := schema.Egress{ID: dstI.Value}
 				err := e.Get(db.WithContext(context.TODO()))
