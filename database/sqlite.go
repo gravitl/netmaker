@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"github.com/gravitl/netmaker/db"
-	"time"
-
 	_ "github.com/mattn/go-sqlite3" // need to blank import this package
 )
 
@@ -34,9 +32,6 @@ func initSqliteDB() error {
 	if dbOpenErr != nil {
 		return dbOpenErr
 	}
-
-	SqliteDB.SetMaxOpenConns(5)
-	SqliteDB.SetConnMaxLifetime(time.Hour)
 
 	return nil
 }
