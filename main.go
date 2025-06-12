@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net"
@@ -20,6 +21,7 @@ import (
 	"github.com/gravitl/netmaker/config"
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/functions"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -27,6 +29,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/serverctl"
 	_ "go.uber.org/automaxprocs"
@@ -34,10 +37,10 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-var version = "v0.90.0"
+var version = "v0.99.0"
 
 //	@title			NetMaker
-//	@version		0.90.0
+//	@version		0.99.0
 //	@description	NetMaker API Docs
 //	@tag.name	    APIUsage
 //	@tag.description.markdown
@@ -62,6 +65,7 @@ func main() {
 	if servercfg.DeployedByOperator() && !servercfg.IsPro {
 		logic.SetFreeTierLimits()
 	}
+	defer db.CloseDB()
 	defer database.CloseDB()
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
 	defer stop()
@@ -102,11 +106,20 @@ func initialize() { // Client Mode Prereq Check
 		logger.FatalLog("error: must set NODE_ID, currently blank")
 	}
 
-	if err = database.InitializeDatabase(); err != nil {
-		logger.FatalLog("Error connecting to database: ", err.Error())
+	// initialize sql schema db.
+	err = db.InitializeDB(schema.ListModels()...)
+	if err != nil {
+		logger.FatalLog("error connecting to database: ", err.Error())
 	}
+
 	logger.Log(0, "database successfully connected")
 
+	// initialize kv schema db.
+	if err = database.InitializeDatabase(); err != nil {
+		logger.FatalLog("error initializing database: ", err.Error())
+	}
+
+	initializeUUID()
 	//initialize cache
 	_, _ = logic.GetNetworks()
 	_, _ = logic.GetAllNodes()
@@ -248,7 +261,7 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 	defer mq.CloseClient()
 	go mq.Keepalive(ctx)
 	go func() {
-		peerUpdate := make(chan *models.Node)
+		peerUpdate := make(chan *models.Node, 100)
 		go logic.ManageZombies(ctx, peerUpdate)
 		go logic.DeleteExpiredNodes(ctx, peerUpdate)
 		for nodeUpdate := range peerUpdate {
@@ -316,4 +329,42 @@ func setGarbageCollection() {
 	if !gcset {
 		debug.SetGCPercent(ncutils.DEFAULT_GC_PERCENT)
 	}
+}
+
+// initializeUUID - create a UUID record for server if none exists
+func initializeUUID() error {
+	records, err := database.FetchRecords(database.SERVER_UUID_TABLE_NAME)
+	if err != nil {
+		if !database.IsEmptyRecord(err) {
+			return err
+		}
+	} else if len(records) > 0 {
+		return nil
+	}
+	// setup encryption keys
+	var trafficPubKey, trafficPrivKey, errT = box.GenerateKey(rand.Reader) // generate traffic keys
+	if errT != nil {
+		return errT
+	}
+	tPriv, err := ncutils.ConvertKeyToBytes(trafficPrivKey)
+	if err != nil {
+		return err
+	}
+
+	tPub, err := ncutils.ConvertKeyToBytes(trafficPubKey)
+	if err != nil {
+		return err
+	}
+
+	telemetry := models.Telemetry{
+		UUID:           uuid.NewString(),
+		TrafficKeyPriv: tPriv,
+		TrafficKeyPub:  tPub,
+	}
+	telJSON, err := json.Marshal(&telemetry)
+	if err != nil {
+		return err
+	}
+
+	return database.Insert(database.SERVER_UUID_RECORD_KEY, string(telJSON), database.SERVER_UUID_TABLE_NAME)
 }

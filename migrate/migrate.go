@@ -1,34 +1,41 @@
 package migrate
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"time"
 
 	"golang.org/x/exp/slog"
+	"gorm.io/datatypes"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
 // Run - runs all migrations
 func Run() {
+	settings()
 	updateEnrollmentKeys()
 	assignSuperAdmin()
 	createDefaultTagsAndPolicies()
 	removeOldUserGrps()
+	migrateToUUIDs()
 	syncUsers()
 	updateHosts()
 	updateNodes()
 	updateAcls()
-	migrateToGws()
+	logic.MigrateToGws()
+	migrateToEgressV1()
 }
 
 func assignSuperAdmin() {
@@ -151,6 +158,7 @@ func updateEnrollmentKeys() {
 			true,
 			uuid.Nil,
 			true,
+			false,
 		)
 
 	}
@@ -187,6 +195,14 @@ func updateHosts() {
 				logger.Log(0, "failed to upsert host", host.ID.String())
 				continue
 			}
+		}
+		if host.DNS == "" || (host.DNS != "yes" && host.DNS != "no") {
+			if logic.GetServerSettings().ManageDNS {
+				host.DNS = "yes"
+			} else {
+				host.DNS = "no"
+			}
+			logic.UpsertHost(&host)
 		}
 	}
 }
@@ -386,6 +402,10 @@ func MigrateEmqx() {
 
 }
 
+func migrateToUUIDs() {
+	logic.MigrateToUUIDs()
+}
+
 func syncUsers() {
 	// create default network user roles for existing networks
 	if servercfg.IsPro {
@@ -405,11 +425,12 @@ func syncUsers() {
 			}
 			if user.PlatformRoleID == models.SuperAdminRole && !user.IsSuperAdmin {
 				user.IsSuperAdmin = true
-				logic.UpsertUser(user)
+
 			}
 			if user.PlatformRoleID.String() != "" {
 				logic.MigrateUserRoleAndGroups(user)
-				logic.AddGlobalNetRolesToAdmins(user)
+				logic.AddGlobalNetRolesToAdmins(&user)
+				logic.UpsertUser(user)
 				continue
 			}
 			user.AuthType = models.BasicAuth
@@ -430,9 +451,9 @@ func syncUsers() {
 			} else {
 				user.PlatformRoleID = models.ServiceUser
 			}
-			logic.UpsertUser(user)
-			logic.AddGlobalNetRolesToAdmins(user)
+			logic.AddGlobalNetRolesToAdmins(&user)
 			logic.MigrateUserRoleAndGroups(user)
+			logic.UpsertUser(user)
 		}
 	}
 
@@ -452,47 +473,118 @@ func createDefaultTagsAndPolicies() {
 	logic.MigrateAclPolicies()
 }
 
-func migrateToGws() {
-	nodes, err := logic.GetAllNodes()
+func migrateToEgressV1() {
+	nodes, _ := logic.GetAllNodes()
+	user, err := logic.GetSuperAdmin()
 	if err != nil {
 		return
 	}
 	for _, node := range nodes {
-		if node.IsIngressGateway || node.IsRelay {
-			node.IsGw = true
-			node.IsIngressGateway = true
-			node.IsRelay = true
-			if node.Tags == nil {
-				node.Tags = make(map[models.TagID]struct{})
+		if node.IsEgressGateway {
+			egressHost, err := logic.GetHost(node.HostID.String())
+			if err != nil {
+				continue
 			}
-			node.Tags[models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName))] = struct{}{}
-			delete(node.Tags, models.TagID(fmt.Sprintf("%s.%s", node.Network, models.OldRemoteAccessTagName)))
+			for _, rangeI := range node.EgressGatewayRequest.Ranges {
+				e := schema.Egress{
+					ID:          uuid.New().String(),
+					Name:        fmt.Sprintf("%s egress", egressHost.Name),
+					Description: "",
+					Network:     node.Network,
+					Nodes: datatypes.JSONMap{
+						node.ID.String(): 256,
+					},
+					Tags:      make(datatypes.JSONMap),
+					Range:     rangeI,
+					Nat:       node.EgressGatewayRequest.NatEnabled == "yes",
+					Status:    true,
+					CreatedBy: user.UserName,
+					CreatedAt: time.Now().UTC(),
+				}
+				err = e.Create(db.WithContext(context.TODO()))
+				if err == nil {
+					acl := models.Acl{
+						ID:          uuid.New().String(),
+						Name:        "egress node policy",
+						MetaData:    "",
+						Default:     false,
+						ServiceType: models.Any,
+						NetworkID:   models.NetworkID(node.Network),
+						Proto:       models.ALL,
+						RuleType:    models.DevicePolicy,
+						Src: []models.AclPolicyTag{
+
+							{
+								ID:    models.NodeTagID,
+								Value: "*",
+							},
+						},
+						Dst: []models.AclPolicyTag{
+							{
+								ID:    models.EgressID,
+								Value: e.ID,
+							},
+						},
+
+						AllowedDirection: models.TrafficDirectionBi,
+						Enabled:          true,
+						CreatedBy:        "auto",
+						CreatedAt:        time.Now().UTC(),
+					}
+					logic.InsertAcl(acl)
+					acl = models.Acl{
+						ID:          uuid.New().String(),
+						Name:        "egress node policy",
+						MetaData:    "",
+						Default:     false,
+						ServiceType: models.Any,
+						NetworkID:   models.NetworkID(node.Network),
+						Proto:       models.ALL,
+						RuleType:    models.UserPolicy,
+						Src: []models.AclPolicyTag{
+
+							{
+								ID:    models.UserAclID,
+								Value: "*",
+							},
+						},
+						Dst: []models.AclPolicyTag{
+							{
+								ID:    models.EgressID,
+								Value: e.ID,
+							},
+						},
+
+						AllowedDirection: models.TrafficDirectionBi,
+						Enabled:          true,
+						CreatedBy:        "auto",
+						CreatedAt:        time.Now().UTC(),
+					}
+					logic.InsertAcl(acl)
+				}
+
+			}
+			node.IsEgressGateway = false
+			node.EgressGatewayRequest = models.EgressGatewayRequest{}
+			node.EgressGatewayNatEnabled = false
+			node.EgressGatewayRanges = []string{}
 			logic.UpsertNode(&node)
+
 		}
 	}
-	acls := logic.ListAcls()
-	for _, acl := range acls {
-		upsert := false
-		for i, srcI := range acl.Src {
-			if srcI.ID == models.NodeTagID && srcI.Value == fmt.Sprintf("%s.%s", acl.NetworkID.String(), models.OldRemoteAccessTagName) {
-				srcI.Value = fmt.Sprintf("%s.%s", acl.NetworkID.String(), models.GwTagName)
-				acl.Src[i] = srcI
-				upsert = true
-			}
-		}
-		for i, dstI := range acl.Dst {
-			if dstI.ID == models.NodeTagID && dstI.Value == fmt.Sprintf("%s.%s", acl.NetworkID.String(), models.OldRemoteAccessTagName) {
-				dstI.Value = fmt.Sprintf("%s.%s", acl.NetworkID.String(), models.GwTagName)
-				acl.Dst[i] = dstI
-				upsert = true
-			}
-		}
-		if upsert {
-			logic.UpsertAcl(acl)
-		}
+}
+
+func settings() {
+	_, err := database.FetchRecords(database.SERVER_SETTINGS)
+	if database.IsEmptyRecord(err) {
+		logic.UpsertServerSettings(logic.GetServerSettingsFromEnv())
 	}
-	nets, _ := logic.GetNetworks()
-	for _, netI := range nets {
-		logic.DeleteTag(models.TagID(fmt.Sprintf("%s.%s", netI.NetID, models.OldRemoteAccessTagName)), true)
+	settings := logic.GetServerSettings()
+	if settings.AuditLogsRetentionPeriodInDays == 0 {
+		settings.AuditLogsRetentionPeriodInDays = 30
 	}
+	if settings.DefaultDomain == "" {
+		settings.DefaultDomain = servercfg.GetDefaultDomain()
+	}
+	logic.UpsertServerSettings(settings)
 }

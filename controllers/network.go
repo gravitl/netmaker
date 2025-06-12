@@ -483,9 +483,9 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	}
 	err = logic.DeleteNetwork(network, force, doneCh)
 	if err != nil {
-		errtype := "badrequest"
+		errtype := logic.BadReq
 		if strings.Contains(err.Error(), "Node check failed") {
-			errtype = "forbidden"
+			errtype = logic.Forbidden
 		}
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to delete network [%s]: %v", network, err))
@@ -514,6 +514,21 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 			logic.SetDNS()
 		}
 	}()
+	logic.LogEvent(&models.Event{
+		Action: models.Delete,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   network,
+			Name: network,
+			Type: models.NetworkSub,
+		},
+		Origin: models.Dashboard,
+	})
 	logger.Log(1, r.Header.Get("user"), "deleted network", network)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode("success")
@@ -588,8 +603,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	logic.CreateDefaultNetworkRolesAndGroups(models.NetworkID(network.NetID))
 	logic.CreateDefaultAclNetworkPolicies(models.NetworkID(network.NetID))
 	logic.CreateDefaultTags(models.NetworkID(network.NetID))
-
-	go logic.AddNetworkToAllocatedIpMap(network.NetID)
+	logic.AddNetworkToAllocatedIpMap(network.NetID)
 
 	go func() {
 		defaultHosts := logic.GetDefaultHosts()
@@ -637,7 +651,22 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			logger.Log(1, "failed to publish peer update for default hosts after network is added")
 		}
 	}()
-
+	logic.LogEvent(&models.Event{
+		Action: models.Create,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   network.NetID,
+			Name: network.NetID,
+			Type: models.NetworkSub,
+			Info: network,
+		},
+		Origin: models.Dashboard,
+	})
 	logger.Log(1, r.Header.Get("user"), "created network", network.NetID)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(network)

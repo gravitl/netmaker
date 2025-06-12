@@ -72,12 +72,32 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 func deleteEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	keyID := params["keyID"]
-	err := logic.DeleteEnrollmentKey(keyID, false)
+	key, err := logic.GetEnrollmentKey(keyID)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	err = logic.DeleteEnrollmentKey(keyID, false)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to remove enrollment key: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Delete,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   keyID,
+			Name: key.Tags[0],
+			Type: models.EnrollmentKeySub,
+		},
+		Origin: models.Dashboard,
+	})
 	logger.Log(2, r.Header.Get("user"), "deleted enrollment key", keyID)
 	w.WriteHeader(http.StatusOK)
 }
@@ -160,6 +180,7 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		enrollmentKeyBody.Unlimited,
 		relayId,
 		false,
+		enrollmentKeyBody.AutoEgress,
 	)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to create enrollment key:", err.Error())
@@ -172,6 +193,21 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	logic.LogEvent(&models.Event{
+		Action: models.Create,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   newEnrollmentKey.Value,
+			Name: newEnrollmentKey.Tags[0],
+			Type: models.EnrollmentKeySub,
+		},
+		Origin: models.Dashboard,
+	})
 	logger.Log(2, r.Header.Get("user"), "created enrollment key")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newEnrollmentKey)
@@ -207,6 +243,7 @@ func updateEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	currKey, _ := logic.GetEnrollmentKey(keyId)
 
 	newEnrollmentKey, err := logic.UpdateEnrollmentKey(keyId, relayId, enrollmentKeyBody.Groups)
 	if err != nil {
@@ -220,7 +257,25 @@ func updateEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-
+	logic.LogEvent(&models.Event{
+		Action: models.Update,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   newEnrollmentKey.Value,
+			Name: newEnrollmentKey.Tags[0],
+			Type: models.EnrollmentKeySub,
+		},
+		Diff: models.Diff{
+			Old: currKey,
+			New: newEnrollmentKey,
+		},
+		Origin: models.Dashboard,
+	})
 	slog.Info("updated enrollment key", "id", keyId)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(newEnrollmentKey)
@@ -285,7 +340,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	key, keyErr := logic.RetrievePublicTrafficKey()
 	if keyErr != nil {
 		logger.Log(0, "error retrieving key:", keyErr.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(keyErr, "internal"))
 		return
 	}
 	// use the token
@@ -301,7 +356,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	if !hostExists {
 		newHost.PersistentKeepalive = models.DefaultPersistentKeepAlive
 		// register host
-		//logic.CheckHostPorts(&newHost)
+		_ = logic.CheckHostPorts(&newHost)
 		// create EMQX credentials and ACLs for host
 		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 			if err := mq.GetEmqxHandler().CreateEmqxUser(newHost.ID.String(), newHost.HostPass); err != nil {
@@ -325,14 +380,14 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// need to revise the list of networks from key
 		// based on the ones host currently has
-		networksToAdd := []string{}
-		currentNets := logic.GetHostNetworks(newHost.ID.String())
-		for _, newNet := range enrollmentKey.Networks {
-			if !logic.StringSliceContains(currentNets, newNet) {
-				networksToAdd = append(networksToAdd, newNet)
-			}
-		}
-		enrollmentKey.Networks = networksToAdd
+		// networksToAdd := []string{}
+		// currentNets := logic.GetHostNetworks(newHost.ID.String())
+		// for _, newNet := range enrollmentKey.Networks {
+		// 	if !logic.StringSliceContains(currentNets, newNet) {
+		// 		networksToAdd = append(networksToAdd, newNet)
+		// 	}
+		// }
+		// enrollmentKey.Networks = networksToAdd
 		currHost, err := logic.GetHost(newHost.ID.String())
 		if err != nil {
 			slog.Error("failed registration", "hostID", newHost.ID.String(), "hostName", newHost.Name, "error", err.Error())
@@ -347,16 +402,40 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	host, err := logic.GetHost(newHost.ID.String())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
 	// ready the response
-	server := servercfg.GetServerInfo()
+	server := logic.GetServerInfo()
 	server.TrafficKey = key
 	response := models.RegisterResponse{
 		ServerConf:    server,
-		RequestedHost: newHost,
+		RequestedHost: *host,
 	}
-	logger.Log(0, newHost.Name, newHost.ID.String(), "registered with Netmaker")
+	for _, netID := range enrollmentKey.Networks {
+		logic.LogEvent(&models.Event{
+			Action: models.JoinHostToNet,
+			Source: models.Subject{
+				ID:   enrollmentKey.Value,
+				Name: enrollmentKey.Tags[0],
+				Type: models.EnrollmentKeySub,
+			},
+			TriggeredBy: r.Header.Get("user"),
+			Target: models.Subject{
+				ID:   newHost.ID.String(),
+				Name: newHost.Name,
+				Type: models.DeviceSub,
+			},
+			NetworkID: models.NetworkID(netID),
+			Origin:    models.Dashboard,
+		})
+	}
+
+	logger.Log(0, host.Name, host.ID.String(), "registered with Netmaker")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&response)
 	// notify host of changes, peer and node updates
-	go auth.CheckNetRegAndHostUpdate(enrollmentKey.Networks, &newHost, enrollmentKey.Relay, enrollmentKey.Groups)
+	go auth.CheckNetRegAndHostUpdate(enrollmentKey.Networks, host, enrollmentKey.Relay, enrollmentKey.Groups)
 }

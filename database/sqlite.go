@@ -1,16 +1,12 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"errors"
-	"os"
-	"path/filepath"
-
+	"github.com/gravitl/netmaker/db"
 	_ "github.com/mattn/go-sqlite3" // need to blank import this package
 )
-
-// == sqlite ==
-const dbFilename = "netmaker.db"
 
 // SqliteDB is the db object for sqlite database connections
 var SqliteDB *sql.DB
@@ -29,21 +25,14 @@ var SQLITE_FUNCTIONS = map[string]interface{}{
 }
 
 func initSqliteDB() error {
-	// == create db file if not present ==
-	if _, err := os.Stat("data"); os.IsNotExist(err) {
-		os.Mkdir("data", 0700)
-	}
-	dbFilePath := filepath.Join("data", dbFilename)
-	if _, err := os.Stat(dbFilePath); os.IsNotExist(err) {
-		os.Create(dbFilePath)
-	}
-	// == "connect" the database ==
+	gormDB := db.FromContext(db.WithContext(context.TODO()))
+
 	var dbOpenErr error
-	SqliteDB, dbOpenErr = sql.Open("sqlite3", dbFilePath)
+	SqliteDB, dbOpenErr = gormDB.DB()
 	if dbOpenErr != nil {
 		return dbOpenErr
 	}
-	SqliteDB.SetMaxOpenConns(1)
+
 	return nil
 }
 
@@ -61,7 +50,7 @@ func sqliteCreateTable(tableName string) error {
 }
 
 func sqliteInsert(key string, value string, tableName string) error {
-	if key != "" && value != "" && IsJSONString(value) {
+	if key != "" && value != "" {
 		insertSQL := "INSERT OR REPLACE INTO " + tableName + " (key, value) VALUES (?, ?)"
 		statement, err := SqliteDB.Prepare(insertSQL)
 		if err != nil {
@@ -78,7 +67,7 @@ func sqliteInsert(key string, value string, tableName string) error {
 }
 
 func sqliteInsertPeer(key string, value string) error {
-	if key != "" && value != "" && IsJSONString(value) {
+	if key != "" && value != "" {
 		err := sqliteInsert(key, value, PEERS_TABLE_NAME)
 		if err != nil {
 			return err
@@ -134,7 +123,7 @@ func sqliteFetchRecords(tableName string) (map[string]string, error) {
 }
 
 func sqliteCloseDB() {
-	SqliteDB.Close()
+	//SqliteDB.Close()
 }
 
 func sqliteConnected() bool {

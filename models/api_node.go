@@ -32,6 +32,7 @@ type ApiNode struct {
 	NetworkRange6                 string              `json:"networkrange6"`
 	IsRelayed                     bool                `json:"isrelayed"`
 	IsRelay                       bool                `json:"isrelay"`
+	IsGw                          bool                `json:"is_gw"`
 	RelayedBy                     string              `json:"relayedby" bson:"relayedby" yaml:"relayedby"`
 	RelayedNodes                  []string            `json:"relaynodes" yaml:"relayedNodes"`
 	IsEgressGateway               bool                `json:"isegressgateway"`
@@ -72,26 +73,20 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.Connected = a.Connected
 	convertedNode.ID, _ = uuid.Parse(a.ID)
 	convertedNode.HostID, _ = uuid.Parse(a.HostID)
-	convertedNode.IsRelay = a.IsRelay
+	//convertedNode.IsRelay = a.IsRelay
 	convertedNode.IsRelayed = a.IsRelayed
 	convertedNode.RelayedBy = a.RelayedBy
 	convertedNode.RelayedNodes = a.RelayedNodes
 	convertedNode.PendingDelete = a.PendingDelete
 	convertedNode.FailedOverBy = currentNode.FailedOverBy
 	convertedNode.FailOverPeers = currentNode.FailOverPeers
-	convertedNode.IsEgressGateway = a.IsEgressGateway
-	convertedNode.IsIngressGateway = a.IsIngressGateway
-	// prevents user from changing ranges, must delete and recreate
-	convertedNode.EgressGatewayRanges = currentNode.EgressGatewayRanges
+	//convertedNode.IsIngressGateway = a.IsIngressGateway
 	convertedNode.IngressGatewayRange = currentNode.IngressGatewayRange
 	convertedNode.IngressGatewayRange6 = currentNode.IngressGatewayRange6
-	convertedNode.DNSOn = a.DNSOn
 	convertedNode.IngressDNS = a.IngressDns
 	convertedNode.IngressPersistentKeepalive = a.IngressPersistentKeepalive
 	convertedNode.IngressMTU = a.IngressMTU
 	convertedNode.IsInternetGateway = a.IsInternetGateway
-	convertedNode.EgressGatewayRequest = currentNode.EgressGatewayRequest
-	convertedNode.EgressGatewayNatEnabled = currentNode.EgressGatewayNatEnabled
 	convertedNode.InternetGwID = currentNode.InternetGwID
 	convertedNode.InetNodeReq = currentNode.InetNodeReq
 	convertedNode.RelayedNodes = a.RelayedNodes
@@ -137,6 +132,11 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 		convertedNode.AdditionalRagIps = append(convertedNode.AdditionalRagIps, ragIp)
 	}
 	convertedNode.Tags = a.Tags
+	convertedNode.IsGw = a.IsGw
+	if convertedNode.IsGw {
+		convertedNode.IsRelay = true
+		convertedNode.IsIngressGateway = true
+	}
 	return &convertedNode
 }
 
@@ -185,14 +185,10 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	}
 	apiNode.IsRelayed = nm.IsRelayed
 	apiNode.IsRelay = nm.IsRelay
+	apiNode.IsGw = nm.IsGw
 	apiNode.RelayedBy = nm.RelayedBy
 	apiNode.RelayedNodes = nm.RelayedNodes
-	apiNode.IsEgressGateway = nm.IsEgressGateway
 	apiNode.IsIngressGateway = nm.IsIngressGateway
-	apiNode.EgressGatewayRanges = nm.EgressGatewayRanges
-	apiNode.EgressGatewayRangesWithMetric = nm.EgressGatewayRequest.RangesWithMetric
-	apiNode.EgressGatewayNatEnabled = nm.EgressGatewayNatEnabled
-	apiNode.DNSOn = nm.DNSOn
 	apiNode.IngressDns = nm.IngressDNS
 	apiNode.IngressPersistentKeepalive = nm.IngressPersistentKeepalive
 	apiNode.IngressMTU = nm.IngressMTU

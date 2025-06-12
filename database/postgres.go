@@ -1,11 +1,10 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"errors"
-	"fmt"
-
-	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/db"
 	_ "github.com/lib/pq"
 )
 
@@ -25,24 +24,16 @@ var PG_FUNCTIONS = map[string]interface{}{
 	isConnected:  pgIsConnected,
 }
 
-func getPGConnString() string {
-	pgconf := servercfg.GetSQLConf()
-	pgConn := fmt.Sprintf("host=%s port=%d user=%s "+
-		"password=%s dbname=%s sslmode=%s connect_timeout=5",
-		pgconf.Host, pgconf.Port, pgconf.Username, pgconf.Password, pgconf.DB, pgconf.SSLMode)
-	return pgConn
-}
-
 func initPGDB() error {
-	connString := getPGConnString()
+	gormDB := db.FromContext(db.WithContext(context.TODO()))
+
 	var dbOpenErr error
-	PGDB, dbOpenErr = sql.Open("postgres", connString)
+	PGDB, dbOpenErr = gormDB.DB()
 	if dbOpenErr != nil {
 		return dbOpenErr
 	}
-	dbOpenErr = PGDB.Ping()
 
-	return dbOpenErr
+	return PGDB.Ping()
 }
 
 func pgCreateTable(tableName string) error {
@@ -59,7 +50,7 @@ func pgCreateTable(tableName string) error {
 }
 
 func pgInsert(key string, value string, tableName string) error {
-	if key != "" && value != "" && IsJSONString(value) {
+	if key != "" && value != "" {
 		insertSQL := "INSERT INTO " + tableName + " (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $3;"
 		statement, err := PGDB.Prepare(insertSQL)
 		if err != nil {
@@ -77,7 +68,7 @@ func pgInsert(key string, value string, tableName string) error {
 }
 
 func pgInsertPeer(key string, value string) error {
-	if key != "" && value != "" && IsJSONString(value) {
+	if key != "" && value != "" {
 		err := pgInsert(key, value, PEERS_TABLE_NAME)
 		if err != nil {
 			return err
@@ -134,7 +125,7 @@ func pgFetchRecords(tableName string) (map[string]string, error) {
 }
 
 func pgCloseDB() {
-	PGDB.Close()
+	//PGDB.Close()
 }
 
 func pgIsConnected() bool {

@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,11 +10,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	controller "github.com/gravitl/netmaker/controllers"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
+	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 )
 
@@ -205,6 +208,11 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
+	acls, _ := logic.ListAclsByNetwork(models.NetworkID(node.Network))
+	logic.GetNodeEgressInfo(&node, eli, acls)
+	logic.GetNodeEgressInfo(&peerNode, eli, acls)
+	logic.GetNodeEgressInfo(&failOverNode, eli, acls)
 	if peerNode.IsFailOver {
 		logic.ReturnErrorResponse(
 			w,
@@ -242,6 +250,18 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 			w,
 			r,
 			logic.FormatError(errors.New("node acting as relay for the peer node"), "badrequest"),
+		)
+		return
+	}
+	if (node.InternetGwID != "" && failOverNode.IsInternetGateway && node.InternetGwID != failOverNode.ID.String()) ||
+		(peerNode.InternetGwID != "" && failOverNode.IsInternetGateway && peerNode.InternetGwID != failOverNode.ID.String()) {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				errors.New("node using a internet gw by the peer node"),
+				"badrequest",
+			),
 		)
 		return
 	}
@@ -349,6 +369,11 @@ func checkfailOverCtx(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
+	acls, _ := logic.ListAclsByNetwork(models.NetworkID(node.Network))
+	logic.GetNodeEgressInfo(&node, eli, acls)
+	logic.GetNodeEgressInfo(&peerNode, eli, acls)
+	logic.GetNodeEgressInfo(&failOverNode, eli, acls)
 	if peerNode.IsFailOver {
 		logic.ReturnErrorResponse(
 			w,
@@ -389,6 +414,18 @@ func checkfailOverCtx(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	if (node.InternetGwID != "" && failOverNode.IsInternetGateway && node.InternetGwID != failOverNode.ID.String()) ||
+		(peerNode.InternetGwID != "" && failOverNode.IsInternetGateway && peerNode.InternetGwID != failOverNode.ID.String()) {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				errors.New("node using a internet gw by the peer node"),
+				"badrequest",
+			),
+		)
+		return
+	}
 	if node.IsInternetGateway && peerNode.InternetGwID == node.ID.String() {
 		logic.ReturnErrorResponse(
 			w,
@@ -406,6 +443,17 @@ func checkfailOverCtx(w http.ResponseWriter, r *http.Request) {
 			r,
 			logic.FormatError(
 				errors.New("node using a internet gw by the peer node"),
+				"badrequest",
+			),
+		)
+		return
+	}
+	if ok := logic.IsPeerAllowed(node, peerNode, true); !ok {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				errors.New("peers are not allowed to communicate"),
 				"badrequest",
 			),
 		)

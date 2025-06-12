@@ -29,7 +29,7 @@ var nodeListCmd = &cobra.Command{
 			functions.PrettyPrint(data)
 		default:
 			table := tablewriter.NewWriter(os.Stdout)
-			table.SetHeader([]string{"ID", "Addresses", "Network", "Egress", "Remote Access Gateway", "Relay"})
+			table.SetHeader([]string{"ID", "Addresses", "Network", "Egress", "Remote Access Gateway", "Relay", "Type"})
 			for _, d := range data {
 				addresses := ""
 				if d.Address != "" {
@@ -41,8 +41,31 @@ var nodeListCmd = &cobra.Command{
 					}
 					addresses += d.Address6
 				}
-				table.Append([]string{d.ID, addresses, d.Network,
-					strconv.FormatBool(d.IsEgressGateway), strconv.FormatBool(d.IsIngressGateway), strconv.FormatBool(d.IsRelay)})
+				network := d.Network
+				id := d.ID
+				nodeType := "Device"
+
+				if d.IsStatic {
+					id = d.StaticNode.ClientID
+					nodeType = "Static"
+				}
+				if d.IsUserNode {
+					id = d.StaticNode.OwnerID
+					nodeType = "User"
+				}
+				if d.IsStatic || d.IsUserNode {
+					addresses = d.StaticNode.Address
+					if d.StaticNode.Address6 != "" {
+						if addresses != "" {
+							addresses += ", "
+						}
+						addresses += d.StaticNode.Address6
+					}
+					network = d.StaticNode.Network
+				}
+
+				table.Append([]string{id, addresses, network,
+					strconv.FormatBool(d.IsEgressGateway), strconv.FormatBool(d.IsIngressGateway), strconv.FormatBool(d.IsRelay), nodeType})
 			}
 			table.Render()
 		}
