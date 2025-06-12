@@ -82,9 +82,7 @@ func InitPro() {
 			addTrialLicenseHook()
 		}
 
-		if logic.GetRacAutoDisable() {
-			AddRacHooks()
-		}
+		AddUnauthorisedUserNodeHooks()
 
 		var authProvider = auth.InitializeAuthProvider()
 		if authProvider != "" {
