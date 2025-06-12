@@ -27,6 +27,7 @@ type ExtClient struct {
 	DeviceName             string              `json:"device_name"`
 	PublicEndpoint         string              `json:"public_endpoint"`
 	Country                string              `json:"country"`
+	Location               string              `json:"location"` //format: lat,long
 	Mutex                  *sync.Mutex         `json:"-"`
 }
 
@@ -47,6 +48,7 @@ type CustomExtClient struct {
 	IsAlreadyConnectedToInetGw bool                `json:"is_already_connected_to_inet_gw"`
 	PublicEndpoint             string              `json:"public_endpoint"`
 	Country                    string              `json:"country"`
+	Location                   string              `json:"location"` //format: lat,long
 }
 
 func (ext *ExtClient) ConvertToStaticNode() Node {
