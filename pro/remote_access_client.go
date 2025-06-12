@@ -13,20 +13,20 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-const racAutoDisableCheckInterval = 3 * time.Minute
+const unauthorisedUserNodeCheckInterval = 3 * time.Minute
 
-// AddRacHooks - adds hooks for Remote Access Client
-func AddRacHooks() {
-	slog.Debug("adding RAC autodisable hook")
+// AddUnauthorisedUserNodeHooks - adds hook to prevent access from unauthorised (expired) user nodes
+func AddUnauthorisedUserNodeHooks() {
+	slog.Debug("adding unauthorisedUserNode hook")
 	logic.HookManagerCh <- models.HookDetails{
-		Hook:     racAutoDisableHook,
-		Interval: racAutoDisableCheckInterval,
+		Hook:     unauthorisedUserNodeHook,
+		Interval: unauthorisedUserNodeCheckInterval,
 	}
 }
 
-// racAutoDisableHook - checks if RAC is enabled and if it is, checks if it should be disabled
-func racAutoDisableHook() error {
-	slog.Debug("running RAC autodisable hook")
+// unauthorisedUserNodeHook - checks if a user node should be disabled, using the user's last login time
+func unauthorisedUserNodeHook() error {
+	slog.Debug("running unauthorisedUserNode hook")
 
 	users, err := logic.GetUsers()
 	if err != nil {
@@ -55,16 +55,16 @@ func racAutoDisableHook() error {
 			}
 			if (client.OwnerID == user.UserName) &&
 				client.Enabled {
-				slog.Info(fmt.Sprintf("disabling ext client %s for user %s due to RAC autodisabling", client.ClientID, client.OwnerID))
+				slog.Info(fmt.Sprintf("disabling user node %s for user %s: auth token expired", client.ClientID, client.OwnerID))
 				if err := disableExtClient(&client); err != nil {
-					slog.Error("error disabling ext client in RAC autodisable hook", "error", err)
+					slog.Error("error disabling user node", "error", err)
 					continue // dont return but try for other clients
 				}
 			}
 		}
 	}
 
-	slog.Debug("finished running RAC autodisable hook")
+	slog.Debug("finished running unauthorisedUserNode hook")
 	return nil
 }
 
