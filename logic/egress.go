@@ -39,27 +39,22 @@ func ValidateEgressReq(e *schema.Egress) error {
 func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress, acls []models.Acl) bool {
 	nodeTags := maps.Clone(node.Tags)
 	nodeTags[models.TagID(node.ID.String())] = struct{}{}
+	nodeTags[models.TagID("*")] = struct{}{}
 	for _, acl := range acls {
 		if !acl.Enabled {
 			continue
 		}
 		srcVal := ConvAclTagToValueMap(acl.Src)
-		if acl.AllowedDirection == models.TrafficDirectionBi {
-			if _, ok := srcVal["*"]; ok {
-				return true
-			}
-		}
 		for _, dstI := range acl.Dst {
-
-			if dstI.ID == models.NodeTagID && dstI.Value == "*" {
-				return true
-			}
-			if dstI.ID == models.EgressID && dstI.Value == e.ID {
-				e := schema.Egress{ID: dstI.Value}
-				err := e.Get(db.WithContext(context.TODO()))
-				if err != nil {
-					continue
+			if (dstI.ID == models.EgressID && dstI.Value == e.ID) || (dstI.ID == models.NodeTagID && dstI.Value == "*") {
+				if dstI.ID == models.EgressID {
+					e := schema.Egress{ID: dstI.Value}
+					err := e.Get(db.WithContext(context.TODO()))
+					if err != nil {
+						continue
+					}
 				}
+
 				if node.IsStatic {
 					if _, ok := srcVal[node.StaticNode.ClientID]; ok {
 						return true
@@ -75,8 +70,8 @@ func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress, acls []mode
 						return true
 					}
 				}
-
 			}
+
 		}
 	}
 	return false

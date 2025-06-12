@@ -125,6 +125,6 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.TurnEndpoint = currentHost.TurnEndpoint
 	h.PersistentKeepalive = time.Duration(a.PersistentKeepalive) * time.Second
 	h.AutoUpdate = a.AutoUpdate
-	h.DNS = a.DNS
+	h.DNS = strings.ToLower(a.DNS)
 	return &h
 }

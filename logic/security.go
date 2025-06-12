@@ -33,17 +33,18 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 			ReturnErrorResponse(w, r, FormatError(err, "unauthorized"))
 			return
 		}
+		if username != MasterUser {
+			user, err := GetUser(username)
+			if err != nil {
+				ReturnErrorResponse(w, r, FormatError(err, "unauthorized"))
+				return
+			}
 
-		user, err := GetUser(username)
-		if err != nil {
-			ReturnErrorResponse(w, r, FormatError(err, "unauthorized"))
-			return
-		}
-
-		if user.AccountDisabled {
-			err = errors.New("user account disabled")
-			ReturnErrorResponse(w, r, FormatError(err, "unauthorized"))
-			return
+			if user.AccountDisabled {
+				err = errors.New("user account disabled")
+				ReturnErrorResponse(w, r, FormatError(err, "unauthorized"))
+				return
+			}
 		}
 
 		// detect masteradmin
