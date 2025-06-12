@@ -780,6 +780,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 	extclient.PublicEndpoint = customExtClient.PublicEndpoint
 	extclient.Country = customExtClient.Country
+	extclient.Location = customExtClient.Location
 
 	if err = logic.CreateExtClient(&extclient); err != nil {
 		slog.Error(
