@@ -233,6 +233,9 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 	if servercfg.IsPro {
 		scfg.IsPro = "yes"
 	}
+
+	scfg.ClientID = logic.Mask()
+	scfg.ClientSecret = logic.Mask()
 	json.NewEncoder(w).Encode(scfg)
 	// w.WriteHeader(http.StatusOK)
 }

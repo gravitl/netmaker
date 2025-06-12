@@ -3,6 +3,8 @@ package logic
 import (
 	"context"
 	"fmt"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 	"net"
 	"os"
 	"testing"
@@ -14,6 +16,9 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	db.InitializeDB(schema.ListModels()...)
+	defer db.CloseDB()
+
 	database.InitializeDatabase()
 	defer database.CloseDB()
 	peerUpdate := make(chan *models.Node)
@@ -41,6 +46,9 @@ func TestCheckPorts(t *testing.T) {
 	}
 	//not sure why this initialization is required but without it
 	// RemoveHost returns database is closed
+	db.InitializeDB(schema.ListModels()...)
+	defer db.CloseDB()
+
 	database.InitializeDatabase()
 	RemoveHost(&h, true)
 	CreateHost(&h)
