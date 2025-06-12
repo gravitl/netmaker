@@ -162,6 +162,7 @@ func InitPro() {
 	logic.IsNodeAllowedToCommunicate = proLogic.IsNodeAllowedToCommunicate
 	logic.GetFwRulesForNodeAndPeerOnGw = proLogic.GetFwRulesForNodeAndPeerOnGw
 	logic.GetFwRulesForUserNodesOnGw = proLogic.GetFwRulesForUserNodesOnGw
+	logic.GetHostLocInfo = proLogic.GetHostLocInfo
 
 }
 
