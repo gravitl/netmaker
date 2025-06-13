@@ -62,6 +62,7 @@ type ApiNode struct {
 	IsUserNode        bool                `json:"is_user_node"`
 	StaticNode        ExtClient           `json:"static_node"`
 	Status            NodeStatus          `json:"status"`
+	Location          string              `json:"location"`
 }
 
 // ApiNode.ConvertToServerNode - converts an api node to a server node

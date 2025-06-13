@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -673,7 +674,6 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
-
 	ingressExists := checkIngressExists(nodeid)
 	if !ingressExists {
 		err := errors.New("ingress does not exist")
@@ -780,6 +780,10 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 	extclient.PublicEndpoint = customExtClient.PublicEndpoint
 	extclient.Country = customExtClient.Country
+	if customExtClient.RemoteAccessClientID != "" && customExtClient.Location == "" {
+		extclient.Location = logic.GetHostLocInfo(logic.GetClientIP(r), os.Getenv("IP_INFO_TOKEN"))
+	}
+	extclient.Location = customExtClient.Location
 
 	if err = logic.CreateExtClient(&extclient); err != nil {
 		slog.Error(
@@ -927,6 +931,9 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		//remove old peer entry
 		sendPeerUpdate = true
 		replacePeers = true
+	}
+	if update.RemoteAccessClientID != "" && update.Location == "" {
+		update.Location = logic.GetHostLocInfo(logic.GetClientIP(r), os.Getenv("IP_INFO_TOKEN"))
 	}
 	newclient := logic.UpdateExtClient(&oldExtClient, &update)
 	if err := logic.DeleteExtClient(oldExtClient.Network, oldExtClient.ClientID); err != nil {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"sync"
 
@@ -29,6 +30,8 @@ var (
 	// ErrInvalidHostID
 	ErrInvalidHostID error = errors.New("invalid host id")
 )
+
+var GetHostLocInfo = func(ip, token string) string { return "" }
 
 func getHostsFromCache() (hosts []models.Host) {
 	hostCacheMutex.RLock()
@@ -234,6 +237,11 @@ func CreateHost(h *models.Host) error {
 		h.DNS = "yes"
 	} else {
 		h.DNS = "no"
+	}
+	if h.EndpointIP != nil {
+		h.Location = GetHostLocInfo(h.EndpointIP.String(), os.Getenv("IP_INFO_TOKEN"))
+	} else if h.EndpointIPv6 != nil {
+		h.Location = GetHostLocInfo(h.EndpointIPv6.String(), os.Getenv("IP_INFO_TOKEN"))
 	}
 	checkForZombieHosts(h)
 	return UpsertHost(h)

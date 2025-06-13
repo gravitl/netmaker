@@ -32,6 +32,7 @@ type ApiHost struct {
 	PersistentKeepalive int        `json:"persistentkeepalive"   yaml:"persistentkeepalive"`
 	AutoUpdate          bool       `json:"autoupdate"              yaml:"autoupdate"`
 	DNS                 string     `json:"dns"               yaml:"dns"`
+	Location            string     `json:"location"`
 }
 
 // ApiIface - the interface struct for API usage
@@ -80,6 +81,7 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 	a.PersistentKeepalive = int(h.PersistentKeepalive.Seconds())
 	a.AutoUpdate = h.AutoUpdate
 	a.DNS = h.DNS
+	a.Location = h.Location
 	return &a
 }
 
@@ -126,5 +128,6 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.PersistentKeepalive = time.Duration(a.PersistentKeepalive) * time.Second
 	h.AutoUpdate = a.AutoUpdate
 	h.DNS = strings.ToLower(a.DNS)
+	h.Location = currentHost.Location
 	return &h
 }

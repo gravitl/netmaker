@@ -427,6 +427,12 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 	new.PostUp = strings.Replace(update.PostUp, "\r\n", "\n", -1)
 	new.PostDown = strings.Replace(update.PostDown, "\r\n", "\n", -1)
 	new.Tags = update.Tags
+	if update.Location != "" && update.Location != old.Location {
+		new.Location = update.Location
+	}
+	if update.Country != "" && update.Country != old.Country {
+		new.Country = update.Country
+	}
 	return new
 }
 

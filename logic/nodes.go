@@ -594,6 +594,24 @@ func GetAllNodesAPI(nodes []models.Node) []models.ApiNode {
 	return apiNodes[:]
 }
 
+// GetAllNodesAPI - get all nodes for api usage
+func GetAllNodesAPIWithLocation(nodes []models.Node) []models.ApiNode {
+	apiNodes := []models.ApiNode{}
+	for i := range nodes {
+		node := nodes[i]
+		newApiNode := node.ConvertToAPINode()
+		if node.IsStatic {
+			newApiNode.Location = node.StaticNode.Location
+		} else {
+			host, _ := GetHost(node.HostID.String())
+			newApiNode.Location = host.Location
+		}
+
+		apiNodes = append(apiNodes, *newApiNode)
+	}
+	return apiNodes[:]
+}
+
 // GetNodesStatusAPI - gets nodes status
 func GetNodesStatusAPI(nodes []models.Node) map[string]models.ApiNodeStatus {
 	apiStatusNodesMap := make(map[string]models.ApiNodeStatus)
