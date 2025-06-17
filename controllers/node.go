@@ -626,6 +626,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+
 	if !servercfg.IsPro {
 		newData.AdditionalRagIps = []string{}
 	}
@@ -637,6 +638,13 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			logic.FormatError(fmt.Errorf("error converting node"), "badrequest"),
 		)
 		return
+	}
+	if newNode.IsInternetGateway && len(newNode.InetNodeReq.InetNodeClientIDs) > 0 {
+		err = logic.ValidateInetGwReq(*newNode, newNode.InetNodeReq, newNode.IsInternetGateway && currentNode.IsInternetGateway)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
 	}
 	relayUpdate := logic.RelayUpdates(&currentNode, newNode)
 	if relayUpdate && newNode.IsRelay {
@@ -670,19 +678,9 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		logic.UpdateRelayed(&currentNode, newNode)
 	}
 	if !currentNode.IsInternetGateway && newNode.IsInternetGateway {
-		err = logic.ValidateInetGwReq(*newNode, newNode.InetNodeReq, false)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-			return
-		}
 		logic.SetInternetGw(newNode, newNode.InetNodeReq)
 	}
 	if currentNode.IsInternetGateway && newNode.IsInternetGateway {
-		err = logic.ValidateInetGwReq(*newNode, newNode.InetNodeReq, true)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-			return
-		}
 		logic.UnsetInternetGw(newNode)
 		logic.SetInternetGw(newNode, newNode.InetNodeReq)
 	}
