@@ -657,7 +657,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	ifaceDelta := logic.IfaceDelta(&currentNode, newNode)
 	aclUpdate := currentNode.DefaultACL != newNode.DefaultACL
 
 	err = logic.UpdateNode(&currentNode, newNode)
@@ -670,7 +669,27 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	if relayUpdate {
 		logic.UpdateRelayed(&currentNode, newNode)
 	}
-
+	if !currentNode.IsInternetGateway && newNode.IsInternetGateway {
+		err = logic.ValidateInetGwReq(*newNode, newNode.InetNodeReq, false)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+		logic.SetInternetGw(newNode, newNode.InetNodeReq)
+	}
+	if currentNode.IsInternetGateway && newNode.IsInternetGateway {
+		err = logic.ValidateInetGwReq(*newNode, newNode.InetNodeReq, true)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+		logic.UnsetInternetGw(newNode)
+		logic.SetInternetGw(newNode, newNode.InetNodeReq)
+	}
+	if !newNode.IsInternetGateway {
+		logic.UnsetInternetGw(newNode)
+	}
+	logic.UpsertNode(newNode)
 	logic.GetNodeStatus(newNode, false)
 
 	apiNode := newNode.ConvertToAPINode()
@@ -706,11 +725,6 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	go func(aclUpdate, relayupdate bool, newNode *models.Node) {
 		if err := mq.NodeUpdate(newNode); err != nil {
 			slog.Error("error publishing node update to node", "node", newNode.ID, "error", err)
-		}
-		if aclUpdate || relayupdate || ifaceDelta {
-			if err := mq.PublishPeerUpdate(false); err != nil {
-				logger.Log(0, "error during node ACL update for node", newNode.ID.String())
-			}
 		}
 		mq.PublishPeerUpdate(false)
 		if servercfg.IsDNSMode() {
