@@ -191,6 +191,7 @@ func GetFailOverPeerIps(peer, node *models.Node) []net.IPNet {
 			if failOverpeer.IsRelay {
 				for _, id := range failOverpeer.RelayedNodes {
 					rNode, _ := logic.GetNodeByID(id)
+					logic.GetNodeEgressInfo(&rNode, eli, acls)
 					if rNode.Address.IP != nil {
 						allowed := net.IPNet{
 							IP:   rNode.Address.IP,
