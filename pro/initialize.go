@@ -4,8 +4,6 @@
 package pro
 
 import (
-	"time"
-
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -40,31 +38,7 @@ func InitPro() {
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
 		// == License Handling ==
-		enableLicenseHook := true
-		// licenseKeyValue := servercfg.GetLicenseKey()
-		// netmakerTenantID := servercfg.GetNetmakerTenantID()
-		// if licenseKeyValue != "" && netmakerTenantID != "" {
-		// 	enableLicenseHook = true
-		// }
-		if !enableLicenseHook {
-			err := initTrial()
-			if err != nil {
-				logger.Log(0, "failed to init trial", err.Error())
-				enableLicenseHook = true
-			}
-			trialEndDate, err := getTrialEndDate()
-			if err != nil {
-				slog.Error("failed to get trial end date", "error", err)
-				enableLicenseHook = true
-			} else {
-				// check if trial ended
-				if time.Now().After(trialEndDate) {
-					// trial ended already
-					enableLicenseHook = true
-				}
-			}
-
-		}
+		enableLicenseHook := false
 
 		if enableLicenseHook {
 			logger.Log(0, "starting license checker")
@@ -77,9 +51,6 @@ func InitPro() {
 			logic.SetFreeTierForTelemetry(false)
 			// == End License Handling ==
 			AddLicenseHooks()
-		} else {
-			logger.Log(0, "starting trial license hook")
-			addTrialLicenseHook()
 		}
 
 		if logic.GetRacAutoDisable() {
