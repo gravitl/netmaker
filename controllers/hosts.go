@@ -308,6 +308,7 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}()
+
 	logic.LogEvent(&models.Event{
 		Action: models.Update,
 		Source: models.Subject{

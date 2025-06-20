@@ -1304,6 +1304,12 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			if extClient.DNS == "" {
 				extClient.DNS = node.IngressDNS
 			}
+
+			extClient.IngressGatewayEndpoint = utils.GetExtClientEndpoint(
+				host.EndpointIP,
+				host.EndpointIPv6,
+				logic.GetPeerListenPort(host),
+			)
 			extClient.AllowedIPs = logic.GetExtclientAllowedIPs(extClient)
 			gws = append(gws, models.UserRemoteGws{
 				GwID:              node.ID.String(),

@@ -1,7 +1,9 @@
 package utils
 
 import (
+	"fmt"
 	"log/slog"
+	"net"
 	"runtime"
 	"strings"
 	"time"
@@ -74,4 +76,13 @@ func NoEmptyStringToCsv(strs ...string) string {
 		}
 	}
 	return sb.String()
+}
+
+// GetExtClientEndpoint returns the external client endpoint in the format "host:port" or "[host]:port" for IPv6
+func GetExtClientEndpoint(hostIpv4Endpoint, hostIpv6Endpoint net.IP, hostListenPort int) string {
+	if hostIpv4Endpoint.To4() == nil {
+		return fmt.Sprintf("[%s]:%d", hostIpv6Endpoint.String(), hostListenPort)
+	} else {
+		return fmt.Sprintf("%s:%d", hostIpv4Endpoint.String(), hostListenPort)
+	}
 }
