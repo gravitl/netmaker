@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
-	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -126,18 +126,18 @@ func CreatePreAuthToken(username string) (string, error) {
 func GenerateOTPAuthURLSignature(url string) string {
 	signer := hmac.New(sha256.New, jwtSecretKey)
 	signer.Write([]byte(url))
-	return base64.StdEncoding.EncodeToString(signer.Sum(nil))
+	return hex.EncodeToString(signer.Sum(nil))
 }
 
 func VerifyOTPAuthURL(url, signature string) bool {
-	signer := hmac.New(sha256.New, jwtSecretKey)
-	signer.Write([]byte(url))
-	signatureBytes, err := base64.StdEncoding.DecodeString(string(signer.Sum(nil)))
+	signatureBytes, err := hex.DecodeString(signature)
 	if err != nil {
 		return false
 	}
 
-	return signature == string(signatureBytes)
+	signer := hmac.New(sha256.New, jwtSecretKey)
+	signer.Write([]byte(url))
+	return hmac.Equal(signatureBytes, signer.Sum(nil))
 }
 
 func GetUserNameFromToken(authtoken string) (username string, err error) {
