@@ -235,7 +235,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 		return "", errors.New("incorrect credentials")
 	}
 
-	if IsMFAEnabled() && result.IsMFAEnabled {
+	if result.IsMFAEnabled {
 		tokenString, err := CreatePreAuthToken(authRequest.UserName)
 		if err != nil {
 			slog.Error("error creating jwt", "error", err)
