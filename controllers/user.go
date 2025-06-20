@@ -439,7 +439,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 // @Router      /api/users/auth/init-totp [post]
 // @Tags        Auth
 // @Success     200 {object} models.SuccessResponse
-// @Failure     401 {object} models.ErrorResponse
+// @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func initiateTOTPSetup(w http.ResponseWriter, r *http.Request) {
 	username := r.Header.Get("user")
@@ -523,7 +523,7 @@ func initiateTOTPSetup(w http.ResponseWriter, r *http.Request) {
 // @Tags        Auth
 // @Param       body body models.UserTOTPVerificationParams true "TOTP verification parameters"
 // @Success     200 {object} models.SuccessResponse
-// @Failure     401 {object} models.ErrorResponse
+// @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 	username := r.Header.Get("user")
@@ -589,6 +589,7 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Param       body body models.UserTOTPVerificationParams true "TOTP verification parameters"
 // @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func verifyTOTP(w http.ResponseWriter, r *http.Request) {
