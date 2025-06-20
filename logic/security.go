@@ -2,6 +2,7 @@ package logic
 
 import (
 	"errors"
+	"github.com/golang-jwt/jwt/v4"
 	"net/http"
 	"strings"
 
@@ -69,6 +70,51 @@ func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
 		}
 		r.Header.Set("user", username)
 		next.ServeHTTP(w, r)
+	}
+}
+
+func PreAuthCheck(next http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		headerSplits := strings.Split(authHeader, " ")
+		if len(headerSplits) != 2 {
+			ReturnErrorResponse(w, r, FormatError(Unauthorized_Err, "unauthorized"))
+			return
+		}
+
+		authToken := headerSplits[1]
+
+		var claims jwt.RegisteredClaims
+		token, err := jwt.ParseWithClaims(authToken, &claims, func(token *jwt.Token) (interface{}, error) {
+			return jwtSecretKey, nil
+		})
+		if err != nil {
+			ReturnErrorResponse(w, r, FormatError(err, "unauthorized"))
+			return
+		}
+
+		if token != nil && token.Valid {
+			if len(claims.Audience) > 0 {
+				var found bool
+				for _, aud := range claims.Audience {
+					// token created for mfa cannot be used for
+					// anything else.
+					if aud == "auth:mfa" {
+						found = true
+					}
+				}
+
+				if !found {
+					ReturnErrorResponse(w, r, FormatError(Unauthorized_Err, "unauthorized"))
+				}
+
+				r.Header.Set("user", claims.Subject)
+				next.ServeHTTP(w, r)
+			}
+		} else {
+			ReturnErrorResponse(w, r, FormatError(Unauthorized_Err, "unauthorized"))
+			return
+		}
 	}
 }
 

@@ -105,6 +105,18 @@ func CreateUserJWT(username string, role models.UserRoleID) (response string, er
 	return "", err
 }
 
+func CreatePreAuthToken(username string) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
+		Issuer:    "Netmaker",
+		Subject:   fmt.Sprintf("%s", username),
+		Audience:  []string{"auth:mfa"},
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
+	})
+
+	return token.SignedString(jwtSecretKey)
+}
+
 func GetUserNameFromToken(authtoken string) (username string, err error) {
 	claims := &models.UserClaims{}
 	var tokenSplit = strings.Split(authtoken, " ")
@@ -125,6 +137,17 @@ func GetUserNameFromToken(authtoken string) (username string, err error) {
 	if err != nil {
 		return "", Unauthorized_Err
 	}
+
+	if len(claims.Audience) > 0 {
+		for _, aud := range claims.Audience {
+			// token created for mfa cannot be used for
+			// anything else.
+			if aud == "auth:mfa" {
+				return "", Unauthorized_Err
+			}
+		}
+	}
+
 	if claims.TokenType == models.AccessTokenType {
 		jti := claims.ID
 		if jti != "" {
