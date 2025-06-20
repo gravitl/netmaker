@@ -452,13 +452,6 @@ func initiateTOTPSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user.IsMFAEnabled {
-		err = fmt.Errorf("mfa is already enabled for user, cannot process totp setup")
-		logger.Log(0, err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-
 	if user.AuthType == models.OAuth {
 		err = fmt.Errorf("auth type is %s, cannot process totp setup", user.AuthType)
 		logger.Log(0, err.Error())
@@ -534,13 +527,6 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, "failed to get user: ", err.Error())
 		err = fmt.Errorf("user not found: %v", err)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-
-	if user.IsMFAEnabled {
-		err = fmt.Errorf("mfa is already enabled for user, cannot process totp setup")
-		logger.Log(0, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
