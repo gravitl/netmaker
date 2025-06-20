@@ -108,7 +108,7 @@ func CreateUserJWT(username string, role models.UserRoleID) (response string, er
 func CreatePreAuthToken(username string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
 		Issuer:    "Netmaker",
-		Subject:   fmt.Sprintf("%s", username),
+		Subject:   username,
 		Audience:  []string{"auth:mfa"},
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
