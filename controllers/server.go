@@ -247,7 +247,10 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} config.ServerSettings
 func getSettings(w http.ResponseWriter, r *http.Request) {
 	scfg := logic.GetServerSettings()
-	scfg.ClientSecret = logic.Mask()
+	if scfg.ClientSecret != "" {
+		scfg.ClientSecret = logic.Mask()
+	}
+
 	logic.ReturnSuccessResponseWithJson(w, r, scfg, "fetched server settings successfully")
 }
 
