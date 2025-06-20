@@ -8,9 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gravitl/netmaker/db"
+	"github.com/pquerna/otp"
 	"image/png"
 	"net/http"
-	"net/url"
 	"reflect"
 	"time"
 
@@ -538,7 +538,7 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	otpAuthURL, err := url.Parse(req.OTPAuthURL)
+	otpAuthURL, err := otp.NewKeyFromURL(req.OTPAuthURL)
 	if err != nil {
 		err = fmt.Errorf("error parsing otp auth url: %v", err)
 		logger.Log(0, err.Error())
@@ -546,7 +546,7 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	totpSecret := otpAuthURL.Query().Get("secret")
+	totpSecret := otpAuthURL.Secret()
 
 	if totp.Validate(req.TOTP, totpSecret) {
 		user.IsMFAEnabled = true
