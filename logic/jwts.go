@@ -2,6 +2,9 @@ package logic
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"strings"
@@ -105,6 +108,9 @@ func CreateUserJWT(username string, role models.UserRoleID) (response string, er
 	return "", err
 }
 
+// CreatePreAuthToken generate a jwt token to be used as intermediate
+// token after primary-factor authentication but before secondary-factor
+// authentication.
 func CreatePreAuthToken(username string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
 		Issuer:    "Netmaker",
@@ -115,6 +121,23 @@ func CreatePreAuthToken(username string) (string, error) {
 	})
 
 	return token.SignedString(jwtSecretKey)
+}
+
+func GenerateOTPAuthURLSignature(url string) string {
+	signer := hmac.New(sha256.New, jwtSecretKey)
+	signer.Write([]byte(url))
+	return base64.StdEncoding.EncodeToString(signer.Sum(nil))
+}
+
+func VerifyOTPAuthURL(url, signature string) bool {
+	signer := hmac.New(sha256.New, jwtSecretKey)
+	signer.Write([]byte(url))
+	signatureBytes, err := base64.StdEncoding.DecodeString(string(signer.Sum(nil)))
+	if err != nil {
+		return false
+	}
+
+	return signature == string(signatureBytes)
 }
 
 func GetUserNameFromToken(authtoken string) (username string, err error) {

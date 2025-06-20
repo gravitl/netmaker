@@ -81,8 +81,9 @@ type PartialUserLoginResponse struct {
 }
 
 type TOTPInitiateResponse struct {
-	OTPAuthURL string `json:"otp_auth_url"`
-	QRCode     string `json:"qr_code"`
+	OTPAuthURL          string `json:"otp_auth_url"`
+	OTPAuthURLSignature string `json:"otp_auth_url_signature"`
+	QRCode              string `json:"qr_code"`
 }
 
 // Claims is  a struct that will be encoded to a JWT.

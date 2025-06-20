@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"image/png"
 	"net/http"
+	"net/url"
 	"reflect"
 	"time"
 
@@ -468,15 +469,6 @@ func initiateTOTPSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user.TOTPSecret = key.Secret()
-	err = logic.UpsertUser(*user)
-	if err != nil {
-		err = fmt.Errorf("error upserting user: %v", err)
-		logger.Log(0, err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-
 	qrCodeImg, err := key.Image(200, 200)
 	if err != nil {
 		err = fmt.Errorf("failed to generate totp key: %v", err)
@@ -497,8 +489,9 @@ func initiateTOTPSetup(w http.ResponseWriter, r *http.Request) {
 	qrCode := "data:image/png;base64," + base64.StdEncoding.EncodeToString(qrCodePng.Bytes())
 
 	logic.ReturnSuccessResponseWithJson(w, r, models.TOTPInitiateResponse{
-		OTPAuthURL: key.URL(),
-		QRCode:     qrCode,
+		OTPAuthURL:          key.URL(),
+		OTPAuthURLSignature: logic.GenerateOTPAuthURLSignature(key.URL()),
+		QRCode:              qrCode,
 	}, "totp setup initiated")
 }
 
@@ -521,6 +514,13 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !logic.VerifyOTPAuthURL(req.OTPAuthURL, req.OTPAuthURLSignature) {
+		err = fmt.Errorf("otp auth url signature mismatch")
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
 	user, err := logic.GetUser(username)
 	if err != nil {
 		logger.Log(0, "failed to get user: ", err.Error())
@@ -536,8 +536,19 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if totp.Validate(req.TOTP, user.TOTPSecret) {
+	otpAuthURL, err := url.Parse(req.OTPAuthURL)
+	if err != nil {
+		err = fmt.Errorf("error parsing otp auth url: %v", err)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	totpSecret := otpAuthURL.Query().Get("secret")
+
+	if totp.Validate(req.TOTP, totpSecret) {
 		user.IsMFAEnabled = true
+		user.TOTPSecret = totpSecret
 		err = logic.UpsertUser(*user)
 		if err != nil {
 			err = fmt.Errorf("error upserting user: %v", err)
