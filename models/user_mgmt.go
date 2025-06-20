@@ -203,7 +203,9 @@ type UserAuthParams struct {
 }
 
 type UserTOTPVerificationParams struct {
-	TOTP string `json:"totp"`
+	OTPAuthURL          string `json:"otp_auth_url"`
+	OTPAuthURLSignature string `json:"otp_auth_url_signature"`
+	TOTP                string `json:"totp"`
 }
 
 // UserClaims - user claims struct
