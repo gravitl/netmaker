@@ -188,6 +188,7 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	logic.UnsetInternetGw(&node)
 	node.IsGw = false
 	logic.UpsertNode(&node)
 	logger.Log(1, r.Header.Get("user"), "deleted gw", nodeid, "on network", netid)
