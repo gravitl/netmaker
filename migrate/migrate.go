@@ -592,7 +592,7 @@ func settings() {
 	}
 	settings := logic.GetServerSettings()
 	if settings.AuditLogsRetentionPeriodInDays == 0 {
-		settings.AuditLogsRetentionPeriodInDays = 30
+		settings.AuditLogsRetentionPeriodInDays = 7
 	}
 	if settings.DefaultDomain == "" {
 		settings.DefaultDomain = servercfg.GetDefaultDomain()
