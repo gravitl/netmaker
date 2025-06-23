@@ -561,7 +561,7 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 
 		logic.ReturnSuccessResponse(w, r, fmt.Sprintf("totp setup complete for user %s", username))
 	} else {
-		err = fmt.Errorf("cannot setup totp for user %s: invalid totp", username)
+		err = fmt.Errorf("cannot setup totp for user %s: invalid otp", username)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 	}
 }
@@ -626,7 +626,7 @@ func verifyTOTP(w http.ResponseWriter, r *http.Request) {
 			AuthToken: jwt,
 		}, "W1R3: User "+username+" Authorized")
 	} else {
-		err = fmt.Errorf("invalid totp")
+		err = fmt.Errorf("invalid otp")
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
 	}
 }
