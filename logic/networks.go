@@ -215,6 +215,10 @@ func DeleteNetwork(network string, force bool, done chan struct{}) error {
 				if err != nil {
 					continue
 				}
+				if node.IsGw {
+					// delete ext clients belonging to gateway
+					DeleteGatewayExtClients(node.ID.String(), node.Network)
+				}
 				DissasociateNodeFromHost(&node, host)
 			}
 		}

@@ -275,9 +275,6 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 	logger.Log(3, "deleting ingress gateway")
 	node.LastModified = time.Now().UTC()
 	node.IsIngressGateway = false
-	if !servercfg.IsPro {
-		node.IsInternetGateway = false
-	}
 	delete(node.Tags, models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName)))
 	node.IngressGatewayRange = ""
 	node.Metadata = ""
