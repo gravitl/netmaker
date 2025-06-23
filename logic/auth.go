@@ -106,6 +106,7 @@ func GetUsers() ([]models.ReturnUser, error) {
 		if err != nil {
 			continue // get users
 		}
+
 		users = append(users, user)
 	}
 
