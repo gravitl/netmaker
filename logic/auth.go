@@ -369,6 +369,11 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 		}
 	}
 
+	user.IsMFAEnabled = userchange.IsMFAEnabled
+	if !user.IsMFAEnabled {
+		user.TOTPSecret = ""
+	}
+
 	user.UserGroups = userchange.UserGroups
 	user.NetworkRoles = userchange.NetworkRoles
 	AddGlobalNetRolesToAdmins(user)

@@ -1105,7 +1105,6 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-
 	}
 	if ismaster {
 		if user.PlatformRoleID != models.SuperAdminRole && userchange.PlatformRoleID == models.SuperAdminRole {
@@ -1113,6 +1112,12 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("attempted to update user role to superadmin"), "forbidden"))
 			return
 		}
+	}
+
+	if !ismaster && !userchange.IsMFAEnabled && user.IsMFAEnabled {
+		err = fmt.Errorf("mfa removal requires the master user key, operation is not permitted for other users")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+		return
 	}
 
 	if logic.IsOauthUser(user) == nil && userchange.Password != "" {
