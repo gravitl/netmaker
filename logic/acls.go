@@ -294,7 +294,7 @@ var MigrateToGws = func() {
 		return
 	}
 	for _, node := range nodes {
-		if node.IsIngressGateway || node.IsRelay {
+		if node.IsIngressGateway || node.IsRelay || node.IsInternetGateway {
 			node.IsGw = true
 			node.IsIngressGateway = true
 			node.IsRelay = true
