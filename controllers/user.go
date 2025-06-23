@@ -1130,6 +1130,11 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		(&schema.UserAccessToken{UserName: user.UserName}).DeleteAllUserTokens(r.Context())
 	}
 	oldUser := *user
+	if ismaster {
+		caller = &models.User{
+			UserName: logic.MasterUser,
+		}
+	}
 	e := models.Event{
 		Action: models.Update,
 		Source: models.Subject{
