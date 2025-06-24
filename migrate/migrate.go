@@ -74,7 +74,7 @@ func resync() {
 			}
 		}
 		if node.InternetGwID != "" {
-			_, err := logic.GetNodeByID(node.ID.String())
+			_, err := logic.GetNodeByID(node.InternetGwID)
 			if err != nil {
 				node.InternetGwID = ""
 				logic.UpsertNode(&node)
