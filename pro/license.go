@@ -135,6 +135,8 @@ func ValidateLicense() (err error) {
 		return err
 	}
 
+	proLogic.SetFeatureFlags(licenseResponse.FeatureFlags)
+
 	slog.Info("License validation succeeded!")
 	return nil
 }

@@ -16,6 +16,8 @@ const (
 	PLACEHOLDER_TOKEN_TEXT = "ACCESS_TOKEN"
 )
 
+type FeatureFlags map[string]bool
+
 // AuthParams - struct for auth params
 type AuthParams struct {
 	MacAddress string `json:"macaddress"`
