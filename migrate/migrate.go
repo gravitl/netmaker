@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"golang.org/x/exp/slog"
@@ -247,6 +248,16 @@ func updateHosts() {
 				host.DNS = "no"
 			}
 			logic.UpsertHost(&host)
+		}
+		if servercfg.IsPro && host.Location == "" {
+			if host.EndpointIP != nil {
+				host.Location = logic.GetHostLocInfo(host.EndpointIP.String(), os.Getenv("IP_INFO_TOKEN"))
+			} else if host.EndpointIPv6 != nil {
+				host.Location = logic.GetHostLocInfo(host.EndpointIPv6.String(), os.Getenv("IP_INFO_TOKEN"))
+			}
+			if host.Location != "" {
+				logic.UpsertHost(&host)
+			}
 		}
 	}
 }

@@ -190,6 +190,7 @@ type ReturnUser struct {
 	PlatformRoleID             UserRoleID                            `json:"platform_role_id"`
 	NetworkRoles               map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
 	LastLoginTime              time.Time                             `json:"last_login_time"`
+	NumAccessTokens            int                                   `json:"num_access_tokens"`
 }
 
 // UserAuthParams - user auth params struct

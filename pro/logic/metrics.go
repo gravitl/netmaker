@@ -2,6 +2,7 @@ package logic
 
 import (
 	"encoding/json"
+	"net/http"
 	"sync"
 	"time"
 
@@ -236,4 +237,30 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) {
 	}
 
 	slog.Debug("[metrics] node metrics data", "node ID", currentNode.ID, "metrics", newMetrics)
+}
+
+func GetHostLocInfo(ip, token string) string {
+	url := "https://ipinfo.io/"
+	if ip != "" {
+		url += ip
+	}
+	url += "/json"
+	if token != "" {
+		url += "?token=" + token
+	}
+
+	client := http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+
+	var data struct {
+		Loc string `json:"loc"` // Format: "lat,lon"
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return ""
+	}
+	return data.Loc
 }

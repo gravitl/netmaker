@@ -70,7 +70,6 @@ func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 		for _, peer := range currentPeers {
 			peer := peer
 			if peer.ID.String() == node.ID.String() {
-				logger.Log(2, "peer update, skipping self")
 				// skip yourself
 				continue
 			}
@@ -225,7 +224,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		for _, peer := range currentPeers {
 			peer := peer
 			if peer.ID.String() == node.ID.String() {
-				logger.Log(2, "peer update, skipping self")
 				// skip yourself
 				continue
 			}
