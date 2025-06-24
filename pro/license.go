@@ -202,6 +202,7 @@ func validateLicenseKey(encryptedData []byte, publicKey *[32]byte) ([]byte, bool
 		LicenseKey:     servercfg.GetLicenseKey(),
 		NmServerPubKey: base64encode(publicKeyBytes),
 		EncryptedPart:  base64encode(encryptedData),
+		NmBaseDomain:   servercfg.GetNmBaseDomain(),
 	}
 
 	requestBody, err := json.Marshal(msg)

@@ -76,6 +76,7 @@ type ValidateLicenseRequest struct {
 	LicenseKey     string `json:"license_key"       binding:"required"`
 	NmServerPubKey string `json:"nm_server_pub_key" binding:"required"` // Netmaker server public key used to send data back to Netmaker for the Netmaker server to decrypt (eg output from validating license)
 	EncryptedPart  string `json:"secret"            binding:"required"`
+	NmBaseDomain   string `json:"nm_base_domain"    binding:"required"`
 }
 
 type licenseResponseCache struct {
