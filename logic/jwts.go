@@ -161,13 +161,11 @@ func GetUserNameFromToken(authtoken string) (username string, err error) {
 		return "", Unauthorized_Err
 	}
 
-	if len(claims.Audience) > 0 {
-		for _, aud := range claims.Audience {
-			// token created for mfa cannot be used for
-			// anything else.
-			if aud == "auth:mfa" {
-				return "", Unauthorized_Err
-			}
+	for _, aud := range claims.Audience {
+		// token created for mfa cannot be used for
+		// anything else.
+		if aud == "auth:mfa" {
+			return "", Unauthorized_Err
 		}
 	}
 
