@@ -86,7 +86,7 @@ func PreAuthCheck(next http.Handler) http.HandlerFunc {
 
 		// first check is user is authenticated.
 		// if yes, allow the user to go through.
-		username, err := GetUserNameFromToken(authToken)
+		username, err := GetUserNameFromToken(authHeader)
 		if err != nil {
 			// if no, then check the user has a pre-auth token.
 			var claims jwt.RegisteredClaims
@@ -109,7 +109,12 @@ func PreAuthCheck(next http.Handler) http.HandlerFunc {
 
 					if !found {
 						ReturnErrorResponse(w, r, FormatError(Unauthorized_Err, "unauthorized"))
+						return
 					}
+
+					r.Header.Set("user", claims.Subject)
+					next.ServeHTTP(w, r)
+					return
 				} else {
 					ReturnErrorResponse(w, r, FormatError(Unauthorized_Err, "unauthorized"))
 					return
@@ -118,10 +123,11 @@ func PreAuthCheck(next http.Handler) http.HandlerFunc {
 				ReturnErrorResponse(w, r, FormatError(Unauthorized_Err, "unauthorized"))
 				return
 			}
+		} else {
+			r.Header.Set("user", username)
+			next.ServeHTTP(w, r)
+			return
 		}
-
-		r.Header.Set("user", username)
-		next.ServeHTTP(w, r)
 	}
 }
 
