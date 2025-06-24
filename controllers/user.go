@@ -38,9 +38,9 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/adm/transfersuperadmin/{username}", logic.SecurityCheck(true, http.HandlerFunc(transferSuperAdmin))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/auth/init-totp", logic.SecurityCheck(false, http.HandlerFunc(initiateTOTPSetup))).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/auth/complete-totp", logic.SecurityCheck(false, http.HandlerFunc(completeTOTPSetup))).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/auth/verify-totp", logic.PreAuthCheck(http.HandlerFunc(verifyTOTP))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}/auth/init-totp", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(initiateTOTPSetup)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}/auth/complete-totp", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(completeTOTPSetup)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}/auth/verify-totp", logic.PreAuthCheck(logic.ContinueIfUserMatch(http.HandlerFunc(verifyTOTP)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, http.HandlerFunc(updateUser))).Methods(http.MethodPut)
 	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceUsers, http.HandlerFunc(createUser)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, http.HandlerFunc(deleteUser))).Methods(http.MethodDelete)
