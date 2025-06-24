@@ -222,3 +222,17 @@ func CompareMaps[K comparable, V any](a, b map[K]V) bool {
 
 	return true
 }
+
+func UniqueStrings(input []string) []string {
+	seen := make(map[string]struct{})
+	var result []string
+
+	for _, val := range input {
+		if _, ok := seen[val]; !ok {
+			seen[val] = struct{}{}
+			result = append(result, val)
+		}
+	}
+
+	return result
+}
