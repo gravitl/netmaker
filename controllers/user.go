@@ -377,7 +377,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	response.Write(successJSONResponse)
 
 	go func() {
-		if servercfg.IsPro && logic.GetRacAutoDisable() {
+		if servercfg.IsPro {
 			// enable all associeated clients for the user
 			clients, err := logic.GetAllExtClients()
 			if err != nil {
