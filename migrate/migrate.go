@@ -37,6 +37,50 @@ func Run() {
 	updateAcls()
 	logic.MigrateToGws()
 	migrateToEgressV1()
+	resync()
+}
+
+// removes if any stale configurations from previous run.
+func resync() {
+
+	nodes, _ := logic.GetAllNodes()
+	for _, node := range nodes {
+		if !node.IsGw {
+			if len(node.RelayedNodes) > 0 {
+				logic.DeleteRelay(node.Network, node.ID.String())
+			}
+			if node.IsIngressGateway {
+				logic.DeleteIngressGateway(node.ID.String())
+			}
+			if len(node.InetNodeReq.InetNodeClientIDs) > 0 || node.IsInternetGateway {
+				logic.UnsetInternetGw(&node)
+				logic.UpsertNode(&node)
+			}
+		}
+		if node.IsRelayed {
+			if node.RelayedBy == "" {
+				node.IsRelayed = false
+				node.InternetGwID = ""
+				logic.UpsertNode(&node)
+			}
+			if node.RelayedBy != "" {
+				// check if node exists
+				_, err := logic.GetNodeByID(node.RelayedBy)
+				if err != nil {
+					node.RelayedBy = ""
+					node.InternetGwID = ""
+					logic.UpsertNode(&node)
+				}
+			}
+		}
+		if node.InternetGwID != "" {
+			_, err := logic.GetNodeByID(node.InternetGwID)
+			if err != nil {
+				node.InternetGwID = ""
+				logic.UpsertNode(&node)
+			}
+		}
+	}
 }
 
 func assignSuperAdmin() {
