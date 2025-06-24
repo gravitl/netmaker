@@ -46,7 +46,6 @@ require (
 	github.com/goombaio/namegenerator v0.0.0-20181006234301-989e774b106e
 	github.com/guumaster/tablewriter v0.0.10
 	github.com/matryer/is v1.4.1
-	github.com/olekukonko/tablewriter v0.0.5
 	github.com/spf13/cobra v1.9.1
 	google.golang.org/api v0.237.0
 	gopkg.in/mail.v2 v2.3.1
@@ -99,7 +98,7 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/hashicorp/go-version v1.7.0
 	github.com/leodido/go-urn v1.4.0 // indirect
-	github.com/mattn/go-runewidth v0.0.13 // indirect
+	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	golang.org/x/sync v0.15.0 // indirect
 )
