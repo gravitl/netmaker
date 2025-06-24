@@ -2,6 +2,8 @@ package logic
 
 import (
 	"encoding/json"
+	"fmt"
+	"time"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/models"
@@ -60,7 +62,39 @@ var InitialiseRoles = userRolesInit
 var IntialiseGroups = func() {}
 var DeleteNetworkRoles = func(netID string) {}
 var CreateDefaultNetworkRolesAndGroups = func(netID models.NetworkID) {}
-var CreateDefaultUserPolicies = func(netID models.NetworkID) {}
+var CreateDefaultUserPolicies = func(netID models.NetworkID) {
+	if netID.String() == "" {
+		return
+	}
+	if !IsAclExists(fmt.Sprintf("%s.%s", netID, "all-users")) {
+		defaultUserAcl := models.Acl{
+			ID:          fmt.Sprintf("%s.%s", netID, "all-users"),
+			Default:     true,
+			Name:        "All Users",
+			MetaData:    "This policy gives access to everything in the network for an user",
+			NetworkID:   netID,
+			Proto:       models.ALL,
+			ServiceType: models.Any,
+			Port:        []string{},
+			RuleType:    models.UserPolicy,
+			Src: []models.AclPolicyTag{
+				{
+					ID:    models.UserAclID,
+					Value: "*",
+				},
+			},
+			Dst: []models.AclPolicyTag{{
+				ID:    models.NodeTagID,
+				Value: "*",
+			}},
+			AllowedDirection: models.TrafficDirectionUni,
+			Enabled:          true,
+			CreatedBy:        "auto",
+			CreatedAt:        time.Now().UTC(),
+		}
+		InsertAcl(defaultUserAcl)
+	}
+}
 var GetUserGroupsInNetwork = func(netID models.NetworkID) (networkGrps map[models.UserGroupID]models.UserGroup) { return }
 var GetUserGroup = func(groupId models.UserGroupID) (userGrps models.UserGroup, err error) { return }
 var AddGlobalNetRolesToAdmins = func(u *models.User) {}
