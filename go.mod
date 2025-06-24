@@ -47,7 +47,7 @@ require (
 	github.com/guumaster/tablewriter v0.0.10
 	github.com/matryer/is v1.4.1
 	github.com/spf13/cobra v1.9.1
-	google.golang.org/api v0.237.0
+	google.golang.org/api v0.238.0
 	gopkg.in/mail.v2 v2.3.1
 	gorm.io/datatypes v1.2.5
 	gorm.io/driver/postgres v1.6.0
