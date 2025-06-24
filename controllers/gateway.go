@@ -50,6 +50,14 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if req.IsInternetGateway && len(req.InetNodeClientIDs) > 0 {
+		err = logic.ValidateInetGwReq(node, req.InetNodeReq, false)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+	}
+
 	node, err = logic.CreateIngressGateway(netid, nodeid, req.IngressRequest)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
@@ -84,6 +92,22 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 
 		}
 	}
+	if len(req.InetNodeClientIDs) > 0 {
+		logic.SetInternetGw(&node, req.InetNodeReq)
+		if servercfg.IsPro {
+			if _, exists := logic.FailOverExists(node.Network); exists {
+				go func() {
+					logic.ResetFailedOverPeer(&node)
+					mq.PublishPeerUpdate(false)
+				}()
+			}
+		}
+		if node.IsGw && node.IngressDNS == "" {
+			node.IngressDNS = "1.1.1.1"
+		}
+		logic.UpsertNode(&node)
+	}
+
 	logger.Log(
 		1,
 		r.Header.Get("user"),
@@ -164,6 +188,7 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	logic.UnsetInternetGw(&node)
 	node.IsGw = false
 	logic.UpsertNode(&node)
 	logger.Log(1, r.Header.Get("user"), "deleted gw", nodeid, "on network", netid)

@@ -522,6 +522,10 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.CreateFailOver(*newNode)
 		// make host remote access gateway
 		logic.CreateIngressGateway(network, newNode.ID.String(), models.IngressRequest{})
+		logic.CreateRelay(models.RelayRequest{
+			NodeID: newNode.ID.String(),
+			NetID:  network,
+		})
 	}
 	go func() {
 		mq.HostUpdate(&models.HostUpdate{

@@ -1,4 +1,4 @@
-package controllers
+package controller
 
 import (
 	"encoding/json"
@@ -10,19 +10,8 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
-	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/servercfg"
 )
-
-// InetHandlers - handlers for internet gw
-func InetHandlers(r *mux.Router) {
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/inet_gw", logic.SecurityCheck(true, http.HandlerFunc(createInternetGw))).
-		Methods(http.MethodPost)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/inet_gw", logic.SecurityCheck(true, http.HandlerFunc(updateInternetGw))).
-		Methods(http.MethodPut)
-	r.HandleFunc("/api/nodes/{network}/{nodeid}/inet_gw", logic.SecurityCheck(true, http.HandlerFunc(deleteInternetGw))).
-		Methods(http.MethodDelete)
-}
 
 // @Summary     Create an internet gateway
 // @Router      /api/nodes/{network}/{nodeid}/inet_gw [post]
@@ -70,16 +59,16 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	err = proLogic.ValidateInetGwReq(node, request, false)
+	err = logic.ValidateInetGwReq(node, request, false)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 	logic.SetInternetGw(&node, request)
 	if servercfg.IsPro {
-		if _, exists := proLogic.FailOverExists(node.Network); exists {
+		if _, exists := logic.FailOverExists(node.Network); exists {
 			go func() {
-				proLogic.ResetFailedOverPeer(&node)
+				logic.ResetFailedOverPeer(&node)
 				mq.PublishPeerUpdate(false)
 			}()
 		}
@@ -140,7 +129,7 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	err = proLogic.ValidateInetGwReq(node, request, true)
+	err = logic.ValidateInetGwReq(node, request, true)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return

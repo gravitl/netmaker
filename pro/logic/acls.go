@@ -1468,12 +1468,12 @@ func GetAclRuleForInetGw(targetnode models.Node) (rules map[string]models.AclRul
 		}
 		if targetnode.NetworkRange.IP != nil {
 			aclRule.IPList = append(aclRule.IPList, targetnode.NetworkRange)
-			_, allIpv4, _ := net.ParseCIDR(IPv4Network)
+			_, allIpv4, _ := net.ParseCIDR(logic.IPv4Network)
 			aclRule.Dst = append(aclRule.Dst, *allIpv4)
 		}
 		if targetnode.NetworkRange6.IP != nil {
 			aclRule.IP6List = append(aclRule.IP6List, targetnode.NetworkRange6)
-			_, allIpv6, _ := net.ParseCIDR(IPv6Network)
+			_, allIpv6, _ := net.ParseCIDR(logic.IPv6Network)
 			aclRule.Dst6 = append(aclRule.Dst6, *allIpv6)
 		}
 		rules[aclRule.ID] = aclRule

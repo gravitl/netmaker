@@ -263,7 +263,7 @@ func MigrateToGws() {
 		return
 	}
 	for _, node := range nodes {
-		if node.IsIngressGateway || node.IsRelay {
+		if node.IsIngressGateway || node.IsRelay || node.IsInternetGateway {
 			node.IsGw = true
 			node.IsIngressGateway = true
 			node.IsRelay = true
@@ -272,6 +272,19 @@ func MigrateToGws() {
 			}
 			node.Tags[models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName))] = struct{}{}
 			delete(node.Tags, models.TagID(fmt.Sprintf("%s.%s", node.Network, models.OldRemoteAccessTagName)))
+			logic.UpsertNode(&node)
+		}
+		if node.IsInternetGateway && len(node.InetNodeReq.InetNodeClientIDs) > 0 {
+			node.RelayedNodes = append(node.RelayedNodes, node.InetNodeReq.InetNodeClientIDs...)
+			node.RelayedNodes = logic.UniqueStrings(node.RelayedNodes)
+			for _, nodeID := range node.InetNodeReq.InetNodeClientIDs {
+				relayedNode, err := logic.GetNodeByID(nodeID)
+				if err == nil {
+					relayedNode.IsRelayed = true
+					relayedNode.RelayedBy = node.ID.String()
+					logic.UpsertNode(&relayedNode)
+				}
+			}
 			logic.UpsertNode(&node)
 		}
 	}
