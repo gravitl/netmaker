@@ -16,7 +16,11 @@ const (
 	PLACEHOLDER_TOKEN_TEXT = "ACCESS_TOKEN"
 )
 
-type FeatureFlags map[string]bool
+type FeatureFlags struct {
+	EnableNetworkActivity   bool `json:"enable_network_activity"`
+	EnableIDPIntegration    bool `json:"enable_idp_integration"`
+	AllowMultiServerLicense bool `json:"allow_multi_server_license"`
+}
 
 // AuthParams - struct for auth params
 type AuthParams struct {
