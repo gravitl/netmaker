@@ -65,7 +65,7 @@ func resync() {
 			}
 			if node.RelayedBy != "" {
 				// check if node exists
-				_, err := logic.GetNodeByID(node.ID.String())
+				_, err := logic.GetNodeByID(node.RelayedBy)
 				if err != nil {
 					node.RelayedBy = ""
 					node.InternetGwID = ""
