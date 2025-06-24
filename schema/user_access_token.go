@@ -43,6 +43,15 @@ func (a *UserAccessToken) ListByUser(ctx context.Context) (ats []UserAccessToken
 	return
 }
 
+func (a *UserAccessToken) CountByUser(ctx context.Context) (int, error) {
+	var count int64
+	err := db.FromContext(ctx).Model(&UserAccessToken{}).
+		Where("user_name = ?", a.UserName).
+		Count(&count).
+		Error
+	return int(count), err
+}
+
 func (a *UserAccessToken) Delete(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&UserAccessToken{}).Where("id = ?", a.ID).Delete(&a).Error
 }

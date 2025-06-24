@@ -1,9 +1,11 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gravitl/netmaker/db"
 	"net/http"
 	"reflect"
 	"time"
@@ -582,6 +584,18 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, "failed to fetch users: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
+	}
+
+	for i, user := range users {
+		// only setting num_access_tokens here, because only UI needs it.
+		user.NumAccessTokens, err = (&schema.UserAccessToken{
+			UserName: user.UserName,
+		}).CountByUser(db.WithContext(context.TODO()))
+		if err != nil {
+			continue
+		}
+
+		users[i] = user
 	}
 
 	logic.SortUsers(users[:])
