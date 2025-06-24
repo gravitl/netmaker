@@ -89,7 +89,7 @@ func PreAuthCheck(next http.Handler) http.HandlerFunc {
 			return jwtSecretKey, nil
 		})
 		if err != nil {
-			ReturnErrorResponse(w, r, FormatError(err, "unauthorized"))
+			ReturnErrorResponse(w, r, FormatError(Unauthorized_Err, "unauthorized"))
 			return
 		}
 
