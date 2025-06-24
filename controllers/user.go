@@ -1,13 +1,11 @@
 package controller
 
 import (
-	"context"
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gravitl/netmaker/db"
 	"github.com/pquerna/otp"
 	"image/png"
 	"net/http"
