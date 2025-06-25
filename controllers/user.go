@@ -1087,6 +1087,14 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			return
 
 		}
+
+		if user.IsMFAEnabled && !userchange.IsMFAEnabled {
+			err = errors.New("user cannot unset their own mfa")
+			slog.Error("failed to update user", "caller", caller.UserName, "attempted to update user", username, "error", err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+			return
+		}
+
 		if servercfg.IsPro {
 			// user cannot update his own roles and groups
 			if len(user.NetworkRoles) != len(userchange.NetworkRoles) || !reflect.DeepEqual(user.NetworkRoles, userchange.NetworkRoles) {
@@ -1110,12 +1118,6 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("attempted to update user role to superadmin"), "forbidden"))
 			return
 		}
-	}
-
-	if !ismaster && !userchange.IsMFAEnabled && user.IsMFAEnabled {
-		err = fmt.Errorf("mfa removal requires the master user key, operation is not permitted for other users")
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
-		return
 	}
 
 	if logic.IsOauthUser(user) == nil && userchange.Password != "" {
