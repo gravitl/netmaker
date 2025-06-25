@@ -1088,8 +1088,8 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 
 		}
 
-		if user.IsMFAEnabled && !userchange.IsMFAEnabled {
-			err = errors.New("user cannot unset their own mfa")
+		if logic.IsMFAEnforced() && user.IsMFAEnabled && !userchange.IsMFAEnabled {
+			err = errors.New("mfa is enforced, user cannot unset their own mfa")
 			slog.Error("failed to update user", "caller", caller.UserName, "attempted to update user", username, "error", err)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 			return
