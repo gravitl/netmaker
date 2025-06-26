@@ -11,6 +11,12 @@ import (
 func legacyHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/legacy/nodes", logic.SecurityCheck(true, http.HandlerFunc(wipeLegacyNodes))).
 		Methods(http.MethodDelete)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/inet_gw", logic.SecurityCheck(true, http.HandlerFunc(createInternetGw))).
+		Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/inet_gw", logic.SecurityCheck(true, http.HandlerFunc(updateInternetGw))).
+		Methods(http.MethodPut)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/inet_gw", logic.SecurityCheck(true, http.HandlerFunc(deleteInternetGw))).
+		Methods(http.MethodDelete)
 }
 
 // @Summary     Delete all legacy nodes from DB.

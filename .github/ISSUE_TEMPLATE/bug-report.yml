@@ -31,6 +31,7 @@ body:
       label: Version
       description: What version are you running?
       options:
+        - v1.0.0
         - v0.99.0
         - v0.90.0
         - v0.30.0

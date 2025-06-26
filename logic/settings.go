@@ -62,7 +62,6 @@ func GetServerSettingsFromEnv() (s models.ServerSettings) {
 		Telemetry:                  servercfg.Telemetry(),
 		BasicAuth:                  servercfg.IsBasicAuthEnabled(),
 		JwtValidityDuration:        servercfg.GetJwtValidityDurationFromEnv() / 60,
-		RacAutoDisable:             servercfg.GetRacAutoDisable(),
 		RacRestrictToSingleNetwork: servercfg.GetRacRestrictToSingleNetwork(),
 		EndpointDetection:          servercfg.IsEndpointDetectionEnabled(),
 		AllowedEmailDomains:        servercfg.GetAllowedEmailDomains(),
@@ -140,7 +139,6 @@ func GetServerConfig() config.ServerConfig {
 		cfg.IsPro = "yes"
 	}
 	cfg.JwtValidityDuration = time.Duration(settings.JwtValidityDuration) * time.Minute
-	cfg.RacAutoDisable = settings.RacAutoDisable
 	cfg.RacRestrictToSingleNetwork = settings.RacRestrictToSingleNetwork
 	cfg.MetricInterval = settings.MetricInterval
 	cfg.ManageDNS = settings.ManageDNS
@@ -204,11 +202,6 @@ func Telemetry() string {
 // GetJwtValidityDuration - returns the JWT validity duration in minutes
 func GetJwtValidityDuration() time.Duration {
 	return GetServerConfig().JwtValidityDuration
-}
-
-// GetRacAutoDisable - returns whether the feature to autodisable RAC is enabled
-func GetRacAutoDisable() bool {
-	return GetServerSettings().RacAutoDisable
 }
 
 // GetRacRestrictToSingleNetwork - returns whether the feature to allow simultaneous network connections via RAC is enabled
@@ -325,6 +318,11 @@ func GetManageDNS() bool {
 // IsBasicAuthEnabled - checks if basic auth has been configured to be turned off
 func IsBasicAuthEnabled() bool {
 	return GetServerSettings().BasicAuth
+}
+
+// IsMFAEnforced returns whether MFA has been enforced.
+func IsMFAEnforced() bool {
+	return GetServerSettings().MFAEnforced
 }
 
 // IsEndpointDetectionEnabled - returns true if endpoint detection enabled

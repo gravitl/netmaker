@@ -42,25 +42,6 @@ var (
 	CreateFailOver = func(node models.Node) error {
 		return nil
 	}
-	// SetDefaulGw
-	SetDefaultGw = func(node models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
-		return peerUpdate
-	}
-	SetDefaultGwForRelayedUpdate = func(relayed, relay models.Node, peerUpdate models.HostPeerUpdate) models.HostPeerUpdate {
-		return peerUpdate
-	}
-	// UnsetInternetGw
-	UnsetInternetGw = func(node *models.Node) {
-		node.IsInternetGateway = false
-	}
-	// SetInternetGw
-	SetInternetGw = func(node *models.Node, req models.InetNodeReq) {
-		node.IsInternetGateway = true
-	}
-	// GetAllowedIpForInetNodeClient
-	GetAllowedIpForInetNodeClient = func(node, peer *models.Node) []net.IPNet {
-		return []net.IPNet{}
-	}
 )
 
 // GetHostPeerInfo - fetches required peer info per network
@@ -89,7 +70,6 @@ func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 		for _, peer := range currentPeers {
 			peer := peer
 			if peer.ID.String() == node.ID.String() {
-				logger.Log(2, "peer update, skipping self")
 				// skip yourself
 				continue
 			}
@@ -244,7 +224,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		for _, peer := range currentPeers {
 			peer := peer
 			if peer.ID.String() == node.ID.String() {
-				logger.Log(2, "peer update, skipping self")
 				// skip yourself
 				continue
 			}
@@ -351,7 +330,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					peerEndpoint = peerHost.EndpointIPv6
 				}
 			}
-			if node.IsRelay && peer.RelayedBy == node.ID.String() && !peer.IsStatic {
+			if node.IsRelay && peer.RelayedBy == node.ID.String() && peer.InternetGwID == "" && !peer.IsStatic {
 				// don't set endpoint on relayed peer
 				peerEndpoint = nil
 			}

@@ -157,6 +157,8 @@ type UserGroup struct {
 type User struct {
 	UserName                   string                                `json:"username" bson:"username" validate:"min=3,in_charset|email"`
 	ExternalIdentityProviderID string                                `json:"external_identity_provider_id"`
+	IsMFAEnabled               bool                                  `json:"is_mfa_enabled"`
+	TOTPSecret                 string                                `json:"totp_secret"`
 	DisplayName                string                                `json:"display_name"`
 	AccountDisabled            bool                                  `json:"account_disabled"`
 	Password                   string                                `json:"password" bson:"password" validate:"required,min=5"`
@@ -180,6 +182,7 @@ type ReturnUserWithRolesAndGroups struct {
 type ReturnUser struct {
 	UserName                   string                                `json:"username"`
 	ExternalIdentityProviderID string                                `json:"external_identity_provider_id"`
+	IsMFAEnabled               bool                                  `json:"is_mfa_enabled"`
 	DisplayName                string                                `json:"display_name"`
 	AccountDisabled            bool                                  `json:"account_disabled"`
 	IsAdmin                    bool                                  `json:"isadmin"`
@@ -190,12 +193,19 @@ type ReturnUser struct {
 	PlatformRoleID             UserRoleID                            `json:"platform_role_id"`
 	NetworkRoles               map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
 	LastLoginTime              time.Time                             `json:"last_login_time"`
+	NumAccessTokens            int                                   `json:"num_access_tokens"`
 }
 
 // UserAuthParams - user auth params struct
 type UserAuthParams struct {
 	UserName string `json:"username"`
 	Password string `json:"password"`
+}
+
+type UserTOTPVerificationParams struct {
+	OTPAuthURL          string `json:"otp_auth_url"`
+	OTPAuthURLSignature string `json:"otp_auth_url_signature"`
+	TOTP                string `json:"totp"`
 }
 
 // UserClaims - user claims struct
