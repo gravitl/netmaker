@@ -12,7 +12,7 @@
 
 - Network Graph Control: Directly control and manage endpoints via the interactive network graph.
 
-- Site-to-Site over IPv6: Seamless IPv4 site-to-site communication over IPv6 Netmaker overlay tunnels.
+- Site-to-Site over IPv6: IPv4 site-to-site communication over IPv6 Netmaker overlay tunnels.
 
 ## 🛠 Improvements & Fixes
 
@@ -29,4 +29,6 @@
 - Inaccurate uptime info in metrics involving ipv4-only and ipv6-only traffic
 
 - netclients cannot auto-upgrade on ipv6-only machines.
+
+- Need to optimize multi-network netclient join with enrollment key
 
