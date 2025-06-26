@@ -320,6 +320,11 @@ func IsBasicAuthEnabled() bool {
 	return GetServerSettings().BasicAuth
 }
 
+// IsMFAEnforced returns whether MFA has been enforced.
+func IsMFAEnforced() bool {
+	return GetServerSettings().MFAEnforced
+}
+
 // IsEndpointDetectionEnabled - returns true if endpoint detection enabled
 func IsEndpointDetectionEnabled() bool {
 	return GetServerSettings().EndpointDetection

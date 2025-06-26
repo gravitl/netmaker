@@ -69,6 +69,23 @@ type SuccessfulUserLoginResponse struct {
 	AuthToken string
 }
 
+// PartialUserLoginResponse represents the response returned to the client
+// after successful username and password authentication, but before the
+// completion of TOTP authentication.
+//
+// This response includes a temporary token required to complete
+// the authentication process.
+type PartialUserLoginResponse struct {
+	UserName     string `json:"user_name"`
+	PreAuthToken string `json:"pre_auth_token"`
+}
+
+type TOTPInitiateResponse struct {
+	OTPAuthURL          string `json:"otp_auth_url"`
+	OTPAuthURLSignature string `json:"otp_auth_url_signature"`
+	QRCode              string `json:"qr_code"`
+}
+
 // Claims is  a struct that will be encoded to a JWT.
 // jwt.StandardClaims is an embedded type to provide expiry time
 type Claims struct {
