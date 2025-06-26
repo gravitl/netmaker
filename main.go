@@ -7,14 +7,15 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/schema"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
 	"sync"
 	"syscall"
+
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/config"
@@ -34,10 +35,10 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-var version = "v0.99.0"
+var version = "v1.0.0"
 
 //	@title			NetMaker
-//	@version		0.99.0
+//	@version		1.0.0
 //	@description	NetMaker API Docs
 //	@tag.name	    APIUsage
 //	@tag.description.markdown
