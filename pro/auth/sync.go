@@ -150,6 +150,13 @@ func syncUsers(idpUsers []idp.User) error {
 			if err != nil {
 				return err
 			}
+
+			// It's possible that a user can attempt to log in to Netmaker
+			// after the IDP is configured but before the users are synced.
+			// Since the user doesn't exist, a pending user will be
+			// created. Now, since the user is created, the pending user
+			// can be deleted.
+			_ = logic.DeletePendingUser(user.Username)
 		} else if dbUser.AuthType == models.OAuth {
 			if dbUser.AccountDisabled != user.AccountDisabled ||
 				dbUser.DisplayName != user.DisplayName ||
