@@ -122,6 +122,12 @@ func syncUsers(idpUsers []idp.User) error {
 	filters := logic.GetServerSettings().UserFilters
 
 	for _, user := range idpUsers {
+		if user.AccountArchived {
+			// delete the user if it has been archived.
+			_ = logic.DeleteUser(user.Username)
+			continue
+		}
+
 		var found bool
 		for _, filter := range filters {
 			if strings.HasPrefix(user.Username, filter) {
