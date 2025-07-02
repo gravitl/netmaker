@@ -10,6 +10,7 @@ type User struct {
 	Username        string
 	DisplayName     string
 	AccountDisabled bool
+	AccountArchived bool
 }
 
 type Group struct {
