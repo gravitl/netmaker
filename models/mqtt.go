@@ -22,6 +22,7 @@ type HostPeerUpdate struct {
 	ServerAddrs     []ServerAddr          `json:"serveraddrs"`
 	NodePeers       []wgtypes.PeerConfig  `json:"node_peers"`
 	Peers           []wgtypes.PeerConfig  `json:"host_peers"`
+	HostPeerInfo    HostPeerInfo          `json:"host_peer_info"`
 	PeerIDs         PeerMap               `json:"peerids"`
 	HostNetworkInfo HostInfoMap           `json:"host_network_info,omitempty"`
 	EgressRoutes    []EgressNetworkRoutes `json:"egress_network_routes"`
