@@ -119,6 +119,10 @@ func initialize() { // Client Mode Prereq Check
 	_, _ = logic.GetAllEnrollmentKeys()
 
 	migrate.Run()
+	err = migrate.ToSQLSchema()
+	if err != nil {
+		logger.FatalLog("error migrating to SQL schema: ", err.Error())
+	}
 
 	logic.SetJWTSecret()
 	logic.InitialiseRoles()
