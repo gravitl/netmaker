@@ -93,7 +93,7 @@ var htmlBaseTemplate = `<!DOCTYPE html>
 </html>`
 
 var oauthNotConfigured = fmt.Sprintf(htmlBaseTemplate, `<h2>Your Netmaker server does not have OAuth configured.</h2>
-<p>Please visit the docs <a href="https://docs.netmaker.io/docs/server-installation/integrating-oauth" target="_blank" rel="noopener">here</a> to learn how to.</p>`)
+<p>Please visit the docs <a href="https://docs.netmaker.io/docs/server-installation/identity-provider-integration-guide" target="_blank" rel="noopener">here</a> to learn how to.</p>`)
 
 var oauthStateInvalid = fmt.Sprintf(htmlBaseTemplate, `<h2>Invalid OAuth Session. Please re-try again.</h2>`)
 
