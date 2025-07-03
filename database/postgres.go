@@ -4,12 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/db"
 	"time"
 
-	"github.com/gravitl/netmaker/servercfg"
 	_ "github.com/lib/pq"
 )
 

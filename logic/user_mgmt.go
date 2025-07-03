@@ -63,16 +63,16 @@ var IntialiseGroups = func() {}
 var DeleteNetworkRoles = func(netID string) {}
 var CreateDefaultNetworkRolesAndGroups = func(netID models.NetworkID) {}
 var CreateDefaultUserPolicies = func(networkID string) {
-	if netID.String() == "" {
+	if networkID == "" {
 		return
 	}
-	if !IsAclExists(fmt.Sprintf("%s.%s", netID, "all-users")) {
+	if !IsAclExists(fmt.Sprintf("%s.%s", networkID, "all-users")) {
 		defaultUserAcl := models.Acl{
-			ID:          fmt.Sprintf("%s.%s", netID, "all-users"),
+			ID:          fmt.Sprintf("%s.%s", networkID, "all-users"),
 			Default:     true,
 			Name:        "All Users",
 			MetaData:    "This policy gives access to everything in the network for an user",
-			NetworkID:   netID,
+			NetworkID:   models.NetworkID(networkID),
 			Proto:       models.ALL,
 			ServiceType: models.Any,
 			Port:        []string{},

@@ -429,7 +429,7 @@ func getExtClientHAConf(w http.ResponseWriter, r *http.Request) {
 	}
 	// fetch client based on availability
 	nodes, _ := logic.GetNetworkNodes(networkid)
-	defaultPolicy, _ := logic.GetDefaultPolicy(networkid, models.DevicePolicy)
+	defaultPolicy, _ := logic.GetDefaultPolicy(models.NetworkID(networkid), models.DevicePolicy)
 	var targetGwID string
 	var connectionCnt int = -1
 	for _, nodeI := range nodes {

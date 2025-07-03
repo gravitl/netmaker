@@ -18,19 +18,6 @@ import (
 // This function archives the old data and does not
 // delete it.
 func ToSQLSchema() error {
-	// initialize sql schema db.
-	err := db.InitializeDB(schema.ListModels()...)
-	if err != nil {
-		return err
-	}
-
-	defer db.CloseDB()
-
-	// migrate, if not done already.
-	return migrate()
-}
-
-func migrate() error {
 	// begin a new transaction.
 	dbctx := db.BeginTx(context.TODO())
 	commit := false
@@ -51,13 +38,6 @@ func migrate() error {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
-
-		// initialize key-value schema db.
-		err := database.InitializeDatabase()
-		if err != nil {
-			return err
-		}
-		defer database.CloseDB()
 
 		// migrate.
 		err = migrateNetworks(dbctx)
@@ -94,7 +74,7 @@ func migrate() error {
 
 func migrateNetworks(ctx context.Context) error {
 	networks, err := database.FetchRecords(database.NETWORKS_TABLE_NAME)
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
 
@@ -117,7 +97,7 @@ func migrateNetworks(ctx context.Context) error {
 
 func migrateHosts(ctx context.Context) error {
 	hosts, err := database.FetchRecords(database.HOSTS_TABLE_NAME)
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
 
@@ -140,7 +120,7 @@ func migrateHosts(ctx context.Context) error {
 
 func migrateNodes(ctx context.Context) error {
 	nodes, err := database.FetchRecords(database.NODES_TABLE_NAME)
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
 
@@ -163,7 +143,7 @@ func migrateNodes(ctx context.Context) error {
 
 func migrateACLs(ctx context.Context) error {
 	acls, err := database.FetchRecords(database.ACLS_TABLE_NAME)
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
 

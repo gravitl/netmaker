@@ -1,6 +1,7 @@
 package migrate
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/gravitl/netmaker/logic/acls"
@@ -521,7 +522,7 @@ func createDefaultTagsAndPolicies() {
 	}
 	for _, network := range networks {
 		logic.CreateDefaultTags(models.NetworkID(network.NetID))
-		logic.CreateDefaultNetworkPolicies(network.NetID)
+		logic.CreateDefaultNetworkPolicies(models.NetworkID(network.NetID))
 		// delete old remote access gws policy
 		logic.DeleteAcl(models.Acl{ID: fmt.Sprintf("%s.%s", network.NetID, "all-remote-access-gws")})
 	}

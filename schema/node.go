@@ -37,7 +37,6 @@ type Node struct {
 	Address6      string
 	Server        string
 	Connected     bool
-	DNSOn         bool
 	Action        string
 
 	// GatewayNodeID is the ID of the node that this node uses as a

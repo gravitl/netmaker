@@ -447,7 +447,7 @@ func getNetworkEgressRoutes(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	nodeEgressRoutes, _, err := logic.GetEgressRanges(netname)
+	nodeEgressRoutes, _, err := logic.GetEgressRanges(models.NetworkID(netname))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -493,7 +493,7 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	go logic.UnlinkNetworkAndTagsFromEnrollmentKeys(network, true)
 	go logic.DeleteNetworkRoles(network)
 	go logic.DeleteAllNetworkTags(models.NetworkID(network))
-	go logic.DeleteDefaultNetworkPolicies(network)
+	go logic.DeleteNetworkPolicies(models.NetworkID(network))
 	go func() {
 		<-doneCh
 		mq.PublishPeerUpdate(true)
@@ -597,7 +597,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.CreateDefaultNetworkRolesAndGroups(models.NetworkID(network.NetID))
-	logic.CreateDefaultNetworkPolicies(network.NetID)
+	logic.CreateDefaultNetworkPolicies(models.NetworkID(network.NetID))
 	logic.CreateDefaultTags(models.NetworkID(network.NetID))
 
 	go func() {

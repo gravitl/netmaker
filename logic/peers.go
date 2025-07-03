@@ -64,7 +64,7 @@ func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 			continue
 		}
 		networkPeersInfo := make(models.PeerMap)
-		defaultDevicePolicy, _ := GetDefaultPolicy(node.Network, models.DevicePolicy)
+		defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
 		for _, peer := range currentPeers {
@@ -190,8 +190,8 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		}
 
 		networkPeersInfo := make(models.PeerMap)
-		defaultUserPolicy, _ := GetDefaultPolicy(node.Network, models.UserPolicy)
-		defaultDevicePolicy, _ := GetDefaultPolicy(node.Network, models.DevicePolicy)
+		defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
+		defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 		if (defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
 			(!CheckIfAnyPolicyisUniDirectional(node, acls) &&
 				!(node.EgressDetails.IsEgressGateway && len(node.EgressDetails.EgressGatewayRanges) > 0)) {

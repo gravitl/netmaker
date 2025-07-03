@@ -10,8 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gravitl/netmaker/db"
-
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logger"
