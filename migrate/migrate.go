@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/gravitl/netmaker/logic/acls"
 	"log"
 	"os"
 	"time"
@@ -16,7 +17,6 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
@@ -224,16 +224,11 @@ func removeOldUserGrps() {
 }
 
 func updateHosts() {
-	rows, err := database.FetchRecords(database.HOSTS_TABLE_NAME)
+	hosts, err := logic.GetAllHosts()
 	if err != nil {
 		logger.Log(0, "failed to fetch database records for hosts")
 	}
-	for _, row := range rows {
-		var host models.Host
-		if err := json.Unmarshal([]byte(row), &host); err != nil {
-			logger.Log(0, "failed to unmarshal database row to host", "row", row)
-			continue
-		}
+	for _, host := range hosts {
 		if host.PersistentKeepalive == 0 {
 			host.PersistentKeepalive = models.DefaultPersistentKeepAlive
 			if err := logic.UpsertHost(&host); err != nil {
@@ -338,17 +333,20 @@ func updateAcls() {
 			slog.Error(fmt.Sprintf("error during acls migration. error getting acls for network: %s", network.NetID), "error", err)
 			continue
 		}
+
 		// convert old acls to new acls with clients
 		// TODO: optimise O(n^2) operation
 		clients, err := logic.GetNetworkExtClients(network.NetID)
 		if err != nil {
-			slog.Error(fmt.Sprintf("error during acls migration. error getting clients for network: %s", network.NetID), "error", err)
+			logger.Log(0, fmt.Sprintf("failed to get network (%s) extClients during acl migration: %s", network.NetID, err.Error()))
 			continue
 		}
+
 		clientsIdMap := make(map[string]struct{})
 		for _, client := range clients {
 			clientsIdMap[client.ClientID] = struct{}{}
 		}
+
 		nodeIdsMap := make(map[string]struct{})
 		for nodeId := range networkAcl {
 			nodeIdsMap[string(nodeId)] = struct{}{}
@@ -400,11 +398,13 @@ func updateAcls() {
 					networkAcl[acls.AclID(client.ClientID)][id] = acls.NotAllowed
 				}
 			}
+
 			// add clients to client acls response
 			for _, c := range clients {
 				if c.ClientID == client.ClientID {
 					continue
 				}
+
 				networkAcl[acls.AclID(client.ClientID)][acls.AclID(c.ClientID)] = acls.Allowed
 				if client.DeniedACLs == nil {
 					continue
@@ -412,6 +412,7 @@ func updateAcls() {
 					networkAcl[acls.AclID(client.ClientID)][acls.AclID(c.ClientID)] = acls.NotAllowed
 				}
 			}
+
 			// delete oneself from its own acl
 			delete(networkAcl[acls.AclID(client.ClientID)], acls.AclID(client.ClientID))
 		}
@@ -521,7 +522,7 @@ func createDefaultTagsAndPolicies() {
 	}
 	for _, network := range networks {
 		logic.CreateDefaultTags(models.NetworkID(network.NetID))
-		logic.CreateDefaultAclNetworkPolicies(models.NetworkID(network.NetID))
+		logic.CreateDefaultNetworkPolicies(models.NetworkID(network.NetID))
 		// delete old remote access gws policy
 		logic.DeleteAcl(models.Acl{ID: fmt.Sprintf("%s.%s", network.NetID, "all-remote-access-gws")})
 	}

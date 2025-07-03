@@ -310,8 +310,8 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// check if host already exists
-	hostExists := false
-	if hostExists = logic.HostExists(&newHost); hostExists && len(enrollmentKey.Networks) == 0 {
+	hostExists := logic.HostExists(&newHost)
+	if hostExists && len(enrollmentKey.Networks) == 0 {
 		logger.Log(
 			0,
 			"host",

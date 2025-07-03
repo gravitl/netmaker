@@ -54,6 +54,13 @@ func ReturnSuccessResponse(response http.ResponseWriter, request *http.Request, 
 	json.NewEncoder(response).Encode(httpResponse)
 }
 
+// ReturnSuccessJsonResponse - add response headers and writes json response
+func ReturnSuccessJsonResponse(response http.ResponseWriter, request *http.Request, res interface{}) {
+	response.Header().Set("Content-Type", "application/json")
+	response.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(response).Encode(res)
+}
+
 // ReturnSuccessResponseWithJson - processes message and adds header
 func ReturnSuccessResponseWithJson(response http.ResponseWriter, request *http.Request, res interface{}, message string) {
 	var httpResponse models.SuccessResponse

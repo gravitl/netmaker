@@ -44,7 +44,16 @@ func InitializeDB(models ...interface{}) error {
 		return err
 	}
 
-	return db.AutoMigrate(models...)
+	return db.Transaction(func(tx *gorm.DB) error {
+		for _, model := range models {
+			err = tx.AutoMigrate(model)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }
 
 // WithContext returns a new context with the db

@@ -3,6 +3,8 @@ package controllers
 import (
 	"encoding/json"
 	"net/http"
+	"slices"
+	"strings"
 
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"golang.org/x/exp/slog"
@@ -180,7 +182,9 @@ func graph(w http.ResponseWriter, r *http.Request) {
 	networkNodes = logic.AddStaticNodestoList(networkNodes)
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPIWithLocation(networkNodes[:])
-	logic.SortApiNodes(apiNodes[:])
+	slices.SortFunc(apiNodes, func(a, b models.ApiNode) int {
+		return strings.Compare(a.ID, b.ID)
+	})
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNodes)
 }

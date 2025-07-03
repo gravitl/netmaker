@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/gravitl/netmaker/db"
 	_ "github.com/mattn/go-sqlite3" // need to blank import this package
+	"time"
 )
 
 // SqliteDB is the db object for sqlite database connections
@@ -33,6 +34,8 @@ func initSqliteDB() error {
 		return dbOpenErr
 	}
 
+	SqliteDB.SetMaxOpenConns(5)
+	SqliteDB.SetConnMaxLifetime(time.Hour)
 	return nil
 }
 

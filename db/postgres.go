@@ -2,7 +2,6 @@ package db
 
 import (
 	"fmt"
-	"github.com/gravitl/netmaker/servercfg"
 	"os"
 	"strconv"
 
@@ -19,7 +18,7 @@ type postgresConnector struct{}
 // postgresConnector.connect connects and
 // initializes a connection to postgres.
 func (pg *postgresConnector) connect() (*gorm.DB, error) {
-	pgConf := servercfg.GetSQLConf()
+	pgConf := GetSQLConf()
 	dsn := fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s connect_timeout=5",
 		pgConf.Host,
