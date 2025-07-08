@@ -255,7 +255,7 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	appName := request.Header.Get("X-Application-Name")
 	if appName == "" {
-		appName = logic.UnknownApp
+		appName = logic.NetmakerDesktopApp
 	}
 
 	// Auth request consists of Mac Address and Password (from node that is authorizing
@@ -582,7 +582,7 @@ func verifyTOTP(w http.ResponseWriter, r *http.Request) {
 
 	appName := r.Header.Get("X-Application-Name")
 	if appName == "" {
-		appName = logic.UnknownApp
+		appName = logic.NetmakerDesktopApp
 	}
 
 	var req models.UserTOTPVerificationParams

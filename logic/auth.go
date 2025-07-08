@@ -28,7 +28,6 @@ const (
 	DashboardApp       = "dashboard"
 	NetclientApp       = "netclient"
 	NetmakerDesktopApp = "netmaker-desktop"
-	UnknownApp         = "unknown"
 )
 
 var (

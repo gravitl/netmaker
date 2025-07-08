@@ -42,7 +42,7 @@ func initAzureAD(redirectURL string, clientID string, clientSecret string) {
 func handleAzureLogin(w http.ResponseWriter, r *http.Request) {
 	appName := r.Header.Get("X-Application-Name")
 	if appName == "" {
-		appName = logic.UnknownApp
+		appName = logic.NetmakerDesktopApp
 	}
 
 	var oauth_state_string = logic.RandomString(user_signin_length)
