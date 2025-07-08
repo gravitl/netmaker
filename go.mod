@@ -48,7 +48,7 @@ require (
 	github.com/matryer/is v1.4.1
 	github.com/pquerna/otp v1.5.0
 	github.com/spf13/cobra v1.9.1
-	google.golang.org/api v0.238.0
+	google.golang.org/api v0.240.0
 	gopkg.in/mail.v2 v2.3.1
 	gorm.io/datatypes v1.2.5
 	gorm.io/driver/postgres v1.6.0
