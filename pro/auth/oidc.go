@@ -52,13 +52,18 @@ func initOIDC(redirectURL string, clientID string, clientSecret string, issuer s
 }
 
 func handleOIDCLogin(w http.ResponseWriter, r *http.Request) {
+	appName := r.Header.Get("X-Application-Name")
+	if appName == "" {
+		appName = logic.UnknownApp
+	}
+
 	var oauth_state_string = logic.RandomString(user_signin_length)
 	if auth_provider == nil {
 		handleOauthNotConfigured(w)
 		return
 	}
 
-	if err := logic.SetState(oauth_state_string); err != nil {
+	if err := logic.SetState(appName, oauth_state_string); err != nil {
 		handleOauthNotConfigured(w)
 		return
 	}
@@ -67,10 +72,15 @@ func handleOIDCLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
-
 	var rState, rCode = getStateAndCode(r)
 
-	var content, err = getOIDCUserInfo(rState, rCode)
+	state, err := logic.GetState(rState)
+	if err != nil {
+		handleOauthNotValid(w)
+		return
+	}
+
+	content, err := getOIDCUserInfo(rState, rCode)
 	if err != nil {
 		logger.Log(1, "error when getting user info from callback:", err.Error())
 		if strings.Contains(err.Error(), "invalid oauth state") {
@@ -170,7 +180,7 @@ func handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 		Password: newPass,
 	}
 
-	var jwt, jwtErr = logic.VerifyAuthRequest(authRequest)
+	var jwt, jwtErr = logic.VerifyAuthRequest(authRequest, state.AppName)
 	if jwtErr != nil {
 		logger.Log(1, "could not parse jwt for user", authRequest.UserName, jwtErr.Error())
 		return

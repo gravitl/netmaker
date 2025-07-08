@@ -40,13 +40,18 @@ func initGoogle(redirectURL string, clientID string, clientSecret string) {
 }
 
 func handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
+	appName := r.Header.Get("X-Application-Name")
+	if appName == "" {
+		appName = logic.UnknownApp
+	}
+
 	var oauth_state_string = logic.RandomString(user_signin_length)
 	if auth_provider == nil {
 		handleOauthNotConfigured(w)
 		return
 	}
 	logger.Log(0, "Setting OAuth State ", oauth_state_string)
-	if err := logic.SetState(oauth_state_string); err != nil {
+	if err := logic.SetState(appName, oauth_state_string); err != nil {
 		handleOauthNotConfigured(w)
 		return
 	}
@@ -56,10 +61,16 @@ func handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
-
 	var rState, rCode = getStateAndCode(r)
 	logger.Log(0, "Fetched OAuth State ", rState)
-	var content, err = getGoogleUserInfo(rState, rCode)
+
+	state, err := logic.GetState(rState)
+	if err != nil {
+		handleOauthNotValid(w)
+		return
+	}
+
+	content, err := getGoogleUserInfo(rState, rCode)
 	if err != nil {
 		logger.Log(1, "error when getting user info from google:", err.Error())
 		if strings.Contains(err.Error(), "invalid oauth state") {
@@ -162,7 +173,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		Password: newPass,
 	}
 
-	var jwt, jwtErr = logic.VerifyAuthRequest(authRequest)
+	var jwt, jwtErr = logic.VerifyAuthRequest(authRequest, state.AppName)
 	if jwtErr != nil {
 		logger.Log(1, "could not parse jwt for user", authRequest.UserName)
 		return
