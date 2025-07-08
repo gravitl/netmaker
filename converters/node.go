@@ -72,7 +72,7 @@ func ToSchemaNode(node models.Node) schema.Node {
 		egressGatewayNodeConfig = &config
 	}
 
-	var failOverPeers datatypes.JSONMap
+	failOverPeers := make(datatypes.JSONMap)
 	if node.IsFailOver {
 		for peer := range node.FailOverPeers {
 			failOverPeers[peer] = true

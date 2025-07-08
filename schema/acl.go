@@ -39,7 +39,10 @@ func (a *ACL) Create(ctx context.Context) error {
 }
 
 func (a *ACL) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Model(a).First(a).Error
+	return db.FromContext(ctx).Model(a).
+		Where("id = ?", a.ID).
+		First(a).
+		Error
 }
 
 func (a *ACL) ListAll(ctx context.Context) ([]ACL, error) {

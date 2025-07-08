@@ -133,7 +133,7 @@ func CreateHost(h *models.Host) error {
 		return errors.New("free tier limits exceeded on machines")
 	}
 	_, err := GetHost(h.ID.String())
-	if (err != nil && !database.IsEmptyRecord(err)) || (err == nil) {
+	if (err != nil && !errors.Is(err, gorm.ErrRecordNotFound)) || (err == nil) {
 		return ErrHostExists
 	}
 

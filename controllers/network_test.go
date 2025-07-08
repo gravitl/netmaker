@@ -69,7 +69,7 @@ func TestGetNetwork(t *testing.T) {
 	})
 	t.Run("GetNonExistantNetwork", func(t *testing.T) {
 		network, err := logic.GetNetwork("doesnotexist")
-		assert.EqualError(t, err, "no result found")
+		assert.EqualError(t, err, "record not found")
 		assert.Equal(t, "", network.NetID)
 	})
 }
@@ -215,7 +215,10 @@ func TestIpv6Network(t *testing.T) {
 
 func deleteAllNetworks() {
 	deleteAllNodes()
-	database.DeleteAllRecords(database.NETWORKS_TABLE_NAME)
+	networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	for _, network := range networks {
+		_ = network.Delete(db.WithContext(context.TODO()))
+	}
 }
 
 func createNet() {

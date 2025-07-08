@@ -46,7 +46,10 @@ func (n *Network) Create(ctx context.Context) error {
 }
 
 func (n *Network) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Model(n).First(n).Error
+	return db.FromContext(ctx).Model(n).
+		Where("id = ?", n.ID).
+		First(n).
+		Error
 }
 
 func (n *Network) GetNodes(ctx context.Context) ([]Node, error) {

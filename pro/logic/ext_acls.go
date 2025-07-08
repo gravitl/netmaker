@@ -142,6 +142,6 @@ func UpdateProNodeACLs(node *models.Node) error {
 		}
 	}
 
-	_, err = currentACLs.Save(acls.ContainerID(node.Network))
+	_, _ = currentACLs.Save(acls.ContainerID(node.Network))
 	return nil
 }

@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"github.com/gravitl/netmaker/db"
-	"time"
-
 	_ "github.com/lib/pq"
 )
 
@@ -34,9 +32,6 @@ func initPGDB() error {
 	if dbOpenErr != nil {
 		return dbOpenErr
 	}
-
-	PGDB.SetMaxOpenConns(5)
-	PGDB.SetConnMaxLifetime(time.Hour)
 
 	return PGDB.Ping()
 }

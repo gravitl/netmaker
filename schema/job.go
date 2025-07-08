@@ -31,5 +31,8 @@ func (j *Job) Create(ctx context.Context) error {
 
 // Get returns a job record with the given Job.ID.
 func (j *Job) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Model(j).First(j).Error
+	return db.FromContext(ctx).Model(j).
+		Where("id = ?", j.ID).
+		First(j).
+		Error
 }

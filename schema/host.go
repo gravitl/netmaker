@@ -57,7 +57,10 @@ func (h *Host) Create(ctx context.Context) error {
 }
 
 func (h *Host) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Model(h).First(h).Error
+	return db.FromContext(ctx).Model(h).
+		Where("id = ?", h.ID).
+		First(h).
+		Error
 }
 
 func (h *Host) GetNodes(ctx context.Context) ([]Node, error) {

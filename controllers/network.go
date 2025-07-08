@@ -225,15 +225,6 @@ func updateNetworkACLv2(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var networkACL acls.ACLContainer
-	networkACL, err = networkACL.Get(acls.ContainerID(networkID))
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("failed to fetch ACLs for network [%s]: %v", networkID, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-
 	_network := &schema.Network{
 		ID: networkID,
 	}
