@@ -77,7 +77,7 @@ func SessionHandler(conn *websocket.Conn) {
 		_, err := logic.VerifyAuthRequest(models.UserAuthParams{
 			UserName: registerMessage.User,
 			Password: registerMessage.Password,
-		})
+		}, logic.NetclientApp)
 		if err != nil {
 			err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {

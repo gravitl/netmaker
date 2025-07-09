@@ -89,6 +89,7 @@ type ServerConfig struct {
 	DeployedByOperator         bool          `yaml:"deployed_by_operator"`
 	Environment                string        `yaml:"environment"`
 	JwtValidityDuration        time.Duration `yaml:"jwt_validity_duration" swaggertype:"primitive,integer" format:"int64"`
+	JwtValidityDurationClients time.Duration `yaml:"jwt_validity_duration_clients" swaggertype:"primitive,integer" format:"int64"`
 	RacRestrictToSingleNetwork bool          `yaml:"rac_restrict_to_single_network"`
 	CacheEnabled               string        `yaml:"caching_enabled"`
 	EndpointDetection          bool          `yaml:"endpoint_detection"`

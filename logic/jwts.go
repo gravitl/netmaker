@@ -83,9 +83,13 @@ func CreateUserAccessJwtToken(username string, role models.UserRoleID, d time.Ti
 }
 
 // CreateUserJWT - creates a user jwt token
-func CreateUserJWT(username string, role models.UserRoleID) (response string, err error) {
-	settings := GetServerSettings()
-	expirationTime := time.Now().Add(time.Duration(settings.JwtValidityDuration) * time.Minute)
+func CreateUserJWT(username string, role models.UserRoleID, appName string) (response string, err error) {
+	duration := GetJwtValidityDuration()
+	if appName == NetclientApp || appName == NetmakerDesktopApp {
+		duration = GetJwtValidityDurationForClients()
+	}
+
+	expirationTime := time.Now().Add(duration)
 	claims := &models.UserClaims{
 		UserName:  username,
 		Role:      role,
