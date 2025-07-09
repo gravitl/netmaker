@@ -1411,8 +1411,8 @@ func RemoveNodeFromAclPolicy(node models.Node) {
 	}
 }
 
-// CreateDefaultAclNetworkPolicies - create default acl network policies
-func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
+// CreateDefaultNetworkPolicies - create default acl network policies
+func CreateDefaultNetworkPolicies(netID models.NetworkID) {
 	if netID.String() == "" {
 		return
 	}
@@ -1475,5 +1475,5 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 		}
 		InsertAcl(defaultUserAcl)
 	}
-	CreateDefaultUserPolicies(netID)
+	CreateDefaultUserPolicies(netID.String())
 }

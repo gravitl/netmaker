@@ -31,7 +31,7 @@ func (s *sqliteConnector) connect() (*gorm.DB, error) {
 
 	dbFilePath := filepath.Join("data", "netmaker.db")
 
-	// ensure netmaker_v1.db exists.
+	// ensure netmaker.db exists.
 	_, err = os.Stat(dbFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
