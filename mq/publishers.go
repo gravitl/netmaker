@@ -113,6 +113,13 @@ func PublishSingleHostPeerUpdate(host *models.Host, allNodes []models.Node, dele
 	if err != nil {
 		return err
 	}
+	for _, nodeID := range host.Nodes {
+
+		node, err := logic.GetNodeByID(nodeID)
+		if err == nil && node.Connected && node.InternetGwID != "" {
+			replacePeers = false
+		}
+	}
 	peerUpdate.OldPeerUpdateFields = models.OldPeerUpdateFields{
 		NodePeers:         peerUpdate.NodePeers,
 		OldPeers:          peerUpdate.Peers,

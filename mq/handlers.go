@@ -281,7 +281,7 @@ func HandleHostCheckin(h, currentHost *models.Host) bool {
 		(h.ListenPort != 0 && h.ListenPort != currentHost.ListenPort) ||
 		(h.WgPublicListenPort != 0 && h.WgPublicListenPort != currentHost.WgPublicListenPort) || (!h.EndpointIPv6.Equal(currentHost.EndpointIPv6))
 	if ifaceDelta { // only save if something changes
-		if !h.EndpointIP.Equal(currentHost.EndpointIP) || !h.EndpointIPv6.Equal(currentHost.EndpointIPv6) {
+		if !h.EndpointIP.Equal(currentHost.EndpointIP) || !h.EndpointIPv6.Equal(currentHost.EndpointIPv6) || currentHost.Location == "" {
 			if h.EndpointIP != nil {
 				h.Location = logic.GetHostLocInfo(h.EndpointIP.String(), os.Getenv("IP_INFO_TOKEN"))
 			} else if h.EndpointIPv6 != nil {
@@ -293,6 +293,9 @@ func HandleHostCheckin(h, currentHost *models.Host) bool {
 		currentHost.Interfaces = h.Interfaces
 		currentHost.DefaultInterface = h.DefaultInterface
 		currentHost.NatType = h.NatType
+		if h.Location != "" {
+			currentHost.Location = h.Location
+		}
 		if h.ListenPort != 0 {
 			currentHost.ListenPort = h.ListenPort
 		}

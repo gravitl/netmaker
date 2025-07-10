@@ -25,7 +25,7 @@ type ServerSettings struct {
 	Telemetry                      string   `json:"telemetry"`
 	BasicAuth                      bool     `json:"basic_auth"`
 	JwtValidityDuration            int      `json:"jwt_validity_duration"`
-	RacAutoDisable                 bool     `json:"rac_auto_disable"`
+	MFAEnforced                    bool     `json:"mfa_enforced"`
 	RacRestrictToSingleNetwork     bool     `json:"rac_restrict_to_single_network"`
 	EndpointDetection              bool     `json:"endpoint_detection"`
 	AllowedEmailDomains            string   `json:"allowed_email_domains"`
