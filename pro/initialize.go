@@ -155,7 +155,7 @@ func InitPro() {
 	logic.GetFwRulesForNodeAndPeerOnGw = proLogic.GetFwRulesForNodeAndPeerOnGw
 	logic.GetFwRulesForUserNodesOnGw = proLogic.GetFwRulesForUserNodesOnGw
 	logic.GetHostLocInfo = proLogic.GetHostLocInfo
-
+	logic.GetFeatureFlags = proLogic.GetFeatureFlags
 }
 
 func retrieveProLogo() string {
