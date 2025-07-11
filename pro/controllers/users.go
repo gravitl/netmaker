@@ -464,12 +464,14 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	networks, err := logic.GetNetworks()
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	for _, network := range networks {
+
+	for networkID := range userGroupReq.Group.NetworkRoles {
+		network, err := logic.GetNetwork(networkID.String())
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+
 		acl := models.Acl{
 			ID:          uuid.New().String(),
 			Name:        fmt.Sprintf("%s group", userGroupReq.Group.Name),
