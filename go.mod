@@ -32,7 +32,7 @@ require (
 require (
 	filippo.io/edwards25519 v1.1.0
 	github.com/c-robinson/iplib v1.0.8
-	github.com/posthog/posthog-go v1.5.12
+	github.com/posthog/posthog-go v1.5.14
 )
 
 require (
