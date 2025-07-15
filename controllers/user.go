@@ -1135,8 +1135,21 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			UserName: logic.MasterUser,
 		}
 	}
+	action := models.Update
+	// TODO: here we are relying on the dashboard to only
+	// make singular updates, but it's possible that the
+	// API can be called to make multiple changes to the
+	// user. We should update it to log multiple events
+	// or create singular update APIs.
+	if userchange.IsMFAEnabled != user.IsMFAEnabled {
+		if userchange.IsMFAEnabled {
+			action = models.EnableMFA
+		} else {
+			action = models.DisableMFA
+		}
+	}
 	e := models.Event{
-		Action: models.Update,
+		Action: action,
 		Source: models.Subject{
 			ID:   caller.UserName,
 			Name: caller.UserName,
