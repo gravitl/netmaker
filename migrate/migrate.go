@@ -642,7 +642,7 @@ func settings() {
 		settings.DefaultDomain = servercfg.GetDefaultDomain()
 	}
 	if settings.JwtValidityDurationClients == 0 {
-		settings.JwtValidityDurationClients = servercfg.GetJwtValidityDurationFromEnv()
+		settings.JwtValidityDurationClients = servercfg.GetJwtValidityDurationFromEnv() / 60
 	}
 	logic.UpsertServerSettings(settings)
 }
