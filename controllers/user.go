@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/pquerna/otp"
+	"golang.org/x/crypto/bcrypt"
 	"image/png"
 	"net/http"
 	"reflect"
@@ -38,6 +39,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/adm/transfersuperadmin/{username}", logic.SecurityCheck(true, http.HandlerFunc(transferSuperAdmin))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/validate-identity", logic.SecurityCheck(false, http.HandlerFunc(validateUserIdentity))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/auth/init-totp", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(initiateTOTPSetup)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/auth/complete-totp", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(completeTOTPSetup)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/auth/verify-totp", logic.PreAuthCheck(logic.ContinueIfUserMatch(http.HandlerFunc(verifyTOTP)))).Methods(http.MethodPost)
@@ -438,6 +440,43 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 			}
 		}
 	}()
+}
+
+// @Summary     Validates a user's identity against it's token. This is used by UI before a user performing a critical operation to validate the user's identity.
+// @Router      /api/users/validate-identity [post]
+// @Tags        Auth
+// @Accept      json
+// @Param       body body models.UserIdentityValidationRequest true "User Identity Validation Request"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+func validateUserIdentity(w http.ResponseWriter, r *http.Request) {
+	username := r.Header.Get("user")
+
+	var req models.UserIdentityValidationRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		logger.Log(0, "failed to decode request body: ", err.Error())
+		err = fmt.Errorf("invalid request body: %v", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	user, err := logic.GetUser(username)
+	if err != nil {
+		logger.Log(0, "failed to get user: ", err.Error())
+		err = fmt.Errorf("user not found: %v", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	var resp models.UserIdentityValidationResponse
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
+	if err != nil {
+		logic.ReturnSuccessResponseWithJson(w, r, resp, "user identity validation failed")
+	} else {
+		resp.IdentityValidated = true
+		logic.ReturnSuccessResponseWithJson(w, r, resp, "user identity validated")
+	}
 }
 
 // @Summary     Initiate setting up TOTP 2FA for a user.
