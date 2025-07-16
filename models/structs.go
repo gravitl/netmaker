@@ -18,6 +18,7 @@ const (
 
 type FeatureFlags struct {
 	EnableNetworkActivity   bool `json:"enable_network_activity"`
+	EnableOAuth             bool `json:"enable_oauth"`
 	EnableIDPIntegration    bool `json:"enable_idp_integration"`
 	AllowMultiServerLicense bool `json:"allow_multi_server_license"`
 }
