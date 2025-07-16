@@ -308,38 +308,6 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
 			return
 		}
-		// log user activity
-		logic.LogEvent(&models.Event{
-			Action: models.Login,
-			Source: models.Subject{
-				ID:   user.UserName,
-				Name: user.UserName,
-				Type: models.UserSub,
-			},
-			TriggeredBy: user.UserName,
-			Target: models.Subject{
-				ID:   models.DashboardSub.String(),
-				Name: models.DashboardSub.String(),
-				Type: models.DashboardSub,
-			},
-			Origin: models.Dashboard,
-		})
-	} else {
-		logic.LogEvent(&models.Event{
-			Action: models.Login,
-			Source: models.Subject{
-				ID:   user.UserName,
-				Name: user.UserName,
-				Type: models.UserSub,
-			},
-			TriggeredBy: user.UserName,
-			Target: models.Subject{
-				ID:   models.ClientAppSub.String(),
-				Name: models.ClientAppSub.String(),
-				Type: models.ClientAppSub,
-			},
-			Origin: models.ClientApp,
-		})
 	}
 
 	username := authRequest.UserName
@@ -393,6 +361,44 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 	logger.Log(2, username, "was authenticated")
+
+	// log user activity
+	if !user.IsMFAEnabled {
+		if val := request.Header.Get("From-Ui"); val == "true" {
+			logic.LogEvent(&models.Event{
+				Action: models.Login,
+				Source: models.Subject{
+					ID:   user.UserName,
+					Name: user.UserName,
+					Type: models.UserSub,
+				},
+				TriggeredBy: user.UserName,
+				Target: models.Subject{
+					ID:   models.DashboardSub.String(),
+					Name: models.DashboardSub.String(),
+					Type: models.DashboardSub,
+				},
+				Origin: models.Dashboard,
+			})
+		} else {
+			logic.LogEvent(&models.Event{
+				Action: models.Login,
+				Source: models.Subject{
+					ID:   user.UserName,
+					Name: user.UserName,
+					Type: models.UserSub,
+				},
+				TriggeredBy: user.UserName,
+				Target: models.Subject{
+					ID:   models.ClientAppSub.String(),
+					Name: models.ClientAppSub.String(),
+					Type: models.ClientAppSub,
+				},
+				Origin: models.ClientApp,
+			})
+		}
+	}
+
 	response.Header().Set("Content-Type", "application/json")
 	response.Write(successJSONResponse)
 
@@ -557,6 +563,22 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		logic.LogEvent(&models.Event{
+			Action: models.EnableMFA,
+			Source: models.Subject{
+				ID:   user.UserName,
+				Name: user.UserName,
+				Type: models.UserSub,
+			},
+			TriggeredBy: user.UserName,
+			Target: models.Subject{
+				ID:   user.UserName,
+				Name: user.UserName,
+				Type: models.UserSub,
+			},
+			Origin: models.Dashboard,
+		})
+
 		logic.ReturnSuccessResponse(w, r, fmt.Sprintf("totp setup complete for user %s", username))
 	} else {
 		err = fmt.Errorf("cannot setup totp for user %s: invalid otp", username)
@@ -618,6 +640,22 @@ func verifyTOTP(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
+
+		logic.LogEvent(&models.Event{
+			Action: models.Login,
+			Source: models.Subject{
+				ID:   user.UserName,
+				Name: user.UserName,
+				Type: models.UserSub,
+			},
+			TriggeredBy: user.UserName,
+			Target: models.Subject{
+				ID:   models.DashboardSub.String(),
+				Name: models.DashboardSub.String(),
+				Type: models.DashboardSub,
+			},
+			Origin: models.Dashboard,
+		})
 
 		logic.ReturnSuccessResponseWithJson(w, r, models.SuccessfulUserLoginResponse{
 			UserName:  username,
@@ -1143,6 +1181,7 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	// or create singular update APIs.
 	if userchange.IsMFAEnabled != user.IsMFAEnabled {
 		if userchange.IsMFAEnabled {
+			// the update API won't be used to enable MFA.
 			action = models.EnableMFA
 		} else {
 			action = models.DisableMFA
