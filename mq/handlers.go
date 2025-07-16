@@ -274,7 +274,7 @@ func HandleHostCheckin(h, currentHost *models.Host) bool {
 			return false
 		}
 	}
-	ifaceDelta := len(h.Interfaces) != len(currentHost.Interfaces) ||
+	ifaceDelta := len(h.Interfaces) != len(currentHost.Interfaces) || !logic.CompareIfaceSlices(h.Interfaces, currentHost.Interfaces) ||
 		!h.EndpointIP.Equal(currentHost.EndpointIP) ||
 		(len(h.NatType) > 0 && h.NatType != currentHost.NatType) ||
 		h.DefaultInterface != currentHost.DefaultInterface ||
