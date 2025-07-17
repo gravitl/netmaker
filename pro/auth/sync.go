@@ -19,6 +19,8 @@ import (
 var (
 	cancelSyncHook context.CancelFunc
 	hookStopWg     sync.WaitGroup
+	idpSyncMtx     sync.Mutex
+	idpSyncErr     error
 )
 
 func ResetIDPSyncHook() {
@@ -57,12 +59,18 @@ func runIDPSyncHook(ctx context.Context) {
 }
 
 func SyncFromIDP() error {
+	idpSyncMtx.Lock()
+	defer idpSyncMtx.Unlock()
 	settings := logic.GetServerSettings()
 
 	var idpClient idp.Client
 	var idpUsers []idp.User
 	var idpGroups []idp.Group
 	var err error
+
+	defer func() {
+		idpSyncErr = err
+	}()
 
 	switch settings.AuthProvider {
 	case "google":
@@ -74,7 +82,8 @@ func SyncFromIDP() error {
 		idpClient = azure.NewAzureEntraIDClient()
 	default:
 		if settings.AuthProvider != "" {
-			return fmt.Errorf("invalid auth provider: %s", settings.AuthProvider)
+			err = fmt.Errorf("invalid auth provider: %s", settings.AuthProvider)
+			return err
 		}
 	}
 
@@ -95,7 +104,8 @@ func SyncFromIDP() error {
 		return err
 	}
 
-	return syncGroups(idpGroups)
+	err = syncGroups(idpGroups)
+	return err
 }
 
 func syncUsers(idpUsers []idp.User) error {
@@ -309,4 +319,24 @@ func syncGroups(idpGroups []idp.Group) error {
 	}
 
 	return nil
+}
+
+func GetIDPSyncStatus() models.IDPSyncStatus {
+	if idpSyncMtx.TryLock() {
+		defer idpSyncMtx.Unlock()
+		return models.IDPSyncStatus{
+			Status: "in_progress",
+		}
+	} else {
+		if idpSyncErr == nil {
+			return models.IDPSyncStatus{
+				Status: "completed",
+			}
+		} else {
+			return models.IDPSyncStatus{
+				Status:      "failed",
+				Description: idpSyncErr.Error(),
+			}
+		}
+	}
 }

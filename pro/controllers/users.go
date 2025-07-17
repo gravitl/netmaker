@@ -64,6 +64,7 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/ingress/{ingress_id}", logic.SecurityCheck(true, http.HandlerFunc(ingressGatewayUsers))).Methods(http.MethodGet)
 
 	r.HandleFunc("/api/idp/sync", logic.SecurityCheck(true, http.HandlerFunc(syncIDP))).Methods(http.MethodPost)
+	r.HandleFunc("/api/idp/sync/status", logic.SecurityCheck(true, http.HandlerFunc(getIDPSyncStatus))).Methods(http.MethodGet)
 	r.HandleFunc("/api/idp", logic.SecurityCheck(true, http.HandlerFunc(removeIDPIntegration))).Methods(http.MethodDelete)
 }
 
@@ -1616,6 +1617,14 @@ func syncIDP(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	logic.ReturnSuccessResponse(w, r, "starting sync from idp")
+}
+
+// @Summary     Gets idp sync status.
+// @Router      /api/idp/sync/status [get]
+// @Tags        IDP
+// @Success     200 {object} models.SuccessResponse
+func getIDPSyncStatus(w http.ResponseWriter, r *http.Request) {
+	logic.ReturnSuccessResponseWithJson(w, r, proAuth.GetIDPSyncStatus(), "idp sync status retrieved")
 }
 
 // @Summary     Remove idp integration.

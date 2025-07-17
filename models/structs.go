@@ -399,3 +399,11 @@ type RsrcURLInfo struct {
 	Method string
 	Path   string
 }
+
+type IDPSyncStatus struct {
+	// Status would be one of: in_progress, completed or failed.
+	Status string `json:"status"`
+	// Description is empty if the sync is ongoing or completed,
+	// and describes the error when the sync fails.
+	Description string `json:"description"`
+}
