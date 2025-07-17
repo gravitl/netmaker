@@ -16,14 +16,18 @@ type Client struct {
 	tenantID     string
 }
 
-func NewAzureEntraIDClient() *Client {
+func NewAzureEntraIDClient(clientID, clientSecret, tenantID string) *Client {
+	return &Client{
+		clientID:     clientID,
+		clientSecret: clientSecret,
+		tenantID:     tenantID,
+	}
+}
+
+func NewAzureEntraIDClientFromSettings() *Client {
 	settings := logic.GetServerSettings()
 
-	return &Client{
-		clientID:     settings.ClientID,
-		clientSecret: settings.ClientSecret,
-		tenantID:     settings.AzureTenant,
-	}
+	return NewAzureEntraIDClient(settings.ClientID, settings.ClientSecret, settings.AzureTenant)
 }
 
 func (a *Client) GetUsers() ([]idp.User, error) {

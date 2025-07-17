@@ -15,10 +15,8 @@ type Client struct {
 	service *admindir.Service
 }
 
-func NewGoogleWorkspaceClient() (*Client, error) {
-	settings := logic.GetServerSettings()
-
-	credsJson, err := base64.StdEncoding.DecodeString(settings.GoogleSACredsJson)
+func NewGoogleWorkspaceClient(adminEmail, creds string) (*Client, error) {
+	credsJson, err := base64.StdEncoding.DecodeString(creds)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +36,7 @@ func NewGoogleWorkspaceClient() (*Client, error) {
 				admindir.AdminDirectoryGroupReadonlyScope,
 				admindir.AdminDirectoryGroupMemberReadonlyScope,
 			},
-			Subject: settings.GoogleAdminEmail,
+			Subject: adminEmail,
 		},
 		option.WithCredentialsJSON(credsJson),
 	)
@@ -57,6 +55,12 @@ func NewGoogleWorkspaceClient() (*Client, error) {
 	return &Client{
 		service: service,
 	}, nil
+}
+
+func NewGoogleWorkspaceClientFromSettings() (*Client, error) {
+	settings := logic.GetServerSettings()
+
+	return NewGoogleWorkspaceClient(settings.GoogleAdminEmail, settings.GoogleSACredsJson)
 }
 
 func (g *Client) GetUsers() ([]idp.User, error) {

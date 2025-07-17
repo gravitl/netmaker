@@ -74,12 +74,12 @@ func SyncFromIDP() error {
 
 	switch settings.AuthProvider {
 	case "google":
-		idpClient, err = google.NewGoogleWorkspaceClient()
+		idpClient, err = google.NewGoogleWorkspaceClientFromSettings()
 		if err != nil {
 			return err
 		}
 	case "azure-ad":
-		idpClient = azure.NewAzureEntraIDClient()
+		idpClient = azure.NewAzureEntraIDClientFromSettings()
 	default:
 		if settings.AuthProvider != "" {
 			err = fmt.Errorf("invalid auth provider: %s", settings.AuthProvider)
