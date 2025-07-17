@@ -39,7 +39,7 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/adm/transfersuperadmin/{username}", logic.SecurityCheck(true, http.HandlerFunc(transferSuperAdmin))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods(http.MethodPost)
-	r.HandleFunc("/api/users/validate-identity", logic.SecurityCheck(false, http.HandlerFunc(validateUserIdentity))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}/validate-identity", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(validateUserIdentity)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/auth/init-totp", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(initiateTOTPSetup)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/auth/complete-totp", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(completeTOTPSetup)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/auth/verify-totp", logic.PreAuthCheck(logic.ContinueIfUserMatch(http.HandlerFunc(verifyTOTP)))).Methods(http.MethodPost)
@@ -443,7 +443,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 }
 
 // @Summary     Validates a user's identity against it's token. This is used by UI before a user performing a critical operation to validate the user's identity.
-// @Router      /api/users/validate-identity [post]
+// @Router      /api/users/{username}/validate-identity [post]
 // @Tags        Auth
 // @Accept      json
 // @Param       body body models.UserIdentityValidationRequest true "User Identity Validation Request"
