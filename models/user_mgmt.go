@@ -202,6 +202,16 @@ type UserAuthParams struct {
 	Password string `json:"password"`
 }
 
+// UserIdentityValidationRequest - user identity validation request struct
+type UserIdentityValidationRequest struct {
+	Password string `json:"password"`
+}
+
+// UserIdentityValidationResponse - user identity validation response struct
+type UserIdentityValidationResponse struct {
+	IdentityValidated bool `json:"identity_validated"`
+}
+
 type UserTOTPVerificationParams struct {
 	OTPAuthURL          string `json:"otp_auth_url"`
 	OTPAuthURLSignature string `json:"otp_auth_url_signature"`
