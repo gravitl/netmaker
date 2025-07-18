@@ -17,6 +17,27 @@ func GetFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []
 	defaultUserPolicy, _ := logic.GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 	userNodes := logic.GetStaticUserNodesByNetwork(models.NetworkID(node.Network))
 	for _, userNodeI := range userNodes {
+		if defaultUserPolicy.Enabled {
+			if userNodeI.StaticNode.Address != "" {
+				rules = append(rules, models.FwRule{
+					SrcIP:           userNodeI.StaticNode.AddressIPNet4(),
+					DstIP:           net.IPNet{},
+					AllowedProtocol: models.ALL,
+					AllowedPorts:    []string{},
+					Allow:           true,
+				})
+			}
+			if userNodeI.StaticNode.Address6 != "" {
+				rules = append(rules, models.FwRule{
+					SrcIP:           userNodeI.StaticNode.AddressIPNet6(),
+					DstIP:           net.IPNet{},
+					AllowedProtocol: models.ALL,
+					AllowedPorts:    []string{},
+					Allow:           true,
+				})
+			}
+			continue
+		}
 		for _, peer := range nodes {
 			if peer.IsUserNode {
 				continue
@@ -26,68 +47,66 @@ func GetFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []
 				if peer.IsStatic {
 					peer = peer.StaticNode.ConvertToStaticNode()
 				}
-				if !defaultUserPolicy.Enabled {
-					for _, policy := range allowedPolicies {
-						if userNodeI.StaticNode.Address != "" {
-							rules = append(rules, models.FwRule{
-								SrcIP: userNodeI.StaticNode.AddressIPNet4(),
-								DstIP: net.IPNet{
-									IP:   peer.Address.IP,
-									Mask: net.CIDRMask(32, 32),
-								},
-								AllowedProtocol: policy.Proto,
-								AllowedPorts:    policy.Port,
-								Allow:           true,
-							})
-						}
-						if userNodeI.StaticNode.Address6 != "" {
-							rules = append(rules, models.FwRule{
-								SrcIP: userNodeI.StaticNode.AddressIPNet6(),
-								DstIP: net.IPNet{
-									IP:   peer.Address6.IP,
-									Mask: net.CIDRMask(128, 128),
-								},
-								AllowedProtocol: policy.Proto,
-								AllowedPorts:    policy.Port,
-								Allow:           true,
-							})
-						}
+				for _, policy := range allowedPolicies {
+					if userNodeI.StaticNode.Address != "" {
+						rules = append(rules, models.FwRule{
+							SrcIP: userNodeI.StaticNode.AddressIPNet4(),
+							DstIP: net.IPNet{
+								IP:   peer.Address.IP,
+								Mask: net.CIDRMask(32, 32),
+							},
+							AllowedProtocol: policy.Proto,
+							AllowedPorts:    policy.Port,
+							Allow:           true,
+						})
+					}
+					if userNodeI.StaticNode.Address6 != "" {
+						rules = append(rules, models.FwRule{
+							SrcIP: userNodeI.StaticNode.AddressIPNet6(),
+							DstIP: net.IPNet{
+								IP:   peer.Address6.IP,
+								Mask: net.CIDRMask(128, 128),
+							},
+							AllowedProtocol: policy.Proto,
+							AllowedPorts:    policy.Port,
+							Allow:           true,
+						})
+					}
 
-						// add egress ranges
-						for _, dstI := range policy.Dst {
-							if dstI.ID == models.EgressID {
+					// add egress ranges
+					for _, dstI := range policy.Dst {
+						if dstI.ID == models.EgressID {
 
-								e := schema.Egress{ID: dstI.Value}
-								err := e.Get(db.WithContext(context.TODO()))
-								if err != nil {
-									continue
-								}
-								dstI.Value = e.Range
+							e := schema.Egress{ID: dstI.Value}
+							err := e.Get(db.WithContext(context.TODO()))
+							if err != nil {
+								continue
+							}
+							dstI.Value = e.Range
 
-								ip, cidr, err := net.ParseCIDR(dstI.Value)
-								if err == nil {
-									if ip.To4() != nil && userNodeI.StaticNode.Address != "" {
-										rules = append(rules, models.FwRule{
-											SrcIP:           userNodeI.StaticNode.AddressIPNet4(),
-											DstIP:           *cidr,
-											AllowedProtocol: policy.Proto,
-											AllowedPorts:    policy.Port,
-											Allow:           true,
-										})
-									} else if ip.To16() != nil && userNodeI.StaticNode.Address6 != "" {
-										rules = append(rules, models.FwRule{
-											SrcIP:           userNodeI.StaticNode.AddressIPNet6(),
-											DstIP:           *cidr,
-											AllowedProtocol: policy.Proto,
-											AllowedPorts:    policy.Port,
-											Allow:           true,
-										})
-									}
+							ip, cidr, err := net.ParseCIDR(dstI.Value)
+							if err == nil {
+								if ip.To4() != nil && userNodeI.StaticNode.Address != "" {
+									rules = append(rules, models.FwRule{
+										SrcIP:           userNodeI.StaticNode.AddressIPNet4(),
+										DstIP:           *cidr,
+										AllowedProtocol: policy.Proto,
+										AllowedPorts:    policy.Port,
+										Allow:           true,
+									})
+								} else if ip.To16() != nil && userNodeI.StaticNode.Address6 != "" {
+									rules = append(rules, models.FwRule{
+										SrcIP:           userNodeI.StaticNode.AddressIPNet6(),
+										DstIP:           *cidr,
+										AllowedProtocol: policy.Proto,
+										AllowedPorts:    policy.Port,
+										Allow:           true,
+									})
 								}
 							}
 						}
-
 					}
+
 				}
 
 			}
