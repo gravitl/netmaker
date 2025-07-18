@@ -14,7 +14,7 @@ const (
 	// ZOMBIE_TIMEOUT - timeout in hours for checking zombie status
 	ZOMBIE_TIMEOUT = 6
 	// ZOMBIE_DELETE_TIME - timeout in minutes for zombie node deletion
-	ZOMBIE_DELETE_TIME = 10
+	ZOMBIE_DELETE_TIME = 120
 )
 
 var (
