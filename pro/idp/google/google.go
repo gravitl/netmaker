@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/pro/idp"
 	admindir "google.golang.org/api/admin/directory/v1"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/impersonate"
 	"google.golang.org/api/option"
 )
@@ -61,6 +63,36 @@ func NewGoogleWorkspaceClientFromSettings() (*Client, error) {
 	settings := logic.GetServerSettings()
 
 	return NewGoogleWorkspaceClient(settings.GoogleAdminEmail, settings.GoogleSACredsJson)
+}
+
+func (g *Client) Verify() error {
+	_, err := g.service.Users.List().
+		Customer("my_customer").
+		MaxResults(1).
+		Do()
+	if err != nil {
+		var gerr *googleapi.Error
+		if errors.As(err, &gerr) {
+			return errors.New(gerr.Message)
+		}
+
+		return err
+	}
+
+	_, err = g.service.Groups.List().
+		Customer("my_customer").
+		MaxResults(1).
+		Do()
+	if err != nil {
+		var gerr *googleapi.Error
+		if errors.As(err, &gerr) {
+			return errors.New(gerr.Message)
+		}
+
+		return err
+	}
+
+	return nil
 }
 
 func (g *Client) GetUsers() ([]idp.User, error) {

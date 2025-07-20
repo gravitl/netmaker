@@ -407,3 +407,12 @@ type IDPSyncStatus struct {
 	// and describes the error when the sync fails.
 	Description string `json:"description"`
 }
+
+type IDPSyncTestRequest struct {
+	AuthProvider      string `json:"auth_provider"`
+	ClientID          string `json:"client_id"`
+	ClientSecret      string `json:"client_secret"`
+	AzureTenantID     string `json:"azure_tenant_id"`
+	GoogleAdminEmail  string `json:"google_admin_email"`
+	GoogleSACredsJson string `json:"google_sa_creds_json"`
+}
