@@ -56,22 +56,6 @@ func ToSchemaNode(node models.Node) schema.Node {
 		gatewayNodeConfig = &config
 	}
 
-	var egressGatewayNodeConfig *datatypes.JSONType[schema.EgressGatewayNodeConfig]
-	if node.IsEgressGateway {
-		var ranges []schema.RangeWithMetric
-		for _, gwRange := range node.EgressGatewayRequest.RangesWithMetric {
-			ranges = append(ranges, schema.RangeWithMetric{
-				Range:  gwRange.Network,
-				Metric: gwRange.RouteMetric,
-			})
-		}
-		config := datatypes.NewJSONType(schema.EgressGatewayNodeConfig{
-			NatEnabled: models.ParseBool(node.EgressGatewayRequest.NatEnabled),
-			Ranges:     ranges,
-		})
-		egressGatewayNodeConfig = &config
-	}
-
 	failOverPeers := make(datatypes.JSONMap)
 	if node.IsFailOver {
 		for peer := range node.FailOverPeers {
@@ -130,7 +114,6 @@ func ToSchemaNode(node models.Node) schema.Node {
 	_node.GatewayNodeID = gatewayNodeID
 	_node.GatewayNode = gatewayNode
 	_node.GatewayNodeConfig = gatewayNodeConfig
-	_node.EgressGatewayNodeConfig = egressGatewayNodeConfig
 	_node.FailOverPeers = failOverPeers
 	_node.InternetGatewayNodeID = internetGatewayNodeID
 	_node.InternetGatewayNode = internetGatewayNode
@@ -241,29 +224,6 @@ func ToModelNode(_node schema.Node) models.Node {
 	if _node.GatewayNodeID != nil && _node.GatewayNode != nil {
 		node.IsRelayed = true
 		node.RelayedBy = _node.GatewayNode.ID
-	}
-
-	if _node.EgressGatewayNodeConfig != nil {
-		node.IsEgressGateway = true
-		node.EgressGatewayRequest.NodeID = _node.ID
-		node.EgressGatewayRequest.NetID = _node.NetworkID
-
-		if _node.EgressGatewayNodeConfig.Data().NatEnabled {
-			node.EgressGatewayRequest.NatEnabled = "yes"
-		} else {
-			node.EgressGatewayRequest.NatEnabled = "no"
-		}
-
-		for _, networkRange := range _node.EgressGatewayNodeConfig.Data().Ranges {
-			node.EgressGatewayRequest.Ranges = append(node.EgressGatewayRequest.Ranges, networkRange.Range)
-			node.EgressGatewayRequest.RangesWithMetric = append(node.EgressGatewayRequest.RangesWithMetric, models.EgressRangeMetric{
-				Network:     networkRange.Range,
-				RouteMetric: networkRange.Metric,
-			})
-		}
-
-		node.EgressGatewayRanges = node.EgressGatewayRequest.Ranges
-		node.EgressGatewayNatEnabled = _node.EgressGatewayNodeConfig.Data().NatEnabled
 	}
 
 	_network := &schema.Network{

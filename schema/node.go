@@ -12,24 +12,12 @@ import (
 )
 
 type Node struct {
-	ID      string `gorm:"primaryKey"`
-	OwnerID string
-	HostID  string
-	// Ideally, a foreign key relationship between host and node
-	// must exist, but here we tell gorm to not create the
-	// constraint.
-	//
-	// 1. A host's lifecycle may differ from a node's lifecycle.
-	// So we don't want to cascade delete a node record when the
-	// host is deleted.
-	//
-	// 2. Since we don't allow updating a host's id, we don't
-	// need to cascade update the foreign key.
-	Host         Host `gorm:"-"`
-	LocalAddress string
-	NetworkID    string
-	// Network foreign key relationship is also ignored for the
-	// same reason as Host.
+	ID            string `gorm:"primaryKey"`
+	OwnerID       string
+	HostID        string
+	Host          Host `gorm:"-"`
+	LocalAddress  string
+	NetworkID     string
 	Network       Network `gorm:"-"`
 	NetworkRange  string
 	NetworkRange6 string
@@ -52,11 +40,6 @@ type Node struct {
 	// GatewayNodeConfig is the Gateway configuration of this
 	// node. If nil, this node is not a Gateway node.
 	GatewayNodeConfig *datatypes.JSONType[GatewayNodeConfig] `gorm:"foreignKey:GatewayNodeConfigID"`
-
-	// EgressGatewayNodeConfig is the Egress Gateway configuration
-	// of this node. If nil, this node is not an Egress Gateway
-	// node.
-	EgressGatewayNodeConfig *datatypes.JSONType[EgressGatewayNodeConfig] `gorm:"foreignKey:EgressGatewayNodeConfigID"`
 
 	// FailOverPeers is the list of peer nodes that this node
 	// connects to using the network's FailOver.
@@ -94,11 +77,6 @@ type GatewayNodeConfig struct {
 	PersistentKeepalive int32
 	MTU                 int32
 	DNS                 string
-}
-
-type EgressGatewayNodeConfig struct {
-	NatEnabled bool
-	Ranges     []RangeWithMetric
 }
 
 type RangeWithMetric struct {
