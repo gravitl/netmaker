@@ -1,9 +1,7 @@
 package converters
 
 import (
-	"context"
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/datatypes"
@@ -54,6 +52,16 @@ func ToSchemaNode(node models.Node) schema.Node {
 			DNS:                 node.IngressDNS,
 		})
 		gatewayNodeConfig = &config
+	}
+
+	var failOverNodeID *string
+	if node.FailedOverBy != uuid.Nil {
+		// it's important we do this, because failOverNodeID
+		// is a pointer and an empty string and a nil ptr
+		// are different in db even though they both
+		// represent the absence of a failOver.
+		failOverID := node.FailedOverBy.String()
+		failOverNodeID = &failOverID
 	}
 
 	failOverPeers := make(datatypes.JSONMap)
@@ -114,7 +122,9 @@ func ToSchemaNode(node models.Node) schema.Node {
 	_node.GatewayNodeID = gatewayNodeID
 	_node.GatewayNode = gatewayNode
 	_node.GatewayNodeConfig = gatewayNodeConfig
+	_node.FailOverNodeID = failOverNodeID
 	_node.FailOverPeers = failOverPeers
+	_node.IsFailOver = node.IsFailOver
 	_node.InternetGatewayNodeID = internetGatewayNodeID
 	_node.InternetGatewayNode = internetGatewayNode
 	_node.InternetGatewayFor = internetGatewayFor
@@ -196,9 +206,8 @@ func ToModelNode(_node schema.Node) models.Node {
 		Metadata:           _node.Metadata,
 		DefaultACL:         _node.DefaultACL,
 		OwnerID:            _node.OwnerID,
-		IsFailOver:         false,
-		FailOverPeers:      nil,
-		FailedOverBy:       uuid.UUID{},
+		IsFailOver:         _node.IsFailOver,
+		FailOverPeers:      make(map[string]struct{}),
 		Tags:               tags,
 		IsStatic:           false,
 		IsUserNode:         false,
@@ -226,22 +235,12 @@ func ToModelNode(_node schema.Node) models.Node {
 		node.RelayedBy = _node.GatewayNode.ID
 	}
 
-	_network := &schema.Network{
-		ID: _node.NetworkID,
+	if _node.FailOverNodeID != nil {
+		node.FailedOverBy = uuid.MustParse(*_node.FailOverNodeID)
 	}
-	err := _network.Get(db.WithContext(context.TODO()))
-	if err == nil && _network.FailOverNodeID != nil {
-		if *_network.FailOverNodeID == _node.ID {
-			node.IsFailOver = true
-		}
 
-		if _node.FailOverPeers != nil {
-			node.FailedOverBy = uuid.MustParse(*_network.FailOverNodeID)
-			node.FailOverPeers = make(map[string]struct{})
-			for peer := range _node.FailOverPeers {
-				node.FailOverPeers[peer] = struct{}{}
-			}
-		}
+	for peer := range _node.FailOverPeers {
+		node.FailOverPeers[peer] = struct{}{}
 	}
 
 	if _node.IsInternetGateway {

@@ -41,9 +41,15 @@ type Node struct {
 	// node. If nil, this node is not a Gateway node.
 	GatewayNodeConfig *datatypes.JSONType[GatewayNodeConfig] `gorm:"foreignKey:GatewayNodeConfigID"`
 
+	// FailOverNodeID is the ID of the node that can be used to
+	// connect to this node.
+	FailOverNodeID *string
 	// FailOverPeers is the list of peer nodes that this node
 	// connects to using the network's FailOver.
 	FailOverPeers datatypes.JSONMap
+	// IsFailOver indicates if the node is a FailOver node in the
+	// network.
+	IsFailOver bool
 
 	// InternetGatewayNodeID is the ID of the node that this node
 	// uses as an Internet Gateway. If nil, this node does not use

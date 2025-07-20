@@ -26,15 +26,6 @@ type Network struct {
 	NameServers         datatypes.JSONSlice[string]
 	NodesLastModified   time.Time
 	NetworkLastModified time.Time
-
-	// FailOverNodeID is the ID of the node that nodes in this
-	// network use as a FailOver. If nil, this network does not
-	// have a FailOver.
-	FailOverNodeID *string
-	// FailOverNode is the node that nodes in this network use
-	// as a FailOver. If nil, this network does not have a
-	// FailOver.
-	FailOverNode *Node `gorm:"foreignKey:FailOverNodeID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL"`
 }
 
 func (n *Network) TableName() string {
@@ -103,35 +94,4 @@ func (n *Network) UpdateNodesLastModified(ctx context.Context) error {
 
 func (n *Network) Delete(ctx context.Context) error {
 	return db.FromContext(ctx).Model(n).Delete(n).Error
-}
-
-func (n *Network) SetFailOver(ctx context.Context) error {
-	return db.FromContext(ctx).Model(n).
-		Update("fail_over_node_id", n.FailOverNodeID).
-		Error
-}
-
-func (n *Network) GetFailOver(ctx context.Context) error {
-	return db.FromContext(ctx).
-		Raw(`
-			SELECT nodes_v1.*
-			FROM nodes_v1
-			LEFT JOIN networks_v1 ON nodes_v1.id = networks_v1.fail_over_id
-			WHERE networks_v1.id = ?
-		`, n.ID).
-		Scan(&n.FailOverNode).
-		Error
-}
-
-func (n *Network) RemoveFailOver(ctx context.Context) error {
-	n.FailOverNodeID = nil
-	return n.SetFailOver(ctx)
-}
-
-func (n *Network) ResetFailOverPeers(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&Node{}).
-		Select("fail_over_peers").
-		Where("network_id = ?", n.ID).
-		Updates(Node{}).
-		Error
 }
