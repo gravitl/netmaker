@@ -2,8 +2,10 @@ package schema
 
 import (
 	"context"
+	"errors"
 	"github.com/gravitl/netmaker/db"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 	"time"
 )
 
@@ -107,6 +109,23 @@ func (a *ACL) Exists(ctx context.Context) (bool, error) {
 
 func (a *ACL) Update(ctx context.Context) error {
 	return db.FromContext(ctx).Model(a).Updates(a).Error
+}
+
+func (a *ACL) Upsert(ctx context.Context) error {
+	return db.FromContext(ctx).Transaction(func(tx *gorm.DB) error {
+		err := tx.Model(a).First(&ACL{
+			ID: a.ID,
+		}).Error
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return tx.Model(&ACL{}).Create(a).Error
+			} else {
+				return err
+			}
+		} else {
+			return tx.Model(a).Updates(a).Error
+		}
+	})
 }
 
 func (a *ACL) Delete(ctx context.Context) error {

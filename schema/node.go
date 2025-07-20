@@ -3,6 +3,7 @@ package schema
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
@@ -238,7 +239,20 @@ func (n *Node) UpdateLastCheckIn(ctx context.Context) error {
 }
 
 func (n *Node) Upsert(ctx context.Context) error {
-	return db.FromContext(ctx).Save(n).Error
+	return db.FromContext(ctx).Transaction(func(tx *gorm.DB) error {
+		err := tx.Model(n).First(&Node{
+			ID: n.ID,
+		}).Error
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return tx.Model(&Node{}).Create(n).Error
+			} else {
+				return err
+			}
+		} else {
+			return tx.Model(n).Updates(n).Error
+		}
+	})
 }
 
 func (n *Node) Delete(ctx context.Context) error {
