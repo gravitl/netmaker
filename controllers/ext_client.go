@@ -774,6 +774,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		extclient.Enabled = parentNetwork.DefaultACL == "yes"
 	}
 	extclient.Os = customExtClient.Os
+	extclient.DeviceID = customExtClient.DeviceID
 	extclient.DeviceName = customExtClient.DeviceName
 	if customExtClient.IsAlreadyConnectedToInetGw {
 		slog.Warn("RAC/Client is already connected to internet gateway. this may mask their real IP address", "client IP", customExtClient.PublicEndpoint)

@@ -1254,6 +1254,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
 		return
 	}
+	deviceID := r.URL.Query().Get("device_id")
 	remoteAccessClientID := r.URL.Query().Get("remote_access_clientid")
 	var req models.UserRemoteGwsReq
 	if remoteAccessClientID == "" {
@@ -1279,13 +1280,34 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userGwNodes := proLogic.GetUserRAGNodes(*user)
+	// for backwards compatibility:
+	//
+	// 1. if remote access client id is sent and device id is not,
+	// we ignore the remote access client id and just match the
+	// owner.
+	// 2. if both remote access client id and device id are sent,
+	// we return the extclient where the device id matches.
+	var checkDeviceID bool
+	if deviceID != "" {
+		checkDeviceID = true
+	}
+
 	for _, extClient := range allextClients {
 		node, ok := userGwNodes[extClient.IngressGatewayID]
 		if !ok {
 			continue
 		}
-		if extClient.RemoteAccessClientID == req.RemoteAccessClientID && extClient.OwnerID == username {
 
+		var process bool
+		if checkDeviceID && extClient.DeviceID == deviceID {
+			process = true
+		}
+
+		if !checkDeviceID && extClient.OwnerID == username {
+			process = true
+		}
+
+		if process {
 			host, err := logic.GetHost(node.HostID.String())
 			if err != nil {
 				continue
