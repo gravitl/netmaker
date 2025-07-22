@@ -80,6 +80,10 @@ func UpsertUserSettings(userID string, userSettings models.UserSettings) error {
 	return database.Insert(userID, string(data), database.SERVER_SETTINGS)
 }
 
+func DeleteUserSettings(userID string) error {
+	return database.DeleteRecord(database.SERVER_SETTINGS, userID)
+}
+
 func ValidateNewSettings(req models.ServerSettings) bool {
 	// TODO: add checks for different fields
 	return true
