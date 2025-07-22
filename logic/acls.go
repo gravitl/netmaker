@@ -8,7 +8,6 @@ import (
 	"maps"
 	"net"
 	"sort"
-	"sync"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
@@ -830,11 +829,6 @@ var (
 	}
 
 	RemoveUserFromAclPolicy = func(userName string) {}
-)
-
-var (
-	aclCacheMutex = &sync.RWMutex{}
-	aclCacheMap   = make(map[string]models.Acl)
 )
 
 func MigrateAclPolicies() {
