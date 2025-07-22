@@ -466,5 +466,5 @@ func CheckHostPorts(h *models.Host) (changed bool) {
 // HostExists - checks if given host already exists
 func HostExists(h *models.Host) bool {
 	_, err := GetHost(h.ID.String())
-	return (err != nil && !database.IsEmptyRecord(err)) || (err == nil)
+	return (err != nil && !errors.Is(err, gorm.ErrRecordNotFound)) || (err == nil)
 }
