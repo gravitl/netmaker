@@ -30,7 +30,7 @@ var userGroupListCmd = &cobra.Command{
 			functions.PrettyPrint(data)
 		default:
 			table := tablewriter.NewWriter(os.Stdout)
-			h := []string{"ID", "MetaData", "Network Roles"}
+			h := []string{"ID", "Name", "Color", "MetaData", "Network Roles"}
 			table.SetHeader(h)
 			for _, d := range data {
 
@@ -42,7 +42,11 @@ var userGroupListCmd = &cobra.Command{
 					}
 					roleInfoStr += fmt.Sprintf("[%s]: %s", netID, strings.Join(roleList, ","))
 				}
-				e := []string{d.ID.String(), d.MetaData, roleInfoStr}
+				colorCode := d.ColorCode
+				if colorCode == "" {
+					colorCode = "N/A"
+				}
+				e := []string{d.ID.String(), d.Name, colorCode, d.MetaData, roleInfoStr}
 				table.Append(e)
 			}
 			table.Render()
@@ -85,7 +89,7 @@ var userGroupGetCmd = &cobra.Command{
 			functions.PrettyPrint(data)
 		default:
 			table := tablewriter.NewWriter(os.Stdout)
-			h := []string{"ID", "MetaData", "Network Roles"}
+			h := []string{"ID", "Name", "Color", "MetaData", "Network Roles"}
 			table.SetHeader(h)
 			roleInfoStr := ""
 			for netID, netRoleMap := range data.NetworkRoles {
@@ -95,7 +99,11 @@ var userGroupGetCmd = &cobra.Command{
 				}
 				roleInfoStr += fmt.Sprintf("[%s]: %s", netID, strings.Join(roleList, ","))
 			}
-			e := []string{data.ID.String(), data.MetaData, roleInfoStr}
+			colorCode := data.ColorCode
+			if colorCode == "" {
+				colorCode = "N/A"
+			}
+			e := []string{data.ID.String(), data.Name, colorCode, data.MetaData, roleInfoStr}
 			table.Append(e)
 			table.Render()
 		}

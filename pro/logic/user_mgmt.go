@@ -124,6 +124,7 @@ func UserGroupsInit() {
 		Default:  true,
 		Name:     "All Networks Admin Group",
 		MetaData: "can manage configuration of all networks",
+		ColorCode: "yellow",
 		NetworkRoles: map[models.NetworkID]map[models.UserRoleID]struct{}{
 			models.AllNetworks: {
 				globalNetworksAdminRoleID: {},
@@ -134,6 +135,7 @@ func UserGroupsInit() {
 		ID:      globalNetworksUserGroupID,
 		Name:    "All Networks User Group",
 		Default: true,
+		ColorCode: "indigo",
 		NetworkRoles: map[models.NetworkID]map[models.UserRoleID]struct{}{
 			models.AllNetworks: {
 				globalNetworksUserRoleID: {},
@@ -227,6 +229,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 		ID:      GetDefaultNetworkAdminGroupID(netID),
 		Name:    fmt.Sprintf("%s Admin Group", netID),
 		Default: true,
+		ColorCode: "yellow"
 		NetworkRoles: map[models.NetworkID]map[models.UserRoleID]struct{}{
 			netID: {
 				GetDefaultNetworkAdminRoleID(netID): {},
@@ -238,6 +241,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 		ID:      GetDefaultNetworkUserGroupID(netID),
 		Name:    fmt.Sprintf("%s User Group", netID),
 		Default: true,
+		ColorCode: "indigo",
 		NetworkRoles: map[models.NetworkID]map[models.UserRoleID]struct{}{
 			netID: {
 				GetDefaultNetworkUserRoleID(netID): {},

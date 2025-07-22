@@ -151,6 +151,7 @@ type UserGroup struct {
 	Name                       string                                `json:"name"`
 	NetworkRoles               map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
 	MetaData                   string                                `json:"meta_data"`
+	ColorCode                  string                                `json:"color_code"`
 }
 
 // User struct - struct for Users
