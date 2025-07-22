@@ -108,7 +108,7 @@ func (a *ACL) Exists(ctx context.Context) (bool, error) {
 }
 
 func (a *ACL) Update(ctx context.Context) error {
-	return db.FromContext(ctx).Model(a).Updates(a).Error
+	return db.FromContext(ctx).Model(a).Save(a).Error
 }
 
 func (a *ACL) Upsert(ctx context.Context) error {
@@ -123,7 +123,7 @@ func (a *ACL) Upsert(ctx context.Context) error {
 				return err
 			}
 		} else {
-			return tx.Model(a).Updates(a).Error
+			return tx.Model(a).Save(a).Error
 		}
 	})
 }

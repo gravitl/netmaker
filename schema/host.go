@@ -132,7 +132,7 @@ func (h *Host) Upsert(ctx context.Context) error {
 				return err
 			}
 		} else {
-			return tx.Model(h).Updates(h).Error
+			return tx.Model(h).Save(h).Error
 		}
 	})
 }

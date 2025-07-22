@@ -83,7 +83,7 @@ func (n *Network) CountNodes(ctx context.Context) (int, error) {
 }
 
 func (n *Network) Update(ctx context.Context) error {
-	return db.FromContext(ctx).Model(n).Updates(n).Error
+	return db.FromContext(ctx).Model(n).Save(n).Error
 }
 
 func (n *Network) UpdateNodesLastModified(ctx context.Context) error {

@@ -227,7 +227,7 @@ func (n *Node) CountByOS(ctx context.Context) (map[string]int, error) {
 }
 
 func (n *Node) Update(ctx context.Context) error {
-	return db.FromContext(ctx).Model(n).Updates(n).Error
+	return db.FromContext(ctx).Model(n).Save(n).Error
 }
 
 func (n *Node) UpdateFailOverPeers(ctx context.Context) error {
@@ -250,7 +250,7 @@ func (n *Node) Upsert(ctx context.Context) error {
 				return err
 			}
 		} else {
-			return tx.Model(n).Updates(n).Error
+			return tx.Model(n).Save(n).Error
 		}
 	})
 }
