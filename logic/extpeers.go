@@ -320,7 +320,7 @@ func CreateExtClient(extclient *models.ExtClient) error {
 			if err != nil {
 				return err
 			}
-			extclient.Address = newAddress.String()
+			extclient.Address = newAddress.IP.String()
 		}
 	}
 
@@ -330,7 +330,7 @@ func CreateExtClient(extclient *models.ExtClient) error {
 			if err != nil {
 				return err
 			}
-			extclient.Address6 = addr6.String()
+			extclient.Address6 = addr6.IP.String()
 		}
 	}
 
