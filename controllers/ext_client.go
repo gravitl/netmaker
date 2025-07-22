@@ -728,7 +728,8 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		for _, extclient := range extclients {
 			// if device id is sent, then make sure extclient with the same device id
 			// does not exist.
-			if customExtClient.DeviceID != "" && extclient.DeviceID == customExtClient.DeviceID {
+			if customExtClient.DeviceID != "" && extclient.DeviceID == customExtClient.DeviceID &&
+				extclient.OwnerID == caller.UserName && nodeid == extclient.IngressGatewayID {
 				err = errors.New("remote client config already exists on the gateway")
 				slog.Error("failed to create extclient", "user", userName, "error", err)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
