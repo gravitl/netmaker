@@ -14,7 +14,7 @@ const (
 	// ZOMBIE_TIMEOUT - timeout in hours for checking zombie status
 	ZOMBIE_TIMEOUT = 6
 	// ZOMBIE_DELETE_TIME - timeout in minutes for zombie node deletion
-	ZOMBIE_DELETE_TIME = 120
+	ZOMBIE_DELETE_TIME = 10
 )
 
 var (
@@ -139,7 +139,10 @@ func ManageZombies(ctx context.Context, peerUpdate chan *models.Node) {
 			if servercfg.IsAutoCleanUpEnabled() {
 				nodes, _ := GetAllNodes()
 				for _, node := range nodes {
-					if time.Since(node.LastCheckIn) > time.Minute*ZOMBIE_DELETE_TIME {
+					if !node.Connected {
+						continue
+					}
+					if time.Since(node.LastCheckIn) > time.Hour*2 {
 						if err := DeleteNode(&node, true); err != nil {
 							continue
 						}
@@ -168,8 +171,8 @@ func checkPendingRemovalNodes(peerUpdate chan *models.Node) {
 			peerUpdate <- &node
 			continue
 		}
-		if servercfg.IsAutoCleanUpEnabled() {
-			if time.Since(node.LastCheckIn) > time.Minute*ZOMBIE_DELETE_TIME {
+		if servercfg.IsAutoCleanUpEnabled() && node.Connected {
+			if time.Since(node.LastCheckIn) > time.Hour*2 {
 				if err := DeleteNode(&node, true); err != nil {
 					continue
 				}
