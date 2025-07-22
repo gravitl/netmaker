@@ -1317,8 +1317,18 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if !found && len(extClients) > 0 {
-			gwClient = extClients[0]
+		if !found {
+			extClientNodes := make([]models.Node, len(extClients))
+			for i, extClient := range extClients {
+				extClientNodes[i] = extClient.ConvertToStaticNode()
+			}
+
+			extClientNodesWithStatus := logic.AddStatusToNodes(extClientNodes, true)
+			for _, node := range extClientNodesWithStatus {
+				if node.Status == models.OfflineSt {
+					gwClient = node.StaticNode
+				}
+			}
 		}
 
 		host, err := logic.GetHost(node.HostID.String())
