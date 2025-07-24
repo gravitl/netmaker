@@ -24,7 +24,6 @@ type ExtClient struct {
 	PostDown               string              `json:"postdown" bson:"postdown"`
 	Tags                   map[TagID]struct{}  `json:"tags"`
 	Os                     string              `json:"os"`
-	DeviceID               string              `json:"device_id"`
 	DeviceName             string              `json:"device_name"`
 	PublicEndpoint         string              `json:"public_endpoint"`
 	Country                string              `json:"country"`
@@ -45,7 +44,6 @@ type CustomExtClient struct {
 	PostDown                   string              `json:"postdown" bson:"postdown" validate:"max=1024"`
 	Tags                       map[TagID]struct{}  `json:"tags"`
 	Os                         string              `json:"os"`
-	DeviceID                   string              `json:"device_id"`
 	DeviceName                 string              `json:"device_name"`
 	IsAlreadyConnectedToInetGw bool                `json:"is_already_connected_to_inet_gw"`
 	PublicEndpoint             string              `json:"public_endpoint"`

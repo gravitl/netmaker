@@ -6,9 +6,9 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
-var GetNodeStatus = getNodeCheckInStatus
+var GetNodeStatus = GetNodeCheckInStatus
 
-func getNodeCheckInStatus(node *models.Node, t bool) {
+func GetNodeCheckInStatus(node *models.Node, t bool) {
 	// On CE check only last check-in time
 	if node.IsStatic {
 		if !node.StaticNode.Enabled {
