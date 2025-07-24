@@ -1,8 +1,12 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
+	"github.com/google/go-cmp/cmp"
 	"net/http"
 	"os"
 	"strings"
@@ -109,10 +113,7 @@ func getUsage(w http.ResponseWriter, _ *http.Request) {
 	if err == nil {
 		serverUsage.Ingresses = len(ingresses)
 	}
-	egresses, err := logic.GetAllEgresses()
-	if err == nil {
-		serverUsage.Egresses = len(egresses)
-	}
+	serverUsage.Egresses, _ = (&schema.Egress{}).Count(db.WithContext(context.TODO()))
 	relays, err := logic.GetRelays()
 	if err == nil {
 		serverUsage.Relays = len(relays)
@@ -274,11 +275,11 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 	currSettings := logic.GetServerSettings()
 	err := logic.UpsertServerSettings(req)
 	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to udpate server settings "+err.Error()), "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to update server settings "+err.Error()), "internal"))
 		return
 	}
 	logic.LogEvent(&models.Event{
-		Action: models.Update,
+		Action: identifySettingsUpdateAction(currSettings, req),
 		Source: models.Subject{
 			ID:   r.Header.Get("user"),
 			Name: r.Header.Get("user"),
@@ -323,5 +324,88 @@ func reInit(curr, new models.ServerSettings, force bool) {
 		}
 	}
 	go mq.PublishPeerUpdate(false)
+}
 
+func identifySettingsUpdateAction(old, new models.ServerSettings) models.Action {
+	// TODO: here we are relying on the dashboard to only
+	// make singular updates, but it's possible that the
+	// API can be called to make multiple changes to the
+	// server settings. We should update it to log multiple
+	// events or create singular update APIs.
+	if old.MFAEnforced != new.MFAEnforced {
+		if new.MFAEnforced {
+			return models.EnforceMFA
+		} else {
+			return models.UnenforceMFA
+		}
+	}
+
+	if old.BasicAuth != new.BasicAuth {
+		if new.BasicAuth {
+			return models.EnableBasicAuth
+		} else {
+			return models.DisableBasicAuth
+		}
+	}
+
+	if old.Telemetry != new.Telemetry {
+		if new.Telemetry == "off" {
+			return models.DisableTelemetry
+		} else {
+			return models.EnableTelemetry
+		}
+	}
+
+	if old.NetclientAutoUpdate != new.NetclientAutoUpdate ||
+		old.RacRestrictToSingleNetwork != new.RacRestrictToSingleNetwork ||
+		old.ManageDNS != new.ManageDNS ||
+		old.DefaultDomain != new.DefaultDomain ||
+		old.EndpointDetection != new.EndpointDetection {
+		return models.UpdateClientSettings
+	}
+
+	if old.AllowedEmailDomains != new.AllowedEmailDomains ||
+		old.JwtValidityDuration != new.JwtValidityDuration {
+		return models.UpdateAuthenticationSecuritySettings
+	}
+
+	if old.Verbosity != new.Verbosity ||
+		old.MetricsPort != new.MetricsPort ||
+		old.MetricInterval != new.MetricInterval ||
+		old.AuditLogsRetentionPeriodInDays != new.AuditLogsRetentionPeriodInDays {
+		return models.UpdateMonitoringAndDebuggingSettings
+	}
+
+	if old.Theme != new.Theme {
+		return models.UpdateDisplaySettings
+	}
+
+	if old.TextSize != new.TextSize ||
+		old.ReducedMotion != new.ReducedMotion {
+		return models.UpdateAccessibilitySettings
+	}
+
+	if old.EmailSenderAddr != new.EmailSenderAddr ||
+		old.EmailSenderUser != new.EmailSenderUser ||
+		old.EmailSenderPassword != new.EmailSenderPassword ||
+		old.SmtpHost != new.SmtpHost ||
+		old.SmtpPort != new.SmtpPort {
+		return models.UpdateSMTPSettings
+	}
+
+	if old.AuthProvider != new.AuthProvider ||
+		old.OIDCIssuer != new.OIDCIssuer ||
+		old.ClientID != new.ClientID ||
+		old.ClientSecret != new.ClientSecret ||
+		old.SyncEnabled != new.SyncEnabled ||
+		old.IDPSyncInterval != new.IDPSyncInterval ||
+		old.GoogleAdminEmail != new.GoogleAdminEmail ||
+		old.GoogleSACredsJson != new.GoogleSACredsJson ||
+		old.AzureTenant != new.AzureTenant ||
+		!cmp.Equal(old.GroupFilters, new.GroupFilters) ||
+		cmp.Equal(old.UserFilters, new.UserFilters) {
+		return models.UpdateIDPSettings
+	}
+
+	return models.Update
 }

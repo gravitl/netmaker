@@ -433,6 +433,9 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 	if update.Country != "" && update.Country != old.Country {
 		new.Country = update.Country
 	}
+	if update.DeviceID != "" && old.DeviceID == "" {
+		new.DeviceID = update.DeviceID
+	}
 	return new
 }
 
@@ -484,7 +487,7 @@ func GetAllExtClientsWithStatus(status models.NodeStatus) ([]models.ExtClient, e
 	var validExtClients []models.ExtClient
 	for _, extClient := range extClients {
 		node := extClient.ConvertToStaticNode()
-		GetNodeCheckInStatus(&node, false)
+		GetNodeStatus(&node, false)
 
 		if node.Status == status {
 			validExtClients = append(validExtClients, extClient)
