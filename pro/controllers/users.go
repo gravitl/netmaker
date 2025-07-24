@@ -1254,7 +1254,6 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
 		return
 	}
-	deviceID := r.URL.Query().Get("device_id")
 	remoteAccessClientID := r.URL.Query().Get("remote_access_clientid")
 	var req models.UserRemoteGwsReq
 	if remoteAccessClientID == "" {
@@ -1280,102 +1279,58 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userGwNodes := proLogic.GetUserRAGNodes(*user)
-
-	userExtClients := make(map[string][]models.ExtClient)
-
-	// group all extclients of the requesting user by ingress
-	// gateway.
 	for _, extClient := range allextClients {
-		// filter our extclients that don't belong to this user.
-		if extClient.OwnerID != username {
-			continue
-		}
-
-		_, ok := userExtClients[extClient.IngressGatewayID]
-		if !ok {
-			userExtClients[extClient.IngressGatewayID] = []models.ExtClient{}
-		}
-
-		userExtClients[extClient.IngressGatewayID] = append(userExtClients[extClient.IngressGatewayID], extClient)
-	}
-
-	for ingressGatewayID, extClients := range userExtClients {
-		node, ok := userGwNodes[ingressGatewayID]
+		node, ok := userGwNodes[extClient.IngressGatewayID]
 		if !ok {
 			continue
 		}
+		if extClient.RemoteAccessClientID == req.RemoteAccessClientID && extClient.OwnerID == username {
 
-		var gwClient models.ExtClient
-		var found bool
-		if deviceID != "" {
-			for _, extClient := range extClients {
-				if extClient.DeviceID == deviceID {
-					gwClient = extClient
-					found = true
-					break
-				}
+			host, err := logic.GetHost(node.HostID.String())
+			if err != nil {
+				continue
 			}
-		}
-
-		if !found {
-			extClientNodes := make([]models.Node, len(extClients))
-			for i, extClient := range extClients {
-				extClientNodes[i] = extClient.ConvertToStaticNode()
+			network, err := logic.GetNetwork(node.Network)
+			if err != nil {
+				slog.Error("failed to get node network", "error", err)
+				continue
+			}
+			nodesWithStatus := logic.AddStatusToNodes([]models.Node{node}, false)
+			if len(nodesWithStatus) > 0 {
+				node = nodesWithStatus[0]
 			}
 
-			extClientNodesWithStatus := logic.AddStatusToNodes(extClientNodes, true)
-			for _, node := range extClientNodesWithStatus {
-				if node.Status == models.OfflineSt || node.Status == models.UnKnown {
-					gwClient = node.StaticNode
-				}
+			gws := userGws[node.Network]
+			if extClient.DNS == "" {
+				extClient.DNS = node.IngressDNS
 			}
-		}
 
-		host, err := logic.GetHost(node.HostID.String())
-		if err != nil {
-			continue
+			extClient.IngressGatewayEndpoint = utils.GetExtClientEndpoint(
+				host.EndpointIP,
+				host.EndpointIPv6,
+				logic.GetPeerListenPort(host),
+			)
+			extClient.AllowedIPs = logic.GetExtclientAllowedIPs(extClient)
+			gws = append(gws, models.UserRemoteGws{
+				GwID:              node.ID.String(),
+				GWName:            host.Name,
+				Network:           node.Network,
+				GwClient:          extClient,
+				Connected:         true,
+				IsInternetGateway: node.IsInternetGateway,
+				GwPeerPublicKey:   host.PublicKey.String(),
+				GwListenPort:      logic.GetPeerListenPort(host),
+				Metadata:          node.Metadata,
+				AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
+				NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
+				Status:            node.Status,
+				DnsAddress:        node.IngressDNS,
+				Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
+			})
+			userGws[node.Network] = gws
+			delete(userGwNodes, node.ID.String())
 		}
-		network, err := logic.GetNetwork(node.Network)
-		if err != nil {
-			slog.Error("failed to get node network", "error", err)
-			continue
-		}
-		nodesWithStatus := logic.AddStatusToNodes([]models.Node{node}, false)
-		if len(nodesWithStatus) > 0 {
-			node = nodesWithStatus[0]
-		}
-
-		gws := userGws[node.Network]
-		if gwClient.DNS == "" {
-			gwClient.DNS = node.IngressDNS
-		}
-
-		gwClient.IngressGatewayEndpoint = utils.GetExtClientEndpoint(
-			host.EndpointIP,
-			host.EndpointIPv6,
-			logic.GetPeerListenPort(host),
-		)
-		gwClient.AllowedIPs = logic.GetExtclientAllowedIPs(gwClient)
-		gws = append(gws, models.UserRemoteGws{
-			GwID:              node.ID.String(),
-			GWName:            host.Name,
-			Network:           node.Network,
-			GwClient:          gwClient,
-			Connected:         true,
-			IsInternetGateway: node.IsInternetGateway,
-			GwPeerPublicKey:   host.PublicKey.String(),
-			GwListenPort:      logic.GetPeerListenPort(host),
-			Metadata:          node.Metadata,
-			AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
-			NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
-			Status:            node.Status,
-			DnsAddress:        node.IngressDNS,
-			Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
-		})
-		userGws[node.Network] = gws
-		delete(userGwNodes, node.ID.String())
 	}
-
 	// add remaining gw nodes to resp
 	for gwID := range userGwNodes {
 		node, err := logic.GetNodeByID(gwID)

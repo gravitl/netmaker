@@ -1,11 +1,8 @@
 package controller
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
-	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/schema"
 	"github.com/google/go-cmp/cmp"
 	"net/http"
 	"os"
@@ -113,7 +110,10 @@ func getUsage(w http.ResponseWriter, _ *http.Request) {
 	if err == nil {
 		serverUsage.Ingresses = len(ingresses)
 	}
-	serverUsage.Egresses, _ = (&schema.Egress{}).Count(db.WithContext(context.TODO()))
+	egresses, err := logic.GetAllEgresses()
+	if err == nil {
+		serverUsage.Egresses = len(egresses)
+	}
 	relays, err := logic.GetRelays()
 	if err == nil {
 		serverUsage.Relays = len(relays)
