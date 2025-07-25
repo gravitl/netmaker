@@ -240,7 +240,7 @@ func GetAuthProviderInfo(settings models.ServerSettings) (pi []string) {
 	var authProvider = ""
 
 	defer func() {
-		if authProvider == "oidc" {
+		if authProvider == "okta" || authProvider == "oidc" {
 			if settings.OIDCIssuer != "" {
 				pi = append(pi, settings.OIDCIssuer)
 			} else {
@@ -251,7 +251,7 @@ func GetAuthProviderInfo(settings models.ServerSettings) (pi []string) {
 
 	if settings.AuthProvider != "" && settings.ClientID != "" && settings.ClientSecret != "" {
 		authProvider = strings.ToLower(settings.AuthProvider)
-		if authProvider == "google" || authProvider == "azure-ad" || authProvider == "github" || authProvider == "oidc" {
+		if authProvider == "google" || authProvider == "azure-ad" || authProvider == "github" || authProvider == "okta" || authProvider == "oidc" {
 			return []string{authProvider, settings.ClientID, settings.ClientSecret}
 		} else {
 			authProvider = ""
