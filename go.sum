@@ -105,6 +105,8 @@ github.com/mattn/go-sqlite3 v1.14.28 h1:ThEiQrnbtumT+QMknw63Befp/ce/nUPgBPMlRFEu
 github.com/mattn/go-sqlite3 v1.14.28/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=
 github.com/microsoft/go-mssqldb v1.7.2 h1:CHkFJiObW7ItKTJfHo1QX7QBBD1iV+mn1eOyRP3b/PA=
 github.com/microsoft/go-mssqldb v1.7.2/go.mod h1:kOvZKUdrhhFQmxLZqbwUV0rHkNkZpthMITIb2Ko1IoA=
+github.com/okta/okta-sdk-golang/v5 v5.0.6 h1:p7ptDMB1KxQ/7xSh+6FhMSybwl+ubTV4f1oL4N0Bu6U=
+github.com/okta/okta-sdk-golang/v5 v5.0.6/go.mod h1:T/vmECtJX33YPZSVD+sorebd8LLhe38Bi/VrFTjgVX0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/posthog/posthog-go v1.5.12 h1:nxK/z5QLCFxwzxV8GNvVd4Y1wJ++zJSWMGEtzU+/HLM=
