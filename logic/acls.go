@@ -74,6 +74,37 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 			}
 		}
 	}
+	if len(node.RelayedNodes) > 0 {
+		for _, relayedNodeID := range node.RelayedNodes {
+			relayedNode, err := GetNodeByID(relayedNodeID)
+			if err != nil {
+				continue
+			}
+
+			if relayedNode.Address.IP != nil {
+				relayedFwRule := models.FwRule{
+					AllowedProtocol: models.ALL,
+					AllowedPorts:    []string{},
+					Allow:           true,
+				}
+				relayedFwRule.DstIP = relayedNode.AddressIPNet4()
+				relayedFwRule.SrcIP = node.NetworkRange
+				rules = append(rules, relayedFwRule)
+			}
+
+			if relayedNode.Address6.IP != nil {
+				relayedFwRule := models.FwRule{
+					AllowedProtocol: models.ALL,
+					AllowedPorts:    []string{},
+					Allow:           true,
+				}
+				relayedFwRule.DstIP = relayedNode.AddressIPNet6()
+				relayedFwRule.SrcIP = node.NetworkRange6
+				rules = append(rules, relayedFwRule)
+			}
+
+		}
+	}
 	return
 }
 
