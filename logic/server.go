@@ -1,7 +1,12 @@
 package logic
 
+import "github.com/gravitl/netmaker/models"
+
 // EnterpriseCheckFuncs - can be set to run functions for EE
 var EnterpriseCheckFuncs []func()
+var GetFeatureFlags = func() models.FeatureFlags {
+	return models.FeatureFlags{}
+}
 
 // == Join, Checkin, and Leave for Server ==
 
