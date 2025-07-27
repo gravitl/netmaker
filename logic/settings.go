@@ -46,6 +46,9 @@ func UpsertServerSettings(s models.ServerSettings) error {
 
 func ValidateNewSettings(req models.ServerSettings) bool {
 	// TODO: add checks for different fields
+	if req.JwtValidityDuration > 525600 || req.JwtValidityDuration < 5 {
+		return false
+	}
 	return true
 }
 
