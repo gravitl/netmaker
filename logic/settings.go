@@ -39,6 +39,11 @@ func UpsertServerSettings(s models.ServerSettings) error {
 	if s.ClientSecret == Mask() {
 		s.ClientSecret = currSettings.ClientSecret
 	}
+
+	if servercfg.DeployedByOperator() {
+		s.BasicAuth = true
+	}
+
 	data, err := json.Marshal(s)
 	if err != nil {
 		return err
@@ -367,6 +372,10 @@ func GetManageDNS() bool {
 
 // IsBasicAuthEnabled - checks if basic auth has been configured to be turned off
 func IsBasicAuthEnabled() bool {
+	if servercfg.DeployedByOperator() {
+		return true
+	}
+
 	return GetServerSettings().BasicAuth
 }
 
