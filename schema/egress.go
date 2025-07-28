@@ -50,6 +50,10 @@ func (e *Egress) UpdateEgressStatus(ctx context.Context) error {
 	}).Error
 }
 
+func (e *Egress) DoesEgressRouteExists(ctx context.Context) error {
+	return db.FromContext(ctx).Table(e.Table()).Where("range = ?", e.Range).First(&e).Error
+}
+
 func (e *Egress) Create(ctx context.Context) error {
 	return db.FromContext(ctx).Table(e.Table()).Create(&e).Error
 }
