@@ -646,6 +646,10 @@ func GetEmqxRestEndpoint() string {
 
 // IsBasicAuthEnabled - checks if basic auth has been configured to be turned off
 func IsBasicAuthEnabled() bool {
+	if DeployedByOperator() {
+		return true
+	}
+
 	var enabled = true //default
 	if os.Getenv("BASIC_AUTH") != "" {
 		enabled = os.Getenv("BASIC_AUTH") == "yes"
