@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"reflect"
+
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/converters"
 	"github.com/gravitl/netmaker/database"
@@ -15,7 +18,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
-	"os"
 )
 
 var (
@@ -218,6 +220,10 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 		currHost.EndpointIPv6 = newHost.EndpointIPv6
 		sendPeerUpdate = true
 		isEndpointChanged = true
+	}
+	if !reflect.DeepEqual(currHost.Interfaces, newHost.Interfaces) {
+		currHost.Interfaces = newHost.Interfaces
+		sendPeerUpdate = true
 	}
 
 	if isEndpointChanged {

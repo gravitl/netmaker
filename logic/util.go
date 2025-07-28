@@ -21,6 +21,7 @@ import (
 	"github.com/blang/semver"
 	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/models"
 )
 
 // IsBase64 - checks if a string is in base64 format
@@ -241,4 +242,23 @@ func GetClientIP(r *http.Request) string {
 		return r.RemoteAddr
 	}
 	return ip
+}
+
+// CompareIfaceSlices compares two slices of Iface for deep equality (order-sensitive)
+func CompareIfaceSlices(a, b []models.Iface) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if !compareIface(a[i], b[i]) {
+			return false
+		}
+	}
+	return true
+}
+func compareIface(a, b models.Iface) bool {
+	return a.Name == b.Name &&
+		a.Address.IP.Equal(b.Address.IP) &&
+		a.Address.Mask.String() == b.Address.Mask.String() &&
+		a.AddressString == b.AddressString
 }
