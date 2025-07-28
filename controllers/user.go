@@ -253,6 +253,10 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func authenticateUser(response http.ResponseWriter, request *http.Request) {
+	appName := request.Header.Get("X-Application-Name")
+	if appName == "" {
+		appName = logic.NetmakerDesktopApp
+	}
 
 	// Auth request consists of Mac Address and Password (from node that is authorizing
 	// in case of Master, auth is ignored and mac is set to "mastermac"
@@ -343,7 +347,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	}
 
 	username := authRequest.UserName
-	jwt, err := logic.VerifyAuthRequest(authRequest)
+	jwt, err := logic.VerifyAuthRequest(authRequest, appName)
 	if err != nil {
 		logger.Log(0, username, "user validation failed: ",
 			err.Error())
@@ -576,6 +580,11 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 func verifyTOTP(w http.ResponseWriter, r *http.Request) {
 	username := r.Header.Get("user")
 
+	appName := r.Header.Get("X-Application-Name")
+	if appName == "" {
+		appName = logic.NetmakerDesktopApp
+	}
+
 	var req models.UserTOTPVerificationParams
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
@@ -601,7 +610,7 @@ func verifyTOTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if totp.Validate(req.TOTP, user.TOTPSecret) {
-		jwt, err := logic.CreateUserJWT(user.UserName, user.PlatformRoleID)
+		jwt, err := logic.CreateUserJWT(user.UserName, user.PlatformRoleID, appName)
 		if err != nil {
 			err = fmt.Errorf("error creating token: %v", err)
 			logger.Log(0, err.Error())

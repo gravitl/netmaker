@@ -56,6 +56,7 @@ func serverHandlers(r *mux.Router) {
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/server/mem_profile", logic.SecurityCheck(false, http.HandlerFunc(memProfile))).
 		Methods(http.MethodPost)
+	r.HandleFunc("/api/server/feature_flags", getFeatureFlags).Methods(http.MethodGet)
 }
 
 func cpuProfile(w http.ResponseWriter, r *http.Request) {
@@ -324,4 +325,13 @@ func reInit(curr, new models.ServerSettings, force bool) {
 	}
 	go mq.PublishPeerUpdate(false)
 
+}
+
+// @Summary     Get feature flags for this server.
+// @Router      /api/server/feature_flags [get]
+// @Tags        Server
+// @Security    oauth2
+// @Success     200 {object} config.ServerSettings
+func getFeatureFlags(w http.ResponseWriter, r *http.Request) {
+	logic.ReturnSuccessResponseWithJson(w, r, logic.GetFeatureFlags(), "")
 }
