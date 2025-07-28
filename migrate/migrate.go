@@ -536,21 +536,27 @@ func migrateToEgressV1() {
 	}
 	for _, node := range nodes {
 		if node.IsEgressGateway {
-			egressHost, err := logic.GetHost(node.HostID.String())
+			_, err := logic.GetHost(node.HostID.String())
 			if err != nil {
 				continue
 			}
-			for _, rangeI := range node.EgressGatewayRequest.Ranges {
-				e := schema.Egress{
+			for _, rangeMetric := range node.EgressGatewayRequest.RangesWithMetric {
+				e := &schema.Egress{Range: rangeMetric.Network}
+				if err := e.DoesEgressRouteExists(db.WithContext(context.TODO())); err == nil {
+					e.Nodes[node.ID.String()] = rangeMetric.RouteMetric
+					e.Update(db.WithContext(context.TODO()))
+					continue
+				}
+				e = &schema.Egress{
 					ID:          uuid.New().String(),
-					Name:        fmt.Sprintf("%s egress", egressHost.Name),
+					Name:        fmt.Sprintf("%s egress", rangeMetric.Network),
 					Description: "",
 					Network:     node.Network,
 					Nodes: datatypes.JSONMap{
-						node.ID.String(): 256,
+						node.ID.String(): rangeMetric.RouteMetric,
 					},
 					Tags:      make(datatypes.JSONMap),
-					Range:     rangeI,
+					Range:     rangeMetric.Network,
 					Nat:       node.EgressGatewayRequest.NatEnabled == "yes",
 					Status:    true,
 					CreatedBy: user.UserName,
@@ -640,6 +646,9 @@ func settings() {
 	}
 	if settings.DefaultDomain == "" {
 		settings.DefaultDomain = servercfg.GetDefaultDomain()
+	}
+	if settings.JwtValidityDurationClients == 0 {
+		settings.JwtValidityDurationClients = servercfg.GetJwtValidityDurationFromEnv() / 60
 	}
 	logic.UpsertServerSettings(settings)
 }

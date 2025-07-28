@@ -56,6 +56,7 @@ func HandleRESTRequests(wg *sync.WaitGroup, ctx context.Context) {
 			"Content-Type",
 			"authorization",
 			"From-Ui",
+			"X-Application-Name",
 		},
 	)
 	originsOk := handlers.AllowedOrigins(strings.Split(servercfg.GetAllowedOrigin(), ","))
