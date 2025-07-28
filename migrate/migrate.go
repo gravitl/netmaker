@@ -641,5 +641,8 @@ func migrateSettings() {
 	if settings.DefaultDomain == "" {
 		settings.DefaultDomain = servercfg.GetDefaultDomain()
 	}
+	if settings.JwtValidityDurationClients == 0 {
+		settings.JwtValidityDurationClients = servercfg.GetJwtValidityDurationFromEnv() / 60
+	}
 	logic.UpsertServerSettings(settings)
 }
