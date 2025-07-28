@@ -110,7 +110,7 @@ func SessionHandler(conn *websocket.Conn) {
 			return
 		}
 	} else { // handle SSO / OAuth
-		if logic.IsOAuthConfigured() {
+		if !logic.IsOAuthConfigured() {
 			err = conn.WriteMessage(messageType, []byte("Oauth not configured"))
 			if err != nil {
 				logger.Log(0, "error during message writing:", err.Error())
