@@ -46,22 +46,28 @@ func UpsertServerSettings(s models.ServerSettings) error {
 
 func ValidateNewSettings(req models.ServerSettings) bool {
 	// TODO: add checks for different fields
+	if req.JwtValidityDuration > 525600 || req.JwtValidityDuration < 5 {
+		return false
+	}
 	return true
 }
 
 func GetServerSettingsFromEnv() (s models.ServerSettings) {
 
 	s = models.ServerSettings{
-		NetclientAutoUpdate:        servercfg.AutoUpdateEnabled(),
-		Verbosity:                  servercfg.GetVerbosity(),
-		AuthProvider:               os.Getenv("AUTH_PROVIDER"),
-		OIDCIssuer:                 os.Getenv("OIDC_ISSUER"),
-		ClientID:                   os.Getenv("CLIENT_ID"),
-		ClientSecret:               os.Getenv("CLIENT_SECRET"),
-		AzureTenant:                servercfg.GetAzureTenant(),
-		Telemetry:                  servercfg.Telemetry(),
-		BasicAuth:                  servercfg.IsBasicAuthEnabled(),
-		JwtValidityDuration:        servercfg.GetJwtValidityDurationFromEnv() / 60,
+		NetclientAutoUpdate: servercfg.AutoUpdateEnabled(),
+		Verbosity:           servercfg.GetVerbosity(),
+		AuthProvider:        os.Getenv("AUTH_PROVIDER"),
+		OIDCIssuer:          os.Getenv("OIDC_ISSUER"),
+		ClientID:            os.Getenv("CLIENT_ID"),
+		ClientSecret:        os.Getenv("CLIENT_SECRET"),
+		AzureTenant:         servercfg.GetAzureTenant(),
+		Telemetry:           servercfg.Telemetry(),
+		BasicAuth:           servercfg.IsBasicAuthEnabled(),
+		JwtValidityDuration: servercfg.GetJwtValidityDurationFromEnv() / 60,
+		// setting client's jwt validity duration to be the same as that of
+		// dashboard.
+		JwtValidityDurationClients: servercfg.GetJwtValidityDurationFromEnv() / 60,
 		RacRestrictToSingleNetwork: servercfg.GetRacRestrictToSingleNetwork(),
 		EndpointDetection:          servercfg.IsEndpointDetectionEnabled(),
 		AllowedEmailDomains:        servercfg.GetAllowedEmailDomains(),
@@ -139,6 +145,7 @@ func GetServerConfig() config.ServerConfig {
 		cfg.IsPro = "yes"
 	}
 	cfg.JwtValidityDuration = time.Duration(settings.JwtValidityDuration) * time.Minute
+	cfg.JwtValidityDurationClients = time.Duration(settings.JwtValidityDurationClients) * time.Minute
 	cfg.RacRestrictToSingleNetwork = settings.RacRestrictToSingleNetwork
 	cfg.MetricInterval = settings.MetricInterval
 	cfg.ManageDNS = settings.ManageDNS
@@ -201,7 +208,13 @@ func Telemetry() string {
 
 // GetJwtValidityDuration - returns the JWT validity duration in minutes
 func GetJwtValidityDuration() time.Duration {
-	return GetServerConfig().JwtValidityDuration
+	return time.Duration(GetServerSettings().JwtValidityDuration) * time.Minute
+}
+
+// GetJwtValidityDurationForClients returns the JWT validity duration in
+// minutes for clients.
+func GetJwtValidityDurationForClients() time.Duration {
+	return time.Duration(GetServerSettings().JwtValidityDurationClients) * time.Minute
 }
 
 // GetRacRestrictToSingleNetwork - returns whether the feature to allow simultaneous network connections via RAC is enabled
