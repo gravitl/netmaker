@@ -37,7 +37,18 @@ func Run() {
 	updateAcls()
 	logic.MigrateToGws()
 	migrateToEgressV1()
+	updateNetworks()
 	resync()
+}
+
+func updateNetworks() {
+	nets, _ := logic.GetNetworks()
+	for _, netI := range nets {
+		if netI.AutoJoin == "" {
+			netI.AutoJoin = "true"
+			logic.UpsertNetwork(netI)
+		}
+	}
 }
 
 // removes if any stale configurations from previous run.

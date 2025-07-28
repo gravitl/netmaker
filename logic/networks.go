@@ -629,6 +629,18 @@ func IsNetworkNameUnique(network *models.Network) (bool, error) {
 	return isunique, nil
 }
 
+func UpsertNetwork(network models.Network) error {
+	netData, err := json.Marshal(network)
+	if err != nil {
+		return err
+	}
+	err = database.Insert(network.NetID, string(netData), database.NETWORKS_TABLE_NAME)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // UpdateNetwork - updates a network with another network's fields
 func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (bool, bool, bool, error) {
 	if err := ValidateNetwork(newNetwork, true); err != nil {
