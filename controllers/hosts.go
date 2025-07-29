@@ -462,6 +462,10 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	// delete if any pending reqs
+	(&schema.PendingHost{
+		HostID: currHost.ID.String(),
+	}).DeleteAllPendingHosts(db.WithContext(r.Context()))
 	logic.LogEvent(&models.Event{
 		Action: models.Delete,
 		Source: models.Subject{
@@ -1181,7 +1185,7 @@ func getPendingHosts(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     approve pending hosts in a network
-// @Router      /api/v1/pending_hosts/approve/:id [post]
+// @Router      /api/v1/pending_hosts/approve/{id} [post]
 // @Tags        Hosts
 // @Security    oauth
 // @Success     200 {array} models.ApiNode
@@ -1264,7 +1268,7 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     reject pending hosts in a network
-// @Router      /api/v1/pending_hosts/reject/:id [post]
+// @Router      /api/v1/pending_hosts/reject/{id} [post]
 // @Tags        Hosts
 // @Security    oauth
 // @Success     200 {array} models.ApiNode
