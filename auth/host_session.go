@@ -245,15 +245,24 @@ func CheckNetRegAndHostUpdate(key models.EnrollmentKey, h *models.Host, username
 	for _, netID := range key.Networks {
 		if network, err := logic.GetNetwork(netID); err == nil {
 			if network.AutoJoin == "false" {
+				if err := (&schema.PendingHost{
+					HostID:  h.ID.String(),
+					Network: netID,
+				}).CheckIfPendingHostExists(db.WithContext(context.TODO())); err == nil {
+					continue
+				}
+				keyB, _ := json.Marshal(key)
 				// add host to pending host table
 				p := schema.PendingHost{
-					HostID:      h.ID.String(),
-					Network:     netID,
-					PublicKey:   h.PublicKey.String(),
-					OS:          h.OS,
-					Location:    h.Location,
-					Version:     h.Version,
-					RequestedAt: time.Now().UTC(),
+					ID:            uuid.NewString(),
+					HostID:        h.ID.String(),
+					Network:       netID,
+					PublicKey:     h.PublicKey.String(),
+					OS:            h.OS,
+					Location:      h.Location,
+					Version:       h.Version,
+					EnrollmentKey: keyB,
+					RequestedAt:   time.Now().UTC(),
 				}
 				p.Create(db.WithContext(context.TODO()))
 				continue

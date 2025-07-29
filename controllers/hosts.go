@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -57,9 +56,9 @@ func hostHandlers(r *mux.Router) {
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/pending_hosts", logic.SecurityCheck(true, http.HandlerFunc(getPendingHosts))).
 		Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/pending_hosts/approve/:id", logic.SecurityCheck(true, http.HandlerFunc(approvePendingHost))).
+	r.HandleFunc("/api/v1/pending_hosts/approve/{id}", logic.SecurityCheck(true, http.HandlerFunc(approvePendingHost))).
 		Methods(http.MethodPost)
-	r.HandleFunc("/api/v1/pending_hosts/reject/:id", logic.SecurityCheck(true, http.HandlerFunc(rejectPendingHost))).
+	r.HandleFunc("/api/v1/pending_hosts/reject/{id}", logic.SecurityCheck(true, http.HandlerFunc(rejectPendingHost))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/emqx/hosts", logic.SecurityCheck(true, http.HandlerFunc(delEmqxHosts))).
 		Methods(http.MethodDelete)
@@ -1201,7 +1200,7 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 	h, err := logic.GetHost(p.HostID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
-			Code:    http.StatusInternalServerError,
+			Code:    http.StatusBadRequest,
 			Message: err.Error(),
 		})
 		return
@@ -1209,49 +1208,41 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 	key := models.EnrollmentKey{}
 	json.Unmarshal(p.EnrollmentKey, &key)
 	newNode, err := logic.UpdateHostNetwork(h, p.Network, true)
-	if err == nil || strings.Contains(err.Error(), "host already part of network") {
-		if len(key.Groups) > 0 {
-			newNode.Tags = make(map[models.TagID]struct{})
-			for _, tagI := range key.Groups {
-				newNode.Tags[tagI] = struct{}{}
-			}
-			logic.UpsertNode(newNode)
-		}
-		if key.Relay != uuid.Nil && !newNode.IsRelayed {
-			// check if relay node exists and acting as relay
-			relaynode, err := logic.GetNodeByID(key.Relay.String())
-			if err == nil && relaynode.IsGw && relaynode.Network == newNode.Network {
-				slog.Error(fmt.Sprintf("adding relayed node %s to relay %s on network %s", newNode.ID.String(), key.Relay.String(), p.Network))
-				newNode.IsRelayed = true
-				newNode.RelayedBy = key.Relay.String()
-				updatedRelayNode := relaynode
-				updatedRelayNode.RelayedNodes = append(updatedRelayNode.RelayedNodes, newNode.ID.String())
-				logic.UpdateRelayed(&relaynode, &updatedRelayNode)
-				if err := logic.UpsertNode(&updatedRelayNode); err != nil {
-					slog.Error("failed to update node", "nodeid", key.Relay.String())
-				}
-				if err := logic.UpsertNode(newNode); err != nil {
-					slog.Error("failed to update node", "nodeid", key.Relay.String())
-				}
-			} else {
-				slog.Error("failed to relay node. maybe specified relay node is actually not a relay? Or the relayed node is not in the same network with relay?", "err", err)
-			}
-		}
-		if err != nil && strings.Contains(err.Error(), "host already part of network") {
-			logic.ReturnErrorResponse(w, r, models.ErrorResponse{
-				Code:    http.StatusAlreadyReported,
-				Message: err.Error(),
-			})
-			return
-		}
-	} else {
-		logger.Log(0, "failed to add host to network:", h.ID.String(), h.Name, p.Network, err.Error())
+	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
-			Code:    http.StatusInternalServerError,
+			Code:    http.StatusBadRequest,
 			Message: err.Error(),
 		})
 		return
 	}
+	if len(key.Groups) > 0 {
+		newNode.Tags = make(map[models.TagID]struct{})
+		for _, tagI := range key.Groups {
+			newNode.Tags[tagI] = struct{}{}
+		}
+		logic.UpsertNode(newNode)
+	}
+	if key.Relay != uuid.Nil && !newNode.IsRelayed {
+		// check if relay node exists and acting as relay
+		relaynode, err := logic.GetNodeByID(key.Relay.String())
+		if err == nil && relaynode.IsGw && relaynode.Network == newNode.Network {
+			slog.Error(fmt.Sprintf("adding relayed node %s to relay %s on network %s", newNode.ID.String(), key.Relay.String(), p.Network))
+			newNode.IsRelayed = true
+			newNode.RelayedBy = key.Relay.String()
+			updatedRelayNode := relaynode
+			updatedRelayNode.RelayedNodes = append(updatedRelayNode.RelayedNodes, newNode.ID.String())
+			logic.UpdateRelayed(&relaynode, &updatedRelayNode)
+			if err := logic.UpsertNode(&updatedRelayNode); err != nil {
+				slog.Error("failed to update node", "nodeid", key.Relay.String())
+			}
+			if err := logic.UpsertNode(newNode); err != nil {
+				slog.Error("failed to update node", "nodeid", key.Relay.String())
+			}
+		} else {
+			slog.Error("failed to relay node. maybe specified relay node is actually not a relay? Or the relayed node is not in the same network with relay?", "err", err)
+		}
+	}
+
 	logger.Log(1, "added new node", newNode.ID.String(), "to host", h.Name)
 	hostactions.AddAction(models.HostUpdate{
 		Action: models.JoinHostToNetwork,
@@ -1268,8 +1259,7 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 			NetID:  p.Network,
 		})
 	}
-
-	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
+	p.Delete(db.WithContext(r.Context()))
 	logic.ReturnSuccessResponseWithJson(w, r, newNode.ConvertToAPINode(), "added pending host to "+p.Network)
 }
 
@@ -1282,7 +1272,15 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 func rejectPendingHost(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	p := &schema.PendingHost{ID: id}
-	err := p.Delete(db.WithContext(r.Context()))
+	err := p.Get(db.WithContext(r.Context()))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
+			Code:    http.StatusBadRequest,
+			Message: err.Error(),
+		})
+		return
+	}
+	err = p.Delete(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
 			Code:    http.StatusBadRequest,

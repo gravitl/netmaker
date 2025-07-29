@@ -9,7 +9,7 @@ import (
 )
 
 type PendingHost struct {
-	ID            string         `gorm:"primaryKey" json:"id"` // UUID
+	ID            string         `gorm:"id" json:"id"`
 	HostID        string         `gorm:"host_id" json:"host_id"`
 	Hostname      string         `gorm:"host_name" json:"host_name"`
 	Network       string         `gorm:"network" json:"network"`
@@ -36,6 +36,9 @@ func (p *PendingHost) List(ctx context.Context) (pendingHosts []PendingHost, err
 
 func (p *PendingHost) Delete(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&PendingHost{}).Where("id = ?", p.ID).Delete(&p).Error
+}
+func (p *PendingHost) CheckIfPendingHostExists(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&PendingHost{}).Where("host_id = ? AND network = ?", p.HostID, p.Network).First(&p).Error
 }
 
 func (p *PendingHost) DeleteAllPendingHosts(ctx context.Context) error {
