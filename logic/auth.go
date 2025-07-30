@@ -38,6 +38,7 @@ func ClearSuperUserCache() {
 	superUser = models.User{}
 }
 
+var IsOAuthConfigured = func() bool { return false }
 var ResetAuthProvider = func() {}
 var ResetIDPSyncHook = func() {}
 
