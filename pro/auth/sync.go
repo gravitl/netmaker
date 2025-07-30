@@ -82,7 +82,7 @@ func SyncFromIDP() error {
 	case "azure-ad":
 		idpClient = azure.NewAzureEntraIDClientFromSettings()
 	case "okta":
-		idpClient, err = okta.NewOktaClient()
+		idpClient, err = okta.NewOktaClientFromSettings()
 		if err != nil {
 			return err
 		}

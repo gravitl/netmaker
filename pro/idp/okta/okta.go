@@ -12,12 +12,10 @@ type Client struct {
 	client *okta.APIClient
 }
 
-func NewOktaClient() (*Client, error) {
-	settings := logic.GetServerSettings()
-
+func NewOktaClient(oktaOrgURL, oktaAPIToken string) (*Client, error) {
 	config, err := okta.NewConfiguration(
-		okta.WithOrgUrl(settings.OktaOrgURL),
-		okta.WithToken(settings.OktaAPIToken),
+		okta.WithOrgUrl(oktaOrgURL),
+		okta.WithToken(oktaAPIToken),
 	)
 	if err != nil {
 		return nil, err
@@ -26,6 +24,22 @@ func NewOktaClient() (*Client, error) {
 	return &Client{
 		client: okta.NewAPIClient(config),
 	}, nil
+}
+
+func NewOktaClientFromSettings() (*Client, error) {
+	settings := logic.GetServerSettings()
+
+	return NewOktaClient(settings.OktaOrgURL, settings.OktaAPIToken)
+}
+
+func (o *Client) Verify() error {
+	_, _, err := o.client.UserAPI.ListUsers(context.TODO()).Limit(1).Execute()
+	if err != nil {
+		return err
+	}
+
+	_, _, err = o.client.GroupAPI.ListGroups(context.TODO()).Limit(1).Execute()
+	return err
 }
 
 func (o *Client) GetUsers() ([]idp.User, error) {
