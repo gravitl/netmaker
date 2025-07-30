@@ -45,8 +45,11 @@ type ServerSettings struct {
 	DefaultDomain                  string `json:"default_domain"`
 	Stun                           bool   `json:"stun"`
 	StunServers                    string `json:"stun_servers"`
-	Theme                          Theme  `json:"theme"`
-	TextSize                       string `json:"text_size"`
-	ReducedMotion                  bool   `json:"reduced_motion"`
 	AuditLogsRetentionPeriodInDays int    `json:"audit_logs_retention_period"`
+}
+
+type UserSettings struct {
+	Theme         Theme  `json:"theme"`
+	TextSize      string `json:"text_size"`
+	ReducedMotion bool   `json:"reduced_motion"`
 }
