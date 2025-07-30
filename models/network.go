@@ -25,6 +25,7 @@ type Network struct {
 	DefaultMTU          int32    `json:"defaultmtu" bson:"defaultmtu"`
 	DefaultACL          string   `json:"defaultacl" bson:"defaultacl" yaml:"defaultacl" validate:"checkyesorno"`
 	NameServers         []string `json:"dns_nameservers"`
+	AutoJoin            string   `json:"auto_join"`
 }
 
 // SaveData - sensitive fields of a network that should be kept the same
