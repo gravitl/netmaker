@@ -3,8 +3,6 @@ package controllers
 import (
 	"encoding/json"
 	"net/http"
-	"slices"
-	"strings"
 
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"golang.org/x/exp/slog"
@@ -22,7 +20,6 @@ func MetricHandlers(r *mux.Router) {
 	r.HandleFunc("/api/metrics/{network}", logic.SecurityCheck(true, http.HandlerFunc(getNetworkNodesMetrics))).Methods(http.MethodGet)
 	r.HandleFunc("/api/metrics", logic.SecurityCheck(true, http.HandlerFunc(getAllMetrics))).Methods(http.MethodGet)
 	r.HandleFunc("/api/metrics-ext/{network}", logic.SecurityCheck(true, http.HandlerFunc(getNetworkExtMetrics))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/graph/{network}", logic.SecurityCheck(true, http.HandlerFunc(graph))).Methods(http.MethodGet)
 }
 
 // get the metrics of a given node
@@ -167,24 +164,4 @@ func getAllMetrics(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "fetched metrics for all nodes on server")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(networkMetrics)
-}
-
-func graph(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	var params = mux.Vars(r)
-	network := params["network"]
-	networkNodes, err := logic.GetNetworkNodes(network)
-	if err != nil {
-		logger.Log(1, r.Header.Get("user"), "failed to get network nodes", err.Error())
-		return
-	}
-	networkNodes = logic.AddStaticNodestoList(networkNodes)
-	// return all the nodes in JSON/API format
-	apiNodes := logic.GetAllNodesAPIWithLocation(networkNodes[:])
-	slices.SortFunc(apiNodes, func(a, b models.ApiNode) int {
-		return strings.Compare(a.ID, b.ID)
-	})
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(apiNodes)
 }
