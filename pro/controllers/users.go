@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gravitl/netmaker/pro/idp"
+	"github.com/gravitl/netmaker/pro/idp/azure"
+	"github.com/gravitl/netmaker/pro/idp/google"
 	"github.com/gravitl/netmaker/schema"
 	"net/http"
 	"net/url"
@@ -65,6 +68,8 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/ingress/{ingress_id}", logic.SecurityCheck(true, http.HandlerFunc(ingressGatewayUsers))).Methods(http.MethodGet)
 
 	r.HandleFunc("/api/idp/sync", logic.SecurityCheck(true, http.HandlerFunc(syncIDP))).Methods(http.MethodPost)
+	r.HandleFunc("/api/idp/sync/test", logic.SecurityCheck(true, http.HandlerFunc(testIDPSync))).Methods(http.MethodPost)
+	r.HandleFunc("/api/idp/sync/status", logic.SecurityCheck(true, http.HandlerFunc(getIDPSyncStatus))).Methods(http.MethodGet)
 	r.HandleFunc("/api/idp", logic.SecurityCheck(true, http.HandlerFunc(removeIDPIntegration))).Methods(http.MethodDelete)
 }
 
@@ -1618,6 +1623,54 @@ func syncIDP(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	logic.ReturnSuccessResponse(w, r, "starting sync from idp")
+}
+
+// @Summary     Test IDP Sync Credentials.
+// @Router      /api/idp/sync/test [post]
+// @Tags        IDP
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+func testIDPSync(w http.ResponseWriter, r *http.Request) {
+	var req models.IDPSyncTestRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		err = fmt.Errorf("failed to decode request body: %v", err)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	var idpClient idp.Client
+	switch req.AuthProvider {
+	case "google":
+		idpClient, err = google.NewGoogleWorkspaceClient(req.GoogleAdminEmail, req.GoogleSACredsJson)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+	case "azure-ad":
+		idpClient = azure.NewAzureEntraIDClient(req.ClientID, req.ClientSecret, req.AzureTenantID)
+	default:
+		err = fmt.Errorf("invalid auth provider: %s", req.AuthProvider)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	err = idpClient.Verify()
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	logic.ReturnSuccessResponse(w, r, "idp sync test successful")
+}
+
+// @Summary     Gets idp sync status.
+// @Router      /api/idp/sync/status [get]
+// @Tags        IDP
+// @Success     200 {object} models.SuccessResponse
+func getIDPSyncStatus(w http.ResponseWriter, r *http.Request) {
+	logic.ReturnSuccessResponseWithJson(w, r, proAuth.GetIDPSyncStatus(), "idp sync status retrieved")
 }
 
 // @Summary     Remove idp integration.
