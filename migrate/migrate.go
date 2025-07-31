@@ -455,10 +455,17 @@ func updateNewAcls() {
 			aclSrc := make([]models.AclPolicyTag, 0)
 			for _, src := range acl.Src {
 				if src.ID == models.UserGroupAclID {
-					_, ok := userGroupMap[models.UserGroupID(src.Value)]
+					userGroup, ok := userGroupMap[models.UserGroupID(src.Value)]
 					if !ok {
-						// if the group doesn't exist, don't add it to acl src.
+						// if the group doesn't exist, don't add it to the acl's src.
 						continue
+					} else {
+						_, ok := userGroup.NetworkRoles[acl.NetworkID]
+						if !ok {
+							// if the group doesn't have permissions for the acl's
+							// network, don't add it to the acl's src.
+							continue
+						}
 					}
 				}
 				aclSrc = append(aclSrc, src)
