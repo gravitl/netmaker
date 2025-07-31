@@ -422,4 +422,6 @@ type IDPSyncTestRequest struct {
 	AzureTenantID     string `json:"azure_tenant_id"`
 	GoogleAdminEmail  string `json:"google_admin_email"`
 	GoogleSACredsJson string `json:"google_sa_creds_json"`
+	OktaOrgURL        string `json:"okta_org_url"`
+	OktaAPIToken      string `json:"okta_api_token"`
 }
