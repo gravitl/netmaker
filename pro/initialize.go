@@ -35,6 +35,7 @@ func InitPro() {
 		proControllers.RacHandlers,
 		proControllers.EventHandlers,
 		proControllers.TagHandlers,
+		proControllers.NetworkHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
