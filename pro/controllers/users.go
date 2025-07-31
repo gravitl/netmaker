@@ -1323,16 +1323,9 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if !found {
-			extClientNodes := make([]models.Node, len(extClients))
-			for i, extClient := range extClients {
-				extClientNodes[i] = extClient.ConvertToStaticNode()
-			}
-
-			extClientNodesWithStatus := logic.AddStatusToNodes(extClientNodes, true)
-			for _, node := range extClientNodesWithStatus {
-				if node.Status == models.OfflineSt || node.Status == models.UnKnown {
-					gwClient = node.StaticNode
-				}
+			// TODO: prevent ip clashes.
+			if len(extClients) > 0 {
+				gwClient = extClients[0]
 			}
 		}
 
