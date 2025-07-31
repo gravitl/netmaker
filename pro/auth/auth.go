@@ -103,6 +103,10 @@ func ResetAuthProvider() {
 	InitializeAuthProvider()
 }
 
+func IsOAuthConfigured() bool {
+	return auth_provider != nil
+}
+
 // InitializeAuthProvider - initializes the auth provider if any is present
 func InitializeAuthProvider() string {
 	var functions = getCurrentAuthFunctions()
