@@ -136,6 +136,38 @@ func ListPlatformRoles() ([]models.UserRolePermissionTemplate, error) {
 	return userRoles, nil
 }
 
+func GetAllRsrcIDForRsrc(rsrc models.RsrcType) models.RsrcID {
+	switch rsrc {
+	case models.HostRsrc:
+		return models.AllHostRsrcID
+	case models.RelayRsrc:
+		return models.AllRelayRsrcID
+	case models.RemoteAccessGwRsrc:
+		return models.AllRemoteAccessGwRsrcID
+	case models.ExtClientsRsrc:
+		return models.AllExtClientsRsrcID
+	case models.InetGwRsrc:
+		return models.AllInetGwRsrcID
+	case models.EgressGwRsrc:
+		return models.AllEgressGwRsrcID
+	case models.NetworkRsrc:
+		return models.AllNetworkRsrcID
+	case models.EnrollmentKeysRsrc:
+		return models.AllEnrollmentKeysRsrcID
+	case models.UserRsrc:
+		return models.AllUserRsrcID
+	case models.DnsRsrc:
+		return models.AllDnsRsrcID
+	case models.FailOverRsrc:
+		return models.AllFailOverRsrcID
+	case models.AclRsrc:
+		return models.AllAclsRsrcID
+	case models.TagRsrc:
+		return models.AllTagsRsrcID
+	}
+	return ""
+}
+
 func userRolesInit() {
 	d, _ := json.Marshal(SuperAdminPermissionTemplate)
 	database.Insert(SuperAdminPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
