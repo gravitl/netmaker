@@ -330,10 +330,6 @@ func syncGroups(idpGroups []idp.Group) error {
 func GetIDPSyncStatus() models.IDPSyncStatus {
 	if idpSyncMtx.TryLock() {
 		defer idpSyncMtx.Unlock()
-		return models.IDPSyncStatus{
-			Status: "in_progress",
-		}
-	} else {
 		if idpSyncErr == nil {
 			return models.IDPSyncStatus{
 				Status: "completed",
@@ -343,6 +339,10 @@ func GetIDPSyncStatus() models.IDPSyncStatus {
 				Status:      "failed",
 				Description: idpSyncErr.Error(),
 			}
+		}
+	} else {
+		return models.IDPSyncStatus{
+			Status: "in_progress",
 		}
 	}
 }
