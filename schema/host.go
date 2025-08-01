@@ -13,6 +13,7 @@ import (
 type Host struct {
 	ID                  string `gorm:"primaryKey"`
 	Name                string
+	Location            string
 	Password            string
 	Version             string
 	OS                  string
@@ -29,6 +30,7 @@ type Host struct {
 	EndpointIP          string
 	EndpointIPv6        string
 	TurnEndpoint        string
+	DNS                 string
 	NatType             string
 	ListenPort          int
 	WgPublicListenPort  int

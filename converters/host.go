@@ -26,6 +26,7 @@ func ToSchemaHost(host models.Host) schema.Host {
 	return schema.Host{
 		ID:                  host.ID.String(),
 		Name:                host.Name,
+		Location:            host.Location,
 		Password:            host.HostPass,
 		Version:             host.Version,
 		OS:                  host.OS,
@@ -42,6 +43,7 @@ func ToSchemaHost(host models.Host) schema.Host {
 		EndpointIP:          host.EndpointIP.String(),
 		EndpointIPv6:        host.EndpointIPv6.String(),
 		TurnEndpoint:        turnEndpoint,
+		DNS:                 host.DNS,
 		NatType:             host.NatType,
 		ListenPort:          host.ListenPort,
 		WgPublicListenPort:  host.WgPublicListenPort,
@@ -129,9 +131,11 @@ func ToModelHost(_host schema.Host) models.Host {
 		IsStaticPort:        _host.IsStaticPort,
 		IsStatic:            _host.IsStatic,
 		IsDefault:           _host.IsDefault,
+		DNS:                 _host.DNS,
 		NatType:             _host.NatType,
 		TurnEndpoint:        turnEndpoint,
 		PersistentKeepalive: _host.PersistentKeepalive,
+		Location:            _host.Location,
 	}
 }
 
