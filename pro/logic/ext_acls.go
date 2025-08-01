@@ -1,10 +1,13 @@
 package logic
 
 import (
+	"context"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 )
 
@@ -48,43 +51,51 @@ func RemoveDeniedNodeFromClient(ec *models.ExtClient, clientOrNodeID string) boo
 
 // SetClientDefaultACLs - set's a client's default ACLs based on network and nodes in network
 func SetClientDefaultACLs(ec *models.ExtClient) error {
-	networkNodes, err := logic.GetNetworkNodes(ec.Network)
+	_network := &schema.Network{
+		ID: ec.Network,
+	}
+	err := _network.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
-	network, err := logic.GetNetwork(ec.Network)
+
+	_networkNodes, err := _network.GetNodes(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
+
 	var networkAcls acls.ACLContainer
 	networkAcls, err = networkAcls.Get(acls.ContainerID(ec.Network))
 	if err != nil {
 		slog.Error("failed to get network acls", "error", err)
 		return err
 	}
+
 	networkAcls[acls.AclID(ec.ClientID)] = make(acls.ACL)
-	for i := range networkNodes {
-		currNode := networkNodes[i]
-		if network.DefaultACL == "no" || currNode.DefaultACL == "no" {
-			DenyClientNode(ec, currNode.ID.String())
-			networkAcls[acls.AclID(ec.ClientID)][acls.AclID(currNode.ID.String())] = acls.NotAllowed
-			networkAcls[acls.AclID(currNode.ID.String())][acls.AclID(ec.ClientID)] = acls.NotAllowed
+
+	for _, _node := range _networkNodes {
+		if _network.DefaultACL == "no" || _node.DefaultACL == "no" {
+			DenyClientNode(ec, _node.ID)
+			networkAcls[acls.AclID(ec.ClientID)][acls.AclID(_node.ID)] = acls.NotAllowed
+			networkAcls[acls.AclID(_node.ID)][acls.AclID(ec.ClientID)] = acls.NotAllowed
 		} else {
-			RemoveDeniedNodeFromClient(ec, currNode.ID.String())
-			networkAcls[acls.AclID(ec.ClientID)][acls.AclID(currNode.ID.String())] = acls.Allowed
-			networkAcls[acls.AclID(currNode.ID.String())][acls.AclID(ec.ClientID)] = acls.Allowed
+			RemoveDeniedNodeFromClient(ec, _node.ID)
+			networkAcls[acls.AclID(ec.ClientID)][acls.AclID(_node.ID)] = acls.Allowed
+			networkAcls[acls.AclID(_node.ID)][acls.AclID(ec.ClientID)] = acls.Allowed
 		}
 	}
-	networkClients, err := logic.GetNetworkExtClients(ec.Network)
+
+	extClients, err := logic.GetNetworkExtClients(ec.Network)
 	if err != nil {
-		slog.Error("failed to get network clients", "error", err)
 		return err
 	}
-	for _, client := range networkClients {
+
+	for _, client := range extClients {
 		// TODO: revisit when client-client acls are supported
 		networkAcls[acls.AclID(ec.ClientID)][acls.AclID(client.ClientID)] = acls.Allowed
 		networkAcls[acls.AclID(client.ClientID)][acls.AclID(ec.ClientID)] = acls.Allowed
 	}
+
 	delete(networkAcls[acls.AclID(ec.ClientID)], acls.AclID(ec.ClientID)) // remove oneself
 	if _, err = networkAcls.Save(acls.ContainerID(ec.Network)); err != nil {
 		slog.Error("failed to update network acls", "error", err)
@@ -102,40 +113,35 @@ func SetClientACLs(ec *models.ExtClient, newACLs map[string]struct{}) {
 }
 
 func UpdateProNodeACLs(node *models.Node) error {
-	networkNodes, err := logic.GetNetworkNodes(node.Network)
-	if err != nil {
-		return err
+	_network := &schema.Network{
+		ID: node.Network,
 	}
-	if err = adjustNodeAcls(node, networkNodes[:]); err != nil {
-		return err
-	}
-	return nil
-}
-
-// adjustNodeAcls - adjusts ACLs based on a node's default value
-func adjustNodeAcls(node *models.Node, networkNodes []models.Node) error {
-	networkID := nodeacls.NetworkID(node.Network)
-	nodeID := nodeacls.NodeID(node.ID.String())
-	currentACLs, err := nodeacls.FetchAllACLs(networkID)
+	_networkNodes, err := _network.GetNodes(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
 
-	for i := range networkNodes {
-		currentNodeID := nodeacls.NodeID(networkNodes[i].ID.String())
-		if currentNodeID == nodeID {
+	nodeID := node.ID.String()
+
+	currentACLs, err := nodeacls.FetchAllACLs(nodeacls.NetworkID(_network.ID))
+	if err != nil {
+		return err
+	}
+
+	for _, _node := range _networkNodes {
+		if _node.ID == nodeID {
 			continue
 		}
 		// 2 cases
 		// both allow - allow
 		// either 1 denies - deny
-		if node.DoesACLDeny() || networkNodes[i].DoesACLDeny() {
-			currentACLs.ChangeAccess(acls.AclID(nodeID), acls.AclID(currentNodeID), acls.NotAllowed)
-		} else if node.DoesACLAllow() || networkNodes[i].DoesACLAllow() {
-			currentACLs.ChangeAccess(acls.AclID(nodeID), acls.AclID(currentNodeID), acls.Allowed)
+		if node.DoesACLDeny() || _node.DefaultACL == "no" {
+			currentACLs.ChangeAccess(acls.AclID(nodeID), acls.AclID(_node.ID), acls.NotAllowed)
+		} else if node.DoesACLAllow() || _node.DefaultACL == "yes" {
+			currentACLs.ChangeAccess(acls.AclID(nodeID), acls.AclID(_node.ID), acls.Allowed)
 		}
 	}
 
-	_, err = currentACLs.Save(acls.ContainerID(node.Network))
-	return err
+	_, _ = currentACLs.Save(acls.ContainerID(node.Network))
+	return nil
 }

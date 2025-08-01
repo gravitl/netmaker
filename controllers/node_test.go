@@ -1,16 +1,19 @@
 package controller
 
 import (
+	"context"
+	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
+	"log"
 	"net"
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/servercfg"
 	"github.com/stretchr/testify/assert"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -24,12 +27,12 @@ func TestGetNetworkNodes(t *testing.T) {
 	t.Run("BadNet", func(t *testing.T) {
 		node, err := logic.GetNetworkNodes("badnet")
 		assert.Nil(t, err)
-		assert.Equal(t, []models.Node{}, node)
+		assert.Equal(t, []models.Node(nil), node)
 	})
 	t.Run("NoNodes", func(t *testing.T) {
 		node, err := logic.GetNetworkNodes("skynet")
 		assert.Nil(t, err)
-		assert.Equal(t, []models.Node{}, node)
+		assert.Equal(t, []models.Node(nil), node)
 	})
 	t.Run("Success", func(t *testing.T) {
 		createTestNode()
@@ -52,6 +55,7 @@ func TestValidateEgressGateway(t *testing.T) {
 
 func TestNodeACLs(t *testing.T) {
 	deleteAllNodes()
+	deleteAllAcls()
 	node1 := createNodeWithParams("", "10.0.0.50/32")
 	node2 := createNodeWithParams("", "10.0.0.100/32")
 	logic.AssociateNodeToHost(node1, &linuxHost)
@@ -93,7 +97,7 @@ func TestNodeACLs(t *testing.T) {
 		currentACL.Save(acls.ContainerID(node1.Network))
 	})
 	t.Run("node acls correct after add new node not allowed", func(t *testing.T) {
-		node3 := createNodeWithParams("", "10.0.0.100/32")
+		node3 := createNodeWithParams("", "10.0.0.75/32")
 		createNodeHosts()
 		n, e := logic.GetNetwork(node3.Network)
 		assert.Nil(t, e)
@@ -124,10 +128,14 @@ func TestNodeACLs(t *testing.T) {
 }
 
 func deleteAllNodes() {
-	if servercfg.CacheEnabled() {
-		logic.ClearNodeCache()
+	nodes, _ := (&schema.Node{}).ListAll(db.WithContext(context.TODO()))
+	for _, node := range nodes {
+		_ = node.Delete(db.WithContext(context.TODO()))
 	}
-	database.DeleteAllRecords(database.NODES_TABLE_NAME)
+}
+
+func deleteAllAcls() {
+	_ = database.DeleteAllRecords(database.NODE_ACLS_TABLE_NAME)
 }
 
 func createTestNode() *models.Node {
@@ -166,7 +174,10 @@ func createNodeHosts() {
 		OS:        "linux",
 		Name:      "linuxhost",
 	}
-	_ = logic.CreateHost(&linuxHost)
+	err := logic.CreateHost(&linuxHost)
+	if err != nil {
+		log.Fatal(err)
+	}
 	nonLinuxHost = models.Host{
 		ID:        uuid.New(),
 		OS:        "windows",
@@ -175,5 +186,8 @@ func createNodeHosts() {
 		HostPass:  "password",
 	}
 
-	_ = logic.CreateHost(&nonLinuxHost)
+	err = logic.CreateHost(&nonLinuxHost)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

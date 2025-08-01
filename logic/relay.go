@@ -109,9 +109,12 @@ func ValidateRelay(relay models.RelayRequest, update bool) error {
 	if err != nil {
 		return err
 	}
-	if !update && node.IsRelay {
-		return errors.New("node is already acting as a relay")
-	}
+	// skip this check. node.IsRelay would be already set
+	// because the node has already been set as an Ingress Gateway.
+	// TODO: Merge the Ingress Gateway and Relay logic.
+	//if !update && node.IsRelay {
+	//	return errors.New("node is already acting as a relay")
+	//}
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
 	acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
 	for _, relayedNodeID := range relay.RelayedNodes {

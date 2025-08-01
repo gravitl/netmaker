@@ -8,6 +8,7 @@ import (
 	"github.com/gravitl/netmaker/pro/idp"
 	"github.com/gravitl/netmaker/pro/idp/azure"
 	"github.com/gravitl/netmaker/pro/idp/google"
+	"github.com/gravitl/netmaker/schema"
 	"net/http"
 	"net/url"
 	"strings"
@@ -475,32 +476,33 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, network := range networks {
-		acl := models.Acl{
-			ID:          uuid.New().String(),
-			Name:        fmt.Sprintf("%s group", userGroupReq.Group.Name),
-			MetaData:    "This Policy allows user group to communicate with all gateways",
-			Default:     false,
-			ServiceType: models.Any,
-			NetworkID:   models.NetworkID(network.NetID),
-			Proto:       models.ALL,
-			RuleType:    models.UserPolicy,
-			Src: []models.AclPolicyTag{
+		_acl := &schema.ACL{
+			ID:               uuid.New().String(),
+			NetworkID:        network.NetID,
+			Name:             fmt.Sprintf("%s group", userGroupReq.Group.Name),
+			MetaData:         "This Policy allows user group to communicate with all gateways",
+			Default:          false,
+			Enabled:          true,
+			PolicyType:       string(models.UserPolicy),
+			ServiceType:      models.Any,
+			AllowedDirection: int(models.TrafficDirectionUni),
+			Src: []schema.PolicyGroupTag{
 				{
-					ID:    models.UserGroupAclID,
-					Value: userGroupReq.Group.ID.String(),
+					GroupType: string(models.UserGroupAclID),
+					Tag:       userGroupReq.Group.ID.String(),
 				},
 			},
-			Dst: []models.AclPolicyTag{
+			Dst: []schema.PolicyGroupTag{
 				{
-					ID:    models.NodeTagID,
-					Value: fmt.Sprintf("%s.%s", models.NetworkID(network.NetID), models.GwTagName),
+					GroupType: string(models.NodeTagID),
+					Tag:       fmt.Sprintf("%s.%s", models.NetworkID(network.NetID), models.GwTagName),
 				}},
-			AllowedDirection: models.TrafficDirectionUni,
-			Enabled:          true,
-			CreatedBy:        "auto",
-			CreatedAt:        time.Now().UTC(),
+			Protocol:  string(models.ALL),
+			Port:      []string{},
+			CreatedBy: "auto",
+			CreatedAt: time.Now().UTC(),
 		}
-		err = logic.InsertAcl(acl)
+		err = _acl.Create(r.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return

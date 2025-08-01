@@ -7,15 +7,14 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
 	"sync"
 	"syscall"
-
-	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/schema"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/config"
@@ -56,8 +55,6 @@ func main() {
 	servercfg.SetVersion(version)
 	fmt.Println(models.RetrieveLogo()) // print the logo
 	initialize()                       // initial db and acls
-	logic.SetAllocatedIpMap()
-	defer logic.ClearAllocatedIpMap()
 	setGarbageCollection()
 	setVerbosity()
 	if servercfg.DeployedByOperator() && !servercfg.IsPro {
@@ -107,26 +104,25 @@ func initialize() { // Client Mode Prereq Check
 	// initialize sql schema db.
 	err = db.InitializeDB(schema.ListModels()...)
 	if err != nil {
-		logger.FatalLog("error connecting to database: ", err.Error())
+		logger.FatalLog("error connection to database: ", err.Error())
 	}
-
 	logger.Log(0, "database successfully connected")
 
-	// initialize kv schema db.
 	if err = database.InitializeDatabase(); err != nil {
-		logger.FatalLog("error initializing database: ", err.Error())
+		logger.FatalLog("error connecting to database: ", err.Error())
 	}
+	logger.Log(0, "database successfully connected")
 
 	initializeUUID()
 	//initialize cache
-	_, _ = logic.GetNetworks()
-	_, _ = logic.GetAllNodes()
-	_, _ = logic.GetAllHosts()
 	_, _ = logic.GetAllExtClients()
-	_ = logic.ListAcls()
 	_, _ = logic.GetAllEnrollmentKeys()
 
 	migrate.Run()
+	err = migrate.ToSQLSchema()
+	if err != nil {
+		logger.FatalLog("error migrating to SQL schema: ", err.Error())
+	}
 
 	logic.SetJWTSecret()
 	logic.InitialiseRoles()

@@ -1,7 +1,10 @@
 package logic
 
 import (
+	"context"
 	"encoding/json"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 	"os"
 	"time"
 
@@ -93,13 +96,12 @@ func FetchTelemetryData() telemetryData {
 	data.IsPro = servercfg.IsPro
 	data.ExtClients = getDBLength(database.EXT_CLIENT_TABLE_NAME)
 	data.Users = getDBLength(database.USERS_TABLE_NAME)
-	data.Networks = getDBLength(database.NETWORKS_TABLE_NAME)
-	data.Hosts = getDBLength(database.HOSTS_TABLE_NAME)
+	data.Networks, _ = (&schema.Network{}).Count(db.WithContext(context.TODO()))
+	data.Hosts, _ = (&schema.Host{}).Count(db.WithContext(context.TODO()))
 	data.Version = servercfg.GetVersion()
 	data.Servers = getServerCount()
-	nodes, _ := GetAllNodes()
-	data.Nodes = len(nodes)
-	data.Count = getClientCount(nodes)
+	data.Nodes, _ = (&schema.Node{}).Count(db.WithContext(context.TODO()))
+	data.Count = getClientCount()
 	endDate, _ := GetTrialEndDate()
 	data.ProTrialEndDate = endDate
 	if endDate.After(time.Now()) {
@@ -140,25 +142,15 @@ func setTelemetryTimestamp(telRecord *models.Telemetry) error {
 }
 
 // getClientCount - returns counts of nodes with various OS types and conditions
-func getClientCount(nodes []models.Node) clientCount {
-	var count clientCount
-	for _, node := range nodes {
-		host, err := GetHost(node.HostID.String())
-		if err != nil {
-			continue
-		}
-		switch host.OS {
-		case "darwin":
-			count.MacOS += 1
-		case "windows":
-			count.Windows += 1
-		case "linux":
-			count.Linux += 1
-		case "freebsd":
-			count.FreeBSD += 1
-		}
+func getClientCount() clientCount {
+	countMap, _ := (&schema.Node{}).CountByOS(db.WithContext(context.TODO()))
+
+	return clientCount{
+		MacOS:   countMap["darwin"],
+		Windows: countMap["windows"],
+		Linux:   countMap["linux"],
+		FreeBSD: countMap["freebsd"],
 	}
-	return count
 }
 
 // FetchTelemetryRecord - get the existing UUID and Timestamp from the DB
