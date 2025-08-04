@@ -29,10 +29,18 @@ func NewGoogleWorkspaceClient(adminEmail, creds string) (*Client, error) {
 		return nil, err
 	}
 
+	var targetPrincipal string
+	_, ok := credsJsonMap["client_email"]
+	if !ok {
+		return nil, errors.New("invalid service account credentials: missing client_email field")
+	} else {
+		targetPrincipal = credsJsonMap["client_email"].(string)
+	}
+
 	source, err := impersonate.CredentialsTokenSource(
 		context.TODO(),
 		impersonate.CredentialsConfig{
-			TargetPrincipal: credsJsonMap["client_email"].(string),
+			TargetPrincipal: targetPrincipal,
 			Scopes: []string{
 				admindir.AdminDirectoryUserReadonlyScope,
 				admindir.AdminDirectoryGroupReadonlyScope,

@@ -8,6 +8,7 @@ import (
 	"github.com/gravitl/netmaker/pro/idp"
 	"github.com/gravitl/netmaker/pro/idp/azure"
 	"github.com/gravitl/netmaker/pro/idp/google"
+	"github.com/gravitl/netmaker/pro/idp/okta"
 	"net/http"
 	"net/url"
 	"strings"
@@ -1770,6 +1771,12 @@ func testIDPSync(w http.ResponseWriter, r *http.Request) {
 		}
 	case "azure-ad":
 		idpClient = azure.NewAzureEntraIDClient(req.ClientID, req.ClientSecret, req.AzureTenantID)
+	case "okta":
+		idpClient, err = okta.NewOktaClient(req.OktaOrgURL, req.OktaAPIToken)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
 	default:
 		err = fmt.Errorf("invalid auth provider: %s", req.AuthProvider)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
