@@ -24,11 +24,12 @@ unset COLLECT_PRO_VARS
 # usage - displays usage instructions
 usage() {
 	echo "nm-quick.sh v$NM_QUICK_VERSION"
-	echo "usage: ./nm-quick.sh [-c]"
+	echo "usage: ./nm-quick.sh [-c] [-l]"
 	echo " -c  if specified, will install netmaker community version"
 	echo " -p  if specified, will install netmaker pro version"
 	echo " -u  if specified, will upgrade netmaker to pro version"
 	echo " -d if specified, will downgrade netmaker to community version"
+	echo " -l  if specified, will install netmaker locally (localhost or custom local domain) with self-signed certs"
 	exit 1
 }
 
@@ -499,11 +500,49 @@ install_dependencies() {
 }
 set -e
 
+# Function to generate self-signed certs for all local subdomains
+create_local_certs() {
+    local domains=("$@")
+    local cert_dir="$SCRIPT_DIR/certs"
+    mkdir -p "$cert_dir"
+    for domain in "${domains[@]}"; do
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+            -keyout "$cert_dir/$domain.key" \
+            -out "$cert_dir/$domain.crt" \
+            -subj "/CN=$domain" >/dev/null 2>&1
+        if [ $? -ne 0 ]; then
+            echo "Failed to generate self-signed certificate for $domain"
+            exit 1
+        fi
+        echo "Self-signed certificate generated for $domain at $cert_dir"
+    done
+}
+
 # set_install_vars - sets the variables that will be used throughout installation
 set_install_vars() {
 
 	IP_ADDR=$(curl -s -4 api64.ipify.org || echo "")
     IP6_ADDR=$(curl -s -6 api64.ipify.org || echo "")
+	if [ "$LOCAL_INSTALL" = "1" ]; then
+		echo "Local install selected."
+		read -p "Enter local domain (leave blank for 'localhost'): " local_domain
+		if [ -z "$local_domain" ]; then
+			NETMAKER_BASE_DOMAIN=localhost
+		else
+			NETMAKER_BASE_DOMAIN=$local_domain
+		fi
+		SERVER_HOST=127.0.0.1
+		DOMAIN_TYPE="local"
+		local_domains=("api.$NETMAKER_BASE_DOMAIN" "dashboard.$NETMAKER_BASE_DOMAIN" "broker.$NETMAKER_BASE_DOMAIN")
+		if [ "$INSTALL_TYPE" = "pro" ]; then
+			local_domains+=("prometheus.$NETMAKER_BASE_DOMAIN")
+		fi
+		create_local_certs "${local_domains[@]}"
+		echo "Using local domain: $NETMAKER_BASE_DOMAIN"
+		# Export for use in install_netmaker
+		export LOCAL_DOMAINS="${local_domains[*]}"
+		return
+	fi
 	if [ "$NETMAKER_BASE_DOMAIN" = "" ]; then
 		NETMAKER_BASE_DOMAIN=nm.$(echo $IP_ADDR | tr . -).nip.io
 	fi
@@ -662,6 +701,17 @@ install_netmaker() {
 	cd -
 	wait_seconds 2
 
+	if [ "$LOCAL_INSTALL" = "1" ]; then
+		# Update Caddyfile to use local certs for each subdomain
+		IFS=' ' read -r -a local_domains <<< "$LOCAL_DOMAINS"
+		for domain in "${local_domains[@]}"; do
+			# Replace the tls line for each domain in the Caddyfile
+			sed -i.bak \
+				"/$domain/,/}/s|tls .*|tls $SCRIPT_DIR/certs/$domain.crt $SCRIPT_DIR/certs/$domain.key|" \
+				"$SCRIPT_DIR/Caddyfile"
+		done
+		echo "Caddyfile updated for local certs."
+	fi
 }
 
 # test_connection - tests to make sure Caddy has proper SSL certs
@@ -669,7 +719,11 @@ test_connection() {
 
 	echo "Testing Caddy setup (please be patient, this may take 1-2 minutes)"
 	for i in 1 2 3 4 5 6 7 8; do
-		curlresponse=$(curl -vIs https://api.${NETMAKER_BASE_DOMAIN} 2>&1)
+		if [ "$LOCAL_INSTALL" = "1" ]; then
+			curlresponse=$(curl -vkIs https://api.${NETMAKER_BASE_DOMAIN} 2>&1)
+		else
+			curlresponse=$(curl -vIs https://api.${NETMAKER_BASE_DOMAIN} 2>&1)
+		fi
 
 		if [[ "$i" == 8 ]]; then
 			echo "    Caddy is having an issue setting up certificates, please investigate (docker logs caddy)"
@@ -837,7 +891,8 @@ main (){
 	fi
 
 	INSTALL_TYPE="ce"
-	while getopts :cudpv flag; do
+	LOCAL_INSTALL=0
+	while getopts :cudpvfl flag; do
 	case "${flag}" in
 	c)
 		INSTALL_TYPE="ce"
@@ -863,6 +918,9 @@ main (){
 	v)
 		usage
 		exit 0
+		;;
+	l)
+		LOCAL_INSTALL=1
 		;;
 	esac
 done
