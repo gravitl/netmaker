@@ -10,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/pro/idp"
 	"github.com/gravitl/netmaker/pro/idp/azure"
 	"github.com/gravitl/netmaker/pro/idp/google"
+	"github.com/gravitl/netmaker/pro/idp/okta"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"strings"
 	"sync"
@@ -72,6 +73,11 @@ func SyncFromIDP() error {
 		}
 	case "azure-ad":
 		idpClient = azure.NewAzureEntraIDClient()
+	case "okta":
+		idpClient, err = okta.NewOktaClientFromSettings()
+		if err != nil {
+			return err
+		}
 	default:
 		if settings.AuthProvider != "" {
 			return fmt.Errorf("invalid auth provider: %s", settings.AuthProvider)
