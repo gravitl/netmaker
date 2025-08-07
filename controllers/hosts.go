@@ -10,10 +10,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/logic/hostactions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
@@ -51,6 +54,12 @@ func hostHandlers(r *mux.Router) {
 		Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/host/{hostid}/peer_info", Authorize(true, false, "host", http.HandlerFunc(getHostPeerInfo))).
 		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/pending_hosts", logic.SecurityCheck(true, http.HandlerFunc(getPendingHosts))).
+		Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/pending_hosts/approve/{id}", logic.SecurityCheck(true, http.HandlerFunc(approvePendingHost))).
+		Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/pending_hosts/reject/{id}", logic.SecurityCheck(true, http.HandlerFunc(rejectPendingHost))).
+		Methods(http.MethodPost)
 	r.HandleFunc("/api/emqx/hosts", logic.SecurityCheck(true, http.HandlerFunc(delEmqxHosts))).
 		Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/auth-register/host", socketHandler)
@@ -453,6 +462,10 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	// delete if any pending reqs
+	(&schema.PendingHost{
+		HostID: currHost.ID.String(),
+	}).DeleteAllPendingHosts(db.WithContext(r.Context()))
 	logic.LogEvent(&models.Event{
 		Action: models.Delete,
 		Source: models.Subject{
@@ -1143,4 +1156,142 @@ func getHostPeerInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.ReturnSuccessResponseWithJson(w, r, peerInfo, "fetched host peer info")
+}
+
+// @Summary     List pending hosts in a network
+// @Router      /api/v1/pending_hosts [get]
+// @Tags        Hosts
+// @Security    oauth
+// @Success     200 {array} schema.PendingHost
+// @Failure     500 {object} models.ErrorResponse
+func getPendingHosts(w http.ResponseWriter, r *http.Request) {
+	netID := r.URL.Query().Get("network")
+	if netID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network id param is missing"), "badrequest"))
+		return
+	}
+	pendingHosts, err := (&schema.PendingHost{
+		Network: netID,
+	}).List(db.WithContext(r.Context()))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
+			Code:    http.StatusBadRequest,
+			Message: err.Error(),
+		})
+		return
+	}
+	logger.Log(2, r.Header.Get("user"), "fetched all hosts")
+	logic.ReturnSuccessResponseWithJson(w, r, pendingHosts, "returned pending hosts in "+netID)
+}
+
+// @Summary     approve pending hosts in a network
+// @Router      /api/v1/pending_hosts/approve/{id} [post]
+// @Tags        Hosts
+// @Security    oauth
+// @Success     200 {array} models.ApiNode
+// @Failure     500 {object} models.ErrorResponse
+func approvePendingHost(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	p := &schema.PendingHost{ID: id}
+	err := p.Get(db.WithContext(r.Context()))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
+			Code:    http.StatusBadRequest,
+			Message: err.Error(),
+		})
+		return
+	}
+	h, err := logic.GetHost(p.HostID)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
+			Code:    http.StatusBadRequest,
+			Message: err.Error(),
+		})
+		return
+	}
+	key := models.EnrollmentKey{}
+	json.Unmarshal(p.EnrollmentKey, &key)
+	newNode, err := logic.UpdateHostNetwork(h, p.Network, true)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
+			Code:    http.StatusBadRequest,
+			Message: err.Error(),
+		})
+		return
+	}
+	if len(key.Groups) > 0 {
+		newNode.Tags = make(map[models.TagID]struct{})
+		for _, tagI := range key.Groups {
+			newNode.Tags[tagI] = struct{}{}
+		}
+		logic.UpsertNode(newNode)
+	}
+	if key.Relay != uuid.Nil && !newNode.IsRelayed {
+		// check if relay node exists and acting as relay
+		relaynode, err := logic.GetNodeByID(key.Relay.String())
+		if err == nil && relaynode.IsGw && relaynode.Network == newNode.Network {
+			slog.Error(fmt.Sprintf("adding relayed node %s to relay %s on network %s", newNode.ID.String(), key.Relay.String(), p.Network))
+			newNode.IsRelayed = true
+			newNode.RelayedBy = key.Relay.String()
+			updatedRelayNode := relaynode
+			updatedRelayNode.RelayedNodes = append(updatedRelayNode.RelayedNodes, newNode.ID.String())
+			logic.UpdateRelayed(&relaynode, &updatedRelayNode)
+			if err := logic.UpsertNode(&updatedRelayNode); err != nil {
+				slog.Error("failed to update node", "nodeid", key.Relay.String())
+			}
+			if err := logic.UpsertNode(newNode); err != nil {
+				slog.Error("failed to update node", "nodeid", key.Relay.String())
+			}
+		} else {
+			slog.Error("failed to relay node. maybe specified relay node is actually not a relay? Or the relayed node is not in the same network with relay?", "err", err)
+		}
+	}
+
+	logger.Log(1, "added new node", newNode.ID.String(), "to host", h.Name)
+	hostactions.AddAction(models.HostUpdate{
+		Action: models.JoinHostToNetwork,
+		Host:   *h,
+		Node:   *newNode,
+	})
+	if h.IsDefault {
+		// make  host failover
+		logic.CreateFailOver(*newNode)
+		// make host remote access gateway
+		logic.CreateIngressGateway(p.Network, newNode.ID.String(), models.IngressRequest{})
+		logic.CreateRelay(models.RelayRequest{
+			NodeID: newNode.ID.String(),
+			NetID:  p.Network,
+		})
+	}
+	p.Delete(db.WithContext(r.Context()))
+	go mq.PublishPeerUpdate(false)
+	logic.ReturnSuccessResponseWithJson(w, r, newNode.ConvertToAPINode(), "added pending host to "+p.Network)
+}
+
+// @Summary     reject pending hosts in a network
+// @Router      /api/v1/pending_hosts/reject/{id} [post]
+// @Tags        Hosts
+// @Security    oauth
+// @Success     200 {array} models.ApiNode
+// @Failure     500 {object} models.ErrorResponse
+func rejectPendingHost(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
+	p := &schema.PendingHost{ID: id}
+	err := p.Get(db.WithContext(r.Context()))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
+			Code:    http.StatusBadRequest,
+			Message: err.Error(),
+		})
+		return
+	}
+	err = p.Delete(db.WithContext(r.Context()))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
+			Code:    http.StatusBadRequest,
+			Message: err.Error(),
+		})
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, p, "deleted pending host from "+p.Network)
 }

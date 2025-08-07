@@ -175,6 +175,18 @@ func GetHostsMap() (map[string]models.Host, error) {
 	return currHostMap, nil
 }
 
+func DoesHostExistinTheNetworkAlready(h *models.Host, network models.NetworkID) bool {
+	if len(h.Nodes) > 0 {
+		for _, nodeID := range h.Nodes {
+			node, err := GetNodeByID(nodeID)
+			if err == nil && node.Network == network.String() {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // GetHost - gets a host from db given id
 func GetHost(hostid string) (*models.Host, error) {
 	if servercfg.CacheEnabled() {
