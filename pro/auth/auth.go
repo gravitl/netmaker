@@ -127,7 +127,7 @@ func InitializeAuthProvider() string {
 		logger.Log(1, "external OAuth detected, proceeding with https redirect: ("+serverConn+")")
 	}
 
-	if authInfo[0] == "oidc" {
+	if authInfo[0] == "okta" || authInfo[0] == "oidc" {
 		functions[init_provider].(func(string, string, string, string))(serverConn+"/api/oauth/callback", authInfo[1], authInfo[2], authInfo[3])
 		return authInfo[0]
 	}
