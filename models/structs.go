@@ -406,3 +406,22 @@ type RsrcURLInfo struct {
 	Method string
 	Path   string
 }
+
+type IDPSyncStatus struct {
+	// Status would be one of: in_progress, completed or failed.
+	Status string `json:"status"`
+	// Description is empty if the sync is ongoing or completed,
+	// and describes the error when the sync fails.
+	Description string `json:"description"`
+}
+
+type IDPSyncTestRequest struct {
+	AuthProvider      string `json:"auth_provider"`
+	ClientID          string `json:"client_id"`
+	ClientSecret      string `json:"client_secret"`
+	AzureTenantID     string `json:"azure_tenant_id"`
+	GoogleAdminEmail  string `json:"google_admin_email"`
+	GoogleSACredsJson string `json:"google_sa_creds_json"`
+	OktaOrgURL        string `json:"okta_org_url"`
+	OktaAPIToken      string `json:"okta_api_token"`
+}

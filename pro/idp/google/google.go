@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/pro/idp"
 	admindir "google.golang.org/api/admin/directory/v1"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/impersonate"
 	"google.golang.org/api/option"
 )
@@ -15,10 +17,8 @@ type Client struct {
 	service *admindir.Service
 }
 
-func NewGoogleWorkspaceClient() (*Client, error) {
-	settings := logic.GetServerSettings()
-
-	credsJson, err := base64.StdEncoding.DecodeString(settings.GoogleSACredsJson)
+func NewGoogleWorkspaceClient(adminEmail, creds string) (*Client, error) {
+	credsJson, err := base64.StdEncoding.DecodeString(creds)
 	if err != nil {
 		return nil, err
 	}
@@ -29,16 +29,24 @@ func NewGoogleWorkspaceClient() (*Client, error) {
 		return nil, err
 	}
 
+	var targetPrincipal string
+	_, ok := credsJsonMap["client_email"]
+	if !ok {
+		return nil, errors.New("invalid service account credentials: missing client_email field")
+	} else {
+		targetPrincipal = credsJsonMap["client_email"].(string)
+	}
+
 	source, err := impersonate.CredentialsTokenSource(
 		context.TODO(),
 		impersonate.CredentialsConfig{
-			TargetPrincipal: credsJsonMap["client_email"].(string),
+			TargetPrincipal: targetPrincipal,
 			Scopes: []string{
 				admindir.AdminDirectoryUserReadonlyScope,
 				admindir.AdminDirectoryGroupReadonlyScope,
 				admindir.AdminDirectoryGroupMemberReadonlyScope,
 			},
-			Subject: settings.GoogleAdminEmail,
+			Subject: adminEmail,
 		},
 		option.WithCredentialsJSON(credsJson),
 	)
@@ -57,6 +65,42 @@ func NewGoogleWorkspaceClient() (*Client, error) {
 	return &Client{
 		service: service,
 	}, nil
+}
+
+func NewGoogleWorkspaceClientFromSettings() (*Client, error) {
+	settings := logic.GetServerSettings()
+
+	return NewGoogleWorkspaceClient(settings.GoogleAdminEmail, settings.GoogleSACredsJson)
+}
+
+func (g *Client) Verify() error {
+	_, err := g.service.Users.List().
+		Customer("my_customer").
+		MaxResults(1).
+		Do()
+	if err != nil {
+		var gerr *googleapi.Error
+		if errors.As(err, &gerr) {
+			return errors.New(gerr.Message)
+		}
+
+		return err
+	}
+
+	_, err = g.service.Groups.List().
+		Customer("my_customer").
+		MaxResults(1).
+		Do()
+	if err != nil {
+		var gerr *googleapi.Error
+		if errors.As(err, &gerr) {
+			return errors.New(gerr.Message)
+		}
+
+		return err
+	}
+
+	return nil
 }
 
 func (g *Client) GetUsers() ([]idp.User, error) {

@@ -15,11 +15,17 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-var serverSettingsDBKey = "server_cfg"
+var ServerSettingsDBKey = "server_cfg"
 var SettingsMutex = &sync.RWMutex{}
 
+var defaultUserSettings = models.UserSettings{
+	TextSize:      "16",
+	Theme:         models.Dark,
+	ReducedMotion: false,
+}
+
 func GetServerSettings() (s models.ServerSettings) {
-	data, err := database.FetchRecord(database.SERVER_SETTINGS, serverSettingsDBKey)
+	data, err := database.FetchRecord(database.SERVER_SETTINGS, ServerSettingsDBKey)
 	if err != nil {
 		return
 	}
@@ -42,11 +48,45 @@ func UpsertServerSettings(s models.ServerSettings) error {
 	if err != nil {
 		return err
 	}
-	err = database.Insert(serverSettingsDBKey, string(data), database.SERVER_SETTINGS)
+	err = database.Insert(ServerSettingsDBKey, string(data), database.SERVER_SETTINGS)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func GetUserSettings(userID string) models.UserSettings {
+	data, err := database.FetchRecord(database.SERVER_SETTINGS, userID)
+	if err != nil {
+		return defaultUserSettings
+	}
+	var userSettings models.UserSettings
+	err = json.Unmarshal([]byte(data), &userSettings)
+	if err != nil {
+		return defaultUserSettings
+	}
+
+	return userSettings
+}
+
+func UpsertUserSettings(userID string, userSettings models.UserSettings) error {
+	if userSettings.TextSize == "" {
+		userSettings.TextSize = "16"
+	}
+
+	if userSettings.Theme == "" {
+		userSettings.Theme = models.Dark
+	}
+
+	data, err := json.Marshal(userSettings)
+	if err != nil {
+		return err
+	}
+	return database.Insert(userID, string(data), database.SERVER_SETTINGS)
+}
+
+func DeleteUserSettings(userID string) error {
+	return database.DeleteRecord(database.SERVER_SETTINGS, userID)
 }
 
 func ValidateNewSettings(req models.ServerSettings) bool {
@@ -87,9 +127,6 @@ func GetServerSettingsFromEnv() (s models.ServerSettings) {
 		DefaultDomain:              servercfg.GetDefaultDomain(),
 		Stun:                       servercfg.IsStunEnabled(),
 		StunServers:                servercfg.GetStunServers(),
-		TextSize:                   "16",
-		Theme:                      models.Dark,
-		ReducedMotion:              false,
 	}
 
 	return
@@ -258,7 +295,7 @@ func GetAuthProviderInfo(settings models.ServerSettings) (pi []string) {
 	var authProvider = ""
 
 	defer func() {
-		if authProvider == "oidc" {
+		if authProvider == "okta" || authProvider == "oidc" {
 			if settings.OIDCIssuer != "" {
 				pi = append(pi, settings.OIDCIssuer)
 			} else {
@@ -269,7 +306,7 @@ func GetAuthProviderInfo(settings models.ServerSettings) (pi []string) {
 
 	if settings.AuthProvider != "" && settings.ClientID != "" && settings.ClientSecret != "" {
 		authProvider = strings.ToLower(settings.AuthProvider)
-		if authProvider == "google" || authProvider == "azure-ad" || authProvider == "github" || authProvider == "oidc" {
+		if authProvider == "google" || authProvider == "azure-ad" || authProvider == "github" || authProvider == "okta" || authProvider == "oidc" {
 			return []string{authProvider, settings.ClientID, settings.ClientSecret}
 		} else {
 			authProvider = ""
