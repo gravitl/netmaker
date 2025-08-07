@@ -1264,6 +1264,7 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	p.Delete(db.WithContext(r.Context()))
+	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, newNode.ConvertToAPINode(), "added pending host to "+p.Network)
 }
 
