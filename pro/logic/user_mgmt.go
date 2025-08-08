@@ -53,6 +53,11 @@ var NetworkUserAllPermissionTemplate = models.UserRolePermissionTemplate{
 	FullAccess: false,
 	NetworkID:  models.AllNetworks,
 	NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
+		models.HostRsrc: {
+			models.AllHostRsrcID: models.RsrcPermissionScope{
+				Read: true,
+			},
+		},
 		models.RemoteAccessGwRsrc: {
 			models.AllRemoteAccessGwRsrcID: models.RsrcPermissionScope{
 				Read:      true,
@@ -114,7 +119,6 @@ func UserRolesInit() {
 	database.Insert(NetworkAdminAllPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
 	d, _ = json.Marshal(NetworkUserAllPermissionTemplate)
 	database.Insert(NetworkUserAllPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
-
 }
 
 func UserGroupsInit() {
@@ -170,6 +174,11 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 		NetworkID:           netID,
 		DenyDashboardAccess: false,
 		NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
+			models.HostRsrc: {
+				models.AllHostRsrcID: models.RsrcPermissionScope{
+					Read: true,
+				},
+			},
 			models.RemoteAccessGwRsrc: {
 				models.AllRemoteAccessGwRsrcID: models.RsrcPermissionScope{
 					Read:      true,
