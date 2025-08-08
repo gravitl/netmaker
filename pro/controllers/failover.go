@@ -110,7 +110,13 @@ func resetFailOver(w http.ResponseWriter, r *http.Request) {
 	for _, node := range nodes {
 		if node.FailedOverBy != uuid.Nil {
 			node.FailedOverBy = uuid.Nil
+			if node.Mutex != nil {
+				node.Mutex.Lock()
+			}
 			node.FailOverPeers = make(map[string]struct{})
+			if node.Mutex != nil {
+				node.Mutex.Unlock()
+			}
 			logic.UpsertNode(&node)
 		}
 	}

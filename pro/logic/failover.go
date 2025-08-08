@@ -51,8 +51,20 @@ func CheckFailOverCtx(failOverNode, victimNode, peerNode models.Node) error {
 	if victimNode.FailOverPeers == nil {
 		return nil
 	}
+	if peerNode.Mutex != nil {
+		peerNode.Mutex.Lock()
+	}
 	_, peerHasFailovered := peerNode.FailOverPeers[victimNode.ID.String()]
+	if peerNode.Mutex != nil {
+		peerNode.Mutex.Unlock()
+	}
+	if victimNode.Mutex != nil {
+		victimNode.Mutex.Lock()
+	}
 	_, victimHasFailovered := victimNode.FailOverPeers[peerNode.ID.String()]
+	if victimNode.Mutex != nil {
+		victimNode.Mutex.Unlock()
+	}
 	if peerHasFailovered && victimHasFailovered &&
 		victimNode.FailedOverBy == failOverNode.ID && peerNode.FailedOverBy == failOverNode.ID {
 		return errors.New("failover ctx is already set")
@@ -68,14 +80,38 @@ func SetFailOverCtx(failOverNode, victimNode, peerNode models.Node) error {
 	if victimNode.FailOverPeers == nil {
 		victimNode.FailOverPeers = make(map[string]struct{})
 	}
+	if peerNode.Mutex != nil {
+		peerNode.Mutex.Lock()
+	}
 	_, peerHasFailovered := peerNode.FailOverPeers[victimNode.ID.String()]
+	if peerNode.Mutex != nil {
+		peerNode.Mutex.Unlock()
+	}
+	if victimNode.Mutex != nil {
+		victimNode.Mutex.Lock()
+	}
 	_, victimHasFailovered := victimNode.FailOverPeers[peerNode.ID.String()]
+	if victimNode.Mutex != nil {
+		victimNode.Mutex.Unlock()
+	}
 	if peerHasFailovered && victimHasFailovered &&
 		victimNode.FailedOverBy == failOverNode.ID && peerNode.FailedOverBy == failOverNode.ID {
 		return errors.New("failover ctx is already set")
 	}
+	if peerNode.Mutex != nil {
+		peerNode.Mutex.Lock()
+	}
 	peerNode.FailOverPeers[victimNode.ID.String()] = struct{}{}
+	if peerNode.Mutex != nil {
+		peerNode.Mutex.Unlock()
+	}
+	if victimNode.Mutex != nil {
+		victimNode.Mutex.Lock()
+	}
 	victimNode.FailOverPeers[peerNode.ID.String()] = struct{}{}
+	if victimNode.Mutex != nil {
+		victimNode.Mutex.Unlock()
+	}
 	victimNode.FailedOverBy = failOverNode.ID
 	peerNode.FailedOverBy = failOverNode.ID
 	if err := logic.UpsertNode(&victimNode); err != nil {
