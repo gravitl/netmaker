@@ -471,7 +471,7 @@ func AddStatusToNodes(nodes []models.Node, statusCall bool) (nodesWithStatus []m
 		if statusCall {
 			GetNodeStatus(&node, aclDefaultPolicyStatusMap[node.Network])
 		} else {
-			GetNodeCheckInStatus(&node, true)
+			getNodeCheckInStatus(&node, true)
 		}
 
 		nodesWithStatus = append(nodesWithStatus, node)
