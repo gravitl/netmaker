@@ -50,6 +50,27 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 		// if nodeI.StaticNode.IngressGatewayID != node.ID.String() {
 		// 	continue
 		// }
+		if IsNodeAllowedToCommunicateWithAllRsrcs(nodeI) {
+			if nodeI.Address.IP != nil {
+				rules = append(rules, models.FwRule{
+					SrcIP: net.IPNet{
+						IP:   nodeI.Address.IP,
+						Mask: net.CIDRMask(32, 32),
+					},
+					Allow: true,
+				})
+			}
+			if nodeI.Address6.IP != nil {
+				rules = append(rules, models.FwRule{
+					SrcIP: net.IPNet{
+						IP:   nodeI.Address6.IP,
+						Mask: net.CIDRMask(128, 128),
+					},
+					Allow: true,
+				})
+			}
+			continue
+		}
 		for _, peer := range nodes {
 			if peer.StaticNode.ClientID == nodeI.StaticNode.ClientID || peer.IsUserNode {
 				continue
@@ -880,6 +901,60 @@ func MigrateAclPolicies() {
 		}
 	}
 
+}
+
+func IsNodeAllowedToCommunicateWithAllRsrcs(node models.Node) bool {
+	// check default policy if all allowed return true
+	defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+	if err == nil {
+		if defaultPolicy.Enabled {
+			return true
+		}
+	}
+	var nodeId string
+	if node.IsStatic {
+		nodeId = node.StaticNode.ClientID
+		node = node.StaticNode.ConvertToStaticNode()
+	} else {
+		nodeId = node.ID.String()
+	}
+	nodeTags := make(map[models.TagID]struct{})
+
+	nodeTags[models.TagID(nodeId)] = struct{}{}
+	if node.IsGw {
+		nodeTags[models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName))] = struct{}{}
+	}
+	// list device policies
+	policies := ListDevicePolicies(models.NetworkID(node.Network))
+	srcMap := make(map[string]struct{})
+	dstMap := make(map[string]struct{})
+	defer func() {
+		srcMap = nil
+		dstMap = nil
+	}()
+	for _, policy := range policies {
+		if !policy.Enabled {
+			continue
+		}
+		srcMap = ConvAclTagToValueMap(policy.Src)
+		dstMap = ConvAclTagToValueMap(policy.Dst)
+		_, srcAll := srcMap["*"]
+		_, dstAll := dstMap["*"]
+
+		for tagID := range nodeTags {
+			if srcAll {
+				if _, ok := dstMap[tagID.String()]; ok {
+					return true
+				}
+			}
+			if dstAll {
+				if _, ok := srcMap[tagID.String()]; ok {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // IsNodeAllowedToCommunicate - check node is allowed to communicate with the peer // ADD ALLOWED DIRECTION - 0 => node -> peer, 1 => peer-> node,
