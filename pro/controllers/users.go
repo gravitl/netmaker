@@ -470,12 +470,14 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	networks, err := logic.GetNetworks()
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	for _, network := range networks {
+
+	for networkID := range userGroupReq.Group.NetworkRoles {
+		network, err := logic.GetNetwork(networkID.String())
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+
 		acl := models.Acl{
 			ID:          uuid.New().String(),
 			Name:        fmt.Sprintf("%s group", userGroupReq.Group.Name),
@@ -599,6 +601,93 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: models.Dashboard,
 	})
+
+	go func() {
+		networksAdded := make([]models.NetworkID, 0)
+		networksRemoved := make([]models.NetworkID, 0)
+
+		for networkID := range userGroup.NetworkRoles {
+			if _, ok := currUserG.NetworkRoles[networkID]; !ok {
+				networksAdded = append(networksAdded, networkID)
+			}
+		}
+
+		for networkID := range currUserG.NetworkRoles {
+			if _, ok := userGroup.NetworkRoles[networkID]; !ok {
+				networksRemoved = append(networksRemoved, networkID)
+			}
+		}
+
+		for _, networkID := range networksAdded {
+			// ensure the network exists.
+			network, err := logic.GetNetwork(networkID.String())
+			if err != nil {
+				continue
+			}
+
+			// insert acl if the network is added to the group.
+			acl := models.Acl{
+				ID:          uuid.New().String(),
+				Name:        fmt.Sprintf("%s group", userGroup.Name),
+				MetaData:    "This Policy allows user group to communicate with all gateways",
+				Default:     false,
+				ServiceType: models.Any,
+				NetworkID:   models.NetworkID(network.NetID),
+				Proto:       models.ALL,
+				RuleType:    models.UserPolicy,
+				Src: []models.AclPolicyTag{
+					{
+						ID:    models.UserGroupAclID,
+						Value: userGroup.ID.String(),
+					},
+				},
+				Dst: []models.AclPolicyTag{
+					{
+						ID:    models.NodeTagID,
+						Value: fmt.Sprintf("%s.%s", models.NetworkID(network.NetID), models.GwTagName),
+					}},
+				AllowedDirection: models.TrafficDirectionUni,
+				Enabled:          true,
+				CreatedBy:        "auto",
+				CreatedAt:        time.Now().UTC(),
+			}
+			_ = logic.InsertAcl(acl)
+		}
+
+		// since this group doesn't have a role for this network,
+		// there is no point in having this group as src in any
+		// of the network's acls.
+		for _, networkID := range networksRemoved {
+			acls, err := logic.ListAclsByNetwork(networkID)
+			if err != nil {
+				continue
+			}
+
+			for _, acl := range acls {
+				var hasGroupSrc bool
+				newAclSrc := make([]models.AclPolicyTag, 0)
+				for _, src := range acl.Src {
+					if src.ID == models.UserGroupAclID && src.Value == userGroup.ID.String() {
+						hasGroupSrc = true
+					} else {
+						newAclSrc = append(newAclSrc, src)
+					}
+				}
+
+				if hasGroupSrc {
+					if len(newAclSrc) == 0 {
+						// no other src exists, delete acl.
+						_ = logic.DeleteAcl(acl)
+					} else {
+						// other sources exist, update acl.
+						acl.Src = newAclSrc
+						_ = logic.UpsertAcl(acl)
+					}
+				}
+			}
+		}
+	}()
+
 	// reset configs for service user
 	go proLogic.UpdatesUserGwAccessOnGrpUpdates(currUserG.NetworkRoles, userGroup.NetworkRoles)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")
@@ -658,6 +747,39 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: models.Dashboard,
 	})
+
+	go func() {
+		for networkID := range userG.NetworkRoles {
+			acls, err := logic.ListAclsByNetwork(networkID)
+			if err != nil {
+				continue
+			}
+
+			for _, acl := range acls {
+				var hasGroupSrc bool
+				newAclSrc := make([]models.AclPolicyTag, 0)
+				for _, src := range acl.Src {
+					if src.ID == models.UserGroupAclID && src.Value == userG.ID.String() {
+						hasGroupSrc = true
+					} else {
+						newAclSrc = append(newAclSrc, src)
+					}
+				}
+
+				if hasGroupSrc {
+					if len(newAclSrc) == 0 {
+						// no other src exists, delete acl.
+						_ = logic.DeleteAcl(acl)
+					} else {
+						// other sources exist, update acl.
+						acl.Src = newAclSrc
+						_ = logic.UpsertAcl(acl)
+					}
+				}
+			}
+		}
+	}()
+
 	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userG.NetworkRoles, make(map[models.NetworkID]map[models.UserRoleID]struct{}))
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user group")
 }

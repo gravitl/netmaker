@@ -35,6 +35,7 @@ func InitPro() {
 		proControllers.RacHandlers,
 		proControllers.EventHandlers,
 		proControllers.TagHandlers,
+		proControllers.NetworkHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
@@ -131,6 +132,7 @@ func InitPro() {
 	logic.MigrateToUUIDs = proLogic.MigrateToUUIDs
 	logic.IntialiseGroups = proLogic.UserGroupsInit
 	logic.AddGlobalNetRolesToAdmins = proLogic.AddGlobalNetRolesToAdmins
+	logic.ListUserGroups = proLogic.ListUserGroups
 	logic.GetUserGroupsInNetwork = proLogic.GetUserGroupsInNetwork
 	logic.GetUserGroup = proLogic.GetUserGroup
 	logic.GetNodeStatus = proLogic.GetNodeStatus
