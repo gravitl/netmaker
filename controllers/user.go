@@ -1,9 +1,14 @@
 package controller
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/pquerna/otp"
+	"golang.org/x/crypto/bcrypt"
+	"image/png"
 	"net/http"
 	"reflect"
 	"time"
@@ -18,6 +23,7 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/pquerna/otp/totp"
 	"golang.org/x/exp/slog"
 )
 
@@ -33,6 +39,10 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/adm/transfersuperadmin/{username}", logic.SecurityCheck(true, http.HandlerFunc(transferSuperAdmin))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/users/adm/authenticate", authenticateUser).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}/validate-identity", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(validateUserIdentity)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}/auth/init-totp", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(initiateTOTPSetup)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}/auth/complete-totp", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(completeTOTPSetup)))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}/auth/verify-totp", logic.PreAuthCheck(logic.ContinueIfUserMatch(http.HandlerFunc(verifyTOTP)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, http.HandlerFunc(updateUser))).Methods(http.MethodPut)
 	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceUsers, http.HandlerFunc(createUser)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(true, http.HandlerFunc(deleteUser))).Methods(http.MethodDelete)
@@ -300,38 +310,6 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
 			return
 		}
-		// log user activity
-		logic.LogEvent(&models.Event{
-			Action: models.Login,
-			Source: models.Subject{
-				ID:   user.UserName,
-				Name: user.UserName,
-				Type: models.UserSub,
-			},
-			TriggeredBy: user.UserName,
-			Target: models.Subject{
-				ID:   models.DashboardSub.String(),
-				Name: models.DashboardSub.String(),
-				Type: models.DashboardSub,
-			},
-			Origin: models.Dashboard,
-		})
-	} else {
-		logic.LogEvent(&models.Event{
-			Action: models.Login,
-			Source: models.Subject{
-				ID:   user.UserName,
-				Name: user.UserName,
-				Type: models.UserSub,
-			},
-			TriggeredBy: user.UserName,
-			Target: models.Subject{
-				ID:   models.ClientAppSub.String(),
-				Name: models.ClientAppSub.String(),
-				Type: models.ClientAppSub,
-			},
-			Origin: models.ClientApp,
-		})
 	}
 
 	username := authRequest.UserName
@@ -354,14 +332,28 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	var successResponse = models.SuccessResponse{
-		Code:    http.StatusOK,
-		Message: "W1R3: Device " + username + " Authorized",
-		Response: models.SuccessfulUserLoginResponse{
-			AuthToken: jwt,
-			UserName:  username,
-		},
+	var successResponse models.SuccessResponse
+
+	if user.IsMFAEnabled {
+		successResponse = models.SuccessResponse{
+			Code:    http.StatusOK,
+			Message: "W1R3: TOTP required",
+			Response: models.PartialUserLoginResponse{
+				UserName:     username,
+				PreAuthToken: jwt,
+			},
+		}
+	} else {
+		successResponse = models.SuccessResponse{
+			Code:    http.StatusOK,
+			Message: "W1R3: Device " + username + " Authorized",
+			Response: models.SuccessfulUserLoginResponse{
+				UserName:  username,
+				AuthToken: jwt,
+			},
+		}
 	}
+
 	// Send back the JWT
 	successJSONResponse, jsonError := json.Marshal(successResponse)
 	if jsonError != nil {
@@ -371,11 +363,49 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 	logger.Log(2, username, "was authenticated")
+
+	// log user activity
+	if !user.IsMFAEnabled {
+		if val := request.Header.Get("From-Ui"); val == "true" {
+			logic.LogEvent(&models.Event{
+				Action: models.Login,
+				Source: models.Subject{
+					ID:   user.UserName,
+					Name: user.UserName,
+					Type: models.UserSub,
+				},
+				TriggeredBy: user.UserName,
+				Target: models.Subject{
+					ID:   models.DashboardSub.String(),
+					Name: models.DashboardSub.String(),
+					Type: models.DashboardSub,
+				},
+				Origin: models.Dashboard,
+			})
+		} else {
+			logic.LogEvent(&models.Event{
+				Action: models.Login,
+				Source: models.Subject{
+					ID:   user.UserName,
+					Name: user.UserName,
+					Type: models.UserSub,
+				},
+				TriggeredBy: user.UserName,
+				Target: models.Subject{
+					ID:   models.ClientAppSub.String(),
+					Name: models.ClientAppSub.String(),
+					Type: models.ClientAppSub,
+				},
+				Origin: models.ClientApp,
+			})
+		}
+	}
+
 	response.Header().Set("Content-Type", "application/json")
 	response.Write(successJSONResponse)
 
 	go func() {
-		if servercfg.IsPro && logic.GetRacAutoDisable() {
+		if servercfg.IsPro {
 			// enable all associeated clients for the user
 			clients, err := logic.GetAllExtClients()
 			if err != nil {
@@ -410,6 +440,270 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 			}
 		}
 	}()
+}
+
+// @Summary     Validates a user's identity against it's token. This is used by UI before a user performing a critical operation to validate the user's identity.
+// @Router      /api/users/{username}/validate-identity [post]
+// @Tags        Auth
+// @Accept      json
+// @Param       body body models.UserIdentityValidationRequest true "User Identity Validation Request"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+func validateUserIdentity(w http.ResponseWriter, r *http.Request) {
+	username := r.Header.Get("user")
+
+	var req models.UserIdentityValidationRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		logger.Log(0, "failed to decode request body: ", err.Error())
+		err = fmt.Errorf("invalid request body: %v", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	user, err := logic.GetUser(username)
+	if err != nil {
+		logger.Log(0, "failed to get user: ", err.Error())
+		err = fmt.Errorf("user not found: %v", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	var resp models.UserIdentityValidationResponse
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
+	if err != nil {
+		logic.ReturnSuccessResponseWithJson(w, r, resp, "user identity validation failed")
+	} else {
+		resp.IdentityValidated = true
+		logic.ReturnSuccessResponseWithJson(w, r, resp, "user identity validated")
+	}
+}
+
+// @Summary     Initiate setting up TOTP 2FA for a user.
+// @Router      /api/users/auth/init-totp [post]
+// @Tags        Auth
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func initiateTOTPSetup(w http.ResponseWriter, r *http.Request) {
+	username := r.Header.Get("user")
+
+	user, err := logic.GetUser(username)
+	if err != nil {
+		logger.Log(0, "failed to get user: ", err.Error())
+		err = fmt.Errorf("user not found: %v", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	if user.AuthType == models.OAuth {
+		err = fmt.Errorf("auth type is %s, cannot process totp setup", user.AuthType)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	key, err := totp.Generate(totp.GenerateOpts{
+		Issuer:      "Netmaker",
+		AccountName: username,
+	})
+	if err != nil {
+		err = fmt.Errorf("failed to generate totp key: %v", err)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	qrCodeImg, err := key.Image(200, 200)
+	if err != nil {
+		err = fmt.Errorf("failed to generate totp key: %v", err)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	var qrCodePng bytes.Buffer
+	err = png.Encode(&qrCodePng, qrCodeImg)
+	if err != nil {
+		err = fmt.Errorf("failed to generate totp key: %v", err)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	qrCode := "data:image/png;base64," + base64.StdEncoding.EncodeToString(qrCodePng.Bytes())
+
+	logic.ReturnSuccessResponseWithJson(w, r, models.TOTPInitiateResponse{
+		OTPAuthURL:          key.URL(),
+		OTPAuthURLSignature: logic.GenerateOTPAuthURLSignature(key.URL()),
+		QRCode:              qrCode,
+	}, "totp setup initiated")
+}
+
+// @Summary     Verify and complete setting up TOTP 2FA for a user.
+// @Router      /api/users/auth/complete-totp [post]
+// @Tags        Auth
+// @Param       body body models.UserTOTPVerificationParams true "TOTP verification parameters"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
+	username := r.Header.Get("user")
+
+	var req models.UserTOTPVerificationParams
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		logger.Log(0, "failed to decode request body: ", err.Error())
+		err = fmt.Errorf("invalid request body: %v", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	if !logic.VerifyOTPAuthURL(req.OTPAuthURL, req.OTPAuthURLSignature) {
+		err = fmt.Errorf("otp auth url signature mismatch")
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	user, err := logic.GetUser(username)
+	if err != nil {
+		logger.Log(0, "failed to get user: ", err.Error())
+		err = fmt.Errorf("user not found: %v", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	if user.AuthType == models.OAuth {
+		err = fmt.Errorf("auth type is %s, cannot process totp setup", user.AuthType)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	otpAuthURL, err := otp.NewKeyFromURL(req.OTPAuthURL)
+	if err != nil {
+		err = fmt.Errorf("error parsing otp auth url: %v", err)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	totpSecret := otpAuthURL.Secret()
+
+	if totp.Validate(req.TOTP, totpSecret) {
+		user.IsMFAEnabled = true
+		user.TOTPSecret = totpSecret
+		err = logic.UpsertUser(*user)
+		if err != nil {
+			err = fmt.Errorf("error upserting user: %v", err)
+			logger.Log(0, err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+
+		logic.LogEvent(&models.Event{
+			Action: models.EnableMFA,
+			Source: models.Subject{
+				ID:   user.UserName,
+				Name: user.UserName,
+				Type: models.UserSub,
+			},
+			TriggeredBy: user.UserName,
+			Target: models.Subject{
+				ID:   user.UserName,
+				Name: user.UserName,
+				Type: models.UserSub,
+			},
+			Origin: models.Dashboard,
+		})
+
+		logic.ReturnSuccessResponse(w, r, fmt.Sprintf("totp setup complete for user %s", username))
+	} else {
+		err = fmt.Errorf("cannot setup totp for user %s: invalid otp", username)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+	}
+}
+
+// @Summary     Verify a user's TOTP token.
+// @Router      /api/users/auth/verify-totp [post]
+// @Tags        Auth
+// @Accept      json
+// @Param       body body models.UserTOTPVerificationParams true "TOTP verification parameters"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     401 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func verifyTOTP(w http.ResponseWriter, r *http.Request) {
+	username := r.Header.Get("user")
+
+	var req models.UserTOTPVerificationParams
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		logger.Log(0, "failed to decode request body: ", err.Error())
+		err = fmt.Errorf("invalid request body: %v", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	user, err := logic.GetUser(username)
+	if err != nil {
+		logger.Log(0, "failed to get user: ", err.Error())
+		err = fmt.Errorf("user not found: %v", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	if !user.IsMFAEnabled {
+		err = fmt.Errorf("mfa is disabled for user(%s), cannot process totp verification", username)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	if totp.Validate(req.TOTP, user.TOTPSecret) {
+		jwt, err := logic.CreateUserJWT(user.UserName, user.PlatformRoleID)
+		if err != nil {
+			err = fmt.Errorf("error creating token: %v", err)
+			logger.Log(0, err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+
+		// update last login time
+		user.LastLoginTime = time.Now().UTC()
+		err = logic.UpsertUser(*user)
+		if err != nil {
+			err = fmt.Errorf("error upserting user: %v", err)
+			logger.Log(0, err.Error())
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+
+		logic.LogEvent(&models.Event{
+			Action: models.Login,
+			Source: models.Subject{
+				ID:   user.UserName,
+				Name: user.UserName,
+				Type: models.UserSub,
+			},
+			TriggeredBy: user.UserName,
+			Target: models.Subject{
+				ID:   models.DashboardSub.String(),
+				Name: models.DashboardSub.String(),
+				Type: models.DashboardSub,
+			},
+			Origin: models.Dashboard,
+		})
+
+		logic.ReturnSuccessResponseWithJson(w, r, models.SuccessfulUserLoginResponse{
+			UserName:  username,
+			AuthToken: jwt,
+		}, "W1R3: User "+username+" Authorized")
+	} else {
+		err = fmt.Errorf("invalid otp")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
+	}
 }
 
 // @Summary     Check if the server has a super admin
@@ -870,6 +1164,14 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 			return
 
 		}
+
+		if logic.IsMFAEnforced() && user.IsMFAEnabled && !userchange.IsMFAEnabled {
+			err = errors.New("mfa is enforced, user cannot unset their own mfa")
+			slog.Error("failed to update user", "caller", caller.UserName, "attempted to update user", username, "error", err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+			return
+		}
+
 		if servercfg.IsPro {
 			// user cannot update his own roles and groups
 			if len(user.NetworkRoles) != len(userchange.NetworkRoles) || !reflect.DeepEqual(user.NetworkRoles, userchange.NetworkRoles) {
@@ -886,7 +1188,6 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-
 	}
 	if ismaster {
 		if user.PlatformRoleID != models.SuperAdminRole && userchange.PlatformRoleID == models.SuperAdminRole {
@@ -906,8 +1207,27 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		(&schema.UserAccessToken{UserName: user.UserName}).DeleteAllUserTokens(r.Context())
 	}
 	oldUser := *user
+	if ismaster {
+		caller = &models.User{
+			UserName: logic.MasterUser,
+		}
+	}
+	action := models.Update
+	// TODO: here we are relying on the dashboard to only
+	// make singular updates, but it's possible that the
+	// API can be called to make multiple changes to the
+	// user. We should update it to log multiple events
+	// or create singular update APIs.
+	if userchange.IsMFAEnabled != user.IsMFAEnabled {
+		if userchange.IsMFAEnabled {
+			// the update API won't be used to enable MFA.
+			action = models.EnableMFA
+		} else {
+			action = models.DisableMFA
+		}
+	}
 	e := models.Event{
-		Action: models.Update,
+		Action: action,
 		Source: models.Subject{
 			ID:   caller.UserName,
 			Name: caller.UserName,

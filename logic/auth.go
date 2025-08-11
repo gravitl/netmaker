@@ -106,6 +106,7 @@ func GetUsers() ([]models.ReturnUser, error) {
 		if err != nil {
 			continue // get users
 		}
+
 		users = append(users, user)
 	}
 
@@ -234,22 +235,32 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 		return "", errors.New("incorrect credentials")
 	}
 
-	// Create a new JWT for the node
-	tokenString, err := CreateUserJWT(authRequest.UserName, result.PlatformRoleID)
-	if err != nil {
-		slog.Error("error creating jwt", "error", err)
-		return "", err
-	}
+	if result.IsMFAEnabled {
+		tokenString, err := CreatePreAuthToken(authRequest.UserName)
+		if err != nil {
+			slog.Error("error creating jwt", "error", err)
+			return "", err
+		}
 
-	// update last login time
-	result.LastLoginTime = time.Now().UTC()
-	err = UpsertUser(result)
-	if err != nil {
-		slog.Error("error upserting user", "error", err)
-		return "", err
-	}
+		return tokenString, nil
+	} else {
+		// Create a new JWT for the node
+		tokenString, err := CreateUserJWT(authRequest.UserName, result.PlatformRoleID)
+		if err != nil {
+			slog.Error("error creating jwt", "error", err)
+			return "", err
+		}
 
-	return tokenString, nil
+		// update last login time
+		result.LastLoginTime = time.Now().UTC()
+		err = UpsertUser(result)
+		if err != nil {
+			slog.Error("error upserting user", "error", err)
+			return "", err
+		}
+
+		return tokenString, nil
+	}
 }
 
 // UpsertUser - updates user in the db
@@ -356,6 +367,11 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 				return userchange, errors.New("cannot modify membership of external groups")
 			}
 		}
+	}
+
+	user.IsMFAEnabled = userchange.IsMFAEnabled
+	if !user.IsMFAEnabled {
+		user.TOTPSecret = ""
 	}
 
 	user.UserGroups = userchange.UserGroups

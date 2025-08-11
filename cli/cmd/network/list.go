@@ -6,7 +6,7 @@ import (
 
 	"github.com/gravitl/netmaker/cli/cmd/commons"
 	"github.com/gravitl/netmaker/cli/functions"
-	"github.com/olekukonko/tablewriter"
+	"github.com/guumaster/tablewriter"
 	"github.com/spf13/cobra"
 )
 

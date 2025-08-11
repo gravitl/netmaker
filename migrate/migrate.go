@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"golang.org/x/exp/slog"
@@ -36,6 +37,50 @@ func Run() {
 	updateAcls()
 	logic.MigrateToGws()
 	migrateToEgressV1()
+	resync()
+}
+
+// removes if any stale configurations from previous run.
+func resync() {
+
+	nodes, _ := logic.GetAllNodes()
+	for _, node := range nodes {
+		if !node.IsGw {
+			if len(node.RelayedNodes) > 0 {
+				logic.DeleteRelay(node.Network, node.ID.String())
+			}
+			if node.IsIngressGateway {
+				logic.DeleteIngressGateway(node.ID.String())
+			}
+			if len(node.InetNodeReq.InetNodeClientIDs) > 0 || node.IsInternetGateway {
+				logic.UnsetInternetGw(&node)
+				logic.UpsertNode(&node)
+			}
+		}
+		if node.IsRelayed {
+			if node.RelayedBy == "" {
+				node.IsRelayed = false
+				node.InternetGwID = ""
+				logic.UpsertNode(&node)
+			}
+			if node.RelayedBy != "" {
+				// check if node exists
+				_, err := logic.GetNodeByID(node.RelayedBy)
+				if err != nil {
+					node.RelayedBy = ""
+					node.InternetGwID = ""
+					logic.UpsertNode(&node)
+				}
+			}
+		}
+		if node.InternetGwID != "" {
+			_, err := logic.GetNodeByID(node.InternetGwID)
+			if err != nil {
+				node.InternetGwID = ""
+				logic.UpsertNode(&node)
+			}
+		}
+	}
 }
 
 func assignSuperAdmin() {
@@ -203,6 +248,16 @@ func updateHosts() {
 				host.DNS = "no"
 			}
 			logic.UpsertHost(&host)
+		}
+		if servercfg.IsPro && host.Location == "" {
+			if host.EndpointIP != nil {
+				host.Location = logic.GetHostLocInfo(host.EndpointIP.String(), os.Getenv("IP_INFO_TOKEN"))
+			} else if host.EndpointIPv6 != nil {
+				host.Location = logic.GetHostLocInfo(host.EndpointIPv6.String(), os.Getenv("IP_INFO_TOKEN"))
+			}
+			if host.Location != "" {
+				logic.UpsertHost(&host)
+			}
 		}
 	}
 }
@@ -481,21 +536,27 @@ func migrateToEgressV1() {
 	}
 	for _, node := range nodes {
 		if node.IsEgressGateway {
-			egressHost, err := logic.GetHost(node.HostID.String())
+			_, err := logic.GetHost(node.HostID.String())
 			if err != nil {
 				continue
 			}
-			for _, rangeI := range node.EgressGatewayRequest.Ranges {
-				e := schema.Egress{
+			for _, rangeMetric := range node.EgressGatewayRequest.RangesWithMetric {
+				e := &schema.Egress{Range: rangeMetric.Network}
+				if err := e.DoesEgressRouteExists(db.WithContext(context.TODO())); err == nil {
+					e.Nodes[node.ID.String()] = rangeMetric.RouteMetric
+					e.Update(db.WithContext(context.TODO()))
+					continue
+				}
+				e = &schema.Egress{
 					ID:          uuid.New().String(),
-					Name:        fmt.Sprintf("%s egress", egressHost.Name),
+					Name:        fmt.Sprintf("%s egress", rangeMetric.Network),
 					Description: "",
 					Network:     node.Network,
 					Nodes: datatypes.JSONMap{
-						node.ID.String(): 256,
+						node.ID.String(): rangeMetric.RouteMetric,
 					},
 					Tags:      make(datatypes.JSONMap),
-					Range:     rangeI,
+					Range:     rangeMetric.Network,
 					Nat:       node.EgressGatewayRequest.NatEnabled == "yes",
 					Status:    true,
 					CreatedBy: user.UserName,

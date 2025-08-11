@@ -427,6 +427,12 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 	new.PostUp = strings.Replace(update.PostUp, "\r\n", "\n", -1)
 	new.PostDown = strings.Replace(update.PostDown, "\r\n", "\n", -1)
 	new.Tags = update.Tags
+	if update.Location != "" && update.Location != old.Location {
+		new.Location = update.Location
+	}
+	if update.Country != "" && update.Country != old.Country {
+		new.Country = update.Country
+	}
 	return new
 }
 
@@ -478,7 +484,7 @@ func GetAllExtClientsWithStatus(status models.NodeStatus) ([]models.ExtClient, e
 	var validExtClients []models.ExtClient
 	for _, extClient := range extClients {
 		node := extClient.ConvertToStaticNode()
-		GetNodeCheckInStatus(&node, false)
+		GetNodeStatus(&node, false)
 
 		if node.Status == status {
 			validExtClients = append(validExtClients, extClient)
@@ -723,12 +729,7 @@ func GetStaticNodesByNetwork(network models.NetworkID, onlyWg bool) (staticNode 
 			if onlyWg && extI.RemoteAccessClientID != "" {
 				continue
 			}
-			n := models.Node{
-				IsStatic:   true,
-				StaticNode: extI,
-				IsUserNode: extI.RemoteAccessClientID != "",
-			}
-			staticNode = append(staticNode, n)
+			staticNode = append(staticNode, extI.ConvertToStaticNode())
 		}
 	}
 

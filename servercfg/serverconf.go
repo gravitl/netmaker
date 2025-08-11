@@ -91,7 +91,6 @@ func GetServerConfig() config.ServerConfig {
 		cfg.IsPro = "yes"
 	}
 	cfg.JwtValidityDuration = GetJwtValidityDuration()
-	cfg.RacAutoDisable = GetRacAutoDisable()
 	cfg.RacRestrictToSingleNetwork = GetRacRestrictToSingleNetwork()
 	cfg.MetricInterval = GetMetricInterval()
 	cfg.ManageDNS = GetManageDNS()
@@ -124,11 +123,6 @@ func GetJwtValidityDurationFromEnv() int {
 		}
 	}
 	return defaultDuration
-}
-
-// GetRacAutoDisable - returns whether the feature to autodisable RAC is enabled
-func GetRacAutoDisable() bool {
-	return os.Getenv("RAC_AUTO_DISABLE") == "true"
 }
 
 // GetRacRestrictToSingleNetwork - returns whether the feature to allow simultaneous network connections via RAC is enabled
@@ -727,6 +721,10 @@ func GetEmqxRestEndpoint() string {
 
 // IsBasicAuthEnabled - checks if basic auth has been configured to be turned off
 func IsBasicAuthEnabled() bool {
+	if DeployedByOperator() {
+		return true
+	}
+
 	var enabled = true //default
 	if os.Getenv("BASIC_AUTH") != "" {
 		enabled = os.Getenv("BASIC_AUTH") == "yes"

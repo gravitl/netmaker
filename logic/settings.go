@@ -33,6 +33,11 @@ func UpsertServerSettings(s models.ServerSettings) error {
 	if s.ClientSecret == Mask() {
 		s.ClientSecret = currSettings.ClientSecret
 	}
+
+	if servercfg.DeployedByOperator() {
+		s.BasicAuth = true
+	}
+
 	data, err := json.Marshal(s)
 	if err != nil {
 		return err
@@ -62,7 +67,6 @@ func GetServerSettingsFromEnv() (s models.ServerSettings) {
 		Telemetry:                  servercfg.Telemetry(),
 		BasicAuth:                  servercfg.IsBasicAuthEnabled(),
 		JwtValidityDuration:        servercfg.GetJwtValidityDurationFromEnv() / 60,
-		RacAutoDisable:             servercfg.GetRacAutoDisable(),
 		RacRestrictToSingleNetwork: servercfg.GetRacRestrictToSingleNetwork(),
 		EndpointDetection:          servercfg.IsEndpointDetectionEnabled(),
 		AllowedEmailDomains:        servercfg.GetAllowedEmailDomains(),
@@ -140,7 +144,6 @@ func GetServerConfig() config.ServerConfig {
 		cfg.IsPro = "yes"
 	}
 	cfg.JwtValidityDuration = time.Duration(settings.JwtValidityDuration) * time.Minute
-	cfg.RacAutoDisable = settings.RacAutoDisable
 	cfg.RacRestrictToSingleNetwork = settings.RacRestrictToSingleNetwork
 	cfg.MetricInterval = settings.MetricInterval
 	cfg.ManageDNS = settings.ManageDNS
@@ -206,11 +209,6 @@ func GetJwtValidityDuration() time.Duration {
 	return GetServerConfig().JwtValidityDuration
 }
 
-// GetRacAutoDisable - returns whether the feature to autodisable RAC is enabled
-func GetRacAutoDisable() bool {
-	return GetServerSettings().RacAutoDisable
-}
-
 // GetRacRestrictToSingleNetwork - returns whether the feature to allow simultaneous network connections via RAC is enabled
 func GetRacRestrictToSingleNetwork() bool {
 	return GetServerSettings().RacRestrictToSingleNetwork
@@ -247,7 +245,7 @@ func GetAuthProviderInfo(settings models.ServerSettings) (pi []string) {
 	var authProvider = ""
 
 	defer func() {
-		if authProvider == "oidc" {
+		if authProvider == "okta" || authProvider == "oidc" {
 			if settings.OIDCIssuer != "" {
 				pi = append(pi, settings.OIDCIssuer)
 			} else {
@@ -258,7 +256,7 @@ func GetAuthProviderInfo(settings models.ServerSettings) (pi []string) {
 
 	if settings.AuthProvider != "" && settings.ClientID != "" && settings.ClientSecret != "" {
 		authProvider = strings.ToLower(settings.AuthProvider)
-		if authProvider == "google" || authProvider == "azure-ad" || authProvider == "github" || authProvider == "oidc" {
+		if authProvider == "google" || authProvider == "azure-ad" || authProvider == "github" || authProvider == "oidc" || authProvider == "okta" {
 			return []string{authProvider, settings.ClientID, settings.ClientSecret}
 		} else {
 			authProvider = ""
@@ -324,7 +322,16 @@ func GetManageDNS() bool {
 
 // IsBasicAuthEnabled - checks if basic auth has been configured to be turned off
 func IsBasicAuthEnabled() bool {
+	if servercfg.DeployedByOperator() {
+		return true
+	}
+
 	return GetServerSettings().BasicAuth
+}
+
+// IsMFAEnforced returns whether MFA has been enforced.
+func IsMFAEnforced() bool {
+	return GetServerSettings().MFAEnforced
 }
 
 // IsEndpointDetectionEnabled - returns true if endpoint detection enabled

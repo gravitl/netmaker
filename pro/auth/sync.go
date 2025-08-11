@@ -10,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/pro/idp"
 	"github.com/gravitl/netmaker/pro/idp/azure"
 	"github.com/gravitl/netmaker/pro/idp/google"
+	"github.com/gravitl/netmaker/pro/idp/okta"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"strings"
 	"sync"
@@ -72,6 +73,11 @@ func SyncFromIDP() error {
 		}
 	case "azure-ad":
 		idpClient = azure.NewAzureEntraIDClient()
+	case "okta":
+		idpClient, err = okta.NewOktaClientFromSettings()
+		if err != nil {
+			return err
+		}
 	default:
 		if settings.AuthProvider != "" {
 			return fmt.Errorf("invalid auth provider: %s", settings.AuthProvider)
@@ -122,6 +128,12 @@ func syncUsers(idpUsers []idp.User) error {
 	filters := logic.GetServerSettings().UserFilters
 
 	for _, user := range idpUsers {
+		if user.AccountArchived {
+			// delete the user if it has been archived.
+			_ = logic.DeleteUser(user.Username)
+			continue
+		}
+
 		var found bool
 		for _, filter := range filters {
 			if strings.HasPrefix(user.Username, filter) {
@@ -150,6 +162,13 @@ func syncUsers(idpUsers []idp.User) error {
 			if err != nil {
 				return err
 			}
+
+			// It's possible that a user can attempt to log in to Netmaker
+			// after the IDP is configured but before the users are synced.
+			// Since the user doesn't exist, a pending user will be
+			// created. Now, since the user is created, the pending user
+			// can be deleted.
+			_ = logic.DeletePendingUser(user.Username)
 		} else if dbUser.AuthType == models.OAuth {
 			if dbUser.AccountDisabled != user.AccountDisabled ||
 				dbUser.DisplayName != user.DisplayName ||

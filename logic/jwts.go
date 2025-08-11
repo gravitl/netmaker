@@ -2,6 +2,9 @@ package logic
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -58,11 +61,10 @@ func CreateJWT(uuid string, macAddress string, network string) (response string,
 // CreateUserJWT - creates a user jwt token
 func CreateUserAccessJwtToken(username string, role models.UserRoleID, d time.Time, tokenID string) (response string, err error) {
 	claims := &models.UserClaims{
-		UserName:       username,
-		Role:           role,
-		TokenType:      models.AccessTokenType,
-		Api:            servercfg.GetAPIHost(),
-		RacAutoDisable: GetRacAutoDisable() && (role != models.SuperAdminRole && role != models.AdminRole),
+		UserName:  username,
+		Role:      role,
+		TokenType: models.AccessTokenType,
+		Api:       servercfg.GetAPIHost(),
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "Netmaker",
 			Subject:   fmt.Sprintf("user|%s", username),
@@ -85,10 +87,9 @@ func CreateUserJWT(username string, role models.UserRoleID) (response string, er
 	settings := GetServerSettings()
 	expirationTime := time.Now().Add(time.Duration(settings.JwtValidityDuration) * time.Minute)
 	claims := &models.UserClaims{
-		UserName:       username,
-		Role:           role,
-		TokenType:      models.UserIDTokenType,
-		RacAutoDisable: settings.RacAutoDisable && (role != models.SuperAdminRole && role != models.AdminRole),
+		UserName:  username,
+		Role:      role,
+		TokenType: models.UserIDTokenType,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "Netmaker",
 			Subject:   fmt.Sprintf("user|%s", username),
@@ -103,6 +104,38 @@ func CreateUserJWT(username string, role models.UserRoleID) (response string, er
 		return tokenString, nil
 	}
 	return "", err
+}
+
+// CreatePreAuthToken generate a jwt token to be used as intermediate
+// token after primary-factor authentication but before secondary-factor
+// authentication.
+func CreatePreAuthToken(username string) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
+		Issuer:    "Netmaker",
+		Subject:   username,
+		Audience:  []string{"auth:mfa"},
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(5 * time.Minute)),
+	})
+
+	return token.SignedString(jwtSecretKey)
+}
+
+func GenerateOTPAuthURLSignature(url string) string {
+	signer := hmac.New(sha256.New, jwtSecretKey)
+	signer.Write([]byte(url))
+	return hex.EncodeToString(signer.Sum(nil))
+}
+
+func VerifyOTPAuthURL(url, signature string) bool {
+	signatureBytes, err := hex.DecodeString(signature)
+	if err != nil {
+		return false
+	}
+
+	signer := hmac.New(sha256.New, jwtSecretKey)
+	signer.Write([]byte(url))
+	return hmac.Equal(signatureBytes, signer.Sum(nil))
 }
 
 func GetUserNameFromToken(authtoken string) (username string, err error) {
@@ -125,6 +158,15 @@ func GetUserNameFromToken(authtoken string) (username string, err error) {
 	if err != nil {
 		return "", Unauthorized_Err
 	}
+
+	for _, aud := range claims.Audience {
+		// token created for mfa cannot be used for
+		// anything else.
+		if aud == "auth:mfa" {
+			return "", Unauthorized_Err
+		}
+	}
+
 	if claims.TokenType == models.AccessTokenType {
 		jti := claims.ID
 		if jti != "" {

@@ -1,34 +1,34 @@
-# Netmaker v0.99.0
+# Netmaker v1.0.0
 
 ## Whats New ✨
 
-- IDP Integration: Seamless integration with Google Workspace and Microsoft Entra ID, including automatic synchronization of users and groups
+- Multi-Factor Authentication (MFA) for user logins – added an extra layer of security to your accounts.
 
-- User Activity & Audit Logs: Comprehensive tracking of control plane events such as user management, node changes, ACL modifications, and user access events.
+- Gateways Unified: Internet Gateways are now merged into the general Gateway feature and available in Community Edition.
 
-- Updated Egress UI: A redesigned interface for managing egress gateways for improved usability.
+- Improved OAuth & IDP Sync: Simplified and more reliable configuration for identity provider integrations.
 
-- User Access API Tokens: Generate and manage API tokens for user-level access and automation.
+- Global Map View: Visualize all your endpoints and users across the globe in a unified interface.
 
-- Server Settings via Dashboard: View and configure core server settings directly from the web dashboard.
+- Network Graph Control: Directly control and manage endpoints via the interactive network graph.
 
-- ACLs on Community Edition (Beta): The new version of Access Control Lists is now available in CE as a beta feature.
-
-- New Metrics Page: Gain better insights with a revamped metrics dashboard.
-
-- Offline Node Auto-Cleanup: Automatically remove stale or inactive nodes to keep networks clean.
+- Site-to-Site over IPv6: IPv4 site-to-site communication over IPv6 Netmaker overlay tunnels.
 
 ## 🛠 Improvements & Fixes
 
-- Optimized DNS Query Handling: Faster and more efficient internal name resolution.
+- Auto-Sync DNS Configs: Multi-network DNS configurations now sync automatically between server and clients.
 
-- Improved Failover Handling: Enhanced stability and signaling for NAT traversal peer connections.
+- Stability Fixes: Improved connection reliability for nodes using Internet Gateways.
 
-- User Egress Policies: More granular control over user-level outbound traffic policies.
-
-- LAN/Private Routing Enhancements: Better detection and handling of local/private endpoint routes during peer communication.
+- LAN/Private Routing Enhancements: Smarter detection and handling of local/private routes, improving peer-to-peer communication in complex network environments.
 
 ## Known Issues 🐞
 
 - WireGuard DNS issue on Ubuntu 24.04 and some other newer Linux distributions. The issue is affecting the Netmaker Desktop, previously known as the Remote Access Client (RAC), and the plain WireGuard external clients. Workaround can be found here https://help.netmaker.io/en/articles/9612016-extclient-rac-dns-issue-on-ubuntu-24-04.
+
+- Inaccurate uptime info in metrics involving ipv4-only and ipv6-only traffic
+
+- netclients cannot auto-upgrade on ipv6-only machines.
+
+- Need to optimize multi-network netclient join with enrollment key
 

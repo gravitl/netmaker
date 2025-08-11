@@ -5,6 +5,7 @@ package pro
 
 import (
 	"encoding/base64"
+
 	"github.com/gravitl/netmaker/models"
 
 	"github.com/gravitl/netmaker/logic"
