@@ -1,7 +1,6 @@
 package idp
 
 type Client interface {
-	Verify() error
 	GetUsers() ([]User, error)
 	GetGroups() ([]Group, error)
 }

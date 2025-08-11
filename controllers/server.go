@@ -377,6 +377,15 @@ func identifySettingsUpdateAction(old, new models.ServerSettings) models.Action 
 		return models.UpdateMonitoringAndDebuggingSettings
 	}
 
+	if old.Theme != new.Theme {
+		return models.UpdateDisplaySettings
+	}
+
+	if old.TextSize != new.TextSize ||
+		old.ReducedMotion != new.ReducedMotion {
+		return models.UpdateAccessibilitySettings
+	}
+
 	if old.EmailSenderAddr != new.EmailSenderAddr ||
 		old.EmailSenderUser != new.EmailSenderUser ||
 		old.EmailSenderPassword != new.EmailSenderPassword ||

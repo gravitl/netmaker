@@ -10,7 +10,6 @@ import (
 	"github.com/gravitl/netmaker/pro/idp"
 	"github.com/gravitl/netmaker/pro/idp/azure"
 	"github.com/gravitl/netmaker/pro/idp/google"
-	"github.com/gravitl/netmaker/pro/idp/okta"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"strings"
 	"sync"
@@ -20,8 +19,6 @@ import (
 var (
 	cancelSyncHook context.CancelFunc
 	hookStopWg     sync.WaitGroup
-	idpSyncMtx     sync.Mutex
-	idpSyncErr     error
 )
 
 func ResetIDPSyncHook() {
@@ -60,8 +57,6 @@ func runIDPSyncHook(ctx context.Context) {
 }
 
 func SyncFromIDP() error {
-	idpSyncMtx.Lock()
-	defer idpSyncMtx.Unlock()
 	settings := logic.GetServerSettings()
 
 	var idpClient idp.Client
@@ -69,27 +64,17 @@ func SyncFromIDP() error {
 	var idpGroups []idp.Group
 	var err error
 
-	defer func() {
-		idpSyncErr = err
-	}()
-
 	switch settings.AuthProvider {
 	case "google":
-		idpClient, err = google.NewGoogleWorkspaceClientFromSettings()
+		idpClient, err = google.NewGoogleWorkspaceClient()
 		if err != nil {
 			return err
 		}
 	case "azure-ad":
-		idpClient = azure.NewAzureEntraIDClientFromSettings()
-	case "okta":
-		idpClient, err = okta.NewOktaClientFromSettings()
-		if err != nil {
-			return err
-		}
+		idpClient = azure.NewAzureEntraIDClient()
 	default:
 		if settings.AuthProvider != "" {
-			err = fmt.Errorf("invalid auth provider: %s", settings.AuthProvider)
-			return err
+			return fmt.Errorf("invalid auth provider: %s", settings.AuthProvider)
 		}
 	}
 
@@ -110,8 +95,7 @@ func SyncFromIDP() error {
 		return err
 	}
 
-	err = syncGroups(idpGroups)
-	return err
+	return syncGroups(idpGroups)
 }
 
 func syncUsers(idpUsers []idp.User) error {
@@ -325,24 +309,4 @@ func syncGroups(idpGroups []idp.Group) error {
 	}
 
 	return nil
-}
-
-func GetIDPSyncStatus() models.IDPSyncStatus {
-	if idpSyncMtx.TryLock() {
-		defer idpSyncMtx.Unlock()
-		if idpSyncErr == nil {
-			return models.IDPSyncStatus{
-				Status: "completed",
-			}
-		} else {
-			return models.IDPSyncStatus{
-				Status:      "failed",
-				Description: idpSyncErr.Error(),
-			}
-		}
-	} else {
-		return models.IDPSyncStatus{
-			Status: "in_progress",
-		}
-	}
 }

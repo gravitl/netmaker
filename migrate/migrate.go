@@ -25,7 +25,7 @@ import (
 
 // Run - runs all migrations
 func Run() {
-	migrateSettings()
+	settings()
 	updateEnrollmentKeys()
 	assignSuperAdmin()
 	createDefaultTagsAndPolicies()
@@ -635,8 +635,8 @@ func migrateToEgressV1() {
 	}
 }
 
-func migrateSettings() {
-	_, err := database.FetchRecord(database.SERVER_SETTINGS, logic.ServerSettingsDBKey)
+func settings() {
+	_, err := database.FetchRecords(database.SERVER_SETTINGS)
 	if database.IsEmptyRecord(err) {
 		logic.UpsertServerSettings(logic.GetServerSettingsFromEnv())
 	}
