@@ -59,11 +59,27 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 					},
 					Allow: true,
 				})
+				rules = append(rules, models.FwRule{
+					SrcIP: node.NetworkRange,
+					DstIP: net.IPNet{
+						IP:   nodeI.Address.IP,
+						Mask: net.CIDRMask(32, 32),
+					},
+					Allow: true,
+				})
 			}
 			if nodeI.Address6.IP != nil {
 				rules = append(rules, models.FwRule{
 					SrcIP: net.IPNet{
 						IP:   nodeI.Address6.IP,
+						Mask: net.CIDRMask(128, 128),
+					},
+					Allow: true,
+				})
+				rules = append(rules, models.FwRule{
+					SrcIP: node.NetworkRange6,
+					DstIP: net.IPNet{
+						IP:   nodeI.Address.IP,
 						Mask: net.CIDRMask(128, 128),
 					},
 					Allow: true,
