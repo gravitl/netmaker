@@ -27,6 +27,7 @@ const (
 	google_provider_name   = "google"
 	azure_ad_provider_name = "azure-ad"
 	github_provider_name   = "github"
+	okta_provider_name     = "okta"
 	oidc_provider_name     = "oidc"
 	verify_user            = "verifyuser"
 	user_signin_length     = 16
@@ -85,6 +86,8 @@ func getCurrentAuthFunctions() map[string]interface{} {
 		return azure_ad_functions
 	case github_provider_name:
 		return github_functions
+	case okta_provider_name:
+		return okta_functions
 	case oidc_provider_name:
 		return oidc_functions
 	default:
@@ -124,7 +127,7 @@ func InitializeAuthProvider() string {
 		logger.Log(1, "external OAuth detected, proceeding with https redirect: ("+serverConn+")")
 	}
 
-	if authInfo[0] == "oidc" {
+	if authInfo[0] == "okta" || authInfo[0] == "oidc" {
 		functions[init_provider].(func(string, string, string, string))(serverConn+"/api/oauth/callback", authInfo[1], authInfo[2], authInfo[3])
 		return authInfo[0]
 	}
