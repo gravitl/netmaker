@@ -3,6 +3,10 @@ package auth
 import (
 	"context"
 	"fmt"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -10,10 +14,8 @@ import (
 	"github.com/gravitl/netmaker/pro/idp"
 	"github.com/gravitl/netmaker/pro/idp/azure"
 	"github.com/gravitl/netmaker/pro/idp/google"
+	"github.com/gravitl/netmaker/pro/idp/okta"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
-	"strings"
-	"sync"
-	"time"
 )
 
 var (
@@ -80,6 +82,11 @@ func SyncFromIDP() error {
 		}
 	case "azure-ad":
 		idpClient = azure.NewAzureEntraIDClientFromSettings()
+	case "okta":
+		idpClient, err = okta.NewOktaClientFromSettings()
+		if err != nil {
+			return err
+		}
 	default:
 		if settings.AuthProvider != "" {
 			err = fmt.Errorf("invalid auth provider: %s", settings.AuthProvider)
@@ -324,10 +331,6 @@ func syncGroups(idpGroups []idp.Group) error {
 func GetIDPSyncStatus() models.IDPSyncStatus {
 	if idpSyncMtx.TryLock() {
 		defer idpSyncMtx.Unlock()
-		return models.IDPSyncStatus{
-			Status: "in_progress",
-		}
-	} else {
 		if idpSyncErr == nil {
 			return models.IDPSyncStatus{
 				Status: "completed",
@@ -337,6 +340,10 @@ func GetIDPSyncStatus() models.IDPSyncStatus {
 				Status:      "failed",
 				Description: idpSyncErr.Error(),
 			}
+		}
+	} else {
+		return models.IDPSyncStatus{
+			Status: "in_progress",
 		}
 	}
 }

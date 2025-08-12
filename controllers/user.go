@@ -884,6 +884,9 @@ func getUserV1(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	user.NumAccessTokens, _ = (&schema.UserAccessToken{
+		UserName: user.UserName,
+	}).CountByUser(r.Context())
 	userRoleTemplate, err := logic.GetRole(user.PlatformRoleID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -922,6 +925,12 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	users, err := logic.GetUsers()
+
+	for i := range users {
+		users[i].NumAccessTokens, _ = (&schema.UserAccessToken{
+			UserName: users[i].UserName,
+		}).CountByUser(r.Context())
+	}
 
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())

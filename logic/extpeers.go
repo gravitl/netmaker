@@ -732,12 +732,7 @@ func GetStaticNodesByNetwork(network models.NetworkID, onlyWg bool) (staticNode 
 			if onlyWg && extI.RemoteAccessClientID != "" {
 				continue
 			}
-			n := models.Node{
-				IsStatic:   true,
-				StaticNode: extI,
-				IsUserNode: extI.RemoteAccessClientID != "",
-			}
-			staticNode = append(staticNode, n)
+			staticNode = append(staticNode, extI.ConvertToStaticNode())
 		}
 	}
 
