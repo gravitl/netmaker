@@ -3,6 +3,10 @@ package auth
 import (
 	"context"
 	"fmt"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -12,9 +16,6 @@ import (
 	"github.com/gravitl/netmaker/pro/idp/google"
 	"github.com/gravitl/netmaker/pro/idp/okta"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
-	"strings"
-	"sync"
-	"time"
 )
 
 var (
