@@ -44,11 +44,6 @@ var ResetIDPSyncHook = func() {}
 
 // HasSuperAdmin - checks if server has an superadmin/owner
 func HasSuperAdmin() (bool, error) {
-
-	if superUser.IsSuperAdmin {
-		return true, nil
-	}
-
 	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
 	if err != nil {
 		if database.IsEmptyRecord(err) {
@@ -63,7 +58,7 @@ func HasSuperAdmin() (bool, error) {
 		if err != nil {
 			continue
 		}
-		if user.PlatformRoleID == models.SuperAdminRole || user.IsSuperAdmin {
+		if user.PlatformRoleID == models.SuperAdminRole {
 			return true, nil
 		}
 	}
@@ -282,7 +277,7 @@ func UpsertUser(user models.User) error {
 		slog.Error("error inserting user", "user", user.UserName, "error", err.Error())
 		return err
 	}
-	if user.IsSuperAdmin {
+	if user.PlatformRoleID == models.SuperAdminRole {
 		superUser = user
 	}
 	return nil

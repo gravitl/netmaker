@@ -247,7 +247,7 @@ func GetIngressGwUsers(node models.Node) (models.IngressGwUsers, error) {
 		return gwUsers, err
 	}
 	for _, user := range users {
-		if !user.IsAdmin && !user.IsSuperAdmin {
+		if user.PlatformRoleID != models.SuperAdminRole && user.PlatformRoleID != models.AdminRole {
 			gwUsers.Users = append(gwUsers.Users, user)
 		}
 	}

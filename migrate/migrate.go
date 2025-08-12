@@ -114,7 +114,15 @@ func assignSuperAdmin() {
 		return
 	}
 	for _, u := range users {
-		if u.IsAdmin {
+		var isAdmin bool
+		if u.PlatformRoleID == models.AdminRole {
+			isAdmin = true
+		}
+		if u.PlatformRoleID == "" && u.IsAdmin {
+			isAdmin = true
+		}
+
+		if isAdmin {
 			user, err := logic.GetUser(u.UserName)
 			if err != nil {
 				slog.Error("error getting user", "user", u.UserName, "error", err.Error())
@@ -519,11 +527,18 @@ func syncUsers() {
 			user := user
 			if user.PlatformRoleID == models.AdminRole && !user.IsAdmin {
 				user.IsAdmin = true
+				user.IsSuperAdmin = false
 				logic.UpsertUser(user)
 			}
 			if user.PlatformRoleID == models.SuperAdminRole && !user.IsSuperAdmin {
 				user.IsSuperAdmin = true
-
+				user.IsAdmin = true
+				logic.UpsertUser(user)
+			}
+			if user.PlatformRoleID == models.PlatformUser || user.PlatformRoleID == models.ServiceUser {
+				user.IsSuperAdmin = false
+				user.IsAdmin = false
+				logic.UpsertUser(user)
 			}
 			if user.PlatformRoleID.String() != "" {
 				logic.MigrateUserRoleAndGroups(user)
@@ -541,9 +556,12 @@ func syncUsers() {
 			if len(user.UserGroups) == 0 {
 				user.UserGroups = make(map[models.UserGroupID]struct{})
 			}
+
+			// We reach here only if the platform role id has not been set.
+			//
+			// Thus, we use the boolean fields to assign the role.
 			if user.IsSuperAdmin {
 				user.PlatformRoleID = models.SuperAdminRole
-
 			} else if user.IsAdmin {
 				user.PlatformRoleID = models.AdminRole
 			} else {

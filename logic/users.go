@@ -82,7 +82,7 @@ func GetSuperAdmin() (models.ReturnUser, error) {
 		return models.ReturnUser{}, err
 	}
 	for _, user := range users {
-		if user.IsSuperAdmin || user.PlatformRoleID == models.SuperAdminRole {
+		if user.PlatformRoleID == models.SuperAdminRole {
 			return user, nil
 		}
 	}
