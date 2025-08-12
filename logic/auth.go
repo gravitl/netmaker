@@ -210,6 +210,8 @@ func CreateSuperAdmin(u *models.User) error {
 	if hassuperadmin {
 		return errors.New("superadmin user already exists")
 	}
+	u.IsSuperAdmin = true
+	u.IsAdmin = true
 	u.PlatformRoleID = models.SuperAdminRole
 	return CreateUser(u)
 }
