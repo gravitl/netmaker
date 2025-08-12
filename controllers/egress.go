@@ -46,13 +46,22 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 	}
 	var egressRange string
 	if !req.IsInetGw {
-		egressRange, err = logic.NormalizeCIDR(req.Range)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-			return
+		if req.Domain != "" {
+			if !logic.IsFQDN(req.Domain) {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("bad domain name"), "badrequest"))
+				return
+			}
+		} else {
+			egressRange, err = logic.NormalizeCIDR(req.Range)
+			if err != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+				return
+			}
 		}
+
 	} else {
 		egressRange = "*"
+		req.Domain = ""
 	}
 
 	e := schema.Egress{
@@ -61,6 +70,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		Network:     req.Network,
 		Description: req.Description,
 		Range:       egressRange,
+		Domain:      req.Domain,
 		Nat:         req.Nat,
 		Nodes:       make(datatypes.JSONMap),
 		Tags:        make(datatypes.JSONMap),
@@ -108,6 +118,27 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 	// 	}
 
 	// }
+	if req.Domain != "" {
+		if req.Nodes != nil {
+			for nodeID := range req.Nodes {
+				node, err := logic.GetNodeByID(nodeID)
+				if err == nil {
+					continue
+				}
+				host := logic.GetHostByNodeID(nodeID)
+				if host == nil {
+					continue
+				}
+				mq.HostUpdate(&models.HostUpdate{
+					Action:   models.EgressUpdate,
+					Host:     *host,
+					EgressID: e.ID,
+					Node:     node,
+				})
+			}
+		}
+
+	}
 	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, e, "created egress resource")
 }

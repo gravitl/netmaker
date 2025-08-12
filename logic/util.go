@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 	"unicode"
@@ -272,4 +273,18 @@ func compareIface(a, b models.Iface) bool {
 		a.Address.IP.Equal(b.Address.IP) &&
 		a.Address.Mask.String() == b.Address.Mask.String() &&
 		a.AddressString == b.AddressString
+}
+
+// IsFQDN checks if the given string is a valid Fully Qualified Domain Name (FQDN)
+func IsFQDN(domain string) bool {
+	// Basic check to ensure the domain is not empty and has at least one dot (.)
+	if domain == "" || !strings.Contains(domain, ".") {
+		return false
+	}
+
+	// Regular expression for validating FQDN (basic check for valid characters and structure)
+	fqdnRegex := `^(?i)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`
+	re := regexp.MustCompile(fqdnRegex)
+
+	return re.MatchString(domain)
 }

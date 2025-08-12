@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -383,12 +384,23 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 		err := logic.UpsertHost(currentHost)
 		if err != nil {
 			slog.Error("failed to update host", "id", currentHost.ID, "error", err)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 			return
 		}
 
 	case models.UpdateMetrics:
 		mq.UpdateMetricsFallBack(hostUpdate.Node.ID.String(), hostUpdate.NewMetrics)
+	case models.EgressUpdate:
+		e := schema.Egress{ID: hostUpdate.EgressID}
+		err = e.Get(db.WithContext(r.Context()))
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+			return
+		}
+		if len(hostUpdate.Node.EgressGatewayRanges) > 0 {
+			e.Range = strings.Join(hostUpdate.Node.EgressGatewayRanges, ",")
+			e.Update(db.WithContext(r.Context()))
+		}
 	}
 
 	if sendPeerUpdate {
