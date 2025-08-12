@@ -18,6 +18,7 @@ type Egress struct {
 	Nodes       datatypes.JSONMap `gorm:"nodes" json:"nodes"`
 	Tags        datatypes.JSONMap `gorm:"tags" json:"tags"`
 	Range       string            `gorm:"range" json:"range"`
+	Domain      string            `gorm:"domain" json:"domain"`
 	Nat         bool              `gorm:"nat" json:"nat"`
 	//IsInetGw    bool              `gorm:"is_inet_gw" json:"is_internet_gateway"`
 	Status    bool      `gorm:"status" json:"status"`

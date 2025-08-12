@@ -124,6 +124,8 @@ const (
 	SignalPull HostMqAction = "SIGNAL_PULL"
 	// UpdateMetrics - updates metrics data
 	UpdateMetrics HostMqAction = "UPDATE_METRICS"
+	// EgressUpdate - const for egress update action
+	EgressUpdate HostMqAction = "EGRESS_UPDATE"
 )
 
 // SignalAction - turn peer signal action
@@ -142,6 +144,7 @@ type HostUpdate struct {
 	Host       Host
 	Node       Node
 	Signal     Signal
+	EgressID   string
 	NewMetrics Metrics
 }
 
