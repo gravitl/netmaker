@@ -1079,10 +1079,10 @@ func UpdatesUserGwAccessOnRoleUpdates(currNetworkAccess,
 	}
 }
 
-func UpdatesUserGwAccessOnGrpUpdates(currNetworkRoles, changeNetworkRoles map[models.NetworkID]map[models.UserRoleID]struct{}) {
+func UpdatesUserGwAccessOnGrpUpdates(oldNetworkRoles, newNetworkRoles map[models.NetworkID]map[models.UserRoleID]struct{}) {
 	networkChangeMap := make(map[models.NetworkID]map[models.UserRoleID]struct{})
-	for netID, networkUserRoles := range currNetworkRoles {
-		if _, ok := changeNetworkRoles[netID]; !ok {
+	for netID, networkUserRoles := range oldNetworkRoles {
+		if _, ok := newNetworkRoles[netID]; !ok {
 			for netRoleID := range networkUserRoles {
 				if _, ok := networkChangeMap[netID]; !ok {
 					networkChangeMap[netID] = make(map[models.UserRoleID]struct{})
@@ -1091,7 +1091,7 @@ func UpdatesUserGwAccessOnGrpUpdates(currNetworkRoles, changeNetworkRoles map[mo
 			}
 		} else {
 			for netRoleID := range networkUserRoles {
-				if _, ok := changeNetworkRoles[netID][netRoleID]; !ok {
+				if _, ok := newNetworkRoles[netID][netRoleID]; !ok {
 					if _, ok := networkChangeMap[netID]; !ok {
 						networkChangeMap[netID] = make(map[models.UserRoleID]struct{})
 					}
@@ -1112,7 +1112,13 @@ func UpdatesUserGwAccessOnGrpUpdates(currNetworkRoles, changeNetworkRoles map[mo
 	for _, extclient := range extclients {
 
 		if _, ok := networkChangeMap[models.NetworkID(extclient.Network)]; ok {
+			// this extclient's network was removed from group's network roles.
 			if user, ok := userMap[extclient.OwnerID]; ok {
+				// super-admins and admins have complete access to the network.
+				// platform users, at the very least, have access to connect to
+				// the network.
+				// service users have no access to the network.
+				// hence, we delete the extclient and clean up the peers.
 				if user.PlatformRoleID != models.ServiceUser {
 					continue
 				}

@@ -816,6 +816,28 @@ func disableUserAccount(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 	}
 
+	go func() {
+		extclients, err := logic.GetAllExtClients()
+		if err != nil {
+			logger.Log(0, "failed to get user extclients:", err.Error())
+			return
+		}
+
+		for _, extclient := range extclients {
+			if extclient.OwnerID == user.UserName {
+				err = logic.DeleteExtClientAndCleanup(extclient)
+				if err != nil {
+					logger.Log(0, "failed to delete user extclient:", err.Error())
+				} else {
+					err := mq.PublishDeletedClientPeerUpdate(&extclient)
+					if err != nil {
+						logger.Log(0, "failed to publish deleted client peer update:", err.Error())
+					}
+				}
+			}
+		}
+	}()
+
 	logic.ReturnSuccessResponse(w, r, "user account disabled")
 }
 
