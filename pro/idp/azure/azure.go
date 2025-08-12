@@ -199,7 +199,7 @@ func (a *Client) getAccessToken() (string, error) {
 
 	resp, err := http.PostForm(tokenURL, data)
 	if err != nil {
-		return "", err
+		return "", errors.New("invalid credentials")
 	}
 	defer func() {
 		_ = resp.Body.Close()
@@ -208,7 +208,7 @@ func (a *Client) getAccessToken() (string, error) {
 	var tokenResp map[string]interface{}
 	err = json.NewDecoder(resp.Body).Decode(&tokenResp)
 	if err != nil {
-		return "", err
+		return "", errors.New("invalid credentials")
 	}
 
 	if token, ok := tokenResp["access_token"].(string); ok {
