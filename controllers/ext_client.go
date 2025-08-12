@@ -736,7 +736,8 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			if extclient.OwnerID == caller.UserName && nodeid == extclient.IngressGatewayID {
+			if extclient.RemoteAccessClientID != "" &&
+				extclient.RemoteAccessClientID == customExtClient.RemoteAccessClientID && extclient.OwnerID == caller.UserName && nodeid == extclient.IngressGatewayID {
 				// extclient on the gw already exists for the remote access client
 				err = errors.New("remote client config already exists on the gateway")
 				slog.Error("failed to create extclient", "user", userName, "error", err)
