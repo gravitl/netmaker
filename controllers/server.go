@@ -285,7 +285,9 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if superAdmin.AuthType == models.OAuth {
-			err = fmt.Errorf("cannot remove idp integration with oauth super-admin")
+			err := fmt.Errorf(
+				"Cannot remove IdP integration because an OAuth user has the super-admin role. Transfer the super-admin role to another user first.",
+			)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
 		}
