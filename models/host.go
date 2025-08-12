@@ -145,6 +145,7 @@ type HostUpdate struct {
 	Node       Node
 	Signal     Signal
 	EgressID   string
+	Domain     string
 	NewMetrics Metrics
 }
 

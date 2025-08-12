@@ -133,6 +133,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 					Action:   models.EgressUpdate,
 					Host:     *host,
 					EgressID: e.ID,
+					Domain:   e.Domain,
 					Node:     node,
 				})
 			}
