@@ -30,14 +30,6 @@ const (
 	NetmakerDesktopApp = "netmaker-desktop"
 )
 
-var (
-	superUser = models.User{}
-)
-
-func ClearSuperUserCache() {
-	superUser = models.User{}
-}
-
 var IsOAuthConfigured = func() bool { return false }
 var ResetAuthProvider = func() {}
 var ResetIDPSyncHook = func() {}
@@ -279,9 +271,7 @@ func UpsertUser(user models.User) error {
 		slog.Error("error inserting user", "user", user.UserName, "error", err.Error())
 		return err
 	}
-	if user.PlatformRoleID == models.SuperAdminRole {
-		superUser = user
-	}
+
 	return nil
 }
 
