@@ -36,7 +36,7 @@ require (
 )
 
 require (
-	github.com/coreos/go-oidc/v3 v3.14.1
+	github.com/coreos/go-oidc/v3 v3.15.0
 	github.com/gorilla/websocket v1.5.3
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 )
