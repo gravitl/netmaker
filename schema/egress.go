@@ -64,6 +64,12 @@ func (e *Egress) ListByNetwork(ctx context.Context) (egs []Egress, err error) {
 	return
 }
 
+func (e *Egress) Count(ctx context.Context) (int, error) {
+	var count int64
+	err := db.FromContext(ctx).Model(&Egress{}).Count(&count).Error
+	return int(count), err
+}
+
 func (e *Egress) Delete(ctx context.Context) error {
 	return db.FromContext(ctx).Table(e.Table()).Where("id = ?", e.ID).Delete(&e).Error
 }
