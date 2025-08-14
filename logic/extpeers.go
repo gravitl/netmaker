@@ -5,15 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/logic/acls"
-	"github.com/gravitl/netmaker/schema"
 	"net"
 	"reflect"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/logic/acls"
+	"github.com/gravitl/netmaker/schema"
 
 	"github.com/goombaio/namegenerator"
 	"github.com/gravitl/netmaker/database"
@@ -382,6 +383,10 @@ func SaveExtClient(extclient *models.ExtClient) error {
 	}
 	if err = database.Insert(key, string(data), database.EXT_CLIENT_TABLE_NAME); err != nil {
 		return err
+	}
+
+	if servercfg.CacheEnabled() {
+		storeExtClientInCache(key, *extclient)
 	}
 
 	return SetNetworkNodesLastModified(extclient.Network)
