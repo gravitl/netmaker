@@ -393,6 +393,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			e.Range = strings.Join(hostUpdate.Node.EgressGatewayRanges, ",")
 			e.Update(db.WithContext(r.Context()))
 		}
+		sendPeerUpdate = true
 	}
 
 	if sendPeerUpdate {
