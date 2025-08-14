@@ -343,23 +343,33 @@ func IsNetworkNameUnique(network *models.Network) (bool, error) {
 	return isunique, nil
 }
 
-// UpdateNetwork - updates a network with another network's fields
-func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (bool, bool, bool, error) {
-	if err := ValidateNetwork(newNetwork, true); err != nil {
-		return false, false, false, err
+func UpsertNetwork(network models.Network) error {
+	netData, err := json.Marshal(network)
+	if err != nil {
+		return err
 	}
-	if newNetwork.NetID == currentNetwork.NetID {
-		hasrangeupdate4 := newNetwork.AddressRange != currentNetwork.AddressRange
-		hasrangeupdate6 := newNetwork.AddressRange6 != currentNetwork.AddressRange6
-		hasholepunchupdate := newNetwork.DefaultUDPHolePunch != currentNetwork.DefaultUDPHolePunch
-		newNetwork.SetNetworkLastModified()
+	err = database.Insert(network.NetID, string(netData), database.NETWORKS_TABLE_NAME)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
-		_network := converters.ToSchemaNetwork(*newNetwork)
-		err := _network.Update(db.WithContext(context.TODO()))
-		return hasrangeupdate4, hasrangeupdate6, hasholepunchupdate, err
+// UpdateNetwork - updates a network with another network's fields
+func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) error {
+	if err := ValidateNetwork(newNetwork, true); err != nil {
+		return err
 	}
-	// copy values
-	return false, false, false, errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
+	if newNetwork.NetID != currentNetwork.NetID {
+		return errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
+	}
+	currentNetwork.AutoJoin = newNetwork.AutoJoin
+	currentNetwork.DefaultACL = newNetwork.DefaultACL
+	currentNetwork.NameServers = newNetwork.NameServers
+
+	newNetwork.SetNetworkLastModified()
+	_network := converters.ToSchemaNetwork(*newNetwork)
+	return _network.Update(db.WithContext(context.TODO()))
 }
 
 // GetNetwork - gets a network from database

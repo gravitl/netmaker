@@ -78,7 +78,7 @@ func GetAllHostsWithStatus(status models.NodeStatus) ([]models.Host, error) {
 
 		nodes := GetHostNodes(&host)
 		for _, node := range nodes {
-			GetNodeCheckInStatus(&node, false)
+			getNodeCheckInStatus(&node, false)
 			if node.Status == status {
 				validHosts = append(validHosts, host)
 				break
@@ -97,6 +97,46 @@ func GetAllHostsAPI(hosts []models.Host) []models.ApiHost {
 		apiHosts = append(apiHosts, *newApiHost)
 	}
 	return apiHosts[:]
+}
+
+// GetHostsMap - gets all the current hosts on machine in a map
+func GetHostsMap() (map[string]models.Host, error) {
+	if servercfg.CacheEnabled() {
+		hostsMap := getHostsMapFromCache()
+		if len(hostsMap) != 0 {
+			return hostsMap, nil
+		}
+	}
+	records, err := database.FetchRecords(database.HOSTS_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return nil, err
+	}
+	currHostMap := make(map[string]models.Host)
+	if servercfg.CacheEnabled() {
+		defer loadHostsIntoCache(currHostMap)
+	}
+	for k := range records {
+		var h models.Host
+		err = json.Unmarshal([]byte(records[k]), &h)
+		if err != nil {
+			return nil, err
+		}
+		currHostMap[h.ID.String()] = h
+	}
+
+	return currHostMap, nil
+}
+
+func DoesHostExistinTheNetworkAlready(h *models.Host, network models.NetworkID) bool {
+	if len(h.Nodes) > 0 {
+		for _, nodeID := range h.Nodes {
+			node, err := GetNodeByID(nodeID)
+			if err == nil && node.Network == network.String() {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // GetHost - gets a host from db given id

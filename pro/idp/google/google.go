@@ -11,6 +11,8 @@ import (
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/impersonate"
 	"google.golang.org/api/option"
+	"net/url"
+	"strings"
 )
 
 type Client struct {
@@ -29,10 +31,18 @@ func NewGoogleWorkspaceClient(adminEmail, creds string) (*Client, error) {
 		return nil, err
 	}
 
+	var targetPrincipal string
+	_, ok := credsJsonMap["client_email"]
+	if !ok {
+		return nil, errors.New("invalid service account credentials: missing client_email field")
+	} else {
+		targetPrincipal = credsJsonMap["client_email"].(string)
+	}
+
 	source, err := impersonate.CredentialsTokenSource(
 		context.TODO(),
 		impersonate.CredentialsConfig{
-			TargetPrincipal: credsJsonMap["client_email"].(string),
+			TargetPrincipal: targetPrincipal,
 			Scopes: []string{
 				admindir.AdminDirectoryUserReadonlyScope,
 				admindir.AdminDirectoryGroupReadonlyScope,
@@ -74,6 +84,22 @@ func (g *Client) Verify() error {
 		var gerr *googleapi.Error
 		if errors.As(err, &gerr) {
 			return errors.New(gerr.Message)
+		}
+
+		var uerr *url.Error
+		if errors.As(err, &uerr) {
+			errMsg := strings.TrimSpace(uerr.Err.Error())
+			if strings.Contains(errMsg, "{") && strings.HasSuffix(errMsg, "}") {
+				// probably contains response json.
+				_, jsonBody, _ := strings.Cut(errMsg, "{")
+				jsonBody = "{" + jsonBody
+
+				var errResp errorResponse
+				err := json.Unmarshal([]byte(jsonBody), &errResp)
+				if err == nil && errResp.Error.Message != "" {
+					return errors.New(errResp.Error.Message)
+				}
+			}
 		}
 
 		return err
@@ -149,4 +175,12 @@ func (g *Client) GetGroups() ([]idp.Group, error) {
 		})
 
 	return retval, err
+}
+
+type errorResponse struct {
+	Error struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Status  string `json:"status"`
+	} `json:"error"`
 }

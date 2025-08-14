@@ -2,13 +2,14 @@ package controllers
 
 import (
 	"encoding/json"
+	"net/http"
+	"slices"
+	"strings"
+
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
-	"net/http"
-	"slices"
-	"strings"
 )
 
 func NetworkHandlers(r *mux.Router) {

@@ -115,13 +115,10 @@ func checkNetworkAccessPermissions(netRoleID models.UserRoleID, username, reqSco
 		return nil
 	}
 	rsrcPermissionScope, ok := networkPermissionScope.NetworkLevelAccess[models.RsrcType(targetRsrc)]
-	if targetRsrc == models.HostRsrc.String() && !ok {
-		rsrcPermissionScope, ok = networkPermissionScope.NetworkLevelAccess[models.RemoteAccessGwRsrc]
-	}
 	if !ok {
 		return errors.New("access denied")
 	}
-	if allRsrcsTypePermissionScope, ok := rsrcPermissionScope[models.RsrcID(fmt.Sprintf("all_%s", targetRsrc))]; ok {
+	if allRsrcsTypePermissionScope, ok := rsrcPermissionScope[logic.GetAllRsrcIDForRsrc(models.RsrcType(targetRsrc))]; ok {
 		// handle extclient apis here
 		if models.RsrcType(targetRsrc) == models.ExtClientsRsrc && allRsrcsTypePermissionScope.SelfOnly && targetRsrcID != "" {
 			extclient, err := logic.GetExtClient(targetRsrcID, netID)
@@ -137,14 +134,6 @@ func checkNetworkAccessPermissions(netRoleID models.UserRoleID, username, reqSco
 			return nil
 		}
 
-	}
-	if targetRsrc == models.HostRsrc.String() {
-		if allRsrcsTypePermissionScope, ok := rsrcPermissionScope[models.RsrcID(fmt.Sprintf("all_%s", models.RemoteAccessGwRsrc))]; ok {
-			err = checkPermissionScopeWithReqMethod(allRsrcsTypePermissionScope, reqScope)
-			if err == nil {
-				return nil
-			}
-		}
 	}
 	if targetRsrcID == "" {
 		return errors.New("target rsrc id is empty")

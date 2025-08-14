@@ -687,10 +687,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	netNew := netOld
-	netNew.NameServers = payload.NameServers
-	netNew.DefaultACL = payload.DefaultACL
-	_, _, _, err = logic.UpdateNetwork(&netOld, &netNew)
+	err = logic.UpdateNetwork(&netOld, &payload)
 	if err != nil {
 		slog.Info("failed to update network", "user", r.Header.Get("user"), "err", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))

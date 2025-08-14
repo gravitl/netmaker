@@ -419,6 +419,9 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 	if update.Country != "" && update.Country != old.Country {
 		new.Country = update.Country
 	}
+	if update.DeviceID != "" && old.DeviceID == "" {
+		new.DeviceID = update.DeviceID
+	}
 	return new
 }
 
@@ -715,12 +718,7 @@ func GetStaticNodesByNetwork(network models.NetworkID, onlyWg bool) (staticNode 
 			if onlyWg && extI.RemoteAccessClientID != "" {
 				continue
 			}
-			n := models.Node{
-				IsStatic:   true,
-				StaticNode: extI,
-				IsUserNode: extI.RemoteAccessClientID != "",
-			}
-			staticNode = append(staticNode, n)
+			staticNode = append(staticNode, extI.ConvertToStaticNode())
 		}
 	}
 

@@ -247,7 +247,13 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			if peer.EgressDetails.IsEgressGateway {
 				AddEgressInfoToPeerByAccess(&node, &peer, eli, acls, defaultDevicePolicy.Enabled)
 			}
+			if node.Mutex != nil {
+				node.Mutex.Lock()
+			}
 			_, isFailOverPeer := node.FailOverPeers[peer.ID.String()]
+			if node.Mutex != nil {
+				node.Mutex.Unlock()
+			}
 			if peer.EgressDetails.IsEgressGateway {
 				peerKey := peerHost.PublicKey.String()
 				if isFailOverPeer && peer.FailedOverBy.String() != node.ID.String() {
