@@ -43,6 +43,8 @@ type Host struct {
 	Interface           string
 	PublicKey           string
 	TrafficKeyPublic    []byte
+
+	Nodes []Node `gorm:"foreignKey:HostID"`
 }
 
 type Interface struct {
@@ -59,10 +61,21 @@ func (h *Host) Create(ctx context.Context) error {
 }
 
 func (h *Host) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Model(h).
-		Where("id = ?", h.ID).
-		First(h).
-		Error
+	return db.FromContext(ctx).Transaction(func(tx *gorm.DB) error {
+		err := tx.Model(h).
+			Where("id = ?", h.ID).
+			First(h).
+			Error
+		if err != nil {
+			return err
+		}
+
+		return tx.Model(&Node{}).
+			Select("id").
+			Where("host_id = ?", h.ID).
+			Find(&h.Nodes).
+			Error
+	})
 }
 
 func (h *Host) GetNodes(ctx context.Context) ([]Node, error) {
@@ -71,6 +84,12 @@ func (h *Host) GetNodes(ctx context.Context) ([]Node, error) {
 		Where("host_id = ?", h.ID).
 		Find(&nodes).
 		Error
+
+	for i := range nodes {
+		// suppress error
+		_ = nodes[i].fetchRelations(ctx)
+	}
+
 	return nodes, err
 }
 

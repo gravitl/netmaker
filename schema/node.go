@@ -34,10 +34,10 @@ type Node struct {
 	GatewayNodeID *string
 	// GatewayNode is the node that this node uses as a Gateway.
 	// If nil, this node does not use any node as its Gateway.
-	GatewayNode *Node
+	GatewayNode *Node `gorm:"foreignKey:GatewayNodeID"`
 	// GatewayFor is the list of Nodes that use this node as a
 	// Gateway.
-	GatewayFor []Node `gorm:"foreignKey:GatewayNodeID"`
+	GatewayFor []Node `gorm:"foreignKey:GatewayNodeID;constraint:OnDelete:SET NULL;"`
 	// GatewayNodeConfig is the Gateway configuration of this
 	// node. If nil, this node is not a Gateway node.
 	GatewayNodeConfig *datatypes.JSONType[GatewayNodeConfig] `gorm:"foreignKey:GatewayNodeConfigID"`
@@ -62,7 +62,7 @@ type Node struct {
 	InternetGatewayNode *Node `gorm:"foreignKey:InternetGatewayNodeID"`
 	// InternetGatewayFor is the list of nodes that use this node
 	// as a Gateway.
-	InternetGatewayFor []Node `gorm:"foreignKey:InternetGatewayNodeID"`
+	InternetGatewayFor []Node `gorm:"foreignKey:InternetGatewayNodeID;constraint:OnDelete:SET NULL;"`
 	// IsInternetGateway indicates if this node is an Internet
 	// Gateway node.
 	IsInternetGateway bool
@@ -96,14 +96,56 @@ func (n *Node) TableName() string {
 }
 
 func (n *Node) Create(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&Node{}).Create(n).Error
+	dbctx := db.BeginTx(ctx)
+	commit := false
+	defer func() {
+		if commit {
+			db.CommitTx(dbctx)
+		} else {
+			db.RollbackTx(dbctx)
+		}
+	}()
+
+	err := db.FromContext(dbctx).Model(n).Create(n).Error
+	if err != nil {
+		return err
+	}
+
+	err = n.updateRelations(dbctx)
+	if err != nil {
+		return err
+	}
+
+	commit = true
+	return nil
 }
 
 func (n *Node) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Model(n).
+	dbctx := db.BeginTx(ctx)
+	commit := false
+	defer func() {
+		if commit {
+			db.CommitTx(dbctx)
+		} else {
+			db.RollbackTx(dbctx)
+		}
+	}()
+
+	err := db.FromContext(dbctx).Model(n).
 		Where("id = ?", n.ID).
 		First(n).
 		Error
+	if err != nil {
+		return err
+	}
+
+	err = n.fetchRelations(dbctx)
+	if err != nil {
+		return err
+	}
+
+	commit = true
+	return nil
 }
 
 func (n *Node) GetHost(ctx context.Context) error {
@@ -227,11 +269,34 @@ func (n *Node) CountByOS(ctx context.Context) (map[string]int, error) {
 }
 
 func (n *Node) Update(ctx context.Context) error {
-	return db.FromContext(ctx).Model(n).Save(n).Error
+	dbctx := db.BeginTx(ctx)
+	commit := false
+	defer func() {
+		if commit {
+			db.CommitTx(dbctx)
+		} else {
+			db.RollbackTx(dbctx)
+		}
+	}()
+
+	err := db.FromContext(dbctx).Model(n).Save(n).Error
+	if err != nil {
+		return err
+	}
+
+	err = n.updateRelations(dbctx)
+	if err != nil {
+		return err
+	}
+
+	commit = true
+	return nil
 }
 
 func (n *Node) UpdateFailOverPeers(ctx context.Context) error {
-	return db.FromContext(ctx).Model(n).Update("fail_over_peers", n.FailOverPeers).Error
+	return db.FromContext(ctx).Model(n).
+		Update("fail_over_peers", n.FailOverPeers).
+		Error
 }
 
 func (n *Node) UpdateLastCheckIn(ctx context.Context) error {
@@ -239,20 +304,39 @@ func (n *Node) UpdateLastCheckIn(ctx context.Context) error {
 }
 
 func (n *Node) Upsert(ctx context.Context) error {
-	return db.FromContext(ctx).Transaction(func(tx *gorm.DB) error {
-		err := tx.Model(n).First(&Node{
+	dbctx := db.BeginTx(ctx)
+	commit := false
+	defer func() {
+		if commit {
+			db.CommitTx(dbctx)
+		} else {
+			db.RollbackTx(dbctx)
+		}
+	}()
+
+	err := db.FromContext(dbctx).Model(n).
+		First(&Node{
 			ID: n.ID,
 		}).Error
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return tx.Model(&Node{}).Create(n).Error
-			} else {
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = n.Create(dbctx)
+			if err != nil {
 				return err
 			}
+			commit = true
 		} else {
-			return tx.Model(n).Save(n).Error
+			return err
 		}
-	})
+	} else {
+		err = n.Update(dbctx)
+		if err != nil {
+			return err
+		}
+		commit = true
+	}
+
+	return nil
 }
 
 func (n *Node) Delete(ctx context.Context) error {
@@ -303,4 +387,72 @@ func (n *Node) ResetAndRemoveFromFailOverPeers(ctx context.Context) error {
 			Update("fail_over_peers", datatypes.JSONMap{}).
 			Error
 	})
+}
+
+func (n *Node) fetchRelations(ctx context.Context) error {
+	dbctx := db.BeginTx(ctx)
+	commit := false
+	defer func() {
+		if commit {
+			db.CommitTx(dbctx)
+		} else {
+			db.RollbackTx(dbctx)
+		}
+	}()
+
+	err := db.FromContext(dbctx).Model(&Node{}).
+		Select("id").
+		Where("gateway_node_id = ?", n.ID).
+		Find(&n.GatewayFor).
+		Error
+	if err != nil {
+		return err
+	}
+
+	err = db.FromContext(dbctx).Model(&Node{}).
+		Select("id").
+		Where("internet_gateway_node_id = ?", n.ID).
+		Find(&n.InternetGatewayFor).
+		Error
+	if err != nil {
+		return err
+	}
+
+	commit = true
+	return nil
+}
+
+func (n *Node) updateRelations(ctx context.Context) error {
+	dbctx := db.BeginTx(ctx)
+	commit := false
+	defer func() {
+		if commit {
+			db.CommitTx(dbctx)
+		} else {
+			db.RollbackTx(dbctx)
+		}
+	}()
+
+	gatewayClients := make([]string, len(n.GatewayFor))
+	for i, gatewayClient := range n.GatewayFor {
+		gatewayClients[i] = gatewayClient.ID
+	}
+
+	err := db.FromContext(dbctx).Model(&Node{}).
+		Where("id IN ?", gatewayClients).
+		Update("gateway_node_id", n.ID).
+		Error
+	if err != nil {
+		return err
+	}
+
+	internetGatewayClients := make([]string, len(n.InternetGatewayFor))
+	for i, internetGatewayClient := range n.InternetGatewayFor {
+		internetGatewayClients[i] = internetGatewayClient.ID
+	}
+
+	return db.FromContext(dbctx).Model(&Node{}).
+		Where("id IN ?", internetGatewayClients).
+		Update("internet_gateway_node_id", n.ID).
+		Error
 }

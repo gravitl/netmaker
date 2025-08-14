@@ -110,18 +110,6 @@ func GetHost(hostid string) (*models.Host, error) {
 	}
 
 	host := converters.ToModelHost(*_host)
-
-	// TODO: OPTIMIZE MEEEE!!
-	// TODO: remove this and update every
-	// TODO: code expecting nodes to query.
-	_hostNodes, _ := _host.GetNodes(db.WithContext(context.TODO()))
-
-	nodes := make([]string, len(_hostNodes))
-	for i, _node := range _hostNodes {
-		nodes[i] = _node.ID
-	}
-	host.Nodes = nodes
-
 	return &host, nil
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+
 	"github.com/gravitl/netmaker/converters"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
@@ -23,9 +24,9 @@ func ToSQLSchema() error {
 	commit := false
 	defer func() {
 		if commit {
-			db.FromContext(dbctx).Commit()
+			db.CommitTx(dbctx)
 		} else {
-			db.FromContext(dbctx).Rollback()
+			db.RollbackTx(dbctx)
 		}
 	}()
 

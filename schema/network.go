@@ -49,6 +49,12 @@ func (n *Network) GetNodes(ctx context.Context) ([]Node, error) {
 		Where("network_id = ?", n.ID).
 		Find(&nodes).
 		Error
+
+	for i := range nodes {
+		// suppress error
+		_ = nodes[i].fetchRelations(ctx)
+	}
+
 	return nodes, err
 }
 

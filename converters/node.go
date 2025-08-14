@@ -1,12 +1,13 @@
 package converters
 
 import (
+	"net"
+	"sync"
+
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/datatypes"
-	"net"
-	"sync"
 )
 
 func ToSchemaNode(node models.Node) schema.Node {
@@ -39,6 +40,13 @@ func ToSchemaNode(node models.Node) schema.Node {
 		gatewayNodeID = &relayNodeID
 		gatewayNode = &schema.Node{
 			ID: relayNodeID,
+		}
+	}
+
+	gatewayFor := make([]schema.Node, len(node.RelayedNodes))
+	for i, relayedNodeID := range node.RelayedNodes {
+		gatewayFor[i] = schema.Node{
+			ID: relayedNodeID,
 		}
 	}
 
@@ -121,6 +129,7 @@ func ToSchemaNode(node models.Node) schema.Node {
 
 	_node.GatewayNodeID = gatewayNodeID
 	_node.GatewayNode = gatewayNode
+	_node.GatewayFor = gatewayFor
 	_node.GatewayNodeConfig = gatewayNodeConfig
 	_node.FailOverNodeID = failOverNodeID
 	_node.FailOverPeers = failOverPeers
@@ -129,10 +138,6 @@ func ToSchemaNode(node models.Node) schema.Node {
 	_node.InternetGatewayNode = internetGatewayNode
 	_node.InternetGatewayFor = internetGatewayFor
 	_node.IsInternetGateway = node.IsInternetGateway
-
-	// no information present about these in the models.Node
-	// object.
-	_node.GatewayFor = nil
 
 	return _node
 }
@@ -230,7 +235,10 @@ func ToModelNode(_node schema.Node) models.Node {
 		}
 	}
 
-	if _node.GatewayNodeID != nil && _node.GatewayNode != nil {
+	if _node.GatewayNodeID != nil {
+		node.IsRelayed = true
+		node.RelayedBy = *_node.GatewayNodeID
+	} else if _node.GatewayNode != nil {
 		node.IsRelayed = true
 		node.RelayedBy = _node.GatewayNode.ID
 	}
@@ -250,7 +258,9 @@ func ToModelNode(_node schema.Node) models.Node {
 		}
 	}
 
-	if _node.InternetGatewayNodeID != nil && _node.InternetGatewayNode != nil {
+	if _node.InternetGatewayNodeID != nil {
+		node.InternetGwID = *_node.InternetGatewayNodeID
+	} else if _node.InternetGatewayNode != nil {
 		node.InternetGwID = _node.InternetGatewayNode.ID
 	}
 
