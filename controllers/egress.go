@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -122,13 +123,14 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		if req.Nodes != nil {
 			for nodeID := range req.Nodes {
 				node, err := logic.GetNodeByID(nodeID)
-				if err == nil {
+				if err != nil {
 					continue
 				}
-				host := logic.GetHostByNodeID(nodeID)
+				host, _ := logic.GetHost(node.HostID.String())
 				if host == nil {
 					continue
 				}
+				fmt.Println("=======> Sending Host Update: ", host.Name)
 				mq.HostUpdate(&models.HostUpdate{
 					Action:   models.EgressUpdate,
 					Host:     *host,
