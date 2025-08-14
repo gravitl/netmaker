@@ -99,43 +99,16 @@ func GetAllHostsAPI(hosts []models.Host) []models.ApiHost {
 	return apiHosts[:]
 }
 
-// GetHostsMap - gets all the current hosts on machine in a map
-func GetHostsMap() (map[string]models.Host, error) {
-	if servercfg.CacheEnabled() {
-		hostsMap := getHostsMapFromCache()
-		if len(hostsMap) != 0 {
-			return hostsMap, nil
-		}
+func DoesHostExistInTheNetworkAlready(h *models.Host, network models.NetworkID) bool {
+	_node := &schema.Node{
+		HostID:    h.ID.String(),
+		NetworkID: network.String(),
 	}
-	records, err := database.FetchRecords(database.HOSTS_TABLE_NAME)
-	if err != nil && !database.IsEmptyRecord(err) {
-		return nil, err
-	}
-	currHostMap := make(map[string]models.Host)
-	if servercfg.CacheEnabled() {
-		defer loadHostsIntoCache(currHostMap)
-	}
-	for k := range records {
-		var h models.Host
-		err = json.Unmarshal([]byte(records[k]), &h)
-		if err != nil {
-			return nil, err
-		}
-		currHostMap[h.ID.String()] = h
+	err := _node.GetByHostIDAndNetworkID(db.WithContext(context.TODO()))
+	if err == nil {
+		return true
 	}
 
-	return currHostMap, nil
-}
-
-func DoesHostExistinTheNetworkAlready(h *models.Host, network models.NetworkID) bool {
-	if len(h.Nodes) > 0 {
-		for _, nodeID := range h.Nodes {
-			node, err := GetNodeByID(nodeID)
-			if err == nil && node.Network == network.String() {
-				return true
-			}
-		}
-	}
 	return false
 }
 

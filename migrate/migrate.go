@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/gravitl/netmaker/logic/acls"
 	"log"
 	"os"
 	"time"
+
+	"github.com/gravitl/netmaker/logic/acls"
 
 	"golang.org/x/exp/slog"
 	"gorm.io/datatypes"
@@ -47,7 +48,12 @@ func updateNetworks() {
 	for _, netI := range nets {
 		if netI.AutoJoin == "" {
 			netI.AutoJoin = "true"
-			logic.UpsertNetwork(netI)
+			netData, err := json.Marshal(netI)
+			if err != nil {
+				continue
+			}
+
+			_ = database.Insert(netI.NetID, string(netData), database.NETWORKS_TABLE_NAME)
 		}
 	}
 }

@@ -4,14 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/gravitl/netmaker/converters"
-	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/logic/acls/nodeacls"
-	"github.com/gravitl/netmaker/schema"
 	"net"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/gravitl/netmaker/converters"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/logic/acls/nodeacls"
+	"github.com/gravitl/netmaker/schema"
 
 	"github.com/c-robinson/iplib"
 	validator "github.com/go-playground/validator/v10"
@@ -341,18 +342,6 @@ func IsNetworkNameUnique(network *models.Network) (bool, error) {
 	}
 
 	return isunique, nil
-}
-
-func UpsertNetwork(network models.Network) error {
-	netData, err := json.Marshal(network)
-	if err != nil {
-		return err
-	}
-	err = database.Insert(network.NetID, string(netData), database.NETWORKS_TABLE_NAME)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 // UpdateNetwork - updates a network with another network's fields

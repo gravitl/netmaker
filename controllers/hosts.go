@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gravitl/netmaker/converters"
-	"github.com/gravitl/netmaker/schema"
 	"net/http"
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/gravitl/netmaker/converters"
+	"github.com/gravitl/netmaker/schema"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -20,7 +21,6 @@ import (
 	"github.com/gravitl/netmaker/logic/hostactions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
-	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
