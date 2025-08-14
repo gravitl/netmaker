@@ -47,8 +47,7 @@ func extClientHandlers(r *mux.Router) {
 	r.HandleFunc("/api/extclients/{network}/{nodeid}", logic.SecurityCheck(false, checkFreeTierLimits(limitChoiceMachines, http.HandlerFunc(createExtClient)))).
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/client_conf/{network}", logic.SecurityCheck(false, http.HandlerFunc(getExtClientHAConf))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/extclients", logic.SecurityCheck(true, http.HandlerFunc(deleteOfflineExtClients))).
-		Methods(http.MethodDelete)
+
 }
 
 func checkIngressExists(nodeID string) bool {
@@ -1077,49 +1076,6 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	logger.Log(0, r.Header.Get("user"),
 		"Deleted extclient client", params["clientid"], "from network", params["network"])
 	logic.ReturnSuccessResponse(w, r, params["clientid"]+" deleted.")
-}
-
-// @Summary     Delete an individual remote access client
-// @Router      /api/extclients/{network}/{clientid} [delete]
-// @Tags        Remote Access Client
-// @Security    oauth2
-// @Success     200
-// @Failure     500 {object} models.ErrorResponse
-// @Failure     403 {object} models.ErrorResponse
-func deleteOfflineExtClients(w http.ResponseWriter, r *http.Request) {
-	// Set header
-	network := r.URL.Query().Get("network")
-	if network == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network param is missing"), "badrequest"))
-		return
-	}
-	go func() {
-		defaultPolicy, _ := logic.GetDefaultPolicy(models.NetworkID(network), models.DevicePolicy)
-		extclients, _ := logic.GetNetworkExtClients(network)
-		sendPeerUpdate := false
-		for _, extclient := range extclients {
-			staticNode := extclient.ConvertToStaticNode()
-			logic.GetNodeStatus(&staticNode, defaultPolicy.Enabled)
-			if staticNode.Status == models.OfflineSt {
-				err := logic.DeleteExtClientAndCleanup(extclient)
-				if err != nil {
-					continue
-				}
-				sendPeerUpdate = true
-			}
-
-		}
-
-		if sendPeerUpdate {
-			mq.PublishPeerUpdate(true)
-			if servercfg.IsDNSMode() {
-				logic.SetDNS()
-			}
-		}
-
-	}()
-
-	logic.ReturnSuccessResponse(w, r, "intiated cleanup")
 }
 
 // validateCustomExtClient	Validates the extclient object

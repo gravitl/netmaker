@@ -65,6 +65,8 @@ func UserHandlers(r *mux.Router) {
 
 	r.HandleFunc("/api/idp/sync", logic.SecurityCheck(true, http.HandlerFunc(syncIDP))).Methods(http.MethodPost)
 	r.HandleFunc("/api/idp", logic.SecurityCheck(true, http.HandlerFunc(removeIDPIntegration))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/user/connections", logic.SecurityCheck(true, http.HandlerFunc(deleteOfflineUserConnections))).
+		Methods(http.MethodDelete)
 }
 
 // swagger:route POST /api/v1/users/invite-signup user userInviteSignUp
@@ -1678,4 +1680,50 @@ func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	logic.ReturnSuccessResponse(w, r, "removed idp integration successfully")
+}
+
+// @Summary     Delete offline user connections
+// @Router      /api/v1/user/connections [delete]
+// @Tags        Remote Access Client
+// @Security    oauth2
+// @Success     200
+// @Failure     500 {object} models.ErrorResponse
+// @Failure     403 {object} models.ErrorResponse
+func deleteOfflineUserConnections(w http.ResponseWriter, r *http.Request) {
+	// Set header
+	network := r.URL.Query().Get("network")
+	if network == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network param is missing"), "badrequest"))
+		return
+	}
+	go func() {
+		defaultPolicy, _ := logic.GetDefaultPolicy(models.NetworkID(network), models.DevicePolicy)
+		extclients, _ := logic.GetNetworkExtClients(network)
+		sendPeerUpdate := false
+		for _, extclient := range extclients {
+			staticNode := extclient.ConvertToStaticNode()
+			if !staticNode.IsUserNode {
+				continue
+			}
+			proLogic.GetNodeStatus(&staticNode, defaultPolicy.Enabled)
+			if staticNode.Status == models.OfflineSt {
+				err := logic.DeleteExtClientAndCleanup(extclient)
+				if err != nil {
+					continue
+				}
+				sendPeerUpdate = true
+			}
+
+		}
+
+		if sendPeerUpdate {
+			mq.PublishPeerUpdate(true)
+			if servercfg.IsDNSMode() {
+				logic.SetDNS()
+			}
+		}
+
+	}()
+
+	logic.ReturnSuccessResponse(w, r, "intiated cleanup")
 }
