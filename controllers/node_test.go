@@ -2,12 +2,13 @@ package controller
 
 import (
 	"context"
-	"github.com/gravitl/netmaker/database"
-	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/schema"
 	"log"
 	"net"
 	"testing"
+
+	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/logic"
@@ -27,18 +28,18 @@ func TestGetNetworkNodes(t *testing.T) {
 	t.Run("BadNet", func(t *testing.T) {
 		node, err := logic.GetNetworkNodes("badnet")
 		assert.Nil(t, err)
-		assert.Equal(t, []models.Node(nil), node)
+		assert.Equal(t, []models.Node{}, node)
 	})
 	t.Run("NoNodes", func(t *testing.T) {
 		node, err := logic.GetNetworkNodes("skynet")
 		assert.Nil(t, err)
-		assert.Equal(t, []models.Node(nil), node)
+		assert.Equal(t, []models.Node{}, node)
 	})
 	t.Run("Success", func(t *testing.T) {
 		createTestNode()
 		node, err := logic.GetNetworkNodes("skynet")
 		assert.Nil(t, err)
-		assert.NotEqual(t, []models.LegacyNode(nil), node)
+		assert.NotEqual(t, []models.LegacyNode{}, node)
 	})
 
 }
