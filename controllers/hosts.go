@@ -254,6 +254,8 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		ChangeDefaultGw:   hPU.ChangeDefaultGw,
 		DefaultGwIp:       hPU.DefaultGwIp,
 		IsInternetGw:      hPU.IsInternetGw,
+		NameServers:       hPU.NameServers,
+		EgressWithDomains: hPU.EgressWithDomains,
 		EndpointDetection: logic.IsEndpointDetectionEnabled(),
 	}
 
