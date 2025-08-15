@@ -57,10 +57,11 @@ func GetNetworkNodesMemory(allNodes []models.Node, network string) []models.Node
 
 // UpdateNodeCheckin - updates the checkin time of a node
 func UpdateNodeCheckin(node *models.Node) error {
-	node.SetLastCheckIn()
-	node.EgressDetails = models.EgressDetails{}
-	_node := converters.ToSchemaNode(*node)
-	return _node.Update(db.WithContext(context.TODO()))
+	_node := &schema.Node{
+		ID:          node.ID.String(),
+		LastCheckIn: time.Now().UTC(),
+	}
+	return _node.UpdateLastCheckIn(db.WithContext(context.TODO()))
 }
 
 // UpsertNode - updates node in the DB

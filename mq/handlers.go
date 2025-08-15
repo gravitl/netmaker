@@ -2,11 +2,11 @@ package mq
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/hostactions"
@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
+	"gorm.io/gorm"
 )
 
 // UpdateMetrics  message Handler -- handles updates from client nodes for metrics
@@ -246,7 +247,7 @@ func HandleHostCheckin(h, currentHost *models.Host) bool {
 		currNodeID := currentHost.Nodes[i]
 		node, err := logic.GetNodeByID(currNodeID)
 		if err != nil {
-			if database.IsEmptyRecord(err) {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
 				fakeNode := models.Node{}
 				fakeNode.ID, _ = uuid.Parse(currNodeID)
 				fakeNode.Action = models.NODE_DELETE

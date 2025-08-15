@@ -1,12 +1,13 @@
 package converters
 
 import (
+	"net"
+	"net/netip"
+
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
-	"net"
-	"net/netip"
 )
 
 func ToSchemaHost(host models.Host) schema.Host {
@@ -21,6 +22,13 @@ func ToSchemaHost(host models.Host) schema.Host {
 	var turnEndpoint string
 	if host.TurnEndpoint != nil {
 		turnEndpoint = host.TurnEndpoint.String()
+	}
+
+	_nodes := make([]schema.Node, len(host.Nodes))
+	for i, nodeID := range host.Nodes {
+		_nodes[i] = schema.Node{
+			ID: nodeID,
+		}
 	}
 
 	return schema.Host{
@@ -56,6 +64,7 @@ func ToSchemaHost(host models.Host) schema.Host {
 		Interface:           host.Interface,
 		PublicKey:           host.PublicKey.String(),
 		TrafficKeyPublic:    host.TrafficKeyPublic,
+		Nodes:               _nodes,
 	}
 }
 
@@ -103,6 +112,11 @@ func ToModelHost(_host schema.Host) models.Host {
 		turnEndpoint = &addrPost
 	}
 
+	nodes := make([]string, len(_host.Nodes))
+	for i, _node := range _host.Nodes {
+		nodes[i] = _node.ID
+	}
+
 	return models.Host{
 		ID:                  uuid.MustParse(_host.ID),
 		Verbosity:           _host.Verbosity,
@@ -122,6 +136,7 @@ func ToModelHost(_host schema.Host) models.Host {
 		PublicKey:           publicKey,
 		MacAddress:          macAddress,
 		TrafficKeyPublic:    _host.TrafficKeyPublic,
+		Nodes:               nodes,
 		Interfaces:          interfaces,
 		DefaultInterface:    _host.DefaultInterface,
 		EndpointIP:          net.ParseIP(_host.EndpointIP),
@@ -165,6 +180,11 @@ func ToAPIHost(_host schema.Host) models.ApiHost {
 		interfaces[i] = iface
 	}
 
+	nodes := make([]string, len(_host.Nodes))
+	for i, _node := range _host.Nodes {
+		nodes[i] = _node.ID
+	}
+
 	return models.ApiHost{
 		ID:                  _host.ID,
 		Verbosity:           _host.Verbosity,
@@ -184,10 +204,13 @@ func ToAPIHost(_host schema.Host) models.ApiHost {
 		EndpointIPv6:        _host.EndpointIPv6,
 		PublicKey:           _host.PublicKey,
 		MacAddress:          _host.MacAddress,
+		Nodes:               nodes,
 		IsDefault:           _host.IsDefault,
 		NatType:             _host.NatType,
 		PersistentKeepalive: int(_host.PersistentKeepalive.Seconds()),
 		AutoUpdate:          _host.AutoUpdate,
+		DNS:                 _host.DNS,
+		Location:            _host.Location,
 	}
 }
 
