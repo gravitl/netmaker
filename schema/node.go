@@ -41,6 +41,9 @@ type Node struct {
 	// GatewayNodeConfig is the Gateway configuration of this
 	// node. If nil, this node is not a Gateway node.
 	GatewayNodeConfig *datatypes.JSONType[GatewayNodeConfig] `gorm:"foreignKey:GatewayNodeConfigID"`
+	// AdditionalGatewayIPs is additional IP addresses that nodes
+	// using this node as a Gateway can use to connect to this node.
+	AdditionalGatewayIPs datatypes.JSONSlice[string]
 
 	// FailOverNodeID is the ID of the node that can be used to
 	// connect to this node.
@@ -70,7 +73,7 @@ type Node struct {
 	Status             string
 	DefaultACL         string
 	Metadata           string
-	Tags               datatypes.JSONSlice[string]
+	Tags               datatypes.JSONMap
 	PendingDelete      bool
 	LastModified       time.Time
 	LastCheckIn        time.Time

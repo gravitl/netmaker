@@ -1,9 +1,10 @@
 package converters
 
 import (
+	"time"
+
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
-	"time"
 )
 
 func ToSchemaNetwork(network models.Network) schema.Network {
@@ -29,9 +30,9 @@ func ToSchemaNetwork(network models.Network) schema.Network {
 }
 
 func ToSchemaNetworks(networks []models.Network) []schema.Network {
-	var _networks []schema.Network
-	for _, network := range networks {
-		_networks = append(_networks, ToSchemaNetwork(network))
+	_networks := make([]schema.Network, len(networks))
+	for i, network := range networks {
+		_networks[i] = ToSchemaNetwork(network)
 	}
 
 	return _networks
@@ -60,10 +61,10 @@ func ToModelNetwork(_network schema.Network) models.Network {
 }
 
 func ToModelNetworks(_networks []schema.Network) []models.Network {
-	var modelNetworks []models.Network
-	for _, network := range _networks {
-		modelNetworks = append(modelNetworks, ToModelNetwork(network))
+	networks := make([]models.Network, len(_networks))
+	for i, _network := range _networks {
+		networks[i] = ToModelNetwork(_network)
 	}
 
-	return modelNetworks
+	return networks
 }

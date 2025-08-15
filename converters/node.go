@@ -62,6 +62,11 @@ func ToSchemaNode(node models.Node) schema.Node {
 		gatewayNodeConfig = &config
 	}
 
+	additionalGatewayIPs := make(datatypes.JSONSlice[string], len(node.AdditionalRagIps))
+	for i, ip := range node.AdditionalRagIps {
+		additionalGatewayIPs[i] = ip.String()
+	}
+
 	var failOverNodeID *string
 	if node.FailedOverBy != uuid.Nil {
 		// it's important we do this, because failOverNodeID
@@ -89,18 +94,18 @@ func ToSchemaNode(node models.Node) schema.Node {
 		}
 	}
 
-	var internetGatewayFor []schema.Node
+	internetGatewayFor := make([]schema.Node, len(node.InetNodeReq.InetNodeClientIDs))
 	if node.IsInternetGateway {
-		for _, internetGatewayForNode := range node.InetNodeReq.InetNodeClientIDs {
-			internetGatewayFor = append(internetGatewayFor, schema.Node{
-				ID: internetGatewayForNode,
-			})
+		for i, inetNodeClientID := range node.InetNodeReq.InetNodeClientIDs {
+			internetGatewayFor[i] = schema.Node{
+				ID: inetNodeClientID,
+			}
 		}
 	}
 
-	var tags []string
+	tags := make(datatypes.JSONMap)
 	for tag := range node.Tags {
-		tags = append(tags, string(tag))
+		tags[tag.String()] = struct{}{}
 	}
 
 	var _node = schema.Node{
@@ -131,6 +136,7 @@ func ToSchemaNode(node models.Node) schema.Node {
 	_node.GatewayNode = gatewayNode
 	_node.GatewayFor = gatewayFor
 	_node.GatewayNodeConfig = gatewayNodeConfig
+	_node.AdditionalGatewayIPs = additionalGatewayIPs
 	_node.FailOverNodeID = failOverNodeID
 	_node.FailOverPeers = failOverPeers
 	_node.IsFailOver = node.IsFailOver
@@ -140,6 +146,15 @@ func ToSchemaNode(node models.Node) schema.Node {
 	_node.IsInternetGateway = node.IsInternetGateway
 
 	return _node
+}
+
+func ToSchemaNodes(nodes []models.Node) []schema.Node {
+	_nodes := make([]schema.Node, len(nodes))
+	for i, node := range nodes {
+		_nodes[i] = ToSchemaNode(node)
+	}
+
+	return _nodes
 }
 
 func ToModelNode(_node schema.Node) models.Node {
@@ -184,9 +199,9 @@ func ToModelNode(_node schema.Node) models.Node {
 		}
 	}
 
-	var tags = make(map[models.TagID]struct{})
-	for _, tag := range _node.Tags {
-		tags[models.TagID(tag)] = struct{}{}
+	additionalRagIPs := make([]net.IP, len(_node.AdditionalGatewayIPs))
+	for _, ip := range _node.AdditionalGatewayIPs {
+		additionalRagIPs = append(additionalRagIPs, net.ParseIP(ip))
 	}
 
 	var node = models.Node{
@@ -213,7 +228,8 @@ func ToModelNode(_node schema.Node) models.Node {
 		OwnerID:            _node.OwnerID,
 		IsFailOver:         _node.IsFailOver,
 		FailOverPeers:      make(map[string]struct{}),
-		Tags:               tags,
+		AdditionalRagIps:   additionalRagIPs,
+		Tags:               make(map[models.TagID]struct{}),
 		IsStatic:           false,
 		IsUserNode:         false,
 		Status:             models.NodeStatus(_node.Status),
@@ -229,9 +245,9 @@ func ToModelNode(_node schema.Node) models.Node {
 		node.IngressPersistentKeepalive = _node.GatewayNodeConfig.Data().PersistentKeepalive
 		node.IngressMTU = _node.GatewayNodeConfig.Data().MTU
 		node.IngressDNS = _node.GatewayNodeConfig.Data().DNS
-
-		for _, relayedNode := range _node.GatewayFor {
-			node.RelayedNodes = append(node.RelayedNodes, relayedNode.ID)
+		node.RelayedNodes = make([]string, len(_node.GatewayFor))
+		for i, gatewayForNode := range _node.GatewayFor {
+			node.RelayedNodes[i] = gatewayForNode.ID
 		}
 	}
 
@@ -251,10 +267,15 @@ func ToModelNode(_node schema.Node) models.Node {
 		node.FailOverPeers[peer] = struct{}{}
 	}
 
+	for tag := range _node.Tags {
+		node.Tags[models.TagID(tag)] = struct{}{}
+	}
+
 	if _node.IsInternetGateway {
 		node.IsInternetGateway = true
-		for _, internetGatewayForNode := range _node.InternetGatewayFor {
-			node.InetNodeReq.InetNodeClientIDs = append(node.InetNodeReq.InetNodeClientIDs, internetGatewayForNode.ID)
+		node.InetNodeReq.InetNodeClientIDs = make([]string, len(_node.InternetGatewayFor))
+		for i, internetGatewayForNode := range _node.InternetGatewayFor {
+			node.InetNodeReq.InetNodeClientIDs[i] = internetGatewayForNode.ID
 		}
 	}
 
@@ -268,9 +289,9 @@ func ToModelNode(_node schema.Node) models.Node {
 }
 
 func ToModelNodes(_nodes []schema.Node) []models.Node {
-	var nodes []models.Node
-	for _, _node := range _nodes {
-		nodes = append(nodes, ToModelNode(_node))
+	nodes := make([]models.Node, len(_nodes))
+	for i, _node := range _nodes {
+		nodes[i] = ToModelNode(_node)
 	}
 
 	return nodes
