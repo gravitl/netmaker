@@ -46,20 +46,22 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var egressRange string
+	var cidrErr error
 	if !req.IsInetGw {
-		if req.Domain != "" {
-			if !logic.IsFQDN(req.Domain) {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("bad domain name"), "badrequest"))
-				return
-			}
-		} else {
-			egressRange, err = logic.NormalizeCIDR(req.Range)
-			if err != nil {
+		egressRange, cidrErr = logic.NormalizeCIDR(req.Range)
+		isDomain := logic.IsFQDN(req.Range)
+		if cidrErr != nil && !isDomain {
+			if cidrErr != nil {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-				return
+			} else {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("bad domain name"), "badrequest"))
 			}
+			return
 		}
-
+		if isDomain {
+			req.Domain = req.Range
+			egressRange = ""
+		}
 	} else {
 		egressRange = "*"
 		req.Domain = ""

@@ -35,6 +35,8 @@ type HostPeerUpdate struct {
 
 type EgressDomain struct {
 	ID     string `json:"id"`
+	Node   Node   `json:"node"`
+	Host   Host   `json:"host"`
 	Domain string `json:"domain"`
 }
 
