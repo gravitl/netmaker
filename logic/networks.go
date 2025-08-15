@@ -209,8 +209,8 @@ func getAvailableIPv4Addr(networkID string, reverse bool) (*net.IPNet, error) {
 	}
 
 	for {
-		if nodeWithIPExists(networkID, ipv4Addr.String(), database.NODES_TABLE_NAME, false) &&
-			nodeWithIPExists(networkID, ipv4Addr.String(), database.EXT_CLIENT_TABLE_NAME, false) {
+		if nodeWithIPExists(networkID, ipv4Addr, database.NODES_TABLE_NAME, false) &&
+			nodeWithIPExists(networkID, ipv4Addr, database.EXT_CLIENT_TABLE_NAME, false) {
 			return ipv4Addr, nil
 		}
 
@@ -256,8 +256,8 @@ func getAvailableIPv6Addr(networkID string, reverse bool) (*net.IPNet, error) {
 	}
 
 	for {
-		if nodeWithIPExists(networkID, ipv6Addr.String(), database.NODES_TABLE_NAME, true) &&
-			nodeWithIPExists(networkID, ipv6Addr.String(), database.EXT_CLIENT_TABLE_NAME, true) {
+		if nodeWithIPExists(networkID, ipv6Addr, database.NODES_TABLE_NAME, true) &&
+			nodeWithIPExists(networkID, ipv6Addr, database.EXT_CLIENT_TABLE_NAME, true) {
 			return ipv6Addr, nil
 		}
 
@@ -275,45 +275,58 @@ func getAvailableIPv6Addr(networkID string, reverse bool) (*net.IPNet, error) {
 }
 
 // nodeWithIPExists - checks if an IP is unique
-func nodeWithIPExists(network string, ip string, tableName string, isIpv6 bool) bool {
+//
+// NOTE: This function takes in a network IP cidr as input,
+// even though we want to compare a single IP address.
+// This is because the Node object stores the IP address
+// with the CIDR prefix length, but the Extclient object
+// does not. Hence, when tableName is NODES_TABLE_NAME,
+// we compare with netIP.String(), and when tableName is
+// EXT_CLIENT_TABLE_NAME, we compare with netIP.IP.String().
+//
+// TODO: normalize the address across both these tables.
+func nodeWithIPExists(network string, netIP *net.IPNet, tableName string, isIpv6 bool) bool {
 	if tableName == database.NODES_TABLE_NAME {
 		_node := &schema.Node{
 			NetworkID: network,
 		}
 
 		if isIpv6 {
-			_node.Address6 = ip
+			// Look at the NOTE above. We need to compare with `netIP.String()`
+			_node.Address6 = netIP.String()
 			exists, err := _node.ExistsWithNetworkAndIPv6(db.WithContext(context.TODO()))
 			if err != nil {
 				return true
 			}
 
-			// if a node exists, then the ip is not unique.
+			// if a node exists, then the IP is not unique.
 			return !exists
 		} else {
-			_node.Address = ip
+			// Look at the NOTE above. We need to compare with `netIP.String()`
+			_node.Address = netIP.String()
 			exists, err := _node.ExistsWithNetworkAndIPv4(db.WithContext(context.TODO()))
 			if err != nil {
 				return true
 			}
 
-			// if a node exists, then the ip is not unique.
+			// if a node exists, then the IP is not unique.
 			return !exists
 		}
 	} else if tableName == database.EXT_CLIENT_TABLE_NAME {
-
 		extClients, err := GetNetworkExtClients(network)
 		if err != nil {
 			return true
 		}
 		for _, extClient := range extClients { // filter
 			if isIpv6 {
-				if (extClient.Address6 == ip) && extClient.Network == network {
+				// Look at the NOTE above. We need to compare with `netIP.IP.String()`
+				if (extClient.Address6 == netIP.IP.String()) && extClient.Network == network {
 					return false
 				}
 
 			} else {
-				if (extClient.Address == ip) && extClient.Network == network {
+				// Look at the NOTE above. We need to compare with `netIP.IP.String()`
+				if (extClient.Address == netIP.IP.String()) && extClient.Network == network {
 					return false
 				}
 			}

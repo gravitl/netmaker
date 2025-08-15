@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
+	"time"
+
 	"github.com/gravitl/netmaker/converters"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/schema"
-	"net"
-	"time"
 
 	validator "github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
@@ -476,7 +477,7 @@ func createNode(node *models.Node) error {
 
 			node.Address = *ipv4
 		}
-	} else if !nodeWithIPExists(node.Network, node.Address.String(), database.NODES_TABLE_NAME, false) {
+	} else if !nodeWithIPExists(node.Network, &node.Address, database.NODES_TABLE_NAME, false) {
 		return fmt.Errorf("invalid address: ipv4 " + node.Address.String() + " is not unique")
 	}
 	if node.Address6.IP == nil {
@@ -488,7 +489,7 @@ func createNode(node *models.Node) error {
 
 			node.Address6 = *ipv6
 		}
-	} else if !nodeWithIPExists(node.Network, node.Address6.String(), database.NODES_TABLE_NAME, true) {
+	} else if !nodeWithIPExists(node.Network, &node.Address6, database.NODES_TABLE_NAME, true) {
 		return fmt.Errorf("invalid address: ipv6 " + node.Address6.String() + " is not unique")
 	}
 	node.ID = uuid.New()
@@ -546,18 +547,29 @@ func ValidateParams(nodeid, netid string) (models.Node, error) {
 }
 
 func ValidateNodeIp(currentNode *models.Node, newNode *models.ApiNode) error {
-
-	if currentNode.Address.IP != nil && currentNode.Address.String() != newNode.Address {
-		if !nodeWithIPExists(newNode.Network, newNode.Address, database.NODES_TABLE_NAME, false) ||
-			!nodeWithIPExists(newNode.Network, newNode.Address, database.EXT_CLIENT_TABLE_NAME, false) {
-			return errors.New("ip specified is already allocated:  " + newNode.Address)
-		}
+	err := validateNodeIPChange(newNode.Network, currentNode.Address.String(), newNode.Address, false)
+	if err != nil {
+		return err
 	}
-	if currentNode.Address6.IP != nil && currentNode.Address6.String() != newNode.Address6 {
-		if !nodeWithIPExists(newNode.Network, newNode.Address6, database.NODES_TABLE_NAME, false) ||
-			!nodeWithIPExists(newNode.Network, newNode.Address6, database.EXT_CLIENT_TABLE_NAME, false) {
-			return errors.New("ip specified is already allocated:  " + newNode.Address6)
-		}
+
+	return validateNodeIPChange(newNode.Network, currentNode.Address6.String(), newNode.Address6, true)
+}
+
+func validateNodeIPChange(network, currIP, newIP string, isIPv6 bool) error {
+	if currIP == "<nil>" || currIP == newIP {
+		return nil
+	}
+
+	ip, addr, err := net.ParseCIDR(newIP)
+	if err != nil {
+		return fmt.Errorf("invalid address %s: %v", newIP, err)
+	}
+
+	addr.IP = ip
+
+	if !nodeWithIPExists(network, addr, database.NODES_TABLE_NAME, isIPv6) ||
+		!nodeWithIPExists(network, addr, database.EXT_CLIENT_TABLE_NAME, isIPv6) {
+		return errors.New("ip specified is already allocated:  " + newIP)
 	}
 
 	return nil
