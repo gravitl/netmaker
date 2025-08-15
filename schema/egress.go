@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/models"
 	"gorm.io/datatypes"
 )
 
@@ -66,4 +67,19 @@ func (e *Egress) ListByNetwork(ctx context.Context) (egs []Egress, err error) {
 
 func (e *Egress) Delete(ctx context.Context) error {
 	return db.FromContext(ctx).Table(e.Table()).Where("id = ?", e.ID).Delete(&e).Error
+}
+
+func (e *Egress) ListAllByRoutingNodeWithDomain(ctx context.Context, egs []Egress, nodeID string) (egWithDomain []models.EgressDomain) {
+	for _, egI := range egs {
+		if egI.Domain == "" {
+			continue
+		}
+		if _, ok := e.Nodes[nodeID]; ok {
+			egWithDomain = append(egWithDomain, models.EgressDomain{
+				ID:     egI.ID,
+				Domain: egI.Domain,
+			})
+		}
+	}
+	return
 }
