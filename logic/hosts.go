@@ -105,11 +105,7 @@ func DoesHostExistInTheNetworkAlready(h *models.Host, network models.NetworkID) 
 		NetworkID: network.String(),
 	}
 	err := _node.GetByHostIDAndNetworkID(db.WithContext(context.TODO()))
-	if err == nil {
-		return true
-	}
-
-	return false
+	return err == nil
 }
 
 // GetHost - gets a host from db given id
