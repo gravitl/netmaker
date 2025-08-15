@@ -254,6 +254,8 @@ type HostPull struct {
 	DefaultGwIp       net.IP                `json:"default_gw_ip"`
 	IsInternetGw      bool                  `json:"is_inet_gw"`
 	EndpointDetection bool                  `json:"endpoint_detection"`
+	NameServers       []string              `json:"name_servers"`
+	EgressWithDomains []EgressDomain        `json:"egress_with_domains"`
 }
 
 type DefaultGwInfo struct {
