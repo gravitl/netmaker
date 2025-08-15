@@ -4,10 +4,11 @@
 package pro
 
 import (
+	"context"
 	"encoding/base64"
-
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
-
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/logic"
 )
 
@@ -49,10 +50,7 @@ func getCurrentServerUsage() (limits Usage) {
 	if err == nil {
 		limits.Ingresses = len(ingresses)
 	}
-	egresses, err := logic.GetAllEgresses()
-	if err == nil {
-		limits.Egresses = len(egresses)
-	}
+	limits.Egresses, _ = (&schema.Egress{}).Count(db.WithContext(context.TODO()))
 	relays, err := logic.GetRelays()
 	if err == nil {
 		limits.Relays = len(relays)
