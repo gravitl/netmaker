@@ -5,14 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gravitl/netmaker/pro/idp"
-	"github.com/gravitl/netmaker/pro/idp/azure"
-	"github.com/gravitl/netmaker/pro/idp/google"
-	"github.com/gravitl/netmaker/pro/idp/okta"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/gravitl/netmaker/pro/idp"
+	"github.com/gravitl/netmaker/pro/idp/azure"
+	"github.com/gravitl/netmaker/pro/idp/google"
+	"github.com/gravitl/netmaker/pro/idp/okta"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -1817,11 +1818,10 @@ func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if superAdmin.AuthType == models.OAuth {
-		logic.ReturnErrorResponse(
-			w,
-			r,
-			logic.FormatError(fmt.Errorf("cannot remove idp integration with superadmin oauth user"), "badrequest"),
+		err := fmt.Errorf(
+			"cannot remove IdP integration because an OAuth user has the super-admin role; transfer the super-admin role to another user first",
 		)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 
