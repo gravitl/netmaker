@@ -7,14 +7,14 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/schema"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"runtime/debug"
 	"sync"
 	"syscall"
+
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/config"
@@ -56,7 +56,7 @@ func main() {
 	fmt.Println(models.RetrieveLogo()) // print the logo
 	initialize()                       // initial db and acls
 	setGarbageCollection()
-	setVerbosity()
+	logic.SetVerbosity(int(logic.GetServerSettings().Verbosity))
 	if servercfg.DeployedByOperator() && !servercfg.IsPro {
 		logic.SetFreeTierLimits()
 	}
@@ -223,35 +223,6 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 	}()
 	<-ctx.Done()
 	logger.Log(0, "Message Queue shutting down")
-}
-
-func setVerbosity() {
-	verbose := int(servercfg.GetVerbosity())
-	logger.Verbosity = verbose
-	logLevel := &slog.LevelVar{}
-	replace := func(groups []string, a slog.Attr) slog.Attr {
-		if a.Key == slog.SourceKey {
-			a.Value = slog.StringValue(filepath.Base(a.Value.String()))
-		}
-		return a
-	}
-	logger := slog.New(
-		slog.NewJSONHandler(
-			os.Stderr,
-			&slog.HandlerOptions{AddSource: true, ReplaceAttr: replace, Level: logLevel},
-		),
-	)
-	slog.SetDefault(logger)
-	switch verbose {
-	case 4:
-		logLevel.Set(slog.LevelDebug)
-	case 3:
-		logLevel.Set(slog.LevelInfo)
-	case 2:
-		logLevel.Set(slog.LevelWarn)
-	default:
-		logLevel.Set(slog.LevelError)
-	}
 }
 
 func setGarbageCollection() {

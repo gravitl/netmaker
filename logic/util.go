@@ -7,8 +7,6 @@ import (
 	"encoding/base32"
 	"encoding/base64"
 	"fmt"
-	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/schema"
 	"log/slog"
 	"net"
 	"net/http"
@@ -20,8 +18,10 @@ import (
 
 	"github.com/blang/semver"
 	"github.com/c-robinson/iplib"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 )
 
 // IsBase64 - checks if a string is in base64 format
@@ -85,6 +85,8 @@ func StringSliceContains(slice []string, item string) bool {
 	return false
 }
 func SetVerbosity(logLevel int) {
+	logger.Verbosity = logLevel
+
 	var level slog.Level
 	switch logLevel {
 
@@ -106,7 +108,6 @@ func SetVerbosity(logLevel int) {
 	})
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
-
 }
 
 // NormalizeCIDR - returns the first address of CIDR
