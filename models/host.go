@@ -140,13 +140,12 @@ const (
 
 // HostUpdate - struct for host update
 type HostUpdate struct {
-	Action     HostMqAction
-	Host       Host
-	Node       Node
-	Signal     Signal
-	EgressID   string
-	Domain     string
-	NewMetrics Metrics
+	Action       HostMqAction
+	Host         Host
+	Node         Node
+	Signal       Signal
+	EgressDomain EgressDomain
+	NewMetrics   Metrics
 }
 
 // HostTurnRegister - struct for host turn registration
