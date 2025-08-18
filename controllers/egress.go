@@ -52,7 +52,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		isDomain := logic.IsFQDN(req.Range)
 		if cidrErr != nil && !isDomain {
 			if cidrErr != nil {
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+				logic.ReturnErrorResponse(w, r, logic.FormatError(cidrErr, "badrequest"))
 			} else {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("bad domain name"), "badrequest"))
 			}
@@ -134,11 +134,15 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 				}
 				fmt.Println("=======> Sending Host Update: ", host.Name)
 				mq.HostUpdate(&models.HostUpdate{
-					Action:   models.EgressUpdate,
-					Host:     *host,
-					EgressID: e.ID,
-					Domain:   e.Domain,
-					Node:     node,
+					Action: models.EgressUpdate,
+					Host:   *host,
+					EgressDomain: models.EgressDomain{
+						ID:     e.ID,
+						Host:   *host,
+						Node:   node,
+						Domain: e.Domain,
+					},
+					Node: node,
 				})
 			}
 		}
