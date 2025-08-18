@@ -394,7 +394,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 		mq.UpdateMetricsFallBack(hostUpdate.Node.ID.String(), hostUpdate.NewMetrics)
 	case models.EgressUpdate:
 		fmt.Println("=====> Recv Egress Update: ", hostUpdate.Node.EgressGatewayRanges)
-		e := schema.Egress{ID: hostUpdate.EgressID}
+		e := schema.Egress{ID: hostUpdate.EgressDomain.ID}
 		err = e.Get(db.WithContext(r.Context()))
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
