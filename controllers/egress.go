@@ -74,6 +74,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		Description: req.Description,
 		Range:       egressRange,
 		Domain:      req.Domain,
+		DomainAns:   []string{},
 		Nat:         req.Nat,
 		Nodes:       make(datatypes.JSONMap),
 		Tags:        make(datatypes.JSONMap),
@@ -203,14 +204,25 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var egressRange string
+	var cidrErr error
 	if !req.IsInetGw {
-		egressRange, err = logic.NormalizeCIDR(req.Range)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		egressRange, cidrErr = logic.NormalizeCIDR(req.Range)
+		isDomain := logic.IsFQDN(req.Range)
+		if cidrErr != nil && !isDomain {
+			if cidrErr != nil {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(cidrErr, "badrequest"))
+			} else {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("bad domain name"), "badrequest"))
+			}
 			return
+		}
+		if isDomain {
+			req.Domain = req.Range
+			egressRange = ""
 		}
 	} else {
 		egressRange = "*"
+		req.Domain = ""
 	}
 
 	e := schema.Egress{ID: req.ID}
@@ -255,6 +267,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	e.Description = req.Description
 	e.Name = req.Name
 	e.Nat = req.Nat
+	e.Domain = req.Domain
 	e.Status = req.Status
 	e.UpdatedAt = time.Now().UTC()
 	if err := logic.ValidateEgressReq(&e); err != nil {
@@ -280,6 +293,35 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	}
 	event.Diff.New = e
 	logic.LogEvent(event)
+	if req.Domain != "" {
+		if req.Nodes != nil {
+			for nodeID := range req.Nodes {
+				node, err := logic.GetNodeByID(nodeID)
+				if err != nil {
+					continue
+				}
+				host, _ := logic.GetHost(node.HostID.String())
+				if host == nil {
+					continue
+				}
+				fmt.Println("=======> Sending Host Update: ", host.Name)
+				mq.HostUpdate(&models.HostUpdate{
+					Action: models.EgressUpdate,
+					Host:   *host,
+					EgressDomain: models.EgressDomain{
+						ID:     e.ID,
+						Host:   *host,
+						Node:   node,
+						Domain: e.Domain,
+					},
+					Node: node,
+				})
+			}
+		}
+
+	} else {
+		go mq.PublishPeerUpdate(false)
+	}
 	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, e, "updated egress resource")
 }

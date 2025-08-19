@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -384,7 +383,6 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	case models.UpdateMetrics:
 		mq.UpdateMetricsFallBack(hostUpdate.Node.ID.String(), hostUpdate.NewMetrics)
 	case models.EgressUpdate:
-		fmt.Println("=====> Recv Egress Update: ", hostUpdate.Node.EgressGatewayRanges)
 		e := schema.Egress{ID: hostUpdate.EgressDomain.ID}
 		err = e.Get(db.WithContext(r.Context()))
 		if err != nil {
@@ -392,7 +390,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if len(hostUpdate.Node.EgressGatewayRanges) > 0 {
-			e.Range = strings.Join(hostUpdate.Node.EgressGatewayRanges, ",")
+			e.DomainAns = hostUpdate.Node.EgressGatewayRanges
 			e.Update(db.WithContext(r.Context()))
 		}
 		sendPeerUpdate = true

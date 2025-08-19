@@ -107,7 +107,12 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 				m64 = 256
 			}
 			m := uint32(m64)
-			req.Ranges = append(req.Ranges, e.Range)
+			if e.Range != "" {
+				req.Ranges = append(req.Ranges, e.Range)
+			} else {
+				req.Ranges = append(req.Ranges, e.DomainAns...)
+			}
+
 			req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
 				Network:     e.Range,
 				Nat:         e.Nat,
@@ -149,7 +154,12 @@ func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []mode
 				m64 = 256
 			}
 			m := uint32(m64)
-			req.Ranges = append(req.Ranges, e.Range)
+			if e.Range != "" {
+				req.Ranges = append(req.Ranges, e.Range)
+			} else {
+				req.Ranges = append(req.Ranges, e.DomainAns...)
+			}
+
 			req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
 				Network:     e.Range,
 				Nat:         e.Nat,
