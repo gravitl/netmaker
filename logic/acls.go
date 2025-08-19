@@ -273,35 +273,70 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 				if err != nil {
 					continue
 				}
-				dstI.Value = e.Range
+				if len(e.DomainAns) > 0 {
+					for _, domainAnsI := range e.DomainAns {
+						dstI.Value = domainAnsI
 
-				ip, cidr, err := net.ParseCIDR(dstI.Value)
-				if err == nil {
-					if ip.To4() != nil {
-						if node.Address.IP != nil {
-							rules = append(rules, models.FwRule{
-								SrcIP: net.IPNet{
-									IP:   node.Address.IP,
-									Mask: net.CIDRMask(32, 32),
-								},
-								DstIP: *cidr,
-								Allow: true,
-							})
-						}
-					} else {
-						if node.Address6.IP != nil {
-							rules = append(rules, models.FwRule{
-								SrcIP: net.IPNet{
-									IP:   node.Address6.IP,
-									Mask: net.CIDRMask(128, 128),
-								},
-								DstIP: *cidr,
-								Allow: true,
-							})
+						ip, cidr, err := net.ParseCIDR(dstI.Value)
+						if err == nil {
+							if ip.To4() != nil {
+								if node.Address.IP != nil {
+									rules = append(rules, models.FwRule{
+										SrcIP: net.IPNet{
+											IP:   node.Address.IP,
+											Mask: net.CIDRMask(32, 32),
+										},
+										DstIP: *cidr,
+										Allow: true,
+									})
+								}
+							} else {
+								if node.Address6.IP != nil {
+									rules = append(rules, models.FwRule{
+										SrcIP: net.IPNet{
+											IP:   node.Address6.IP,
+											Mask: net.CIDRMask(128, 128),
+										},
+										DstIP: *cidr,
+										Allow: true,
+									})
+								}
+							}
+
 						}
 					}
+				} else {
+					dstI.Value = e.Range
 
+					ip, cidr, err := net.ParseCIDR(dstI.Value)
+					if err == nil {
+						if ip.To4() != nil {
+							if node.Address.IP != nil {
+								rules = append(rules, models.FwRule{
+									SrcIP: net.IPNet{
+										IP:   node.Address.IP,
+										Mask: net.CIDRMask(32, 32),
+									},
+									DstIP: *cidr,
+									Allow: true,
+								})
+							}
+						} else {
+							if node.Address6.IP != nil {
+								rules = append(rules, models.FwRule{
+									SrcIP: net.IPNet{
+										IP:   node.Address6.IP,
+										Mask: net.CIDRMask(128, 128),
+									},
+									DstIP: *cidr,
+									Allow: true,
+								})
+							}
+						}
+
+					}
 				}
+
 			}
 		}
 	}
