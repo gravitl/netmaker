@@ -78,10 +78,8 @@ func ToSchemaNode(node models.Node) schema.Node {
 	}
 
 	failOverPeers := make(datatypes.JSONMap)
-	if node.IsFailOver {
-		for peer := range node.FailOverPeers {
-			failOverPeers[peer] = true
-		}
+	for peer := range node.FailOverPeers {
+		failOverPeers[peer] = true
 	}
 
 	var internetGatewayNodeID *string
