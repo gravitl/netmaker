@@ -9,7 +9,7 @@ import (
 // Job represents a task that netmaker server
 // wants to do.
 //
-// Ideally, a jobs table should have details
+// Ideally, a job table should have details
 // about its type, status, who initiated it,
 // etc. But, for now, the table only contains
 // records of jobs that have been done, so
@@ -20,6 +20,10 @@ type Job struct {
 	CreatedAt time.Time
 }
 
+func (j *Job) TableName() string {
+	return "jobs_v1"
+}
+
 // Create creates a job record in the jobs table.
 func (j *Job) Create(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Job{}).Create(j).Error
@@ -27,5 +31,8 @@ func (j *Job) Create(ctx context.Context) error {
 
 // Get returns a job record with the given Job.ID.
 func (j *Job) Get(ctx context.Context) error {
-	return db.FromContext(ctx).Model(&Job{}).Where("id = ?", j.ID).First(j).Error
+	return db.FromContext(ctx).Model(j).
+		Where("id = ?", j.ID).
+		First(j).
+		Error
 }

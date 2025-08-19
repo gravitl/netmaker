@@ -4,18 +4,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gravitl/netmaker/logic/acls"
+	"github.com/gravitl/netmaker/schema"
 	"net"
 	"net/http"
+	"slices"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"golang.org/x/exp/slog"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
@@ -72,7 +73,11 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Log(2, r.Header.Get("user"), "fetched networks.")
-	logic.SortNetworks(allnetworks[:])
+
+	slices.SortFunc(allnetworks, func(a, b models.Network) int {
+		return strings.Compare(a.NetID, b.NetID)
+	})
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(allnetworks)
 }
@@ -102,19 +107,24 @@ func getNetworksStats(w http.ResponseWriter, r *http.Request) {
 		}
 		allnetworks = logic.FilterNetworksByRole(allnetworks, *user)
 	}
-	allNodes, err := logic.GetAllNodes()
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	netstats := []models.NetworkStatResp{}
-	logic.SortNetworks(allnetworks[:])
+
+	slices.SortFunc(allnetworks, func(a, b models.Network) int {
+		return strings.Compare(a.NetID, b.NetID)
+	})
+
+	var netstats []models.NetworkStatResp
+
 	for _, network := range allnetworks {
+		_network := &schema.Network{
+			ID: network.NetID,
+		}
+		numNodes, _ := _network.CountNodes(r.Context())
 		netstats = append(netstats, models.NetworkStatResp{
 			Network: network,
-			Hosts:   len(logic.GetNetworkNodesMemory(allNodes, network.NetID)),
+			Hosts:   numNodes,
 		})
 	}
+
 	logger.Log(2, r.Header.Get("user"), "fetched networks.")
 	logic.ReturnSuccessResponseWithJson(w, r, netstats, "fetched networks with stats")
 }
@@ -156,42 +166,42 @@ func getNetwork(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func updateNetworkACL(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	var params = mux.Vars(r)
-	netname := params["networkname"]
-	var networkACLChange acls.ACLContainer
-	networkACLChange, err := networkACLChange.Get(acls.ContainerID(netname))
+	networkID := mux.Vars(r)["networkname"]
+
+	var networkACLUpdateRequest acls.ACLContainer
+	err := json.NewDecoder(r.Body).Decode(&networkACLUpdateRequest)
+	if err != nil {
+		logger.Log(0, fmt.Sprintf("failed to decode network (%s) acl update request: %s", networkID, err.Error()))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	var networkACL acls.ACLContainer
+	networkACL, err = networkACL.Get(acls.ContainerID(networkID))
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("failed to fetch ACLs for network [%s]: %v", netname, err))
+			fmt.Sprintf("failed to fetch ACLs for network [%s]: %v", networkID, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	err = json.NewDecoder(r.Body).Decode(&networkACLChange)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "error decoding request body: ",
-			err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
-	newNetACL, err := networkACLChange.Save(acls.ContainerID(netname))
+
+	newNetACL, err := networkACL.Save(acls.ContainerID(networkID))
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("failed to update ACLs for network [%s]: %v", netname, err))
+			fmt.Sprintf("failed to update ACLs for network [%s]: %v", networkID, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	logger.Log(1, r.Header.Get("user"), "updated ACLs for network", netname)
+	logger.Log(1, r.Header.Get("user"), "updated ACLs for network", networkID)
 
 	// send peer updates
 	go func() {
 		if err = mq.PublishPeerUpdate(false); err != nil {
-			logger.Log(0, "failed to publish peer update after ACL update on network:", netname)
+			logger.Log(0, "failed to publish peer update after ACL update on network:", networkID)
 		}
 	}()
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(newNetACL)
+	logic.ReturnSuccessJsonResponse(w, r, newNetACL)
 }
 
 // @Summary     Update a network ACL (Access Control List)
@@ -205,92 +215,68 @@ func updateNetworkACL(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func updateNetworkACLv2(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	var params = mux.Vars(r)
-	netname := params["networkname"]
-	var networkACLChange acls.ACLContainer
-	networkACLChange, err := networkACLChange.Get(acls.ContainerID(netname))
+	networkID := mux.Vars(r)["networkname"]
+
+	var networkACLUpdateRequest acls.ACLContainer
+	err := json.NewDecoder(r.Body).Decode(&networkACLUpdateRequest)
 	if err != nil {
-		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("failed to fetch ACLs for network [%s]: %v", netname, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	err = json.NewDecoder(r.Body).Decode(&networkACLChange)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "error decoding request body: ",
-			err.Error())
+		logger.Log(0, fmt.Sprintf("failed to decode network (%s) acl update request: %s", networkID, err.Error()))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 
-	// clone req body to use as return data successful update
-	retData := make(acls.ACLContainer)
-	data, err := json.Marshal(networkACLChange)
-	if err != nil {
-		slog.Error("failed to marshal networkACLChange whiles cloning", "error", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
+	_network := &schema.Network{
+		ID: networkID,
 	}
-	err = json.Unmarshal(data, &retData)
+	_networkNodes, err := _network.GetNodes(r.Context())
 	if err != nil {
-		slog.Error("failed to unmarshal networkACLChange whiles cloning", "error", err.Error())
+		logger.Log(0, fmt.Sprintf("failed to get network (%s) nodes: %s", networkID, err.Error()))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
-	allNodes, err := logic.GetAllNodes()
+	nodesMap := make(map[string]schema.Node)
+	for _, _node := range _networkNodes {
+		nodesMap[_node.ID] = _node
+	}
+
+	extClients, err := logic.GetNetworkExtClients(networkID)
 	if err != nil {
-		slog.Error("failed to fetch all nodes", "error", err.Error())
+		logger.Log(0, fmt.Sprintf("failed to get network (%s) extClients: %s", networkID, err.Error()))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	networkNodes := make([]models.Node, 0)
-	for _, node := range allNodes {
-		if node.Network == netname {
-			networkNodes = append(networkNodes, node)
-		}
-	}
-	networkNodesIdMap := make(map[string]models.Node)
-	for _, node := range networkNodes {
-		networkNodesIdMap[node.ID.String()] = node
-	}
-	networkClients, err := logic.GetNetworkExtClients(netname)
-	if err != nil {
-		slog.Error("failed to fetch network clients", "error", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	networkClientsMap := make(map[string]models.ExtClient)
-	for _, client := range networkClients {
-		networkClientsMap[client.ClientID] = client
+
+	extClientsMap := make(map[string]models.ExtClient)
+	for _, extClient := range extClients {
+		extClientsMap[extClient.ClientID] = extClient
 	}
 
 	// keep track of ingress gateways to disconnect from their clients
 	// this is required because PublishPeerUpdate only somehow does not stop communication
 	// between blocked clients and their ingress
-	assocClientsToDisconnectPerHost := make(map[uuid.UUID][]models.ExtClient)
+	assocClientsToDisconnectPerHost := make(map[string][]models.ExtClient)
 
 	// update client acls and then, remove client acls from req data to pass to existing functions
-	for id, acl := range networkACLChange {
+	for id, acl := range networkACLUpdateRequest {
 		// for node acls
-		if _, ok := networkNodesIdMap[string(id)]; ok {
-			nodeId := string(id)
+		if _, ok := nodesMap[string(id)]; ok {
+			nodeID := string(id)
 			// check acl update, then remove client entries
 			for id2 := range acl {
-				if _, ok := networkNodesIdMap[string(id2)]; !ok {
+				if _, ok := nodesMap[string(id2)]; !ok {
 					// update client acl
-					clientId := string(id2)
-					if client, ok := networkClientsMap[clientId]; ok {
+					clientID := string(id2)
+					if client, ok := extClientsMap[clientID]; ok {
 						if client.DeniedACLs == nil {
 							client.DeniedACLs = make(map[string]struct{})
 						}
-						if acl[acls.AclID(clientId)] == acls.NotAllowed {
-							client.DeniedACLs[nodeId] = struct{}{}
+						if acl[acls.AclID(clientID)] == acls.NotAllowed {
+							client.DeniedACLs[nodeID] = struct{}{}
 						} else {
-							delete(client.DeniedACLs, string(nodeId))
+							delete(client.DeniedACLs, nodeID)
 						}
-						networkClientsMap[clientId] = client
+						extClientsMap[clientID] = client
 					}
 				}
 			}
@@ -298,10 +284,10 @@ func updateNetworkACLv2(w http.ResponseWriter, r *http.Request) {
 			// for client acls
 			clientId := string(id)
 			for id2 := range acl {
-				if _, ok := networkNodesIdMap[string(id2)]; !ok {
+				if _, ok := nodesMap[string(id2)]; !ok {
 					// update client acl
 					clientId2 := string(id2)
-					if client, ok := networkClientsMap[clientId]; ok {
+					if client, ok := extClientsMap[clientId]; ok {
 						if client.DeniedACLs == nil {
 							client.DeniedACLs = make(map[string]struct{})
 						}
@@ -314,12 +300,12 @@ func updateNetworkACLv2(w http.ResponseWriter, r *http.Request) {
 							// }
 							delete(client.DeniedACLs, clientId2)
 						}
-						networkClientsMap[clientId] = client
+						extClientsMap[clientId] = client
 					}
 				} else {
 					nodeId2 := string(id2)
-					if networkClientsMap[clientId].IngressGatewayID == nodeId2 && acl[acls.AclID(nodeId2)] == acls.NotAllowed {
-						assocClientsToDisconnectPerHost[networkNodesIdMap[nodeId2].HostID] = append(assocClientsToDisconnectPerHost[networkNodesIdMap[nodeId2].HostID], networkClientsMap[clientId])
+					if extClientsMap[clientId].IngressGatewayID == nodeId2 && acl[acls.AclID(nodeId2)] == acls.NotAllowed {
+						assocClientsToDisconnectPerHost[nodesMap[nodeId2].HostID] = append(assocClientsToDisconnectPerHost[nodesMap[nodeId2].HostID], extClientsMap[clientId])
 					}
 				}
 			}
@@ -328,7 +314,7 @@ func updateNetworkACLv2(w http.ResponseWriter, r *http.Request) {
 
 	// update each client in db for pro servers
 	if servercfg.IsPro {
-		for _, client := range networkClientsMap {
+		for _, client := range extClientsMap {
 			client := client
 			err := logic.DeleteExtClient(client.Network, client.ClientID)
 			if err != nil {
@@ -357,46 +343,51 @@ func updateNetworkACLv2(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	_, err = networkACLChange.Save(acls.ContainerID(netname))
+	_, err = networkACLUpdateRequest.Save(acls.ContainerID(networkID))
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("failed to update ACLs for network [%s]: %v", netname, err))
+			fmt.Sprintf("failed to update ACLs for network [%s]: %v", networkID, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	logger.Log(1, r.Header.Get("user"), "updated ACLs for network", netname)
+	logger.Log(1, r.Header.Get("user"), "updated ACLs for network", networkID)
+
+	logger.Log(1, r.Header.Get("user"), "updated acls for network", networkID)
 
 	// send peer updates
 	go func() {
-		if err = mq.PublishPeerUpdate(false); err != nil {
-			logger.Log(0, "failed to publish peer update after ACL update on network:", netname)
+		err = mq.PublishPeerUpdate(false)
+		if err != nil {
+			logger.Log(0, fmt.Sprintf("failed to publish peer update after network (%s) acl updates: %s", networkID, err.Error()))
 		}
 
-		// update ingress gateways of associated clients
 		hosts, err := logic.GetAllHosts()
 		if err != nil {
-			slog.Error(
-				"failed to fetch hosts after network ACL update. skipping publish extclients ACL",
-				"network",
-				netname,
-			)
+			logger.Log(0, fmt.Sprintf("failed to get hosts after network (%s) acl updates: %s", networkID, err.Error()))
 			return
 		}
-		hostsMap := make(map[uuid.UUID]models.Host)
-		for _, host := range hosts {
-			hostsMap[host.ID] = host
+
+		nodes, err := logic.GetAllNodes()
+		if err != nil {
+			logger.Log(0, fmt.Sprintf("failed to get nodes after network (%s) acl updates: %s", networkID, err.Error()))
+			return
 		}
+
+		hostsMap := make(map[string]models.Host)
+		for _, host := range hosts {
+			hostsMap[host.ID.String()] = host
+		}
+
 		for hostId, clients := range assocClientsToDisconnectPerHost {
 			if host, ok := hostsMap[hostId]; ok {
-				if err = mq.PublishSingleHostPeerUpdate(&host, allNodes, nil, clients, false, nil); err != nil {
-					slog.Error("failed to publish peer update to ingress after ACL update on network", "network", netname, "host", hostId)
+				if err = mq.PublishSingleHostPeerUpdate(&host, nodes, nil, clients, false, nil); err != nil {
+					logger.Log(0, fmt.Sprintf("failed to publish peer update for host (%s) after network (%s) acl updates: %s", networkID, host.ID, err.Error()))
 				}
 			}
 		}
 	}()
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(networkACLChange)
+	logic.ReturnSuccessJsonResponse(w, r, networkACLUpdateRequest)
 }
 
 // @Summary     Get a network ACL (Access Control List)
@@ -408,11 +399,10 @@ func updateNetworkACLv2(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} acls.ACLContainer
 // @Failure     500 {object} models.ErrorResponse
 func getNetworkACL(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	var params = mux.Vars(r)
-	netname := params["networkname"]
+	networkID := mux.Vars(r)["networkname"]
+
 	var networkACL acls.ACLContainer
-	networkACL, err := networkACL.Get(acls.ContainerID(netname))
+	networkACL, err := networkACL.Get(acls.ContainerID(networkID))
 	if err != nil {
 		if database.IsEmptyRecord(err) {
 			networkACL = acls.ACLContainer{}
@@ -421,13 +411,12 @@ func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		logger.Log(0, r.Header.Get("user"),
-			fmt.Sprintf("failed to fetch ACLs for network [%s]: %v", netname, err))
+			fmt.Sprintf("failed to fetch ACLs for network [%s]: %v", networkID, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logger.Log(2, r.Header.Get("user"), "fetched acl for network", netname)
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(networkACL)
+
+	logic.ReturnSuccessJsonResponse(w, r, networkACL)
 }
 
 // @Summary     Get a network Egress routes
@@ -496,8 +485,6 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	go logic.DeleteNetworkRoles(network)
 	go logic.DeleteAllNetworkTags(models.NetworkID(network))
 	go logic.DeleteNetworkPolicies(models.NetworkID(network))
-	//delete network from allocated ip map
-	go logic.RemoveNetworkFromAllocatedIpMap(network)
 	go func() {
 		<-doneCh
 		mq.PublishPeerUpdate(true)
@@ -601,9 +588,8 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logic.CreateDefaultNetworkRolesAndGroups(models.NetworkID(network.NetID))
-	logic.CreateDefaultAclNetworkPolicies(models.NetworkID(network.NetID))
+	logic.CreateDefaultNetworkPolicies(models.NetworkID(network.NetID))
 	logic.CreateDefaultTags(models.NetworkID(network.NetID))
-	logic.AddNetworkToAllocatedIpMap(network.NetID)
 
 	go func() {
 		defaultHosts := logic.GetDefaultHosts()

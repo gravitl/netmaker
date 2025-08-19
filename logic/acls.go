@@ -2,16 +2,14 @@ package logic
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gravitl/netmaker/converters"
 	"maps"
 	"net"
 	"sort"
-	"sync"
 	"time"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -901,11 +899,6 @@ var (
 	RemoveUserFromAclPolicy = func(userName string) {}
 )
 
-var (
-	aclCacheMutex = &sync.RWMutex{}
-	aclCacheMap   = make(map[string]models.Acl)
-)
-
 func MigrateAclPolicies() {
 	acls := ListAcls()
 	for _, acl := range acls {
@@ -1260,54 +1253,32 @@ func UpdateAcl(newAcl, acl models.Acl) error {
 		acl.Proto = models.ALL
 	}
 	acl.Enabled = newAcl.Enabled
-	d, err := json.Marshal(acl)
-	if err != nil {
-		return err
-	}
-	err = database.Insert(acl.ID, string(d), database.ACLS_TABLE_NAME)
-	if err == nil && servercfg.CacheEnabled() {
-		storeAclInCache(acl)
-	}
-	return err
+	_acl := converters.ToSchemaACL(acl)
+	return _acl.Update(db.WithContext(context.TODO()))
 }
 
 // UpsertAcl - upserts acl
 func UpsertAcl(acl models.Acl) error {
-	d, err := json.Marshal(acl)
-	if err != nil {
-		return err
-	}
-	err = database.Insert(acl.ID, string(d), database.ACLS_TABLE_NAME)
-	if err == nil && servercfg.CacheEnabled() {
-		storeAclInCache(acl)
-	}
-	return err
+	_acl := converters.ToSchemaACL(acl)
+	return _acl.Upsert(db.WithContext(context.TODO()))
 }
 
 // DeleteAcl - deletes acl policy
 func DeleteAcl(a models.Acl) error {
-	err := database.DeleteRecord(database.ACLS_TABLE_NAME, a.ID)
-	if err == nil && servercfg.CacheEnabled() {
-		removeAclFromCache(a)
+	_acl := &schema.ACL{
+		ID: a.ID,
 	}
-	return err
+	return _acl.Delete(db.WithContext(context.TODO()))
 }
 
 func ListAcls() (acls []models.Acl) {
-	if servercfg.CacheEnabled() && len(aclCacheMap) > 0 {
-		return listAclFromCache()
-	}
-
-	data, err := database.FetchRecords(database.ACLS_TABLE_NAME)
-	if err != nil && !database.IsEmptyRecord(err) {
+	_acls, err := (&schema.ACL{}).ListAll(db.WithContext(context.TODO()))
+	if err != nil {
 		return []models.Acl{}
 	}
-	for _, dataI := range data {
-		acl := models.Acl{}
-		err := json.Unmarshal([]byte(dataI), &acl)
-		if err != nil {
-			continue
-		}
+
+	unfilteredAcls := converters.ToModelACLs(_acls)
+	for _, acl := range unfilteredAcls {
 		if !servercfg.IsPro {
 			if acl.RuleType == models.UserPolicy {
 				continue
@@ -1334,9 +1305,6 @@ func ListAcls() (acls []models.Acl) {
 			}
 		}
 		acls = append(acls, acl)
-		if servercfg.CacheEnabled() {
-			storeAclInCache(acl)
-		}
 	}
 	return
 }
@@ -1401,70 +1369,23 @@ func ValidateCreateAclReq(req models.Acl) error {
 	return nil
 }
 
-func listAclFromCache() (acls []models.Acl) {
-	aclCacheMutex.RLock()
-	defer aclCacheMutex.RUnlock()
-	for _, acl := range aclCacheMap {
-		acls = append(acls, acl)
-	}
-	return
-}
-
-func storeAclInCache(a models.Acl) {
-	aclCacheMutex.Lock()
-	defer aclCacheMutex.Unlock()
-	aclCacheMap[a.ID] = a
-
-}
-
-func removeAclFromCache(a models.Acl) {
-	aclCacheMutex.Lock()
-	defer aclCacheMutex.Unlock()
-	delete(aclCacheMap, a.ID)
-}
-
-func getAclFromCache(aID string) (a models.Acl, ok bool) {
-	aclCacheMutex.RLock()
-	defer aclCacheMutex.RUnlock()
-	a, ok = aclCacheMap[aID]
-	return
-}
-
 // InsertAcl - creates acl policy
-func InsertAcl(a models.Acl) error {
-	d, err := json.Marshal(a)
-	if err != nil {
-		return err
-	}
-	err = database.Insert(a.ID, string(d), database.ACLS_TABLE_NAME)
-	if err == nil && servercfg.CacheEnabled() {
-		storeAclInCache(a)
-	}
-	return err
+func InsertAcl(acl models.Acl) error {
+	_acl := converters.ToSchemaACL(acl)
+	return _acl.Create(db.WithContext(context.TODO()))
 }
 
 // GetAcl - gets acl info by id
-func GetAcl(aID string) (models.Acl, error) {
-	a := models.Acl{}
-	if servercfg.CacheEnabled() {
-		var ok bool
-		a, ok = getAclFromCache(aID)
-		if ok {
-			return a, nil
-		}
+func GetAcl(aclID string) (models.Acl, error) {
+	_acl := &schema.ACL{
+		ID: aclID,
 	}
-	d, err := database.FetchRecord(database.ACLS_TABLE_NAME, aID)
+	err := _acl.Get(db.WithContext(context.TODO()))
 	if err != nil {
-		return a, err
+		return models.Acl{}, err
 	}
-	err = json.Unmarshal([]byte(d), &a)
-	if err != nil {
-		return a, err
-	}
-	if servercfg.CacheEnabled() {
-		storeAclInCache(a)
-	}
-	return a, nil
+
+	return converters.ToModelACL(*_acl), nil
 }
 
 // IsAclExists - checks if acl exists
@@ -1546,8 +1467,8 @@ func RemoveNodeFromAclPolicy(node models.Node) {
 	}
 }
 
-// CreateDefaultAclNetworkPolicies - create default acl network policies
-func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
+// CreateDefaultNetworkPolicies - create default acl network policies
+func CreateDefaultNetworkPolicies(netID models.NetworkID) {
 	if netID.String() == "" {
 		return
 	}
@@ -1610,5 +1531,5 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 		}
 		InsertAcl(defaultUserAcl)
 	}
-	CreateDefaultUserPolicies(netID)
+	CreateDefaultUserPolicies(netID.String())
 }

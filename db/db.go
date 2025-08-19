@@ -12,6 +12,8 @@ import (
 type ctxKey string
 
 const dbCtxKey ctxKey = "db"
+const isTxCtxKey ctxKey = "isTx"
+const started ctxKey = "started"
 
 var db *gorm.DB
 
@@ -44,7 +46,16 @@ func InitializeDB(models ...interface{}) error {
 		return err
 	}
 
-	return db.AutoMigrate(models...)
+	return db.Transaction(func(tx *gorm.DB) error {
+		for _, model := range models {
+			err = tx.AutoMigrate(model)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }
 
 // WithContext returns a new context with the db
@@ -102,13 +113,107 @@ func SetPagination(ctx context.Context, page, pageSize int) context.Context {
 //
 // Ensure InitializeDB has been called before using
 // this function.
+//
+// To commit or rollback the transaction, call the
+// CommitTx and RollbackTx functions with the context
+// returned by this function.
 func BeginTx(ctx context.Context) context.Context {
-	dbInCtx, ok := ctx.Value(dbCtxKey).(*gorm.DB)
-	if !ok {
-		return context.WithValue(ctx, dbCtxKey, db.Begin())
+	// if the context already has a transaction,
+	// don't begin a new one.
+	_, ok := ctx.Value(isTxCtxKey).(bool)
+	if ok {
+		// *this* function's caller did not start the transaction.
+		return context.WithValue(ctx, started, false)
 	}
 
-	return context.WithValue(ctx, dbCtxKey, dbInCtx.Begin())
+	dbInCtx, ok := ctx.Value(dbCtxKey).(*gorm.DB)
+	if !ok {
+		// begin a new transaction.
+		ctx = context.WithValue(ctx, dbCtxKey, db.Begin())
+		// mark the context as containing a transaction
+		// handle.
+		ctx = context.WithValue(ctx, isTxCtxKey, true)
+		// record that *this* function's caller started the
+		// transaction.
+		return context.WithValue(ctx, started, true)
+	}
+
+	// begin a new transaction.
+	ctx = context.WithValue(ctx, dbCtxKey, dbInCtx.Begin())
+	// mark the context as containing a transaction
+	// handle.
+	ctx = context.WithValue(ctx, isTxCtxKey, true)
+	// record that *this* function's caller started the
+	// transaction.
+	return context.WithValue(ctx, started, true)
+}
+
+// CommitTx commits a transaction started by BeginTx.
+//
+// This function does nothing if the context does not
+// contain a transaction. It also does nothing if the
+// commit is not done by the original caller of BeginTx.
+func CommitTx(ctx context.Context) {
+	isTxStarter, ok := ctx.Value(started).(bool)
+	if !ok {
+		return
+	}
+
+	if !isTxStarter {
+		// *this* function's caller did not start the transaction,
+		// so we don't need to commit yet.
+		return
+	}
+
+	_, ok = ctx.Value(isTxCtxKey).(bool)
+	if !ok {
+		// this should never happen, because the `started`
+		// key was set after the `isTx` key and it exists.
+		return
+	}
+
+	tx, ok := ctx.Value(dbCtxKey).(*gorm.DB)
+	if !ok {
+		// this should never happen, because the `isTx`
+		// key was set after the `db` key and it exists.
+		return
+	}
+
+	tx.Commit()
+}
+
+// RollbackTx rolls back a transaction started by BeginTx.
+//
+// This function does nothing if the context does not
+// contain a transaction. It also does nothing if the
+// rollback is not done by the original caller of BeginTx.
+func RollbackTx(ctx context.Context) {
+	isTxStarter, ok := ctx.Value(started).(bool)
+	if !ok {
+		return
+	}
+
+	if !isTxStarter {
+		// *this* function's caller did not start the transaction,
+		// so we don't need to rollback yet.
+		return
+	}
+
+	_, ok = ctx.Value(isTxCtxKey).(bool)
+	if !ok {
+		// this should never happen, because the `started`
+		// key was set after the `isTx` key and it exists.
+		return
+	}
+
+	tx, ok := ctx.Value(dbCtxKey).(*gorm.DB)
+	if !ok {
+		// this should never happen, because the `isTx`
+		// key was set after the `db` key and it exists.
+		return
+	}
+
+	tx.Rollback()
 }
 
 // CloseDB close a connection to the database

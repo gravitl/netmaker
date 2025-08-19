@@ -3,6 +3,7 @@ package db
 import (
 	"os"
 	"path/filepath"
+	"time"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -31,7 +32,7 @@ func (s *sqliteConnector) connect() (*gorm.DB, error) {
 
 	dbFilePath := filepath.Join("data", "netmaker.db")
 
-	// ensure netmaker_v1.db exists.
+	// ensure netmaker.db exists.
 	_, err = os.Stat(dbFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -49,7 +50,20 @@ func (s *sqliteConnector) connect() (*gorm.DB, error) {
 		}
 	}
 
-	return gorm.Open(sqlite.Open(dbFilePath), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(dbFilePath), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, err
+	}
+
+	sqlDB.SetMaxOpenConns(5)
+	sqlDB.SetConnMaxLifetime(time.Hour)
+
+	return db, nil
 }

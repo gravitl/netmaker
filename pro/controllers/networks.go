@@ -2,10 +2,14 @@ package controllers
 
 import (
 	"encoding/json"
+	"net/http"
+	"slices"
+	"strings"
+
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"net/http"
+	"github.com/gravitl/netmaker/models"
 )
 
 func NetworkHandlers(r *mux.Router) {
@@ -25,7 +29,9 @@ func getNetworkGraph(w http.ResponseWriter, r *http.Request) {
 	networkNodes = logic.AddStaticNodestoList(networkNodes)
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPIWithLocation(networkNodes[:])
-	logic.SortApiNodes(apiNodes[:])
+	slices.SortFunc(apiNodes, func(a, b models.ApiNode) int {
+		return strings.Compare(a.ID, b.ID)
+	})
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNodes)
 }

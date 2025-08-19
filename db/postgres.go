@@ -2,9 +2,9 @@ package db
 
 import (
 	"fmt"
-	"github.com/gravitl/netmaker/servercfg"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/gravitl/netmaker/config"
 	"gorm.io/driver/postgres"
@@ -19,7 +19,7 @@ type postgresConnector struct{}
 // postgresConnector.connect connects and
 // initializes a connection to postgres.
 func (pg *postgresConnector) connect() (*gorm.DB, error) {
-	pgConf := servercfg.GetSQLConf()
+	pgConf := GetSQLConf()
 	dsn := fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s connect_timeout=5",
 		pgConf.Host,
@@ -30,9 +30,22 @@ func (pg *postgresConnector) connect() (*gorm.DB, error) {
 		pgConf.SSLMode,
 	)
 
-	return gorm.Open(postgres.Open(dsn), &gorm.Config{
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	pgDB, err := db.DB()
+	if err != nil {
+		return nil, err
+	}
+
+	pgDB.SetMaxOpenConns(5)
+	pgDB.SetConnMaxLifetime(time.Hour)
+
+	return db, nil
 }
 
 func GetSQLConf() config.SQLConfig {

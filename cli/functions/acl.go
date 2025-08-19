@@ -2,9 +2,8 @@ package functions
 
 import (
 	"fmt"
-	"net/http"
-
 	"github.com/gravitl/netmaker/logic/acls"
+	"net/http"
 )
 
 // GetACL - fetch all ACLs associated with a network

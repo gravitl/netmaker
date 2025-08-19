@@ -2,15 +2,15 @@ package migrate
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"fmt"
+
+	"github.com/gravitl/netmaker/converters"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
-	"github.com/gravitl/netmaker/servercfg"
 	"gorm.io/gorm"
-	"os"
-	"path/filepath"
 )
 
 // ToSQLSchema migrates the data from key-value
@@ -18,44 +18,15 @@ import (
 //
 // This function archives the old data and does not
 // delete it.
-//
-// Based on the db server, the archival is done in the
-// following way:
-//
-// 1. Sqlite: Moves the old data to a
-// netmaker_archive.db file.
-//
-// 2. Postgres: Moves the data to a netmaker_archive
-// schema within the same database.
 func ToSQLSchema() error {
-	// initialize sql schema db.
-	err := db.InitializeDB(schema.ListModels()...)
-	if err != nil {
-		return err
-	}
-
-	// migrate, if not done already.
-	err = migrate()
-	if err != nil {
-		return err
-	}
-
-	// archive key-value schema db, if not done already.
-	// ignore errors.
-	_ = archive()
-
-	return nil
-}
-
-func migrate() error {
 	// begin a new transaction.
 	dbctx := db.BeginTx(context.TODO())
 	commit := false
 	defer func() {
 		if commit {
-			db.FromContext(dbctx).Commit()
+			db.CommitTx(dbctx)
 		} else {
-			db.FromContext(dbctx).Rollback()
+			db.RollbackTx(dbctx)
 		}
 	}()
 
@@ -69,15 +40,26 @@ func migrate() error {
 			return err
 		}
 
-		// initialize key-value schema db.
-		err := database.InitializeDatabase()
+		// migrate.
+		err = migrateNetworks(dbctx)
 		if err != nil {
 			return err
 		}
-		defer database.CloseDB()
 
-		// migrate.
-		// TODO: add migration code.
+		err = migrateHosts(dbctx)
+		if err != nil {
+			return err
+		}
+
+		err = migrateNodes(dbctx)
+		if err != nil {
+			return err
+		}
+
+		err = migrateACLs(dbctx)
+		if err != nil {
+			return err
+		}
 
 		// mark migration job completed.
 		err = migrationJob.Create(dbctx)
@@ -91,93 +73,96 @@ func migrate() error {
 	return nil
 }
 
-func archive() error {
-	dbServer := servercfg.GetDB()
-	if dbServer != "sqlite" && dbServer != "postgres" {
-		return nil
+func migrateNetworks(ctx context.Context) error {
+	networks, err := database.FetchRecords(database.NETWORKS_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return err
 	}
 
-	// begin a new transaction.
-	dbctx := db.BeginTx(context.TODO())
-	commit := false
-	defer func() {
-		if commit {
-			db.FromContext(dbctx).Commit()
-		} else {
-			db.FromContext(dbctx).Rollback()
-		}
-	}()
-
-	// check if key-value schema db archived already.
-	archivalJob := &schema.Job{
-		ID: "archival-v1.0.0",
-	}
-	err := archivalJob.Get(dbctx)
-	if err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return err
-		}
-
-		// archive.
-		switch dbServer {
-		case "sqlite":
-			err = sqliteArchiveOldData()
-		default:
-			err = pgArchiveOldData()
-		}
+	for _, networkJson := range networks {
+		var network models.Network
+		err = json.Unmarshal([]byte(networkJson), &network)
 		if err != nil {
 			return err
 		}
 
-		// mark archival job completed.
-		err = archivalJob.Create(dbctx)
+		_network := converters.ToSchemaNetwork(network)
+		err = _network.Create(ctx)
 		if err != nil {
 			return err
-		}
-
-		commit = true
-	} else {
-		// remove the residual
-		if dbServer == "sqlite" {
-			_ = os.Remove(filepath.Join("data", "netmaker.db"))
 		}
 	}
 
 	return nil
 }
 
-func sqliteArchiveOldData() error {
-	oldDBFilePath := filepath.Join("data", "netmaker.db")
-	archiveDBFilePath := filepath.Join("data", "netmaker_archive.db")
-
-	// check if netmaker_archive.db exist.
-	_, err := os.Stat(archiveDBFilePath)
-	if err == nil {
-		return nil
-	} else if !os.IsNotExist(err) {
+func migrateHosts(ctx context.Context) error {
+	hosts, err := database.FetchRecords(database.HOSTS_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
 
-	// rename old db file to netmaker_archive.db.
-	return os.Rename(oldDBFilePath, archiveDBFilePath)
-}
+	for _, hostJson := range hosts {
+		var host models.Host
+		err = json.Unmarshal([]byte(hostJson), &host)
+		if err != nil {
+			return err
+		}
 
-func pgArchiveOldData() error {
-	_, err := database.PGDB.Exec("CREATE SCHEMA IF NOT EXISTS netmaker_archive")
-	if err != nil {
-		return err
-	}
-
-	for _, table := range database.Tables {
-		_, err := database.PGDB.Exec(
-			fmt.Sprintf(
-				"ALTER TABLE public.%s SET SCHEMA netmaker_archive",
-				table,
-			),
-		)
+		_host := converters.ToSchemaHost(host)
+		// skip nodes creation, it will be done later.
+		_host.Nodes = []schema.Node{}
+		err = _host.Create(ctx)
 		if err != nil {
 			return err
 		}
 	}
+
+	return nil
+}
+
+func migrateNodes(ctx context.Context) error {
+	nodes, err := database.FetchRecords(database.NODES_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return err
+	}
+
+	for _, nodeJson := range nodes {
+		var node models.Node
+		err = json.Unmarshal([]byte(nodeJson), &node)
+		if err != nil {
+			return err
+		}
+
+		_node := converters.ToSchemaNode(node)
+		err = _node.Create(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func migrateACLs(ctx context.Context) error {
+	acls, err := database.FetchRecords(database.ACLS_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return err
+	}
+
+	for _, aclJson := range acls {
+		var acl models.Acl
+		err = json.Unmarshal([]byte(aclJson), &acl)
+		if err != nil {
+			return err
+		}
+
+		_acl := converters.ToSchemaACL(acl)
+		err = _acl.Create(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }

@@ -245,7 +245,7 @@ func CheckNetRegAndHostUpdate(key models.EnrollmentKey, h *models.Host, username
 	for _, netID := range key.Networks {
 		if network, err := logic.GetNetwork(netID); err == nil {
 			if network.AutoJoin == "false" {
-				if logic.DoesHostExistinTheNetworkAlready(h, models.NetworkID(netID)) {
+				if logic.DoesHostExistInTheNetworkAlready(h, models.NetworkID(netID)) {
 					continue
 				}
 				if err := (&schema.PendingHost{

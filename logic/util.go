@@ -2,10 +2,10 @@
 package logic
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base32"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net"
@@ -18,9 +18,10 @@ import (
 
 	"github.com/blang/semver"
 	"github.com/c-robinson/iplib"
-	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 )
 
 // IsBase64 - checks if a string is in base64 format
@@ -56,23 +57,11 @@ func IsAddressInCIDR(address net.IP, cidr string) bool {
 
 // SetNetworkNodesLastModified - sets the network nodes last modified
 func SetNetworkNodesLastModified(networkName string) error {
-
-	timestamp := time.Now().Unix()
-
-	network, err := GetParentNetwork(networkName)
-	if err != nil {
-		return err
+	_network := &schema.Network{
+		ID:                networkName,
+		NodesLastModified: time.Now(),
 	}
-	network.NodesLastModified = timestamp
-	data, err := json.Marshal(&network)
-	if err != nil {
-		return err
-	}
-	err = database.Insert(networkName, string(data), database.NETWORKS_TABLE_NAME)
-	if err != nil {
-		return err
-	}
-	return nil
+	return _network.UpdateNodesLastModified(db.WithContext(context.TODO()))
 }
 
 // RandomString - returns a random string in a charset
@@ -96,6 +85,8 @@ func StringSliceContains(slice []string, item string) bool {
 	return false
 }
 func SetVerbosity(logLevel int) {
+	logger.Verbosity = logLevel
+
 	var level slog.Level
 	switch logLevel {
 
@@ -117,7 +108,6 @@ func SetVerbosity(logLevel int) {
 	})
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
-
 }
 
 // NormalizeCIDR - returns the first address of CIDR

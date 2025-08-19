@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"runtime/debug"
 	"sync"
 	"syscall"
@@ -56,10 +55,8 @@ func main() {
 	servercfg.SetVersion(version)
 	fmt.Println(models.RetrieveLogo()) // print the logo
 	initialize()                       // initial db and acls
-	logic.SetAllocatedIpMap()
-	defer logic.ClearAllocatedIpMap()
 	setGarbageCollection()
-	setVerbosity()
+	logic.SetVerbosity(int(logic.GetServerSettings().Verbosity))
 	if servercfg.DeployedByOperator() && !servercfg.IsPro {
 		logic.SetFreeTierLimits()
 	}
@@ -107,26 +104,25 @@ func initialize() { // Client Mode Prereq Check
 	// initialize sql schema db.
 	err = db.InitializeDB(schema.ListModels()...)
 	if err != nil {
-		logger.FatalLog("error connecting to database: ", err.Error())
+		logger.FatalLog("error connection to database: ", err.Error())
 	}
-
 	logger.Log(0, "database successfully connected")
 
-	// initialize kv schema db.
 	if err = database.InitializeDatabase(); err != nil {
-		logger.FatalLog("error initializing database: ", err.Error())
+		logger.FatalLog("error connecting to database: ", err.Error())
 	}
+	logger.Log(0, "database successfully connected")
 
 	initializeUUID()
 	//initialize cache
-	_, _ = logic.GetNetworks()
-	_, _ = logic.GetAllNodes()
-	_, _ = logic.GetAllHosts()
 	_, _ = logic.GetAllExtClients()
-	_ = logic.ListAcls()
 	_, _ = logic.GetAllEnrollmentKeys()
 
 	migrate.Run()
+	err = migrate.ToSQLSchema()
+	if err != nil {
+		logger.FatalLog("error migrating to SQL schema:", err.Error())
+	}
 
 	logic.SetJWTSecret()
 	logic.InitialiseRoles()
@@ -227,35 +223,6 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 	}()
 	<-ctx.Done()
 	logger.Log(0, "Message Queue shutting down")
-}
-
-func setVerbosity() {
-	verbose := int(servercfg.GetVerbosity())
-	logger.Verbosity = verbose
-	logLevel := &slog.LevelVar{}
-	replace := func(groups []string, a slog.Attr) slog.Attr {
-		if a.Key == slog.SourceKey {
-			a.Value = slog.StringValue(filepath.Base(a.Value.String()))
-		}
-		return a
-	}
-	logger := slog.New(
-		slog.NewJSONHandler(
-			os.Stderr,
-			&slog.HandlerOptions{AddSource: true, ReplaceAttr: replace, Level: logLevel},
-		),
-	)
-	slog.SetDefault(logger)
-	switch verbose {
-	case 4:
-		logLevel.Set(slog.LevelDebug)
-	case 3:
-		logLevel.Set(slog.LevelInfo)
-	case 2:
-		logLevel.Set(slog.LevelWarn)
-	default:
-		logLevel.Set(slog.LevelError)
-	}
 }
 
 func setGarbageCollection() {

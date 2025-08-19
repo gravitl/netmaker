@@ -2,11 +2,11 @@ package logic
 
 import (
 	"errors"
+	"github.com/gravitl/netmaker/logic/acls"
+	"golang.org/x/exp/slog"
 	"sort"
 
-	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/models"
-	"golang.org/x/exp/slog"
 )
 
 // functions defined here, handle client ACLs, should be set on ee

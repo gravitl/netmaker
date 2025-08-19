@@ -253,7 +253,7 @@ func ValidateDNSCreate(entry models.DNSEntry) error {
 	})
 
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
-		_, err := GetParentNetwork(entry.Network)
+		_, err := GetNetwork(entry.Network)
 		return err == nil
 	})
 
@@ -285,7 +285,7 @@ func ValidateDNSUpdate(change models.DNSEntry, entry models.DNSEntry) error {
 		return err == nil && num == 0
 	})
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
-		_, err := GetParentNetwork(change.Network)
+		_, err := GetNetwork(change.Network)
 		return err == nil
 	})
 

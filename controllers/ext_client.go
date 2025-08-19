@@ -196,7 +196,7 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	network, err := logic.GetParentNetwork(client.Network)
+	network, err := logic.GetNetwork(client.Network)
 	if err != nil {
 		logger.Log(
 			1,
@@ -416,7 +416,7 @@ func getExtClientHAConf(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
 	networkid := params["network"]
-	network, err := logic.GetParentNetwork(networkid)
+	network, err := logic.GetNetwork(networkid)
 	if err != nil {
 		logger.Log(
 			1,

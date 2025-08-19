@@ -137,8 +137,11 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			IngressInfo: make(map[string]models.IngressInfo),
 			AclRules:    make(map[string]models.AclRule),
 		},
-		PeerIDs:         make(models.PeerMap, 0),
-		Peers:           []wgtypes.PeerConfig{},
+		PeerIDs: make(models.PeerMap, 0),
+		Peers:   []wgtypes.PeerConfig{},
+		HostPeerInfo: models.HostPeerInfo{
+			NetworkPeerIDs: make(map[models.NetworkID]models.PeerMap),
+		},
 		NodePeers:       []wgtypes.PeerConfig{},
 		HostNetworkInfo: models.HostInfoMap{},
 		ServerConfig:    GetServerInfo(),
@@ -185,6 +188,8 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		if !hostPeerUpdate.IsInternetGw {
 			hostPeerUpdate.IsInternetGw = IsInternetGw(node)
 		}
+
+		networkPeersInfo := make(models.PeerMap)
 		defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 		defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 		if (defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
@@ -365,6 +370,14 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				(allowedToComm) &&
 				(deletedNode == nil || (peer.ID.String() != deletedNode.ID.String())) {
 				peerConfig.AllowedIPs = GetAllowedIPs(&node, &peer, nil) // only append allowed IPs if valid connection
+				networkPeersInfo[peerHost.PublicKey.String()] = models.IDandAddr{
+					ID:         peer.ID.String(),
+					HostID:     peerHost.ID.String(),
+					Address:    peer.PrimaryAddress(),
+					Name:       peerHost.Name,
+					Network:    peer.Network,
+					ListenPort: peerHost.ListenPort,
+				}
 			}
 
 			var nodePeer wgtypes.PeerConfig
@@ -431,6 +444,8 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 						hostPeerUpdate.PeerIDs[extPeerIdAndAddr.ID] = extPeerIdAndAddr
 						hostPeerUpdate.NodePeers = append(hostPeerUpdate.NodePeers, extPeers...)
 					}
+
+					networkPeersInfo[extPeerIdAndAddr.ID] = extPeerIdAndAddr
 				}
 			} else if !database.IsEmptyRecord(err) {
 				logger.Log(1, "error retrieving external clients:", err.Error())
@@ -506,7 +521,10 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			}
 			hostPeerUpdate.FwUpdate.EgressInfo[fmt.Sprintf("%s-%s", node.ID.String(), "inet")] = inetEgressInfo
 		}
+
+		hostPeerUpdate.HostPeerInfo.NetworkPeerIDs[models.NetworkID(node.Network)] = networkPeersInfo
 	}
+
 	// == post peer calculations ==
 	// indicate removal if no allowed IPs were calculated
 	for i := range hostPeerUpdate.Peers {
