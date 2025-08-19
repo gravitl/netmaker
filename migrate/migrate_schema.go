@@ -110,6 +110,8 @@ func migrateHosts(ctx context.Context) error {
 		}
 
 		_host := converters.ToSchemaHost(host)
+		// skip nodes creation, it will be done later.
+		_host.Nodes = []schema.Node{}
 		err = _host.Create(ctx)
 		if err != nil {
 			return err
