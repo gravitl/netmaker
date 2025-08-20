@@ -581,13 +581,7 @@ func CreateUserGroup(g *models.UserGroup) error {
 	if err != nil {
 		return err
 	}
-	err = database.Insert(g.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
-	if err != nil {
-		return err
-	}
-	// create default network gateway policies
-	go CreateDefaultUserGroupNetworkPolicies(*g)
-	return nil
+	return database.Insert(g.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
 }
 
 // GetUserGroup - fetches user group
@@ -652,11 +646,7 @@ func UpdateUserGroup(g models.UserGroup) error {
 	if err != nil {
 		return err
 	}
-	err = database.Insert(g.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
-	if err != nil {
-		return err
-	}
-	return nil
+	return database.Insert(g.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
 }
 
 // DeleteUserGroup - deletes user group
@@ -1211,39 +1201,6 @@ func UpdateUserGwAccess(currentUser, changeUser models.User) {
 		logic.SetDNS()
 	}
 
-}
-
-func CreateDefaultUserGroupNetworkPolicies(g models.UserGroup) {
-	for netID := range g.NetworkRoles {
-		if !logic.IsAclExists(fmt.Sprintf("%s.%s-grp", netID, g.ID.String())) {
-			userGroupAcl := models.Acl{
-				ID:          fmt.Sprintf("%s.%s-grp", netID, g.ID.String()),
-				Default:     true,
-				Name:        "All Users",
-				MetaData:    "This policy gives access to everything in the network for an user",
-				NetworkID:   netID,
-				Proto:       models.ALL,
-				ServiceType: models.Any,
-				Port:        []string{},
-				RuleType:    models.UserPolicy,
-				Src: []models.AclPolicyTag{
-					{
-						ID:    models.UserGroupAclID,
-						Value: g.ID.String(),
-					},
-				},
-				Dst: []models.AclPolicyTag{{
-					ID:    models.NodeTagID,
-					Value: fmt.Sprintf("%s.%s", netID.String(), models.GwTagName),
-				}},
-				AllowedDirection: models.TrafficDirectionUni,
-				Enabled:          true,
-				CreatedBy:        "auto",
-				CreatedAt:        time.Now().UTC(),
-			}
-			logic.InsertAcl(userGroupAcl)
-		}
-	}
 }
 
 func CreateDefaultUserPolicies(netID models.NetworkID) {
