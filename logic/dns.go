@@ -7,11 +7,13 @@ import (
 	"os"
 	"regexp"
 	"sort"
+	"strings"
 
 	validator "github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/txn2/txeh"
 )
 
@@ -324,4 +326,91 @@ func CreateDNS(entry models.DNSEntry) (models.DNSEntry, error) {
 
 	err = database.Insert(k, string(data), database.DNS_TABLE_NAME)
 	return entry, err
+}
+
+func ValidateNameserverReq(ns models.NameserverReq) error {
+	if ns.Name == "" {
+		return errors.New("name is required")
+	}
+	if len(ns.Servers) == 0 {
+		return errors.New("atleast one nameserver should be specified")
+	}
+	if !IsValidMatchDomain(ns.MatchDomain) {
+		return errors.New("invalid match domain")
+	}
+	return nil
+}
+
+func ValidateUpdateNameserverReq(updateNs schema.Nameserver) error {
+	if updateNs.Name == "" {
+		return errors.New("name is required")
+	}
+	if len(updateNs.Servers) == 0 {
+		return errors.New("atleast one nameserver should be specified")
+	}
+	if !IsValidMatchDomain(updateNs.MatchDomain) {
+		return errors.New("invalid match domain")
+	}
+	return nil
+}
+
+// IsValidMatchDomain reports whether s is a valid "match domain".
+// Rules (simple/ASCII):
+//   - "~." is allowed (match all).
+//   - Optional leading "~" allowed (e.g., "~example.com").
+//   - Optional single trailing "." allowed (FQDN form).
+//   - No wildcards "*", no leading ".", no underscores.
+//   - Labels: letters/digits/hyphen (LDH), 1–63 chars, no leading/trailing hyphen.
+//   - Total length (without trailing dot) ≤ 253.
+func IsValidMatchDomain(s string) bool {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return false
+	}
+	if s == "~." { // special case: match-all
+		return true
+	}
+
+	// Strip optional leading "~"
+	if strings.HasPrefix(s, "~") {
+		s = s[1:]
+		if s == "" {
+			return false
+		}
+	}
+
+	// Allow exactly one trailing dot
+	if strings.HasSuffix(s, ".") {
+		s = s[:len(s)-1]
+		if s == "" {
+			return false
+		}
+	}
+
+	// Disallow leading dot, wildcards, underscores
+	if strings.HasPrefix(s, ".") || strings.Contains(s, "*") || strings.Contains(s, "_") {
+		return false
+	}
+
+	// Lowercase for ASCII checks
+	s = strings.ToLower(s)
+
+	// Length check
+	if len(s) > 253 {
+		return false
+	}
+
+	// Label regex: LDH, 1–63, no leading/trailing hyphen
+	reLabel := regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`)
+
+	parts := strings.Split(s, ".")
+	for _, lbl := range parts {
+		if len(lbl) == 0 || len(lbl) > 63 {
+			return false
+		}
+		if !reLabel.MatchString(lbl) {
+			return false
+		}
+	}
+	return true
 }
