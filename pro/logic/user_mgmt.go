@@ -1225,8 +1225,8 @@ func CreateDefaultUserGroupNetworkPolicies(g models.UserGroup) {
 			userGroupAcl := models.Acl{
 				ID:          fmt.Sprintf("%s.%s-grp", netID, g.ID.String()),
 				Default:     true,
-				Name:        "All Users",
-				MetaData:    "This policy gives access to everything in the network for an user",
+				Name:        fmt.Sprintf("%s gateways", g.Name),
+				MetaData:    "This policy gives access to all gateways for the users in the group",
 				NetworkID:   netID,
 				Proto:       models.ALL,
 				ServiceType: models.Any,
