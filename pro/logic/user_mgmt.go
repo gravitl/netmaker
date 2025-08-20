@@ -586,7 +586,7 @@ func CreateUserGroup(g *models.UserGroup) error {
 		return err
 	}
 	// create default network gateway policies
-	go CreateDefaultUserGroupNetworkPolicies(*g)
+	CreateDefaultUserGroupNetworkPolicies(*g)
 	return nil
 }
 
@@ -674,7 +674,7 @@ func DeleteUserGroup(gid models.UserGroupID) error {
 		logic.UpsertUser(user)
 	}
 	// create default network gateway policies
-	go DeleteDefaultUserGroupNetworkPolicies(g)
+	DeleteDefaultUserGroupNetworkPolicies(g)
 	return database.DeleteRecord(database.USER_GROUPS_TABLE_NAME, gid.String())
 }
 

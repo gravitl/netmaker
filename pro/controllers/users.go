@@ -528,6 +528,7 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: models.Dashboard,
 	})
+	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroupReq.Group, "created user group")
 }
 
@@ -656,6 +657,7 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 	})
 
 	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userG.NetworkRoles, make(map[models.NetworkID]map[models.UserRoleID]struct{}))
+	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user group")
 }
 
