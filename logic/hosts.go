@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
 	"sort"
 	"sync"
 
@@ -125,7 +126,7 @@ func GetAllHostsWithStatus(status models.NodeStatus) ([]models.Host, error) {
 
 		nodes := GetHostNodes(&host)
 		for _, node := range nodes {
-			GetNodeCheckInStatus(&node, false)
+			getNodeCheckInStatus(&node, false)
 			if node.Status == status {
 				validHosts = append(validHosts, host)
 				break
@@ -172,6 +173,18 @@ func GetHostsMap() (map[string]models.Host, error) {
 	}
 
 	return currHostMap, nil
+}
+
+func DoesHostExistinTheNetworkAlready(h *models.Host, network models.NetworkID) bool {
+	if len(h.Nodes) > 0 {
+		for _, nodeID := range h.Nodes {
+			node, err := GetNodeByID(nodeID)
+			if err == nil && node.Network == network.String() {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // GetHost - gets a host from db given id
@@ -306,6 +319,10 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 		currHost.EndpointIPv6 = newHost.EndpointIPv6
 		sendPeerUpdate = true
 		isEndpointChanged = true
+	}
+	if !reflect.DeepEqual(currHost.Interfaces, newHost.Interfaces) {
+		currHost.Interfaces = newHost.Interfaces
+		sendPeerUpdate = true
 	}
 
 	if isEndpointChanged {

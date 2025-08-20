@@ -49,6 +49,8 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUser)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/{username}/enable", logic.SecurityCheck(true, http.HandlerFunc(enableUserAccount))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/disable", logic.SecurityCheck(true, http.HandlerFunc(disableUserAccount))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}/settings", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserSettings)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/users/{username}/settings", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUserSettings)))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/users", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserV1)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users", logic.SecurityCheck(true, http.HandlerFunc(getUsers))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/roles", logic.SecurityCheck(true, http.HandlerFunc(ListRoles))).Methods(http.MethodGet)
@@ -255,6 +257,10 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func authenticateUser(response http.ResponseWriter, request *http.Request) {
+	appName := request.Header.Get("X-Application-Name")
+	if appName == "" {
+		appName = logic.NetmakerDesktopApp
+	}
 
 	// Auth request consists of Mac Address and Password (from node that is authorizing
 	// in case of Master, auth is ignored and mac is set to "mastermac"
@@ -313,7 +319,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	}
 
 	username := authRequest.UserName
-	jwt, err := logic.VerifyAuthRequest(authRequest)
+	jwt, err := logic.VerifyAuthRequest(authRequest, appName)
 	if err != nil {
 		logger.Log(0, username, "user validation failed: ",
 			err.Error())
@@ -637,6 +643,11 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 func verifyTOTP(w http.ResponseWriter, r *http.Request) {
 	username := r.Header.Get("user")
 
+	appName := r.Header.Get("X-Application-Name")
+	if appName == "" {
+		appName = logic.NetmakerDesktopApp
+	}
+
 	var req models.UserTOTPVerificationParams
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
@@ -662,7 +673,7 @@ func verifyTOTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if totp.Validate(req.TOTP, user.TOTPSecret) {
-		jwt, err := logic.CreateUserJWT(user.UserName, user.PlatformRoleID)
+		jwt, err := logic.CreateUserJWT(user.UserName, user.PlatformRoleID, appName)
 		if err != nil {
 			err = fmt.Errorf("error creating token: %v", err)
 			logger.Log(0, err.Error())
@@ -808,6 +819,46 @@ func disableUserAccount(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, "user account disabled")
 }
 
+// @Summary     Get a user's preferences and settings
+// @Router      /api/users/{username}/settings [get]
+// @Tags        Users
+// @Param       username path string true "Username of the user"
+// @Success     200 {object} models.SuccessResponse
+func getUserSettings(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("user")
+	userSettings := logic.GetUserSettings(userID)
+	logic.ReturnSuccessResponseWithJson(w, r, userSettings, "fetched user settings")
+}
+
+// @Summary     Update a user's preferences and settings
+// @Router      /api/users/{username}/settings [put]
+// @Tags        Users
+// @Param       username path string true "Username of the user"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func updateUserSettings(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("user")
+	var req models.UserSettings
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		logger.Log(0, "failed to decode request body: ", err.Error())
+		err = fmt.Errorf("invalid request body: %v", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	err = logic.UpsertUserSettings(userID, req)
+	if err != nil {
+		err = fmt.Errorf("failed to update user settings: %v", err.Error())
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	logic.ReturnSuccessResponseWithJson(w, r, req, "updated user settings")
+}
+
 // swagger:route GET /api/v1/users user getUserV1
 //
 // Get an individual user with role info.
@@ -833,6 +884,9 @@ func getUserV1(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	user.NumAccessTokens, _ = (&schema.UserAccessToken{
+		UserName: user.UserName,
+	}).CountByUser(r.Context())
 	userRoleTemplate, err := logic.GetRole(user.PlatformRoleID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -871,6 +925,12 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	users, err := logic.GetUsers()
+
+	for i := range users {
+		users[i].NumAccessTokens, _ = (&schema.UserAccessToken{
+			UserName: users[i].UserName,
+		}).CountByUser(r.Context())
+	}
 
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
@@ -1324,6 +1384,14 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
+	if user.AuthType == models.OAuth || user.ExternalIdentityProviderID != "" {
+		err = fmt.Errorf("cannot delete idp user %s", username)
+		logger.Log(0, username, "failed to delete user: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
 	err = logic.DeleteUser(username)
 	if err != nil {
 		logger.Log(0, username,
@@ -1366,6 +1434,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+		_ = logic.DeleteUserInvite(user.UserName)
 		mq.PublishPeerUpdate(false)
 		if servercfg.IsDNSMode() {
 			logic.SetDNS()

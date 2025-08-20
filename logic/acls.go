@@ -1385,6 +1385,19 @@ func ValidateCreateAclReq(req models.Acl) error {
 	// if err != nil {
 	// 	return err
 	// }
+	for _, src := range req.Src {
+		if src.ID == models.UserGroupAclID {
+			userGroup, err := GetUserGroup(models.UserGroupID(src.Value))
+			if err != nil {
+				return err
+			}
+
+			_, ok := userGroup.NetworkRoles[req.NetworkID]
+			if !ok {
+				return fmt.Errorf("user group %s does not have access to network %s", src.Value, req.NetworkID)
+			}
+		}
+	}
 	return nil
 }
 

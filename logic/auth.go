@@ -24,6 +24,12 @@ const (
 	auth_key = "netmaker_auth"
 )
 
+const (
+	DashboardApp       = "dashboard"
+	NetclientApp       = "netclient"
+	NetmakerDesktopApp = "netmaker-desktop"
+)
+
 var (
 	superUser = models.User{}
 )
@@ -32,6 +38,7 @@ func ClearSuperUserCache() {
 	superUser = models.User{}
 }
 
+var IsOAuthConfigured = func() bool { return false }
 var ResetAuthProvider = func() {}
 var ResetIDPSyncHook = func() {}
 
@@ -178,7 +185,8 @@ func CreateUser(user *models.User) error {
 		user.AuthType = models.OAuth
 	}
 	AddGlobalNetRolesToAdmins(user)
-	_, err = CreateUserJWT(user.UserName, user.PlatformRoleID)
+	// create user will always be called either from API or Dashboard.
+	_, err = CreateUserJWT(user.UserName, user.PlatformRoleID, DashboardApp)
 	if err != nil {
 		logger.Log(0, "failed to generate token", err.Error())
 		return err
@@ -212,7 +220,7 @@ func CreateSuperAdmin(u *models.User) error {
 }
 
 // VerifyAuthRequest - verifies an auth request
-func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
+func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (string, error) {
 	var result models.User
 	if authRequest.UserName == "" {
 		return "", errors.New("username can't be empty")
@@ -245,7 +253,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 		return tokenString, nil
 	} else {
 		// Create a new JWT for the node
-		tokenString, err := CreateUserJWT(authRequest.UserName, result.PlatformRoleID)
+		tokenString, err := CreateUserJWT(authRequest.UserName, result.PlatformRoleID, appName)
 		if err != nil {
 			slog.Error("error creating jwt", "error", err)
 			return "", err
@@ -483,8 +491,9 @@ func GetState(state string) (*models.SsoState, error) {
 }
 
 // SetState - sets a state with new expiration
-func SetState(state string) error {
+func SetState(appName, state string) error {
 	s := models.SsoState{
+		AppName:    appName,
 		Value:      state,
 		Expiration: time.Now().Add(models.DefaultExpDuration),
 	}

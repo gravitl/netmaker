@@ -10,6 +10,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gravitl/netmaker/pro/idp"
+	"github.com/gravitl/netmaker/pro/idp/azure"
+	"github.com/gravitl/netmaker/pro/idp/google"
+	"github.com/gravitl/netmaker/pro/idp/okta"
+
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -64,6 +69,8 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/ingress/{ingress_id}", logic.SecurityCheck(true, http.HandlerFunc(ingressGatewayUsers))).Methods(http.MethodGet)
 
 	r.HandleFunc("/api/idp/sync", logic.SecurityCheck(true, http.HandlerFunc(syncIDP))).Methods(http.MethodPost)
+	r.HandleFunc("/api/idp/sync/test", logic.SecurityCheck(true, http.HandlerFunc(testIDPSync))).Methods(http.MethodPost)
+	r.HandleFunc("/api/idp/sync/status", logic.SecurityCheck(true, http.HandlerFunc(getIDPSyncStatus))).Methods(http.MethodGet)
 	r.HandleFunc("/api/idp", logic.SecurityCheck(true, http.HandlerFunc(removeIDPIntegration))).Methods(http.MethodDelete)
 }
 
@@ -464,43 +471,6 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	networks, err := logic.GetNetworks()
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-	for _, network := range networks {
-		acl := models.Acl{
-			ID:          uuid.New().String(),
-			Name:        fmt.Sprintf("%s group", userGroupReq.Group.Name),
-			MetaData:    "This Policy allows user group to communicate with all gateways",
-			Default:     false,
-			ServiceType: models.Any,
-			NetworkID:   models.NetworkID(network.NetID),
-			Proto:       models.ALL,
-			RuleType:    models.UserPolicy,
-			Src: []models.AclPolicyTag{
-				{
-					ID:    models.UserGroupAclID,
-					Value: userGroupReq.Group.ID.String(),
-				},
-			},
-			Dst: []models.AclPolicyTag{
-				{
-					ID:    models.NodeTagID,
-					Value: fmt.Sprintf("%s.%s", models.NetworkID(network.NetID), models.GwTagName),
-				}},
-			AllowedDirection: models.TrafficDirectionUni,
-			Enabled:          true,
-			CreatedBy:        "auto",
-			CreatedAt:        time.Now().UTC(),
-		}
-		err = logic.InsertAcl(acl)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-	}
 
 	for _, userID := range userGroupReq.Members {
 		user, err := logic.GetUser(userID)
@@ -575,8 +545,6 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	proLogic.DeleteDefaultUserGroupNetworkPolicies(currUserG)
-	proLogic.CreateDefaultUserGroupNetworkPolicies(userGroup)
 	logic.LogEvent(&models.Event{
 		Action: models.Update,
 		Source: models.Subject{
@@ -596,6 +564,93 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: models.Dashboard,
 	})
+
+	go func() {
+		networksAdded := make([]models.NetworkID, 0)
+		networksRemoved := make([]models.NetworkID, 0)
+
+		for networkID := range userGroup.NetworkRoles {
+			if _, ok := currUserG.NetworkRoles[networkID]; !ok {
+				networksAdded = append(networksAdded, networkID)
+			}
+		}
+
+		for networkID := range currUserG.NetworkRoles {
+			if _, ok := userGroup.NetworkRoles[networkID]; !ok {
+				networksRemoved = append(networksRemoved, networkID)
+			}
+		}
+
+		for _, networkID := range networksAdded {
+			// ensure the network exists.
+			network, err := logic.GetNetwork(networkID.String())
+			if err != nil {
+				continue
+			}
+
+			// insert acl if the network is added to the group.
+			acl := models.Acl{
+				ID:          uuid.New().String(),
+				Name:        fmt.Sprintf("%s group", userGroup.Name),
+				MetaData:    "This Policy allows user group to communicate with all gateways",
+				Default:     false,
+				ServiceType: models.Any,
+				NetworkID:   models.NetworkID(network.NetID),
+				Proto:       models.ALL,
+				RuleType:    models.UserPolicy,
+				Src: []models.AclPolicyTag{
+					{
+						ID:    models.UserGroupAclID,
+						Value: userGroup.ID.String(),
+					},
+				},
+				Dst: []models.AclPolicyTag{
+					{
+						ID:    models.NodeTagID,
+						Value: fmt.Sprintf("%s.%s", models.NetworkID(network.NetID), models.GwTagName),
+					}},
+				AllowedDirection: models.TrafficDirectionUni,
+				Enabled:          true,
+				CreatedBy:        "auto",
+				CreatedAt:        time.Now().UTC(),
+			}
+			_ = logic.InsertAcl(acl)
+		}
+
+		// since this group doesn't have a role for this network,
+		// there is no point in having this group as src in any
+		// of the network's acls.
+		for _, networkID := range networksRemoved {
+			acls, err := logic.ListAclsByNetwork(networkID)
+			if err != nil {
+				continue
+			}
+
+			for _, acl := range acls {
+				var hasGroupSrc bool
+				newAclSrc := make([]models.AclPolicyTag, 0)
+				for _, src := range acl.Src {
+					if src.ID == models.UserGroupAclID && src.Value == userGroup.ID.String() {
+						hasGroupSrc = true
+					} else {
+						newAclSrc = append(newAclSrc, src)
+					}
+				}
+
+				if hasGroupSrc {
+					if len(newAclSrc) == 0 {
+						// no other src exists, delete acl.
+						_ = logic.DeleteAcl(acl)
+					} else {
+						// other sources exist, update acl.
+						acl.Src = newAclSrc
+						_ = logic.UpsertAcl(acl)
+					}
+				}
+			}
+		}
+	}()
+
 	// reset configs for service user
 	go proLogic.UpdatesUserGwAccessOnGrpUpdates(currUserG.NetworkRoles, userGroup.NetworkRoles)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")
@@ -1259,6 +1314,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
 		return
 	}
+	deviceID := r.URL.Query().Get("device_id")
 	remoteAccessClientID := r.URL.Query().Get("remote_access_clientid")
 	var req models.UserRemoteGwsReq
 	if remoteAccessClientID == "" {
@@ -1284,58 +1340,95 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userGwNodes := proLogic.GetUserRAGNodes(*user)
+
+	userExtClients := make(map[string][]models.ExtClient)
+
+	// group all extclients of the requesting user by ingress
+	// gateway.
 	for _, extClient := range allextClients {
-		node, ok := userGwNodes[extClient.IngressGatewayID]
+		// filter our extclients that don't belong to this user.
+		if extClient.OwnerID != username {
+			continue
+		}
+
+		_, ok := userExtClients[extClient.IngressGatewayID]
+		if !ok {
+			userExtClients[extClient.IngressGatewayID] = []models.ExtClient{}
+		}
+
+		userExtClients[extClient.IngressGatewayID] = append(userExtClients[extClient.IngressGatewayID], extClient)
+	}
+
+	for ingressGatewayID, extClients := range userExtClients {
+		node, ok := userGwNodes[ingressGatewayID]
 		if !ok {
 			continue
 		}
-		if extClient.RemoteAccessClientID == req.RemoteAccessClientID && extClient.OwnerID == username {
 
-			host, err := logic.GetHost(node.HostID.String())
-			if err != nil {
-				continue
+		var gwClient models.ExtClient
+		var found bool
+		if deviceID != "" {
+			for _, extClient := range extClients {
+				if extClient.DeviceID == deviceID {
+					gwClient = extClient
+					found = true
+					break
+				}
 			}
-			network, err := logic.GetNetwork(node.Network)
-			if err != nil {
-				slog.Error("failed to get node network", "error", err)
-				continue
-			}
-			nodesWithStatus := logic.AddStatusToNodes([]models.Node{node}, false)
-			if len(nodesWithStatus) > 0 {
-				node = nodesWithStatus[0]
-			}
-
-			gws := userGws[node.Network]
-			if extClient.DNS == "" {
-				extClient.DNS = node.IngressDNS
-			}
-
-			extClient.IngressGatewayEndpoint = utils.GetExtClientEndpoint(
-				host.EndpointIP,
-				host.EndpointIPv6,
-				logic.GetPeerListenPort(host),
-			)
-			extClient.AllowedIPs = logic.GetExtclientAllowedIPs(extClient)
-			gws = append(gws, models.UserRemoteGws{
-				GwID:              node.ID.String(),
-				GWName:            host.Name,
-				Network:           node.Network,
-				GwClient:          extClient,
-				Connected:         true,
-				IsInternetGateway: node.IsInternetGateway,
-				GwPeerPublicKey:   host.PublicKey.String(),
-				GwListenPort:      logic.GetPeerListenPort(host),
-				Metadata:          node.Metadata,
-				AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
-				NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
-				Status:            node.Status,
-				DnsAddress:        node.IngressDNS,
-				Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
-			})
-			userGws[node.Network] = gws
-			delete(userGwNodes, node.ID.String())
 		}
+
+		if !found {
+			// TODO: prevent ip clashes.
+			if len(extClients) > 0 {
+				gwClient = extClients[0]
+			}
+		}
+
+		host, err := logic.GetHost(node.HostID.String())
+		if err != nil {
+			continue
+		}
+		network, err := logic.GetNetwork(node.Network)
+		if err != nil {
+			slog.Error("failed to get node network", "error", err)
+			continue
+		}
+		nodesWithStatus := logic.AddStatusToNodes([]models.Node{node}, false)
+		if len(nodesWithStatus) > 0 {
+			node = nodesWithStatus[0]
+		}
+
+		gws := userGws[node.Network]
+		if gwClient.DNS == "" {
+			gwClient.DNS = node.IngressDNS
+		}
+
+		gwClient.IngressGatewayEndpoint = utils.GetExtClientEndpoint(
+			host.EndpointIP,
+			host.EndpointIPv6,
+			logic.GetPeerListenPort(host),
+		)
+		gwClient.AllowedIPs = logic.GetExtclientAllowedIPs(gwClient)
+		gws = append(gws, models.UserRemoteGws{
+			GwID:              node.ID.String(),
+			GWName:            host.Name,
+			Network:           node.Network,
+			GwClient:          gwClient,
+			Connected:         true,
+			IsInternetGateway: node.IsInternetGateway,
+			GwPeerPublicKey:   host.PublicKey.String(),
+			GwListenPort:      logic.GetPeerListenPort(host),
+			Metadata:          node.Metadata,
+			AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
+			NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
+			Status:            node.Status,
+			DnsAddress:        node.IngressDNS,
+			Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
+		})
+		userGws[node.Network] = gws
+		delete(userGwNodes, node.ID.String())
 	}
+
 	// add remaining gw nodes to resp
 	for gwID := range userGwNodes {
 		node, err := logic.GetNodeByID(gwID)
@@ -1621,6 +1714,60 @@ func syncIDP(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	logic.ReturnSuccessResponse(w, r, "starting sync from idp")
+}
+
+// @Summary     Test IDP Sync Credentials.
+// @Router      /api/idp/sync/test [post]
+// @Tags        IDP
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+func testIDPSync(w http.ResponseWriter, r *http.Request) {
+	var req models.IDPSyncTestRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		err = fmt.Errorf("failed to decode request body: %v", err)
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	var idpClient idp.Client
+	switch req.AuthProvider {
+	case "google":
+		idpClient, err = google.NewGoogleWorkspaceClient(req.GoogleAdminEmail, req.GoogleSACredsJson)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+	case "azure-ad":
+		idpClient = azure.NewAzureEntraIDClient(req.ClientID, req.ClientSecret, req.AzureTenantID)
+	case "okta":
+		idpClient, err = okta.NewOktaClient(req.OktaOrgURL, req.OktaAPIToken)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+	default:
+		err = fmt.Errorf("invalid auth provider: %s", req.AuthProvider)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	err = idpClient.Verify()
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	logic.ReturnSuccessResponse(w, r, "idp sync test successful")
+}
+
+// @Summary     Gets idp sync status.
+// @Router      /api/idp/sync/status [get]
+// @Tags        IDP
+// @Success     200 {object} models.SuccessResponse
+func getIDPSyncStatus(w http.ResponseWriter, r *http.Request) {
+	logic.ReturnSuccessResponseWithJson(w, r, proAuth.GetIDPSyncStatus(), "idp sync status retrieved")
 }
 
 // @Summary     Remove idp integration.

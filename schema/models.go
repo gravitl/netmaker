@@ -7,5 +7,6 @@ func ListModels() []interface{} {
 		&Egress{},
 		&UserAccessToken{},
 		&Event{},
+		&PendingHost{},
 	}
 }

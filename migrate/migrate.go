@@ -25,7 +25,7 @@ import (
 
 // Run - runs all migrations
 func Run() {
-	settings()
+	migrateSettings()
 	updateEnrollmentKeys()
 	assignSuperAdmin()
 	createDefaultTagsAndPolicies()
@@ -35,9 +35,21 @@ func Run() {
 	updateHosts()
 	updateNodes()
 	updateAcls()
+	updateNewAcls()
 	logic.MigrateToGws()
 	migrateToEgressV1()
+	updateNetworks()
 	resync()
+}
+
+func updateNetworks() {
+	nets, _ := logic.GetNetworks()
+	for _, netI := range nets {
+		if netI.AutoJoin == "" {
+			netI.AutoJoin = "true"
+			logic.UpsertNetwork(netI)
+		}
+	}
 }
 
 // removes if any stale configurations from previous run.
@@ -441,6 +453,48 @@ func updateAcls() {
 	}
 }
 
+func updateNewAcls() {
+	if servercfg.IsPro {
+		userGroups, _ := logic.ListUserGroups()
+		userGroupMap := make(map[models.UserGroupID]models.UserGroup)
+		for _, userGroup := range userGroups {
+			userGroupMap[userGroup.ID] = userGroup
+		}
+
+		acls := logic.ListAcls()
+		for _, acl := range acls {
+			aclSrc := make([]models.AclPolicyTag, 0)
+			for _, src := range acl.Src {
+				if src.ID == models.UserGroupAclID {
+					userGroup, ok := userGroupMap[models.UserGroupID(src.Value)]
+					if !ok {
+						// if the group doesn't exist, don't add it to the acl's src.
+						continue
+					} else {
+						_, ok := userGroup.NetworkRoles[acl.NetworkID]
+						if !ok {
+							// if the group doesn't have permissions for the acl's
+							// network, don't add it to the acl's src.
+							continue
+						}
+					}
+				}
+				aclSrc = append(aclSrc, src)
+			}
+
+			if len(aclSrc) == 0 {
+				// if there are no acl sources, delete the acl.
+				_ = logic.DeleteAcl(acl)
+			} else if len(aclSrc) != len(acl.Src) {
+				// if some user groups were removed from the acl source,
+				// update the acl.
+				acl.Src = aclSrc
+				_ = logic.UpsertAcl(acl)
+			}
+		}
+	}
+}
+
 func MigrateEmqx() {
 
 	err := mq.SendPullSYN()
@@ -635,8 +689,8 @@ func migrateToEgressV1() {
 	}
 }
 
-func settings() {
-	_, err := database.FetchRecords(database.SERVER_SETTINGS)
+func migrateSettings() {
+	_, err := database.FetchRecord(database.SERVER_SETTINGS, logic.ServerSettingsDBKey)
 	if database.IsEmptyRecord(err) {
 		logic.UpsertServerSettings(logic.GetServerSettingsFromEnv())
 	}
@@ -646,6 +700,9 @@ func settings() {
 	}
 	if settings.DefaultDomain == "" {
 		settings.DefaultDomain = servercfg.GetDefaultDomain()
+	}
+	if settings.JwtValidityDurationClients == 0 {
+		settings.JwtValidityDurationClients = servercfg.GetJwtValidityDurationFromEnv() / 60
 	}
 	logic.UpsertServerSettings(settings)
 }

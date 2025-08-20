@@ -53,6 +53,11 @@ var NetworkUserAllPermissionTemplate = models.UserRolePermissionTemplate{
 	FullAccess: false,
 	NetworkID:  models.AllNetworks,
 	NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
+		models.HostRsrc: {
+			models.AllHostRsrcID: models.RsrcPermissionScope{
+				Read: true,
+			},
+		},
 		models.RemoteAccessGwRsrc: {
 			models.AllRemoteAccessGwRsrcID: models.RsrcPermissionScope{
 				Read:      true,
@@ -114,7 +119,6 @@ func UserRolesInit() {
 	database.Insert(NetworkAdminAllPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
 	d, _ = json.Marshal(NetworkUserAllPermissionTemplate)
 	database.Insert(NetworkUserAllPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
-
 }
 
 func UserGroupsInit() {
@@ -170,6 +174,11 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 		NetworkID:           netID,
 		DenyDashboardAccess: false,
 		NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
+			models.HostRsrc: {
+				models.AllHostRsrcID: models.RsrcPermissionScope{
+					Read: true,
+				},
+			},
 			models.RemoteAccessGwRsrc: {
 				models.AllRemoteAccessGwRsrcID: models.RsrcPermissionScope{
 					Read:      true,
@@ -652,11 +661,8 @@ func UpdateUserGroup(g models.UserGroup) error {
 	if err != nil {
 		return err
 	}
-	err = database.Insert(g.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
-	if err != nil {
-		return err
-	}
-	return nil
+
+	return database.Insert(g.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
 }
 
 // DeleteUserGroup - deletes user group
@@ -1220,41 +1226,71 @@ func UpdateUserGwAccess(currentUser, changeUser models.User) {
 }
 
 func CreateDefaultUserGroupNetworkPolicies(g models.UserGroup) {
-	for netID := range g.NetworkRoles {
-		if !logic.IsAclExists(fmt.Sprintf("%s.%s-grp", netID, g.ID.String())) {
-			userGroupAcl := models.Acl{
-				ID:          fmt.Sprintf("%s.%s-grp", netID, g.ID.String()),
-				Default:     true,
-				Name:        fmt.Sprintf("%s gateways", g.Name),
-				MetaData:    "This policy gives access to all gateways for the users in the group",
-				NetworkID:   netID,
-				Proto:       models.ALL,
-				ServiceType: models.Any,
-				Port:        []string{},
-				RuleType:    models.UserPolicy,
-				Src: []models.AclPolicyTag{
-					{
-						ID:    models.UserGroupAclID,
-						Value: g.ID.String(),
-					},
-				},
-				Dst: []models.AclPolicyTag{{
-					ID:    models.NodeTagID,
-					Value: fmt.Sprintf("%s.%s", netID.String(), models.GwTagName),
-				}},
-				AllowedDirection: models.TrafficDirectionUni,
-				Enabled:          true,
-				CreatedBy:        "auto",
-				CreatedAt:        time.Now().UTC(),
-			}
-			logic.InsertAcl(userGroupAcl)
+	for networkID := range g.NetworkRoles {
+		network, err := logic.GetNetwork(networkID.String())
+		if err != nil {
+			continue
 		}
+
+		acl := models.Acl{
+			ID:          uuid.New().String(),
+			Name:        fmt.Sprintf("%s group", g.Name),
+			MetaData:    "This Policy allows user group to communicate with all gateways",
+			Default:     true,
+			ServiceType: models.Any,
+			NetworkID:   models.NetworkID(network.NetID),
+			Proto:       models.ALL,
+			RuleType:    models.UserPolicy,
+			Src: []models.AclPolicyTag{
+				{
+					ID:    models.UserGroupAclID,
+					Value: g.ID.String(),
+				},
+			},
+			Dst: []models.AclPolicyTag{
+				{
+					ID:    models.NodeTagID,
+					Value: fmt.Sprintf("%s.%s", models.NetworkID(network.NetID), models.GwTagName),
+				}},
+			AllowedDirection: models.TrafficDirectionUni,
+			Enabled:          true,
+			CreatedBy:        "auto",
+			CreatedAt:        time.Now().UTC(),
+		}
+		logic.InsertAcl(acl)
+
 	}
 }
 
 func DeleteDefaultUserGroupNetworkPolicies(g models.UserGroup) {
-	for netID := range g.NetworkRoles {
-		logic.DeleteAcl(models.Acl{ID: fmt.Sprintf("%s.%s-grp", netID, g.ID.String())})
+	for networkID := range g.NetworkRoles {
+		acls, err := logic.ListAclsByNetwork(networkID)
+		if err != nil {
+			continue
+		}
+
+		for _, acl := range acls {
+			var hasGroupSrc bool
+			newAclSrc := make([]models.AclPolicyTag, 0)
+			for _, src := range acl.Src {
+				if src.ID == models.UserGroupAclID && src.Value == g.ID.String() {
+					hasGroupSrc = true
+				} else {
+					newAclSrc = append(newAclSrc, src)
+				}
+			}
+
+			if hasGroupSrc {
+				if len(newAclSrc) == 0 {
+					// no other src exists, delete acl.
+					_ = logic.DeleteAcl(acl)
+				} else {
+					// other sources exist, update acl.
+					acl.Src = newAclSrc
+					_ = logic.UpsertAcl(acl)
+				}
+			}
+		}
 	}
 }
 
