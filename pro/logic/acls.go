@@ -455,6 +455,9 @@ func listPoliciesOfUser(user models.User, netID models.NetworkID) []models.Acl {
 	if _, ok := user.UserGroups[globalNetworksUserGroupID]; ok {
 		user.UserGroups[GetDefaultNetworkUserGroupID(netID)] = struct{}{}
 	}
+	if user.PlatformRoleID == models.AdminRole || user.PlatformRoleID == models.SuperAdminRole {
+		user.UserGroups[GetDefaultNetworkAdminGroupID(netID)] = struct{}{}
+	}
 	for _, acl := range allAcls {
 		if acl.NetworkID == netID && acl.RuleType == models.UserPolicy {
 			srcMap := logic.ConvAclTagToValueMap(acl.Src)

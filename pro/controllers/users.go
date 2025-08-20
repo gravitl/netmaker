@@ -574,6 +574,8 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	proLogic.DeleteDefaultUserGroupNetworkPolicies(currUserG)
+	proLogic.CreateDefaultUserGroupNetworkPolicies(userGroup)
 	logic.LogEvent(&models.Event{
 		Action: models.Update,
 		Source: models.Subject{
@@ -652,6 +654,7 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: models.Dashboard,
 	})
+
 	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userG.NetworkRoles, make(map[models.NetworkID]map[models.UserRoleID]struct{}))
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user group")
 }

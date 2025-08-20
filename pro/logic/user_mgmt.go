@@ -661,6 +661,10 @@ func UpdateUserGroup(g models.UserGroup) error {
 
 // DeleteUserGroup - deletes user group
 func DeleteUserGroup(gid models.UserGroupID) error {
+	g, err := GetUserGroup(gid)
+	if err != nil {
+		return err
+	}
 	users, err := logic.GetUsersDB()
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
@@ -669,6 +673,8 @@ func DeleteUserGroup(gid models.UserGroupID) error {
 		delete(user.UserGroups, gid)
 		logic.UpsertUser(user)
 	}
+	// create default network gateway policies
+	go DeleteDefaultUserGroupNetworkPolicies(g)
 	return database.DeleteRecord(database.USER_GROUPS_TABLE_NAME, gid.String())
 }
 
@@ -1243,6 +1249,12 @@ func CreateDefaultUserGroupNetworkPolicies(g models.UserGroup) {
 			}
 			logic.InsertAcl(userGroupAcl)
 		}
+	}
+}
+
+func DeleteDefaultUserGroupNetworkPolicies(g models.UserGroup) {
+	for netID := range g.NetworkRoles {
+		logic.DeleteAcl(models.Acl{ID: fmt.Sprintf("%s.%s-grp", netID, g.ID.String())})
 	}
 }
 
