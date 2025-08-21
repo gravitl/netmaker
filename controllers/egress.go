@@ -48,7 +48,9 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 	var egressRange string
 	var cidrErr error
 	if !req.IsInetGw {
-		egressRange, cidrErr = logic.NormalizeCIDR(req.Range)
+		if req.Range != "" {
+			egressRange, cidrErr = logic.NormalizeCIDR(req.Range)
+		}
 		isDomain := logic.IsFQDN(req.Range)
 		if cidrErr != nil && !isDomain {
 			if cidrErr != nil {
