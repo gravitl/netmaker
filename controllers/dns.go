@@ -43,7 +43,7 @@ func dnsHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/nameserver", logic.SecurityCheck(true, http.HandlerFunc(createNs))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/nameserver", logic.SecurityCheck(true, http.HandlerFunc(listNs))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/nameserver", logic.SecurityCheck(true, http.HandlerFunc(updateNs))).Methods(http.MethodPut)
-	r.HandleFunc("/api/v1/nameserver", logic.SecurityCheck(true, http.HandlerFunc(deleteEgress))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/nameserver", logic.SecurityCheck(true, http.HandlerFunc(deleteNs))).Methods(http.MethodDelete)
 }
 
 // @Summary     Create Nameserver
@@ -79,7 +79,7 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 	ns := schema.Nameserver{
 		ID:          uuid.New().String(),
 		Name:        req.Name,
-		Network:     req.Network,
+		NetworkID:   req.Network,
 		Description: req.Description,
 		MatchDomain: req.MatchDomain,
 		Servers:     req.Servers,
@@ -111,7 +111,7 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 			Name: ns.Name,
 			Type: models.NameserverSub,
 		},
-		NetworkID: models.NetworkID(ns.Network),
+		NetworkID: models.NetworkID(ns.NetworkID),
 		Origin:    models.Dashboard,
 	})
 
@@ -135,13 +135,13 @@ func listNs(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), "badrequest"))
 		return
 	}
-	ns := schema.Nameserver{Network: network}
+	ns := schema.Nameserver{NetworkID: network}
 	list, err := ns.ListByNetwork(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
 			r,
-			logic.FormatError(errors.New("error listing egress resource"+err.Error()), "internal"),
+			logic.FormatError(errors.New("error listing nameservers "+err.Error()), "internal"),
 		)
 		return
 	}
@@ -203,7 +203,7 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 			Old: ns,
 			New: updateNs,
 		},
-		NetworkID: models.NetworkID(ns.Network),
+		NetworkID: models.NetworkID(ns.NetworkID),
 		Origin:    models.Dashboard,
 	}
 	ns.Servers = updateNs.Servers
@@ -270,7 +270,7 @@ func deleteNs(w http.ResponseWriter, r *http.Request) {
 			Name: ns.Name,
 			Type: models.NameserverSub,
 		},
-		NetworkID: models.NetworkID(ns.Network),
+		NetworkID: models.NetworkID(ns.NetworkID),
 		Origin:    models.Dashboard,
 	})
 

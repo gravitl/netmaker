@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 
 	validator "github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -332,6 +334,9 @@ func ValidateNameserverReq(ns models.NameserverReq) error {
 	if ns.Name == "" {
 		return errors.New("name is required")
 	}
+	if ns.Network == "" {
+		return errors.New("network is required")
+	}
 	if len(ns.Servers) == 0 {
 		return errors.New("atleast one nameserver should be specified")
 	}
@@ -352,6 +357,44 @@ func ValidateUpdateNameserverReq(updateNs schema.Nameserver) error {
 		return errors.New("invalid match domain")
 	}
 	return nil
+}
+
+func GetNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
+	if h.DNS != "yes" {
+		return
+	}
+	for _, nodeID := range h.Nodes {
+		node, err := GetNodeByID(nodeID)
+		if err != nil {
+			continue
+		}
+		ns := &schema.Nameserver{
+			NetworkID: node.Network,
+		}
+		nsLi, _ := ns.ListByNetwork(db.WithContext(context.TODO()))
+		for _, nsI := range nsLi {
+			if !nsI.Status {
+				continue
+			}
+			_, all := nsI.Tags["*"]
+			if all {
+				returnNsLi = append(returnNsLi, models.Nameserver{
+					IPs:         ns.Servers,
+					MatchDomain: ns.MatchDomain,
+				})
+				continue
+			}
+			for tagI := range node.Tags {
+				if _, ok := nsI.Tags[tagI.String()]; ok {
+					returnNsLi = append(returnNsLi, models.Nameserver{
+						IPs:         ns.Servers,
+						MatchDomain: ns.MatchDomain,
+					})
+				}
+			}
+		}
+	}
+	return
 }
 
 // IsValidMatchDomain reports whether s is a valid "match domain".

@@ -28,8 +28,14 @@ type HostPeerUpdate struct {
 	FwUpdate        FwUpdate              `json:"fw_update"`
 	ReplacePeers    bool                  `json:"replace_peers"`
 	NameServers     []string              `json:"name_servers"`
+	DnsNameservers  []Nameserver          `json:"dns_nameservers"`
 	ServerConfig
 	OldPeerUpdateFields
+}
+
+type Nameserver struct {
+	IPs         []string `json:"ips"`
+	MatchDomain string   `json:"match_domain"`
 }
 
 type OldPeerUpdateFields struct {
