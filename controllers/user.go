@@ -1421,6 +1421,67 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	logic.LogEvent(&e)
 	go mq.PublishPeerUpdate(false)
+	go func() {
+		// Populating all the networks the user has access to by
+		// being a member of groups.
+		userMembershipNetworkAccess := make(map[models.NetworkID]struct{})
+		for groupID := range user.UserGroups {
+			userGroup, _ := logic.GetUserGroup(groupID)
+			for netID := range userGroup.NetworkRoles {
+				userMembershipNetworkAccess[netID] = struct{}{}
+			}
+		}
+
+		extclients, err := logic.GetAllExtClients()
+		if err != nil {
+			slog.Error("failed to fetch extclients", "error", err)
+			return
+		}
+
+		for _, extclient := range extclients {
+			if extclient.OwnerID != user.UserName {
+				continue
+			}
+
+			var shouldDelete bool
+			if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
+				// Super-admin and Admin's access is not determined by group membership
+				// or network roles. Even if a user is removed from the group, they
+				// continue to have access to the network.
+				// So, no need to delete the extclient.
+				shouldDelete = false
+			} else {
+				_, hasAccess := user.NetworkRoles[models.NetworkID(extclient.Network)]
+				if hasAccess {
+					// The user has access to the network by themselves and not by
+					// virtue of being a member of the group.
+					// So, no need to delete the extclient.
+					shouldDelete = false
+				} else {
+					_, hasAccessThroughGroups := userMembershipNetworkAccess[models.NetworkID(extclient.Network)]
+					if !hasAccessThroughGroups {
+						// The user does not have access to the network by either
+						// being a Super-admin or Admin, by network roles or by virtue
+						// of being a member a group that has access to the network.
+						// So, delete the extclient.
+						shouldDelete = true
+					}
+				}
+			}
+
+			if shouldDelete {
+				err = logic.DeleteExtClientAndCleanup(extclient)
+				if err != nil {
+					slog.Error("failed to delete extclient",
+						"id", extclient.ClientID, "owner", user.UserName, "error", err)
+				} else {
+					if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+						slog.Error("error setting ext peers: " + err.Error())
+					}
+				}
+			}
+		}
+	}()
 	logger.Log(1, username, "was updated")
 	json.NewEncoder(w).Encode(logic.ToReturnUser(*user))
 }
