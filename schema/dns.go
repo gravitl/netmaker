@@ -11,7 +11,7 @@ import (
 type Nameserver struct {
 	ID          string                      `gorm:"primaryKey" json:"id"`
 	Name        string                      `gorm:"name" json:"name"`
-	Network     string                      `gorm:"network" json:"network"`
+	NetworkID   string                      `gorm:"network_id" json:"network_id"`
 	Description string                      `gorm:"description" json:"description"`
 	Servers     datatypes.JSONSlice[string] `gorm:"servers" json:"servers"`
 	MatchDomain string                      `gorm:"match_domain" json:"match_domain"`
@@ -35,7 +35,7 @@ func (ns *Nameserver) Create(ctx context.Context) error {
 }
 
 func (ns *Nameserver) ListByNetwork(ctx context.Context) (dnsli []Nameserver, err error) {
-	err = db.FromContext(ctx).Model(&Nameserver{}).Where("network_id = ?", ns.Network).Find(&dnsli).Error
+	err = db.FromContext(ctx).Model(&Nameserver{}).Where("network_id = ?", ns.NetworkID).Find(&dnsli).Error
 	return
 }
 
