@@ -21,6 +21,7 @@ import (
 	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/models"
 )
 
 // IsBase64 - checks if a string is in base64 format
