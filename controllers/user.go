@@ -6,12 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/pquerna/otp"
-	"golang.org/x/crypto/bcrypt"
 	"image/png"
 	"net/http"
 	"reflect"
 	"time"
+
+	"github.com/pquerna/otp"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -776,6 +777,52 @@ func enableUserAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var caller *models.User
+	var isMaster bool
+	if r.Header.Get("user") == logic.MasterUser {
+		isMaster = true
+	} else {
+		caller, err = logic.GetUser(r.Header.Get("user"))
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+	}
+
+	if !isMaster && caller.UserName == user.UserName {
+		// This implies that a user is trying to enable themselves.
+		// This can never happen, since a disabled user cannot be
+		// authenticated.
+		err := fmt.Errorf("cannot enable self")
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+		return
+	}
+
+	switch user.PlatformRoleID {
+	case models.SuperAdminRole:
+		// This can never happen, since a superadmin user cannot
+		// be disabled.
+	case models.AdminRole:
+		if !isMaster && caller.PlatformRoleID != models.SuperAdminRole {
+			err = fmt.Errorf("%s cannot enable an admin", caller.PlatformRoleID)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+			return
+		}
+	case models.PlatformUser:
+		if !isMaster && caller.PlatformRoleID != models.SuperAdminRole && caller.PlatformRoleID != models.AdminRole {
+			err = fmt.Errorf("%s cannot enable a platform-user", caller.PlatformRoleID)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+			return
+		}
+	case models.ServiceUser:
+		if !isMaster && caller.PlatformRoleID != models.SuperAdminRole && caller.PlatformRoleID != models.AdminRole {
+			err = fmt.Errorf("%s cannot enable a service-user", caller.PlatformRoleID)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+			return
+		}
+	}
+
 	user.AccountDisabled = false
 	err = logic.UpsertUser(*user)
 	if err != nil {
@@ -802,11 +849,49 @@ func disableUserAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user.PlatformRoleID == models.SuperAdminRole {
-		err = errors.New("cannot disable super-admin user account")
-		logger.Log(0, err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+	var caller *models.User
+	var isMaster bool
+	if r.Header.Get("user") == logic.MasterUser {
+		isMaster = true
+	} else {
+		caller, err = logic.GetUser(r.Header.Get("user"))
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+	}
+
+	if !isMaster && caller.UserName == user.UserName {
+		// This implies that a user is trying to disable themselves.
+		// This should not be allowed.
+		err = fmt.Errorf("cannot disable self")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
+	}
+
+	switch user.PlatformRoleID {
+	case models.SuperAdminRole:
+		err = errors.New("cannot disable a super-admin")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+		return
+	case models.AdminRole:
+		if !isMaster && caller.PlatformRoleID != models.SuperAdminRole {
+			err = fmt.Errorf("%s cannot disable an admin", caller.PlatformRoleID)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+			return
+		}
+	case models.PlatformUser:
+		if !isMaster && caller.PlatformRoleID != models.SuperAdminRole && caller.PlatformRoleID != models.AdminRole {
+			err = fmt.Errorf("%s cannot disable a platform-user", caller.PlatformRoleID)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+			return
+		}
+	case models.ServiceUser:
+		if !isMaster && caller.PlatformRoleID != models.SuperAdminRole && caller.PlatformRoleID != models.AdminRole {
+			err = fmt.Errorf("%s cannot disable a service-user", caller.PlatformRoleID)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+			return
+		}
 	}
 
 	user.AccountDisabled = true
