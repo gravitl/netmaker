@@ -330,11 +330,11 @@ func CreateDNS(entry models.DNSEntry) (models.DNSEntry, error) {
 	return entry, err
 }
 
-func ValidateNameserverReq(ns models.NameserverReq) error {
+func ValidateNameserverReq(ns schema.Nameserver) error {
 	if ns.Name == "" {
 		return errors.New("name is required")
 	}
-	if ns.Network == "" {
+	if ns.NetworkID == "" {
 		return errors.New("network is required")
 	}
 	if len(ns.Servers) == 0 {

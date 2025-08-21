@@ -57,7 +57,7 @@ func dnsHandlers(r *mux.Router) {
 // @Failure     500 {object} models.ErrorResponse
 func createNs(w http.ResponseWriter, r *http.Request) {
 
-	var req models.NameserverReq
+	var req schema.Nameserver
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		logger.Log(0, "error decoding request body: ",
@@ -70,20 +70,16 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Tags == nil {
-		req.Tags = []string{}
-	}
-	tagMap := make(datatypes.JSONMap)
-	for _, tagI := range req.Tags {
-		tagMap[tagI] = struct{}{}
+		req.Tags = make(datatypes.JSONMap)
 	}
 	ns := schema.Nameserver{
 		ID:          uuid.New().String(),
 		Name:        req.Name,
-		NetworkID:   req.Network,
+		NetworkID:   req.NetworkID,
 		Description: req.Description,
 		MatchDomain: req.MatchDomain,
 		Servers:     req.Servers,
-		Tags:        tagMap,
+		Tags:        req.Tags,
 		Status:      true,
 		CreatedBy:   r.Header.Get("user"),
 		CreatedAt:   time.Now().UTC(),
