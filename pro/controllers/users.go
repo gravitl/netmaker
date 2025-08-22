@@ -1311,7 +1311,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 				logic.GetPeerListenPort(host),
 			)
 			extClient.AllowedIPs = logic.GetExtclientAllowedIPs(extClient)
-			gws = append(gws, models.UserRemoteGws{
+			gw := models.UserRemoteGws{
 				GwID:              node.ID.String(),
 				GWName:            host.Name,
 				Network:           node.Network,
@@ -1326,7 +1326,14 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 				Status:            node.Status,
 				DnsAddress:        node.IngressDNS,
 				Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
-			})
+			}
+			if !node.IsInternetGateway {
+				hNs := logic.GetNameserversForHost(host)
+				for _, nsI := range hNs {
+					gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
+				}
+			}
+			gws = append(gws, gw)
 			userGws[node.Network] = gws
 			delete(userGwNodes, node.ID.String())
 		}
@@ -1357,7 +1364,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		}
 		gws := userGws[node.Network]
 
-		gws = append(gws, models.UserRemoteGws{
+		gw := models.UserRemoteGws{
 			GwID:              node.ID.String(),
 			GWName:            host.Name,
 			Network:           node.Network,
@@ -1370,7 +1377,14 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			Status:            node.Status,
 			DnsAddress:        node.IngressDNS,
 			Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
-		})
+		}
+		if !node.IsInternetGateway {
+			hNs := logic.GetNameserversForHost(host)
+			for _, nsI := range hNs {
+				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
+			}
+		}
+		gws = append(gws, gw)
 		userGws[node.Network] = gws
 	}
 

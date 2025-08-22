@@ -19,6 +19,41 @@ import (
 	"github.com/txn2/txeh"
 )
 
+type GlobalNs struct {
+	ID  string   `json:"id"`
+	IPs []string `json:"ips"`
+}
+
+var GlobalNsList = map[string]GlobalNs{
+	"Google": {
+		ID: "Google",
+		IPs: []string{
+			"8.8.8.8",
+			"8.8.4.4",
+			"2001:4860:4860::8888",
+			"2001:4860:4860::8844",
+		},
+	},
+	"Cloudflare": {
+		ID: "Cloudflare",
+		IPs: []string{
+			"1.1.1.1",
+			"1.0.0.1",
+			"2606:4700:4700::1111",
+			"2606:4700:4700::1001",
+		},
+	},
+	"Quad9": {
+		ID: "Quad9",
+		IPs: []string{
+			"9.9.9.9",
+			"149.112.112.112",
+			"2620:fe::fe",
+			"2620:fe::9",
+		},
+	},
+}
+
 // SetDNS - sets the dns on file
 func SetDNS() error {
 	hostfile, err := txeh.NewHosts(&txeh.HostsConfig{})
@@ -392,6 +427,15 @@ func GetNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
 					})
 				}
 			}
+		}
+		if node.IsInternetGateway {
+			globalNs := models.Nameserver{
+				MatchDomain: ".",
+			}
+			for _, nsI := range GlobalNsList {
+				globalNs.IPs = append(globalNs.IPs, nsI.IPs...)
+			}
+			returnNsLi = append(returnNsLi, globalNs)
 		}
 	}
 	return

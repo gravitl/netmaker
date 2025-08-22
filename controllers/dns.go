@@ -44,6 +44,21 @@ func dnsHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/nameserver", logic.SecurityCheck(true, http.HandlerFunc(listNs))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/nameserver", logic.SecurityCheck(true, http.HandlerFunc(updateNs))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/nameserver", logic.SecurityCheck(true, http.HandlerFunc(deleteNs))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/nameserver/global", logic.SecurityCheck(true, http.HandlerFunc(getGlobalNs))).Methods(http.MethodGet)
+}
+
+// @Summary     List Global Nameservers
+// @Router      /api/v1/nameserver/global [get]
+// @Tags        Auth
+// @Accept      json
+// @Param       query network string
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     401 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func getGlobalNs(w http.ResponseWriter, r *http.Request) {
+
+	logic.ReturnSuccessResponseWithJson(w, r, logic.GlobalNsList, "fetched nameservers")
 }
 
 // @Summary     Create Nameserver
@@ -71,6 +86,9 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Tags == nil {
 		req.Tags = make(datatypes.JSONMap)
+	}
+	if gNs, ok := logic.GlobalNsList[req.Name]; ok {
+		req.Servers = gNs.IPs
 	}
 	ns := schema.Nameserver{
 		ID:          uuid.New().String(),
