@@ -414,16 +414,16 @@ func GetNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
 			_, all := nsI.Tags["*"]
 			if all {
 				returnNsLi = append(returnNsLi, models.Nameserver{
-					IPs:         ns.Servers,
-					MatchDomain: ns.MatchDomain,
+					IPs:         nsI.Servers,
+					MatchDomain: nsI.MatchDomain,
 				})
 				continue
 			}
 			for tagI := range node.Tags {
 				if _, ok := nsI.Tags[tagI.String()]; ok {
 					returnNsLi = append(returnNsLi, models.Nameserver{
-						IPs:         ns.Servers,
-						MatchDomain: ns.MatchDomain,
+						IPs:         nsI.Servers,
+						MatchDomain: nsI.MatchDomain,
 					})
 				}
 			}
