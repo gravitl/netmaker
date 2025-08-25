@@ -6,12 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/pquerna/otp"
-	"golang.org/x/crypto/bcrypt"
 	"image/png"
 	"net/http"
 	"reflect"
 	"time"
+
+	"github.com/pquerna/otp"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -925,17 +926,15 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	users, err := logic.GetUsers()
-
-	for i := range users {
-		users[i].NumAccessTokens, _ = (&schema.UserAccessToken{
-			UserName: users[i].UserName,
-		}).CountByUser(r.Context())
-	}
-
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
+	}
+	for i := range users {
+		users[i].NumAccessTokens, _ = (&schema.UserAccessToken{
+			UserName: users[i].UserName,
+		}).CountByUser(r.Context())
 	}
 
 	logic.SortUsers(users[:])
