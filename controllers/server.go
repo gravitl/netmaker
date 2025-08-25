@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/google/go-cmp/cmp"
@@ -274,6 +275,24 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	currSettings := logic.GetServerSettings()
+
+	if req.AuthProvider != currSettings.AuthProvider && req.AuthProvider == "" {
+		superAdmin, err := logic.GetSuperAdmin()
+		if err != nil {
+			err = fmt.Errorf("failed to get super admin: %v", err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+
+		if superAdmin.AuthType == models.OAuth {
+			err := fmt.Errorf(
+				"cannot remove IdP integration because an OAuth user has the super-admin role; transfer the super-admin role to another user first",
+			)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+	}
+
 	err := logic.UpsertServerSettings(req)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to update server settings "+err.Error()), "internal"))

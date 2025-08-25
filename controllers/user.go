@@ -296,7 +296,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	if !user.IsSuperAdmin && !logic.IsBasicAuthEnabled() {
+	if user.PlatformRoleID != models.SuperAdminRole && !logic.IsBasicAuthEnabled() {
 		logic.ReturnErrorResponse(
 			response,
 			request,
@@ -1124,6 +1124,7 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	u.IsSuperAdmin = true
 	u.PlatformRoleID = models.SuperAdminRole
 	err = logic.UpsertUser(*u)
 	if err != nil {
@@ -1131,6 +1132,8 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+
+	caller.IsSuperAdmin = false
 	caller.PlatformRoleID = models.AdminRole
 	err = logic.UpsertUser(*caller)
 	if err != nil {

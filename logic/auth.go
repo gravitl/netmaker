@@ -30,25 +30,12 @@ const (
 	NetmakerDesktopApp = "netmaker-desktop"
 )
 
-var (
-	superUser = models.User{}
-)
-
-func ClearSuperUserCache() {
-	superUser = models.User{}
-}
-
 var IsOAuthConfigured = func() bool { return false }
 var ResetAuthProvider = func() {}
 var ResetIDPSyncHook = func() {}
 
 // HasSuperAdmin - checks if server has an superadmin/owner
 func HasSuperAdmin() (bool, error) {
-
-	if superUser.IsSuperAdmin {
-		return true, nil
-	}
-
 	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
 	if err != nil {
 		if database.IsEmptyRecord(err) {
@@ -63,7 +50,7 @@ func HasSuperAdmin() (bool, error) {
 		if err != nil {
 			continue
 		}
-		if user.PlatformRoleID == models.SuperAdminRole || user.IsSuperAdmin {
+		if user.PlatformRoleID == models.SuperAdminRole {
 			return true, nil
 		}
 	}
@@ -215,6 +202,8 @@ func CreateSuperAdmin(u *models.User) error {
 	if hassuperadmin {
 		return errors.New("superadmin user already exists")
 	}
+	u.IsSuperAdmin = true
+	u.IsAdmin = true
 	u.PlatformRoleID = models.SuperAdminRole
 	return CreateUser(u)
 }
@@ -282,9 +271,7 @@ func UpsertUser(user models.User) error {
 		slog.Error("error inserting user", "user", user.UserName, "error", err.Error())
 		return err
 	}
-	if user.IsSuperAdmin {
-		superUser = user
-	}
+
 	return nil
 }
 

@@ -1935,11 +1935,10 @@ func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if superAdmin.AuthType == models.OAuth {
-		logic.ReturnErrorResponse(
-			w,
-			r,
-			logic.FormatError(fmt.Errorf("cannot remove idp integration with superadmin oauth user"), "badrequest"),
+		err := fmt.Errorf(
+			"cannot remove IdP integration because an OAuth user has the super-admin role; transfer the super-admin role to another user first",
 		)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 
