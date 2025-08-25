@@ -474,45 +474,6 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for networkID := range userGroupReq.Group.NetworkRoles {
-		network, err := logic.GetNetwork(networkID.String())
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-
-		acl := models.Acl{
-			ID:          uuid.New().String(),
-			Name:        fmt.Sprintf("%s group", userGroupReq.Group.Name),
-			MetaData:    "This Policy allows user group to communicate with all gateways",
-			Default:     false,
-			ServiceType: models.Any,
-			NetworkID:   models.NetworkID(network.NetID),
-			Proto:       models.ALL,
-			RuleType:    models.UserPolicy,
-			Src: []models.AclPolicyTag{
-				{
-					ID:    models.UserGroupAclID,
-					Value: userGroupReq.Group.ID.String(),
-				},
-			},
-			Dst: []models.AclPolicyTag{
-				{
-					ID:    models.NodeTagID,
-					Value: fmt.Sprintf("%s.%s", models.NetworkID(network.NetID), models.GwTagName),
-				}},
-			AllowedDirection: models.TrafficDirectionUni,
-			Enabled:          true,
-			CreatedBy:        "auto",
-			CreatedAt:        time.Now().UTC(),
-		}
-		err = logic.InsertAcl(acl)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-	}
-
 	for _, userID := range userGroupReq.Members {
 		user, err := logic.GetUser(userID)
 		if err != nil {
@@ -539,6 +500,7 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: models.Dashboard,
 	})
+	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroupReq.Group, "created user group")
 }
 
@@ -898,6 +860,7 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userG.ID, userG.NetworkRoles, make(map[models.NetworkID]map[models.UserRoleID]struct{}))
+	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user group")
 }
 
