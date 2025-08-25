@@ -53,6 +53,7 @@ type UserRemoteGws struct {
 	Status            NodeStatus `json:"status"`
 	DnsAddress        string     `json:"dns_address"`
 	Addresses         string     `json:"addresses"`
+	MatchDomains      []string   `json:"match_domains"`
 }
 
 // UserRAGs - struct for user access gws
@@ -263,6 +264,7 @@ type HostPull struct {
 	EndpointDetection bool                  `json:"endpoint_detection"`
 	NameServers       []string              `json:"name_servers"`
 	EgressWithDomains []EgressDomain        `json:"egress_with_domains"`
+	DnsNameservers    []Nameserver          `json:"dns_nameservers"`
 }
 
 type DefaultGwInfo struct {

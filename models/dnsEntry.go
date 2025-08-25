@@ -47,3 +47,13 @@ type DNSEntry struct {
 	Name     string `json:"name" validate:"required,name_unique,min=1,max=192,whitespace"`
 	Network  string `json:"network" validate:"network_exists"`
 }
+
+type NameserverReq struct {
+	Name        string   `json:"name"`
+	Network     string   `json:"network"`
+	Description string   ` json:"description"`
+	Servers     []string `json:"servers"`
+	MatchDomain string   `json:"match_domain"`
+	Tags        []string `json:"tags"`
+	Status      bool     `gorm:"status" json:"status"`
+}

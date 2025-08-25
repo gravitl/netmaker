@@ -29,6 +29,7 @@ type HostPeerUpdate struct {
 	ReplacePeers      bool                  `json:"replace_peers"`
 	NameServers       []string              `json:"name_servers"`
 	EgressWithDomains []EgressDomain        `json:"egress_with_domains"`
+	DnsNameservers    []Nameserver          `json:"dns_nameservers"`
 	ServerConfig
 	OldPeerUpdateFields
 }
@@ -38,6 +39,10 @@ type EgressDomain struct {
 	Node   Node   `json:"node"`
 	Host   Host   `json:"host"`
 	Domain string `json:"domain"`
+}
+type Nameserver struct {
+	IPs         []string `json:"ips"`
+	MatchDomain string   `json:"match_domain"`
 }
 
 type OldPeerUpdateFields struct {

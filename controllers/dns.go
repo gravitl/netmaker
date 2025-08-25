@@ -1,19 +1,25 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
+	"gorm.io/datatypes"
 )
 
 func dnsHandlers(r *mux.Router) {
@@ -34,6 +40,256 @@ func dnsHandlers(r *mux.Router) {
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/dns/{network}/{domain}", logic.SecurityCheck(true, http.HandlerFunc(deleteDNS))).
 		Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/nameserver", logic.SecurityCheck(true, http.HandlerFunc(createNs))).Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/nameserver", logic.SecurityCheck(true, http.HandlerFunc(listNs))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/nameserver", logic.SecurityCheck(true, http.HandlerFunc(updateNs))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/nameserver", logic.SecurityCheck(true, http.HandlerFunc(deleteNs))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/nameserver/global", logic.SecurityCheck(true, http.HandlerFunc(getGlobalNs))).Methods(http.MethodGet)
+}
+
+// @Summary     List Global Nameservers
+// @Router      /api/v1/nameserver/global [get]
+// @Tags        Auth
+// @Accept      json
+// @Param       query network string
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     401 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func getGlobalNs(w http.ResponseWriter, r *http.Request) {
+
+	logic.ReturnSuccessResponseWithJson(w, r, logic.GlobalNsList, "fetched nameservers")
+}
+
+// @Summary     Create Nameserver
+// @Router      /api/v1/nameserver [post]
+// @Tags        DNS
+// @Accept      json
+// @Param       body body models.NameserverReq
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     401 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func createNs(w http.ResponseWriter, r *http.Request) {
+
+	var req schema.Nameserver
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		logger.Log(0, "error decoding request body: ",
+			err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if err := logic.ValidateNameserverReq(req); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if req.Tags == nil {
+		req.Tags = make(datatypes.JSONMap)
+	}
+	if gNs, ok := logic.GlobalNsList[req.Name]; ok {
+		req.Servers = gNs.IPs
+	}
+	ns := schema.Nameserver{
+		ID:          uuid.New().String(),
+		Name:        req.Name,
+		NetworkID:   req.NetworkID,
+		Description: req.Description,
+		MatchDomain: req.MatchDomain,
+		Servers:     req.Servers,
+		Tags:        req.Tags,
+		Status:      true,
+		CreatedBy:   r.Header.Get("user"),
+		CreatedAt:   time.Now().UTC(),
+	}
+
+	err = ns.Create(db.WithContext(r.Context()))
+	if err != nil {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("error creating nameserver "+err.Error()), logic.Internal),
+		)
+		return
+	}
+	logic.LogEvent(&models.Event{
+		Action: models.Create,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   ns.ID,
+			Name: ns.Name,
+			Type: models.NameserverSub,
+		},
+		NetworkID: models.NetworkID(ns.NetworkID),
+		Origin:    models.Dashboard,
+	})
+
+	go mq.PublishPeerUpdate(false)
+	logic.ReturnSuccessResponseWithJson(w, r, ns, "created nameserver")
+}
+
+// @Summary     List Nameservers
+// @Router      /api/v1/nameserver [get]
+// @Tags        Auth
+// @Accept      json
+// @Param       query network string
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     401 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func listNs(w http.ResponseWriter, r *http.Request) {
+
+	network := r.URL.Query().Get("network")
+	if network == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), "badrequest"))
+		return
+	}
+	ns := schema.Nameserver{NetworkID: network}
+	list, err := ns.ListByNetwork(db.WithContext(r.Context()))
+	if err != nil {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("error listing nameservers "+err.Error()), "internal"),
+		)
+		return
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, list, "fetched nameservers")
+}
+
+// @Summary     Update Nameserver
+// @Router      /api/v1/nameserver [put]
+// @Tags        Auth
+// @Accept      json
+// @Param       body body models.NameserverReq
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     401 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func updateNs(w http.ResponseWriter, r *http.Request) {
+
+	var updateNs schema.Nameserver
+	err := json.NewDecoder(r.Body).Decode(&updateNs)
+	if err != nil {
+		logger.Log(0, "error decoding request body: ",
+			err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	if err := logic.ValidateUpdateNameserverReq(updateNs); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if updateNs.Tags == nil {
+		updateNs.Tags = make(datatypes.JSONMap)
+	}
+
+	ns := schema.Nameserver{ID: updateNs.ID}
+	err = ns.Get(db.WithContext(r.Context()))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	var updateStatus bool
+	if updateNs.Status != ns.Status {
+		updateStatus = true
+	}
+	event := &models.Event{
+		Action: models.Update,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   ns.ID,
+			Name: updateNs.Name,
+			Type: models.NameserverSub,
+		},
+		Diff: models.Diff{
+			Old: ns,
+			New: updateNs,
+		},
+		NetworkID: models.NetworkID(ns.NetworkID),
+		Origin:    models.Dashboard,
+	}
+	ns.Servers = updateNs.Servers
+	ns.Tags = updateNs.Tags
+	ns.Description = updateNs.Description
+	ns.Name = updateNs.Name
+	ns.Status = updateNs.Status
+	ns.UpdatedAt = time.Now().UTC()
+
+	err = ns.Update(db.WithContext(context.TODO()))
+	if err != nil {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("error creating egress resource"+err.Error()), "internal"),
+		)
+		return
+	}
+	if updateStatus {
+		ns.UpdateStatus(db.WithContext(context.TODO()))
+	}
+	logic.LogEvent(event)
+	go mq.PublishPeerUpdate(false)
+	logic.ReturnSuccessResponseWithJson(w, r, ns, "updated nameserver")
+}
+
+// @Summary     Delete Nameserver Resource
+// @Router      /api/v1/nameserver [delete]
+// @Tags        Auth
+// @Accept      json
+// @Param       body body models.Egress
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     401 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func deleteNs(w http.ResponseWriter, r *http.Request) {
+
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("id is required"), "badrequest"))
+		return
+	}
+	ns := schema.Nameserver{ID: id}
+	err := ns.Get(db.WithContext(r.Context()))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+	err = ns.Delete(db.WithContext(r.Context()))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+	logic.LogEvent(&models.Event{
+		Action: models.Delete,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   ns.ID,
+			Name: ns.Name,
+			Type: models.NameserverSub,
+		},
+		NetworkID: models.NetworkID(ns.NetworkID),
+		Origin:    models.Dashboard,
+	})
+
+	go mq.PublishPeerUpdate(false)
+	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted nameserver resource")
 }
 
 // @Summary     Gets node DNS entries associated with a network

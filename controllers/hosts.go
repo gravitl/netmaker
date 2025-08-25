@@ -256,6 +256,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		NameServers:       hPU.NameServers,
 		EgressWithDomains: hPU.EgressWithDomains,
 		EndpointDetection: logic.IsEndpointDetectionEnabled(),
+		DnsNameservers:    hPU.DnsNameservers,
 	}
 
 	logger.Log(1, hostID, "completed a pull")
