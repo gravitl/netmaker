@@ -150,6 +150,7 @@ type UserGroup struct {
 	Default                    bool                                  `json:"default"`
 	Name                       string                                `json:"name"`
 	NetworkRoles               map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
+	ColorCode                  string                                `json:"color_code"`
 	MetaData                   string                                `json:"meta_data"`
 }
 
