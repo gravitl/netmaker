@@ -34,6 +34,13 @@ var PlatformUserUserPermissionTemplate = models.UserRolePermissionTemplate{
 	ID:         models.PlatformUser,
 	Default:    true,
 	FullAccess: false,
+	GlobalLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
+		models.UserRsrc: {
+			models.AllUserRsrcID: models.RsrcPermissionScope{
+				Read: true,
+			},
+		},
+	},
 }
 
 var NetworkAdminAllPermissionTemplate = models.UserRolePermissionTemplate{
@@ -1095,27 +1102,14 @@ func UpdatesUserGwAccessOnRoleUpdates(currNetworkAccess,
 	}
 }
 
-func UpdatesUserGwAccessOnGrpUpdates(currNetworkRoles, changeNetworkRoles map[models.NetworkID]map[models.UserRoleID]struct{}) {
-	networkChangeMap := make(map[models.NetworkID]map[models.UserRoleID]struct{})
-	for netID, networkUserRoles := range currNetworkRoles {
-		if _, ok := changeNetworkRoles[netID]; !ok {
-			for netRoleID := range networkUserRoles {
-				if _, ok := networkChangeMap[netID]; !ok {
-					networkChangeMap[netID] = make(map[models.UserRoleID]struct{})
-				}
-				networkChangeMap[netID][netRoleID] = struct{}{}
-			}
-		} else {
-			for netRoleID := range networkUserRoles {
-				if _, ok := changeNetworkRoles[netID][netRoleID]; !ok {
-					if _, ok := networkChangeMap[netID]; !ok {
-						networkChangeMap[netID] = make(map[models.UserRoleID]struct{})
-					}
-					networkChangeMap[netID][netRoleID] = struct{}{}
-				}
-			}
+func UpdatesUserGwAccessOnGrpUpdates(groupID models.UserGroupID, oldNetworkRoles, newNetworkRoles map[models.NetworkID]map[models.UserRoleID]struct{}) {
+	networkRemovedMap := make(map[models.NetworkID]struct{})
+	for netID := range oldNetworkRoles {
+		if _, ok := newNetworkRoles[netID]; !ok {
+			networkRemovedMap[netID] = struct{}{}
 		}
 	}
+
 	extclients, err := logic.GetAllExtClients()
 	if err != nil {
 		slog.Error("failed to fetch extclients", "error", err)
@@ -1125,27 +1119,56 @@ func UpdatesUserGwAccessOnGrpUpdates(currNetworkRoles, changeNetworkRoles map[mo
 	if err != nil {
 		return
 	}
-	for _, extclient := range extclients {
 
-		if _, ok := networkChangeMap[models.NetworkID(extclient.Network)]; ok {
-			if user, ok := userMap[extclient.OwnerID]; ok {
-				if user.PlatformRoleID != models.ServiceUser {
-					continue
-				}
-				err = logic.DeleteExtClientAndCleanup(extclient)
-				if err != nil {
-					slog.Error("failed to delete extclient",
-						"id", extclient.ClientID, "owner", user.UserName, "error", err)
+	for _, extclient := range extclients {
+		var shouldDelete bool
+		user, ok := userMap[extclient.OwnerID]
+		if !ok {
+			// user does not exist, delete extclient.
+			shouldDelete = true
+		} else {
+			if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
+				// Super-admin and Admin's access is not determined by group membership
+				// or network roles. Even if a network is removed from the group, they
+				// continue to have access to the network.
+				// So, no need to delete the extclient.
+				shouldDelete = false
+			} else {
+				_, hasAccess := user.NetworkRoles[models.NetworkID(extclient.Network)]
+				if hasAccess {
+					// The user has access to the network by themselves and not by
+					// virtue of being a member of the group.
+					// So, no need to delete the extclient.
+					shouldDelete = false
 				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
-						slog.Error("error setting ext peers: " + err.Error())
+					_, userInGroup := user.UserGroups[groupID]
+					_, networkRemoved := networkRemovedMap[models.NetworkID(extclient.Network)]
+					if userInGroup && networkRemoved {
+						// This group no longer provides it's members access to the
+						// network.
+						// This user is a member of the group and has no direct
+						// access to the network (either by its platform role or by
+						// network roles).
+						// So, delete the extclient.
+						shouldDelete = true
 					}
 				}
 			}
-
 		}
 
+		if shouldDelete {
+			err = logic.DeleteExtClientAndCleanup(extclient)
+			if err != nil {
+				slog.Error("failed to delete extclient",
+					"id", extclient.ClientID, "owner", user.UserName, "error", err)
+			} else {
+				if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+					slog.Error("error setting ext peers: " + err.Error())
+				}
+			}
+		}
 	}
+
 	if servercfg.IsDNSMode() {
 		logic.SetDNS()
 	}
