@@ -90,6 +90,11 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 	if gNs, ok := logic.GlobalNsList[req.Name]; ok {
 		req.Servers = gNs.IPs
 	}
+	if !servercfg.IsPro {
+		req.Tags = datatypes.JSONMap{
+			"*": struct{}{},
+		}
+	}
 	ns := schema.Nameserver{
 		ID:          uuid.New().String(),
 		Name:        req.Name,
@@ -222,6 +227,7 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 	}
 	ns.Servers = updateNs.Servers
 	ns.Tags = updateNs.Tags
+	ns.MatchDomain = updateNs.MatchDomain
 	ns.Description = updateNs.Description
 	ns.Name = updateNs.Name
 	ns.Status = updateNs.Status

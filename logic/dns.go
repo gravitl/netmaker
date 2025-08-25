@@ -394,6 +394,44 @@ func ValidateUpdateNameserverReq(updateNs schema.Nameserver) error {
 	return nil
 }
 
+func GetNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
+	ns := &schema.Nameserver{
+		NetworkID: node.Network,
+	}
+	nsLi, _ := ns.ListByNetwork(db.WithContext(context.TODO()))
+	for _, nsI := range nsLi {
+		if !nsI.Status {
+			continue
+		}
+		_, all := nsI.Tags["*"]
+		if all {
+			returnNsLi = append(returnNsLi, models.Nameserver{
+				IPs:         nsI.Servers,
+				MatchDomain: nsI.MatchDomain,
+			})
+			continue
+		}
+		for tagI := range node.Tags {
+			if _, ok := nsI.Tags[tagI.String()]; ok {
+				returnNsLi = append(returnNsLi, models.Nameserver{
+					IPs:         nsI.Servers,
+					MatchDomain: nsI.MatchDomain,
+				})
+			}
+		}
+	}
+	if node.IsInternetGateway {
+		globalNs := models.Nameserver{
+			MatchDomain: ".",
+		}
+		for _, nsI := range GlobalNsList {
+			globalNs.IPs = append(globalNs.IPs, nsI.IPs...)
+		}
+		returnNsLi = append(returnNsLi, globalNs)
+	}
+	return
+}
+
 func GetNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
 	if h.DNS != "yes" {
 		return

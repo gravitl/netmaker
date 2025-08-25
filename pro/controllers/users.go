@@ -1328,7 +1328,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 				Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
 			}
 			if !node.IsInternetGateway {
-				hNs := logic.GetNameserversForHost(host)
+				hNs := logic.GetNameserversForNode(&node)
 				for _, nsI := range hNs {
 					gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
 				}
@@ -1379,7 +1379,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
 		}
 		if !node.IsInternetGateway {
-			hNs := logic.GetNameserversForHost(host)
+			hNs := logic.GetNameserversForNode(&node)
 			for _, nsI := range hNs {
 				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
 			}
