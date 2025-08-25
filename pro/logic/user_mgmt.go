@@ -729,7 +729,10 @@ func GetUserRAGNodes(user models.User) (gws map[string]models.Node) {
 			continue
 		}
 		if user.PlatformRoleID == models.AdminRole || user.PlatformRoleID == models.SuperAdminRole {
-			gws[node.ID.String()] = node
+			if ok, _ := IsUserAllowedToCommunicate(user.UserName, node); ok {
+				gws[node.ID.String()] = node
+				continue
+			}
 		} else {
 			// check if user has network role assigned
 			if roles, ok := user.NetworkRoles[models.NetworkID(node.Network)]; ok && len(roles) > 0 {
