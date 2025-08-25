@@ -692,7 +692,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// reset configs for service user
-	go proLogic.UpdatesUserGwAccessOnGrpUpdates(currUserG.NetworkRoles, userGroup.NetworkRoles)
+	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userGroup.ID, currUserG.NetworkRoles, userGroup.NetworkRoles)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")
 }
 
@@ -897,7 +897,7 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userG.NetworkRoles, make(map[models.NetworkID]map[models.UserRoleID]struct{}))
+	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userG.ID, userG.NetworkRoles, make(map[models.NetworkID]map[models.UserRoleID]struct{}))
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user group")
 }
 
