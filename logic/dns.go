@@ -463,7 +463,27 @@ func GetNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
 			}
 			returnNsLi = append(returnNsLi, globalNs)
 		}
+		// add egress domains to list
+		e := schema.Egress{
+			Network: node.Network,
+		}
+		egs, _ := e.ListByNetwork(db.WithContext(context.TODO()))
+		for _, egI := range egs {
+			if egI.Domain != "" && len(egI.DomainAns) > 0 {
+				egressNs := models.Nameserver{
+					MatchDomain: egI.Domain,
+				}
+				if node.Address.IP != nil {
+					egressNs.IPs = append(egressNs.IPs, node.Address.IP.String())
+				}
+				if node.Address6.IP != nil {
+					egressNs.IPs = append(egressNs.IPs, node.Address6.IP.String())
+				}
+				returnNsLi = append(returnNsLi, egressNs)
+			}
+		}
 	}
+
 	return
 }
 
