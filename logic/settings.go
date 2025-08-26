@@ -38,6 +38,24 @@ func UpsertServerSettings(s models.ServerSettings) error {
 		s.BasicAuth = true
 	}
 
+	var userFilters []string
+	for _, userFilter := range s.UserFilters {
+		userFilter = strings.TrimSpace(userFilter)
+		if userFilter != "" {
+			userFilters = append(userFilters, userFilter)
+		}
+	}
+	s.UserFilters = userFilters
+
+	var groupFilters []string
+	for _, groupFilter := range s.GroupFilters {
+		groupFilter = strings.TrimSpace(groupFilter)
+		if groupFilter != "" {
+			groupFilters = append(groupFilters, groupFilter)
+		}
+	}
+	s.GroupFilters = groupFilters
+
 	data, err := json.Marshal(s)
 	if err != nil {
 		return err
