@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/pro/idp"
 	admindir "google.golang.org/api/admin/directory/v1"
@@ -59,7 +60,7 @@ func NewGoogleWorkspaceClient() (*Client, error) {
 	}, nil
 }
 
-func (g *Client) GetUsers() ([]idp.User, error) {
+func (g *Client) GetUsers(filters []string) ([]idp.User, error) {
 	var retval []idp.User
 	err := g.service.Users.List().
 		Customer("my_customer").
@@ -81,7 +82,7 @@ func (g *Client) GetUsers() ([]idp.User, error) {
 	return retval, err
 }
 
-func (g *Client) GetGroups() ([]idp.Group, error) {
+func (g *Client) GetGroups(filters []string) ([]idp.Group, error) {
 	var retval []idp.Group
 	err := g.service.Groups.List().
 		Customer("my_customer").

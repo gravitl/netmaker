@@ -1,8 +1,8 @@
 package idp
 
 type Client interface {
-	GetUsers() ([]User, error)
-	GetGroups() ([]Group, error)
+	GetUsers(filters []string) ([]User, error)
+	GetGroups(filters []string) ([]Group, error)
 }
 
 type User struct {
