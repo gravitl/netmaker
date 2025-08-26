@@ -329,7 +329,7 @@ func syncGroups(idpGroups []idp.Group) error {
 func filterUsersByGroupMembership(idpUsers []idp.User, idpGroups []idp.Group) []idp.User {
 	usersMap := make(map[string]int)
 	for i, user := range idpUsers {
-		usersMap[user.Username] = i
+		usersMap[user.ID] = i
 	}
 
 	filteredUsersMap := make(map[string]int)
@@ -356,7 +356,7 @@ func filterUsersByGroupMembership(idpUsers []idp.User, idpGroups []idp.Group) []
 func filterGroupsByMembers(idpGroups []idp.Group, idpUsers []idp.User) []idp.Group {
 	usersMap := make(map[string]int)
 	for i, user := range idpUsers {
-		usersMap[user.Username] = i
+		usersMap[user.ID] = i
 	}
 
 	filteredGroupsMap := make(map[int]bool)
