@@ -375,22 +375,17 @@ func ValidateNameserverReq(ns schema.Nameserver) error {
 	if len(ns.Servers) == 0 {
 		return errors.New("atleast one nameserver should be specified")
 	}
-	if !IsValidMatchDomain(ns.MatchDomain) {
-		return errors.New("invalid match domain")
+	if !ns.MatchAll && len(ns.MatchDomains) == 0 {
+		return errors.New("atleast one match domain is required")
 	}
-	return nil
-}
+	if !ns.MatchAll {
+		for _, matchDomain := range ns.MatchDomains {
+			if !IsValidMatchDomain(matchDomain) {
+				return errors.New("invalid match domain")
+			}
+		}
+	}
 
-func ValidateUpdateNameserverReq(updateNs schema.Nameserver) error {
-	if updateNs.Name == "" {
-		return errors.New("name is required")
-	}
-	if len(updateNs.Servers) == 0 {
-		return errors.New("atleast one nameserver should be specified")
-	}
-	if !IsValidMatchDomain(updateNs.MatchDomain) {
-		return errors.New("invalid match domain")
-	}
 	return nil
 }
 
@@ -405,18 +400,22 @@ func GetNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 		}
 		_, all := nsI.Tags["*"]
 		if all {
-			returnNsLi = append(returnNsLi, models.Nameserver{
-				IPs:         nsI.Servers,
-				MatchDomain: nsI.MatchDomain,
-			})
+			for _, matchDomain := range nsI.MatchDomains {
+				returnNsLi = append(returnNsLi, models.Nameserver{
+					IPs:         nsI.Servers,
+					MatchDomain: matchDomain,
+				})
+			}
 			continue
 		}
 		for tagI := range node.Tags {
 			if _, ok := nsI.Tags[tagI.String()]; ok {
-				returnNsLi = append(returnNsLi, models.Nameserver{
-					IPs:         nsI.Servers,
-					MatchDomain: nsI.MatchDomain,
-				})
+				for _, matchDomain := range nsI.MatchDomains {
+					returnNsLi = append(returnNsLi, models.Nameserver{
+						IPs:         nsI.Servers,
+						MatchDomain: matchDomain,
+					})
+				}
 			}
 		}
 	}
@@ -451,18 +450,23 @@ func GetNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
 			}
 			_, all := nsI.Tags["*"]
 			if all {
-				returnNsLi = append(returnNsLi, models.Nameserver{
-					IPs:         nsI.Servers,
-					MatchDomain: nsI.MatchDomain,
-				})
+				for _, matchDomain := range nsI.MatchDomains {
+					returnNsLi = append(returnNsLi, models.Nameserver{
+						IPs:         nsI.Servers,
+						MatchDomain: matchDomain,
+					})
+				}
 				continue
 			}
 			for tagI := range node.Tags {
 				if _, ok := nsI.Tags[tagI.String()]; ok {
-					returnNsLi = append(returnNsLi, models.Nameserver{
-						IPs:         nsI.Servers,
-						MatchDomain: nsI.MatchDomain,
-					})
+					for _, matchDomain := range nsI.MatchDomains {
+						returnNsLi = append(returnNsLi, models.Nameserver{
+							IPs:         nsI.Servers,
+							MatchDomain: matchDomain,
+						})
+					}
+
 				}
 			}
 		}

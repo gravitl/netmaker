@@ -18,8 +18,15 @@ func ValidateNameserverReq(ns schema.Nameserver) error {
 	if len(ns.Servers) == 0 {
 		return errors.New("atleast one nameserver should be specified")
 	}
-	if !logic.IsValidMatchDomain(ns.MatchDomain) {
-		return errors.New("invalid match domain")
+	if !ns.MatchAll && len(ns.MatchDomains) == 0 {
+		return errors.New("atleast one match domain is required")
+	}
+	if !ns.MatchAll {
+		for _, matchDomain := range ns.MatchDomains {
+			if !logic.IsValidMatchDomain(matchDomain) {
+				return errors.New("invalid match domain")
+			}
+		}
 	}
 	if len(ns.Tags) > 0 {
 		for tagI := range ns.Tags {

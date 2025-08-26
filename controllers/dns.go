@@ -95,17 +95,21 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 			"*": struct{}{},
 		}
 	}
+	if req.MatchAll {
+		req.MatchDomains = []string{"."}
+	}
 	ns := schema.Nameserver{
-		ID:          uuid.New().String(),
-		Name:        req.Name,
-		NetworkID:   req.NetworkID,
-		Description: req.Description,
-		MatchDomain: req.MatchDomain,
-		Servers:     req.Servers,
-		Tags:        req.Tags,
-		Status:      true,
-		CreatedBy:   r.Header.Get("user"),
-		CreatedAt:   time.Now().UTC(),
+		ID:           uuid.New().String(),
+		Name:         req.Name,
+		NetworkID:    req.NetworkID,
+		Description:  req.Description,
+		MatchAll:     req.MatchAll,
+		MatchDomains: req.MatchDomains,
+		Servers:      req.Servers,
+		Tags:         req.Tags,
+		Status:       true,
+		CreatedBy:    r.Header.Get("user"),
+		CreatedAt:    time.Now().UTC(),
 	}
 
 	err = ns.Create(db.WithContext(r.Context()))
@@ -187,7 +191,7 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := logic.ValidateUpdateNameserverReq(updateNs); err != nil {
+	if err := logic.ValidateNameserverReq(updateNs); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -202,8 +206,12 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var updateStatus bool
+	var updateMatchAll bool
 	if updateNs.Status != ns.Status {
 		updateStatus = true
+	}
+	if updateNs.MatchAll != ns.MatchAll {
+		updateMatchAll = true
 	}
 	event := &models.Event{
 		Action: models.Update,
@@ -227,7 +235,8 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 	}
 	ns.Servers = updateNs.Servers
 	ns.Tags = updateNs.Tags
-	ns.MatchDomain = updateNs.MatchDomain
+	ns.MatchDomains = updateNs.MatchDomains
+	ns.MatchAll = updateNs.MatchAll
 	ns.Description = updateNs.Description
 	ns.Name = updateNs.Name
 	ns.Status = updateNs.Status
@@ -244,6 +253,9 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 	}
 	if updateStatus {
 		ns.UpdateStatus(db.WithContext(context.TODO()))
+	}
+	if updateMatchAll {
+		ns.UpdateMatchAll(db.WithContext(context.TODO()))
 	}
 	logic.LogEvent(event)
 	go mq.PublishPeerUpdate(false)

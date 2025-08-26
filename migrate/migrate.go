@@ -37,7 +37,33 @@ func Run() {
 	updateAcls()
 	logic.MigrateToGws()
 	migrateToEgressV1()
+	migrateNameservers()
 	resync()
+}
+
+func migrateNameservers() {
+	nets, _ := logic.GetNetworks()
+	for _, netI := range nets {
+		if len(netI.NameServers) > 0 {
+			ns := schema.Nameserver{
+				ID:           uuid.NewString(),
+				Name:         "upstream nameservers",
+				NetworkID:    netI.NetID,
+				Servers:      []string{},
+				MatchAll:     true,
+				MatchDomains: []string{"."},
+				Tags: datatypes.JSONMap{
+					"*": struct{}{},
+				},
+				Status:    true,
+				CreatedBy: "auto",
+			}
+			for _, ip := range netI.NameServers {
+				ns.Servers = append(ns.Servers, ip)
+			}
+			ns.Create(db.WithContext(context.TODO()))
+		}
+	}
 }
 
 // removes if any stale configurations from previous run.
