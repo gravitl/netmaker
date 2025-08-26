@@ -43,6 +43,10 @@ func Run() {
 
 func migrateNameservers() {
 	nets, _ := logic.GetNetworks()
+	user, err := logic.GetSuperAdmin()
+	if err != nil {
+		return
+	}
 	for _, netI := range nets {
 		if len(netI.NameServers) > 0 {
 			ns := schema.Nameserver{
@@ -56,12 +60,14 @@ func migrateNameservers() {
 					"*": struct{}{},
 				},
 				Status:    true,
-				CreatedBy: "auto",
+				CreatedBy: user.UserName,
 			}
 			for _, ip := range netI.NameServers {
 				ns.Servers = append(ns.Servers, ip)
 			}
 			ns.Create(db.WithContext(context.TODO()))
+			netI.NameServers = []string{}
+			logic.SaveNetwork(&netI)
 		}
 	}
 }
