@@ -155,6 +155,9 @@ func InitPro() {
 	logic.GetFwRulesForNodeAndPeerOnGw = proLogic.GetFwRulesForNodeAndPeerOnGw
 	logic.GetFwRulesForUserNodesOnGw = proLogic.GetFwRulesForUserNodesOnGw
 	logic.GetHostLocInfo = proLogic.GetHostLocInfo
+	logic.GetNameserversForHost = proLogic.GetNameserversForHost
+	logic.GetNameserversForNode = proLogic.GetNameserversForNode
+	logic.ValidateNameserverReq = proLogic.ValidateNameserverReq
 
 }
 

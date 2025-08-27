@@ -20,6 +20,10 @@ import (
 	"github.com/txn2/txeh"
 )
 
+var GetNameserversForNode = getNameserversForNode
+var GetNameserversForHost = getNameserversForHost
+var ValidateNameserverReq = validateNameserverReq
+
 type GlobalNs struct {
 	ID  string   `json:"id"`
 	IPs []string `json:"ips"`
@@ -196,18 +200,8 @@ func GetGwDNS(node *models.Node) string {
 }
 
 func SetDNSOnWgConfig(gwNode *models.Node, extclient *models.ExtClient) {
-	if extclient.RemoteAccessClientID == "" {
-		if extclient.DNS == "" {
-			extclient.DNS = GetGwDNS(gwNode)
-		}
-		return
-	}
-	ns := GetNameserversForNode(gwNode)
-	for _, nsI := range ns {
-		if nsI.MatchDomain == "." {
-			extclient.DNS = GetGwDNS(gwNode)
-			break
-		}
+	if extclient.DNS == "" {
+		extclient.DNS = GetGwDNS(gwNode)
 	}
 }
 
@@ -404,7 +398,7 @@ func CreateDNS(entry models.DNSEntry) (models.DNSEntry, error) {
 	return entry, err
 }
 
-func ValidateNameserverReq(ns schema.Nameserver) error {
+func validateNameserverReq(ns schema.Nameserver) error {
 	if ns.Name == "" {
 		return errors.New("name is required")
 	}
@@ -428,7 +422,7 @@ func ValidateNameserverReq(ns schema.Nameserver) error {
 	return nil
 }
 
-func GetNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
+func getNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 	ns := &schema.Nameserver{
 		NetworkID: node.Network,
 	}
@@ -447,16 +441,16 @@ func GetNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 			}
 			continue
 		}
-		for tagI := range node.Tags {
-			if _, ok := nsI.Tags[tagI.String()]; ok {
-				for _, matchDomain := range nsI.MatchDomains {
-					returnNsLi = append(returnNsLi, models.Nameserver{
-						IPs:         nsI.Servers,
-						MatchDomain: matchDomain,
-					})
-				}
+
+		if _, ok := nsI.Nodes[node.ID.String()]; ok {
+			for _, matchDomain := range nsI.MatchDomains {
+				returnNsLi = append(returnNsLi, models.Nameserver{
+					IPs:         nsI.Servers,
+					MatchDomain: matchDomain,
+				})
 			}
 		}
+
 	}
 	if node.IsInternetGateway {
 		globalNs := models.Nameserver{
@@ -470,7 +464,7 @@ func GetNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 	return
 }
 
-func GetNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
+func getNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
 	if h.DNS != "yes" {
 		return
 	}
@@ -497,17 +491,17 @@ func GetNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
 				}
 				continue
 			}
-			for tagI := range node.Tags {
-				if _, ok := nsI.Tags[tagI.String()]; ok {
-					for _, matchDomain := range nsI.MatchDomains {
-						returnNsLi = append(returnNsLi, models.Nameserver{
-							IPs:         nsI.Servers,
-							MatchDomain: matchDomain,
-						})
-					}
 
+			if _, ok := nsI.Nodes[node.ID.String()]; ok {
+				for _, matchDomain := range nsI.MatchDomains {
+					returnNsLi = append(returnNsLi, models.Nameserver{
+						IPs:         nsI.Servers,
+						MatchDomain: matchDomain,
+					})
 				}
+
 			}
+
 		}
 		if node.IsInternetGateway {
 			globalNs := models.Nameserver{

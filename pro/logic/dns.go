@@ -1,8 +1,10 @@
 package logic
 
 import (
+	"context"
 	"errors"
 
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -40,4 +42,130 @@ func ValidateNameserverReq(ns schema.Nameserver) error {
 		}
 	}
 	return nil
+}
+
+func GetNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
+	ns := &schema.Nameserver{
+		NetworkID: node.Network,
+	}
+	nsLi, _ := ns.ListByNetwork(db.WithContext(context.TODO()))
+	for _, nsI := range nsLi {
+		if !nsI.Status {
+			continue
+		}
+		_, all := nsI.Tags["*"]
+		if all {
+			for _, matchDomain := range nsI.MatchDomains {
+				returnNsLi = append(returnNsLi, models.Nameserver{
+					IPs:         nsI.Servers,
+					MatchDomain: matchDomain,
+				})
+			}
+			continue
+		}
+		foundTag := false
+		for tagI := range node.Tags {
+			if _, ok := nsI.Tags[tagI.String()]; ok {
+				for _, matchDomain := range nsI.MatchDomains {
+					returnNsLi = append(returnNsLi, models.Nameserver{
+						IPs:         nsI.Servers,
+						MatchDomain: matchDomain,
+					})
+				}
+				foundTag = true
+			}
+			if foundTag {
+				break
+			}
+		}
+		if foundTag {
+			continue
+		}
+		if _, ok := nsI.Nodes[node.ID.String()]; ok {
+			for _, matchDomain := range nsI.MatchDomains {
+				returnNsLi = append(returnNsLi, models.Nameserver{
+					IPs:         nsI.Servers,
+					MatchDomain: matchDomain,
+				})
+			}
+		}
+	}
+	if node.IsInternetGateway {
+		globalNs := models.Nameserver{
+			MatchDomain: ".",
+		}
+		for _, nsI := range logic.GlobalNsList {
+			globalNs.IPs = append(globalNs.IPs, nsI.IPs...)
+		}
+		returnNsLi = append(returnNsLi, globalNs)
+	}
+	return
+}
+
+func GetNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
+	if h.DNS != "yes" {
+		return
+	}
+	for _, nodeID := range h.Nodes {
+		node, err := logic.GetNodeByID(nodeID)
+		if err != nil {
+			continue
+		}
+		ns := &schema.Nameserver{
+			NetworkID: node.Network,
+		}
+		nsLi, _ := ns.ListByNetwork(db.WithContext(context.TODO()))
+		for _, nsI := range nsLi {
+			if !nsI.Status {
+				continue
+			}
+			_, all := nsI.Tags["*"]
+			if all {
+				for _, matchDomain := range nsI.MatchDomains {
+					returnNsLi = append(returnNsLi, models.Nameserver{
+						IPs:         nsI.Servers,
+						MatchDomain: matchDomain,
+					})
+				}
+				continue
+			}
+			foundTag := false
+			for tagI := range node.Tags {
+				if _, ok := nsI.Tags[tagI.String()]; ok {
+					for _, matchDomain := range nsI.MatchDomains {
+						returnNsLi = append(returnNsLi, models.Nameserver{
+							IPs:         nsI.Servers,
+							MatchDomain: matchDomain,
+						})
+					}
+					foundTag = true
+				}
+				if foundTag {
+					break
+				}
+			}
+			if foundTag {
+				continue
+			}
+			if _, ok := nsI.Nodes[node.ID.String()]; ok {
+				for _, matchDomain := range nsI.MatchDomains {
+					returnNsLi = append(returnNsLi, models.Nameserver{
+						IPs:         nsI.Servers,
+						MatchDomain: matchDomain,
+					})
+				}
+			}
+
+		}
+		if node.IsInternetGateway {
+			globalNs := models.Nameserver{
+				MatchDomain: ".",
+			}
+			for _, nsI := range logic.GlobalNsList {
+				globalNs.IPs = append(globalNs.IPs, nsI.IPs...)
+			}
+			returnNsLi = append(returnNsLi, globalNs)
+		}
+	}
+	return
 }
