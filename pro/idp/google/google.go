@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"strings"
 
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/pro/idp"
@@ -67,6 +68,17 @@ func (g *Client) GetUsers(filters []string) ([]idp.User, error) {
 		Fields("users(id,primaryEmail,name,suspended,archived)", "nextPageToken").
 		Pages(context.TODO(), func(users *admindir.Users) error {
 			for _, user := range users.Users {
+				var found bool
+				for _, filter := range filters {
+					if strings.HasPrefix(user.PrimaryEmail, filter) {
+						found = true
+					}
+				}
+
+				if !found {
+					continue
+				}
+
 				retval = append(retval, idp.User{
 					ID:              user.Id,
 					Username:        user.PrimaryEmail,
@@ -89,6 +101,17 @@ func (g *Client) GetGroups(filters []string) ([]idp.Group, error) {
 		Fields("groups(id,name)", "nextPageToken").
 		Pages(context.TODO(), func(groups *admindir.Groups) error {
 			for _, group := range groups.Groups {
+				var found bool
+				for _, filter := range filters {
+					if strings.HasPrefix(group.Name, filter) {
+						found = true
+					}
+				}
+
+				if !found {
+					continue
+				}
+
 				var retvalMembers []string
 				err := g.service.Members.List(group.Id).
 					Fields("members(id)", "nextPageToken").
