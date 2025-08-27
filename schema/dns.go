@@ -17,6 +17,7 @@ type Nameserver struct {
 	MatchAll     bool                        `gorm:"match_all" json:"match_all"`
 	MatchDomains datatypes.JSONSlice[string] `gorm:"match_domains" json:"match_domains"`
 	Tags         datatypes.JSONMap           `gorm:"tags" json:"tags"`
+	Nodes        datatypes.JSONMap           `gorm:"nodes" json:"nodes"`
 	Status       bool                        `gorm:"status" json:"status"`
 	CreatedBy    string                      `gorm:"created_by" json:"created_by"`
 	CreatedAt    time.Time                   `gorm:"created_at" json:"created_at"`

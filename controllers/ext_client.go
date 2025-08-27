@@ -133,6 +133,12 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	gwNode, err := logic.GetNodeByID(client.IngressGatewayID)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	logic.SetDNSOnWgConfig(&gwNode, &client)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(client)
@@ -288,39 +294,11 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-
+	logic.SetDNSOnWgConfig(&gwnode, &client)
 	defaultDNS := ""
 	if client.DNS != "" {
 		defaultDNS = "DNS = " + client.DNS
-	} else if gwnode.IngressDNS != "" {
-		defaultDNS = "DNS = " + gwnode.IngressDNS
 	}
-	if client.DNS == "" {
-		if len(network.NameServers) > 0 {
-			if defaultDNS == "" {
-				defaultDNS = "DNS = " + strings.Join(network.NameServers, ",")
-			} else {
-				defaultDNS += "," + strings.Join(network.NameServers, ",")
-			}
-
-		}
-	}
-	// if servercfg.GetManageDNS() {
-	// 	if gwnode.Address6.IP != nil {
-	// 		if defaultDNS == "" {
-	// 			defaultDNS = "DNS = " + gwnode.Address6.IP.String()
-	// 		} else {
-	// 			defaultDNS = defaultDNS + ", " + gwnode.Address6.IP.String()
-	// 		}
-	// 	}
-	// 	if gwnode.Address.IP != nil {
-	// 		if defaultDNS == "" {
-	// 			defaultDNS = "DNS = " + gwnode.Address.IP.String()
-	// 		} else {
-	// 			defaultDNS = defaultDNS + ", " + gwnode.Address.IP.String()
-	// 		}
-	// 	}
-	// }
 
 	defaultMTU := 1420
 	if host.MTU != 0 {
@@ -745,18 +723,10 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	extclient.Tags = make(map[models.TagID]struct{})
 	// extclient.Tags[models.TagID(fmt.Sprintf("%s.%s", extclient.Network,
 	// 	models.RemoteAccessTagName))] = struct{}{}
-	// set extclient dns to ingressdns if extclient dns is not explicitly set
-	if (extclient.DNS == "") && (node.IngressDNS != "") {
-		network, _ := logic.GetNetwork(node.Network)
-		dns := node.IngressDNS
-		if len(network.NameServers) > 0 {
-			if dns == "" {
-				dns = strings.Join(network.NameServers, ",")
-			} else {
-				dns += "," + strings.Join(network.NameServers, ",")
-			}
-
-		}
+	// set extclient dns to ingressdns if extclient dns is not explicitly
+	gwDNS := logic.GetGwDNS(&node)
+	if (extclient.DNS == "") && (gwDNS != "") {
+		dns := gwDNS
 		extclient.DNS = dns
 	}
 	host, err := logic.GetHost(node.HostID.String())

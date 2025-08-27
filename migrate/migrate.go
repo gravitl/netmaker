@@ -47,6 +47,7 @@ func migrateNameservers() {
 	if err != nil {
 		return
 	}
+
 	for _, netI := range nets {
 		if len(netI.NameServers) > 0 {
 			ns := schema.Nameserver{
@@ -59,6 +60,7 @@ func migrateNameservers() {
 				Tags: datatypes.JSONMap{
 					"*": struct{}{},
 				},
+				Nodes:     make(datatypes.JSONMap),
 				Status:    true,
 				CreatedBy: user.UserName,
 			}
@@ -70,6 +72,44 @@ func migrateNameservers() {
 			logic.SaveNetwork(&netI)
 		}
 	}
+	nodes, _ := logic.GetAllNodes()
+	for _, node := range nodes {
+		if !node.IsGw {
+			continue
+		}
+		if node.IngressDNS != "" {
+			if (node.Address.IP != nil && node.Address.IP.String() == node.IngressDNS) ||
+				(node.Address6.IP != nil && node.Address6.IP.String() == node.IngressDNS) {
+				continue
+			}
+			if node.IngressDNS == "8.8.8.8" || node.IngressDNS == "1.1.1.1" || node.IngressDNS == "9.9.9.9" {
+				continue
+			}
+			h, err := logic.GetHost(node.HostID.String())
+			if err != nil {
+				continue
+			}
+			ns := schema.Nameserver{
+				ID:           uuid.NewString(),
+				Name:         fmt.Sprintf("%s gw nameservers", h.Name),
+				NetworkID:    node.Network,
+				Servers:      []string{node.IngressDNS},
+				MatchAll:     true,
+				MatchDomains: []string{"."},
+				Nodes: datatypes.JSONMap{
+					node.ID.String(): struct{}{},
+				},
+				Tags:      make(datatypes.JSONMap),
+				Status:    true,
+				CreatedBy: user.UserName,
+			}
+			ns.Create(db.WithContext(context.TODO()))
+			node.IngressDNS = ""
+			logic.UpsertNode(&node)
+		}
+
+	}
+
 }
 
 // removes if any stale configurations from previous run.

@@ -1171,11 +1171,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		userConf.OwnerID = user.UserName
 		userConf.RemoteAccessClientID = req.RemoteAccessClientID
 		userConf.IngressGatewayID = node.ID.String()
-
-		// set extclient dns to ingressdns if extclient dns is not explicitly set
-		if (userConf.DNS == "") && (node.IngressDNS != "") {
-			userConf.DNS = node.IngressDNS
-		}
+		logic.SetDNSOnWgConfig(&node, &userConf)
 
 		userConf.Network = node.Network
 		host, err := logic.GetHost(node.HostID.String())
@@ -1301,9 +1297,8 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			}
 
 			gws := userGws[node.Network]
-			if extClient.DNS == "" {
-				extClient.DNS = node.IngressDNS
-			}
+
+			logic.SetDNSOnWgConfig(&node, &extClient)
 
 			extClient.IngressGatewayEndpoint = utils.GetExtClientEndpoint(
 				host.EndpointIP,

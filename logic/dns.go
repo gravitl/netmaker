@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/servercfg"
 	"github.com/txn2/txeh"
 )
 
@@ -170,6 +171,44 @@ func GetNodeDNS(network string) ([]models.DNSEntry, error) {
 	}
 
 	return dns, nil
+}
+
+func GetGwDNS(node *models.Node) string {
+	if !servercfg.GetManageDNS() {
+		return ""
+	}
+	h, err := GetHost(node.HostID.String())
+	if err != nil {
+		return ""
+	}
+	if h.DNS != "yes" {
+		return ""
+	}
+	dns := []string{}
+	if node.Address.IP != nil {
+		dns = append(dns, node.Address.IP.String())
+	}
+	if node.Address6.IP != nil {
+		dns = append(dns, node.Address6.IP.String())
+	}
+	return strings.Join(dns, ",")
+
+}
+
+func SetDNSOnWgConfig(gwNode *models.Node, extclient *models.ExtClient) {
+	if extclient.RemoteAccessClientID == "" {
+		if extclient.DNS == "" {
+			extclient.DNS = GetGwDNS(gwNode)
+		}
+		return
+	}
+	ns := GetNameserversForNode(gwNode)
+	for _, nsI := range ns {
+		if nsI.MatchDomain == "." {
+			extclient.DNS = GetGwDNS(gwNode)
+			break
+		}
+	}
 }
 
 // GetCustomDNS - gets the custom DNS of a network
