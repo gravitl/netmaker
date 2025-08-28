@@ -48,7 +48,9 @@ func (o *Client) GetUsers(filters []string) ([]idp.User, error) {
 	var allUsersFetched bool
 
 	for !allUsersFetched {
-		users, resp, err := o.client.UserAPI.ListUsers(context.TODO()).Execute()
+		users, resp, err := o.client.UserAPI.ListUsers(context.TODO()).
+			Search(buildPrefixFilter("profile.login", filters)).
+			Execute()
 		if err != nil {
 			return nil, err
 		}
@@ -87,7 +89,9 @@ func (o *Client) GetGroups(filters []string) ([]idp.Group, error) {
 	var allGroupsFetched bool
 
 	for !allGroupsFetched {
-		groups, resp, err := o.client.GroupAPI.ListGroups(context.TODO()).Execute()
+		groups, resp, err := o.client.GroupAPI.ListGroups(context.TODO()).
+			Search(buildPrefixFilter("profile.name", filters)).
+			Execute()
 		if err != nil {
 			return nil, err
 		}
@@ -122,4 +126,16 @@ func (o *Client) GetGroups(filters []string) ([]idp.Group, error) {
 	}
 
 	return retval, nil
+}
+
+func buildPrefixFilter(field string, prefixes []string) string {
+	if len(prefixes) == 0 {
+		return ""
+	}
+
+	if len(prefixes) == 1 {
+		return fmt.Sprintf("%s sw \"%s\"", field, prefixes[0])
+	}
+
+	return buildPrefixFilter(field, prefixes[:1]) + " or " + buildPrefixFilter(field, prefixes[1:])
 }
