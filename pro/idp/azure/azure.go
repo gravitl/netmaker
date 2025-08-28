@@ -168,7 +168,7 @@ func buildPrefixFilter(field string, prefixes []string) string {
 		return fmt.Sprintf("$filter=startswith(%s,'%s')", field, prefixes[0])
 	}
 
-	return buildPrefixFilter(field, prefixes[1:]) + fmt.Sprintf("%%20or%%20startswith(%s,'%s')", field, prefixes[0])
+	return buildPrefixFilter(field, prefixes[:1]) + "%20or%20" + buildPrefixFilter(field, prefixes[1:])
 }
 
 type getUsersResponse struct {
