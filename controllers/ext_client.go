@@ -838,7 +838,6 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 
 	var update models.CustomExtClient
 	//var oldExtClient models.ExtClient
-	var sendPeerUpdate bool
 	var replacePeers bool
 	err := json.NewDecoder(r.Body).Decode(&update)
 	if err != nil {
@@ -887,19 +886,11 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	var changedID = update.ClientID != oldExtClient.ClientID
 
 	if !reflect.DeepEqual(update.DeniedACLs, oldExtClient.DeniedACLs) {
-		sendPeerUpdate = true
 		logic.SetClientACLs(&oldExtClient, update.DeniedACLs)
 	}
-	if !logic.IsSlicesEqual(update.ExtraAllowedIPs, oldExtClient.ExtraAllowedIPs) {
-		sendPeerUpdate = true
-	}
 
-	if update.Enabled != oldExtClient.Enabled {
-		sendPeerUpdate = true
-	}
 	if update.PublicKey != oldExtClient.PublicKey {
 		//remove old peer entry
-		sendPeerUpdate = true
 		replacePeers = true
 	}
 	if update.RemoteAccessClientID != "" && update.Location == "" {
@@ -944,45 +935,12 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		if changedID && servercfg.IsDNSMode() {
 			logic.SetDNS()
 		}
-		if replacePeers {
+		if replacePeers || !update.Enabled {
 			if err := mq.PublishDeletedClientPeerUpdate(&oldExtClient); err != nil {
 				slog.Error("error deleting old ext peers", "error", err.Error())
 			}
 		}
-		if sendPeerUpdate { // need to send a peer update to the ingress node as enablement of one of it's clients has changed
-			ingressNode, err := logic.GetNodeByID(newclient.IngressGatewayID)
-			if err == nil {
-				if err = mq.PublishPeerUpdate(false); err != nil {
-					logger.Log(
-						1,
-						"error setting ext peers on",
-						ingressNode.ID.String(),
-						":",
-						err.Error(),
-					)
-				}
-			}
-			if !update.Enabled {
-				ingressHost, err := logic.GetHost(ingressNode.HostID.String())
-				if err != nil {
-					slog.Error(
-						"Failed to get ingress host",
-						"node",
-						ingressNode.ID.String(),
-						"error",
-						err,
-					)
-					return
-				}
-				nodes, err := logic.GetAllNodes()
-				if err != nil {
-					slog.Error("Failed to get nodes", "error", err)
-					return
-				}
-				go mq.PublishSingleHostPeerUpdate(ingressHost, nodes, nil, []models.ExtClient{oldExtClient}, false, nil)
-			}
-		}
-
+		mq.PublishPeerUpdate(false)
 	}()
 
 }
