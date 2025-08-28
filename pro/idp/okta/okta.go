@@ -3,6 +3,7 @@ package okta
 import (
 	"context"
 	"fmt"
+
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/pro/idp"
 	"github.com/okta/okta-sdk-golang/v5/okta"
@@ -42,7 +43,7 @@ func (o *Client) Verify() error {
 	return err
 }
 
-func (o *Client) GetUsers() ([]idp.User, error) {
+func (o *Client) GetUsers(filters []string) ([]idp.User, error) {
 	var retval []idp.User
 	var allUsersFetched bool
 
@@ -81,7 +82,7 @@ func (o *Client) GetUsers() ([]idp.User, error) {
 	return retval, nil
 }
 
-func (o *Client) GetGroups() ([]idp.Group, error) {
+func (o *Client) GetGroups(filters []string) ([]idp.Group, error) {
 	var retval []idp.Group
 	var allGroupsFetched bool
 
