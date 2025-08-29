@@ -142,6 +142,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		NodePeers:       []wgtypes.PeerConfig{},
 		HostNetworkInfo: models.HostInfoMap{},
 		ServerConfig:    GetServerInfo(),
+		DnsNameservers:  GetNameserversForHost(host),
 	}
 	if host.DNS == "no" {
 		hostPeerUpdate.ManageDNS = false

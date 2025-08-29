@@ -8,5 +8,6 @@ func ListModels() []interface{} {
 		&UserAccessToken{},
 		&Event{},
 		&PendingHost{},
+		&Nameserver{},
 	}
 }

@@ -95,14 +95,22 @@ func SyncFromIDP() error {
 	}
 
 	if settings.AuthProvider != "" && idpClient != nil {
-		idpUsers, err = idpClient.GetUsers()
+		idpUsers, err = idpClient.GetUsers(settings.UserFilters)
 		if err != nil {
 			return err
 		}
 
-		idpGroups, err = idpClient.GetGroups()
+		idpGroups, err = idpClient.GetGroups(settings.GroupFilters)
 		if err != nil {
 			return err
+		}
+
+		if len(settings.GroupFilters) > 0 {
+			idpUsers = filterUsersByGroupMembership(idpUsers, idpGroups)
+		}
+
+		if len(settings.UserFilters) > 0 {
+			idpGroups = filterGroupsByMembers(idpGroups, idpUsers)
 		}
 	}
 
@@ -346,4 +354,64 @@ func GetIDPSyncStatus() models.IDPSyncStatus {
 			Status: "in_progress",
 		}
 	}
+}
+func filterUsersByGroupMembership(idpUsers []idp.User, idpGroups []idp.Group) []idp.User {
+	usersMap := make(map[string]int)
+	for i, user := range idpUsers {
+		usersMap[user.ID] = i
+	}
+
+	filteredUsersMap := make(map[string]int)
+	for _, group := range idpGroups {
+		for _, member := range group.Members {
+			if userIdx, ok := usersMap[member]; ok {
+				// user at index `userIdx` is a member of at least one of the
+				// groups in the `idpGroups` list, so we keep it.
+				filteredUsersMap[member] = userIdx
+			}
+		}
+	}
+
+	i := 0
+	filteredUsers := make([]idp.User, len(filteredUsersMap))
+	for _, userIdx := range filteredUsersMap {
+		filteredUsers[i] = idpUsers[userIdx]
+		i++
+	}
+
+	return filteredUsers
+}
+
+func filterGroupsByMembers(idpGroups []idp.Group, idpUsers []idp.User) []idp.Group {
+	usersMap := make(map[string]int)
+	for i, user := range idpUsers {
+		usersMap[user.ID] = i
+	}
+
+	filteredGroupsMap := make(map[int]bool)
+	for i, group := range idpGroups {
+		var members []string
+		for _, member := range group.Members {
+			if _, ok := usersMap[member]; ok {
+				members = append(members, member)
+			}
+
+			if len(members) > 0 {
+				// the group at index `i` has members from the `idpUsers` list,
+				// so we keep it.
+				filteredGroupsMap[i] = true
+				// filter out members that were not provided in the `idpUsers` list.
+				idpGroups[i].Members = members
+			}
+		}
+	}
+
+	i := 0
+	filteredGroups := make([]idp.Group, len(filteredGroupsMap))
+	for groupIdx := range filteredGroupsMap {
+		filteredGroups[i] = idpGroups[groupIdx]
+		i++
+	}
+
+	return filteredGroups
 }

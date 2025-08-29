@@ -5,14 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gravitl/netmaker/pro/idp"
-	"github.com/gravitl/netmaker/pro/idp/azure"
-	"github.com/gravitl/netmaker/pro/idp/google"
-	"github.com/gravitl/netmaker/pro/idp/okta"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/gravitl/netmaker/pro/idp"
+	"github.com/gravitl/netmaker/pro/idp/azure"
+	"github.com/gravitl/netmaker/pro/idp/google"
+	"github.com/gravitl/netmaker/pro/idp/okta"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -48,6 +49,8 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users/group", logic.SecurityCheck(true, http.HandlerFunc(createUserGroup))).Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/users/group", logic.SecurityCheck(true, http.HandlerFunc(updateUserGroup))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/users/group", logic.SecurityCheck(true, http.HandlerFunc(deleteUserGroup))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/users/add_network_user", logic.SecurityCheck(true, http.HandlerFunc(addUsertoNetwork))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/users/remove_network_user", logic.SecurityCheck(true, http.HandlerFunc(removeUserfromNetwork))).Methods(http.MethodPut)
 
 	// User Invite Handlers
 	r.HandleFunc("/api/v1/users/invite", userInviteVerify).Methods(http.MethodGet)
@@ -471,45 +474,6 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	for networkID := range userGroupReq.Group.NetworkRoles {
-		network, err := logic.GetNetwork(networkID.String())
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-
-		acl := models.Acl{
-			ID:          uuid.New().String(),
-			Name:        fmt.Sprintf("%s group", userGroupReq.Group.Name),
-			MetaData:    "This Policy allows user group to communicate with all gateways",
-			Default:     false,
-			ServiceType: models.Any,
-			NetworkID:   models.NetworkID(network.NetID),
-			Proto:       models.ALL,
-			RuleType:    models.UserPolicy,
-			Src: []models.AclPolicyTag{
-				{
-					ID:    models.UserGroupAclID,
-					Value: userGroupReq.Group.ID.String(),
-				},
-			},
-			Dst: []models.AclPolicyTag{
-				{
-					ID:    models.NodeTagID,
-					Value: fmt.Sprintf("%s.%s", models.NetworkID(network.NetID), models.GwTagName),
-				}},
-			AllowedDirection: models.TrafficDirectionUni,
-			Enabled:          true,
-			CreatedBy:        "auto",
-			CreatedAt:        time.Now().UTC(),
-		}
-		err = logic.InsertAcl(acl)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-	}
-
 	for _, userID := range userGroupReq.Members {
 		user, err := logic.GetUser(userID)
 		if err != nil {
@@ -536,6 +500,7 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: models.Dashboard,
 	})
+	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroupReq.Group, "created user group")
 }
 
@@ -689,8 +654,122 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// reset configs for service user
-	go proLogic.UpdatesUserGwAccessOnGrpUpdates(currUserG.NetworkRoles, userGroup.NetworkRoles)
+	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userGroup.ID, currUserG.NetworkRoles, userGroup.NetworkRoles)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")
+}
+
+// swagger:route PUT /api/v1/users/add_network_user user addUsertoNetwork
+//
+// add user to network.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: userBodyResponse
+func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
+	username := r.URL.Query().Get("username")
+	if username == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), logic.BadReq))
+		return
+	}
+	netID := r.URL.Query().Get("network_id")
+	if netID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), logic.BadReq))
+		return
+	}
+	user, err := logic.GetUser(username)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+	if user.PlatformRoleID != models.ServiceUser {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("can only add service users"), logic.BadReq))
+		return
+	}
+	oldUser := *user
+	user.UserGroups[proLogic.GetDefaultNetworkUserGroupID(models.NetworkID(netID))] = struct{}{}
+	logic.UpsertUser(*user)
+	logic.LogEvent(&models.Event{
+		Action: models.Update,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   user.UserName,
+			Name: user.UserName,
+			Type: models.UserSub,
+		},
+		Diff: models.Diff{
+			Old: oldUser,
+			New: user,
+		},
+		Origin: models.Dashboard,
+	})
+
+	logic.ReturnSuccessResponseWithJson(w, r, user, "updated user group")
+}
+
+// swagger:route PUT /api/v1/users/remove_network_user user removeUserfromNetwork
+//
+// add user to network.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: userBodyResponse
+func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
+	username := r.URL.Query().Get("username")
+	if username == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), logic.BadReq))
+		return
+	}
+	netID := r.URL.Query().Get("network_id")
+	if netID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), logic.BadReq))
+		return
+	}
+	user, err := logic.GetUser(username)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+	if user.PlatformRoleID != models.ServiceUser {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("can only add service users"), logic.BadReq))
+		return
+	}
+	oldUser := *user
+	delete(user.UserGroups, proLogic.GetDefaultNetworkUserGroupID(models.NetworkID(netID)))
+	logic.UpsertUser(*user)
+	logic.LogEvent(&models.Event{
+		Action: models.Update,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   user.UserName,
+			Name: user.UserName,
+			Type: models.UserSub,
+		},
+		Diff: models.Diff{
+			Old: oldUser,
+			New: user,
+		},
+		Origin: models.Dashboard,
+	})
+
+	logic.ReturnSuccessResponseWithJson(w, r, user, "updated user group")
 }
 
 // swagger:route DELETE /api/v1/user/group user deleteUserGroup
@@ -780,7 +859,8 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userG.NetworkRoles, make(map[models.NetworkID]map[models.UserRoleID]struct{}))
+	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userG.ID, userG.NetworkRoles, make(map[models.NetworkID]map[models.UserRoleID]struct{}))
+	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user group")
 }
 
@@ -1299,11 +1379,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		userConf.OwnerID = user.UserName
 		userConf.RemoteAccessClientID = req.RemoteAccessClientID
 		userConf.IngressGatewayID = node.ID.String()
-
-		// set extclient dns to ingressdns if extclient dns is not explicitly set
-		if (userConf.DNS == "") && (node.IngressDNS != "") {
-			userConf.DNS = node.IngressDNS
-		}
+		logic.SetDNSOnWgConfig(&node, &userConf)
 
 		userConf.Network = node.Network
 		host, err := logic.GetHost(node.HostID.String())
@@ -1477,7 +1553,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			logic.GetPeerListenPort(host),
 		)
 		gwClient.AllowedIPs = logic.GetExtclientAllowedIPs(gwClient)
-		gws = append(gws, models.UserRemoteGws{
+		gw := models.UserRemoteGws{
 			GwID:              node.ID.String(),
 			GWName:            host.Name,
 			Network:           node.Network,
@@ -1492,7 +1568,14 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			Status:            node.Status,
 			DnsAddress:        node.IngressDNS,
 			Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
-		})
+		}
+		if !node.IsInternetGateway {
+			hNs := logic.GetNameserversForNode(&node)
+			for _, nsI := range hNs {
+				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
+			}
+		}
+		gws = append(gws, gw)
 		userGws[node.Network] = gws
 		delete(userGwNodes, node.ID.String())
 	}
@@ -1522,8 +1605,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			slog.Error("failed to get node network", "error", err)
 		}
 		gws := userGws[node.Network]
-
-		gws = append(gws, models.UserRemoteGws{
+		gw := models.UserRemoteGws{
 			GwID:              node.ID.String(),
 			GWName:            host.Name,
 			Network:           node.Network,
@@ -1536,7 +1618,14 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			Status:            node.Status,
 			DnsAddress:        node.IngressDNS,
 			Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
-		})
+		}
+		if !node.IsInternetGateway {
+			hNs := logic.GetNameserversForNode(&node)
+			for _, nsI := range hNs {
+				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
+			}
+		}
+		gws = append(gws, gw)
 		userGws[node.Network] = gws
 	}
 
@@ -1855,11 +1944,10 @@ func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if superAdmin.AuthType == models.OAuth {
-		logic.ReturnErrorResponse(
-			w,
-			r,
-			logic.FormatError(fmt.Errorf("cannot remove idp integration with superadmin oauth user"), "badrequest"),
+		err := fmt.Errorf(
+			"cannot remove IdP integration because an OAuth user has the super-admin role; transfer the super-admin role to another user first",
 		)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 

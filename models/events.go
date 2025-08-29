@@ -53,6 +53,7 @@ const (
 	DashboardSub       SubjectType = "DASHBOARD"
 	EnrollmentKeySub   SubjectType = "ENROLLMENT_KEY"
 	ClientAppSub       SubjectType = "CLIENT-APP"
+	NameserverSub      SubjectType = "NAMESERVER"
 )
 
 func (sub SubjectType) String() string {
