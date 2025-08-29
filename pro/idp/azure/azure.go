@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/pro/idp"
 	"net/http"
 	"net/url"
+
+	"github.com/gravitl/netmaker/logic"
+	"github.com/gravitl/netmaker/pro/idp"
 )
 
 type Client struct {
@@ -26,89 +27,103 @@ func NewAzureEntraIDClient() *Client {
 	}
 }
 
-func (a *Client) GetUsers() ([]idp.User, error) {
+func (a *Client) GetUsers(filters []string) ([]idp.User, error) {
 	accessToken, err := a.getAccessToken()
 	if err != nil {
 		return nil, err
 	}
 
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", "https://graph.microsoft.com/v1.0/users?$select=id,userPrincipalName,displayName,accountEnabled", nil)
-	if err != nil {
-		return nil, err
+	getUsersURL := "https://graph.microsoft.com/v1.0/users?$select=id,userPrincipalName,displayName,accountEnabled"
+	if len(filters) > 0 {
+		getUsersURL += "&" + buildPrefixFilter("userPrincipalName", filters)
 	}
 
-	req.Header.Add("Authorization", "Bearer "+accessToken)
-	req.Header.Add("Accept", "application/json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	var users getUsersResponse
-	err = json.NewDecoder(resp.Body).Decode(&users)
-	if err != nil {
-		return nil, err
-	}
-
-	retval := make([]idp.User, len(users.Value))
-	for i, user := range users.Value {
-		retval[i] = idp.User{
-			ID:              user.Id,
-			Username:        user.UserPrincipalName,
-			DisplayName:     user.DisplayName,
-			AccountDisabled: !user.AccountEnabled,
+	var retval []idp.User
+	for getUsersURL != "" {
+		req, err := http.NewRequest("GET", getUsersURL, nil)
+		if err != nil {
+			return nil, err
 		}
+
+		req.Header.Add("Authorization", "Bearer "+accessToken)
+		req.Header.Add("Accept", "application/json")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+
+		var users getUsersResponse
+		err = json.NewDecoder(resp.Body).Decode(&users)
+		_ = resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+
+		for _, user := range users.Value {
+			retval = append(retval, idp.User{
+				ID:              user.Id,
+				Username:        user.UserPrincipalName,
+				DisplayName:     user.DisplayName,
+				AccountDisabled: !user.AccountEnabled,
+			})
+		}
+
+		getUsersURL = users.NextLink
 	}
 
 	return retval, nil
 }
 
-func (a *Client) GetGroups() ([]idp.Group, error) {
+func (a *Client) GetGroups(filters []string) ([]idp.Group, error) {
 	accessToken, err := a.getAccessToken()
 	if err != nil {
 		return nil, err
 	}
 
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", "https://graph.microsoft.com/v1.0/groups?$select=id,displayName&$expand=members($select=id)", nil)
-	if err != nil {
-		return nil, err
+	getGroupsURL := "https://graph.microsoft.com/v1.0/groups?$select=id,displayName&$expand=members($select=id)"
+	if len(filters) > 0 {
+		getGroupsURL += "&" + buildPrefixFilter("displayName", filters)
 	}
 
-	req.Header.Add("Authorization", "Bearer "+accessToken)
-	req.Header.Add("Accept", "application/json")
+	var retval []idp.Group
+	for getGroupsURL != "" {
+		req, err := http.NewRequest("GET", getGroupsURL, nil)
+		if err != nil {
+			return nil, err
+		}
 
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
+		req.Header.Add("Authorization", "Bearer "+accessToken)
+		req.Header.Add("Accept", "application/json")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+
+		var groups getGroupsResponse
+		err = json.NewDecoder(resp.Body).Decode(&groups)
 		_ = resp.Body.Close()
-	}()
-
-	var groups getGroupsResponse
-	err = json.NewDecoder(resp.Body).Decode(&groups)
-	if err != nil {
-		return nil, err
-	}
-
-	retval := make([]idp.Group, len(groups.Value))
-	for i, group := range groups.Value {
-		retvalMembers := make([]string, len(group.Members))
-		for j, member := range group.Members {
-			retvalMembers[j] = member.Id
+		if err != nil {
+			return nil, err
 		}
 
-		retval[i] = idp.Group{
-			ID:      group.Id,
-			Name:    group.DisplayName,
-			Members: retvalMembers,
+		for _, group := range groups.Value {
+			retvalMembers := make([]string, len(group.Members))
+			for j, member := range group.Members {
+				retvalMembers[j] = member.Id
+			}
+
+			retval = append(retval, idp.Group{
+				ID:      group.Id,
+				Name:    group.DisplayName,
+				Members: retvalMembers,
+			})
 		}
+
+		getGroupsURL = groups.NextLink
 	}
 
 	return retval, nil
@@ -144,6 +159,18 @@ func (a *Client) getAccessToken() (string, error) {
 	return "", errors.New("failed to get access token")
 }
 
+func buildPrefixFilter(field string, prefixes []string) string {
+	if len(prefixes) == 0 {
+		return ""
+	}
+
+	if len(prefixes) == 1 {
+		return fmt.Sprintf("$filter=startswith(%s,'%s')", field, prefixes[0])
+	}
+
+	return buildPrefixFilter(field, prefixes[:1]) + "%20or%20" + buildPrefixFilter(field, prefixes[1:])
+}
+
 type getUsersResponse struct {
 	OdataContext string `json:"@odata.context"`
 	Value        []struct {
@@ -152,6 +179,7 @@ type getUsersResponse struct {
 		DisplayName       string `json:"displayName"`
 		AccountEnabled    bool   `json:"accountEnabled"`
 	} `json:"value"`
+	NextLink string `json:"@odata.nextLink"`
 }
 
 type getGroupsResponse struct {
@@ -164,4 +192,5 @@ type getGroupsResponse struct {
 			Id        string `json:"id"`
 		} `json:"members"`
 	} `json:"value"`
+	NextLink string `json:"@odata.nextLink"`
 }

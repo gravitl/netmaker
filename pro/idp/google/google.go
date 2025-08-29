@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"strings"
+
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/pro/idp"
 	admindir "google.golang.org/api/admin/directory/v1"
@@ -59,13 +61,28 @@ func NewGoogleWorkspaceClient() (*Client, error) {
 	}, nil
 }
 
-func (g *Client) GetUsers() ([]idp.User, error) {
+func (g *Client) GetUsers(filters []string) ([]idp.User, error) {
 	var retval []idp.User
 	err := g.service.Users.List().
 		Customer("my_customer").
 		Fields("users(id,primaryEmail,name,suspended,archived)", "nextPageToken").
 		Pages(context.TODO(), func(users *admindir.Users) error {
 			for _, user := range users.Users {
+				var keep bool
+				if len(filters) > 0 {
+					for _, filter := range filters {
+						if strings.HasPrefix(user.PrimaryEmail, filter) {
+							keep = true
+						}
+					}
+				} else {
+					keep = true
+				}
+
+				if !keep {
+					continue
+				}
+
 				retval = append(retval, idp.User{
 					ID:              user.Id,
 					Username:        user.PrimaryEmail,
@@ -81,13 +98,28 @@ func (g *Client) GetUsers() ([]idp.User, error) {
 	return retval, err
 }
 
-func (g *Client) GetGroups() ([]idp.Group, error) {
+func (g *Client) GetGroups(filters []string) ([]idp.Group, error) {
 	var retval []idp.Group
 	err := g.service.Groups.List().
 		Customer("my_customer").
 		Fields("groups(id,name)", "nextPageToken").
 		Pages(context.TODO(), func(groups *admindir.Groups) error {
 			for _, group := range groups.Groups {
+				var keep bool
+				if len(filters) > 0 {
+					for _, filter := range filters {
+						if strings.HasPrefix(group.Name, filter) {
+							keep = true
+						}
+					}
+				} else {
+					keep = true
+				}
+
+				if !keep {
+					continue
+				}
+
 				var retvalMembers []string
 				err := g.service.Members.List(group.Id).
 					Fields("members(id)", "nextPageToken").
