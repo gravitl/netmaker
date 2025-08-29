@@ -1508,6 +1508,10 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		if !ok {
 			continue
 		}
+		host, err := logic.GetHost(node.HostID.String())
+		if err != nil {
+			continue
+		}
 
 		var gwClient models.ExtClient
 		var found bool
@@ -1531,19 +1535,19 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 
 			gws := userGws[node.Network]
 
-			logic.SetDNSOnWgConfig(&node, &extClient)
+			logic.SetDNSOnWgConfig(&node, &gwClient)
 
-			extClient.IngressGatewayEndpoint = utils.GetExtClientEndpoint(
+			gwClient.IngressGatewayEndpoint = utils.GetExtClientEndpoint(
 				host.EndpointIP,
 				host.EndpointIPv6,
 				logic.GetPeerListenPort(host),
 			)
-			extClient.AllowedIPs = logic.GetExtclientAllowedIPs(extClient)
+			gwClient.AllowedIPs = logic.GetExtclientAllowedIPs(gwClient)
 			gw := models.UserRemoteGws{
 				GwID:              node.ID.String(),
 				GWName:            host.Name,
 				Network:           node.Network,
-				GwClient:          extClient,
+				GwClient:          gwClient,
 				Connected:         true,
 				IsInternetGateway: node.IsInternetGateway,
 				GwPeerPublicKey:   host.PublicKey.String(),
@@ -1573,10 +1577,6 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		host, err := logic.GetHost(node.HostID.String())
-		if err != nil {
-			continue
-		}
 		network, err := logic.GetNetwork(node.Network)
 		if err != nil {
 			slog.Error("failed to get node network", "error", err)
