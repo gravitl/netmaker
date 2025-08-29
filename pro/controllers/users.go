@@ -1379,11 +1379,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		userConf.OwnerID = user.UserName
 		userConf.RemoteAccessClientID = req.RemoteAccessClientID
 		userConf.IngressGatewayID = node.ID.String()
-
-		// set extclient dns to ingressdns if extclient dns is not explicitly set
-		if (userConf.DNS == "") && (node.IngressDNS != "") {
-			userConf.DNS = node.IngressDNS
-		}
+		logic.SetDNSOnWgConfig(&node, &userConf)
 
 		userConf.Network = node.Network
 		host, err := logic.GetHost(node.HostID.String())
@@ -1557,7 +1553,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			logic.GetPeerListenPort(host),
 		)
 		gwClient.AllowedIPs = logic.GetExtclientAllowedIPs(gwClient)
-		gws = append(gws, models.UserRemoteGws{
+		gw := models.UserRemoteGws{
 			GwID:              node.ID.String(),
 			GWName:            host.Name,
 			Network:           node.Network,
@@ -1572,7 +1568,14 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			Status:            node.Status,
 			DnsAddress:        node.IngressDNS,
 			Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
-		})
+		}
+		if !node.IsInternetGateway {
+			hNs := logic.GetNameserversForNode(&node)
+			for _, nsI := range hNs {
+				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
+			}
+		}
+		gws = append(gws, gw)
 		userGws[node.Network] = gws
 		delete(userGwNodes, node.ID.String())
 	}
@@ -1602,8 +1605,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			slog.Error("failed to get node network", "error", err)
 		}
 		gws := userGws[node.Network]
-
-		gws = append(gws, models.UserRemoteGws{
+		gw := models.UserRemoteGws{
 			GwID:              node.ID.String(),
 			GWName:            host.Name,
 			Network:           node.Network,
@@ -1616,7 +1618,14 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			Status:            node.Status,
 			DnsAddress:        node.IngressDNS,
 			Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
-		})
+		}
+		if !node.IsInternetGateway {
+			hNs := logic.GetNameserversForNode(&node)
+			for _, nsI := range hNs {
+				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
+			}
+		}
+		gws = append(gws, gw)
 		userGws[node.Network] = gws
 	}
 

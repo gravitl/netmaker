@@ -159,6 +159,10 @@ func InitPro() {
 	logic.GetFwRulesForUserNodesOnGw = proLogic.GetFwRulesForUserNodesOnGw
 	logic.GetHostLocInfo = proLogic.GetHostLocInfo
 	logic.GetFeatureFlags = proLogic.GetFeatureFlags
+	logic.GetNameserversForHost = proLogic.GetNameserversForHost
+	logic.GetNameserversForNode = proLogic.GetNameserversForNode
+	logic.ValidateNameserverReq = proLogic.ValidateNameserverReq
+
 }
 
 func retrieveProLogo() string {

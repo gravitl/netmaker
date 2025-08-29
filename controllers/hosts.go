@@ -254,6 +254,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		DefaultGwIp:       hPU.DefaultGwIp,
 		IsInternetGw:      hPU.IsInternetGw,
 		EndpointDetection: logic.IsEndpointDetectionEnabled(),
+		DnsNameservers:    hPU.DnsNameservers,
 	}
 
 	logger.Log(1, hostID, "completed a pull")
