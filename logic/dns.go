@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"regexp"
 	"sort"
@@ -116,6 +117,31 @@ func GetDNS(network string) ([]models.DNSEntry, error) {
 
 	dns = append(dns, customdns...)
 	return dns, nil
+}
+
+func EgressDNs(network string) (entries []models.DNSEntry) {
+	egs, _ := (&schema.Egress{
+		Network: network,
+	}).ListByNetwork(db.WithContext(context.TODO()))
+	for _, egI := range egs {
+		if egI.Domain != "" && len(egI.DomainAns) > 0 {
+			entry := models.DNSEntry{
+				Name: egI.Domain,
+			}
+			for _, domainAns := range egI.DomainAns {
+				ip, _, err := net.ParseCIDR(domainAns)
+				if err == nil {
+					if ip.To4() != nil {
+						entry.Address = ip.String()
+					} else {
+						entry.Address6 = ip.String()
+					}
+				}
+			}
+			entries = append(entries, entry)
+		}
+	}
+	return
 }
 
 // GetExtclientDNS - gets all extclients dns entries
