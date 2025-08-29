@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"net/url"
-	"strings"
 
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/pro/idp"
