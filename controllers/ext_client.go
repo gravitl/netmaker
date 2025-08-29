@@ -133,6 +133,12 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	gwNode, err := logic.GetNodeByID(client.IngressGatewayID)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	logic.SetDNSOnWgConfig(&gwNode, &client)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(client)
@@ -288,39 +294,11 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-
+	logic.SetDNSOnWgConfig(&gwnode, &client)
 	defaultDNS := ""
 	if client.DNS != "" {
 		defaultDNS = "DNS = " + client.DNS
-	} else if gwnode.IngressDNS != "" {
-		defaultDNS = "DNS = " + gwnode.IngressDNS
 	}
-	if client.DNS == "" {
-		if len(network.NameServers) > 0 {
-			if defaultDNS == "" {
-				defaultDNS = "DNS = " + strings.Join(network.NameServers, ",")
-			} else {
-				defaultDNS += "," + strings.Join(network.NameServers, ",")
-			}
-
-		}
-	}
-	// if servercfg.GetManageDNS() {
-	// 	if gwnode.Address6.IP != nil {
-	// 		if defaultDNS == "" {
-	// 			defaultDNS = "DNS = " + gwnode.Address6.IP.String()
-	// 		} else {
-	// 			defaultDNS = defaultDNS + ", " + gwnode.Address6.IP.String()
-	// 		}
-	// 	}
-	// 	if gwnode.Address.IP != nil {
-	// 		if defaultDNS == "" {
-	// 			defaultDNS = "DNS = " + gwnode.Address.IP.String()
-	// 		} else {
-	// 			defaultDNS = defaultDNS + ", " + gwnode.Address.IP.String()
-	// 		}
-	// 	}
-	// }
 
 	defaultMTU := 1420
 	if host.MTU != 0 {
@@ -755,18 +733,10 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	extclient.Tags = make(map[models.TagID]struct{})
 	// extclient.Tags[models.TagID(fmt.Sprintf("%s.%s", extclient.Network,
 	// 	models.RemoteAccessTagName))] = struct{}{}
-	// set extclient dns to ingressdns if extclient dns is not explicitly set
-	if (extclient.DNS == "") && (node.IngressDNS != "") {
-		network, _ := logic.GetNetwork(node.Network)
-		dns := node.IngressDNS
-		if len(network.NameServers) > 0 {
-			if dns == "" {
-				dns = strings.Join(network.NameServers, ",")
-			} else {
-				dns += "," + strings.Join(network.NameServers, ",")
-			}
-
-		}
+	// set extclient dns to ingressdns if extclient dns is not explicitly
+	gwDNS := logic.GetGwDNS(&node)
+	if (extclient.DNS == "") && (gwDNS != "") {
+		dns := gwDNS
 		extclient.DNS = dns
 	}
 	host, err := logic.GetHost(node.HostID.String())
@@ -879,7 +849,6 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 
 	var update models.CustomExtClient
 	//var oldExtClient models.ExtClient
-	var sendPeerUpdate bool
 	var replacePeers bool
 	err := json.NewDecoder(r.Body).Decode(&update)
 	if err != nil {
@@ -928,19 +897,11 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	var changedID = update.ClientID != oldExtClient.ClientID
 
 	if !reflect.DeepEqual(update.DeniedACLs, oldExtClient.DeniedACLs) {
-		sendPeerUpdate = true
 		logic.SetClientACLs(&oldExtClient, update.DeniedACLs)
 	}
-	if !logic.IsSlicesEqual(update.ExtraAllowedIPs, oldExtClient.ExtraAllowedIPs) {
-		sendPeerUpdate = true
-	}
 
-	if update.Enabled != oldExtClient.Enabled {
-		sendPeerUpdate = true
-	}
 	if update.PublicKey != oldExtClient.PublicKey {
 		//remove old peer entry
-		sendPeerUpdate = true
 		replacePeers = true
 	}
 	if update.RemoteAccessClientID != "" && update.Location == "" {
@@ -985,45 +946,12 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		if changedID && servercfg.IsDNSMode() {
 			logic.SetDNS()
 		}
-		if replacePeers {
+		if replacePeers || !update.Enabled {
 			if err := mq.PublishDeletedClientPeerUpdate(&oldExtClient); err != nil {
 				slog.Error("error deleting old ext peers", "error", err.Error())
 			}
 		}
-		if sendPeerUpdate { // need to send a peer update to the ingress node as enablement of one of it's clients has changed
-			ingressNode, err := logic.GetNodeByID(newclient.IngressGatewayID)
-			if err == nil {
-				if err = mq.PublishPeerUpdate(false); err != nil {
-					logger.Log(
-						1,
-						"error setting ext peers on",
-						ingressNode.ID.String(),
-						":",
-						err.Error(),
-					)
-				}
-			}
-			if !update.Enabled {
-				ingressHost, err := logic.GetHost(ingressNode.HostID.String())
-				if err != nil {
-					slog.Error(
-						"Failed to get ingress host",
-						"node",
-						ingressNode.ID.String(),
-						"error",
-						err,
-					)
-					return
-				}
-				nodes, err := logic.GetAllNodes()
-				if err != nil {
-					slog.Error("Failed to get nodes", "error", err)
-					return
-				}
-				go mq.PublishSingleHostPeerUpdate(ingressHost, nodes, nil, []models.ExtClient{oldExtClient}, false, nil)
-			}
-		}
-
+		mq.PublishPeerUpdate(false)
 	}()
 
 }

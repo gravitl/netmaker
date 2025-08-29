@@ -53,6 +53,7 @@ type UserRemoteGws struct {
 	Status            NodeStatus `json:"status"`
 	DnsAddress        string     `json:"dns_address"`
 	Addresses         string     `json:"addresses"`
+	MatchDomains      []string   `json:"match_domains"`
 }
 
 // UserRAGs - struct for user access gws
@@ -261,6 +262,7 @@ type HostPull struct {
 	DefaultGwIp       net.IP                `json:"default_gw_ip"`
 	IsInternetGw      bool                  `json:"is_inet_gw"`
 	EndpointDetection bool                  `json:"endpoint_detection"`
+	DnsNameservers    []Nameserver          `json:"dns_nameservers"`
 }
 
 type DefaultGwInfo struct {

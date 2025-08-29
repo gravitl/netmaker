@@ -39,6 +39,7 @@ func Run() {
 	logic.MigrateToGws()
 	migrateToEgressV1()
 	updateNetworks()
+	migrateNameservers()
 	resync()
 }
 
@@ -50,6 +51,78 @@ func updateNetworks() {
 			logic.UpsertNetwork(netI)
 		}
 	}
+
+}
+
+func migrateNameservers() {
+	nets, _ := logic.GetNetworks()
+	user, err := logic.GetSuperAdmin()
+	if err != nil {
+		return
+	}
+
+	for _, netI := range nets {
+		if len(netI.NameServers) > 0 {
+			ns := schema.Nameserver{
+				ID:           uuid.NewString(),
+				Name:         "upstream nameservers",
+				NetworkID:    netI.NetID,
+				Servers:      []string{},
+				MatchAll:     true,
+				MatchDomains: []string{"."},
+				Tags: datatypes.JSONMap{
+					"*": struct{}{},
+				},
+				Nodes:     make(datatypes.JSONMap),
+				Status:    true,
+				CreatedBy: user.UserName,
+			}
+			for _, ip := range netI.NameServers {
+				ns.Servers = append(ns.Servers, ip)
+			}
+			ns.Create(db.WithContext(context.TODO()))
+			netI.NameServers = []string{}
+			logic.SaveNetwork(&netI)
+		}
+	}
+	nodes, _ := logic.GetAllNodes()
+	for _, node := range nodes {
+		if !node.IsGw {
+			continue
+		}
+		if node.IngressDNS != "" {
+			if (node.Address.IP != nil && node.Address.IP.String() == node.IngressDNS) ||
+				(node.Address6.IP != nil && node.Address6.IP.String() == node.IngressDNS) {
+				continue
+			}
+			if node.IngressDNS == "8.8.8.8" || node.IngressDNS == "1.1.1.1" || node.IngressDNS == "9.9.9.9" {
+				continue
+			}
+			h, err := logic.GetHost(node.HostID.String())
+			if err != nil {
+				continue
+			}
+			ns := schema.Nameserver{
+				ID:           uuid.NewString(),
+				Name:         fmt.Sprintf("%s gw nameservers", h.Name),
+				NetworkID:    node.Network,
+				Servers:      []string{node.IngressDNS},
+				MatchAll:     true,
+				MatchDomains: []string{"."},
+				Nodes: datatypes.JSONMap{
+					node.ID.String(): struct{}{},
+				},
+				Tags:      make(datatypes.JSONMap),
+				Status:    true,
+				CreatedBy: user.UserName,
+			}
+			ns.Create(db.WithContext(context.TODO()))
+			node.IngressDNS = ""
+			logic.UpsertNode(&node)
+		}
+
+	}
+
 }
 
 // removes if any stale configurations from previous run.
