@@ -1575,6 +1575,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
 			}
 		}
+		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccess(&node)...)
 		gws = append(gws, gw)
 		userGws[node.Network] = gws
 		delete(userGwNodes, node.ID.String())
@@ -1625,6 +1626,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
 			}
 		}
+		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccess(&node)...)
 		gws = append(gws, gw)
 		userGws[node.Network] = gws
 	}

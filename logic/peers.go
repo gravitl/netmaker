@@ -182,6 +182,10 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
 		eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
 		GetNodeEgressInfo(&node, eli, acls)
+		if node.IsEgressGateway {
+			egsWithDomain := ListAllByRoutingNodeWithDomain(db.WithContext(context.TODO()), eli, node.ID.String())
+			hostPeerUpdate.EgressWithDomains = append(hostPeerUpdate.EgressWithDomains, egsWithDomain...)
+		}
 		hostPeerUpdate = SetDefaultGw(node, hostPeerUpdate)
 		if !hostPeerUpdate.IsInternetGw {
 			hostPeerUpdate.IsInternetGw = IsInternetGw(node)
