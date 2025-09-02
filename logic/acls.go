@@ -18,10 +18,6 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-// TODO: Write Diff Funcs
-
-var IsNodeAllowedToCommunicate = isNodeAllowedToCommunicate
-
 var GetFwRulesForNodeAndPeerOnGw = getFwRulesForNodeAndPeerOnGw
 
 var GetFwRulesForUserNodesOnGw = func(node models.Node, nodes []models.Node) (rules []models.FwRule) { return }
@@ -373,62 +369,6 @@ var MigrateToGws = func() {
 		}
 	}
 
-}
-
-func CheckIfNodeHasAccessToAllResources(targetnode *models.Node, acls []models.Acl) bool {
-	var targetNodeTags = make(map[models.TagID]struct{})
-	if targetnode.Mutex != nil {
-		targetnode.Mutex.Lock()
-		targetNodeTags = maps.Clone(targetnode.Tags)
-		targetnode.Mutex.Unlock()
-	} else {
-		targetNodeTags = maps.Clone(targetnode.Tags)
-	}
-	if targetNodeTags == nil {
-		targetNodeTags = make(map[models.TagID]struct{})
-	}
-	targetNodeTags[models.TagID(targetnode.ID.String())] = struct{}{}
-	targetNodeTags["*"] = struct{}{}
-	if targetnode.IsGw {
-		targetNodeTags[models.TagID(fmt.Sprintf("%s.%s", targetnode.Network, models.GwTagName))] = struct{}{}
-	}
-	for _, acl := range acls {
-		if !acl.Enabled || acl.RuleType != models.DevicePolicy {
-			continue
-		}
-		srcTags := ConvAclTagToValueMap(acl.Src)
-		dstTags := ConvAclTagToValueMap(acl.Dst)
-		_, srcAll := srcTags["*"]
-		_, dstAll := dstTags["*"]
-		for nodeTag := range targetNodeTags {
-
-			var existsInSrcTag bool
-			var existsInDstTag bool
-
-			if _, ok := srcTags[nodeTag.String()]; ok {
-				existsInSrcTag = true
-			}
-			if _, ok := srcTags[targetnode.ID.String()]; ok {
-				existsInSrcTag = true
-			}
-			if _, ok := dstTags[nodeTag.String()]; ok {
-				existsInDstTag = true
-			}
-			if _, ok := dstTags[targetnode.ID.String()]; ok {
-				existsInDstTag = true
-			}
-			if acl.AllowedDirection == models.TrafficDirectionBi {
-				if existsInSrcTag && dstAll || existsInDstTag && srcAll {
-					return true
-				}
-			} else {
-				if existsInDstTag && srcAll {
-					return true
-				}
-			}
-		}
-	}
-	return false
 }
 
 var CheckIfAnyPolicyisUniDirectional = func(targetNode models.Node, acls []models.Acl) bool {
@@ -935,11 +875,19 @@ func IsNodeAllowedToCommunicateWithAllRsrcs(node models.Node) bool {
 		nodeId = node.ID.String()
 	}
 	nodeTags := make(map[models.TagID]struct{})
-
-	nodeTags[models.TagID(nodeId)] = struct{}{}
-	if node.IsGw {
-		nodeTags[models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName))] = struct{}{}
+	if node.Mutex != nil {
+		node.Mutex.Lock()
+		nodeTags = maps.Clone(node.Tags)
+		node.Mutex.Unlock()
+	} else {
+		nodeTags = maps.Clone(node.Tags)
 	}
+	if nodeTags == nil {
+		nodeTags = make(map[models.TagID]struct{})
+	}
+	nodeTags[models.TagID(node.ID.String())] = struct{}{}
+	nodeTags["*"] = struct{}{}
+	nodeTags[models.TagID(nodeId)] = struct{}{}
 	// list device policies
 	policies := ListDevicePolicies(models.NetworkID(node.Network))
 	srcMap := make(map[string]struct{})
@@ -974,8 +922,14 @@ func IsNodeAllowedToCommunicateWithAllRsrcs(node models.Node) bool {
 }
 
 // IsNodeAllowedToCommunicate - check node is allowed to communicate with the peer // ADD ALLOWED DIRECTION - 0 => node -> peer, 1 => peer-> node,
-func isNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool) (bool, []models.Acl) {
+func IsNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool) (bool, []models.Acl) {
 	var nodeId, peerId string
+	// if peer.IsFailOver && node.FailedOverBy != uuid.Nil && node.FailedOverBy == peer.ID {
+	// 	return true, []models.Acl{}
+	// }
+	// if node.IsFailOver && peer.FailedOverBy != uuid.Nil && peer.FailedOverBy == node.ID {
+	// 	return true, []models.Acl{}
+	// }
 	// if node.IsGw && peer.IsRelayed && peer.RelayedBy == node.ID.String() {
 	// 	return true, []models.Acl{}
 	// }
@@ -995,17 +949,29 @@ func isNodeAllowedToCommunicate(node, peer models.Node, checkDefaultPolicy bool)
 		peerId = peer.ID.String()
 	}
 
-	nodeTags := make(map[models.TagID]struct{})
-	peerTags := make(map[models.TagID]struct{})
-
+	var nodeTags, peerTags map[models.TagID]struct{}
+	if node.Mutex != nil {
+		node.Mutex.Lock()
+		nodeTags = maps.Clone(node.Tags)
+		node.Mutex.Unlock()
+	} else {
+		nodeTags = node.Tags
+	}
+	if peer.Mutex != nil {
+		peer.Mutex.Lock()
+		peerTags = maps.Clone(peer.Tags)
+		peer.Mutex.Unlock()
+	} else {
+		peerTags = peer.Tags
+	}
+	if nodeTags == nil {
+		nodeTags = make(map[models.TagID]struct{})
+	}
+	if peerTags == nil {
+		peerTags = make(map[models.TagID]struct{})
+	}
 	nodeTags[models.TagID(nodeId)] = struct{}{}
 	peerTags[models.TagID(peerId)] = struct{}{}
-	if peer.IsGw {
-		peerTags[models.TagID(fmt.Sprintf("%s.%s", peer.Network, models.GwTagName))] = struct{}{}
-	}
-	if node.IsGw {
-		nodeTags[models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName))] = struct{}{}
-	}
 	if checkDefaultPolicy {
 		// check default policy if all allowed return true
 		defaultPolicy, err := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
