@@ -874,7 +874,7 @@ func IsNodeAllowedToCommunicateWithAllRsrcs(node models.Node) bool {
 	} else {
 		nodeId = node.ID.String()
 	}
-	nodeTags := make(map[models.TagID]struct{})
+	var nodeTags map[models.TagID]struct{}
 	if node.Mutex != nil {
 		node.Mutex.Lock()
 		nodeTags = maps.Clone(node.Tags)
