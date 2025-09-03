@@ -382,46 +382,24 @@ var CheckIfAnyPolicyisUniDirectional = func(targetNode models.Node, acls []model
 	return false
 }
 
-var CheckIfAnyActiveEgressPolicy = func(targetNode models.Node, acls []models.Acl) bool {
-	if !targetNode.EgressDetails.IsEgressGateway {
-		return false
-	}
-	var targetNodeTags = make(map[models.TagID]struct{})
-	targetNodeTags[models.TagID(targetNode.ID.String())] = struct{}{}
-	targetNodeTags["*"] = struct{}{}
-	if targetNode.IsGw && !servercfg.IsPro {
-		targetNodeTags[models.TagID(fmt.Sprintf("%s.%s", targetNode.Network, models.GwTagName))] = struct{}{}
-	}
-	for _, acl := range acls {
-		if !acl.Enabled || acl.RuleType != models.DevicePolicy {
-			continue
-		}
-		srcTags := ConvAclTagToValueMap(acl.Src)
-		for _, dst := range acl.Dst {
-			if dst.ID == models.EgressID {
-				e := schema.Egress{ID: dst.Value}
-				err := e.Get(db.WithContext(context.TODO()))
-				if err == nil && e.Status {
-					for nodeTag := range targetNodeTags {
-						if _, ok := srcTags[nodeTag.String()]; ok {
-							return true
-						}
-						if _, ok := srcTags[targetNode.ID.String()]; ok {
-							return true
-						}
-					}
-				}
-			}
-		}
-	}
-	return false
-}
-
 var GetAclRulesForNode = func(targetnodeI *models.Node) (rules map[string]models.AclRule) {
 	targetnode := *targetnodeI
 
 	rules = make(map[string]models.AclRule)
-
+	if IsNodeAllowedToCommunicateWithAllRsrcs(targetnode) {
+		aclRule := models.AclRule{
+			ID:              fmt.Sprintf("%s-all-allowed-node-rule", targetnode.ID.String()),
+			AllowedProtocol: models.ALL,
+			Direction:       models.TrafficDirectionBi,
+			Allowed:         true,
+			IPList:          []net.IPNet{targetnode.NetworkRange},
+			IP6List:         []net.IPNet{targetnode.NetworkRange6},
+			Dst:             []net.IPNet{targetnode.Address},
+			Dst6:            []net.IPNet{targetnode.Address6},
+		}
+		rules[aclRule.ID] = aclRule
+		return
+	}
 	acls := ListDevicePolicies(models.NetworkID(targetnode.Network))
 	targetNodeTags := make(map[models.TagID]struct{})
 	targetNodeTags[models.TagID(targetnode.ID.String())] = struct{}{}

@@ -3,6 +3,7 @@ package logic
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"net"
 
@@ -1048,48 +1049,6 @@ func getUserAclRulesForNode(targetnode *models.Node,
 	return rules
 }
 
-func CheckIfAnyActiveEgressPolicy(targetNode models.Node, acls []models.Acl) bool {
-	if !targetNode.EgressDetails.IsEgressGateway {
-		return false
-	}
-	var targetNodeTags = make(map[models.TagID]struct{})
-	if targetNode.Mutex != nil {
-		targetNode.Mutex.Lock()
-		targetNodeTags = maps.Clone(targetNode.Tags)
-		targetNode.Mutex.Unlock()
-	} else {
-		targetNodeTags = maps.Clone(targetNode.Tags)
-	}
-	if targetNodeTags == nil {
-		targetNodeTags = make(map[models.TagID]struct{})
-	}
-	targetNodeTags[models.TagID(targetNode.ID.String())] = struct{}{}
-	targetNodeTags["*"] = struct{}{}
-	for _, acl := range acls {
-		if !acl.Enabled {
-			continue
-		}
-		srcTags := logic.ConvAclTagToValueMap(acl.Src)
-		for _, dst := range acl.Dst {
-			if dst.ID == models.EgressID {
-				e := schema.Egress{ID: dst.Value}
-				err := e.Get(db.WithContext(context.TODO()))
-				if err == nil && e.Status {
-					for nodeTag := range targetNodeTags {
-						if _, ok := srcTags[nodeTag.String()]; ok {
-							return true
-						}
-						if _, ok := srcTags[targetNode.ID.String()]; ok {
-							return true
-						}
-					}
-				}
-			}
-		}
-	}
-	return false
-}
-
 func CheckIfAnyPolicyisUniDirectional(targetNode models.Node, acls []models.Acl) bool {
 	var targetNodeTags = make(map[models.TagID]struct{})
 	if targetNode.Mutex != nil {
@@ -1145,6 +1104,20 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 		//}
 	}()
 	rules = make(map[string]models.AclRule)
+	if logic.IsNodeAllowedToCommunicateWithAllRsrcs(targetnode) {
+		aclRule := models.AclRule{
+			ID:              fmt.Sprintf("%s-all-allowed-node-rule", targetnode.ID.String()),
+			AllowedProtocol: models.ALL,
+			Direction:       models.TrafficDirectionBi,
+			Allowed:         true,
+			IPList:          []net.IPNet{targetnode.NetworkRange},
+			IP6List:         []net.IPNet{targetnode.NetworkRange6},
+			Dst:             []net.IPNet{targetnode.Address},
+			Dst6:            []net.IPNet{targetnode.Address6},
+		}
+		rules[aclRule.ID] = aclRule
+		return
+	}
 	var taggedNodes map[models.TagID][]models.Node
 	if targetnode.IsIngressGateway {
 		taggedNodes = GetTagMapWithNodesByNetwork(models.NetworkID(targetnode.Network), false)
