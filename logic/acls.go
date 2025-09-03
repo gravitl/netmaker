@@ -20,6 +20,13 @@ import (
 
 var GetFwRulesForNodeAndPeerOnGw = getFwRulesForNodeAndPeerOnGw
 
+var GetTagMapWithNodesByNetwork = getTagMapWithNodesByNetwork
+
+var GetEgressUserRulesForNode = func(targetnode *models.Node,
+	rules map[string]models.AclRule) map[string]models.AclRule {
+	return rules
+}
+
 var GetFwRulesForUserNodesOnGw = func(node models.Node, nodes []models.Node) (rules []models.FwRule) { return }
 
 func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
@@ -382,7 +389,7 @@ var CheckIfAnyActiveEgressPolicy = func(targetNode models.Node, acls []models.Ac
 	var targetNodeTags = make(map[models.TagID]struct{})
 	targetNodeTags[models.TagID(targetNode.ID.String())] = struct{}{}
 	targetNodeTags["*"] = struct{}{}
-	if targetNode.IsGw {
+	if targetNode.IsGw && !servercfg.IsPro {
 		targetNodeTags[models.TagID(fmt.Sprintf("%s.%s", targetNode.Network, models.GwTagName))] = struct{}{}
 	}
 	for _, acl := range acls {
@@ -419,6 +426,9 @@ var GetAclRulesForNode = func(targetnodeI *models.Node) (rules map[string]models
 	targetNodeTags := make(map[models.TagID]struct{})
 	targetNodeTags[models.TagID(targetnode.ID.String())] = struct{}{}
 	targetNodeTags["*"] = struct{}{}
+	if targetnodeI.IsGw && !servercfg.IsPro {
+		targetNodeTags[models.TagID(fmt.Sprintf("%s.%s", targetnodeI.Network, models.GwTagName))] = struct{}{}
+	}
 	for _, acl := range acls {
 		if !acl.Enabled {
 			continue
@@ -550,10 +560,280 @@ var GetAclRulesForNode = func(targetnodeI *models.Node) (rules map[string]models
 	return rules
 }
 
-var GetEgressRulesForNode = func(targetnode models.Node) (rules map[string]models.AclRule) {
+func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclRule) {
+	fmt.Println("==========> Getting Egress FW rules ", targetnode.ID)
+	rules = make(map[string]models.AclRule)
+	defer func() {
+		rules = GetEgressUserRulesForNode(&targetnode, rules)
+	}()
+	taggedNodes := GetTagMapWithNodesByNetwork(models.NetworkID(targetnode.Network), true)
+
+	acls := ListDevicePolicies(models.NetworkID(targetnode.Network))
+	var targetNodeTags = make(map[models.TagID]struct{})
+	targetNodeTags[models.TagID(targetnode.ID.String())] = struct{}{}
+	targetNodeTags["*"] = struct{}{}
+	if targetnode.IsGw && !servercfg.IsPro {
+		targetNodeTags[models.TagID(fmt.Sprintf("%s.%s", targetnode.Network, models.GwTagName))] = struct{}{}
+	}
+
+	egs, _ := (&schema.Egress{Network: targetnode.Network}).ListByNetwork(db.WithContext(context.TODO()))
+	if len(egs) == 0 {
+		return
+	}
+	for _, egI := range egs {
+		if !egI.Status {
+			continue
+		}
+		if _, ok := egI.Nodes[targetnode.ID.String()]; ok {
+			targetNodeTags[models.TagID(egI.Range)] = struct{}{}
+			targetNodeTags[models.TagID(egI.ID)] = struct{}{}
+		}
+	}
+	for _, acl := range acls {
+		if !acl.Enabled {
+			continue
+		}
+		srcTags := ConvAclTagToValueMap(acl.Src)
+		dstTags := ConvAclTagToValueMap(acl.Dst)
+		_, srcAll := srcTags["*"]
+		_, dstAll := dstTags["*"]
+		aclRule := models.AclRule{
+			ID:              acl.ID,
+			AllowedProtocol: acl.Proto,
+			AllowedPorts:    acl.Port,
+			Direction:       acl.AllowedDirection,
+			Allowed:         true,
+		}
+		for nodeTag := range targetNodeTags {
+
+			if nodeTag != "*" {
+				ip, cidr, err := net.ParseCIDR(nodeTag.String())
+				if err == nil {
+					if ip.To4() != nil {
+						aclRule.Dst = append(aclRule.Dst, *cidr)
+					} else {
+						aclRule.Dst6 = append(aclRule.Dst6, *cidr)
+					}
+				}
+			}
+			if acl.AllowedDirection == models.TrafficDirectionBi {
+				var existsInSrcTag bool
+				var existsInDstTag bool
+				if _, ok := srcTags[nodeTag.String()]; ok || srcAll {
+					existsInSrcTag = true
+				}
+				if _, ok := dstTags[nodeTag.String()]; ok || dstAll {
+					existsInDstTag = true
+				}
+				// if srcAll || dstAll {
+				// 	if targetnode.NetworkRange.IP != nil {
+				// 		aclRule.IPList = append(aclRule.IPList, targetnode.NetworkRange)
+				// 	}
+				// 	if targetnode.NetworkRange6.IP != nil {
+				// 		aclRule.IP6List = append(aclRule.IP6List, targetnode.NetworkRange6)
+				// 	}
+				// 	break
+				// }
+				if existsInSrcTag && !existsInDstTag {
+					// get all dst tags
+					for dst := range dstTags {
+						if dst == nodeTag.String() {
+							continue
+						}
+						// Get peers in the tags and add allowed rules
+						nodes := taggedNodes[models.TagID(dst)]
+						if dst != targetnode.ID.String() {
+							node, err := GetNodeByID(dst)
+							if err == nil {
+								nodes = append(nodes, node)
+							}
+							extclient, err := GetExtClient(dst, targetnode.Network)
+							if err == nil {
+								nodes = append(nodes, extclient.ConvertToStaticNode())
+							}
+						}
+
+						for _, node := range nodes {
+							if node.ID == targetnode.ID {
+								continue
+							}
+							if node.Address.IP != nil {
+								aclRule.IPList = append(aclRule.IPList, node.AddressIPNet4())
+							}
+							if node.Address6.IP != nil {
+								aclRule.IP6List = append(aclRule.IP6List, node.AddressIPNet6())
+							}
+							if node.IsStatic && node.StaticNode.Address != "" {
+								aclRule.IPList = append(aclRule.IPList, node.StaticNode.AddressIPNet4())
+							}
+							if node.IsStatic && node.StaticNode.Address6 != "" {
+								aclRule.IP6List = append(aclRule.IP6List, node.StaticNode.AddressIPNet6())
+							}
+						}
+					}
+				}
+				if existsInDstTag && !existsInSrcTag {
+					// get all src tags
+					for src := range srcTags {
+						if src == nodeTag.String() {
+							continue
+						}
+						// Get peers in the tags and add allowed rules
+						nodes := taggedNodes[models.TagID(src)]
+						if src != targetnode.ID.String() {
+							node, err := GetNodeByID(src)
+							if err == nil {
+								nodes = append(nodes, node)
+							} else {
+								extclient, err := GetExtClient(src, targetnode.Network)
+								if err == nil {
+									nodes = append(nodes, extclient.ConvertToStaticNode())
+								}
+							}
+
+						}
+						for _, node := range nodes {
+							if node.ID == targetnode.ID {
+								continue
+							}
+							if node.Address.IP != nil {
+								aclRule.IPList = append(aclRule.IPList, node.AddressIPNet4())
+							}
+							if node.Address6.IP != nil {
+								aclRule.IP6List = append(aclRule.IP6List, node.AddressIPNet6())
+							}
+							if node.IsStatic && node.StaticNode.Address != "" {
+								aclRule.IPList = append(aclRule.IPList, node.StaticNode.AddressIPNet4())
+							}
+							if node.IsStatic && node.StaticNode.Address6 != "" {
+								aclRule.IP6List = append(aclRule.IP6List, node.StaticNode.AddressIPNet6())
+							}
+						}
+					}
+				}
+				if existsInDstTag && existsInSrcTag {
+					nodes := taggedNodes[nodeTag]
+					for srcID := range srcTags {
+						if srcID == targetnode.ID.String() {
+							continue
+						}
+						node, err := GetNodeByID(srcID)
+						if err == nil {
+							nodes = append(nodes, node)
+						} else {
+							extclient, err := GetExtClient(srcID, targetnode.Network)
+							if err == nil {
+								nodes = append(nodes, extclient.ConvertToStaticNode())
+							}
+						}
+
+					}
+					for dstID := range dstTags {
+						if dstID == targetnode.ID.String() {
+							continue
+						}
+						node, err := GetNodeByID(dstID)
+						if err == nil {
+							nodes = append(nodes, node)
+						} else {
+							extclient, err := GetExtClient(dstID, targetnode.Network)
+							if err == nil {
+								nodes = append(nodes, extclient.ConvertToStaticNode())
+							}
+						}
+
+					}
+					for _, node := range nodes {
+						if node.ID == targetnode.ID {
+							continue
+						}
+						if node.Address.IP != nil {
+							aclRule.IPList = append(aclRule.IPList, node.AddressIPNet4())
+						}
+						if node.Address6.IP != nil {
+							aclRule.IP6List = append(aclRule.IP6List, node.AddressIPNet6())
+						}
+						if node.IsStatic && node.StaticNode.Address != "" {
+							aclRule.IPList = append(aclRule.IPList, node.StaticNode.AddressIPNet4())
+						}
+						if node.IsStatic && node.StaticNode.Address6 != "" {
+							aclRule.IP6List = append(aclRule.IP6List, node.StaticNode.AddressIPNet6())
+						}
+					}
+				}
+			} else {
+				if dstAll {
+					if targetnode.NetworkRange.IP != nil {
+						aclRule.IPList = append(aclRule.IPList, targetnode.NetworkRange)
+					}
+					if targetnode.NetworkRange6.IP != nil {
+						aclRule.IP6List = append(aclRule.IP6List, targetnode.NetworkRange6)
+					}
+					break
+				}
+				if _, ok := dstTags[nodeTag.String()]; ok || dstAll {
+					// get all src tags
+					for src := range srcTags {
+						if src == nodeTag.String() {
+							continue
+						}
+						// Get peers in the tags and add allowed rules
+						nodes := taggedNodes[models.TagID(src)]
+						for _, node := range nodes {
+							if node.ID == targetnode.ID {
+								continue
+							}
+							if node.Address.IP != nil {
+								aclRule.IPList = append(aclRule.IPList, node.AddressIPNet4())
+							}
+							if node.Address6.IP != nil {
+								aclRule.IP6List = append(aclRule.IP6List, node.AddressIPNet6())
+							}
+							if node.IsStatic && node.StaticNode.Address != "" {
+								aclRule.IPList = append(aclRule.IPList, node.StaticNode.AddressIPNet4())
+							}
+							if node.IsStatic && node.StaticNode.Address6 != "" {
+								aclRule.IP6List = append(aclRule.IP6List, node.StaticNode.AddressIPNet6())
+							}
+						}
+					}
+				}
+			}
+
+		}
+		if len(aclRule.IPList) > 0 || len(aclRule.IP6List) > 0 {
+			aclRule.IPList = UniqueIPNetList(aclRule.IPList)
+			aclRule.IP6List = UniqueIPNetList(aclRule.IP6List)
+			rules[acl.ID] = aclRule
+		}
+
+	}
+
 	return
 }
-var GetAclRuleForInetGw = func(targetnode models.Node) (rules map[string]models.AclRule) {
+
+func GetAclRuleForInetGw(targetnode models.Node) (rules map[string]models.AclRule) {
+	rules = make(map[string]models.AclRule)
+	if targetnode.IsInternetGateway {
+		aclRule := models.AclRule{
+			ID:              fmt.Sprintf("%s-inet-gw-internal-rule", targetnode.ID.String()),
+			AllowedProtocol: models.ALL,
+			AllowedPorts:    []string{},
+			Direction:       models.TrafficDirectionBi,
+			Allowed:         true,
+		}
+		if targetnode.NetworkRange.IP != nil {
+			aclRule.IPList = append(aclRule.IPList, targetnode.NetworkRange)
+			_, allIpv4, _ := net.ParseCIDR(IPv4Network)
+			aclRule.Dst = append(aclRule.Dst, *allIpv4)
+		}
+		if targetnode.NetworkRange6.IP != nil {
+			aclRule.IP6List = append(aclRule.IP6List, targetnode.NetworkRange6)
+			_, allIpv6, _ := net.ParseCIDR(IPv6Network)
+			aclRule.Dst6 = append(aclRule.Dst6, *allIpv6)
+		}
+		rules[aclRule.ID] = aclRule
+	}
 	return
 }
 
@@ -801,34 +1081,6 @@ func CheckTagGroupPolicy(srcMap, dstMap map[string]struct{}, node, peer models.N
 	return false
 }
 
-var GetInetClientsFromAclPolicies = func(eID string) (inetClientIDs []string) {
-	e := schema.Egress{ID: eID}
-	err := e.Get(db.WithContext(context.TODO()))
-	if err != nil || !e.Status {
-		return
-	}
-	acls, _ := ListAclsByNetwork(models.NetworkID(e.Network))
-	for _, acl := range acls {
-		for _, dstI := range acl.Dst {
-			if dstI.ID == models.EgressID {
-				if dstI.Value != eID {
-					continue
-				}
-				for _, srcI := range acl.Src {
-					if srcI.Value == "*" {
-						continue
-					}
-					if srcI.ID == models.NodeID {
-						inetClientIDs = append(inetClientIDs, srcI.Value)
-					}
-				}
-			}
-		}
-	}
-	return
-
-}
-
 var (
 	CreateDefaultTags = func(netID models.NetworkID) {}
 
@@ -888,6 +1140,9 @@ func IsNodeAllowedToCommunicateWithAllRsrcs(node models.Node) bool {
 	nodeTags[models.TagID(node.ID.String())] = struct{}{}
 	nodeTags["*"] = struct{}{}
 	nodeTags[models.TagID(nodeId)] = struct{}{}
+	if !servercfg.IsPro && node.IsGw {
+		node.Tags[models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName))] = struct{}{}
+	}
 	// list device policies
 	policies := ListDevicePolicies(models.NetworkID(node.Network))
 	srcMap := make(map[string]struct{})
@@ -1108,6 +1363,9 @@ func GetDefaultPolicy(netID models.NetworkID, ruleType models.AclPolicyType) (mo
 	aclID := "all-users"
 	if ruleType == models.DevicePolicy {
 		aclID = "all-nodes"
+	}
+	if !servercfg.IsPro && ruleType == models.UserPolicy {
+		return models.Acl{Enabled: true}, nil
 	}
 	acl, err := GetAcl(fmt.Sprintf("%s.%s", netID, aclID))
 	if err != nil {
@@ -1577,4 +1835,20 @@ func CreateDefaultAclNetworkPolicies(netID models.NetworkID) {
 		InsertAcl(defaultUserAcl)
 	}
 	CreateDefaultUserPolicies(netID)
+}
+
+func getTagMapWithNodesByNetwork(netID models.NetworkID, withStaticNodes bool) (tagNodesMap map[models.TagID][]models.Node) {
+	tagNodesMap = make(map[models.TagID][]models.Node)
+	nodes, _ := GetNetworkNodes(netID.String())
+	netGwTag := models.TagID(fmt.Sprintf("%s.%s", netID.String(), models.GwTagName))
+	for _, nodeI := range nodes {
+		if nodeI.IsGw {
+			tagNodesMap[netGwTag] = append(tagNodesMap[netGwTag], nodeI)
+		}
+	}
+	tagNodesMap["*"] = nodes
+	if !withStaticNodes {
+		return
+	}
+	return
 }

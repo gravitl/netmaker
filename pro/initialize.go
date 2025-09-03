@@ -145,11 +145,10 @@ func InitPro() {
 	logic.IsUserAllowedToCommunicate = proLogic.IsUserAllowedToCommunicate
 	logic.DeleteAllNetworkTags = proLogic.DeleteAllNetworkTags
 	logic.CreateDefaultTags = proLogic.CreateDefaultTags
-	logic.GetInetClientsFromAclPolicies = proLogic.GetInetClientsFromAclPolicies
 	logic.IsPeerAllowed = proLogic.IsPeerAllowed
 	logic.IsAclPolicyValid = proLogic.IsAclPolicyValid
-	logic.GetEgressRulesForNode = proLogic.GetEgressRulesForNode
-	logic.GetAclRuleForInetGw = proLogic.GetAclRuleForInetGw
+	logic.GetEgressUserRulesForNode = proLogic.GetEgressUserRulesForNode
+	logic.GetTagMapWithNodesByNetwork = proLogic.GetTagMapWithNodesByNetwork
 	logic.GetAclRulesForNode = proLogic.GetAclRulesForNode
 	logic.CheckIfAnyActiveEgressPolicy = proLogic.CheckIfAnyActiveEgressPolicy
 	logic.CheckIfAnyPolicyisUniDirectional = proLogic.CheckIfAnyPolicyisUniDirectional
