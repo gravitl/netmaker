@@ -683,8 +683,11 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		logic.SetInternetGw(newNode, newNode.InetNodeReq)
 	}
 	if currentNode.IsInternetGateway && newNode.IsInternetGateway {
+		// logic.UnsetInternetGw resets newNode.InetNodeReq.
+		// So, keeping a copy to pass into logic.SetInternetGw.
+		req := newNode.InetNodeReq
 		logic.UnsetInternetGw(newNode)
-		logic.SetInternetGw(newNode, newNode.InetNodeReq)
+		logic.SetInternetGw(newNode, req)
 	}
 	if !newNode.IsInternetGateway {
 		logic.UnsetInternetGw(newNode)
