@@ -87,6 +87,9 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 	if req.Tags == nil {
 		req.Tags = make(datatypes.JSONMap)
 	}
+	if req.Nodes == nil {
+		req.Nodes = make(datatypes.JSONMap)
+	}
 	if gNs, ok := logic.GlobalNsList[req.Name]; ok {
 		req.Servers = gNs.IPs
 	}
@@ -107,6 +110,7 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 		MatchDomains: req.MatchDomains,
 		Servers:      req.Servers,
 		Tags:         req.Tags,
+		Nodes:        req.Nodes,
 		Status:       true,
 		CreatedBy:    r.Header.Get("user"),
 		CreatedAt:    time.Now().UTC(),
@@ -198,6 +202,9 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 	if updateNs.Tags == nil {
 		updateNs.Tags = make(datatypes.JSONMap)
 	}
+	if updateNs.Nodes == nil {
+		updateNs.Nodes = make(datatypes.JSONMap)
+	}
 
 	ns := schema.Nameserver{ID: updateNs.ID}
 	err = ns.Get(db.WithContext(r.Context()))
@@ -239,6 +246,7 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 	ns.MatchAll = updateNs.MatchAll
 	ns.Description = updateNs.Description
 	ns.Name = updateNs.Name
+	ns.Nodes = updateNs.Nodes
 	ns.Status = updateNs.Status
 	ns.UpdatedAt = time.Now().UTC()
 
