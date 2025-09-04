@@ -671,6 +671,16 @@ func createDefaultTagsAndPolicies() {
 		logic.DeleteAcl(models.Acl{ID: fmt.Sprintf("%s.%s", network.NetID, "all-remote-access-gws")})
 	}
 	logic.MigrateAclPolicies()
+	if !servercfg.IsPro {
+		nodes, _ := logic.GetAllNodes()
+		for _, node := range nodes {
+			if node.IsGw {
+				node.Tags = make(map[models.TagID]struct{})
+				node.Tags[models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName))] = struct{}{}
+				logic.UpsertNode(&node)
+			}
+		}
+	}
 }
 
 func migrateToEgressV1() {
