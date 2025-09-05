@@ -987,6 +987,12 @@ func MigrateAclPolicies() {
 			acl.Port = []string{}
 			UpsertAcl(acl)
 		}
+		if !servercfg.IsPro {
+			if acl.AllowedDirection == models.TrafficDirectionUni {
+				acl.AllowedDirection = models.TrafficDirectionBi
+				UpsertAcl(acl)
+			}
+		}
 	}
 
 }
@@ -1032,7 +1038,7 @@ func IsNodeAllowedToCommunicateWithAllRsrcs(node models.Node) bool {
 		dstMap = nil
 	}()
 	for _, policy := range policies {
-		if !policy.Enabled {
+		if !policy.Enabled || policy.AllowedDirection == models.TrafficDirectionUni {
 			continue
 		}
 		srcMap = ConvAclTagToValueMap(policy.Src)
