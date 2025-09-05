@@ -123,7 +123,7 @@ func UniqueIPNetStrList(ipnets []string) []string {
 }
 
 // DeleteExtClient - deletes an existing ext client
-func DeleteExtClient(network string, clientid string) error {
+func DeleteExtClient(network string, clientid string, isUpdate bool) error {
 	key, err := GetRecordKey(clientid, network)
 	if err != nil {
 		return err
@@ -146,7 +146,7 @@ func DeleteExtClient(network string, clientid string) error {
 		}
 		deleteExtClientFromCache(key)
 	}
-	if extClient.RemoteAccessClientID != "" {
+	if !isUpdate && extClient.RemoteAccessClientID != "" {
 		LogEvent(&models.Event{
 			Action: models.Disconnect,
 			Source: models.Subject{
@@ -173,7 +173,7 @@ func DeleteExtClient(network string, clientid string) error {
 func DeleteExtClientAndCleanup(extClient models.ExtClient) error {
 
 	//delete extClient record
-	err := DeleteExtClient(extClient.Network, extClient.ClientID)
+	err := DeleteExtClient(extClient.Network, extClient.ClientID, false)
 	if err != nil {
 		slog.Error("DeleteExtClientAndCleanup-remove extClient record: ", "Error", err.Error())
 		return err
@@ -511,7 +511,7 @@ func ToggleExtClientConnectivity(client *models.ExtClient, enable bool) (models.
 
 	// update in DB
 	newClient := UpdateExtClient(client, &update)
-	if err := DeleteExtClient(client.Network, client.ClientID); err != nil {
+	if err := DeleteExtClient(client.Network, client.ClientID, true); err != nil {
 		slog.Error("failed to delete ext client during update", "id", client.ClientID, "network", client.Network, "error", err)
 		return newClient, err
 	}
