@@ -298,7 +298,7 @@ func DeleteGatewayExtClients(gatewayID string, networkName string) error {
 	}
 	for _, extClient := range currentExtClients {
 		if extClient.IngressGatewayID == gatewayID {
-			if err = DeleteExtClient(networkName, extClient.ClientID); err != nil {
+			if err = DeleteExtClient(networkName, extClient.ClientID, false); err != nil {
 				logger.Log(1, "failed to remove ext client", extClient.ClientID)
 				continue
 			}

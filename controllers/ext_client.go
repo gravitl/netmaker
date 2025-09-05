@@ -908,7 +908,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		update.Location = logic.GetHostLocInfo(logic.GetClientIP(r), os.Getenv("IP_INFO_TOKEN"))
 	}
 	newclient := logic.UpdateExtClient(&oldExtClient, &update)
-	if err := logic.DeleteExtClient(oldExtClient.Network, oldExtClient.ClientID); err != nil {
+	if err := logic.DeleteExtClient(oldExtClient.Network, oldExtClient.ClientID, true); err != nil {
 		slog.Error(
 			"failed to delete ext client",
 			"user",
