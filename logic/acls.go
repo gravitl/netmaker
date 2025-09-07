@@ -119,25 +119,37 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 			}
 
 			if relayedNode.Address.IP != nil {
-				relayedFwRule := models.FwRule{
+				rules = append(rules, models.FwRule{
 					AllowedProtocol: models.ALL,
 					AllowedPorts:    []string{},
 					Allow:           true,
-				}
-				relayedFwRule.DstIP = relayedNode.AddressIPNet4()
-				relayedFwRule.SrcIP = node.NetworkRange
-				rules = append(rules, relayedFwRule)
+					DstIP:           relayedNode.AddressIPNet4(),
+					SrcIP:           node.NetworkRange,
+				})
+				rules = append(rules, models.FwRule{
+					AllowedProtocol: models.ALL,
+					AllowedPorts:    []string{},
+					Allow:           true,
+					DstIP:           node.NetworkRange,
+					SrcIP:           relayedNode.AddressIPNet4(),
+				})
 			}
 
 			if relayedNode.Address6.IP != nil {
-				relayedFwRule := models.FwRule{
+				rules = append(rules, models.FwRule{
 					AllowedProtocol: models.ALL,
 					AllowedPorts:    []string{},
 					Allow:           true,
-				}
-				relayedFwRule.DstIP = relayedNode.AddressIPNet6()
-				relayedFwRule.SrcIP = node.NetworkRange6
-				rules = append(rules, relayedFwRule)
+					DstIP:           relayedNode.AddressIPNet6(),
+					SrcIP:           node.NetworkRange6,
+				})
+				rules = append(rules, models.FwRule{
+					AllowedProtocol: models.ALL,
+					AllowedPorts:    []string{},
+					Allow:           true,
+					DstIP:           node.NetworkRange6,
+					SrcIP:           relayedNode.AddressIPNet6(),
+				})
 			}
 
 		}
