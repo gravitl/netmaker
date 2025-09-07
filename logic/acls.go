@@ -126,25 +126,37 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 			}
 
 			if relayedNode.Address.IP != nil {
-				relayedFwRule := models.FwRule{
+				rules = append(rules, models.FwRule{
 					AllowedProtocol: models.ALL,
 					AllowedPorts:    []string{},
 					Allow:           true,
-				}
-				relayedFwRule.DstIP = relayedNode.AddressIPNet4()
-				relayedFwRule.SrcIP = node.NetworkRange
-				rules = append(rules, relayedFwRule)
+					DstIP:           relayedNode.AddressIPNet4(),
+					SrcIP:           node.NetworkRange,
+				})
+				rules = append(rules, models.FwRule{
+					AllowedProtocol: models.ALL,
+					AllowedPorts:    []string{},
+					Allow:           true,
+					DstIP:           node.NetworkRange,
+					SrcIP:           relayedNode.AddressIPNet4(),
+				})
 			}
 
 			if relayedNode.Address6.IP != nil {
-				relayedFwRule := models.FwRule{
+				rules = append(rules, models.FwRule{
 					AllowedProtocol: models.ALL,
 					AllowedPorts:    []string{},
 					Allow:           true,
-				}
-				relayedFwRule.DstIP = relayedNode.AddressIPNet6()
-				relayedFwRule.SrcIP = node.NetworkRange6
-				rules = append(rules, relayedFwRule)
+					DstIP:           relayedNode.AddressIPNet6(),
+					SrcIP:           node.NetworkRange6,
+				})
+				rules = append(rules, models.FwRule{
+					AllowedProtocol: models.ALL,
+					AllowedPorts:    []string{},
+					Allow:           true,
+					DstIP:           node.NetworkRange6,
+					SrcIP:           relayedNode.AddressIPNet6(),
+				})
 			}
 
 		}
@@ -402,8 +414,8 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 			Allowed:         true,
 			IPList:          []net.IPNet{targetnode.NetworkRange},
 			IP6List:         []net.IPNet{targetnode.NetworkRange6},
-			Dst:             []net.IPNet{targetnode.Address},
-			Dst6:            []net.IPNet{targetnode.Address6},
+			Dst:             []net.IPNet{targetnode.AddressIPNet4()},
+			Dst6:            []net.IPNet{targetnode.AddressIPNet6()},
 		}
 		rules[aclRule.ID] = aclRule
 		return
@@ -453,6 +465,8 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 			AllowedPorts:    acl.Port,
 			Direction:       acl.AllowedDirection,
 			Allowed:         true,
+			Dst:             []net.IPNet{targetnode.AddressIPNet4()},
+			Dst6:            []net.IPNet{targetnode.AddressIPNet6()},
 		}
 		for nodeTag := range targetNodeTags {
 			if acl.AllowedDirection == models.TrafficDirectionBi {
@@ -1037,8 +1051,11 @@ func IsNodeAllowedToCommunicateWithAllRsrcs(node models.Node) bool {
 		srcMap = nil
 		dstMap = nil
 	}()
+	if CheckIfAnyPolicyisUniDirectional(node, policies) {
+		return false
+	}
 	for _, policy := range policies {
-		if !policy.Enabled || policy.AllowedDirection == models.TrafficDirectionUni {
+		if !policy.Enabled {
 			continue
 		}
 		srcMap = ConvAclTagToValueMap(policy.Src)
