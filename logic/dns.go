@@ -444,6 +444,18 @@ func validateNameserverReq(ns schema.Nameserver) error {
 			}
 		}
 	}
+	// check if valid broadcast peers are added
+	if len(ns.Nodes) > 0 {
+		for nodeID := range ns.Nodes {
+			node, err := GetNodeByID(nodeID)
+			if err != nil {
+				return errors.New("invalid node")
+			}
+			if node.Network != ns.NetworkID {
+				return errors.New("invalid network node")
+			}
+		}
+	}
 
 	return nil
 }
