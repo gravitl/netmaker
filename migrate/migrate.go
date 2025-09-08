@@ -41,6 +41,7 @@ func Run() {
 	updateNetworks()
 	migrateNameservers()
 	resync()
+	deleteOldExtclients()
 }
 
 func updateNetworks() {
@@ -796,4 +797,32 @@ func migrateSettings() {
 		settings.JwtValidityDurationClients = servercfg.GetJwtValidityDurationFromEnv() / 60
 	}
 	logic.UpsertServerSettings(settings)
+}
+
+func deleteOldExtclients() {
+	extclients, _ := logic.GetAllExtClients()
+	userExtclientMap := make(map[string][]models.ExtClient)
+	for _, extclient := range extclients {
+		if extclient.RemoteAccessClientID == "" {
+			continue
+		}
+
+		if extclient.Enabled {
+			continue
+		}
+
+		if _, ok := userExtclientMap[extclient.OwnerID]; !ok {
+			userExtclientMap[extclient.OwnerID] = make([]models.ExtClient, 0)
+		}
+
+		userExtclientMap[extclient.OwnerID] = append(userExtclientMap[extclient.OwnerID], extclient)
+	}
+
+	for _, userExtclients := range userExtclientMap {
+		if len(userExtclients) > 1 {
+			for _, extclient := range userExtclients[1:] {
+				_ = logic.DeleteExtClient(extclient.Network, extclient.Network, false)
+			}
+		}
+	}
 }

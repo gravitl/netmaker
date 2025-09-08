@@ -309,9 +309,17 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 
 		user.Password = userchange.Password
 	}
-	if err := IsGroupsValid(userchange.UserGroups); err != nil {
-		return userchange, errors.New("invalid groups: " + err.Error())
+
+	validUserGroups := make(map[models.UserGroupID]struct{})
+	for userGroupID := range userchange.UserGroups {
+		_, err := GetUserGroup(userGroupID)
+		if err == nil {
+			validUserGroups[userGroupID] = struct{}{}
+		}
 	}
+
+	userchange.UserGroups = validUserGroups
+
 	if err := IsNetworkRolesValid(userchange.NetworkRoles); err != nil {
 		return userchange, errors.New("invalid network roles: " + err.Error())
 	}
