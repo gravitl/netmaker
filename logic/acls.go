@@ -687,7 +687,7 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 		}
 		for egressID, egI := range egressIDMap {
 			if _, ok := dstTags[egressID]; ok || dstAll {
-				if egI.Domain != "" && len(egI.DomainAns) > 0 {
+				if servercfg.IsPro && egI.Domain != "" && len(egI.DomainAns) > 0 {
 					for _, domainAnsI := range egI.DomainAns {
 						ip, cidr, err := net.ParseCIDR(domainAnsI)
 						if err == nil {
