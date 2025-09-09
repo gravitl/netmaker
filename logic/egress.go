@@ -113,11 +113,25 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 				req.Ranges = append(req.Ranges, e.DomainAns...)
 			}
 
-			req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
-				Network:     e.Range,
-				Nat:         e.Nat,
-				RouteMetric: m,
-			})
+			if e.Range != "" {
+				req.Ranges = append(req.Ranges, e.Range)
+				req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
+					Network:     e.Range,
+					Nat:         e.Nat,
+					RouteMetric: m,
+				})
+			}
+			if e.Domain != "" && len(e.DomainAns) > 0 {
+				req.Ranges = append(req.Ranges, e.DomainAns...)
+				for _, domainAnsI := range e.DomainAns {
+					req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
+						Network:     domainAnsI,
+						Nat:         e.Nat,
+						RouteMetric: m,
+					})
+				}
+
+			}
 		}
 	}
 	if targetNode.Mutex != nil {
@@ -182,13 +196,17 @@ func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []mode
 					Nat:         e.Nat,
 					RouteMetric: m,
 				})
-			} else if len(e.DomainAns) > 0 {
+			}
+			if e.Domain != "" && len(e.DomainAns) > 0 {
 				req.Ranges = append(req.Ranges, e.DomainAns...)
-				req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
-					Network:     e.DomainAns[0],
-					Nat:         e.Nat,
-					RouteMetric: m,
-				})
+				for _, domainAnsI := range e.DomainAns {
+					req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
+						Network:     domainAnsI,
+						Nat:         e.Nat,
+						RouteMetric: m,
+					})
+				}
+
 			}
 
 		}
