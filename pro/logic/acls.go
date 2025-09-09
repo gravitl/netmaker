@@ -972,9 +972,9 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 					if dst.ID == models.EgressID {
 						e := schema.Egress{ID: dst.Value}
 						err := e.Get(db.WithContext(context.TODO()))
-						if err == nil && e.Status {
-							for nodeID := range e.Nodes {
-								dstTags[nodeID] = struct{}{}
+						if err == nil && e.Status && len(e.Nodes) > 0 {
+							if _, ok := e.Nodes[targetnode.ID.String()]; ok {
+								dstTags[targetnode.ID.String()] = struct{}{}
 							}
 						}
 					}
@@ -1045,23 +1045,50 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 				}
 				egressRanges4 := []net.IPNet{}
 				egressRanges6 := []net.IPNet{}
+
 				for _, dst := range acl.Dst {
-					if dst.ID == models.EgressID {
-						e := schema.Egress{ID: dst.Value}
-						err := e.Get(db.WithContext(context.TODO()))
-						if err == nil && e.Status {
-							if e.Range != "" {
-								_, cidr, err := net.ParseCIDR(e.Range)
-								if err == nil {
-									if cidr.IP.To4() != nil {
-										egressRanges4 = append(egressRanges4, *cidr)
-									} else {
-										egressRanges6 = append(egressRanges6, *cidr)
+					if dst.Value == "*" {
+						e := schema.Egress{Network: targetnode.Network}
+						eli, _ := e.ListByNetwork(db.WithContext(context.Background()))
+						for _, eI := range eli {
+							if !eI.Status || len(eI.Nodes) == 0 {
+								continue
+							}
+							if _, ok := eI.Nodes[targetnode.ID.String()]; ok {
+								if eI.Range != "" {
+									_, cidr, err := net.ParseCIDR(eI.Range)
+									if err == nil {
+										if cidr.IP.To4() != nil {
+											egressRanges4 = append(egressRanges4, *cidr)
+										} else {
+											egressRanges6 = append(egressRanges6, *cidr)
+										}
 									}
 								}
 							}
 						}
+						break
 					}
+					if dst.ID == models.EgressID {
+						e := schema.Egress{ID: dst.Value}
+						err := e.Get(db.WithContext(context.TODO()))
+						if err == nil && e.Status && len(e.Nodes) > 0 {
+							if _, ok := e.Nodes[targetnode.ID.String()]; ok {
+								if e.Range != "" {
+									_, cidr, err := net.ParseCIDR(e.Range)
+									if err == nil {
+										if cidr.IP.To4() != nil {
+											egressRanges4 = append(egressRanges4, *cidr)
+										} else {
+											egressRanges6 = append(egressRanges6, *cidr)
+										}
+									}
+								}
+							}
+
+						}
+					}
+
 				}
 				r := models.AclRule{
 					ID:              acl.ID,
@@ -1086,14 +1113,26 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 					r.IP6List = append(r.IP6List, userNode.StaticNode.AddressIPNet6())
 				}
 				if aclRule, ok := rules[acl.ID]; ok {
+
 					aclRule.IPList = append(aclRule.IPList, r.IPList...)
 					aclRule.IP6List = append(aclRule.IP6List, r.IP6List...)
+
+					aclRule.Dst = append(aclRule.Dst, r.Dst...)
+					aclRule.Dst6 = append(aclRule.Dst6, r.Dst6...)
+
 					aclRule.IPList = logic.UniqueIPNetList(aclRule.IPList)
 					aclRule.IP6List = logic.UniqueIPNetList(aclRule.IP6List)
+
+					aclRule.Dst = logic.UniqueIPNetList(aclRule.Dst)
+					aclRule.Dst6 = logic.UniqueIPNetList(aclRule.Dst6)
+
 					rules[acl.ID] = aclRule
 				} else {
 					r.IPList = logic.UniqueIPNetList(r.IPList)
 					r.IP6List = logic.UniqueIPNetList(r.IP6List)
+
+					r.Dst = logic.UniqueIPNetList(r.Dst)
+					r.Dst6 = logic.UniqueIPNetList(r.Dst6)
 					rules[acl.ID] = r
 				}
 			}

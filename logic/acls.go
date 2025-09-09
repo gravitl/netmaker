@@ -417,6 +417,33 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 			Dst:             []net.IPNet{targetnode.AddressIPNet4()},
 			Dst6:            []net.IPNet{targetnode.AddressIPNet6()},
 		}
+		e := schema.Egress{Network: targetnode.Network}
+		egressRanges4 := []net.IPNet{}
+		egressRanges6 := []net.IPNet{}
+		eli, _ := e.ListByNetwork(db.WithContext(context.Background()))
+		for _, eI := range eli {
+			if !eI.Status || len(eI.Nodes) == 0 {
+				continue
+			}
+			if _, ok := eI.Nodes[targetnode.ID.String()]; ok {
+				if eI.Range != "" {
+					_, cidr, err := net.ParseCIDR(eI.Range)
+					if err == nil {
+						if cidr.IP.To4() != nil {
+							egressRanges4 = append(egressRanges4, *cidr)
+						} else {
+							egressRanges6 = append(egressRanges6, *cidr)
+						}
+					}
+				}
+			}
+		}
+		if len(egressRanges4) > 0 {
+			aclRule.Dst = append(aclRule.Dst, egressRanges4...)
+		}
+		if len(egressRanges6) > 0 {
+			aclRule.Dst6 = append(aclRule.Dst6, egressRanges6...)
+		}
 		rules[aclRule.ID] = aclRule
 		return
 	}
@@ -449,25 +476,48 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 		egressRanges4 := []net.IPNet{}
 		egressRanges6 := []net.IPNet{}
 		for _, dst := range acl.Dst {
-			if dst.ID == models.EgressID {
-				e := schema.Egress{ID: dst.Value}
-				err := e.Get(db.WithContext(context.TODO()))
-				if err == nil && e.Status {
-					if e.Range != "" {
-						_, cidr, err := net.ParseCIDR(e.Range)
-						if err == nil {
-							if cidr.IP.To4() != nil {
-								egressRanges4 = append(egressRanges4, *cidr)
-							} else {
-								egressRanges6 = append(egressRanges6, *cidr)
+			if dst.Value == "*" {
+				e := schema.Egress{Network: targetnode.Network}
+				eli, _ := e.ListByNetwork(db.WithContext(context.Background()))
+				for _, eI := range eli {
+					if !eI.Status || len(eI.Nodes) == 0 {
+						continue
+					}
+					if _, ok := eI.Nodes[targetnode.ID.String()]; ok {
+						if eI.Range != "" {
+							_, cidr, err := net.ParseCIDR(eI.Range)
+							if err == nil {
+								if cidr.IP.To4() != nil {
+									egressRanges4 = append(egressRanges4, *cidr)
+								} else {
+									egressRanges6 = append(egressRanges6, *cidr)
+								}
 							}
 						}
 					}
-					for nodeID := range e.Nodes {
-						dstTags[nodeID] = struct{}{}
+				}
+				break
+			}
+			if dst.ID == models.EgressID {
+				e := schema.Egress{ID: dst.Value}
+				err := e.Get(db.WithContext(context.TODO()))
+				if err == nil && e.Status && len(e.Nodes) > 0 {
+					if _, ok := e.Nodes[targetnode.ID.String()]; ok {
+						if e.Range != "" {
+							_, cidr, err := net.ParseCIDR(e.Range)
+							if err == nil {
+								if cidr.IP.To4() != nil {
+									egressRanges4 = append(egressRanges4, *cidr)
+								} else {
+									egressRanges6 = append(egressRanges6, *cidr)
+								}
+							}
+						}
 					}
+
 				}
 			}
+
 		}
 		_, srcAll := srcTags["*"]
 		_, dstAll := dstTags["*"]
