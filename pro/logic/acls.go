@@ -968,6 +968,17 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 			_, all := dstTags["*"]
 			addUsers := false
 			if !all {
+				for _, dst := range acl.Dst {
+					if dst.ID == models.EgressID {
+						e := schema.Egress{ID: dst.Value}
+						err := e.Get(db.WithContext(context.TODO()))
+						if err == nil && e.Status {
+							for nodeID := range e.Nodes {
+								dstTags[nodeID] = struct{}{}
+							}
+						}
+					}
+				}
 				for nodeTag := range targetNodeTags {
 					if _, ok := dstTags[nodeTag.String()]; ok {
 						addUsers = true
@@ -1002,8 +1013,6 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 			AllowedProtocol: defaultPolicy.Proto,
 			AllowedPorts:    defaultPolicy.Port,
 			Direction:       defaultPolicy.AllowedDirection,
-			Dst:             []net.IPNet{targetnode.AddressIPNet4()},
-			Dst6:            []net.IPNet{targetnode.AddressIPNet6()},
 			Allowed:         true,
 		}
 		for _, userNode := range userNodes {
@@ -1034,6 +1043,26 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 				if !acl.Enabled {
 					continue
 				}
+				egressRanges4 := []net.IPNet{}
+				egressRanges6 := []net.IPNet{}
+				for _, dst := range acl.Dst {
+					if dst.ID == models.EgressID {
+						e := schema.Egress{ID: dst.Value}
+						err := e.Get(db.WithContext(context.TODO()))
+						if err == nil && e.Status {
+							if e.Range != "" {
+								_, cidr, err := net.ParseCIDR(e.Range)
+								if err == nil {
+									if cidr.IP.To4() != nil {
+										egressRanges4 = append(egressRanges4, *cidr)
+									} else {
+										egressRanges6 = append(egressRanges6, *cidr)
+									}
+								}
+							}
+						}
+					}
+				}
 				r := models.AclRule{
 					ID:              acl.ID,
 					AllowedProtocol: acl.Proto,
@@ -1042,6 +1071,12 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 					Dst:             []net.IPNet{targetnode.AddressIPNet4()},
 					Dst6:            []net.IPNet{targetnode.AddressIPNet6()},
 					Allowed:         true,
+				}
+				if len(egressRanges4) > 0 {
+					r.Dst = append(r.Dst, egressRanges4...)
+				}
+				if len(egressRanges6) > 0 {
+					r.Dst6 = append(r.Dst6, egressRanges6...)
 				}
 				// Get peers in the tags and add allowed rules
 				if userNode.StaticNode.Address != "" {

@@ -446,11 +446,23 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 		}
 		srcTags := ConvAclTagToValueMap(acl.Src)
 		dstTags := ConvAclTagToValueMap(acl.Dst)
+		egressRanges4 := []net.IPNet{}
+		egressRanges6 := []net.IPNet{}
 		for _, dst := range acl.Dst {
 			if dst.ID == models.EgressID {
 				e := schema.Egress{ID: dst.Value}
 				err := e.Get(db.WithContext(context.TODO()))
 				if err == nil && e.Status {
+					if e.Range != "" {
+						_, cidr, err := net.ParseCIDR(e.Range)
+						if err == nil {
+							if cidr.IP.To4() != nil {
+								egressRanges4 = append(egressRanges4, *cidr)
+							} else {
+								egressRanges6 = append(egressRanges6, *cidr)
+							}
+						}
+					}
 					for nodeID := range e.Nodes {
 						dstTags[nodeID] = struct{}{}
 					}
@@ -467,6 +479,12 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 			Allowed:         true,
 			Dst:             []net.IPNet{targetnode.AddressIPNet4()},
 			Dst6:            []net.IPNet{targetnode.AddressIPNet6()},
+		}
+		if len(egressRanges4) > 0 {
+			aclRule.Dst = append(aclRule.Dst, egressRanges4...)
+		}
+		if len(egressRanges6) > 0 {
+			aclRule.Dst6 = append(aclRule.Dst6, egressRanges6...)
 		}
 		for nodeTag := range targetNodeTags {
 			if acl.AllowedDirection == models.TrafficDirectionBi {
