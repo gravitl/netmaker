@@ -12,9 +12,25 @@ import (
 	"github.com/gravitl/netmaker/schema"
 )
 
+func getStaticUserNodesByNetwork(network models.NetworkID) (staticNode []models.Node) {
+	extClients, err := logic.GetAllExtClients()
+	if err != nil {
+		return
+	}
+	for _, extI := range extClients {
+		if extI.Network == network.String() {
+			if extI.RemoteAccessClientID != "" {
+				n := extI.ConvertToStaticNode()
+				staticNode = append(staticNode, n)
+			}
+		}
+	}
+	return
+}
+
 func GetFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []models.FwRule) {
 	defaultUserPolicy, _ := logic.GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
-	userNodes := logic.GetStaticUserNodesByNetwork(models.NetworkID(node.Network))
+	userNodes := getStaticUserNodesByNetwork(models.NetworkID(node.Network))
 	for _, userNodeI := range userNodes {
 		if defaultUserPolicy.Enabled {
 			if userNodeI.StaticNode.Address != "" {
@@ -834,7 +850,7 @@ func RemoveDeviceTagFromAclPolicies(tagID models.TagID, netID models.NetworkID) 
 
 func GetEgressUserRulesForNode(targetnode *models.Node,
 	rules map[string]models.AclRule) map[string]models.AclRule {
-	userNodes := logic.GetStaticUserNodesByNetwork(models.NetworkID(targetnode.Network))
+	userNodes := getStaticUserNodesByNetwork(models.NetworkID(targetnode.Network))
 	userGrpMap := GetUserGrpMap()
 	allowedUsers := make(map[string][]models.Acl)
 	acls := listUserPolicies(models.NetworkID(targetnode.Network))
@@ -1021,7 +1037,7 @@ func GetEgressUserRulesForNode(targetnode *models.Node,
 
 func GetUserAclRulesForNode(targetnode *models.Node,
 	rules map[string]models.AclRule) map[string]models.AclRule {
-	userNodes := logic.GetStaticUserNodesByNetwork(models.NetworkID(targetnode.Network))
+	userNodes := getStaticUserNodesByNetwork(models.NetworkID(targetnode.Network))
 	userGrpMap := GetUserGrpMap()
 	allowedUsers := make(map[string][]models.Acl)
 	acls := listUserPolicies(models.NetworkID(targetnode.Network))
@@ -1047,6 +1063,17 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 			_, all := dstTags["*"]
 			addUsers := false
 			if !all {
+				for _, dst := range acl.Dst {
+					if dst.ID == models.EgressID {
+						e := schema.Egress{ID: dst.Value}
+						err := e.Get(db.WithContext(context.TODO()))
+						if err == nil && e.Status && len(e.Nodes) > 0 {
+							if _, ok := e.Nodes[targetnode.ID.String()]; ok {
+								dstTags[targetnode.ID.String()] = struct{}{}
+							}
+						}
+					}
+				}
 				for nodeTag := range targetNodeTags {
 					if _, ok := dstTags[nodeTag.String()]; ok {
 						addUsers = true
@@ -1111,12 +1138,67 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 				if !acl.Enabled {
 					continue
 				}
+				egressRanges4 := []net.IPNet{}
+				egressRanges6 := []net.IPNet{}
+
+				for _, dst := range acl.Dst {
+					if dst.Value == "*" {
+						e := schema.Egress{Network: targetnode.Network}
+						eli, _ := e.ListByNetwork(db.WithContext(context.Background()))
+						for _, eI := range eli {
+							if !eI.Status || len(eI.Nodes) == 0 {
+								continue
+							}
+							if _, ok := eI.Nodes[targetnode.ID.String()]; ok {
+								if eI.Range != "" {
+									_, cidr, err := net.ParseCIDR(eI.Range)
+									if err == nil {
+										if cidr.IP.To4() != nil {
+											egressRanges4 = append(egressRanges4, *cidr)
+										} else {
+											egressRanges6 = append(egressRanges6, *cidr)
+										}
+									}
+								}
+							}
+						}
+						break
+					}
+					if dst.ID == models.EgressID {
+						e := schema.Egress{ID: dst.Value}
+						err := e.Get(db.WithContext(context.TODO()))
+						if err == nil && e.Status && len(e.Nodes) > 0 {
+							if _, ok := e.Nodes[targetnode.ID.String()]; ok {
+								if e.Range != "" {
+									_, cidr, err := net.ParseCIDR(e.Range)
+									if err == nil {
+										if cidr.IP.To4() != nil {
+											egressRanges4 = append(egressRanges4, *cidr)
+										} else {
+											egressRanges6 = append(egressRanges6, *cidr)
+										}
+									}
+								}
+							}
+
+						}
+					}
+
+				}
 				r := models.AclRule{
 					ID:              acl.ID,
 					AllowedProtocol: acl.Proto,
 					AllowedPorts:    acl.Port,
 					Direction:       acl.AllowedDirection,
+					Dst:             []net.IPNet{targetnode.AddressIPNet4()},
+					Dst6:            []net.IPNet{targetnode.AddressIPNet6()},
 					Allowed:         true,
+				}
+				if len(egressRanges4) > 0 {
+					r.Dst = append(r.Dst, egressRanges4...)
+				}
+				if len(egressRanges6) > 0 {
+					r.Dst6 = append(r.Dst6, egressRanges6...)
 				}
 				// Get peers in the tags and add allowed rules
 				if userNode.StaticNode.Address != "" {
@@ -1126,14 +1208,26 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 					r.IP6List = append(r.IP6List, userNode.StaticNode.AddressIPNet6())
 				}
 				if aclRule, ok := rules[acl.ID]; ok {
+
 					aclRule.IPList = append(aclRule.IPList, r.IPList...)
 					aclRule.IP6List = append(aclRule.IP6List, r.IP6List...)
+
+					aclRule.Dst = append(aclRule.Dst, r.Dst...)
+					aclRule.Dst6 = append(aclRule.Dst6, r.Dst6...)
+
 					aclRule.IPList = logic.UniqueIPNetList(aclRule.IPList)
 					aclRule.IP6List = logic.UniqueIPNetList(aclRule.IP6List)
+
+					aclRule.Dst = logic.UniqueIPNetList(aclRule.Dst)
+					aclRule.Dst6 = logic.UniqueIPNetList(aclRule.Dst6)
+
 					rules[acl.ID] = aclRule
 				} else {
 					r.IPList = logic.UniqueIPNetList(r.IPList)
 					r.IP6List = logic.UniqueIPNetList(r.IP6List)
+
+					r.Dst = logic.UniqueIPNetList(r.Dst)
+					r.Dst6 = logic.UniqueIPNetList(r.Dst6)
 					rules[acl.ID] = r
 				}
 			}
