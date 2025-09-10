@@ -705,22 +705,6 @@ func GetExtclientAllowedIPs(client models.ExtClient) (allowedIPs []string) {
 	return
 }
 
-func GetStaticUserNodesByNetwork(network models.NetworkID) (staticNode []models.Node) {
-	extClients, err := GetAllExtClients()
-	if err != nil {
-		return
-	}
-	for _, extI := range extClients {
-		if extI.Network == network.String() {
-			if extI.RemoteAccessClientID != "" {
-				n := extI.ConvertToStaticNode()
-				staticNode = append(staticNode, n)
-			}
-		}
-	}
-	return
-}
-
 func GetStaticNodesByNetwork(network models.NetworkID, onlyWg bool) (staticNode []models.Node) {
 	extClients, err := GetAllExtClients()
 	if err != nil {
