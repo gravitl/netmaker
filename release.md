@@ -1,26 +1,30 @@
-# Netmaker v1.0.0
+## Netmaker v1.1.0 Release Notes 🚀 
 
-## Whats New ✨
+## What’s New ✨ 
 
-- Multi-Factor Authentication (MFA) for user logins – added an extra layer of security to your accounts.
+- Okta IDP Integration – Seamless authentication and user provisioning with Okta.
 
-- Gateways Unified: Internet Gateways are now merged into the general Gateway feature and available in Community Edition.
+- Egress Domain-Based Routing – Route traffic based on domain names, not just network CIDRs.
 
-- Improved OAuth & IDP Sync: Simplified and more reliable configuration for identity provider integrations.
+- DNS Nameservers with Match Domain Functionality – Fine-grained DNS resolution control per domain.
 
-- Global Map View: Visualize all your endpoints and users across the globe in a unified interface.
+- Service User Management – Platform Network Admins can now add service users directly to networks.
 
-- Network Graph Control: Directly control and manage endpoints via the interactive network graph.
+- Device Approval Workflow – Require admin approval before devices can join a network.
 
-- Site-to-Site over IPv6: IPv4 site-to-site communication over IPv6 Netmaker overlay tunnels.
+- Auto-Created User Group Policies – Automatically generate network access policies for new user groups.
 
-## 🛠 Improvements & Fixes
+- User Session Expiry Controls – Set session timeouts for both Dashboard and Client Apps.
 
-- Auto-Sync DNS Configs: Multi-network DNS configurations now sync automatically between server and clients.
+🛠 Improvements & Fixes
 
-- Stability Fixes: Improved connection reliability for nodes using Internet Gateways.
+- Access Control Lists (ACLs): Enhanced functionality and flexibility.
 
-- LAN/Private Routing Enhancements: Smarter detection and handling of local/private routes, improving peer-to-peer communication in complex network environments.
+- User Management UX: Streamlined workflows for easier administration.
+
+- IDP User/Group Filtering: Improved filtering capabilities for large organizations.
+
+- Stability Enhancements: More reliable connections for nodes using Internet Gateways.
 
 ## Known Issues 🐞
 
