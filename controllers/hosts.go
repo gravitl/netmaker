@@ -259,7 +259,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		DnsNameservers:    hPU.DnsNameservers,
 	}
 
-	logger.Log(1, hostID, "completed a pull")
+	logger.Log(1, hostID, host.Name, "completed a pull")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&response)
 }
@@ -376,7 +376,6 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	switch hostUpdate.Action {
 	case models.CheckIn:
 		sendPeerUpdate = mq.HandleHostCheckin(&hostUpdate.Host, currentHost)
-
 	case models.UpdateHost:
 		if hostUpdate.Host.PublicKey != currentHost.PublicKey {
 			//remove old peer entry

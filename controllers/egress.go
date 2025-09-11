@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -135,7 +134,6 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 				if host == nil {
 					continue
 				}
-				fmt.Println("=======> Sending Host Update: ", host.Name)
 				mq.HostUpdate(&models.HostUpdate{
 					Action: models.EgressUpdate,
 					Host:   *host,
@@ -265,6 +263,9 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	for nodeID, metric := range req.Nodes {
 		e.Nodes[nodeID] = metric
 	}
+	if e.Domain != req.Domain {
+		e.DomainAns = datatypes.JSONSlice[string]{}
+	}
 	e.Range = egressRange
 	e.Description = req.Description
 	e.Name = req.Name
@@ -306,7 +307,6 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 				if host == nil {
 					continue
 				}
-				fmt.Println("=======> Sending Host Update: ", host.Name)
 				mq.HostUpdate(&models.HostUpdate{
 					Action: models.EgressUpdate,
 					Host:   *host,

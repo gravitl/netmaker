@@ -5,8 +5,11 @@ import (
 	"log/slog"
 	"net"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
+
+	"github.com/gravitl/netmaker/models"
 )
 
 // RetryStrategy specifies a strategy to retry an operation after waiting a while,
@@ -59,8 +62,8 @@ func TraceCaller() {
 	funcName := runtime.FuncForPC(pc).Name()
 
 	// Print trace details
-	slog.Debug("Called from function: %s\n", "func-name", funcName)
-	slog.Debug("File: %s, Line: %d\n", "file", file, "line-no", line)
+	slog.Debug("Called from function: %s\n", "func", funcName)
+	slog.Debug("File: %s, Line: %d\n", "file", file, "line", line)
 }
 
 // NoEmptyStringToCsv takes a bunch of strings, filters out empty ones and returns a csv version of the string
@@ -85,4 +88,55 @@ func GetExtClientEndpoint(hostIpv4Endpoint, hostIpv6Endpoint net.IP, hostListenP
 	} else {
 		return fmt.Sprintf("%s:%d", hostIpv4Endpoint.String(), hostListenPort)
 	}
+}
+
+// SortIfacesByName sorts a slice of Iface by name in ascending order
+func SortIfacesByName(ifaces []models.Iface) {
+	sort.Slice(ifaces, func(i, j int) bool {
+		return ifaces[i].Name < ifaces[j].Name
+	})
+}
+
+// CompareIfaces compares two slices of Iface and returns true if they are equal
+// Two slices are considered equal if they have the same length and all corresponding
+// elements have the same Name, AddressString, and IP address
+func CompareIfaces(ifaces1, ifaces2 []models.Iface) bool {
+	// Check if lengths are different
+	if len(ifaces1) != len(ifaces2) {
+		return false
+	}
+
+	// Compare each element
+	for i := range ifaces1 {
+		if !CompareIface(ifaces1[i], ifaces2[i]) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// CompareIface compares two individual Iface structs and returns true if they are equal
+func CompareIface(iface1, iface2 models.Iface) bool {
+	// Compare Name
+	if iface1.Name != iface2.Name {
+		return false
+	}
+
+	// Compare AddressString
+	if iface1.AddressString != iface2.AddressString {
+		return false
+	}
+
+	// Compare IP addresses
+	if !iface1.Address.IP.Equal(iface2.Address.IP) {
+		return false
+	}
+
+	// Compare network masks
+	if iface1.Address.Mask.String() != iface2.Address.Mask.String() {
+		return false
+	}
+
+	return true
 }

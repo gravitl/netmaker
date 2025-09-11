@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"reflect"
 	"sort"
 	"sync"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/utils"
 )
 
 var (
@@ -310,17 +310,22 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 		sendPeerUpdate = true
 	}
 	isEndpointChanged := false
-	if currHost.EndpointIP.String() != newHost.EndpointIP.String() {
+	if !currHost.EndpointIP.Equal(newHost.EndpointIP) {
 		currHost.EndpointIP = newHost.EndpointIP
 		sendPeerUpdate = true
 		isEndpointChanged = true
 	}
-	if currHost.EndpointIPv6.String() != newHost.EndpointIPv6.String() {
+	if !currHost.EndpointIPv6.Equal(newHost.EndpointIPv6) {
 		currHost.EndpointIPv6 = newHost.EndpointIPv6
 		sendPeerUpdate = true
 		isEndpointChanged = true
 	}
-	if !reflect.DeepEqual(currHost.Interfaces, newHost.Interfaces) {
+	for i := range newHost.Interfaces {
+		newHost.Interfaces[i].AddressString = newHost.Interfaces[i].Address.String()
+	}
+	utils.SortIfacesByName(currHost.Interfaces)
+	utils.SortIfacesByName(newHost.Interfaces)
+	if !utils.CompareIfaces(currHost.Interfaces, newHost.Interfaces) {
 		currHost.Interfaces = newHost.Interfaces
 		sendPeerUpdate = true
 	}

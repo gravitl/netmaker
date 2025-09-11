@@ -76,7 +76,7 @@ func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 
 			peerHost, err := GetHost(peer.HostID.String())
 			if err != nil {
-				logger.Log(1, "no peer host", peer.HostID.String(), err.Error())
+				logger.Log(4, "no peer host", peer.HostID.String(), err.Error())
 				continue
 			}
 
@@ -182,8 +182,8 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
 		eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
 		GetNodeEgressInfo(&node, eli, acls)
-		if node.IsEgressGateway {
-			egsWithDomain := ListAllByRoutingNodeWithDomain(db.WithContext(context.TODO()), eli, node.ID.String())
+		if node.EgressDetails.IsEgressGateway {
+			egsWithDomain := ListAllByRoutingNodeWithDomain(eli, node.ID.String())
 			hostPeerUpdate.EgressWithDomains = append(hostPeerUpdate.EgressWithDomains, egsWithDomain...)
 		}
 		hostPeerUpdate = SetDefaultGw(node, hostPeerUpdate)
@@ -235,7 +235,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 
 			peerHost, err := GetHost(peer.HostID.String())
 			if err != nil {
-				logger.Log(1, "no peer host", peer.HostID.String(), err.Error())
+				logger.Log(4, "no peer host", peer.HostID.String(), err.Error())
 				continue
 			}
 			peerConfig := wgtypes.PeerConfig{

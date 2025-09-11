@@ -272,9 +272,9 @@ func GetEgressRanges(netID models.NetworkID) (map[string][]string, map[string]st
 	return nodeEgressMap, resultMap, nil
 }
 
-func ListAllByRoutingNodeWithDomain(ctx context.Context, egs []schema.Egress, nodeID string) (egWithDomain []models.EgressDomain) {
+func ListAllByRoutingNodeWithDomain(egs []schema.Egress, nodeID string) (egWithDomain []models.EgressDomain) {
 	for _, egI := range egs {
-		if egI.Domain == "" {
+		if !egI.Status || egI.Domain == "" {
 			continue
 		}
 		if _, ok := egI.Nodes[nodeID]; ok {

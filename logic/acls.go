@@ -708,7 +708,6 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 }
 
 func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclRule) {
-	fmt.Println("==========> Getting Egress FW rules ", targetnode.ID)
 	rules = make(map[string]models.AclRule)
 	defer func() {
 		rules = GetEgressUserRulesForNode(&targetnode, rules)
