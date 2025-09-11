@@ -567,7 +567,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: models.Dashboard,
 	})
-
+	replacePeers := false
 	go func() {
 		networksAdded := make([]models.NetworkID, 0)
 		networksRemoved := make([]models.NetworkID, 0)
@@ -618,6 +618,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 				CreatedAt:        time.Now().UTC(),
 			}
 			_ = logic.InsertAcl(acl)
+			replacePeers = true
 		}
 
 		// since this group doesn't have a role for this network,
@@ -649,6 +650,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 						acl.Src = newAclSrc
 						_ = logic.UpsertAcl(acl)
 					}
+					replacePeers = true
 				}
 			}
 		}
@@ -656,6 +658,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 
 	// reset configs for service user
 	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userGroup.ID, currUserG.NetworkRoles, userGroup.NetworkRoles)
+	go mq.PublishPeerUpdate(replacePeers)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")
 }
 
@@ -827,7 +830,7 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: models.Dashboard,
 	})
-
+	replacePeers := false
 	go func() {
 		for networkID := range userG.NetworkRoles {
 			acls, err := logic.ListAclsByNetwork(networkID)
@@ -855,13 +858,14 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 						acl.Src = newAclSrc
 						_ = logic.UpsertAcl(acl)
 					}
+					replacePeers = true
 				}
 			}
 		}
 	}()
 
 	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userG.ID, userG.NetworkRoles, make(map[models.NetworkID]map[models.UserRoleID]struct{}))
-	go mq.PublishPeerUpdate(false)
+	go mq.PublishPeerUpdate(replacePeers)
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user group")
 }
 
