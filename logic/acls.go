@@ -54,6 +54,9 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 		if !nodeI.IsStatic || nodeI.IsUserNode {
 			continue
 		}
+		if !node.StaticNode.Enabled {
+			continue
+		}
 		// if nodeI.StaticNode.IngressGatewayID != node.ID.String() {
 		// 	continue
 		// }
@@ -397,6 +400,9 @@ func GetStaticNodeIps(node models.Node) (ips []net.IP) {
 			continue
 		}
 		if !extclient.IsUserNode && defaultDevicePolicy.Enabled {
+			continue
+		}
+		if !extclient.StaticNode.Enabled {
 			continue
 		}
 		if extclient.StaticNode.Address != "" {

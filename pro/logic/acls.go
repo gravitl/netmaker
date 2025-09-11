@@ -32,6 +32,9 @@ func GetFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []
 	defaultUserPolicy, _ := logic.GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 	userNodes := getStaticUserNodesByNetwork(models.NetworkID(node.Network))
 	for _, userNodeI := range userNodes {
+		if !userNodeI.StaticNode.Enabled {
+			continue
+		}
 		if defaultUserPolicy.Enabled {
 			if userNodeI.StaticNode.Address != "" {
 				rules = append(rules, models.FwRule{
@@ -1020,11 +1023,30 @@ func GetEgressUserRulesForNode(targetnode *models.Node,
 					}
 
 				}
+				if userNode.StaticNode.Address6 != "" {
+					r.IP6List = append(r.IP6List, userNode.StaticNode.AddressIPNet6())
+				}
 				if aclRule, ok := rules[acl.ID]; ok {
+
 					aclRule.IPList = append(aclRule.IPList, r.IPList...)
 					aclRule.IP6List = append(aclRule.IP6List, r.IP6List...)
+
+					aclRule.Dst = append(aclRule.Dst, r.Dst...)
+					aclRule.Dst6 = append(aclRule.Dst6, r.Dst6...)
+
+					aclRule.IPList = logic.UniqueIPNetList(aclRule.IPList)
+					aclRule.IP6List = logic.UniqueIPNetList(aclRule.IP6List)
+
+					aclRule.Dst = logic.UniqueIPNetList(aclRule.Dst)
+					aclRule.Dst6 = logic.UniqueIPNetList(aclRule.Dst6)
+
 					rules[acl.ID] = aclRule
 				} else {
+					r.IPList = logic.UniqueIPNetList(r.IPList)
+					r.IP6List = logic.UniqueIPNetList(r.IP6List)
+
+					r.Dst = logic.UniqueIPNetList(r.Dst)
+					r.Dst6 = logic.UniqueIPNetList(r.Dst6)
 					rules[acl.ID] = r
 				}
 			}
@@ -1159,7 +1181,19 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 											egressRanges6 = append(egressRanges6, *cidr)
 										}
 									}
+								} else if len(eI.DomainAns) > 0 {
+									for _, domainAnsI := range eI.DomainAns {
+										_, cidr, err := net.ParseCIDR(domainAnsI)
+										if err == nil {
+											if cidr.IP.To4() != nil {
+												egressRanges4 = append(egressRanges4, *cidr)
+											} else {
+												egressRanges6 = append(egressRanges6, *cidr)
+											}
+										}
+									}
 								}
+
 							}
 						}
 						break
@@ -1176,6 +1210,17 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 											egressRanges4 = append(egressRanges4, *cidr)
 										} else {
 											egressRanges6 = append(egressRanges6, *cidr)
+										}
+									}
+								} else if len(e.DomainAns) > 0 {
+									for _, domainAnsI := range e.DomainAns {
+										_, cidr, err := net.ParseCIDR(domainAnsI)
+										if err == nil {
+											if cidr.IP.To4() != nil {
+												egressRanges4 = append(egressRanges4, *cidr)
+											} else {
+												egressRanges6 = append(egressRanges6, *cidr)
+											}
 										}
 									}
 								}

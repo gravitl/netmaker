@@ -36,6 +36,35 @@ func ValidateEgressReq(e *schema.Egress) error {
 	return nil
 }
 
+func DoesUserHaveAccessToEgress(user *models.User, e *schema.Egress, acls []models.Acl) bool {
+
+	if !e.Status {
+		return false
+	}
+	for _, acl := range acls {
+		if !acl.Enabled {
+			continue
+		}
+		dstTags := ConvAclTagToValueMap(acl.Dst)
+		_, all := dstTags["*"]
+
+		if _, ok := dstTags[e.ID]; ok || all {
+			// get all src tags
+			for _, srcAcl := range acl.Src {
+				if srcAcl.ID == models.UserAclID && srcAcl.Value == user.UserName {
+					return true
+				} else if srcAcl.ID == models.UserGroupAclID {
+					// fetch all users in the group
+					if _, ok := user.UserGroups[models.UserGroupID(srcAcl.Value)]; ok {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
 func DoesNodeHaveAccessToEgress(node *models.Node, e *schema.Egress, acls []models.Acl) bool {
 	nodeTags := maps.Clone(node.Tags)
 	nodeTags[models.TagID(node.ID.String())] = struct{}{}
@@ -151,17 +180,17 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 	}
 }
 
-func GetEgressDomainsByAccess(node *models.Node) (domains []string) {
-	acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
-	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+func GetEgressDomainsByAccess(user *models.User, network models.NetworkID) (domains []string) {
+	acls, _ := ListAclsByNetwork(network)
+	eli, _ := (&schema.Egress{Network: network.String()}).ListByNetwork(db.WithContext(context.TODO()))
+	defaultDevicePolicy, _ := GetDefaultPolicy(network, models.DevicePolicy)
 	isDefaultPolicyActive := defaultDevicePolicy.Enabled
 	for _, e := range eli {
-		if !e.Status || e.Network != node.Network {
+		if !e.Status || e.Network != network.String() {
 			continue
 		}
 		if !isDefaultPolicyActive {
-			if !DoesNodeHaveAccessToEgress(node, &e, acls) {
+			if !DoesUserHaveAccessToEgress(user, &e, acls) {
 				continue
 			}
 		}
