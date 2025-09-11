@@ -253,11 +253,13 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		ChangeDefaultGw:   hPU.ChangeDefaultGw,
 		DefaultGwIp:       hPU.DefaultGwIp,
 		IsInternetGw:      hPU.IsInternetGw,
+		NameServers:       hPU.NameServers,
+		EgressWithDomains: hPU.EgressWithDomains,
 		EndpointDetection: logic.IsEndpointDetectionEnabled(),
 		DnsNameservers:    hPU.DnsNameservers,
 	}
 
-	logger.Log(1, hostID, "completed a pull")
+	logger.Log(1, hostID, host.Name, "completed a pull")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&response)
 }
@@ -374,7 +376,6 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	switch hostUpdate.Action {
 	case models.CheckIn:
 		sendPeerUpdate = mq.HandleHostCheckin(&hostUpdate.Host, currentHost)
-
 	case models.UpdateHost:
 		if hostUpdate.Host.PublicKey != currentHost.PublicKey {
 			//remove old peer entry
@@ -384,12 +385,24 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 		err := logic.UpsertHost(currentHost)
 		if err != nil {
 			slog.Error("failed to update host", "id", currentHost.ID, "error", err)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 			return
 		}
 
 	case models.UpdateMetrics:
 		mq.UpdateMetricsFallBack(hostUpdate.Node.ID.String(), hostUpdate.NewMetrics)
+	case models.EgressUpdate:
+		e := schema.Egress{ID: hostUpdate.EgressDomain.ID}
+		err = e.Get(db.WithContext(r.Context()))
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+			return
+		}
+		if len(hostUpdate.Node.EgressGatewayRanges) > 0 {
+			e.DomainAns = hostUpdate.Node.EgressGatewayRanges
+			e.Update(db.WithContext(r.Context()))
+		}
+		sendPeerUpdate = true
 	}
 
 	if sendPeerUpdate {

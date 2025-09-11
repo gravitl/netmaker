@@ -343,6 +343,10 @@ func updateHosts() {
 			}
 			logic.UpsertHost(&host)
 		}
+		if host.IsDefault && !host.AutoUpdate {
+			host.AutoUpdate = true
+			logic.UpsertHost(&host)
+		}
 		if servercfg.IsPro && host.Location == "" {
 			if host.EndpointIP != nil {
 				host.Location = logic.GetHostLocInfo(host.EndpointIP.String(), os.Getenv("IP_INFO_TOKEN"))

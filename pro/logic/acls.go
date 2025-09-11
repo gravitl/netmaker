@@ -32,6 +32,9 @@ func GetFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []
 	defaultUserPolicy, _ := logic.GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 	userNodes := getStaticUserNodesByNetwork(models.NetworkID(node.Network))
 	for _, userNodeI := range userNodes {
+		if !userNodeI.StaticNode.Enabled {
+			continue
+		}
 		if defaultUserPolicy.Enabled {
 			if userNodeI.StaticNode.Address != "" {
 				rules = append(rules, models.FwRule{
@@ -107,28 +110,56 @@ func GetFwRulesForUserNodesOnGw(node models.Node, nodes []models.Node) (rules []
 							if err != nil {
 								continue
 							}
-							dstI.Value = e.Range
+							if e.Range != "" {
+								dstI.Value = e.Range
 
-							ip, cidr, err := net.ParseCIDR(dstI.Value)
-							if err == nil {
-								if ip.To4() != nil && userNodeI.StaticNode.Address != "" {
-									rules = append(rules, models.FwRule{
-										SrcIP:           userNodeI.StaticNode.AddressIPNet4(),
-										DstIP:           *cidr,
-										AllowedProtocol: policy.Proto,
-										AllowedPorts:    policy.Port,
-										Allow:           true,
-									})
-								} else if ip.To16() != nil && userNodeI.StaticNode.Address6 != "" {
-									rules = append(rules, models.FwRule{
-										SrcIP:           userNodeI.StaticNode.AddressIPNet6(),
-										DstIP:           *cidr,
-										AllowedProtocol: policy.Proto,
-										AllowedPorts:    policy.Port,
-										Allow:           true,
-									})
+								ip, cidr, err := net.ParseCIDR(dstI.Value)
+								if err == nil {
+									if ip.To4() != nil && userNodeI.StaticNode.Address != "" {
+										rules = append(rules, models.FwRule{
+											SrcIP:           userNodeI.StaticNode.AddressIPNet4(),
+											DstIP:           *cidr,
+											AllowedProtocol: policy.Proto,
+											AllowedPorts:    policy.Port,
+											Allow:           true,
+										})
+									} else if ip.To16() != nil && userNodeI.StaticNode.Address6 != "" {
+										rules = append(rules, models.FwRule{
+											SrcIP:           userNodeI.StaticNode.AddressIPNet6(),
+											DstIP:           *cidr,
+											AllowedProtocol: policy.Proto,
+											AllowedPorts:    policy.Port,
+											Allow:           true,
+										})
+									}
+								}
+							} else if len(e.DomainAns) > 0 {
+								for _, domainAns := range e.DomainAns {
+									dstI.Value = domainAns
+
+									ip, cidr, err := net.ParseCIDR(dstI.Value)
+									if err == nil {
+										if ip.To4() != nil && userNodeI.StaticNode.Address != "" {
+											rules = append(rules, models.FwRule{
+												SrcIP:           userNodeI.StaticNode.AddressIPNet4(),
+												DstIP:           *cidr,
+												AllowedProtocol: policy.Proto,
+												AllowedPorts:    policy.Port,
+												Allow:           true,
+											})
+										} else if ip.To16() != nil && userNodeI.StaticNode.Address6 != "" {
+											rules = append(rules, models.FwRule{
+												SrcIP:           userNodeI.StaticNode.AddressIPNet6(),
+												DstIP:           *cidr,
+												AllowedProtocol: policy.Proto,
+												AllowedPorts:    policy.Port,
+												Allow:           true,
+											})
+										}
+									}
 								}
 							}
+
 						}
 					}
 
@@ -276,39 +307,78 @@ func GetFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 				if err != nil {
 					continue
 				}
-				dstI.Value = e.Range
+				if e.Range != "" {
+					dstI.Value = e.Range
 
-				ip, cidr, err := net.ParseCIDR(dstI.Value)
-				if err == nil {
-					if ip.To4() != nil {
-						if node.Address.IP != nil {
-							rules = append(rules, models.FwRule{
-								SrcIP: net.IPNet{
-									IP:   node.Address.IP,
-									Mask: net.CIDRMask(32, 32),
-								},
-								DstIP:           *cidr,
-								AllowedProtocol: policy.Proto,
-								AllowedPorts:    policy.Port,
-								Allow:           true,
-							})
+					ip, cidr, err := net.ParseCIDR(dstI.Value)
+					if err == nil {
+						if ip.To4() != nil {
+							if node.Address.IP != nil {
+								rules = append(rules, models.FwRule{
+									SrcIP: net.IPNet{
+										IP:   node.Address.IP,
+										Mask: net.CIDRMask(32, 32),
+									},
+									DstIP:           *cidr,
+									AllowedProtocol: policy.Proto,
+									AllowedPorts:    policy.Port,
+									Allow:           true,
+								})
+							}
+						} else {
+							if node.Address6.IP != nil {
+								rules = append(rules, models.FwRule{
+									SrcIP: net.IPNet{
+										IP:   node.Address6.IP,
+										Mask: net.CIDRMask(128, 128),
+									},
+									DstIP:           *cidr,
+									AllowedProtocol: policy.Proto,
+									AllowedPorts:    policy.Port,
+									Allow:           true,
+								})
+							}
 						}
-					} else {
-						if node.Address6.IP != nil {
-							rules = append(rules, models.FwRule{
-								SrcIP: net.IPNet{
-									IP:   node.Address6.IP,
-									Mask: net.CIDRMask(128, 128),
-								},
-								DstIP:           *cidr,
-								AllowedProtocol: policy.Proto,
-								AllowedPorts:    policy.Port,
-								Allow:           true,
-							})
+
+					}
+				} else if len(e.DomainAns) > 0 {
+					for _, domainAnsI := range e.DomainAns {
+						dstI.Value = domainAnsI
+
+						ip, cidr, err := net.ParseCIDR(dstI.Value)
+						if err == nil {
+							if ip.To4() != nil {
+								if node.Address.IP != nil {
+									rules = append(rules, models.FwRule{
+										SrcIP: net.IPNet{
+											IP:   node.Address.IP,
+											Mask: net.CIDRMask(32, 32),
+										},
+										DstIP:           *cidr,
+										AllowedProtocol: policy.Proto,
+										AllowedPorts:    policy.Port,
+										Allow:           true,
+									})
+								}
+							} else {
+								if node.Address6.IP != nil {
+									rules = append(rules, models.FwRule{
+										SrcIP: net.IPNet{
+											IP:   node.Address6.IP,
+											Mask: net.CIDRMask(128, 128),
+										},
+										DstIP:           *cidr,
+										AllowedProtocol: policy.Proto,
+										AllowedPorts:    policy.Port,
+										Allow:           true,
+									})
+								}
+							}
+
 						}
 					}
-
 				}
+
 			}
 		}
 	}
@@ -800,7 +870,14 @@ func GetEgressUserRulesForNode(targetnode *models.Node,
 			continue
 		}
 		if _, ok := egI.Nodes[targetnode.ID.String()]; ok {
-			targetNodeTags[models.TagID(egI.Range)] = struct{}{}
+			if egI.Range != "" {
+				targetNodeTags[models.TagID(egI.Range)] = struct{}{}
+			} else if len(egI.DomainAns) > 0 {
+				for _, domainAnsI := range egI.DomainAns {
+					targetNodeTags[models.TagID(domainAnsI)] = struct{}{}
+				}
+			}
+
 			targetNodeTags[models.TagID(egI.ID)] = struct{}{}
 		}
 	}
@@ -818,7 +895,14 @@ func GetEgressUserRulesForNode(targetnode *models.Node,
 						for nodeID := range e.Nodes {
 							dstTags[nodeID] = struct{}{}
 						}
-						dstTags[e.Range] = struct{}{}
+						if e.Range != "" {
+							dstTags[e.Range] = struct{}{}
+						} else if len(e.DomainAns) > 0 {
+							for _, domainAnsI := range e.DomainAns {
+								dstTags[domainAnsI] = struct{}{}
+							}
+						}
+
 					}
 				}
 			}
@@ -912,24 +996,57 @@ func GetEgressUserRulesForNode(targetnode *models.Node,
 						if err != nil {
 							continue
 						}
-						ip, cidr, err := net.ParseCIDR(e.Range)
-						if err == nil {
-							if ip.To4() != nil {
-								r.Dst = append(r.Dst, *cidr)
-							} else {
-								r.Dst6 = append(r.Dst6, *cidr)
-							}
+						if e.Range != "" {
+							ip, cidr, err := net.ParseCIDR(e.Range)
+							if err == nil {
+								if ip.To4() != nil {
+									r.Dst = append(r.Dst, *cidr)
+								} else {
+									r.Dst6 = append(r.Dst6, *cidr)
+								}
 
+							}
+						} else if len(e.DomainAns) > 0 {
+							for _, domainAnsI := range e.DomainAns {
+								ip, cidr, err := net.ParseCIDR(domainAnsI)
+								if err == nil {
+									if ip.To4() != nil {
+										r.Dst = append(r.Dst, *cidr)
+									} else {
+										r.Dst6 = append(r.Dst6, *cidr)
+									}
+
+								}
+							}
 						}
 
 					}
 
 				}
+				if userNode.StaticNode.Address6 != "" {
+					r.IP6List = append(r.IP6List, userNode.StaticNode.AddressIPNet6())
+				}
 				if aclRule, ok := rules[acl.ID]; ok {
+
 					aclRule.IPList = append(aclRule.IPList, r.IPList...)
 					aclRule.IP6List = append(aclRule.IP6List, r.IP6List...)
+
+					aclRule.Dst = append(aclRule.Dst, r.Dst...)
+					aclRule.Dst6 = append(aclRule.Dst6, r.Dst6...)
+
+					aclRule.IPList = logic.UniqueIPNetList(aclRule.IPList)
+					aclRule.IP6List = logic.UniqueIPNetList(aclRule.IP6List)
+
+					aclRule.Dst = logic.UniqueIPNetList(aclRule.Dst)
+					aclRule.Dst6 = logic.UniqueIPNetList(aclRule.Dst6)
+
 					rules[acl.ID] = aclRule
 				} else {
+					r.IPList = logic.UniqueIPNetList(r.IPList)
+					r.IP6List = logic.UniqueIPNetList(r.IP6List)
+
+					r.Dst = logic.UniqueIPNetList(r.Dst)
+					r.Dst6 = logic.UniqueIPNetList(r.Dst6)
 					rules[acl.ID] = r
 				}
 			}
@@ -1064,7 +1181,19 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 											egressRanges6 = append(egressRanges6, *cidr)
 										}
 									}
+								} else if len(eI.DomainAns) > 0 {
+									for _, domainAnsI := range eI.DomainAns {
+										_, cidr, err := net.ParseCIDR(domainAnsI)
+										if err == nil {
+											if cidr.IP.To4() != nil {
+												egressRanges4 = append(egressRanges4, *cidr)
+											} else {
+												egressRanges6 = append(egressRanges6, *cidr)
+											}
+										}
+									}
 								}
+
 							}
 						}
 						break
@@ -1081,6 +1210,17 @@ func GetUserAclRulesForNode(targetnode *models.Node,
 											egressRanges4 = append(egressRanges4, *cidr)
 										} else {
 											egressRanges6 = append(egressRanges6, *cidr)
+										}
+									}
+								} else if len(e.DomainAns) > 0 {
+									for _, domainAnsI := range e.DomainAns {
+										_, cidr, err := net.ParseCIDR(domainAnsI)
+										if err == nil {
+											if cidr.IP.To4() != nil {
+												egressRanges4 = append(egressRanges4, *cidr)
+											} else {
+												egressRanges6 = append(egressRanges6, *cidr)
+											}
 										}
 									}
 								}

@@ -12,27 +12,34 @@ type HostPeerInfo struct {
 
 // HostPeerUpdate - struct for host peer updates
 type HostPeerUpdate struct {
-	Host            Host                  `json:"host"`
-	ChangeDefaultGw bool                  `json:"change_default_gw"`
-	DefaultGwIp     net.IP                `json:"default_gw_ip"`
-	IsInternetGw    bool                  `json:"is_inet_gw"`
-	NodeAddrs       []net.IPNet           `json:"nodes_addrs"`
-	Server          string                `json:"server"`
-	ServerVersion   string                `json:"serverversion"`
-	ServerAddrs     []ServerAddr          `json:"serveraddrs"`
-	NodePeers       []wgtypes.PeerConfig  `json:"node_peers"`
-	Peers           []wgtypes.PeerConfig  `json:"host_peers"`
-	PeerIDs         PeerMap               `json:"peerids"`
-	HostNetworkInfo HostInfoMap           `json:"host_network_info,omitempty"`
-	EgressRoutes    []EgressNetworkRoutes `json:"egress_network_routes"`
-	FwUpdate        FwUpdate              `json:"fw_update"`
-	ReplacePeers    bool                  `json:"replace_peers"`
-	NameServers     []string              `json:"name_servers"`
-	DnsNameservers  []Nameserver          `json:"dns_nameservers"`
+	Host              Host                  `json:"host"`
+	ChangeDefaultGw   bool                  `json:"change_default_gw"`
+	DefaultGwIp       net.IP                `json:"default_gw_ip"`
+	IsInternetGw      bool                  `json:"is_inet_gw"`
+	NodeAddrs         []net.IPNet           `json:"nodes_addrs"`
+	Server            string                `json:"server"`
+	ServerVersion     string                `json:"serverversion"`
+	ServerAddrs       []ServerAddr          `json:"serveraddrs"`
+	NodePeers         []wgtypes.PeerConfig  `json:"node_peers"`
+	Peers             []wgtypes.PeerConfig  `json:"host_peers"`
+	PeerIDs           PeerMap               `json:"peerids"`
+	HostNetworkInfo   HostInfoMap           `json:"host_network_info,omitempty"`
+	EgressRoutes      []EgressNetworkRoutes `json:"egress_network_routes"`
+	FwUpdate          FwUpdate              `json:"fw_update"`
+	ReplacePeers      bool                  `json:"replace_peers"`
+	NameServers       []string              `json:"name_servers"`
+	DnsNameservers    []Nameserver          `json:"dns_nameservers"`
+	EgressWithDomains []EgressDomain        `json:"egress_with_domains"`
 	ServerConfig
 	OldPeerUpdateFields
 }
 
+type EgressDomain struct {
+	ID     string `json:"id"`
+	Node   Node   `json:"node"`
+	Host   Host   `json:"host"`
+	Domain string `json:"domain"`
+}
 type Nameserver struct {
 	IPs         []string `json:"ips"`
 	MatchDomain string   `json:"match_domain"`

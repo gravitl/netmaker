@@ -54,6 +54,9 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 		if !nodeI.IsStatic || nodeI.IsUserNode {
 			continue
 		}
+		if !node.StaticNode.Enabled {
+			continue
+		}
 		// if nodeI.StaticNode.IngressGatewayID != node.ID.String() {
 		// 	continue
 		// }
@@ -292,35 +295,70 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 				if err != nil {
 					continue
 				}
-				dstI.Value = e.Range
+				if len(e.DomainAns) > 0 {
+					for _, domainAnsI := range e.DomainAns {
+						dstI.Value = domainAnsI
 
-				ip, cidr, err := net.ParseCIDR(dstI.Value)
-				if err == nil {
-					if ip.To4() != nil {
-						if node.Address.IP != nil {
-							rules = append(rules, models.FwRule{
-								SrcIP: net.IPNet{
-									IP:   node.Address.IP,
-									Mask: net.CIDRMask(32, 32),
-								},
-								DstIP: *cidr,
-								Allow: true,
-							})
-						}
-					} else {
-						if node.Address6.IP != nil {
-							rules = append(rules, models.FwRule{
-								SrcIP: net.IPNet{
-									IP:   node.Address6.IP,
-									Mask: net.CIDRMask(128, 128),
-								},
-								DstIP: *cidr,
-								Allow: true,
-							})
+						ip, cidr, err := net.ParseCIDR(dstI.Value)
+						if err == nil {
+							if ip.To4() != nil {
+								if node.Address.IP != nil {
+									rules = append(rules, models.FwRule{
+										SrcIP: net.IPNet{
+											IP:   node.Address.IP,
+											Mask: net.CIDRMask(32, 32),
+										},
+										DstIP: *cidr,
+										Allow: true,
+									})
+								}
+							} else {
+								if node.Address6.IP != nil {
+									rules = append(rules, models.FwRule{
+										SrcIP: net.IPNet{
+											IP:   node.Address6.IP,
+											Mask: net.CIDRMask(128, 128),
+										},
+										DstIP: *cidr,
+										Allow: true,
+									})
+								}
+							}
+
 						}
 					}
+				} else {
+					dstI.Value = e.Range
 
+					ip, cidr, err := net.ParseCIDR(dstI.Value)
+					if err == nil {
+						if ip.To4() != nil {
+							if node.Address.IP != nil {
+								rules = append(rules, models.FwRule{
+									SrcIP: net.IPNet{
+										IP:   node.Address.IP,
+										Mask: net.CIDRMask(32, 32),
+									},
+									DstIP: *cidr,
+									Allow: true,
+								})
+							}
+						} else {
+							if node.Address6.IP != nil {
+								rules = append(rules, models.FwRule{
+									SrcIP: net.IPNet{
+										IP:   node.Address6.IP,
+										Mask: net.CIDRMask(128, 128),
+									},
+									DstIP: *cidr,
+									Allow: true,
+								})
+							}
+						}
+
+					}
 				}
+
 			}
 		}
 	}
@@ -362,6 +400,9 @@ func GetStaticNodeIps(node models.Node) (ips []net.IP) {
 			continue
 		}
 		if !extclient.IsUserNode && defaultDevicePolicy.Enabled {
+			continue
+		}
+		if !extclient.StaticNode.Enabled {
 			continue
 		}
 		if extclient.StaticNode.Address != "" {
@@ -673,7 +714,6 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 }
 
 func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclRule) {
-	fmt.Println("==========> Getting Egress FW rules ", targetnode.ID)
 	rules = make(map[string]models.AclRule)
 	defer func() {
 		rules = GetEgressUserRulesForNode(&targetnode, rules)
@@ -720,14 +760,28 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 		}
 		for egressID, egI := range egressIDMap {
 			if _, ok := dstTags[egressID]; ok || dstAll {
-				ip, cidr, err := net.ParseCIDR(egI.Range)
-				if err == nil {
-					if ip.To4() != nil {
-						aclRule.Dst = append(aclRule.Dst, *cidr)
-					} else {
-						aclRule.Dst6 = append(aclRule.Dst6, *cidr)
+				if servercfg.IsPro && egI.Domain != "" && len(egI.DomainAns) > 0 {
+					for _, domainAnsI := range egI.DomainAns {
+						ip, cidr, err := net.ParseCIDR(domainAnsI)
+						if err == nil {
+							if ip.To4() != nil {
+								aclRule.Dst = append(aclRule.Dst, *cidr)
+							} else {
+								aclRule.Dst6 = append(aclRule.Dst6, *cidr)
+							}
+						}
+					}
+				} else {
+					ip, cidr, err := net.ParseCIDR(egI.Range)
+					if err == nil {
+						if ip.To4() != nil {
+							aclRule.Dst = append(aclRule.Dst, *cidr)
+						} else {
+							aclRule.Dst6 = append(aclRule.Dst6, *cidr)
+						}
 					}
 				}
+
 				_, srcAll := srcTags["*"]
 				if srcAll {
 					if targetnode.NetworkRange.IP != nil {
