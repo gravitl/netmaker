@@ -16,7 +16,7 @@
 
 - User Session Expiry Controls – Set session timeouts for both Dashboard and Client Apps.
 
-🛠 Improvements & Fixes
+## Improvements & Fixes 🛠 
 
 - Access Control Lists (ACLs): Enhanced functionality and flexibility.
 
