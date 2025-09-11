@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/pro/idp/azure"
 	"github.com/gravitl/netmaker/pro/idp/google"
 	"github.com/gravitl/netmaker/pro/idp/okta"
+	"golang.org/x/exp/slices"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -1500,7 +1501,14 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			userExtClients[extClient.IngressGatewayID] = []models.ExtClient{}
 		}
 
-		userExtClients[extClient.IngressGatewayID] = append(userExtClients[extClient.IngressGatewayID], extClient)
+		index, ok := slices.BinarySearchFunc(userExtClients[extClient.IngressGatewayID], extClient, func(a models.ExtClient, b models.ExtClient) int {
+			return strings.Compare(a.ClientID, b.ClientID)
+		})
+		if ok {
+			continue
+		}
+
+		userExtClients[extClient.IngressGatewayID] = slices.Insert(userExtClients[extClient.IngressGatewayID], index, extClient)
 	}
 
 	for ingressGatewayID, extClients := range userExtClients {
