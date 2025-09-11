@@ -10,11 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gravitl/netmaker/pro/idp"
-	"github.com/gravitl/netmaker/pro/idp/azure"
-	"github.com/gravitl/netmaker/pro/idp/google"
-	"github.com/gravitl/netmaker/pro/idp/okta"
-
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -24,6 +19,10 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	proAuth "github.com/gravitl/netmaker/pro/auth"
 	"github.com/gravitl/netmaker/pro/email"
+	"github.com/gravitl/netmaker/pro/idp"
+	"github.com/gravitl/netmaker/pro/idp/azure"
+	"github.com/gravitl/netmaker/pro/idp/google"
+	"github.com/gravitl/netmaker/pro/idp/okta"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/utils"
@@ -1508,6 +1507,8 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for ingressGatewayID, extClients := range userExtClients {
+		logic.SortExtClient(extClients)
+
 		node, ok := userGwNodes[ingressGatewayID]
 		if !ok {
 			continue
