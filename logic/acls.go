@@ -1635,7 +1635,12 @@ func ValidateCreateAclReq(req models.Acl) error {
 				return err
 			}
 
-			_, ok := userGroup.NetworkRoles[req.NetworkID]
+			_, ok := userGroup.NetworkRoles[models.AllNetworks]
+			if ok {
+				continue
+			}
+
+			_, ok = userGroup.NetworkRoles[req.NetworkID]
 			if !ok {
 				return fmt.Errorf("user group %s does not have access to network %s", src.Value, req.NetworkID)
 			}

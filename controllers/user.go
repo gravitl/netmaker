@@ -1006,11 +1006,9 @@ func getUserV1(w http.ResponseWriter, r *http.Request) {
 	}
 	for gId := range user.UserGroups {
 		grp, err := logic.GetUserGroup(gId)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
+		if err == nil {
+			resp.UserGroups[gId] = grp
 		}
-		resp.UserGroups[gId] = grp
 	}
 	logger.Log(2, r.Header.Get("user"), "fetched user", usernameFetched)
 	logic.ReturnSuccessResponseWithJson(w, r, resp, "fetched user with role info")
