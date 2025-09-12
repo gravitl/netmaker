@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -26,6 +27,7 @@ var (
 )
 
 func ResetIDPSyncHook() {
+	logger.Log(0, "reset idp sync hook called")
 	if cancelSyncHook != nil {
 		cancelSyncHook()
 		hookStopWg.Wait()
@@ -61,6 +63,11 @@ func runIDPSyncHook(ctx context.Context) {
 }
 
 func SyncFromIDP() error {
+	if idpSyncMtx.TryLock() {
+		idpSyncMtx.Unlock()
+		logger.Log(0, "lock is free")
+	}
+
 	idpSyncMtx.Lock()
 	defer idpSyncMtx.Unlock()
 	settings := logic.GetServerSettings()
@@ -100,17 +107,23 @@ func SyncFromIDP() error {
 			return err
 		}
 
+		logger.Log(0, "fetched users", strconv.Itoa(len(idpUsers)))
+
 		idpGroups, err = idpClient.GetGroups(settings.GroupFilters)
 		if err != nil {
 			return err
 		}
 
+		logger.Log(0, "fetched groups", strconv.Itoa(len(idpGroups)))
+
 		if len(settings.GroupFilters) > 0 {
 			idpUsers = filterUsersByGroupMembership(idpUsers, idpGroups)
+			logger.Log(0, "filtered users", strconv.Itoa(len(idpUsers)))
 		}
 
 		if len(settings.UserFilters) > 0 {
 			idpGroups = filterGroupsByMembers(idpGroups, idpUsers)
+			logger.Log(0, "filtered groups", strconv.Itoa(len(idpGroups)))
 		}
 	}
 
@@ -119,7 +132,12 @@ func SyncFromIDP() error {
 		return err
 	}
 
+	logger.Log(0, "user sync complete")
+
 	err = syncGroups(idpGroups)
+	if err == nil {
+		logger.Log(0, "group sync complete")
+	}
 	return err
 }
 
@@ -181,6 +199,8 @@ func syncUsers(idpUsers []idp.User) error {
 			if err != nil {
 				return err
 			}
+
+			logger.Log(0, "created user", user.Username)
 
 			// It's possible that a user can attempt to log in to Netmaker
 			// after the IDP is configured but before the users are synced.
@@ -282,6 +302,8 @@ func syncGroups(idpGroups []idp.Group) error {
 			if err != nil {
 				return err
 			}
+
+			logger.Log(0, "created group", group.Name)
 		} else {
 			dbGroup.Name = group.Name
 			err = proLogic.UpdateUserGroup(dbGroup)
