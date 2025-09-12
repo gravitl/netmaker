@@ -17,6 +17,7 @@ func NewOktaClient(oktaOrgURL, oktaAPIToken string) (*Client, error) {
 	config, err := okta.NewConfiguration(
 		okta.WithOrgUrl(oktaOrgURL),
 		okta.WithToken(oktaAPIToken),
+		okta.WithRateLimitPrevent(true),
 	)
 	if err != nil {
 		return nil, err
@@ -129,7 +130,7 @@ func (o *Client) GetGroups(filters []string) ([]idp.Group, error) {
 				if groupUsersResp.HasNextPage() {
 					groupUsers = make([]okta.GroupMember, 0)
 
-					resp, err = groupUsersResp.Next(&groupUsers)
+					groupUsersResp, err = groupUsersResp.Next(&groupUsers)
 					if err != nil {
 						return nil, err
 					}
