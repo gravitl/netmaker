@@ -95,6 +95,7 @@ var CreateDefaultUserPolicies = func(netID models.NetworkID) {
 		InsertAcl(defaultUserAcl)
 	}
 }
+var ListUserGroups = func() ([]models.UserGroup, error) { return nil, nil }
 var GetUserGroupsInNetwork = func(netID models.NetworkID) (networkGrps map[models.UserGroupID]models.UserGroup) { return }
 var GetUserGroup = func(groupId models.UserGroupID) (userGrps models.UserGroup, err error) { return }
 var AddGlobalNetRolesToAdmins = func(u *models.User) {}
@@ -134,6 +135,38 @@ func ListPlatformRoles() ([]models.UserRolePermissionTemplate, error) {
 		userRoles = append(userRoles, userRole)
 	}
 	return userRoles, nil
+}
+
+func GetAllRsrcIDForRsrc(rsrc models.RsrcType) models.RsrcID {
+	switch rsrc {
+	case models.HostRsrc:
+		return models.AllHostRsrcID
+	case models.RelayRsrc:
+		return models.AllRelayRsrcID
+	case models.RemoteAccessGwRsrc:
+		return models.AllRemoteAccessGwRsrcID
+	case models.ExtClientsRsrc:
+		return models.AllExtClientsRsrcID
+	case models.InetGwRsrc:
+		return models.AllInetGwRsrcID
+	case models.EgressGwRsrc:
+		return models.AllEgressGwRsrcID
+	case models.NetworkRsrc:
+		return models.AllNetworkRsrcID
+	case models.EnrollmentKeysRsrc:
+		return models.AllEnrollmentKeysRsrcID
+	case models.UserRsrc:
+		return models.AllUserRsrcID
+	case models.DnsRsrc:
+		return models.AllDnsRsrcID
+	case models.FailOverRsrc:
+		return models.AllFailOverRsrcID
+	case models.AclRsrc:
+		return models.AllAclsRsrcID
+	case models.TagRsrc:
+		return models.AllTagsRsrcID
+	}
+	return ""
 }
 
 func userRolesInit() {

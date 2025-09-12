@@ -35,6 +35,7 @@ func InitPro() {
 		proControllers.RacHandlers,
 		proControllers.EventHandlers,
 		proControllers.TagHandlers,
+		proControllers.NetworkHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
@@ -131,9 +132,11 @@ func InitPro() {
 	logic.MigrateToUUIDs = proLogic.MigrateToUUIDs
 	logic.IntialiseGroups = proLogic.UserGroupsInit
 	logic.AddGlobalNetRolesToAdmins = proLogic.AddGlobalNetRolesToAdmins
+	logic.ListUserGroups = proLogic.ListUserGroups
 	logic.GetUserGroupsInNetwork = proLogic.GetUserGroupsInNetwork
 	logic.GetUserGroup = proLogic.GetUserGroup
 	logic.GetNodeStatus = proLogic.GetNodeStatus
+	logic.IsOAuthConfigured = auth.IsOAuthConfigured
 	logic.ResetAuthProvider = auth.ResetAuthProvider
 	logic.ResetIDPSyncHook = auth.ResetIDPSyncHook
 	logic.EmailInit = email.Init
@@ -142,19 +145,17 @@ func InitPro() {
 	logic.IsUserAllowedToCommunicate = proLogic.IsUserAllowedToCommunicate
 	logic.DeleteAllNetworkTags = proLogic.DeleteAllNetworkTags
 	logic.CreateDefaultTags = proLogic.CreateDefaultTags
-	logic.GetInetClientsFromAclPolicies = proLogic.GetInetClientsFromAclPolicies
 	logic.IsPeerAllowed = proLogic.IsPeerAllowed
 	logic.IsAclPolicyValid = proLogic.IsAclPolicyValid
-	logic.GetEgressRulesForNode = proLogic.GetEgressRulesForNode
-	logic.GetAclRuleForInetGw = proLogic.GetAclRuleForInetGw
-	logic.GetAclRulesForNode = proLogic.GetAclRulesForNode
-	logic.CheckIfAnyActiveEgressPolicy = proLogic.CheckIfAnyActiveEgressPolicy
+	logic.GetEgressUserRulesForNode = proLogic.GetEgressUserRulesForNode
+	logic.GetTagMapWithNodesByNetwork = proLogic.GetTagMapWithNodesByNetwork
+	logic.GetUserAclRulesForNode = proLogic.GetUserAclRulesForNode
 	logic.CheckIfAnyPolicyisUniDirectional = proLogic.CheckIfAnyPolicyisUniDirectional
 	logic.MigrateToGws = proLogic.MigrateToGws
-	logic.IsNodeAllowedToCommunicate = proLogic.IsNodeAllowedToCommunicate
 	logic.GetFwRulesForNodeAndPeerOnGw = proLogic.GetFwRulesForNodeAndPeerOnGw
 	logic.GetFwRulesForUserNodesOnGw = proLogic.GetFwRulesForUserNodesOnGw
 	logic.GetHostLocInfo = proLogic.GetHostLocInfo
+	logic.GetFeatureFlags = proLogic.GetFeatureFlags
 	logic.GetNameserversForHost = proLogic.GetNameserversForHost
 	logic.GetNameserversForNode = proLogic.GetNameserversForNode
 	logic.ValidateNameserverReq = proLogic.ValidateNameserverReq

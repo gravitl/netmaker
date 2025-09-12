@@ -5,6 +5,7 @@ package pro
 
 import (
 	"errors"
+	"github.com/gravitl/netmaker/models"
 )
 
 const (
@@ -32,8 +33,9 @@ type LicenseKey struct {
 
 // ValidatedLicense - the validated license struct
 type ValidatedLicense struct {
-	LicenseValue     string `json:"license_value"     binding:"required"` // license that validation is being requested for
-	EncryptedLicense string `json:"encrypted_license" binding:"required"` // to be decrypted by Netmaker using Netmaker server's private key
+	LicenseValue     string              `json:"license_value"     binding:"required"` // license that validation is being requested for
+	EncryptedLicense string              `json:"encrypted_license" binding:"required"` // to be decrypted by Netmaker using Netmaker server's private key
+	FeatureFlags     models.FeatureFlags `json:"feature_flags" binding:"required"`
 }
 
 // LicenseSecret - the encrypted struct for sending user-id
@@ -74,6 +76,7 @@ type ValidateLicenseRequest struct {
 	LicenseKey     string `json:"license_key"       binding:"required"`
 	NmServerPubKey string `json:"nm_server_pub_key" binding:"required"` // Netmaker server public key used to send data back to Netmaker for the Netmaker server to decrypt (eg output from validating license)
 	EncryptedPart  string `json:"secret"            binding:"required"`
+	NmBaseDomain   string `json:"nm_base_domain"`
 }
 
 type licenseResponseCache struct {

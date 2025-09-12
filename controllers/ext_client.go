@@ -703,10 +703,34 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
+
+		// if device id is sent, we don't want to create another extclient for the same user
+		// and gw, with the same device id.
+		if customExtClient.DeviceID != "" {
+			// let's first confirm that none of the user's extclients for this gw have device id.
+			for _, extclient := range extclients {
+				if extclient.DeviceID == customExtClient.DeviceID &&
+					extclient.OwnerID == caller.UserName && nodeid == extclient.IngressGatewayID {
+					err = errors.New("remote client config already exists on the gateway")
+					slog.Error("failed to create extclient", "user", userName, "error", err)
+					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+					return
+				}
+			}
+		}
+
 		for _, extclient := range extclients {
 			if extclient.RemoteAccessClientID != "" &&
-				extclient.RemoteAccessClientID == customExtClient.RemoteAccessClientID && extclient.OwnerID == caller.UserName && nodeid == extclient.IngressGatewayID {
-				// extclient on the gw already exists for the remote access client
+				extclient.RemoteAccessClientID == customExtClient.RemoteAccessClientID &&
+				extclient.OwnerID == caller.UserName && nodeid == extclient.IngressGatewayID {
+				if customExtClient.DeviceID != "" && extclient.DeviceID == "" {
+					// This extclient doesn’t include a device ID (and neither do the others).
+					// We patch it by assigning the device ID from the incoming request.
+					// When clients see that the config already exists, they will fetch
+					// the one with their device ID. And we will return this one.
+					extclient.DeviceID = customExtClient.DeviceID
+					_ = logic.SaveExtClient(&extclient)
+				}
 				err = errors.New("remote client config already exists on the gateway")
 				slog.Error("failed to create extclient", "user", userName, "error", err)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -744,6 +768,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		extclient.Enabled = parentNetwork.DefaultACL == "yes"
 	}
 	extclient.Os = customExtClient.Os
+	extclient.DeviceID = customExtClient.DeviceID
 	extclient.DeviceName = customExtClient.DeviceName
 	if customExtClient.IsAlreadyConnectedToInetGw {
 		slog.Warn("RAC/Client is already connected to internet gateway. this may mask their real IP address", "client IP", customExtClient.PublicEndpoint)
@@ -897,7 +922,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		update.Location = logic.GetHostLocInfo(logic.GetClientIP(r), os.Getenv("IP_INFO_TOKEN"))
 	}
 	newclient := logic.UpdateExtClient(&oldExtClient, &update)
-	if err := logic.DeleteExtClient(oldExtClient.Network, oldExtClient.ClientID); err != nil {
+	if err := logic.DeleteExtClient(oldExtClient.Network, oldExtClient.ClientID, true); err != nil {
 		slog.Error(
 			"failed to delete ext client",
 			"user",

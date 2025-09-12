@@ -1,8 +1,12 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/google/go-cmp/cmp"
 	"net/http"
 	"os"
@@ -57,6 +61,7 @@ func serverHandlers(r *mux.Router) {
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/server/mem_profile", logic.SecurityCheck(false, http.HandlerFunc(memProfile))).
 		Methods(http.MethodPost)
+	r.HandleFunc("/api/server/feature_flags", getFeatureFlags).Methods(http.MethodGet)
 }
 
 func cpuProfile(w http.ResponseWriter, r *http.Request) {
@@ -110,10 +115,7 @@ func getUsage(w http.ResponseWriter, _ *http.Request) {
 	if err == nil {
 		serverUsage.Ingresses = len(ingresses)
 	}
-	egresses, err := logic.GetAllEgresses()
-	if err == nil {
-		serverUsage.Egresses = len(egresses)
-	}
+	serverUsage.Egresses, _ = (&schema.Egress{}).Count(db.WithContext(context.TODO()))
 	relays, err := logic.GetRelays()
 	if err == nil {
 		serverUsage.Relays = len(relays)
@@ -273,6 +275,24 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	currSettings := logic.GetServerSettings()
+
+	if req.AuthProvider != currSettings.AuthProvider && req.AuthProvider == "" {
+		superAdmin, err := logic.GetSuperAdmin()
+		if err != nil {
+			err = fmt.Errorf("failed to get super admin: %v", err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+
+		if superAdmin.AuthType == models.OAuth {
+			err := fmt.Errorf(
+				"cannot remove IdP integration because an OAuth user has the super-admin role; transfer the super-admin role to another user first",
+			)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+	}
+
 	err := logic.UpsertServerSettings(req)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to update server settings "+err.Error()), "internal"))
@@ -376,15 +396,6 @@ func identifySettingsUpdateAction(old, new models.ServerSettings) models.Action 
 		return models.UpdateMonitoringAndDebuggingSettings
 	}
 
-	if old.Theme != new.Theme {
-		return models.UpdateDisplaySettings
-	}
-
-	if old.TextSize != new.TextSize ||
-		old.ReducedMotion != new.ReducedMotion {
-		return models.UpdateAccessibilitySettings
-	}
-
 	if old.EmailSenderAddr != new.EmailSenderAddr ||
 		old.EmailSenderUser != new.EmailSenderUser ||
 		old.EmailSenderPassword != new.EmailSenderPassword ||
@@ -408,4 +419,13 @@ func identifySettingsUpdateAction(old, new models.ServerSettings) models.Action 
 	}
 
 	return models.Update
+}
+
+// @Summary     Get feature flags for this server.
+// @Router      /api/server/feature_flags [get]
+// @Tags        Server
+// @Security    oauth2
+// @Success     200 {object} config.ServerSettings
+func getFeatureFlags(w http.ResponseWriter, r *http.Request) {
+	logic.ReturnSuccessResponseWithJson(w, r, logic.GetFeatureFlags(), "")
 }

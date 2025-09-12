@@ -417,7 +417,7 @@ func getNetworkNodeStatus(w http.ResponseWriter, r *http.Request) {
 
 	}
 	nodes = logic.AddStaticNodestoList(nodes)
-	nodes = logic.AddStatusToNodes(nodes, false)
+	nodes = logic.AddStatusToNodes(nodes, true)
 	// return all the nodes in JSON/API format
 	apiNodesStatusMap := logic.GetNodesStatusAPI(nodes[:])
 	logger.Log(3, r.Header.Get("user"), "fetched all nodes they have access to")
@@ -683,8 +683,11 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		logic.SetInternetGw(newNode, newNode.InetNodeReq)
 	}
 	if currentNode.IsInternetGateway && newNode.IsInternetGateway {
+		// logic.UnsetInternetGw resets newNode.InetNodeReq.
+		// So, keeping a copy to pass into logic.SetInternetGw.
+		req := newNode.InetNodeReq
 		logic.UnsetInternetGw(newNode)
-		logic.SetInternetGw(newNode, newNode.InetNodeReq)
+		logic.SetInternetGw(newNode, req)
 	}
 	if !newNode.IsInternetGateway {
 		logic.UnsetInternetGw(newNode)

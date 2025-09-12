@@ -330,7 +330,7 @@ func updateNetworkACLv2(w http.ResponseWriter, r *http.Request) {
 	if servercfg.IsPro {
 		for _, client := range networkClientsMap {
 			client := client
-			err := logic.DeleteExtClient(client.Network, client.ClientID)
+			err := logic.DeleteExtClient(client.Network, client.ClientID, true)
 			if err != nil {
 				slog.Error(
 					"failed to delete client during update",
@@ -701,10 +701,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	netNew := netOld
-	netNew.NameServers = payload.NameServers
-	netNew.DefaultACL = payload.DefaultACL
-	_, _, _, err = logic.UpdateNetwork(&netOld, &netNew)
+	err = logic.UpdateNetwork(&netOld, &payload)
 	if err != nil {
 		slog.Info("failed to update network", "user", r.Header.Get("user"), "err", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))

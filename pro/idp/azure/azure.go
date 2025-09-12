@@ -17,14 +17,80 @@ type Client struct {
 	tenantID     string
 }
 
-func NewAzureEntraIDClient() *Client {
+func NewAzureEntraIDClient(clientID, clientSecret, tenantID string) *Client {
+	return &Client{
+		clientID:     clientID,
+		clientSecret: clientSecret,
+		tenantID:     tenantID,
+	}
+}
+
+func NewAzureEntraIDClientFromSettings() *Client {
 	settings := logic.GetServerSettings()
 
-	return &Client{
-		clientID:     settings.ClientID,
-		clientSecret: settings.ClientSecret,
-		tenantID:     settings.AzureTenant,
+	return NewAzureEntraIDClient(settings.ClientID, settings.ClientSecret, settings.AzureTenant)
+}
+
+func (a *Client) Verify() error {
+	accessToken, err := a.getAccessToken()
+	if err != nil {
+		return err
 	}
+
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", "https://graph.microsoft.com/v1.0/users?$select=id,userPrincipalName,displayName,accountEnabled&$top=1", nil)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Add("Authorization", "Bearer "+accessToken)
+	req.Header.Add("Accept", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	var users getUsersResponse
+	err = json.NewDecoder(resp.Body).Decode(&users)
+	if err != nil {
+		return err
+	}
+
+	if users.Error.Code != "" {
+		return errors.New(users.Error.Message)
+	}
+
+	req, err = http.NewRequest("GET", "https://graph.microsoft.com/v1.0/groups?$select=id,displayName&$expand=members($select=id)&$top=1", nil)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Add("Authorization", "Bearer "+accessToken)
+	req.Header.Add("Accept", "application/json")
+
+	resp, err = client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	var groups getGroupsResponse
+	err = json.NewDecoder(resp.Body).Decode(&groups)
+	if err != nil {
+		return err
+	}
+
+	if groups.Error.Code != "" {
+		return errors.New(groups.Error.Message)
+	}
+
+	return nil
 }
 
 func (a *Client) GetUsers(filters []string) ([]idp.User, error) {
@@ -140,7 +206,7 @@ func (a *Client) getAccessToken() (string, error) {
 
 	resp, err := http.PostForm(tokenURL, data)
 	if err != nil {
-		return "", err
+		return "", errors.New("invalid credentials")
 	}
 	defer func() {
 		_ = resp.Body.Close()
@@ -149,14 +215,14 @@ func (a *Client) getAccessToken() (string, error) {
 	var tokenResp map[string]interface{}
 	err = json.NewDecoder(resp.Body).Decode(&tokenResp)
 	if err != nil {
-		return "", err
+		return "", errors.New("invalid credentials")
 	}
 
 	if token, ok := tokenResp["access_token"].(string); ok {
 		return token, nil
 	}
 
-	return "", errors.New("failed to get access token")
+	return "", errors.New("invalid credentials")
 }
 
 func buildPrefixFilter(field string, prefixes []string) string {
@@ -172,7 +238,8 @@ func buildPrefixFilter(field string, prefixes []string) string {
 }
 
 type getUsersResponse struct {
-	OdataContext string `json:"@odata.context"`
+	Error        errorResponse `json:"error"`
+	OdataContext string        `json:"@odata.context"`
 	Value        []struct {
 		Id                string `json:"id"`
 		UserPrincipalName string `json:"userPrincipalName"`
@@ -183,7 +250,8 @@ type getUsersResponse struct {
 }
 
 type getGroupsResponse struct {
-	OdataContext string `json:"@odata.context"`
+	Error        errorResponse `json:"error"`
+	OdataContext string        `json:"@odata.context"`
 	Value        []struct {
 		Id          string `json:"id"`
 		DisplayName string `json:"displayName"`
@@ -193,4 +261,14 @@ type getGroupsResponse struct {
 		} `json:"members"`
 	} `json:"value"`
 	NextLink string `json:"@odata.nextLink"`
+}
+
+type errorResponse struct {
+	Code       string `json:"code"`
+	Message    string `json:"message"`
+	InnerError struct {
+		Date            string `json:"date"`
+		RequestId       string `json:"request-id"`
+		ClientRequestId string `json:"client-request-id"`
+	} `json:"innerError"`
 }

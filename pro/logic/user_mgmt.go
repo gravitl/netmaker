@@ -34,6 +34,13 @@ var PlatformUserUserPermissionTemplate = models.UserRolePermissionTemplate{
 	ID:         models.PlatformUser,
 	Default:    true,
 	FullAccess: false,
+	GlobalLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
+		models.UserRsrc: {
+			models.AllUserRsrcID: models.RsrcPermissionScope{
+				Read: true,
+			},
+		},
+	},
 }
 
 var NetworkAdminAllPermissionTemplate = models.UserRolePermissionTemplate{
@@ -53,6 +60,11 @@ var NetworkUserAllPermissionTemplate = models.UserRolePermissionTemplate{
 	FullAccess: false,
 	NetworkID:  models.AllNetworks,
 	NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
+		models.HostRsrc: {
+			models.AllHostRsrcID: models.RsrcPermissionScope{
+				Read: true,
+			},
+		},
 		models.RemoteAccessGwRsrc: {
 			models.AllRemoteAccessGwRsrcID: models.RsrcPermissionScope{
 				Read:      true,
@@ -114,7 +126,6 @@ func UserRolesInit() {
 	database.Insert(NetworkAdminAllPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
 	d, _ = json.Marshal(NetworkUserAllPermissionTemplate)
 	database.Insert(NetworkUserAllPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
-
 }
 
 func UserGroupsInit() {
@@ -170,6 +181,11 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 		NetworkID:           netID,
 		DenyDashboardAccess: false,
 		NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
+			models.HostRsrc: {
+				models.AllHostRsrcID: models.RsrcPermissionScope{
+					Read: true,
+				},
+			},
 			models.RemoteAccessGwRsrc: {
 				models.AllRemoteAccessGwRsrcID: models.RsrcPermissionScope{
 					Read:      true,
@@ -581,7 +597,13 @@ func CreateUserGroup(g *models.UserGroup) error {
 	if err != nil {
 		return err
 	}
-	return database.Insert(g.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
+	err = database.Insert(g.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
+	if err != nil {
+		return err
+	}
+	// create default network gateway policies
+	CreateDefaultUserGroupNetworkPolicies(*g)
+	return nil
 }
 
 // GetUserGroup - fetches user group
@@ -646,11 +668,16 @@ func UpdateUserGroup(g models.UserGroup) error {
 	if err != nil {
 		return err
 	}
+
 	return database.Insert(g.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
 }
 
 // DeleteUserGroup - deletes user group
 func DeleteUserGroup(gid models.UserGroupID) error {
+	g, err := GetUserGroup(gid)
+	if err != nil {
+		return err
+	}
 	users, err := logic.GetUsersDB()
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
@@ -659,6 +686,8 @@ func DeleteUserGroup(gid models.UserGroupID) error {
 		delete(user.UserGroups, gid)
 		logic.UpsertUser(user)
 	}
+	// create default network gateway policies
+	DeleteDefaultUserGroupNetworkPolicies(g)
 	return database.DeleteRecord(database.USER_GROUPS_TABLE_NAME, gid.String())
 }
 
@@ -1073,27 +1102,14 @@ func UpdatesUserGwAccessOnRoleUpdates(currNetworkAccess,
 	}
 }
 
-func UpdatesUserGwAccessOnGrpUpdates(currNetworkRoles, changeNetworkRoles map[models.NetworkID]map[models.UserRoleID]struct{}) {
-	networkChangeMap := make(map[models.NetworkID]map[models.UserRoleID]struct{})
-	for netID, networkUserRoles := range currNetworkRoles {
-		if _, ok := changeNetworkRoles[netID]; !ok {
-			for netRoleID := range networkUserRoles {
-				if _, ok := networkChangeMap[netID]; !ok {
-					networkChangeMap[netID] = make(map[models.UserRoleID]struct{})
-				}
-				networkChangeMap[netID][netRoleID] = struct{}{}
-			}
-		} else {
-			for netRoleID := range networkUserRoles {
-				if _, ok := changeNetworkRoles[netID][netRoleID]; !ok {
-					if _, ok := networkChangeMap[netID]; !ok {
-						networkChangeMap[netID] = make(map[models.UserRoleID]struct{})
-					}
-					networkChangeMap[netID][netRoleID] = struct{}{}
-				}
-			}
+func UpdatesUserGwAccessOnGrpUpdates(groupID models.UserGroupID, oldNetworkRoles, newNetworkRoles map[models.NetworkID]map[models.UserRoleID]struct{}) {
+	networkRemovedMap := make(map[models.NetworkID]struct{})
+	for netID := range oldNetworkRoles {
+		if _, ok := newNetworkRoles[netID]; !ok {
+			networkRemovedMap[netID] = struct{}{}
 		}
 	}
+
 	extclients, err := logic.GetAllExtClients()
 	if err != nil {
 		slog.Error("failed to fetch extclients", "error", err)
@@ -1103,27 +1119,56 @@ func UpdatesUserGwAccessOnGrpUpdates(currNetworkRoles, changeNetworkRoles map[mo
 	if err != nil {
 		return
 	}
-	for _, extclient := range extclients {
 
-		if _, ok := networkChangeMap[models.NetworkID(extclient.Network)]; ok {
-			if user, ok := userMap[extclient.OwnerID]; ok {
-				if user.PlatformRoleID != models.ServiceUser {
-					continue
-				}
-				err = logic.DeleteExtClientAndCleanup(extclient)
-				if err != nil {
-					slog.Error("failed to delete extclient",
-						"id", extclient.ClientID, "owner", user.UserName, "error", err)
+	for _, extclient := range extclients {
+		var shouldDelete bool
+		user, ok := userMap[extclient.OwnerID]
+		if !ok {
+			// user does not exist, delete extclient.
+			shouldDelete = true
+		} else {
+			if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
+				// Super-admin and Admin's access is not determined by group membership
+				// or network roles. Even if a network is removed from the group, they
+				// continue to have access to the network.
+				// So, no need to delete the extclient.
+				shouldDelete = false
+			} else {
+				_, hasAccess := user.NetworkRoles[models.NetworkID(extclient.Network)]
+				if hasAccess {
+					// The user has access to the network by themselves and not by
+					// virtue of being a member of the group.
+					// So, no need to delete the extclient.
+					shouldDelete = false
 				} else {
-					if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
-						slog.Error("error setting ext peers: " + err.Error())
+					_, userInGroup := user.UserGroups[groupID]
+					_, networkRemoved := networkRemovedMap[models.NetworkID(extclient.Network)]
+					if userInGroup && networkRemoved {
+						// This group no longer provides it's members access to the
+						// network.
+						// This user is a member of the group and has no direct
+						// access to the network (either by its platform role or by
+						// network roles).
+						// So, delete the extclient.
+						shouldDelete = true
 					}
 				}
 			}
-
 		}
 
+		if shouldDelete {
+			err = logic.DeleteExtClientAndCleanup(extclient)
+			if err != nil {
+				slog.Error("failed to delete extclient",
+					"id", extclient.ClientID, "owner", user.UserName, "error", err)
+			} else {
+				if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+					slog.Error("error setting ext peers: " + err.Error())
+				}
+			}
+		}
 	}
+
 	if servercfg.IsDNSMode() {
 		logic.SetDNS()
 	}
@@ -1201,6 +1246,75 @@ func UpdateUserGwAccess(currentUser, changeUser models.User) {
 		logic.SetDNS()
 	}
 
+}
+
+func CreateDefaultUserGroupNetworkPolicies(g models.UserGroup) {
+	for networkID := range g.NetworkRoles {
+		network, err := logic.GetNetwork(networkID.String())
+		if err != nil {
+			continue
+		}
+
+		acl := models.Acl{
+			ID:          uuid.New().String(),
+			Name:        fmt.Sprintf("%s group", g.Name),
+			MetaData:    "This Policy allows user group to communicate with all gateways",
+			Default:     true,
+			ServiceType: models.Any,
+			NetworkID:   models.NetworkID(network.NetID),
+			Proto:       models.ALL,
+			RuleType:    models.UserPolicy,
+			Src: []models.AclPolicyTag{
+				{
+					ID:    models.UserGroupAclID,
+					Value: g.ID.String(),
+				},
+			},
+			Dst: []models.AclPolicyTag{
+				{
+					ID:    models.NodeTagID,
+					Value: fmt.Sprintf("%s.%s", models.NetworkID(network.NetID), models.GwTagName),
+				}},
+			AllowedDirection: models.TrafficDirectionUni,
+			Enabled:          true,
+			CreatedBy:        "auto",
+			CreatedAt:        time.Now().UTC(),
+		}
+		logic.InsertAcl(acl)
+
+	}
+}
+
+func DeleteDefaultUserGroupNetworkPolicies(g models.UserGroup) {
+	for networkID := range g.NetworkRoles {
+		acls, err := logic.ListAclsByNetwork(networkID)
+		if err != nil {
+			continue
+		}
+
+		for _, acl := range acls {
+			var hasGroupSrc bool
+			newAclSrc := make([]models.AclPolicyTag, 0)
+			for _, src := range acl.Src {
+				if src.ID == models.UserGroupAclID && src.Value == g.ID.String() {
+					hasGroupSrc = true
+				} else {
+					newAclSrc = append(newAclSrc, src)
+				}
+			}
+
+			if hasGroupSrc {
+				if len(newAclSrc) == 0 {
+					// no other src exists, delete acl.
+					_ = logic.DeleteAcl(acl)
+				} else {
+					// other sources exist, update acl.
+					acl.Src = newAclSrc
+					_ = logic.UpsertAcl(acl)
+				}
+			}
+		}
+	}
 }
 
 func CreateDefaultUserPolicies(netID models.NetworkID) {

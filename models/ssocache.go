@@ -7,6 +7,7 @@ const DefaultExpDuration = time.Minute * 5
 
 // SsoState - holds SSO sign-in session data
 type SsoState struct {
+	AppName    string    `json:"app_name"`
 	Value      string    `json:"value"`
 	Expiration time.Time `json:"expiration"`
 }

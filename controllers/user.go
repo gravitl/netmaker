@@ -6,12 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/pquerna/otp"
-	"golang.org/x/crypto/bcrypt"
 	"image/png"
 	"net/http"
 	"reflect"
 	"time"
+
+	"github.com/pquerna/otp"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -49,6 +50,8 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUser)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/{username}/enable", logic.SecurityCheck(true, http.HandlerFunc(enableUserAccount))).Methods(http.MethodPost)
 	r.HandleFunc("/api/users/{username}/disable", logic.SecurityCheck(true, http.HandlerFunc(disableUserAccount))).Methods(http.MethodPost)
+	r.HandleFunc("/api/users/{username}/settings", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserSettings)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/users/{username}/settings", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(updateUserSettings)))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/users", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserV1)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users", logic.SecurityCheck(true, http.HandlerFunc(getUsers))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/users/roles", logic.SecurityCheck(true, http.HandlerFunc(ListRoles))).Methods(http.MethodGet)
@@ -255,6 +258,10 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func authenticateUser(response http.ResponseWriter, request *http.Request) {
+	appName := request.Header.Get("X-Application-Name")
+	if appName == "" {
+		appName = logic.NetmakerDesktopApp
+	}
 
 	// Auth request consists of Mac Address and Password (from node that is authorizing
 	// in case of Master, auth is ignored and mac is set to "mastermac"
@@ -289,7 +296,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	if !user.IsSuperAdmin && !logic.IsBasicAuthEnabled() {
+	if user.PlatformRoleID != models.SuperAdminRole && !logic.IsBasicAuthEnabled() {
 		logic.ReturnErrorResponse(
 			response,
 			request,
@@ -313,7 +320,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	}
 
 	username := authRequest.UserName
-	jwt, err := logic.VerifyAuthRequest(authRequest)
+	jwt, err := logic.VerifyAuthRequest(authRequest, appName)
 	if err != nil {
 		logger.Log(0, username, "user validation failed: ",
 			err.Error())
@@ -637,6 +644,11 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 func verifyTOTP(w http.ResponseWriter, r *http.Request) {
 	username := r.Header.Get("user")
 
+	appName := r.Header.Get("X-Application-Name")
+	if appName == "" {
+		appName = logic.NetmakerDesktopApp
+	}
+
 	var req models.UserTOTPVerificationParams
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
@@ -662,7 +674,7 @@ func verifyTOTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if totp.Validate(req.TOTP, user.TOTPSecret) {
-		jwt, err := logic.CreateUserJWT(user.UserName, user.PlatformRoleID)
+		jwt, err := logic.CreateUserJWT(user.UserName, user.PlatformRoleID, appName)
 		if err != nil {
 			err = fmt.Errorf("error creating token: %v", err)
 			logger.Log(0, err.Error())
@@ -765,6 +777,52 @@ func enableUserAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var caller *models.User
+	var isMaster bool
+	if r.Header.Get("user") == logic.MasterUser {
+		isMaster = true
+	} else {
+		caller, err = logic.GetUser(r.Header.Get("user"))
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+	}
+
+	if !isMaster && caller.UserName == user.UserName {
+		// This implies that a user is trying to enable themselves.
+		// This can never happen, since a disabled user cannot be
+		// authenticated.
+		err := fmt.Errorf("cannot enable self")
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+		return
+	}
+
+	switch user.PlatformRoleID {
+	case models.SuperAdminRole:
+		// This can never happen, since a superadmin user cannot
+		// be disabled.
+	case models.AdminRole:
+		if !isMaster && caller.PlatformRoleID != models.SuperAdminRole {
+			err = fmt.Errorf("%s cannot enable an admin", caller.PlatformRoleID)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+			return
+		}
+	case models.PlatformUser:
+		if !isMaster && caller.PlatformRoleID != models.SuperAdminRole && caller.PlatformRoleID != models.AdminRole {
+			err = fmt.Errorf("%s cannot enable a platform-user", caller.PlatformRoleID)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+			return
+		}
+	case models.ServiceUser:
+		if !isMaster && caller.PlatformRoleID != models.SuperAdminRole && caller.PlatformRoleID != models.AdminRole {
+			err = fmt.Errorf("%s cannot enable a service-user", caller.PlatformRoleID)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+			return
+		}
+	}
+
 	user.AccountDisabled = false
 	err = logic.UpsertUser(*user)
 	if err != nil {
@@ -791,11 +849,49 @@ func disableUserAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user.PlatformRoleID == models.SuperAdminRole {
-		err = errors.New("cannot disable super-admin user account")
-		logger.Log(0, err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+	var caller *models.User
+	var isMaster bool
+	if r.Header.Get("user") == logic.MasterUser {
+		isMaster = true
+	} else {
+		caller, err = logic.GetUser(r.Header.Get("user"))
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+	}
+
+	if !isMaster && caller.UserName == user.UserName {
+		// This implies that a user is trying to disable themselves.
+		// This should not be allowed.
+		err = fmt.Errorf("cannot disable self")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
+	}
+
+	switch user.PlatformRoleID {
+	case models.SuperAdminRole:
+		err = errors.New("cannot disable a super-admin")
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+		return
+	case models.AdminRole:
+		if !isMaster && caller.PlatformRoleID != models.SuperAdminRole {
+			err = fmt.Errorf("%s cannot disable an admin", caller.PlatformRoleID)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+			return
+		}
+	case models.PlatformUser:
+		if !isMaster && caller.PlatformRoleID != models.SuperAdminRole && caller.PlatformRoleID != models.AdminRole {
+			err = fmt.Errorf("%s cannot disable a platform-user", caller.PlatformRoleID)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+			return
+		}
+	case models.ServiceUser:
+		if !isMaster && caller.PlatformRoleID != models.SuperAdminRole && caller.PlatformRoleID != models.AdminRole {
+			err = fmt.Errorf("%s cannot disable a service-user", caller.PlatformRoleID)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+			return
+		}
 	}
 
 	user.AccountDisabled = true
@@ -805,7 +901,69 @@ func disableUserAccount(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 	}
 
+	go func() {
+		extclients, err := logic.GetAllExtClients()
+		if err != nil {
+			logger.Log(0, "failed to get user extclients:", err.Error())
+			return
+		}
+
+		for _, extclient := range extclients {
+			if extclient.OwnerID == user.UserName {
+				err = logic.DeleteExtClientAndCleanup(extclient)
+				if err != nil {
+					logger.Log(0, "failed to delete user extclient:", err.Error())
+				} else {
+					err := mq.PublishDeletedClientPeerUpdate(&extclient)
+					if err != nil {
+						logger.Log(0, "failed to publish deleted client peer update:", err.Error())
+					}
+				}
+			}
+		}
+	}()
+
 	logic.ReturnSuccessResponse(w, r, "user account disabled")
+}
+
+// @Summary     Get a user's preferences and settings
+// @Router      /api/users/{username}/settings [get]
+// @Tags        Users
+// @Param       username path string true "Username of the user"
+// @Success     200 {object} models.SuccessResponse
+func getUserSettings(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("user")
+	userSettings := logic.GetUserSettings(userID)
+	logic.ReturnSuccessResponseWithJson(w, r, userSettings, "fetched user settings")
+}
+
+// @Summary     Update a user's preferences and settings
+// @Router      /api/users/{username}/settings [put]
+// @Tags        Users
+// @Param       username path string true "Username of the user"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func updateUserSettings(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("user")
+	var req models.UserSettings
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		logger.Log(0, "failed to decode request body: ", err.Error())
+		err = fmt.Errorf("invalid request body: %v", err)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	err = logic.UpsertUserSettings(userID, req)
+	if err != nil {
+		err = fmt.Errorf("failed to update user settings: %v", err.Error())
+		logger.Log(0, err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+
+	logic.ReturnSuccessResponseWithJson(w, r, req, "updated user settings")
 }
 
 // swagger:route GET /api/v1/users user getUserV1
@@ -833,6 +991,9 @@ func getUserV1(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	user.NumAccessTokens, _ = (&schema.UserAccessToken{
+		UserName: user.UserName,
+	}).CountByUser(r.Context())
 	userRoleTemplate, err := logic.GetRole(user.PlatformRoleID)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -845,11 +1006,9 @@ func getUserV1(w http.ResponseWriter, r *http.Request) {
 	}
 	for gId := range user.UserGroups {
 		grp, err := logic.GetUserGroup(gId)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
+		if err == nil {
+			resp.UserGroups[gId] = grp
 		}
-		resp.UserGroups[gId] = grp
 	}
 	logger.Log(2, r.Header.Get("user"), "fetched user", usernameFetched)
 	logic.ReturnSuccessResponseWithJson(w, r, resp, "fetched user with role info")
@@ -871,11 +1030,15 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	users, err := logic.GetUsers()
-
 	if err != nil {
 		logger.Log(0, "failed to fetch users: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
+	}
+	for i := range users {
+		users[i].NumAccessTokens, _ = (&schema.UserAccessToken{
+			UserName: users[i].UserName,
+		}).CountByUser(r.Context())
 	}
 
 	logic.SortUsers(users[:])
@@ -959,6 +1122,7 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	u.IsSuperAdmin = true
 	u.PlatformRoleID = models.SuperAdminRole
 	err = logic.UpsertUser(*u)
 	if err != nil {
@@ -966,6 +1130,8 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+
+	caller.IsSuperAdmin = false
 	caller.PlatformRoleID = models.AdminRole
 	err = logic.UpsertUser(*caller)
 	if err != nil {
@@ -1254,6 +1420,67 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	logic.LogEvent(&e)
 	go mq.PublishPeerUpdate(false)
+	go func() {
+		// Populating all the networks the user has access to by
+		// being a member of groups.
+		userMembershipNetworkAccess := make(map[models.NetworkID]struct{})
+		for groupID := range user.UserGroups {
+			userGroup, _ := logic.GetUserGroup(groupID)
+			for netID := range userGroup.NetworkRoles {
+				userMembershipNetworkAccess[netID] = struct{}{}
+			}
+		}
+
+		extclients, err := logic.GetAllExtClients()
+		if err != nil {
+			slog.Error("failed to fetch extclients", "error", err)
+			return
+		}
+
+		for _, extclient := range extclients {
+			if extclient.OwnerID != user.UserName {
+				continue
+			}
+
+			var shouldDelete bool
+			if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
+				// Super-admin and Admin's access is not determined by group membership
+				// or network roles. Even if a user is removed from the group, they
+				// continue to have access to the network.
+				// So, no need to delete the extclient.
+				shouldDelete = false
+			} else {
+				_, hasAccess := user.NetworkRoles[models.NetworkID(extclient.Network)]
+				if hasAccess {
+					// The user has access to the network by themselves and not by
+					// virtue of being a member of the group.
+					// So, no need to delete the extclient.
+					shouldDelete = false
+				} else {
+					_, hasAccessThroughGroups := userMembershipNetworkAccess[models.NetworkID(extclient.Network)]
+					if !hasAccessThroughGroups {
+						// The user does not have access to the network by either
+						// being a Super-admin or Admin, by network roles or by virtue
+						// of being a member a group that has access to the network.
+						// So, delete the extclient.
+						shouldDelete = true
+					}
+				}
+			}
+
+			if shouldDelete {
+				err = logic.DeleteExtClientAndCleanup(extclient)
+				if err != nil {
+					slog.Error("failed to delete extclient",
+						"id", extclient.ClientID, "owner", user.UserName, "error", err)
+				} else {
+					if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
+						slog.Error("error setting ext peers: " + err.Error())
+					}
+				}
+			}
+		}
+	}()
 	logger.Log(1, username, "was updated")
 	json.NewEncoder(w).Encode(logic.ToReturnUser(*user))
 }
@@ -1324,6 +1551,14 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
+	if user.AuthType == models.OAuth || user.ExternalIdentityProviderID != "" {
+		err = fmt.Errorf("cannot delete idp user %s", username)
+		logger.Log(0, username, "failed to delete user: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
 	err = logic.DeleteUser(username)
 	if err != nil {
 		logger.Log(0, username,
@@ -1366,6 +1601,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+		_ = logic.DeleteUserInvite(user.UserName)
 		mq.PublishPeerUpdate(false)
 		if servercfg.IsDNSMode() {
 			logic.SetDNS()

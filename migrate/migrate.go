@@ -25,7 +25,7 @@ import (
 
 // Run - runs all migrations
 func Run() {
-	settings()
+	migrateSettings()
 	updateEnrollmentKeys()
 	assignSuperAdmin()
 	createDefaultTagsAndPolicies()
@@ -35,10 +35,24 @@ func Run() {
 	updateHosts()
 	updateNodes()
 	updateAcls()
+	updateNewAcls()
 	logic.MigrateToGws()
 	migrateToEgressV1()
+	updateNetworks()
 	migrateNameservers()
 	resync()
+	deleteOldExtclients()
+}
+
+func updateNetworks() {
+	nets, _ := logic.GetNetworks()
+	for _, netI := range nets {
+		if netI.AutoJoin == "" {
+			netI.AutoJoin = "true"
+			logic.UpsertNetwork(netI)
+		}
+	}
+
 }
 
 func migrateNameservers() {
@@ -185,7 +199,15 @@ func assignSuperAdmin() {
 		return
 	}
 	for _, u := range users {
-		if u.IsAdmin {
+		var isAdmin bool
+		if u.PlatformRoleID == models.AdminRole {
+			isAdmin = true
+		}
+		if u.PlatformRoleID == "" && u.IsAdmin {
+			isAdmin = true
+		}
+
+		if isAdmin {
 			user, err := logic.GetUser(u.UserName)
 			if err != nil {
 				slog.Error("error getting user", "user", u.UserName, "error", err.Error())
@@ -319,6 +341,10 @@ func updateHosts() {
 			} else {
 				host.DNS = "no"
 			}
+			logic.UpsertHost(&host)
+		}
+		if host.IsDefault && !host.AutoUpdate {
+			host.AutoUpdate = true
 			logic.UpsertHost(&host)
 		}
 		if servercfg.IsPro && host.Location == "" {
@@ -513,6 +539,48 @@ func updateAcls() {
 	}
 }
 
+func updateNewAcls() {
+	if servercfg.IsPro {
+		userGroups, _ := logic.ListUserGroups()
+		userGroupMap := make(map[models.UserGroupID]models.UserGroup)
+		for _, userGroup := range userGroups {
+			userGroupMap[userGroup.ID] = userGroup
+		}
+
+		acls := logic.ListAcls()
+		for _, acl := range acls {
+			aclSrc := make([]models.AclPolicyTag, 0)
+			for _, src := range acl.Src {
+				if src.ID == models.UserGroupAclID {
+					userGroup, ok := userGroupMap[models.UserGroupID(src.Value)]
+					if !ok {
+						// if the group doesn't exist, don't add it to the acl's src.
+						continue
+					} else {
+						_, ok := userGroup.NetworkRoles[acl.NetworkID]
+						if !ok {
+							// if the group doesn't have permissions for the acl's
+							// network, don't add it to the acl's src.
+							continue
+						}
+					}
+				}
+				aclSrc = append(aclSrc, src)
+			}
+
+			if len(aclSrc) == 0 {
+				// if there are no acl sources, delete the acl.
+				_ = logic.DeleteAcl(acl)
+			} else if len(aclSrc) != len(acl.Src) {
+				// if some user groups were removed from the acl source,
+				// update the acl.
+				acl.Src = aclSrc
+				_ = logic.UpsertAcl(acl)
+			}
+		}
+	}
+}
+
 func MigrateEmqx() {
 
 	err := mq.SendPullSYN()
@@ -548,11 +616,18 @@ func syncUsers() {
 			user := user
 			if user.PlatformRoleID == models.AdminRole && !user.IsAdmin {
 				user.IsAdmin = true
+				user.IsSuperAdmin = false
 				logic.UpsertUser(user)
 			}
 			if user.PlatformRoleID == models.SuperAdminRole && !user.IsSuperAdmin {
 				user.IsSuperAdmin = true
-
+				user.IsAdmin = true
+				logic.UpsertUser(user)
+			}
+			if user.PlatformRoleID == models.PlatformUser || user.PlatformRoleID == models.ServiceUser {
+				user.IsSuperAdmin = false
+				user.IsAdmin = false
+				logic.UpsertUser(user)
 			}
 			if user.PlatformRoleID.String() != "" {
 				logic.MigrateUserRoleAndGroups(user)
@@ -570,9 +645,12 @@ func syncUsers() {
 			if len(user.UserGroups) == 0 {
 				user.UserGroups = make(map[models.UserGroupID]struct{})
 			}
+
+			// We reach here only if the platform role id has not been set.
+			//
+			// Thus, we use the boolean fields to assign the role.
 			if user.IsSuperAdmin {
 				user.PlatformRoleID = models.SuperAdminRole
-
 			} else if user.IsAdmin {
 				user.PlatformRoleID = models.AdminRole
 			} else {
@@ -598,6 +676,16 @@ func createDefaultTagsAndPolicies() {
 		logic.DeleteAcl(models.Acl{ID: fmt.Sprintf("%s.%s", network.NetID, "all-remote-access-gws")})
 	}
 	logic.MigrateAclPolicies()
+	if !servercfg.IsPro {
+		nodes, _ := logic.GetAllNodes()
+		for _, node := range nodes {
+			if node.IsGw {
+				node.Tags = make(map[models.TagID]struct{})
+				node.Tags[models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName))] = struct{}{}
+				logic.UpsertNode(&node)
+			}
+		}
+	}
 }
 
 func migrateToEgressV1() {
@@ -707,8 +795,8 @@ func migrateToEgressV1() {
 	}
 }
 
-func settings() {
-	_, err := database.FetchRecords(database.SERVER_SETTINGS)
+func migrateSettings() {
+	_, err := database.FetchRecord(database.SERVER_SETTINGS, logic.ServerSettingsDBKey)
 	if database.IsEmptyRecord(err) {
 		logic.UpsertServerSettings(logic.GetServerSettingsFromEnv())
 	}
@@ -719,5 +807,36 @@ func settings() {
 	if settings.DefaultDomain == "" {
 		settings.DefaultDomain = servercfg.GetDefaultDomain()
 	}
+	if settings.JwtValidityDurationClients == 0 {
+		settings.JwtValidityDurationClients = servercfg.GetJwtValidityDurationFromEnv() / 60
+	}
 	logic.UpsertServerSettings(settings)
+}
+
+func deleteOldExtclients() {
+	extclients, _ := logic.GetAllExtClients()
+	userExtclientMap := make(map[string][]models.ExtClient)
+	for _, extclient := range extclients {
+		if extclient.RemoteAccessClientID == "" {
+			continue
+		}
+
+		if extclient.Enabled {
+			continue
+		}
+
+		if _, ok := userExtclientMap[extclient.OwnerID]; !ok {
+			userExtclientMap[extclient.OwnerID] = make([]models.ExtClient, 0)
+		}
+
+		userExtclientMap[extclient.OwnerID] = append(userExtclientMap[extclient.OwnerID], extclient)
+	}
+
+	for _, userExtclients := range userExtclientMap {
+		if len(userExtclients) > 1 {
+			for _, extclient := range userExtclients[1:] {
+				_ = logic.DeleteExtClient(extclient.Network, extclient.Network, false)
+			}
+		}
+	}
 }

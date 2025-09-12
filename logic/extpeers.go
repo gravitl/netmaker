@@ -123,7 +123,7 @@ func UniqueIPNetStrList(ipnets []string) []string {
 }
 
 // DeleteExtClient - deletes an existing ext client
-func DeleteExtClient(network string, clientid string) error {
+func DeleteExtClient(network string, clientid string, isUpdate bool) error {
 	key, err := GetRecordKey(clientid, network)
 	if err != nil {
 		return err
@@ -146,7 +146,7 @@ func DeleteExtClient(network string, clientid string) error {
 		}
 		deleteExtClientFromCache(key)
 	}
-	if extClient.RemoteAccessClientID != "" {
+	if !isUpdate && extClient.RemoteAccessClientID != "" {
 		LogEvent(&models.Event{
 			Action: models.Disconnect,
 			Source: models.Subject{
@@ -173,7 +173,7 @@ func DeleteExtClient(network string, clientid string) error {
 func DeleteExtClientAndCleanup(extClient models.ExtClient) error {
 
 	//delete extClient record
-	err := DeleteExtClient(extClient.Network, extClient.ClientID)
+	err := DeleteExtClient(extClient.Network, extClient.ClientID, false)
 	if err != nil {
 		slog.Error("DeleteExtClientAndCleanup-remove extClient record: ", "Error", err.Error())
 		return err
@@ -433,6 +433,9 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 	if update.Country != "" && update.Country != old.Country {
 		new.Country = update.Country
 	}
+	if update.DeviceID != "" && old.DeviceID == "" {
+		new.DeviceID = update.DeviceID
+	}
 	return new
 }
 
@@ -508,7 +511,7 @@ func ToggleExtClientConnectivity(client *models.ExtClient, enable bool) (models.
 
 	// update in DB
 	newClient := UpdateExtClient(client, &update)
-	if err := DeleteExtClient(client.Network, client.ClientID); err != nil {
+	if err := DeleteExtClient(client.Network, client.ClientID, true); err != nil {
 		slog.Error("failed to delete ext client during update", "id", client.ClientID, "network", client.Network, "error", err)
 		return newClient, err
 	}
@@ -702,22 +705,6 @@ func GetExtclientAllowedIPs(client models.ExtClient) (allowedIPs []string) {
 	return
 }
 
-func GetStaticUserNodesByNetwork(network models.NetworkID) (staticNode []models.Node) {
-	extClients, err := GetAllExtClients()
-	if err != nil {
-		return
-	}
-	for _, extI := range extClients {
-		if extI.Network == network.String() {
-			if extI.RemoteAccessClientID != "" {
-				n := extI.ConvertToStaticNode()
-				staticNode = append(staticNode, n)
-			}
-		}
-	}
-	return
-}
-
 func GetStaticNodesByNetwork(network models.NetworkID, onlyWg bool) (staticNode []models.Node) {
 	extClients, err := GetAllExtClients()
 	if err != nil {
@@ -733,23 +720,5 @@ func GetStaticNodesByNetwork(network models.NetworkID, onlyWg bool) (staticNode 
 		}
 	}
 
-	return
-}
-
-func GetStaticNodesByGw(gwNode models.Node) (staticNode []models.Node) {
-	extClients, err := GetAllExtClients()
-	if err != nil {
-		return
-	}
-	for _, extI := range extClients {
-		if extI.IngressGatewayID == gwNode.ID.String() {
-			n := models.Node{
-				IsStatic:   true,
-				StaticNode: extI,
-				IsUserNode: extI.RemoteAccessClientID != "",
-			}
-			staticNode = append(staticNode, n)
-		}
-	}
 	return
 }
