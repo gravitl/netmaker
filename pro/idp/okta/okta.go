@@ -45,18 +45,17 @@ func (o *Client) Verify() error {
 
 func (o *Client) GetUsers(filters []string) ([]idp.User, error) {
 	var retval []idp.User
-	var allUsersFetched bool
 
-	for !allUsersFetched {
-		users, resp, err := o.client.UserAPI.ListUsers(context.TODO()).
-			Search(buildPrefixFilter("profile.login", filters)).
-			Execute()
-		if err != nil {
-			return nil, err
-		}
+	users, resp, err := o.client.UserAPI.ListUsers(context.TODO()).
+		Search(buildPrefixFilter("profile.login", filters)).
+		Execute()
+	if err != nil {
+		return nil, err
+	}
 
-		allUsersFetched = !resp.HasNextPage()
+	usersProcessingPending := len(users) > 0 || resp.HasNextPage()
 
+	for usersProcessingPending {
 		for _, user := range users {
 			id := *user.Id
 			username := *user.Profile.Login
@@ -79,6 +78,19 @@ func (o *Client) GetUsers(filters []string) ([]idp.User, error) {
 				AccountArchived: false,
 			})
 		}
+
+		if resp.HasNextPage() {
+			users = make([]okta.User, 0)
+
+			resp, err = resp.Next(&users)
+			if err != nil {
+				return nil, err
+			}
+
+			usersProcessingPending = len(users) > 0 || resp.HasNextPage()
+		} else {
+			usersProcessingPending = false
+		}
 	}
 
 	return retval, nil
@@ -86,34 +98,45 @@ func (o *Client) GetUsers(filters []string) ([]idp.User, error) {
 
 func (o *Client) GetGroups(filters []string) ([]idp.Group, error) {
 	var retval []idp.Group
-	var allGroupsFetched bool
 
-	for !allGroupsFetched {
-		groups, resp, err := o.client.GroupAPI.ListGroups(context.TODO()).
-			Search(buildPrefixFilter("profile.name", filters)).
-			Execute()
-		if err != nil {
-			return nil, err
-		}
+	groups, resp, err := o.client.GroupAPI.ListGroups(context.TODO()).
+		Search(buildPrefixFilter("profile.name", filters)).
+		Execute()
+	if err != nil {
+		return nil, err
+	}
 
-		allGroupsFetched = !resp.HasNextPage()
+	groupsProcessingPending := len(groups) > 0 || resp.HasNextPage()
 
+	for groupsProcessingPending {
 		for _, group := range groups {
-			var allMembersFetched bool
 			id := *group.Id
 			name := *group.Profile.Name
 
 			var members []string
-			for !allMembersFetched {
-				groupUsers, resp, err := o.client.GroupAPI.ListGroupUsers(context.TODO(), id).Execute()
-				if err != nil {
-					return nil, err
-				}
+			groupUsers, groupUsersResp, err := o.client.GroupAPI.ListGroupUsers(context.TODO(), id).Execute()
+			if err != nil {
+				return nil, err
+			}
 
-				allMembersFetched = !resp.HasNextPage()
+			groupUsersProcessingPending := len(groupUsers) > 0 || groupUsersResp.HasNextPage()
 
+			for groupUsersProcessingPending {
 				for _, groupUser := range groupUsers {
 					members = append(members, *groupUser.Id)
+				}
+
+				if groupUsersResp.HasNextPage() {
+					groupUsers = make([]okta.GroupMember, 0)
+
+					resp, err = groupUsersResp.Next(&groupUsers)
+					if err != nil {
+						return nil, err
+					}
+
+					groupUsersProcessingPending = len(groupUsers) > 0 || groupUsersResp.HasNextPage()
+				} else {
+					groupUsersProcessingPending = false
 				}
 			}
 
@@ -122,6 +145,19 @@ func (o *Client) GetGroups(filters []string) ([]idp.Group, error) {
 				Name:    name,
 				Members: members,
 			})
+		}
+
+		if resp.HasNextPage() {
+			groups = make([]okta.Group, 0)
+
+			resp, err = resp.Next(&groups)
+			if err != nil {
+				return nil, err
+			}
+
+			groupsProcessingPending = len(groups) > 0 || resp.HasNextPage()
+		} else {
+			groupsProcessingPending = false
 		}
 	}
 
