@@ -583,8 +583,8 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			return
 		} else {
 			ones, bits := cidr.Mask.Size()
-			if ones == bits {
-				err = fmt.Errorf("cannot create network with /32 cidr")
+			if bits-ones <= 1 {
+				err = fmt.Errorf("cannot create network with /31 or /32 cidr")
 				logger.Log(0, r.Header.Get("user"), "failed to create network: ",
 					err.Error())
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -602,8 +602,8 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			return
 		} else {
 			ones, bits := cidr.Mask.Size()
-			if ones == bits {
-				err = fmt.Errorf("cannot create network with /128 cidr")
+			if bits-ones <= 1 {
+				err = fmt.Errorf("cannot create network with /127 or /128 cidr")
 				logger.Log(0, r.Header.Get("user"), "failed to create network: ",
 					err.Error())
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
