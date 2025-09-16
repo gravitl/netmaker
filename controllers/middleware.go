@@ -71,7 +71,7 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if strings.Contains(route, "tags") {
 			r.Header.Set("TARGET_RSRC", models.TagRsrc.String())
 		}
-		if strings.Contains(route, "extclients") {
+		if strings.Contains(route, "extclients") || strings.Contains(route, "client_conf") {
 			r.Header.Set("TARGET_RSRC", models.ExtClientsRsrc.String())
 		}
 		if strings.Contains(route, "enrollment-keys") {
