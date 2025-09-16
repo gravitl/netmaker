@@ -102,7 +102,7 @@ func (a *Client) GetUsers(filters []string) ([]idp.User, error) {
 	client := &http.Client{}
 	getUsersURL := "https://graph.microsoft.com/v1.0/users?$select=id,userPrincipalName,displayName,accountEnabled"
 	if len(filters) > 0 {
-		getUsersURL += "&" + buildPrefixFilter("userPrincipalName", filters)
+		getUsersURL += "&filter" + buildPrefixFilter("userPrincipalName", filters)
 	}
 
 	var retval []idp.User
