@@ -50,6 +50,24 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 	if defaultDevicePolicy.Enabled {
 		return
 	}
+	defer func() {
+		if len(rules) == 0 && IsNodeAllowedToCommunicateWithAllRsrcs(node) {
+			if node.NetworkRange.IP != nil {
+				rules = append(rules, models.FwRule{
+					SrcIP: node.NetworkRange,
+					Allow: true,
+				})
+			}
+			if node.NetworkRange6.IP != nil {
+				rules = append(rules, models.FwRule{
+					SrcIP: node.NetworkRange6,
+					Allow: true,
+				})
+			}
+			return
+		}
+	}()
+
 	for _, nodeI := range nodes {
 		if !nodeI.IsStatic || nodeI.IsUserNode {
 			continue
