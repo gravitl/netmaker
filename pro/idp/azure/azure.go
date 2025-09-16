@@ -226,7 +226,7 @@ func (a *Client) getAccessToken() (string, error) {
 }
 
 func buildPrefixFilter(field string, prefixes []string) string {
-	return "$filter=" + buildCondition(field, prefixes)
+	return url.PathEscape("$filter=" + buildCondition(field, prefixes))
 }
 
 func buildCondition(field string, prefixes []string) string {
@@ -238,7 +238,7 @@ func buildCondition(field string, prefixes []string) string {
 		return fmt.Sprintf("startswith(%s,'%s')", field, prefixes[0])
 	}
 
-	return buildCondition(field, prefixes[:1]) + "%20or%20" + buildCondition(field, prefixes[1:])
+	return buildCondition(field, prefixes[:1]) + " or " + buildCondition(field, prefixes[1:])
 }
 
 type getUsersResponse struct {
