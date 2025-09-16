@@ -102,7 +102,7 @@ func (a *Client) GetUsers(filters []string) ([]idp.User, error) {
 	client := &http.Client{}
 	getUsersURL := "https://graph.microsoft.com/v1.0/users?$select=id,userPrincipalName,displayName,accountEnabled"
 	if len(filters) > 0 {
-		getUsersURL += "&filter" + buildPrefixFilter("userPrincipalName", filters)
+		getUsersURL += "&" + buildPrefixFilter("userPrincipalName", filters)
 	}
 
 	var retval []idp.User
@@ -151,7 +151,7 @@ func (a *Client) GetGroups(filters []string) ([]idp.Group, error) {
 	client := &http.Client{}
 	getGroupsURL := "https://graph.microsoft.com/v1.0/groups?$select=id,displayName&$expand=members($select=id)"
 	if len(filters) > 0 {
-		getGroupsURL += "&$filter=" + buildPrefixFilter("displayName", filters)
+		getGroupsURL += "&" + buildPrefixFilter("displayName", filters)
 	}
 
 	var retval []idp.Group
@@ -226,6 +226,10 @@ func (a *Client) getAccessToken() (string, error) {
 }
 
 func buildPrefixFilter(field string, prefixes []string) string {
+	return "$filter=" + buildCondition(field, prefixes)
+}
+
+func buildCondition(field string, prefixes []string) string {
 	if len(prefixes) == 0 {
 		return ""
 	}
@@ -234,7 +238,7 @@ func buildPrefixFilter(field string, prefixes []string) string {
 		return fmt.Sprintf("startswith(%s,'%s')", field, prefixes[0])
 	}
 
-	return buildPrefixFilter(field, prefixes[:1]) + "%20or%20" + buildPrefixFilter(field, prefixes[1:])
+	return buildCondition(field, prefixes[:1]) + "%20or%20" + buildCondition(field, prefixes[1:])
 }
 
 type getUsersResponse struct {
