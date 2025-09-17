@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
@@ -107,9 +108,27 @@ func SendPullSYN() error {
 				slog.Warn("error compressing message", "warn", err)
 				continue
 			}
-			encrypted, encryptErr = encryptAESGCM(host.TrafficKeyPublic[0:32], zipped)
+
+			// Get server private key and client public key for AES-GCM encryption
+			trafficKey, trafficErr := logic.RetrievePrivateTrafficKey()
+			if trafficErr != nil {
+				slog.Warn("error retrieving traffic key", "warn", trafficErr)
+				continue
+			}
+			serverPrivKey, err := ncutils.ConvertBytesToKey(trafficKey)
+			if err != nil {
+				slog.Warn("error converting server private key", "warn", err)
+				continue
+			}
+			clientPubKey, err := ncutils.ConvertBytesToKey(host.TrafficKeyPublic)
+			if err != nil {
+				slog.Warn("error converting client public key", "warn", err)
+				continue
+			}
+
+			encrypted, encryptErr = encryptAESGCM(serverPrivKey, clientPubKey, zipped)
 			if encryptErr != nil {
-				slog.Warn("error encrypt with encryptMsg", "warn", encryptErr)
+				slog.Warn("error encrypt with encryptAESGCM", "warn", encryptErr)
 				continue
 			}
 		}
