@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"time"
 
@@ -78,8 +79,13 @@ func migrateNameservers() {
 				Status:    true,
 				CreatedBy: user.UserName,
 			}
-			for _, ip := range netI.NameServers {
-				ns.Servers = append(ns.Servers, ip)
+			for _, nsIP := range netI.NameServers {
+				_, cidr, err := net.ParseCIDR(netI.AddressRange)
+				if err == nil {
+					if !cidr.Contains(net.IP(nsIP)) {
+						ns.Servers = append(ns.Servers, nsIP)
+					}
+				}
 			}
 			ns.Create(db.WithContext(context.TODO()))
 			netI.NameServers = []string{}
