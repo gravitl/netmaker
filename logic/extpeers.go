@@ -70,23 +70,12 @@ func storeExtClientInCache(key string, extclient models.ExtClient) {
 func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 
 	var result []string
-	networkNodes, err := GetNetworkNodes(client.Network)
-	if err != nil {
-		return []string{}, err
-	}
 	eli, _ := (&schema.Egress{Network: client.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	acls, _ := ListAclsByNetwork(models.NetworkID(client.Network))
-	// clientNode := client.ConvertToStaticNode()
-	for _, currentNode := range networkNodes {
-		if currentNode.Network != client.Network {
+	for _, eI := range eli {
+		if !eI.Status || eI.Range == "" {
 			continue
 		}
-		GetNodeEgressInfo(&currentNode, eli, acls)
-		if currentNode.EgressDetails.IsEgressGateway { // add the egress gateway range(s) to the result
-			if len(currentNode.EgressDetails.EgressGatewayRanges) > 0 {
-				result = append(result, currentNode.EgressDetails.EgressGatewayRanges...)
-			}
-		}
+		result = append(result, eI.Range)
 	}
 	extclients, _ := GetNetworkExtClients(client.Network)
 	for _, extclient := range extclients {
