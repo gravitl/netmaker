@@ -64,6 +64,10 @@ func migrateNameservers() {
 	}
 
 	for _, netI := range nets {
+		_, cidr, err := net.ParseCIDR(netI.AddressRange)
+		if err != nil {
+			continue
+		}
 		if len(netI.NameServers) > 0 {
 			ns := schema.Nameserver{
 				ID:           uuid.NewString(),
@@ -79,8 +83,8 @@ func migrateNameservers() {
 				Status:    true,
 				CreatedBy: user.UserName,
 			}
+
 			for _, nsIP := range netI.NameServers {
-				_, cidr, _ := net.ParseCIDR(netI.AddressRange)
 				if !cidr.Contains(net.ParseIP(nsIP)) {
 					ns.Servers = append(ns.Servers, nsIP)
 				}
