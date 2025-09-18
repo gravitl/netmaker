@@ -18,6 +18,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/acls"
+	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
@@ -35,6 +36,7 @@ func Run() {
 	syncUsers()
 	updateHosts()
 	updateNodes()
+	checkAndDeprecateOldAcls()
 	updateAcls()
 	updateNewAcls()
 	logic.MigrateToGws()
@@ -43,6 +45,30 @@ func Run() {
 	migrateNameservers()
 	resync()
 	deleteOldExtclients()
+}
+
+func checkAndDeprecateOldAcls() {
+	// check if everything is allowed on old acl and disable old acls
+	nets, _ := logic.GetNetworks()
+	disableOldAcls := true
+	for _, netI := range nets {
+		networkACL, err := nodeacls.FetchAllACLs(nodeacls.NetworkID(netI.NetID))
+		if err != nil {
+			continue
+		}
+		for id, aclNode := range networkACL {
+			if !aclNode.IsAllowed(id) {
+				disableOldAcls = false
+			}
+		}
+
+	}
+	if disableOldAcls {
+		settings := logic.GetServerSettings()
+		settings.OldAClsSupport = false
+		logic.UpsertServerSettings(settings)
+	}
+
 }
 
 func updateNetworks() {
@@ -430,6 +456,9 @@ func removeInterGw(egressRanges []string) ([]string, bool) {
 
 func updateAcls() {
 	// get all networks
+	if !logic.GetServerSettings().OldAClsSupport {
+		return
+	}
 	networks, err := logic.GetNetworks()
 	if err != nil && !database.IsEmptyRecord(err) {
 		slog.Error("acls migration failed. error getting networks", "error", err)
@@ -807,11 +836,17 @@ func migrateToEgressV1() {
 }
 
 func migrateSettings() {
-	_, err := database.FetchRecord(database.SERVER_SETTINGS, logic.ServerSettingsDBKey)
+	settingsD := make(map[string]interface{})
+	data, err := database.FetchRecord(database.SERVER_SETTINGS, logic.ServerSettingsDBKey)
 	if database.IsEmptyRecord(err) {
 		logic.UpsertServerSettings(logic.GetServerSettingsFromEnv())
+	} else if err == nil {
+		json.Unmarshal([]byte(data), &settingsD)
 	}
 	settings := logic.GetServerSettings()
+	if _, ok := settingsD["old_acl_support"]; !ok {
+		settings.OldAClsSupport = servercfg.IsOldAclEnabled()
+	}
 	if settings.AuditLogsRetentionPeriodInDays == 0 {
 		settings.AuditLogsRetentionPeriodInDays = 7
 	}
