@@ -466,23 +466,6 @@ func getExtClientHAConf(w http.ResponseWriter, r *http.Request) {
 	extclient.IngressGatewayID = targetGwID
 	extclient.Network = networkid
 	extclient.Tags = make(map[models.TagID]struct{})
-	// extclient.Tags[models.TagID(fmt.Sprintf("%s.%s", extclient.Network,
-	// 	models.RemoteAccessTagName))] = struct{}{}
-	// set extclient dns to ingressdns if extclient dns is not explicitly set
-	if (extclient.DNS == "") && (gwnode.IngressDNS != "") {
-		network, _ := logic.GetNetwork(gwnode.Network)
-		dns := gwnode.IngressDNS
-		if len(network.NameServers) > 0 {
-			if dns == "" {
-				dns = strings.Join(network.NameServers, ",")
-			} else {
-				dns += "," + strings.Join(network.NameServers, ",")
-			}
-
-		}
-		extclient.DNS = dns
-
-	}
 
 	listenPort := logic.GetPeerListenPort(host)
 	extclient.IngressGatewayEndpoint = fmt.Sprintf("%s:%d", host.EndpointIP.String(), listenPort)
@@ -505,6 +488,11 @@ func getExtClientHAConf(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
+	}
+	logic.SetDNSOnWgConfig(&gwnode, &client)
+	defaultDNS := ""
+	if client.DNS != "" {
+		defaultDNS = "DNS = " + client.DNS
 	}
 	addrString := client.Address
 	if addrString != "" {
@@ -551,13 +539,6 @@ func getExtClientHAConf(w http.ResponseWriter, r *http.Request) {
 	} else {
 		gwendpoint = fmt.Sprintf("%s:%d", host.EndpointIP.String(), host.ListenPort)
 	}
-	defaultDNS := ""
-	if client.DNS != "" {
-		defaultDNS = "DNS = " + client.DNS
-	} else if gwnode.IngressDNS != "" {
-		defaultDNS = "DNS = " + gwnode.IngressDNS
-	}
-
 	defaultMTU := 1420
 	if host.MTU != 0 {
 		defaultMTU = host.MTU
@@ -630,6 +611,7 @@ Endpoint = %s
 
 	name := client.ClientID + ".conf"
 	w.Header().Set("Content-Type", "application/config")
+	w.Header().Set("Client-ID", client.ClientID)
 	w.Header().Set("Content-Disposition", "attachment; filename=\""+name+"\"")
 	w.WriteHeader(http.StatusOK)
 	_, err = fmt.Fprint(w, config)
