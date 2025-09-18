@@ -1498,6 +1498,10 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
+		if extClient.RemoteAccessClientID == "" {
+			continue
+		}
+
 		_, ok := userExtClients[extClient.IngressGatewayID]
 		if !ok {
 			userExtClients[extClient.IngressGatewayID] = []models.ExtClient{}
@@ -1526,11 +1530,19 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if !found {
-			// TODO: prevent ip clashes.
-			if len(extClients) > 0 {
-				gwClient = extClients[0]
+		if !found && req.RemoteAccessClientID != "" {
+			for _, extClient := range extClients {
+				if extClient.RemoteAccessClientID == req.RemoteAccessClientID {
+					gwClient = extClient
+					found = true
+					break
+				}
 			}
+		}
+
+		if !found && len(extClients) > 0 {
+			// TODO: prevent ip clashes.
+			gwClient = extClients[0]
 		}
 
 		host, err := logic.GetHost(node.HostID.String())
