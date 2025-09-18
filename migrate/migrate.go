@@ -85,6 +85,9 @@ func migrateNameservers() {
 			}
 
 			for _, nsIP := range netI.NameServers {
+				if net.ParseIP(nsIP) == nil {
+					continue
+				}
 				if !cidr.Contains(net.ParseIP(nsIP)) {
 					ns.Servers = append(ns.Servers, nsIP)
 				}
