@@ -434,25 +434,6 @@ func validateNameserverReq(ns schema.Nameserver) error {
 	if len(ns.Servers) == 0 {
 		return errors.New("atleast one nameserver should be specified")
 	}
-	network, err := GetNetwork(ns.NetworkID)
-	if err != nil {
-		return errors.New("invalid network id")
-	}
-	_, cidr, err4 := net.ParseCIDR(network.AddressRange)
-	_, cidr6, err6 := net.ParseCIDR(network.AddressRange6)
-	for _, nsIPStr := range ns.Servers {
-		nsIP := net.ParseIP(nsIPStr)
-		if nsIP == nil {
-			return errors.New("invalid nameserver " + nsIPStr)
-		}
-		if err4 == nil && nsIP.To4() != nil {
-			if cidr.Contains(nsIP) {
-				return errors.New("cannot use netmaker IP as nameserver")
-			}
-		} else if err6 == nil && cidr6.Contains(nsIP) {
-			return errors.New("cannot use netmaker IP as nameserver")
-		}
-	}
 	if !ns.MatchAll && len(ns.MatchDomains) == 0 {
 		return errors.New("atleast one match domain is required")
 	}
