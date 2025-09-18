@@ -825,6 +825,8 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(extclient)
+
 	go func() {
 		if err := logic.SetClientDefaultACLs(&extclient); err != nil {
 			slog.Error(
