@@ -620,6 +620,22 @@ func GetUserGroup(gid models.UserGroupID) (models.UserGroup, error) {
 	return ug, nil
 }
 
+func GetDefaultGlobalAdminGroupID() models.UserGroupID {
+	return globalNetworksAdminGroupID
+}
+
+func GetDefaultGlobalUserGroupID() models.UserGroupID {
+	return globalNetworksUserGroupID
+}
+
+func GetDefaultGlobalAdminRoleID() models.UserRoleID {
+	return globalNetworksAdminRoleID
+}
+
+func GetDefaultGlobalUserRoleID() models.UserRoleID {
+	return globalNetworksUserRoleID
+}
+
 func GetDefaultNetworkAdminGroupID(networkID models.NetworkID) models.UserGroupID {
 	return models.UserGroupID(fmt.Sprintf("%s-%s-grp", networkID, models.NetworkAdmin))
 }
@@ -670,6 +686,52 @@ func UpdateUserGroup(g models.UserGroup) error {
 	}
 
 	return database.Insert(g.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
+}
+
+func DeleteAndCleanUpGroup(group *models.UserGroup) error {
+	err := DeleteUserGroup(group.ID)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		var replacePeers bool
+		for networkID := range group.NetworkRoles {
+			acls, err := logic.ListAclsByNetwork(networkID)
+			if err != nil {
+				continue
+			}
+
+			for _, acl := range acls {
+				var hasGroupSrc bool
+				newAclSrc := make([]models.AclPolicyTag, 0)
+				for _, src := range acl.Src {
+					if src.ID == models.UserGroupAclID && src.Value == group.ID.String() {
+						hasGroupSrc = true
+					} else {
+						newAclSrc = append(newAclSrc, src)
+					}
+				}
+
+				if hasGroupSrc {
+					if len(newAclSrc) == 0 {
+						// no other src exists, delete acl.
+						_ = logic.DeleteAcl(acl)
+					} else {
+						// other sources exist, update acl.
+						acl.Src = newAclSrc
+						_ = logic.UpsertAcl(acl)
+					}
+					replacePeers = true
+				}
+			}
+		}
+
+		go UpdatesUserGwAccessOnGrpUpdates(group.ID, group.NetworkRoles, make(map[models.NetworkID]map[models.UserRoleID]struct{}))
+		go mq.PublishPeerUpdate(replacePeers)
+	}()
+
+	return nil
 }
 
 // DeleteUserGroup - deletes user group

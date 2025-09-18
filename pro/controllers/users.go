@@ -808,11 +808,13 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot delete default user group"), "badrequest"))
 		return
 	}
-	err = proLogic.DeleteUserGroup(models.UserGroupID(gid))
+	err = proLogic.DeleteAndCleanUpGroup(&userG)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+
+	// TODO: log event in proLogic.DeleteAndCleanUpGroup so that all deletions are logged.
 	logic.LogEvent(&models.Event{
 		Action: models.Delete,
 		Source: models.Subject{
@@ -828,42 +830,7 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: models.Dashboard,
 	})
-	replacePeers := false
-	go func() {
-		for networkID := range userG.NetworkRoles {
-			acls, err := logic.ListAclsByNetwork(networkID)
-			if err != nil {
-				continue
-			}
 
-			for _, acl := range acls {
-				var hasGroupSrc bool
-				newAclSrc := make([]models.AclPolicyTag, 0)
-				for _, src := range acl.Src {
-					if src.ID == models.UserGroupAclID && src.Value == userG.ID.String() {
-						hasGroupSrc = true
-					} else {
-						newAclSrc = append(newAclSrc, src)
-					}
-				}
-
-				if hasGroupSrc {
-					if len(newAclSrc) == 0 {
-						// no other src exists, delete acl.
-						_ = logic.DeleteAcl(acl)
-					} else {
-						// other sources exist, update acl.
-						acl.Src = newAclSrc
-						_ = logic.UpsertAcl(acl)
-					}
-					replacePeers = true
-				}
-			}
-		}
-	}()
-
-	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userG.ID, userG.NetworkRoles, make(map[models.NetworkID]map[models.UserRoleID]struct{}))
-	go mq.PublishPeerUpdate(replacePeers)
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user group")
 }
 
