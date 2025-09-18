@@ -989,6 +989,13 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	network := params["network"]
 	extclient, err := logic.GetExtClient(clientid, network)
 	if err != nil {
+		if database.IsEmptyRecord(err) {
+			logger.Log(0, r.Header.Get("user"),
+				"Deleted extclient client", params["clientid"], "from network", params["network"])
+			logic.ReturnSuccessResponse(w, r, params["clientid"]+" deleted.")
+			return
+		}
+
 		err = errors.New("Could not delete extclient " + params["clientid"])
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get extclient [%s],network [%s]: %v", clientid, network, err))
