@@ -72,12 +72,9 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 		if !nodeI.IsStatic || nodeI.IsUserNode {
 			continue
 		}
-		if !node.StaticNode.Enabled {
+		if !nodeI.StaticNode.Enabled {
 			continue
 		}
-		// if nodeI.StaticNode.IngressGatewayID != node.ID.String() {
-		// 	continue
-		// }
 		if IsNodeAllowedToCommunicateWithAllRsrcs(nodeI) {
 			if nodeI.Address.IP != nil {
 				rules = append(rules, models.FwRule{
