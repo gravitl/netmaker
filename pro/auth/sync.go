@@ -280,7 +280,11 @@ func syncGroups(idpGroups []idp.Group) error {
 			dbGroup.ExternalIdentityProviderID = group.ID
 			dbGroup.Name = group.Name
 			dbGroup.Default = false
-			dbGroup.NetworkRoles = make(map[models.NetworkID]map[models.UserRoleID]struct{})
+			dbGroup.NetworkRoles = map[models.NetworkID]map[models.UserRoleID]struct{}{
+				models.AllNetworks: {
+					proLogic.GetDefaultGlobalUserRoleID(): {},
+				},
+			}
 			err := proLogic.CreateUserGroup(&dbGroup)
 			if err != nil {
 				return err

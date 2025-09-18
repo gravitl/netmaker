@@ -620,6 +620,22 @@ func GetUserGroup(gid models.UserGroupID) (models.UserGroup, error) {
 	return ug, nil
 }
 
+func GetDefaultGlobalAdminGroupID() models.UserGroupID {
+	return globalNetworksAdminGroupID
+}
+
+func GetDefaultGlobalUserGroupID() models.UserGroupID {
+	return globalNetworksUserGroupID
+}
+
+func GetDefaultGlobalAdminRoleID() models.UserRoleID {
+	return globalNetworksAdminRoleID
+}
+
+func GetDefaultGlobalUserRoleID() models.UserRoleID {
+	return globalNetworksUserRoleID
+}
+
 func GetDefaultNetworkAdminGroupID(networkID models.NetworkID) models.UserGroupID {
 	return models.UserGroupID(fmt.Sprintf("%s-%s-grp", networkID, models.NetworkAdmin))
 }
