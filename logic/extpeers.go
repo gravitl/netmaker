@@ -72,7 +72,6 @@ func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 	var result []string
 	eli, _ := (&schema.Egress{Network: client.Network}).ListByNetwork(db.WithContext(context.TODO()))
 	staticNode := client.ConvertToStaticNode()
-	devicePolicies := ListDevicePolicies(models.NetworkID(client.Network))
 	userPolicies := ListUserPolicies(models.NetworkID(client.Network))
 	for _, eI := range eli {
 		if !eI.Status {
