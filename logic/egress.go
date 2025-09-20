@@ -181,7 +181,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 }
 
 func GetEgressDomainsByAccess(user *models.User, network models.NetworkID) (domains []string) {
-	acls, _ := ListAclsByNetwork(network)
+	acls := ListUserPolicies(network)
 	eli, _ := (&schema.Egress{Network: network.String()}).ListByNetwork(db.WithContext(context.TODO()))
 	defaultDevicePolicy, _ := GetDefaultPolicy(network, models.DevicePolicy)
 	isDefaultPolicyActive := defaultDevicePolicy.Enabled

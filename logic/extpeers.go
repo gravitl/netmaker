@@ -71,11 +71,36 @@ func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 
 	var result []string
 	eli, _ := (&schema.Egress{Network: client.Network}).ListByNetwork(db.WithContext(context.TODO()))
+	staticNode := client.ConvertToStaticNode()
+	devicePolicies := ListDevicePolicies(models.NetworkID(client.Network))
+	userPolicies := ListUserPolicies(models.NetworkID(client.Network))
 	for _, eI := range eli {
-		if !eI.Status || eI.Range == "" {
+		if !eI.Status {
 			continue
 		}
-		result = append(result, eI.Range)
+		if eI.Domain == "" && eI.Range == "" {
+			continue
+		}
+		if eI.Domain != "" && len(eI.DomainAns) == 0 {
+			continue
+		}
+		rangesToBeAdded := []string{}
+		if eI.Domain != "" {
+			rangesToBeAdded = append(rangesToBeAdded, eI.DomainAns...)
+		} else {
+			rangesToBeAdded = append(rangesToBeAdded, eI.Range)
+		}
+		if staticNode.IsUserNode && staticNode.StaticNode.OwnerID != "" {
+			user, err := GetUser(staticNode.StaticNode.OwnerID)
+			if err != nil {
+				return []string{}, errors.New("user not found")
+			}
+			if DoesUserHaveAccessToEgress(user, &eI, userPolicies) {
+				result = append(result, rangesToBeAdded...)
+			}
+		} else {
+			result = append(result, rangesToBeAdded...)
+		}
 	}
 	extclients, _ := GetNetworkExtClients(client.Network)
 	for _, extclient := range extclients {
