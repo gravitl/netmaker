@@ -1465,18 +1465,6 @@ func GetDefaultPolicy(netID models.NetworkID, ruleType models.AclPolicyType) (mo
 	return acl, nil
 }
 
-// ListUserPolicies - lists all user policies in a network
-func ListUserPolicies(netID models.NetworkID) []models.Acl {
-	allAcls := ListAcls()
-	userAcls := []models.Acl{}
-	for _, acl := range allAcls {
-		if acl.NetworkID == netID && acl.RuleType == models.UserPolicy {
-			userAcls = append(userAcls, acl)
-		}
-	}
-	return userAcls
-}
-
 // ListAcls - lists all acl policies
 func ListAclsByNetwork(netID models.NetworkID) ([]models.Acl, error) {
 
@@ -1520,6 +1508,18 @@ func ListDevicePolicies(netID models.NetworkID) []models.Acl {
 		}
 	}
 	return deviceAcls
+}
+
+// ListUserPolicies - lists all user policies in a network
+func ListUserPolicies(netID models.NetworkID) []models.Acl {
+	allAcls := ListAcls()
+	userAcls := []models.Acl{}
+	for _, acl := range allAcls {
+		if acl.NetworkID == netID && acl.RuleType == models.UserPolicy {
+			userAcls = append(userAcls, acl)
+		}
+	}
+	return userAcls
 }
 
 func ConvAclTagToValueMap(acltags []models.AclPolicyTag) map[string]struct{} {
