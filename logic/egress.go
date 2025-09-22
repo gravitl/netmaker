@@ -37,7 +37,6 @@ func ValidateEgressReq(e *schema.Egress) error {
 }
 
 func DoesUserHaveAccessToEgress(user *models.User, e *schema.Egress, acls []models.Acl) bool {
-
 	if !e.Status {
 		return false
 	}
