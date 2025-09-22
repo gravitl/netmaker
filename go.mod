@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/eclipse/paho.mqtt.golang v1.5.0
+	github.com/eclipse/paho.mqtt.golang v1.5.1
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/google/uuid v1.6.0
@@ -19,7 +19,7 @@ require (
 	github.com/txn2/txeh v1.5.5
 	go.uber.org/automaxprocs v1.6.0
 	golang.org/x/crypto v0.42.0
-	golang.org/x/net v0.43.0 // indirect
+	golang.org/x/net v0.44.0 // indirect
 	golang.org/x/oauth2 v0.30.0
 	golang.org/x/sys v0.36.0 // indirect
 	golang.org/x/text v0.29.0 // indirect
