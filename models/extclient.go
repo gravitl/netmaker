@@ -66,7 +66,7 @@ func (ext *ExtClient) ConvertToStaticNode() Node {
 		Tags:       ext.Tags,
 		IsStatic:   true,
 		StaticNode: *ext,
-		IsUserNode: ext.RemoteAccessClientID != "",
+		IsUserNode: ext.RemoteAccessClientID != "" || ext.DeviceID != "",
 		Mutex:      ext.Mutex,
 	}
 }
