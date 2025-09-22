@@ -226,9 +226,7 @@ func GetGwDNS(node *models.Node) string {
 }
 
 func SetDNSOnWgConfig(gwNode *models.Node, extclient *models.ExtClient) {
-	if extclient.DNS == "" {
-		extclient.DNS = GetGwDNS(gwNode)
-	}
+	extclient.DNS = GetGwDNS(gwNode)
 }
 
 // GetCustomDNS - gets the custom DNS of a network
