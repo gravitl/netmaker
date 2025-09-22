@@ -363,8 +363,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	var sendPeerUpdate bool
-	var replacePeers bool
+	var sendPeerUpdate, sendDeletedNodeUpdate, replacePeers bool
 	var hostUpdate models.HostUpdate
 	err = json.NewDecoder(r.Body).Decode(&hostUpdate)
 	if err != nil {
@@ -388,7 +387,8 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 			return
 		}
-
+	case models.UpdateNode:
+		sendPeerUpdate, sendDeletedNodeUpdate = logic.UpdateHostNode(&hostUpdate.Host, &hostUpdate.Node)
 	case models.UpdateMetrics:
 		mq.UpdateMetricsFallBack(hostUpdate.Node.ID.String(), hostUpdate.NewMetrics)
 	case models.EgressUpdate:
@@ -404,13 +404,18 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 		}
 		sendPeerUpdate = true
 	}
-
-	if sendPeerUpdate {
-		err := mq.PublishPeerUpdate(replacePeers)
-		if err != nil {
-			slog.Error("failed to publish peer update", "error", err)
+	go func() {
+		if sendDeletedNodeUpdate {
+			mq.PublishDeletedNodePeerUpdate(&hostUpdate.Node)
 		}
-	}
+		if sendPeerUpdate {
+			err := mq.PublishPeerUpdate(replacePeers)
+			if err != nil {
+				slog.Error("failed to publish peer update", "error", err)
+			}
+		}
+	}()
+
 	logic.ReturnSuccessResponse(w, r, "updated host data")
 }
 
