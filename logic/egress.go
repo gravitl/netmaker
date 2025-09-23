@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"maps"
+	"strings"
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
@@ -182,7 +183,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 func GetEgressDomainsByAccess(user *models.User, network models.NetworkID) (domains []string) {
 	acls, _ := ListAclsByNetwork(network)
 	eli, _ := (&schema.Egress{Network: network.String()}).ListByNetwork(db.WithContext(context.TODO()))
-	defaultDevicePolicy, _ := GetDefaultPolicy(network, models.DevicePolicy)
+	defaultDevicePolicy, _ := GetDefaultPolicy(network, models.UserPolicy)
 	isDefaultPolicyActive := defaultDevicePolicy.Enabled
 	for _, e := range eli {
 		if !e.Status || e.Network != network.String() {
@@ -194,7 +195,8 @@ func GetEgressDomainsByAccess(user *models.User, network models.NetworkID) (doma
 			}
 		}
 		if e.Domain != "" && len(e.DomainAns) > 0 {
-			domains = append(domains, e.Domain)
+			domains = append(domains, BaseDomain(e.Domain))
+
 		}
 	}
 	return
@@ -301,26 +303,36 @@ func GetEgressRanges(netID models.NetworkID) (map[string][]string, map[string]st
 }
 
 func ListAllByRoutingNodeWithDomain(egs []schema.Egress, nodeID string) (egWithDomain []models.EgressDomain) {
+	node, err := GetNodeByID(nodeID)
+	if err != nil {
+		return
+	}
+	host, err := GetHost(node.HostID.String())
+	if err != nil {
+		return
+	}
 	for _, egI := range egs {
 		if !egI.Status || egI.Domain == "" {
 			continue
 		}
 		if _, ok := egI.Nodes[nodeID]; ok {
-			node, err := GetNodeByID(nodeID)
-			if err != nil {
-				continue
-			}
-			host, err := GetHost(node.HostID.String())
-			if err != nil {
-				continue
-			}
+
 			egWithDomain = append(egWithDomain, models.EgressDomain{
 				ID:     egI.ID,
 				Domain: egI.Domain,
 				Node:   node,
 				Host:   *host,
 			})
+
 		}
 	}
 	return
+}
+
+func BaseDomain(host string) string {
+	parts := strings.Split(host, ".")
+	if len(parts) < 2 {
+		return host // not a FQDN
+	}
+	return strings.Join(parts[len(parts)-2:], ".")
 }
