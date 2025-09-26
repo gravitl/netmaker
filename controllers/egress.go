@@ -233,11 +233,19 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	}
 	var updateNat bool
 	var updateStatus bool
+	var resetDomain bool
+	var resetRange bool
 	if req.Nat != e.Nat {
 		updateNat = true
 	}
 	if req.Status != e.Status {
 		updateStatus = true
+	}
+	if req.Domain == "" {
+		resetDomain = true
+	}
+	if req.Range == "" || egressRange == "" {
+		resetRange = true
 	}
 	event := &models.Event{
 		Action: models.Update,
@@ -293,6 +301,12 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	if updateStatus {
 		e.Status = req.Status
 		e.UpdateEgressStatus(db.WithContext(context.TODO()))
+	}
+	if resetDomain {
+		_ = e.ResetDomain(db.WithContext(context.TODO()))
+	}
+	if resetRange {
+		_ = e.ResetRange(db.WithContext(context.TODO()))
 	}
 	event.Diff.New = e
 	logic.LogEvent(event)
