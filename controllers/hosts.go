@@ -403,6 +403,8 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			e.Update(db.WithContext(r.Context()))
 		}
 		sendPeerUpdate = true
+	case models.SignalHost:
+		mq.SignalPeer(hostUpdate.Signal)
 	}
 	go func() {
 		if sendDeletedNodeUpdate {

@@ -171,7 +171,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 		}
 		sendPeerUpdate = true
 	case models.SignalHost:
-		signalPeer(hostUpdate.Signal)
+		SignalPeer(hostUpdate.Signal)
 
 	}
 
@@ -183,7 +183,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	}
 }
 
-func signalPeer(signal models.Signal) {
+func SignalPeer(signal models.Signal) {
 
 	if signal.ToHostPubKey == "" {
 		msg := "insufficient data to signal peer"
