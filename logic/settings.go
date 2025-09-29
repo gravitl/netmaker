@@ -245,6 +245,8 @@ func GetServerInfo() models.ServerConfig {
 	cfg.StunServers = serverSettings.StunServers
 	cfg.DefaultDomain = serverSettings.DefaultDomain
 	cfg.EndpointDetection = serverSettings.EndpointDetection
+	key, _ := RetrievePublicTrafficKey()
+	cfg.TrafficKey = key
 	return cfg
 }
 

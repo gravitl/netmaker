@@ -232,19 +232,11 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	serverConf := logic.GetServerInfo()
-	key, keyErr := logic.RetrievePublicTrafficKey()
-	if keyErr != nil {
-		logger.Log(0, "error retrieving key:", keyErr.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(keyErr, "internal"))
-		return
-	}
 	_ = logic.CheckHostPorts(host)
-	serverConf.TrafficKey = key
 	response := models.HostPull{
 		Host:              *host,
 		Nodes:             logic.GetHostNodes(host),
-		ServerConfig:      serverConf,
+		ServerConfig:      hPU.ServerConfig,
 		Peers:             hPU.Peers,
 		PeerIDs:           hPU.PeerIDs,
 		HostNetworkInfo:   hPU.HostNetworkInfo,
@@ -257,6 +249,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		EgressWithDomains: hPU.EgressWithDomains,
 		EndpointDetection: logic.IsEndpointDetectionEnabled(),
 		DnsNameservers:    hPU.DnsNameservers,
+		ReplacePeers:      hPU.ReplacePeers,
 	}
 
 	logger.Log(1, hostID, host.Name, "completed a pull")
