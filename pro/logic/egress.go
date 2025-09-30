@@ -1,8 +1,10 @@
 package logic
 
 import (
+	"context"
 	"errors"
 
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -42,4 +44,14 @@ func ValidateEgressReq(e *schema.Egress) error {
 		}
 	}
 	return nil
+}
+
+func RemoveTagFromEgress(net models.NetworkID, tagID models.TagID) {
+	eli, _ := (&schema.Egress{Network: net.String()}).ListByNetwork(db.WithContext(context.TODO()))
+	for _, eI := range eli {
+		if _, ok := eI.Tags[tagID.String()]; ok {
+			delete(eI.Tags, tagID.String())
+			eI.Update(db.WithContext(context.TODO()))
+		}
+	}
 }
