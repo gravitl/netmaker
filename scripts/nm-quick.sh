@@ -150,12 +150,12 @@ setup_netclient() {
 # configure_netclient - configures server's netclient as a default host and an ingress gateway
 configure_netclient() {
 	sleep 2
-	NODE_ID=$(sudo cat /etc/netclient/nodes.json | jq -r .netmaker.id)
-	if [ "$NODE_ID" = "" ] || [ "$NODE_ID" = "null" ]; then
-		echo "Error obtaining NODE_ID for the new network"
-		exit 1
-	fi
-	echo "register complete. New node ID: $NODE_ID"
+	# NODE_ID=$(sudo cat /etc/netclient/nodes.json | jq -r .netmaker.id)
+	# if [ "$NODE_ID" = "" ] || [ "$NODE_ID" = "null" ]; then
+	# 	echo "Error obtaining NODE_ID for the new network"
+	# 	exit 1
+	# fi
+	# echo "register complete. New node ID: $NODE_ID"
 	HOST_ID=$(sudo cat /etc/netclient/netclient.json | jq -r .id)
 	if [ "$HOST_ID" = "" ] || [ "$HOST_ID" = "null" ]; then
 		echo "Error obtaining HOST_ID for the new network"
