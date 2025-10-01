@@ -338,8 +338,6 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-	} else {
-		go mq.PublishPeerUpdate(false)
 	}
 	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, e, "updated egress resource")
