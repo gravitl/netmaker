@@ -17,6 +17,7 @@ const (
 )
 
 type FeatureFlags struct {
+	EnableEgressHA          bool `json:"enable_egress_ha"`
 	EnableNetworkActivity   bool `json:"enable_network_activity"`
 	EnableOAuth             bool `json:"enable_oauth"`
 	EnableIDPIntegration    bool `json:"enable_idp_integration"`
