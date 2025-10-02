@@ -33,7 +33,6 @@ func ValidateEgressReq(e *schema.Egress) error {
 			}
 		}
 	}
-	e.Tags = make(datatypes.JSONMap)
 	if len(e.Tags) > 0 {
 		e.Nodes = make(datatypes.JSONMap)
 		for tagID := range e.Tags {
