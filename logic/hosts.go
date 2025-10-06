@@ -394,6 +394,8 @@ func UpdateHostNode(h *models.Host, newNode *models.Node) (publishDeletedNodeUpd
 			publishDeletedNodeUpdate = true
 		}
 		publishPeerUpdate = true
+		// reset failover data for this node
+		ResetFailedOverPeer(newNode)
 	}
 	return
 }
