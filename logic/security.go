@@ -2,9 +2,10 @@ package logic
 
 import (
 	"errors"
-	"github.com/golang-jwt/jwt/v4"
 	"net/http"
 	"strings"
+
+	"github.com/golang-jwt/jwt/v4"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/models"
@@ -24,7 +25,6 @@ var GlobalPermissionsCheck = func(username string, r *http.Request) error { retu
 
 // SecurityCheck - Check if user has appropriate permissions
 func SecurityCheck(reqAdmin bool, next http.Handler) http.HandlerFunc {
-
 	return func(w http.ResponseWriter, r *http.Request) {
 		r.Header.Set("ismaster", "no")
 		isGlobalAccesss := r.Header.Get("IS_GLOBAL_ACCESS") == "yes"

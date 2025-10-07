@@ -43,6 +43,20 @@ var PlatformUserUserPermissionTemplate = models.UserRolePermissionTemplate{
 	},
 }
 
+var AuditorUserPermissionTemplate = models.UserRolePermissionTemplate{
+	ID:                  models.Auditor,
+	Default:             true,
+	DenyDashboardAccess: false,
+	FullAccess:          false,
+	NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
+		models.NetworkRsrc: {
+			models.AllNetworkRsrcID: models.RsrcPermissionScope{
+				Read: true,
+			},
+		},
+	},
+}
+
 var NetworkAdminAllPermissionTemplate = models.UserRolePermissionTemplate{
 	ID:         globalNetworksAdminRoleID,
 	Name:       "Network Admins",
@@ -122,6 +136,8 @@ func UserRolesInit() {
 	database.Insert(ServiceUserPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
 	d, _ = json.Marshal(PlatformUserUserPermissionTemplate)
 	database.Insert(PlatformUserUserPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
+	d, _ = json.Marshal(AuditorUserPermissionTemplate)
+	database.Insert(AuditorUserPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
 	d, _ = json.Marshal(NetworkAdminAllPermissionTemplate)
 	database.Insert(NetworkAdminAllPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
 	d, _ = json.Marshal(NetworkUserAllPermissionTemplate)
@@ -992,6 +1008,13 @@ func FilterNetworksByRole(allnetworks []models.Network, user models.User) []mode
 	}
 	if !platformRole.FullAccess {
 		allNetworkRoles := make(map[models.NetworkID]struct{})
+		_, ok := platformRole.NetworkLevelAccess[models.NetworkRsrc]
+		if ok {
+			perm, ok := platformRole.NetworkLevelAccess[models.NetworkRsrc][models.AllNetworkRsrcID]
+			if ok && perm.Read {
+				return allnetworks
+			}
+		}
 		if len(user.NetworkRoles) > 0 {
 			for netID := range user.NetworkRoles {
 				if netID == models.AllNetworks {
@@ -1011,7 +1034,6 @@ func FilterNetworksByRole(allnetworks []models.Network, user models.User) []mode
 								return allnetworks
 							}
 							allNetworkRoles[netID] = struct{}{}
-
 						}
 					}
 				}

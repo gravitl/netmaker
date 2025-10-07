@@ -44,6 +44,15 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 	if userRole.FullAccess {
 		return nil
 	}
+
+	if userRole.ID == models.Auditor {
+		if r.Method == http.MethodGet {
+			return nil
+		} else {
+			return errors.New("access denied")
+		}
+	}
+
 	// get info from header to determine the target rsrc
 	targetRsrc := r.Header.Get("TARGET_RSRC")
 	targetRsrcID := r.Header.Get("TARGET_RSRC_ID")
@@ -160,6 +169,15 @@ func GlobalPermissionsCheck(username string, r *http.Request) error {
 	if userRole.FullAccess {
 		return nil
 	}
+
+	if userRole.ID == models.Auditor {
+		if r.Method == http.MethodGet {
+			return nil
+		} else {
+			return errors.New("access denied")
+		}
+	}
+
 	targetRsrc := r.Header.Get("TARGET_RSRC")
 	targetRsrcID := r.Header.Get("TARGET_RSRC_ID")
 	if targetRsrc == "" {

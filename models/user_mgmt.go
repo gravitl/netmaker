@@ -102,6 +102,7 @@ const (
 	AdminRole      UserRoleID = "admin"
 	ServiceUser    UserRoleID = "service-user"
 	PlatformUser   UserRoleID = "platform-user"
+	Auditor        UserRoleID = "auditor"
 	NetworkAdmin   UserRoleID = "network-admin"
 	NetworkUser    UserRoleID = "network-user"
 )
