@@ -207,7 +207,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 	for _, nodeID := range host.Nodes {
 		node, err := logic.GetNodeByID(nodeID)
 		if err != nil {
-			slog.Error("failed to get node:", "id", node.ID, "error", err)
+			//slog.Error("failed to get node:", "id", node.ID, "error", err)
 			continue
 		}
 		if node.FailedOverBy != uuid.Nil && r.URL.Query().Get("reset_failovered") == "true" {
