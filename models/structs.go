@@ -266,6 +266,7 @@ type HostPull struct {
 	NameServers       []string              `json:"name_servers"`
 	EgressWithDomains []EgressDomain        `json:"egress_with_domains"`
 	DnsNameservers    []Nameserver          `json:"dns_nameservers"`
+	ReplacePeers      bool                  `json:"replace_peers"`
 }
 
 type DefaultGwInfo struct {

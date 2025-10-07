@@ -210,7 +210,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 			//slog.Error("failed to get node:", "id", node.ID, "error", err)
 			continue
 		}
-		if node.FailedOverBy != uuid.Nil && r.URL.Query().Get("reset_failovered") == "true" {
+		if r.URL.Query().Get("reset_failovered") == "true" {
 			logic.ResetFailedOverPeer(&node)
 			sendPeerUpdate = true
 		}
@@ -232,19 +232,11 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	serverConf := logic.GetServerInfo()
-	key, keyErr := logic.RetrievePublicTrafficKey()
-	if keyErr != nil {
-		logger.Log(0, "error retrieving key:", keyErr.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(keyErr, "internal"))
-		return
-	}
 	_ = logic.CheckHostPorts(host)
-	serverConf.TrafficKey = key
 	response := models.HostPull{
 		Host:              *host,
 		Nodes:             logic.GetHostNodes(host),
-		ServerConfig:      serverConf,
+		ServerConfig:      hPU.ServerConfig,
 		Peers:             hPU.Peers,
 		PeerIDs:           hPU.PeerIDs,
 		HostNetworkInfo:   hPU.HostNetworkInfo,
@@ -257,6 +249,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		EgressWithDomains: hPU.EgressWithDomains,
 		EndpointDetection: logic.IsEndpointDetectionEnabled(),
 		DnsNameservers:    hPU.DnsNameservers,
+		ReplacePeers:      hPU.ReplacePeers,
 	}
 
 	logger.Log(1, hostID, host.Name, "completed a pull")
@@ -363,8 +356,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	var sendPeerUpdate bool
-	var replacePeers bool
+	var sendPeerUpdate, sendDeletedNodeUpdate, replacePeers bool
 	var hostUpdate models.HostUpdate
 	err = json.NewDecoder(r.Body).Decode(&hostUpdate)
 	if err != nil {
@@ -376,6 +368,10 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	switch hostUpdate.Action {
 	case models.CheckIn:
 		sendPeerUpdate = mq.HandleHostCheckin(&hostUpdate.Host, currentHost)
+		changed := logic.CheckHostPorts(currentHost)
+		if changed {
+			mq.HostUpdate(&models.HostUpdate{Action: models.UpdateHost, Host: *currentHost})
+		}
 	case models.UpdateHost:
 		if hostUpdate.Host.PublicKey != currentHost.PublicKey {
 			//remove old peer entry
@@ -388,7 +384,8 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 			return
 		}
-
+	case models.UpdateNode:
+		sendDeletedNodeUpdate, sendPeerUpdate = logic.UpdateHostNode(&hostUpdate.Host, &hostUpdate.Node)
 	case models.UpdateMetrics:
 		mq.UpdateMetricsFallBack(hostUpdate.Node.ID.String(), hostUpdate.NewMetrics)
 	case models.EgressUpdate:
@@ -403,14 +400,24 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			e.Update(db.WithContext(r.Context()))
 		}
 		sendPeerUpdate = true
+	case models.SignalHost:
+		mq.SignalPeer(hostUpdate.Signal)
+	case models.DeleteHost:
+		mq.DeleteAndCleanupHost(currentHost)
+		sendPeerUpdate = true
 	}
-
-	if sendPeerUpdate {
-		err := mq.PublishPeerUpdate(replacePeers)
-		if err != nil {
-			slog.Error("failed to publish peer update", "error", err)
+	go func() {
+		if sendDeletedNodeUpdate {
+			mq.PublishDeletedNodePeerUpdate(&hostUpdate.Node)
 		}
-	}
+		if sendPeerUpdate {
+			err := mq.PublishPeerUpdate(replacePeers)
+			if err != nil {
+				slog.Error("failed to publish peer update", "error", err)
+			}
+		}
+	}()
+
 	logic.ReturnSuccessResponse(w, r, "updated host data")
 }
 

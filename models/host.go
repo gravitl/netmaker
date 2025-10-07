@@ -106,6 +106,8 @@ const (
 	SignalHost HostMqAction = "SIGNAL_HOST"
 	// UpdateHost - constant for host update action
 	UpdateHost HostMqAction = "UPDATE_HOST"
+	// UpdateNode - constant for Node update action
+	UpdateNode HostMqAction = "UPDATE_NODE"
 	// DeleteHost - constant for host delete action
 	DeleteHost HostMqAction = "DELETE_HOST"
 	// JoinHostToNetwork - constant for host network join action

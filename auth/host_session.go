@@ -226,7 +226,7 @@ func SessionHandler(conn *websocket.Conn) {
 		if err = conn.WriteMessage(messageType, reponseData); err != nil {
 			logger.Log(0, "error during message writing:", err.Error())
 		}
-		go CheckNetRegAndHostUpdate(models.EnrollmentKey{Networks: netsToAdd}, &result.Host, "")
+		go CheckNetRegAndHostUpdate(models.EnrollmentKey{Value: "user auth", Tags: []string{registerMessage.User}, Networks: netsToAdd}, &result.Host, "")
 	case <-timeout: // the read from req.answerCh has timed out
 		logger.Log(0, "timeout signal recv,exiting oauth socket conn")
 		break
