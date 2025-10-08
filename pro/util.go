@@ -6,10 +6,11 @@ package pro
 import (
 	"context"
 	"encoding/base64"
+
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
-	"github.com/gravitl/netmaker/logic"
 )
 
 // base64encode - base64 encode helper function
@@ -63,5 +64,53 @@ func getCurrentServerUsage() (limits Usage) {
 	if err == nil {
 		limits.FailOvers = len(failovers)
 	}
+
+	nodes, _ := logic.GetAllNodes()
+	for _, client := range clients {
+		nodes = append(nodes, client.ConvertToStaticNode())
+	}
+
+	limits.NetworkUsage = getNetworkUsage(networks, nodes)
+
 	return
+}
+
+func getNetworkUsage(networks []models.Network, nodes []models.Node) map[string]NetworkUsage {
+	usage := make(map[string]NetworkUsage)
+	for _, network := range networks {
+		usage[network.NetID] = NetworkUsage{}
+	}
+
+	for _, node := range nodes {
+		netUsage, ok := usage[node.Network]
+		if !ok {
+			// if network doesn't exist, this node is probably awaiting cleanup.
+			// so ignore.
+			continue
+		}
+
+		netUsage.Nodes++
+		if node.IsStatic {
+			netUsage.Clients++
+		}
+		if node.IsIngressGateway {
+			netUsage.Ingresses++
+		}
+		if node.EgressDetails.IsEgressGateway {
+			netUsage.Egresses++
+		}
+		if node.IsRelay {
+			netUsage.Relays++
+		}
+		if node.IsInternetGateway {
+			netUsage.InternetGateways++
+		}
+		if node.IsFailOver {
+			netUsage.FailOvers++
+		}
+
+		usage[node.Network] = netUsage
+	}
+
+	return usage
 }

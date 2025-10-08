@@ -5,6 +5,7 @@ package pro
 
 import (
 	"errors"
+
 	"github.com/gravitl/netmaker/models"
 )
 
@@ -46,11 +47,22 @@ type LicenseSecret struct {
 
 // Usage - struct for license usage
 type Usage struct {
-	Servers          int `json:"servers"`
-	Users            int `json:"users"`
-	Hosts            int `json:"hosts"`
+	Servers          int                     `json:"servers"`
+	Users            int                     `json:"users"`
+	Hosts            int                     `json:"hosts"`
+	Clients          int                     `json:"clients"`
+	Networks         int                     `json:"networks"`
+	Ingresses        int                     `json:"ingresses"`
+	Egresses         int                     `json:"egresses"`
+	Relays           int                     `json:"relays"`
+	InternetGateways int                     `json:"internet_gateways"`
+	FailOvers        int                     `json:"fail_overs"`
+	NetworkUsage     map[string]NetworkUsage `json:"network_usage"`
+}
+
+type NetworkUsage struct {
+	Nodes            int `json:"nodes"`
 	Clients          int `json:"clients"`
-	Networks         int `json:"networks"`
 	Ingresses        int `json:"ingresses"`
 	Egresses         int `json:"egresses"`
 	Relays           int `json:"relays"`
@@ -69,6 +81,7 @@ func (l *Usage) SetDefaults() {
 	l.Egresses = 0
 	l.Relays = 0
 	l.InternetGateways = 0
+	l.NetworkUsage = make(map[string]NetworkUsage)
 }
 
 // ValidateLicenseRequest - used for request to validate license endpoint
