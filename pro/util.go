@@ -4,13 +4,7 @@
 package pro
 
 import (
-	"context"
 	"encoding/base64"
-
-	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/models"
-	"github.com/gravitl/netmaker/schema"
 )
 
 // base64encode - base64 encode helper function
@@ -26,91 +20,4 @@ func base64decode(input string) []byte {
 	}
 
 	return bytes
-}
-
-func getCurrentServerUsage() (limits Usage) {
-	limits.SetDefaults()
-	hosts, hErr := logic.GetAllHostsWithStatus(models.OnlineSt)
-	if hErr == nil {
-		limits.Hosts = len(hosts)
-	}
-	clients, cErr := logic.GetAllExtClientsWithStatus(models.OnlineSt)
-	if cErr == nil {
-		limits.Clients = len(clients)
-	}
-	users, err := logic.GetUsers()
-	if err == nil {
-		limits.Users = len(users)
-	}
-	networks, err := logic.GetNetworks()
-	if err == nil {
-		limits.Networks = len(networks)
-	}
-	// TODO this part bellow can be optimized to get nodes just once
-	ingresses, err := logic.GetAllIngresses()
-	if err == nil {
-		limits.Ingresses = len(ingresses)
-	}
-	limits.Egresses, _ = (&schema.Egress{}).Count(db.WithContext(context.TODO()))
-	relays, err := logic.GetRelays()
-	if err == nil {
-		limits.Relays = len(relays)
-	}
-	gateways, err := logic.GetInternetGateways()
-	if err == nil {
-		limits.InternetGateways = len(gateways)
-	}
-	failovers, err := logic.GetAllFailOvers()
-	if err == nil {
-		limits.FailOvers = len(failovers)
-	}
-
-	nodes, _ := logic.GetAllNodes()
-	for _, client := range clients {
-		nodes = append(nodes, client.ConvertToStaticNode())
-	}
-
-	limits.NetworkUsage = getNetworkUsage(networks, nodes)
-
-	return
-}
-
-func getNetworkUsage(networks []models.Network, nodes []models.Node) map[string]NetworkUsage {
-	usage := make(map[string]NetworkUsage)
-	for _, network := range networks {
-		usage[network.NetID] = NetworkUsage{}
-	}
-
-	for _, node := range nodes {
-		netUsage, ok := usage[node.Network]
-		if !ok {
-			// if network doesn't exist, this node is probably awaiting cleanup.
-			// so ignore.
-			continue
-		}
-
-		netUsage.Nodes++
-		if node.IsStatic {
-			netUsage.Clients++
-		}
-		if node.IsIngressGateway {
-			netUsage.Ingresses++
-		}
-		if node.EgressDetails.IsEgressGateway {
-			netUsage.Egresses++
-		}
-		if node.IsRelay {
-			netUsage.Relays++
-		}
-		if node.IsInternetGateway {
-			netUsage.InternetGateways++
-		}
-		if node.IsFailOver {
-			netUsage.FailOvers++
-		}
-
-		usage[node.Network] = netUsage
-	}
-
-	return usage
 }
