@@ -284,6 +284,7 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 
 		if !userPlatformRole.FullAccess {
 			var filteredNodes []models.Node
+			var fullAccess bool
 			nodesMap := make(map[string]struct{})
 			networkRoles := user.NetworkRoles[models.NetworkID(networkName)]
 			for networkRoleID := range networkRoles {
@@ -293,6 +294,7 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				if userPermTemplate.FullAccess {
+					fullAccess = true
 					break
 				}
 				if rsrcPerms, ok := userPermTemplate.NetworkLevelAccess[models.RemoteAccessGwRsrc]; ok {
@@ -321,7 +323,9 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 			}
-			nodes = filteredNodes
+			if !fullAccess {
+				nodes = filteredNodes
+			}
 		}
 	}
 
@@ -407,6 +411,7 @@ func getNetworkNodeStatus(w http.ResponseWriter, r *http.Request) {
 
 		if !userPlatformRole.FullAccess {
 			var filteredNodes []models.Node
+			var fullAccess bool
 			nodesMap := make(map[string]struct{})
 			networkRoles := user.NetworkRoles[models.NetworkID(networkName)]
 			for networkRoleID := range networkRoles {
@@ -416,6 +421,7 @@ func getNetworkNodeStatus(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				if userPermTemplate.FullAccess {
+					fullAccess = true
 					break
 				}
 				if rsrcPerms, ok := userPermTemplate.NetworkLevelAccess[models.RemoteAccessGwRsrc]; ok {
@@ -445,7 +451,9 @@ func getNetworkNodeStatus(w http.ResponseWriter, r *http.Request) {
 				}
 
 			}
-			nodes = filteredNodes
+			if !fullAccess {
+				nodes = filteredNodes
+			}
 		}
 	}
 
