@@ -52,6 +52,18 @@ func (e *Egress) UpdateEgressStatus(ctx context.Context) error {
 	}).Error
 }
 
+func (e *Egress) ResetDomain(ctx context.Context) error {
+	return db.FromContext(ctx).Table(e.Table()).Where("id = ?", e.ID).Updates(map[string]any{
+		"domain": "",
+	}).Error
+}
+
+func (e *Egress) ResetRange(ctx context.Context) error {
+	return db.FromContext(ctx).Table(e.Table()).Where("id = ?", e.ID).Updates(map[string]any{
+		"range": "",
+	}).Error
+}
+
 func (e *Egress) DoesEgressRouteExists(ctx context.Context) error {
 	return db.FromContext(ctx).Table(e.Table()).Where("range = ?", e.Range).First(&e).Error
 }
