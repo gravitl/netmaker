@@ -145,6 +145,7 @@ func GetServerSettingsFromEnv() (s models.ServerSettings) {
 		DefaultDomain:              servercfg.GetDefaultDomain(),
 		Stun:                       servercfg.IsStunEnabled(),
 		StunServers:                servercfg.GetStunServers(),
+		OldAClsSupport:             false,
 	}
 
 	return
