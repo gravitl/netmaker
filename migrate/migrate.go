@@ -352,6 +352,9 @@ func updateHosts() {
 			} else {
 				host.DNS = "no"
 			}
+			if host.IsDefault {
+				host.DNS = "yes"
+			}
 			logic.UpsertHost(&host)
 		}
 		if host.IsDefault && !host.AutoUpdate {
