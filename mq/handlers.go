@@ -136,42 +136,10 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 	case models.DeleteHost:
-		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
-			// delete EMQX credentials for host
-			if err := emqx.DeleteEmqxUser(currentHost.ID.String()); err != nil {
-				slog.Error("failed to remove host credentials from EMQX", "id", currentHost.ID, "error", err)
-			}
-		}
-
-		// notify of deleted peer change
-		go func(host models.Host) {
-			for _, nodeID := range host.Nodes {
-				node, err := logic.GetNodeByID(nodeID)
-				if err == nil {
-					var gwClients []models.ExtClient
-					if node.IsIngressGateway {
-						gwClients = logic.GetGwExtclients(node.ID.String(), node.Network)
-					}
-					go PublishMqUpdatesForDeletedNode(node, false, gwClients)
-				}
-
-			}
-		}(*currentHost)
-
-		if err := logic.DisassociateAllNodesFromHost(currentHost.ID.String()); err != nil {
-			slog.Error("failed to delete all nodes of host", "id", currentHost.ID, "error", err)
-			return
-		}
-		if err := logic.RemoveHostByID(currentHost.ID.String()); err != nil {
-			slog.Error("failed to delete host", "id", currentHost.ID, "error", err)
-			return
-		}
-		if servercfg.IsDNSMode() {
-			logic.SetDNS()
-		}
+		DeleteAndCleanupHost(currentHost)
 		sendPeerUpdate = true
 	case models.SignalHost:
-		signalPeer(hostUpdate.Signal)
+		SignalPeer(hostUpdate.Signal)
 
 	}
 
@@ -183,7 +151,43 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	}
 }
 
-func signalPeer(signal models.Signal) {
+func DeleteAndCleanupHost(h *models.Host) {
+	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
+		// delete EMQX credentials for host
+		if err := emqx.DeleteEmqxUser(h.ID.String()); err != nil {
+			slog.Error("failed to remove host credentials from EMQX", "id", h.ID, "error", err)
+		}
+	}
+
+	// notify of deleted peer change
+	go func(host models.Host) {
+		for _, nodeID := range host.Nodes {
+			node, err := logic.GetNodeByID(nodeID)
+			if err == nil {
+				var gwClients []models.ExtClient
+				if node.IsIngressGateway {
+					gwClients = logic.GetGwExtclients(node.ID.String(), node.Network)
+				}
+				go PublishMqUpdatesForDeletedNode(node, false, gwClients)
+			}
+
+		}
+	}(*h)
+
+	if err := logic.DisassociateAllNodesFromHost(h.ID.String()); err != nil {
+		slog.Error("failed to delete all nodes of host", "id", h.ID, "error", err)
+		return
+	}
+	if err := logic.RemoveHostByID(h.ID.String()); err != nil {
+		slog.Error("failed to delete host", "id", h.ID, "error", err)
+		return
+	}
+	if servercfg.IsDNSMode() {
+		logic.SetDNS()
+	}
+}
+
+func SignalPeer(signal models.Signal) {
 
 	if signal.ToHostPubKey == "" {
 		msg := "insufficient data to signal peer"

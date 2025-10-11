@@ -481,6 +481,7 @@ func (newNode *Node) Fill(
 	if newNode.IsFailOver != currentNode.IsFailOver {
 		newNode.IsFailOver = currentNode.IsFailOver
 	}
+	newNode.FailOverPeers = currentNode.FailOverPeers
 	if newNode.Tags == nil {
 		if currentNode.Tags == nil {
 			currentNode.Tags = make(map[TagID]struct{})

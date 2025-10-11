@@ -50,16 +50,31 @@ func GetFwRulesOnIngressGateway(node models.Node) (rules []models.FwRule) {
 	if defaultDevicePolicy.Enabled {
 		return
 	}
+	defer func() {
+		if len(rules) == 0 && IsNodeAllowedToCommunicateWithAllRsrcs(node) {
+			if node.NetworkRange.IP != nil {
+				rules = append(rules, models.FwRule{
+					SrcIP: node.NetworkRange,
+					Allow: true,
+				})
+			}
+			if node.NetworkRange6.IP != nil {
+				rules = append(rules, models.FwRule{
+					SrcIP: node.NetworkRange6,
+					Allow: true,
+				})
+			}
+			return
+		}
+	}()
+
 	for _, nodeI := range nodes {
 		if !nodeI.IsStatic || nodeI.IsUserNode {
 			continue
 		}
-		if !node.StaticNode.Enabled {
+		if !nodeI.StaticNode.Enabled {
 			continue
 		}
-		// if nodeI.StaticNode.IngressGatewayID != node.ID.String() {
-		// 	continue
-		// }
 		if IsNodeAllowedToCommunicateWithAllRsrcs(nodeI) {
 			if nodeI.Address.IP != nil {
 				rules = append(rules, models.FwRule{
@@ -525,7 +540,18 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 						continue
 					}
 					if _, ok := eI.Nodes[targetnode.ID.String()]; ok {
-						if eI.Range != "" {
+						if servercfg.IsPro && eI.Domain != "" && len(eI.DomainAns) > 0 {
+							for _, domainAnsI := range eI.DomainAns {
+								ip, cidr, err := net.ParseCIDR(domainAnsI)
+								if err == nil {
+									if ip.To4() != nil {
+										egressRanges4 = append(egressRanges4, *cidr)
+									} else {
+										egressRanges6 = append(egressRanges6, *cidr)
+									}
+								}
+							}
+						} else if eI.Range != "" {
 							_, cidr, err := net.ParseCIDR(eI.Range)
 							if err == nil {
 								if cidr.IP.To4() != nil {
@@ -535,6 +561,7 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 								}
 							}
 						}
+						dstTags[targetnode.ID.String()] = struct{}{}
 					}
 				}
 				break
@@ -544,7 +571,18 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 				err := e.Get(db.WithContext(context.TODO()))
 				if err == nil && e.Status && len(e.Nodes) > 0 {
 					if _, ok := e.Nodes[targetnode.ID.String()]; ok {
-						if e.Range != "" {
+						if servercfg.IsPro && e.Domain != "" && len(e.DomainAns) > 0 {
+							for _, domainAnsI := range e.DomainAns {
+								ip, cidr, err := net.ParseCIDR(domainAnsI)
+								if err == nil {
+									if ip.To4() != nil {
+										egressRanges4 = append(egressRanges4, *cidr)
+									} else {
+										egressRanges6 = append(egressRanges6, *cidr)
+									}
+								}
+							}
+						} else if e.Range != "" {
 							_, cidr, err := net.ParseCIDR(e.Range)
 							if err == nil {
 								if cidr.IP.To4() != nil {
@@ -554,6 +592,7 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 								}
 							}
 						}
+						dstTags[targetnode.ID.String()] = struct{}{}
 					}
 
 				}
@@ -800,10 +839,10 @@ func GetEgressRulesForNode(targetnode models.Node) (rules map[string]models.AclR
 						if node.ID == targetnode.ID {
 							continue
 						}
-						if node.Address.IP != nil {
+						if !node.IsStatic && node.Address.IP != nil {
 							aclRule.IPList = append(aclRule.IPList, node.AddressIPNet4())
 						}
-						if node.Address6.IP != nil {
+						if !node.IsStatic && node.Address6.IP != nil {
 							aclRule.IP6List = append(aclRule.IP6List, node.AddressIPNet6())
 						}
 						if node.IsStatic && node.StaticNode.Address != "" {
@@ -1424,6 +1463,18 @@ func GetDefaultPolicy(netID models.NetworkID, ruleType models.AclPolicyType) (mo
 	}
 
 	return acl, nil
+}
+
+// ListUserPolicies - lists all user policies in a network
+func ListUserPolicies(netID models.NetworkID) []models.Acl {
+	allAcls := ListAcls()
+	userAcls := []models.Acl{}
+	for _, acl := range allAcls {
+		if acl.NetworkID == netID && acl.RuleType == models.UserPolicy {
+			userAcls = append(userAcls, acl)
+		}
+	}
+	return userAcls
 }
 
 // ListAcls - lists all acl policies

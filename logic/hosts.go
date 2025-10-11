@@ -377,6 +377,29 @@ func UpsertHost(h *models.Host) error {
 	return nil
 }
 
+// UpdateHostNode -  handles updates from client nodes
+func UpdateHostNode(h *models.Host, newNode *models.Node) (publishDeletedNodeUpdate, publishPeerUpdate bool) {
+	currentNode, err := GetNodeByID(newNode.ID.String())
+	if err != nil {
+		return
+	}
+	ifaceDelta := IfaceDelta(&currentNode, newNode)
+	newNode.SetLastCheckIn()
+	if err := UpdateNode(&currentNode, newNode); err != nil {
+		slog.Error("error saving node", "name", h.Name, "network", newNode.Network, "error", err)
+		return
+	}
+	if ifaceDelta { // reduce number of unneeded updates, by only sending on iface changes
+		if !newNode.Connected {
+			publishDeletedNodeUpdate = true
+		}
+		publishPeerUpdate = true
+		// reset failover data for this node
+		ResetFailedOverPeer(newNode)
+	}
+	return
+}
+
 // RemoveHost - removes a given host from server
 func RemoveHost(h *models.Host, forceDelete bool) error {
 	if !forceDelete && len(h.Nodes) > 0 {

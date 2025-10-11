@@ -17,6 +17,7 @@ const (
 )
 
 type FeatureFlags struct {
+	EnableEgressHA          bool `json:"enable_egress_ha"`
 	EnableNetworkActivity   bool `json:"enable_network_activity"`
 	EnableOAuth             bool `json:"enable_oauth"`
 	EnableIDPIntegration    bool `json:"enable_idp_integration"`
@@ -266,6 +267,7 @@ type HostPull struct {
 	NameServers       []string              `json:"name_servers"`
 	EgressWithDomains []EgressDomain        `json:"egress_with_domains"`
 	DnsNameservers    []Nameserver          `json:"dns_nameservers"`
+	ReplacePeers      bool                  `json:"replace_peers"`
 }
 
 type DefaultGwInfo struct {

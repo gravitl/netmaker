@@ -149,10 +149,11 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 	}
 	defer func() {
 		if !hostPeerUpdate.FwUpdate.AllowAll {
-
-			hostPeerUpdate.FwUpdate.EgressInfo["allowed-network-rules"] = models.EgressInfo{
-				EgressID:      "allowed-network-rules",
-				EgressFwRules: make(map[string]models.AclRule),
+			if len(hostPeerUpdate.FwUpdate.AllowedNetworks) > 0 {
+				hostPeerUpdate.FwUpdate.EgressInfo["allowed-network-rules"] = models.EgressInfo{
+					EgressID:      "allowed-network-rules",
+					EgressFwRules: make(map[string]models.AclRule),
+				}
 			}
 			for _, aclRule := range hostPeerUpdate.FwUpdate.AllowedNetworks {
 				hostPeerUpdate.FwUpdate.AclRules[aclRule.ID] = aclRule
@@ -182,8 +183,8 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
 		eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
 		GetNodeEgressInfo(&node, eli, acls)
-		if node.EgressDetails.IsEgressGateway {
-			egsWithDomain := ListAllByRoutingNodeWithDomain(eli, node.ID.String())
+		egsWithDomain := ListAllByRoutingNodeWithDomain(eli, node.ID.String())
+		if len(egsWithDomain) > 0 {
 			hostPeerUpdate.EgressWithDomains = append(hostPeerUpdate.EgressWithDomains, egsWithDomain...)
 		}
 		hostPeerUpdate = SetDefaultGw(node, hostPeerUpdate)

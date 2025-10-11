@@ -70,23 +70,43 @@ func storeExtClientInCache(key string, extclient models.ExtClient) {
 func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 
 	var result []string
-	networkNodes, err := GetNetworkNodes(client.Network)
-	if err != nil {
-		return []string{}, err
-	}
 	eli, _ := (&schema.Egress{Network: client.Network}).ListByNetwork(db.WithContext(context.TODO()))
-	acls, _ := ListAclsByNetwork(models.NetworkID(client.Network))
-	// clientNode := client.ConvertToStaticNode()
-	for _, currentNode := range networkNodes {
-		if currentNode.Network != client.Network {
+	staticNode := client.ConvertToStaticNode()
+	userPolicies := ListUserPolicies(models.NetworkID(client.Network))
+	defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(client.Network), models.UserPolicy)
+
+	for _, eI := range eli {
+		if !eI.Status {
 			continue
 		}
-		GetNodeEgressInfo(&currentNode, eli, acls)
-		if currentNode.EgressDetails.IsEgressGateway { // add the egress gateway range(s) to the result
-			if len(currentNode.EgressDetails.EgressGatewayRanges) > 0 {
-				result = append(result, currentNode.EgressDetails.EgressGatewayRanges...)
+		if eI.Domain == "" && eI.Range == "" {
+			continue
+		}
+		if eI.Domain != "" && len(eI.DomainAns) == 0 {
+			continue
+		}
+		rangesToBeAdded := []string{}
+		if eI.Domain != "" {
+			rangesToBeAdded = append(rangesToBeAdded, eI.DomainAns...)
+		} else {
+			rangesToBeAdded = append(rangesToBeAdded, eI.Range)
+		}
+		if defaultUserPolicy.Enabled {
+			result = append(result, rangesToBeAdded...)
+		} else {
+			if staticNode.IsUserNode && staticNode.StaticNode.OwnerID != "" {
+				user, err := GetUser(staticNode.StaticNode.OwnerID)
+				if err != nil {
+					return []string{}, errors.New("user not found")
+				}
+				if DoesUserHaveAccessToEgress(user, &eI, userPolicies) {
+					result = append(result, rangesToBeAdded...)
+				}
+			} else {
+				result = append(result, rangesToBeAdded...)
 			}
 		}
+
 	}
 	extclients, _ := GetNetworkExtClients(client.Network)
 	for _, extclient := range extclients {

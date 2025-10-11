@@ -685,7 +685,7 @@ func createNode(node *models.Node) error {
 			node.Address.Mask = net.CIDRMask(cidr.Mask.Size())
 		}
 	} else if !IsIPUnique(node.Network, node.Address.String(), database.NODES_TABLE_NAME, false) {
-		return fmt.Errorf("invalid address: ipv4 " + node.Address.String() + " is not unique")
+		return fmt.Errorf("invalid address: ipv4 %s is not unique", node.Address.String())
 	}
 	if node.Address6.IP == nil {
 		if parentNetwork.IsIPv6 == "yes" {
@@ -699,7 +699,7 @@ func createNode(node *models.Node) error {
 			node.Address6.Mask = net.CIDRMask(cidr.Mask.Size())
 		}
 	} else if !IsIPUnique(node.Network, node.Address6.String(), database.NODES_TABLE_NAME, true) {
-		return fmt.Errorf("invalid address: ipv6 " + node.Address6.String() + " is not unique")
+		return fmt.Errorf("invalid address: ipv6 %s is not unique", node.Address6.String())
 	}
 	node.ID = uuid.New()
 	//Create a JWT for the node
