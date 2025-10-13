@@ -17,29 +17,21 @@ import (
 
 var autoRelayCtxMutex = &sync.RWMutex{}
 var autoRelayCacheMutex = &sync.RWMutex{}
-var autoRelayCache = make(map[models.NetworkID]string)
+var autoRelayCache = make(map[models.NetworkID][]string)
 
 func InitAutoRelayCache() {
 	autoRelayCacheMutex.Lock()
 	defer autoRelayCacheMutex.Unlock()
-	networks, err := logic.GetNetworks()
-	if err != nil {
-		return
-	}
 	allNodes, err := logic.GetAllNodes()
 	if err != nil {
 		return
 	}
-
-	for _, network := range networks {
-		networkNodes := logic.GetNetworkNodesMemory(allNodes, network.NetID)
-		for _, node := range networkNodes {
-			if node.IsAutoRelay {
-				autoRelayCache[models.NetworkID(network.NetID)] = node.ID.String()
-				break
-			}
+	for _, node := range allNodes {
+		if node.IsAutoRelay {
+			autoRelayCache[models.NetworkID(node.Network)] = append(autoRelayCache[models.NetworkID(node.Network)], node.ID.String())
 		}
 	}
+
 }
 
 func CheckAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
@@ -143,18 +135,21 @@ func RemoveAutoRelayFromCache(network string) {
 func SetAutoRelayInCache(node models.Node) {
 	autoRelayCacheMutex.Lock()
 	defer autoRelayCacheMutex.Unlock()
-	autoRelayCache[models.NetworkID(node.Network)] = node.ID.String()
+	autoRelayCache[models.NetworkID(node.Network)] = append(autoRelayCache[models.NetworkID(node.Network)], node.ID.String())
 }
 
 // DoesAutoRelayExist - checks if autorelay exists already in the network
-func DoesAutoRelayExist(network string) (autoRelayNode models.Node, exists bool) {
+func DoesAutoRelayExist(network string) (autoRelayNodes []models.Node, exists bool) {
 	autoRelayCacheMutex.RLock()
 	defer autoRelayCacheMutex.RUnlock()
-	if nodeID, ok := autoRelayCache[models.NetworkID(network)]; ok {
-		autoRelayNode, err := logic.GetNodeByID(nodeID)
-		if err == nil {
-			return autoRelayNode, true
+	if nodeIDs, ok := autoRelayCache[models.NetworkID(network)]; ok {
+		for _, nodeID := range nodeIDs {
+			autoRelayNode, err := logic.GetNodeByID(nodeID)
+			if err == nil {
+				autoRelayNodes = append(autoRelayNodes, autoRelayNode)
+			}
 		}
+
 	}
 	return
 }

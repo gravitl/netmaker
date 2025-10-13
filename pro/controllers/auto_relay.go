@@ -52,13 +52,7 @@ func getAutoRelayGws(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	nodes, _ := logic.GetNetworkNodes(node.Network)
-	for _, node := range nodes {
-		if node.IsAutoRelay {
-
-		}
-	}
-	autoRelayNode, exists := proLogic.DoesAutoRelayExist(node.Network)
+	autoRelayNodes, exists := proLogic.DoesAutoRelayExist(node.Network)
 	if !exists {
 		logic.ReturnErrorResponse(
 			w,
@@ -68,7 +62,7 @@ func getAutoRelayGws(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	logic.ReturnSuccessResponseWithJson(w, r, autoRelayNode, "get autorelay node successfully")
+	logic.ReturnSuccessResponseWithJson(w, r, autoRelayNodes, "get autorelay node successfully")
 }
 
 // @Summary     Create AutoRelay node
@@ -188,9 +182,16 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	var autoRelayReq models.AutoRelayMeReq
+	err = json.NewDecoder(r.Body).Decode(&autoRelayReq)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 
-	autoRelayNode, exists := proLogic.DoesAutoRelayExist(node.Network)
-	if !exists {
+	autoRelayNode, err := logic.GetNodeByID(autoRelayReq.AutoRelayGwID)
+	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -201,13 +202,7 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	var autoRelayReq models.AutoRelayMeReq
-	err = json.NewDecoder(r.Body).Decode(&autoRelayReq)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
+
 	var sendPeerUpdate bool
 	peerNode, err := logic.GetNodeByID(autoRelayReq.NodeID)
 	if err != nil {
@@ -350,9 +345,15 @@ func checkautoRelayCtx(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
-	autoRelayNode, exists := proLogic.DoesAutoRelayExist(node.Network)
-	if !exists {
+	var autoRelayReq models.AutoRelayMeReq
+	err = json.NewDecoder(r.Body).Decode(&autoRelayReq)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	autoRelayNode, err := logic.GetNodeByID(autoRelayReq.AutoRelayGwID)
+	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
 			r,
@@ -363,13 +364,7 @@ func checkautoRelayCtx(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	var autoRelayReq models.AutoRelayMeReq
-	err = json.NewDecoder(r.Body).Decode(&autoRelayReq)
-	if err != nil {
-		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
+
 	peerNode, err := logic.GetNodeByID(autoRelayReq.NodeID)
 	if err != nil {
 		slog.Error("peer not found: ", "nodeid", autoRelayReq.NodeID, "error", err)

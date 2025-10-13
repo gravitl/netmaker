@@ -135,5 +135,6 @@ type FailOverMeReq struct {
 
 // AutoRelayMeReq - struct for autorelay req
 type AutoRelayMeReq struct {
-	NodeID string `json:"node_id"`
+	NodeID        string `json:"node_id"`
+	AutoRelayGwID string `json:"auto_relay_gw_id"`
 }

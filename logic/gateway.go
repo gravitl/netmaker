@@ -217,6 +217,9 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 		if _, exists := FailOverExists(node.Network); exists {
 			ResetFailedOverPeer(&node)
 		}
+		if _, exists := DoesAutoRelayExist(node.Network); exists {
+			ResetAutoRelayedPeer(&node)
+		}
 	}
 	node.SetLastModified()
 	node.Metadata = ingress.Metadata
@@ -369,6 +372,9 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 		}
 		if clientNode.FailedOverBy != uuid.Nil {
 			ResetFailedOverPeer(&clientNode)
+		}
+		if clientNode.AutoRelayedBy != uuid.Nil {
+			ResetAutoRelayedPeer(&clientNode)
 		}
 
 		if clientNode.IsRelayed && clientNode.RelayedBy != inetNode.ID.String() {

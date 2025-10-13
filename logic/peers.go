@@ -44,6 +44,29 @@ var (
 	}
 )
 
+var (
+	// ResetAutoRelay - function to reset autorelayed peers on this node
+	ResetAutoRelay = func(autoRelayNode *models.Node) error {
+		return nil
+	}
+	// ResetAutoRelayedPeer - removes relayed peers for node
+	ResetAutoRelayedPeer = func(failedOverNode *models.Node) error {
+		return nil
+	}
+	// DoesAutoRelayExist - check if autorelay node exist or not
+	DoesAutoRelayExist = func(network string) (autoRelayNodes []models.Node, exists bool) {
+		return autoRelayNodes, exists
+	}
+	// GetAutoRelayPeerIps - gets autorelay peerips
+	GetAutoRelayPeerIps = func(peer, node *models.Node) []net.IPNet {
+		return []net.IPNet{}
+	}
+	// CreateAutoRelay - creates autorelay in a network
+	CreateAutoRelay = func(node models.Node) error {
+		return nil
+	}
+)
+
 // GetHostPeerInfo - fetches required peer info per network
 func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 	peerInfo := models.HostPeerInfo{

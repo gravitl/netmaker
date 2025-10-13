@@ -89,6 +89,9 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 			if relayedNode.FailedOverBy != uuid.Nil {
 				go logic.ResetFailedOverPeer(&relayedNode)
 			}
+			if relayedNode.AutoRelayedBy != uuid.Nil {
+				go logic.ResetAutoRelayedPeer(&relayedNode)
+			}
 
 		}
 	}
@@ -98,6 +101,13 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 			if _, exists := logic.FailOverExists(node.Network); exists {
 				go func() {
 					logic.ResetFailedOverPeer(&node)
+					mq.PublishPeerUpdate(false)
+				}()
+			}
+
+			if _, exists := logic.DoesAutoRelayExist(node.Network); exists {
+				go func() {
+					logic.ResetAutoRelayedPeer(&node)
 					mq.PublishPeerUpdate(false)
 				}()
 			}

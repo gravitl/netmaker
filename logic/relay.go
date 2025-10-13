@@ -135,6 +135,9 @@ func ValidateRelay(relay models.RelayRequest, update bool) error {
 		if relayedNode.FailedOverBy != uuid.Nil {
 			ResetFailedOverPeer(&relayedNode)
 		}
+		if relayedNode.AutoRelayedBy != uuid.Nil {
+			ResetAutoRelayedPeer(&relayedNode)
+		}
 	}
 	return err
 }
@@ -168,6 +171,7 @@ func UpdateRelayed(currentNode, newNode *models.Node) {
 		for _, relayedNode := range updatenodes {
 			node := relayedNode
 			ResetFailedOverPeer(&node)
+			ResetAutoRelayedPeer(&node)
 		}
 	}
 }

@@ -93,6 +93,7 @@ func InitPro() {
 		}
 		proLogic.LoadNodeMetricsToCache()
 		proLogic.InitFailOverCache()
+		proLogic.InitAutoRelayCache()
 		auth.ResetIDPSyncHook()
 		email.Init()
 		go proLogic.EventWatcher()
@@ -102,6 +103,13 @@ func InitPro() {
 	logic.FailOverExists = proLogic.FailOverExists
 	logic.CreateFailOver = proLogic.CreateFailOver
 	logic.GetFailOverPeerIps = proLogic.GetFailOverPeerIps
+
+	logic.ResetAutoRelay = proLogic.ResetAutoRelay
+	logic.ResetAutoRelayedPeer = proLogic.ResetAutoRelayedPeer
+	logic.DoesAutoRelayExist = proLogic.DoesAutoRelayExist
+	logic.CreateAutoRelay = proLogic.CreateAutoRelay
+	logic.GetAutoRelayPeerIps = proLogic.GetAutoRelayPeerIps
+
 	logic.DenyClientNodeAccess = proLogic.DenyClientNode
 	logic.IsClientNodeAllowed = proLogic.IsClientNodeAllowed
 	logic.AllowClientNodeAccess = proLogic.RemoveDeniedNodeFromClient

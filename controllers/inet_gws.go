@@ -72,6 +72,12 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 				mq.PublishPeerUpdate(false)
 			}()
 		}
+		if _, exists := logic.DoesAutoRelayExist(node.Network); exists {
+			go func() {
+				logic.ResetAutoRelayedPeer(&node)
+				mq.PublishPeerUpdate(false)
+			}()
+		}
 	}
 	if node.IsGw && node.IngressDNS == "" {
 		node.IngressDNS = "1.1.1.1"

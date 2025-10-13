@@ -212,6 +212,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		}
 		if r.URL.Query().Get("reset_failovered") == "true" {
 			logic.ResetFailedOverPeer(&node)
+			logic.ResetAutoRelayedPeer(&node)
 			sendPeerUpdate = true
 		}
 	}
