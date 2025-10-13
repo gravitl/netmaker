@@ -194,6 +194,18 @@ func SignalPeer(signal models.Signal) {
 		logger.Log(0, msg)
 		return
 	}
+	node, err := logic.GetNodeByID(signal.FromNodeID)
+	if err != nil {
+		return
+	}
+	peer, err := logic.GetNodeByID(signal.ToNodeID)
+	if err != nil {
+		return
+	}
+	if node.Network != peer.Network {
+		return
+	}
+	signal.NetworkID = node.Network
 	signal.IsPro = servercfg.IsPro
 	peerHost, err := logic.GetHost(signal.ToHostID)
 	if err != nil {

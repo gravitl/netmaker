@@ -165,6 +165,7 @@ type Signal struct {
 	ToHostID       string       `json:"to_host_id"`
 	FromNodeID     string       `json:"from_node_id"`
 	ToNodeID       string       `json:"to_node_id"`
+	NetworkID      string       `json:"networkID"`
 	Reply          bool         `json:"reply"`
 	Action         SignalAction `json:"action"`
 	IsPro          bool         `json:"is_pro"`

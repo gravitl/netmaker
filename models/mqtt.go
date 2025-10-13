@@ -30,6 +30,7 @@ type HostPeerUpdate struct {
 	NameServers       []string              `json:"name_servers"`
 	DnsNameservers    []Nameserver          `json:"dns_nameservers"`
 	EgressWithDomains []EgressDomain        `json:"egress_with_domains"`
+	AutoRelayNodes    map[NetworkID][]Node  `json:"auto_relay_nodes"`
 	ServerConfig
 	OldPeerUpdateFields
 }
