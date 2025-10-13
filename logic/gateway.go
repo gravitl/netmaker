@@ -198,6 +198,7 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	}
 	node.IsIngressGateway = true
 	node.IsGw = true
+	SetAutoRelay(&node)
 	node.IsInternetGateway = ingress.IsInternetGateway
 	node.IngressGatewayRange = network.AddressRange
 	node.IngressGatewayRange6 = network.AddressRange6

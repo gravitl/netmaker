@@ -61,9 +61,10 @@ var (
 	GetAutoRelayPeerIps = func(peer, node *models.Node) []net.IPNet {
 		return []net.IPNet{}
 	}
-	// CreateAutoRelay - creates autorelay in a network
-	CreateAutoRelay = func(node models.Node) error {
-		return nil
+	// SetAutoRelay - sets autorelay flag on the node
+	SetAutoRelay = func(node *models.Node) {
+		node.IsAutoRelay = false
+		return
 	}
 )
 
@@ -733,6 +734,9 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 	}
 	if peer.IsFailOver {
 		allowedips = append(allowedips, GetFailOverPeerIps(peer, node)...)
+	}
+	if peer.IsAutoRelay {
+		allowedips = append(allowedips, GetAutoRelayPeerIps(peer, node)...)
 	}
 	return allowedips
 }

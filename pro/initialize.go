@@ -107,7 +107,7 @@ func InitPro() {
 	logic.ResetAutoRelay = proLogic.ResetAutoRelay
 	logic.ResetAutoRelayedPeer = proLogic.ResetAutoRelayedPeer
 	logic.DoesAutoRelayExist = proLogic.DoesAutoRelayExist
-	logic.CreateAutoRelay = proLogic.CreateAutoRelay
+	logic.SetAutoRelay = proLogic.SetAutoRelay
 	logic.GetAutoRelayPeerIps = proLogic.GetAutoRelayPeerIps
 
 	logic.DenyClientNodeAccess = proLogic.DenyClientNode
