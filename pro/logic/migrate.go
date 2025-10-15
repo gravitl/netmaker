@@ -263,10 +263,11 @@ func MigrateToGws() {
 		return
 	}
 	for _, node := range nodes {
-		if node.IsIngressGateway || node.IsRelay || node.IsInternetGateway {
+		if node.IsIngressGateway || node.IsRelay || node.IsInternetGateway || node.IsFailOver {
 			node.IsGw = true
 			node.IsIngressGateway = true
 			node.IsRelay = true
+			node.IsAutoRelay = true
 			if node.Tags == nil {
 				node.Tags = make(map[models.TagID]struct{})
 			}
