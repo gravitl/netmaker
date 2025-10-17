@@ -469,6 +469,15 @@ func validateNameserverReq(ns schema.Nameserver) error {
 }
 
 func getNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
+	filters := make(map[string]bool)
+	if node.Address.IP.String() != "<nil>" {
+		filters[node.Address.IP.String()] = true
+	}
+
+	if node.Address6.IP.String() != "<nil>" {
+		filters[node.Address6.IP.String()] = true
+	}
+
 	ns := &schema.Nameserver{
 		NetworkID: node.Network,
 	}
@@ -477,11 +486,17 @@ func getNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 		if !nsI.Status {
 			continue
 		}
+
+		filteredIps := FilterOutIPs(nsI.Servers, filters)
+		if len(filteredIps) == 0 {
+			continue
+		}
+
 		_, all := nsI.Tags["*"]
 		if all {
 			for _, matchDomain := range nsI.MatchDomains {
 				returnNsLi = append(returnNsLi, models.Nameserver{
-					IPs:         nsI.Servers,
+					IPs:         filteredIps,
 					MatchDomain: matchDomain,
 				})
 			}
@@ -491,7 +506,7 @@ func getNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 		if _, ok := nsI.Nodes[node.ID.String()]; ok {
 			for _, matchDomain := range nsI.MatchDomains {
 				returnNsLi = append(returnNsLi, models.Nameserver{
-					IPs:         nsI.Servers,
+					IPs:         filteredIps,
 					MatchDomain: matchDomain,
 				})
 			}
@@ -519,6 +534,16 @@ func getNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
 		if err != nil {
 			continue
 		}
+
+		filters := make(map[string]bool)
+		if node.Address.IP.String() != "<nil>" {
+			filters[node.Address.IP.String()] = true
+		}
+
+		if node.Address6.IP.String() != "<nil>" {
+			filters[node.Address6.IP.String()] = true
+		}
+
 		ns := &schema.Nameserver{
 			NetworkID: node.Network,
 		}
@@ -527,11 +552,17 @@ func getNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
 			if !nsI.Status {
 				continue
 			}
+
+			filteredIps := FilterOutIPs(nsI.Servers, filters)
+			if len(filteredIps) == 0 {
+				continue
+			}
+
 			_, all := nsI.Tags["*"]
 			if all {
 				for _, matchDomain := range nsI.MatchDomains {
 					returnNsLi = append(returnNsLi, models.Nameserver{
-						IPs:         nsI.Servers,
+						IPs:         filteredIps,
 						MatchDomain: matchDomain,
 					})
 				}
@@ -541,7 +572,7 @@ func getNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
 			if _, ok := nsI.Nodes[node.ID.String()]; ok {
 				for _, matchDomain := range nsI.MatchDomains {
 					returnNsLi = append(returnNsLi, models.Nameserver{
-						IPs:         nsI.Servers,
+						IPs:         filteredIps,
 						MatchDomain: matchDomain,
 					})
 				}
@@ -621,4 +652,17 @@ func IsValidMatchDomain(s string) bool {
 		}
 	}
 	return true
+}
+
+// FilterOutIPs removes ips in the filters map from the ips slice.
+func FilterOutIPs(ips []string, filters map[string]bool) []string {
+	var filteredIps []string
+	for _, ip := range ips {
+		_, ok := filters[ip]
+		if !ok {
+			filteredIps = append(filteredIps, ip)
+		}
+	}
+
+	return filteredIps
 }
