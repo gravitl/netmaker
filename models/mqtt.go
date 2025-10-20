@@ -13,6 +13,7 @@ type HostPeerInfo struct {
 // HostPeerUpdate - struct for host peer updates
 type HostPeerUpdate struct {
 	Host              Host                  `json:"host"`
+	Nodes             []Node                `json:"nodes"`
 	ChangeDefaultGw   bool                  `json:"change_default_gw"`
 	DefaultGwIp       net.IP                `json:"default_gw_ip"`
 	IsInternetGw      bool                  `json:"is_inet_gw"`
