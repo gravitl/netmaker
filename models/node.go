@@ -87,7 +87,6 @@ type CommonNode struct {
 	IsGw                bool      `json:"is_gw"             yaml:"is_gw"`
 	RelayedNodes        []string  `json:"relaynodes"          yaml:"relayedNodes"`
 	IngressDNS          string    `json:"ingressdns"          yaml:"ingressdns"`
-	AutoRelayedBy       uuid.UUID `json:"auto_relayed_by"`
 }
 
 // Node - a model of a network node
@@ -111,6 +110,7 @@ type Node struct {
 	IsFailOver        bool                `json:"is_fail_over"`
 	IsAutoRelay       bool                `json:"is_auto_relay"`
 	AutoRelayedPeers  map[string]struct{} `json:"auto_relayed_peers"`
+	AutoRelayedBy     uuid.UUID           `json:"auto_relayed_by"`
 	FailOverPeers     map[string]struct{} `json:"fail_over_peers"`
 	FailedOverBy      uuid.UUID           `json:"failed_over_by"`
 	IsInternetGateway bool                `json:"isinternetgateway"`
