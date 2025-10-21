@@ -222,7 +222,7 @@ func GetAutoRelayPeerIps(peer, node *models.Node) []net.IPNet {
 	acls, _ := logic.ListAclsByNetwork(models.NetworkID(node.Network))
 	for autoRelayedpeerID := range node.AutoRelayedPeers {
 		autoRelayedpeer, err := logic.GetNodeByID(autoRelayedpeerID)
-		if err == nil && autoRelayedpeer.AutoRelayedBy == peer.ID {
+		if err == nil && (autoRelayedpeer.AutoRelayedBy == peer.ID || node.AutoRelayedBy == peer.ID) {
 			logic.GetNodeEgressInfo(&autoRelayedpeer, eli, acls)
 			if autoRelayedpeer.Address.IP != nil {
 				allowed := net.IPNet{
