@@ -218,9 +218,9 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 		if _, exists := FailOverExists(node.Network); exists {
 			ResetFailedOverPeer(&node)
 		}
-		if _, exists := DoesAutoRelayExist(node.Network); exists {
-			ResetAutoRelayedPeer(&node)
-		}
+
+		ResetAutoRelayedPeer(&node)
+
 	}
 	node.SetLastModified()
 	node.Metadata = ingress.Metadata

@@ -639,6 +639,9 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	if currentNode.IsAutoRelay && !newNode.IsAutoRelay {
+		logic.ResetAutoRelay(newNode)
+	}
 	if newNode.IsInternetGateway && len(newNode.InetNodeReq.InetNodeClientIDs) > 0 {
 		err = logic.ValidateInetGwReq(*newNode, newNode.InetNodeReq, newNode.IsInternetGateway && currentNode.IsInternetGateway)
 		if err != nil {

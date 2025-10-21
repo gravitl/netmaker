@@ -17,6 +17,7 @@ import (
 	"github.com/gravitl/netmaker/mq"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
 
@@ -32,6 +33,8 @@ func AutoRelayHandlers(r *mux.Router) {
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_me", controller.Authorize(true, false, "host", http.HandlerFunc(autoRelayME))).
 		Methods(http.MethodPost)
+	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_me", controller.Authorize(true, false, "host", http.HandlerFunc(autoRelayMEUpdate))).
+		Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/node/{nodeid}/auto_relay_check", controller.Authorize(true, false, "host", http.HandlerFunc(checkautoRelayCtx))).
 		Methods(http.MethodGet)
 }
@@ -52,14 +55,29 @@ func getAutoRelayGws(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	autoRelayNodes, exists := proLogic.DoesAutoRelayExist(node.Network)
-	if !exists {
+	autoRelayNodes := proLogic.DoesAutoRelayExist(node.Network)
+	if len(autoRelayNodes) == 0 {
 		logic.ReturnErrorResponse(
 			w,
 			r,
 			logic.FormatError(errors.New("autorelay node not found"), "notfound"),
 		)
 		return
+	}
+	defaultPolicy, err := logic.GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	returnautoRelayNodes := []models.Node{}
+	if !defaultPolicy.Enabled {
+		for _, autoRelayNode := range autoRelayNodes {
+			if logic.IsPeerAllowed(node, autoRelayNode, false) {
+				returnautoRelayNodes = append(returnautoRelayNodes, autoRelayNode)
+			}
+		}
+	} else {
+		returnautoRelayNodes = autoRelayNodes
 	}
 	w.Header().Set("Content-Type", "application/json")
 	logic.ReturnSuccessResponseWithJson(w, r, autoRelayNodes, "get autorelay node successfully")
@@ -149,7 +167,9 @@ func unsetAutoRelay(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	proLogic.RemoveAutoRelayFromCache(node.Network)
+	if servercfg.CacheEnabled() {
+		proLogic.RemoveAutoRelayFromCache(node.Network)
+	}
 	go func() {
 		proLogic.ResetAutoRelay(&node)
 		mq.PublishPeerUpdate(false)
@@ -317,6 +337,76 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 		go mq.PublishPeerUpdate(false)
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+	logic.ReturnSuccessResponse(w, r, "relayed successfully")
+}
+
+// @Summary     AutoRelay me
+// @Router      /api/v1/node/{nodeid}/auto_relay_me [put]
+// @Tags        PRO
+// @Param       nodeid path string true "Node ID"
+// @Accept      json
+// @Param       body body models.AutoRelayMeReq true "AutoRelay request"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
+	var params = mux.Vars(r)
+	nodeid := params["nodeid"]
+	// confirm host exists
+	node, err := logic.GetNodeByID(nodeid)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "failed to get node:", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if node.AutoRelayedBy == uuid.Nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node is not auto relayed"), "badrequest"))
+		return
+	}
+	host, err := logic.GetHost(node.HostID.String())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	var autoRelayReq models.AutoRelayMeReq
+	err = json.NewDecoder(r.Body).Decode(&autoRelayReq)
+	if err != nil {
+		logger.Log(0, r.Header.Get("user"), "error decoding request body: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	autoRelayNode, err := logic.GetNodeByID(autoRelayReq.AutoRelayGwID)
+	if err != nil {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				fmt.Errorf("req-from: %s, autorelay node doesn't exist in the network", host.Name),
+				"badrequest",
+			),
+		)
+		return
+	}
+	if !autoRelayNode.IsAutoRelay {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("requested node is not a auto relay node"), "badrequest"))
+		return
+	}
+	if node.AutoRelayedBy == autoRelayNode.ID {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("already using requested relay node"), "badrequest"))
+		return
+	}
+	node.AutoRelayedBy = autoRelayNode.ID
+	logic.UpsertNode(&node)
+	slog.Info(
+		"[auto-relay] created relay on node",
+		"node",
+		node.ID.String(),
+		"network",
+		node.Network,
+	)
+	go mq.PublishPeerUpdate(false)
 	w.Header().Set("Content-Type", "application/json")
 	logic.ReturnSuccessResponse(w, r, "relayed successfully")
 }

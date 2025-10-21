@@ -93,7 +93,9 @@ func InitPro() {
 		}
 		proLogic.LoadNodeMetricsToCache()
 		proLogic.InitFailOverCache()
-		proLogic.InitAutoRelayCache()
+		if servercfg.CacheEnabled() {
+			proLogic.InitAutoRelayCache()
+		}
 		auth.ResetIDPSyncHook()
 		email.Init()
 		go proLogic.EventWatcher()
@@ -106,7 +108,6 @@ func InitPro() {
 
 	logic.ResetAutoRelay = proLogic.ResetAutoRelay
 	logic.ResetAutoRelayedPeer = proLogic.ResetAutoRelayedPeer
-	logic.DoesAutoRelayExist = proLogic.DoesAutoRelayExist
 	logic.SetAutoRelay = proLogic.SetAutoRelay
 	logic.GetAutoRelayPeerIps = proLogic.GetAutoRelayPeerIps
 

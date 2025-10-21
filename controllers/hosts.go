@@ -251,6 +251,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		EndpointDetection: logic.IsEndpointDetectionEnabled(),
 		DnsNameservers:    hPU.DnsNameservers,
 		ReplacePeers:      hPU.ReplacePeers,
+		AutoRelayNodes:    hPU.AutoRelayNodes,
 	}
 
 	logger.Log(1, hostID, host.Name, "completed a pull")

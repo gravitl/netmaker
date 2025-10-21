@@ -266,6 +266,7 @@ type HostPull struct {
 	NameServers       []string              `json:"name_servers"`
 	EgressWithDomains []EgressDomain        `json:"egress_with_domains"`
 	DnsNameservers    []Nameserver          `json:"dns_nameservers"`
+	AutoRelayNodes    map[NetworkID][]Node  `json:"auto_relay_nodes"`
 	ReplacePeers      bool                  `json:"replace_peers"`
 }
 

@@ -53,10 +53,6 @@ var (
 	ResetAutoRelayedPeer = func(failedOverNode *models.Node) error {
 		return nil
 	}
-	// DoesAutoRelayExist - check if autorelay node exist or not
-	DoesAutoRelayExist = func(network string) (autoRelayNodes []models.Node, exists bool) {
-		return autoRelayNodes, exists
-	}
 	// GetAutoRelayPeerIps - gets autorelay peerips
 	GetAutoRelayPeerIps = func(peer, node *models.Node) []net.IPNet {
 		return []net.IPNet{}

@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
 
@@ -109,7 +110,7 @@ func SetAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
 		victimNode.Mutex.Unlock()
 	}
 	victimNode.AutoRelayedBy = autoRelayNode.ID
-	peerNode.AutoRelayedBy = autoRelayNode.ID
+	// peerNode.AutoRelayedBy = autoRelayNode.ID
 	if err := logic.UpsertNode(&victimNode); err != nil {
 		return err
 	}
@@ -143,9 +144,17 @@ func SetAutoRelayInCache(node models.Node) {
 }
 
 // DoesAutoRelayExist - checks if autorelay exists already in the network
-func DoesAutoRelayExist(network string) (autoRelayNodes []models.Node, exists bool) {
+func DoesAutoRelayExist(network string) (autoRelayNodes []models.Node) {
 	autoRelayCacheMutex.RLock()
 	defer autoRelayCacheMutex.RUnlock()
+	if !servercfg.CacheEnabled() {
+		nodes, _ := logic.GetNetworkNodes(network)
+		for _, node := range nodes {
+			if node.IsAutoRelay {
+				autoRelayNodes = append(autoRelayNodes, node)
+			}
+		}
+	}
 	if nodeIDs, ok := autoRelayCache[models.NetworkID(network)]; ok {
 		for _, nodeID := range nodeIDs {
 			autoRelayNode, err := logic.GetNodeByID(nodeID)
@@ -192,6 +201,15 @@ func ResetAutoRelay(autoRelayNode *models.Node) error {
 			node.AutoRelayedBy = uuid.Nil
 			node.AutoRelayedPeers = make(map[string]struct{})
 			logic.UpsertNode(&node)
+			for _, peer := range nodes {
+				if peer.ID == node.ID {
+					continue
+				}
+				if _, ok := peer.AutoRelayedPeers[node.ID.String()]; ok {
+					delete(peer.AutoRelayedPeers, node.ID.String())
+					logic.UpsertNode(&peer)
+				}
+			}
 		}
 	}
 	return nil
@@ -262,9 +280,6 @@ func GetAutoRelayPeerIps(peer, node *models.Node) []net.IPNet {
 }
 
 func CreateAutoRelay(node models.Node) error {
-	if _, exists := DoesAutoRelayExist(node.Network); exists {
-		return errors.New("autorelay already exists in the network")
-	}
 	host, err := logic.GetHost(node.HostID.String())
 	if err != nil {
 		return err
@@ -281,6 +296,8 @@ func CreateAutoRelay(node models.Node) error {
 		slog.Error("failed to upsert node", "node", node.ID.String(), "error", err)
 		return err
 	}
-	SetAutoRelayInCache(node)
+	if servercfg.CacheEnabled() {
+		SetAutoRelayInCache(node)
+	}
 	return nil
 }
