@@ -252,6 +252,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		DnsNameservers:    hPU.DnsNameservers,
 		ReplacePeers:      hPU.ReplacePeers,
 		AutoRelayNodes:    hPU.AutoRelayNodes,
+		GwNodes:           hPU.GwNodes,
 	}
 
 	logger.Log(1, hostID, host.Name, "completed a pull")
