@@ -35,6 +35,7 @@ type ApiNode struct {
 	IsGw                          bool                `json:"is_gw"`
 	IsAutoRelay                   bool                `json:"is_auto_relay"`
 	AutoRelayedPeers              map[string]struct{} `json:"auto_relayed_peers"`
+	AutoAssignGateway             bool                `json:"auto_assign_gw"`
 	AutoRelayedBy                 uuid.UUID           `json:"auto_relayed_by"`
 	RelayedBy                     string              `json:"relayedby" bson:"relayedby" yaml:"relayedby"`
 	RelayedNodes                  []string            `json:"relaynodes" yaml:"relayedNodes"`
@@ -142,6 +143,7 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 		convertedNode.IsRelay = true
 		convertedNode.IsIngressGateway = true
 	}
+	convertedNode.AutoAssignGateway = a.AutoAssignGateway
 	return &convertedNode
 }
 
@@ -196,6 +198,7 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.IsAutoRelay = nm.IsAutoRelay
 	apiNode.AutoRelayedBy = nm.AutoRelayedBy
 	apiNode.AutoRelayedPeers = nm.AutoRelayedPeers
+	apiNode.AutoAssignGateway = nm.AutoAssignGateway
 	apiNode.IsIngressGateway = nm.IsIngressGateway
 	apiNode.IngressDns = nm.IngressDNS
 	apiNode.IngressPersistentKeepalive = nm.IngressPersistentKeepalive

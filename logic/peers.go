@@ -255,10 +255,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				// skip yourself
 				continue
 			}
-			if peer.IsAutoRelay {
-				hostPeerUpdate.AutoRelayNodes[models.NetworkID(peer.Network)] = append(hostPeerUpdate.AutoRelayNodes[models.NetworkID(peer.Network)],
-					peer)
-			}
 
 			peerHost, err := GetHost(peer.HostID.String())
 			if err != nil {
@@ -413,7 +409,16 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				(deletedNode == nil || (peer.ID.String() != deletedNode.ID.String())) {
 				peerConfig.AllowedIPs = GetAllowedIPs(&node, &peer, nil) // only append allowed IPs if valid connection
 			}
-
+			if len(peerConfig.AllowedIPs) > 0 {
+				if peer.IsAutoRelay {
+					hostPeerUpdate.AutoRelayNodes[models.NetworkID(peer.Network)] = append(hostPeerUpdate.AutoRelayNodes[models.NetworkID(peer.Network)],
+						peer)
+				}
+				if node.AutoAssignGateway && peer.IsGw {
+					hostPeerUpdate.GwNodes[models.NetworkID(peer.Network)] = append(hostPeerUpdate.GwNodes[models.NetworkID(peer.Network)],
+						peer)
+				}
+			}
 			var nodePeer wgtypes.PeerConfig
 			if _, ok := peerIndexMap[peerHost.PublicKey.String()]; !ok {
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)

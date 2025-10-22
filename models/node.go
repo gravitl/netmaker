@@ -87,6 +87,7 @@ type CommonNode struct {
 	IsGw                bool      `json:"is_gw"             yaml:"is_gw"`
 	RelayedNodes        []string  `json:"relaynodes"          yaml:"relayedNodes"`
 	IngressDNS          string    `json:"ingressdns"          yaml:"ingressdns"`
+	AutoAssignGateway   bool      `json:"auto_assign_gw"`
 }
 
 // Node - a model of a network node

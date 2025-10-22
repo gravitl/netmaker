@@ -360,10 +360,7 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if node.AutoRelayedBy == uuid.Nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node is not auto relayed"), "badrequest"))
-		return
-	}
+
 	host, err := logic.GetHost(node.HostID.String())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -376,7 +373,6 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
 	autoRelayNode, err := logic.GetNodeByID(autoRelayReq.AutoRelayGwID)
 	if err != nil {
 		logic.ReturnErrorResponse(
@@ -389,6 +385,32 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	if !autoRelayNode.IsGw {
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(
+				fmt.Errorf(" autorelay node is not a gw"),
+				"badrequest",
+			),
+		)
+		return
+	}
+	if node.AutoAssignGateway {
+		if node.IsRelayed && node.RelayedBy != autoRelayReq.AutoRelayGwID {
+			logic.SetRelayedNodes(false, node.RelayedBy, []string{node.ID.String()})
+			logic.SetRelayedNodes(true, autoRelayReq.AutoRelayGwID, []string{node.ID.String()})
+			go mq.PublishPeerUpdate(false)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		logic.ReturnSuccessResponse(w, r, "relayed successfully")
+		return
+	}
+	if node.AutoRelayedBy == uuid.Nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node is not auto relayed"), "badrequest"))
+		return
+	}
+
 	if !autoRelayNode.IsAutoRelay {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("requested node is not a auto relay node"), "badrequest"))
 		return
