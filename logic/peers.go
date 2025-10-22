@@ -164,6 +164,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		ServerConfig:    GetServerInfo(),
 		DnsNameservers:  GetNameserversForHost(host),
 		AutoRelayNodes:  make(map[models.NetworkID][]models.Node),
+		GwNodes:         make(map[models.NetworkID][]models.Node),
 	}
 	if host.DNS == "no" {
 		hostPeerUpdate.ManageDNS = false
