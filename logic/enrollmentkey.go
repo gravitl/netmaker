@@ -38,23 +38,26 @@ var (
 )
 
 // CreateEnrollmentKey - creates a new enrollment key in db
-func CreateEnrollmentKey(uses int, expiration time.Time, networks, tags []string, groups []models.TagID, unlimited bool, relay uuid.UUID, defaultKey, autoEgress bool) (*models.EnrollmentKey, error) {
+func CreateEnrollmentKey(uses int, expiration time.Time, networks,
+	tags []string, groups []models.TagID, unlimited bool, relay uuid.UUID,
+	defaultKey, autoEgress, autoAssignGw bool) (*models.EnrollmentKey, error) {
 	newKeyID, err := getUniqueEnrollmentID()
 	if err != nil {
 		return nil, err
 	}
 	k := &models.EnrollmentKey{
-		Value:         newKeyID,
-		Expiration:    time.Time{},
-		UsesRemaining: 0,
-		Unlimited:     unlimited,
-		Networks:      []string{},
-		Tags:          []string{},
-		Type:          models.Undefined,
-		Relay:         relay,
-		Groups:        groups,
-		Default:       defaultKey,
-		AutoEgress:    autoEgress,
+		Value:             newKeyID,
+		Expiration:        time.Time{},
+		UsesRemaining:     0,
+		Unlimited:         unlimited,
+		Networks:          []string{},
+		Tags:              []string{},
+		Type:              models.Undefined,
+		Relay:             relay,
+		Groups:            groups,
+		Default:           defaultKey,
+		AutoEgress:        autoEgress,
+		AutoAssignGateway: autoAssignGw,
 	}
 	if uses > 0 {
 		k.UsesRemaining = uses

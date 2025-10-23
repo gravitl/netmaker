@@ -309,6 +309,7 @@ func updateEnrollmentKeys() {
 			uuid.Nil,
 			true,
 			false,
+			false,
 		)
 
 	}

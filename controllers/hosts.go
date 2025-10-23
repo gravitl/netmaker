@@ -1243,6 +1243,9 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	if key.AutoAssignGateway {
+		newNode.AutoAssignGateway = true
+	}
 	if len(key.Groups) > 0 {
 		newNode.Tags = make(map[models.TagID]struct{})
 		for _, tagI := range key.Groups {

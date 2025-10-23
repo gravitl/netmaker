@@ -290,6 +290,10 @@ func CheckNetRegAndHostUpdate(key models.EnrollmentKey, h *models.Host, username
 			})
 
 			newNode, err := logic.UpdateHostNetwork(h, netID, true)
+			if servercfg.IsPro && key.AutoAssignGateway {
+				newNode.AutoAssignGateway = true
+				logic.UpsertNode(newNode)
+			}
 			if err == nil || strings.Contains(err.Error(), "host already part of network") {
 				if len(key.Groups) > 0 {
 					newNode.Tags = make(map[models.TagID]struct{})
