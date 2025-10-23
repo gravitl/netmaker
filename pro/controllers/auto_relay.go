@@ -80,7 +80,7 @@ func getAutoRelayGws(w http.ResponseWriter, r *http.Request) {
 		returnautoRelayNodes = autoRelayNodes
 	}
 	w.Header().Set("Content-Type", "application/json")
-	logic.ReturnSuccessResponseWithJson(w, r, autoRelayNodes, "get autorelay node successfully")
+	logic.ReturnSuccessResponseWithJson(w, r, returnautoRelayNodes, "get autorelay node successfully")
 }
 
 // @Summary     Create AutoRelay node

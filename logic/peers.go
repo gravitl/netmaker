@@ -60,7 +60,6 @@ var (
 	// SetAutoRelay - sets autorelay flag on the node
 	SetAutoRelay = func(node *models.Node) {
 		node.IsAutoRelay = false
-		return
 	}
 )
 

@@ -36,7 +36,6 @@ func InitAutoRelayCache() {
 }
 func SetAutoRelay(node *models.Node) {
 	node.IsAutoRelay = true
-	return
 }
 
 func CheckAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
