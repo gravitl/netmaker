@@ -128,6 +128,8 @@ const (
 	UpdateMetrics HostMqAction = "UPDATE_METRICS"
 	// EgressUpdate - const for egress update action
 	EgressUpdate HostMqAction = "EGRESS_UPDATE"
+	// CHECK_ASSIGN_GW - const for to auto assign gw action
+	CheckAutoAssignGw HostMqAction = "CHECK_AUTO_ASSIGN_GW"
 )
 
 // SignalAction - turn peer signal action
