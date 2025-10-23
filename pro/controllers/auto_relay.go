@@ -397,9 +397,18 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if node.AutoAssignGateway {
-		if node.IsRelayed && node.RelayedBy != autoRelayReq.AutoRelayGwID {
-			logic.SetRelayedNodes(false, node.RelayedBy, []string{node.ID.String()})
-			logic.SetRelayedNodes(true, autoRelayReq.AutoRelayGwID, []string{node.ID.String()})
+		if node.RelayedBy != autoRelayReq.AutoRelayGwID {
+			if node.RelayedBy != "" {
+				// unset relayed node from the curr relay
+				currRelayNode, err := logic.GetNodeByID(node.RelayedBy)
+				if err == nil {
+					newRelayedNodes := logic.RemoveAllFromSlice(currRelayNode.RelayedNodes, node.ID.String())
+					logic.UpdateRelayNodes(currRelayNode.ID.String(), currRelayNode.RelayedNodes, newRelayedNodes)
+				}
+			}
+			newNodes := []string{node.ID.String()}
+			newNodes = append(newNodes, autoRelayNode.RelayedNodes...)
+			logic.UpdateRelayNodes(autoRelayNode.ID.String(), autoRelayNode.RelayedNodes, newNodes)
 			go mq.PublishPeerUpdate(false)
 		}
 		w.Header().Set("Content-Type", "application/json")

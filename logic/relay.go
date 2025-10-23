@@ -82,6 +82,13 @@ func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.N
 		}
 		returnnodes = append(returnnodes, node)
 	}
+	relayNode, _ := GetNodeByID(relay)
+	if setRelayed {
+		relayNode.RelayedNodes = relayed
+	} else {
+		relayNode.RelayedNodes = []string{}
+	}
+	UpsertNode(&relayNode)
 	return returnnodes
 }
 
@@ -143,7 +150,7 @@ func ValidateRelay(relay models.RelayRequest, update bool) error {
 }
 
 // UpdateRelayNodes - updates relay nodes
-func updateRelayNodes(relay string, oldNodes []string, newNodes []string) []models.Node {
+func UpdateRelayNodes(relay string, oldNodes []string, newNodes []string) []models.Node {
 	_ = SetRelayedNodes(false, relay, oldNodes)
 	return SetRelayedNodes(true, relay, newNodes)
 }
@@ -166,7 +173,7 @@ func RelayUpdates(currentNode, newNode *models.Node) bool {
 
 // UpdateRelayed - updates a relay's relayed nodes, and sends updates to the relayed nodes over MQ
 func UpdateRelayed(currentNode, newNode *models.Node) {
-	updatenodes := updateRelayNodes(currentNode.ID.String(), currentNode.RelayedNodes, newNode.RelayedNodes)
+	updatenodes := UpdateRelayNodes(currentNode.ID.String(), currentNode.RelayedNodes, newNode.RelayedNodes)
 	if len(updatenodes) > 0 {
 		for _, relayedNode := range updatenodes {
 			node := relayedNode
