@@ -651,6 +651,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		newNode.RelayedNodes = append(newNode.RelayedNodes, newNode.InetNodeReq.InetNodeClientIDs...)
 		newNode.RelayedNodes = logic.UniqueStrings(newNode.RelayedNodes)
 	}
+
 	relayUpdate := logic.RelayUpdates(&currentNode, newNode)
 	if relayUpdate && newNode.IsRelay {
 		err = logic.ValidateRelay(models.RelayRequest{
@@ -694,6 +695,18 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	}
 	if !newNode.IsInternetGateway {
 		logic.UnsetInternetGw(newNode)
+	}
+	if currentNode.AutoAssignGateway && !newNode.AutoAssignGateway {
+		// if relayed remove it
+		if newNode.IsRelayed {
+			relayNode, err := logic.GetNodeByID(newNode.RelayedBy)
+			if err == nil {
+				logic.RemoveAllFromSlice(relayNode.RelayedNodes, newNode.ID.String())
+				logic.UpsertNode(&relayNode)
+			}
+			newNode.IsRelayed = false
+			newNode.RelayedBy = ""
+		}
 	}
 	logic.UpsertNode(newNode)
 	logic.GetNodeStatus(newNode, false)
