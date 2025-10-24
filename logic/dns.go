@@ -470,11 +470,11 @@ func validateNameserverReq(ns schema.Nameserver) error {
 
 func getNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 	filters := make(map[string]bool)
-	if node.Address.IP.String() != "<nil>" {
+	if node.Address.IP != nil {
 		filters[node.Address.IP.String()] = true
 	}
 
-	if node.Address6.IP.String() != "<nil>" {
+	if node.Address6.IP != nil {
 		filters[node.Address6.IP.String()] = true
 	}
 
@@ -536,11 +536,11 @@ func getNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
 		}
 
 		filters := make(map[string]bool)
-		if node.Address.IP.String() != "<nil>" {
+		if node.Address.IP != nil {
 			filters[node.Address.IP.String()] = true
 		}
 
-		if node.Address6.IP.String() != "<nil>" {
+		if node.Address6.IP != nil {
 			filters[node.Address6.IP.String()] = true
 		}
 
