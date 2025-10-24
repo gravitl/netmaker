@@ -729,6 +729,9 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		if err := mq.NodeUpdate(newNode); err != nil {
 			slog.Error("error publishing node update to node", "node", newNode.ID, "error", err)
 		}
+		if !newNode.Connected {
+			mq.HostUpdate(&models.HostUpdate{Host: *host, Action: models.RequestPull})
+		}
 		mq.PublishPeerUpdate(false)
 		if servercfg.IsDNSMode() {
 			logic.SetDNS()

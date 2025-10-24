@@ -73,6 +73,8 @@ func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 	eli, _ := (&schema.Egress{Network: client.Network}).ListByNetwork(db.WithContext(context.TODO()))
 	staticNode := client.ConvertToStaticNode()
 	userPolicies := ListUserPolicies(models.NetworkID(client.Network))
+	defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(client.Network), models.UserPolicy)
+
 	for _, eI := range eli {
 		if !eI.Status {
 			continue
@@ -89,17 +91,22 @@ func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 		} else {
 			rangesToBeAdded = append(rangesToBeAdded, eI.Range)
 		}
-		if staticNode.IsUserNode && staticNode.StaticNode.OwnerID != "" {
-			user, err := GetUser(staticNode.StaticNode.OwnerID)
-			if err != nil {
-				return []string{}, errors.New("user not found")
-			}
-			if DoesUserHaveAccessToEgress(user, &eI, userPolicies) {
+		if defaultUserPolicy.Enabled {
+			result = append(result, rangesToBeAdded...)
+		} else {
+			if staticNode.IsUserNode && staticNode.StaticNode.OwnerID != "" {
+				user, err := GetUser(staticNode.StaticNode.OwnerID)
+				if err != nil {
+					return []string{}, errors.New("user not found")
+				}
+				if DoesUserHaveAccessToEgress(user, &eI, userPolicies) {
+					result = append(result, rangesToBeAdded...)
+				}
+			} else {
 				result = append(result, rangesToBeAdded...)
 			}
-		} else {
-			result = append(result, rangesToBeAdded...)
 		}
+
 	}
 	extclients, _ := GetNetworkExtClients(client.Network)
 	for _, extclient := range extclients {

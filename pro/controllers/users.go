@@ -1399,6 +1399,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		Metadata:          node.Metadata,
 		AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 		NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
+		ManageDNS:         host.DNS == "yes",
 		DnsAddress:        node.IngressDNS,
 		Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
 	}
@@ -1550,6 +1551,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 			NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
 			Status:            node.Status,
+			ManageDNS:         host.DNS == "yes",
 			DnsAddress:        node.IngressDNS,
 			Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
 		}
@@ -1601,6 +1603,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 			NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
 			Status:            node.Status,
+			ManageDNS:         host.DNS == "yes",
 			DnsAddress:        node.IngressDNS,
 			Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
 		}
