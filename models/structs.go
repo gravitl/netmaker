@@ -52,6 +52,7 @@ type UserRemoteGws struct {
 	AllowedEndpoints  []string   `json:"allowed_endpoints"`
 	NetworkAddresses  []string   `json:"network_addresses"`
 	Status            NodeStatus `json:"status"`
+	ManageDNS         bool       `json:"manage_dns"`
 	DnsAddress        string     `json:"dns_address"`
 	Addresses         string     `json:"addresses"`
 	MatchDomains      []string   `json:"match_domains"`
@@ -266,6 +267,7 @@ type HostPull struct {
 	NameServers       []string              `json:"name_servers"`
 	EgressWithDomains []EgressDomain        `json:"egress_with_domains"`
 	DnsNameservers    []Nameserver          `json:"dns_nameservers"`
+	ReplacePeers      bool                  `json:"replace_peers"`
 }
 
 type DefaultGwInfo struct {
