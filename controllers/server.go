@@ -1,18 +1,16 @@
 package controller
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/schema"
-	"github.com/google/go-cmp/cmp"
 	"net/http"
 	"os"
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
 
 	"github.com/gorilla/mux"
 	"golang.org/x/exp/slog"
@@ -82,56 +80,10 @@ func memProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 func getUsage(w http.ResponseWriter, _ *http.Request) {
-	type usage struct {
-		Hosts            int `json:"hosts"`
-		Clients          int `json:"clients"`
-		Networks         int `json:"networks"`
-		Users            int `json:"users"`
-		Ingresses        int `json:"ingresses"`
-		Egresses         int `json:"egresses"`
-		Relays           int `json:"relays"`
-		InternetGateways int `json:"internet_gateways"`
-		FailOvers        int `json:"fail_overs"`
-	}
-	var serverUsage usage
-	hosts, err := logic.GetAllHostsWithStatus(models.OnlineSt)
-	if err == nil {
-		serverUsage.Hosts = len(hosts)
-	}
-	clients, err := logic.GetAllExtClientsWithStatus(models.OnlineSt)
-	if err == nil {
-		serverUsage.Clients = len(clients)
-	}
-	users, err := logic.GetUsers()
-	if err == nil {
-		serverUsage.Users = len(users)
-	}
-	networks, err := logic.GetNetworks()
-	if err == nil {
-		serverUsage.Networks = len(networks)
-	}
-	// TODO this part bellow can be optimized to get nodes just once
-	ingresses, err := logic.GetAllIngresses()
-	if err == nil {
-		serverUsage.Ingresses = len(ingresses)
-	}
-	serverUsage.Egresses, _ = (&schema.Egress{}).Count(db.WithContext(context.TODO()))
-	relays, err := logic.GetRelays()
-	if err == nil {
-		serverUsage.Relays = len(relays)
-	}
-	gateways, err := logic.GetInternetGateways()
-	if err == nil {
-		serverUsage.InternetGateways = len(gateways)
-	}
-	failOvers, err := logic.GetAllFailOvers()
-	if err == nil {
-		serverUsage.FailOvers = len(failOvers)
-	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(models.SuccessResponse{
 		Code:     http.StatusOK,
-		Response: serverUsage,
+		Response: logic.GetCurrentServerUsage(),
 	})
 }
 
@@ -149,6 +101,7 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 		IsPro            bool      `json:"is_pro"`
 		TrialEndDate     time.Time `json:"trial_end_date"`
 		IsOnTrialLicense bool      `json:"is_on_trial_license"`
+		Version          string    `json:"version"`
 	}
 
 	licenseErr := ""
@@ -173,6 +126,7 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 		IsBrokerConnOpen: mq.IsConnectionOpen(),
 		LicenseError:     licenseErr,
 		IsPro:            servercfg.IsPro,
+		Version:          servercfg.Version,
 		//TrialEndDate:     trialEndDate,
 		//IsOnTrialLicense: isOnTrial,
 	}

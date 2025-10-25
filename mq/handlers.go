@@ -167,19 +167,13 @@ func DeleteAndCleanupHost(h *models.Host) {
 	}
 
 	// notify of deleted peer change
-	go func(host models.Host) {
-		for _, nodeID := range host.Nodes {
-			node, err := logic.GetNodeByID(nodeID)
-			if err == nil {
-				var gwClients []models.ExtClient
-				if node.IsIngressGateway {
-					gwClients = logic.GetGwExtclients(node.ID.String(), node.Network)
-				}
-				go PublishMqUpdatesForDeletedNode(node, false, gwClients)
-			}
 
+	for _, nodeID := range h.Nodes {
+		node, err := logic.GetNodeByID(nodeID)
+		if err == nil {
+			PublishMqUpdatesForDeletedNode(node, false)
 		}
-	}(*h)
+	}
 
 	if err := logic.DisassociateAllNodesFromHost(h.ID.String()); err != nil {
 		slog.Error("failed to delete all nodes of host", "id", h.ID, "error", err)

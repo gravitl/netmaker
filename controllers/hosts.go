@@ -406,8 +406,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	case models.SignalHost:
 		mq.SignalPeer(hostUpdate.Signal)
 	case models.DeleteHost:
-		mq.DeleteAndCleanupHost(currentHost)
-		sendPeerUpdate = true
+		go mq.DeleteAndCleanupHost(currentHost)
 	}
 	go func() {
 		if sendDeletedNodeUpdate {
@@ -450,11 +449,7 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 			slog.Error("failed to get node", "nodeid", nodeID, "error", err)
 			continue
 		}
-		var gwClients []models.ExtClient
-		if node.IsIngressGateway {
-			gwClients = logic.GetGwExtclients(node.ID.String(), node.Network)
-		}
-		go mq.PublishMqUpdatesForDeletedNode(node, false, gwClients)
+		go mq.PublishMqUpdatesForDeletedNode(node, false)
 
 	}
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
@@ -708,10 +703,6 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	var gwClients []models.ExtClient
-	if node.IsIngressGateway {
-		gwClients = logic.GetGwExtclients(node.ID.String(), node.Network)
-	}
 	logger.Log(1, "deleting node", node.ID.String(), "from host", currHost.Name)
 	if err := logic.DeleteNode(node, forceDelete); err != nil {
 		logic.ReturnErrorResponse(
@@ -722,7 +713,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	go func() {
-		mq.PublishMqUpdatesForDeletedNode(*node, true, gwClients)
+		mq.PublishMqUpdatesForDeletedNode(*node, true)
 		if servercfg.IsDNSMode() {
 			logic.SetDNS()
 		}

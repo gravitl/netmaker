@@ -836,6 +836,9 @@ func migrateSettings() {
 	if settings.JwtValidityDurationClients == 0 {
 		settings.JwtValidityDurationClients = servercfg.GetJwtValidityDurationFromEnv() / 60
 	}
+	if settings.StunServers == "" {
+		settings.StunServers = servercfg.GetStunServers()
+	}
 	logic.UpsertServerSettings(settings)
 }
 

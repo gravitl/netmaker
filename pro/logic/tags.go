@@ -78,6 +78,7 @@ func DeleteTag(tagID models.TagID, removeFromPolicy bool) error {
 		// remove tag used on acl policy
 		go RemoveDeviceTagFromAclPolicies(tagID, tag.Network)
 	}
+	go RemoveTagFromEgress(tag.Network, tagID)
 	extclients, _ := logic.GetNetworkExtClients(tag.Network.String())
 	for _, extclient := range extclients {
 		if _, ok := extclient.Tags[tagID]; ok {

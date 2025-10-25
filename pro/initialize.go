@@ -169,6 +169,7 @@ func InitPro() {
 	logic.GetNameserversForHost = proLogic.GetNameserversForHost
 	logic.GetNameserversForNode = proLogic.GetNameserversForNode
 	logic.ValidateNameserverReq = proLogic.ValidateNameserverReq
+	logic.ValidateEgressReq = proLogic.ValidateEgressReq
 
 }
 

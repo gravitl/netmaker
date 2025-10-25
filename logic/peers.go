@@ -628,7 +628,7 @@ func filterConflictingEgressRoutes(node, peer models.Node) []string {
 		}
 	}
 
-	return egressIPs
+	return UniqueStrings(egressIPs)
 }
 
 func filterConflictingEgressRoutesWithMetric(node, peer models.Node) []models.EgressRangeMetric {
