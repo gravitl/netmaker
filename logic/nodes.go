@@ -15,10 +15,12 @@ import (
 	validator "github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/validation"
 	"github.com/seancfoley/ipaddress-go/ipaddr"
@@ -323,6 +325,29 @@ func DeleteNode(node *models.Node, purge bool) error {
 	}
 	if err := DissasociateNodeFromHost(node, host); err != nil {
 		return err
+	}
+
+	filters := make(map[string]bool)
+	if node.Address.IP != nil {
+		filters[node.Address.IP.String()] = true
+	}
+
+	if node.Address6.IP != nil {
+		filters[node.Address6.IP.String()] = true
+	}
+
+	nameservers, _ := (&schema.Nameserver{
+		NetworkID: node.Network,
+	}).ListByNetwork(db.WithContext(context.TODO()))
+	for _, ns := range nameservers {
+		ns.Servers = FilterOutIPs(ns.Servers, filters)
+		if len(ns.Servers) > 0 {
+			_ = ns.Update(db.WithContext(context.TODO()))
+		} else {
+			// TODO: deleting a nameserver dns server could cause trouble for other nodes.
+			// TODO: try to figure out a sequence that works the best.
+			_ = ns.Delete(db.WithContext(context.TODO()))
+		}
 	}
 
 	go RemoveNodeFromAclPolicy(*node)
