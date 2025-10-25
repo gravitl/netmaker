@@ -84,8 +84,15 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		CreatedBy:   r.Header.Get("user"),
 		CreatedAt:   time.Now().UTC(),
 	}
-	for nodeID, metric := range req.Nodes {
-		e.Nodes[nodeID] = metric
+	if len(req.Tags) > 0 {
+		for tagID, metric := range req.Tags {
+			e.Tags[tagID] = metric
+		}
+		e.Nodes = make(datatypes.JSONMap)
+	} else {
+		for nodeID, metric := range req.Nodes {
+			e.Nodes[nodeID] = metric
+		}
 	}
 	if err := logic.ValidateEgressReq(&e); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -272,8 +279,15 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	}
 	e.Nodes = make(datatypes.JSONMap)
 	e.Tags = make(datatypes.JSONMap)
-	for nodeID, metric := range req.Nodes {
-		e.Nodes[nodeID] = metric
+	if len(req.Tags) > 0 {
+		for tagID, metric := range req.Tags {
+			e.Tags[tagID] = metric
+		}
+		e.Nodes = make(datatypes.JSONMap)
+	} else {
+		for nodeID, metric := range req.Nodes {
+			e.Nodes[nodeID] = metric
+		}
 	}
 	if e.Domain != req.Domain {
 		e.DomainAns = datatypes.JSONSlice[string]{}

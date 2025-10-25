@@ -223,6 +223,9 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 		}
 		newNode.EgressDetails = models.EgressDetails{}
 		newNode.SetLastModified()
+		if !currentNode.Connected && newNode.Connected {
+			newNode.SetLastCheckIn()
+		}
 		if data, err := json.Marshal(newNode); err != nil {
 			return err
 		} else {

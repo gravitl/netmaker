@@ -729,9 +729,9 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		if err := mq.NodeUpdate(newNode); err != nil {
 			slog.Error("error publishing node update to node", "node", newNode.ID, "error", err)
 		}
-		if !newNode.Connected {
-			mq.HostUpdate(&models.HostUpdate{Host: *host, Action: models.RequestPull})
-		}
+		// if !newNode.Connected {
+		// 	mq.HostUpdate(&models.HostUpdate{Host: *host, Action: models.SignalPull})
+		// }
 		mq.PublishPeerUpdate(false)
 		if servercfg.IsDNSMode() {
 			logic.SetDNS()
@@ -759,10 +759,6 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	}
 	forceDelete := r.URL.Query().Get("force") == "true"
 	fromNode := r.Header.Get("requestfrom") == "node"
-	var gwClients []models.ExtClient
-	if node.IsIngressGateway {
-		gwClients = logic.GetGwExtclients(node.ID.String(), node.Network)
-	}
 	purge := forceDelete || fromNode
 	if err := logic.DeleteNode(&node, purge); err != nil {
 		logic.ReturnErrorResponse(
@@ -775,5 +771,5 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
-	go mq.PublishMqUpdatesForDeletedNode(node, !fromNode, gwClients)
+	go mq.PublishMqUpdatesForDeletedNode(node, !fromNode)
 }

@@ -101,6 +101,7 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 		IsPro            bool      `json:"is_pro"`
 		TrialEndDate     time.Time `json:"trial_end_date"`
 		IsOnTrialLicense bool      `json:"is_on_trial_license"`
+		Version          string    `json:"version"`
 	}
 
 	licenseErr := ""
@@ -125,6 +126,7 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 		IsBrokerConnOpen: mq.IsConnectionOpen(),
 		LicenseError:     licenseErr,
 		IsPro:            servercfg.IsPro,
+		Version:          servercfg.Version,
 		//TrialEndDate:     trialEndDate,
 		//IsOnTrialLicense: isOnTrial,
 	}

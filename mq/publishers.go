@@ -198,7 +198,7 @@ func ServerStartNotify() error {
 }
 
 // PublishMqUpdatesForDeletedNode - published all the required updates for deleted node
-func PublishMqUpdatesForDeletedNode(node models.Node, sendNodeUpdate bool, gwClients []models.ExtClient) {
+func PublishMqUpdatesForDeletedNode(node models.Node, sendNodeUpdate bool) {
 	// notify of peer change
 	node.PendingDelete = true
 	node.Action = models.NODE_DELETE

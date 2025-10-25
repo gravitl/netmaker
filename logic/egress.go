@@ -13,7 +13,9 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-func ValidateEgressReq(e *schema.Egress) error {
+var ValidateEgressReq = validateEgressReq
+
+func validateEgressReq(e *schema.Egress) error {
 	if e.Network == "" {
 		return errors.New("network id is empty")
 	}
@@ -162,6 +164,42 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 
 			}
 		}
+		for tagID := range targetNode.Tags {
+			if metric, ok := e.Tags[tagID.String()]; ok {
+				m64, err := metric.(json.Number).Int64()
+				if err != nil {
+					m64 = 256
+				}
+				m := uint32(m64)
+				if e.Range != "" {
+					req.Ranges = append(req.Ranges, e.Range)
+				} else {
+					req.Ranges = append(req.Ranges, e.DomainAns...)
+				}
+
+				if e.Range != "" {
+					req.Ranges = append(req.Ranges, e.Range)
+					req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
+						Network:     e.Range,
+						Nat:         e.Nat,
+						RouteMetric: m,
+					})
+				}
+				if e.Domain != "" && len(e.DomainAns) > 0 {
+					req.Ranges = append(req.Ranges, e.DomainAns...)
+					for _, domainAnsI := range e.DomainAns {
+						req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
+							Network:     domainAnsI,
+							Nat:         e.Nat,
+							RouteMetric: m,
+						})
+					}
+
+				}
+				break
+			}
+		}
+
 	}
 	if targetNode.Mutex != nil {
 		targetNode.Mutex.Lock()
@@ -239,6 +277,41 @@ func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []mode
 
 			}
 
+		}
+		for tagID := range targetNode.Tags {
+			if metric, ok := e.Tags[tagID.String()]; ok {
+				m64, err := metric.(json.Number).Int64()
+				if err != nil {
+					m64 = 256
+				}
+				m := uint32(m64)
+				if e.Range != "" {
+					req.Ranges = append(req.Ranges, e.Range)
+				} else {
+					req.Ranges = append(req.Ranges, e.DomainAns...)
+				}
+
+				if e.Range != "" {
+					req.Ranges = append(req.Ranges, e.Range)
+					req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
+						Network:     e.Range,
+						Nat:         e.Nat,
+						RouteMetric: m,
+					})
+				}
+				if e.Domain != "" && len(e.DomainAns) > 0 {
+					req.Ranges = append(req.Ranges, e.DomainAns...)
+					for _, domainAnsI := range e.DomainAns {
+						req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
+							Network:     domainAnsI,
+							Nat:         e.Nat,
+							RouteMetric: m,
+						})
+					}
+
+				}
+				break
+			}
 		}
 	}
 	if targetNode.Mutex != nil {
