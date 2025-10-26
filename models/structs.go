@@ -272,9 +272,6 @@ type HostPull struct {
 	ReplacePeers      bool                  `json:"replace_peers"`
 }
 
-type DefaultGwInfo struct {
-}
-
 // NodeGet - struct for a single node get response
 type NodeGet struct {
 	Node         Node                 `json:"node" bson:"node" yaml:"node"`

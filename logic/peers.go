@@ -343,7 +343,8 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				}
 			}
 			shouldCheckRelayed := true
-			if node.AutoAssignGateway && peer.IsGw && node.RelayedBy != peer.ID.String() {
+			if (node.AutoAssignGateway && peer.IsGw && node.RelayedBy != peer.ID.String()) ||
+				(peer.AutoAssignGateway && node.IsGw && peer.RelayedBy != node.ID.String()) {
 				shouldCheckRelayed = false
 			}
 			if shouldCheckRelayed {
@@ -397,7 +398,8 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					peerEndpoint = peerHost.EndpointIPv6
 				}
 			}
-			if node.IsRelay && peer.RelayedBy == node.ID.String() && peer.InternetGwID == "" && !peer.IsStatic {
+			if (node.IsRelay && peer.RelayedBy == node.ID.String() && peer.InternetGwID == "") ||
+				(peer.AutoAssignGateway && node.IsGw) && !peer.IsStatic {
 				// don't set endpoint on relayed peer
 				peerEndpoint = nil
 			}
