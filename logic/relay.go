@@ -243,6 +243,9 @@ func GetAllowedIpsForRelayed(relayed, relay *models.Node) (allowedIPs []net.IPNe
 		if peer.ID == relayed.ID || peer.ID == relay.ID {
 			continue
 		}
+		if relayed.AutoAssignGateway && peer.IsGw {
+			continue
+		}
 		if !IsPeerAllowed(*relayed, peer, true) {
 			continue
 		}
