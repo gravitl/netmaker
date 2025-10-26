@@ -373,6 +373,24 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if autoRelayReq.AutoRelayGwID == "" {
+		// unset current gw
+		if node.RelayedBy != "" {
+			// unset relayed node from the curr relay
+			currRelayNode, err := logic.GetNodeByID(node.RelayedBy)
+			if err == nil {
+				newRelayedNodes := logic.RemoveAllFromSlice(currRelayNode.RelayedNodes, node.ID.String())
+				logic.UpdateRelayNodes(currRelayNode.ID.String(), currRelayNode.RelayedNodes, newRelayedNodes)
+			}
+		}
+		allNodes, err := logic.GetAllNodes()
+		if err == nil {
+			mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, false, nil)
+		}
+		go mq.PublishPeerUpdate(false)
+		logic.ReturnSuccessResponse(w, r, "unrelayed successfully")
+		return
+	}
 	autoRelayNode, err := logic.GetNodeByID(autoRelayReq.AutoRelayGwID)
 	if err != nil {
 		logic.ReturnErrorResponse(
