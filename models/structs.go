@@ -252,24 +252,24 @@ type TrafficKeys struct {
 
 // HostPull - response of a host's pull
 type HostPull struct {
-	Host              Host                  `json:"host" yaml:"host"`
-	Nodes             []Node                `json:"nodes" yaml:"nodes"`
-	Peers             []wgtypes.PeerConfig  `json:"peers" yaml:"peers"`
-	ServerConfig      ServerConfig          `json:"server_config" yaml:"server_config"`
-	PeerIDs           PeerMap               `json:"peer_ids,omitempty" yaml:"peer_ids,omitempty"`
-	HostNetworkInfo   HostInfoMap           `json:"host_network_info,omitempty"  yaml:"host_network_info,omitempty"`
-	EgressRoutes      []EgressNetworkRoutes `json:"egress_network_routes"`
-	FwUpdate          FwUpdate              `json:"fw_update"`
-	ChangeDefaultGw   bool                  `json:"change_default_gw"`
-	DefaultGwIp       net.IP                `json:"default_gw_ip"`
-	IsInternetGw      bool                  `json:"is_inet_gw"`
-	EndpointDetection bool                  `json:"endpoint_detection"`
-	NameServers       []string              `json:"name_servers"`
-	EgressWithDomains []EgressDomain        `json:"egress_with_domains"`
-	DnsNameservers    []Nameserver          `json:"dns_nameservers"`
-	AutoRelayNodes    map[NetworkID][]Node  `json:"auto_relay_nodes"`
-	GwNodes           map[NetworkID][]Node  `json:"gw_nodes"`
-	ReplacePeers      bool                  `json:"replace_peers"`
+	Host              Host                     `json:"host" yaml:"host"`
+	Nodes             []Node                   `json:"nodes" yaml:"nodes"`
+	Peers             []wgtypes.PeerConfig     `json:"peers" yaml:"peers"`
+	ServerConfig      ServerConfig             `json:"server_config" yaml:"server_config"`
+	PeerIDs           PeerMap                  `json:"peer_ids,omitempty" yaml:"peer_ids,omitempty"`
+	HostNetworkInfo   HostInfoMap              `json:"host_network_info,omitempty"  yaml:"host_network_info,omitempty"`
+	EgressRoutes      []EgressNetworkRoutes    `json:"egress_network_routes"`
+	FwUpdate          FwUpdate                 `json:"fw_update"`
+	ChangeDefaultGw   bool                     `json:"change_default_gw"`
+	DefaultGwIp       net.IP                   `json:"default_gw_ip"`
+	IsInternetGw      bool                     `json:"is_inet_gw"`
+	EndpointDetection bool                     `json:"endpoint_detection"`
+	NameServers       []string                 `json:"name_servers"`
+	EgressWithDomains []EgressDomain           `json:"egress_with_domains"`
+	DnsNameservers    []Nameserver             `json:"dns_nameservers"`
+	AutoRelayNodes    map[NetworkID][]HostNode `json:"auto_relay_nodes"`
+	GwNodes           map[NetworkID][]HostNode `json:"gw_nodes"`
+	ReplacePeers      bool                     `json:"replace_peers"`
 }
 
 type DefaultGwInfo struct {
