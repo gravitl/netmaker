@@ -162,7 +162,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		HostNetworkInfo: models.HostInfoMap{},
 		ServerConfig:    GetServerInfo(),
 		DnsNameservers:  GetNameserversForHost(host),
-		AutoRelayNodes:  make(map[models.NetworkID][]models.HostNode),
+		AutoRelayNodes:  make(map[models.NetworkID][]models.Node),
 		GwNodes:         make(map[models.NetworkID][]models.HostNode),
 	}
 	if host.DNS == "no" {
@@ -335,10 +335,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			if allowedToComm {
 				if peer.IsAutoRelay {
 					hostPeerUpdate.AutoRelayNodes[models.NetworkID(peer.Network)] = append(hostPeerUpdate.AutoRelayNodes[models.NetworkID(peer.Network)],
-						models.HostNode{
-							Node: peer,
-							Host: *peerHost,
-						})
+						peer)
 				}
 				if node.AutoAssignGateway && peer.IsGw {
 					hostPeerUpdate.GwNodes[models.NetworkID(peer.Network)] = append(hostPeerUpdate.GwNodes[models.NetworkID(peer.Network)],
