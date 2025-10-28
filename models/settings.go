@@ -48,6 +48,7 @@ type ServerSettings struct {
 	Stun                           bool   `json:"stun"`
 	StunServers                    string `json:"stun_servers"`
 	AuditLogsRetentionPeriodInDays int    `json:"audit_logs_retention_period"`
+	OldAClsSupport                 bool   `json:"old_acl_support"`
 }
 
 type UserSettings struct {
