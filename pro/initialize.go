@@ -36,6 +36,7 @@ func InitPro() {
 		proControllers.EventHandlers,
 		proControllers.TagHandlers,
 		proControllers.NetworkHandlers,
+		proControllers.AutoRelayHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
@@ -92,6 +93,9 @@ func InitPro() {
 		}
 		proLogic.LoadNodeMetricsToCache()
 		proLogic.InitFailOverCache()
+		if servercfg.CacheEnabled() {
+			proLogic.InitAutoRelayCache()
+		}
 		auth.ResetIDPSyncHook()
 		email.Init()
 		go proLogic.EventWatcher()
@@ -101,6 +105,12 @@ func InitPro() {
 	logic.FailOverExists = proLogic.FailOverExists
 	logic.CreateFailOver = proLogic.CreateFailOver
 	logic.GetFailOverPeerIps = proLogic.GetFailOverPeerIps
+
+	logic.ResetAutoRelay = proLogic.ResetAutoRelay
+	logic.ResetAutoRelayedPeer = proLogic.ResetAutoRelayedPeer
+	logic.SetAutoRelay = proLogic.SetAutoRelay
+	logic.GetAutoRelayPeerIps = proLogic.GetAutoRelayPeerIps
+
 	logic.DenyClientNodeAccess = proLogic.DenyClientNode
 	logic.IsClientNodeAllowed = proLogic.IsClientNodeAllowed
 	logic.AllowClientNodeAccess = proLogic.RemoveDeniedNodeFromClient

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -639,6 +640,10 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	if currentNode.IsAutoRelay && !newNode.IsAutoRelay {
+		logic.ResetAutoRelay(newNode)
+	}
+
 	if newNode.IsInternetGateway && len(newNode.InetNodeReq.InetNodeClientIDs) > 0 {
 		err = logic.ValidateInetGwReq(*newNode, newNode.InetNodeReq, newNode.IsInternetGateway && currentNode.IsInternetGateway)
 		if err != nil {
@@ -648,6 +653,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		newNode.RelayedNodes = append(newNode.RelayedNodes, newNode.InetNodeReq.InetNodeClientIDs...)
 		newNode.RelayedNodes = logic.UniqueStrings(newNode.RelayedNodes)
 	}
+
 	relayUpdate := logic.RelayUpdates(&currentNode, newNode)
 	if relayUpdate && newNode.IsRelay {
 		err = logic.ValidateRelay(models.RelayRequest{
@@ -692,6 +698,33 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	if !newNode.IsInternetGateway {
 		logic.UnsetInternetGw(newNode)
 	}
+	if currentNode.AutoAssignGateway && !newNode.AutoAssignGateway {
+		// if relayed remove it
+		if newNode.IsRelayed {
+			relayNode, err := logic.GetNodeByID(newNode.RelayedBy)
+			if err == nil {
+				logic.RemoveAllFromSlice(relayNode.RelayedNodes, newNode.ID.String())
+				logic.UpsertNode(&relayNode)
+			}
+			newNode.IsRelayed = false
+			newNode.RelayedBy = ""
+		}
+	}
+	if (currentNode.IsRelayed || currentNode.FailedOverBy != uuid.Nil) && newNode.AutoAssignGateway {
+		// if relayed remove it
+		if currentNode.IsRelayed {
+			relayNode, err := logic.GetNodeByID(currentNode.RelayedBy)
+			if err == nil {
+				logic.RemoveAllFromSlice(relayNode.RelayedNodes, currentNode.ID.String())
+				logic.UpsertNode(&relayNode)
+			}
+			newNode.IsRelayed = false
+			newNode.RelayedBy = ""
+		}
+		if currentNode.FailedOverBy != uuid.Nil {
+			logic.ResetAutoRelayedPeer(&currentNode)
+		}
+	}
 	logic.UpsertNode(newNode)
 	logic.GetNodeStatus(newNode, false)
 
@@ -733,6 +766,9 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		// 	mq.HostUpdate(&models.HostUpdate{Host: *host, Action: models.SignalPull})
 		// }
 		mq.PublishPeerUpdate(false)
+		if newNode.AutoAssignGateway {
+			mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *host, Node: *newNode})
+		}
 		if servercfg.IsDNSMode() {
 			logic.SetDNS()
 		}

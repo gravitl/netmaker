@@ -282,6 +282,9 @@ func DeleteNode(node *models.Node, purge bool) error {
 	if node.FailedOverBy != uuid.Nil {
 		ResetFailedOverPeer(node)
 	}
+	if node.AutoRelayedBy != uuid.Nil {
+		ResetAutoRelayedPeer(node)
+	}
 	if node.IsRelay {
 		// unset all the relayed nodes
 		SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)

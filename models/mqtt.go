@@ -13,6 +13,7 @@ type HostPeerInfo struct {
 // HostPeerUpdate - struct for host peer updates
 type HostPeerUpdate struct {
 	Host              Host                  `json:"host"`
+	Nodes             []Node                `json:"nodes"`
 	ChangeDefaultGw   bool                  `json:"change_default_gw"`
 	DefaultGwIp       net.IP                `json:"default_gw_ip"`
 	IsInternetGw      bool                  `json:"is_inet_gw"`
@@ -30,6 +31,8 @@ type HostPeerUpdate struct {
 	NameServers       []string              `json:"name_servers"`
 	DnsNameservers    []Nameserver          `json:"dns_nameservers"`
 	EgressWithDomains []EgressDomain        `json:"egress_with_domains"`
+	AutoRelayNodes    map[NetworkID][]Node  `json:"auto_relay_nodes"`
+	GwNodes           map[NetworkID][]Node  `json:"gw_nodes"`
 	ServerConfig
 	OldPeerUpdateFields
 }
@@ -131,4 +134,10 @@ type FwUpdate struct {
 // FailOverMeReq - struct for failover req
 type FailOverMeReq struct {
 	NodeID string `json:"node_id"`
+}
+
+// AutoRelayMeReq - struct for autorelay req
+type AutoRelayMeReq struct {
+	NodeID        string `json:"node_id"`
+	AutoRelayGwID string `json:"auto_relay_gw_id"`
 }

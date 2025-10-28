@@ -340,6 +340,9 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 			if node.FailedOverBy != uuid.Nil {
 				ResetFailedOverPeer(&node)
 			}
+			if node.AutoRelayedBy != uuid.Nil {
+				ResetAutoRelayedPeer(&node)
+			}
 		}
 	}
 
@@ -396,6 +399,7 @@ func UpdateHostNode(h *models.Host, newNode *models.Node) (publishDeletedNodeUpd
 		publishPeerUpdate = true
 		// reset failover data for this node
 		ResetFailedOverPeer(newNode)
+		ResetAutoRelayedPeer(newNode)
 	}
 	return
 }

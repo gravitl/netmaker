@@ -108,21 +108,28 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	case models.CheckIn:
 		sendPeerUpdate = HandleHostCheckin(&hostUpdate.Host, currentHost)
 	case models.Acknowledgement:
+		nodes, err := logic.GetAllNodes()
+		if err != nil {
+			return
+		}
 		hu := hostactions.GetAction(currentHost.ID.String())
 		if hu != nil {
 			if err = HostUpdate(hu); err != nil {
 				slog.Error("failed to send new node to host", "name", hostUpdate.Host.Name, "id", currentHost.ID, "error", err)
 				return
 			} else {
-				nodes, err := logic.GetAllNodes()
-				if err != nil {
-					return
-				}
+
 				if err = PublishSingleHostPeerUpdate(currentHost, nodes, nil, nil, false, nil); err != nil {
 					slog.Error("failed peers publish after join acknowledged", "name", hostUpdate.Host.Name, "id", currentHost.ID, "error", err)
 					return
 				}
 			}
+		} else {
+			// send latest host update
+			HostUpdate(&models.HostUpdate{
+				Action: models.UpdateHost,
+				Host:   *currentHost})
+			PublishSingleHostPeerUpdate(currentHost, nodes, nil, nil, false, nil)
 		}
 	case models.UpdateHost:
 		if hostUpdate.Host.PublicKey != currentHost.PublicKey {
@@ -188,6 +195,18 @@ func SignalPeer(signal models.Signal) {
 		logger.Log(0, msg)
 		return
 	}
+	node, err := logic.GetNodeByID(signal.FromNodeID)
+	if err != nil {
+		return
+	}
+	peer, err := logic.GetNodeByID(signal.ToNodeID)
+	if err != nil {
+		return
+	}
+	if node.Network != peer.Network {
+		return
+	}
+	signal.NetworkID = node.Network
 	signal.IsPro = servercfg.IsPro
 	peerHost, err := logic.GetHost(signal.ToHostID)
 	if err != nil {

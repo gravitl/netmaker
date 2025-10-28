@@ -212,6 +212,7 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		}
 		if r.URL.Query().Get("reset_failovered") == "true" {
 			logic.ResetFailedOverPeer(&node)
+			logic.ResetAutoRelayedPeer(&node)
 			sendPeerUpdate = true
 		}
 	}
@@ -250,6 +251,8 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		EndpointDetection: logic.IsEndpointDetectionEnabled(),
 		DnsNameservers:    hPU.DnsNameservers,
 		ReplacePeers:      hPU.ReplacePeers,
+		AutoRelayNodes:    hPU.AutoRelayNodes,
+		GwNodes:           hPU.GwNodes,
 	}
 
 	logger.Log(1, hostID, host.Name, "completed a pull")
@@ -1230,6 +1233,9 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 			Message: err.Error(),
 		})
 		return
+	}
+	if key.AutoAssignGateway {
+		newNode.AutoAssignGateway = true
 	}
 	if len(key.Groups) > 0 {
 		newNode.Tags = make(map[models.TagID]struct{})

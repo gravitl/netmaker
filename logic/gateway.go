@@ -198,6 +198,7 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	}
 	node.IsIngressGateway = true
 	node.IsGw = true
+	SetAutoRelay(&node)
 	node.IsInternetGateway = ingress.IsInternetGateway
 	node.IngressGatewayRange = network.AddressRange
 	node.IngressGatewayRange6 = network.AddressRange6
@@ -217,6 +218,9 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 		if _, exists := FailOverExists(node.Network); exists {
 			ResetFailedOverPeer(&node)
 		}
+
+		ResetAutoRelayedPeer(&node)
+
 	}
 	node.SetLastModified()
 	node.Metadata = ingress.Metadata
@@ -369,6 +373,9 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 		}
 		if clientNode.FailedOverBy != uuid.Nil {
 			ResetFailedOverPeer(&clientNode)
+		}
+		if clientNode.AutoRelayedBy != uuid.Nil {
+			ResetAutoRelayedPeer(&clientNode)
 		}
 
 		if clientNode.IsRelayed && clientNode.RelayedBy != inetNode.ID.String() {

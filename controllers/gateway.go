@@ -89,6 +89,9 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 			if relayedNode.FailedOverBy != uuid.Nil {
 				go logic.ResetFailedOverPeer(&relayedNode)
 			}
+			if relayedNode.AutoRelayedBy != uuid.Nil {
+				go logic.ResetAutoRelayedPeer(&relayedNode)
+			}
 
 		}
 	}
@@ -101,6 +104,12 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 					mq.PublishPeerUpdate(false)
 				}()
 			}
+
+			go func() {
+				logic.ResetAutoRelayedPeer(&node)
+				mq.PublishPeerUpdate(false)
+			}()
+
 		}
 		if node.IsGw && node.IngressDNS == "" {
 			node.IngressDNS = "1.1.1.1"
@@ -190,6 +199,10 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 	}
 	logic.UnsetInternetGw(&node)
 	node.IsGw = false
+	if node.IsAutoRelay {
+		logic.ResetAutoRelay(&node)
+	}
+	node.IsAutoRelay = false
 	logic.UpsertNode(&node)
 	logger.Log(1, r.Header.Get("user"), "deleted gw", nodeid, "on network", netid)
 

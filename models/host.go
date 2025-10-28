@@ -128,6 +128,8 @@ const (
 	UpdateMetrics HostMqAction = "UPDATE_METRICS"
 	// EgressUpdate - const for egress update action
 	EgressUpdate HostMqAction = "EGRESS_UPDATE"
+	// CHECK_ASSIGN_GW - const for to auto assign gw action
+	CheckAutoAssignGw HostMqAction = "CHECK_AUTO_ASSIGN_GW"
 )
 
 // SignalAction - turn peer signal action
@@ -165,6 +167,7 @@ type Signal struct {
 	ToHostID       string       `json:"to_host_id"`
 	FromNodeID     string       `json:"from_node_id"`
 	ToNodeID       string       `json:"to_node_id"`
+	NetworkID      string       `json:"networkID"`
 	Reply          bool         `json:"reply"`
 	Action         SignalAction `json:"action"`
 	IsPro          bool         `json:"is_pro"`

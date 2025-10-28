@@ -82,6 +82,13 @@ func SetRelayedNodes(setRelayed bool, relay string, relayed []string) []models.N
 		}
 		returnnodes = append(returnnodes, node)
 	}
+	relayNode, _ := GetNodeByID(relay)
+	if setRelayed {
+		relayNode.RelayedNodes = relayed
+	} else {
+		relayNode.RelayedNodes = []string{}
+	}
+	UpsertNode(&relayNode)
 	return returnnodes
 }
 
@@ -135,12 +142,15 @@ func ValidateRelay(relay models.RelayRequest, update bool) error {
 		if relayedNode.FailedOverBy != uuid.Nil {
 			ResetFailedOverPeer(&relayedNode)
 		}
+		if relayedNode.AutoRelayedBy != uuid.Nil {
+			ResetAutoRelayedPeer(&relayedNode)
+		}
 	}
 	return err
 }
 
 // UpdateRelayNodes - updates relay nodes
-func updateRelayNodes(relay string, oldNodes []string, newNodes []string) []models.Node {
+func UpdateRelayNodes(relay string, oldNodes []string, newNodes []string) []models.Node {
 	_ = SetRelayedNodes(false, relay, oldNodes)
 	return SetRelayedNodes(true, relay, newNodes)
 }
@@ -163,11 +173,12 @@ func RelayUpdates(currentNode, newNode *models.Node) bool {
 
 // UpdateRelayed - updates a relay's relayed nodes, and sends updates to the relayed nodes over MQ
 func UpdateRelayed(currentNode, newNode *models.Node) {
-	updatenodes := updateRelayNodes(currentNode.ID.String(), currentNode.RelayedNodes, newNode.RelayedNodes)
+	updatenodes := UpdateRelayNodes(currentNode.ID.String(), currentNode.RelayedNodes, newNode.RelayedNodes)
 	if len(updatenodes) > 0 {
 		for _, relayedNode := range updatenodes {
 			node := relayedNode
 			ResetFailedOverPeer(&node)
+			ResetAutoRelayedPeer(&node)
 		}
 	}
 }
@@ -201,6 +212,9 @@ func RelayedAllowedIPs(peer, node *models.Node) []net.IPNet {
 		if err != nil {
 			continue
 		}
+		if relayedNode.AutoAssignGateway && node.IsGw {
+			continue
+		}
 		GetNodeEgressInfo(&relayedNode, eli, acls)
 		allowed := getRelayedAddresses(relayedNodeID)
 		if relayedNode.EgressDetails.IsEgressGateway {
@@ -230,6 +244,9 @@ func GetAllowedIpsForRelayed(relayed, relay *models.Node) (allowedIPs []net.IPNe
 	defaultPolicy, _ := GetDefaultPolicy(models.NetworkID(relay.Network), models.DevicePolicy)
 	for _, peer := range peers {
 		if peer.ID == relayed.ID || peer.ID == relay.ID {
+			continue
+		}
+		if relayed.AutoAssignGateway && peer.IsGw {
 			continue
 		}
 		if !IsPeerAllowed(*relayed, peer, true) {
