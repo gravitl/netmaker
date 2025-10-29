@@ -13,7 +13,6 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/hostactions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
@@ -1266,7 +1265,7 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Log(1, "added new node", newNode.ID.String(), "to host", h.Name)
-	hostactions.AddAction(models.HostUpdate{
+	mq.HostUpdate(&models.HostUpdate{
 		Action: models.JoinHostToNetwork,
 		Host:   *h,
 		Node:   *newNode,
