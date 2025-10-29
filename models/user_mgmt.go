@@ -246,3 +246,14 @@ type UserInvite struct {
 	InviteCode     string                                `json:"invite_code"`
 	InviteURL      string                                `json:"invite_url"`
 }
+
+// UserMapping - user ip map with groups
+type UserMapping struct {
+	User   string   `json:"user"`
+	Groups []string `json:"groups"`
+}
+
+// UserIPMap maintains the mapping of IP addresses to users and groups
+type UserIPMap struct {
+	Mappings map[string]UserMapping `json:"mappings"`
+}
