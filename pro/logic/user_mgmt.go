@@ -998,7 +998,7 @@ func GetUserNetworkRolesWithRemoteVPNAccess(user models.User) (gwAccess map[mode
 }
 
 func GetFilteredNodesByUserAccess(user models.User, nodes []models.Node) (filteredNodes []models.Node) {
-	return filteredNodes
+	return nodes
 }
 
 func FilterNetworksByRole(allnetworks []models.Network, user models.User) []models.Network {

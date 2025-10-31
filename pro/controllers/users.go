@@ -50,6 +50,7 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users/group", logic.SecurityCheck(true, http.HandlerFunc(deleteUserGroup))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/users/add_network_user", logic.SecurityCheck(true, http.HandlerFunc(addUsertoNetwork))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/users/remove_network_user", logic.SecurityCheck(true, http.HandlerFunc(removeUserfromNetwork))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/users/unassigned_network_users", logic.SecurityCheck(true, http.HandlerFunc(listUnAssignedNetUsers))).Methods(http.MethodGet)
 
 	// User Invite Handlers
 	r.HandleFunc("/api/v1/users/invite", userInviteVerify).Methods(http.MethodGet)
@@ -658,6 +659,48 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userGroup.ID, currUserG.NetworkRoles, userGroup.NetworkRoles)
 	go mq.PublishPeerUpdate(replacePeers)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")
+}
+
+// swagger:route GET /api/v1/users/unassigned_network_user user listUnAssignedNetUsers
+//
+// list unassigned network users.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: userBodyResponse
+func listUnAssignedNetUsers(w http.ResponseWriter, r *http.Request) {
+	netID := r.URL.Query().Get("network_id")
+	if netID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), logic.BadReq))
+		return
+	}
+	var unassignedUsers []models.ReturnUser
+	users, _ := logic.GetUsers()
+	for _, user := range users {
+		if user.PlatformRoleID != models.ServiceUser {
+			continue
+		}
+		skipUser := false
+		for userGID := range user.UserGroups {
+			userG, err := proLogic.GetUserGroup(userGID)
+			if err != nil {
+				continue
+			}
+			if _, ok := userG.NetworkRoles[models.NetworkID(netID)]; ok {
+				skipUser = true
+				break
+			}
+		}
+		if skipUser {
+			continue
+		}
+		unassignedUsers = append(unassignedUsers, user)
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, unassignedUsers, "returned unassigned network service users")
 }
 
 // swagger:route PUT /api/v1/users/add_network_user user addUsertoNetwork
@@ -1529,7 +1572,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 
 		gws := userGws[node.Network]
 		if gwClient.DNS == "" {
-			gwClient.DNS = node.IngressDNS
+			logic.SetDNSOnWgConfig(&node, &gwClient)
 		}
 
 		gwClient.IngressGatewayEndpoint = utils.GetExtClientEndpoint(
