@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/google/uuid"
@@ -291,6 +292,10 @@ func UpdateHost(newHost, currentHost *models.Host) {
 
 	if newHost.PersistentKeepalive == 0 {
 		newHost.PersistentKeepalive = currentHost.PersistentKeepalive
+	}
+
+	if strings.TrimSpace(newHost.DNS) == "" {
+		newHost.DNS = currentHost.DNS
 	}
 }
 
