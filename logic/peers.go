@@ -199,7 +199,9 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 
 		if !node.Connected || node.PendingDelete || node.Action == models.NODE_DELETE ||
 			(!node.LastCheckIn.IsZero() && time.Since(node.LastCheckIn) > time.Hour) {
-			continue
+			if deletedNode == nil || deletedNode.ID != node.ID {
+				continue
+			}
 		}
 		hostPeerUpdate.Nodes = append(hostPeerUpdate.Nodes, node)
 		acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
