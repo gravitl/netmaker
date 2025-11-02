@@ -22,7 +22,7 @@ func EventHandlers(r *mux.Router) {
 // @Router      /api/v1/activity [get]
 // @Tags        Activity
 // @Param       network_id query string true "network_id required to get the network events"
-// @Success     200 {object}  models.ReturnSuccessResponseWithJson
+// @Success     200 {object} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
 func listNetworkActivity(w http.ResponseWriter, r *http.Request) {
 	netID := r.URL.Query().Get("network_id")
@@ -76,7 +76,7 @@ func listNetworkActivity(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/v1/activity [get]
 // @Tags        Activity
 // @Param       network_id query string true "network_id required to get the network events"
-// @Success     200 {object}  models.ReturnSuccessResponseWithJson
+// @Success     200 {object} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
 func listUserActivity(w http.ResponseWriter, r *http.Request) {
 	username := r.URL.Query().Get("username")
@@ -128,7 +128,7 @@ func listUserActivity(w http.ResponseWriter, r *http.Request) {
 // @Summary     list activity.
 // @Router      /api/v1/activity [get]
 // @Tags        Activity
-// @Success     200 {object}  models.ReturnSuccessResponseWithJson
+// @Success     200 {object} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
 func listActivity(w http.ResponseWriter, r *http.Request) {
 	username := r.URL.Query().Get("username")

@@ -1799,7 +1799,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     List users attached to an remote access gateway
-// @Router      /api/nodes/{network}/{nodeid}/ingress/users [get]
+// @Router      /api/users/ingress/{ingress_id} [get]
 // @Tags        PRO
 // @Accept      json
 // @Produce     json

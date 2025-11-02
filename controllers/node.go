@@ -257,6 +257,7 @@ func Authorize(
 // @Router      /api/nodes/adm/{network} [get]
 // @Securitydefinitions.oauth2.application OAuth2Application
 // @Tags        Nodes
+// @Param       network path string true "Network ID"
 // @Success     200 {array} models.Node
 // @Failure     500 {object} models.ErrorResponse
 func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
@@ -324,6 +325,7 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/v1/nodes/{network}/status [get]
 // @Tags        Nodes
 // @Securitydefinitions.oauth2.application OAuth2Application
+// @Param       network path string true "Network ID"
 // @Success     200 {array} models.ApiNode
 // @Failure     500 {object} models.ErrorResponse
 // Not quite sure if this is necessary. Probably necessary based on front end but may want to review after iteration 1 if it's being used or not
@@ -355,6 +357,8 @@ func getNetworkNodeStatus(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/nodes/{network}/{nodeid} [get]
 // @Tags        Nodes
 // @Security    oauth2
+// @Param       network path string true "Network ID"
+// @Param       nodeid path string true "Node ID"
 // @Success     200 {object} models.NodeGet
 // @Failure     500 {object} models.ErrorResponse
 func getNode(w http.ResponseWriter, r *http.Request) {
@@ -425,6 +429,8 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/nodes/{network}/{nodeid}/creategateway [post]
 // @Tags        Nodes
 // @Security    oauth2
+// @Param       network path string true "Network ID"
+// @Param       nodeid path string true "Node ID"
 // @Success     200 {object} models.ApiNode
 // @Failure     500 {object} models.ErrorResponse
 func createEgressGateway(w http.ResponseWriter, r *http.Request) {
@@ -481,6 +487,8 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/nodes/{network}/{nodeid}/deletegateway [delete]
 // @Tags        Nodes
 // @Security    oauth2
+// @Param       network path string true "Network ID"
+// @Param       nodeid path string true "Node ID"
 // @Success     200 {object} models.ApiNode
 // @Failure     500 {object} models.ErrorResponse
 func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
@@ -526,6 +534,8 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/nodes/{network}/{nodeid} [put]
 // @Tags        Nodes
 // @Security    oauth2
+// @Param       network path string true "Network ID"
+// @Param       nodeid path string true "Node ID"
 // @Success     200 {object} models.ApiNode
 // @Failure     500 {object} models.ErrorResponse
 func updateNode(w http.ResponseWriter, r *http.Request) {
@@ -735,6 +745,8 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/nodes/{network}/{nodeid} [delete]
 // @Tags        Nodes
 // @Security    oauth2
+// @Param       network path string true "Network ID"
+// @Param       nodeid path string true "Node ID"
 // @Success     200 {string} string "Node deleted."
 // @Failure     500 {object} models.ErrorResponse
 func deleteNode(w http.ResponseWriter, r *http.Request) {

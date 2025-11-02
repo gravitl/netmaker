@@ -61,6 +61,7 @@ func checkIngressExists(nodeID string) bool {
 // @Router      /api/extclients/{network} [get]
 // @Tags        Remote Access Client
 // @Security    oauth2
+// @Param       network path string true "Network ID"
 // @Success     200 {object} models.ExtClient
 // @Failure     500 {object} models.ErrorResponse
 func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
@@ -111,6 +112,8 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/extclients/{network}/{clientid} [get]
 // @Tags        Remote Access Client
 // @Security    oauth2
+// @Param       network path string true "Network ID"
+// @Param       clientid path string true "Client ID"
 // @Success     200 {object} models.ExtClient
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
@@ -148,6 +151,9 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/extclients/{network}/{clientid}/{type} [get]
 // @Tags        Remote Access Client
 // @Security    oauth2
+// @Param       network path string true "Network ID"
+// @Param       clientid path string true "Client ID"
+// @Param       type path string true "Client config type"
 // @Success     200 {object} models.ExtClient
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
@@ -384,9 +390,10 @@ Endpoint = %s
 }
 
 // @Summary     Get an individual remote access client
-// @Router      /api/extclients/{network}/{clientid}/{type} [get]
+// @Router      /api/v1/client_conf/{network} [get]
 // @Tags        Remote Access Client
 // @Security    oauth2
+// @Param       network path string true "Network ID"
 // @Success     200 {object} models.ExtClient
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
@@ -625,6 +632,8 @@ Endpoint = %s
 // @Router      /api/extclients/{network}/{nodeid} [post]
 // @Tags        Remote Access Client
 // @Security    oauth2
+// @Param       network path string true "Network ID"
+// @Param       nodeid path string true "Node ID (Ingress Gateway)"
 // @Success     200 {string} string "OK"
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     400 {object} models.ErrorResponse
@@ -844,6 +853,8 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/extclients/{network}/{clientid} [put]
 // @Tags        Remote Access Client
 // @Security    oauth2
+// @Param       network path string true "Network ID"
+// @Param       clientid path string true "Client ID"
 // @Success     200 {object} models.ExtClient
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     400 {object} models.ErrorResponse
@@ -975,6 +986,8 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/extclients/{network}/{clientid} [delete]
 // @Tags        Remote Access Client
 // @Security    oauth2
+// @Param       network path string true "Network ID"
+// @Param       clientid path string true "Client ID"
 // @Success     200
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse

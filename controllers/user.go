@@ -62,7 +62,7 @@ func userHandlers(r *mux.Router) {
 }
 
 // @Summary     Authenticate a user to retrieve an authorization token
-// @Router      /api/v1/users/{username}/access_token [post]
+// @Router      /api/v1/users/access_token [post]
 // @Tags        Auth
 // @Accept      json
 // @Param       body body models.UserAuthParams true "Authentication parameters"
@@ -157,11 +157,11 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 	}, "api access token has generated for user "+req.UserName)
 }
 
-// @Summary     Authenticate a user to retrieve an authorization token
-// @Router      /api/v1/users/{username}/access_token [post]
+// @Summary     Get user access tokens
+// @Router      /api/v1/users/access_token [get]
 // @Tags        Auth
 // @Accept      json
-// @Param       body body models.UserAuthParams true "Authentication parameters"
+// @Param       username query string true "Username"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
@@ -175,11 +175,11 @@ func getUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, (&schema.UserAccessToken{UserName: username}).ListByUser(r.Context()), "fetched api access tokens for user "+username)
 }
 
-// @Summary     Authenticate a user to retrieve an authorization token
-// @Router      /api/v1/users/{username}/access_token [post]
+// @Summary     Delete user access tokens
+// @Router      /api/v1/users/access_token [delete]
 // @Tags        Auth
 // @Accept      json
-// @Param       body body models.UserAuthParams true "Authentication parameters"
+// @Param       id query string true "Token ID"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
@@ -421,6 +421,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 // @Router      /api/users/{username}/validate-identity [post]
 // @Tags        Auth
 // @Accept      json
+// @Param       username path string true "Username"
 // @Param       body body models.UserIdentityValidationRequest true "User Identity Validation Request"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
