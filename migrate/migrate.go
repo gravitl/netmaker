@@ -56,10 +56,12 @@ func checkAndDeprecateOldAcls() {
 		if err != nil {
 			continue
 		}
-		for id, aclNode := range networkACL {
-			if !aclNode.IsAllowed(id) {
-				disableOldAcls = false
-				break
+		for _, aclNode := range networkACL {
+			for _, allowed := range aclNode {
+				if allowed != acls.Allowed {
+					disableOldAcls = false
+					break
+				}
 			}
 		}
 		if disableOldAcls {
@@ -865,6 +867,9 @@ func migrateSettings() {
 	settings := logic.GetServerSettings()
 	if _, ok := settingsD["old_acl_support"]; !ok {
 		settings.OldAClsSupport = servercfg.IsOldAclEnabled()
+	}
+	if settings.PeerConnectionCheckInterval == "" {
+		settings.PeerConnectionCheckInterval = "15"
 	}
 	if settings.AuditLogsRetentionPeriodInDays == 0 {
 		settings.AuditLogsRetentionPeriodInDays = 7
