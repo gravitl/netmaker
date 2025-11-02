@@ -5,14 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/schema"
-	"github.com/google/go-cmp/cmp"
 	"net/http"
 	"os"
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 
 	"github.com/gorilla/mux"
 	"golang.org/x/exp/slog"
@@ -139,8 +140,8 @@ func getUsage(w http.ResponseWriter, _ *http.Request) {
 // @Router      /api/server/status [get]
 // @Tags        Server
 // @Security    oauth2
+// @Success     200 {object} object "Server status"
 func getStatus(w http.ResponseWriter, r *http.Request) {
-	// @Success     200 {object} status
 	type status struct {
 		DB               bool      `json:"db_connected"`
 		Broker           bool      `json:"broker_connected"`
@@ -247,7 +248,7 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/server/settings [get]
 // @Tags        Server
 // @Security    oauth2
-// @Success     200 {object} config.ServerSettings
+// @Success     200 {object} models.ServerSettings
 func getSettings(w http.ResponseWriter, r *http.Request) {
 	scfg := logic.GetServerSettings()
 	if scfg.ClientSecret != "" {
@@ -261,7 +262,7 @@ func getSettings(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/server/settings [put]
 // @Tags        Server
 // @Security    oauth2
-// @Success     200 {object} config.ServerSettings
+// @Success     200 {object} models.ServerSettings
 func updateSettings(w http.ResponseWriter, r *http.Request) {
 	var req models.ServerSettings
 	force := r.URL.Query().Get("force")
@@ -425,7 +426,7 @@ func identifySettingsUpdateAction(old, new models.ServerSettings) models.Action 
 // @Router      /api/server/feature_flags [get]
 // @Tags        Server
 // @Security    oauth2
-// @Success     200 {object} config.ServerSettings
+// @Success     200 {object} models.ServerSettings
 func getFeatureFlags(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, logic.GetFeatureFlags(), "")
 }

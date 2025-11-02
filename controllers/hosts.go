@@ -1202,6 +1202,7 @@ func getPendingHosts(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/v1/pending_hosts/approve/{id} [post]
 // @Tags        Hosts
 // @Security    oauth
+// @Param       id path string true "Pending Host ID"
 // @Success     200 {array} models.ApiNode
 // @Failure     500 {object} models.ErrorResponse
 func approvePendingHost(w http.ResponseWriter, r *http.Request) {
@@ -1286,6 +1287,7 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/v1/pending_hosts/reject/{id} [post]
 // @Tags        Hosts
 // @Security    oauth
+// @Param       id path string true "Pending Host ID"
 // @Success     200 {array} models.ApiNode
 // @Failure     500 {object} models.ErrorResponse
 func rejectPendingHost(w http.ResponseWriter, r *http.Request) {

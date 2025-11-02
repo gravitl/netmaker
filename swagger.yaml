@@ -1,12 +1,4 @@
 definitions:
-  acls.ACL:
-    additionalProperties:
-      type: integer
-    type: object
-  acls.ACLContainer:
-    additionalProperties:
-      $ref: '#/definitions/acls.ACL'
-    type: object
   config.ServerConfig:
     properties:
       IsEE:
@@ -76,6 +68,9 @@ definitions:
       jwtValidityDuration:
         format: int64
         type: integer
+      jwtValidityDurationClients:
+        format: int64
+        type: integer
       licenseValue:
         type: string
       machinesLimit:
@@ -114,8 +109,6 @@ definitions:
         type: string
       publicIp:
         type: string
-      racAutoDisable:
-        type: boolean
       racRestrictToSingleNetwork:
         type: boolean
       restBackend:
@@ -132,8 +125,6 @@ definitions:
         type: string
       stun:
         type: boolean
-      stunList:
-        type: string
       stunPort:
         type: integer
       stunServers:
@@ -159,8 +150,19 @@ definitions:
       version:
         type: string
     type: object
+  github_com_gravitl_netmaker_logic_acls.ACL:
+    additionalProperties:
+      format: int32
+      type: integer
+    type: object
+  github_com_gravitl_netmaker_logic_acls.ACLContainer:
+    additionalProperties:
+      $ref: '#/definitions/github_com_gravitl_netmaker_logic_acls.ACL'
+    type: object
   models.APIEnrollmentKey:
     properties:
+      auto_egress:
+        type: boolean
       expiration:
         format: int64
         type: integer
@@ -238,6 +240,8 @@ definitions:
         type: boolean
       defaultinterface:
         type: string
+      dns:
+        type: string
       endpointip:
         type: string
       endpointipv6:
@@ -258,6 +262,8 @@ definitions:
         type: boolean
       listenport:
         type: integer
+      location:
+        type: string
       macaddress:
         type: string
       mtu:
@@ -348,6 +354,8 @@ definitions:
         type: string
       is_fail_over:
         type: boolean
+      is_gw:
+        type: boolean
       is_static:
         type: boolean
       is_user_node:
@@ -372,6 +380,8 @@ definitions:
         format: int64
         type: integer
       localaddress:
+        type: string
+      location:
         type: string
       metadata:
         type: string
@@ -426,6 +436,17 @@ definitions:
         type: string
     required:
     - name
+    type: object
+  models.EgressDomain:
+    properties:
+      domain:
+        type: string
+      host:
+        $ref: '#/definitions/models.Host'
+      id:
+        type: string
+      node:
+        $ref: '#/definitions/models.Node'
     type: object
   models.EgressGatewayRequest:
     properties:
@@ -488,14 +509,47 @@ definitions:
     type: object
   models.EgressRangeMetric:
     properties:
+      nat:
+        type: boolean
       network:
         type: string
       route_metric:
         description: preffered range 1-999
         type: integer
     type: object
+  models.EgressReq:
+    properties:
+      description:
+        type: string
+      domain:
+        type: string
+      id:
+        type: string
+      is_internet_gateway:
+        type: boolean
+      name:
+        type: string
+      nat:
+        type: boolean
+      network:
+        type: string
+      nodes:
+        additionalProperties:
+          type: integer
+        type: object
+      range:
+        type: string
+      status:
+        type: boolean
+      tags:
+        items:
+          type: string
+        type: array
+    type: object
   models.EnrollmentKey:
     properties:
+      auto_egress:
+        type: boolean
       default:
         type: boolean
       expiration:
@@ -551,6 +605,8 @@ definitions:
         additionalProperties:
           type: object
         type: object
+      device_id:
+        type: string
       device_name:
         type: string
       dns:
@@ -568,6 +624,9 @@ definitions:
       lastmodified:
         format: int64
         type: integer
+      location:
+        description: 'format: lat,long'
+        type: string
       network:
         type: string
       os:
@@ -636,7 +695,7 @@ definitions:
         type: boolean
       networks:
         items:
-          $ref: '#/definitions/net.IPNet'
+          $ref: '#/definitions/models.AclRule'
         type: array
     type: object
   models.Host:
@@ -648,6 +707,8 @@ definitions:
       debug:
         type: boolean
       defaultinterface:
+        type: string
+      dns_status:
         type: string
       endpointip:
         items:
@@ -683,6 +744,9 @@ definitions:
         type: boolean
       listenport:
         type: integer
+      location:
+        description: 'Format: "lat,lon"'
+        type: string
       macaddress:
         items:
           type: integer
@@ -738,6 +802,7 @@ definitions:
     - REQ_PULL
     - SIGNAL_PULL
     - UPDATE_METRICS
+    - EGRESS_UPDATE
     type: string
     x-enum-varnames:
     - Upgrade
@@ -753,6 +818,7 @@ definitions:
     - RequestPull
     - SignalPull
     - UpdateMetrics
+    - EgressUpdate
   models.HostNetworkInfo:
     properties:
       interfaces:
@@ -776,9 +842,17 @@ definitions:
         items:
           type: integer
         type: array
+      dns_nameservers:
+        items:
+          $ref: '#/definitions/models.Nameserver'
+        type: array
       egress_network_routes:
         items:
           $ref: '#/definitions/models.EgressNetworkRoutes'
+        type: array
+      egress_with_domains:
+        items:
+          $ref: '#/definitions/models.EgressDomain'
         type: array
       endpoint_detection:
         type: boolean
@@ -790,6 +864,10 @@ definitions:
         $ref: '#/definitions/models.HostInfoMap'
       is_inet_gw:
         type: boolean
+      name_servers:
+        items:
+          type: string
+        type: array
       nodes:
         items:
           $ref: '#/definitions/models.Node'
@@ -807,6 +885,8 @@ definitions:
     properties:
       action:
         $ref: '#/definitions/models.HostMqAction'
+      egressDomain:
+        $ref: '#/definitions/models.EgressDomain'
       host:
         $ref: '#/definitions/models.Host'
       newMetrics:
@@ -947,6 +1027,36 @@ definitions:
       node_name:
         type: string
     type: object
+  models.Nameserver:
+    properties:
+      ips:
+        items:
+          type: string
+        type: array
+      match_domain:
+        type: string
+    type: object
+  models.NameserverReq:
+    properties:
+      description:
+        type: string
+      match_domain:
+        type: string
+      name:
+        type: string
+      network:
+        type: string
+      servers:
+        items:
+          type: string
+        type: array
+      status:
+        type: boolean
+      tags:
+        items:
+          type: string
+        type: array
+    type: object
   models.Network:
     properties:
       addressrange:
@@ -954,6 +1064,8 @@ definitions:
       addressrange6:
         type: string
       allowmanualsignup:
+        type: string
+      auto_join:
         type: string
       defaultacl:
         type: string
@@ -1020,8 +1132,6 @@ definitions:
       defaultacl:
         description: == PRO ==
         type: string
-      dnson:
-        type: boolean
       egressgatewaynatenabled:
         type: boolean
       egressgatewayranges:
@@ -1171,8 +1281,16 @@ definitions:
     type: object
   models.ReturnUser:
     properties:
+      account_disabled:
+        type: boolean
       auth_type:
         type: string
+      display_name:
+        type: string
+      external_identity_provider_id:
+        type: string
+      is_mfa_enabled:
+        type: boolean
       isadmin:
         type: boolean
       issuperadmin:
@@ -1185,6 +1303,8 @@ definitions:
             type: object
           type: object
         type: object
+      num_access_tokens:
+        type: integer
       platform_role_id:
         $ref: '#/definitions/models.UserRoleID'
       remote_gw_ids:
@@ -1219,6 +1339,8 @@ definitions:
       Is_EE:
         type: boolean
       api:
+        type: string
+      apihost:
         type: string
       apiport:
         type: string
@@ -1258,6 +1380,89 @@ definitions:
         type: array
       version:
         type: string
+    type: object
+  models.ServerSettings:
+    properties:
+      allowed_email_domains:
+        type: string
+      audit_logs_retention_period:
+        type: integer
+      authprovider:
+        type: string
+      azure_tenant:
+        type: string
+      basic_auth:
+        type: boolean
+      client_id:
+        type: string
+      client_secret:
+        type: string
+      default_domain:
+        type: string
+      email_sender_addr:
+        type: string
+      email_sender_password:
+        type: string
+      email_sender_user:
+        type: string
+      endpoint_detection:
+        type: boolean
+      google_admin_email:
+        type: string
+      google_sa_creds_json:
+        type: string
+      group_filters:
+        items:
+          type: string
+        type: array
+      idp_sync_interval:
+        type: string
+      jwt_validity_duration:
+        description: |-
+          JwtValidityDuration is the validity duration of auth tokens for users
+          on the dashboard (NMUI).
+        type: integer
+      jwt_validity_duration_clients:
+        description: |-
+          JwtValidityDurationClients is the validity duration of auth tokens for
+          users on the clients (NetDesk).
+        type: integer
+      manage_dns:
+        type: boolean
+      metric_interval:
+        type: string
+      metrics_port:
+        type: integer
+      mfa_enforced:
+        type: boolean
+      netclientautoupdate:
+        type: boolean
+      oidcissuer:
+        type: string
+      okta_api_token:
+        type: string
+      okta_org_url:
+        type: string
+      rac_restrict_to_single_network:
+        type: boolean
+      smtp_host:
+        type: string
+      smtp_port:
+        type: integer
+      stun:
+        type: boolean
+      stun_servers:
+        type: string
+      sync_enabled:
+        type: boolean
+      telemetry:
+        type: string
+      user_filters:
+        items:
+          type: string
+        type: array
+      verbosity:
+        type: integer
     type: object
   models.Signal:
     properties:
@@ -1302,10 +1507,16 @@ definitions:
     type: object
   models.User:
     properties:
+      account_disabled:
+        type: boolean
       auth_type:
+        type: string
+      display_name:
         type: string
       external_identity_provider_id:
         type: string
+      is_mfa_enabled:
+        type: boolean
       isadmin:
         description: deprecated
         type: boolean
@@ -1330,6 +1541,8 @@ definitions:
           type: object
         description: deprecated
         type: object
+      totp_secret:
+        type: string
       user_group_ids:
         additionalProperties:
           type: object
@@ -1345,6 +1558,11 @@ definitions:
       password:
         type: string
       username:
+        type: string
+    type: object
+  models.UserIdentityValidationRequest:
+    properties:
+      password:
         type: string
     type: object
   models.UserRemoteGws:
@@ -1369,6 +1587,10 @@ definitions:
         type: string
       is_internet_gateway:
         type: boolean
+      match_domains:
+        items:
+          type: string
+        type: array
       metadata:
         type: string
       network:
@@ -1427,6 +1649,15 @@ definitions:
           type: object
         type: object
     type: object
+  models.UserTOTPVerificationParams:
+    properties:
+      otp_auth_url:
+        type: string
+      otp_auth_url_signature:
+        type: string
+      totp:
+        type: string
+    type: object
   net.IPNet:
     properties:
       ip:
@@ -1437,6 +1668,7 @@ definitions:
       mask:
         description: network mask
         items:
+          format: int32
           type: integer
         type: array
     type: object
@@ -1453,6 +1685,32 @@ definitions:
         type: string
     type: object
   netip.AddrPort:
+    type: object
+  schema.PendingHost:
+    properties:
+      enrollment_key_id:
+        items:
+          type: integer
+        type: array
+      host_id:
+        type: string
+      host_name:
+        type: string
+      id:
+        type: string
+      location:
+        description: 'Format: "lat,lon"'
+        type: string
+      network:
+        type: string
+      os:
+        type: string
+      public_key:
+        type: string
+      requested_at:
+        type: string
+      version:
+        type: string
     type: object
   wgtypes.PeerConfig:
     properties:
@@ -1473,6 +1731,7 @@ definitions:
           for this peer, if not nil.
 
           A non-nil value of 0 will clear the persistent keepalive interval.
+        format: int64
         type: integer
       presharedKey:
         description: |-
@@ -1667,6 +1926,12 @@ paths:
     post:
       consumes:
       - application/json
+      parameters:
+      - description: Network identifier
+        in: path
+        name: network
+        required: true
+        type: string
       responses:
         "200":
           description: DNS Sync completed successfully
@@ -1737,6 +2002,12 @@ paths:
       - Remote Access Client
   /api/extclients/{network}:
     get:
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
       responses:
         "200":
           description: OK
@@ -1753,6 +2024,17 @@ paths:
       - Remote Access Client
   /api/extclients/{network}/{clientid}:
     delete:
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: Client ID
+        in: path
+        name: clientid
+        required: true
+        type: string
       responses:
         "200":
           description: OK
@@ -1770,6 +2052,17 @@ paths:
       tags:
       - Remote Access Client
     get:
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: Client ID
+        in: path
+        name: clientid
+        required: true
+        type: string
       responses:
         "200":
           description: OK
@@ -1789,6 +2082,17 @@ paths:
       tags:
       - Remote Access Client
     put:
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: Client ID
+        in: path
+        name: clientid
+        required: true
+        type: string
       responses:
         "200":
           description: OK
@@ -1813,6 +2117,22 @@ paths:
       - Remote Access Client
   /api/extclients/{network}/{clientid}/{type}:
     get:
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: Client ID
+        in: path
+        name: clientid
+        required: true
+        type: string
+      - description: Client config type
+        in: path
+        name: type
+        required: true
+        type: string
       responses:
         "200":
           description: OK
@@ -1833,6 +2153,17 @@ paths:
       - Remote Access Client
   /api/extclients/{network}/{nodeid}:
     post:
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: Node ID (Ingress Gateway)
+        in: path
+        name: nodeid
+        required: true
+        type: string
       responses:
         "200":
           description: OK
@@ -2167,6 +2498,54 @@ paths:
       summary: Requests all the hosts to upgrade their version
       tags:
       - Hosts
+  /api/idp:
+    delete:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Remove idp integration.
+      tags:
+      - IDP
+  /api/idp/sync:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+      summary: Sync users and groups from idp.
+      tags:
+      - IDP
+  /api/idp/sync/status:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+      summary: Gets idp sync status.
+      tags:
+      - IDP
+  /api/idp/sync/test:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Test IDP Sync Credentials.
+      tags:
+      - IDP
   /api/networks:
     get:
       produces:
@@ -2307,7 +2686,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/acls.ACLContainer'
+            $ref: '#/definitions/github_com_gravitl_netmaker_logic_acls.ACLContainer'
         "500":
           description: Internal Server Error
           schema:
@@ -2329,14 +2708,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/acls.ACLContainer'
+          $ref: '#/definitions/github_com_gravitl_netmaker_logic_acls.ACLContainer'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/acls.ACLContainer'
+            $ref: '#/definitions/github_com_gravitl_netmaker_logic_acls.ACLContainer'
         "400":
           description: Bad Request
           schema:
@@ -2363,14 +2742,14 @@ paths:
         name: body
         required: true
         schema:
-          $ref: '#/definitions/acls.ACLContainer'
+          $ref: '#/definitions/github_com_gravitl_netmaker_logic_acls.ACLContainer'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/acls.ACLContainer'
+            $ref: '#/definitions/github_com_gravitl_netmaker_logic_acls.ACLContainer'
         "400":
           description: Bad Request
           schema:
@@ -2426,6 +2805,17 @@ paths:
       - Nodes
   /api/nodes/{network}/{nodeid}:
     delete:
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: Node ID
+        in: path
+        name: nodeid
+        required: true
+        type: string
       responses:
         "200":
           description: Node deleted.
@@ -2441,6 +2831,17 @@ paths:
       tags:
       - Nodes
     get:
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: Node ID
+        in: path
+        name: nodeid
+        required: true
+        type: string
       responses:
         "200":
           description: OK
@@ -2456,6 +2857,17 @@ paths:
       tags:
       - Nodes
     put:
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: Node ID
+        in: path
+        name: nodeid
+        required: true
+        type: string
       responses:
         "200":
           description: OK
@@ -2472,6 +2884,17 @@ paths:
       - Nodes
   /api/nodes/{network}/{nodeid}/creategateway:
     post:
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: Node ID
+        in: path
+        name: nodeid
+        required: true
+        type: string
       responses:
         "200":
           description: OK
@@ -2488,6 +2911,17 @@ paths:
       - Nodes
   /api/nodes/{network}/{nodeid}/deletegateway:
     delete:
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: Node ID
+        in: path
+        name: nodeid
+        required: true
+        type: string
       responses:
         "200":
           description: OK
@@ -2504,6 +2938,17 @@ paths:
       - Nodes
   /api/nodes/{network}/{nodeid}/gateway:
     delete:
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: Node ID
+        in: path
+        name: nodeid
+        required: true
+        type: string
       responses:
         "200":
           description: OK
@@ -2519,6 +2964,17 @@ paths:
       tags:
       - Nodes
     post:
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
+      - description: Node ID
+        in: path
+        name: nodeid
+        required: true
+        type: string
       responses:
         "200":
           description: OK
@@ -2634,38 +3090,14 @@ paths:
       summary: Update an internet gateway
       tags:
       - PRO
-  /api/nodes/{network}/{nodeid}/ingress/users:
-    get:
-      consumes:
-      - application/json
-      parameters:
-      - description: Ingress Gateway ID
-        in: path
-        name: ingress_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/models.IngressGwUsers'
-            type: array
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      summary: List users attached to an remote access gateway
-      tags:
-      - PRO
   /api/nodes/adm/{network}:
     get:
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
       responses:
         "200":
           description: OK
@@ -2680,6 +3112,18 @@ paths:
       summary: Gets all nodes associated with network including pending nodes
       tags:
       - Nodes
+  /api/server/feature_flags:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ServerSettings'
+      security:
+      - oauth2: []
+      summary: Get feature flags for this server.
+      tags:
+      - Server
   /api/server/getconfig:
     get:
       responses:
@@ -2704,9 +3148,36 @@ paths:
       summary: Get the server information
       tags:
       - Server
+  /api/server/settings:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ServerSettings'
+      security:
+      - oauth2: []
+      summary: Get the server settings
+      tags:
+      - Server
+    put:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ServerSettings'
+      security:
+      - oauth2: []
+      summary: Update the server settings
+      tags:
+      - Server
   /api/server/status:
     get:
-      responses: {}
+      responses:
+        "200":
+          description: Server status
+          schema:
+            type: object
       security:
       - oauth2: []
       summary: Get the server status
@@ -2817,6 +3288,54 @@ paths:
       summary: Update a user
       tags:
       - Users
+  /api/users/{username}/disable:
+    post:
+      parameters:
+      - description: Username of the user to disable
+        in: path
+        name: username
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Disable a user's account
+      tags:
+      - Users
+  /api/users/{username}/enable:
+    post:
+      parameters:
+      - description: Username of the user to enable
+        in: path
+        name: username
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Enable a user's account
+      tags:
+      - Users
   /api/users/{username}/remote_access_gw:
     get:
       parameters:
@@ -2906,6 +3425,74 @@ paths:
       summary: Attach user to a remote access gateway
       tags:
       - PRO
+  /api/users/{username}/settings:
+    get:
+      parameters:
+      - description: Username of the user
+        in: path
+        name: username
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+      summary: Get a user's preferences and settings
+      tags:
+      - Users
+    put:
+      parameters:
+      - description: Username of the user
+        in: path
+        name: username
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Update a user's preferences and settings
+      tags:
+      - Users
+  /api/users/{username}/validate-identity:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Username
+        in: path
+        name: username
+        required: true
+        type: string
+      - description: User Identity Validation Request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserIdentityValidationRequest'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Validates a user's identity against it's token. This is used by UI
+        before a user performing a critical operation to validate the user's identity.
+      tags:
+      - Auth
   /api/users/adm/authenticate:
     post:
       consumes:
@@ -3000,6 +3587,110 @@ paths:
       summary: Transfer super admin role to another admin user
       tags:
       - Users
+  /api/users/auth/complete-totp:
+    post:
+      parameters:
+      - description: TOTP verification parameters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserTOTPVerificationParams'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Verify and complete setting up TOTP 2FA for a user.
+      tags:
+      - Auth
+  /api/users/auth/init-totp:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Initiate setting up TOTP 2FA for a user.
+      tags:
+      - Auth
+  /api/users/auth/verify-totp:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: TOTP verification parameters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserTOTPVerificationParams'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Verify a user's TOTP token.
+      tags:
+      - Auth
+  /api/users/ingress/{ingress_id}:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Ingress Gateway ID
+        in: path
+        name: ingress_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.IngressGwUsers'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: List users attached to an remote access gateway
+      tags:
+      - PRO
   /api/users_pending:
     delete:
       responses:
@@ -3137,6 +3828,24 @@ paths:
       summary: Update Acl
       tags:
       - ACL
+  /api/v1/acls/egress:
+    get:
+      consumes:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.SuccessResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: List Egress Acls in a network
+      tags:
+      - ACL
   /api/v1/acls/policy_types:
     get:
       consumes:
@@ -3155,6 +3864,165 @@ paths:
       summary: List Acl Policy types
       tags:
       - ACL
+  /api/v1/activity:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: list activity.
+      tags:
+      - Activity
+  /api/v1/client_conf/{network}:
+    get:
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.ExtClient'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth2: []
+      summary: Get an individual remote access client
+      tags:
+      - Remote Access Client
+  /api/v1/egress:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: Egress resource ID
+        in: query
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Delete Egress Resource
+      tags:
+      - Auth
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Network identifier
+        in: query
+        name: network
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: List Egress Resource
+      tags:
+      - Auth
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Egress request data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.EgressReq'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Create Egress Resource
+      tags:
+      - Auth
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Egress request data
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.EgressReq'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Update Egress Resource
+      tags:
+      - Auth
   /api/v1/enrollment-keys:
     get:
       responses:
@@ -3372,6 +4240,149 @@ paths:
       summary: Delete all legacy nodes from DB.
       tags:
       - Nodes
+  /api/v1/nameserver:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: Nameserver ID
+        in: query
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Delete Nameserver Resource
+      tags:
+      - Auth
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Network identifier
+        in: query
+        name: network
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: List Nameservers
+      tags:
+      - Auth
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Nameserver request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.NameserverReq'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Create Nameserver
+      tags:
+      - DNS
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Nameserver request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.NameserverReq'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Update Nameserver
+      tags:
+      - Auth
+  /api/v1/nameserver/global:
+    get:
+      consumes:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: List Global Nameservers
+      tags:
+      - Auth
   /api/v1/networks/stats:
     get:
       produces:
@@ -3546,6 +4557,12 @@ paths:
       - PRO
   /api/v1/nodes/{network}/status:
     get:
+      parameters:
+      - description: Network ID
+        in: path
+        name: network
+        required: true
+        type: string
       responses:
         "200":
           description: OK
@@ -3560,6 +4577,72 @@ paths:
       summary: Get all nodes status on the network
       tags:
       - Nodes
+  /api/v1/pending_hosts:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/schema.PendingHost'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth: []
+      summary: List pending hosts in a network
+      tags:
+      - Hosts
+  /api/v1/pending_hosts/approve/{id}:
+    post:
+      parameters:
+      - description: Pending Host ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.ApiNode'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth: []
+      summary: approve pending hosts in a network
+      tags:
+      - Hosts
+  /api/v1/pending_hosts/reject/{id}:
+    post:
+      parameters:
+      - description: Pending Host ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.ApiNode'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      security:
+      - oauth: []
+      summary: reject pending hosts in a network
+      tags:
+      - Hosts
   /api/v1/tags:
     delete:
       consumes:
@@ -3750,13 +4833,108 @@ paths:
       summary: lists all user roles.
       tags:
       - Users
+  /api/v1/users/access_token:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: Token ID
+        in: query
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Delete user access tokens
+      tags:
+      - Auth
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Username
+        in: query
+        name: username
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Get user access tokens
+      tags:
+      - Auth
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Authentication parameters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserAuthParams'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Authenticate a user to retrieve an authorization token
+      tags:
+      - Auth
   /meshclient/files/{filename}:
     get:
+      parameters:
+      - description: Filename
+        in: path
+        name: filename
+        required: true
+        type: string
       responses:
         "200":
           description: file
           schema:
-            type: body
+            type: file
         "404":
           description: 404 not found
           schema:

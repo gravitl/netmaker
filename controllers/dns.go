@@ -51,7 +51,6 @@ func dnsHandlers(r *mux.Router) {
 // @Router      /api/v1/nameserver/global [get]
 // @Tags        Auth
 // @Accept      json
-// @Param       query network string
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
@@ -65,7 +64,7 @@ func getGlobalNs(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/v1/nameserver [post]
 // @Tags        DNS
 // @Accept      json
-// @Param       body body models.NameserverReq
+// @Param       body body models.NameserverReq true "Nameserver request body"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
@@ -150,7 +149,7 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/v1/nameserver [get]
 // @Tags        Auth
 // @Accept      json
-// @Param       query network string
+// @Param       network query string true "Network identifier"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
@@ -179,7 +178,7 @@ func listNs(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/v1/nameserver [put]
 // @Tags        Auth
 // @Accept      json
-// @Param       body body models.NameserverReq
+// @Param       body body models.NameserverReq true "Nameserver request body"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
@@ -274,7 +273,7 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/v1/nameserver [delete]
 // @Tags        Auth
 // @Accept      json
-// @Param       body body models.Egress
+// @Param       id query string true "Nameserver ID"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
@@ -569,6 +568,7 @@ func pushDNS(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/dns/adm/{network}/sync [post]
 // @Tags        DNS
 // @Accept      json
+// @Param       network path string true "Network identifier"
 // @Success     200 {string} string "DNS Sync completed successfully"
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
