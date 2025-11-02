@@ -36,7 +36,6 @@ func Run() {
 	syncUsers()
 	updateHosts()
 	updateNodes()
-	checkAndDeprecateOldAcls()
 	updateAcls()
 	updateNewAcls()
 	logic.MigrateToGws()
@@ -45,6 +44,7 @@ func Run() {
 	migrateNameservers()
 	resync()
 	deleteOldExtclients()
+	checkAndDeprecateOldAcls()
 }
 
 func checkAndDeprecateOldAcls() {
@@ -59,9 +59,13 @@ func checkAndDeprecateOldAcls() {
 		for id, aclNode := range networkACL {
 			if !aclNode.IsAllowed(id) {
 				disableOldAcls = false
+				break
 			}
 		}
-
+		if disableOldAcls {
+			netI.DefaultACL = "yes"
+			logic.UpsertNetwork(netI)
+		}
 	}
 	if disableOldAcls {
 		settings := logic.GetServerSettings()
