@@ -83,6 +83,12 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	if req.IsInternetGateway {
+		if host.DNS != "yes" {
+			host.DNS = "yes"
+			logic.UpsertHost(host)
+		}
+	}
 	for _, relayedNodeID := range relayNode.RelayedNodes {
 		relayedNode, err := logic.GetNodeByID(relayedNodeID)
 		if err == nil {

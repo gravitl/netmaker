@@ -287,6 +287,19 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 	newHost := newHostData.ConvertAPIHostToNMHost(currHost)
 
 	logic.UpdateHost(newHost, currHost) // update the in memory struct values
+	if newHost.DNS != "yes" {
+		// check if any node is internet gw
+		for _, nodeID := range newHost.Nodes {
+			node, err := logic.GetNodeByID(nodeID)
+			if err != nil {
+				continue
+			}
+			if node.IsInternetGateway {
+				newHost.DNS = "yes"
+				break
+			}
+		}
+	}
 	if err = logic.UpsertHost(newHost); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update a host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
