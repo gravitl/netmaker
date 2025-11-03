@@ -100,14 +100,37 @@ func migrateNameservers() {
 		if err != nil {
 			continue
 		}
+
+		ns := &schema.Nameserver{
+			NetworkID: netI.NetID,
+		}
+		nameservers, _ := ns.ListByNetwork(db.WithContext(context.TODO()))
+		for _, nsI := range nameservers {
+			if len(nsI.Domains) != 0 {
+				for _, matchDomain := range nsI.MatchDomains {
+					nsI.Domains = append(nsI.Domains, schema.NameserverDomain{
+						Domain: matchDomain,
+					})
+				}
+
+				nsI.MatchDomains = []string{}
+
+				_ = nsI.Update(db.WithContext(context.TODO()))
+			}
+		}
+
 		if len(netI.NameServers) > 0 {
 			ns := schema.Nameserver{
-				ID:           uuid.NewString(),
-				Name:         "upstream nameservers",
-				NetworkID:    netI.NetID,
-				Servers:      []string{},
-				MatchAll:     true,
-				MatchDomains: []string{"."},
+				ID:        uuid.NewString(),
+				Name:      "upstream nameservers",
+				NetworkID: netI.NetID,
+				Servers:   []string{},
+				MatchAll:  true,
+				Domains: []schema.NameserverDomain{
+					{
+						Domain: ".",
+					},
+				},
 				Tags: datatypes.JSONMap{
 					"*": struct{}{},
 				},
@@ -147,12 +170,16 @@ func migrateNameservers() {
 				continue
 			}
 			ns := schema.Nameserver{
-				ID:           uuid.NewString(),
-				Name:         fmt.Sprintf("%s gw nameservers", h.Name),
-				NetworkID:    node.Network,
-				Servers:      []string{node.IngressDNS},
-				MatchAll:     true,
-				MatchDomains: []string{"."},
+				ID:        uuid.NewString(),
+				Name:      fmt.Sprintf("%s gw nameservers", h.Name),
+				NetworkID: node.Network,
+				Servers:   []string{node.IngressDNS},
+				MatchAll:  true,
+				Domains: []schema.NameserverDomain{
+					{
+						Domain: ".",
+					},
+				},
 				Nodes: datatypes.JSONMap{
 					node.ID.String(): struct{}{},
 				},

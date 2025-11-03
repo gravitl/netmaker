@@ -1551,7 +1551,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if !found && len(extClients) > 0 {
+		if !found && len(extClients) > 0 && deviceID == "" {
 			// TODO: prevent ip clashes.
 			gwClient = extClients[0]
 		}

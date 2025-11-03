@@ -314,6 +314,7 @@ type ServerConfig struct {
 	EndpointDetection           bool   `yaml:"endpoint_detection"`
 	DefaultDomain               string `yaml:"default_domain"`
 	PeerConnectionCheckInterval string `yaml:"peer_connection_check_interval"`
+	OldAClsSupport              bool   `json:"-"`
 }
 
 // User.NameInCharset - returns if name is in charset below or not
