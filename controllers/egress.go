@@ -400,6 +400,10 @@ func deleteEgress(w http.ResponseWriter, r *http.Request) {
 		},
 		NetworkID: models.NetworkID(e.Network),
 		Origin:    models.Dashboard,
+		Diff: models.Diff{
+			Old: e,
+			New: nil,
+		},
 	})
 	// delete related acl policies
 	acls := logic.ListAcls()

@@ -316,6 +316,10 @@ func deleteNs(w http.ResponseWriter, r *http.Request) {
 		},
 		NetworkID: models.NetworkID(ns.NetworkID),
 		Origin:    models.Dashboard,
+		Diff: models.Diff{
+			Old: ns,
+			New: nil,
+		},
 	})
 
 	go mq.PublishPeerUpdate(false)
