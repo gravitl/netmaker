@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/acls"
+	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
@@ -42,6 +43,8 @@ func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks/{networkname}/acls", logic.SecurityCheck(true, http.HandlerFunc(getNetworkACL))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/networks/{networkname}/egress_routes", logic.SecurityCheck(true, http.HandlerFunc(getNetworkEgressRoutes)))
+	r.HandleFunc("/api/networks/{networkname}/old_acl_status", logic.SecurityCheck(true, http.HandlerFunc(OldNetworkACLStatus))).
+		Methods(http.MethodGet)
 }
 
 // @Summary     Lists all networks
@@ -428,6 +431,40 @@ func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 	logger.Log(2, r.Header.Get("user"), "fetched acl for network", netname)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(networkACL)
+}
+
+// @Summary     Check a Old ACL Status (Access Control List)
+// @Router      /api/networks/{networkname}/old_acl_status [get]
+// @Tags        Networks
+// @Security    oauth
+// @Param       networkname path string true "Network name"
+// @Produce     json
+// @Success     200 {object} acls.ACLContainer
+// @Failure     500 {object} models.ErrorResponse
+func OldNetworkACLStatus(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var params = mux.Vars(r)
+	netname := params["networkname"]
+	var networkACL acls.ACLContainer
+	networkACL, err := nodeacls.FetchAllACLs(nodeacls.NetworkID(netname))
+	if err != nil {
+		logic.ReturnSuccessResponse(w, r, "false")
+		return
+	}
+	disableOldAcls := true
+	for _, aclNode := range networkACL {
+		for _, allowed := range aclNode {
+			if allowed != acls.Allowed {
+				disableOldAcls = false
+				break
+			}
+		}
+	}
+	msg := "true"
+	if disableOldAcls {
+		msg = "false"
+	}
+	logic.ReturnSuccessResponse(w, r, msg)
 }
 
 // @Summary     Get a network Egress routes
