@@ -40,12 +40,12 @@ func ValidateNameserverReq(ns schema.Nameserver) error {
 			return errors.New("cannot use netmaker IP as nameserver")
 		}
 	}
-	if !ns.MatchAll && len(ns.MatchDomains) == 0 {
+	if !ns.MatchAll && len(ns.Domains) == 0 {
 		return errors.New("atleast one match domain is required")
 	}
 	if !ns.MatchAll {
-		for _, matchDomain := range ns.MatchDomains {
-			if !logic.IsValidMatchDomain(matchDomain) {
+		for _, domain := range ns.Domains {
+			if !logic.IsValidMatchDomain(domain.Domain) {
 				return errors.New("invalid match domain")
 			}
 		}
@@ -90,10 +90,11 @@ func GetNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 
 		_, all := nsI.Tags["*"]
 		if all {
-			for _, matchDomain := range nsI.MatchDomains {
+			for _, domain := range nsI.Domains {
 				returnNsLi = append(returnNsLi, models.Nameserver{
-					IPs:         filteredIps,
-					MatchDomain: matchDomain,
+					IPs:            filteredIps,
+					MatchDomain:    domain.Domain,
+					IsSearchDomain: domain.IsSearchDomain,
 				})
 			}
 			continue
@@ -101,10 +102,11 @@ func GetNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 		foundTag := false
 		for tagI := range node.Tags {
 			if _, ok := nsI.Tags[tagI.String()]; ok {
-				for _, matchDomain := range nsI.MatchDomains {
+				for _, domain := range nsI.Domains {
 					returnNsLi = append(returnNsLi, models.Nameserver{
-						IPs:         filteredIps,
-						MatchDomain: matchDomain,
+						IPs:            filteredIps,
+						MatchDomain:    domain.Domain,
+						IsSearchDomain: domain.IsSearchDomain,
 					})
 				}
 				foundTag = true
@@ -117,10 +119,11 @@ func GetNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 			continue
 		}
 		if _, ok := nsI.Nodes[node.ID.String()]; ok {
-			for _, matchDomain := range nsI.MatchDomains {
+			for _, domain := range nsI.Domains {
 				returnNsLi = append(returnNsLi, models.Nameserver{
-					IPs:         nsI.Servers,
-					MatchDomain: matchDomain,
+					IPs:            nsI.Servers,
+					MatchDomain:    domain.Domain,
+					IsSearchDomain: domain.IsSearchDomain,
 				})
 			}
 		}
@@ -173,10 +176,11 @@ func GetNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
 
 			_, all := nsI.Tags["*"]
 			if all {
-				for _, matchDomain := range nsI.MatchDomains {
+				for _, domain := range nsI.Domains {
 					returnNsLi = append(returnNsLi, models.Nameserver{
-						IPs:         filteredIps,
-						MatchDomain: matchDomain,
+						IPs:            filteredIps,
+						MatchDomain:    domain.Domain,
+						IsSearchDomain: domain.IsSearchDomain,
 					})
 				}
 				continue
@@ -184,10 +188,11 @@ func GetNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
 			foundTag := false
 			for tagI := range node.Tags {
 				if _, ok := nsI.Tags[tagI.String()]; ok {
-					for _, matchDomain := range nsI.MatchDomains {
+					for _, domain := range nsI.Domains {
 						returnNsLi = append(returnNsLi, models.Nameserver{
-							IPs:         filteredIps,
-							MatchDomain: matchDomain,
+							IPs:            filteredIps,
+							MatchDomain:    domain.Domain,
+							IsSearchDomain: domain.IsSearchDomain,
 						})
 					}
 					foundTag = true
@@ -200,10 +205,11 @@ func GetNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
 				continue
 			}
 			if _, ok := nsI.Nodes[node.ID.String()]; ok {
-				for _, matchDomain := range nsI.MatchDomains {
+				for _, domain := range nsI.Domains {
 					returnNsLi = append(returnNsLi, models.Nameserver{
-						IPs:         nsI.Servers,
-						MatchDomain: matchDomain,
+						IPs:            nsI.Servers,
+						MatchDomain:    domain.Domain,
+						IsSearchDomain: domain.IsSearchDomain,
 					})
 				}
 			}
