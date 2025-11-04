@@ -446,20 +446,6 @@ func updateNodes() {
 			node.Tags = make(map[models.TagID]struct{})
 			logic.UpsertNode(&node)
 		}
-		// deprecate failover  and initialise auto relay fields
-		if node.IsFailOver {
-			node.IsFailOver = false
-			node.FailOverPeers = make(map[string]struct{})
-			node.FailedOverBy = uuid.Nil
-			node.AutoRelayedPeers = make(map[string]struct{})
-			logic.UpsertNode(&node)
-		}
-		if node.FailedOverBy != uuid.Nil || len(node.FailOverPeers) > 0 {
-			node.FailOverPeers = make(map[string]struct{})
-			node.FailedOverBy = uuid.Nil
-			node.AutoRelayedPeers = make(map[string]struct{})
-			logic.UpsertNode(&node)
-		}
 		if node.IsIngressGateway {
 			host, err := logic.GetHost(node.HostID.String())
 			if err == nil {
