@@ -27,6 +27,8 @@ func gwHandlers(r *mux.Router) {
 // @Router      /api/nodes/{network}/{nodeid}/gateway [post]
 // @Tags        Nodes
 // @Security    oauth2
+// @Param       network path string true "Network ID"
+// @Param       nodeid path string true "Node ID"
 // @Success     200 {object} models.ApiNode
 // @Failure     500 {object} models.ErrorResponse
 func createGateway(w http.ResponseWriter, r *http.Request) {
@@ -150,6 +152,8 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/nodes/{network}/{nodeid}/gateway [delete]
 // @Tags        Nodes
 // @Security    oauth2
+// @Param       network path string true "Network ID"
+// @Param       nodeid path string true "Node ID"
 // @Success     200 {object} models.ApiNode
 // @Failure     500 {object} models.ErrorResponse
 func deleteGateway(w http.ResponseWriter, r *http.Request) {
