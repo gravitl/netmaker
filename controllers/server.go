@@ -282,6 +282,10 @@ func reInit(curr, new models.ServerSettings, force bool) {
 	logic.EmailInit()
 	logic.SetVerbosity(int(logic.GetServerSettings().Verbosity))
 	logic.ResetIDPSyncHook()
+	if curr.MetricInterval != new.MetricInterval {
+		logic.GetMetricsMonitor().Stop()
+		logic.GetMetricsMonitor().Start()
+	}
 	// check if auto update is changed
 	if force {
 		if curr.NetclientAutoUpdate != new.NetclientAutoUpdate {

@@ -99,6 +99,8 @@ func InitPro() {
 		auth.ResetIDPSyncHook()
 		email.Init()
 		go proLogic.EventWatcher()
+
+		logic.GetMetricsMonitor().Start()
 	})
 	logic.ResetFailOver = proLogic.ResetFailOver
 	logic.ResetFailedOverPeer = proLogic.ResetFailedOverPeer
@@ -117,6 +119,7 @@ func InitPro() {
 	logic.SetClientDefaultACLs = proLogic.SetClientDefaultACLs
 	logic.SetClientACLs = proLogic.SetClientACLs
 	logic.UpdateProNodeACLs = proLogic.UpdateProNodeACLs
+	logic.GetAllMetrics = proLogic.GetAllMetrics
 	logic.GetMetrics = proLogic.GetMetrics
 	logic.UpdateMetrics = proLogic.UpdateMetrics
 	logic.DeleteMetrics = proLogic.DeleteMetrics
