@@ -1616,6 +1616,9 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			hNs := logic.GetNameserversForNode(&node)
 			for _, nsI := range hNs {
 				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
+				if nsI.IsSearchDomain {
+					gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
+				}
 			}
 		}
 		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccess(user, models.NetworkID(node.Network))...)
@@ -1668,6 +1671,9 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			hNs := logic.GetNameserversForNode(&node)
 			for _, nsI := range hNs {
 				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
+				if nsI.IsSearchDomain {
+					gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
+				}
 			}
 		}
 		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccess(user, models.NetworkID(node.Network))...)
