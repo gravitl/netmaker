@@ -76,28 +76,6 @@ func LoadNodeMetricsToCache() error {
 	return nil
 }
 
-func GetAllMetrics() ([]models.Metrics, error) {
-	var metrics []models.Metrics
-	if servercfg.CacheEnabled() {
-		return getAllMetricsFromCache(), nil
-	}
-
-	records, err := database.FetchRecords(database.METRICS_TABLE_NAME)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, record := range records {
-		var nodeMetrics models.Metrics
-		err := json.Unmarshal([]byte(record), &metrics)
-		if err == nil {
-			metrics = append(metrics, nodeMetrics)
-		}
-	}
-
-	return metrics, nil
-}
-
 // GetMetrics - gets the metrics
 func GetMetrics(nodeid string) (*models.Metrics, error) {
 	var metrics models.Metrics
@@ -125,7 +103,6 @@ func GetMetrics(nodeid string) (*models.Metrics, error) {
 
 // UpdateMetrics - updates the metrics of a given client
 func UpdateMetrics(nodeid string, metrics *models.Metrics) error {
-	metrics.UpdatedAt = time.Now()
 	data, err := json.Marshal(metrics)
 	if err != nil {
 		return err

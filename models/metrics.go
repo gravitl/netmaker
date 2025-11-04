@@ -10,7 +10,6 @@ type Metrics struct {
 	NodeID       string            `json:"node_id" bson:"node_id" yaml:"node_id"`
 	NodeName     string            `json:"node_name" bson:"node_name" yaml:"node_name"`
 	Connectivity map[string]Metric `json:"connectivity" bson:"connectivity" yaml:"connectivity"`
-	UpdatedAt    time.Time         `json:"updated_at" bson:"updated_at" yaml:"updated_at"`
 }
 
 // Metric - holds a metric for data between nodes
