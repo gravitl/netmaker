@@ -79,6 +79,9 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.ID, _ = uuid.Parse(a.ID)
 	convertedNode.HostID, _ = uuid.Parse(a.HostID)
 	//convertedNode.IsRelay = a.IsRelay
+	if a.RelayedBy != "" && !a.IsRelayed {
+		a.IsRelayed = true
+	}
 	convertedNode.IsRelayed = a.IsRelayed
 	convertedNode.RelayedBy = a.RelayedBy
 	convertedNode.RelayedNodes = a.RelayedNodes
