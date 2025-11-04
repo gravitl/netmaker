@@ -345,26 +345,20 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 						peer)
 				}
 			}
-			shouldCheckRelayed := true
-			if (node.AutoAssignGateway && peer.IsGw && node.RelayedBy != peer.ID.String()) ||
-				(peer.AutoAssignGateway && node.IsGw && peer.RelayedBy != node.ID.String()) {
-				shouldCheckRelayed = false
-			}
-			if shouldCheckRelayed {
-				if (node.IsRelayed && node.RelayedBy != peer.ID.String()) ||
-					(peer.IsRelayed && peer.RelayedBy != node.ID.String()) || isFailOverPeer || isAutoRelayPeer {
-					// if node is relayed and peer is not the relay, set remove to true
-					if _, ok := peerIndexMap[peerHost.PublicKey.String()]; ok {
-						continue
-					}
-					peerConfig.Remove = true
-					hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
-					peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
+
+			if (node.IsRelayed && node.RelayedBy != peer.ID.String()) ||
+				(peer.IsRelayed && peer.RelayedBy != node.ID.String()) || isFailOverPeer || isAutoRelayPeer {
+				// if node is relayed and peer is not the relay, set remove to true
+				if _, ok := peerIndexMap[peerHost.PublicKey.String()]; ok {
 					continue
 				}
-				if node.IsRelayed && node.RelayedBy == peer.ID.String() {
-					hostPeerUpdate = SetDefaultGwForRelayedUpdate(node, peer, hostPeerUpdate)
-				}
+				peerConfig.Remove = true
+				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, peerConfig)
+				peerIndexMap[peerHost.PublicKey.String()] = len(hostPeerUpdate.Peers) - 1
+				continue
+			}
+			if node.IsRelayed && node.RelayedBy == peer.ID.String() {
+				hostPeerUpdate = SetDefaultGwForRelayedUpdate(node, peer, hostPeerUpdate)
 			}
 
 			uselocal := false
@@ -401,8 +395,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					peerEndpoint = peerHost.EndpointIPv6
 				}
 			}
-			if (node.IsRelay && peer.RelayedBy == node.ID.String() && peer.InternetGwID == "") ||
-				(peer.AutoAssignGateway && node.IsGw) && !peer.IsStatic {
+			if node.IsRelay && peer.RelayedBy == node.ID.String() && peer.InternetGwID == "" && !peer.IsStatic {
 				// don't set endpoint on relayed peer
 				peerEndpoint = nil
 			}

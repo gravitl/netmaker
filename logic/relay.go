@@ -212,9 +212,6 @@ func RelayedAllowedIPs(peer, node *models.Node) []net.IPNet {
 		if err != nil {
 			continue
 		}
-		if relayedNode.AutoAssignGateway && node.IsGw {
-			continue
-		}
 		GetNodeEgressInfo(&relayedNode, eli, acls)
 		allowed := getRelayedAddresses(relayedNodeID)
 		if relayedNode.EgressDetails.IsEgressGateway {
@@ -245,9 +242,6 @@ func GetAllowedIpsForRelayed(relayed, relay *models.Node) (allowedIPs []net.IPNe
 	defaultPolicy, _ := GetDefaultPolicy(models.NetworkID(relay.Network), models.DevicePolicy)
 	for _, peer := range peers {
 		if peer.ID == relayed.ID || peer.ID == relay.ID {
-			continue
-		}
-		if relayed.AutoAssignGateway && peer.IsGw {
 			continue
 		}
 		if !IsPeerAllowed(*relayed, peer, true) {
