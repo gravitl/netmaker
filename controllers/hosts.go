@@ -511,6 +511,10 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 			Type: models.DeviceSub,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: currHost,
+			New: nil,
+		},
 	})
 	apiHostData := currHost.ConvertNMHostToAPI()
 	logger.Log(2, r.Header.Get("user"), "removed host", currHost.Name)
