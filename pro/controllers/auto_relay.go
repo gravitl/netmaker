@@ -388,6 +388,9 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 			mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, false, nil)
 		}
 		go mq.PublishPeerUpdate(false)
+		if node.AutoAssignGateway {
+			mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *host, Node: node})
+		}
 		logic.ReturnSuccessResponse(w, r, "unrelayed successfully")
 		return
 	}
