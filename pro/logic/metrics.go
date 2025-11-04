@@ -21,16 +21,6 @@ var (
 	metricsCacheMap   = make(map[string]models.Metrics)
 )
 
-func getAllMetricsFromCache() []models.Metrics {
-	var metrics []models.Metrics
-	metricsCacheMutex.RLock()
-	for _, m := range metricsCacheMap {
-		metrics = append(metrics, m)
-	}
-	metricsCacheMutex.RUnlock()
-	return metrics
-}
-
 func getMetricsFromCache(key string) (metrics models.Metrics, ok bool) {
 	metricsCacheMutex.RLock()
 	metrics, ok = metricsCacheMap[key]
