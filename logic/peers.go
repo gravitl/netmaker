@@ -277,7 +277,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				node.Mutex.Lock()
 			}
 			_, isFailOverPeer := node.FailOverPeers[peer.ID.String()]
-			_, isAutoRelayPeer := node.AutoRelayedPeers[peer.ID.String()]
+			peerAutoRelayID, isAutoRelayPeer := node.AutoRelayedPeers[peer.ID.String()]
 			if node.Mutex != nil {
 				node.Mutex.Unlock()
 			}
@@ -294,9 +294,9 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 						}
 					}
 				}
-				if isAutoRelayPeer && peer.AutoRelayedBy.String() != node.ID.String() {
+				if isAutoRelayPeer && peerAutoRelayID != node.ID.String() {
 					// get relay host
-					autoRelayNode, err := GetNodeByID(peer.AutoRelayedBy.String())
+					autoRelayNode, err := GetNodeByID(peerAutoRelayID)
 					if err == nil {
 						relayHost, err := GetHost(autoRelayNode.HostID.String())
 						if err == nil {
@@ -402,7 +402,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			if isFailOverPeer && peer.FailedOverBy == node.ID && !peer.IsStatic {
 				peerEndpoint = nil
 			}
-			if isAutoRelayPeer && peer.AutoRelayedBy == node.ID && !peer.IsStatic {
+			if isAutoRelayPeer && peerAutoRelayID == node.ID.String() && !peer.IsStatic {
 				peerEndpoint = nil
 			}
 

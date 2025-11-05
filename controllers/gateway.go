@@ -95,7 +95,7 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 			if relayedNode.FailedOverBy != uuid.Nil {
 				go logic.ResetFailedOverPeer(&relayedNode)
 			}
-			if relayedNode.AutoRelayedBy != uuid.Nil {
+			if len(relayedNode.AutoRelayedPeers) > 0 {
 				go logic.ResetAutoRelayedPeer(&relayedNode)
 			}
 

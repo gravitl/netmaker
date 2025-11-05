@@ -345,7 +345,7 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 			if node.FailedOverBy != uuid.Nil {
 				ResetFailedOverPeer(&node)
 			}
-			if node.AutoRelayedBy != uuid.Nil {
+			if len(node.AutoRelayedPeers) > 0 {
 				ResetAutoRelayedPeer(&node)
 			}
 		}
