@@ -697,10 +697,14 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		// if !newNode.Connected {
 		// 	mq.HostUpdate(&models.HostUpdate{Host: *host, Action: models.SignalPull})
 		// }
-		mq.PublishPeerUpdate(false)
+		allNodes, err := logic.GetAllNodes()
+		if err == nil {
+			mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, false, nil)
+		}
 		if servercfg.IsPro && newNode.AutoAssignGateway {
 			mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *host, Node: *newNode})
 		}
+		mq.PublishPeerUpdate(false)
 		if servercfg.IsDNSMode() {
 			logic.SetDNS()
 		}
