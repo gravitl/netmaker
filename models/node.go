@@ -446,10 +446,10 @@ func (newNode *Node) Fill(
 	if newNode.ExpirationDateTime.IsZero() {
 		newNode.ExpirationDateTime = currentNode.ExpirationDateTime
 	}
-	if newNode.LastPeerUpdate.IsZero() {
+	if newNode.LastPeerUpdate.IsZero() || currentNode.LastPeerUpdate.After(newNode.LastPeerUpdate) {
 		newNode.LastPeerUpdate = currentNode.LastPeerUpdate
 	}
-	if newNode.LastCheckIn.IsZero() {
+	if newNode.LastCheckIn.IsZero() || currentNode.LastCheckIn.After(newNode.LastCheckIn) {
 		newNode.LastCheckIn = currentNode.LastCheckIn
 	}
 	if newNode.Network == "" {
