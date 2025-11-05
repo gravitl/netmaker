@@ -392,16 +392,6 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnSuccessResponse(w, r, "unrelayed successfully")
 		return
 	}
-	peerNode, err := logic.GetNodeByID(autoRelayReq.NodeID)
-	if err != nil {
-		slog.Error("peer not found: ", "nodeid", autoRelayReq.NodeID, "error", err)
-		logic.ReturnErrorResponse(
-			w,
-			r,
-			logic.FormatError(errors.New("peer not found"), "badrequest"),
-		)
-		return
-	}
 	autoRelayNode, err := logic.GetNodeByID(autoRelayReq.AutoRelayGwID)
 	if err != nil {
 		logic.ReturnErrorResponse(
@@ -442,6 +432,16 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		logic.ReturnSuccessResponse(w, r, "relayed successfully")
+		return
+	}
+	peerNode, err := logic.GetNodeByID(autoRelayReq.NodeID)
+	if err != nil {
+		slog.Error("peer not found: ", "nodeid", autoRelayReq.NodeID, "error", err)
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("peer not found"), "badrequest"),
+		)
 		return
 	}
 	if len(node.AutoRelayedPeers) == 0 {
