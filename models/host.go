@@ -160,18 +160,19 @@ type HostTurnRegister struct {
 
 // Signal - struct for signalling peer
 type Signal struct {
-	Server         string       `json:"server"`
-	FromHostPubKey string       `json:"from_host_pubkey"`
-	ToHostPubKey   string       `json:"to_host_pubkey"`
-	FromHostID     string       `json:"from_host_id"`
-	ToHostID       string       `json:"to_host_id"`
-	FromNodeID     string       `json:"from_node_id"`
-	ToNodeID       string       `json:"to_node_id"`
-	NetworkID      string       `json:"networkID"`
-	Reply          bool         `json:"reply"`
-	Action         SignalAction `json:"action"`
-	IsPro          bool         `json:"is_pro"`
-	TimeStamp      int64        `json:"timestamp"`
+	Server               string           `json:"server"`
+	FromHostPubKey       string           `json:"from_host_pubkey"`
+	ToHostPubKey         string           `json:"to_host_pubkey"`
+	FromHostID           string           `json:"from_host_id"`
+	ToHostID             string           `json:"to_host_id"`
+	FromNodeID           string           `json:"from_node_id"`
+	ToNodeID             string           `json:"to_node_id"`
+	NetworkID            string           `json:"networkID"`
+	Reply                bool             `json:"reply"`
+	AutoRelayNodeMetrics map[string]int64 `json:"auto_relay_node_metrics"`
+	Action               SignalAction     `json:"action"`
+	IsPro                bool             `json:"is_pro"`
+	TimeStamp            int64            `json:"timestamp"`
 }
 
 // RegisterMsg - login message struct for hosts to join via SSO login
