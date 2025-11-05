@@ -372,15 +372,33 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if autoRelayReq.AutoRelayGwID == "" {
-		// unset current gw
-		if node.RelayedBy != "" {
-			// unset relayed node from the curr relay
-			currRelayNode, err := logic.GetNodeByID(node.RelayedBy)
-			if err == nil {
-				newRelayedNodes := logic.RemoveAllFromSlice(currRelayNode.RelayedNodes, node.ID.String())
-				logic.UpdateRelayNodes(currRelayNode.ID.String(), currRelayNode.RelayedNodes, newRelayedNodes)
+		if node.AutoAssignGateway {
+			// unset current gw
+			if node.RelayedBy != "" {
+				// unset relayed node from the curr relay
+				currRelayNode, err := logic.GetNodeByID(node.RelayedBy)
+				if err == nil {
+					newRelayedNodes := logic.RemoveAllFromSlice(currRelayNode.RelayedNodes, node.ID.String())
+					logic.UpdateRelayNodes(currRelayNode.ID.String(), currRelayNode.RelayedNodes, newRelayedNodes)
+				}
 			}
+		} else {
+			peerNode, err := logic.GetNodeByID(autoRelayReq.NodeID)
+			if err != nil {
+				slog.Error("peer not found: ", "nodeid", autoRelayReq.NodeID, "error", err)
+				logic.ReturnErrorResponse(
+					w,
+					r,
+					logic.FormatError(errors.New("peer not found"), "badrequest"),
+				)
+				return
+			}
+			delete(node.AutoRelayedPeers, peerNode.ID.String())
+			delete(peerNode.AutoRelayedPeers, node.ID.String())
+			logic.UpsertNode(&node)
+			logic.UpsertNode(&peerNode)
 		}
+
 		allNodes, err := logic.GetAllNodes()
 		if err == nil {
 			mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, false, nil)
