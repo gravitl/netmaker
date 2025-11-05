@@ -280,13 +280,13 @@ func MigrateToGws() {
 			node.IsFailOver = false
 			node.FailOverPeers = make(map[string]struct{})
 			node.FailedOverBy = uuid.Nil
-			node.AutoRelayedPeers = make(map[string]struct{})
+			node.AutoRelayedPeers = make(map[string]string)
 			logic.UpsertNode(&node)
 		}
 		if node.FailedOverBy != uuid.Nil || len(node.FailOverPeers) > 0 {
 			node.FailOverPeers = make(map[string]struct{})
 			node.FailedOverBy = uuid.Nil
-			node.AutoRelayedPeers = make(map[string]struct{})
+			node.AutoRelayedPeers = make(map[string]string)
 			logic.UpsertNode(&node)
 		}
 		if node.IsInternetGateway && len(node.InetNodeReq.InetNodeClientIDs) > 0 {
