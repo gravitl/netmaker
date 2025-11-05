@@ -72,6 +72,7 @@ func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 	if err != nil {
 		return peerInfo, err
 	}
+	serverInfo := GetServerInfo()
 	for _, nodeID := range host.Nodes {
 		nodeID := nodeID
 		node, err := GetNodeByID(nodeID)
@@ -108,7 +109,7 @@ func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 			if peer.Action != models.NODE_DELETE &&
 				!peer.PendingDelete &&
 				peer.Connected &&
-				nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) &&
+				(!serverInfo.OldAClsSupport || nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String()))) &&
 				(allowedToComm) {
 
 				networkPeersInfo[peerHost.PublicKey.String()] = models.IDandAddr{
@@ -424,7 +425,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			if peer.Action != models.NODE_DELETE &&
 				!peer.PendingDelete &&
 				peer.Connected &&
-				nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String())) &&
+				(!hostPeerUpdate.ServerConfig.OldAClsSupport || nodeacls.AreNodesAllowed(nodeacls.NetworkID(node.Network), nodeacls.NodeID(node.ID.String()), nodeacls.NodeID(peer.ID.String()))) &&
 				(allowedToComm) &&
 				(deletedNode == nil || (peer.ID.String() != deletedNode.ID.String())) {
 				peerConfig.AllowedIPs = GetAllowedIPs(&node, &peer, nil) // only append allowed IPs if valid connection

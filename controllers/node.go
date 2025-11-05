@@ -599,6 +599,12 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	if newNode.IsInternetGateway {
+		if host.DNS != "yes" {
+			host.DNS = "yes"
+			logic.UpsertHost(host)
+		}
+	}
 	aclUpdate := currentNode.DefaultACL != newNode.DefaultACL
 
 	err = logic.UpdateNode(&currentNode, newNode)

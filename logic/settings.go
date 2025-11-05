@@ -282,6 +282,7 @@ func GetServerInfo() models.ServerConfig {
 	cfg.DefaultDomain = serverSettings.DefaultDomain
 	cfg.EndpointDetection = serverSettings.EndpointDetection
 	cfg.PeerConnectionCheckInterval = serverSettings.PeerConnectionCheckInterval
+	cfg.OldAClsSupport = serverSettings.OldAClsSupport
 	key, _ := RetrievePublicTrafficKey()
 	cfg.TrafficKey = key
 	return cfg
