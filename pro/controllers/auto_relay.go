@@ -378,8 +378,18 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 				// unset relayed node from the curr relay
 				currRelayNode, err := logic.GetNodeByID(node.RelayedBy)
 				if err == nil {
+					if currRelayNode.Mutex != nil {
+						currRelayNode.Mutex.Lock()
+					}
 					newRelayedNodes := logic.RemoveAllFromSlice(currRelayNode.RelayedNodes, node.ID.String())
-					logic.UpdateRelayNodes(currRelayNode.ID.String(), currRelayNode.RelayedNodes, newRelayedNodes)
+					currRelayNode.RelayedNodes = newRelayedNodes
+					logic.UpsertNode(&currRelayNode)
+					node.RelayedBy = ""
+					node.IsRelayed = false
+					logic.UpsertNode(&node)
+					if currRelayNode.Mutex != nil {
+						currRelayNode.Mutex.Unlock()
+					}
 				}
 			}
 		} else {
@@ -398,7 +408,6 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 			logic.UpsertNode(&node)
 			logic.UpsertNode(&peerNode)
 		}
-
 		allNodes, err := logic.GetAllNodes()
 		if err == nil {
 			mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, false, nil)

@@ -166,7 +166,7 @@ func UpdateNodeCheckin(node *models.Node) error {
 	if err != nil {
 		return err
 	}
-	// node.EgressDetails = models.EgressDetails{}
+	node.EgressDetails = models.EgressDetails{}
 	err = database.Insert(node.ID.String(), string(data), database.NODES_TABLE_NAME)
 	if err != nil {
 		return err
