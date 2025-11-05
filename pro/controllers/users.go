@@ -352,6 +352,12 @@ func deleteUserInvite(w http.ResponseWriter, r *http.Request) {
 			Type: models.UserInviteSub,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: models.UserInvite{
+				Email: email,
+			},
+			New: nil,
+		},
 	})
 	logic.ReturnSuccessResponse(w, r, "deleted user invite")
 }
@@ -872,6 +878,10 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 			Type: models.UserGroupSub,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: userG,
+			New: nil,
+		},
 	})
 
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user group")
@@ -1063,6 +1073,10 @@ func deleteRole(w http.ResponseWriter, r *http.Request) {
 			Type: models.UserRoleSub,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: role,
+			New: nil,
+		},
 	})
 	go proLogic.UpdatesUserGwAccessOnRoleUpdates(role.NetworkLevelAccess, make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope), role.NetworkID.String())
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user role")
@@ -1602,6 +1616,9 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			hNs := logic.GetNameserversForNode(&node)
 			for _, nsI := range hNs {
 				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
+				if nsI.IsSearchDomain {
+					gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
+				}
 			}
 		}
 		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccess(user, models.NetworkID(node.Network))...)
@@ -1654,6 +1671,9 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			hNs := logic.GetNameserversForNode(&node)
 			for _, nsI := range hNs {
 				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
+				if nsI.IsSearchDomain {
+					gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
+				}
 			}
 		}
 		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccess(user, models.NetworkID(node.Network))...)
@@ -1854,6 +1874,12 @@ func deletePendingUser(w http.ResponseWriter, r *http.Request) {
 			Type: models.PendingUserSub,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: models.User{
+				UserName: username,
+			},
+			New: nil,
+		},
 	})
 	logic.ReturnSuccessResponse(w, r, "deleted pending "+username)
 }

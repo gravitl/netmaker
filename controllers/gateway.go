@@ -284,6 +284,10 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 			Type: models.GatewaySub,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: node,
+			New: node,
+		},
 	})
 	logic.GetNodeStatus(&node, false)
 	apiNode := node.ConvertToAPINode()

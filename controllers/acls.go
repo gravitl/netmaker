@@ -426,6 +426,10 @@ func deleteAcl(w http.ResponseWriter, r *http.Request) {
 		},
 		NetworkID: acl.NetworkID,
 		Origin:    models.Dashboard,
+		Diff: models.Diff{
+			Old: acl,
+			New: nil,
+		},
 	})
 	go mq.PublishPeerUpdate(true)
 	logic.ReturnSuccessResponse(w, r, "deleted acl "+acl.Name)

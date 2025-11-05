@@ -244,6 +244,10 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 			Info: a,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: a,
+			New: nil,
+		},
 	})
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "revoked access token")
 }
@@ -1580,6 +1584,10 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 			Type: models.UserSub,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: user,
+			New: nil,
+		},
 	})
 	// check and delete extclient with this ownerID
 	go func() {

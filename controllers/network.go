@@ -565,6 +565,10 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 			Type: models.NetworkSub,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: network,
+			New: nil,
+		},
 	})
 	logger.Log(1, r.Header.Get("user"), "deleted network", network)
 	w.WriteHeader(http.StatusOK)
