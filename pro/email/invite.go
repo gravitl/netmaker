@@ -53,7 +53,7 @@ func (invite UserInvitedMail) GetBody(info Notification) string {
 		WithHtml("</ol>").
 		WithParagraph("Important Information:").
 		WithHtml("<ul>").
-		WithHtml(fmt.Sprintf("<li>When connecting through RAC, please enter your server connection ID: %s.</li>", connectionID)).
+		WithHtml(fmt.Sprintf("<li>When connecting through Netmaker Desktop, please enter your server connection ID: %s.</li>", connectionID)).
 		WithHtml("</ul>").
 		WithParagraph(fmt.Sprintf("If you have any questions or need assistance, please contact our support team at <a href=\"mailto:%s\">%s</a>.", supportEmail, supportEmail)).
 		WithParagraph("Best Regards,").
