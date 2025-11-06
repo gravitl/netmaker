@@ -106,12 +106,13 @@ type Node struct {
 	IngressMTU                 int32                `json:"ingressmtu"`
 	Metadata                   string               `json:"metadata"`
 	// == PRO ==
-	DefaultACL        string              `json:"defaultacl,omitempty" validate:"checkyesornoorunset"`
-	OwnerID           string              `json:"ownerid,omitempty"`
-	IsFailOver        bool                `json:"is_fail_over"`
-	IsAutoRelay       bool                `json:"is_auto_relay"`
-	AutoRelayedPeers  map[string]struct{} `json:"auto_relayed_peers"`
-	AutoRelayedBy     uuid.UUID           `json:"auto_relayed_by"`
+	DefaultACL  string `json:"defaultacl,omitempty" validate:"checkyesornoorunset"`
+	OwnerID     string `json:"ownerid,omitempty"`
+	IsFailOver  bool   `json:"is_fail_over"`
+	IsAutoRelay bool   `json:"is_auto_relay"`
+	//AutoRelayedPeers   map[string]struct{} `json:"auto_relayed_peers"`
+	AutoRelayedPeers map[string]string `json:"auto_relayed_peers_v1"`
+	//AutoRelayedBy     uuid.UUID           `json:"auto_relayed_by"`
 	FailOverPeers     map[string]struct{} `json:"fail_over_peers"`
 	FailedOverBy      uuid.UUID           `json:"failed_over_by"`
 	IsInternetGateway bool                `json:"isinternetgateway"`
@@ -446,10 +447,10 @@ func (newNode *Node) Fill(
 	if newNode.ExpirationDateTime.IsZero() {
 		newNode.ExpirationDateTime = currentNode.ExpirationDateTime
 	}
-	if newNode.LastPeerUpdate.IsZero() {
+	if newNode.LastPeerUpdate.IsZero() || currentNode.LastPeerUpdate.After(newNode.LastPeerUpdate) {
 		newNode.LastPeerUpdate = currentNode.LastPeerUpdate
 	}
-	if newNode.LastCheckIn.IsZero() {
+	if newNode.LastCheckIn.IsZero() || currentNode.LastCheckIn.After(newNode.LastCheckIn) {
 		newNode.LastCheckIn = currentNode.LastCheckIn
 	}
 	if newNode.Network == "" {

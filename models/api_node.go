@@ -17,26 +17,26 @@ type ApiNodeStatus struct {
 
 // ApiNode is a stripped down Node DTO that exposes only required fields to external systems
 type ApiNode struct {
-	ID                            string              `json:"id,omitempty" validate:"required,min=5,id_unique"`
-	HostID                        string              `json:"hostid,omitempty" validate:"required,min=5,id_unique"`
-	Address                       string              `json:"address" validate:"omitempty,cidrv4"`
-	Address6                      string              `json:"address6" validate:"omitempty,cidrv6"`
-	LocalAddress                  string              `json:"localaddress" validate:"omitempty,cidr"`
-	AllowedIPs                    []string            `json:"allowedips"`
-	LastModified                  int64               `json:"lastmodified" swaggertype:"primitive,integer" format:"int64"`
-	ExpirationDateTime            int64               `json:"expdatetime" swaggertype:"primitive,integer" format:"int64"`
-	LastCheckIn                   int64               `json:"lastcheckin" swaggertype:"primitive,integer" format:"int64"`
-	LastPeerUpdate                int64               `json:"lastpeerupdate" swaggertype:"primitive,integer" format:"int64"`
-	Network                       string              `json:"network"`
-	NetworkRange                  string              `json:"networkrange"`
-	NetworkRange6                 string              `json:"networkrange6"`
-	IsRelayed                     bool                `json:"isrelayed"`
-	IsRelay                       bool                `json:"isrelay"`
-	IsGw                          bool                `json:"is_gw"`
-	IsAutoRelay                   bool                `json:"is_auto_relay"`
-	AutoRelayedPeers              map[string]struct{} `json:"auto_relayed_peers"`
-	AutoAssignGateway             bool                `json:"auto_assign_gw"`
-	AutoRelayedBy                 uuid.UUID           `json:"auto_relayed_by"`
+	ID                 string            `json:"id,omitempty" validate:"required,min=5,id_unique"`
+	HostID             string            `json:"hostid,omitempty" validate:"required,min=5,id_unique"`
+	Address            string            `json:"address" validate:"omitempty,cidrv4"`
+	Address6           string            `json:"address6" validate:"omitempty,cidrv6"`
+	LocalAddress       string            `json:"localaddress" validate:"omitempty,cidr"`
+	AllowedIPs         []string          `json:"allowedips"`
+	LastModified       int64             `json:"lastmodified" swaggertype:"primitive,integer" format:"int64"`
+	ExpirationDateTime int64             `json:"expdatetime" swaggertype:"primitive,integer" format:"int64"`
+	LastCheckIn        int64             `json:"lastcheckin" swaggertype:"primitive,integer" format:"int64"`
+	LastPeerUpdate     int64             `json:"lastpeerupdate" swaggertype:"primitive,integer" format:"int64"`
+	Network            string            `json:"network"`
+	NetworkRange       string            `json:"networkrange"`
+	NetworkRange6      string            `json:"networkrange6"`
+	IsRelayed          bool              `json:"isrelayed"`
+	IsRelay            bool              `json:"isrelay"`
+	IsGw               bool              `json:"is_gw"`
+	IsAutoRelay        bool              `json:"is_auto_relay"`
+	AutoRelayedPeers   map[string]string `json:"auto_relayed_peers"`
+	AutoAssignGateway  bool              `json:"auto_assign_gw"`
+	//AutoRelayedBy                 uuid.UUID           `json:"auto_relayed_by"`
 	RelayedBy                     string              `json:"relayedby" bson:"relayedby" yaml:"relayedby"`
 	RelayedNodes                  []string            `json:"relaynodes" yaml:"relayedNodes"`
 	IsEgressGateway               bool                `json:"isegressgateway"`
@@ -79,6 +79,9 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.ID, _ = uuid.Parse(a.ID)
 	convertedNode.HostID, _ = uuid.Parse(a.HostID)
 	//convertedNode.IsRelay = a.IsRelay
+	if a.RelayedBy != "" && !a.IsRelayed {
+		a.IsRelayed = true
+	}
 	convertedNode.IsRelayed = a.IsRelayed
 	convertedNode.RelayedBy = a.RelayedBy
 	convertedNode.RelayedNodes = a.RelayedNodes
@@ -196,7 +199,7 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.RelayedBy = nm.RelayedBy
 	apiNode.RelayedNodes = nm.RelayedNodes
 	apiNode.IsAutoRelay = nm.IsAutoRelay
-	apiNode.AutoRelayedBy = nm.AutoRelayedBy
+	//apiNode.AutoRelayedBy = nm.AutoRelayedBy
 	apiNode.AutoRelayedPeers = nm.AutoRelayedPeers
 	apiNode.AutoAssignGateway = nm.AutoAssignGateway
 	apiNode.IsIngressGateway = nm.IsIngressGateway

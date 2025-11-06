@@ -6,7 +6,6 @@ import (
 	"net"
 	"sync"
 
-	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -50,19 +49,18 @@ func CheckAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
 	if peerNode.Mutex != nil {
 		peerNode.Mutex.Lock()
 	}
-	_, peerHasAutoRelayed := peerNode.AutoRelayedPeers[victimNode.ID.String()]
+	autoRelayNodeIDPeerNode, peerHasAutoRelayed := peerNode.AutoRelayedPeers[victimNode.ID.String()]
 	if peerNode.Mutex != nil {
 		peerNode.Mutex.Unlock()
 	}
 	if victimNode.Mutex != nil {
 		victimNode.Mutex.Lock()
 	}
-	_, victimHasAutoRelayed := victimNode.AutoRelayedPeers[peerNode.ID.String()]
+	autoRelayNodeIDVictim, victimHasAutoRelayed := victimNode.AutoRelayedPeers[peerNode.ID.String()]
 	if victimNode.Mutex != nil {
 		victimNode.Mutex.Unlock()
 	}
-	if peerHasAutoRelayed && victimHasAutoRelayed &&
-		victimNode.AutoRelayedBy == autoRelayNode.ID && peerNode.AutoRelayedBy == autoRelayNode.ID {
+	if peerHasAutoRelayed && victimHasAutoRelayed && autoRelayNodeIDVictim == autoRelayNodeIDPeerNode {
 		return errors.New("auto relay ctx is already set")
 	}
 	return nil
@@ -71,45 +69,42 @@ func SetAutoRelayCtx(autoRelayNode, victimNode, peerNode models.Node) error {
 	autoRelayCtxMutex.Lock()
 	defer autoRelayCtxMutex.Unlock()
 	if peerNode.AutoRelayedPeers == nil {
-		peerNode.AutoRelayedPeers = make(map[string]struct{})
+		peerNode.AutoRelayedPeers = make(map[string]string)
 	}
 	if victimNode.AutoRelayedPeers == nil {
-		victimNode.AutoRelayedPeers = make(map[string]struct{})
+		victimNode.AutoRelayedPeers = make(map[string]string)
 	}
 	if peerNode.Mutex != nil {
 		peerNode.Mutex.Lock()
 	}
-	_, peerHasAutoRelayed := peerNode.AutoRelayedPeers[victimNode.ID.String()]
+	autoRelayNodeIDPeerNode, peerHasAutoRelayed := peerNode.AutoRelayedPeers[victimNode.ID.String()]
 	if peerNode.Mutex != nil {
 		peerNode.Mutex.Unlock()
 	}
 	if victimNode.Mutex != nil {
 		victimNode.Mutex.Lock()
 	}
-	_, victimHasAutoRelayed := victimNode.AutoRelayedPeers[peerNode.ID.String()]
+	autoRelayNodeIDVictim, victimHasAutoRelayed := victimNode.AutoRelayedPeers[peerNode.ID.String()]
 	if victimNode.Mutex != nil {
 		victimNode.Mutex.Unlock()
 	}
-	if peerHasAutoRelayed && victimHasAutoRelayed &&
-		victimNode.AutoRelayedBy == autoRelayNode.ID && peerNode.AutoRelayedBy == autoRelayNode.ID {
+	if peerHasAutoRelayed && victimHasAutoRelayed && autoRelayNodeIDVictim == autoRelayNodeIDPeerNode {
 		return errors.New("auto relay ctx is already set")
 	}
 	if peerNode.Mutex != nil {
 		peerNode.Mutex.Lock()
 	}
-	peerNode.AutoRelayedPeers[victimNode.ID.String()] = struct{}{}
+	peerNode.AutoRelayedPeers[victimNode.ID.String()] = autoRelayNode.ID.String()
 	if peerNode.Mutex != nil {
 		peerNode.Mutex.Unlock()
 	}
 	if victimNode.Mutex != nil {
 		victimNode.Mutex.Lock()
 	}
-	victimNode.AutoRelayedPeers[peerNode.ID.String()] = struct{}{}
+	victimNode.AutoRelayedPeers[peerNode.ID.String()] = autoRelayNode.ID.String()
 	if victimNode.Mutex != nil {
 		victimNode.Mutex.Unlock()
 	}
-	victimNode.AutoRelayedBy = autoRelayNode.ID
-	// peerNode.AutoRelayedBy = autoRelayNode.ID
 	if err := logic.UpsertNode(&victimNode); err != nil {
 		return err
 	}
@@ -172,8 +167,7 @@ func ResetAutoRelayedPeer(autoRelayedNode *models.Node) error {
 	if err != nil {
 		return err
 	}
-	autoRelayedNode.AutoRelayedBy = uuid.Nil
-	autoRelayedNode.AutoRelayedPeers = make(map[string]struct{})
+	autoRelayedNode.AutoRelayedPeers = make(map[string]string)
 	err = logic.UpsertNode(autoRelayedNode)
 	if err != nil {
 		return err
@@ -196,18 +190,16 @@ func ResetAutoRelay(autoRelayNode *models.Node) error {
 		return err
 	}
 	for _, node := range nodes {
-		if node.AutoRelayedBy == autoRelayNode.ID {
-			node.AutoRelayedBy = uuid.Nil
-			node.AutoRelayedPeers = make(map[string]struct{})
+		for autoRelayedPeerID, autoRelayID := range node.AutoRelayedPeers {
+			if autoRelayID != autoRelayNode.ID.String() {
+				continue
+			}
+			delete(node.AutoRelayedPeers, autoRelayedPeerID)
 			logic.UpsertNode(&node)
-			for _, peer := range nodes {
-				if peer.ID == node.ID {
-					continue
-				}
-				if _, ok := peer.AutoRelayedPeers[node.ID.String()]; ok {
-					delete(peer.AutoRelayedPeers, node.ID.String())
-					logic.UpsertNode(&peer)
-				}
+			peer, err := logic.GetNodeByID(autoRelayedPeerID)
+			if err == nil {
+				delete(peer.AutoRelayedPeers, node.ID.String())
+				logic.UpsertNode(&peer)
 			}
 		}
 	}
@@ -219,9 +211,12 @@ func GetAutoRelayPeerIps(peer, node *models.Node) []net.IPNet {
 	allowedips := []net.IPNet{}
 	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
 	acls, _ := logic.ListAclsByNetwork(models.NetworkID(node.Network))
-	for autoRelayedpeerID := range node.AutoRelayedPeers {
+	for autoRelayedpeerID, autoRelayID := range node.AutoRelayedPeers {
+		if peer.ID.String() != autoRelayID {
+			continue
+		}
 		autoRelayedpeer, err := logic.GetNodeByID(autoRelayedpeerID)
-		if err == nil && (autoRelayedpeer.AutoRelayedBy == peer.ID || node.AutoRelayedBy == peer.ID) {
+		if err == nil {
 			logic.GetNodeEgressInfo(&autoRelayedpeer, eli, acls)
 			if autoRelayedpeer.Address.IP != nil {
 				allowed := net.IPNet{

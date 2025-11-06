@@ -374,7 +374,7 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 		if clientNode.FailedOverBy != uuid.Nil {
 			ResetFailedOverPeer(&clientNode)
 		}
-		if clientNode.AutoRelayedBy != uuid.Nil {
+		if len(clientNode.AutoRelayedPeers) > 0 {
 			ResetAutoRelayedPeer(&clientNode)
 		}
 
