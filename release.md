@@ -1,44 +1,44 @@
 ## Netmaker v1.2.0 Release Notes 🚀 
 
-🚀 What’s New
+## 🚀 What’s New
 
-## 🌍 Auto-Relays (formerly Failovers)
+### 🌍 Auto-Relays (formerly Failovers)
 
 - Failovers are now Auto-Relays with High Availability (HA) support.
 
 - Enables global routing optimization based on real-time latency between peers across regions.
 
-## 🔁 Gateway High Availability
+### 🔁 Gateway High Availability
 
 - Gateways can now automatically assign peer relays and fallback to healthy nodes when primary gateways become unavailable.
 
-## 🌐 Egress HA with Latency-Aware Routing
+### 🌐 Egress HA with Latency-Aware Routing
 
 - Egress gateways now dynamically select the optimal route based on latency, ensuring faster and more resilient connectivity.
 
-## 🧭 DNS Search Domains
+### 🧭 DNS Search Domains
 
 - Added DNS search domain functionality for simplified hostname resolution across distributed networks.
 
-## 👥 New User Roles
+### 👥 New User Roles
 
 - Introduced a User Auditor role for security and compliance use-cases, offering read-only visibility into system activity.
 
-## 🧩 Onboarding Flow
+### 🧩 Onboarding Flow
 
 - Streamlined user onboarding experience during signup for workspace setup.
 
-## ⚙️ Dynamic ACL Deprecation
+### ⚙️ Dynamic ACL Deprecation
 
 - Added logic to automatically deprecate outdated ACLs on demand, reducing stale configurations and improving policy hygiene.
 
 ## 🧰 Improvements & Fixes
 
-- Metrics Enrichment: Enhanced device metrics with uptime and connection-status data for better observability.
+- Metrics Enrichment: Enhanced uptime and connection-status data.
 
 - DNS Control Fixes: Fixed toggle behavior for enabling/disabling Netmaker DNS on hosts.
 
-- Device Approvals: Improved logic and UI flow for device approval and lifecycle management.
+- Device Approvals: Improved logic for device approval management.
 
 - Egress Domain Updates: Fixed domain-related issues in egress configurations to ensure consistent routing behavior.
 
