@@ -6,7 +6,7 @@
 
 - Failovers are now Auto-Relays with High Availability (HA) support.
 
-- Enables global routing optimization based on real-time latency between peers and regions.
+- Enables global routing optimization based on real-time latency between peers across regions.
 
 ## 🔁 Gateway High Availability
 
@@ -26,7 +26,7 @@
 
 ## 🧩 Onboarding Flow
 
-- Streamlined user onboarding experience during signup for smoother workspace setup and team activation.
+- Streamlined user onboarding experience during signup for workspace setup.
 
 ## ⚙️ Dynamic ACL Deprecation
 
