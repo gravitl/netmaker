@@ -93,6 +93,7 @@ func GetMetrics(nodeid string) (*models.Metrics, error) {
 
 // UpdateMetrics - updates the metrics of a given client
 func UpdateMetrics(nodeid string, metrics *models.Metrics) error {
+	metrics.UpdatedAt = time.Now()
 	data, err := json.Marshal(metrics)
 	if err != nil {
 		return err
