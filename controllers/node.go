@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -642,7 +641,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			newNode.RelayedBy = ""
 		}
 	}
-	if (currentNode.IsRelayed || currentNode.FailedOverBy != uuid.Nil) && newNode.AutoAssignGateway {
+	if (currentNode.IsRelayed) && newNode.AutoAssignGateway {
 		// if relayed remove it
 		if currentNode.IsRelayed {
 			relayNode, err := logic.GetNodeByID(currentNode.RelayedBy)
@@ -653,7 +652,12 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			newNode.IsRelayed = false
 			newNode.RelayedBy = ""
 		}
-		if currentNode.FailedOverBy != uuid.Nil {
+		if len(currentNode.AutoRelayedPeers) > 0 {
+			logic.ResetAutoRelayedPeer(&currentNode)
+		}
+	}
+	if !currentNode.AutoAssignGateway && newNode.AutoAssignGateway {
+		if len(currentNode.AutoRelayedPeers) > 0 {
 			logic.ResetAutoRelayedPeer(&currentNode)
 		}
 	}
