@@ -704,6 +704,17 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		if servercfg.IsDNSMode() {
 			logic.SetDNS()
 		}
+		if !newNode.Connected {
+			metrics, err := logic.GetMetrics(newNode.ID.String())
+			if err == nil {
+				for peer, connectivity := range metrics.Connectivity {
+					connectivity.Connected = false
+					metrics.Connectivity[peer] = connectivity
+				}
+
+				_ = logic.UpdateMetrics(newNode.ID.String(), metrics)
+			}
+		}
 	}(aclUpdate, relayUpdate, newNode)
 }
 
