@@ -261,6 +261,21 @@ func syncGroups(idpGroups []idp.Group) error {
 
 	filters := logic.GetServerSettings().GroupFilters
 
+	networks, err := logic.GetNetworks()
+	if err != nil {
+		return err
+	}
+
+	var aclsUpdated bool
+	var acls []models.Acl
+	for _, network := range networks {
+		aclID := fmt.Sprintf("%s.%s-grp", network.NetID, models.NetworkUser)
+		acl, err := logic.GetAcl(aclID)
+		if err == nil {
+			acls = append(acls, acl)
+		}
+	}
+
 	for _, group := range idpGroups {
 		var found bool
 		for _, filter := range filters {
@@ -288,6 +303,14 @@ func syncGroups(idpGroups []idp.Group) error {
 			err := proLogic.CreateUserGroup(&dbGroup)
 			if err != nil {
 				return err
+			}
+
+			for i := range acls {
+				acls[i].Src = append(acls[i].Src, models.AclPolicyTag{
+					ID:    models.UserGroupAclID,
+					Value: dbGroup.ID.String(),
+				})
+				aclsUpdated = true
 			}
 		} else {
 			dbGroup.Name = group.Name
@@ -337,6 +360,15 @@ func syncGroups(idpGroups []idp.Group) error {
 				if err != nil {
 					return err
 				}
+			}
+		}
+	}
+
+	if aclsUpdated {
+		for _, acl := range acls {
+			err = logic.UpsertAcl(acl)
+			if err != nil {
+				return err
 			}
 		}
 	}

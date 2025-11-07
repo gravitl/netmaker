@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 	"time"
 
@@ -574,88 +575,181 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 	})
 	replacePeers := false
 	go func() {
+		currAllNetworksRole, currAllNetworksRoleExists := currUserG.NetworkRoles[models.AllNetworks]
+		newAllNetworksRole, newAllNetworksRoleExists := userGroup.NetworkRoles[models.AllNetworks]
+
+		var removeAllNetworksCurrRoleAcls bool
+		var addAllNetworksNewRoleAcls bool
+		var updateSpecifiedNetworksAcls bool
+		if currAllNetworksRoleExists {
+			if newAllNetworksRoleExists {
+				if !reflect.DeepEqual(currAllNetworksRole, newAllNetworksRole) {
+					removeAllNetworksCurrRoleAcls = true
+					addAllNetworksNewRoleAcls = true
+				}
+			} else {
+				removeAllNetworksCurrRoleAcls = true
+			}
+		} else {
+			if newAllNetworksRoleExists {
+				addAllNetworksNewRoleAcls = true
+			} else {
+				updateSpecifiedNetworksAcls = true
+			}
+		}
+
 		networksAdded := make([]models.NetworkID, 0)
 		networksRemoved := make([]models.NetworkID, 0)
 
 		for networkID := range userGroup.NetworkRoles {
+			if networkID == models.AllNetworks {
+				continue
+			}
+
 			if _, ok := currUserG.NetworkRoles[networkID]; !ok {
 				networksAdded = append(networksAdded, networkID)
 			}
 		}
 
 		for networkID := range currUserG.NetworkRoles {
+			if networkID == models.AllNetworks {
+				continue
+			}
+
 			if _, ok := userGroup.NetworkRoles[networkID]; !ok {
 				networksRemoved = append(networksRemoved, networkID)
 			}
 		}
 
-		for _, networkID := range networksAdded {
-			// ensure the network exists.
-			network, err := logic.GetNetwork(networkID.String())
-			if err != nil {
-				continue
-			}
+		if removeAllNetworksCurrRoleAcls || addAllNetworksNewRoleAcls {
+			const globalNetworkAdmin = "global-network-admin"
+			networks, _ := logic.GetNetworks()
+			for _, network := range networks {
+				if removeAllNetworksCurrRoleAcls {
+					currRole := models.NetworkUser
+					_, ok := currAllNetworksRole[globalNetworkAdmin]
+					if ok {
+						currRole = models.NetworkAdmin
+					}
 
-			// insert acl if the network is added to the group.
-			acl := models.Acl{
-				ID:          uuid.New().String(),
-				Name:        fmt.Sprintf("%s group", userGroup.Name),
-				MetaData:    "This Policy allows user group to communicate with all gateways",
-				Default:     false,
-				ServiceType: models.Any,
-				NetworkID:   models.NetworkID(network.NetID),
-				Proto:       models.ALL,
-				RuleType:    models.UserPolicy,
-				Src: []models.AclPolicyTag{
-					{
-						ID:    models.UserGroupAclID,
-						Value: userGroup.ID.String(),
-					},
-				},
-				Dst: []models.AclPolicyTag{
-					{
-						ID:    models.NodeTagID,
-						Value: fmt.Sprintf("%s.%s", models.NetworkID(network.NetID), models.GwTagName),
-					}},
-				AllowedDirection: models.TrafficDirectionUni,
-				Enabled:          true,
-				CreatedBy:        "auto",
-				CreatedAt:        time.Now().UTC(),
-			}
-			_ = logic.InsertAcl(acl)
-			replacePeers = true
-		}
+					aclID := fmt.Sprintf("%s.%s-grp", network.NetID, currRole)
+					acl, err := logic.GetAcl(aclID)
+					if err == nil {
+						var hasGroupSrc bool
+						newAclSrc := make([]models.AclPolicyTag, 0)
+						for _, src := range acl.Src {
+							if src.ID == models.UserGroupAclID && src.Value == userGroup.ID.String() {
+								hasGroupSrc = true
+							} else {
+								newAclSrc = append(newAclSrc, src)
+							}
+						}
 
-		// since this group doesn't have a role for this network,
-		// there is no point in having this group as src in any
-		// of the network's acls.
-		for _, networkID := range networksRemoved {
-			acls, err := logic.ListAclsByNetwork(networkID)
-			if err != nil {
-				continue
-			}
-
-			for _, acl := range acls {
-				var hasGroupSrc bool
-				newAclSrc := make([]models.AclPolicyTag, 0)
-				for _, src := range acl.Src {
-					if src.ID == models.UserGroupAclID && src.Value == userGroup.ID.String() {
-						hasGroupSrc = true
-					} else {
-						newAclSrc = append(newAclSrc, src)
+						if hasGroupSrc {
+							acl.Src = newAclSrc
+							_ = logic.UpsertAcl(acl)
+						}
 					}
 				}
 
-				if hasGroupSrc {
-					if len(newAclSrc) == 0 {
-						// no other src exists, delete acl.
-						_ = logic.DeleteAcl(acl)
-					} else {
-						// other sources exist, update acl.
-						acl.Src = newAclSrc
-						_ = logic.UpsertAcl(acl)
+				if addAllNetworksNewRoleAcls {
+					newRole := models.NetworkUser
+					_, ok := newAllNetworksRole[globalNetworkAdmin]
+					if ok {
+						newRole = models.NetworkAdmin
 					}
-					replacePeers = true
+
+					aclID := fmt.Sprintf("%s.%s-grp", network.NetID, newRole)
+					acl, err := logic.GetAcl(aclID)
+					if err == nil {
+						var hasGroupSrc bool
+						for _, src := range acl.Src {
+							if src.ID == models.UserGroupAclID && src.Value == userGroup.ID.String() {
+								hasGroupSrc = true
+							}
+						}
+
+						if !hasGroupSrc {
+							acl.Src = append(acl.Src, models.AclPolicyTag{
+								ID:    models.UserGroupAclID,
+								Value: userGroup.ID.String(),
+							})
+							_ = logic.UpsertAcl(acl)
+						}
+					}
+				}
+			}
+		}
+
+		if updateSpecifiedNetworksAcls {
+			for _, networkID := range networksAdded {
+				// ensure the network exists.
+				network, err := logic.GetNetwork(networkID.String())
+				if err != nil {
+					continue
+				}
+
+				// insert acl if the network is added to the group.
+				acl := models.Acl{
+					ID:          uuid.New().String(),
+					Name:        fmt.Sprintf("%s group", userGroup.Name),
+					MetaData:    "This Policy allows user group to communicate with all gateways",
+					Default:     false,
+					ServiceType: models.Any,
+					NetworkID:   models.NetworkID(network.NetID),
+					Proto:       models.ALL,
+					RuleType:    models.UserPolicy,
+					Src: []models.AclPolicyTag{
+						{
+							ID:    models.UserGroupAclID,
+							Value: userGroup.ID.String(),
+						},
+					},
+					Dst: []models.AclPolicyTag{
+						{
+							ID:    models.NodeTagID,
+							Value: fmt.Sprintf("%s.%s", models.NetworkID(network.NetID), models.GwTagName),
+						}},
+					AllowedDirection: models.TrafficDirectionUni,
+					Enabled:          true,
+					CreatedBy:        "auto",
+					CreatedAt:        time.Now().UTC(),
+				}
+				_ = logic.InsertAcl(acl)
+				replacePeers = true
+			}
+
+			// since this group doesn't have a role for this network,
+			// there is no point in having this group as src in any
+			// of the network's acls.
+			for _, networkID := range networksRemoved {
+				acls, err := logic.ListAclsByNetwork(networkID)
+				if err != nil {
+					continue
+				}
+
+				for _, acl := range acls {
+					var hasGroupSrc bool
+					newAclSrc := make([]models.AclPolicyTag, 0)
+					for _, src := range acl.Src {
+						if src.ID == models.UserGroupAclID && src.Value == userGroup.ID.String() {
+							hasGroupSrc = true
+						} else {
+							newAclSrc = append(newAclSrc, src)
+						}
+					}
+
+					if hasGroupSrc {
+						if len(newAclSrc) == 0 {
+							// no other src exists, delete acl.
+							_ = logic.DeleteAcl(acl)
+						} else {
+							// other sources exist, update acl.
+							acl.Src = newAclSrc
+							_ = logic.UpsertAcl(acl)
+						}
+						replacePeers = true
+					}
 				}
 			}
 		}
