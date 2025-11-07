@@ -263,6 +263,7 @@ func GetFailOverPeerIps(peer, node *models.Node) []net.IPNet {
 }
 
 func CreateFailOver(node models.Node) error {
+	return nil
 	if _, exists := FailOverExists(node.Network); exists {
 		return errors.New("failover already exists in the network")
 	}
