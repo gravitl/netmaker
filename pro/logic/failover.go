@@ -12,7 +12,6 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
-	"golang.org/x/exp/slog"
 )
 
 var failOverCtxMutex = &sync.RWMutex{}
@@ -263,26 +262,6 @@ func GetFailOverPeerIps(peer, node *models.Node) []net.IPNet {
 }
 
 func CreateFailOver(node models.Node) error {
-	return nil
-	if _, exists := FailOverExists(node.Network); exists {
-		return errors.New("failover already exists in the network")
-	}
-	host, err := logic.GetHost(node.HostID.String())
-	if err != nil {
-		return err
-	}
-	if host.OS != models.OS_Types.Linux {
-		return errors.New("only linux nodes are allowed to be set as failover")
-	}
-	if node.IsRelayed {
-		return errors.New("relayed node cannot be set as failover")
-	}
-	node.IsFailOver = true
-	err = logic.UpsertNode(&node)
-	if err != nil {
-		slog.Error("failed to upsert node", "node", node.ID.String(), "error", err)
-		return err
-	}
-	SetFailOverInCache(node)
+
 	return nil
 }
