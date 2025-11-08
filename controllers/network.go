@@ -126,6 +126,7 @@ func getNetworksStats(w http.ResponseWriter, r *http.Request) {
 // @Param       networkname path string true "Network name"
 // @Produce     json
 // @Success     200 {object} models.Network
+// @Failure     404 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func getNetwork(w http.ResponseWriter, r *http.Request) {
 	// set header.
@@ -136,7 +137,13 @@ func getNetwork(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), fmt.Sprintf("failed to fetch network [%s] info: %v",
 			netname, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+
+		errType := logic.Internal
+		if database.IsEmptyRecord(err) {
+			errType = logic.NotFound
+		}
+
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
 
