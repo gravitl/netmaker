@@ -166,6 +166,19 @@ func RemoveStringSlice(slice []string, i int) []string {
 	return append(slice[:i], slice[i+1:]...)
 }
 
+// RemoveAllFromSlice removes every occurrence of val from s (stable order).
+func RemoveAllFromSlice[T comparable](s []T, val T) []T {
+	// Reuse the underlying array: write filtered items back into s[:0].
+	out := s[:0]
+	for _, v := range s {
+		if v != val {
+			out = append(out, v)
+		}
+	}
+	// out now contains only the kept items; capacity unchanged, len shrunk.
+	return out
+}
+
 // IsSlicesEqual tells whether a and b contain the same elements.
 // A nil argument is equivalent to an empty slice.
 func IsSlicesEqual(a, b []string) bool {

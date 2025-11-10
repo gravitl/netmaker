@@ -293,6 +293,10 @@ func deleteTag(w http.ResponseWriter, r *http.Request) {
 		},
 		NetworkID: tag.Network,
 		Origin:    models.Dashboard,
+		Diff: models.Diff{
+			Old: tag,
+			New: nil,
+		},
 	})
 	logic.ReturnSuccessResponse(w, r, "deleted tag "+tagID)
 }

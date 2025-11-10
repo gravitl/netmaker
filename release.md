@@ -1,36 +1,50 @@
-## Netmaker v1.1.0 Release Notes 🚀 
+## Netmaker v1.2.0 Release Notes 🚀 
 
-## What’s New ✨ 
+## 🚀 What’s New
 
-- Okta IDP Integration – Seamless authentication and user provisioning with Okta.
+### 🌍 Auto-Relays (formerly Failovers)
 
-- Egress Domain-Based Routing – Route traffic based on domain names, not just network CIDRs.
+- Failovers are now Auto-Relays with High Availability (HA) support.
 
-- DNS Nameservers with Match Domain Functionality – Fine-grained DNS resolution control per domain.
+- Enables global routing optimization based on real-time latency between peers across regions.
 
-- Service User Management – Platform Network Admins can now add service users directly to networks.
+### 🔁 Gateway High Availability
 
-- Device Approval Workflow – Require admin approval before devices can join a network.
+- Gateways can now automatically assign peer relays and fallback to healthy nodes when primary gateways become unavailable.
 
-- Auto-Created User Group Policies – Automatically generate network access policies for new user groups.
+### 🌐 Egress HA with Latency-Aware Routing
 
-- User Session Expiry Controls – Set session timeouts for both Dashboard and Client Apps.
+- Egress gateways now dynamically select the optimal route based on latency, ensuring faster and more resilient connectivity.
 
-## Improvements & Fixes 🛠 
+### 🧭 DNS Search Domains
 
-- Access Control Lists (ACLs): Enhanced functionality and flexibility.
+- Added DNS search domain functionality for simplified hostname resolution across distributed networks.
 
-- User Management UX: Streamlined workflows for easier administration.
+### 👥 New User Roles
 
-- IDP User/Group Filtering: Improved filtering capabilities for large organizations.
+- Introduced a User Auditor role for security and compliance use-cases, offering read-only visibility into system activity.
 
-- Stability Enhancements: More reliable connections for nodes using Internet Gateways.
+### 🧩 Onboarding Flow
+
+- Streamlined user onboarding experience during signup for workspace setup.
+
+### ⚙️ Dynamic ACL Deprecation
+
+- Added logic to automatically deprecate outdated ACLs on demand, reducing stale configurations and improving policy hygiene.
+
+## 🧰 Improvements & Fixes
+
+- Metrics Enrichment: Enhanced uptime and connection-status data.
+
+- DNS Control Fixes: Fixed toggle behavior for enabling/disabling Netmaker DNS on hosts.
+
+- Device Approvals: Improved logic for device approval management.
+
+- Egress Domain Updates: Fixed domain-related issues in egress configurations to ensure consistent routing behavior.
 
 ## Known Issues 🐞
 
 - WireGuard DNS issue on Ubuntu 24.04 and some other newer Linux distributions. The issue is affecting the Netmaker Desktop, previously known as the Remote Access Client (RAC), and the plain WireGuard external clients. Workaround can be found here https://help.netmaker.io/en/articles/9612016-extclient-rac-dns-issue-on-ubuntu-24-04.
-
-- Inaccurate uptime info in metrics involving ipv4-only and ipv6-only traffic
 
 - netclients cannot auto-upgrade on ipv6-only machines.
 

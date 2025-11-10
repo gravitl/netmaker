@@ -13,7 +13,6 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/hostactions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
@@ -210,8 +209,9 @@ func pull(w http.ResponseWriter, r *http.Request) {
 			//slog.Error("failed to get node:", "id", node.ID, "error", err)
 			continue
 		}
-		if node.FailedOverBy != uuid.Nil && r.URL.Query().Get("reset_failovered") == "true" {
+		if r.URL.Query().Get("reset_failovered") == "true" {
 			logic.ResetFailedOverPeer(&node)
+			logic.ResetAutoRelayedPeer(&node)
 			sendPeerUpdate = true
 		}
 	}
@@ -232,19 +232,11 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	serverConf := logic.GetServerInfo()
-	key, keyErr := logic.RetrievePublicTrafficKey()
-	if keyErr != nil {
-		logger.Log(0, "error retrieving key:", keyErr.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(keyErr, "internal"))
-		return
-	}
 	_ = logic.CheckHostPorts(host)
-	serverConf.TrafficKey = key
 	response := models.HostPull{
 		Host:              *host,
 		Nodes:             logic.GetHostNodes(host),
-		ServerConfig:      serverConf,
+		ServerConfig:      hPU.ServerConfig,
 		Peers:             hPU.Peers,
 		PeerIDs:           hPU.PeerIDs,
 		HostNetworkInfo:   hPU.HostNetworkInfo,
@@ -257,6 +249,9 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		EgressWithDomains: hPU.EgressWithDomains,
 		EndpointDetection: logic.IsEndpointDetectionEnabled(),
 		DnsNameservers:    hPU.DnsNameservers,
+		ReplacePeers:      hPU.ReplacePeers,
+		AutoRelayNodes:    hPU.AutoRelayNodes,
+		GwNodes:           hPU.GwNodes,
 	}
 
 	logger.Log(1, hostID, host.Name, "completed a pull")
@@ -292,6 +287,19 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 	newHost := newHostData.ConvertAPIHostToNMHost(currHost)
 
 	logic.UpdateHost(newHost, currHost) // update the in memory struct values
+	if newHost.DNS != "yes" {
+		// check if any node is internet gw
+		for _, nodeID := range newHost.Nodes {
+			node, err := logic.GetNodeByID(nodeID)
+			if err != nil {
+				continue
+			}
+			if node.IsInternetGateway {
+				newHost.DNS = "yes"
+				break
+			}
+		}
+	}
 	if err = logic.UpsertHost(newHost); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update a host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -363,8 +371,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	var sendPeerUpdate bool
-	var replacePeers bool
+	var sendPeerUpdate, sendDeletedNodeUpdate, replacePeers bool
 	var hostUpdate models.HostUpdate
 	err = json.NewDecoder(r.Body).Decode(&hostUpdate)
 	if err != nil {
@@ -376,6 +383,10 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	switch hostUpdate.Action {
 	case models.CheckIn:
 		sendPeerUpdate = mq.HandleHostCheckin(&hostUpdate.Host, currentHost)
+		changed := logic.CheckHostPorts(currentHost)
+		if changed {
+			mq.HostUpdate(&models.HostUpdate{Action: models.UpdateHost, Host: *currentHost})
+		}
 	case models.UpdateHost:
 		if hostUpdate.Host.PublicKey != currentHost.PublicKey {
 			//remove old peer entry
@@ -388,7 +399,8 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 			return
 		}
-
+	case models.UpdateNode:
+		sendDeletedNodeUpdate, sendPeerUpdate = logic.UpdateHostNode(&hostUpdate.Host, &hostUpdate.Node)
 	case models.UpdateMetrics:
 		mq.UpdateMetricsFallBack(hostUpdate.Node.ID.String(), hostUpdate.NewMetrics)
 	case models.EgressUpdate:
@@ -403,14 +415,23 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			e.Update(db.WithContext(r.Context()))
 		}
 		sendPeerUpdate = true
+	case models.SignalHost:
+		mq.SignalPeer(hostUpdate.Signal)
+	case models.DeleteHost:
+		go mq.DeleteAndCleanupHost(currentHost)
 	}
-
-	if sendPeerUpdate {
-		err := mq.PublishPeerUpdate(replacePeers)
-		if err != nil {
-			slog.Error("failed to publish peer update", "error", err)
+	go func() {
+		if sendDeletedNodeUpdate {
+			mq.PublishDeletedNodePeerUpdate(&hostUpdate.Node)
 		}
-	}
+		if sendPeerUpdate {
+			err := mq.PublishPeerUpdate(replacePeers)
+			if err != nil {
+				slog.Error("failed to publish peer update", "error", err)
+			}
+		}
+	}()
+
 	logic.ReturnSuccessResponse(w, r, "updated host data")
 }
 
@@ -440,11 +461,7 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 			slog.Error("failed to get node", "nodeid", nodeID, "error", err)
 			continue
 		}
-		var gwClients []models.ExtClient
-		if node.IsIngressGateway {
-			gwClients = logic.GetGwExtclients(node.ID.String(), node.Network)
-		}
-		go mq.PublishMqUpdatesForDeletedNode(node, false, gwClients)
+		go mq.PublishMqUpdatesForDeletedNode(node, false)
 
 	}
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
@@ -494,6 +511,10 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 			Type: models.DeviceSub,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: currHost,
+			New: nil,
+		},
 	})
 	apiHostData := currHost.ConvertNMHostToAPI()
 	logger.Log(2, r.Header.Get("user"), "removed host", currHost.Name)
@@ -698,10 +719,6 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	var gwClients []models.ExtClient
-	if node.IsIngressGateway {
-		gwClients = logic.GetGwExtclients(node.ID.String(), node.Network)
-	}
 	logger.Log(1, "deleting node", node.ID.String(), "from host", currHost.Name)
 	if err := logic.DeleteNode(node, forceDelete); err != nil {
 		logic.ReturnErrorResponse(
@@ -712,7 +729,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	go func() {
-		mq.PublishMqUpdatesForDeletedNode(*node, true, gwClients)
+		mq.PublishMqUpdatesForDeletedNode(*node, true)
 		if servercfg.IsDNSMode() {
 			logic.SetDNS()
 		}
@@ -1233,6 +1250,9 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	if key.AutoAssignGateway {
+		newNode.AutoAssignGateway = true
+	}
 	if len(key.Groups) > 0 {
 		newNode.Tags = make(map[models.TagID]struct{})
 		for _, tagI := range key.Groups {
@@ -1262,7 +1282,7 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Log(1, "added new node", newNode.ID.String(), "to host", h.Name)
-	hostactions.AddAction(models.HostUpdate{
+	mq.HostUpdate(&models.HostUpdate{
 		Action: models.JoinHostToNetwork,
 		Host:   *h,
 		Node:   *newNode,

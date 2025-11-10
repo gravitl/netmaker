@@ -352,6 +352,12 @@ func deleteUserInvite(w http.ResponseWriter, r *http.Request) {
 			Type: models.UserInviteSub,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: models.UserInvite{
+				Email: email,
+			},
+			New: nil,
+		},
 	})
 	logic.ReturnSuccessResponse(w, r, "deleted user invite")
 }
@@ -851,11 +857,13 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot delete default user group"), "badrequest"))
 		return
 	}
-	err = proLogic.DeleteUserGroup(models.UserGroupID(gid))
+	err = proLogic.DeleteAndCleanUpGroup(&userG)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+
+	// TODO: log event in proLogic.DeleteAndCleanUpGroup so that all deletions are logged.
 	logic.LogEvent(&models.Event{
 		Action: models.Delete,
 		Source: models.Subject{
@@ -870,43 +878,12 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 			Type: models.UserGroupSub,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: userG,
+			New: nil,
+		},
 	})
-	replacePeers := false
-	go func() {
-		for networkID := range userG.NetworkRoles {
-			acls, err := logic.ListAclsByNetwork(networkID)
-			if err != nil {
-				continue
-			}
 
-			for _, acl := range acls {
-				var hasGroupSrc bool
-				newAclSrc := make([]models.AclPolicyTag, 0)
-				for _, src := range acl.Src {
-					if src.ID == models.UserGroupAclID && src.Value == userG.ID.String() {
-						hasGroupSrc = true
-					} else {
-						newAclSrc = append(newAclSrc, src)
-					}
-				}
-
-				if hasGroupSrc {
-					if len(newAclSrc) == 0 {
-						// no other src exists, delete acl.
-						_ = logic.DeleteAcl(acl)
-					} else {
-						// other sources exist, update acl.
-						acl.Src = newAclSrc
-						_ = logic.UpsertAcl(acl)
-					}
-					replacePeers = true
-				}
-			}
-		}
-	}()
-
-	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userG.ID, userG.NetworkRoles, make(map[models.NetworkID]map[models.UserRoleID]struct{}))
-	go mq.PublishPeerUpdate(replacePeers)
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user group")
 }
 
@@ -1096,6 +1073,10 @@ func deleteRole(w http.ResponseWriter, r *http.Request) {
 			Type: models.UserRoleSub,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: role,
+			New: nil,
+		},
 	})
 	go proLogic.UpdatesUserGwAccessOnRoleUpdates(role.NetworkLevelAccess, make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope), role.NetworkID.String())
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user role")
@@ -1475,6 +1456,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		Metadata:          node.Metadata,
 		AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 		NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
+		ManageDNS:         host.DNS == "yes",
 		DnsAddress:        node.IngressDNS,
 		Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
 	}
@@ -1583,7 +1565,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if !found && len(extClients) > 0 {
+		if !found && len(extClients) > 0 && deviceID == "" {
 			// TODO: prevent ip clashes.
 			gwClient = extClients[0]
 		}
@@ -1626,6 +1608,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 			NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
 			Status:            node.Status,
+			ManageDNS:         host.DNS == "yes",
 			DnsAddress:        node.IngressDNS,
 			Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
 		}
@@ -1633,6 +1616,9 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			hNs := logic.GetNameserversForNode(&node)
 			for _, nsI := range hNs {
 				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
+				if nsI.IsSearchDomain {
+					gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
+				}
 			}
 		}
 		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccess(user, models.NetworkID(node.Network))...)
@@ -1677,6 +1663,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			AllowedEndpoints:  getAllowedRagEndpoints(&node, host),
 			NetworkAddresses:  []string{network.AddressRange, network.AddressRange6},
 			Status:            node.Status,
+			ManageDNS:         host.DNS == "yes",
 			DnsAddress:        node.IngressDNS,
 			Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
 		}
@@ -1684,6 +1671,9 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			hNs := logic.GetNameserversForNode(&node)
 			for _, nsI := range hNs {
 				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
+				if nsI.IsSearchDomain {
+					gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
+				}
 			}
 		}
 		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccess(user, models.NetworkID(node.Network))...)
@@ -1884,6 +1874,12 @@ func deletePendingUser(w http.ResponseWriter, r *http.Request) {
 			Type: models.PendingUserSub,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: models.User{
+				UserName: username,
+			},
+			New: nil,
+		},
 	})
 	logic.ReturnSuccessResponse(w, r, "deleted pending "+username)
 }

@@ -307,6 +307,7 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 		uuid.Nil,
 		true,
 		false,
+		false,
 	)
 
 	return network, nil
@@ -388,7 +389,7 @@ func UniqueAddressCache(networkName string, reverse bool) (net.IP, error) {
 	}
 
 	if network.IsIPv4 == "no" {
-		return add, fmt.Errorf("IPv4 not active on network " + networkName)
+		return add, fmt.Errorf("IPv4 not active on network %s", networkName)
 	}
 	//ensure AddressRange is valid
 	if _, _, err := net.ParseCIDR(network.AddressRange); err != nil {
@@ -431,7 +432,7 @@ func UniqueAddressDB(networkName string, reverse bool) (net.IP, error) {
 	}
 
 	if network.IsIPv4 == "no" {
-		return add, fmt.Errorf("IPv4 not active on network " + networkName)
+		return add, fmt.Errorf("IPv4 not active on network %s", networkName)
 	}
 	//ensure AddressRange is valid
 	if _, _, err := net.ParseCIDR(network.AddressRange); err != nil {
@@ -529,7 +530,7 @@ func UniqueAddress6DB(networkName string, reverse bool) (net.IP, error) {
 		return add, err
 	}
 	if network.IsIPv6 == "no" {
-		return add, fmt.Errorf("IPv6 not active on network " + networkName)
+		return add, fmt.Errorf("IPv6 not active on network %s", networkName)
 	}
 
 	//ensure AddressRange is valid
@@ -573,7 +574,7 @@ func UniqueAddress6Cache(networkName string, reverse bool) (net.IP, error) {
 		return add, err
 	}
 	if network.IsIPv6 == "no" {
-		return add, fmt.Errorf("IPv6 not active on network " + networkName)
+		return add, fmt.Errorf("IPv6 not active on network %s", networkName)
 	}
 
 	//ensure AddressRange is valid

@@ -345,6 +345,9 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 			if node.FailedOverBy != uuid.Nil {
 				ResetFailedOverPeer(&node)
 			}
+			if len(node.AutoRelayedPeers) > 0 {
+				ResetAutoRelayedPeer(&node)
+			}
 		}
 	}
 
@@ -380,6 +383,30 @@ func UpsertHost(h *models.Host) error {
 	}
 
 	return nil
+}
+
+// UpdateHostNode -  handles updates from client nodes
+func UpdateHostNode(h *models.Host, newNode *models.Node) (publishDeletedNodeUpdate, publishPeerUpdate bool) {
+	currentNode, err := GetNodeByID(newNode.ID.String())
+	if err != nil {
+		return
+	}
+	ifaceDelta := IfaceDelta(&currentNode, newNode)
+	newNode.SetLastCheckIn()
+	if err := UpdateNode(&currentNode, newNode); err != nil {
+		slog.Error("error saving node", "name", h.Name, "network", newNode.Network, "error", err)
+		return
+	}
+	if ifaceDelta { // reduce number of unneeded updates, by only sending on iface changes
+		if !newNode.Connected {
+			publishDeletedNodeUpdate = true
+		}
+		publishPeerUpdate = true
+		// reset failover data for this node
+		ResetFailedOverPeer(newNode)
+		ResetAutoRelayedPeer(newNode)
+	}
+	return
 }
 
 // RemoveHost - removes a given host from server

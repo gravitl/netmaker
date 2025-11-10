@@ -18,6 +18,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/acls"
+	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
@@ -43,6 +44,37 @@ func Run() {
 	migrateNameservers()
 	resync()
 	deleteOldExtclients()
+	checkAndDeprecateOldAcls()
+}
+
+func checkAndDeprecateOldAcls() {
+	// check if everything is allowed on old acl and disable old acls
+	nets, _ := logic.GetNetworks()
+	disableOldAcls := true
+	for _, netI := range nets {
+		networkACL, err := nodeacls.FetchAllACLs(nodeacls.NetworkID(netI.NetID))
+		if err != nil {
+			continue
+		}
+		for _, aclNode := range networkACL {
+			for _, allowed := range aclNode {
+				if allowed != acls.Allowed {
+					disableOldAcls = false
+					break
+				}
+			}
+		}
+		if disableOldAcls {
+			netI.DefaultACL = "yes"
+			logic.UpsertNetwork(netI)
+		}
+	}
+	if disableOldAcls {
+		settings := logic.GetServerSettings()
+		settings.OldAClsSupport = false
+		logic.UpsertServerSettings(settings)
+	}
+
 }
 
 func updateNetworks() {
@@ -68,14 +100,37 @@ func migrateNameservers() {
 		if err != nil {
 			continue
 		}
+
+		ns := &schema.Nameserver{
+			NetworkID: netI.NetID,
+		}
+		nameservers, _ := ns.ListByNetwork(db.WithContext(context.TODO()))
+		for _, nsI := range nameservers {
+			if len(nsI.Domains) != 0 {
+				for _, matchDomain := range nsI.MatchDomains {
+					nsI.Domains = append(nsI.Domains, schema.NameserverDomain{
+						Domain: matchDomain,
+					})
+				}
+
+				nsI.MatchDomains = []string{}
+
+				_ = nsI.Update(db.WithContext(context.TODO()))
+			}
+		}
+
 		if len(netI.NameServers) > 0 {
 			ns := schema.Nameserver{
-				ID:           uuid.NewString(),
-				Name:         "upstream nameservers",
-				NetworkID:    netI.NetID,
-				Servers:      []string{},
-				MatchAll:     true,
-				MatchDomains: []string{"."},
+				ID:        uuid.NewString(),
+				Name:      "upstream nameservers",
+				NetworkID: netI.NetID,
+				Servers:   []string{},
+				MatchAll:  true,
+				Domains: []schema.NameserverDomain{
+					{
+						Domain: ".",
+					},
+				},
 				Tags: datatypes.JSONMap{
 					"*": struct{}{},
 				},
@@ -115,12 +170,16 @@ func migrateNameservers() {
 				continue
 			}
 			ns := schema.Nameserver{
-				ID:           uuid.NewString(),
-				Name:         fmt.Sprintf("%s gw nameservers", h.Name),
-				NetworkID:    node.Network,
-				Servers:      []string{node.IngressDNS},
-				MatchAll:     true,
-				MatchDomains: []string{"."},
+				ID:        uuid.NewString(),
+				Name:      fmt.Sprintf("%s gw nameservers", h.Name),
+				NetworkID: node.Network,
+				Servers:   []string{node.IngressDNS},
+				MatchAll:  true,
+				Domains: []schema.NameserverDomain{
+					{
+						Domain: ".",
+					},
+				},
 				Nodes: datatypes.JSONMap{
 					node.ID.String(): struct{}{},
 				},
@@ -309,6 +368,7 @@ func updateEnrollmentKeys() {
 			uuid.Nil,
 			true,
 			false,
+			false,
 		)
 
 	}
@@ -433,6 +493,9 @@ func removeInterGw(egressRanges []string) ([]string, bool) {
 
 func updateAcls() {
 	// get all networks
+	if !logic.GetServerSettings().OldAClsSupport {
+		return
+	}
 	networks, err := logic.GetNetworks()
 	if err != nil && !database.IsEmptyRecord(err) {
 		slog.Error("acls migration failed. error getting networks", "error", err)
@@ -810,11 +873,20 @@ func migrateToEgressV1() {
 }
 
 func migrateSettings() {
-	_, err := database.FetchRecord(database.SERVER_SETTINGS, logic.ServerSettingsDBKey)
+	settingsD := make(map[string]interface{})
+	data, err := database.FetchRecord(database.SERVER_SETTINGS, logic.ServerSettingsDBKey)
 	if database.IsEmptyRecord(err) {
 		logic.UpsertServerSettings(logic.GetServerSettingsFromEnv())
+	} else if err == nil {
+		json.Unmarshal([]byte(data), &settingsD)
 	}
 	settings := logic.GetServerSettings()
+	if _, ok := settingsD["old_acl_support"]; !ok {
+		settings.OldAClsSupport = servercfg.IsOldAclEnabled()
+	}
+	if settings.PeerConnectionCheckInterval == "" {
+		settings.PeerConnectionCheckInterval = "15"
+	}
 	if settings.AuditLogsRetentionPeriodInDays == 0 {
 		settings.AuditLogsRetentionPeriodInDays = 7
 	}
@@ -823,6 +895,9 @@ func migrateSettings() {
 	}
 	if settings.JwtValidityDurationClients == 0 {
 		settings.JwtValidityDurationClients = servercfg.GetJwtValidityDurationFromEnv() / 60
+	}
+	if settings.StunServers == "" {
+		settings.StunServers = servercfg.GetStunServers()
 	}
 	logic.UpsertServerSettings(settings)
 }

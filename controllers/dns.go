@@ -99,21 +99,25 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if req.MatchAll {
-		req.MatchDomains = []string{"."}
+		req.Domains = []schema.NameserverDomain{
+			{
+				Domain: ".",
+			},
+		}
 	}
 	ns := schema.Nameserver{
-		ID:           uuid.New().String(),
-		Name:         req.Name,
-		NetworkID:    req.NetworkID,
-		Description:  req.Description,
-		MatchAll:     req.MatchAll,
-		MatchDomains: req.MatchDomains,
-		Servers:      req.Servers,
-		Tags:         req.Tags,
-		Nodes:        req.Nodes,
-		Status:       true,
-		CreatedBy:    r.Header.Get("user"),
-		CreatedAt:    time.Now().UTC(),
+		ID:          uuid.New().String(),
+		Name:        req.Name,
+		NetworkID:   req.NetworkID,
+		Description: req.Description,
+		Servers:     req.Servers,
+		MatchAll:    req.MatchAll,
+		Domains:     req.Domains,
+		Tags:        req.Tags,
+		Nodes:       req.Nodes,
+		Status:      true,
+		CreatedBy:   r.Header.Get("user"),
+		CreatedAt:   time.Now().UTC(),
 	}
 
 	err = ns.Create(db.WithContext(r.Context()))
@@ -242,7 +246,7 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 	}
 	ns.Servers = updateNs.Servers
 	ns.Tags = updateNs.Tags
-	ns.MatchDomains = updateNs.MatchDomains
+	ns.Domains = updateNs.Domains
 	ns.MatchAll = updateNs.MatchAll
 	ns.Description = updateNs.Description
 	ns.Name = updateNs.Name
@@ -312,6 +316,10 @@ func deleteNs(w http.ResponseWriter, r *http.Request) {
 		},
 		NetworkID: models.NetworkID(ns.NetworkID),
 		Origin:    models.Dashboard,
+		Diff: models.Diff{
+			Old: ns,
+			New: nil,
+		},
 	})
 
 	go mq.PublishPeerUpdate(false)
