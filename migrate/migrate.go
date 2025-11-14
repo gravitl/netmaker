@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/acls"
+	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
@@ -25,7 +27,7 @@ import (
 
 // Run - runs all migrations
 func Run() {
-	settings()
+	migrateSettings()
 	updateEnrollmentKeys()
 	assignSuperAdmin()
 	createDefaultTagsAndPolicies()
@@ -35,9 +37,163 @@ func Run() {
 	updateHosts()
 	updateNodes()
 	updateAcls()
+	updateNewAcls()
 	logic.MigrateToGws()
 	migrateToEgressV1()
+	updateNetworks()
+	migrateNameservers()
 	resync()
+	deleteOldExtclients()
+	checkAndDeprecateOldAcls()
+}
+
+func checkAndDeprecateOldAcls() {
+	// check if everything is allowed on old acl and disable old acls
+	nets, _ := logic.GetNetworks()
+	disableOldAcls := true
+	for _, netI := range nets {
+		networkACL, err := nodeacls.FetchAllACLs(nodeacls.NetworkID(netI.NetID))
+		if err != nil {
+			continue
+		}
+		for _, aclNode := range networkACL {
+			for _, allowed := range aclNode {
+				if allowed != acls.Allowed {
+					disableOldAcls = false
+					break
+				}
+			}
+		}
+		if disableOldAcls {
+			netI.DefaultACL = "yes"
+			logic.UpsertNetwork(netI)
+		}
+	}
+	if disableOldAcls {
+		settings := logic.GetServerSettings()
+		settings.OldAClsSupport = false
+		logic.UpsertServerSettings(settings)
+	}
+
+}
+
+func updateNetworks() {
+	nets, _ := logic.GetNetworks()
+	for _, netI := range nets {
+		if netI.AutoJoin == "" {
+			netI.AutoJoin = "true"
+			logic.UpsertNetwork(netI)
+		}
+	}
+
+}
+
+func migrateNameservers() {
+	nets, _ := logic.GetNetworks()
+	user, err := logic.GetSuperAdmin()
+	if err != nil {
+		return
+	}
+
+	for _, netI := range nets {
+		_, cidr, err := net.ParseCIDR(netI.AddressRange)
+		if err != nil {
+			continue
+		}
+
+		ns := &schema.Nameserver{
+			NetworkID: netI.NetID,
+		}
+		nameservers, _ := ns.ListByNetwork(db.WithContext(context.TODO()))
+		for _, nsI := range nameservers {
+			if len(nsI.Domains) != 0 {
+				for _, matchDomain := range nsI.MatchDomains {
+					nsI.Domains = append(nsI.Domains, schema.NameserverDomain{
+						Domain: matchDomain,
+					})
+				}
+
+				nsI.MatchDomains = []string{}
+
+				_ = nsI.Update(db.WithContext(context.TODO()))
+			}
+		}
+
+		if len(netI.NameServers) > 0 {
+			ns := schema.Nameserver{
+				ID:        uuid.NewString(),
+				Name:      "upstream nameservers",
+				NetworkID: netI.NetID,
+				Servers:   []string{},
+				MatchAll:  true,
+				Domains: []schema.NameserverDomain{
+					{
+						Domain: ".",
+					},
+				},
+				Tags: datatypes.JSONMap{
+					"*": struct{}{},
+				},
+				Nodes:     make(datatypes.JSONMap),
+				Status:    true,
+				CreatedBy: user.UserName,
+			}
+
+			for _, nsIP := range netI.NameServers {
+				if net.ParseIP(nsIP) == nil {
+					continue
+				}
+				if !cidr.Contains(net.ParseIP(nsIP)) {
+					ns.Servers = append(ns.Servers, nsIP)
+				}
+			}
+			ns.Create(db.WithContext(context.TODO()))
+			netI.NameServers = []string{}
+			logic.SaveNetwork(&netI)
+		}
+	}
+	nodes, _ := logic.GetAllNodes()
+	for _, node := range nodes {
+		if !node.IsGw {
+			continue
+		}
+		if node.IngressDNS != "" {
+			if (node.Address.IP != nil && node.Address.IP.String() == node.IngressDNS) ||
+				(node.Address6.IP != nil && node.Address6.IP.String() == node.IngressDNS) {
+				continue
+			}
+			if node.IngressDNS == "8.8.8.8" || node.IngressDNS == "1.1.1.1" || node.IngressDNS == "9.9.9.9" {
+				continue
+			}
+			h, err := logic.GetHost(node.HostID.String())
+			if err != nil {
+				continue
+			}
+			ns := schema.Nameserver{
+				ID:        uuid.NewString(),
+				Name:      fmt.Sprintf("%s gw nameservers", h.Name),
+				NetworkID: node.Network,
+				Servers:   []string{node.IngressDNS},
+				MatchAll:  true,
+				Domains: []schema.NameserverDomain{
+					{
+						Domain: ".",
+					},
+				},
+				Nodes: datatypes.JSONMap{
+					node.ID.String(): struct{}{},
+				},
+				Tags:      make(datatypes.JSONMap),
+				Status:    true,
+				CreatedBy: user.UserName,
+			}
+			ns.Create(db.WithContext(context.TODO()))
+			node.IngressDNS = ""
+			logic.UpsertNode(&node)
+		}
+
+	}
+
 }
 
 // removes if any stale configurations from previous run.
@@ -113,7 +269,15 @@ func assignSuperAdmin() {
 		return
 	}
 	for _, u := range users {
-		if u.IsAdmin {
+		var isAdmin bool
+		if u.PlatformRoleID == models.AdminRole {
+			isAdmin = true
+		}
+		if u.PlatformRoleID == "" && u.IsAdmin {
+			isAdmin = true
+		}
+
+		if isAdmin {
 			user, err := logic.GetUser(u.UserName)
 			if err != nil {
 				slog.Error("error getting user", "user", u.UserName, "error", err.Error())
@@ -204,6 +368,7 @@ func updateEnrollmentKeys() {
 			uuid.Nil,
 			true,
 			false,
+			false,
 		)
 
 	}
@@ -247,6 +412,13 @@ func updateHosts() {
 			} else {
 				host.DNS = "no"
 			}
+			if host.IsDefault {
+				host.DNS = "yes"
+			}
+			logic.UpsertHost(&host)
+		}
+		if host.IsDefault && !host.AutoUpdate {
+			host.AutoUpdate = true
 			logic.UpsertHost(&host)
 		}
 		if servercfg.IsPro && host.Location == "" {
@@ -321,6 +493,9 @@ func removeInterGw(egressRanges []string) ([]string, bool) {
 
 func updateAcls() {
 	// get all networks
+	if !logic.GetServerSettings().OldAClsSupport {
+		return
+	}
 	networks, err := logic.GetNetworks()
 	if err != nil && !database.IsEmptyRecord(err) {
 		slog.Error("acls migration failed. error getting networks", "error", err)
@@ -441,6 +616,48 @@ func updateAcls() {
 	}
 }
 
+func updateNewAcls() {
+	if servercfg.IsPro {
+		userGroups, _ := logic.ListUserGroups()
+		userGroupMap := make(map[models.UserGroupID]models.UserGroup)
+		for _, userGroup := range userGroups {
+			userGroupMap[userGroup.ID] = userGroup
+		}
+
+		acls := logic.ListAcls()
+		for _, acl := range acls {
+			aclSrc := make([]models.AclPolicyTag, 0)
+			for _, src := range acl.Src {
+				if src.ID == models.UserGroupAclID {
+					userGroup, ok := userGroupMap[models.UserGroupID(src.Value)]
+					if !ok {
+						// if the group doesn't exist, don't add it to the acl's src.
+						continue
+					} else {
+						_, ok := userGroup.NetworkRoles[acl.NetworkID]
+						if !ok {
+							// if the group doesn't have permissions for the acl's
+							// network, don't add it to the acl's src.
+							continue
+						}
+					}
+				}
+				aclSrc = append(aclSrc, src)
+			}
+
+			if len(aclSrc) == 0 {
+				// if there are no acl sources, delete the acl.
+				_ = logic.DeleteAcl(acl)
+			} else if len(aclSrc) != len(acl.Src) {
+				// if some user groups were removed from the acl source,
+				// update the acl.
+				acl.Src = aclSrc
+				_ = logic.UpsertAcl(acl)
+			}
+		}
+	}
+}
+
 func MigrateEmqx() {
 
 	err := mq.SendPullSYN()
@@ -476,11 +693,18 @@ func syncUsers() {
 			user := user
 			if user.PlatformRoleID == models.AdminRole && !user.IsAdmin {
 				user.IsAdmin = true
+				user.IsSuperAdmin = false
 				logic.UpsertUser(user)
 			}
 			if user.PlatformRoleID == models.SuperAdminRole && !user.IsSuperAdmin {
 				user.IsSuperAdmin = true
-
+				user.IsAdmin = true
+				logic.UpsertUser(user)
+			}
+			if user.PlatformRoleID == models.PlatformUser || user.PlatformRoleID == models.ServiceUser {
+				user.IsSuperAdmin = false
+				user.IsAdmin = false
+				logic.UpsertUser(user)
 			}
 			if user.PlatformRoleID.String() != "" {
 				logic.MigrateUserRoleAndGroups(user)
@@ -498,9 +722,12 @@ func syncUsers() {
 			if len(user.UserGroups) == 0 {
 				user.UserGroups = make(map[models.UserGroupID]struct{})
 			}
+
+			// We reach here only if the platform role id has not been set.
+			//
+			// Thus, we use the boolean fields to assign the role.
 			if user.IsSuperAdmin {
 				user.PlatformRoleID = models.SuperAdminRole
-
 			} else if user.IsAdmin {
 				user.PlatformRoleID = models.AdminRole
 			} else {
@@ -526,6 +753,16 @@ func createDefaultTagsAndPolicies() {
 		logic.DeleteAcl(models.Acl{ID: fmt.Sprintf("%s.%s", network.NetID, "all-remote-access-gws")})
 	}
 	logic.MigrateAclPolicies()
+	if !servercfg.IsPro {
+		nodes, _ := logic.GetAllNodes()
+		for _, node := range nodes {
+			if node.IsGw {
+				node.Tags = make(map[models.TagID]struct{})
+				node.Tags[models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName))] = struct{}{}
+				logic.UpsertNode(&node)
+			}
+		}
+	}
 }
 
 func migrateToEgressV1() {
@@ -635,17 +872,60 @@ func migrateToEgressV1() {
 	}
 }
 
-func settings() {
-	_, err := database.FetchRecords(database.SERVER_SETTINGS)
+func migrateSettings() {
+	settingsD := make(map[string]interface{})
+	data, err := database.FetchRecord(database.SERVER_SETTINGS, logic.ServerSettingsDBKey)
 	if database.IsEmptyRecord(err) {
 		logic.UpsertServerSettings(logic.GetServerSettingsFromEnv())
+	} else if err == nil {
+		json.Unmarshal([]byte(data), &settingsD)
 	}
 	settings := logic.GetServerSettings()
+	if _, ok := settingsD["old_acl_support"]; !ok {
+		settings.OldAClsSupport = servercfg.IsOldAclEnabled()
+	}
+	if settings.PeerConnectionCheckInterval == "" {
+		settings.PeerConnectionCheckInterval = "15"
+	}
 	if settings.AuditLogsRetentionPeriodInDays == 0 {
 		settings.AuditLogsRetentionPeriodInDays = 7
 	}
 	if settings.DefaultDomain == "" {
 		settings.DefaultDomain = servercfg.GetDefaultDomain()
 	}
+	if settings.JwtValidityDurationClients == 0 {
+		settings.JwtValidityDurationClients = servercfg.GetJwtValidityDurationFromEnv() / 60
+	}
+	if settings.StunServers == "" {
+		settings.StunServers = servercfg.GetStunServers()
+	}
 	logic.UpsertServerSettings(settings)
+}
+
+func deleteOldExtclients() {
+	extclients, _ := logic.GetAllExtClients()
+	userExtclientMap := make(map[string][]models.ExtClient)
+	for _, extclient := range extclients {
+		if extclient.RemoteAccessClientID == "" {
+			continue
+		}
+
+		if extclient.Enabled {
+			continue
+		}
+
+		if _, ok := userExtclientMap[extclient.OwnerID]; !ok {
+			userExtclientMap[extclient.OwnerID] = make([]models.ExtClient, 0)
+		}
+
+		userExtclientMap[extclient.OwnerID] = append(userExtclientMap[extclient.OwnerID], extclient)
+	}
+
+	for _, userExtclients := range userExtclientMap {
+		if len(userExtclients) > 1 {
+			for _, extclient := range userExtclients[1:] {
+				_ = logic.DeleteExtClient(extclient.Network, extclient.Network, false)
+			}
+		}
+	}
 }

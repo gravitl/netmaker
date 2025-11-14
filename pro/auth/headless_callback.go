@@ -86,7 +86,7 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 	jwt, jwtErr := logic.VerifyAuthRequest(models.UserAuthParams{
 		UserName: user.UserName,
 		Password: newPass,
-	})
+	}, logic.NetclientApp)
 	if jwtErr != nil {
 		logger.Log(1, "could not parse jwt for user", userClaims.getUserName())
 		return
@@ -98,7 +98,7 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 	var response bytes.Buffer
 	if err := ssoCallbackTemplate.Execute(&response, ssoCallbackTemplateConfig{
 		User: userClaims.getUserName(),
-		Verb: "Authenticated",
+		Verb: "authenticated",
 	}); err != nil {
 		logger.Log(0, "Could not render SSO callback template ", err.Error())
 		response := returnErrTemplate(userClaims.getUserName(), "Could not render SSO callback template", state, reqKeyIf)

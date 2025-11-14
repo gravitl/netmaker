@@ -198,6 +198,7 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	}
 	node.IsIngressGateway = true
 	node.IsGw = true
+	SetAutoRelay(&node)
 	node.IsInternetGateway = ingress.IsInternetGateway
 	node.IngressGatewayRange = network.AddressRange
 	node.IngressGatewayRange6 = network.AddressRange6
@@ -217,6 +218,9 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 		if _, exists := FailOverExists(node.Network); exists {
 			ResetFailedOverPeer(&node)
 		}
+
+		ResetAutoRelayedPeer(&node)
+
 	}
 	node.SetLastModified()
 	node.Metadata = ingress.Metadata
@@ -247,7 +251,7 @@ func GetIngressGwUsers(node models.Node) (models.IngressGwUsers, error) {
 		return gwUsers, err
 	}
 	for _, user := range users {
-		if !user.IsAdmin && !user.IsSuperAdmin {
+		if user.PlatformRoleID != models.SuperAdminRole && user.PlatformRoleID != models.AdminRole {
 			gwUsers.Users = append(gwUsers.Users, user)
 		}
 	}
@@ -298,7 +302,7 @@ func DeleteGatewayExtClients(gatewayID string, networkName string) error {
 	}
 	for _, extClient := range currentExtClients {
 		if extClient.IngressGatewayID == gatewayID {
-			if err = DeleteExtClient(networkName, extClient.ClientID); err != nil {
+			if err = DeleteExtClient(networkName, extClient.ClientID, false); err != nil {
 				logger.Log(1, "failed to remove ext client", extClient.ClientID)
 				continue
 			}
@@ -342,7 +346,7 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 		if err != nil {
 			return err
 		}
-		if clientNode.IsFailOver {
+		if clientNode.IsFailOver || clientNode.IsAutoRelay {
 			return errors.New("failover node cannot be set to use internet gateway")
 		}
 		clientHost, err := GetHost(clientNode.HostID.String())
@@ -369,6 +373,9 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 		}
 		if clientNode.FailedOverBy != uuid.Nil {
 			ResetFailedOverPeer(&clientNode)
+		}
+		if len(clientNode.AutoRelayedPeers) > 0 {
+			ResetAutoRelayedPeer(&clientNode)
 		}
 
 		if clientNode.IsRelayed && clientNode.RelayedBy != inetNode.ID.String() {

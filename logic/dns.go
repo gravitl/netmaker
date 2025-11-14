@@ -1,19 +1,64 @@
 package logic
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"regexp"
 	"sort"
+	"strings"
 
 	validator "github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
+	"github.com/gravitl/netmaker/servercfg"
 	"github.com/txn2/txeh"
 )
+
+var GetNameserversForNode = getNameserversForNode
+var GetNameserversForHost = getNameserversForHost
+var ValidateNameserverReq = validateNameserverReq
+
+type GlobalNs struct {
+	ID  string   `json:"id"`
+	IPs []string `json:"ips"`
+}
+
+var GlobalNsList = map[string]GlobalNs{
+	"Google": {
+		ID: "Google",
+		IPs: []string{
+			"8.8.8.8",
+			"8.8.4.4",
+			"2001:4860:4860::8888",
+			"2001:4860:4860::8844",
+		},
+	},
+	"Cloudflare": {
+		ID: "Cloudflare",
+		IPs: []string{
+			"1.1.1.1",
+			"1.0.0.1",
+			"2606:4700:4700::1111",
+			"2606:4700:4700::1001",
+		},
+	},
+	"Quad9": {
+		ID: "Quad9",
+		IPs: []string{
+			"9.9.9.9",
+			"149.112.112.112",
+			"2620:fe::fe",
+			"2620:fe::9",
+		},
+	},
+}
 
 // SetDNS - sets the dns on file
 func SetDNS() error {
@@ -74,6 +119,31 @@ func GetDNS(network string) ([]models.DNSEntry, error) {
 	return dns, nil
 }
 
+func EgressDNs(network string) (entries []models.DNSEntry) {
+	egs, _ := (&schema.Egress{
+		Network: network,
+	}).ListByNetwork(db.WithContext(context.TODO()))
+	for _, egI := range egs {
+		if egI.Domain != "" && len(egI.DomainAns) > 0 {
+			entry := models.DNSEntry{
+				Name: egI.Domain,
+			}
+			for _, domainAns := range egI.DomainAns {
+				ip, _, err := net.ParseCIDR(domainAns)
+				if err == nil {
+					if ip.To4() != nil {
+						entry.Address = ip.String()
+					} else {
+						entry.Address6 = ip.String()
+					}
+				}
+			}
+			entries = append(entries, entry)
+		}
+	}
+	return
+}
+
 // GetExtclientDNS - gets all extclients dns entries
 func GetExtclientDNS() []models.DNSEntry {
 	extclients, err := GetAllExtClients()
@@ -131,6 +201,32 @@ func GetNodeDNS(network string) ([]models.DNSEntry, error) {
 	}
 
 	return dns, nil
+}
+
+func GetGwDNS(node *models.Node) string {
+	if !servercfg.GetManageDNS() {
+		return ""
+	}
+	h, err := GetHost(node.HostID.String())
+	if err != nil {
+		return ""
+	}
+	if h.DNS != "yes" {
+		return ""
+	}
+	dns := []string{}
+	if node.Address.IP != nil {
+		dns = append(dns, node.Address.IP.String())
+	}
+	if node.Address6.IP != nil {
+		dns = append(dns, node.Address6.IP.String())
+	}
+	return strings.Join(dns, ",")
+
+}
+
+func SetDNSOnWgConfig(gwNode *models.Node, extclient *models.ExtClient) {
+	extclient.DNS = GetGwDNS(gwNode)
 }
 
 // GetCustomDNS - gets the custom DNS of a network
@@ -324,4 +420,253 @@ func CreateDNS(entry models.DNSEntry) (models.DNSEntry, error) {
 
 	err = database.Insert(k, string(data), database.DNS_TABLE_NAME)
 	return entry, err
+}
+
+func validateNameserverReq(ns schema.Nameserver) error {
+	if ns.Name == "" {
+		return errors.New("name is required")
+	}
+	if ns.NetworkID == "" {
+		return errors.New("network is required")
+	}
+	if len(ns.Servers) == 0 {
+		return errors.New("atleast one nameserver should be specified")
+	}
+	_, err := GetNetwork(ns.NetworkID)
+	if err != nil {
+		return errors.New("invalid network id")
+	}
+	for _, nsIPStr := range ns.Servers {
+		nsIP := net.ParseIP(nsIPStr)
+		if nsIP == nil {
+			return errors.New("invalid nameserver " + nsIPStr)
+		}
+	}
+	if !ns.MatchAll && len(ns.Domains) == 0 {
+		return errors.New("atleast one match domain is required")
+	}
+	if !ns.MatchAll {
+		for _, domain := range ns.Domains {
+			if !IsValidMatchDomain(domain.Domain) {
+				return errors.New("invalid match domain")
+			}
+		}
+	}
+	// check if valid broadcast peers are added
+	if len(ns.Nodes) > 0 {
+		for nodeID := range ns.Nodes {
+			node, err := GetNodeByID(nodeID)
+			if err != nil {
+				return errors.New("invalid node")
+			}
+			if node.Network != ns.NetworkID {
+				return errors.New("invalid network node")
+			}
+		}
+	}
+
+	return nil
+}
+
+func getNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
+	filters := make(map[string]bool)
+	if node.Address.IP != nil {
+		filters[node.Address.IP.String()] = true
+	}
+
+	if node.Address6.IP != nil {
+		filters[node.Address6.IP.String()] = true
+	}
+
+	ns := &schema.Nameserver{
+		NetworkID: node.Network,
+	}
+	nsLi, _ := ns.ListByNetwork(db.WithContext(context.TODO()))
+	for _, nsI := range nsLi {
+		if !nsI.Status {
+			continue
+		}
+
+		filteredIps := FilterOutIPs(nsI.Servers, filters)
+		if len(filteredIps) == 0 {
+			continue
+		}
+
+		_, all := nsI.Tags["*"]
+		if all {
+			for _, domain := range nsI.Domains {
+				returnNsLi = append(returnNsLi, models.Nameserver{
+					IPs:            filteredIps,
+					MatchDomain:    domain.Domain,
+					IsSearchDomain: domain.IsSearchDomain,
+				})
+			}
+			continue
+		}
+
+		if _, ok := nsI.Nodes[node.ID.String()]; ok {
+			for _, domain := range nsI.Domains {
+				returnNsLi = append(returnNsLi, models.Nameserver{
+					IPs:            filteredIps,
+					MatchDomain:    domain.Domain,
+					IsSearchDomain: domain.IsSearchDomain,
+				})
+			}
+		}
+
+	}
+	if node.IsInternetGateway {
+		globalNs := models.Nameserver{
+			MatchDomain: ".",
+		}
+		for _, nsI := range GlobalNsList {
+			globalNs.IPs = append(globalNs.IPs, nsI.IPs...)
+		}
+		returnNsLi = append(returnNsLi, globalNs)
+	}
+	return
+}
+
+func getNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
+	if h.DNS != "yes" {
+		return
+	}
+	for _, nodeID := range h.Nodes {
+		node, err := GetNodeByID(nodeID)
+		if err != nil {
+			continue
+		}
+
+		filters := make(map[string]bool)
+		if node.Address.IP != nil {
+			filters[node.Address.IP.String()] = true
+		}
+
+		if node.Address6.IP != nil {
+			filters[node.Address6.IP.String()] = true
+		}
+
+		ns := &schema.Nameserver{
+			NetworkID: node.Network,
+		}
+		nsLi, _ := ns.ListByNetwork(db.WithContext(context.TODO()))
+		for _, nsI := range nsLi {
+			if !nsI.Status {
+				continue
+			}
+
+			filteredIps := FilterOutIPs(nsI.Servers, filters)
+			if len(filteredIps) == 0 {
+				continue
+			}
+
+			_, all := nsI.Tags["*"]
+			if all {
+				for _, domain := range nsI.Domains {
+					returnNsLi = append(returnNsLi, models.Nameserver{
+						IPs:            filteredIps,
+						MatchDomain:    domain.Domain,
+						IsSearchDomain: domain.IsSearchDomain,
+					})
+				}
+				continue
+			}
+
+			if _, ok := nsI.Nodes[node.ID.String()]; ok {
+				for _, domain := range nsI.Domains {
+					returnNsLi = append(returnNsLi, models.Nameserver{
+						IPs:            filteredIps,
+						MatchDomain:    domain.Domain,
+						IsSearchDomain: domain.IsSearchDomain,
+					})
+				}
+
+			}
+
+		}
+		if node.IsInternetGateway {
+			globalNs := models.Nameserver{
+				MatchDomain: ".",
+			}
+			for _, nsI := range GlobalNsList {
+				globalNs.IPs = append(globalNs.IPs, nsI.IPs...)
+			}
+			returnNsLi = append(returnNsLi, globalNs)
+		}
+	}
+	return
+}
+
+// IsValidMatchDomain reports whether s is a valid "match domain".
+// Rules (simple/ASCII):
+//   - "~." is allowed (match all).
+//   - Optional leading "~" allowed (e.g., "~example.com").
+//   - Optional single trailing "." allowed (FQDN form).
+//   - No wildcards "*", no leading ".", no underscores.
+//   - Labels: letters/digits/hyphen (LDH), 1–63 chars, no leading/trailing hyphen.
+//   - Total length (without trailing dot) ≤ 253.
+func IsValidMatchDomain(s string) bool {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return false
+	}
+	if s == "~." { // special case: match-all
+		return true
+	}
+
+	// Strip optional leading "~"
+	if strings.HasPrefix(s, "~") {
+		s = s[1:]
+		if s == "" {
+			return false
+		}
+	}
+
+	// Allow exactly one trailing dot
+	if strings.HasSuffix(s, ".") {
+		s = s[:len(s)-1]
+		if s == "" {
+			return false
+		}
+	}
+
+	// Disallow leading dot, wildcards, underscores
+	if strings.HasPrefix(s, ".") || strings.Contains(s, "*") || strings.Contains(s, "_") {
+		return false
+	}
+
+	// Lowercase for ASCII checks
+	s = strings.ToLower(s)
+
+	// Length check
+	if len(s) > 253 {
+		return false
+	}
+
+	// Label regex: LDH, 1–63, no leading/trailing hyphen
+	reLabel := regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`)
+
+	parts := strings.Split(s, ".")
+	for _, lbl := range parts {
+		if len(lbl) == 0 || len(lbl) > 63 {
+			return false
+		}
+		if !reLabel.MatchString(lbl) {
+			return false
+		}
+	}
+	return true
+}
+
+// FilterOutIPs removes ips in the filters map from the ips slice.
+func FilterOutIPs(ips []string, filters map[string]bool) []string {
+	var filteredIps []string
+	for _, ip := range ips {
+		_, ok := filters[ip]
+		if !ok {
+			filteredIps = append(filteredIps, ip)
+		}
+	}
+
+	return filteredIps
 }

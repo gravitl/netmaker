@@ -15,10 +15,12 @@ import (
 	validator "github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/validation"
 	"github.com/seancfoley/ipaddress-go/ipaddr"
@@ -221,6 +223,9 @@ func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 		}
 		newNode.EgressDetails = models.EgressDetails{}
 		newNode.SetLastModified()
+		if !currentNode.Connected && newNode.Connected {
+			newNode.SetLastCheckIn()
+		}
 		if data, err := json.Marshal(newNode); err != nil {
 			return err
 		} else {
@@ -277,6 +282,9 @@ func DeleteNode(node *models.Node, purge bool) error {
 	if node.FailedOverBy != uuid.Nil {
 		ResetFailedOverPeer(node)
 	}
+	if len(node.AutoRelayedPeers) > 0 {
+		ResetAutoRelayedPeer(node)
+	}
 	if node.IsRelay {
 		// unset all the relayed nodes
 		SetRelayedNodes(false, node.ID.String(), node.RelayedNodes)
@@ -320,6 +328,29 @@ func DeleteNode(node *models.Node, purge bool) error {
 	}
 	if err := DissasociateNodeFromHost(node, host); err != nil {
 		return err
+	}
+
+	filters := make(map[string]bool)
+	if node.Address.IP != nil {
+		filters[node.Address.IP.String()] = true
+	}
+
+	if node.Address6.IP != nil {
+		filters[node.Address6.IP.String()] = true
+	}
+
+	nameservers, _ := (&schema.Nameserver{
+		NetworkID: node.Network,
+	}).ListByNetwork(db.WithContext(context.TODO()))
+	for _, ns := range nameservers {
+		ns.Servers = FilterOutIPs(ns.Servers, filters)
+		if len(ns.Servers) > 0 {
+			_ = ns.Update(db.WithContext(context.TODO()))
+		} else {
+			// TODO: deleting a nameserver dns server could cause trouble for other nodes.
+			// TODO: try to figure out a sequence that works the best.
+			_ = ns.Delete(db.WithContext(context.TODO()))
+		}
 	}
 
 	go RemoveNodeFromAclPolicy(*node)
@@ -471,7 +502,7 @@ func AddStatusToNodes(nodes []models.Node, statusCall bool) (nodesWithStatus []m
 		if statusCall {
 			GetNodeStatus(&node, aclDefaultPolicyStatusMap[node.Network])
 		} else {
-			GetNodeCheckInStatus(&node, true)
+			getNodeCheckInStatus(&node, true)
 		}
 
 		nodesWithStatus = append(nodesWithStatus, node)
@@ -685,7 +716,7 @@ func createNode(node *models.Node) error {
 			node.Address.Mask = net.CIDRMask(cidr.Mask.Size())
 		}
 	} else if !IsIPUnique(node.Network, node.Address.String(), database.NODES_TABLE_NAME, false) {
-		return fmt.Errorf("invalid address: ipv4 " + node.Address.String() + " is not unique")
+		return fmt.Errorf("invalid address: ipv4 %s is not unique", node.Address.String())
 	}
 	if node.Address6.IP == nil {
 		if parentNetwork.IsIPv6 == "yes" {
@@ -699,7 +730,7 @@ func createNode(node *models.Node) error {
 			node.Address6.Mask = net.CIDRMask(cidr.Mask.Size())
 		}
 	} else if !IsIPUnique(node.Network, node.Address6.String(), database.NODES_TABLE_NAME, true) {
-		return fmt.Errorf("invalid address: ipv6 " + node.Address6.String() + " is not unique")
+		return fmt.Errorf("invalid address: ipv6 %s is not unique", node.Address6.String())
 	}
 	node.ID = uuid.New()
 	//Create a JWT for the node

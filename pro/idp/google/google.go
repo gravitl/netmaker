@@ -4,9 +4,15 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"strings"
+
+	"net/url"
+
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/pro/idp"
 	admindir "google.golang.org/api/admin/directory/v1"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/impersonate"
 	"google.golang.org/api/option"
 )
@@ -15,10 +21,8 @@ type Client struct {
 	service *admindir.Service
 }
 
-func NewGoogleWorkspaceClient() (*Client, error) {
-	settings := logic.GetServerSettings()
-
-	credsJson, err := base64.StdEncoding.DecodeString(settings.GoogleSACredsJson)
+func NewGoogleWorkspaceClient(adminEmail, creds string) (*Client, error) {
+	credsJson, err := base64.StdEncoding.DecodeString(creds)
 	if err != nil {
 		return nil, err
 	}
@@ -29,16 +33,24 @@ func NewGoogleWorkspaceClient() (*Client, error) {
 		return nil, err
 	}
 
+	var targetPrincipal string
+	_, ok := credsJsonMap["client_email"]
+	if !ok {
+		return nil, errors.New("invalid service account credentials: missing client_email field")
+	} else {
+		targetPrincipal = credsJsonMap["client_email"].(string)
+	}
+
 	source, err := impersonate.CredentialsTokenSource(
 		context.TODO(),
 		impersonate.CredentialsConfig{
-			TargetPrincipal: credsJsonMap["client_email"].(string),
+			TargetPrincipal: targetPrincipal,
 			Scopes: []string{
 				admindir.AdminDirectoryUserReadonlyScope,
 				admindir.AdminDirectoryGroupReadonlyScope,
 				admindir.AdminDirectoryGroupMemberReadonlyScope,
 			},
-			Subject: settings.GoogleAdminEmail,
+			Subject: adminEmail,
 		},
 		option.WithCredentialsJSON(credsJson),
 	)
@@ -59,13 +71,80 @@ func NewGoogleWorkspaceClient() (*Client, error) {
 	}, nil
 }
 
-func (g *Client) GetUsers() ([]idp.User, error) {
+func NewGoogleWorkspaceClientFromSettings() (*Client, error) {
+	settings := logic.GetServerSettings()
+
+	return NewGoogleWorkspaceClient(settings.GoogleAdminEmail, settings.GoogleSACredsJson)
+}
+
+func (g *Client) Verify() error {
+	_, err := g.service.Users.List().
+		Customer("my_customer").
+		MaxResults(1).
+		Do()
+	if err != nil {
+		var gerr *googleapi.Error
+		if errors.As(err, &gerr) {
+			return errors.New(gerr.Message)
+		}
+
+		var uerr *url.Error
+		if errors.As(err, &uerr) {
+			errMsg := strings.TrimSpace(uerr.Err.Error())
+			if strings.Contains(errMsg, "{") && strings.HasSuffix(errMsg, "}") {
+				// probably contains response json.
+				_, jsonBody, _ := strings.Cut(errMsg, "{")
+				jsonBody = "{" + jsonBody
+
+				var errResp errorResponse
+				err := json.Unmarshal([]byte(jsonBody), &errResp)
+				if err == nil && errResp.Error.Message != "" {
+					return errors.New(errResp.Error.Message)
+				}
+			}
+		}
+
+		return err
+	}
+
+	_, err = g.service.Groups.List().
+		Customer("my_customer").
+		MaxResults(1).
+		Do()
+	if err != nil {
+		var gerr *googleapi.Error
+		if errors.As(err, &gerr) {
+			return errors.New(gerr.Message)
+		}
+
+		return err
+	}
+
+	return nil
+}
+
+func (g *Client) GetUsers(filters []string) ([]idp.User, error) {
 	var retval []idp.User
 	err := g.service.Users.List().
 		Customer("my_customer").
 		Fields("users(id,primaryEmail,name,suspended,archived)", "nextPageToken").
 		Pages(context.TODO(), func(users *admindir.Users) error {
 			for _, user := range users.Users {
+				var keep bool
+				if len(filters) > 0 {
+					for _, filter := range filters {
+						if strings.HasPrefix(user.PrimaryEmail, filter) {
+							keep = true
+						}
+					}
+				} else {
+					keep = true
+				}
+
+				if !keep {
+					continue
+				}
+
 				retval = append(retval, idp.User{
 					ID:              user.Id,
 					Username:        user.PrimaryEmail,
@@ -81,13 +160,28 @@ func (g *Client) GetUsers() ([]idp.User, error) {
 	return retval, err
 }
 
-func (g *Client) GetGroups() ([]idp.Group, error) {
+func (g *Client) GetGroups(filters []string) ([]idp.Group, error) {
 	var retval []idp.Group
 	err := g.service.Groups.List().
 		Customer("my_customer").
 		Fields("groups(id,name)", "nextPageToken").
 		Pages(context.TODO(), func(groups *admindir.Groups) error {
 			for _, group := range groups.Groups {
+				var keep bool
+				if len(filters) > 0 {
+					for _, filter := range filters {
+						if strings.HasPrefix(group.Name, filter) {
+							keep = true
+						}
+					}
+				} else {
+					keep = true
+				}
+
+				if !keep {
+					continue
+				}
+
 				var retvalMembers []string
 				err := g.service.Members.List(group.Id).
 					Fields("members(id)", "nextPageToken").
@@ -113,4 +207,12 @@ func (g *Client) GetGroups() ([]idp.Group, error) {
 		})
 
 	return retval, err
+}
+
+type errorResponse struct {
+	Error struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Status  string `json:"status"`
+	} `json:"error"`
 }

@@ -38,82 +38,7 @@ func SetHost() error {
 	return nil
 }
 
-// GetServerConfig - gets the server config into memory from file or env
-func GetServerConfig() config.ServerConfig {
-	var cfg config.ServerConfig
-	cfg.APIConnString = GetAPIConnString()
-	cfg.CoreDNSAddr = GetCoreDNSAddr()
-	cfg.APIHost = GetAPIHost()
-	cfg.APIPort = GetAPIPort()
-	cfg.MasterKey = "(hidden)"
-	cfg.DNSKey = "(hidden)"
-	cfg.AllowedOrigin = GetAllowedOrigin()
-	cfg.RestBackend = "off"
-	cfg.NodeID = GetNodeID()
-	cfg.BrokerType = GetBrokerType()
-	cfg.EmqxRestEndpoint = GetEmqxRestEndpoint()
-	if AutoUpdateEnabled() {
-		cfg.NetclientAutoUpdate = "enabled"
-	} else {
-		cfg.NetclientAutoUpdate = "disabled"
-	}
-	if IsRestBackend() {
-		cfg.RestBackend = "on"
-	}
-	cfg.DNSMode = "off"
-	if IsDNSMode() {
-		cfg.DNSMode = "on"
-	}
-	cfg.DisplayKeys = "off"
-	if IsDisplayKeys() {
-		cfg.DisplayKeys = "on"
-	}
-	cfg.DisableRemoteIPCheck = "off"
-	if DisableRemoteIPCheck() {
-		cfg.DisableRemoteIPCheck = "on"
-	}
-	cfg.Database = GetDB()
-	cfg.Platform = GetPlatform()
-	cfg.Version = GetVersion()
-	cfg.PublicIp = GetServerHostIP()
-
-	// == auth config ==
-	var authInfo = GetAuthProviderInfo()
-	cfg.AuthProvider = authInfo[0]
-	cfg.ClientID = authInfo[1]
-	cfg.ClientSecret = authInfo[2]
-	cfg.FrontendURL = GetFrontendURL()
-	cfg.Telemetry = Telemetry()
-	cfg.Server = GetServer()
-	cfg.Verbosity = GetVerbosity()
-	cfg.IsPro = "no"
-	if IsPro {
-		cfg.IsPro = "yes"
-	}
-	cfg.JwtValidityDuration = GetJwtValidityDuration()
-	cfg.RacRestrictToSingleNetwork = GetRacRestrictToSingleNetwork()
-	cfg.MetricInterval = GetMetricInterval()
-	cfg.ManageDNS = GetManageDNS()
-	cfg.Stun = IsStunEnabled()
-	cfg.StunServers = GetStunServers()
-	cfg.DefaultDomain = GetDefaultDomain()
-	return cfg
-}
-
-// GetJwtValidityDuration - returns the JWT validity duration in seconds
-func GetJwtValidityDuration() time.Duration {
-	var defaultDuration = time.Duration(24) * time.Hour
-	if os.Getenv("JWT_VALIDITY_DURATION") != "" {
-		t, err := strconv.Atoi(os.Getenv("JWT_VALIDITY_DURATION"))
-		if err != nil {
-			return defaultDuration
-		}
-		return time.Duration(t) * time.Second
-	}
-	return defaultDuration
-}
-
-// GetJwtValidityDuration - returns the JWT validity duration in seconds
+// GetJwtValidityDurationFromEnv - returns the JWT validity duration in seconds
 func GetJwtValidityDurationFromEnv() int {
 	var defaultDuration = 43200
 	if os.Getenv("JWT_VALIDITY_DURATION") != "" {
@@ -825,7 +750,11 @@ func IsStunEnabled() bool {
 }
 
 func GetStunServers() string {
-	return os.Getenv("STUN_SERVERS")
+	stunservers := os.Getenv("STUN_SERVERS")
+	if stunservers == "" {
+		stunservers = "stun1.l.google.com:19302,stun2.l.google.com:19302,stun3.l.google.com:19302,stun4.l.google.com:19302"
+	}
+	return stunservers
 }
 
 // GetEnvironment returns the environment the server is running in (e.g. dev, staging, prod...)

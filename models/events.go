@@ -29,8 +29,6 @@ const (
 	UpdateClientSettings                 Action = "UPDATE_CLIENT_SETTINGS"
 	UpdateAuthenticationSecuritySettings Action = "UPDATE_AUTHENTICATION_SECURITY_SETTINGS"
 	UpdateMonitoringAndDebuggingSettings Action = "UPDATE_MONITORING_AND_DEBUGGING_SETTINGS"
-	UpdateDisplaySettings                Action = "UPDATE_DISPLAY_SETTINGS"
-	UpdateAccessibilitySettings          Action = "UPDATE_ACCESSIBILITY_SETTINGS"
 	UpdateSMTPSettings                   Action = "UPDATE_EMAIL_SETTINGS"
 	UpdateIDPSettings                    Action = "UPDATE_IDP_SETTINGS"
 )
@@ -55,6 +53,7 @@ const (
 	DashboardSub       SubjectType = "DASHBOARD"
 	EnrollmentKeySub   SubjectType = "ENROLLMENT_KEY"
 	ClientAppSub       SubjectType = "CLIENT-APP"
+	NameserverSub      SubjectType = "NAMESERVER"
 )
 
 func (sub SubjectType) String() string {

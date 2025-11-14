@@ -62,21 +62,21 @@ var RsrcTypeMap = map[RsrcType]struct{}{
 
 const AllNetworks NetworkID = "all_networks"
 const (
-	HostRsrc           RsrcType = "hosts"
-	RelayRsrc          RsrcType = "relays"
+	HostRsrc           RsrcType = "host"
+	RelayRsrc          RsrcType = "relay"
 	RemoteAccessGwRsrc RsrcType = "remote_access_gw"
-	GatewayRsrc        RsrcType = "gateways"
-	ExtClientsRsrc     RsrcType = "extclients"
+	GatewayRsrc        RsrcType = "gateway"
+	ExtClientsRsrc     RsrcType = "extclient"
 	InetGwRsrc         RsrcType = "inet_gw"
 	EgressGwRsrc       RsrcType = "egress"
-	NetworkRsrc        RsrcType = "networks"
+	NetworkRsrc        RsrcType = "network"
 	EnrollmentKeysRsrc RsrcType = "enrollment_key"
-	UserRsrc           RsrcType = "users"
+	UserRsrc           RsrcType = "user"
 	AclRsrc            RsrcType = "acl"
 	TagRsrc            RsrcType = "tag"
 	DnsRsrc            RsrcType = "dns"
 	FailOverRsrc       RsrcType = "fail_over"
-	MetricRsrc         RsrcType = "metrics"
+	MetricRsrc         RsrcType = "metric"
 )
 
 const (
@@ -102,6 +102,7 @@ const (
 	AdminRole      UserRoleID = "admin"
 	ServiceUser    UserRoleID = "service-user"
 	PlatformUser   UserRoleID = "platform-user"
+	Auditor        UserRoleID = "auditor"
 	NetworkAdmin   UserRoleID = "network-admin"
 	NetworkUser    UserRoleID = "network-user"
 )
@@ -150,6 +151,7 @@ type UserGroup struct {
 	Default                    bool                                  `json:"default"`
 	Name                       string                                `json:"name"`
 	NetworkRoles               map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
+	ColorCode                  string                                `json:"color_code"`
 	MetaData                   string                                `json:"meta_data"`
 }
 

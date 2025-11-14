@@ -307,6 +307,7 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 		uuid.Nil,
 		true,
 		false,
+		false,
 	)
 
 	return network, nil
@@ -388,7 +389,7 @@ func UniqueAddressCache(networkName string, reverse bool) (net.IP, error) {
 	}
 
 	if network.IsIPv4 == "no" {
-		return add, fmt.Errorf("IPv4 not active on network " + networkName)
+		return add, fmt.Errorf("IPv4 not active on network %s", networkName)
 	}
 	//ensure AddressRange is valid
 	if _, _, err := net.ParseCIDR(network.AddressRange); err != nil {
@@ -431,7 +432,7 @@ func UniqueAddressDB(networkName string, reverse bool) (net.IP, error) {
 	}
 
 	if network.IsIPv4 == "no" {
-		return add, fmt.Errorf("IPv4 not active on network " + networkName)
+		return add, fmt.Errorf("IPv4 not active on network %s", networkName)
 	}
 	//ensure AddressRange is valid
 	if _, _, err := net.ParseCIDR(network.AddressRange); err != nil {
@@ -529,7 +530,7 @@ func UniqueAddress6DB(networkName string, reverse bool) (net.IP, error) {
 		return add, err
 	}
 	if network.IsIPv6 == "no" {
-		return add, fmt.Errorf("IPv6 not active on network " + networkName)
+		return add, fmt.Errorf("IPv6 not active on network %s", networkName)
 	}
 
 	//ensure AddressRange is valid
@@ -573,7 +574,7 @@ func UniqueAddress6Cache(networkName string, reverse bool) (net.IP, error) {
 		return add, err
 	}
 	if network.IsIPv6 == "no" {
-		return add, fmt.Errorf("IPv6 not active on network " + networkName)
+		return add, fmt.Errorf("IPv6 not active on network %s", networkName)
 	}
 
 	//ensure AddressRange is valid
@@ -629,30 +630,41 @@ func IsNetworkNameUnique(network *models.Network) (bool, error) {
 	return isunique, nil
 }
 
+func UpsertNetwork(network models.Network) error {
+	netData, err := json.Marshal(network)
+	if err != nil {
+		return err
+	}
+	err = database.Insert(network.NetID, string(netData), database.NETWORKS_TABLE_NAME)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // UpdateNetwork - updates a network with another network's fields
-func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) (bool, bool, bool, error) {
+func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) error {
 	if err := ValidateNetwork(newNetwork, true); err != nil {
-		return false, false, false, err
+		return err
 	}
-	if newNetwork.NetID == currentNetwork.NetID {
-		hasrangeupdate4 := newNetwork.AddressRange != currentNetwork.AddressRange
-		hasrangeupdate6 := newNetwork.AddressRange6 != currentNetwork.AddressRange6
-		hasholepunchupdate := newNetwork.DefaultUDPHolePunch != currentNetwork.DefaultUDPHolePunch
-		data, err := json.Marshal(newNetwork)
-		if err != nil {
-			return false, false, false, err
-		}
-		newNetwork.SetNetworkLastModified()
-		err = database.Insert(newNetwork.NetID, string(data), database.NETWORKS_TABLE_NAME)
-		if err == nil {
-			if servercfg.CacheEnabled() {
-				storeNetworkInCache(newNetwork.NetID, *newNetwork)
-			}
-		}
-		return hasrangeupdate4, hasrangeupdate6, hasholepunchupdate, err
+	if newNetwork.NetID != currentNetwork.NetID {
+		return errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
 	}
-	// copy values
-	return false, false, false, errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
+	currentNetwork.AutoJoin = newNetwork.AutoJoin
+	currentNetwork.DefaultACL = newNetwork.DefaultACL
+	currentNetwork.NameServers = newNetwork.NameServers
+	data, err := json.Marshal(currentNetwork)
+	if err != nil {
+		return err
+	}
+	newNetwork.SetNetworkLastModified()
+	err = database.Insert(currentNetwork.NetID, string(data), database.NETWORKS_TABLE_NAME)
+	if err == nil {
+		if servercfg.CacheEnabled() {
+			storeNetworkInCache(newNetwork.NetID, *currentNetwork)
+		}
+	}
+	return err
 }
 
 // GetNetwork - gets a network from database

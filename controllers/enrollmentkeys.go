@@ -97,6 +97,10 @@ func deleteEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 			Type: models.EnrollmentKeySub,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: key,
+			New: nil,
+		},
 	})
 	logger.Log(2, r.Header.Get("user"), "deleted enrollment key", keyID)
 	w.WriteHeader(http.StatusOK)
@@ -181,6 +185,7 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		relayId,
 		false,
 		enrollmentKeyBody.AutoEgress,
+		enrollmentKeyBody.AutoAssignGateway,
 	)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to create enrollment key:", err.Error())
@@ -414,28 +419,10 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		ServerConf:    server,
 		RequestedHost: *host,
 	}
-	for _, netID := range enrollmentKey.Networks {
-		logic.LogEvent(&models.Event{
-			Action: models.JoinHostToNet,
-			Source: models.Subject{
-				ID:   enrollmentKey.Value,
-				Name: enrollmentKey.Tags[0],
-				Type: models.EnrollmentKeySub,
-			},
-			TriggeredBy: r.Header.Get("user"),
-			Target: models.Subject{
-				ID:   newHost.ID.String(),
-				Name: newHost.Name,
-				Type: models.DeviceSub,
-			},
-			NetworkID: models.NetworkID(netID),
-			Origin:    models.Dashboard,
-		})
-	}
 
 	logger.Log(0, host.Name, host.ID.String(), "registered with Netmaker")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&response)
 	// notify host of changes, peer and node updates
-	go auth.CheckNetRegAndHostUpdate(enrollmentKey.Networks, host, enrollmentKey.Relay, enrollmentKey.Groups)
+	go auth.CheckNetRegAndHostUpdate(*enrollmentKey, host, r.Header.Get("user"))
 }

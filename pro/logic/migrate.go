@@ -263,15 +263,30 @@ func MigrateToGws() {
 		return
 	}
 	for _, node := range nodes {
-		if node.IsIngressGateway || node.IsRelay || node.IsInternetGateway {
+		if node.IsIngressGateway || node.IsRelay || node.IsInternetGateway || node.IsFailOver {
 			node.IsGw = true
 			node.IsIngressGateway = true
 			node.IsRelay = true
+			node.IsAutoRelay = true
 			if node.Tags == nil {
 				node.Tags = make(map[models.TagID]struct{})
 			}
 			node.Tags[models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName))] = struct{}{}
 			delete(node.Tags, models.TagID(fmt.Sprintf("%s.%s", node.Network, models.OldRemoteAccessTagName)))
+			logic.UpsertNode(&node)
+		}
+		// deprecate failover  and initialise auto relay fields
+		if node.IsFailOver {
+			node.IsFailOver = false
+			node.FailOverPeers = make(map[string]struct{})
+			node.FailedOverBy = uuid.Nil
+			node.AutoRelayedPeers = make(map[string]string)
+			logic.UpsertNode(&node)
+		}
+		if node.FailedOverBy != uuid.Nil || len(node.FailOverPeers) > 0 {
+			node.FailOverPeers = make(map[string]struct{})
+			node.FailedOverBy = uuid.Nil
+			node.AutoRelayedPeers = make(map[string]string)
 			logic.UpsertNode(&node)
 		}
 		if node.IsInternetGateway && len(node.InetNodeReq.InetNodeClientIDs) > 0 {

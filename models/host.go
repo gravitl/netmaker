@@ -106,6 +106,8 @@ const (
 	SignalHost HostMqAction = "SIGNAL_HOST"
 	// UpdateHost - constant for host update action
 	UpdateHost HostMqAction = "UPDATE_HOST"
+	// UpdateNode - constant for Node update action
+	UpdateNode HostMqAction = "UPDATE_NODE"
 	// DeleteHost - constant for host delete action
 	DeleteHost HostMqAction = "DELETE_HOST"
 	// JoinHostToNetwork - constant for host network join action
@@ -124,6 +126,10 @@ const (
 	SignalPull HostMqAction = "SIGNAL_PULL"
 	// UpdateMetrics - updates metrics data
 	UpdateMetrics HostMqAction = "UPDATE_METRICS"
+	// EgressUpdate - const for egress update action
+	EgressUpdate HostMqAction = "EGRESS_UPDATE"
+	// CHECK_ASSIGN_GW - const for to auto assign gw action
+	CheckAutoAssignGw HostMqAction = "CHECK_AUTO_ASSIGN_GW"
 )
 
 // SignalAction - turn peer signal action
@@ -138,11 +144,12 @@ const (
 
 // HostUpdate - struct for host update
 type HostUpdate struct {
-	Action     HostMqAction
-	Host       Host
-	Node       Node
-	Signal     Signal
-	NewMetrics Metrics
+	Action       HostMqAction
+	Host         Host
+	Node         Node
+	Signal       Signal
+	EgressDomain EgressDomain
+	NewMetrics   Metrics
 }
 
 // HostTurnRegister - struct for host turn registration
@@ -153,17 +160,19 @@ type HostTurnRegister struct {
 
 // Signal - struct for signalling peer
 type Signal struct {
-	Server         string       `json:"server"`
-	FromHostPubKey string       `json:"from_host_pubkey"`
-	ToHostPubKey   string       `json:"to_host_pubkey"`
-	FromHostID     string       `json:"from_host_id"`
-	ToHostID       string       `json:"to_host_id"`
-	FromNodeID     string       `json:"from_node_id"`
-	ToNodeID       string       `json:"to_node_id"`
-	Reply          bool         `json:"reply"`
-	Action         SignalAction `json:"action"`
-	IsPro          bool         `json:"is_pro"`
-	TimeStamp      int64        `json:"timestamp"`
+	Server               string           `json:"server"`
+	FromHostPubKey       string           `json:"from_host_pubkey"`
+	ToHostPubKey         string           `json:"to_host_pubkey"`
+	FromHostID           string           `json:"from_host_id"`
+	ToHostID             string           `json:"to_host_id"`
+	FromNodeID           string           `json:"from_node_id"`
+	ToNodeID             string           `json:"to_node_id"`
+	NetworkID            string           `json:"networkID"`
+	Reply                bool             `json:"reply"`
+	AutoRelayNodeMetrics map[string]int64 `json:"auto_relay_node_metrics"`
+	Action               SignalAction     `json:"action"`
+	IsPro                bool             `json:"is_pro"`
+	TimeStamp            int64            `json:"timestamp"`
 }
 
 // RegisterMsg - login message struct for hosts to join via SSO login

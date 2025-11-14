@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/acls"
+	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
@@ -42,6 +43,8 @@ func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks/{networkname}/acls", logic.SecurityCheck(true, http.HandlerFunc(getNetworkACL))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/networks/{networkname}/egress_routes", logic.SecurityCheck(true, http.HandlerFunc(getNetworkEgressRoutes)))
+	r.HandleFunc("/api/networks/{networkname}/old_acl_status", logic.SecurityCheck(true, http.HandlerFunc(OldNetworkACLStatus))).
+		Methods(http.MethodGet)
 }
 
 // @Summary     Lists all networks
@@ -330,7 +333,7 @@ func updateNetworkACLv2(w http.ResponseWriter, r *http.Request) {
 	if servercfg.IsPro {
 		for _, client := range networkClientsMap {
 			client := client
-			err := logic.DeleteExtClient(client.Network, client.ClientID)
+			err := logic.DeleteExtClient(client.Network, client.ClientID, true)
 			if err != nil {
 				slog.Error(
 					"failed to delete client during update",
@@ -428,6 +431,40 @@ func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 	logger.Log(2, r.Header.Get("user"), "fetched acl for network", netname)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(networkACL)
+}
+
+// @Summary     Check a Old ACL Status (Access Control List)
+// @Router      /api/networks/{networkname}/old_acl_status [get]
+// @Tags        Networks
+// @Security    oauth
+// @Param       networkname path string true "Network name"
+// @Produce     json
+// @Success     200 {object} acls.ACLContainer
+// @Failure     500 {object} models.ErrorResponse
+func OldNetworkACLStatus(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var params = mux.Vars(r)
+	netname := params["networkname"]
+	var networkACL acls.ACLContainer
+	networkACL, err := nodeacls.FetchAllACLs(nodeacls.NetworkID(netname))
+	if err != nil {
+		logic.ReturnSuccessResponse(w, r, "false")
+		return
+	}
+	disableOldAcls := true
+	for _, aclNode := range networkACL {
+		for _, allowed := range aclNode {
+			if allowed != acls.Allowed {
+				disableOldAcls = false
+				break
+			}
+		}
+	}
+	msg := "true"
+	if disableOldAcls {
+		msg = "false"
+	}
+	logic.ReturnSuccessResponse(w, r, msg)
 }
 
 // @Summary     Get a network Egress routes
@@ -528,6 +565,10 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 			Type: models.NetworkSub,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: network,
+			New: nil,
+		},
 	})
 	logger.Log(1, r.Header.Get("user"), "deleted network", network)
 	w.WriteHeader(http.StatusOK)
@@ -575,21 +616,40 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 
 	// validate address ranges: must be private
 	if network.AddressRange != "" {
-		_, _, err := net.ParseCIDR(network.AddressRange)
+		_, cidr, err := net.ParseCIDR(network.AddressRange)
 		if err != nil {
 			logger.Log(0, r.Header.Get("user"), "failed to create network: ",
 				err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
+		} else {
+			ones, bits := cidr.Mask.Size()
+			if bits-ones <= 1 {
+				err = fmt.Errorf("cannot create network with /31 or /32 cidr")
+				logger.Log(0, r.Header.Get("user"), "failed to create network: ",
+					err.Error())
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+				return
+			}
 		}
 	}
+
 	if network.AddressRange6 != "" {
-		_, _, err := net.ParseCIDR(network.AddressRange6)
+		_, cidr, err := net.ParseCIDR(network.AddressRange6)
 		if err != nil {
 			logger.Log(0, r.Header.Get("user"), "failed to create network: ",
 				err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 			return
+		} else {
+			ones, bits := cidr.Mask.Size()
+			if bits-ones <= 1 {
+				err = fmt.Errorf("cannot create network with /127 or /128 cidr")
+				logger.Log(0, r.Header.Get("user"), "failed to create network: ",
+					err.Error())
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+				return
+			}
 		}
 	}
 
@@ -623,20 +683,38 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			logger.Log(1, "added new node", newNode.ID.String(), "to host", currHost.Name)
-			if err = mq.HostUpdate(&models.HostUpdate{
-				Action: models.JoinHostToNetwork,
-				Host:   *currHost,
-				Node:   *newNode,
-			}); err != nil {
-				logger.Log(
-					0,
-					r.Header.Get("user"),
-					"failed to add host to network:",
-					currHost.ID.String(),
-					network.NetID,
-					err.Error(),
-				)
+			if len(currHost.Nodes) == 1 {
+				if err = mq.HostUpdate(&models.HostUpdate{
+					Action: models.RequestPull,
+					Host:   *currHost,
+					Node:   *newNode,
+				}); err != nil {
+					logger.Log(
+						0,
+						r.Header.Get("user"),
+						"failed to add host to network:",
+						currHost.ID.String(),
+						network.NetID,
+						err.Error(),
+					)
+				}
+			} else {
+				if err = mq.HostUpdate(&models.HostUpdate{
+					Action: models.JoinHostToNetwork,
+					Host:   *currHost,
+					Node:   *newNode,
+				}); err != nil {
+					logger.Log(
+						0,
+						r.Header.Get("user"),
+						"failed to add host to network:",
+						currHost.ID.String(),
+						network.NetID,
+						err.Error(),
+					)
+				}
 			}
+
 			// make  host failover
 			logic.CreateFailOver(*newNode)
 			// make host remote access gateway
@@ -701,10 +779,7 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	netNew := netOld
-	netNew.NameServers = payload.NameServers
-	netNew.DefaultACL = payload.DefaultACL
-	_, _, _, err = logic.UpdateNetwork(&netOld, &netNew)
+	err = logic.UpdateNetwork(&netOld, &payload)
 	if err != nil {
 		slog.Info("failed to update network", "user", r.Header.Get("user"), "err", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))

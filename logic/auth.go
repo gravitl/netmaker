@@ -24,24 +24,18 @@ const (
 	auth_key = "netmaker_auth"
 )
 
-var (
-	superUser = models.User{}
+const (
+	DashboardApp       = "dashboard"
+	NetclientApp       = "netclient"
+	NetmakerDesktopApp = "netmaker-desktop"
 )
 
-func ClearSuperUserCache() {
-	superUser = models.User{}
-}
-
+var IsOAuthConfigured = func() bool { return false }
 var ResetAuthProvider = func() {}
 var ResetIDPSyncHook = func() {}
 
 // HasSuperAdmin - checks if server has an superadmin/owner
 func HasSuperAdmin() (bool, error) {
-
-	if superUser.IsSuperAdmin {
-		return true, nil
-	}
-
 	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
 	if err != nil {
 		if database.IsEmptyRecord(err) {
@@ -56,7 +50,7 @@ func HasSuperAdmin() (bool, error) {
 		if err != nil {
 			continue
 		}
-		if user.PlatformRoleID == models.SuperAdminRole || user.IsSuperAdmin {
+		if user.PlatformRoleID == models.SuperAdminRole {
 			return true, nil
 		}
 	}
@@ -178,7 +172,8 @@ func CreateUser(user *models.User) error {
 		user.AuthType = models.OAuth
 	}
 	AddGlobalNetRolesToAdmins(user)
-	_, err = CreateUserJWT(user.UserName, user.PlatformRoleID)
+	// create user will always be called either from API or Dashboard.
+	_, err = CreateUserJWT(user.UserName, user.PlatformRoleID, DashboardApp)
 	if err != nil {
 		logger.Log(0, "failed to generate token", err.Error())
 		return err
@@ -207,12 +202,14 @@ func CreateSuperAdmin(u *models.User) error {
 	if hassuperadmin {
 		return errors.New("superadmin user already exists")
 	}
+	u.IsSuperAdmin = true
+	u.IsAdmin = true
 	u.PlatformRoleID = models.SuperAdminRole
 	return CreateUser(u)
 }
 
 // VerifyAuthRequest - verifies an auth request
-func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
+func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (string, error) {
 	var result models.User
 	if authRequest.UserName == "" {
 		return "", errors.New("username can't be empty")
@@ -245,7 +242,7 @@ func VerifyAuthRequest(authRequest models.UserAuthParams) (string, error) {
 		return tokenString, nil
 	} else {
 		// Create a new JWT for the node
-		tokenString, err := CreateUserJWT(authRequest.UserName, result.PlatformRoleID)
+		tokenString, err := CreateUserJWT(authRequest.UserName, result.PlatformRoleID, appName)
 		if err != nil {
 			slog.Error("error creating jwt", "error", err)
 			return "", err
@@ -274,9 +271,7 @@ func UpsertUser(user models.User) error {
 		slog.Error("error inserting user", "user", user.UserName, "error", err.Error())
 		return err
 	}
-	if user.IsSuperAdmin {
-		superUser = user
-	}
+
 	return nil
 }
 
@@ -314,9 +309,17 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 
 		user.Password = userchange.Password
 	}
-	if err := IsGroupsValid(userchange.UserGroups); err != nil {
-		return userchange, errors.New("invalid groups: " + err.Error())
+
+	validUserGroups := make(map[models.UserGroupID]struct{})
+	for userGroupID := range userchange.UserGroups {
+		_, err := GetUserGroup(userGroupID)
+		if err == nil {
+			validUserGroups[userGroupID] = struct{}{}
+		}
 	}
+
+	userchange.UserGroups = validUserGroups
+
 	if err := IsNetworkRolesValid(userchange.NetworkRoles); err != nil {
 		return userchange, errors.New("invalid network roles: " + err.Error())
 	}
@@ -483,8 +486,9 @@ func GetState(state string) (*models.SsoState, error) {
 }
 
 // SetState - sets a state with new expiration
-func SetState(state string) error {
+func SetState(appName, state string) error {
 	s := models.SsoState{
+		AppName:    appName,
 		Value:      state,
 		Expiration: time.Now().Add(models.DefaultExpDuration),
 	}

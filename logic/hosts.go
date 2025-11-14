@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/google/uuid"
@@ -17,6 +18,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/utils"
 )
 
 var (
@@ -125,7 +127,7 @@ func GetAllHostsWithStatus(status models.NodeStatus) ([]models.Host, error) {
 
 		nodes := GetHostNodes(&host)
 		for _, node := range nodes {
-			GetNodeCheckInStatus(&node, false)
+			getNodeCheckInStatus(&node, false)
 			if node.Status == status {
 				validHosts = append(validHosts, host)
 				break
@@ -172,6 +174,18 @@ func GetHostsMap() (map[string]models.Host, error) {
 	}
 
 	return currHostMap, nil
+}
+
+func DoesHostExistinTheNetworkAlready(h *models.Host, network models.NetworkID) bool {
+	if len(h.Nodes) > 0 {
+		for _, nodeID := range h.Nodes {
+			node, err := GetNodeByID(nodeID)
+			if err == nil && node.Network == network.String() {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // GetHost - gets a host from db given id
@@ -279,6 +293,10 @@ func UpdateHost(newHost, currentHost *models.Host) {
 	if newHost.PersistentKeepalive == 0 {
 		newHost.PersistentKeepalive = currentHost.PersistentKeepalive
 	}
+
+	if strings.TrimSpace(newHost.DNS) == "" {
+		newHost.DNS = currentHost.DNS
+	}
 }
 
 // UpdateHostFromClient - used for updating host on server with update recieved from client
@@ -297,15 +315,24 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 		sendPeerUpdate = true
 	}
 	isEndpointChanged := false
-	if currHost.EndpointIP.String() != newHost.EndpointIP.String() {
+	if !currHost.EndpointIP.Equal(newHost.EndpointIP) {
 		currHost.EndpointIP = newHost.EndpointIP
 		sendPeerUpdate = true
 		isEndpointChanged = true
 	}
-	if currHost.EndpointIPv6.String() != newHost.EndpointIPv6.String() {
+	if !currHost.EndpointIPv6.Equal(newHost.EndpointIPv6) {
 		currHost.EndpointIPv6 = newHost.EndpointIPv6
 		sendPeerUpdate = true
 		isEndpointChanged = true
+	}
+	for i := range newHost.Interfaces {
+		newHost.Interfaces[i].AddressString = newHost.Interfaces[i].Address.String()
+	}
+	utils.SortIfacesByName(currHost.Interfaces)
+	utils.SortIfacesByName(newHost.Interfaces)
+	if !utils.CompareIfaces(currHost.Interfaces, newHost.Interfaces) {
+		currHost.Interfaces = newHost.Interfaces
+		sendPeerUpdate = true
 	}
 
 	if isEndpointChanged {
@@ -317,6 +344,9 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 			}
 			if node.FailedOverBy != uuid.Nil {
 				ResetFailedOverPeer(&node)
+			}
+			if len(node.AutoRelayedPeers) > 0 {
+				ResetAutoRelayedPeer(&node)
 			}
 		}
 	}
@@ -353,6 +383,30 @@ func UpsertHost(h *models.Host) error {
 	}
 
 	return nil
+}
+
+// UpdateHostNode -  handles updates from client nodes
+func UpdateHostNode(h *models.Host, newNode *models.Node) (publishDeletedNodeUpdate, publishPeerUpdate bool) {
+	currentNode, err := GetNodeByID(newNode.ID.String())
+	if err != nil {
+		return
+	}
+	ifaceDelta := IfaceDelta(&currentNode, newNode)
+	newNode.SetLastCheckIn()
+	if err := UpdateNode(&currentNode, newNode); err != nil {
+		slog.Error("error saving node", "name", h.Name, "network", newNode.Network, "error", err)
+		return
+	}
+	if ifaceDelta { // reduce number of unneeded updates, by only sending on iface changes
+		if !newNode.Connected {
+			publishDeletedNodeUpdate = true
+		}
+		publishPeerUpdate = true
+		// reset failover data for this node
+		ResetFailedOverPeer(newNode)
+		ResetAutoRelayedPeer(newNode)
+	}
+	return
 }
 
 // RemoveHost - removes a given host from server

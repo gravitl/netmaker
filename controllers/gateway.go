@@ -83,11 +83,20 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	if req.IsInternetGateway {
+		if host.DNS != "yes" {
+			host.DNS = "yes"
+			logic.UpsertHost(host)
+		}
+	}
 	for _, relayedNodeID := range relayNode.RelayedNodes {
 		relayedNode, err := logic.GetNodeByID(relayedNodeID)
 		if err == nil {
 			if relayedNode.FailedOverBy != uuid.Nil {
 				go logic.ResetFailedOverPeer(&relayedNode)
+			}
+			if len(relayedNode.AutoRelayedPeers) > 0 {
+				go logic.ResetAutoRelayedPeer(&relayedNode)
 			}
 
 		}
@@ -101,6 +110,12 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 					mq.PublishPeerUpdate(false)
 				}()
 			}
+
+			go func() {
+				logic.ResetAutoRelayedPeer(&node)
+				mq.PublishPeerUpdate(false)
+			}()
+
 		}
 		if node.IsGw && node.IngressDNS == "" {
 			node.IngressDNS = "1.1.1.1"
@@ -190,6 +205,10 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 	}
 	logic.UnsetInternetGw(&node)
 	node.IsGw = false
+	if node.IsAutoRelay {
+		logic.ResetAutoRelay(&node)
+	}
+	node.IsAutoRelay = false
 	logic.UpsertNode(&node)
 	logger.Log(1, r.Header.Get("user"), "deleted gw", nodeid, "on network", netid)
 
@@ -265,6 +284,10 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 			Type: models.GatewaySub,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: node,
+			New: node,
+		},
 	})
 	logic.GetNodeStatus(&node, false)
 	apiNode := node.ConvertToAPINode()

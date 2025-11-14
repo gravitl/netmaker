@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -43,6 +44,15 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 	if userRole.FullAccess {
 		return nil
 	}
+
+	if userRole.ID == models.Auditor {
+		if r.Method == http.MethodGet {
+			return nil
+		} else {
+			return errors.New("access denied")
+		}
+	}
+
 	// get info from header to determine the target rsrc
 	targetRsrc := r.Header.Get("TARGET_RSRC")
 	targetRsrcID := r.Header.Get("TARGET_RSRC_ID")
@@ -115,13 +125,10 @@ func checkNetworkAccessPermissions(netRoleID models.UserRoleID, username, reqSco
 		return nil
 	}
 	rsrcPermissionScope, ok := networkPermissionScope.NetworkLevelAccess[models.RsrcType(targetRsrc)]
-	if targetRsrc == models.HostRsrc.String() && !ok {
-		rsrcPermissionScope, ok = networkPermissionScope.NetworkLevelAccess[models.RemoteAccessGwRsrc]
-	}
 	if !ok {
 		return errors.New("access denied")
 	}
-	if allRsrcsTypePermissionScope, ok := rsrcPermissionScope[models.RsrcID(fmt.Sprintf("all_%s", targetRsrc))]; ok {
+	if allRsrcsTypePermissionScope, ok := rsrcPermissionScope[logic.GetAllRsrcIDForRsrc(models.RsrcType(targetRsrc))]; ok {
 		// handle extclient apis here
 		if models.RsrcType(targetRsrc) == models.ExtClientsRsrc && allRsrcsTypePermissionScope.SelfOnly && targetRsrcID != "" {
 			extclient, err := logic.GetExtClient(targetRsrcID, netID)
@@ -137,14 +144,6 @@ func checkNetworkAccessPermissions(netRoleID models.UserRoleID, username, reqSco
 			return nil
 		}
 
-	}
-	if targetRsrc == models.HostRsrc.String() {
-		if allRsrcsTypePermissionScope, ok := rsrcPermissionScope[models.RsrcID(fmt.Sprintf("all_%s", models.RemoteAccessGwRsrc))]; ok {
-			err = checkPermissionScopeWithReqMethod(allRsrcsTypePermissionScope, reqScope)
-			if err == nil {
-				return nil
-			}
-		}
 	}
 	if targetRsrcID == "" {
 		return errors.New("target rsrc id is empty")
@@ -170,6 +169,20 @@ func GlobalPermissionsCheck(username string, r *http.Request) error {
 	if userRole.FullAccess {
 		return nil
 	}
+
+	if userRole.ID == models.Auditor {
+		if r.Method == http.MethodGet {
+			return nil
+		} else {
+			if (r.Method == http.MethodPut || r.Method == http.MethodPost) &&
+				strings.Contains(r.URL.Path, "/api/users/"+username) {
+				return nil
+			}
+
+			return errors.New("access denied")
+		}
+	}
+
 	targetRsrc := r.Header.Get("TARGET_RSRC")
 	targetRsrcID := r.Header.Get("TARGET_RSRC_ID")
 	if targetRsrc == "" {
@@ -182,6 +195,10 @@ func GlobalPermissionsCheck(username string, r *http.Request) error {
 		return nil
 	}
 	if (targetRsrc == models.HostRsrc.String() || targetRsrc == models.NetworkRsrc.String()) && r.Method == http.MethodGet && targetRsrcID == "" {
+		return nil
+	}
+	if targetRsrc == models.UserRsrc.String() && user.PlatformRoleID == models.PlatformUser && r.Method == http.MethodPut &&
+		strings.Contains(r.URL.Path, "/api/v1/users/add_network_user") || strings.Contains(r.URL.Path, "/api/v1/users/remove_network_user") {
 		return nil
 	}
 	if targetRsrc == models.UserRsrc.String() && username == targetRsrcID && (r.Method != http.MethodDelete) {

@@ -1,12 +1,12 @@
 #first stage - builder
-FROM gravitl/go-builder:1.23.0 AS builder
+FROM gravitl/go-builder:1.24.0 AS builder
 ARG tags 
 WORKDIR /app
 COPY . .
 
 RUN GOOS=linux CGO_ENABLED=1 go build -ldflags="-s -w " -tags ${tags} .
 # RUN go build -tags=ee . -o netmaker main.go
-FROM alpine:3.22.0
+FROM alpine:3.22.2
 
 # add a c lib
 # set the working directory

@@ -133,6 +133,12 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	gwNode, err := logic.GetNodeByID(client.IngressGatewayID)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	logic.SetDNSOnWgConfig(&gwNode, &client)
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(client)
@@ -288,39 +294,11 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-
+	logic.SetDNSOnWgConfig(&gwnode, &client)
 	defaultDNS := ""
 	if client.DNS != "" {
 		defaultDNS = "DNS = " + client.DNS
-	} else if gwnode.IngressDNS != "" {
-		defaultDNS = "DNS = " + gwnode.IngressDNS
 	}
-	if client.DNS == "" {
-		if len(network.NameServers) > 0 {
-			if defaultDNS == "" {
-				defaultDNS = "DNS = " + strings.Join(network.NameServers, ",")
-			} else {
-				defaultDNS += "," + strings.Join(network.NameServers, ",")
-			}
-
-		}
-	}
-	// if servercfg.GetManageDNS() {
-	// 	if gwnode.Address6.IP != nil {
-	// 		if defaultDNS == "" {
-	// 			defaultDNS = "DNS = " + gwnode.Address6.IP.String()
-	// 		} else {
-	// 			defaultDNS = defaultDNS + ", " + gwnode.Address6.IP.String()
-	// 		}
-	// 	}
-	// 	if gwnode.Address.IP != nil {
-	// 		if defaultDNS == "" {
-	// 			defaultDNS = "DNS = " + gwnode.Address.IP.String()
-	// 		} else {
-	// 			defaultDNS = defaultDNS + ", " + gwnode.Address.IP.String()
-	// 		}
-	// 	}
-	// }
 
 	defaultMTU := 1420
 	if host.MTU != 0 {
@@ -488,23 +466,6 @@ func getExtClientHAConf(w http.ResponseWriter, r *http.Request) {
 	extclient.IngressGatewayID = targetGwID
 	extclient.Network = networkid
 	extclient.Tags = make(map[models.TagID]struct{})
-	// extclient.Tags[models.TagID(fmt.Sprintf("%s.%s", extclient.Network,
-	// 	models.RemoteAccessTagName))] = struct{}{}
-	// set extclient dns to ingressdns if extclient dns is not explicitly set
-	if (extclient.DNS == "") && (gwnode.IngressDNS != "") {
-		network, _ := logic.GetNetwork(gwnode.Network)
-		dns := gwnode.IngressDNS
-		if len(network.NameServers) > 0 {
-			if dns == "" {
-				dns = strings.Join(network.NameServers, ",")
-			} else {
-				dns += "," + strings.Join(network.NameServers, ",")
-			}
-
-		}
-		extclient.DNS = dns
-
-	}
 
 	listenPort := logic.GetPeerListenPort(host)
 	extclient.IngressGatewayEndpoint = fmt.Sprintf("%s:%d", host.EndpointIP.String(), listenPort)
@@ -527,6 +488,11 @@ func getExtClientHAConf(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
+	}
+	logic.SetDNSOnWgConfig(&gwnode, &client)
+	defaultDNS := ""
+	if client.DNS != "" {
+		defaultDNS = "DNS = " + client.DNS
 	}
 	addrString := client.Address
 	if addrString != "" {
@@ -573,13 +539,6 @@ func getExtClientHAConf(w http.ResponseWriter, r *http.Request) {
 	} else {
 		gwendpoint = fmt.Sprintf("%s:%d", host.EndpointIP.String(), host.ListenPort)
 	}
-	defaultDNS := ""
-	if client.DNS != "" {
-		defaultDNS = "DNS = " + client.DNS
-	} else if gwnode.IngressDNS != "" {
-		defaultDNS = "DNS = " + gwnode.IngressDNS
-	}
-
 	defaultMTU := 1420
 	if host.MTU != 0 {
 		defaultMTU = host.MTU
@@ -652,6 +611,7 @@ Endpoint = %s
 
 	name := client.ClientID + ".conf"
 	w.Header().Set("Content-Type", "application/config")
+	w.Header().Set("Client-ID", client.ClientID)
 	w.Header().Set("Content-Disposition", "attachment; filename=\""+name+"\"")
 	w.WriteHeader(http.StatusOK)
 	_, err = fmt.Fprint(w, config)
@@ -725,10 +685,34 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
+
+		// if device id is sent, we don't want to create another extclient for the same user
+		// and gw, with the same device id.
+		if customExtClient.DeviceID != "" {
+			// let's first confirm that none of the user's extclients for this gw have device id.
+			for _, extclient := range extclients {
+				if extclient.DeviceID == customExtClient.DeviceID &&
+					extclient.OwnerID == caller.UserName && nodeid == extclient.IngressGatewayID {
+					err = errors.New("remote client config already exists on the gateway")
+					slog.Error("failed to create extclient", "user", userName, "error", err)
+					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+					return
+				}
+			}
+		}
+
 		for _, extclient := range extclients {
 			if extclient.RemoteAccessClientID != "" &&
-				extclient.RemoteAccessClientID == customExtClient.RemoteAccessClientID && extclient.OwnerID == caller.UserName && nodeid == extclient.IngressGatewayID {
-				// extclient on the gw already exists for the remote access client
+				extclient.RemoteAccessClientID == customExtClient.RemoteAccessClientID &&
+				extclient.OwnerID == caller.UserName && nodeid == extclient.IngressGatewayID {
+				if customExtClient.DeviceID != "" && extclient.DeviceID == "" {
+					// This extclient doesn’t include a device ID (and neither do the others).
+					// We patch it by assigning the device ID from the incoming request.
+					// When clients see that the config already exists, they will fetch
+					// the one with their device ID. And we will return this one.
+					extclient.DeviceID = customExtClient.DeviceID
+					_ = logic.SaveExtClient(&extclient)
+				}
 				err = errors.New("remote client config already exists on the gateway")
 				slog.Error("failed to create extclient", "user", userName, "error", err)
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -745,18 +729,10 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	extclient.Tags = make(map[models.TagID]struct{})
 	// extclient.Tags[models.TagID(fmt.Sprintf("%s.%s", extclient.Network,
 	// 	models.RemoteAccessTagName))] = struct{}{}
-	// set extclient dns to ingressdns if extclient dns is not explicitly set
-	if (extclient.DNS == "") && (node.IngressDNS != "") {
-		network, _ := logic.GetNetwork(node.Network)
-		dns := node.IngressDNS
-		if len(network.NameServers) > 0 {
-			if dns == "" {
-				dns = strings.Join(network.NameServers, ",")
-			} else {
-				dns += "," + strings.Join(network.NameServers, ",")
-			}
-
-		}
+	// set extclient dns to ingressdns if extclient dns is not explicitly
+	gwDNS := logic.GetGwDNS(&node)
+	if (extclient.DNS == "") && (gwDNS != "") {
+		dns := gwDNS
 		extclient.DNS = dns
 	}
 	host, err := logic.GetHost(node.HostID.String())
@@ -774,6 +750,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		extclient.Enabled = parentNetwork.DefaultACL == "yes"
 	}
 	extclient.Os = customExtClient.Os
+	extclient.DeviceID = customExtClient.DeviceID
 	extclient.DeviceName = customExtClient.DeviceName
 	if customExtClient.IsAlreadyConnectedToInetGw {
 		slog.Warn("RAC/Client is already connected to internet gateway. this may mask their real IP address", "client IP", customExtClient.PublicEndpoint)
@@ -830,6 +807,8 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(extclient)
+
 	go func() {
 		if err := logic.SetClientDefaultACLs(&extclient); err != nil {
 			slog.Error(
@@ -868,7 +847,6 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 
 	var update models.CustomExtClient
 	//var oldExtClient models.ExtClient
-	var sendPeerUpdate bool
 	var replacePeers bool
 	err := json.NewDecoder(r.Body).Decode(&update)
 	if err != nil {
@@ -917,26 +895,18 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	var changedID = update.ClientID != oldExtClient.ClientID
 
 	if !reflect.DeepEqual(update.DeniedACLs, oldExtClient.DeniedACLs) {
-		sendPeerUpdate = true
 		logic.SetClientACLs(&oldExtClient, update.DeniedACLs)
 	}
-	if !logic.IsSlicesEqual(update.ExtraAllowedIPs, oldExtClient.ExtraAllowedIPs) {
-		sendPeerUpdate = true
-	}
 
-	if update.Enabled != oldExtClient.Enabled {
-		sendPeerUpdate = true
-	}
 	if update.PublicKey != oldExtClient.PublicKey {
 		//remove old peer entry
-		sendPeerUpdate = true
 		replacePeers = true
 	}
 	if update.RemoteAccessClientID != "" && update.Location == "" {
 		update.Location = logic.GetHostLocInfo(logic.GetClientIP(r), os.Getenv("IP_INFO_TOKEN"))
 	}
 	newclient := logic.UpdateExtClient(&oldExtClient, &update)
-	if err := logic.DeleteExtClient(oldExtClient.Network, oldExtClient.ClientID); err != nil {
+	if err := logic.DeleteExtClient(oldExtClient.Network, oldExtClient.ClientID, true); err != nil {
 		slog.Error(
 			"failed to delete ext client",
 			"user",
@@ -974,45 +944,12 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		if changedID && servercfg.IsDNSMode() {
 			logic.SetDNS()
 		}
-		if replacePeers {
+		if replacePeers || !update.Enabled {
 			if err := mq.PublishDeletedClientPeerUpdate(&oldExtClient); err != nil {
 				slog.Error("error deleting old ext peers", "error", err.Error())
 			}
 		}
-		if sendPeerUpdate { // need to send a peer update to the ingress node as enablement of one of it's clients has changed
-			ingressNode, err := logic.GetNodeByID(newclient.IngressGatewayID)
-			if err == nil {
-				if err = mq.PublishPeerUpdate(false); err != nil {
-					logger.Log(
-						1,
-						"error setting ext peers on",
-						ingressNode.ID.String(),
-						":",
-						err.Error(),
-					)
-				}
-			}
-			if !update.Enabled {
-				ingressHost, err := logic.GetHost(ingressNode.HostID.String())
-				if err != nil {
-					slog.Error(
-						"Failed to get ingress host",
-						"node",
-						ingressNode.ID.String(),
-						"error",
-						err,
-					)
-					return
-				}
-				nodes, err := logic.GetAllNodes()
-				if err != nil {
-					slog.Error("Failed to get nodes", "error", err)
-					return
-				}
-				go mq.PublishSingleHostPeerUpdate(ingressHost, nodes, nil, []models.ExtClient{oldExtClient}, false, nil)
-			}
-		}
-
+		mq.PublishPeerUpdate(false)
 	}()
 
 }
@@ -1034,6 +971,13 @@ func deleteExtClient(w http.ResponseWriter, r *http.Request) {
 	network := params["network"]
 	extclient, err := logic.GetExtClient(clientid, network)
 	if err != nil {
+		if database.IsEmptyRecord(err) {
+			logger.Log(0, r.Header.Get("user"),
+				"Deleted extclient client", params["clientid"], "from network", params["network"])
+			logic.ReturnSuccessResponse(w, r, params["clientid"]+" deleted.")
+			return
+		}
+
 		err = errors.New("Could not delete extclient " + params["clientid"])
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get extclient [%s],network [%s]: %v", clientid, network, err))

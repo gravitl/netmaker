@@ -5,6 +5,8 @@ package pro
 
 import (
 	"errors"
+
+	"github.com/gravitl/netmaker/models"
 )
 
 const (
@@ -32,41 +34,15 @@ type LicenseKey struct {
 
 // ValidatedLicense - the validated license struct
 type ValidatedLicense struct {
-	LicenseValue     string `json:"license_value"     binding:"required"` // license that validation is being requested for
-	EncryptedLicense string `json:"encrypted_license" binding:"required"` // to be decrypted by Netmaker using Netmaker server's private key
+	LicenseValue     string              `json:"license_value"     binding:"required"` // license that validation is being requested for
+	EncryptedLicense string              `json:"encrypted_license" binding:"required"` // to be decrypted by Netmaker using Netmaker server's private key
+	FeatureFlags     models.FeatureFlags `json:"feature_flags" binding:"required"`
 }
 
 // LicenseSecret - the encrypted struct for sending user-id
 type LicenseSecret struct {
-	AssociatedID string `json:"associated_id" binding:"required"` // UUID for user foreign key to User table
-	Usage        Usage  `json:"limits"        binding:"required"`
-}
-
-// Usage - struct for license usage
-type Usage struct {
-	Servers          int `json:"servers"`
-	Users            int `json:"users"`
-	Hosts            int `json:"hosts"`
-	Clients          int `json:"clients"`
-	Networks         int `json:"networks"`
-	Ingresses        int `json:"ingresses"`
-	Egresses         int `json:"egresses"`
-	Relays           int `json:"relays"`
-	InternetGateways int `json:"internet_gateways"`
-	FailOvers        int `json:"fail_overs"`
-}
-
-// Usage.SetDefaults - sets the default values for usage
-func (l *Usage) SetDefaults() {
-	l.Clients = 0
-	l.Servers = 1
-	l.Hosts = 0
-	l.Users = 1
-	l.Networks = 0
-	l.Ingresses = 0
-	l.Egresses = 0
-	l.Relays = 0
-	l.InternetGateways = 0
+	AssociatedID string       `json:"associated_id" binding:"required"` // UUID for user foreign key to User table
+	Usage        models.Usage `json:"limits"        binding:"required"`
 }
 
 // ValidateLicenseRequest - used for request to validate license endpoint
@@ -74,6 +50,7 @@ type ValidateLicenseRequest struct {
 	LicenseKey     string `json:"license_key"       binding:"required"`
 	NmServerPubKey string `json:"nm_server_pub_key" binding:"required"` // Netmaker server public key used to send data back to Netmaker for the Netmaker server to decrypt (eg output from validating license)
 	EncryptedPart  string `json:"secret"            binding:"required"`
+	NmBaseDomain   string `json:"nm_base_domain"`
 }
 
 type licenseResponseCache struct {

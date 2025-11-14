@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	"regexp"
 	"strings"
 	"time"
 	"unicode"
@@ -20,6 +21,7 @@ import (
 	"github.com/c-robinson/iplib"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/models"
 )
 
 // IsBase64 - checks if a string is in base64 format
@@ -164,6 +166,19 @@ func RemoveStringSlice(slice []string, i int) []string {
 	return append(slice[:i], slice[i+1:]...)
 }
 
+// RemoveAllFromSlice removes every occurrence of val from s (stable order).
+func RemoveAllFromSlice[T comparable](s []T, val T) []T {
+	// Reuse the underlying array: write filtered items back into s[:0].
+	out := s[:0]
+	for _, v := range s {
+		if v != val {
+			out = append(out, v)
+		}
+	}
+	// out now contains only the kept items; capacity unchanged, len shrunk.
+	return out
+}
+
 // IsSlicesEqual tells whether a and b contain the same elements.
 // A nil argument is equivalent to an empty slice.
 func IsSlicesEqual(a, b []string) bool {
@@ -252,4 +267,37 @@ func GetClientIP(r *http.Request) string {
 		return r.RemoteAddr
 	}
 	return ip
+}
+
+// CompareIfaceSlices compares two slices of Iface for deep equality (order-sensitive)
+func CompareIfaceSlices(a, b []models.Iface) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if !compareIface(a[i], b[i]) {
+			return false
+		}
+	}
+	return true
+}
+func compareIface(a, b models.Iface) bool {
+	return a.Name == b.Name &&
+		a.Address.IP.Equal(b.Address.IP) &&
+		a.Address.Mask.String() == b.Address.Mask.String() &&
+		a.AddressString == b.AddressString
+}
+
+// IsFQDN checks if the given string is a valid Fully Qualified Domain Name (FQDN)
+func IsFQDN(domain string) bool {
+	// Basic check to ensure the domain is not empty and has at least one dot (.)
+	if domain == "" || !strings.Contains(domain, ".") {
+		return false
+	}
+
+	// Regular expression for validating FQDN (basic check for valid characters and structure)
+	fqdnRegex := `^(?i)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`
+	re := regexp.MustCompile(fqdnRegex)
+
+	return re.MatchString(domain)
 }

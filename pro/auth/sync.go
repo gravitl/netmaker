@@ -3,23 +3,28 @@ package auth
 import (
 	"context"
 	"fmt"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/pro/idp"
 	"github.com/gravitl/netmaker/pro/idp/azure"
 	"github.com/gravitl/netmaker/pro/idp/google"
 	"github.com/gravitl/netmaker/pro/idp/okta"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
-	"strings"
-	"sync"
-	"time"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 var (
 	cancelSyncHook context.CancelFunc
 	hookStopWg     sync.WaitGroup
+	idpSyncMtx     sync.Mutex
+	idpSyncErr     error
 )
 
 func ResetIDPSyncHook() {
@@ -58,6 +63,8 @@ func runIDPSyncHook(ctx context.Context) {
 }
 
 func SyncFromIDP() error {
+	idpSyncMtx.Lock()
+	defer idpSyncMtx.Unlock()
 	settings := logic.GetServerSettings()
 
 	var idpClient idp.Client
@@ -65,14 +72,18 @@ func SyncFromIDP() error {
 	var idpGroups []idp.Group
 	var err error
 
+	defer func() {
+		idpSyncErr = err
+	}()
+
 	switch settings.AuthProvider {
 	case "google":
-		idpClient, err = google.NewGoogleWorkspaceClient()
+		idpClient, err = google.NewGoogleWorkspaceClientFromSettings()
 		if err != nil {
 			return err
 		}
 	case "azure-ad":
-		idpClient = azure.NewAzureEntraIDClient()
+		idpClient = azure.NewAzureEntraIDClientFromSettings()
 	case "okta":
 		idpClient, err = okta.NewOktaClientFromSettings()
 		if err != nil {
@@ -80,19 +91,28 @@ func SyncFromIDP() error {
 		}
 	default:
 		if settings.AuthProvider != "" {
-			return fmt.Errorf("invalid auth provider: %s", settings.AuthProvider)
+			err = fmt.Errorf("invalid auth provider: %s", settings.AuthProvider)
+			return err
 		}
 	}
 
 	if settings.AuthProvider != "" && idpClient != nil {
-		idpUsers, err = idpClient.GetUsers()
+		idpUsers, err = idpClient.GetUsers(settings.UserFilters)
 		if err != nil {
 			return err
 		}
 
-		idpGroups, err = idpClient.GetGroups()
+		idpGroups, err = idpClient.GetGroups(settings.GroupFilters)
 		if err != nil {
 			return err
+		}
+
+		if len(settings.GroupFilters) > 0 {
+			idpUsers = filterUsersByGroupMembership(idpUsers, idpGroups)
+		}
+
+		if len(settings.UserFilters) > 0 {
+			idpGroups = filterGroupsByMembers(idpGroups, idpUsers)
 		}
 	}
 
@@ -101,7 +121,8 @@ func SyncFromIDP() error {
 		return err
 	}
 
-	return syncGroups(idpGroups)
+	err = syncGroups(idpGroups)
+	return err
 }
 
 func syncUsers(idpUsers []idp.User) error {
@@ -130,7 +151,8 @@ func syncUsers(idpUsers []idp.User) error {
 	for _, user := range idpUsers {
 		if user.AccountArchived {
 			// delete the user if it has been archived.
-			_ = logic.DeleteUser(user.Username)
+			user := dbUsersMap[user.Username]
+			_ = deleteAndCleanUpUser(&user)
 			continue
 		}
 
@@ -190,14 +212,14 @@ func syncUsers(idpUsers []idp.User) error {
 	}
 
 	for _, user := range dbUsersMap {
-		if user.ExternalIdentityProviderID == "" {
-			continue
-		}
-		if _, ok := idpUsersMap[user.UserName]; !ok {
-			// delete the user if it has been deleted on idp.
-			err = logic.DeleteUser(user.UserName)
-			if err != nil {
-				return err
+		if user.ExternalIdentityProviderID != "" {
+			if _, ok := idpUsersMap[user.UserName]; !ok {
+				// delete the user if it has been deleted on idp
+				// or is filtered out.
+				err = deleteAndCleanUpUser(&user)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -258,7 +280,11 @@ func syncGroups(idpGroups []idp.Group) error {
 			dbGroup.ExternalIdentityProviderID = group.ID
 			dbGroup.Name = group.Name
 			dbGroup.Default = false
-			dbGroup.NetworkRoles = make(map[models.NetworkID]map[models.UserRoleID]struct{})
+			dbGroup.NetworkRoles = map[models.NetworkID]map[models.UserRoleID]struct{}{
+				models.AllNetworks: {
+					proLogic.GetDefaultGlobalUserRoleID(): {},
+				},
+			}
 			err := proLogic.CreateUserGroup(&dbGroup)
 			if err != nil {
 				return err
@@ -305,14 +331,130 @@ func syncGroups(idpGroups []idp.Group) error {
 	for _, group := range dbGroups {
 		if group.ExternalIdentityProviderID != "" {
 			if _, ok := idpGroupsMap[group.ExternalIdentityProviderID]; !ok {
-				// delete the group if it has been deleted on idp.
-				err = proLogic.DeleteUserGroup(group.ID)
+				// delete the group if it has been deleted on idp
+				// or is filtered out.
+				err = proLogic.DeleteAndCleanUpGroup(&group)
 				if err != nil {
 					return err
 				}
 			}
 		}
 	}
+
+	return nil
+}
+
+func GetIDPSyncStatus() models.IDPSyncStatus {
+	if idpSyncMtx.TryLock() {
+		defer idpSyncMtx.Unlock()
+		if idpSyncErr == nil {
+			return models.IDPSyncStatus{
+				Status: "completed",
+			}
+		} else {
+			return models.IDPSyncStatus{
+				Status:      "failed",
+				Description: idpSyncErr.Error(),
+			}
+		}
+	} else {
+		return models.IDPSyncStatus{
+			Status: "in_progress",
+		}
+	}
+}
+
+func filterUsersByGroupMembership(idpUsers []idp.User, idpGroups []idp.Group) []idp.User {
+	usersMap := make(map[string]int)
+	for i, user := range idpUsers {
+		usersMap[user.ID] = i
+	}
+
+	filteredUsersMap := make(map[string]int)
+	for _, group := range idpGroups {
+		for _, member := range group.Members {
+			if userIdx, ok := usersMap[member]; ok {
+				// user at index `userIdx` is a member of at least one of the
+				// groups in the `idpGroups` list, so we keep it.
+				filteredUsersMap[member] = userIdx
+			}
+		}
+	}
+
+	i := 0
+	filteredUsers := make([]idp.User, len(filteredUsersMap))
+	for _, userIdx := range filteredUsersMap {
+		filteredUsers[i] = idpUsers[userIdx]
+		i++
+	}
+
+	return filteredUsers
+}
+
+func filterGroupsByMembers(idpGroups []idp.Group, idpUsers []idp.User) []idp.Group {
+	usersMap := make(map[string]int)
+	for i, user := range idpUsers {
+		usersMap[user.ID] = i
+	}
+
+	filteredGroupsMap := make(map[int]bool)
+	for i, group := range idpGroups {
+		var members []string
+		for _, member := range group.Members {
+			if _, ok := usersMap[member]; ok {
+				members = append(members, member)
+			}
+		}
+
+		if len(members) > 0 {
+			// the group at index `i` has members from the `idpUsers` list,
+			// so we keep it.
+			filteredGroupsMap[i] = true
+			// filter out members that were not provided in the `idpUsers` list.
+			idpGroups[i].Members = members
+		}
+	}
+
+	i := 0
+	filteredGroups := make([]idp.Group, len(filteredGroupsMap))
+	for groupIdx := range filteredGroupsMap {
+		filteredGroups[i] = idpGroups[groupIdx]
+		i++
+	}
+
+	return filteredGroups
+}
+
+// TODO: deduplicate
+// The cyclic import between the package logic and mq requires this
+// function to be duplicated in multiple places.
+func deleteAndCleanUpUser(user *models.User) error {
+	err := logic.DeleteUser(user.UserName)
+	if err != nil {
+		return err
+	}
+
+	// check and delete extclient with this ownerID
+	go func() {
+		extclients, err := logic.GetAllExtClients()
+		if err != nil {
+			return
+		}
+		for _, extclient := range extclients {
+			if extclient.OwnerID == user.UserName {
+				err = logic.DeleteExtClientAndCleanup(extclient)
+				if err == nil {
+					_ = mq.PublishDeletedClientPeerUpdate(&extclient)
+				}
+			}
+		}
+
+		go logic.DeleteUserInvite(user.UserName)
+		go mq.PublishPeerUpdate(false)
+		if servercfg.IsDNSMode() {
+			go logic.SetDNS()
+		}
+	}()
 
 	return nil
 }

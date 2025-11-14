@@ -11,15 +11,23 @@ import (
 
 	"github.com/gravitl/netmaker/config"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logic/acls"
+	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-var serverSettingsDBKey = "server_cfg"
+var ServerSettingsDBKey = "server_cfg"
 var SettingsMutex = &sync.RWMutex{}
 
+var defaultUserSettings = models.UserSettings{
+	TextSize:      "16",
+	Theme:         models.Dark,
+	ReducedMotion: false,
+}
+
 func GetServerSettings() (s models.ServerSettings) {
-	data, err := database.FetchRecord(database.SERVER_SETTINGS, serverSettingsDBKey)
+	data, err := database.FetchRecord(database.SERVER_SETTINGS, ServerSettingsDBKey)
 	if err != nil {
 		return
 	}
@@ -38,35 +46,126 @@ func UpsertServerSettings(s models.ServerSettings) error {
 		s.BasicAuth = true
 	}
 
+	var userFilters []string
+	for _, userFilter := range s.UserFilters {
+		userFilter = strings.TrimSpace(userFilter)
+		if userFilter != "" {
+			userFilters = append(userFilters, userFilter)
+		}
+	}
+	s.UserFilters = userFilters
+
+	var groupFilters []string
+	for _, groupFilter := range s.GroupFilters {
+		groupFilter = strings.TrimSpace(groupFilter)
+		if groupFilter != "" {
+			groupFilters = append(groupFilters, groupFilter)
+		}
+	}
+	s.GroupFilters = groupFilters
+	if !s.OldAClsSupport {
+		// set defaults for old acl settings
+		go setDefaultsforOldAclCfg()
+	}
 	data, err := json.Marshal(s)
 	if err != nil {
 		return err
 	}
-	err = database.Insert(serverSettingsDBKey, string(data), database.SERVER_SETTINGS)
+	err = database.Insert(ServerSettingsDBKey, string(data), database.SERVER_SETTINGS)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
+func setDefaultsforOldAclCfg() {
+	nets, _ := GetNetworks()
+	for _, netI := range nets {
+		if netI.DefaultACL != "yes" {
+			netI.DefaultACL = "yes"
+			UpsertNetwork(netI)
+		}
+		networkACL, err := nodeacls.FetchAllACLs(nodeacls.NetworkID(netI.NetID))
+		if err != nil {
+			continue
+		}
+		for id, aclNode := range networkACL {
+			for aclID, allowed := range aclNode {
+				if allowed != acls.Allowed {
+					aclNode.Allow(aclID)
+				}
+			}
+			networkACL.UpdateACL(id, aclNode)
+		}
+		networkACL.Save(acls.ContainerID(netI.NetID))
+	}
+	nodes, _ := GetAllNodes()
+	for _, node := range nodes {
+		if node.DefaultACL != "yes" {
+			node.DefaultACL = "yes"
+			UpsertNode(&node)
+		}
+	}
+}
+
+func GetUserSettings(userID string) models.UserSettings {
+	data, err := database.FetchRecord(database.SERVER_SETTINGS, userID)
+	if err != nil {
+		return defaultUserSettings
+	}
+	var userSettings models.UserSettings
+	err = json.Unmarshal([]byte(data), &userSettings)
+	if err != nil {
+		return defaultUserSettings
+	}
+
+	return userSettings
+}
+
+func UpsertUserSettings(userID string, userSettings models.UserSettings) error {
+	if userSettings.TextSize == "" {
+		userSettings.TextSize = "16"
+	}
+
+	if userSettings.Theme == "" {
+		userSettings.Theme = models.Dark
+	}
+
+	data, err := json.Marshal(userSettings)
+	if err != nil {
+		return err
+	}
+	return database.Insert(userID, string(data), database.SERVER_SETTINGS)
+}
+
+func DeleteUserSettings(userID string) error {
+	return database.DeleteRecord(database.SERVER_SETTINGS, userID)
+}
+
 func ValidateNewSettings(req models.ServerSettings) bool {
 	// TODO: add checks for different fields
+	if req.JwtValidityDuration > 525600 || req.JwtValidityDuration < 5 {
+		return false
+	}
 	return true
 }
 
 func GetServerSettingsFromEnv() (s models.ServerSettings) {
 
 	s = models.ServerSettings{
-		NetclientAutoUpdate:        servercfg.AutoUpdateEnabled(),
-		Verbosity:                  servercfg.GetVerbosity(),
-		AuthProvider:               os.Getenv("AUTH_PROVIDER"),
-		OIDCIssuer:                 os.Getenv("OIDC_ISSUER"),
-		ClientID:                   os.Getenv("CLIENT_ID"),
-		ClientSecret:               os.Getenv("CLIENT_SECRET"),
-		AzureTenant:                servercfg.GetAzureTenant(),
-		Telemetry:                  servercfg.Telemetry(),
-		BasicAuth:                  servercfg.IsBasicAuthEnabled(),
-		JwtValidityDuration:        servercfg.GetJwtValidityDurationFromEnv() / 60,
+		NetclientAutoUpdate: servercfg.AutoUpdateEnabled(),
+		Verbosity:           servercfg.GetVerbosity(),
+		AuthProvider:        os.Getenv("AUTH_PROVIDER"),
+		OIDCIssuer:          os.Getenv("OIDC_ISSUER"),
+		ClientID:            os.Getenv("CLIENT_ID"),
+		ClientSecret:        os.Getenv("CLIENT_SECRET"),
+		AzureTenant:         servercfg.GetAzureTenant(),
+		Telemetry:           servercfg.Telemetry(),
+		BasicAuth:           servercfg.IsBasicAuthEnabled(),
+		JwtValidityDuration: servercfg.GetJwtValidityDurationFromEnv() / 60,
+		// setting client's jwt validity duration to be the same as that of
+		// dashboard.
+		JwtValidityDurationClients: servercfg.GetJwtValidityDurationFromEnv() / 60,
 		RacRestrictToSingleNetwork: servercfg.GetRacRestrictToSingleNetwork(),
 		EndpointDetection:          servercfg.IsEndpointDetectionEnabled(),
 		AllowedEmailDomains:        servercfg.GetAllowedEmailDomains(),
@@ -81,9 +180,7 @@ func GetServerSettingsFromEnv() (s models.ServerSettings) {
 		DefaultDomain:              servercfg.GetDefaultDomain(),
 		Stun:                       servercfg.IsStunEnabled(),
 		StunServers:                servercfg.GetStunServers(),
-		TextSize:                   "16",
-		Theme:                      models.Dark,
-		ReducedMotion:              false,
+		OldAClsSupport:             false,
 	}
 
 	return
@@ -144,6 +241,7 @@ func GetServerConfig() config.ServerConfig {
 		cfg.IsPro = "yes"
 	}
 	cfg.JwtValidityDuration = time.Duration(settings.JwtValidityDuration) * time.Minute
+	cfg.JwtValidityDurationClients = time.Duration(settings.JwtValidityDurationClients) * time.Minute
 	cfg.RacRestrictToSingleNetwork = settings.RacRestrictToSingleNetwork
 	cfg.MetricInterval = settings.MetricInterval
 	cfg.ManageDNS = settings.ManageDNS
@@ -183,6 +281,10 @@ func GetServerInfo() models.ServerConfig {
 	cfg.StunServers = serverSettings.StunServers
 	cfg.DefaultDomain = serverSettings.DefaultDomain
 	cfg.EndpointDetection = serverSettings.EndpointDetection
+	cfg.PeerConnectionCheckInterval = serverSettings.PeerConnectionCheckInterval
+	cfg.OldAClsSupport = serverSettings.OldAClsSupport
+	key, _ := RetrievePublicTrafficKey()
+	cfg.TrafficKey = key
 	return cfg
 }
 
@@ -206,7 +308,13 @@ func Telemetry() string {
 
 // GetJwtValidityDuration - returns the JWT validity duration in minutes
 func GetJwtValidityDuration() time.Duration {
-	return GetServerConfig().JwtValidityDuration
+	return time.Duration(GetServerSettings().JwtValidityDuration) * time.Minute
+}
+
+// GetJwtValidityDurationForClients returns the JWT validity duration in
+// minutes for clients.
+func GetJwtValidityDurationForClients() time.Duration {
+	return time.Duration(GetServerSettings().JwtValidityDurationClients) * time.Minute
 }
 
 // GetRacRestrictToSingleNetwork - returns whether the feature to allow simultaneous network connections via RAC is enabled
@@ -256,7 +364,7 @@ func GetAuthProviderInfo(settings models.ServerSettings) (pi []string) {
 
 	if settings.AuthProvider != "" && settings.ClientID != "" && settings.ClientSecret != "" {
 		authProvider = strings.ToLower(settings.AuthProvider)
-		if authProvider == "google" || authProvider == "azure-ad" || authProvider == "github" || authProvider == "oidc" || authProvider == "okta" {
+		if authProvider == "google" || authProvider == "azure-ad" || authProvider == "github" || authProvider == "okta" || authProvider == "oidc" {
 			return []string{authProvider, settings.ClientID, settings.ClientSecret}
 		} else {
 			authProvider = ""

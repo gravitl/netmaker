@@ -113,6 +113,7 @@ func PublishSingleHostPeerUpdate(host *models.Host, allNodes []models.Node, dele
 	if err != nil {
 		return err
 	}
+
 	for _, nodeID := range host.Nodes {
 
 		node, err := logic.GetNodeByID(nodeID)
@@ -197,7 +198,7 @@ func ServerStartNotify() error {
 }
 
 // PublishMqUpdatesForDeletedNode - published all the required updates for deleted node
-func PublishMqUpdatesForDeletedNode(node models.Node, sendNodeUpdate bool, gwClients []models.ExtClient) {
+func PublishMqUpdatesForDeletedNode(node models.Node, sendNodeUpdate bool) {
 	// notify of peer change
 	node.PendingDelete = true
 	node.Action = models.NODE_DELETE
@@ -252,6 +253,7 @@ func sendPeers() {
 func SendDNSSyncByNetwork(network string) error {
 
 	k, err := logic.GetDNS(network)
+	k = append(k, logic.EgressDNs(network)...)
 	if err == nil && len(k) > 0 {
 		err = PushSyncDNS(k)
 		if err != nil {
@@ -268,6 +270,7 @@ func sendDNSSync() error {
 	if err == nil && len(networks) > 0 {
 		for _, v := range networks {
 			k, err := logic.GetDNS(v.NetID)
+			k = append(k, logic.EgressDNs(v.NetID)...)
 			if err == nil && len(k) > 0 {
 				err = PushSyncDNS(k)
 				if err != nil {

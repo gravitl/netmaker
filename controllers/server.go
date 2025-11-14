@@ -3,12 +3,14 @@ package controller
 import (
 	"encoding/json"
 	"errors"
-	"github.com/google/go-cmp/cmp"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
 
 	"github.com/gorilla/mux"
 	"golang.org/x/exp/slog"
@@ -57,6 +59,7 @@ func serverHandlers(r *mux.Router) {
 		Methods(http.MethodPost)
 	r.HandleFunc("/api/server/mem_profile", logic.SecurityCheck(false, http.HandlerFunc(memProfile))).
 		Methods(http.MethodPost)
+	r.HandleFunc("/api/server/feature_flags", getFeatureFlags).Methods(http.MethodGet)
 }
 
 func cpuProfile(w http.ResponseWriter, r *http.Request) {
@@ -77,59 +80,10 @@ func memProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 func getUsage(w http.ResponseWriter, _ *http.Request) {
-	type usage struct {
-		Hosts            int `json:"hosts"`
-		Clients          int `json:"clients"`
-		Networks         int `json:"networks"`
-		Users            int `json:"users"`
-		Ingresses        int `json:"ingresses"`
-		Egresses         int `json:"egresses"`
-		Relays           int `json:"relays"`
-		InternetGateways int `json:"internet_gateways"`
-		FailOvers        int `json:"fail_overs"`
-	}
-	var serverUsage usage
-	hosts, err := logic.GetAllHostsWithStatus(models.OnlineSt)
-	if err == nil {
-		serverUsage.Hosts = len(hosts)
-	}
-	clients, err := logic.GetAllExtClientsWithStatus(models.OnlineSt)
-	if err == nil {
-		serverUsage.Clients = len(clients)
-	}
-	users, err := logic.GetUsers()
-	if err == nil {
-		serverUsage.Users = len(users)
-	}
-	networks, err := logic.GetNetworks()
-	if err == nil {
-		serverUsage.Networks = len(networks)
-	}
-	// TODO this part bellow can be optimized to get nodes just once
-	ingresses, err := logic.GetAllIngresses()
-	if err == nil {
-		serverUsage.Ingresses = len(ingresses)
-	}
-	egresses, err := logic.GetAllEgresses()
-	if err == nil {
-		serverUsage.Egresses = len(egresses)
-	}
-	relays, err := logic.GetRelays()
-	if err == nil {
-		serverUsage.Relays = len(relays)
-	}
-	gateways, err := logic.GetInternetGateways()
-	if err == nil {
-		serverUsage.InternetGateways = len(gateways)
-	}
-	failOvers, err := logic.GetAllFailOvers()
-	if err == nil {
-		serverUsage.FailOvers = len(failOvers)
-	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(models.SuccessResponse{
 		Code:     http.StatusOK,
-		Response: serverUsage,
+		Response: logic.GetCurrentServerUsage(),
 	})
 }
 
@@ -147,6 +101,7 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 		IsPro            bool      `json:"is_pro"`
 		TrialEndDate     time.Time `json:"trial_end_date"`
 		IsOnTrialLicense bool      `json:"is_on_trial_license"`
+		Version          string    `json:"version"`
 	}
 	currentServerStatus := status{
 		DB:               database.IsConnected(),
@@ -154,6 +109,7 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 		IsBrokerConnOpen: mq.IsConnectionOpen(),
 		LicenseError:     "",
 		IsPro:            servercfg.IsPro,
+		Version:          servercfg.Version,
 		//TrialEndDate:     trialEndDate,
 		//IsOnTrialLicense: isOnTrial,
 	}
@@ -256,6 +212,24 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	currSettings := logic.GetServerSettings()
+
+	if req.AuthProvider != currSettings.AuthProvider && req.AuthProvider == "" {
+		superAdmin, err := logic.GetSuperAdmin()
+		if err != nil {
+			err = fmt.Errorf("failed to get super admin: %v", err)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			return
+		}
+
+		if superAdmin.AuthType == models.OAuth {
+			err := fmt.Errorf(
+				"cannot remove IdP integration because an OAuth user has the super-admin role; transfer the super-admin role to another user first",
+			)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+			return
+		}
+	}
+
 	err := logic.UpsertServerSettings(req)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to update server settings "+err.Error()), "internal"))
@@ -291,6 +265,10 @@ func reInit(curr, new models.ServerSettings, force bool) {
 	logic.EmailInit()
 	logic.SetVerbosity(int(logic.GetServerSettings().Verbosity))
 	logic.ResetIDPSyncHook()
+	if curr.MetricInterval != new.MetricInterval {
+		logic.GetMetricsMonitor().Stop()
+		logic.GetMetricsMonitor().Start()
+	}
 	// check if auto update is changed
 	if force {
 		if curr.NetclientAutoUpdate != new.NetclientAutoUpdate {
@@ -359,15 +337,6 @@ func identifySettingsUpdateAction(old, new models.ServerSettings) models.Action 
 		return models.UpdateMonitoringAndDebuggingSettings
 	}
 
-	if old.Theme != new.Theme {
-		return models.UpdateDisplaySettings
-	}
-
-	if old.TextSize != new.TextSize ||
-		old.ReducedMotion != new.ReducedMotion {
-		return models.UpdateAccessibilitySettings
-	}
-
 	if old.EmailSenderAddr != new.EmailSenderAddr ||
 		old.EmailSenderUser != new.EmailSenderUser ||
 		old.EmailSenderPassword != new.EmailSenderPassword ||
@@ -391,4 +360,13 @@ func identifySettingsUpdateAction(old, new models.ServerSettings) models.Action 
 	}
 
 	return models.Update
+}
+
+// @Summary     Get feature flags for this server.
+// @Router      /api/server/feature_flags [get]
+// @Tags        Server
+// @Security    oauth2
+// @Success     200 {object} config.ServerSettings
+func getFeatureFlags(w http.ResponseWriter, r *http.Request) {
+	logic.ReturnSuccessResponseWithJson(w, r, logic.GetFeatureFlags(), "")
 }
