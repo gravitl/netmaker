@@ -61,14 +61,18 @@ func runPostureChecks() error {
 					ClientVersion:  h.Version,
 					OS:             h.OS,
 					OSVersion:      h.OSVersion,
+					OSFamily:       h.OSFamily,
+					KernelVersion:  h.KernelVersion,
 					AutoUpdate:     h.AutoUpdate,
 				}
 			} else {
 				deviceInfo = models.PostureCheckDeviceInfo{
 					ClientLocation: nodeI.StaticNode.Country,
-					ClientVersion:  "",
-					OS:             nodeI.StaticNode.Os,
-					OSVersion:      "",
+					ClientVersion:  nodeI.StaticNode.ClientVersion,
+					OS:             nodeI.StaticNode.OS,
+					OSVersion:      nodeI.StaticNode.OSVersion,
+					OSFamily:       nodeI.StaticNode.OSFamily,
+					KernelVersion:  nodeI.StaticNode.KernelVersion,
 				}
 			}
 			postureChecksViolations, postureCheckVolationSeverityLevel := GetPostureCheckViolations(pcLi, deviceInfo)
@@ -157,7 +161,10 @@ func evaluatePostureCheck(check *schema.PostureCheck, d models.PostureCheckDevic
 		if !slices.Contains(check.Values, d.OS) {
 			return true, "os not allowed"
 		}
-
+	case "os_family":
+		if !slices.Contains(check.Values, d.OSFamily) {
+			return true, fmt.Sprintf("os_family %q not allowed", d.OSFamily)
+		}
 	// ------------------------
 	// 4. OS version check
 	// Supports operators: > >= < <= =
@@ -169,7 +176,13 @@ func evaluatePostureCheck(check *schema.PostureCheck, d models.PostureCheckDevic
 				return true, "os_version violation: " + rule
 			}
 		}
-
+	case "kernel_version":
+		for _, rule := range check.Values {
+			ok, err := matchVersionRule(d.KernelVersion, rule)
+			if err != nil || !ok {
+				return true, "kernel_version violation: " + rule
+			}
+		}
 	// ------------------------
 	// 5. Auto-update check
 	// Values: ["true"] or ["false"]

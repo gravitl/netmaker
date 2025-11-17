@@ -15,6 +15,8 @@ type Values string
 const (
 	OS             Attribute = "os"
 	OSVersion      Attribute = "os_version"
+	OSFamily       Attribute = "os_family"
+	KernelVersion  Attribute = "kernel_version"
 	AutoUpdate     Attribute = "auto_update"
 	ClientVersion  Attribute = "client_version"
 	ClientLocation Attribute = "client_location"
@@ -25,6 +27,8 @@ var PostureCheckAttrs = []Attribute{
 	ClientVersion,
 	OS,
 	OSVersion,
+	OSFamily,
+	KernelVersion,
 	AutoUpdate,
 }
 

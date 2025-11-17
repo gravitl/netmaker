@@ -51,7 +51,9 @@ type Host struct {
 	HostPass            string           `json:"hostpass"                yaml:"hostpass"`
 	Name                string           `json:"name"                    yaml:"name"`
 	OS                  string           `json:"os"                      yaml:"os"`
+	OSFamily            string           `json:"os_family" yaml:"os_family"`
 	OSVersion           string           `json:"os_version"                      yaml:"os_version"`
+	KernelVersion       string           `json:"kernel_version" yaml:"kernel_version"`
 	Interface           string           `json:"interface"               yaml:"interface"`
 	Debug               bool             `json:"debug"                   yaml:"debug"`
 	ListenPort          int              `json:"listenport"              yaml:"listenport"`

@@ -441,7 +441,9 @@ type PostureCheckDeviceInfo struct {
 	ClientLocation string
 	ClientVersion  string
 	OS             string
+	OSFamily       string
 	OSVersion      string
+	KernelVersion  string
 	AutoUpdate     bool
 }
 
