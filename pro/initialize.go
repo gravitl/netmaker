@@ -37,6 +37,7 @@ func InitPro() {
 		proControllers.TagHandlers,
 		proControllers.NetworkHandlers,
 		proControllers.AutoRelayHandlers,
+		proControllers.PostureCheckHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
