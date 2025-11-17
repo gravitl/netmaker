@@ -10,6 +10,7 @@ import (
 
 type Attribute string
 type Values string
+type Severity string
 
 const (
 	OS             Attribute = "os"
@@ -17,7 +18,19 @@ const (
 	AutoUpdate     Attribute = "auto_update"
 	ClientVersion  Attribute = "client_version"
 	ClientLocation Attribute = "client_location"
+
+	Low    Severity = "low"
+	Medium Severity = "medium"
+	High   Severity = "high"
 )
+
+var PostureCheckAttrs = []Attribute{
+	ClientLocation,
+	ClientVersion,
+	OS,
+	OSVersion,
+	AutoUpdate,
+}
 
 type PostureCheck struct {
 	ID          string            `gorm:"primaryKey" json:"id"`
@@ -26,6 +39,7 @@ type PostureCheck struct {
 	Description string            `gorm:"description" json:"description"`
 	Attribute   Attribute         `gorm:"attribute" json:"attribute"`
 	Values      []string          `gorm:"values" json:"values"`
+	Severity    Severity          `gorm:"severity_level" json:"severity_level"`
 	Tags        datatypes.JSONMap `gorm:"tags" json:"tags"`
 	Status      bool              `gorm:"status" json:"status"`
 	CreatedBy   string            `gorm:"created_by" json:"created_by"`

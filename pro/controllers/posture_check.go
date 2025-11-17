@@ -23,6 +23,21 @@ func PostureCheckHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/posture_check", logic.SecurityCheck(true, http.HandlerFunc(listPostureChecks))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/posture_check", logic.SecurityCheck(true, http.HandlerFunc(updatePostureCheck))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/posture_check", logic.SecurityCheck(true, http.HandlerFunc(deletePostureCheck))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/v1/posture_check/attrs", logic.SecurityCheck(true, http.HandlerFunc(listPostureChecksAttrs))).Methods(http.MethodGet)
+}
+
+// @Summary     List Posture Checks Available Attributes
+// @Router      /api/v1/posture_check/attrs [get]
+// @Tags        Auth
+// @Accept      json
+// @Param       query network string
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     401 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func listPostureChecksAttrs(w http.ResponseWriter, r *http.Request) {
+
+	logic.ReturnSuccessResponseWithJson(w, r, schema.PostureCheckAttrs, "fetched posture checks")
 }
 
 // @Summary     Create  Posture Check
@@ -57,6 +72,7 @@ func createPostureCheck(w http.ResponseWriter, r *http.Request) {
 		Tags:        req.Tags,
 		Attribute:   req.Attribute,
 		Values:      req.Values,
+		Severity:    req.Severity,
 		Status:      true,
 		CreatedBy:   r.Header.Get("user"),
 		CreatedAt:   time.Now().UTC(),
@@ -181,6 +197,7 @@ func updatePostureCheck(w http.ResponseWriter, r *http.Request) {
 	pc.Values = updatePc.Values
 	pc.Description = updatePc.Description
 	pc.Name = updatePc.Name
+	pc.Severity = updatePc.Severity
 	pc.Status = updatePc.Status
 	pc.UpdatedAt = time.Now().UTC()
 
