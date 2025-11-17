@@ -53,20 +53,24 @@ type ApiNode struct {
 	PendingDelete                 bool                `json:"pendingdelete"`
 	Metadata                      string              `json:"metadata"`
 	// == PRO ==
-	DefaultACL        string              `json:"defaultacl,omitempty" validate:"checkyesornoorunset"`
-	IsFailOver        bool                `json:"is_fail_over"`
-	FailOverPeers     map[string]struct{} `json:"fail_over_peers" yaml:"fail_over_peers"`
-	FailedOverBy      uuid.UUID           `json:"failed_over_by" yaml:"failed_over_by"`
-	IsInternetGateway bool                `json:"isinternetgateway" yaml:"isinternetgateway"`
-	InetNodeReq       InetNodeReq         `json:"inet_node_req" yaml:"inet_node_req"`
-	InternetGwID      string              `json:"internetgw_node_id" yaml:"internetgw_node_id"`
-	AdditionalRagIps  []string            `json:"additional_rag_ips" yaml:"additional_rag_ips"`
-	Tags              map[TagID]struct{}  `json:"tags" yaml:"tags"`
-	IsStatic          bool                `json:"is_static"`
-	IsUserNode        bool                `json:"is_user_node"`
-	StaticNode        ExtClient           `json:"static_node"`
-	Status            NodeStatus          `json:"status"`
-	Location          string              `json:"location"`
+	DefaultACL                        string              `json:"defaultacl,omitempty" validate:"checkyesornoorunset"`
+	IsFailOver                        bool                `json:"is_fail_over"`
+	FailOverPeers                     map[string]struct{} `json:"fail_over_peers" yaml:"fail_over_peers"`
+	FailedOverBy                      uuid.UUID           `json:"failed_over_by" yaml:"failed_over_by"`
+	IsInternetGateway                 bool                `json:"isinternetgateway" yaml:"isinternetgateway"`
+	InetNodeReq                       InetNodeReq         `json:"inet_node_req" yaml:"inet_node_req"`
+	InternetGwID                      string              `json:"internetgw_node_id" yaml:"internetgw_node_id"`
+	AdditionalRagIps                  []string            `json:"additional_rag_ips" yaml:"additional_rag_ips"`
+	Tags                              map[TagID]struct{}  `json:"tags" yaml:"tags"`
+	IsStatic                          bool                `json:"is_static"`
+	IsUserNode                        bool                `json:"is_user_node"`
+	StaticNode                        ExtClient           `json:"static_node"`
+	Status                            NodeStatus          `json:"status"`
+	Location                          string              `json:"location"`
+	Country                           string              `json:"country"`
+	PostureChecksViolations           []Violation         `json:"posture_check_violations"`
+	PostureCheckVolationSeverityLevel Severity            `json:"posture_check_violation_severity_level"`
+	LastEvaluatedAt                   time.Time           `json:"last_evaluated_at"`
 }
 
 // ApiNode.ConvertToServerNode - converts an api node to a server node
@@ -226,6 +230,9 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.IsUserNode = nm.IsUserNode
 	apiNode.StaticNode = nm.StaticNode
 	apiNode.Status = nm.Status
+	apiNode.PostureChecksViolations = nm.PostureChecksViolations
+	apiNode.PostureCheckVolationSeverityLevel = nm.PostureCheckVolationSeverityLevel
+	apiNode.LastEvaluatedAt = nm.LastEvaluatedAt
 	return &apiNode
 }
 

@@ -758,7 +758,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	extclient.PublicEndpoint = customExtClient.PublicEndpoint
 	extclient.Country = customExtClient.Country
 	if customExtClient.RemoteAccessClientID != "" && customExtClient.Location == "" {
-		extclient.Location = logic.GetHostLocInfo(logic.GetClientIP(r), os.Getenv("IP_INFO_TOKEN"))
+		extclient.Location, extclient.Country = logic.GetHostLocInfo(logic.GetClientIP(r), os.Getenv("IP_INFO_TOKEN"))
 	}
 	extclient.Location = customExtClient.Location
 
@@ -903,7 +903,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		replacePeers = true
 	}
 	if update.RemoteAccessClientID != "" && update.Location == "" {
-		update.Location = logic.GetHostLocInfo(logic.GetClientIP(r), os.Getenv("IP_INFO_TOKEN"))
+		update.Location, update.Country = logic.GetHostLocInfo(logic.GetClientIP(r), os.Getenv("IP_INFO_TOKEN"))
 	}
 	newclient := logic.UpdateExtClient(&oldExtClient, &update)
 	if err := logic.DeleteExtClient(oldExtClient.Network, oldExtClient.ClientID, true); err != nil {

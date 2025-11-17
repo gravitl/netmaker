@@ -300,9 +300,9 @@ func HandleHostCheckin(h, currentHost *models.Host) bool {
 	if ifaceDelta { // only save if something changes
 		if !h.EndpointIP.Equal(currentHost.EndpointIP) || !h.EndpointIPv6.Equal(currentHost.EndpointIPv6) || currentHost.Location == "" {
 			if h.EndpointIP != nil {
-				h.Location = logic.GetHostLocInfo(h.EndpointIP.String(), os.Getenv("IP_INFO_TOKEN"))
+				h.Location, h.CountryCode = logic.GetHostLocInfo(h.EndpointIP.String(), os.Getenv("IP_INFO_TOKEN"))
 			} else if h.EndpointIPv6 != nil {
-				h.Location = logic.GetHostLocInfo(h.EndpointIPv6.String(), os.Getenv("IP_INFO_TOKEN"))
+				h.Location, h.CountryCode = logic.GetHostLocInfo(h.EndpointIPv6.String(), os.Getenv("IP_INFO_TOKEN"))
 			}
 		}
 		currentHost.EndpointIP = h.EndpointIP

@@ -100,8 +100,8 @@ func InitPro() {
 		auth.ResetIDPSyncHook()
 		email.Init()
 		go proLogic.EventWatcher()
-
 		logic.GetMetricsMonitor().Start()
+		proLogic.AddPostureCheckHook()
 	})
 	logic.ResetFailOver = proLogic.ResetFailOver
 	logic.ResetFailedOverPeer = proLogic.ResetFailedOverPeer

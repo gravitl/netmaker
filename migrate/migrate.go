@@ -421,11 +421,11 @@ func updateHosts() {
 			host.AutoUpdate = true
 			logic.UpsertHost(&host)
 		}
-		if servercfg.IsPro && host.Location == "" {
+		if servercfg.IsPro && (host.Location == "" || host.CountryCode == "") {
 			if host.EndpointIP != nil {
-				host.Location = logic.GetHostLocInfo(host.EndpointIP.String(), os.Getenv("IP_INFO_TOKEN"))
+				host.Location, host.CountryCode = logic.GetHostLocInfo(host.EndpointIP.String(), os.Getenv("IP_INFO_TOKEN"))
 			} else if host.EndpointIPv6 != nil {
-				host.Location = logic.GetHostLocInfo(host.EndpointIPv6.String(), os.Getenv("IP_INFO_TOKEN"))
+				host.Location, host.CountryCode = logic.GetHostLocInfo(host.EndpointIPv6.String(), os.Getenv("IP_INFO_TOKEN"))
 			}
 			if host.Location != "" {
 				logic.UpsertHost(&host)
@@ -886,6 +886,9 @@ func migrateSettings() {
 	}
 	if settings.PeerConnectionCheckInterval == "" {
 		settings.PeerConnectionCheckInterval = "15"
+	}
+	if settings.PostureCheckInterval == "" {
+		settings.PostureCheckInterval = "30"
 	}
 	if settings.AuditLogsRetentionPeriodInDays == 0 {
 		settings.AuditLogsRetentionPeriodInDays = 7

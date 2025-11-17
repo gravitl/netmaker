@@ -5,12 +5,12 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/models"
 	"gorm.io/datatypes"
 )
 
 type Attribute string
 type Values string
-type Severity string
 
 const (
 	OS             Attribute = "os"
@@ -18,10 +18,6 @@ const (
 	AutoUpdate     Attribute = "auto_update"
 	ClientVersion  Attribute = "client_version"
 	ClientLocation Attribute = "client_location"
-
-	Low    Severity = "low"
-	Medium Severity = "medium"
-	High   Severity = "high"
 )
 
 var PostureCheckAttrs = []Attribute{
@@ -33,18 +29,18 @@ var PostureCheckAttrs = []Attribute{
 }
 
 type PostureCheck struct {
-	ID          string            `gorm:"primaryKey" json:"id"`
-	Name        string            `gorm:"name" json:"name"`
-	NetworkID   string            `gorm:"network_id" json:"network_id"`
-	Description string            `gorm:"description" json:"description"`
-	Attribute   Attribute         `gorm:"attribute" json:"attribute"`
-	Values      []string          `gorm:"values" json:"values"`
-	Severity    Severity          `gorm:"severity_level" json:"severity_level"`
-	Tags        datatypes.JSONMap `gorm:"tags" json:"tags"`
-	Status      bool              `gorm:"status" json:"status"`
-	CreatedBy   string            `gorm:"created_by" json:"created_by"`
-	CreatedAt   time.Time         `gorm:"created_at" json:"created_at"`
-	UpdatedAt   time.Time         `gorm:"updated_at" json:"updated_at"`
+	ID          string                      `gorm:"primaryKey" json:"id"`
+	Name        string                      `gorm:"name" json:"name"`
+	NetworkID   string                      `gorm:"network_id" json:"network_id"`
+	Description string                      `gorm:"description" json:"description"`
+	Attribute   Attribute                   `gorm:"attribute" json:"attribute"`
+	Values      datatypes.JSONSlice[string] `gorm:"values" json:"values"`
+	Severity    models.Severity             `gorm:"severity" json:"severity"`
+	Tags        datatypes.JSONMap           `gorm:"tags" json:"tags"`
+	Status      bool                        `gorm:"status" json:"status"`
+	CreatedBy   string                      `gorm:"created_by" json:"created_by"`
+	CreatedAt   time.Time                   `gorm:"created_at" json:"created_at"`
+	UpdatedAt   time.Time                   `gorm:"updated_at" json:"updated_at"`
 }
 
 func (p *PostureCheck) Get(ctx context.Context) error {

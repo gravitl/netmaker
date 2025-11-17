@@ -436,3 +436,29 @@ type IDPSyncTestRequest struct {
 	OktaOrgURL        string `json:"okta_org_url"`
 	OktaAPIToken      string `json:"okta_api_token"`
 }
+
+type PostureCheckDeviceInfo struct {
+	ClientLocation string
+	ClientVersion  string
+	OS             string
+	OSVersion      string
+	AutoUpdate     bool
+}
+
+type Violation struct {
+	CheckID   string
+	Name      string
+	Attribute string
+	Message   string
+	Severity  Severity
+}
+
+type Severity int
+
+const (
+	SeverityUnknown Severity = iota
+	SeverityLow
+	SeverityMedium
+	SeverityHigh
+	SeverityCritical
+)

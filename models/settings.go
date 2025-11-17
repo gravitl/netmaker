@@ -50,6 +50,7 @@ type ServerSettings struct {
 	AuditLogsRetentionPeriodInDays int    `json:"audit_logs_retention_period"`
 	OldAClsSupport                 bool   `json:"old_acl_support"`
 	PeerConnectionCheckInterval    string `json:"peer_connection_check_interval"`
+	PostureCheckInterval           string `json:"posture_check_interval"` // in minutes
 }
 
 type UserSettings struct {
