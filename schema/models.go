@@ -9,5 +9,6 @@ func ListModels() []interface{} {
 		&Event{},
 		&PendingHost{},
 		&Nameserver{},
+		&PostureCheck{},
 	}
 }
