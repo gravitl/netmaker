@@ -172,20 +172,20 @@ func evaluatePostureCheck(check *schema.PostureCheck, d models.PostureCheckDevic
 	// ------------------------
 	// 1. Geographic check
 	// ------------------------
-	case "client_location":
+	case schema.ClientLocation:
 		if !slices.Contains(check.Values, d.ClientLocation) {
-			return true, "client_location not allowed"
+			return true, fmt.Sprintf("client location '%s' not allowed", CountryNameFromISO(d.ClientLocation))
 		}
 
 	// ------------------------
 	// 2. Client version check
 	// Supports: exact match OR allowed list OR semver rules
 	// ------------------------
-	case "client_version":
+	case schema.ClientVersion:
 		for _, rule := range check.Values {
 			ok, err := matchVersionRule(d.ClientVersion, rule)
 			if err != nil || !ok {
-				return true, "client_version violation: " + rule
+				return true, fmt.Sprintf("client version '%s' violation", d.ClientVersion)
 			}
 		}
 
@@ -193,43 +193,43 @@ func evaluatePostureCheck(check *schema.PostureCheck, d models.PostureCheckDevic
 	// 3. OS check
 	// ("windows", "mac", "linux", etc.)
 	// ------------------------
-	case "os":
+	case schema.OS:
 		if !slices.Contains(check.Values, d.OS) {
-			return true, "os not allowed"
+			return true, fmt.Sprintf("client os '%s' not allowed", d.OS)
 		}
-	case "os_family":
+	case schema.OSFamily:
 		if !slices.Contains(check.Values, d.OSFamily) {
-			return true, fmt.Sprintf("os_family %q not allowed", d.OSFamily)
+			return true, fmt.Sprintf("os family '%s' not allowed", d.OSFamily)
 		}
 	// ------------------------
 	// 4. OS version check
 	// Supports operators: > >= < <= =
 	// ------------------------
-	case "os_version":
+	case schema.OSVersion:
 		for _, rule := range check.Values {
 			ok, err := matchVersionRule(d.OSVersion, rule)
 			if err != nil || !ok {
-				return true, "os_version violation: " + rule
+				return true, fmt.Sprintf("os version '%s' violation", d.OSVersion)
 			}
 		}
-	case "kernel_version":
+	case schema.KernelVersion:
 		for _, rule := range check.Values {
 			ok, err := matchVersionRule(d.KernelVersion, rule)
 			if err != nil || !ok {
-				return true, "kernel_version violation: " + rule
+				return true, fmt.Sprintf("kernel version '%s' violation", d.KernelVersion)
 			}
 		}
 	// ------------------------
 	// 5. Auto-update check
 	// Values: ["true"] or ["false"]
 	// ------------------------
-	case "auto_update":
+	case schema.AutoUpdate:
 		required := len(check.Values) > 0 && strings.ToLower(check.Values[0]) == "true"
 		if required && !d.AutoUpdate {
-			return true, "auto_update must be enabled"
+			return true, "auto update must be enabled"
 		}
 		if !required && d.AutoUpdate {
-			return true, "auto_update must be disabled"
+			return true, "auto update must be disabled"
 		}
 	}
 
@@ -375,4 +375,12 @@ func ValidatePostureCheck(pc *schema.PostureCheck) error {
 	}
 
 	return nil
+}
+
+func CountryNameFromISO(code string) string {
+	c := countries.ByName(code) // works with ISO2, ISO3, full name
+	if c == countries.Unknown {
+		return ""
+	}
+	return c.Info().Name
 }
