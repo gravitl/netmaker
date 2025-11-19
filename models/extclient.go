@@ -78,6 +78,8 @@ func (ext *ExtClient) ConvertToStaticNode() Node {
 		StaticNode:                        *ext,
 		IsUserNode:                        ext.RemoteAccessClientID != "" || ext.DeviceID != "",
 		Mutex:                             ext.Mutex,
+		CountryCode:                       ext.Country,
+		Location:                          ext.Location,
 		PostureChecksViolations:           ext.PostureChecksViolations,
 		PostureCheckVolationSeverityLevel: ext.PostureCheckVolationSeverityLevel,
 		LastEvaluatedAt:                   ext.LastEvaluatedAt,

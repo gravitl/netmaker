@@ -233,6 +233,8 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.PostureChecksViolations = nm.PostureChecksViolations
 	apiNode.PostureCheckVolationSeverityLevel = nm.PostureCheckVolationSeverityLevel
 	apiNode.LastEvaluatedAt = nm.LastEvaluatedAt
+	apiNode.Location = nm.Location
+	apiNode.Country = nm.CountryCode
 	return &apiNode
 }
 

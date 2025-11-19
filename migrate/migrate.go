@@ -427,7 +427,7 @@ func updateHosts() {
 			} else if host.EndpointIPv6 != nil {
 				host.Location, host.CountryCode = logic.GetHostLocInfo(host.EndpointIPv6.String(), os.Getenv("IP_INFO_TOKEN"))
 			}
-			if host.Location != "" {
+			if host.Location != "" && host.CountryCode != "" {
 				logic.UpsertHost(&host)
 			}
 		}

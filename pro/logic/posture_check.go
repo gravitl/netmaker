@@ -97,6 +97,42 @@ func runPostureChecks() error {
 
 	return nil
 }
+
+func CheckPostureViolations(d models.PostureCheckDeviceInfo, network models.NetworkID) []models.Violation {
+	var violations []models.Violation
+	highest := models.SeverityUnknown
+	pcLi, err := (&schema.PostureCheck{NetworkID: network.String()}).ListByNetwork(db.WithContext(context.TODO()))
+	if err != nil || len(pcLi) == 0 {
+		return []models.Violation{}
+	}
+	for _, c := range pcLi {
+		// skip disabled checks
+		if !c.Status {
+			continue
+		}
+
+		violated, reason := evaluatePostureCheck(&c, d)
+		if !violated {
+			continue
+		}
+
+		sev := c.Severity
+		if sev > highest {
+			highest = sev
+		}
+
+		v := models.Violation{
+			CheckID:   c.ID,
+			Name:      c.Name,
+			Attribute: string(c.Attribute),
+			Message:   reason,
+			Severity:  sev,
+		}
+		violations = append(violations, v)
+	}
+
+	return violations
+}
 func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureCheckDeviceInfo) ([]models.Violation, models.Severity) {
 	var violations []models.Violation
 	highest := models.SeverityUnknown

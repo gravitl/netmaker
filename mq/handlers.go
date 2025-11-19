@@ -296,7 +296,9 @@ func HandleHostCheckin(h, currentHost *models.Host) bool {
 		(len(h.NatType) > 0 && h.NatType != currentHost.NatType) ||
 		h.DefaultInterface != currentHost.DefaultInterface ||
 		(h.ListenPort != 0 && h.ListenPort != currentHost.ListenPort) ||
-		(h.WgPublicListenPort != 0 && h.WgPublicListenPort != currentHost.WgPublicListenPort) || (!h.EndpointIPv6.Equal(currentHost.EndpointIPv6))
+		(h.WgPublicListenPort != 0 && h.WgPublicListenPort != currentHost.WgPublicListenPort) ||
+		(!h.EndpointIPv6.Equal(currentHost.EndpointIPv6)) || (h.OSFamily != currentHost.OSFamily) ||
+		(h.OSVersion != currentHost.OSVersion) || (h.KernelVersion != currentHost.KernelVersion)
 	if ifaceDelta { // only save if something changes
 		if !h.EndpointIP.Equal(currentHost.EndpointIP) || !h.EndpointIPv6.Equal(currentHost.EndpointIPv6) || currentHost.Location == "" {
 			if h.EndpointIP != nil {
@@ -310,8 +312,14 @@ func HandleHostCheckin(h, currentHost *models.Host) bool {
 		currentHost.Interfaces = h.Interfaces
 		currentHost.DefaultInterface = h.DefaultInterface
 		currentHost.NatType = h.NatType
+		currentHost.OSFamily = h.OSFamily
+		currentHost.OSVersion = h.OSVersion
+		currentHost.KernelVersion = h.KernelVersion
 		if h.Location != "" {
 			currentHost.Location = h.Location
+		}
+		if h.CountryCode != "" {
+			currentHost.CountryCode = h.CountryCode
 		}
 		if h.ListenPort != 0 {
 			currentHost.ListenPort = h.ListenPort

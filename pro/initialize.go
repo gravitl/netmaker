@@ -173,6 +173,7 @@ func InitPro() {
 	logic.GetNameserversForNode = proLogic.GetNameserversForNode
 	logic.ValidateNameserverReq = proLogic.ValidateNameserverReq
 	logic.ValidateEgressReq = proLogic.ValidateEgressReq
+	logic.CheckPostureViolations = proLogic.CheckPostureViolations
 
 }
 

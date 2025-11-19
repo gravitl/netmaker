@@ -116,8 +116,9 @@ type SuccessfulLoginResponse struct {
 
 // ErrorResponse is struct for error
 type ErrorResponse struct {
-	Code    int
-	Message string
+	Code     int
+	Message  string
+	Response interface{}
 }
 
 // NodeAuth - struct for node auth
@@ -448,11 +449,11 @@ type PostureCheckDeviceInfo struct {
 }
 
 type Violation struct {
-	CheckID   string
-	Name      string
-	Attribute string
-	Message   string
-	Severity  Severity
+	CheckID   string   `json:"check_id"`
+	Name      string   `json:"name"`
+	Attribute string   `json:"attribute"`
+	Message   string   `json:"message"`
+	Severity  Severity `json:"severity"`
 }
 
 type Severity int

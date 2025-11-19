@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -356,6 +357,23 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			r,
 			logic.FormatError(fmt.Errorf("invalid enrollment key"), "badrequest"),
 		)
+		return
+	}
+	pcviolations := []models.Violation{}
+	for _, netI := range enrollmentKey.Networks {
+		violations := logic.CheckPostureViolations(models.PostureCheckDeviceInfo{
+			ClientLocation: newHost.Location,
+			ClientVersion:  newHost.Version,
+			OS:             newHost.OS,
+			OSFamily:       newHost.OSFamily,
+			OSVersion:      newHost.OSVersion,
+			KernelVersion:  newHost.KernelVersion,
+			AutoUpdate:     newHost.AutoUpdate,
+		}, models.NetworkID(netI))
+		pcviolations = append(pcviolations, violations...)
+	}
+	if len(pcviolations) > 0 {
+		logic.ReturnErrorResponseWithJson(w, r, pcviolations, logic.FormatError(errors.New("posture check violations"), logic.Internal))
 		return
 	}
 	if !hostExists {

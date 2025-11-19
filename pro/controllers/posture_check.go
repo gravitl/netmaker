@@ -24,6 +24,7 @@ func PostureCheckHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/posture_check", logic.SecurityCheck(true, http.HandlerFunc(updatePostureCheck))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/posture_check", logic.SecurityCheck(true, http.HandlerFunc(deletePostureCheck))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/posture_check/attrs", logic.SecurityCheck(true, http.HandlerFunc(listPostureChecksAttrs))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/posture_check/violations", logic.SecurityCheck(true, http.HandlerFunc(listPostureCheckViolatedNodes))).Methods(http.MethodGet)
 }
 
 // @Summary     List Posture Checks Available Attributes
@@ -122,6 +123,21 @@ func listPostureChecks(w http.ResponseWriter, r *http.Request) {
 	network := r.URL.Query().Get("network")
 	if network == "" {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), "badrequest"))
+		return
+	}
+	id := r.URL.Query().Get("id")
+	if id != "" {
+		pc := schema.PostureCheck{ID: id}
+		err := pc.Get(db.WithContext(r.Context()))
+		if err != nil {
+			logic.ReturnErrorResponse(
+				w,
+				r,
+				logic.FormatError(errors.New("error listing posture checks "+err.Error()), "internal"),
+			)
+			return
+		}
+		logic.ReturnSuccessResponseWithJson(w, r, pc, "fetched posture check")
 		return
 	}
 	pc := schema.PostureCheck{NetworkID: network}
@@ -268,4 +284,34 @@ func deletePostureCheck(w http.ResponseWriter, r *http.Request) {
 
 	go mq.PublishPeerUpdate(false)
 	logic.ReturnSuccessResponseWithJson(w, r, pc, "deleted posture check")
+}
+
+// @Summary     List Posture Check violated Nodes
+// @Router      /api/v1/posture_check/violations [get]
+// @Tags        Auth
+// @Accept      json
+// @Param       query network string
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     401 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func listPostureCheckViolatedNodes(w http.ResponseWriter, r *http.Request) {
+
+	network := r.URL.Query().Get("network")
+	if network == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), "badrequest"))
+		return
+	}
+	nodes, err := logic.GetNetworkNodes(network)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	violatedNodes := []models.Node{}
+	for _, node := range nodes {
+		if len(node.PostureChecksViolations) > 0 {
+			violatedNodes = append(violatedNodes, node)
+		}
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, violatedNodes, "fetched posture checks violated nodes")
 }

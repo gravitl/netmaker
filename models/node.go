@@ -129,6 +129,8 @@ type Node struct {
 	PostureChecksViolations           []Violation         `json:"posture_check_violations"`
 	PostureCheckVolationSeverityLevel Severity            `json:"posture_check_violation_severity_level"`
 	LastEvaluatedAt                   time.Time           `json:"last_evaluated_at"`
+	Location                          string              `json:"location"` // Format: "lat,lon"
+	CountryCode                       string              `json:"country_code"`
 }
 type EgressDetails struct {
 	EgressGatewayNatEnabled bool
