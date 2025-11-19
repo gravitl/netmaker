@@ -325,13 +325,39 @@ func ValidatePostureCheck(pc *schema.PostureCheck) error {
 	if err != nil {
 		return errors.New("invalid network")
 	}
-	if pc.Attribute != schema.AutoUpdate && pc.Attribute != schema.OS && pc.Attribute != schema.OSVersion &&
-		pc.Attribute != schema.ClientLocation &&
-		pc.Attribute != schema.ClientVersion {
+	allowedAttrvaluesMap, ok := schema.PostureCheckAttrValuesMap[pc.Attribute]
+	if !ok {
 		return errors.New("unkown attribute")
 	}
 	if len(pc.Values) == 0 {
 		return errors.New("attribute value cannot be empty")
+	}
+	for i, valueI := range pc.Values {
+		pc.Values[i] = strings.ToLower(valueI)
+	}
+	if pc.Attribute == schema.ClientLocation {
+		for _, loc := range pc.Values {
+			if countries.ByName(loc) == countries.Unknown {
+				return errors.New("invalid country code")
+			}
+		}
+	}
+	if pc.Attribute == schema.AutoUpdate || pc.Attribute == schema.OS ||
+		pc.Attribute == schema.OSFamily {
+		for _, valueI := range pc.Values {
+			if _, ok := allowedAttrvaluesMap[valueI]; !ok {
+				return errors.New("invalid attribute value")
+			}
+		}
+	}
+	if pc.Attribute == schema.ClientVersion || pc.Attribute == schema.OSVersion ||
+		pc.Attribute == schema.KernelVersion {
+		for i, valueI := range pc.Values {
+			if !logic.IsValidVersion(valueI) {
+				return errors.New("invalid attribute version value")
+			}
+			pc.Values[i] = logic.CleanVersion(valueI)
+		}
 	}
 	if len(pc.Tags) > 0 {
 		for tagID := range pc.Tags {
@@ -347,12 +373,6 @@ func ValidatePostureCheck(pc *schema.PostureCheck) error {
 		pc.Tags = make(datatypes.JSONMap)
 		pc.Tags["*"] = struct{}{}
 	}
-	if pc.Attribute == schema.ClientLocation {
-		for _, loc := range pc.Values {
-			if countries.ByName(loc) == countries.Unknown {
-				return errors.New("invalid country code")
-			}
-		}
-	}
+
 	return nil
 }

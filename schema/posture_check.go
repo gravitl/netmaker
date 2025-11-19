@@ -32,6 +32,54 @@ var PostureCheckAttrs = []Attribute{
 	AutoUpdate,
 }
 
+var PostureCheckAttrValuesMap = map[Attribute]map[string]struct{}{
+	ClientLocation: {
+		"any_valid_iso_country_codes": {},
+	},
+	ClientVersion: {
+		"any_valid_semantic_version": {},
+	},
+	OS: {
+		"linux":   {},
+		"darwin":  {},
+		"windows": {},
+		"ios":     {},
+		"android": {},
+	},
+	OSVersion: {
+		"any_valid_semantic_version": {},
+	},
+	OSFamily: {
+		"linux-debian": {},
+		"linux-redhat": {},
+		"linux-suse":   {},
+		"linux-arch":   {},
+		"linux-gentoo": {},
+		"linux-other":  {},
+		"darwin":       {},
+		"windows":      {},
+		"ios":          {},
+		"android":      {},
+	},
+	KernelVersion: {
+		"any_valid_semantic_version": {},
+	},
+	AutoUpdate: {
+		"true":  {},
+		"false": {},
+	},
+}
+
+var PostureCheckAttrValues = map[Attribute][]string{
+	ClientLocation: {"any_valid_iso_country_codes"},
+	ClientVersion:  {"any_valid_semantic_version"},
+	OS:             {"linux", "darwin", "windows", "ios", "android"},
+	OSVersion:      {"any_valid_semantic_version"},
+	OSFamily:       {"linux-debian", "linux-redhat", "linux-suse", "linux-arch", "linux-gentoo", "linux-other", "darwin", "windows", "ios", "android"},
+	KernelVersion:  {"any_valid_semantic_version"},
+	AutoUpdate:     {"true", "false"},
+}
+
 type PostureCheck struct {
 	ID          string                      `gorm:"primaryKey" json:"id"`
 	Name        string                      `gorm:"name" json:"name"`

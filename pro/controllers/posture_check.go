@@ -38,7 +38,7 @@ func PostureCheckHandlers(r *mux.Router) {
 // @Failure     500 {object} models.ErrorResponse
 func listPostureChecksAttrs(w http.ResponseWriter, r *http.Request) {
 
-	logic.ReturnSuccessResponseWithJson(w, r, schema.PostureCheckAttrs, "fetched posture checks")
+	logic.ReturnSuccessResponseWithJson(w, r, schema.PostureCheckAttrValues, "fetched posture checks")
 }
 
 // @Summary     Create  Posture Check

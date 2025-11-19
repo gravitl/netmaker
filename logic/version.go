@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/hashicorp/go-version"
 )
 
@@ -62,4 +63,16 @@ func CleanVersion(raw string) string {
 	}
 
 	return v
+}
+
+// IsValidVersion returns true if the version string can be parsed as semantic version.
+func IsValidVersion(raw string) bool {
+	cleaned := CleanVersion(raw)
+
+	if cleaned == "" {
+		return false
+	}
+
+	_, err := semver.NewVersion(cleaned)
+	return err == nil
 }
