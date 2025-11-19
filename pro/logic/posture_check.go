@@ -25,11 +25,11 @@ func AddPostureCheckHook() {
 		interval = time.Minute * time.Duration(i)
 	}
 	logic.HookManagerCh <- models.HookDetails{
-		Hook:     runPostureChecks,
+		Hook:     RunPostureChecks,
 		Interval: interval,
 	}
 }
-func runPostureChecks() error {
+func RunPostureChecks() error {
 	nets, err := logic.GetNetworks()
 	if err != nil {
 		return err
