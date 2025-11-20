@@ -456,6 +456,12 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 	if update.DeviceID != "" && old.DeviceID == "" {
 		new.DeviceID = update.DeviceID
 	}
+
+	new.OS = update.OS
+	new.OSFamily = update.OSFamily
+	new.OSVersion = update.OSVersion
+	new.KernelVersion = update.KernelVersion
+	new.ClientVersion = update.ClientVersion
 	return new
 }
 

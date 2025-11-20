@@ -749,7 +749,6 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	if err == nil { // check if parent network default ACL is enabled (yes) or not (no)
 		extclient.Enabled = parentNetwork.DefaultACL == "yes"
 	}
-	extclient.OS = customExtClient.Os
 	extclient.DeviceID = customExtClient.DeviceID
 	extclient.DeviceName = customExtClient.DeviceName
 	if customExtClient.IsAlreadyConnectedToInetGw {

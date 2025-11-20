@@ -54,11 +54,15 @@ type CustomExtClient struct {
 	PostUp                     string              `json:"postup" bson:"postup" validate:"max=1024"`
 	PostDown                   string              `json:"postdown" bson:"postdown" validate:"max=1024"`
 	Tags                       map[TagID]struct{}  `json:"tags"`
-	Os                         string              `json:"os"`
 	DeviceID                   string              `json:"device_id"`
 	DeviceName                 string              `json:"device_name"`
 	IsAlreadyConnectedToInetGw bool                `json:"is_already_connected_to_inet_gw"`
 	PublicEndpoint             string              `json:"public_endpoint"`
+	OS                         string              `json:"os"`
+	OSFamily                   string              `json:"os_family" yaml:"os_family"`
+	OSVersion                  string              `json:"os_version"                      yaml:"os_version"`
+	KernelVersion              string              `json:"kernel_version" yaml:"kernel_version"`
+	ClientVersion              string              `json:"client_version"`
 	Country                    string              `json:"country"`
 	Location                   string              `json:"location"` //format: lat,long
 }
