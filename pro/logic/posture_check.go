@@ -39,6 +39,7 @@ func RunPostureChecks() error {
 		return err
 	}
 	nodes = logic.AddStaticNodestoList(nodes)
+	deviceInfo := models.PostureCheckDeviceInfo{}
 	for _, netI := range nets {
 		networkNodes := logic.GetNetworkNodesMemory(nodes, netI.NetID)
 		if len(networkNodes) == 0 {
@@ -50,7 +51,6 @@ func RunPostureChecks() error {
 		}
 
 		for _, nodeI := range networkNodes {
-			deviceInfo := models.PostureCheckDeviceInfo{}
 			if !nodeI.IsStatic {
 				h, err := logic.GetHost(nodeI.HostID.String())
 				if err != nil {
