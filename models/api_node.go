@@ -90,8 +90,9 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.RelayedBy = a.RelayedBy
 	convertedNode.RelayedNodes = a.RelayedNodes
 	convertedNode.PendingDelete = a.PendingDelete
-	convertedNode.FailedOverBy = currentNode.FailedOverBy
-	convertedNode.FailOverPeers = currentNode.FailOverPeers
+	convertedNode.FailedOverBy = uuid.Nil
+	convertedNode.FailOverPeers = make(map[string]struct{})
+	convertedNode.IsFailOver = false
 	//convertedNode.IsIngressGateway = a.IsIngressGateway
 	convertedNode.IngressGatewayRange = currentNode.IngressGatewayRange
 	convertedNode.IngressGatewayRange6 = currentNode.IngressGatewayRange6
@@ -217,7 +218,7 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.IsInternetGateway = nm.IsInternetGateway
 	apiNode.InternetGwID = nm.InternetGwID
 	apiNode.InetNodeReq = nm.InetNodeReq
-	apiNode.IsFailOver = nm.IsFailOver
+	apiNode.IsFailOver = false
 	apiNode.FailOverPeers = nm.FailOverPeers
 	apiNode.FailedOverBy = nm.FailedOverBy
 	apiNode.Metadata = nm.Metadata
