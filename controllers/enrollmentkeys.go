@@ -362,7 +362,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	pcviolations := []models.Violation{}
 	for _, netI := range enrollmentKey.Networks {
 		violations := logic.CheckPostureViolations(models.PostureCheckDeviceInfo{
-			ClientLocation: newHost.Location,
+			ClientLocation: newHost.CountryCode,
 			ClientVersion:  newHost.Version,
 			OS:             newHost.OS,
 			OSFamily:       newHost.OSFamily,

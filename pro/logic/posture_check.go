@@ -173,7 +173,7 @@ func evaluatePostureCheck(check *schema.PostureCheck, d models.PostureCheckDevic
 	// 1. Geographic check
 	// ------------------------
 	case schema.ClientLocation:
-		if !slices.Contains(check.Values, d.ClientLocation) {
+		if !slices.Contains(check.Values, strings.ToUpper(d.ClientLocation)) {
 			return true, fmt.Sprintf("client location '%s' not allowed", CountryNameFromISO(d.ClientLocation))
 		}
 
@@ -336,10 +336,11 @@ func ValidatePostureCheck(pc *schema.PostureCheck) error {
 		pc.Values[i] = strings.ToLower(valueI)
 	}
 	if pc.Attribute == schema.ClientLocation {
-		for _, loc := range pc.Values {
+		for i, loc := range pc.Values {
 			if countries.ByName(loc) == countries.Unknown {
 				return errors.New("invalid country code")
 			}
+			pc.Values[i] = strings.ToUpper(loc)
 		}
 	}
 	if pc.Attribute == schema.AutoUpdate || pc.Attribute == schema.OS ||

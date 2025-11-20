@@ -451,7 +451,7 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 		new.Location = update.Location
 	}
 	if update.Country != "" && update.Country != old.Country {
-		new.Country = update.Country
+		new.Country = strings.ToUpper(update.Country)
 	}
 	if update.DeviceID != "" && old.DeviceID == "" {
 		new.DeviceID = update.DeviceID
