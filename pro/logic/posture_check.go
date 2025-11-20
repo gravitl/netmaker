@@ -66,6 +66,9 @@ func RunPostureChecks() error {
 					AutoUpdate:     h.AutoUpdate,
 				}
 			} else {
+				if nodeI.StaticNode.DeviceID == "" {
+					continue
+				}
 				deviceInfo = models.PostureCheckDeviceInfo{
 					ClientLocation: nodeI.StaticNode.Country,
 					ClientVersion:  nodeI.StaticNode.ClientVersion,
