@@ -38,12 +38,12 @@ func RunPostureChecks() error {
 	if err != nil {
 		return err
 	}
-	nodes = logic.AddStaticNodestoList(nodes)
 	for _, netI := range nets {
 		networkNodes := logic.GetNetworkNodesMemory(nodes, netI.NetID)
 		if len(networkNodes) == 0 {
 			continue
 		}
+		networkNodes = logic.AddStaticNodestoList(networkNodes)
 		pcLi, err := (&schema.PostureCheck{NetworkID: netI.NetID}).ListByNetwork(db.WithContext(context.TODO()))
 		if err != nil || len(pcLi) == 0 {
 			continue

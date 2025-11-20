@@ -301,19 +301,38 @@ func listPostureCheckViolatedNodes(w http.ResponseWriter, r *http.Request) {
 
 	network := r.URL.Query().Get("network")
 	if network == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), logic.BadReq))
 		return
 	}
-	nodes, err := logic.GetNetworkNodes(network)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
+	listViolatedusers := r.URL.Query().Get("users") == "true"
 	violatedNodes := []models.Node{}
-	for _, node := range nodes {
-		if len(node.PostureChecksViolations) > 0 {
-			violatedNodes = append(violatedNodes, node)
+	if listViolatedusers {
+		extclients, err := logic.GetNetworkExtClients(network)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+			return
+		}
+		for _, extclient := range extclients {
+			if extclient.DeviceID != "" && extclient.Enabled {
+				if len(extclient.PostureChecksViolations) > 0 {
+					violatedNodes = append(violatedNodes, extclient.ConvertToStaticNode())
+				}
+			}
+		}
+	} else {
+		nodes, err := logic.GetNetworkNodes(network)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+			return
+		}
+
+		for _, node := range nodes {
+			if len(node.PostureChecksViolations) > 0 {
+				violatedNodes = append(violatedNodes, node)
+			}
 		}
 	}
-	logic.ReturnSuccessResponseWithJson(w, r, violatedNodes, "fetched posture checks violated nodes")
+	apiNodes := logic.GetAllNodesAPI(violatedNodes)
+	logic.SortApiNodes(apiNodes[:])
+	logic.ReturnSuccessResponseWithJson(w, r, apiNodes, "fetched posture checks violated nodes")
 }
