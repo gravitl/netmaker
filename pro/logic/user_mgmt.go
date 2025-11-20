@@ -712,7 +712,21 @@ func DeleteAndCleanUpGroup(group *models.UserGroup) error {
 
 	go func() {
 		var replacePeers bool
-		for networkID := range group.NetworkRoles {
+		var networkIDs []models.NetworkID
+
+		_, ok := group.NetworkRoles[models.AllNetworks]
+		if ok {
+			networks, _ := logic.GetNetworks()
+			for _, network := range networks {
+				networkIDs = append(networkIDs, models.NetworkID(network.NetID))
+			}
+		} else {
+			for networkID := range group.NetworkRoles {
+				networkIDs = append(networkIDs, networkID)
+			}
+		}
+
+		for _, networkID := range networkIDs {
 			acls, err := logic.ListAclsByNetwork(networkID)
 			if err != nil {
 				continue
@@ -1492,7 +1506,6 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 					Value: networkUserGroupID.String(),
 				},
 			},
-
 			Dst: []models.AclPolicyTag{
 				{
 					ID:    models.NodeTagID,

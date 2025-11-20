@@ -66,7 +66,7 @@ func GetCurrentServerUsage() (limits models.Usage) {
 			limits.InternetGateways++
 			netUsage.InternetGateways++
 		}
-		if node.IsFailOver {
+		if node.IsAutoRelay {
 			limits.FailOvers++
 			netUsage.FailOvers++
 		}

@@ -683,20 +683,38 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			logger.Log(1, "added new node", newNode.ID.String(), "to host", currHost.Name)
-			if err = mq.HostUpdate(&models.HostUpdate{
-				Action: models.JoinHostToNetwork,
-				Host:   *currHost,
-				Node:   *newNode,
-			}); err != nil {
-				logger.Log(
-					0,
-					r.Header.Get("user"),
-					"failed to add host to network:",
-					currHost.ID.String(),
-					network.NetID,
-					err.Error(),
-				)
+			if len(currHost.Nodes) == 1 {
+				if err = mq.HostUpdate(&models.HostUpdate{
+					Action: models.RequestPull,
+					Host:   *currHost,
+					Node:   *newNode,
+				}); err != nil {
+					logger.Log(
+						0,
+						r.Header.Get("user"),
+						"failed to add host to network:",
+						currHost.ID.String(),
+						network.NetID,
+						err.Error(),
+					)
+				}
+			} else {
+				if err = mq.HostUpdate(&models.HostUpdate{
+					Action: models.JoinHostToNetwork,
+					Host:   *currHost,
+					Node:   *newNode,
+				}); err != nil {
+					logger.Log(
+						0,
+						r.Header.Get("user"),
+						"failed to add host to network:",
+						currHost.ID.String(),
+						network.NetID,
+						err.Error(),
+					)
+				}
 			}
+
 			// make  host failover
 			logic.CreateFailOver(*newNode)
 			// make host remote access gateway
