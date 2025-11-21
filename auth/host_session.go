@@ -242,9 +242,10 @@ func SessionHandler(conn *websocket.Conn) {
 // CheckNetRegAndHostUpdate - run through networks and send a host update
 func CheckNetRegAndHostUpdate(key models.EnrollmentKey, h *models.Host, username string) {
 	// publish host update through MQ
+	featureFlags := logic.GetFeatureFlags()
 	for _, netID := range key.Networks {
 		if network, err := logic.GetNetwork(netID); err == nil {
-			if network.AutoJoin == "false" {
+			if featureFlags.EnableDeviceApproval && network.AutoJoin == "false" {
 				if logic.DoesHostExistinTheNetworkAlready(h, models.NetworkID(netID)) {
 					continue
 				}
