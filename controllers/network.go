@@ -656,6 +656,14 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	if network.AutoRemove == "true" {
+		if network.AutoRemoveThreshold == 0 {
+			network.AutoRemoveThreshold = 60
+		}
+	}
+	if network.AutoRemoveTags == nil {
+		network.AutoRemoveTags = []string{}
+	}
 
 	network, err = logic.CreateNetwork(network)
 	if err != nil {

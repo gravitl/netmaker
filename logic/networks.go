@@ -656,7 +656,9 @@ func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) e
 	} else {
 		currentNetwork.AutoJoin = "true"
 	}
-
+	currentNetwork.AutoRemove = newNetwork.AutoRemove
+	currentNetwork.AutoRemoveThreshold = newNetwork.AutoRemoveThreshold
+	currentNetwork.AutoRemoveTags = newNetwork.AutoRemoveTags
 	currentNetwork.DefaultACL = newNetwork.DefaultACL
 	currentNetwork.NameServers = newNetwork.NameServers
 	data, err := json.Marshal(currentNetwork)

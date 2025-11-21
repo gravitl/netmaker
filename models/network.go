@@ -26,6 +26,9 @@ type Network struct {
 	DefaultACL          string   `json:"defaultacl" bson:"defaultacl" yaml:"defaultacl" validate:"checkyesorno"`
 	NameServers         []string `json:"dns_nameservers"`
 	AutoJoin            string   `json:"auto_join"`
+	AutoRemove          string   `json:"auto_remove"`
+	AutoRemoveTags      []string `json:"auto_remove_tags"`
+	AutoRemoveThreshold int      `json:"auto_remove_threshold_mins"`
 }
 
 // SaveData - sensitive fields of a network that should be kept the same
