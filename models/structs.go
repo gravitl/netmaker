@@ -446,6 +446,7 @@ type PostureCheckDeviceInfo struct {
 	OSVersion      string
 	KernelVersion  string
 	AutoUpdate     bool
+	Tags           map[TagID]struct{}
 }
 
 type Violation struct {

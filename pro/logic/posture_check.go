@@ -64,6 +64,7 @@ func RunPostureChecks() error {
 					OSFamily:       h.OSFamily,
 					KernelVersion:  h.KernelVersion,
 					AutoUpdate:     h.AutoUpdate,
+					Tags:           nodeI.Tags,
 				}
 			} else {
 				if nodeI.StaticNode.DeviceID == "" {
@@ -76,6 +77,7 @@ func RunPostureChecks() error {
 					OSVersion:      nodeI.StaticNode.OSVersion,
 					OSFamily:       nodeI.StaticNode.OSFamily,
 					KernelVersion:  nodeI.StaticNode.KernelVersion,
+					Tags:           nodeI.StaticNode.Tags,
 				}
 			}
 			postureChecksViolations, postureCheckVolationSeverityLevel := GetPostureCheckViolations(pcLi, deviceInfo)
@@ -145,7 +147,19 @@ func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureChe
 		if !c.Status {
 			continue
 		}
-
+		if _, ok := c.Tags["*"]; !ok {
+			// check tags exist
+			exists := false
+			for tagID := range c.Tags {
+				if _, ok := d.Tags[models.TagID(tagID)]; ok {
+					exists = true
+					break
+				}
+			}
+			if !exists {
+				continue
+			}
+		}
 		violated, reason := evaluatePostureCheck(&c, d)
 		if !violated {
 			continue
