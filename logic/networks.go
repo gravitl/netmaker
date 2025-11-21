@@ -777,6 +777,46 @@ func SortNetworks(unsortedNetworks []models.Network) {
 	})
 }
 
+var NetworkHook models.HookFunc = func(params ...interface{}) error {
+	if len(params) == 0 {
+		return errors.New("required network ID")
+	}
+
+	networkID, ok := params[0].(models.NetworkID)
+	if !ok {
+		return errors.New("bad param")
+	}
+	network, err := GetNetwork(string(networkID))
+	if err != nil {
+		return err
+	}
+	if network.AutoRemove == "false" || network.AutoRemoveThreshold == 0 {
+		return errors.New("skip auto removal of nodes")
+	}
+
+	nodes, _ := GetAllNodes()
+	for _, node := range nodes {
+		if !node.Connected {
+			continue
+		}
+		if time.Since(node.LastCheckIn) > time.Duration(network.AutoRemoveThreshold)*time.Minute {
+			if err := DeleteNode(&node, true); err != nil {
+				continue
+			}
+			node.PendingDelete = true
+			node.Action = models.NODE_DELETE
+			DeleteNodesCh <- &node
+			host, err := GetHost(node.HostID.String())
+			if err == nil && len(host.Nodes) == 0 {
+				RemoveHostByID(host.ID.String())
+			}
+
+		}
+	}
+
+	return nil
+}
+
 // == Private ==
 
 var addressLock = &sync.Mutex{}

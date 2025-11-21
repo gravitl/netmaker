@@ -343,10 +343,29 @@ type JoinData struct {
 	Key  string `json:"key" yaml:"key"`
 }
 
+// HookFunc - function type for hooks that can accept optional parameters
+type HookFunc func(...interface{}) error
+
 // HookDetails - struct to hold hook info
 type HookDetails struct {
-	Hook     func() error
+	ID       string        // Unique identifier for the hook (optional, auto-generated if empty)
+	Hook     HookFunc      // Hook function that accepts optional variadic parameters
+	Params   []interface{} // Optional parameters to pass to the hook function
 	Interval time.Duration
+}
+
+// HookCommandType - type of command for hook management
+type HookCommandType int
+
+const (
+	HookCommandReset HookCommandType = iota
+	HookCommandStop
+)
+
+// HookCommand - command to control a hook
+type HookCommand struct {
+	ID      string // Hook ID to target
+	Command HookCommandType
 }
 
 // LicenseLimits - struct license limits
