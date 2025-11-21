@@ -292,7 +292,7 @@ func PushSyncDNS(dnsEntries []models.DNSEntry) error {
 	if mqclient == nil || !mqclient.IsConnectionOpen() {
 		return errors.New("cannot publish ... mqclient not connected")
 	}
-	if token := mqclient.Publish(fmt.Sprintf("host/dns/sync/%s", dnsEntries[0].Network), 0, true, data); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
+	if token := mqclient.Publish(fmt.Sprintf("host/dns/sync/%s/%s", dnsEntries[0].Network, servercfg.GetServer()), 0, true, data); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
 		var err error
 		if token.Error() == nil {
 			err = errors.New("connection timeout")
