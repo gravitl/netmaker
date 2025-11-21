@@ -597,6 +597,10 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	featureFlags := logic.GetFeatureFlags()
+	if !featureFlags.EnableDeviceApproval {
+		network.AutoJoin = "true"
+	}
 
 	if len(network.NetID) > 32 {
 		err := errors.New("network name shouldn't exceed 32 characters")

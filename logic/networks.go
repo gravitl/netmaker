@@ -650,7 +650,13 @@ func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) e
 	if newNetwork.NetID != currentNetwork.NetID {
 		return errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
 	}
-	currentNetwork.AutoJoin = newNetwork.AutoJoin
+	featureFlags := GetFeatureFlags()
+	if featureFlags.EnableDeviceApproval {
+		currentNetwork.AutoJoin = newNetwork.AutoJoin
+	} else {
+		currentNetwork.AutoJoin = "true"
+	}
+
 	currentNetwork.DefaultACL = newNetwork.DefaultACL
 	currentNetwork.NameServers = newNetwork.NameServers
 	data, err := json.Marshal(currentNetwork)
