@@ -602,7 +602,6 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	if !featureFlags.EnableDeviceApproval {
 		network.AutoJoin = "true"
 	}
-
 	if len(network.NetID) > 32 {
 		err := errors.New("network name shouldn't exceed 32 characters")
 		logger.Log(0, r.Header.Get("user"), "failed to create network: ",
@@ -665,7 +664,6 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	if network.AutoRemoveTags == nil {
 		network.AutoRemoveTags = []string{}
 	}
-
 	network, err = logic.CreateNetwork(network)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to create network: ",
@@ -806,6 +804,14 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+
+	if payload.AutoRemove == "false" {
+		logic.HookCommandCh <- models.HookCommand{
+			ID:      fmt.Sprintf("%s-hook", netOld.NetID),
+			Command: models.HookCommandStop,
+		}
+	}
+
 	go mq.PublishPeerUpdate(false)
 	slog.Info("updated network", "network", payload.NetID, "user", r.Header.Get("user"))
 	w.WriteHeader(http.StatusOK)
