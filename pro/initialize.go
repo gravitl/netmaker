@@ -37,6 +37,7 @@ func InitPro() {
 		proControllers.TagHandlers,
 		proControllers.NetworkHandlers,
 		proControllers.AutoRelayHandlers,
+		proControllers.PostureCheckHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
@@ -99,8 +100,8 @@ func InitPro() {
 		auth.ResetIDPSyncHook()
 		email.Init()
 		go proLogic.EventWatcher()
-
 		logic.GetMetricsMonitor().Start()
+		proLogic.AddPostureCheckHook()
 	})
 	logic.ResetFailOver = proLogic.ResetFailOver
 	logic.ResetFailedOverPeer = proLogic.ResetFailedOverPeer
@@ -172,6 +173,7 @@ func InitPro() {
 	logic.GetNameserversForNode = proLogic.GetNameserversForNode
 	logic.ValidateNameserverReq = proLogic.ValidateNameserverReq
 	logic.ValidateEgressReq = proLogic.ValidateEgressReq
+	logic.CheckPostureViolations = proLogic.CheckPostureViolations
 
 }
 

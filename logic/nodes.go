@@ -619,7 +619,15 @@ func FindRelay(node *models.Node) *models.Node {
 func GetAllNodesAPI(nodes []models.Node) []models.ApiNode {
 	apiNodes := []models.ApiNode{}
 	for i := range nodes {
-		newApiNode := nodes[i].ConvertToAPINode()
+		node := nodes[i]
+		if !node.IsStatic {
+			h, err := GetHost(node.HostID.String())
+			if err == nil {
+				node.Location = h.Location
+				node.CountryCode = h.CountryCode
+			}
+		}
+		newApiNode := node.ConvertToAPINode()
 		apiNodes = append(apiNodes, *newApiNode)
 	}
 	return apiNodes[:]
