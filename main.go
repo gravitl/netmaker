@@ -135,7 +135,6 @@ func initialize() { // Client Mode Prereq Check
 	if err != nil {
 		logger.FatalLog("error setting defaults: ", err.Error())
 	}
-
 	if servercfg.IsDNSMode() {
 		err := functions.SetDNSDir()
 		if err != nil {
@@ -179,6 +178,7 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 
 	wg.Add(1)
 	go logic.StartHookManager(ctx, wg)
+	logic.InitNetworkHooks()
 }
 
 // Should we be using a context vice a waitgroup????????????

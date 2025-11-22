@@ -639,6 +639,9 @@ func UpsertNetwork(network models.Network) error {
 	if err != nil {
 		return err
 	}
+	if servercfg.CacheEnabled() {
+		storeNetworkInCache(network.NetID, network)
+	}
 	return nil
 }
 
@@ -793,8 +796,8 @@ var NetworkHook models.HookFunc = func(params ...interface{}) error {
 	if network.AutoRemove == "false" || network.AutoRemoveThreshold == 0 {
 		return errors.New("skip auto removal of nodes")
 	}
-
-	nodes, _ := GetAllNodes()
+	fmt.Println("====> RUNNING NET HOOK: ", network.NetID)
+	nodes, _ := GetNetworkNodes(network.NetID)
 	for _, node := range nodes {
 		if !node.Connected {
 			continue
@@ -815,6 +818,20 @@ var NetworkHook models.HookFunc = func(params ...interface{}) error {
 	}
 
 	return nil
+}
+
+func InitNetworkHooks() {
+	networks, _ := GetNetworks()
+	for _, network := range networks {
+		if network.AutoRemove == "true" {
+			HookManagerCh <- models.HookDetails{
+				ID:       fmt.Sprintf("%s-hook", network.NetID),
+				Hook:     NetworkHook,
+				Params:   []interface{}{models.NetworkID(network.NetID)},
+				Interval: time.Duration(network.AutoRemoveThreshold) * time.Minute,
+			}
+		}
+	}
 }
 
 // == Private ==
