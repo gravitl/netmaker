@@ -639,6 +639,9 @@ func UpsertNetwork(network models.Network) error {
 	if err != nil {
 		return err
 	}
+	if servercfg.CacheEnabled() {
+		storeNetworkInCache(network.NetID, network)
+	}
 	return nil
 }
 
