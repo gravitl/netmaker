@@ -301,6 +301,14 @@ func reInit(curr, new models.ServerSettings, force bool) {
 			}
 		}
 	}
+	if new.CleanUpInterval != curr.CleanUpInterval {
+		logic.HookCommandCh <- models.HookCommand{
+			ID:      "network-hook",
+			Command: models.HookCommandStop,
+		}
+		logic.InitNetworkHooks()
+	}
+
 	go mq.PublishPeerUpdate(false)
 }
 

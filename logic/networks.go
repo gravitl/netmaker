@@ -781,56 +781,46 @@ func SortNetworks(unsortedNetworks []models.Network) {
 }
 
 var NetworkHook models.HookFunc = func(params ...interface{}) error {
-	if len(params) == 0 {
-		return errors.New("required network ID")
-	}
 
-	networkID, ok := params[0].(models.NetworkID)
-	if !ok {
-		return errors.New("bad param")
-	}
-	network, err := GetNetwork(string(networkID))
+	networks, err := GetNetworks()
 	if err != nil {
 		return err
 	}
-	if network.AutoRemove == "false" || network.AutoRemoveThreshold == 0 {
-		return errors.New("skip auto removal of nodes")
+	allNodes, err := GetAllNodes()
+	if err != nil {
+		return err
 	}
-	fmt.Println("====> RUNNING NET HOOK: ", network.NetID)
-	nodes, _ := GetNetworkNodes(network.NetID)
-	for _, node := range nodes {
-		if !node.Connected {
-			continue
+	for _, network := range networks {
+		if network.AutoRemove == "false" || network.AutoRemoveThreshold == 0 {
+			return errors.New("skip auto removal of nodes")
 		}
-		if time.Since(node.LastCheckIn) > time.Duration(network.AutoRemoveThreshold)*time.Minute {
-			if err := DeleteNode(&node, true); err != nil {
+		nodes := GetNetworkNodesMemory(allNodes, network.NetID)
+		for _, node := range nodes {
+			if !node.Connected {
 				continue
 			}
-			node.PendingDelete = true
-			node.Action = models.NODE_DELETE
-			DeleteNodesCh <- &node
-			host, err := GetHost(node.HostID.String())
-			if err == nil && len(host.Nodes) == 0 {
-				RemoveHostByID(host.ID.String())
+			if time.Since(node.LastCheckIn) > time.Duration(network.AutoRemoveThreshold)*time.Minute {
+				if err := DeleteNode(&node, true); err != nil {
+					continue
+				}
+				node.PendingDelete = true
+				node.Action = models.NODE_DELETE
+				DeleteNodesCh <- &node
+				host, err := GetHost(node.HostID.String())
+				if err == nil && len(host.Nodes) == 0 {
+					RemoveHostByID(host.ID.String())
+				}
 			}
-
 		}
 	}
-
 	return nil
 }
 
 func InitNetworkHooks() {
-	networks, _ := GetNetworks()
-	for _, network := range networks {
-		if network.AutoRemove == "true" {
-			HookManagerCh <- models.HookDetails{
-				ID:       fmt.Sprintf("%s-hook", network.NetID),
-				Hook:     NetworkHook,
-				Params:   []interface{}{models.NetworkID(network.NetID)},
-				Interval: time.Duration(network.AutoRemoveThreshold) * time.Minute,
-			}
-		}
+	HookManagerCh <- models.HookDetails{
+		ID:       "network-hook",
+		Hook:     NetworkHook,
+		Interval: time.Duration(GetServerSettings().CleanUpInterval) * time.Minute,
 	}
 }
 

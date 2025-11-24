@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -739,14 +738,6 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		if err = mq.PublishPeerUpdate(false); err != nil {
 			logger.Log(1, "failed to publish peer update for default hosts after network is added")
 		}
-		if network.AutoRemove == "true" {
-			logic.HookManagerCh <- models.HookDetails{
-				ID:       fmt.Sprintf("%s-hook", network.NetID),
-				Hook:     logic.NetworkHook,
-				Params:   []interface{}{models.NetworkID(network.NetID)},
-				Interval: time.Duration(network.AutoRemoveThreshold) * time.Minute,
-			}
-		}
 	}()
 	logic.LogEvent(&models.Event{
 		Action: models.Create,
@@ -804,14 +795,6 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
-	if payload.AutoRemove == "false" {
-		logic.HookCommandCh <- models.HookCommand{
-			ID:      fmt.Sprintf("%s-hook", netOld.NetID),
-			Command: models.HookCommandStop,
-		}
-	}
-
 	go mq.PublishPeerUpdate(false)
 	slog.Info("updated network", "network", payload.NetID, "user", r.Header.Get("user"))
 	w.WriteHeader(http.StatusOK)
