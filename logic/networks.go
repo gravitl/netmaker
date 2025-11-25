@@ -799,6 +799,20 @@ var NetworkHook models.HookFunc = func(params ...interface{}) error {
 			if !node.Connected {
 				continue
 			}
+			exists := false
+			for _, tagI := range network.AutoRemoveTags {
+				if tagI == "*" {
+					exists = true
+					break
+				}
+				if _, ok := node.Tags[models.TagID(tagI)]; ok {
+					exists = true
+					break
+				}
+			}
+			if !exists {
+				continue
+			}
 			if time.Since(node.LastCheckIn) > time.Duration(network.AutoRemoveThreshold)*time.Minute {
 				if err := DeleteNode(&node, true); err != nil {
 					continue
