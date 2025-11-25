@@ -29,6 +29,8 @@ type hookInfo struct {
 	cancelFunc context.CancelFunc
 	resetCh    chan struct{}
 	interval   time.Duration
+	hook       models.HookFunc
+	params     []interface{}
 }
 
 // runningHooks - map of hook ID to hook info
@@ -76,6 +78,16 @@ func StopHook(hookID string) {
 	HookCommandCh <- models.HookCommand{
 		ID:      hookID,
 		Command: models.HookCommandStop,
+	}
+}
+
+// RestartHook - restarts a hook with the given ID (stops and starts again with same configuration)
+// If newInterval is 0, uses the existing interval. Otherwise, uses the new interval.
+func RestartHook(hookID string, newInterval time.Duration) {
+	HookCommandCh <- models.HookCommand{
+		ID:       hookID,
+		Command:  models.HookCommandRestart,
+		Interval: newInterval,
 	}
 }
 
@@ -128,6 +140,8 @@ func StartHookManager(ctx context.Context, wg *sync.WaitGroup) {
 				cancelFunc: cancelFunc,
 				resetCh:    resetCh,
 				interval:   newhook.Interval,
+				hook:       newhook.Hook,
+				params:     newhook.Params,
 			}
 			runningHooks[hookID] = info
 			hooksMutex.Unlock()
@@ -160,6 +174,40 @@ func StartHookManager(ctx context.Context, wg *sync.WaitGroup) {
 				delete(runningHooks, cmd.ID)
 				hooksMutex.Unlock()
 				slog.Info("hook stopped", "hook_id", cmd.ID)
+			case models.HookCommandRestart:
+				// Restart the hook: stop and start again with same configuration
+				hookID := cmd.ID
+				hook := info.hook
+				params := info.params
+				interval := info.interval
+
+				// Use new interval if provided, otherwise keep existing
+				if cmd.Interval > 0 {
+					interval = cmd.Interval
+				}
+
+				// Stop the existing hook
+				info.cancelFunc()
+				hooksMutex.Lock()
+				delete(runningHooks, hookID)
+
+				// Create new context and restart
+				hookCtx, cancelFunc := context.WithCancel(ctx)
+				resetCh := make(chan struct{}, 1)
+
+				newInfo := &hookInfo{
+					cancelFunc: cancelFunc,
+					resetCh:    resetCh,
+					interval:   interval,
+					hook:       hook,
+					params:     params,
+				}
+				runningHooks[hookID] = newInfo
+				hooksMutex.Unlock()
+
+				wg.Add(1)
+				go addHookWithInterval(hookCtx, wg, hookID, hook, params, interval, resetCh)
+				slog.Info("hook restarted", "hook_id", hookID, "interval", interval)
 			}
 		}
 	}

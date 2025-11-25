@@ -781,7 +781,6 @@ func SortNetworks(unsortedNetworks []models.Network) {
 }
 
 var NetworkHook models.HookFunc = func(params ...interface{}) error {
-
 	networks, err := GetNetworks()
 	if err != nil {
 		return err
@@ -792,7 +791,7 @@ var NetworkHook models.HookFunc = func(params ...interface{}) error {
 	}
 	for _, network := range networks {
 		if network.AutoRemove == "false" || network.AutoRemoveThreshold == 0 {
-			return errors.New("skip auto removal of nodes")
+			continue
 		}
 		nodes := GetNetworkNodesMemory(allNodes, network.NetID)
 		for _, node := range nodes {

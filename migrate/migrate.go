@@ -78,7 +78,6 @@ func checkAndDeprecateOldAcls() {
 }
 
 func updateNetworks() {
-	fmt.Println("=========> RUNNING NETWORK MIGRATRION========")
 	nets, _ := logic.GetNetworks()
 	for _, netI := range nets {
 		if netI.AutoJoin == "" {

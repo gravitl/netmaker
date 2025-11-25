@@ -360,12 +360,14 @@ type HookCommandType int
 const (
 	HookCommandReset HookCommandType = iota
 	HookCommandStop
+	HookCommandRestart
 )
 
 // HookCommand - command to control a hook
 type HookCommand struct {
-	ID      string // Hook ID to target
-	Command HookCommandType
+	ID       string // Hook ID to target
+	Command  HookCommandType
+	Interval time.Duration // Optional: new interval for restart command (0 means use existing)
 }
 
 // LicenseLimits - struct license limits
