@@ -123,7 +123,12 @@ func listPostureChecks(w http.ResponseWriter, r *http.Request) {
 
 	network := r.URL.Query().Get("network")
 	if network == "" {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), "badrequest"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), logic.BadReq))
+		return
+	}
+	_, err := logic.GetNetwork(network)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network not found"), logic.BadReq))
 		return
 	}
 	id := r.URL.Query().Get("id")

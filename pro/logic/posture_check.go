@@ -104,51 +104,26 @@ func RunPostureChecks() error {
 }
 
 func CheckPostureViolations(d models.PostureCheckDeviceInfo, network models.NetworkID) []models.Violation {
-	var violations []models.Violation
-	highest := models.SeverityUnknown
 	pcLi, err := (&schema.PostureCheck{NetworkID: network.String()}).ListByNetwork(db.WithContext(context.TODO()))
 	if err != nil || len(pcLi) == 0 {
 		return []models.Violation{}
 	}
-	for _, c := range pcLi {
-		// skip disabled checks
-		if !c.Status {
-			continue
-		}
-
-		violated, reason := evaluatePostureCheck(&c, d)
-		if !violated {
-			continue
-		}
-
-		sev := c.Severity
-		if sev > highest {
-			highest = sev
-		}
-
-		v := models.Violation{
-			CheckID:   c.ID,
-			Name:      c.Name,
-			Attribute: string(c.Attribute),
-			Message:   reason,
-			Severity:  sev,
-		}
-		violations = append(violations, v)
-	}
-
+	violations, _ := GetPostureCheckViolations(pcLi, d)
 	return violations
 }
 func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureCheckDeviceInfo) ([]models.Violation, models.Severity) {
 	var violations []models.Violation
 	highest := models.SeverityUnknown
 
+	// Group checks by attribute
+	checksByAttribute := make(map[schema.Attribute][]schema.PostureCheck)
 	for _, c := range checks {
 		// skip disabled checks
 		if !c.Status {
 			continue
 		}
+		// Check if tags match
 		if _, ok := c.Tags["*"]; !ok {
-			// check tags exist
 			exists := false
 			for tagID := range c.Tags {
 				if _, ok := d.Tags[models.TagID(tagID)]; ok {
@@ -160,24 +135,50 @@ func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureChe
 				continue
 			}
 		}
-		violated, reason := evaluatePostureCheck(&c, d)
-		if !violated {
-			continue
+		checksByAttribute[c.Attribute] = append(checksByAttribute[c.Attribute], c)
+	}
+
+	// For each attribute, check if ANY check allows it
+	for _, attrChecks := range checksByAttribute {
+		// Check if any check for this attribute allows the device
+		allowed := false
+		var deniedChecks []struct {
+			check  schema.PostureCheck
+			reason string
 		}
 
-		sev := c.Severity
-		if sev > highest {
-			highest = sev
+		for _, c := range attrChecks {
+			violated, reason := evaluatePostureCheck(&c, d)
+			if !violated {
+				// At least one check allows it
+				allowed = true
+				break
+			}
+			// Track denied checks with their reasons for violation reporting
+			deniedChecks = append(deniedChecks, struct {
+				check  schema.PostureCheck
+				reason string
+			}{check: c, reason: reason})
 		}
 
-		v := models.Violation{
-			CheckID:   c.ID,
-			Name:      c.Name,
-			Attribute: string(c.Attribute),
-			Message:   reason,
-			Severity:  sev,
+		// If no check allows it, add violations for all denied checks
+		if !allowed {
+			for _, denied := range deniedChecks {
+				sev := denied.check.Severity
+				if sev > highest {
+					highest = sev
+				}
+
+				v := models.Violation{
+					CheckID:   denied.check.ID,
+					Name:      denied.check.Name,
+					Attribute: string(denied.check.Attribute),
+					Message:   denied.reason,
+					Severity:  sev,
+				}
+				violations = append(violations, v)
+			}
 		}
-		violations = append(violations, v)
 	}
 
 	return violations, highest
