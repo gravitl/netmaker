@@ -9,5 +9,13 @@ func SetFeatureFlags(featureFlags models.FeatureFlags) {
 }
 
 func GetFeatureFlags() models.FeatureFlags {
-	return featureFlagsCache
+	return models.FeatureFlags{
+		EnableEgressHA:          true,
+		EnableNetworkActivity:   true,
+		EnableOAuth:             true,
+		EnableIDPIntegration:    true,
+		AllowMultiServerLicense: false,
+		EnableGwsHA:             true,
+		EnableDeviceApproval:    true,
+	}
 }
