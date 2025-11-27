@@ -30,22 +30,15 @@ func (f FlowEventType) String() string {
 }
 
 type FlowEvent struct {
-	ID            uint32        `json:"id"`
-	Type          FlowEventType `json:"type"`
-	Status        nfct.Status   `json:"status"`
-	Protocol      uint8         `json:"protocol"`
-	OriginPeer    Peer          `json:"origin_peer"`
-	ReplyPeer     Peer          `json:"reply_peer"`
-	OriginCounter Counter       `json:"origin_counter"`
-	ReplyCounter  Counter       `json:"reply_counter"`
-	Timestamp     time.Time     `json:"timestamp"`
-	Start         time.Time     `json:"start"`
-	Stop          time.Time     `json:"stop"`
-
-	// Enriched Info
-	EnrichedProtocol   *EnrichedProtocol `json:"enriched_protocol,omitempty"`
-	EnrichedOriginPeer *EnrichedPeer     `json:"enriched_origin_peer,omitempty"`
-	EnrichedReplyPeer  *EnrichedPeer     `json:"enriched_reply_peer,omitempty"`
+	ID            uint32           `json:"id"`
+	Type          FlowEventType    `json:"type"`
+	Status        nfct.Status      `json:"status"`
+	ProtocolInfo  FlowProtocolInfo `json:"protocol_info"`
+	OriginPeer    FlowPeer         `json:"origin_peer"`
+	ReplyPeer     FlowPeer         `json:"reply_peer"`
+	OriginCounter FlowCounter      `json:"origin_counter"`
+	ReplyCounter  FlowCounter      `json:"reply_counter"`
+	Timestamp     FlowTimestamp    `json:"timestamp"`
 }
 
 func (f *FlowEvent) String() string {
@@ -54,76 +47,24 @@ func (f *FlowEvent) String() string {
 	_, _ = fmt.Fprintf(&b, "FlowEvent #%d\n", f.ID)
 	_, _ = fmt.Fprintf(&b, "  Type: %s\n", f.Type.String())
 	_, _ = fmt.Fprintf(&b, "  Status: %s\n", f.Status.String())
-
-	_, _ = fmt.Fprintf(&b, "  Protocol: %d\n", f.Protocol)
+	_, _ = fmt.Fprintf(&b, "  Protocol: %s\n", f.ProtocolInfo.String())
 
 	// Peers
 	_, _ = fmt.Fprintf(&b, "  Origin Peer: %s\n", f.OriginPeer.String())
-	_, _ = fmt.Fprintf(&b, "  Reply  Peer: %s\n", f.ReplyPeer.String())
+	_, _ = fmt.Fprintf(&b, "  Reply Peer: %s\n", f.ReplyPeer.String())
 
 	// Counters
 	_, _ = fmt.Fprintf(&b, "  Origin Counter: %s\n", f.OriginCounter.String())
-	_, _ = fmt.Fprintf(&b, "  Reply  Counter: %s\n", f.ReplyCounter.String())
+	_, _ = fmt.Fprintf(&b, "  Reply Counter: %s\n", f.ReplyCounter.String())
 
-	// Enriched Protocol
-	if f.EnrichedProtocol != nil {
-		_, _ = fmt.Fprintf(&b, "  Enriched Protocol:\n")
-		ep := f.EnrichedProtocol
-		if f.Protocol == 6 {
-			_, _ = fmt.Fprintf(&b, "    TCP:\n")
-			_, _ = fmt.Fprintf(&b, "      State: %d\n", ep.TCPState)
-			_, _ = fmt.Fprintf(&b, "      Orig WS: %d  Reply WS: %d\n", ep.TCPOriginalWindowScale, ep.TCPReplyWindowScale)
-			_, _ = fmt.Fprintf(&b, "      Orig Flags: 0x%x  Reply Flags: 0x%x\n", ep.TCPOriginalFlags, ep.TCPReplyFlags)
-		} else {
-			_, _ = fmt.Fprintf(&b, "    ICMP: type=%d code=%d\n", ep.ICMPType, ep.ICMPCode)
-		}
-	}
-
-	// Enriched Peers
-	if f.EnrichedOriginPeer != nil {
-		_, _ = fmt.Fprintf(&b, "  Enriched Origin Peer:\n")
-		_, _ = fmt.Fprintf(&b, "    NodeID: %s\n", f.EnrichedOriginPeer.NodeID)
-	}
-
-	if f.EnrichedReplyPeer != nil {
-		_, _ = fmt.Fprintf(&b, "  Enriched Reply Peer:\n")
-		_, _ = fmt.Fprintf(&b, "    NodeID: %s\n", f.EnrichedReplyPeer.NodeID)
-	}
-
-	if !f.Start.IsZero() {
-		_, _ = fmt.Fprintf(&b, "  Start Time: %s\n", f.Start.Format(time.RFC3339))
-	}
-
-	if !f.Stop.IsZero() {
-		_, _ = fmt.Fprintf(&b, "  Stop Time: %s\n", f.Stop.Format(time.RFC3339))
-	}
+	_, _ = fmt.Fprintf(&b, "  Timestamp: %s\n", f.Timestamp.String())
 
 	return b.String()
 }
 
-type Peer struct {
-	IP   string `json:"ip"`
-	Port uint16 `json:"port"`
-}
+type FlowProtocolInfo struct {
+	Protocol uint8 `json:"protocol"`
 
-func (p *Peer) String() string {
-	if p.Port == 0 {
-		return p.IP
-	}
-
-	return fmt.Sprintf("%s:%d", p.IP, p.Port)
-}
-
-type Counter struct {
-	Packets uint64 `json:"packets"`
-	Bytes   uint64 `json:"bytes"`
-}
-
-func (c *Counter) String() string {
-	return fmt.Sprintf("packets=%d bytes=%d", c.Packets, c.Bytes)
-}
-
-type EnrichedProtocol struct {
 	// ICMP Enrichment
 	ICMPType uint8 `json:"icmp_type"`
 	ICMPCode uint8 `json:"icmp_code"`
@@ -136,6 +77,72 @@ type EnrichedProtocol struct {
 	TCPReplyFlags          uint16 `json:"tcp_reply_flags"`
 }
 
-type EnrichedPeer struct {
-	NodeID string `json:"node_id"`
+func (p *FlowProtocolInfo) String() string {
+	var b strings.Builder
+	_, _ = fmt.Fprintf(&b, "%d", p.Protocol)
+
+	if p.Protocol == 6 {
+		_, _ = fmt.Fprintf(
+			&b,
+			" [TCP] [state: %d origin ws: %d reply ws: %d origin flags: 0x%x reply flags: 0x%x]",
+			p.TCPState,
+			p.TCPOriginalWindowScale, p.TCPReplyWindowScale,
+			p.TCPOriginalFlags, p.TCPReplyFlags,
+		)
+	} else if p.Protocol == 1 || p.Protocol == 58 {
+		_, _ = fmt.Fprintf(&b, " [ICMP] [type=%d code=%d]", p.ICMPType, p.ICMPCode)
+	} else if p.Protocol == 17 {
+		_, _ = fmt.Fprintf(&b, " [UDP]")
+	}
+
+	return b.String()
+}
+
+type FlowPeer struct {
+	IP   string `json:"ip"`
+	Port uint16 `json:"port"`
+}
+
+func (p *FlowPeer) String() string {
+	if p.Port == 0 {
+		return p.IP
+	}
+
+	return fmt.Sprintf("%s:%d", p.IP, p.Port)
+}
+
+type FlowCounter struct {
+	Packets uint64 `json:"packets"`
+	Bytes   uint64 `json:"bytes"`
+}
+
+func (c *FlowCounter) String() string {
+	return fmt.Sprintf("packets=%d bytes=%d", c.Packets, c.Bytes)
+}
+
+type FlowTimestamp struct {
+	Start     time.Time `json:"start"`
+	Stop      time.Time `json:"stop"`
+	EventTime time.Time `json:"event_time"`
+}
+
+func (t *FlowTimestamp) String() string {
+	var b strings.Builder
+	var prefix string
+
+	if !t.Start.IsZero() {
+		_, _ = fmt.Fprintf(&b, "%sstart: %s", prefix, t.Start.Format(time.RFC3339))
+		prefix = " "
+	}
+
+	if !t.Stop.IsZero() {
+		_, _ = fmt.Fprintf(&b, "%sstop: %s", prefix, t.Stop.Format(time.RFC3339))
+		prefix = " "
+	}
+
+	if !t.EventTime.IsZero() {
+		_, _ = fmt.Fprintf(&b, "%sevent_time: %s", prefix, t.EventTime.Format(time.RFC3339))
+	}
+
+	return b.String()
 }
