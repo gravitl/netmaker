@@ -24,6 +24,7 @@ import (
 var (
 	hostCacheMutex = &sync.RWMutex{}
 	hostsCacheMap  = make(map[string]models.Host)
+	hostPortMutex  = &sync.Mutex{}
 )
 
 var (
@@ -617,6 +618,8 @@ func GetRelatedHosts(hostID string) []models.Host {
 // with the same endpoint have different listen ports
 // in the case of 64535 hosts or more with same endpoint, ports will not be changed
 func CheckHostPorts(h *models.Host) (changed bool) {
+	hostPortMutex.Lock()
+	defer hostPortMutex.Unlock()
 	utils.TraceCaller()
 	fmt.Println("=======> CHECKING HOST PORTS for HOST", h.Name, h.ListenPort)
 	defer func() {
