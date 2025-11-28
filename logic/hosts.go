@@ -618,6 +618,9 @@ func GetRelatedHosts(hostID string) []models.Host {
 // with the same endpoint have different listen ports
 // in the case of 64535 hosts or more with same endpoint, ports will not be changed
 func CheckHostPorts(h *models.Host) (changed bool) {
+	if h.IsStaticPort {
+		return false
+	}
 	hostPortMutex.Lock()
 	defer hostPortMutex.Unlock()
 	utils.TraceCaller()
@@ -628,6 +631,17 @@ func CheckHostPorts(h *models.Host) (changed bool) {
 
 	if h.EndpointIP == nil {
 		return
+	}
+
+	// Get the current host from database to check if it already has a valid port assigned
+	currentHost, err := GetHost(h.ID.String())
+	if err == nil && currentHost.ListenPort > 0 {
+		// If the host already has a port in the database, use that instead of the incoming port
+		// This prevents the host from being reassigned when the client sends the old port
+		if currentHost.ListenPort != h.ListenPort {
+			fmt.Println("=======> Host has different port in DB, using DB port:", currentHost.ListenPort, "instead of incoming:", h.ListenPort)
+			h.ListenPort = currentHost.ListenPort
+		}
 	}
 
 	originalPort := h.ListenPort
