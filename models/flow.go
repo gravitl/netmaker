@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -12,7 +13,6 @@ type FlowEventType int
 
 const (
 	FlowStart   FlowEventType = iota
-	FlowUpdate  FlowEventType = iota
 	FlowDestroy FlowEventType = iota
 )
 
@@ -20,8 +20,6 @@ func (f FlowEventType) String() string {
 	switch f {
 	case FlowStart:
 		return "Start"
-	case FlowUpdate:
-		return "Update"
 	case FlowDestroy:
 		return "Destroy"
 	default:
@@ -30,15 +28,23 @@ func (f FlowEventType) String() string {
 }
 
 type FlowEvent struct {
-	ID            uint32           `json:"id"`
-	Type          FlowEventType    `json:"type"`
-	Status        nfct.Status      `json:"status"`
-	ProtocolInfo  FlowProtocolInfo `json:"protocol_info"`
-	OriginPeer    FlowPeer         `json:"origin_peer"`
-	ReplyPeer     FlowPeer         `json:"reply_peer"`
-	OriginCounter FlowCounter      `json:"origin_counter"`
-	ReplyCounter  FlowCounter      `json:"reply_counter"`
-	Timestamp     FlowTimestamp    `json:"timestamp"`
+	ID            uint32        `json:"id"`
+	Type          FlowEventType `json:"type"`
+	Status        nfct.Status   `json:"status"`
+	Protocol      uint8         `json:"protocol"`
+	ICMPType      uint8         `json:"icmp_type"`
+	ICMPCode      uint8         `json:"icmp_code"`
+	OriginIP      netip.Addr    `json:"origin_ip"`
+	OriginPort    uint16        `json:"origin_port"`
+	ReplyIP       netip.Addr    `json:"reply_ip"`
+	ReplyPort     uint16        `json:"reply_port"`
+	OriginPackets uint64        `json:"origin_packets"`
+	OriginBytes   uint64        `json:"origin_bytes"`
+	ReplyPackets  uint64        `json:"reply_packets"`
+	ReplyBytes    uint64        `json:"reply_bytes"`
+	EventTime     time.Time     `json:"event_time"`
+	FlowStart     time.Time     `json:"flow_start"`
+	FlowDestroy   time.Time     `json:"flow_destroy"`
 }
 
 func (f *FlowEvent) String() string {
@@ -47,102 +53,17 @@ func (f *FlowEvent) String() string {
 	_, _ = fmt.Fprintf(&b, "FlowEvent #%d\n", f.ID)
 	_, _ = fmt.Fprintf(&b, "  Type: %s\n", f.Type.String())
 	_, _ = fmt.Fprintf(&b, "  Status: %s\n", f.Status.String())
-	_, _ = fmt.Fprintf(&b, "  Protocol: %s\n", f.ProtocolInfo.String())
+	_, _ = fmt.Fprintf(&b, "  Protocol: %d\n", f.Protocol)
 
 	// Peers
-	_, _ = fmt.Fprintf(&b, "  Origin Peer: %s\n", f.OriginPeer.String())
-	_, _ = fmt.Fprintf(&b, "  Reply Peer: %s\n", f.ReplyPeer.String())
+	_, _ = fmt.Fprintf(&b, "  Origin Peer: %s:%d\n", f.OriginIP.String(), f.OriginPort)
+	_, _ = fmt.Fprintf(&b, "  Reply Peer: %s:%d\n", f.ReplyIP.String(), f.ReplyPort)
 
 	// Counters
-	_, _ = fmt.Fprintf(&b, "  Origin Counter: %s\n", f.OriginCounter.String())
-	_, _ = fmt.Fprintf(&b, "  Reply Counter: %s\n", f.ReplyCounter.String())
+	_, _ = fmt.Fprintf(&b, "  Origin Counter: %d %d\n", f.OriginPackets, f.OriginBytes)
+	_, _ = fmt.Fprintf(&b, "  Reply Counter: %d %d\n", f.ReplyPackets, f.ReplyBytes)
 
-	_, _ = fmt.Fprintf(&b, "  Timestamp: %s\n", f.Timestamp.String())
-
-	return b.String()
-}
-
-type FlowProtocolInfo struct {
-	Protocol uint8 `json:"protocol"`
-
-	// ICMP Enrichment
-	ICMPType uint8 `json:"icmp_type"`
-	ICMPCode uint8 `json:"icmp_code"`
-
-	// TCP Enrichment
-	TCPState               uint8  `json:"tcp_state"`
-	TCPOriginalWindowScale uint8  `json:"tcp_original_window_scale"`
-	TCPReplyWindowScale    uint8  `json:"tcp_reply_window_scale"`
-	TCPOriginalFlags       uint16 `json:"tcp_original_flags"`
-	TCPReplyFlags          uint16 `json:"tcp_reply_flags"`
-}
-
-func (p *FlowProtocolInfo) String() string {
-	var b strings.Builder
-	_, _ = fmt.Fprintf(&b, "%d", p.Protocol)
-
-	if p.Protocol == 6 {
-		_, _ = fmt.Fprintf(
-			&b,
-			" [TCP] [state: %d origin ws: %d reply ws: %d origin flags: 0x%x reply flags: 0x%x]",
-			p.TCPState,
-			p.TCPOriginalWindowScale, p.TCPReplyWindowScale,
-			p.TCPOriginalFlags, p.TCPReplyFlags,
-		)
-	} else if p.Protocol == 1 || p.Protocol == 58 {
-		_, _ = fmt.Fprintf(&b, " [ICMP] [type=%d code=%d]", p.ICMPType, p.ICMPCode)
-	} else if p.Protocol == 17 {
-		_, _ = fmt.Fprintf(&b, " [UDP]")
-	}
-
-	return b.String()
-}
-
-type FlowPeer struct {
-	IP   string `json:"ip"`
-	Port uint16 `json:"port"`
-}
-
-func (p *FlowPeer) String() string {
-	if p.Port == 0 {
-		return p.IP
-	}
-
-	return fmt.Sprintf("%s:%d", p.IP, p.Port)
-}
-
-type FlowCounter struct {
-	Packets uint64 `json:"packets"`
-	Bytes   uint64 `json:"bytes"`
-}
-
-func (c *FlowCounter) String() string {
-	return fmt.Sprintf("packets=%d bytes=%d", c.Packets, c.Bytes)
-}
-
-type FlowTimestamp struct {
-	Start     time.Time `json:"start"`
-	Stop      time.Time `json:"stop"`
-	EventTime time.Time `json:"event_time"`
-}
-
-func (t *FlowTimestamp) String() string {
-	var b strings.Builder
-	var prefix string
-
-	if !t.Start.IsZero() {
-		_, _ = fmt.Fprintf(&b, "%sstart: %s", prefix, t.Start.Format(time.RFC3339))
-		prefix = " "
-	}
-
-	if !t.Stop.IsZero() {
-		_, _ = fmt.Fprintf(&b, "%sstop: %s", prefix, t.Stop.Format(time.RFC3339))
-		prefix = " "
-	}
-
-	if !t.EventTime.IsZero() {
-		_, _ = fmt.Fprintf(&b, "%sevent_time: %s", prefix, t.EventTime.Format(time.RFC3339))
-	}
+	_, _ = fmt.Fprintf(&b, "  Timestamp: %s %s %s\n", f.EventTime.String(), f.FlowStart.String(), f.FlowDestroy.String())
 
 	return b.String()
 }
