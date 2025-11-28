@@ -621,24 +621,29 @@ func CheckHostPorts(h *models.Host) (changed bool) {
 	hostPortMutex.Lock()
 	defer hostPortMutex.Unlock()
 	utils.TraceCaller()
-	fmt.Println("=======> CHECKING HOST PORTS for HOST", h.Name, h.ListenPort)
+	fmt.Println("=======> CHECKING HOST PORTS for HOST", h.Name, h.ListenPort, h.EndpointIP.String())
 	defer func() {
-		fmt.Println("=======> CHECKED HOST PORTS for HOST", h.Name, h.ListenPort)
+		fmt.Println("=======> CHECKED HOST PORTS for HOST", h.Name, h.ListenPort, h.EndpointIP.String(), "changed:", changed)
 	}()
-	portsInUse := make(map[int]bool, 0)
-	hosts, err := GetAllHosts()
-	if err != nil {
+
+	if h.EndpointIP == nil {
 		return
 	}
+
 	originalPort := h.ListenPort
 	defer func() {
 		if originalPort != h.ListenPort {
 			changed = true
 		}
 	}()
-	if h.EndpointIP == nil {
+
+	hosts, err := GetAllHosts()
+	if err != nil {
 		return
 	}
+
+	// Build map of ports in use by other hosts with the same endpoint
+	portsInUse := make(map[int]bool)
 	for _, host := range hosts {
 		if host.ID.String() == h.ID.String() {
 			// skip self
@@ -650,19 +655,80 @@ func CheckHostPorts(h *models.Host) (changed bool) {
 		if !host.EndpointIP.Equal(h.EndpointIP) {
 			continue
 		}
-		portsInUse[host.ListenPort] = true
+		if host.ListenPort > 0 {
+			portsInUse[host.ListenPort] = true
+			fmt.Println("=======> Found host with same endpoint using port:", host.Name, host.ListenPort)
+		}
 	}
-	// iterate until port is not found or max iteration is reached
-	for i := 0; portsInUse[h.ListenPort] && i < maxPort-minPort+1; i++ {
+	fmt.Println("=======> Ports in use for endpoint", h.EndpointIP.String(), ":", portsInUse)
+
+	// If current port is not in use, no change needed
+	if !portsInUse[h.ListenPort] {
+		return
+	}
+
+	// Find an available port
+	maxIterations := maxPort - minPort + 1
+	checkedPorts := make(map[int]bool)
+	initialPort := h.ListenPort
+
+	for i := 0; i < maxIterations; i++ {
+		// Special case: skip port 443 by jumping to 51821
 		if h.ListenPort == 443 {
 			h.ListenPort = 51821
 		} else {
 			h.ListenPort++
 		}
+
+		// Wrap around if we exceed maxPort
 		if h.ListenPort > maxPort {
 			h.ListenPort = minPort
 		}
+
+		// Avoid infinite loop - if we've checked this port before, we've cycled through all
+		if checkedPorts[h.ListenPort] {
+			// All ports are in use, keep original port
+			h.ListenPort = originalPort
+			fmt.Println("=======> All ports checked, keeping original port:", originalPort)
+			break
+		}
+		checkedPorts[h.ListenPort] = true
+
+		// Re-read hosts to get the latest state (in case another host just changed its port)
+		// This is important to avoid conflicts when multiple hosts are being processed
+		latestHosts, err := GetAllHosts()
+		if err == nil {
+			// Update portsInUse with latest state
+			for _, host := range latestHosts {
+				if host.ID.String() == h.ID.String() {
+					continue
+				}
+				if host.EndpointIP == nil {
+					continue
+				}
+				if !host.EndpointIP.Equal(h.EndpointIP) {
+					continue
+				}
+				if host.ListenPort > 0 {
+					portsInUse[host.ListenPort] = true
+				}
+			}
+		}
+
+		// If this port is not in use, we found an available port
+		if !portsInUse[h.ListenPort] {
+			fmt.Println("=======> Found available port:", h.ListenPort)
+			break
+		}
+
+		// If we've wrapped back to the initial port, all ports are in use
+		if h.ListenPort == initialPort && i > 0 {
+			h.ListenPort = originalPort
+			fmt.Println("=======> Wrapped back to initial port, keeping original:", originalPort)
+			break
+		}
 	}
+
 	return
 }
 
