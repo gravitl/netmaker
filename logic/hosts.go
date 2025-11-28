@@ -617,6 +617,11 @@ func GetRelatedHosts(hostID string) []models.Host {
 // with the same endpoint have different listen ports
 // in the case of 64535 hosts or more with same endpoint, ports will not be changed
 func CheckHostPorts(h *models.Host) (changed bool) {
+	utils.TraceCaller()
+	fmt.Println("=======> CHECKING HOST PORTS for HOST", h.Name, h.ListenPort)
+	defer func() {
+		fmt.Println("=======> CHECKED HOST PORTS for HOST", h.Name, h.ListenPort)
+	}()
 	portsInUse := make(map[int]bool, 0)
 	hosts, err := GetAllHosts()
 	if err != nil {
