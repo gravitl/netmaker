@@ -621,15 +621,12 @@ func CheckHostPorts(h *models.Host) (changed bool) {
 	if h.IsStaticPort {
 		return false
 	}
-	hostPortMutex.Lock()
-	defer hostPortMutex.Unlock()
-	utils.TraceCaller()
-
 	if h.EndpointIP == nil {
 		return
 	}
 
 	// Get the current host from database to check if it already has a valid port assigned
+	// This check happens before the mutex to avoid unnecessary locking
 	currentHost, err := GetHost(h.ID.String())
 	if err == nil && currentHost.ListenPort > 0 {
 		// If the host already has a port in the database, use that instead of the incoming port
@@ -638,6 +635,11 @@ func CheckHostPorts(h *models.Host) (changed bool) {
 			h.ListenPort = currentHost.ListenPort
 		}
 	}
+
+	// Only acquire mutex when we need to check for port conflicts
+	// This reduces contention for the common case where ports are already valid
+	hostPortMutex.Lock()
+	defer hostPortMutex.Unlock()
 
 	originalPort := h.ListenPort
 	defer func() {
