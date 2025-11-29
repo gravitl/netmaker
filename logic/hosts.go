@@ -624,10 +624,6 @@ func CheckHostPorts(h *models.Host) (changed bool) {
 	hostPortMutex.Lock()
 	defer hostPortMutex.Unlock()
 	utils.TraceCaller()
-	fmt.Println("=======> CHECKING HOST PORTS for HOST", h.Name, h.ListenPort, h.EndpointIP.String())
-	defer func() {
-		fmt.Println("=======> CHECKED HOST PORTS for HOST", h.Name, h.ListenPort, h.EndpointIP.String(), "changed:", changed)
-	}()
 
 	if h.EndpointIP == nil {
 		return
@@ -639,7 +635,6 @@ func CheckHostPorts(h *models.Host) (changed bool) {
 		// If the host already has a port in the database, use that instead of the incoming port
 		// This prevents the host from being reassigned when the client sends the old port
 		if currentHost.ListenPort != h.ListenPort {
-			fmt.Println("=======> Host has different port in DB, using DB port:", currentHost.ListenPort, "instead of incoming:", h.ListenPort)
 			h.ListenPort = currentHost.ListenPort
 		}
 	}
@@ -671,10 +666,8 @@ func CheckHostPorts(h *models.Host) (changed bool) {
 		}
 		if host.ListenPort > 0 {
 			portsInUse[host.ListenPort] = true
-			fmt.Println("=======> Found host with same endpoint using port:", host.Name, host.ListenPort)
 		}
 	}
-	fmt.Println("=======> Ports in use for endpoint", h.EndpointIP.String(), ":", portsInUse)
 
 	// If current port is not in use, no change needed
 	if !portsInUse[h.ListenPort] {
@@ -703,7 +696,6 @@ func CheckHostPorts(h *models.Host) (changed bool) {
 		if checkedPorts[h.ListenPort] {
 			// All ports are in use, keep original port
 			h.ListenPort = originalPort
-			fmt.Println("=======> All ports checked, keeping original port:", originalPort)
 			break
 		}
 		checkedPorts[h.ListenPort] = true
@@ -731,14 +723,12 @@ func CheckHostPorts(h *models.Host) (changed bool) {
 
 		// If this port is not in use, we found an available port
 		if !portsInUse[h.ListenPort] {
-			fmt.Println("=======> Found available port:", h.ListenPort)
 			break
 		}
 
 		// If we've wrapped back to the initial port, all ports are in use
 		if h.ListenPort == initialPort && i > 0 {
 			h.ListenPort = originalPort
-			fmt.Println("=======> Wrapped back to initial port, keeping original:", originalPort)
 			break
 		}
 	}
