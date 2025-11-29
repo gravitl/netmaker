@@ -67,8 +67,8 @@ func TraceCaller() {
 	funcName := runtime.FuncForPC(pc).Name()
 
 	// Print trace details
-	fmt.Println("## TRACE -> Called from function: ", "tracing-func-name", traceFuncName, "caller-func-name", funcName)
-	fmt.Println("## TRACE -> Caller File Info", "file", file, "line-no", line)
+	slog.Debug("## TRACE -> Called from function: ", "tracing-func-name", traceFuncName, "caller-func-name", funcName)
+	slog.Debug("## TRACE -> Caller File Info", "file", file, "line-no", line)
 }
 
 // NoEmptyStringToCsv takes a bunch of strings, filters out empty ones and returns a csv version of the string
