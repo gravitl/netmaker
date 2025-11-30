@@ -86,7 +86,7 @@ func HandleHostSSOCallback(w http.ResponseWriter, r *http.Request) {
 	var response bytes.Buffer
 	if err := ssoCallbackTemplate.Execute(&response, ssoCallbackTemplateConfig{
 		User: userClaims.getUserName(),
-		Verb: "Authenticated",
+		Verb: "authenticated",
 	}); err != nil {
 		logger.Log(0, "Could not render SSO callback template ", err.Error())
 		response := returnErrTemplate(reqKeyIf.User, "Could not render SSO callback template", state, reqKeyIf)

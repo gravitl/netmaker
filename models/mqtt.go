@@ -44,8 +44,9 @@ type EgressDomain struct {
 	Domain string `json:"domain"`
 }
 type Nameserver struct {
-	IPs         []string `json:"ips"`
-	MatchDomain string   `json:"match_domain"`
+	IPs            []string `json:"ips"`
+	MatchDomain    string   `json:"match_domain"`
+	IsSearchDomain bool     `json:"is_search_domain"`
 }
 
 type OldPeerUpdateFields struct {

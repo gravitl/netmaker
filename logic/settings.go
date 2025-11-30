@@ -11,6 +11,8 @@ import (
 
 	"github.com/gravitl/netmaker/config"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logic/acls"
+	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
 )
@@ -61,7 +63,10 @@ func UpsertServerSettings(s models.ServerSettings) error {
 		}
 	}
 	s.GroupFilters = groupFilters
-
+	if !s.OldAClsSupport {
+		// set defaults for old acl settings
+		go setDefaultsforOldAclCfg()
+	}
 	data, err := json.Marshal(s)
 	if err != nil {
 		return err
@@ -71,6 +76,36 @@ func UpsertServerSettings(s models.ServerSettings) error {
 		return err
 	}
 	return nil
+}
+
+func setDefaultsforOldAclCfg() {
+	nets, _ := GetNetworks()
+	for _, netI := range nets {
+		if netI.DefaultACL != "yes" {
+			netI.DefaultACL = "yes"
+			UpsertNetwork(netI)
+		}
+		networkACL, err := nodeacls.FetchAllACLs(nodeacls.NetworkID(netI.NetID))
+		if err != nil {
+			continue
+		}
+		for id, aclNode := range networkACL {
+			for aclID, allowed := range aclNode {
+				if allowed != acls.Allowed {
+					aclNode.Allow(aclID)
+				}
+			}
+			networkACL.UpdateACL(id, aclNode)
+		}
+		networkACL.Save(acls.ContainerID(netI.NetID))
+	}
+	nodes, _ := GetAllNodes()
+	for _, node := range nodes {
+		if node.DefaultACL != "yes" {
+			node.DefaultACL = "yes"
+			UpsertNode(&node)
+		}
+	}
 }
 
 func GetUserSettings(userID string) models.UserSettings {
@@ -246,6 +281,8 @@ func GetServerInfo() models.ServerConfig {
 	cfg.StunServers = serverSettings.StunServers
 	cfg.DefaultDomain = serverSettings.DefaultDomain
 	cfg.EndpointDetection = serverSettings.EndpointDetection
+	cfg.PeerConnectionCheckInterval = serverSettings.PeerConnectionCheckInterval
+	cfg.OldAClsSupport = serverSettings.OldAClsSupport
 	key, _ := RetrievePublicTrafficKey()
 	cfg.TrafficKey = key
 	return cfg

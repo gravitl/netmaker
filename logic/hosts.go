@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/google/uuid"
@@ -292,6 +293,10 @@ func UpdateHost(newHost, currentHost *models.Host) {
 	if newHost.PersistentKeepalive == 0 {
 		newHost.PersistentKeepalive = currentHost.PersistentKeepalive
 	}
+
+	if strings.TrimSpace(newHost.DNS) == "" {
+		newHost.DNS = currentHost.DNS
+	}
 }
 
 // UpdateHostFromClient - used for updating host on server with update recieved from client
@@ -340,7 +345,7 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 			if node.FailedOverBy != uuid.Nil {
 				ResetFailedOverPeer(&node)
 			}
-			if node.AutoRelayedBy != uuid.Nil {
+			if len(node.AutoRelayedPeers) > 0 {
 				ResetAutoRelayedPeer(&node)
 			}
 		}

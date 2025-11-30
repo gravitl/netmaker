@@ -346,7 +346,7 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 		if err != nil {
 			return err
 		}
-		if clientNode.IsFailOver {
+		if clientNode.IsFailOver || clientNode.IsAutoRelay {
 			return errors.New("failover node cannot be set to use internet gateway")
 		}
 		clientHost, err := GetHost(clientNode.HostID.String())
@@ -374,7 +374,7 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 		if clientNode.FailedOverBy != uuid.Nil {
 			ResetFailedOverPeer(&clientNode)
 		}
-		if clientNode.AutoRelayedBy != uuid.Nil {
+		if len(clientNode.AutoRelayedPeers) > 0 {
 			ResetAutoRelayedPeer(&clientNode)
 		}
 

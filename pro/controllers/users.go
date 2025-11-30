@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 	"time"
 
@@ -50,6 +51,7 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users/group", logic.SecurityCheck(true, http.HandlerFunc(deleteUserGroup))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/v1/users/add_network_user", logic.SecurityCheck(true, http.HandlerFunc(addUsertoNetwork))).Methods(http.MethodPut)
 	r.HandleFunc("/api/v1/users/remove_network_user", logic.SecurityCheck(true, http.HandlerFunc(removeUserfromNetwork))).Methods(http.MethodPut)
+	r.HandleFunc("/api/v1/users/unassigned_network_users", logic.SecurityCheck(true, http.HandlerFunc(listUnAssignedNetUsers))).Methods(http.MethodGet)
 
 	// User Invite Handlers
 	r.HandleFunc("/api/v1/users/invite", userInviteVerify).Methods(http.MethodGet)
@@ -352,6 +354,12 @@ func deleteUserInvite(w http.ResponseWriter, r *http.Request) {
 			Type: models.UserInviteSub,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: models.UserInvite{
+				Email: email,
+			},
+			New: nil,
+		},
 	})
 	logic.ReturnSuccessResponse(w, r, "deleted user invite")
 }
@@ -568,88 +576,181 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 	})
 	replacePeers := false
 	go func() {
+		currAllNetworksRole, currAllNetworksRoleExists := currUserG.NetworkRoles[models.AllNetworks]
+		newAllNetworksRole, newAllNetworksRoleExists := userGroup.NetworkRoles[models.AllNetworks]
+
+		var removeAllNetworksCurrRoleAcls bool
+		var addAllNetworksNewRoleAcls bool
+		var updateSpecifiedNetworksAcls bool
+		if currAllNetworksRoleExists {
+			if newAllNetworksRoleExists {
+				if !reflect.DeepEqual(currAllNetworksRole, newAllNetworksRole) {
+					removeAllNetworksCurrRoleAcls = true
+					addAllNetworksNewRoleAcls = true
+				}
+			} else {
+				removeAllNetworksCurrRoleAcls = true
+			}
+		} else {
+			if newAllNetworksRoleExists {
+				addAllNetworksNewRoleAcls = true
+			} else {
+				updateSpecifiedNetworksAcls = true
+			}
+		}
+
 		networksAdded := make([]models.NetworkID, 0)
 		networksRemoved := make([]models.NetworkID, 0)
 
 		for networkID := range userGroup.NetworkRoles {
+			if networkID == models.AllNetworks {
+				continue
+			}
+
 			if _, ok := currUserG.NetworkRoles[networkID]; !ok {
 				networksAdded = append(networksAdded, networkID)
 			}
 		}
 
 		for networkID := range currUserG.NetworkRoles {
+			if networkID == models.AllNetworks {
+				continue
+			}
+
 			if _, ok := userGroup.NetworkRoles[networkID]; !ok {
 				networksRemoved = append(networksRemoved, networkID)
 			}
 		}
 
-		for _, networkID := range networksAdded {
-			// ensure the network exists.
-			network, err := logic.GetNetwork(networkID.String())
-			if err != nil {
-				continue
-			}
+		if removeAllNetworksCurrRoleAcls || addAllNetworksNewRoleAcls {
+			const globalNetworkAdmin = "global-network-admin"
+			networks, _ := logic.GetNetworks()
+			for _, network := range networks {
+				if removeAllNetworksCurrRoleAcls {
+					currRole := models.NetworkUser
+					_, ok := currAllNetworksRole[globalNetworkAdmin]
+					if ok {
+						currRole = models.NetworkAdmin
+					}
 
-			// insert acl if the network is added to the group.
-			acl := models.Acl{
-				ID:          uuid.New().String(),
-				Name:        fmt.Sprintf("%s group", userGroup.Name),
-				MetaData:    "This Policy allows user group to communicate with all gateways",
-				Default:     false,
-				ServiceType: models.Any,
-				NetworkID:   models.NetworkID(network.NetID),
-				Proto:       models.ALL,
-				RuleType:    models.UserPolicy,
-				Src: []models.AclPolicyTag{
-					{
-						ID:    models.UserGroupAclID,
-						Value: userGroup.ID.String(),
-					},
-				},
-				Dst: []models.AclPolicyTag{
-					{
-						ID:    models.NodeTagID,
-						Value: fmt.Sprintf("%s.%s", models.NetworkID(network.NetID), models.GwTagName),
-					}},
-				AllowedDirection: models.TrafficDirectionUni,
-				Enabled:          true,
-				CreatedBy:        "auto",
-				CreatedAt:        time.Now().UTC(),
-			}
-			_ = logic.InsertAcl(acl)
-			replacePeers = true
-		}
+					aclID := fmt.Sprintf("%s.%s-grp", network.NetID, currRole)
+					acl, err := logic.GetAcl(aclID)
+					if err == nil {
+						var hasGroupSrc bool
+						newAclSrc := make([]models.AclPolicyTag, 0)
+						for _, src := range acl.Src {
+							if src.ID == models.UserGroupAclID && src.Value == userGroup.ID.String() {
+								hasGroupSrc = true
+							} else {
+								newAclSrc = append(newAclSrc, src)
+							}
+						}
 
-		// since this group doesn't have a role for this network,
-		// there is no point in having this group as src in any
-		// of the network's acls.
-		for _, networkID := range networksRemoved {
-			acls, err := logic.ListAclsByNetwork(networkID)
-			if err != nil {
-				continue
-			}
-
-			for _, acl := range acls {
-				var hasGroupSrc bool
-				newAclSrc := make([]models.AclPolicyTag, 0)
-				for _, src := range acl.Src {
-					if src.ID == models.UserGroupAclID && src.Value == userGroup.ID.String() {
-						hasGroupSrc = true
-					} else {
-						newAclSrc = append(newAclSrc, src)
+						if hasGroupSrc {
+							acl.Src = newAclSrc
+							_ = logic.UpsertAcl(acl)
+						}
 					}
 				}
 
-				if hasGroupSrc {
-					if len(newAclSrc) == 0 {
-						// no other src exists, delete acl.
-						_ = logic.DeleteAcl(acl)
-					} else {
-						// other sources exist, update acl.
-						acl.Src = newAclSrc
-						_ = logic.UpsertAcl(acl)
+				if addAllNetworksNewRoleAcls {
+					newRole := models.NetworkUser
+					_, ok := newAllNetworksRole[globalNetworkAdmin]
+					if ok {
+						newRole = models.NetworkAdmin
 					}
-					replacePeers = true
+
+					aclID := fmt.Sprintf("%s.%s-grp", network.NetID, newRole)
+					acl, err := logic.GetAcl(aclID)
+					if err == nil {
+						var hasGroupSrc bool
+						for _, src := range acl.Src {
+							if src.ID == models.UserGroupAclID && src.Value == userGroup.ID.String() {
+								hasGroupSrc = true
+							}
+						}
+
+						if !hasGroupSrc {
+							acl.Src = append(acl.Src, models.AclPolicyTag{
+								ID:    models.UserGroupAclID,
+								Value: userGroup.ID.String(),
+							})
+							_ = logic.UpsertAcl(acl)
+						}
+					}
+				}
+			}
+		}
+
+		if updateSpecifiedNetworksAcls {
+			for _, networkID := range networksAdded {
+				// ensure the network exists.
+				network, err := logic.GetNetwork(networkID.String())
+				if err != nil {
+					continue
+				}
+
+				// insert acl if the network is added to the group.
+				acl := models.Acl{
+					ID:          uuid.New().String(),
+					Name:        fmt.Sprintf("%s group", userGroup.Name),
+					MetaData:    "This Policy allows user group to communicate with all gateways",
+					Default:     false,
+					ServiceType: models.Any,
+					NetworkID:   models.NetworkID(network.NetID),
+					Proto:       models.ALL,
+					RuleType:    models.UserPolicy,
+					Src: []models.AclPolicyTag{
+						{
+							ID:    models.UserGroupAclID,
+							Value: userGroup.ID.String(),
+						},
+					},
+					Dst: []models.AclPolicyTag{
+						{
+							ID:    models.NodeTagID,
+							Value: fmt.Sprintf("%s.%s", models.NetworkID(network.NetID), models.GwTagName),
+						}},
+					AllowedDirection: models.TrafficDirectionUni,
+					Enabled:          true,
+					CreatedBy:        "auto",
+					CreatedAt:        time.Now().UTC(),
+				}
+				_ = logic.InsertAcl(acl)
+				replacePeers = true
+			}
+
+			// since this group doesn't have a role for this network,
+			// there is no point in having this group as src in any
+			// of the network's acls.
+			for _, networkID := range networksRemoved {
+				acls, err := logic.ListAclsByNetwork(networkID)
+				if err != nil {
+					continue
+				}
+
+				for _, acl := range acls {
+					var hasGroupSrc bool
+					newAclSrc := make([]models.AclPolicyTag, 0)
+					for _, src := range acl.Src {
+						if src.ID == models.UserGroupAclID && src.Value == userGroup.ID.String() {
+							hasGroupSrc = true
+						} else {
+							newAclSrc = append(newAclSrc, src)
+						}
+					}
+
+					if hasGroupSrc {
+						if len(newAclSrc) == 0 {
+							// no other src exists, delete acl.
+							_ = logic.DeleteAcl(acl)
+						} else {
+							// other sources exist, update acl.
+							acl.Src = newAclSrc
+							_ = logic.UpsertAcl(acl)
+						}
+						replacePeers = true
+					}
 				}
 			}
 		}
@@ -659,6 +760,48 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userGroup.ID, currUserG.NetworkRoles, userGroup.NetworkRoles)
 	go mq.PublishPeerUpdate(replacePeers)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")
+}
+
+// swagger:route GET /api/v1/users/unassigned_network_user user listUnAssignedNetUsers
+//
+// list unassigned network users.
+//
+//			Schemes: https
+//
+//			Security:
+//	  		oauth
+//
+//			Responses:
+//				200: userBodyResponse
+func listUnAssignedNetUsers(w http.ResponseWriter, r *http.Request) {
+	netID := r.URL.Query().Get("network_id")
+	if netID == "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), logic.BadReq))
+		return
+	}
+	var unassignedUsers []models.ReturnUser
+	users, _ := logic.GetUsers()
+	for _, user := range users {
+		if user.PlatformRoleID != models.ServiceUser {
+			continue
+		}
+		skipUser := false
+		for userGID := range user.UserGroups {
+			userG, err := proLogic.GetUserGroup(userGID)
+			if err != nil {
+				continue
+			}
+			if _, ok := userG.NetworkRoles[models.NetworkID(netID)]; ok {
+				skipUser = true
+				break
+			}
+		}
+		if skipUser {
+			continue
+		}
+		unassignedUsers = append(unassignedUsers, user)
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, unassignedUsers, "returned unassigned network service users")
 }
 
 // swagger:route PUT /api/v1/users/add_network_user user addUsertoNetwork
@@ -830,6 +973,10 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 			Type: models.UserGroupSub,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: userG,
+			New: nil,
+		},
 	})
 
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user group")
@@ -1021,6 +1168,10 @@ func deleteRole(w http.ResponseWriter, r *http.Request) {
 			Type: models.UserRoleSub,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: role,
+			New: nil,
+		},
 	})
 	go proLogic.UpdatesUserGwAccessOnRoleUpdates(role.NetworkLevelAccess, make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope), role.NetworkID.String())
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user role")
@@ -1509,7 +1660,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if !found && len(extClients) > 0 {
+		if !found && len(extClients) > 0 && deviceID == "" {
 			// TODO: prevent ip clashes.
 			gwClient = extClients[0]
 		}
@@ -1530,7 +1681,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 
 		gws := userGws[node.Network]
 		if gwClient.DNS == "" {
-			gwClient.DNS = node.IngressDNS
+			logic.SetDNSOnWgConfig(&node, &gwClient)
 		}
 
 		gwClient.IngressGatewayEndpoint = utils.GetExtClientEndpoint(
@@ -1560,6 +1711,9 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			hNs := logic.GetNameserversForNode(&node)
 			for _, nsI := range hNs {
 				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
+				if nsI.IsSearchDomain {
+					gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
+				}
 			}
 		}
 		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccess(user, models.NetworkID(node.Network))...)
@@ -1612,6 +1766,9 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			hNs := logic.GetNameserversForNode(&node)
 			for _, nsI := range hNs {
 				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
+				if nsI.IsSearchDomain {
+					gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
+				}
 			}
 		}
 		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccess(user, models.NetworkID(node.Network))...)
@@ -1877,6 +2034,12 @@ func deletePendingUser(w http.ResponseWriter, r *http.Request) {
 			Type: models.PendingUserSub,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: models.User{
+				UserName: username,
+			},
+			New: nil,
+		},
 	})
 	logic.ReturnSuccessResponse(w, r, "deleted pending "+username)
 }

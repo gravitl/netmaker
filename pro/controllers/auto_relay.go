@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/db"
@@ -125,12 +124,11 @@ func resetAutoRelayGw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, node := range nodes {
-		if node.AutoRelayedBy != uuid.Nil {
-			node.AutoRelayedBy = uuid.Nil
+		if len(node.AutoRelayedPeers) > 0 {
 			if node.Mutex != nil {
 				node.Mutex.Lock()
 			}
-			node.AutoRelayedPeers = make(map[string]struct{})
+			node.AutoRelayedPeers = make(map[string]string)
 			if node.Mutex != nil {
 				node.Mutex.Unlock()
 			}
@@ -374,20 +372,50 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if autoRelayReq.AutoRelayGwID == "" {
-		// unset current gw
-		if node.RelayedBy != "" {
-			// unset relayed node from the curr relay
-			currRelayNode, err := logic.GetNodeByID(node.RelayedBy)
-			if err == nil {
-				newRelayedNodes := logic.RemoveAllFromSlice(currRelayNode.RelayedNodes, node.ID.String())
-				logic.UpdateRelayNodes(currRelayNode.ID.String(), currRelayNode.RelayedNodes, newRelayedNodes)
+		if node.AutoAssignGateway {
+			// unset current gw
+			if node.RelayedBy != "" {
+				// unset relayed node from the curr relay
+				currRelayNode, err := logic.GetNodeByID(node.RelayedBy)
+				if err == nil {
+					if currRelayNode.Mutex != nil {
+						currRelayNode.Mutex.Lock()
+					}
+					newRelayedNodes := logic.RemoveAllFromSlice(currRelayNode.RelayedNodes, node.ID.String())
+					currRelayNode.RelayedNodes = newRelayedNodes
+					logic.UpsertNode(&currRelayNode)
+					node.RelayedBy = ""
+					node.IsRelayed = false
+					logic.UpsertNode(&node)
+					if currRelayNode.Mutex != nil {
+						currRelayNode.Mutex.Unlock()
+					}
+				}
 			}
+		} else {
+			peerNode, err := logic.GetNodeByID(autoRelayReq.NodeID)
+			if err != nil {
+				slog.Error("peer not found: ", "nodeid", autoRelayReq.NodeID, "error", err)
+				logic.ReturnErrorResponse(
+					w,
+					r,
+					logic.FormatError(errors.New("peer not found"), "badrequest"),
+				)
+				return
+			}
+			delete(node.AutoRelayedPeers, peerNode.ID.String())
+			delete(peerNode.AutoRelayedPeers, node.ID.String())
+			logic.UpsertNode(&node)
+			logic.UpsertNode(&peerNode)
 		}
 		allNodes, err := logic.GetAllNodes()
 		if err == nil {
 			mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, false, nil)
 		}
 		go mq.PublishPeerUpdate(false)
+		if node.AutoAssignGateway {
+			mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *host, Node: node})
+		}
 		logic.ReturnSuccessResponse(w, r, "unrelayed successfully")
 		return
 	}
@@ -433,7 +461,17 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnSuccessResponse(w, r, "relayed successfully")
 		return
 	}
-	if node.AutoRelayedBy == uuid.Nil {
+	peerNode, err := logic.GetNodeByID(autoRelayReq.NodeID)
+	if err != nil {
+		slog.Error("peer not found: ", "nodeid", autoRelayReq.NodeID, "error", err)
+		logic.ReturnErrorResponse(
+			w,
+			r,
+			logic.FormatError(errors.New("peer not found"), "badrequest"),
+		)
+		return
+	}
+	if len(node.AutoRelayedPeers) == 0 {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node is not auto relayed"), "badrequest"))
 		return
 	}
@@ -442,11 +480,12 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("requested node is not a auto relay node"), "badrequest"))
 		return
 	}
-	if node.AutoRelayedBy == autoRelayNode.ID {
+	if node.AutoRelayedPeers[peerNode.ID.String()] == peerNode.AutoRelayedPeers[node.ID.String()] {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("already using requested relay node"), "badrequest"))
 		return
 	}
-	node.AutoRelayedBy = autoRelayNode.ID
+	node.AutoRelayedPeers[peerNode.ID.String()] = autoRelayReq.AutoRelayGwID
+	peerNode.AutoRelayedPeers[node.ID.String()] = autoRelayReq.AutoRelayGwID
 	logic.UpsertNode(&node)
 	slog.Info(
 		"[auto-relay] created relay on node",

@@ -97,6 +97,10 @@ func deleteEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 			Type: models.EnrollmentKeySub,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: key,
+			New: nil,
+		},
 	})
 	logger.Log(2, r.Header.Get("user"), "deleted enrollment key", keyID)
 	w.WriteHeader(http.StatusOK)

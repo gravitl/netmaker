@@ -136,13 +136,13 @@ func ValidateRelay(relay models.RelayRequest, update bool) error {
 		if relayedNode.InternetGwID != "" && relayedNode.InternetGwID != relay.NodeID {
 			return errors.New("cannot relay an internet client (" + relayedNodeID + ")")
 		}
-		if relayedNode.IsFailOver {
-			return errors.New("cannot relay a failOver (" + relayedNodeID + ")")
+		if relayedNode.IsFailOver || relayedNode.IsAutoRelay {
+			return errors.New("cannot relay a auto relay node (" + relayedNodeID + ")")
 		}
 		if relayedNode.FailedOverBy != uuid.Nil {
 			ResetFailedOverPeer(&relayedNode)
 		}
-		if relayedNode.AutoRelayedBy != uuid.Nil {
+		if len(relayedNode.AutoRelayedPeers) > 0 {
 			ResetAutoRelayedPeer(&relayedNode)
 		}
 	}
@@ -212,9 +212,6 @@ func RelayedAllowedIPs(peer, node *models.Node) []net.IPNet {
 		if err != nil {
 			continue
 		}
-		if relayedNode.AutoAssignGateway && node.IsGw {
-			continue
-		}
 		GetNodeEgressInfo(&relayedNode, eli, acls)
 		allowed := getRelayedAddresses(relayedNodeID)
 		if relayedNode.EgressDetails.IsEgressGateway {
@@ -239,6 +236,7 @@ func GetAllowedIpsForRelayed(relayed, relay *models.Node) (allowedIPs []net.IPNe
 		logger.Log(0, "error getting network clients", err.Error())
 		return
 	}
+	serverSettings := GetServerSettings()
 	acls, _ := ListAclsByNetwork(models.NetworkID(relay.Network))
 	eli, _ := (&schema.Egress{Network: relay.Network}).ListByNetwork(db.WithContext(context.TODO()))
 	defaultPolicy, _ := GetDefaultPolicy(models.NetworkID(relay.Network), models.DevicePolicy)
@@ -246,14 +244,11 @@ func GetAllowedIpsForRelayed(relayed, relay *models.Node) (allowedIPs []net.IPNe
 		if peer.ID == relayed.ID || peer.ID == relay.ID {
 			continue
 		}
-		if relayed.AutoAssignGateway && peer.IsGw {
-			continue
-		}
 		if !IsPeerAllowed(*relayed, peer, true) {
 			continue
 		}
 		AddEgressInfoToPeerByAccess(relayed, &peer, eli, acls, defaultPolicy.Enabled)
-		if nodeacls.AreNodesAllowed(nodeacls.NetworkID(relayed.Network), nodeacls.NodeID(relayed.ID.String()), nodeacls.NodeID(peer.ID.String())) {
+		if !serverSettings.OldAClsSupport || nodeacls.AreNodesAllowed(nodeacls.NetworkID(relayed.Network), nodeacls.NodeID(relayed.ID.String()), nodeacls.NodeID(peer.ID.String())) {
 			allowedIPs = append(allowedIPs, GetAllowedIPs(relayed, &peer, nil)...)
 		}
 	}

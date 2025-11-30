@@ -13,7 +13,6 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
-	"github.com/gravitl/netmaker/logic/hostactions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
@@ -288,6 +287,19 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 	newHost := newHostData.ConvertAPIHostToNMHost(currHost)
 
 	logic.UpdateHost(newHost, currHost) // update the in memory struct values
+	if newHost.DNS != "yes" {
+		// check if any node is internet gw
+		for _, nodeID := range newHost.Nodes {
+			node, err := logic.GetNodeByID(nodeID)
+			if err != nil {
+				continue
+			}
+			if node.IsInternetGateway {
+				newHost.DNS = "yes"
+				break
+			}
+		}
+	}
 	if err = logic.UpsertHost(newHost); err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to update a host:", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -499,6 +511,10 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 			Type: models.DeviceSub,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: currHost,
+			New: nil,
+		},
 	})
 	apiHostData := currHost.ConvertNMHostToAPI()
 	logger.Log(2, r.Header.Get("user"), "removed host", currHost.Name)
@@ -1266,7 +1282,7 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.Log(1, "added new node", newNode.ID.String(), "to host", h.Name)
-	hostactions.AddAction(models.HostUpdate{
+	mq.HostUpdate(&models.HostUpdate{
 		Action: models.JoinHostToNetwork,
 		Host:   *h,
 		Node:   *newNode,

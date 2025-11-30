@@ -174,6 +174,11 @@ func GlobalPermissionsCheck(username string, r *http.Request) error {
 		if r.Method == http.MethodGet {
 			return nil
 		} else {
+			if (r.Method == http.MethodPut || r.Method == http.MethodPost) &&
+				strings.Contains(r.URL.Path, "/api/users/"+username) {
+				return nil
+			}
+
 			return errors.New("access denied")
 		}
 	}

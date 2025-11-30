@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -270,65 +269,6 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	filteredNodes := []models.Node{}
-	if r.Header.Get("ismaster") != "yes" {
-		username := r.Header.Get("user")
-		user, err := logic.GetUser(username)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-		userPlatformRole, err := logic.GetRole(user.PlatformRoleID)
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-
-		if !userPlatformRole.FullAccess {
-			nodesMap := make(map[string]struct{})
-			networkRoles := user.NetworkRoles[models.NetworkID(networkName)]
-			for networkRoleID := range networkRoles {
-				userPermTemplate, err := logic.GetRole(networkRoleID)
-				if err != nil {
-					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-					return
-				}
-				if userPermTemplate.FullAccess {
-					break
-				}
-				if rsrcPerms, ok := userPermTemplate.NetworkLevelAccess[models.RemoteAccessGwRsrc]; ok {
-					if _, ok := rsrcPerms[models.AllRemoteAccessGwRsrcID]; ok {
-						for _, node := range nodes {
-							if _, ok := nodesMap[node.ID.String()]; ok {
-								continue
-							}
-							if node.IsIngressGateway {
-								nodesMap[node.ID.String()] = struct{}{}
-								filteredNodes = append(filteredNodes, node)
-							}
-						}
-					} else {
-						for gwID, scope := range rsrcPerms {
-							if _, ok := nodesMap[gwID.String()]; ok {
-								continue
-							}
-							if scope.Read {
-								gwNode, err := logic.GetNodeByID(gwID.String())
-								if err == nil && gwNode.IsIngressGateway {
-									filteredNodes = append(filteredNodes, gwNode)
-								}
-							}
-						}
-					}
-				}
-
-			}
-		}
-	}
-	if len(filteredNodes) > 0 {
-		nodes = filteredNodes
-	}
-
 	nodes = logic.AddStaticNodestoList(nodes)
 	nodes = logic.AddStatusToNodes(nodes, false)
 	// returns all the nodes in JSON/API format
@@ -401,21 +341,6 @@ func getNetworkNodeStatus(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, "error fetching all nodes info: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
-	}
-	username := r.Header.Get("user")
-	if r.Header.Get("ismaster") == "no" {
-		user, err := logic.GetUser(username)
-		if err != nil {
-			return
-		}
-		userPlatformRole, err := logic.GetRole(user.PlatformRoleID)
-		if err != nil {
-			return
-		}
-		if !userPlatformRole.FullAccess {
-			nodes = logic.GetFilteredNodesByUserAccess(*user, nodes)
-		}
-
 	}
 	nodes = logic.AddStaticNodestoList(nodes)
 	nodes = logic.AddStatusToNodes(nodes, true)
@@ -673,6 +598,12 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	if newNode.IsInternetGateway {
+		if host.DNS != "yes" {
+			host.DNS = "yes"
+			logic.UpsertHost(host)
+		}
+	}
 	aclUpdate := currentNode.DefaultACL != newNode.DefaultACL
 
 	err = logic.UpdateNode(&currentNode, newNode)
@@ -710,7 +641,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			newNode.RelayedBy = ""
 		}
 	}
-	if (currentNode.IsRelayed || currentNode.FailedOverBy != uuid.Nil) && newNode.AutoAssignGateway {
+	if (currentNode.IsRelayed) && newNode.AutoAssignGateway {
 		// if relayed remove it
 		if currentNode.IsRelayed {
 			relayNode, err := logic.GetNodeByID(currentNode.RelayedBy)
@@ -721,7 +652,12 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			newNode.IsRelayed = false
 			newNode.RelayedBy = ""
 		}
-		if currentNode.FailedOverBy != uuid.Nil {
+		if len(currentNode.AutoRelayedPeers) > 0 {
+			logic.ResetAutoRelayedPeer(&currentNode)
+		}
+	}
+	if !currentNode.AutoAssignGateway && newNode.AutoAssignGateway {
+		if len(currentNode.AutoRelayedPeers) > 0 {
 			logic.ResetAutoRelayedPeer(&currentNode)
 		}
 	}
@@ -765,12 +701,27 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		// if !newNode.Connected {
 		// 	mq.HostUpdate(&models.HostUpdate{Host: *host, Action: models.SignalPull})
 		// }
-		mq.PublishPeerUpdate(false)
-		if newNode.AutoAssignGateway {
+		allNodes, err := logic.GetAllNodes()
+		if err == nil {
+			mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, false, nil)
+		}
+		if servercfg.IsPro && newNode.AutoAssignGateway {
 			mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *host, Node: *newNode})
 		}
+		mq.PublishPeerUpdate(false)
 		if servercfg.IsDNSMode() {
 			logic.SetDNS()
+		}
+		if !newNode.Connected {
+			metrics, err := logic.GetMetrics(newNode.ID.String())
+			if err == nil {
+				for peer, connectivity := range metrics.Connectivity {
+					connectivity.Connected = false
+					metrics.Connectivity[peer] = connectivity
+				}
+
+				_ = logic.UpdateMetrics(newNode.ID.String(), metrics)
+			}
 		}
 	}(aclUpdate, relayUpdate, newNode)
 }
