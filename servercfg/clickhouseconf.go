@@ -32,8 +32,8 @@ func GetClickHousePort() int32 {
 	envport, err := strconv.Atoi(os.Getenv("CLICKHOUSE_PORT"))
 	if err == nil && envport != 0 {
 		port = int32(envport)
-	} else if config.Config.SQL.Port != 0 {
-		port = config.Config.SQL.Port
+	} else if config.Config.ClickHouse.Port != 0 {
+		port = config.Config.ClickHouse.Port
 	}
 	return port
 }
