@@ -2,9 +2,9 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.0
 // - protoc             v3.21.12
-// source: pro/flow/proto/flow.proto
+// source: grpc/flow/flow.proto
 
-package proto
+package flow
 
 import (
 	context "context"
@@ -121,5 +121,5 @@ var FlowService_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "pro/flow/proto/flow.proto",
+	Metadata: "grpc/flow/flow.proto",
 }

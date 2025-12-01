@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.36.10
 // 	protoc        v3.21.12
-// source: pro/flow/proto/flow.proto
+// source: grpc/flow/flow.proto
 
-package proto
+package flow
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -59,11 +59,11 @@ func (x EventType) String() string {
 }
 
 func (EventType) Descriptor() protoreflect.EnumDescriptor {
-	return file_pro_flow_proto_flow_proto_enumTypes[0].Descriptor()
+	return file_grpc_flow_flow_proto_enumTypes[0].Descriptor()
 }
 
 func (EventType) Type() protoreflect.EnumType {
-	return &file_pro_flow_proto_flow_proto_enumTypes[0]
+	return &file_grpc_flow_flow_proto_enumTypes[0]
 }
 
 func (x EventType) Number() protoreflect.EnumNumber {
@@ -72,7 +72,7 @@ func (x EventType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use EventType.Descriptor instead.
 func (EventType) EnumDescriptor() ([]byte, []int) {
-	return file_pro_flow_proto_flow_proto_rawDescGZIP(), []int{0}
+	return file_grpc_flow_flow_proto_rawDescGZIP(), []int{0}
 }
 
 // *
@@ -117,11 +117,11 @@ func (x ParticipantType) String() string {
 }
 
 func (ParticipantType) Descriptor() protoreflect.EnumDescriptor {
-	return file_pro_flow_proto_flow_proto_enumTypes[1].Descriptor()
+	return file_grpc_flow_flow_proto_enumTypes[1].Descriptor()
 }
 
 func (ParticipantType) Type() protoreflect.EnumType {
-	return &file_pro_flow_proto_flow_proto_enumTypes[1]
+	return &file_grpc_flow_flow_proto_enumTypes[1]
 }
 
 func (x ParticipantType) Number() protoreflect.EnumNumber {
@@ -130,7 +130,7 @@ func (x ParticipantType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ParticipantType.Descriptor instead.
 func (ParticipantType) EnumDescriptor() ([]byte, []int) {
-	return file_pro_flow_proto_flow_proto_rawDescGZIP(), []int{1}
+	return file_grpc_flow_flow_proto_rawDescGZIP(), []int{1}
 }
 
 // *
@@ -168,11 +168,11 @@ func (x Direction) String() string {
 }
 
 func (Direction) Descriptor() protoreflect.EnumDescriptor {
-	return file_pro_flow_proto_flow_proto_enumTypes[2].Descriptor()
+	return file_grpc_flow_flow_proto_enumTypes[2].Descriptor()
 }
 
 func (Direction) Type() protoreflect.EnumType {
-	return &file_pro_flow_proto_flow_proto_enumTypes[2]
+	return &file_grpc_flow_flow_proto_enumTypes[2]
 }
 
 func (x Direction) Number() protoreflect.EnumNumber {
@@ -181,7 +181,7 @@ func (x Direction) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Direction.Descriptor instead.
 func (Direction) EnumDescriptor() ([]byte, []int) {
-	return file_pro_flow_proto_flow_proto_rawDescGZIP(), []int{2}
+	return file_grpc_flow_flow_proto_rawDescGZIP(), []int{2}
 }
 
 // *
@@ -198,7 +198,7 @@ type FlowParticipant struct {
 
 func (x *FlowParticipant) Reset() {
 	*x = FlowParticipant{}
-	mi := &file_pro_flow_proto_flow_proto_msgTypes[0]
+	mi := &file_grpc_flow_flow_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -210,7 +210,7 @@ func (x *FlowParticipant) String() string {
 func (*FlowParticipant) ProtoMessage() {}
 
 func (x *FlowParticipant) ProtoReflect() protoreflect.Message {
-	mi := &file_pro_flow_proto_flow_proto_msgTypes[0]
+	mi := &file_grpc_flow_flow_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -223,7 +223,7 @@ func (x *FlowParticipant) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FlowParticipant.ProtoReflect.Descriptor instead.
 func (*FlowParticipant) Descriptor() ([]byte, []int) {
-	return file_pro_flow_proto_flow_proto_rawDescGZIP(), []int{0}
+	return file_grpc_flow_flow_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *FlowParticipant) GetIp() string {
@@ -290,7 +290,7 @@ type FlowEvent struct {
 
 func (x *FlowEvent) Reset() {
 	*x = FlowEvent{}
-	mi := &file_pro_flow_proto_flow_proto_msgTypes[1]
+	mi := &file_grpc_flow_flow_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -302,7 +302,7 @@ func (x *FlowEvent) String() string {
 func (*FlowEvent) ProtoMessage() {}
 
 func (x *FlowEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_pro_flow_proto_flow_proto_msgTypes[1]
+	mi := &file_grpc_flow_flow_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -315,7 +315,7 @@ func (x *FlowEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FlowEvent.ProtoReflect.Descriptor instead.
 func (*FlowEvent) Descriptor() ([]byte, []int) {
-	return file_pro_flow_proto_flow_proto_rawDescGZIP(), []int{1}
+	return file_grpc_flow_flow_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *FlowEvent) GetType() EventType {
@@ -496,7 +496,7 @@ type FlowRecord struct {
 
 func (x *FlowRecord) Reset() {
 	*x = FlowRecord{}
-	mi := &file_pro_flow_proto_flow_proto_msgTypes[2]
+	mi := &file_grpc_flow_flow_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -508,7 +508,7 @@ func (x *FlowRecord) String() string {
 func (*FlowRecord) ProtoMessage() {}
 
 func (x *FlowRecord) ProtoReflect() protoreflect.Message {
-	mi := &file_pro_flow_proto_flow_proto_msgTypes[2]
+	mi := &file_grpc_flow_flow_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -521,7 +521,7 @@ func (x *FlowRecord) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FlowRecord.ProtoReflect.Descriptor instead.
 func (*FlowRecord) Descriptor() ([]byte, []int) {
-	return file_pro_flow_proto_flow_proto_rawDescGZIP(), []int{2}
+	return file_grpc_flow_flow_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *FlowRecord) GetFlowId() string {
@@ -673,7 +673,7 @@ type FlowEnvelope struct {
 
 func (x *FlowEnvelope) Reset() {
 	*x = FlowEnvelope{}
-	mi := &file_pro_flow_proto_flow_proto_msgTypes[3]
+	mi := &file_grpc_flow_flow_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -685,7 +685,7 @@ func (x *FlowEnvelope) String() string {
 func (*FlowEnvelope) ProtoMessage() {}
 
 func (x *FlowEnvelope) ProtoReflect() protoreflect.Message {
-	mi := &file_pro_flow_proto_flow_proto_msgTypes[3]
+	mi := &file_grpc_flow_flow_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -698,7 +698,7 @@ func (x *FlowEnvelope) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FlowEnvelope.ProtoReflect.Descriptor instead.
 func (*FlowEnvelope) Descriptor() ([]byte, []int) {
-	return file_pro_flow_proto_flow_proto_rawDescGZIP(), []int{3}
+	return file_grpc_flow_flow_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *FlowEnvelope) GetHostId() string {
@@ -749,7 +749,7 @@ type FlowResponse struct {
 
 func (x *FlowResponse) Reset() {
 	*x = FlowResponse{}
-	mi := &file_pro_flow_proto_flow_proto_msgTypes[4]
+	mi := &file_grpc_flow_flow_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -761,7 +761,7 @@ func (x *FlowResponse) String() string {
 func (*FlowResponse) ProtoMessage() {}
 
 func (x *FlowResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pro_flow_proto_flow_proto_msgTypes[4]
+	mi := &file_grpc_flow_flow_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -774,7 +774,7 @@ func (x *FlowResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FlowResponse.ProtoReflect.Descriptor instead.
 func (*FlowResponse) Descriptor() ([]byte, []int) {
-	return file_pro_flow_proto_flow_proto_rawDescGZIP(), []int{4}
+	return file_grpc_flow_flow_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *FlowResponse) GetAckSeq() uint64 {
@@ -798,11 +798,11 @@ func (x *FlowResponse) GetError() string {
 	return ""
 }
 
-var File_pro_flow_proto_flow_proto protoreflect.FileDescriptor
+var File_grpc_flow_flow_proto protoreflect.FileDescriptor
 
-const file_pro_flow_proto_flow_proto_rawDesc = "" +
+const file_grpc_flow_flow_proto_rawDesc = "" +
 	"\n" +
-	"\x19pro/flow/proto/flow.proto\x12\rnetmaker.flow\"\x93\x01\n" +
+	"\x14grpc/flow/flow.proto\x12\rnetmaker.flow\"\x93\x01\n" +
 	"\x0fFlowParticipant\x12\x0e\n" +
 	"\x02ip\x18\x01 \x01(\tR\x02ip\x12I\n" +
 	"\x10participant_type\x18\x02 \x01(\x0e2\x1e.netmaker.flow.ParticipantTypeR\x0fparticipantType\x12%\n" +
@@ -884,23 +884,23 @@ const file_pro_flow_proto_flow_proto_rawDesc = "" +
 	"\n" +
 	"DIR_EGRESS\x10\x022Z\n" +
 	"\vFlowService\x12K\n" +
-	"\vStreamFlows\x12\x1b.netmaker.flow.FlowEnvelope\x1a\x1b.netmaker.flow.FlowResponse(\x010\x01B,Z*github.com/gravitl/netmaker/pro/flow/protob\x06proto3"
+	"\vStreamFlows\x12\x1b.netmaker.flow.FlowEnvelope\x1a\x1b.netmaker.flow.FlowResponse(\x010\x01B'Z%github.com/gravitl/netmaker/grpc/flowb\x06proto3"
 
 var (
-	file_pro_flow_proto_flow_proto_rawDescOnce sync.Once
-	file_pro_flow_proto_flow_proto_rawDescData []byte
+	file_grpc_flow_flow_proto_rawDescOnce sync.Once
+	file_grpc_flow_flow_proto_rawDescData []byte
 )
 
-func file_pro_flow_proto_flow_proto_rawDescGZIP() []byte {
-	file_pro_flow_proto_flow_proto_rawDescOnce.Do(func() {
-		file_pro_flow_proto_flow_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_pro_flow_proto_flow_proto_rawDesc), len(file_pro_flow_proto_flow_proto_rawDesc)))
+func file_grpc_flow_flow_proto_rawDescGZIP() []byte {
+	file_grpc_flow_flow_proto_rawDescOnce.Do(func() {
+		file_grpc_flow_flow_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_grpc_flow_flow_proto_rawDesc), len(file_grpc_flow_flow_proto_rawDesc)))
 	})
-	return file_pro_flow_proto_flow_proto_rawDescData
+	return file_grpc_flow_flow_proto_rawDescData
 }
 
-var file_pro_flow_proto_flow_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_pro_flow_proto_flow_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
-var file_pro_flow_proto_flow_proto_goTypes = []any{
+var file_grpc_flow_flow_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_grpc_flow_flow_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_grpc_flow_flow_proto_goTypes = []any{
 	(EventType)(0),          // 0: netmaker.flow.EventType
 	(ParticipantType)(0),    // 1: netmaker.flow.ParticipantType
 	(Direction)(0),          // 2: netmaker.flow.Direction
@@ -910,7 +910,7 @@ var file_pro_flow_proto_flow_proto_goTypes = []any{
 	(*FlowEnvelope)(nil),    // 6: netmaker.flow.FlowEnvelope
 	(*FlowResponse)(nil),    // 7: netmaker.flow.FlowResponse
 }
-var file_pro_flow_proto_flow_proto_depIdxs = []int32{
+var file_grpc_flow_flow_proto_depIdxs = []int32{
 	1, // 0: netmaker.flow.FlowParticipant.participant_type:type_name -> netmaker.flow.ParticipantType
 	0, // 1: netmaker.flow.FlowEvent.type:type_name -> netmaker.flow.EventType
 	2, // 2: netmaker.flow.FlowEvent.direction:type_name -> netmaker.flow.Direction
@@ -927,27 +927,27 @@ var file_pro_flow_proto_flow_proto_depIdxs = []int32{
 	0, // [0:7] is the sub-list for field type_name
 }
 
-func init() { file_pro_flow_proto_flow_proto_init() }
-func file_pro_flow_proto_flow_proto_init() {
-	if File_pro_flow_proto_flow_proto != nil {
+func init() { file_grpc_flow_flow_proto_init() }
+func file_grpc_flow_flow_proto_init() {
+	if File_grpc_flow_flow_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_pro_flow_proto_flow_proto_rawDesc), len(file_pro_flow_proto_flow_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_grpc_flow_flow_proto_rawDesc), len(file_grpc_flow_flow_proto_rawDesc)),
 			NumEnums:      3,
 			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_pro_flow_proto_flow_proto_goTypes,
-		DependencyIndexes: file_pro_flow_proto_flow_proto_depIdxs,
-		EnumInfos:         file_pro_flow_proto_flow_proto_enumTypes,
-		MessageInfos:      file_pro_flow_proto_flow_proto_msgTypes,
+		GoTypes:           file_grpc_flow_flow_proto_goTypes,
+		DependencyIndexes: file_grpc_flow_flow_proto_depIdxs,
+		EnumInfos:         file_grpc_flow_flow_proto_enumTypes,
+		MessageInfos:      file_grpc_flow_flow_proto_msgTypes,
 	}.Build()
-	File_pro_flow_proto_flow_proto = out.File
-	file_pro_flow_proto_flow_proto_goTypes = nil
-	file_pro_flow_proto_flow_proto_depIdxs = nil
+	File_grpc_flow_flow_proto = out.File
+	file_grpc_flow_flow_proto_goTypes = nil
+	file_grpc_flow_flow_proto_depIdxs = nil
 }
