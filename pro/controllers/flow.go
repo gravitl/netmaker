@@ -37,7 +37,7 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 		LIMIT 1000
 	`)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("query error: %v", err), http.StatusInternalServerError)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("error fetching flows: %v", err), logic.Internal))
 		return
 	}
 	defer rows.Close()
@@ -73,7 +73,7 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var fr FlowRow
 		if err := rows.ScanStruct(&fr); err != nil {
-			http.Error(w, fmt.Sprintf("scan error: %v", err), http.StatusInternalServerError)
+			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("error fetching flows: %v", err), logic.Internal))
 			return
 		}
 		result = append(result, fr)
