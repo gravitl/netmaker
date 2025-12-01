@@ -16,11 +16,11 @@ CREATE TABLE IF NOT EXISTS flows (
 
     -- Participants
     src_ip             String,
-    src_type           Enum8('host'=1,'user'=2,'extclient'=3,'external'=4),
+    src_type           Enum8('node'=1,'user'=2,'extclient'=3,'external'=4),
     src_entity_id      String,
 
     dst_ip             String,
-    dst_type           Enum8('host'=1,'user'=2,'extclient'=3,'external'=4),
+    dst_type           Enum8('node'=1,'user'=2,'extclient'=3,'external'=4),
     dst_entity_id      String,
 
     -- Timestamps
