@@ -70,7 +70,7 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}/remote_access_gw/{remote_access_gateway_id}", logic.SecurityCheck(true, http.HandlerFunc(removeUserFromRemoteAccessGW))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/users/{username}/remote_access_gw", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserRemoteAccessGwsV1)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/ingress/{ingress_id}", logic.SecurityCheck(true, http.HandlerFunc(ingressGatewayUsers))).Methods(http.MethodGet)
-	r.HandleFunc("/api/users/network_ip", logic.SecurityCheck(true, http.HandlerFunc(userNetworkMapping))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/network_ip", logic.SecurityCheck(true, http.HandlerFunc(userNetworkMapping))).Methods(http.MethodGet)
 
 	r.HandleFunc("/api/idp/sync", logic.SecurityCheck(true, http.HandlerFunc(syncIDP))).Methods(http.MethodPost)
 	r.HandleFunc("/api/idp/sync/test", logic.SecurityCheck(true, http.HandlerFunc(testIDPSync))).Methods(http.MethodPost)
@@ -1838,23 +1838,11 @@ func ingressGatewayUsers(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func userNetworkMapping(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	var params = mux.Vars(r)
-	ingressID := params["ingress_id"]
-	node, err := logic.GetNodeByID(ingressID)
-	if err != nil {
-		slog.Error("failed to get ingress node", "error", err)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
-	}
+
 	extclients, err := logic.GetAllExtClients()
 	if err != nil {
 		slog.Error(
 			"failed to get users on ingress gateway",
-			"nodeid",
-			ingressID,
-			"network",
-			node.Network,
 			"user",
 			r.Header.Get("user"),
 			"error",
