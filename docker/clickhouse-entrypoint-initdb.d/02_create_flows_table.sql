@@ -15,11 +15,11 @@ CREATE TABLE IF NOT EXISTS flows (
     direction          Enum8('ingress'=1, 'egress'=2),
 
     -- Participants
-    src_ip             IPv6,
+    src_ip             String,
     src_type           Enum8('host'=1,'user'=2,'extclient'=3,'external'=4),
     src_entity_id      String,
 
-    dst_ip             IPv6,
+    dst_ip             String,
     dst_type           Enum8('host'=1,'user'=2,'extclient'=3,'external'=4),
     dst_entity_id      String,
 
