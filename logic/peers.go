@@ -179,11 +179,15 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		DnsNameservers:  GetNameserversForHost(host),
 		AutoRelayNodes:  make(map[models.NetworkID][]models.Node),
 		GwNodes:         make(map[models.NetworkID][]models.Node),
-		EnableFlowLogs:  GetFeatureFlags().EnableFlowLogs,
 	}
 	if host.DNS == "no" {
 		hostPeerUpdate.ManageDNS = false
 	}
+
+	if !GetFeatureFlags().EnableFlowLogs {
+		host.EnableFlowLogs = false
+	}
+
 	defer func() {
 		if !hostPeerUpdate.FwUpdate.AllowAll {
 			if len(hostPeerUpdate.FwUpdate.AllowedNetworks) > 0 {

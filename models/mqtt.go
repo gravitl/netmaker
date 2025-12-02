@@ -47,7 +47,6 @@ type HostPeerUpdate struct {
 	EgressWithDomains []EgressDomain        `json:"egress_with_domains"`
 	AutoRelayNodes    map[NetworkID][]Node  `json:"auto_relay_nodes"`
 	GwNodes           map[NetworkID][]Node  `json:"gw_nodes"`
-	EnableFlowLogs    bool                  `json:"enable_flow_logs"`
 	ServerConfig
 	OldPeerUpdateFields
 }
