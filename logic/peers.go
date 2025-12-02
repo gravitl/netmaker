@@ -66,7 +66,8 @@ var (
 // GetHostPeerInfo - fetches required peer info per network
 func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 	peerInfo := models.HostPeerInfo{
-		NetworkPeerIDs: make(map[models.NetworkID]models.PeerMap),
+		NetworkPeerIDs:    make(map[models.NetworkID]models.PeerMap),
+		PeerIPIdentityMap: make(map[string]models.PeerIdentity),
 	}
 	allNodes, err := GetAllNodes()
 	if err != nil {
@@ -121,11 +122,24 @@ func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 					ListenPort: peerHost.ListenPort,
 				}
 
+				if peer.Address.IP != nil {
+					peerInfo.PeerIPIdentityMap[peer.Address.IP.String()] = models.PeerIdentity{
+						ID:   peer.ID.String(),
+						Type: models.PeerType_Node,
+					}
+				}
+
+				if peer.Address6.IP != nil {
+					peerInfo.PeerIPIdentityMap[peer.Address6.IP.String()] = models.PeerIdentity{
+						ID:   peer.ID.String(),
+						Type: models.PeerType_Node,
+					}
+				}
 			}
 		}
 		var extPeerIDAndAddrs []models.IDandAddr
 		if node.IsIngressGateway {
-			_, extPeerIDAndAddrs, _, err = GetExtPeers(&node, &node)
+			_, extPeerIDAndAddrs, _, err = GetExtPeers(&node, &node, peerInfo.PeerIPIdentityMap)
 			if err == nil {
 				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
 					networkPeersInfo[extPeerIdAndAddr.ID] = extPeerIdAndAddr
@@ -467,7 +481,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		var egressRoutes []models.EgressNetworkRoutes
 		if node.IsIngressGateway {
 			hostPeerUpdate.FwUpdate.IsIngressGw = true
-			extPeers, extPeerIDAndAddrs, egressRoutes, err = GetExtPeers(&node, &node)
+			extPeers, extPeerIDAndAddrs, egressRoutes, err = GetExtPeers(&node, &node, make(map[string]models.PeerIdentity))
 			if err == nil {
 				if !defaultDevicePolicy.Enabled || !defaultUserPolicy.Enabled {
 					ingFwUpdate := models.IngressInfo{
@@ -671,7 +685,7 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 
 	// handle ingress gateway peers
 	if peer.IsIngressGateway {
-		extPeers, _, _, err := GetExtPeers(peer, node)
+		extPeers, _, _, err := GetExtPeers(peer, node, make(map[string]models.PeerIdentity))
 		if err != nil {
 			logger.Log(2, "could not retrieve ext peers for ", peer.ID.String(), err.Error())
 		}

@@ -7,7 +7,21 @@ import (
 )
 
 type HostPeerInfo struct {
-	NetworkPeerIDs map[NetworkID]PeerMap `json:"network_peers"`
+	NetworkPeerIDs    map[NetworkID]PeerMap   `json:"network_peers"`
+	PeerIPIdentityMap map[string]PeerIdentity `json:"peer_ip_identity"`
+}
+
+type PeerType int
+
+const (
+	PeerType_Node PeerType = iota
+	PeerType_User
+	PeerType_WireGuard
+)
+
+type PeerIdentity struct {
+	ID   string   `json:"id"`
+	Type PeerType `json:"type"`
 }
 
 // HostPeerUpdate - struct for host peer updates
