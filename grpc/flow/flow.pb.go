@@ -186,12 +186,12 @@ func (Direction) EnumDescriptor() ([]byte, []int) {
 // *
 // Fully enriched representation of one endpoint of a flow.
 type FlowParticipant struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	Ip              string                 `protobuf:"bytes,1,opt,name=ip,proto3" json:"ip,omitempty"`                                                                                      // normalized IPv4 or IPv6
-	ParticipantType ParticipantType        `protobuf:"varint,2,opt,name=participant_type,json=participantType,proto3,enum=netmaker.flow.ParticipantType" json:"participant_type,omitempty"` // host/user/extclient/external
-	ParticipantId   string                 `protobuf:"bytes,3,opt,name=participant_id,json=participantId,proto3" json:"participant_id,omitempty"`                                           // UUID for host/user/extclient; empty for external
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ip            string                 `protobuf:"bytes,1,opt,name=ip,proto3" json:"ip,omitempty"`
+	Type          ParticipantType        `protobuf:"varint,2,opt,name=type,proto3,enum=netmaker.flow.ParticipantType" json:"type,omitempty"`
+	Id            string                 `protobuf:"bytes,3,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *FlowParticipant) Reset() {
@@ -231,16 +231,16 @@ func (x *FlowParticipant) GetIp() string {
 	return ""
 }
 
-func (x *FlowParticipant) GetParticipantType() ParticipantType {
+func (x *FlowParticipant) GetType() ParticipantType {
 	if x != nil {
-		return x.ParticipantType
+		return x.Type
 	}
 	return ParticipantType_PARTICIPANT_UNSPECIFIED
 }
 
-func (x *FlowParticipant) GetParticipantId() string {
+func (x *FlowParticipant) GetId() string {
 	if x != nil {
-		return x.ParticipantId
+		return x.Id
 	}
 	return ""
 }
@@ -558,11 +558,11 @@ var File_grpc_flow_flow_proto protoreflect.FileDescriptor
 
 const file_grpc_flow_flow_proto_rawDesc = "" +
 	"\n" +
-	"\x14grpc/flow/flow.proto\x12\rnetmaker.flow\"\x93\x01\n" +
+	"\x14grpc/flow/flow.proto\x12\rnetmaker.flow\"e\n" +
 	"\x0fFlowParticipant\x12\x0e\n" +
-	"\x02ip\x18\x01 \x01(\tR\x02ip\x12I\n" +
-	"\x10participant_type\x18\x02 \x01(\x0e2\x1e.netmaker.flow.ParticipantTypeR\x0fparticipantType\x12%\n" +
-	"\x0eparticipant_id\x18\x03 \x01(\tR\rparticipantId\"\xa4\x05\n" +
+	"\x02ip\x18\x01 \x01(\tR\x02ip\x122\n" +
+	"\x04type\x18\x02 \x01(\x0e2\x1e.netmaker.flow.ParticipantTypeR\x04type\x12\x0e\n" +
+	"\x02id\x18\x03 \x01(\tR\x02id\"\xa4\x05\n" +
 	"\tFlowEvent\x12,\n" +
 	"\x04type\x18\x01 \x01(\x0e2\x18.netmaker.flow.EventTypeR\x04type\x12\x17\n" +
 	"\aflow_id\x18\x02 \x01(\tR\x06flowId\x12\x1d\n" +
@@ -635,7 +635,7 @@ var file_grpc_flow_flow_proto_goTypes = []any{
 	(*FlowResponse)(nil),    // 6: netmaker.flow.FlowResponse
 }
 var file_grpc_flow_flow_proto_depIdxs = []int32{
-	1, // 0: netmaker.flow.FlowParticipant.participant_type:type_name -> netmaker.flow.ParticipantType
+	1, // 0: netmaker.flow.FlowParticipant.type:type_name -> netmaker.flow.ParticipantType
 	0, // 1: netmaker.flow.FlowEvent.type:type_name -> netmaker.flow.EventType
 	2, // 2: netmaker.flow.FlowEvent.direction:type_name -> netmaker.flow.Direction
 	3, // 3: netmaker.flow.FlowEvent.src:type_name -> netmaker.flow.FlowParticipant

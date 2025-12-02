@@ -55,9 +55,9 @@ enum Direction {
  * Fully enriched representation of one endpoint of a flow.
  */
 message FlowParticipant {
-  string ip = 1;                          // normalized IPv4 or IPv6
-  ParticipantType participant_type = 2;   // host/user/extclient/external
-  string participant_id = 3;              // UUID for host/user/extclient; empty for external
+  string ip = 1;
+  ParticipantType type = 2;
+  string id = 3;
 }
 
 // ============================================================
