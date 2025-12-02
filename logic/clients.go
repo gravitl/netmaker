@@ -4,7 +4,6 @@ import (
 	"errors"
 	"sort"
 
-	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/models"
 	"golang.org/x/exp/slog"
@@ -27,7 +26,7 @@ var (
 	}
 	SetClientDefaultACLs = func(ec *models.ExtClient) error {
 		// allow all on CE
-		if !logic.GetServerSettings().OldAClsSupport {
+		if !GetServerSettings().OldAClsSupport {
 			ec.DeniedACLs = make(map[string]struct{})
 			return nil
 		}
