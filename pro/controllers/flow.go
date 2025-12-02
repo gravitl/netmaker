@@ -132,29 +132,29 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	type FlowRow struct {
-		FlowID      string    `json:"flow_id"`
-		HostID      string    `json:"host_id"`
-		NetworkID   string    `json:"network_id"`
-		Protocol    uint16    `json:"protocol"`
-		SrcPort     uint16    `json:"src_port"`
-		DstPort     uint16    `json:"dst_port"`
-		ICMPType    uint8     `json:"icmp_type"`
-		ICMPCode    uint8     `json:"icmp_code"`
-		Direction   uint8     `json:"direction"`
-		SrcIP       string    `json:"src_ip"`
-		SrcType     uint8     `json:"src_type"`
-		SrcEntityID string    `json:"src_entity_id"`
-		DstIP       string    `json:"dst_ip"`
-		DstType     uint8     `json:"dst_type"`
-		DstEntityID string    `json:"dst_entity_id"`
-		StartTs     time.Time `json:"start_ts"`
-		EndTs       time.Time `json:"end_ts"`
-		BytesSent   uint64    `json:"bytes_sent"`
-		BytesRecv   uint64    `json:"bytes_recv"`
-		PacketsSent uint64    `json:"packets_sent"`
-		PacketsRecv uint64    `json:"packets_recv"`
-		Status      uint32    `json:"status"`
-		Version     uint64    `json:"version"`
+		FlowID      string    `ch:"flow_id" json:"flow_id"`
+		HostID      string    `ch:"host_id" json:"host_id"`
+		NetworkID   string    `ch:"network_id" json:"network_id"`
+		Protocol    uint16    `ch:"protocol" json:"protocol"`
+		SrcPort     uint16    `ch:"src_port" json:"src_port"`
+		DstPort     uint16    `ch:"dst_port" json:"dst_port"`
+		ICMPType    uint8     `ch:"icmp_type" json:"icmp_type"`
+		ICMPCode    uint8     `ch:"icmp_code" json:"icmp_code"`
+		Direction   string    `ch:"direction" json:"direction"`
+		SrcIP       string    `ch:"src_ip" json:"src_ip"`
+		SrcType     string    `ch:"src_type" json:"src_type"`
+		SrcEntityID string    `ch:"src_entity_id" json:"src_entity_id"`
+		DstIP       string    `ch:"dst_ip" json:"dst_ip"`
+		DstType     string    `ch:"dst_type" json:"dst_type"`
+		DstEntityID string    `ch:"dst_entity_id" json:"dst_entity_id"`
+		StartTs     time.Time `ch:"start_ts" json:"start_ts"`
+		EndTs       time.Time `ch:"end_ts" json:"end_ts"`
+		BytesSent   uint64    `ch:"bytes_sent" json:"bytes_sent"`
+		BytesRecv   uint64    `ch:"bytes_recv" json:"bytes_recv"`
+		PacketsSent uint64    `ch:"packets_sent" json:"packets_sent"`
+		PacketsRecv uint64    `ch:"packets_recv" json:"packets_recv"`
+		Status      uint32    `ch:"status" json:"status"`
+		Version     uint64    `ch:"version" json:"version"`
 	}
 
 	result := make([]FlowRow, 0, 1000)
