@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/biter777/countries"
@@ -16,6 +17,8 @@ import (
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/datatypes"
 )
+
+var postureCheckMutex = &sync.Mutex{}
 
 func AddPostureCheckHook() {
 	settings := logic.GetServerSettings()
@@ -30,6 +33,8 @@ func AddPostureCheckHook() {
 	}
 }
 func RunPostureChecks() error {
+	postureCheckMutex.Lock()
+	defer postureCheckMutex.Unlock()
 	nets, err := logic.GetNetworks()
 	if err != nil {
 		return err
@@ -108,8 +113,58 @@ func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureChe
 		checksByAttribute[c.Attribute] = append(checksByAttribute[c.Attribute], c)
 	}
 
-	// For each attribute, check if ANY check allows it
-	for _, attrChecks := range checksByAttribute {
+	// Handle OS and OSFamily together with OR logic since they are related
+	osChecks := checksByAttribute[schema.OS]
+	osFamilyChecks := checksByAttribute[schema.OSFamily]
+	if len(osChecks) > 0 || len(osFamilyChecks) > 0 {
+		osAllowed := evaluateAttributeChecks(osChecks, schema.OS, d)
+		osFamilyAllowed := evaluateAttributeChecks(osFamilyChecks, schema.OSFamily, d)
+
+		// OR condition: if either OS or OSFamily passes, both are considered passed
+		if !osAllowed && !osFamilyAllowed {
+
+			// Both failed, add violations for both
+			osDenied := getDeniedChecks(osChecks, schema.OS, d)
+			osFamilyDenied := getDeniedChecks(osFamilyChecks, schema.OSFamily, d)
+
+			for _, denied := range osDenied {
+				sev := denied.check.Severity
+				if sev > highest {
+					highest = sev
+				}
+				v := models.Violation{
+					CheckID:   denied.check.ID,
+					Name:      denied.check.Name,
+					Attribute: string(denied.check.Attribute),
+					Message:   denied.reason,
+					Severity:  sev,
+				}
+				violations = append(violations, v)
+			}
+			for _, denied := range osFamilyDenied {
+				sev := denied.check.Severity
+				if sev > highest {
+					highest = sev
+				}
+				v := models.Violation{
+					CheckID:   denied.check.ID,
+					Name:      denied.check.Name,
+					Attribute: string(denied.check.Attribute),
+					Message:   denied.reason,
+					Severity:  sev,
+				}
+				violations = append(violations, v)
+			}
+		}
+	}
+
+	// For all other attributes, check if ANY check allows it
+	for attr, attrChecks := range checksByAttribute {
+		// Skip OS and OSFamily as they are handled above
+		if attr == schema.OS || attr == schema.OSFamily {
+			continue
+		}
+
 		// Check if any check for this attribute allows the device
 		allowed := false
 		var deniedChecks []struct {
@@ -152,6 +207,40 @@ func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureChe
 	}
 
 	return violations, highest
+}
+
+// evaluateAttributeChecks evaluates checks for a specific attribute and returns true if any check allows the device
+func evaluateAttributeChecks(attrChecks []schema.PostureCheck, attr schema.Attribute, d models.PostureCheckDeviceInfo) bool {
+	for _, c := range attrChecks {
+		violated, _ := evaluatePostureCheck(&c, d)
+		if !violated {
+			// At least one check allows it
+			return true
+		}
+	}
+	return false
+}
+
+// getDeniedChecks returns all checks that denied the device for a specific attribute
+func getDeniedChecks(attrChecks []schema.PostureCheck, attr schema.Attribute, d models.PostureCheckDeviceInfo) []struct {
+	check  schema.PostureCheck
+	reason string
+} {
+	var deniedChecks []struct {
+		check  schema.PostureCheck
+		reason string
+	}
+
+	for _, c := range attrChecks {
+		violated, reason := evaluatePostureCheck(&c, d)
+		if violated {
+			deniedChecks = append(deniedChecks, struct {
+				check  schema.PostureCheck
+				reason string
+			}{check: c, reason: reason})
+		}
+	}
+	return deniedChecks
 }
 
 func evaluatePostureCheck(check *schema.PostureCheck, d models.PostureCheckDeviceInfo) (violated bool, reason string) {
