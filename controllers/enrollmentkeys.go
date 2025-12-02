@@ -385,7 +385,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(skipViolatedNetworks) == len(enrollmentKey.Networks) && len(pcviolations) > 0 {
 		logic.ReturnErrorResponse(w, r,
-			logic.FormatError(errors.New("Access blocked: this device doesn’t meet security requirements."), logic.Forbidden))
+			logic.FormatError(errors.New("access blocked: this device doesn’t meet security requirements"), logic.Forbidden))
 		return
 	}
 	// need to remove the networks that were skipped from the enrollment key
