@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -366,6 +367,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		newHost.Location, newHost.CountryCode = logic.GetHostLocInfo(newHost.EndpointIPv6.String(), os.Getenv("IP_INFO_TOKEN"))
 	}
 	pcviolations := []models.Violation{}
+	skipViolatedNetworks := []string{}
 	for _, netI := range enrollmentKey.Networks {
 		violations, _ := logic.CheckPostureViolations(models.PostureCheckDeviceInfo{
 			ClientLocation: newHost.CountryCode,
@@ -377,11 +379,18 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			AutoUpdate:     newHost.AutoUpdate,
 		}, models.NetworkID(netI))
 		pcviolations = append(pcviolations, violations...)
+		if len(violations) > 0 {
+			skipViolatedNetworks = append(skipViolatedNetworks, netI)
+		}
 	}
-	if len(pcviolations) > 0 {
+	if len(skipViolatedNetworks) == len(enrollmentKey.Networks) && len(pcviolations) > 0 {
 		logic.ReturnErrorResponseWithJson(w, r, pcviolations, logic.FormatError(errors.New("posture check violations"), logic.Internal))
 		return
 	}
+	// need to remove the networks that were skipped from the enrollment key
+	enrollmentKey.Networks = slices.DeleteFunc(enrollmentKey.Networks, func(netI string) bool {
+		return slices.Contains(skipViolatedNetworks, netI)
+	})
 	if !hostExists {
 		newHost.PersistentKeepalive = models.DefaultPersistentKeepAlive
 		// register host
