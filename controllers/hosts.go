@@ -232,7 +232,15 @@ func pull(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	_ = logic.CheckHostPorts(host)
+
+	portChanged := logic.CheckHostPorts(host)
+	if portChanged {
+		// Save the port change to database immediately to prevent conflicts
+		if err := logic.UpsertHost(host); err != nil {
+			slog.Error("failed to save host port change", "host", host.Name, "error", err)
+		}
+	}
+
 	response := models.HostPull{
 		Host:              *host,
 		Nodes:             logic.GetHostNodes(host),
