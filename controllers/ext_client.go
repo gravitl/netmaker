@@ -724,7 +724,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	extclient := logic.UpdateExtClient(&models.ExtClient{}, &customExtClient)
 	if extclient.DeviceID != "" {
 		// check for violations connecting from desktop app
-		violations := logic.CheckPostureViolations(models.PostureCheckDeviceInfo{
+		violations, _ := logic.CheckPostureViolations(models.PostureCheckDeviceInfo{
 			ClientLocation: extclient.Country,
 			ClientVersion:  extclient.ClientVersion,
 			OS:             extclient.OS,
@@ -923,7 +923,7 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	newclient := logic.UpdateExtClient(&oldExtClient, &update)
 	if newclient.DeviceID != "" && newclient.Enabled {
 		// check for violations connecting from desktop app
-		violations := logic.CheckPostureViolations(models.PostureCheckDeviceInfo{
+		violations, _ := logic.CheckPostureViolations(models.PostureCheckDeviceInfo{
 			ClientLocation: newclient.Country,
 			ClientVersion:  newclient.ClientVersion,
 			OS:             newclient.OS,

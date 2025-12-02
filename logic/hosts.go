@@ -35,7 +35,9 @@ var (
 
 var GetHostLocInfo = func(ip, token string) (string, string) { return "", "" }
 
-var CheckPostureViolations = func(d models.PostureCheckDeviceInfo, network models.NetworkID) (v []models.Violation) { return }
+var CheckPostureViolations = func(d models.PostureCheckDeviceInfo, network models.NetworkID) (v []models.Violation, level models.Severity) {
+	return []models.Violation{}, models.SeverityUnknown
+}
 
 func getHostsFromCache() (hosts []models.Host) {
 	hostCacheMutex.RLock()

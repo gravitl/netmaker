@@ -551,7 +551,7 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	violations := logic.CheckPostureViolations(models.PostureCheckDeviceInfo{
+	violations, _ := logic.CheckPostureViolations(models.PostureCheckDeviceInfo{
 		ClientLocation: currHost.CountryCode,
 		ClientVersion:  currHost.Version,
 		OS:             currHost.OS,

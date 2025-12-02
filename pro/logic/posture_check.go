@@ -50,37 +50,7 @@ func RunPostureChecks() error {
 		}
 
 		for _, nodeI := range networkNodes {
-			var deviceInfo models.PostureCheckDeviceInfo
-			if !nodeI.IsStatic {
-				h, err := logic.GetHost(nodeI.HostID.String())
-				if err != nil {
-					continue
-				}
-				deviceInfo = models.PostureCheckDeviceInfo{
-					ClientLocation: h.CountryCode,
-					ClientVersion:  h.Version,
-					OS:             h.OS,
-					OSVersion:      h.OSVersion,
-					OSFamily:       h.OSFamily,
-					KernelVersion:  h.KernelVersion,
-					AutoUpdate:     h.AutoUpdate,
-					Tags:           nodeI.Tags,
-				}
-			} else {
-				if nodeI.StaticNode.DeviceID == "" {
-					continue
-				}
-				deviceInfo = models.PostureCheckDeviceInfo{
-					ClientLocation: nodeI.StaticNode.Country,
-					ClientVersion:  nodeI.StaticNode.ClientVersion,
-					OS:             nodeI.StaticNode.OS,
-					OSVersion:      nodeI.StaticNode.OSVersion,
-					OSFamily:       nodeI.StaticNode.OSFamily,
-					KernelVersion:  nodeI.StaticNode.KernelVersion,
-					Tags:           nodeI.StaticNode.Tags,
-				}
-			}
-			postureChecksViolations, postureCheckVolationSeverityLevel := GetPostureCheckViolations(pcLi, deviceInfo)
+			postureChecksViolations, postureCheckVolationSeverityLevel := GetPostureCheckViolations(pcLi, logic.GetPostureCheckDeviceInfoByNode(&nodeI))
 			if nodeI.IsStatic {
 				extclient, err := logic.GetExtClient(nodeI.StaticNode.ClientID, nodeI.StaticNode.Network)
 				if err == nil {
@@ -103,13 +73,13 @@ func RunPostureChecks() error {
 	return nil
 }
 
-func CheckPostureViolations(d models.PostureCheckDeviceInfo, network models.NetworkID) []models.Violation {
+func CheckPostureViolations(d models.PostureCheckDeviceInfo, network models.NetworkID) ([]models.Violation, models.Severity) {
 	pcLi, err := (&schema.PostureCheck{NetworkID: network.String()}).ListByNetwork(db.WithContext(context.TODO()))
 	if err != nil || len(pcLi) == 0 {
-		return []models.Violation{}
+		return []models.Violation{}, models.SeverityUnknown
 	}
-	violations, _ := GetPostureCheckViolations(pcLi, d)
-	return violations
+	violations, level := GetPostureCheckViolations(pcLi, d)
+	return violations, level
 }
 func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureCheckDeviceInfo) ([]models.Violation, models.Severity) {
 	var violations []models.Violation
