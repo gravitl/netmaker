@@ -48,6 +48,10 @@ func RemoveDeniedNodeFromClient(ec *models.ExtClient, clientOrNodeID string) boo
 
 // SetClientDefaultACLs - set's a client's default ACLs based on network and nodes in network
 func SetClientDefaultACLs(ec *models.ExtClient) error {
+	if !logic.GetServerSettings().OldAClsSupport {
+		ec.DeniedACLs = make(map[string]struct{})
+		return nil
+	}
 	networkNodes, err := logic.GetNetworkNodes(ec.Network)
 	if err != nil {
 		return err
@@ -65,14 +69,18 @@ func SetClientDefaultACLs(ec *models.ExtClient) error {
 	networkAcls[acls.AclID(ec.ClientID)] = make(acls.ACL)
 	for i := range networkNodes {
 		currNode := networkNodes[i]
+		nodeID := acls.AclID(currNode.ID.String())
+		if networkAcls[nodeID] == nil {
+			networkAcls[nodeID] = make(acls.ACL)
+		}
 		if network.DefaultACL == "no" || currNode.DefaultACL == "no" {
 			DenyClientNode(ec, currNode.ID.String())
-			networkAcls[acls.AclID(ec.ClientID)][acls.AclID(currNode.ID.String())] = acls.NotAllowed
-			networkAcls[acls.AclID(currNode.ID.String())][acls.AclID(ec.ClientID)] = acls.NotAllowed
+			networkAcls[acls.AclID(ec.ClientID)][nodeID] = acls.NotAllowed
+			networkAcls[nodeID][acls.AclID(ec.ClientID)] = acls.NotAllowed
 		} else {
 			RemoveDeniedNodeFromClient(ec, currNode.ID.String())
-			networkAcls[acls.AclID(ec.ClientID)][acls.AclID(currNode.ID.String())] = acls.Allowed
-			networkAcls[acls.AclID(currNode.ID.String())][acls.AclID(ec.ClientID)] = acls.Allowed
+			networkAcls[acls.AclID(ec.ClientID)][nodeID] = acls.Allowed
+			networkAcls[nodeID][acls.AclID(ec.ClientID)] = acls.Allowed
 		}
 	}
 	networkClients, err := logic.GetNetworkExtClients(ec.Network)
@@ -82,6 +90,9 @@ func SetClientDefaultACLs(ec *models.ExtClient) error {
 	}
 	for _, client := range networkClients {
 		// TODO: revisit when client-client acls are supported
+		if networkAcls[acls.AclID(client.ClientID)] == nil {
+			networkAcls[acls.AclID(client.ClientID)] = make(acls.ACL)
+		}
 		networkAcls[acls.AclID(ec.ClientID)][acls.AclID(client.ClientID)] = acls.Allowed
 		networkAcls[acls.AclID(client.ClientID)][acls.AclID(ec.ClientID)] = acls.Allowed
 	}
