@@ -1,0 +1,69 @@
+version: "3.4"
+
+services:
+
+  prometheus:
+    container_name: prometheus
+    image: gravitl/netmaker-prometheus:latest
+    env_file: ./netmaker.env
+    environment:
+      # config-dependant vars
+      - NETMAKER_METRICS_TARGET=netmaker-exporter.${NM_DOMAIN}
+    restart: always
+    volumes:
+      - prometheus_data:/prometheus
+    depends_on:
+      - netmaker
+
+  grafana:
+    container_name: grafana
+    image: gravitl/netmaker-grafana:latest
+    env_file: ./netmaker.env
+    environment:
+      # config-dependant vars
+      # TODO unify with netmaker-exporter
+      - PROMETHEUS_HOST=prometheus.${NM_DOMAIN}
+      - NETMAKER_METRICS_TARGET=netmaker-exporter.${NM_DOMAIN}
+    volumes:
+      - grafana_data:/var/lib/grafana
+    restart: always
+    links:
+      - prometheus
+    depends_on:
+      - prometheus
+      - netmaker
+
+  netmaker-exporter:
+    container_name: netmaker-exporter
+    image: gravitl/netmaker-exporter:latest
+    env_file: ./netmaker.env
+    environment:
+      # config-dependant vars
+      # TODO unify with grafana
+      - PROMETHEUS_HOST=https://prometheus.${NM_DOMAIN}
+      # The domain/host IP indicating the mq broker address
+      - BROKER_ENDPOINT=wss://broker.${NM_DOMAIN}
+      - API_PORT=${EXPORTER_API_PORT}
+    ports:
+      - "50051:50051"
+    restart: always
+    depends_on:
+      - netmaker
+      - clickhouse
+
+  clickhouse:
+    container_name: clickhouse
+    image: clickhouse/clickhouse-server:latest
+    restart: always
+    ports:
+      - "9000:9000"
+      - "8123:8123"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - clickhouse_logs:/var/log/clickhouse-server
+
+volumes:
+  prometheus_data: { }
+  grafana_data: { }
+  clickhouse_data: { }
+  clickhouse_logs: { }
