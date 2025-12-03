@@ -92,27 +92,6 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := logic.GetUser(content.UserPrincipalName)
-	if err == nil {
-		// if user exists, then ensure user's auth type is
-		// oauth before proceeding.
-		if user.AuthType == models.BasicAuth {
-			logger.Log(0, "invalid auth type: basic_auth")
-			handleAuthTypeMismatch(w)
-			return
-		}
-
-		// if user exists with provider ID, convert them into email ID
-		_, err := logic.GetUser(content.Email)
-		if err != nil {
-			user.UserName = content.Email
-			user.ExternalIdentityProviderID = content.UserPrincipalName
-			database.DeleteRecord(database.USERS_TABLE_NAME, content.UserPrincipalName)
-			d, _ := json.Marshal(user)
-			database.Insert(user.UserName, string(d), database.USERS_TABLE_NAME)
-		}
-	}
-
-	user, err = logic.GetUser(content.Email)
 	if err != nil {
 		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
 			if inviteExists {
@@ -122,6 +101,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 					return
 				}
+				user.UserName = content.UserPrincipalName
 				user.ExternalIdentityProviderID = string(content.ID)
 				if err = logic.CreateUser(&user); err != nil {
 					handleSomethingWentWrong(w)
