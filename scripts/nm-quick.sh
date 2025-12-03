@@ -272,11 +272,11 @@ save_config() { (
     CLICKHOUSE_DB="netmaker"
     CLICKHOUSE_PASS=$(openssl rand -hex 16)
 
-    save_config "CLICKHOUSE_HOST" "localhost"
-    save_config "CLICKHOUSE_PORT" "9000"
-    save_config "CLICKHOUSE_DB" "$CLICKHOUSE_DB"
-    save_config "CLICKHOUSE_USER" "$CLICKHOUSE_USER"
-    save_config "CLICKHOUSE_PASS" "$CLICKHOUSE_PASS"
+    save_config_item "CLICKHOUSE_HOST" "localhost"
+    save_config_item "CLICKHOUSE_PORT" "9000"
+    save_config_item "CLICKHOUSE_DB" "$CLICKHOUSE_DB"
+    save_config_item "CLICKHOUSE_USER" "$CLICKHOUSE_USER"
+    save_config_item "CLICKHOUSE_PASS" "$CLICKHOUSE_PASS"
     save_config_item "ENABLE_FLOW_LOGS" "true"
   fi
 	# preserve debug entries
