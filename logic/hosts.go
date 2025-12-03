@@ -258,6 +258,11 @@ func CreateHost(h *models.Host) error {
 	} else if h.EndpointIPv6 != nil {
 		h.Location = GetHostLocInfo(h.EndpointIPv6.String(), os.Getenv("IP_INFO_TOKEN"))
 	}
+
+	if GetFeatureFlags().EnableFlowLogs {
+		h.EnableFlowLogs = true
+	}
+
 	checkForZombieHosts(h)
 	return UpsertHost(h)
 }
