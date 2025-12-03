@@ -13,17 +13,7 @@ if [ $(id -u) -ne 0 ]; then
 	exit 1
 fi
 
-WITH_FLOW_LOGS=false
 
-while [ $# -gt 0 ]; do
-    case "$1" in
-        --with-flow-logs)
-            WITH_FLOW_LOGS=true
-            ;;
-        # … your other flags
-    esac
-    shift
-done
 
 # increase the timeouts
 export DOCKER_CLIENT_TIMEOUT=120
@@ -34,6 +24,7 @@ unset IMAGE_TAG
 unset NETMAKER_BASE_DOMAIN
 unset UPGRADE_FLAG
 unset COLLECT_PRO_VARS
+unset WITH_FLOW_LOGS
 # usage - displays usage instructions
 usage() {
 	echo "nm-quick.sh v$NM_QUICK_VERSION"
@@ -866,6 +857,17 @@ main (){
 		echo "Using config: $CONFIG_PATH"
 		source "$CONFIG_PATH"
 	fi
+
+  WITH_FLOW_LOGS=false
+
+  # handle long options manually
+  for arg in "$@"; do
+    case "$arg" in
+      --with-flow-logs)
+        WITH_FLOW_LOGS=true
+        ;;
+    esac
+  done
 
 	INSTALL_TYPE="ce"
 	while getopts :cudpv flag; do
