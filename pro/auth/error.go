@@ -115,6 +115,9 @@ var authTypeMismatch = fmt.Sprintf(htmlBaseTemplate, `<h2>It looks like you alre
 
 var userAccountDisabled = fmt.Sprintf(htmlBaseTemplate, `<h2>Your account has been disabled. Please contact your administrator for more information about your account.</h2>`)
 
+var deviceClaimsMissing = fmt.Sprintf(htmlBaseTemplate, `<h2>Device authentication required.</h2>
+<p>Your organization requires device-based authentication. Please sign in from a registered Azure AD device.</p>`)
+
 func handleOauthUserNotFound(response http.ResponseWriter) {
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	response.WriteHeader(http.StatusNotFound)
@@ -173,4 +176,10 @@ func handleUserAccountDisabled(response http.ResponseWriter) {
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	response.WriteHeader(http.StatusUnauthorized)
 	response.Write([]byte(userAccountDisabled))
+}
+
+func handleDeviceClaimsMissing(response http.ResponseWriter) {
+	response.Header().Set("Content-Type", "text/html; charset=utf-8")
+	response.WriteHeader(http.StatusForbidden)
+	response.Write([]byte(deviceClaimsMissing))
 }
