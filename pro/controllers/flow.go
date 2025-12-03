@@ -49,28 +49,35 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 		args       []any
 	)
 
+	// 0. Network filter.
+	networkID := q.Get("network_id")
+	if networkID != "" {
+		whereParts = append(whereParts, "network_id = ?")
+		args = append(args, networkID)
+	}
+
 	// 1. Time filtering (version: UInt64 timestamp in ms)
 	fromStr := q.Get("from")
 	toStr := q.Get("to")
 
 	if fromStr != "" {
-		fromVal, err := strconv.ParseUint(fromStr, 10, 64)
+		fromVal, err := time.Parse(time.RFC3339, fromStr)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid 'from' timestamp: %v", err), logic.BadReq))
 			return
 		}
 		whereParts = append(whereParts, "version >= ?")
-		args = append(args, fromVal)
+		args = append(args, fromVal.UnixMilli())
 	}
 
 	if toStr != "" {
-		toVal, err := strconv.ParseUint(toStr, 10, 64)
+		toVal, err := time.Parse(time.RFC3339, toStr)
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid 'to' timestamp: %v", err), logic.BadReq))
 			return
 		}
 		whereParts = append(whereParts, "version <= ?")
-		args = append(args, toVal)
+		args = append(args, toVal.UnixMilli())
 	}
 
 	// 2. Source filters

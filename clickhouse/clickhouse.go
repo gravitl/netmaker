@@ -29,6 +29,10 @@ var createDBScript string
 var createFlowsTableScript string
 
 func Initialize() error {
+	defer func() {
+		fmt.Println("COMPLETED CLICKHOUSE INITIALIZATION")
+	}()
+
 	config := servercfg.GetClickHouseConfig()
 	chConn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", config.Host, config.Port)},
@@ -42,12 +46,12 @@ func Initialize() error {
 		return err
 	}
 
-	err = chConn.Exec(context.TODO(), createDBScript)
+	err = chConn.Exec(context.Background(), createDBScript)
 	if err != nil {
 		return err
 	}
 
-	err = chConn.Exec(context.TODO(), createFlowsTableScript)
+	err = chConn.Exec(context.Background(), createFlowsTableScript)
 	if err != nil {
 		return err
 	}
