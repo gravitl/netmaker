@@ -2,6 +2,7 @@ package clickhouse
 
 import (
 	"context"
+	_ "embed"
 	"errors"
 	"fmt"
 	"net/http"
@@ -21,6 +22,12 @@ var ch clickhouse.Conn
 
 var ErrConnNotFound = errors.New("no connection in context")
 
+//go:embed initdb.d/01_create_database.sql
+var createDBScript string
+
+//go:embed initdb.d/02_create_flows_table.sql
+var createFlowsTableScript string
+
 func Initialize() error {
 	config := servercfg.GetClickHouseConfig()
 	chConn, err := clickhouse.Open(&clickhouse.Options{
@@ -31,6 +38,16 @@ func Initialize() error {
 			Password: config.Password,
 		},
 	})
+	if err != nil {
+		return err
+	}
+
+	err = chConn.Exec(context.TODO(), createDBScript)
+	if err != nil {
+		return err
+	}
+
+	err = chConn.Exec(context.TODO(), createFlowsTableScript)
 	if err != nil {
 		return err
 	}
