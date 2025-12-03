@@ -140,7 +140,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	user, err = logic.GetUser(content.Email)
+	user, err = logic.GetUser(content.UserPrincipalName)
 	if err != nil {
 		handleOauthUserNotFound(w)
 		return
@@ -166,7 +166,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	// send a netmaker jwt token
 	var authRequest = models.UserAuthParams{
-		UserName: content.Email,
+		UserName: content.UserPrincipalName,
 		Password: newPass,
 	}
 
@@ -191,8 +191,8 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: models.Dashboard,
 	})
-	logger.Log(1, "completed azure OAuth sigin in for", content.Email)
-	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+content.Email, http.StatusPermanentRedirect)
+	logger.Log(1, "completed azure OAuth sigin in for", user.UserName)
+	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+user.UserName, http.StatusPermanentRedirect)
 }
 
 func getAzureUserInfo(state string, code string) (*OAuthUser, error) {
