@@ -2,6 +2,7 @@ package logic
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"regexp"
 	"strconv"
@@ -272,6 +273,7 @@ func GetServerInfo() models.ServerConfig {
 	if servercfg.IsDNSMode() {
 		cfg.DNSMode = "on"
 	}
+	cfg.Exporter = fmt.Sprintf("netmaker-exporter.%s", servercfg.GetNmBaseDomain())
 	cfg.Version = servercfg.GetVersion()
 	cfg.IsPro = servercfg.IsPro
 	cfg.MetricInterval = serverSettings.MetricInterval

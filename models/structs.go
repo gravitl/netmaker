@@ -308,6 +308,7 @@ type ServerConfig struct {
 	BrokerType                  string `yaml:"broker_type"`
 	Server                      string `yaml:"server"`
 	Broker                      string `yaml:"broker"`
+	Exporter                    string `yaml:"exporter"`
 	IsPro                       bool   `yaml:"isee" json:"Is_EE"`
 	TrafficKey                  []byte `yaml:"traffickey"`
 	MetricInterval              string `yaml:"metric_interval"`
