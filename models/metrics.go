@@ -33,6 +33,8 @@ type IDandAddr struct {
 	ID          string `json:"id" bson:"id" yaml:"id"`
 	HostID      string `json:"host_id"`
 	Address     string `json:"address" bson:"address" yaml:"address"`
+	Address4    string `json:"address4"`
+	Address6    string `json:"address6"`
 	Name        string `json:"name" bson:"name" yaml:"name"`
 	IsServer    string `json:"isserver" bson:"isserver" yaml:"isserver" validate:"checkyesorno"`
 	Network     string `json:"network" bson:"network" yaml:"network" validate:"network"`
