@@ -382,6 +382,11 @@ func checkDeviceClaims(rawIDToken string) error {
 				logger.Log(1, fmt.Sprintf("Device authorization check: Device %s has status '%s' - device is not authorized, blocking authentication", deviceID, deviceRegStatus))
 				return fmt.Errorf("device claims found but device is not registered/compliant - authentication not allowed")
 			}
+		} else if compliant, ok := claims["xms_compliant"].(string); ok {
+			logger.Log(3, "Azure Device: id=%s compliant=%s", deviceID, compliant)
+			if compliant != "true" {
+				return errors.New("access denied: device not compliant")
+			}
 		} else if deviceID != "" {
 			// If device ID exists but no status, allow authentication (device is registered)
 			logger.Log(3, fmt.Sprintf("Device authorization check: Device %s found but no registration status - allowing authentication", deviceID))
