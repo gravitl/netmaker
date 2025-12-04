@@ -350,7 +350,7 @@ func checkDeviceClaims(rawIDToken string) error {
 	hasDeviceClaims := false
 	deviceID := ""
 	deviceRegStatus := ""
-
+	fmt.Printf("==> DEVICE CLAIMS: %+v\n", claims)
 	// Extract device information from claims
 	if val, exists := claims["deviceid"]; exists && val != nil {
 		deviceID = fmt.Sprintf("%v", val)
