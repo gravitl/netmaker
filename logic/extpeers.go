@@ -623,6 +623,8 @@ func GetExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandA
 			ID:          peer.PublicKey.String(),
 			Name:        extPeer.ClientID,
 			Address:     primaryAddr,
+			Address4:    extPeer.Address,
+			Address6:    extPeer.Address6,
 			IsExtClient: true,
 		})
 	}
