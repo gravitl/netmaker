@@ -74,6 +74,7 @@ type Host struct {
 	TurnEndpoint        *netip.AddrPort  `json:"turn_endpoint,omitempty" yaml:"turn_endpoint,omitempty"`
 	PersistentKeepalive time.Duration    `json:"persistentkeepalive" swaggertype:"primitive,integer" format:"int64" yaml:"persistentkeepalive"`
 	Location            string           `json:"location"` // Format: "lat,lon"
+	EnableFlowLogs      bool             `json:"enable_flow_logs" yaml:"enable_flow_logs"`
 }
 
 // FormatBool converts a boolean to a [yes|no] string

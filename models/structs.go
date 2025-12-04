@@ -24,6 +24,7 @@ type FeatureFlags struct {
 	AllowMultiServerLicense bool `json:"allow_multi_server_license"`
 	EnableGwsHA             bool `json:"enable_gws_ha"`
 	EnableDeviceApproval    bool `json:"enable_device_approval"`
+	EnableFlowLogs          bool `json:"enable_flow_logs"`
 }
 
 // AuthParams - struct for auth params
@@ -307,6 +308,7 @@ type ServerConfig struct {
 	BrokerType                  string `yaml:"broker_type"`
 	Server                      string `yaml:"server"`
 	Broker                      string `yaml:"broker"`
+	Exporter                    string `yaml:"exporter"`
 	IsPro                       bool   `yaml:"isee" json:"Is_EE"`
 	TrafficKey                  []byte `yaml:"traffickey"`
 	MetricInterval              string `yaml:"metric_interval"`

@@ -543,7 +543,7 @@ func ToggleExtClientConnectivity(client *models.ExtClient, enable bool) (models.
 	return newClient, nil
 }
 
-func GetExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandAddr, []models.EgressNetworkRoutes, error) {
+func GetExtPeers(node, peer *models.Node, peerIPIdentityMap map[string]models.PeerIdentity) ([]wgtypes.PeerConfig, []models.IDandAddr, []models.EgressNetworkRoutes, error) {
 	var peers []wgtypes.PeerConfig
 	var idsAndAddr []models.IDandAddr
 	var egressRoutes []models.EgressNetworkRoutes
@@ -625,9 +625,36 @@ func GetExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandA
 			Address:     primaryAddr,
 			IsExtClient: true,
 		})
+
+		if extPeer.Address != "" {
+			peerID := extPeer.ClientID
+			peerType := models.PeerType_WireGuard
+			if extPeer.RemoteAccessClientID != "" {
+				peerID = extPeer.OwnerID
+				peerType = models.PeerType_User
+			}
+
+			peerIPIdentityMap[extPeer.Address] = models.PeerIdentity{
+				ID:   peerID,
+				Type: peerType,
+			}
+		}
+
+		if extPeer.Address6 != "" {
+			peerID := extPeer.ClientID
+			peerType := models.PeerType_WireGuard
+			if extPeer.RemoteAccessClientID != "" {
+				peerID = extPeer.OwnerID
+				peerType = models.PeerType_User
+			}
+
+			peerIPIdentityMap[extPeer.Address6] = models.PeerIdentity{
+				ID:   peerID,
+				Type: peerType,
+			}
+		}
 	}
 	return peers, idsAndAddr, egressRoutes, nil
-
 }
 
 func getExtPeerEgressRoute(node models.Node, extPeer models.ExtClient) (egressRoutes []models.EgressNetworkRoutes) {

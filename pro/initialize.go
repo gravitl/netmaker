@@ -6,6 +6,7 @@ package pro
 import (
 	"time"
 
+	ch "github.com/gravitl/netmaker/clickhouse"
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -25,6 +26,8 @@ func InitPro() {
 	models.SetLogo(retrieveProLogo())
 	controller.HttpMiddlewares = append(
 		controller.HttpMiddlewares,
+		// TODO: try to add clickhouse middleware only if needed.
+		ch.Middleware,
 		proControllers.OnlyServerAPIWhenUnlicensedMiddleware,
 	)
 	controller.HttpHandlers = append(
@@ -37,6 +40,8 @@ func InitPro() {
 		proControllers.TagHandlers,
 		proControllers.NetworkHandlers,
 		proControllers.AutoRelayHandlers,
+		// TODO: try to add flow handler only if flow logs are enabled.
+		proControllers.FlowHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
