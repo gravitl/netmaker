@@ -272,7 +272,7 @@ save_config() { (
     CLICKHOUSE_DB="netmaker"
     CLICKHOUSE_PASS=$(openssl rand -hex 16)
 
-    save_config_item "CLICKHOUSE_HOST" "localhost"
+    save_config_item "CLICKHOUSE_HOST" "clickhouse"
     save_config_item "CLICKHOUSE_PORT" "9000"
     save_config_item "CLICKHOUSE_DB" "$CLICKHOUSE_DB"
     save_config_item "CLICKHOUSE_USER" "$CLICKHOUSE_USER"
