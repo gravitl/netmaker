@@ -32,6 +32,7 @@ var (
 	nodeNetworkCacheMutex = &sync.RWMutex{}
 	nodesCacheMap         = make(map[string]models.Node)
 	nodesNetworkCacheMap  = make(map[string]map[string]models.Node)
+	DeleteNodesCh         = make(chan *models.Node, 100)
 )
 
 func getNodeFromCache(nodeID string) (node models.Node, ok bool) {
@@ -662,7 +663,7 @@ func GetNodesStatusAPI(nodes []models.Node) map[string]models.ApiNodeStatus {
 }
 
 // DeleteExpiredNodes - goroutine which deletes nodes which are expired
-func DeleteExpiredNodes(ctx context.Context, peerUpdate chan *models.Node) {
+func DeleteExpiredNodes(ctx context.Context) {
 	// Delete Expired Nodes Every Hour
 	ticker := time.NewTicker(time.Hour)
 	for {
@@ -679,7 +680,7 @@ func DeleteExpiredNodes(ctx context.Context, peerUpdate chan *models.Node) {
 			for _, node := range allnodes {
 				node := node
 				if time.Now().After(node.ExpirationDateTime) {
-					peerUpdate <- &node
+					DeleteNodesCh <- &node
 					slog.Info("deleting expired node", "nodeid", node.ID.String())
 				}
 			}

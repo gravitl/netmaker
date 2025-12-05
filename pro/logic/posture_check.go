@@ -28,7 +28,7 @@ func AddPostureCheckHook() {
 		interval = time.Minute * time.Duration(i)
 	}
 	logic.HookManagerCh <- models.HookDetails{
-		Hook:     RunPostureChecks,
+		Hook:     logic.WrapHook(RunPostureChecks),
 		Interval: interval,
 	}
 }
