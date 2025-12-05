@@ -4,9 +4,9 @@ CONFIG_FILE=netmaker.env
 # location of nm-quick.sh (usually `/root`)
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
 CONFIG_PATH="$SCRIPT_DIR/$CONFIG_FILE"
-NM_QUICK_VERSION="0.1.1"
+NM_QUICK_VERSION="1.0.0"
 #LATEST=$(curl -s https://api.github.com/repos/gravitl/netmaker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d [:space:],\")
-LATEST=v1.1.0
+LATEST=v1.2.0
 BRANCH=master
 if [ $(id -u) -ne 0 ]; then
 	echo "This script must be run as root"
@@ -150,12 +150,12 @@ setup_netclient() {
 # configure_netclient - configures server's netclient as a default host and an ingress gateway
 configure_netclient() {
 	sleep 2
-	NODE_ID=$(sudo cat /etc/netclient/nodes.json | jq -r .netmaker.id)
-	if [ "$NODE_ID" = "" ] || [ "$NODE_ID" = "null" ]; then
-		echo "Error obtaining NODE_ID for the new network"
-		exit 1
-	fi
-	echo "register complete. New node ID: $NODE_ID"
+	# NODE_ID=$(sudo cat /etc/netclient/nodes.json | jq -r .netmaker.id)
+	# if [ "$NODE_ID" = "" ] || [ "$NODE_ID" = "null" ]; then
+	# 	echo "Error obtaining NODE_ID for the new network"
+	# 	exit 1
+	# fi
+	# echo "register complete. New node ID: $NODE_ID"
 	HOST_ID=$(sudo cat /etc/netclient/netclient.json | jq -r .id)
 	if [ "$HOST_ID" = "" ] || [ "$HOST_ID" = "null" ]; then
 		echo "Error obtaining HOST_ID for the new network"
@@ -167,13 +167,13 @@ configure_netclient() {
 	set +e
 	nmctl host update $HOST_ID --default
 	sleep 5
-	nmctl node create_remote_access_gateway netmaker $NODE_ID
-	sleep 2
-	# set failover
-	if [ "$INSTALL_TYPE" = "pro" ]; then
-	    #setup failOver
-		curl --location --request POST "https://api.${NETMAKER_BASE_DOMAIN}/api/v1/node/${NODE_ID}/failover" --header "Authorization: Bearer ${MASTER_KEY}"
-	fi
+	# nmctl node create_remote_access_gateway netmaker $NODE_ID
+	# sleep 2
+	# # set failover
+	# if [ "$INSTALL_TYPE" = "pro" ]; then
+	#     #setup failOver
+	# 	curl --location --request POST "https://api.${NETMAKER_BASE_DOMAIN}/api/v1/node/${NODE_ID}/failover" --header "Authorization: Bearer ${MASTER_KEY}"
+	# fi
 	set -e
 }
 
@@ -694,24 +694,24 @@ test_connection() {
 setup_mesh() {
 
 	wait_seconds 5
-	networks=$(nmctl network list -o json)
-	if [[ ${networks} != "null" ]]; then
-		netmakerNet=$(nmctl network list -o json | jq -r '.[] | .netid' | grep -w "netmaker")
-	fi
-	# create netmaker network
-	if [[ ${netmakerNet} = "" ]]; then
-		echo "Creating netmaker network (100.64.0.0/16)"
-		# TODO causes "Error Status: 400 Response: {"Code":400,"Message":"could not find any records"}"
-		nmctl network create --name netmaker --ipv4_addr 100.64.0.0/16
-	fi
+	# networks=$(nmctl network list -o json)
+	# if [[ ${networks} != "null" ]]; then
+	# 	netmakerNet=$(nmctl network list -o json | jq -r '.[] | .netid' | grep -w "netmaker")
+	# fi
+	# # create netmaker network
+	# if [[ ${netmakerNet} = "" ]]; then
+	# 	echo "Creating netmaker network (100.64.0.0/16)"
+	# 	# TODO causes "Error Status: 400 Response: {"Code":400,"Message":"could not find any records"}"
+	# 	nmctl network create --name netmaker --ipv4_addr 100.64.0.0/16
+	# fi
 	# create enrollment key for netmaker network
-	local netmakerTag=$(nmctl enrollment_key list | jq -r '.[] | .tags[0]' | grep -w "netmaker")
+	local netmakerTag=$(nmctl enrollment_key list | jq -r '.[] | .tags[0]' | grep -w "firstJoinKey")
 	if [[ ${netmakerTag} = "" ]]; then
-		nmctl enrollment_key create --tags netmaker --unlimited --networks netmaker
+		nmctl enrollment_key create --tags firstJoinKey --unlimited
 	fi
 	echo "Obtaining enrollment key..."
 	# key exists already, fetch token
-	TOKEN=$(nmctl enrollment_key list | jq -r '.[] | select(.tags[0]=="netmaker") | .token')
+	TOKEN=$(nmctl enrollment_key list | jq -r '.[] | select(.tags[0]=="firstJoinKey") | .token')
 	wait_seconds 3
 }
 

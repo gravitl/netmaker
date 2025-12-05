@@ -244,6 +244,10 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 			Info: a,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: a,
+			New: nil,
+		},
 	})
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "revoked access token")
 }
@@ -411,42 +415,6 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("Content-Type", "application/json")
 	response.Write(successJSONResponse)
 
-	go func() {
-		if servercfg.IsPro {
-			// enable all associeated clients for the user
-			clients, err := logic.GetAllExtClients()
-			if err != nil {
-				slog.Error("error getting clients: ", "error", err)
-				return
-			}
-			for _, client := range clients {
-				if client.OwnerID == username && !client.Enabled {
-					slog.Info(
-						fmt.Sprintf(
-							"enabling ext client %s for user %s due to RAC autodisabling feature",
-							client.ClientID,
-							client.OwnerID,
-						),
-					)
-					if newClient, err := logic.ToggleExtClientConnectivity(&client, true); err != nil {
-						slog.Error(
-							"error enabling ext client in RAC autodisable hook",
-							"error",
-							err,
-						)
-						continue // dont return but try for other clients
-					} else {
-						// publish peer update to ingress gateway
-						if ingressNode, err := logic.GetNodeByID(newClient.IngressGatewayID); err == nil {
-							if err = mq.PublishPeerUpdate(false); err != nil {
-								slog.Error("error updating ext clients on", "ingress", ingressNode.ID.String(), "err", err.Error())
-							}
-						}
-					}
-				}
-			}
-		}
-	}()
 }
 
 // @Summary     Validates a user's identity against it's token. This is used by UI before a user performing a critical operation to validate the user's identity.
@@ -1580,6 +1548,10 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 			Type: models.UserSub,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: user,
+			New: nil,
+		},
 	})
 	// check and delete extclient with this ownerID
 	go func() {

@@ -62,7 +62,6 @@ func handleAzureLogin(w http.ResponseWriter, r *http.Request) {
 
 func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 	var rState, rCode = getStateAndCode(r)
-
 	state, err := logic.GetState(rState)
 	if err != nil {
 		handleOauthNotValid(w)

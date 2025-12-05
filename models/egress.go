@@ -6,7 +6,7 @@ type EgressReq struct {
 	Network     string         `json:"network"`
 	Description string         `json:"description"`
 	Nodes       map[string]int `json:"nodes"`
-	Tags        []string       `json:"tags"`
+	Tags        map[string]int `json:"tags"`
 	Range       string         `json:"range"`
 	Domain      string         `json:"domain"`
 	Nat         bool           `json:"nat"`

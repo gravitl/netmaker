@@ -2,8 +2,11 @@ package controller
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"slices"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -97,6 +100,10 @@ func deleteEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 			Type: models.EnrollmentKeySub,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: key,
+			New: nil,
+		},
 	})
 	logger.Log(2, r.Header.Get("user"), "deleted enrollment key", keyID)
 	w.WriteHeader(http.StatusOK)
@@ -181,6 +188,7 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		relayId,
 		false,
 		enrollmentKeyBody.AutoEgress,
+		enrollmentKeyBody.AutoAssignGateway,
 	)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to create enrollment key:", err.Error())
@@ -353,6 +361,37 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	if newHost.EndpointIP != nil {
+		newHost.Location, newHost.CountryCode = logic.GetHostLocInfo(newHost.EndpointIP.String(), os.Getenv("IP_INFO_TOKEN"))
+	} else if newHost.EndpointIPv6 != nil {
+		newHost.Location, newHost.CountryCode = logic.GetHostLocInfo(newHost.EndpointIPv6.String(), os.Getenv("IP_INFO_TOKEN"))
+	}
+	pcviolations := []models.Violation{}
+	skipViolatedNetworks := []string{}
+	for _, netI := range enrollmentKey.Networks {
+		violations, _ := logic.CheckPostureViolations(models.PostureCheckDeviceInfo{
+			ClientLocation: newHost.CountryCode,
+			ClientVersion:  newHost.Version,
+			OS:             newHost.OS,
+			OSFamily:       newHost.OSFamily,
+			OSVersion:      newHost.OSVersion,
+			KernelVersion:  newHost.KernelVersion,
+			AutoUpdate:     newHost.AutoUpdate,
+		}, models.NetworkID(netI))
+		pcviolations = append(pcviolations, violations...)
+		if len(violations) > 0 {
+			skipViolatedNetworks = append(skipViolatedNetworks, netI)
+		}
+	}
+	if len(skipViolatedNetworks) == len(enrollmentKey.Networks) && len(pcviolations) > 0 {
+		logic.ReturnErrorResponse(w, r,
+			logic.FormatError(errors.New("access blocked: this device doesn’t meet security requirements"), logic.Forbidden))
+		return
+	}
+	// need to remove the networks that were skipped from the enrollment key
+	enrollmentKey.Networks = slices.DeleteFunc(enrollmentKey.Networks, func(netI string) bool {
+		return slices.Contains(skipViolatedNetworks, netI)
+	})
 	if !hostExists {
 		newHost.PersistentKeepalive = models.DefaultPersistentKeepAlive
 		// register host

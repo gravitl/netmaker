@@ -38,7 +38,8 @@ type apiServerConf struct {
 // AddLicenseHooks - adds the validation and cache clear hooks
 func AddLicenseHooks() {
 	logic.HookManagerCh <- models.HookDetails{
-		Hook:     ValidateLicense,
+		ID:       "license-validation-hook",
+		Hook:     logic.WrapHook(ValidateLicense),
 		Interval: time.Hour,
 	}
 	// logic.HookManagerCh <- models.HookDetails{
@@ -85,7 +86,7 @@ func ValidateLicense() (err error) {
 
 	licenseSecret := LicenseSecret{
 		AssociatedID: netmakerTenantID,
-		Usage:        getCurrentServerUsage(),
+		Usage:        logic.GetCurrentServerUsage(),
 	}
 
 	secretData, err := json.Marshal(&licenseSecret)

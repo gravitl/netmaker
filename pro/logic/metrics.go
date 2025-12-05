@@ -93,6 +93,7 @@ func GetMetrics(nodeid string) (*models.Metrics, error) {
 
 // UpdateMetrics - updates the metrics of a given client
 func UpdateMetrics(nodeid string, metrics *models.Metrics) error {
+	metrics.UpdatedAt = time.Now()
 	data, err := json.Marshal(metrics)
 	if err != nil {
 		return err
@@ -239,7 +240,7 @@ func updateNodeMetrics(currentNode *models.Node, newMetrics *models.Metrics) {
 	slog.Debug("[metrics] node metrics data", "node ID", currentNode.ID, "metrics", newMetrics)
 }
 
-func GetHostLocInfo(ip, token string) string {
+func GetHostLocInfo(ip, token string) (loc, country string) {
 	url := "https://ipinfo.io/"
 	if ip != "" {
 		url += ip
@@ -252,15 +253,18 @@ func GetHostLocInfo(ip, token string) string {
 	client := http.Client{Timeout: 3 * time.Second}
 	resp, err := client.Get(url)
 	if err != nil {
-		return ""
+		return "", ""
 	}
 	defer resp.Body.Close()
 
 	var data struct {
-		Loc string `json:"loc"` // Format: "lat,lon"
+		Loc     string `json:"loc"` // Format: "lat,lon"
+		Country string `json:"country"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return ""
+		return "", ""
 	}
-	return data.Loc
+	loc = data.Loc
+	country = data.Country
+	return
 }

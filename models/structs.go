@@ -22,6 +22,8 @@ type FeatureFlags struct {
 	EnableOAuth             bool `json:"enable_oauth"`
 	EnableIDPIntegration    bool `json:"enable_idp_integration"`
 	AllowMultiServerLicense bool `json:"allow_multi_server_license"`
+	EnableGwsHA             bool `json:"enable_gws_ha"`
+	EnableDeviceApproval    bool `json:"enable_device_approval"`
 }
 
 // AuthParams - struct for auth params
@@ -52,9 +54,11 @@ type UserRemoteGws struct {
 	AllowedEndpoints  []string   `json:"allowed_endpoints"`
 	NetworkAddresses  []string   `json:"network_addresses"`
 	Status            NodeStatus `json:"status"`
+	ManageDNS         bool       `json:"manage_dns"`
 	DnsAddress        string     `json:"dns_address"`
 	Addresses         string     `json:"addresses"`
 	MatchDomains      []string   `json:"match_domains"`
+	SearchDomains     []string   `json:"search_domains"`
 }
 
 // UserRAGs - struct for user access gws
@@ -112,8 +116,9 @@ type SuccessfulLoginResponse struct {
 
 // ErrorResponse is struct for error
 type ErrorResponse struct {
-	Code    int
-	Message string
+	Code     int
+	Message  string
+	Response interface{}
 }
 
 // NodeAuth - struct for node auth
@@ -266,9 +271,9 @@ type HostPull struct {
 	NameServers       []string              `json:"name_servers"`
 	EgressWithDomains []EgressDomain        `json:"egress_with_domains"`
 	DnsNameservers    []Nameserver          `json:"dns_nameservers"`
-}
-
-type DefaultGwInfo struct {
+	AutoRelayNodes    map[NetworkID][]Node  `json:"auto_relay_nodes"`
+	GwNodes           map[NetworkID][]Node  `json:"gw_nodes"`
+	ReplacePeers      bool                  `json:"replace_peers"`
 }
 
 // NodeGet - struct for a single node get response
@@ -291,27 +296,29 @@ type NodeJoinResponse struct {
 
 // ServerConfig - struct for dealing with the server information for a netclient
 type ServerConfig struct {
-	CoreDNSAddr       string `yaml:"corednsaddr"`
-	API               string `yaml:"api"`
-	APIHost           string `yaml:"apihost"`
-	APIPort           string `yaml:"apiport"`
-	DNSMode           string `yaml:"dnsmode"`
-	Version           string `yaml:"version"`
-	MQPort            string `yaml:"mqport"`
-	MQUserName        string `yaml:"mq_username"`
-	MQPassword        string `yaml:"mq_password"`
-	BrokerType        string `yaml:"broker_type"`
-	Server            string `yaml:"server"`
-	Broker            string `yaml:"broker"`
-	IsPro             bool   `yaml:"isee" json:"Is_EE"`
-	TrafficKey        []byte `yaml:"traffickey"`
-	MetricInterval    string `yaml:"metric_interval"`
-	MetricsPort       int    `yaml:"metrics_port"`
-	ManageDNS         bool   `yaml:"manage_dns"`
-	Stun              bool   `yaml:"stun"`
-	StunServers       string `yaml:"stun_servers"`
-	EndpointDetection bool   `yaml:"endpoint_detection"`
-	DefaultDomain     string `yaml:"default_domain"`
+	CoreDNSAddr                 string `yaml:"corednsaddr"`
+	API                         string `yaml:"api"`
+	APIHost                     string `yaml:"apihost"`
+	APIPort                     string `yaml:"apiport"`
+	DNSMode                     string `yaml:"dnsmode"`
+	Version                     string `yaml:"version"`
+	MQPort                      string `yaml:"mqport"`
+	MQUserName                  string `yaml:"mq_username"`
+	MQPassword                  string `yaml:"mq_password"`
+	BrokerType                  string `yaml:"broker_type"`
+	Server                      string `yaml:"server"`
+	Broker                      string `yaml:"broker"`
+	IsPro                       bool   `yaml:"isee" json:"Is_EE"`
+	TrafficKey                  []byte `yaml:"traffickey"`
+	MetricInterval              string `yaml:"metric_interval"`
+	MetricsPort                 int    `yaml:"metrics_port"`
+	ManageDNS                   bool   `yaml:"manage_dns"`
+	Stun                        bool   `yaml:"stun"`
+	StunServers                 string `yaml:"stun_servers"`
+	EndpointDetection           bool   `yaml:"endpoint_detection"`
+	DefaultDomain               string `yaml:"default_domain"`
+	PeerConnectionCheckInterval string `yaml:"peer_connection_check_interval"`
+	OldAClsSupport              bool   `json:"-"`
 }
 
 // User.NameInCharset - returns if name is in charset below or not
@@ -337,10 +344,31 @@ type JoinData struct {
 	Key  string `json:"key" yaml:"key"`
 }
 
+// HookFunc - function type for hooks that can accept optional parameters
+type HookFunc func(...interface{}) error
+
 // HookDetails - struct to hold hook info
 type HookDetails struct {
-	Hook     func() error
+	ID       string        // Unique identifier for the hook (optional, auto-generated if empty)
+	Hook     HookFunc      // Hook function that accepts optional variadic parameters
+	Params   []interface{} // Optional parameters to pass to the hook function
 	Interval time.Duration
+}
+
+// HookCommandType - type of command for hook management
+type HookCommandType int
+
+const (
+	HookCommandReset HookCommandType = iota
+	HookCommandStop
+	HookCommandRestart
+)
+
+// HookCommand - command to control a hook
+type HookCommand struct {
+	ID       string // Hook ID to target
+	Command  HookCommandType
+	Interval time.Duration // Optional: new interval for restart command (0 means use existing)
 }
 
 // LicenseLimits - struct license limits
@@ -430,3 +458,32 @@ type IDPSyncTestRequest struct {
 	OktaOrgURL        string `json:"okta_org_url"`
 	OktaAPIToken      string `json:"okta_api_token"`
 }
+
+type PostureCheckDeviceInfo struct {
+	ClientLocation string
+	ClientVersion  string
+	OS             string
+	OSFamily       string
+	OSVersion      string
+	KernelVersion  string
+	AutoUpdate     bool
+	Tags           map[TagID]struct{}
+}
+
+type Violation struct {
+	CheckID   string   `json:"check_id"`
+	Name      string   `json:"name"`
+	Attribute string   `json:"attribute"`
+	Message   string   `json:"message"`
+	Severity  Severity `json:"severity"`
+}
+
+type Severity int
+
+const (
+	SeverityUnknown Severity = iota
+	SeverityLow
+	SeverityMedium
+	SeverityHigh
+	SeverityCritical
+)

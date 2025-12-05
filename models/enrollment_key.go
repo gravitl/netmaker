@@ -43,31 +43,33 @@ const EnrollmentKeyLength = 32
 
 // EnrollmentKey - the key used to register hosts and join them to specific networks
 type EnrollmentKey struct {
-	Expiration    time.Time `json:"expiration"`
-	UsesRemaining int       `json:"uses_remaining"`
-	Value         string    `json:"value"`
-	Networks      []string  `json:"networks"`
-	Unlimited     bool      `json:"unlimited"`
-	Tags          []string  `json:"tags"`
-	Token         string    `json:"token,omitempty"` // B64 value of EnrollmentToken
-	Type          KeyType   `json:"type"`
-	Relay         uuid.UUID `json:"relay"`
-	Groups        []TagID   `json:"groups"`
-	Default       bool      `json:"default"`
-	AutoEgress    bool      `json:"auto_egress"`
+	Expiration        time.Time `json:"expiration"`
+	UsesRemaining     int       `json:"uses_remaining"`
+	Value             string    `json:"value"`
+	Networks          []string  `json:"networks"`
+	Unlimited         bool      `json:"unlimited"`
+	Tags              []string  `json:"tags"`
+	Token             string    `json:"token,omitempty"` // B64 value of EnrollmentToken
+	Type              KeyType   `json:"type"`
+	Relay             uuid.UUID `json:"relay"`
+	Groups            []TagID   `json:"groups"`
+	Default           bool      `json:"default"`
+	AutoEgress        bool      `json:"auto_egress"`
+	AutoAssignGateway bool      `json:"auto_assign_gw"`
 }
 
 // APIEnrollmentKey - used to create enrollment keys via API
 type APIEnrollmentKey struct {
-	Expiration    int64    `json:"expiration" swaggertype:"primitive,integer" format:"int64"`
-	UsesRemaining int      `json:"uses_remaining"`
-	Networks      []string `json:"networks"`
-	Unlimited     bool     `json:"unlimited"`
-	Tags          []string `json:"tags" validate:"required,dive,min=3,max=32"`
-	Type          KeyType  `json:"type"`
-	Relay         string   `json:"relay"`
-	Groups        []TagID  `json:"groups"`
-	AutoEgress    bool     `json:"auto_egress"`
+	Expiration        int64    `json:"expiration" swaggertype:"primitive,integer" format:"int64"`
+	UsesRemaining     int      `json:"uses_remaining"`
+	Networks          []string `json:"networks"`
+	Unlimited         bool     `json:"unlimited"`
+	Tags              []string `json:"tags" validate:"required,dive,min=3,max=32"`
+	Type              KeyType  `json:"type"`
+	Relay             string   `json:"relay"`
+	Groups            []TagID  `json:"groups"`
+	AutoEgress        bool     `json:"auto_egress"`
+	AutoAssignGateway bool     `json:"auto_assign_gw"`
 }
 
 // RegisterResponse - the response to a successful enrollment register

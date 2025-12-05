@@ -35,10 +35,10 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-var version = "v1.1.0"
+var version = "v1.2.0"
 
 //	@title			NetMaker
-//	@version		1.1.0
+//	@version		1.2.0
 //	@description	NetMaker API Docs
 //	@tag.name	    APIUsage
 //	@tag.description.markdown
@@ -135,7 +135,6 @@ func initialize() { // Client Mode Prereq Check
 	if err != nil {
 		logger.FatalLog("error setting defaults: ", err.Error())
 	}
-
 	if servercfg.IsDNSMode() {
 		err := functions.SetDNSDir()
 		if err != nil {
@@ -179,6 +178,7 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 
 	wg.Add(1)
 	go logic.StartHookManager(ctx, wg)
+	logic.InitNetworkHooks()
 }
 
 // Should we be using a context vice a waitgroup????????????
@@ -195,10 +195,9 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 	defer mq.CloseClient()
 	go mq.Keepalive(ctx)
 	go func() {
-		peerUpdate := make(chan *models.Node, 100)
-		go logic.ManageZombies(ctx, peerUpdate)
-		go logic.DeleteExpiredNodes(ctx, peerUpdate)
-		for nodeUpdate := range peerUpdate {
+		go logic.ManageZombies(ctx)
+		go logic.DeleteExpiredNodes(ctx)
+		for nodeUpdate := range logic.DeleteNodesCh {
 			if nodeUpdate == nil {
 				continue
 			}

@@ -198,6 +198,7 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 	}
 	node.IsIngressGateway = true
 	node.IsGw = true
+	SetAutoRelay(&node)
 	node.IsInternetGateway = ingress.IsInternetGateway
 	node.IngressGatewayRange = network.AddressRange
 	node.IngressGatewayRange6 = network.AddressRange6
@@ -217,6 +218,9 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 		if _, exists := FailOverExists(node.Network); exists {
 			ResetFailedOverPeer(&node)
 		}
+
+		ResetAutoRelayedPeer(&node)
+
 	}
 	node.SetLastModified()
 	node.Metadata = ingress.Metadata
@@ -227,6 +231,8 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 		node.Tags = make(map[models.TagID]struct{})
 	}
 	node.Tags[models.TagID(fmt.Sprintf("%s.%s", netid, models.GwTagName))] = struct{}{}
+	node.PostureChecksViolations, node.PostureCheckVolationSeverityLevel = CheckPostureViolations(GetPostureCheckDeviceInfoByNode(&node), models.NetworkID(node.Network))
+	node.LastEvaluatedAt = time.Now().UTC()
 	err = UpsertNode(&node)
 	if err != nil {
 		return models.Node{}, err
@@ -278,11 +284,12 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 	delete(node.Tags, models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName)))
 	node.IngressGatewayRange = ""
 	node.Metadata = ""
+	node.PostureChecksViolations, node.PostureCheckVolationSeverityLevel = CheckPostureViolations(GetPostureCheckDeviceInfoByNode(&node), models.NetworkID(node.Network))
+	node.LastEvaluatedAt = time.Now().UTC()
 	err = UpsertNode(&node)
 	if err != nil {
 		return models.Node{}, removedClients, err
 	}
-
 	err = SetNetworkNodesLastModified(node.Network)
 	return node, removedClients, err
 }
@@ -342,7 +349,7 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 		if err != nil {
 			return err
 		}
-		if clientNode.IsFailOver {
+		if clientNode.IsFailOver || clientNode.IsAutoRelay {
 			return errors.New("failover node cannot be set to use internet gateway")
 		}
 		clientHost, err := GetHost(clientNode.HostID.String())
@@ -369,6 +376,9 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 		}
 		if clientNode.FailedOverBy != uuid.Nil {
 			ResetFailedOverPeer(&clientNode)
+		}
+		if len(clientNode.AutoRelayedPeers) > 0 {
+			ResetAutoRelayedPeer(&clientNode)
 		}
 
 		if clientNode.IsRelayed && clientNode.RelayedBy != inetNode.ID.String() {

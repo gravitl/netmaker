@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/database"
@@ -565,6 +566,10 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	if currentNode.IsAutoRelay && !newNode.IsAutoRelay {
+		logic.ResetAutoRelay(newNode)
+	}
+
 	if newNode.IsInternetGateway && len(newNode.InetNodeReq.InetNodeClientIDs) > 0 {
 		err = logic.ValidateInetGwReq(*newNode, newNode.InetNodeReq, newNode.IsInternetGateway && currentNode.IsInternetGateway)
 		if err != nil {
@@ -574,6 +579,7 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		newNode.RelayedNodes = append(newNode.RelayedNodes, newNode.InetNodeReq.InetNodeClientIDs...)
 		newNode.RelayedNodes = logic.UniqueStrings(newNode.RelayedNodes)
 	}
+
 	relayUpdate := logic.RelayUpdates(&currentNode, newNode)
 	if relayUpdate && newNode.IsRelay {
 		err = logic.ValidateRelay(models.RelayRequest{
@@ -592,6 +598,12 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			fmt.Sprintf("failed to get host for node  [ %s ] info: %v", nodeid, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
+	}
+	if newNode.IsInternetGateway {
+		if host.DNS != "yes" {
+			host.DNS = "yes"
+			logic.UpsertHost(host)
+		}
 	}
 	aclUpdate := currentNode.DefaultACL != newNode.DefaultACL
 
@@ -618,6 +630,42 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 	if !newNode.IsInternetGateway {
 		logic.UnsetInternetGw(newNode)
 	}
+	if currentNode.AutoAssignGateway && !newNode.AutoAssignGateway {
+		// if relayed remove it
+		if newNode.IsRelayed {
+			relayNode, err := logic.GetNodeByID(newNode.RelayedBy)
+			if err == nil {
+				logic.RemoveAllFromSlice(relayNode.RelayedNodes, newNode.ID.String())
+				logic.UpsertNode(&relayNode)
+			}
+			newNode.IsRelayed = false
+			newNode.RelayedBy = ""
+		}
+	}
+	if (currentNode.IsRelayed) && newNode.AutoAssignGateway {
+		// if relayed remove it
+		if currentNode.IsRelayed {
+			relayNode, err := logic.GetNodeByID(currentNode.RelayedBy)
+			if err == nil {
+				logic.RemoveAllFromSlice(relayNode.RelayedNodes, currentNode.ID.String())
+				logic.UpsertNode(&relayNode)
+			}
+			newNode.IsRelayed = false
+			newNode.RelayedBy = ""
+		}
+		if len(currentNode.AutoRelayedPeers) > 0 {
+			logic.ResetAutoRelayedPeer(&currentNode)
+		}
+	}
+	if !currentNode.AutoAssignGateway && newNode.AutoAssignGateway {
+		if len(currentNode.AutoRelayedPeers) > 0 {
+			logic.ResetAutoRelayedPeer(&currentNode)
+		}
+	}
+	newNode.PostureChecksViolations,
+		newNode.PostureCheckVolationSeverityLevel = logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(newNode),
+		models.NetworkID(newNode.Network))
+	newNode.LastEvaluatedAt = time.Now().UTC()
 	logic.UpsertNode(newNode)
 	logic.GetNodeStatus(newNode, false)
 
@@ -655,9 +703,30 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 		if err := mq.NodeUpdate(newNode); err != nil {
 			slog.Error("error publishing node update to node", "node", newNode.ID, "error", err)
 		}
+		// if !newNode.Connected {
+		// 	mq.HostUpdate(&models.HostUpdate{Host: *host, Action: models.SignalPull})
+		// }
+		allNodes, err := logic.GetAllNodes()
+		if err == nil {
+			mq.PublishSingleHostPeerUpdate(host, allNodes, nil, nil, false, nil)
+		}
+		if servercfg.IsPro && newNode.AutoAssignGateway {
+			mq.HostUpdate(&models.HostUpdate{Action: models.CheckAutoAssignGw, Host: *host, Node: *newNode})
+		}
 		mq.PublishPeerUpdate(false)
 		if servercfg.IsDNSMode() {
 			logic.SetDNS()
+		}
+		if !newNode.Connected {
+			metrics, err := logic.GetMetrics(newNode.ID.String())
+			if err == nil {
+				for peer, connectivity := range metrics.Connectivity {
+					connectivity.Connected = false
+					metrics.Connectivity[peer] = connectivity
+				}
+
+				_ = logic.UpdateMetrics(newNode.ID.String(), metrics)
+			}
 		}
 	}(aclUpdate, relayUpdate, newNode)
 }
@@ -682,10 +751,6 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 	}
 	forceDelete := r.URL.Query().Get("force") == "true"
 	fromNode := r.Header.Get("requestfrom") == "node"
-	var gwClients []models.ExtClient
-	if node.IsIngressGateway {
-		gwClients = logic.GetGwExtclients(node.ID.String(), node.Network)
-	}
 	purge := forceDelete || fromNode
 	if err := logic.DeleteNode(&node, purge); err != nil {
 		logic.ReturnErrorResponse(
@@ -698,5 +763,5 @@ func deleteNode(w http.ResponseWriter, r *http.Request) {
 
 	logic.ReturnSuccessResponse(w, r, nodeid+" deleted.")
 	logger.Log(1, r.Header.Get("user"), "Deleted node", nodeid, "from network", params["network"])
-	go mq.PublishMqUpdatesForDeletedNode(node, !fromNode, gwClients)
+	go mq.PublishMqUpdatesForDeletedNode(node, !fromNode)
 }

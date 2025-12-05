@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/acls"
+	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/servercfg"
@@ -42,6 +43,8 @@ func networkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/networks/{networkname}/acls", logic.SecurityCheck(true, http.HandlerFunc(getNetworkACL))).
 		Methods(http.MethodGet)
 	r.HandleFunc("/api/networks/{networkname}/egress_routes", logic.SecurityCheck(true, http.HandlerFunc(getNetworkEgressRoutes)))
+	r.HandleFunc("/api/networks/{networkname}/old_acl_status", logic.SecurityCheck(true, http.HandlerFunc(OldNetworkACLStatus))).
+		Methods(http.MethodGet)
 }
 
 // @Summary     Lists all networks
@@ -437,6 +440,40 @@ func getNetworkACL(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(networkACL)
 }
 
+// @Summary     Check a Old ACL Status (Access Control List)
+// @Router      /api/networks/{networkname}/old_acl_status [get]
+// @Tags        Networks
+// @Security    oauth
+// @Param       networkname path string true "Network name"
+// @Produce     json
+// @Success     200 {object} acls.ACLContainer
+// @Failure     500 {object} models.ErrorResponse
+func OldNetworkACLStatus(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var params = mux.Vars(r)
+	netname := params["networkname"]
+	var networkACL acls.ACLContainer
+	networkACL, err := nodeacls.FetchAllACLs(nodeacls.NetworkID(netname))
+	if err != nil {
+		logic.ReturnSuccessResponse(w, r, "false")
+		return
+	}
+	disableOldAcls := true
+	for _, aclNode := range networkACL {
+		for _, allowed := range aclNode {
+			if allowed != acls.Allowed {
+				disableOldAcls = false
+				break
+			}
+		}
+	}
+	msg := "true"
+	if disableOldAcls {
+		msg = "false"
+	}
+	logic.ReturnSuccessResponse(w, r, msg)
+}
+
 // @Summary     Get a network Egress routes
 // @Router      /api/networks/{networkname}/egress_routes [get]
 // @Tags        Networks
@@ -535,6 +572,10 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 			Type: models.NetworkSub,
 		},
 		Origin: models.Dashboard,
+		Diff: models.Diff{
+			Old: network,
+			New: nil,
+		},
 	})
 	logger.Log(1, r.Header.Get("user"), "deleted network", network)
 	w.WriteHeader(http.StatusOK)
@@ -563,7 +604,10 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
+	featureFlags := logic.GetFeatureFlags()
+	if !featureFlags.EnableDeviceApproval {
+		network.AutoJoin = "true"
+	}
 	if len(network.NetID) > 32 {
 		err := errors.New("network name shouldn't exceed 32 characters")
 		logger.Log(0, r.Header.Get("user"), "failed to create network: ",
@@ -618,7 +662,14 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-
+	if network.AutoRemove == "true" {
+		if network.AutoRemoveThreshold == 0 {
+			network.AutoRemoveThreshold = 60
+		}
+	}
+	if network.AutoRemoveTags == nil {
+		network.AutoRemoveTags = []string{}
+	}
 	network, err = logic.CreateNetwork(network)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to create network: ",
@@ -649,20 +700,38 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			logger.Log(1, "added new node", newNode.ID.String(), "to host", currHost.Name)
-			if err = mq.HostUpdate(&models.HostUpdate{
-				Action: models.JoinHostToNetwork,
-				Host:   *currHost,
-				Node:   *newNode,
-			}); err != nil {
-				logger.Log(
-					0,
-					r.Header.Get("user"),
-					"failed to add host to network:",
-					currHost.ID.String(),
-					network.NetID,
-					err.Error(),
-				)
+			if len(currHost.Nodes) == 1 {
+				if err = mq.HostUpdate(&models.HostUpdate{
+					Action: models.RequestPull,
+					Host:   *currHost,
+					Node:   *newNode,
+				}); err != nil {
+					logger.Log(
+						0,
+						r.Header.Get("user"),
+						"failed to add host to network:",
+						currHost.ID.String(),
+						network.NetID,
+						err.Error(),
+					)
+				}
+			} else {
+				if err = mq.HostUpdate(&models.HostUpdate{
+					Action: models.JoinHostToNetwork,
+					Host:   *currHost,
+					Node:   *newNode,
+				}); err != nil {
+					logger.Log(
+						0,
+						r.Header.Get("user"),
+						"failed to add host to network:",
+						currHost.ID.String(),
+						network.NetID,
+						err.Error(),
+					)
+				}
 			}
+
 			// make  host failover
 			logic.CreateFailOver(*newNode)
 			// make host remote access gateway

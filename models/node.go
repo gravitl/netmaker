@@ -87,40 +87,50 @@ type CommonNode struct {
 	IsGw                bool      `json:"is_gw"             yaml:"is_gw"`
 	RelayedNodes        []string  `json:"relaynodes"          yaml:"relayedNodes"`
 	IngressDNS          string    `json:"ingressdns"          yaml:"ingressdns"`
+	AutoAssignGateway   bool      `json:"auto_assign_gw"`
 }
 
 // Node - a model of a network node
 type Node struct {
 	CommonNode
-	PendingDelete              bool                 `json:"pendingdelete"           bson:"pendingdelete"           yaml:"pendingdelete"`
-	LastModified               time.Time            `json:"lastmodified"            bson:"lastmodified"            yaml:"lastmodified"`
-	LastCheckIn                time.Time            `json:"lastcheckin"             bson:"lastcheckin"             yaml:"lastcheckin"`
-	LastPeerUpdate             time.Time            `json:"lastpeerupdate"          bson:"lastpeerupdate"          yaml:"lastpeerupdate"`
-	ExpirationDateTime         time.Time            `json:"expdatetime"             bson:"expdatetime"             yaml:"expdatetime"`
-	EgressGatewayNatEnabled    bool                 `json:"egressgatewaynatenabled" bson:"egressgatewaynatenabled" yaml:"egressgatewaynatenabled"`
-	EgressGatewayRequest       EgressGatewayRequest `json:"egressgatewayrequest"    bson:"egressgatewayrequest"    yaml:"egressgatewayrequest"`
-	IngressGatewayRange        string               `json:"ingressgatewayrange"     bson:"ingressgatewayrange"     yaml:"ingressgatewayrange"`
-	IngressGatewayRange6       string               `json:"ingressgatewayrange6"    bson:"ingressgatewayrange6"    yaml:"ingressgatewayrange6"`
-	IngressPersistentKeepalive int32                `json:"ingresspersistentkeepalive"     bson:"ingresspersistentkeepalive"     yaml:"ingresspersistentkeepalive"`
-	IngressMTU                 int32                `json:"ingressmtu"     bson:"ingressmtu"     yaml:"ingressmtu"`
+	PendingDelete              bool                 `json:"pendingdelete"`
+	LastModified               time.Time            `json:"lastmodified"`
+	LastCheckIn                time.Time            `json:"lastcheckin"`
+	LastPeerUpdate             time.Time            `json:"lastpeerupdate"`
+	ExpirationDateTime         time.Time            `json:"expdatetime"`
+	EgressGatewayNatEnabled    bool                 `json:"egressgatewaynatenabled"`
+	EgressGatewayRequest       EgressGatewayRequest `json:"egressgatewayrequest"`
+	IngressGatewayRange        string               `json:"ingressgatewayrange"`
+	IngressGatewayRange6       string               `json:"ingressgatewayrange6"`
+	IngressPersistentKeepalive int32                `json:"ingresspersistentkeepalive"`
+	IngressMTU                 int32                `json:"ingressmtu"`
 	Metadata                   string               `json:"metadata"`
 	// == PRO ==
-	DefaultACL        string              `json:"defaultacl,omitempty"    bson:"defaultacl,omitempty"    yaml:"defaultacl,omitempty"    validate:"checkyesornoorunset"`
-	OwnerID           string              `json:"ownerid,omitempty"       bson:"ownerid,omitempty"       yaml:"ownerid,omitempty"`
-	IsFailOver        bool                `json:"is_fail_over"                                           yaml:"is_fail_over"`
-	FailOverPeers     map[string]struct{} `json:"fail_over_peers"                                       yaml:"fail_over_peers"`
-	FailedOverBy      uuid.UUID           `json:"failed_over_by"                                         yaml:"failed_over_by"`
-	IsInternetGateway bool                `json:"isinternetgateway"                                      yaml:"isinternetgateway"`
-	InetNodeReq       InetNodeReq         `json:"inet_node_req"                                          yaml:"inet_node_req"`
-	InternetGwID      string              `json:"internetgw_node_id"                                     yaml:"internetgw_node_id"`
-	AdditionalRagIps  []net.IP            `json:"additional_rag_ips"                                     yaml:"additional_rag_ips"                                     swaggertype:"array,number"`
-	Tags              map[TagID]struct{}  `json:"tags" yaml:"tags"`
-	IsStatic          bool                `json:"is_static"`
-	IsUserNode        bool                `json:"is_user_node"`
-	StaticNode        ExtClient           `json:"static_node"`
-	Status            NodeStatus          `json:"node_status"`
-	Mutex             *sync.Mutex         `json:"-"`
-	EgressDetails     EgressDetails       `json:"-"`
+	DefaultACL  string `json:"defaultacl,omitempty" validate:"checkyesornoorunset"`
+	OwnerID     string `json:"ownerid,omitempty"`
+	IsFailOver  bool   `json:"is_fail_over"`
+	IsAutoRelay bool   `json:"is_auto_relay"`
+	//AutoRelayedPeers   map[string]struct{} `json:"auto_relayed_peers"`
+	AutoRelayedPeers map[string]string `json:"auto_relayed_peers_v1"`
+	//AutoRelayedBy     uuid.UUID           `json:"auto_relayed_by"`
+	FailOverPeers                     map[string]struct{} `json:"fail_over_peers"`
+	FailedOverBy                      uuid.UUID           `json:"failed_over_by"`
+	IsInternetGateway                 bool                `json:"isinternetgateway"`
+	InetNodeReq                       InetNodeReq         `json:"inet_node_req"`
+	InternetGwID                      string              `json:"internetgw_node_id"`
+	AdditionalRagIps                  []net.IP            `json:"additional_rag_ips" swaggertype:"array,number"`
+	Tags                              map[TagID]struct{}  `json:"tags"`
+	IsStatic                          bool                `json:"is_static"`
+	IsUserNode                        bool                `json:"is_user_node"`
+	StaticNode                        ExtClient           `json:"static_node"`
+	Status                            NodeStatus          `json:"node_status"`
+	Mutex                             *sync.Mutex         `json:"-"`
+	EgressDetails                     EgressDetails       `json:"-"`
+	PostureChecksViolations           []Violation         `json:"posture_check_violations"`
+	PostureCheckVolationSeverityLevel Severity            `json:"posture_check_violation_severity_level"`
+	LastEvaluatedAt                   time.Time           `json:"last_evaluated_at"`
+	Location                          string              `json:"location"` // Format: "lat,lon"
+	CountryCode                       string              `json:"country_code"`
 }
 type EgressDetails struct {
 	EgressGatewayNatEnabled bool
@@ -442,10 +452,10 @@ func (newNode *Node) Fill(
 	if newNode.ExpirationDateTime.IsZero() {
 		newNode.ExpirationDateTime = currentNode.ExpirationDateTime
 	}
-	if newNode.LastPeerUpdate.IsZero() {
+	if newNode.LastPeerUpdate.IsZero() || currentNode.LastPeerUpdate.After(newNode.LastPeerUpdate) {
 		newNode.LastPeerUpdate = currentNode.LastPeerUpdate
 	}
-	if newNode.LastCheckIn.IsZero() {
+	if newNode.LastCheckIn.IsZero() || currentNode.LastCheckIn.After(newNode.LastCheckIn) {
 		newNode.LastCheckIn = currentNode.LastCheckIn
 	}
 	if newNode.Network == "" {
@@ -481,6 +491,7 @@ func (newNode *Node) Fill(
 	if newNode.IsFailOver != currentNode.IsFailOver {
 		newNode.IsFailOver = currentNode.IsFailOver
 	}
+	newNode.FailOverPeers = currentNode.FailOverPeers
 	if newNode.Tags == nil {
 		if currentNode.Tags == nil {
 			currentNode.Tags = make(map[TagID]struct{})

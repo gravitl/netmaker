@@ -26,7 +26,7 @@ type TrialInfo struct {
 
 func addTrialLicenseHook() {
 	logic.HookManagerCh <- models.HookDetails{
-		Hook:     TrialLicenseHook,
+		Hook:     logic.WrapHook(TrialLicenseHook),
 		Interval: time.Hour,
 	}
 }

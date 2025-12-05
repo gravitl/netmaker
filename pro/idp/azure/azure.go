@@ -149,7 +149,7 @@ func (a *Client) GetGroups(filters []string) ([]idp.Group, error) {
 	}
 
 	client := &http.Client{}
-	getGroupsURL := "https://graph.microsoft.com/v1.0/groups?$select=id,displayName&$expand=members($select=id)"
+	getGroupsURL := "https://graph.microsoft.com/v1.0/groups?$select=id,displayName"
 	if len(filters) > 0 {
 		getGroupsURL += "&" + buildPrefixFilter("displayName", filters)
 	}
@@ -176,16 +176,19 @@ func (a *Client) GetGroups(filters []string) ([]idp.Group, error) {
 			return nil, err
 		}
 
+		// Fetch members for each group separately to handle pagination
 		for _, group := range groups.Value {
-			retvalMembers := make([]string, len(group.Members))
-			for j, member := range group.Members {
-				retvalMembers[j] = member.Id
+			members, err := a.getGroupMembers(accessToken, group.Id)
+			if err != nil {
+				// Continue with empty members list if error occurs
+				// This allows sync to continue for other groups
+				members = []string{}
 			}
 
 			retval = append(retval, idp.Group{
 				ID:      group.Id,
 				Name:    group.DisplayName,
-				Members: retvalMembers,
+				Members: members,
 			})
 		}
 
@@ -193,6 +196,49 @@ func (a *Client) GetGroups(filters []string) ([]idp.Group, error) {
 	}
 
 	return retval, nil
+}
+
+// getGroupMembers fetches all members of a group with pagination support
+func (a *Client) getGroupMembers(accessToken, groupID string) ([]string, error) {
+	client := &http.Client{}
+	getMembersURL := fmt.Sprintf("https://graph.microsoft.com/v1.0/groups/%s/members?$select=id", groupID)
+
+	var allMembers []string
+	for getMembersURL != "" {
+		req, err := http.NewRequest("GET", getMembersURL, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Add("Authorization", "Bearer "+accessToken)
+		req.Header.Add("Accept", "application/json")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+
+		var membersResponse struct {
+			Value []struct {
+				Id string `json:"id"`
+			} `json:"value"`
+			NextLink string `json:"@odata.nextLink"`
+		}
+
+		err = json.NewDecoder(resp.Body).Decode(&membersResponse)
+		_ = resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+
+		for _, member := range membersResponse.Value {
+			allMembers = append(allMembers, member.Id)
+		}
+
+		getMembersURL = membersResponse.NextLink
+	}
+
+	return allMembers, nil
 }
 
 func (a *Client) getAccessToken() (string, error) {
@@ -226,15 +272,19 @@ func (a *Client) getAccessToken() (string, error) {
 }
 
 func buildPrefixFilter(field string, prefixes []string) string {
+	return url.PathEscape("$filter=" + buildCondition(field, prefixes))
+}
+
+func buildCondition(field string, prefixes []string) string {
 	if len(prefixes) == 0 {
 		return ""
 	}
 
 	if len(prefixes) == 1 {
-		return fmt.Sprintf("$filter=startswith(%s,'%s')", field, prefixes[0])
+		return fmt.Sprintf("startswith(%s,'%s')", field, prefixes[0])
 	}
 
-	return buildPrefixFilter(field, prefixes[:1]) + "%20or%20" + buildPrefixFilter(field, prefixes[1:])
+	return buildCondition(field, prefixes[:1]) + " or " + buildCondition(field, prefixes[1:])
 }
 
 type getUsersResponse struct {
@@ -255,10 +305,6 @@ type getGroupsResponse struct {
 	Value        []struct {
 		Id          string `json:"id"`
 		DisplayName string `json:"displayName"`
-		Members     []struct {
-			OdataType string `json:"@odata.type"`
-			Id        string `json:"id"`
-		} `json:"members"`
 	} `json:"value"`
 	NextLink string `json:"@odata.nextLink"`
 }

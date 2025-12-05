@@ -57,13 +57,18 @@ func TraceCaller() {
 		slog.Debug("Unable to get caller information")
 		return
 	}
-
+	tracePc, _, _, ok := runtime.Caller(1)
+	if !ok {
+		slog.Debug("Unable to get caller information")
+		return
+	}
+	traceFuncName := runtime.FuncForPC(tracePc).Name()
 	// Get function name from the program counter (pc)
 	funcName := runtime.FuncForPC(pc).Name()
 
 	// Print trace details
-	slog.Debug("Called from function: %s\n", "func", funcName)
-	slog.Debug("File: %s, Line: %d\n", "file", file, "line", line)
+	slog.Debug("## TRACE -> Called from function: ", "tracing-func-name", traceFuncName, "caller-func-name", funcName)
+	slog.Debug("## TRACE -> Caller File Info", "file", file, "line-no", line)
 }
 
 // NoEmptyStringToCsv takes a bunch of strings, filters out empty ones and returns a csv version of the string

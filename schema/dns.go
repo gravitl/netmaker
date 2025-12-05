@@ -9,12 +9,14 @@ import (
 )
 
 type Nameserver struct {
-	ID           string                      `gorm:"primaryKey" json:"id"`
-	Name         string                      `gorm:"name" json:"name"`
-	NetworkID    string                      `gorm:"network_id" json:"network_id"`
-	Description  string                      `gorm:"description" json:"description"`
-	Servers      datatypes.JSONSlice[string] `gorm:"servers" json:"servers"`
-	MatchAll     bool                        `gorm:"match_all" json:"match_all"`
+	ID          string                                `gorm:"primaryKey" json:"id"`
+	Name        string                                `gorm:"name" json:"name"`
+	NetworkID   string                                `gorm:"network_id" json:"network_id"`
+	Description string                                `gorm:"description" json:"description"`
+	Servers     datatypes.JSONSlice[string]           `gorm:"servers" json:"servers"`
+	MatchAll    bool                                  `gorm:"match_all" json:"match_all"`
+	Domains     datatypes.JSONSlice[NameserverDomain] `gorm:"domains" json:"domains"`
+	// TODO: deprecate
 	MatchDomains datatypes.JSONSlice[string] `gorm:"match_domains" json:"match_domains"`
 	Tags         datatypes.JSONMap           `gorm:"tags" json:"tags"`
 	Nodes        datatypes.JSONMap           `gorm:"nodes" json:"nodes"`
@@ -22,6 +24,11 @@ type Nameserver struct {
 	CreatedBy    string                      `gorm:"created_by" json:"created_by"`
 	CreatedAt    time.Time                   `gorm:"created_at" json:"created_at"`
 	UpdatedAt    time.Time                   `gorm:"updated_at" json:"updated_at"`
+}
+
+type NameserverDomain struct {
+	Domain         string `json:"domain"`
+	IsSearchDomain bool   `json:"is_search_domain"`
 }
 
 func (ns *Nameserver) Get(ctx context.Context) error {

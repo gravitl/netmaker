@@ -43,6 +43,20 @@ var PlatformUserUserPermissionTemplate = models.UserRolePermissionTemplate{
 	},
 }
 
+var AuditorUserPermissionTemplate = models.UserRolePermissionTemplate{
+	ID:                  models.Auditor,
+	Default:             true,
+	DenyDashboardAccess: false,
+	FullAccess:          false,
+	NetworkLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
+		models.NetworkRsrc: {
+			models.AllNetworkRsrcID: models.RsrcPermissionScope{
+				Read: true,
+			},
+		},
+	},
+}
+
 var NetworkAdminAllPermissionTemplate = models.UserRolePermissionTemplate{
 	ID:         globalNetworksAdminRoleID,
 	Name:       "Network Admins",
@@ -122,6 +136,8 @@ func UserRolesInit() {
 	database.Insert(ServiceUserPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
 	d, _ = json.Marshal(PlatformUserUserPermissionTemplate)
 	database.Insert(PlatformUserUserPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
+	d, _ = json.Marshal(AuditorUserPermissionTemplate)
+	database.Insert(AuditorUserPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
 	d, _ = json.Marshal(NetworkAdminAllPermissionTemplate)
 	database.Insert(NetworkAdminAllPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
 	d, _ = json.Marshal(NetworkUserAllPermissionTemplate)
@@ -620,6 +636,22 @@ func GetUserGroup(gid models.UserGroupID) (models.UserGroup, error) {
 	return ug, nil
 }
 
+func GetDefaultGlobalAdminGroupID() models.UserGroupID {
+	return globalNetworksAdminGroupID
+}
+
+func GetDefaultGlobalUserGroupID() models.UserGroupID {
+	return globalNetworksUserGroupID
+}
+
+func GetDefaultGlobalAdminRoleID() models.UserRoleID {
+	return globalNetworksAdminRoleID
+}
+
+func GetDefaultGlobalUserRoleID() models.UserRoleID {
+	return globalNetworksUserRoleID
+}
+
 func GetDefaultNetworkAdminGroupID(networkID models.NetworkID) models.UserGroupID {
 	return models.UserGroupID(fmt.Sprintf("%s-%s-grp", networkID, models.NetworkAdmin))
 }
@@ -670,6 +702,66 @@ func UpdateUserGroup(g models.UserGroup) error {
 	}
 
 	return database.Insert(g.ID.String(), string(d), database.USER_GROUPS_TABLE_NAME)
+}
+
+func DeleteAndCleanUpGroup(group *models.UserGroup) error {
+	err := DeleteUserGroup(group.ID)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		var replacePeers bool
+		var networkIDs []models.NetworkID
+
+		_, ok := group.NetworkRoles[models.AllNetworks]
+		if ok {
+			networks, _ := logic.GetNetworks()
+			for _, network := range networks {
+				networkIDs = append(networkIDs, models.NetworkID(network.NetID))
+			}
+		} else {
+			for networkID := range group.NetworkRoles {
+				networkIDs = append(networkIDs, networkID)
+			}
+		}
+
+		for _, networkID := range networkIDs {
+			acls, err := logic.ListAclsByNetwork(networkID)
+			if err != nil {
+				continue
+			}
+
+			for _, acl := range acls {
+				var hasGroupSrc bool
+				newAclSrc := make([]models.AclPolicyTag, 0)
+				for _, src := range acl.Src {
+					if src.ID == models.UserGroupAclID && src.Value == group.ID.String() {
+						hasGroupSrc = true
+					} else {
+						newAclSrc = append(newAclSrc, src)
+					}
+				}
+
+				if hasGroupSrc {
+					if len(newAclSrc) == 0 {
+						// no other src exists, delete acl.
+						_ = logic.DeleteAcl(acl)
+					} else {
+						// other sources exist, update acl.
+						acl.Src = newAclSrc
+						_ = logic.UpsertAcl(acl)
+					}
+					replacePeers = true
+				}
+			}
+		}
+
+		go UpdatesUserGwAccessOnGrpUpdates(group.ID, group.NetworkRoles, make(map[models.NetworkID]map[models.UserRoleID]struct{}))
+		go mq.PublishPeerUpdate(replacePeers)
+	}()
+
+	return nil
 }
 
 // DeleteUserGroup - deletes user group
@@ -930,6 +1022,13 @@ func FilterNetworksByRole(allnetworks []models.Network, user models.User) []mode
 	}
 	if !platformRole.FullAccess {
 		allNetworkRoles := make(map[models.NetworkID]struct{})
+		_, ok := platformRole.NetworkLevelAccess[models.NetworkRsrc]
+		if ok {
+			perm, ok := platformRole.NetworkLevelAccess[models.NetworkRsrc][models.AllNetworkRsrcID]
+			if ok && perm.Read {
+				return allnetworks
+			}
+		}
 		if len(user.NetworkRoles) > 0 {
 			for netID := range user.NetworkRoles {
 				if netID == models.AllNetworks {
@@ -949,7 +1048,6 @@ func FilterNetworksByRole(allnetworks []models.Network, user models.User) []mode
 								return allnetworks
 							}
 							allNetworkRoles[netID] = struct{}{}
-
 						}
 					}
 				}
@@ -1408,7 +1506,6 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 					Value: networkUserGroupID.String(),
 				},
 			},
-
 			Dst: []models.AclPolicyTag{
 				{
 					ID:    models.NodeTagID,

@@ -108,21 +108,28 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	case models.CheckIn:
 		sendPeerUpdate = HandleHostCheckin(&hostUpdate.Host, currentHost)
 	case models.Acknowledgement:
+		nodes, err := logic.GetAllNodes()
+		if err != nil {
+			return
+		}
 		hu := hostactions.GetAction(currentHost.ID.String())
 		if hu != nil {
 			if err = HostUpdate(hu); err != nil {
 				slog.Error("failed to send new node to host", "name", hostUpdate.Host.Name, "id", currentHost.ID, "error", err)
 				return
 			} else {
-				nodes, err := logic.GetAllNodes()
-				if err != nil {
-					return
-				}
+
 				if err = PublishSingleHostPeerUpdate(currentHost, nodes, nil, nil, false, nil); err != nil {
 					slog.Error("failed peers publish after join acknowledged", "name", hostUpdate.Host.Name, "id", currentHost.ID, "error", err)
 					return
 				}
 			}
+		} else {
+			// send latest host update
+			HostUpdate(&models.HostUpdate{
+				Action: models.UpdateHost,
+				Host:   *currentHost})
+			PublishSingleHostPeerUpdate(currentHost, nodes, nil, nil, false, nil)
 		}
 	case models.UpdateHost:
 		if hostUpdate.Host.PublicKey != currentHost.PublicKey {
@@ -136,42 +143,10 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 			return
 		}
 	case models.DeleteHost:
-		if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
-			// delete EMQX credentials for host
-			if err := emqx.DeleteEmqxUser(currentHost.ID.String()); err != nil {
-				slog.Error("failed to remove host credentials from EMQX", "id", currentHost.ID, "error", err)
-			}
-		}
-
-		// notify of deleted peer change
-		go func(host models.Host) {
-			for _, nodeID := range host.Nodes {
-				node, err := logic.GetNodeByID(nodeID)
-				if err == nil {
-					var gwClients []models.ExtClient
-					if node.IsIngressGateway {
-						gwClients = logic.GetGwExtclients(node.ID.String(), node.Network)
-					}
-					go PublishMqUpdatesForDeletedNode(node, false, gwClients)
-				}
-
-			}
-		}(*currentHost)
-
-		if err := logic.DisassociateAllNodesFromHost(currentHost.ID.String()); err != nil {
-			slog.Error("failed to delete all nodes of host", "id", currentHost.ID, "error", err)
-			return
-		}
-		if err := logic.RemoveHostByID(currentHost.ID.String()); err != nil {
-			slog.Error("failed to delete host", "id", currentHost.ID, "error", err)
-			return
-		}
-		if servercfg.IsDNSMode() {
-			logic.SetDNS()
-		}
+		DeleteAndCleanupHost(currentHost)
 		sendPeerUpdate = true
 	case models.SignalHost:
-		signalPeer(hostUpdate.Signal)
+		SignalPeer(hostUpdate.Signal)
 
 	}
 
@@ -183,13 +158,55 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	}
 }
 
-func signalPeer(signal models.Signal) {
+func DeleteAndCleanupHost(h *models.Host) {
+	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
+		// delete EMQX credentials for host
+		if err := emqx.DeleteEmqxUser(h.ID.String()); err != nil {
+			slog.Error("failed to remove host credentials from EMQX", "id", h.ID, "error", err)
+		}
+	}
+
+	// notify of deleted peer change
+
+	for _, nodeID := range h.Nodes {
+		node, err := logic.GetNodeByID(nodeID)
+		if err == nil {
+			PublishMqUpdatesForDeletedNode(node, false)
+		}
+	}
+
+	if err := logic.DisassociateAllNodesFromHost(h.ID.String()); err != nil {
+		slog.Error("failed to delete all nodes of host", "id", h.ID, "error", err)
+		return
+	}
+	if err := logic.RemoveHostByID(h.ID.String()); err != nil {
+		slog.Error("failed to delete host", "id", h.ID, "error", err)
+		return
+	}
+	if servercfg.IsDNSMode() {
+		logic.SetDNS()
+	}
+}
+
+func SignalPeer(signal models.Signal) {
 
 	if signal.ToHostPubKey == "" {
 		msg := "insufficient data to signal peer"
 		logger.Log(0, msg)
 		return
 	}
+	node, err := logic.GetNodeByID(signal.FromNodeID)
+	if err != nil {
+		return
+	}
+	peer, err := logic.GetNodeByID(signal.ToNodeID)
+	if err != nil {
+		return
+	}
+	if node.Network != peer.Network {
+		return
+	}
+	signal.NetworkID = node.Network
 	signal.IsPro = servercfg.IsPro
 	peerHost, err := logic.GetHost(signal.ToHostID)
 	if err != nil {
@@ -279,13 +296,15 @@ func HandleHostCheckin(h, currentHost *models.Host) bool {
 		(len(h.NatType) > 0 && h.NatType != currentHost.NatType) ||
 		h.DefaultInterface != currentHost.DefaultInterface ||
 		(h.ListenPort != 0 && h.ListenPort != currentHost.ListenPort) ||
-		(h.WgPublicListenPort != 0 && h.WgPublicListenPort != currentHost.WgPublicListenPort) || (!h.EndpointIPv6.Equal(currentHost.EndpointIPv6))
+		(h.WgPublicListenPort != 0 && h.WgPublicListenPort != currentHost.WgPublicListenPort) ||
+		(!h.EndpointIPv6.Equal(currentHost.EndpointIPv6)) || (h.OSFamily != currentHost.OSFamily) ||
+		(h.OSVersion != currentHost.OSVersion) || (h.KernelVersion != currentHost.KernelVersion)
 	if ifaceDelta { // only save if something changes
 		if !h.EndpointIP.Equal(currentHost.EndpointIP) || !h.EndpointIPv6.Equal(currentHost.EndpointIPv6) || currentHost.Location == "" {
 			if h.EndpointIP != nil {
-				h.Location = logic.GetHostLocInfo(h.EndpointIP.String(), os.Getenv("IP_INFO_TOKEN"))
+				h.Location, h.CountryCode = logic.GetHostLocInfo(h.EndpointIP.String(), os.Getenv("IP_INFO_TOKEN"))
 			} else if h.EndpointIPv6 != nil {
-				h.Location = logic.GetHostLocInfo(h.EndpointIPv6.String(), os.Getenv("IP_INFO_TOKEN"))
+				h.Location, h.CountryCode = logic.GetHostLocInfo(h.EndpointIPv6.String(), os.Getenv("IP_INFO_TOKEN"))
 			}
 		}
 		currentHost.EndpointIP = h.EndpointIP
@@ -293,8 +312,14 @@ func HandleHostCheckin(h, currentHost *models.Host) bool {
 		currentHost.Interfaces = h.Interfaces
 		currentHost.DefaultInterface = h.DefaultInterface
 		currentHost.NatType = h.NatType
+		currentHost.OSFamily = h.OSFamily
+		currentHost.OSVersion = h.OSVersion
+		currentHost.KernelVersion = h.KernelVersion
 		if h.Location != "" {
 			currentHost.Location = h.Location
+		}
+		if h.CountryCode != "" {
+			currentHost.CountryCode = h.CountryCode
 		}
 		if h.ListenPort != 0 {
 			currentHost.ListenPort = h.ListenPort

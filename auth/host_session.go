@@ -226,7 +226,7 @@ func SessionHandler(conn *websocket.Conn) {
 		if err = conn.WriteMessage(messageType, reponseData); err != nil {
 			logger.Log(0, "error during message writing:", err.Error())
 		}
-		go CheckNetRegAndHostUpdate(models.EnrollmentKey{Networks: netsToAdd}, &result.Host, "")
+		go CheckNetRegAndHostUpdate(models.EnrollmentKey{Networks: netsToAdd}, &result.Host, result.User)
 	case <-timeout: // the read from req.answerCh has timed out
 		logger.Log(0, "timeout signal recv,exiting oauth socket conn")
 		break
@@ -242,9 +242,10 @@ func SessionHandler(conn *websocket.Conn) {
 // CheckNetRegAndHostUpdate - run through networks and send a host update
 func CheckNetRegAndHostUpdate(key models.EnrollmentKey, h *models.Host, username string) {
 	// publish host update through MQ
+	featureFlags := logic.GetFeatureFlags()
 	for _, netID := range key.Networks {
 		if network, err := logic.GetNetwork(netID); err == nil {
-			if network.AutoJoin == "false" {
+			if featureFlags.EnableDeviceApproval && network.AutoJoin == "false" {
 				if logic.DoesHostExistinTheNetworkAlready(h, models.NetworkID(netID)) {
 					continue
 				}
@@ -272,24 +273,47 @@ func CheckNetRegAndHostUpdate(key models.EnrollmentKey, h *models.Host, username
 				continue
 			}
 
-			logic.LogEvent(&models.Event{
-				Action: models.JoinHostToNet,
-				Source: models.Subject{
-					ID:   key.Value,
-					Name: key.Tags[0],
-					Type: models.EnrollmentKeySub,
-				},
-				TriggeredBy: username,
-				Target: models.Subject{
-					ID:   h.ID.String(),
-					Name: h.Name,
-					Type: models.DeviceSub,
-				},
-				NetworkID: models.NetworkID(netID),
-				Origin:    models.Dashboard,
-			})
+			if len(username) > 0 {
+				logic.LogEvent(&models.Event{
+					Action: models.JoinHostToNet,
+					Source: models.Subject{
+						ID:   username,
+						Name: username,
+						Type: models.UserSub,
+					},
+					TriggeredBy: username,
+					Target: models.Subject{
+						ID:   h.ID.String(),
+						Name: h.Name,
+						Type: models.DeviceSub,
+					},
+					NetworkID: models.NetworkID(netID),
+					Origin:    models.Dashboard,
+				})
+			} else {
+				logic.LogEvent(&models.Event{
+					Action: models.JoinHostToNet,
+					Source: models.Subject{
+						ID:   key.Value,
+						Name: key.Tags[0],
+						Type: models.EnrollmentKeySub,
+					},
+					TriggeredBy: username,
+					Target: models.Subject{
+						ID:   h.ID.String(),
+						Name: h.Name,
+						Type: models.DeviceSub,
+					},
+					NetworkID: models.NetworkID(netID),
+					Origin:    models.Dashboard,
+				})
+			}
 
 			newNode, err := logic.UpdateHostNetwork(h, netID, true)
+			if servercfg.IsPro && key.AutoAssignGateway {
+				newNode.AutoAssignGateway = true
+				logic.UpsertNode(newNode)
+			}
 			if err == nil || strings.Contains(err.Error(), "host already part of network") {
 				if len(key.Groups) > 0 {
 					newNode.Tags = make(map[models.TagID]struct{})

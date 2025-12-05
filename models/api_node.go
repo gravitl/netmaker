@@ -17,22 +17,26 @@ type ApiNodeStatus struct {
 
 // ApiNode is a stripped down Node DTO that exposes only required fields to external systems
 type ApiNode struct {
-	ID                            string              `json:"id,omitempty" validate:"required,min=5,id_unique"`
-	HostID                        string              `json:"hostid,omitempty" validate:"required,min=5,id_unique"`
-	Address                       string              `json:"address" validate:"omitempty,cidrv4"`
-	Address6                      string              `json:"address6" validate:"omitempty,cidrv6"`
-	LocalAddress                  string              `json:"localaddress" validate:"omitempty,cidr"`
-	AllowedIPs                    []string            `json:"allowedips"`
-	LastModified                  int64               `json:"lastmodified" swaggertype:"primitive,integer" format:"int64"`
-	ExpirationDateTime            int64               `json:"expdatetime" swaggertype:"primitive,integer" format:"int64"`
-	LastCheckIn                   int64               `json:"lastcheckin" swaggertype:"primitive,integer" format:"int64"`
-	LastPeerUpdate                int64               `json:"lastpeerupdate" swaggertype:"primitive,integer" format:"int64"`
-	Network                       string              `json:"network"`
-	NetworkRange                  string              `json:"networkrange"`
-	NetworkRange6                 string              `json:"networkrange6"`
-	IsRelayed                     bool                `json:"isrelayed"`
-	IsRelay                       bool                `json:"isrelay"`
-	IsGw                          bool                `json:"is_gw"`
+	ID                 string            `json:"id,omitempty" validate:"required,min=5,id_unique"`
+	HostID             string            `json:"hostid,omitempty" validate:"required,min=5,id_unique"`
+	Address            string            `json:"address" validate:"omitempty,cidrv4"`
+	Address6           string            `json:"address6" validate:"omitempty,cidrv6"`
+	LocalAddress       string            `json:"localaddress" validate:"omitempty,cidr"`
+	AllowedIPs         []string          `json:"allowedips"`
+	LastModified       int64             `json:"lastmodified" swaggertype:"primitive,integer" format:"int64"`
+	ExpirationDateTime int64             `json:"expdatetime" swaggertype:"primitive,integer" format:"int64"`
+	LastCheckIn        int64             `json:"lastcheckin" swaggertype:"primitive,integer" format:"int64"`
+	LastPeerUpdate     int64             `json:"lastpeerupdate" swaggertype:"primitive,integer" format:"int64"`
+	Network            string            `json:"network"`
+	NetworkRange       string            `json:"networkrange"`
+	NetworkRange6      string            `json:"networkrange6"`
+	IsRelayed          bool              `json:"isrelayed"`
+	IsRelay            bool              `json:"isrelay"`
+	IsGw               bool              `json:"is_gw"`
+	IsAutoRelay        bool              `json:"is_auto_relay"`
+	AutoRelayedPeers   map[string]string `json:"auto_relayed_peers"`
+	AutoAssignGateway  bool              `json:"auto_assign_gw"`
+	//AutoRelayedBy                 uuid.UUID           `json:"auto_relayed_by"`
 	RelayedBy                     string              `json:"relayedby" bson:"relayedby" yaml:"relayedby"`
 	RelayedNodes                  []string            `json:"relaynodes" yaml:"relayedNodes"`
 	IsEgressGateway               bool                `json:"isegressgateway"`
@@ -49,20 +53,24 @@ type ApiNode struct {
 	PendingDelete                 bool                `json:"pendingdelete"`
 	Metadata                      string              `json:"metadata"`
 	// == PRO ==
-	DefaultACL        string              `json:"defaultacl,omitempty" validate:"checkyesornoorunset"`
-	IsFailOver        bool                `json:"is_fail_over"`
-	FailOverPeers     map[string]struct{} `json:"fail_over_peers" yaml:"fail_over_peers"`
-	FailedOverBy      uuid.UUID           `json:"failed_over_by" yaml:"failed_over_by"`
-	IsInternetGateway bool                `json:"isinternetgateway" yaml:"isinternetgateway"`
-	InetNodeReq       InetNodeReq         `json:"inet_node_req" yaml:"inet_node_req"`
-	InternetGwID      string              `json:"internetgw_node_id" yaml:"internetgw_node_id"`
-	AdditionalRagIps  []string            `json:"additional_rag_ips" yaml:"additional_rag_ips"`
-	Tags              map[TagID]struct{}  `json:"tags" yaml:"tags"`
-	IsStatic          bool                `json:"is_static"`
-	IsUserNode        bool                `json:"is_user_node"`
-	StaticNode        ExtClient           `json:"static_node"`
-	Status            NodeStatus          `json:"status"`
-	Location          string              `json:"location"`
+	DefaultACL                        string              `json:"defaultacl,omitempty" validate:"checkyesornoorunset"`
+	IsFailOver                        bool                `json:"is_fail_over"`
+	FailOverPeers                     map[string]struct{} `json:"fail_over_peers" yaml:"fail_over_peers"`
+	FailedOverBy                      uuid.UUID           `json:"failed_over_by" yaml:"failed_over_by"`
+	IsInternetGateway                 bool                `json:"isinternetgateway" yaml:"isinternetgateway"`
+	InetNodeReq                       InetNodeReq         `json:"inet_node_req" yaml:"inet_node_req"`
+	InternetGwID                      string              `json:"internetgw_node_id" yaml:"internetgw_node_id"`
+	AdditionalRagIps                  []string            `json:"additional_rag_ips" yaml:"additional_rag_ips"`
+	Tags                              map[TagID]struct{}  `json:"tags" yaml:"tags"`
+	IsStatic                          bool                `json:"is_static"`
+	IsUserNode                        bool                `json:"is_user_node"`
+	StaticNode                        ExtClient           `json:"static_node"`
+	Status                            NodeStatus          `json:"status"`
+	Location                          string              `json:"location"`
+	Country                           string              `json:"country"`
+	PostureChecksViolations           []Violation         `json:"posture_check_violations"`
+	PostureCheckVolationSeverityLevel Severity            `json:"posture_check_violation_severity_level"`
+	LastEvaluatedAt                   time.Time           `json:"last_evaluated_at"`
 }
 
 // ApiNode.ConvertToServerNode - converts an api node to a server node
@@ -75,12 +83,16 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	convertedNode.ID, _ = uuid.Parse(a.ID)
 	convertedNode.HostID, _ = uuid.Parse(a.HostID)
 	//convertedNode.IsRelay = a.IsRelay
+	if a.RelayedBy != "" && !a.IsRelayed {
+		a.IsRelayed = true
+	}
 	convertedNode.IsRelayed = a.IsRelayed
 	convertedNode.RelayedBy = a.RelayedBy
 	convertedNode.RelayedNodes = a.RelayedNodes
 	convertedNode.PendingDelete = a.PendingDelete
-	convertedNode.FailedOverBy = currentNode.FailedOverBy
-	convertedNode.FailOverPeers = currentNode.FailOverPeers
+	convertedNode.FailedOverBy = uuid.Nil
+	convertedNode.FailOverPeers = make(map[string]struct{})
+	convertedNode.IsFailOver = false
 	//convertedNode.IsIngressGateway = a.IsIngressGateway
 	convertedNode.IngressGatewayRange = currentNode.IngressGatewayRange
 	convertedNode.IngressGatewayRange6 = currentNode.IngressGatewayRange6
@@ -134,10 +146,12 @@ func (a *ApiNode) ConvertToServerNode(currentNode *Node) *Node {
 	}
 	convertedNode.Tags = a.Tags
 	convertedNode.IsGw = a.IsGw
+	convertedNode.IsAutoRelay = a.IsAutoRelay
 	if convertedNode.IsGw {
 		convertedNode.IsRelay = true
 		convertedNode.IsIngressGateway = true
 	}
+	convertedNode.AutoAssignGateway = a.AutoAssignGateway
 	return &convertedNode
 }
 
@@ -189,6 +203,10 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.IsGw = nm.IsGw
 	apiNode.RelayedBy = nm.RelayedBy
 	apiNode.RelayedNodes = nm.RelayedNodes
+	apiNode.IsAutoRelay = nm.IsAutoRelay
+	//apiNode.AutoRelayedBy = nm.AutoRelayedBy
+	apiNode.AutoRelayedPeers = nm.AutoRelayedPeers
+	apiNode.AutoAssignGateway = nm.AutoAssignGateway
 	apiNode.IsIngressGateway = nm.IsIngressGateway
 	apiNode.IngressDns = nm.IngressDNS
 	apiNode.IngressPersistentKeepalive = nm.IngressPersistentKeepalive
@@ -200,7 +218,7 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.IsInternetGateway = nm.IsInternetGateway
 	apiNode.InternetGwID = nm.InternetGwID
 	apiNode.InetNodeReq = nm.InetNodeReq
-	apiNode.IsFailOver = nm.IsFailOver
+	apiNode.IsFailOver = false
 	apiNode.FailOverPeers = nm.FailOverPeers
 	apiNode.FailedOverBy = nm.FailedOverBy
 	apiNode.Metadata = nm.Metadata
@@ -213,6 +231,11 @@ func (nm *Node) ConvertToAPINode() *ApiNode {
 	apiNode.IsUserNode = nm.IsUserNode
 	apiNode.StaticNode = nm.StaticNode
 	apiNode.Status = nm.Status
+	apiNode.PostureChecksViolations = nm.PostureChecksViolations
+	apiNode.PostureCheckVolationSeverityLevel = nm.PostureCheckVolationSeverityLevel
+	apiNode.LastEvaluatedAt = nm.LastEvaluatedAt
+	apiNode.Location = nm.Location
+	apiNode.Country = nm.CountryCode
 	return &apiNode
 }
 

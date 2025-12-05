@@ -750,7 +750,11 @@ func IsStunEnabled() bool {
 }
 
 func GetStunServers() string {
-	return os.Getenv("STUN_SERVERS")
+	stunservers := os.Getenv("STUN_SERVERS")
+	if stunservers == "" {
+		stunservers = "stun1.l.google.com:19302,stun2.l.google.com:19302,stun3.l.google.com:19302,stun4.l.google.com:19302"
+	}
+	return stunservers
 }
 
 // GetEnvironment returns the environment the server is running in (e.g. dev, staging, prod...)
@@ -797,8 +801,4 @@ func GetAllowedEmailDomains() string {
 // GetNmBaseDomain - fetches nm base domain
 func GetNmBaseDomain() string {
 	return os.Getenv("NM_DOMAIN")
-}
-
-func IsAutoCleanUpEnabled() bool {
-	return os.Getenv("AUTO_DELETE_OFFLINE_NODES") == "true"
 }
