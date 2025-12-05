@@ -451,10 +451,25 @@ func UpdateExtClient(old *models.ExtClient, update *models.CustomExtClient) mode
 		new.Location = update.Location
 	}
 	if update.Country != "" && update.Country != old.Country {
-		new.Country = update.Country
+		new.Country = strings.ToUpper(update.Country)
 	}
 	if update.DeviceID != "" && old.DeviceID == "" {
 		new.DeviceID = update.DeviceID
+	}
+	if update.OS != "" {
+		new.OS = update.OS
+	}
+	if update.OSFamily != "" {
+		new.OSFamily = update.OSFamily
+	}
+	if update.OSVersion != "" {
+		new.OSVersion = update.OSVersion
+	}
+	if update.KernelVersion != "" {
+		new.KernelVersion = update.KernelVersion
+	}
+	if update.ClientVersion != "" {
+		new.ClientVersion = update.ClientVersion
 	}
 	return new
 }
@@ -619,12 +634,18 @@ func GetExtPeers(node, peer *models.Node) ([]wgtypes.PeerConfig, []models.IDandA
 			AllowedIPs:        allowedips,
 		}
 		peers = append(peers, peer)
-		idsAndAddr = append(idsAndAddr, models.IDandAddr{
+		peerInfo := models.IDandAddr{
 			ID:          peer.PublicKey.String(),
 			Name:        extPeer.ClientID,
 			Address:     primaryAddr,
+			Address4:    extPeer.Address,
+			Address6:    extPeer.Address6,
 			IsExtClient: true,
-		})
+		}
+		if extPeer.DeviceID != "" || extPeer.RemoteAccessClientID != "" {
+			peerInfo.UserName = extPeer.OwnerID
+		}
+		idsAndAddr = append(idsAndAddr, peerInfo)
 	}
 	return peers, idsAndAddr, egressRoutes, nil
 

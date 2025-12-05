@@ -77,3 +77,16 @@ func ReturnErrorResponse(response http.ResponseWriter, request *http.Request, er
 	response.WriteHeader(errorMessage.Code)
 	response.Write(jsonResponse)
 }
+
+// ReturnErrorResponseWithJson - processes error with body and adds header
+func ReturnErrorResponseWithJson(response http.ResponseWriter, request *http.Request, msg interface{}, errorMessage models.ErrorResponse) {
+	httpResponse := &models.ErrorResponse{Code: errorMessage.Code, Message: errorMessage.Message, Response: msg}
+	jsonResponse, err := json.Marshal(httpResponse)
+	if err != nil {
+		panic(err)
+	}
+	slog.Debug("processed request error", "err", errorMessage.Message)
+	response.Header().Set("Content-Type", "application/json")
+	response.WriteHeader(errorMessage.Code)
+	response.Write(jsonResponse)
+}

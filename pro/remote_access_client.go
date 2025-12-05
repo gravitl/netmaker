@@ -19,7 +19,8 @@ const unauthorisedUserNodeCheckInterval = 3 * time.Minute
 func AddUnauthorisedUserNodeHooks() {
 	slog.Debug("adding unauthorisedUserNode hook")
 	logic.HookManagerCh <- models.HookDetails{
-		Hook:     unauthorisedUserNodeHook,
+		ID:       "unauthorised-users-hook",
+		Hook:     logic.WrapHook(unauthorisedUserNodeHook),
 		Interval: unauthorisedUserNodeCheckInterval,
 	}
 }

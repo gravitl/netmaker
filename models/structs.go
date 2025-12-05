@@ -116,8 +116,9 @@ type SuccessfulLoginResponse struct {
 
 // ErrorResponse is struct for error
 type ErrorResponse struct {
-	Code    int
-	Message string
+	Code     int
+	Message  string
+	Response interface{}
 }
 
 // NodeAuth - struct for node auth
@@ -343,10 +344,31 @@ type JoinData struct {
 	Key  string `json:"key" yaml:"key"`
 }
 
+// HookFunc - function type for hooks that can accept optional parameters
+type HookFunc func(...interface{}) error
+
 // HookDetails - struct to hold hook info
 type HookDetails struct {
-	Hook     func() error
+	ID       string        // Unique identifier for the hook (optional, auto-generated if empty)
+	Hook     HookFunc      // Hook function that accepts optional variadic parameters
+	Params   []interface{} // Optional parameters to pass to the hook function
 	Interval time.Duration
+}
+
+// HookCommandType - type of command for hook management
+type HookCommandType int
+
+const (
+	HookCommandReset HookCommandType = iota
+	HookCommandStop
+	HookCommandRestart
+)
+
+// HookCommand - command to control a hook
+type HookCommand struct {
+	ID       string // Hook ID to target
+	Command  HookCommandType
+	Interval time.Duration // Optional: new interval for restart command (0 means use existing)
 }
 
 // LicenseLimits - struct license limits
@@ -436,3 +458,32 @@ type IDPSyncTestRequest struct {
 	OktaOrgURL        string `json:"okta_org_url"`
 	OktaAPIToken      string `json:"okta_api_token"`
 }
+
+type PostureCheckDeviceInfo struct {
+	ClientLocation string
+	ClientVersion  string
+	OS             string
+	OSFamily       string
+	OSVersion      string
+	KernelVersion  string
+	AutoUpdate     bool
+	Tags           map[TagID]struct{}
+}
+
+type Violation struct {
+	CheckID   string   `json:"check_id"`
+	Name      string   `json:"name"`
+	Attribute string   `json:"attribute"`
+	Message   string   `json:"message"`
+	Severity  Severity `json:"severity"`
+}
+
+type Severity int
+
+const (
+	SeverityUnknown Severity = iota
+	SeverityLow
+	SeverityMedium
+	SeverityHigh
+	SeverityCritical
+)

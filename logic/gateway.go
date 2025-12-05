@@ -231,6 +231,8 @@ func CreateIngressGateway(netid string, nodeid string, ingress models.IngressReq
 		node.Tags = make(map[models.TagID]struct{})
 	}
 	node.Tags[models.TagID(fmt.Sprintf("%s.%s", netid, models.GwTagName))] = struct{}{}
+	node.PostureChecksViolations, node.PostureCheckVolationSeverityLevel = CheckPostureViolations(GetPostureCheckDeviceInfoByNode(&node), models.NetworkID(node.Network))
+	node.LastEvaluatedAt = time.Now().UTC()
 	err = UpsertNode(&node)
 	if err != nil {
 		return models.Node{}, err
@@ -282,11 +284,12 @@ func DeleteIngressGateway(nodeid string) (models.Node, []models.ExtClient, error
 	delete(node.Tags, models.TagID(fmt.Sprintf("%s.%s", node.Network, models.GwTagName)))
 	node.IngressGatewayRange = ""
 	node.Metadata = ""
+	node.PostureChecksViolations, node.PostureCheckVolationSeverityLevel = CheckPostureViolations(GetPostureCheckDeviceInfoByNode(&node), models.NetworkID(node.Network))
+	node.LastEvaluatedAt = time.Now().UTC()
 	err = UpsertNode(&node)
 	if err != nil {
 		return models.Node{}, removedClients, err
 	}
-
 	err = SetNetworkNodesLastModified(node.Network)
 	return node, removedClients, err
 }

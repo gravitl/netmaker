@@ -715,13 +715,29 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 				}
 				err = errors.New("remote client config already exists on the gateway")
 				slog.Error("failed to create extclient", "user", userName, "error", err)
-				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 				return
 			}
 		}
 	}
 
 	extclient := logic.UpdateExtClient(&models.ExtClient{}, &customExtClient)
+	if extclient.DeviceID != "" {
+		// check for violations connecting from desktop app
+		violations, _ := logic.CheckPostureViolations(models.PostureCheckDeviceInfo{
+			ClientLocation: extclient.Country,
+			ClientVersion:  extclient.ClientVersion,
+			OS:             extclient.OS,
+			OSFamily:       extclient.OSFamily,
+			OSVersion:      extclient.OSVersion,
+			KernelVersion:  extclient.KernelVersion,
+			//AutoUpdate:     extclient.AutoUpdate,
+		}, models.NetworkID(extclient.Network))
+		if len(violations) > 0 {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("posture check violations"), logic.Forbidden))
+			return
+		}
+	}
 	extclient.OwnerID = userName
 	extclient.RemoteAccessClientID = customExtClient.RemoteAccessClientID
 	extclient.IngressGatewayID = nodeid
@@ -749,7 +765,6 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	if err == nil { // check if parent network default ACL is enabled (yes) or not (no)
 		extclient.Enabled = parentNetwork.DefaultACL == "yes"
 	}
-	extclient.Os = customExtClient.Os
 	extclient.DeviceID = customExtClient.DeviceID
 	extclient.DeviceName = customExtClient.DeviceName
 	if customExtClient.IsAlreadyConnectedToInetGw {
@@ -758,7 +773,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	extclient.PublicEndpoint = customExtClient.PublicEndpoint
 	extclient.Country = customExtClient.Country
 	if customExtClient.RemoteAccessClientID != "" && customExtClient.Location == "" {
-		extclient.Location = logic.GetHostLocInfo(logic.GetClientIP(r), os.Getenv("IP_INFO_TOKEN"))
+		extclient.Location, extclient.Country = logic.GetHostLocInfo(logic.GetClientIP(r), os.Getenv("IP_INFO_TOKEN"))
 	}
 	extclient.Location = customExtClient.Location
 
@@ -772,7 +787,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			"error",
 			err,
 		)
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
 
@@ -820,7 +835,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 				"error",
 				err,
 			)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 			return
 		}
 		if err := mq.PublishPeerUpdate(false); err != nil {
@@ -903,9 +918,25 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		replacePeers = true
 	}
 	if update.RemoteAccessClientID != "" && update.Location == "" {
-		update.Location = logic.GetHostLocInfo(logic.GetClientIP(r), os.Getenv("IP_INFO_TOKEN"))
+		update.Location, update.Country = logic.GetHostLocInfo(logic.GetClientIP(r), os.Getenv("IP_INFO_TOKEN"))
 	}
 	newclient := logic.UpdateExtClient(&oldExtClient, &update)
+	if newclient.DeviceID != "" && newclient.Enabled {
+		// check for violations connecting from desktop app
+		violations, _ := logic.CheckPostureViolations(models.PostureCheckDeviceInfo{
+			ClientLocation: newclient.Country,
+			ClientVersion:  newclient.ClientVersion,
+			OS:             newclient.OS,
+			OSFamily:       newclient.OSFamily,
+			OSVersion:      newclient.OSVersion,
+			KernelVersion:  newclient.KernelVersion,
+			//AutoUpdate:     extclient.AutoUpdate,
+		}, models.NetworkID(newclient.Network))
+		if len(violations) > 0 {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("posture check violations"), logic.Forbidden))
+			return
+		}
+	}
 	if err := logic.DeleteExtClient(oldExtClient.Network, oldExtClient.ClientID, true); err != nil {
 		slog.Error(
 			"failed to delete ext client",

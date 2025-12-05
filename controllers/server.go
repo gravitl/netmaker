@@ -301,6 +301,9 @@ func reInit(curr, new models.ServerSettings, force bool) {
 			}
 		}
 	}
+	if new.CleanUpInterval != curr.CleanUpInterval {
+		logic.RestartHook("network-hook", time.Duration(new.CleanUpInterval)*time.Minute)
+	}
 	go mq.PublishPeerUpdate(false)
 }
 

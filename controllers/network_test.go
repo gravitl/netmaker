@@ -2,10 +2,11 @@ package controller
 
 import (
 	"context"
-	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/schema"
 	"os"
 	"testing"
+
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
@@ -36,7 +37,7 @@ func TestMain(m *testing.M) {
 		PlatformRoleID: models.SuperAdminRole,
 	})
 	peerUpdate := make(chan *models.Node)
-	go logic.ManageZombies(context.Background(), peerUpdate)
+	go logic.ManageZombies(context.Background())
 	go func() {
 		for update := range peerUpdate {
 			//do nothing

@@ -659,7 +659,9 @@ func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) e
 	} else {
 		currentNetwork.AutoJoin = "true"
 	}
-
+	currentNetwork.AutoRemove = newNetwork.AutoRemove
+	currentNetwork.AutoRemoveThreshold = newNetwork.AutoRemoveThreshold
+	currentNetwork.AutoRemoveTags = newNetwork.AutoRemoveTags
 	currentNetwork.DefaultACL = newNetwork.DefaultACL
 	currentNetwork.NameServers = newNetwork.NameServers
 	data, err := json.Marshal(currentNetwork)
@@ -776,6 +778,63 @@ func SortNetworks(unsortedNetworks []models.Network) {
 	sort.Slice(unsortedNetworks, func(i, j int) bool {
 		return unsortedNetworks[i].NetID < unsortedNetworks[j].NetID
 	})
+}
+
+var NetworkHook models.HookFunc = func(params ...interface{}) error {
+	networks, err := GetNetworks()
+	if err != nil {
+		return err
+	}
+	allNodes, err := GetAllNodes()
+	if err != nil {
+		return err
+	}
+	for _, network := range networks {
+		if network.AutoRemove == "false" || network.AutoRemoveThreshold == 0 {
+			continue
+		}
+		nodes := GetNetworkNodesMemory(allNodes, network.NetID)
+		for _, node := range nodes {
+			if !node.Connected {
+				continue
+			}
+			exists := false
+			for _, tagI := range network.AutoRemoveTags {
+				if tagI == "*" {
+					exists = true
+					break
+				}
+				if _, ok := node.Tags[models.TagID(tagI)]; ok {
+					exists = true
+					break
+				}
+			}
+			if !exists {
+				continue
+			}
+			if time.Since(node.LastCheckIn) > time.Duration(network.AutoRemoveThreshold)*time.Minute {
+				if err := DeleteNode(&node, true); err != nil {
+					continue
+				}
+				node.PendingDelete = true
+				node.Action = models.NODE_DELETE
+				DeleteNodesCh <- &node
+				host, err := GetHost(node.HostID.String())
+				if err == nil && len(host.Nodes) == 0 {
+					RemoveHostByID(host.ID.String())
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func InitNetworkHooks() {
+	HookManagerCh <- models.HookDetails{
+		ID:       "network-hook",
+		Hook:     NetworkHook,
+		Interval: time.Duration(GetServerSettings().CleanUpInterval) * time.Minute,
+	}
 }
 
 // == Private ==
