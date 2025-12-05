@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"sync"
+	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/gravitl/netmaker/servercfg"
@@ -16,23 +16,14 @@ type ctxKey string
 
 const clickhouseCtxKey ctxKey = "clickhouse"
 
-var initializeOnce sync.Once
-
 var ch clickhouse.Conn
 
 var ErrConnNotFound = errors.New("no connection in context")
-
-//go:embed initdb.d/01_create_database.sql
-var createDBScript string
 
 //go:embed initdb.d/02_create_flows_table.sql
 var createFlowsTableScript string
 
 func Initialize() error {
-	defer func() {
-		fmt.Println("COMPLETED CLICKHOUSE INITIALIZATION")
-	}()
-
 	config := servercfg.GetClickHouseConfig()
 	chConn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", config.Host, config.Port)},
@@ -46,12 +37,10 @@ func Initialize() error {
 		return err
 	}
 
-	err = chConn.Exec(context.Background(), createDBScript)
-	if err != nil {
-		return err
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-	err = chConn.Exec(context.Background(), createFlowsTableScript)
+	err = chConn.Exec(ctx, createFlowsTableScript)
 	if err != nil {
 		return err
 	}
@@ -69,13 +58,6 @@ func Initialize() error {
 // To extract the clickhouse connection use the FromContext
 // function.
 func WithContext(ctx context.Context) context.Context {
-	initializeOnce.Do(func() {
-		err := Initialize()
-		if err != nil {
-			panic(fmt.Errorf("failed to initialize clickhouse connection: %w", err))
-		}
-	})
-
 	return context.WithValue(ctx, clickhouseCtxKey, ch)
 }
 

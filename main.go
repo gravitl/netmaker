@@ -14,6 +14,7 @@ import (
 	"sync"
 	"syscall"
 
+	ch "github.com/gravitl/netmaker/clickhouse"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
 
@@ -115,6 +116,13 @@ func initialize() { // Client Mode Prereq Check
 	// initialize kv schema db.
 	if err = database.InitializeDatabase(); err != nil {
 		logger.FatalLog("error initializing database: ", err.Error())
+	}
+
+	if os.Getenv("ENABLE_FLOW_LOGS") == "true" {
+		err = ch.Initialize()
+		if err != nil {
+			logger.FatalLog("error initializing clickhouse:", err.Error())
+		}
 	}
 
 	initializeUUID()

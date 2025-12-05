@@ -1,5 +1,3 @@
-USE netmaker;
-
 CREATE TABLE IF NOT EXISTS flows (
     -- Identity
     flow_id            String,
