@@ -40,6 +40,7 @@ type IDandAddr struct {
 	Network     string `json:"network" bson:"network" yaml:"network" validate:"network"`
 	ListenPort  int    `json:"listen_port" yaml:"listen_port"`
 	IsExtClient bool   `json:"is_extclient"`
+	UserName    string `json:"username"`
 }
 
 // HostInfoMap - map of host public keys to host networking info
