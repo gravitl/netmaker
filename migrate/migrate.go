@@ -84,6 +84,10 @@ func updateNetworks() {
 			netI.AutoJoin = "true"
 			logic.UpsertNetwork(netI)
 		}
+		if netI.AutoRemove == "" {
+			netI.AutoRemove = "false"
+			logic.UpsertNetwork(netI)
+		}
 	}
 
 }
@@ -886,6 +890,9 @@ func migrateSettings() {
 	}
 	if settings.PeerConnectionCheckInterval == "" {
 		settings.PeerConnectionCheckInterval = "15"
+	}
+	if settings.CleanUpInterval == 0 {
+		settings.CleanUpInterval = 60
 	}
 	if settings.AuditLogsRetentionPeriodInDays == 0 {
 		settings.AuditLogsRetentionPeriodInDays = 7

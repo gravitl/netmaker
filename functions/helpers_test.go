@@ -3,10 +3,11 @@ package functions
 import (
 	"context"
 	"encoding/json"
-	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/schema"
 	"os"
 	"testing"
+
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
@@ -36,7 +37,7 @@ func TestMain(m *testing.M) {
 		PlatformRoleID: models.SuperAdminRole,
 	})
 	peerUpdate := make(chan *models.Node)
-	go logic.ManageZombies(context.Background(), peerUpdate)
+	go logic.ManageZombies(context.Background())
 	go func() {
 		for update := range peerUpdate {
 			//do nothing
@@ -44,7 +45,6 @@ func TestMain(m *testing.M) {
 		}
 	}()
 	os.Exit(m.Run())
-
 }
 
 func TestNetworkExists(t *testing.T) {
