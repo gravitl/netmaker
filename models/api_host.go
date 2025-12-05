@@ -14,6 +14,9 @@ type ApiHost struct {
 	Version             string     `json:"version"`
 	Name                string     `json:"name"`
 	OS                  string     `json:"os"`
+	OSFamily            string     `json:"os_family" yaml:"os_family"`
+	OSVersion           string     `json:"os_version"                      yaml:"os_version"`
+	KernelVersion       string     `json:"kernel_version" yaml:"kernel_version"`
 	Debug               bool       `json:"debug"`
 	IsStaticPort        bool       `json:"isstaticport"`
 	IsStatic            bool       `json:"isstatic"`
@@ -33,6 +36,7 @@ type ApiHost struct {
 	AutoUpdate          bool       `json:"autoupdate"              yaml:"autoupdate"`
 	DNS                 string     `json:"dns"               yaml:"dns"`
 	Location            string     `json:"location"`
+	CountryCode         string     `json:"country_code"`
 }
 
 // ApiIface - the interface struct for API usage
@@ -71,6 +75,8 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 	a.MacAddress = h.MacAddress.String()
 	a.Name = h.Name
 	a.OS = h.OS
+	a.OSFamily = h.OSFamily
+	a.KernelVersion = h.KernelVersion
 	a.Nodes = h.Nodes
 	a.WgPublicListenPort = h.WgPublicListenPort
 	a.PublicKey = h.PublicKey.String()
@@ -82,6 +88,7 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 	a.AutoUpdate = h.AutoUpdate
 	a.DNS = h.DNS
 	a.Location = h.Location
+	a.CountryCode = h.CountryCode
 	return &a
 }
 
@@ -122,6 +129,8 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.Nodes = currentHost.Nodes
 	h.TrafficKeyPublic = currentHost.TrafficKeyPublic
 	h.OS = currentHost.OS
+	h.OSFamily = currentHost.OSFamily
+	h.KernelVersion = currentHost.KernelVersion
 	h.IsDefault = a.IsDefault
 	h.NatType = currentHost.NatType
 	h.TurnEndpoint = currentHost.TurnEndpoint
@@ -129,5 +138,6 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.AutoUpdate = a.AutoUpdate
 	h.DNS = strings.ToLower(a.DNS)
 	h.Location = currentHost.Location
+	h.CountryCode = currentHost.CountryCode
 	return &h
 }

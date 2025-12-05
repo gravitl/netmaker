@@ -2,8 +2,11 @@ package controller
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"slices"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -358,6 +361,37 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
+	if newHost.EndpointIP != nil {
+		newHost.Location, newHost.CountryCode = logic.GetHostLocInfo(newHost.EndpointIP.String(), os.Getenv("IP_INFO_TOKEN"))
+	} else if newHost.EndpointIPv6 != nil {
+		newHost.Location, newHost.CountryCode = logic.GetHostLocInfo(newHost.EndpointIPv6.String(), os.Getenv("IP_INFO_TOKEN"))
+	}
+	pcviolations := []models.Violation{}
+	skipViolatedNetworks := []string{}
+	for _, netI := range enrollmentKey.Networks {
+		violations, _ := logic.CheckPostureViolations(models.PostureCheckDeviceInfo{
+			ClientLocation: newHost.CountryCode,
+			ClientVersion:  newHost.Version,
+			OS:             newHost.OS,
+			OSFamily:       newHost.OSFamily,
+			OSVersion:      newHost.OSVersion,
+			KernelVersion:  newHost.KernelVersion,
+			AutoUpdate:     newHost.AutoUpdate,
+		}, models.NetworkID(netI))
+		pcviolations = append(pcviolations, violations...)
+		if len(violations) > 0 {
+			skipViolatedNetworks = append(skipViolatedNetworks, netI)
+		}
+	}
+	if len(skipViolatedNetworks) == len(enrollmentKey.Networks) && len(pcviolations) > 0 {
+		logic.ReturnErrorResponse(w, r,
+			logic.FormatError(errors.New("access blocked: this device doesn’t meet security requirements"), logic.Forbidden))
+		return
+	}
+	// need to remove the networks that were skipped from the enrollment key
+	enrollmentKey.Networks = slices.DeleteFunc(enrollmentKey.Networks, func(netI string) bool {
+		return slices.Contains(skipViolatedNetworks, netI)
+	})
 	if !hostExists {
 		newHost.PersistentKeepalive = models.DefaultPersistentKeepAlive
 		// register host

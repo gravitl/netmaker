@@ -620,7 +620,15 @@ func FindRelay(node *models.Node) *models.Node {
 func GetAllNodesAPI(nodes []models.Node) []models.ApiNode {
 	apiNodes := []models.ApiNode{}
 	for i := range nodes {
-		newApiNode := nodes[i].ConvertToAPINode()
+		node := nodes[i]
+		if !node.IsStatic {
+			h, err := GetHost(node.HostID.String())
+			if err == nil {
+				node.Location = h.Location
+				node.CountryCode = h.CountryCode
+			}
+		}
+		newApiNode := node.ConvertToAPINode()
 		apiNodes = append(apiNodes, *newApiNode)
 	}
 	return apiNodes[:]
@@ -873,4 +881,41 @@ func GetAllFailOvers() ([]models.Node, error) {
 		}
 	}
 	return igs, nil
+}
+
+// GetPostureCheckDeviceInfoByNode retrieves PostureCheckDeviceInfo for a given node
+func GetPostureCheckDeviceInfoByNode(node *models.Node) models.PostureCheckDeviceInfo {
+	var deviceInfo models.PostureCheckDeviceInfo
+
+	if !node.IsStatic {
+		h, err := GetHost(node.HostID.String())
+		if err != nil {
+			return deviceInfo
+		}
+		deviceInfo = models.PostureCheckDeviceInfo{
+			ClientLocation: h.CountryCode,
+			ClientVersion:  h.Version,
+			OS:             h.OS,
+			OSVersion:      h.OSVersion,
+			OSFamily:       h.OSFamily,
+			KernelVersion:  h.KernelVersion,
+			AutoUpdate:     h.AutoUpdate,
+			Tags:           node.Tags,
+		}
+	} else {
+		if node.StaticNode.DeviceID == "" && node.StaticNode.RemoteAccessClientID == "" {
+			return deviceInfo
+		}
+		deviceInfo = models.PostureCheckDeviceInfo{
+			ClientLocation: node.StaticNode.Country,
+			ClientVersion:  node.StaticNode.ClientVersion,
+			OS:             node.StaticNode.OS,
+			OSVersion:      node.StaticNode.OSVersion,
+			OSFamily:       node.StaticNode.OSFamily,
+			KernelVersion:  node.StaticNode.KernelVersion,
+			Tags:           node.StaticNode.Tags,
+		}
+	}
+
+	return deviceInfo
 }

@@ -116,8 +116,9 @@ type SuccessfulLoginResponse struct {
 
 // ErrorResponse is struct for error
 type ErrorResponse struct {
-	Code    int
-	Message string
+	Code     int
+	Message  string
+	Response interface{}
 }
 
 // NodeAuth - struct for node auth
@@ -457,3 +458,32 @@ type IDPSyncTestRequest struct {
 	OktaOrgURL        string `json:"okta_org_url"`
 	OktaAPIToken      string `json:"okta_api_token"`
 }
+
+type PostureCheckDeviceInfo struct {
+	ClientLocation string
+	ClientVersion  string
+	OS             string
+	OSFamily       string
+	OSVersion      string
+	KernelVersion  string
+	AutoUpdate     bool
+	Tags           map[TagID]struct{}
+}
+
+type Violation struct {
+	CheckID   string   `json:"check_id"`
+	Name      string   `json:"name"`
+	Attribute string   `json:"attribute"`
+	Message   string   `json:"message"`
+	Severity  Severity `json:"severity"`
+}
+
+type Severity int
+
+const (
+	SeverityUnknown Severity = iota
+	SeverityLow
+	SeverityMedium
+	SeverityHigh
+	SeverityCritical
+)
