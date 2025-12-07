@@ -106,6 +106,12 @@ func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureChe
 					break
 				}
 			}
+			for userG := range c.UserGroups {
+				if _, ok := d.UserGroups[models.UserGroupID(userG)]; ok {
+					exists = true
+					break
+				}
+			}
 			if !exists {
 				continue
 			}

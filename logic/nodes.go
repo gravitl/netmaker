@@ -913,7 +913,15 @@ func GetPostureCheckDeviceInfoByNode(node *models.Node) models.PostureCheckDevic
 			OSVersion:      node.StaticNode.OSVersion,
 			OSFamily:       node.StaticNode.OSFamily,
 			KernelVersion:  node.StaticNode.KernelVersion,
-			Tags:           node.StaticNode.Tags,
+			Tags:           make(map[models.TagID]struct{}),
+			UserGroups:     make(map[models.UserGroupID]struct{}),
+		}
+		// get user groups
+		if node.StaticNode.OwnerID != "" {
+			user, err := GetUser(node.StaticNode.OwnerID)
+			if err == nil && len(user.UserGroups) > 0 {
+				deviceInfo.UserGroups = user.UserGroups
+			}
 		}
 	}
 
