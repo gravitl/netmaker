@@ -1555,6 +1555,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	})
 	// check and delete extclient with this ownerID
 	go func() {
+		delete := r.URL.Query().Get("force_delete_configs") == "true"
 		extclients, err := logic.GetAllExtClients()
 		if err != nil {
 			slog.Error("failed to get extclients", "error", err)
@@ -1562,6 +1563,12 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, extclient := range extclients {
 			if extclient.OwnerID == user.UserName {
+				if extclient.DeviceID == "" && extclient.RemoteAccessClientID == "" {
+					if !delete {
+						// only delete wireguard configs on force
+						continue
+					}
+				}
 				err = logic.DeleteExtClientAndCleanup(extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
