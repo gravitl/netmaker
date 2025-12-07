@@ -276,6 +276,7 @@ func GetServerInfo() models.ServerConfig {
 		cfg.MQPassword = servercfg.GetMqPassword()
 	}
 	cfg.API = servercfg.GetAPIConnString()
+	cfg.GRPC = fmt.Sprintf("grpc.%s:50051", servercfg.GetNmBaseDomain())
 	cfg.CoreDNSAddr = servercfg.GetCoreDNSAddr()
 	cfg.APIPort = servercfg.GetAPIPort()
 	cfg.DNSMode = "off"
@@ -284,7 +285,6 @@ func GetServerInfo() models.ServerConfig {
 	if servercfg.IsDNSMode() {
 		cfg.DNSMode = "on"
 	}
-	cfg.Exporter = fmt.Sprintf("netmaker-exporter.%s:50051", servercfg.GetNmBaseDomain())
 	cfg.Version = servercfg.GetVersion()
 	cfg.IsPro = servercfg.IsPro
 	cfg.MetricInterval = serverSettings.MetricInterval

@@ -641,11 +641,12 @@ install_netmaker() {
     if [ "$WITH_FLOW_LOGS" = true ]; then
       local COMPOSE_OVERRIDE_URL="$BASE_URL/compose/docker-compose.flow.yml"
       wget -qO "$SCRIPT_DIR"/docker-compose.override.yml $COMPOSE_OVERRIDE_URL
+      local CADDY_URL="$BASE_URL/docker/Caddyfile-flow"
     else
       local COMPOSE_OVERRIDE_URL="$BASE_URL/compose/docker-compose.pro.yml"
       wget -qO "$SCRIPT_DIR"/docker-compose.override.yml $COMPOSE_OVERRIDE_URL
+  		local CADDY_URL="$BASE_URL/docker/Caddyfile-pro"
     fi
-		local CADDY_URL="$BASE_URL/docker/Caddyfile-pro"
 	elif [ -a "$SCRIPT_DIR"/docker-compose.override.yml ]; then
 		rm -f "$SCRIPT_DIR"/docker-compose.override.yml
 	fi
