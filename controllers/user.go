@@ -870,6 +870,7 @@ func disableUserAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go func() {
+		delete := r.URL.Query().Get("force_delete_configs") == "true"
 		extclients, err := logic.GetAllExtClients()
 		if err != nil {
 			logger.Log(0, "failed to get user extclients:", err.Error())
@@ -878,6 +879,12 @@ func disableUserAccount(w http.ResponseWriter, r *http.Request) {
 
 		for _, extclient := range extclients {
 			if extclient.OwnerID == user.UserName {
+				if extclient.DeviceID == "" && extclient.RemoteAccessClientID == "" {
+					if !delete {
+						// only delete wireguard configs on force
+						continue
+					}
+				}
 				err = logic.DeleteExtClientAndCleanup(extclient)
 				if err != nil {
 					logger.Log(0, "failed to delete user extclient:", err.Error())
@@ -1107,6 +1114,18 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
+	go func() {
+		// transfer any configs present
+		extclients, _ := logic.GetAllExtClients()
+		for _, extclient := range extclients {
+			if extclient.OwnerID == caller.UserName {
+				if extclient.DeviceID == "" && extclient.RemoteAccessClientID == "" {
+					extclient.OwnerID = u.UserName
+					logic.SaveExtClient(&extclient)
+				}
+			}
+		}
+	}()
 	slog.Info("user was made a super admin", "user", u.UserName)
 	json.NewEncoder(w).Encode(logic.ToReturnUser(*u))
 }
