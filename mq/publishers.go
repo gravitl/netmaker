@@ -315,3 +315,26 @@ func PushSyncDNS(dnsEntries []models.DNSEntry) error {
 
 	return nil
 }
+
+func PublishExporterFeatureFlags() error {
+	featureFlags := models.ExporterFeatureFlags{
+		EnableFlowLogs: logic.GetFeatureFlags().EnableFlowLogs && logic.GetServerSettings().EnableFlowLogs,
+	}
+
+	data, err := json.Marshal(featureFlags)
+	if err != nil {
+		return errors.New("failed to marshal feature flags data: " + err.Error())
+	}
+
+	if token := mqclient.Publish(fmt.Sprintf("feature_flags/%s", servercfg.GetServer()), 0, true, data); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
+		var err error
+		if token.Error() == nil {
+			err = errors.New("connection timeout")
+		} else {
+			err = token.Error()
+		}
+		return err
+	}
+
+	return nil
+}

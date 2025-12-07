@@ -198,6 +198,9 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 		logger.FatalLog("error connecting to MQ Broker")
 	}
 	defer mq.CloseClient()
+
+	_ = mq.PublishExporterFeatureFlags()
+
 	go mq.Keepalive(ctx)
 	go func() {
 		peerUpdate := make(chan *models.Node, 100)

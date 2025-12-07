@@ -296,6 +296,8 @@ func reInit(curr, new models.ServerSettings, force bool) {
 			logic.StopFlowCleanupLoop()
 			ch.Close()
 		}
+
+		_ = mq.PublishExporterFeatureFlags()
 	}
 
 	if force {
