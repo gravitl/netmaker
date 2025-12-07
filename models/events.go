@@ -31,6 +31,8 @@ const (
 	UpdateMonitoringAndDebuggingSettings Action = "UPDATE_MONITORING_AND_DEBUGGING_SETTINGS"
 	UpdateSMTPSettings                   Action = "UPDATE_EMAIL_SETTINGS"
 	UpdateIDPSettings                    Action = "UPDATE_IDP_SETTINGS"
+	EnableFlowLogs                       Action = "ENABLE_FLOW_LOGS"
+	DisableFlowLogs                      Action = "DISABLE_FLOW_LOGS"
 )
 
 type SubjectType string

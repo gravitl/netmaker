@@ -259,8 +259,8 @@ func CreateHost(h *models.Host) error {
 		h.Location = GetHostLocInfo(h.EndpointIPv6.String(), os.Getenv("IP_INFO_TOKEN"))
 	}
 
-	if GetFeatureFlags().EnableFlowLogs {
-		h.EnableFlowLogs = true
+	if !GetFeatureFlags().EnableFlowLogs || !GetServerSettings().EnableFlowLogs {
+		h.EnableFlowLogs = false
 	}
 
 	checkForZombieHosts(h)
@@ -302,6 +302,10 @@ func UpdateHost(newHost, currentHost *models.Host) {
 
 	if strings.TrimSpace(newHost.DNS) == "" {
 		newHost.DNS = currentHost.DNS
+	}
+
+	if !GetFeatureFlags().EnableFlowLogs || !GetServerSettings().EnableFlowLogs {
+		newHost.EnableFlowLogs = false
 	}
 }
 

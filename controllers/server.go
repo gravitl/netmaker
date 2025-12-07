@@ -224,8 +224,8 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if !logic.ValidateNewSettings(req) {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid settings"), "badrequest"))
+	if err := logic.ValidateNewSettings(req); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid settings: %w", err), "badrequest"))
 		return
 	}
 	currSettings := logic.GetServerSettings()
@@ -286,13 +286,17 @@ func reInit(curr, new models.ServerSettings, force bool) {
 		logic.GetMetricsMonitor().Stop()
 		logic.GetMetricsMonitor().Start()
 	}
-	// check if auto update is changed
 	if force {
-		if curr.NetclientAutoUpdate != new.NetclientAutoUpdate {
-			// update all hosts
+		if curr.NetclientAutoUpdate != new.NetclientAutoUpdate ||
+			curr.EnableFlowLogs != new.EnableFlowLogs {
 			hosts, _ := logic.GetAllHosts()
 			for _, host := range hosts {
-				host.AutoUpdate = new.NetclientAutoUpdate
+				if curr.NetclientAutoUpdate != new.NetclientAutoUpdate {
+					host.AutoUpdate = new.NetclientAutoUpdate
+				}
+				if curr.EnableFlowLogs != new.EnableFlowLogs {
+					host.EnableFlowLogs = new.EnableFlowLogs
+				}
 				logic.UpsertHost(&host)
 				mq.HostUpdate(&models.HostUpdate{
 					Action: models.UpdateHost,
@@ -331,6 +335,14 @@ func identifySettingsUpdateAction(old, new models.ServerSettings) models.Action 
 			return models.DisableTelemetry
 		} else {
 			return models.EnableTelemetry
+		}
+	}
+
+	if old.EnableFlowLogs != new.EnableFlowLogs {
+		if new.EnableFlowLogs {
+			return models.EnableFlowLogs
+		} else {
+			return models.DisableFlowLogs
 		}
 	}
 

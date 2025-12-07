@@ -184,7 +184,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		hostPeerUpdate.ManageDNS = false
 	}
 
-	if !GetFeatureFlags().EnableFlowLogs {
+	if !GetFeatureFlags().EnableFlowLogs || !GetServerSettings().EnableFlowLogs {
 		host.EnableFlowLogs = false
 	}
 
