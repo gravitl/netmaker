@@ -24,6 +24,10 @@ var ErrConnNotFound = errors.New("no connection in context")
 var createFlowsTableScript string
 
 func Initialize() error {
+	if ch != nil {
+		return nil
+	}
+
 	config := servercfg.GetClickHouseConfig()
 	chConn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: []string{fmt.Sprintf("%s:%d", config.Host, config.Port)},

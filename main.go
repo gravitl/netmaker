@@ -66,11 +66,15 @@ func main() {
 	}
 	defer db.CloseDB()
 	defer database.CloseDB()
+
+	// TODO: although this doesn't cause any problem, it's not the best way to do this.
+	defer ch.Close()
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
 	defer stop()
 	var waitGroup sync.WaitGroup
 	startControllers(&waitGroup, ctx) // start the api endpoint and mq and stun
-	startHooks()
+	startHooks(ctx, &waitGroup)
 	<-ctx.Done()
 	waitGroup.Wait()
 }
@@ -86,12 +90,12 @@ func setupConfig(absoluteConfigPath string) {
 	}
 }
 
-func startHooks() {
+func startHooks(ctx context.Context, wg *sync.WaitGroup) {
 	err := logic.TimerCheckpoint()
 	if err != nil {
 		logger.Log(1, "Timer error occurred: ", err.Error())
 	}
-	logic.EnterpriseCheck()
+	logic.EnterpriseCheck(ctx, wg)
 }
 
 func initialize() { // Client Mode Prereq Check
@@ -116,13 +120,6 @@ func initialize() { // Client Mode Prereq Check
 	// initialize kv schema db.
 	if err = database.InitializeDatabase(); err != nil {
 		logger.FatalLog("error initializing database: ", err.Error())
-	}
-
-	if os.Getenv("ENABLE_FLOW_LOGS") == "true" {
-		err = ch.Initialize()
-		if err != nil {
-			logger.FatalLog("error initializing clickhouse:", err.Error())
-		}
 	}
 
 	initializeUUID()

@@ -4,6 +4,8 @@
 package pro
 
 import (
+	"context"
+	"sync"
 	"time"
 
 	ch "github.com/gravitl/netmaker/clickhouse"
@@ -44,7 +46,7 @@ func InitPro() {
 		proControllers.FlowHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
-	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
+	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func(ctx context.Context, wg *sync.WaitGroup) {
 		// == License Handling ==
 		enableLicenseHook := true
 		// licenseKeyValue := servercfg.GetLicenseKey()
@@ -106,6 +108,23 @@ func InitPro() {
 		go proLogic.EventWatcher()
 
 		logic.GetMetricsMonitor().Start()
+
+		if proLogic.GetFeatureFlags().EnableFlowLogs && logic.GetServerSettings().EnableFlowLogs {
+			err := ch.Initialize()
+			if err != nil {
+				logger.FatalLog("error connecting to clickhouse:", err.Error())
+			}
+
+			proLogic.GetFlowsCleanupManager().Start()
+
+			wg.Add(1)
+			go func(ctx context.Context, wg *sync.WaitGroup) {
+				<-ctx.Done()
+				proLogic.GetFlowsCleanupManager().Stop()
+				ch.Close()
+				wg.Done()
+			}(ctx, wg)
+		}
 	})
 	logic.ResetFailOver = proLogic.ResetFailOver
 	logic.ResetFailedOverPeer = proLogic.ResetFailedOverPeer
@@ -177,7 +196,8 @@ func InitPro() {
 	logic.GetNameserversForNode = proLogic.GetNameserversForNode
 	logic.ValidateNameserverReq = proLogic.ValidateNameserverReq
 	logic.ValidateEgressReq = proLogic.ValidateEgressReq
-
+	logic.StartFlowCleanupLoop = proLogic.StartFlowCleanupLoop
+	logic.StopFlowCleanupLoop = proLogic.StopFlowCleanupLoop
 }
 
 func retrieveProLogo() string {

@@ -35,8 +35,8 @@ CREATE TABLE IF NOT EXISTS flows (
     status             UInt32,
 
     -- Logical version / event time (for merging)
-    version            UInt64
+    version            DateTime64(3)
 )
 ENGINE = ReplacingMergeTree(version)
-PARTITION BY toYYYYMM(start_ts)
-ORDER BY (network_id, host_id, flow_id, start_ts);
+PARTITION BY toYYYYMMDD(version)
+ORDER BY (network_id, host_id, flow_id, version);

@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"net"
 	"strings"
 	"time"
@@ -347,6 +348,7 @@ type JoinData struct {
 
 // HookDetails - struct to hold hook info
 type HookDetails struct {
+	Ctx      context.Context
 	Hook     func() error
 	Interval time.Duration
 }

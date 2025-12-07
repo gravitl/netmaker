@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	ch "github.com/gravitl/netmaker/clickhouse"
 
 	"github.com/gorilla/mux"
 	"golang.org/x/exp/slog"
@@ -286,6 +287,17 @@ func reInit(curr, new models.ServerSettings, force bool) {
 		logic.GetMetricsMonitor().Stop()
 		logic.GetMetricsMonitor().Start()
 	}
+
+	if curr.EnableFlowLogs != new.EnableFlowLogs {
+		if new.EnableFlowLogs {
+			_ = ch.Initialize()
+			logic.StartFlowCleanupLoop()
+		} else {
+			logic.StopFlowCleanupLoop()
+			ch.Close()
+		}
+	}
+
 	if force {
 		if curr.NetclientAutoUpdate != new.NetclientAutoUpdate ||
 			curr.EnableFlowLogs != new.EnableFlowLogs {

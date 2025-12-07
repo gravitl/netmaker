@@ -277,7 +277,6 @@ save_config() { (
     save_config_item "CLICKHOUSE_DB" "$CLICKHOUSE_DB"
     save_config_item "CLICKHOUSE_USER" "$CLICKHOUSE_USER"
     save_config_item "CLICKHOUSE_PASS" "$CLICKHOUSE_PASS"
-    save_config_item "ENABLE_FLOW_LOGS" "true"
   fi
 	# preserve debug entries
 	if test -n "$NM_SKIP_BUILD"; then

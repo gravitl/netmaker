@@ -58,21 +58,28 @@ func StartHookManager(ctx context.Context, wg *sync.WaitGroup) {
 			return
 		case newhook := <-HookManagerCh:
 			wg.Add(1)
-			go addHookWithInterval(ctx, wg, newhook.Hook, newhook.Interval)
+			go addHookWithInterval(ctx, wg, newhook)
 		}
 	}
 }
 
-func addHookWithInterval(ctx context.Context, wg *sync.WaitGroup, hook func() error, interval time.Duration) {
+func addHookWithInterval(ctx context.Context, wg *sync.WaitGroup, hook models.HookDetails) {
 	defer wg.Done()
-	ticker := time.NewTicker(interval)
+	ticker := time.NewTicker(hook.Interval)
 	defer ticker.Stop()
+
+	if hook.Ctx == nil {
+		hook.Ctx = context.Background()
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-hook.Ctx.Done():
+			return
 		case <-ticker.C:
-			if err := hook(); err != nil {
+			if err := hook.Hook(); err != nil {
 				slog.Error(err.Error())
 			}
 		}
