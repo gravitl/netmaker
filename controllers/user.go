@@ -797,6 +797,22 @@ func enableUserAccount(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, "failed to enable user account: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 	}
+	go func() {
+		extclients, err := logic.GetAllExtClients()
+		if err != nil {
+			logger.Log(0, "failed to get user extclients:", err.Error())
+			return
+		}
+		for _, extclient := range extclients {
+			if extclient.OwnerID == user.UserName && !extclient.Enabled {
+				_, err = logic.ToggleExtClientConnectivity(&extclient, true)
+				if err != nil {
+					logger.Log(1, "failed to delete user extclient:", err.Error())
+				}
+			}
+		}
+		mq.PublishPeerUpdate(false)
+	}()
 
 	logic.ReturnSuccessResponse(w, r, "user account enabled")
 }
@@ -870,28 +886,20 @@ func disableUserAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go func() {
-		delete := r.URL.Query().Get("force_delete_configs") == "true"
 		extclients, err := logic.GetAllExtClients()
 		if err != nil {
 			logger.Log(0, "failed to get user extclients:", err.Error())
 			return
 		}
-
 		for _, extclient := range extclients {
 			if extclient.OwnerID == user.UserName {
-				if extclient.DeviceID == "" && extclient.RemoteAccessClientID == "" {
-					if !delete {
-						// only delete wireguard configs on force
-						continue
-					}
-				}
-				err = logic.DeleteExtClientAndCleanup(extclient)
+				_, err = logic.ToggleExtClientConnectivity(&extclient, false)
 				if err != nil {
-					logger.Log(0, "failed to delete user extclient:", err.Error())
+					logger.Log(1, "failed to delete user extclient:", err.Error())
 				} else {
 					err := mq.PublishDeletedClientPeerUpdate(&extclient)
 					if err != nil {
-						logger.Log(0, "failed to publish deleted client peer update:", err.Error())
+						logger.Log(1, "failed to publish deleted client peer update:", err.Error())
 					}
 				}
 			}
