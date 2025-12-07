@@ -98,24 +98,35 @@ func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureChe
 			continue
 		}
 		// Check if tags match
-		if _, ok := c.Tags["*"]; !ok {
-			exists := false
-			for tagID := range c.Tags {
-				if _, ok := d.Tags[models.TagID(tagID)]; ok {
-					exists = true
-					break
+		if len(d.Tags) > 0 {
+			if _, ok := c.Tags["*"]; !ok {
+				exists := false
+				for tagID := range c.Tags {
+					if _, ok := d.Tags[models.TagID(tagID)]; ok {
+						exists = true
+						break
+					}
 				}
-			}
-			for userG := range c.UserGroups {
-				if _, ok := d.UserGroups[models.UserGroupID(userG)]; ok {
-					exists = true
-					break
+				if !exists {
+					continue
 				}
+
 			}
-			if !exists {
-				continue
+		} else if len(d.UserGroups) > 0 {
+			if _, ok := c.UserGroups["*"]; !ok {
+				exists := false
+				for userG := range c.UserGroups {
+					if _, ok := d.UserGroups[models.UserGroupID(userG)]; ok {
+						exists = true
+						break
+					}
+				}
+				if !exists {
+					continue
+				}
 			}
 		}
+
 		checksByAttribute[c.Attribute] = append(checksByAttribute[c.Attribute], c)
 	}
 
@@ -456,6 +467,20 @@ func ValidatePostureCheck(pc *schema.PostureCheck) error {
 	} else {
 		pc.Tags = make(datatypes.JSONMap)
 		pc.Tags["*"] = struct{}{}
+	}
+	if len(pc.UserGroups) > 0 {
+		for userGrpID := range pc.UserGroups {
+			if userGrpID == "*" {
+				continue
+			}
+			_, err := GetUserGroup(models.UserGroupID(userGrpID))
+			if err != nil {
+				return errors.New("unknown tag")
+			}
+		}
+	} else {
+		pc.UserGroups = make(datatypes.JSONMap)
+		pc.UserGroups["*"] = struct{}{}
 	}
 
 	return nil
