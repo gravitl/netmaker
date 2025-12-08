@@ -466,7 +466,6 @@ func ValidatePostureCheck(pc *schema.PostureCheck) error {
 		}
 	} else {
 		pc.Tags = make(datatypes.JSONMap)
-		pc.Tags["*"] = struct{}{}
 	}
 	if len(pc.UserGroups) > 0 {
 		for userGrpID := range pc.UserGroups {
@@ -480,7 +479,6 @@ func ValidatePostureCheck(pc *schema.PostureCheck) error {
 		}
 	} else {
 		pc.UserGroups = make(datatypes.JSONMap)
-		pc.UserGroups["*"] = struct{}{}
 	}
 
 	return nil
