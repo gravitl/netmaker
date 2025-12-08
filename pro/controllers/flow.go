@@ -161,7 +161,7 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 		PacketsSent uint64    `ch:"packets_sent" json:"packets_sent"`
 		PacketsRecv uint64    `ch:"packets_recv" json:"packets_recv"`
 		Status      uint32    `ch:"status" json:"status"`
-		Version     uint64    `ch:"version" json:"version"`
+		Version     time.Time `ch:"version" json:"version"`
 	}
 
 	result := make([]FlowRow, 0, 1000)

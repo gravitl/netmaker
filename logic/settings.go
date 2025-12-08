@@ -276,7 +276,7 @@ func GetServerInfo() models.ServerConfig {
 		cfg.MQPassword = servercfg.GetMqPassword()
 	}
 	cfg.API = servercfg.GetAPIConnString()
-	cfg.GRPC = fmt.Sprintf("grpc.%s:50051", servercfg.GetNmBaseDomain())
+	cfg.GRPC = fmt.Sprintf("grpc.%s", servercfg.GetNmBaseDomain())
 	cfg.CoreDNSAddr = servercfg.GetCoreDNSAddr()
 	cfg.APIPort = servercfg.GetAPIPort()
 	cfg.DNSMode = "off"
