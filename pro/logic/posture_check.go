@@ -55,8 +55,11 @@ func RunPostureChecks() error {
 		}
 
 		for _, nodeI := range networkNodes {
+			if nodeI.IsStatic && !nodeI.IsUserNode {
+				continue
+			}
 			postureChecksViolations, postureCheckVolationSeverityLevel := GetPostureCheckViolations(pcLi, logic.GetPostureCheckDeviceInfoByNode(&nodeI))
-			if nodeI.IsStatic {
+			if nodeI.IsUserNode {
 				extclient, err := logic.GetExtClient(nodeI.StaticNode.ClientID, nodeI.StaticNode.Network)
 				if err == nil {
 					extclient.PostureChecksViolations = postureChecksViolations
@@ -98,7 +101,7 @@ func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureChe
 			continue
 		}
 		// Check if tags match
-		if len(d.Tags) > 0 {
+		if !d.IsUser && len(d.Tags) > 0 {
 			if _, ok := c.Tags["*"]; !ok {
 				exists := false
 				for tagID := range c.Tags {
@@ -112,7 +115,7 @@ func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureChe
 				}
 
 			}
-		} else if len(d.UserGroups) > 0 {
+		} else if d.IsUser && len(d.UserGroups) > 0 {
 			if _, ok := c.UserGroups["*"]; !ok {
 				exists := false
 				for userG := range c.UserGroups {
@@ -125,6 +128,8 @@ func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureChe
 					continue
 				}
 			}
+		} else {
+			continue
 		}
 
 		checksByAttribute[c.Attribute] = append(checksByAttribute[c.Attribute], c)

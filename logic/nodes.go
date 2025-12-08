@@ -902,10 +902,7 @@ func GetPostureCheckDeviceInfoByNode(node *models.Node) models.PostureCheckDevic
 			AutoUpdate:     h.AutoUpdate,
 			Tags:           node.Tags,
 		}
-	} else {
-		if node.StaticNode.DeviceID == "" && node.StaticNode.RemoteAccessClientID == "" {
-			return deviceInfo
-		}
+	} else if node.IsUserNode {
 		deviceInfo = models.PostureCheckDeviceInfo{
 			ClientLocation: node.StaticNode.Country,
 			ClientVersion:  node.StaticNode.ClientVersion,
@@ -914,6 +911,7 @@ func GetPostureCheckDeviceInfoByNode(node *models.Node) models.PostureCheckDevic
 			OSFamily:       node.StaticNode.OSFamily,
 			KernelVersion:  node.StaticNode.KernelVersion,
 			Tags:           make(map[models.TagID]struct{}),
+			IsUser:         true,
 			UserGroups:     make(map[models.UserGroupID]struct{}),
 		}
 		// get user groups
