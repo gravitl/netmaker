@@ -48,14 +48,12 @@ broker.{$NM_DOMAIN} {
 	reverse_proxy @ws mq:8883
 }
 
-// GRPC
+# GRPC
 https://grpc.{$NM_DOMAIN} {
-    servers {
-        protocols h2
-    }
-
-    reverse_proxy {
-        to netmaker-grpc:50051
-        protocols h2c
+    reverse_proxy netmaker-exporter:50051 {
+        transport http {
+                versions h2c
+        }
     }
 }
+
