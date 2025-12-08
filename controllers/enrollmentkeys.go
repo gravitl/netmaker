@@ -242,9 +242,8 @@ func updateEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	relayId := uuid.Nil
 	if enrollmentKeyBody.Relay != "" {
-		relayId, err = uuid.Parse(enrollmentKeyBody.Relay)
+		_, err = uuid.Parse(enrollmentKeyBody.Relay)
 		if err != nil {
 			slog.Error("error parsing relay id", "error", err)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -253,7 +252,7 @@ func updateEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 	}
 	currKey, _ := logic.GetEnrollmentKey(keyId)
 
-	newEnrollmentKey, err := logic.UpdateEnrollmentKey(keyId, relayId, enrollmentKeyBody.Groups)
+	newEnrollmentKey, err := logic.UpdateEnrollmentKey(keyId, &enrollmentKeyBody)
 	if err != nil {
 		slog.Error("failed to update enrollment key", "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
