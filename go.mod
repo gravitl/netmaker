@@ -48,7 +48,7 @@ require (
 	github.com/matryer/is v1.4.1
 	github.com/okta/okta-sdk-golang/v5 v5.0.6
 	github.com/pquerna/otp v1.5.0
-	github.com/spf13/cobra v1.10.1
+	github.com/spf13/cobra v1.10.2
 	google.golang.org/api v0.257.0
 	gopkg.in/mail.v2 v2.3.1
 	gorm.io/datatypes v1.2.7
