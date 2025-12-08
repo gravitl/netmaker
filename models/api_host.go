@@ -130,7 +130,7 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.PersistentKeepalive = time.Duration(a.PersistentKeepalive) * time.Second
 	h.AutoUpdate = a.AutoUpdate
 	h.DNS = strings.ToLower(a.DNS)
-	h.EnableFlowLogs = currentHost.EnableFlowLogs
+	h.EnableFlowLogs = a.EnableFlowLogs
 	h.Location = currentHost.Location
 	return &h
 }
