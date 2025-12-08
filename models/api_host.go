@@ -32,6 +32,7 @@ type ApiHost struct {
 	PersistentKeepalive int        `json:"persistentkeepalive"   yaml:"persistentkeepalive"`
 	AutoUpdate          bool       `json:"autoupdate"              yaml:"autoupdate"`
 	DNS                 string     `json:"dns"               yaml:"dns"`
+	EnableFlowLogs      bool       `json:"enable_flow_logs" yaml:"enable_flow_logs"`
 	Location            string     `json:"location"`
 }
 
@@ -81,6 +82,7 @@ func (h *Host) ConvertNMHostToAPI() *ApiHost {
 	a.PersistentKeepalive = int(h.PersistentKeepalive.Seconds())
 	a.AutoUpdate = h.AutoUpdate
 	a.DNS = h.DNS
+	a.EnableFlowLogs = h.EnableFlowLogs
 	a.Location = h.Location
 	return &a
 }
@@ -128,6 +130,7 @@ func (a *ApiHost) ConvertAPIHostToNMHost(currentHost *Host) *Host {
 	h.PersistentKeepalive = time.Duration(a.PersistentKeepalive) * time.Second
 	h.AutoUpdate = a.AutoUpdate
 	h.DNS = strings.ToLower(a.DNS)
+	h.EnableFlowLogs = currentHost.EnableFlowLogs
 	h.Location = currentHost.Location
 	return &h
 }
