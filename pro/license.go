@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/utils"
 
 	"golang.org/x/crypto/nacl/box"
@@ -136,6 +137,8 @@ func ValidateLicense() (err error) {
 	}
 
 	proLogic.SetFeatureFlags(licenseResponse.FeatureFlags)
+
+	_ = mq.PublishExporterFeatureFlags()
 
 	slog.Info("License validation succeeded!")
 	return nil

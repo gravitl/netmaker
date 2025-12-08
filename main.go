@@ -199,8 +199,6 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 	}
 	defer mq.CloseClient()
 
-	_ = mq.PublishExporterFeatureFlags()
-
 	go mq.Keepalive(ctx)
 	go func() {
 		peerUpdate := make(chan *models.Node, 100)
