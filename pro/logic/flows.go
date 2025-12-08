@@ -27,7 +27,10 @@ func (f *FlowsCleanupManager) Start() {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	f.cancel()
+	if f.cancel != nil {
+		f.cancel()
+		f.cancel = nil
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	f.cancel = cancel
@@ -43,7 +46,9 @@ func (f *FlowsCleanupManager) Stop() {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	f.cancel()
+	if f.cancel != nil {
+		f.cancel()
+	}
 }
 
 func StartFlowCleanupLoop() {
