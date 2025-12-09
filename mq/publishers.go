@@ -57,6 +57,7 @@ func PublishPeerUpdate(replacePeers bool) error {
 // PublishDeletedNodePeerUpdate --- determines and publishes a peer update
 // to all the hosts with a deleted node to account for
 func PublishDeletedNodePeerUpdate(delNode *models.Node) error {
+	utils.TraceCaller()
 	if !servercfg.IsMessageQueueBackend() {
 		return nil
 	}

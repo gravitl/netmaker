@@ -391,6 +391,9 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 	switch hostUpdate.Action {
 	case models.CheckIn:
 		sendPeerUpdate = mq.HandleHostCheckin(&hostUpdate.Host, currentHost)
+		if sendPeerUpdate {
+			fmt.Println("====> hostUpdateFallback", hostUpdate.Action, hostUpdate.Host.Name)
+		}
 		changed := logic.CheckHostPorts(currentHost)
 		if changed {
 			mq.HostUpdate(&models.HostUpdate{Action: models.UpdateHost, Host: *currentHost})
@@ -401,6 +404,9 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			replacePeers = true
 		}
 		sendPeerUpdate = logic.UpdateHostFromClient(&hostUpdate.Host, currentHost)
+		if sendPeerUpdate {
+			fmt.Println("====> hostUpdateFallback", hostUpdate.Action, hostUpdate.Host.Name)
+		}
 		err := logic.UpsertHost(currentHost)
 		if err != nil {
 			slog.Error("failed to update host", "id", currentHost.ID, "error", err)
@@ -409,6 +415,9 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 		}
 	case models.UpdateNode:
 		sendDeletedNodeUpdate, sendPeerUpdate = logic.UpdateHostNode(&hostUpdate.Host, &hostUpdate.Node)
+		if sendPeerUpdate {
+			fmt.Println("====> hostUpdateFallback", hostUpdate.Action, hostUpdate.Host.Name)
+		}
 	case models.UpdateMetrics:
 		mq.UpdateMetricsFallBack(hostUpdate.Node.ID.String(), hostUpdate.NewMetrics)
 	case models.EgressUpdate:
@@ -423,6 +432,9 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			e.Update(db.WithContext(r.Context()))
 		}
 		sendPeerUpdate = true
+		if sendPeerUpdate {
+			fmt.Println("====> hostUpdateFallback", hostUpdate.Action, hostUpdate.Host.Name)
+		}
 	case models.SignalHost:
 		mq.SignalPeer(hostUpdate.Signal)
 	case models.DeleteHost:
@@ -433,6 +445,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 			mq.PublishDeletedNodePeerUpdate(&hostUpdate.Node)
 		}
 		if sendPeerUpdate {
+			fmt.Println("======> Sending Peer update: hostUpdateFallback")
 			err := mq.PublishPeerUpdate(replacePeers)
 			if err != nil {
 				slog.Error("failed to publish peer update", "error", err)
