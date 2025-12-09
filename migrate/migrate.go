@@ -694,9 +694,6 @@ func syncUsers() {
 	users, err := logic.GetUsersDB()
 	if err == nil {
 		totalUsers := len(users)
-		if totalUsers > 0 {
-			logger.Log(1, fmt.Sprintf("migrating %d users...", totalUsers))
-		}
 		for i, user := range users {
 			user := user
 			needsUpdate := false
@@ -757,13 +754,6 @@ func syncUsers() {
 			if needsUpdate {
 				logic.UpsertUser(user)
 			}
-			// Log progress for large migrations
-			if totalUsers > 100 && (i+1)%100 == 0 {
-				logger.Log(1, fmt.Sprintf("migrated %d/%d users...", i+1, totalUsers))
-			}
-		}
-		if totalUsers > 0 {
-			logger.Log(1, fmt.Sprintf("completed migrating %d users", totalUsers))
 		}
 	}
 
