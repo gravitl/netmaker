@@ -47,7 +47,7 @@ type HostPeerUpdate struct {
 	EgressWithDomains   []EgressDomain          `json:"egress_with_domains"`
 	AutoRelayNodes      map[NetworkID][]Node    `json:"auto_relay_nodes"`
 	GwNodes             map[NetworkID][]Node    `json:"gw_nodes"`
-	PeerAddrIdentityMap map[string]PeerIdentity `json:"peer_ip_identity"`
+	PeerAddrIdentityMap map[string]PeerIdentity `json:"peer_addr_identities"`
 	ServerConfig
 	OldPeerUpdateFields
 }

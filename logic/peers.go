@@ -210,6 +210,21 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				continue
 			}
 		}
+
+		if node.Address.IP != nil {
+			hostPeerUpdate.PeerAddrIdentityMap[node.Address.IP.String()+"/32"] = models.PeerIdentity{
+				ID:   node.ID.String(),
+				Type: models.PeerType_Node,
+			}
+		}
+
+		if node.Address6.IP != nil {
+			hostPeerUpdate.PeerAddrIdentityMap[node.Address6.IP.String()+"/128"] = models.PeerIdentity{
+				ID:   node.ID.String(),
+				Type: models.PeerType_Node,
+			}
+		}
+
 		hostPeerUpdate.Nodes = append(hostPeerUpdate.Nodes, node)
 		acls, _ := ListAclsByNetwork(models.NetworkID(node.Network))
 		eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
@@ -468,14 +483,14 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			}
 
 			if peer.Address.IP != nil {
-				hostPeerUpdate.PeerAddrIdentityMap[peer.Address.String()] = models.PeerIdentity{
+				hostPeerUpdate.PeerAddrIdentityMap[peer.Address.IP.String()+"/32"] = models.PeerIdentity{
 					ID:   peer.ID.String(),
 					Type: models.PeerType_Node,
 				}
 			}
 
 			if peer.Address6.IP != nil {
-				hostPeerUpdate.PeerAddrIdentityMap[peer.Address6.String()] = models.PeerIdentity{
+				hostPeerUpdate.PeerAddrIdentityMap[peer.Address6.IP.String()+"/128"] = models.PeerIdentity{
 					ID:   peer.ID.String(),
 					Type: models.PeerType_Node,
 				}
