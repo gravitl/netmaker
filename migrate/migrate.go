@@ -683,6 +683,8 @@ func migrateToUUIDs() {
 }
 
 func syncUsers() {
+	logger.Log(1, "Migrating Users (SyncUsers)")
+	defer logger.Log(1, "Completed migrating Users (SyncUsers)")
 	// create default network user roles for existing networks
 	if servercfg.IsPro {
 		networks, _ := logic.GetNetworks()
@@ -693,8 +695,7 @@ func syncUsers() {
 
 	users, err := logic.GetUsersDB()
 	if err == nil {
-		totalUsers := len(users)
-		for i, user := range users {
+		for _, user := range users {
 			user := user
 			needsUpdate := false
 

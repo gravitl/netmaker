@@ -6,12 +6,15 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logger"
 
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 )
 
 func MigrateToUUIDs() {
+	logger.Log(1, "Migrating User Roles and Groups to UUIDs")
+	defer logger.Log(1, "Completed migrating User Roles and Groups to UUIDs")
 	roles, err := ListNetworkRoles()
 	if err != nil {
 		return
@@ -113,7 +116,6 @@ func MigrateToUUIDs() {
 		return
 	}
 
-	totalUsers := len(users)
 	for _, user := range users {
 		userGroups := make(map[models.UserGroupID]struct{})
 		for groupID := range user.UserGroups {
