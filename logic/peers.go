@@ -66,14 +66,19 @@ var (
 // GetHostPeerInfo - fetches required peer info per network
 func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 	peerInfo := models.HostPeerInfo{
-		NetworkPeerIDs:    make(map[models.NetworkID]models.PeerMap),
-		PeerIPIdentityMap: make(map[string]models.PeerIdentity),
+		NetworkPeerIDs:      make(map[models.NetworkID]models.PeerMap),
+		PeerAddrIdentityMap: make(map[string]models.PeerIdentity),
 	}
 	allNodes, err := GetAllNodes()
 	if err != nil {
 		return peerInfo, err
 	}
 	serverInfo := GetServerInfo()
+	egresses, err := (&schema.Egress{}).List(db.WithContext(context.TODO()))
+	if err != nil {
+		return peerInfo, err
+	}
+
 	for _, nodeID := range host.Nodes {
 		nodeID := nodeID
 		node, err := GetNodeByID(nodeID)
@@ -123,14 +128,14 @@ func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 				}
 
 				if peer.Address.IP != nil {
-					peerInfo.PeerIPIdentityMap[peer.Address.IP.String()] = models.PeerIdentity{
+					peerInfo.PeerAddrIdentityMap[peer.Address.String()] = models.PeerIdentity{
 						ID:   peer.ID.String(),
 						Type: models.PeerType_Node,
 					}
 				}
 
 				if peer.Address6.IP != nil {
-					peerInfo.PeerIPIdentityMap[peer.Address6.IP.String()] = models.PeerIdentity{
+					peerInfo.PeerAddrIdentityMap[peer.Address6.String()] = models.PeerIdentity{
 						ID:   peer.ID.String(),
 						Type: models.PeerType_Node,
 					}
@@ -139,13 +144,24 @@ func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 		}
 		var extPeerIDAndAddrs []models.IDandAddr
 		if node.IsIngressGateway {
-			_, extPeerIDAndAddrs, _, err = GetExtPeers(&node, &node, peerInfo.PeerIPIdentityMap)
+			_, extPeerIDAndAddrs, _, err = GetExtPeers(&node, &node, peerInfo.PeerAddrIdentityMap)
 			if err == nil {
 				for _, extPeerIdAndAddr := range extPeerIDAndAddrs {
 					networkPeersInfo[extPeerIdAndAddr.ID] = extPeerIdAndAddr
 				}
 			}
 		}
+
+		GetNodeEgressInfo(&node, egresses, nil)
+		if node.IsEgressGateway {
+			for _, egressRange := range node.EgressDetails.EgressGatewayRequest.RangesWithMetric {
+				peerInfo.PeerAddrIdentityMap[egressRange.Network] = models.PeerIdentity{
+					ID:   egressRange.EgressID,
+					Type: models.PeerType_EgressRange,
+				}
+			}
+		}
+
 		peerInfo.NetworkPeerIDs[models.NetworkID(node.Network)] = networkPeersInfo
 	}
 	return peerInfo, nil

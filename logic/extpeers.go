@@ -543,7 +543,7 @@ func ToggleExtClientConnectivity(client *models.ExtClient, enable bool) (models.
 	return newClient, nil
 }
 
-func GetExtPeers(node, peer *models.Node, peerIPIdentityMap map[string]models.PeerIdentity) ([]wgtypes.PeerConfig, []models.IDandAddr, []models.EgressNetworkRoutes, error) {
+func GetExtPeers(node, peer *models.Node, peerAddrIdentityMap map[string]models.PeerIdentity) ([]wgtypes.PeerConfig, []models.IDandAddr, []models.EgressNetworkRoutes, error) {
 	var peers []wgtypes.PeerConfig
 	var idsAndAddr []models.IDandAddr
 	var egressRoutes []models.EgressNetworkRoutes
@@ -583,23 +583,24 @@ func GetExtPeers(node, peer *models.Node, peerIPIdentityMap map[string]models.Pe
 
 		var allowedips []net.IPNet
 		var peer wgtypes.PeerConfig
+		var extPeerAddr4, extPeerAddr6 net.IPNet
 		if extPeer.Address != "" {
-			var peeraddr = net.IPNet{
+			extPeerAddr4 = net.IPNet{
 				IP:   net.ParseIP(extPeer.Address),
 				Mask: net.CIDRMask(32, 32),
 			}
-			if peeraddr.IP != nil && peeraddr.Mask != nil {
-				allowedips = append(allowedips, peeraddr)
+			if extPeerAddr4.IP != nil && extPeerAddr4.Mask != nil {
+				allowedips = append(allowedips, extPeerAddr4)
 			}
 		}
 
 		if extPeer.Address6 != "" {
-			var addr6 = net.IPNet{
+			extPeerAddr6 = net.IPNet{
 				IP:   net.ParseIP(extPeer.Address6),
 				Mask: net.CIDRMask(128, 128),
 			}
-			if addr6.IP != nil && addr6.Mask != nil {
-				allowedips = append(allowedips, addr6)
+			if extPeerAddr6.IP != nil && extPeerAddr6.Mask != nil {
+				allowedips = append(allowedips, extPeerAddr6)
 			}
 		}
 		for _, extraAllowedIP := range extPeer.ExtraAllowedIPs {
@@ -626,7 +627,7 @@ func GetExtPeers(node, peer *models.Node, peerIPIdentityMap map[string]models.Pe
 			IsExtClient: true,
 		})
 
-		if extPeer.Address != "" {
+		if extPeerAddr4.IP != nil && extPeerAddr4.Mask != nil {
 			peerID := extPeer.ClientID
 			peerType := models.PeerType_WireGuard
 			if extPeer.RemoteAccessClientID != "" {
@@ -634,13 +635,13 @@ func GetExtPeers(node, peer *models.Node, peerIPIdentityMap map[string]models.Pe
 				peerType = models.PeerType_User
 			}
 
-			peerIPIdentityMap[extPeer.Address] = models.PeerIdentity{
+			peerAddrIdentityMap[extPeerAddr4.String()] = models.PeerIdentity{
 				ID:   peerID,
 				Type: peerType,
 			}
 		}
 
-		if extPeer.Address6 != "" {
+		if extPeerAddr6.IP != nil && extPeerAddr6.Mask != nil {
 			peerID := extPeer.ClientID
 			peerType := models.PeerType_WireGuard
 			if extPeer.RemoteAccessClientID != "" {
@@ -648,7 +649,7 @@ func GetExtPeers(node, peer *models.Node, peerIPIdentityMap map[string]models.Pe
 				peerType = models.PeerType_User
 			}
 
-			peerIPIdentityMap[extPeer.Address6] = models.PeerIdentity{
+			peerAddrIdentityMap[extPeerAddr6.String()] = models.PeerIdentity{
 				ID:   peerID,
 				Type: peerType,
 			}

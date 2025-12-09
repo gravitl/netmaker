@@ -80,11 +80,12 @@ func (EventType) EnumDescriptor() ([]byte, []int) {
 type ParticipantType int32
 
 const (
-	ParticipantType_PARTICIPANT_UNSPECIFIED ParticipantType = 0
-	ParticipantType_PARTICIPANT_NODE        ParticipantType = 1
-	ParticipantType_PARTICIPANT_USER        ParticipantType = 2
-	ParticipantType_PARTICIPANT_EXTCLIENT   ParticipantType = 3
-	ParticipantType_PARTICIPANT_EXTERNAL    ParticipantType = 4 // anything not part of the Netmaker network
+	ParticipantType_PARTICIPANT_UNSPECIFIED  ParticipantType = 0
+	ParticipantType_PARTICIPANT_NODE         ParticipantType = 1
+	ParticipantType_PARTICIPANT_USER         ParticipantType = 2
+	ParticipantType_PARTICIPANT_EXTCLIENT    ParticipantType = 3
+	ParticipantType_PARTICIPANT_EGRESS_RANGE ParticipantType = 4
+	ParticipantType_PARTICIPANT_EXTERNAL     ParticipantType = 5 // anything not part of the Netmaker network
 )
 
 // Enum value maps for ParticipantType.
@@ -94,14 +95,16 @@ var (
 		1: "PARTICIPANT_NODE",
 		2: "PARTICIPANT_USER",
 		3: "PARTICIPANT_EXTCLIENT",
-		4: "PARTICIPANT_EXTERNAL",
+		4: "PARTICIPANT_EGRESS_RANGE",
+		5: "PARTICIPANT_EXTERNAL",
 	}
 	ParticipantType_value = map[string]int32{
-		"PARTICIPANT_UNSPECIFIED": 0,
-		"PARTICIPANT_NODE":        1,
-		"PARTICIPANT_USER":        2,
-		"PARTICIPANT_EXTCLIENT":   3,
-		"PARTICIPANT_EXTERNAL":    4,
+		"PARTICIPANT_UNSPECIFIED":  0,
+		"PARTICIPANT_NODE":         1,
+		"PARTICIPANT_USER":         2,
+		"PARTICIPANT_EXTCLIENT":    3,
+		"PARTICIPANT_EGRESS_RANGE": 4,
+		"PARTICIPANT_EXTERNAL":     5,
 	}
 )
 
@@ -596,13 +599,14 @@ const file_grpc_flow_flow_proto_rawDesc = "" +
 	"\tEventType\x12\x1a\n" +
 	"\x16EVENT_TYPE_UNSPECIFIED\x10\x00\x12\x0f\n" +
 	"\vEVENT_START\x10\x01\x12\x11\n" +
-	"\rEVENT_DESTROY\x10\x02*\x8f\x01\n" +
+	"\rEVENT_DESTROY\x10\x02*\xad\x01\n" +
 	"\x0fParticipantType\x12\x1b\n" +
 	"\x17PARTICIPANT_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10PARTICIPANT_NODE\x10\x01\x12\x14\n" +
 	"\x10PARTICIPANT_USER\x10\x02\x12\x19\n" +
-	"\x15PARTICIPANT_EXTCLIENT\x10\x03\x12\x18\n" +
-	"\x14PARTICIPANT_EXTERNAL\x10\x04*A\n" +
+	"\x15PARTICIPANT_EXTCLIENT\x10\x03\x12\x1c\n" +
+	"\x18PARTICIPANT_EGRESS_RANGE\x10\x04\x12\x18\n" +
+	"\x14PARTICIPANT_EXTERNAL\x10\x05*A\n" +
 	"\tDirection\x12\x13\n" +
 	"\x0fDIR_UNSPECIFIED\x10\x00\x12\x0f\n" +
 	"\vDIR_INGRESS\x10\x01\x12\x0e\n" +

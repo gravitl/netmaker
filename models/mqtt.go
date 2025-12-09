@@ -7,8 +7,8 @@ import (
 )
 
 type HostPeerInfo struct {
-	NetworkPeerIDs    map[NetworkID]PeerMap   `json:"network_peers"`
-	PeerIPIdentityMap map[string]PeerIdentity `json:"peer_ip_identity"`
+	NetworkPeerIDs      map[NetworkID]PeerMap   `json:"network_peers"`
+	PeerAddrIdentityMap map[string]PeerIdentity `json:"peer_ip_identity"`
 }
 
 type PeerType int
@@ -17,6 +17,7 @@ const (
 	PeerType_Node PeerType = iota
 	PeerType_User
 	PeerType_WireGuard
+	PeerType_EgressRange
 )
 
 type PeerIdentity struct {

@@ -35,7 +35,8 @@ enum ParticipantType {
   PARTICIPANT_NODE = 1;
   PARTICIPANT_USER = 2;
   PARTICIPANT_EXTCLIENT = 3;
-  PARTICIPANT_EXTERNAL = 4; // anything not part of the Netmaker network
+  PARTICIPANT_EGRESS_RANGE = 4;
+  PARTICIPANT_EXTERNAL = 5; // anything not part of the Netmaker network
 }
 
 /**
