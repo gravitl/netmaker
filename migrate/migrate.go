@@ -693,53 +693,77 @@ func syncUsers() {
 
 	users, err := logic.GetUsersDB()
 	if err == nil {
-		for _, user := range users {
+		totalUsers := len(users)
+		if totalUsers > 0 {
+			logger.Log(1, fmt.Sprintf("migrating %d users...", totalUsers))
+		}
+		for i, user := range users {
 			user := user
+			needsUpdate := false
+
+			// Update admin flags based on platform role
 			if user.PlatformRoleID == models.AdminRole && !user.IsAdmin {
 				user.IsAdmin = true
 				user.IsSuperAdmin = false
-				logic.UpsertUser(user)
+				needsUpdate = true
 			}
 			if user.PlatformRoleID == models.SuperAdminRole && !user.IsSuperAdmin {
 				user.IsSuperAdmin = true
 				user.IsAdmin = true
-				logic.UpsertUser(user)
+				needsUpdate = true
 			}
 			if user.PlatformRoleID == models.PlatformUser || user.PlatformRoleID == models.ServiceUser {
-				user.IsSuperAdmin = false
-				user.IsAdmin = false
-				logic.UpsertUser(user)
-			}
-			if user.PlatformRoleID.String() != "" {
-				logic.MigrateUserRoleAndGroups(user)
-				logic.AddGlobalNetRolesToAdmins(&user)
-				logic.UpsertUser(user)
-				continue
-			}
-			user.AuthType = models.BasicAuth
-			if logic.IsOauthUser(&user) == nil {
-				user.AuthType = models.OAuth
-			}
-			if len(user.NetworkRoles) == 0 {
-				user.NetworkRoles = make(map[models.NetworkID]map[models.UserRoleID]struct{})
-			}
-			if len(user.UserGroups) == 0 {
-				user.UserGroups = make(map[models.UserGroupID]struct{})
+				if user.IsSuperAdmin || user.IsAdmin {
+					user.IsSuperAdmin = false
+					user.IsAdmin = false
+					needsUpdate = true
+				}
 			}
 
-			// We reach here only if the platform role id has not been set.
-			//
-			// Thus, we use the boolean fields to assign the role.
-			if user.IsSuperAdmin {
-				user.PlatformRoleID = models.SuperAdminRole
-			} else if user.IsAdmin {
-				user.PlatformRoleID = models.AdminRole
+			if user.PlatformRoleID.String() != "" {
+				// Migrate user roles and groups, then add global net roles
+				user = logic.MigrateUserRoleAndGroups(user)
+				logic.AddGlobalNetRolesToAdmins(&user)
+				needsUpdate = true
 			} else {
-				user.PlatformRoleID = models.ServiceUser
+				// Set auth type
+				user.AuthType = models.BasicAuth
+				if logic.IsOauthUser(&user) == nil {
+					user.AuthType = models.OAuth
+				}
+				if len(user.NetworkRoles) == 0 {
+					user.NetworkRoles = make(map[models.NetworkID]map[models.UserRoleID]struct{})
+				}
+				if len(user.UserGroups) == 0 {
+					user.UserGroups = make(map[models.UserGroupID]struct{})
+				}
+
+				// We reach here only if the platform role id has not been set.
+				//
+				// Thus, we use the boolean fields to assign the role.
+				if user.IsSuperAdmin {
+					user.PlatformRoleID = models.SuperAdminRole
+				} else if user.IsAdmin {
+					user.PlatformRoleID = models.AdminRole
+				} else {
+					user.PlatformRoleID = models.ServiceUser
+				}
+				logic.AddGlobalNetRolesToAdmins(&user)
+				user = logic.MigrateUserRoleAndGroups(user)
+				needsUpdate = true
 			}
-			logic.AddGlobalNetRolesToAdmins(&user)
-			logic.MigrateUserRoleAndGroups(user)
-			logic.UpsertUser(user)
+
+			// Only update user once after all changes are collected
+			if needsUpdate {
+				logic.UpsertUser(user)
+			}
+			// Log progress for large migrations
+			if totalUsers > 100 && (i+1)%100 == 0 {
+				logger.Log(1, fmt.Sprintf("migrated %d/%d users...", i+1, totalUsers))
+			}
+		}
+		if totalUsers > 0 {
+			logger.Log(1, fmt.Sprintf("completed migrating %d users", totalUsers))
 		}
 	}
 

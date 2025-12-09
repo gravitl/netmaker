@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/logger"
 
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -113,7 +114,11 @@ func MigrateToUUIDs() {
 		return
 	}
 
-	for _, user := range users {
+	totalUsers := len(users)
+	if totalUsers > 0 && (len(rolesMapping) > 0 || len(groupsMapping) > 0) {
+		logger.Log(1, fmt.Sprintf("migrating %d users to UUIDs...", totalUsers))
+	}
+	for i, user := range users {
 		userGroups := make(map[models.UserGroupID]struct{})
 		for groupID := range user.UserGroups {
 			newGroupID, ok := groupsMapping[groupID]
@@ -129,6 +134,13 @@ func MigrateToUUIDs() {
 		if err != nil {
 			continue
 		}
+		// Log progress for large migrations
+		if totalUsers > 100 && (i+1)%100 == 0 {
+			logger.Log(1, fmt.Sprintf("migrated %d/%d users to UUIDs...", i+1, totalUsers))
+		}
+	}
+	if totalUsers > 0 && (len(rolesMapping) > 0 || len(groupsMapping) > 0) {
+		logger.Log(1, fmt.Sprintf("completed migrating %d users to UUIDs", totalUsers))
 	}
 
 	for _, acl := range logic.ListAcls() {
@@ -203,9 +215,9 @@ func MigrateToUUIDs() {
 	}
 }
 
-func MigrateUserRoleAndGroups(user models.User) {
+func MigrateUserRoleAndGroups(user models.User) models.User {
 	if user.PlatformRoleID == models.AdminRole || user.PlatformRoleID == models.SuperAdminRole {
-		return
+		return user
 	}
 	if len(user.RemoteGwIDs) > 0 {
 		// define user roles for network
@@ -220,9 +232,6 @@ func MigrateUserRoleAndGroups(user models.User) {
 				groupID = GetDefaultNetworkUserGroupID(models.NetworkID(gwNode.Network))
 			} else {
 				groupID = GetDefaultNetworkAdminGroupID(models.NetworkID(gwNode.Network))
-			}
-			if err != nil {
-				continue
 			}
 			user.UserGroups[groupID] = struct{}{}
 		}
@@ -254,7 +263,7 @@ func MigrateUserRoleAndGroups(user models.User) {
 		}
 
 	}
-	logic.UpsertUser(user)
+	return user
 }
 
 func MigrateToGws() {
