@@ -320,7 +320,7 @@ func listPostureCheckViolatedNodes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, extclient := range extclients {
-			if extclient.DeviceID != "" && extclient.Enabled {
+			if extclient.DeviceID != "" {
 				if len(extclient.PostureChecksViolations) > 0 {
 					violatedNodes = append(violatedNodes, extclient.ConvertToStaticNode())
 				}

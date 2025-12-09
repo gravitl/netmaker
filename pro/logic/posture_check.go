@@ -100,6 +100,9 @@ func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureChe
 		if !c.Status {
 			continue
 		}
+		if d.IsUser && c.Attribute == schema.AutoUpdate {
+			continue
+		}
 		// Check if tags match
 		if !d.IsUser && len(d.Tags) > 0 {
 			if _, ok := c.Tags["*"]; !ok {
