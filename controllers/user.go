@@ -798,6 +798,10 @@ func enableUserAccount(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 	}
 	go func() {
+		enableConfigs := r.URL.Query().Get("force_enable_configs") == "true"
+		if !enableConfigs {
+			return
+		}
 		extclients, err := logic.GetAllExtClients()
 		if err != nil {
 			logger.Log(0, "failed to get user extclients:", err.Error())
@@ -886,6 +890,10 @@ func disableUserAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go func() {
+		disableConfigs := r.URL.Query().Get("force_disable_configs") == "true"
+		if !disableConfigs {
+			return
+		}
 		extclients, err := logic.GetAllExtClients()
 		if err != nil {
 			logger.Log(0, "failed to get user extclients:", err.Error())
