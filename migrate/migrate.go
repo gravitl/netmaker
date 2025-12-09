@@ -719,6 +719,15 @@ func syncUsers() {
 			}
 
 			if user.PlatformRoleID.String() != "" {
+				// Initialize maps if nil
+				if user.NetworkRoles == nil {
+					user.NetworkRoles = make(map[models.NetworkID]map[models.UserRoleID]struct{})
+					needsUpdate = true
+				}
+				if user.UserGroups == nil {
+					user.UserGroups = make(map[models.UserGroupID]struct{})
+					needsUpdate = true
+				}
 				// Migrate user roles and groups, then add global net roles
 				user = logic.MigrateUserRoleAndGroups(user)
 				logic.AddGlobalNetRolesToAdmins(&user)
