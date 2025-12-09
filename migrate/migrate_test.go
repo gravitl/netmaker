@@ -1,15 +1,18 @@
-// Package migrate provides tests for user migration functions, including
+// Package migrate provides tests for migration functions, including
 // performance tests for large-scale user migrations.
 //
-// To run the large-scale performance tests:
-//   go test -v ./migrate -run TestSyncUsersLargeScale
-//   go test -v ./migrate -run TestMigrateToUUIDsLargeScale
+// To run the large-scale user performance tests:
+//
+//	go test -v ./migrate -run TestSyncUsersLargeScale
+//	go test -v ./migrate -run TestMigrateToUUIDsLargeScale
 //
 // To run all tests (excluding large-scale):
-//   go test -v ./migrate -short
+//
+//	go test -v ./migrate -short
 //
 // To run benchmarks:
-//   go test -bench=. ./migrate
+//
+//	go test -bench=. ./migrate
 package migrate
 
 import (
@@ -53,9 +56,9 @@ func TestSyncUsersLargeScale(t *testing.T) {
 		user := models.User{
 			UserName:       "testuser" + uuid.New().String()[:8],
 			Password:       "testpassword123",
-			DisplayName:     "Test User " + uuid.New().String()[:8],
-			IsAdmin:        i%10 == 0,        // 10% are admins
-			IsSuperAdmin:   i%100 == 0,       // 1% are super admins
+			DisplayName:    "Test User " + uuid.New().String()[:8],
+			IsAdmin:        i%10 == 0,          // 10% are admins
+			IsSuperAdmin:   i%100 == 0,         // 1% are super admins
 			PlatformRoleID: models.ServiceUser, // Most are service users
 		}
 
@@ -98,7 +101,7 @@ func TestSyncUsersLargeScale(t *testing.T) {
 	syncUsers()
 	syncDuration := time.Since(startSync)
 
-	t.Logf("syncUsers() completed in %v for %d users (avg: %v per user)", 
+	t.Logf("syncUsers() completed in %v for %d users (avg: %v per user)",
 		syncDuration, len(users), syncDuration/time.Duration(len(users)))
 
 	// Verify users were migrated correctly
@@ -114,10 +117,10 @@ func TestSyncUsersLargeScale(t *testing.T) {
 
 	for i := 0; i < sampleSize; i++ {
 		user := usersAfter[i]
-		
+
 		// Verify platform role is set
 		assert.NotEmpty(t, user.PlatformRoleID.String(), "User %s should have PlatformRoleID", user.UserName)
-		
+
 		// Verify admin flags match platform role
 		if user.PlatformRoleID == models.SuperAdminRole {
 			assert.True(t, user.IsSuperAdmin, "SuperAdmin user should have IsSuperAdmin=true")
@@ -137,7 +140,7 @@ func TestSyncUsersLargeScale(t *testing.T) {
 	// Performance assertion - syncUsers should complete in reasonable time
 	// With optimizations, 1000 users should complete in under 10 seconds
 	maxDuration := 30 * time.Second
-	assert.Less(t, syncDuration, maxDuration, 
+	assert.Less(t, syncDuration, maxDuration,
 		"syncUsers() took too long: %v (expected < %v)", syncDuration, maxDuration)
 
 	t.Logf("✓ syncUsers() performance test passed: %v for %d users", syncDuration, len(users))
@@ -168,7 +171,7 @@ func TestMigrateToUUIDsLargeScale(t *testing.T) {
 		user := models.User{
 			UserName:       "testuser" + uuid.New().String()[:8],
 			Password:       "testpassword123",
-			DisplayName:     "Test User " + uuid.New().String()[:8],
+			DisplayName:    "Test User " + uuid.New().String()[:8],
 			PlatformRoleID: models.ServiceUser,
 			UserGroups:     make(map[models.UserGroupID]struct{}),
 		}
@@ -199,7 +202,7 @@ func TestMigrateToUUIDsLargeScale(t *testing.T) {
 	migrateToUUIDs()
 	migrateDuration := time.Since(startMigrate)
 
-	t.Logf("MigrateToUUIDs() completed in %v for %d users (avg: %v per user)", 
+	t.Logf("MigrateToUUIDs() completed in %v for %d users (avg: %v per user)",
 		migrateDuration, len(users), migrateDuration/time.Duration(len(users)))
 
 	// Verify users still exist after migration
@@ -209,7 +212,7 @@ func TestMigrateToUUIDsLargeScale(t *testing.T) {
 
 	// Performance assertion - MigrateToUUIDs should complete in reasonable time
 	maxDuration := 30 * time.Second
-	assert.Less(t, migrateDuration, maxDuration, 
+	assert.Less(t, migrateDuration, maxDuration,
 		"MigrateToUUIDs() took too long: %v (expected < %v)", migrateDuration, maxDuration)
 
 	t.Logf("✓ MigrateToUUIDs() performance test passed: %v for %d users", migrateDuration, len(users))
@@ -228,11 +231,11 @@ func TestSyncUsersCorrectness(t *testing.T) {
 
 	// Create test users with various states
 	testCases := []struct {
-		name           string
-		user           models.User
-		expectedRole   models.UserRoleID
-		expectedAdmin  bool
-		expectedSuper  bool
+		name          string
+		user          models.User
+		expectedRole  models.UserRoleID
+		expectedAdmin bool
+		expectedSuper bool
 	}{
 		{
 			name: "user with AdminRole but IsAdmin=false",
@@ -359,4 +362,3 @@ func BenchmarkSyncUsers(b *testing.B) {
 		syncUsers()
 	}
 }
-
