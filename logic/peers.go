@@ -157,15 +157,15 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			IngressInfo: make(map[string]models.IngressInfo),
 			AclRules:    make(map[string]models.AclRule),
 		},
-		PeerIDs:             make(models.PeerMap, 0),
-		Peers:               []wgtypes.PeerConfig{},
-		NodePeers:           []wgtypes.PeerConfig{},
-		HostNetworkInfo:     models.HostInfoMap{},
-		ServerConfig:        GetServerInfo(),
-		DnsNameservers:      GetNameserversForHost(host),
-		AutoRelayNodes:      make(map[models.NetworkID][]models.Node),
-		GwNodes:             make(map[models.NetworkID][]models.Node),
-		PeerAddrIdentityMap: make(map[string]models.PeerIdentity),
+		PeerIDs:            make(models.PeerMap, 0),
+		Peers:              []wgtypes.PeerConfig{},
+		NodePeers:          []wgtypes.PeerConfig{},
+		HostNetworkInfo:    models.HostInfoMap{},
+		ServerConfig:       GetServerInfo(),
+		DnsNameservers:     GetNameserversForHost(host),
+		AutoRelayNodes:     make(map[models.NetworkID][]models.Node),
+		GwNodes:            make(map[models.NetworkID][]models.Node),
+		AddressIdentityMap: make(map[string]models.PeerIdentity),
 	}
 	if host.DNS == "no" {
 		hostPeerUpdate.ManageDNS = false
@@ -212,14 +212,14 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		}
 
 		if node.Address.IP != nil {
-			hostPeerUpdate.PeerAddrIdentityMap[node.Address.IP.String()+"/32"] = models.PeerIdentity{
+			hostPeerUpdate.AddressIdentityMap[node.Address.IP.String()+"/32"] = models.PeerIdentity{
 				ID:   node.ID.String(),
 				Type: models.PeerType_Node,
 			}
 		}
 
 		if node.Address6.IP != nil {
-			hostPeerUpdate.PeerAddrIdentityMap[node.Address6.IP.String()+"/128"] = models.PeerIdentity{
+			hostPeerUpdate.AddressIdentityMap[node.Address6.IP.String()+"/128"] = models.PeerIdentity{
 				ID:   node.ID.String(),
 				Type: models.PeerType_Node,
 			}
@@ -483,14 +483,14 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			}
 
 			if peer.Address.IP != nil {
-				hostPeerUpdate.PeerAddrIdentityMap[peer.Address.IP.String()+"/32"] = models.PeerIdentity{
+				hostPeerUpdate.AddressIdentityMap[peer.Address.IP.String()+"/32"] = models.PeerIdentity{
 					ID:   peer.ID.String(),
 					Type: models.PeerType_Node,
 				}
 			}
 
 			if peer.Address6.IP != nil {
-				hostPeerUpdate.PeerAddrIdentityMap[peer.Address6.IP.String()+"/128"] = models.PeerIdentity{
+				hostPeerUpdate.AddressIdentityMap[peer.Address6.IP.String()+"/128"] = models.PeerIdentity{
 					ID:   peer.ID.String(),
 					Type: models.PeerType_Node,
 				}
@@ -501,7 +501,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		var egressRoutes []models.EgressNetworkRoutes
 		if node.IsIngressGateway {
 			hostPeerUpdate.FwUpdate.IsIngressGw = true
-			extPeers, extPeerIDAndAddrs, egressRoutes, err = GetExtPeers(&node, &node, hostPeerUpdate.PeerAddrIdentityMap)
+			extPeers, extPeerIDAndAddrs, egressRoutes, err = GetExtPeers(&node, &node, hostPeerUpdate.AddressIdentityMap)
 			if err == nil {
 				if !defaultDevicePolicy.Enabled || !defaultUserPolicy.Enabled {
 					ingFwUpdate := models.IngressInfo{
@@ -545,7 +545,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				EgressFwRules: make(map[string]models.AclRule),
 			}
 			for _, egressRange := range node.EgressDetails.EgressGatewayRequest.RangesWithMetric {
-				hostPeerUpdate.PeerAddrIdentityMap[egressRange.Network] = models.PeerIdentity{
+				hostPeerUpdate.AddressIdentityMap[egressRange.Network] = models.PeerIdentity{
 					ID:   egressRange.EgressID,
 					Type: models.PeerType_EgressRoute,
 				}

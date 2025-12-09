@@ -543,7 +543,7 @@ func ToggleExtClientConnectivity(client *models.ExtClient, enable bool) (models.
 	return newClient, nil
 }
 
-func GetExtPeers(node, peer *models.Node, peerAddrIdentityMap map[string]models.PeerIdentity) ([]wgtypes.PeerConfig, []models.IDandAddr, []models.EgressNetworkRoutes, error) {
+func GetExtPeers(node, peer *models.Node, addressIdentityMap map[string]models.PeerIdentity) ([]wgtypes.PeerConfig, []models.IDandAddr, []models.EgressNetworkRoutes, error) {
 	var peers []wgtypes.PeerConfig
 	var idsAndAddr []models.IDandAddr
 	var egressRoutes []models.EgressNetworkRoutes
@@ -635,7 +635,7 @@ func GetExtPeers(node, peer *models.Node, peerAddrIdentityMap map[string]models.
 				peerType = models.PeerType_User
 			}
 
-			peerAddrIdentityMap[extPeerAddr4.IP.String()+"/32"] = models.PeerIdentity{
+			addressIdentityMap[extPeerAddr4.IP.String()+"/32"] = models.PeerIdentity{
 				ID:   peerID,
 				Type: peerType,
 			}
@@ -649,7 +649,7 @@ func GetExtPeers(node, peer *models.Node, peerAddrIdentityMap map[string]models.
 				peerType = models.PeerType_User
 			}
 
-			peerAddrIdentityMap[extPeerAddr6.IP.String()+"/128"] = models.PeerIdentity{
+			addressIdentityMap[extPeerAddr6.IP.String()+"/128"] = models.PeerIdentity{
 				ID:   peerID,
 				Type: peerType,
 			}
