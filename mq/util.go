@@ -16,6 +16,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/utils"
 	"golang.org/x/exp/slog"
 )
 
@@ -134,7 +135,7 @@ func encryptMsg(host *models.Host, msg []byte) ([]byte, error) {
 }
 
 func publish(host *models.Host, dest string, msg []byte) error {
-
+	utils.TraceCaller()
 	var encrypted []byte
 	var encryptErr error
 	vlt, err := logic.VersionLessThan(host.Version, "v0.30.0")
