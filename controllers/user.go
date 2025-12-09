@@ -1130,18 +1130,6 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	go func() {
-		// transfer any configs present
-		extclients, _ := logic.GetAllExtClients()
-		for _, extclient := range extclients {
-			if extclient.OwnerID == caller.UserName {
-				if extclient.DeviceID == "" && extclient.RemoteAccessClientID == "" {
-					extclient.OwnerID = u.UserName
-					logic.SaveExtClient(&extclient)
-				}
-			}
-		}
-	}()
 	slog.Info("user was made a super admin", "user", u.UserName)
 	json.NewEncoder(w).Encode(logic.ToReturnUser(*u))
 }
