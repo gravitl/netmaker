@@ -722,15 +722,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	extclient := logic.UpdateExtClient(&models.ExtClient{}, &customExtClient)
-	if extclient.DeviceID != "" {
-		// check for violations connecting from desktop app
-		staticNode := extclient.ConvertToStaticNode()
-		violations, _ := logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(&staticNode), models.NetworkID(extclient.Network))
-		if len(violations) > 0 {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("posture check violations"), logic.Forbidden))
-			return
-		}
-	}
+
 	extclient.OwnerID = userName
 	extclient.RemoteAccessClientID = customExtClient.RemoteAccessClientID
 	extclient.IngressGatewayID = nodeid
@@ -769,7 +761,15 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		extclient.Location, extclient.Country = logic.GetHostLocInfo(logic.GetClientIP(r), os.Getenv("IP_INFO_TOKEN"))
 	}
 	extclient.Location = customExtClient.Location
-
+	if extclient.DeviceID != "" {
+		// check for violations connecting from desktop app
+		staticNode := extclient.ConvertToStaticNode()
+		violations, _ := logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(&staticNode), models.NetworkID(extclient.Network))
+		if len(violations) > 0 {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("posture check violations"), logic.Forbidden))
+			return
+		}
+	}
 	if err = logic.CreateExtClient(&extclient); err != nil {
 		slog.Error(
 			"failed to create extclient",
