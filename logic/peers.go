@@ -157,7 +157,7 @@ func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 			for _, egressRange := range node.EgressDetails.EgressGatewayRequest.RangesWithMetric {
 				peerInfo.PeerAddrIdentityMap[egressRange.Network] = models.PeerIdentity{
 					ID:   egressRange.EgressID,
-					Type: models.PeerType_EgressRange,
+					Type: models.PeerType_EgressRoute,
 				}
 			}
 		}

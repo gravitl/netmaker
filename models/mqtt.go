@@ -17,7 +17,7 @@ const (
 	PeerType_Node PeerType = iota
 	PeerType_User
 	PeerType_WireGuard
-	PeerType_EgressRange
+	PeerType_EgressRoute
 )
 
 type PeerIdentity struct {
