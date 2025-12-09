@@ -51,7 +51,6 @@ func TestSyncUsersLargeScale(t *testing.T) {
 	t.Logf("Creating %d test users...", numUsers)
 	startCreate := time.Now()
 
-	createdUsers := make([]models.User, 0, numUsers)
 	for i := 0; i < numUsers; i++ {
 		user := models.User{
 			UserName:       "testuser" + uuid.New().String()[:8],
@@ -84,7 +83,6 @@ func TestSyncUsersLargeScale(t *testing.T) {
 
 		err := logic.UpsertUser(user)
 		require.NoError(t, err, "Failed to create user %d", i)
-		createdUsers = append(createdUsers, user)
 	}
 
 	createDuration := time.Since(startCreate)
