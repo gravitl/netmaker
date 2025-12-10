@@ -10,6 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 	ch "github.com/gravitl/netmaker/clickhouse"
+	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logic"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 )
@@ -44,6 +45,7 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 
 	q := r.URL.Query()
 
+	// TODO: handle query filters better
 	var (
 		whereParts []string
 		args       []any
@@ -111,6 +113,33 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 	if protoStr != "" {
 		whereParts = append(whereParts, "protocol = ?")
 		args = append(args, protoStr)
+	}
+
+	// 5. Node filter
+	nodeID := q.Get("node_id")
+	if nodeID != "" {
+		node, err := logic.GetNodeByID(nodeID)
+		if err != nil {
+			errType := logic.Internal
+			if database.IsEmptyRecord(err) {
+				errType = logic.BadReq
+			}
+			logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("error fetching node with id %s: %v", nodeID, err), errType))
+			return
+		}
+
+		if networkID == "" {
+			whereParts = append(whereParts, "network_id = ?")
+			args = append(args, node.Network)
+		} else {
+			if networkID != node.Network {
+				logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("node with id %s does not belong to network %s", nodeID, networkID), logic.BadReq))
+				return
+			}
+		}
+
+		whereParts = append(whereParts, "host_id = ?")
+		args = append(args, node.HostID)
 	}
 
 	// Pagination
