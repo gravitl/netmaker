@@ -281,14 +281,16 @@ func evaluatePostureCheck(check *schema.PostureCheck, d models.PostureCheckDevic
 
 	// ------------------------
 	// 2. Client version check
-	// Supports: exact match OR allowed list OR semver rules
+	// Single value representing minimum required version
 	// ------------------------
 	case schema.ClientVersion:
-		for _, rule := range check.Values {
-			ok, err := matchVersionRule(d.ClientVersion, rule)
-			if err != nil || !ok {
-				return true, fmt.Sprintf("client version '%s' violation", d.ClientVersion)
-			}
+		if len(check.Values) == 0 {
+			return false, ""
+		}
+		minVersion := check.Values[0]
+		cmp := compareVersions(cleanVersion(d.ClientVersion), cleanVersion(minVersion))
+		if cmp < 0 {
+			return true, fmt.Sprintf("client version '%s' is below minimum required version '%s'", d.ClientVersion, minVersion)
 		}
 
 	// ------------------------
@@ -305,21 +307,25 @@ func evaluatePostureCheck(check *schema.PostureCheck, d models.PostureCheckDevic
 		}
 	// ------------------------
 	// 4. OS version check
-	// Supports operators: > >= < <= =
+	// Single value representing minimum required version
 	// ------------------------
 	case schema.OSVersion:
-		for _, rule := range check.Values {
-			ok, err := matchVersionRule(d.OSVersion, rule)
-			if err != nil || !ok {
-				return true, fmt.Sprintf("os version '%s' violation", d.OSVersion)
-			}
+		if len(check.Values) == 0 {
+			return false, ""
+		}
+		minVersion := check.Values[0]
+		cmp := compareVersions(cleanVersion(d.OSVersion), cleanVersion(minVersion))
+		if cmp < 0 {
+			return true, fmt.Sprintf("os version '%s' is below minimum required version '%s'", d.OSVersion, minVersion)
 		}
 	case schema.KernelVersion:
-		for _, rule := range check.Values {
-			ok, err := matchVersionRule(d.KernelVersion, rule)
-			if err != nil || !ok {
-				return true, fmt.Sprintf("kernel version '%s' violation", d.KernelVersion)
-			}
+		if len(check.Values) == 0 {
+			return false, ""
+		}
+		minVersion := check.Values[0]
+		cmp := compareVersions(cleanVersion(d.KernelVersion), cleanVersion(minVersion))
+		if cmp < 0 {
+			return true, fmt.Sprintf("kernel version '%s' is below minimum required version '%s'", d.KernelVersion, minVersion)
 		}
 	// ------------------------
 	// 5. Auto-update check
@@ -455,12 +461,13 @@ func ValidatePostureCheck(pc *schema.PostureCheck) error {
 	}
 	if pc.Attribute == schema.ClientVersion || pc.Attribute == schema.OSVersion ||
 		pc.Attribute == schema.KernelVersion {
-		for i, valueI := range pc.Values {
-			if !logic.IsValidVersion(valueI) {
-				return errors.New("invalid attribute version value")
-			}
-			pc.Values[i] = logic.CleanVersion(valueI)
+		if len(pc.Values) != 1 {
+			return errors.New("version attribute must have exactly one value (minimum version)")
 		}
+		if !logic.IsValidVersion(pc.Values[0]) {
+			return errors.New("invalid attribute version value")
+		}
+		pc.Values[0] = logic.CleanVersion(pc.Values[0])
 	}
 	if len(pc.Tags) > 0 {
 		for tagID := range pc.Tags {
