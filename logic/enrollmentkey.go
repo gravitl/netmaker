@@ -120,6 +120,10 @@ func UpdateEnrollmentKey(keyId string, updates *models.APIEnrollmentKey) (*model
 		}
 	}
 
+	if relayID != uuid.Nil {
+		updates.AutoAssignGateway = false
+	}
+
 	key.Relay = relayID
 	key.Groups = updates.Groups
 	key.AutoAssignGateway = updates.AutoAssignGateway
