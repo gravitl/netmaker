@@ -67,7 +67,7 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		whereParts = append(whereParts, "version >= ?")
-		args = append(args, fromVal.UnixMilli())
+		args = append(args, fromVal)
 	}
 
 	if toStr != "" {
@@ -77,7 +77,7 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		whereParts = append(whereParts, "version <= ?")
-		args = append(args, toVal.UnixMilli())
+		args = append(args, toVal)
 	}
 
 	// 2. Source filters
