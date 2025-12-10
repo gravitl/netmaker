@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	ch "github.com/gravitl/netmaker/clickhouse"
@@ -12,51 +11,21 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
-type FlowsCleanupManager struct {
-	cancel context.CancelFunc
-	mu     sync.Mutex
-}
-
-var manager = &FlowsCleanupManager{}
-
-func GetFlowsCleanupManager() *FlowsCleanupManager {
-	return manager
-}
-
-func (f *FlowsCleanupManager) Start() {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	if f.cancel != nil {
-		f.cancel()
-		f.cancel = nil
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	f.cancel = cancel
-
-	logic.HookManagerCh <- models.HookDetails{
-		Ctx:      ctx,
-		Hook:     CleanupFlows,
-		Interval: 24 * time.Hour,
-	}
-}
-
-func (f *FlowsCleanupManager) Stop() {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	if f.cancel != nil {
-		f.cancel()
-	}
-}
+const (
+	flowsCleanupHookID       = "flows-cleanup-hook"
+	flowsCleanupHookInterval = 24 * time.Hour
+)
 
 func StartFlowCleanupLoop() {
-	GetFlowsCleanupManager().Start()
+	logic.HookManagerCh <- models.HookDetails{
+		ID:       flowsCleanupHookID,
+		Hook:     logic.WrapHook(CleanupFlows),
+		Interval: flowsCleanupHookInterval,
+	}
 }
 
 func StopFlowCleanupLoop() {
-	GetFlowsCleanupManager().Stop()
+	logic.StopHook(flowsCleanupHookID)
 }
 
 func CleanupFlows() error {

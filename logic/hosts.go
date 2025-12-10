@@ -34,7 +34,11 @@ var (
 	ErrInvalidHostID error = errors.New("invalid host id")
 )
 
-var GetHostLocInfo = func(ip, token string) string { return "" }
+var GetHostLocInfo = func(ip, token string) (string, string) { return "", "" }
+
+var CheckPostureViolations = func(d models.PostureCheckDeviceInfo, network models.NetworkID) (v []models.Violation, level models.Severity) {
+	return []models.Violation{}, models.SeverityUnknown
+}
 
 func getHostsFromCache() (hosts []models.Host) {
 	hostCacheMutex.RLock()
@@ -254,9 +258,9 @@ func CreateHost(h *models.Host) error {
 		h.DNS = "no"
 	}
 	if h.EndpointIP != nil {
-		h.Location = GetHostLocInfo(h.EndpointIP.String(), os.Getenv("IP_INFO_TOKEN"))
+		h.Location, h.CountryCode = GetHostLocInfo(h.EndpointIP.String(), os.Getenv("IP_INFO_TOKEN"))
 	} else if h.EndpointIPv6 != nil {
-		h.Location = GetHostLocInfo(h.EndpointIPv6.String(), os.Getenv("IP_INFO_TOKEN"))
+		h.Location, h.CountryCode = GetHostLocInfo(h.EndpointIPv6.String(), os.Getenv("IP_INFO_TOKEN"))
 	}
 
 	if !GetFeatureFlags().EnableFlowLogs || !GetServerSettings().EnableFlowLogs {

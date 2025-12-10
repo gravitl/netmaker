@@ -140,7 +140,6 @@ func initialize() { // Client Mode Prereq Check
 	if err != nil {
 		logger.FatalLog("error setting defaults: ", err.Error())
 	}
-
 	if servercfg.IsDNSMode() {
 		err := functions.SetDNSDir()
 		if err != nil {
@@ -193,6 +192,7 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 
 	wg.Add(1)
 	go logic.StartHookManager(ctx, wg)
+	logic.InitNetworkHooks()
 }
 
 // Should we be using a context vice a waitgroup????????????
@@ -202,10 +202,9 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 
 	go mq.Keepalive(ctx)
 	go func() {
-		peerUpdate := make(chan *models.Node, 100)
-		go logic.ManageZombies(ctx, peerUpdate)
-		go logic.DeleteExpiredNodes(ctx, peerUpdate)
-		for nodeUpdate := range peerUpdate {
+		go logic.ManageZombies(ctx)
+		go logic.DeleteExpiredNodes(ctx)
+		for nodeUpdate := range logic.DeleteNodesCh {
 			if nodeUpdate == nil {
 				continue
 			}

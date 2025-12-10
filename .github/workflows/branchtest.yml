@@ -41,7 +41,7 @@ jobs:
             echo "NETCLIENT_BRANCH=develop" >> $GITHUB_ENV
           fi
       - name: Checkout netclient repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: gravitl/netclient
           fetch-depth: 0

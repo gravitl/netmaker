@@ -116,6 +116,8 @@ func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 					ID:         peer.ID.String(),
 					HostID:     peerHost.ID.String(),
 					Address:    peer.PrimaryAddress(),
+					Address4:   peer.Address.IP.String(),
+					Address6:   peer.Address6.IP.String(),
 					Name:       peerHost.Name,
 					Network:    peer.Network,
 					ListenPort: peerHost.ListenPort,

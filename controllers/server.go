@@ -36,14 +36,14 @@ func serverHandlers(r *mux.Router) {
 		},
 	).Methods(http.MethodGet)
 	r.HandleFunc(
-		"/api/server/shutdown",
-		func(w http.ResponseWriter, _ *http.Request) {
-			msg := "received api call to shutdown server, sending interruption..."
-			slog.Warn(msg)
-			_, _ = w.Write([]byte(msg))
-			w.WriteHeader(http.StatusOK)
-			_ = syscall.Kill(syscall.Getpid(), syscall.SIGINT)
-		},
+		"/api/server/shutdown", logic.SecurityCheck(true,
+			http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				msg := "received api call to shutdown server, sending interruption..."
+				slog.Warn(msg)
+				_, _ = w.Write([]byte(msg))
+				w.WriteHeader(http.StatusOK)
+				_ = syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+			})),
 	).Methods(http.MethodPost)
 	r.HandleFunc("/api/server/getconfig", allowUsers(http.HandlerFunc(getConfig))).
 		Methods(http.MethodGet)
@@ -318,6 +318,9 @@ func reInit(curr, new models.ServerSettings, force bool) {
 				})
 			}
 		}
+	}
+	if new.CleanUpInterval != curr.CleanUpInterval {
+		logic.RestartHook("network-hook", time.Duration(new.CleanUpInterval)*time.Minute)
 	}
 	go mq.PublishPeerUpdate(false)
 }

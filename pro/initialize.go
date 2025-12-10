@@ -44,6 +44,7 @@ func InitPro() {
 		proControllers.AutoRelayHandlers,
 		// TODO: try to add flow handler only if flow logs are enabled.
 		proControllers.FlowHandlers,
+		proControllers.PostureCheckHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func(ctx context.Context, wg *sync.WaitGroup) {
@@ -106,8 +107,8 @@ func InitPro() {
 		auth.ResetIDPSyncHook()
 		email.Init()
 		go proLogic.EventWatcher()
-
 		logic.GetMetricsMonitor().Start()
+		proLogic.AddPostureCheckHook()
 
 		if proLogic.GetFeatureFlags().EnableFlowLogs && logic.GetServerSettings().EnableFlowLogs {
 			err := ch.Initialize()
@@ -115,12 +116,12 @@ func InitPro() {
 				logger.FatalLog("error connecting to clickhouse:", err.Error())
 			}
 
-			proLogic.GetFlowsCleanupManager().Start()
+			proLogic.StartFlowCleanupLoop()
 
 			wg.Add(1)
 			go func(ctx context.Context, wg *sync.WaitGroup) {
 				<-ctx.Done()
-				proLogic.GetFlowsCleanupManager().Stop()
+				proLogic.StopFlowCleanupLoop()
 				ch.Close()
 				wg.Done()
 			}(ctx, wg)
@@ -196,6 +197,7 @@ func InitPro() {
 	logic.GetNameserversForNode = proLogic.GetNameserversForNode
 	logic.ValidateNameserverReq = proLogic.ValidateNameserverReq
 	logic.ValidateEgressReq = proLogic.ValidateEgressReq
+	logic.CheckPostureViolations = proLogic.CheckPostureViolations
 	logic.StartFlowCleanupLoop = proLogic.StartFlowCleanupLoop
 	logic.StopFlowCleanupLoop = proLogic.StopFlowCleanupLoop
 }
