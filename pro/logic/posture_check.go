@@ -352,50 +352,6 @@ func cleanVersion(v string) string {
 	return v
 }
 
-func matchVersionRule(actual, rule string) (bool, error) {
-	actual = cleanVersion(actual)
-	rule = strings.TrimSpace(rule)
-
-	op := "="
-
-	switch {
-	case strings.HasPrefix(rule, ">="):
-		op = ">="
-		rule = strings.TrimPrefix(rule, ">=")
-	case strings.HasPrefix(rule, "<="):
-		op = "<="
-		rule = strings.TrimPrefix(rule, "<=")
-	case strings.HasPrefix(rule, ">"):
-		op = ">"
-		rule = strings.TrimPrefix(rule, ">")
-	case strings.HasPrefix(rule, "<"):
-		op = "<"
-		rule = strings.TrimPrefix(rule, "<")
-	case strings.HasPrefix(rule, "="):
-		op = "="
-		rule = strings.TrimPrefix(rule, "=")
-	}
-
-	rule = cleanVersion(rule)
-
-	cmp := compareVersions(actual, rule)
-
-	switch op {
-	case "=":
-		return cmp == 0, nil
-	case ">":
-		return cmp == 1, nil
-	case "<":
-		return cmp == -1, nil
-	case ">=":
-		return cmp == 1 || cmp == 0, nil
-	case "<=":
-		return cmp == -1 || cmp == 0, nil
-	}
-
-	return false, fmt.Errorf("invalid rule: %s", rule)
-}
-
 func compareVersions(a, b string) int {
 	pa := strings.Split(a, ".")
 	pb := strings.Split(b, ".")
