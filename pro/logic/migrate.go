@@ -147,6 +147,8 @@ func MigrateToUUIDs() {
 			srcList[i] = src
 		}
 
+		acl.Src = srcList
+
 		dstList := make([]models.AclPolicyTag, len(acl.Dst))
 		for i, dst := range acl.Dst {
 			if dst.ID == models.UserGroupAclID {
@@ -158,6 +160,8 @@ func MigrateToUUIDs() {
 
 			dstList[i] = dst
 		}
+
+		acl.Dst = dstList
 
 		err = logic.UpsertAcl(acl)
 		if err != nil {
