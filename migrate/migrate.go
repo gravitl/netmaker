@@ -638,11 +638,14 @@ func updateNewAcls() {
 						// if the group doesn't exist, don't add it to the acl's src.
 						continue
 					} else {
-						_, ok := userGroup.NetworkRoles[acl.NetworkID]
-						if !ok {
-							// if the group doesn't have permissions for the acl's
-							// network, don't add it to the acl's src.
-							continue
+						_, allNetworkAccess := userGroup.NetworkRoles[models.AllNetworks]
+						if !allNetworkAccess {
+							_, ok := userGroup.NetworkRoles[acl.NetworkID]
+							if !ok {
+								// if the group doesn't have permissions for the acl's
+								// network, don't add it to the acl's src.
+								continue
+							}
 						}
 					}
 				}
