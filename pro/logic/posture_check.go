@@ -142,15 +142,15 @@ func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureChe
 	osChecks := checksByAttribute[schema.OS]
 	osFamilyChecks := checksByAttribute[schema.OSFamily]
 	if len(osChecks) > 0 || len(osFamilyChecks) > 0 {
-		osAllowed := evaluateAttributeChecks(osChecks, schema.OS, d)
-		osFamilyAllowed := evaluateAttributeChecks(osFamilyChecks, schema.OSFamily, d)
+		osAllowed := evaluateAttributeChecks(osChecks, d)
+		osFamilyAllowed := evaluateAttributeChecks(osFamilyChecks, d)
 
 		// OR condition: if either OS or OSFamily passes, both are considered passed
 		if !osAllowed && !osFamilyAllowed {
 
 			// Both failed, add violations for both
-			osDenied := getDeniedChecks(osChecks, schema.OS, d)
-			osFamilyDenied := getDeniedChecks(osFamilyChecks, schema.OSFamily, d)
+			osDenied := getDeniedChecks(osChecks, d)
+			osFamilyDenied := getDeniedChecks(osFamilyChecks, d)
 
 			for _, denied := range osDenied {
 				sev := denied.check.Severity
@@ -234,8 +234,55 @@ func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureChe
 	return violations, highest
 }
 
+// GetPostureCheckDeviceInfoByNode retrieves PostureCheckDeviceInfo for a given node
+func GetPostureCheckDeviceInfoByNode(node *models.Node) models.PostureCheckDeviceInfo {
+	var deviceInfo models.PostureCheckDeviceInfo
+
+	if !node.IsStatic {
+		h, err := logic.GetHost(node.HostID.String())
+		if err != nil {
+			return deviceInfo
+		}
+		deviceInfo = models.PostureCheckDeviceInfo{
+			ClientLocation: h.CountryCode,
+			ClientVersion:  h.Version,
+			OS:             h.OS,
+			OSVersion:      h.OSVersion,
+			OSFamily:       h.OSFamily,
+			KernelVersion:  h.KernelVersion,
+			AutoUpdate:     h.AutoUpdate,
+			Tags:           node.Tags,
+		}
+	} else if node.IsUserNode {
+		deviceInfo = models.PostureCheckDeviceInfo{
+			ClientLocation: node.StaticNode.Country,
+			ClientVersion:  node.StaticNode.ClientVersion,
+			OS:             node.StaticNode.OS,
+			OSVersion:      node.StaticNode.OSVersion,
+			OSFamily:       node.StaticNode.OSFamily,
+			KernelVersion:  node.StaticNode.KernelVersion,
+			Tags:           make(map[models.TagID]struct{}),
+			IsUser:         true,
+			UserGroups:     make(map[models.UserGroupID]struct{}),
+		}
+		// get user groups
+		if node.StaticNode.OwnerID != "" {
+			user, err := logic.GetUser(node.StaticNode.OwnerID)
+			if err == nil && len(user.UserGroups) > 0 {
+				deviceInfo.UserGroups = user.UserGroups
+				if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
+					deviceInfo.UserGroups[GetDefaultNetworkAdminGroupID(models.NetworkID(node.Network))] = struct{}{}
+					deviceInfo.UserGroups[GetDefaultGlobalAdminGroupID()] = struct{}{}
+				}
+			}
+		}
+	}
+
+	return deviceInfo
+}
+
 // evaluateAttributeChecks evaluates checks for a specific attribute and returns true if any check allows the device
-func evaluateAttributeChecks(attrChecks []schema.PostureCheck, attr schema.Attribute, d models.PostureCheckDeviceInfo) bool {
+func evaluateAttributeChecks(attrChecks []schema.PostureCheck, d models.PostureCheckDeviceInfo) bool {
 	for _, c := range attrChecks {
 		violated, _ := evaluatePostureCheck(&c, d)
 		if !violated {
@@ -247,7 +294,7 @@ func evaluateAttributeChecks(attrChecks []schema.PostureCheck, attr schema.Attri
 }
 
 // getDeniedChecks returns all checks that denied the device for a specific attribute
-func getDeniedChecks(attrChecks []schema.PostureCheck, attr schema.Attribute, d models.PostureCheckDeviceInfo) []struct {
+func getDeniedChecks(attrChecks []schema.PostureCheck, d models.PostureCheckDeviceInfo) []struct {
 	check  schema.PostureCheck
 	reason string
 } {

@@ -174,7 +174,7 @@ func InitPro() {
 	logic.ValidateNameserverReq = proLogic.ValidateNameserverReq
 	logic.ValidateEgressReq = proLogic.ValidateEgressReq
 	logic.CheckPostureViolations = proLogic.CheckPostureViolations
-
+	logic.GetPostureCheckDeviceInfoByNode = proLogic.GetPostureCheckDeviceInfoByNode
 }
 
 func retrieveProLogo() string {
