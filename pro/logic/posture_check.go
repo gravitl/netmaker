@@ -55,8 +55,11 @@ func RunPostureChecks() error {
 		}
 
 		for _, nodeI := range networkNodes {
+			if nodeI.IsStatic && !nodeI.IsUserNode {
+				continue
+			}
 			postureChecksViolations, postureCheckVolationSeverityLevel := GetPostureCheckViolations(pcLi, logic.GetPostureCheckDeviceInfoByNode(&nodeI))
-			if nodeI.IsStatic {
+			if nodeI.IsUserNode {
 				extclient, err := logic.GetExtClient(nodeI.StaticNode.ClientID, nodeI.StaticNode.Network)
 				if err == nil {
 					extclient.PostureChecksViolations = postureChecksViolations
@@ -97,19 +100,41 @@ func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureChe
 		if !c.Status {
 			continue
 		}
+		if d.IsUser && c.Attribute == schema.AutoUpdate {
+			continue
+		}
 		// Check if tags match
-		if _, ok := c.Tags["*"]; !ok {
-			exists := false
-			for tagID := range c.Tags {
-				if _, ok := d.Tags[models.TagID(tagID)]; ok {
-					exists = true
-					break
+		if !d.IsUser && len(d.Tags) > 0 {
+			if _, ok := c.Tags["*"]; !ok {
+				exists := false
+				for tagID := range c.Tags {
+					if _, ok := d.Tags[models.TagID(tagID)]; ok {
+						exists = true
+						break
+					}
+				}
+				if !exists {
+					continue
+				}
+
+			}
+		} else if d.IsUser && len(d.UserGroups) > 0 {
+			if _, ok := c.UserGroups["*"]; !ok {
+				exists := false
+				for userG := range c.UserGroups {
+					if _, ok := d.UserGroups[models.UserGroupID(userG)]; ok {
+						exists = true
+						break
+					}
+				}
+				if !exists {
+					continue
 				}
 			}
-			if !exists {
-				continue
-			}
+		} else {
+			continue
 		}
+
 		checksByAttribute[c.Attribute] = append(checksByAttribute[c.Attribute], c)
 	}
 
@@ -117,15 +142,15 @@ func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureChe
 	osChecks := checksByAttribute[schema.OS]
 	osFamilyChecks := checksByAttribute[schema.OSFamily]
 	if len(osChecks) > 0 || len(osFamilyChecks) > 0 {
-		osAllowed := evaluateAttributeChecks(osChecks, schema.OS, d)
-		osFamilyAllowed := evaluateAttributeChecks(osFamilyChecks, schema.OSFamily, d)
+		osAllowed := evaluateAttributeChecks(osChecks, d)
+		osFamilyAllowed := evaluateAttributeChecks(osFamilyChecks, d)
 
 		// OR condition: if either OS or OSFamily passes, both are considered passed
 		if !osAllowed && !osFamilyAllowed {
 
 			// Both failed, add violations for both
-			osDenied := getDeniedChecks(osChecks, schema.OS, d)
-			osFamilyDenied := getDeniedChecks(osFamilyChecks, schema.OSFamily, d)
+			osDenied := getDeniedChecks(osChecks, d)
+			osFamilyDenied := getDeniedChecks(osFamilyChecks, d)
 
 			for _, denied := range osDenied {
 				sev := denied.check.Severity
@@ -209,8 +234,55 @@ func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureChe
 	return violations, highest
 }
 
+// GetPostureCheckDeviceInfoByNode retrieves PostureCheckDeviceInfo for a given node
+func GetPostureCheckDeviceInfoByNode(node *models.Node) models.PostureCheckDeviceInfo {
+	var deviceInfo models.PostureCheckDeviceInfo
+
+	if !node.IsStatic {
+		h, err := logic.GetHost(node.HostID.String())
+		if err != nil {
+			return deviceInfo
+		}
+		deviceInfo = models.PostureCheckDeviceInfo{
+			ClientLocation: h.CountryCode,
+			ClientVersion:  h.Version,
+			OS:             h.OS,
+			OSVersion:      h.OSVersion,
+			OSFamily:       h.OSFamily,
+			KernelVersion:  h.KernelVersion,
+			AutoUpdate:     h.AutoUpdate,
+			Tags:           node.Tags,
+		}
+	} else if node.IsUserNode {
+		deviceInfo = models.PostureCheckDeviceInfo{
+			ClientLocation: node.StaticNode.Country,
+			ClientVersion:  node.StaticNode.ClientVersion,
+			OS:             node.StaticNode.OS,
+			OSVersion:      node.StaticNode.OSVersion,
+			OSFamily:       node.StaticNode.OSFamily,
+			KernelVersion:  node.StaticNode.KernelVersion,
+			Tags:           make(map[models.TagID]struct{}),
+			IsUser:         true,
+			UserGroups:     make(map[models.UserGroupID]struct{}),
+		}
+		// get user groups
+		if node.StaticNode.OwnerID != "" {
+			user, err := logic.GetUser(node.StaticNode.OwnerID)
+			if err == nil && len(user.UserGroups) > 0 {
+				deviceInfo.UserGroups = user.UserGroups
+				if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
+					deviceInfo.UserGroups[GetDefaultNetworkAdminGroupID(models.NetworkID(node.Network))] = struct{}{}
+					deviceInfo.UserGroups[GetDefaultGlobalAdminGroupID()] = struct{}{}
+				}
+			}
+		}
+	}
+
+	return deviceInfo
+}
+
 // evaluateAttributeChecks evaluates checks for a specific attribute and returns true if any check allows the device
-func evaluateAttributeChecks(attrChecks []schema.PostureCheck, attr schema.Attribute, d models.PostureCheckDeviceInfo) bool {
+func evaluateAttributeChecks(attrChecks []schema.PostureCheck, d models.PostureCheckDeviceInfo) bool {
 	for _, c := range attrChecks {
 		violated, _ := evaluatePostureCheck(&c, d)
 		if !violated {
@@ -222,7 +294,7 @@ func evaluateAttributeChecks(attrChecks []schema.PostureCheck, attr schema.Attri
 }
 
 // getDeniedChecks returns all checks that denied the device for a specific attribute
-func getDeniedChecks(attrChecks []schema.PostureCheck, attr schema.Attribute, d models.PostureCheckDeviceInfo) []struct {
+func getDeniedChecks(attrChecks []schema.PostureCheck, d models.PostureCheckDeviceInfo) []struct {
 	check  schema.PostureCheck
 	reason string
 } {
@@ -256,14 +328,16 @@ func evaluatePostureCheck(check *schema.PostureCheck, d models.PostureCheckDevic
 
 	// ------------------------
 	// 2. Client version check
-	// Supports: exact match OR allowed list OR semver rules
+	// Single value representing minimum required version
 	// ------------------------
 	case schema.ClientVersion:
-		for _, rule := range check.Values {
-			ok, err := matchVersionRule(d.ClientVersion, rule)
-			if err != nil || !ok {
-				return true, fmt.Sprintf("client version '%s' violation", d.ClientVersion)
-			}
+		if len(check.Values) == 0 {
+			return false, ""
+		}
+		minVersion := check.Values[0]
+		cmp := compareVersions(cleanVersion(d.ClientVersion), cleanVersion(minVersion))
+		if cmp < 0 {
+			return true, fmt.Sprintf("client version '%s' is below minimum required version '%s'", d.ClientVersion, minVersion)
 		}
 
 	// ------------------------
@@ -280,21 +354,25 @@ func evaluatePostureCheck(check *schema.PostureCheck, d models.PostureCheckDevic
 		}
 	// ------------------------
 	// 4. OS version check
-	// Supports operators: > >= < <= =
+	// Single value representing minimum required version
 	// ------------------------
 	case schema.OSVersion:
-		for _, rule := range check.Values {
-			ok, err := matchVersionRule(d.OSVersion, rule)
-			if err != nil || !ok {
-				return true, fmt.Sprintf("os version '%s' violation", d.OSVersion)
-			}
+		if len(check.Values) == 0 {
+			return false, ""
+		}
+		minVersion := check.Values[0]
+		cmp := compareVersions(cleanVersion(d.OSVersion), cleanVersion(minVersion))
+		if cmp < 0 {
+			return true, fmt.Sprintf("os version '%s' is below minimum required version '%s'", d.OSVersion, minVersion)
 		}
 	case schema.KernelVersion:
-		for _, rule := range check.Values {
-			ok, err := matchVersionRule(d.KernelVersion, rule)
-			if err != nil || !ok {
-				return true, fmt.Sprintf("kernel version '%s' violation", d.KernelVersion)
-			}
+		if len(check.Values) == 0 {
+			return false, ""
+		}
+		minVersion := check.Values[0]
+		cmp := compareVersions(cleanVersion(d.KernelVersion), cleanVersion(minVersion))
+		if cmp < 0 {
+			return true, fmt.Sprintf("kernel version '%s' is below minimum required version '%s'", d.KernelVersion, minVersion)
 		}
 	// ------------------------
 	// 5. Auto-update check
@@ -319,50 +397,6 @@ func cleanVersion(v string) string {
 	v = strings.TrimSuffix(v, ",")
 	v = strings.TrimSpace(v)
 	return v
-}
-
-func matchVersionRule(actual, rule string) (bool, error) {
-	actual = cleanVersion(actual)
-	rule = strings.TrimSpace(rule)
-
-	op := "="
-
-	switch {
-	case strings.HasPrefix(rule, ">="):
-		op = ">="
-		rule = strings.TrimPrefix(rule, ">=")
-	case strings.HasPrefix(rule, "<="):
-		op = "<="
-		rule = strings.TrimPrefix(rule, "<=")
-	case strings.HasPrefix(rule, ">"):
-		op = ">"
-		rule = strings.TrimPrefix(rule, ">")
-	case strings.HasPrefix(rule, "<"):
-		op = "<"
-		rule = strings.TrimPrefix(rule, "<")
-	case strings.HasPrefix(rule, "="):
-		op = "="
-		rule = strings.TrimPrefix(rule, "=")
-	}
-
-	rule = cleanVersion(rule)
-
-	cmp := compareVersions(actual, rule)
-
-	switch op {
-	case "=":
-		return cmp == 0, nil
-	case ">":
-		return cmp == 1, nil
-	case "<":
-		return cmp == -1, nil
-	case ">=":
-		return cmp == 1 || cmp == 0, nil
-	case "<=":
-		return cmp == -1 || cmp == 0, nil
-	}
-
-	return false, fmt.Errorf("invalid rule: %s", rule)
 }
 
 func compareVersions(a, b string) int {
@@ -430,12 +464,13 @@ func ValidatePostureCheck(pc *schema.PostureCheck) error {
 	}
 	if pc.Attribute == schema.ClientVersion || pc.Attribute == schema.OSVersion ||
 		pc.Attribute == schema.KernelVersion {
-		for i, valueI := range pc.Values {
-			if !logic.IsValidVersion(valueI) {
-				return errors.New("invalid attribute version value")
-			}
-			pc.Values[i] = logic.CleanVersion(valueI)
+		if len(pc.Values) != 1 {
+			return errors.New("version attribute must have exactly one value (minimum version)")
 		}
+		if !logic.IsValidVersion(pc.Values[0]) {
+			return errors.New("invalid attribute version value")
+		}
+		pc.Values[0] = logic.CleanVersion(pc.Values[0])
 	}
 	if len(pc.Tags) > 0 {
 		for tagID := range pc.Tags {
@@ -449,7 +484,19 @@ func ValidatePostureCheck(pc *schema.PostureCheck) error {
 		}
 	} else {
 		pc.Tags = make(datatypes.JSONMap)
-		pc.Tags["*"] = struct{}{}
+	}
+	if len(pc.UserGroups) > 0 {
+		for userGrpID := range pc.UserGroups {
+			if userGrpID == "*" {
+				continue
+			}
+			_, err := GetUserGroup(models.UserGroupID(userGrpID))
+			if err != nil {
+				return errors.New("unknown tag")
+			}
+		}
+	} else {
+		pc.UserGroups = make(datatypes.JSONMap)
 	}
 
 	return nil

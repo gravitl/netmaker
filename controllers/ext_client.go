@@ -722,22 +722,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 
 	extclient := logic.UpdateExtClient(&models.ExtClient{}, &customExtClient)
-	if extclient.DeviceID != "" {
-		// check for violations connecting from desktop app
-		violations, _ := logic.CheckPostureViolations(models.PostureCheckDeviceInfo{
-			ClientLocation: extclient.Country,
-			ClientVersion:  extclient.ClientVersion,
-			OS:             extclient.OS,
-			OSFamily:       extclient.OSFamily,
-			OSVersion:      extclient.OSVersion,
-			KernelVersion:  extclient.KernelVersion,
-			//AutoUpdate:     extclient.AutoUpdate,
-		}, models.NetworkID(extclient.Network))
-		if len(violations) > 0 {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("posture check violations"), logic.Forbidden))
-			return
-		}
-	}
+
 	extclient.OwnerID = userName
 	extclient.RemoteAccessClientID = customExtClient.RemoteAccessClientID
 	extclient.IngressGatewayID = nodeid
@@ -776,7 +761,15 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		extclient.Location, extclient.Country = logic.GetHostLocInfo(logic.GetClientIP(r), os.Getenv("IP_INFO_TOKEN"))
 	}
 	extclient.Location = customExtClient.Location
-
+	if extclient.DeviceID != "" {
+		// check for violations connecting from desktop app
+		staticNode := extclient.ConvertToStaticNode()
+		violations, _ := logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(&staticNode), models.NetworkID(extclient.Network))
+		if len(violations) > 0 {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("posture check violations"), logic.Forbidden))
+			return
+		}
+	}
 	if err = logic.CreateExtClient(&extclient); err != nil {
 		slog.Error(
 			"failed to create extclient",
@@ -923,15 +916,8 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	newclient := logic.UpdateExtClient(&oldExtClient, &update)
 	if newclient.DeviceID != "" && newclient.Enabled {
 		// check for violations connecting from desktop app
-		violations, _ := logic.CheckPostureViolations(models.PostureCheckDeviceInfo{
-			ClientLocation: newclient.Country,
-			ClientVersion:  newclient.ClientVersion,
-			OS:             newclient.OS,
-			OSFamily:       newclient.OSFamily,
-			OSVersion:      newclient.OSVersion,
-			KernelVersion:  newclient.KernelVersion,
-			//AutoUpdate:     extclient.AutoUpdate,
-		}, models.NetworkID(newclient.Network))
+		staticNode := newclient.ConvertToStaticNode()
+		violations, _ := logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(&staticNode), models.NetworkID(newclient.Network))
 		if len(violations) > 0 {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("posture check violations"), logic.Forbidden))
 			return
