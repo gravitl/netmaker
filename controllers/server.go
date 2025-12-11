@@ -300,7 +300,10 @@ func reInit(curr, new models.ServerSettings, force bool) {
 		_ = mq.PublishExporterFeatureFlags()
 	}
 
-	if force {
+	// On force AutoUpdate change, change AutoUpdate for all hosts.
+	// On force FlowLogs enable, enable FlowLogs for all hosts.
+	// On FlowLogs disable, forced or not, disable FlowLogs for all hosts.
+	if force || !new.EnableFlowLogs {
 		if curr.NetclientAutoUpdate != new.NetclientAutoUpdate ||
 			curr.EnableFlowLogs != new.EnableFlowLogs {
 			hosts, _ := logic.GetAllHosts()
