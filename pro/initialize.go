@@ -198,6 +198,7 @@ func InitPro() {
 	logic.ValidateNameserverReq = proLogic.ValidateNameserverReq
 	logic.ValidateEgressReq = proLogic.ValidateEgressReq
 	logic.CheckPostureViolations = proLogic.CheckPostureViolations
+	logic.GetPostureCheckDeviceInfoByNode = proLogic.GetPostureCheckDeviceInfoByNode
 	logic.StartFlowCleanupLoop = proLogic.StartFlowCleanupLoop
 	logic.StopFlowCleanupLoop = proLogic.StopFlowCleanupLoop
 }

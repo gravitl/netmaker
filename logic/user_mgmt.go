@@ -48,8 +48,8 @@ var IsNetworkRolesValid = func(networkRoles map[models.NetworkID]map[models.User
 	return nil
 }
 
-var MigrateUserRoleAndGroups = func(u models.User) {
-
+var MigrateUserRoleAndGroups = func(u models.User) models.User {
+	return u
 }
 
 var MigrateToUUIDs = func() {}

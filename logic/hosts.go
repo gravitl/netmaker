@@ -40,6 +40,10 @@ var CheckPostureViolations = func(d models.PostureCheckDeviceInfo, network model
 	return []models.Violation{}, models.SeverityUnknown
 }
 
+var GetPostureCheckDeviceInfoByNode = func(node *models.Node) (d models.PostureCheckDeviceInfo) {
+	return
+}
+
 func getHostsFromCache() (hosts []models.Host) {
 	hostCacheMutex.RLock()
 	for _, host := range hostsCacheMap {
