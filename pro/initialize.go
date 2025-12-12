@@ -4,8 +4,11 @@
 package pro
 
 import (
+	"context"
+	"sync"
 	"time"
 
+	ch "github.com/gravitl/netmaker/clickhouse"
 	controller "github.com/gravitl/netmaker/controllers"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
@@ -25,6 +28,8 @@ func InitPro() {
 	models.SetLogo(retrieveProLogo())
 	controller.HttpMiddlewares = append(
 		controller.HttpMiddlewares,
+		// TODO: try to add clickhouse middleware only if needed.
+		ch.Middleware,
 		proControllers.OnlyServerAPIWhenUnlicensedMiddleware,
 	)
 	controller.HttpHandlers = append(
@@ -37,10 +42,12 @@ func InitPro() {
 		proControllers.TagHandlers,
 		proControllers.NetworkHandlers,
 		proControllers.AutoRelayHandlers,
+		// TODO: try to add flow handler only if flow logs are enabled.
+		proControllers.FlowHandlers,
 		proControllers.PostureCheckHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
-	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func() {
+	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func(ctx context.Context, wg *sync.WaitGroup) {
 		// == License Handling ==
 		enableLicenseHook := true
 		// licenseKeyValue := servercfg.GetLicenseKey()
@@ -102,6 +109,23 @@ func InitPro() {
 		go proLogic.EventWatcher()
 		logic.GetMetricsMonitor().Start()
 		proLogic.AddPostureCheckHook()
+
+		if proLogic.GetFeatureFlags().EnableFlowLogs && logic.GetServerSettings().EnableFlowLogs {
+			err := ch.Initialize()
+			if err != nil {
+				logger.FatalLog("error connecting to clickhouse:", err.Error())
+			}
+
+			proLogic.StartFlowCleanupLoop()
+
+			wg.Add(1)
+			go func(ctx context.Context, wg *sync.WaitGroup) {
+				<-ctx.Done()
+				proLogic.StopFlowCleanupLoop()
+				ch.Close()
+				wg.Done()
+			}(ctx, wg)
+		}
 	})
 	logic.ResetFailOver = proLogic.ResetFailOver
 	logic.ResetFailedOverPeer = proLogic.ResetFailedOverPeer
@@ -175,6 +199,8 @@ func InitPro() {
 	logic.ValidateEgressReq = proLogic.ValidateEgressReq
 	logic.CheckPostureViolations = proLogic.CheckPostureViolations
 	logic.GetPostureCheckDeviceInfoByNode = proLogic.GetPostureCheckDeviceInfoByNode
+	logic.StartFlowCleanupLoop = proLogic.StartFlowCleanupLoop
+	logic.StopFlowCleanupLoop = proLogic.StopFlowCleanupLoop
 }
 
 func retrieveProLogo() string {

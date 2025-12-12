@@ -1,12 +1,19 @@
 package logic
 
-import "github.com/gravitl/netmaker/models"
+import (
+	"context"
+	"sync"
+
+	"github.com/gravitl/netmaker/models"
+)
 
 // EnterpriseCheckFuncs - can be set to run functions for EE
-var EnterpriseCheckFuncs []func()
+var EnterpriseCheckFuncs []func(ctx context.Context, wg *sync.WaitGroup)
 var GetFeatureFlags = func() models.FeatureFlags {
 	return models.FeatureFlags{}
 }
+var StartFlowCleanupLoop = func() {}
+var StopFlowCleanupLoop = func() {}
 
 // == Join, Checkin, and Leave for Server ==
 
@@ -17,8 +24,8 @@ const KUBERNETES_LISTEN_PORT = 31821
 const KUBERNETES_SERVER_MTU = 1024
 
 // EnterpriseCheck - Runs enterprise functions if presented
-func EnterpriseCheck() {
+func EnterpriseCheck(ctx context.Context, wg *sync.WaitGroup) {
 	for _, check := range EnterpriseCheckFuncs {
-		check()
+		check(ctx, wg)
 	}
 }

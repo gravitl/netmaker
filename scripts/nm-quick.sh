@@ -12,6 +12,9 @@ if [ $(id -u) -ne 0 ]; then
 	echo "This script must be run as root"
 	exit 1
 fi
+
+
+
 # increase the timeouts
 export DOCKER_CLIENT_TIMEOUT=120
 export COMPOSE_HTTP_TIMEOUT=120
@@ -21,14 +24,16 @@ unset IMAGE_TAG
 unset NETMAKER_BASE_DOMAIN
 unset UPGRADE_FLAG
 unset COLLECT_PRO_VARS
+unset WITH_FLOW_LOGS
 # usage - displays usage instructions
 usage() {
 	echo "nm-quick.sh v$NM_QUICK_VERSION"
-	echo "usage: ./nm-quick.sh [-c]"
+	echo "usage: ./nm-quick.sh [-c] [--with-flow-logs]"
 	echo " -c  if specified, will install netmaker community version"
 	echo " -p  if specified, will install netmaker pro version"
 	echo " -u  if specified, will upgrade netmaker to pro version"
 	echo " -d if specified, will downgrade netmaker to community version"
+	echo " --with-flow-logs if specified, will enable the flow logs stack"
 	exit 1
 }
 
@@ -262,6 +267,17 @@ save_config() { (
 	for name in "${toCopy[@]}"; do
 		save_config_item $name "${!name}"
 	done
+	if [ "$WITH_FLOW_LOGS" = true ]; then
+    CLICKHOUSE_USER="netmaker"
+    CLICKHOUSE_DB="netmaker"
+    CLICKHOUSE_PASS=$(openssl rand -hex 16)
+
+    save_config_item "CLICKHOUSE_HOST" "clickhouse"
+    save_config_item "CLICKHOUSE_PORT" "9000"
+    save_config_item "CLICKHOUSE_DB" "$CLICKHOUSE_DB"
+    save_config_item "CLICKHOUSE_USER" "$CLICKHOUSE_USER"
+    save_config_item "CLICKHOUSE_PASS" "$CLICKHOUSE_PASS"
+  fi
 	# preserve debug entries
 	if test -n "$NM_SKIP_BUILD"; then
 		save_config_item NM_SKIP_BUILD "$NM_SKIP_BUILD"
@@ -622,9 +638,15 @@ install_netmaker() {
 	local COMPOSE_URL="$BASE_URL/compose/docker-compose.yml"
 	local CADDY_URL="$BASE_URL/docker/Caddyfile"
 	if [ "$INSTALL_TYPE" = "pro" ]; then
-		local COMPOSE_OVERRIDE_URL="$BASE_URL/compose/docker-compose.pro.yml"
-		local CADDY_URL="$BASE_URL/docker/Caddyfile-pro"
-		wget -qO "$SCRIPT_DIR"/docker-compose.override.yml $COMPOSE_OVERRIDE_URL
+    if [ "$WITH_FLOW_LOGS" = true ]; then
+      local COMPOSE_OVERRIDE_URL="$BASE_URL/compose/docker-compose.flow.yml"
+      wget -qO "$SCRIPT_DIR"/docker-compose.override.yml $COMPOSE_OVERRIDE_URL
+      local CADDY_URL="$BASE_URL/docker/Caddyfile-flow"
+    else
+      local COMPOSE_OVERRIDE_URL="$BASE_URL/compose/docker-compose.pro.yml"
+      wget -qO "$SCRIPT_DIR"/docker-compose.override.yml $COMPOSE_OVERRIDE_URL
+  		local CADDY_URL="$BASE_URL/docker/Caddyfile-pro"
+    fi
 	elif [ -a "$SCRIPT_DIR"/docker-compose.override.yml ]; then
 		rm -f "$SCRIPT_DIR"/docker-compose.override.yml
 	fi
@@ -835,6 +857,17 @@ main (){
 		echo "Using config: $CONFIG_PATH"
 		source "$CONFIG_PATH"
 	fi
+
+  WITH_FLOW_LOGS=false
+
+  # handle long options manually
+  for arg in "$@"; do
+    case "$arg" in
+      --with-flow-logs)
+        WITH_FLOW_LOGS=true
+        ;;
+    esac
+  done
 
 	INSTALL_TYPE="ce"
 	while getopts :cudpv flag; do

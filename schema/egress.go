@@ -72,6 +72,11 @@ func (e *Egress) Create(ctx context.Context) error {
 	return db.FromContext(ctx).Table(e.Table()).Create(&e).Error
 }
 
+func (e *Egress) List(ctx context.Context) (egs []Egress, err error) {
+	err = db.FromContext(ctx).Table(e.Table()).Find(&egs).Error
+	return
+}
+
 func (e *Egress) ListByNetwork(ctx context.Context) (egs []Egress, err error) {
 	err = db.FromContext(ctx).Table(e.Table()).Where("network = ?", e.Network).Find(&egs).Error
 	return

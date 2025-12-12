@@ -2,6 +2,8 @@ package logic
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"regexp"
 	"strconv"
@@ -15,6 +17,11 @@ import (
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
+)
+
+var (
+	ErrInvalidJwtValidityDuration = errors.New("invalid jwt validity duration")
+	ErrFlowLogsNotSupported       = errors.New("flow logs not supported")
 )
 
 var ServerSettingsDBKey = "server_cfg"
@@ -142,12 +149,17 @@ func DeleteUserSettings(userID string) error {
 	return database.DeleteRecord(database.SERVER_SETTINGS, userID)
 }
 
-func ValidateNewSettings(req models.ServerSettings) bool {
+func ValidateNewSettings(req models.ServerSettings) error {
 	// TODO: add checks for different fields
 	if req.JwtValidityDuration > 525600 || req.JwtValidityDuration < 5 {
-		return false
+		return ErrInvalidJwtValidityDuration
 	}
-	return true
+
+	if req.EnableFlowLogs && !GetFeatureFlags().EnableFlowLogs {
+		return ErrFlowLogsNotSupported
+	}
+
+	return nil
 }
 
 func GetServerSettingsFromEnv() (s models.ServerSettings) {
@@ -264,6 +276,7 @@ func GetServerInfo() models.ServerConfig {
 		cfg.MQPassword = servercfg.GetMqPassword()
 	}
 	cfg.API = servercfg.GetAPIConnString()
+	cfg.GRPC = fmt.Sprintf("grpc.%s", servercfg.GetNmBaseDomain())
 	cfg.CoreDNSAddr = servercfg.GetCoreDNSAddr()
 	cfg.APIPort = servercfg.GetAPIPort()
 	cfg.DNSMode = "off"
