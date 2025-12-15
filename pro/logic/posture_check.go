@@ -33,6 +33,9 @@ func AddPostureCheckHook() {
 	}
 }
 func RunPostureChecks() error {
+	if !GetFeatureFlags().EnablePostureChecks {
+		return nil
+	}
 	postureCheckMutex.Lock()
 	defer postureCheckMutex.Unlock()
 	nets, err := logic.GetNetworks()
@@ -82,6 +85,9 @@ func RunPostureChecks() error {
 }
 
 func CheckPostureViolations(d models.PostureCheckDeviceInfo, network models.NetworkID) ([]models.Violation, models.Severity) {
+	if !GetFeatureFlags().EnablePostureChecks {
+		return []models.Violation{}, models.SeverityUnknown
+	}
 	pcLi, err := (&schema.PostureCheck{NetworkID: network.String()}).ListByNetwork(db.WithContext(context.TODO()))
 	if err != nil || len(pcLi) == 0 {
 		return []models.Violation{}, models.SeverityUnknown
@@ -90,6 +96,9 @@ func CheckPostureViolations(d models.PostureCheckDeviceInfo, network models.Netw
 	return violations, level
 }
 func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureCheckDeviceInfo) ([]models.Violation, models.Severity) {
+	if !GetFeatureFlags().EnablePostureChecks {
+		return []models.Violation{}, models.SeverityUnknown
+	}
 	var violations []models.Violation
 	highest := models.SeverityUnknown
 
