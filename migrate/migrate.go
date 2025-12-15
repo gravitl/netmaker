@@ -922,7 +922,7 @@ func migrateSettings() {
 		settings.PostureCheckInterval = "30"
 	}
 	if settings.CleanUpInterval == 0 {
-		settings.CleanUpInterval = 60
+		settings.CleanUpInterval = 10
 	}
 	if settings.AuditLogsRetentionPeriodInDays == 0 {
 		settings.AuditLogsRetentionPeriodInDays = 7
