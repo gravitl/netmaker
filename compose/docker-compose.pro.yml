@@ -44,10 +44,27 @@ services:
       # The domain/host IP indicating the mq broker address
       - BROKER_ENDPOINT=wss://broker.${NM_DOMAIN}
       - API_PORT=${EXPORTER_API_PORT}
+      - SERVER_NAME=${NM_DOMAIN}
     restart: always
     depends_on:
       - netmaker
+#      - clickhouse
+#
+#  clickhouse:
+#    container_name: clickhouse
+#    image: clickhouse/clickhouse-server:latest
+#    env_file: ./netmaker.env
+#    restart: always
+#    environment:
+#      - CLICKHOUSE_DB=${CLICKHOUSE_DB}
+#      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+#      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASS}
+#    volumes:
+#      - clickhouse_data:/var/lib/clickhouse
+#      - clickhouse_logs:/var/log/clickhouse-server
 
 volumes:
   prometheus_data: { }
   grafana_data: { }
+#  clickhouse_data: { }
+#  clickhouse_logs: { }

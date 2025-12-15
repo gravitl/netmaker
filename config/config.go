@@ -27,8 +27,9 @@ var SetupErr error
 
 // EnvironmentConfig - environment conf struct
 type EnvironmentConfig struct {
-	Server ServerConfig `yaml:"server"`
-	SQL    SQLConfig    `yaml:"sql"`
+	Server     ServerConfig     `yaml:"server"`
+	SQL        SQLConfig        `yaml:"sql"`
+	ClickHouse ClickHouseConfig `yaml:"clickhouse"`
 }
 
 // ServerConfig - server conf struct
@@ -116,6 +117,14 @@ type SQLConfig struct {
 	Password string `yaml:"password"`
 	DB       string `yaml:"db"`
 	SSLMode  string `yaml:"sslmode"`
+}
+
+type ClickHouseConfig struct {
+	Host     string `yaml:"host"`
+	Port     int32  `yaml:"port"`
+	Database string `yaml:"database"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
 }
 
 // reading in the env file

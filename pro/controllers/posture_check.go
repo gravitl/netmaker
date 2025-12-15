@@ -71,6 +71,7 @@ func createPostureCheck(w http.ResponseWriter, r *http.Request) {
 		NetworkID:   req.NetworkID,
 		Description: req.Description,
 		Tags:        req.Tags,
+		UserGroups:  req.UserGroups,
 		Attribute:   req.Attribute,
 		Values:      req.Values,
 		Severity:    req.Severity,
@@ -215,6 +216,7 @@ func updatePostureCheck(w http.ResponseWriter, r *http.Request) {
 		Origin:    models.Dashboard,
 	}
 	pc.Tags = updatePc.Tags
+	pc.UserGroups = updatePc.UserGroups
 	pc.Attribute = updatePc.Attribute
 	pc.Values = updatePc.Values
 	pc.Description = updatePc.Description
@@ -318,7 +320,7 @@ func listPostureCheckViolatedNodes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, extclient := range extclients {
-			if extclient.DeviceID != "" && extclient.Enabled {
+			if extclient.DeviceID != "" {
 				if len(extclient.PostureChecksViolations) > 0 {
 					violatedNodes = append(violatedNodes, extclient.ConvertToStaticNode())
 				}

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	ch "github.com/gravitl/netmaker/clickhouse"
 
 	"github.com/gorilla/mux"
 	"golang.org/x/exp/slog"
@@ -35,14 +36,14 @@ func serverHandlers(r *mux.Router) {
 		},
 	).Methods(http.MethodGet)
 	r.HandleFunc(
-		"/api/server/shutdown",
-		func(w http.ResponseWriter, _ *http.Request) {
-			msg := "received api call to shutdown server, sending interruption..."
-			slog.Warn(msg)
-			_, _ = w.Write([]byte(msg))
-			w.WriteHeader(http.StatusOK)
-			_ = syscall.Kill(syscall.Getpid(), syscall.SIGINT)
-		},
+		"/api/server/shutdown", logic.SecurityCheck(true,
+			http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				msg := "received api call to shutdown server, sending interruption..."
+				slog.Warn(msg)
+				_, _ = w.Write([]byte(msg))
+				w.WriteHeader(http.StatusOK)
+				_ = syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+			})),
 	).Methods(http.MethodPost)
 	r.HandleFunc("/api/server/getconfig", allowUsers(http.HandlerFunc(getConfig))).
 		Methods(http.MethodGet)
@@ -224,8 +225,8 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if !logic.ValidateNewSettings(req) {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid settings"), "badrequest"))
+	if err := logic.ValidateNewSettings(req); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid settings: %w", err), "badrequest"))
 		return
 	}
 	currSettings := logic.GetServerSettings()
@@ -286,13 +287,33 @@ func reInit(curr, new models.ServerSettings, force bool) {
 		logic.GetMetricsMonitor().Stop()
 		logic.GetMetricsMonitor().Start()
 	}
-	// check if auto update is changed
-	if force {
-		if curr.NetclientAutoUpdate != new.NetclientAutoUpdate {
-			// update all hosts
+
+	if curr.EnableFlowLogs != new.EnableFlowLogs {
+		if new.EnableFlowLogs {
+			_ = ch.Initialize()
+			logic.StartFlowCleanupLoop()
+		} else {
+			logic.StopFlowCleanupLoop()
+			ch.Close()
+		}
+
+		_ = mq.PublishExporterFeatureFlags()
+	}
+
+	// On force AutoUpdate change, change AutoUpdate for all hosts.
+	// On force FlowLogs enable, enable FlowLogs for all hosts.
+	// On FlowLogs disable, forced or not, disable FlowLogs for all hosts.
+	if force || !new.EnableFlowLogs {
+		if curr.NetclientAutoUpdate != new.NetclientAutoUpdate ||
+			curr.EnableFlowLogs != new.EnableFlowLogs {
 			hosts, _ := logic.GetAllHosts()
 			for _, host := range hosts {
-				host.AutoUpdate = new.NetclientAutoUpdate
+				if curr.NetclientAutoUpdate != new.NetclientAutoUpdate {
+					host.AutoUpdate = new.NetclientAutoUpdate
+				}
+				if curr.EnableFlowLogs != new.EnableFlowLogs {
+					host.EnableFlowLogs = new.EnableFlowLogs
+				}
 				logic.UpsertHost(&host)
 				mq.HostUpdate(&models.HostUpdate{
 					Action: models.UpdateHost,
@@ -334,6 +355,14 @@ func identifySettingsUpdateAction(old, new models.ServerSettings) models.Action 
 			return models.DisableTelemetry
 		} else {
 			return models.EnableTelemetry
+		}
+	}
+
+	if old.EnableFlowLogs != new.EnableFlowLogs {
+		if new.EnableFlowLogs {
+			return models.EnableFlowLogs
+		} else {
+			return models.DisableFlowLogs
 		}
 	}
 

@@ -96,14 +96,19 @@ func CreateEnrollmentKey(uses int, expiration time.Time, networks,
 }
 
 // UpdateEnrollmentKey - updates an existing enrollment key's associated relay
-func UpdateEnrollmentKey(keyId string, relayId uuid.UUID, groups []models.TagID) (*models.EnrollmentKey, error) {
+func UpdateEnrollmentKey(keyId string, updates *models.APIEnrollmentKey) (*models.EnrollmentKey, error) {
 	key, err := GetEnrollmentKey(keyId)
 	if err != nil {
 		return nil, err
 	}
 
-	if relayId != uuid.Nil {
-		relayNode, err := GetNodeByID(relayId.String())
+	relayID := uuid.Nil
+	if updates.Relay != "" {
+		relayID = uuid.MustParse(updates.Relay)
+	}
+
+	if relayID != uuid.Nil {
+		relayNode, err := GetNodeByID(relayID.String())
 		if err != nil {
 			return nil, err
 		}
@@ -115,8 +120,13 @@ func UpdateEnrollmentKey(keyId string, relayId uuid.UUID, groups []models.TagID)
 		}
 	}
 
-	key.Relay = relayId
-	key.Groups = groups
+	if relayID != uuid.Nil {
+		updates.AutoAssignGateway = false
+	}
+
+	key.Relay = relayID
+	key.Groups = updates.Groups
+	key.AutoAssignGateway = updates.AutoAssignGateway
 	if err = upsertEnrollmentKey(&key); err != nil {
 		return nil, err
 	}
