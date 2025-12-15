@@ -13,7 +13,7 @@ type Nameserver struct {
 	Name        string                                `gorm:"name" json:"name"`
 	NetworkID   string                                `gorm:"network_id" json:"network_id"`
 	Description string                                `gorm:"description" json:"description"`
-	Default     bool                                  `gorm:"default" json:"default"`
+	Default     bool                                  `gorm:"column:default" json:"default"`
 	Servers     datatypes.JSONSlice[string]           `gorm:"servers" json:"servers"`
 	MatchAll    bool                                  `gorm:"match_all" json:"match_all"`
 	Domains     datatypes.JSONSlice[NameserverDomain] `gorm:"domains" json:"domains"`
