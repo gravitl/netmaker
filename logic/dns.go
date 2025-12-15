@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	validator "github.com/go-playground/validator/v10"
 	"github.com/gravitl/netmaker/database"
@@ -19,6 +20,10 @@ import (
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/txn2/txeh"
+)
+
+const (
+	GooglePublicDNSID = "1f6c873e-8be8-4b31-8b34-20763f9fc8ff"
 )
 
 var GetNameserversForNode = getNameserversForNode
@@ -58,6 +63,44 @@ var GlobalNsList = map[string]GlobalNs{
 			"2620:fe::9",
 		},
 	},
+}
+
+func CreateGoogleDNSNameserver(networkID string) error {
+	err := (&schema.Nameserver{
+		ID: GooglePublicDNSID,
+	}).Get(db.WithContext(context.TODO()))
+	if err == nil {
+		return nil
+	}
+
+	ns := schema.Nameserver{
+		ID:          GooglePublicDNSID,
+		Name:        "Google Public DNS",
+		NetworkID:   networkID,
+		Description: "",
+		Default:     true,
+		Servers: []string{
+			"8.8.8.8",
+			"8.8.4.4",
+			"2001:4860:4860::8888",
+			"2001:4860:4860::8844",
+		},
+		MatchAll: true,
+		Domains: []schema.NameserverDomain{
+			{
+				Domain:         ".",
+				IsSearchDomain: false,
+			},
+		},
+		Tags: map[string]interface{}{
+			"*": "",
+		},
+		Status:    true,
+		CreatedBy: "auto",
+		CreatedAt: time.Now().UTC(),
+	}
+
+	return ns.Create(db.WithContext(context.TODO()))
 }
 
 // SetDNS - sets the dns on file
