@@ -52,6 +52,7 @@ type ServerSettings struct {
 	PeerConnectionCheckInterval    string `json:"peer_connection_check_interval"`
 	PostureCheckInterval           string `json:"posture_check_interval"` // in minutes
 	CleanUpInterval                int    `json:"clean_up_interval_in_mins"`
+	EnableFlowLogs                 bool   `json:"enable_flow_logs"`
 }
 
 type UserSettings struct {

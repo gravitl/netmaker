@@ -89,6 +89,7 @@ type PostureCheck struct {
 	Values      datatypes.JSONSlice[string] `gorm:"values" json:"values"`
 	Severity    models.Severity             `gorm:"severity" json:"severity"`
 	Tags        datatypes.JSONMap           `gorm:"tags" json:"tags"`
+	UserGroups  datatypes.JSONMap           `gorm:"user_groups" json:"user_groups"`
 	Status      bool                        `gorm:"status" json:"status"`
 	CreatedBy   string                      `gorm:"created_by" json:"created_by"`
 	CreatedAt   time.Time                   `gorm:"created_at" json:"created_at"`

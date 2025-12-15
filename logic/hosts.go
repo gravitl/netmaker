@@ -40,6 +40,10 @@ var CheckPostureViolations = func(d models.PostureCheckDeviceInfo, network model
 	return []models.Violation{}, models.SeverityUnknown
 }
 
+var GetPostureCheckDeviceInfoByNode = func(node *models.Node) (d models.PostureCheckDeviceInfo) {
+	return
+}
+
 func getHostsFromCache() (hosts []models.Host) {
 	hostCacheMutex.RLock()
 	for _, host := range hostsCacheMap {
@@ -262,6 +266,11 @@ func CreateHost(h *models.Host) error {
 	} else if h.EndpointIPv6 != nil {
 		h.Location, h.CountryCode = GetHostLocInfo(h.EndpointIPv6.String(), os.Getenv("IP_INFO_TOKEN"))
 	}
+
+	if !GetFeatureFlags().EnableFlowLogs || !GetServerSettings().EnableFlowLogs {
+		h.EnableFlowLogs = false
+	}
+
 	checkForZombieHosts(h)
 	return UpsertHost(h)
 }
@@ -301,6 +310,10 @@ func UpdateHost(newHost, currentHost *models.Host) {
 
 	if strings.TrimSpace(newHost.DNS) == "" {
 		newHost.DNS = currentHost.DNS
+	}
+
+	if !GetFeatureFlags().EnableFlowLogs || !GetServerSettings().EnableFlowLogs {
+		newHost.EnableFlowLogs = false
 	}
 }
 
