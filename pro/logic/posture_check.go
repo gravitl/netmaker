@@ -104,8 +104,16 @@ func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureChe
 			continue
 		}
 		// Check if tags match
-		if !d.IsUser && len(d.Tags) > 0 {
-			if _, ok := c.Tags["*"]; !ok {
+		if !d.IsUser {
+			// Check if posture check has wildcard tag - applies to all devices
+			if _, hasWildcard := c.Tags["*"]; hasWildcard {
+				// Wildcard tag matches all devices, continue to evaluate the check
+			} else if len(c.Tags) > 0 {
+				// Check has specific tags - device must have at least one matching tag
+				if len(d.Tags) == 0 {
+					// Device has no tags and check doesn't have wildcard, skip
+					continue
+				}
 				exists := false
 				for tagID := range c.Tags {
 					if _, ok := d.Tags[models.TagID(tagID)]; ok {
@@ -116,10 +124,20 @@ func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureChe
 				if !exists {
 					continue
 				}
-
+			} else {
+				// Check has no tags configured, skip
+				continue
 			}
-		} else if d.IsUser && len(d.UserGroups) > 0 {
-			if _, ok := c.UserGroups["*"]; !ok {
+		} else if d.IsUser {
+			// Check if posture check has wildcard user group - applies to all users
+			if _, hasWildcard := c.UserGroups["*"]; hasWildcard {
+				// Wildcard user group matches all users, continue to evaluate the check
+			} else if len(c.UserGroups) > 0 {
+				// Check has specific user groups - user must have at least one matching group
+				if len(d.UserGroups) == 0 {
+					// User has no groups and check doesn't have wildcard, skip
+					continue
+				}
 				exists := false
 				for userG := range c.UserGroups {
 					if _, ok := d.UserGroups[models.UserGroupID(userG)]; ok {
@@ -130,9 +148,10 @@ func GetPostureCheckViolations(checks []schema.PostureCheck, d models.PostureChe
 				if !exists {
 					continue
 				}
+			} else {
+				// Check has no user groups configured, skip
+				continue
 			}
-		} else {
-			continue
 		}
 
 		checksByAttribute[c.Attribute] = append(checksByAttribute[c.Attribute], c)
