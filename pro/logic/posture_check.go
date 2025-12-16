@@ -292,6 +292,13 @@ func GetPostureCheckDeviceInfoByNode(node *models.Node) models.PostureCheckDevic
 				if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
 					deviceInfo.UserGroups[GetDefaultNetworkAdminGroupID(models.NetworkID(node.Network))] = struct{}{}
 					deviceInfo.UserGroups[GetDefaultGlobalAdminGroupID()] = struct{}{}
+				} else if _, ok := user.UserGroups[GetDefaultGlobalAdminGroupID()]; ok {
+
+					deviceInfo.UserGroups[GetDefaultNetworkAdminGroupID(models.NetworkID(node.Network))] = struct{}{}
+
+				} else if _, ok := user.UserGroups[GetDefaultGlobalUserGroupID()]; ok {
+
+					deviceInfo.UserGroups[GetDefaultNetworkUserGroupID(models.NetworkID(node.Network))] = struct{}{}
 				}
 			}
 		}
