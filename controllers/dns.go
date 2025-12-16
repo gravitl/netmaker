@@ -244,30 +244,35 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 		NetworkID: models.NetworkID(ns.NetworkID),
 		Origin:    models.Dashboard,
 	}
-	ns.Servers = updateNs.Servers
-	ns.Tags = updateNs.Tags
-	ns.Domains = updateNs.Domains
-	ns.MatchAll = updateNs.MatchAll
-	ns.Description = updateNs.Description
-	ns.Name = updateNs.Name
-	ns.Nodes = updateNs.Nodes
-	ns.Status = updateNs.Status
-	ns.UpdatedAt = time.Now().UTC()
 
-	err = ns.Update(db.WithContext(context.TODO()))
-	if err != nil {
-		logic.ReturnErrorResponse(
-			w,
-			r,
-			logic.FormatError(errors.New("error creating egress resource"+err.Error()), "internal"),
-		)
-		return
+	if !ns.Default {
+		ns.Servers = updateNs.Servers
+		ns.Tags = updateNs.Tags
+		ns.Domains = updateNs.Domains
+		ns.Description = updateNs.Description
+		ns.Name = updateNs.Name
+		ns.Nodes = updateNs.Nodes
+		ns.UpdatedAt = time.Now().UTC()
+
+		err = ns.Update(db.WithContext(context.TODO()))
+		if err != nil {
+			logic.ReturnErrorResponse(
+				w,
+				r,
+				logic.FormatError(errors.New("error creating egress resource"+err.Error()), "internal"),
+			)
+			return
+		}
+
+		if updateMatchAll {
+			ns.MatchAll = updateNs.MatchAll
+			ns.UpdateMatchAll(db.WithContext(context.TODO()))
+		}
 	}
+
 	if updateStatus {
+		ns.Status = updateNs.Status
 		ns.UpdateStatus(db.WithContext(context.TODO()))
-	}
-	if updateMatchAll {
-		ns.UpdateMatchAll(db.WithContext(context.TODO()))
 	}
 	logic.LogEvent(event)
 	go mq.PublishPeerUpdate(false)
@@ -294,6 +299,10 @@ func deleteNs(w http.ResponseWriter, r *http.Request) {
 	err := ns.Get(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+	if ns.Default {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot delete default nameservers"), logic.BadReq))
 		return
 	}
 	err = ns.Delete(db.WithContext(r.Context()))
