@@ -554,6 +554,8 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 				slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 			}
 		}
+
+		_ = logic.DeleteNetworkNameservers(network)
 		if servercfg.IsDNSMode() {
 			logic.SetDNS()
 		}
@@ -681,6 +683,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	logic.CreateDefaultAclNetworkPolicies(models.NetworkID(network.NetID))
 	logic.CreateDefaultTags(models.NetworkID(network.NetID))
 	logic.AddNetworkToAllocatedIpMap(network.NetID)
+	logic.CreateGoogleDNSNameserver(network.NetID)
 
 	go func() {
 		defaultHosts := logic.GetDefaultHosts()

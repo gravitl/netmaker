@@ -13,6 +13,7 @@ import (
 	"time"
 
 	validator "github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
@@ -23,7 +24,7 @@ import (
 )
 
 const (
-	GooglePublicDNSID = "1f6c873e-8be8-4b31-8b34-20763f9fc8ff"
+	GooglePublicNameserverName = "Google Public DNS"
 )
 
 var GetNameserversForNode = getNameserversForNode
@@ -66,16 +67,22 @@ var GlobalNsList = map[string]GlobalNs{
 }
 
 func CreateGoogleDNSNameserver(networkID string) error {
-	err := (&schema.Nameserver{
-		ID: GooglePublicDNSID,
-	}).Get(db.WithContext(context.TODO()))
-	if err == nil {
-		return nil
+	nameservers, err := (&schema.Nameserver{
+		NetworkID: networkID,
+	}).ListByNetwork(db.WithContext(context.TODO()))
+	if err != nil {
+		return err
+	}
+
+	for _, ns := range nameservers {
+		if ns.Default && ns.Name == GooglePublicNameserverName {
+			return nil
+		}
 	}
 
 	ns := schema.Nameserver{
-		ID:          GooglePublicDNSID,
-		Name:        "Google Public DNS",
+		ID:          uuid.NewString(),
+		Name:        GooglePublicNameserverName,
 		NetworkID:   networkID,
 		Description: "",
 		Default:     true,
@@ -101,6 +108,12 @@ func CreateGoogleDNSNameserver(networkID string) error {
 	}
 
 	return ns.Create(db.WithContext(context.TODO()))
+}
+
+func DeleteNetworkNameservers(networkID string) error {
+	return (&schema.Nameserver{
+		NetworkID: networkID,
+	}).Delete(db.WithContext(context.TODO()))
 }
 
 // SetDNS - sets the dns on file

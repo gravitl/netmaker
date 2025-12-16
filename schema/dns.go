@@ -53,6 +53,10 @@ func (ns *Nameserver) Delete(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Nameserver{}).Where("id = ?", ns.ID).Delete(&ns).Error
 }
 
+func (ns *Nameserver) DeleteByNetwork(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&Nameserver{}).Where("network_id = ?", ns.NetworkID).Delete(&ns).Error
+}
+
 func (ns *Nameserver) UpdateStatus(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Nameserver{}).Where("id = ?", ns.ID).Updates(map[string]any{
 		"status": ns.Status,
