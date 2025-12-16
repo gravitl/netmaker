@@ -249,11 +249,9 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 		ns.Servers = updateNs.Servers
 		ns.Tags = updateNs.Tags
 		ns.Domains = updateNs.Domains
-		ns.MatchAll = updateNs.MatchAll
 		ns.Description = updateNs.Description
 		ns.Name = updateNs.Name
 		ns.Nodes = updateNs.Nodes
-		ns.Status = updateNs.Status
 		ns.UpdatedAt = time.Now().UTC()
 
 		err = ns.Update(db.WithContext(context.TODO()))
@@ -267,11 +265,13 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if updateMatchAll {
+			ns.MatchAll = updateNs.MatchAll
 			ns.UpdateMatchAll(db.WithContext(context.TODO()))
 		}
 	}
 
 	if updateStatus {
+		ns.Status = updateNs.Status
 		ns.UpdateStatus(db.WithContext(context.TODO()))
 	}
 	logic.LogEvent(event)
