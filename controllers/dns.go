@@ -301,6 +301,10 @@ func deleteNs(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
 	}
+	if ns.Default {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot delete default nameservers"), logic.BadReq))
+		return
+	}
 	err = ns.Delete(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
