@@ -367,6 +367,12 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	pcviolations := []models.Violation{}
 	skipViolatedNetworks := []string{}
+	keyTags := make(map[models.TagID]struct{})
+	if len(enrollmentKey.Groups) > 0 {
+		for _, tagI := range enrollmentKey.Groups {
+			keyTags[tagI] = struct{}{}
+		}
+	}
 	for _, netI := range enrollmentKey.Networks {
 		violations, _ := logic.CheckPostureViolations(models.PostureCheckDeviceInfo{
 			ClientLocation: newHost.CountryCode,
@@ -376,6 +382,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			OSVersion:      newHost.OSVersion,
 			KernelVersion:  newHost.KernelVersion,
 			AutoUpdate:     newHost.AutoUpdate,
+			Tags:           keyTags,
 		}, models.NetworkID(netI))
 		pcviolations = append(pcviolations, violations...)
 		if len(violations) > 0 {
