@@ -25,6 +25,7 @@ type FeatureFlags struct {
 	EnableGwsHA             bool `json:"enable_gws_ha"`
 	EnableDeviceApproval    bool `json:"enable_device_approval"`
 	EnableFlowLogs          bool `json:"enable_flow_logs"`
+	EnablePostureChecks     bool `json:"enable_posture_checks"`
 }
 
 // AuthParams - struct for auth params
