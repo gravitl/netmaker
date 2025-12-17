@@ -410,7 +410,6 @@ func unassignGw(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
 	netid := params["network"]
-	gwid := r.URL.Query().Get("gw_id")
 	// Validate gateway node
 	node, err := logic.ValidateParams(nodeid, netid)
 	if err != nil {
@@ -422,7 +421,7 @@ func unassignGw(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	gwid = node.RelayedBy
+	gwid := node.RelayedBy
 	if node.AutoAssignGateway && gwid == "" {
 		node.AutoAssignGateway = false
 		logic.UpsertNode(&node)
@@ -484,5 +483,4 @@ func unassignGw(w http.ResponseWriter, r *http.Request) {
 		mq.PublishPeerUpdate(false)
 	}()
 	logic.ReturnSuccessResponseWithJson(w, r, node.ConvertToAPINode(), "unassigned gateway")
-	return
 }
