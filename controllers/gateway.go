@@ -322,19 +322,34 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	// Validate gateway node
-	gatewayNode, err := logic.ValidateParams(gwid, netid)
-	if err != nil {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return
+	if !servercfg.IsPro {
+		autoAssignGw = false
 	}
-
-	// Check if node is a gateway
-	if !gatewayNode.IsGw {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("node %s is not a gateway", nodeid), "badrequest"))
-		return
-	}
-	if autoAssignGw && servercfg.IsPro {
+	if autoAssignGw {
+		if node.FailedOverBy != uuid.Nil {
+			go logic.ResetFailedOverPeer(&node)
+		}
+		if len(node.AutoRelayedPeers) > 0 {
+			go logic.ResetAutoRelayedPeer(&node)
+		}
+		if node.RelayedBy != "" {
+			gatewayNode, err := logic.GetNodeByID(node.RelayedBy)
+			if err == nil {
+				newNodes := gatewayNode.RelayedNodes
+				newNodes = logic.RemoveAllFromSlice(newNodes, node.ID.String())
+				logic.UpdateRelayNodes(gatewayNode.ID.String(), gatewayNode.RelayedNodes, newNodes)
+				// Unassign client nodes (set their InternetGwID to empty)
+				if node.InternetGwID != "" {
+					node.InternetGwID = ""
+					gatewayNode.InetNodeReq.InetNodeClientIDs = logic.RemoveAllFromSlice(gatewayNode.InetNodeReq.InetNodeClientIDs, node.ID.String())
+					logic.UpsertNode(&gatewayNode)
+				}
+			} else {
+				node.RelayedBy = ""
+				node.InternetGwID = ""
+			}
+			node, _ = logic.GetNodeByID(node.ID.String())
+		}
 		node.AutoAssignGateway = true
 		logic.UpsertNode(&node)
 		logic.GetNodeStatus(&node, false)
@@ -347,6 +362,19 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnSuccessResponseWithJson(w, r, node.ConvertToAPINode(), "auto assigned gateway")
 		return
 	}
+	// Validate gateway node
+	gatewayNode, err := logic.ValidateParams(gwid, netid)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	// Check if node is a gateway
+	if !gatewayNode.IsGw {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("node %s is not a gateway", nodeid), "badrequest"))
+		return
+	}
+
 	if node.FailedOverBy != uuid.Nil {
 		go logic.ResetFailedOverPeer(&node)
 	}
@@ -449,6 +477,7 @@ func unassignGw(w http.ResponseWriter, r *http.Request) {
 	}
 	node.AutoAssignGateway = false
 	logic.UpsertNode(&node)
+	logic.UpsertNode(&gatewayNode)
 	// Unset Relayed node
 	newNodes := gatewayNode.RelayedNodes
 	newNodes = logic.RemoveAllFromSlice(newNodes, node.ID.String())
