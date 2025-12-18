@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -335,6 +336,10 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 		if node.RelayedBy != "" {
 			gatewayNode, err := logic.GetNodeByID(node.RelayedBy)
 			if err == nil {
+				// check if gw gateway Node has the relayed Node
+				if !slices.Contains(gatewayNode.RelayedNodes, node.ID.String()) {
+					gatewayNode.RelayedNodes = append(gatewayNode.RelayedNodes, node.ID.String())
+				}
 				newNodes := gatewayNode.RelayedNodes
 				newNodes = logic.RemoveAllFromSlice(newNodes, node.ID.String())
 				logic.UpdateRelayNodes(gatewayNode.ID.String(), gatewayNode.RelayedNodes, newNodes)
@@ -479,6 +484,10 @@ func unassignGw(w http.ResponseWriter, r *http.Request) {
 	logic.UpsertNode(&node)
 	logic.UpsertNode(&gatewayNode)
 	// Unset Relayed node
+	// check if gw gateway Node has the relayed Node
+	if !slices.Contains(gatewayNode.RelayedNodes, node.ID.String()) {
+		gatewayNode.RelayedNodes = append(gatewayNode.RelayedNodes, node.ID.String())
+	}
 	newNodes := gatewayNode.RelayedNodes
 	newNodes = logic.RemoveAllFromSlice(newNodes, node.ID.String())
 	logic.UpdateRelayNodes(gatewayNode.ID.String(), gatewayNode.RelayedNodes, newNodes)
