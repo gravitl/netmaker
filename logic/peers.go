@@ -239,6 +239,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		if !hostPeerUpdate.IsInternetGw {
 			hostPeerUpdate.IsInternetGw = IsInternetGw(node)
 		}
+		hostPeerUpdate.DnsNameservers = append(hostPeerUpdate.DnsNameservers, GetEgressDomainNSForNode(&node)...)
 		defaultUserPolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.UserPolicy)
 		defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
 		if (defaultDevicePolicy.Enabled && defaultUserPolicy.Enabled) ||
@@ -276,7 +277,6 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 		hostPeerUpdate.NameServers = append(hostPeerUpdate.NameServers, networkSettings.NameServers...)
 		currentPeers := GetNetworkNodesMemory(allNodes, node.Network)
 		for _, peer := range currentPeers {
-			peer := peer
 			if peer.ID.String() == node.ID.String() {
 				// skip yourself
 				continue

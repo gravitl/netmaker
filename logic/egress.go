@@ -222,7 +222,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 	}
 }
 
-func GetEgressDomainsByAccess(user *models.User, network models.NetworkID) (domains []string) {
+func GetEgressDomainsByAccessForUser(user *models.User, network models.NetworkID) (domains []string) {
 	acls := ListUserPolicies(network)
 	eli, _ := (&schema.Egress{Network: network.String()}).ListByNetwork(db.WithContext(context.TODO()))
 	defaultDevicePolicy, _ := GetDefaultPolicy(network, models.UserPolicy)
@@ -238,6 +238,49 @@ func GetEgressDomainsByAccess(user *models.User, network models.NetworkID) (doma
 		}
 		if e.Domain != "" && len(e.DomainAns) > 0 {
 			domains = append(domains, BaseDomain(e.Domain))
+
+		}
+	}
+	return
+}
+
+func GetEgressDomainNSForNode(node *models.Node) (returnNsLi []models.Nameserver) {
+	acls := ListDevicePolicies(models.NetworkID(node.Network))
+	eli, _ := (&schema.Egress{Network: node.Network}).ListByNetwork(db.WithContext(context.TODO()))
+	defaultDevicePolicy, _ := GetDefaultPolicy(models.NetworkID(node.Network), models.DevicePolicy)
+	isDefaultPolicyActive := defaultDevicePolicy.Enabled
+	for _, e := range eli {
+		if !e.Status || e.Network != node.Network {
+			continue
+		}
+		if !isDefaultPolicyActive {
+			if !DoesNodeHaveAccessToEgress(node, &e, acls) {
+				continue
+			}
+		}
+		if e.Domain != "" && len(e.DomainAns) > 0 {
+			var routingNodeIPs []string
+			// Collect IPs from all routing nodes for this egress
+			for nodeID := range e.Nodes {
+				routingNode, err := GetNodeByID(nodeID)
+				if err != nil {
+					continue
+				}
+				if routingNode.ID == node.ID {
+					continue
+				}
+				if routingNode.Address.IP != nil {
+					routingNodeIPs = append(routingNodeIPs, routingNode.Address.IP.String())
+				}
+				if routingNode.Address6.IP != nil {
+					routingNodeIPs = append(routingNodeIPs, routingNode.Address6.IP.String())
+				}
+			}
+			returnNsLi = append(returnNsLi, models.Nameserver{
+				IPs:            routingNodeIPs,
+				MatchDomain:    BaseDomain(e.Domain),
+				IsSearchDomain: false,
+			})
 
 		}
 	}
