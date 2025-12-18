@@ -565,9 +565,16 @@ func ValidateCreateGroupReq(g models.UserGroup) error {
 	}
 	return nil
 }
-func ValidateUpdateGroupReq(g models.UserGroup) error {
-	for networkID := range g.NetworkRoles {
-		userRolesMap := g.NetworkRoles[networkID]
+func ValidateUpdateGroupReq(new models.UserGroup) error {
+	var newHasAllNetworkRole, newHasSpecNetworkRole bool
+	for networkID := range new.NetworkRoles {
+		if networkID == models.AllNetworks {
+			newHasAllNetworkRole = true
+		} else {
+			newHasSpecNetworkRole = true
+		}
+
+		userRolesMap := new.NetworkRoles[networkID]
 		for roleID := range userRolesMap {
 			netRole, err := logic.GetRole(roleID)
 			if err != nil {
@@ -579,6 +586,11 @@ func ValidateUpdateGroupReq(g models.UserGroup) error {
 			}
 		}
 	}
+
+	if newHasAllNetworkRole && newHasSpecNetworkRole {
+		return errors.New("cannot have networks roles for all networks and a specific network")
+	}
+
 	return nil
 }
 
