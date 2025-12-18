@@ -11,9 +11,8 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	ch "github.com/gravitl/netmaker/clickhouse"
-
 	"github.com/gorilla/mux"
+	ch "github.com/gravitl/netmaker/clickhouse"
 	"golang.org/x/exp/slog"
 
 	"github.com/gravitl/netmaker/database"
@@ -248,8 +247,29 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if currSettings.EnableFlowLogs != req.EnableFlowLogs {
+		if req.EnableFlowLogs {
+			err := ch.Initialize()
+			if err != nil {
+				err = fmt.Errorf("failed to enable flow logs: %v", err)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+				return
+			}
+			logic.StartFlowCleanupLoop()
+		} else {
+			logic.StopFlowCleanupLoop()
+			ch.Close()
+		}
+
+		_ = mq.PublishExporterFeatureFlags()
+	}
+
 	err := logic.UpsertServerSettings(req)
 	if err != nil {
+		if req.EnableFlowLogs {
+			logic.StopFlowCleanupLoop()
+			ch.Close()
+		}
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to update server settings "+err.Error()), "internal"))
 		return
 	}
@@ -286,18 +306,6 @@ func reInit(curr, new models.ServerSettings, force bool) {
 	if curr.MetricInterval != new.MetricInterval {
 		logic.GetMetricsMonitor().Stop()
 		logic.GetMetricsMonitor().Start()
-	}
-
-	if curr.EnableFlowLogs != new.EnableFlowLogs {
-		if new.EnableFlowLogs {
-			_ = ch.Initialize()
-			logic.StartFlowCleanupLoop()
-		} else {
-			logic.StopFlowCleanupLoop()
-			ch.Close()
-		}
-
-		_ = mq.PublishExporterFeatureFlags()
 	}
 
 	// On force AutoUpdate change, change AutoUpdate for all hosts.
