@@ -77,6 +77,12 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if strings.Contains(route, "enrollment-keys") {
 			r.Header.Set("TARGET_RSRC", models.EnrollmentKeysRsrc.String())
 		}
+		if strings.Contains(route, "posture_check") {
+			r.Header.Set("TARGET_RSRC", models.PostureCheckRsrc.String())
+		}
+		if strings.Contains(route, "nameserver") {
+			r.Header.Set("TARGET_RSRC", models.NameserverRsrc.String())
+		}
 		if strings.Contains(route, "metrics") {
 			r.Header.Set("TARGET_RSRC", models.MetricRsrc.String())
 		}

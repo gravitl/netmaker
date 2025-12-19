@@ -32,6 +32,30 @@ func AddPostureCheckHook() {
 		Interval: interval,
 	}
 }
+func RemoveTagFromPostureChecks(tagID models.TagID, netID models.NetworkID) {
+	pcLi, err := (&schema.PostureCheck{NetworkID: netID}).ListByNetwork(db.WithContext(context.TODO()))
+	if err != nil || len(pcLi) == 0 {
+		return
+	}
+	for _, pcI := range pcLi {
+		if _, ok := pcI.Tags[tagID.String()]; ok {
+			delete(pcI.Tags, tagID.String())
+			pcI.Update(db.WithContext(context.TODO()))
+		}
+	}
+}
+func RemoveUserGroupFromPostureChecks(grpID models.UserGroupID, netID models.NetworkID) {
+	pcLi, err := (&schema.PostureCheck{NetworkID: netID}).ListByNetwork(db.WithContext(context.TODO()))
+	if err != nil || len(pcLi) == 0 {
+		return
+	}
+	for _, pcI := range pcLi {
+		if _, ok := pcI.UserGroups[grpID.String()]; ok {
+			delete(pcI.UserGroups, grpID.String())
+			pcI.Update(db.WithContext(context.TODO()))
+		}
+	}
+}
 func RunPostureChecks() error {
 	if !GetFeatureFlags().EnablePostureChecks {
 		return nil
@@ -52,7 +76,7 @@ func RunPostureChecks() error {
 			continue
 		}
 		networkNodes = logic.AddStaticNodestoList(networkNodes)
-		pcLi, err := (&schema.PostureCheck{NetworkID: netI.NetID}).ListByNetwork(db.WithContext(context.TODO()))
+		pcLi, err := (&schema.PostureCheck{NetworkID: models.NetworkID(netI.NetID)}).ListByNetwork(db.WithContext(context.TODO()))
 		if err != nil || len(pcLi) == 0 {
 			continue
 		}
@@ -88,7 +112,7 @@ func CheckPostureViolations(d models.PostureCheckDeviceInfo, network models.Netw
 	if !GetFeatureFlags().EnablePostureChecks {
 		return []models.Violation{}, models.SeverityUnknown
 	}
-	pcLi, err := (&schema.PostureCheck{NetworkID: network.String()}).ListByNetwork(db.WithContext(context.TODO()))
+	pcLi, err := (&schema.PostureCheck{NetworkID: network}).ListByNetwork(db.WithContext(context.TODO()))
 	if err != nil || len(pcLi) == 0 {
 		return []models.Violation{}, models.SeverityUnknown
 	}
@@ -467,7 +491,7 @@ func ValidatePostureCheck(pc *schema.PostureCheck) error {
 	if pc.Name == "" {
 		return errors.New("name cannot be empty")
 	}
-	_, err := logic.GetNetwork(pc.NetworkID)
+	_, err := logic.GetNetwork(pc.NetworkID.String())
 	if err != nil {
 		return errors.New("invalid network")
 	}
