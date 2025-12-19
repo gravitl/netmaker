@@ -33,6 +33,8 @@ const (
 	UpdateIDPSettings                    Action = "UPDATE_IDP_SETTINGS"
 	EnableFlowLogs                       Action = "ENABLE_FLOW_LOGS"
 	DisableFlowLogs                      Action = "DISABLE_FLOW_LOGS"
+	GatewayAssign                        Action = "GATEWAY_ASSIGN"
+	GatewayUnAssign                      Action = "GATEWAY_UNASSIGN"
 )
 
 type SubjectType string
