@@ -167,6 +167,8 @@ func GetAllRsrcIDForRsrc(rsrc models.RsrcType) models.RsrcID {
 		return models.AllTagsRsrcID
 	case models.PostureCheckRsrc:
 		return models.AllPostureCheckRsrcID
+	case models.NameserverRsrc:
+		return models.AllNameserverRsrcID
 	}
 	return ""
 }

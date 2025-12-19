@@ -129,6 +129,11 @@ var NetworkUserAllPermissionTemplate = models.UserRolePermissionTemplate{
 				Read: true,
 			},
 		},
+		models.NameserverRsrc: {
+			models.AllNameserverRsrcID: models.RsrcPermissionScope{
+				Read: true,
+			},
+		},
 	},
 }
 
@@ -254,6 +259,11 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 			},
 			models.PostureCheckRsrc: {
 				models.AllPostureCheckRsrcID: models.RsrcPermissionScope{
+					Read: true,
+				},
+			},
+			models.NameserverRsrc: {
+				models.AllNameserverRsrcID: models.RsrcPermissionScope{
 					Read: true,
 				},
 			},
@@ -719,7 +729,6 @@ func DeleteAndCleanUpGroup(group *models.UserGroup) error {
 	if err != nil {
 		return err
 	}
-
 	go func() {
 		var replacePeers bool
 		var networkIDs []models.NetworkID
@@ -737,6 +746,7 @@ func DeleteAndCleanUpGroup(group *models.UserGroup) error {
 		}
 
 		for _, networkID := range networkIDs {
+			go RemoveUserGroupFromPostureChecks(group.ID, networkID)
 			acls, err := logic.ListAclsByNetwork(networkID)
 			if err != nil {
 				continue
