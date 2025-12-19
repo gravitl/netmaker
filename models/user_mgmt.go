@@ -77,6 +77,7 @@ const (
 	DnsRsrc            RsrcType = "dns"
 	FailOverRsrc       RsrcType = "fail_over"
 	MetricRsrc         RsrcType = "metric"
+	PostureCheckRsrc   RsrcType = "posturecheck"
 )
 
 const (
@@ -93,6 +94,7 @@ const (
 	AllFailOverRsrcID       RsrcID = "all_fail_over"
 	AllAclsRsrcID           RsrcID = "all_acl"
 	AllTagsRsrcID           RsrcID = "all_tag"
+	AllPostureCheckRsrcID   RsrcID = "all_posturecheck"
 )
 
 // Pre-Defined User Roles

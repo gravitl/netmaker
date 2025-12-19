@@ -124,6 +124,11 @@ var NetworkUserAllPermissionTemplate = models.UserRolePermissionTemplate{
 				Read: true,
 			},
 		},
+		models.PostureCheckRsrc: {
+			models.AllPostureCheckRsrcID: models.RsrcPermissionScope{
+				Read: true,
+			},
+		},
 	},
 }
 
@@ -244,6 +249,11 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 			},
 			models.TagRsrc: {
 				models.AllTagsRsrcID: models.RsrcPermissionScope{
+					Read: true,
+				},
+			},
+			models.PostureCheckRsrc: {
+				models.AllPostureCheckRsrcID: models.RsrcPermissionScope{
 					Read: true,
 				},
 			},
