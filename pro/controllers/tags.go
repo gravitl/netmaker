@@ -275,6 +275,7 @@ func deleteTag(w http.ResponseWriter, r *http.Request) {
 
 	go func() {
 		proLogic.RemoveDeviceTagFromAclPolicies(tag.ID, tag.Network)
+		proLogic.RemoveTagFromPostureChecks(tag.ID, tag.Network)
 		logic.RemoveTagFromEnrollmentKeys(tag.ID)
 		mq.PublishPeerUpdate(false)
 	}()
