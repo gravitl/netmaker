@@ -12,6 +12,9 @@ if [ $(id -u) -ne 0 ]; then
 	echo "This script must be run as root"
 	exit 1
 fi
+
+
+
 # increase the timeouts
 export DOCKER_CLIENT_TIMEOUT=120
 export COMPOSE_HTTP_TIMEOUT=120
@@ -28,7 +31,7 @@ usage() {
 	echo " -c  if specified, will install netmaker community version"
 	echo " -p  if specified, will install netmaker pro version"
 	echo " -u  if specified, will upgrade netmaker to pro version"
-	echo " -d if specified, will downgrade netmaker to community version"
+	echo " -d  if specified, will downgrade netmaker to community version"
 	exit 1
 }
 
@@ -622,9 +625,9 @@ install_netmaker() {
 	local COMPOSE_URL="$BASE_URL/compose/docker-compose.yml"
 	local CADDY_URL="$BASE_URL/docker/Caddyfile"
 	if [ "$INSTALL_TYPE" = "pro" ]; then
-		local COMPOSE_OVERRIDE_URL="$BASE_URL/compose/docker-compose.pro.yml"
-		local CADDY_URL="$BASE_URL/docker/Caddyfile-pro"
-		wget -qO "$SCRIPT_DIR"/docker-compose.override.yml $COMPOSE_OVERRIDE_URL
+    local COMPOSE_OVERRIDE_URL="$BASE_URL/compose/docker-compose.pro.yml"
+    wget -qO "$SCRIPT_DIR"/docker-compose.override.yml $COMPOSE_OVERRIDE_URL
+    local CADDY_URL="$BASE_URL/docker/Caddyfile-pro"
 	elif [ -a "$SCRIPT_DIR"/docker-compose.override.yml ]; then
 		rm -f "$SCRIPT_DIR"/docker-compose.override.yml
 	fi

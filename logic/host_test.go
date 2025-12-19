@@ -3,11 +3,12 @@ package logic
 import (
 	"context"
 	"fmt"
-	"github.com/gravitl/netmaker/db"
-	"github.com/gravitl/netmaker/schema"
 	"net"
 	"os"
 	"testing"
+
+	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/schema"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
@@ -22,7 +23,7 @@ func TestMain(m *testing.M) {
 	database.InitializeDatabase()
 	defer database.CloseDB()
 	peerUpdate := make(chan *models.Node)
-	go ManageZombies(context.Background(), peerUpdate)
+	go ManageZombies(context.Background())
 	go func() {
 		for y := range peerUpdate {
 			fmt.Printf("Pointless %v\n", y)

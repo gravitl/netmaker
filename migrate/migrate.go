@@ -84,6 +84,10 @@ func updateNetworks() {
 			netI.AutoJoin = "true"
 			logic.UpsertNetwork(netI)
 		}
+		if netI.AutoRemove == "" {
+			netI.AutoRemove = "false"
+			logic.UpsertNetwork(netI)
+		}
 	}
 
 }
@@ -96,6 +100,8 @@ func migrateNameservers() {
 	}
 
 	for _, netI := range nets {
+		_ = logic.CreateGoogleDNSNameserver(netI.NetID)
+
 		_, cidr, err := net.ParseCIDR(netI.AddressRange)
 		if err != nil {
 			continue
@@ -421,13 +427,13 @@ func updateHosts() {
 			host.AutoUpdate = true
 			logic.UpsertHost(&host)
 		}
-		if servercfg.IsPro && host.Location == "" {
+		if servercfg.IsPro && (host.Location == "" || host.CountryCode == "") {
 			if host.EndpointIP != nil {
-				host.Location = logic.GetHostLocInfo(host.EndpointIP.String(), os.Getenv("IP_INFO_TOKEN"))
+				host.Location, host.CountryCode = logic.GetHostLocInfo(host.EndpointIP.String(), os.Getenv("IP_INFO_TOKEN"))
 			} else if host.EndpointIPv6 != nil {
-				host.Location = logic.GetHostLocInfo(host.EndpointIPv6.String(), os.Getenv("IP_INFO_TOKEN"))
+				host.Location, host.CountryCode = logic.GetHostLocInfo(host.EndpointIPv6.String(), os.Getenv("IP_INFO_TOKEN"))
 			}
-			if host.Location != "" {
+			if host.Location != "" && host.CountryCode != "" {
 				logic.UpsertHost(&host)
 			}
 		}
@@ -634,11 +640,14 @@ func updateNewAcls() {
 						// if the group doesn't exist, don't add it to the acl's src.
 						continue
 					} else {
-						_, ok := userGroup.NetworkRoles[acl.NetworkID]
-						if !ok {
-							// if the group doesn't have permissions for the acl's
-							// network, don't add it to the acl's src.
-							continue
+						_, allNetworkAccess := userGroup.NetworkRoles[models.AllNetworks]
+						if !allNetworkAccess {
+							_, ok := userGroup.NetworkRoles[acl.NetworkID]
+							if !ok {
+								// if the group doesn't have permissions for the acl's
+								// network, don't add it to the acl's src.
+								continue
+							}
 						}
 					}
 				}
@@ -679,6 +688,8 @@ func migrateToUUIDs() {
 }
 
 func syncUsers() {
+	logger.Log(1, "Migrating Users (SyncUsers)")
+	defer logger.Log(1, "Completed migrating Users (SyncUsers)")
 	// create default network user roles for existing networks
 	if servercfg.IsPro {
 		networks, _ := logic.GetNetworks()
@@ -691,51 +702,73 @@ func syncUsers() {
 	if err == nil {
 		for _, user := range users {
 			user := user
+			needsUpdate := false
+
+			// Update admin flags based on platform role
 			if user.PlatformRoleID == models.AdminRole && !user.IsAdmin {
 				user.IsAdmin = true
 				user.IsSuperAdmin = false
-				logic.UpsertUser(user)
+				needsUpdate = true
 			}
 			if user.PlatformRoleID == models.SuperAdminRole && !user.IsSuperAdmin {
 				user.IsSuperAdmin = true
 				user.IsAdmin = true
-				logic.UpsertUser(user)
+				needsUpdate = true
 			}
 			if user.PlatformRoleID == models.PlatformUser || user.PlatformRoleID == models.ServiceUser {
-				user.IsSuperAdmin = false
-				user.IsAdmin = false
-				logic.UpsertUser(user)
-			}
-			if user.PlatformRoleID.String() != "" {
-				logic.MigrateUserRoleAndGroups(user)
-				logic.AddGlobalNetRolesToAdmins(&user)
-				logic.UpsertUser(user)
-				continue
-			}
-			user.AuthType = models.BasicAuth
-			if logic.IsOauthUser(&user) == nil {
-				user.AuthType = models.OAuth
-			}
-			if len(user.NetworkRoles) == 0 {
-				user.NetworkRoles = make(map[models.NetworkID]map[models.UserRoleID]struct{})
-			}
-			if len(user.UserGroups) == 0 {
-				user.UserGroups = make(map[models.UserGroupID]struct{})
+				if user.IsSuperAdmin || user.IsAdmin {
+					user.IsSuperAdmin = false
+					user.IsAdmin = false
+					needsUpdate = true
+				}
 			}
 
-			// We reach here only if the platform role id has not been set.
-			//
-			// Thus, we use the boolean fields to assign the role.
-			if user.IsSuperAdmin {
-				user.PlatformRoleID = models.SuperAdminRole
-			} else if user.IsAdmin {
-				user.PlatformRoleID = models.AdminRole
+			if user.PlatformRoleID.String() != "" {
+				// Initialize maps if nil
+				if user.NetworkRoles == nil {
+					user.NetworkRoles = make(map[models.NetworkID]map[models.UserRoleID]struct{})
+					needsUpdate = true
+				}
+				if user.UserGroups == nil {
+					user.UserGroups = make(map[models.UserGroupID]struct{})
+					needsUpdate = true
+				}
+				// Migrate user roles and groups, then add global net roles
+				user = logic.MigrateUserRoleAndGroups(user)
+				logic.AddGlobalNetRolesToAdmins(&user)
+				needsUpdate = true
 			} else {
-				user.PlatformRoleID = models.ServiceUser
+				// Set auth type
+				user.AuthType = models.BasicAuth
+				if logic.IsOauthUser(&user) == nil {
+					user.AuthType = models.OAuth
+				}
+				if len(user.NetworkRoles) == 0 {
+					user.NetworkRoles = make(map[models.NetworkID]map[models.UserRoleID]struct{})
+				}
+				if len(user.UserGroups) == 0 {
+					user.UserGroups = make(map[models.UserGroupID]struct{})
+				}
+
+				// We reach here only if the platform role id has not been set.
+				//
+				// Thus, we use the boolean fields to assign the role.
+				if user.IsSuperAdmin {
+					user.PlatformRoleID = models.SuperAdminRole
+				} else if user.IsAdmin {
+					user.PlatformRoleID = models.AdminRole
+				} else {
+					user.PlatformRoleID = models.ServiceUser
+				}
+				logic.AddGlobalNetRolesToAdmins(&user)
+				user = logic.MigrateUserRoleAndGroups(user)
+				needsUpdate = true
 			}
-			logic.AddGlobalNetRolesToAdmins(&user)
-			logic.MigrateUserRoleAndGroups(user)
-			logic.UpsertUser(user)
+
+			// Only update user once after all changes are collected
+			if needsUpdate {
+				logic.UpsertUser(user)
+			}
 		}
 	}
 
@@ -886,6 +919,12 @@ func migrateSettings() {
 	}
 	if settings.PeerConnectionCheckInterval == "" {
 		settings.PeerConnectionCheckInterval = "15"
+	}
+	if settings.PostureCheckInterval == "" {
+		settings.PostureCheckInterval = "30"
+	}
+	if settings.CleanUpInterval == 0 {
+		settings.CleanUpInterval = 10
 	}
 	if settings.AuditLogsRetentionPeriodInDays == 0 {
 		settings.AuditLogsRetentionPeriodInDays = 7

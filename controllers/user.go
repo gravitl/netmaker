@@ -415,42 +415,6 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("Content-Type", "application/json")
 	response.Write(successJSONResponse)
 
-	go func() {
-		if servercfg.IsPro {
-			// enable all associeated clients for the user
-			clients, err := logic.GetAllExtClients()
-			if err != nil {
-				slog.Error("error getting clients: ", "error", err)
-				return
-			}
-			for _, client := range clients {
-				if client.OwnerID == username && !client.Enabled {
-					slog.Info(
-						fmt.Sprintf(
-							"enabling ext client %s for user %s due to RAC autodisabling feature",
-							client.ClientID,
-							client.OwnerID,
-						),
-					)
-					if newClient, err := logic.ToggleExtClientConnectivity(&client, true); err != nil {
-						slog.Error(
-							"error enabling ext client in RAC autodisable hook",
-							"error",
-							err,
-						)
-						continue // dont return but try for other clients
-					} else {
-						// publish peer update to ingress gateway
-						if ingressNode, err := logic.GetNodeByID(newClient.IngressGatewayID); err == nil {
-							if err = mq.PublishPeerUpdate(false); err != nil {
-								slog.Error("error updating ext clients on", "ingress", ingressNode.ID.String(), "err", err.Error())
-							}
-						}
-					}
-				}
-			}
-		}
-	}()
 }
 
 // @Summary     Validates a user's identity against it's token. This is used by UI before a user performing a critical operation to validate the user's identity.
@@ -833,6 +797,26 @@ func enableUserAccount(w http.ResponseWriter, r *http.Request) {
 		logger.Log(0, "failed to enable user account: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 	}
+	go func() {
+		enableConfigs := r.URL.Query().Get("force_enable_configs") == "true"
+		if !enableConfigs {
+			return
+		}
+		extclients, err := logic.GetAllExtClients()
+		if err != nil {
+			logger.Log(0, "failed to get user extclients:", err.Error())
+			return
+		}
+		for _, extclient := range extclients {
+			if extclient.OwnerID == user.UserName && !extclient.Enabled {
+				_, err = logic.ToggleExtClientConnectivity(&extclient, true)
+				if err != nil {
+					logger.Log(1, "failed to delete user extclient:", err.Error())
+				}
+			}
+		}
+		mq.PublishPeerUpdate(false)
+	}()
 
 	logic.ReturnSuccessResponse(w, r, "user account enabled")
 }
@@ -906,21 +890,24 @@ func disableUserAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go func() {
+		disableConfigs := r.URL.Query().Get("force_disable_configs") == "true"
+		if !disableConfigs {
+			return
+		}
 		extclients, err := logic.GetAllExtClients()
 		if err != nil {
 			logger.Log(0, "failed to get user extclients:", err.Error())
 			return
 		}
-
 		for _, extclient := range extclients {
 			if extclient.OwnerID == user.UserName {
-				err = logic.DeleteExtClientAndCleanup(extclient)
+				_, err = logic.ToggleExtClientConnectivity(&extclient, false)
 				if err != nil {
-					logger.Log(0, "failed to delete user extclient:", err.Error())
+					logger.Log(1, "failed to delete user extclient:", err.Error())
 				} else {
 					err := mq.PublishDeletedClientPeerUpdate(&extclient)
 					if err != nil {
-						logger.Log(0, "failed to publish deleted client peer update:", err.Error())
+						logger.Log(1, "failed to publish deleted client peer update:", err.Error())
 					}
 				}
 			}
@@ -1591,6 +1578,7 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 	})
 	// check and delete extclient with this ownerID
 	go func() {
+		delete := r.URL.Query().Get("force_delete_configs") == "true"
 		extclients, err := logic.GetAllExtClients()
 		if err != nil {
 			slog.Error("failed to get extclients", "error", err)
@@ -1598,6 +1586,12 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, extclient := range extclients {
 			if extclient.OwnerID == user.UserName {
+				if extclient.DeviceID == "" && extclient.RemoteAccessClientID == "" {
+					if !delete {
+						// only delete wireguard configs on force
+						continue
+					}
+				}
 				err = logic.DeleteExtClientAndCleanup(extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",

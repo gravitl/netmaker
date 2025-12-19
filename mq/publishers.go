@@ -225,7 +225,7 @@ func PushMetricsToExporter(metrics models.Metrics) error {
 	if mqclient == nil || !mqclient.IsConnectionOpen() {
 		return errors.New("cannot publish ... mqclient not connected")
 	}
-	if token := mqclient.Publish("metrics_exporter", 0, true, data); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
+	if token := mqclient.Publish(fmt.Sprintf("metrics_exporter/%s", servercfg.GetServer()), 0, true, data); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
 		var err error
 		if token.Error() == nil {
 			err = errors.New("connection timeout")
@@ -311,6 +311,29 @@ func PushSyncDNS(dnsEntries []models.DNSEntry) error {
 			}
 			return err
 		}
+	}
+
+	return nil
+}
+
+func PublishExporterFeatureFlags() error {
+	featureFlags := models.ExporterFeatureFlags{
+		EnableFlowLogs: logic.GetFeatureFlags().EnableFlowLogs && logic.GetServerSettings().EnableFlowLogs,
+	}
+
+	data, err := json.Marshal(featureFlags)
+	if err != nil {
+		return errors.New("failed to marshal feature flags data: " + err.Error())
+	}
+
+	if token := mqclient.Publish(fmt.Sprintf("feature_flags/%s", servercfg.GetServer()), 0, true, data); !token.WaitTimeout(MQ_TIMEOUT*time.Second) || token.Error() != nil {
+		var err error
+		if token.Error() == nil {
+			err = errors.New("connection timeout")
+		} else {
+			err = token.Error()
+		}
+		return err
 	}
 
 	return nil

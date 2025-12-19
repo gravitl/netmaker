@@ -54,6 +54,7 @@ services:
     ports:
       - "80:80/tcp"
       - "443:443/tcp"
+      - "50051:50051"
 
   coredns:
     #network_mode: host

@@ -10,8 +10,10 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	validator "github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
@@ -19,6 +21,10 @@ import (
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/txn2/txeh"
+)
+
+const (
+	GooglePublicNameserverName = "Google Public DNS"
 )
 
 var GetNameserversForNode = getNameserversForNode
@@ -58,6 +64,56 @@ var GlobalNsList = map[string]GlobalNs{
 			"2620:fe::9",
 		},
 	},
+}
+
+func CreateGoogleDNSNameserver(networkID string) error {
+	nameservers, err := (&schema.Nameserver{
+		NetworkID: networkID,
+	}).ListByNetwork(db.WithContext(context.TODO()))
+	if err != nil {
+		return err
+	}
+
+	for _, ns := range nameservers {
+		if ns.Default && ns.Name == GooglePublicNameserverName {
+			return nil
+		}
+	}
+
+	ns := schema.Nameserver{
+		ID:          uuid.NewString(),
+		Name:        GooglePublicNameserverName,
+		NetworkID:   networkID,
+		Description: "",
+		Default:     true,
+		Servers: []string{
+			"8.8.8.8",
+			"8.8.4.4",
+			"2001:4860:4860::8888",
+			"2001:4860:4860::8844",
+		},
+		MatchAll: true,
+		Domains: []schema.NameserverDomain{
+			{
+				Domain:         ".",
+				IsSearchDomain: false,
+			},
+		},
+		Tags: map[string]interface{}{
+			"*": "",
+		},
+		Status:    true,
+		CreatedBy: "auto",
+		CreatedAt: time.Now().UTC(),
+	}
+
+	return ns.Create(db.WithContext(context.TODO()))
+}
+
+func DeleteNetworkNameservers(networkID string) error {
+	return (&schema.Nameserver{
+		NetworkID: networkID,
+	}).Delete(db.WithContext(context.TODO()))
 }
 
 // SetDNS - sets the dns on file
@@ -226,6 +282,9 @@ func GetGwDNS(node *models.Node) string {
 }
 
 func SetDNSOnWgConfig(gwNode *models.Node, extclient *models.ExtClient) {
+	if extclient.DNS != "" {
+		return
+	}
 	extclient.DNS = GetGwDNS(gwNode)
 }
 

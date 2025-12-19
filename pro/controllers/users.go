@@ -87,7 +87,7 @@ func UserHandlers(r *mux.Router) {
 //	Responses:
 //		200: ReturnSuccessResponse
 func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
-	email := r.URL.Query().Get("email")
+	email, _ := url.QueryUnescape(r.URL.Query().Get("email"))
 	code := r.URL.Query().Get("invite_code")
 	in, err := logic.GetUserInvite(email)
 	if err != nil {

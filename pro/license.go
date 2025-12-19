@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/utils"
 
 	"golang.org/x/crypto/nacl/box"
@@ -38,7 +39,8 @@ type apiServerConf struct {
 // AddLicenseHooks - adds the validation and cache clear hooks
 func AddLicenseHooks() {
 	logic.HookManagerCh <- models.HookDetails{
-		Hook:     ValidateLicense,
+		ID:       "license-validation-hook",
+		Hook:     logic.WrapHook(ValidateLicense),
 		Interval: time.Hour,
 	}
 	// logic.HookManagerCh <- models.HookDetails{
@@ -136,6 +138,8 @@ func ValidateLicense() (err error) {
 	}
 
 	proLogic.SetFeatureFlags(licenseResponse.FeatureFlags)
+
+	_ = mq.PublishExporterFeatureFlags()
 
 	slog.Info("License validation succeeded!")
 	return nil

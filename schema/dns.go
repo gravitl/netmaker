@@ -13,6 +13,7 @@ type Nameserver struct {
 	Name        string                                `gorm:"name" json:"name"`
 	NetworkID   string                                `gorm:"network_id" json:"network_id"`
 	Description string                                `gorm:"description" json:"description"`
+	Default     bool                                  `gorm:"column:default" json:"default"`
 	Servers     datatypes.JSONSlice[string]           `gorm:"servers" json:"servers"`
 	MatchAll    bool                                  `gorm:"match_all" json:"match_all"`
 	Domains     datatypes.JSONSlice[NameserverDomain] `gorm:"domains" json:"domains"`
@@ -50,6 +51,10 @@ func (ns *Nameserver) ListByNetwork(ctx context.Context) (dnsli []Nameserver, er
 
 func (ns *Nameserver) Delete(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Nameserver{}).Where("id = ?", ns.ID).Delete(&ns).Error
+}
+
+func (ns *Nameserver) DeleteByNetwork(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&Nameserver{}).Where("network_id = ?", ns.NetworkID).Delete(&ns).Error
 }
 
 func (ns *Nameserver) UpdateStatus(ctx context.Context) error {

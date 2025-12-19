@@ -24,6 +24,8 @@ type FeatureFlags struct {
 	AllowMultiServerLicense bool `json:"allow_multi_server_license"`
 	EnableGwsHA             bool `json:"enable_gws_ha"`
 	EnableDeviceApproval    bool `json:"enable_device_approval"`
+	EnableFlowLogs          bool `json:"enable_flow_logs"`
+	EnablePostureChecks     bool `json:"enable_posture_checks"`
 }
 
 // AuthParams - struct for auth params
@@ -116,8 +118,9 @@ type SuccessfulLoginResponse struct {
 
 // ErrorResponse is struct for error
 type ErrorResponse struct {
-	Code    int
-	Message string
+	Code     int
+	Message  string
+	Response interface{}
 }
 
 // NodeAuth - struct for node auth
@@ -184,6 +187,9 @@ type ExtPeersResponse struct {
 }
 
 type EgressRangeMetric struct {
+	// EgressID is the ID of the egress gateway that this EgressRangeMetric originated
+	// from. Might not be always set.
+	EgressID    string `json:"-"`
 	Network     string `json:"network"`
 	RouteMetric uint32 `json:"route_metric"` // preffered range 1-999
 	Nat         bool   `json:"nat"`
@@ -255,24 +261,25 @@ type TrafficKeys struct {
 
 // HostPull - response of a host's pull
 type HostPull struct {
-	Host              Host                  `json:"host" yaml:"host"`
-	Nodes             []Node                `json:"nodes" yaml:"nodes"`
-	Peers             []wgtypes.PeerConfig  `json:"peers" yaml:"peers"`
-	ServerConfig      ServerConfig          `json:"server_config" yaml:"server_config"`
-	PeerIDs           PeerMap               `json:"peer_ids,omitempty" yaml:"peer_ids,omitempty"`
-	HostNetworkInfo   HostInfoMap           `json:"host_network_info,omitempty"  yaml:"host_network_info,omitempty"`
-	EgressRoutes      []EgressNetworkRoutes `json:"egress_network_routes"`
-	FwUpdate          FwUpdate              `json:"fw_update"`
-	ChangeDefaultGw   bool                  `json:"change_default_gw"`
-	DefaultGwIp       net.IP                `json:"default_gw_ip"`
-	IsInternetGw      bool                  `json:"is_inet_gw"`
-	EndpointDetection bool                  `json:"endpoint_detection"`
-	NameServers       []string              `json:"name_servers"`
-	EgressWithDomains []EgressDomain        `json:"egress_with_domains"`
-	DnsNameservers    []Nameserver          `json:"dns_nameservers"`
-	AutoRelayNodes    map[NetworkID][]Node  `json:"auto_relay_nodes"`
-	GwNodes           map[NetworkID][]Node  `json:"gw_nodes"`
-	ReplacePeers      bool                  `json:"replace_peers"`
+	Host               Host                    `json:"host" yaml:"host"`
+	Nodes              []Node                  `json:"nodes" yaml:"nodes"`
+	Peers              []wgtypes.PeerConfig    `json:"peers" yaml:"peers"`
+	ServerConfig       ServerConfig            `json:"server_config" yaml:"server_config"`
+	PeerIDs            PeerMap                 `json:"peer_ids,omitempty" yaml:"peer_ids,omitempty"`
+	HostNetworkInfo    HostInfoMap             `json:"host_network_info,omitempty"  yaml:"host_network_info,omitempty"`
+	EgressRoutes       []EgressNetworkRoutes   `json:"egress_network_routes"`
+	FwUpdate           FwUpdate                `json:"fw_update"`
+	ChangeDefaultGw    bool                    `json:"change_default_gw"`
+	DefaultGwIp        net.IP                  `json:"default_gw_ip"`
+	IsInternetGw       bool                    `json:"is_inet_gw"`
+	EndpointDetection  bool                    `json:"endpoint_detection"`
+	NameServers        []string                `json:"name_servers"`
+	EgressWithDomains  []EgressDomain          `json:"egress_with_domains"`
+	DnsNameservers     []Nameserver            `json:"dns_nameservers"`
+	AutoRelayNodes     map[NetworkID][]Node    `json:"auto_relay_nodes"`
+	GwNodes            map[NetworkID][]Node    `json:"gw_nodes"`
+	ReplacePeers       bool                    `json:"replace_peers"`
+	AddressIdentityMap map[string]PeerIdentity `json:"address_identity_map"`
 }
 
 // NodeGet - struct for a single node get response
@@ -299,6 +306,7 @@ type ServerConfig struct {
 	API                         string `yaml:"api"`
 	APIHost                     string `yaml:"apihost"`
 	APIPort                     string `yaml:"apiport"`
+	GRPC                        string `yaml:"grpc"`
 	DNSMode                     string `yaml:"dnsmode"`
 	Version                     string `yaml:"version"`
 	MQPort                      string `yaml:"mqport"`
@@ -343,10 +351,31 @@ type JoinData struct {
 	Key  string `json:"key" yaml:"key"`
 }
 
+// HookFunc - function type for hooks that can accept optional parameters
+type HookFunc func(...interface{}) error
+
 // HookDetails - struct to hold hook info
 type HookDetails struct {
-	Hook     func() error
+	ID       string        // Unique identifier for the hook (optional, auto-generated if empty)
+	Hook     HookFunc      // Hook function that accepts optional variadic parameters
+	Params   []interface{} // Optional parameters to pass to the hook function
 	Interval time.Duration
+}
+
+// HookCommandType - type of command for hook management
+type HookCommandType int
+
+const (
+	HookCommandReset HookCommandType = iota
+	HookCommandStop
+	HookCommandRestart
+)
+
+// HookCommand - command to control a hook
+type HookCommand struct {
+	ID       string // Hook ID to target
+	Command  HookCommandType
+	Interval time.Duration // Optional: new interval for restart command (0 means use existing)
 }
 
 // LicenseLimits - struct license limits
@@ -436,3 +465,34 @@ type IDPSyncTestRequest struct {
 	OktaOrgURL        string `json:"okta_org_url"`
 	OktaAPIToken      string `json:"okta_api_token"`
 }
+
+type PostureCheckDeviceInfo struct {
+	ClientLocation string
+	ClientVersion  string
+	OS             string
+	OSFamily       string
+	OSVersion      string
+	KernelVersion  string
+	AutoUpdate     bool
+	Tags           map[TagID]struct{}
+	IsUser         bool
+	UserGroups     map[UserGroupID]struct{}
+}
+
+type Violation struct {
+	CheckID   string   `json:"check_id"`
+	Name      string   `json:"name"`
+	Attribute string   `json:"attribute"`
+	Message   string   `json:"message"`
+	Severity  Severity `json:"severity"`
+}
+
+type Severity int
+
+const (
+	SeverityUnknown Severity = iota
+	SeverityLow
+	SeverityMedium
+	SeverityHigh
+	SeverityCritical
+)

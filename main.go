@@ -14,6 +14,7 @@ import (
 	"sync"
 	"syscall"
 
+	ch "github.com/gravitl/netmaker/clickhouse"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
 
@@ -65,11 +66,15 @@ func main() {
 	}
 	defer db.CloseDB()
 	defer database.CloseDB()
+
+	// TODO: although this doesn't cause any problem, it's not the best way to do this.
+	defer ch.Close()
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, os.Interrupt)
 	defer stop()
 	var waitGroup sync.WaitGroup
 	startControllers(&waitGroup, ctx) // start the api endpoint and mq and stun
-	startHooks()
+	startHooks(ctx, &waitGroup)
 	<-ctx.Done()
 	waitGroup.Wait()
 }
@@ -85,12 +90,12 @@ func setupConfig(absoluteConfigPath string) {
 	}
 }
 
-func startHooks() {
+func startHooks(ctx context.Context, wg *sync.WaitGroup) {
 	err := logic.TimerCheckpoint()
 	if err != nil {
 		logger.Log(1, "Timer error occurred: ", err.Error())
 	}
-	logic.EnterpriseCheck()
+	logic.EnterpriseCheck(ctx, wg)
 }
 
 func initialize() { // Client Mode Prereq Check
@@ -135,7 +140,6 @@ func initialize() { // Client Mode Prereq Check
 	if err != nil {
 		logger.FatalLog("error setting defaults: ", err.Error())
 	}
-
 	if servercfg.IsDNSMode() {
 		err := functions.SetDNSDir()
 		if err != nil {
@@ -166,6 +170,15 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 	}
 	//Run MessageQueue
 	if servercfg.IsMessageQueueBackend() {
+		brokerHost, _ := servercfg.GetMessageQueueEndpoint()
+		logger.Log(0, "connecting to mq broker at", brokerHost)
+		mq.SetupMQTT(true)
+		if mq.IsConnected() {
+			logger.Log(0, "connected to MQ Broker")
+		} else {
+			logger.FatalLog("error connecting to MQ Broker")
+		}
+
 		wg.Add(1)
 		go runMessageQueue(wg, ctx)
 	}
@@ -179,26 +192,19 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 
 	wg.Add(1)
 	go logic.StartHookManager(ctx, wg)
+	logic.InitNetworkHooks()
 }
 
 // Should we be using a context vice a waitgroup????????????
 func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 	defer wg.Done()
-	brokerHost, _ := servercfg.GetMessageQueueEndpoint()
-	logger.Log(0, "connecting to mq broker at", brokerHost)
-	mq.SetupMQTT(true)
-	if mq.IsConnected() {
-		logger.Log(0, "connected to MQ Broker")
-	} else {
-		logger.FatalLog("error connecting to MQ Broker")
-	}
 	defer mq.CloseClient()
+
 	go mq.Keepalive(ctx)
 	go func() {
-		peerUpdate := make(chan *models.Node, 100)
-		go logic.ManageZombies(ctx, peerUpdate)
-		go logic.DeleteExpiredNodes(ctx, peerUpdate)
-		for nodeUpdate := range peerUpdate {
+		go logic.ManageZombies(ctx)
+		go logic.DeleteExpiredNodes(ctx)
+		for nodeUpdate := range logic.DeleteNodesCh {
 			if nodeUpdate == nil {
 				continue
 			}
