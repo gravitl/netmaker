@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -18,6 +19,8 @@ import (
 func gwHandlers(r *mux.Router) {
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/gateway", logic.SecurityCheck(true, checkFreeTierLimits(limitChoiceIngress, http.HandlerFunc(createGateway)))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/gateway", logic.SecurityCheck(true, http.HandlerFunc(deleteGateway))).Methods(http.MethodDelete)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/gateway/assign", logic.SecurityCheck(true, http.HandlerFunc(assignGw))).Methods(http.MethodPost)
+	r.HandleFunc("/api/nodes/{network}/{nodeid}/gateway/unassign", logic.SecurityCheck(true, http.HandlerFunc(unassignGw))).Methods(http.MethodPost)
 	// old relay handlers
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/createrelay", logic.SecurityCheck(true, http.HandlerFunc(createGateway))).Methods(http.MethodPost)
 	r.HandleFunc("/api/nodes/{network}/{nodeid}/deleterelay", logic.SecurityCheck(true, http.HandlerFunc(deleteGateway))).Methods(http.MethodDelete)
@@ -294,4 +297,228 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 	logger.Log(1, r.Header.Get("user"), "deleted ingress gateway", nodeid)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNode)
+}
+
+// @Summary     Assign a node to a gateway
+// @Router      /api/nodes/{network}/{nodeid}/gateway/assign [post]
+// @Tags        Nodes
+// @Security    oauth2
+// @Param       network path string true "Network ID"
+// @Param       nodeid path string true "Client node ID to assign to gateway"
+// @Param       gw_id query string true "Gateway node ID"
+// @Param       auto_assign_gw query bool false "Enable auto-assign gateway (Pro only)"
+// @Success     200 {object} models.ApiNode
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func assignGw(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var params = mux.Vars(r)
+	nodeid := params["nodeid"]
+	netid := params["network"]
+	gwid := r.URL.Query().Get("gw_id")
+	autoAssignGw := r.URL.Query().Get("auto_assign_gw") == "true"
+	// Validate client node
+	node, err := logic.ValidateParams(nodeid, netid)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	if !servercfg.IsPro {
+		autoAssignGw = false
+	}
+	if autoAssignGw {
+		if node.FailedOverBy != uuid.Nil {
+			go logic.ResetFailedOverPeer(&node)
+		}
+		if len(node.AutoRelayedPeers) > 0 {
+			go logic.ResetAutoRelayedPeer(&node)
+		}
+		if node.RelayedBy != "" {
+			gatewayNode, err := logic.GetNodeByID(node.RelayedBy)
+			if err == nil {
+				// check if gw gateway Node has the relayed Node
+				if !slices.Contains(gatewayNode.RelayedNodes, node.ID.String()) {
+					gatewayNode.RelayedNodes = append(gatewayNode.RelayedNodes, node.ID.String())
+				}
+				newNodes := gatewayNode.RelayedNodes
+				newNodes = logic.RemoveAllFromSlice(newNodes, node.ID.String())
+				logic.UpdateRelayNodes(gatewayNode.ID.String(), gatewayNode.RelayedNodes, newNodes)
+				// Unassign client nodes (set their InternetGwID to empty)
+				if node.InternetGwID != "" {
+					node.InternetGwID = ""
+					gatewayNode.InetNodeReq.InetNodeClientIDs = logic.RemoveAllFromSlice(gatewayNode.InetNodeReq.InetNodeClientIDs, node.ID.String())
+					logic.UpsertNode(&gatewayNode)
+				}
+			} else {
+				node.RelayedBy = ""
+				node.InternetGwID = ""
+			}
+			node, _ = logic.GetNodeByID(node.ID.String())
+		}
+		node.AutoAssignGateway = true
+		logic.UpsertNode(&node)
+		logic.GetNodeStatus(&node, false)
+		go func() {
+			if err := mq.NodeUpdate(&node); err != nil {
+				slog.Error("error publishing node update to node", "node", node.ID, "error", err)
+			}
+			mq.PublishPeerUpdate(false)
+		}()
+		logic.ReturnSuccessResponseWithJson(w, r, node.ConvertToAPINode(), "auto assigned gateway")
+		return
+	}
+	// Validate gateway node
+	gatewayNode, err := logic.ValidateParams(gwid, netid)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	// Check if node is a gateway
+	if !gatewayNode.IsGw {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("node %s is not a gateway", nodeid), "badrequest"))
+		return
+	}
+
+	if node.FailedOverBy != uuid.Nil {
+		go logic.ResetFailedOverPeer(&node)
+	}
+	if len(node.AutoRelayedPeers) > 0 {
+		go logic.ResetAutoRelayedPeer(&node)
+	}
+	newNodes := []string{node.ID.String()}
+	newNodes = append(newNodes, gatewayNode.RelayedNodes...)
+	newNodes = logic.UniqueStrings(newNodes)
+	logic.UpdateRelayNodes(gatewayNode.ID.String(), gatewayNode.RelayedNodes, newNodes)
+
+	host, err := logic.GetHost(node.HostID.String())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	logger.Log(1, r.Header.Get("user"),
+		fmt.Sprintf("assigned nodes to gateway [%s] on network [%s]",
+			nodeid, netid))
+
+	logic.LogEvent(&models.Event{
+		Action: models.GatewayAssign,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   node.ID.String(),
+			Name: host.Name,
+			Type: models.GatewaySub,
+		},
+		Origin: models.Dashboard,
+	})
+
+	logic.GetNodeStatus(&node, false)
+	apiNode := node.ConvertToAPINode()
+
+	go func() {
+		if err := mq.NodeUpdate(&node); err != nil {
+			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
+		}
+		mq.PublishPeerUpdate(false)
+	}()
+
+	logic.ReturnSuccessResponseWithJson(w, r, apiNode, "assigned gateway")
+}
+
+// @Summary     Unassign client nodes from a gateway
+// @Router      /api/nodes/{network}/{nodeid}/gateway/unassign [post]
+// @Tags        Nodes
+// @Security    oauth2
+// @Param       body body models.InetNodeReq true "Internet gateway request with client node IDs to unassign"
+// @Success     200 {object} models.ApiNode
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func unassignGw(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var params = mux.Vars(r)
+	nodeid := params["nodeid"]
+	netid := params["network"]
+	// Validate gateway node
+	node, err := logic.ValidateParams(nodeid, netid)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	host, err := logic.GetHost(node.HostID.String())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	gwid := node.RelayedBy
+	if node.AutoAssignGateway && gwid == "" {
+		node.AutoAssignGateway = false
+		logic.UpsertNode(&node)
+		go func() {
+			if err := mq.NodeUpdate(&node); err != nil {
+				slog.Error("error publishing node update to node", "node", node.ID, "error", err)
+			}
+			mq.PublishPeerUpdate(false)
+		}()
+		logic.ReturnSuccessResponseWithJson(w, r, node.ConvertToAPINode(), "unassigned gateway")
+		return
+	}
+
+	// Validate gateway node
+	gatewayNode, err := logic.ValidateParams(gwid, netid)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+
+	// Unassign client nodes (set their InternetGwID to empty)
+	if node.InternetGwID != "" {
+		node.InternetGwID = ""
+		gatewayNode.InetNodeReq.InetNodeClientIDs = logic.RemoveAllFromSlice(gatewayNode.InetNodeReq.InetNodeClientIDs, node.ID.String())
+	}
+	node.AutoAssignGateway = false
+	logic.UpsertNode(&node)
+	logic.UpsertNode(&gatewayNode)
+	// Unset Relayed node
+	// check if gw gateway Node has the relayed Node
+	if !slices.Contains(gatewayNode.RelayedNodes, node.ID.String()) {
+		gatewayNode.RelayedNodes = append(gatewayNode.RelayedNodes, node.ID.String())
+	}
+	newNodes := gatewayNode.RelayedNodes
+	newNodes = logic.RemoveAllFromSlice(newNodes, node.ID.String())
+	logic.UpdateRelayNodes(gatewayNode.ID.String(), gatewayNode.RelayedNodes, newNodes)
+	node, _ = logic.GetNodeByID(node.ID.String())
+	logger.Log(1, r.Header.Get("user"),
+		fmt.Sprintf("unassigned client nodes from gateway [%s] on network [%s]",
+			nodeid, netid))
+
+	logic.LogEvent(&models.Event{
+		Action: models.GatewayUnAssign,
+		Source: models.Subject{
+			ID:   r.Header.Get("user"),
+			Name: r.Header.Get("user"),
+			Type: models.UserSub,
+		},
+		TriggeredBy: r.Header.Get("user"),
+		Target: models.Subject{
+			ID:   node.ID.String(),
+			Name: host.Name,
+			Type: models.GatewaySub,
+		},
+		Origin: models.Dashboard,
+	})
+
+	logic.GetNodeStatus(&node, false)
+
+	go func() {
+		if err := mq.NodeUpdate(&node); err != nil {
+			slog.Error("error publishing node update to node", "node", node.ID, "error", err)
+		}
+		mq.PublishPeerUpdate(false)
+	}()
+	logic.ReturnSuccessResponseWithJson(w, r, node.ConvertToAPINode(), "unassigned gateway")
 }
