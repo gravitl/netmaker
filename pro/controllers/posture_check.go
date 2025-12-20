@@ -147,7 +147,7 @@ func listPostureChecks(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnSuccessResponseWithJson(w, r, pc, "fetched posture check")
 		return
 	}
-	pc := schema.PostureCheck{NetworkID: network}
+	pc := schema.PostureCheck{NetworkID: models.NetworkID(network)}
 	list, err := pc.ListByNetwork(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(

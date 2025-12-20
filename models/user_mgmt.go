@@ -75,6 +75,7 @@ const (
 	AclRsrc            RsrcType = "acl"
 	TagRsrc            RsrcType = "tag"
 	DnsRsrc            RsrcType = "dns"
+	NameserverRsrc     RsrcType = "nameserver"
 	FailOverRsrc       RsrcType = "fail_over"
 	MetricRsrc         RsrcType = "metric"
 	PostureCheckRsrc   RsrcType = "posturecheck"
@@ -95,6 +96,7 @@ const (
 	AllAclsRsrcID           RsrcID = "all_acl"
 	AllTagsRsrcID           RsrcID = "all_tag"
 	AllPostureCheckRsrcID   RsrcID = "all_posturecheck"
+	AllNameserverRsrcID     RsrcID = "all_nameserver"
 )
 
 // Pre-Defined User Roles

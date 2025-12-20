@@ -66,7 +66,7 @@ var GlobalNsList = map[string]GlobalNs{
 	},
 }
 
-func CreateGoogleDNSNameserver(networkID string) error {
+func CreateFallbackNameserver(networkID string) error {
 	nameservers, err := (&schema.Nameserver{
 		NetworkID: networkID,
 	}).ListByNetwork(db.WithContext(context.TODO()))
@@ -81,18 +81,17 @@ func CreateGoogleDNSNameserver(networkID string) error {
 	}
 
 	ns := schema.Nameserver{
-		ID:          uuid.NewString(),
-		Name:        GooglePublicNameserverName,
-		NetworkID:   networkID,
-		Description: "",
-		Default:     true,
+		ID:        uuid.NewString(),
+		Name:      GooglePublicNameserverName,
+		NetworkID: networkID,
+		Default:   true,
+		Fallback:  true,
 		Servers: []string{
 			"8.8.8.8",
 			"8.8.4.4",
 			"2001:4860:4860::8888",
 			"2001:4860:4860::8844",
 		},
-		MatchAll: true,
 		Domains: []schema.NameserverDomain{
 			{
 				Domain:         ".",
@@ -524,6 +523,10 @@ func validateNameserverReq(ns schema.Nameserver) error {
 		}
 	}
 
+	if ns.Fallback && (ns.MatchAll || len(ns.Domains) != 0) {
+		return errors.New("invalid fallback nameserver configuration")
+	}
+
 	return nil
 }
 
@@ -558,6 +561,7 @@ func getNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 					IPs:            filteredIps,
 					MatchDomain:    domain.Domain,
 					IsSearchDomain: domain.IsSearchDomain,
+					IsFallback:     ns.Fallback,
 				})
 			}
 			continue
@@ -569,6 +573,7 @@ func getNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 					IPs:            filteredIps,
 					MatchDomain:    domain.Domain,
 					IsSearchDomain: domain.IsSearchDomain,
+					IsFallback:     ns.Fallback,
 				})
 			}
 		}
@@ -626,6 +631,7 @@ func getNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
 						IPs:            filteredIps,
 						MatchDomain:    domain.Domain,
 						IsSearchDomain: domain.IsSearchDomain,
+						IsFallback:     ns.Fallback,
 					})
 				}
 				continue
@@ -637,6 +643,7 @@ func getNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
 						IPs:            filteredIps,
 						MatchDomain:    domain.Domain,
 						IsSearchDomain: domain.IsSearchDomain,
+						IsFallback:     ns.Fallback,
 					})
 				}
 
