@@ -92,12 +92,6 @@ func CreateFallbackNameserver(networkID string) error {
 			"2001:4860:4860::8888",
 			"2001:4860:4860::8844",
 		},
-		Domains: []schema.NameserverDomain{
-			{
-				Domain:         ".",
-				IsSearchDomain: false,
-			},
-		},
 		Tags: map[string]interface{}{
 			"*": "",
 		},
@@ -556,25 +550,39 @@ func getNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 
 		_, all := nsI.Tags["*"]
 		if all {
-			for _, domain := range nsI.Domains {
+			if nsI.Fallback {
 				returnNsLi = append(returnNsLi, models.Nameserver{
-					IPs:            filteredIps,
-					MatchDomain:    domain.Domain,
-					IsSearchDomain: domain.IsSearchDomain,
-					IsFallback:     ns.Fallback,
+					IPs:         filteredIps,
+					MatchDomain: ".",
+					IsFallback:  true,
 				})
+			} else {
+				for _, domain := range nsI.Domains {
+					returnNsLi = append(returnNsLi, models.Nameserver{
+						IPs:            filteredIps,
+						MatchDomain:    domain.Domain,
+						IsSearchDomain: domain.IsSearchDomain,
+					})
+				}
 			}
 			continue
 		}
 
 		if _, ok := nsI.Nodes[node.ID.String()]; ok {
-			for _, domain := range nsI.Domains {
+			if nsI.Fallback {
 				returnNsLi = append(returnNsLi, models.Nameserver{
-					IPs:            filteredIps,
-					MatchDomain:    domain.Domain,
-					IsSearchDomain: domain.IsSearchDomain,
-					IsFallback:     ns.Fallback,
+					IPs:         filteredIps,
+					MatchDomain: ".",
+					IsFallback:  true,
 				})
+			} else {
+				for _, domain := range nsI.Domains {
+					returnNsLi = append(returnNsLi, models.Nameserver{
+						IPs:            filteredIps,
+						MatchDomain:    domain.Domain,
+						IsSearchDomain: domain.IsSearchDomain,
+					})
+				}
 			}
 		}
 
@@ -626,25 +634,39 @@ func getNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
 
 			_, all := nsI.Tags["*"]
 			if all {
-				for _, domain := range nsI.Domains {
+				if nsI.Fallback {
 					returnNsLi = append(returnNsLi, models.Nameserver{
-						IPs:            filteredIps,
-						MatchDomain:    domain.Domain,
-						IsSearchDomain: domain.IsSearchDomain,
-						IsFallback:     ns.Fallback,
+						IPs:         filteredIps,
+						MatchDomain: ".",
+						IsFallback:  true,
 					})
+				} else {
+					for _, domain := range nsI.Domains {
+						returnNsLi = append(returnNsLi, models.Nameserver{
+							IPs:            filteredIps,
+							MatchDomain:    domain.Domain,
+							IsSearchDomain: domain.IsSearchDomain,
+						})
+					}
 				}
 				continue
 			}
 
 			if _, ok := nsI.Nodes[node.ID.String()]; ok {
-				for _, domain := range nsI.Domains {
+				if nsI.Fallback {
 					returnNsLi = append(returnNsLi, models.Nameserver{
-						IPs:            filteredIps,
-						MatchDomain:    domain.Domain,
-						IsSearchDomain: domain.IsSearchDomain,
-						IsFallback:     ns.Fallback,
+						IPs:         filteredIps,
+						MatchDomain: ".",
+						IsFallback:  true,
 					})
+				} else {
+					for _, domain := range nsI.Domains {
+						returnNsLi = append(returnNsLi, models.Nameserver{
+							IPs:            filteredIps,
+							MatchDomain:    domain.Domain,
+							IsSearchDomain: domain.IsSearchDomain,
+						})
+					}
 				}
 
 			}

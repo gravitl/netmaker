@@ -98,7 +98,7 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 			"*": struct{}{},
 		}
 	}
-	if req.MatchAll || req.Fallback {
+	if req.MatchAll {
 		req.Domains = []schema.NameserverDomain{
 			{
 				Domain: ".",
@@ -251,12 +251,15 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !ns.Default {
-		if updateNs.MatchAll || updateNs.Fallback {
+		if updateNs.MatchAll {
 			updateNs.Domains = []schema.NameserverDomain{
 				{
 					Domain: ".",
 				},
 			}
+		}
+		if updateNs.Fallback {
+			updateNs.Domains = []schema.NameserverDomain{}
 		}
 		ns.Servers = updateNs.Servers
 		ns.Tags = updateNs.Tags

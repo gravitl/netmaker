@@ -1711,6 +1711,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			hNs := logic.GetNameserversForNode(&node)
 			for _, nsI := range hNs {
 				if nsI.IsFallback {
+					// skip fallback nameservers for user remote access gws.
 					continue
 				}
 				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
@@ -1769,6 +1770,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			hNs := logic.GetNameserversForNode(&node)
 			for _, nsI := range hNs {
 				if nsI.IsFallback {
+					// skip fallback nameservers for user remote access gws.
 					continue
 				}
 				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
