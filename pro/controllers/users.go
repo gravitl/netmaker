@@ -70,6 +70,7 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/users/{username}/remote_access_gw/{remote_access_gateway_id}", logic.SecurityCheck(true, http.HandlerFunc(removeUserFromRemoteAccessGW))).Methods(http.MethodDelete)
 	r.HandleFunc("/api/users/{username}/remote_access_gw", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(getUserRemoteAccessGwsV1)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/users/ingress/{ingress_id}", logic.SecurityCheck(true, http.HandlerFunc(ingressGatewayUsers))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/users/network_ip", logic.SecurityCheck(true, http.HandlerFunc(userNetworkMapping))).Methods(http.MethodGet)
 
 	r.HandleFunc("/api/idp/sync", logic.SecurityCheck(true, http.HandlerFunc(syncIDP))).Methods(http.MethodPost)
 	r.HandleFunc("/api/idp/sync/test", logic.SecurityCheck(true, http.HandlerFunc(testIDPSync))).Methods(http.MethodPost)
@@ -1826,6 +1827,59 @@ func ingressGatewayUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(gwUsers)
+}
+
+// @Summary     List users network ip mappings
+// @Router      /api/users/network_ip [get]
+// @Tags        PRO
+// @Accept      json
+// @Produce     json
+// @Success     200 {array} models.UserIPMap
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
+func userNetworkMapping(w http.ResponseWriter, r *http.Request) {
+
+	extclients, err := logic.GetAllExtClients()
+	if err != nil {
+		slog.Error(
+			"failed to get users on ingress gateway",
+			"user",
+			r.Header.Get("user"),
+			"error",
+			err,
+		)
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	userMapping := models.UserIPMap{
+		Mappings: make(map[string]models.UserMapping),
+	}
+	for _, extclient := range extclients {
+		if extclient.DeviceID != "" || extclient.RemoteAccessClientID != "" {
+			if extclient.OwnerID == "" {
+				continue
+			}
+			user, err := logic.GetUser(extclient.OwnerID)
+			if err != nil {
+				continue
+			}
+			if user.AccountDisabled {
+				continue
+			}
+			userIPMap := models.UserMapping{
+				User: user.UserName,
+			}
+			if extclient.Address != "" {
+				if len(user.UserGroups) > 0 {
+					for grpID := range user.UserGroups {
+						userIPMap.Groups = append(userIPMap.Groups, grpID.String())
+					}
+				}
+			}
+			userMapping.Mappings[extclient.Address] = userIPMap
+		}
+	}
+	logic.ReturnSuccessResponseWithJson(w, r, userMapping, "returned user network ip map")
 }
 
 func getAllowedRagEndpoints(ragNode *models.Node, ragHost *models.Host) []string {
