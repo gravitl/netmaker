@@ -1710,6 +1710,9 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		if !node.IsInternetGateway {
 			hNs := logic.GetNameserversForNode(&node)
 			for _, nsI := range hNs {
+				if nsI.IsFallback {
+					continue
+				}
 				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
 				if nsI.IsSearchDomain {
 					gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
@@ -1765,6 +1768,9 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		if !node.IsInternetGateway {
 			hNs := logic.GetNameserversForNode(&node)
 			for _, nsI := range hNs {
+				if nsI.IsFallback {
+					continue
+				}
 				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
 				if nsI.IsSearchDomain {
 					gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
