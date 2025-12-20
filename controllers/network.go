@@ -683,7 +683,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	logic.CreateDefaultAclNetworkPolicies(models.NetworkID(network.NetID))
 	logic.CreateDefaultTags(models.NetworkID(network.NetID))
 	logic.AddNetworkToAllocatedIpMap(network.NetID)
-	logic.CreateGoogleDNSNameserver(network.NetID)
+	logic.CreateFallbackNameserver(network.NetID)
 
 	go func() {
 		defaultHosts := logic.GetDefaultHosts()

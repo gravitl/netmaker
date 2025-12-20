@@ -100,7 +100,7 @@ func migrateNameservers() {
 	}
 
 	for _, netI := range nets {
-		_ = logic.CreateGoogleDNSNameserver(netI.NetID)
+		_ = logic.CreateFallbackNameserver(netI.NetID)
 
 		_, cidr, err := net.ParseCIDR(netI.AddressRange)
 		if err != nil {

@@ -75,6 +75,7 @@ func GetNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 					IPs:            filteredIps,
 					MatchDomain:    domain.Domain,
 					IsSearchDomain: domain.IsSearchDomain,
+					IsFallback:     ns.Fallback,
 				})
 			}
 			continue
@@ -87,6 +88,7 @@ func GetNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 						IPs:            filteredIps,
 						MatchDomain:    domain.Domain,
 						IsSearchDomain: domain.IsSearchDomain,
+						IsFallback:     ns.Fallback,
 					})
 				}
 				foundTag = true
@@ -104,6 +106,7 @@ func GetNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 					IPs:            nsI.Servers,
 					MatchDomain:    domain.Domain,
 					IsSearchDomain: domain.IsSearchDomain,
+					IsFallback:     ns.Fallback,
 				})
 			}
 		}
@@ -161,6 +164,7 @@ func GetNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
 						IPs:            filteredIps,
 						MatchDomain:    domain.Domain,
 						IsSearchDomain: domain.IsSearchDomain,
+						IsFallback:     ns.Fallback,
 					})
 				}
 				continue
@@ -173,6 +177,7 @@ func GetNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
 							IPs:            filteredIps,
 							MatchDomain:    domain.Domain,
 							IsSearchDomain: domain.IsSearchDomain,
+							IsFallback:     ns.Fallback,
 						})
 					}
 					foundTag = true
@@ -190,6 +195,7 @@ func GetNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
 						IPs:            nsI.Servers,
 						MatchDomain:    domain.Domain,
 						IsSearchDomain: domain.IsSearchDomain,
+						IsFallback:     ns.Fallback,
 					})
 				}
 			}

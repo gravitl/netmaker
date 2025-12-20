@@ -14,6 +14,7 @@ type Nameserver struct {
 	NetworkID   string                                `gorm:"network_id" json:"network_id"`
 	Description string                                `gorm:"description" json:"description"`
 	Default     bool                                  `gorm:"column:default" json:"default"`
+	Fallback    bool                                  `gorm:"fallback" json:"fallback"`
 	Servers     datatypes.JSONSlice[string]           `gorm:"servers" json:"servers"`
 	MatchAll    bool                                  `gorm:"match_all" json:"match_all"`
 	Domains     datatypes.JSONSlice[NameserverDomain] `gorm:"domains" json:"domains"`
@@ -66,5 +67,11 @@ func (ns *Nameserver) UpdateStatus(ctx context.Context) error {
 func (ns *Nameserver) UpdateMatchAll(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&Nameserver{}).Where("id = ?", ns.ID).Updates(map[string]any{
 		"match_all": ns.MatchAll,
+	}).Error
+}
+
+func (ns *Nameserver) UpdateFallback(ctx context.Context) error {
+	return db.FromContext(ctx).Model(&Nameserver{}).Where("id = ?", ns.ID).Updates(map[string]any{
+		"fallback": ns.Fallback,
 	}).Error
 }
