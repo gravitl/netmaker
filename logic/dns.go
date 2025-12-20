@@ -474,7 +474,7 @@ func CreateDNS(entry models.DNSEntry) (models.DNSEntry, error) {
 	return entry, err
 }
 
-func validateNameserverReq(ns schema.Nameserver) error {
+func validateNameserverReq(ns *schema.Nameserver) error {
 	if ns.Name == "" {
 		return errors.New("name is required")
 	}
@@ -494,16 +494,6 @@ func validateNameserverReq(ns schema.Nameserver) error {
 			return errors.New("invalid nameserver " + nsIPStr)
 		}
 	}
-	if !ns.MatchAll && len(ns.Domains) == 0 {
-		return errors.New("atleast one match domain is required")
-	}
-	if !ns.MatchAll {
-		for _, domain := range ns.Domains {
-			if !IsValidMatchDomain(domain.Domain) {
-				return errors.New("invalid match domain")
-			}
-		}
-	}
 	// check if valid broadcast peers are added
 	if len(ns.Nodes) > 0 {
 		for nodeID := range ns.Nodes {
@@ -516,9 +506,20 @@ func validateNameserverReq(ns schema.Nameserver) error {
 			}
 		}
 	}
-
-	if ns.Fallback && (ns.MatchAll || len(ns.Domains) != 0) {
-		return errors.New("invalid fallback nameserver configuration")
+	if ns.Fallback {
+		ns.Domains = []schema.NameserverDomain{}
+		ns.MatchAll = false
+		return nil
+	}
+	if !ns.MatchAll && len(ns.Domains) == 0 {
+		return errors.New("atleast one match domain is required")
+	}
+	if !ns.MatchAll {
+		for _, domain := range ns.Domains {
+			if !IsValidMatchDomain(domain.Domain) {
+				return errors.New("invalid match domain")
+			}
+		}
 	}
 
 	return nil

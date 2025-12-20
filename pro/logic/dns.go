@@ -10,7 +10,7 @@ import (
 	"github.com/gravitl/netmaker/schema"
 )
 
-func ValidateNameserverReq(ns schema.Nameserver) error {
+func ValidateNameserverReq(ns *schema.Nameserver) error {
 	if ns.Name == "" {
 		return errors.New("name is required")
 	}
@@ -19,16 +19,6 @@ func ValidateNameserverReq(ns schema.Nameserver) error {
 	}
 	if len(ns.Servers) == 0 {
 		return errors.New("atleast one nameserver should be specified")
-	}
-	if !ns.MatchAll && len(ns.Domains) == 0 {
-		return errors.New("atleast one match domain is required")
-	}
-	if !ns.MatchAll {
-		for _, domain := range ns.Domains {
-			if !logic.IsValidMatchDomain(domain.Domain) {
-				return errors.New("invalid match domain")
-			}
-		}
 	}
 	if len(ns.Tags) > 0 {
 		for tagI := range ns.Tags {
@@ -41,8 +31,20 @@ func ValidateNameserverReq(ns schema.Nameserver) error {
 			}
 		}
 	}
-	if ns.Fallback && (ns.MatchAll || len(ns.Domains) != 0) {
-		return errors.New("invalid fallback nameserver configuration")
+	if ns.Fallback {
+		ns.Domains = []schema.NameserverDomain{}
+		ns.MatchAll = false
+		return nil
+	}
+	if !ns.MatchAll && len(ns.Domains) == 0 {
+		return errors.New("atleast one match domain is required")
+	}
+	if !ns.MatchAll {
+		for _, domain := range ns.Domains {
+			if !logic.IsValidMatchDomain(domain.Domain) {
+				return errors.New("invalid match domain")
+			}
+		}
 	}
 	return nil
 }
