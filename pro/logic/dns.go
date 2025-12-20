@@ -41,6 +41,9 @@ func ValidateNameserverReq(ns schema.Nameserver) error {
 			}
 		}
 	}
+	if ns.Fallback && (ns.MatchAll || len(ns.Domains) != 0) {
+		return errors.New("invalid fallback nameserver configuration")
+	}
 	return nil
 }
 
