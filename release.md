@@ -1,52 +1,55 @@
-## Netmaker v1.2.0 Release Notes 🚀 
+## Netmaker v1.4.0 Release Notes 🚀 
 
 ## 🚀 What’s New
 
-### 🌍 Auto-Relays (formerly Failovers)
+### 🌍 Posture Checks (beta)
 
-- Failovers are now Auto-Relays with High Availability (HA) support.
+- Security feature that validates device compliance against configured policies based on device attributes such as OS, OS version, kernel version, client version, geographic location, and auto-update status.
+- Supports tag-based and user group-based assignment of posture checks to specific devices or users.
+- Tracks violations with configurable severity levels and provides real-time evaluation of device compliance.
+- Helps ensure only compliant devices can access network resources.
 
-- Enables global routing optimization based on real-time latency between peers across regions.
+### 🔁 Network Traffic Logging (alpha)
 
-### 🔁 Gateway High Availability
+- Comprehensive network flow logging system that captures and stores network traffic metadata in ClickHouse.
+- Tracks source and destination IPs, ports, protocols, bytes/packets sent/received, and connection timestamps.
+- Provides API endpoints for querying flow data with filters by network, node, user, protocol, and time range.
+- Enables network administrators to monitor, analyze, and audit network traffic patterns for security and troubleshooting purposes.
 
-- Gateways can now automatically assign peer relays and fallback to healthy nodes when primary gateways become unavailable.
+### 🌐 K8s Operator with Cluster Access, Egress and Ingress functionality (beta)
 
-### 🌐 Egress HA with Latency-Aware Routing
+- **Cluster Egress**: Expose Netmaker network services to Kubernetes workloads using standard Service names.
+- **Cluster Ingress**: Expose Kubernetes services to devices on your Netmaker network.
+- **API Proxy**: Secure access to Kubernetes API servers through Netmaker tunnels with RBAC support.
 
-- Egress gateways now dynamically select the optimal route based on latency, ensuring faster and more resilient connectivity.
 
-### 🧭 DNS Search Domains
+### 🔄 Auto Removal of Offline Peers
 
-- Added DNS search domain functionality for simplified hostname resolution across distributed networks.
-
-### 👥 New User Roles
-
-- Introduced a User Auditor role for security and compliance use-cases, offering read-only visibility into system activity.
+- Automatically removes nodes that have been offline for a configurable threshold period.
+- Configurable per network with customizable timeout thresholds (in minutes).
+- Supports tag-based filtering to selectively apply auto-removal to specific device groups.
+- Helps maintain clean network topology by removing stale or abandoned peer connections.
 
 ### 🧩 Onboarding Flow
 
 - Streamlined user onboarding experience during signup for workspace setup.
 
-### ⚙️ Dynamic ACL Deprecation
-
-- Added logic to automatically deprecate outdated ACLs on demand, reducing stale configurations and improving policy hygiene.
 
 ## 🧰 Improvements & Fixes
 
-- Metrics Enrichment: Enhanced uptime and connection-status data.
+- Azure IDP sync: Fixed User sync by group filters.
 
-- DNS Control Fixes: Fixed toggle behavior for enabling/disabling Netmaker DNS on hosts.
+- User Migration: Optimised User migration logic to reduce server start up time.
 
-- Device Approvals: Improved logic for device approval management.
+- Config Files: Avoid Auto enabling of configs on user login.
 
 - Egress Domain Updates: Fixed domain-related issues in egress configurations to ensure consistent routing behavior.
 
 ## Known Issues 🐞
 
-- WireGuard DNS issue on Ubuntu 24.04 and some other newer Linux distributions. The issue is affecting the Netmaker Desktop, previously known as the Remote Access Client (RAC), and the plain WireGuard external clients. Workaround can be found here https://help.netmaker.io/en/articles/9612016-extclient-rac-dns-issue-on-ubuntu-24-04.
-
 - netclients cannot auto-upgrade on ipv6-only machines.
 
 - Need to optimize multi-network netclient join with enrollment key
+
+- On systems using systemd-resolved in unlink mode, the first 3 entries in resolv.conf are used and rest are ignored. So it might cause DNS issues. Stub mode is preferred.
 
