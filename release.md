@@ -51,5 +51,5 @@
 
 - Need to optimize multi-network netclient join with enrollment key
 
-- On systems using systemd-resolved in unlink mode, the first 3 entries in resolv.conf are used and rest are ignored. So it might cause DNS issues. Stub mode is preferred.
+- On systems using systemd-resolved in uplink mode, the first 3 entries in resolv.conf are used and rest are ignored. So it might cause DNS issues. Stub mode is preferred.
 
