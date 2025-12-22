@@ -152,12 +152,12 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 		}
 
 		srcTypeStr = "user"
-		dstTypeStr = "user"
 		srcEntity = username
+		dstTypeStr = "user"
 		dstEntity = username
 
-		whereParts = append(whereParts, "src_type = ?", "dst_type = ?", "src_entity_id = ?", "dst_entity_id = ?")
-		args = append(args, srcTypeStr, dstTypeStr, srcEntity, dstEntity)
+		whereParts = append(whereParts, "((src_type = ? AND src_entity_id = ?) OR (dst_type = ? AND dst_entity_id = ?))")
+		args = append(args, srcTypeStr, srcEntity, dstTypeStr, dstEntity)
 	}
 
 	// Pagination
