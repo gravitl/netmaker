@@ -260,8 +260,6 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 			logic.StopFlowCleanupLoop()
 			ch.Close()
 		}
-
-		_ = mq.PublishExporterFeatureFlags()
 	}
 
 	err := logic.UpsertServerSettings(req)
@@ -306,6 +304,10 @@ func reInit(curr, new models.ServerSettings, force bool) {
 	if curr.MetricInterval != new.MetricInterval {
 		logic.GetMetricsMonitor().Stop()
 		logic.GetMetricsMonitor().Start()
+	}
+
+	if curr.EnableFlowLogs != new.EnableFlowLogs {
+		go mq.PublishExporterFeatureFlags()
 	}
 
 	// On force AutoUpdate change, change AutoUpdate for all hosts.
