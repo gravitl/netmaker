@@ -142,6 +142,24 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 		args = append(args, node.HostID)
 	}
 
+	// 6. User filter
+	username := q.Get("username")
+	if username != "" {
+		if srcTypeStr != "" || dstTypeStr != "" ||
+			srcEntity != "" || dstEntity != "" {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot provide username filter along with src/dst type and id filters"), logic.BadReq))
+			return
+		}
+
+		srcTypeStr = "user"
+		dstTypeStr = "user"
+		srcEntity = username
+		dstEntity = username
+
+		whereParts = append(whereParts, "src_type = ?", "dst_type = ?", "src_entity_id = ?", "dst_entity_id = ?")
+		args = append(args, srcTypeStr, dstTypeStr, srcEntity, dstEntity)
+	}
+
 	// Pagination
 	page := parseIntOrDefault(q.Get("page"), 1)
 	perPage := parseIntOrDefault(q.Get("per_page"), 100)

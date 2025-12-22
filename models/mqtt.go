@@ -62,6 +62,7 @@ type Nameserver struct {
 	IPs            []string `json:"ips"`
 	MatchDomain    string   `json:"match_domain"`
 	IsSearchDomain bool     `json:"is_search_domain"`
+	IsFallback     bool     `json:"is_fallback"`
 }
 
 type OldPeerUpdateFields struct {

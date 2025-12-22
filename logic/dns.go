@@ -66,7 +66,7 @@ var GlobalNsList = map[string]GlobalNs{
 	},
 }
 
-func CreateGoogleDNSNameserver(networkID string) error {
+func CreateFallbackNameserver(networkID string) error {
 	nameservers, err := (&schema.Nameserver{
 		NetworkID: networkID,
 	}).ListByNetwork(db.WithContext(context.TODO()))
@@ -81,23 +81,16 @@ func CreateGoogleDNSNameserver(networkID string) error {
 	}
 
 	ns := schema.Nameserver{
-		ID:          uuid.NewString(),
-		Name:        GooglePublicNameserverName,
-		NetworkID:   networkID,
-		Description: "",
-		Default:     true,
+		ID:        uuid.NewString(),
+		Name:      GooglePublicNameserverName,
+		NetworkID: networkID,
+		Default:   true,
+		Fallback:  true,
 		Servers: []string{
 			"8.8.8.8",
 			"8.8.4.4",
 			"2001:4860:4860::8888",
 			"2001:4860:4860::8844",
-		},
-		MatchAll: true,
-		Domains: []schema.NameserverDomain{
-			{
-				Domain:         ".",
-				IsSearchDomain: false,
-			},
 		},
 		Tags: map[string]interface{}{
 			"*": "",
@@ -481,7 +474,7 @@ func CreateDNS(entry models.DNSEntry) (models.DNSEntry, error) {
 	return entry, err
 }
 
-func validateNameserverReq(ns schema.Nameserver) error {
+func validateNameserverReq(ns *schema.Nameserver) error {
 	if ns.Name == "" {
 		return errors.New("name is required")
 	}
@@ -501,16 +494,6 @@ func validateNameserverReq(ns schema.Nameserver) error {
 			return errors.New("invalid nameserver " + nsIPStr)
 		}
 	}
-	if !ns.MatchAll && len(ns.Domains) == 0 {
-		return errors.New("atleast one match domain is required")
-	}
-	if !ns.MatchAll {
-		for _, domain := range ns.Domains {
-			if !IsValidMatchDomain(domain.Domain) {
-				return errors.New("invalid match domain")
-			}
-		}
-	}
 	// check if valid broadcast peers are added
 	if len(ns.Nodes) > 0 {
 		for nodeID := range ns.Nodes {
@@ -520,6 +503,21 @@ func validateNameserverReq(ns schema.Nameserver) error {
 			}
 			if node.Network != ns.NetworkID {
 				return errors.New("invalid network node")
+			}
+		}
+	}
+	if ns.Fallback {
+		ns.Domains = []schema.NameserverDomain{}
+		ns.MatchAll = false
+		return nil
+	}
+	if !ns.MatchAll && len(ns.Domains) == 0 {
+		return errors.New("atleast one match domain is required")
+	}
+	if !ns.MatchAll {
+		for _, domain := range ns.Domains {
+			if !IsValidMatchDomain(domain.Domain) {
+				return errors.New("invalid match domain")
 			}
 		}
 	}
@@ -553,23 +551,37 @@ func getNameserversForNode(node *models.Node) (returnNsLi []models.Nameserver) {
 
 		_, all := nsI.Tags["*"]
 		if all {
-			for _, domain := range nsI.Domains {
+			if nsI.Fallback {
 				returnNsLi = append(returnNsLi, models.Nameserver{
-					IPs:            filteredIps,
-					MatchDomain:    domain.Domain,
-					IsSearchDomain: domain.IsSearchDomain,
+					IPs:        filteredIps,
+					IsFallback: true,
 				})
+			} else {
+				for _, domain := range nsI.Domains {
+					returnNsLi = append(returnNsLi, models.Nameserver{
+						IPs:            filteredIps,
+						MatchDomain:    domain.Domain,
+						IsSearchDomain: domain.IsSearchDomain,
+					})
+				}
 			}
 			continue
 		}
 
 		if _, ok := nsI.Nodes[node.ID.String()]; ok {
-			for _, domain := range nsI.Domains {
+			if nsI.Fallback {
 				returnNsLi = append(returnNsLi, models.Nameserver{
-					IPs:            filteredIps,
-					MatchDomain:    domain.Domain,
-					IsSearchDomain: domain.IsSearchDomain,
+					IPs:        filteredIps,
+					IsFallback: true,
 				})
+			} else {
+				for _, domain := range nsI.Domains {
+					returnNsLi = append(returnNsLi, models.Nameserver{
+						IPs:            filteredIps,
+						MatchDomain:    domain.Domain,
+						IsSearchDomain: domain.IsSearchDomain,
+					})
+				}
 			}
 		}
 
@@ -621,23 +633,37 @@ func getNameserversForHost(h *models.Host) (returnNsLi []models.Nameserver) {
 
 			_, all := nsI.Tags["*"]
 			if all {
-				for _, domain := range nsI.Domains {
+				if nsI.Fallback {
 					returnNsLi = append(returnNsLi, models.Nameserver{
-						IPs:            filteredIps,
-						MatchDomain:    domain.Domain,
-						IsSearchDomain: domain.IsSearchDomain,
+						IPs:        filteredIps,
+						IsFallback: true,
 					})
+				} else {
+					for _, domain := range nsI.Domains {
+						returnNsLi = append(returnNsLi, models.Nameserver{
+							IPs:            filteredIps,
+							MatchDomain:    domain.Domain,
+							IsSearchDomain: domain.IsSearchDomain,
+						})
+					}
 				}
 				continue
 			}
 
 			if _, ok := nsI.Nodes[node.ID.String()]; ok {
-				for _, domain := range nsI.Domains {
+				if nsI.Fallback {
 					returnNsLi = append(returnNsLi, models.Nameserver{
-						IPs:            filteredIps,
-						MatchDomain:    domain.Domain,
-						IsSearchDomain: domain.IsSearchDomain,
+						IPs:        filteredIps,
+						IsFallback: true,
 					})
+				} else {
+					for _, domain := range nsI.Domains {
+						returnNsLi = append(returnNsLi, models.Nameserver{
+							IPs:            filteredIps,
+							MatchDomain:    domain.Domain,
+							IsSearchDomain: domain.IsSearchDomain,
+						})
+					}
 				}
 
 			}
