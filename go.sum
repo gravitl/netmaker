@@ -215,8 +215,8 @@ github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
 github.com/tidwall/pretty v1.0.0/go.mod h1:XNkn88O1ChpSDQmQeStsy+sBenx6DDtFZJxhVysOjyk=
-github.com/txn2/txeh v1.5.5 h1:UN4e/lCK5HGw/gGAi2GCVrNKg0GTCUWs7gs5riaZlz4=
-github.com/txn2/txeh v1.5.5/go.mod h1:qYzGG9kCzeVEI12geK4IlanHWY8X4uy/I3NcW7mk8g4=
+github.com/txn2/txeh v1.7.0 h1:cbemPDQllpklE4HfPgrMxJ0l3ehADKefRZb6UnXnmas=
+github.com/txn2/txeh v1.7.0/go.mod h1:tkILV6LCwpZDRMfdAHOpcG8ZkCFbtlSJ76RLn25eGd8=
 github.com/xdg-go/pbkdf2 v1.0.0/go.mod h1:jrpuAogTd400dnrH08LKmI/xc1MbPOebTwRqcT5RDeI=
 github.com/xdg-go/scram v1.1.1/go.mod h1:RaEWvsqvNKKvBPvcKeFjrG2cJqOkHTiyTpzz23ni57g=
 github.com/xdg-go/stringprep v1.0.3/go.mod h1:W3f5j4i+9rC0kuIEJL0ky1VpHXQU3ocBgklLGvcBnW8=
