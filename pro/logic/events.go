@@ -36,7 +36,8 @@ func EventRententionHook() error {
 
 func EventWatcher() {
 	logic.HookManagerCh <- models.HookDetails{
-		Hook:     EventRententionHook,
+		ID:       "events-retention-hook",
+		Hook:     logic.WrapHook(EventRententionHook),
 		Interval: time.Hour * 24,
 	}
 	for e := range EventActivityCh {

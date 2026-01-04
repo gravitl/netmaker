@@ -80,7 +80,7 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if err := logic.ValidateNameserverReq(req); err != nil {
+	if err := logic.ValidateNameserverReq(&req); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -110,6 +110,7 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 		Name:        req.Name,
 		NetworkID:   req.NetworkID,
 		Description: req.Description,
+		Fallback:    req.Fallback,
 		Servers:     req.Servers,
 		MatchAll:    req.MatchAll,
 		Domains:     req.Domains,
@@ -199,7 +200,7 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := logic.ValidateNameserverReq(updateNs); err != nil {
+	if err := logic.ValidateNameserverReq(&updateNs); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -218,11 +219,15 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 	}
 	var updateStatus bool
 	var updateMatchAll bool
+	var updateFallback bool
 	if updateNs.Status != ns.Status {
 		updateStatus = true
 	}
 	if updateNs.MatchAll != ns.MatchAll {
 		updateMatchAll = true
+	}
+	if updateNs.Fallback != ns.Fallback {
+		updateFallback = true
 	}
 	event := &models.Event{
 		Action: models.Update,
@@ -244,30 +249,47 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 		NetworkID: models.NetworkID(ns.NetworkID),
 		Origin:    models.Dashboard,
 	}
-	ns.Servers = updateNs.Servers
-	ns.Tags = updateNs.Tags
-	ns.Domains = updateNs.Domains
-	ns.MatchAll = updateNs.MatchAll
-	ns.Description = updateNs.Description
-	ns.Name = updateNs.Name
-	ns.Nodes = updateNs.Nodes
-	ns.Status = updateNs.Status
-	ns.UpdatedAt = time.Now().UTC()
 
-	err = ns.Update(db.WithContext(context.TODO()))
-	if err != nil {
-		logic.ReturnErrorResponse(
-			w,
-			r,
-			logic.FormatError(errors.New("error creating egress resource"+err.Error()), "internal"),
-		)
-		return
+	if !ns.Default {
+		if updateNs.MatchAll {
+			updateNs.Domains = []schema.NameserverDomain{
+				{
+					Domain: ".",
+				},
+			}
+		}
+		ns.Servers = updateNs.Servers
+		ns.Tags = updateNs.Tags
+		ns.Domains = updateNs.Domains
+		ns.Description = updateNs.Description
+		ns.Name = updateNs.Name
+		ns.Nodes = updateNs.Nodes
+		ns.UpdatedAt = time.Now().UTC()
+
+		err = ns.Update(db.WithContext(context.TODO()))
+		if err != nil {
+			logic.ReturnErrorResponse(
+				w,
+				r,
+				logic.FormatError(errors.New("error creating egress resource"+err.Error()), "internal"),
+			)
+			return
+		}
+
+		if updateMatchAll {
+			ns.MatchAll = updateNs.MatchAll
+			ns.UpdateMatchAll(db.WithContext(context.TODO()))
+		}
+
+		if updateFallback {
+			ns.Fallback = updateNs.Fallback
+			ns.UpdateFallback(db.WithContext(context.TODO()))
+		}
 	}
+
 	if updateStatus {
+		ns.Status = updateNs.Status
 		ns.UpdateStatus(db.WithContext(context.TODO()))
-	}
-	if updateMatchAll {
-		ns.UpdateMatchAll(db.WithContext(context.TODO()))
 	}
 	logic.LogEvent(event)
 	go mq.PublishPeerUpdate(false)
@@ -294,6 +316,10 @@ func deleteNs(w http.ResponseWriter, r *http.Request) {
 	err := ns.Get(db.WithContext(r.Context()))
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
+		return
+	}
+	if ns.Default {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("cannot delete default nameservers"), logic.BadReq))
 		return
 	}
 	err = ns.Delete(db.WithContext(r.Context()))

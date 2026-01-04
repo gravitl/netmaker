@@ -75,8 +75,10 @@ const (
 	AclRsrc            RsrcType = "acl"
 	TagRsrc            RsrcType = "tag"
 	DnsRsrc            RsrcType = "dns"
+	NameserverRsrc     RsrcType = "nameserver"
 	FailOverRsrc       RsrcType = "fail_over"
 	MetricRsrc         RsrcType = "metric"
+	PostureCheckRsrc   RsrcType = "posturecheck"
 )
 
 const (
@@ -93,6 +95,8 @@ const (
 	AllFailOverRsrcID       RsrcID = "all_fail_over"
 	AllAclsRsrcID           RsrcID = "all_acl"
 	AllTagsRsrcID           RsrcID = "all_tag"
+	AllPostureCheckRsrcID   RsrcID = "all_posturecheck"
+	AllNameserverRsrcID     RsrcID = "all_nameserver"
 )
 
 // Pre-Defined User Roles
@@ -245,4 +249,15 @@ type UserInvite struct {
 	NetworkRoles   map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
 	InviteCode     string                                `json:"invite_code"`
 	InviteURL      string                                `json:"invite_url"`
+}
+
+// UserMapping - user ip map with groups
+type UserMapping struct {
+	User   string   `json:"user"`
+	Groups []string `json:"groups"`
+}
+
+// UserIPMap maintains the mapping of IP addresses to users and groups
+type UserIPMap struct {
+	Mappings map[string]UserMapping `json:"mappings"`
 }

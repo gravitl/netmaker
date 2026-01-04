@@ -124,6 +124,16 @@ var NetworkUserAllPermissionTemplate = models.UserRolePermissionTemplate{
 				Read: true,
 			},
 		},
+		models.PostureCheckRsrc: {
+			models.AllPostureCheckRsrcID: models.RsrcPermissionScope{
+				Read: true,
+			},
+		},
+		models.NameserverRsrc: {
+			models.AllNameserverRsrcID: models.RsrcPermissionScope{
+				Read: true,
+			},
+		},
 	},
 }
 
@@ -244,6 +254,16 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 			},
 			models.TagRsrc: {
 				models.AllTagsRsrcID: models.RsrcPermissionScope{
+					Read: true,
+				},
+			},
+			models.PostureCheckRsrc: {
+				models.AllPostureCheckRsrcID: models.RsrcPermissionScope{
+					Read: true,
+				},
+			},
+			models.NameserverRsrc: {
+				models.AllNameserverRsrcID: models.RsrcPermissionScope{
 					Read: true,
 				},
 			},
@@ -565,9 +585,16 @@ func ValidateCreateGroupReq(g models.UserGroup) error {
 	}
 	return nil
 }
-func ValidateUpdateGroupReq(g models.UserGroup) error {
-	for networkID := range g.NetworkRoles {
-		userRolesMap := g.NetworkRoles[networkID]
+func ValidateUpdateGroupReq(new models.UserGroup) error {
+	var newHasAllNetworkRole, newHasSpecNetworkRole bool
+	for networkID := range new.NetworkRoles {
+		if networkID == models.AllNetworks {
+			newHasAllNetworkRole = true
+		} else {
+			newHasSpecNetworkRole = true
+		}
+
+		userRolesMap := new.NetworkRoles[networkID]
 		for roleID := range userRolesMap {
 			netRole, err := logic.GetRole(roleID)
 			if err != nil {
@@ -579,6 +606,11 @@ func ValidateUpdateGroupReq(g models.UserGroup) error {
 			}
 		}
 	}
+
+	if newHasAllNetworkRole && newHasSpecNetworkRole {
+		return errors.New("cannot have networks roles for all networks and a specific network")
+	}
+
 	return nil
 }
 
@@ -709,7 +741,6 @@ func DeleteAndCleanUpGroup(group *models.UserGroup) error {
 	if err != nil {
 		return err
 	}
-
 	go func() {
 		var replacePeers bool
 		var networkIDs []models.NetworkID
@@ -727,6 +758,7 @@ func DeleteAndCleanUpGroup(group *models.UserGroup) error {
 		}
 
 		for _, networkID := range networkIDs {
+			go RemoveUserGroupFromPostureChecks(group.ID, networkID)
 			acls, err := logic.ListAclsByNetwork(networkID)
 			if err != nil {
 				continue

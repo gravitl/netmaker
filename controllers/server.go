@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-
 	"github.com/gorilla/mux"
+	ch "github.com/gravitl/netmaker/clickhouse"
 	"golang.org/x/exp/slog"
 
 	"github.com/gravitl/netmaker/database"
@@ -224,8 +224,8 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if !logic.ValidateNewSettings(req) {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid settings"), "badrequest"))
+	if err := logic.ValidateNewSettings(req); err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("invalid settings: %w", err), "badrequest"))
 		return
 	}
 	currSettings := logic.GetServerSettings()
@@ -247,8 +247,27 @@ func updateSettings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if currSettings.EnableFlowLogs != req.EnableFlowLogs {
+		if req.EnableFlowLogs {
+			err := ch.Initialize()
+			if err != nil {
+				err = fmt.Errorf("failed to enable flow logs: %v", err)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+				return
+			}
+			logic.StartFlowCleanupLoop()
+		} else {
+			logic.StopFlowCleanupLoop()
+			ch.Close()
+		}
+	}
+
 	err := logic.UpsertServerSettings(req)
 	if err != nil {
+		if req.EnableFlowLogs {
+			logic.StopFlowCleanupLoop()
+			ch.Close()
+		}
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to update server settings "+err.Error()), "internal"))
 		return
 	}
@@ -286,13 +305,25 @@ func reInit(curr, new models.ServerSettings, force bool) {
 		logic.GetMetricsMonitor().Stop()
 		logic.GetMetricsMonitor().Start()
 	}
-	// check if auto update is changed
-	if force {
-		if curr.NetclientAutoUpdate != new.NetclientAutoUpdate {
-			// update all hosts
+
+	if curr.EnableFlowLogs != new.EnableFlowLogs {
+		go mq.PublishExporterFeatureFlags()
+	}
+
+	// On force AutoUpdate change, change AutoUpdate for all hosts.
+	// On force FlowLogs enable, enable FlowLogs for all hosts.
+	// On FlowLogs disable, forced or not, disable FlowLogs for all hosts.
+	if force || !new.EnableFlowLogs {
+		if curr.NetclientAutoUpdate != new.NetclientAutoUpdate ||
+			curr.EnableFlowLogs != new.EnableFlowLogs {
 			hosts, _ := logic.GetAllHosts()
 			for _, host := range hosts {
-				host.AutoUpdate = new.NetclientAutoUpdate
+				if curr.NetclientAutoUpdate != new.NetclientAutoUpdate {
+					host.AutoUpdate = new.NetclientAutoUpdate
+				}
+				if curr.EnableFlowLogs != new.EnableFlowLogs {
+					host.EnableFlowLogs = new.EnableFlowLogs
+				}
 				logic.UpsertHost(&host)
 				mq.HostUpdate(&models.HostUpdate{
 					Action: models.UpdateHost,
@@ -300,6 +331,9 @@ func reInit(curr, new models.ServerSettings, force bool) {
 				})
 			}
 		}
+	}
+	if new.CleanUpInterval != curr.CleanUpInterval {
+		logic.RestartHook("network-hook", time.Duration(new.CleanUpInterval)*time.Minute)
 	}
 	go mq.PublishPeerUpdate(false)
 }
@@ -331,6 +365,14 @@ func identifySettingsUpdateAction(old, new models.ServerSettings) models.Action 
 			return models.DisableTelemetry
 		} else {
 			return models.EnableTelemetry
+		}
+	}
+
+	if old.EnableFlowLogs != new.EnableFlowLogs {
+		if new.EnableFlowLogs {
+			return models.EnableFlowLogs
+		} else {
+			return models.DisableFlowLogs
 		}
 	}
 

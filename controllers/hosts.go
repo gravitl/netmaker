@@ -242,24 +242,25 @@ func pull(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := models.HostPull{
-		Host:              *host,
-		Nodes:             logic.GetHostNodes(host),
-		ServerConfig:      hPU.ServerConfig,
-		Peers:             hPU.Peers,
-		PeerIDs:           hPU.PeerIDs,
-		HostNetworkInfo:   hPU.HostNetworkInfo,
-		EgressRoutes:      hPU.EgressRoutes,
-		FwUpdate:          hPU.FwUpdate,
-		ChangeDefaultGw:   hPU.ChangeDefaultGw,
-		DefaultGwIp:       hPU.DefaultGwIp,
-		IsInternetGw:      hPU.IsInternetGw,
-		NameServers:       hPU.NameServers,
-		EgressWithDomains: hPU.EgressWithDomains,
-		EndpointDetection: logic.IsEndpointDetectionEnabled(),
-		DnsNameservers:    hPU.DnsNameservers,
-		ReplacePeers:      hPU.ReplacePeers,
-		AutoRelayNodes:    hPU.AutoRelayNodes,
-		GwNodes:           hPU.GwNodes,
+		Host:               *host,
+		Nodes:              logic.GetHostNodes(host),
+		ServerConfig:       hPU.ServerConfig,
+		Peers:              hPU.Peers,
+		PeerIDs:            hPU.PeerIDs,
+		HostNetworkInfo:    hPU.HostNetworkInfo,
+		EgressRoutes:       hPU.EgressRoutes,
+		FwUpdate:           hPU.FwUpdate,
+		ChangeDefaultGw:    hPU.ChangeDefaultGw,
+		DefaultGwIp:        hPU.DefaultGwIp,
+		IsInternetGw:       hPU.IsInternetGw,
+		NameServers:        hPU.NameServers,
+		EgressWithDomains:  hPU.EgressWithDomains,
+		EndpointDetection:  logic.IsEndpointDetectionEnabled(),
+		DnsNameservers:     hPU.DnsNameservers,
+		ReplacePeers:       hPU.ReplacePeers,
+		AutoRelayNodes:     hPU.AutoRelayNodes,
+		GwNodes:            hPU.GwNodes,
+		AddressIdentityMap: hPU.AddressIdentityMap,
 	}
 
 	logger.Log(1, hostID, host.Name, "completed a pull")
@@ -547,7 +548,7 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(
 			w,
 			r,
-			logic.FormatError(errors.New("hostid or network cannot be empty"), "badrequest"),
+			logic.FormatError(errors.New("hostid or network cannot be empty"), logic.BadReq),
 		)
 		return
 	}
@@ -555,10 +556,23 @@ func addHostToNetwork(w http.ResponseWriter, r *http.Request) {
 	currHost, err := logic.GetHost(hostid)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to find host:", hostid, err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
 	}
 
+	violations, _ := logic.CheckPostureViolations(models.PostureCheckDeviceInfo{
+		ClientLocation: currHost.CountryCode,
+		ClientVersion:  currHost.Version,
+		OS:             currHost.OS,
+		OSFamily:       currHost.OSFamily,
+		OSVersion:      currHost.OSVersion,
+		KernelVersion:  currHost.KernelVersion,
+		AutoUpdate:     currHost.AutoUpdate,
+	}, models.NetworkID(network))
+	if len(violations) > 0 {
+		logic.ReturnErrorResponseWithJson(w, r, violations, logic.FormatError(errors.New("posture check violations"), logic.BadReq))
+		return
+	}
 	newNode, err := logic.UpdateHostNetwork(currHost, network, true)
 	if err != nil {
 		logger.Log(

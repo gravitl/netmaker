@@ -129,6 +129,7 @@ func getNetworksStats(w http.ResponseWriter, r *http.Request) {
 // @Param       networkname path string true "Network name"
 // @Produce     json
 // @Success     200 {object} models.Network
+// @Failure     404 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func getNetwork(w http.ResponseWriter, r *http.Request) {
 	// set header.
@@ -139,7 +140,13 @@ func getNetwork(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), fmt.Sprintf("failed to fetch network [%s] info: %v",
 			netname, err))
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+
+		errType := logic.Internal
+		if database.IsEmptyRecord(err) {
+			errType = logic.NotFound
+		}
+
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, errType))
 		return
 	}
 
@@ -547,6 +554,8 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 				slog.Error("error publishing node update to node", "node", node.ID, "error", err)
 			}
 		}
+
+		_ = logic.DeleteNetworkNameservers(network)
 		if servercfg.IsDNSMode() {
 			logic.SetDNS()
 		}
@@ -601,7 +610,6 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	if !featureFlags.EnableDeviceApproval {
 		network.AutoJoin = "true"
 	}
-
 	if len(network.NetID) > 32 {
 		err := errors.New("network name shouldn't exceed 32 characters")
 		logger.Log(0, r.Header.Get("user"), "failed to create network: ",
@@ -656,7 +664,14 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-
+	if network.AutoRemove == "true" {
+		if network.AutoRemoveThreshold == 0 {
+			network.AutoRemoveThreshold = 60
+		}
+	}
+	if network.AutoRemoveTags == nil {
+		network.AutoRemoveTags = []string{}
+	}
 	network, err = logic.CreateNetwork(network)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to create network: ",
@@ -668,6 +683,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	logic.CreateDefaultAclNetworkPolicies(models.NetworkID(network.NetID))
 	logic.CreateDefaultTags(models.NetworkID(network.NetID))
 	logic.AddNetworkToAllocatedIpMap(network.NetID)
+	logic.CreateFallbackNameserver(network.NetID)
 
 	go func() {
 		defaultHosts := logic.GetDefaultHosts()

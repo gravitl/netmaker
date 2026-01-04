@@ -31,6 +31,10 @@ const (
 	UpdateMonitoringAndDebuggingSettings Action = "UPDATE_MONITORING_AND_DEBUGGING_SETTINGS"
 	UpdateSMTPSettings                   Action = "UPDATE_EMAIL_SETTINGS"
 	UpdateIDPSettings                    Action = "UPDATE_IDP_SETTINGS"
+	EnableFlowLogs                       Action = "ENABLE_FLOW_LOGS"
+	DisableFlowLogs                      Action = "DISABLE_FLOW_LOGS"
+	GatewayAssign                        Action = "GATEWAY_ASSIGN"
+	GatewayUnAssign                      Action = "GATEWAY_UNASSIGN"
 )
 
 type SubjectType string
@@ -54,6 +58,7 @@ const (
 	EnrollmentKeySub   SubjectType = "ENROLLMENT_KEY"
 	ClientAppSub       SubjectType = "CLIENT-APP"
 	NameserverSub      SubjectType = "NAMESERVER"
+	PostureCheckSub    SubjectType = "POSTURE_CHECK"
 )
 
 func (sub SubjectType) String() string {

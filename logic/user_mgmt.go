@@ -48,8 +48,8 @@ var IsNetworkRolesValid = func(networkRoles map[models.NetworkID]map[models.User
 	return nil
 }
 
-var MigrateUserRoleAndGroups = func(u models.User) {
-
+var MigrateUserRoleAndGroups = func(u models.User) models.User {
+	return u
 }
 
 var MigrateToUUIDs = func() {}
@@ -165,6 +165,10 @@ func GetAllRsrcIDForRsrc(rsrc models.RsrcType) models.RsrcID {
 		return models.AllAclsRsrcID
 	case models.TagRsrc:
 		return models.AllTagsRsrcID
+	case models.PostureCheckRsrc:
+		return models.AllPostureCheckRsrcID
+	case models.NameserverRsrc:
+		return models.AllNameserverRsrcID
 	}
 	return ""
 }
