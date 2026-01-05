@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/gravitl/netmaker/converters"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
+	"gorm.io/gorm"
 
 	"github.com/go-playground/validator/v10"
 	"golang.org/x/crypto/bcrypt"
@@ -36,75 +38,45 @@ var ResetIDPSyncHook = func() {}
 
 // HasSuperAdmin - checks if server has an superadmin/owner
 func HasSuperAdmin() (bool, error) {
-	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
-	if err != nil {
-		if database.IsEmptyRecord(err) {
-			return false, nil
-		} else {
-			return true, err
-		}
-	}
-	for _, value := range collection { // filter for isadmin true
-		var user models.User
-		err = json.Unmarshal([]byte(value), &user)
-		if err != nil {
-			continue
-		}
-		if user.PlatformRoleID == models.SuperAdminRole {
-			return true, nil
-		}
-	}
-
-	return false, err
+	return (&schema.User{}).SuperAdminExists(db.WithContext(context.TODO()))
 }
 
 // GetUsersDB - gets users
 func GetUsersDB() ([]models.User, error) {
-
-	var users []models.User
-
-	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
-
+	_users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
-		return users, err
+		return nil, err
 	}
 
-	for _, value := range collection {
+	users := converters.ToModelUsers(_users)
 
-		var user models.User
-		err = json.Unmarshal([]byte(value), &user)
+	for i := range users {
+		users[i].UserGroups, users[i].NetworkRoles, err = GetUserGroupsAndNetworkRoles(_users[i].ID)
 		if err != nil {
-			continue // get users
+			return nil, err
 		}
-		users = append(users, user)
 	}
 
-	return users, err
+	return users, nil
 }
 
 // GetUsers - gets users
 func GetUsers() ([]models.ReturnUser, error) {
-
-	var users []models.ReturnUser
-
-	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
-
+	_users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
-		return users, err
+		return nil, err
 	}
 
-	for _, value := range collection {
+	users := converters.ToApiUsers(_users)
 
-		var user models.ReturnUser
-		err = json.Unmarshal([]byte(value), &user)
+	for i := range users {
+		users[i].UserGroups, users[i].NetworkRoles, err = GetUserGroupsAndNetworkRoles(_users[i].ID)
 		if err != nil {
-			continue // get users
+			return nil, err
 		}
-
-		users = append(users, user)
 	}
 
-	return users, err
+	return users, nil
 }
 
 // IsOauthUser - returns
@@ -179,17 +151,48 @@ func CreateUser(user *models.User) error {
 		return err
 	}
 
-	// connect db
-	data, err := json.Marshal(user)
+	dbctx := db.BeginTx(context.TODO())
+	commit := false
+	defer func() {
+		if commit {
+			db.FromContext(dbctx).Commit()
+		} else {
+			db.FromContext(dbctx).Rollback()
+		}
+	}()
+
+	_user := converters.ToSchemaUser(*user)
+	err = _user.Create(dbctx)
 	if err != nil {
-		logger.Log(0, "failed to marshal", err.Error())
-		return err
+		return fmt.Errorf("failed to create user %s: %v", user.UserName, err)
 	}
-	err = database.Insert(user.UserName, string(data), database.USERS_TABLE_NAME)
-	if err != nil {
-		logger.Log(0, "failed to insert user", err.Error())
-		return err
+
+	for groupID := range user.UserGroups {
+		_groupMember := schema.GroupMember{
+			GroupID: string(groupID),
+			UserID:  _user.ID,
+		}
+		err = _groupMember.Create(db.WithContext(context.TODO()))
+		if err != nil {
+			return fmt.Errorf("failed to add user %s to group %s: %v", user.UserName, groupID, err)
+		}
 	}
+
+	for networkID, role := range user.NetworkRoles {
+		_userNetworkRole := schema.UserNetworkRole{
+			UserID:    _user.ID,
+			NetworkID: string(networkID),
+		}
+		for roleID := range role {
+			_userNetworkRole.RoleID = string(roleID)
+		}
+		err = _userNetworkRole.Create(dbctx)
+		if err != nil {
+			return fmt.Errorf("failed to set user %s's role for network %s: %v", user.UserName, networkID, err)
+		}
+	}
+
+	commit = true
 	return nil
 }
 
@@ -210,29 +213,28 @@ func CreateSuperAdmin(u *models.User) error {
 
 // VerifyAuthRequest - verifies an auth request
 func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (string, error) {
-	var result models.User
 	if authRequest.UserName == "" {
 		return "", errors.New("username can't be empty")
 	} else if authRequest.Password == "" {
 		return "", errors.New("password can't be empty")
 	}
 	// Search DB for node with Mac Address. Ignore pending nodes (they should not be able to authenticate with API until approved).
-	record, err := database.FetchRecord(database.USERS_TABLE_NAME, authRequest.UserName)
+	_user := &schema.User{
+		Username: authRequest.UserName,
+	}
+	err := _user.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return "", errors.New("incorrect credentials")
-	}
-	if err = json.Unmarshal([]byte(record), &result); err != nil {
-		return "", errors.New("error unmarshalling user json: " + err.Error())
 	}
 
 	// compare password from request to stored password in database
 	// might be able to have a common hash (certificates?) and compare those so that a password isn't passed in in plain text...
 	// TODO: Consider a way of hashing the password client side before sending, or using certificates
-	if err = bcrypt.CompareHashAndPassword([]byte(result.Password), []byte(authRequest.Password)); err != nil {
+	if err = bcrypt.CompareHashAndPassword([]byte(_user.Password), []byte(authRequest.Password)); err != nil {
 		return "", errors.New("incorrect credentials")
 	}
 
-	if result.IsMFAEnabled {
+	if _user.IsMFAEnabled {
 		tokenString, err := CreatePreAuthToken(authRequest.UserName)
 		if err != nil {
 			slog.Error("error creating jwt", "error", err)
@@ -242,15 +244,15 @@ func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (strin
 		return tokenString, nil
 	} else {
 		// Create a new JWT for the node
-		tokenString, err := CreateUserJWT(authRequest.UserName, result.PlatformRoleID, appName)
+		tokenString, err := CreateUserJWT(authRequest.UserName, models.UserRoleID(_user.PlatformRoleID), appName)
 		if err != nil {
 			slog.Error("error creating jwt", "error", err)
 			return "", err
 		}
 
 		// update last login time
-		result.LastLoginTime = time.Now().UTC()
-		err = UpsertUser(result)
+		_user.LastLoginAt = time.Now().UTC()
+		err = _user.Update(db.WithContext(context.TODO()))
 		if err != nil {
 			slog.Error("error upserting user", "error", err)
 			return "", err
@@ -262,17 +264,14 @@ func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (strin
 
 // UpsertUser - updates user in the db
 func UpsertUser(user models.User) error {
-	data, err := json.Marshal(&user)
-	if err != nil {
-		slog.Error("error marshalling user", "user", user.UserName, "error", err.Error())
-		return err
+	_user := converters.ToSchemaUser(user)
+	existingUser := schema.User{Username: user.UserName}
+	// Check if user exists to preserve ID
+	if err := existingUser.Get(db.WithContext(context.TODO())); err == nil {
+		_user.ID = existingUser.ID
+		return _user.Update(db.WithContext(context.TODO()))
 	}
-	if err = database.Insert(user.UserName, string(data), database.USERS_TABLE_NAME); err != nil {
-		slog.Error("error inserting user", "user", user.UserName, "error", err.Error())
-		return err
-	}
-
-	return nil
+	return _user.Create(db.WithContext(context.TODO()))
 }
 
 // UpdateUser - updates a given user
@@ -384,14 +383,16 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 	if err != nil {
 		return &models.User{}, err
 	}
-	if err = database.DeleteRecord(database.USERS_TABLE_NAME, queryUser); err != nil {
+	// Fetch existing user to get ID
+	_schemaUser := schema.User{Username: queryUser}
+	if err := _schemaUser.Get(db.WithContext(context.TODO())); err != nil {
 		return &models.User{}, err
 	}
-	data, err := json.Marshal(&user)
-	if err != nil {
-		return &models.User{}, err
-	}
-	if err = database.Insert(user.UserName, string(data), database.USERS_TABLE_NAME); err != nil {
+
+	_user := converters.ToSchemaUser(*user)
+	_user.ID = _schemaUser.ID
+
+	if err := _user.Update(db.WithContext(context.TODO())); err != nil {
 		return &models.User{}, err
 	}
 	logger.Log(1, "updated user", queryUser)
@@ -424,15 +425,18 @@ func ValidateUser(user *models.User) error {
 
 // DeleteUser - deletes a given user
 func DeleteUser(user string) error {
-
-	if userRecord, err := database.FetchRecord(database.USERS_TABLE_NAME, user); err != nil || len(userRecord) == 0 {
-		return errors.New("user does not exist")
+	_user := schema.User{
+		Username: user,
 	}
-
-	err := database.DeleteRecord(database.USERS_TABLE_NAME, user)
+	err := _user.Delete(db.WithContext(context.TODO()))
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("user does not exist")
+		}
+
 		return err
 	}
+
 	go RemoveUserFromAclPolicy(user)
 	return (&schema.UserAccessToken{UserName: user}).DeleteAllUserTokens(db.WithContext(context.TODO()))
 }

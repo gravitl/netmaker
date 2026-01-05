@@ -2,15 +2,15 @@ package migrate
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"fmt"
+
+	"github.com/gravitl/netmaker/converters"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
-	"github.com/gravitl/netmaker/servercfg"
 	"gorm.io/gorm"
-	"os"
-	"path/filepath"
 )
 
 // ToSQLSchema migrates the data from key-value
@@ -35,16 +35,7 @@ func ToSQLSchema() error {
 	}
 
 	// migrate, if not done already.
-	err = migrate()
-	if err != nil {
-		return err
-	}
-
-	// archive key-value schema db, if not done already.
-	// ignore errors.
-	_ = archive()
-
-	return nil
+	return migrate()
 }
 
 func migrate() error {
@@ -77,7 +68,10 @@ func migrate() error {
 		defer database.CloseDB()
 
 		// migrate.
-		// TODO: add migration code.
+		err = migrateUsers(dbctx)
+		if err != nil {
+			return err
+		}
 
 		// mark migration job completed.
 		err = migrationJob.Create(dbctx)
@@ -91,93 +85,50 @@ func migrate() error {
 	return nil
 }
 
-func archive() error {
-	dbServer := servercfg.GetDB()
-	if dbServer != "sqlite" && dbServer != "postgres" {
-		return nil
-	}
-
-	// begin a new transaction.
-	dbctx := db.BeginTx(context.TODO())
-	commit := false
-	defer func() {
-		if commit {
-			db.FromContext(dbctx).Commit()
-		} else {
-			db.FromContext(dbctx).Rollback()
-		}
-	}()
-
-	// check if key-value schema db archived already.
-	archivalJob := &schema.Job{
-		ID: "archival-v1.0.0",
-	}
-	err := archivalJob.Get(dbctx)
-	if err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return err
-		}
-
-		// archive.
-		switch dbServer {
-		case "sqlite":
-			err = sqliteArchiveOldData()
-		default:
-			err = pgArchiveOldData()
-		}
-		if err != nil {
-			return err
-		}
-
-		// mark archival job completed.
-		err = archivalJob.Create(dbctx)
-		if err != nil {
-			return err
-		}
-
-		commit = true
-	} else {
-		// remove the residual
-		if dbServer == "sqlite" {
-			_ = os.Remove(filepath.Join("data", "netmaker.db"))
-		}
-	}
-
-	return nil
-}
-
-func sqliteArchiveOldData() error {
-	oldDBFilePath := filepath.Join("data", "netmaker.db")
-	archiveDBFilePath := filepath.Join("data", "netmaker_archive.db")
-
-	// check if netmaker_archive.db exist.
-	_, err := os.Stat(archiveDBFilePath)
-	if err == nil {
-		return nil
-	} else if !os.IsNotExist(err) {
-		return err
-	}
-
-	// rename old db file to netmaker_archive.db.
-	return os.Rename(oldDBFilePath, archiveDBFilePath)
-}
-
-func pgArchiveOldData() error {
-	_, err := database.PGDB.Exec("CREATE SCHEMA IF NOT EXISTS netmaker_archive")
+func migrateUsers(ctx context.Context) error {
+	records, err := database.FetchRecords(database.USERS_TABLE_NAME)
 	if err != nil {
 		return err
 	}
 
-	for _, table := range database.Tables {
-		_, err := database.PGDB.Exec(
-			fmt.Sprintf(
-				"ALTER TABLE public.%s SET SCHEMA netmaker_archive",
-				table,
-			),
-		)
+	for _, record := range records {
+		var user models.User
+		err = json.Unmarshal([]byte(record), &user)
 		if err != nil {
 			return err
 		}
+
+		_user := converters.ToSchemaUser(user)
+		err = _user.Create(ctx)
+		if err != nil {
+			return err
+		}
+
+		for groupID := range user.UserGroups {
+			_groupMember := schema.GroupMember{
+				GroupID: string(groupID),
+				UserID:  _user.ID,
+			}
+			err = _groupMember.Create(ctx)
+			if err != nil {
+				return err
+			}
+		}
+
+		for networkID, role := range user.NetworkRoles {
+			_networkRole := schema.UserNetworkRole{
+				UserID:    _user.ID,
+				NetworkID: string(networkID),
+			}
+			for roleID := range role {
+				_networkRole.RoleID = string(roleID)
+			}
+			err = _networkRole.Create(ctx)
+			if err != nil {
+				return err
+			}
+		}
 	}
+
 	return nil
 }

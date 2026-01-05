@@ -1,41 +1,90 @@
 package logic
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"sort"
 
+	"github.com/gravitl/netmaker/converters"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 )
 
 // GetUser - gets a user
 // TODO support "masteradmin"
 func GetUser(username string) (*models.User, error) {
-
-	var user models.User
-	record, err := database.FetchRecord(database.USERS_TABLE_NAME, username)
+	_user := schema.User{
+		Username: username,
+	}
+	err := _user.Get(db.WithContext(context.TODO()))
 	if err != nil {
-		return &user, err
+		return nil, err
 	}
-	if err = json.Unmarshal([]byte(record), &user); err != nil {
-		return &models.User{}, err
+
+	user := converters.ToModelUser(_user)
+
+	user.UserGroups, user.NetworkRoles, err = GetUserGroupsAndNetworkRoles(_user.ID)
+	if err != nil {
+		return nil, err
 	}
-	return &user, err
+
+	return &user, nil
 }
 
 // GetReturnUser - gets a user
 func GetReturnUser(username string) (models.ReturnUser, error) {
-
-	var user models.ReturnUser
-	record, err := database.FetchRecord(database.USERS_TABLE_NAME, username)
-	if err != nil {
-		return user, err
+	_user := schema.User{
+		Username: username,
 	}
-	if err = json.Unmarshal([]byte(record), &user); err != nil {
+	err := _user.Get(db.WithContext(context.TODO()))
+	if err != nil {
 		return models.ReturnUser{}, err
 	}
-	return user, err
+
+	user := converters.ToApiUser(_user)
+
+	user.UserGroups, user.NetworkRoles, err = GetUserGroupsAndNetworkRoles(_user.ID)
+	if err != nil {
+		return models.ReturnUser{}, err
+	}
+
+	return user, nil
+}
+
+func GetUserGroupsAndNetworkRoles(_userID string) (map[models.UserGroupID]struct{}, map[models.NetworkID]map[models.UserRoleID]struct{}, error) {
+	userGroups := make(map[models.UserGroupID]struct{})
+	networkRoles := make(map[models.NetworkID]map[models.UserRoleID]struct{})
+
+	_userGroup := schema.GroupMember{
+		UserID: _userID,
+	}
+	_userGroups, err := _userGroup.ListAllGroups(db.WithContext(context.TODO()))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for _, _group := range _userGroups {
+		userGroups[models.UserGroupID(_group.GroupID)] = struct{}{}
+	}
+
+	_networkRole := schema.UserNetworkRole{
+		UserID: _userID,
+	}
+	_networkRoles, err := _networkRole.ListAllNetworkRoles(db.WithContext(context.TODO()))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for _, _role := range _networkRoles {
+		networkRoles[models.NetworkID(_role.NetworkID)] = map[models.UserRoleID]struct{}{
+			models.UserRoleID(_role.RoleID): {},
+		}
+	}
+
+	return userGroups, networkRoles, nil
 }
 
 // ToReturnUser - gets a user as a return user
@@ -150,18 +199,16 @@ func ListPendingUsers() ([]models.User, error) {
 }
 
 func GetUserMap() (map[string]models.User, error) {
+	users, err := GetUsersDB()
+	if err != nil {
+		return nil, err
+	}
+
 	userMap := make(map[string]models.User)
-	records, err := database.FetchRecords(database.USERS_TABLE_NAME)
-	if err != nil && !database.IsEmptyRecord(err) {
-		return userMap, err
+	for _, user := range users {
+		userMap[user.UserName] = user
 	}
-	for _, record := range records {
-		u := models.User{}
-		err = json.Unmarshal([]byte(record), &u)
-		if err == nil {
-			userMap[u.UserName] = u
-		}
-	}
+
 	return userMap, nil
 }
 

@@ -1,12 +1,15 @@
 package logic
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"time"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/schema"
 
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
@@ -92,7 +95,7 @@ func FetchTelemetryData() telemetryData {
 
 	data.IsPro = servercfg.IsPro
 	data.ExtClients = getDBLength(database.EXT_CLIENT_TABLE_NAME)
-	data.Users = getDBLength(database.USERS_TABLE_NAME)
+	data.Users, _ = (&schema.User{}).Count(db.WithContext(context.TODO()))
 	data.Networks = getDBLength(database.NETWORKS_TABLE_NAME)
 	data.Hosts = getDBLength(database.HOSTS_TABLE_NAME)
 	data.Version = servercfg.GetVersion()
