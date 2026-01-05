@@ -68,7 +68,11 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		egressRange = "*"
 		req.Domain = ""
 	}
-
+	network, err := logic.GetNetwork(req.Network)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	e := schema.Egress{
 		ID:          uuid.New().String(),
 		Name:        req.Name,
@@ -84,6 +88,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		CreatedBy:   r.Header.Get("user"),
 		CreatedAt:   time.Now().UTC(),
 	}
+	logic.AssignVirtualRangeToEgress(&network, &e)
 	if len(req.Tags) > 0 {
 		for tagID, metric := range req.Tags {
 			e.Tags[tagID] = metric
@@ -211,6 +216,11 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	network, err := logic.GetNetwork(req.Network)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	var egressRange string
 	if !req.IsInetGw {
 		if req.Range != "" {
@@ -242,6 +252,16 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	if req.VirtualNAT && e.Mode != schema.VirtualNAT {
+		logic.AssignVirtualRangeToEgress(&network, &e)
+	} else if !req.VirtualNAT || !req.Nat {
+		e.Mode = schema.DirectNAT
+		if !req.Nat {
+			e.Mode = ""
+		}
+		e.VirtualRange = ""
+	}
+
 	var updateNat bool
 	var updateStatus bool
 	var resetDomain bool

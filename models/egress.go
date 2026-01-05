@@ -10,6 +10,7 @@ type EgressReq struct {
 	Range       string         `json:"range"`
 	Domain      string         `json:"domain"`
 	Nat         bool           `json:"nat"`
+	VirtualNAT  bool           `json:"virtual_nat"`
 	Status      bool           `json:"status"`
 	IsInetGw    bool           `json:"is_internet_gateway"`
 }

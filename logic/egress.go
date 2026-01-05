@@ -15,6 +15,10 @@ import (
 
 var ValidateEgressReq = validateEgressReq
 
+var AssignVirtualRangeToEgress = func(nw *models.Network, eg *schema.Egress) error {
+	return nil
+}
+
 func validateEgressReq(e *schema.Egress) error {
 	if e.Network == "" {
 		return errors.New("network id is empty")

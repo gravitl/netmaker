@@ -201,6 +201,7 @@ func InitPro() {
 	logic.GetPostureCheckDeviceInfoByNode = proLogic.GetPostureCheckDeviceInfoByNode
 	logic.StartFlowCleanupLoop = proLogic.StartFlowCleanupLoop
 	logic.StopFlowCleanupLoop = proLogic.StopFlowCleanupLoop
+	logic.AssignVirtualRangeToEgress = proLogic.AssignVirtualRangeToEgress
 }
 
 func retrieveProLogo() string {

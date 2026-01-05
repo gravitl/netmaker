@@ -1,6 +1,8 @@
 package models
 
 import (
+	"crypto/sha1"
+	"fmt"
 	"net"
 	"time"
 )
@@ -8,27 +10,31 @@ import (
 // Network Struct - contains info for a given unique network
 // At  some point, need to replace all instances of Name with something else like  Identifier
 type Network struct {
-	AddressRange        string   `json:"addressrange" bson:"addressrange" validate:"omitempty,cidrv4"`
-	AddressRange6       string   `json:"addressrange6" bson:"addressrange6" validate:"omitempty,cidrv6"`
-	NetID               string   `json:"netid" bson:"netid" validate:"required,min=1,max=32,netid_valid"`
-	NodesLastModified   int64    `json:"nodeslastmodified" bson:"nodeslastmodified" swaggertype:"primitive,integer" format:"int64"`
-	NetworkLastModified int64    `json:"networklastmodified" bson:"networklastmodified" swaggertype:"primitive,integer" format:"int64"`
-	DefaultInterface    string   `json:"defaultinterface" bson:"defaultinterface" validate:"min=1,max=35"`
-	DefaultListenPort   int32    `json:"defaultlistenport,omitempty" bson:"defaultlistenport,omitempty" validate:"omitempty,min=1024,max=65535"`
-	NodeLimit           int32    `json:"nodelimit" bson:"nodelimit"`
-	DefaultPostDown     string   `json:"defaultpostdown" bson:"defaultpostdown"`
-	DefaultKeepalive    int32    `json:"defaultkeepalive" bson:"defaultkeepalive" validate:"omitempty,max=1000"`
-	AllowManualSignUp   string   `json:"allowmanualsignup" bson:"allowmanualsignup" validate:"checkyesorno"`
-	IsIPv4              string   `json:"isipv4" bson:"isipv4" validate:"checkyesorno"`
-	IsIPv6              string   `json:"isipv6" bson:"isipv6" validate:"checkyesorno"`
-	DefaultUDPHolePunch string   `json:"defaultudpholepunch" bson:"defaultudpholepunch" validate:"checkyesorno"`
-	DefaultMTU          int32    `json:"defaultmtu" bson:"defaultmtu"`
-	DefaultACL          string   `json:"defaultacl" bson:"defaultacl" yaml:"defaultacl" validate:"checkyesorno"`
-	NameServers         []string `json:"dns_nameservers"`
-	AutoJoin            string   `json:"auto_join"`
-	AutoRemove          string   `json:"auto_remove"`
-	AutoRemoveTags      []string `json:"auto_remove_tags"`
-	AutoRemoveThreshold int      `json:"auto_remove_threshold_mins"`
+	AddressRange                string   `json:"addressrange" bson:"addressrange" validate:"omitempty,cidrv4"`
+	AddressRange6               string   `json:"addressrange6" bson:"addressrange6" validate:"omitempty,cidrv6"`
+	NetID                       string   `json:"netid" bson:"netid" validate:"required,min=1,max=32,netid_valid"`
+	NodesLastModified           int64    `json:"nodeslastmodified" bson:"nodeslastmodified" swaggertype:"primitive,integer" format:"int64"`
+	NetworkLastModified         int64    `json:"networklastmodified" bson:"networklastmodified" swaggertype:"primitive,integer" format:"int64"`
+	DefaultInterface            string   `json:"defaultinterface" bson:"defaultinterface" validate:"min=1,max=35"`
+	DefaultListenPort           int32    `json:"defaultlistenport,omitempty" bson:"defaultlistenport,omitempty" validate:"omitempty,min=1024,max=65535"`
+	NodeLimit                   int32    `json:"nodelimit" bson:"nodelimit"`
+	DefaultPostDown             string   `json:"defaultpostdown" bson:"defaultpostdown"`
+	DefaultKeepalive            int32    `json:"defaultkeepalive" bson:"defaultkeepalive" validate:"omitempty,max=1000"`
+	AllowManualSignUp           string   `json:"allowmanualsignup" bson:"allowmanualsignup" validate:"checkyesorno"`
+	IsIPv4                      string   `json:"isipv4" bson:"isipv4" validate:"checkyesorno"`
+	IsIPv6                      string   `json:"isipv6" bson:"isipv6" validate:"checkyesorno"`
+	DefaultUDPHolePunch         string   `json:"defaultudpholepunch" bson:"defaultudpholepunch" validate:"checkyesorno"`
+	DefaultMTU                  int32    `json:"defaultmtu" bson:"defaultmtu"`
+	DefaultACL                  string   `json:"defaultacl" bson:"defaultacl" yaml:"defaultacl" validate:"checkyesorno"`
+	NameServers                 []string `json:"dns_nameservers"`
+	AutoJoin                    string   `json:"auto_join"`
+	AutoRemove                  string   `json:"auto_remove"`
+	AutoRemoveTags              []string `json:"auto_remove_tags"`
+	AutoRemoveThreshold         int      `json:"auto_remove_threshold_mins"`
+	VirtualNATPoolIPv4          string   `json:"virtual_nat_pool_ipv4"`
+	VirtualNATSitePrefixLenIPv4 int      `json:"virtual_nat_site_prefixlen_ipv4"`
+	VirtualNATPoolIPv6          string   `json:"virtual_nat_pool_ipv6"`
+	VirtualNATSitePrefixLenIPv6 int      `json:"virtual_nat_site_prefixlen_ipv6"`
 }
 
 // SaveData - sensitive fields of a network that should be kept the same
@@ -97,6 +103,53 @@ func (network *Network) SetDefaults() (upsert bool) {
 		upsert = true
 	}
 	return
+}
+
+// AssignVirtualNATDefaults determines safe defaults based on VPN CIDR
+func (network *Network) AssignVirtualNATDefaults(vpnCIDR string, networkID string) {
+	const (
+		cgnatCIDR        = "100.64.0.0/10"
+		fallbackIPv4Pool = "198.18.0.0/15"
+
+		defaultIPv4SitePrefix = 24
+		defaultIPv6SitePrefix = 64
+	)
+
+	_, vpnNet, _ := net.ParseCIDR(vpnCIDR)
+	_, cgnatNet, _ := net.ParseCIDR(cgnatCIDR)
+
+	var virtualIPv4Pool string
+	if !cidrOverlaps(vpnNet, cgnatNet) {
+		// Safe to reuse VPN CIDR for Virtual NAT
+		virtualIPv4Pool = vpnCIDR
+	} else {
+		// VPN is CGNAT — must not reuse
+		virtualIPv4Pool = fallbackIPv4Pool
+	}
+
+	virtualIPv6Pool := generateULAPrefix(networkID)
+
+	network.VirtualNATPoolIPv4 = virtualIPv4Pool
+	network.VirtualNATSitePrefixLenIPv4 = defaultIPv4SitePrefix
+	network.VirtualNATPoolIPv6 = virtualIPv6Pool
+	network.VirtualNATSitePrefixLenIPv6 = defaultIPv6SitePrefix
+
+}
+
+func generateULAPrefix(networkID string) string {
+	// RFC 4193: fd00::/8 + 40-bit Global ID
+	hash := sha1.Sum([]byte(networkID))
+	globalID := hash[:5] // 40 bits
+
+	return fmt.Sprintf(
+		"fd%02x:%02x%02x:%02x%02x::/48",
+		globalID[0],
+		globalID[1], globalID[2],
+		globalID[3], globalID[4],
+	)
+}
+func cidrOverlaps(a, b *net.IPNet) bool {
+	return a.Contains(b.IP) || b.Contains(a.IP)
 }
 
 func (network *Network) GetNetworkNetworkCIDR4() *net.IPNet {
