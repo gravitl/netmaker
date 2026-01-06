@@ -36,6 +36,7 @@ type LicenseKey struct {
 type ValidatedLicense struct {
 	LicenseValue     string              `json:"license_value"     binding:"required"` // license that validation is being requested for
 	EncryptedLicense string              `json:"encrypted_license" binding:"required"` // to be decrypted by Netmaker using Netmaker server's private key
+	DeploymentMode   string              `json:"deployment_mode"`
 	FeatureFlags     models.FeatureFlags `json:"feature_flags" binding:"required"`
 }
 
