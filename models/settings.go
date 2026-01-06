@@ -31,18 +31,20 @@ type ServerSettings struct {
 	JwtValidityDuration int `json:"jwt_validity_duration"`
 	// JwtValidityDurationClients is the validity duration of auth tokens for
 	// users on the clients (NetDesk).
-	JwtValidityDurationClients     int    `json:"jwt_validity_duration_clients"`
-	MFAEnforced                    bool   `json:"mfa_enforced"`
-	RacRestrictToSingleNetwork     bool   `json:"rac_restrict_to_single_network"`
-	EndpointDetection              bool   `json:"endpoint_detection"`
-	AllowedEmailDomains            string `json:"allowed_email_domains"`
-	EmailSenderAddr                string `json:"email_sender_addr"`
-	EmailSenderUser                string `json:"email_sender_user"`
-	EmailSenderPassword            string `json:"email_sender_password"`
-	SmtpHost                       string `json:"smtp_host"`
-	SmtpPort                       int    `json:"smtp_port"`
-	MetricInterval                 string `json:"metric_interval"`
-	MetricsPort                    int    `json:"metrics_port"`
+	JwtValidityDurationClients int    `json:"jwt_validity_duration_clients"`
+	MFAEnforced                bool   `json:"mfa_enforced"`
+	RacRestrictToSingleNetwork bool   `json:"rac_restrict_to_single_network"`
+	EndpointDetection          bool   `json:"endpoint_detection"`
+	AllowedEmailDomains        string `json:"allowed_email_domains"`
+	EmailSenderAddr            string `json:"email_sender_addr"`
+	EmailSenderUser            string `json:"email_sender_user"`
+	EmailSenderPassword        string `json:"email_sender_password"`
+	SmtpHost                   string `json:"smtp_host"`
+	SmtpPort                   int    `json:"smtp_port"`
+	MetricInterval             string `json:"metric_interval"`
+	MetricsPort                int    `json:"metrics_port"`
+	// IPDetectionInterval is the interval (in seconds) at which devices check for changes in public ip.
+	IPDetectionInterval            int    `json:"ip_detection_interval"`
 	ManageDNS                      bool   `json:"manage_dns"`
 	DefaultDomain                  string `json:"default_domain"`
 	Stun                           bool   `json:"stun"`

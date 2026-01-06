@@ -289,6 +289,7 @@ func GetServerInfo() models.ServerConfig {
 	cfg.IsPro = servercfg.IsPro
 	cfg.MetricInterval = serverSettings.MetricInterval
 	cfg.MetricsPort = serverSettings.MetricsPort
+	cfg.IPDetectionInterval = serverSettings.IPDetectionInterval
 	cfg.ManageDNS = serverSettings.ManageDNS
 	cfg.Stun = serverSettings.Stun
 	cfg.StunServers = serverSettings.StunServers
