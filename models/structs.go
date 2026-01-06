@@ -319,6 +319,7 @@ type ServerConfig struct {
 	TrafficKey                  []byte `yaml:"traffickey"`
 	MetricInterval              string `yaml:"metric_interval"`
 	MetricsPort                 int    `yaml:"metrics_port"`
+	IPDetectionInterval         int    `yaml:"ip_detection_interval"`
 	ManageDNS                   bool   `yaml:"manage_dns"`
 	Stun                        bool   `yaml:"stun"`
 	StunServers                 string `yaml:"stun_servers"`
