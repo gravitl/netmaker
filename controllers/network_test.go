@@ -157,22 +157,6 @@ func TestValidateNetwork(t *testing.T) {
 			errMessage: "Field validation for 'NetID' failed on the 'max' tag",
 		},
 		{
-			testname: "ListenPortTooLow",
-			network: models.Network{
-				NetID:             "skynet",
-				DefaultListenPort: 1023,
-			},
-			errMessage: "Field validation for 'DefaultListenPort' failed on the 'min' tag",
-		},
-		{
-			testname: "ListenPortTooHigh",
-			network: models.Network{
-				NetID:             "skynet",
-				DefaultListenPort: 65536,
-			},
-			errMessage: "Field validation for 'DefaultListenPort' failed on the 'max' tag",
-		},
-		{
 			testname: "KeepAliveTooBig",
 			network: models.Network{
 				NetID:            "skynet",

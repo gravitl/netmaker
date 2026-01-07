@@ -13,15 +13,9 @@ type Network struct {
 	NetID               string   `json:"netid" bson:"netid" validate:"required,min=1,max=32,netid_valid"`
 	NodesLastModified   int64    `json:"nodeslastmodified" bson:"nodeslastmodified" swaggertype:"primitive,integer" format:"int64"`
 	NetworkLastModified int64    `json:"networklastmodified" bson:"networklastmodified" swaggertype:"primitive,integer" format:"int64"`
-	DefaultInterface    string   `json:"defaultinterface" bson:"defaultinterface" validate:"min=1,max=35"`
-	DefaultListenPort   int32    `json:"defaultlistenport,omitempty" bson:"defaultlistenport,omitempty" validate:"omitempty,min=1024,max=65535"`
-	NodeLimit           int32    `json:"nodelimit" bson:"nodelimit"`
-	DefaultPostDown     string   `json:"defaultpostdown" bson:"defaultpostdown"`
 	DefaultKeepalive    int32    `json:"defaultkeepalive" bson:"defaultkeepalive" validate:"omitempty,max=1000"`
-	AllowManualSignUp   string   `json:"allowmanualsignup" bson:"allowmanualsignup" validate:"checkyesorno"`
 	IsIPv4              string   `json:"isipv4" bson:"isipv4" validate:"checkyesorno"`
 	IsIPv6              string   `json:"isipv6" bson:"isipv6" validate:"checkyesorno"`
-	DefaultUDPHolePunch string   `json:"defaultudpholepunch" bson:"defaultudpholepunch" validate:"checkyesorno"`
 	DefaultMTU          int32    `json:"defaultmtu" bson:"defaultmtu"`
 	DefaultACL          string   `json:"defaultacl" bson:"defaultacl" yaml:"defaultacl" validate:"checkyesorno"`
 	NameServers         []string `json:"dns_nameservers"`
@@ -48,35 +42,10 @@ func (network *Network) SetNetworkLastModified() {
 
 // Network.SetDefaults - sets default values for a network struct
 func (network *Network) SetDefaults() (upsert bool) {
-	if network.DefaultUDPHolePunch == "" {
-		network.DefaultUDPHolePunch = "no"
-		upsert = true
-	}
-	if network.DefaultInterface == "" {
-		if len(network.NetID) < 33 {
-			network.DefaultInterface = "nm-" + network.NetID
-		} else {
-			network.DefaultInterface = network.NetID
-		}
-		upsert = true
-	}
-	if network.DefaultListenPort == 0 {
-		network.DefaultListenPort = 51821
-		upsert = true
-	}
-	if network.NodeLimit == 0 {
-		network.NodeLimit = 999999999
-		upsert = true
-	}
 	if network.DefaultKeepalive == 0 {
 		network.DefaultKeepalive = 20
 		upsert = true
 	}
-	if network.AllowManualSignUp == "" {
-		network.AllowManualSignUp = "no"
-		upsert = true
-	}
-
 	if network.IsIPv4 == "" {
 		network.IsIPv4 = "yes"
 		upsert = true
