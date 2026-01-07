@@ -122,9 +122,11 @@ func initialize() { // Client Mode Prereq Check
 		logger.FatalLog("error initializing database: ", err.Error())
 	}
 
+	migrate.ToSQLSchema()
+
 	initializeUUID()
+
 	//initialize cache
-	_, _ = logic.GetNetworks()
 	_, _ = logic.GetAllNodes()
 	_, _ = logic.GetAllHosts()
 	_, _ = logic.GetAllExtClients()

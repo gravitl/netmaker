@@ -321,7 +321,7 @@ func TestSyncUsersCorrectness(t *testing.T) {
 			assert.NotNil(t, user.NetworkRoles, "NetworkRoles should be initialized")
 
 			// Cleanup
-			_ = database.DeleteRecord(database.USERS_TABLE_NAME, tc.user.UserName)
+			_ = logic.DeleteUser(tc.user.UserName)
 		})
 	}
 }

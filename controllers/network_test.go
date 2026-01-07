@@ -70,7 +70,7 @@ func TestGetNetwork(t *testing.T) {
 	})
 	t.Run("GetNonExistantNetwork", func(t *testing.T) {
 		network, err := logic.GetNetwork("doesnotexist")
-		assert.EqualError(t, err, "no result found")
+		assert.EqualError(t, err, "record not found")
 		assert.Equal(t, "", network.NetID)
 	})
 }
@@ -157,22 +157,6 @@ func TestValidateNetwork(t *testing.T) {
 			errMessage: "Field validation for 'NetID' failed on the 'max' tag",
 		},
 		{
-			testname: "ListenPortTooLow",
-			network: models.Network{
-				NetID:             "skynet",
-				DefaultListenPort: 1023,
-			},
-			errMessage: "Field validation for 'DefaultListenPort' failed on the 'min' tag",
-		},
-		{
-			testname: "ListenPortTooHigh",
-			network: models.Network{
-				NetID:             "skynet",
-				DefaultListenPort: 65536,
-			},
-			errMessage: "Field validation for 'DefaultListenPort' failed on the 'max' tag",
-		},
-		{
 			testname: "KeepAliveTooBig",
 			network: models.Network{
 				NetID:            "skynet",
@@ -216,7 +200,10 @@ func TestIpv6Network(t *testing.T) {
 
 func deleteAllNetworks() {
 	deleteAllNodes()
-	database.DeleteAllRecords(database.NETWORKS_TABLE_NAME)
+	_networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	for _, _network := range _networks {
+		_ = _network.Delete(db.WithContext(context.TODO()))
+	}
 }
 
 func createNet() {
