@@ -30,6 +30,9 @@ type User struct {
 	IsMFAEnabled               bool
 	TOTPSecret                 string
 	LastLoginAt                time.Time
+	CreatedBy                  string
+	CreatedAt                  time.Time
+	UpdatedAt                  time.Time
 }
 
 func (u *User) TableName() string {
