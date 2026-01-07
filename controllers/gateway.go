@@ -481,26 +481,44 @@ func unassignGw(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Unassign client nodes (set their InternetGwID to empty)
-	if node.InternetGwID != "" {
+	hadInternetGwID := node.InternetGwID != ""
+	if hadInternetGwID {
 		node.InternetGwID = ""
-		gatewayNode.InetNodeReq.InetNodeClientIDs = logic.RemoveAllFromSlice(gatewayNode.InetNodeReq.InetNodeClientIDs, node.ID.String())
 	}
 	node.AutoAssignGateway = false
+	// Fetch gateway node fresh to avoid race conditions with concurrent updates
+	freshGatewayNode, err := logic.GetNodeByID(gatewayNode.ID.String())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	// Update InetNodeReq on fresh gateway node if needed
+	if hadInternetGwID {
+		freshGatewayNode.InetNodeReq.InetNodeClientIDs = logic.RemoveAllFromSlice(freshGatewayNode.InetNodeReq.InetNodeClientIDs, node.ID.String())
+	}
 	// Unset Relayed node - ensure node is properly removed from gateway's RelayedNodes
-	// First, ensure the node is in the oldNodes list for UpdateRelayNodes to properly unset it
-	oldNodes := gatewayNode.RelayedNodes
+	// Use fresh gateway node's RelayedNodes to avoid race conditions
+	oldNodes := freshGatewayNode.RelayedNodes
 	if !slices.Contains(oldNodes, node.ID.String()) {
 		// If node is not in the list but has RelayedBy set, add it temporarily to oldNodes
 		// so UpdateRelayNodes can properly unset it
 		oldNodes = append(oldNodes, node.ID.String())
 	}
 	newNodes := logic.RemoveAllFromSlice(oldNodes, node.ID.String())
+	// Now update RelayedNodes - this will fetch and save the gateway node with updated RelayedNodes
 	logic.UpdateRelayNodes(gatewayNode.ID.String(), oldNodes, newNodes)
+	// Update InetNodeReq after UpdateRelayNodes to ensure it's not overwritten by stale data
+	if hadInternetGwID {
+		finalGatewayNode, err := logic.GetNodeByID(gatewayNode.ID.String())
+		if err == nil {
+			finalGatewayNode.InetNodeReq.InetNodeClientIDs = logic.RemoveAllFromSlice(finalGatewayNode.InetNodeReq.InetNodeClientIDs, node.ID.String())
+			logic.UpsertNode(&finalGatewayNode)
+		}
+	}
 	// Explicitly clear RelayedBy and IsRelayed to ensure complete unassignment
 	node.RelayedBy = ""
 	node.IsRelayed = false
 	logic.UpsertNode(&node)
-	logic.UpsertNode(&gatewayNode)
 	node, _ = logic.GetNodeByID(node.ID.String())
 	logger.Log(1, r.Header.Get("user"),
 		fmt.Sprintf("unassigned client nodes from gateway [%s] on network [%s]",
