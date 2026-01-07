@@ -42,6 +42,9 @@ func ToSQLSchema() error {
 
 		// migrate.
 		err = migrateV1_5_0(dbctx)
+		if err != nil {
+			return err
+		}
 
 		// mark migration job completed.
 		err = migrationJob.Create(dbctx)
