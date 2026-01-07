@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -367,6 +368,10 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnSuccessResponseWithJson(w, r, node.ConvertToAPINode(), "auto assigned gateway")
 		return
 	}
+	if node.RelayedBy != "" {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("node is already using a gw"), "badrequest"))
+		return
+	}
 	// Validate gateway node
 	gatewayNode, err := logic.ValidateParams(gwid, netid)
 	if err != nil {
@@ -481,16 +486,21 @@ func unassignGw(w http.ResponseWriter, r *http.Request) {
 		gatewayNode.InetNodeReq.InetNodeClientIDs = logic.RemoveAllFromSlice(gatewayNode.InetNodeReq.InetNodeClientIDs, node.ID.String())
 	}
 	node.AutoAssignGateway = false
+	// Unset Relayed node - ensure node is properly removed from gateway's RelayedNodes
+	// First, ensure the node is in the oldNodes list for UpdateRelayNodes to properly unset it
+	oldNodes := gatewayNode.RelayedNodes
+	if !slices.Contains(oldNodes, node.ID.String()) {
+		// If node is not in the list but has RelayedBy set, add it temporarily to oldNodes
+		// so UpdateRelayNodes can properly unset it
+		oldNodes = append(oldNodes, node.ID.String())
+	}
+	newNodes := logic.RemoveAllFromSlice(oldNodes, node.ID.String())
+	logic.UpdateRelayNodes(gatewayNode.ID.String(), oldNodes, newNodes)
+	// Explicitly clear RelayedBy and IsRelayed to ensure complete unassignment
+	node.RelayedBy = ""
+	node.IsRelayed = false
 	logic.UpsertNode(&node)
 	logic.UpsertNode(&gatewayNode)
-	// Unset Relayed node
-	// check if gw gateway Node has the relayed Node
-	if !slices.Contains(gatewayNode.RelayedNodes, node.ID.String()) {
-		gatewayNode.RelayedNodes = append(gatewayNode.RelayedNodes, node.ID.String())
-	}
-	newNodes := gatewayNode.RelayedNodes
-	newNodes = logic.RemoveAllFromSlice(newNodes, node.ID.String())
-	logic.UpdateRelayNodes(gatewayNode.ID.String(), gatewayNode.RelayedNodes, newNodes)
 	node, _ = logic.GetNodeByID(node.ID.String())
 	logger.Log(1, r.Header.Get("user"),
 		fmt.Sprintf("unassigned client nodes from gateway [%s] on network [%s]",
