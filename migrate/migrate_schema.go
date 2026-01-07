@@ -15,30 +15,7 @@ import (
 
 // ToSQLSchema migrates the data from key-value
 // db to sql db.
-//
-// This function archives the old data and does not
-// delete it.
-//
-// Based on the db server, the archival is done in the
-// following way:
-//
-// 1. Sqlite: Moves the old data to a
-// netmaker_archive.db file.
-//
-// 2. Postgres: Moves the data to a netmaker_archive
-// schema within the same database.
 func ToSQLSchema() error {
-	// initialize sql schema db.
-	err := db.InitializeDB(schema.ListModels()...)
-	if err != nil {
-		return err
-	}
-
-	// migrate, if not done already.
-	return migrate()
-}
-
-func migrate() error {
 	// begin a new transaction.
 	dbctx := db.BeginTx(context.TODO())
 	commit := false
@@ -52,7 +29,7 @@ func migrate() error {
 
 	// check if migrated already.
 	migrationJob := &schema.Job{
-		ID: "migration-v1.0.0",
+		ID: "migration-v1.5.0",
 	}
 	err := migrationJob.Get(dbctx)
 	if err != nil {
@@ -60,15 +37,13 @@ func migrate() error {
 			return err
 		}
 
-		// initialize key-value schema db.
-		err := database.InitializeDatabase()
+		// migrate.
+		err = migrateUsers(dbctx)
 		if err != nil {
 			return err
 		}
-		defer database.CloseDB()
 
-		// migrate.
-		err = migrateUsers(dbctx)
+		err = migrateNetworks(dbctx)
 		if err != nil {
 			return err
 		}
@@ -127,6 +102,29 @@ func migrateUsers(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
+		}
+	}
+
+	return nil
+}
+
+func migrateNetworks(ctx context.Context) error {
+	records, err := database.FetchRecords(database.NETWORKS_TABLE_NAME)
+	if err != nil {
+		return err
+	}
+
+	for _, record := range records {
+		var network models.Network
+		err = json.Unmarshal([]byte(record), &network)
+		if err != nil {
+			return err
+		}
+
+		_network := converters.ToSchemaNetwork(network)
+		err = _network.Create(ctx)
+		if err != nil {
+			return err
 		}
 	}
 

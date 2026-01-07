@@ -18,6 +18,9 @@ func ToSchemaUser(user models.User) schema.User {
 		IsMFAEnabled:               user.IsMFAEnabled,
 		TOTPSecret:                 user.TOTPSecret,
 		LastLoginAt:                user.LastLoginTime,
+		CreatedBy:                  user.CreatedBy,
+		CreatedAt:                  user.CreatedAt,
+		UpdatedAt:                  user.UpdatedAt,
 	}
 }
 
@@ -47,6 +50,9 @@ func ToModelUser(_user schema.User) models.User {
 		PlatformRoleID:             models.UserRoleID(_user.PlatformRoleID),
 		NetworkRoles:               make(map[models.NetworkID]map[models.UserRoleID]struct{}),
 		LastLoginTime:              _user.LastLoginAt,
+		CreatedBy:                  _user.CreatedBy,
+		CreatedAt:                  _user.CreatedAt,
+		UpdatedAt:                  _user.UpdatedAt,
 	}
 }
 
@@ -75,6 +81,9 @@ func ToApiUser(_user schema.User) models.ReturnUser {
 		NetworkRoles:               make(map[models.NetworkID]map[models.UserRoleID]struct{}),
 		LastLoginTime:              _user.LastLoginAt,
 		NumAccessTokens:            0,
+		CreatedBy:                  _user.CreatedBy,
+		CreatedAt:                  _user.CreatedAt,
+		UpdatedAt:                  _user.UpdatedAt,
 	}
 }
 

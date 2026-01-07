@@ -10,5 +10,9 @@ func ListModels() []interface{} {
 		&PendingHost{},
 		&Nameserver{},
 		&PostureCheck{},
+		&User{},
+		&GroupMember{},
+		&UserNetworkRole{},
+		&Network{},
 	}
 }

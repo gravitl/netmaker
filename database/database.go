@@ -99,7 +99,6 @@ const (
 var dbMutex sync.RWMutex
 
 var Tables = []string{
-	NETWORKS_TABLE_NAME,
 	NODES_TABLE_NAME,
 	CERTS_TABLE_NAME,
 	DELETED_NODES_TABLE_NAME,

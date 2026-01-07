@@ -23,6 +23,8 @@ type Network struct {
 	AutoRemove          string   `json:"auto_remove"`
 	AutoRemoveTags      []string `json:"auto_remove_tags"`
 	AutoRemoveThreshold int      `json:"auto_remove_threshold_mins"`
+	CreatedBy           string   `json:"created_by"`
+	CreatedAt           time.Time
 }
 
 // SaveData - sensitive fields of a network that should be kept the same

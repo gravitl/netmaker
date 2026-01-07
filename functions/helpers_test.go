@@ -48,7 +48,10 @@ func TestMain(m *testing.M) {
 }
 
 func TestNetworkExists(t *testing.T) {
-	database.DeleteRecord(database.NETWORKS_TABLE_NAME, testNetwork.NetID)
+	_testNetwork := &schema.Network{
+		Name: testNetwork.NetID,
+	}
+	_ = _testNetwork.Delete(db.WithContext(context.TODO()))
 	exists, err := logic.NetworkExists(testNetwork.NetID)
 	assert.NotNil(t, err)
 	assert.False(t, exists)
@@ -59,7 +62,7 @@ func TestNetworkExists(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, exists)
 
-	err = database.DeleteRecord(database.NETWORKS_TABLE_NAME, testNetwork.NetID)
+	err = _testNetwork.Delete(db.WithContext(context.TODO()))
 	assert.Nil(t, err)
 }
 

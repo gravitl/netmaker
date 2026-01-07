@@ -96,7 +96,7 @@ func FetchTelemetryData() telemetryData {
 	data.IsPro = servercfg.IsPro
 	data.ExtClients = getDBLength(database.EXT_CLIENT_TABLE_NAME)
 	data.Users, _ = (&schema.User{}).Count(db.WithContext(context.TODO()))
-	data.Networks = getDBLength(database.NETWORKS_TABLE_NAME)
+	data.Networks, _ = (&schema.Network{}).Count(db.WithContext(context.TODO()))
 	data.Hosts = getDBLength(database.HOSTS_TABLE_NAME)
 	data.Version = servercfg.GetVersion()
 	data.Servers = getServerCount()
