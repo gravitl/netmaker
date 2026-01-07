@@ -46,7 +46,7 @@ func (n *Network) Create(ctx context.Context) error {
 }
 
 func (n *Network) Get(ctx context.Context) error {
-	if n.ID == "" || n.Name == "" {
+	if n.ID == "" && n.Name == "" {
 		return ErrNetworkIdentifiersNotProvided
 	}
 

@@ -14,7 +14,6 @@ const (
 )
 
 var (
-	ErrSuperAdminExists           = errors.New("super-admin already exists")
 	ErrUserIdentifiersNotProvided = errors.New("user identifiers not provided")
 )
 
@@ -49,17 +48,6 @@ func (u *User) SuperAdminExists(ctx context.Context) (bool, error) {
 }
 
 func (u *User) Create(ctx context.Context) error {
-	if u.PlatformRoleID == SuperAdminRole {
-		exists, err := u.SuperAdminExists(ctx)
-		if err != nil {
-			return err
-		}
-
-		if exists {
-			return ErrSuperAdminExists
-		}
-	}
-
 	if u.ID == "" {
 		u.ID = uuid.NewString()
 	}

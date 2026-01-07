@@ -265,12 +265,14 @@ func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (strin
 // UpsertUser - updates user in the db
 func UpsertUser(user models.User) error {
 	_user := converters.ToSchemaUser(user)
-	existingUser := schema.User{Username: user.UserName}
+	_existingUser := schema.User{Username: user.UserName}
 	// Check if user exists to preserve ID
-	if err := existingUser.Get(db.WithContext(context.TODO())); err == nil {
-		_user.ID = existingUser.ID
+	err := _existingUser.Get(db.WithContext(context.TODO()))
+	if err == nil {
+		_user.ID = _existingUser.ID
 		return _user.Update(db.WithContext(context.TODO()))
 	}
+
 	return _user.Create(db.WithContext(context.TODO()))
 }
 

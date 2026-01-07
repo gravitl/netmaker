@@ -620,7 +620,15 @@ func ValidateNetwork(network *models.Network, isUpdate bool) error {
 // SaveNetwork - save network struct to database
 func SaveNetwork(network *models.Network) error {
 	_network := converters.ToSchemaNetwork(*network)
-	return _network.Update(db.WithContext(context.TODO()))
+	_existingNetwork := schema.Network{Name: network.NetID}
+	// Check if network exists to preserve ID
+	err := _existingNetwork.Get(db.WithContext(context.TODO()))
+	if err == nil {
+		_network.ID = _existingNetwork.ID
+		return _network.Update(db.WithContext(context.TODO()))
+	}
+
+	return _network.Create(db.WithContext(context.TODO()))
 }
 
 // NetworkExists - check if network exists

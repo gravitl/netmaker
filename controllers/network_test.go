@@ -70,7 +70,7 @@ func TestGetNetwork(t *testing.T) {
 	})
 	t.Run("GetNonExistantNetwork", func(t *testing.T) {
 		network, err := logic.GetNetwork("doesnotexist")
-		assert.EqualError(t, err, "no result found")
+		assert.EqualError(t, err, "record not found")
 		assert.Equal(t, "", network.NetID)
 	})
 }

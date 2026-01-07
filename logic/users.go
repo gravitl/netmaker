@@ -126,16 +126,13 @@ func SortUsers(unsortedUsers []models.ReturnUser) {
 
 // GetSuperAdmin - fetches superadmin user
 func GetSuperAdmin() (models.ReturnUser, error) {
-	users, err := GetUsers()
+	_user := &schema.User{}
+	err := _user.GetSuperAdmin(db.WithContext(context.TODO()))
 	if err != nil {
 		return models.ReturnUser{}, err
 	}
-	for _, user := range users {
-		if user.PlatformRoleID == models.SuperAdminRole {
-			return user, nil
-		}
-	}
-	return models.ReturnUser{}, errors.New("superadmin not found")
+
+	return converters.ToApiUser(*_user), nil
 }
 
 func InsertPendingUser(u *models.User) error {

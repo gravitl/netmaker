@@ -6,11 +6,22 @@ import (
 )
 
 func ToSchemaUser(user models.User) schema.User {
+	platformRoleID := user.PlatformRoleID
+	if user.PlatformRoleID == "" {
+		if user.IsSuperAdmin {
+			platformRoleID = models.SuperAdminRole
+		} else if user.IsAdmin {
+			platformRoleID = models.AdminRole
+		} else {
+			platformRoleID = models.ServiceUser
+		}
+	}
+
 	return schema.User{
 		ID:                         "",
 		Username:                   user.UserName,
 		DisplayName:                user.DisplayName,
-		PlatformRoleID:             string(user.PlatformRoleID),
+		PlatformRoleID:             string(platformRoleID),
 		ExternalIdentityProviderID: user.ExternalIdentityProviderID,
 		AccountDisabled:            user.AccountDisabled,
 		AuthType:                   string(user.AuthType),
