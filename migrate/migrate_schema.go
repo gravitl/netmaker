@@ -27,7 +27,10 @@ func ToSQLSchema() error {
 		}
 	}()
 
-	// check if migrated already.
+	// v1.5.0 migration includes migrating the users and networks tables.
+	// future table migrations should be made below this block,
+	// with a different version number and a similar check for whether the
+	// migration was already done.
 	migrationJob := &schema.Job{
 		ID: "migration-v1.5.0",
 	}
@@ -38,15 +41,7 @@ func ToSQLSchema() error {
 		}
 
 		// migrate.
-		err = migrateUsers(dbctx)
-		if err != nil {
-			return err
-		}
-
-		err = migrateNetworks(dbctx)
-		if err != nil {
-			return err
-		}
+		err = migrateV1_5_0(dbctx)
 
 		// mark migration job completed.
 		err = migrationJob.Create(dbctx)
@@ -58,6 +53,15 @@ func ToSQLSchema() error {
 	}
 
 	return nil
+}
+
+func migrateV1_5_0(ctx context.Context) error {
+	err := migrateUsers(ctx)
+	if err != nil {
+		return err
+	}
+
+	return migrateNetworks(ctx)
 }
 
 func migrateUsers(ctx context.Context) error {
