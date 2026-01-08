@@ -193,6 +193,7 @@ type FlowParticipant struct {
 	Ip            string                 `protobuf:"bytes,1,opt,name=ip,proto3" json:"ip,omitempty"`
 	Type          ParticipantType        `protobuf:"varint,2,opt,name=type,proto3,enum=netmaker.flow.ParticipantType" json:"type,omitempty"`
 	Id            string                 `protobuf:"bytes,3,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -244,6 +245,13 @@ func (x *FlowParticipant) GetType() ParticipantType {
 func (x *FlowParticipant) GetId() string {
 	if x != nil {
 		return x.Id
+	}
+	return ""
+}
+
+func (x *FlowParticipant) GetName() string {
+	if x != nil {
+		return x.Name
 	}
 	return ""
 }
@@ -561,11 +569,12 @@ var File_grpc_flow_flow_proto protoreflect.FileDescriptor
 
 const file_grpc_flow_flow_proto_rawDesc = "" +
 	"\n" +
-	"\x14grpc/flow/flow.proto\x12\rnetmaker.flow\"e\n" +
+	"\x14grpc/flow/flow.proto\x12\rnetmaker.flow\"y\n" +
 	"\x0fFlowParticipant\x12\x0e\n" +
 	"\x02ip\x18\x01 \x01(\tR\x02ip\x122\n" +
 	"\x04type\x18\x02 \x01(\x0e2\x1e.netmaker.flow.ParticipantTypeR\x04type\x12\x0e\n" +
-	"\x02id\x18\x03 \x01(\tR\x02id\"\xa4\x05\n" +
+	"\x02id\x18\x03 \x01(\tR\x02id\x12\x12\n" +
+	"\x04name\x18\x04 \x01(\tR\x04name\"\xa4\x05\n" +
 	"\tFlowEvent\x12,\n" +
 	"\x04type\x18\x01 \x01(\x0e2\x18.netmaker.flow.EventTypeR\x04type\x12\x17\n" +
 	"\aflow_id\x18\x02 \x01(\tR\x06flowId\x12\x1d\n" +
