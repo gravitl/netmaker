@@ -189,7 +189,9 @@ type ExtPeersResponse struct {
 type EgressRangeMetric struct {
 	// EgressID is the ID of the egress gateway that this EgressRangeMetric originated
 	// from. Might not be always set.
-	EgressID    string `json:"-"`
+	EgressID string `json:"-"`
+	// EgressName is the name of the egress gateway identified by EgressID. Might not be always set.
+	EgressName  string `json:"-"`
 	Network     string `json:"network"`
 	RouteMetric uint32 `json:"route_metric"` // preffered range 1-999
 	Nat         bool   `json:"nat"`

@@ -59,6 +59,7 @@ message FlowParticipant {
   string ip = 1;
   ParticipantType type = 2;
   string id = 3;
+  string name = 4;
 }
 
 // ============================================================

@@ -22,6 +22,7 @@ const (
 type PeerIdentity struct {
 	ID   string   `json:"id"`
 	Type PeerType `json:"type"`
+	Name string   `json:"name"`
 }
 
 // HostPeerUpdate - struct for host peer updates
