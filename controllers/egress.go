@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -82,13 +83,19 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		Domain:      req.Domain,
 		DomainAns:   []string{},
 		Nat:         req.Nat,
+		Mode:        req.Mode,
 		Nodes:       make(datatypes.JSONMap),
 		Tags:        make(datatypes.JSONMap),
 		Status:      true,
 		CreatedBy:   r.Header.Get("user"),
 		CreatedAt:   time.Now().UTC(),
 	}
-	logic.AssignVirtualRangeToEgress(&network, &e)
+	if err := logic.AssignVirtualRangeToEgress(&network, &e); err != nil {
+		logger.Log(0, "error assigning virtual range to egress: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	logger.Log(1, fmt.Sprintf("createEgress: after AssignVirtualRangeToEgress, e.VirtualRange = '%s', e.Mode = '%s', e.Nat = %v", e.VirtualRange, e.Mode, e.Nat))
 	if len(req.Tags) > 0 {
 		for tagID, metric := range req.Tags {
 			e.Tags[tagID] = metric
@@ -252,10 +259,10 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if req.VirtualNAT && e.Mode != schema.VirtualNAT {
+	if req.Mode == models.VirtualNAT && e.Mode != models.VirtualNAT {
 		logic.AssignVirtualRangeToEgress(&network, &e)
-	} else if !req.VirtualNAT || !req.Nat {
-		e.Mode = schema.DirectNAT
+	} else if req.Mode != models.VirtualNAT || !req.Nat {
+		e.Mode = models.DirectNAT
 		if !req.Nat {
 			e.Mode = ""
 		}
