@@ -664,6 +664,10 @@ func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) e
 	currentNetwork.AutoRemoveTags = newNetwork.AutoRemoveTags
 	currentNetwork.DefaultACL = newNetwork.DefaultACL
 	currentNetwork.NameServers = newNetwork.NameServers
+	currentNetwork.VirtualNATPoolIPv4 = newNetwork.VirtualNATPoolIPv4
+	currentNetwork.VirtualNATSitePrefixLenIPv4 = newNetwork.VirtualNATSitePrefixLenIPv4
+	currentNetwork.VirtualNATPoolIPv6 = newNetwork.VirtualNATPoolIPv6
+	currentNetwork.VirtualNATSitePrefixLenIPv6 = newNetwork.VirtualNATSitePrefixLenIPv6
 	data, err := json.Marshal(currentNetwork)
 	if err != nil {
 		return err
