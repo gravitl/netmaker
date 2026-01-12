@@ -226,16 +226,8 @@ func nthSubnet(pool *net.IPNet, newPrefixLen int, n int) *net.IPNet {
 
 	ipInt := new(big.Int).Add(base, offset)
 	ip := bigIntToIP(ipInt, bits)
-	if ip == nil || len(ip) == 0 {
-		return nil // Invalid IP conversion
-	}
-
 	mask := net.CIDRMask(newPrefixLen, bits)
-	maskedIP := ip.Mask(mask)
-	if maskedIP == nil || len(maskedIP) == 0 {
-		return nil // Invalid masked IP
-	}
-	return &net.IPNet{IP: maskedIP, Mask: mask}
+	return &net.IPNet{IP: ip.Mask(mask), Mask: mask}
 }
 
 func ipToBigInt(ip net.IP) *big.Int {
@@ -249,17 +241,17 @@ func ipToBigInt(ip net.IP) *big.Int {
 func bigIntToIP(i *big.Int, bits int) net.IP {
 	b := i.Bytes()
 	byteLen := bits / 8
-	if len(b) < byteLen {
-		pad := make([]byte, byteLen-len(b))
-		b = append(pad, b...)
+	// Pad on the left to ensure we have exactly byteLen bytes
+	for len(b) < byteLen {
+		b = append([]byte{0}, b...)
+	}
+	// Take only the last byteLen bytes in case we have more
+	if len(b) > byteLen {
+		b = b[len(b)-byteLen:]
 	}
 	ip := net.IP(b)
 	if bits == 32 {
-		ip4 := ip.To4()
-		if ip4 == nil {
-			return nil // Invalid IPv4 conversion
-		}
-		return ip4
+		return ip.To4()
 	}
 	return ip
 }
