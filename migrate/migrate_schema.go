@@ -87,7 +87,7 @@ func migrateUsers(ctx context.Context) error {
 		}
 
 		for groupID := range user.UserGroups {
-			_groupMember := schema.GroupMember{
+			_groupMember := schema.Memberships{
 				GroupID: string(groupID),
 				UserID:  _user.ID,
 			}

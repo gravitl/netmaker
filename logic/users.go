@@ -58,10 +58,10 @@ func GetUserGroupsAndNetworkRoles(_userID string) (map[models.UserGroupID]struct
 	userGroups := make(map[models.UserGroupID]struct{})
 	networkRoles := make(map[models.NetworkID]map[models.UserRoleID]struct{})
 
-	_userGroup := schema.GroupMember{
+	_userGroup := schema.Memberships{
 		UserID: _userID,
 	}
-	_userGroups, err := _userGroup.ListAllGroups(db.WithContext(context.TODO()))
+	_userGroups, err := _userGroup.ListAllMemberships(db.WithContext(context.TODO()))
 	if err != nil {
 		return nil, nil, err
 	}
