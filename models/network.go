@@ -119,16 +119,33 @@ func (network *Network) AssignVirtualNATDefaults(vpnCIDR string, networkID strin
 		defaultIPv6SitePrefix = 64
 	)
 
-	_, vpnNet, _ := net.ParseCIDR(vpnCIDR)
-	_, cgnatNet, _ := net.ParseCIDR(cgnatCIDR)
+	// Parse CGNAT CIDR (should always succeed, but check for safety)
+	_, cgnatNet, err := net.ParseCIDR(cgnatCIDR)
+	if err != nil {
+		// Fallback to default pool if CGNAT parsing fails (shouldn't happen)
+		network.VirtualNATPoolIPv4 = fallbackIPv4Pool
+		network.VirtualNATSitePrefixLenIPv4 = defaultIPv4SitePrefix
+		network.VirtualNATPoolIPv6 = generateULAPrefix(networkID)
+		network.VirtualNATSitePrefixLenIPv6 = defaultIPv6SitePrefix
+		return
+	}
 
 	var virtualIPv4Pool string
-	if !cidrOverlaps(vpnNet, cgnatNet) {
-		// Safe to reuse VPN CIDR for Virtual NAT
-		virtualIPv4Pool = vpnCIDR
-	} else {
-		// VPN is CGNAT — must not reuse
+	// Parse VPN CIDR - if it fails or is empty, use fallback
+	if vpnCIDR == "" {
 		virtualIPv4Pool = fallbackIPv4Pool
+	} else {
+		_, vpnNet, err := net.ParseCIDR(vpnCIDR)
+		if err != nil || vpnNet == nil {
+			// Invalid VPN CIDR, use fallback
+			virtualIPv4Pool = fallbackIPv4Pool
+		} else if !cidrOverlaps(vpnNet, cgnatNet) {
+			// Safe to reuse VPN CIDR for Virtual NAT
+			virtualIPv4Pool = vpnCIDR
+		} else {
+			// VPN is CGNAT — must not reuse
+			virtualIPv4Pool = fallbackIPv4Pool
+		}
 	}
 
 	virtualIPv6Pool := generateULAPrefix(networkID)
@@ -153,6 +170,9 @@ func generateULAPrefix(networkID string) string {
 	)
 }
 func cidrOverlaps(a, b *net.IPNet) bool {
+	if a == nil || b == nil {
+		return false
+	}
 	return a.Contains(b.IP) || b.Contains(a.IP)
 }
 

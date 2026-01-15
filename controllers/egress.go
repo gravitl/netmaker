@@ -323,6 +323,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	e.Description = req.Description
 	e.Name = req.Name
 	e.Nat = req.Nat
+	e.Mode = req.Mode
 	e.Domain = req.Domain
 	e.Status = req.Status
 	e.UpdatedAt = time.Now().UTC()

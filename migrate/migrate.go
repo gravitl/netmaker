@@ -121,8 +121,16 @@ func initializeVirtualNATSettings() {
 	// Allocate unique pools from fallback pool for networks that need them
 	const fallbackPool = "198.18.0.0/15"
 	const poolPrefixLen = 22 // /22 gives 1024 addresses per network, enough for virtual NAT
-	_, fallbackNet, _ := net.ParseCIDR(fallbackPool)
-	_, cgnatNet, _ := net.ParseCIDR("100.64.0.0/10")
+	_, fallbackNet, err := net.ParseCIDR(fallbackPool)
+	if err != nil || fallbackNet == nil {
+		logger.Log(0, "failed to parse fallback pool for Virtual NAT migration:", err.Error())
+		return
+	}
+	_, cgnatNet, err := net.ParseCIDR("100.64.0.0/10")
+	if err != nil || cgnatNet == nil {
+		logger.Log(0, "failed to parse CGNAT CIDR for Virtual NAT migration:", err.Error())
+		return
+	}
 
 	// Second pass: initialize networks
 	for _, network := range networks {
@@ -140,7 +148,7 @@ func initializeVirtualNATSettings() {
 		} else {
 			// Check if overlaps with CGNAT
 			_, vpnNet, err := net.ParseCIDR(vpnCIDR)
-			if err != nil {
+			if err != nil || vpnNet == nil {
 				needsUniquePool = true
 				vpnCIDR = fallbackPool
 			} else {
