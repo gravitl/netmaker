@@ -259,20 +259,40 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if req.Mode == models.VirtualNAT && e.Mode != models.VirtualNAT {
-		logic.AssignVirtualRangeToEgress(&network, &e)
-	} else if req.Mode != models.VirtualNAT || !req.Nat {
+
+	// Store old mode for comparison (before we modify e)
+	oldMode := e.Mode
+
+	// Update mode and NAT first, before calling AssignVirtualRangeToEgress
+	// This ensures the function sees the new values
+	if req.Mode != models.VirtualNAT || !req.Nat {
 		e.Mode = models.DirectNAT
 		if !req.Nat {
 			e.Mode = ""
 		}
+		e.Nat = req.Nat
 		e.VirtualRange = ""
+	} else {
+		// Switching to virtual NAT mode
+		e.Mode = req.Mode
+		e.Nat = req.Nat
+		// Assign virtual range if switching to virtual NAT mode from a different mode,
+		// or if already in virtual NAT mode but virtual range is empty
+		if (oldMode != models.VirtualNAT) || (e.VirtualRange == "") {
+			if err := logic.AssignVirtualRangeToEgress(&network, &e); err != nil {
+				logger.Log(0, "error assigning virtual range to egress: ", err.Error())
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+				return
+			}
+		}
 	}
 
 	var updateNat bool
 	var updateStatus bool
 	var resetDomain bool
 	var resetRange bool
+	var resetVirtualRange bool
+	var resetMode bool
 	if req.Nat != e.Nat {
 		updateNat = true
 	}
@@ -284,6 +304,12 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Range == "" || egressRange == "" {
 		resetRange = true
+	}
+	if e.VirtualRange == "" {
+		resetVirtualRange = true
+	}
+	if e.Mode == "" {
+		resetMode = true
 	}
 	event := &models.Event{
 		Action: models.Update,
@@ -353,6 +379,12 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	}
 	if resetRange {
 		_ = e.ResetRange(db.WithContext(context.TODO()))
+	}
+	if resetVirtualRange {
+		_ = e.ResetVirtualRange(db.WithContext(context.TODO()))
+	}
+	if resetMode {
+		_ = e.ResetMode(db.WithContext(context.TODO()))
 	}
 	event.Diff.New = e
 	logic.LogEvent(event)

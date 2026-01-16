@@ -23,8 +23,12 @@ func ValidateEgressReq(e *schema.Egress) error {
 	if e.Network == "" {
 		return errors.New("network id is empty")
 	}
-	if e.Mode != models.DirectNAT && e.Mode != models.VirtualNAT {
+	if e.Nat && (e.Mode != models.DirectNAT && e.Mode != models.VirtualNAT) {
 		return errors.New("invalid NAT type")
+	}
+	if !e.Nat {
+		e.Mode = ""
+		e.VirtualRange = ""
 	}
 	_, err := logic.GetNetwork(e.Network)
 	if err != nil {

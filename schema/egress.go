@@ -67,6 +67,17 @@ func (e *Egress) ResetRange(ctx context.Context) error {
 	}).Error
 }
 
+func (e *Egress) ResetVirtualRange(ctx context.Context) error {
+	return db.FromContext(ctx).Table(e.Table()).Where("id = ?", e.ID).Updates(map[string]any{
+		"virtual_range": "",
+	}).Error
+}
+func (e *Egress) ResetMode(ctx context.Context) error {
+	return db.FromContext(ctx).Table(e.Table()).Where("id = ?", e.ID).Updates(map[string]any{
+		"mode": "",
+	}).Error
+}
+
 func (e *Egress) DoesEgressRouteExists(ctx context.Context) error {
 	return db.FromContext(ctx).Table(e.Table()).Where("range = ?", e.Range).First(&e).Error
 }
