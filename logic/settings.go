@@ -22,6 +22,7 @@ import (
 var (
 	ErrInvalidJwtValidityDuration = errors.New("invalid jwt validity duration")
 	ErrFlowLogsNotSupported       = errors.New("flow logs not supported")
+	ErrInvalidIPDetectionInterval = errors.New("invalid ip detection interval (must be greater than or equal to 15s)")
 )
 
 var ServerSettingsDBKey = "server_cfg"
@@ -157,6 +158,10 @@ func ValidateNewSettings(req models.ServerSettings) error {
 
 	if req.EnableFlowLogs && !GetFeatureFlags().EnableFlowLogs {
 		return ErrFlowLogsNotSupported
+	}
+
+	if req.IPDetectionInterval < 15 {
+		return ErrInvalidIPDetectionInterval
 	}
 
 	return nil
