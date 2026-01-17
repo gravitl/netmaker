@@ -664,10 +664,40 @@ func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) e
 	currentNetwork.AutoRemoveTags = newNetwork.AutoRemoveTags
 	currentNetwork.DefaultACL = newNetwork.DefaultACL
 	currentNetwork.NameServers = newNetwork.NameServers
-	currentNetwork.VirtualNATPoolIPv4 = newNetwork.VirtualNATPoolIPv4
-	currentNetwork.VirtualNATSitePrefixLenIPv4 = newNetwork.VirtualNATSitePrefixLenIPv4
-	currentNetwork.VirtualNATPoolIPv6 = newNetwork.VirtualNATPoolIPv6
-	currentNetwork.VirtualNATSitePrefixLenIPv6 = newNetwork.VirtualNATSitePrefixLenIPv6
+
+	// Validate and update Virtual NAT IPv4 settings
+	if newNetwork.VirtualNATPoolIPv4 != "" {
+		_, _, err := net.ParseCIDR(newNetwork.VirtualNATPoolIPv4)
+		if err != nil {
+			return fmt.Errorf("invalid Virtual NAT IPv4 pool CIDR: %w", err)
+		}
+		if newNetwork.VirtualNATSitePrefixLenIPv4 <= 0 || newNetwork.VirtualNATSitePrefixLenIPv4 > 32 {
+			return fmt.Errorf("invalid Virtual NAT IPv4 site prefix length: must be between 1 and 32, got %d", newNetwork.VirtualNATSitePrefixLenIPv4)
+		}
+		currentNetwork.VirtualNATPoolIPv4 = newNetwork.VirtualNATPoolIPv4
+		currentNetwork.VirtualNATSitePrefixLenIPv4 = newNetwork.VirtualNATSitePrefixLenIPv4
+	} else {
+		// If pool is empty, clear the settings
+		currentNetwork.VirtualNATPoolIPv4 = newNetwork.VirtualNATPoolIPv4
+		currentNetwork.VirtualNATSitePrefixLenIPv4 = newNetwork.VirtualNATSitePrefixLenIPv4
+	}
+
+	// Validate and update Virtual NAT IPv6 settings
+	if newNetwork.VirtualNATPoolIPv6 != "" {
+		_, _, err := net.ParseCIDR(newNetwork.VirtualNATPoolIPv6)
+		if err != nil {
+			return fmt.Errorf("invalid Virtual NAT IPv6 pool CIDR: %w", err)
+		}
+		if newNetwork.VirtualNATSitePrefixLenIPv6 <= 0 || newNetwork.VirtualNATSitePrefixLenIPv6 > 128 {
+			return fmt.Errorf("invalid Virtual NAT IPv6 site prefix length: must be between 1 and 128, got %d", newNetwork.VirtualNATSitePrefixLenIPv6)
+		}
+		currentNetwork.VirtualNATPoolIPv6 = newNetwork.VirtualNATPoolIPv6
+		currentNetwork.VirtualNATSitePrefixLenIPv6 = newNetwork.VirtualNATSitePrefixLenIPv6
+	} else {
+		// If pool is empty, clear the settings
+		currentNetwork.VirtualNATPoolIPv6 = newNetwork.VirtualNATPoolIPv6
+		currentNetwork.VirtualNATSitePrefixLenIPv6 = newNetwork.VirtualNATSitePrefixLenIPv6
+	}
 	data, err := json.Marshal(currentNetwork)
 	if err != nil {
 		return err

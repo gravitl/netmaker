@@ -574,9 +574,9 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			rangeWithMetric := []models.EgressRangeMetric{}
 			for _, rangeI := range egressrange {
 				rangeWithMetric = append(rangeWithMetric, models.EgressRangeMetric{
-					Network:           rangeI,
-					RouteMetric:       256,
-					VirtualNatEnabled: true,
+					Network:     rangeI,
+					RouteMetric: 256,
+					Nat:         false,
 				})
 			}
 			inetEgressInfo := models.EgressInfo{
@@ -688,7 +688,7 @@ func filterConflictingEgressRoutesWithMetric(node, peer models.Node) []models.Eg
 		for i := len(egressIPs) - 1; i >= 0; i-- {
 			// Use virtual network range for conflict detection when virtual NAT is enabled
 			checkRange := egressIPs[i].Network
-			if egressIPs[i].VirtualNatEnabled && egressIPs[i].VirtualNetwork != "" {
+			if egressIPs[i].Nat && egressIPs[i].VirtualNetwork != "" {
 				checkRange = egressIPs[i].VirtualNetwork
 			}
 			if _, ok := nodeEgressMap[checkRange]; ok {
@@ -788,7 +788,7 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 			// filter conflicting addrs
 			nodeEgressMap := make(map[string]struct{})
 			for _, rangeI := range node.EgressDetails.EgressGatewayRequest.RangesWithMetric {
-				if rangeI.VirtualNatEnabled {
+				if rangeI.Nat {
 					nodeEgressMap[rangeI.VirtualNetwork] = struct{}{}
 				} else {
 					nodeEgressMap[rangeI.Network] = struct{}{}
