@@ -576,7 +576,8 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				rangeWithMetric = append(rangeWithMetric, models.EgressRangeMetric{
 					Network:     rangeI,
 					RouteMetric: 256,
-					Nat:         false,
+					Nat:         true,
+					Mode:        models.DirectNAT,
 				})
 			}
 			inetEgressInfo := models.EgressInfo{
