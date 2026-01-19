@@ -87,25 +87,30 @@ func migrateUsers(ctx context.Context) error {
 		}
 
 		for groupID := range user.UserGroups {
-			_groupMember := schema.Memberships{
-				GroupID: string(groupID),
-				UserID:  _user.ID,
+			_grant := &schema.AccessGrant{
+				PrincipalType: schema.Principal_User,
+				PrincipalID:   _user.ID,
+				Scope:         schema.Scope_Group,
+				ScopeID:       string(groupID),
+				RoleID:        schema.GroupRole_Member,
 			}
-			err = _groupMember.Create(ctx)
+			err = _grant.Create(ctx)
 			if err != nil {
 				return err
 			}
 		}
 
 		for networkID, role := range user.NetworkRoles {
-			_networkRole := schema.UserNetworkRole{
-				UserID:    _user.ID,
-				NetworkID: string(networkID),
+			_grant := &schema.AccessGrant{
+				PrincipalType: schema.Principal_User,
+				PrincipalID:   _user.ID,
+				Scope:         schema.Scope_Network,
+				ScopeID:       string(networkID),
 			}
 			for roleID := range role {
-				_networkRole.RoleID = string(roleID)
+				_grant.RoleID = schema.RoleID(roleID)
 			}
-			err = _networkRole.Create(ctx)
+			err = _grant.Create(ctx)
 			if err != nil {
 				return err
 			}

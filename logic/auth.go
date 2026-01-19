@@ -168,25 +168,30 @@ func CreateUser(user *models.User) error {
 	}
 
 	for groupID := range user.UserGroups {
-		_groupMember := schema.Memberships{
-			GroupID: string(groupID),
-			UserID:  _user.ID,
+		_grant := schema.AccessGrant{
+			PrincipalType: schema.Principal_User,
+			PrincipalID:   _user.ID,
+			Scope:         schema.Scope_Group,
+			ScopeID:       string(groupID),
+			RoleID:        schema.GroupRole_Member,
 		}
-		err = _groupMember.Create(db.WithContext(context.TODO()))
+		err = _grant.Create(db.WithContext(context.TODO()))
 		if err != nil {
 			return fmt.Errorf("failed to add user %s to group %s: %v", user.UserName, groupID, err)
 		}
 	}
 
 	for networkID, role := range user.NetworkRoles {
-		_userNetworkRole := schema.UserNetworkRole{
-			UserID:    _user.ID,
-			NetworkID: string(networkID),
+		_grant := schema.AccessGrant{
+			PrincipalType: schema.Principal_User,
+			PrincipalID:   _user.ID,
+			Scope:         schema.Scope_Network,
+			ScopeID:       string(networkID),
 		}
 		for roleID := range role {
-			_userNetworkRole.RoleID = string(roleID)
+			_grant.RoleID = schema.RoleID(roleID)
 		}
-		err = _userNetworkRole.Create(dbctx)
+		err = _grant.Create(dbctx)
 		if err != nil {
 			return fmt.Errorf("failed to set user %s's role for network %s: %v", user.UserName, networkID, err)
 		}

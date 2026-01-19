@@ -11,8 +11,7 @@ func ListModels() []interface{} {
 		&Nameserver{},
 		&PostureCheck{},
 		&User{},
-		&Memberships{},
-		&UserNetworkRole{},
+		&AccessGrant{},
 		&Network{},
 	}
 }
