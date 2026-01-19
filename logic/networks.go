@@ -540,7 +540,7 @@ func IsNetworkNameUnique(network *models.Network) (bool, error) {
 
 func UpsertNetwork(network models.Network) error {
 	_network := converters.ToSchemaNetwork(network)
-	return _network.Update(context.TODO())
+	return _network.Update(db.WithContext(context.TODO()))
 }
 
 // UpdateNetwork - updates a network with another network's fields

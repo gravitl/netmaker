@@ -19,7 +19,6 @@ type Network struct {
 	Name                string `gorm:"unique"`
 	AddressRange        string
 	AddressRange6       string
-	NameServers         datatypes.JSONSlice[string]
 	DefaultKeepAlive    time.Duration
 	DefaultACL          string
 	DefaultMTU          int32
