@@ -17,15 +17,16 @@ const (
 )
 
 type FeatureFlags struct {
-	EnableEgressHA          bool `json:"enable_egress_ha"`
-	EnableNetworkActivity   bool `json:"enable_network_activity"`
-	EnableOAuth             bool `json:"enable_oauth"`
-	EnableIDPIntegration    bool `json:"enable_idp_integration"`
-	AllowMultiServerLicense bool `json:"allow_multi_server_license"`
-	EnableGwsHA             bool `json:"enable_gws_ha"`
-	EnableDeviceApproval    bool `json:"enable_device_approval"`
-	EnableFlowLogs          bool `json:"enable_flow_logs"`
-	EnablePostureChecks     bool `json:"enable_posture_checks"`
+	EnableEgressHA                bool `json:"enable_egress_ha"`
+	EnableNetworkActivity         bool `json:"enable_network_activity"`
+	EnableOAuth                   bool `json:"enable_oauth"`
+	EnableIDPIntegration          bool `json:"enable_idp_integration"`
+	AllowMultiServerLicense       bool `json:"allow_multi_server_license"`
+	EnableGwsHA                   bool `json:"enable_gws_ha"`
+	EnableDeviceApproval          bool `json:"enable_device_approval"`
+	EnableFlowLogs                bool `json:"enable_flow_logs"`
+	EnablePostureChecks           bool `json:"enable_posture_checks"`
+	EnableOverlappingEgressRanges bool `json:"enable_overlapping_egress_ranges"`
 }
 
 // AuthParams - struct for auth params
