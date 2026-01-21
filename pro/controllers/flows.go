@@ -22,7 +22,7 @@ func FlowHandlers(r *mux.Router) {
 const (
 	querySelect = `
 SELECT
-	flow_id, host_id, network_id,
+	flow_id, host_id, host_name, network_id,
 	protocol, src_port, dst_port,
 	icmp_type, icmp_code, direction,
 	src_ip, src_type, src_entity_id, src_entity_name,
@@ -188,6 +188,7 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 	type FlowRow struct {
 		FlowID        string    `ch:"flow_id" json:"flow_id"`
 		HostID        string    `ch:"host_id" json:"host_id"`
+		HostName      string    `ch:"host_name" json:"host_name"`
 		NetworkID     string    `ch:"network_id" json:"network_id"`
 		Protocol      uint16    `ch:"protocol" json:"protocol"`
 		SrcPort       uint16    `ch:"src_port" json:"src_port"`

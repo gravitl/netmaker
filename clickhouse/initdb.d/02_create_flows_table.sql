@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS flows (
     -- Identity
     flow_id            String,
     host_id            String,
+    host_name          String,
     network_id         String,
 
     -- Flow metadata
