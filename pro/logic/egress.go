@@ -100,12 +100,13 @@ func AssignVirtualRangeToEgress(nw *models.Network, eg *schema.Egress) error {
 	isIPv6 := false
 	egressPrefixLen := 0
 
+	logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: processing egress range '%s' for egress %s", eg.Range, eg.ID))
 	if eg.Range != "" && eg.Range != "*" {
 		_, ipNet, err := net.ParseCIDR(eg.Range)
 		if err == nil && ipNet != nil {
 			isIPv6 = ipNet.IP.To4() == nil
-			_, egressPrefixLen = ipNet.Mask.Size()
-			logger.Log(2, fmt.Sprintf("AssignVirtualRangeToEgress: parsed egress range '%s' as IPv%d with prefix length /%d", eg.Range, map[bool]int{false: 4, true: 6}[isIPv6], egressPrefixLen))
+			egressPrefixLen, _ = ipNet.Mask.Size()
+			logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: parsed egress range '%s' as IPv%d with prefix length /%d", eg.Range, map[bool]int{false: 4, true: 6}[isIPv6], egressPrefixLen))
 		} else {
 			logger.Log(2, fmt.Sprintf("AssignVirtualRangeToEgress: failed to parse egress range '%s' as CIDR: %v", eg.Range, err))
 			// Try parsing as IP address
@@ -127,12 +128,12 @@ func AssignVirtualRangeToEgress(nw *models.Network, eg *schema.Egress) error {
 			if err == nil && ipNet != nil {
 				if ipNet.IP.To4() == nil {
 					isIPv6 = true
-					_, egressPrefixLen = ipNet.Mask.Size()
+					egressPrefixLen, _ = ipNet.Mask.Size()
 					logger.Log(2, fmt.Sprintf("AssignVirtualRangeToEgress: found IPv6 address in DomainAns '%s' with prefix length /%d", domainAns, egressPrefixLen))
 					break
 				} else if egressPrefixLen == 0 {
 					// Use the first IPv4 prefix length found
-					_, egressPrefixLen = ipNet.Mask.Size()
+					egressPrefixLen, _ = ipNet.Mask.Size()
 				}
 			}
 		}
@@ -162,25 +163,31 @@ func AssignVirtualRangeToEgress(nw *models.Network, eg *schema.Egress) error {
 	// For IPv4: match the egress range size to avoid wasting address space
 	// For IPv6: always use the configured site prefix length (typically /64) as IPv6 has abundant address space
 	sitePrefixLen := maxSitePrefixLen
-	if !isIPv6 && egressPrefixLen > 0 {
-		// For IPv4, try to match the egress range size
-		_, poolNet, err := net.ParseCIDR(poolCIDR)
-		if err == nil && poolNet != nil {
-			poolPrefixLen, bits := poolNet.Mask.Size()
-			// Use egress prefix length if it's valid (>= pool prefix, <= address space)
-			// Allow more specific (larger prefix length) than configured max to match egress range exactly
-			if egressPrefixLen >= poolPrefixLen && egressPrefixLen <= bits {
-				sitePrefixLen = egressPrefixLen
-				if egressPrefixLen > maxSitePrefixLen {
-					logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: IPv4 - matching egress range size /%d (more specific than configured max /%d)", sitePrefixLen, maxSitePrefixLen))
+	if !isIPv6 {
+		if egressPrefixLen > 0 {
+			// For IPv4, try to match the egress range size
+			_, poolNet, err := net.ParseCIDR(poolCIDR)
+			if err == nil && poolNet != nil {
+				poolPrefixLen, bits := poolNet.Mask.Size()
+				// Use egress prefix length if it's valid (>= pool prefix, <= address space)
+				// Allow more specific (larger prefix length) than configured max to match egress range exactly
+				if egressPrefixLen >= poolPrefixLen && egressPrefixLen <= bits {
+					sitePrefixLen = egressPrefixLen
+					if egressPrefixLen > maxSitePrefixLen {
+						logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: IPv4 - matching egress range size /%d (more specific than configured max /%d)", sitePrefixLen, maxSitePrefixLen))
+					} else {
+						logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: IPv4 - matching egress range size /%d (configured max is /%d)", sitePrefixLen, maxSitePrefixLen))
+					}
 				} else {
-					logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: IPv4 - matching egress range size /%d (configured max is /%d)", sitePrefixLen, maxSitePrefixLen))
+					logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: IPv4 - egress range /%d is invalid for pool (pool prefix: /%d, address space: /%d), using configured max /%d", egressPrefixLen, poolPrefixLen, bits, sitePrefixLen))
 				}
 			} else {
-				logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: IPv4 - egress range /%d is invalid for pool (pool prefix: /%d, address space: /%d), using configured max /%d", egressPrefixLen, poolPrefixLen, bits, sitePrefixLen))
+				logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: IPv4 - failed to parse pool CIDR, using configured max /%d", sitePrefixLen))
 			}
+		} else {
+			logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: IPv4 - egress prefix length not determined (egressPrefixLen=%d), using configured max /%d", egressPrefixLen, sitePrefixLen))
 		}
-	} else if isIPv6 {
+	} else {
 		logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: IPv6 - using configured site prefix length /%d", sitePrefixLen))
 	}
 

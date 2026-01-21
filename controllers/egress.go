@@ -263,7 +263,10 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	// Store old mode for comparison (before we modify e)
 	oldMode := e.Mode
 
-	// Update mode and NAT first, before calling AssignVirtualRangeToEgress
+	// Update Range first so AssignVirtualRangeToEgress can use the correct range
+	e.Range = egressRange
+
+	// Update mode and NAT before calling AssignVirtualRangeToEgress
 	// This ensures the function sees the new values
 	if req.Mode != models.VirtualNAT || !req.Nat {
 		e.Mode = models.DirectNAT
