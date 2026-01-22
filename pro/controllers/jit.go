@@ -33,11 +33,11 @@ func JITHandlers(r *mux.Router) {
 
 // JITRequest - request body for JIT operations
 type JITRequest struct {
-	Action        string `json:"action"` // enable, disable, request, approve, deny
-	RequestID     string `json:"request_id,omitempty"`
-	GrantID       string `json:"grant_id,omitempty"`
-	Reason        string `json:"reason,omitempty"`
-	DurationHours int    `json:"duration_hours,omitempty"` // 24, 168 (1 week), 720 (1 month), or custom
+	Action    string `json:"action"` // enable, disable, request, approve, deny
+	RequestID string `json:"request_id,omitempty"`
+	GrantID   string `json:"grant_id,omitempty"`
+	Reason    string `json:"reason,omitempty"`
+	ExpiresAt int64  `json:"expires_at,omitempty"` // Unix epoch timestamp (seconds) for when access should expire
 }
 
 // JITAccessRequest - request body for user JIT access request
@@ -112,7 +112,7 @@ func handleJITPost(w http.ResponseWriter, r *http.Request, networkID string, use
 	case "disable":
 		handleDisableJIT(w, r, networkID, user)
 	case "approve":
-		handleApproveRequest(w, r, networkID, user, req.RequestID, req.DurationHours)
+		handleApproveRequest(w, r, networkID, user, req.RequestID, req.ExpiresAt)
 	case "deny":
 		handleDenyRequest(w, r, networkID, user, req.RequestID)
 	default:
@@ -187,7 +187,7 @@ func handleDisableJIT(w http.ResponseWriter, r *http.Request, networkID string, 
 }
 
 // handleApproveRequest - approves a JIT request
-func handleApproveRequest(w http.ResponseWriter, r *http.Request, networkID string, user *models.User, requestID string, durationHours int) {
+func handleApproveRequest(w http.ResponseWriter, r *http.Request, networkID string, user *models.User, requestID string, expiresAtEpoch int64) {
 	// Check if user is admin
 	if !isNetworkAdmin(user, networkID) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only network admins can approve requests"), "forbidden"))
@@ -199,12 +199,22 @@ func handleApproveRequest(w http.ResponseWriter, r *http.Request, networkID stri
 		return
 	}
 
-	if durationHours <= 0 {
-		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("duration_hours must be greater than 0"), "badrequest"))
+	if expiresAtEpoch <= 0 {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("expires_at is required and must be a valid Unix epoch timestamp"), "badrequest"))
 		return
 	}
 
-	grant, err := proLogic.ApproveJITRequest(requestID, durationHours, user.UserName)
+	// Convert epoch to time.Time
+	expiresAt := time.Unix(expiresAtEpoch, 0).UTC()
+	now := time.Now().UTC()
+
+	// Validate that expires_at is in the future
+	if expiresAt.Before(now) || expiresAt.Equal(now) {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("expires_at must be in the future"), "badrequest"))
+		return
+	}
+
+	grant, err := proLogic.ApproveJITRequest(requestID, expiresAt, user.UserName)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return

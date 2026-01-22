@@ -135,7 +135,7 @@ func CreateJITRequest(networkID, userName, reason string) (*schema.JITRequest, e
 }
 
 // ApproveJITRequest - approves a JIT request and creates a grant
-func ApproveJITRequest(requestID string, durationHours int, approvedBy string) (*schema.JITGrant, error) {
+func ApproveJITRequest(requestID string, expiresAt time.Time, approvedBy string) (*schema.JITGrant, error) {
 	ctx := db.WithContext(context.Background())
 
 	// Get the request
@@ -150,7 +150,15 @@ func ApproveJITRequest(requestID string, durationHours int, approvedBy string) (
 
 	// Update request status
 	now := time.Now().UTC()
-	expiresAt := now.Add(time.Duration(durationHours) * time.Hour)
+	// Ensure expiresAt is in UTC
+	expiresAt = expiresAt.UTC()
+
+	// Calculate duration in hours for storage
+	durationHours := int(expiresAt.Sub(now).Hours())
+	if durationHours < 1 {
+		durationHours = 1 // Minimum 1 hour
+	}
+
 	request.Status = "approved"
 	request.ApprovedAt = now
 	request.ApprovedBy = approvedBy
@@ -222,7 +230,57 @@ func CheckJITAccess(networkID, userID string) (bool, *schema.JITGrant, error) {
 		// Feature flag disabled, allow access (backward compatibility)
 		return true, nil, nil
 	}
-	fmt.Println("====> Here1 Checking JIT access: ", userID)
+
+	// Check if user is super admin, admin, network admin, or global network admin - skip JIT check for them
+	user, err := logic.GetUser(userID)
+	if err == nil {
+		// Check platform role (super admin or admin)
+		if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
+			// Super admin or admin - bypass JIT check
+			return true, nil, nil
+		}
+		if user.PlatformRoleID == models.PlatformUser {
+			// Check network admin roles
+			networkIDModel := models.NetworkID(networkID)
+			allNetworksID := models.AllNetworks
+			globalNetworksAdminRoleID := models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkAdmin))
+
+			// Check user groups for network admin roles
+			for groupID := range user.UserGroups {
+				groupData, err := database.FetchRecord(database.USER_GROUPS_TABLE_NAME, groupID.String())
+				if err != nil {
+					continue
+				}
+
+				var group models.UserGroup
+				if err := json.Unmarshal([]byte(groupData), &group); err != nil {
+					continue
+				}
+
+				// Check if group has network admin role for this network
+				if roles, ok := group.NetworkRoles[networkIDModel]; ok {
+					for roleID := range roles {
+						if roleID == models.NetworkAdmin {
+							// User is in group with network admin role for this network - bypass JIT check
+							return true, nil, nil
+						}
+					}
+				}
+
+				// Check if group has global network admin role
+				if roles, ok := group.NetworkRoles[allNetworksID]; ok {
+					for roleID := range roles {
+						if roleID == models.NetworkAdmin || roleID == globalNetworksAdminRoleID {
+							// User is in group with global network admin role - bypass JIT check
+							return true, nil, nil
+						}
+					}
+				}
+			}
+		}
+
+	}
+
 	ctx := db.WithContext(context.Background())
 
 	// Check if network has JIT enabled
@@ -235,7 +293,7 @@ func CheckJITAccess(networkID, userID string) (bool, *schema.JITGrant, error) {
 		// JIT not enabled, allow access
 		return true, nil, nil
 	}
-	fmt.Println("====> Here2 Checking JIT access: ", userID)
+
 	// Check for active grant
 	grant := schema.JITGrant{
 		NetworkID: networkID,

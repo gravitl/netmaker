@@ -2,6 +2,7 @@ package logic
 
 import (
 	"errors"
+	"time"
 
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -19,7 +20,7 @@ type JITStatusResponse struct {
 // These are set by pro/initialize.go when Pro is enabled
 var EnableJITOnNetworkFunc func(string) error
 var DisableJITOnNetworkFunc func(string) error
-var ApproveJITRequestFunc func(string, int, string) (*schema.JITGrant, error)
+var ApproveJITRequestFunc func(string, time.Time, string) (*schema.JITGrant, error)
 var DenyJITRequestFunc func(string, string) error
 var CheckJITAccessFunc func(string, string) (bool, *schema.JITGrant, error)
 var GetNetworkJITRequestsFunc func(string, string) ([]interface{}, error)
@@ -49,11 +50,11 @@ func DisableJITOnNetwork(networkID string) error {
 }
 
 // ApproveJITRequest - approves a JIT request and creates a grant
-func ApproveJITRequest(requestID string, durationHours int, approvedBy string) (*schema.JITGrant, error) {
+func ApproveJITRequest(requestID string, expiresAt time.Time, approvedBy string) (*schema.JITGrant, error) {
 	if ApproveJITRequestFunc == nil {
 		return nil, errors.New("JIT feature is not available")
 	}
-	return ApproveJITRequestFunc(requestID, durationHours, approvedBy)
+	return ApproveJITRequestFunc(requestID, expiresAt, approvedBy)
 }
 
 // DenyJITRequest - denies a JIT request
