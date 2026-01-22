@@ -426,10 +426,63 @@ type UserJITNetworkStatus struct {
 	PendingRequest bool               `json:"pending_request"`
 }
 
+// isUserAdminForNetwork - checks if user is super admin, admin, network admin, or global network admin
+func isUserAdminForNetwork(user *models.User, networkID string) bool {
+	// Check platform role (super admin or admin)
+	if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
+		return true
+	}
+	if user.PlatformRoleID != models.PlatformUser {
+		return false
+	}
+	networkIDModel := models.NetworkID(networkID)
+	allNetworksID := models.AllNetworks
+	globalNetworksAdminRoleID := models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkAdmin))
+
+	// Check user groups for network admin roles
+	for groupID := range user.UserGroups {
+		groupData, err := database.FetchRecord(database.USER_GROUPS_TABLE_NAME, groupID.String())
+		if err != nil {
+			continue
+		}
+
+		var group models.UserGroup
+		if err := json.Unmarshal([]byte(groupData), &group); err != nil {
+			continue
+		}
+
+		// Check if group has network admin role for this network
+		if roles, ok := group.NetworkRoles[networkIDModel]; ok {
+			for roleID := range roles {
+				if roleID == models.NetworkAdmin {
+					return true
+				}
+			}
+		}
+
+		// Check if group has global network admin role
+		if roles, ok := group.NetworkRoles[allNetworksID]; ok {
+			for roleID := range roles {
+				if roleID == models.NetworkAdmin || roleID == globalNetworksAdminRoleID {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
 // GetUserJITNetworksStatus - gets JIT status for multiple networks for a user
 func GetUserJITNetworksStatus(networks []models.Network, userID string) ([]UserJITNetworkStatus, error) {
 	ctx := db.WithContext(context.Background())
 	var result []UserJITNetworkStatus
+
+	// Get user to check admin status
+	user, err := logic.GetUser(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
 
 	for _, network := range networks {
 		status := UserJITNetworkStatus{
@@ -438,6 +491,14 @@ func GetUserJITNetworksStatus(networks []models.Network, userID string) ([]UserJ
 			JITEnabled:     network.JITEnabled == "yes",
 			HasAccess:      false,
 			PendingRequest: false,
+		}
+
+		// Check if user is admin - if so, show JIT as disabled and has access
+		if isUserAdminForNetwork(user, network.NetID) {
+			status.JITEnabled = false
+			status.HasAccess = true
+			result = append(result, status)
+			continue
 		}
 
 		// Only check JIT status if JIT is enabled on the network
@@ -467,6 +528,9 @@ func GetUserJITNetworksStatus(networks []models.Network, userID string) ([]UserJ
 					}
 				}
 			}
+		} else {
+			// JIT not enabled, user has access
+			status.HasAccess = true
 		}
 
 		result = append(result, status)
