@@ -693,6 +693,18 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			for _, extclient := range extclients {
 				if extclient.DeviceID == customExtClient.DeviceID &&
 					extclient.OwnerID == caller.UserName && nodeid == extclient.IngressGatewayID {
+					// JIT enforcement: Check if user has access (only for desktop app users)
+					hasAccess, _, err := logic.CheckJITAccess(extclient.Network, userName)
+					if err != nil {
+						logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+						return
+					}
+					if !hasAccess {
+						logic.ReturnErrorResponse(w, r, logic.FormatError(
+							errors.New("JIT access required: please request access from network admin"),
+							"forbidden"))
+						return
+					}
 					err = errors.New("remote client config already exists on the gateway")
 					slog.Error("failed to create extclient", "user", userName, "error", err)
 					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -761,6 +773,19 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		extclient.Location, extclient.Country = logic.GetHostLocInfo(logic.GetClientIP(r), os.Getenv("IP_INFO_TOKEN"))
 	}
 	extclient.Location = customExtClient.Location
+	// JIT enforcement: Check if user has access (only for desktop app users)
+	hasAccess, _, err := logic.CheckJITAccess(extclient.Network, userName)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+	if !hasAccess {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(
+			errors.New("JIT access required: please request access from network admin"),
+			"forbidden"))
+		return
+	}
+
 	if extclient.DeviceID != "" {
 		// check for violations connecting from desktop app
 		staticNode := extclient.ConvertToStaticNode()
@@ -920,6 +945,19 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		violations, _ := logic.CheckPostureViolations(logic.GetPostureCheckDeviceInfoByNode(&staticNode), models.NetworkID(newclient.Network))
 		if len(violations) > 0 {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("posture check violations"), logic.Forbidden))
+			return
+		}
+
+		// JIT enforcement: Check if user has access (only for desktop app users)
+		hasAccess, _, err := logic.CheckJITAccess(newclient.Network, newclient.OwnerID)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+		if !hasAccess {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(
+				errors.New("JIT access required: please request access from network admin"),
+				"forbidden"))
 			return
 		}
 	}

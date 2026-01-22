@@ -83,6 +83,12 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if strings.Contains(route, "nameserver") {
 			r.Header.Set("TARGET_RSRC", models.NameserverRsrc.String())
 		}
+		if strings.Contains(route, "jit") {
+			r.Header.Set("TARGET_RSRC", models.JitAdminRsrc.String())
+		}
+		if strings.Contains(route, "jit_user") {
+			r.Header.Set("TARGET_RSRC", models.JitUserRsrc.String())
+		}
 		if strings.Contains(route, "metrics") {
 			r.Header.Set("TARGET_RSRC", models.MetricRsrc.String())
 		}

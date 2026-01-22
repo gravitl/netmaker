@@ -45,6 +45,7 @@ func InitPro() {
 		// TODO: try to add flow handler only if flow logs are enabled.
 		proControllers.FlowHandlers,
 		proControllers.PostureCheckHandlers,
+		proControllers.JITHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func(ctx context.Context, wg *sync.WaitGroup) {
@@ -201,6 +202,50 @@ func InitPro() {
 	logic.GetPostureCheckDeviceInfoByNode = proLogic.GetPostureCheckDeviceInfoByNode
 	logic.StartFlowCleanupLoop = proLogic.StartFlowCleanupLoop
 	logic.StopFlowCleanupLoop = proLogic.StopFlowCleanupLoop
+	// Expose JIT functions
+	logic.EnableJITOnNetworkFunc = proLogic.EnableJITOnNetwork
+	logic.DisableJITOnNetworkFunc = proLogic.DisableJITOnNetwork
+	logic.ApproveJITRequestFunc = proLogic.ApproveJITRequest
+	logic.DenyJITRequestFunc = proLogic.DenyJITRequest
+	logic.CheckJITAccessFunc = proLogic.CheckJITAccess
+	logic.GetNetworkJITRequestsFunc = func(networkID string, statusFilter string) ([]interface{}, error) {
+		result, err := proLogic.GetNetworkJITRequests(networkID, statusFilter)
+		if err != nil {
+			return nil, err
+		}
+		// Convert to []interface{} for type compatibility
+		interfaces := make([]interface{}, len(result))
+		for i, v := range result {
+			interfaces[i] = v
+		}
+		return interfaces, nil
+	}
+	logic.GetUserJITStatusFunc = proLogic.GetUserJITStatus
+	logic.GetUserJITNetworksStatusFunc = func(networks []models.Network, userID string) ([]interface{}, error) {
+		result, err := proLogic.GetUserJITNetworksStatus(networks, userID)
+		if err != nil {
+			return nil, err
+		}
+		// Convert to []interface{} for type compatibility
+		interfaces := make([]interface{}, len(result))
+		for i, v := range result {
+			interfaces[i] = v
+		}
+		return interfaces, nil
+	}
+	logic.ExpireJITGrants = proLogic.ExpireJITGrants
+	logic.DisconnectExtClientsFromNetworkFunc = proLogic.DisconnectExtClientsFromNetwork
+	logic.GetNetworkAdminsFunc = proLogic.GetNetworkAdmins
+	// Set email notification functions to avoid import cycles
+	proLogic.NotifyNetworkAdminsOfJITRequestFunc = proControllers.SendJITRequestEmails
+	proLogic.NotifyUserOfJITApprovalFunc = proControllers.SendJITApprovalEmail
+
+	// Register JIT grant expiry hook - runs every 5 minutes
+	logic.HookManagerCh <- models.HookDetails{
+		ID:       "jit-expiry-hook",
+		Hook:     logic.WrapHook(proLogic.ExpireJITGrants),
+		Interval: 5 * time.Minute,
+	}
 }
 
 func retrieveProLogo() string {

@@ -134,6 +134,20 @@ var NetworkUserAllPermissionTemplate = models.UserRolePermissionTemplate{
 				Read: true,
 			},
 		},
+		models.JitAdminRsrc: {
+			models.AllJitAdminRsrcID: models.RsrcPermissionScope{
+				Read: true,
+			},
+		},
+		models.JitUserRsrc: {
+			models.AllJitUserRsrcID: models.RsrcPermissionScope{
+				Read:     true,
+				Create:   true,
+				Update:   true,
+				Delete:   true,
+				SelfOnly: true,
+			},
+		},
 	},
 }
 
@@ -265,6 +279,20 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 			models.NameserverRsrc: {
 				models.AllNameserverRsrcID: models.RsrcPermissionScope{
 					Read: true,
+				},
+			},
+			models.JitAdminRsrc: {
+				models.AllJitAdminRsrcID: models.RsrcPermissionScope{
+					Read: true,
+				},
+			},
+			models.JitUserRsrc: {
+				models.AllJitUserRsrcID: models.RsrcPermissionScope{
+					Read:     true,
+					Create:   true,
+					Update:   true,
+					Delete:   true,
+					SelfOnly: true,
 				},
 			},
 		},

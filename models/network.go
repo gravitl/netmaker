@@ -29,6 +29,7 @@ type Network struct {
 	AutoRemove          string   `json:"auto_remove"`
 	AutoRemoveTags      []string `json:"auto_remove_tags"`
 	AutoRemoveThreshold int      `json:"auto_remove_threshold_mins"`
+	JITEnabled          string   `json:"jit_enabled" bson:"jit_enabled" validate:"checkyesorno"`
 }
 
 // SaveData - sensitive fields of a network that should be kept the same
@@ -94,6 +95,11 @@ func (network *Network) SetDefaults() (upsert bool) {
 
 	if network.DefaultACL == "" {
 		network.DefaultACL = "yes"
+		upsert = true
+	}
+
+	if network.JITEnabled == "" {
+		network.JITEnabled = "no"
 		upsert = true
 	}
 	return
