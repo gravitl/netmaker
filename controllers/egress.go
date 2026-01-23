@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -259,7 +258,6 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
 	// Store old mode for comparison (before we modify e)
 	oldMode := e.Mode
 
@@ -288,31 +286,6 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-	}
-
-	var updateNat bool
-	var updateStatus bool
-	var resetDomain bool
-	var resetRange bool
-	var resetVirtualRange bool
-	var resetMode bool
-	if req.Nat != e.Nat {
-		updateNat = true
-	}
-	if req.Status != e.Status {
-		updateStatus = true
-	}
-	if req.Domain == "" {
-		resetDomain = true
-	}
-	if req.Range == "" || egressRange == "" {
-		resetRange = true
-	}
-	if e.VirtualRange == "" {
-		resetVirtualRange = true
-	}
-	if e.Mode == "" {
-		resetMode = true
 	}
 	event := &models.Event{
 		Action: models.Update,
@@ -348,11 +321,10 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	if e.Domain != req.Domain {
 		e.DomainAns = datatypes.JSONSlice[string]{}
 	}
+	// Update fields from request (Mode and Nat are already set correctly above)
 	e.Range = egressRange
 	e.Description = req.Description
 	e.Name = req.Name
-	e.Nat = req.Nat
-	e.Mode = req.Mode
 	e.Domain = req.Domain
 	e.Status = req.Status
 	e.UpdatedAt = time.Now().UTC()
@@ -360,34 +332,33 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = e.Update(db.WithContext(context.TODO()))
+
+	// Build update map with all fields including zero values
+	// GORM's Updates(&e) doesn't update zero values, so we use a map explicitly
+	updateMap := map[string]any{
+		"name":          e.Name,
+		"description":   e.Description,
+		"range":         e.Range,
+		"domain":        e.Domain,
+		"nat":           e.Nat,
+		"mode":          e.Mode,
+		"status":        e.Status,
+		"nodes":         e.Nodes,
+		"tags":          e.Tags,
+		"domain_ans":    e.DomainAns,
+		"virtual_range": e.VirtualRange,
+		"updated_at":    e.UpdatedAt,
+	}
+
+	// Perform single update with all fields including zero values
+	err = db.FromContext(r.Context()).Table(e.Table()).Where("id = ?", e.ID).Updates(updateMap).Error
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
 			r,
-			logic.FormatError(errors.New("error creating egress resource"+err.Error()), "internal"),
+			logic.FormatError(errors.New("error updating egress resource: "+err.Error()), "internal"),
 		)
 		return
-	}
-	if updateNat {
-		e.Nat = req.Nat
-		e.UpdateNatStatus(db.WithContext(context.TODO()))
-	}
-	if updateStatus {
-		e.Status = req.Status
-		e.UpdateEgressStatus(db.WithContext(context.TODO()))
-	}
-	if resetDomain {
-		_ = e.ResetDomain(db.WithContext(context.TODO()))
-	}
-	if resetRange {
-		_ = e.ResetRange(db.WithContext(context.TODO()))
-	}
-	if resetVirtualRange {
-		_ = e.ResetVirtualRange(db.WithContext(context.TODO()))
-	}
-	if resetMode {
-		_ = e.ResetMode(db.WithContext(context.TODO()))
 	}
 	event.Diff.New = e
 	logic.LogEvent(event)

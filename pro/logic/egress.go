@@ -23,8 +23,11 @@ func ValidateEgressReq(e *schema.Egress) error {
 	if e.Network == "" {
 		return errors.New("network id is empty")
 	}
+	if !logic.GetFeatureFlags().EnableOverlappingEgressRanges && e.Mode == models.VirtualNAT {
+		return errors.New("virtual NAT not supported on your plan")
+	}
 	if e.Nat && (e.Mode != models.DirectNAT && e.Mode != models.VirtualNAT) {
-		return errors.New("invalid NAT type")
+		return fmt.Errorf("invalid NAT type: %s or $s", models.DirectNAT, models.VirtualNAT)
 	}
 	if !e.Nat {
 		e.Mode = ""
