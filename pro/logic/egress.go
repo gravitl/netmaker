@@ -96,29 +96,28 @@ func AssignVirtualRangeToEgress(nw *models.Network, eg *schema.Egress) error {
 		return nil
 	}
 
-	// Determine if we need IPv4 or IPv6 based on the egress range
-	isIPv6 := false
+	// Check if IPv6 is requested - virtual NAT only supports IPv4
 	egressPrefixLen := 0
 
 	logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: processing egress range '%s' for egress %s", eg.Range, eg.ID))
 	if eg.Range != "" && eg.Range != "*" {
 		_, ipNet, err := net.ParseCIDR(eg.Range)
 		if err == nil && ipNet != nil {
-			isIPv6 = ipNet.IP.To4() == nil
+			if ipNet.IP.To4() == nil {
+				return fmt.Errorf("virtual NAT only supports IPv4, but egress range '%s' is IPv6", eg.Range)
+			}
 			egressPrefixLen, _ = ipNet.Mask.Size()
-			logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: parsed egress range '%s' as IPv%d with prefix length /%d", eg.Range, map[bool]int{false: 4, true: 6}[isIPv6], egressPrefixLen))
+			logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: parsed egress range '%s' as IPv4 with prefix length /%d", eg.Range, egressPrefixLen))
 		} else {
 			logger.Log(2, fmt.Sprintf("AssignVirtualRangeToEgress: failed to parse egress range '%s' as CIDR: %v", eg.Range, err))
 			// Try parsing as IP address
 			ip := net.ParseIP(eg.Range)
 			if ip != nil {
-				isIPv6 = ip.To4() == nil
-				if isIPv6 {
-					egressPrefixLen = 128 // Default to /128 for single IPv6 address
-				} else {
-					egressPrefixLen = 32 // Default to /32 for single IPv4 address
+				if ip.To4() == nil {
+					return fmt.Errorf("virtual NAT only supports IPv4, but egress range '%s' is IPv6", eg.Range)
 				}
-				logger.Log(2, fmt.Sprintf("AssignVirtualRangeToEgress: parsed egress range '%s' as IP address (IPv%d), defaulting to /%d", eg.Range, map[bool]int{false: 4, true: 6}[isIPv6], egressPrefixLen))
+				egressPrefixLen = 32 // Default to /32 for single IPv4 address
+				logger.Log(2, fmt.Sprintf("AssignVirtualRangeToEgress: parsed egress range '%s' as IPv4 address, defaulting to /%d", eg.Range, egressPrefixLen))
 			}
 		}
 	} else if len(eg.DomainAns) > 0 {
@@ -127,11 +126,9 @@ func AssignVirtualRangeToEgress(nw *models.Network, eg *schema.Egress) error {
 			_, ipNet, err := net.ParseCIDR(domainAns)
 			if err == nil && ipNet != nil {
 				if ipNet.IP.To4() == nil {
-					isIPv6 = true
-					egressPrefixLen, _ = ipNet.Mask.Size()
-					logger.Log(2, fmt.Sprintf("AssignVirtualRangeToEgress: found IPv6 address in DomainAns '%s' with prefix length /%d", domainAns, egressPrefixLen))
-					break
-				} else if egressPrefixLen == 0 {
+					return fmt.Errorf("virtual NAT only supports IPv4, but domain answer '%s' is IPv6", domainAns)
+				}
+				if egressPrefixLen == 0 {
 					// Use the first IPv4 prefix length found
 					egressPrefixLen, _ = ipNet.Mask.Size()
 				}
@@ -139,59 +136,40 @@ func AssignVirtualRangeToEgress(nw *models.Network, eg *schema.Egress) error {
 		}
 	}
 
-	var poolCIDR string
-	var maxSitePrefixLen int
-	var poolName string
-
-	if isIPv6 {
-		if nw.VirtualNATPoolIPv6 == "" || nw.VirtualNATSitePrefixLenIPv6 == 0 {
-			return fmt.Errorf("virtual NAT IPv6 pool not configured for network %s", nw.NetID)
-		}
-		poolCIDR = nw.VirtualNATPoolIPv6
-		maxSitePrefixLen = nw.VirtualNATSitePrefixLenIPv6
-		poolName = "IPv6"
-	} else {
-		if nw.VirtualNATPoolIPv4 == "" || nw.VirtualNATSitePrefixLenIPv4 == 0 {
-			return fmt.Errorf("virtual NAT IPv4 pool not configured for network %s", nw.NetID)
-		}
-		poolCIDR = nw.VirtualNATPoolIPv4
-		maxSitePrefixLen = nw.VirtualNATSitePrefixLenIPv4
-		poolName = "IPv4"
+	if nw.VirtualNATPoolIPv4 == "" || nw.VirtualNATSitePrefixLenIPv4 == 0 {
+		return fmt.Errorf("virtual NAT IPv4 pool not configured for network %s", nw.NetID)
 	}
+	poolCIDR := nw.VirtualNATPoolIPv4
+	maxSitePrefixLen := nw.VirtualNATSitePrefixLenIPv4
 
 	// Determine the prefix length to use for allocation
-	// For IPv4: match the egress range size to avoid wasting address space
-	// For IPv6: always use the configured site prefix length (typically /64) as IPv6 has abundant address space
+	// Match the egress range size to avoid wasting address space
 	sitePrefixLen := maxSitePrefixLen
-	if !isIPv6 {
-		if egressPrefixLen > 0 {
-			// For IPv4, try to match the egress range size
-			_, poolNet, err := net.ParseCIDR(poolCIDR)
-			if err == nil && poolNet != nil {
-				poolPrefixLen, bits := poolNet.Mask.Size()
-				// Use egress prefix length if it's valid (>= pool prefix, <= address space)
-				// Allow more specific (larger prefix length) than configured max to match egress range exactly
-				if egressPrefixLen >= poolPrefixLen && egressPrefixLen <= bits {
-					sitePrefixLen = egressPrefixLen
-					if egressPrefixLen > maxSitePrefixLen {
-						logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: IPv4 - matching egress range size /%d (more specific than configured max /%d)", sitePrefixLen, maxSitePrefixLen))
-					} else {
-						logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: IPv4 - matching egress range size /%d (configured max is /%d)", sitePrefixLen, maxSitePrefixLen))
-					}
+	if egressPrefixLen > 0 {
+		// Try to match the egress range size
+		_, poolNet, err := net.ParseCIDR(poolCIDR)
+		if err == nil && poolNet != nil {
+			poolPrefixLen, bits := poolNet.Mask.Size()
+			// Use egress prefix length if it's valid (>= pool prefix, <= address space)
+			// Allow more specific (larger prefix length) than configured max to match egress range exactly
+			if egressPrefixLen >= poolPrefixLen && egressPrefixLen <= bits {
+				sitePrefixLen = egressPrefixLen
+				if egressPrefixLen > maxSitePrefixLen {
+					logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: matching egress range size /%d (more specific than configured max /%d)", sitePrefixLen, maxSitePrefixLen))
 				} else {
-					logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: IPv4 - egress range /%d is invalid for pool (pool prefix: /%d, address space: /%d), using configured max /%d", egressPrefixLen, poolPrefixLen, bits, sitePrefixLen))
+					logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: matching egress range size /%d (configured max is /%d)", sitePrefixLen, maxSitePrefixLen))
 				}
 			} else {
-				logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: IPv4 - failed to parse pool CIDR, using configured max /%d", sitePrefixLen))
+				logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: egress range /%d is invalid for pool (pool prefix: /%d, address space: /%d), using configured max /%d", egressPrefixLen, poolPrefixLen, bits, sitePrefixLen))
 			}
 		} else {
-			logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: IPv4 - egress prefix length not determined (egressPrefixLen=%d), using configured max /%d", egressPrefixLen, sitePrefixLen))
+			logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: failed to parse pool CIDR, using configured max /%d", sitePrefixLen))
 		}
 	} else {
-		logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: IPv6 - using configured site prefix length /%d", sitePrefixLen))
+		logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: egress prefix length not determined (egressPrefixLen=%d), using configured max /%d", egressPrefixLen, sitePrefixLen))
 	}
 
-	logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: allocating virtual %s range for egress %s network %s pool %s prefixLen %d", poolName, eg.ID, eg.Network, poolCIDR, sitePrefixLen))
+	logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: allocating virtual IPv4 range for egress %s network %s pool %s prefixLen %d", eg.ID, eg.Network, poolCIDR, sitePrefixLen))
 
 	// load already allocated virtual ranges in this network (read-only)
 	var allocated []string
@@ -202,15 +180,14 @@ func AssignVirtualRangeToEgress(nw *models.Network, eg *schema.Egress) error {
 		return err
 	}
 
-	// Filter out any invalid/empty values and filter by IP version
+	// Filter out any invalid/empty values and only include IPv4 ranges
 	validAllocated := make([]string, 0, len(allocated))
 	for _, a := range allocated {
 		if a != "" && a != "<nil>" {
 			_, ipNet, err := net.ParseCIDR(strings.TrimSpace(a))
 			if err == nil && ipNet != nil {
-				// Only include ranges of the same IP version
-				allocatedIsIPv6 := ipNet.IP.To4() == nil
-				if allocatedIsIPv6 == isIPv6 {
+				// Only include IPv4 ranges (virtual NAT only supports IPv4)
+				if ipNet.IP.To4() != nil {
 					validAllocated = append(validAllocated, a)
 				}
 			}
@@ -218,7 +195,7 @@ func AssignVirtualRangeToEgress(nw *models.Network, eg *schema.Egress) error {
 	}
 	allocated = validAllocated
 
-	logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: found %d already allocated %s ranges: %v", len(allocated), poolName, allocated))
+	logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: found %d already allocated IPv4 ranges: %v", len(allocated), allocated))
 
 	// allocate a free prefix from the pool and set on model (no DB write here)
 	virtualCIDR, err := allocateNextPrefixDeterministic(
@@ -239,12 +216,11 @@ func AssignVirtualRangeToEgress(nw *models.Network, eg *schema.Egress) error {
 
 	logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: allocated virtual range '%s' for egress %s", virtualCIDR, eg.ID))
 
-	// Validate that the allocated virtual range matches the IP version of the egress range
+	// Validate that the allocated virtual range is IPv4
 	_, allocatedNet, err := net.ParseCIDR(virtualCIDR)
 	if err == nil && allocatedNet != nil {
-		allocatedIsIPv6 := allocatedNet.IP.To4() == nil
-		if allocatedIsIPv6 != isIPv6 {
-			return fmt.Errorf("IP version mismatch: allocated virtual range '%s' is IPv%d but egress range requires IPv%d", virtualCIDR, map[bool]int{false: 4, true: 6}[allocatedIsIPv6], map[bool]int{false: 4, true: 6}[isIPv6])
+		if allocatedNet.IP.To4() == nil {
+			return fmt.Errorf("IP version mismatch: allocated virtual range '%s' is IPv6 but virtual NAT only supports IPv4", virtualCIDR)
 		}
 	}
 

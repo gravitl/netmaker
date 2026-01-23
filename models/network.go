@@ -1,8 +1,6 @@
 package models
 
 import (
-	"crypto/sha1"
-	"fmt"
 	"net"
 	"time"
 )
@@ -35,10 +33,6 @@ type Network struct {
 	VirtualNATPoolIPv4 string `json:"virtual_nat_pool_ipv4"`
 	// VirtualNATSitePrefixLenIPv4 is the prefix length (e.g., 24) for individual site allocations from the IPv4 virtual NAT pool
 	VirtualNATSitePrefixLenIPv4 int `json:"virtual_nat_site_prefixlen_ipv4"`
-	// VirtualNATPoolIPv6 is the IPv6 CIDR pool from which virtual NAT ranges are allocated for egress gateways
-	VirtualNATPoolIPv6 string `json:"virtual_nat_pool_ipv6"`
-	// VirtualNATSitePrefixLenIPv6 is the prefix length (e.g., 64) for individual site allocations from the IPv6 virtual NAT pool
-	VirtualNATSitePrefixLenIPv6 int `json:"virtual_nat_site_prefixlen_ipv6"`
 }
 
 // SaveData - sensitive fields of a network that should be kept the same
@@ -116,7 +110,6 @@ func (network *Network) AssignVirtualNATDefaults(vpnCIDR string, networkID strin
 		fallbackIPv4Pool = "198.18.0.0/15"
 
 		defaultIPv4SitePrefix = 24
-		defaultIPv6SitePrefix = 64
 	)
 
 	// Parse CGNAT CIDR (should always succeed, but check for safety)
@@ -125,8 +118,6 @@ func (network *Network) AssignVirtualNATDefaults(vpnCIDR string, networkID strin
 		// Fallback to default pool if CGNAT parsing fails (shouldn't happen)
 		network.VirtualNATPoolIPv4 = fallbackIPv4Pool
 		network.VirtualNATSitePrefixLenIPv4 = defaultIPv4SitePrefix
-		network.VirtualNATPoolIPv6 = generateULAPrefix(networkID)
-		network.VirtualNATSitePrefixLenIPv6 = defaultIPv6SitePrefix
 		return
 	}
 
@@ -148,26 +139,9 @@ func (network *Network) AssignVirtualNATDefaults(vpnCIDR string, networkID strin
 		}
 	}
 
-	virtualIPv6Pool := generateULAPrefix(networkID)
-
 	network.VirtualNATPoolIPv4 = virtualIPv4Pool
 	network.VirtualNATSitePrefixLenIPv4 = defaultIPv4SitePrefix
-	network.VirtualNATPoolIPv6 = virtualIPv6Pool
-	network.VirtualNATSitePrefixLenIPv6 = defaultIPv6SitePrefix
 
-}
-
-func generateULAPrefix(networkID string) string {
-	// RFC 4193: fd00::/8 + 40-bit Global ID
-	hash := sha1.Sum([]byte(networkID))
-	globalID := hash[:5] // 40 bits
-
-	return fmt.Sprintf(
-		"fd%02x:%02x%02x:%02x%02x::/48",
-		globalID[0],
-		globalID[1], globalID[2],
-		globalID[3], globalID[4],
-	)
 }
 func cidrOverlaps(a, b *net.IPNet) bool {
 	if a == nil || b == nil {
