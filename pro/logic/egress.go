@@ -27,7 +27,7 @@ func ValidateEgressReq(e *schema.Egress) error {
 		return errors.New("virtual NAT not supported on your plan")
 	}
 	if e.Nat && (e.Mode != models.DirectNAT && e.Mode != models.VirtualNAT) {
-		return fmt.Errorf("invalid NAT type: %s or $s", models.DirectNAT, models.VirtualNAT)
+		return fmt.Errorf("invalid NAT type: must be %s or %s", string(models.DirectNAT), string(models.VirtualNAT))
 	}
 	if !e.Nat {
 		e.Mode = ""
