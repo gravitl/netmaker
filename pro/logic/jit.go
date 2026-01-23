@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/mq"
 	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 
@@ -731,12 +732,33 @@ func disconnectUserExtClients(networkID, userID string) error {
 		// Check if this ext client belongs to the user
 		// Ext clients have OwnerID field that should match userID
 		if client.OwnerID == userID {
-			if err := logic.DeleteExtClient(client.Network, client.ClientID, false); err != nil {
-				slog.Warn("failed to delete ext client", "client_id", client.ClientID, "error", err)
+			// Store original client for MQ notification
+			clientCopy := client
+
+			// Disable the ext client instead of deleting it
+			// This preserves the client record so desktop apps can see the expiry status
+			disabledClient, err := logic.ToggleExtClientConnectivity(&client, false)
+			if err != nil {
+				slog.Warn("failed to disable ext client", "client_id", client.ClientID, "error", err)
 				continue
 			}
 
-			// DeleteExtClient handles MQ notifications internally
+			// Set JIT expiry to now to indicate revocation/expiry
+			// This allows desktop apps to see the revocation when they poll the API
+			now := time.Now().UTC()
+			disabledClient.JITExpiresAt = &now
+			if err := logic.SaveExtClient(&disabledClient); err != nil {
+				slog.Warn("failed to update ext client expiry", "client_id", client.ClientID, "error", err)
+				// Continue even if update fails
+			}
+
+			// Publish MQ peer update to notify ingress gateway nodes
+			// This ensures nodes immediately remove the peer from WireGuard config
+			if err := mq.PublishDeletedClientPeerUpdate(&clientCopy); err != nil {
+				slog.Warn("failed to publish deleted client peer update",
+					"client_id", client.ClientID, "error", err)
+				// Don't fail the operation, just log
+			}
 		}
 	}
 

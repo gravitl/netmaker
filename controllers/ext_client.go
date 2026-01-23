@@ -774,7 +774,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 	extclient.Location = customExtClient.Location
 	// JIT enforcement: Check if user has access (only for desktop app users)
-	hasAccess, _, err := logic.CheckJITAccess(extclient.Network, userName)
+	hasAccess, grant, err := logic.CheckJITAccess(extclient.Network, userName)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 		return
@@ -784,6 +784,10 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			errors.New("JIT access required: please request access from network admin"),
 			"forbidden"))
 		return
+	}
+	// Set JIT expiry time if grant exists (nil for admin users or when JIT not enabled)
+	if grant != nil {
+		extclient.JITExpiresAt = &grant.ExpiresAt
 	}
 
 	if extclient.DeviceID != "" {
