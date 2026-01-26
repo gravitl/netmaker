@@ -22,6 +22,7 @@ import (
 var (
 	ErrInvalidJwtValidityDuration = errors.New("invalid jwt validity duration")
 	ErrFlowLogsNotSupported       = errors.New("flow logs not supported")
+	ErrInvalidIPDetectionInterval = errors.New("invalid ip detection interval (must be greater than or equal to 15s)")
 )
 
 var ServerSettingsDBKey = "server_cfg"
@@ -159,6 +160,10 @@ func ValidateNewSettings(req models.ServerSettings) error {
 		return ErrFlowLogsNotSupported
 	}
 
+	if req.IPDetectionInterval < 15 {
+		return ErrInvalidIPDetectionInterval
+	}
+
 	return nil
 }
 
@@ -289,6 +294,7 @@ func GetServerInfo() models.ServerConfig {
 	cfg.IsPro = servercfg.IsPro
 	cfg.MetricInterval = serverSettings.MetricInterval
 	cfg.MetricsPort = serverSettings.MetricsPort
+	cfg.IPDetectionInterval = serverSettings.IPDetectionInterval
 	cfg.ManageDNS = serverSettings.ManageDNS
 	cfg.Stun = serverSettings.Stun
 	cfg.StunServers = serverSettings.StunServers
