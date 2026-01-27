@@ -99,6 +99,9 @@ func initializeVirtualNATSettings() {
 	if !servercfg.IsPro {
 		return
 	}
+	if !logic.GetFeatureFlags().EnableOverlappingEgressRanges {
+		return
+	}
 	logger.Log(1, "Initializing Virtual NAT settings for existing networks")
 	defer logger.Log(1, "Completed initializing Virtual NAT settings for existing networks")
 

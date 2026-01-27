@@ -146,22 +146,25 @@ func AssignVirtualRangeToEgress(nw *models.Network, eg *schema.Egress) error {
 	maxSitePrefixLen := nw.VirtualNATSitePrefixLenIPv4
 
 	// Determine the prefix length to use for allocation
-	// Match the egress range size to avoid wasting address space
+	// Match the egress range size to avoid wasting address space, but never use less specific than maxSitePrefixLen
 	sitePrefixLen := maxSitePrefixLen
 	if egressPrefixLen > 0 {
 		// Try to match the egress range size
 		_, poolNet, err := net.ParseCIDR(poolCIDR)
 		if err == nil && poolNet != nil {
 			poolPrefixLen, bits := poolNet.Mask.Size()
-			// Use egress prefix length if it's valid (>= pool prefix, <= address space)
-			// Allow more specific (larger prefix length) than configured max to match egress range exactly
-			if egressPrefixLen >= poolPrefixLen && egressPrefixLen <= bits {
+			// Use egress prefix length if it's valid (>= pool prefix, <= address space) AND
+			// at least as specific as maxSitePrefixLen (>= maxSitePrefixLen)
+			// This ensures we never allocate a less specific range than configured
+			if egressPrefixLen >= poolPrefixLen && egressPrefixLen <= bits && egressPrefixLen >= maxSitePrefixLen {
 				sitePrefixLen = egressPrefixLen
 				if egressPrefixLen > maxSitePrefixLen {
 					logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: matching egress range size /%d (more specific than configured max /%d)", sitePrefixLen, maxSitePrefixLen))
 				} else {
 					logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: matching egress range size /%d (configured max is /%d)", sitePrefixLen, maxSitePrefixLen))
 				}
+			} else if egressPrefixLen < maxSitePrefixLen {
+				logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: egress range /%d is less specific than configured max /%d, using configured max /%d", egressPrefixLen, maxSitePrefixLen, sitePrefixLen))
 			} else {
 				logger.Log(1, fmt.Sprintf("AssignVirtualRangeToEgress: egress range /%d is invalid for pool (pool prefix: /%d, address space: /%d), using configured max /%d", egressPrefixLen, poolPrefixLen, bits, sitePrefixLen))
 			}
