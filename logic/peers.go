@@ -217,6 +217,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			hostPeerUpdate.AddressIdentityMap[node.Address.IP.String()+"/32"] = models.PeerIdentity{
 				ID:   node.ID.String(),
 				Type: models.PeerType_Node,
+				Name: host.Name,
 			}
 		}
 
@@ -224,6 +225,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			hostPeerUpdate.AddressIdentityMap[node.Address6.IP.String()+"/128"] = models.PeerIdentity{
 				ID:   node.ID.String(),
 				Type: models.PeerType_Node,
+				Name: host.Name,
 			}
 		}
 
@@ -488,6 +490,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				hostPeerUpdate.AddressIdentityMap[peer.Address.IP.String()+"/32"] = models.PeerIdentity{
 					ID:   peer.ID.String(),
 					Type: models.PeerType_Node,
+					Name: peerHost.Name,
 				}
 			}
 
@@ -495,6 +498,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				hostPeerUpdate.AddressIdentityMap[peer.Address6.IP.String()+"/128"] = models.PeerIdentity{
 					ID:   peer.ID.String(),
 					Type: models.PeerType_Node,
+					Name: peerHost.Name,
 				}
 			}
 		}
@@ -547,9 +551,12 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				EgressFwRules: make(map[string]models.AclRule),
 			}
 			for _, egressRange := range node.EgressDetails.EgressGatewayRequest.RangesWithMetric {
-				hostPeerUpdate.AddressIdentityMap[egressRange.Network] = models.PeerIdentity{
-					ID:   egressRange.EgressID,
-					Type: models.PeerType_EgressRoute,
+				if egressRange.EgressID != "" {
+					hostPeerUpdate.AddressIdentityMap[egressRange.Network] = models.PeerIdentity{
+						ID:   egressRange.EgressID,
+						Type: models.PeerType_EgressRoute,
+						Name: egressRange.EgressName,
+					}
 				}
 			}
 		}
