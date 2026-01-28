@@ -983,9 +983,9 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     lists all user roles.
-// @Router      /api/v1/user/roles [get]
+// @Router      /api/v1/users/roles [get]
 // @Tags        Users
-// @Param       role_id query string true "roleid required to get the role details"
+// @Param       platform query string false "If true, lists platform roles. Otherwise, lists network roles."
 // @Success     200 {object}  []models.UserRolePermissionTemplate
 // @Failure     500 {object} models.ErrorResponse
 func ListRoles(w http.ResponseWriter, r *http.Request) {
@@ -1347,9 +1347,8 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     Get Users Remote Access Gw Networks.
-// @Router      /api/users/{username}/remote_access_gw [get]
-// @Tags        Users
-// @Param       username path string true "Username to fetch all the gateways with access"
+// @Router      /api/v1/rac/networks [get]
+// @Tags        RAC
 // @Success     200 {object} map[string][]models.UserRemoteGws
 // @Failure     500 {object} models.ErrorResponse
 func getUserRemoteAccessNetworks(w http.ResponseWriter, r *http.Request) {
@@ -1384,9 +1383,9 @@ func getUserRemoteAccessNetworks(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     Get Users Remote Access Gw Networks.
-// @Router      /api/users/{username}/remote_access_gw [get]
-// @Tags        Users
-// @Param       username path string true "Username to fetch all the gateways with access"
+// @Router      /api/v1/rac/network/{network}/access_points [get]
+// @Tags        RAC
+// @Param       network path string true "Network Name"
 // @Success     200 {object} map[string][]models.UserRemoteGws
 // @Failure     500 {object} models.ErrorResponse
 func getUserRemoteAccessNetworkGateways(w http.ResponseWriter, r *http.Request) {
@@ -1433,9 +1432,10 @@ func getUserRemoteAccessNetworkGateways(w http.ResponseWriter, r *http.Request) 
 }
 
 // @Summary     Get Users Remote Access Gw Networks.
-// @Router      /api/users/{username}/remote_access_gw [get]
-// @Tags        Users
-// @Param       username path string true "Username to fetch all the gateways with access"
+// @Router      /api/v1/rac/access_point/{access_point_id}/config [get]
+// @Tags        RAC
+// @Param       access_point_id path string true "Access Point ID"
+// @Param       body body models.UserRemoteGwsReq true "Remote Access Client ID"
 // @Success     200 {object} map[string][]models.UserRemoteGws
 // @Failure     500 {object} models.ErrorResponse
 func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {

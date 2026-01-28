@@ -31,7 +31,6 @@ func PostureCheckHandlers(r *mux.Router) {
 // @Router      /api/v1/posture_check/attrs [get]
 // @Tags        Auth
 // @Accept      json
-// @Param       query network string
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
@@ -45,7 +44,7 @@ func listPostureChecksAttrs(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/v1/posture_check [post]
 // @Tags        DNS
 // @Accept      json
-// @Param       body body schema.PostureCheck
+// @Param       body body schema.PostureCheck true "Posture Check payload"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
@@ -115,7 +114,7 @@ func createPostureCheck(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/v1/posture_check [get]
 // @Tags        Auth
 // @Accept      json
-// @Param       query network string
+// @Param       network query string true "Network ID"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
@@ -164,7 +163,7 @@ func listPostureChecks(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/v1/posture_check [put]
 // @Tags        Auth
 // @Accept      json
-// @Param       body body schema.PostureCheck
+// @Param       body body schema.PostureCheck true "Posture Check payload"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
@@ -247,7 +246,7 @@ func updatePostureCheck(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/v1/posture_check [delete]
 // @Tags        Auth
 // @Accept      json
-// @Param       query id string
+// @Param       id query string true "Posture Check ID"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
@@ -299,7 +298,7 @@ func deletePostureCheck(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/v1/posture_check/violations [get]
 // @Tags        Auth
 // @Accept      json
-// @Param       query network string
+// @Param       network query string true "Network ID"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse

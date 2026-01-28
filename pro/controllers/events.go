@@ -19,7 +19,7 @@ func EventHandlers(r *mux.Router) {
 }
 
 // @Summary     list activity.
-// @Router      /api/v1/activity [get]
+// @Router      /api/v1/network/activity [get]
 // @Tags        Activity
 // @Param       network_id query string true "network_id required to get the network events"
 // @Success     200 {object} models.SuccessResponse
@@ -73,7 +73,7 @@ func listNetworkActivity(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     list activity.
-// @Router      /api/v1/activity [get]
+// @Router      /api/v1/user/activity [get]
 // @Tags        Activity
 // @Param       network_id query string true "network_id required to get the network events"
 // @Success     200 {object} models.SuccessResponse

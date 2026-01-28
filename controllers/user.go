@@ -1631,7 +1631,6 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     lists all user roles.
-// @Router      /api/v1/user/roles [get]
 // @Tags        Users
 // @Param       role_id query string true "roleid required to get the role details"
 // @Success     200 {object}  []models.UserRolePermissionTemplate
