@@ -27,9 +27,17 @@ type JITStatusResponse struct {
 	PendingRequest bool               `json:"pending_request"`
 }
 
-// Email notification functions (set by pro/controllers to avoid import cycles)
-var NotifyNetworkAdminsOfJITRequestFunc func(*schema.JITRequest, models.Network) error
-var NotifyUserOfJITApprovalFunc func(*schema.JITGrant, *schema.JITRequest, models.Network) error
+func AddJitExpiryHook() {
+	if !logic.GetFeatureFlags().EnableJIT {
+		return
+	}
+	// Register JIT grant expiry hook - runs every 5 minutes
+	logic.HookManagerCh <- models.HookDetails{
+		ID:       "jit-expiry-hook",
+		Hook:     logic.WrapHook(ExpireJITGrants),
+		Interval: 5 * time.Minute,
+	}
+}
 
 // EnableJITOnNetwork - enables JIT on a network and disconnects existing ext clients
 func EnableJITOnNetwork(networkID string) error {
@@ -128,30 +136,21 @@ func CreateJITRequest(networkID, userName, reason string) (*schema.JITRequest, e
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Send email notifications to network admins
-	go func() {
-		if NotifyNetworkAdminsOfJITRequestFunc != nil {
-			if err := NotifyNetworkAdminsOfJITRequestFunc(&newRequest, network); err != nil {
-				slog.Error("failed to send JIT request notifications", "error", err)
-			}
-		}
-	}()
-
 	return &newRequest, nil
 }
 
 // ApproveJITRequest - approves a JIT request and creates a grant
-func ApproveJITRequest(requestID string, expiresAt time.Time, approvedBy string) (*schema.JITGrant, error) {
+func ApproveJITRequest(requestID string, expiresAt time.Time, approvedBy string) (*schema.JITGrant, *schema.JITRequest, error) {
 	ctx := db.WithContext(context.Background())
 
 	// Get the request
 	request := schema.JITRequest{ID: requestID}
 	if err := request.Get(ctx); err != nil {
-		return nil, fmt.Errorf("request not found: %w", err)
+		return nil, nil, fmt.Errorf("request not found: %w", err)
 	}
 
 	if request.Status != "pending" {
-		return nil, errors.New("request is not pending")
+		return nil, nil, errors.New("request is not pending")
 	}
 
 	// Update request status
@@ -172,7 +171,7 @@ func ApproveJITRequest(requestID string, expiresAt time.Time, approvedBy string)
 	request.ExpiresAt = expiresAt
 
 	if err := request.Update(ctx); err != nil {
-		return nil, fmt.Errorf("failed to update request: %w", err)
+		return nil, nil, fmt.Errorf("failed to update request: %w", err)
 	}
 
 	// Delete any existing grants for this user on this network
@@ -191,20 +190,10 @@ func ApproveJITRequest(requestID string, expiresAt time.Time, approvedBy string)
 	}
 
 	if err := grant.Create(ctx); err != nil {
-		return nil, fmt.Errorf("failed to create grant: %w", err)
+		return nil, nil, fmt.Errorf("failed to create grant: %w", err)
 	}
 
-	// Send approval email to user
-	go func() {
-		network, _ := logic.GetNetwork(request.NetworkID)
-		if NotifyUserOfJITApprovalFunc != nil {
-			if err := NotifyUserOfJITApprovalFunc(&grant, &request, network); err != nil {
-				slog.Error("failed to send approval notification", "error", err)
-			}
-		}
-	}()
-
-	return &grant, nil
+	return &grant, &request, nil
 }
 
 // DenyJITRequest - denies a JIT request

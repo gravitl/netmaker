@@ -110,7 +110,7 @@ func InitPro() {
 		go proLogic.EventWatcher()
 		logic.GetMetricsMonitor().Start()
 		proLogic.AddPostureCheckHook()
-
+		proLogic.AddJitExpiryHook()
 		if proLogic.GetFeatureFlags().EnableFlowLogs && logic.GetServerSettings().EnableFlowLogs {
 			err := ch.Initialize()
 			if err != nil {
@@ -205,16 +205,6 @@ func InitPro() {
 	logic.StopFlowCleanupLoop = proLogic.StopFlowCleanupLoop
 	// Expose JIT functions
 	logic.CheckJITAccess = proLogic.CheckJITAccess
-	// Set email notification functions to avoid import cycles
-	proLogic.NotifyNetworkAdminsOfJITRequestFunc = proControllers.SendJITRequestEmails
-	proLogic.NotifyUserOfJITApprovalFunc = proControllers.SendJITApprovalEmail
-
-	// Register JIT grant expiry hook - runs every 5 minutes
-	logic.HookManagerCh <- models.HookDetails{
-		ID:       "jit-expiry-hook",
-		Hook:     logic.WrapHook(proLogic.ExpireJITGrants),
-		Interval: 5 * time.Minute,
-	}
 	logic.AssignVirtualRangeToEgress = proLogic.AssignVirtualRangeToEgress
 }
 

@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -15,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/pro/email"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
+	"golang.org/x/exp/slog"
 )
 
 func JITHandlers(r *mux.Router) {
@@ -214,12 +214,18 @@ func handleApproveRequest(w http.ResponseWriter, r *http.Request, networkID stri
 		return
 	}
 
-	grant, err := proLogic.ApproveJITRequest(requestID, expiresAt, user.UserName)
+	grant, req, err := proLogic.ApproveJITRequest(requestID, expiresAt, user.UserName)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-
+	// Send approval email to user
+	go func() {
+		network, _ := logic.GetNetwork(networkID)
+		if err := email.SendJITApprovalEmail(grant, req, network); err != nil {
+			slog.Error("failed to send approval notification", "error", err)
+		}
+	}()
 	logic.LogEvent(&models.Event{
 		Action: models.Update,
 		Source: models.Subject{
@@ -406,55 +412,6 @@ func isNetworkAdmin(user *models.User, networkID string) bool {
 	return false
 }
 
-// SendJITRequestEmails - sends email notifications to network admins about JIT requests
-func SendJITRequestEmails(request *schema.JITRequest, network models.Network) error {
-	admins, err := proLogic.GetNetworkAdmins(request.NetworkID)
-	if err != nil {
-		return err
-	}
-
-	mail := email.JITRequestMail{
-		BodyBuilder: &email.EmailBodyBuilderWithH1HeadlineAndImage{},
-		Request:     request,
-		Network:     network,
-	}
-
-	for _, admin := range admins {
-		if admin.UserName == "" {
-			continue
-		}
-
-		notification := email.Notification{
-			RecipientMail: admin.UserName, // Assuming username is email
-			RecipientName: admin.UserName,
-		}
-
-		if err := email.GetClient().SendEmail(context.Background(), notification, mail); err != nil {
-			logger.Log(0, "failed to send JIT request email", "admin", admin.UserName, "error", err.Error())
-			continue
-		}
-	}
-
-	return nil
-}
-
-// SendJITApprovalEmail - sends email notification to user when JIT request is approved
-func SendJITApprovalEmail(grant *schema.JITGrant, request *schema.JITRequest, network models.Network) error {
-	mail := email.JITApprovedMail{
-		BodyBuilder: &email.EmailBodyBuilderWithH1HeadlineAndImage{},
-		Grant:       grant,
-		Request:     request,
-		Network:     network,
-	}
-
-	notification := email.Notification{
-		RecipientMail: request.UserName, // Assuming username is email
-		RecipientName: request.UserName,
-	}
-
-	return email.GetClient().SendEmail(context.Background(), notification, mail)
-}
-
 // getUserJITNetworks - gets all networks with JIT status for the current user
 func getUserJITNetworks(w http.ResponseWriter, r *http.Request) {
 	// Check if JIT feature is enabled
@@ -564,6 +521,14 @@ func requestJITAccess(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+
+	// Send email notifications to network admins
+	go func() {
+		network, _ := logic.GetNetwork(req.NetworkID)
+		if err := email.SendJITRequestEmails(request, network); err != nil {
+			slog.Error("failed to send JIT request notifications", "error", err)
+		}
+	}()
 
 	logic.LogEvent(&models.Event{
 		Action: models.Create,
