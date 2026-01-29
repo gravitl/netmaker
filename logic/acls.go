@@ -310,6 +310,10 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 				if err != nil {
 					continue
 				}
+				nodeOwnsEgress := false
+				if _, ok := e.Nodes[node.ID.String()]; ok {
+					nodeOwnsEgress = true
+				}
 				if len(e.DomainAns) > 0 {
 					for _, domainAnsI := range e.DomainAns {
 						dstI.Value = domainAnsI
@@ -343,34 +347,41 @@ func getFwRulesForNodeAndPeerOnGw(node, peer models.Node, allowedPolicies []mode
 						}
 					}
 				} else {
-					dstI.Value = e.Range
+					// Use virtual range if node doesn't own the egress, otherwise use regular range
+					egressRange := e.Range
+					if !nodeOwnsEgress && e.VirtualRange != "" {
+						egressRange = e.VirtualRange
+					}
+					if egressRange != "" {
+						dstI.Value = egressRange
 
-					ip, cidr, err := net.ParseCIDR(dstI.Value)
-					if err == nil {
-						if ip.To4() != nil {
-							if node.Address.IP != nil {
-								rules = append(rules, models.FwRule{
-									SrcIP: net.IPNet{
-										IP:   node.Address.IP,
-										Mask: net.CIDRMask(32, 32),
-									},
-									DstIP: *cidr,
-									Allow: true,
-								})
+						ip, cidr, err := net.ParseCIDR(dstI.Value)
+						if err == nil {
+							if ip.To4() != nil {
+								if node.Address.IP != nil {
+									rules = append(rules, models.FwRule{
+										SrcIP: net.IPNet{
+											IP:   node.Address.IP,
+											Mask: net.CIDRMask(32, 32),
+										},
+										DstIP: *cidr,
+										Allow: true,
+									})
+								}
+							} else {
+								if node.Address6.IP != nil {
+									rules = append(rules, models.FwRule{
+										SrcIP: net.IPNet{
+											IP:   node.Address6.IP,
+											Mask: net.CIDRMask(128, 128),
+										},
+										DstIP: *cidr,
+										Allow: true,
+									})
+								}
 							}
-						} else {
-							if node.Address6.IP != nil {
-								rules = append(rules, models.FwRule{
-									SrcIP: net.IPNet{
-										IP:   node.Address6.IP,
-										Mask: net.CIDRMask(128, 128),
-									},
-									DstIP: *cidr,
-									Allow: true,
-								})
-							}
+
 						}
-
 					}
 				}
 
@@ -539,7 +550,12 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 					if !eI.Status || len(eI.Nodes) == 0 {
 						continue
 					}
+					nodeOwnsEgress := false
 					if _, ok := eI.Nodes[targetnode.ID.String()]; ok {
+						nodeOwnsEgress = true
+						dstTags[targetnode.ID.String()] = struct{}{}
+					}
+					if nodeOwnsEgress {
 						if servercfg.IsPro && eI.Domain != "" && len(eI.DomainAns) > 0 {
 							for _, domainAnsI := range eI.DomainAns {
 								ip, cidr, err := net.ParseCIDR(domainAnsI)
@@ -561,7 +577,16 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 								}
 							}
 						}
-						dstTags[targetnode.ID.String()] = struct{}{}
+					} else if eI.VirtualRange != "" {
+						// Use virtual range if target node doesn't own the egress
+						_, cidr, err := net.ParseCIDR(eI.VirtualRange)
+						if err == nil {
+							if cidr.IP.To4() != nil {
+								egressRanges4 = append(egressRanges4, *cidr)
+							} else {
+								egressRanges6 = append(egressRanges6, *cidr)
+							}
+						}
 					}
 				}
 				break
@@ -570,7 +595,12 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 				e := schema.Egress{ID: dst.Value}
 				err := e.Get(db.WithContext(context.TODO()))
 				if err == nil && e.Status && len(e.Nodes) > 0 {
+					nodeOwnsEgress := false
 					if _, ok := e.Nodes[targetnode.ID.String()]; ok {
+						nodeOwnsEgress = true
+						dstTags[targetnode.ID.String()] = struct{}{}
+					}
+					if nodeOwnsEgress {
 						if servercfg.IsPro && e.Domain != "" && len(e.DomainAns) > 0 {
 							for _, domainAnsI := range e.DomainAns {
 								ip, cidr, err := net.ParseCIDR(domainAnsI)
@@ -592,7 +622,16 @@ func GetAclRulesForNode(targetnodeI *models.Node) (rules map[string]models.AclRu
 								}
 							}
 						}
-						dstTags[targetnode.ID.String()] = struct{}{}
+					} else if e.VirtualRange != "" {
+						// Use virtual range if target node doesn't own the egress
+						_, cidr, err := net.ParseCIDR(e.VirtualRange)
+						if err == nil {
+							if cidr.IP.To4() != nil {
+								egressRanges4 = append(egressRanges4, *cidr)
+							} else {
+								egressRanges6 = append(egressRanges6, *cidr)
+							}
+						}
 					}
 
 				}

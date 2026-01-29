@@ -12,6 +12,7 @@ func SetFeatureFlags(featureFlags models.FeatureFlags) {
 }
 
 func GetFeatureFlags() models.FeatureFlags {
+	featureFlagsCache.EnableOverlappingEgressRanges = true
 	return featureFlagsCache
 }
 

@@ -59,6 +59,7 @@ message FlowParticipant {
   string ip = 1;
   ParticipantType type = 2;
   string id = 3;
+  string name = 4;
 }
 
 // ============================================================
@@ -74,41 +75,42 @@ message FlowEvent {
 
   // Stable identity
   string flow_id = 2;        // unique per flow
-  string network_id = 3;     // network this flow belongs to
-  string host_id = 4;        // node reporting this event
+  string host_id = 3;        // node reporting this event
+  string host_name = 4;      // name of the node reporting this event
+  string network_id = 5;     // network this flow belongs to
 
   // L3/L4 metadata
-  uint32 protocol = 5;
-  uint32 src_port = 6;
-  uint32 dst_port = 7;
-  uint32 icmp_type = 8;
-  uint32 icmp_code = 9;
+  uint32 protocol = 6;
+  uint32 src_port = 7;
+  uint32 dst_port = 8;
+  uint32 icmp_type = 9;
+  uint32 icmp_code = 10;
 
-  Direction direction = 10;
+  Direction direction = 11;
 
   // Participants — enriched by client
-  FlowParticipant src = 11;
-  FlowParticipant dst = 12;
+  FlowParticipant src = 12;
+  FlowParticipant dst = 13;
 
   // Timestamps (milliseconds since epoch)
-  int64 start_ts_ms = 13;
-  int64 end_ts_ms = 14;
+  int64 start_ts_ms = 14;
+  int64 end_ts_ms = 15;
 
   // Traffic counters (only valid for destroy events)
-  uint64 bytes_sent = 15;
-  uint64 bytes_recv = 16;
-  uint64 packets_sent = 17;
-  uint64 packets_recv = 18;
+  uint64 bytes_sent = 16;
+  uint64 bytes_recv = 17;
+  uint64 packets_sent = 18;
+  uint64 packets_recv = 19;
 
   // Netfilter conntrack status flags (bitmask)
-  uint32 status = 19;
+  uint32 status = 20;
 
   /**
    * Version used by ClickHouse for merging.
    * Must be strictly increasing for START → DESTROY.
    * Usually equal to the netclient event timestamp (ms).
    */
-  int64 version = 20;
+  int64 version = 21;
 }
 
 // ============================================================

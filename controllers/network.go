@@ -684,7 +684,14 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	logic.CreateDefaultTags(models.NetworkID(network.NetID))
 	logic.AddNetworkToAllocatedIpMap(network.NetID)
 	logic.CreateFallbackNameserver(network.NetID)
-
+	if featureFlags.EnableOverlappingEgressRanges {
+		// assign virtual NAT pool fields
+		network.AssignVirtualNATDefaults(network.AddressRange, network.NetID)
+		// Update network with virtual NAT settings
+		if err := logic.UpsertNetwork(network); err != nil {
+			logger.Log(0, r.Header.Get("user"), "failed to update network with virtual NAT settings:", err.Error())
+		}
+	}
 	go func() {
 		defaultHosts := logic.GetDefaultHosts()
 		for i := range defaultHosts {

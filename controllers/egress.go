@@ -1,9 +1,9 @@
 package controller
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -68,7 +68,11 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		egressRange = "*"
 		req.Domain = ""
 	}
-
+	network, err := logic.GetNetwork(req.Network)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	e := schema.Egress{
 		ID:          uuid.New().String(),
 		Name:        req.Name,
@@ -78,12 +82,19 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		Domain:      req.Domain,
 		DomainAns:   []string{},
 		Nat:         req.Nat,
+		Mode:        req.Mode,
 		Nodes:       make(datatypes.JSONMap),
 		Tags:        make(datatypes.JSONMap),
 		Status:      true,
 		CreatedBy:   r.Header.Get("user"),
 		CreatedAt:   time.Now().UTC(),
 	}
+	if err := logic.AssignVirtualRangeToEgress(&network, &e); err != nil {
+		logger.Log(0, "error assigning virtual range to egress: ", err.Error())
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
+	logger.Log(1, fmt.Sprintf("createEgress: after AssignVirtualRangeToEgress, e.VirtualRange = '%s', e.Mode = '%s', e.Nat = %v", e.VirtualRange, e.Mode, e.Nat))
 	if len(req.Tags) > 0 {
 		for tagID, metric := range req.Tags {
 			e.Tags[tagID] = metric
@@ -211,6 +222,11 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+	network, err := logic.GetNetwork(req.Network)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+		return
+	}
 	var egressRange string
 	if !req.IsInetGw {
 		if req.Range != "" {
@@ -242,21 +258,34 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	var updateNat bool
-	var updateStatus bool
-	var resetDomain bool
-	var resetRange bool
-	if req.Nat != e.Nat {
-		updateNat = true
-	}
-	if req.Status != e.Status {
-		updateStatus = true
-	}
-	if req.Domain == "" {
-		resetDomain = true
-	}
-	if req.Range == "" || egressRange == "" {
-		resetRange = true
+	// Store old mode for comparison (before we modify e)
+	oldMode := e.Mode
+
+	// Update Range first so AssignVirtualRangeToEgress can use the correct range
+	e.Range = egressRange
+
+	// Update mode and NAT before calling AssignVirtualRangeToEgress
+	// This ensures the function sees the new values
+	if req.Mode != models.VirtualNAT || !req.Nat {
+		e.Mode = models.DirectNAT
+		if !req.Nat {
+			e.Mode = ""
+		}
+		e.Nat = req.Nat
+		e.VirtualRange = ""
+	} else {
+		// Switching to virtual NAT mode
+		e.Mode = req.Mode
+		e.Nat = req.Nat
+		// Assign virtual range if switching to virtual NAT mode from a different mode,
+		// or if already in virtual NAT mode but virtual range is empty
+		if (oldMode != models.VirtualNAT) || (e.VirtualRange == "") {
+			if err := logic.AssignVirtualRangeToEgress(&network, &e); err != nil {
+				logger.Log(0, "error assigning virtual range to egress: ", err.Error())
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
+				return
+			}
+		}
 	}
 	event := &models.Event{
 		Action: models.Update,
@@ -292,10 +321,10 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 	if e.Domain != req.Domain {
 		e.DomainAns = datatypes.JSONSlice[string]{}
 	}
+	// Update fields from request (Mode and Nat are already set correctly above)
 	e.Range = egressRange
 	e.Description = req.Description
 	e.Name = req.Name
-	e.Nat = req.Nat
 	e.Domain = req.Domain
 	e.Status = req.Status
 	e.UpdatedAt = time.Now().UTC()
@@ -303,28 +332,33 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	err = e.Update(db.WithContext(context.TODO()))
+
+	// Build update map with all fields including zero values
+	// GORM's Updates(&e) doesn't update zero values, so we use a map explicitly
+	updateMap := map[string]any{
+		"name":          e.Name,
+		"description":   e.Description,
+		"range":         e.Range,
+		"domain":        e.Domain,
+		"nat":           e.Nat,
+		"mode":          e.Mode,
+		"status":        e.Status,
+		"nodes":         e.Nodes,
+		"tags":          e.Tags,
+		"domain_ans":    e.DomainAns,
+		"virtual_range": e.VirtualRange,
+		"updated_at":    e.UpdatedAt,
+	}
+
+	// Perform single update with all fields including zero values
+	err = db.FromContext(r.Context()).Table(e.Table()).Where("id = ?", e.ID).Updates(updateMap).Error
 	if err != nil {
 		logic.ReturnErrorResponse(
 			w,
 			r,
-			logic.FormatError(errors.New("error creating egress resource"+err.Error()), "internal"),
+			logic.FormatError(errors.New("error updating egress resource: "+err.Error()), "internal"),
 		)
 		return
-	}
-	if updateNat {
-		e.Nat = req.Nat
-		e.UpdateNatStatus(db.WithContext(context.TODO()))
-	}
-	if updateStatus {
-		e.Status = req.Status
-		e.UpdateEgressStatus(db.WithContext(context.TODO()))
-	}
-	if resetDomain {
-		_ = e.ResetDomain(db.WithContext(context.TODO()))
-	}
-	if resetRange {
-		_ = e.ResetRange(db.WithContext(context.TODO()))
 	}
 	event.Diff.New = e
 	logic.LogEvent(event)
