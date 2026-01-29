@@ -343,6 +343,7 @@ func deleteJITGrant(w http.ResponseWriter, r *http.Request) {
 		UserID:    grant.UserID,
 	}
 	allRequests, err := request.ListByNetwork(ctx)
+	var revokedRequest *schema.JITRequest
 	if err == nil {
 		for _, req := range allRequests {
 			if req.UserID == grant.UserID && req.Status == "approved" {
@@ -351,7 +352,22 @@ func deleteJITGrant(w http.ResponseWriter, r *http.Request) {
 				if err := req.Update(ctx); err != nil {
 					logger.Log(0, "failed to update request status when revoking grant:", err.Error())
 					// Don't fail the operation, just log
+				} else {
+					// Use the first approved request for email notification
+					if revokedRequest == nil {
+						revokedRequest = &req
+					}
 				}
+			}
+		}
+	}
+
+	// Send email notification to user
+	if revokedRequest != nil {
+		network, err := logic.GetNetwork(networkID)
+		if err == nil {
+			if err := email.SendJITExpirationEmail(&grant, revokedRequest, network, true); err != nil {
+				slog.Warn("failed to send revocation email", "grant_id", grantID, "user", revokedRequest.UserName, "error", err)
 			}
 		}
 	}

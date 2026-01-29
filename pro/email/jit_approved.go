@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -55,8 +54,8 @@ func (mail JITApprovedMail) GetBody(info Notification) string {
 		WithHtml("<ul>").
 		WithHtml(fmt.Sprintf("<li><strong>Network:</strong> %s</li>", mail.Network.NetID)).
 		WithHtml(fmt.Sprintf("<li><strong>Duration:</strong> %s</li>", durationText)).
-		WithHtml(fmt.Sprintf("<li><strong>Granted At:</strong> %s</li>", mail.Grant.GrantedAt.Format(time.RFC3339))).
-		WithHtml(fmt.Sprintf("<li><strong>Expires At:</strong> %s</li>", mail.Grant.ExpiresAt.Format(time.RFC3339))).
+		WithHtml(fmt.Sprintf("<li><strong>Granted At:</strong> %s</li>", formatUTCTime(mail.Grant.GrantedAt))).
+		WithHtml(fmt.Sprintf("<li><strong>Expires At:</strong> %s</li>", formatUTCTime(mail.Grant.ExpiresAt))).
 		WithHtml("</ul>").
 		WithParagraph("You can now connect to this network using the Netmaker Desktop App. Your access will automatically expire when the granted duration ends.").
 		WithParagraph("Best Regards,").

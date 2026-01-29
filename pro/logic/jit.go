@@ -27,18 +27,6 @@ type JITStatusResponse struct {
 	PendingRequest bool               `json:"pending_request"`
 }
 
-func AddJitExpiryHook() {
-	if !logic.GetFeatureFlags().EnableJIT {
-		return
-	}
-	// Register JIT grant expiry hook - runs every 5 minutes
-	logic.HookManagerCh <- models.HookDetails{
-		ID:       "jit-expiry-hook",
-		Hook:     logic.WrapHook(ExpireJITGrants),
-		Interval: 5 * time.Minute,
-	}
-}
-
 // EnableJITOnNetwork - enables JIT on a network and disconnects existing ext clients
 func EnableJITOnNetwork(networkID string) error {
 	// Check if JIT feature is enabled
@@ -545,10 +533,12 @@ func ExpireJITGrants() error {
 	}
 
 	for _, expiredGrant := range expiredGrants {
+		var request *schema.JITRequest
 		// Update associated request status to "expired" before deleting grant
 		if expiredGrant.RequestID != "" {
-			request := schema.JITRequest{ID: expiredGrant.RequestID}
-			if err := request.Get(ctx); err == nil {
+			req := schema.JITRequest{ID: expiredGrant.RequestID}
+			if err := req.Get(ctx); err == nil {
+				request = &req
 				// Only update if request is currently approved
 				if request.Status == "approved" {
 					request.Status = "expired"

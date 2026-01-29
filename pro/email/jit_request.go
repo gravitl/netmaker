@@ -3,7 +3,6 @@ package email
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
@@ -84,11 +83,11 @@ func (mail JITRequestMail) GetBody(info Notification) string {
 		WithHtml("<ul>").
 		WithHtml(fmt.Sprintf("<li><strong>User:</strong> %s</li>", mail.Request.UserName)).
 		WithHtml(fmt.Sprintf("<li><strong>Network:</strong> %s</li>", mail.Network.NetID)).
-		WithHtml(fmt.Sprintf("<li><strong>Requested At:</strong> %s</li>", mail.Request.RequestedAt.Format(time.RFC3339))).
+		WithHtml(fmt.Sprintf("<li><strong>Requested At:</strong> %s</li>", formatUTCTime(mail.Request.RequestedAt))).
 		WithHtml(fmt.Sprintf("<li><strong>Reason:</strong> %s</li>", reasonText)).
 		WithHtml("</ul>").
 		WithParagraph(fmt.Sprintf("<a href=\"%s\" style=\"display: inline-block; padding: 12px 24px; background-color: #007bff; color: #ffffff; text-decoration: none; border-radius: 4px;\">Review Request</a>", dashboardURL)).
-		WithParagraph("You can approve or deny this request from the network settings page.").
+		WithParagraph("You can approve or deny this request from the network JIT page.").
 		WithParagraph("Best Regards,").
 		WithParagraph("The Netmaker Team").
 		Build()
