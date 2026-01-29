@@ -161,6 +161,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 			if e.Range != "" {
 				req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
 					EgressID:       e.ID,
+					EgressName:     e.Name,
 					Network:        e.Range,
 					VirtualNetwork: e.VirtualRange,
 					Nat:            e.Nat,
@@ -173,6 +174,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 				for _, domainAnsI := range e.DomainAns {
 					req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
 						EgressID:       e.ID,
+						EgressName:     e.Name,
 						Network:        domainAnsI,
 						VirtualNetwork: e.VirtualRange,
 						Nat:            e.Nat,
@@ -204,6 +206,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 				if e.Range != "" {
 					req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
 						EgressID:       e.ID,
+						EgressName:     e.Name,
 						Network:        e.Range,
 						VirtualNetwork: e.VirtualRange,
 						Nat:            e.Nat,
@@ -216,6 +219,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 					for _, domainAnsI := range e.DomainAns {
 						req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
 							EgressID:       e.ID,
+							EgressName:     e.Name,
 							Network:        domainAnsI,
 							VirtualNetwork: e.VirtualRange,
 							Nat:            e.Nat,
@@ -338,6 +342,7 @@ func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []mode
 				req.Ranges = append(req.Ranges, egressRange)
 				req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
 					EgressID:       e.ID,
+					EgressName:     e.Name,
 					Network:        e.Range,
 					VirtualNetwork: e.VirtualRange,
 					Nat:            e.Nat,
@@ -350,6 +355,7 @@ func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []mode
 				for _, domainAnsI := range e.DomainAns {
 					req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
 						EgressID:       e.ID,
+						EgressName:     e.Name,
 						Network:        domainAnsI,
 						VirtualNetwork: e.VirtualRange,
 						Nat:            e.Nat,
@@ -382,6 +388,7 @@ func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []mode
 				if e.Range != "" {
 					req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
 						EgressID:       e.ID,
+						EgressName:     e.Name,
 						Network:        e.Range,
 						VirtualNetwork: e.VirtualRange,
 						Nat:            e.Nat,
@@ -394,6 +401,7 @@ func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []mode
 					for _, domainAnsI := range e.DomainAns {
 						req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
 							EgressID:       e.ID,
+							EgressName:     e.Name,
 							Network:        domainAnsI,
 							Nat:            e.Nat,
 							Mode:           e.Mode,

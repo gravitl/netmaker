@@ -1106,6 +1106,9 @@ func migrateSettings() {
 	if settings.CleanUpInterval == 0 {
 		settings.CleanUpInterval = 10
 	}
+	if settings.IPDetectionInterval == 0 {
+		settings.IPDetectionInterval = 15
+	}
 	if settings.AuditLogsRetentionPeriodInDays == 0 {
 		settings.AuditLogsRetentionPeriodInDays = 7
 	}

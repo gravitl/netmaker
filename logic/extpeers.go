@@ -664,6 +664,7 @@ func GetExtPeers(node, peer *models.Node, addressIdentityMap map[string]models.P
 			addressIdentityMap[extPeerAddr4.IP.String()+"/32"] = models.PeerIdentity{
 				ID:   peerID,
 				Type: peerType,
+				Name: peerID,
 			}
 		}
 
@@ -678,6 +679,7 @@ func GetExtPeers(node, peer *models.Node, addressIdentityMap map[string]models.P
 			addressIdentityMap[extPeerAddr6.IP.String()+"/128"] = models.PeerIdentity{
 				ID:   peerID,
 				Type: peerType,
+				Name: peerID,
 			}
 		}
 	}

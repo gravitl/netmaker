@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS flows (
     -- Identity
     flow_id            String,
     host_id            String,
+    host_name          String,
     network_id         String,
 
     -- Flow metadata
@@ -16,10 +17,12 @@ CREATE TABLE IF NOT EXISTS flows (
     src_ip             String,
     src_type           Enum8('node'=1,'user'=2,'extclient'=3,'egress_route'=4,'external'=5),
     src_entity_id      String,
+    src_entity_name    String,
 
     dst_ip             String,
     dst_type           Enum8('node'=1,'user'=2,'extclient'=3,'egress_route'=4,'external'=5),
     dst_entity_id      String,
+    dst_entity_name    String,
 
     -- Timestamps
     start_ts           DateTime64(3),
