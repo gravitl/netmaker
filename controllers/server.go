@@ -99,6 +99,7 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 		IsBrokerConnOpen bool      `json:"is_broker_conn_open"`
 		LicenseError     string    `json:"license_error"`
 		IsPro            bool      `json:"is_pro"`
+		DeploymentMode   string    `json:"deployment_mode"`
 		TrialEndDate     time.Time `json:"trial_end_date"`
 		IsOnTrialLicense bool      `json:"is_on_trial_license"`
 		Version          string    `json:"version"`
@@ -126,6 +127,7 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 		IsBrokerConnOpen: mq.IsConnectionOpen(),
 		LicenseError:     licenseErr,
 		IsPro:            servercfg.IsPro,
+		DeploymentMode:   logic.GetDeploymentMode(),
 		Version:          servercfg.Version,
 		//TrialEndDate:     trialEndDate,
 		//IsOnTrialLicense: isOnTrial,

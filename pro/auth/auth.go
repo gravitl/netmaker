@@ -192,6 +192,9 @@ func HandleAuthLogin(w http.ResponseWriter, r *http.Request) {
 		handleOauthNotConfigured(w)
 		return
 	}
+	if r.Header.Get("X-Application-Name") == "" && r.URL.Query().Has("x-application-name") {
+		r.Header.Set("X-Application-Name", r.URL.Query().Get("x-application-name"))
+	}
 	functions[handle_login].(func(http.ResponseWriter, *http.Request))(w, r)
 }
 
