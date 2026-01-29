@@ -664,6 +664,47 @@ func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) e
 	currentNetwork.AutoRemoveTags = newNetwork.AutoRemoveTags
 	currentNetwork.DefaultACL = newNetwork.DefaultACL
 	currentNetwork.NameServers = newNetwork.NameServers
+
+	// Validate and update Virtual NAT IPv4 settings
+	if newNetwork.VirtualNATPoolIPv4 != "" {
+		_, poolNet, err := net.ParseCIDR(newNetwork.VirtualNATPoolIPv4)
+		if err != nil {
+			return fmt.Errorf("invalid Virtual NAT IPv4 pool CIDR: %w", err)
+		}
+		poolPrefixLen, _ := poolNet.Mask.Size()
+
+		if newNetwork.VirtualNATSitePrefixLenIPv4 <= 0 || newNetwork.VirtualNATSitePrefixLenIPv4 > 32 {
+			return fmt.Errorf("invalid Virtual NAT IPv4 site prefix length: must be between 1 and 32, got %d", newNetwork.VirtualNATSitePrefixLenIPv4)
+		}
+		// Validate that site prefix length is not larger (less specific) than pool prefix length
+		// e.g., pool /24 and site /8 is invalid because /8 is less specific (larger CIDR) than /24
+		// Site prefix must be >= pool prefix (more specific or equal)
+		if newNetwork.VirtualNATSitePrefixLenIPv4 < poolPrefixLen {
+			return fmt.Errorf("invalid Virtual NAT IPv4 site prefix length: site prefix length /%d cannot be larger (less specific) than pool prefix length /%d. Site prefix must be >= pool prefix (more specific or equal)", newNetwork.VirtualNATSitePrefixLenIPv4, poolPrefixLen)
+		}
+		currentNetwork.VirtualNATPoolIPv4 = newNetwork.VirtualNATPoolIPv4
+		currentNetwork.VirtualNATSitePrefixLenIPv4 = newNetwork.VirtualNATSitePrefixLenIPv4
+	} else if newNetwork.VirtualNATSitePrefixLenIPv4 > 0 {
+		// If pool is empty but site prefix is provided, validate against existing pool
+		if currentNetwork.VirtualNATPoolIPv4 != "" {
+			_, poolNet, err := net.ParseCIDR(currentNetwork.VirtualNATPoolIPv4)
+			if err == nil {
+				poolPrefixLen, _ := poolNet.Mask.Size()
+				if newNetwork.VirtualNATSitePrefixLenIPv4 > 32 {
+					return fmt.Errorf("invalid Virtual NAT IPv4 site prefix length: must be between 1 and 32, got %d", newNetwork.VirtualNATSitePrefixLenIPv4)
+				}
+				// Validate that site prefix length is not larger (less specific) than pool prefix length
+				if newNetwork.VirtualNATSitePrefixLenIPv4 < poolPrefixLen {
+					return fmt.Errorf("invalid Virtual NAT IPv4 site prefix length: site prefix length /%d cannot be larger (less specific) than pool prefix length /%d. Site prefix must be >= pool prefix (more specific or equal)", newNetwork.VirtualNATSitePrefixLenIPv4, poolPrefixLen)
+				}
+			}
+		}
+		currentNetwork.VirtualNATSitePrefixLenIPv4 = newNetwork.VirtualNATSitePrefixLenIPv4
+	} else {
+		// If both are empty, clear the settings
+		currentNetwork.VirtualNATPoolIPv4 = newNetwork.VirtualNATPoolIPv4
+		currentNetwork.VirtualNATSitePrefixLenIPv4 = newNetwork.VirtualNATSitePrefixLenIPv4
+	}
 	data, err := json.Marshal(currentNetwork)
 	if err != nil {
 		return err
