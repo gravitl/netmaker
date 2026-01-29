@@ -22,11 +22,11 @@ func FlowHandlers(r *mux.Router) {
 const (
 	querySelect = `
 SELECT
-	flow_id, host_id, network_id,
+	flow_id, host_id, host_name, network_id,
 	protocol, src_port, dst_port,
 	icmp_type, icmp_code, direction,
-	src_ip, src_type, src_entity_id,
-	dst_ip, dst_type, dst_entity_id,
+	src_ip, src_type, src_entity_id, src_entity_name,
+	dst_ip, dst_type, dst_entity_id, dst_entity_name,
 	start_ts, end_ts,
 	bytes_sent, bytes_recv,
 	packets_sent, packets_recv,
@@ -186,29 +186,32 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	type FlowRow struct {
-		FlowID      string    `ch:"flow_id" json:"flow_id"`
-		HostID      string    `ch:"host_id" json:"host_id"`
-		NetworkID   string    `ch:"network_id" json:"network_id"`
-		Protocol    uint16    `ch:"protocol" json:"protocol"`
-		SrcPort     uint16    `ch:"src_port" json:"src_port"`
-		DstPort     uint16    `ch:"dst_port" json:"dst_port"`
-		ICMPType    uint8     `ch:"icmp_type" json:"icmp_type"`
-		ICMPCode    uint8     `ch:"icmp_code" json:"icmp_code"`
-		Direction   string    `ch:"direction" json:"direction"`
-		SrcIP       string    `ch:"src_ip" json:"src_ip"`
-		SrcType     string    `ch:"src_type" json:"src_type"`
-		SrcEntityID string    `ch:"src_entity_id" json:"src_entity_id"`
-		DstIP       string    `ch:"dst_ip" json:"dst_ip"`
-		DstType     string    `ch:"dst_type" json:"dst_type"`
-		DstEntityID string    `ch:"dst_entity_id" json:"dst_entity_id"`
-		StartTs     time.Time `ch:"start_ts" json:"start_ts"`
-		EndTs       time.Time `ch:"end_ts" json:"end_ts"`
-		BytesSent   uint64    `ch:"bytes_sent" json:"bytes_sent"`
-		BytesRecv   uint64    `ch:"bytes_recv" json:"bytes_recv"`
-		PacketsSent uint64    `ch:"packets_sent" json:"packets_sent"`
-		PacketsRecv uint64    `ch:"packets_recv" json:"packets_recv"`
-		Status      uint32    `ch:"status" json:"status"`
-		Version     time.Time `ch:"version" json:"version"`
+		FlowID        string    `ch:"flow_id" json:"flow_id"`
+		HostID        string    `ch:"host_id" json:"host_id"`
+		HostName      string    `ch:"host_name" json:"host_name"`
+		NetworkID     string    `ch:"network_id" json:"network_id"`
+		Protocol      uint16    `ch:"protocol" json:"protocol"`
+		SrcPort       uint16    `ch:"src_port" json:"src_port"`
+		DstPort       uint16    `ch:"dst_port" json:"dst_port"`
+		ICMPType      uint8     `ch:"icmp_type" json:"icmp_type"`
+		ICMPCode      uint8     `ch:"icmp_code" json:"icmp_code"`
+		Direction     string    `ch:"direction" json:"direction"`
+		SrcIP         string    `ch:"src_ip" json:"src_ip"`
+		SrcType       string    `ch:"src_type" json:"src_type"`
+		SrcEntityID   string    `ch:"src_entity_id" json:"src_entity_id"`
+		SrcEntityName string    `ch:"src_entity_name" json:"src_entity_name"`
+		DstIP         string    `ch:"dst_ip" json:"dst_ip"`
+		DstType       string    `ch:"dst_type" json:"dst_type"`
+		DstEntityID   string    `ch:"dst_entity_id" json:"dst_entity_id"`
+		DstEntityName string    `ch:"dst_entity_name" json:"dst_entity_name"`
+		StartTs       time.Time `ch:"start_ts" json:"start_ts"`
+		EndTs         time.Time `ch:"end_ts" json:"end_ts"`
+		BytesSent     uint64    `ch:"bytes_sent" json:"bytes_sent"`
+		BytesRecv     uint64    `ch:"bytes_recv" json:"bytes_recv"`
+		PacketsSent   uint64    `ch:"packets_sent" json:"packets_sent"`
+		PacketsRecv   uint64    `ch:"packets_recv" json:"packets_recv"`
+		Status        uint32    `ch:"status" json:"status"`
+		Version       time.Time `ch:"version" json:"version"`
 	}
 
 	result := make([]FlowRow, 0, 1000)

@@ -19,8 +19,13 @@ import (
 	"github.com/gravitl/netmaker/logic"
 )
 
-// Use JITStatusResponse from logic package to avoid type mismatch
-type JITStatusResponse = logic.JITStatusResponse
+// JITStatusResponse - response for JIT status check
+type JITStatusResponse struct {
+	HasAccess      bool               `json:"has_access"`
+	Grant          *schema.JITGrant   `json:"grant,omitempty"`
+	Request        *schema.JITRequest `json:"request,omitempty"`
+	PendingRequest bool               `json:"pending_request"`
+}
 
 // Email notification functions (set by pro/controllers to avoid import cycles)
 var NotifyNetworkAdminsOfJITRequestFunc func(*schema.JITRequest, models.Network) error
