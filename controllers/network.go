@@ -581,7 +581,7 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	})
 	logger.Log(1, r.Header.Get("user"), "deleted network", network)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode("success")
+	logic.ReturnSuccessResponse(w, r, "success")
 }
 
 // @Summary     Create a network
