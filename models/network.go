@@ -29,6 +29,7 @@ type Network struct {
 	AutoRemove          string   `json:"auto_remove"`
 	AutoRemoveTags      []string `json:"auto_remove_tags"`
 	AutoRemoveThreshold int      `json:"auto_remove_threshold_mins"`
+	JITEnabled          string   `json:"jit_enabled" bson:"jit_enabled" validate:"checkyesorno"`
 	// VirtualNATPoolIPv4 is the IPv4 CIDR pool from which virtual NAT ranges are allocated for egress gateways
 	VirtualNATPoolIPv4 string `json:"virtual_nat_pool_ipv4"`
 	// VirtualNATSitePrefixLenIPv4 is the prefix length (e.g., 24) for individual site allocations from the IPv4 virtual NAT pool
@@ -98,6 +99,11 @@ func (network *Network) SetDefaults() (upsert bool) {
 
 	if network.DefaultACL == "" {
 		network.DefaultACL = "yes"
+		upsert = true
+	}
+
+	if network.JITEnabled == "" {
+		network.JITEnabled = "no"
 		upsert = true
 	}
 	return

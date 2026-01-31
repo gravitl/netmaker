@@ -201,6 +201,10 @@ func GlobalPermissionsCheck(username string, r *http.Request) error {
 		strings.Contains(r.URL.Path, "/api/v1/users/add_network_user") || strings.Contains(r.URL.Path, "/api/v1/users/remove_network_user") {
 		return nil
 	}
+	if targetRsrc == models.JitUserRsrc.String() && r.Method == http.MethodGet &&
+		strings.Contains(r.URL.Path, "/api/v1/jit_user/networks") {
+		return nil
+	}
 	if targetRsrc == models.UserRsrc.String() && username == targetRsrcID && (r.Method != http.MethodDelete) {
 		return nil
 	}

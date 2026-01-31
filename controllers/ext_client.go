@@ -685,7 +685,18 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-
+		// JIT enforcement: Check if user has access (only for desktop app users)
+		hasAccess, jitGrant, err := logic.CheckJITAccess(gateway.NetID, userName)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+		if !hasAccess {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(
+				errors.New("JIT access required: please request access from network admin"),
+				"forbidden"))
+			return
+		}
 		// if device id is sent, we don't want to create another extclient for the same user
 		// and gw, with the same device id.
 		if customExtClient.DeviceID != "" {
@@ -693,6 +704,10 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			for _, extclient := range extclients {
 				if extclient.DeviceID == customExtClient.DeviceID &&
 					extclient.OwnerID == caller.UserName && nodeid == extclient.IngressGatewayID {
+					if jitGrant != nil {
+						extclient.JITExpiresAt = &jitGrant.ExpiresAt
+						_ = logic.SaveExtClient(&extclient)
+					}
 					err = errors.New("remote client config already exists on the gateway")
 					slog.Error("failed to create extclient", "user", userName, "error", err)
 					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -710,6 +725,9 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 					// We patch it by assigning the device ID from the incoming request.
 					// When clients see that the config already exists, they will fetch
 					// the one with their device ID. And we will return this one.
+					if jitGrant != nil {
+						extclient.JITExpiresAt = &jitGrant.ExpiresAt
+					}
 					extclient.DeviceID = customExtClient.DeviceID
 					_ = logic.SaveExtClient(&extclient)
 				}
@@ -761,6 +779,23 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		extclient.Location, extclient.Country = logic.GetHostLocInfo(logic.GetClientIP(r), os.Getenv("IP_INFO_TOKEN"))
 	}
 	extclient.Location = customExtClient.Location
+	// JIT enforcement: Check if user has access (only for desktop app users)
+	hasAccess, grant, err := logic.CheckJITAccess(extclient.Network, userName)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+	if !hasAccess {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(
+			errors.New("JIT access required: please request access from network admin"),
+			"forbidden"))
+		return
+	}
+	// Set JIT expiry time if grant exists (nil for admin users or when JIT not enabled)
+	if grant != nil {
+		extclient.JITExpiresAt = &grant.ExpiresAt
+	}
+
 	if extclient.DeviceID != "" {
 		// check for violations connecting from desktop app
 		staticNode := extclient.ConvertToStaticNode()
@@ -922,6 +957,22 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("posture check violations"), logic.Forbidden))
 			return
 		}
+		// JIT enforcement: Check if user has access (only for desktop app users)
+		hasAccess, jitGrant, err := logic.CheckJITAccess(newclient.Network, newclient.OwnerID)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+		if !hasAccess {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(
+				errors.New("JIT access required: please request access from network admin"),
+				"forbidden"))
+			return
+		}
+		if jitGrant != nil {
+			newclient.JITExpiresAt = &jitGrant.ExpiresAt
+		}
+
 	}
 	if err := logic.DeleteExtClient(oldExtClient.Network, oldExtClient.ClientID, true); err != nil {
 		slog.Error(

@@ -48,6 +48,17 @@ func Run() {
 	resync()
 	deleteOldExtclients()
 	checkAndDeprecateOldAcls()
+	migrateJITEnabled()
+}
+
+func migrateJITEnabled() {
+	nets, _ := logic.GetNetworks()
+	for _, netI := range nets {
+		if netI.JITEnabled == "" {
+			netI.JITEnabled = "no"
+			logic.UpsertNetwork(netI)
+		}
+	}
 }
 
 func checkAndDeprecateOldAcls() {

@@ -26,6 +26,7 @@ type FeatureFlags struct {
 	EnableDeviceApproval          bool `json:"enable_device_approval"`
 	EnableFlowLogs                bool `json:"enable_flow_logs"`
 	EnablePostureChecks           bool `json:"enable_posture_checks"`
+	EnableJIT                     bool `json:"enable_jit"`
 	EnableOverlappingEgressRanges bool `json:"enable_overlapping_egress_ranges"`
 }
 
