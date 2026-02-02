@@ -195,7 +195,6 @@ func InitPro() {
 	logic.MigrateToGws = proLogic.MigrateToGws
 	logic.GetFwRulesForNodeAndPeerOnGw = proLogic.GetFwRulesForNodeAndPeerOnGw
 	logic.GetFwRulesForUserNodesOnGw = proLogic.GetFwRulesForUserNodesOnGw
-	logic.GetHostLocInfo = proLogic.GetHostLocInfo
 	logic.GetFeatureFlags = proLogic.GetFeatureFlags
 	logic.GetDeploymentMode = proLogic.GetDeploymentMode
 	logic.GetNameserversForHost = proLogic.GetNameserversForHost
