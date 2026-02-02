@@ -224,7 +224,7 @@ func getAcls(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     List Egress Acls in a network
-// @Router      /api/v1/acls [get]
+// @Router      /api/v1/acls/egress [get]
 // @Tags        ACL
 // @Accept      json
 // @Success     200 {array} models.SuccessResponse

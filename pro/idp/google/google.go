@@ -37,9 +37,9 @@ func NewGoogleWorkspaceClient(adminEmail, creds string) (*Client, error) {
 	_, ok := credsJsonMap["client_email"]
 	if !ok {
 		return nil, errors.New("invalid service account credentials: missing client_email field")
-	} else {
-		targetPrincipal = credsJsonMap["client_email"].(string)
 	}
+
+	targetPrincipal = credsJsonMap["client_email"].(string)
 
 	source, err := impersonate.CredentialsTokenSource(
 		context.TODO(),
@@ -52,7 +52,7 @@ func NewGoogleWorkspaceClient(adminEmail, creds string) (*Client, error) {
 			},
 			Subject: adminEmail,
 		},
-		option.WithCredentialsJSON(credsJson),
+		option.WithAuthCredentialsJSON(option.ServiceAccount, credsJson),
 	)
 	if err != nil {
 		return nil, err

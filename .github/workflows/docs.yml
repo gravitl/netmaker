@@ -26,17 +26,23 @@ jobs:
       - name: Install Swag
         run: go install github.com/swaggo/swag/cmd/swag@latest
 
+      - name: Install swagger
+        run: go install github.com/go-swagger/go-swagger/cmd/swagger@latest
+
       - name: Generating Docs
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
           swag i --md docs/ --parseDependency  --parseInternal --outputTypes yaml  --parseDepth 1 --output .
+
+      - name: Validate Swagger File
+        run: swagger validate ./swagger.yaml
 
       - name: Get current timestamp
         id: timestamp
         run: echo "timestamp=$(date +'%Y-%m-%d %H:%M:%S')" >> $GITHUB_OUTPUT
 
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "Update documentation ${{ steps.timestamp.outputs.timestamp }}"

@@ -39,6 +39,7 @@ type ExtClient struct {
 	PostureChecksViolations           []Violation         `json:"posture_check_violations"`
 	PostureCheckVolationSeverityLevel Severity            `json:"posture_check_violation_severity_level"`
 	LastEvaluatedAt                   time.Time           `json:"last_evaluated_at"`
+	JITExpiresAt                      *time.Time          `json:"jit_expires_at,omitempty" bson:"jit_expires_at,omitempty"` // JIT grant expiry time (nil if JIT not enabled or user is admin)
 	Mutex                             *sync.Mutex         `json:"-"`
 }
 

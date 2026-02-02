@@ -17,15 +17,17 @@ const (
 )
 
 type FeatureFlags struct {
-	EnableEgressHA          bool `json:"enable_egress_ha"`
-	EnableNetworkActivity   bool `json:"enable_network_activity"`
-	EnableOAuth             bool `json:"enable_oauth"`
-	EnableIDPIntegration    bool `json:"enable_idp_integration"`
-	AllowMultiServerLicense bool `json:"allow_multi_server_license"`
-	EnableGwsHA             bool `json:"enable_gws_ha"`
-	EnableDeviceApproval    bool `json:"enable_device_approval"`
-	EnableFlowLogs          bool `json:"enable_flow_logs"`
-	EnablePostureChecks     bool `json:"enable_posture_checks"`
+	EnableEgressHA                bool `json:"enable_egress_ha"`
+	EnableNetworkActivity         bool `json:"enable_network_activity"`
+	EnableOAuth                   bool `json:"enable_oauth"`
+	EnableIDPIntegration          bool `json:"enable_idp_integration"`
+	AllowMultiServerLicense       bool `json:"allow_multi_server_license"`
+	EnableGwsHA                   bool `json:"enable_gws_ha"`
+	EnableDeviceApproval          bool `json:"enable_device_approval"`
+	EnableFlowLogs                bool `json:"enable_flow_logs"`
+	EnablePostureChecks           bool `json:"enable_posture_checks"`
+	EnableJIT                     bool `json:"enable_jit"`
+	EnableOverlappingEgressRanges bool `json:"enable_overlapping_egress_ranges"`
 }
 
 // AuthParams - struct for auth params
@@ -189,10 +191,14 @@ type ExtPeersResponse struct {
 type EgressRangeMetric struct {
 	// EgressID is the ID of the egress gateway that this EgressRangeMetric originated
 	// from. Might not be always set.
-	EgressID    string `json:"-"`
-	Network     string `json:"network"`
-	RouteMetric uint32 `json:"route_metric"` // preffered range 1-999
-	Nat         bool   `json:"nat"`
+	EgressID string `json:"-"`
+	// EgressName is the name of the egress gateway identified by EgressID. Might not be always set.
+	EgressName     string        `json:"-"`
+	Network        string        `json:"network"`
+	VirtualNetwork string        `json:"virtual_network"`
+	RouteMetric    uint32        `json:"route_metric"` // preffered range 1-999
+	Nat            bool          `json:"nat"`
+	Mode           EgressNATMode `json:"nat_mode"`
 }
 
 // EgressGatewayRequest - egress gateway request
@@ -319,6 +325,7 @@ type ServerConfig struct {
 	TrafficKey                  []byte `yaml:"traffickey"`
 	MetricInterval              string `yaml:"metric_interval"`
 	MetricsPort                 int    `yaml:"metrics_port"`
+	IPDetectionInterval         int    `yaml:"ip_detection_interval"`
 	ManageDNS                   bool   `yaml:"manage_dns"`
 	Stun                        bool   `yaml:"stun"`
 	StunServers                 string `yaml:"stun_servers"`

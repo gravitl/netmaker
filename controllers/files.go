@@ -9,7 +9,8 @@ import (
 // @Summary     Retrieve a file from the file server
 // @Router      /meshclient/files/{filename}  [get]
 // @Tags        Meshclient
-// @Success     200 {body} file "file"
+// @Param       filename path string true "Filename"
+// @Success     200 {file} file "file"
 // @Failure     404 {string} string "404 not found"
 func fileHandlers(r *mux.Router) {
 	r.PathPrefix("/meshclient/files").

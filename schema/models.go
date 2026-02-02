@@ -13,5 +13,7 @@ func ListModels() []interface{} {
 		&User{},
 		&AccessGrant{},
 		&Network{},
+		&JITRequest{},
+		&JITGrant{},
 	}
 }

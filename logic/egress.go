@@ -10,21 +10,30 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
-	"github.com/gravitl/netmaker/servercfg"
 )
 
 var ValidateEgressReq = validateEgressReq
 
+var AssignVirtualRangeToEgress = func(nw *models.Network, eg *schema.Egress) error {
+	return nil
+}
+
 func validateEgressReq(e *schema.Egress) error {
 	if e.Network == "" {
 		return errors.New("network id is empty")
+	}
+	if e.Nat {
+		e.Mode = models.DirectNAT
+	} else {
+		e.Mode = ""
+		e.VirtualRange = ""
 	}
 	_, err := GetNetwork(e.Network)
 	if err != nil {
 		return errors.New("failed to get network " + err.Error())
 	}
 
-	if !servercfg.IsPro && len(e.Nodes) > 1 {
+	if !GetFeatureFlags().EnableEgressHA && len(e.Nodes) > 1 {
 		return errors.New("can only set one routing node on CE")
 	}
 
@@ -139,28 +148,38 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 			}
 			m := uint32(m64)
 			if e.Range != "" {
-				req.Ranges = append(req.Ranges, e.Range)
+				// Use virtual NAT range if enabled, otherwise use original range
+				egressRange := e.Range
+				if e.Nat && e.VirtualRange != "" {
+					egressRange = e.VirtualRange
+				}
+				req.Ranges = append(req.Ranges, egressRange)
 			} else {
 				req.Ranges = append(req.Ranges, e.DomainAns...)
 			}
 
 			if e.Range != "" {
-				req.Ranges = append(req.Ranges, e.Range)
 				req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
-					EgressID:    e.ID,
-					Network:     e.Range,
-					Nat:         e.Nat,
-					RouteMetric: m,
+					EgressID:       e.ID,
+					EgressName:     e.Name,
+					Network:        e.Range,
+					VirtualNetwork: e.VirtualRange,
+					Nat:            e.Nat,
+					Mode:           e.Mode,
+					RouteMetric:    m,
 				})
 			}
 			if e.Domain != "" && len(e.DomainAns) > 0 {
 				req.Ranges = append(req.Ranges, e.DomainAns...)
 				for _, domainAnsI := range e.DomainAns {
 					req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
-						EgressID:    e.ID,
-						Network:     domainAnsI,
-						Nat:         e.Nat,
-						RouteMetric: m,
+						EgressID:       e.ID,
+						EgressName:     e.Name,
+						Network:        domainAnsI,
+						VirtualNetwork: e.VirtualRange,
+						Nat:            e.Nat,
+						Mode:           e.Mode,
+						RouteMetric:    m,
 					})
 				}
 
@@ -174,28 +193,38 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 				}
 				m := uint32(m64)
 				if e.Range != "" {
-					req.Ranges = append(req.Ranges, e.Range)
+					// Use virtual NAT range if enabled, otherwise use original range
+					egressRange := e.Range
+					if e.Nat && e.VirtualRange != "" {
+						egressRange = e.VirtualRange
+					}
+					req.Ranges = append(req.Ranges, egressRange)
 				} else {
 					req.Ranges = append(req.Ranges, e.DomainAns...)
 				}
 
 				if e.Range != "" {
-					req.Ranges = append(req.Ranges, e.Range)
 					req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
-						EgressID:    e.ID,
-						Network:     e.Range,
-						Nat:         e.Nat,
-						RouteMetric: m,
+						EgressID:       e.ID,
+						EgressName:     e.Name,
+						Network:        e.Range,
+						VirtualNetwork: e.VirtualRange,
+						Nat:            e.Nat,
+						Mode:           e.Mode,
+						RouteMetric:    m,
 					})
 				}
 				if e.Domain != "" && len(e.DomainAns) > 0 {
 					req.Ranges = append(req.Ranges, e.DomainAns...)
 					for _, domainAnsI := range e.DomainAns {
 						req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
-							EgressID:    e.ID,
-							Network:     domainAnsI,
-							Nat:         e.Nat,
-							RouteMetric: m,
+							EgressID:       e.ID,
+							EgressName:     e.Name,
+							Network:        domainAnsI,
+							VirtualNetwork: e.VirtualRange,
+							Nat:            e.Nat,
+							Mode:           e.Mode,
+							RouteMetric:    m,
 						})
 					}
 
@@ -305,22 +334,33 @@ func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []mode
 			}
 			m := uint32(m64)
 			if e.Range != "" {
-				req.Ranges = append(req.Ranges, e.Range)
+				// Use virtual NAT range if enabled, otherwise use original range
+				egressRange := e.Range
+				if e.Nat && e.VirtualRange != "" {
+					egressRange = e.VirtualRange
+				}
+				req.Ranges = append(req.Ranges, egressRange)
 				req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
-					EgressID:    e.ID,
-					Network:     e.Range,
-					Nat:         e.Nat,
-					RouteMetric: m,
+					EgressID:       e.ID,
+					EgressName:     e.Name,
+					Network:        e.Range,
+					VirtualNetwork: e.VirtualRange,
+					Nat:            e.Nat,
+					Mode:           e.Mode,
+					RouteMetric:    m,
 				})
 			}
 			if e.Domain != "" && len(e.DomainAns) > 0 {
 				req.Ranges = append(req.Ranges, e.DomainAns...)
 				for _, domainAnsI := range e.DomainAns {
 					req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
-						EgressID:    e.ID,
-						Network:     domainAnsI,
-						Nat:         e.Nat,
-						RouteMetric: m,
+						EgressID:       e.ID,
+						EgressName:     e.Name,
+						Network:        domainAnsI,
+						VirtualNetwork: e.VirtualRange,
+						Nat:            e.Nat,
+						Mode:           e.Mode,
+						RouteMetric:    m,
 					})
 				}
 
@@ -335,28 +375,38 @@ func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []mode
 				}
 				m := uint32(m64)
 				if e.Range != "" {
-					req.Ranges = append(req.Ranges, e.Range)
+					// Use virtual NAT range if enabled, otherwise use original range
+					egressRange := e.Range
+					if e.Nat && e.VirtualRange != "" {
+						egressRange = e.VirtualRange
+					}
+					req.Ranges = append(req.Ranges, egressRange)
 				} else {
 					req.Ranges = append(req.Ranges, e.DomainAns...)
 				}
 
 				if e.Range != "" {
-					req.Ranges = append(req.Ranges, e.Range)
 					req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
-						EgressID:    e.ID,
-						Network:     e.Range,
-						Nat:         e.Nat,
-						RouteMetric: m,
+						EgressID:       e.ID,
+						EgressName:     e.Name,
+						Network:        e.Range,
+						VirtualNetwork: e.VirtualRange,
+						Nat:            e.Nat,
+						Mode:           e.Mode,
+						RouteMetric:    m,
 					})
 				}
 				if e.Domain != "" && len(e.DomainAns) > 0 {
 					req.Ranges = append(req.Ranges, e.DomainAns...)
 					for _, domainAnsI := range e.DomainAns {
 						req.RangesWithMetric = append(req.RangesWithMetric, models.EgressRangeMetric{
-							EgressID:    e.ID,
-							Network:     domainAnsI,
-							Nat:         e.Nat,
-							RouteMetric: m,
+							EgressID:       e.ID,
+							EgressName:     e.Name,
+							Network:        domainAnsI,
+							Nat:            e.Nat,
+							Mode:           e.Mode,
+							VirtualNetwork: e.VirtualRange,
+							RouteMetric:    m,
 						})
 					}
 
