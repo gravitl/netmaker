@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"slices"
 	"time"
 
@@ -359,11 +358,6 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			logic.FormatError(fmt.Errorf("invalid enrollment key"), "badrequest"),
 		)
 		return
-	}
-	if newHost.EndpointIP != nil {
-		newHost.Location, newHost.CountryCode = logic.GetHostLocInfo(newHost.EndpointIP.String(), os.Getenv("IP_INFO_TOKEN"))
-	} else if newHost.EndpointIPv6 != nil {
-		newHost.Location, newHost.CountryCode = logic.GetHostLocInfo(newHost.EndpointIPv6.String(), os.Getenv("IP_INFO_TOKEN"))
 	}
 	pcviolations := []models.Violation{}
 	skipViolatedNetworks := []string{}
