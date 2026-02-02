@@ -101,6 +101,8 @@ func GetUsers() ([]models.ReturnUser, error) {
 			continue // get users
 		}
 
+		user.IsSuperAdmin = user.PlatformRoleID == models.SuperAdminRole
+		user.IsAdmin = user.PlatformRoleID == models.AdminRole
 		users = append(users, user)
 	}
 
