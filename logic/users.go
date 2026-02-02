@@ -22,7 +22,7 @@ func GetUser(username string) (*models.User, error) {
 	}
 
 	user.IsSuperAdmin = user.PlatformRoleID == models.SuperAdminRole
-	user.IsAdmin = user.PlatformRoleID == models.AdminRole
+	user.IsAdmin = user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole
 	return &user, err
 }
 
@@ -38,7 +38,7 @@ func GetReturnUser(username string) (models.ReturnUser, error) {
 	}
 
 	user.IsSuperAdmin = user.PlatformRoleID == models.SuperAdminRole
-	user.IsAdmin = user.PlatformRoleID == models.AdminRole
+	user.IsAdmin = user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole
 	return user, err
 }
 
@@ -55,7 +55,7 @@ func ToReturnUser(user models.User) models.ReturnUser {
 		UserGroups:                 user.UserGroups,
 		PlatformRoleID:             user.PlatformRoleID,
 		IsSuperAdmin:               user.PlatformRoleID == models.SuperAdminRole,
-		IsAdmin:                    user.PlatformRoleID == models.AdminRole,
+		IsAdmin:                    user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole,
 		NetworkRoles:               user.NetworkRoles,
 		LastLoginTime:              user.LastLoginTime,
 	}
@@ -134,7 +134,7 @@ func ListPendingReturnUsers() ([]models.ReturnUser, error) {
 		err = json.Unmarshal([]byte(record), &user)
 		if err == nil {
 			user.IsSuperAdmin = user.PlatformRoleID == models.SuperAdminRole
-			user.IsAdmin = user.PlatformRoleID == models.AdminRole
+			user.IsAdmin = user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole
 			pendingUsers = append(pendingUsers, user)
 		}
 	}
@@ -152,7 +152,7 @@ func ListPendingUsers() ([]models.User, error) {
 		err = json.Unmarshal([]byte(record), &user)
 		if err == nil {
 			user.IsSuperAdmin = user.PlatformRoleID == models.SuperAdminRole
-			user.IsAdmin = user.PlatformRoleID == models.AdminRole
+			user.IsAdmin = user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole
 			pendingUsers = append(pendingUsers, user)
 		}
 	}
@@ -170,7 +170,7 @@ func GetUserMap() (map[string]models.User, error) {
 		err = json.Unmarshal([]byte(record), &user)
 		if err == nil {
 			user.IsSuperAdmin = user.PlatformRoleID == models.SuperAdminRole
-			user.IsAdmin = user.PlatformRoleID == models.AdminRole
+			user.IsAdmin = user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole
 			userMap[user.UserName] = user
 		}
 	}
