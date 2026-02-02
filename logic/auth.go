@@ -101,6 +101,8 @@ func GetUsers() ([]models.ReturnUser, error) {
 			continue // get users
 		}
 
+		user.IsSuperAdmin = user.PlatformRoleID == models.SuperAdminRole
+		user.IsAdmin = user.PlatformRoleID == models.AdminRole
 		users = append(users, user)
 	}
 
@@ -342,6 +344,17 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 	go UpdateUserGwAccess(*user, *userchange)
 	if userchange.PlatformRoleID != "" {
 		user.PlatformRoleID = userchange.PlatformRoleID
+		// TODO: remove once NMUI stops using these fields.
+		if user.PlatformRoleID == models.SuperAdminRole {
+			user.IsSuperAdmin = true
+			user.IsAdmin = true
+		} else if user.PlatformRoleID == models.AdminRole {
+			user.IsSuperAdmin = false
+			user.IsAdmin = true
+		} else {
+			user.IsSuperAdmin = false
+			user.IsAdmin = false
+		}
 	}
 
 	for groupID := range userchange.UserGroups {
