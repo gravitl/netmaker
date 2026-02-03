@@ -1,7 +1,7 @@
 package logic
 
 import (
-	"encoding/json"
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -13,18 +13,21 @@ import (
 	"github.com/c-robinson/iplib"
 	validator "github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/converters"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/validation"
 	"golang.org/x/exp/slog"
+	"gorm.io/gorm"
 )
 
 var (
 	networkCacheMutex = &sync.RWMutex{}
-	networkCacheMap   = make(map[string]models.Network)
 	allocatedIpMap    = make(map[string]map[string]net.IP)
 )
 
@@ -132,61 +135,14 @@ func RemoveNetworkFromAllocatedIpMap(networkName string) {
 	networkCacheMutex.Unlock()
 }
 
-func getNetworksFromCache() (networks []models.Network) {
-	networkCacheMutex.RLock()
-	for _, network := range networkCacheMap {
-		networks = append(networks, network)
-	}
-	networkCacheMutex.RUnlock()
-	return
-}
-
-func deleteNetworkFromCache(key string) {
-	networkCacheMutex.Lock()
-	delete(networkCacheMap, key)
-	networkCacheMutex.Unlock()
-}
-
-func getNetworkFromCache(key string) (network models.Network, ok bool) {
-	networkCacheMutex.RLock()
-	network, ok = networkCacheMap[key]
-	networkCacheMutex.RUnlock()
-	return
-}
-
-func storeNetworkInCache(key string, network models.Network) {
-	networkCacheMutex.Lock()
-	networkCacheMap[key] = network
-	networkCacheMutex.Unlock()
-}
-
 // GetNetworks - returns all networks from database
 func GetNetworks() ([]models.Network, error) {
-	var networks []models.Network
-	if servercfg.CacheEnabled() {
-		networks := getNetworksFromCache()
-		if len(networks) != 0 {
-			return networks, nil
-		}
-	}
-	collection, err := database.FetchRecords(database.NETWORKS_TABLE_NAME)
+	_networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
-		return networks, err
+		return nil, err
 	}
 
-	for _, value := range collection {
-		var network models.Network
-		if err := json.Unmarshal([]byte(value), &network); err != nil {
-			return networks, err
-		}
-		// add network our array
-		networks = append(networks, network)
-		if servercfg.CacheEnabled() {
-			storeNetworkInCache(network.NetID, network)
-		}
-	}
-
-	return networks, err
+	return converters.ToModelNetworks(_networks), nil
 }
 
 // DeleteNetwork - deletes a network
@@ -194,15 +150,11 @@ func DeleteNetwork(network string, force bool, done chan struct{}) error {
 
 	nodeCount, err := GetNetworkNonServerNodeCount(network)
 	if nodeCount == 0 || database.IsEmptyRecord(err) {
+		_network := &schema.Network{
+			Name: network,
+		}
 		// delete server nodes first then db records
-		err = database.DeleteRecord(database.NETWORKS_TABLE_NAME, network)
-		if err != nil {
-			return err
-		}
-		if servercfg.CacheEnabled() {
-			deleteNetworkFromCache(network)
-		}
-		return nil
+		return _network.Delete(db.WithContext(context.TODO()))
 	}
 
 	// Remove All Nodes
@@ -228,12 +180,12 @@ func DeleteNetwork(network string, force bool, done chan struct{}) error {
 			logger.Log(1, "failed to remove the node acls during network delete for network,", network)
 		}
 		// delete server nodes first then db records
-		err = database.DeleteRecord(database.NETWORKS_TABLE_NAME, network)
+		_network := &schema.Network{
+			Name: network,
+		}
+		err = _network.Delete(db.WithContext(context.TODO()))
 		if err != nil {
 			return
-		}
-		if servercfg.CacheEnabled() {
-			deleteNetworkFromCache(network)
 		}
 		done <- struct{}{}
 		close(done)
@@ -285,16 +237,10 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 		return models.Network{}, err
 	}
 
-	data, err := json.Marshal(&network)
+	_network := converters.ToSchemaNetwork(network)
+	err = _network.Create(db.WithContext(context.TODO()))
 	if err != nil {
 		return models.Network{}, err
-	}
-
-	if err = database.Insert(network.NetID, string(data), database.NETWORKS_TABLE_NAME); err != nil {
-		return models.Network{}, err
-	}
-	if servercfg.CacheEnabled() {
-		storeNetworkInCache(network.NetID, network)
 	}
 
 	_, _ = CreateEnrollmentKey(
@@ -340,49 +286,11 @@ func intersect(n1, n2 *net.IPNet) bool {
 	return n2.Contains(n1.IP) || n1.Contains(n2.IP)
 }
 
-// GetParentNetwork - get parent network
-func GetParentNetwork(networkname string) (models.Network, error) {
-
-	var network models.Network
-	if servercfg.CacheEnabled() {
-		if network, ok := getNetworkFromCache(networkname); ok {
-			return network, nil
-		}
-	}
-	networkData, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, networkname)
-	if err != nil {
-		return network, err
-	}
-	if err = json.Unmarshal([]byte(networkData), &network); err != nil {
-		return models.Network{}, err
-	}
-	return network, nil
-}
-
-// GetNetworkSettings - get parent network
-func GetNetworkSettings(networkname string) (models.Network, error) {
-
-	var network models.Network
-	if servercfg.CacheEnabled() {
-		if network, ok := getNetworkFromCache(networkname); ok {
-			return network, nil
-		}
-	}
-	networkData, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, networkname)
-	if err != nil {
-		return network, err
-	}
-	if err = json.Unmarshal([]byte(networkData), &network); err != nil {
-		return models.Network{}, err
-	}
-	return network, nil
-}
-
 // UniqueAddress - get a unique ipv4 address
 func UniqueAddressCache(networkName string, reverse bool) (net.IP, error) {
 	add := net.IP{}
 	var network models.Network
-	network, err := GetParentNetwork(networkName)
+	network, err := GetNetwork(networkName)
 	if err != nil {
 		logger.Log(0, "UniqueAddressServer encountered  an error")
 		return add, err
@@ -425,7 +333,7 @@ func UniqueAddressCache(networkName string, reverse bool) (net.IP, error) {
 func UniqueAddressDB(networkName string, reverse bool) (net.IP, error) {
 	add := net.IP{}
 	var network models.Network
-	network, err := GetParentNetwork(networkName)
+	network, err := GetNetwork(networkName)
 	if err != nil {
 		logger.Log(0, "UniqueAddressServer encountered  an error")
 		return add, err
@@ -525,7 +433,7 @@ func UniqueAddress6(networkName string, reverse bool) (net.IP, error) {
 func UniqueAddress6DB(networkName string, reverse bool) (net.IP, error) {
 	add := net.IP{}
 	var network models.Network
-	network, err := GetParentNetwork(networkName)
+	network, err := GetNetwork(networkName)
 	if err != nil {
 		return add, err
 	}
@@ -569,7 +477,7 @@ func UniqueAddress6DB(networkName string, reverse bool) (net.IP, error) {
 func UniqueAddress6Cache(networkName string, reverse bool) (net.IP, error) {
 	add := net.IP{}
 	var network models.Network
-	network, err := GetParentNetwork(networkName)
+	network, err := GetNetwork(networkName)
 	if err != nil {
 		return add, err
 	}
@@ -631,18 +539,8 @@ func IsNetworkNameUnique(network *models.Network) (bool, error) {
 }
 
 func UpsertNetwork(network models.Network) error {
-	netData, err := json.Marshal(network)
-	if err != nil {
-		return err
-	}
-	err = database.Insert(network.NetID, string(netData), database.NETWORKS_TABLE_NAME)
-	if err != nil {
-		return err
-	}
-	if servercfg.CacheEnabled() {
-		storeNetworkInCache(network.NetID, network)
-	}
-	return nil
+	_network := converters.ToSchemaNetwork(network)
+	return _network.Update(db.WithContext(context.TODO()))
 }
 
 // UpdateNetwork - updates a network with another network's fields
@@ -705,37 +603,21 @@ func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) e
 		currentNetwork.VirtualNATPoolIPv4 = newNetwork.VirtualNATPoolIPv4
 		currentNetwork.VirtualNATSitePrefixLenIPv4 = newNetwork.VirtualNATSitePrefixLenIPv4
 	}
-	data, err := json.Marshal(currentNetwork)
-	if err != nil {
-		return err
-	}
-	newNetwork.SetNetworkLastModified()
-	err = database.Insert(currentNetwork.NetID, string(data), database.NETWORKS_TABLE_NAME)
-	if err == nil {
-		if servercfg.CacheEnabled() {
-			storeNetworkInCache(newNetwork.NetID, *currentNetwork)
-		}
-	}
-	return err
+	_network := converters.ToSchemaNetwork(*newNetwork)
+	return _network.Update(db.WithContext(context.TODO()))
 }
 
 // GetNetwork - gets a network from database
-func GetNetwork(networkname string) (models.Network, error) {
-
-	var network models.Network
-	if servercfg.CacheEnabled() {
-		if network, ok := getNetworkFromCache(networkname); ok {
-			return network, nil
-		}
+func GetNetwork(networkName string) (models.Network, error) {
+	_network := &schema.Network{
+		Name: networkName,
 	}
-	networkData, err := database.FetchRecord(database.NETWORKS_TABLE_NAME, networkname)
+	err := _network.Get(db.WithContext(context.TODO()))
 	if err != nil {
-		return network, err
-	}
-	if err = json.Unmarshal([]byte(networkData), &network); err != nil {
 		return models.Network{}, err
 	}
-	return network, nil
+
+	return converters.ToModelNetwork(*_network), nil
 }
 
 // NetIDInNetworkCharSet - checks if a netid of a network uses valid characters
@@ -776,42 +658,32 @@ func ValidateNetwork(network *models.Network, isUpdate bool) error {
 	return err
 }
 
-// ParseNetwork - parses a network into a model
-func ParseNetwork(value string) (models.Network, error) {
-	var network models.Network
-	err := json.Unmarshal([]byte(value), &network)
-	return network, err
-}
-
 // SaveNetwork - save network struct to database
 func SaveNetwork(network *models.Network) error {
-	data, err := json.Marshal(network)
-	if err != nil {
-		return err
+	_network := converters.ToSchemaNetwork(*network)
+	_existingNetwork := schema.Network{Name: network.NetID}
+	// Check if network exists to preserve ID
+	err := _existingNetwork.Get(db.WithContext(context.TODO()))
+	if err == nil {
+		_network.ID = _existingNetwork.ID
+		return _network.Update(db.WithContext(context.TODO()))
 	}
-	if err := database.Insert(network.NetID, string(data), database.NETWORKS_TABLE_NAME); err != nil {
-		return err
-	}
-	if servercfg.CacheEnabled() {
-		storeNetworkInCache(network.NetID, *network)
-	}
-	return nil
+
+	return _network.Create(db.WithContext(context.TODO()))
 }
 
 // NetworkExists - check if network exists
 func NetworkExists(name string) (bool, error) {
-
-	var network string
-	var err error
-	if servercfg.CacheEnabled() {
-		if _, ok := getNetworkFromCache(name); ok {
-			return ok, nil
+	_, err := GetNetwork(name)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
 		}
-	}
-	if network, err = database.FetchRecord(database.NETWORKS_TABLE_NAME, name); err != nil {
+
 		return false, err
 	}
-	return len(network) > 0, nil
+
+	return true, nil
 }
 
 // SortNetworks - Sorts slice of Networks by their NetID alphabetically with numbers first

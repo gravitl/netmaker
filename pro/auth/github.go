@@ -110,7 +110,6 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 			d, _ := json.Marshal(user)
 			database.Insert(user.UserName, string(d), database.USERS_TABLE_NAME)
 		}
-
 	}
 	_, err = logic.GetUser(content.Email)
 	if err != nil {
