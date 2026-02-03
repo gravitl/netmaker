@@ -9,7 +9,6 @@ import (
 	"log"
 	"math/big"
 	"net"
-	"os"
 	"time"
 
 	"golang.org/x/exp/slog"
@@ -617,16 +616,6 @@ func updateHosts() {
 		if host.IsDefault && !host.AutoUpdate {
 			host.AutoUpdate = true
 			logic.UpsertHost(&host)
-		}
-		if servercfg.IsPro && (host.Location == "" || host.CountryCode == "") {
-			if host.EndpointIP != nil {
-				host.Location, host.CountryCode = logic.GetHostLocInfo(host.EndpointIP.String(), os.Getenv("IP_INFO_TOKEN"))
-			} else if host.EndpointIPv6 != nil {
-				host.Location, host.CountryCode = logic.GetHostLocInfo(host.EndpointIPv6.String(), os.Getenv("IP_INFO_TOKEN"))
-			}
-			if host.Location != "" && host.CountryCode != "" {
-				logic.UpsertHost(&host)
-			}
 		}
 	}
 }

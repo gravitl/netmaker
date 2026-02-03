@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -784,9 +783,6 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 	extclient.PublicEndpoint = customExtClient.PublicEndpoint
 	extclient.Country = customExtClient.Country
-	if customExtClient.RemoteAccessClientID != "" && customExtClient.Location == "" {
-		extclient.Location, extclient.Country = logic.GetHostLocInfo(logic.GetClientIP(r), os.Getenv("IP_INFO_TOKEN"))
-	}
 	extclient.Location = customExtClient.Location
 	// JIT enforcement: Check if user has access (only for desktop app users)
 	hasAccess, grant, err := logic.CheckJITAccess(extclient.Network, userName)
@@ -955,9 +951,6 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 	if update.PublicKey != oldExtClient.PublicKey {
 		//remove old peer entry
 		replacePeers = true
-	}
-	if update.RemoteAccessClientID != "" && update.Location == "" {
-		update.Location, update.Country = logic.GetHostLocInfo(logic.GetClientIP(r), os.Getenv("IP_INFO_TOKEN"))
 	}
 	newclient := logic.UpdateExtClient(&oldExtClient, &update)
 	if newclient.DeviceID != "" && newclient.Enabled {

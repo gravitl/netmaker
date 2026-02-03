@@ -2,7 +2,6 @@ package mq
 
 import (
 	"encoding/json"
-	"os"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
@@ -300,13 +299,6 @@ func HandleHostCheckin(h, currentHost *models.Host) bool {
 		(!h.EndpointIPv6.Equal(currentHost.EndpointIPv6)) || (h.OSFamily != currentHost.OSFamily) ||
 		(h.OSVersion != currentHost.OSVersion) || (h.KernelVersion != currentHost.KernelVersion)
 	if ifaceDelta { // only save if something changes
-		if !h.EndpointIP.Equal(currentHost.EndpointIP) || !h.EndpointIPv6.Equal(currentHost.EndpointIPv6) || currentHost.Location == "" {
-			if h.EndpointIP != nil {
-				h.Location, h.CountryCode = logic.GetHostLocInfo(h.EndpointIP.String(), os.Getenv("IP_INFO_TOKEN"))
-			} else if h.EndpointIPv6 != nil {
-				h.Location, h.CountryCode = logic.GetHostLocInfo(h.EndpointIPv6.String(), os.Getenv("IP_INFO_TOKEN"))
-			}
-		}
 		currentHost.EndpointIP = h.EndpointIP
 		currentHost.EndpointIPv6 = h.EndpointIPv6
 		currentHost.Interfaces = h.Interfaces
