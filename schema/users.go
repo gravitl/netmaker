@@ -105,7 +105,7 @@ func (u *User) Delete(ctx context.Context) error {
 		Delete(u).Error
 }
 
-func (u *User) Enable(ctx context.Context) error {
+func (u *User) UpdateAccountStatus(ctx context.Context) error {
 	if u.ID == "" && u.Username == "" {
 		return ErrUserIdentifiersNotProvided
 	}
@@ -113,11 +113,11 @@ func (u *User) Enable(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&User{}).
 		Where("id = ? OR username = ?", u.ID, u.Username).
 		Updates(map[string]any{
-			"account_disabled": false,
+			"account_disabled": u.AccountDisabled,
 		}).Error
 }
 
-func (u *User) DisableMFA(ctx context.Context) error {
+func (u *User) UpdateMFA(ctx context.Context) error {
 	if u.ID == "" && u.Username == "" {
 		return ErrUserIdentifiersNotProvided
 	}
@@ -125,7 +125,7 @@ func (u *User) DisableMFA(ctx context.Context) error {
 	return db.FromContext(ctx).Model(&User{}).
 		Where("id = ? OR username = ?", u.ID, u.Username).
 		Updates(map[string]any{
-			"is_mfa_enabled": false,
-			"totp_secret":    "",
+			"is_mfa_enabled": u.IsMFAEnabled,
+			"totp_secret":    u.TOTPSecret,
 		}).Error
 }

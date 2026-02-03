@@ -175,7 +175,7 @@ func CreateUser(user *models.User) error {
 			ScopeID:       string(groupID),
 			RoleID:        schema.GroupRole_Member,
 		}
-		err = _grant.Create(db.WithContext(context.TODO()))
+		err = _grant.Create(dbctx)
 		if err != nil {
 			return fmt.Errorf("failed to add user %s to group %s: %v", user.UserName, groupID, err)
 		}
@@ -378,6 +378,18 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 		}
 	}
 
+	var updateMFA bool
+	if user.IsMFAEnabled != userchange.IsMFAEnabled {
+		updateMFA = true
+	}
+
+	user.IsMFAEnabled = userchange.IsMFAEnabled
+
+	var updateAccountStatus bool
+	if user.AccountDisabled != userchange.AccountDisabled {
+		updateAccountStatus = true
+	}
+
 	user.IsMFAEnabled = userchange.IsMFAEnabled
 	if !user.IsMFAEnabled {
 		user.TOTPSecret = ""
@@ -390,19 +402,48 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 	if err != nil {
 		return &models.User{}, err
 	}
+
+	dbctx := db.BeginTx(context.TODO())
+	commit := false
+	defer func() {
+		if commit {
+			db.FromContext(dbctx).Commit()
+			logger.Log(1, "updated user", queryUser)
+		} else {
+			db.FromContext(dbctx).Rollback()
+		}
+	}()
+
 	// Fetch existing user to get ID
 	_schemaUser := schema.User{Username: queryUser}
-	if err := _schemaUser.Get(db.WithContext(context.TODO())); err != nil {
+	err = _schemaUser.Get(dbctx)
+	if err != nil {
 		return &models.User{}, err
 	}
 
 	_user := converters.ToSchemaUser(*user)
 	_user.ID = _schemaUser.ID
 
-	if err := _user.Update(db.WithContext(context.TODO())); err != nil {
+	err = _user.Update(dbctx)
+	if err != nil {
 		return &models.User{}, err
 	}
-	logger.Log(1, "updated user", queryUser)
+
+	if updateAccountStatus {
+		err = _user.UpdateAccountStatus(dbctx)
+		if err != nil {
+			return &models.User{}, err
+		}
+	}
+
+	if updateMFA {
+		err = _user.UpdateMFA(dbctx)
+		if err != nil {
+			return &models.User{}, err
+		}
+	}
+
+	commit = true
 	return user, nil
 }
 

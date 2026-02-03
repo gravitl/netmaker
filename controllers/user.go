@@ -738,88 +738,8 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func enableUserAccount(w http.ResponseWriter, r *http.Request) {
-	username := mux.Vars(r)["username"]
-	user, err := logic.GetUser(username)
-	if err != nil {
-		logger.Log(0, "failed to fetch user: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-
-	var caller *models.User
-	var isMaster bool
-	if r.Header.Get("user") == logic.MasterUser {
-		isMaster = true
-	} else {
-		caller, err = logic.GetUser(r.Header.Get("user"))
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-	}
-
-	if !isMaster && caller.UserName == user.UserName {
-		// This implies that a user is trying to enable themselves.
-		// This can never happen, since a disabled user cannot be
-		// authenticated.
-		err := fmt.Errorf("cannot enable self")
-		logger.Log(0, err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
-		return
-	}
-
-	switch user.PlatformRoleID {
-	case models.SuperAdminRole:
-		// This can never happen, since a superadmin user cannot
-		// be disabled.
-	case models.AdminRole:
-		if !isMaster && caller.PlatformRoleID != models.SuperAdminRole {
-			err = fmt.Errorf("%s cannot enable an admin", caller.PlatformRoleID)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
-			return
-		}
-	case models.PlatformUser:
-		if !isMaster && caller.PlatformRoleID != models.SuperAdminRole && caller.PlatformRoleID != models.AdminRole {
-			err = fmt.Errorf("%s cannot enable a platform-user", caller.PlatformRoleID)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
-			return
-		}
-	case models.ServiceUser:
-		if !isMaster && caller.PlatformRoleID != models.SuperAdminRole && caller.PlatformRoleID != models.AdminRole {
-			err = fmt.Errorf("%s cannot enable a service-user", caller.PlatformRoleID)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
-			return
-		}
-	}
-
-	user.AccountDisabled = false
-	err = logic.UpsertUser(*user)
-	if err != nil {
-		logger.Log(0, "failed to enable user account: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-	}
-	go func() {
-		enableConfigs := r.URL.Query().Get("force_enable_configs") == "true"
-		if !enableConfigs {
-			return
-		}
-		extclients, err := logic.GetAllExtClients()
-		if err != nil {
-			logger.Log(0, "failed to get user extclients:", err.Error())
-			return
-		}
-		for _, extclient := range extclients {
-			if extclient.OwnerID == user.UserName && !extclient.Enabled {
-				_, err = logic.ToggleExtClientConnectivity(&extclient, true)
-				if err != nil {
-					logger.Log(1, "failed to delete user extclient:", err.Error())
-				}
-			}
-		}
-		mq.PublishPeerUpdate(false)
-	}()
-
-	logic.ReturnSuccessResponse(w, r, "user account enabled")
+	force := r.URL.Query().Get("force_enable_configs") == "true"
+	updateUserAccountStatus(w, r, false, force)
 }
 
 // @Summary     Disable a user's account
@@ -830,69 +750,85 @@ func enableUserAccount(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func disableUserAccount(w http.ResponseWriter, r *http.Request) {
+	force := r.URL.Query().Get("force_disable_configs") == "true"
+	updateUserAccountStatus(w, r, true, force)
+}
+
+func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAccount, force bool) {
+	action := "enable"
+	if disableAccount {
+		action = "disable"
+	}
+
 	username := mux.Vars(r)["username"]
-	user, err := logic.GetUser(username)
+	_user := &schema.User{Username: username}
+	err := _user.Get(r.Context())
 	if err != nil {
 		logger.Log(0, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
-	var caller *models.User
+	var _caller *schema.User
 	var isMaster bool
 	if r.Header.Get("user") == logic.MasterUser {
 		isMaster = true
 	} else {
-		caller, err = logic.GetUser(r.Header.Get("user"))
+		_caller = &schema.User{Username: r.Header.Get("user")}
+		err = _caller.Get(r.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
 	}
 
-	if !isMaster && caller.UserName == user.UserName {
-		// This implies that a user is trying to disable themselves.
-		// This should not be allowed.
-		err = fmt.Errorf("cannot disable self")
+	if !isMaster && _caller.Username == _user.Username {
+		// This implies that a user is trying to enable themselves.
+		// This can never happen, since a disabled user cannot be
+		// authenticated.
+		err := fmt.Errorf("cannot enable self")
+		logger.Log(0, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
 
-	switch user.PlatformRoleID {
-	case models.SuperAdminRole:
-		err = errors.New("cannot disable a super-admin")
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
-		return
-	case models.AdminRole:
-		if !isMaster && caller.PlatformRoleID != models.SuperAdminRole {
-			err = fmt.Errorf("%s cannot disable an admin", caller.PlatformRoleID)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
-			return
-		}
-	case models.PlatformUser:
-		if !isMaster && caller.PlatformRoleID != models.SuperAdminRole && caller.PlatformRoleID != models.AdminRole {
-			err = fmt.Errorf("%s cannot disable a platform-user", caller.PlatformRoleID)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
-			return
-		}
-	case models.ServiceUser:
-		if !isMaster && caller.PlatformRoleID != models.SuperAdminRole && caller.PlatformRoleID != models.AdminRole {
-			err = fmt.Errorf("%s cannot disable a service-user", caller.PlatformRoleID)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
-			return
+	if !isMaster {
+		userRole := models.UserRoleID(_user.PlatformRoleID)
+		callerRole := models.UserRoleID(_caller.PlatformRoleID)
+		switch userRole {
+		case models.SuperAdminRole:
+			// This can never happen, since a superadmin user cannot
+			// be disabled.
+		case models.AdminRole:
+			if callerRole != models.SuperAdminRole {
+				err = fmt.Errorf("%s cannot %s an admin", action, _caller.PlatformRoleID)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+				return
+			}
+		case models.PlatformUser:
+			if callerRole != models.SuperAdminRole && callerRole != models.AdminRole {
+				err = fmt.Errorf("%s cannot %s a platform-user", action, _caller.PlatformRoleID)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+				return
+			}
+		case models.ServiceUser:
+			if callerRole != models.SuperAdminRole && callerRole != models.AdminRole {
+				err = fmt.Errorf("%s cannot %s a service-user", action, _caller.PlatformRoleID)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+				return
+			}
 		}
 	}
 
-	user.AccountDisabled = true
-	err = logic.UpsertUser(*user)
+	_user.AccountDisabled = disableAccount
+	err = _user.UpdateAccountStatus(r.Context())
 	if err != nil {
-		logger.Log(0, "failed to disable user account: ", err.Error())
+		logger.Log(0, fmt.Sprintf("failed to %s user account: %v", action, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 	}
 
 	go func() {
-		disableConfigs := r.URL.Query().Get("force_disable_configs") == "true"
-		if !disableConfigs {
+		if !force {
 			return
 		}
 		extclients, err := logic.GetAllExtClients()
@@ -901,21 +837,17 @@ func disableUserAccount(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, extclient := range extclients {
-			if extclient.OwnerID == user.UserName {
-				_, err = logic.ToggleExtClientConnectivity(&extclient, false)
+			if extclient.OwnerID == _user.Username && !extclient.Enabled {
+				_, err = logic.ToggleExtClientConnectivity(&extclient, true)
 				if err != nil {
 					logger.Log(1, "failed to delete user extclient:", err.Error())
-				} else {
-					err := mq.PublishDeletedClientPeerUpdate(&extclient)
-					if err != nil {
-						logger.Log(1, "failed to publish deleted client peer update:", err.Error())
-					}
 				}
 			}
 		}
+		mq.PublishPeerUpdate(false)
 	}()
 
-	logic.ReturnSuccessResponse(w, r, "user account disabled")
+	logic.ReturnSuccessResponse(w, r, fmt.Sprintf("user account %sd", action))
 }
 
 // @Summary     Get a user's preferences and settings
