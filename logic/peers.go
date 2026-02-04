@@ -212,20 +212,21 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				continue
 			}
 		}
-
-		if node.Address.IP != nil {
-			hostPeerUpdate.AddressIdentityMap[node.Address.IP.String()+"/32"] = models.PeerIdentity{
-				ID:   node.ID.String(),
-				Type: models.PeerType_Node,
-				Name: host.Name,
+		if host.EnableFlowLogs {
+			if node.Address.IP != nil {
+				hostPeerUpdate.AddressIdentityMap[node.Address.IP.String()+"/32"] = models.PeerIdentity{
+					ID:   node.ID.String(),
+					Type: models.PeerType_Node,
+					Name: host.Name,
+				}
 			}
-		}
 
-		if node.Address6.IP != nil {
-			hostPeerUpdate.AddressIdentityMap[node.Address6.IP.String()+"/128"] = models.PeerIdentity{
-				ID:   node.ID.String(),
-				Type: models.PeerType_Node,
-				Name: host.Name,
+			if node.Address6.IP != nil {
+				hostPeerUpdate.AddressIdentityMap[node.Address6.IP.String()+"/128"] = models.PeerIdentity{
+					ID:   node.ID.String(),
+					Type: models.PeerType_Node,
+					Name: host.Name,
+				}
 			}
 		}
 
@@ -485,20 +486,20 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				}
 				hostPeerUpdate.NodePeers = append(hostPeerUpdate.NodePeers, nodePeer)
 			}
-
-			if peer.Address.IP != nil {
-				hostPeerUpdate.AddressIdentityMap[peer.Address.IP.String()+"/32"] = models.PeerIdentity{
-					ID:   peer.ID.String(),
-					Type: models.PeerType_Node,
-					Name: peerHost.Name,
+			if host.EnableFlowLogs {
+				if peer.Address.IP != nil {
+					hostPeerUpdate.AddressIdentityMap[peer.Address.IP.String()+"/32"] = models.PeerIdentity{
+						ID:   peer.ID.String(),
+						Type: models.PeerType_Node,
+						Name: peerHost.Name,
+					}
 				}
-			}
-
-			if peer.Address6.IP != nil {
-				hostPeerUpdate.AddressIdentityMap[peer.Address6.IP.String()+"/128"] = models.PeerIdentity{
-					ID:   peer.ID.String(),
-					Type: models.PeerType_Node,
-					Name: peerHost.Name,
+				if peer.Address6.IP != nil {
+					hostPeerUpdate.AddressIdentityMap[peer.Address6.IP.String()+"/128"] = models.PeerIdentity{
+						ID:   peer.ID.String(),
+						Type: models.PeerType_Node,
+						Name: peerHost.Name,
+					}
 				}
 			}
 		}
@@ -550,12 +551,14 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				EgressGWCfg:   node.EgressDetails.EgressGatewayRequest,
 				EgressFwRules: make(map[string]models.AclRule),
 			}
-			for _, egressRange := range node.EgressDetails.EgressGatewayRequest.RangesWithMetric {
-				if egressRange.EgressID != "" {
-					hostPeerUpdate.AddressIdentityMap[egressRange.Network] = models.PeerIdentity{
-						ID:   egressRange.EgressID,
-						Type: models.PeerType_EgressRoute,
-						Name: egressRange.EgressName,
+			if host.EnableFlowLogs {
+				for _, egressRange := range node.EgressDetails.EgressGatewayRequest.RangesWithMetric {
+					if egressRange.EgressID != "" {
+						hostPeerUpdate.AddressIdentityMap[egressRange.Network] = models.PeerIdentity{
+							ID:   egressRange.EgressID,
+							Type: models.PeerType_EgressRoute,
+							Name: egressRange.EgressName,
+						}
 					}
 				}
 			}
