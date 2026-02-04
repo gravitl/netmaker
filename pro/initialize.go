@@ -91,7 +91,7 @@ func InitPro() {
 			addTrialLicenseHook()
 		}
 
-		AddUnauthorisedUserNodeHooks()
+		//AddUnauthorisedUserNodeHooks()
 
 		var authProvider = auth.InitializeAuthProvider()
 		if authProvider != "" {
