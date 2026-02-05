@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -477,11 +476,6 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 			fmt.Sprintf("invalid DNS entry %+v: %v", entry, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
-	}
-	// check if default domain is appended if not append
-	if logic.GetDefaultDomain() != "" &&
-		!strings.HasSuffix(entry.Name, logic.GetDefaultDomain()) {
-		entry.Name += "." + logic.GetDefaultDomain()
 	}
 	entry, err = logic.CreateDNS(entry)
 	if err != nil {
