@@ -1707,17 +1707,15 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			DnsAddress:        node.IngressDNS,
 			Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
 		}
-		if !node.IsInternetGateway {
-			hNs := logic.GetNameserversForNode(&node)
-			for _, nsI := range hNs {
-				if nsI.IsFallback {
-					// skip fallback nameservers for user remote access gws.
-					continue
-				}
-				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
-				if nsI.IsSearchDomain {
-					gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
-				}
+		hNs := logic.GetNameserversForNode(&node)
+		for _, nsI := range hNs {
+			if nsI.IsFallback {
+				// skip fallback nameservers for user remote access gws.
+				continue
+			}
+			gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
+			if nsI.IsSearchDomain {
+				gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
 			}
 		}
 		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccessForUser(user, models.NetworkID(node.Network))...)
@@ -1766,17 +1764,15 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			DnsAddress:        node.IngressDNS,
 			Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
 		}
-		if !node.IsInternetGateway {
-			hNs := logic.GetNameserversForNode(&node)
-			for _, nsI := range hNs {
-				if nsI.IsFallback {
-					// skip fallback nameservers for user remote access gws.
-					continue
-				}
-				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
-				if nsI.IsSearchDomain {
-					gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
-				}
+		hNs := logic.GetNameserversForNode(&node)
+		for _, nsI := range hNs {
+			if nsI.IsFallback {
+				// skip fallback nameservers for user remote access gws.
+				continue
+			}
+			gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
+			if nsI.IsSearchDomain {
+				gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
 			}
 		}
 		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccessForUser(user, models.NetworkID(node.Network))...)

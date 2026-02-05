@@ -37,9 +37,9 @@ func getGeoInfoFromIPAPI() (*GeoInfo, error) {
 	var data struct {
 		IP       string `json:"ip"`
 		Location struct {
-			CountryCode string `json:"country_code"`
-			Latitude    string `json:"latitude"`
-			Longitude   string `json:"longitude"`
+			CountryCode string  `json:"country_code"`
+			Latitude    float64 `json:"latitude"`
+			Longitude   float64 `json:"longitude"`
 		} `json:"location"`
 	}
 
@@ -54,7 +54,7 @@ func getGeoInfoFromIPAPI() (*GeoInfo, error) {
 
 	return &GeoInfo{
 		IP:          data.IP,
-		Location:    data.Location.Latitude + "," + data.Location.Longitude,
+		Location:    fmt.Sprintf("%f,%f", data.Location.Latitude, data.Location.Longitude),
 		CountryCode: data.Location.CountryCode,
 	}, nil
 }
