@@ -91,9 +91,12 @@ func setupConfig(absoluteConfigPath string) {
 }
 
 func startHooks(ctx context.Context, wg *sync.WaitGroup) {
-	err := logic.TimerCheckpoint()
-	if err != nil {
-		logger.Log(1, "Timer error occurred: ", err.Error())
+	// Only run timer checkpoint (telemetry) on master pod
+	if servercfg.IsMasterPod() {
+		err := logic.TimerCheckpoint()
+		if err != nil {
+			logger.Log(1, "Timer error occurred: ", err.Error())
+		}
 	}
 	logic.EnterpriseCheck(ctx, wg)
 }
@@ -107,6 +110,15 @@ func initialize() { // Client Mode Prereq Check
 
 	if servercfg.GetNodeID() == "" {
 		logger.FatalLog("error: must set NODE_ID, currently blank")
+	}
+
+	// Log master/worker mode for K8s HA setup
+	if servercfg.IsHA() {
+		if servercfg.IsMasterPod() {
+			logger.Log(0, "HA mode: running as MASTER pod - will run migrations and singleton operations")
+		} else {
+			logger.Log(0, "HA mode: running as WORKER pod - skipping migrations and singleton operations")
+		}
 	}
 
 	// initialize sql schema db.
@@ -133,7 +145,10 @@ func initialize() { // Client Mode Prereq Check
 	_, _ = logic.GetUsersDB()
 	_ = logic.CleanExpiredSSOStates()
 
-	migrate.Run()
+	// Only run migrations on master pod to avoid conflicts in HA setup
+	if servercfg.IsMasterPod() {
+		migrate.Run()
+	}
 
 	logic.SetJWTSecret()
 	logic.InitialiseRoles()
@@ -196,6 +211,10 @@ func startControllers(wg *sync.WaitGroup, ctx context.Context) {
 	go logic.StartHookManager(ctx, wg)
 	logic.InitNetworkHooks()
 	logic.AddSSOStateCleanupHook()
+	// Only run network cleanup hooks on master pod
+	if servercfg.IsMasterPod() {
+		logic.InitNetworkHooks()
+	}
 }
 
 // Should we be using a context vice a waitgroup????????????
@@ -205,8 +224,12 @@ func runMessageQueue(wg *sync.WaitGroup, ctx context.Context) {
 
 	go mq.Keepalive(ctx)
 	go func() {
-		go logic.ManageZombies(ctx)
-		go logic.DeleteExpiredNodes(ctx)
+		// Only run zombie management and expired node deletion on master pod
+		// to avoid duplicate operations in HA setup
+		if servercfg.IsMasterPod() {
+			go logic.ManageZombies(ctx)
+			go logic.DeleteExpiredNodes(ctx)
+		}
 		for nodeUpdate := range logic.DeleteNodesCh {
 			if nodeUpdate == nil {
 				continue
