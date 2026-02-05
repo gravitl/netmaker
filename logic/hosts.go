@@ -368,7 +368,12 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 	currHost.IsStaticPort = newHost.IsStaticPort
 	currHost.IsStatic = newHost.IsStatic
 	currHost.MTU = newHost.MTU
-
+	if newHost.Location != "" {
+		currHost.Location = newHost.Location
+	}
+	if newHost.CountryCode != "" {
+		currHost.CountryCode = newHost.CountryCode
+	}
 	currHost.Name = newHost.Name
 	if len(newHost.NatType) > 0 && newHost.NatType != currHost.NatType {
 		currHost.NatType = newHost.NatType
