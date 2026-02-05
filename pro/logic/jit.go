@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -309,37 +310,82 @@ type JITRequestWithGrant struct {
 // statusFilter can be: "pending", "approved", "denied", "expired", or "" for all
 func GetNetworkJITRequests(networkID string, statusFilter string) ([]JITRequestWithGrant, error) {
 	ctx := db.WithContext(context.Background())
+	requests, _, err := GetNetworkJITRequestsPaginated(ctx, networkID, statusFilter, 1, 0)
+	return requests, err
+}
 
+// GetNetworkJITRequestsPaginated - gets paginated JIT requests for a network, optionally filtered by status
+// statusFilter can be: "pending", "approved", "denied", "expired", or "" for all
+// page and pageSize control pagination. db.SetPagination will apply defaults (page=1, pageSize=10) if values are invalid.
+// Returns: requests, total count, error
+func GetNetworkJITRequestsPaginated(ctx context.Context, networkID string, statusFilter string, page, pageSize int) ([]JITRequestWithGrant, int64, error) {
 	request := schema.JITRequest{NetworkID: networkID}
 	var requests []schema.JITRequest
+	var total int64
 	var err error
 
-	// If no filter, return all requests
+	// Always set up pagination context - db.SetPagination handles defaults (page=1, pageSize=10)
+	paginatedCtx := db.SetPagination(ctx, page, pageSize)
+
+	// Get total count for pagination metadata
 	if statusFilter == "" || statusFilter == "all" {
-		requests, err = request.ListByNetwork(ctx)
+		total, err = request.CountByNetwork(ctx)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
+		}
+		requests, err = request.ListByNetwork(paginatedCtx)
+		if err != nil {
+			return nil, 0, err
 		}
 	} else if statusFilter == "expired" {
 		// Handle expired filter (approved requests that have expired)
+		// For expired filter, we need to get all and filter in memory, then apply pagination
 		allRequests, err := request.ListByNetwork(ctx)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		now := time.Now().UTC()
+		var filteredRequests []schema.JITRequest
 		for _, req := range allRequests {
 			// Include requests with status "expired" or "approved" requests that have passed expiration
 			if req.Status == "expired" ||
 				(req.Status == "approved" && !req.ExpiresAt.IsZero() && now.After(req.ExpiresAt)) {
-				requests = append(requests, req)
+				filteredRequests = append(filteredRequests, req)
 			}
+		}
+
+		// Sort by requested_at DESC (most recent first)
+		sort.Slice(filteredRequests, func(i, j int) bool {
+			return filteredRequests[i].RequestedAt.After(filteredRequests[j].RequestedAt)
+		})
+
+		total = int64(len(filteredRequests))
+
+		// Apply pagination manually for expired filter
+		if pageSize > 0 {
+			offset := (page - 1) * pageSize
+			end := offset + pageSize
+			if offset >= len(filteredRequests) {
+				requests = []schema.JITRequest{}
+			} else {
+				if end > len(filteredRequests) {
+					end = len(filteredRequests)
+				}
+				requests = filteredRequests[offset:end]
+			}
+		} else {
+			requests = filteredRequests
 		}
 	} else {
 		// Filter by status: pending, approved, or denied
-		requests, err = request.ListByStatusAndNetwork(ctx, statusFilter)
+		total, err = request.CountByStatusAndNetwork(ctx, statusFilter)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
+		}
+		requests, err = request.ListByStatusAndNetwork(paginatedCtx, statusFilter)
+		if err != nil {
+			return nil, 0, err
 		}
 	}
 
@@ -361,7 +407,7 @@ func GetNetworkJITRequests(networkID string, statusFilter string) ([]JITRequestW
 		result = append(result, enriched)
 	}
 
-	return result, nil
+	return result, total, nil
 }
 
 // GetUserJITStatus - gets JIT status for a user on a network
