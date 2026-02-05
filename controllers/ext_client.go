@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
@@ -28,6 +29,8 @@ import (
 	"golang.org/x/exp/slog"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
+
+var extUpdateMutex = &sync.Mutex{}
 
 func extClientHandlers(r *mux.Router) {
 
@@ -871,9 +874,9 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
 			return
 		}
-		if err := mq.PublishPeerUpdate(false); err != nil {
-			logger.Log(1, "error setting ext peers on "+nodeid+": "+err.Error())
-		}
+		extUpdateMutex.Lock()
+		mq.PublishPeerUpdate(false)
+		extUpdateMutex.Unlock()
 		if servercfg.IsDNSMode() {
 			logic.SetDNS()
 		}
@@ -1021,7 +1024,9 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 				slog.Error("error deleting old ext peers", "error", err.Error())
 			}
 		}
+		extUpdateMutex.Lock()
 		mq.PublishPeerUpdate(false)
+		extUpdateMutex.Unlock()
 	}()
 
 }
