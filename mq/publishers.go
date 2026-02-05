@@ -243,9 +243,12 @@ func sendPeers() {
 	if peer_force_send == 5 {
 		servercfg.SetHost()
 		peer_force_send = 0
-		err := logic.TimerCheckpoint() // run telemetry & log dumps if 24 hours has passed..
-		if err != nil {
-			logger.Log(3, "error occurred on timer,", err.Error())
+		// Only run timer checkpoint on master pod in HA setup
+		if servercfg.IsMasterPod() {
+			err := logic.TimerCheckpoint() // run telemetry & log dumps if 24 hours has passed..
+			if err != nil {
+				logger.Log(3, "error occurred on timer,", err.Error())
+			}
 		}
 	}
 }

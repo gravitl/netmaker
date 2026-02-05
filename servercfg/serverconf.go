@@ -802,3 +802,35 @@ func GetAllowedEmailDomains() string {
 func GetNmBaseDomain() string {
 	return os.Getenv("NM_DOMAIN")
 }
+
+// IsHA - returns true if running in High Availability mode (multiple replicas)
+func IsHA() bool {
+	return os.Getenv("IS_HA") == "true"
+}
+
+// IsMasterPod - returns true if this pod should run singleton operations
+// In K8s StatefulSet HA mode, the 0th pod (hostname ending with -0) is the master.
+// This ensures migrations, IDP sync, and other singleton operations only run on one pod.
+// Can be overridden with IS_MASTER_POD env var for manual control.
+func IsMasterPod() bool {
+	// Allow manual override via environment variable
+	if override := os.Getenv("IS_MASTER_POD"); override != "" {
+		return override == "true"
+	}
+
+	// If not in HA mode, default to true (single instance deployment)
+	if !IsHA() {
+		return true
+	}
+
+	// In K8s StatefulSet, check if this is pod ordinal 0
+	// StatefulSet pods are named <statefulset-name>-<ordinal>
+	hostname, err := os.Hostname()
+	if err != nil {
+		// Default to master if can't determine hostname
+		return true
+	}
+
+	// Check if hostname ends with -0 (first pod in StatefulSet)
+	return strings.HasSuffix(hostname, "-0")
+}
