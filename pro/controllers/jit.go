@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -85,15 +86,42 @@ func handleJIT(w http.ResponseWriter, r *http.Request) {
 
 // handleJITGet - handles GET requests for JIT status/requests
 func handleJITGet(w http.ResponseWriter, r *http.Request, networkID string, user *models.User) {
-
 	statusFilter := r.URL.Query().Get("status") // "pending", "approved", "denied", "expired", or empty for all
-	requests, err := proLogic.GetNetworkJITRequests(networkID, statusFilter)
+
+	// Parse pagination parameters (default to 0, db.SetPagination will apply defaults)
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	pageSize, _ := strconv.Atoi(r.URL.Query().Get("per_page"))
+
+	// Apply defaults if not provided (matching db.SetPagination logic)
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 10
+	}
+
+	ctx := db.WithContext(r.Context())
+	requests, total, err := proLogic.GetNetworkJITRequestsPaginated(ctx, networkID, statusFilter, page, pageSize)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	logic.ReturnSuccessResponseWithJson(w, r, requests, "fetched JIT requests")
 
+	// Calculate pagination metadata
+	totalPages := (int(total) + pageSize - 1) / pageSize
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	response := map[string]interface{}{
+		"data":        requests,
+		"page":        page,
+		"per_page":    pageSize,
+		"total":       total,
+		"total_pages": totalPages,
+	}
+
+	logic.ReturnSuccessResponseWithJson(w, r, response, "fetched JIT requests")
 }
 
 // handleJITPost - handles POST requests for JIT operations
