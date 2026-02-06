@@ -82,7 +82,7 @@ var htmlBaseTemplate = `<!DOCTYPE html>
 
 <body>
 	<img
-		src="https://raw.githubusercontent.com/gravitl/netmaker-docs/master/images/netmaker-github/netmaker-teal.png"
+		src="https://media.netmaker.io/logos/netmaker-logo-full-light-1.svg"
 		alt="netmaker logo"
 		id="logo"
 	>
