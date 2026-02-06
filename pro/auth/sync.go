@@ -28,6 +28,11 @@ var (
 )
 
 func ResetIDPSyncHook() {
+	// Only run IDP sync hook on master pod in HA setup
+	if !servercfg.IsMasterPod() {
+		return
+	}
+
 	if cancelSyncHook != nil {
 		cancelSyncHook()
 		hookStopWg.Wait()

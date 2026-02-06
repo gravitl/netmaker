@@ -88,6 +88,7 @@ func InitPro() {
 			logger.Log(0, "proceeding with Paid Tier license")
 			logic.SetFreeTierForTelemetry(false)
 			// == End License Handling ==
+			// License validation runs on all pods to avoid audit issues
 			AddLicenseHooks()
 		} else {
 			logger.Log(0, "starting trial license hook")
@@ -107,29 +108,37 @@ func InitPro() {
 		if servercfg.CacheEnabled() {
 			proLogic.InitAutoRelayCache()
 		}
-		auth.ResetIDPSyncHook()
+
+		// Only run singleton operations on master pod in HA setup
+		// These include IDP sync, posture checks, JIT expiry, and flow cleanup
+		if servercfg.IsMasterPod() {
+			auth.ResetIDPSyncHook()
+			proLogic.AddPostureCheckHook()
+			// Register JIT expiry hook with email notifications
+			addJitExpiryHookWithEmail()
+
+			if proLogic.GetFeatureFlags().EnableFlowLogs && logic.GetServerSettings().EnableFlowLogs {
+				err := ch.Initialize()
+				if err != nil {
+					logger.FatalLog("error connecting to clickhouse:", err.Error())
+				}
+
+				proLogic.StartFlowCleanupLoop()
+
+				wg.Add(1)
+				go func(ctx context.Context, wg *sync.WaitGroup) {
+					<-ctx.Done()
+					proLogic.StopFlowCleanupLoop()
+					ch.Close()
+					wg.Done()
+				}(ctx, wg)
+			}
+		}
+
+		// These can run on all pods
 		email.Init()
 		go proLogic.EventWatcher()
 		logic.GetMetricsMonitor().Start()
-		proLogic.AddPostureCheckHook()
-		// Register JIT expiry hook with email notifications
-		addJitExpiryHookWithEmail()
-		if proLogic.GetFeatureFlags().EnableFlowLogs && logic.GetServerSettings().EnableFlowLogs {
-			err := ch.Initialize()
-			if err != nil {
-				logger.FatalLog("error connecting to clickhouse:", err.Error())
-			}
-
-			proLogic.StartFlowCleanupLoop()
-
-			wg.Add(1)
-			go func(ctx context.Context, wg *sync.WaitGroup) {
-				<-ctx.Done()
-				proLogic.StopFlowCleanupLoop()
-				ch.Close()
-				wg.Done()
-			}(ctx, wg)
-		}
 	})
 	logic.ResetFailOver = proLogic.ResetFailOver
 	logic.ResetFailedOverPeer = proLogic.ResetFailedOverPeer
