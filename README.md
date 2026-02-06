@@ -1,7 +1,7 @@
 
 <p align="center">
   <a href="https://netmaker.io">
-  <img src="https://raw.githubusercontent.com/gravitl/netmaker-docs/master/images/netmaker-github/netmaker-teal.png" width="50%"><break/>
+  <img src="https://media.netmaker.io/logos/netmaker-logo-full-dark.svg" width="50%"><break/>
   </a>
 </p>
 

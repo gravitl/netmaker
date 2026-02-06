@@ -290,6 +290,7 @@ func GetCustomDNS(network string) ([]models.DNSEntry, error) {
 	if err != nil {
 		return dns, err
 	}
+	defaultDomain := GetDefaultDomain()
 	for _, value := range collection { // filter for entries based on network
 		var entry models.DNSEntry
 		if err := json.Unmarshal([]byte(value), &entry); err != nil {
@@ -297,6 +298,9 @@ func GetCustomDNS(network string) ([]models.DNSEntry, error) {
 		}
 
 		if entry.Network == network {
+			if defaultDomain != "" {
+				entry.Name = fmt.Sprintf("%s.%s", entry.Name, defaultDomain)
+			}
 			dns = append(dns, entry)
 		}
 	}
