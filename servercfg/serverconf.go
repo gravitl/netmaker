@@ -812,6 +812,26 @@ func IsHA() bool {
 // In K8s StatefulSet HA mode, the 0th pod (hostname ending with -0) is the master.
 // This ensures migrations, IDP sync, and other singleton operations only run on one pod.
 // Can be overridden with IS_MASTER_POD env var for manual control.
+//
+// TODO: Future Enhancement - Implement Leader Election for True HA Failover
+// Current limitation: If pod-0 goes down, singleton operations and MQ subscriptions
+// are unavailable until pod-0 recovers. For automatic failover, implement:
+//
+// Option 1: K8s Lease-based Leader Election
+//   - Use client-go's leaderelection package
+//   - Any pod can become leader if current leader fails
+//   - Requires K8s ServiceAccount with lease permissions
+//
+// Option 2: Database-based Distributed Lock
+//   - Use database (PostgreSQL/SQLite) advisory locks
+//   - Leader heartbeats to maintain lock, others acquire on timeout
+//   - Works in non-K8s environments too
+//
+// Option 3: etcd/Consul-based Leader Election
+//   - Use distributed consensus systems
+//   - Most robust but adds infrastructure dependency
+//
+// Implementation would replace static pod-0 check with dynamic leader status.
 func IsMasterPod() bool {
 	// Allow manual override via environment variable
 	if override := os.Getenv("IS_MASTER_POD"); override != "" {
