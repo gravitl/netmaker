@@ -87,7 +87,6 @@ var htmlBaseTemplate = `<!DOCTYPE html>
 		id="logo"
 	>
 	%s
-	<button class="back-to-login-btn" onClick="redirect()" role="button">Back To Login</button>
 	
 </body>
 </html>`
