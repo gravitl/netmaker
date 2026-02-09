@@ -14,7 +14,8 @@ import (
 
 func EventHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/network/activity", logic.SecurityCheck(true, http.HandlerFunc(listNetworkActivity))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/user/activity", logic.SecurityCheck(true, http.HandlerFunc(listUserActivity))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/user/activity", logic.SecurityCheck(false,
+		logic.ContinueIfUserMatch(http.HandlerFunc(listUserActivity)))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/activity", logic.SecurityCheck(true, http.HandlerFunc(listActivity))).Methods(http.MethodGet)
 }
 
