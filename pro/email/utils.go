@@ -4,7 +4,7 @@ import "strings"
 
 // mail related images hosted on github
 var (
-	netmakerLogoTeal = "https://raw.githubusercontent.com/gravitl/netmaker/netmaker_logos/img/logos/netmaker-logo-2.png"
+	netmakerLogoTeal = "https://media.netmaker.io/logos/netmaker-logo-full-light-1.svg"
 )
 
 type EmailBodyBuilder interface {
