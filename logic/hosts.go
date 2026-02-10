@@ -383,10 +383,12 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 			nodeIP = currHost.EndpointIPv6
 		}
 
-		info, err := utils.GetGeoInfo(nodeIP)
-		if err == nil {
-			currHost.Location = info.Location
-			currHost.CountryCode = info.CountryCode
+		if nodeIP != nil {
+			info, err := utils.GetGeoInfo(nodeIP)
+			if err == nil {
+				currHost.Location = info.Location
+				currHost.CountryCode = info.CountryCode
+			}
 		}
 	}
 	currHost.Name = newHost.Name

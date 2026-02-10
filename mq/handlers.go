@@ -300,10 +300,12 @@ func HandleHostCheckin(h, currentHost *models.Host) bool {
 			nodeIP = h.EndpointIPv6
 		}
 
-		info, err := utils.GetGeoInfo(nodeIP)
-		if err == nil {
-			h.Location = info.Location
-			h.CountryCode = info.CountryCode
+		if nodeIP != nil {
+			info, err := utils.GetGeoInfo(nodeIP)
+			if err == nil {
+				h.Location = info.Location
+				h.CountryCode = info.CountryCode
+			}
 		}
 	}
 	ifaceDelta := len(h.Interfaces) != len(currentHost.Interfaces) || !logic.CompareIfaceSlices(h.Interfaces, currentHost.Interfaces) ||
