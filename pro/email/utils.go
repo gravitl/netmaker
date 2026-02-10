@@ -2,9 +2,9 @@ package email
 
 import "strings"
 
-// mail related images hosted on github
+// mail related images hosted on cdn
 var (
-	netmakerLogoTeal = "https://media.netmaker.io/logos/netmaker-logo-full-light-1.svg"
+	netmakerLogoTeal = "https://media.netmaker.io/logos/png/netmaker-logo-full-light-1.png"
 )
 
 type EmailBodyBuilder interface {
