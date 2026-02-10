@@ -2,6 +2,7 @@ package mq
 
 import (
 	"encoding/json"
+	"net"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
@@ -12,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/utils"
 	"golang.org/x/exp/slog"
 )
 
@@ -288,6 +290,20 @@ func HandleHostCheckin(h, currentHost *models.Host) bool {
 		if err := logic.UpsertHost(currentHost); err != nil {
 			slog.Error("failed to update host after check-in", "name", h.Name, "id", h.ID, "error", err)
 			return false
+		}
+	}
+	if h.Location == "" || h.CountryCode == "" {
+		var nodeIP net.IP
+		if h.EndpointIP != nil {
+			nodeIP = h.EndpointIP
+		} else if h.EndpointIPv6 != nil {
+			nodeIP = h.EndpointIPv6
+		}
+
+		info, err := utils.GetGeoInfo(nodeIP)
+		if err == nil {
+			h.Location = info.Location
+			h.CountryCode = info.CountryCode
 		}
 	}
 	ifaceDelta := len(h.Interfaces) != len(currentHost.Interfaces) || !logic.CompareIfaceSlices(h.Interfaces, currentHost.Interfaces) ||
