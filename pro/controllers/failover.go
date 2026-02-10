@@ -39,8 +39,10 @@ func FailOverHandlers(r *mux.Router) {
 // @Summary     Get failover node
 // @Router      /api/v1/node/{nodeid}/failover [get]
 // @Tags        PRO
+// @Security    oauth
+// @Produce     json
 // @Param       nodeid path string true "Node ID"
-// @Success     200 {object} models.Node
+// @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     404 {object} models.ErrorResponse
 func getfailOver(w http.ResponseWriter, r *http.Request) {
@@ -69,8 +71,10 @@ func getfailOver(w http.ResponseWriter, r *http.Request) {
 // @Summary     Create failover node
 // @Router      /api/v1/node/{nodeid}/failover [post]
 // @Tags        PRO
+// @Security    oauth
+// @Produce     json
 // @Param       nodeid path string true "Node ID"
-// @Success     200 {object} models.Node
+// @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func createfailOver(w http.ResponseWriter, r *http.Request) {
@@ -96,6 +100,8 @@ func createfailOver(w http.ResponseWriter, r *http.Request) {
 // @Summary     Reset failover for a network
 // @Router      /api/v1/node/{network}/failover/reset [post]
 // @Tags        PRO
+// @Security    oauth
+// @Produce     json
 // @Param       network path string true "Network ID"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -128,8 +134,10 @@ func resetFailOver(w http.ResponseWriter, r *http.Request) {
 // @Summary     Delete failover node
 // @Router      /api/v1/node/{nodeid}/failover [delete]
 // @Tags        PRO
+// @Security    oauth
+// @Produce     json
 // @Param       nodeid path string true "Node ID"
-// @Success     200 {object} models.Node
+// @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func deletefailOver(w http.ResponseWriter, r *http.Request) {
@@ -162,8 +170,10 @@ func deletefailOver(w http.ResponseWriter, r *http.Request) {
 // @Summary     Failover me
 // @Router      /api/v1/node/{nodeid}/failover_me [post]
 // @Tags        PRO
-// @Param       nodeid path string true "Node ID"
+// @Security    oauth
 // @Accept      json
+// @Produce     json
+// @Param       nodeid path string true "Node ID"
 // @Param       body body models.FailOverMeReq true "Failover request"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
@@ -321,11 +331,13 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, "relayed successfully")
 }
 
-// @Summary     checkfailOverCtx
+// @Summary     Check failover context
 // @Router      /api/v1/node/{nodeid}/failover_check [get]
 // @Tags        PRO
-// @Param       nodeid path string true "Node ID"
+// @Security    oauth
 // @Accept      json
+// @Produce     json
+// @Param       nodeid path string true "Node ID"
 // @Param       body body models.FailOverMeReq true "Failover request"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse

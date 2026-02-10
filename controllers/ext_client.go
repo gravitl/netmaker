@@ -59,12 +59,13 @@ func checkIngressExists(nodeID string) bool {
 	return node.IsIngressGateway
 }
 
-// @Summary     Get all remote access client associated with network
+// @Summary     Get all remote access clients associated with network
 // @Router      /api/extclients/{network} [get]
 // @Tags        Remote Access Client
-// @Security    oauth2
+// @Security    oauth
+// @Produce     json
 // @Param       network path string true "Network ID"
-// @Success     200 {object} models.ExtClient
+// @Success     200 {array} models.ExtClient
 // @Failure     500 {object} models.ErrorResponse
 func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 
@@ -86,14 +87,13 @@ func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(extclients)
 }
 
-// @Summary     Fetches All Remote Access Clients across all networks
+// @Summary     Fetch all remote access clients across all networks
 // @Router      /api/extclients [get]
 // @Tags        Remote Access Client
-// @Security    oauth2
-// @Success     200 {object} models.ExtClient
+// @Security    oauth
+// @Produce     json
+// @Success     200 {array} models.ExtClient
 // @Failure     500 {object} models.ErrorResponse
-// Not quite sure if this is necessary. Probably necessary based on front end but may
-// want to review after iteration 1 if it's being used or not
 func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -113,7 +113,8 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 // @Summary     Get an individual remote access client
 // @Router      /api/extclients/{network}/{clientid} [get]
 // @Tags        Remote Access Client
-// @Security    oauth2
+// @Security    oauth
+// @Produce     json
 // @Param       network path string true "Network ID"
 // @Param       clientid path string true "Client ID"
 // @Success     200 {object} models.ExtClient
@@ -149,13 +150,15 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(client)
 }
 
-// @Summary     Get an individual remote access client
+// @Summary     Get remote access client configuration
 // @Router      /api/extclients/{network}/{clientid}/{type} [get]
 // @Tags        Remote Access Client
-// @Security    oauth2
+// @Security    oauth
+// @Produce     json
 // @Param       network path string true "Network ID"
 // @Param       clientid path string true "Client ID"
-// @Param       type path string true "Client config type"
+// @Param       type path string true "Config type (qr or file)"
+// @Param       preferredip query string false "Preferred endpoint IP"
 // @Success     200 {object} models.ExtClient
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
@@ -391,12 +394,12 @@ Endpoint = %s
 	json.NewEncoder(w).Encode(client)
 }
 
-// @Summary     Get an individual remote access client
+// @Summary     Get remote access client HA configuration
 // @Router      /api/v1/client_conf/{network} [get]
 // @Tags        Remote Access Client
-// @Security    oauth2
+// @Security    oauth
 // @Param       network path string true "Network ID"
-// @Success     200 {object} models.ExtClient
+// @Success     200 {string} string "WireGuard config file"
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
 func getExtClientHAConf(w http.ResponseWriter, r *http.Request) {
@@ -630,13 +633,16 @@ Endpoint = %s
 	}
 }
 
-// @Summary     Create an individual remote access client
+// @Summary     Create a remote access client
 // @Router      /api/extclients/{network}/{nodeid} [post]
 // @Tags        Remote Access Client
-// @Security    oauth2
+// @Security    oauth
+// @Accept      json
+// @Produce     json
 // @Param       network path string true "Network ID"
 // @Param       nodeid path string true "Node ID (Ingress Gateway)"
-// @Success     200 {string} string "OK"
+// @Param       body body models.CustomExtClient true "Custom ext client parameters"
+// @Success     200 {object} models.ExtClient
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
@@ -883,12 +889,15 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
-// @Summary     Update an individual remote access client
+// @Summary     Update a remote access client
 // @Router      /api/extclients/{network}/{clientid} [put]
 // @Tags        Remote Access Client
-// @Security    oauth2
+// @Security    oauth
+// @Accept      json
+// @Produce     json
 // @Param       network path string true "Network ID"
 // @Param       clientid path string true "Client ID"
+// @Param       body body models.CustomExtClient true "Custom ext client update"
 // @Success     200 {object} models.ExtClient
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     400 {object} models.ErrorResponse
@@ -1031,13 +1040,14 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// @Summary     Delete an individual remote access client
+// @Summary     Delete a remote access client
 // @Router      /api/extclients/{network}/{clientid} [delete]
 // @Tags        Remote Access Client
-// @Security    oauth2
+// @Security    oauth
+// @Produce     json
 // @Param       network path string true "Network ID"
 // @Param       clientid path string true "Client ID"
-// @Success     200
+// @Success     200 {object} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
 func deleteExtClient(w http.ResponseWriter, r *http.Request) {

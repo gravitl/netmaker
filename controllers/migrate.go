@@ -19,17 +19,15 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-// swagger:route PUT /api/v1/nodes/migrate nodes migrateData
-//
-// Used to migrate a legacy node.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: hostPull
+// @Summary     Used to migrate a legacy node.
+// @Router      /api/v1/nodes/migrate [put]
+// @Tags        Nodes
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       body body models.MigrationData true "Migration data"
+// @Success     200 {object} models.HostPull
+// @Failure     400 {object} models.ErrorResponse
 func migrate(w http.ResponseWriter, r *http.Request) {
 	data := models.MigrationData{}
 	host := models.Host{}

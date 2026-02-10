@@ -30,9 +30,12 @@ func gwHandlers(r *mux.Router) {
 // @Summary     Create a gateway
 // @Router      /api/nodes/{network}/{nodeid}/gateway [post]
 // @Tags        Nodes
-// @Security    oauth2
+// @Security    oauth
+// @Accept      json
+// @Produce     json
 // @Param       network path string true "Network ID"
 // @Param       nodeid path string true "Node ID"
+// @Param       body body models.CreateGwReq true "Gateway request"
 // @Success     200 {object} models.ApiNode
 // @Failure     500 {object} models.ErrorResponse
 func createGateway(w http.ResponseWriter, r *http.Request) {
@@ -170,7 +173,8 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 // @Summary     Delete a gateway
 // @Router      /api/nodes/{network}/{nodeid}/gateway [delete]
 // @Tags        Nodes
-// @Security    oauth2
+// @Security    oauth
+// @Produce     json
 // @Param       network path string true "Network ID"
 // @Param       nodeid path string true "Node ID"
 // @Success     200 {object} models.ApiNode
@@ -307,7 +311,8 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 // @Summary     Assign a node to a gateway
 // @Router      /api/nodes/{network}/{nodeid}/gateway/assign [post]
 // @Tags        Nodes
-// @Security    oauth2
+// @Security    oauth
+// @Produce     json
 // @Param       network path string true "Network ID"
 // @Param       nodeid path string true "Client node ID to assign to gateway"
 // @Param       gw_id query string true "Gateway node ID"
@@ -442,8 +447,10 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 // @Summary     Unassign client nodes from a gateway
 // @Router      /api/nodes/{network}/{nodeid}/gateway/unassign [post]
 // @Tags        Nodes
-// @Security    oauth2
-// @Param       body body models.InetNodeReq true "Internet gateway request with client node IDs to unassign"
+// @Security    oauth
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Param       nodeid path string true "Node ID"
 // @Success     200 {object} models.ApiNode
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse

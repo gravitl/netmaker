@@ -37,6 +37,26 @@ ORDER BY version DESC
 LIMIT ? OFFSET ?`
 )
 
+// @Summary     List flow logs
+// @Router      /api/v1/flows [get]
+// @Tags        PRO
+// @Security    oauth
+// @Produce     json
+// @Param       network_id query string false "Filter by network ID"
+// @Param       from query string false "Start time in RFC3339 format"
+// @Param       to query string false "End time in RFC3339 format"
+// @Param       src_type query string false "Source type filter"
+// @Param       src_entity_id query string false "Source entity ID filter"
+// @Param       dst_type query string false "Destination type filter"
+// @Param       dst_entity_id query string false "Destination entity ID filter"
+// @Param       protocol query string false "Protocol filter"
+// @Param       node_id query string false "Node ID filter"
+// @Param       username query string false "Username filter"
+// @Param       page query int false "Page number"
+// @Param       per_page query int false "Items per page (max 1000)"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
 func handleListFlows(w http.ResponseWriter, r *http.Request) {
 	if !proLogic.GetFeatureFlags().EnableFlowLogs || !logic.GetServerSettings().EnableFlowLogs {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("flow logs not enabled"), logic.Forbidden))

@@ -38,6 +38,7 @@ func enrollmentKeyHandlers(r *mux.Router) {
 // @Router      /api/v1/enrollment-keys [get]
 // @Tags        EnrollmentKeys
 // @Security    oauth
+// @Produce     json
 // @Success     200 {array} models.EnrollmentKey
 // @Failure     500 {object} models.ErrorResponse
 func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
@@ -65,11 +66,11 @@ func getEnrollmentKeys(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     Deletes an EnrollmentKey from Netmaker server
-// @Router      /api/v1/enrollment-keys/{keyid} [delete]
+// @Router      /api/v1/enrollment-keys/{keyID} [delete]
 // @Tags        EnrollmentKeys
 // @Security    oauth
-// @Param       keyid path string true "Enrollment Key ID"
-// @Success     200
+// @Param       keyID path string true "Enrollment Key ID"
+// @Success     200 {string} string
 // @Failure     500 {object} models.ErrorResponse
 func deleteEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
@@ -112,6 +113,8 @@ func deleteEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/v1/enrollment-keys [post]
 // @Tags        EnrollmentKeys
 // @Security    oauth
+// @Accept      json
+// @Produce     json
 // @Param       body body models.APIEnrollmentKey true "Enrollment Key parameters"
 // @Success     200 {object} models.EnrollmentKey
 // @Failure     400 {object} models.ErrorResponse
@@ -220,11 +223,13 @@ func createEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(newEnrollmentKey)
 }
 
-// @Summary     Updates an EnrollmentKey. Updates are only limited to the relay to use
-// @Router      /api/v1/enrollment-keys/{keyid} [put]
+// @Summary     Updates an EnrollmentKey
+// @Router      /api/v1/enrollment-keys/{keyID} [put]
 // @Tags        EnrollmentKeys
 // @Security    oauth
-// @Param       keyid path string true "Enrollment Key ID"
+// @Accept      json
+// @Produce     json
+// @Param       keyID path string true "Enrollment Key ID"
 // @Param       body body models.APIEnrollmentKey true "Enrollment Key parameters"
 // @Success     200 {object} models.EnrollmentKey
 // @Failure     400 {object} models.ErrorResponse
@@ -290,7 +295,8 @@ func updateEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 // @Summary     Handles a Netclient registration with server and add nodes accordingly
 // @Router      /api/v1/host/register/{token} [post]
 // @Tags        EnrollmentKeys
-// @Security    oauth
+// @Accept      json
+// @Produce     json
 // @Param       token path string true "Enrollment Key Token"
 // @Param       body body models.Host true "Host registration parameters"
 // @Success     200 {object} models.RegisterResponse
