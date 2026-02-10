@@ -435,7 +435,7 @@ func identifySettingsUpdateAction(old, new models.ServerSettings) models.Action 
 // @Router      /api/server/feature_flags [get]
 // @Tags        Server
 // @Produce     json
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.FeatureFlags
 func getFeatureFlags(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, logic.GetFeatureFlags(), "")
 }

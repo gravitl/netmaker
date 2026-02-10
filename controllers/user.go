@@ -68,7 +68,7 @@ func userHandlers(r *mux.Router) {
 // @Accept      json
 // @Produce     json
 // @Param       body body schema.UserAccessToken true "Access token request"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.SuccessfulUserLoginResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -165,7 +165,7 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       username query string true "Username"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {array} schema.UserAccessToken
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -430,7 +430,7 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 // @Produce     json
 // @Param       username path string true "Username"
 // @Param       body body models.UserIdentityValidationRequest true "User Identity Validation Request"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.UserIdentityValidationResponse
 // @Failure     400 {object} models.ErrorResponse
 func validateUserIdentity(w http.ResponseWriter, r *http.Request) {
 	username := r.Header.Get("user")
@@ -468,7 +468,7 @@ func validateUserIdentity(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       username path string true "Username"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.TOTPInitiateResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func initiateTOTPSetup(w http.ResponseWriter, r *http.Request) {
@@ -622,7 +622,7 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 // @Produce     json
 // @Param       username path string true "Username"
 // @Param       body body models.UserTOTPVerificationParams true "TOTP verification parameters"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.SuccessfulUserLoginResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -949,7 +949,7 @@ func disableUserAccount(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       username path string true "Username of the user"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.UserSettings
 func getUserSettings(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("user")
 	userSettings := logic.GetUserSettings(userID)
@@ -964,7 +964,7 @@ func getUserSettings(w http.ResponseWriter, r *http.Request) {
 // @Produce     json
 // @Param       username path string true "Username of the user"
 // @Param       body body models.UserSettings true "User settings"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.UserSettings
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func updateUserSettings(w http.ResponseWriter, r *http.Request) {
@@ -995,7 +995,7 @@ func updateUserSettings(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       username query string true "Username"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.ReturnUserWithRolesAndGroups
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func getUserV1(w http.ResponseWriter, r *http.Request) {

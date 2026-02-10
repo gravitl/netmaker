@@ -40,11 +40,11 @@ func AutoRelayHandlers(r *mux.Router) {
 
 // @Summary     Get auto relay nodes
 // @Router      /api/v1/node/{nodeid}/auto_relay [get]
-// @Tags        PRO
+// @Tags        Auto Relay
 // @Security    oauth
 // @Produce     json
 // @Param       nodeid path string true "Node ID"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {array} models.Node
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     404 {object} models.ErrorResponse
 func getAutoRelayGws(w http.ResponseWriter, r *http.Request) {
@@ -86,11 +86,11 @@ func getAutoRelayGws(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     Create AutoRelay node
 // @Router      /api/v1/node/{nodeid}/auto_relay [post]
-// @Tags        PRO
+// @Tags        Auto Relay
 // @Security    oauth
 // @Produce     json
 // @Param       nodeid path string true "Node ID"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.Node
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func setAutoRelay(w http.ResponseWriter, r *http.Request) {
@@ -115,7 +115,7 @@ func setAutoRelay(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     Reset AutoRelay for a network
 // @Router      /api/v1/node/{network}/auto_relay/reset [post]
-// @Tags        PRO
+// @Tags        Auto Relay
 // @Security    oauth
 // @Produce     json
 // @Param       network path string true "Network ID"
@@ -148,11 +148,11 @@ func resetAutoRelayGw(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     Delete autorelay node
 // @Router      /api/v1/node/{nodeid}/auto_relay [delete]
-// @Tags        PRO
+// @Tags        Auto Relay
 // @Security    oauth
 // @Produce     json
 // @Param       nodeid path string true "Node ID"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.Node
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func unsetAutoRelay(w http.ResponseWriter, r *http.Request) {
@@ -186,7 +186,7 @@ func unsetAutoRelay(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     AutoRelay me
 // @Router      /api/v1/node/{nodeid}/auto_relay_me [post]
-// @Tags        PRO
+// @Tags        Auto Relay
 // @Security    oauth
 // @Accept      json
 // @Produce     json
@@ -351,7 +351,7 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     Update AutoRelay me
 // @Router      /api/v1/node/{nodeid}/auto_relay_me [put]
-// @Tags        PRO
+// @Tags        Auto Relay
 // @Security    oauth
 // @Accept      json
 // @Produce     json
@@ -513,7 +513,7 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     Check AutoRelay context
 // @Router      /api/v1/node/{nodeid}/auto_relay_check [get]
-// @Tags        PRO
+// @Tags        Auto Relay
 // @Security    oauth
 // @Accept      json
 // @Produce     json

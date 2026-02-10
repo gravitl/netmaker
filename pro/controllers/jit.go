@@ -32,35 +32,20 @@ func JITHandlers(r *mux.Router) {
 		http.HandlerFunc(requestJITAccess))).Methods(http.MethodPost)
 }
 
-// JITRequest - request body for JIT operations
-type JITRequest struct {
-	Action    string `json:"action"` // enable, disable, request, approve, deny
-	RequestID string `json:"request_id,omitempty"`
-	GrantID   string `json:"grant_id,omitempty"`
-	Reason    string `json:"reason,omitempty"`
-	ExpiresAt int64  `json:"expires_at,omitempty"` // Unix epoch timestamp (seconds) for when access should expire
-}
 
-// JITAccessRequest - request body for user JIT access request
-type JITAccessRequest struct {
-	NetworkID string `json:"network_id"` // Network identifier
-	Reason    string `json:"reason"`     // Reason for access request (required)
-}
-
-// @Summary     Handle JIT operations (list requests or perform actions)
+// @Summary     List JIT requests for a network
 // @Router      /api/v1/jit [get]
 // @Tags        JIT
 // @Security    oauth
-// @Accept      json
 // @Produce     json
 // @Param       network query string true "Network ID"
 // @Param       status query string false "Filter by status (pending, approved, denied, expired)"
 // @Param       page query int false "Page number"
 // @Param       per_page query int false "Items per page"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {array} schema.JITRequest
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
-
+//
 // @Summary     Handle JIT operations (enable, disable, approve, deny)
 // @Router      /api/v1/jit [post]
 // @Tags        JIT
@@ -68,11 +53,10 @@ type JITAccessRequest struct {
 // @Accept      json
 // @Produce     json
 // @Param       network query string true "Network ID"
+// @Param       body body models.JITOperationRequest true "JIT operation request"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
-
-// handleJIT - handles JIT operations based on action
 func handleJIT(w http.ResponseWriter, r *http.Request) {
 	// Check if JIT feature is enabled
 	featureFlags := logic.GetFeatureFlags()
@@ -151,7 +135,7 @@ func handleJITGet(w http.ResponseWriter, r *http.Request, networkID string, user
 
 // handleJITPost - handles POST requests for JIT operations
 func handleJITPost(w http.ResponseWriter, r *http.Request, networkID string, user *models.User) {
-	var req JITRequest
+	var req models.JITOperationRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		logger.Log(0, "error decoding request body:", err.Error())
@@ -347,8 +331,6 @@ func handleDenyRequest(w http.ResponseWriter, r *http.Request, networkID string,
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
-
-// deleteJITGrant - deletes/revokes a JIT grant
 func deleteJITGrant(w http.ResponseWriter, r *http.Request) {
 	// Check if JIT feature is enabled
 	featureFlags := logic.GetFeatureFlags()
@@ -497,11 +479,9 @@ func isNetworkAdmin(user *models.User, networkID string) bool {
 // @Tags        JIT
 // @Security    oauth
 // @Produce     json
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {array} models.UserJITNetworkStatus
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
-
-// getUserJITNetworks - gets all networks with JIT status for the current user
 func getUserJITNetworks(w http.ResponseWriter, r *http.Request) {
 	// Check if JIT feature is enabled
 	featureFlags := logic.GetFeatureFlags()
@@ -549,11 +529,10 @@ func getUserJITNetworks(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       network query string true "Network ID"
-// @Success     200 {object} models.SuccessResponse
+// @Param       body body models.JITAccessRequest true "JIT access request"
+// @Success     200 {object} schema.JITRequest
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
-
-// requestJITAccess - creates a JIT access request (user-facing endpoint)
 func requestJITAccess(w http.ResponseWriter, r *http.Request) {
 	// Check if JIT feature is enabled
 	featureFlags := logic.GetFeatureFlags()
@@ -575,7 +554,7 @@ func requestJITAccess(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req JITAccessRequest
+	var req models.JITAccessRequest
 	err = json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		logger.Log(0, "error decoding request body:", err.Error())

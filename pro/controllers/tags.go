@@ -35,7 +35,7 @@ func TagHandlers(r *mux.Router) {
 // @Security    oauth
 // @Produce     json
 // @Param       network query string true "Network ID"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {array} models.TagListRespNodes
 // @Failure     500 {object} models.ErrorResponse
 func getTags(w http.ResponseWriter, r *http.Request) {
 	netID, _ := url.QueryUnescape(r.URL.Query().Get("network"))
@@ -66,7 +66,7 @@ func getTags(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       body body models.CreateTagReq true "Tag creation request"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.TagListRespNodes
 // @Failure     500 {object} models.ErrorResponse
 func createTag(w http.ResponseWriter, r *http.Request) {
 	var req models.CreateTagReq
@@ -171,7 +171,7 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       body body models.UpdateTagReq true "Tag update request"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.TagListRespNodes
 // @Failure     500 {object} models.ErrorResponse
 func updateTag(w http.ResponseWriter, r *http.Request) {
 	var updateTag models.UpdateTagReq

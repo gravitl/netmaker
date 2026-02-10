@@ -29,7 +29,7 @@ func EventHandlers(r *mux.Router) {
 // @Param       to_date query string false "End date in RFC3339 format"
 // @Param       page query int false "Page number"
 // @Param       per_page query int false "Items per page"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {array} schema.Event
 // @Failure     500 {object} models.ErrorResponse
 func listNetworkActivity(w http.ResponseWriter, r *http.Request) {
 	netID := r.URL.Query().Get("network_id")
@@ -89,7 +89,7 @@ func listNetworkActivity(w http.ResponseWriter, r *http.Request) {
 // @Param       to_date query string false "End date in RFC3339 format"
 // @Param       page query int false "Page number"
 // @Param       per_page query int false "Items per page"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {array} schema.Event
 // @Failure     500 {object} models.ErrorResponse
 func listUserActivity(w http.ResponseWriter, r *http.Request) {
 	username := r.URL.Query().Get("username")
@@ -149,7 +149,7 @@ func listUserActivity(w http.ResponseWriter, r *http.Request) {
 // @Param       to_date query string false "End date in RFC3339 format"
 // @Param       page query int false "Page number"
 // @Param       per_page query int false "Items per page"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {array} schema.Event
 // @Failure     500 {object} models.ErrorResponse
 func listActivity(w http.ResponseWriter, r *http.Request) {
 	username := r.URL.Query().Get("username")

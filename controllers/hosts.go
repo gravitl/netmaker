@@ -1193,7 +1193,7 @@ func delEmqxHosts(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       hostid path string true "Host ID"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.HostPeerInfo
 // @Failure     500 {object} models.ErrorResponse
 func getHostPeerInfo(w http.ResponseWriter, r *http.Request) {
 	hostId := mux.Vars(r)["hostid"]
@@ -1224,7 +1224,7 @@ func getHostPeerInfo(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       network query string true "Network ID"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {array} schema.PendingHost
 // @Failure     500 {object} models.ErrorResponse
 func getPendingHosts(w http.ResponseWriter, r *http.Request) {
 	netID := r.URL.Query().Get("network")
@@ -1252,7 +1252,7 @@ func getPendingHosts(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       id path string true "Pending Host ID"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.ApiNode
 // @Failure     500 {object} models.ErrorResponse
 func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
@@ -1341,7 +1341,7 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       id path string true "Pending Host ID"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} schema.PendingHost
 // @Failure     500 {object} models.ErrorResponse
 func rejectPendingHost(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]

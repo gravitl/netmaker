@@ -51,7 +51,7 @@ func dnsHandlers(r *mux.Router) {
 // @Tags        DNS
 // @Security    oauth
 // @Produce     json
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} map[string]schema.Nameserver
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -67,7 +67,7 @@ func getGlobalNs(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       body body models.NameserverReq true "Nameserver request body"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} schema.Nameserver
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -158,7 +158,7 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       network query string true "Network identifier"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {array} schema.Nameserver
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -189,7 +189,7 @@ func listNs(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       body body models.NameserverReq true "Nameserver request body"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} schema.Nameserver
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -307,7 +307,7 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       id query string true "Nameserver ID"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {string} string
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse

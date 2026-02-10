@@ -15,7 +15,7 @@ import (
 
 // @Summary     Create an internet gateway
 // @Router      /api/nodes/{network}/{nodeid}/inet_gw [post]
-// @Tags        PRO
+// @Tags        Internet Gateways
 // @Security    oauth
 // @Accept      json
 // @Produce     json
@@ -104,7 +104,7 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     Update an internet gateway
 // @Router      /api/nodes/{network}/{nodeid}/inet_gw [put]
-// @Tags        PRO
+// @Tags        Internet Gateways
 // @Security    oauth
 // @Accept      json
 // @Produce     json
@@ -166,7 +166,7 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     Delete an internet gateway
 // @Router      /api/nodes/{network}/{nodeid}/inet_gw [delete]
-// @Tags        PRO
+// @Tags        Internet Gateways
 // @Security    oauth
 // @Produce     json
 // @Param       network path string true "Network ID"

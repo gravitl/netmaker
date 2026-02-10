@@ -48,7 +48,7 @@ func listPostureChecksAttrs(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       body body schema.PostureCheck true "Posture Check payload"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} schema.PostureCheck
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -120,7 +120,7 @@ func createPostureCheck(w http.ResponseWriter, r *http.Request) {
 // @Produce     json
 // @Param       network query string true "Network ID"
 // @Param       id query string false "Posture Check ID to fetch a specific check"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {array} schema.PostureCheck
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -171,7 +171,7 @@ func listPostureChecks(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       body body schema.PostureCheck true "Posture Check payload"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} schema.PostureCheck
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -255,7 +255,7 @@ func updatePostureCheck(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       id query string true "Posture Check ID"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} schema.PostureCheck
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -309,7 +309,7 @@ func deletePostureCheck(w http.ResponseWriter, r *http.Request) {
 // @Produce     json
 // @Param       network query string true "Network ID"
 // @Param       users query string false "If 'true', list violated users instead of nodes"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {array} models.ApiNode
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse

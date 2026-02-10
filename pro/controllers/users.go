@@ -305,7 +305,7 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 // @Tags        Users
 // @Security    oauth
 // @Produce     json
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {array} models.UserInvite
 // @Failure     500 {object} models.ErrorResponse
 func listUserInvites(w http.ResponseWriter, r *http.Request) {
 	usersInvites, err := logic.ListUserInvites()
@@ -393,7 +393,7 @@ func deleteAllUserInvites(w http.ResponseWriter, r *http.Request) {
 // @Tags        Users
 // @Security    oauth
 // @Produce     json
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {array} models.UserGroup
 // @Failure     500 {object} models.ErrorResponse
 func listUserGroups(w http.ResponseWriter, r *http.Request) {
 	groups, err := proLogic.ListUserGroups()
@@ -413,7 +413,7 @@ func listUserGroups(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       group_id query string true "Group ID"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.UserGroup
 // @Failure     500 {object} models.ErrorResponse
 func getUserGroup(w http.ResponseWriter, r *http.Request) {
 
@@ -440,7 +440,7 @@ func getUserGroup(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       body body models.CreateGroupReq true "Create group request"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.UserGroup
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func createUserGroup(w http.ResponseWriter, r *http.Request) {
@@ -500,7 +500,7 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       body body models.UserGroup true "User group update data"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.UserGroup
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func updateUserGroup(w http.ResponseWriter, r *http.Request) {
@@ -748,7 +748,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       network_id query string true "Network ID"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {array} models.ReturnUser
 // @Failure     400 {object} models.ErrorResponse
 func listUnAssignedNetUsers(w http.ResponseWriter, r *http.Request) {
 	netID := r.URL.Query().Get("network_id")
@@ -788,7 +788,7 @@ func listUnAssignedNetUsers(w http.ResponseWriter, r *http.Request) {
 // @Produce     json
 // @Param       username query string true "Username"
 // @Param       network_id query string true "Network ID"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.User
 // @Failure     400 {object} models.ErrorResponse
 func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 	username := r.URL.Query().Get("username")
@@ -843,7 +843,7 @@ func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 // @Produce     json
 // @Param       username query string true "Username"
 // @Param       network_id query string true "Network ID"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.User
 // @Failure     400 {object} models.ErrorResponse
 func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
 	username := r.URL.Query().Get("username")
@@ -1158,7 +1158,7 @@ func deleteRole(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     Attach user to a remote access gateway
 // @Router      /api/users/{username}/remote_access_gw/{remote_access_gateway_id} [post]
-// @Tags        PRO
+// @Tags        Users
 // @Security    oauth
 // @Accept      json
 // @Produce     json
@@ -1246,7 +1246,7 @@ func attachUserToRemoteAccessGw(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     Remove user from a remote access gateway
 // @Router      /api/users/{username}/remote_access_gw/{remote_access_gateway_id} [delete]
-// @Tags        PRO
+// @Tags        Users
 // @Security    oauth
 // @Accept      json
 // @Produce     json
@@ -1327,13 +1327,6 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(logic.ToReturnUser(*user))
 }
 
-// @Summary     Get user remote access networks
-// @Router      /api/v1/rac/networks [get]
-// @Tags        RAC
-// @Security    oauth
-// @Produce     json
-// @Success     200 {object} models.SuccessResponse
-// @Failure     500 {object} models.ErrorResponse
 func getUserRemoteAccessNetworks(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -1365,14 +1358,6 @@ func getUserRemoteAccessNetworks(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, networks, "fetched user accessible networks")
 }
 
-// @Summary     Get user remote access network gateways
-// @Router      /api/v1/rac/network/{network}/access_points [get]
-// @Tags        RAC
-// @Security    oauth
-// @Produce     json
-// @Param       network path string true "Network Name"
-// @Success     200 {object} models.SuccessResponse
-// @Failure     500 {object} models.ErrorResponse
 func getUserRemoteAccessNetworkGateways(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -1416,16 +1401,6 @@ func getUserRemoteAccessNetworkGateways(w http.ResponseWriter, r *http.Request) 
 	logic.ReturnSuccessResponseWithJson(w, r, userGws, "fetched user accessible gateways in network "+network)
 }
 
-// @Summary     Get remote access gateway configuration
-// @Router      /api/v1/rac/access_point/{access_point_id}/config [get]
-// @Tags        RAC
-// @Security    oauth
-// @Accept      json
-// @Produce     json
-// @Param       access_point_id path string true "Access Point ID"
-// @Param       body body models.UserRemoteGwsReq true "Remote Access Client ID"
-// @Success     200 {object} models.SuccessResponse
-// @Failure     500 {object} models.ErrorResponse
 func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -1789,7 +1764,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     List users attached to a remote access gateway
 // @Router      /api/users/ingress/{ingress_id} [get]
-// @Tags        PRO
+// @Tags        Users
 // @Security    oauth
 // @Accept      json
 // @Produce     json
@@ -1829,7 +1804,7 @@ func ingressGatewayUsers(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     List users network IP mappings
 // @Router      /api/v1/users/network_ip [get]
-// @Tags        PRO
+// @Tags        Users
 // @Security    oauth
 // @Produce     json
 // @Success     200 {object} models.UserIPMap
@@ -2142,7 +2117,7 @@ func testIDPSync(w http.ResponseWriter, r *http.Request) {
 // @Tags        IDP
 // @Security    oauth
 // @Produce     json
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.IDPSyncStatus
 func getIDPSyncStatus(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, proAuth.GetIDPSyncStatus(), "idp sync status retrieved")
 }

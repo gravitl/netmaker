@@ -59,9 +59,9 @@ func checkIngressExists(nodeID string) bool {
 	return node.IsIngressGateway
 }
 
-// @Summary     Get all remote access clients associated with network
+// @Summary     Get all config files associated with network
 // @Router      /api/extclients/{network} [get]
-// @Tags        Remote Access Client
+// @Tags        Config Files
 // @Security    oauth
 // @Produce     json
 // @Param       network path string true "Network ID"
@@ -87,9 +87,9 @@ func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(extclients)
 }
 
-// @Summary     Fetch all remote access clients across all networks
+// @Summary     Fetch all config files across all networks
 // @Router      /api/extclients [get]
-// @Tags        Remote Access Client
+// @Tags        Config Files
 // @Security    oauth
 // @Produce     json
 // @Success     200 {array} models.ExtClient
@@ -110,9 +110,9 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(clients)
 }
 
-// @Summary     Get an individual remote access client
+// @Summary     Get an individual config file
 // @Router      /api/extclients/{network}/{clientid} [get]
-// @Tags        Remote Access Client
+// @Tags        Config Files
 // @Security    oauth
 // @Produce     json
 // @Param       network path string true "Network ID"
@@ -150,9 +150,9 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(client)
 }
 
-// @Summary     Get remote access client configuration
+// @Summary     Get config file configuration
 // @Router      /api/extclients/{network}/{clientid}/{type} [get]
-// @Tags        Remote Access Client
+// @Tags        Config Files
 // @Security    oauth
 // @Produce     json
 // @Param       network path string true "Network ID"
@@ -394,9 +394,9 @@ Endpoint = %s
 	json.NewEncoder(w).Encode(client)
 }
 
-// @Summary     Get remote access client HA configuration
+// @Summary     Get config file HA configuration
 // @Router      /api/v1/client_conf/{network} [get]
-// @Tags        Remote Access Client
+// @Tags        Config Files
 // @Security    oauth
 // @Param       network path string true "Network ID"
 // @Success     200 {string} string "WireGuard config file"
@@ -633,9 +633,9 @@ Endpoint = %s
 	}
 }
 
-// @Summary     Create a remote access client
+// @Summary     Create a config file
 // @Router      /api/extclients/{network}/{nodeid} [post]
-// @Tags        Remote Access Client
+// @Tags        Config Files
 // @Security    oauth
 // @Accept      json
 // @Produce     json
@@ -889,9 +889,9 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
-// @Summary     Update a remote access client
+// @Summary     Update a config file
 // @Router      /api/extclients/{network}/{clientid} [put]
-// @Tags        Remote Access Client
+// @Tags        Config Files
 // @Security    oauth
 // @Accept      json
 // @Produce     json
@@ -1040,9 +1040,9 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// @Summary     Delete a remote access client
+// @Summary     Delete a config file
 // @Router      /api/extclients/{network}/{clientid} [delete]
-// @Tags        Remote Access Client
+// @Tags        Config Files
 // @Security    oauth
 // @Produce     json
 // @Param       network path string true "Network ID"

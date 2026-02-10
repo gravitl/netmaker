@@ -85,7 +85,7 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 // @Tags        Networks
 // @Security    oauth
 // @Produce     json
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {array} models.NetworkStatResp
 // @Failure     500 {object} models.ErrorResponse
 func getNetworksStats(w http.ResponseWriter, r *http.Request) {
 
@@ -480,7 +480,7 @@ func OldNetworkACLStatus(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Param       networkname path string true "Network name"
 // @Produce     json
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} map[string][]string
 // @Failure     500 {object} models.ErrorResponse
 func getNetworkEgressRoutes(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)

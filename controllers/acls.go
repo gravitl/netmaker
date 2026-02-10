@@ -39,7 +39,7 @@ func aclHandlers(r *mux.Router) {
 // @Tags        ACL
 // @Security    oauth
 // @Produce     json
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.AclPolicyTypes
 // @Failure     500 {object} models.ErrorResponse
 func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 	resp := models.AclPolicyTypes{
@@ -202,7 +202,7 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       network query string true "Network ID"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {array} models.Acl
 // @Failure     500 {object} models.ErrorResponse
 func getAcls(w http.ResponseWriter, r *http.Request) {
 	netID := r.URL.Query().Get("network")
@@ -232,7 +232,7 @@ func getAcls(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       egress_id query string true "Egress ID"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {array} models.Acl
 // @Failure     500 {object} models.ErrorResponse
 func getEgressAcls(w http.ResponseWriter, r *http.Request) {
 	eID := r.URL.Query().Get("egress_id")
@@ -264,7 +264,7 @@ func getEgressAcls(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       body body models.Acl true "ACL policy details"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.Acl
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func createAcl(w http.ResponseWriter, r *http.Request) {

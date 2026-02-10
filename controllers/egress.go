@@ -32,7 +32,7 @@ func egressHandlers(r *mux.Router) {
 // @Accept      json
 // @Produce     json
 // @Param       body body models.EgressReq true "Egress request data"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} schema.Egress
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -182,7 +182,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Produce     json
 // @Param       network query string true "Network identifier"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {array} schema.Egress
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -213,7 +213,7 @@ func listEgress(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       body body models.EgressReq true "Egress request data"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} schema.Egress
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
