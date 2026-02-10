@@ -866,6 +866,20 @@ var NetworkHook models.HookFunc = func(params ...interface{}) error {
 				}
 			}
 		}
+
+		if network.AutoRemoveUserConfigs == "true" {
+			extclients, err := GetNetworkExtClients(network.NetID)
+			if err != nil {
+				continue
+			}
+
+			for _, extclient := range extclients {
+				if extclient.ClientID != "" && !extclient.Enabled &&
+					time.Since(time.Unix(extclient.LastModified, 0)) > time.Duration(network.AutoRemoveThreshold)*time.Minute {
+					_ = DeleteExtClient(network.NetID, extclient.ClientID, false)
+				}
+			}
+		}
 	}
 	return nil
 }

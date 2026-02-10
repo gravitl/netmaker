@@ -409,6 +409,7 @@ func SaveExtClient(extclient *models.ExtClient) error {
 	if err != nil {
 		return err
 	}
+	extclient.LastModified = time.Now().Unix()
 	data, err := json.Marshal(&extclient)
 	if err != nil {
 		return err
