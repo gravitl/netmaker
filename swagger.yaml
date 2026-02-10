@@ -897,11 +897,6 @@ definitions:
           type: object
         type: object
     type: object
-  models.FailOverMeReq:
-    properties:
-      node_id:
-        type: string
-    type: object
   models.FeatureFlags:
     properties:
       allow_multi_server_license:
@@ -3178,22 +3173,6 @@ paths:
       summary: Push DNS entries to nameserver
       tags:
       - DNS
-  /api/emqx/hosts:
-    delete:
-      responses:
-        "200":
-          description: deleted hosts data on emqx
-          schema:
-            type: string
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - oauth: []
-      summary: Deletes all EMQX hosts
-      tags:
-      - Hosts
   /api/extclients:
     get:
       produces:
@@ -4418,7 +4397,7 @@ paths:
       - oauth: []
       summary: Delete a gateway
       tags:
-      - Nodes
+      - Gateways
     post:
       consumes:
       - application/json
@@ -4454,7 +4433,7 @@ paths:
       - oauth: []
       summary: Create a gateway
       tags:
-      - Nodes
+      - Gateways
   /api/nodes/{network}/{nodeid}/gateway/assign:
     post:
       parameters:
@@ -4496,7 +4475,7 @@ paths:
       - oauth: []
       summary: Assign a node to a gateway
       tags:
-      - Nodes
+      - Gateways
   /api/nodes/{network}/{nodeid}/gateway/unassign:
     post:
       parameters:
@@ -4529,120 +4508,7 @@ paths:
       - oauth: []
       summary: Unassign client nodes from a gateway
       tags:
-      - Nodes
-  /api/nodes/{network}/{nodeid}/inet_gw:
-    delete:
-      parameters:
-      - description: Network ID
-        in: path
-        name: network
-        required: true
-        type: string
-      - description: Node ID
-        in: path
-        name: nodeid
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.ApiNode'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - oauth: []
-      summary: Delete an internet gateway
-      tags:
-      - Internet Gateways
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Network ID
-        in: path
-        name: network
-        required: true
-        type: string
-      - description: Node ID
-        in: path
-        name: nodeid
-        required: true
-        type: string
-      - description: Internet gateway request
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/models.InetNodeReq'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.ApiNode'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - oauth: []
-      summary: Create an internet gateway
-      tags:
-      - Internet Gateways
-    put:
-      consumes:
-      - application/json
-      parameters:
-      - description: Network ID
-        in: path
-        name: network
-        required: true
-        type: string
-      - description: Node ID
-        in: path
-        name: nodeid
-        required: true
-        type: string
-      - description: Internet gateway request
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/models.InetNodeReq'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.ApiNode'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - oauth: []
-      summary: Update an internet gateway
-      tags:
-      - Internet Gateways
+      - Gateways
   /api/server/feature_flags:
     get:
       produces:
@@ -6642,30 +6508,6 @@ paths:
       summary: Reset AutoRelay for a network
       tags:
       - Auto Relay
-  /api/v1/node/{network}/failover/reset:
-    post:
-      parameters:
-      - description: Network ID
-        in: path
-        name: network
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.SuccessResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - oauth: []
-      summary: Reset failover for a network
-      tags:
-      - Failover
   /api/v1/node/{nodeid}/auto_relay:
     delete:
       parameters:
@@ -6857,160 +6699,6 @@ paths:
       summary: Update AutoRelay me
       tags:
       - Auto Relay
-  /api/v1/node/{nodeid}/failover:
-    delete:
-      parameters:
-      - description: Node ID
-        in: path
-        name: nodeid
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.Node'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - oauth: []
-      summary: Delete failover node
-      tags:
-      - Failover
-    get:
-      parameters:
-      - description: Node ID
-        in: path
-        name: nodeid
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.Node'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - oauth: []
-      summary: Get failover node
-      tags:
-      - Failover
-    post:
-      parameters:
-      - description: Node ID
-        in: path
-        name: nodeid
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.Node'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - oauth: []
-      summary: Create failover node
-      tags:
-      - Failover
-  /api/v1/node/{nodeid}/failover_check:
-    get:
-      consumes:
-      - application/json
-      parameters:
-      - description: Node ID
-        in: path
-        name: nodeid
-        required: true
-        type: string
-      - description: Failover request
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/models.FailOverMeReq'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.SuccessResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - oauth: []
-      summary: Check failover context
-      tags:
-      - Failover
-  /api/v1/node/{nodeid}/failover_me:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Node ID
-        in: path
-        name: nodeid
-        required: true
-        type: string
-      - description: Failover request
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/models.FailOverMeReq'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.SuccessResponse'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/models.ErrorResponse'
-      security:
-      - oauth: []
-      summary: Failover me
-      tags:
-      - Failover
   /api/v1/nodes/{network}/status:
     get:
       parameters:

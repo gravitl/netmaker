@@ -29,7 +29,7 @@ func gwHandlers(r *mux.Router) {
 
 // @Summary     Create a gateway
 // @Router      /api/nodes/{network}/{nodeid}/gateway [post]
-// @Tags        Nodes
+// @Tags        Gateways
 // @Security    oauth
 // @Accept      json
 // @Produce     json
@@ -172,7 +172,7 @@ func createGateway(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     Delete a gateway
 // @Router      /api/nodes/{network}/{nodeid}/gateway [delete]
-// @Tags        Nodes
+// @Tags        Gateways
 // @Security    oauth
 // @Produce     json
 // @Param       network path string true "Network ID"
@@ -310,7 +310,7 @@ func deleteGateway(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     Assign a node to a gateway
 // @Router      /api/nodes/{network}/{nodeid}/gateway/assign [post]
-// @Tags        Nodes
+// @Tags        Gateways
 // @Security    oauth
 // @Produce     json
 // @Param       network path string true "Network ID"
@@ -446,7 +446,7 @@ func assignGw(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     Unassign client nodes from a gateway
 // @Router      /api/nodes/{network}/{nodeid}/gateway/unassign [post]
-// @Tags        Nodes
+// @Tags        Gateways
 // @Security    oauth
 // @Produce     json
 // @Param       network path string true "Network ID"

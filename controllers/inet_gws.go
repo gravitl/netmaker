@@ -13,18 +13,6 @@ import (
 	"github.com/gravitl/netmaker/servercfg"
 )
 
-// @Summary     Create an internet gateway
-// @Router      /api/nodes/{network}/{nodeid}/inet_gw [post]
-// @Tags        Internet Gateways
-// @Security    oauth
-// @Accept      json
-// @Produce     json
-// @Param       network path string true "Network ID"
-// @Param       nodeid path string true "Node ID"
-// @Param       body body models.InetNodeReq true "Internet gateway request"
-// @Success     200 {object} models.ApiNode
-// @Failure     400 {object} models.ErrorResponse
-// @Failure     500 {object} models.ErrorResponse
 func createInternetGw(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
@@ -102,18 +90,6 @@ func createInternetGw(w http.ResponseWriter, r *http.Request) {
 	go mq.PublishPeerUpdate(false)
 }
 
-// @Summary     Update an internet gateway
-// @Router      /api/nodes/{network}/{nodeid}/inet_gw [put]
-// @Tags        Internet Gateways
-// @Security    oauth
-// @Accept      json
-// @Produce     json
-// @Param       network path string true "Network ID"
-// @Param       nodeid path string true "Node ID"
-// @Param       body body models.InetNodeReq true "Internet gateway request"
-// @Success     200 {object} models.ApiNode
-// @Failure     400 {object} models.ErrorResponse
-// @Failure     500 {object} models.ErrorResponse
 func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")
@@ -164,16 +140,6 @@ func updateInternetGw(w http.ResponseWriter, r *http.Request) {
 	go mq.PublishPeerUpdate(false)
 }
 
-// @Summary     Delete an internet gateway
-// @Router      /api/nodes/{network}/{nodeid}/inet_gw [delete]
-// @Tags        Internet Gateways
-// @Security    oauth
-// @Produce     json
-// @Param       network path string true "Network ID"
-// @Param       nodeid path string true "Node ID"
-// @Success     200 {object} models.ApiNode
-// @Failure     400 {object} models.ErrorResponse
-// @Failure     500 {object} models.ErrorResponse
 func deleteInternetGw(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	w.Header().Set("Content-Type", "application/json")

@@ -1155,12 +1155,6 @@ func syncHost(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// @Summary     Deletes all EMQX hosts
-// @Router      /api/emqx/hosts [delete]
-// @Tags        Hosts
-// @Security    oauth
-// @Success     200 {string} string "deleted hosts data on emqx"
-// @Failure     500 {object} models.ErrorResponse
 func delEmqxHosts(w http.ResponseWriter, r *http.Request) {
 	currentHosts, err := logic.GetAllHosts()
 	if err != nil {
