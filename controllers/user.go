@@ -1669,13 +1669,6 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 	go auth.SessionHandler(conn)
 }
 
-// @Summary     List all user roles
-// @Router      /api/v1/users/roles [get]
-// @Tags        Users
-// @Security    oauth
-// @Produce     json
-// @Success     200 {array} models.UserRolePermissionTemplate
-// @Failure     500 {object} models.ErrorResponse
 func listRoles(w http.ResponseWriter, r *http.Request) {
 	var roles []models.UserRolePermissionTemplate
 	var err error
