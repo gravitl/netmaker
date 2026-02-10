@@ -34,13 +34,6 @@ var PlatformUserUserPermissionTemplate = models.UserRolePermissionTemplate{
 	ID:         models.PlatformUser,
 	Default:    true,
 	FullAccess: false,
-	GlobalLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
-		models.UserRsrc: {
-			models.AllUserRsrcID: models.RsrcPermissionScope{
-				Read: true,
-			},
-		},
-	},
 }
 
 var AuditorUserPermissionTemplate = models.UserRolePermissionTemplate{

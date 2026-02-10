@@ -38,7 +38,7 @@ LIMIT ? OFFSET ?`
 )
 
 func handleListFlows(w http.ResponseWriter, r *http.Request) {
-	if !proLogic.GetFeatureFlags().EnableFlowLogs {
+	if !proLogic.GetFeatureFlags().EnableFlowLogs || !logic.GetServerSettings().EnableFlowLogs {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("flow logs not enabled"), logic.Forbidden))
 		return
 	}
@@ -177,7 +177,13 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 
 	args = append(args, perPage, offset)
 
-	rows, err := ch.FromContext(r.Context()).Query(r.Context(), query, args...)
+	conn, err := ch.FromContext(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r,
+			logic.FormatError(fmt.Errorf("clickhouse connection not available: %v", err), logic.Internal))
+		return
+	}
+	rows, err := conn.Query(r.Context(), query, args...)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r,
 			logic.FormatError(fmt.Errorf("error fetching flows: %v", err), logic.Internal))
