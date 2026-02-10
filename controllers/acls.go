@@ -146,17 +146,6 @@ func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, resp, "fetched acls types")
 }
 
-// @Summary     Debug ACL rules between two nodes
-// @Router      /api/v1/acls/debug [get]
-// @Tags        ACL
-// @Security    oauth
-// @Produce     json
-// @Param       node query string true "Node ID"
-// @Param       peer query string true "Peer ID"
-// @Param       peer_is_static query string false "Whether peer is a static node"
-// @Success     200 {object} models.SuccessResponse
-// @Failure     400 {object} models.ErrorResponse
-// @Failure     500 {object} models.ErrorResponse
 func aclDebug(w http.ResponseWriter, r *http.Request) {
 	nodeID, _ := url.QueryUnescape(r.URL.Query().Get("node"))
 	peerID, _ := url.QueryUnescape(r.URL.Query().Get("peer"))
