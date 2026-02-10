@@ -153,7 +153,7 @@ func (b *EmailBodyBuilderWithH1HeadlineAndImage) Build() string {
               <!-- START MAIN CONTENT AREA -->
               <tr>
                 <td class="wrapper" style="font-family: Helvetica, sans-serif; font-size: 16px; vertical-align: top; box-sizing: border-box; padding: 24px;" valign="top">
-                  <img src="` + netmakerLogoTeal + `" alt="Netmaker Logo" width="200" border="0" style="border:0; outline:none; text-decoration:none; display:block; margin-right: auto; height: auto;">
+                  <img src="` + netmakerLogoTeal + `" alt="Netmaker Logo" width="200" border="0" style="border:0; outline:none; text-decoration:none; display:block; margin-right: auto; margin-bottom: 24px; height: auto;">
                   ` + bodyContent + `
                 </td>
               </tr>
