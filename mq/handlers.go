@@ -313,7 +313,8 @@ func HandleHostCheckin(h, currentHost *models.Host) bool {
 		(h.ListenPort != 0 && h.ListenPort != currentHost.ListenPort) ||
 		(h.WgPublicListenPort != 0 && h.WgPublicListenPort != currentHost.WgPublicListenPort) ||
 		(!h.EndpointIPv6.Equal(currentHost.EndpointIPv6)) || (h.OSFamily != currentHost.OSFamily) ||
-		(h.OSVersion != currentHost.OSVersion) || (h.KernelVersion != currentHost.KernelVersion)
+		(h.OSVersion != currentHost.OSVersion) || (h.KernelVersion != currentHost.KernelVersion) ||
+		(h.Location != currentHost.Location) || (h.CountryCode != currentHost.CountryCode)
 	if ifaceDelta { // only save if something changes
 		currentHost.EndpointIP = h.EndpointIP
 		currentHost.EndpointIPv6 = h.EndpointIPv6
