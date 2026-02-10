@@ -135,6 +135,7 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if r.Header.Get("NET_ID") == "" && (r.Header.Get("TARGET_RSRC_ID") == "" ||
 			r.Header.Get("TARGET_RSRC") == models.EnrollmentKeysRsrc.String() ||
 			r.Header.Get("TARGET_RSRC") == models.UserRsrc.String()) ||
+			(r.Header.Get("TARGET_RSRC") == models.UserActivityRsrc.String() && route != "/api/v1/network/activity") ||
 			r.Header.Get("TARGET_RSRC") == models.TrafficFlow.String() {
 			r.Header.Set("IS_GLOBAL_ACCESS", "yes")
 		}
