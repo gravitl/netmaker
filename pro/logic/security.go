@@ -220,6 +220,9 @@ func GlobalPermissionsCheck(username string, r *http.Request) error {
 	if r.Method == http.MethodGet && targetRsrc == models.UserActivityRsrc.String() && route == "/api/v1/user/activity" {
 		return nil
 	}
+	if r.Method == http.MethodGet && user.PlatformRoleID == models.PlatformUser && (route == "/api/v1/network/activity" || route == "/api/v1/flows") {
+		return nil
+	}
 	rsrcPermissionScope, ok := userRole.GlobalLevelAccess[models.RsrcType(targetRsrc)]
 	if !ok {
 		return fmt.Errorf("access denied to %s", targetRsrc)
