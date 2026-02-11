@@ -40,3 +40,6 @@
 - Need to optimize multi-network netclient join with enrollment key
 
 - On systems using systemd-resolved in uplink mode, the first 3 entries in resolv.conf are used and rest are ignored. So it might cause DNS issues. Stub mode is preferred.
+
+- When a Windows desktop netclient is connected to a Full Tunnel Gateway, and a Split Tunnel Gateway at the same time,
+    the gateway monitoring component would disconnect from the split tunnel gateway.
