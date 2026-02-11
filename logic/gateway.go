@@ -359,9 +359,6 @@ func ValidateInetGwReq(inetNode models.Node, req models.InetNodeReq, update bool
 		if clientHost.IsDefault {
 			return errors.New("default host cannot be set to use internet gateway")
 		}
-		if clientHost.OS != models.OS_Types.Linux && clientHost.OS != models.OS_Types.Windows {
-			return errors.New("can only attach linux or windows machine to a internet gateway")
-		}
 		if clientNode.IsInternetGateway {
 			return fmt.Errorf("node %s acting as internet gateway cannot use another internet gateway", clientHost.Name)
 		}
