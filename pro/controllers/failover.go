@@ -36,13 +36,6 @@ func FailOverHandlers(r *mux.Router) {
 		Methods(http.MethodGet)
 }
 
-// @Summary     Get failover node
-// @Router      /api/v1/node/{nodeid}/failover [get]
-// @Tags        PRO
-// @Param       nodeid path string true "Node ID"
-// @Success     200 {object} models.Node
-// @Failure     400 {object} models.ErrorResponse
-// @Failure     404 {object} models.ErrorResponse
 func getfailOver(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
@@ -66,13 +59,6 @@ func getfailOver(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, failOverNode, "get failover node successfully")
 }
 
-// @Summary     Create failover node
-// @Router      /api/v1/node/{nodeid}/failover [post]
-// @Tags        PRO
-// @Param       nodeid path string true "Node ID"
-// @Success     200 {object} models.Node
-// @Failure     400 {object} models.ErrorResponse
-// @Failure     500 {object} models.ErrorResponse
 func createfailOver(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
@@ -93,12 +79,6 @@ func createfailOver(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, node, "created failover successfully")
 }
 
-// @Summary     Reset failover for a network
-// @Router      /api/v1/node/{network}/failover/reset [post]
-// @Tags        PRO
-// @Param       network path string true "Network ID"
-// @Success     200 {object} models.SuccessResponse
-// @Failure     500 {object} models.ErrorResponse
 func resetFailOver(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	net := params["network"]
@@ -125,13 +105,6 @@ func resetFailOver(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, "failover has been reset successfully")
 }
 
-// @Summary     Delete failover node
-// @Router      /api/v1/node/{nodeid}/failover [delete]
-// @Tags        PRO
-// @Param       nodeid path string true "Node ID"
-// @Success     200 {object} models.Node
-// @Failure     400 {object} models.ErrorResponse
-// @Failure     500 {object} models.ErrorResponse
 func deletefailOver(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
@@ -159,15 +132,6 @@ func deletefailOver(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, node, "deleted failover successfully")
 }
 
-// @Summary     Failover me
-// @Router      /api/v1/node/{nodeid}/failover_me [post]
-// @Tags        PRO
-// @Param       nodeid path string true "Node ID"
-// @Accept      json
-// @Param       body body models.FailOverMeReq true "Failover request"
-// @Success     200 {object} models.SuccessResponse
-// @Failure     400 {object} models.ErrorResponse
-// @Failure     500 {object} models.ErrorResponse
 func failOverME(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]
@@ -321,15 +285,6 @@ func failOverME(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, "relayed successfully")
 }
 
-// @Summary     checkfailOverCtx
-// @Router      /api/v1/node/{nodeid}/failover_check [get]
-// @Tags        PRO
-// @Param       nodeid path string true "Node ID"
-// @Accept      json
-// @Param       body body models.FailOverMeReq true "Failover request"
-// @Success     200 {object} models.SuccessResponse
-// @Failure     400 {object} models.ErrorResponse
-// @Failure     500 {object} models.ErrorResponse
 func checkfailOverCtx(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	nodeid := params["nodeid"]

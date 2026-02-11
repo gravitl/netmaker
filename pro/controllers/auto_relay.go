@@ -40,9 +40,11 @@ func AutoRelayHandlers(r *mux.Router) {
 
 // @Summary     Get auto relay nodes
 // @Router      /api/v1/node/{nodeid}/auto_relay [get]
-// @Tags        PRO
+// @Tags        Auto Relay
+// @Security    oauth
+// @Produce     json
 // @Param       nodeid path string true "Node ID"
-// @Success     200 {object} models.Node
+// @Success     200 {array} models.Node
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     404 {object} models.ErrorResponse
 func getAutoRelayGws(w http.ResponseWriter, r *http.Request) {
@@ -84,7 +86,9 @@ func getAutoRelayGws(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     Create AutoRelay node
 // @Router      /api/v1/node/{nodeid}/auto_relay [post]
-// @Tags        PRO
+// @Tags        Auto Relay
+// @Security    oauth
+// @Produce     json
 // @Param       nodeid path string true "Node ID"
 // @Success     200 {object} models.Node
 // @Failure     400 {object} models.ErrorResponse
@@ -111,7 +115,9 @@ func setAutoRelay(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     Reset AutoRelay for a network
 // @Router      /api/v1/node/{network}/auto_relay/reset [post]
-// @Tags        PRO
+// @Tags        Auto Relay
+// @Security    oauth
+// @Produce     json
 // @Param       network path string true "Network ID"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -142,7 +148,9 @@ func resetAutoRelayGw(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     Delete autorelay node
 // @Router      /api/v1/node/{nodeid}/auto_relay [delete]
-// @Tags        PRO
+// @Tags        Auto Relay
+// @Security    oauth
+// @Produce     json
 // @Param       nodeid path string true "Node ID"
 // @Success     200 {object} models.Node
 // @Failure     400 {object} models.ErrorResponse
@@ -178,9 +186,11 @@ func unsetAutoRelay(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     AutoRelay me
 // @Router      /api/v1/node/{nodeid}/auto_relay_me [post]
-// @Tags        PRO
-// @Param       nodeid path string true "Node ID"
+// @Tags        Auto Relay
+// @Security    oauth
 // @Accept      json
+// @Produce     json
+// @Param       nodeid path string true "Node ID"
 // @Param       body body models.AutoRelayMeReq true "AutoRelay request"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
@@ -339,11 +349,13 @@ func autoRelayME(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, "relayed successfully")
 }
 
-// @Summary     AutoRelay me
+// @Summary     Update AutoRelay me
 // @Router      /api/v1/node/{nodeid}/auto_relay_me [put]
-// @Tags        PRO
-// @Param       nodeid path string true "Node ID"
+// @Tags        Auto Relay
+// @Security    oauth
 // @Accept      json
+// @Produce     json
+// @Param       nodeid path string true "Node ID"
 // @Param       body body models.AutoRelayMeReq true "AutoRelay request"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
@@ -499,11 +511,13 @@ func autoRelayMEUpdate(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, "relayed successfully")
 }
 
-// @Summary     checkautoRelayCtx
+// @Summary     Check AutoRelay context
 // @Router      /api/v1/node/{nodeid}/auto_relay_check [get]
-// @Tags        PRO
-// @Param       nodeid path string true "Node ID"
+// @Tags        Auto Relay
+// @Security    oauth
 // @Accept      json
+// @Produce     json
+// @Param       nodeid path string true "Node ID"
 // @Param       body body models.AutoRelayMeReq true "autorelay request"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse

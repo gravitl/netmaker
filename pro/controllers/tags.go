@@ -32,8 +32,10 @@ func TagHandlers(r *mux.Router) {
 // @Summary     List Tags in a network
 // @Router      /api/v1/tags [get]
 // @Tags        TAG
-// @Accept      json
-// @Success     200 {array} models.SuccessResponse
+// @Security    oauth
+// @Produce     json
+// @Param       network query string true "Network ID"
+// @Success     200 {array} models.TagListRespNodes
 // @Failure     500 {object} models.ErrorResponse
 func getTags(w http.ResponseWriter, r *http.Request) {
 	netID, _ := url.QueryUnescape(r.URL.Query().Get("network"))
@@ -60,8 +62,11 @@ func getTags(w http.ResponseWriter, r *http.Request) {
 // @Summary     Create Tag
 // @Router      /api/v1/tags [post]
 // @Tags        TAG
+// @Security    oauth
 // @Accept      json
-// @Success     200 {array} models.SuccessResponse
+// @Produce     json
+// @Param       body body models.CreateTagReq true "Tag creation request"
+// @Success     200 {object} models.TagListRespNodes
 // @Failure     500 {object} models.ErrorResponse
 func createTag(w http.ResponseWriter, r *http.Request) {
 	var req models.CreateTagReq
@@ -162,8 +167,11 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 // @Summary     Update Tag
 // @Router      /api/v1/tags [put]
 // @Tags        TAG
+// @Security    oauth
 // @Accept      json
-// @Success     200 {array} models.SuccessResponse
+// @Produce     json
+// @Param       body body models.UpdateTagReq true "Tag update request"
+// @Success     200 {object} models.TagListRespNodes
 // @Failure     500 {object} models.ErrorResponse
 func updateTag(w http.ResponseWriter, r *http.Request) {
 	var updateTag models.UpdateTagReq
@@ -248,8 +256,10 @@ func updateTag(w http.ResponseWriter, r *http.Request) {
 // @Summary     Delete Tag
 // @Router      /api/v1/tags [delete]
 // @Tags        TAG
-// @Accept      json
-// @Success     200 {array} models.SuccessResponse
+// @Security    oauth
+// @Produce     json
+// @Param       tag_id query string true "Tag ID to delete"
+// @Success     200 {object} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
 func deleteTag(w http.ResponseWriter, r *http.Request) {
 	tagID, _ := url.QueryUnescape(r.URL.Query().Get("tag_id"))

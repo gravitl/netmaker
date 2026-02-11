@@ -19,11 +19,17 @@ func EventHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/activity", logic.SecurityCheck(true, http.HandlerFunc(listActivity))).Methods(http.MethodGet)
 }
 
-// @Summary     list activity.
+// @Summary     List network activity
 // @Router      /api/v1/network/activity [get]
 // @Tags        Activity
-// @Param       network_id query string true "network_id required to get the network events"
-// @Success     200 {object} models.SuccessResponse
+// @Security    oauth
+// @Produce     json
+// @Param       network_id query string true "Network ID required to get the network events"
+// @Param       from_date query string false "Start date in RFC3339 format"
+// @Param       to_date query string false "End date in RFC3339 format"
+// @Param       page query int false "Page number"
+// @Param       per_page query int false "Items per page"
+// @Success     200 {array} schema.Event
 // @Failure     500 {object} models.ErrorResponse
 func listNetworkActivity(w http.ResponseWriter, r *http.Request) {
 	netID := r.URL.Query().Get("network_id")
@@ -73,11 +79,17 @@ func listNetworkActivity(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, netActivity, "successfully fetched network activity")
 }
 
-// @Summary     list activity.
+// @Summary     List user activity
 // @Router      /api/v1/user/activity [get]
 // @Tags        Activity
-// @Param       network_id query string true "network_id required to get the network events"
-// @Success     200 {object} models.SuccessResponse
+// @Security    oauth
+// @Produce     json
+// @Param       username query string true "Username required to get the user events"
+// @Param       from_date query string false "Start date in RFC3339 format"
+// @Param       to_date query string false "End date in RFC3339 format"
+// @Param       page query int false "Page number"
+// @Param       per_page query int false "Items per page"
+// @Success     200 {array} schema.Event
 // @Failure     500 {object} models.ErrorResponse
 func listUserActivity(w http.ResponseWriter, r *http.Request) {
 	username := r.URL.Query().Get("username")
@@ -126,10 +138,18 @@ func listUserActivity(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, userActivity, "successfully fetched user activity "+username)
 }
 
-// @Summary     list activity.
+// @Summary     List all activity
 // @Router      /api/v1/activity [get]
 // @Tags        Activity
-// @Success     200 {object} models.SuccessResponse
+// @Security    oauth
+// @Produce     json
+// @Param       username query string false "Filter by username"
+// @Param       network_id query string false "Filter by network ID"
+// @Param       from_date query string false "Start date in RFC3339 format"
+// @Param       to_date query string false "End date in RFC3339 format"
+// @Param       page query int false "Page number"
+// @Param       per_page query int false "Items per page"
+// @Success     200 {array} schema.Event
 // @Failure     500 {object} models.ErrorResponse
 func listActivity(w http.ResponseWriter, r *http.Request) {
 	username := r.URL.Query().Get("username")
