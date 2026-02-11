@@ -1,49 +1,37 @@
-## Netmaker v1.4.0 Release Notes 🚀 
+## Netmaker v1.5.0 Release Notes 🚀 
 
 ## 🚀 What’s New
 
-### 🌍 Posture Checks (beta)
+### 🔓 Just-In-Time Access (beta)
 
-- Security feature that validates device compliance against configured policies based on device attributes such as OS, OS version, kernel version, client version, geographic location, and auto-update status.
-- Supports tag-based and user group-based assignment of posture checks to specific devices or users.
-- Tracks violations with configurable severity levels and provides real-time evaluation of device compliance.
-- Helps ensure only compliant devices can access network resources.
+- Time-limited, on-demand network access: users request access, admins approve or deny, and grants expire automatically.
 
-### 🔁 Network Traffic Logging (alpha)
+- Request/approval workflow with configurable grant duration; admins retain full control over who accesses which networks and when.
 
-- Comprehensive network flow logging system that captures and stores network traffic metadata in ClickHouse.
-- Tracks source and destination IPs, ports, protocols, bytes/packets sent/received, and connection timestamps.
-- Provides API endpoints for querying flow data with filters by network, node, user, protocol, and time range.
-- Enables network administrators to monitor, analyze, and audit network traffic patterns for security and troubleshooting purposes.
+### 🔁 Overlapping Egress Ranges (beta)
 
-### 🌐 K8s Operator with Cluster Access, Egress and Ingress functionality (beta)
+- Virtual NAT mode enables multiple egress routers to share overlapping IP ranges by assigning each egress a virtual range from a configurable pool.
+- Configurable per-network IPv4 pool and site prefix length for virtual range allocation.
+- Eliminates routing conflicts when multiple sites need to egress the same destination CIDRs (e.g., multiple offices routing to the same cloud VPC).
+- Supports both direct NAT and virtual NAT modes for flexible egress configurations.
 
-- **Cluster Egress**: Expose Netmaker network services to Kubernetes workloads using standard Service names.
-- **Cluster Ingress**: Expose Kubernetes services to devices on your Netmaker network.
-- **API Proxy**: Secure access to Kubernetes API servers through Netmaker tunnels with RBAC support.
+### 🌍 Gateway Monitoring
 
-
-### 🔄 Auto Removal of Offline Peers
-
-- Automatically removes nodes that have been offline for a configurable threshold period.
-- Configurable per network with customizable timeout thresholds (in minutes).
-- Supports tag-based filtering to selectively apply auto-removal to specific device groups.
-- Helps maintain clean network topology by removing stale or abandoned peer connections.
-
-### 🧩 Onboarding Flow
-
-- Streamlined user onboarding experience during signup for workspace setup.
-
+- Desktop App connections automatically fail over to healthy gateway hubs when the primary becomes unavailable.
+- Gateway health is monitored via connectivity checks and last-seen metrics; only online gateways are used for new connections.
 
 ## 🧰 Improvements & Fixes
 
-- Azure IDP sync: Fixed User sync by group filters.
+- **IP Detection Interval** User can now choose the Device Endpoint IP detection interval based on their requirements.
 
-- User Migration: Optimised User migration logic to reduce server start up time.
+- **User Migration:** Optimized user migration logic to reduce server startup time.
 
-- Config Files: Avoid Auto enabling of configs on user login.
+- **DNS:** Use Global Nameservers only if no match-all nameservers are configured, added fallback nameserver configuration.
 
-- Egress Domain Updates: Fixed domain-related issues in egress configurations to ensure consistent routing behavior.
+- **Darwin:** Netclients on macOS can now use internet gateway.
+
+- **GeoLocation:** Consolidate IP location API usage with fallbacks
+
 
 ## Known Issues 🐞
 
@@ -52,3 +40,6 @@
 - Need to optimize multi-network netclient join with enrollment key
 
 - On systems using systemd-resolved in uplink mode, the first 3 entries in resolv.conf are used and rest are ignored. So it might cause DNS issues. Stub mode is preferred.
+
+- When a Windows desktop app is connected to a Full Tunnel Gateway, and a Split Tunnel Gateway at the same time,
+    the gateway monitoring component would disconnect from the split tunnel gateway.

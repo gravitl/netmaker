@@ -36,10 +36,10 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-var version = "v1.4.0"
+var version = "v1.5.0"
 
 //	@title			NetMaker
-//	@version		1.4.0
+//	@version		1.5.0
 //	@description	NetMaker API Docs
 //	@tag.name	    APIUsage
 //	@tag.description.markdown
