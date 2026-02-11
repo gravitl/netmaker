@@ -2,7 +2,7 @@
 
 ## 🚀 What’s New
 
-### 🌍 Just-In-Time Access (beta)
+### 🔓 Just-In-Time Access (beta)
 
 - Time-limited, on-demand network access: users request access, admins approve or deny, and grants expire automatically.
 
@@ -15,7 +15,7 @@
 - Eliminates routing conflicts when multiple sites need to egress the same destination CIDRs (e.g., multiple offices routing to the same cloud VPC).
 - Supports both direct NAT and virtual NAT modes for flexible egress configurations.
 
-### Gateway Monitoring
+### 🌍 Gateway Monitoring
 
 - Desktop App connections automatically fail over to healthy gateway hubs when the primary becomes unavailable.
 - Gateway health is monitored via connectivity checks and last-seen metrics; only online gateways are used for new connections.
@@ -28,7 +28,9 @@
 
 - **DNS:** Use Global Nameservers only if no match-all nameservers are configured, added fallback nameserver configuration.
 
-- **Darwin:** Netclients on macOS (Darwin) can now use internet gateway.
+- **Darwin:** Netclients on macOS can now use internet gateway.
+
+- **GeoLocation:** Consolidate IP location API usage with fallbacks
 
 
 ## Known Issues 🐞
