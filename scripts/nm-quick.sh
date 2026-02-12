@@ -593,7 +593,10 @@ set_install_vars() {
 			tr -dc A-Za-z0-9 </dev/urandom | head -c 30
 			echo ''
 		)
-	
+	METRICS_SECRET=$(
+			tr -dc A-Za-z0-9 </dev/urandom | head -c 30
+			echo ''
+		)
 
 	wait_seconds 2
 
