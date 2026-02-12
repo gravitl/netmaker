@@ -10,5 +10,7 @@ func ListModels() []interface{} {
 		&PendingHost{},
 		&Nameserver{},
 		&PostureCheck{},
+		&JITRequest{},
+		&JITGrant{},
 	}
 }

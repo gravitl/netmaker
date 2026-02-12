@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -60,11 +59,13 @@ func checkIngressExists(nodeID string) bool {
 	return node.IsIngressGateway
 }
 
-// @Summary     Get all remote access client associated with network
+// @Summary     Get all config files associated with network
 // @Router      /api/extclients/{network} [get]
-// @Tags        Remote Access Client
-// @Security    oauth2
-// @Success     200 {object} models.ExtClient
+// @Tags        Config Files
+// @Security    oauth
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Success     200 {array} models.ExtClient
 // @Failure     500 {object} models.ErrorResponse
 func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 
@@ -86,14 +87,13 @@ func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(extclients)
 }
 
-// @Summary     Fetches All Remote Access Clients across all networks
+// @Summary     Fetch all config files across all networks
 // @Router      /api/extclients [get]
-// @Tags        Remote Access Client
-// @Security    oauth2
-// @Success     200 {object} models.ExtClient
+// @Tags        Config Files
+// @Security    oauth
+// @Produce     json
+// @Success     200 {array} models.ExtClient
 // @Failure     500 {object} models.ErrorResponse
-// Not quite sure if this is necessary. Probably necessary based on front end but may
-// want to review after iteration 1 if it's being used or not
 func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
@@ -110,10 +110,13 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(clients)
 }
 
-// @Summary     Get an individual remote access client
+// @Summary     Get an individual config file
 // @Router      /api/extclients/{network}/{clientid} [get]
-// @Tags        Remote Access Client
-// @Security    oauth2
+// @Tags        Config Files
+// @Security    oauth
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Param       clientid path string true "Client ID"
 // @Success     200 {object} models.ExtClient
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
@@ -147,10 +150,15 @@ func getExtClient(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(client)
 }
 
-// @Summary     Get an individual remote access client
+// @Summary     Get config file configuration
 // @Router      /api/extclients/{network}/{clientid}/{type} [get]
-// @Tags        Remote Access Client
-// @Security    oauth2
+// @Tags        Config Files
+// @Security    oauth
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Param       clientid path string true "Client ID"
+// @Param       type path string true "Config type (qr or file)"
+// @Param       preferredip query string false "Preferred endpoint IP"
 // @Success     200 {object} models.ExtClient
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
@@ -386,11 +394,12 @@ Endpoint = %s
 	json.NewEncoder(w).Encode(client)
 }
 
-// @Summary     Get an individual remote access client
-// @Router      /api/extclients/{network}/{clientid}/{type} [get]
-// @Tags        Remote Access Client
-// @Security    oauth2
-// @Success     200 {object} models.ExtClient
+// @Summary     Get config file HA configuration
+// @Router      /api/v1/client_conf/{network} [get]
+// @Tags        Config Files
+// @Security    oauth
+// @Param       network path string true "Network ID"
+// @Success     200 {string} string "WireGuard config file"
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
 func getExtClientHAConf(w http.ResponseWriter, r *http.Request) {
@@ -624,11 +633,16 @@ Endpoint = %s
 	}
 }
 
-// @Summary     Create an individual remote access client
+// @Summary     Create a config file
 // @Router      /api/extclients/{network}/{nodeid} [post]
-// @Tags        Remote Access Client
-// @Security    oauth2
-// @Success     200 {string} string "OK"
+// @Tags        Config Files
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Param       nodeid path string true "Node ID (Ingress Gateway)"
+// @Param       body body models.CustomExtClient true "Custom ext client parameters"
+// @Success     200 {object} models.ExtClient
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
@@ -688,7 +702,18 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-
+		// JIT enforcement: Check if user has access (only for desktop app users)
+		hasAccess, jitGrant, err := logic.CheckJITAccess(gateway.NetID, userName)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+		if !hasAccess {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(
+				errors.New("JIT access required: please request access from network admin"),
+				"forbidden"))
+			return
+		}
 		// if device id is sent, we don't want to create another extclient for the same user
 		// and gw, with the same device id.
 		if customExtClient.DeviceID != "" {
@@ -696,6 +721,10 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			for _, extclient := range extclients {
 				if extclient.DeviceID == customExtClient.DeviceID &&
 					extclient.OwnerID == caller.UserName && nodeid == extclient.IngressGatewayID {
+					if jitGrant != nil {
+						extclient.JITExpiresAt = &jitGrant.ExpiresAt
+						_ = logic.SaveExtClient(&extclient)
+					}
 					err = errors.New("remote client config already exists on the gateway")
 					slog.Error("failed to create extclient", "user", userName, "error", err)
 					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -713,6 +742,9 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 					// We patch it by assigning the device ID from the incoming request.
 					// When clients see that the config already exists, they will fetch
 					// the one with their device ID. And we will return this one.
+					if jitGrant != nil {
+						extclient.JITExpiresAt = &jitGrant.ExpiresAt
+					}
 					extclient.DeviceID = customExtClient.DeviceID
 					_ = logic.SaveExtClient(&extclient)
 				}
@@ -760,10 +792,24 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}
 	extclient.PublicEndpoint = customExtClient.PublicEndpoint
 	extclient.Country = customExtClient.Country
-	if customExtClient.RemoteAccessClientID != "" && customExtClient.Location == "" {
-		extclient.Location, extclient.Country = logic.GetHostLocInfo(logic.GetClientIP(r), os.Getenv("IP_INFO_TOKEN"))
-	}
 	extclient.Location = customExtClient.Location
+	// JIT enforcement: Check if user has access (only for desktop app users)
+	hasAccess, grant, err := logic.CheckJITAccess(extclient.Network, userName)
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+		return
+	}
+	if !hasAccess {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(
+			errors.New("JIT access required: please request access from network admin"),
+			"forbidden"))
+		return
+	}
+	// Set JIT expiry time if grant exists (nil for admin users or when JIT not enabled)
+	if grant != nil {
+		extclient.JITExpiresAt = &grant.ExpiresAt
+	}
+
 	if extclient.DeviceID != "" {
 		// check for violations connecting from desktop app
 		staticNode := extclient.ConvertToStaticNode()
@@ -843,10 +889,15 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	}()
 }
 
-// @Summary     Update an individual remote access client
+// @Summary     Update a config file
 // @Router      /api/extclients/{network}/{clientid} [put]
-// @Tags        Remote Access Client
-// @Security    oauth2
+// @Tags        Config Files
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Param       clientid path string true "Client ID"
+// @Param       body body models.CustomExtClient true "Custom ext client update"
 // @Success     200 {object} models.ExtClient
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     400 {object} models.ErrorResponse
@@ -913,9 +964,6 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 		//remove old peer entry
 		replacePeers = true
 	}
-	if update.RemoteAccessClientID != "" && update.Location == "" {
-		update.Location, update.Country = logic.GetHostLocInfo(logic.GetClientIP(r), os.Getenv("IP_INFO_TOKEN"))
-	}
 	newclient := logic.UpdateExtClient(&oldExtClient, &update)
 	if newclient.DeviceID != "" && newclient.Enabled {
 		// check for violations connecting from desktop app
@@ -925,6 +973,22 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("posture check violations"), logic.Forbidden))
 			return
 		}
+		// JIT enforcement: Check if user has access (only for desktop app users)
+		hasAccess, jitGrant, err := logic.CheckJITAccess(newclient.Network, newclient.OwnerID)
+		if err != nil {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.Internal))
+			return
+		}
+		if !hasAccess {
+			logic.ReturnErrorResponse(w, r, logic.FormatError(
+				errors.New("JIT access required: please request access from network admin"),
+				"forbidden"))
+			return
+		}
+		if jitGrant != nil {
+			newclient.JITExpiresAt = &jitGrant.ExpiresAt
+		}
+
 	}
 	if err := logic.DeleteExtClient(oldExtClient.Network, oldExtClient.ClientID, true); err != nil {
 		slog.Error(
@@ -976,11 +1040,14 @@ func updateExtClient(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// @Summary     Delete an individual remote access client
+// @Summary     Delete a config file
 // @Router      /api/extclients/{network}/{clientid} [delete]
-// @Tags        Remote Access Client
-// @Security    oauth2
-// @Success     200
+// @Tags        Config Files
+// @Security    oauth
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Param       clientid path string true "Client ID"
+// @Success     200 {object} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
 func deleteExtClient(w http.ResponseWriter, r *http.Request) {

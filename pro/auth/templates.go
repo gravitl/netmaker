@@ -56,7 +56,7 @@ var ssoCallbackTemplate = template.Must(
 	
 	<body>
 		<img
-			src="https://raw.githubusercontent.com/gravitl/netmaker-docs/master/images/netmaker-github/netmaker-teal.png"
+			src="https://media.netmaker.io/logos/svg/netmaker-logo-full-light-1.svg"
 			alt="netmaker logo"
 			id="logo"
 		>
@@ -110,7 +110,7 @@ var ssoErrCallbackTemplate = template.Must(
 
 	<body>
 		<img
-			src="https://raw.githubusercontent.com/gravitl/netmaker-docs/master/images/netmaker-github/netmaker-teal.png"
+			src="https://media.netmaker.io/logos/svg/netmaker-logo-full-light-1.svg"
 			alt="netmaker logo"
 			id="logo"
 		>

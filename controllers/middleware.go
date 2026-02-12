@@ -80,11 +80,23 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		if strings.Contains(route, "posture_check") {
 			r.Header.Set("TARGET_RSRC", models.PostureCheckRsrc.String())
 		}
+		if strings.Contains(route, "activity") {
+			r.Header.Set("TARGET_RSRC", models.UserActivityRsrc.String())
+		}
 		if strings.Contains(route, "nameserver") {
 			r.Header.Set("TARGET_RSRC", models.NameserverRsrc.String())
 		}
+		if strings.Contains(route, "jit") {
+			r.Header.Set("TARGET_RSRC", models.JitAdminRsrc.String())
+		}
+		if strings.Contains(route, "jit_user") {
+			r.Header.Set("TARGET_RSRC", models.JitUserRsrc.String())
+		}
 		if strings.Contains(route, "metrics") {
 			r.Header.Set("TARGET_RSRC", models.MetricRsrc.String())
+		}
+		if strings.Contains(route, "flows") {
+			r.Header.Set("TARGET_RSRC", models.TrafficFlow.String())
 		}
 		if keyID, ok := params["keyID"]; ok {
 			r.Header.Set("TARGET_RSRC_ID", keyID)
@@ -122,7 +134,9 @@ func userMiddleWare(handler http.Handler) http.Handler {
 		}
 		if r.Header.Get("NET_ID") == "" && (r.Header.Get("TARGET_RSRC_ID") == "" ||
 			r.Header.Get("TARGET_RSRC") == models.EnrollmentKeysRsrc.String() ||
-			r.Header.Get("TARGET_RSRC") == models.UserRsrc.String()) {
+			r.Header.Get("TARGET_RSRC") == models.UserRsrc.String()) ||
+			(r.Header.Get("TARGET_RSRC") == models.UserActivityRsrc.String() && route != "/api/v1/network/activity") ||
+			r.Header.Get("TARGET_RSRC") == models.TrafficFlow.String() {
 			r.Header.Set("IS_GLOBAL_ACCESS", "yes")
 		}
 		r.Header.Set("RSRC_TYPE", r.Header.Get("TARGET_RSRC"))

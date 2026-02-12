@@ -10,6 +10,7 @@ import (
 
 	ch "github.com/gravitl/netmaker/clickhouse"
 	controller "github.com/gravitl/netmaker/controllers"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -18,6 +19,7 @@ import (
 	proControllers "github.com/gravitl/netmaker/pro/controllers"
 	"github.com/gravitl/netmaker/pro/email"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
@@ -45,6 +47,7 @@ func InitPro() {
 		// TODO: try to add flow handler only if flow logs are enabled.
 		proControllers.FlowHandlers,
 		proControllers.PostureCheckHandlers,
+		proControllers.JITHandlers,
 	)
 	controller.ListRoles = proControllers.ListRoles
 	logic.EnterpriseCheckFuncs = append(logic.EnterpriseCheckFuncs, func(ctx context.Context, wg *sync.WaitGroup) {
@@ -109,7 +112,8 @@ func InitPro() {
 		go proLogic.EventWatcher()
 		logic.GetMetricsMonitor().Start()
 		proLogic.AddPostureCheckHook()
-
+		// Register JIT expiry hook with email notifications
+		addJitExpiryHookWithEmail()
 		if proLogic.GetFeatureFlags().EnableFlowLogs && logic.GetServerSettings().EnableFlowLogs {
 			err := ch.Initialize()
 			if err != nil {
@@ -191,8 +195,8 @@ func InitPro() {
 	logic.MigrateToGws = proLogic.MigrateToGws
 	logic.GetFwRulesForNodeAndPeerOnGw = proLogic.GetFwRulesForNodeAndPeerOnGw
 	logic.GetFwRulesForUserNodesOnGw = proLogic.GetFwRulesForUserNodesOnGw
-	logic.GetHostLocInfo = proLogic.GetHostLocInfo
 	logic.GetFeatureFlags = proLogic.GetFeatureFlags
+	logic.GetDeploymentMode = proLogic.GetDeploymentMode
 	logic.GetNameserversForHost = proLogic.GetNameserversForHost
 	logic.GetNameserversForNode = proLogic.GetNameserversForNode
 	logic.ValidateNameserverReq = proLogic.ValidateNameserverReq
@@ -201,6 +205,75 @@ func InitPro() {
 	logic.GetPostureCheckDeviceInfoByNode = proLogic.GetPostureCheckDeviceInfoByNode
 	logic.StartFlowCleanupLoop = proLogic.StartFlowCleanupLoop
 	logic.StopFlowCleanupLoop = proLogic.StopFlowCleanupLoop
+	// Expose JIT functions
+	logic.CheckJITAccess = proLogic.CheckJITAccess
+	logic.AssignVirtualRangeToEgress = proLogic.AssignVirtualRangeToEgress
+}
+
+// addJitExpiryHookWithEmail - registers a hook that expires JIT grants and sends email notifications
+func addJitExpiryHookWithEmail() {
+	if !proLogic.GetFeatureFlags().EnableJIT {
+		return
+	}
+	// Register JIT grant expiry hook with email notifications - runs every 5 minutes
+	logic.HookManagerCh <- models.HookDetails{
+		ID:       "jit-expiry-hook",
+		Hook:     logic.WrapHook(expireJITGrantsWithEmail),
+		Interval: 5 * time.Minute,
+	}
+}
+
+// expireJITGrantsWithEmail - expires JIT grants and sends email notifications
+func expireJITGrantsWithEmail() error {
+	ctx := db.WithContext(context.Background())
+
+	// Get grants that are about to expire or just expired (within last 5 minutes)
+	// We check before expiring so we can send emails
+	grant := schema.JITGrant{}
+	allGrants, err := grant.ListExpired(ctx)
+	if err != nil {
+		slog.Warn("failed to list expired grants for email notification", "error", err)
+		// Continue with expiration even if listing fails
+	}
+
+	// Track grants that need email before we expire them
+	var grantsToEmail []struct {
+		Grant   schema.JITGrant
+		Request schema.JITRequest
+		Network models.Network
+	}
+
+	fiveMinutesAgo := time.Now().Add(-5 * time.Minute)
+	for _, expiredGrant := range allGrants {
+		// Only send email for grants that expired recently (within last 5 minutes)
+		if expiredGrant.ExpiresAt.After(fiveMinutesAgo) && expiredGrant.RequestID != "" {
+			request := schema.JITRequest{ID: expiredGrant.RequestID}
+			if err := request.Get(ctx); err == nil {
+				network, err := logic.GetNetwork(expiredGrant.NetworkID)
+				if err == nil {
+					grantsToEmail = append(grantsToEmail, struct {
+						Grant   schema.JITGrant
+						Request schema.JITRequest
+						Network models.Network
+					}{expiredGrant, request, network})
+				}
+			}
+		}
+	}
+
+	// First, expire the grants (this handles the business logic)
+	if err := proLogic.ExpireJITGrants(); err != nil {
+		return err
+	}
+
+	// Then, send email notifications for the grants we tracked
+	for _, item := range grantsToEmail {
+		if err := email.SendJITExpirationEmail(&item.Grant, &item.Request, item.Network, false); err != nil {
+			slog.Warn("failed to send expiration email", "grant_id", item.Grant.ID, "user", item.Request.UserName, "error", err)
+		}
+	}
+
+	return nil
 }
 
 func retrieveProLogo() string {

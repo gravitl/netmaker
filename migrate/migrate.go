@@ -2,11 +2,13 @@ package migrate
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/big"
 	"net"
-	"os"
 	"time"
 
 	"golang.org/x/exp/slog"
@@ -45,6 +47,17 @@ func Run() {
 	resync()
 	deleteOldExtclients()
 	checkAndDeprecateOldAcls()
+	migrateJITEnabled()
+}
+
+func migrateJITEnabled() {
+	nets, _ := logic.GetNetworks()
+	for _, netI := range nets {
+		if netI.JITEnabled == "" {
+			netI.JITEnabled = "no"
+			logic.UpsertNetwork(netI)
+		}
+	}
 }
 
 func checkAndDeprecateOldAcls() {
@@ -89,7 +102,184 @@ func updateNetworks() {
 			logic.UpsertNetwork(netI)
 		}
 	}
+	initializeVirtualNATSettings()
+}
 
+func initializeVirtualNATSettings() {
+	if !servercfg.IsPro {
+		return
+	}
+	if !logic.GetFeatureFlags().EnableOverlappingEgressRanges {
+		return
+	}
+	logger.Log(1, "Initializing Virtual NAT settings for existing networks")
+	defer logger.Log(1, "Completed initializing Virtual NAT settings for existing networks")
+
+	networks, err := logic.GetNetworks()
+	if err != nil {
+		logger.Log(0, "failed to get networks for Virtual NAT migration:", err.Error())
+		return
+	}
+
+	// Track allocated pools to ensure uniqueness
+	allocatedPools := make(map[string]struct{})
+
+	// First pass: collect already-allocated pools
+	for _, network := range networks {
+		if network.VirtualNATPoolIPv4 != "" && network.VirtualNATSitePrefixLenIPv4 > 0 {
+			allocatedPools[network.VirtualNATPoolIPv4] = struct{}{}
+		}
+	}
+
+	// Allocate unique pools from fallback pool for networks that need them
+	const fallbackPool = "198.18.0.0/15"
+	const poolPrefixLen = 22 // /22 gives 1024 addresses per network, enough for virtual NAT
+	_, fallbackNet, err := net.ParseCIDR(fallbackPool)
+	if err != nil || fallbackNet == nil {
+		logger.Log(0, "failed to parse fallback pool for Virtual NAT migration:", err.Error())
+		return
+	}
+	_, cgnatNet, err := net.ParseCIDR("100.64.0.0/10")
+	if err != nil || cgnatNet == nil {
+		logger.Log(0, "failed to parse CGNAT CIDR for Virtual NAT migration:", err.Error())
+		return
+	}
+
+	// Second pass: initialize networks
+	for _, network := range networks {
+		// Skip if already initialized
+		if network.VirtualNATPoolIPv4 != "" && network.VirtualNATSitePrefixLenIPv4 > 0 {
+			continue
+		}
+
+		vpnCIDR := network.AddressRange
+		needsUniquePool := false
+
+		if vpnCIDR == "" {
+			needsUniquePool = true
+			vpnCIDR = fallbackPool
+		} else {
+			// Check if overlaps with CGNAT
+			_, vpnNet, err := net.ParseCIDR(vpnCIDR)
+			if err != nil || vpnNet == nil {
+				needsUniquePool = true
+				vpnCIDR = fallbackPool
+			} else {
+				if cidrOverlaps(vpnNet, cgnatNet) {
+					needsUniquePool = true
+					vpnCIDR = fallbackPool
+				}
+			}
+		}
+
+		// If this network needs a unique pool, allocate one
+		if needsUniquePool {
+			uniquePool := allocateUniquePoolFromFallback(fallbackNet, poolPrefixLen, allocatedPools, network.NetID)
+			if uniquePool != "" {
+				vpnCIDR = uniquePool
+				allocatedPools[uniquePool] = struct{}{}
+			}
+		}
+
+		// Initialize virtual NAT defaults
+		network.AssignVirtualNATDefaults(vpnCIDR, network.NetID)
+
+		// Save the updated network
+		if err := logic.UpsertNetwork(network); err != nil {
+			logger.Log(0, "failed to update network", network.NetID, "with Virtual NAT settings:", err.Error())
+			continue
+		}
+		logger.Log(1, "initialized Virtual NAT settings for network", network.NetID, "pool:", network.VirtualNATPoolIPv4)
+	}
+}
+
+// allocateUniquePoolFromFallback allocates a unique /22 subnet from the fallback pool
+func allocateUniquePoolFromFallback(pool *net.IPNet, newPrefixLen int, allocated map[string]struct{}, seed string) string {
+	if pool == nil {
+		return ""
+	}
+
+	poolPrefixLen, bits := pool.Mask.Size()
+	if newPrefixLen < poolPrefixLen || newPrefixLen > bits {
+		return ""
+	}
+
+	total := 1 << uint(newPrefixLen-poolPrefixLen)
+	start := hashIndex(seed, total)
+
+	for i := 0; i < total; i++ {
+		idx := (start + i) % total
+		cand := nthSubnet(pool, newPrefixLen, idx)
+		if cand == nil {
+			continue
+		}
+		cs := cand.String()
+		if _, used := allocated[cs]; !used {
+			return cs
+		}
+	}
+
+	return ""
+}
+
+// nthSubnet calculates the nth subnet of a given prefix length within a pool
+func nthSubnet(pool *net.IPNet, newPrefixLen int, n int) *net.IPNet {
+	if pool == nil {
+		return nil
+	}
+
+	poolPrefixLen, bits := pool.Mask.Size()
+	if newPrefixLen < poolPrefixLen || newPrefixLen > bits || n < 0 {
+		return nil
+	}
+
+	base := ipToBigInt(pool.IP)
+	size := new(big.Int).Lsh(big.NewInt(1), uint(bits-newPrefixLen))
+	offset := new(big.Int).Mul(big.NewInt(int64(n)), size)
+	ipInt := new(big.Int).Add(base, offset)
+	ip := bigIntToIP(ipInt, bits)
+
+	mask := net.CIDRMask(newPrefixLen, bits)
+	return &net.IPNet{IP: ip.Mask(mask), Mask: mask}
+}
+
+// ipToBigInt converts an IP address to a big.Int
+func ipToBigInt(ip net.IP) *big.Int {
+	ip = ip.To16()
+	if ip == nil {
+		return big.NewInt(0)
+	}
+	return new(big.Int).SetBytes(ip)
+}
+
+// bigIntToIP converts a big.Int back to an IP address
+func bigIntToIP(i *big.Int, bits int) net.IP {
+	b := i.Bytes()
+	byteLen := bits / 8
+	if len(b) < byteLen {
+		pad := make([]byte, byteLen-len(b))
+		b = append(pad, b...)
+	}
+	ip := net.IP(b)
+	if bits == 32 {
+		return ip.To4()
+	}
+	return ip
+}
+
+// hashIndex generates a deterministic index from a seed string
+func hashIndex(seed string, mod int) int {
+	if mod <= 1 {
+		return 0
+	}
+	sum := sha1.Sum([]byte(seed))
+	v := binary.BigEndian.Uint32(sum[:4])
+	return int(v % uint32(mod))
+}
+
+// cidrOverlaps checks if two CIDR blocks overlap
+func cidrOverlaps(a, b *net.IPNet) bool {
+	return a.Contains(b.IP) || b.Contains(a.IP)
 }
 
 func migrateNameservers() {
@@ -426,16 +616,6 @@ func updateHosts() {
 		if host.IsDefault && !host.AutoUpdate {
 			host.AutoUpdate = true
 			logic.UpsertHost(&host)
-		}
-		if servercfg.IsPro && (host.Location == "" || host.CountryCode == "") {
-			if host.EndpointIP != nil {
-				host.Location, host.CountryCode = logic.GetHostLocInfo(host.EndpointIP.String(), os.Getenv("IP_INFO_TOKEN"))
-			} else if host.EndpointIPv6 != nil {
-				host.Location, host.CountryCode = logic.GetHostLocInfo(host.EndpointIPv6.String(), os.Getenv("IP_INFO_TOKEN"))
-			}
-			if host.Location != "" && host.CountryCode != "" {
-				logic.UpsertHost(&host)
-			}
 		}
 	}
 }
@@ -925,6 +1105,9 @@ func migrateSettings() {
 	}
 	if settings.CleanUpInterval == 0 {
 		settings.CleanUpInterval = 10
+	}
+	if settings.IPDetectionInterval == 0 {
+		settings.IPDetectionInterval = 15
 	}
 	if settings.AuditLogsRetentionPeriodInDays == 0 {
 		settings.AuditLogsRetentionPeriodInDays = 7

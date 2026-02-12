@@ -89,7 +89,12 @@ func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 		if eI.Domain != "" {
 			rangesToBeAdded = append(rangesToBeAdded, eI.DomainAns...)
 		} else {
-			rangesToBeAdded = append(rangesToBeAdded, eI.Range)
+			// Use virtual NAT range if enabled, otherwise use original range
+			egressRange := eI.Range
+			if eI.Nat && eI.VirtualRange != "" {
+				egressRange = eI.VirtualRange
+			}
+			rangesToBeAdded = append(rangesToBeAdded, egressRange)
 		}
 		if defaultUserPolicy.Enabled {
 			result = append(result, rangesToBeAdded...)
@@ -664,6 +669,7 @@ func GetExtPeers(node, peer *models.Node, addressIdentityMap map[string]models.P
 				addressIdentityMap[extPeerAddr4.IP.String()+"/32"] = models.PeerIdentity{
 					ID:   peerID,
 					Type: peerType,
+					Name: peerID,
 				}
 			}
 
@@ -678,6 +684,7 @@ func GetExtPeers(node, peer *models.Node, addressIdentityMap map[string]models.P
 				addressIdentityMap[extPeerAddr6.IP.String()+"/128"] = models.PeerIdentity{
 					ID:   peerID,
 					Type: peerType,
+					Name: peerID,
 				}
 			}
 		}

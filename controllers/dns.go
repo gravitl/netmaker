@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -49,10 +48,10 @@ func dnsHandlers(r *mux.Router) {
 
 // @Summary     List Global Nameservers
 // @Router      /api/v1/nameserver/global [get]
-// @Tags        Auth
-// @Accept      json
-// @Param       query network string
-// @Success     200 {object} models.SuccessResponse
+// @Tags        DNS
+// @Security    oauth
+// @Produce     json
+// @Success     200 {object} map[string]schema.Nameserver
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -64,9 +63,11 @@ func getGlobalNs(w http.ResponseWriter, r *http.Request) {
 // @Summary     Create Nameserver
 // @Router      /api/v1/nameserver [post]
 // @Tags        DNS
+// @Security    oauth
 // @Accept      json
-// @Param       body body models.NameserverReq
-// @Success     200 {object} models.SuccessResponse
+// @Produce     json
+// @Param       body body models.NameserverReq true "Nameserver request body"
+// @Success     200 {object} schema.Nameserver
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -153,10 +154,11 @@ func createNs(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     List Nameservers
 // @Router      /api/v1/nameserver [get]
-// @Tags        Auth
-// @Accept      json
-// @Param       query network string
-// @Success     200 {object} models.SuccessResponse
+// @Tags        DNS
+// @Security    oauth
+// @Produce     json
+// @Param       network query string true "Network identifier"
+// @Success     200 {array} schema.Nameserver
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -182,10 +184,12 @@ func listNs(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     Update Nameserver
 // @Router      /api/v1/nameserver [put]
-// @Tags        Auth
+// @Tags        DNS
+// @Security    oauth
 // @Accept      json
-// @Param       body body models.NameserverReq
-// @Success     200 {object} models.SuccessResponse
+// @Produce     json
+// @Param       body body models.NameserverReq true "Nameserver request body"
+// @Success     200 {object} schema.Nameserver
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -298,10 +302,12 @@ func updateNs(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     Delete Nameserver Resource
 // @Router      /api/v1/nameserver [delete]
-// @Tags        Auth
+// @Tags        DNS
+// @Security    oauth
 // @Accept      json
-// @Param       body body models.Egress
-// @Success     200 {object} models.SuccessResponse
+// @Produce     json
+// @Param       id query string true "Nameserver ID"
+// @Success     200 {string} string
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -353,9 +359,10 @@ func deleteNs(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     Gets node DNS entries associated with a network
-// @Router      /api/dns/{network} [get]
+// @Router      /api/dns/adm/{network}/nodes [get]
 // @Tags        DNS
-// @Accept      json
+// @Security    oauth
+// @Produce     json
 // @Param       network path string true "Network identifier"
 // @Success     200 {array} models.DNSEntry
 // @Failure     500 {object} models.ErrorResponse
@@ -380,7 +387,8 @@ func getNodeDNS(w http.ResponseWriter, r *http.Request) {
 // @Summary     Get all DNS entries
 // @Router      /api/dns [get]
 // @Tags        DNS
-// @Accept      json
+// @Security    oauth
+// @Produce     json
 // @Success     200 {array} models.DNSEntry
 // @Failure     500 {object} models.ErrorResponse
 func getAllDNS(w http.ResponseWriter, r *http.Request) {
@@ -399,7 +407,8 @@ func getAllDNS(w http.ResponseWriter, r *http.Request) {
 // @Summary     Gets custom DNS entries associated with a network
 // @Router      /api/dns/adm/{network}/custom [get]
 // @Tags        DNS
-// @Accept      json
+// @Security    oauth
+// @Produce     json
 // @Param       network path string true "Network identifier"
 // @Success     200 {array} models.DNSEntry
 // @Failure     500 {object} models.ErrorResponse
@@ -431,7 +440,8 @@ func getCustomDNS(w http.ResponseWriter, r *http.Request) {
 // @Summary     Get all DNS entries associated with the network
 // @Router      /api/dns/adm/{network} [get]
 // @Tags        DNS
-// @Accept      json
+// @Security    oauth
+// @Produce     json
 // @Param       network path string true "Network identifier"
 // @Success     200 {array} models.DNSEntry
 // @Failure     500 {object} models.ErrorResponse
@@ -454,9 +464,11 @@ func getDNS(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     Create a new DNS entry
-// @Router      /api/dns/adm/{network} [post]
+// @Router      /api/dns/{network} [post]
 // @Tags        DNS
+// @Security    oauth
 // @Accept      json
+// @Produce     json
 // @Param       network path string true "Network identifier"
 // @Param       body body models.DNSEntry true "DNS entry details"
 // @Success     200 {object} models.DNSEntry
@@ -478,11 +490,6 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 			fmt.Sprintf("invalid DNS entry %+v: %v", entry, err))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
-	}
-	// check if default domain is appended if not append
-	if logic.GetDefaultDomain() != "" &&
-		!strings.HasSuffix(entry.Name, logic.GetDefaultDomain()) {
-		entry.Name += "." + logic.GetDefaultDomain()
 	}
 	entry, err = logic.CreateDNS(entry)
 	if err != nil {
@@ -515,10 +522,11 @@ func createDNS(w http.ResponseWriter, r *http.Request) {
 // @Summary     Delete a DNS entry
 // @Router      /api/dns/{network}/{domain} [delete]
 // @Tags        DNS
-// @Accept      json
+// @Security    oauth
+// @Produce     json
 // @Param       network path string true "Network identifier"
 // @Param       domain path string true "Domain Name"
-// @Success     200 {array} models.DNSEntry
+// @Success     200 {string} string
 // @Failure     500 {object} models.ErrorResponse
 func deleteDNS(w http.ResponseWriter, r *http.Request) {
 	// Set header
@@ -572,7 +580,8 @@ func GetDNSEntry(domain string, network string) (models.DNSEntry, error) {
 // @Summary     Push DNS entries to nameserver
 // @Router      /api/dns/adm/pushdns [post]
 // @Tags        DNS
-// @Accept      json
+// @Security    oauth
+// @Produce     json
 // @Success     200 {string} string "DNS Pushed to CoreDNS"
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -602,7 +611,9 @@ func pushDNS(w http.ResponseWriter, r *http.Request) {
 // @Summary     Sync DNS entries for a given network
 // @Router      /api/dns/adm/{network}/sync [post]
 // @Tags        DNS
-// @Accept      json
+// @Security    oauth
+// @Produce     json
+// @Param       network path string true "Network identifier"
 // @Success     200 {string} string "DNS Sync completed successfully"
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse

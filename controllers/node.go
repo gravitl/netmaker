@@ -254,10 +254,12 @@ func Authorize(
 }
 
 // @Summary     Gets all nodes associated with network including pending nodes
-// @Router      /api/nodes/adm/{network} [get]
-// @Securitydefinitions.oauth2.application OAuth2Application
+// @Router      /api/nodes/{network} [get]
 // @Tags        Nodes
-// @Success     200 {array} models.Node
+// @Security    oauth
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Success     200 {array} models.ApiNode
 // @Failure     500 {object} models.ErrorResponse
 func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -282,10 +284,10 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 // @Summary     Get all nodes across all networks
 // @Router      /api/nodes [get]
 // @Tags        Nodes
-// @Securitydefinitions.oauth2.application OAuth2Application
+// @Security    oauth
+// @Produce     json
 // @Success     200 {array} models.ApiNode
 // @Failure     500 {object} models.ErrorResponse
-// Not quite sure if this is necessary. Probably necessary based on front end but may want to review after iteration 1 if it's being used or not
 func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var nodes []models.Node
@@ -323,10 +325,11 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 // @Summary     Get all nodes status on the network
 // @Router      /api/v1/nodes/{network}/status [get]
 // @Tags        Nodes
-// @Securitydefinitions.oauth2.application OAuth2Application
-// @Success     200 {array} models.ApiNode
+// @Security    oauth
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Success     200 {object} map[string]models.NodeStatus
 // @Failure     500 {object} models.ErrorResponse
-// Not quite sure if this is necessary. Probably necessary based on front end but may want to review after iteration 1 if it's being used or not
 func getNetworkNodeStatus(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	netID := params["network"]
@@ -354,7 +357,10 @@ func getNetworkNodeStatus(w http.ResponseWriter, r *http.Request) {
 // @Summary     Get an individual node
 // @Router      /api/nodes/{network}/{nodeid} [get]
 // @Tags        Nodes
-// @Security    oauth2
+// @Security    oauth
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Param       nodeid path string true "Node ID"
 // @Success     200 {object} models.NodeGet
 // @Failure     500 {object} models.ErrorResponse
 func getNode(w http.ResponseWriter, r *http.Request) {
@@ -424,7 +430,12 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 // @Summary     Create an egress gateway
 // @Router      /api/nodes/{network}/{nodeid}/creategateway [post]
 // @Tags        Nodes
-// @Security    oauth2
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Param       nodeid path string true "Node ID"
+// @Param       body body models.EgressGatewayRequest true "Egress gateway request"
 // @Success     200 {object} models.ApiNode
 // @Failure     500 {object} models.ErrorResponse
 func createEgressGateway(w http.ResponseWriter, r *http.Request) {
@@ -480,7 +491,10 @@ func createEgressGateway(w http.ResponseWriter, r *http.Request) {
 // @Summary     Delete an egress gateway
 // @Router      /api/nodes/{network}/{nodeid}/deletegateway [delete]
 // @Tags        Nodes
-// @Security    oauth2
+// @Security    oauth
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Param       nodeid path string true "Node ID"
 // @Success     200 {object} models.ApiNode
 // @Failure     500 {object} models.ErrorResponse
 func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
@@ -525,7 +539,12 @@ func deleteEgressGateway(w http.ResponseWriter, r *http.Request) {
 // @Summary     Update an individual node
 // @Router      /api/nodes/{network}/{nodeid} [put]
 // @Tags        Nodes
-// @Security    oauth2
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Param       nodeid path string true "Node ID"
+// @Param       body body models.ApiNode true "Node update data"
 // @Success     200 {object} models.ApiNode
 // @Failure     500 {object} models.ErrorResponse
 func updateNode(w http.ResponseWriter, r *http.Request) {
@@ -734,8 +753,12 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 // @Summary     Delete an individual node
 // @Router      /api/nodes/{network}/{nodeid} [delete]
 // @Tags        Nodes
-// @Security    oauth2
-// @Success     200 {string} string "Node deleted."
+// @Security    oauth
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Param       nodeid path string true "Node ID"
+// @Param       force query string false "Force delete"
+// @Success     200 {object} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
 func deleteNode(w http.ResponseWriter, r *http.Request) {
 	// Set header

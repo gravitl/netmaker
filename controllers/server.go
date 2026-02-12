@@ -90,15 +90,16 @@ func getUsage(w http.ResponseWriter, _ *http.Request) {
 // @Summary     Get the server status
 // @Router      /api/server/status [get]
 // @Tags        Server
-// @Security    oauth2
+// @Produce     json
+// @Success     200 {object} object "Server status"
 func getStatus(w http.ResponseWriter, r *http.Request) {
-	// @Success     200 {object} status
 	type status struct {
 		DB               bool      `json:"db_connected"`
 		Broker           bool      `json:"broker_connected"`
 		IsBrokerConnOpen bool      `json:"is_broker_conn_open"`
 		LicenseError     string    `json:"license_error"`
 		IsPro            bool      `json:"is_pro"`
+		DeploymentMode   string    `json:"deployment_mode"`
 		TrialEndDate     time.Time `json:"trial_end_date"`
 		IsOnTrialLicense bool      `json:"is_on_trial_license"`
 		Version          string    `json:"version"`
@@ -126,6 +127,7 @@ func getStatus(w http.ResponseWriter, r *http.Request) {
 		IsBrokerConnOpen: mq.IsConnectionOpen(),
 		LicenseError:     licenseErr,
 		IsPro:            servercfg.IsPro,
+		DeploymentMode:   logic.GetDeploymentMode(),
 		Version:          servercfg.Version,
 		//TrialEndDate:     trialEndDate,
 		//IsOnTrialLicense: isOnTrial,
@@ -162,7 +164,8 @@ func allowUsers(next http.Handler) http.HandlerFunc {
 // @Summary     Get the server information
 // @Router      /api/server/getserverinfo [get]
 // @Tags        Server
-// @Security    oauth2
+// @Security    oauth
+// @Produce     json
 // @Success     200 {object} models.ServerConfig
 func getServerInfo(w http.ResponseWriter, r *http.Request) {
 	// Set header
@@ -177,8 +180,9 @@ func getServerInfo(w http.ResponseWriter, r *http.Request) {
 // @Summary     Get the server configuration
 // @Router      /api/server/getconfig [get]
 // @Tags        Server
-// @Security    oauth2
-// @Success     200 {object} config.ServerConfig
+// @Security    oauth
+// @Produce     json
+// @Success     200 {object} models.ServerConfig
 func getConfig(w http.ResponseWriter, r *http.Request) {
 	// Set header
 	w.Header().Set("Content-Type", "application/json")
@@ -200,8 +204,9 @@ func getConfig(w http.ResponseWriter, r *http.Request) {
 // @Summary     Get the server settings
 // @Router      /api/server/settings [get]
 // @Tags        Server
-// @Security    oauth2
-// @Success     200 {object} config.ServerSettings
+// @Security    oauth
+// @Produce     json
+// @Success     200 {object} models.ServerSettings
 func getSettings(w http.ResponseWriter, r *http.Request) {
 	scfg := logic.GetServerSettings()
 	if scfg.ClientSecret != "" {
@@ -214,8 +219,13 @@ func getSettings(w http.ResponseWriter, r *http.Request) {
 // @Summary     Update the server settings
 // @Router      /api/server/settings [put]
 // @Tags        Server
-// @Security    oauth2
-// @Success     200 {object} config.ServerSettings
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       body body models.ServerSettings true "Server settings"
+// @Success     200 {object} models.ServerSettings
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
 func updateSettings(w http.ResponseWriter, r *http.Request) {
 	var req models.ServerSettings
 	force := r.URL.Query().Get("force")
@@ -421,11 +431,11 @@ func identifySettingsUpdateAction(old, new models.ServerSettings) models.Action 
 	return models.Update
 }
 
-// @Summary     Get feature flags for this server.
+// @Summary     Get feature flags for this server
 // @Router      /api/server/feature_flags [get]
 // @Tags        Server
-// @Security    oauth2
-// @Success     200 {object} config.ServerSettings
+// @Produce     json
+// @Success     200 {object} models.FeatureFlags
 func getFeatureFlags(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, logic.GetFeatureFlags(), "")
 }

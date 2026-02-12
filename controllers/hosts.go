@@ -158,6 +158,7 @@ func upgradeHost(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/hosts [get]
 // @Tags        Hosts
 // @Security    oauth
+// @Produce     json
 // @Success     200 {array} models.ApiHost
 // @Failure     500 {object} models.ErrorResponse
 func getHosts(w http.ResponseWriter, r *http.Request) {
@@ -181,6 +182,7 @@ func getHosts(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/v1/host [get]
 // @Tags        Hosts
 // @Security    oauth
+// @Produce     json
 // @Success     200 {object} models.HostPull
 // @Failure     500 {object} models.ErrorResponse
 func pull(w http.ResponseWriter, r *http.Request) {
@@ -272,6 +274,8 @@ func pull(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/hosts/{hostid} [put]
 // @Tags        Hosts
 // @Security    oauth
+// @Accept      json
+// @Produce     json
 // @Param       hostid path string true "Host ID"
 // @Param       body body models.ApiHost true "New host data"
 // @Success     200 {object} models.ApiHost
@@ -448,6 +452,7 @@ func hostUpdateFallback(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/hosts/{hostid} [delete]
 // @Tags        Hosts
 // @Security    oauth
+// @Produce     json
 // @Param       hostid path string true "Host ID"
 // @Param       force query bool false "Force delete"
 // @Success     200 {object} models.ApiHost
@@ -784,6 +789,7 @@ func deleteHostFromNetwork(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/hosts/adm/authenticate [post]
 // @Tags        Auth
 // @Accept      json
+// @Produce     json
 // @Param       body body models.AuthParams true "Authentication parameters"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
@@ -1149,12 +1155,6 @@ func syncHost(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// @Summary     Deletes all EMQX hosts
-// @Router      /api/emqx/hosts [delete]
-// @Tags        Hosts
-// @Security    oauth
-// @Success     200 {string} string "deleted hosts data on emqx"
-// @Failure     500 {object} models.ErrorResponse
 func delEmqxHosts(w http.ResponseWriter, r *http.Request) {
 	currentHosts, err := logic.GetAllHosts()
 	if err != nil {
@@ -1182,11 +1182,12 @@ func delEmqxHosts(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary     Fetches host peerinfo
-// @Router      /api/host/{hostid}/peer_info [get]
+// @Router      /api/v1/host/{hostid}/peer_info [get]
 // @Tags        Hosts
 // @Security    oauth
+// @Produce     json
 // @Param       hostid path string true "Host ID"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.HostPeerInfo
 // @Failure     500 {object} models.ErrorResponse
 func getHostPeerInfo(w http.ResponseWriter, r *http.Request) {
 	hostId := mux.Vars(r)["hostid"]
@@ -1215,6 +1216,8 @@ func getHostPeerInfo(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/v1/pending_hosts [get]
 // @Tags        Hosts
 // @Security    oauth
+// @Produce     json
+// @Param       network query string true "Network ID"
 // @Success     200 {array} schema.PendingHost
 // @Failure     500 {object} models.ErrorResponse
 func getPendingHosts(w http.ResponseWriter, r *http.Request) {
@@ -1237,11 +1240,13 @@ func getPendingHosts(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, pendingHosts, "returned pending hosts in "+netID)
 }
 
-// @Summary     approve pending hosts in a network
+// @Summary     Approve pending host in a network
 // @Router      /api/v1/pending_hosts/approve/{id} [post]
 // @Tags        Hosts
 // @Security    oauth
-// @Success     200 {array} models.ApiNode
+// @Produce     json
+// @Param       id path string true "Pending Host ID"
+// @Success     200 {object} models.ApiNode
 // @Failure     500 {object} models.ErrorResponse
 func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
@@ -1324,11 +1329,13 @@ func approvePendingHost(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, newNode.ConvertToAPINode(), "added pending host to "+p.Network)
 }
 
-// @Summary     reject pending hosts in a network
+// @Summary     Reject pending host in a network
 // @Router      /api/v1/pending_hosts/reject/{id} [post]
 // @Tags        Hosts
 // @Security    oauth
-// @Success     200 {array} models.ApiNode
+// @Produce     json
+// @Param       id path string true "Pending Host ID"
+// @Success     200 {object} schema.PendingHost
 // @Failure     500 {object} models.ErrorResponse
 func rejectPendingHost(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]

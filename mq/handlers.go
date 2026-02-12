@@ -2,7 +2,7 @@ package mq
 
 import (
 	"encoding/json"
-	"os"
+	"net"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/google/uuid"
@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
 	"github.com/gravitl/netmaker/servercfg"
+	"github.com/gravitl/netmaker/utils"
 	"golang.org/x/exp/slog"
 )
 
@@ -291,6 +292,22 @@ func HandleHostCheckin(h, currentHost *models.Host) bool {
 			return false
 		}
 	}
+	if h.Location == "" || h.CountryCode == "" {
+		var nodeIP net.IP
+		if h.EndpointIP != nil {
+			nodeIP = h.EndpointIP
+		} else if h.EndpointIPv6 != nil {
+			nodeIP = h.EndpointIPv6
+		}
+
+		if nodeIP != nil {
+			info, err := utils.GetGeoInfo(nodeIP)
+			if err == nil {
+				h.Location = info.Location
+				h.CountryCode = info.CountryCode
+			}
+		}
+	}
 	ifaceDelta := len(h.Interfaces) != len(currentHost.Interfaces) || !logic.CompareIfaceSlices(h.Interfaces, currentHost.Interfaces) ||
 		!h.EndpointIP.Equal(currentHost.EndpointIP) ||
 		(len(h.NatType) > 0 && h.NatType != currentHost.NatType) ||
@@ -298,15 +315,9 @@ func HandleHostCheckin(h, currentHost *models.Host) bool {
 		(h.ListenPort != 0 && h.ListenPort != currentHost.ListenPort) ||
 		(h.WgPublicListenPort != 0 && h.WgPublicListenPort != currentHost.WgPublicListenPort) ||
 		(!h.EndpointIPv6.Equal(currentHost.EndpointIPv6)) || (h.OSFamily != currentHost.OSFamily) ||
-		(h.OSVersion != currentHost.OSVersion) || (h.KernelVersion != currentHost.KernelVersion)
+		(h.OSVersion != currentHost.OSVersion) || (h.KernelVersion != currentHost.KernelVersion) ||
+		(h.Location != currentHost.Location) || (h.CountryCode != currentHost.CountryCode)
 	if ifaceDelta { // only save if something changes
-		if !h.EndpointIP.Equal(currentHost.EndpointIP) || !h.EndpointIPv6.Equal(currentHost.EndpointIPv6) || currentHost.Location == "" {
-			if h.EndpointIP != nil {
-				h.Location, h.CountryCode = logic.GetHostLocInfo(h.EndpointIP.String(), os.Getenv("IP_INFO_TOKEN"))
-			} else if h.EndpointIPv6 != nil {
-				h.Location, h.CountryCode = logic.GetHostLocInfo(h.EndpointIPv6.String(), os.Getenv("IP_INFO_TOKEN"))
-			}
-		}
 		currentHost.EndpointIP = h.EndpointIP
 		currentHost.EndpointIPv6 = h.EndpointIPv6
 		currentHost.Interfaces = h.Interfaces

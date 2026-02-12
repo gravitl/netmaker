@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/gorilla/mux"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/servercfg"
@@ -158,6 +159,10 @@ func checkNetworkAccessPermissions(netRoleID models.UserRoleID, username, reqSco
 }
 
 func GlobalPermissionsCheck(username string, r *http.Request) error {
+	route, err := mux.CurrentRoute(r).GetPathTemplate()
+	if err != nil {
+		return err
+	}
 	user, err := logic.GetUser(username)
 	if err != nil {
 		return err
@@ -198,10 +203,24 @@ func GlobalPermissionsCheck(username string, r *http.Request) error {
 		return nil
 	}
 	if targetRsrc == models.UserRsrc.String() && user.PlatformRoleID == models.PlatformUser && r.Method == http.MethodPut &&
-		strings.Contains(r.URL.Path, "/api/v1/users/add_network_user") || strings.Contains(r.URL.Path, "/api/v1/users/remove_network_user") {
+		route == "/api/v1/users/add_network_user" || route == "/api/v1/users/remove_network_user" {
+		return nil
+	}
+	if targetRsrc == models.UserRsrc.String() && user.PlatformRoleID == models.PlatformUser && r.Method == http.MethodGet &&
+		route == "/api/v1/users/unassigned_network_users" {
+		return nil
+	}
+	if targetRsrc == models.JitUserRsrc.String() && r.Method == http.MethodGet &&
+		strings.Contains(r.URL.Path, "/api/v1/jit_user/networks") {
 		return nil
 	}
 	if targetRsrc == models.UserRsrc.String() && username == targetRsrcID && (r.Method != http.MethodDelete) {
+		return nil
+	}
+	if r.Method == http.MethodGet && targetRsrc == models.UserActivityRsrc.String() && route == "/api/v1/user/activity" {
+		return nil
+	}
+	if r.Method == http.MethodGet && user.PlatformRoleID == models.PlatformUser && (route == "/api/v1/network/activity" || route == "/api/v1/flows") {
 		return nil
 	}
 	rsrcPermissionScope, ok := userRole.GlobalLevelAccess[models.RsrcType(targetRsrc)]

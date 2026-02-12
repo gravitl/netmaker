@@ -212,12 +212,12 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				continue
 			}
 		}
-
 		if host.EnableFlowLogs {
 			if node.Address.IP != nil {
 				hostPeerUpdate.AddressIdentityMap[node.Address.IP.String()+"/32"] = models.PeerIdentity{
 					ID:   node.ID.String(),
 					Type: models.PeerType_Node,
+					Name: host.Name,
 				}
 			}
 
@@ -225,6 +225,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				hostPeerUpdate.AddressIdentityMap[node.Address6.IP.String()+"/128"] = models.PeerIdentity{
 					ID:   node.ID.String(),
 					Type: models.PeerType_Node,
+					Name: host.Name,
 				}
 			}
 		}
@@ -485,19 +486,19 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 				}
 				hostPeerUpdate.NodePeers = append(hostPeerUpdate.NodePeers, nodePeer)
 			}
-
 			if host.EnableFlowLogs {
 				if peer.Address.IP != nil {
 					hostPeerUpdate.AddressIdentityMap[peer.Address.IP.String()+"/32"] = models.PeerIdentity{
 						ID:   peer.ID.String(),
 						Type: models.PeerType_Node,
+						Name: peerHost.Name,
 					}
 				}
-
 				if peer.Address6.IP != nil {
 					hostPeerUpdate.AddressIdentityMap[peer.Address6.IP.String()+"/128"] = models.PeerIdentity{
 						ID:   peer.ID.String(),
 						Type: models.PeerType_Node,
+						Name: peerHost.Name,
 					}
 				}
 			}
@@ -552,9 +553,12 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 			}
 			if host.EnableFlowLogs {
 				for _, egressRange := range node.EgressDetails.EgressGatewayRequest.RangesWithMetric {
-					hostPeerUpdate.AddressIdentityMap[egressRange.Network] = models.PeerIdentity{
-						ID:   egressRange.EgressID,
-						Type: models.PeerType_EgressRoute,
+					if egressRange.EgressID != "" {
+						hostPeerUpdate.AddressIdentityMap[egressRange.Network] = models.PeerIdentity{
+							ID:   egressRange.EgressID,
+							Type: models.PeerType_EgressRoute,
+							Name: egressRange.EgressName,
+						}
 					}
 				}
 			}
@@ -583,6 +587,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 					Network:     rangeI,
 					RouteMetric: 256,
 					Nat:         true,
+					Mode:        models.DirectNAT,
 				})
 			}
 			inetEgressInfo := models.EgressInfo{
@@ -692,7 +697,12 @@ func filterConflictingEgressRoutesWithMetric(node, peer models.Node) []models.Eg
 			nodeEgressMap[rangeI] = struct{}{}
 		}
 		for i := len(egressIPs) - 1; i >= 0; i-- {
-			if _, ok := nodeEgressMap[egressIPs[i].Network]; ok {
+			// Use virtual network range for conflict detection when virtual NAT is enabled
+			checkRange := egressIPs[i].Network
+			if egressIPs[i].Nat && egressIPs[i].VirtualNetwork != "" {
+				checkRange = egressIPs[i].VirtualNetwork
+			}
+			if _, ok := nodeEgressMap[checkRange]; ok {
 				egressIPs = append(egressIPs[:i], egressIPs[i+1:]...)
 			}
 		}
@@ -760,11 +770,7 @@ func GetEgressIPs(peer *models.Node) []net.IPNet {
 			logger.Log(2, "egress IP range of ", iprange, " overlaps with ", peer.LocalAddress.String(), ", omitting")
 			continue // skip adding egress range if overlaps with node's local ip
 		}
-		if err != nil {
-			logger.Log(1, "error encountered when setting egress range", err.Error())
-		} else {
-			allowedips = append(allowedips, *ipnet)
-		}
+		allowedips = append(allowedips, *ipnet)
 	}
 	return allowedips
 }
@@ -792,8 +798,12 @@ func getNodeAllowedIPs(peer, node *models.Node) []net.IPNet {
 		if node.EgressDetails.IsEgressGateway {
 			// filter conflicting addrs
 			nodeEgressMap := make(map[string]struct{})
-			for _, rangeI := range node.EgressDetails.EgressGatewayRanges {
-				nodeEgressMap[rangeI] = struct{}{}
+			for _, rangeI := range node.EgressDetails.EgressGatewayRequest.RangesWithMetric {
+				if rangeI.Nat {
+					nodeEgressMap[rangeI.VirtualNetwork] = struct{}{}
+				} else {
+					nodeEgressMap[rangeI.Network] = struct{}{}
+				}
 			}
 			for i := len(egressIPs) - 1; i >= 0; i-- {
 				if _, ok := nodeEgressMap[egressIPs[i].String()]; ok {

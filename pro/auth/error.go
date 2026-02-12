@@ -82,12 +82,11 @@ var htmlBaseTemplate = `<!DOCTYPE html>
 
 <body>
 	<img
-		src="https://raw.githubusercontent.com/gravitl/netmaker-docs/master/images/netmaker-github/netmaker-teal.png"
+		src="https://media.netmaker.io/logos/svg/netmaker-logo-full-light-1.svg"
 		alt="netmaker logo"
 		id="logo"
 	>
 	%s
-	<button class="back-to-login-btn" onClick="redirect()" role="button">Back To Login</button>
 	
 </body>
 </html>`

@@ -169,6 +169,14 @@ func GetAllRsrcIDForRsrc(rsrc models.RsrcType) models.RsrcID {
 		return models.AllPostureCheckRsrcID
 	case models.NameserverRsrc:
 		return models.AllNameserverRsrcID
+	case models.JitAdminRsrc:
+		return models.AllJitAdminRsrcID
+	case models.JitUserRsrc:
+		return models.AllJitUserRsrcID
+	case models.UserActivityRsrc:
+		return models.AllUserActivityRsrcID
+	case models.TrafficFlow:
+		return models.AllTrafficFlowRsrcID
 	}
 	return ""
 }

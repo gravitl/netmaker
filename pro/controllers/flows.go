@@ -22,11 +22,11 @@ func FlowHandlers(r *mux.Router) {
 const (
 	querySelect = `
 SELECT
-	flow_id, host_id, network_id,
+	flow_id, host_id, host_name, network_id,
 	protocol, src_port, dst_port,
 	icmp_type, icmp_code, direction,
-	src_ip, src_type, src_entity_id,
-	dst_ip, dst_type, dst_entity_id,
+	src_ip, src_type, src_entity_id, src_entity_name,
+	dst_ip, dst_type, dst_entity_id, dst_entity_name,
 	start_ts, end_ts,
 	bytes_sent, bytes_recv,
 	packets_sent, packets_recv,
@@ -37,8 +37,58 @@ ORDER BY version DESC
 LIMIT ? OFFSET ?`
 )
 
+// FlowRow represents a single flow log entry
+type FlowRow struct {
+	FlowID        string    `ch:"flow_id" json:"flow_id"`
+	HostID        string    `ch:"host_id" json:"host_id"`
+	HostName      string    `ch:"host_name" json:"host_name"`
+	NetworkID     string    `ch:"network_id" json:"network_id"`
+	Protocol      uint16    `ch:"protocol" json:"protocol"`
+	SrcPort       uint16    `ch:"src_port" json:"src_port"`
+	DstPort       uint16    `ch:"dst_port" json:"dst_port"`
+	ICMPType      uint8     `ch:"icmp_type" json:"icmp_type"`
+	ICMPCode      uint8     `ch:"icmp_code" json:"icmp_code"`
+	Direction     string    `ch:"direction" json:"direction"`
+	SrcIP         string    `ch:"src_ip" json:"src_ip"`
+	SrcType       string    `ch:"src_type" json:"src_type"`
+	SrcEntityID   string    `ch:"src_entity_id" json:"src_entity_id"`
+	SrcEntityName string    `ch:"src_entity_name" json:"src_entity_name"`
+	DstIP         string    `ch:"dst_ip" json:"dst_ip"`
+	DstType       string    `ch:"dst_type" json:"dst_type"`
+	DstEntityID   string    `ch:"dst_entity_id" json:"dst_entity_id"`
+	DstEntityName string    `ch:"dst_entity_name" json:"dst_entity_name"`
+	StartTs       time.Time `ch:"start_ts" json:"start_ts"`
+	EndTs         time.Time `ch:"end_ts" json:"end_ts"`
+	BytesSent     uint64    `ch:"bytes_sent" json:"bytes_sent"`
+	BytesRecv     uint64    `ch:"bytes_recv" json:"bytes_recv"`
+	PacketsSent   uint64    `ch:"packets_sent" json:"packets_sent"`
+	PacketsRecv   uint64    `ch:"packets_recv" json:"packets_recv"`
+	Status        uint32    `ch:"status" json:"status"`
+	Version       time.Time `ch:"version" json:"version"`
+}
+
+// @Summary     List flow logs
+// @Router      /api/v1/flows [get]
+// @Tags        Traffic Logs
+// @Security    oauth
+// @Produce     json
+// @Param       network_id query string false "Filter by network ID"
+// @Param       from query string false "Start time in RFC3339 format"
+// @Param       to query string false "End time in RFC3339 format"
+// @Param       src_type query string false "Source type filter"
+// @Param       src_entity_id query string false "Source entity ID filter"
+// @Param       dst_type query string false "Destination type filter"
+// @Param       dst_entity_id query string false "Destination entity ID filter"
+// @Param       protocol query string false "Protocol filter"
+// @Param       node_id query string false "Node ID filter"
+// @Param       username query string false "Username filter"
+// @Param       page query int false "Page number"
+// @Param       per_page query int false "Items per page (max 1000)"
+// @Success     200 {array} FlowRow
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
 func handleListFlows(w http.ResponseWriter, r *http.Request) {
-	if !proLogic.GetFeatureFlags().EnableFlowLogs {
+	if !proLogic.GetFeatureFlags().EnableFlowLogs || !logic.GetServerSettings().EnableFlowLogs {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("flow logs not enabled"), logic.Forbidden))
 		return
 	}
@@ -177,39 +227,19 @@ func handleListFlows(w http.ResponseWriter, r *http.Request) {
 
 	args = append(args, perPage, offset)
 
-	rows, err := ch.FromContext(r.Context()).Query(r.Context(), query, args...)
+	conn, err := ch.FromContext(r.Context())
+	if err != nil {
+		logic.ReturnErrorResponse(w, r,
+			logic.FormatError(fmt.Errorf("clickhouse connection not available: %v", err), logic.Internal))
+		return
+	}
+	rows, err := conn.Query(r.Context(), query, args...)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r,
 			logic.FormatError(fmt.Errorf("error fetching flows: %v", err), logic.Internal))
 		return
 	}
 	defer rows.Close()
-
-	type FlowRow struct {
-		FlowID      string    `ch:"flow_id" json:"flow_id"`
-		HostID      string    `ch:"host_id" json:"host_id"`
-		NetworkID   string    `ch:"network_id" json:"network_id"`
-		Protocol    uint16    `ch:"protocol" json:"protocol"`
-		SrcPort     uint16    `ch:"src_port" json:"src_port"`
-		DstPort     uint16    `ch:"dst_port" json:"dst_port"`
-		ICMPType    uint8     `ch:"icmp_type" json:"icmp_type"`
-		ICMPCode    uint8     `ch:"icmp_code" json:"icmp_code"`
-		Direction   string    `ch:"direction" json:"direction"`
-		SrcIP       string    `ch:"src_ip" json:"src_ip"`
-		SrcType     string    `ch:"src_type" json:"src_type"`
-		SrcEntityID string    `ch:"src_entity_id" json:"src_entity_id"`
-		DstIP       string    `ch:"dst_ip" json:"dst_ip"`
-		DstType     string    `ch:"dst_type" json:"dst_type"`
-		DstEntityID string    `ch:"dst_entity_id" json:"dst_entity_id"`
-		StartTs     time.Time `ch:"start_ts" json:"start_ts"`
-		EndTs       time.Time `ch:"end_ts" json:"end_ts"`
-		BytesSent   uint64    `ch:"bytes_sent" json:"bytes_sent"`
-		BytesRecv   uint64    `ch:"bytes_recv" json:"bytes_recv"`
-		PacketsSent uint64    `ch:"packets_sent" json:"packets_sent"`
-		PacketsRecv uint64    `ch:"packets_recv" json:"packets_recv"`
-		Status      uint32    `ch:"status" json:"status"`
-		Version     time.Time `ch:"version" json:"version"`
-	}
 
 	result := make([]FlowRow, 0, 1000)
 

@@ -37,8 +37,9 @@ func aclHandlers(r *mux.Router) {
 // @Summary     List Acl Policy types
 // @Router      /api/v1/acls/policy_types [get]
 // @Tags        ACL
-// @Accept      json
-// @Success     200 {array} models.SuccessResponse
+// @Security    oauth
+// @Produce     json
+// @Success     200 {object} models.AclPolicyTypes
 // @Failure     500 {object} models.ErrorResponse
 func aclPolicyTypes(w http.ResponseWriter, r *http.Request) {
 	resp := models.AclPolicyTypes{
@@ -198,8 +199,10 @@ func aclDebug(w http.ResponseWriter, r *http.Request) {
 // @Summary     List Acls in a network
 // @Router      /api/v1/acls [get]
 // @Tags        ACL
-// @Accept      json
-// @Success     200 {array} models.SuccessResponse
+// @Security    oauth
+// @Produce     json
+// @Param       network query string true "Network ID"
+// @Success     200 {array} models.Acl
 // @Failure     500 {object} models.ErrorResponse
 func getAcls(w http.ResponseWriter, r *http.Request) {
 	netID := r.URL.Query().Get("network")
@@ -223,11 +226,13 @@ func getAcls(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, acls, "fetched all acls in the network "+netID)
 }
 
-// @Summary     List Egress Acls in a network
-// @Router      /api/v1/acls [get]
+// @Summary     List Egress Acls
+// @Router      /api/v1/acls/egress [get]
 // @Tags        ACL
-// @Accept      json
-// @Success     200 {array} models.SuccessResponse
+// @Security    oauth
+// @Produce     json
+// @Param       egress_id query string true "Egress ID"
+// @Success     200 {array} models.Acl
 // @Failure     500 {object} models.ErrorResponse
 func getEgressAcls(w http.ResponseWriter, r *http.Request) {
 	eID := r.URL.Query().Get("egress_id")
@@ -255,8 +260,12 @@ func getEgressAcls(w http.ResponseWriter, r *http.Request) {
 // @Summary     Create Acl
 // @Router      /api/v1/acls [post]
 // @Tags        ACL
+// @Security    oauth
 // @Accept      json
-// @Success     200 {array} models.SuccessResponse
+// @Produce     json
+// @Param       body body models.Acl true "ACL policy details"
+// @Success     200 {object} models.Acl
+// @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func createAcl(w http.ResponseWriter, r *http.Request) {
 	var req models.Acl
@@ -325,8 +334,12 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 // @Summary     Update Acl
 // @Router      /api/v1/acls [put]
 // @Tags        ACL
+// @Security    oauth
 // @Accept      json
-// @Success     200 {array} models.SuccessResponse
+// @Produce     json
+// @Param       body body models.UpdateAclRequest true "ACL update details"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func updateAcl(w http.ResponseWriter, r *http.Request) {
 	var updateAcl models.UpdateAclRequest
@@ -387,8 +400,11 @@ func updateAcl(w http.ResponseWriter, r *http.Request) {
 // @Summary     Delete Acl
 // @Router      /api/v1/acls [delete]
 // @Tags        ACL
-// @Accept      json
-// @Success     200 {array} models.SuccessResponse
+// @Security    oauth
+// @Produce     json
+// @Param       acl_id query string true "ACL ID"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func deleteAcl(w http.ResponseWriter, r *http.Request) {
 	aclID, _ := url.QueryUnescape(r.URL.Query().Get("acl_id"))

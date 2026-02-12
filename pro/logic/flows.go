@@ -30,7 +30,11 @@ func StopFlowCleanupLoop() {
 
 func CleanupFlows() error {
 	ctx := ch.WithContext(context.TODO())
-	rows, err := ch.FromContext(ctx).Query(ctx, `
+	conn, err := ch.FromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("clickhouse connection not available: %w", err)
+	}
+	rows, err := conn.Query(ctx, `
 SELECT DISTINCT parts.partition
 FROM system.parts
 WHERE parts.database = 'netmaker' AND parts.table = 'flows'
@@ -59,7 +63,7 @@ ORDER BY parts.partition ASC
 		}
 
 		if partition.Before(cutoff) {
-			err = ch.FromContext(ctx).Exec(ctx, fmt.Sprintf("ALTER TABLE netmaker.flows DROP partition %s", partitionID))
+			err = conn.Exec(ctx, fmt.Sprintf("ALTER TABLE netmaker.flows DROP partition %s", partitionID))
 			if err != nil {
 				cleanErr = errors.Join(cleanErr, err)
 				continue

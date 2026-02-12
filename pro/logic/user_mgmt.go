@@ -34,13 +34,6 @@ var PlatformUserUserPermissionTemplate = models.UserRolePermissionTemplate{
 	ID:         models.PlatformUser,
 	Default:    true,
 	FullAccess: false,
-	GlobalLevelAccess: map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope{
-		models.UserRsrc: {
-			models.AllUserRsrcID: models.RsrcPermissionScope{
-				Read: true,
-			},
-		},
-	},
 }
 
 var AuditorUserPermissionTemplate = models.UserRolePermissionTemplate{
@@ -132,6 +125,15 @@ var NetworkUserAllPermissionTemplate = models.UserRolePermissionTemplate{
 		models.NameserverRsrc: {
 			models.AllNameserverRsrcID: models.RsrcPermissionScope{
 				Read: true,
+			},
+		},
+		models.JitUserRsrc: {
+			models.AllJitUserRsrcID: models.RsrcPermissionScope{
+				Read:     true,
+				Create:   true,
+				Update:   true,
+				Delete:   true,
+				SelfOnly: true,
 			},
 		},
 	},
@@ -265,6 +267,15 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 			models.NameserverRsrc: {
 				models.AllNameserverRsrcID: models.RsrcPermissionScope{
 					Read: true,
+				},
+			},
+			models.JitUserRsrc: {
+				models.AllJitUserRsrcID: models.RsrcPermissionScope{
+					Read:     true,
+					Create:   true,
+					Update:   true,
+					Delete:   true,
+					SelfOnly: true,
 				},
 			},
 		},

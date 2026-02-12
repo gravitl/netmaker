@@ -1,7 +1,7 @@
 
 <p align="center">
   <a href="https://netmaker.io">
-  <img src="https://raw.githubusercontent.com/gravitl/netmaker-docs/master/images/netmaker-github/netmaker-teal.png" width="50%"><break/>
+  <img src="https://media.netmaker.io/logos/svg/netmaker-logo-full-dark.svg" width="50%"><break/>
   </a>
 </p>
 
@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="https://github.com/gravitl/netmaker/releases">
-    <img src="https://img.shields.io/badge/Version-1.4.0-informational?style=flat-square" />
+    <img src="https://img.shields.io/badge/Version-1.5.0-informational?style=flat-square" />
   </a>
   <a href="https://hub.docker.com/r/gravitl/netmaker/tags">
     <img src="https://img.shields.io/docker/pulls/gravitl/netmaker?label=downloads" />

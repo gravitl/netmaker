@@ -29,6 +29,11 @@ type Network struct {
 	AutoRemove          string   `json:"auto_remove"`
 	AutoRemoveTags      []string `json:"auto_remove_tags"`
 	AutoRemoveThreshold int      `json:"auto_remove_threshold_mins"`
+	JITEnabled          string   `json:"jit_enabled" bson:"jit_enabled" validate:"checkyesorno"`
+	// VirtualNATPoolIPv4 is the IPv4 CIDR pool from which virtual NAT ranges are allocated for egress gateways
+	VirtualNATPoolIPv4 string `json:"virtual_nat_pool_ipv4"`
+	// VirtualNATSitePrefixLenIPv4 is the prefix length (e.g., 24) for individual site allocations from the IPv4 virtual NAT pool
+	VirtualNATSitePrefixLenIPv4 int `json:"virtual_nat_site_prefixlen_ipv4"`
 }
 
 // SaveData - sensitive fields of a network that should be kept the same
@@ -96,7 +101,59 @@ func (network *Network) SetDefaults() (upsert bool) {
 		network.DefaultACL = "yes"
 		upsert = true
 	}
+
+	if network.JITEnabled == "" {
+		network.JITEnabled = "no"
+		upsert = true
+	}
 	return
+}
+
+// AssignVirtualNATDefaults determines safe defaults based on VPN CIDR
+func (network *Network) AssignVirtualNATDefaults(vpnCIDR string, networkID string) {
+	const (
+		cgnatCIDR        = "100.64.0.0/10"
+		fallbackIPv4Pool = "198.18.0.0/15"
+
+		defaultIPv4SitePrefix = 24
+	)
+
+	// Parse CGNAT CIDR (should always succeed, but check for safety)
+	_, cgnatNet, err := net.ParseCIDR(cgnatCIDR)
+	if err != nil {
+		// Fallback to default pool if CGNAT parsing fails (shouldn't happen)
+		network.VirtualNATPoolIPv4 = fallbackIPv4Pool
+		network.VirtualNATSitePrefixLenIPv4 = defaultIPv4SitePrefix
+		return
+	}
+
+	var virtualIPv4Pool string
+	// Parse VPN CIDR - if it fails or is empty, use fallback
+	if vpnCIDR == "" {
+		virtualIPv4Pool = fallbackIPv4Pool
+	} else {
+		_, vpnNet, err := net.ParseCIDR(vpnCIDR)
+		if err != nil || vpnNet == nil {
+			// Invalid VPN CIDR, use fallback
+			virtualIPv4Pool = fallbackIPv4Pool
+		} else if !cidrOverlaps(vpnNet, cgnatNet) {
+			// Safe to reuse VPN CIDR for Virtual NAT
+			virtualIPv4Pool = vpnCIDR
+		} else {
+			// VPN is CGNAT — must not reuse
+			virtualIPv4Pool = fallbackIPv4Pool
+		}
+	}
+
+	network.VirtualNATPoolIPv4 = virtualIPv4Pool
+	network.VirtualNATSitePrefixLenIPv4 = defaultIPv4SitePrefix
+
+}
+func cidrOverlaps(a, b *net.IPNet) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	return a.Contains(b.IP) || b.Contains(a.IP)
 }
 
 func (network *Network) GetNetworkNetworkCIDR4() *net.IPNet {

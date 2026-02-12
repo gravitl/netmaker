@@ -138,6 +138,7 @@ func ValidateLicense() (err error) {
 	}
 
 	proLogic.SetFeatureFlags(licenseResponse.FeatureFlags)
+	proLogic.SetDeploymentMode(licenseResponse.DeploymentMode)
 
 	_ = mq.PublishExporterFeatureFlags()
 

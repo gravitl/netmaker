@@ -85,7 +85,7 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 // @Tags        Networks
 // @Security    oauth
 // @Produce     json
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {array} models.NetworkStatResp
 // @Failure     500 {object} models.ErrorResponse
 func getNetworksStats(w http.ResponseWriter, r *http.Request) {
 
@@ -480,7 +480,7 @@ func OldNetworkACLStatus(w http.ResponseWriter, r *http.Request) {
 // @Security    oauth
 // @Param       networkname path string true "Network name"
 // @Produce     json
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} map[string][]string
 // @Failure     500 {object} models.ErrorResponse
 func getNetworkEgressRoutes(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
@@ -581,7 +581,7 @@ func deleteNetwork(w http.ResponseWriter, r *http.Request) {
 	})
 	logger.Log(1, r.Header.Get("user"), "deleted network", network)
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode("success")
+	logic.ReturnSuccessResponse(w, r, "success")
 }
 
 // @Summary     Create a network
@@ -684,7 +684,14 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	logic.CreateDefaultTags(models.NetworkID(network.NetID))
 	logic.AddNetworkToAllocatedIpMap(network.NetID)
 	logic.CreateFallbackNameserver(network.NetID)
-
+	if featureFlags.EnableOverlappingEgressRanges {
+		// assign virtual NAT pool fields
+		network.AssignVirtualNATDefaults(network.AddressRange, network.NetID)
+		// Update network with virtual NAT settings
+		if err := logic.UpsertNetwork(network); err != nil {
+			logger.Log(0, r.Header.Get("user"), "failed to update network with virtual NAT settings:", err.Error())
+		}
+	}
 	go func() {
 		defaultHosts := logic.GetDefaultHosts()
 		for i := range defaultHosts {

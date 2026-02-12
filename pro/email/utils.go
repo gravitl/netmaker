@@ -2,9 +2,9 @@ package email
 
 import "strings"
 
-// mail related images hosted on github
+// mail related images hosted on cdn
 var (
-	netmakerLogoTeal = "https://raw.githubusercontent.com/gravitl/netmaker/netmaker_logos/img/logos/netmaker-logo-2.png"
+	netmakerLogoTeal = "https://media.netmaker.io/logos/png/netmaker-logo-full-light-1.png"
 )
 
 type EmailBodyBuilder interface {
@@ -153,7 +153,7 @@ func (b *EmailBodyBuilderWithH1HeadlineAndImage) Build() string {
               <!-- START MAIN CONTENT AREA -->
               <tr>
                 <td class="wrapper" style="font-family: Helvetica, sans-serif; font-size: 16px; vertical-align: top; box-sizing: border-box; padding: 24px;" valign="top">
-                  <img src="` + netmakerLogoTeal + `" alt="Netmaker Logo" width="200" height="100" border="0" style="border:0; outline:none; text-decoration:none; display:block; margin-left: auto;">
+                  <img src="` + netmakerLogoTeal + `" alt="Netmaker Logo" width="200" border="0" style="border:0; outline:none; text-decoration:none; display:block; margin-right: auto; margin-bottom: 24px; height: auto;">
                   ` + bodyContent + `
                 </td>
               </tr>
