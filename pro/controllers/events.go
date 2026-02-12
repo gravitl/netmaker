@@ -14,8 +14,7 @@ import (
 
 func EventHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/network/activity", logic.SecurityCheck(true, http.HandlerFunc(listNetworkActivity))).Methods(http.MethodGet)
-	r.HandleFunc("/api/v1/user/activity", logic.SecurityCheck(false,
-		logic.ContinueIfUserMatch(http.HandlerFunc(listUserActivity)))).Methods(http.MethodGet)
+	r.HandleFunc("/api/v1/user/activity", logic.SecurityCheck(false, http.HandlerFunc(listUserActivity))).Methods(http.MethodGet)
 	r.HandleFunc("/api/v1/activity", logic.SecurityCheck(true, http.HandlerFunc(listActivity))).Methods(http.MethodGet)
 }
 
@@ -101,9 +100,20 @@ func listUserActivity(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	caller, err := logic.GetUser(r.Header.Get("user"))
+	if err != nil {
+		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
+		return
+	}
+	if caller.UserName != username && caller.PlatformRoleID != models.SuperAdminRole && caller.PlatformRoleID != models.AdminRole {
+		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
+			Code:    http.StatusForbidden,
+			Message: "you are not authorized to view this user's activity",
+		})
+		return
+	}
 	fromDateStr := r.URL.Query().Get("from_date")
 	toDateStr := r.URL.Query().Get("to_date")
-	var err error
 	var fromDate, toDate time.Time
 	if fromDateStr != "" && toDateStr != "" {
 		fromDate, err = time.Parse(time.RFC3339, fromDateStr)

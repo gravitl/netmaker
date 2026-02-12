@@ -10,6 +10,8 @@ import (
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"golang.org/x/exp/slog"
+	"gorm.io/datatypes"
 )
 
 var ValidateEgressReq = validateEgressReq
@@ -431,16 +433,29 @@ func GetNodeEgressInfo(targetNode *models.Node, eli []schema.Egress, acls []mode
 }
 
 func RemoveNodeFromEgress(node models.Node) {
-	egs, _ := (&schema.Egress{
-		Network: node.Network,
-	}).ListByNetwork(db.WithContext(context.TODO()))
-	for _, egI := range egs {
+	ctx := db.WithContext(context.TODO())
+	egs, err := (&schema.Egress{Network: node.Network}).ListByNetwork(ctx)
+	if err != nil {
+		slog.Error("RemoveNodeFromEgress: failed to list egresses", "error", err.Error())
+		return
+	}
+	for i := range egs {
+		egI := &egs[i]
 		if _, ok := egI.Nodes[node.ID.String()]; ok {
 			delete(egI.Nodes, node.ID.String())
-			egI.Update(db.WithContext(context.TODO()))
+			// Build a new map to ensure GORM persists the change; in-place modification
+			// of the same map reference may not be detected by Updates(&struct).
+			newNodes := make(datatypes.JSONMap)
+			for k, v := range egI.Nodes {
+				newNodes[k] = v
+			}
+			if err := db.FromContext(ctx).Table(egI.Table()).Where("id = ?", egI.ID).Updates(map[string]any{
+				"nodes": newNodes,
+			}).Error; err != nil {
+				slog.Error("RemoveNodeFromEgress: failed to update egress", "id", egI.ID, "error", err.Error())
+			}
 		}
 	}
-
 }
 
 func GetEgressRanges(netID models.NetworkID) (map[string][]string, map[string]struct{}, error) {
