@@ -82,7 +82,7 @@ var htmlBaseTemplate = `<!DOCTYPE html>
 
 <body>
 	<img
-		src="https://media.netmaker.io/logos/netmaker-logo-full-light-1.svg"
+		src="https://media.netmaker.io/logos/svg/netmaker-logo-full-light-1.svg"
 		alt="netmaker logo"
 		id="logo"
 	>
