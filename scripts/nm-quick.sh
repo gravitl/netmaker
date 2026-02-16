@@ -648,6 +648,9 @@ install_netmaker() {
     wget -qO "$INSTALL_DIR/grafana/datasource.yaml" "$GRAFANA_BASE/datasource.yaml"
     wget -qO "$INSTALL_DIR/grafana/grafana.ini" "$GRAFANA_BASE/grafana.ini"
     wget -qO "$INSTALL_DIR/grafana/graph-dashboard.json" "$GRAFANA_BASE/graph-dashboard.json"
+    # download Prometheus config
+    mkdir -p "$INSTALL_DIR/prometheus"
+    wget -qO "$INSTALL_DIR/prometheus/prometheus.yml" "https://downloads.netmaker.io/assests/prometheus/prometheus.yml"
 	elif [ -a "$INSTALL_DIR"/docker-compose.override.yml ]; then
 		rm -f "$INSTALL_DIR"/docker-compose.override.yml
 	fi
