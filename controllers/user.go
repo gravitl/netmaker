@@ -444,7 +444,10 @@ func validateUserIdentity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := logic.GetUser(username)
+	_user := &schema.User{
+		Username: username,
+	}
+	err = _user.Get(r.Context())
 	if err != nil {
 		logger.Log(0, "failed to get user: ", err.Error())
 		err = fmt.Errorf("user not found: %v", err)
@@ -453,7 +456,7 @@ func validateUserIdentity(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var resp models.UserIdentityValidationResponse
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
+	err = bcrypt.CompareHashAndPassword([]byte(_user.Password), []byte(req.Password))
 	if err != nil {
 		logic.ReturnSuccessResponseWithJson(w, r, resp, "user identity validation failed")
 	} else {
@@ -474,7 +477,10 @@ func validateUserIdentity(w http.ResponseWriter, r *http.Request) {
 func initiateTOTPSetup(w http.ResponseWriter, r *http.Request) {
 	username := r.Header.Get("user")
 
-	user, err := logic.GetUser(username)
+	_user := &schema.User{
+		Username: username,
+	}
+	err := _user.Get(r.Context())
 	if err != nil {
 		logger.Log(0, "failed to get user: ", err.Error())
 		err = fmt.Errorf("user not found: %v", err)
@@ -482,8 +488,8 @@ func initiateTOTPSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user.AuthType == models.OAuth {
-		err = fmt.Errorf("auth type is %s, cannot process totp setup", user.AuthType)
+	if _user.AuthType == string(models.OAuth) {
+		err = fmt.Errorf("auth type is %s, cannot process totp setup", _user.AuthType)
 		logger.Log(0, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -556,7 +562,10 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := logic.GetUser(username)
+	_user := &schema.User{
+		Username: username,
+	}
+	err = _user.Get(r.Context())
 	if err != nil {
 		logger.Log(0, "failed to get user: ", err.Error())
 		err = fmt.Errorf("user not found: %v", err)
@@ -564,8 +573,8 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user.AuthType == models.OAuth {
-		err = fmt.Errorf("auth type is %s, cannot process totp setup", user.AuthType)
+	if _user.AuthType == string(models.OAuth) {
+		err = fmt.Errorf("auth type is %s, cannot process totp setup", _user.AuthType)
 		logger.Log(0, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -582,9 +591,9 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 	totpSecret := otpAuthURL.Secret()
 
 	if totp.Validate(req.TOTP, totpSecret) {
-		user.IsMFAEnabled = true
-		user.TOTPSecret = totpSecret
-		err = logic.UpsertUser(*user)
+		_user.IsMFAEnabled = true
+		_user.TOTPSecret = totpSecret
+		err = _user.UpdateMFA(r.Context())
 		if err != nil {
 			err = fmt.Errorf("error upserting user: %v", err)
 			logger.Log(0, err.Error())
@@ -595,14 +604,14 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 		logic.LogEvent(&models.Event{
 			Action: models.EnableMFA,
 			Source: models.Subject{
-				ID:   user.UserName,
-				Name: user.UserName,
+				ID:   _user.Username,
+				Name: _user.Username,
 				Type: models.UserSub,
 			},
-			TriggeredBy: user.UserName,
+			TriggeredBy: _user.Username,
 			Target: models.Subject{
-				ID:   user.UserName,
-				Name: user.UserName,
+				ID:   _user.Username,
+				Name: _user.Username,
 				Type: models.UserSub,
 			},
 			Origin: models.Dashboard,
@@ -643,7 +652,10 @@ func verifyTOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := logic.GetUser(username)
+	_user := &schema.User{
+		Username: username,
+	}
+	err = _user.Get(r.Context())
 	if err != nil {
 		logger.Log(0, "failed to get user: ", err.Error())
 		err = fmt.Errorf("user not found: %v", err)
@@ -651,15 +663,15 @@ func verifyTOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !user.IsMFAEnabled {
+	if !_user.IsMFAEnabled {
 		err = fmt.Errorf("mfa is disabled for user(%s), cannot process totp verification", username)
 		logger.Log(0, err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
 
-	if totp.Validate(req.TOTP, user.TOTPSecret) {
-		jwt, err := logic.CreateUserJWT(user.UserName, user.PlatformRoleID, appName)
+	if totp.Validate(req.TOTP, _user.TOTPSecret) {
+		jwt, err := logic.CreateUserJWT(_user.Username, models.UserRoleID(_user.PlatformRoleID), appName)
 		if err != nil {
 			err = fmt.Errorf("error creating token: %v", err)
 			logger.Log(0, err.Error())
@@ -668,8 +680,8 @@ func verifyTOTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// update last login time
-		user.LastLoginTime = time.Now().UTC()
-		err = logic.UpsertUser(*user)
+		_user.LastLoginAt = time.Now().UTC()
+		err = _user.Update(r.Context())
 		if err != nil {
 			err = fmt.Errorf("error upserting user: %v", err)
 			logger.Log(0, err.Error())
@@ -680,11 +692,11 @@ func verifyTOTP(w http.ResponseWriter, r *http.Request) {
 		logic.LogEvent(&models.Event{
 			Action: models.Login,
 			Source: models.Subject{
-				ID:   user.UserName,
-				Name: user.UserName,
+				ID:   _user.Username,
+				Name: _user.Username,
 				Type: models.UserSub,
 			},
-			TriggeredBy: user.UserName,
+			TriggeredBy: _user.Username,
 			Target: models.Subject{
 				ID:   models.DashboardSub.String(),
 				Name: models.DashboardSub.String(),
@@ -710,17 +722,17 @@ func verifyTOTP(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} bool
 // @Failure     500 {object} models.ErrorResponse
 func hasSuperAdmin(w http.ResponseWriter, r *http.Request) {
-
 	w.Header().Set("Content-Type", "application/json")
 
-	hasSuperAdmin, err := logic.HasSuperAdmin()
+	superAdminExists, err := (&schema.User{}).SuperAdminExists(r.Context())
 	if err != nil {
 		logger.Log(0, "failed to check for admin: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
-	json.NewEncoder(w).Encode(hasSuperAdmin)
+	// TODO: encode in json?
+	json.NewEncoder(w).Encode(superAdminExists)
 
 }
 
@@ -760,88 +772,8 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func enableUserAccount(w http.ResponseWriter, r *http.Request) {
-	username := mux.Vars(r)["username"]
-	user, err := logic.GetUser(username)
-	if err != nil {
-		logger.Log(0, "failed to fetch user: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-		return
-	}
-
-	var caller *models.User
-	var isMaster bool
-	if r.Header.Get("user") == logic.MasterUser {
-		isMaster = true
-	} else {
-		caller, err = logic.GetUser(r.Header.Get("user"))
-		if err != nil {
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
-	}
-
-	if !isMaster && caller.UserName == user.UserName {
-		// This implies that a user is trying to enable themselves.
-		// This can never happen, since a disabled user cannot be
-		// authenticated.
-		err := fmt.Errorf("cannot enable self")
-		logger.Log(0, err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
-		return
-	}
-
-	switch user.PlatformRoleID {
-	case models.SuperAdminRole:
-		// This can never happen, since a superadmin user cannot
-		// be disabled.
-	case models.AdminRole:
-		if !isMaster && caller.PlatformRoleID != models.SuperAdminRole {
-			err = fmt.Errorf("%s cannot enable an admin", caller.PlatformRoleID)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
-			return
-		}
-	case models.PlatformUser:
-		if !isMaster && caller.PlatformRoleID != models.SuperAdminRole && caller.PlatformRoleID != models.AdminRole {
-			err = fmt.Errorf("%s cannot enable a platform-user", caller.PlatformRoleID)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
-			return
-		}
-	case models.ServiceUser:
-		if !isMaster && caller.PlatformRoleID != models.SuperAdminRole && caller.PlatformRoleID != models.AdminRole {
-			err = fmt.Errorf("%s cannot enable a service-user", caller.PlatformRoleID)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
-			return
-		}
-	}
-
-	user.AccountDisabled = false
-	err = logic.UpsertUser(*user)
-	if err != nil {
-		logger.Log(0, "failed to enable user account: ", err.Error())
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-	}
-	go func() {
-		enableConfigs := r.URL.Query().Get("force_enable_configs") == "true"
-		if !enableConfigs {
-			return
-		}
-		extclients, err := logic.GetAllExtClients()
-		if err != nil {
-			logger.Log(0, "failed to get user extclients:", err.Error())
-			return
-		}
-		for _, extclient := range extclients {
-			if extclient.OwnerID == user.UserName && !extclient.Enabled {
-				_, err = logic.ToggleExtClientConnectivity(&extclient, true)
-				if err != nil {
-					logger.Log(1, "failed to delete user extclient:", err.Error())
-				}
-			}
-		}
-		mq.PublishPeerUpdate(false)
-	}()
-
-	logic.ReturnSuccessResponse(w, r, "user account enabled")
+	force := r.URL.Query().Get("force_enable_configs") == "true"
+	updateUserAccountStatus(w, r, false, force)
 }
 
 // @Summary     Disable a user's account
@@ -855,69 +787,88 @@ func enableUserAccount(w http.ResponseWriter, r *http.Request) {
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func disableUserAccount(w http.ResponseWriter, r *http.Request) {
+	force := r.URL.Query().Get("force_disable_configs") == "true"
+	updateUserAccountStatus(w, r, true, force)
+}
+
+func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, accountDisabled, force bool) {
+	verb := "enable"
+	if accountDisabled {
+		verb = "disable"
+	}
+
 	username := mux.Vars(r)["username"]
-	user, err := logic.GetUser(username)
+	_user := &schema.User{
+		Username: username,
+	}
+	err := _user.Get(r.Context())
 	if err != nil {
 		logger.Log(0, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 
-	var caller *models.User
+	var _caller *schema.User
 	var isMaster bool
 	if r.Header.Get("user") == logic.MasterUser {
 		isMaster = true
 	} else {
-		caller, err = logic.GetUser(r.Header.Get("user"))
+		_caller = &schema.User{
+			Username: r.Header.Get("user"),
+		}
+		err = _caller.Get(r.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
 	}
 
-	if !isMaster && caller.UserName == user.UserName {
-		// This implies that a user is trying to disable themselves.
+	if !isMaster && _caller.Username == _user.Username {
+		// This implies that a user is trying to update themselves.
 		// This should not be allowed.
-		err = fmt.Errorf("cannot disable self")
+		err = fmt.Errorf("cannot %s self", verb)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 		return
 	}
 
-	switch user.PlatformRoleID {
-	case models.SuperAdminRole:
-		err = errors.New("cannot disable a super-admin")
-		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
-		return
-	case models.AdminRole:
-		if !isMaster && caller.PlatformRoleID != models.SuperAdminRole {
-			err = fmt.Errorf("%s cannot disable an admin", caller.PlatformRoleID)
+	if !isMaster {
+		userRoleID := models.UserRoleID(_user.PlatformRoleID)
+		callerRoleID := models.UserRoleID(_caller.PlatformRoleID)
+		switch userRoleID {
+		case models.SuperAdminRole:
+			err = fmt.Errorf("cannot %s a super-admin", verb)
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
 			return
-		}
-	case models.PlatformUser:
-		if !isMaster && caller.PlatformRoleID != models.SuperAdminRole && caller.PlatformRoleID != models.AdminRole {
-			err = fmt.Errorf("%s cannot disable a platform-user", caller.PlatformRoleID)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
-			return
-		}
-	case models.ServiceUser:
-		if !isMaster && caller.PlatformRoleID != models.SuperAdminRole && caller.PlatformRoleID != models.AdminRole {
-			err = fmt.Errorf("%s cannot disable a service-user", caller.PlatformRoleID)
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
-			return
+		case models.AdminRole:
+			if callerRoleID != models.SuperAdminRole {
+				err = fmt.Errorf("%s cannot %s an admin", callerRoleID, verb)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+				return
+			}
+		case models.PlatformUser:
+			if callerRoleID != models.SuperAdminRole && callerRoleID != models.AdminRole {
+				err = fmt.Errorf("%s cannot disable a platform-user", callerRoleID)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+				return
+			}
+		case models.ServiceUser:
+			if callerRoleID != models.SuperAdminRole && callerRoleID != models.AdminRole {
+				err = fmt.Errorf("%s cannot %s a service-user", callerRoleID, verb)
+				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "forbidden"))
+				return
+			}
 		}
 	}
 
-	user.AccountDisabled = true
-	err = logic.UpsertUser(*user)
+	_user.AccountDisabled = accountDisabled
+	err = _user.UpdateAccountStatus(r.Context())
 	if err != nil {
-		logger.Log(0, "failed to disable user account: ", err.Error())
+		logger.Log(0, fmt.Sprintf("failed to %s user account: %v", verb, err.Error()))
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 	}
 
 	go func() {
-		disableConfigs := r.URL.Query().Get("force_disable_configs") == "true"
-		if !disableConfigs {
+		if !force {
 			return
 		}
 		extclients, err := logic.GetAllExtClients()
@@ -925,12 +876,15 @@ func disableUserAccount(w http.ResponseWriter, r *http.Request) {
 			logger.Log(0, "failed to get user extclients:", err.Error())
 			return
 		}
+
 		for _, extclient := range extclients {
-			if extclient.OwnerID == user.UserName {
-				_, err = logic.ToggleExtClientConnectivity(&extclient, false)
+			if extclient.OwnerID == _user.Username {
+				_, err = logic.ToggleExtClientConnectivity(&extclient, !accountDisabled)
 				if err != nil {
-					logger.Log(1, "failed to delete user extclient:", err.Error())
-				} else {
+					logger.Log(1, "failed to update user extclient:", err.Error())
+				}
+
+				if accountDisabled {
 					err := mq.PublishDeletedClientPeerUpdate(&extclient)
 					if err != nil {
 						logger.Log(1, "failed to publish deleted client peer update:", err.Error())
@@ -940,7 +894,7 @@ func disableUserAccount(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	logic.ReturnSuccessResponse(w, r, "user account disabled")
+	logic.ReturnSuccessResponse(w, r, fmt.Sprintf("user account %sd", verb))
 }
 
 // @Summary     Get a user's preferences and settings
@@ -1693,10 +1647,11 @@ func listRoles(w http.ResponseWriter, r *http.Request) {
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 func logout(w http.ResponseWriter, r *http.Request) {
-	// set header.
-	w.Header().Set("Content-Type", "application/json")
-	userName := r.URL.Query().Get("username")
-	user, err := logic.GetUser(userName)
+	username := r.URL.Query().Get("username")
+	_user := &schema.User{
+		Username: username,
+	}
+	err := _user.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
@@ -1707,23 +1662,21 @@ func logout(w http.ResponseWriter, r *http.Request) {
 	} else {
 		target = models.ClientAppSub
 	}
-	if target != "" {
-		logic.LogEvent(&models.Event{
-			Action: models.LogOut,
-			Source: models.Subject{
-				ID:   user.UserName,
-				Name: user.UserName,
-				Type: models.UserSub,
-			},
-			TriggeredBy: user.UserName,
-			Target: models.Subject{
-				ID:   target.String(),
-				Name: target.String(),
-				Type: target,
-			},
-			Origin: models.Origin(target),
-		})
-	}
+	logic.LogEvent(&models.Event{
+		Action: models.LogOut,
+		Source: models.Subject{
+			ID:   _user.Username,
+			Name: _user.Username,
+			Type: models.UserSub,
+		},
+		TriggeredBy: _user.Username,
+		Target: models.Subject{
+			ID:   target.String(),
+			Name: target.String(),
+			Type: target,
+		},
+		Origin: models.Origin(target),
+	})
 
 	logic.ReturnSuccessResponse(w, r, "user logged out")
 }
