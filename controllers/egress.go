@@ -27,10 +27,12 @@ func egressHandlers(r *mux.Router) {
 
 // @Summary     Create Egress Resource
 // @Router      /api/v1/egress [post]
-// @Tags        Auth
+// @Tags        Egress
+// @Security    oauth
 // @Accept      json
+// @Produce     json
 // @Param       body body models.EgressReq true "Egress request data"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} schema.Egress
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -174,12 +176,13 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, e, "created egress resource")
 }
 
-// @Summary     List Egress Resource
+// @Summary     List Egress Resources
 // @Router      /api/v1/egress [get]
-// @Tags        Auth
-// @Accept      json
+// @Tags        Egress
+// @Security    oauth
+// @Produce     json
 // @Param       network query string true "Network identifier"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {array} schema.Egress
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -205,10 +208,12 @@ func listEgress(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     Update Egress Resource
 // @Router      /api/v1/egress [put]
-// @Tags        Auth
+// @Tags        Egress
+// @Security    oauth
 // @Accept      json
+// @Produce     json
 // @Param       body body models.EgressReq true "Egress request data"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} schema.Egress
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -394,8 +399,9 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     Delete Egress Resource
 // @Router      /api/v1/egress [delete]
-// @Tags        Auth
-// @Accept      json
+// @Tags        Egress
+// @Security    oauth
+// @Produce     json
 // @Param       id query string true "Egress resource ID"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse

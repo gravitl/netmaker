@@ -12,6 +12,14 @@ func NetworkHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/networks/{network}/graph", logic.SecurityCheck(true, http.HandlerFunc(getNetworkGraph))).Methods(http.MethodGet)
 }
 
+// @Summary     Get network topology graph
+// @Router      /api/v1/networks/{network}/graph [get]
+// @Tags        Networks
+// @Security    oauth
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Success     200 {array} models.ApiNode
+// @Failure     500 {object} models.ErrorResponse
 func getNetworkGraph(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 

@@ -18,7 +18,7 @@ func ipHandlers(r *mux.Router) {
 // @Summary     Get the current public IP address.
 // @Router      /api/getip [get]
 // @Tags        IP Service
-// @Security    oauth2
+// @Produce     json
 // @Success     200 {string} string "The public IP address."
 // @Failure     400 {string} string "Invalid IP address or no IP found."
 func getPublicIP(w http.ResponseWriter, r *http.Request) {

@@ -12,8 +12,6 @@ func SetFeatureFlags(featureFlags models.FeatureFlags) {
 }
 
 func GetFeatureFlags() models.FeatureFlags {
-	featureFlagsCache.EnableJIT = true
-	featureFlagsCache.EnableOverlappingEgressRanges = true
 	return featureFlagsCache
 }
 

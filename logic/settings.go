@@ -261,6 +261,7 @@ func GetServerConfig() config.ServerConfig {
 	cfg.JwtValidityDurationClients = time.Duration(settings.JwtValidityDurationClients) * time.Minute
 	cfg.RacRestrictToSingleNetwork = settings.RacRestrictToSingleNetwork
 	cfg.MetricInterval = settings.MetricInterval
+	cfg.MetricsPort = settings.MetricsPort
 	cfg.ManageDNS = settings.ManageDNS
 	cfg.Stun = settings.Stun
 	cfg.StunServers = settings.StunServers
