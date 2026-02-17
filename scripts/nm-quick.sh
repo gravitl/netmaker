@@ -251,11 +251,9 @@ save_config() { (
 		save_config_item NETMAKER_TENANT_ID "$NETMAKER_TENANT_ID"
 		save_config_item LICENSE_KEY "$LICENSE_KEY"
 		save_config_item METRICS_EXPORTER "on"
-		save_config_item PROMETHEUS "on"
 		save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG-ee"
 	else
 		save_config_item METRICS_EXPORTER "off"
-		save_config_item PROMETHEUS "off"
 		save_config_item SERVER_IMAGE_TAG "$IMAGE_TAG"
 	fi
 	# copy entries from the previous config
