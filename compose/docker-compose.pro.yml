@@ -4,9 +4,11 @@ services:
 
   prometheus:
     image: prom/prometheus:latest
+    env_file: ./netmaker.env
     environment:
       - METRICS_SECRET=${METRICS_SECRET}
-      - NETMAKER_METRICS_TARGET=${NETMAKER_METRICS_TARGET}
+      - PROMETHEUS_HOST=${PROMETHEUS_HOST:-http://prometheus:9090}  #https://prometheus.${NM_DOMAIN}
+      - NETMAKER_METRICS_TARGET=${NETMAKER_METRICS_TARGET:-http://netmaker-exporter:8085}  #https://netmaker-exporter.${NM_DOMAIN}
       - PROMETHEUS_RETENTION_TIME=${PROMETHEUS_RETENTION_TIME:-15d}
       - PROMETHEUS_RETENTION_SIZE=${PROMETHEUS_RETENTION_SIZE:-0}
     volumes:
@@ -28,9 +30,10 @@ services:
 
   grafana:
     image: grafana/grafana:latest
+    env_file: ./netmaker.env
     environment:
-      - PROMETHEUS_HOST=http://prometheus:9090  #https://prometheus.${NM_DOMAIN}
-      - NETMAKER_METRICS_TARGET=http://netmaker-exporter:8085  #https://netmaker-exporter.${NM_DOMAIN}
+      - PROMETHEUS_HOST=${PROMETHEUS_HOST:-http://prometheus:9090}  #https://prometheus.${NM_DOMAIN}
+      - NETMAKER_METRICS_TARGET=${NETMAKER_METRICS_TARGET:-http://netmaker-exporter:8085}  #https://netmaker-exporter.${NM_DOMAIN}
       - METRICS_SECRET=${METRICS_SECRET}
       - GF_INSTALL_PLUGINS=hamedkarbasi93-nodegraphapi-datasource
       - GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS=hamedkarbasi93-nodegraphapi-datasource
