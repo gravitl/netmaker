@@ -13,7 +13,7 @@ services:
       - PROMETHEUS_RETENTION_SIZE=${PROMETHEUS_RETENTION_SIZE:-0}
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml.tmpl:ro
-      - prometheus-data:/prometheus
+      - prometheus_data:/prometheus
     entrypoint: /bin/sh
     command:
       - -c
@@ -43,7 +43,7 @@ services:
       - ./grafana/dashboard-config.yaml:/etc/grafana/provisioning/dashboards/dashboard-config.yaml:ro
       - ./grafana/dashboard.json:/var/lib/grafana/dashboards/dashboard.json:ro
       - ./grafana/graph-dashboard.json:/var/lib/grafana/dashboards/graph-dashboard.json:ro
-      - grafana-data:/var/lib/grafana
+      - grafana_data:/var/lib/grafana
     restart: unless-stopped
 
 
