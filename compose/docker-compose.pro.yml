@@ -76,7 +76,7 @@ services:
 #      - clickhouse_logs:/var/log/clickhouse-server
 
 volumes:
-  prometheus-data: { }
-  grafana-data: { }
+  prometheus_data: { }
+  grafana_data: { }
 #  clickhouse_data: { }
 #  clickhouse_logs: { }
