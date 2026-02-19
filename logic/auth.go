@@ -49,14 +49,6 @@ func GetUsersDB() ([]models.User, error) {
 	}
 
 	users := converters.ToModelUsers(_users)
-
-	for i := range users {
-		users[i].UserGroups, users[i].NetworkRoles, err = GetUserGroupsAndNetworkRoles(_users[i].ID)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	return users, nil
 }
 
@@ -68,14 +60,6 @@ func GetUsers() ([]models.ReturnUser, error) {
 	}
 
 	users := converters.ToApiUsers(_users)
-
-	for i := range users {
-		users[i].UserGroups, users[i].NetworkRoles, err = GetUserGroupsAndNetworkRoles(_users[i].ID)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	return users, nil
 }
 
@@ -165,36 +149,6 @@ func CreateUser(user *models.User) error {
 	err = _user.Create(dbctx)
 	if err != nil {
 		return fmt.Errorf("failed to create user %s: %v", user.UserName, err)
-	}
-
-	for groupID := range user.UserGroups {
-		_grant := schema.AccessGrant{
-			PrincipalType: schema.Principal_User,
-			PrincipalID:   _user.ID,
-			Scope:         schema.Scope_Group,
-			ScopeID:       string(groupID),
-			RoleID:        schema.GroupRole_Member,
-		}
-		err = _grant.Create(dbctx)
-		if err != nil {
-			return fmt.Errorf("failed to add user %s to group %s: %v", user.UserName, groupID, err)
-		}
-	}
-
-	for networkID, role := range user.NetworkRoles {
-		_grant := schema.AccessGrant{
-			PrincipalType: schema.Principal_User,
-			PrincipalID:   _user.ID,
-			Scope:         schema.Scope_Network,
-			ScopeID:       string(networkID),
-		}
-		for roleID := range role {
-			_grant.RoleID = schema.RoleID(roleID)
-		}
-		err = _grant.Create(dbctx)
-		if err != nil {
-			return fmt.Errorf("failed to set user %s's role for network %s: %v", user.UserName, networkID, err)
-		}
 	}
 
 	commit = true

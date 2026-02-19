@@ -25,12 +25,6 @@ func GetUser(username string) (*models.User, error) {
 	}
 
 	user := converters.ToModelUser(_user)
-
-	user.UserGroups, user.NetworkRoles, err = GetUserGroupsAndNetworkRoles(_user.ID)
-	if err != nil {
-		return nil, err
-	}
-
 	return &user, nil
 }
 
@@ -45,39 +39,7 @@ func GetReturnUser(username string) (models.ReturnUser, error) {
 	}
 
 	user := converters.ToApiUser(_user)
-
-	user.UserGroups, user.NetworkRoles, err = GetUserGroupsAndNetworkRoles(_user.ID)
-	if err != nil {
-		return models.ReturnUser{}, err
-	}
-
 	return user, nil
-}
-
-func GetUserGroupsAndNetworkRoles(_userID string) (map[models.UserGroupID]struct{}, map[models.NetworkID]map[models.UserRoleID]struct{}, error) {
-	userGroups := make(map[models.UserGroupID]struct{})
-	networkRoles := make(map[models.NetworkID]map[models.UserRoleID]struct{})
-
-	_userGrant := &schema.AccessGrant{
-		PrincipalType: schema.Principal_User,
-		PrincipalID:   _userID,
-	}
-	_userGrants, err := _userGrant.ListByPrincipal(db.WithContext(context.TODO()))
-	if err != nil {
-		return nil, nil, err
-	}
-
-	for _, _grant := range _userGrants {
-		if _grant.Scope == schema.Scope_Group {
-			userGroups[models.UserGroupID(_grant.ScopeID)] = struct{}{}
-		} else if _grant.Scope == schema.Scope_Network {
-			networkRoles[models.NetworkID(_grant.ScopeID)] = map[models.UserRoleID]struct{}{
-				models.UserRoleID(_grant.RoleID): {},
-			}
-		}
-	}
-
-	return userGroups, networkRoles, nil
 }
 
 // ToReturnUser - gets a user as a return user

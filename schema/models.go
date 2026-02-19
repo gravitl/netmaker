@@ -11,7 +11,6 @@ func ListModels() []interface{} {
 		&Nameserver{},
 		&PostureCheck{},
 		&User{},
-		&AccessGrant{},
 		&Network{},
 		&JITRequest{},
 		&JITGrant{},
