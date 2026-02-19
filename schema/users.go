@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
+	"gorm.io/datatypes"
 )
 
 const (
@@ -18,20 +19,23 @@ var (
 )
 
 type User struct {
-	ID                         string `gorm:"primaryKey"`
-	Username                   string `gorm:"unique"`
-	DisplayName                string
-	PlatformRoleID             string
-	ExternalIdentityProviderID string
-	AccountDisabled            bool
-	AuthType                   string
-	Password                   string
-	IsMFAEnabled               bool
-	TOTPSecret                 string
-	LastLoginAt                time.Time
-	CreatedBy                  string
-	CreatedAt                  time.Time
-	UpdatedAt                  time.Time
+	ID                         string `gorm:"primaryKey" json:"id"`
+	Username                   string `gorm:"unique" json:"username"`
+	DisplayName                string `json:"display_name"`
+	PlatformRoleID             string `json:"platform_role_id"`
+	ExternalIdentityProviderID string `json:"external_identity_provider_id"`
+	AccountDisabled            bool   `json:"account_disabled"`
+	AuthType                   string `json:"auth_type"`
+	Password                   string `json:"password"`
+	IsMFAEnabled               bool   `json:"is_mfa_enabled"`
+	TOTPSecret                 string `json:"totp_secret"`
+	// NOTE: json tag is different from field name to ensure compatibility with the older model.
+	LastLoginAt time.Time `json:"last_login_time"`
+	// NOTE: json tag is different from field name to ensure compatibility with the older model.
+	UserGroups datatypes.JSONMap `json:"user_group_ids"`
+	CreatedBy  string            `json:"created_by"`
+	CreatedAt  time.Time         `json:"created_at"`
+	UpdatedAt  time.Time         `json:"updated_at"`
 }
 
 func (u *User) TableName() string {

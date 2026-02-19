@@ -14,22 +14,28 @@ var (
 	ErrNetworkIdentifiersNotProvided = errors.New("network identifiers not provided")
 )
 
+// Network schema.
+//
+// NOTE: json tags are different from field names to ensure compatibility with the older model.
 type Network struct {
-	ID                  string `gorm:"primaryKey"`
-	Name                string `gorm:"unique"`
-	AddressRange        string
-	AddressRange6       string
-	DefaultKeepAlive    time.Duration
-	DefaultACL          string
-	DefaultMTU          int32
-	AutoJoin            string
-	AutoRemove          string
-	AutoRemoveTags      datatypes.JSONSlice[string]
-	AutoRemoveThreshold time.Duration
-	NodesUpdatedAt      time.Time
-	CreatedBy           string
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
+	ID                          string                      `gorm:"primaryKey" json:"id"`
+	Name                        string                      `gorm:"unique" json:"netid"`
+	AddressRange                string                      `json:"addressrange"`
+	AddressRange6               string                      `json:"addressrange6"`
+	DefaultKeepAlive            time.Duration               `json:"defaultkeepalive"`
+	DefaultACL                  string                      `json:"defaultacl"`
+	DefaultMTU                  int32                       `json:"defaultmtu"`
+	AutoJoin                    bool                        `json:"auto_join"`
+	AutoRemove                  bool                        `json:"auto_remove"`
+	AutoRemoveTags              datatypes.JSONSlice[string] `json:"auto_remove_tags"`
+	AutoRemoveThreshold         time.Duration               `json:"auto_remove_threshold"`
+	JITEnabled                  bool                        `json:"jit_enabled"`
+	VirtualNATPoolIPv4          string                      `json:"virtual_nat_pool_ipv4"`
+	VirtualNATSitePrefixLenIPv4 int                         `json:"virtual_nat_site_prefixlen_ipv4"`
+	NodesUpdatedAt              time.Time                   `json:"nodeslastmodified"`
+	CreatedBy                   string                      `json:"created_by"`
+	CreatedAt                   time.Time                   `json:"created_at"`
+	UpdatedAt                   time.Time                   `json:"networklastmodified"`
 }
 
 func (n *Network) TableName() string {
