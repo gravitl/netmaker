@@ -1,11 +1,11 @@
 package user
 
 import (
-	"strings"
-
 	"github.com/gravitl/netmaker/cli/functions"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/spf13/cobra"
+	"gorm.io/datatypes"
 )
 
 var userCreateCmd = &cobra.Command{
@@ -14,24 +14,13 @@ var userCreateCmd = &cobra.Command{
 	Short: "Create a new user",
 	Long:  `Create a new user`,
 	Run: func(cmd *cobra.Command, args []string) {
-		user := &models.User{UserName: username, Password: password, PlatformRoleID: models.UserRoleID(platformID)}
-		if len(networkRoles) > 0 {
-			netRolesMap := make(map[models.NetworkID]map[models.UserRoleID]struct{})
-			for netID, netRoles := range networkRoles {
-				roleMap := make(map[models.UserRoleID]struct{})
-				for _, roleID := range strings.Split(netRoles, " ") {
-					roleMap[models.UserRoleID(roleID)] = struct{}{}
-				}
-				netRolesMap[models.NetworkID(netID)] = roleMap
-			}
-			user.NetworkRoles = netRolesMap
-		}
+		user := &schema.User{Username: username, Password: password, PlatformRoleID: models.UserRoleID(platformID)}
 		if len(groups) > 0 {
 			grMap := make(map[models.UserGroupID]struct{})
 			for _, groupID := range groups {
 				grMap[models.UserGroupID(groupID)] = struct{}{}
 			}
-			user.UserGroups = grMap
+			user.UserGroups = datatypes.NewJSONType(grMap)
 		}
 
 		functions.PrettyPrint(functions.CreateUser(user))

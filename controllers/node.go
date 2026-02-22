@@ -307,7 +307,7 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if !userPlatformRole.FullAccess {
-			nodes = logic.GetFilteredNodesByUserAccess(*user, nodes)
+			nodes = logic.GetFilteredNodesByUserAccess(user, nodes)
 		}
 
 	}

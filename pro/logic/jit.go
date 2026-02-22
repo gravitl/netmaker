@@ -2,13 +2,11 @@ package logic
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
@@ -40,10 +38,9 @@ func EnableJITOnNetwork(networkID string) error {
 		return fmt.Errorf("failed to get network: %w", err)
 	}
 
-	network.JITEnabled = "yes"
-	network.SetNetworkLastModified()
+	network.JITEnabled = true
 
-	if err := logic.SaveNetwork(&network); err != nil {
+	if err := logic.SaveNetwork(network); err != nil {
 		return fmt.Errorf("failed to save network: %w", err)
 	}
 
@@ -63,10 +60,9 @@ func DisableJITOnNetwork(networkID string) error {
 		return fmt.Errorf("failed to get network: %w", err)
 	}
 
-	network.JITEnabled = "no"
-	network.SetNetworkLastModified()
+	network.JITEnabled = false
 
-	return logic.SaveNetwork(&network)
+	return logic.SaveNetwork(network)
 }
 
 // CreateJITRequest - creates a new JIT access request
@@ -85,7 +81,7 @@ func CreateJITRequest(networkID, userName, reason string) (*schema.JITRequest, e
 		return nil, fmt.Errorf("network not found: %w", err)
 	}
 
-	if network.JITEnabled != "yes" {
+	if !network.JITEnabled {
 		return nil, errors.New("JIT is not enabled on this network")
 	}
 
@@ -229,19 +225,17 @@ func CheckJITAccess(networkID, userID string) (bool, *schema.JITGrant, error) {
 			globalNetworksAdminRoleID := models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkAdmin))
 
 			// Check user groups for network admin roles
-			for groupID := range user.UserGroups {
-				groupData, err := database.FetchRecord(database.USER_GROUPS_TABLE_NAME, groupID.String())
+			for groupID := range user.UserGroups.Data() {
+				group := &schema.UserGroup{
+					ID: groupID,
+				}
+				err = group.Get(db.WithContext(context.TODO()))
 				if err != nil {
 					continue
 				}
 
-				var group models.UserGroup
-				if err := json.Unmarshal([]byte(groupData), &group); err != nil {
-					continue
-				}
-
 				// Check if group has network admin role for this network
-				if roles, ok := group.NetworkRoles[networkIDModel]; ok {
+				if roles, ok := group.NetworkRoles.Data()[networkIDModel]; ok {
 					for roleID := range roles {
 						if roleID == models.NetworkAdmin {
 							// User is in group with network admin role for this network - bypass JIT check
@@ -251,7 +245,7 @@ func CheckJITAccess(networkID, userID string) (bool, *schema.JITGrant, error) {
 				}
 
 				// Check if group has global network admin role
-				if roles, ok := group.NetworkRoles[allNetworksID]; ok {
+				if roles, ok := group.NetworkRoles.Data()[allNetworksID]; ok {
 					for roleID := range roles {
 						if roleID == models.NetworkAdmin || roleID == globalNetworksAdminRoleID {
 							// User is in group with global network admin role - bypass JIT check
@@ -272,7 +266,7 @@ func CheckJITAccess(networkID, userID string) (bool, *schema.JITGrant, error) {
 		return false, nil, fmt.Errorf("network not found: %w", err)
 	}
 
-	if network.JITEnabled != "yes" {
+	if !network.JITEnabled {
 		// JIT not enabled, allow access
 		return true, nil, nil
 	}
@@ -410,7 +404,7 @@ type UserJITNetworkStatus struct {
 }
 
 // isUserAdminForNetwork - checks if user is super admin, admin, network admin, or global network admin
-func isUserAdminForNetwork(user *models.User, networkID string) bool {
+func isUserAdminForNetwork(user *schema.User, networkID string) bool {
 	// Check platform role (super admin or admin)
 	if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
 		return true
@@ -423,19 +417,17 @@ func isUserAdminForNetwork(user *models.User, networkID string) bool {
 	globalNetworksAdminRoleID := models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkAdmin))
 
 	// Check user groups for network admin roles
-	for groupID := range user.UserGroups {
-		groupData, err := database.FetchRecord(database.USER_GROUPS_TABLE_NAME, groupID.String())
+	for groupID := range user.UserGroups.Data() {
+		group := &schema.UserGroup{
+			ID: groupID,
+		}
+		err := group.Get(db.WithContext(context.TODO()))
 		if err != nil {
 			continue
 		}
 
-		var group models.UserGroup
-		if err := json.Unmarshal([]byte(groupData), &group); err != nil {
-			continue
-		}
-
 		// Check if group has network admin role for this network
-		if roles, ok := group.NetworkRoles[networkIDModel]; ok {
+		if roles, ok := group.NetworkRoles.Data()[networkIDModel]; ok {
 			for roleID := range roles {
 				if roleID == models.NetworkAdmin {
 					return true
@@ -444,7 +436,7 @@ func isUserAdminForNetwork(user *models.User, networkID string) bool {
 		}
 
 		// Check if group has global network admin role
-		if roles, ok := group.NetworkRoles[allNetworksID]; ok {
+		if roles, ok := group.NetworkRoles.Data()[allNetworksID]; ok {
 			for roleID := range roles {
 				if roleID == models.NetworkAdmin || roleID == globalNetworksAdminRoleID {
 					return true
@@ -457,7 +449,7 @@ func isUserAdminForNetwork(user *models.User, networkID string) bool {
 }
 
 // GetUserJITNetworksStatus - gets JIT status for multiple networks for a user
-func GetUserJITNetworksStatus(networks []models.Network, userID string) ([]UserJITNetworkStatus, error) {
+func GetUserJITNetworksStatus(networks []schema.Network, userID string) ([]UserJITNetworkStatus, error) {
 	ctx := db.WithContext(context.Background())
 	var result []UserJITNetworkStatus
 
@@ -469,15 +461,15 @@ func GetUserJITNetworksStatus(networks []models.Network, userID string) ([]UserJ
 
 	for _, network := range networks {
 		status := UserJITNetworkStatus{
-			NetworkID:      network.NetID,
-			NetworkName:    network.NetID, // Can be enhanced with network display name if available
-			JITEnabled:     network.JITEnabled == "yes",
+			NetworkID:      network.Name,
+			NetworkName:    network.Name, // Can be enhanced with network display name if available
+			JITEnabled:     network.JITEnabled,
 			HasAccess:      false,
 			PendingRequest: false,
 		}
 
 		// Check if user is admin - if so, show JIT as disabled and has access
-		if isUserAdminForNetwork(user, network.NetID) {
+		if isUserAdminForNetwork(user, network.Name) {
 			status.JITEnabled = false
 			status.HasAccess = true
 			result = append(result, status)
@@ -487,9 +479,9 @@ func GetUserJITNetworksStatus(networks []models.Network, userID string) ([]UserJ
 		// Only check JIT status if JIT is enabled on the network
 		if status.JITEnabled {
 			// Check for active grant
-			hasAccess, grant, err := CheckJITAccess(network.NetID, userID)
+			hasAccess, grant, err := CheckJITAccess(network.Name, userID)
 			if err != nil {
-				slog.Warn("failed to check JIT access", "network", network.NetID, "user", userID, "error", err)
+				slog.Warn("failed to check JIT access", "network", network.Name, "user", userID, "error", err)
 				// Continue with default values
 			} else {
 				status.HasAccess = hasAccess
@@ -498,7 +490,7 @@ func GetUserJITNetworksStatus(networks []models.Network, userID string) ([]UserJ
 
 			// Check for pending request
 			request := schema.JITRequest{
-				NetworkID: network.NetID,
+				NetworkID: network.Name,
 				UserID:    userID,
 			}
 			pendingRequests, err := request.ListPendingByNetwork(ctx)
@@ -591,8 +583,8 @@ func DisconnectExtClientsFromNetwork(networkID string) error {
 }
 
 // GetNetworkAdmins - gets all network admins for a network
-func GetNetworkAdmins(networkID string) ([]models.User, error) {
-	var admins []models.User
+func GetNetworkAdmins(networkID string) ([]schema.User, error) {
+	var admins []schema.User
 
 	users, err := logic.GetUsersDB()
 	if err != nil {
@@ -610,41 +602,18 @@ func GetNetworkAdmins(networkID string) ([]models.User, error) {
 			isAdmin = true
 		}
 
-		// Check network-specific roles
-		if roles, ok := user.NetworkRoles[networkIDModel]; ok {
-			for roleID := range roles {
-				if roleID == models.NetworkAdmin {
-					isAdmin = true
-					break
-				}
-			}
-		}
-
-		// Check all-networks role
-		globalNetworksAdminRoleID := models.UserRoleID(fmt.Sprintf("global-%s", models.NetworkAdmin))
-		if roles, ok := user.NetworkRoles[allNetworksID]; ok {
-			for roleID := range roles {
-				if roleID == models.NetworkAdmin || roleID == globalNetworksAdminRoleID {
-					isAdmin = true
-					break
-				}
-			}
-		}
-
 		// Check user groups
-		for groupID := range user.UserGroups {
-			groupData, err := database.FetchRecord(database.USER_GROUPS_TABLE_NAME, groupID.String())
+		for groupID := range user.UserGroups.Data() {
+			group := &schema.UserGroup{
+				ID: groupID,
+			}
+			err := group.Get(db.WithContext(context.TODO()))
 			if err != nil {
 				continue
 			}
 
-			var group models.UserGroup
-			if err := json.Unmarshal([]byte(groupData), &group); err != nil {
-				continue
-			}
-
 			// Check if group has network admin role for this network
-			if roles, ok := group.NetworkRoles[networkIDModel]; ok {
+			if roles, ok := group.NetworkRoles.Data()[networkIDModel]; ok {
 				for roleID := range roles {
 					if roleID == models.NetworkAdmin {
 						isAdmin = true
@@ -653,7 +622,7 @@ func GetNetworkAdmins(networkID string) ([]models.User, error) {
 				}
 			}
 
-			if roles, ok := group.NetworkRoles[allNetworksID]; ok {
+			if roles, ok := group.NetworkRoles.Data()[allNetworksID]; ok {
 				for roleID := range roles {
 					if roleID == models.NetworkAdmin || roleID == globalNetworksAdminRoleID {
 						isAdmin = true

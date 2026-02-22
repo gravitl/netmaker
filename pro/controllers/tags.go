@@ -88,7 +88,7 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 		ID:        models.TagID(fmt.Sprintf("%s.%s", req.Network, req.TagName)),
 		TagName:   req.TagName,
 		Network:   req.Network,
-		CreatedBy: user.UserName,
+		CreatedBy: user.Username,
 		ColorCode: req.ColorCode,
 		CreatedAt: time.Now().UTC(),
 	}

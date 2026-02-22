@@ -33,8 +33,6 @@ func Run() {
 	updateEnrollmentKeys()
 	assignSuperAdmin()
 	createDefaultTagsAndPolicies()
-	removeOldUserGrps()
-	migrateToUUIDs()
 	syncUsers()
 	updateHosts()
 	updateNodes()
@@ -43,21 +41,9 @@ func Run() {
 	logic.MigrateToGws()
 	migrateToEgressV1()
 	updateNetworks()
-	migrateNameservers()
 	resync()
 	deleteOldExtclients()
 	checkAndDeprecateOldAcls()
-	migrateJITEnabled()
-}
-
-func migrateJITEnabled() {
-	nets, _ := logic.GetNetworks()
-	for _, netI := range nets {
-		if netI.JITEnabled == "" {
-			netI.JITEnabled = "no"
-			logic.UpsertNetwork(netI)
-		}
-	}
 }
 
 func checkAndDeprecateOldAcls() {
@@ -65,7 +51,7 @@ func checkAndDeprecateOldAcls() {
 	nets, _ := logic.GetNetworks()
 	disableOldAcls := true
 	for _, netI := range nets {
-		networkACL, err := nodeacls.FetchAllACLs(nodeacls.NetworkID(netI.NetID))
+		networkACL, err := nodeacls.FetchAllACLs(nodeacls.NetworkID(netI.Name))
 		if err != nil {
 			continue
 		}
@@ -79,7 +65,7 @@ func checkAndDeprecateOldAcls() {
 		}
 		if disableOldAcls {
 			netI.DefaultACL = "yes"
-			logic.UpsertNetwork(netI)
+			logic.UpsertNetwork(&netI)
 		}
 	}
 	if disableOldAcls {
@@ -91,17 +77,6 @@ func checkAndDeprecateOldAcls() {
 }
 
 func updateNetworks() {
-	nets, _ := logic.GetNetworks()
-	for _, netI := range nets {
-		if netI.AutoJoin == "" {
-			netI.AutoJoin = "true"
-			logic.UpsertNetwork(netI)
-		}
-		if netI.AutoRemove == "" {
-			netI.AutoRemove = "false"
-			logic.UpsertNetwork(netI)
-		}
-	}
 	initializeVirtualNATSettings()
 }
 
@@ -174,7 +149,7 @@ func initializeVirtualNATSettings() {
 
 		// If this network needs a unique pool, allocate one
 		if needsUniquePool {
-			uniquePool := allocateUniquePoolFromFallback(fallbackNet, poolPrefixLen, allocatedPools, network.NetID)
+			uniquePool := allocateUniquePoolFromFallback(fallbackNet, poolPrefixLen, allocatedPools, network.Name)
 			if uniquePool != "" {
 				vpnCIDR = uniquePool
 				allocatedPools[uniquePool] = struct{}{}
@@ -182,14 +157,14 @@ func initializeVirtualNATSettings() {
 		}
 
 		// Initialize virtual NAT defaults
-		network.AssignVirtualNATDefaults(vpnCIDR, network.NetID)
+		logic.AssignVirtualNATDefaults(&network, vpnCIDR)
 
 		// Save the updated network
-		if err := logic.UpsertNetwork(network); err != nil {
-			logger.Log(0, "failed to update network", network.NetID, "with Virtual NAT settings:", err.Error())
+		if err := logic.UpsertNetwork(&network); err != nil {
+			logger.Log(0, "failed to update network", network.Name, "with Virtual NAT settings:", err.Error())
 			continue
 		}
-		logger.Log(1, "initialized Virtual NAT settings for network", network.NetID, "pool:", network.VirtualNATPoolIPv4)
+		logger.Log(1, "initialized Virtual NAT settings for network", network.Name, "pool:", network.VirtualNATPoolIPv4)
 	}
 }
 
@@ -282,116 +257,6 @@ func cidrOverlaps(a, b *net.IPNet) bool {
 	return a.Contains(b.IP) || b.Contains(a.IP)
 }
 
-func migrateNameservers() {
-	nets, _ := logic.GetNetworks()
-	user, err := logic.GetSuperAdmin()
-	if err != nil {
-		return
-	}
-
-	for _, netI := range nets {
-		_ = logic.CreateFallbackNameserver(netI.NetID)
-
-		_, cidr, err := net.ParseCIDR(netI.AddressRange)
-		if err != nil {
-			continue
-		}
-
-		ns := &schema.Nameserver{
-			NetworkID: netI.NetID,
-		}
-		nameservers, _ := ns.ListByNetwork(db.WithContext(context.TODO()))
-		for _, nsI := range nameservers {
-			if len(nsI.Domains) != 0 {
-				for _, matchDomain := range nsI.MatchDomains {
-					nsI.Domains = append(nsI.Domains, schema.NameserverDomain{
-						Domain: matchDomain,
-					})
-				}
-
-				nsI.MatchDomains = []string{}
-
-				_ = nsI.Update(db.WithContext(context.TODO()))
-			}
-		}
-
-		if len(netI.NameServers) > 0 {
-			ns := schema.Nameserver{
-				ID:        uuid.NewString(),
-				Name:      "upstream nameservers",
-				NetworkID: netI.NetID,
-				Servers:   []string{},
-				MatchAll:  true,
-				Domains: []schema.NameserverDomain{
-					{
-						Domain: ".",
-					},
-				},
-				Tags: datatypes.JSONMap{
-					"*": struct{}{},
-				},
-				Nodes:     make(datatypes.JSONMap),
-				Status:    true,
-				CreatedBy: user.UserName,
-			}
-
-			for _, nsIP := range netI.NameServers {
-				if net.ParseIP(nsIP) == nil {
-					continue
-				}
-				if !cidr.Contains(net.ParseIP(nsIP)) {
-					ns.Servers = append(ns.Servers, nsIP)
-				}
-			}
-			ns.Create(db.WithContext(context.TODO()))
-			netI.NameServers = []string{}
-			logic.SaveNetwork(&netI)
-		}
-	}
-	nodes, _ := logic.GetAllNodes()
-	for _, node := range nodes {
-		if !node.IsGw {
-			continue
-		}
-		if node.IngressDNS != "" {
-			if (node.Address.IP != nil && node.Address.IP.String() == node.IngressDNS) ||
-				(node.Address6.IP != nil && node.Address6.IP.String() == node.IngressDNS) {
-				continue
-			}
-			if node.IngressDNS == "8.8.8.8" || node.IngressDNS == "1.1.1.1" || node.IngressDNS == "9.9.9.9" {
-				continue
-			}
-			h, err := logic.GetHost(node.HostID.String())
-			if err != nil {
-				continue
-			}
-			ns := schema.Nameserver{
-				ID:        uuid.NewString(),
-				Name:      fmt.Sprintf("%s gw nameservers", h.Name),
-				NetworkID: node.Network,
-				Servers:   []string{node.IngressDNS},
-				MatchAll:  true,
-				Domains: []schema.NameserverDomain{
-					{
-						Domain: ".",
-					},
-				},
-				Nodes: datatypes.JSONMap{
-					node.ID.String(): struct{}{},
-				},
-				Tags:      make(datatypes.JSONMap),
-				Status:    true,
-				CreatedBy: user.UserName,
-			}
-			ns.Create(db.WithContext(context.TODO()))
-			node.IngressDNS = ""
-			logic.UpsertNode(&node)
-		}
-
-	}
-
-}
-
 // removes if any stale configurations from previous run.
 func resync() {
 
@@ -457,7 +322,7 @@ func assignSuperAdmin() {
 			log.Fatal(
 				"error updating user to superadmin",
 				"user",
-				user.UserName,
+				user.Username,
 				"error",
 				err.Error(),
 			)
@@ -480,13 +345,12 @@ func assignSuperAdmin() {
 				continue
 			}
 			user.PlatformRoleID = models.SuperAdminRole
-			user.IsSuperAdmin = true
 			err = logic.UpsertUser(*user)
 			if err != nil {
 				slog.Error(
 					"error updating user to superadmin",
 					"user",
-					user.UserName,
+					user.Username,
 					"error",
 					err.Error(),
 				)
@@ -551,14 +415,14 @@ func updateEnrollmentKeys() {
 	}
 	networks, _ := logic.GetNetworks()
 	for _, network := range networks {
-		if _, ok := existingTags[network.NetID]; ok {
+		if _, ok := existingTags[network.Name]; ok {
 			continue
 		}
 		_, _ = logic.CreateEnrollmentKey(
 			0,
 			time.Time{},
-			[]string{network.NetID},
-			[]string{network.NetID},
+			[]string{network.Name},
+			[]string{network.Name},
 			[]models.TagID{},
 			true,
 			uuid.Nil,
@@ -567,20 +431,6 @@ func updateEnrollmentKeys() {
 			false,
 		)
 
-	}
-}
-
-func removeOldUserGrps() {
-	rows, err := database.FetchRecords(database.USER_GROUPS_TABLE_NAME)
-	if err != nil {
-		return
-	}
-	for key, row := range rows {
-		userG := models.UserGroup{}
-		_ = json.Unmarshal([]byte(row), &userG)
-		if userG.ID == "" {
-			database.DeleteRecord(database.USER_GROUPS_TABLE_NAME, key)
-		}
 	}
 }
 
@@ -691,19 +541,19 @@ func updateAcls() {
 	// get current acls per network
 	for _, network := range networks {
 		var networkAcl acls.ACLContainer
-		networkAcl, err := networkAcl.Get(acls.ContainerID(network.NetID))
+		networkAcl, err := networkAcl.Get(acls.ContainerID(network.Name))
 		if err != nil {
 			if database.IsEmptyRecord(err) {
 				continue
 			}
-			slog.Error(fmt.Sprintf("error during acls migration. error getting acls for network: %s", network.NetID), "error", err)
+			slog.Error(fmt.Sprintf("error during acls migration. error getting acls for network: %s", network.Name), "error", err)
 			continue
 		}
 		// convert old acls to new acls with clients
 		// TODO: optimise O(n^2) operation
-		clients, err := logic.GetNetworkExtClients(network.NetID)
+		clients, err := logic.GetNetworkExtClients(network.Name)
 		if err != nil {
-			slog.Error(fmt.Sprintf("error during acls migration. error getting clients for network: %s", network.NetID), "error", err)
+			slog.Error(fmt.Sprintf("error during acls migration. error getting clients for network: %s", network.Name), "error", err)
 			continue
 		}
 		clientsIdMap := make(map[string]struct{})
@@ -749,7 +599,7 @@ func updateAcls() {
 					continue
 				}
 				if nodeAcl == nil {
-					slog.Warn("acls migration bad data: nil node acl", "node", id, "network", network.NetID)
+					slog.Warn("acls migration bad data: nil node acl", "node", id, "network", network.Name)
 					continue
 				}
 				nodeAcl[acls.AclID(client.ClientID)] = acls.Allowed
@@ -793,19 +643,19 @@ func updateAcls() {
 		}
 
 		// save new acls
-		slog.Debug(fmt.Sprintf("(migration) saving new acls for network: %s", network.NetID), "networkAcl", networkAcl)
-		if _, err := networkAcl.Save(acls.ContainerID(network.NetID)); err != nil {
-			slog.Error(fmt.Sprintf("error during acls migration. error saving new acls for network: %s", network.NetID), "error", err)
+		slog.Debug(fmt.Sprintf("(migration) saving new acls for network: %s", network.Name), "networkAcl", networkAcl)
+		if _, err := networkAcl.Save(acls.ContainerID(network.Name)); err != nil {
+			slog.Error(fmt.Sprintf("error during acls migration. error saving new acls for network: %s", network.Name), "error", err)
 			continue
 		}
-		slog.Info(fmt.Sprintf("(migration) successfully saved new acls for network: %s", network.NetID))
+		slog.Info(fmt.Sprintf("(migration) successfully saved new acls for network: %s", network.Name))
 	}
 }
 
 func updateNewAcls() {
 	if servercfg.IsPro {
 		userGroups, _ := logic.ListUserGroups()
-		userGroupMap := make(map[models.UserGroupID]models.UserGroup)
+		userGroupMap := make(map[models.UserGroupID]schema.UserGroup)
 		for _, userGroup := range userGroups {
 			userGroupMap[userGroup.ID] = userGroup
 		}
@@ -820,9 +670,9 @@ func updateNewAcls() {
 						// if the group doesn't exist, don't add it to the acl's src.
 						continue
 					} else {
-						_, allNetworkAccess := userGroup.NetworkRoles[models.AllNetworks]
+						_, allNetworkAccess := userGroup.NetworkRoles.Data()[models.AllNetworks]
 						if !allNetworkAccess {
-							_, ok := userGroup.NetworkRoles[acl.NetworkID]
+							_, ok := userGroup.NetworkRoles.Data()[acl.NetworkID]
 							if !ok {
 								// if the group doesn't have permissions for the acl's
 								// network, don't add it to the acl's src.
@@ -863,10 +713,6 @@ func MigrateEmqx() {
 
 }
 
-func migrateToUUIDs() {
-	logic.MigrateToUUIDs()
-}
-
 func syncUsers() {
 	logger.Log(1, "Migrating Users (SyncUsers)")
 	defer logger.Log(1, "Completed migrating Users (SyncUsers)")
@@ -874,7 +720,7 @@ func syncUsers() {
 	if servercfg.IsPro {
 		networks, _ := logic.GetNetworks()
 		for _, netI := range networks {
-			logic.CreateDefaultNetworkRolesAndGroups(models.NetworkID(netI.NetID))
+			logic.CreateDefaultNetworkRolesAndGroups(models.NetworkID(netI.Name))
 		}
 	}
 
@@ -882,73 +728,16 @@ func syncUsers() {
 	if err == nil {
 		for _, user := range users {
 			user := user
-			needsUpdate := false
-
-			// Update admin flags based on platform role
-			if user.PlatformRoleID == models.AdminRole && !user.IsAdmin {
-				user.IsAdmin = true
-				user.IsSuperAdmin = false
-				needsUpdate = true
+			user.AuthType = models.BasicAuth
+			if logic.IsOauthUser(&user) == nil {
+				user.AuthType = models.OAuth
 			}
-			if user.PlatformRoleID == models.SuperAdminRole && !user.IsSuperAdmin {
-				user.IsSuperAdmin = true
-				user.IsAdmin = true
-				needsUpdate = true
-			}
-			if user.PlatformRoleID == models.PlatformUser || user.PlatformRoleID == models.ServiceUser {
-				if user.IsSuperAdmin || user.IsAdmin {
-					user.IsSuperAdmin = false
-					user.IsAdmin = false
-					needsUpdate = true
-				}
+			if len(user.UserGroups.Data()) == 0 {
+				user.UserGroups = datatypes.NewJSONType(make(map[models.UserGroupID]struct{}))
 			}
 
-			if user.PlatformRoleID.String() != "" {
-				// Initialize maps if nil
-				if user.NetworkRoles == nil {
-					user.NetworkRoles = make(map[models.NetworkID]map[models.UserRoleID]struct{})
-					needsUpdate = true
-				}
-				if user.UserGroups == nil {
-					user.UserGroups = make(map[models.UserGroupID]struct{})
-					needsUpdate = true
-				}
-				// Migrate user roles and groups, then add global net roles
-				user = logic.MigrateUserRoleAndGroups(user)
-				logic.AddGlobalNetRolesToAdmins(&user)
-				needsUpdate = true
-			} else {
-				// Set auth type
-				user.AuthType = models.BasicAuth
-				if logic.IsOauthUser(&user) == nil {
-					user.AuthType = models.OAuth
-				}
-				if len(user.NetworkRoles) == 0 {
-					user.NetworkRoles = make(map[models.NetworkID]map[models.UserRoleID]struct{})
-				}
-				if len(user.UserGroups) == 0 {
-					user.UserGroups = make(map[models.UserGroupID]struct{})
-				}
-
-				// We reach here only if the platform role id has not been set.
-				//
-				// Thus, we use the boolean fields to assign the role.
-				if user.IsSuperAdmin {
-					user.PlatformRoleID = models.SuperAdminRole
-				} else if user.IsAdmin {
-					user.PlatformRoleID = models.AdminRole
-				} else {
-					user.PlatformRoleID = models.ServiceUser
-				}
-				logic.AddGlobalNetRolesToAdmins(&user)
-				user = logic.MigrateUserRoleAndGroups(user)
-				needsUpdate = true
-			}
-
-			// Only update user once after all changes are collected
-			if needsUpdate {
-				logic.UpsertUser(user)
-			}
+			logic.AddGlobalNetRolesToAdmins(&user)
+			logic.UpsertUser(user)
 		}
 	}
 
@@ -960,10 +749,10 @@ func createDefaultTagsAndPolicies() {
 		return
 	}
 	for _, network := range networks {
-		logic.CreateDefaultTags(models.NetworkID(network.NetID))
-		logic.CreateDefaultAclNetworkPolicies(models.NetworkID(network.NetID))
+		logic.CreateDefaultTags(models.NetworkID(network.Name))
+		logic.CreateDefaultAclNetworkPolicies(models.NetworkID(network.Name))
 		// delete old remote access gws policy
-		logic.DeleteAcl(models.Acl{ID: fmt.Sprintf("%s.%s", network.NetID, "all-remote-access-gws")})
+		logic.DeleteAcl(models.Acl{ID: fmt.Sprintf("%s.%s", network.Name, "all-remote-access-gws")})
 	}
 	logic.MigrateAclPolicies()
 	if !servercfg.IsPro {

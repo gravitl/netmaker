@@ -89,7 +89,7 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		CreatedBy:   r.Header.Get("user"),
 		CreatedAt:   time.Now().UTC(),
 	}
-	if err := logic.AssignVirtualRangeToEgress(&network, &e); err != nil {
+	if err := logic.AssignVirtualRangeToEgress(network, &e); err != nil {
 		logger.Log(0, "error assigning virtual range to egress: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -280,7 +280,7 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		// Assign virtual range if switching to virtual NAT mode from a different mode,
 		// or if already in virtual NAT mode but virtual range is empty
 		if (oldMode != models.VirtualNAT) || (e.VirtualRange == "") {
-			if err := logic.AssignVirtualRangeToEgress(&network, &e); err != nil {
+			if err := logic.AssignVirtualRangeToEgress(network, &e); err != nil {
 				logger.Log(0, "error assigning virtual range to egress: ", err.Error())
 				logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 				return

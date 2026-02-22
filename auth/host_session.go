@@ -185,18 +185,18 @@ func SessionHandler(conn *websocket.Conn) {
 			handleHostRegErr(conn, err)
 			return
 		}
-		var currentNetworks = []string{}
+		var currentNetworks []string
 		if result.ALL {
-			currentNets, err := logic.GetNetworks()
-			if err == nil && len(currentNets) > 0 {
-				for i := range currentNets {
-					currentNetworks = append(currentNetworks, currentNets[i].NetID)
+			_networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+			if err == nil && len(_networks) > 0 {
+				for i := range _networks {
+					currentNetworks = append(currentNetworks, _networks[i].Name)
 				}
 			}
 		} else if len(result.Network) > 0 {
 			currentNetworks = append(currentNetworks, result.Network)
 		}
-		var netsToAdd = []string{} // track the networks not currently owned by host
+		var netsToAdd []string // track the networks not currently owned by host
 		hostNets := logic.GetHostNetworks(currHost.ID.String())
 		for _, newNet := range currentNetworks {
 			if !logic.StringSliceContains(hostNets, newNet) {
@@ -245,7 +245,7 @@ func CheckNetRegAndHostUpdate(key models.EnrollmentKey, h *models.Host, username
 	featureFlags := logic.GetFeatureFlags()
 	for _, netID := range key.Networks {
 		if network, err := logic.GetNetwork(netID); err == nil {
-			if featureFlags.EnableDeviceApproval && network.AutoJoin == "false" {
+			if featureFlags.EnableDeviceApproval && !network.AutoJoin {
 				if logic.DoesHostExistinTheNetworkAlready(h, models.NetworkID(netID)) {
 					continue
 				}

@@ -2,7 +2,6 @@ package models
 
 import (
 	"net"
-	"strings"
 	"time"
 
 	jwt "github.com/golang-jwt/jwt/v4"
@@ -333,17 +332,6 @@ type ServerConfig struct {
 	DefaultDomain               string `yaml:"default_domain"`
 	PeerConnectionCheckInterval string `yaml:"peer_connection_check_interval"`
 	OldAClsSupport              bool   `json:"-"`
-}
-
-// User.NameInCharset - returns if name is in charset below or not
-func (user *User) NameInCharSet() bool {
-	charset := "abcdefghijklmnopqrstuvwxyz1234567890-."
-	for _, char := range user.UserName {
-		if !strings.Contains(charset, strings.ToLower(string(char))) {
-			return false
-		}
-	}
-	return true
 }
 
 // ServerIDs - struct to hold server ids.

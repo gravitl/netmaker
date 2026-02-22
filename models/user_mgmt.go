@@ -136,33 +136,6 @@ type RsrcPermissionScope struct {
 	SelfOnly  bool `json:"self_only"`
 }
 
-type UserRolePermissionTemplate struct {
-	ID                  UserRoleID                                  `json:"id"`
-	Name                string                                      `json:"name"`
-	Default             bool                                        `json:"default"`
-	MetaData            string                                      `json:"meta_data"`
-	DenyDashboardAccess bool                                        `json:"deny_dashboard_access"`
-	FullAccess          bool                                        `json:"full_access"`
-	NetworkID           NetworkID                                   `json:"network_id"`
-	NetworkLevelAccess  map[RsrcType]map[RsrcID]RsrcPermissionScope `json:"network_level_access"`
-	GlobalLevelAccess   map[RsrcType]map[RsrcID]RsrcPermissionScope `json:"global_level_access"`
-}
-
-type CreateGroupReq struct {
-	Group   UserGroup `json:"user_group"`
-	Members []string  `json:"members"`
-}
-
-type UserGroup struct {
-	ID                         UserGroupID                           `json:"id"`
-	ExternalIdentityProviderID string                                `json:"external_identity_provider_id"`
-	Default                    bool                                  `json:"default"`
-	Name                       string                                `json:"name"`
-	NetworkRoles               map[NetworkID]map[UserRoleID]struct{} `json:"network_roles"`
-	ColorCode                  string                                `json:"color_code"`
-	MetaData                   string                                `json:"meta_data"`
-}
-
 // User struct - struct for Users
 type User struct {
 	UserName                   string                                `json:"username" bson:"username" validate:"min=3,in_charset|email"`
@@ -183,12 +156,6 @@ type User struct {
 	CreatedBy                  string                                `json:"created_by"`
 	CreatedAt                  time.Time                             `json:"created_at"`
 	UpdatedAt                  time.Time                             `json:"updated_at"`
-}
-
-type ReturnUserWithRolesAndGroups struct {
-	ReturnUser
-	PlatformRole UserRolePermissionTemplate `json:"platform_role"`
-	UserGroups   map[UserGroupID]UserGroup  `json:"user_group_ids"`
 }
 
 // ReturnUser - return user struct

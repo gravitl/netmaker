@@ -187,14 +187,14 @@ func GetUserNameFromToken(authtoken string) (username string, err error) {
 	}
 
 	if token != nil && token.Valid {
-		var user *models.User
+		var user *schema.User
 		// check that user exists
 		user, err = GetUser(claims.UserName)
 		if err != nil {
 			return "", err
 		}
-		if user.UserName != "" {
-			return user.UserName, nil
+		if user.Username != "" {
+			return user.Username, nil
 		}
 		if user.PlatformRoleID != claims.Role {
 			return "", Unauthorized_Err
@@ -232,14 +232,14 @@ func VerifyUserToken(tokenString string) (username string, issuperadmin, isadmin
 		}
 	}
 	if token != nil && token.Valid {
-		var user *models.User
+		var user *schema.User
 		// check that user exists
 		user, err = GetUser(claims.UserName)
 		if err != nil {
 			return "", false, false, err
 		}
-		if user.UserName != "" {
-			return user.UserName, user.PlatformRoleID == models.SuperAdminRole,
+		if user.Username != "" {
+			return user.Username, user.PlatformRoleID == models.SuperAdminRole,
 				user.PlatformRoleID == models.AdminRole, nil
 		}
 		err = errors.New("user does not exist")

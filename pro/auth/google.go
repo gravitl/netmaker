@@ -108,7 +108,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 					handleSomethingWentWrong(w)
 					return
 				}
-				logic.DeleteUserInvite(user.UserName)
+				logic.DeleteUserInvite(user.Username)
 				logic.DeletePendingUser(content.Email)
 			} else {
 				if !isEmailAllowed(content.Email) {
@@ -182,11 +182,11 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	logic.LogEvent(&models.Event{
 		Action: models.Login,
 		Source: models.Subject{
-			ID:   user.UserName,
-			Name: user.UserName,
+			ID:   user.Username,
+			Name: user.Username,
 			Type: models.UserSub,
 		},
-		TriggeredBy: user.UserName,
+		TriggeredBy: user.Username,
 		Target: models.Subject{
 			ID:   models.DashboardSub.String(),
 			Name: models.DashboardSub.String(),

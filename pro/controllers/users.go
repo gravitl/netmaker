@@ -25,9 +25,11 @@ import (
 	"github.com/gravitl/netmaker/pro/idp/google"
 	"github.com/gravitl/netmaker/pro/idp/okta"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/utils"
 	"golang.org/x/exp/slog"
+	"gorm.io/datatypes"
 )
 
 func UserHandlers(r *mux.Router) {
@@ -105,15 +107,15 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user already exists"), "badrequest"))
 		return
 	}
-	var user models.User
+	var user schema.User
 	err = json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
-		logger.Log(0, user.UserName, "error decoding request body: ",
+		logger.Log(0, user.Username, "error decoding request body: ",
 			err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	if user.UserName != email {
+	if user.Username != email {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username not matching with invite"), "badrequest"))
 		return
 	}
@@ -122,12 +124,11 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user.UserGroups = in.UserGroups
+	user.UserGroups = datatypes.NewJSONType(in.UserGroups)
 	user.PlatformRoleID = models.UserRoleID(in.PlatformRoleID)
 	if user.PlatformRoleID == "" {
 		user.PlatformRoleID = models.ServiceUser
 	}
-	user.NetworkRoles = in.NetworkRoles
 	err = logic.CreateUser(&user)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -463,7 +464,12 @@ func getUserGroup(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //				200: userBodyResponse
 func createUserGroup(w http.ResponseWriter, r *http.Request) {
-	var userGroupReq models.CreateGroupReq
+	type CreateGroupReq struct {
+		Group   schema.UserGroup `json:"user_group"`
+		Members []string         `json:"members"`
+	}
+
+	var userGroupReq CreateGroupReq
 	err := json.NewDecoder(r.Body).Decode(&userGroupReq)
 	if err != nil {
 		slog.Error("error decoding request body", "error",
@@ -487,10 +493,10 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			continue
 		}
-		if len(user.UserGroups) == 0 {
-			user.UserGroups = make(map[models.UserGroupID]struct{})
+		if len(user.UserGroups.Data()) == 0 {
+			user.UserGroups = datatypes.NewJSONType(make(map[models.UserGroupID]struct{}))
 		}
-		user.UserGroups[userGroupReq.Group.ID] = struct{}{}
+		user.UserGroups.Data()[userGroupReq.Group.ID] = struct{}{}
 		logic.UpsertUser(*user)
 	}
 	logic.LogEvent(&models.Event{
@@ -524,7 +530,7 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //				200: userBodyResponse
 func updateUserGroup(w http.ResponseWriter, r *http.Request) {
-	var userGroup models.UserGroup
+	var userGroup schema.UserGroup
 	err := json.NewDecoder(r.Body).Decode(&userGroup)
 	if err != nil {
 		slog.Error("error decoding request body", "error",
@@ -576,8 +582,8 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 	})
 	replacePeers := false
 	go func() {
-		currAllNetworksRole, currAllNetworksRoleExists := currUserG.NetworkRoles[models.AllNetworks]
-		newAllNetworksRole, newAllNetworksRoleExists := userGroup.NetworkRoles[models.AllNetworks]
+		currAllNetworksRole, currAllNetworksRoleExists := currUserG.NetworkRoles.Data()[models.AllNetworks]
+		newAllNetworksRole, newAllNetworksRoleExists := userGroup.NetworkRoles.Data()[models.AllNetworks]
 
 		var removeAllNetworksCurrRoleAcls bool
 		var addAllNetworksNewRoleAcls bool
@@ -602,22 +608,22 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		networksAdded := make([]models.NetworkID, 0)
 		networksRemoved := make([]models.NetworkID, 0)
 
-		for networkID := range userGroup.NetworkRoles {
+		for networkID := range userGroup.NetworkRoles.Data() {
 			if networkID == models.AllNetworks {
 				continue
 			}
 
-			if _, ok := currUserG.NetworkRoles[networkID]; !ok {
+			if _, ok := currUserG.NetworkRoles.Data()[networkID]; !ok {
 				networksAdded = append(networksAdded, networkID)
 			}
 		}
 
-		for networkID := range currUserG.NetworkRoles {
+		for networkID := range currUserG.NetworkRoles.Data() {
 			if networkID == models.AllNetworks {
 				continue
 			}
 
-			if _, ok := userGroup.NetworkRoles[networkID]; !ok {
+			if _, ok := userGroup.NetworkRoles.Data()[networkID]; !ok {
 				networksRemoved = append(networksRemoved, networkID)
 			}
 		}
@@ -633,7 +639,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 						currRole = models.NetworkAdmin
 					}
 
-					aclID := fmt.Sprintf("%s.%s-grp", network.NetID, currRole)
+					aclID := fmt.Sprintf("%s.%s-grp", network.Name, currRole)
 					acl, err := logic.GetAcl(aclID)
 					if err == nil {
 						var hasGroupSrc bool
@@ -660,7 +666,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 						newRole = models.NetworkAdmin
 					}
 
-					aclID := fmt.Sprintf("%s.%s-grp", network.NetID, newRole)
+					aclID := fmt.Sprintf("%s.%s-grp", network.Name, newRole)
 					acl, err := logic.GetAcl(aclID)
 					if err == nil {
 						var hasGroupSrc bool
@@ -697,7 +703,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 					MetaData:    "This Policy allows user group to communicate with all gateways",
 					Default:     false,
 					ServiceType: models.Any,
-					NetworkID:   models.NetworkID(network.NetID),
+					NetworkID:   models.NetworkID(network.Name),
 					Proto:       models.ALL,
 					RuleType:    models.UserPolicy,
 					Src: []models.AclPolicyTag{
@@ -709,7 +715,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 					Dst: []models.AclPolicyTag{
 						{
 							ID:    models.NodeTagID,
-							Value: fmt.Sprintf("%s.%s", models.NetworkID(network.NetID), models.GwTagName),
+							Value: fmt.Sprintf("%s.%s", models.NetworkID(network.Name), models.GwTagName),
 						}},
 					AllowedDirection: models.TrafficDirectionUni,
 					Enabled:          true,
@@ -757,7 +763,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// reset configs for service user
-	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userGroup.ID, currUserG.NetworkRoles, userGroup.NetworkRoles)
+	go proLogic.UpdatesUserGwAccessOnGrpUpdates(userGroup.ID, currUserG.NetworkRoles.Data(), userGroup.NetworkRoles.Data())
 	go mq.PublishPeerUpdate(replacePeers)
 	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")
 }
@@ -791,7 +797,7 @@ func listUnAssignedNetUsers(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				continue
 			}
-			if _, ok := userG.NetworkRoles[models.NetworkID(netID)]; ok {
+			if _, ok := userG.NetworkRoles.Data()[models.NetworkID(netID)]; ok {
 				skipUser = true
 				break
 			}
@@ -836,7 +842,7 @@ func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	oldUser := *user
-	user.UserGroups[proLogic.GetDefaultNetworkUserGroupID(models.NetworkID(netID))] = struct{}{}
+	user.UserGroups.Data()[proLogic.GetDefaultNetworkUserGroupID(models.NetworkID(netID))] = struct{}{}
 	logic.UpsertUser(*user)
 	logic.LogEvent(&models.Event{
 		Action: models.Update,
@@ -847,8 +853,8 @@ func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
-			ID:   user.UserName,
-			Name: user.UserName,
+			ID:   user.Username,
+			Name: user.Username,
 			Type: models.UserSub,
 		},
 		Diff: models.Diff{
@@ -893,7 +899,7 @@ func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	oldUser := *user
-	delete(user.UserGroups, proLogic.GetDefaultNetworkUserGroupID(models.NetworkID(netID)))
+	delete(user.UserGroups.Data(), proLogic.GetDefaultNetworkUserGroupID(models.NetworkID(netID)))
 	logic.UpsertUser(*user)
 	logic.LogEvent(&models.Event{
 		Action: models.Update,
@@ -904,8 +910,8 @@ func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
 		},
 		TriggeredBy: r.Header.Get("user"),
 		Target: models.Subject{
-			ID:   user.UserName,
-			Name: user.UserName,
+			ID:   user.Username,
+			Name: user.Username,
 			Type: models.UserSub,
 		},
 		Diff: models.Diff{
@@ -986,16 +992,16 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/v1/users/roles [get]
 // @Tags        Users
 // @Param       platform query string false "If true, lists platform roles. Otherwise, lists network roles."
-// @Success     200 {object}  []models.UserRolePermissionTemplate
+// @Success     200 {object}  []schema.UserRole
 // @Failure     500 {object} models.ErrorResponse
 func ListRoles(w http.ResponseWriter, r *http.Request) {
 	platform := r.URL.Query().Get("platform")
-	var roles []models.UserRolePermissionTemplate
+	var roles []schema.UserRole
 	var err error
 	if platform == "true" {
-		roles, err = logic.ListPlatformRoles()
+		roles, err = (&schema.UserRole{}).ListPlatformRoles(r.Context())
 	} else {
-		roles, err = proLogic.ListNetworkRoles()
+		roles, err = (&schema.UserRole{}).ListNetworkRoles(r.Context())
 	}
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
@@ -1012,7 +1018,7 @@ func ListRoles(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/v1/user/role [get]
 // @Tags        Users
 // @Param       role_id query string true "roleid required to get the role details"
-// @Success     200 {object} models.UserRolePermissionTemplate
+// @Success     200 {object} schema.UserRole
 // @Failure     500 {object} models.ErrorResponse
 func getRole(w http.ResponseWriter, r *http.Request) {
 	rid := r.URL.Query().Get("role_id")
@@ -1034,11 +1040,11 @@ func getRole(w http.ResponseWriter, r *http.Request) {
 // @Summary     Create user role permission template.
 // @Router      /api/v1/user/role [post]
 // @Tags        Users
-// @Param       body body models.UserRolePermissionTemplate true "user role template"
-// @Success     200 {object}  models.UserRolePermissionTemplate
+// @Param       body body schema.UserRole true "user role template"
+// @Success     200 {object}  schema.UserRole
 // @Failure     500 {object} models.ErrorResponse
 func createRole(w http.ResponseWriter, r *http.Request) {
-	var userRole models.UserRolePermissionTemplate
+	var userRole schema.UserRole
 	err := json.NewDecoder(r.Body).Decode(&userRole)
 	if err != nil {
 		slog.Error("error decoding request body", "error",
@@ -1052,8 +1058,8 @@ func createRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userRole.Default = false
-	userRole.GlobalLevelAccess = make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope)
-	err = proLogic.CreateRole(userRole)
+	userRole.GlobalLevelAccess = datatypes.NewJSONType(make(schema.ResourceAccess))
+	err = proLogic.CreateRole(&userRole)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -1079,11 +1085,11 @@ func createRole(w http.ResponseWriter, r *http.Request) {
 // @Summary     Update user role permission template.
 // @Router      /api/v1/user/role [put]
 // @Tags        Users
-// @Param       body body models.UserRolePermissionTemplate true "user role template"
-// @Success     200 {object} models.UserRolePermissionTemplate
+// @Param       body body schema.UserRole true "user role template"
+// @Success     200 {object} schema.UserRole
 // @Failure     500 {object} models.ErrorResponse
 func updateRole(w http.ResponseWriter, r *http.Request) {
-	var userRole models.UserRolePermissionTemplate
+	var userRole schema.UserRole
 	err := json.NewDecoder(r.Body).Decode(&userRole)
 	if err != nil {
 		slog.Error("error decoding request body", "error",
@@ -1101,8 +1107,8 @@ func updateRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	userRole.GlobalLevelAccess = make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope)
-	err = proLogic.UpdateRole(userRole)
+	userRole.GlobalLevelAccess = datatypes.NewJSONType(make(schema.ResourceAccess))
+	err = userRole.Update(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -1127,7 +1133,7 @@ func updateRole(w http.ResponseWriter, r *http.Request) {
 		Origin: models.Dashboard,
 	})
 	// reset configs for service user
-	go proLogic.UpdatesUserGwAccessOnRoleUpdates(currRole.NetworkLevelAccess, userRole.NetworkLevelAccess, string(userRole.NetworkID))
+	go proLogic.UpdatesUserGwAccessOnRoleUpdates(currRole.NetworkLevelAccess.Data(), userRole.NetworkLevelAccess.Data(), string(userRole.NetworkID))
 	logic.ReturnSuccessResponseWithJson(w, r, userRole, "updated user role")
 }
 
@@ -1173,7 +1179,7 @@ func deleteRole(w http.ResponseWriter, r *http.Request) {
 			New: nil,
 		},
 	})
-	go proLogic.UpdatesUserGwAccessOnRoleUpdates(role.NetworkLevelAccess, make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope), role.NetworkID.String())
+	go proLogic.UpdatesUserGwAccessOnRoleUpdates(role.NetworkLevelAccess.Data(), make(map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionScope), role.NetworkID.String())
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user role")
 }
 
@@ -1243,10 +1249,6 @@ func attachUserToRemoteAccessGw(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	if user.RemoteGwIDs == nil {
-		user.RemoteGwIDs = make(map[string]struct{})
-	}
-	user.RemoteGwIDs[node.ID.String()] = struct{}{}
 	err = logic.UpsertUser(*user)
 	if err != nil {
 		slog.Error("failed to update user's gateways", "user", username, "error", err)
@@ -1261,7 +1263,7 @@ func attachUserToRemoteAccessGw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.NewEncoder(w).Encode(logic.ToReturnUser(*user))
+	json.NewEncoder(w).Encode(logic.ToReturnUser(user))
 }
 
 // @Summary     Remove user from a remote access gateway
@@ -1305,19 +1307,18 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	delete(user.RemoteGwIDs, remoteGwID)
-	go func(user models.User, remoteGwID string) {
+	go func(user *schema.User, remoteGwID string) {
 		extclients, err := logic.GetAllExtClients()
 		if err != nil {
 			slog.Error("failed to fetch extclients", "error", err)
 			return
 		}
 		for _, extclient := range extclients {
-			if extclient.OwnerID == user.UserName && remoteGwID == extclient.IngressGatewayID {
+			if extclient.OwnerID == user.Username && remoteGwID == extclient.IngressGatewayID {
 				err = logic.DeleteExtClientAndCleanup(extclient)
 				if err != nil {
 					slog.Error("failed to delete extclient",
-						"id", extclient.ClientID, "owner", user.UserName, "error", err)
+						"id", extclient.ClientID, "owner", user.Username, "error", err)
 				} else {
 					if err := mq.PublishDeletedClientPeerUpdate(&extclient); err != nil {
 						slog.Error("error setting ext peers: " + err.Error())
@@ -1328,7 +1329,7 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 		if servercfg.IsDNSMode() {
 			logic.SetDNS()
 		}
-	}(*user, remoteGwID)
+	}(user, remoteGwID)
 
 	err = logic.UpsertUser(*user)
 	if err != nil {
@@ -1343,7 +1344,7 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	json.NewEncoder(w).Encode(logic.ToReturnUser(*user))
+	json.NewEncoder(w).Encode(logic.ToReturnUser(user))
 }
 
 // @Summary     Get Users Remote Access Gw Networks.
@@ -1362,20 +1363,20 @@ func getUserRemoteAccessNetworks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userGws := make(map[string][]models.UserRemoteGws)
-	networks := []models.Network{}
+	var networks []schema.Network
 	networkMap := make(map[string]struct{})
-	userGwNodes := proLogic.GetUserRAGNodes(*user)
+	userGwNodes := proLogic.GetUserRAGNodes(user)
 	for _, node := range userGwNodes {
 		network, err := logic.GetNetwork(node.Network)
 		if err != nil {
 			slog.Error("failed to get node network", "error", err)
 			continue
 		}
-		if _, ok := networkMap[network.NetID]; ok {
+		if _, ok := networkMap[network.Name]; ok {
 			continue
 		}
-		networkMap[network.NetID] = struct{}{}
-		networks = append(networks, network)
+		networkMap[network.Name] = struct{}{}
+		networks = append(networks, *network)
 	}
 
 	slog.Debug("returned user gws", "user", username, "gws", userGws)
@@ -1406,7 +1407,7 @@ func getUserRemoteAccessNetworkGateways(w http.ResponseWriter, r *http.Request) 
 	}
 	userGws := []models.UserRAGs{}
 
-	userGwNodes := proLogic.GetUserRAGNodes(*user)
+	userGwNodes := proLogic.GetUserRAGNodes(user)
 	for _, node := range userGwNodes {
 		if node.Network != network {
 			continue
@@ -1462,7 +1463,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userGwNodes := proLogic.GetUserRAGNodes(*user)
+	userGwNodes := proLogic.GetUserRAGNodes(user)
 	if _, ok := userGwNodes[remoteGwID]; !ok {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("access denied"), "forbidden"))
 		return
@@ -1488,7 +1489,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, extClient := range allextClients {
-		if extClient.Network != network.NetID || extClient.IngressGatewayID != node.ID.String() {
+		if extClient.Network != network.Name || extClient.IngressGatewayID != node.ID.String() {
 			continue
 		}
 		if extClient.RemoteAccessClientID == req.RemoteAccessClientID && extClient.OwnerID == username {
@@ -1498,7 +1499,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 	}
 	if userConf.ClientID == "" {
 		// create a new conf
-		userConf.OwnerID = user.UserName
+		userConf.OwnerID = user.Username
 		userConf.RemoteAccessClientID = req.RemoteAccessClientID
 		userConf.IngressGatewayID = node.ID.String()
 		logic.SetDNSOnWgConfig(&node, &userConf)
@@ -1556,7 +1557,7 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
 	}
 
-	slog.Debug("returned user gw config", "user", user.UserName, "gws", userGw)
+	slog.Debug("returned user gw config", "user", user.Username, "gws", userGw)
 	logic.ReturnSuccessResponseWithJson(w, r, userGw, "fetched user config to gw "+remoteGwID)
 }
 
@@ -1606,7 +1607,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	userGwNodes := proLogic.GetUserRAGNodes(*user)
+	userGwNodes := proLogic.GetUserRAGNodes(user)
 
 	userExtClients := make(map[string][]models.ExtClient)
 
@@ -1875,11 +1876,11 @@ func userNetworkMapping(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			userIPMap := models.UserMapping{
-				User: user.UserName,
+				User: user.Username,
 			}
 			if extclient.Address != "" {
-				if len(user.UserGroups) > 0 {
-					for grpID := range user.UserGroups {
+				if len(user.UserGroups.Data()) > 0 {
+					for grpID := range user.UserGroups.Data() {
 						userIPMap.Groups = append(userIPMap.Groups, grpID.String())
 					}
 				}
@@ -1909,7 +1910,7 @@ func getAllowedRagEndpoints(ragNode *models.Node, ragHost *models.Host) []string
 // @Summary     Get all pending users
 // @Router      /api/users_pending [get]
 // @Tags        Users
-// @Success     200 {array} models.User
+// @Success     200 {array} schema.User
 // @Failure     500 {object} models.ErrorResponse
 func getPendingUsers(w http.ResponseWriter, r *http.Request) {
 	// set header.
@@ -1952,8 +1953,8 @@ func approvePendingUser(w http.ResponseWriter, r *http.Request) {
 				logic.ReturnErrorResponse(w, r, logic.FormatError(fetchErr, "internal"))
 				return
 			}
-			if err = logic.CreateUser(&models.User{
-				UserName:                   user.UserName,
+			if err = logic.CreateUser(&schema.User{
+				Username:                   user.UserName,
 				ExternalIdentityProviderID: user.ExternalIdentityProviderID,
 				Password:                   newPass,
 				AuthType:                   user.AuthType,
@@ -2031,8 +2032,8 @@ func deletePendingUser(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: models.Dashboard,
 		Diff: models.Diff{
-			Old: models.User{
-				UserName: username,
+			Old: schema.User{
+				Username: username,
 			},
 			New: nil,
 		},

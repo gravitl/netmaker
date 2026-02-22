@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gravitl/netmaker/converters"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	"github.com/go-playground/validator/v10"
@@ -42,14 +42,13 @@ func HasSuperAdmin() (bool, error) {
 }
 
 // GetUsersDB - gets users
-func GetUsersDB() ([]models.User, error) {
+func GetUsersDB() ([]schema.User, error) {
 	_users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return nil, err
 	}
 
-	users := converters.ToModelUsers(_users)
-	return users, nil
+	return _users, nil
 }
 
 // GetUsers - gets users
@@ -59,12 +58,15 @@ func GetUsers() ([]models.ReturnUser, error) {
 		return nil, err
 	}
 
-	users := converters.ToApiUsers(_users)
+	users := make([]models.ReturnUser, len(_users))
+	for i, _user := range _users {
+		users[i] = ToReturnUser(&_user)
+	}
 	return users, nil
 }
 
 // IsOauthUser - returns
-func IsOauthUser(user *models.User) error {
+func IsOauthUser(user *schema.User) error {
 	var currentValue, err = FetchPassValue("")
 	if err != nil {
 		return err
@@ -97,39 +99,36 @@ func FetchPassValue(newValue string) (string, error) {
 }
 
 // CreateUser - creates a user
-func CreateUser(user *models.User) error {
+func CreateUser(_user *schema.User) error {
 	// check if user exists
-	if _, err := GetUser(user.UserName); err == nil {
+	if _, err := GetUser(_user.Username); err == nil {
 		return errors.New("user exists")
 	}
-	SetUserDefaults(user)
-	if err := IsGroupsValid(user.UserGroups); err != nil {
+	SetUserDefaults(_user)
+	if err := IsGroupsValid(_user.UserGroups.Data()); err != nil {
 		return errors.New("invalid groups: " + err.Error())
 	}
-	if err := IsNetworkRolesValid(user.NetworkRoles); err != nil {
-		return errors.New("invalid network roles: " + err.Error())
-	}
 
-	var err = ValidateUser(user)
+	var err = ValidateUser(_user)
 	if err != nil {
 		logger.Log(0, "failed to validate user", err.Error())
 		return err
 	}
 	// encrypt that password so we never see it again
-	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), 5)
+	hash, err := bcrypt.GenerateFromPassword([]byte(_user.Password), 5)
 	if err != nil {
 		logger.Log(0, "error encrypting pass", err.Error())
 		return err
 	}
 	// set password to encrypted password
-	user.Password = string(hash)
-	user.AuthType = models.BasicAuth
-	if IsOauthUser(user) == nil {
-		user.AuthType = models.OAuth
+	_user.Password = string(hash)
+	_user.AuthType = models.BasicAuth
+	if IsOauthUser(_user) == nil {
+		_user.AuthType = models.OAuth
 	}
-	AddGlobalNetRolesToAdmins(user)
+	AddGlobalNetRolesToAdmins(_user)
 	// create user will always be called either from API or Dashboard.
-	_, err = CreateUserJWT(user.UserName, user.PlatformRoleID, DashboardApp)
+	_, err = CreateUserJWT(_user.Username, _user.PlatformRoleID, DashboardApp)
 	if err != nil {
 		logger.Log(0, "failed to generate token", err.Error())
 		return err
@@ -145,10 +144,9 @@ func CreateUser(user *models.User) error {
 		}
 	}()
 
-	_user := converters.ToSchemaUser(*user)
 	err = _user.Create(dbctx)
 	if err != nil {
-		return fmt.Errorf("failed to create user %s: %v", user.UserName, err)
+		return fmt.Errorf("failed to create user %s: %v", _user.Username, err)
 	}
 
 	commit = true
@@ -156,7 +154,7 @@ func CreateUser(user *models.User) error {
 }
 
 // CreateSuperAdmin - creates an super admin user
-func CreateSuperAdmin(u *models.User) error {
+func CreateSuperAdmin(u *schema.User) error {
 	hassuperadmin, err := HasSuperAdmin()
 	if err != nil {
 		return err
@@ -164,8 +162,6 @@ func CreateSuperAdmin(u *models.User) error {
 	if hassuperadmin {
 		return errors.New("superadmin user already exists")
 	}
-	u.IsSuperAdmin = true
-	u.IsAdmin = true
 	u.PlatformRoleID = models.SuperAdminRole
 	return CreateUser(u)
 }
@@ -222,9 +218,8 @@ func VerifyAuthRequest(authRequest models.UserAuthParams, appName string) (strin
 }
 
 // UpsertUser - updates user in the db
-func UpsertUser(user models.User) error {
-	_user := converters.ToSchemaUser(user)
-	_existingUser := schema.User{Username: user.UserName}
+func UpsertUser(_user schema.User) error {
+	_existingUser := schema.User{Username: _user.Username}
 	// Check if user exists to preserve ID
 	err := _existingUser.Get(db.WithContext(context.TODO()))
 	if err == nil {
@@ -236,27 +231,27 @@ func UpsertUser(user models.User) error {
 }
 
 // UpdateUser - updates a given user
-func UpdateUser(userchange, user *models.User) (*models.User, error) {
+func UpdateUser(userchange, _user *schema.User) (*schema.User, error) {
 	// check if user exists
-	if _, err := GetUser(user.UserName); err != nil {
-		return &models.User{}, err
+	if _, err := GetUser(_user.Username); err != nil {
+		return &schema.User{}, err
 	}
 
-	queryUser := user.UserName
-	if userchange.UserName != "" && user.UserName != userchange.UserName {
+	queryUser := _user.Username
+	if userchange.Username != "" && _user.Username != userchange.Username {
 		// check if username is available
-		if _, err := GetUser(userchange.UserName); err == nil {
-			return &models.User{}, errors.New("username exists already")
+		if _, err := GetUser(userchange.Username); err == nil {
+			return &schema.User{}, errors.New("username exists already")
 		}
-		if userchange.UserName == MasterUser {
-			return &models.User{}, errors.New("username not allowed")
+		if userchange.Username == MasterUser {
+			return &schema.User{}, errors.New("username not allowed")
 		}
 
-		user.UserName = userchange.UserName
+		_user.Username = userchange.Username
 	}
 	if userchange.Password != "" {
 		if len(userchange.Password) < 5 {
-			return &models.User{}, errors.New("password requires min 5 characters")
+			return &schema.User{}, errors.New("password requires min 5 characters")
 		}
 		// encrypt that password so we never see it again
 		hash, err := bcrypt.GenerateFromPassword([]byte(userchange.Password), 5)
@@ -267,45 +262,41 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 		// set password to encrypted password
 		userchange.Password = string(hash)
 
-		user.Password = userchange.Password
+		_user.Password = userchange.Password
 	}
 
 	validUserGroups := make(map[models.UserGroupID]struct{})
-	for userGroupID := range userchange.UserGroups {
+	for userGroupID := range userchange.UserGroups.Data() {
 		_, err := GetUserGroup(userGroupID)
 		if err == nil {
 			validUserGroups[userGroupID] = struct{}{}
 		}
 	}
 
-	userchange.UserGroups = validUserGroups
-
-	if err := IsNetworkRolesValid(userchange.NetworkRoles); err != nil {
-		return userchange, errors.New("invalid network roles: " + err.Error())
-	}
+	userchange.UserGroups = datatypes.NewJSONType(validUserGroups)
 
 	if userchange.DisplayName != "" {
-		if user.ExternalIdentityProviderID != "" &&
-			user.DisplayName != userchange.DisplayName {
+		if _user.ExternalIdentityProviderID != "" &&
+			_user.DisplayName != userchange.DisplayName {
 			return userchange, errors.New("display name cannot be updated for external user")
 		}
 
-		user.DisplayName = userchange.DisplayName
+		_user.DisplayName = userchange.DisplayName
 	}
 
-	if user.ExternalIdentityProviderID != "" &&
-		userchange.AccountDisabled != user.AccountDisabled {
+	if _user.ExternalIdentityProviderID != "" &&
+		userchange.AccountDisabled != _user.AccountDisabled {
 		return userchange, errors.New("account status cannot be updated for external user")
 	}
 
 	// Reset Gw Access for service users
-	go UpdateUserGwAccess(*user, *userchange)
+	go UpdateUserGwAccess(_user, userchange)
 	if userchange.PlatformRoleID != "" {
-		user.PlatformRoleID = userchange.PlatformRoleID
+		_user.PlatformRoleID = userchange.PlatformRoleID
 	}
 
-	for groupID := range userchange.UserGroups {
-		_, ok := user.UserGroups[groupID]
+	for groupID := range userchange.UserGroups.Data() {
+		_, ok := _user.UserGroups.Data()[groupID]
 		if !ok {
 			group, err := GetUserGroup(groupID)
 			if err != nil {
@@ -318,8 +309,8 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 		}
 	}
 
-	for groupID := range user.UserGroups {
-		_, ok := userchange.UserGroups[groupID]
+	for groupID := range _user.UserGroups.Data() {
+		_, ok := userchange.UserGroups.Data()[groupID]
 		if !ok {
 			group, err := GetUserGroup(groupID)
 			if err != nil {
@@ -333,28 +324,27 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 	}
 
 	var updateMFA bool
-	if user.IsMFAEnabled != userchange.IsMFAEnabled {
+	if _user.IsMFAEnabled != userchange.IsMFAEnabled {
 		updateMFA = true
 	}
 
-	user.IsMFAEnabled = userchange.IsMFAEnabled
+	_user.IsMFAEnabled = userchange.IsMFAEnabled
 
 	var updateAccountStatus bool
-	if user.AccountDisabled != userchange.AccountDisabled {
+	if _user.AccountDisabled != userchange.AccountDisabled {
 		updateAccountStatus = true
 	}
 
-	user.IsMFAEnabled = userchange.IsMFAEnabled
-	if !user.IsMFAEnabled {
-		user.TOTPSecret = ""
+	_user.IsMFAEnabled = userchange.IsMFAEnabled
+	if !_user.IsMFAEnabled {
+		_user.TOTPSecret = ""
 	}
 
-	user.UserGroups = userchange.UserGroups
-	user.NetworkRoles = userchange.NetworkRoles
-	AddGlobalNetRolesToAdmins(user)
-	err := ValidateUser(user)
+	_user.UserGroups = userchange.UserGroups
+	AddGlobalNetRolesToAdmins(_user)
+	err := ValidateUser(_user)
 	if err != nil {
-		return &models.User{}, err
+		return &schema.User{}, err
 	}
 
 	dbctx := db.BeginTx(context.TODO())
@@ -372,37 +362,36 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 	_schemaUser := schema.User{Username: queryUser}
 	err = _schemaUser.Get(dbctx)
 	if err != nil {
-		return &models.User{}, err
+		return &schema.User{}, err
 	}
 
-	_user := converters.ToSchemaUser(*user)
 	_user.ID = _schemaUser.ID
 
 	err = _user.Update(dbctx)
 	if err != nil {
-		return &models.User{}, err
+		return &schema.User{}, err
 	}
 
 	if updateAccountStatus {
 		err = _user.UpdateAccountStatus(dbctx)
 		if err != nil {
-			return &models.User{}, err
+			return &schema.User{}, err
 		}
 	}
 
 	if updateMFA {
 		err = _user.UpdateMFA(dbctx)
 		if err != nil {
-			return &models.User{}, err
+			return &schema.User{}, err
 		}
 	}
 
 	commit = true
-	return user, nil
+	return _user, nil
 }
 
 // ValidateUser - validates a user model
-func ValidateUser(user *models.User) error {
+func ValidateUser(user *schema.User) error {
 
 	// check if role is valid
 	_, err := GetRole(user.PlatformRoleID)

@@ -280,7 +280,7 @@ func createAcl(w http.ResponseWriter, r *http.Request) {
 
 	acl := req
 	acl.ID = uuid.New().String()
-	acl.CreatedBy = user.UserName
+	acl.CreatedBy = user.Username
 	acl.CreatedAt = time.Now().UTC()
 	acl.Default = false
 	if acl.ServiceType == models.Any {

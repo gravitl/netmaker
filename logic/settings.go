@@ -91,9 +91,9 @@ func setDefaultsforOldAclCfg() {
 	for _, netI := range nets {
 		if netI.DefaultACL != "yes" {
 			netI.DefaultACL = "yes"
-			UpsertNetwork(netI)
+			UpsertNetwork(&netI)
 		}
-		networkACL, err := nodeacls.FetchAllACLs(nodeacls.NetworkID(netI.NetID))
+		networkACL, err := nodeacls.FetchAllACLs(nodeacls.NetworkID(netI.Name))
 		if err != nil {
 			continue
 		}
@@ -105,7 +105,7 @@ func setDefaultsforOldAclCfg() {
 			}
 			networkACL.UpdateACL(id, aclNode)
 		}
-		networkACL.Save(acls.ContainerID(netI.NetID))
+		networkACL.Save(acls.ContainerID(netI.Name))
 	}
 	nodes, _ := GetAllNodes()
 	for _, node := range nodes {

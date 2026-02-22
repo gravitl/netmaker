@@ -21,10 +21,6 @@ func SetDefaults() error {
 		return err
 	}
 
-	if err := setNetworkDefaults(); err != nil {
-		return err
-	}
-
 	if err := setUserDefaults(); err != nil {
 		return err
 	}
@@ -52,20 +48,6 @@ func setNodeDefaults() error {
 	return nil
 }
 
-func setNetworkDefaults() error {
-	// upgraded systems will not have NetworkUsers's set, which is why we need this function
-	networks, err := logic.GetNetworks()
-	if err != nil && !database.IsEmptyRecord(err) {
-		return err
-	}
-	for _, network := range networks {
-		if network.SetDefaults() {
-			logic.SaveNetwork(&network)
-		}
-	}
-	return nil
-}
-
 func setUserDefaults() error {
 	users, err := logic.GetUsers()
 	if err != nil && !database.IsEmptyRecord(err) {
@@ -74,12 +56,12 @@ func setUserDefaults() error {
 	for _, user := range users {
 		updateUser, err := logic.GetUser(user.UserName)
 		if err != nil {
-			slog.Error("could not get user", "user", updateUser.UserName, "error", err.Error())
+			slog.Error("could not get user", "user", updateUser.Username, "error", err.Error())
 		}
 		logic.SetUserDefaults(updateUser)
 		err = logic.UpsertUser(*updateUser)
 		if err != nil {
-			slog.Error("could not update user", "user", updateUser.UserName, "error", err.Error())
+			slog.Error("could not update user", "user", updateUser.Username, "error", err.Error())
 		}
 	}
 	return nil

@@ -523,58 +523,27 @@ func IsAclPolicyValid(acl models.Acl) (err error) {
 	return nil
 }
 
-// ListUserPolicies - lists all acl policies enforced on an user
-func ListUserPolicies(u models.User) []models.Acl {
-	allAcls := logic.ListAcls()
-	userAcls := []models.Acl{}
-	for _, acl := range allAcls {
-
-		if acl.RuleType == models.UserPolicy {
-			srcMap := logic.ConvAclTagToValueMap(acl.Src)
-			if _, ok := srcMap[u.UserName]; ok {
-				userAcls = append(userAcls, acl)
-			} else {
-				// check for user groups
-				for gID := range u.UserGroups {
-					if _, ok := srcMap[gID.String()]; ok {
-						userAcls = append(userAcls, acl)
-						break
-					}
-				}
-			}
-
-		}
-	}
-	return userAcls
-}
-
 // listPoliciesOfUser - lists all user acl policies applied to user in an network
-func listPoliciesOfUser(user models.User, netID models.NetworkID) []models.Acl {
+func listPoliciesOfUser(user *schema.User, netID models.NetworkID) []models.Acl {
 	allAcls := logic.ListAcls()
-	userAcls := []models.Acl{}
-	if _, ok := user.UserGroups[globalNetworksAdminGroupID]; ok {
-		user.UserGroups[GetDefaultNetworkAdminGroupID(netID)] = struct{}{}
+	var userAcls []models.Acl
+	if _, ok := user.UserGroups.Data()[globalNetworksAdminGroupID]; ok {
+		user.UserGroups.Data()[GetDefaultNetworkAdminGroupID(netID)] = struct{}{}
 	}
-	if _, ok := user.UserGroups[globalNetworksUserGroupID]; ok {
-		user.UserGroups[GetDefaultNetworkUserGroupID(netID)] = struct{}{}
+	if _, ok := user.UserGroups.Data()[globalNetworksUserGroupID]; ok {
+		user.UserGroups.Data()[GetDefaultNetworkUserGroupID(netID)] = struct{}{}
 	}
 	if user.PlatformRoleID == models.AdminRole || user.PlatformRoleID == models.SuperAdminRole {
-		user.UserGroups[GetDefaultNetworkAdminGroupID(netID)] = struct{}{}
+		user.UserGroups.Data()[GetDefaultNetworkAdminGroupID(netID)] = struct{}{}
 	}
 	for _, acl := range allAcls {
 		if acl.NetworkID == netID && acl.RuleType == models.UserPolicy {
 			srcMap := logic.ConvAclTagToValueMap(acl.Src)
-			if _, ok := srcMap[user.UserName]; ok {
+			if _, ok := srcMap[user.Username]; ok {
 				userAcls = append(userAcls, acl)
 				continue
 			}
-			for netRole := range user.NetworkRoles {
-				if _, ok := srcMap[netRole.String()]; ok {
-					userAcls = append(userAcls, acl)
-					continue
-				}
-			}
-			for userG := range user.UserGroups {
+			for userG := range user.UserGroups.Data() {
 				if _, ok := srcMap[userG.String()]; ok {
 					userAcls = append(userAcls, acl)
 					continue
@@ -630,7 +599,7 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []mode
 		return false, []models.Acl{}
 	}
 	allowedPolicies := []models.Acl{}
-	policies := listPoliciesOfUser(*user, models.NetworkID(peer.Network))
+	policies := listPoliciesOfUser(user, models.NetworkID(peer.Network))
 	for _, policy := range policies {
 		if !policy.Enabled {
 			continue

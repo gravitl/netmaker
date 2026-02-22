@@ -31,10 +31,10 @@ func InitFailOverCache() {
 	}
 
 	for _, network := range networks {
-		networkNodes := logic.GetNetworkNodesMemory(allNodes, network.NetID)
+		networkNodes := logic.GetNetworkNodesMemory(allNodes, network.Name)
 		for _, node := range networkNodes {
 			if node.IsFailOver {
-				failOverCache[models.NetworkID(network.NetID)] = node.ID.String()
+				failOverCache[models.NetworkID(network.Name)] = node.ID.String()
 				break
 			}
 		}

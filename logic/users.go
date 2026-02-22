@@ -6,17 +6,17 @@ import (
 	"errors"
 	"sort"
 
-	"github.com/gravitl/netmaker/converters"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"gorm.io/datatypes"
 )
 
 // GetUser - gets a user
 // TODO support "masteradmin"
-func GetUser(username string) (*models.User, error) {
-	_user := schema.User{
+func GetUser(username string) (*schema.User, error) {
+	_user := &schema.User{
 		Username: username,
 	}
 	err := _user.Get(db.WithContext(context.TODO()))
@@ -24,13 +24,12 @@ func GetUser(username string) (*models.User, error) {
 		return nil, err
 	}
 
-	user := converters.ToModelUser(_user)
-	return &user, nil
+	return _user, nil
 }
 
 // GetReturnUser - gets a user
 func GetReturnUser(username string) (models.ReturnUser, error) {
-	_user := schema.User{
+	_user := &schema.User{
 		Username: username,
 	}
 	err := _user.Get(db.WithContext(context.TODO()))
@@ -38,37 +37,43 @@ func GetReturnUser(username string) (models.ReturnUser, error) {
 		return models.ReturnUser{}, err
 	}
 
-	user := converters.ToApiUser(_user)
-	return user, nil
+	return ToReturnUser(_user), nil
 }
 
 // ToReturnUser - gets a user as a return user
-func ToReturnUser(user models.User) models.ReturnUser {
+func ToReturnUser(user *schema.User) models.ReturnUser {
+
+	userGroups := make(map[models.UserGroupID]struct{})
+	for userGroupID := range userGroups {
+		userGroups[userGroupID] = struct{}{}
+	}
+
 	return models.ReturnUser{
-		UserName:                   user.UserName,
+		UserName:                   user.Username,
 		ExternalIdentityProviderID: user.ExternalIdentityProviderID,
 		IsMFAEnabled:               user.IsMFAEnabled,
 		DisplayName:                user.DisplayName,
 		AccountDisabled:            user.AccountDisabled,
+		IsAdmin:                    user.PlatformRoleID == models.SuperAdminRole,
+		IsSuperAdmin:               user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole,
 		AuthType:                   user.AuthType,
-		RemoteGwIDs:                user.RemoteGwIDs,
-		UserGroups:                 user.UserGroups,
-		PlatformRoleID:             user.PlatformRoleID,
-		NetworkRoles:               user.NetworkRoles,
-		LastLoginTime:              user.LastLoginTime,
+		// no need to set. field not in use.
+		RemoteGwIDs:    nil,
+		UserGroups:     user.UserGroups.Data(),
+		PlatformRoleID: user.PlatformRoleID,
+		// no need to set. field not in use.
+		NetworkRoles:  nil,
+		LastLoginTime: user.LastLoginAt,
+		CreatedBy:     user.CreatedBy,
+		CreatedAt:     user.CreatedAt,
+		UpdatedAt:     user.UpdatedAt,
 	}
 }
 
 // SetUserDefaults - sets the defaults of a user to avoid empty fields
-func SetUserDefaults(user *models.User) {
-	if user.RemoteGwIDs == nil {
-		user.RemoteGwIDs = make(map[string]struct{})
-	}
-	if len(user.NetworkRoles) == 0 {
-		user.NetworkRoles = make(map[models.NetworkID]map[models.UserRoleID]struct{})
-	}
-	if len(user.UserGroups) == 0 {
-		user.UserGroups = make(map[models.UserGroupID]struct{})
+func SetUserDefaults(user *schema.User) {
+	if len(user.UserGroups.Data()) == 0 {
+		user.UserGroups = datatypes.NewJSONType(make(map[models.UserGroupID]struct{}))
 	}
 }
 
@@ -87,7 +92,7 @@ func GetSuperAdmin() (models.ReturnUser, error) {
 		return models.ReturnUser{}, err
 	}
 
-	return converters.ToApiUser(*_user), nil
+	return ToReturnUser(_user), nil
 }
 
 func InsertPendingUser(u *models.User) error {
@@ -150,15 +155,15 @@ func ListPendingUsers() ([]models.User, error) {
 	return pendingUsers, nil
 }
 
-func GetUserMap() (map[string]models.User, error) {
+func GetUserMap() (map[string]schema.User, error) {
 	users, err := GetUsersDB()
 	if err != nil {
 		return nil, err
 	}
 
-	userMap := make(map[string]models.User)
+	userMap := make(map[string]schema.User)
 	for _, user := range users {
-		userMap[user.UserName] = user
+		userMap[user.Username] = user
 	}
 
 	return userMap, nil

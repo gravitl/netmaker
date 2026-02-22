@@ -71,7 +71,17 @@ func migrateV1_6_0(ctx context.Context) error {
 		return err
 	}
 
-	return migrateNetworks(ctx)
+	err = migrateNetworks(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = migrateUserRoles(ctx)
+	if err != nil {
+		return err
+	}
+
+	return migrateUserGroups(ctx)
 }
 
 func migrateUsers(ctx context.Context) error {
@@ -102,22 +112,18 @@ func migrateUsers(ctx context.Context) error {
 			ID:                         "",
 			Username:                   user.UserName,
 			DisplayName:                user.DisplayName,
-			PlatformRoleID:             string(platformRoleID),
+			PlatformRoleID:             platformRoleID,
 			ExternalIdentityProviderID: user.ExternalIdentityProviderID,
 			AccountDisabled:            user.AccountDisabled,
-			AuthType:                   string(user.AuthType),
+			AuthType:                   user.AuthType,
 			Password:                   user.Password,
 			IsMFAEnabled:               user.IsMFAEnabled,
 			TOTPSecret:                 user.TOTPSecret,
 			LastLoginAt:                user.LastLoginTime,
-			UserGroups:                 make(datatypes.JSONMap),
+			UserGroups:                 datatypes.NewJSONType(user.UserGroups),
 			CreatedBy:                  user.CreatedBy,
 			CreatedAt:                  user.CreatedAt,
 			UpdatedAt:                  user.UpdatedAt,
-		}
-
-		for userGroupID := range user.UserGroups {
-			_user.UserGroups[string(userGroupID)] = struct{}{}
 		}
 
 		err = _user.Create(ctx)
@@ -142,11 +148,9 @@ func migrateNetworks(ctx context.Context) error {
 			return err
 		}
 
-		var autoJoin, autoRemove bool
+		var autoJoin, autoRemove, jitEnabled bool
 
-		if network.AutoJoin == "true" {
-			autoJoin = true
-		} else if network.AutoJoin == "false" {
+		if network.AutoJoin == "false" {
 			autoJoin = false
 		} else {
 			autoJoin = true
@@ -154,10 +158,14 @@ func migrateNetworks(ctx context.Context) error {
 
 		if network.AutoRemove == "true" {
 			autoRemove = true
-		} else if network.AutoRemove == "false" {
-			autoRemove = false
 		} else {
 			autoRemove = false
+		}
+
+		if network.JITEnabled == "yes" {
+			jitEnabled = true
+		} else {
+			jitEnabled = false
 		}
 
 		_network := &schema.Network{
@@ -165,20 +173,64 @@ func migrateNetworks(ctx context.Context) error {
 			Name:                network.NetID,
 			AddressRange:        network.AddressRange,
 			AddressRange6:       network.AddressRange6,
-			DefaultKeepAlive:    time.Duration(network.DefaultKeepalive) * time.Second,
+			DefaultKeepAlive:    int(network.DefaultKeepalive),
 			DefaultACL:          network.DefaultACL,
 			DefaultMTU:          network.DefaultMTU,
 			AutoJoin:            autoJoin,
 			AutoRemove:          autoRemove,
 			AutoRemoveTags:      network.AutoRemoveTags,
-			AutoRemoveThreshold: time.Duration(network.AutoRemoveThreshold) * time.Minute,
-			JITEnabled:          false,
+			AutoRemoveThreshold: network.AutoRemoveThreshold,
+			JITEnabled:          jitEnabled,
 			NodesUpdatedAt:      time.Unix(network.NodesLastModified, 0),
 			CreatedBy:           network.CreatedBy,
 			CreatedAt:           network.CreatedAt,
 			UpdatedAt:           time.Unix(network.NetworkLastModified, 0),
 		}
 		err = _network.Create(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func migrateUserRoles(ctx context.Context) error {
+	records, err := database.FetchRecords(database.USER_PERMISSIONS_TABLE_NAME)
+	if err != nil {
+		return err
+	}
+
+	for _, record := range records {
+		var _userRole schema.UserRole
+		err = json.Unmarshal([]byte(record), &_userRole)
+		if err != nil {
+			return err
+		}
+
+		err = _userRole.Create(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func migrateUserGroups(ctx context.Context) error {
+	records, err := database.FetchRecords(database.USER_GROUPS_TABLE_NAME)
+	if err != nil {
+		return err
+	}
+
+	for _, record := range records {
+		var _userGroup schema.UserGroup
+		err = json.Unmarshal([]byte(record), &_userGroup)
+		if err != nil {
+			return err
+		}
+
+		err = _userGroup.Create(ctx)
 		if err != nil {
 			return err
 		}

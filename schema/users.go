@@ -3,15 +3,13 @@ package schema
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/db"
+	"github.com/gravitl/netmaker/models"
 	"gorm.io/datatypes"
-)
-
-const (
-	SuperAdminRole = "super-admin"
 )
 
 var (
@@ -19,34 +17,44 @@ var (
 )
 
 type User struct {
-	ID                         string `gorm:"primaryKey" json:"id"`
-	Username                   string `gorm:"unique" json:"username"`
-	DisplayName                string `json:"display_name"`
-	PlatformRoleID             string `json:"platform_role_id"`
-	ExternalIdentityProviderID string `json:"external_identity_provider_id"`
-	AccountDisabled            bool   `json:"account_disabled"`
-	AuthType                   string `json:"auth_type"`
-	Password                   string `json:"password"`
-	IsMFAEnabled               bool   `json:"is_mfa_enabled"`
-	TOTPSecret                 string `json:"totp_secret"`
+	ID                         string            `gorm:"primaryKey" json:"id"`
+	Username                   string            `gorm:"unique" json:"username"`
+	DisplayName                string            `json:"display_name"`
+	PlatformRoleID             models.UserRoleID `json:"platform_role_id"`
+	ExternalIdentityProviderID string            `json:"external_identity_provider_id"`
+	AccountDisabled            bool              `json:"account_disabled"`
+	AuthType                   models.AuthType   `json:"auth_type"`
+	Password                   string            `json:"password"`
+	IsMFAEnabled               bool              `json:"is_mfa_enabled"`
+	TOTPSecret                 string            `json:"totp_secret"`
 	// NOTE: json tag is different from field name to ensure compatibility with the older model.
 	LastLoginAt time.Time `json:"last_login_time"`
 	// NOTE: json tag is different from field name to ensure compatibility with the older model.
-	UserGroups datatypes.JSONMap `json:"user_group_ids"`
-	CreatedBy  string            `json:"created_by"`
-	CreatedAt  time.Time         `json:"created_at"`
-	UpdatedAt  time.Time         `json:"updated_at"`
+	UserGroups datatypes.JSONType[map[models.UserGroupID]struct{}] `json:"user_group_ids"`
+	CreatedBy  string                                              `json:"created_by"`
+	CreatedAt  time.Time                                           `json:"created_at"`
+	UpdatedAt  time.Time                                           `json:"updated_at"`
 }
 
 func (u *User) TableName() string {
 	return "users_v1"
 }
 
+func (u *User) NameInCharSet() bool {
+	charset := "abcdefghijklmnopqrstuvwxyz1234567890-."
+	for _, char := range u.Username {
+		if !strings.Contains(charset, strings.ToLower(string(char))) {
+			return false
+		}
+	}
+	return true
+}
+
 func (u *User) SuperAdminExists(ctx context.Context) (bool, error) {
 	var exists bool
 	err := db.FromContext(ctx).Raw(
 		"SELECT EXISTS (SELECT 1 FROM users_v1 WHERE platform_role_id = ?)",
-		SuperAdminRole,
+		models.SuperAdminRole,
 	).Scan(&exists).Error
 	return exists, err
 }
@@ -72,7 +80,7 @@ func (u *User) Get(ctx context.Context) error {
 
 func (u *User) GetSuperAdmin(ctx context.Context) error {
 	return db.FromContext(ctx).Model(u).
-		Where("platform_role_id = ?", SuperAdminRole).
+		Where("platform_role_id = ?", models.SuperAdminRole).
 		First(u).
 		Error
 }
@@ -96,17 +104,8 @@ func (u *User) Update(ctx context.Context) error {
 
 	return db.FromContext(ctx).Model(&User{}).
 		Where("id = ? OR username = ?", u.ID, u.Username).
-		Updates(u).Error
-}
-
-func (u *User) Delete(ctx context.Context) error {
-	if u.ID == "" && u.Username == "" {
-		return ErrUserIdentifiersNotProvided
-	}
-
-	return db.FromContext(ctx).Model(&User{}).
-		Where("id = ? OR username = ?", u.ID, u.Username).
-		Delete(u).Error
+		Updates(u).
+		Error
 }
 
 func (u *User) UpdateAccountStatus(ctx context.Context) error {
@@ -118,7 +117,8 @@ func (u *User) UpdateAccountStatus(ctx context.Context) error {
 		Where("id = ? OR username = ?", u.ID, u.Username).
 		Updates(map[string]any{
 			"account_disabled": u.AccountDisabled,
-		}).Error
+		}).
+		Error
 }
 
 func (u *User) UpdateMFA(ctx context.Context) error {
@@ -131,5 +131,17 @@ func (u *User) UpdateMFA(ctx context.Context) error {
 		Updates(map[string]any{
 			"is_mfa_enabled": u.IsMFAEnabled,
 			"totp_secret":    u.TOTPSecret,
-		}).Error
+		}).
+		Error
+}
+
+func (u *User) Delete(ctx context.Context) error {
+	if u.ID == "" && u.Username == "" {
+		return ErrUserIdentifiersNotProvided
+	}
+
+	return db.FromContext(ctx).Model(&User{}).
+		Where("id = ? OR username = ?", u.ID, u.Username).
+		Delete(u).
+		Error
 }

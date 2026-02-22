@@ -100,7 +100,7 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 					logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 					return
 				}
-				user.UserName = content.UserPrincipalName
+				user.Username = content.UserPrincipalName
 				user.ExternalIdentityProviderID = string(content.ID)
 				if err = logic.CreateUser(&user); err != nil {
 					handleSomethingWentWrong(w)
@@ -177,11 +177,11 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 	logic.LogEvent(&models.Event{
 		Action: models.Login,
 		Source: models.Subject{
-			ID:   user.UserName,
-			Name: user.UserName,
+			ID:   user.Username,
+			Name: user.Username,
 			Type: models.UserSub,
 		},
-		TriggeredBy: user.UserName,
+		TriggeredBy: user.Username,
 		Target: models.Subject{
 			ID:   models.DashboardSub.String(),
 			Name: models.DashboardSub.String(),
@@ -190,8 +190,8 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: models.Dashboard,
 	})
-	logger.Log(1, "completed azure OAuth sigin in for", user.UserName)
-	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+user.UserName, http.StatusPermanentRedirect)
+	logger.Log(1, "completed azure OAuth sigin in for", user.Username)
+	http.Redirect(w, r, servercfg.GetFrontendURL()+"/login?login="+jwt+"&user="+user.Username, http.StatusPermanentRedirect)
 }
 
 func getAzureUserInfo(state string, code string) (*OAuthUser, error) {

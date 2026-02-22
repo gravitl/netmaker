@@ -260,8 +260,8 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	}
 
 	keepalive := ""
-	if network.DefaultKeepalive != 0 {
-		keepalive = "PersistentKeepalive = " + strconv.Itoa(int(network.DefaultKeepalive))
+	if network.DefaultKeepAlive != 0 {
+		keepalive = "PersistentKeepalive = " + strconv.Itoa(int(network.DefaultKeepAlive))
 	}
 	if gwnode.IngressPersistentKeepalive != 0 {
 		keepalive = "PersistentKeepalive = " + strconv.Itoa(int(gwnode.IngressPersistentKeepalive))
@@ -464,7 +464,7 @@ func getExtClientHAConf(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		userName = caller.UserName
+		userName = caller.Username
 	}
 	// create client
 	var extclient models.ExtClient
@@ -512,8 +512,8 @@ func getExtClientHAConf(w http.ResponseWriter, r *http.Request) {
 	}
 
 	keepalive := ""
-	if network.DefaultKeepalive != 0 {
-		keepalive = "PersistentKeepalive = " + strconv.Itoa(int(network.DefaultKeepalive))
+	if network.DefaultKeepAlive != 0 {
+		keepalive = "PersistentKeepalive = " + strconv.Itoa(int(network.DefaultKeepAlive))
 	}
 	if gwnode.IngressPersistentKeepalive != 0 {
 		keepalive = "PersistentKeepalive = " + strconv.Itoa(int(gwnode.IngressPersistentKeepalive))
@@ -685,7 +685,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
 		}
-		userName = caller.UserName
+		userName = caller.Username
 		// check if user has a config already for remote access client
 		extclients, err := logic.GetNetworkExtClients(node.Network)
 		if err != nil {
@@ -711,7 +711,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 			// let's first confirm that none of the user's extclients for this gw have device id.
 			for _, extclient := range extclients {
 				if extclient.DeviceID == customExtClient.DeviceID &&
-					extclient.OwnerID == caller.UserName && nodeid == extclient.IngressGatewayID {
+					extclient.OwnerID == caller.Username && nodeid == extclient.IngressGatewayID {
 					if jitGrant != nil {
 						extclient.JITExpiresAt = &jitGrant.ExpiresAt
 						_ = logic.SaveExtClient(&extclient)
@@ -727,7 +727,7 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		for _, extclient := range extclients {
 			if extclient.RemoteAccessClientID != "" &&
 				extclient.RemoteAccessClientID == customExtClient.RemoteAccessClientID &&
-				extclient.OwnerID == caller.UserName && nodeid == extclient.IngressGatewayID {
+				extclient.OwnerID == caller.Username && nodeid == extclient.IngressGatewayID {
 				if customExtClient.DeviceID != "" && extclient.DeviceID == "" {
 					// This extclient doesn’t include a device ID (and neither do the others).
 					// We patch it by assigning the device ID from the incoming request.

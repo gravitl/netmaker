@@ -1,11 +1,14 @@
 package controller
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 )
 
 // limit consts
@@ -26,17 +29,15 @@ func checkFreeTierLimits(limitChoice int, next http.Handler) http.HandlerFunc {
 		if logic.FreeTier { // check that free tier limits not exceeded
 			switch limitChoice {
 			case limitChoiceNetworks:
-				currentNetworks, err := logic.GetNetworks()
-				if (err != nil && !database.IsEmptyRecord(err)) ||
-					len(currentNetworks) >= logic.NetworksLimit {
+				numNetworks, err := (&schema.Network{}).Count(db.WithContext(context.TODO()))
+				if err != nil || numNetworks >= logic.NetworksLimit {
 					errorResponse.Message += "networks"
 					logic.ReturnErrorResponse(w, r, errorResponse)
 					return
 				}
 			case limitChoiceUsers:
-				users, err := logic.GetUsers()
-				if (err != nil && !database.IsEmptyRecord(err)) ||
-					len(users) >= logic.UsersLimit {
+				numUsers, err := (&schema.User{}).Count(db.WithContext(context.TODO()))
+				if err != nil || numUsers >= logic.UsersLimit {
 					errorResponse.Message += "users"
 					logic.ReturnErrorResponse(w, r, errorResponse)
 					return
@@ -60,9 +61,8 @@ func checkFreeTierLimits(limitChoice int, next http.Handler) http.HandlerFunc {
 					return
 				}
 			case limitChoiceEgress:
-				egresses, err := logic.GetAllEgresses()
-				if (err != nil && !database.IsEmptyRecord(err)) ||
-					len(egresses) >= logic.EgressesLimit {
+				numEgresses, err := (&schema.Egress{}).Count(db.WithContext(context.TODO()))
+				if err != nil || numEgresses >= logic.EgressesLimit {
 					errorResponse.Message += "egresses"
 					logic.ReturnErrorResponse(w, r, errorResponse)
 					return

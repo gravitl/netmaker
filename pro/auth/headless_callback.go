@@ -88,7 +88,7 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jwt, jwtErr := logic.VerifyAuthRequest(models.UserAuthParams{
-		UserName: user.UserName,
+		UserName: user.Username,
 		Password: newPass,
 	}, logic.NetclientApp)
 	if jwtErr != nil {

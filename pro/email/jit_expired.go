@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 )
 
@@ -15,12 +14,12 @@ type JITExpiredMail struct {
 	BodyBuilder EmailBodyBuilder
 	Grant       *schema.JITGrant
 	Request     *schema.JITRequest
-	Network     models.Network
+	Network     *schema.Network
 	IsRevoked   bool
 }
 
 // SendJITExpirationEmail - sends email notification to user when JIT grant expires
-func SendJITExpirationEmail(grant *schema.JITGrant, request *schema.JITRequest, network models.Network, isRevoked bool) error {
+func SendJITExpirationEmail(grant *schema.JITGrant, request *schema.JITRequest, network *schema.Network, isRevoked bool) error {
 	mail := JITExpiredMail{
 		BodyBuilder: &EmailBodyBuilderWithH1HeadlineAndImage{},
 		Grant:       grant,
@@ -44,9 +43,9 @@ func SendJITExpirationEmail(grant *schema.JITGrant, request *schema.JITRequest, 
 // GetSubject - gets the subject of the email
 func (mail JITExpiredMail) GetSubject(info Notification) string {
 	if mail.IsRevoked {
-		return fmt.Sprintf("JIT Access Revoked: %s", mail.Network.NetID)
+		return fmt.Sprintf("JIT Access Revoked: %s", mail.Network.Name)
 	}
-	return fmt.Sprintf("JIT Access Expired: %s", mail.Network.NetID)
+	return fmt.Sprintf("JIT Access Expired: %s", mail.Network.Name)
 }
 
 // GetBody - gets the body of the email
@@ -54,10 +53,10 @@ func (mail JITExpiredMail) GetBody(info Notification) string {
 	var headline, message string
 	if mail.IsRevoked {
 		headline = "JIT Access Revoked"
-		message = fmt.Sprintf("Your Just-In-Time access to network <strong>%s</strong> has been revoked by an administrator.", mail.Network.NetID)
+		message = fmt.Sprintf("Your Just-In-Time access to network <strong>%s</strong> has been revoked by an administrator.", mail.Network.Name)
 	} else {
 		headline = "JIT Access Expired"
-		message = fmt.Sprintf("Your Just-In-Time access to network <strong>%s</strong> has expired.", mail.Network.NetID)
+		message = fmt.Sprintf("Your Just-In-Time access to network <strong>%s</strong> has expired.", mail.Network.Name)
 	}
 
 	content := mail.BodyBuilder.
@@ -65,7 +64,7 @@ func (mail JITExpiredMail) GetBody(info Notification) string {
 		WithParagraph(message).
 		WithParagraph("Access Details:").
 		WithHtml("<ul>").
-		WithHtml(fmt.Sprintf("<li><strong>Network:</strong> %s</li>", mail.Network.NetID)).
+		WithHtml(fmt.Sprintf("<li><strong>Network:</strong> %s</li>", mail.Network.Name)).
 		WithHtml(fmt.Sprintf("<li><strong>Granted At:</strong> %s</li>", formatUTCTime(mail.Grant.GrantedAt))).
 		WithHtml(fmt.Sprintf("<li><strong>Expired At:</strong> %s</li>", formatUTCTime(mail.Grant.ExpiresAt))).
 		WithHtml("</ul>").

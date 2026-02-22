@@ -2,7 +2,7 @@ package network
 
 var (
 	networkDefinitionFilePath string
-	netID                     string
+	name                      string
 	address                   string
 	address6                  string
 	defaultACL                bool

@@ -12,6 +12,8 @@ func ListModels() []interface{} {
 		&PostureCheck{},
 		&User{},
 		&Network{},
+		&UserRole{},
+		&UserGroup{},
 		&JITRequest{},
 		&JITGrant{},
 	}

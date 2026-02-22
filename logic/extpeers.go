@@ -348,7 +348,7 @@ func CreateExtClient(extclient *models.ExtClient) error {
 		return err
 	}
 	if extclient.Address == "" {
-		if parentNetwork.IsIPv4 == "yes" {
+		if parentNetwork.AddressRange != "" {
 			newAddress, err := UniqueAddress(extclient.Network, true)
 			if err != nil {
 				return err
@@ -358,7 +358,7 @@ func CreateExtClient(extclient *models.ExtClient) error {
 	}
 
 	if extclient.Address6 == "" {
-		if parentNetwork.IsIPv6 == "yes" {
+		if parentNetwork.AddressRange6 != "" {
 			addr6, err := UniqueAddress6(extclient.Network, true)
 			if err != nil {
 				return err
@@ -505,7 +505,7 @@ func GetAllExtClients() ([]models.ExtClient, error) {
 	}
 
 	for i := range currentNetworks {
-		netName := currentNetworks[i].NetID
+		netName := currentNetworks[i].Name
 		netClients, err := GetNetworkExtClients(netName)
 		if err != nil {
 			continue

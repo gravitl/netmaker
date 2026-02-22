@@ -1,7 +1,6 @@
 package models
 
 import (
-	"net"
 	"time"
 )
 
@@ -27,122 +26,12 @@ type Network struct {
 	// VirtualNATPoolIPv4 is the IPv4 CIDR pool from which virtual NAT ranges are allocated for egress gateways
 	VirtualNATPoolIPv4 string `json:"virtual_nat_pool_ipv4"`
 	// VirtualNATSitePrefixLenIPv4 is the prefix length (e.g., 24) for individual site allocations from the IPv4 virtual NAT pool
-	VirtualNATSitePrefixLenIPv4 int `json:"virtual_nat_site_prefixlen_ipv4"`
-	CreatedBy           string   `json:"created_by"`
-	CreatedAt           time.Time
+	VirtualNATSitePrefixLenIPv4 int    `json:"virtual_nat_site_prefixlen_ipv4"`
+	CreatedBy                   string `json:"created_by"`
+	CreatedAt                   time.Time
 }
 
 // SaveData - sensitive fields of a network that should be kept the same
 type SaveData struct { // put sensitive fields here
 	NetID string `json:"netid" bson:"netid" validate:"required,min=1,max=32,netid_valid"`
-}
-
-// Network.SetNodesLastModified - sets nodes last modified on network, depricated
-func (network *Network) SetNodesLastModified() {
-	network.NodesLastModified = time.Now().Unix()
-}
-
-// Network.SetNetworkLastModified - sets network last modified time
-func (network *Network) SetNetworkLastModified() {
-	network.NetworkLastModified = time.Now().Unix()
-}
-
-// Network.SetDefaults - sets default values for a network struct
-func (network *Network) SetDefaults() (upsert bool) {
-	if network.DefaultKeepalive == 0 {
-		network.DefaultKeepalive = 20
-		upsert = true
-	}
-	if network.IsIPv4 == "" {
-		network.IsIPv4 = "yes"
-		upsert = true
-	}
-
-	if network.IsIPv6 == "" {
-		network.IsIPv6 = "no"
-		upsert = true
-	}
-
-	if network.DefaultMTU == 0 {
-		network.DefaultMTU = 1280
-		upsert = true
-	}
-
-	if network.DefaultACL == "" {
-		network.DefaultACL = "yes"
-		upsert = true
-	}
-
-	if network.JITEnabled == "" {
-		network.JITEnabled = "no"
-		upsert = true
-	}
-	return
-}
-
-// AssignVirtualNATDefaults determines safe defaults based on VPN CIDR
-func (network *Network) AssignVirtualNATDefaults(vpnCIDR string, networkID string) {
-	const (
-		cgnatCIDR        = "100.64.0.0/10"
-		fallbackIPv4Pool = "198.18.0.0/15"
-
-		defaultIPv4SitePrefix = 24
-	)
-
-	// Parse CGNAT CIDR (should always succeed, but check for safety)
-	_, cgnatNet, err := net.ParseCIDR(cgnatCIDR)
-	if err != nil {
-		// Fallback to default pool if CGNAT parsing fails (shouldn't happen)
-		network.VirtualNATPoolIPv4 = fallbackIPv4Pool
-		network.VirtualNATSitePrefixLenIPv4 = defaultIPv4SitePrefix
-		return
-	}
-
-	var virtualIPv4Pool string
-	// Parse VPN CIDR - if it fails or is empty, use fallback
-	if vpnCIDR == "" {
-		virtualIPv4Pool = fallbackIPv4Pool
-	} else {
-		_, vpnNet, err := net.ParseCIDR(vpnCIDR)
-		if err != nil || vpnNet == nil {
-			// Invalid VPN CIDR, use fallback
-			virtualIPv4Pool = fallbackIPv4Pool
-		} else if !cidrOverlaps(vpnNet, cgnatNet) {
-			// Safe to reuse VPN CIDR for Virtual NAT
-			virtualIPv4Pool = vpnCIDR
-		} else {
-			// VPN is CGNAT — must not reuse
-			virtualIPv4Pool = fallbackIPv4Pool
-		}
-	}
-
-	network.VirtualNATPoolIPv4 = virtualIPv4Pool
-	network.VirtualNATSitePrefixLenIPv4 = defaultIPv4SitePrefix
-
-}
-func cidrOverlaps(a, b *net.IPNet) bool {
-	if a == nil || b == nil {
-		return false
-	}
-	return a.Contains(b.IP) || b.Contains(a.IP)
-}
-
-func (network *Network) GetNetworkNetworkCIDR4() *net.IPNet {
-	if network.AddressRange == "" {
-		return nil
-	}
-	_, netCidr, _ := net.ParseCIDR(network.AddressRange)
-	return netCidr
-}
-func (network *Network) GetNetworkNetworkCIDR6() *net.IPNet {
-	if network.AddressRange6 == "" {
-		return nil
-	}
-	_, netCidr, _ := net.ParseCIDR(network.AddressRange6)
-	return netCidr
-}
-
-type NetworkStatResp struct {
-	Network
-	Hosts int `json:"hosts"`
 }

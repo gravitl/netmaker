@@ -699,7 +699,7 @@ func createNode(node *models.Node) error {
 	}
 
 	if node.Address.IP == nil {
-		if parentNetwork.IsIPv4 == "yes" {
+		if parentNetwork.AddressRange != "" {
 			if node.Address.IP, err = UniqueAddress(node.Network, false); err != nil {
 				return err
 			}
@@ -713,7 +713,7 @@ func createNode(node *models.Node) error {
 		return fmt.Errorf("invalid address: ipv4 %s is not unique", node.Address.String())
 	}
 	if node.Address6.IP == nil {
-		if parentNetwork.IsIPv6 == "yes" {
+		if parentNetwork.AddressRange6 != "" {
 			if node.Address6.IP, err = UniqueAddress6(node.Network, false); err != nil {
 				return err
 			}

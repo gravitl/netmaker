@@ -155,8 +155,7 @@ func InitPro() {
 	mq.UpdateMetrics = proLogic.MQUpdateMetrics
 	mq.UpdateMetricsFallBack = proLogic.MQUpdateMetricsFallBack
 	logic.GetFilteredNodesByUserAccess = proLogic.GetFilteredNodesByUserAccess
-	logic.CreateRole = proLogic.CreateRole
-	logic.UpdateRole = proLogic.UpdateRole
+
 	logic.DeleteRole = proLogic.DeleteRole
 	logic.NetworkPermissionsCheck = proLogic.NetworkPermissionsCheck
 	logic.GlobalPermissionsCheck = proLogic.GlobalPermissionsCheck
@@ -164,17 +163,14 @@ func InitPro() {
 	logic.CreateDefaultNetworkRolesAndGroups = proLogic.CreateDefaultNetworkRolesAndGroups
 	logic.FilterNetworksByRole = proLogic.FilterNetworksByRole
 	logic.IsGroupsValid = proLogic.IsGroupsValid
-	logic.IsGroupValid = proLogic.IsGroupValid
-	logic.IsNetworkRolesValid = proLogic.IsNetworkRolesValid
+
 	logic.InitialiseRoles = proLogic.UserRolesInit
 	logic.UpdateUserGwAccess = proLogic.UpdateUserGwAccess
 	logic.CreateDefaultUserPolicies = proLogic.CreateDefaultUserPolicies
-	logic.MigrateUserRoleAndGroups = proLogic.MigrateUserRoleAndGroups
-	logic.MigrateToUUIDs = proLogic.MigrateToUUIDs
 	logic.IntialiseGroups = proLogic.UserGroupsInit
 	logic.AddGlobalNetRolesToAdmins = proLogic.AddGlobalNetRolesToAdmins
 	logic.ListUserGroups = proLogic.ListUserGroups
-	logic.GetUserGroupsInNetwork = proLogic.GetUserGroupsInNetwork
+
 	logic.GetUserGroup = proLogic.GetUserGroup
 	logic.GetNodeStatus = proLogic.GetNodeStatus
 	logic.IsOAuthConfigured = auth.IsOAuthConfigured
@@ -238,9 +234,9 @@ func expireJITGrantsWithEmail() error {
 
 	// Track grants that need email before we expire them
 	var grantsToEmail []struct {
-		Grant   schema.JITGrant
-		Request schema.JITRequest
-		Network models.Network
+		Grant   *schema.JITGrant
+		Request *schema.JITRequest
+		Network *schema.Network
 	}
 
 	fiveMinutesAgo := time.Now().Add(-5 * time.Minute)
@@ -252,10 +248,10 @@ func expireJITGrantsWithEmail() error {
 				network, err := logic.GetNetwork(expiredGrant.NetworkID)
 				if err == nil {
 					grantsToEmail = append(grantsToEmail, struct {
-						Grant   schema.JITGrant
-						Request schema.JITRequest
-						Network models.Network
-					}{expiredGrant, request, network})
+						Grant   *schema.JITGrant
+						Request *schema.JITRequest
+						Network *schema.Network
+					}{&expiredGrant, &request, network})
 				}
 			}
 		}
@@ -268,7 +264,7 @@ func expireJITGrantsWithEmail() error {
 
 	// Then, send email notifications for the grants we tracked
 	for _, item := range grantsToEmail {
-		if err := email.SendJITExpirationEmail(&item.Grant, &item.Request, item.Network, false); err != nil {
+		if err := email.SendJITExpirationEmail(item.Grant, item.Request, item.Network, false); err != nil {
 			slog.Warn("failed to send expiration email", "grant_id", item.Grant.ID, "user", item.Request.UserName, "error", err)
 		}
 	}

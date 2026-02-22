@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -104,11 +105,9 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 		// checks if user exists with email
 		_, err := logic.GetUser(content.Email)
 		if err != nil {
-			user.UserName = content.Email
+			user.Username = content.Email
 			user.ExternalIdentityProviderID = content.Login
-			database.DeleteRecord(database.USERS_TABLE_NAME, content.Login)
-			d, _ := json.Marshal(user)
-			database.Insert(user.UserName, string(d), database.USERS_TABLE_NAME)
+			_ = user.Update(db.WithContext(context.TODO()))
 		}
 	}
 	_, err = logic.GetUser(content.Email)
@@ -188,11 +187,11 @@ func handleGithubCallback(w http.ResponseWriter, r *http.Request) {
 	logic.LogEvent(&models.Event{
 		Action: models.Login,
 		Source: models.Subject{
-			ID:   user.UserName,
-			Name: user.UserName,
+			ID:   user.Username,
+			Name: user.Username,
 			Type: models.UserSub,
 		},
-		TriggeredBy: user.UserName,
+		TriggeredBy: user.Username,
 		Target: models.Subject{
 			ID:   models.DashboardSub.String(),
 			Name: models.DashboardSub.String(),

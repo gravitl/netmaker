@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/gravitl/netmaker/logger"
-	"github.com/gravitl/netmaker/models"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
@@ -15,11 +14,11 @@ import (
 type JITRequestMail struct {
 	BodyBuilder EmailBodyBuilder
 	Request     *schema.JITRequest
-	Network     models.Network
+	Network     *schema.Network
 }
 
 // SendJITRequestEmails - sends email notifications to network admins about JIT requests
-func SendJITRequestEmails(request *schema.JITRequest, network models.Network) error {
+func SendJITRequestEmails(request *schema.JITRequest, network *schema.Network) error {
 	admins, err := proLogic.GetNetworkAdmins(request.NetworkID)
 	if err != nil {
 		return err
@@ -32,23 +31,23 @@ func SendJITRequestEmails(request *schema.JITRequest, network models.Network) er
 	}
 
 	for _, admin := range admins {
-		if admin.UserName == "" {
+		if admin.Username == "" {
 			continue
 		}
 
 		// Skip sending email if username is not a valid email address
-		if !IsValid(admin.UserName) {
-			logger.Log(2, "skipping JIT request email for admin with non-email username", "admin", admin.UserName)
+		if !IsValid(admin.Username) {
+			logger.Log(2, "skipping JIT request email for admin with non-email username", "admin", admin.Username)
 			continue
 		}
 
 		notification := Notification{
-			RecipientMail: admin.UserName, // Assuming username is email
-			RecipientName: admin.UserName,
+			RecipientMail: admin.Username, // Assuming username is email
+			RecipientName: admin.Username,
 		}
 
 		if err := GetClient().SendEmail(context.Background(), notification, mail); err != nil {
-			logger.Log(0, "failed to send JIT request email", "admin", admin.UserName, "error", err.Error())
+			logger.Log(0, "failed to send JIT request email", "admin", admin.Username, "error", err.Error())
 			continue
 		}
 	}
@@ -58,16 +57,16 @@ func SendJITRequestEmails(request *schema.JITRequest, network models.Network) er
 
 // GetSubject - gets the subject of the email
 func (mail JITRequestMail) GetSubject(info Notification) string {
-	return fmt.Sprintf("JIT Access Request: %s requests access to %s", mail.Request.UserName, mail.Network.NetID)
+	return fmt.Sprintf("JIT Access Request: %s requests access to %s", mail.Request.UserName, mail.Network.Name)
 }
 
 // GetBody - gets the body of the email
 func (mail JITRequestMail) GetBody(info Notification) string {
 	dashboardURL := fmt.Sprintf("https://dashboard.%s/networks/%s/jit-requests?jit_req_id=%s", servercfg.GetNmBaseDomain(),
-		mail.Network.NetID, mail.Request.ID)
+		mail.Network.Name, mail.Request.ID)
 	if servercfg.DeployedByOperator() {
 		dashboardURL = fmt.Sprintf("%s/dashboard?tenant_id=%s&network=%s&jit_req_id=%s",
-			proLogic.GetAccountsUIHost(), servercfg.GetNetmakerTenantID(), mail.Network.NetID, mail.Request.ID)
+			proLogic.GetAccountsUIHost(), servercfg.GetNetmakerTenantID(), mail.Network.Name, mail.Request.ID)
 	}
 
 	reasonText := mail.Request.Reason
@@ -78,11 +77,11 @@ func (mail JITRequestMail) GetBody(info Notification) string {
 	content := mail.BodyBuilder.
 		WithHeadline("New JIT Access Request").
 		WithParagraph(fmt.Sprintf("User <strong>%s</strong> has requested Just-In-Time access to network <strong>%s</strong>.",
-			mail.Request.UserName, mail.Network.NetID)).
+			mail.Request.UserName, mail.Network.Name)).
 		WithParagraph("Request Details:").
 		WithHtml("<ul>").
 		WithHtml(fmt.Sprintf("<li><strong>User:</strong> %s</li>", mail.Request.UserName)).
-		WithHtml(fmt.Sprintf("<li><strong>Network:</strong> %s</li>", mail.Network.NetID)).
+		WithHtml(fmt.Sprintf("<li><strong>Network:</strong> %s</li>", mail.Network.Name)).
 		WithHtml(fmt.Sprintf("<li><strong>Requested At:</strong> %s</li>", formatUTCTime(mail.Request.RequestedAt))).
 		WithHtml(fmt.Sprintf("<li><strong>Reason:</strong> %s</li>", reasonText)).
 		WithHtml("</ul>").

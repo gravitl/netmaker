@@ -73,29 +73,11 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 		return nil
 	}
 
-	// check if user has scope for target resource
-	// TODO - differentitate between global scope and network scope apis
-	// check for global network role
-	if netRoles, ok := user.NetworkRoles[models.AllNetworks]; ok {
-		for netRoleID := range netRoles {
-			err = checkNetworkAccessPermissions(netRoleID, username, r.Method, targetRsrc, targetRsrcID, netID)
-			if err == nil {
-				return nil
-			}
-		}
-	}
-	netRoles := user.NetworkRoles[models.NetworkID(netID)]
-	for netRoleID := range netRoles {
-		err = checkNetworkAccessPermissions(netRoleID, username, r.Method, targetRsrc, targetRsrcID, netID)
-		if err == nil {
-			return nil
-		}
-	}
-	for groupID := range user.UserGroups {
+	for groupID := range user.UserGroups.Data() {
 
 		userG, err := GetUserGroup(groupID)
 		if err == nil {
-			if netRoles, ok := userG.NetworkRoles[models.AllNetworks]; ok {
+			if netRoles, ok := userG.NetworkRoles.Data()[models.AllNetworks]; ok {
 				for netRoleID := range netRoles {
 					err = checkNetworkAccessPermissions(netRoleID, username, r.Method, targetRsrc, targetRsrcID, netID)
 					if err == nil {
@@ -103,7 +85,7 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 					}
 				}
 			}
-			netRoles := userG.NetworkRoles[models.NetworkID(netID)]
+			netRoles := userG.NetworkRoles.Data()[models.NetworkID(netID)]
 			for netRoleID := range netRoles {
 				err = checkNetworkAccessPermissions(netRoleID, username, r.Method, targetRsrc, targetRsrcID, netID)
 				if err == nil {
@@ -124,7 +106,7 @@ func checkNetworkAccessPermissions(netRoleID models.UserRoleID, username, reqSco
 	if networkPermissionScope.FullAccess {
 		return nil
 	}
-	rsrcPermissionScope, ok := networkPermissionScope.NetworkLevelAccess[models.RsrcType(targetRsrc)]
+	rsrcPermissionScope, ok := networkPermissionScope.NetworkLevelAccess.Data()[models.RsrcType(targetRsrc)]
 	if !ok {
 		return errors.New("access denied")
 	}
@@ -208,7 +190,7 @@ func GlobalPermissionsCheck(username string, r *http.Request) error {
 	if targetRsrc == models.UserRsrc.String() && username == targetRsrcID && (r.Method != http.MethodDelete) {
 		return nil
 	}
-	rsrcPermissionScope, ok := userRole.GlobalLevelAccess[models.RsrcType(targetRsrc)]
+	rsrcPermissionScope, ok := userRole.GlobalLevelAccess.Data()[models.RsrcType(targetRsrc)]
 	if !ok {
 		return fmt.Errorf("access denied to %s", targetRsrc)
 	}

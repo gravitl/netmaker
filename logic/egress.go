@@ -14,7 +14,7 @@ import (
 
 var ValidateEgressReq = validateEgressReq
 
-var AssignVirtualRangeToEgress = func(nw *models.Network, eg *schema.Egress) error {
+var AssignVirtualRangeToEgress = func(nw *schema.Network, eg *schema.Egress) error {
 	return nil
 }
 
@@ -48,7 +48,7 @@ func validateEgressReq(e *schema.Egress) error {
 	return nil
 }
 
-func DoesUserHaveAccessToEgress(user *models.User, e *schema.Egress, acls []models.Acl) bool {
+func DoesUserHaveAccessToEgress(user *schema.User, e *schema.Egress, acls []models.Acl) bool {
 	if !e.Status {
 		return false
 	}
@@ -62,11 +62,11 @@ func DoesUserHaveAccessToEgress(user *models.User, e *schema.Egress, acls []mode
 		if _, ok := dstTags[e.ID]; ok || all {
 			// get all src tags
 			for _, srcAcl := range acl.Src {
-				if srcAcl.ID == models.UserAclID && srcAcl.Value == user.UserName {
+				if srcAcl.ID == models.UserAclID && srcAcl.Value == user.Username {
 					return true
 				} else if srcAcl.ID == models.UserGroupAclID {
 					// fetch all users in the group
-					if _, ok := user.UserGroups[models.UserGroupID(srcAcl.Value)]; ok {
+					if _, ok := user.UserGroups.Data()[models.UserGroupID(srcAcl.Value)]; ok {
 						return true
 					}
 				}
@@ -251,7 +251,7 @@ func AddEgressInfoToPeerByAccess(node, targetNode *models.Node, eli []schema.Egr
 	}
 }
 
-func GetEgressDomainsByAccessForUser(user *models.User, network models.NetworkID) (domains []string) {
+func GetEgressDomainsByAccessForUser(user *schema.User, network models.NetworkID) (domains []string) {
 	acls := ListUserPolicies(network)
 	eli, _ := (&schema.Egress{Network: network.String()}).ListByNetwork(db.WithContext(context.TODO()))
 	defaultDevicePolicy, _ := GetDefaultPolicy(network, models.UserPolicy)

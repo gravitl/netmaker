@@ -122,7 +122,11 @@ func initialize() { // Client Mode Prereq Check
 		logger.FatalLog("error initializing database: ", err.Error())
 	}
 
-	migrate.ToSQLSchema()
+	err = migrate.ToSQLSchema()
+	if err != nil {
+		// we shouldn't allow user to use the product until the migration is successfully done.
+		panic(err)
+	}
 
 	initializeUUID()
 

@@ -71,12 +71,12 @@ func RunPostureChecks() error {
 		return err
 	}
 	for _, netI := range nets {
-		networkNodes := logic.GetNetworkNodesMemory(nodes, netI.NetID)
+		networkNodes := logic.GetNetworkNodesMemory(nodes, netI.Name)
 		if len(networkNodes) == 0 {
 			continue
 		}
 		networkNodes = logic.AddStaticNodestoList(networkNodes)
-		pcLi, err := (&schema.PostureCheck{NetworkID: models.NetworkID(netI.NetID)}).ListByNetwork(db.WithContext(context.TODO()))
+		pcLi, err := (&schema.PostureCheck{NetworkID: models.NetworkID(netI.Name)}).ListByNetwork(db.WithContext(context.TODO()))
 		if err != nil || len(pcLi) == 0 {
 			continue
 		}
@@ -320,16 +320,16 @@ func GetPostureCheckDeviceInfoByNode(node *models.Node) models.PostureCheckDevic
 		// get user groups
 		if node.StaticNode.OwnerID != "" {
 			user, err := logic.GetUser(node.StaticNode.OwnerID)
-			if err == nil && len(user.UserGroups) > 0 {
-				deviceInfo.UserGroups = user.UserGroups
+			if err == nil && len(user.UserGroups.Data()) > 0 {
+				deviceInfo.UserGroups = user.UserGroups.Data()
 				if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
 					deviceInfo.UserGroups[GetDefaultNetworkAdminGroupID(models.NetworkID(node.Network))] = struct{}{}
 					deviceInfo.UserGroups[GetDefaultGlobalAdminGroupID()] = struct{}{}
-				} else if _, ok := user.UserGroups[GetDefaultGlobalAdminGroupID()]; ok {
+				} else if _, ok := user.UserGroups.Data()[GetDefaultGlobalAdminGroupID()]; ok {
 
 					deviceInfo.UserGroups[GetDefaultNetworkAdminGroupID(models.NetworkID(node.Network))] = struct{}{}
 
-				} else if _, ok := user.UserGroups[GetDefaultGlobalUserGroupID()]; ok {
+				} else if _, ok := user.UserGroups.Data()[GetDefaultGlobalUserGroupID()]; ok {
 
 					deviceInfo.UserGroups[GetDefaultNetworkUserGroupID(models.NetworkID(node.Network))] = struct{}{}
 				}

@@ -323,7 +323,7 @@ func IsUserAllowedAccessToExtClient(username string, client models.ExtClient) bo
 	if err != nil {
 		return false
 	}
-	if user.UserName != client.OwnerID {
+	if user.Username != client.OwnerID {
 		return false
 	}
 	return true

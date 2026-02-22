@@ -13,7 +13,6 @@ import (
 	"github.com/c-robinson/iplib"
 	validator "github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
-	"github.com/gravitl/netmaker/converters"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
@@ -48,7 +47,7 @@ func SetAllocatedIpMap() error {
 
 	for _, v := range currentNetworks {
 		pMap := map[string]net.IP{}
-		netName := v.NetID
+		netName := v.Name
 
 		//nodes
 		nodes, err := GetNetworkNodes(netName)
@@ -136,13 +135,8 @@ func RemoveNetworkFromAllocatedIpMap(networkName string) {
 }
 
 // GetNetworks - returns all networks from database
-func GetNetworks() ([]models.Network, error) {
-	_networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
-	if err != nil {
-		return nil, err
-	}
-
-	return converters.ToModelNetworks(_networks), nil
+func GetNetworks() ([]schema.Network, error) {
+	return (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 }
 
 // DeleteNetwork - deletes a network
@@ -206,48 +200,89 @@ func DeleteNetwork(network string, force bool, done chan struct{}) error {
 	return nil
 }
 
+// AssignVirtualNATDefaults determines safe defaults based on VPN CIDR
+func AssignVirtualNATDefaults(network *schema.Network, vpnCIDR string) {
+	const (
+		cgnatCIDR        = "100.64.0.0/10"
+		fallbackIPv4Pool = "198.18.0.0/15"
+
+		defaultIPv4SitePrefix = 24
+	)
+
+	// Parse CGNAT CIDR (should always succeed, but check for safety)
+	_, cgnatNet, err := net.ParseCIDR(cgnatCIDR)
+	if err != nil {
+		// Fallback to default pool if CGNAT parsing fails (shouldn't happen)
+		network.VirtualNATPoolIPv4 = fallbackIPv4Pool
+		network.VirtualNATSitePrefixLenIPv4 = defaultIPv4SitePrefix
+		return
+	}
+
+	var virtualIPv4Pool string
+	// Parse VPN CIDR - if it fails or is empty, use fallback
+	if vpnCIDR == "" {
+		virtualIPv4Pool = fallbackIPv4Pool
+	} else {
+		_, vpnNet, err := net.ParseCIDR(vpnCIDR)
+		if err != nil || vpnNet == nil {
+			// Invalid VPN CIDR, use fallback
+			virtualIPv4Pool = fallbackIPv4Pool
+		} else if !cidrOverlaps(vpnNet, cgnatNet) {
+			// Safe to reuse VPN CIDR for Virtual NAT
+			virtualIPv4Pool = vpnCIDR
+		} else {
+			// VPN is CGNAT — must not reuse
+			virtualIPv4Pool = fallbackIPv4Pool
+		}
+	}
+
+	network.VirtualNATPoolIPv4 = virtualIPv4Pool
+	network.VirtualNATSitePrefixLenIPv4 = defaultIPv4SitePrefix
+}
+
+// cidrOverlaps checks if two CIDR blocks overlap
+func cidrOverlaps(a, b *net.IPNet) bool {
+	return a.Contains(b.IP) || b.Contains(a.IP)
+}
+
 // CreateNetwork - creates a network in database
-func CreateNetwork(network models.Network) (models.Network, error) {
-
-	if network.AddressRange != "" {
-		normalizedRange, err := NormalizeCIDR(network.AddressRange)
+func CreateNetwork(_network *schema.Network) (*schema.Network, error) {
+	if _network.AddressRange != "" {
+		normalizedRange, err := NormalizeCIDR(_network.AddressRange)
 		if err != nil {
-			return models.Network{}, err
+			return nil, err
 		}
-		network.AddressRange = normalizedRange
+		_network.AddressRange = normalizedRange
 	}
-	if network.AddressRange6 != "" {
-		normalizedRange, err := NormalizeCIDR(network.AddressRange6)
+	if _network.AddressRange6 != "" {
+		normalizedRange, err := NormalizeCIDR(_network.AddressRange6)
 		if err != nil {
-			return models.Network{}, err
+			return nil, err
 		}
-		network.AddressRange6 = normalizedRange
+		_network.AddressRange6 = normalizedRange
 	}
-	if !IsNetworkCIDRUnique(network.GetNetworkNetworkCIDR4(), network.GetNetworkNetworkCIDR6()) {
-		return models.Network{}, errors.New("network cidr already in use")
+	if !IsNetworkCIDRUnique(GetNetworkNetworkCIDR4(_network), GetNetworkNetworkCIDR6(_network)) {
+		return nil, errors.New("network cidr already in use")
 	}
 
-	network.SetDefaults()
-	network.SetNodesLastModified()
-	network.SetNetworkLastModified()
+	_network.NodesUpdatedAt = time.Now().UTC()
 
-	err := ValidateNetwork(&network, false)
+	err := ValidateNetwork(_network, false)
 	if err != nil {
 		//logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return models.Network{}, err
+		return nil, err
 	}
 
-	_network := converters.ToSchemaNetwork(network)
 	err = _network.Create(db.WithContext(context.TODO()))
 	if err != nil {
-		return models.Network{}, err
+		return nil, err
 	}
 
 	_, _ = CreateEnrollmentKey(
 		0,
 		time.Time{},
-		[]string{network.NetID},
-		[]string{network.NetID},
+		[]string{_network.Name},
+		[]string{_network.Name},
 		[]models.TagID{},
 		true,
 		uuid.Nil,
@@ -256,7 +291,22 @@ func CreateNetwork(network models.Network) (models.Network, error) {
 		false,
 	)
 
-	return network, nil
+	return _network, nil
+}
+
+func GetNetworkNetworkCIDR4(network *schema.Network) *net.IPNet {
+	if network.AddressRange == "" {
+		return nil
+	}
+	_, netCidr, _ := net.ParseCIDR(network.AddressRange)
+	return netCidr
+}
+func GetNetworkNetworkCIDR6(network *schema.Network) *net.IPNet {
+	if network.AddressRange6 == "" {
+		return nil
+	}
+	_, netCidr, _ := net.ParseCIDR(network.AddressRange6)
+	return netCidr
 }
 
 // GetNetworkNonServerNodeCount - get number of network non server nodes
@@ -271,8 +321,8 @@ func IsNetworkCIDRUnique(cidr4 *net.IPNet, cidr6 *net.IPNet) bool {
 		return database.IsEmptyRecord(err)
 	}
 	for _, network := range networks {
-		if intersect(network.GetNetworkNetworkCIDR4(), cidr4) ||
-			intersect(network.GetNetworkNetworkCIDR6(), cidr6) {
+		if intersect(GetNetworkNetworkCIDR4(&network), cidr4) ||
+			intersect(GetNetworkNetworkCIDR6(&network), cidr6) {
 			return false
 		}
 	}
@@ -289,14 +339,13 @@ func intersect(n1, n2 *net.IPNet) bool {
 // UniqueAddress - get a unique ipv4 address
 func UniqueAddressCache(networkName string, reverse bool) (net.IP, error) {
 	add := net.IP{}
-	var network models.Network
 	network, err := GetNetwork(networkName)
 	if err != nil {
 		logger.Log(0, "UniqueAddressServer encountered  an error")
 		return add, err
 	}
 
-	if network.IsIPv4 == "no" {
+	if network.AddressRange == "" {
 		return add, fmt.Errorf("IPv4 not active on network %s", networkName)
 	}
 	//ensure AddressRange is valid
@@ -332,14 +381,13 @@ func UniqueAddressCache(networkName string, reverse bool) (net.IP, error) {
 // UniqueAddress - get a unique ipv4 address
 func UniqueAddressDB(networkName string, reverse bool) (net.IP, error) {
 	add := net.IP{}
-	var network models.Network
 	network, err := GetNetwork(networkName)
 	if err != nil {
 		logger.Log(0, "UniqueAddressServer encountered  an error")
 		return add, err
 	}
 
-	if network.IsIPv4 == "no" {
+	if network.AddressRange == "" {
 		return add, fmt.Errorf("IPv4 not active on network %s", networkName)
 	}
 	//ensure AddressRange is valid
@@ -432,12 +480,11 @@ func UniqueAddress6(networkName string, reverse bool) (net.IP, error) {
 // UniqueAddress6DB - see if ipv6 address is unique
 func UniqueAddress6DB(networkName string, reverse bool) (net.IP, error) {
 	add := net.IP{}
-	var network models.Network
 	network, err := GetNetwork(networkName)
 	if err != nil {
 		return add, err
 	}
-	if network.IsIPv6 == "no" {
+	if network.AddressRange6 == "" {
 		return add, fmt.Errorf("IPv6 not active on network %s", networkName)
 	}
 
@@ -476,12 +523,11 @@ func UniqueAddress6DB(networkName string, reverse bool) (net.IP, error) {
 // UniqueAddress6Cache - see if ipv6 address is unique using cache
 func UniqueAddress6Cache(networkName string, reverse bool) (net.IP, error) {
 	add := net.IP{}
-	var network models.Network
 	network, err := GetNetwork(networkName)
 	if err != nil {
 		return add, err
 	}
-	if network.IsIPv6 == "no" {
+	if network.AddressRange6 == "" {
 		return add, fmt.Errorf("IPv6 not active on network %s", networkName)
 	}
 
@@ -518,50 +564,44 @@ func UniqueAddress6Cache(networkName string, reverse bool) (net.IP, error) {
 }
 
 // IsNetworkNameUnique - checks to see if any other networks have the same name (id)
-func IsNetworkNameUnique(network *models.Network) (bool, error) {
+func IsNetworkNameUnique(network *schema.Network) (bool, error) {
+	_network := &schema.Network{
+		Name: network.Name,
+	}
+	err := _network.Get(db.WithContext(context.TODO()))
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return true, nil
+		}
 
-	isunique := true
-
-	dbs, err := GetNetworks()
-
-	if err != nil && !database.IsEmptyRecord(err) {
 		return false, err
 	}
 
-	for i := 0; i < len(dbs); i++ {
-
-		if network.NetID == dbs[i].NetID {
-			isunique = false
-		}
-	}
-
-	return isunique, nil
+	return false, nil
 }
 
-func UpsertNetwork(network models.Network) error {
-	_network := converters.ToSchemaNetwork(network)
+func UpsertNetwork(_network *schema.Network) error {
 	return _network.Update(db.WithContext(context.TODO()))
 }
 
 // UpdateNetwork - updates a network with another network's fields
-func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) error {
+func UpdateNetwork(currentNetwork, newNetwork *schema.Network) error {
 	if err := ValidateNetwork(newNetwork, true); err != nil {
 		return err
 	}
-	if newNetwork.NetID != currentNetwork.NetID {
-		return errors.New("failed to update network " + newNetwork.NetID + ", cannot change netid.")
+	if newNetwork.Name != currentNetwork.Name {
+		return errors.New("failed to update network " + newNetwork.Name + ", cannot change netid.")
 	}
 	featureFlags := GetFeatureFlags()
 	if featureFlags.EnableDeviceApproval {
 		currentNetwork.AutoJoin = newNetwork.AutoJoin
 	} else {
-		currentNetwork.AutoJoin = "true"
+		currentNetwork.AutoJoin = true
 	}
 	currentNetwork.AutoRemove = newNetwork.AutoRemove
 	currentNetwork.AutoRemoveThreshold = newNetwork.AutoRemoveThreshold
 	currentNetwork.AutoRemoveTags = newNetwork.AutoRemoveTags
 	currentNetwork.DefaultACL = newNetwork.DefaultACL
-	currentNetwork.NameServers = newNetwork.NameServers
 
 	// Validate and update Virtual NAT IPv4 settings
 	if newNetwork.VirtualNATPoolIPv4 != "" {
@@ -603,29 +643,28 @@ func UpdateNetwork(currentNetwork *models.Network, newNetwork *models.Network) e
 		currentNetwork.VirtualNATPoolIPv4 = newNetwork.VirtualNATPoolIPv4
 		currentNetwork.VirtualNATSitePrefixLenIPv4 = newNetwork.VirtualNATSitePrefixLenIPv4
 	}
-	_network := converters.ToSchemaNetwork(*newNetwork)
-	return _network.Update(db.WithContext(context.TODO()))
+	return currentNetwork.Update(db.WithContext(context.TODO()))
 }
 
 // GetNetwork - gets a network from database
-func GetNetwork(networkName string) (models.Network, error) {
+func GetNetwork(networkName string) (*schema.Network, error) {
 	_network := &schema.Network{
 		Name: networkName,
 	}
 	err := _network.Get(db.WithContext(context.TODO()))
 	if err != nil {
-		return models.Network{}, err
+		return nil, err
 	}
 
-	return converters.ToModelNetwork(*_network), nil
+	return _network, nil
 }
 
 // NetIDInNetworkCharSet - checks if a netid of a network uses valid characters
-func NetIDInNetworkCharSet(network *models.Network) bool {
+func NetIDInNetworkCharSet(network *schema.Network) bool {
 
 	charset := "abcdefghijklmnopqrstuvwxyz1234567890-_"
 
-	for _, char := range network.NetID {
+	for _, char := range network.Name {
 		if !strings.Contains(charset, string(char)) {
 			return false
 		}
@@ -634,7 +673,7 @@ func NetIDInNetworkCharSet(network *models.Network) bool {
 }
 
 // Validate - validates fields of an network struct
-func ValidateNetwork(network *models.Network, isUpdate bool) error {
+func ValidateNetwork(network *schema.Network, isUpdate bool) error {
 	v := validator.New()
 	_ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
 		inCharSet := NetIDInNetworkCharSet(network)
@@ -659,9 +698,8 @@ func ValidateNetwork(network *models.Network, isUpdate bool) error {
 }
 
 // SaveNetwork - save network struct to database
-func SaveNetwork(network *models.Network) error {
-	_network := converters.ToSchemaNetwork(*network)
-	_existingNetwork := schema.Network{Name: network.NetID}
+func SaveNetwork(_network *schema.Network) error {
+	_existingNetwork := schema.Network{Name: _network.Name}
 	// Check if network exists to preserve ID
 	err := _existingNetwork.Get(db.WithContext(context.TODO()))
 	if err == nil {
@@ -687,9 +725,9 @@ func NetworkExists(name string) (bool, error) {
 }
 
 // SortNetworks - Sorts slice of Networks by their NetID alphabetically with numbers first
-func SortNetworks(unsortedNetworks []models.Network) {
+func SortNetworks(unsortedNetworks []schema.Network) {
 	sort.Slice(unsortedNetworks, func(i, j int) bool {
-		return unsortedNetworks[i].NetID < unsortedNetworks[j].NetID
+		return unsortedNetworks[i].Name < unsortedNetworks[j].Name
 	})
 }
 
@@ -703,10 +741,10 @@ var NetworkHook models.HookFunc = func(params ...interface{}) error {
 		return err
 	}
 	for _, network := range networks {
-		if network.AutoRemove == "false" || network.AutoRemoveThreshold == 0 {
+		if !network.AutoRemove || network.AutoRemoveThreshold == 0 {
 			continue
 		}
-		nodes := GetNetworkNodesMemory(allNodes, network.NetID)
+		nodes := GetNetworkNodesMemory(allNodes, network.Name)
 		for _, node := range nodes {
 			if !node.Connected {
 				continue

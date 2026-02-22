@@ -75,7 +75,7 @@ func RemoveTagFromEgress(net models.NetworkID, tagID models.TagID) {
 	}
 }
 
-func AssignVirtualRangeToEgress(nw *models.Network, eg *schema.Egress) error {
+func AssignVirtualRangeToEgress(nw *schema.Network, eg *schema.Egress) error {
 	if nw == nil {
 		return fmt.Errorf("network is nil")
 	}
@@ -140,7 +140,7 @@ func AssignVirtualRangeToEgress(nw *models.Network, eg *schema.Egress) error {
 	}
 
 	if nw.VirtualNATPoolIPv4 == "" || nw.VirtualNATSitePrefixLenIPv4 == 0 {
-		return fmt.Errorf("virtual NAT IPv4 pool not configured for network %s", nw.NetID)
+		return fmt.Errorf("virtual NAT IPv4 pool not configured for network %s", nw.Name)
 	}
 	poolCIDR := nw.VirtualNATPoolIPv4
 	maxSitePrefixLen := nw.VirtualNATSitePrefixLenIPv4

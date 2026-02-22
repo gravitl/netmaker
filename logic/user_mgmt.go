@@ -1,62 +1,45 @@
 package logic
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"time"
 
-	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 )
 
 // Pre-Define Permission Templates for default Roles
-var SuperAdminPermissionTemplate = models.UserRolePermissionTemplate{
+var SuperAdminPermissionTemplate = schema.UserRole{
 	ID:         models.SuperAdminRole,
 	Default:    true,
 	FullAccess: true,
 }
 
-var AdminPermissionTemplate = models.UserRolePermissionTemplate{
+var AdminPermissionTemplate = schema.UserRole{
 	ID:         models.AdminRole,
 	Default:    true,
 	FullAccess: true,
 }
 
-var GetFilteredNodesByUserAccess = func(user models.User, nodes []models.Node) (filteredNodes []models.Node) {
+var GetFilteredNodesByUserAccess = func(user *schema.User, nodes []models.Node) (filteredNodes []models.Node) {
 	return
-}
-
-var CreateRole = func(r models.UserRolePermissionTemplate) error {
-	return nil
 }
 
 var DeleteRole = func(r models.UserRoleID, force bool) error {
 	return nil
 }
 
-var FilterNetworksByRole = func(allnetworks []models.Network, user models.User) []models.Network {
+var FilterNetworksByRole = func(allnetworks []schema.Network, user *schema.User) []schema.Network {
 	return allnetworks
 }
 
 var IsGroupsValid = func(groups map[models.UserGroupID]struct{}) error {
 	return nil
 }
-var IsGroupValid = func(groupID models.UserGroupID) error {
-	return nil
-}
-var IsNetworkRolesValid = func(networkRoles map[models.NetworkID]map[models.UserRoleID]struct{}) error {
-	return nil
-}
 
-var MigrateUserRoleAndGroups = func(u models.User) models.User {
-	return u
-}
-
-var MigrateToUUIDs = func() {}
-
-var UpdateUserGwAccess = func(currentUser, changeUser models.User) {}
-
-var UpdateRole = func(r models.UserRolePermissionTemplate) error { return nil }
+var UpdateUserGwAccess = func(currentUser, changeUser *schema.User) {}
 
 var InitialiseRoles = userRolesInit
 var IntialiseGroups = func() {}
@@ -95,46 +78,22 @@ var CreateDefaultUserPolicies = func(netID models.NetworkID) {
 		InsertAcl(defaultUserAcl)
 	}
 }
-var ListUserGroups = func() ([]models.UserGroup, error) { return nil, nil }
-var GetUserGroupsInNetwork = func(netID models.NetworkID) (networkGrps map[models.UserGroupID]models.UserGroup) { return }
-var GetUserGroup = func(groupId models.UserGroupID) (userGrps models.UserGroup, err error) { return }
-var AddGlobalNetRolesToAdmins = func(u *models.User) {}
+var ListUserGroups = func() ([]schema.UserGroup, error) { return nil, nil }
+var GetUserGroup = func(groupId models.UserGroupID) (userGrps schema.UserGroup, err error) { return }
+var AddGlobalNetRolesToAdmins = func(u *schema.User) {}
 var EmailInit = func() {}
 
 // GetRole - fetches role template by id
-func GetRole(roleID models.UserRoleID) (models.UserRolePermissionTemplate, error) {
-	// check if role already exists
-	data, err := database.FetchRecord(database.USER_PERMISSIONS_TABLE_NAME, roleID.String())
-	if err != nil {
-		return models.UserRolePermissionTemplate{}, err
+func GetRole(roleID models.UserRoleID) (*schema.UserRole, error) {
+	userRole := &schema.UserRole{
+		ID: roleID,
 	}
-	ur := models.UserRolePermissionTemplate{}
-	err = json.Unmarshal([]byte(data), &ur)
+	err := userRole.Get(db.WithContext(context.TODO()))
 	if err != nil {
-		return ur, err
+		return nil, err
 	}
-	return ur, nil
-}
 
-// ListPlatformRoles - lists user platform roles permission templates
-func ListPlatformRoles() ([]models.UserRolePermissionTemplate, error) {
-	data, err := database.FetchRecords(database.USER_PERMISSIONS_TABLE_NAME)
-	if err != nil && !database.IsEmptyRecord(err) {
-		return []models.UserRolePermissionTemplate{}, err
-	}
-	userRoles := []models.UserRolePermissionTemplate{}
-	for _, dataI := range data {
-		userRole := models.UserRolePermissionTemplate{}
-		err := json.Unmarshal([]byte(dataI), &userRole)
-		if err != nil {
-			continue
-		}
-		if userRole.NetworkID != "" {
-			continue
-		}
-		userRoles = append(userRoles, userRole)
-	}
-	return userRoles, nil
+	return userRole, nil
 }
 
 func GetAllRsrcIDForRsrc(rsrc models.RsrcType) models.RsrcID {
@@ -178,9 +137,6 @@ func GetAllRsrcIDForRsrc(rsrc models.RsrcType) models.RsrcID {
 }
 
 func userRolesInit() {
-	d, _ := json.Marshal(SuperAdminPermissionTemplate)
-	database.Insert(SuperAdminPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
-	d, _ = json.Marshal(AdminPermissionTemplate)
-	database.Insert(AdminPermissionTemplate.ID.String(), string(d), database.USER_PERMISSIONS_TABLE_NAME)
-
+	_ = SuperAdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
+	_ = AdminPermissionTemplate.Upsert(db.WithContext(context.TODO()))
 }

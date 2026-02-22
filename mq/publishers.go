@@ -269,12 +269,12 @@ func sendDNSSync() error {
 	networks, err := logic.GetNetworks()
 	if err == nil && len(networks) > 0 {
 		for _, v := range networks {
-			k, err := logic.GetDNS(v.NetID)
-			k = append(k, logic.EgressDNs(v.NetID)...)
+			k, err := logic.GetDNS(v.Name)
+			k = append(k, logic.EgressDNs(v.Name)...)
 			if err == nil && len(k) > 0 {
 				err = PushSyncDNS(k)
 				if err != nil {
-					slog.Warn("error publishing dns entry data for network ", v.NetID, err.Error())
+					slog.Warn("error publishing dns entry data for network ", v.Name, err.Error())
 				}
 			}
 		}

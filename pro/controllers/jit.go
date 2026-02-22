@@ -84,7 +84,7 @@ func handleJIT(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleJITGet - handles GET requests for JIT status/requests
-func handleJITGet(w http.ResponseWriter, r *http.Request, networkID string, user *models.User) {
+func handleJITGet(w http.ResponseWriter, r *http.Request, networkID string, user *schema.User) {
 
 	statusFilter := r.URL.Query().Get("status") // "pending", "approved", "denied", "expired", or empty for all
 	requests, err := proLogic.GetNetworkJITRequests(networkID, statusFilter)
@@ -97,7 +97,7 @@ func handleJITGet(w http.ResponseWriter, r *http.Request, networkID string, user
 }
 
 // handleJITPost - handles POST requests for JIT operations
-func handleJITPost(w http.ResponseWriter, r *http.Request, networkID string, user *models.User) {
+func handleJITPost(w http.ResponseWriter, r *http.Request, networkID string, user *schema.User) {
 	var req JITRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
@@ -121,7 +121,7 @@ func handleJITPost(w http.ResponseWriter, r *http.Request, networkID string, use
 }
 
 // handleEnableJIT - enables JIT on a network
-func handleEnableJIT(w http.ResponseWriter, r *http.Request, networkID string, user *models.User) {
+func handleEnableJIT(w http.ResponseWriter, r *http.Request, networkID string, user *schema.User) {
 	// Check if user is admin
 	if !isNetworkAdmin(user, networkID) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only network admins can enable JIT"), "forbidden"))
@@ -136,11 +136,11 @@ func handleEnableJIT(w http.ResponseWriter, r *http.Request, networkID string, u
 	logic.LogEvent(&models.Event{
 		Action: models.Update,
 		Source: models.Subject{
-			ID:   user.UserName,
-			Name: user.UserName,
+			ID:   user.Username,
+			Name: user.Username,
 			Type: models.UserSub,
 		},
-		TriggeredBy: user.UserName,
+		TriggeredBy: user.Username,
 		Target: models.Subject{
 			ID:   networkID,
 			Name: networkID,
@@ -154,7 +154,7 @@ func handleEnableJIT(w http.ResponseWriter, r *http.Request, networkID string, u
 }
 
 // handleDisableJIT - disables JIT on a network
-func handleDisableJIT(w http.ResponseWriter, r *http.Request, networkID string, user *models.User) {
+func handleDisableJIT(w http.ResponseWriter, r *http.Request, networkID string, user *schema.User) {
 	// Check if user is admin
 	if !isNetworkAdmin(user, networkID) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only network admins can disable JIT"), "forbidden"))
@@ -169,11 +169,11 @@ func handleDisableJIT(w http.ResponseWriter, r *http.Request, networkID string, 
 	logic.LogEvent(&models.Event{
 		Action: models.Update,
 		Source: models.Subject{
-			ID:   user.UserName,
-			Name: user.UserName,
+			ID:   user.Username,
+			Name: user.Username,
 			Type: models.UserSub,
 		},
-		TriggeredBy: user.UserName,
+		TriggeredBy: user.Username,
 		Target: models.Subject{
 			ID:   networkID,
 			Name: networkID,
@@ -187,7 +187,7 @@ func handleDisableJIT(w http.ResponseWriter, r *http.Request, networkID string, 
 }
 
 // handleApproveRequest - approves a JIT request
-func handleApproveRequest(w http.ResponseWriter, r *http.Request, networkID string, user *models.User, requestID string, expiresAtEpoch int64) {
+func handleApproveRequest(w http.ResponseWriter, r *http.Request, networkID string, user *schema.User, requestID string, expiresAtEpoch int64) {
 	// Check if user is admin
 	if !isNetworkAdmin(user, networkID) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only network admins can approve requests"), "forbidden"))
@@ -214,7 +214,7 @@ func handleApproveRequest(w http.ResponseWriter, r *http.Request, networkID stri
 		return
 	}
 
-	grant, req, err := proLogic.ApproveJITRequest(requestID, expiresAt, user.UserName)
+	grant, req, err := proLogic.ApproveJITRequest(requestID, expiresAt, user.Username)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -229,11 +229,11 @@ func handleApproveRequest(w http.ResponseWriter, r *http.Request, networkID stri
 	logic.LogEvent(&models.Event{
 		Action: models.Update,
 		Source: models.Subject{
-			ID:   user.UserName,
-			Name: user.UserName,
+			ID:   user.Username,
+			Name: user.Username,
 			Type: models.UserSub,
 		},
-		TriggeredBy: user.UserName,
+		TriggeredBy: user.Username,
 		Target: models.Subject{
 			ID:   requestID,
 			Name: networkID,
@@ -247,7 +247,7 @@ func handleApproveRequest(w http.ResponseWriter, r *http.Request, networkID stri
 }
 
 // handleDenyRequest - denies a JIT request
-func handleDenyRequest(w http.ResponseWriter, r *http.Request, networkID string, user *models.User, requestID string) {
+func handleDenyRequest(w http.ResponseWriter, r *http.Request, networkID string, user *schema.User, requestID string) {
 	// Check if user is admin
 	if !isNetworkAdmin(user, networkID) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only network admins can deny requests"), "forbidden"))
@@ -259,7 +259,7 @@ func handleDenyRequest(w http.ResponseWriter, r *http.Request, networkID string,
 		return
 	}
 
-	if err := proLogic.DenyJITRequest(requestID, user.UserName); err != nil {
+	if err := proLogic.DenyJITRequest(requestID, user.Username); err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
@@ -267,11 +267,11 @@ func handleDenyRequest(w http.ResponseWriter, r *http.Request, networkID string,
 	logic.LogEvent(&models.Event{
 		Action: models.Update,
 		Source: models.Subject{
-			ID:   user.UserName,
-			Name: user.UserName,
+			ID:   user.Username,
+			Name: user.Username,
 			Type: models.UserSub,
 		},
-		TriggeredBy: user.UserName,
+		TriggeredBy: user.Username,
 		Target: models.Subject{
 			ID:   requestID,
 			Name: networkID,
@@ -380,11 +380,11 @@ func deleteJITGrant(w http.ResponseWriter, r *http.Request) {
 	logic.LogEvent(&models.Event{
 		Action: models.Delete,
 		Source: models.Subject{
-			ID:   user.UserName,
-			Name: user.UserName,
+			ID:   user.Username,
+			Name: user.Username,
 			Type: models.UserSub,
 		},
-		TriggeredBy: user.UserName,
+		TriggeredBy: user.Username,
 		Target: models.Subject{
 			ID:   grantID,
 			Name: networkID,
@@ -398,32 +398,16 @@ func deleteJITGrant(w http.ResponseWriter, r *http.Request) {
 }
 
 // isNetworkAdmin - checks if user is a network admin
-func isNetworkAdmin(user *models.User, networkID string) bool {
-	networkIDModel := models.NetworkID(networkID)
-	allNetworksID := models.AllNetworks
+func isNetworkAdmin(user *schema.User, networkID string) bool {
+	//networkIDModel := models.NetworkID(networkID)
+	//allNetworksID := models.AllNetworks
 
 	// Check platform role
 	if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
 		return true
 	}
 
-	// Check network-specific roles
-	if roles, ok := user.NetworkRoles[networkIDModel]; ok {
-		for roleID := range roles {
-			if roleID == models.NetworkAdmin {
-				return true
-			}
-		}
-	}
-
-	// Check all-networks role
-	if roles, ok := user.NetworkRoles[allNetworksID]; ok {
-		for roleID := range roles {
-			if roleID == models.NetworkAdmin {
-				return true
-			}
-		}
-	}
+	// TODO: check by group membership?
 
 	return false
 }
@@ -457,10 +441,10 @@ func getUserJITNetworks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Filter networks by user role
-	userNetworks := logic.FilterNetworksByRole(allNetworks, *user)
+	userNetworks := logic.FilterNetworksByRole(allNetworks, user)
 
 	// Build response with JIT status for each network
-	networksWithJITStatus, err := proLogic.GetUserJITNetworksStatus(userNetworks, user.UserName)
+	networksWithJITStatus, err := proLogic.GetUserJITNetworksStatus(userNetworks, user.Username)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -517,10 +501,10 @@ func requestJITAccess(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Filter networks by user role
-	userNetworks := logic.FilterNetworksByRole(allNetworks, *user)
+	userNetworks := logic.FilterNetworksByRole(allNetworks, user)
 	hasAccess := false
 	for _, network := range userNetworks {
-		if network.NetID == req.NetworkID {
+		if network.Name == req.NetworkID {
 			hasAccess = true
 			break
 		}
@@ -532,7 +516,7 @@ func requestJITAccess(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create the JIT request
-	request, err := proLogic.CreateJITRequest(req.NetworkID, user.UserName, req.Reason)
+	request, err := proLogic.CreateJITRequest(req.NetworkID, user.Username, req.Reason)
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -549,11 +533,11 @@ func requestJITAccess(w http.ResponseWriter, r *http.Request) {
 	logic.LogEvent(&models.Event{
 		Action: models.Create,
 		Source: models.Subject{
-			ID:   user.UserName,
-			Name: user.UserName,
+			ID:   user.Username,
+			Name: user.Username,
 			Type: models.UserSub,
 		},
-		TriggeredBy: user.UserName,
+		TriggeredBy: user.Username,
 		Target: models.Subject{
 			ID:   request.ID,
 			Name: req.NetworkID,
