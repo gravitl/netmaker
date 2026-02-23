@@ -1685,6 +1685,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			if nsI.IsSearchDomain {
 				gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
 			}
+			gw.Nameservers = append(gw.Nameservers, nsI)
 		}
 		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccessForUser(user, models.NetworkID(node.Network))...)
 		gws = append(gws, gw)
@@ -1742,6 +1743,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			if nsI.IsSearchDomain {
 				gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
 			}
+			gw.Nameservers = append(gw.Nameservers, nsI)
 		}
 		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccessForUser(user, models.NetworkID(node.Network))...)
 		gws = append(gws, gw)
