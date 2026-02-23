@@ -28,7 +28,7 @@ func validateEgressReq(e *schema.Egress) error {
 		e.Mode = ""
 		e.VirtualRange = ""
 	}
-	_, err := GetNetwork(e.Network)
+	err := (&schema.Network{Name: e.Network}).Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return errors.New("failed to get network " + err.Error())
 	}

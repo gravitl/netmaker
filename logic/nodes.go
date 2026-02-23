@@ -201,7 +201,8 @@ func UpsertNode(newNode *models.Node) error {
 // UpdateNode - takes a node and updates another node with it's values
 func UpdateNode(currentNode *models.Node, newNode *models.Node) error {
 	if newNode.Address.IP.String() != currentNode.Address.IP.String() {
-		if network, err := GetNetwork(newNode.Network); err == nil {
+		network := &schema.Network{Name: newNode.Network}
+		if err := network.Get(db.WithContext(context.TODO())); err == nil {
 			if !IsAddressInCIDR(newNode.Address.IP, network.AddressRange) {
 				return fmt.Errorf("invalid address provided; out of network range for node %s", newNode.ID)
 			}
@@ -428,7 +429,7 @@ func ValidateNode(node *models.Node, isUpdate bool) error {
 		return isFieldUnique
 	})
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
-		_, err := GetNetwork(node.Network)
+		err := (&schema.Network{Name: node.Network}).Get(db.WithContext(context.TODO()))
 		return err == nil
 	})
 	_ = v.RegisterValidation("checkyesornoorunset", func(f1 validator.FieldLevel) bool {
@@ -513,7 +514,8 @@ func AddStatusToNodes(nodes []models.Node, statusCall bool) (nodesWithStatus []m
 
 // SetNodeDefaults - sets the defaults of a node to avoid empty fields
 func SetNodeDefaults(node *models.Node, resetConnected bool) {
-	parentNetwork, _ := GetNetwork(node.Network)
+	parentNetwork := &schema.Network{Name: node.Network}
+	_ = parentNetwork.Get(db.WithContext(context.TODO()))
 	_, cidr, err := net.ParseCIDR(parentNetwork.AddressRange)
 	if err == nil {
 		node.NetworkRange = *cidr
@@ -687,7 +689,8 @@ func createNode(node *models.Node) error {
 	SetNodeDefaults(node, true)
 
 	defaultACLVal := acls.Allowed
-	parentNetwork, err := GetNetwork(node.Network)
+	parentNetwork := &schema.Network{Name: node.Network}
+	err = parentNetwork.Get(db.WithContext(context.TODO()))
 	if err == nil {
 		if parentNetwork.DefaultACL != "yes" {
 			defaultACLVal = acls.NotAllowed
@@ -821,7 +824,8 @@ func ValidateNodeIp(currentNode *models.Node, newNode *models.ApiNode) error {
 }
 
 func ValidateEgressRange(netID string, ranges []string) error {
-	network, err := GetNetwork(netID)
+	network := &schema.Network{Name: netID}
+	err := network.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		slog.Error("error getting network with netid", "error", netID, err.Error)
 		return errors.New("error getting network with netid:  " + netID + " " + err.Error())

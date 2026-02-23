@@ -43,7 +43,7 @@ func getTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// check if network exists
-	_, err := logic.GetNetwork(netID)
+	err := (&schema.Network{Name: netID}).Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -80,7 +80,7 @@ func createTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// check if tag network exists
-	_, err = logic.GetNetwork(req.Network.String())
+	err = (&schema.Network{Name: req.Network.String()}).Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("failed to get network details for "+req.Network.String()), "badrequest"))
 		return

@@ -144,7 +144,8 @@ func getNetwork(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	netname := params["networkname"]
-	network, err := logic.GetNetwork(netname)
+	network := &schema.Network{Name: netname}
+	err := network.Get(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), fmt.Sprintf("failed to fetch network [%s] info: %v",
 			netname, err))
@@ -494,7 +495,7 @@ func getNetworkEgressRoutes(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	netname := params["networkname"]
 	// check if network exists
-	_, err := logic.GetNetwork(netname)
+	err := (&schema.Network{Name: netname}).Get(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to fetch ACLs for network [%s]: %v", netname, err))
@@ -808,7 +809,8 @@ func updateNetwork(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	netOld, err := logic.GetNetwork(payload.Name)
+	netOld := &schema.Network{Name: payload.Name}
+	err = netOld.Get(r.Context())
 	if err != nil {
 		slog.Info("error fetching network", "user", r.Header.Get("user"), "err", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))

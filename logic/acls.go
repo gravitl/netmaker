@@ -1716,7 +1716,7 @@ func SortAclEntrys(acls []models.Acl) {
 // ValidateCreateAclReq - validates create req for acl
 func ValidateCreateAclReq(req models.Acl) error {
 	// check if acl network exists
-	_, err := GetNetwork(req.NetworkID.String())
+	err := (&schema.Network{Name: req.NetworkID.String()}).Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return errors.New("failed to get network details for " + req.NetworkID.String())
 	}

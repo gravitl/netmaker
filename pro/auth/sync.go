@@ -129,7 +129,7 @@ func SyncFromIDP() error {
 }
 
 func syncUsers(idpUsers []idp.User) error {
-	dbUsers, err := logic.GetUsersDB()
+	dbUsers, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -236,7 +236,7 @@ func syncGroups(idpGroups []idp.Group) error {
 		return err
 	}
 
-	dbUsers, err := logic.GetUsersDB()
+	dbUsers, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}

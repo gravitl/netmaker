@@ -344,7 +344,8 @@ func CreateExtClient(extclient *models.ExtClient) error {
 		extclient.ExtraAllowedIPs = []string{}
 	}
 
-	parentNetwork, err := GetNetwork(extclient.Network)
+	parentNetwork := &schema.Network{Name: extclient.Network}
+	err := parentNetwork.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
@@ -758,7 +759,8 @@ func GetExtclientAllowedIPs(client models.ExtClient) (allowedIPs []string) {
 		return
 	}
 
-	network, err := GetNetwork(client.Network)
+	network := &schema.Network{Name: client.Network}
+	err = network.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		logger.Log(1, "Could not retrieve Ingress Gateway Network", client.Network)
 		return

@@ -401,7 +401,7 @@ func ValidateDNSCreate(entry models.DNSEntry) error {
 	})
 
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
-		_, err := GetNetwork(entry.Network)
+		err := (&schema.Network{Name: entry.Network}).Get(db.WithContext(context.TODO()))
 		return err == nil
 	})
 
@@ -433,7 +433,7 @@ func ValidateDNSUpdate(change models.DNSEntry, entry models.DNSEntry) error {
 		return err == nil && num == 0
 	})
 	_ = v.RegisterValidation("network_exists", func(fl validator.FieldLevel) bool {
-		_, err := GetNetwork(change.Network)
+		err := (&schema.Network{Name: change.Network}).Get(db.WithContext(context.TODO()))
 		return err == nil
 	})
 
@@ -484,7 +484,7 @@ func validateNameserverReq(ns *schema.Nameserver) error {
 	if len(ns.Servers) == 0 {
 		return errors.New("atleast one nameserver should be specified")
 	}
-	_, err := GetNetwork(ns.NetworkID)
+	err := (&schema.Network{Name: ns.NetworkID}).Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return errors.New("invalid network id")
 	}

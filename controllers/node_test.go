@@ -4,12 +4,16 @@ import (
 	"net"
 	"testing"
 
+	"context"
+
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/stretchr/testify/assert"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
@@ -95,10 +99,11 @@ func TestNodeACLs(t *testing.T) {
 	t.Run("node acls correct after add new node not allowed", func(t *testing.T) {
 		node3 := createNodeWithParams("", "10.0.0.100/32")
 		createNodeHosts()
-		n, e := logic.GetNetwork(node3.Network)
+		n := &schema.Network{Name: node3.Network}
+		e := n.Get(db.WithContext(context.TODO()))
 		assert.Nil(t, e)
 		n.DefaultACL = "no"
-		e = logic.SaveNetwork(&n)
+		e = logic.SaveNetwork(n)
 		assert.Nil(t, e)
 		err := logic.AssociateNodeToHost(node3, &linuxHost)
 		assert.Nil(t, err)

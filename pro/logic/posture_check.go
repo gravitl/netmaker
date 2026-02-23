@@ -492,7 +492,7 @@ func ValidatePostureCheck(pc *schema.PostureCheck) error {
 	if pc.Name == "" {
 		return errors.New("name cannot be empty")
 	}
-	_, err := logic.GetNetwork(pc.NetworkID.String())
+	err := (&schema.Network{Name: pc.NetworkID.String()}).Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return errors.New("invalid network")
 	}

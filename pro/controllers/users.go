@@ -696,7 +696,8 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 		if updateSpecifiedNetworksAcls {
 			for _, networkID := range networksAdded {
 				// ensure the network exists.
-				network, err := logic.GetNetwork(networkID.String())
+				network := &schema.Network{Name: networkID.String()}
+				err := network.Get(r.Context())
 				if err != nil {
 					continue
 				}
@@ -1380,7 +1381,8 @@ func getUserRemoteAccessNetworks(w http.ResponseWriter, r *http.Request) {
 	networkMap := make(map[string]struct{})
 	userGwNodes := proLogic.GetUserRAGNodes(user)
 	for _, node := range userGwNodes {
-		network, err := logic.GetNetwork(node.Network)
+		network := &schema.Network{Name: node.Network}
+		err := network.Get(r.Context())
 		if err != nil {
 			slog.Error("failed to get node network", "error", err)
 			continue
@@ -1493,7 +1495,8 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch gw host %s, error: %v", remoteGwID, err), "badrequest"))
 		return
 	}
-	network, err := logic.GetNetwork(node.Network)
+	network := &schema.Network{Name: node.Network}
+	err = network.Get(r.Context())
 	if err != nil {
 		slog.Error("failed to get node network", "error", err)
 	}
@@ -1534,7 +1537,8 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 			userConf.IngressGatewayEndpoint = fmt.Sprintf("%s:%d", host.EndpointIP.String(), listenPort)
 		}
 		userConf.Enabled = true
-		parentNetwork, err := logic.GetNetwork(node.Network)
+		parentNetwork := &schema.Network{Name: node.Network}
+		err = parentNetwork.Get(r.Context())
 		if err == nil { // check if parent network default ACL is enabled (yes) or not (no)
 			userConf.Enabled = parentNetwork.DefaultACL == "yes"
 		}
@@ -1686,7 +1690,8 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			continue
 		}
-		network, err := logic.GetNetwork(node.Network)
+		network := &schema.Network{Name: node.Network}
+		err = network.Get(r.Context())
 		if err != nil {
 			slog.Error("failed to get node network", "error", err)
 			continue
@@ -1763,7 +1768,8 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		if len(nodesWithStatus) > 0 {
 			node = nodesWithStatus[0]
 		}
-		network, err := logic.GetNetwork(node.Network)
+		network := &schema.Network{Name: node.Network}
+		err = network.Get(r.Context())
 		if err != nil {
 			slog.Error("failed to get node network", "error", err)
 		}

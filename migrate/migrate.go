@@ -725,7 +725,7 @@ func syncUsers() {
 		}
 	}
 
-	users, err := logic.GetUsersDB()
+	users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	if err == nil {
 		for _, user := range users {
 			user := user

@@ -336,7 +336,7 @@ func getNetworkNodeStatus(w http.ResponseWriter, r *http.Request) {
 	var params = mux.Vars(r)
 	netID := params["network"]
 	// validate network
-	_, err := logic.GetNetwork(netID)
+	err := (&schema.Network{Name: netID}).Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to get network %v", err), "badrequest"))
 		return

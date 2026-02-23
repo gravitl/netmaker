@@ -33,7 +33,8 @@ func EnableJITOnNetwork(networkID string) error {
 		return errors.New("JIT feature is not enabled")
 	}
 
-	network, err := logic.GetNetwork(networkID)
+	network := &schema.Network{Name: networkID}
+	err := network.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return fmt.Errorf("failed to get network: %w", err)
 	}
@@ -55,7 +56,8 @@ func EnableJITOnNetwork(networkID string) error {
 
 // DisableJITOnNetwork - disables JIT on a network
 func DisableJITOnNetwork(networkID string) error {
-	network, err := logic.GetNetwork(networkID)
+	network := &schema.Network{Name: networkID}
+	err := network.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return fmt.Errorf("failed to get network: %w", err)
 	}
@@ -76,7 +78,8 @@ func CreateJITRequest(networkID, userName, reason string) (*schema.JITRequest, e
 	ctx := db.WithContext(context.Background())
 
 	// Check if network exists and has JIT enabled
-	network, err := logic.GetNetwork(networkID)
+	network := &schema.Network{Name: networkID}
+	err := network.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return nil, fmt.Errorf("network not found: %w", err)
 	}
@@ -262,7 +265,8 @@ func CheckJITAccess(networkID, userID string) (bool, *schema.JITGrant, error) {
 	ctx := db.WithContext(context.Background())
 
 	// Check if network has JIT enabled
-	network, err := logic.GetNetwork(networkID)
+	network := &schema.Network{Name: networkID}
+	err = network.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return false, nil, fmt.Errorf("network not found: %w", err)
 	}
@@ -588,7 +592,7 @@ func DisconnectExtClientsFromNetwork(networkID string) error {
 func GetNetworkAdmins(networkID string) ([]schema.User, error) {
 	var admins []schema.User
 
-	users, err := logic.GetUsersDB()
+	users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return admins, fmt.Errorf("failed to get users: %w", err)
 	}

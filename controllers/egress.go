@@ -68,7 +68,8 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 		egressRange = "*"
 		req.Domain = ""
 	}
-	network, err := logic.GetNetwork(req.Network)
+	network := &schema.Network{Name: req.Network}
+	err = network.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -222,7 +223,8 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	network, err := logic.GetNetwork(req.Network)
+	network := &schema.Network{Name: req.Network}
+	err = network.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return

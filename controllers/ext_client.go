@@ -207,7 +207,8 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	network, err := logic.GetNetwork(client.Network)
+	network := &schema.Network{Name: client.Network}
+	err = network.Get(r.Context())
 	if err != nil {
 		logger.Log(
 			1,
@@ -400,7 +401,8 @@ func getExtClientHAConf(w http.ResponseWriter, r *http.Request) {
 
 	var params = mux.Vars(r)
 	networkid := params["network"]
-	network, err := logic.GetNetwork(networkid)
+	network := &schema.Network{Name: networkid}
+	err := network.Get(r.Context())
 	if err != nil {
 		logger.Log(
 			1,
@@ -774,7 +776,8 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	listenPort := logic.GetPeerListenPort(host)
 	extclient.IngressGatewayEndpoint = fmt.Sprintf("%s:%d", host.EndpointIP.String(), listenPort)
 	extclient.Enabled = true
-	parentNetwork, err := logic.GetNetwork(node.Network)
+	parentNetwork := &schema.Network{Name: node.Network}
+	err = parentNetwork.Get(r.Context())
 	if err == nil { // check if parent network default ACL is enabled (yes) or not (no)
 		extclient.Enabled = parentNetwork.DefaultACL == "yes"
 	}

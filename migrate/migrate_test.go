@@ -83,7 +83,7 @@ func TestSyncUsersLargeScale(t *testing.T) {
 	t.Logf("Created %d users in %v (avg: %v per user)", numUsers, createDuration, createDuration/time.Duration(numUsers))
 
 	// Verify users were created
-	users, err := logic.GetUsersDB()
+	users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, len(users), numUsers, "Expected at least %d users", numUsers)
 
@@ -97,7 +97,7 @@ func TestSyncUsersLargeScale(t *testing.T) {
 		syncDuration, len(users), syncDuration/time.Duration(len(users)))
 
 	// Verify users were migrated correctly
-	usersAfter, err := logic.GetUsersDB()
+	usersAfter, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	require.NoError(t, err)
 	assert.Equal(t, len(users), len(usersAfter), "User count should remain the same")
 
@@ -172,7 +172,7 @@ func TestMigrateToUUIDsLargeScale(t *testing.T) {
 	t.Logf("Created %d users in %v", numUsers, createDuration)
 
 	// Verify users were created
-	users, err := logic.GetUsersDB()
+	users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, len(users), numUsers, "Expected at least %d users", numUsers)
 }

@@ -222,7 +222,8 @@ func handleApproveRequest(w http.ResponseWriter, r *http.Request, networkID stri
 	}
 	// Send approval email to user
 	go func() {
-		network, _ := logic.GetNetwork(networkID)
+		network := &schema.Network{Name: networkID}
+		_ = network.Get(r.Context())
 		if err := email.SendJITApprovalEmail(grant, req, network); err != nil {
 			slog.Error("failed to send approval notification", "error", err)
 		}
@@ -366,7 +367,8 @@ func deleteJITGrant(w http.ResponseWriter, r *http.Request) {
 
 	// Send email notification to user
 	if revokedRequest != nil {
-		network, err := logic.GetNetwork(networkID)
+		network := &schema.Network{Name: networkID}
+		err := network.Get(r.Context())
 		if err == nil {
 			if err := email.SendJITExpirationEmail(&grant, revokedRequest, network, true); err != nil {
 				slog.Warn("failed to send revocation email", "grant_id", grantID, "user", revokedRequest.UserName, "error", err)
@@ -528,7 +530,8 @@ func requestJITAccess(w http.ResponseWriter, r *http.Request) {
 
 	// Send email notifications to network admins
 	go func() {
-		network, _ := logic.GetNetwork(req.NetworkID)
+		network := &schema.Network{Name: req.NetworkID}
+		_ = network.Get(r.Context())
 		if err := email.SendJITRequestEmails(request, network); err != nil {
 			slog.Error("failed to send JIT request notifications", "error", err)
 		}

@@ -244,7 +244,8 @@ func CheckNetRegAndHostUpdate(key models.EnrollmentKey, h *models.Host, username
 	// publish host update through MQ
 	featureFlags := logic.GetFeatureFlags()
 	for _, netID := range key.Networks {
-		if network, err := logic.GetNetwork(netID); err == nil {
+		network := &schema.Network{Name: netID}
+		if err := network.Get(db.WithContext(context.TODO())); err == nil {
 			if featureFlags.EnableDeviceApproval && !network.AutoJoin {
 				if logic.DoesHostExistinTheNetworkAlready(h, models.NetworkID(netID)) {
 					continue

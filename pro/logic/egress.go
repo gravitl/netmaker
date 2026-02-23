@@ -36,7 +36,7 @@ func ValidateEgressReq(e *schema.Egress) error {
 	if e.Domain != "" && e.Nat {
 		e.Mode = models.DirectNAT
 	}
-	_, err := logic.GetNetwork(e.Network)
+	err := (&schema.Network{Name: e.Network}).Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return errors.New("failed to get network " + err.Error())
 	}

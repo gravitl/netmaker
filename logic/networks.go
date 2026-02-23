@@ -334,7 +334,8 @@ func intersect(n1, n2 *net.IPNet) bool {
 // UniqueAddress - get a unique ipv4 address
 func UniqueAddressCache(networkName string, reverse bool) (net.IP, error) {
 	add := net.IP{}
-	network, err := GetNetwork(networkName)
+	network := &schema.Network{Name: networkName}
+	err := network.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		logger.Log(0, "UniqueAddressServer encountered  an error")
 		return add, err
@@ -376,7 +377,8 @@ func UniqueAddressCache(networkName string, reverse bool) (net.IP, error) {
 // UniqueAddress - get a unique ipv4 address
 func UniqueAddressDB(networkName string, reverse bool) (net.IP, error) {
 	add := net.IP{}
-	network, err := GetNetwork(networkName)
+	network := &schema.Network{Name: networkName}
+	err := network.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		logger.Log(0, "UniqueAddressServer encountered  an error")
 		return add, err
@@ -475,7 +477,8 @@ func UniqueAddress6(networkName string, reverse bool) (net.IP, error) {
 // UniqueAddress6DB - see if ipv6 address is unique
 func UniqueAddress6DB(networkName string, reverse bool) (net.IP, error) {
 	add := net.IP{}
-	network, err := GetNetwork(networkName)
+	network := &schema.Network{Name: networkName}
+	err := network.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return add, err
 	}
@@ -518,7 +521,8 @@ func UniqueAddress6DB(networkName string, reverse bool) (net.IP, error) {
 // UniqueAddress6Cache - see if ipv6 address is unique using cache
 func UniqueAddress6Cache(networkName string, reverse bool) (net.IP, error) {
 	add := net.IP{}
-	network, err := GetNetwork(networkName)
+	network := &schema.Network{Name: networkName}
+	err := network.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return add, err
 	}
@@ -641,19 +645,6 @@ func UpdateNetwork(currentNetwork, newNetwork *schema.Network) error {
 	return currentNetwork.Update(db.WithContext(context.TODO()))
 }
 
-// GetNetwork - gets a network from database
-func GetNetwork(networkName string) (*schema.Network, error) {
-	_network := &schema.Network{
-		Name: networkName,
-	}
-	err := _network.Get(db.WithContext(context.TODO()))
-	if err != nil {
-		return nil, err
-	}
-
-	return _network, nil
-}
-
 // NetIDInNetworkCharSet - checks if a netid of a network uses valid characters
 func NetIDInNetworkCharSet(network *schema.Network) bool {
 
@@ -707,7 +698,7 @@ func SaveNetwork(_network *schema.Network) error {
 
 // NetworkExists - check if network exists
 func NetworkExists(name string) (bool, error) {
-	_, err := GetNetwork(name)
+	err := (&schema.Network{Name: name}).Get(db.WithContext(context.TODO()))
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return false, nil

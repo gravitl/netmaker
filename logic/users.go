@@ -142,7 +142,7 @@ func ListPendingUsers() ([]models.User, error) {
 }
 
 func GetUserMap() (map[string]schema.User, error) {
-	users, err := GetUsersDB()
+	users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return nil, err
 	}

@@ -41,16 +41,6 @@ func HasSuperAdmin() (bool, error) {
 	return (&schema.User{}).SuperAdminExists(db.WithContext(context.TODO()))
 }
 
-// GetUsersDB - gets users
-func GetUsersDB() ([]schema.User, error) {
-	_users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
-	if err != nil {
-		return nil, err
-	}
-
-	return _users, nil
-}
-
 // GetUsers - gets users
 func GetUsers() ([]models.ReturnUser, error) {
 	_users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))

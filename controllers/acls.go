@@ -208,7 +208,7 @@ func getAcls(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// check if network exists
-	_, err := logic.GetNetwork(netID)
+	err := (&schema.Network{Name: netID}).Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return

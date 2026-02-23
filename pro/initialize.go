@@ -169,7 +169,6 @@ func InitPro() {
 	logic.CreateDefaultUserPolicies = proLogic.CreateDefaultUserPolicies
 	logic.IntialiseGroups = proLogic.UserGroupsInit
 	logic.AddGlobalNetRolesToAdmins = proLogic.AddGlobalNetRolesToAdmins
-	logic.ListUserGroups = proLogic.ListUserGroups
 
 	logic.GetUserGroup = proLogic.GetUserGroup
 	logic.GetNodeStatus = proLogic.GetNodeStatus
@@ -245,7 +244,8 @@ func expireJITGrantsWithEmail() error {
 		if expiredGrant.ExpiresAt.After(fiveMinutesAgo) && expiredGrant.RequestID != "" {
 			request := schema.JITRequest{ID: expiredGrant.RequestID}
 			if err := request.Get(ctx); err == nil {
-				network, err := logic.GetNetwork(expiredGrant.NetworkID)
+				network := &schema.Network{Name: expiredGrant.NetworkID}
+				err = network.Get(db.WithContext(context.TODO()))
 				if err == nil {
 					grantsToEmail = append(grantsToEmail, struct {
 						Grant   *schema.JITGrant

@@ -126,7 +126,7 @@ func listPostureChecks(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), logic.BadReq))
 		return
 	}
-	_, err := logic.GetNetwork(network)
+	err := (&schema.Network{Name: network}).Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network not found"), logic.BadReq))
 		return

@@ -314,7 +314,7 @@ func CreateDefaultNetworkRolesAndGroups(netID models.NetworkID) {
 }
 
 func DeleteNetworkRoles(netID string) {
-	users, err := logic.GetUsersDB()
+	users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return
 	}
@@ -479,7 +479,7 @@ func DeleteRole(rid models.UserRoleID, force bool) error {
 	if rid.String() == "" {
 		return errors.New("role id cannot be empty")
 	}
-	users, err := logic.GetUsersDB()
+	users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
@@ -729,7 +729,7 @@ func DeleteUserGroup(gid models.UserGroupID) error {
 	if err != nil {
 		return err
 	}
-	users, err := logic.GetUsersDB()
+	users, err := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
@@ -851,7 +851,7 @@ func IsNetworkRolesValid(networkRoles map[models.NetworkID]map[models.UserRoleID
 	for netID, netRoles := range networkRoles {
 
 		if netID != models.AllNetworks {
-			_, err := logic.GetNetwork(netID.String())
+			err := (&schema.Network{Name: netID.String()}).Get(db.WithContext(context.TODO()))
 			if err != nil {
 				return fmt.Errorf("failed to fetch network %s ", netID)
 			}
@@ -1083,7 +1083,8 @@ func UpdateUserGwAccess(currentUser, changeUser *schema.User) {
 
 func CreateDefaultUserGroupNetworkPolicies(g schema.UserGroup) {
 	for networkID := range g.NetworkRoles.Data() {
-		network, err := logic.GetNetwork(networkID.String())
+		network := &schema.Network{Name: networkID.String()}
+		err := network.Get(db.WithContext(context.TODO()))
 		if err != nil {
 			continue
 		}
@@ -1285,7 +1286,7 @@ func AddGlobalNetRolesToAdmins(u *schema.User) {
 
 func GetUserGrpMap() map[models.UserGroupID]map[string]struct{} {
 	grpUsersMap := make(map[models.UserGroupID]map[string]struct{})
-	users, _ := logic.GetUsersDB()
+	users, _ := (&schema.User{}).ListAll(db.WithContext(context.TODO()))
 	for _, user := range users {
 		for gID := range user.UserGroups.Data() {
 			if grpUsers, ok := grpUsersMap[gID]; ok {

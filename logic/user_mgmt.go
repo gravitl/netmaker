@@ -78,7 +78,6 @@ var CreateDefaultUserPolicies = func(netID models.NetworkID) {
 		InsertAcl(defaultUserAcl)
 	}
 }
-var ListUserGroups = func() ([]schema.UserGroup, error) { return nil, nil }
 var GetUserGroup = func(groupId models.UserGroupID) (userGrps schema.UserGroup, err error) { return }
 var AddGlobalNetRolesToAdmins = func(u *schema.User) {}
 var EmailInit = func() {}

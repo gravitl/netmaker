@@ -7,6 +7,7 @@ import (
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
+	"gorm.io/gorm"
 
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
@@ -64,13 +65,15 @@ func TestGetNetwork(t *testing.T) {
 	createNet()
 
 	t.Run("GetExistingNetwork", func(t *testing.T) {
-		network, err := logic.GetNetwork("skynet")
+		network := &schema.Network{Name: "skynet"}
+		err := network.Get(db.WithContext(context.TODO()))
 		assert.Nil(t, err)
 		assert.Equal(t, "skynet", network.Name)
 	})
 	t.Run("GetNonExistantNetwork", func(t *testing.T) {
-		network, err := logic.GetNetwork("doesnotexist")
-		assert.EqualError(t, err, "record not found")
+		network := &schema.Network{Name: "doesnotexist"}
+		err := network.Get(db.WithContext(context.TODO()))
+		assert.EqualError(t, err, gorm.ErrRecordNotFound.Error())
 		assert.Equal(t, "", network.Name)
 	})
 }
@@ -183,7 +186,8 @@ func TestIpv6Network(t *testing.T) {
 	deleteAllNetworks()
 	createNet()
 	createNetDualStack()
-	network, err := logic.GetNetwork("skynet6")
+	network := &schema.Network{Name: "skynet6"}
+	err := network.Get(db.WithContext(context.TODO()))
 	t.Run("Test Network Create IPv6", func(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, network.AddressRange6, "fde6:be04:fa5e:d076::/64")
@@ -209,7 +213,7 @@ func createNet() {
 	var network schema.Network
 	network.Name = "skynet"
 	network.AddressRange = "10.0.0.1/24"
-	_, err := logic.GetNetwork("skynet")
+	err := (&schema.Network{Name: "skynet"}).Get(db.WithContext(context.TODO()))
 	if err != nil {
 		logic.CreateNetwork(&network)
 	}
@@ -218,7 +222,7 @@ func createNetv1(netId string) {
 	var network schema.Network
 	network.Name = netId
 	network.AddressRange = "100.0.0.1/24"
-	_, err := logic.GetNetwork(netId)
+	err := (&schema.Network{Name: netId}).Get(db.WithContext(context.TODO()))
 	if err != nil {
 		logic.CreateNetwork(&network)
 	}
@@ -229,7 +233,7 @@ func createNetDualStack() {
 	network.Name = "skynet6"
 	network.AddressRange = "10.1.2.0/24"
 	network.AddressRange6 = "fde6:be04:fa5e:d076::/64"
-	_, err := logic.GetNetwork("skynet6")
+	err := (&schema.Network{Name: "skynet6"}).Get(db.WithContext(context.TODO()))
 	if err != nil {
 		logic.CreateNetwork(&network)
 	}
