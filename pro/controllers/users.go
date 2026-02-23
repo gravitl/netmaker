@@ -1710,16 +1710,16 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		if !node.IsInternetGateway {
 			hNs := logic.GetNameserversForNode(&node)
 			for _, nsI := range hNs {
+				// skip fallback nameservers for user remote access gws.
 				if nsI.IsFallback {
-					// skip fallback nameservers for user remote access gws.
 					continue
 				}
+				gw.Nameservers = append(gw.Nameservers, nsI)
 				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
 				if nsI.IsSearchDomain {
 					gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
 				}
 			}
-			gw.Nameservers = append(gw.Nameservers, nsI)
 		}
 		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccessForUser(user, models.NetworkID(node.Network))...)
 		gws = append(gws, gw)
@@ -1770,16 +1770,16 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		if !node.IsInternetGateway {
 			hNs := logic.GetNameserversForNode(&node)
 			for _, nsI := range hNs {
+				// skip fallback nameservers for user remote access gws.
 				if nsI.IsFallback {
-					// skip fallback nameservers for user remote access gws.
 					continue
 				}
+				gw.Nameservers = append(gw.Nameservers, nsI)
 				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
 				if nsI.IsSearchDomain {
 					gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
 				}
 			}
-			gw.Nameservers = append(gw.Nameservers, nsI)
 		}
 		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccessForUser(user, models.NetworkID(node.Network))...)
 		gws = append(gws, gw)
