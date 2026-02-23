@@ -79,14 +79,14 @@ func Middleware(next http.Handler) http.Handler {
 // FromContext extracts the clickhouse connection instance from
 // the given context.
 //
-// The function panics, if a connection does not exist.
-func FromContext(ctx context.Context) clickhouse.Conn {
+// Returns the connection and an error if one does not exist.
+func FromContext(ctx context.Context) (clickhouse.Conn, error) {
 	ch, ok := ctx.Value(clickhouseCtxKey).(clickhouse.Conn)
 	if !ok {
-		panic(ErrConnNotFound)
+		return nil, ErrConnNotFound
 	}
 
-	return ch
+	return ch, nil
 }
 
 // Close closes a connection to the clickhouse database

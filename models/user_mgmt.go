@@ -81,6 +81,8 @@ const (
 	PostureCheckRsrc   RsrcType = "posturecheck"
 	JitAdminRsrc       RsrcType = "jit_admin"
 	JitUserRsrc        RsrcType = "jit_user"
+	UserActivityRsrc   RsrcType = "user_activity"
+	TrafficFlow        RsrcType = "traffic_flow"
 )
 
 const (
@@ -101,6 +103,8 @@ const (
 	AllNameserverRsrcID     RsrcID = "all_nameserver"
 	AllJitAdminRsrcID       RsrcID = "all_jit_admin"
 	AllJitUserRsrcID        RsrcID = "all_jit_user"
+	AllUserActivityRsrcID   RsrcID = "all_user_activity"
+	AllTrafficFlowRsrcID    RsrcID = "all_traffic_flow"
 )
 
 // Pre-Defined User Roles

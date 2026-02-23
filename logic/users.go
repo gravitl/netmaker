@@ -116,10 +116,12 @@ func ListPendingReturnUsers() ([]models.ReturnUser, error) {
 		return pendingUsers, err
 	}
 	for _, record := range records {
-		u := models.ReturnUser{}
-		err = json.Unmarshal([]byte(record), &u)
+		user := models.ReturnUser{}
+		err = json.Unmarshal([]byte(record), &user)
 		if err == nil {
-			pendingUsers = append(pendingUsers, u)
+			user.IsSuperAdmin = user.PlatformRoleID == models.SuperAdminRole
+			user.IsAdmin = user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole
+			pendingUsers = append(pendingUsers, user)
 		}
 	}
 	return pendingUsers, nil
@@ -132,10 +134,12 @@ func ListPendingUsers() ([]models.User, error) {
 		return pendingUsers, err
 	}
 	for _, record := range records {
-		var u models.User
-		err = json.Unmarshal([]byte(record), &u)
+		var user models.User
+		err = json.Unmarshal([]byte(record), &user)
 		if err == nil {
-			pendingUsers = append(pendingUsers, u)
+			user.IsSuperAdmin = user.PlatformRoleID == models.SuperAdminRole
+			user.IsAdmin = user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole
+			pendingUsers = append(pendingUsers, user)
 		}
 	}
 	return pendingUsers, nil

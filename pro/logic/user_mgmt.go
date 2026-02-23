@@ -37,13 +37,6 @@ var PlatformUserUserPermissionTemplate = schema.UserRole{
 	ID:         models.PlatformUser,
 	Default:    true,
 	FullAccess: false,
-	GlobalLevelAccess: datatypes.NewJSONType(schema.ResourceAccess{
-		models.UserRsrc: {
-			models.AllUserRsrcID: models.RsrcPermissionScope{
-				Read: true,
-			},
-		},
-	}),
 }
 
 var AuditorUserPermissionTemplate = schema.UserRole{

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"sort"
 	"strings"
 	"sync"
@@ -368,7 +369,28 @@ func UpdateHostFromClient(newHost, currHost *models.Host) (sendPeerUpdate bool) 
 	currHost.IsStaticPort = newHost.IsStaticPort
 	currHost.IsStatic = newHost.IsStatic
 	currHost.MTU = newHost.MTU
+	if newHost.Location != "" {
+		currHost.Location = newHost.Location
+	}
+	if newHost.CountryCode != "" {
+		currHost.CountryCode = newHost.CountryCode
+	}
+	if isEndpointChanged || currHost.Location == "" || currHost.CountryCode == "" {
+		var nodeIP net.IP
+		if currHost.EndpointIP != nil {
+			nodeIP = currHost.EndpointIP
+		} else if currHost.EndpointIPv6 != nil {
+			nodeIP = currHost.EndpointIPv6
+		}
 
+		if nodeIP != nil {
+			info, err := utils.GetGeoInfo(nodeIP)
+			if err == nil {
+				currHost.Location = info.Location
+				currHost.CountryCode = info.CountryCode
+			}
+		}
+	}
 	currHost.Name = newHost.Name
 	if len(newHost.NatType) > 0 && newHost.NatType != currHost.NatType {
 		currHost.NatType = newHost.NatType

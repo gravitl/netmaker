@@ -22,7 +22,15 @@ func MetricHandlers(r *mux.Router) {
 	r.HandleFunc("/api/metrics-ext/{network}", logic.SecurityCheck(true, http.HandlerFunc(getNetworkExtMetrics))).Methods(http.MethodGet)
 }
 
-// get the metrics of a given node
+// @Summary     Get metrics for a specific node
+// @Router      /api/metrics/{network}/{nodeid} [get]
+// @Tags        Metrics
+// @Security    oauth
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Param       nodeid path string true "Node ID"
+// @Success     200 {object} models.Metrics
+// @Failure     500 {object} models.ErrorResponse
 func getNodeMetrics(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -43,7 +51,14 @@ func getNodeMetrics(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(metrics)
 }
 
-// get the metrics of all nodes in given network
+// @Summary     Get metrics for all nodes in a network
+// @Router      /api/metrics/{network} [get]
+// @Tags        Metrics
+// @Security    oauth
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Success     200 {object} models.NetworkMetrics
+// @Failure     500 {object} models.ErrorResponse
 func getNetworkNodesMetrics(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -77,7 +92,14 @@ func getNetworkNodesMetrics(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(networkMetrics)
 }
 
-// get the metrics for ext clients on a given network
+// @Summary     Get metrics for external clients in a network
+// @Router      /api/metrics-ext/{network} [get]
+// @Tags        Metrics
+// @Security    oauth
+// @Produce     json
+// @Param       network path string true "Network ID"
+// @Success     200 {object} models.Metrics
+// @Failure     500 {object} models.ErrorResponse
 func getNetworkExtMetrics(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -136,7 +158,13 @@ func getNetworkExtMetrics(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(networkMetrics.Connectivity)
 }
 
-// get Metrics of all nodes on server, lots of data
+// @Summary     Get metrics for all nodes on server
+// @Router      /api/metrics [get]
+// @Tags        Metrics
+// @Security    oauth
+// @Produce     json
+// @Success     200 {object} models.NetworkMetrics
+// @Failure     500 {object} models.ErrorResponse
 func getAllMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	logger.Log(1, r.Header.Get("user"), "requested fetching all metrics")

@@ -46,7 +46,7 @@ func (r *JITRequest) Delete(ctx context.Context) error {
 
 func (r *JITRequest) ListByNetwork(ctx context.Context) ([]JITRequest, error) {
 	var requests []JITRequest
-	err := db.FromContext(ctx).Table(r.Table()).Where("network_id = ?", r.NetworkID).Find(&requests).Error
+	err := db.FromContext(ctx).Table(r.Table()).Where("network_id = ?", r.NetworkID).Order("requested_at DESC").Find(&requests).Error
 	return requests, err
 }
 
@@ -64,6 +64,18 @@ func (r *JITRequest) ListPendingByNetwork(ctx context.Context) ([]JITRequest, er
 
 func (r *JITRequest) ListByStatusAndNetwork(ctx context.Context, status string) ([]JITRequest, error) {
 	var requests []JITRequest
-	err := db.FromContext(ctx).Table(r.Table()).Where("network_id = ? AND status = ?", r.NetworkID, status).Find(&requests).Error
+	err := db.FromContext(ctx).Table(r.Table()).Where("network_id = ? AND status = ?", r.NetworkID, status).Order("requested_at DESC").Find(&requests).Error
 	return requests, err
+}
+
+func (r *JITRequest) CountByNetwork(ctx context.Context) (int64, error) {
+	var count int64
+	err := db.FromContext(ctx).Table(r.Table()).Where("network_id = ?", r.NetworkID).Count(&count).Error
+	return count, err
+}
+
+func (r *JITRequest) CountByStatusAndNetwork(ctx context.Context, status string) (int64, error) {
+	var count int64
+	err := db.FromContext(ctx).Table(r.Table()).Where("network_id = ? AND status = ?", r.NetworkID, status).Count(&count).Error
+	return count, err
 }

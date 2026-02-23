@@ -80,14 +80,16 @@ func UserHandlers(r *mux.Router) {
 	r.HandleFunc("/api/idp", logic.SecurityCheck(true, http.HandlerFunc(removeIDPIntegration))).Methods(http.MethodDelete)
 }
 
-// swagger:route POST /api/v1/users/invite-signup user userInviteSignUp
-//
-// user signup via invite.
-//
-//	Schemes: https
-//
-//	Responses:
-//		200: ReturnSuccessResponse
+// @Summary     User signup via invite
+// @Router      /api/v1/users/invite-signup [post]
+// @Tags        Users
+// @Accept      json
+// @Produce     json
+// @Param       email query string true "Invitee email"
+// @Param       invite_code query string true "Invite code"
+// @Param       body body models.User true "User signup data"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
 func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 	email, _ := url.QueryUnescape(r.URL.Query().Get("email"))
 	code := r.URL.Query().Get("invite_code")
@@ -142,14 +144,14 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, "created user successfully "+email)
 }
 
-// swagger:route GET /api/v1/users/invite user userInviteVerify
-//
-// verfies user invite.
-//
-//	Schemes: https
-//
-//	Responses:
-//		200: ReturnSuccessResponse
+// @Summary     Verify user invite
+// @Router      /api/v1/users/invite [get]
+// @Tags        Users
+// @Produce     json
+// @Param       email query string true "Invitee email"
+// @Param       invite_code query string true "Invite code"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     500 {object} models.ErrorResponse
 func userInviteVerify(w http.ResponseWriter, r *http.Request) {
 	email := r.URL.Query().Get("email")
 	code := r.URL.Query().Get("invite_code")
@@ -162,17 +164,15 @@ func userInviteVerify(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, "invite is valid")
 }
 
-// swagger:route POST /api/v1/users/invite user inviteUsers
-//
-// invite users.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: userBodyResponse
+// @Summary     Invite users
+// @Router      /api/v1/users/invite [post]
+// @Tags        Users
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       body body models.InviteUsersReq true "Invite users request"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
 func inviteUsers(w http.ResponseWriter, r *http.Request) {
 	var inviteReq models.InviteUsersReq
 	err := json.NewDecoder(r.Body).Decode(&inviteReq)
@@ -305,17 +305,13 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, "triggered user invites")
 }
 
-// swagger:route GET /api/v1/users/invites user listUserInvites
-//
-// lists all pending invited users.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: ReturnSuccessResponseWithJson
+// @Summary     List all pending user invites
+// @Router      /api/v1/users/invites [get]
+// @Tags        Users
+// @Security    oauth
+// @Produce     json
+// @Success     200 {array} models.UserInvite
+// @Failure     500 {object} models.ErrorResponse
 func listUserInvites(w http.ResponseWriter, r *http.Request) {
 	usersInvites, err := logic.ListUserInvites()
 	if err != nil {
@@ -326,17 +322,14 @@ func listUserInvites(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, usersInvites, "fetched pending user invites")
 }
 
-// swagger:route DELETE /api/v1/users/invite user deleteUserInvite
-//
-// delete pending invite.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: ReturnSuccessResponse
+// @Summary     Delete a pending user invite
+// @Router      /api/v1/users/invite [delete]
+// @Tags        Users
+// @Security    oauth
+// @Produce     json
+// @Param       invitee_email query string true "Invitee email to delete"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     500 {object} models.ErrorResponse
 func deleteUserInvite(w http.ResponseWriter, r *http.Request) {
 	email := r.URL.Query().Get("invitee_email")
 	err := logic.DeleteUserInvite(email)
@@ -369,17 +362,13 @@ func deleteUserInvite(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, "deleted user invite")
 }
 
-// swagger:route DELETE /api/v1/users/invites user deleteAllUserInvites
-//
-// deletes all pending invites.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: ReturnSuccessResponse
+// @Summary     Delete all pending user invites
+// @Router      /api/v1/users/invites [delete]
+// @Tags        Users
+// @Security    oauth
+// @Produce     json
+// @Success     200 {object} models.SuccessResponse
+// @Failure     500 {object} models.ErrorResponse
 func deleteAllUserInvites(w http.ResponseWriter, r *http.Request) {
 	err := database.DeleteAllRecords(database.USER_INVITES_TABLE_NAME)
 	if err != nil {
@@ -404,17 +393,13 @@ func deleteAllUserInvites(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, "cleared all pending user invites")
 }
 
-// swagger:route GET /api/v1/user/groups user listUserGroups
-//
-// Get all user groups.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: userBodyResponse
+// @Summary     List all user groups
+// @Router      /api/v1/users/groups [get]
+// @Tags        Users
+// @Security    oauth
+// @Produce     json
+// @Success     200 {array} models.UserGroup
+// @Failure     500 {object} models.ErrorResponse
 func listUserGroups(w http.ResponseWriter, r *http.Request) {
 	groups, err := (&schema.UserGroup{}).ListAll(r.Context())
 	if err != nil {
@@ -427,17 +412,14 @@ func listUserGroups(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, groups, "successfully fetched user groups")
 }
 
-// swagger:route GET /api/v1/user/group user getUserGroup
-//
-// Get user group.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: userBodyResponse
+// @Summary     Get a user group
+// @Router      /api/v1/users/group [get]
+// @Tags        Users
+// @Security    oauth
+// @Produce     json
+// @Param       group_id query string true "Group ID"
+// @Success     200 {object} models.UserGroup
+// @Failure     500 {object} models.ErrorResponse
 func getUserGroup(w http.ResponseWriter, r *http.Request) {
 
 	gid := r.URL.Query().Get("group_id")
@@ -456,17 +438,16 @@ func getUserGroup(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, group, "successfully fetched user group")
 }
 
-// swagger:route POST /api/v1/user/group user createUserGroup
-//
-// Create user groups.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: userBodyResponse
+// @Summary     Create a user group
+// @Router      /api/v1/users/group [post]
+// @Tags        Users
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       body body models.CreateGroupReq true "Create group request"
+// @Success     200 {object} models.UserGroup
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
 func createUserGroup(w http.ResponseWriter, r *http.Request) {
 	type CreateGroupReq struct {
 		Group   schema.UserGroup `json:"user_group"`
@@ -523,17 +504,16 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, userGroupReq.Group, "created user group")
 }
 
-// swagger:route PUT /api/v1/user/group user updateUserGroup
-//
-// Update user group.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: userBodyResponse
+// @Summary     Update a user group
+// @Router      /api/v1/users/group [put]
+// @Tags        Users
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       body body models.UserGroup true "User group update data"
+// @Success     200 {object} models.UserGroup
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
 func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 	var userGroup schema.UserGroup
 	err := json.NewDecoder(r.Body).Decode(&userGroup)
@@ -774,17 +754,14 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, userGroup, "updated user group")
 }
 
-// swagger:route GET /api/v1/users/unassigned_network_user user listUnAssignedNetUsers
-//
-// list unassigned network users.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: userBodyResponse
+// @Summary     List unassigned network users
+// @Router      /api/v1/users/unassigned_network_users [get]
+// @Tags        Users
+// @Security    oauth
+// @Produce     json
+// @Param       network_id query string true "Network ID"
+// @Success     200 {array} models.ReturnUser
+// @Failure     400 {object} models.ErrorResponse
 func listUnAssignedNetUsers(w http.ResponseWriter, r *http.Request) {
 	netID := r.URL.Query().Get("network_id")
 	if netID == "" {
@@ -816,17 +793,15 @@ func listUnAssignedNetUsers(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, unassignedUsers, "returned unassigned network service users")
 }
 
-// swagger:route PUT /api/v1/users/add_network_user user addUsertoNetwork
-//
-// add user to network.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: userBodyResponse
+// @Summary     Add user to network
+// @Router      /api/v1/users/add_network_user [put]
+// @Tags        Users
+// @Security    oauth
+// @Produce     json
+// @Param       username query string true "Username"
+// @Param       network_id query string true "Network ID"
+// @Success     200 {object} models.User
+// @Failure     400 {object} models.ErrorResponse
 func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 	username := r.URL.Query().Get("username")
 	if username == "" {
@@ -874,17 +849,15 @@ func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, user, "updated user group")
 }
 
-// swagger:route PUT /api/v1/users/remove_network_user user removeUserfromNetwork
-//
-// add user to network.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: userBodyResponse
+// @Summary     Remove user from network
+// @Router      /api/v1/users/remove_network_user [put]
+// @Tags        Users
+// @Security    oauth
+// @Produce     json
+// @Param       username query string true "Username"
+// @Param       network_id query string true "Network ID"
+// @Success     200 {object} models.User
+// @Failure     400 {object} models.ErrorResponse
 func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
 	username := r.URL.Query().Get("username")
 	if username == "" {
@@ -932,23 +905,14 @@ func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, user, "updated user group")
 }
 
-// swagger:route DELETE /api/v1/user/group user deleteUserGroup
-//
-// delete user group.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: userBodyResponse
-//
-// @Summary     Delete user group.
-// @Router      /api/v1/user/group [delete]
+// @Summary     Delete user group
+// @Router      /api/v1/users/group [delete]
 // @Tags        Users
-// @Param       group_id query string true "group id required to delete the role"
-// @Success     200 {string} string
+// @Security    oauth
+// @Produce     json
+// @Param       group_id query string true "Group ID required to delete the group"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 
@@ -996,9 +960,11 @@ func deleteUserGroup(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, nil, "deleted user group")
 }
 
-// @Summary     lists all user roles.
+// @Summary     List all user roles
 // @Router      /api/v1/users/roles [get]
 // @Tags        Users
+// @Security    oauth
+// @Produce     json
 // @Param       platform query string false "If true, lists platform roles. Otherwise, lists network roles."
 // @Success     200 {object}  []schema.UserRole
 // @Failure     500 {object} models.ErrorResponse
@@ -1022,10 +988,12 @@ func ListRoles(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, roles, "successfully fetched user roles permission templates")
 }
 
-// @Summary     Get user role permission template.
-// @Router      /api/v1/user/role [get]
+// @Summary     Get user role permission template
+// @Router      /api/v1/users/role [get]
 // @Tags        Users
-// @Param       role_id query string true "roleid required to get the role details"
+// @Security    oauth
+// @Produce     json
+// @Param       role_id query string true "Role ID required to get the role details"
 // @Success     200 {object} schema.UserRole
 // @Failure     500 {object} models.ErrorResponse
 func getRole(w http.ResponseWriter, r *http.Request) {
@@ -1046,11 +1014,15 @@ func getRole(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, role, "successfully fetched user role permission templates")
 }
 
-// @Summary     Create user role permission template.
-// @Router      /api/v1/user/role [post]
+// @Summary     Create user role permission template
+// @Router      /api/v1/users/role [post]
 // @Tags        Users
-// @Param       body body schema.UserRole true "user role template"
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       body body schema.UserRole true "User role template"
 // @Success     200 {object}  schema.UserRole
+// @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func createRole(w http.ResponseWriter, r *http.Request) {
 	var userRole schema.UserRole
@@ -1091,11 +1063,15 @@ func createRole(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, userRole, "created user role")
 }
 
-// @Summary     Update user role permission template.
-// @Router      /api/v1/user/role [put]
+// @Summary     Update user role permission template
+// @Router      /api/v1/users/role [put]
 // @Tags        Users
-// @Param       body body schema.UserRole true "user role template"
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       body body schema.UserRole true "User role template"
 // @Success     200 {object} schema.UserRole
+// @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func updateRole(w http.ResponseWriter, r *http.Request) {
 	var userRole schema.UserRole
@@ -1147,11 +1123,14 @@ func updateRole(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, userRole, "updated user role")
 }
 
-// @Summary     Delete user role permission template.
-// @Router      /api/v1/user/role [delete]
+// @Summary     Delete user role permission template
+// @Router      /api/v1/users/role [delete]
 // @Tags        Users
-// @Param       role_id query string true "roleid required to delete the role"
-// @Success     200 {string} string
+// @Security    oauth
+// @Produce     json
+// @Param       role_id query string true "Role ID required to delete the role"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func deleteRole(w http.ResponseWriter, r *http.Request) {
 
@@ -1196,7 +1175,8 @@ func deleteRole(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     Attach user to a remote access gateway
 // @Router      /api/users/{username}/remote_access_gw/{remote_access_gateway_id} [post]
-// @Tags        PRO
+// @Tags        Users
+// @Security    oauth
 // @Accept      json
 // @Produce     json
 // @Param       username path string true "Username"
@@ -1280,7 +1260,8 @@ func attachUserToRemoteAccessGw(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     Remove user from a remote access gateway
 // @Router      /api/users/{username}/remote_access_gw/{remote_access_gateway_id} [delete]
-// @Tags        PRO
+// @Tags        Users
+// @Security    oauth
 // @Accept      json
 // @Produce     json
 // @Param       username path string true "Username"
@@ -1360,11 +1341,6 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(logic.ToReturnUser(user))
 }
 
-// @Summary     Get Users Remote Access Gw Networks.
-// @Router      /api/v1/rac/networks [get]
-// @Tags        RAC
-// @Success     200 {object} map[string][]models.UserRemoteGws
-// @Failure     500 {object} models.ErrorResponse
 func getUserRemoteAccessNetworks(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -1398,12 +1374,6 @@ func getUserRemoteAccessNetworks(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, networks, "fetched user accessible networks")
 }
 
-// @Summary     Get Users Remote Access Gw Networks.
-// @Router      /api/v1/rac/network/{network}/access_points [get]
-// @Tags        RAC
-// @Param       network path string true "Network Name"
-// @Success     200 {object} map[string][]models.UserRemoteGws
-// @Failure     500 {object} models.ErrorResponse
 func getUserRemoteAccessNetworkGateways(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -1448,13 +1418,6 @@ func getUserRemoteAccessNetworkGateways(w http.ResponseWriter, r *http.Request) 
 	logic.ReturnSuccessResponseWithJson(w, r, userGws, "fetched user accessible gateways in network "+network)
 }
 
-// @Summary     Get Users Remote Access Gw Networks.
-// @Router      /api/v1/rac/access_point/{access_point_id}/config [get]
-// @Tags        RAC
-// @Param       access_point_id path string true "Access Point ID"
-// @Param       body body models.UserRemoteGwsReq true "Remote Access Client ID"
-// @Success     200 {object} map[string][]models.UserRemoteGws
-// @Failure     500 {object} models.ErrorResponse
 func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -1580,11 +1543,16 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, userGw, "fetched user config to gw "+remoteGwID)
 }
 
-// @Summary     Get Users Remote Access Gw.
+// @Summary     Get user remote access gateways
 // @Router      /api/users/{username}/remote_access_gw [get]
 // @Tags        Users
+// @Security    oauth
+// @Produce     json
 // @Param       username path string true "Username to fetch all the gateways with access"
-// @Success     200 {object} map[string][]models.UserRemoteGws
+// @Param       device_id query string false "Device ID"
+// @Param       remote_access_clientid query string false "Remote access client ID"
+// @Param       from_mobile query string false "If 'true', returns array format"
+// @Success     200 {object} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
 func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 	// set header.
@@ -1729,17 +1697,15 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			DnsAddress:        node.IngressDNS,
 			Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
 		}
-		if !node.IsInternetGateway {
-			hNs := logic.GetNameserversForNode(&node)
-			for _, nsI := range hNs {
-				if nsI.IsFallback {
-					// skip fallback nameservers for user remote access gws.
-					continue
-				}
-				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
-				if nsI.IsSearchDomain {
-					gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
-				}
+		hNs := logic.GetNameserversForNode(&node)
+		for _, nsI := range hNs {
+			if nsI.IsFallback {
+				// skip fallback nameservers for user remote access gws.
+				continue
+			}
+			gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
+			if nsI.IsSearchDomain {
+				gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
 			}
 		}
 		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccessForUser(user, models.NetworkID(node.Network))...)
@@ -1789,17 +1755,15 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			DnsAddress:        node.IngressDNS,
 			Addresses:         utils.NoEmptyStringToCsv(node.Address.String(), node.Address6.String()),
 		}
-		if !node.IsInternetGateway {
-			hNs := logic.GetNameserversForNode(&node)
-			for _, nsI := range hNs {
-				if nsI.IsFallback {
-					// skip fallback nameservers for user remote access gws.
-					continue
-				}
-				gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
-				if nsI.IsSearchDomain {
-					gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
-				}
+		hNs := logic.GetNameserversForNode(&node)
+		for _, nsI := range hNs {
+			if nsI.IsFallback {
+				// skip fallback nameservers for user remote access gws.
+				continue
+			}
+			gw.MatchDomains = append(gw.MatchDomains, nsI.MatchDomain)
+			if nsI.IsSearchDomain {
+				gw.SearchDomains = append(gw.SearchDomains, nsI.MatchDomain)
 			}
 		}
 		gw.MatchDomains = append(gw.MatchDomains, logic.GetEgressDomainsByAccessForUser(user, models.NetworkID(node.Network))...)
@@ -1821,9 +1785,10 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(userGws)
 }
 
-// @Summary     List users attached to an remote access gateway
+// @Summary     List users attached to a remote access gateway
 // @Router      /api/users/ingress/{ingress_id} [get]
-// @Tags        PRO
+// @Tags        Users
+// @Security    oauth
 // @Accept      json
 // @Produce     json
 // @Param       ingress_id path string true "Ingress Gateway ID"
@@ -1860,12 +1825,12 @@ func ingressGatewayUsers(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(gwUsers)
 }
 
-// @Summary     List users network ip mappings
-// @Router      /api/users/network_ip [get]
-// @Tags        PRO
-// @Accept      json
+// @Summary     List users network IP mappings
+// @Router      /api/v1/users/network_ip [get]
+// @Tags        Users
+// @Security    oauth
 // @Produce     json
-// @Success     200 {array} models.UserIPMap
+// @Success     200 {object} models.UserIPMap
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func userNetworkMapping(w http.ResponseWriter, r *http.Request) {
@@ -1933,7 +1898,9 @@ func getAllowedRagEndpoints(ragNode *models.Node, ragHost *models.Host) []string
 // @Summary     Get all pending users
 // @Router      /api/users_pending [get]
 // @Tags        Users
-// @Success     200 {array} schema.User
+// @Security    oauth
+// @Produce     json
+// @Success     200 {array} models.ReturnUser
 // @Failure     500 {object} models.ErrorResponse
 func getPendingUsers(w http.ResponseWriter, r *http.Request) {
 	// set header.
@@ -1954,8 +1921,10 @@ func getPendingUsers(w http.ResponseWriter, r *http.Request) {
 // @Summary     Approve a pending user
 // @Router      /api/users_pending/user/{username} [post]
 // @Tags        Users
+// @Security    oauth
+// @Produce     json
 // @Param       username path string true "Username of the pending user to approve"
-// @Success     200 {string} string
+// @Success     200 {object} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
 func approvePendingUser(w http.ResponseWriter, r *http.Request) {
 	// set header.
@@ -2015,8 +1984,10 @@ func approvePendingUser(w http.ResponseWriter, r *http.Request) {
 // @Summary     Delete a pending user
 // @Router      /api/users_pending/user/{username} [delete]
 // @Tags        Users
+// @Security    oauth
+// @Produce     json
 // @Param       username path string true "Username of the pending user to delete"
-// @Success     200 {string} string
+// @Success     200 {object} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
 func deletePendingUser(w http.ResponseWriter, r *http.Request) {
 	// set header.
@@ -2067,7 +2038,9 @@ func deletePendingUser(w http.ResponseWriter, r *http.Request) {
 // @Summary     Delete all pending users
 // @Router      /api/users_pending [delete]
 // @Tags        Users
-// @Success     200 {string} string
+// @Security    oauth
+// @Produce     json
+// @Success     200 {object} models.SuccessResponse
 // @Failure     500 {object} models.ErrorResponse
 func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
 	// set header.
@@ -2094,9 +2067,11 @@ func deleteAllPendingUsers(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, "cleared all pending users")
 }
 
-// @Summary     Sync users and groups from idp.
+// @Summary     Sync users and groups from IDP
 // @Router      /api/idp/sync [post]
 // @Tags        IDP
+// @Security    oauth
+// @Produce     json
 // @Success     200 {object} models.SuccessResponse
 func syncIDP(w http.ResponseWriter, r *http.Request) {
 	go func() {
@@ -2111,9 +2086,13 @@ func syncIDP(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, "starting sync from idp")
 }
 
-// @Summary     Test IDP Sync Credentials.
+// @Summary     Test IDP Sync Credentials
 // @Router      /api/idp/sync/test [post]
 // @Tags        IDP
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       body body models.IDPSyncTestRequest true "IDP sync test request"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 func testIDPSync(w http.ResponseWriter, r *http.Request) {
@@ -2157,18 +2136,23 @@ func testIDPSync(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponse(w, r, "idp sync test successful")
 }
 
-// @Summary     Gets idp sync status.
+// @Summary     Get IDP sync status
 // @Router      /api/idp/sync/status [get]
 // @Tags        IDP
-// @Success     200 {object} models.SuccessResponse
+// @Security    oauth
+// @Produce     json
+// @Success     200 {object} models.IDPSyncStatus
 func getIDPSyncStatus(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, proAuth.GetIDPSyncStatus(), "idp sync status retrieved")
 }
 
-// @Summary     Remove idp integration.
+// @Summary     Remove IDP integration
 // @Router      /api/idp [delete]
 // @Tags        IDP
+// @Security    oauth
+// @Produce     json
 // @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func removeIDPIntegration(w http.ResponseWriter, r *http.Request) {
 	superAdmin, err := logic.GetSuperAdmin()

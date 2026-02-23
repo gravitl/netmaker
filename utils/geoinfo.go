@@ -3,6 +3,7 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 )
 
@@ -13,22 +14,26 @@ type GeoInfo struct {
 }
 
 // GetGeoInfo returns the ip, location and country code of the host it's called on.
-func GetGeoInfo() (*GeoInfo, error) {
-	geoInfo, err := getGeoInfoFromIPAPI()
+func GetGeoInfo(ip ...net.IP) (*GeoInfo, error) {
+	geoInfo, err := getGeoInfoFromIPAPI(ip...)
 	if err == nil {
 		return geoInfo, nil
 	}
 
-	geoInfo, err = getGeoInfoFromCloudFlare()
+	geoInfo, err = getGeoInfoFromCloudFlare(ip...)
 	if err == nil {
 		return geoInfo, nil
 	}
 
-	return getGeoInfoFromIpInfo()
+	return getGeoInfoFromIpInfo(ip...)
 }
 
-func getGeoInfoFromIPAPI() (*GeoInfo, error) {
-	resp, err := http.Get("https://api.ipapi.is")
+func getGeoInfoFromIPAPI(ip ...net.IP) (*GeoInfo, error) {
+	url := "https://api.ipapi.is"
+	if len(ip) > 0 {
+		url = fmt.Sprintf("https://api.ipapi.is/?q=%s", ip[0].String())
+	}
+	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
 	}
@@ -37,9 +42,9 @@ func getGeoInfoFromIPAPI() (*GeoInfo, error) {
 	var data struct {
 		IP       string `json:"ip"`
 		Location struct {
-			CountryCode string `json:"country_code"`
-			Latitude    string `json:"latitude"`
-			Longitude   string `json:"longitude"`
+			CountryCode string  `json:"country_code"`
+			Latitude    float64 `json:"latitude"`
+			Longitude   float64 `json:"longitude"`
 		} `json:"location"`
 	}
 
@@ -54,12 +59,12 @@ func getGeoInfoFromIPAPI() (*GeoInfo, error) {
 
 	return &GeoInfo{
 		IP:          data.IP,
-		Location:    data.Location.Latitude + "," + data.Location.Longitude,
+		Location:    fmt.Sprintf("%f,%f", data.Location.Latitude, data.Location.Longitude),
 		CountryCode: data.Location.CountryCode,
 	}, nil
 }
 
-func getGeoInfoFromCloudFlare() (*GeoInfo, error) {
+func getGeoInfoFromCloudFlare(ip ...net.IP) (*GeoInfo, error) {
 	var geoInfo GeoInfo
 	resp, err := http.Get("https://speed.cloudflare.com/meta")
 	if err != nil {
@@ -101,9 +106,13 @@ func getGeoInfoFromCloudFlare() (*GeoInfo, error) {
 	return &geoInfo, nil
 }
 
-func getGeoInfoFromIpInfo() (*GeoInfo, error) {
+func getGeoInfoFromIpInfo(ip ...net.IP) (*GeoInfo, error) {
+	url := "https://ipinfo.io/json"
+	if len(ip) > 0 {
+		url = fmt.Sprintf("https://ipinfo.io/%s/json", ip[0].String())
+	}
 	var geoInfo GeoInfo
-	resp, err := http.Get("https://ipinfo.io/json")
+	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
 	}

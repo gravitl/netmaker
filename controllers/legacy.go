@@ -22,7 +22,8 @@ func legacyHandlers(r *mux.Router) {
 // @Summary     Delete all legacy nodes from DB.
 // @Router      /api/v1/legacy/nodes [delete]
 // @Tags        Nodes
-// @Security    oauth2
+// @Security    oauth
+// @Produce     json
 // @Success     200 {string} string "Wiped all legacy nodes."
 // @Failure     400 {object} models.ErrorResponse
 func wipeLegacyNodes(w http.ResponseWriter, r *http.Request) {

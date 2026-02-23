@@ -61,12 +61,14 @@ func userHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/users/logout", logic.SecurityCheck(false, logic.ContinueIfUserMatch(http.HandlerFunc(logout)))).Methods(http.MethodPost)
 }
 
-// @Summary     Authenticate a user to retrieve an authorization token
+// @Summary     Create a user API access token
 // @Router      /api/v1/users/access_token [post]
-// @Tags        Auth
+// @Tags        Users
+// @Security    oauth
 // @Accept      json
-// @Param       body body models.UserAuthParams true "Authentication parameters"
-// @Success     200 {object} models.SuccessResponse
+// @Produce     json
+// @Param       body body schema.UserAccessToken true "Access token request"
+// @Success     200 {object} models.SuccessfulUserLoginResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -161,10 +163,11 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     Get user access tokens
 // @Router      /api/v1/users/access_token [get]
-// @Tags        Auth
-// @Accept      json
+// @Tags        Users
+// @Security    oauth
+// @Produce     json
 // @Param       username query string true "Username"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {array} schema.UserAccessToken
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -179,8 +182,9 @@ func getUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 
 // @Summary     Delete user access tokens
 // @Router      /api/v1/users/access_token [delete]
-// @Tags        Auth
-// @Accept      json
+// @Tags        Users
+// @Security    oauth
+// @Produce     json
 // @Param       id query string true "Token ID"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
@@ -260,6 +264,7 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 // @Router      /api/users/adm/authenticate [post]
 // @Tags        Auth
 // @Accept      json
+// @Produce     json
 // @Param       body body models.UserAuthParams true "Authentication parameters"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
@@ -423,13 +428,15 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 
 }
 
-// @Summary     Validates a user's identity against it's token. This is used by UI before a user performing a critical operation to validate the user's identity.
+// @Summary     Validate a user's identity
 // @Router      /api/users/{username}/validate-identity [post]
-// @Tags        Auth
+// @Tags        Users
+// @Security    oauth
 // @Accept      json
+// @Produce     json
 // @Param       username path string true "Username"
 // @Param       body body models.UserIdentityValidationRequest true "User Identity Validation Request"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.UserIdentityValidationResponse
 // @Failure     400 {object} models.ErrorResponse
 func validateUserIdentity(w http.ResponseWriter, r *http.Request) {
 	username := r.Header.Get("user")
@@ -462,10 +469,13 @@ func validateUserIdentity(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// @Summary     Initiate setting up TOTP 2FA for a user.
-// @Router      /api/users/auth/init-totp [post]
+// @Summary     Initiate setting up TOTP 2FA for a user
+// @Router      /api/users/{username}/auth/init-totp [post]
 // @Tags        Auth
-// @Success     200 {object} models.SuccessResponse
+// @Security    oauth
+// @Produce     json
+// @Param       username path string true "Username"
+// @Success     200 {object} models.TOTPInitiateResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func initiateTOTPSetup(w http.ResponseWriter, r *http.Request) {
@@ -524,9 +534,13 @@ func initiateTOTPSetup(w http.ResponseWriter, r *http.Request) {
 	}, "totp setup initiated")
 }
 
-// @Summary     Verify and complete setting up TOTP 2FA for a user.
-// @Router      /api/users/auth/complete-totp [post]
+// @Summary     Verify and complete setting up TOTP 2FA for a user
+// @Router      /api/users/{username}/auth/complete-totp [post]
 // @Tags        Auth
+// @Security    oauth
+// @Accept      json
+// @Produce     json
+// @Param       username path string true "Username"
 // @Param       body body models.UserTOTPVerificationParams true "TOTP verification parameters"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
@@ -610,12 +624,14 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// @Summary     Verify a user's TOTP token.
-// @Router      /api/users/auth/verify-totp [post]
+// @Summary     Verify a user's TOTP token
+// @Router      /api/users/{username}/auth/verify-totp [post]
 // @Tags        Auth
 // @Accept      json
+// @Produce     json
+// @Param       username path string true "Username"
 // @Param       body body models.UserTOTPVerificationParams true "TOTP verification parameters"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.SuccessfulUserLoginResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     401 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -700,6 +716,7 @@ func verifyTOTP(w http.ResponseWriter, r *http.Request) {
 // @Summary     Check if the server has a super admin
 // @Router      /api/users/adm/hassuperadmin [get]
 // @Tags        Users
+// @Produce     json
 // @Success     200 {object} bool
 // @Failure     500 {object} models.ErrorResponse
 func hasSuperAdmin(w http.ResponseWriter, r *http.Request) {
@@ -720,8 +737,10 @@ func hasSuperAdmin(w http.ResponseWriter, r *http.Request) {
 // @Summary     Get an individual user
 // @Router      /api/users/{username} [get]
 // @Tags        Users
+// @Security    oauth
+// @Produce     json
 // @Param       username path string true "Username of the user to fetch"
-// @Success     200 {object} schema.User
+// @Success     200 {object} models.ReturnUser
 // @Failure     500 {object} models.ErrorResponse
 func getUser(w http.ResponseWriter, r *http.Request) {
 	// set header.
@@ -743,7 +762,10 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 // @Summary     Enable a user's account
 // @Router      /api/users/{username}/enable [post]
 // @Tags        Users
+// @Security    oauth
+// @Produce     json
 // @Param       username path string true "Username of the user to enable"
+// @Param       force_enable_configs query string false "Force enable configs"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -755,7 +777,10 @@ func enableUserAccount(w http.ResponseWriter, r *http.Request) {
 // @Summary     Disable a user's account
 // @Router      /api/users/{username}/disable [post]
 // @Tags        Users
+// @Security    oauth
+// @Produce     json
 // @Param       username path string true "Username of the user to disable"
+// @Param       force_disable_configs query string false "Force disable configs"
 // @Success     200 {object} models.SuccessResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -861,8 +886,10 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 // @Summary     Get a user's preferences and settings
 // @Router      /api/users/{username}/settings [get]
 // @Tags        Users
+// @Security    oauth
+// @Produce     json
 // @Param       username path string true "Username of the user"
-// @Success     200 {object} models.SuccessResponse
+// @Success     200 {object} models.UserSettings
 func getUserSettings(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("user")
 	userSettings := logic.GetUserSettings(userID)
@@ -872,8 +899,12 @@ func getUserSettings(w http.ResponseWriter, r *http.Request) {
 // @Summary     Update a user's preferences and settings
 // @Router      /api/users/{username}/settings [put]
 // @Tags        Users
+// @Security    oauth
+// @Accept      json
+// @Produce     json
 // @Param       username path string true "Username of the user"
-// @Success     200 {object} models.SuccessResponse
+// @Param       body body models.UserSettings true "User settings"
+// @Success     200 {object} models.UserSettings
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func updateUserSettings(w http.ResponseWriter, r *http.Request) {
@@ -898,17 +929,15 @@ func updateUserSettings(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, req, "updated user settings")
 }
 
-// swagger:route GET /api/v1/users user getUserV1
-//
-// Get an individual user with role info.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: ReturnUserWithRolesAndGroups
+// @Summary     Get an individual user with role info
+// @Router      /api/v1/users [get]
+// @Tags        Users
+// @Security    oauth
+// @Produce     json
+// @Param       username query string true "Username"
+// @Success     200 {object} models.ReturnUserWithRolesAndGroups
+// @Failure     400 {object} models.ErrorResponse
+// @Failure     500 {object} models.ErrorResponse
 func getUserV1(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -953,17 +982,13 @@ func getUserV1(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, resp, "fetched user with role info")
 }
 
-// swagger:route GET /api/users user getUsers
-//
-// Get all users.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: userBodyResponse
+// @Summary     Get all users
+// @Router      /api/users [get]
+// @Tags        Users
+// @Security    oauth
+// @Produce     json
+// @Success     200 {array} models.ReturnUser
+// @Failure     500 {object} models.ErrorResponse
 func getUsers(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
@@ -988,8 +1013,10 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 // @Summary     Create a super admin
 // @Router      /api/users/adm/createsuperadmin [post]
 // @Tags        Users
-// @Param       body body schema.User true "User details"
-// @Success     200 {object} schema.User
+// @Accept      json
+// @Produce     json
+// @Param       body body models.User true "User details"
+// @Success     200 {object} models.ReturnUser
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func createSuperAdmin(w http.ResponseWriter, r *http.Request) {
@@ -1026,8 +1053,10 @@ func createSuperAdmin(w http.ResponseWriter, r *http.Request) {
 // @Summary     Transfer super admin role to another admin user
 // @Router      /api/users/adm/transfersuperadmin/{username} [post]
 // @Tags        Users
+// @Security    oauth
+// @Produce     json
 // @Param       username path string true "Username of the user to transfer super admin role"
-// @Success     200 {object} schema.User
+// @Success     200 {object} models.ReturnUser
 // @Failure     403 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
@@ -1085,9 +1114,12 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 // @Summary     Create a user
 // @Router      /api/users/{username} [post]
 // @Tags        Users
+// @Security    oauth
+// @Accept      json
+// @Produce     json
 // @Param       username path string true "Username of the user to create"
-// @Param       body body schema.User true "User details"
-// @Success     200 {object} schema.User
+// @Param       body body models.User true "User details"
+// @Success     200 {object} models.ReturnUser
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -1178,9 +1210,12 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 // @Summary     Update a user
 // @Router      /api/users/{username} [put]
 // @Tags        Users
+// @Security    oauth
+// @Accept      json
+// @Produce     json
 // @Param       username path string true "Username of the user to update"
-// @Param       body body schema.User true "User details"
-// @Success     200 {object} schema.User
+// @Param       body body models.User true "User details"
+// @Success     200 {object} models.ReturnUser
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     403 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -1416,8 +1451,12 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 // @Summary     Delete a user
 // @Router      /api/users/{username} [delete]
 // @Tags        Users
+// @Security    oauth
+// @Produce     json
 // @Param       username path string true "Username of the user to delete"
+// @Param       force_delete_configs query string false "Force delete configs"
 // @Success     200 {string} string
+// @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
 func deleteUser(w http.ResponseWriter, r *http.Request) {
 	// Set header
@@ -1570,11 +1609,6 @@ func socketHandler(w http.ResponseWriter, r *http.Request) {
 	go auth.SessionHandler(conn)
 }
 
-// @Summary     lists all user roles.
-// @Tags        Users
-// @Param       role_id query string true "roleid required to get the role details"
-// @Success     200 {object}  []schema.UserRole
-// @Failure     500 {object} models.ErrorResponse
 func listRoles(w http.ResponseWriter, r *http.Request) {
 	var roles []schema.UserRole
 	var err error
@@ -1590,17 +1624,14 @@ func listRoles(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, roles, "successfully fetched user roles permission templates")
 }
 
-// swagger:route POST /api/v1/user/logout user logout
-//
-// LogOut user.
-//
-//			Schemes: https
-//
-//			Security:
-//	  		oauth
-//
-//			Responses:
-//				200: userBodyResponse
+// @Summary     Log out a user
+// @Router      /api/v1/users/logout [post]
+// @Tags        Users
+// @Security    oauth
+// @Produce     json
+// @Param       username query string true "Username"
+// @Success     200 {object} models.SuccessResponse
+// @Failure     400 {object} models.ErrorResponse
 func logout(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
