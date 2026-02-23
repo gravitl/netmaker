@@ -254,14 +254,14 @@ func VerifyHostToken(tokenString string) (hostID string, mac string, network str
 	// this may be a stupid way of serving up a master key
 	// TODO: look into a different method. Encryption?
 	if tokenString == servercfg.GetMasterKey() && servercfg.GetMasterKey() != "" {
-		return "mastermac", "", "", nil
+		return MasterUser, "", "", nil
 	}
 
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		return jwtSecretKey, nil
 	})
 
-	if token != nil {
+	if token != nil && token.Valid {
 		return claims.ID, claims.MacAddress, claims.Network, nil
 	}
 	return "", "", "", err
