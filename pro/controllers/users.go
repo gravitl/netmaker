@@ -1710,7 +1710,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		if !node.IsInternetGateway {
 			hNs := logic.GetNameserversForNode(&node)
 			for _, nsI := range hNs {
-				// skip fallback nameservers for user remote access gws.
+				// skip fallback nameservers for user remote access gws.if nsI.IsFallback {
 				if nsI.IsFallback {
 					continue
 				}
@@ -1770,7 +1770,7 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		if !node.IsInternetGateway {
 			hNs := logic.GetNameserversForNode(&node)
 			for _, nsI := range hNs {
-				// skip fallback nameservers for user remote access gws.
+				// skip fallback nameservers for user remote access gws.if nsI.IsFallback {
 				if nsI.IsFallback {
 					continue
 				}
