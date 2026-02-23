@@ -13,20 +13,6 @@ import (
 	"gorm.io/datatypes"
 )
 
-// GetUser - gets a user
-// TODO support "masteradmin"
-func GetUser(username string) (*schema.User, error) {
-	_user := &schema.User{
-		Username: username,
-	}
-	err := _user.Get(db.WithContext(context.TODO()))
-	if err != nil {
-		return nil, err
-	}
-
-	return _user, nil
-}
-
 // GetReturnUser - gets a user
 func GetReturnUser(username string) (models.ReturnUser, error) {
 	_user := &schema.User{

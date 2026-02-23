@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
@@ -230,7 +231,7 @@ func syncUsers(idpUsers []idp.User) error {
 }
 
 func syncGroups(idpGroups []idp.Group) error {
-	dbGroups, err := proLogic.ListUserGroups()
+	dbGroups, err := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
@@ -263,7 +264,7 @@ func syncGroups(idpGroups []idp.Group) error {
 
 	filters := logic.GetServerSettings().GroupFilters
 
-	networks, err := logic.GetNetworks()
+	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}

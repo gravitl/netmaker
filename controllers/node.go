@@ -13,6 +13,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
@@ -298,11 +299,13 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	}
 	username := r.Header.Get("user")
 	if r.Header.Get("ismaster") == "no" {
-		user, err := logic.GetUser(username)
+		user := &schema.User{Username: username}
+		err = user.Get(r.Context())
 		if err != nil {
 			return
 		}
-		userPlatformRole, err := logic.GetRole(user.PlatformRoleID)
+		userPlatformRole := &schema.UserRole{ID: user.PlatformRoleID}
+		err = userPlatformRole.Get(r.Context())
 		if err != nil {
 			return
 		}

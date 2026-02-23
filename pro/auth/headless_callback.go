@@ -2,14 +2,16 @@ package auth
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net/http"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/pro/netcache"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
+	"gorm.io/gorm"
 )
 
 // HandleHeadlessSSOCallback - handle OAuth callback for headless logins such as Netmaker CLI
@@ -60,9 +62,10 @@ func HandleHeadlessSSOCallback(w http.ResponseWriter, r *http.Request) {
 		handleOauthUserSignUpApprovalPending(w)
 		return
 	}
-	user, err := logic.GetUser(userClaims.getUserName())
+	user := &schema.User{Username: userClaims.getUserName()}
+	err = user.Get(r.Context())
 	if err != nil {
-		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
+		if errors.Is(err, gorm.ErrRecordNotFound) { // user must not exist, so try to make one
 			err = logic.InsertPendingUser(&models.User{
 				UserName:                   userClaims.getUserName(),
 				ExternalIdentityProviderID: string(userClaims.ID),

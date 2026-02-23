@@ -1,6 +1,7 @@
 package mq
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,9 +9,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
@@ -265,8 +268,7 @@ func SendDNSSyncByNetwork(network string) error {
 }
 
 func sendDNSSync() error {
-
-	networks, err := logic.GetNetworks()
+	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	if err == nil && len(networks) > 0 {
 		for _, v := range networks {
 			k, err := logic.GetDNS(v.Name)

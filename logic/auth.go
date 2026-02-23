@@ -101,7 +101,8 @@ func FetchPassValue(newValue string) (string, error) {
 // CreateUser - creates a user
 func CreateUser(_user *schema.User) error {
 	// check if user exists
-	if _, err := GetUser(_user.Username); err == nil {
+	userCheck := &schema.User{Username: _user.Username}
+	if err := userCheck.Get(db.WithContext(context.TODO())); err == nil {
 		return errors.New("user exists")
 	}
 	SetUserDefaults(_user)
@@ -233,14 +234,16 @@ func UpsertUser(_user schema.User) error {
 // UpdateUser - updates a given user
 func UpdateUser(userchange, _user *schema.User) (*schema.User, error) {
 	// check if user exists
-	if _, err := GetUser(_user.Username); err != nil {
+	userCheck := &schema.User{Username: _user.Username}
+	if err := userCheck.Get(db.WithContext(context.TODO())); err != nil {
 		return &schema.User{}, err
 	}
 
 	queryUser := _user.Username
 	if userchange.Username != "" && _user.Username != userchange.Username {
 		// check if username is available
-		if _, err := GetUser(userchange.Username); err == nil {
+		userCheck := &schema.User{Username: userchange.Username}
+		if err := userCheck.Get(db.WithContext(context.TODO())); err == nil {
 			return &schema.User{}, errors.New("username exists already")
 		}
 		if userchange.Username == MasterUser {
@@ -394,7 +397,8 @@ func UpdateUser(userchange, _user *schema.User) (*schema.User, error) {
 func ValidateUser(user *schema.User) error {
 
 	// check if role is valid
-	_, err := GetRole(user.PlatformRoleID)
+	roleCheck := &schema.UserRole{ID: user.PlatformRoleID}
+	err := roleCheck.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return errors.New("failed to fetch platform role " + user.PlatformRoleID.String())
 	}

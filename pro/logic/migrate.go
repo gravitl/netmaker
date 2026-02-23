@@ -3,9 +3,13 @@ package logic
 import (
 	"fmt"
 
+	"context"
+
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 )
 
 func MigrateToGws() {
@@ -75,7 +79,7 @@ func MigrateToGws() {
 			logic.UpsertAcl(acl)
 		}
 	}
-	nets, _ := logic.GetNetworks()
+	nets, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	for _, netI := range nets {
 		DeleteTag(models.TagID(fmt.Sprintf("%s.%s", netI.Name, models.OldRemoteAccessTagName)), true)
 	}

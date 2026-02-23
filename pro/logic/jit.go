@@ -211,7 +211,8 @@ func CheckJITAccess(networkID, userID string) (bool, *schema.JITGrant, error) {
 	}
 
 	// Check if user is super admin, admin, network admin, or global network admin - skip JIT check for them
-	user, err := logic.GetUser(userID)
+	user := &schema.User{Username: userID}
+	err := user.Get(db.WithContext(context.TODO()))
 	if err == nil {
 		// Check platform role (super admin or admin)
 		if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
@@ -454,7 +455,8 @@ func GetUserJITNetworksStatus(networks []schema.Network, userID string) ([]UserJ
 	var result []UserJITNetworkStatus
 
 	// Get user to check admin status
-	user, err := logic.GetUser(userID)
+	user := &schema.User{Username: userID}
+	err := user.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}

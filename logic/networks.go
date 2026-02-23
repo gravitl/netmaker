@@ -40,7 +40,7 @@ func SetAllocatedIpMap() error {
 		allocatedIpMap = map[string]map[string]net.IP{}
 	}
 
-	currentNetworks, err := GetNetworks()
+	currentNetworks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
@@ -132,11 +132,6 @@ func RemoveNetworkFromAllocatedIpMap(networkName string) {
 	networkCacheMutex.Lock()
 	delete(allocatedIpMap, networkName)
 	networkCacheMutex.Unlock()
-}
-
-// GetNetworks - returns all networks from database
-func GetNetworks() ([]schema.Network, error) {
-	return (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 }
 
 // DeleteNetwork - deletes a network
@@ -316,9 +311,9 @@ func GetNetworkNonServerNodeCount(networkName string) (int, error) {
 }
 
 func IsNetworkCIDRUnique(cidr4 *net.IPNet, cidr6 *net.IPNet) bool {
-	networks, err := GetNetworks()
+	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
-		return database.IsEmptyRecord(err)
+		return errors.Is(err, gorm.ErrRecordNotFound)
 	}
 	for _, network := range networks {
 		if intersect(GetNetworkNetworkCIDR4(&network), cidr4) ||
@@ -732,7 +727,7 @@ func SortNetworks(unsortedNetworks []schema.Network) {
 }
 
 var NetworkHook models.HookFunc = func(params ...interface{}) error {
-	networks, err := GetNetworks()
+	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}

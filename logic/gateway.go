@@ -8,10 +8,14 @@ import (
 	"sort"
 	"time"
 
+	"context"
+
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/exp/slog"
 )
@@ -319,7 +323,8 @@ func IsUserAllowedAccessToExtClient(username string, client models.ExtClient) bo
 	if username == MasterUser {
 		return true
 	}
-	user, err := GetUser(username)
+	user := &schema.User{Username: username}
+	err := user.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return false
 	}

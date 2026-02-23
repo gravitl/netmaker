@@ -21,7 +21,7 @@ var failOverCache = make(map[models.NetworkID]string)
 func InitFailOverCache() {
 	failOverCacheMutex.Lock()
 	defer failOverCacheMutex.Unlock()
-	networks, err := logic.GetNetworks()
+	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return
 	}

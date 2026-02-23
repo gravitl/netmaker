@@ -3,20 +3,22 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"gorm.io/gorm"
 )
 
 var google_functions = map[string]interface{}{
@@ -93,9 +95,10 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := logic.GetUser(content.Email)
+	user := &schema.User{Username: content.Email}
+	err = user.Get(r.Context())
 	if err != nil {
-		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
+		if errors.Is(err, gorm.ErrRecordNotFound) { // user must not exist, so try to make one
 			if inviteExists {
 				// create user
 				user, err := proLogic.PrepareOauthUserFromInvite(in)
@@ -142,7 +145,8 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	user, err = logic.GetUser(content.Email)
+	user = &schema.User{Username: content.Email}
+	err = user.Get(r.Context())
 	if err != nil {
 		logger.Log(0, "error fetching user: ", err.Error())
 		handleOauthUserNotFound(w)
@@ -154,7 +158,8 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userRole, err := logic.GetRole(user.PlatformRoleID)
+	userRole := &schema.UserRole{ID: user.PlatformRoleID}
+	err = userRole.Get(r.Context())
 	if err != nil {
 		handleSomethingWentWrong(w)
 		return

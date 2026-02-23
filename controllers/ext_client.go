@@ -459,7 +459,8 @@ func getExtClientHAConf(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("ismaster") == "yes" {
 		userName = logic.MasterUser
 	} else {
-		caller, err := logic.GetUser(r.Header.Get("user"))
+		caller := &schema.User{Username: r.Header.Get("user")}
+		err = caller.Get(r.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
@@ -680,7 +681,8 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("ismaster") == "yes" {
 		userName = logic.MasterUser
 	} else {
-		caller, err := logic.GetUser(r.Header.Get("user"))
+		caller := &schema.User{Username: r.Header.Get("user")}
+		err = caller.Get(r.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return

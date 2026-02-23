@@ -442,7 +442,8 @@ func checkIfAclTagisValid(a models.Acl, t models.AclPolicyTag, isSrc bool) (err 
 		if !isSrc {
 			return errors.New("user cannot be added to destination")
 		}
-		_, err := logic.GetUser(t.Value)
+		userCheck := &schema.User{Username: t.Value}
+		err = userCheck.Get(db.WithContext(context.TODO()))
 		if err != nil {
 			return errors.New("invalid user " + t.Value)
 		}
@@ -594,7 +595,8 @@ func IsUserAllowedToCommunicate(userName string, peer models.Node) (bool, []mode
 	if acl.Enabled {
 		return true, []models.Acl{acl}
 	}
-	user, err := logic.GetUser(userName)
+	user := &schema.User{Username: userName}
+	err := user.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return false, []models.Acl{}
 	}

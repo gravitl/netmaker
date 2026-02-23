@@ -16,6 +16,7 @@
 package migrate
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -262,7 +263,8 @@ func TestSyncUsersCorrectness(t *testing.T) {
 			syncUsers()
 
 			// Verify migration
-			user, err := logic.GetUser(tc.user.Username)
+			user := &schema.User{Username: tc.user.Username}
+			err = user.Get(db.WithContext(context.TODO()))
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedRole, user.PlatformRoleID, "PlatformRoleID should match")
 			assert.NotNil(t, user.UserGroups, "UserGroups should be initialized")

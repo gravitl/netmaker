@@ -83,19 +83,6 @@ var GetUserGroup = func(groupId models.UserGroupID) (userGrps schema.UserGroup, 
 var AddGlobalNetRolesToAdmins = func(u *schema.User) {}
 var EmailInit = func() {}
 
-// GetRole - fetches role template by id
-func GetRole(roleID models.UserRoleID) (*schema.UserRole, error) {
-	userRole := &schema.UserRole{
-		ID: roleID,
-	}
-	err := userRole.Get(db.WithContext(context.TODO()))
-	if err != nil {
-		return nil, err
-	}
-
-	return userRole, nil
-}
-
 func GetAllRsrcIDForRsrc(rsrc models.RsrcType) models.RsrcID {
 	switch rsrc {
 	case models.HostRsrc:

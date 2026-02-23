@@ -91,12 +91,14 @@ func createUserAccessToken(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("username is required"), logic.BadReq))
 		return
 	}
-	caller, err := logic.GetUser(r.Header.Get("user"))
+	caller := &schema.User{Username: r.Header.Get("user")}
+	err = caller.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.UnAuthorized))
 		return
 	}
-	user, err := logic.GetUser(req.UserName)
+	user := &schema.User{Username: req.UserName}
+	err = user.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.UnAuthorized))
 		return
@@ -198,12 +200,14 @@ func deleteUserAccessTokens(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("token does not exist"), "badrequest"))
 		return
 	}
-	caller, err := logic.GetUser(r.Header.Get("user"))
+	caller := &schema.User{Username: r.Header.Get("user")}
+	err = caller.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
 		return
 	}
-	user, err := logic.GetUser(a.UserName)
+	user := &schema.User{Username: a.UserName}
+	err = user.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
 		return
@@ -282,7 +286,8 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 		logic.ReturnErrorResponse(response, request, errorResponse)
 		return
 	}
-	user, err := logic.GetUser(authRequest.UserName)
+	user := &schema.User{Username: authRequest.UserName}
+	err := user.Get(request.Context())
 	if err != nil {
 		logger.Log(0, authRequest.UserName, "user validation failed: ",
 			err.Error())
@@ -312,7 +317,8 @@ func authenticateUser(response http.ResponseWriter, request *http.Request) {
 	if val := request.Header.Get("From-Ui"); val == "true" {
 		// request came from UI, if normal user block Login
 
-		role, err := logic.GetRole(user.PlatformRoleID)
+		role := &schema.UserRole{ID: user.PlatformRoleID}
+		err := role.Get(request.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(response, request, logic.FormatError(errors.New("access denied to dashboard"), "unauthorized"))
 			return
@@ -437,7 +443,8 @@ func validateUserIdentity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := logic.GetUser(username)
+	user := &schema.User{Username: username}
+	err = user.Get(r.Context())
 	if err != nil {
 		logger.Log(0, "failed to get user: ", err.Error())
 		err = fmt.Errorf("user not found: %v", err)
@@ -464,7 +471,8 @@ func validateUserIdentity(w http.ResponseWriter, r *http.Request) {
 func initiateTOTPSetup(w http.ResponseWriter, r *http.Request) {
 	username := r.Header.Get("user")
 
-	user, err := logic.GetUser(username)
+	user := &schema.User{Username: username}
+	err := user.Get(r.Context())
 	if err != nil {
 		logger.Log(0, "failed to get user: ", err.Error())
 		err = fmt.Errorf("user not found: %v", err)
@@ -542,7 +550,8 @@ func completeTOTPSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := logic.GetUser(username)
+	user := &schema.User{Username: username}
+	err = user.Get(r.Context())
 	if err != nil {
 		logger.Log(0, "failed to get user: ", err.Error())
 		err = fmt.Errorf("user not found: %v", err)
@@ -627,7 +636,8 @@ func verifyTOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := logic.GetUser(username)
+	user := &schema.User{Username: username}
+	err = user.Get(r.Context())
 	if err != nil {
 		logger.Log(0, "failed to get user: ", err.Error())
 		err = fmt.Errorf("user not found: %v", err)
@@ -916,7 +926,8 @@ func getUserV1(w http.ResponseWriter, r *http.Request) {
 	user.NumAccessTokens, _ = (&schema.UserAccessToken{
 		UserName: user.UserName,
 	}).CountByUser(r.Context())
-	userRoleTemplate, err := logic.GetRole(user.PlatformRoleID)
+	userRoleTemplate := &schema.UserRole{ID: user.PlatformRoleID}
+	err = userRoleTemplate.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -1021,7 +1032,8 @@ func createSuperAdmin(w http.ResponseWriter, r *http.Request) {
 // @Failure     500 {object} models.ErrorResponse
 func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	caller, err := logic.GetUser(r.Header.Get("user"))
+	caller := &schema.User{Username: r.Header.Get("user")}
+	err := caller.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 	}
@@ -1031,7 +1043,8 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 	var params = mux.Vars(r)
 	username := params["username"]
-	u, err := logic.GetUser(username)
+	u := &schema.User{Username: username}
+	err = u.Get(r.Context())
 	if err != nil {
 		slog.Error("error getting user", "user", u.Username, "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
@@ -1080,7 +1093,8 @@ func transferSuperAdmin(w http.ResponseWriter, r *http.Request) {
 // @Failure     500 {object} models.ErrorResponse
 func createUser(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	caller, err := logic.GetUser(r.Header.Get("user"))
+	caller := &schema.User{Username: r.Header.Get("user")}
+	err := caller.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -1105,7 +1119,8 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("platform role is missing"), "badrequest"))
 		return
 	}
-	userRole, err := logic.GetRole(user.PlatformRoleID)
+	userRole := &schema.UserRole{ID: user.PlatformRoleID}
+	err = userRole.Get(r.Context())
 	if err != nil {
 		err = errors.New("error fetching role " + user.PlatformRoleID.String() + " " + err.Error())
 		slog.Error("error creating new user: ", "user", user.Username, "error", err)
@@ -1179,14 +1194,16 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("user") == logic.MasterUser {
 		ismaster = true
 	} else {
-		caller, err = logic.GetUser(r.Header.Get("user"))
+		caller = &schema.User{Username: r.Header.Get("user")}
+		err = caller.Get(r.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		}
 	}
 
 	username := params["username"]
-	user, err := logic.GetUser(username)
+	user := &schema.User{Username: username}
+	err = user.Get(r.Context())
 	if err != nil {
 		logger.Log(0, username,
 			"failed to update user info: ", err.Error())
@@ -1408,25 +1425,29 @@ func deleteUser(w http.ResponseWriter, r *http.Request) {
 
 	// get params
 	var params = mux.Vars(r)
-	caller, err := logic.GetUser(r.Header.Get("user"))
+	caller := &schema.User{Username: r.Header.Get("user")}
+	err := caller.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 	}
-	callerUserRole, err := logic.GetRole(caller.PlatformRoleID)
+	callerUserRole := &schema.UserRole{ID: caller.PlatformRoleID}
+	err = callerUserRole.Get(r.Context())
 	if err != nil {
 		slog.Error("failed to get role ", "role", callerUserRole.ID, "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
 	username := params["username"]
-	user, err := logic.GetUser(username)
+	user := &schema.User{Username: username}
+	err = user.Get(r.Context())
 	if err != nil {
 		logger.Log(0, username,
 			"failed to update user info: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	userRole, err := logic.GetRole(user.PlatformRoleID)
+	userRole := &schema.UserRole{ID: user.PlatformRoleID}
+	err = userRole.Get(r.Context())
 	if err != nil {
 		slog.Error("failed to get role ", "role", userRole.ID, "error", err)
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -1584,7 +1605,8 @@ func logout(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
 	userName := r.URL.Query().Get("username")
-	user, err := logic.GetUser(userName)
+	user := &schema.User{Username: userName}
+	err := user.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return

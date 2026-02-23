@@ -48,7 +48,7 @@ func Run() {
 
 func checkAndDeprecateOldAcls() {
 	// check if everything is allowed on old acl and disable old acls
-	nets, _ := logic.GetNetworks()
+	nets, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	disableOldAcls := true
 	for _, netI := range nets {
 		networkACL, err := nodeacls.FetchAllACLs(nodeacls.NetworkID(netI.Name))
@@ -90,7 +90,7 @@ func initializeVirtualNATSettings() {
 	logger.Log(1, "Initializing Virtual NAT settings for existing networks")
 	defer logger.Log(1, "Completed initializing Virtual NAT settings for existing networks")
 
-	networks, err := logic.GetNetworks()
+	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		logger.Log(0, "failed to get networks for Virtual NAT migration:", err.Error())
 		return
@@ -312,7 +312,8 @@ func assignSuperAdmin() {
 	createdSuperAdmin := false
 	owner := servercfg.GetOwnerEmail()
 	if owner != "" {
-		user, err := logic.GetUser(owner)
+		user := &schema.User{Username: owner}
+		err = user.Get(db.WithContext(context.TODO()))
 		if err != nil {
 			log.Fatal("error getting user", "user", owner, "error", err.Error())
 		}
@@ -339,7 +340,8 @@ func assignSuperAdmin() {
 		}
 
 		if isAdmin {
-			user, err := logic.GetUser(u.UserName)
+			user := &schema.User{Username: u.UserName}
+			err = user.Get(db.WithContext(context.TODO()))
 			if err != nil {
 				slog.Error("error getting user", "user", u.UserName, "error", err.Error())
 				continue
@@ -413,7 +415,7 @@ func updateEnrollmentKeys() {
 			existingTags[t] = struct{}{}
 		}
 	}
-	networks, _ := logic.GetNetworks()
+	networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	for _, network := range networks {
 		if _, ok := existingTags[network.Name]; ok {
 			continue
@@ -430,7 +432,6 @@ func updateEnrollmentKeys() {
 			false,
 			false,
 		)
-
 	}
 }
 
@@ -532,8 +533,8 @@ func updateAcls() {
 	if !logic.GetServerSettings().OldAClsSupport {
 		return
 	}
-	networks, err := logic.GetNetworks()
-	if err != nil && !database.IsEmptyRecord(err) {
+	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	if err != nil {
 		slog.Error("acls migration failed. error getting networks", "error", err)
 		return
 	}
@@ -654,7 +655,7 @@ func updateAcls() {
 
 func updateNewAcls() {
 	if servercfg.IsPro {
-		userGroups, _ := logic.ListUserGroups()
+		userGroups, _ := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
 		userGroupMap := make(map[models.UserGroupID]schema.UserGroup)
 		for _, userGroup := range userGroups {
 			userGroupMap[userGroup.ID] = userGroup
@@ -718,7 +719,7 @@ func syncUsers() {
 	defer logger.Log(1, "Completed migrating Users (SyncUsers)")
 	// create default network user roles for existing networks
 	if servercfg.IsPro {
-		networks, _ := logic.GetNetworks()
+		networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 		for _, netI := range networks {
 			logic.CreateDefaultNetworkRolesAndGroups(models.NetworkID(netI.Name))
 		}
@@ -744,7 +745,7 @@ func syncUsers() {
 }
 
 func createDefaultTagsAndPolicies() {
-	networks, err := logic.GetNetworks()
+	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return
 	}

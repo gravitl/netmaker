@@ -14,6 +14,7 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	proLogic "github.com/gravitl/netmaker/pro/logic"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/microsoft"
@@ -90,7 +91,8 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := logic.GetUser(content.UserPrincipalName)
+	user := &schema.User{Username: content.UserPrincipalName}
+	err = user.Get(r.Context())
 	if err != nil {
 		if database.IsEmptyRecord(err) { // user must not exist, so try to make one
 			if inviteExists {
@@ -139,7 +141,8 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	user, err = logic.GetUser(content.UserPrincipalName)
+	user = &schema.User{Username: content.UserPrincipalName}
+	err = user.Get(r.Context())
 	if err != nil {
 		handleOauthUserNotFound(w)
 		return
@@ -150,7 +153,8 @@ func handleAzureCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userRole, err := logic.GetRole(user.PlatformRoleID)
+	userRole := &schema.UserRole{ID: user.PlatformRoleID}
+	err = userRole.Get(r.Context())
 	if err != nil {
 		handleSomethingWentWrong(w)
 		return

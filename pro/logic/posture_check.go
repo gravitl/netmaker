@@ -62,7 +62,7 @@ func RunPostureChecks() error {
 	}
 	postureCheckMutex.Lock()
 	defer postureCheckMutex.Unlock()
-	nets, err := logic.GetNetworks()
+	nets, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
@@ -319,7 +319,8 @@ func GetPostureCheckDeviceInfoByNode(node *models.Node) models.PostureCheckDevic
 		}
 		// get user groups
 		if node.StaticNode.OwnerID != "" {
-			user, err := logic.GetUser(node.StaticNode.OwnerID)
+			user := &schema.User{Username: node.StaticNode.OwnerID}
+			err := user.Get(db.WithContext(context.TODO()))
 			if err == nil && len(user.UserGroups.Data()) > 0 {
 				deviceInfo.UserGroups = user.UserGroups.Data()
 				if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {

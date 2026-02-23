@@ -67,7 +67,8 @@ func handleJIT(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := logic.GetUser(username)
+	user := &schema.User{Username: username}
+	err := user.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
 		return
@@ -307,7 +308,8 @@ func deleteJITGrant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := logic.GetUser(username)
+	user := &schema.User{Username: username}
+	err := user.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
 		return
@@ -427,14 +429,15 @@ func getUserJITNetworks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := logic.GetUser(username)
+	user := &schema.User{Username: username}
+	err := user.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
 		return
 	}
 
 	// Get all networks user has access to
-	allNetworks, err := logic.GetNetworks()
+	allNetworks, err := (&schema.Network{}).ListAll(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
@@ -469,7 +472,8 @@ func requestJITAccess(w http.ResponseWriter, r *http.Request) {
 	}
 	network := r.URL.Query().Get("network")
 
-	user, err := logic.GetUser(username)
+	user := &schema.User{Username: username}
+	err := user.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "unauthorized"))
 		return
@@ -494,7 +498,7 @@ func requestJITAccess(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Check if user has access to the network by role
-	allNetworks, err := logic.GetNetworks()
+	allNetworks, err := (&schema.Network{}).ListAll(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return

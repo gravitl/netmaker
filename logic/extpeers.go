@@ -100,7 +100,8 @@ func GetEgressRangesOnNetwork(client *models.ExtClient) ([]string, error) {
 			result = append(result, rangesToBeAdded...)
 		} else {
 			if staticNode.IsUserNode && staticNode.StaticNode.OwnerID != "" {
-				user, err := GetUser(staticNode.StaticNode.OwnerID)
+				user := &schema.User{Username: staticNode.StaticNode.OwnerID}
+				err := user.Get(db.WithContext(context.TODO()))
 				if err != nil {
 					return []string{}, errors.New("user not found")
 				}
@@ -497,7 +498,7 @@ func GetExtClientsByID(nodeid, network string) ([]models.ExtClient, error) {
 // GetAllExtClients - gets all ext clients from DB
 func GetAllExtClients() ([]models.ExtClient, error) {
 	var clients = []models.ExtClient{}
-	currentNetworks, err := GetNetworks()
+	currentNetworks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil && database.IsEmptyRecord(err) {
 		return clients, nil
 	} else if err != nil {

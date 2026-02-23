@@ -6,8 +6,12 @@ import (
 	"net/http"
 	"strings"
 
+	"context"
+
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 )
 
@@ -33,11 +37,13 @@ const (
 
 func NetworkPermissionsCheck(username string, r *http.Request) error {
 	// at this point global checks should be completed
-	user, err := logic.GetUser(username)
+	user := &schema.User{Username: username}
+	err := user.Get(r.Context())
 	if err != nil {
 		return err
 	}
-	userRole, err := logic.GetRole(user.PlatformRoleID)
+	userRole := &schema.UserRole{ID: user.PlatformRoleID}
+	err = userRole.Get(r.Context())
 	if err != nil {
 		return errors.New("access denied")
 	}
@@ -99,7 +105,8 @@ func NetworkPermissionsCheck(username string, r *http.Request) error {
 }
 
 func checkNetworkAccessPermissions(netRoleID models.UserRoleID, username, reqScope, targetRsrc, targetRsrcID, netID string) error {
-	networkPermissionScope, err := logic.GetRole(netRoleID)
+	networkPermissionScope := &schema.UserRole{ID: netRoleID}
+	err := networkPermissionScope.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
@@ -140,11 +147,13 @@ func checkNetworkAccessPermissions(netRoleID models.UserRoleID, username, reqSco
 }
 
 func GlobalPermissionsCheck(username string, r *http.Request) error {
-	user, err := logic.GetUser(username)
+	user := &schema.User{Username: username}
+	err := user.Get(r.Context())
 	if err != nil {
 		return err
 	}
-	userRole, err := logic.GetRole(user.PlatformRoleID)
+	userRole := &schema.UserRole{ID: user.PlatformRoleID}
+	err = userRole.Get(r.Context())
 	if err != nil {
 		return errors.New("access denied")
 	}

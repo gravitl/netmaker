@@ -1,7 +1,9 @@
 package auth
 
 import (
-	"github.com/gravitl/netmaker/logic"
+	"context"
+
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
 )
 
@@ -12,7 +14,8 @@ const (
 
 func isUserIsAllowed(username, network string) (*schema.User, error) {
 
-	user, err := logic.GetUser(username)
+	user := &schema.User{Username: username}
+	err := user.Get(db.WithContext(context.TODO()))
 	if err != nil { // user must not exist, so try to make one
 		return &schema.User{}, err
 	}

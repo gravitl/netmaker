@@ -116,8 +116,8 @@ func SetDNS() error {
 		return err
 	}
 	var corefilestring string
-	networks, err := GetNetworks()
-	if err != nil && !database.IsEmptyRecord(err) {
+	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	if err != nil {
 		return err
 	}
 
@@ -336,8 +336,8 @@ func SetCorefile(domains string) error {
 // GetAllDNS - gets all dns entries
 func GetAllDNS() ([]models.DNSEntry, error) {
 	var dns []models.DNSEntry
-	networks, err := GetNetworks()
-	if err != nil && !database.IsEmptyRecord(err) {
+	networks, err := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
+	if err != nil {
 		return []models.DNSEntry{}, err
 	}
 	for _, net := range networks {

@@ -102,7 +102,8 @@ func userInviteSignUp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// check if user already exists
-	_, err = logic.GetUser(email)
+	userCheck := &schema.User{Username: email}
+	err = userCheck.Get(r.Context())
 	if err == nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("user already exists"), "badrequest"))
 		return
@@ -183,7 +184,8 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	callerUserName := r.Header.Get("user")
 	if r.Header.Get("ismaster") != "yes" {
-		caller, err := logic.GetUser(callerUserName)
+		caller := &schema.User{Username: callerUserName}
+		err = caller.Get(r.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "notfound"))
 			return
@@ -216,7 +218,8 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// check platform role
-	_, err = logic.GetRole(models.UserRoleID(inviteReq.PlatformRoleID))
+	roleCheck := &schema.UserRole{ID: models.UserRoleID(inviteReq.PlatformRoleID)}
+	err = roleCheck.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -228,7 +231,8 @@ func inviteUsers(w http.ResponseWriter, r *http.Request) {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("invalid email "+inviteeEmail), "badrequest"))
 			return
 		}
-		_, err := logic.GetUser(inviteeEmail)
+		inviteeCheck := &schema.User{Username: inviteeEmail}
+		err = inviteeCheck.Get(r.Context())
 		if err == nil {
 			// user exists already, so ignore
 			continue
@@ -412,7 +416,7 @@ func deleteAllUserInvites(w http.ResponseWriter, r *http.Request) {
 //			Responses:
 //				200: userBodyResponse
 func listUserGroups(w http.ResponseWriter, r *http.Request) {
-	groups, err := proLogic.ListUserGroups()
+	groups, err := (&schema.UserGroup{}).ListAll(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
 			Code:    http.StatusInternalServerError,
@@ -489,7 +493,8 @@ func createUserGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, userID := range userGroupReq.Members {
-		user, err := logic.GetUser(userID)
+		user := &schema.User{Username: userID}
+		err = user.Get(r.Context())
 		if err != nil {
 			continue
 		}
@@ -630,7 +635,7 @@ func updateUserGroup(w http.ResponseWriter, r *http.Request) {
 
 		if removeAllNetworksCurrRoleAcls || addAllNetworksNewRoleAcls {
 			const globalNetworkAdmin = "global-network-admin"
-			networks, _ := logic.GetNetworks()
+			networks, _ := (&schema.Network{}).ListAll(r.Context())
 			for _, network := range networks {
 				if removeAllNetworksCurrRoleAcls {
 					currRole := models.NetworkUser
@@ -832,7 +837,8 @@ func addUsertoNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), logic.BadReq))
 		return
 	}
-	user, err := logic.GetUser(username)
+	user := &schema.User{Username: username}
+	err := user.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
@@ -889,7 +895,8 @@ func removeUserfromNetwork(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("network is required"), logic.BadReq))
 		return
 	}
-	user, err := logic.GetUser(username)
+	user := &schema.User{Username: username}
+	err := user.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, logic.BadReq))
 		return
@@ -1026,7 +1033,8 @@ func getRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
 	}
-	role, err := logic.GetRole(models.UserRoleID(rid))
+	role := &schema.UserRole{ID: models.UserRoleID(rid)}
+	err := role.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, models.ErrorResponse{
 			Code:    http.StatusInternalServerError,
@@ -1097,7 +1105,8 @@ func updateRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	currRole, err := logic.GetRole(userRole.ID)
+	currRole := &schema.UserRole{ID: userRole.ID}
+	err = currRole.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
@@ -1150,7 +1159,8 @@ func deleteRole(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
 	}
-	role, err := logic.GetRole(models.UserRoleID(rid))
+	role := &schema.UserRole{ID: models.UserRoleID(rid)}
+	err := role.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("role is required"), "badrequest"))
 		return
@@ -1211,7 +1221,8 @@ func attachUserToRemoteAccessGw(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	user, err := logic.GetUser(username)
+	user := &schema.User{Username: username}
+	err := user.Get(r.Context())
 	if err != nil {
 		slog.Error("failed to fetch user: ", "username", username, "error", err.Error())
 		logic.ReturnErrorResponse(
@@ -1294,7 +1305,8 @@ func removeUserFromRemoteAccessGW(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	user, err := logic.GetUser(username)
+	user := &schema.User{Username: username}
+	err := user.Get(r.Context())
 	if err != nil {
 		logger.Log(0, username, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(
@@ -1356,7 +1368,8 @@ func getUserRemoteAccessNetworks(w http.ResponseWriter, r *http.Request) {
 	// set header.
 	w.Header().Set("Content-Type", "application/json")
 	username := r.Header.Get("user")
-	user, err := logic.GetUser(username)
+	user := &schema.User{Username: username}
+	err := user.Get(r.Context())
 	if err != nil {
 		logger.Log(0, username, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
@@ -1394,7 +1407,8 @@ func getUserRemoteAccessNetworkGateways(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	username := r.Header.Get("user")
-	user, err := logic.GetUser(username)
+	user := &schema.User{Username: username}
+	err := user.Get(r.Context())
 	if err != nil {
 		logger.Log(0, username, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
@@ -1444,7 +1458,8 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var params = mux.Vars(r)
 	username := r.Header.Get("user")
-	user, err := logic.GetUser(username)
+	user := &schema.User{Username: username}
+	err := user.Get(r.Context())
 	if err != nil {
 		logger.Log(0, username, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
@@ -1576,7 +1591,8 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("required params username"), "badrequest"))
 		return
 	}
-	user, err := logic.GetUser(username)
+	user := &schema.User{Username: username}
+	err := user.Get(r.Context())
 	if err != nil {
 		logger.Log(0, username, "failed to fetch user: ", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch user %s, error: %v", username, err), "badrequest"))
@@ -1868,7 +1884,8 @@ func userNetworkMapping(w http.ResponseWriter, r *http.Request) {
 			if extclient.OwnerID == "" {
 				continue
 			}
-			user, err := logic.GetUser(extclient.OwnerID)
+			user := &schema.User{Username: extclient.OwnerID}
+			err = user.Get(r.Context())
 			if err != nil {
 				continue
 			}

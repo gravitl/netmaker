@@ -59,7 +59,7 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
-	allnetworks, err := logic.GetNetworks()
+	allnetworks, err := (&schema.Network{}).ListAll(r.Context())
 	if err != nil && !database.IsEmptyRecord(err) {
 		slog.Error("failed to fetch networks", "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -67,7 +67,8 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Header.Get("ismaster") != "yes" {
 		username := r.Header.Get("user")
-		user, err := logic.GetUser(username)
+		user := &schema.User{Username: username}
+		err = user.Get(r.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return
@@ -91,7 +92,7 @@ func getNetworks(w http.ResponseWriter, r *http.Request) {
 func getNetworksStats(w http.ResponseWriter, r *http.Request) {
 
 	var err error
-	allnetworks, err := logic.GetNetworks()
+	allnetworks, err := (&schema.Network{}).ListAll(r.Context())
 	if err != nil && !database.IsEmptyRecord(err) {
 		slog.Error("failed to fetch networks", "error", err.Error())
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -99,7 +100,8 @@ func getNetworksStats(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Header.Get("ismaster") != "yes" {
 		username := r.Header.Get("user")
-		user, err := logic.GetUser(username)
+		user := &schema.User{Username: username}
+		err = user.Get(r.Context())
 		if err != nil {
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 			return

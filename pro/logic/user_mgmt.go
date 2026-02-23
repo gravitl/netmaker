@@ -343,7 +343,7 @@ func DeleteNetworkRoles(netID string) {
 		ID: defaultAdminGrpID,
 	}).Delete(db.WithContext(context.TODO()))
 
-	userGs, _ := ListUserGroups()
+	userGs, _ := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
 	for _, userGI := range userGs {
 		if _, ok := userGI.NetworkRoles.Data()[models.NetworkID(netID)]; ok {
 			delete(userGI.NetworkRoles.Data(), models.NetworkID(netID))
@@ -359,7 +359,8 @@ func DeleteNetworkRoles(netID string) {
 
 func ValidateCreateRoleReq(userRole *schema.UserRole) error {
 	// check if role exists with this id
-	_, err := logic.GetRole(userRole.ID)
+	roleCheck := &schema.UserRole{ID: userRole.ID}
+	err := roleCheck.Get(db.WithContext(context.TODO()))
 	if err == nil {
 		return fmt.Errorf("role with id `%s` exists already", userRole.ID.String())
 	}
@@ -400,7 +401,8 @@ func ValidateCreateRoleReq(userRole *schema.UserRole) error {
 }
 
 func ValidateUpdateRoleReq(userRole *schema.UserRole) error {
-	roleInDB, err := logic.GetRole(userRole.ID)
+	roleInDB := &schema.UserRole{ID: userRole.ID}
+	err := roleInDB.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
@@ -481,7 +483,8 @@ func DeleteRole(rid models.UserRoleID, force bool) error {
 	if err != nil {
 		return err
 	}
-	role, err := logic.GetRole(rid)
+	role := &schema.UserRole{ID: rid}
+	err = role.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
@@ -531,7 +534,8 @@ func ValidateCreateGroupReq(g schema.UserGroup) error {
 	// check if network roles are valid
 	for _, roleMap := range g.NetworkRoles.Data() {
 		for roleID := range roleMap {
-			role, err := logic.GetRole(roleID)
+			role := &schema.UserRole{ID: roleID}
+			err := role.Get(db.WithContext(context.TODO()))
 			if err != nil {
 				return fmt.Errorf("invalid network role %s", roleID)
 			}
@@ -553,7 +557,8 @@ func ValidateUpdateGroupReq(new schema.UserGroup) error {
 
 		userRolesMap := new.NetworkRoles.Data()[networkID]
 		for roleID := range userRolesMap {
-			netRole, err := logic.GetRole(roleID)
+			netRole := &schema.UserRole{ID: roleID}
+			err := netRole.Get(db.WithContext(context.TODO()))
 			if err != nil {
 				err = fmt.Errorf("invalid network role")
 				return err
@@ -649,11 +654,6 @@ func GetDefaultNetworkUserRoleID(networkID models.NetworkID) models.UserRoleID {
 	return models.UserRoleID(fmt.Sprintf("%s-%s", networkID, models.NetworkUser))
 }
 
-// ListUserGroups - lists user groups
-func ListUserGroups() ([]schema.UserGroup, error) {
-	return (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
-}
-
 // UpdateUserGroup - updates new user group
 func UpdateUserGroup(g schema.UserGroup) error {
 	// check if the group exists
@@ -674,7 +674,7 @@ func DeleteAndCleanUpGroup(group *schema.UserGroup) error {
 
 		_, ok := group.NetworkRoles.Data()[models.AllNetworks]
 		if ok {
-			networks, _ := logic.GetNetworks()
+			networks, _ := (&schema.Network{}).ListAll(db.WithContext(context.TODO()))
 			for _, network := range networks {
 				networkIDs = append(networkIDs, models.NetworkID(network.Name))
 			}
@@ -788,7 +788,8 @@ func GetFilteredNodesByUserAccess(user *schema.User, nodes []models.Node) (filte
 }
 
 func FilterNetworksByRole(allnetworks []schema.Network, user *schema.User) []schema.Network {
-	platformRole, err := logic.GetRole(user.PlatformRoleID)
+	platformRole := &schema.UserRole{ID: user.PlatformRoleID}
+	err := platformRole.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return []schema.Network{}
 	}
@@ -856,7 +857,8 @@ func IsNetworkRolesValid(networkRoles map[models.NetworkID]map[models.UserRoleID
 			}
 		}
 		for netRoleID := range netRoles {
-			role, err := logic.GetRole(netRoleID)
+			role := &schema.UserRole{ID: netRoleID}
+			err := role.Get(db.WithContext(context.TODO()))
 			if err != nil {
 				return fmt.Errorf("failed to fetch role %s ", netRoleID)
 			}
@@ -1255,7 +1257,7 @@ func CreateDefaultUserPolicies(netID models.NetworkID) {
 }
 
 func GetUserGroupsInNetwork(netID models.NetworkID) (networkGrps map[models.UserGroupID]schema.UserGroup) {
-	groups, _ := ListUserGroups()
+	groups, _ := (&schema.UserGroup{}).ListAll(db.WithContext(context.TODO()))
 	networkGrps = make(map[models.UserGroupID]schema.UserGroup)
 	for _, grp := range groups {
 		if _, ok := grp.NetworkRoles.Data()[models.AllNetworks]; ok {

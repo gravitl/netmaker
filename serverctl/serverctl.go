@@ -1,13 +1,16 @@
 package serverctl
 
 import (
+	"context"
 	"strings"
 
 	"github.com/gravitl/netmaker/database"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/logic/acls"
 	"github.com/gravitl/netmaker/logic/acls/nodeacls"
+	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 )
 
@@ -50,11 +53,12 @@ func setNodeDefaults() error {
 
 func setUserDefaults() error {
 	users, err := logic.GetUsers()
-	if err != nil && !database.IsEmptyRecord(err) {
+	if err != nil {
 		return err
 	}
 	for _, user := range users {
-		updateUser, err := logic.GetUser(user.UserName)
+		updateUser := &schema.User{Username: user.UserName}
+		err = updateUser.Get(db.WithContext(context.TODO()))
 		if err != nil {
 			slog.Error("could not get user", "user", updateUser.Username, "error", err.Error())
 		}
