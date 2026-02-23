@@ -34,10 +34,10 @@ type Network struct {
 	JITEnabled                  bool      `json:"jit_enabled"`
 	VirtualNATPoolIPv4          string    `json:"virtual_nat_pool_ipv4"`
 	VirtualNATSitePrefixLenIPv4 int       `json:"virtual_nat_site_prefixlen_ipv4"`
-	NodesUpdatedAt              time.Time `json:"nodeslastmodified"`
+	NodesUpdatedAt              time.Time `json:"nodes_updated_at"`
 	CreatedBy                   string    `json:"created_by"`
 	CreatedAt                   time.Time `json:"created_at"`
-	UpdatedAt                   time.Time `json:"networklastmodified"`
+	UpdatedAt                   time.Time `json:"updated_at"`
 }
 
 func (n *Network) TableName() string {

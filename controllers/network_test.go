@@ -135,7 +135,7 @@ func TestValidateNetwork(t *testing.T) {
 				Name:         "skynet",
 				AddressRange: "10.0.0.256",
 			},
-			errMessage: "Field validation for 'AddressRange' failed on the 'cidrv4' tag",
+			errMessage: "invalid CIDR address: 10.0.0.256",
 		},
 		{
 			testname: "InvalidAddress6",
@@ -143,21 +143,21 @@ func TestValidateNetwork(t *testing.T) {
 				Name:          "skynet1",
 				AddressRange6: "2607::ffff/130",
 			},
-			errMessage: "Field validation for 'AddressRange6' failed on the 'cidrv6' tag",
+			errMessage: "invalid CIDR address: 2607::ffff/130",
 		},
 		{
 			testname: "InvalidNetID",
 			network: schema.Network{
 				Name: "with spaces",
 			},
-			errMessage: "Field validation for 'NetID' failed on the 'netid_valid' tag",
+			errMessage: "invalid character(s) in network name",
 		},
 		{
 			testname: "NetIDTooLong",
 			network: schema.Network{
 				Name: "LongNetIDNameForMaxCharactersTest",
 			},
-			errMessage: "Field validation for 'NetID' failed on the 'max' tag",
+			errMessage: "network name cannot be longer than 32 characters",
 		},
 		{
 			testname: "KeepAliveTooBig",
@@ -165,7 +165,7 @@ func TestValidateNetwork(t *testing.T) {
 				Name:             "skynet",
 				DefaultKeepAlive: 1010,
 			},
-			errMessage: "Field validation for 'DefaultKeepalive' failed on the 'max' tag",
+			errMessage: "default keep alive must be less than 1000",
 		},
 	}
 	for _, tc := range cases {
@@ -173,6 +173,7 @@ func TestValidateNetwork(t *testing.T) {
 			t.Log(tc.testname)
 			network := tc.network
 			err := logic.ValidateNetwork(&network, false)
+
 			assert.NotNil(t, err)
 			assert.Contains(t, err.Error(), tc.errMessage) // test passes if err.Error() contains the expected errMessage.
 		})

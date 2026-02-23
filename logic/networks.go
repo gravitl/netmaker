@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/c-robinson/iplib"
-	validator "github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
@@ -20,7 +19,6 @@ import (
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
-	"github.com/gravitl/netmaker/validation"
 	"golang.org/x/exp/slog"
 	"gorm.io/gorm"
 )
@@ -645,42 +643,62 @@ func UpdateNetwork(currentNetwork, newNetwork *schema.Network) error {
 	return currentNetwork.Update(db.WithContext(context.TODO()))
 }
 
-// NetIDInNetworkCharSet - checks if a netid of a network uses valid characters
-func NetIDInNetworkCharSet(network *schema.Network) bool {
+// validateNetName - checks if a netid of a network uses valid characters
+func validateNetName(network *schema.Network) error {
+	var validationErr error
+
+	if len(network.Name) == 0 {
+		validationErr = errors.New("network name cannot be empty")
+	}
+
+	if len(network.Name) > 32 {
+		validationErr = errors.New("network name cannot be longer than 32 characters")
+	}
 
 	charset := "abcdefghijklmnopqrstuvwxyz1234567890-_"
-
 	for _, char := range network.Name {
 		if !strings.Contains(charset, string(char)) {
-			return false
+			validationErr = errors.Join(validationErr, errors.New("invalid character(s) in network name"))
 		}
 	}
-	return true
+
+	return validationErr
 }
 
 // Validate - validates fields of an network struct
 func ValidateNetwork(network *schema.Network, isUpdate bool) error {
-	v := validator.New()
-	_ = v.RegisterValidation("netid_valid", func(fl validator.FieldLevel) bool {
-		inCharSet := NetIDInNetworkCharSet(network)
-		if isUpdate {
-			return inCharSet
-		}
-		isFieldUnique, _ := IsNetworkNameUnique(network)
-		return isFieldUnique && inCharSet
-	})
-	//
-	_ = v.RegisterValidation("checkyesorno", func(fl validator.FieldLevel) bool {
-		return validation.CheckYesOrNo(fl)
-	})
-	err := v.Struct(network)
-	if err != nil {
-		for _, e := range err.(validator.ValidationErrors) {
-			fmt.Println(e)
+	var validationErr error
+	if !isUpdate {
+		err := validateNetName(network)
+		if err != nil {
+			validationErr = errors.Join(validationErr, err)
 		}
 	}
 
-	return err
+	nameUnique, _ := IsNetworkNameUnique(network)
+	if !nameUnique {
+		validationErr = errors.Join(validationErr, errors.New("invalid network name"))
+	}
+
+	if network.AddressRange != "" {
+		_, _, err := net.ParseCIDR(network.AddressRange)
+		if err != nil {
+			validationErr = errors.Join(validationErr, err)
+		}
+	}
+
+	if network.AddressRange6 != "" {
+		_, _, err := net.ParseCIDR(network.AddressRange6)
+		if err != nil {
+			validationErr = errors.Join(validationErr, err)
+		}
+	}
+
+	if network.DefaultKeepAlive > 1000 {
+		validationErr = errors.Join(validationErr, errors.New("default keep alive must be less than 1000"))
+	}
+
+	return validationErr
 }
 
 // SaveNetwork - save network struct to database
