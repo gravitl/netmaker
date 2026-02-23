@@ -6,8 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gorilla/mux"
 	"context"
+
+	"github.com/gorilla/mux"
 
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
@@ -153,7 +154,7 @@ func GlobalPermissionsCheck(username string, r *http.Request) error {
 		return err
 	}
 	user := &schema.User{Username: username}
-	err := user.Get(r.Context())
+	err = user.Get(r.Context())
 	if err != nil {
 		return err
 	}
