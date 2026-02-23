@@ -74,7 +74,7 @@ func TestGetNetwork(t *testing.T) {
 		network := &schema.Network{Name: "doesnotexist"}
 		err := network.Get(db.WithContext(context.TODO()))
 		assert.EqualError(t, err, gorm.ErrRecordNotFound.Error())
-		assert.Equal(t, "", network.Name)
+		assert.Equal(t, "", network.ID)
 	})
 }
 
