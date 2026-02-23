@@ -187,9 +187,8 @@ func GetUserNameFromToken(authtoken string) (username string, err error) {
 	}
 
 	if token != nil && token.Valid {
-		var user *schema.User
 		// check that user exists
-		user = &schema.User{Username: claims.UserName}
+		user := &schema.User{Username: claims.UserName}
 		err = user.Get(db.WithContext(context.TODO()))
 		if err != nil {
 			return "", err
@@ -233,9 +232,8 @@ func VerifyUserToken(tokenString string) (username string, issuperadmin, isadmin
 		}
 	}
 	if token != nil && token.Valid {
-		var user *schema.User
 		// check that user exists
-		user = &schema.User{Username: claims.UserName}
+		user := &schema.User{Username: claims.UserName}
 		err = user.Get(db.WithContext(context.TODO()))
 		if err != nil {
 			return "", false, false, err
