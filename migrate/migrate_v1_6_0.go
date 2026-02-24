@@ -86,7 +86,7 @@ func migrateV1_6_0(ctx context.Context) error {
 
 func migrateUsers(ctx context.Context) error {
 	records, err := database.FetchRecords(database.USERS_TABLE_NAME)
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
 
@@ -140,7 +140,7 @@ func migrateUsers(ctx context.Context) error {
 
 func migrateNetworks(ctx context.Context) error {
 	records, err := database.FetchRecords(database.NETWORKS_TABLE_NAME)
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
 
@@ -204,7 +204,7 @@ func migrateNetworks(ctx context.Context) error {
 
 func migrateUserRoles(ctx context.Context) error {
 	records, err := database.FetchRecords(database.USER_PERMISSIONS_TABLE_NAME)
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
 
@@ -229,7 +229,7 @@ func migrateUserRoles(ctx context.Context) error {
 
 func migrateUserGroups(ctx context.Context) error {
 	records, err := database.FetchRecords(database.USER_GROUPS_TABLE_NAME)
-	if err != nil {
+	if err != nil && !database.IsEmptyRecord(err) {
 		return err
 	}
 
