@@ -58,7 +58,7 @@ func TestCreateNetwork(t *testing.T) {
 	// if tests break - check here (removed displayname)
 	//network.DisplayName = "mynetwork"
 
-	_, err := logic.CreateNetwork(&network)
+	err := logic.CreateNetwork(&network)
 	assert.Nil(t, err)
 }
 func TestGetNetwork(t *testing.T) {
