@@ -12,9 +12,16 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
+	"gorm.io/datatypes"
 )
 
 var EventActivityCh = make(chan models.Event, 100)
+
+var allowUnexported = []any{
+	datatypes.JSONType[map[models.UserGroupID]struct{}]{},
+	datatypes.JSONType[schema.ResourceAccess]{},
+	datatypes.JSONType[schema.NetworkRoles]{},
+}
 
 func LogEvent(a *models.Event) {
 	EventActivityCh <- *a
@@ -43,7 +50,7 @@ func EventWatcher() {
 	for e := range EventActivityCh {
 		if e.Action == models.Update {
 			// check if diff
-			if cmp.Equal(e.Diff.Old, e.Diff.New) {
+			if cmp.Equal(e.Diff.Old, e.Diff.New, cmp.AllowUnexported(allowUnexported...)) {
 				continue
 			}
 		}

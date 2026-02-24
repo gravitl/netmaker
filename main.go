@@ -53,6 +53,7 @@ var version = "v1.5.0"
 func main() {
 	absoluteConfigPath := flag.String("c", "", "absolute path to configuration file")
 	flag.Parse()
+	setVerbosity()
 	setupConfig(*absoluteConfigPath)
 	servercfg.SetVersion(version)
 	fmt.Println(models.RetrieveLogo()) // print the logo
@@ -60,7 +61,6 @@ func main() {
 	logic.SetAllocatedIpMap()
 	defer logic.ClearAllocatedIpMap()
 	setGarbageCollection()
-	setVerbosity()
 	if servercfg.DeployedByOperator() && !servercfg.IsPro {
 		logic.SetFreeTierLimits()
 	}

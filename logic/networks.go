@@ -239,23 +239,23 @@ func cidrOverlaps(a, b *net.IPNet) bool {
 }
 
 // CreateNetwork - creates a network in database
-func CreateNetwork(_network *schema.Network) (*schema.Network, error) {
+func CreateNetwork(_network *schema.Network) error {
 	if _network.AddressRange != "" {
 		normalizedRange, err := NormalizeCIDR(_network.AddressRange)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		_network.AddressRange = normalizedRange
 	}
 	if _network.AddressRange6 != "" {
 		normalizedRange, err := NormalizeCIDR(_network.AddressRange6)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		_network.AddressRange6 = normalizedRange
 	}
 	if !IsNetworkCIDRUnique(GetNetworkNetworkCIDR4(_network), GetNetworkNetworkCIDR6(_network)) {
-		return nil, errors.New("network cidr already in use")
+		return errors.New("network cidr already in use")
 	}
 
 	_network.NodesUpdatedAt = time.Now().UTC()
@@ -263,12 +263,12 @@ func CreateNetwork(_network *schema.Network) (*schema.Network, error) {
 	err := ValidateNetwork(_network, false)
 	if err != nil {
 		//logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
-		return nil, err
+		return err
 	}
 
 	err = _network.Create(db.WithContext(context.TODO()))
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	_, _ = CreateEnrollmentKey(
@@ -284,7 +284,7 @@ func CreateNetwork(_network *schema.Network) (*schema.Network, error) {
 		false,
 	)
 
-	return _network, nil
+	return nil
 }
 
 func GetNetworkNetworkCIDR4(network *schema.Network) *net.IPNet {
@@ -668,27 +668,27 @@ func validateNetName(network *schema.Network) error {
 // Validate - validates fields of an network struct
 func ValidateNetwork(network *schema.Network, isUpdate bool) error {
 	var validationErr error
+	err := validateNetName(network)
+	if err != nil {
+		validationErr = errors.Join(validationErr, err)
+	}
+
 	if !isUpdate {
-		err := validateNetName(network)
-		if err != nil {
-			validationErr = errors.Join(validationErr, err)
+		nameUnique, _ := IsNetworkNameUnique(network)
+		if !nameUnique {
+			validationErr = errors.Join(validationErr, errors.New("invalid network name"))
 		}
 	}
 
-	nameUnique, _ := IsNetworkNameUnique(network)
-	if !nameUnique {
-		validationErr = errors.Join(validationErr, errors.New("invalid network name"))
-	}
-
 	if network.AddressRange != "" {
-		_, _, err := net.ParseCIDR(network.AddressRange)
+		_, _, err = net.ParseCIDR(network.AddressRange)
 		if err != nil {
 			validationErr = errors.Join(validationErr, err)
 		}
 	}
 
 	if network.AddressRange6 != "" {
-		_, _, err := net.ParseCIDR(network.AddressRange6)
+		_, _, err = net.ParseCIDR(network.AddressRange6)
 		if err != nil {
 			validationErr = errors.Join(validationErr, err)
 		}

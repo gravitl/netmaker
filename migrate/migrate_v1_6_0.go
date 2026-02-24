@@ -126,8 +126,11 @@ func migrateUsers(ctx context.Context) error {
 			UpdatedAt:                  user.UpdatedAt,
 		}
 
+		logger.Log(4, fmt.Sprintf("migrating user %s", _user.Username))
+
 		err = _user.Create(ctx)
 		if err != nil {
+			logger.Log(4, fmt.Sprintf("migrating user %s failed: %v", _user.Username, err))
 			return err
 		}
 	}
@@ -186,8 +189,12 @@ func migrateNetworks(ctx context.Context) error {
 			CreatedAt:           network.CreatedAt,
 			UpdatedAt:           time.Unix(network.NetworkLastModified, 0),
 		}
+
+		logger.Log(4, fmt.Sprintf("migrating network %s", _network.Name))
+
 		err = _network.Create(ctx)
 		if err != nil {
+			logger.Log(4, fmt.Sprintf("migrating network %s failed: %v", _network.Name, err))
 			return err
 		}
 	}
@@ -208,8 +215,11 @@ func migrateUserRoles(ctx context.Context) error {
 			return err
 		}
 
+		logger.Log(4, fmt.Sprintf("migrating user role %s", _userRole.ID))
+
 		err = _userRole.Create(ctx)
 		if err != nil {
+			logger.Log(4, fmt.Sprintf("migrating user role %s failed: %v", _userRole.ID, err))
 			return err
 		}
 	}
@@ -230,8 +240,11 @@ func migrateUserGroups(ctx context.Context) error {
 			return err
 		}
 
+		logger.Log(4, fmt.Sprintf("migrating user group %s", _userGroup.ID))
+
 		err = _userGroup.Create(ctx)
 		if err != nil {
+			logger.Log(4, fmt.Sprintf("migrating user group %s failed: %v", _userGroup.ID, err))
 			return err
 		}
 	}

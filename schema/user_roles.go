@@ -14,7 +14,7 @@ type ResourceAccess map[models.RsrcType]map[models.RsrcID]models.RsrcPermissionS
 
 type UserRole struct {
 	ID                  models.UserRoleID                  `gorm:"primaryKey" json:"id"`
-	Name                string                             `gorm:"unique" json:"name"`
+	Name                string                             `json:"name"`
 	Default             bool                               `json:"default"`
 	MetaData            string                             `json:"meta_data"`
 	DenyDashboardAccess bool                               `json:"deny_dashboard_access"`

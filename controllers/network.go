@@ -605,10 +605,10 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	var network *schema.Network
+	var network schema.Network
 
 	// we decode our body request params
-	err := json.NewDecoder(r.Body).Decode(network)
+	err := json.NewDecoder(r.Body).Decode(&network)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ",
 			err.Error())
@@ -681,7 +681,7 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	if network.AutoRemoveTags == nil {
 		network.AutoRemoveTags = []string{}
 	}
-	network, err = logic.CreateNetwork(network)
+	err = logic.CreateNetwork(&network)
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"), "failed to create network: ",
 			err.Error())
@@ -695,9 +695,9 @@ func createNetwork(w http.ResponseWriter, r *http.Request) {
 	logic.CreateFallbackNameserver(network.Name)
 	if featureFlags.EnableOverlappingEgressRanges {
 		// assign virtual NAT pool fields
-		logic.AssignVirtualNATDefaults(network, network.AddressRange)
+		logic.AssignVirtualNATDefaults(&network, network.AddressRange)
 		// Update network with virtual NAT settings
-		if err := logic.UpsertNetwork(network); err != nil {
+		if err := logic.UpsertNetwork(&network); err != nil {
 			logger.Log(0, r.Header.Get("user"), "failed to update network with virtual NAT settings:", err.Error())
 		}
 	}

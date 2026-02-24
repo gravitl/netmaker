@@ -15,7 +15,7 @@ type NetworkRoles map[models.NetworkID]map[models.UserRoleID]struct{}
 
 type UserGroup struct {
 	ID                         models.UserGroupID               `gorm:"primaryKey" json:"id"`
-	Name                       string                           `gorm:"unique" json:"name"`
+	Name                       string                           `json:"name"`
 	Default                    bool                             `json:"default"`
 	ExternalIdentityProviderID string                           `json:"external_identity_provider_id"`
 	NetworkRoles               datatypes.JSONType[NetworkRoles] `json:"network_roles"`
