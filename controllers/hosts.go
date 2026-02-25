@@ -1368,7 +1368,7 @@ func addDefaultHostToNetworks(host *models.Host) {
 		return
 	}
 	for _, network := range networks {
-		if network.AutoJoin != "yes" {
+		if network.AutoJoin != "true" {
 			continue
 		}
 		newNode, err := logic.UpdateHostNetwork(host, network.NetID, true)
