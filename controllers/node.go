@@ -187,6 +187,9 @@ func getNetworkNodes(w http.ResponseWriter, r *http.Request) {
 	nodes = logic.AddStatusToNodes(nodes, false)
 	// returns all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
+	for i := range apiNodes {
+		apiNodes[i].StaticNode.PrivateKey = ""
+	}
 	logger.Log(2, r.Header.Get("user"), "fetched nodes on network", networkName)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiNodes)
@@ -227,6 +230,9 @@ func getAllNodes(w http.ResponseWriter, r *http.Request) {
 	nodes = logic.AddStatusToNodes(nodes, false)
 	// return all the nodes in JSON/API format
 	apiNodes := logic.GetAllNodesAPI(nodes[:])
+	for i := range apiNodes {
+		apiNodes[i].StaticNode.PrivateKey = ""
+	}
 	logger.Log(3, r.Header.Get("user"), "fetched all nodes they have access to")
 	logic.SortApiNodes(apiNodes[:])
 	w.WriteHeader(http.StatusOK)

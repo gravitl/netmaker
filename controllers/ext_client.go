@@ -82,7 +82,26 @@ func getNetworkExtClients(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//Returns all the extclients in JSON format
+	username := r.Header.Get("user")
+	if r.Header.Get("ismaster") != "yes" {
+		user, err := logic.GetUser(username)
+		if err == nil {
+			userRole, err := logic.GetRole(user.PlatformRoleID)
+			if err != nil || !userRole.FullAccess {
+				filtered := []models.ExtClient{}
+				for _, ec := range extclients {
+					if logic.IsUserAllowedAccessToExtClient(username, ec) {
+						filtered = append(filtered, ec)
+					}
+				}
+				extclients = filtered
+			}
+		}
+	}
+	for i := range extclients {
+		extclients[i].PrivateKey = ""
+	}
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(extclients)
 }
@@ -104,7 +123,9 @@ func getAllExtClients(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	//Return all the extclients in JSON format
+	for i := range clients {
+		clients[i].PrivateKey = ""
+	}
 	logic.SortExtClient(clients[:])
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(clients)
