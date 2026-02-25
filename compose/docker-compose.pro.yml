@@ -1,6 +1,7 @@
 services:
 
   prometheus:
+    container_name: prometheus
     image: prom/prometheus:latest
     environment:
       - METRICS_SECRET=${METRICS_SECRET}
@@ -32,6 +33,7 @@ services:
     restart: unless-stopped
 
   grafana:
+    container_name: grafana
     image: grafana/grafana:latest
     environment:
       - PROMETHEUS_HOST=${PROMETHEUS_HOST:-http://prometheus:9090}
