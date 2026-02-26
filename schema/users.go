@@ -3,7 +3,6 @@ package schema
 import (
 	"context"
 	"errors"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -38,16 +37,6 @@ type User struct {
 
 func (u *User) TableName() string {
 	return "users_v1"
-}
-
-func (u *User) NameInCharSet() bool {
-	charset := "abcdefghijklmnopqrstuvwxyz1234567890-."
-	for _, char := range u.Username {
-		if !strings.Contains(charset, strings.ToLower(string(char))) {
-			return false
-		}
-	}
-	return true
 }
 
 func (u *User) SuperAdminExists(ctx context.Context) (bool, error) {

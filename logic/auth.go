@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/gravitl/netmaker/db"
@@ -13,7 +15,6 @@ import (
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
-	"github.com/go-playground/validator/v10"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/exp/slog"
 
@@ -101,6 +102,7 @@ func CreateUser(_user *schema.User) error {
 	}
 
 	var err = ValidateUser(_user)
+	fmt.Println("validation err:", err)
 	if err != nil {
 		logger.Log(0, "failed to validate user", err.Error())
 		return err
@@ -383,29 +385,57 @@ func UpdateUser(userchange, _user *schema.User) (*schema.User, error) {
 	return _user, nil
 }
 
+func validateUserName(user *schema.User) error {
+	var validationErr error
+
+	if len(user.Username) == 0 {
+		validationErr = errors.Join(validationErr, errors.New("username cannot be empty"))
+	}
+
+	if len(user.Username) <= 3 {
+		validationErr = errors.Join(validationErr, errors.New("username must have more than 3 characters"))
+	}
+
+	if len(user.Username) > 32 {
+		validationErr = errors.Join(validationErr, errors.New("username cannot be longer than 32 characters"))
+	}
+
+	if !regexp.MustCompile(`^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$`).MatchString(user.Username) {
+		charset := "abcdefghijklmnopqrstuvwxyz1234567890-."
+		for _, char := range user.Username {
+			if !strings.Contains(charset, strings.ToLower(string(char))) {
+				validationErr = errors.Join(validationErr, errors.New("invalid character(s) in username"))
+				break
+			}
+		}
+	}
+	return validationErr
+}
+
 // ValidateUser - validates a user model
 func ValidateUser(user *schema.User) error {
-
+	var validationErr error
 	// check if role is valid
 	roleCheck := &schema.UserRole{ID: user.PlatformRoleID}
 	err := roleCheck.Get(db.WithContext(context.TODO()))
 	if err != nil {
-		return errors.New("failed to fetch platform role " + user.PlatformRoleID.String())
-	}
-	v := validator.New()
-	_ = v.RegisterValidation("in_charset", func(fl validator.FieldLevel) bool {
-		isgood := user.NameInCharSet()
-		return isgood
-	})
-	err = v.Struct(user)
-
-	if err != nil {
-		for _, e := range err.(validator.ValidationErrors) {
-			logger.Log(2, e.Error())
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
 		}
+
+		validationErr = errors.Join(validationErr, fmt.Errorf("invalid user role %s", user.PlatformRoleID))
 	}
 
-	return err
+	err = validateUserName(user)
+	if err != nil {
+		validationErr = errors.Join(validationErr, err)
+	}
+
+	if len(user.Password) <= 5 {
+		validationErr = errors.Join(validationErr, errors.New("password must have more than 5 characters"))
+	}
+
+	return validationErr
 }
 
 // DeleteUser - deletes a given user

@@ -648,17 +648,18 @@ func validateNetName(network *schema.Network) error {
 	var validationErr error
 
 	if len(network.Name) == 0 {
-		validationErr = errors.New("network name cannot be empty")
+		validationErr = errors.Join(validationErr, errors.New("network name cannot be empty"))
 	}
 
 	if len(network.Name) > 32 {
-		validationErr = errors.New("network name cannot be longer than 32 characters")
+		validationErr = errors.Join(validationErr, errors.New("network name cannot be longer than 32 characters"))
 	}
 
 	charset := "abcdefghijklmnopqrstuvwxyz1234567890-_"
 	for _, char := range network.Name {
 		if !strings.Contains(charset, string(char)) {
 			validationErr = errors.Join(validationErr, errors.New("invalid character(s) in network name"))
+			break
 		}
 	}
 
@@ -670,7 +671,7 @@ func ValidateNetwork(network *schema.Network, isUpdate bool) error {
 	var validationErr error
 	err := validateNetName(network)
 	if err != nil {
-		validationErr = errors.Join(validationErr, err)
+		validationErr = errors.Join(validationErr, errors.Unwrap(err))
 	}
 
 	if !isUpdate {
