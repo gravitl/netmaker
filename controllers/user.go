@@ -869,9 +869,10 @@ func updateUserAccountStatus(w http.ResponseWriter, r *http.Request, disableAcco
 			logger.Log(0, "failed to get user extclients:", err.Error())
 			return
 		}
+		extclientStatus := !disableAccount
 		for _, extclient := range extclients {
-			if extclient.OwnerID == _user.Username && !extclient.Enabled {
-				_, err = logic.ToggleExtClientConnectivity(&extclient, true)
+			if extclient.OwnerID == _user.Username && extclient.Enabled != extclientStatus {
+				_, err = logic.ToggleExtClientConnectivity(&extclient, extclientStatus)
 				if err != nil {
 					logger.Log(1, "failed to delete user extclient:", err.Error())
 				}
