@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -31,7 +32,6 @@ func JITHandlers(r *mux.Router) {
 	r.HandleFunc("/api/v1/jit_user/request", logic.SecurityCheck(false,
 		http.HandlerFunc(requestJITAccess))).Methods(http.MethodPost)
 }
-
 
 // @Summary     List JIT requests for a network
 // @Router      /api/v1/jit [get]
@@ -161,7 +161,7 @@ func handleJITPost(w http.ResponseWriter, r *http.Request, networkID string, use
 // handleEnableJIT - enables JIT on a network
 func handleEnableJIT(w http.ResponseWriter, r *http.Request, networkID string, user *schema.User) {
 	// Check if user is admin
-	if !isNetworkAdmin(user, networkID) {
+	if !proLogic.IsNetworkAdmin(user, networkID) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only network admins can enable JIT"), "forbidden"))
 		return
 	}
@@ -194,7 +194,7 @@ func handleEnableJIT(w http.ResponseWriter, r *http.Request, networkID string, u
 // handleDisableJIT - disables JIT on a network
 func handleDisableJIT(w http.ResponseWriter, r *http.Request, networkID string, user *schema.User) {
 	// Check if user is admin
-	if !isNetworkAdmin(user, networkID) {
+	if !proLogic.IsNetworkAdmin(user, networkID) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only network admins can disable JIT"), "forbidden"))
 		return
 	}
@@ -227,7 +227,7 @@ func handleDisableJIT(w http.ResponseWriter, r *http.Request, networkID string, 
 // handleApproveRequest - approves a JIT request
 func handleApproveRequest(w http.ResponseWriter, r *http.Request, networkID string, user *schema.User, requestID string, expiresAtEpoch int64) {
 	// Check if user is admin
-	if !isNetworkAdmin(user, networkID) {
+	if !proLogic.IsNetworkAdmin(user, networkID) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only network admins can approve requests"), "forbidden"))
 		return
 	}
@@ -288,7 +288,7 @@ func handleApproveRequest(w http.ResponseWriter, r *http.Request, networkID stri
 // handleDenyRequest - denies a JIT request
 func handleDenyRequest(w http.ResponseWriter, r *http.Request, networkID string, user *schema.User, requestID string) {
 	// Check if user is admin
-	if !isNetworkAdmin(user, networkID) {
+	if !proLogic.IsNetworkAdmin(user, networkID) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only network admins can deny requests"), "forbidden"))
 		return
 	}
@@ -298,10 +298,20 @@ func handleDenyRequest(w http.ResponseWriter, r *http.Request, networkID string,
 		return
 	}
 
-	if err := proLogic.DenyJITRequest(requestID, user.Username); err != nil {
+	request, err := proLogic.DenyJITRequest(requestID, user.Username)
+	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
+
+	// Send denial email to requester
+	go func() {
+		network := &schema.Network{Name: networkID}
+		_ = network.Get(db.WithContext(context.TODO()))
+		if err := email.SendJITDeniedEmail(request, network); err != nil {
+			slog.Error("failed to send JIT denied notification", "error", err)
+		}
+	}()
 
 	logic.LogEvent(&models.Event{
 		Action: models.Update,
@@ -363,7 +373,7 @@ func deleteJITGrant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if user is admin
-	if !isNetworkAdmin(user, networkID) {
+	if !proLogic.IsNetworkAdmin(user, networkID) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(errors.New("only network admins can revoke grants"), "forbidden"))
 		return
 	}
@@ -416,7 +426,7 @@ func deleteJITGrant(w http.ResponseWriter, r *http.Request) {
 		network := &schema.Network{Name: networkID}
 		err := network.Get(r.Context())
 		if err == nil {
-			if err := email.SendJITExpirationEmail(&grant, revokedRequest, network, true); err != nil {
+			if err := email.SendJITExpirationEmail(&grant, revokedRequest, network, true, user.Username); err != nil {
 				slog.Warn("failed to send revocation email", "grant_id", grantID, "user", revokedRequest.UserName, "error", err)
 			}
 		}
@@ -445,21 +455,6 @@ func deleteJITGrant(w http.ResponseWriter, r *http.Request) {
 	})
 
 	logic.ReturnSuccessResponse(w, r, "JIT grant revoked")
-}
-
-// isNetworkAdmin - checks if user is a network admin
-func isNetworkAdmin(user *schema.User, networkID string) bool {
-	//networkIDModel := models.NetworkID(networkID)
-	//allNetworksID := models.AllNetworks
-
-	// Check platform role
-	if user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole {
-		return true
-	}
-
-	// TODO: check by group membership?
-
-	return false
 }
 
 // @Summary     Get user JIT networks status
