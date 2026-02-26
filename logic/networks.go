@@ -671,7 +671,7 @@ func ValidateNetwork(network *schema.Network, isUpdate bool) error {
 	var validationErr error
 	err := validateNetName(network)
 	if err != nil {
-		validationErr = errors.Join(validationErr, errors.Unwrap(err))
+		validationErr = errors.Join(validationErr, err)
 	}
 
 	if !isUpdate {
