@@ -4,7 +4,11 @@ CONFIG_FILE=netmaker.env
 # location of nm-quick.sh (usually `/root`)
 SCRIPT_DIR=$(dirname "$(realpath "$0")")
 # all netmaker assets (configs, compose files, etc.) go into netmaker subfolder
-INSTALL_DIR="$SCRIPT_DIR/netmaker"
+if [ "$(basename "$SCRIPT_DIR")" = "netmaker" ]; then
+	INSTALL_DIR="$SCRIPT_DIR"
+else
+	INSTALL_DIR="$SCRIPT_DIR/netmaker"
+fi
 CONFIG_PATH="$INSTALL_DIR/$CONFIG_FILE"
 NM_QUICK_VERSION="1.0.0"
 #LATEST=$(curl -s https://api.github.com/repos/gravitl/netmaker/releases/latest | grep "tag_name" | cut -d : -f 2,3 | tr -d [:space:],\")
