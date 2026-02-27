@@ -94,7 +94,10 @@ func GetHostPeerInfo(host *schema.Host) (models.HostPeerInfo, error) {
 				continue
 			}
 
-			peerHost, err := GetHost(peer.HostID.String())
+			peerHost := &schema.Host{
+				ID: peer.HostID,
+			}
+			err := peerHost.Get(db.WithContext(context.TODO()))
 			if err != nil {
 				logger.Log(4, "no peer host", peer.HostID.String(), err.Error())
 				continue
@@ -280,7 +283,10 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 				continue
 			}
 
-			peerHost, err := GetHost(peer.HostID.String())
+			peerHost := &schema.Host{
+				ID: peer.HostID,
+			}
+			err := peerHost.Get(db.WithContext(context.TODO()))
 			if err != nil {
 				logger.Log(4, "no peer host", peer.HostID.String(), err.Error())
 				continue
@@ -309,7 +315,10 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 					// get relay host
 					failOverNode, err := GetNodeByID(peer.FailedOverBy.String())
 					if err == nil {
-						relayHost, err := GetHost(failOverNode.HostID.String())
+						relayHost := &schema.Host{
+							ID: failOverNode.HostID,
+						}
+						err := relayHost.Get(db.WithContext(context.TODO()))
 						if err == nil {
 							peerKey = relayHost.PublicKey.String()
 						}
@@ -319,7 +328,9 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 					// get relay host
 					autoRelayNode, err := GetNodeByID(peerAutoRelayID)
 					if err == nil {
-						relayHost, err := GetHost(autoRelayNode.HostID.String())
+						relayHost := &schema.Host{
+							ID: autoRelayNode.HostID,
+						}
 						if err == nil {
 							peerKey = relayHost.PublicKey.String()
 						}
@@ -329,7 +340,10 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 					// get relay host
 					relayNode, err := GetNodeByID(peer.RelayedBy)
 					if err == nil {
-						relayHost, err := GetHost(relayNode.HostID.String())
+						relayHost := &schema.Host{
+							ID: relayNode.HostID,
+						}
+						err := relayHost.Get(db.WithContext(context.TODO()))
 						if err == nil {
 							peerKey = relayHost.PublicKey.String()
 						}
@@ -621,7 +635,10 @@ func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.N
 		hostPeerUpdate.Peers[i] = peer
 	}
 	if deletedNode != nil && host.OS != models.OS_Types.IoT {
-		peerHost, err := GetHost(deletedNode.HostID.String())
+		peerHost := &schema.Host{
+			ID: deletedNode.HostID,
+		}
+		err := peerHost.Get(db.WithContext(context.TODO()))
 		if err == nil && host.ID != peerHost.ID {
 			if _, ok := peerIndexMap[peerHost.PublicKey.String()]; !ok {
 				hostPeerUpdate.Peers = append(hostPeerUpdate.Peers, wgtypes.PeerConfig{
@@ -737,8 +754,10 @@ func GetAllowedIPs(node, peer *models.Node, metrics *models.Metrics) []net.IPNet
 }
 
 func GetEgressIPs(peer *models.Node) []net.IPNet {
-
-	peerHost, err := GetHost(peer.HostID.String())
+	peerHost := &schema.Host{
+		ID: peer.ID,
+	}
+	err := peerHost.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		logger.Log(0, "error retrieving host for peer", peer.ID.String(), "host id", peer.HostID.String(), err.Error())
 	}

@@ -152,8 +152,11 @@ func createEgress(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					continue
 				}
-				host, _ := logic.GetHost(node.HostID.String())
-				if host == nil {
+				host := &schema.Host{
+					ID: node.HostID,
+				}
+				err = host.Get(r.Context())
+				if err != nil {
 					continue
 				}
 				mq.HostUpdate(&models.HostUpdate{
@@ -376,8 +379,11 @@ func updateEgress(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					continue
 				}
-				host, _ := logic.GetHost(node.HostID.String())
-				if host == nil {
+				host := &schema.Host{
+					ID: node.HostID,
+				}
+				err = host.Get(r.Context())
+				if err != nil {
 					continue
 				}
 				mq.HostUpdate(&models.HostUpdate{

@@ -82,7 +82,10 @@ func authenticate(response http.ResponseWriter, request *http.Request) {
 			return
 		}
 	}
-	host, err := logic.GetHost(result.HostID.String())
+	host := &schema.Host{
+		ID: result.HostID,
+	}
+	err = host.Get(request.Context())
 	if err != nil {
 		errorResponse.Code = http.StatusBadRequest
 		errorResponse.Message = err.Error()
@@ -378,7 +381,10 @@ func getNode(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "badrequest"))
 		return
 	}
-	host, err := logic.GetHost(node.HostID.String())
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err = host.Get(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("error fetching host for node [ %s ] info: %v", nodeid, err))
@@ -614,7 +620,10 @@ func updateNode(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	host, err := logic.GetHost(newNode.HostID.String())
+	host := &schema.Host{
+		ID: newNode.HostID,
+	}
+	err = host.Get(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get host for node  [ %s ] info: %v", nodeid, err))

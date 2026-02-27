@@ -146,7 +146,10 @@ func setTelemetryTimestamp(telRecord *models.Telemetry) error {
 func getClientCount(nodes []models.Node) clientCount {
 	var count clientCount
 	for _, node := range nodes {
-		host, err := GetHost(node.HostID.String())
+		host := &schema.Host{
+			ID: node.HostID,
+		}
+		err := host.Get(db.WithContext(context.TODO()))
 		if err != nil {
 			continue
 		}

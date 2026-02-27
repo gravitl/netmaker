@@ -180,7 +180,10 @@ func SessionHandler(conn *websocket.Conn) {
 			handleHostRegErr(conn, err)
 			return
 		}
-		currHost, err := logic.GetHost(result.Host.ID.String())
+		currHost := &schema.Host{
+			ID: result.Host.ID,
+		}
+		err = currHost.Get(db.WithContext(context.TODO()))
 		if err != nil {
 			handleHostRegErr(conn, err)
 			return

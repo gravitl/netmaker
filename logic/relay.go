@@ -37,7 +37,10 @@ func CreateRelay(relay models.RelayRequest) ([]models.Node, models.Node, error) 
 	if err != nil {
 		return returnnodes, models.Node{}, err
 	}
-	host, err := GetHost(node.HostID.String())
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err = host.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return returnnodes, models.Node{}, err
 	}

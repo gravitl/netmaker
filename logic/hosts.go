@@ -47,15 +47,10 @@ const (
 	minPort = 1025
 )
 
-// GetAllHosts - returns all hosts in flat list or error
-func GetAllHosts() ([]schema.Host, error) {
-	return (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
-}
-
 // GetAllHostsWithStatus - returns all hosts with at least one
 // node with given status.
 func GetAllHostsWithStatus(status models.NodeStatus) ([]schema.Host, error) {
-	hosts, err := GetAllHosts()
+	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return nil, err
 	}
@@ -101,29 +96,17 @@ func DoesHostExistinTheNetworkAlready(h *schema.Host, network schema.NetworkID) 
 	return false
 }
 
-// GetHost - gets a host from db given id
-func GetHost(hostID string) (*schema.Host, error) {
-	host := &schema.Host{
-		ID: uuid.MustParse(hostID),
-	}
-	err := host.Get(db.WithContext(context.TODO()))
-	if err != nil {
-		return nil, err
-	}
-
-	return host, nil
-}
-
 // CreateHost - creates a host if not exist
 func CreateHost(h *schema.Host) error {
-	hosts, hErr := GetAllHosts()
+	hosts, hErr := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 	clients, cErr := GetAllExtClients()
 	if (hErr != nil && !database.IsEmptyRecord(hErr)) ||
 		(cErr != nil && !database.IsEmptyRecord(cErr)) ||
 		len(hosts)+len(clients) >= MachinesLimit {
 		return errors.New("free tier limits exceeded on machines")
 	}
-	_, err := GetHost(h.ID.String())
+	_host := &schema.Host{ID: h.ID}
+	err := _host.Get(db.WithContext(context.TODO()))
 	if (err != nil && !database.IsEmptyRecord(err)) || (err == nil) {
 		return ErrHostExists
 	}
@@ -336,11 +319,6 @@ func RemoveHost(h *schema.Host, forceDelete bool) error {
 	return nil
 }
 
-// RemoveHostByID - removes a given host by id from server
-func RemoveHostByID(hostID string) error {
-	return (&schema.Host{ID: uuid.MustParse(hostID)}).Delete(db.WithContext(context.TODO()))
-}
-
 // UpdateHostNetwork - adds/deletes host from a network
 func UpdateHostNetwork(h *schema.Host, network string, add bool) (*models.Node, error) {
 	for _, nodeID := range h.Nodes {
@@ -381,8 +359,8 @@ func AssociateNodeToHost(n *models.Node, h *schema.Host) error {
 	if err != nil {
 		return err
 	}
-	currentHost, err := GetHost(h.ID.String())
-	if err != nil {
+	currentHost := &schema.Host{ID: h.ID}
+	if err = currentHost.Get(db.WithContext(context.TODO())); err != nil {
 		return err
 	}
 	h.HostPass = currentHost.HostPass
@@ -426,8 +404,8 @@ func DissasociateNodeFromHost(n *models.Node, h *schema.Host) error {
 
 // DisassociateAllNodesFromHost - deletes all nodes of the host
 func DisassociateAllNodesFromHost(hostID string) error {
-	host, err := GetHost(hostID)
-	if err != nil {
+	host := &schema.Host{ID: uuid.MustParse(hostID)}
+	if err := host.Get(db.WithContext(context.TODO())); err != nil {
 		return err
 	}
 	for _, nodeID := range host.Nodes {
@@ -449,7 +427,7 @@ func DisassociateAllNodesFromHost(hostID string) error {
 // GetDefaultHosts - retrieve all hosts marked as default from DB
 func GetDefaultHosts() []schema.Host {
 	defaultHostList := []schema.Host{}
-	hosts, err := GetAllHosts()
+	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return defaultHostList
 	}
@@ -463,8 +441,8 @@ func GetDefaultHosts() []schema.Host {
 
 // GetHostNetworks - fetches all the networks
 func GetHostNetworks(hostID string) []string {
-	currHost, err := GetHost(hostID)
-	if err != nil {
+	currHost := &schema.Host{ID: uuid.MustParse(hostID)}
+	if err := currHost.Get(db.WithContext(context.TODO())); err != nil {
 		return nil
 	}
 	nets := []string{}
@@ -486,7 +464,7 @@ func GetRelatedHosts(hostID string) []schema.Host {
 	for _, network := range networks {
 		networkMap[network] = struct{}{}
 	}
-	hosts, err := GetAllHosts()
+	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 	if err == nil {
 		for _, host := range hosts {
 			if host.ID.String() == hostID {
@@ -517,7 +495,8 @@ func CheckHostPorts(h *schema.Host) (changed bool) {
 
 	// Get the current host from database to check if it already has a valid port assigned
 	// This check happens before the mutex to avoid unnecessary locking
-	currentHost, err := GetHost(h.ID.String())
+	currentHost := &schema.Host{ID: h.ID}
+	err := currentHost.Get(db.WithContext(context.TODO()))
 	if err == nil && currentHost.ListenPort > 0 {
 		// If the host already has a port in the database, use that instead of the incoming port
 		// This prevents the host from being reassigned when the client sends the old port
@@ -538,7 +517,7 @@ func CheckHostPorts(h *schema.Host) (changed bool) {
 		}
 	}()
 
-	hosts, err := GetAllHosts()
+	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return
 	}
@@ -594,7 +573,7 @@ func CheckHostPorts(h *schema.Host) (changed bool) {
 
 		// Re-read hosts to get the latest state (in case another host just changed its port)
 		// This is important to avoid conflicts when multiple hosts are being processed
-		latestHosts, err := GetAllHosts()
+		latestHosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 		if err == nil {
 			// Update portsInUse with latest state
 			for _, host := range latestHosts {
@@ -630,13 +609,14 @@ func CheckHostPorts(h *schema.Host) (changed bool) {
 
 // HostExists - checks if given host already exists
 func HostExists(h *schema.Host) bool {
-	_, err := GetHost(h.ID.String())
+	_host := &schema.Host{ID: h.ID}
+	err := _host.Get(db.WithContext(context.TODO()))
 	return (err != nil && !database.IsEmptyRecord(err)) || (err == nil)
 }
 
 // GetHostByNodeID - returns a host if found to have a node's ID, else nil
 func GetHostByNodeID(id string) *schema.Host {
-	hosts, err := GetAllHosts()
+	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		return nil
 	}

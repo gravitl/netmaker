@@ -434,7 +434,10 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		// 	}
 		// }
 		// enrollmentKey.Networks = networksToAdd
-		currHost, err := logic.GetHost(newHost.ID.String())
+		currHost := &schema.Host{
+			ID: newHost.ID,
+		}
+		err := currHost.Get(r.Context())
 		if err != nil {
 			slog.Error("failed registration", "hostID", newHost.ID.String(), "hostName", newHost.Name, "error", err.Error())
 			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
@@ -448,7 +451,10 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	host, err := logic.GetHost(newHost.ID.String())
+	host := &schema.Host{
+		ID: newHost.ID,
+	}
+	err = host.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return

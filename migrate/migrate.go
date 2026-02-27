@@ -447,7 +447,10 @@ func updateNodes() {
 			logic.UpsertNode(&node)
 		}
 		if node.IsIngressGateway {
-			host, err := logic.GetHost(node.HostID.String())
+			host := &schema.Host{
+				ID: node.HostID,
+			}
+			err = host.Get(db.WithContext(context.TODO()))
 			if err == nil {
 				go logic.DeleteRole(models.GetRAGRoleID(node.Network, host.ID.String()), true)
 			}
@@ -739,7 +742,10 @@ func migrateToEgressV1() {
 	}
 	for _, node := range nodes {
 		if node.IsEgressGateway {
-			_, err := logic.GetHost(node.HostID.String())
+			host := &schema.Host{
+				ID: node.HostID,
+			}
+			err := host.Get(db.WithContext(context.TODO()))
 			if err != nil {
 				continue
 			}

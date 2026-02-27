@@ -392,7 +392,7 @@ func updateNetworkACLv2(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// update ingress gateways of associated clients
-		hosts, err := logic.GetAllHosts()
+		hosts, err := (&schema.Host{}).ListAll(r.Context())
 		if err != nil {
 			slog.Error(
 				"failed to fetch hosts after network ACL update. skipping publish extclients ACL",

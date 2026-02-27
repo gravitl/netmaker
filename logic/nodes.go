@@ -320,7 +320,10 @@ func DeleteNode(node *models.Node, purge bool) error {
 	if alreadyDeleted {
 		logger.Log(1, "forcibly deleting node", node.ID.String())
 	}
-	host, err := GetHost(node.HostID.String())
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err := host.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		logger.Log(1, "no host found for node", node.ID.String(), "deleting..")
 		if delErr := DeleteNodeByID(node); delErr != nil {
@@ -609,7 +612,10 @@ func GetAllNodesAPI(nodes []models.Node) []models.ApiNode {
 	for i := range nodes {
 		node := nodes[i]
 		if !node.IsStatic {
-			h, err := GetHost(node.HostID.String())
+			h := &schema.Host{
+				ID: node.HostID,
+			}
+			err := h.Get(db.WithContext(context.TODO()))
 			if err == nil {
 				node.Location = h.Location
 				node.CountryCode = h.CountryCode
@@ -630,7 +636,10 @@ func GetAllNodesAPIWithLocation(nodes []models.Node) []models.ApiNode {
 		if node.IsStatic {
 			newApiNode.Location = node.StaticNode.Location
 		} else {
-			host, _ := GetHost(node.HostID.String())
+			host := &schema.Host{
+				ID: node.HostID,
+			}
+			_ = host.Get(db.WithContext(context.TODO()))
 			newApiNode.Location = host.Location
 		}
 
@@ -681,7 +690,10 @@ func createNode(node *models.Node) error {
 	addressLock.Lock()
 	defer addressLock.Unlock()
 
-	host, err := GetHost(node.HostID.String())
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err := host.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}

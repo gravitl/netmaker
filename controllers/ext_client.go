@@ -198,7 +198,10 @@ func getExtClientConf(w http.ResponseWriter, r *http.Request) {
 	eli, _ := (&schema.Egress{Network: gwnode.Network}).ListByNetwork(db.WithContext(context.TODO()))
 	acls, _ := logic.ListAclsByNetwork(schema.NetworkID(client.Network))
 	logic.GetNodeEgressInfo(&gwnode, eli, acls)
-	host, err := logic.GetHost(gwnode.HostID.String())
+	host := &schema.Host{
+		ID: gwnode.HostID,
+	}
+	err = host.Get(r.Context())
 	if err != nil {
 		logger.Log(
 			0,
@@ -455,7 +458,10 @@ func getExtClientHAConf(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
 		return
 	}
-	host, err := logic.GetHost(gwnode.HostID.String())
+	host := &schema.Host{
+		ID: gwnode.HostID,
+	}
+	err = host.Get(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get ingress gateway host for node [%s] info: %v", gwnode.ID, err))
@@ -775,7 +781,10 @@ func createExtClient(w http.ResponseWriter, r *http.Request) {
 		dns := gwDNS
 		extclient.DNS = dns
 	}
-	host, err := logic.GetHost(node.HostID.String())
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err = host.Get(r.Context())
 	if err != nil {
 		logger.Log(0, r.Header.Get("user"),
 			fmt.Sprintf("failed to get ingress gateway host for node [%s] info: %v", nodeid, err))

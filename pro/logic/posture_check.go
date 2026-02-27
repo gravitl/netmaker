@@ -291,7 +291,10 @@ func GetPostureCheckDeviceInfoByNode(node *models.Node) models.PostureCheckDevic
 	var deviceInfo models.PostureCheckDeviceInfo
 
 	if !node.IsStatic {
-		h, err := logic.GetHost(node.HostID.String())
+		h := &schema.Host{
+			ID: node.HostID,
+		}
+		err := h.Get(db.WithContext(context.TODO()))
 		if err != nil {
 			return deviceInfo
 		}

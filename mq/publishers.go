@@ -28,7 +28,7 @@ func PublishPeerUpdate(replacePeers bool) error {
 		sendDNSSync()
 	}
 
-	hosts, err := logic.GetAllHosts()
+	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		logger.Log(1, "err getting all hosts", err.Error())
 		return err
@@ -62,7 +62,7 @@ func PublishDeletedNodePeerUpdate(delNode *models.Node) error {
 		return nil
 	}
 
-	hosts, err := logic.GetAllHosts()
+	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		logger.Log(1, "err getting all hosts", err.Error())
 		return err
@@ -87,7 +87,7 @@ func PublishDeletedClientPeerUpdate(delClient *models.ExtClient) error {
 		return nil
 	}
 
-	hosts, err := logic.GetAllHosts()
+	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		logger.Log(1, "err getting all hosts", err.Error())
 		return err
@@ -139,8 +139,8 @@ func PublishSingleHostPeerUpdate(host *schema.Host, allNodes []models.Node, dele
 
 // NodeUpdate -- publishes a node update
 func NodeUpdate(node *models.Node) error {
-	host, err := logic.GetHost(node.HostID.String())
-	if err != nil {
+	host := &schema.Host{ID: node.HostID}
+	if err := host.Get(db.WithContext(context.TODO())); err != nil {
 		return nil
 	}
 	if !servercfg.IsMessageQueueBackend() {

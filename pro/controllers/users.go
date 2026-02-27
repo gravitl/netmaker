@@ -1399,7 +1399,10 @@ func getUserRemoteAccessNetworkGateways(w http.ResponseWriter, r *http.Request) 
 			continue
 		}
 
-		host, err := logic.GetHost(node.HostID.String())
+		host := &schema.Host{
+			ID: node.HostID,
+		}
+		err = host.Get(r.Context())
 		if err != nil {
 			continue
 		}
@@ -1453,7 +1456,10 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch gw node %s, error: %v", remoteGwID, err), "badrequest"))
 		return
 	}
-	host, err := logic.GetHost(node.HostID.String())
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err = host.Get(r.Context())
 	if err != nil {
 		logic.ReturnErrorResponse(w, r, logic.FormatError(fmt.Errorf("failed to fetch gw host %s, error: %v", remoteGwID, err), "badrequest"))
 		return
@@ -1486,13 +1492,6 @@ func getRemoteAccessGatewayConf(w http.ResponseWriter, r *http.Request) {
 		logic.SetDNSOnWgConfig(&node, &userConf)
 
 		userConf.Network = node.Network
-		host, err := logic.GetHost(node.HostID.String())
-		if err != nil {
-			logger.Log(0, r.Header.Get("user"),
-				fmt.Sprintf("failed to get ingress gateway host for node [%s] info: %v", node.ID, err))
-			logic.ReturnErrorResponse(w, r, logic.FormatError(err, "internal"))
-			return
-		}
 		listenPort := logic.GetPeerListenPort(host)
 		if host.EndpointIP.To4() == nil {
 			userConf.IngressGatewayEndpoint = fmt.Sprintf("[%s]:%d", host.EndpointIPv6.String(), listenPort)
@@ -1654,7 +1653,10 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 			gwClient = extClients[0]
 		}
 
-		host, err := logic.GetHost(node.HostID.String())
+		host := &schema.Host{
+			ID: node.HostID,
+		}
+		err = host.Get(r.Context())
 		if err != nil {
 			continue
 		}
@@ -1726,7 +1728,10 @@ func getUserRemoteAccessGwsV1(w http.ResponseWriter, r *http.Request) {
 		if node.PendingDelete {
 			continue
 		}
-		host, err := logic.GetHost(node.HostID.String())
+		host := &schema.Host{
+			ID: node.HostID,
+		}
+		err = host.Get(r.Context())
 		if err != nil {
 			continue
 		}

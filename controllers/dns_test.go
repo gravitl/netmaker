@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/txn2/txeh"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"

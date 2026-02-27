@@ -577,7 +577,10 @@ func GetExtPeers(node, peer *models.Node, addressIdentityMap map[string]models.P
 	if err != nil {
 		return peers, idsAndAddr, egressRoutes, err
 	}
-	host, err := GetHost(node.HostID.String())
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err = host.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return peers, idsAndAddr, egressRoutes, err
 	}

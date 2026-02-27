@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/gorilla/mux"
 	ch "github.com/gravitl/netmaker/clickhouse"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 
@@ -327,7 +329,7 @@ func reInit(curr, new models.ServerSettings, force bool) {
 	if force || !new.EnableFlowLogs {
 		if curr.NetclientAutoUpdate != new.NetclientAutoUpdate ||
 			curr.EnableFlowLogs != new.EnableFlowLogs {
-			hosts, _ := logic.GetAllHosts()
+			hosts, _ := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 			for _, host := range hosts {
 				if curr.NetclientAutoUpdate != new.NetclientAutoUpdate {
 					host.AutoUpdate = new.NetclientAutoUpdate

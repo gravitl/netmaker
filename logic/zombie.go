@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
@@ -48,7 +49,7 @@ func CheckZombies(newnode *models.Node) {
 // checkForZombieHosts - checks if new host has the same macAddress as an existing host
 // if true, existing host is added to host zombie collection
 func checkForZombieHosts(h *schema.Host) {
-	hosts, err := GetAllHosts()
+	hosts, err := (&schema.Host{}).ListAll(db.WithContext(context.TODO()))
 	if err != nil {
 		logger.Log(3, "error retrieving all hosts", err.Error())
 	}
@@ -119,12 +120,11 @@ func ManageZombies(ctx context.Context) {
 			if len(hostZombies) > 0 {
 				logger.Log(3, "checking host zombies")
 				for i := len(hostZombies) - 1; i >= 0; i-- {
-					host, err := GetHost(hostZombies[i].String())
+					host := &schema.Host{ID: hostZombies[i]}
+					err := host.Get(db.WithContext(context.TODO()))
 					if err != nil {
 						logger.Log(1, "error retrieving zombie host", err.Error())
-						if host != nil {
-							logger.Log(1, "deleting ", host.ID.String(), " from zombie list")
-						}
+						logger.Log(1, "deleting ", host.ID.String(), " from zombie list")
 						hostZombies = append(hostZombies[:i], hostZombies[i+1:]...)
 						continue
 					}

@@ -4,9 +4,11 @@
 package pro
 
 import (
+	"context"
 	"fmt"
 	"time"
 
+	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/mq"
@@ -79,7 +81,10 @@ func disableExtClient(client *models.ExtClient) error {
 			if err = mq.PublishPeerUpdate(false); err != nil {
 				slog.Error("error updating ext clients on", "ingress", ingressNode.ID.String(), "err", err.Error())
 			}
-			ingressHost, err := logic.GetHost(ingressNode.HostID.String())
+			ingressHost := &schema.Host{
+				ID: ingressNode.HostID,
+			}
+			err := ingressHost.Get(db.WithContext(context.TODO()))
 			if err != nil {
 				return err
 			}

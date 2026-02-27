@@ -274,7 +274,10 @@ func GetAutoRelayPeerIps(peer, node *models.Node) []net.IPNet {
 }
 
 func CreateAutoRelay(node models.Node) error {
-	host, err := logic.GetHost(node.HostID.String())
+	host := &schema.Host{
+		ID: node.HostID,
+	}
+	err := host.Get(db.WithContext(context.TODO()))
 	if err != nil {
 		return err
 	}
