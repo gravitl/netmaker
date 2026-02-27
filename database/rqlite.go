@@ -19,6 +19,7 @@ var RQLITE_FUNCTIONS = map[string]interface{}{
 	DELETE:       rqliteDeleteRecord,
 	DELETE_ALL:   rqliteDeleteAllRecords,
 	FETCH_ALL:    rqliteFetchRecords,
+	FETCH_ONE:    rqliteFetchRecord,
 	CLOSE_DB:     rqliteCloseDB,
 	isConnected:  rqliteConnected,
 }
@@ -82,6 +83,19 @@ func rqliteDeleteAllRecords(tableName string) error {
 		return err
 	}
 	return nil
+}
+
+func rqliteFetchRecord(tableName string, key string) (string, error) {
+	row, err := RQliteDatabase.QueryOne("SELECT value FROM " + tableName + " WHERE key = '" + key + "'")
+	if err != nil {
+		return "", err
+	}
+	if row.Next() {
+		var value string
+		row.Scan(&value)
+		return value, nil
+	}
+	return "", errors.New(NO_RECORD)
 }
 
 func rqliteFetchRecords(tableName string) (map[string]string, error) {

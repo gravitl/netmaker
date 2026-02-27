@@ -18,6 +18,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/servercfg"
 )
 
 const (
@@ -36,77 +37,63 @@ var ResetIDPSyncHook = func() {}
 
 // HasSuperAdmin - checks if server has an superadmin/owner
 func HasSuperAdmin() (bool, error) {
-	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
+	users, err := GetUsersDB()
 	if err != nil {
 		if database.IsEmptyRecord(err) {
 			return false, nil
-		} else {
-			return true, err
+		}
+		return true, err
+	}
+	for _, user := range users {
+		if user.PlatformRoleID == models.SuperAdminRole {
+			return true, nil
 		}
 	}
-	for _, value := range collection { // filter for isadmin true
+	return false, nil
+}
+
+// GetUsersDB - gets users
+func GetUsersDB() ([]models.User, error) {
+	if servercfg.CacheEnabled() {
+		users := getUsersFromCache()
+		if len(users) != 0 {
+			return users, nil
+		}
+	}
+
+	var users []models.User
+	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
+	if err != nil {
+		return users, err
+	}
+
+	cacheMap := make(map[string]models.User, len(collection))
+	for _, value := range collection {
 		var user models.User
 		err = json.Unmarshal([]byte(value), &user)
 		if err != nil {
 			continue
 		}
-		if user.PlatformRoleID == models.SuperAdminRole {
-			return true, nil
-		}
-	}
-
-	return false, err
-}
-
-// GetUsersDB - gets users
-func GetUsersDB() ([]models.User, error) {
-
-	var users []models.User
-
-	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
-
-	if err != nil {
-		return users, err
-	}
-
-	for _, value := range collection {
-
-		var user models.User
-		err = json.Unmarshal([]byte(value), &user)
-		if err != nil {
-			continue // get users
-		}
 		users = append(users, user)
+		cacheMap[user.UserName] = user
 	}
-
-	return users, err
+	if servercfg.CacheEnabled() {
+		loadUsersIntoCache(cacheMap)
+	}
+	return users, nil
 }
 
 // GetUsers - gets users
 func GetUsers() ([]models.ReturnUser, error) {
-
-	var users []models.ReturnUser
-
-	collection, err := database.FetchRecords(database.USERS_TABLE_NAME)
-
+	dbUsers, err := GetUsersDB()
 	if err != nil {
-		return users, err
+		return nil, err
 	}
-
-	for _, value := range collection {
-
-		var user models.ReturnUser
-		err = json.Unmarshal([]byte(value), &user)
-		if err != nil {
-			continue // get users
-		}
-
-		user.IsSuperAdmin = user.PlatformRoleID == models.SuperAdminRole
-		user.IsAdmin = user.PlatformRoleID == models.SuperAdminRole || user.PlatformRoleID == models.AdminRole
-		users = append(users, user)
+	users := make([]models.ReturnUser, 0, len(dbUsers))
+	for _, u := range dbUsers {
+		users = append(users, ToReturnUser(u))
 	}
-
-	return users, err
+	return users, nil
 }
 
 // IsOauthUser - returns
@@ -192,6 +179,9 @@ func CreateUser(user *models.User) error {
 		logger.Log(0, "failed to insert user", err.Error())
 		return err
 	}
+	if servercfg.CacheEnabled() {
+		storeUserInCache(*user)
+	}
 	return nil
 }
 
@@ -273,7 +263,9 @@ func UpsertUser(user models.User) error {
 		slog.Error("error inserting user", "user", user.UserName, "error", err.Error())
 		return err
 	}
-
+	if servercfg.CacheEnabled() {
+		storeUserInCache(user)
+	}
 	return nil
 }
 
@@ -407,6 +399,12 @@ func UpdateUser(userchange, user *models.User) (*models.User, error) {
 	if err = database.Insert(user.UserName, string(data), database.USERS_TABLE_NAME); err != nil {
 		return &models.User{}, err
 	}
+	if servercfg.CacheEnabled() {
+		if queryUser != user.UserName {
+			deleteUserFromCache(queryUser)
+		}
+		storeUserInCache(*user)
+	}
 	logger.Log(1, "updated user", queryUser)
 	return user, nil
 }
@@ -445,6 +443,9 @@ func DeleteUser(user string) error {
 	err := database.DeleteRecord(database.USERS_TABLE_NAME, user)
 	if err != nil {
 		return err
+	}
+	if servercfg.CacheEnabled() {
+		deleteUserFromCache(user)
 	}
 	go RemoveUserFromAclPolicy(user)
 	return (&schema.UserAccessToken{UserName: user}).DeleteAllUserTokens(db.WithContext(context.TODO()))
@@ -534,4 +535,36 @@ func IsStateValid(state string) (string, bool) {
 // delState - removes a state from cache/db
 func delState(state string) error {
 	return database.DeleteRecord(database.SSO_STATE_CACHE, state)
+}
+
+// CleanExpiredSSOStates removes expired SSO state entries from the database
+// to prevent unbounded table growth that degrades FetchRecord performance.
+func CleanExpiredSSOStates() error {
+	records, err := database.FetchRecords(database.SSO_STATE_CACHE)
+	if err != nil {
+		if database.IsEmptyRecord(err) {
+			return nil
+		}
+		return err
+	}
+	for key, value := range records {
+		var s models.SsoState
+		if err := json.Unmarshal([]byte(value), &s); err != nil {
+			_ = database.DeleteRecord(database.SSO_STATE_CACHE, key)
+			continue
+		}
+		if s.IsExpired() {
+			_ = database.DeleteRecord(database.SSO_STATE_CACHE, key)
+		}
+	}
+	return nil
+}
+
+// AddSSOStateCleanupHook registers a periodic cleanup of expired SSO states
+func AddSSOStateCleanupHook() {
+	HookManagerCh <- models.HookDetails{
+		ID:       "sso-state-cleanup",
+		Hook:     WrapHook(CleanExpiredSSOStates),
+		Interval: 15 * time.Minute,
+	}
 }
