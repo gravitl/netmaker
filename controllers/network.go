@@ -401,7 +401,7 @@ func updateNetworkACLv2(w http.ResponseWriter, r *http.Request) {
 			)
 			return
 		}
-		hostsMap := make(map[uuid.UUID]models.Host)
+		hostsMap := make(map[uuid.UUID]schema.Host)
 		for _, host := range hosts {
 			hostsMap[host.ID] = host
 		}

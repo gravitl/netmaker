@@ -24,7 +24,7 @@ type NetworkValidationTestCase struct {
 	errMessage string
 }
 
-var netHost models.Host
+var netHost schema.Host
 
 func TestMain(m *testing.M) {
 	db.InitializeDB(schema.ListModels()...)
@@ -242,7 +242,7 @@ func createNetDualStack() {
 
 func createNetHost() {
 	k, _ := wgtypes.ParseKey("DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=")
-	netHost = models.Host{
+	netHost = schema.Host{
 		ID:        uuid.New(),
 		PublicKey: k.PublicKey(),
 		HostPass:  "password",

@@ -240,7 +240,7 @@ func SessionHandler(conn *websocket.Conn) {
 }
 
 // CheckNetRegAndHostUpdate - run through networks and send a host update
-func CheckNetRegAndHostUpdate(key models.EnrollmentKey, h *models.Host, username string) {
+func CheckNetRegAndHostUpdate(key models.EnrollmentKey, h *schema.Host, username string) {
 	// publish host update through MQ
 	featureFlags := logic.GetFeatureFlags()
 	for _, netID := range key.Networks {

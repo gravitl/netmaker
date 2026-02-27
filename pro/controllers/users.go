@@ -1879,7 +1879,7 @@ func userNetworkMapping(w http.ResponseWriter, r *http.Request) {
 	logic.ReturnSuccessResponseWithJson(w, r, userMapping, "returned user network ip map")
 }
 
-func getAllowedRagEndpoints(ragNode *models.Node, ragHost *models.Host) []string {
+func getAllowedRagEndpoints(ragNode *models.Node, ragHost *schema.Host) []string {
 	endpoints := []string{}
 	if len(ragHost.EndpointIP) > 0 {
 		endpoints = append(endpoints, ragHost.EndpointIP.String())

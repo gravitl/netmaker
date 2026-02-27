@@ -12,6 +12,7 @@ import (
 	"github.com/gravitl/netmaker/logic/hostactions"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/schema"
 	"github.com/gravitl/netmaker/servercfg"
 	"github.com/gravitl/netmaker/utils"
 	"golang.org/x/exp/slog"
@@ -159,7 +160,7 @@ func UpdateHost(client mqtt.Client, msg mqtt.Message) {
 	}
 }
 
-func DeleteAndCleanupHost(h *models.Host) {
+func DeleteAndCleanupHost(h *schema.Host) {
 	if servercfg.GetBrokerType() == servercfg.EmqxBrokerType {
 		// delete EMQX credentials for host
 		if err := emqx.DeleteEmqxUser(h.ID.String()); err != nil {
@@ -255,7 +256,7 @@ func ClientPeerUpdate(client mqtt.Client, msg mqtt.Message) {
 	slog.Info("sent peer updates after signal received from", "id", id)
 }
 
-func HandleHostCheckin(h, currentHost *models.Host) bool {
+func HandleHostCheckin(h, currentHost *schema.Host) bool {
 	if h == nil {
 		return false
 	}

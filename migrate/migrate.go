@@ -34,7 +34,6 @@ func Run() {
 	assignSuperAdmin()
 	createDefaultTagsAndPolicies()
 	syncUsers()
-	updateHosts()
 	updateNodes()
 	updateAcls()
 	updateNewAcls()
@@ -432,42 +431,6 @@ func updateEnrollmentKeys() {
 			false,
 			false,
 		)
-	}
-}
-
-func updateHosts() {
-	rows, err := database.FetchRecords(database.HOSTS_TABLE_NAME)
-	if err != nil {
-		logger.Log(0, "failed to fetch database records for hosts")
-	}
-	for _, row := range rows {
-		var host models.Host
-		if err := json.Unmarshal([]byte(row), &host); err != nil {
-			logger.Log(0, "failed to unmarshal database row to host", "row", row)
-			continue
-		}
-		if host.PersistentKeepalive == 0 {
-			host.PersistentKeepalive = models.DefaultPersistentKeepAlive
-			if err := logic.UpsertHost(&host); err != nil {
-				logger.Log(0, "failed to upsert host", host.ID.String())
-				continue
-			}
-		}
-		if host.DNS == "" || (host.DNS != "yes" && host.DNS != "no") {
-			if logic.GetServerSettings().ManageDNS {
-				host.DNS = "yes"
-			} else {
-				host.DNS = "no"
-			}
-			if host.IsDefault {
-				host.DNS = "yes"
-			}
-			logic.UpsertHost(&host)
-		}
-		if host.IsDefault && !host.AutoUpdate {
-			host.AutoUpdate = true
-			logic.UpsertHost(&host)
-		}
 	}
 }
 

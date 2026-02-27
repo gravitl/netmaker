@@ -16,10 +16,11 @@ import (
 	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/netclient/ncutils"
+	"github.com/gravitl/netmaker/schema"
 	"golang.org/x/exp/slog"
 )
 
-func decryptMsgWithHost(host *models.Host, msg []byte) ([]byte, error) {
+func decryptMsgWithHost(host *schema.Host, msg []byte) ([]byte, error) {
 	if host.OS == models.OS_Types.IoT { // just pass along IoT messages
 		return msg, nil
 	}
@@ -105,7 +106,7 @@ func encryptAESGCM(key, plaintext []byte) ([]byte, error) {
 	return ciphertext, nil
 }
 
-func encryptMsg(host *models.Host, msg []byte) ([]byte, error) {
+func encryptMsg(host *schema.Host, msg []byte) ([]byte, error) {
 	if host.OS == models.OS_Types.IoT {
 		return msg, nil
 	}
@@ -133,7 +134,7 @@ func encryptMsg(host *models.Host, msg []byte) ([]byte, error) {
 	return ncutils.Chunk(msg, nodePubKey, serverPrivKey)
 }
 
-func publish(host *models.Host, dest string, msg []byte) error {
+func publish(host *schema.Host, dest string, msg []byte) error {
 
 	var encrypted []byte
 	var encryptErr error

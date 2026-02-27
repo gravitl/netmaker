@@ -299,7 +299,7 @@ func updateEnrollmentKey(w http.ResponseWriter, r *http.Request) {
 // @Accept      json
 // @Produce     json
 // @Param       token path string true "Enrollment Key Token"
-// @Param       body body models.Host true "Host registration parameters"
+// @Param       body body schema.Host true "Host registration parameters"
 // @Success     200 {object} models.RegisterResponse
 // @Failure     400 {object} models.ErrorResponse
 // @Failure     500 {object} models.ErrorResponse
@@ -315,7 +315,7 @@ func handleHostRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// get the host
-	var newHost models.Host
+	var newHost schema.Host
 	if err = json.NewDecoder(r.Body).Decode(&newHost); err != nil {
 		logger.Log(0, r.Header.Get("user"), "error decoding request body: ",
 			err.Error())

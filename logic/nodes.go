@@ -131,7 +131,7 @@ func GetNetworkNodes(network string) ([]models.Node, error) {
 }
 
 // GetHostNodes - fetches all nodes part of the host
-func GetHostNodes(host *models.Host) []models.Node {
+func GetHostNodes(host *schema.Host) []models.Node {
 	nodes := []models.Node{}
 	for _, nodeID := range host.Nodes {
 		node, err := GetNodeByID(nodeID)

@@ -64,7 +64,7 @@ var (
 )
 
 // GetHostPeerInfo - fetches required peer info per network
-func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
+func GetHostPeerInfo(host *schema.Host) (models.HostPeerInfo, error) {
 	peerInfo := models.HostPeerInfo{
 		NetworkPeerIDs: make(map[schema.NetworkID]models.PeerMap),
 	}
@@ -140,7 +140,7 @@ func GetHostPeerInfo(host *models.Host) (models.HostPeerInfo, error) {
 }
 
 // GetPeerUpdateForHost - gets the consolidated peer update for the host from all networks
-func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.Node,
+func GetPeerUpdateForHost(network string, host *schema.Host, allNodes []models.Node,
 	deletedNode *models.Node, deletedClients []models.ExtClient) (models.HostPeerUpdate, error) {
 	if host == nil {
 		return models.HostPeerUpdate{}, errors.New("host is nil")
@@ -657,7 +657,7 @@ func GetPeerUpdateForHost(network string, host *models.Host, allNodes []models.N
 }
 
 // GetPeerListenPort - given a host, retrieve it's appropriate listening port
-func GetPeerListenPort(host *models.Host) int {
+func GetPeerListenPort(host *schema.Host) int {
 	peerPort := host.ListenPort
 	if !host.IsStaticPort && host.WgPublicListenPort != 0 {
 		peerPort = host.WgPublicListenPort

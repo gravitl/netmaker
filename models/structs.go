@@ -267,7 +267,7 @@ type TrafficKeys struct {
 
 // HostPull - response of a host's pull
 type HostPull struct {
-	Host               Host                        `json:"host" yaml:"host"`
+	Host               schema.Host                 `json:"host" yaml:"host"`
 	Nodes              []Node                      `json:"nodes" yaml:"nodes"`
 	Peers              []wgtypes.PeerConfig        `json:"peers" yaml:"peers"`
 	ServerConfig       ServerConfig                `json:"server_config" yaml:"server_config"`
@@ -291,7 +291,7 @@ type HostPull struct {
 // NodeGet - struct for a single node get response
 type NodeGet struct {
 	Node         Node                 `json:"node" bson:"node" yaml:"node"`
-	Host         Host                 `json:"host" yaml:"host"`
+	Host         schema.Host          `json:"host" yaml:"host"`
 	Peers        []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
 	HostPeers    []wgtypes.PeerConfig `json:"host_peers" bson:"host_peers" yaml:"host_peers"`
 	ServerConfig ServerConfig         `json:"serverconfig" bson:"serverconfig" yaml:"serverconfig"`
@@ -301,7 +301,7 @@ type NodeGet struct {
 // NodeJoinResponse data returned to node in response to join
 type NodeJoinResponse struct {
 	Node         Node                 `json:"node" bson:"node" yaml:"node"`
-	Host         Host                 `json:"host" yaml:"host"`
+	Host         schema.Host          `json:"host" yaml:"host"`
 	ServerConfig ServerConfig         `json:"serverconfig" bson:"serverconfig" yaml:"serverconfig"`
 	Peers        []wgtypes.PeerConfig `json:"peers" bson:"peers" yaml:"peers"`
 }
@@ -342,9 +342,9 @@ type ServerIDs struct {
 
 // JoinData - struct to hold data required for node to join a network on server
 type JoinData struct {
-	Host Host   `json:"host" yaml:"host"`
-	Node Node   `json:"node" yaml:"node"`
-	Key  string `json:"key" yaml:"key"`
+	Host schema.Host `json:"host" yaml:"host"`
+	Node Node        `json:"node" yaml:"node"`
+	Key  string      `json:"key" yaml:"key"`
 }
 
 // HookFunc - function type for hooks that can accept optional parameters

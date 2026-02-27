@@ -28,7 +28,7 @@ type PeerIdentity struct {
 
 // HostPeerUpdate - struct for host peer updates
 type HostPeerUpdate struct {
-	Host               Host                        `json:"host"`
+	Host               schema.Host                 `json:"host"`
 	Nodes              []Node                      `json:"nodes"`
 	ChangeDefaultGw    bool                        `json:"change_default_gw"`
 	DefaultGwIp        net.IP                      `json:"default_gw_ip"`
@@ -55,10 +55,10 @@ type HostPeerUpdate struct {
 }
 
 type EgressDomain struct {
-	ID     string `json:"id"`
-	Node   Node   `json:"node"`
-	Host   Host   `json:"host"`
-	Domain string `json:"domain"`
+	ID     string      `json:"id"`
+	Node   Node        `json:"node"`
+	Host   schema.Host `json:"host"`
+	Domain string      `json:"domain"`
 }
 type Nameserver struct {
 	IPs            []string `json:"ips"`

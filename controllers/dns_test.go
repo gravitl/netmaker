@@ -15,7 +15,7 @@ import (
 	"github.com/gravitl/netmaker/models"
 )
 
-var dnsHost models.Host
+var dnsHost schema.Host
 
 func TestGetAllDNS(t *testing.T) {
 	deleteAllDNS(t)
@@ -425,7 +425,7 @@ func TestValidateDNSCreate(t *testing.T) {
 
 func createHost() {
 	k, _ := wgtypes.ParseKey("DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=")
-	dnsHost = models.Host{
+	dnsHost = schema.Host{
 		ID:        uuid.New(),
 		PublicKey: k.PublicKey(),
 		HostPass:  "password",

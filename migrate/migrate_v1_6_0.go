@@ -10,6 +10,7 @@ import (
 	"github.com/gravitl/netmaker/database"
 	"github.com/gravitl/netmaker/db"
 	"github.com/gravitl/netmaker/logger"
+	"github.com/gravitl/netmaker/logic"
 	"github.com/gravitl/netmaker/models"
 	"github.com/gravitl/netmaker/schema"
 	"gorm.io/datatypes"
@@ -30,7 +31,7 @@ func ToSQLSchema() error {
 		}
 	}()
 
-	// v1.6.0 migration includes migrating the users, groups, roles and networks tables.
+	// v1.6.0 migration includes migrating the users, groups, roles, networks and hosts tables.
 	// future table migrations should be made below this block,
 	// with a different version number and a similar check for whether the
 	// migration was already done.
@@ -81,7 +82,12 @@ func migrateV1_6_0(ctx context.Context) error {
 		return err
 	}
 
-	return migrateUserGroups(ctx)
+	err = migrateUserGroups(ctx)
+	if err != nil {
+		return err
+	}
+
+	return migrateHosts(ctx)
 }
 
 func migrateUsers(ctx context.Context) error {
@@ -245,6 +251,50 @@ func migrateUserGroups(ctx context.Context) error {
 		err = _userGroup.Create(ctx)
 		if err != nil {
 			logger.Log(4, fmt.Sprintf("migrating user group %s failed: %v", _userGroup.ID, err))
+			return err
+		}
+	}
+
+	return nil
+}
+
+func migrateHosts(ctx context.Context) error {
+	records, err := database.FetchRecords(database.HOSTS_TABLE_NAME)
+	if err != nil && !database.IsEmptyRecord(err) {
+		return err
+	}
+
+	for _, record := range records {
+		var _host schema.Host
+		err = json.Unmarshal([]byte(record), &_host)
+		if err != nil {
+			return err
+		}
+
+		if _host.PersistentKeepalive == 0 {
+			_host.PersistentKeepalive = models.DefaultPersistentKeepAlive
+		}
+
+		if _host.DNS == "" || (_host.DNS != "yes" && _host.DNS != "no") {
+			if logic.GetServerSettings().ManageDNS {
+				_host.DNS = "yes"
+			} else {
+				_host.DNS = "no"
+			}
+			if _host.IsDefault {
+				_host.DNS = "yes"
+			}
+		}
+
+		if _host.IsDefault && !_host.AutoUpdate {
+			_host.AutoUpdate = true
+		}
+
+		logger.Log(4, fmt.Sprintf("migrating host %s", _host.ID))
+
+		err = _host.Create(ctx)
+		if err != nil {
+			logger.Log(4, fmt.Sprintf("migrating host %s failed: %v", _host.ID, err))
 			return err
 		}
 	}

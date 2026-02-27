@@ -91,7 +91,7 @@ func upgradeHosts(w http.ResponseWriter, r *http.Request) {
 		}
 
 		for _, host := range hosts {
-			go func(host models.Host) {
+			go func(host schema.Host) {
 				hostUpdate := models.HostUpdate{
 					Action: action,
 					Host:   host,
@@ -361,7 +361,7 @@ func updateHost(w http.ResponseWriter, r *http.Request) {
 		},
 		Origin: schema.Dashboard,
 	})
-	apiHostData := newHost.ConvertNMHostToAPI()
+	apiHostData := models.NewApiHostFromSchemaHost(newHost)
 	logger.Log(2, r.Header.Get("user"), "updated host", newHost.ID.String())
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiHostData)
@@ -530,7 +530,7 @@ func deleteHost(w http.ResponseWriter, r *http.Request) {
 			New: nil,
 		},
 	})
-	apiHostData := currHost.ConvertNMHostToAPI()
+	apiHostData := models.NewApiHostFromSchemaHost(currHost)
 	logger.Log(2, r.Header.Get("user"), "removed host", currHost.Name)
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(apiHostData)
@@ -1072,7 +1072,7 @@ func syncHosts(w http.ResponseWriter, r *http.Request) {
 		}
 
 		for _, host := range hosts {
-			go func(host models.Host) {
+			go func(host schema.Host) {
 				hostUpdate := models.HostUpdate{
 					Action: models.RequestPull,
 					Host:   host,

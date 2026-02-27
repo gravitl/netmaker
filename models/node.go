@@ -535,10 +535,10 @@ func (node *Node) DoesACLDeny() bool {
 	return node.DefaultACL == "no"
 }
 
-func (ln *LegacyNode) ConvertToNewNode() (*Host, *Node) {
+func (ln *LegacyNode) ConvertToNewNode() (*schema.Host, *Node) {
 	var node Node
 	//host:= logic.GetHost(node.HostID)
-	var host Host
+	var host schema.Host
 	if host.ID.String() == "" {
 		host.ID = uuid.New()
 		host.FirewallInUse = ln.FirewallInUse

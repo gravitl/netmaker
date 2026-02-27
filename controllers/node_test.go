@@ -19,8 +19,8 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-var nonLinuxHost models.Host
-var linuxHost models.Host
+var nonLinuxHost schema.Host
+var linuxHost schema.Host
 
 func TestGetNetworkNodes(t *testing.T) {
 	deleteAllNetworks()
@@ -164,7 +164,7 @@ func createNodeWithParams(network, address string) *models.Node {
 
 func createNodeHosts() {
 	k, _ := wgtypes.ParseKey("DM5qhLAE20PG9BbfBCger+Ac9D2NDOwCtY1rbYDLf34=")
-	linuxHost = models.Host{
+	linuxHost = schema.Host{
 		ID:        uuid.New(),
 		PublicKey: k.PublicKey(),
 		HostPass:  "password",
@@ -172,7 +172,7 @@ func createNodeHosts() {
 		Name:      "linuxhost",
 	}
 	_ = logic.CreateHost(&linuxHost)
-	nonLinuxHost = models.Host{
+	nonLinuxHost = schema.Host{
 		ID:        uuid.New(),
 		OS:        "windows",
 		PublicKey: k.PublicKey(),

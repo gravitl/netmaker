@@ -151,7 +151,7 @@ const (
 // HostUpdate - struct for host update
 type HostUpdate struct {
 	Action       HostMqAction
-	Host         Host
+	Host         schema.Host
 	Node         Node
 	Signal       Signal
 	EgressDomain EgressDomain
@@ -183,10 +183,10 @@ type Signal struct {
 
 // RegisterMsg - login message struct for hosts to join via SSO login
 type RegisterMsg struct {
-	RegisterHost Host   `json:"host"`
-	Network      string `json:"network,omitempty"`
-	User         string `json:"user,omitempty"`
-	Password     string `json:"password,omitempty"`
-	JoinAll      bool   `json:"join_all,omitempty"`
-	Relay        string `json:"relay,omitempty"`
+	RegisterHost schema.Host `json:"host"`
+	Network      string      `json:"network,omitempty"`
+	User         string      `json:"user,omitempty"`
+	Password     string      `json:"password,omitempty"`
+	JoinAll      bool        `json:"join_all,omitempty"`
+	Relay        string      `json:"relay,omitempty"`
 }

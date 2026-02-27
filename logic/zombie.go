@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravitl/netmaker/logger"
 	"github.com/gravitl/netmaker/models"
+	"github.com/gravitl/netmaker/schema"
 )
 
 const (
@@ -46,7 +47,7 @@ func CheckZombies(newnode *models.Node) {
 
 // checkForZombieHosts - checks if new host has the same macAddress as an existing host
 // if true, existing host is added to host zombie collection
-func checkForZombieHosts(h *models.Host) {
+func checkForZombieHosts(h *schema.Host) {
 	hosts, err := GetAllHosts()
 	if err != nil {
 		logger.Log(3, "error retrieving all hosts", err.Error())
